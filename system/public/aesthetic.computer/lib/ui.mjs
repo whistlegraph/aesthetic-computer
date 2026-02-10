@@ -733,6 +733,92 @@ class Button {
   }
 }
 
+// Slider UI control built on Button scrubbing.
+class Slider {
+  box;
+  button;
+  min = 0;
+  max = 1;
+  value = 0;
+  step = 0;
+  dragging = false;
+
+  constructor() {
+    let opts = {};
+    if (arguments.length >= 4) {
+      if (typeof arguments[4] === "object") opts = arguments[4];
+      this.box = new Box(arguments[0], arguments[1], arguments[2], arguments[3]);
+    } else {
+      this.box = Box.from(arguments[0]);
+      if (typeof arguments[1] === "object") opts = arguments[1];
+    }
+
+    this.min = Number.isFinite(opts.min) ? opts.min : 0;
+    this.max = Number.isFinite(opts.max) ? opts.max : 1;
+    this.step = Number.isFinite(opts.step) ? opts.step : 0;
+    this.value = Number.isFinite(opts.value) ? opts.value : this.min;
+
+    this.button = new Button(this.box);
+    this.button.stickyScrubbing = true;
+    this.button.offScreenScrubbing = true;
+    this.button.noRolloverActivation = true;
+  }
+
+  get normalized() {
+    const span = this.max - this.min || 1;
+    return (this.value - this.min) / span;
+  }
+
+  setValue(value) {
+    let v = Math.max(this.min, Math.min(this.max, value));
+    if (this.step > 0) {
+      const steps = Math.round((v - this.min) / this.step);
+      v = this.min + steps * this.step;
+    }
+    this.value = v;
+  }
+
+  setNormalized(t) {
+    const clamped = Math.max(0, Math.min(1, t));
+    this.setValue(this.min + clamped * (this.max - this.min));
+  }
+
+  _updateFromEvent(e) {
+    const t = (e.x - this.box.x) / this.box.w;
+    this.setNormalized(t);
+  }
+
+  act(e, callbacks = {}) {
+    const onChange = callbacks.change;
+    this.button.act(e, {
+      down: () => {
+        this.dragging = true;
+        this._updateFromEvent(e);
+        callbacks.down?.(this);
+        onChange?.(this);
+      },
+      scrub: () => {
+        this._updateFromEvent(e);
+        onChange?.(this);
+      },
+      up: () => {
+        this.dragging = false;
+        callbacks.up?.(this);
+      },
+      cancel: () => {
+        this.dragging = false;
+        callbacks.cancel?.(this);
+      },
+      over: () => callbacks.over?.(this),
+      out: () => callbacks.out?.(this),
+    });
+  }
+
+  paint(draw) {
+    draw?.(this);
+  }
+}
+
 class TextButton {
   txt;
   btn;
@@ -864,12 +950,17 @@ class TextButton {
     scheme = [0, 255, 255, 0],
     hoverScheme = [255, 0, 0, 255],
     disabledScheme = [64, 127, 127, 64],
+    rolloverScheme = null, // Optional: used when mouse is over but not pressed
   ) {
     let s;
     if (this.btn.disabled) {
       s = disabledScheme;
+    } else if (this.btn.down) {
+      s = hoverScheme;
+    } else if (this.btn.over && rolloverScheme) {
+      s = rolloverScheme;
     } else {
-      s = this.btn.down ? hoverScheme : scheme;
+      s = scheme;
     }
 
     $.ink(s[0])
@@ -979,13 +1070,18 @@ class TextButtonSmall {
     $,
     scheme = [[0, 64, 0], [0, 140, 0], 255, [0, 64, 0]],      // [fill, outline, text, fill]
     hoverScheme = [[0, 100, 0], [0, 180, 0], 255, [0, 100, 0]], // hover/down
-    disabledScheme = [[32, 32, 32], [64, 64, 64], 80, [32, 32, 32]]
+    disabledScheme = [[32, 32, 32], [64, 64, 64], 80, [32, 32, 32]],
+    rolloverScheme = null, // Optional: used when mouse is over but not pressed
   ) {
     let s;
     if (this.btn.disabled) {
       s = disabledScheme;
+    } else if (this.btn.down) {
+      s = hoverScheme;
+    } else if (this.btn.over && rolloverScheme) {
+      s = rolloverScheme;
     } else {
-      s = this.btn.down ? hoverScheme : scheme;
+      s = scheme;
     }
     
     $.ink(s[0])
@@ -1001,4 +1097,4 @@ function setTypeface(tf) {
   TYPEFACE_UI = tf;
 }
 
-export { spinner, spinnerReset, cached, Button, TextButton, TextButtonSmall, setTypeface };
+export { spinner, spinnerReset, cached, Button, Slider, TextButton, TextButtonSmall, setTypeface };

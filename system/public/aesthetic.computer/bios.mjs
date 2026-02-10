@@ -92,21 +92,16 @@ let frozenUrlPath = null;
 // Called from boot() to connect the send function
 function _dawConnectSend(sendFunc, updateMetronome) {
   if (window.acDawConnect) {
-    console.log("🎹 _dawConnectSend called, sendFunc:", sendFunc?.toString?.().substring(0, 100));
     // Wrap sendFunc to also update metronome and capture sample rate
     const wrappedSend = (msg) => {
-      console.log("🎹 BIOS wrappedSend called:", msg.type);
       if (msg.type === "daw:tempo" && updateMetronome) {
         updateMetronome(msg.content.bpm);
       }
       // 🎹 Capture DAW sample rate for AudioContext creation
       if (msg.type === "daw:samplerate" && msg.content?.samplerate) {
         _dawSampleRate = msg.content.samplerate;
-        console.log("🎹 BIOS captured DAW sample rate:", _dawSampleRate);
       }
-      console.log("🎹 Calling sendFunc now...");
       sendFunc(msg);
-      console.log("🎹 sendFunc returned for:", msg.type);
     };
     window.acDawConnect(wrappedSend);
   }
@@ -649,9 +644,15 @@ let diskSendsConsumed = false;
 // Store original URL parameters for refresh functionality
 let preservedParams = {};
 
-window.acDISK_SEND = function (message) {
-  !diskSendsConsumed ? diskSends.push(message) : window.acSEND(message);
-};
+// Guard: When WS + HTTP module imports race (importWithRetry), both module
+// instances execute top-level code.  The second overwrites window.acDISK_SEND
+// with its own diskSends array while boot() uses the first module's
+// consumeDiskSends — splitting the queue so session:started never arrives.
+if (!window.acDISK_SEND) {
+  window.acDISK_SEND = function (message) {
+    !diskSendsConsumed ? diskSends.push(message) : window.acSEND(message);
+  };
+}
 
 // 🔊 Master volume control (for desktop app sliders, etc.)
 // NOTE: These must be at module scope so window.AC.setMasterVolume works before boot()
@@ -691,10 +692,14 @@ function applyMasterVolume(nextValue) {
 }
 
 window.AC = window.AC || {};
-window.AC.setMasterVolume = (value) => applyMasterVolume(value);
-window.AC.getMasterVolume = () => masterVolume;
-window.acSetMasterVolume = window.AC.setMasterVolume;
-window.acGetMasterVolume = window.AC.getMasterVolume;
+// Guard module-scoped closures against duplicate-instance overwrite (same race as acDISK_SEND)
+if (!window.AC._biosGuarded) {
+  window.AC._biosGuarded = true;
+  window.AC.setMasterVolume = (value) => applyMasterVolume(value);
+  window.AC.getMasterVolume = () => masterVolume;
+  window.acSetMasterVolume = window.AC.setMasterVolume;
+  window.acGetMasterVolume = window.AC.getMasterVolume;
+}
 
 // 🔍 CDP Debug State - Expose piece state for browser automation
 // Pieces can call `_send({ type: "debug:state", content: {...} })` to update this
@@ -764,6 +769,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   if (resolution.nolabel === true) preservedParams.nolabel = "true";
   if (resolution.tv === true) preservedParams.tv = "true";
   if (resolution.device === true) preservedParams.device = "true";
+  if (resolution.solo === true) preservedParams.solo = "true";
   if (resolution.highlight) preservedParams.highlight = resolution.highlight === true ? "true" : resolution.highlight;
   
   // Only preserve density/zoom/duration if they were actually in the URL (not from localStorage)
@@ -1247,7 +1253,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // Capture the current frame content
       if (freezeFrameGlaze) {
-        Glaze.freeze(ffCtx);
+        // Try Glaze.freeze, fallback to standard capture if it fails
+        if (!Glaze.freeze(ffCtx)) {
+          // Glaze capture failed, use fallback
+          if (imageData && imageData.data && imageData.data.buffer && imageData.data.buffer.byteLength > 0) {
+            try {
+              ffCtx.putImageData(imageData, 0, 0);
+            } catch (e) {
+              const webglCompositeIsActive = webglBlitter?.isReady() && webglCompositeCanvas.style.display !== "none";
+              const freezeSource = webglCompositeIsActive ? webglCompositeCanvas : canvas;
+              if (freezeSource) ffCtx.drawImage(freezeSource, 0, 0);
+            }
+          }
+        }
         freezeFrameGlaze = false;
       } else {
         // Best approach: use imageData directly if available (avoids WebGL readback issues)
@@ -1792,7 +1810,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             
             // Capture current frame to freeze frame canvas
             if (freezeFrameGlaze) {
-              Glaze.freeze(ffCtx);
+              // Try Glaze.freeze, fallback to standard capture if it fails
+              if (!Glaze.freeze(ffCtx)) {
+                // Glaze capture failed, use fallback
+                try {
+                  ffCtx.putImageData(imageData, 0, 0);
+                } catch (e) {
+                  const webglCompositeIsActive = webglBlitter?.isReady() && webglCompositeCanvas.style.display !== "none";
+                  const freezeSource = webglCompositeIsActive ? webglCompositeCanvas : canvas;
+                  if (freezeSource) ffCtx.drawImage(freezeSource, 0, 0);
+                }
+              }
             } else {
               try {
                 ffCtx.putImageData(imageData, 0, 0);
@@ -1800,7 +1828,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 // Fallback to canvas copy
                 const webglCompositeIsActive = webglBlitter?.isReady() && webglCompositeCanvas.style.display !== "none";
                 const freezeSource = webglCompositeIsActive ? webglCompositeCanvas : canvas;
-                ffCtx.drawImage(freezeSource, 0, 0);
+                if (freezeSource) ffCtx.drawImage(freezeSource, 0, 0);
               }
             }
             
@@ -2827,6 +2855,41 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     console.log('🔬 BIOS: Exposed __bios_sound_telemetry on window');
   }
 
+  // 🎸 M4L Console Forwarding (for Ableton integration debugging)
+  // When running in jweb~, forward console.log/error/warn to Max via max.outlet
+  if (typeof window !== 'undefined' && window.max?.outlet) {
+    const originalLog = console.log;
+    const originalError = console.error;
+    const originalWarn = console.warn;
+    
+    console.log = (...args) => {
+      originalLog(...args);
+      try { window.max.outlet("log", args.map(a => String(a)).join(" ")); } catch {}
+    };
+    
+    console.error = (...args) => {
+      originalError(...args);
+      try { window.max.outlet("error", args.map(a => String(a)).join(" ")); } catch {}
+    };
+    
+    console.warn = (...args) => {
+      originalWarn(...args);
+      try { window.max.outlet("warn", args.map(a => String(a)).join(" ")); } catch {}
+    };
+    
+    // Catch uncaught errors - DISABLED for now due to noise from jweb~ CORS issues
+    // window.addEventListener?.("error", (e) => {
+    //   try { window.max.outlet("error", `Uncaught: ${e.message} at ${e.filename}:${e.lineno}`); } catch {}
+    // });
+    
+    // 🎸 Stub for M4L sample receiver (pedal.mjs will override this)
+    // This prevents "Script error" spam before pedal's setupMaxBridge runs
+    window.acSample = window.acSample || function() {};
+    window.acPedalPeak = window.acPedalPeak || function() {};
+    
+    console.log("🎸 BIOS: M4L console forwarding enabled");
+  }
+
   // TODO: Eventually this would be replaced with a more dynamic system.
 
   const backgroundTrackURLs = [
@@ -3483,8 +3546,144 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           return new URLSearchParams(window.location.search).get('vst') === 'true';
         };
 
-        speakerProcessor.connect(sfxStreamGain); // Connect to the mediaStream.
-        speakerProcessor.connect(speakerGain);
+        // 🎸 Pedal Effect Chain (for DAW mode audio processing)
+        // Create effect nodes that can be dynamically enabled/controlled
+        let pedalFilter = null;
+        let pedalDelay = null;
+        let pedalDelayGain = null;
+        let pedalDryGain = null;
+        let pedalWetGain = null;
+        let pedalEffectsEnabled = false;
+        
+        // Initialize pedal effects (but don't connect yet)
+        function initPedalEffects() {
+          const forceStereo = (node) => {
+            node.channelCount = 2;
+            node.channelCountMode = "explicit";
+            node.channelInterpretation = "speakers";
+          };
+
+          // Biquad filter (lowpass/highpass)
+          pedalFilter = audioContext.createBiquadFilter();
+          forceStereo(pedalFilter);
+          pedalFilter.type = "lowpass";
+          pedalFilter.frequency.value = 20000; // Start with no filtering
+          pedalFilter.Q.value = 1.0;
+          
+          // Delay effect
+          pedalDelay = audioContext.createDelay(2.0); // Max 2 second delay
+          forceStereo(pedalDelay);
+          pedalDelay.delayTime.value = 0.25;
+          
+          pedalDelayGain = audioContext.createGain();
+          forceStereo(pedalDelayGain);
+          pedalDelayGain.gain.value = 0.4; // Feedback amount
+          
+          // Dry/Wet mix
+          pedalDryGain = audioContext.createGain();
+          forceStereo(pedalDryGain);
+          pedalDryGain.gain.value = 1.0;
+          
+          pedalWetGain = audioContext.createGain();
+          forceStereo(pedalWetGain);
+          pedalWetGain.gain.value = 0.0; // Start dry
+          
+          console.log("🎸 Pedal effects initialized");
+        }
+        
+        // Enable effects and insert into signal chain
+        function enablePedalEffects() {
+          if (pedalEffectsEnabled) return;
+          if (!pedalFilter) initPedalEffects();
+          
+          // Disconnect speaker from destinations
+          speakerProcessor.disconnect();
+          
+          // New chain: speakerProcessor -> filter -> dry/wet split -> destinations
+          speakerProcessor.connect(pedalFilter);
+          
+          // Dry path
+          pedalFilter.connect(pedalDryGain);
+          pedalDryGain.connect(sfxStreamGain);
+          pedalDryGain.connect(speakerGain);
+          
+          // Wet path (delay)
+          pedalFilter.connect(pedalDelay);
+          pedalDelay.connect(pedalDelayGain);
+          pedalDelayGain.connect(pedalDelay); // Feedback loop
+          pedalDelay.connect(pedalWetGain);
+          pedalWetGain.connect(sfxStreamGain);
+          pedalWetGain.connect(speakerGain);
+          
+          pedalEffectsEnabled = true;
+          console.log("🎸 Pedal effects enabled in audio chain");
+        }
+        
+        // Set pedal effect parameters
+        window.acPedalSetEffect = function(params) {
+          if (!pedalEffectsEnabled) enablePedalEffects();
+          
+          if (params.filterType) {
+            pedalFilter.type = params.filterType; // "lowpass", "highpass", "bandpass"
+          }
+          if (params.filterFreq !== undefined) {
+            pedalFilter.frequency.setValueAtTime(params.filterFreq, audioContext.currentTime);
+          }
+          if (params.filterQ !== undefined) {
+            pedalFilter.Q.setValueAtTime(params.filterQ, audioContext.currentTime);
+          }
+          if (params.delayTime !== undefined) {
+            pedalDelay.delayTime.setValueAtTime(params.delayTime, audioContext.currentTime);
+          }
+          if (params.delayFeedback !== undefined) {
+            pedalDelayGain.gain.setValueAtTime(params.delayFeedback, audioContext.currentTime);
+          }
+          if (params.wetMix !== undefined) {
+            pedalWetGain.gain.setValueAtTime(params.wetMix, audioContext.currentTime);
+            pedalDryGain.gain.setValueAtTime(1.0 - params.wetMix, audioContext.currentTime);
+          }
+        };
+        
+        // Connect a custom audio source to the pedal effects chain
+        // Used by M4L effect mode to route incoming samples through effects
+        window.acPedalConnectSource = function(sourceNode) {
+          if (!pedalEffectsEnabled) {
+            initPedalEffects();
+            enablePedalEffects();
+          }
+          
+          // In effect mode, disconnect speakerProcessor since we only want external audio
+          // (the speakerProcessor is AC's internal audio which we don't want to mix in)
+          try {
+            speakerProcessor.disconnect();
+          } catch (e) {
+            // Already disconnected
+          }
+          
+          // Connect the source to the pedal filter (start of effects chain)
+          sourceNode.connect(pedalFilter);
+          console.log("🎸 External source connected to pedal effects chain (internal audio muted)");
+        };
+        
+        // Get the output destinations for M4L sample source
+        // (bypasses speakerProcessor entirely)
+        window.acPedalGetOutputNodes = function() {
+          return {
+            sfxStreamGain: sfxStreamGain,
+            speakerGain: speakerGain
+          };
+        };
+        
+        // Auto-enable pedal effects if ?daw parameter is present
+        const hasDawParam = new URLSearchParams(window.location.search).has("daw");
+        if (hasDawParam) {
+          initPedalEffects();
+          enablePedalEffects();
+        } else {
+          // Normal mode - direct connection
+          speakerProcessor.connect(sfxStreamGain); // Connect to the mediaStream.
+          speakerProcessor.connect(speakerGain);
+        }
         console.log("🔊 Speaker processor connected to audio graph!");
 
         applyMasterVolume(masterVolume);
@@ -3733,6 +3932,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         volume: options?.volume,
         pan: options?.pan,
         loop: options?.loop,
+        targetDuration: options?.targetDuration,
         sfxLoadedForData: !!sfxLoaded[soundData]
       });
 
@@ -3747,11 +3947,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           to: isFinite(options?.to) ? options.to : 1,
           speed,
           loop: options?.loop || false,
+          targetDuration: options?.targetDuration || 0, // Time stretch to target duration (ms), then pitch shift
         },
         volume: isFinite(options?.volume) ? options.volume : 1,
         pan: isFinite(options?.pan) ? options.pan : 0,
         // options: { buffer: sample },
-        // ⏰ TODO: If duration / 'beats' is not specified then use speed.
+        // ⏰ TODO: If duration / 'not specified then use speed.
         // beats: undefined, // ((sample.length / sample.sampleRate) * sound.bpm / 60),
         // attack: 0, // 🩷 TODO: These should have saner defaults.
         // decay: 0,
@@ -4822,12 +5023,68 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // 🔊 Debug log messages from worker (visible in console tunnel)
+    if (type === "debug:log") {
+      console.log("🔊 WORKER LOG:", content?.msg);
+      return;
+    }
+
+    // 🎸 Pedal effect control messages from worker
+    if (type === "pedal:effect") {
+      if (window.acPedalSetEffect) {
+        window.acPedalSetEffect(content);
+      }
+      return;
+    }
+    
+    // 🎸 Start sample source for M4L effect mode
+    if (type === "pedal:start-sample-source") {
+      if (audioContext && window.acReadSamples) {
+        console.log("🎸 Starting sample source from Max...");
+        
+        // Create a ScriptProcessorNode to read from the ring buffer
+        const BUFFER_SIZE = 256; // Small for low latency
+        const sampleProcessor = audioContext.createScriptProcessor(BUFFER_SIZE, 0, 2);
+        
+        sampleProcessor.onaudioprocess = (e) => {
+          const outputL = e.outputBuffer.getChannelData(0);
+          const outputR = e.outputBuffer.getChannelData(1);
+          
+          // Read samples from the disk's ring buffer
+          const samples = window.acReadSamples(BUFFER_SIZE);
+          if (samples) {
+            outputL.set(samples.left);
+            outputR.set(samples.right);
+          }
+        };
+        
+        // Connect through the pedal effects chain if available
+        if (window.acPedalConnectSource) {
+          window.acPedalConnectSource(sampleProcessor);
+        } else {
+          // Fallback: connect directly to output
+          const outputs = window.acPedalGetOutputNodes?.();
+          if (outputs) {
+            sampleProcessor.connect(outputs.sfxStreamGain);
+            sampleProcessor.connect(outputs.speakerGain);
+          } else {
+            // Last resort: connect to sfxStreamGain and speakerGain directly
+            sampleProcessor.connect(sfxStreamGain);
+            sampleProcessor.connect(speakerGain);
+          }
+        }
+        
+        console.log("🎸 Sample source connected to audio output");
+      }
+      return;
+    }
+
     // 🔍 Debug state from pieces for CDP automation
     if (type === "debug:state") {
       window.acPieceState = content;
       return;
     }
-    
+
     // 🎹 DAW phase update - auto-resume AudioContext once for DAW mode
     if (type === "daw:phase:ack" && !dawAudioResumed) {
       if (audioContext && audioContext.state === "suspended") {
@@ -12239,7 +12496,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
       
       // 🎨 Force a reframe only if coming from a GPU piece (WebGPU canvas was visible)
-      // This prevents breaking the GOL transition on normal disk loads
+      // This prevents breaking the piece transition on normal disk loads
       if (needsGPUCleanup) {
         needsReframe = true;
       }
@@ -12618,6 +12875,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         window.addEventListener("keydown", activateSound, { once: true });
         window.addEventListener("pointerdown", activateSound, { once: true });
       }
+
+      // ⏱️ Enable background sim ticks for pieces that export `background: true`
+      // (e.g. clock.mjs — keeps audio scheduling alive when tab/lid is hidden)
+      Loop.setBackgroundEnabled(!!content.background);
 
       } catch (err) {
         console.error("🛑 BIOS disk-loaded handler error:", err);
@@ -13011,6 +13272,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
       if (preservedParams.duration) {
         currentUrl.searchParams.set("duration", preservedParams.duration);
+      }
+      if (preservedParams.solo) {
+        currentUrl.searchParams.set("solo", preservedParams.solo);
       }
 
       // Update the URL and reload
@@ -20220,11 +20484,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   async function decodeSfx(sound) {
     // console.log("🎵 BIOS decodeSfx called for:", sound, "type:", typeof sfx[sound]);
     
-    // If sound is already being decoded, wait a bit and return
+    // If sound is already being decoded, wait for it to complete
     if (decodingInProgress.has(sound)) {
-      // console.log("🎵 BIOS decodeSfx already in progress for:", sound);
-      // Wait a moment and check again
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      // console.log("🎵 BIOS decodeSfx already in progress, waiting for:", sound);
+      // Wait for decode to complete (poll until no longer in progress)
+      while (decodingInProgress.has(sound)) {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      // console.log("🎵 BIOS decodeSfx wait complete for:", sound, "type:", typeof sfx[sound]);
       return sfx[sound];
     }
 

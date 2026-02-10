@@ -165,6 +165,11 @@ PKGBUILD
     # Fix: ensure packages.x86_64 ends with a newline before appending overlays
     echo "=== Ensuring packages.x86_64 has proper line endings ==="
     printf "\n" >> "$PROFILE/packages.x86_64"
+
+    # Replace PulseAudio with PipeWire (our overlay ships pipewire + pipewire-pulse)
+    echo "=== Replacing pulseaudio with pipewire ==="
+    sed -i '/^pulseaudio$/d' "$PROFILE/packages.x86_64"
+    sed -i '/^pulseaudio-bluetooth$/d' "$PROFILE/packages.x86_64"
     
     # Apply FFOS overlays if present (additional packages, etc.)
     if [ -d /work/overlays/ffos/archiso-ff1 ]; then
@@ -179,7 +184,7 @@ PKGBUILD
     
     # Add BIOS boot support (for older systems or if UEFI fails)
     # Modify profiledef.sh to include both UEFI and BIOS boot modes
-    sed -i "s/bootmodes=.*/bootmodes=('bios.syslinux.mbr' 'bios.syslinux.eltorito' 'uefi-x64.systemd-boot.esp' 'uefi-x64.systemd-boot.eltorito')/" "$PROFILE/profiledef.sh"
+    sed -i "s/bootmodes=.*/bootmodes=('bios.syslinux' 'uefi.systemd-boot')/" "$PROFILE/profiledef.sh"
     
     # FIX: Change squashfs compression from xz to zstd to prevent corruption
     # xz with 1M dict can cause corruption on memory-constrained GitHub runners
@@ -222,6 +227,91 @@ SYSLINUX
     mkdir -p "$PROFILE/airootfs/home"
     rsync -a /work/ffos-user/users/ "$PROFILE/airootfs/home/"
     
+    # Install AC launcher UI (QR code boot screen)
+    echo "=== Installing AC launcher UI ==="
+    mkdir -p "$PROFILE/airootfs/opt/ac/ui/launcher"
+    if [ -d /work/overlays/launcher-ui ]; then
+      rsync -a /work/overlays/launcher-ui/ "$PROFILE/airootfs/opt/ac/ui/launcher/"
+      echo "Installed launcher UI to /opt/ac/ui/launcher/"
+      ls -la "$PROFILE/airootfs/opt/ac/ui/launcher/"
+    fi
+    echo "1.0.1" > "$PROFILE/airootfs/opt/ac/version"
+    
+    # Install AC Config Server (WiFi + piece configuration)
+    echo "=== Installing AC Config Server ==="
+    mkdir -p "$PROFILE/airootfs/opt/ac/config-server"
+    if [ -d /work/overlays/ac-config-server ]; then
+      cp /work/overlays/ac-config-server/ac-config-server.py "$PROFILE/airootfs/opt/ac/config-server/"
+      chmod +x "$PROFILE/airootfs/opt/ac/config-server/ac-config-server.py"
+      # Install user service
+      mkdir -p "$PROFILE/airootfs/home/feralfile/.config/systemd/user"
+      cp /work/overlays/ac-config-server/ac-config-server.service "$PROFILE/airootfs/home/feralfile/.config/systemd/user/"
+      # Enable it
+      mkdir -p "$PROFILE/airootfs/home/feralfile/.config/systemd/user/default.target.wants"
+      ln -sf "/home/feralfile/.config/systemd/user/ac-config-server.service" \
+         "$PROFILE/airootfs/home/feralfile/.config/systemd/user/default.target.wants/ac-config-server.service"
+      echo "Installed and enabled AC Config Server"
+    fi
+    
+    # Install SSL certificates (for HTTPS on config server)
+    echo "=== Installing SSL certificates ==="
+    mkdir -p "$PROFILE/airootfs/opt/ac-ssl"
+    # Generate self-signed certs if not provided in overlays
+    if [ -f /work/overlays/ac-ssl/localhost.pem ] && [ -f /work/overlays/ac-ssl/localhost-key.pem ]; then
+      cp /work/overlays/ac-ssl/localhost.pem "$PROFILE/airootfs/opt/ac-ssl/"
+      cp /work/overlays/ac-ssl/localhost-key.pem "$PROFILE/airootfs/opt/ac-ssl/"
+      echo "Installed SSL certificates from overlays"
+    else
+      echo "Generating self-signed SSL certificates..."
+      openssl req -x509 -newkey rsa:2048 -keyout "$PROFILE/airootfs/opt/ac-ssl/localhost-key.pem" \
+        -out "$PROFILE/airootfs/opt/ac-ssl/localhost.pem" -days 365 -nodes \
+        -subj "/CN=localhost/O=Aesthetic Computer/C=US"
+      echo "Generated self-signed SSL certificates"
+    fi
+    chmod 644 "$PROFILE/airootfs/opt/ac-ssl/localhost.pem"
+    chmod 600 "$PROFILE/airootfs/opt/ac-ssl/localhost-key.pem"
+    
+    # Download offline piece bundles from production API
+    echo "=== Downloading offline piece bundles ==="
+    mkdir -p "$PROFILE/airootfs/opt/ac/offline-pieces"
+    
+    # List of pieces to bundle: notepat (JS), roz (KidLisp $roz), starfield (JS)
+    OFFLINE_PIECES="notepat:piece starfield:piece roz:code"
+    
+    for entry in $OFFLINE_PIECES; do
+      piece_name="${entry%%:*}"
+      piece_type="${entry##*:}"
+      
+      if [ "$piece_type" = "code" ]; then
+        url="https://aesthetic.computer/api/bundle-html?code=${piece_name}"
+      else
+        url="https://aesthetic.computer/api/bundle-html?piece=${piece_name}"
+      fi
+      
+      echo "Downloading ${piece_name} bundle..."
+      if curl -f -L -o "$PROFILE/airootfs/opt/ac/offline-pieces/${piece_name}.html" "$url" 2>/dev/null; then
+        echo "  ✓ Downloaded ${piece_name}.html"
+        ls -lh "$PROFILE/airootfs/opt/ac/offline-pieces/${piece_name}.html"
+      else
+        echo "  ✗ Failed to download ${piece_name} bundle (will skip)"
+      fi
+    done
+    
+    echo "Offline pieces:"
+    ls -la "$PROFILE/airootfs/opt/ac/offline-pieces/" 2>/dev/null || echo "  (none)"
+    
+    # Install AC Setup TUI (boot-time WiFi + piece configuration)
+    echo "=== Installing AC Setup TUI ==="
+    mkdir -p "$PROFILE/airootfs/opt/ac/bin"
+    if [ -f /work/overlays/ac-setup/ac-setup.py ]; then
+      cp /work/overlays/ac-setup/ac-setup.py "$PROFILE/airootfs/opt/ac/bin/ac-setup"
+      chmod +x "$PROFILE/airootfs/opt/ac/bin/ac-setup"
+      # Add to PATH via symlink
+      mkdir -p "$PROFILE/airootfs/usr/local/bin"
+      ln -sf /opt/ac/bin/ac-setup "$PROFILE/airootfs/usr/local/bin/ac-setup"
+      echo "Installed AC Setup TUI"
+    fi
+    
     echo "=== Installing systemd service files ==="
     # Install system-level services
     mkdir -p "$PROFILE/airootfs/etc/systemd/system"
@@ -256,15 +346,196 @@ SYSLINUX
     echo "feralfile:x:1000:" >> "$PROFILE/airootfs/etc/group"
     echo "feralfile:!:19000:0:99999:7:::" >> "$PROFILE/airootfs/etc/shadow"
     
+    # Configure console font for nicer terminal appearance (setup TUI)
+    echo "=== Configuring console font ==="
+    if [ -f /work/overlays/vconsole.conf ]; then
+      cp /work/overlays/vconsole.conf "$PROFILE/airootfs/etc/vconsole.conf"
+      echo "Installed vconsole.conf with terminus font"
+    fi
+    
+    # === HARDENING: Auto-login feralfile on TTY1 ===
+    echo "=== Configuring auto-login for feralfile user ==="
+    mkdir -p "$PROFILE/airootfs/etc/systemd/system/getty@tty1.service.d"
+    cat > "$PROFILE/airootfs/etc/systemd/system/getty@tty1.service.d/autologin.conf" << 'AUTOLOGIN'
+[Service]
+ExecStart=
+ExecStart=-/usr/bin/agetty --noclear --autologin feralfile %I $TERM
+AUTOLOGIN
+    
+    # === HARDENING: Override feral-sys-monitord to be resilient ===
+    # The upstream service uses Type=notify and hard-depends on D-Bus session bus.
+    # On non-Radxa hardware (Chromebooks, etc.) the session bus may not be ready
+    # in time. Override to Type=simple and add a pre-check for the bus socket.
+    echo "=== Creating hardened feral-sys-monitord service override ==="
+    if [ -f "$PROFILE/airootfs/etc/systemd/system/feral-sys-monitord.service" ]; then
+      cat > "$PROFILE/airootfs/etc/systemd/system/feral-sys-monitord.service" << 'SYSMON'
+[Unit]
+Description=Feral File System Monitord (hardened)
+After=network.target dbus.service systemd-logind.service user@1000.service
+Wants=dbus.service user@1000.service
+StartLimitBurst=10
+StartLimitIntervalSec=300
+
+[Service]
+Type=simple
+User=feralfile
+Group=feralfile
+Environment="DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus"
+Environment="XDG_RUNTIME_DIR=/run/user/1000"
+ExecStartPre=/bin/bash -c 'n=0; while [ $n -lt 60 ]; do [ -S /run/user/1000/bus ] && exit 0; n=$((n+1)); sleep 1; done; echo WARN: D-Bus session bus not found after 60s >&2'
+ExecStart=/usr/bin/feral-sys-monitord
+Restart=always
+RestartSec=5
+StandardOutput=append:/home/feralfile/.logs/sys-monitord.log
+StandardError=append:/home/feralfile/.logs/sys-monitord.log
+
+[Install]
+WantedBy=multi-user.target
+SYSMON
+      echo "Overwrote feral-sys-monitord.service with hardened version"
+    fi
+    
+    # === HARDENING: Also override if it was installed from systemd-services dir ===
+    # Create the same override for the user-level version (if bind-mounted)
+    mkdir -p "$PROFILE/airootfs/home/feralfile/systemd-services"
+    if [ -f "$PROFILE/airootfs/home/feralfile/systemd-services/feral-sys-monitord.service" ]; then
+      cp "$PROFILE/airootfs/etc/systemd/system/feral-sys-monitord.service" \
+         "$PROFILE/airootfs/home/feralfile/systemd-services/feral-sys-monitord.service"
+      echo "Also updated user-level systemd-services copy"
+    fi
+    
+    # === HARDENING: Enable system-level presets ===
+    mkdir -p "$PROFILE/airootfs/etc/systemd/system-preset"
+    cat > "$PROFILE/airootfs/etc/systemd/system-preset/90-ac-hardened.preset" << 'PRESET'
+enable sshd.service
+enable bluetooth.service
+enable NetworkManager.service
+enable systemd-networkd.service
+enable systemd-resolved.service
+enable seatd.service
+enable getty@tty1.service
+PRESET
+    echo "Added hardened system presets"
+    
+    # === HARDENING: Expanded customize_airootfs.sh ===
     # Set proper permissions via customize script
     cat > "$PROFILE/airootfs/root/customize_airootfs.sh" << 'CUSTOMIZE'
 #!/bin/bash
-# Create logs directory
+set -e
+
+echo "=== AC Hardened customize_airootfs.sh ==="
+
+# Create logs and state directories
 mkdir -p /home/feralfile/.logs
+mkdir -p /home/feralfile/.state
+mkdir -p /home/feralfile/.config
+
+# Set ownership
 chown -R feralfile:feralfile /home/feralfile
-# Enable lingering for user services
+
+# Ensure scripts are executable
+chmod +x /home/feralfile/scripts/*.sh 2>/dev/null || true
+
+# Ensure AC binaries are executable
+chmod +x /opt/ac/bin/* 2>/dev/null || true
+chmod +x /opt/ac/config-server/*.py 2>/dev/null || true
+
+# Enable lingering for user services (critical for D-Bus session bus at boot)
 mkdir -p /var/lib/systemd/linger
 touch /var/lib/systemd/linger/feralfile
+
+# Ensure D-Bus is properly configured for session bus
+mkdir -p /run/user/1000
+chown feralfile:feralfile /run/user/1000
+chmod 700 /run/user/1000
+
+# Create polkit rule so feralfile can manage NetworkManager
+mkdir -p /etc/polkit-1/rules.d
+cat > /etc/polkit-1/rules.d/90-nmcli-feralfile.rules << 'POLKIT'
+polkit.addRule(function(action, subject) {
+    if (action.id.indexOf("org.freedesktop.NetworkManager") === 0 &&
+        subject.user === "feralfile") {
+        return polkit.Result.YES;
+    }
+});
+POLKIT
+
+# Enable critical system services
+systemctl enable NetworkManager.service 2>/dev/null || true
+systemctl enable sshd.service 2>/dev/null || true
+systemctl enable seatd.service 2>/dev/null || true
+systemctl enable bluetooth.service 2>/dev/null || true
+systemctl enable getty@tty1.service 2>/dev/null || true
+systemctl enable systemd-resolved.service 2>/dev/null || true
+
+# Enable feral services (system-level)
+for svc in feral-controld feral-sys-monitord feral-watchdog feral-setupd; do
+  if [ -f "/etc/systemd/system/${svc}.service" ]; then
+    systemctl enable "${svc}.service" 2>/dev/null || true
+  fi
+done
+
+# Add feralfile to required groups
+usermod -aG seat feralfile 2>/dev/null || true
+usermod -aG audio feralfile 2>/dev/null || true
+usermod -aG video feralfile 2>/dev/null || true
+usermod -aG render feralfile 2>/dev/null || true
+usermod -aG input feralfile 2>/dev/null || true
+usermod -aG bluetooth feralfile 2>/dev/null || true
+
+# Setup .bash_profile for auto-start on TTY1
+cat > /home/feralfile/.bash_profile << 'BASHPROFILE'
+# AC Hardened boot profile
+if [ "$(tty)" = "/dev/tty1" ]; then
+    # Ensure directories exist
+    mkdir -p /home/feralfile/.logs
+    mkdir -p /home/feralfile/.state
+
+    # Wait for systemd user session to be ready
+    echo "Waiting for user session..."
+    for i in $(seq 1 30); do
+        if [ -S "/run/user/$(id -u)/bus" ]; then
+            echo "D-Bus session bus ready"
+            break
+        fi
+        sleep 1
+    done
+
+    export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(id -u)/bus"
+    export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+
+    # Reload user daemons
+    systemctl --user daemon-reload 2>/dev/null || true
+
+    # Start feral system services (user-level)
+    systemctl --user start feral-sys-monitord.service 2>/dev/null || true
+
+    # Run setup TUI on first boot, or if setup not complete
+    if [ ! -f ~/.state/setup-done ]; then
+        echo ""
+        echo "Running first-time setup..."
+        sleep 1
+        /opt/ac/bin/ac-setup
+    else
+        # Setup done, start kiosk directly
+        systemctl --user start aesthetic-kiosk.service 2>/dev/null || true
+        echo "Aesthetic Computer OS booted."
+        echo ""
+        echo "Run 'ac-setup' to reconfigure WiFi or piece."
+    fi
+fi
+BASHPROFILE
+chown feralfile:feralfile /home/feralfile/.bash_profile
+
+# Set hostname
+echo "aesthetic-computer" > /etc/hostname
+
+# Set locale
+echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
+locale-gen 2>/dev/null || true
+echo "LANG=en_US.UTF-8" > /etc/locale.conf
+
+echo "=== customize_airootfs.sh complete ==="
 CUSTOMIZE
     chmod +x "$PROFILE/airootfs/root/customize_airootfs.sh"
     

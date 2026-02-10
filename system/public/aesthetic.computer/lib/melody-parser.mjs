@@ -186,12 +186,10 @@ export function parseMelody(melodyString, startingOctave = 4) {
           }
           
           // Set waveType to say and store the speech text
-          // This applies to all following notes until changed
+          // This makes subsequent notes play the speech at their pitch
           currentWaveType = 'say';
           currentSayText = speechText;
-          console.log(`🗣️ Parsed say text: "${speechText}"${afterQuote.startsWith(':') ? ` vol:${currentVolume}` : ''}`);
-          i = endBrace + 1;
-          continue;
+          console.log(`🗣️ Parsed {say}: "${speechText}" - following notes will play speech at note pitch`);
         }
         // Check for painting code syntax like {#abc123} or {#abc123:0.5}
         else if (content.startsWith('#')) {
@@ -819,86 +817,6 @@ export function extractTones(parsedMelody, options = {}) {
 }
 
 /**
- * Split a melody string by spaces, but preserve spaces inside quoted strings within curly braces.
- * e.g., {"hello there"}cdefg should stay as one group
- * e.g., {"hi"}c {"bye"}d should split into two groups: {"hi"}c and {"bye"}d
- * 
- * @param {string} str - The melody string to split
- * @returns {string[]} Array of space-separated groups, with quoted content preserved
- */
-function splitBySpacesPreservingQuotes(str) {
-  const groups = [];
-  let current = '';
-  let i = 0;
-  
-  while (i < str.length) {
-    const char = str[i];
-    
-    // Check if we're entering a curly brace block
-    if (char === '{') {
-      // Find the matching closing brace, respecting quotes inside
-      let braceContent = '{';
-      i++;
-      let inQuote = false;
-      let quoteChar = null;
-      
-      while (i < str.length) {
-        const c = str[i];
-        braceContent += c;
-        
-        if (!inQuote && (c === '"' || c === "'" || c === '`')) {
-          inQuote = true;
-          quoteChar = c;
-        } else if (inQuote && c === quoteChar) {
-          inQuote = false;
-          quoteChar = null;
-        } else if (!inQuote && c === '}') {
-          i++;
-          break;
-        }
-        i++;
-      }
-      
-      current += braceContent;
-    } else if (char === '"' || char === "'" || char === '`') {
-      // Handle standalone quotes (for speech syntax like "hello")
-      const quoteChar = char;
-      let quoted = quoteChar;
-      i++;
-      
-      while (i < str.length && str[i] !== quoteChar) {
-        quoted += str[i];
-        i++;
-      }
-      
-      if (i < str.length) {
-        quoted += str[i]; // Add closing quote
-        i++;
-      }
-      
-      current += quoted;
-    } else if (/\s/.test(char)) {
-      // Space outside of quotes/braces - this is a track separator
-      if (current.length > 0) {
-        groups.push(current);
-        current = '';
-      }
-      i++;
-    } else {
-      current += char;
-      i++;
-    }
-  }
-  
-  // Don't forget the last group
-  if (current.length > 0) {
-    groups.push(current);
-  }
-  
-  return groups;
-}
-
-/**
  * Parses a melody string that may contain simultaneous tracks separated by spaces.
  * 
  * Examples:
@@ -927,9 +845,41 @@ export function parseSimultaneousMelody(melodyString, startingOctave = 4) {
     processedMelodyString = processedMelodyString.substring(waveMatch[0].length).trim();
   }
   
-  // Split the melody string by whitespace, but preserve spaces inside quoted strings within {}
-  // e.g., {"hello there"}cdefg should stay as one group, not split on the space
-  const groups = splitBySpacesPreservingQuotes(processedMelodyString);
+  // Split the melody string by whitespace to get individual groups
+  // BUT don't split on spaces inside {} braces (e.g., {"hello world"}ceg stays as one group)
+  const groups = [];
+  let currentGroup = '';
+  let braceDepth = 0;
+  
+  for (let i = 0; i < processedMelodyString.length; i++) {
+    const char = processedMelodyString[i];
+    
+    if (char === '{') {
+      braceDepth++;
+      currentGroup += char;
+    } else if (char === '}') {
+      braceDepth--;
+      currentGroup += char;
+    } else if (/\s/.test(char) && braceDepth === 0) {
+      // Space outside braces - group boundary
+      if (currentGroup.length > 0) {
+        groups.push(currentGroup);
+        currentGroup = '';
+      }
+    } else {
+      currentGroup += char;
+    }
+  }
+  // Push final group
+  if (currentGroup.length > 0) {
+    groups.push(currentGroup);
+  }
+  
+  console.log("🎵 MELODY PARSER: Splitting melody into groups:", { 
+    original: processedMelodyString, 
+    groups: groups,
+    groupCount: groups.length 
+  });
   
   // If no groups or only one group, treat as single track
   if (groups.length <= 1) {

@@ -10,7 +10,8 @@ import fs from 'fs';
 import { execSync } from 'child_process';
 import { WebSocketServer } from 'ws';
 import { healthHandler, bakeHandler, statusHandler, bakeCompleteHandler, bakeStatusHandler, getActiveBakes, getIncomingBakes, getRecentBakes, subscribeToUpdates, cleanupStaleBakes } from './baker.mjs';
-import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus, getFrozenPieces, clearFrozenPiece, getLatestOGImageUrl, regenerateOGImagesBackground, generateKidlispBackdrop, getLatestBackdropUrl } from './grabber.mjs';
+import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus, getFrozenPieces, clearFrozenPiece, getLatestOGImageUrl, regenerateOGImagesBackground, generateKidlispBackdrop, getLatestBackdropUrl, APP_SCREENSHOT_PRESETS } from './grabber.mjs';
+import archiver from 'archiver';
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -56,6 +57,149 @@ export { addServerLog };
 
 // Log server startup
 addServerLog('info', '🔥', 'Oven server starting...');
+
+// ===== SHARED PROGRESS UI COMPONENTS =====
+// Shared CSS for progress indicators across all oven dashboards
+const PROGRESS_UI_CSS = `
+  /* Oven Progress UI - shared across all dashboards */
+  .oven-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.85);
+    color: #888;
+    text-align: center;
+    padding: 10px;
+    z-index: 10;
+  }
+  .oven-loading .preview-img {
+    width: 80px;
+    height: 80px;
+    image-rendering: pixelated;
+    border: 1px solid #333;
+    margin-bottom: 8px;
+    display: none;
+    background: #111;
+  }
+  .oven-loading .loading-text {
+    font-size: 12px;
+    color: #fff;
+  }
+  .oven-loading .progress-text {
+    font-size: 11px;
+    margin-top: 8px;
+    color: #88ff88;
+    font-family: monospace;
+    max-width: 150px;
+    word-break: break-word;
+  }
+  .oven-loading .progress-bar {
+    width: 80%;
+    max-width: 150px;
+    height: 4px;
+    background: #333;
+    border-radius: 2px;
+    margin: 8px auto 0;
+    overflow: hidden;
+  }
+  .oven-loading .progress-bar-fill {
+    height: 100%;
+    background: #88ff88;
+    width: 0%;
+    transition: width 0.3s ease;
+  }
+  .oven-loading.error {
+    color: #f44;
+  }
+  .oven-loading.success {
+    color: #4f4;
+  }
+`;
+
+// Shared JavaScript for progress polling and UI updates
+const PROGRESS_UI_JS = `
+  // Shared progress state
+  let progressPollInterval = null;
+  
+  // Update any loading indicator with progress data
+  function updateOvenLoadingUI(container, data, queueInfo) {
+    if (!container) return;
+    
+    const loadingText = container.querySelector('.loading-text');
+    const progressText = container.querySelector('.progress-text');
+    const progressBar = container.querySelector('.progress-bar-fill');
+    const previewImg = container.querySelector('.preview-img');
+    
+    // Check if item is in queue and get position
+    let queuePosition = null;
+    if (queueInfo && queueInfo.length > 0 && data.piece) {
+      const queueItem = queueInfo.find(q => q.piece === data.piece);
+      if (queueItem) {
+        queuePosition = queueItem.position;
+      }
+    }
+    
+    // Map stage to friendly text
+    const stageText = {
+      'loading': '🚀 Loading piece...',
+      'waiting-content': '⏳ Waiting for render...',
+      'settling': '⏸️ Settling...',
+      'capturing': '📸 Capturing...',
+      'encoding': '🔄 Processing...',
+      'uploading': '☁️ Uploading...',
+      'queued': queuePosition ? '⏳ In queue (#' + queuePosition + ')...' : '⏳ In queue...',
+    };
+    
+    if (loadingText && data.stage) {
+      loadingText.textContent = stageText[data.stage] || data.stage;
+    }
+    if (progressText && data.stageDetail) {
+      progressText.textContent = data.stageDetail;
+    }
+    if (progressBar && data.percent != null) {
+      progressBar.style.width = data.percent + '%';
+    }
+    // Show streaming preview
+    if (previewImg && data.previewFrame) {
+      previewImg.src = 'data:image/jpeg;base64,' + data.previewFrame;
+      previewImg.style.display = 'block';
+    }
+  }
+  
+  // Create loading HTML structure
+  function createOvenLoadingHTML(initialText = '🔥 Loading...') {
+    return '<img class="preview-img" alt="preview">' +
+           '<span class="loading-text">' + initialText + '</span>' +
+           '<div class="progress-text"></div>' +
+           '<div class="progress-bar"><div class="progress-bar-fill"></div></div>';
+  }
+  
+  // Start polling /grab-status for progress updates
+  function startProgressPolling(callback, intervalMs = 150) {
+    stopProgressPolling();
+    progressPollInterval = setInterval(async () => {
+      try {
+        const res = await fetch('/grab-status');
+        const data = await res.json();
+        if (callback && data.progress) {
+          callback(data);
+        }
+      } catch (err) {
+        // Ignore polling errors
+      }
+    }, intervalMs);
+  }
+  
+  function stopProgressPolling() {
+    if (progressPollInterval) {
+      clearInterval(progressPollInterval);
+      progressPollInterval = null;
+    }
+  }
+`;
 
 // Parse JSON bodies
 app.use(express.json());
@@ -571,11 +715,17 @@ app.get('/', (req, res) => {
     
     .frozen-item-actions .clear-btn { color: #4f4; border-color: #4f4; }
     .frozen-item-actions .clear-btn:hover { background: #4f4; color: #000; }
+    
+    ${PROGRESS_UI_CSS}
   </style>
 </head>
 <body>
   <header>
     <a href="/" class="logo">🔥 oven</a>
+    <nav style="display:flex;gap:1em;font-size:0.85em;">
+      <a href="/app-screenshots?piece=prompt" style="color:#88f;text-decoration:none;">📱 App Screenshots</a>
+      <a href="/kidlisp-og/preview" style="color:#88f;text-decoration:none;">🖼️ OG Images</a>
+    </nav>
     <div class="status">
       <div class="status-dot" id="ws-dot"></div>
       <span id="ws-text">Connecting...</span>
@@ -622,6 +772,14 @@ app.get('/', (req, res) => {
       <a href="https://aesthetic.computer/prompt" style="margin-left:auto;color:#666;text-decoration:none;font-size:0.85em;" title="Back to prompt">← prompt</a>
     </form>
     <div id="capture-status" style="display:none;margin-top:0.5em;font-size:0.85em;"></div>
+    <div id="capture-preview" style="display:none;margin-top:0.5em;position:relative;height:100px;background:#0a0a0a;border-radius:4px;overflow:hidden;">
+      <div class="oven-loading" style="position:relative;height:100%;">
+        <img class="preview-img" alt="preview">
+        <span class="loading-text">🔥 Loading...</span>
+        <div class="progress-text"></div>
+        <div class="progress-bar"><div class="progress-bar-fill"></div></div>
+      </div>
+    </div>
   </div>
   
   <div class="stats">
@@ -678,6 +836,19 @@ app.get('/', (req, res) => {
     let activityLog = []; // Store activity entries
     const MAX_LOG_ENTRIES = 200;
     let activityCollapsed = false;
+    
+    // HTML escape helper
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+    
+    ${PROGRESS_UI_JS}
     
     // Activity log functions
     function addLogEntry(type, icon, msg) {
@@ -880,32 +1051,56 @@ app.get('/', (req, res) => {
       captureBtn.textContent = '⏳ Capturing...';
       captureBtn.style.opacity = '0.5';
       
-      statusEl.style.display = 'block';
-      statusEl.style.color = '#fa0';
-      statusEl.textContent = '🔥 Starting capture...';
+      // Show progress preview
+      const previewEl = document.getElementById('capture-preview');
+      const loadingEl = previewEl.querySelector('.oven-loading');
+      previewEl.style.display = 'block';
+      statusEl.style.display = 'none';
+      
+      // Start polling for progress updates
+      const pollInterval = setInterval(async () => {
+        try {
+          const res = await fetch('/grab-status');
+          const data = await res.json();
+          if (data.progress && data.progress.piece) {
+            // Check if this is our capture
+            if (data.progress.piece === piece || data.progress.piece === '$' + piece) {
+              updateOvenLoadingUI(loadingEl, data.progress, data.queue);
+            }
+          }
+        } catch (e) {}
+      }, 150);
+      
       addLogEntry('capture', '📸', 'Manual capture started: ' + piece + ' (' + width + '×' + height + ' ' + format + ')');
       
       try {
         const url = '/grab/' + format + '/' + width + '/' + height + '/' + encodeURIComponent(piece) + 
           '?duration=' + (duration * 1000);
         
-        statusEl.textContent = '📸 Capturing ' + piece + ' (' + width + '×' + height + ' ' + format + ', ' + duration + 's)...';
-        
         const response = await fetch(url);
+        clearInterval(pollInterval);
+        
         if (response.ok) {
+          statusEl.style.display = 'block';
           statusEl.style.color = '#4f4';
           statusEl.textContent = '✅ Capture complete! Check the grid below.';
+          previewEl.style.display = 'none';
           addLogEntry('success', '✅', 'Capture complete: ' + piece);
           setTimeout(() => { statusEl.style.display = 'none'; }, 3000);
         } else {
           const err = await response.json();
+          statusEl.style.display = 'block';
           statusEl.style.color = '#f44';
           statusEl.textContent = '❌ ' + (err.error || 'Capture failed');
+          previewEl.style.display = 'none';
           addLogEntry('error', '❌', 'Capture failed: ' + piece + ' - ' + (err.error || 'Unknown error'));
         }
       } catch (err) {
+        clearInterval(pollInterval);
+        statusEl.style.display = 'block';
         statusEl.style.color = '#f44';
         statusEl.textContent = '❌ ' + err.message;
+        previewEl.style.display = 'none';
         addLogEntry('error', '❌', 'Capture error: ' + err.message);
       } finally {
         // Unlock the form
@@ -1263,6 +1458,13 @@ app.get('/icon/:size/:piece.png', async (req, res) => {
         density: 1,
       });
       if (!result.success) throw new Error(result.error);
+      // Handle case where grabPiece returns from its own cache (cdnUrl but no buffer)
+      if (result.cached && result.cdnUrl && !result.buffer) {
+        // Fetch the buffer from the CDN URL
+        const response = await fetch(result.cdnUrl);
+        if (!response.ok) throw new Error(`Failed to fetch cached icon: ${response.status}`);
+        return Buffer.from(await response.arrayBuffer());
+      }
       return result.buffer;
     });
     
@@ -1309,6 +1511,12 @@ app.get('/icon/:size/:piece.webp', async (req, res) => {
         fps: fps,
       });
       if (!result.success) throw new Error(result.error);
+      // Handle case where grabPiece returns from its own cache (cdnUrl but no buffer)
+      if (result.cached && result.cdnUrl && !result.buffer) {
+        const response = await fetch(result.cdnUrl);
+        if (!response.ok) throw new Error(`Failed to fetch cached icon: ${response.status}`);
+        return Buffer.from(await response.arrayBuffer());
+      }
       return result.buffer;
     }, 'webp');
     
@@ -1347,6 +1555,12 @@ app.get('/preview/:size/:piece.png', async (req, res) => {
         density: 1,
       });
       if (!result.success) throw new Error(result.error);
+      // Handle case where grabPiece returns from its own cache (cdnUrl but no buffer)
+      if (result.cached && result.cdnUrl && !result.buffer) {
+        const response = await fetch(result.cdnUrl);
+        if (!response.ok) throw new Error(`Failed to fetch cached preview: ${response.status}`);
+        return Buffer.from(await response.arrayBuffer());
+      }
       return result.buffer;
     });
     
@@ -1664,6 +1878,727 @@ app.get('/kidlisp-backdrop', async (req, res) => {
     addServerLog('error', '❌', `Backdrop error: ${error.message}`);
     res.status(500).json({ error: 'Failed to generate backdrop', message: error.message });
   }
+});
+
+// =============================================================================
+// App Store Screenshots - Generate screenshots for Google Play / App Store
+// =============================================================================
+
+// App screenshots dashboard
+app.get('/app-screenshots', (req, res) => {
+  const piece = req.query.piece || 'prompt';
+  const presets = Object.entries(APP_SCREENSHOT_PRESETS);
+  
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>📱 App Store Screenshots - Oven</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: monospace;
+      font-size: 14px;
+      background: #0a0a12;
+      color: #fff;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1em;
+      padding-bottom: 20px;
+      border-bottom: 2px solid #333;
+      margin-bottom: 20px;
+    }
+    h1 { color: #88ff88; font-size: 1.5em; }
+    .controls {
+      display: flex;
+      gap: 1em;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    input, select, button {
+      font-family: monospace;
+      font-size: 14px;
+      padding: 8px 12px;
+      border: 1px solid #444;
+      background: #1a1a2e;
+      color: #fff;
+      border-radius: 4px;
+    }
+    button {
+      cursor: pointer;
+      background: #2a2a4e;
+    }
+    button:hover { background: #3a3a5e; border-color: #88ff88; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: #226622; border-color: #88ff88; }
+    .btn-primary:hover { background: #338833; }
+    
+    .requirements {
+      background: #1a1a2e;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      border: 1px solid #333;
+    }
+    .requirements h3 { color: #ffaa00; margin-bottom: 10px; }
+    .requirements ul { list-style: none; }
+    .requirements li { margin: 5px 0; padding-left: 20px; position: relative; }
+    .requirements li::before { content: '✓'; position: absolute; left: 0; color: #88ff88; }
+    
+    .category { margin-bottom: 30px; }
+    .category h2 {
+      color: #ffaa00;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #333;
+    }
+    .screenshots {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+    .screenshot {
+      background: #1a1a2e;
+      border: 1px solid #333;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .screenshot:hover { border-color: #88ff88; }
+    .screenshot-preview {
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 200px;
+      position: relative;
+    }
+    .screenshot-preview img {
+      max-width: 100%;
+      max-height: 300px;
+      object-fit: contain;
+    }
+    .screenshot-preview .loading {
+      position: absolute;
+      color: #888;
+      text-align: center;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .screenshot-preview .loading .preview-img {
+      width: 80px;
+      height: 80px;
+      image-rendering: pixelated;
+      border: 1px solid #333;
+      margin-bottom: 8px;
+      display: none;
+    }
+    .screenshot-preview .loading .progress-text {
+      font-size: 11px;
+      margin-top: 8px;
+      color: #88ff88;
+      font-family: monospace;
+      max-width: 150px;
+      word-break: break-word;
+    }
+    .screenshot-preview .loading .progress-bar {
+      width: 80%;
+      max-width: 150px;
+      height: 4px;
+      background: #333;
+      border-radius: 2px;
+      margin: 8px auto 0;
+      overflow: hidden;
+    }
+    .screenshot-preview .loading .progress-bar-fill {
+      height: 100%;
+      background: #88ff88;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    .screenshot-preview .error {
+      color: #ff4444;
+      padding: 20px;
+      text-align: center;
+    }
+    .screenshot-info {
+      padding: 15px;
+    }
+    .screenshot-info h4 { margin-bottom: 8px; }
+    .screenshot-info .dims {
+      color: #888;
+      font-size: 12px;
+      margin-bottom: 10px;
+    }
+    .screenshot-info .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .screenshot-info .actions a, .screenshot-info .actions button {
+      font-size: 12px;
+      padding: 6px 10px;
+      text-decoration: none;
+      color: #88ccff;
+    }
+    .status {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #2a2a4e;
+      padding: 15px 20px;
+      border-radius: 8px;
+      border: 1px solid #444;
+      display: none;
+    }
+    .status.show { display: block; }
+    .status.success { border-color: #88ff88; }
+    .status.error { border-color: #ff4444; }
+    
+    .back-link {
+      color: #88ccff;
+      text-decoration: none;
+      margin-bottom: 20px;
+      display: inline-block;
+    }
+    .back-link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <a href="/" class="back-link">← Back to Oven Dashboard</a>
+  
+  <header>
+    <h1>📱 App Store Screenshots</h1>
+    <div class="controls">
+      <label>Piece: <input type="text" id="piece-input" value="${piece}" placeholder="prompt"></label>
+      <button onclick="changePiece()">Load</button>
+      <button onclick="regenerateAll()" class="btn-primary">🔄 Regenerate All</button>
+      <button onclick="downloadZip()" class="btn-primary">📦 Download ZIP</button>
+    </div>
+  </header>
+  
+  <div class="requirements">
+    <h3>📋 Google Play Requirements</h3>
+    <ul>
+      <li>PNG or JPEG, max 8MB each</li>
+      <li>16:9 or 9:16 aspect ratio</li>
+      <li>Phone: 320-3840px per side, 1080px min for promotion</li>
+      <li>7" Tablet: 320-3840px per side</li>
+      <li>10" Tablet: 1080-7680px per side</li>
+      <li>2-8 screenshots per category required</li>
+    </ul>
+  </div>
+  
+  <div class="category">
+    <h2>📱 Phone Screenshots</h2>
+    <div class="screenshots">
+      ${presets.filter(([k, v]) => v.category === 'phone').map(([key, preset]) => `
+        <div class="screenshot" data-preset="${key}">
+          <div class="screenshot-preview">
+            <span class="loading" data-loading="${key}">
+              <img class="preview-img" alt="preview">
+              <span class="loading-text">🔥 Loading...</span>
+              <div class="progress-text" data-progress-text="${key}"></div>
+              <div class="progress-bar"><div class="progress-bar-fill" data-progress-bar="${key}"></div></div>
+            </span>
+            <img src="/app-screenshots/${key}/${piece}.png" 
+                 alt="${preset.label}"
+                 data-img="${key}"
+                 onload="this.previousElementSibling.style.display='none'"
+                 onerror="this.style.display='none'; this.previousElementSibling.innerHTML='❌ Failed to load'">
+          </div>
+          <div class="screenshot-info">
+            <h4>${preset.label}</h4>
+            <div class="dims">${preset.width} × ${preset.height}px</div>
+            <div class="actions">
+              <a href="/app-screenshots/${key}/${piece}.png" download="${piece}-${key}.png">⬇️ Download</a>
+              <button onclick="regenerate('${key}')">🔄 Regenerate</button>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  </div>
+  
+  <div class="category">
+    <h2>📱 7-inch Tablet Screenshots</h2>
+    <div class="screenshots">
+      ${presets.filter(([k, v]) => v.category === 'tablet7').map(([key, preset]) => `
+        <div class="screenshot" data-preset="${key}">
+          <div class="screenshot-preview">
+            <span class="loading" data-loading="${key}">
+              <img class="preview-img" alt="preview">
+              <span class="loading-text">🔥 Loading...</span>
+              <div class="progress-text" data-progress-text="${key}"></div>
+              <div class="progress-bar"><div class="progress-bar-fill" data-progress-bar="${key}"></div></div>
+            </span>
+            <img src="/app-screenshots/${key}/${piece}.png" 
+                 alt="${preset.label}"
+                 data-img="${key}"
+                 onload="this.previousElementSibling.style.display='none'"
+                 onerror="this.style.display='none'; this.previousElementSibling.innerHTML='❌ Failed to load'">
+          </div>
+          <div class="screenshot-info">
+            <h4>${preset.label}</h4>
+            <div class="dims">${preset.width} × ${preset.height}px</div>
+            <div class="actions">
+              <a href="/app-screenshots/${key}/${piece}.png" download="${piece}-${key}.png">⬇️ Download</a>
+              <button onclick="regenerate('${key}')">🔄 Regenerate</button>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  </div>
+  
+  <div class="category">
+    <h2>📱 10-inch Tablet Screenshots</h2>
+    <div class="screenshots">
+      ${presets.filter(([k, v]) => v.category === 'tablet10').map(([key, preset]) => `
+        <div class="screenshot" data-preset="${key}">
+          <div class="screenshot-preview">
+            <span class="loading" data-loading="${key}">
+              <img class="preview-img" alt="preview">
+              <span class="loading-text">🔥 Loading...</span>
+              <div class="progress-text" data-progress-text="${key}"></div>
+              <div class="progress-bar"><div class="progress-bar-fill" data-progress-bar="${key}"></div></div>
+            </span>
+            <img src="/app-screenshots/${key}/${piece}.png" 
+                 alt="${preset.label}"
+                 data-img="${key}"
+                 onload="this.previousElementSibling.style.display='none'"
+                 onerror="this.style.display='none'; this.previousElementSibling.innerHTML='❌ Failed to load'">
+          </div>
+          <div class="screenshot-info">
+            <h4>${preset.label}</h4>
+            <div class="dims">${preset.width} × ${preset.height}px</div>
+            <div class="actions">
+              <a href="/app-screenshots/${key}/${piece}.png" download="${piece}-${key}.png">⬇️ Download</a>
+              <button onclick="regenerate('${key}')">🔄 Regenerate</button>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  </div>
+  
+  <div id="status" class="status"></div>
+  
+  <script>
+    const currentPiece = '${piece}';
+    
+    function showStatus(msg, type = 'info') {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = 'status show ' + type;
+      setTimeout(() => el.className = 'status', 3000);
+    }
+    
+    function changePiece() {
+      const piece = document.getElementById('piece-input').value.trim() || 'prompt';
+      window.location.href = '/app-screenshots?piece=' + encodeURIComponent(piece);
+    }
+    
+    document.getElementById('piece-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') changePiece();
+    });
+    
+    async function regenerate(preset) {
+      showStatus('Regenerating ' + preset + '... (this takes ~30s)');
+      console.log('🔄 Starting regeneration for:', preset);
+      
+      // Show loading indicator and hide current image
+      const card = document.querySelector('[data-preset="' + preset + '"]');
+      const img = card.querySelector('[data-img]');
+      const loading = card.querySelector('.loading');
+      
+      img.style.display = 'none';
+      loading.style.display = 'flex';
+      loading.innerHTML = '<img class="preview-img" alt="preview"><span class="loading-text">🔄 Regenerating...</span><div class="progress-text"></div><div class="progress-bar"><div class="progress-bar-fill" style="width:0%"></div></div>';
+      
+      const startTime = Date.now();
+      
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 min timeout
+        
+        console.log('📡 Fetching with force=true...');
+        const res = await fetch('/app-screenshots/' + preset + '/' + currentPiece + '.png?force=true&t=' + Date.now(), {
+          signal: controller.signal,
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache' }
+        });
+        clearTimeout(timeoutId);
+        
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        console.log('📡 Response received after ' + elapsed + 's, status:', res.status);
+        
+        if (res.ok) {
+          // Force reload the image with cache-busting
+          const newSrc = '/app-screenshots/' + preset + '/' + currentPiece + '.png?t=' + Date.now();
+          console.log('🖼️ Setting new image src:', newSrc);
+          img.src = newSrc;
+          img.style.display = 'block';
+          loading.style.display = 'none';
+          showStatus('✅ ' + preset + ' regenerated in ' + elapsed + 's!', 'success');
+        } else {
+          const error = await res.text();
+          console.error('❌ Regeneration failed:', res.status, error);
+          loading.innerHTML = '❌ Failed: ' + (error || res.status);
+          showStatus('❌ Failed to regenerate: ' + res.status, 'error');
+        }
+      } catch (err) {
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        console.error('❌ Regeneration error after ' + elapsed + 's:', err);
+        if (err.name === 'AbortError') {
+          loading.innerHTML = '⏱️ Timeout - still processing?';
+          showStatus('⏱️ Request timed out - try refreshing', 'error');
+        } else {
+          loading.innerHTML = '❌ ' + err.message;
+          showStatus('❌ ' + err.message, 'error');
+        }
+      }
+    }
+    
+    async function regenerateAll() {
+      const presets = ${JSON.stringify(Object.keys(APP_SCREENSHOT_PRESETS))};
+      showStatus('Regenerating all screenshots...');
+      
+      for (const preset of presets) {
+        showStatus('Regenerating ' + preset + '...');
+        try {
+          await fetch('/app-screenshots/' + preset + '/' + currentPiece + '.png?force=true');
+        } catch (err) {
+          console.error('Failed:', preset, err);
+        }
+      }
+      
+      showStatus('✅ All screenshots regenerated! Reloading...', 'success');
+      setTimeout(() => window.location.reload(), 1000);
+    }
+    
+    function downloadZip() {
+      showStatus('Preparing ZIP download...');
+      window.location.href = '/app-screenshots/download/' + currentPiece;
+    }
+    
+    // WebSocket for real-time progress updates
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    let ws = null;
+    let reconnectAttempts = 0;
+    
+    function connectWebSocket() {
+      ws = new WebSocket(protocol + '//' + location.host + '/ws');
+      
+      ws.onopen = () => {
+        console.log('📡 WebSocket connected');
+        reconnectAttempts = 0;
+      };
+      
+      ws.onclose = () => {
+        console.log('📡 WebSocket disconnected, reconnecting...');
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000);
+        reconnectAttempts++;
+        setTimeout(connectWebSocket, delay);
+      };
+      
+      ws.onerror = () => ws.close();
+      
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          
+          // Check if there's active grab progress for our piece
+          if (data.grabs && data.grabs.active) {
+            const activeGrab = data.grabs.active.find(g => 
+              g.piece === currentPiece || g.piece === '$' + currentPiece
+            );
+            
+            if (activeGrab) {
+              // Find which preset this matches (by dimensions)
+              for (const [preset, config] of Object.entries(${JSON.stringify(APP_SCREENSHOT_PRESETS)})) {
+                if (activeGrab.dimensions && 
+                    activeGrab.dimensions.width === config.width && 
+                    activeGrab.dimensions.height === config.height) {
+                  updateProgressUI(preset, activeGrab.status, null);
+                }
+              }
+            }
+          }
+        } catch (err) {
+          console.error('WebSocket parse error:', err);
+        }
+      };
+    }
+    
+    // Poll for detailed progress since grabs report to /grab-status
+    async function pollProgress() {
+      try {
+        const res = await fetch('/grab-status');
+        const data = await res.json();
+        
+        if (data.progress && data.progress.piece) {
+          const piece = data.progress.piece;
+          if (piece === currentPiece || piece === '$' + currentPiece) {
+            // Check queue position for this piece
+            let queuePosition = null;
+            if (data.queue && data.queue.length > 0) {
+              const queueItem = data.queue.find(q => q.piece === piece);
+              if (queueItem) queuePosition = queueItem.position;
+            }
+            
+            // Find matching preset by checking dimensions in active grabs
+            if (data.active && data.active.length > 0) {
+              const activeGrab = data.active.find(g => 
+                g.piece === currentPiece || g.piece === '$' + currentPiece
+              );
+              if (activeGrab && activeGrab.dimensions) {
+                for (const [preset, config] of Object.entries(${JSON.stringify(APP_SCREENSHOT_PRESETS)})) {
+                  if (activeGrab.dimensions.width === config.width && 
+                      activeGrab.dimensions.height === config.height) {
+                    updateProgressUI(preset, data.progress.stage, data.progress.percent, data.progress.stageDetail, null, queuePosition);
+                    break;
+                  }
+                }
+              }
+            }
+            
+            // Fallback: update all visible loading indicators with generic progress
+            document.querySelectorAll('.loading[data-loading]').forEach(el => {
+              if (el.style.display !== 'none') {
+                const progressText = el.querySelector('.progress-text');
+                const progressBar = el.querySelector('.progress-bar-fill');
+                const previewImg = el.querySelector('.preview-img');
+                
+                if (progressText && data.progress.stageDetail) {
+                  progressText.textContent = data.progress.stageDetail;
+                }
+                if (progressBar && data.progress.percent) {
+                  progressBar.style.width = data.progress.percent + '%';
+                }
+                // Display streaming preview if available
+                if (previewImg && data.progress.previewFrame) {
+                  previewImg.src = 'data:image/jpeg;base64,' + data.progress.previewFrame;
+                  previewImg.style.display = 'block';
+                }
+              }
+            });
+          }
+        }
+      } catch (err) {
+        // Ignore polling errors
+      }
+    }
+    
+    function updateProgressUI(preset, stage, percent, detail, previewFrame, queuePosition) {
+      const loading = document.querySelector('[data-loading="' + preset + '"]');
+      if (!loading || loading.style.display === 'none') return;
+      
+      const progressText = loading.querySelector('.progress-text');
+      const progressBar = loading.querySelector('.progress-bar-fill');
+      const previewImg = loading.querySelector('.preview-img');
+      
+      // Map stage to friendly text
+      const stageText = {
+        'loading': '🚀 Loading piece...',
+        'waiting-content': '⏳ Waiting for render...',
+        'settling': '⏸️ Settling...',
+        'capturing': '📸 Capturing...',
+        'encoding': '🔄 Processing...',
+        'uploading': '☁️ Uploading...',
+        'queued': queuePosition ? '⏳ In queue (#' + queuePosition + ')...' : '⏳ In queue...',
+      };
+      
+      if (progressText) {
+        progressText.textContent = detail || stageText[stage] || stage || '';
+      }
+      if (progressBar && percent != null) {
+        progressBar.style.width = percent + '%';
+      }
+      // Show streaming preview
+      if (previewImg && previewFrame) {
+        previewImg.src = 'data:image/jpeg;base64,' + previewFrame;
+        previewImg.style.display = 'block';
+      }
+    }
+    
+    // Start WebSocket and polling
+    connectWebSocket();
+    const pollInterval = setInterval(pollProgress, 150); // Poll fast for smooth previews
+    
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+      clearInterval(pollInterval);
+      if (ws) ws.close();
+    });
+  </script>
+</body>
+</html>`);
+});
+
+// Individual app screenshot endpoint
+app.get('/app-screenshots/:preset/:piece.png', async (req, res) => {
+  const { preset, piece } = req.params;
+  const force = req.query.force === 'true';
+  
+  const presetConfig = APP_SCREENSHOT_PRESETS[preset];
+  if (!presetConfig) {
+    return res.status(400).json({ 
+      error: 'Invalid preset', 
+      valid: Object.keys(APP_SCREENSHOT_PRESETS) 
+    });
+  }
+  
+  const { width, height } = presetConfig;
+  
+  try {
+    addServerLog('capture', '📱', `App screenshot: ${piece} (${preset} ${width}×${height}${force ? ' FORCE' : ''})`);
+    
+    const { cdnUrl, fromCache, buffer } = await getCachedOrGenerate(
+      'app-screenshots', 
+      `${piece}-${preset}`, 
+      width, 
+      height, 
+      async () => {
+        const result = await grabPiece(piece, {
+          format: 'png',
+          width,
+          height,
+          density: 4, // Pixel art - larger art pixels (4x)
+          viewportScale: 1, // Capture at exact output size
+          skipCache: force,
+        });
+        
+        if (!result.success) throw new Error(result.error);
+        
+        // Handle cached result (cdnUrl but no buffer)
+        if (result.cached && result.cdnUrl && !result.buffer) {
+          const response = await fetch(result.cdnUrl);
+          if (!response.ok) throw new Error(`Failed to fetch cached screenshot: ${response.status}`);
+          return Buffer.from(await response.arrayBuffer());
+        }
+        
+        return result.buffer;
+      },
+      'png',  // ext
+      force   // skipCache - pass force flag to skip CDN cache
+    );
+    
+    if (fromCache && cdnUrl && !force) {
+      res.setHeader('X-Cache', 'HIT');
+      res.setHeader('Cache-Control', 'public, max-age=604800'); // 7 days
+      return res.redirect(302, cdnUrl);
+    }
+    
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Content-Length', buffer.length);
+    // When force=true, prevent caching
+    res.setHeader('Cache-Control', force ? 'no-store, no-cache, must-revalidate' : 'public, max-age=86400');
+    res.setHeader('X-Cache', force ? 'REGENERATED' : 'MISS');
+    res.setHeader('X-Screenshot-Preset', preset);
+    res.setHeader('X-Screenshot-Dimensions', `${width}x${height}`);
+    res.send(buffer);
+    
+  } catch (error) {
+    console.error('App screenshot error:', error);
+    addServerLog('error', '❌', `App screenshot failed: ${piece} ${preset} - ${error.message}`);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Bulk ZIP download endpoint
+app.get('/app-screenshots/download/:piece', async (req, res) => {
+  const { piece } = req.params;
+  const presets = Object.entries(APP_SCREENSHOT_PRESETS);
+  
+  addServerLog('info', '📦', `Generating ZIP for ${piece} (${presets.length} screenshots)`);
+  
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename="${piece}-app-screenshots.zip"`);
+  
+  const archive = archiver('zip', { zlib: { level: 9 } });
+  archive.pipe(res);
+  
+  for (const [presetKey, preset] of presets) {
+    try {
+      const { cdnUrl, buffer } = await getCachedOrGenerate(
+        'app-screenshots',
+        `${piece}-${presetKey}`,
+        preset.width,
+        preset.height,
+        async () => {
+          const result = await grabPiece(piece, {
+            format: 'png',
+            width: preset.width,
+            height: preset.height,
+            density: 4, // Pixel art - larger art pixels (4x)
+            viewportScale: 1, // Capture at exact output size
+          });
+          
+          if (!result.success) throw new Error(result.error);
+          
+          if (result.cached && result.cdnUrl && !result.buffer) {
+            const response = await fetch(result.cdnUrl);
+            if (!response.ok) throw new Error(`Failed to fetch: ${response.status}`);
+            return Buffer.from(await response.arrayBuffer());
+          }
+          
+          return result.buffer;
+        }
+      );
+      
+      // Get buffer from CDN if we only have URL
+      let imageBuffer = buffer;
+      if (!imageBuffer && cdnUrl) {
+        const response = await fetch(cdnUrl);
+        if (response.ok) {
+          imageBuffer = Buffer.from(await response.arrayBuffer());
+        }
+      }
+      
+      if (imageBuffer) {
+        const filename = `${preset.category}/${piece}-${presetKey}.png`;
+        archive.append(imageBuffer, { name: filename });
+        addServerLog('success', '✅', `Added to ZIP: ${filename}`);
+      }
+    } catch (err) {
+      console.error(`Failed to add ${presetKey} to ZIP:`, err);
+      addServerLog('error', '❌', `ZIP: Failed ${presetKey} - ${err.message}`);
+    }
+  }
+  
+  archive.finalize();
+});
+
+// JSON API for app screenshots status
+app.get('/api/app-screenshots/:piece', async (req, res) => {
+  const { piece } = req.params;
+  const screenshots = {};
+  
+  for (const [key, preset] of Object.entries(APP_SCREENSHOT_PRESETS)) {
+    screenshots[key] = {
+      ...preset,
+      url: `/app-screenshots/${key}/${piece}.png`,
+      downloadUrl: `/app-screenshots/${key}/${piece}.png?download=true`,
+    };
+  }
+  
+  res.json({
+    piece,
+    presets: screenshots,
+    zipUrl: `/app-screenshots/download/${piece}`,
+    dashboardUrl: `/app-screenshots?piece=${piece}`,
+  });
 });
 
 // 404 handler

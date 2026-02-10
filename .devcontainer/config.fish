@@ -1634,9 +1634,16 @@ end
 # ⏲️ Wait on `entry.fish` to touch the `.waiter` file.
 
 function aesthetic
-    # Kill any existing emacs processes first to ensure clean slate
-    # (prevents issues when emacs crashed and tabs don't reinitialize properly)
-    ac-emacs-kill
+    # Only kill emacs if it's a zombie (running but unresponsive).
+    # If it's healthy (e.g. pre-started by entry.fish), keep it for faster connect.
+    if pgrep -f "emacs.*daemon" >/dev/null 2>&1
+        if not timeout 3 emacsclient -e t >/dev/null 2>&1
+            echo "⚠️  Emacs daemon is unresponsive (zombie) — restarting..."
+            ac-emacs-kill
+        else
+            echo "✅ Reusing healthy emacs daemon"
+        end
+    end
     
     # Check if --no-wait flag is passed
     if test "$argv[1]" = "--no-wait"
@@ -2754,6 +2761,34 @@ function ac-electron-reload --description "Reload all Electron windows (dev mode
     echo "✅ Reload triggered"
 end
 
+# 🎸 Ableton M4L Console Tunnel
+# Listen for console.log/error/warn from M4L devices via UDP
+
+function ac-ableton-tunnel --description "Listen for Ableton M4L device console logs"
+    set -l port 7777
+    set -l host "jas@host.docker.internal"
+    
+    echo "🎸 AC Ableton Console Tunnel"
+    echo "   Listening for M4L device logs on UDP port $port..."
+    echo "   (Ctrl+C to stop)"
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    
+    # Run nc on the Mac via SSH to listen for UDP messages
+    # Max sends to 127.0.0.1:7777 on the Mac
+    ssh -o StrictHostKeyChecking=no -t $host "nc -lu $port" 2>/dev/null
+end
+
+function ac-ableton-tunnel-simple --description "Simple UDP listener (run on Mac directly)"
+    echo "🎸 AC Ableton Console (Simple Mode)"
+    echo "   Run this on your Mac (not in devcontainer):"
+    echo ""
+    echo "   nc -lu 7777"
+    echo ""
+    echo "   Or with formatting:"
+    echo "   nc -lu 7777 | while read line; do echo \"\$(date '+%H:%M:%S') \$line\"; done"
+end
+
 # 🖥️ Machine Info / SSH Helpers
 # Read machine configs from vault/machines.json
 
@@ -2829,7 +2864,105 @@ function ac-machines --description "List all machines from vault/machines.json"
     ac-host
 end
 
+function ac-host-nmap --description "Run nmap scan on local network via current host"
+    set -l machines_file "/workspaces/aesthetic-computer/aesthetic-computer-vault/machines.json"
+    set -l search_term $argv[1]
+    
+    # Try to find a reachable host to run nmap on
+    # Check hosts in order of likelihood: jas-fedora, x1-nano-g2, jeffrey-macbook
+    set -l hosts_to_try "jas-fedora" "x1-nano-g2" "jeffrey-macbook" "jeffrey-windows"
+    
+    for host_key in $hosts_to_try
+        set -l host_data (cat $machines_file | jq -r ".machines[\"$host_key\"]")
+        if test "$host_data" = "null"
+            continue
+        end
+        
+        set -l ip (echo $host_data | jq -r '.ip // empty')
+        set -l user (echo $host_data | jq -r '.user // "me"')
+        set -l label (echo $host_data | jq -r '.label')
+        
+        if test -z "$ip"
+            continue
+        end
+        
+        # Quick connectivity check (1 second timeout)
+        if ssh -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o BatchMode=yes $user@$ip "echo ok" 2>/dev/null | grep -q ok
+            echo "🔍 Running nmap via $label ($ip)..."
+            
+            if test -n "$search_term"
+                # Search for specific term
+                ssh -o StrictHostKeyChecking=no $user@$ip "nmap -sn 192.168.1.0/24 2>/dev/null | grep -B2 -i '$search_term'"
+            else
+                # Full scan
+                ssh -o StrictHostKeyChecking=no $user@$ip "nmap -sn 192.168.1.0/24 2>/dev/null"
+            end
+            return $status
+        end
+    end
+    
+    echo "❌ No reachable host found to run nmap"
+    echo "Tried: $hosts_to_try"
+    echo ""
+    echo "Make sure one of your machines is online and has the correct IP in machines.json"
+    echo "You can update IPs by running on the host: hostname -I | awk '{print \$1}'"
+    return 1
+end
+
 # 🖼️ FF1 Art Computer Helpers
+
+function __ac_ff1_find_host --description "Find a reachable host to run network commands"
+    set -l machines_file "/workspaces/aesthetic-computer/aesthetic-computer-vault/machines.json"
+    set -l hosts_to_try "jas-fedora" "x1-nano-g2" "jeffrey-macbook" "jeffrey-windows"
+    
+    for host_key in $hosts_to_try
+        set -l host_data (cat $machines_file | jq -r ".machines[\"$host_key\"]" 2>/dev/null)
+        if test "$host_data" = "null" -o -z "$host_data"
+            continue
+        end
+        
+        set -l ip (echo $host_data | jq -r '.ip // empty')
+        set -l user (echo $host_data | jq -r '.user // "me"')
+        
+        if test -z "$ip"
+            continue
+        end
+        
+        # Quick connectivity check (1 second timeout)
+        if ssh -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o BatchMode=yes $user@$ip "echo ok" 2>/dev/null | grep -q ok
+            echo "$user@$ip"
+            return 0
+        end
+    end
+    return 1
+end
+
+function __ac_ff1_scan_network --description "Scan network for FF1 device"
+    set -l host_target (__ac_ff1_find_host)
+    if test -z "$host_target"
+        echo ""
+        return 1
+    end
+    
+    # Run nmap on the host and look for FF1
+    set -l result (ssh -o StrictHostKeyChecking=no $host_target "nmap -sn 192.168.1.0/24 2>/dev/null | grep -A1 'FF1'" 2>/dev/null)
+    if test -n "$result"
+        # Extract IP from result like "Nmap scan report for FF1-DVVEKLZA (192.168.1.164)"
+        echo $result | grep -oP '\d+\.\d+\.\d+\.\d+' | head -1
+    else
+        echo ""
+    end
+end
+
+function __ac_ff1_update_ip --description "Update FF1 IP in machines.json"
+    set -l new_ip $argv[1]
+    set -l machines_file "/workspaces/aesthetic-computer/aesthetic-computer-vault/machines.json"
+    
+    # Use jq to update the IP
+    set -l tmp_file (mktemp)
+    cat $machines_file | jq ".machines[\"ff1-dvveklza\"].ip = \"$new_ip\"" > $tmp_file
+    mv $tmp_file $machines_file
+end
 
 function ac-ff1 --description "Control FF1 Art Computer (direct network access)"
     set -l machines_file "/workspaces/aesthetic-computer/aesthetic-computer-vault/machines.json"
@@ -2839,12 +2972,75 @@ function ac-ff1 --description "Control FF1 Art Computer (direct network access)"
     
     set -l action $argv[1]
     
+    # For commands that need FF1 to be online, check connectivity first
+    set -l needs_connection false
+    switch $action
+        case ping cast top colors chords playlist
+            set needs_connection true
+    end
+    
+    if test "$needs_connection" = true
+        # Quick ping check
+        if not curl -s --connect-timeout 2 "http://$ff1_ip:$ff1_port/" >/dev/null 2>&1
+            echo "⚠️  FF1 not responding at $ff1_ip:$ff1_port"
+            echo "🔍 Scanning network for FF1..."
+            
+            # Find a host to scan from
+            set -l host_target (__ac_ff1_find_host)
+            if test -z "$host_target"
+                echo "❌ No reachable host to scan from. Update machine IPs in machines.json"
+                echo "   Run on your host: hostname -I | awk '{print \$1}'"
+                return 1
+            end
+            
+            echo "   Using $host_target for scan..."
+            echo -n "   Scanning "
+            
+            # Run nmap with progress indication
+            set -l scan_result (ssh -o StrictHostKeyChecking=no $host_target "nmap -sn 192.168.1.0/24 2>/dev/null" 2>/dev/null)
+            echo "done!"
+            
+            # Look for FF1 in results
+            set -l new_ip (echo $scan_result | grep -oP 'FF1[^\(]*\(\K[0-9.]+')
+            
+            if test -n "$new_ip"
+                echo "✅ Found FF1 at $new_ip"
+                
+                if test "$new_ip" != "$ff1_ip"
+                    echo "📝 Updating machines.json ($ff1_ip → $new_ip)"
+                    __ac_ff1_update_ip $new_ip
+                    set ff1_ip $new_ip
+                end
+                
+                # Verify new IP works
+                if curl -s --connect-timeout 2 "http://$ff1_ip:$ff1_port/" >/dev/null 2>&1
+                    echo "✅ FF1 responding at new IP!"
+                    echo ""
+                else
+                    echo "❌ FF1 found but not responding on port $ff1_port"
+                    return 1
+                end
+            else
+                echo "❌ FF1 not found on network"
+                echo ""
+                echo "Is the FF1 powered on and connected to WiFi?"
+                echo "Full scan results:"
+                echo $scan_result | grep -E "^Nmap|Host is up" | head -20
+                return 1
+            end
+        end
+    end
+    
     switch $action
         case scan
-            echo "🔍 Scanning for FF1 via MacBook mDNS (requires SSH)..."
-            ssh jas@host.docker.internal "dns-sd -G v4 FF1-DVVEKLZA.local 2>&1 &
-sleep 2
-kill %1 2>/dev/null"
+            echo "🔍 Scanning for FF1 on network..."
+            set -l host_target (__ac_ff1_find_host)
+            if test -z "$host_target"
+                echo "❌ No reachable host to scan from"
+                return 1
+            end
+            echo "   Using $host_target..."
+            ssh -o StrictHostKeyChecking=no $host_target "nmap -sn 192.168.1.0/24 2>/dev/null | grep -B2 -i 'ff1'"
         case ping
             echo "🏓 Pinging FF1 at $ff1_ip:$ff1_port..."
             curl -s --connect-timeout 3 "http://$ff1_ip:$ff1_port/" >/dev/null 2>&1 && echo "✅ FF1 responding!" || echo "❌ FF1 not responding"
@@ -2887,10 +3083,14 @@ kill %1 2>/dev/null"
             
             # Build URL from input - auto-detect KidLisp ($) vs regular pieces
             set -l url
+            # Auto-prepend https:// for domain-like inputs (e.g., top.kidlisp.com)
+            if string match -rq '\.[a-z]{2,}(/|$)' $input; and not string match -q 'http*' $input
+                set input "https://$input"
+            end
             if string match -q 'http*' $input
                 # Already a full URL
-                # Don't add &device for device.kidlisp.com (already device-optimized)
-                if string match -q '*device.kidlisp.com*' $input
+                # Don't add &device for device/top.kidlisp.com (already device-optimized)
+                if string match -q '*device.kidlisp.com*' $input; or string match -q '*top.kidlisp.com*' $input
                     set url $input
                 else if string match -q '*?*' $input
                     set url "$input&device"

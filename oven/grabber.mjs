@@ -80,6 +80,23 @@ const PINATA_API_URL = 'https://api.pinata.cloud';
 // IPFS gateway for serving content
 const IPFS_GATEWAY = 'https://ipfs.aesthetic.computer';
 
+// App Store Screenshot Presets (Google Play requirements)
+// All dimensions meet the 16:9 or 9:16 aspect ratio requirement
+// Phone screenshots need 1080px minimum for promotion eligibility
+export const APP_SCREENSHOT_PRESETS = {
+  // Phone screenshots (9:16 portrait, meets 1080px promotion requirement)
+  'phone-portrait': { width: 1080, height: 1920, label: 'Phone Portrait', category: 'phone' },
+  'phone-landscape': { width: 1920, height: 1080, label: 'Phone Landscape', category: 'phone' },
+  
+  // 7-inch tablet (9:16 portrait, 320-3840px range)
+  'tablet7-portrait': { width: 1200, height: 1920, label: '7" Tablet Portrait', category: 'tablet7' },
+  'tablet7-landscape': { width: 1920, height: 1200, label: '7" Tablet Landscape', category: 'tablet7' },
+  
+  // 10-inch tablet (9:16 portrait, 1080-7680px range for 10" tablets)
+  'tablet10-portrait': { width: 1600, height: 2560, label: '10" Tablet Portrait', category: 'tablet10' },
+  'tablet10-landscape': { width: 2560, height: 1600, label: '10" Tablet Landscape', category: 'tablet10' },
+};
+
 // Reusable browser instance
 let browser = null;
 let browserLaunchPromise = null;
@@ -100,6 +117,9 @@ let currentProgress = {
   framesCaptured: 0,
   framesTotal: 0,
   percent: 0,
+  previewFrame: null, // base64 encoded low-res preview image
+  previewWidth: 0,
+  previewHeight: 0,
 };
 
 // Callback for notifying subscribers of progress updates
@@ -127,6 +147,54 @@ function notifySubscribers() {
 export function updateProgress(updates) {
   Object.assign(currentProgress, updates);
   notifySubscribers();
+}
+
+/**
+ * Capture a low-res preview screenshot from a Puppeteer page
+ * @param {Page} page - Puppeteer page
+ * @param {number} width - Preview width (default 64)
+ * @param {number} height - Preview height (default 64)
+ * @returns {Promise<string|null>} Base64 encoded JPEG or null on error
+ */
+async function capturePreviewFrame(page, width = 64, height = 64) {
+  try {
+    // Use CDP for faster, lower quality screenshot
+    const client = await page.createCDPSession();
+    const result = await Promise.race([
+      client.send('Page.captureScreenshot', {
+        format: 'jpeg',
+        quality: 20, // Very low quality for speed
+        clip: { 
+          x: 0, 
+          y: 0, 
+          width: page.viewport().width, 
+          height: page.viewport().height, 
+          scale: width / page.viewport().width // Scale down
+        },
+        captureBeyondViewport: false
+      }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Preview timeout')), 500))
+    ]);
+    await client.detach().catch(() => {});
+    return result.data; // Already base64
+  } catch (err) {
+    return null; // Don't fail on preview errors
+  }
+}
+
+/**
+ * Update progress with a preview frame
+ * @param {Page} page - Puppeteer page  
+ * @param {object} updates - Other progress updates
+ */
+async function updateProgressWithPreview(page, updates) {
+  const previewFrame = await capturePreviewFrame(page, 80, 80);
+  updateProgress({
+    ...updates,
+    previewFrame,
+    previewWidth: 80,
+    previewHeight: 80,
+  });
 }
 
 /**
@@ -187,18 +255,33 @@ async function processGrabQueue() {
   if (grabRunning || grabQueue.length === 0) return;
   
   grabRunning = true;
-  const { fn, resolve, reject } = grabQueue.shift();
+  const { fn, resolve, reject, metadata } = grabQueue.shift();
+  
+  console.log(`📋 Processing queue item: ${metadata?.piece || 'unknown'} (${grabQueue.length} remaining)`);
   
   try {
     const result = await fn();
     resolve(result);
   } catch (error) {
+    console.error(`❌ Queue item failed: ${metadata?.piece || 'unknown'} - ${error.message}`);
+    
+    // If it's a browser connection error, try to reset the browser
+    if (error.message.includes('Connection closed') || 
+        error.message.includes('disconnected') ||
+        error.message.includes('Target closed')) {
+      console.log('🔄 Browser connection lost, resetting browser...');
+      browser = null;
+    }
+    
     reject(error);
   } finally {
     grabRunning = false;
     // Process next item after a small delay to let resources settle
     if (grabQueue.length > 0) {
-      setTimeout(processGrabQueue, 100);
+      // Longer delay if browser needs to restart
+      const delay = browser === null ? 500 : 100;
+      console.log(`📋 Next queue item in ${delay}ms (${grabQueue.length} remaining)`);
+      setTimeout(processGrabQueue, delay);
     }
   }
 }
@@ -911,20 +994,26 @@ async function uploadToSpaces(buffer, cacheKey, contentType = 'image/png') {
  * Get cached image or generate and cache
  * Uses git version in cache key for automatic invalidation on code changes
  * @param {string} ext - File extension (default: 'png')
+ * @param {boolean} skipCache - Skip cache lookup (default: false)
  * @returns {{ cdnUrl: string, fromCache: boolean, buffer?: Buffer }}
  */
-export async function getCachedOrGenerate(type, piece, width, height, generateFn, ext = 'png') {
+export async function getCachedOrGenerate(type, piece, width, height, generateFn, ext = 'png', skipCache = false) {
   // Include git version in cache key for automatic invalidation
   const shortVersion = GIT_VERSION.slice(0, 8);
   const cacheKey = `${type}/${piece}-${width}x${height}-${shortVersion}.${ext}`;
   const mimeType = ext === 'webp' ? 'image/webp' : ext === 'gif' ? 'image/gif' : 'image/png';
   
-  // Check cache first
-  const cachedUrl = await checkSpacesCache(cacheKey);
-  if (cachedUrl) {
-    console.log(`✅ Cache hit: ${cacheKey}`);
-    serverLog('info', '💾', `Cache hit: ${piece} (${width}×${height})`);
-    return { cdnUrl: cachedUrl, fromCache: true };
+  // Check cache first (unless skipCache is true)
+  if (!skipCache) {
+    const cachedUrl = await checkSpacesCache(cacheKey);
+    if (cachedUrl) {
+      console.log(`✅ Cache hit: ${cacheKey}`);
+      serverLog('info', '💾', `Cache hit: ${piece} (${width}×${height})`);
+      return { cdnUrl: cachedUrl, fromCache: true };
+    }
+  } else {
+    console.log(`⚡ Force regenerate: ${cacheKey}`);
+    serverLog('capture', '⚡', `Force regenerate: ${piece} (${width}×${height})`);
   }
   
   // Generate fresh
@@ -955,8 +1044,19 @@ function serverLog(type, icon, msg) {
  * Get or launch the shared browser instance
  */
 async function getBrowser() {
-  if (browser && browser.isConnected()) {
-    return browser;
+  // Check if existing browser is still usable
+  if (browser) {
+    try {
+      if (browser.isConnected()) {
+        return browser;
+      } else {
+        console.log('⚠️ Browser disconnected, will relaunch...');
+        browser = null;
+      }
+    } catch (e) {
+      console.log('⚠️ Browser check failed, will relaunch:', e.message);
+      browser = null;
+    }
   }
   
   // Prevent multiple simultaneous launches
@@ -980,7 +1080,7 @@ async function getBrowser() {
     browser = await puppeteer.launch({
       headless: 'new',
       executablePath,
-      protocolTimeout: 60000,  // 60s timeout for CDP protocol calls
+      protocolTimeout: 120000,  // 120s timeout for CDP protocol calls (increased)
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -990,8 +1090,20 @@ async function getBrowser() {
         '--use-gl=swiftshader',
         '--enable-unsafe-webgl',
         '--window-size=800,800',
+        // Stability flags
+        '--disable-gpu-sandbox',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding',
       ],
     });
+    
+    // Set up disconnect handler for automatic cleanup
+    browser.on('disconnected', () => {
+      console.log('⚠️ Browser disconnected unexpectedly');
+      browser = null;
+    });
+    
     console.log('✅ Browser ready');
     return browser;
   })();
@@ -1014,12 +1126,18 @@ async function captureFrames(piece, options = {}) {
     duration = 12000,
     fps = 7.5,
     density = 1,
+    viewportScale = null, // Override deviceScaleFactor (null = use density)
     baseUrl = 'https://aesthetic.computer',
     frames: explicitFrames, // Allow explicit frame count override
   } = options;
   
   // Calculate frames from duration and fps, or use explicit count
   const frames = explicitFrames ?? Math.ceil((duration / 1000) * fps);
+  
+  // viewportScale: how much to scale the browser viewport
+  // - null/undefined: use density (legacy behavior - captures at density*width x density*height)
+  // - 1: capture at exact width x height (for app screenshots where density is just for pixel size)
+  const effectiveViewportScale = viewportScale ?? density;
   
   // Use piece name as-is (caller decides if $ prefix is needed for KidLisp)
   // tv=true (non-interactive), nolabel=true (no HUD label), nogap=true (no border)
@@ -1056,8 +1174,10 @@ async function captureFrames(piece, options = {}) {
   });
   
   try {
-    // Set viewport with density for higher resolution captures
-    await page.setViewport({ width, height, deviceScaleFactor: density });
+    // Set viewport - effectiveViewportScale controls the actual capture resolution
+    // For app screenshots: viewportScale=1 captures at exact width x height
+    // For legacy grabs: viewportScale=density captures at density*width x density*height
+    await page.setViewport({ width, height, deviceScaleFactor: effectiveViewportScale });
     
     // Navigate to piece
     console.log(`   Loading piece...`);
@@ -1077,210 +1197,85 @@ async function captureFrames(piece, options = {}) {
     });
     if (wrapperFound) console.log('   ✓ Wrapper found');
     
-    // For KidLisp pieces, wait longer for interpreter + MongoDB load + render
-    // KidLisp logs "KidLisp module loaded" when ready - wait for first paint cycle
-    const isKidLisp = piece.startsWith('$');
-    if (isKidLisp) {
-      console.log('   ⏳ KidLisp piece - waiting for boot to complete...');
-      
-      // First, wait for the boot canvas to be hidden (indicates boot.mjs finished)
-      const bootWaitStart = Date.now();
-      const maxBootWait = 30000; // 30 seconds max for boot
-      let bootHidden = false;
-      
-      while (!bootHidden && (Date.now() - bootWaitStart) < maxBootWait) {
-        bootHidden = await page.evaluate(() => {
-          const bootCanvas = document.getElementById('boot-canvas');
-          // Boot is done when: canvas doesn't exist, OR display is 'none', OR opacity is 0
-          if (!bootCanvas) return true;
-          const style = window.getComputedStyle(bootCanvas);
-          return style.display === 'none' || style.opacity === '0' || style.visibility === 'hidden';
-        });
-        if (!bootHidden) {
-          await new Promise(r => setTimeout(r, 500));
-        }
-      }
-      
-      if (bootHidden) {
-        console.log(`   ✓ Boot canvas hidden after ${Date.now() - bootWaitStart}ms`);
-      } else {
-        console.log(`   ⚠️ Boot canvas still visible after ${maxBootWait}ms, force-hiding...`);
-        // Force hide the boot canvas so we can capture the actual content
-        await page.evaluate(() => {
-          const bootCanvas = document.getElementById('boot-canvas');
-          if (bootCanvas) bootCanvas.style.display = 'none';
-        });
-      }
-      
-      // Additional wait for KidLisp interpreter + MongoDB load + first render
-      console.log('   ⏳ Waiting for KidLisp render...');
-      await new Promise(r => setTimeout(r, 4000)); // 4 seconds after boot
-      
-      // Then wait for actual content with COLOR VARIATION (not just a solid wipe)
-      // KidLisp pieces often start with wipe("color") which fills everything one color
-      // We want to wait until there are multiple distinct colors = actual content drawn
-      const maxWaitTime = 15000; // 15 more seconds max (some pieces load heavy assets)
-      const pollInterval = 300;
-      const startWait = Date.now();
-      let hasContent = false;
-      let lastDebug = '';
-      
-      while (!hasContent && (Date.now() - startWait) < maxWaitTime) {
-        try {
-          const result = await page.evaluate(() => {
-            const wrapper = document.getElementById('aesthetic-computer');
-            if (!wrapper) return { hasContent: false, debug: 'no-wrapper' };
-            const canvas = wrapper.querySelector('canvas[data-type="glaze"]') || wrapper.querySelector('canvas');
-            if (!canvas || canvas.width === 0) return { hasContent: false, debug: 'no-canvas' };
-            
-            const tempCanvas = document.createElement('canvas');
-            const sampleSize = 48; // Sample 48x48 area
-            tempCanvas.width = sampleSize;
-            tempCanvas.height = sampleSize;
-            const ctx = tempCanvas.getContext('2d', { willReadFrequently: true });
-            ctx.drawImage(canvas, 0, 0, sampleSize, sampleSize);
-            const data = ctx.getImageData(0, 0, sampleSize, sampleSize).data;
-            
-            // Count unique colors (using a Set of color keys)
-            const colors = new Set();
-            let opaquePixels = 0;
-            for (let i = 0; i < data.length; i += 4) {
-              if (data[i+3] > 10) { // Opaque enough
-                opaquePixels++;
-                // Quantize to reduce noise (group similar colors)
-                const r = Math.floor(data[i] / 16);
-                const g = Math.floor(data[i+1] / 16);
-                const b = Math.floor(data[i+2] / 16);
-                colors.add(`${r},${g},${b}`);
-              }
-            }
-            
-            // Need at least 3 distinct color groups = actual content, not just solid fill
-            // (1 color = empty/black, 2 colors = simple wipe, 3+ = real content)
-            const hasVariation = colors.size >= 3;
-            return { 
-              hasContent: hasVariation, 
-              debug: `colors:${colors.size} opaque:${opaquePixels}/${sampleSize*sampleSize}` 
-            };
-          });
-          
-          hasContent = result.hasContent;
-          if (result.debug !== lastDebug) {
-            console.log(`   [kidlisp-detect] ${result.debug}`);
-            lastDebug = result.debug;
-          }
-        } catch (e) { 
-          console.log(`   [kidlisp-detect] error: ${e.message}`);
-        }
-        if (!hasContent) await new Promise(r => setTimeout(r, pollInterval));
-      }
-      
-      if (hasContent) {
-        console.log(`   ✅ KidLisp content detected after ${Date.now() - startWait}ms`);
-      } else {
-        console.log(`   ⚠️ No KidLisp content variation detected after ${maxWaitTime}ms, proceeding anyway...`);
-      }
-    } else {
-      // Wait for actual content to render (non-empty canvas) - only for non-KidLisp pieces
-      console.log(`   🔍 Starting content detection loop...`);
-      const maxWaitTime = 10000; // 10 seconds max
-      const pollInterval = 100; // Check every 100ms
-      const startWait = Date.now();
-      
-      let hasContent = false;
-      let lastDebug = '';
-      let evalCount = 0;
-      while (!hasContent && (Date.now() - startWait) < maxWaitTime) {
-        evalCount++;
-        if (evalCount <= 3 || evalCount % 20 === 0) {
-          console.log(`   [eval ${evalCount}] checking...`);
-        }
-        try {
-          const result = await page.evaluate(() => {
-        const wrapper = document.getElementById('aesthetic-computer');
-        if (!wrapper) return { hasContent: false, debug: 'no-wrapper' };
-        
-        const mainCanvas = wrapper.querySelector('canvas:not([data-type])');
-        const glazeCanvas = wrapper.querySelector('canvas[data-type="glaze"]');
-        const sourceCanvas = glazeCanvas && glazeCanvas.width > 0 ? glazeCanvas : mainCanvas;
-        
-        if (!sourceCanvas || sourceCanvas.width === 0) {
-          return { 
-            hasContent: false, 
-            debug: `no-canvas: main=${!!mainCanvas}, glaze=${!!glazeCanvas}, source=${!!sourceCanvas}, w=${sourceCanvas?.width}` 
-          };
-        }
-        
-        // Check if canvas has any opaque pixels (alpha > 0 means content exists, even if black)
-        const ctx = sourceCanvas.getContext('2d', { willReadFrequently: true });
-        if (!ctx) {
-          // WebGL canvas - try to check via a temp canvas
-          const tempCanvas = document.createElement('canvas');
-          tempCanvas.width = Math.min(sourceCanvas.width, 64);
-          tempCanvas.height = Math.min(sourceCanvas.height, 64);
-          const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
-          tempCtx.drawImage(sourceCanvas, 0, 0, tempCanvas.width, tempCanvas.height);
-          const data = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height).data;
-          
-          // Check if there's any opaque pixel (alpha > 0 means content, even pure black)
-          let opaqueCount = 0;
-          for (let i = 0; i < data.length; i += 4) {
-            if (data[i+3] > 0) opaqueCount++;
-          }
-          if (opaqueCount > 0) {
-            return { hasContent: true, debug: `webgl-opaque: ${opaqueCount}px` };
-          }
-          return { hasContent: false, debug: `webgl-empty: 0/${data.length/4}px` };
-        }
-        
-        // 2D canvas - sample directly
-        const data = ctx.getImageData(0, 0, Math.min(sourceCanvas.width, 64), Math.min(sourceCanvas.height, 64)).data;
-        let opaqueCount = 0;
-        for (let i = 0; i < data.length; i += 4) {
-          if (data[i+3] > 0) opaqueCount++;
-        }
-        if (opaqueCount > 0) {
-          return { hasContent: true, debug: `2d-opaque: ${opaqueCount}px` };
-        }
-        return { hasContent: false, debug: `2d-empty: 0/${data.length/4}px` };
+    // Wait for piece to signal it's ready via window.acPieceReady
+    // This is set by disk.mjs after the first paint completes
+    console.log('   ⏳ Waiting for piece ready signal (window.acPieceReady)...');
+    
+    await updateProgressWithPreview(page, {
+      stage: 'loading',
+      stageDetail: 'Waiting for piece...',
+      percent: 5,
+    });
+    
+    const pieceWaitStart = Date.now();
+    const maxPieceWait = 30000; // 30 seconds max for piece to load
+    let pieceReady = false;
+    let lastPreviewTime = 0;
+    
+    while (!pieceReady && (Date.now() - pieceWaitStart) < maxPieceWait) {
+      const status = await page.evaluate(() => {
+        const ready = window.acPieceReady === true;
+        const readyTime = window.acPieceReadyTime;
+        const bootCanvas = document.getElementById('boot-canvas');
+        const bootHidden = !bootCanvas || 
+          window.getComputedStyle(bootCanvas).display === 'none' ||
+          window.getComputedStyle(bootCanvas).opacity === '0';
+        return { ready, readyTime, bootHidden };
       });
       
-      hasContent = result.hasContent;
-      if (result.debug !== lastDebug) {
-        console.log(`   [content-detect] ${result.debug}`);
-        lastDebug = result.debug;
-      }
-      } catch (evalErr) {
-        console.log(`   [content-detect] eval error (attempt ${evalCount}): ${evalErr.message}`);
-      }
+      pieceReady = status.ready;
       
-      if (!hasContent) {
-        await new Promise(r => setTimeout(r, pollInterval));
+      if (!pieceReady) {
+        const elapsed = Date.now() - pieceWaitStart;
+        const phase = status.bootHidden ? 'Loading piece...' : 'Booting...';
+        
+        // Stream preview every 200ms for smooth updates
+        if (Date.now() - lastPreviewTime > 200) {
+          await updateProgressWithPreview(page, {
+            stage: 'loading',
+            stageDetail: `${phase} ${Math.round(elapsed/1000)}s`,
+            percent: Math.min(25, 5 + (elapsed / maxPieceWait) * 20),
+          });
+          lastPreviewTime = Date.now();
+        }
+        
+        await new Promise(r => setTimeout(r, 100));
       }
     }
-    console.log(`   Content detection completed after ${evalCount} checks`);
     
-    if (hasContent) {
-      console.log(`   ✅ Content detected after ${Date.now() - startWait}ms`);
+    if (pieceReady) {
+      console.log(`   ✅ Piece ready after ${Date.now() - pieceWaitStart}ms`);
     } else {
-      console.log(`   ⚠️ No content detected after ${maxWaitTime}ms, proceeding anyway...`);
+      console.log(`   ⚠️ Piece ready signal not received after ${maxPieceWait}ms`);
+      // Force hide boot canvas if still visible
+      await page.evaluate(() => {
+        const bootCanvas = document.getElementById('boot-canvas');
+        if (bootCanvas) bootCanvas.style.display = 'none';
+      });
     }
-    } // end else (non-KidLisp content detection)
     
-    // Settle time: let the piece run before capturing
-    // For stills (single frame), wait longer (2.5-5s) to let animations stabilize
+    // Settle time: let the piece run a bit more after ready signal
+    // For stills, wait longer to let animations stabilize
     // For animations, just a small buffer
     const isStill = frames === 1;
-    const settleTime = isKidLisp ? 500 : (isStill ? 3000 : 200); // KidLisp already waited, others: 3s stills, 200ms animations
+    const settleTime = isStill ? 500 : 200; // 500ms for stills, 200ms for animations
     console.log(`   ${isStill ? '⏳ Settling for still capture' : '⏳ Brief settle'}... (${settleTime}ms)`);
+    
+    // Send preview before settling
+    await updateProgressWithPreview(page, {
+      stage: 'settling',
+      stageDetail: `Settling... ${settleTime}ms`,
+      percent: 28,
+    });
+    
     await new Promise(r => setTimeout(r, settleTime));
     
     // Capture frames at intervals
     const frameInterval = duration / frames;
     const capturedFrames = [];
     
-    // Update progress: entering capture stage
-    updateProgress({
+    // Update progress with preview: entering capture stage
+    await updateProgressWithPreview(page, {
       stage: 'capturing',
       stageDetail: `Starting frame capture...`,
       framesCaptured: 0,
@@ -1298,11 +1293,11 @@ async function captureFrames(piece, options = {}) {
       
       console.log(`   [Frame ${i+1}] Starting capture...`);
       
-      // Update progress for each frame
+      // Update progress with preview for each frame
       const capturePercent = 30 + ((i / frames) * 50); // 30% to 80% during capture
-      updateProgress({
+      await updateProgressWithPreview(page, {
         framesCaptured: i,
-        stageDetail: `Capturing frame ${i + 1}/${frames}...`,
+        stageDetail: `Frame ${i + 1}/${frames}`,
         percent: Math.round(capturePercent),
       });
       
@@ -1585,6 +1580,7 @@ export async function grabPiece(piece, options = {}) {
     fps = 7.5, // Capture fps
     playbackFps = 15, // Playback fps (2x speed)
     density = 1,
+    viewportScale = null, // Override deviceScaleFactor (null = use density)
     quality = 90,
     baseUrl = 'https://aesthetic.computer',
     skipCache = false, // Force regeneration
@@ -1592,8 +1588,13 @@ export async function grabPiece(piece, options = {}) {
     keepId = null, // Tezos keep token ID if source is 'keep'
   } = options;
   
+  // For captureKey: use actual output size (viewportScale=1 means exact size, otherwise density-scaled)
+  const effectiveScale = viewportScale ?? density;
+  const outputWidth = width * effectiveScale;
+  const outputHeight = height * effectiveScale;
+  
   const animated = format !== 'png';
-  const captureKey = getCaptureKey(piece, width * density, height * density, format, animated);
+  const captureKey = getCaptureKey(piece, outputWidth, outputHeight, format, animated);
   
   // Check for existing capture (deduplication)
   if (!skipCache) {
@@ -1632,7 +1633,7 @@ export async function grabPiece(piece, options = {}) {
     startTime: Date.now(),
     captureKey, // For deduplication lookup
     gitVersion: GIT_VERSION,
-    dimensions: { width: width * density, height: height * density },
+    dimensions: { width: outputWidth, height: outputHeight },
     source: source || 'manual',
     keepId: keepId || null,
   });
@@ -1657,16 +1658,16 @@ export async function grabPiece(piece, options = {}) {
       
       if (format === 'png') {
         // Single frame PNG
-        const frame = await captureFrame(piece, { width, height, density, baseUrl });
+        const frame = await captureFrame(piece, { width, height, density, viewportScale, baseUrl });
         if (!frame) {
           throw new Error('Failed to capture frame');
         }
-        result = await frameToThumbnail(frame, { width: width * density, height: height * density });
+        result = await frameToThumbnail(frame, { width: outputWidth, height: outputHeight });
         
       } else {
         // Animated WebP or GIF
         const capturedFrames = await captureFrames(piece, { 
-          width, height, duration, fps, density, baseUrl 
+          width, height, duration, fps, density, viewportScale, baseUrl 
         });
         
         if (capturedFrames.length === 0) {

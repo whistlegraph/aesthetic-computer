@@ -409,9 +409,17 @@ export function update(texture, x = 0, y = 0) {
 
 // Draw the current output to a scaled freeze frame if the system is changing resolutions and neeeds a hold.
 export function freeze(fCtx) {
-  fCtx.drawImage(canvas, 0, 0, fCtx.canvas.width, fCtx.canvas.height);
-  clear();
-  canvas.style.opacity = 0;
+  // Guard: skip if canvas is not ready or invalid
+  if (!canvas || !fCtx?.canvas) return false;
+  try {
+    fCtx.drawImage(canvas, 0, 0, fCtx.canvas.width, fCtx.canvas.height);
+    clear();
+    canvas.style.opacity = 0;
+    return true;
+  } catch (e) {
+    console.warn("Glaze.freeze failed:", e.message);
+    return false;
+  }
 }
 
 export function unfreeze() {

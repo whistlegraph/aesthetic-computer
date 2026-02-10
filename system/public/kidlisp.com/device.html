@@ -24,12 +24,6 @@
       const pathParts = pathname.split('/').filter(p => p);
       let codeId = null;
       
-      // top.kidlisp.com is an alias for the top100 playlist - no eager fetch needed
-      if (hostname === 'top.kidlisp.com') {
-        // Playlist mode - no single codeId to fetch
-        return;
-      }
-      
       if (hostname === 'device.kidlisp.com') {
         codeId = pathParts[0] || null;
       } else if (pathname.startsWith('/device.kidlisp.com/')) {
@@ -57,19 +51,21 @@
       margin: 0;
       padding: 0;
       box-sizing: border-box;
-      user-select: none;
-      -webkit-user-select: none;
     }
     
+    html {
+      /* UI scale for DOM elements - independent of piece rendering density */
+      /* Default to 20 for good visibility on FF1/device displays (increased for 4K TVs) */
+      /* Set on html only so JS override on documentElement propagates to body via inheritance */
+      --ui-scale: 20;
+    }
+
     html, body {
       width: 100%;
       height: 100%;
       overflow: hidden;
       background: #000;
       font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
-      /* UI scale for DOM elements - independent of piece rendering density */
-      /* Default to 10 for good visibility on FF1/device displays */
-      --ui-scale: 10;
     }
     
     #display-iframe {
@@ -278,6 +274,12 @@
     #piece-handle {
       color: rgb(255, 107, 157);
       text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+    }
+    
+    #piece-handle:hover {
+      opacity: 0.7;
     }
     
     #piece-hits {
@@ -327,7 +329,7 @@
     .ff1-playlist-header {
       display: none;
       width: 100%;
-      padding-bottom: 0;
+      padding-bottom: calc(var(--ui-scale, 8) * 0.3px);
       margin-bottom: calc(var(--ui-scale, 8) * 0.2px);
     }
     
@@ -340,7 +342,7 @@
       font-family: 'Noto Sans Mono', monospace;
       font-size: calc(var(--ui-scale, 8) * 2.5px);
       font-weight: bold;
-      line-height: 1.4;
+      line-height: 1.2;
       text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
     }
     
@@ -348,7 +350,7 @@
       color: rgba(255, 215, 0, 0.9);
       font-family: 'Noto Sans Mono', monospace;
       font-size: calc(var(--ui-scale, 8) * 2.5px);
-      margin-top: 0;
+      margin-top: calc(var(--ui-scale, 8) * 0.15px);
       text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
     }
     
@@ -539,6 +541,7 @@
 
     #progress-bar.visible {
       display: block;
+      opacity: 1;
     }
 
     #progress-bar.fading-in {
@@ -614,36 +617,39 @@
     @media (max-aspect-ratio: 10/16) and (max-width: 600px) {
       :root {
         /* Mobile layout spacing and dimensions */
-        --mobile-spacing: 8px;
-        --mobile-qr-size: 48px;
-        --mobile-qr-padding: 2px;
+        --mobile-spacing: 12px;
+        --mobile-qr-size: 64px;
+        --mobile-qr-padding: 3px;
         /* Height reserved for bottom overlays (QR + label + piece info area) */
-        --mobile-bottom-reserve: 100px;
+        --mobile-bottom-reserve: 130px;
         /* 
          * Total width for QR section to prevent piece-info overlap:
-         * QR container (48px) + inner padding (2px * 2) + right margin (8px) + gap from piece-info (8px * 2)
+         * QR container (64px) + inner padding (3px * 2) + right margin (12px) + gap (12px * 2)
          */
         --mobile-qr-total-width: calc(var(--mobile-qr-size) + var(--mobile-qr-padding) * 2 + var(--mobile-spacing) * 3);
       }
       
-      /* Source code - smaller on mobile */
+      /* Source code - readable on mobile */
       #source-code {
         top: var(--mobile-spacing);
         left: var(--mobile-spacing);
         right: var(--mobile-spacing);
         bottom: var(--mobile-bottom-reserve); /* Leave room for bottom overlays */
-        font-size: 10px;
+        font-size: 12px;
       }
       
-      /* QR wrap - smaller and repositioned for mobile */
+      /* QR wrap - repositioned with proper padding for mobile */
       #qr-wrap {
         bottom: var(--mobile-spacing);
         right: var(--mobile-spacing);
+        padding-right: 0;
+        padding-bottom: 0;
       }
       
       #code-label {
-        font-size: 10px;
-        padding: var(--mobile-qr-padding) 4px;
+        font-size: 12px;
+        padding: 3px 6px;
+        padding-bottom: 5px;
       }
       
       #qr-container {
@@ -652,43 +658,52 @@
         padding: var(--mobile-qr-padding);
       }
       
-      /* Piece info - smaller on mobile */
+      /* Piece info - left-aligned on mobile */
       #piece-info {
         bottom: var(--mobile-spacing);
         left: var(--mobile-spacing);
-        font-size: 10px;
+        font-size: 12px;
         max-width: calc(100% - var(--mobile-qr-total-width)); /* Prevent overlap with QR */
+        align-items: flex-start;
       }
       
-      /* FF1 module - compact on mobile */
+      /* FF1 module - flush left-aligned on mobile */
       .ff1-module {
-        margin-top: 6px;
-        padding: 4px 8px;
-        gap: 3px;
+        margin-top: 8px;
+        padding: 0;
+        gap: 4px;
+        align-items: flex-start;
+        margin-left: 0;
       }
       
       .ff1-playlist-header {
-        padding-bottom: 3px;
-        margin-bottom: 2px;
+        padding-bottom: 4px;
+        margin-bottom: 3px;
+        padding-left: 0;
       }
       
       .ff1-playlist-title {
-        font-size: 9px;
+        font-size: 12px;
       }
-      
+
       .ff1-playlist-position {
-        font-size: 8px;
+        font-size: 12px;
+        margin-top: 2px;
       }
-      
-      /* FF1 copy button - compact on mobile */
+
+      /* FF1 copy button - flush left on mobile, no icon indent */
       .piece-ff1-copy {
-        padding: 2px 0;
-        font-size: 9px;
-        gap: 4px;
+        padding: 3px 0;
+        font-size: 12px;
+        gap: 5px;
+        justify-content: flex-start;
+        margin-left: 0;
       }
       
       .piece-ff1-copy .ff1-icon {
-        height: 12px;
+        height: 14px;
+        margin-right: 4px;
+        margin-left: 0;
       }
       
       .piece-ff1-copy .ff1-cmd {
@@ -720,14 +735,14 @@
       <div id="qr-container"></div>
     </div>
     <div id="piece-info">
-      <div id="ff1-playlist-header" class="ff1-playlist-header">
-        <div id="ff1-playlist-title" class="ff1-playlist-title"></div>
-        <div id="ff1-playlist-position" class="ff1-playlist-position"></div>
-      </div>
       <div id="piece-handle"></div>
       <div id="piece-hits"></div>
       <div id="piece-when"></div>
       <div id="ff1-module" class="ff1-module">
+        <div id="ff1-playlist-header" class="ff1-playlist-header">
+          <div id="ff1-playlist-title" class="ff1-playlist-title"></div>
+          <div id="ff1-playlist-position" class="ff1-playlist-position"></div>
+        </div>
         <button id="piece-ff1-copy" class="piece-ff1-copy" title="Copy FF1 CLI command">
           <img src="https://assets.aesthetic.computer/kidlisp.com/feralfile-logo.png" alt="" class="ff1-icon">
           <span class="ff1-cmd">ff1 play ...</span>
@@ -741,6 +756,7 @@
   </div>
   
   <iframe id="display-iframe"></iframe>
+  <iframe id="display-iframe-b" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;background:#000;z-index:0;visibility:hidden;"></iframe>
   
   <!-- YouTube-style progress bar for playlist mode -->
   <div id="progress-bar">
@@ -1367,14 +1383,60 @@
       const screenWidth = window.screen.width;
       const screenHeight = window.screen.height;
       const maxDim = Math.max(screenWidth, screenHeight);
+      const hostname = window.location.hostname;
       
-      // Base multiplier: density * 1.5 gives good proportional sizing
-      // Then adjust for native resolution displays where dpr=1
+      // Hardcoded optimal UI scales for common TV/display resolutions
+      // Format: [width, height, dpr] → uiScale
+      const resolutionMap = [
+        // 4K displays
+        { w: 3840, h: 2160, dpr: 1, scale: 20 },  // 4K native (e.g., F1 FF1)
+        { w: 1920, h: 1200, dpr: 2, scale: 20 },  // 4K scaled (e.g., MacBook 16")
+        { w: 1920, h: 1080, dpr: 2, scale: 24 },  // 1080p scaled to 4K-like (e.g., FF1 in some configs)
+        // 1080p displays
+        { w: 1920, h: 1080, dpr: 1, scale: 12 },  // 1080p native
+        { w: 1366, h: 768, dpr: 1, scale: 8 },    // 1366x768 laptop
+        { w: 1440, h: 900, dpr: 1, scale: 10 },   // 1440x900 laptop
+        // Mobile/portrait
+        { w: 800, h: 1280, dpr: 1, scale: 6 },    // Standard portrait phone
+      ];
+      
+      // Try to find an exact or close match
+      for (const entry of resolutionMap) {
+        if (screenWidth === entry.w && screenHeight === entry.h && dpr === entry.dpr) {
+          return entry.scale;  // Exact match
+        }
+      }
+      
+      // Fallback to proportional calculation
       const baseScale = density * 1.5;
       
+      // Device subdomains (device.kidlisp.com, top.kidlisp.com) are typically
+      // displayed on 4K TVs/displays viewed from a distance - use larger UI
+      // BUT only if the screen is actually 4K resolution
+      const isDeviceSubdomain = hostname === 'device.kidlisp.com' || 
+                                hostname === 'top.kidlisp.com' ||
+                                window.location.pathname.startsWith('/device.kidlisp.com') ||
+                                window.location.pathname.startsWith('/top.kidlisp.com');
+      
+      // Check if this is a 4K-class display (3840x2160 or similar)
+      // FF1 reports CSS pixels 1920x1200 which is 4K scaled by dpr=2
+      // Native 4K would be 3840+ with dpr=1
+      const is4KDisplay = (maxDim >= 3840 && dpr === 1) || 
+                          (maxDim >= 1920 && screenHeight >= 1080 && dpr >= 2);
+      
+      if (isDeviceSubdomain && is4KDisplay) {
+        // FF1/device mode on 4K: 2x multiplier for comfortable TV viewing distance
+        // (density=4 → baseScale=6 → scale≈12, close to default 20 which already works for 4K)
+        return Math.round(baseScale * 2);
+      } else if (isDeviceSubdomain) {
+        // Device subdomain but NOT 4K (e.g., laptop or 1080p TV)
+        // density=4,dpr=2 → scale ~6
+        return Math.max(2, Math.round(baseScale));
+      }
+      
       // For native 4K/high-res with dpr=1, apply additional multiplier
-      if (dpr === 1 && maxDim >= 3840) return Math.round(baseScale * 10);  // 4K native
-      if (dpr === 1 && maxDim >= 2560) return Math.round(baseScale * 5);   // 1440p native
+      if (dpr === 1 && maxDim >= 3840) return Math.round(baseScale * 20);  // 4K native
+      if (dpr === 1 && maxDim >= 2560) return Math.round(baseScale * 10);  // 1440p native
       return Math.round(baseScale);                                         // Retina/scaled displays
     }
     
@@ -1426,7 +1488,12 @@
     const hostname = window.location.hostname;
     
     // UI elements
-    const iframe = document.getElementById('display-iframe');
+    const iframeA = document.getElementById('display-iframe');
+    const iframeB = document.getElementById('display-iframe-b');
+    let iframe = iframeA;  // Active iframe reference (swaps during playlist transitions)
+    let preloadIframe = iframeB;  // Hidden preload iframe
+    let preloadedUrl = null;  // URL currently preloaded in the hidden iframe
+    let preloadReady = false;  // Whether the preloaded iframe has fired 'ready'
     const errorScreen = document.getElementById('error-screen');
     const errorText = document.getElementById('error-text');
     
@@ -1550,6 +1617,10 @@
     const dev = hostname === 'localhost' || hostname === 'local.aesthetic.computer';
     const aestheticUrl = dev ? 'https://localhost:8888' : 'https://aesthetic.computer';
     
+    // Check if this is an FF1/device subdomain (top.kidlisp.com, device.kidlisp.com)
+    const isDeviceSubdomain = hostname === 'device.kidlisp.com' || hostname === 'top.kidlisp.com';
+    const isTopPlaylist = hostname === 'top.kidlisp.com' || pathname.startsWith('/top.kidlisp.com');
+    
     const logDevice = (...args) => {
       console.log('📺 DEVICE:', ...args);
       addLog(args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' '));
@@ -1566,20 +1637,42 @@
     // Parse codeId or playlist path:
     // device.kidlisp.com/codeId
     // device.kidlisp.com/playlist/top100 (short playlist URL)
-    // top.kidlisp.com (alias for top100 playlist)
+    // top.kidlisp.com (auto-loads top100 playlist)
     // localhost:8888/kidlisp.com/device/codeId
     // localhost:8888/device.kidlisp.com/codeId
-    // localhost:8888/top.kidlisp.com (local dev for top.kidlisp.com)
+    // localhost:8888/top.kidlisp.com
     let codeId = null;
     let slideshowShortcut = null;  // Will be set if using /playlist/xxx path
+    let handleFilter = null;  // Filter playlist by @handle (e.g., top.kidlisp.com/@jeffrey)
+    let anonFilter = false;   // Filter to anonymous pieces only (top.kidlisp.com/anon)
     const pathParts = pathname.split('/').filter(p => p);
     
+    console.log('📺 Routing debug:', { hostname, pathname, pathParts });
+    
+    // top.kidlisp.com auto-loads top100 playlist
     if (hostname === 'top.kidlisp.com') {
-      // top.kidlisp.com is an alias for device.kidlisp.com/playlist/top100
       slideshowShortcut = 'top100';
+      // Check for handle filter: top.kidlisp.com/@jeffrey
+      if (pathParts[0] && pathParts[0].startsWith('@')) {
+        handleFilter = pathParts[0]; // e.g., "@jeffrey"
+        console.log('📺 Handle filter:', handleFilter);
+      } else if (pathParts[0] === 'anon') {
+        anonFilter = true;
+        console.log('📺 Anonymous filter enabled');
+      }
+      console.log('📺 Matched top.kidlisp.com, set slideshowShortcut:', slideshowShortcut);
     } else if (pathname.startsWith('/top.kidlisp.com')) {
-      // Local dev: localhost:8888/top.kidlisp.com → top100 playlist
+      // Local dev: localhost:8888/top.kidlisp.com
       slideshowShortcut = 'top100';
+      // Check for handle filter in local dev path
+      const topParts = pathname.replace('/top.kidlisp.com', '').split('/').filter(p => p);
+      if (topParts[0] && topParts[0].startsWith('@')) {
+        handleFilter = topParts[0];
+        console.log('📺 Handle filter (local dev):', handleFilter);
+      } else if (topParts[0] === 'anon') {
+        anonFilter = true;
+        console.log('📺 Anonymous filter enabled (local dev)');
+      }
     } else if (hostname === 'device.kidlisp.com') {
       // Production: device.kidlisp.com/codeId or /playlist/top100
       if (pathParts[0] === 'playlist' && pathParts[1]) {
@@ -1616,7 +1709,7 @@
     
     // Playlist mode params (for DP-1 playlist progress bar)
     const isPlaylist = params.get('playlist') === 'true';
-    const playlistDuration = parseInt(params.get('duration')) || 60; // seconds
+    const playlistDuration = parseInt(params.get('duration')) || 120; // seconds
     
     // Slideshow mode params (for full DP-1 playlist client)
     // playlist_url: URL to a DP-1 playlist JSON (e.g., feed.aesthetic.computer/api/v1/playlists/{id})
@@ -1626,9 +1719,16 @@
     const startIndex = parseInt(params.get('start_index')) || 0;
     
     // Resolve slideshow shortcut to full playlist URL
-    if (slideshowShortcut && KNOWN_PLAYLISTS[slideshowShortcut]) {
+    // If handle or anon filter is active, we'll build a dynamic playlist from the API instead
+    const usesDynamicPlaylist = handleFilter || anonFilter;
+    console.log('📺 Before playlist resolution:', { slideshowShortcut, KNOWN_PLAYLISTS, handleFilter, anonFilter, usesDynamicPlaylist });
+    if (slideshowShortcut && KNOWN_PLAYLISTS[slideshowShortcut] && !usesDynamicPlaylist) {
       playlistUrl = `${FEED_URL}/api/v1/playlists/${KNOWN_PLAYLISTS[slideshowShortcut]}`;
       console.log('📺 Resolved playlist shortcut:', slideshowShortcut, '→', playlistUrl);
+    } else if (usesDynamicPlaylist) {
+      // Mark as dynamic playlist - will be built in initSlideshow
+      playlistUrl = 'dynamic';
+      console.log('📺 Dynamic playlist mode:', handleFilter ? `handle=${handleFilter}` : 'anon');
     }
     
     // Flag to indicate we're in slideshow mode (skip scramble animation)
@@ -1712,6 +1812,50 @@
     // Fetches playlist from playlist_url and auto-advances through items
     // ═══════════════════════════════════════════════════════════════════════════
     
+    // Build a DP-1 playlist dynamically from the store-kidlisp API
+    async function buildDynamicPlaylist() {
+      const apiBase = dev ? 'https://localhost:8888' : 'https://aesthetic.computer';
+      let apiUrl = `${apiBase}/api/store-kidlisp?recent=true&sort=hits&limit=100`;
+      
+      if (handleFilter) {
+        apiUrl += `&handle=${encodeURIComponent(handleFilter)}`;
+      }
+      
+      console.log('📺 Fetching dynamic playlist from:', apiUrl);
+      const response = await fetch(apiUrl);
+      if (!response.ok) throw new Error(`API error: ${response.status}`);
+      
+      const data = await response.json();
+      let pieces = data.recent || [];
+      
+      // For anon filter, keep only pieces with no handle
+      if (anonFilter) {
+        pieces = pieces.filter(p => !p.handle);
+      }
+      
+      if (pieces.length === 0) {
+        throw new Error(handleFilter ? `No pieces found for ${handleFilter}` : 'No anonymous pieces found');
+      }
+      
+      const duration = 120;
+      const filterLabel = handleFilter || 'anonymous';
+      const dateFormatted = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      
+      return {
+        dpVersion: '1.1.0',
+        title: `Top ${pieces.length} by ${filterLabel} as of ${dateFormatted}`,
+        summary: handleFilter ? `Top KidLisp pieces by ${handleFilter}` : 'Top anonymous KidLisp pieces',
+        items: pieces.map((p, i) => ({
+          title: `$${p.code}`,
+          source: `https://device.kidlisp.com/$${p.code}`,
+          duration,
+          license: 'open',
+          provenance: { type: 'offChainURI' },
+        })),
+        defaults: { display: { scaling: 'fit', background: '#000000', margin: '0%' }, license: 'open', duration }
+      };
+    }
+    
     async function initSlideshow() {
       console.log('📺 Initializing slideshow mode with URL:', playlistUrl);
       
@@ -1725,13 +1869,17 @@
       setupFF1CopyButtonForPlaylist();
       
       try {
-        // Fetch the DP-1 playlist
-        const response = await fetch(playlistUrl);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch playlist: ${response.status}`);
+        if (usesDynamicPlaylist) {
+          // Build playlist dynamically from store-kidlisp API
+          slideshowPlaylist = await buildDynamicPlaylist();
+        } else {
+          // Fetch the DP-1 playlist from feed server
+          const response = await fetch(playlistUrl);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch playlist: ${response.status}`);
+          }
+          slideshowPlaylist = await response.json();
         }
-        
-        slideshowPlaylist = await response.json();
         console.log('📺 Playlist loaded:', slideshowPlaylist.title, 'with', slideshowPlaylist.items?.length, 'items');
         
         if (!slideshowPlaylist.items || slideshowPlaylist.items.length === 0) {
@@ -1759,6 +1907,67 @@
       }
     }
     
+    // Convert a playlist item to an iframe-loadable URL
+    function resolveItemUrl(item) {
+      let itemUrl = item.source || item.url || '';
+      // Always convert to aesthetic.computer URL for the iframe
+      // device.kidlisp.com URLs should NOT be used directly - they'd load another device.html!
+      if (itemUrl.includes('device.kidlisp.com')) {
+        const deviceMatch = itemUrl.match(/device\.kidlisp\.com\/(\$?[a-z0-9_-]+)/i);
+        if (deviceMatch) {
+          const rawCode = deviceMatch[1];
+          const code = rawCode.startsWith('$') ? rawCode : `$${rawCode}`;
+          itemUrl = `${aestheticUrl}/${code}?${buildDisplayParams()}`;
+        }
+      } else if (!itemUrl.includes('aesthetic.computer')) {
+        const separator = itemUrl.includes('?') ? '&' : '?';
+        itemUrl = `${itemUrl}${separator}${buildDisplayParams()}`;
+      } else {
+        const separator = itemUrl.includes('?') ? '&' : '?';
+        itemUrl = `${itemUrl}${separator}${buildDisplayParams()}`;
+      }
+      return itemUrl;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DOUBLE-BUFFERED IFRAME PRELOADING
+    // Preloads the next playlist item in a hidden iframe so transitions
+    // are instant (no black screen flash between pieces).
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function preloadNextItem() {
+      if (!slideshowPlaylist || !slideshowPlaylist.items) return;
+      const nextIndex = (slideshowIndex + 1) % slideshowPlaylist.items.length;
+      const nextItem = slideshowPlaylist.items[nextIndex];
+      if (!nextItem) return;
+
+      const nextUrl = resolveItemUrl(nextItem);
+      // Don't re-preload if already preloading the same URL
+      if (preloadedUrl === nextUrl) return;
+
+      preloadReady = false;
+      preloadedUrl = nextUrl;
+      preloadIframe.src = nextUrl;
+      console.log('📺 Preloading next item in hidden iframe:', nextIndex + 1, nextItem.title);
+    }
+
+    // Swap the active and preload iframes (instant visual cut)
+    function swapIframes() {
+      // Hide active, show preloaded
+      iframe.style.zIndex = '0';
+      iframe.style.visibility = 'hidden';
+      preloadIframe.style.zIndex = '1';
+      preloadIframe.style.visibility = 'visible';
+
+      // Swap references
+      const tmp = iframe;
+      iframe = preloadIframe;
+      preloadIframe = tmp;
+      preloadedUrl = null;
+      preloadReady = false;
+      console.log('📺 Iframes swapped — new active:', iframe.id);
+    }
+
     function playCurrentItem() {
       if (!slideshowPlaylist || !slideshowPlaylist.items) return;
       
@@ -1779,35 +1988,20 @@
       const playlistPosition = document.getElementById('ff1-playlist-position');
       if (playlistPosition) playlistPosition.textContent = `${slideshowIndex + 1} / ${slideshowPlaylist.items.length}`;
       
-      // Get the source URL from the item
-      // DP-1 items have a 'source' field with the display URL
-      let itemUrl = item.source || item.url || '';
+      const itemUrl = resolveItemUrl(item);
       
-      // Always convert to aesthetic.computer URL for the iframe
-      // device.kidlisp.com URLs should NOT be used directly - they'd load another device.html!
-      if (itemUrl.includes('device.kidlisp.com')) {
-        // Extract the code from device.kidlisp.com URL and convert to aesthetic.computer
-        const deviceMatch = itemUrl.match(/device\.kidlisp\.com\/(\$?[a-z0-9_-]+)/i);
-        if (deviceMatch) {
-          const rawCode = deviceMatch[1];
-          const code = rawCode.startsWith('$') ? rawCode : `$${rawCode}`;
-          itemUrl = `${aestheticUrl}/${code}?${buildDisplayParams()}`;
-        }
-      } else if (!itemUrl.includes('aesthetic.computer')) {
-        // It's some other URL, add display params
-        const separator = itemUrl.includes('?') ? '&' : '?';
-        itemUrl = `${itemUrl}${separator}${buildDisplayParams()}`;
+      // Check if this piece is already preloaded in the hidden iframe
+      if (preloadedUrl === itemUrl) {
+        // Instant swap — no loading, no black screen
+        console.log('📺 Using preloaded iframe for instant cut');
+        swapIframes();
       } else {
-        // It's already aesthetic.computer, ensure display params
-        const separator = itemUrl.includes('?') ? '&' : '?';
-        itemUrl = `${itemUrl}${separator}${buildDisplayParams()}`;
+        // First item or cache miss — load directly into active iframe
+        iframe.src = itemUrl;
       }
       
-      // Load the item in the iframe
-      iframe.src = itemUrl;
-      
       // Get duration from item or playlist defaults
-      const duration = item.duration || slideshowPlaylist.defaults?.duration || 24;
+      const duration = item.duration || slideshowPlaylist.defaults?.duration || 120;
       
       // Clear any existing timer
       if (slideshowTimer) {
@@ -1835,6 +2029,10 @@
         // Clear source display for non-kidlisp items
         document.getElementById('source-code-inner').innerHTML = '';
       }
+      
+      // Start preloading the NEXT item in the hidden iframe
+      // (wait a few seconds so we don't compete for bandwidth with the current piece)
+      setTimeout(() => preloadNextItem(), 3000);
       
       // Set timer to advance to next item
       slideshowTimer = setTimeout(() => {
@@ -1874,7 +2072,8 @@
         // First 1/6 (0-16.7%): show elements
         // Middle 4/6 (16.7%-83.3%): slide off
         // Last 1/6 (83.3%-100%): bring back
-        if (overlay) {
+        // DISABLED for device subdomains - always show UI
+        if (overlay && !isDeviceSubdomain) {
           const shouldSlideOut = progress > 16.67 && progress < 83.33;
           if (shouldSlideOut && !overlay.classList.contains('slid-out')) {
             overlay.classList.add('slid-out');
@@ -1884,7 +2083,8 @@
         }
         
         // Hide progress bar during middle section (same timing as slide out)
-        const shouldHideBar = progress > 16.67 && progress < 83.33;
+        // DISABLED for device subdomains - always show progress bar
+        const shouldHideBar = !isDeviceSubdomain && progress > 16.67 && progress < 83.33;
         if (shouldHideBar && !progressBar.classList.contains('hidden-mid')) {
           progressBar.classList.add('hidden-mid');
         } else if (!shouldHideBar && progressBar.classList.contains('hidden-mid')) {
@@ -2070,10 +2270,20 @@
       if (handleEl) {
         if (data.handle) {
           handleEl.textContent = data.handle;
+          handleEl.style.color = 'rgb(255, 107, 157)';
+          handleEl.style.cursor = 'pointer';
+          handleEl.onclick = () => {
+            // Open aesthetic.computer chat with handle prefilled
+            window.open(`https://aesthetic.computer/prompt~${encodeURIComponent('@' + data.handle)}`, '_blank');
+          };
+          handleEl.title = `Chat with ${data.handle}`;
           console.log('📺 Handle:', data.handle);
         } else {
           handleEl.textContent = 'anonymous';
           handleEl.style.color = 'rgb(150, 150, 150)';
+          handleEl.style.cursor = 'default';
+          handleEl.onclick = null;
+          handleEl.title = '';
           console.log('📺 Handle: anonymous');
         }
       }
@@ -2216,11 +2426,14 @@
       }
       
       // Build the playlist URL for the CLI command (official FF1 CLI format)
-      // Use the short path if we're in a known playlist, otherwise use full URL
+      // Use nice short subdomain URLs when available, otherwise use full URL
       let slideshowUrl;
-      if (slideshowShortcut === 'top100') {
-        // top.kidlisp.com is the nice alias for the top100 playlist
-        slideshowUrl = `https://top.kidlisp.com`;
+      if (handleFilter) {
+        slideshowUrl = `https://top.kidlisp.com/${handleFilter}`;
+      } else if (anonFilter) {
+        slideshowUrl = 'https://top.kidlisp.com/anon';
+      } else if (slideshowShortcut === 'top100') {
+        slideshowUrl = 'https://top.kidlisp.com';
       } else if (slideshowShortcut) {
         slideshowUrl = `https://device.kidlisp.com/playlist/${slideshowShortcut}`;
       } else {
@@ -2448,17 +2661,26 @@
         const msg = e.data.message;
         // Start progress bar when piece is fully ready (after black screen / loading)
         // "ready: ..." is the final boot message indicating piece is running
-        if (msg?.startsWith?.('ready:') && !progressBarStarted) {
-          progressBarStarted = true;
-          console.log('📺 Piece ready, starting progress bar now');
+        if (msg?.startsWith?.('ready:')) {
+          // Determine if this ready came from the active iframe or the preload iframe
+          const fromPreload = slideshowMode && e.source === preloadIframe.contentWindow;
           
-          // Check if we're in slideshow mode with a pending duration
-          if (window.pendingSlideshowDuration) {
-            startSlideshowProgressBar(window.pendingSlideshowDuration);
-            window.pendingSlideshowDuration = null;
-          } else if (!slideshowMode) {
-            // Single piece mode
-            startProgressBar();
+          if (fromPreload) {
+            // The preloaded piece is ready — mark it so swap can be instant
+            preloadReady = true;
+            console.log('📺 Preloaded piece is ready (hidden iframe)');
+          } else if (!progressBarStarted) {
+            progressBarStarted = true;
+            console.log('📺 Piece ready, starting progress bar now');
+            
+            // Check if we're in slideshow mode with a pending duration
+            if (window.pendingSlideshowDuration) {
+              startSlideshowProgressBar(window.pendingSlideshowDuration);
+              window.pendingSlideshowDuration = null;
+            } else if (!slideshowMode) {
+              // Single piece mode: 120 second progress bar, then soft restart
+              startProgressBar();
+            }
           }
         }
         pieceHasChanged = true;
@@ -2481,8 +2703,9 @@
       // First 1/6 (0-16.7%): show elements
       // Middle 4/6 (16.7%-83.3%): slide off
       // Last 1/6 (83.3%-100%): bring back
+      // DISABLED for device subdomains - always show UI
       const overlay = document.getElementById('source-overlay');
-      if (overlay) {
+      if (overlay && !isDeviceSubdomain) {
         const shouldSlideOut = progress > 16.67 && progress < 83.33;
         if (shouldSlideOut && !overlay.classList.contains('slid-out')) {
           overlay.classList.add('slid-out');
@@ -2492,7 +2715,8 @@
       }
       
       // Hide progress bar during middle section (same timing as slide out)
-      const shouldHideBar = progress > 16.67 && progress < 83.33;
+      // DISABLED for device subdomains - always show progress bar
+      const shouldHideBar = !isDeviceSubdomain && progress > 16.67 && progress < 83.33;
       if (shouldHideBar && !progressBar.classList.contains('hidden-mid')) {
         progressBar.classList.add('hidden-mid');
       } else if (!shouldHideBar && progressBar.classList.contains('hidden-mid')) {
@@ -2512,9 +2736,9 @@
       if (progress < 100) {
         requestAnimationFrame(updateProgressBar);
       } else {
-        // Progress bar complete - just refresh the page
-        console.log('📺 Progress bar complete - refreshing page');
-        window.location.reload();
+        // Progress bar complete - soft reload for smooth restart
+        console.log('📺 Progress bar complete - restarting piece');
+        reloadPiece();
       }
     }
     
@@ -2524,6 +2748,7 @@
       pieceHasChanged = false;
       progressStartTime = Date.now();
       progressFill.style.width = '0%';
+      progressFill.classList.remove('ending'); // Reset red blink state
       iframe.src = iframe.src.replace(/&t=\d+/, '') + '&t=' + Date.now();
       requestAnimationFrame(updateProgressBar);
     }

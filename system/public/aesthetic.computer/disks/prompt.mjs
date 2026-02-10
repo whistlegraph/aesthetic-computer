@@ -134,10 +134,17 @@ let login, // A login button in the center of the display.
   walletBtn, // Tezos wallet button (shown when connected)
   giveBtn, // GIVE button for funding mode (top-right)
   adBtn, // AD button for non-funding mode (top-right)
+  shopBtn, // SHOP button for products (top-right)
   commitBtn, // Commit hash button (navigates to commits piece)
   kidlispBtn; // KidLisp.com button (shown when in KidLisp mode)
 let adBtnParticles = []; // Sparkle particles for AD button
 let adBtnHue = 0; // Color cycling for AD button
+let shopBtnParticles = []; // Sparkle particles for SHOP button
+let shopBtnHue = 0; // Color cycling for SHOP button
+
+// 🎰 Top-right button random selection: "give", "ad", or "shop" (~1/3 each)
+const TOP_RIGHT_BTN_CHOICES = ["give", "ad", "shop"];
+const topRightBtnChoice = TOP_RIGHT_BTN_CHOICES[Math.floor(Math.random() * TOP_RIGHT_BTN_CHOICES.length)];
 let resendVerificationText;
 let ellipsisTicker;
 let chatTicker; // Ticker instance for chat messages
@@ -155,23 +162,31 @@ let unitickerButton; // Button for hover interaction
 let unitickerItems = []; // Combined items: {type: 'chat'|'clock'|'media', text: string, code: string, ...}
 let unitickerHoveredItem = null; // Currently hovered item for tooltip
 let unitickerTooltipVisible = false; // Whether to show the "Enter code" tooltip
+// Idle auto-select state
+let unitickerIdleFrames = 0; // Frames since last pen movement
+let unitickerLastPenX = -1; // Last pen X position
+let unitickerLastPenY = -1; // Last pen Y position
+let unitickerAutoSelectedItem = null; // Auto-selected item when idle
+let unitickerAutoSelectedX = 0; // X position of auto-selected item
+let unitickerAutoSelectedWidth = 0; // Width of auto-selected item
+const UNITICKER_IDLE_THRESHOLD = 120; // 2 seconds at 60fps before auto-selecting
 
 // 💸 FUNDING SEVERITY: Controls funding mode features
 // "critical" = full lockdown (chat offline, all alerts)
-// "yikes" = chat works, but keep $ effect, GIVE button, emotional face
+// "yikes" = chat works, GIVE button shows, but no $ replacement
 // "off" = normal operation
-export const FUNDING_SEVERITY = "yikes";
+export const FUNDING_SEVERITY = "off";
 
 // Legacy export for backwards compatibility
 export const FUNDING_MODE = FUNDING_SEVERITY === "critical";
 
 // Helper flags
-const showFundingEffects = FUNDING_SEVERITY !== "off"; // $ replacement, GIVE button, face
+const showFundingEffects = FUNDING_SEVERITY !== "off"; // GIVE button, face (no longer includes $ replacement)
 const isCriticalFunding = FUNDING_SEVERITY === "critical"; // Full lockdown mode
 
 // Set global flags for disk.mjs
 if (typeof globalThis !== "undefined") {
-  globalThis.AC_FUNDING_MODE = showFundingEffects; // $ replacement active for both critical and yikes
+  globalThis.AC_FUNDING_MODE = false; // $ replacement disabled - only GIVE button and boot screen active
   globalThis.AC_CHAT_DISABLED = isCriticalFunding; // Only block chat in critical mode
 }
 
@@ -3140,6 +3155,11 @@ async function halt($, text) {
     if (!openExternalFromIframe(githubUrl)) jump(githubUrl);
     makeFlash($);
     return true;
+  } else if (text.toLowerCase() === "agc") {
+    const agcUrl = "https://acg.media.mit.edu/";
+    if (!openExternalFromIframe(agcUrl)) jump(agcUrl);
+    makeFlash($);
+    return true;
   } else if (text.toLowerCase() === "gmail") {
     jump("https://gmail.com");
     makeFlash($);
@@ -4071,8 +4091,8 @@ function paint($) {
   // Calculate MOTD offset (do this before book rendering so it's always available)
   let motdXOffset = 0;
 
-  // 💸 GIVE button in top-right corner during funding effects (critical or yikes)
-  if (showFundingEffects && showLoginCurtain) {
+  // 💸 GIVE button in top-right corner (randomly shown ~1/3 of loads)
+  if (topRightBtnChoice === "give" && showLoginCurtain) {
     // Sync GIVE button with emotional face - angry = GIVE UP, others = currencies
     const now = Date.now();
 
@@ -4142,6 +4162,7 @@ function paint($) {
     if (btnBox) {
       // Draw button background and outline manually
       const isDown = giveBtn.btn.down;
+      const isHover = giveBtn.btn.over && !isDown;
 
       // 🔴⚪⚫ Special GIVE UP? mode - super fast red/white/black blinking
       if (isGiveUpMode) {
@@ -4181,11 +4202,29 @@ function paint($) {
 
         // No particles in GIVE UP? mode - too chaotic already
       } else {
-        // Normal rainbow mode
-        const bgColor = isDown ? hslToRgb(hue, 100, 70) : fillColor;
+        // Normal rainbow mode - add hover effect
+        let bgColor;
+        if (isDown) {
+          bgColor = hslToRgb(hue, 100, 70);
+        } else if (isHover) {
+          // On hover: brighter, faster color cycling, larger pulse
+          const hoverPulse = Math.sin(t * 10) * 0.5 + 0.5; // Faster pulse on hover
+          bgColor = hslToRgb((hue * 2) % 360, 100, 65 + hoverPulse * 15); // Brighter, double speed hue
+        } else {
+          bgColor = fillColor;
+        }
 
         ink(...bgColor).box(btnBox, "fill");
-        ink(255, 255, 255).box(btnBox, "outline");
+        
+        // Hover: thicker/brighter outline
+        if (isHover) {
+          const outlineHue = (hue + 180) % 360; // Complementary color outline
+          const outlineColor = hslToRgb(outlineHue, 100, 80);
+          ink(...outlineColor).box(btnBox.x - 1, btnBox.y - 1, btnBox.w + 2, btnBox.h + 2, "outline");
+          ink(255, 255, 255).box(btnBox, "outline");
+        } else {
+          ink(255, 255, 255).box(btnBox, "outline");
+        }
 
         // 💥 Draw each letter with individual shake and color!
         const chars = giveBtnText.split('');
@@ -4196,11 +4235,19 @@ function paint($) {
         chars.forEach((char, i) => {
           // Each letter gets different hue offset
           const letterHue = (hue + i * 90) % 360;
-          const letterColor = hslToRgb(letterHue, 100, isDown ? 40 : 75);
+          let letterColor;
+          if (isHover) {
+            // Brighter text on hover with faster animation
+            letterColor = hslToRgb(letterHue, 100, 90); // Almost white but tinted
+          } else {
+            letterColor = hslToRgb(letterHue, 100, isDown ? 40 : 75);
+          }
 
-          // Shake offset - each letter shakes independently
-          const shakeX = Math.sin(t * 20 + i * 2) * 1;
-          const shakeY = Math.cos(t * 25 + i * 3) * 1;
+          // Shake offset - each letter shakes independently (more on hover)
+          const shakeAmount = isHover ? 2 : 1;
+          const shakeSpeed = isHover ? 30 : 20;
+          const shakeX = Math.sin(t * shakeSpeed + i * 2) * shakeAmount;
+          const shakeY = Math.cos(t * (shakeSpeed + 5) + i * 3) * shakeAmount;
 
           const x = textStartX + i * charWidth + shakeX;
           const y = textY + shakeY;
@@ -4209,7 +4256,9 @@ function paint($) {
         });
 
         // ✨ Spawn sparkle particles around the button (only in normal mode)
-        if (Math.random() < 0.4) { // 40% chance per frame to spawn
+        // More particles on hover!
+        const spawnChance = isHover ? 0.7 : 0.4;
+        if (Math.random() < spawnChance) {
       const sparkleHue = (hue + Math.random() * 60 - 30) % 360; // Vary hue slightly
       const sparkleColor = hslToRgb(sparkleHue, 100, 70);
 
@@ -4277,9 +4326,8 @@ function paint($) {
     giveBtnParticles = []; // Clear particles when button hidden
   }
 
-  //  AD MODE button in top-right corner when funding is off (replace GIVE button)
-  // DISABLED for now - toggle back on by removing the `false &&` below
-  if (false && !showFundingEffects && showLoginCurtain) {
+  //  AD MODE button in top-right corner (randomly shown ~1/3 of loads)
+  if (topRightBtnChoice === "ad" && showLoginCurtain) {
     const now = Date.now();
     
     // Cycle through catchy ad phrases
@@ -4431,7 +4479,176 @@ function paint($) {
     adBtnParticles = []; // Clear particles when button hidden
   }
 
-  // 📦 Paint product (book or record) in top-right corner (only on login curtain)
+  // � SHOP button in top-right corner (randomly shown ~1/3 of loads)
+  if (topRightBtnChoice === "shop" && showLoginCurtain) {
+    const now = Date.now();
+
+    // Cycle through shop phrases
+    const shopPhrases = [
+      "SHOP ✦",
+      "★ SHOP ★",
+      "BUY ART!",
+      "AC SHOP",
+      "NEW ITEMS",
+      "MERCH ✦",
+    ];
+    const phraseIndex = Math.floor(now / 2500) % shopPhrases.length;
+    const shopBtnText = shopPhrases[phraseIndex];
+
+    // Position the button in top-right (same as GIVE/AD)
+    const btnPaddingTop = 8;
+    const btnPaddingRight = 10;
+    const charWidth = 6;
+    const btnWidth = shopBtnText.length * charWidth + 8;
+    const btnHeight = 19;
+    const shopBtnY = btnPaddingTop;
+    const shopBtnX = screen.width - btnWidth - btnPaddingRight;
+
+    if (!shopBtn) {
+      shopBtn = new $.ui.TextButton(shopBtnText, { x: shopBtnX, y: shopBtnY });
+    } else {
+      shopBtn.reposition({ x: shopBtnX, y: shopBtnY }, shopBtnText);
+    }
+
+    // Warm hue cycling (golds, oranges, greens)
+    shopBtnHue = (shopBtnHue + 0.7) % 360;
+
+    const hslToRgb = (h, s, l) => {
+      h /= 360; s /= 100; l /= 100;
+      let r, g, b;
+      if (s === 0) { r = g = b = l; }
+      else {
+        const hue2rgb = (p, q, t) => {
+          if (t < 0) t += 1;
+          if (t > 1) t -= 1;
+          if (t < 1/6) return p + (q - p) * 6 * t;
+          if (t < 1/2) return q;
+          if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+          return p;
+        };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+      }
+      return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+    };
+
+    const btnBox = shopBtn?.btn?.box;
+
+    if (btnBox) {
+      const isDown = shopBtn.btn.down;
+      const isHover = shopBtn.btn.over && !isDown;
+      const t = performance.now() / 1000;
+
+      // Gentle floating effect
+      const float = Math.sin(t * 1.8) * 1.5;
+      const floatY = btnBox.y + float;
+
+      // Warm gold/green tones
+      const bgHue = (shopBtnHue + 40) % 360; // Shift into warm range
+      let bgColor;
+      if (isDown) {
+        bgColor = hslToRgb(bgHue, 90, 40);
+      } else if (isHover) {
+        const hoverPulse = Math.sin(t * 6) * 0.5 + 0.5;
+        bgColor = hslToRgb(bgHue, 95, 55 + hoverPulse * 15);
+      } else {
+        bgColor = hslToRgb(bgHue, 85, 50);
+      }
+
+      ink(...bgColor).box(btnBox.x, floatY, btnBox.w, btnBox.h, "fill");
+
+      if (isHover) {
+        const outlineHue = (bgHue + 180) % 360;
+        const outlineColor = hslToRgb(outlineHue, 100, 80);
+        ink(...outlineColor).box(btnBox.x - 1, floatY - 1, btnBox.w + 2, btnBox.h + 2, "outline");
+        ink(255, 255, 255).box(btnBox.x, floatY, btnBox.w, btnBox.h, "outline");
+      } else {
+        ink(255, 255, 255, 180).box(btnBox.x, floatY, btnBox.w, btnBox.h, "outline");
+      }
+
+      // Draw text with color variation per character
+      const chars = shopBtnText.split('');
+      const textStartX = btnBox.x + 4;
+      const textY = floatY + 4;
+
+      chars.forEach((char, i) => {
+        const letterHue = (shopBtnHue + i * 40) % 360;
+        const letterColor = hslToRgb(letterHue, 100, isDown ? 85 : (isHover ? 95 : 90));
+        const shimmer = Math.sin(t * 4 + i * 0.6) * 0.5;
+        const x = textStartX + i * charWidth + shimmer;
+        ink(...letterColor).write(char, { x: Math.round(x), y: Math.round(textY) });
+      });
+
+      // Sparkle particles (medium intensity)
+      if (Math.random() < (isHover ? 0.25 : 0.1)) {
+        const sparkleHue = (shopBtnHue + 90) % 360;
+        const sparkleColor = hslToRgb(sparkleHue, 90, 70);
+
+        const edge = Math.floor(Math.random() * 4);
+        let px, py, vx, vy;
+
+        switch (edge) {
+          case 0:
+            px = btnBox.x + Math.random() * btnBox.w;
+            py = floatY;
+            vx = (Math.random() - 0.5) * 1.5;
+            vy = -Math.random() * 1.5 - 0.5;
+            break;
+          case 1:
+            px = btnBox.x + btnBox.w;
+            py = floatY + Math.random() * btnBox.h;
+            vx = Math.random() * 1.5 + 0.5;
+            vy = (Math.random() - 0.5) * 1.5;
+            break;
+          case 2:
+            px = btnBox.x + Math.random() * btnBox.w;
+            py = floatY + btnBox.h;
+            vx = (Math.random() - 0.5) * 1.5;
+            vy = Math.random() * 1.5 + 0.5;
+            break;
+          case 3:
+            px = btnBox.x;
+            py = floatY + Math.random() * btnBox.h;
+            vx = -Math.random() * 1.5 - 0.5;
+            vy = (Math.random() - 0.5) * 1.5;
+            break;
+        }
+
+        shopBtnParticles.push({
+          x: px, y: py, vx: vx, vy: vy,
+          life: 1.0,
+          color: sparkleColor,
+          size: Math.random() < 0.2 ? 2 : 1,
+        });
+      }
+    }
+
+    // Update and draw sparkle particles
+    shopBtnParticles = shopBtnParticles.filter(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vx *= 0.94;
+      p.vy *= 0.94;
+      p.life -= 0.025;
+
+      if (p.life > 0) {
+        const alpha = Math.floor(p.life * 255);
+        ink(...p.color, alpha).box(Math.round(p.x), Math.round(p.y), p.size, p.size);
+      }
+
+      return p.life > 0;
+    });
+
+    $.needsPaint();
+  } else {
+    shopBtn = null;
+    shopBtnParticles = [];
+  }
+
+  // �📦 Paint product (book or record) in top-right corner (only on login curtain)
   // Hide carousel when prompt is editable or has text
   // DISABLED: products carousel
   // const promptHasContent = $.system.prompt.input.text && $.system.prompt.input.text.length > 0;
@@ -5437,17 +5654,21 @@ function paint($) {
     const hasClockMessages = clockChatMessages && clockChatMessages.length > 0;
     const hasMediaItems = contentItems.length > 0;
 
-    // Build unified items array for rendering with hover detection
-    unitickerItems = [];
+    // Build unified items array - collect all items first, then interleave for frecency-style mixing
+    const chatItems = [];
+    const clockItems = [];
+    const mediaItems = [];
+    const commitItems = [];
+    const statsItems = [];
 
-    // Add chat messages (blue) - code: 'chat'
+    // Collect chat messages (blue) - code: 'chat'
     if (!isCriticalFunding && hasChatMessages) {
       const numMessages = Math.min(6, $.chat.messages.length);
       const recentMessages = $.chat.messages.slice(-numMessages);
       recentMessages.forEach(msg => {
         const sanitizedText = msg.text.replace(/[\r\n]+/g, ' ');
         const displayText = msg.from + ": " + sanitizedText.slice(0, 50) + (sanitizedText.length > 50 ? "..." : "");
-        unitickerItems.push({
+        chatItems.push({
           type: 'chat',
           text: displayText,
           code: 'chat',
@@ -5456,7 +5677,7 @@ function paint($) {
       });
     }
 
-    // Add clock messages (orange) - code: 'laer-klokken'
+    // Collect clock messages (orange) - code: 'laer-klokken'
     if (!isCriticalFunding && hasClockMessages) {
       const numClockMessages = Math.min(4, clockChatMessages.length);
       const recentClockMessages = clockChatMessages.slice(-numClockMessages);
@@ -5464,7 +5685,7 @@ function paint($) {
         const sanitizedText = (msg.text || msg.message || '').replace(/[\r\n]+/g, ' ');
         const from = msg.from || msg.handle || msg.author || 'anon';
         const displayText = from + ": " + sanitizedText.slice(0, 50) + (sanitizedText.length > 50 ? "..." : "");
-        unitickerItems.push({
+        clockItems.push({
           type: 'clock',
           text: displayText,
           code: 'laer-klokken',
@@ -5473,7 +5694,7 @@ function paint($) {
       });
     }
 
-    // Add media items (kidlisp, painting, tape)
+    // Collect media items (kidlisp, painting, tape)
     if (hasMediaItems) {
       contentItems.forEach(item => {
         let prefix, color, code;
@@ -5495,7 +5716,7 @@ function paint($) {
           color = [255, 200, 100]; // Bright orange/yellow
           code = `!${item.code}`;
         }
-        unitickerItems.push({
+        mediaItems.push({
           type: item.type,
           text: `${prefix}${item.code}`,
           code: code,
@@ -5505,31 +5726,64 @@ function paint($) {
       });
     }
 
-    // Add recent commits (lime green for hash and author visibility)
-    // Each commit shows: [hash] message ~author
+    // Collect recent commits (lime green for hash and author visibility)
     if (recentCommits.length > 0) {
       const numCommits = Math.min(5, recentCommits.length);
       recentCommits.slice(0, numCommits).forEach(commit => {
-        // Clean format that's readable in ticker
-        const displayText = `[${commit.hash}] ${commit.message} ~${commit.author}`;
-        unitickerItems.push({
+        // Map known authors to their handles
+        let author = commit.author;
+        if (author === 'Jeffrey Alan Scudder') author = '@jeffrey';
+        const displayText = `[${commit.hash}] ${commit.message} ~${author}`;
+        commitItems.push({
           type: 'commit',
           text: displayText,
-          code: 'commits', // Navigate to commits piece on click
+          code: 'commits',
           color: [100, 255, 100], // Lime green for commits
         });
       });
     }
 
-    // Add handles count (magenta/pink for visibility)
+    // Collect handles count (magenta/pink for visibility)
     if (handles) {
-      const handlesText = `${handles.toLocaleString()} HANDLES SET`;
-      unitickerItems.push({
+      const handlesText = `${handles.toLocaleString()} handles`;
+      statsItems.push({
         type: 'stats',
         text: handlesText,
-        code: 'handle', // Navigate to handle piece on click
+        code: 'handles',
         color: [255, 100, 255], // Magenta/pink for handles stat
       });
+    }
+
+    // 🎲 Interleave items for frecency-style distribution
+    // Round-robin through all item types to ensure good mixing
+    unitickerItems = [];
+    const allBuckets = [mediaItems, chatItems, clockItems, commitItems, statsItems].filter(b => b.length > 0);
+    const bucketIndices = allBuckets.map(() => 0);
+    const totalItems = allBuckets.reduce((sum, b) => sum + b.length, 0);
+    
+    // Distribute items by cycling through buckets
+    let placed = 0;
+    let bucketCursor = 0;
+    while (placed < totalItems) {
+      // Find next bucket with items remaining
+      let attempts = 0;
+      while (bucketIndices[bucketCursor] >= allBuckets[bucketCursor].length && attempts < allBuckets.length) {
+        bucketCursor = (bucketCursor + 1) % allBuckets.length;
+        attempts++;
+      }
+      if (attempts >= allBuckets.length) break; // All buckets exhausted
+      
+      // Take item from current bucket
+      const bucket = allBuckets[bucketCursor];
+      const idx = bucketIndices[bucketCursor];
+      if (idx < bucket.length) {
+        unitickerItems.push(bucket[idx]);
+        bucketIndices[bucketCursor]++;
+        placed++;
+      }
+      
+      // Move to next bucket for round-robin
+      bucketCursor = (bucketCursor + 1) % allBuckets.length;
     }
 
     // Show uniticker if we have any items
@@ -5580,13 +5834,16 @@ function paint($) {
 
       // Paint background and borders
       if (!unitickerButton.disabled) {
-        // Dark background for high contrast
-        const bgAlpha = unitickerButton.down ? 100 : 60;
+        // Dark background for high contrast (brighter when hovering)
+        const isTickerHover = unitickerButton.over && !unitickerButton.down;
+        const bgAlpha = unitickerButton.down ? 100 : (isTickerHover ? 80 : 60);
         ink([20, 20, 30, bgAlpha]).box(0, boxY, screen.width, boxHeight - 1);
 
-        // Subtle top and bottom borders (purple/pink tint)
-        ink([150, 100, 200, 180]).line(0, boxY, screen.width, boxY);
-        ink([150, 100, 200, 180]).line(0, boxY + boxHeight - 1, screen.width, boxY + boxHeight - 1);
+        // Subtle top and bottom borders (purple/pink tint - brighter on hover)
+        const borderAlpha = isTickerHover ? 230 : 180;
+        const borderColor = isTickerHover ? [180, 120, 230, borderAlpha] : [150, 100, 200, borderAlpha];
+        ink(borderColor).line(0, boxY, screen.width, boxY);
+        ink(borderColor).line(0, boxY + boxHeight - 1, screen.width, boxY + boxHeight - 1);
 
         // Render items with individual colors and hover detection
         const textY = unitickerY;
@@ -5611,10 +5868,26 @@ function paint($) {
         const rawOffset = uniticker.getOffset();
         const loopedOffset = totalCycleWidth > 0 ? (rawOffset % totalCycleWidth) : 0;
 
-        // Track hovered item
+        // Track hovered item and visible items for auto-selection
         let hoveredItem = null;
         let hoveredItemX = 0;
         let hoveredItemWidth = 0;
+        let visibleItemsForAutoSelect = []; // Track all visible items with positions for idle auto-select
+
+        // Track idle state - detect pen movement
+        const penX = $.pen?.x ?? -1;
+        const penY = $.pen?.y ?? -1;
+        if (penX !== unitickerLastPenX || penY !== unitickerLastPenY) {
+          unitickerIdleFrames = 0;
+          unitickerLastPenX = penX;
+          unitickerLastPenY = penY;
+          // Clear auto-selection when user moves mouse
+          if (hoveredItem) {
+            unitickerAutoSelectedItem = null;
+          }
+        } else {
+          unitickerIdleFrames++;
+        }
 
         // Calculate starting X position with looped offset
         const startMargin = 6;
@@ -5644,6 +5917,15 @@ function paint($) {
               hoveredItem = item;
               hoveredItemX = currentX;
               hoveredItemWidth = textWidth;
+            }
+
+            // Track visible items for auto-selection (items entering from right side)
+            if (currentX >= 0 && currentX < screen.width) {
+              visibleItemsForAutoSelect.push({
+                item,
+                x: currentX,
+                width: textWidth,
+              });
             }
 
             // Only render if visible on screen (with small buffer)
@@ -5676,39 +5958,155 @@ function paint($) {
         unitickerHoveredItem = hoveredItem;
         unitickerButton.hoveredItem = hoveredItem;
 
-        // 🎯 Draw "Enter [code]" tooltip above hovered item
-        if (hoveredItem && !unitickerButton.down) {
-          const tooltipText = `Enter '${hoveredItem.code}'`;
+        // 🎯 Auto-select on idle: pick a "future" item (from right side) when idle
+        let displayItem = hoveredItem;
+        let displayItemX = hoveredItemX;
+        let displayItemWidth = hoveredItemWidth;
+
+        if (!hoveredItem && unitickerIdleFrames >= UNITICKER_IDLE_THRESHOLD && visibleItemsForAutoSelect.length > 0) {
+          // Sort by X position to find rightmost items ("future" items coming from the right)
+          visibleItemsForAutoSelect.sort((a, b) => a.x - b.x);
+
+          // Check if current auto-selected item is still visible and hasn't scrolled off left
+          if (unitickerAutoSelectedItem) {
+            const stillVisible = visibleItemsForAutoSelect.find(
+              v => v.item === unitickerAutoSelectedItem && v.x >= -v.width * 0.3
+            );
+            if (stillVisible) {
+              // Keep tracking the auto-selected item (tooltip scrolls with it)
+              displayItem = stillVisible.item;
+              displayItemX = stillVisible.x;
+              displayItemWidth = stillVisible.width;
+              unitickerAutoSelectedX = stillVisible.x;
+              unitickerAutoSelectedWidth = stillVisible.width;
+            } else {
+              // Item scrolled off to the left - select next "future" item
+              unitickerAutoSelectedItem = null;
+            }
+          }
+
+          // If no auto-selected item, pick one from center-right area (not too eager)
+          if (!unitickerAutoSelectedItem && visibleItemsForAutoSelect.length > 0) {
+            // Pick item from center-right of screen (40%-70% range) - not too eager
+            const minThreshold = screen.width * 0.4; // Don't pick items too far left
+            const maxThreshold = screen.width * 0.7; // Don't pick items too far right (let them settle in)
+            const centeredItems = visibleItemsForAutoSelect.filter(v => v.x >= minThreshold && v.x <= maxThreshold);
+            
+            let targetItem;
+            if (centeredItems.length > 0) {
+              // Pick the rightmost centered item (newest arrival that's settled)
+              targetItem = centeredItems[centeredItems.length - 1];
+            } else {
+              // Fallback: pick item closest to center-right
+              const idealX = screen.width * 0.55;
+              targetItem = visibleItemsForAutoSelect.reduce((best, v) => {
+                const bestDist = Math.abs(best.x - idealX);
+                const vDist = Math.abs(v.x - idealX);
+                return vDist < bestDist ? v : best;
+              });
+            }
+
+            unitickerAutoSelectedItem = targetItem.item;
+            unitickerAutoSelectedX = targetItem.x;
+            unitickerAutoSelectedWidth = targetItem.width;
+            displayItem = targetItem.item;
+            displayItemX = targetItem.x;
+            displayItemWidth = targetItem.width;
+          }
+        } else if (hoveredItem) {
+          // User is hovering - clear auto-selection
+          unitickerAutoSelectedItem = null;
+        }
+
+        // 🎯 Draw "Enter [code]" tooltip below hovered or auto-selected item (scrolls with it)
+        if (displayItem && !unitickerButton.down) {
+          // Generate contextual tooltip text based on item type and docs
+          let tooltipPrefix, tooltipCode, tooltipSuffix;
+          const doc = tooltipDocs?.[displayItem.code];
+          if (doc?.desc) {
+            // Use doc description with action prefix
+            tooltipPrefix = "Enter '";
+            tooltipCode = displayItem.code;
+            tooltipSuffix = `' to ${doc.desc.toLowerCase().replace(/\.$/, '')}`;
+          } else if (displayItem.type === 'kidlisp') {
+            tooltipPrefix = "Enter '";
+            tooltipCode = displayItem.code;
+            tooltipSuffix = "' to run";
+          } else if (displayItem.type === 'painting') {
+            tooltipPrefix = "Enter '";
+            tooltipCode = displayItem.code;
+            tooltipSuffix = "' to view";
+          } else if (displayItem.type === 'tape') {
+            tooltipPrefix = "Enter '";
+            tooltipCode = displayItem.code;
+            tooltipSuffix = "' to listen";
+          } else if (displayItem.type === 'commit') {
+            tooltipPrefix = "Enter '";
+            tooltipCode = displayItem.code;
+            tooltipSuffix = "' to browse";
+          } else if (displayItem.type === 'stats') {
+            tooltipPrefix = "Enter '";
+            tooltipCode = displayItem.code;
+            tooltipSuffix = "' to browse";
+          } else {
+            tooltipPrefix = "Enter '";
+            tooltipCode = displayItem.code;
+            tooltipSuffix = "'";
+          }
+          const tooltipText = tooltipPrefix + tooltipCode + tooltipSuffix;
           const tooltipWidth = $.text.box(tooltipText, undefined, undefined, undefined, undefined, tickerFont).box.width;
           const tooltipHeight = 10;
           const tooltipPadding = 3;
 
-          // Position tooltip above the hovered item, centered
-          let tooltipX = hoveredItemX + (hoveredItemWidth / 2) - (tooltipWidth / 2) - tooltipPadding;
-          const tooltipY = boxY - tooltipHeight - tooltipPadding * 2 - 4;
+          // Position tooltip below the item, centered
+          let tooltipX = displayItemX + (displayItemWidth / 2) - (tooltipWidth / 2) - tooltipPadding;
+          const tooltipY = boxY + boxHeight + 10; // Below the ticker with more room for arrow
 
           // Clamp to screen bounds
           tooltipX = Math.max(4, Math.min(tooltipX, screen.width - tooltipWidth - tooltipPadding * 2 - 4));
 
-          // Draw tooltip background
-          const tooltipBgColor = [...hoveredItem.color, 180];
-          ink([10, 10, 20, 220]).box(tooltipX, tooltipY, tooltipWidth + tooltipPadding * 2, tooltipHeight + tooltipPadding * 2);
+          // Draw tooltip background (slightly dimmer for auto-selected to indicate passive state)
+          const alphaMultiplier = hoveredItem ? 1 : 0.7;
+          const tooltipBgColor = [...displayItem.color, Math.round(180 * alphaMultiplier)];
+          ink([10, 10, 20, Math.round(220 * alphaMultiplier)]).box(tooltipX, tooltipY, tooltipWidth + tooltipPadding * 2, tooltipHeight + tooltipPadding * 2);
           ink(tooltipBgColor).box(tooltipX, tooltipY, tooltipWidth + tooltipPadding * 2, tooltipHeight + tooltipPadding * 2, "inline");
 
-          // Draw tooltip text
-          ink([255, 255, 255, 255]).write(tooltipText, { x: tooltipX + tooltipPadding, y: tooltipY + tooltipPadding + 1 }, undefined, undefined, false, tickerFont);
+          // Draw tooltip text with syntax highlighting for the quoted code
+          const textY = tooltipY + tooltipPadding + 1;
+          let textX = tooltipX + tooltipPadding;
+          const baseAlpha = Math.round(255 * alphaMultiplier);
+          const dimAlpha = Math.round(180 * alphaMultiplier);
+          
+          // Draw prefix in dimmer white
+          ink([255, 255, 255, dimAlpha]).write(tooltipPrefix, { x: textX, y: textY }, undefined, undefined, false, tickerFont);
+          textX += $.text.box(tooltipPrefix, undefined, undefined, undefined, undefined, tickerFont).box.width;
+          
+          // Draw code in bright highlight color (use item's color for consistency)
+          ink([...displayItem.color, baseAlpha]).write(tooltipCode, { x: textX, y: textY }, undefined, undefined, false, tickerFont);
+          textX += $.text.box(tooltipCode, undefined, undefined, undefined, undefined, tickerFont).box.width;
+          
+          // Draw suffix in dimmer white
+          ink([255, 255, 255, dimAlpha]).write(tooltipSuffix, { x: textX, y: textY }, undefined, undefined, false, tickerFont);
 
-          // Draw small arrow pointing down to the item
-          const arrowX = hoveredItemX + (hoveredItemWidth / 2);
-          const arrowY = tooltipY + tooltipHeight + tooltipPadding * 2;
-          ink([...hoveredItem.color, 200]).line(arrowX, arrowY, arrowX - 3, arrowY + 3);
-          ink([...hoveredItem.color, 200]).line(arrowX, arrowY, arrowX + 3, arrowY + 3);
+          // Draw small arrow pointing up to the item
+          const arrowX = displayItemX + (displayItemWidth / 2);
+          const arrowY = tooltipY;
+          const arrowAlpha = Math.round(200 * alphaMultiplier);
+          ink([...displayItem.color, arrowAlpha]).line(arrowX, arrowY, arrowX - 3, arrowY - 3);
+          ink([...displayItem.color, arrowAlpha]).line(arrowX, arrowY, arrowX + 3, arrowY - 3);
+
+          // Draw subtle highlight on auto-selected item (when not hovering)
+          if (!hoveredItem && unitickerAutoSelectedItem) {
+            $.ink([...displayItem.color, 30]).box(displayItemX - 1, boxY + 1, displayItemWidth + 2, boxHeight - 3);
+          }
         }
       }
     } else {
       uniticker = null;
       unitickerButton = null;
       unitickerHoveredItem = null;
+      unitickerAutoSelectedItem = null; // Clear auto-selection when ticker is hidden
+      unitickerIdleFrames = 0;
       currentTooltipItem = null; // Clear when ticker is hidden
       tooltipTimer = 0;
       if (activeTapePreview) {
@@ -6741,7 +7139,13 @@ function paint($) {
         }
       }
 
-      login.paint($, $.dark ? scheme.dark.login : scheme.light.login);
+      login.paint(
+        $,
+        $.dark ? scheme.dark.login : scheme.light.login,
+        undefined, // hoverScheme (use default)
+        undefined, // disabledScheme (use default)
+        $.dark ? scheme.dark.loginRollover : scheme.light.loginRollover
+      );
     }
   }
 
@@ -6772,7 +7176,13 @@ function paint($) {
         }
       }
 
-      signup.paint($, $.dark ? scheme.dark.signup : scheme.light.signup);
+      signup.paint(
+        $,
+        $.dark ? scheme.dark.signup : scheme.light.signup,
+        undefined, // hoverScheme (use default)
+        undefined, // disabledScheme (use default)
+        $.dark ? scheme.dark.signupRollover : scheme.light.signupRollover
+      );
     }
   }
   if (profile && !profile.btn.disabled) {
@@ -6831,7 +7241,13 @@ function paint($) {
         screen.width - 16,
       );
     }
-    profile?.paint($);
+    profile?.paint(
+      $,
+      $.dark ? scheme.dark.profile : scheme.light.profile,
+      undefined, // hoverScheme (use default)
+      undefined, // disabledScheme (use default)
+      $.dark ? scheme.dark.profileRollover : scheme.light.profileRollover
+    );
 
     // ꜩ Tezos wallet button (positioned to the right of handle button)
     if (tezosWalletAddress && profile) {
@@ -7608,7 +8024,19 @@ function act({
     });
   }
 
-  // 📦 Commit button - navigate to commits piece
+  // � SHOP button - navigate to shop
+  if (shopBtn && !shopBtn.btn.disabled) {
+    shopBtn.btn.act(e, {
+      down: () => downSound(),
+      push: () => {
+        pushSound();
+        jump("out:https://shop.aesthetic.computer");
+      },
+      cancel: () => cancelSound(),
+    });
+  }
+
+  // �📦 Commit button - navigate to commits piece
   if (commitBtn && !commitBtn.btn.disabled) {
     commitBtn.btn.act(e, {
       down: () => downSound(),
@@ -7909,7 +8337,14 @@ export const scheme = {
     highlight: [255, 100, 0],
     guideline: [0, 0, 255, 64],
     login: [[0, 0, 64], 255, 255, [0, 0, 64]],
+    loginRollover: [[0, 60, 120], [100, 200, 255], [100, 200, 255], [0, 60, 120]], // Cyan glow on hover
     signup: [[0, 64, 0], 255, 255, [0, 64, 0]],
+    signupRollover: [[40, 100, 40], [100, 255, 100], [100, 255, 100], [40, 100, 40]], // Bright green glow
+    profile: [[64, 0, 64], [255, 100, 255], [255, 100, 255], [64, 0, 64]], // Magenta base
+    profileRollover: [[100, 40, 120], [255, 150, 255], [255, 150, 255], [100, 40, 120]], // Brighter magenta
+    // Paste/Enter button rollover (used by TextInput)
+    btnRollover: [80, 50, 120], // Purple tint fill
+    btnRolloverTxt: [220, 180, 255], // Light purple text
     handleColor: [255, 0, 255, 128],
     auto: "white",
     statusColor: "lime",
@@ -7924,8 +8359,15 @@ export const scheme = {
     guideline: [255, 207, 105],
     // login: [255, [0, 0, 64], [0, 0, 64], 255],
     login: [[0, 0, 128], 255, 255, [0, 0, 128]],
+    loginRollover: [[30, 80, 180], [150, 200, 255], [150, 200, 255], [30, 80, 180]], // Lighter blue glow
     // signup: [255, [0, 64, 0], [0, 64, 0], 255],
     signup: [[0, 128, 0], 255, 255, [0, 128, 0]],
+    signupRollover: [[50, 160, 50], [150, 255, 150], [150, 255, 150], [50, 160, 50]], // Lighter green glow
+    profile: [[128, 0, 128], [255, 100, 255], [255, 100, 255], [128, 0, 128]], // Magenta base
+    profileRollover: [[160, 50, 160], [255, 170, 255], [255, 170, 255], [160, 50, 160]], // Brighter magenta
+    // Paste/Enter button rollover (used by TextInput)
+    btnRollover: [200, 180, 240], // Light purple tint fill
+    btnRolloverTxt: [80, 40, 140], // Dark purple text
     handleColor: [0, 0, 255, 128],
     auto: "red",
     statusColor: "darkgreen",

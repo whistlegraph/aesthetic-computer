@@ -207,6 +207,16 @@ let cachedClockCode = null; // Short code for QR display after caching to API
 let cachedClockAuthor = null; // Author handle for byline display (e.g., "@handle" or null for anon)
 let octaveFlashTime = 0; // Track when octave changed for flash effect
 
+// Loading state system - wait for samples before playback
+let loadingState = {
+  isLoading: false,
+  samplesNeeded: 0,
+  samplesLoaded: 0,
+  readyToPlay: true, // Start true for melodies without samples
+  loadStartTime: 0,
+  pendingPromises: [],
+};
+
 // Enhanced melody state for simultaneous tracks
 let melodyTracks = null; // Will store parsed simultaneous tracks
 let melodyState = null;
@@ -424,29 +434,41 @@ function preloadMelodySpeech(melodyState, speak, num, help) {
 }
 
 // Preload say texts for {say} waveform type (pitched speech samples)
-function preloadSayTexts(melodyState, speak, num) {
-  if (!melodyState || !speak) return;
+// Returns an array of promises that resolve when all samples are loaded
+async function preloadSayTexts(melodyState, speak, num) {
+  if (!melodyState || !speak) return [];
   
   const sayTexts = extractSayTexts(melodyState);
   
-  if (sayTexts.size === 0) return;
+  if (sayTexts.size === 0) return [];
   
   console.log(`🗣️ Preloading ${sayTexts.size} say samples for {say} waveform...`);
+  
+  const loadPromises = [];
   
   sayTexts.forEach(text => {
     // Skip if already queued
     if (sayCacheQueue.has(text)) return;
     sayCacheQueue.add(text);
     
-    // Trigger silent fetch to cache the speech using plain text (no SSML)
-    // This ensures a single cached audio that we can pitch-shift via playback speed
-    speak(text, "female:18", "cloud", {
-      volume: 0, // Silent generation for caching
-      skipCompleted: true,
+    // Use preloadOnly mode to get a promise that resolves when cached
+    const loadPromise = speak(text, "female:18", "cloud", {
+      preloadOnly: true, // Returns promise, resolves when cached, doesn't play
     });
     
-    console.log(`🗣️ Preloading say text: "${text}"`);
+    if (loadPromise) {
+      // Wrap to update loading state when done
+      const trackedPromise = loadPromise.then((label) => {
+        loadingState.samplesLoaded++;
+        console.log(`🗣️ Loaded say text: "${text}" (${loadingState.samplesLoaded}/${loadingState.samplesNeeded})`);
+        return label;
+      });
+      loadPromises.push(trackedPromise);
+      console.log(`🗣️ Preloading say text: "${text}"`);
+    }
   });
+  
+  return loadPromises;
 }
 
 // Helper functions for managing per-track cumulative Hz states
@@ -1234,7 +1256,27 @@ async function boot({ ui, clock, params, colon, hud, screen, typeface, api, spea
   // Preload speech for instant playback if speak function is available
   if (speak && melodyState) {
     preloadMelodySpeech(melodyState, speak, num, help);
-    preloadSayTexts(melodyState, speak, num); // Preload {say} waveform texts
+    
+    // Preload {say} waveform texts and wait for them to load
+    const sayLoadPromises = await preloadSayTexts(melodyState, speak, num);
+    
+    if (sayLoadPromises.length > 0) {
+      loadingState.isLoading = true;
+      loadingState.readyToPlay = false;
+      loadingState.samplesNeeded = sayLoadPromises.length;
+      loadingState.samplesLoaded = 0;
+      loadingState.loadStartTime = performance.now();
+      loadingState.pendingPromises = sayLoadPromises;
+      
+      console.log(`🗣️ Waiting for ${sayLoadPromises.length} say samples to load...`);
+      
+      // Wait for all samples to finish loading
+      await Promise.all(sayLoadPromises);
+      
+      loadingState.isLoading = false;
+      loadingState.readyToPlay = true;
+      console.log(`🗣️ All say samples loaded! Ready to play.`);
+    }
   }
 
   // Cache melody to API for QR shortcode (fire and forget, don't block boot)
@@ -1447,6 +1489,17 @@ function paint({
     if (typeof hud !== "undefined" && hud.label) {
       // Check if melody timing has started (based on whether first synth has fired)
       const melodyTimingStarted = hasFirstSynthFired;
+
+      // Show loading indicator if samples are still loading
+      if (!loadingState.readyToPlay && loadingState.isLoading) {
+        const loadProgress = loadingState.samplesNeeded > 0 
+          ? `${loadingState.samplesLoaded}/${loadingState.samplesNeeded}`
+          : "...";
+        const loadingStr = `\\yellow\\clock \\white\\Loading samples ${loadProgress}`;
+        hud.supportsInlineColor = true;
+        hud.label(loadingStr, undefined, 0, `clock Loading samples ${loadProgress}`);
+        return; // Skip the rest of the HUD rendering while loading
+      }
 
       // Provide "clock" prefix plus melody content - let disk.mjs handle all coloring
       let previewStringDecorative = "";
@@ -2137,6 +2190,30 @@ function paint({
                 );
                 isCurrentlyPlayingNote =
                   noteCharData.noteIndex === currentPlayingIndex;
+              } else if (
+                melodyState &&
+                melodyState.type === "sequential" &&
+                melodyState.currentSequenceState
+              ) {
+                // For sequential melodies, only highlight notes in the current sequence
+                // AND only if this note is the currently playing one
+                if (noteCharData.isInCurrentSequence) {
+                  const seqState = melodyState.currentSequenceState;
+                  if (seqState.type === "single" && seqState.notes) {
+                    // Single track within sequence
+                    const totalNotes = seqState.notes.length;
+                    const currentPlayingIndex = (seqState.index - 1 + totalNotes) % totalNotes;
+                    isCurrentlyPlayingNote = noteCharData.noteIndex === currentPlayingIndex;
+                  } else if (seqState.type === "parallel" && seqState.trackStates) {
+                    // Parallel tracks within sequence
+                    const trackState = seqState.trackStates[noteCharData.trackIndex];
+                    if (trackState && trackState.track) {
+                      const totalNotes = trackState.track.length;
+                      const currentPlayingIndex = (trackState.noteIndex - 1 + totalNotes) % totalNotes;
+                      isCurrentlyPlayingNote = noteCharData.noteIndex === currentPlayingIndex;
+                    }
+                  }
+                }
               }
             }
 
@@ -3539,17 +3616,24 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
       isMutation,
       struck,
       sequenceTrackCount, // Track count for this note's sequence
-      sayText, // Text content for say waveforms
+      sayText, // Text for say waveform display
+      sequenceIndex: noteSequenceIndex, // Which sequence this note belongs to
     } = historyItem;
 
+    // Get current sequence index from melodyState for comparison
+    const currentSeqIndex = melodyState?.currentSequence ?? null;
+    
     // Determine if this is a history note (from a previous section)
     // History notes should use their OWN sequenceTrackCount for proper layout
     // Current/future notes use the current trackCount
     const isHistoryNote = endTime < musicalTimeReference;
     
-    // A note should also be treated as "from different section" if its trackIndex
-    // exceeds the current section's track count (e.g., track 1 note when current section has 1 track)
-    const isFromDifferentSection = trackIndex >= trackCount;
+    // A note is from a different section if:
+    // 1. Its trackIndex exceeds the current section's track count, OR
+    // 2. It's a sequential melody and the note's sequence index doesn't match current sequence
+    const isFromDifferentTrackCount = trackIndex >= trackCount;
+    const isFromDifferentSequence = (noteSequenceIndex !== null && currentSeqIndex !== null && noteSequenceIndex !== currentSeqIndex);
+    const isFromDifferentSection = isFromDifferentTrackCount || isFromDifferentSequence;
     
     // For history notes OR notes from different sections, use their own track count
     // This shows how the previous section was laid out visually
@@ -3926,66 +4010,22 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
                 }
               }
               
-              // Determine label text: use sayText if available, otherwise use note letter
-              // For say waveforms, show the spoken text; for regular notes, show note name
-              const labelText = sayText ? sayText : note.toUpperCase();
+              // Display sayText if present (for say waveform), otherwise show note name
+              const displayText = sayText ? `"${sayText}"` : note.toUpperCase();
               
-              // Adaptive font sizing: use smaller scale if text won't fit
-              // MatrixChunky8 chars are ~6px wide at scale 1, default font is ~6px
-              const charWidthAtScale1 = 6;
-              const charHeightAtScale1 = 8;
-              const textWidthNeeded = labelText.length * charWidthAtScale1;
-              const availableWidth = barWidth - 4; // Leave 2px margin on each side
-              const availableHeight = actualBarHeight - 4; // Leave 2px margin top/bottom
+              // For sayText, use a smaller scale and center differently if text is long
+              const textScale = sayText ? 0.6 : 0.8;
+              const charWidth = 6 * textScale;
+              const textWidth = displayText.length * charWidth;
+              const textX = sayText 
+                ? Math.round(trackCenterX - textWidth / 2) // Center sayText
+                : labelX; // Original positioning for note names
               
-              // Calculate optimal scale based on both width and height constraints
-              let labelScale = 1.0;
-              let useSmallFont = false;
-              
-              if (textWidthNeeded > availableWidth || charHeightAtScale1 > availableHeight) {
-                // Text doesn't fit at full size - try scaling down
-                const scaleForWidth = availableWidth / textWidthNeeded;
-                const scaleForHeight = availableHeight / charHeightAtScale1;
-                labelScale = Math.min(scaleForWidth, scaleForHeight, 1.0);
-                
-                // If scaled below 0.5, switch to smaller font (MatrixChunky8 at scale 1)
-                if (labelScale < 0.5) {
-                  useSmallFont = true;
-                  // MatrixChunky8 has smaller chars, recalculate scale
-                  const smallCharWidth = 5; // MatrixChunky8 is narrower
-                  const smallTextWidth = labelText.length * smallCharWidth;
-                  labelScale = Math.min(availableWidth / smallTextWidth, availableHeight / 7, 1.0);
-                }
-                
-                // Don't render if scale is too small to be readable
-                if (labelScale < 0.25) {
-                  labelScale = 0; // Skip rendering
-                }
-              }
-              
-              // Only render if we have a reasonable scale
-              if (labelScale > 0) {
-                // Calculate centered position
-                const effectiveCharWidth = useSmallFont ? 5 : charWidthAtScale1;
-                const effectiveTextWidth = labelText.length * effectiveCharWidth * labelScale;
-                const centeredLabelX = Math.round(trackCenterX - effectiveTextWidth / 2);
-                const centeredLabelY = Math.round(actualBarStartY + actualBarHeight / 2 - (charHeightAtScale1 * labelScale) / 2);
-                
-                if (useSmallFont) {
-                  // Use MatrixChunky8 for longer text
-                  ink(labelColor).write(labelText, {
-                    x: centeredLabelX,
-                    y: centeredLabelY,
-                    size: labelScale,
-                  }, undefined, undefined, false, "MatrixChunky8");
-                } else {
-                  ink(labelColor).write(labelText, {
-                    x: centeredLabelX,
-                    y: centeredLabelY,
-                    scale: labelScale,
-                  });
-                }
-              }
+              ink(labelColor).write(displayText, {
+                x: textX,
+                y: labelY,
+                scale: textScale,
+              });
             }
           }
 
@@ -4060,7 +4100,8 @@ function addNoteToHistory(
   isMutation = false,
   struck = false,
   sequenceTrackCount = null, // Track count for this note's sequence
-  sayText = null, // Text for say waveform
+  sayText = null, // Text for say waveform display
+  sequenceIndex = null, // Which sequence (section) this note belongs to
 ) {
   const historyItem = {
     note: note,
@@ -4073,7 +4114,8 @@ function addNoteToHistory(
     isMutation: isMutation,
     struck: struck,
     sequenceTrackCount: sequenceTrackCount, // Store track count for rendering
-    sayText: sayText, // Store say text for display
+    sayText: sayText, // Store say text for display in note bars
+    sequenceIndex: sequenceIndex, // Store sequence index for proper playing detection
   };
 
   historyBuffer.push(historyItem);
@@ -4204,7 +4246,6 @@ function getFutureNotes(
         volume: noteData.volume || 0.8,
         isMutation: false,
         struck: noteData.struck || false,
-        sayText: noteData.sayText || null, // Add sayText for display
       });
 
       predictTime += noteDuration;
@@ -4247,7 +4288,6 @@ function getFutureNotes(
           volume: noteData.volume || 0.8,
           isMutation: false,
           struck: noteData.struck || false,
-          sayText: noteData.sayText || null, // Add sayText for display
         });
 
         predictTime += noteDuration;
@@ -4315,7 +4355,6 @@ function getFutureNotesSequential(
         struck: noteData.struck || false,
         sequenceIndex: currentSeqIndex,
         sequenceTrackCount: seqTrackCount,
-        sayText: noteData.sayText || null, // Add sayText for display
       });
       
       predictTime += noteDuration;
@@ -4362,7 +4401,6 @@ function getFutureNotesSequential(
           struck: noteData.struck || false,
           sequenceIndex: currentSeqIndex,
           sequenceTrackCount: seqTrackCount,
-          sayText: noteData.sayText || null, // Add sayText for display
         });
         
         trackTime += noteDuration;
@@ -4712,18 +4750,27 @@ function createManagedSound(
     const baseFreq = sound.freq(tone);
     const finalFreq = baseFreq + (toneShift || 0);
     
+    // Use actualDuration (in ms) for time stretching - this is the real note length
+    // Don't use synthDuration as it's in seconds for struck notes or infinite for held notes
+    const sayTargetDuration = actualDuration; // Already in ms with minimum 50ms enforced
+    
+    console.log(`🗣️ SAY createManagedSound: waveType=${waveType}, sayText="${sayText}", tone=${tone}, freq=${Math.round(finalFreq)}Hz, targetDuration=${sayTargetDuration}ms`);
+    
     // Use speak function with pitch option - this uses speakAPI.playSfx directly in bios
     // which has access to the speech cache (sound.play goes through worker and can't access it)
     if (speakRef) {
       speakRef(sayText, "female:18", "cloud", {
         volume: volume,
         pitch: finalFreq, // Pitch in Hz - speech.mjs will convert to speed
+        targetDuration: sayTargetDuration, // Time stretch to fit note duration (ms), then pitch shift
         loop: false, // Speech samples should play once, not loop
         skipCompleted: true,
       });
+    } else {
+      console.error("🗣️ SAY ERROR: speakRef is not set!");
     }
     
-    console.log(`🗣️ SAY: "${sayText}" @ ${tone} (${Math.round(finalFreq)}Hz) vol:${volume.toFixed(2)} ${struck ? 'struck' : 'held'}`);
+    console.log(`🗣️ SAY: "${sayText}" @ ${tone} (${Math.round(finalFreq)}Hz) targetDuration:${sayTargetDuration}ms vol:${volume.toFixed(2)} ${struck ? 'struck' : 'held'}`);
   } else {
     // Use normal synth for all other waveform types
     synthInstance = sound.synth({
@@ -4929,6 +4976,14 @@ function handleStandbyResume() {
 
     // If a large time gap is detected, we likely returned from standby
     if (timeDelta > STANDBY_THRESHOLD) {
+      // ⏱️ In background mode, gaps are expected — the main thread is throttled
+      // to ~1 wake-up/sec when the page is hidden. Don't clear sounds;
+      // the UTC-based melody timing will catch up naturally.
+      if (background) {
+        lastFrameTime = now;
+        return false;
+      }
+
       // Clear all hanging sounds
       clearAllSounds();
 
@@ -5758,7 +5813,8 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
           false, // Not a mutation
           struck,
           1, // Single track section
-          noteData.text, // Say text for display
+          noteData.text, // Speech text for display
+          null, // No sequence index for single track
         );
         
         // Flash green for special character (speech)
@@ -5829,7 +5885,8 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
             false, // Not a mutation (mutations are added separately)
             struck,
             1, // Single track section
-            sayText, // Say text for display
+            sayText, // Text for say waveform display
+            null, // No sequence index for single track
           );
 
           // Increment total notes played for persistent white note history
@@ -5856,7 +5913,8 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
           false,
           struck,
           1, // Single track section
-          null, // No say text for rests
+          null, // No say text for rest
+          null, // No sequence index for single track
         );
       }
 
@@ -6043,6 +6101,13 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
         "trackStates:", melodyState.trackStates?.length,
         "tracks:", melodyState.tracks?.length);
     }
+    
+    // Block playback until samples are ready
+    if (!loadingState.readyToPlay) {
+      // Still loading samples - don't start playback yet
+      return;
+    }
+    
     if (hasContent) {
       if (melodyState.type === "single") {
         // Single track timing - use simple direct timing
@@ -6153,7 +6218,28 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
         }
 
         // Check if it's time to play the next note using direct timing
-        if (nextNoteTargetTime > 0 && currentTimeMs >= nextNoteTargetTime) {
+        // Use a while loop so a single sim tick can catch up multiple missed
+        // notes when the page is hidden and sim() fires infrequently.
+        let notesCaughtUp = 0;
+        const MAX_CATCHUP_NOTES = 64; // Safety cap to prevent infinite loops
+        while (
+          nextNoteTargetTime > 0 &&
+          currentTimeMs >= nextNoteTargetTime &&
+          notesCaughtUp < MAX_CATCHUP_NOTES
+        ) {
+          // CRITICAL: Don't play notes until all samples are loaded (for {say} waveform)
+          if (!loadingState.readyToPlay) {
+            // Only log once per second to avoid spam
+            if (!loadingState.lastWaitLog || performance.now() - loadingState.lastWaitLog > 1000) {
+              console.log("🗣️ Waiting for samples...", loadingState.samplesLoaded, "/", loadingState.samplesNeeded);
+              loadingState.lastWaitLog = performance.now();
+            }
+            // Skip this note timing - defer until samples are ready
+            // Adjust target time to prevent timing drift while waiting
+            nextNoteTargetTime = currentTimeMs + 50; // Check again in 50ms
+            break; // Exit catch-up loop - don't play notes yet
+          }
+          
           const timingGap = currentTimeMs - nextNoteTargetTime;
 
           // CRITICAL: Get the current note data BEFORE calling bleep (which advances the index)
@@ -6161,6 +6247,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
 
           bleep(time);
           anyTrackPlayed = true;
+          notesCaughtUp++;
 
           // Calculate next note target time using the note we just played (not the next note)
           if (currentNoteData) {
@@ -6171,6 +6258,8 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
             // CRITICAL FIX: Use sequential timing like parallel tracks
             // Each note should start exactly when the previous note ends, not based on current time
             nextNoteTargetTime = nextNoteTargetTime + noteDuration;
+          } else {
+            break; // No note data, exit catch-up loop
           }
         }
 
@@ -6423,10 +6512,26 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
           }
 
           // Check if it's time to play the next note in this track
-          if (
+          // Use a while loop so we can catch up multiple missed notes when
+          // the page is hidden and sim() fires infrequently.
+          let parallelCatchup = 0;
+          while (
             trackState.nextNoteTargetTime > 0 &&
-            currentTimeMs >= trackState.nextNoteTargetTime
+            currentTimeMs >= trackState.nextNoteTargetTime &&
+            parallelCatchup < 64
           ) {
+            // CRITICAL: Don't play notes until all samples are loaded (for {say} waveform)
+            if (!loadingState.readyToPlay) {
+              // Only log once per second to avoid spam
+              if (!loadingState.lastWaitLogParallel || performance.now() - loadingState.lastWaitLogParallel > 1000) {
+                console.log("🗣️ Parallel: Waiting for samples...", loadingState.samplesLoaded, "/", loadingState.samplesNeeded);
+                loadingState.lastWaitLogParallel = performance.now();
+              }
+              // Skip this note timing - defer until samples are ready
+              // Adjust target time to prevent timing drift while waiting
+              trackState.nextNoteTargetTime = currentTimeMs + 50; // Check again in 50ms
+              break; // Exit catch-up loop - don't play notes yet
+            }
             const noteData = trackState.track[trackState.noteIndex];
             if (noteData) {
               // Play the note
@@ -6490,7 +6595,8 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                   false, // Not a mutation
                   struck,
                   melodyState.trackStates.length, // Track count for this parallel section
-                  noteData.text, // Say text for display
+                  noteData.text, // Speech text for display
+                  null, // No sequence index for parallel tracks
                 );
                 
                 // Flash green for special character (speech)
@@ -6564,7 +6670,8 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                     false, // Not a mutation (mutations are added separately)
                     struck,
                     melodyState.trackStates.length, // Track count for this parallel section
-                    sayText, // Say text for display
+                    sayText, // Text for say waveform display
+                    null, // No sequence index for parallel tracks
                   );
 
                   totalNotesPlayed++;
@@ -6588,7 +6695,8 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                   false,
                   struck,
                   melodyState.trackStates.length, // Track count for this parallel section
-                  null, // No say text for rests
+                  null, // No say text for rest
+                  null, // No sequence index for parallel tracks
                 );
               }
 
@@ -6691,8 +6799,11 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
               if (trackIndex === 0 && note !== "rest") {
 
               }
+            } else {
+              break; // No note data, exit catch-up loop
             }
-          }
+            parallelCatchup++;
+          } // end while (parallel catch-up loop)
         });
 
         if (anyTrackPlayed) {
@@ -6712,10 +6823,12 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
             seqState.hasCompletedOneCycle = false;
           }
           
-          // Check if it's time to play next note
-          if (seqState.nextNoteTargetTime > 0 && currentTimeMs >= seqState.nextNoteTargetTime) {
+          // Check if it's time to play next note — while loop for background catch-up
+          let seqSingleCatchup = 0;
+          while (seqState.nextNoteTargetTime > 0 && currentTimeMs >= seqState.nextNoteTargetTime && seqSingleCatchup < 64) {
             const noteData = seqState.notes[seqState.index];
-            if (noteData) {
+            if (!noteData) break;
+            {
               const { note, octave: noteOctave, duration, sonicDuration, waveType, volume, struck, toneShift, stampleCode, sayText } = noteData;
               
               if (note !== "rest") {
@@ -6742,8 +6855,8 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                     sayText, // Text for say waveform
                   );
                   
-                  // Track count is 1 for single-track sequence
-                  addNoteToHistory(note, noteOctave || octave, currentTimeMs, synthDuration, 0, waveType || "sine", volume || 0.8, false, struck, 1, sayText);
+                  // Track count is 1 for single-track sequence, include sequence index for proper playing detection
+                  addNoteToHistory(note, noteOctave || octave, currentTimeMs, synthDuration, 0, waveType || "sine", volume || 0.8, false, struck, 1, sayText, melodyState.currentSequence);
                   totalNotesPlayed++;
                 } catch (error) {
                   console.error(`✗ Sequential single ${tone} - ${error}`);
@@ -6757,6 +6870,10 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
               // Advance to next note
               const oldIndex = seqState.index;
               seqState.index = (seqState.index + 1) % seqState.notes.length;
+              
+              // CRITICAL: Update nextNoteTargetTime BEFORE checking sequence advance
+              // This ensures advanceSequence gets the correct continuation time
+              seqState.nextNoteTargetTime = seqState.nextNoteTargetTime + (noteData.duration * melodyState.baseTempo);
               
               // Check if we completed a cycle
               if (oldIndex === seqState.notes.length - 1 && seqState.index === 0) {
@@ -6772,10 +6889,8 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                   melodyState.currentSequenceState.hasCompletedOneCycle = false;
                 }
               }
-              
-              // Calculate next note time
-              seqState.nextNoteTargetTime = seqState.nextNoteTargetTime + (noteData.duration * melodyState.baseTempo);
             }
+            seqSingleCatchup++;
           }
         } else if (seqState.type === "parallel" && seqState.trackStates) {
           // Handle parallel tracks within current sequence
@@ -6795,10 +6910,12 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
               allTracksCompleted = false;
             }
             
-            // Check if it's time to play next note
-            if (trackState.nextNoteTargetTime > 0 && currentTimeMs >= trackState.nextNoteTargetTime) {
+            // Check if it's time to play next note — while loop for background catch-up
+            let seqParallelCatchup = 0;
+            while (trackState.nextNoteTargetTime > 0 && currentTimeMs >= trackState.nextNoteTargetTime && seqParallelCatchup < 64) {
               const noteData = trackState.track[trackState.noteIndex];
-              if (noteData) {
+              if (!noteData) break;
+              {
                 const { note, octave: noteOctave, duration, sonicDuration, waveType, volume, struck, toneShift, stampleCode, sayText } = noteData;
                 
                 if (note !== "rest") {
@@ -6825,9 +6942,9 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                       sayText, // Text for say waveform
                     );
                     
-                    // Track count from parallel sequence state
+                    // Track count from parallel sequence state, include sequence index for proper playing detection
                     const seqTrackCount = seqState.trackStates.length;
-                    addNoteToHistory(note, noteOctave || octave, currentTimeMs, synthDuration, trackIndex, waveType || "sine", volume || 0.8, false, struck, seqTrackCount, sayText);
+                    addNoteToHistory(note, noteOctave || octave, currentTimeMs, synthDuration, trackIndex, waveType || "sine", volume || 0.8, false, struck, seqTrackCount, sayText, melodyState.currentSequence);
                     totalNotesPlayed++;
                   } catch (error) {
                     console.error(`✗ Sequential parallel track ${trackIndex + 1} ${tone} - ${error}`);
@@ -6848,6 +6965,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                 // Calculate next note time
                 trackState.nextNoteTargetTime = trackState.nextNoteTargetTime + (noteData.duration * melodyState.baseTempo);
               }
+              seqParallelCatchup++;
             }
           });
           
@@ -6974,4 +7092,5 @@ function buildOctaveButtons({ screen, ui, typeface, system }) {
 }
 
 // Export piece functions for disk.mjs to find
-export { boot, paint, sim, act, leave };
+const background = true; // ⏱️ Keep sim() running when page is hidden (lid closed)
+export { boot, paint, sim, act, leave, background };

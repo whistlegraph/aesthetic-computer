@@ -1,5 +1,6 @@
-// Gives Feed, 26.01.03
+// Gives Feed, 26.02.08
 // 🎁 Fetches recent successful gives from Stripe
+// Includes both one-time checkout sessions and subscription invoice renewals
 // Endpoint: GET /api/gives
 
 import Stripe from "stripe";
@@ -47,55 +48,105 @@ export async function handler(event, context) {
     // Only show gives from 2025 onwards (when give page launched)
     const minDate = new Date('2025-01-01').getTime() / 1000; // Unix timestamp
     
-    // Fetch recent successful checkout sessions (both one-time and subscriptions)
+    // 1. Fetch checkout sessions for one-time gives and initial subscription signups
     const sessions = await stripe.checkout.sessions.list({
-      limit: Math.min(limit * 2, 50), // Fetch extra to filter
+      limit: 100, // Stripe max per page
       status: 'complete',
-      expand: ['data.line_items'],
-      created: { gte: minDate }, // Only sessions from 2025+
+      created: { gte: minDate },
     });
 
-    // Process sessions into a clean format
-    // Include all completed sessions - gifts will have metadata, older ones won't
-    const gives = sessions.data
-      .filter(session => {
-        // Include sessions with gift/subscription metadata OR any payment session
-        // (to catch older donations before metadata was added)
-        const metadata = session.metadata || {};
-        const hasGiftMeta = metadata.type === 'gift' || metadata.type === 'subscription';
-        const isPayment = session.mode === 'payment' || session.mode === 'subscription';
-        return hasGiftMeta || isPayment;
-      })
-      .slice(0, limit)
-      .map(session => {
-        const metadata = session.metadata || {};
-        const currency = (session.currency || 'usd').toUpperCase();
-        const amount = session.amount_total / 100;
-        const isRecurring = metadata.type === 'subscription';
-        // Note comes from custom_fields (checkout form), not metadata
-        const customFields = session.custom_fields || [];
-        const noteField = customFields.find(f => f.key === 'note');
-        const note = noteField?.text?.value || '';
-        
-        // Format amount based on currency
-        let amountDisplay;
-        if (currency === 'DKK') {
-          amountDisplay = `${Math.round(amount)} kr`;
-        } else {
-          amountDisplay = `$${amount.toFixed(amount % 1 === 0 ? 0 : 2)}`;
-        }
+    // Only include sessions with give-specific metadata
+    // (excludes print/mug/news-toll sessions that also use mode:'payment')
+    const giftSessions = sessions.data.filter(session => {
+      const type = (session.metadata || {}).type;
+      return type === 'gift' || type === 'subscription';
+    });
 
-        return {
-          id: session.id,
-          amount,
-          amountDisplay,
-          currency,
-          isRecurring,
-          note,
-          createdAt: session.created * 1000, // Convert to JS timestamp
-          // Don't expose customer info for privacy
-        };
+    // Track subscription IDs from checkout sessions to avoid duplicates
+    const checkoutSubIds = new Set(
+      giftSessions
+        .filter(s => s.subscription)
+        .map(s => typeof s.subscription === 'string' ? s.subscription : s.subscription.id)
+    );
+
+    // 2. Fetch recent paid subscription invoices (captures recurring renewals)
+    // Subscription renewals don't create new checkout sessions — only invoices.
+    let invoiceGives = [];
+    try {
+      const invoices = await stripe.invoices.list({
+        limit: 50,
+        status: 'paid',
+        created: { gte: minDate },
       });
+
+      invoiceGives = invoices.data
+        .filter(inv => {
+          // Only subscription invoices
+          if (!inv.subscription) return false;
+          const subId = typeof inv.subscription === 'string' ? inv.subscription : inv.subscription.id;
+          // Skip the initial create invoice if we already have a checkout session for it
+          if (inv.billing_reason === 'subscription_create' && checkoutSubIds.has(subId)) {
+            return false;
+          }
+          return true;
+        })
+        .map(inv => {
+          const currency = (inv.currency || 'usd').toUpperCase();
+          const amount = inv.amount_paid / 100;
+          let amountDisplay;
+          if (currency === 'DKK') {
+            amountDisplay = `${Math.round(amount)} kr`;
+          } else {
+            amountDisplay = `$${amount.toFixed(amount % 1 === 0 ? 0 : 2)}`;
+          }
+          return {
+            id: inv.id,
+            amount,
+            amountDisplay,
+            currency,
+            isRecurring: true,
+            note: '', // Renewal invoices don't carry the original checkout note
+            createdAt: (inv.status_transitions?.paid_at || inv.created) * 1000,
+          };
+        });
+    } catch (e) {
+      console.log('Could not fetch subscription invoices:', e.message);
+    }
+
+    // 3. Convert checkout sessions to gives
+    const sessionGives = giftSessions.slice(0, limit).map(session => {
+      const metadata = session.metadata || {};
+      const currency = (session.currency || 'usd').toUpperCase();
+      const amount = session.amount_total / 100;
+      const isRecurring = metadata.type === 'subscription';
+      // Note comes from custom_fields (checkout form), not metadata
+      const customFields = session.custom_fields || [];
+      const noteField = customFields.find(f => f.key === 'note');
+      const note = noteField?.text?.value || '';
+      
+      // Format amount based on currency
+      let amountDisplay;
+      if (currency === 'DKK') {
+        amountDisplay = `${Math.round(amount)} kr`;
+      } else {
+        amountDisplay = `$${amount.toFixed(amount % 1 === 0 ? 0 : 2)}`;
+      }
+
+      return {
+        id: session.id,
+        amount,
+        amountDisplay,
+        currency,
+        isRecurring,
+        note,
+        createdAt: session.created * 1000, // Convert to JS timestamp
+      };
+    });
+
+    // 4. Merge, sort by date (newest first), and limit
+    const gives = [...sessionGives, ...invoiceGives]
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, limit);
 
     // Calculate some stats
     const totalAmount = gives.reduce((sum, g) => {

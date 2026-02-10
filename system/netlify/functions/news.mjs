@@ -23,6 +23,103 @@ function parseKidlispUrl(url) {
   } catch { return null; }
 }
 
+// Detect e-flux article URLs
+function parseEfluxUrl(url) {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    if (!u.hostname.includes('e-flux.com')) return null;
+    // Match /journal/ISSUE/ID/SLUG or /notes/ID/SLUG or /architecture/*/ID/SLUG
+    const match = u.pathname.match(/^\/(journal|notes|architecture)\//i);
+    if (!match) return null;
+    return url; // Return the full URL for fetching
+  } catch { return null; }
+}
+
+// Fetch e-flux article metadata from og: tags
+async function fetchEfluxMeta(url) {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'AestheticNewsBot/1.0 (+https://news.aesthetic.computer)',
+        'Accept': 'text/html',
+      },
+      redirect: 'follow',
+    });
+    clearTimeout(timeout);
+    if (!res.ok) return null;
+    // Read first 64KB for meta tags + some body text
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let html = '';
+    while (html.length < 65536) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      html += decoder.decode(value, { stream: true });
+    }
+    reader.cancel().catch(() => {});
+
+    const getOg = (prop) => {
+      const m = html.match(new RegExp(`<meta[^>]+(?:property|name)=["']${prop}["'][^>]+content=["']([^"']+)["']`, 'i'))
+        || html.match(new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${prop}["']`, 'i'));
+      return m ? m[1].replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim() : '';
+    };
+
+    const title = getOg('og:title');
+    const description = getOg('og:description') || getOg('description');
+    const image = getOg('og:image');
+
+    // Try to extract author from RSC payload: "displayname":"NAME"
+    let author = '';
+    const authorMatch = html.match(/"displayname"\s*:\s*"([^"]+)"/i);
+    if (authorMatch) author = authorMatch[1];
+
+    // Try to extract issue & section from og:title (e.g. "Title - Journal #160")
+    let section = '';
+    let issue = '';
+    const titleParts = title.match(/^(.+?)\s*-\s*(Journal|Notes|Architecture)\s*(#\d+)?$/i);
+    if (titleParts) {
+      section = titleParts[2] || '';
+      issue = titleParts[3] || '';
+    }
+
+    // Extract first body paragraph from RSC payload
+    let excerpt = '';
+    const bodyChunks = [];
+    const rscRegex = /self\.__next_f\.push\(\[1,"[0-9a-f]+:T[0-9a-f]+,"\]\)<\/script><script>self\.__next_f\.push\(\[1,"((?:[^"\\]|\\.)*)"\]\)/g;
+    let rscMatch;
+    while ((rscMatch = rscRegex.exec(html)) !== null) {
+      bodyChunks.push(rscMatch[1]);
+    }
+    if (bodyChunks.length > 0) {
+      // Join the first chunk, unescape it, strip HTML tags, get first ~600 chars
+      const rawBody = bodyChunks[0]
+        .replace(/\\u0026(\w+);/g, (_, e) => ({ amp: '&', lt: '<', gt: '>', quot: '"', rsquo: '\u2019', lsquo: '\u2018', ldquo: '\u201c', rdquo: '\u201d', mdash: '\u2014', ndash: '\u2013', eacute: 'é', Eacute: 'É', atilde: 'ã', oacute: 'ó', iacute: 'í', ccedil: 'ç' }[e] || ''))
+        .replace(/\\u003c/g, '<').replace(/\\u003e/g, '>')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (rawBody.length > 20) {
+        excerpt = rawBody.slice(0, 600);
+        // Trim to last complete sentence or word
+        const lastDot = excerpt.lastIndexOf('. ');
+        if (lastDot > 200) excerpt = excerpt.slice(0, lastDot + 1);
+        else excerpt = excerpt.slice(0, excerpt.lastIndexOf(' ')) + '\u2026';
+      }
+    }
+    if (!excerpt && description) excerpt = description;
+
+    if (!title) return null;
+    return { title: titleParts ? titleParts[1].trim() : title, author, image, description, section, issue, excerpt };
+  } catch (e) {
+    console.error('[news] e-flux fetch error:', e.message);
+    return null;
+  }
+}
+
 // Detect YouTube URLs and extract video ID
 function parseYouTubeUrl(url) {
   if (!url) return null;
@@ -199,14 +296,6 @@ function renderPostRow(post, idx, basePath) {
   return `
   <div class="news-row">
     <div class="news-rank">${idx + 1}.</div>
-    <div class="news-vote">
-      <form data-news-action="vote" method="post" action="/api/news/vote">
-        <input type="hidden" name="itemType" value="post" />
-        <input type="hidden" name="itemId" value="${post.code}" />
-        <input type="hidden" name="dir" value="1" />
-        <button type="submit" class="news-vote-btn">▲</button>
-      </form>
-    </div>
     <div class="news-content">
       <div class="news-title">
         <a href="${url || itemUrl}" ${url ? 'target="_blank" rel="noreferrer"' : ""}>${title}</a>
@@ -259,9 +348,9 @@ async function applyCommentCounts(database, posts) {
   }));
 }
 
-async function fetchPosts(database, { sort = "top", limit = 30 }) {
+async function fetchPosts(database, { sort = "new", limit = 30 }) {
   const posts = database.db.collection("news-posts");
-  const sortSpec = sort === "new" ? { when: -1 } : { score: -1, when: -1 };
+  const sortSpec = { when: -1 }; // Chronological (newest first)
   const docs = await posts.find({ status: { $ne: "dead" } }).sort(sortSpec).limit(limit).toArray();
   return applyCommentCounts(database, docs);
 }
@@ -364,8 +453,34 @@ async function renderItemPage(database, basePath, code) {
         </a>
       </div>` : '';
 
-  const hasMedia = youtubeId || kidlispCode;
-  const mediaHtml = youtubeEmbedHtml || kidlispPreviewHtml;
+  // Check for e-flux article preview
+  const efluxUrl = parseEfluxUrl(hydratedPost.url);
+  let efluxPreviewHtml = '';
+  if (efluxUrl && !youtubeId && !kidlispCode) {
+    const meta = await fetchEfluxMeta(efluxUrl);
+    if (meta) {
+      const sectionBadge = meta.section ? `<span class="news-eflux-section">e-flux ${escapeHtml(meta.section)}${meta.issue ? ` ${escapeHtml(meta.issue)}` : ''}</span>` : '<span class="news-eflux-section">e-flux</span>';
+      efluxPreviewHtml = `
+      <div class="news-eflux-preview">
+        <a href="${escapeHtml(efluxUrl)}" target="_blank" rel="noopener" class="news-eflux-link">
+          ${meta.image ? `<div class="news-eflux-hero">
+            <img src="${escapeHtml(meta.image)}" alt="${escapeHtml(meta.title)}" class="news-eflux-image" />
+          </div>` : ''}
+          <div class="news-eflux-body">
+            <div class="news-eflux-meta">
+              ${sectionBadge}
+              ${meta.author ? `<span class="news-eflux-author">${escapeHtml(meta.author)}</span>` : ''}
+            </div>
+            <h3 class="news-eflux-title">${escapeHtml(meta.title)}</h3>
+            ${meta.excerpt ? `<p class="news-eflux-excerpt">${escapeHtml(meta.excerpt)}</p>` : ''}
+          </div>
+        </a>
+      </div>`;
+    }
+  }
+
+  const hasMedia = youtubeId || kidlispCode || efluxPreviewHtml;
+  const mediaHtml = youtubeEmbedHtml || kidlispPreviewHtml || efluxPreviewHtml;
 
   const body = `
   ${header(basePath)}
@@ -377,14 +492,6 @@ async function renderItemPage(database, basePath, code) {
       <div class="news-item-info">
         <table class="news-item-table" border="0" cellpadding="0" cellspacing="0">
           <tr class="news-item-row">
-            <td valign="top" class="news-item-vote">
-              <form data-news-action="vote" method="post" action="/api/news/vote">
-                <input type="hidden" name="itemType" value="post" />
-                <input type="hidden" name="itemId" value="${hydratedPost.code}" />
-                <input type="hidden" name="dir" value="1" />
-                <button type="submit" class="news-vote-btn">▲</button>
-              </form>
-            </td>
             <td class="news-item-content">
               <span class="news-item-title">
                 <a href="${url || '#'}" ${url ? 'target="_blank" rel="noreferrer"' : ""}>${postTitle}</a>
@@ -453,14 +560,18 @@ async function renderReportPage(basePath) {
         <p class="news-handle-note" data-i18n="handle-note">You'll also need a @handle — get one at <a href="https://aesthetic.computer" target="_blank">aesthetic.computer</a></p>
       </div>
       <form id="news-submit-form" data-news-action="submit" method="post" action="/api/news/submit">
-        <label data-i18n="headline">Headline</label>
-        <input type="text" name="title" required data-i18n-placeholder="headline-placeholder" placeholder="What's the story?" />
-        <div class="news-either-or">
-          <div class="news-pick-hint" data-i18n="pick-hint">pick one or both</div>
+        <div class="news-url-headline-group">
           <div class="news-field-group">
             <label data-i18n="source-url">Source URL</label>
             <input type="url" name="url" placeholder="https://" />
           </div>
+          <div class="news-field-group">
+            <label data-i18n="headline">Headline</label>
+            <input type="text" name="title" required data-i18n-placeholder="headline-placeholder" placeholder="What's the story?" />
+            <div class="news-auto-title-status" id="news-auto-title-status"></div>
+          </div>
+        </div>
+        <div class="news-either-or">
           <div class="news-field-group">
             <label data-i18n="story">Story</label>
             <textarea name="text" rows="4" data-i18n-placeholder="story-placeholder" placeholder="Share context, commentary, or tell your own story..."></textarea>

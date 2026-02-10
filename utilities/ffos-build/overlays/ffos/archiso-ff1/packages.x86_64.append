@@ -1,3 +1,25 @@
-# Additional firmware for ThinkPad X1 Nano
+# Additional firmware for Chromebooks (Yoga 11e) + older laptops
 sof-firmware
 alsa-firmware
+linux-firmware
+
+# Intel GPU / video (Chromebook, older ThinkPads)
+xf86-video-intel
+libva-intel-driver
+
+# Networking extras (iwd + wpa_supplicant for broader wifi hw)
+iwd
+wpa_supplicant
+dhcpcd
+
+# PipeWire replaces PulseAudio (upstream ships pulseaudio;
+# build.sh removes it and installs pipewire instead)
+pipewire
+pipewire-pulse
+wireplumber
+
+# Python for AC Config Server + Setup TUI
+python
+
+# Console font for nicer terminal appearance
+terminus-font

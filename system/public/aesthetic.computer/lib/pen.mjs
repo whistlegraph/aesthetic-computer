@@ -75,18 +75,24 @@ export class Pen {
     // Add pointer events.
     const pen = this;
 
-    // Prevent double-tap delay: https://stackoverflow.com/a/71025095
-    window.addEventListener(
-      "touchend" || "dblclick",
-      (event) => {
-        // Only prevent double tap to Zoom if native-cursor is disabled.
-        if (document.body.classList.contains("native-cursor") === false) {
-          event.preventDefault();
-          event.stopImmediatePropagation();
-        }
-      },
-      { passive: false },
-    );
+    // Prevent double-tap delay and cancel double-click in certain modes.
+    // Reference: StackOverflow Q/A — "Prevent double-tap delay" (answer):
+    // https://stackoverflow.com/a/71025095
+    // Rationale:
+    // - Using an expression like "touchend" || "dblclick" evaluates to "touchend"
+    //   so the other event isn't registered. We register both explicitly.
+    // - We pass { passive: false } so that calling event.preventDefault() on
+    //   touch events actually takes effect in browsers that default to passive.
+    // - The goal is to prevent double-tap-to-zoom when `native-cursor` is not set.
+    const preventDoubleTap = (event) => {
+      // Only prevent double tap to Zoom if native-cursor is disabled.
+      if (document.body.classList.contains("native-cursor") === false) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+    };
+    window.addEventListener("touchend", preventDoubleTap, { passive: false });
+    window.addEventListener("dblclick", preventDoubleTap, { passive: false });
 
     // Prevent context click.
     window.addEventListener("contextmenu", function (e) {

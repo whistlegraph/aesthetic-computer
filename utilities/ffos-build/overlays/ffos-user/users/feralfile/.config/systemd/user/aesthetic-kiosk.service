@@ -1,13 +1,21 @@
 [Unit]
 Description=Aesthetic Computer Kiosk
-After=graphical-session.target
+After=graphical-session.target dbus.socket
+Wants=dbus.socket
 
 [Service]
 Type=simple
 Environment=AC_URL=https://aesthetic.computer?tv=true&nogap=true&nolabel=true
+ExecStartPre=/bin/sleep 3
 ExecStart=/home/feralfile/scripts/start-aesthetic-kiosk.sh
 Restart=always
-RestartSec=2
+RestartSec=5
+StartLimitBurst=10
+StartLimitIntervalSec=120
+
+# Resource protection
+MemoryMax=1G
+CPUQuota=90%
 
 [Install]
 WantedBy=default.target
