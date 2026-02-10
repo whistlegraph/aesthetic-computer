@@ -82,7 +82,7 @@
     "keyv": "^5.5.4",
     "mongodb": "^7.0.0",
     "nanoid": "^5.1.6",
-    "netlify-cli": "^23.13.5",
+    "netlify-cli": "^23.15.1",
     "nodemailer": "^7.0.10",
     "obscenity": "^0.4.5",
     "openai": "^6.16.0",

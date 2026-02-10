@@ -404,6 +404,18 @@ var Synth = class {
   #sampleStartIndex = 0;
   #sampleSpeed = 0.25;
   #sampleLoop = false;
+  // Time stretch + pitch shift fields
+  #timeStretchEnabled = false;
+  #targetDurationMs = 0;
+  #timeStretchRatio = 1;
+  #outputSamplesNeeded = 0;
+  #playedSamples = 0;
+  // Granular synthesis fields
+  #grainSize = 2048;
+  #grainOverlap = 4;
+  #grains = [];
+  #grainPhase = 0;
+  #sourcePosition = 0;
   #up = false;
   // Specific to `square`.
   #step = 0;
@@ -442,6 +454,46 @@ var Synth = class {
         this.#sampleData.length - 1
       );
       this.#sampleIndex = this.#sampleSpeed < 0 ? this.#sampleEndIndex : this.#sampleStartIndex;
+      
+      // Time stretch + pitch shift mode
+      if (options.targetDuration > 0) {
+        this.#timeStretchEnabled = true;
+        this.#targetDurationMs = options.targetDuration;
+        this.#outputSamplesNeeded = Math.floor((this.#targetDurationMs / 1000) * sampleRate);
+        const sourceSamples = this.#sampleEndIndex - this.#sampleStartIndex;
+        this.#timeStretchRatio = sourceSamples / this.#outputSamplesNeeded;
+        console.log("🎤 SPEAKER-BUNDLED timeStretch init:", {
+          targetDurationMs: this.#targetDurationMs,
+          sourceSamples,
+          outputSamplesNeeded: this.#outputSamplesNeeded,
+          timeStretchRatio: this.#timeStretchRatio,
+          speed: this.#sampleSpeed
+        });
+        
+        console.log("🎤 BUNDLED timeStretch INIT:", {
+          targetDurationMs: this.#targetDurationMs,
+          sourceSamples,
+          outputSamplesNeeded: this.#outputSamplesNeeded,
+          timeStretchRatio: this.#timeStretchRatio,
+          speed: this.#sampleSpeed,
+          sampleRate
+        });
+        
+        // Minimum duration check
+        const minDurationMs = 50;
+        if (this.#targetDurationMs < minDurationMs) {
+          this.#targetDurationMs = minDurationMs;
+          this.#outputSamplesNeeded = Math.floor((this.#targetDurationMs / 1000) * sampleRate);
+          this.#timeStretchRatio = sourceSamples / this.#outputSamplesNeeded;
+        }
+        
+        this.#playedSamples = 0;
+        this.#sourcePosition = this.#sampleStartIndex;
+        this.#grains = [];
+        this.#grainPhase = 0;
+        this.#grainSize = Math.min(2048, Math.floor(sourceSamples / 8));
+        this.#grainSize = Math.max(256, this.#grainSize);
+      }
     } else if (type === "custom") {
       this.#frequency = options.tone || 440;
       if (typeof options.generator === "string") {
@@ -457,7 +509,7 @@ var Synth = class {
       if (typeof this.#customGenerator !== "function") {
         throw new Error("Custom synth type requires a generator function");
       }
-      this.#fillCustomBuffer();
+      this._fillCustomBuffer();
     } else if (type === "noise-white") {
       this.#frequency = options.tone;
       this.#noiseFilterState1 = 0;
@@ -537,27 +589,104 @@ var Synth = class {
       }
     } else if (this.type === "sample") {
       const bufferData = this.#sampleData.channels[0];
-      value = bufferData[floor3(this.#sampleIndex)];
-      this.#sampleIndex += this.#sampleSpeed;
-      if (this.#sampleLoop) {
-        if (this.#sampleIndex > this.#sampleEndIndex) {
-          const rangeLength = this.#sampleEndIndex - this.#sampleStartIndex;
-          const overshoot = this.#sampleIndex - this.#sampleEndIndex;
-          this.#sampleIndex = this.#sampleStartIndex + overshoot % rangeLength;
-        } else if (this.#sampleIndex < this.#sampleStartIndex) {
-          const rangeLength = this.#sampleEndIndex - this.#sampleStartIndex;
-          const undershoot = this.#sampleStartIndex - this.#sampleIndex;
-          this.#sampleIndex = this.#sampleEndIndex - undershoot % rangeLength;
+      
+      // Time stretch + pitch shift mode using granular synthesis
+      if (this.#timeStretchEnabled) {
+        this.#playedSamples++;
+        
+        // Log every 10000 samples to track progress without spam
+        if (this.#playedSamples === 1 || this.#playedSamples % 10000 === 0) {
+          console.log("🎤 BUNDLED timeStretch RENDER:", {
+            playedSamples: this.#playedSamples,
+            outputNeeded: this.#outputSamplesNeeded,
+            sourcePos: this.#sourcePosition.toFixed(0),
+            grains: this.#grains.length
+          });
         }
-      } else {
-        if (this.#sampleIndex >= this.#sampleEndIndex || this.#sampleIndex < 0) {
+        
+        const grainSpacing = this.#grainSize / this.#grainOverlap;
+        
+        // Spawn new grain when needed
+        this.#grainPhase++;
+        if (this.#grainPhase >= grainSpacing && this.#sourcePosition < this.#sampleEndIndex) {
+          this.#grainPhase = 0;
+          this.#grains.push({
+            sourceStart: this.#sourcePosition,
+            position: 0,
+          });
+        }
+        
+        // Advance source position based on time stretch ratio
+        this.#sourcePosition += this.#timeStretchRatio;
+        
+        // Mix all active grains
+        value = 0;
+        const activeGrains = [];
+        
+        for (const grain of this.#grains) {
+          const grainProgress = grain.position / this.#grainSize;
+          const envelope = 0.5 * (1 - Math.cos(2 * Math.PI * grainProgress));
+          
+          // Read from source at pitch-shifted rate
+          const sourceIdx = grain.sourceStart + (grain.position * this.#sampleSpeed);
+          
+          if (sourceIdx >= this.#sampleEndIndex || sourceIdx < this.#sampleStartIndex) {
+            grain.position++;
+            if (grain.position < this.#grainSize) {
+              activeGrains.push(grain);
+            }
+            continue;
+          }
+          
+          // Linear interpolation
+          const idx0 = floor3(sourceIdx);
+          const idx1 = idx0 + 1 < this.#sampleEndIndex ? idx0 + 1 : idx0;
+          const frac = sourceIdx - idx0;
+          const sample0 = bufferData[idx0] || 0;
+          const sample1 = bufferData[idx1] || 0;
+          const interpolatedSample = sample0 + frac * (sample1 - sample0);
+          
+          value += interpolatedSample * envelope;
+          grain.position++;
+          
+          if (grain.position < this.#grainSize) {
+            activeGrains.push(grain);
+          }
+        }
+        
+        this.#grains = activeGrains;
+        value /= (this.#grainOverlap / 2);
+        
+        // Stop when done
+        if (this.#playedSamples >= this.#outputSamplesNeeded || 
+            (this.#grains.length === 0 && this.#sourcePosition >= this.#sampleEndIndex)) {
           this.playing = false;
           return 0;
+        }
+      } else {
+        // Normal sample playback
+        value = bufferData[floor3(this.#sampleIndex)];
+        this.#sampleIndex += this.#sampleSpeed;
+        if (this.#sampleLoop) {
+          if (this.#sampleIndex > this.#sampleEndIndex) {
+            const rangeLength = this.#sampleEndIndex - this.#sampleStartIndex;
+            const overshoot = this.#sampleIndex - this.#sampleEndIndex;
+            this.#sampleIndex = this.#sampleStartIndex + overshoot % rangeLength;
+          } else if (this.#sampleIndex < this.#sampleStartIndex) {
+            const rangeLength = this.#sampleEndIndex - this.#sampleStartIndex;
+            const undershoot = this.#sampleStartIndex - this.#sampleIndex;
+            this.#sampleIndex = this.#sampleEndIndex - undershoot % rangeLength;
+          }
+        } else {
+          if (this.#sampleIndex >= this.#sampleEndIndex || this.#sampleIndex < 0) {
+            this.playing = false;
+            return 0;
+          }
         }
       }
     } else if (this.type === "custom") {
       if (this.#customBuffer.length === 0) {
-        this.#fillCustomBuffer();
+        this._fillCustomBuffer();
       }
       if (this.#customBuffer.length > 0) {
         value = this.#customBuffer.shift();
@@ -565,7 +694,7 @@ var Synth = class {
         value = 0;
       }
       if (this.#customBuffer.length < this.#customBufferSize / 4) {
-        this.#fillCustomBuffer();
+        this._fillCustomBuffer();
       }
     }
     if (this.#duration < Infinity) {
@@ -659,7 +788,8 @@ var Synth = class {
     }
   }
   // Fill the custom buffer with generated waveform data
-  #fillCustomBuffer() {
+  // Note: Using underscore convention instead of # private method for AudioWorklet compatibility
+  _fillCustomBuffer() {
     if (!this.#customGenerator) return;
     try {
       const bufferSize = this.#customBufferSize - this.#customBuffer.length;

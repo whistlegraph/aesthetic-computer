@@ -1714,8 +1714,8 @@ export async function handler(event, context) {
       },
       handles: {
         sig: "handles",
-        desc: "A directory of user handles.",
-        done: false,
+        desc: "Browse all user handles.",
+        done: true,
       },
       ul: {
         sig: "ul",
@@ -2270,6 +2270,11 @@ export async function handler(event, context) {
         examples: ["clock cdefg", "clock:0.5 {square}cdefgab", "clock (ceg) (dfa)", "clock ^cdefg"],
         done: true
       },
+      commits: {
+        sig: "commits",
+        desc: "Browse the live commit history.",
+        done: true,
+      },
       crop: {
         sig: "crop",
         desc: "Crop your painting.",
@@ -2301,6 +2306,32 @@ export async function handler(event, context) {
         sig: "delete-erase-and-forget-me",
         desc: "Delete your account.",
         done: false,
+      },
+      // 🔗 External Links
+      github: {
+        sig: "github",
+        desc: "Open the AC GitHub repo.",
+        done: true,
+      },
+      gh: {
+        sig: "gh",
+        desc: "Open the AC GitHub repo.",
+        done: true,
+      },
+      gmail: {
+        sig: "gmail",
+        desc: "Open Gmail.",
+        done: true,
+      },
+      agc: {
+        sig: "agc",
+        desc: "Open ACG at MIT Media Lab.",
+        done: true,
+      },
+      "ucla-syllabus": {
+        sig: "ucla-syllabus",
+        desc: "Open the UCLA syllabus.",
+        done: true,
       },
       demo: {
         sig: "demo",

@@ -1,0 +1,15 @@
+[Unit]
+Description=Aesthetic Computer Config Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/ac/config-server/ac-config-server.py
+Restart=always
+RestartSec=5
+StandardOutput=append:/home/feralfile/.logs/config-server.log
+StandardError=append:/home/feralfile/.logs/config-server.log
+
+[Install]
+WantedBy=default.target

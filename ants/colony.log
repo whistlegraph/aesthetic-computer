@@ -1,0 +1,21 @@
+2026-02-08 11:06:59 🐜 Colony starting. Interval: {30}m | Model: haiku | Once: true
+2026-02-08 11:06:59 🐜 Score: /workspaces/aesthetic-computer/ants/score.md
+2026-02-08 11:06:59 🐜 Repo: /workspaces/aesthetic-computer
+2026-02-08 11:06:59 🐜 Ant 20260208-110659 waking up...
+2026-02-08 11:06:59 🐜 Working tree is dirty — queen might be working. Going back to sleep.
+2026-02-08 11:06:59 🐜 Single run complete. Exiting.
+2026-02-08 11:07:45 🐜 Colony starting. Interval: 30m | Model: haiku | Once: true
+2026-02-08 11:07:45 🐜 Score: /workspaces/aesthetic-computer/ants/score.md
+2026-02-08 11:07:45 🐜 Repo: /workspaces/aesthetic-computer
+2026-02-08 11:07:45 🐜 Ant 20260208-110745 waking up...
+2026-02-08 11:07:45 🐜 Sending ant to work with model: haiku
+2026-02-08 11:07:48 🐜 Full output saved to runs/20260208-110745.log
+2026-02-08 11:07:48 🐜 Ant 20260208-110745 returned no result line (exit code: 1)
+2026-02-08 11:07:48 🐜 Single run complete. Exiting.
+2026-02-08 11:52:41 🐜 Colony starting. Interval: 30m | Provider: gh-models | Model: openai/gpt-4o-mini | Once: true
+2026-02-08 11:52:41 🐜 Score: /workspaces/aesthetic-computer/ants/score.md
+2026-02-08 11:52:41 🐜 Repo: /workspaces/aesthetic-computer
+2026-02-08 11:52:41 🐜 Ant 20260208-115241 waking up...
+2026-02-08 11:52:42 🐜 Phase 1: Scouting...
+2026-02-08 11:52:44 🐜 Scout returned no SCOUT line. Raw output saved to runs/20260208-115241.log
+2026-02-08 11:52:44 🐜 Single run complete. Exit: 1

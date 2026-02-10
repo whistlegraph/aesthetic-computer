@@ -110,6 +110,8 @@ export const handler = async (event, context) => {
   let path = event.path;
   if (path.startsWith("/sotce-net"))
     path = path.replace("/sotce-net", "/").replace("//", "/");
+  if (path.startsWith("/sotce.net"))
+    path = path.replace("/sotce.net", "/").replace("//", "/");
 
   const key = dev ? SOTCE_STRIPE_API_TEST_PRIV_KEY : SOTCE_STRIPE_API_PRIV_KEY;
   const assetPath = dev
@@ -270,6 +272,7 @@ export const handler = async (event, context) => {
       path === "/gate" ||
       path === "/write" ||
       path === "/ask" ||
+      path === "/respond" ||
       path.match(/^\/page\/\d+$/) ||
       path.match(/^\/q\/\d+$/)) &&
     method === "get"
@@ -301,7 +304,7 @@ export const handler = async (event, context) => {
           />
           <meta
             name="viewport"
-            content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+            content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content"
           />
           <!--<link
             href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&display=block"
@@ -316,70 +319,535 @@ export const handler = async (event, context) => {
           <style>
             @font-face {
                 font-family: "Helvetica";
-                src: url('${assetPath}/helvetica.woff') format('woff'),
-                    url('${assetPath}/fonts/arial/helvetica.ttf') format('truetype');
+                src: url('${assetPath}helvetica.woff') format('woff'),
+                    url('${assetPath}helvetica.ttf') format('truetype');
                 font-weight: normal;
                 font-style: normal;
             }
 
             @font-face {
                 font-family: "Helvetica";
-                src: url('${assetPath}/helvetica-bold.woff') format('woff'),
-                    url('${assetPath}/fonts/arial/helvetica-bold.ttf') format('truetype');
+                src: url('${assetPath}helvetica-bold.woff') format('woff'),
+                    url('${assetPath}helvetica-bold.ttf') format('truetype');
                 font-weight: bold;
                 font-style: normal;
             }
 
+            /*
+             * 🎨 SOTCE-NET THEME SYSTEM
+             * ========================
+             * Light mode: Pink/cream paper aesthetic (original)
+             * Dark mode: Warm brown/sepia tones (cozy evening read)
+             * 
+             * Theme colors are defined in :root and @media (prefers-color-scheme: dark)
+             * Canvas colors are passed via CSS custom properties and read in JS
+             */
+            
             :root {
+              /* === Light Mode (Default) === */
               -webkit-locale: "en";
+              
+              /* Page/Background Colors */
               --background-color: #FFD1DC;
+              --garden-background: #FFD1DC;
+              --chat-background: rgb(240, 235, 230);
+              --chat-input-bar-background: rgb(255, 240, 235);
+              --backpage-color: rgb(250, 250, 250);
+              --backpage-color-translucent: rgba(250, 250, 250, 0.8);
+              --editor-placemat-background: rgba(255, 255, 255, 0.5);
+              --editor-placemat-background-opaque: rgb(255, 255, 255);
+              
+              /* Card/Paper Colors (for canvas) */
+              --card-background: #f8f4ec;
+              --card-back-background: #f0ebe0;
+              --card-border: #d4c8b8;
+              --card-ear: #e8e0d0;
+              --card-ear-hover: #FFD1DC;
+              --card-text: #000000;
+              --card-text-muted: #666666;
+              --card-text-dim: #999999;
+              --card-text-faint: #aaaaaa;
+              
+              /* Question Card Colors (bluish) */
+              --question-card-background: #e8f0f8;
+              --question-card-border: #b8c8d8;
+              --question-card-ear: #d0e0f0;
+              --question-answer-text: rgb(0, 155, 145);
+              
+              /* UI Colors */
               --pink-border: rgb(255, 190, 215);
               --button-background: rgb(255, 235, 183);
               --button-background-highlight: rgb(255, 245, 170);
+              --button-text: black;
               --spinner-background: rgb(255, 147, 191);
-              --backpage-color: rgb(250, 250, 250);
-              --backpage-color-translucent: rgba(250, 250, 250, 0.8);
               --destructive-red: rgb(200, 0, 0);
-              /* --line-height: 1.68em; */
+              
+              /* Chat Colors */
+              --chat-text: rgb(50, 50, 50);
+              --chat-handle: rgb(200, 80, 120);
+              --chat-link: rgb(80, 120, 200);
+              --chat-link-hover: rgb(60, 100, 180);
+              --chat-diary-link: rgb(180, 120, 80);
+              --chat-question-link: rgb(80, 140, 200);
+              --chat-timestamp: rgba(0, 0, 0, 0.4);
+              --chat-message-border: rgba(0, 0, 0, 0.15);
+              --chat-input-bg: white;
+              --chat-input-text: black;
+              --chat-input-border: rgb(130, 100, 100);
+              --chat-autocomplete-bg: white;
+              --chat-autocomplete-selected: var(--button-background-highlight);
+              --chat-shadow: rgb(80, 80, 80);
+              
+              /* Gate/Text Colors */
+              --gate-text: black;
+              --button-active-bg: rgb(255, 248, 165);
+              --positive-bg: rgb(203, 238, 161);
+              --positive-border: rgb(114, 203, 80);
+              --positive-hover: rgb(199, 252, 136);
+              --positive-active: rgb(210, 252, 146);
+              --negative-bg: rgb(255, 154, 168);
+              --negative-border: rgb(255, 87, 87);
+              --negative-hover: rgb(255, 171, 171);
+              --negative-active: rgb(255, 161, 186);
+              
+              /* Link Color */
+              --link-color: rgb(80, 100, 180);
+              
+              /* Typography */
               --line-height: 1.76em;
-              /* --garden-background: rgb(187, 251, 254); // #bbfbfe; */
-              --garden-background: #FFD1DC;
-              /*--chat-background: rgb(255, 230, 225);*/ /* rgb(240, 235, 230); */
-              --chat-background: /*rgb(202, 218, 228);*/ rgb(240, 235, 230);
-              --chat-input-bar-background: rgb(255, 240, 235); /* rgb(240, 235, 230); */
-              /* --font-page: serif; */
-              --editor-placemat-background: rgba(255, 255, 255, 0.5);
-              --editor-placemat-background-opaque: rgb(255, 255, 255);
-              /* --page-font: "EB Garamond"; */
-              --page-font: "Helvetica"; /* "Carlito"; */ /* "Calibri"; */ /* "Inter"; */
+              --page-font: "Helvetica";
               --max-lines: ${MAX_LINES};
             }
 
-            @supports (-webkit-touch-callout: none) and
-              (not (overflow: -moz-hidden-unscrollable)) {
-              ::-webkit-scrollbar {
-                width: 8px;
-              }
-              ::-webkit-scrollbar-thumb {
-                background: rgba(255, 190, 215, 1);
-              }
-              ::-webkit-scrollbar-track {
-                background: rgba(255, 230, 240, 0.5);
+            /* === Dark Mode === */
+            @media (prefers-color-scheme: dark) {
+              :root {
+                /* Page/Background Colors - deep rose/plum evening */
+                --background-color: #2d1f2a;
+                --garden-background: #2d1f2a;
+                --chat-background: #231a20;
+                --chat-input-bar-background: #2a1f26;
+                --backpage-color: #1e171b;
+                --backpage-color-translucent: rgba(30, 23, 27, 0.8);
+                --editor-placemat-background: rgba(35, 26, 32, 0.5);
+                --editor-placemat-background-opaque: #231a20;
+                
+                /* Card/Paper Colors - olive/sage tinted parchment */
+                --card-background: #3a3832;
+                --card-back-background: #33322c;
+                --card-border: #5a5548;
+                --card-ear: #4a4840;
+                --card-ear-hover: #8a5070;
+                --card-text: #ece8de;
+                --card-text-muted: #b0a898;
+                --card-text-dim: #908878;
+                --card-text-faint: #706858;
+                
+                /* Question Card Colors (darker blue) */
+                --question-card-background: #2a3442;
+                --question-card-border: #4a5a6a;
+                --question-card-ear: #3a4a5a;
+                --question-answer-text: rgb(80, 220, 210);
+                
+                /* UI Colors - olive-purple tones */
+                --pink-border: #a06080;
+                --button-background: #4a4550;
+                --button-background-highlight: #5a5560;
+                --button-text: #e8e0f0;
+                --spinner-background: #7a5068;
+                --destructive-red: rgb(200, 70, 80);
+                
+                /* Chat Colors - warm evening tones */
+                --chat-text: #ddd5cc;
+                --chat-handle: #d88aa0;
+                --chat-link: #7ab0e0;
+                --chat-link-hover: #9ac8f0;
+                --chat-diary-link: #d0a070;
+                --chat-question-link: #70b0d8;
+                --chat-timestamp: rgba(255, 255, 255, 0.35);
+                --chat-message-border: rgba(255, 255, 255, 0.1);
+                --chat-input-bg: #2a2420;
+                --chat-input-text: #e8e0d8;
+                --chat-input-border: #5a4a50;
+                --chat-autocomplete-bg: #3a3030;
+                --chat-autocomplete-selected: #5a4a40;
+                --chat-shadow: rgba(0, 0, 0, 0.4);
+                
+                /* Gate/Text Colors */
+                --gate-text: #e8e0d8;
+                --button-active-bg: #6a6050;
+                --positive-bg: #3a5030;
+                --positive-border: #4a7040;
+                --positive-hover: #4a6040;
+                --positive-active: #5a7050;
+                --negative-bg: #5a3038;
+                --negative-border: #7a4048;
+                --negative-hover: #6a3a42;
+                --negative-active: #5a3540;
+                
+                /* Link Color */
+                --link-color: #8ab0e0;
               }
             }
 
-            /* Force visible scrollbar on all webkit browsers */
-            #wrapper::-webkit-scrollbar {
-              width: 8px;
-              background: rgba(255, 230, 240, 0.5);
+            /* Dark mode scrollbars */
+            @media (prefers-color-scheme: dark) {
+              * {
+                scrollbar-color: #5a5060 #2a2028;
+              }
+              ::-webkit-scrollbar {
+                width: 10px;
+                height: 10px;
+              }
+              ::-webkit-scrollbar-track {
+                background: #2a2028;
+              }
+              ::-webkit-scrollbar-thumb {
+                background: #5a5060;
+                border-radius: 5px;
+              }
+              ::-webkit-scrollbar-thumb:hover {
+                background: #6a6070;
+              }
             }
-            #wrapper::-webkit-scrollbar-thumb {
-              background: rgba(255, 190, 215, 1);
-              border-radius: 4px;
+
+            /* Dark mode: DOM editor overrides (ask, respond, write-a-page) */
+            @media (prefers-color-scheme: dark) {
+              /* === Write-a-Page Editor === */
+              #garden article.page,
+              #editor-page,
+              #print-page article.page {
+                background-color: #3a3832 !important;
+                border-color: #5a5548 !important;
+              }
+              #garden article.page div.page-number,
+              #editor-page div.page-number,
+              #garden article.page div.page-title,
+              #editor-page div.page-title {
+                color: #b0a898 !important;
+              }
+              #garden #editor textarea {
+                background: #3a3832 !important;
+                caret-color: #d88aa0 !important;
+              }
+              #garden #editor #words-wrapper::before,
+              #garden #editor #words-wrapper::after {
+                background: #33322c !important;
+              }
+              #garden #editor #words-wrapper.invisible.hover {
+                background: rgba(90, 85, 72, 0.25) !important;
+              }
+              #garden #editor #words-wrapper.invisible.active {
+                background: rgba(90, 85, 72, 0.15) !important;
+              }
+              #garden #editor #words-wrapper.invisible.hover::after {
+                background: rgba(90, 85, 72, 0.5) !important;
+              }
+              #garden #editor #words-wrapper.invisible.active::after {
+                background: rgba(100, 95, 72, 0.6) !important;
+              }
+              #editor-lines-left {
+                background: linear-gradient(
+                  to bottom,
+                  rgba(45, 31, 42, 0.85) 25%,
+                  transparent 100%
+                ) !important;
+              }
+              #nav-editor {
+                background: linear-gradient(
+                  to top,
+                  rgba(45, 31, 42, 0.8) 25%,
+                  transparent 100%
+                ) !important;
+              }
+              .lines-left-loads {
+                color: #b0a898 !important;
+              }
+              /* Backpage */
+              #garden .page-wrapper .backpage {
+                background: rgba(30, 23, 27, 0.9) !important;
+                border-color: #5a5548 !important;
+                color: #ece8de !important;
+              }
+              .crumple-this-page {
+                color: #b0a898 !important;
+              }
+              .share-this-page {
+                color: #b0a898 !important;
+              }
+              #garden .page-wrapper div.ear.hover,
+              #garden .page-wrapper div.ear.active {
+                border-color: #5a5548 !important;
+              }
+              #garden .page-wrapper div.ear.active::after {
+                background: #3a3832 !important;
+              }
+              #garden .page-wrapper div.ear.reverse.hover::after,
+              #garden .page-wrapper div.ear.reverse.active::after {
+                background: #3a3832 !important;
+              }
+
+              /* === Ask Editor === */
+              #ask-editor-page {
+                background-color: #2a3442 !important;
+                border-color: #3a4a5a !important;
+              }
+              #ask-editor-page .ask-title,
+              #ask-editor-page .ask-date,
+              #ask-editor-page .ask-number {
+                color: #98a8b8 !important;
+              }
+              #ask-editor-page #ask-words-wrapper {
+                background: #243340 !important;
+              }
+              #ask-editor-page #ask-words-wrapper::before,
+              #ask-editor-page #ask-words-wrapper::after {
+                background: #1e2d3a !important;
+              }
+              #ask-editor-page #ask-highlights {
+                color: #ece8de !important;
+              }
+              #ask-editor-page textarea {
+                caret-color: #d88aa0 !important;
+              }
+              #ask-answer-space {
+                border-top-color: rgba(255, 255, 255, 0.08) !important;
+                color: rgba(176, 168, 152, 0.35) !important;
+              }
+              /* My Questions page (inside ask editor) */
+              #asks-list-page {
+                color: #ece8de !important;
+              }
+              #asks-list-page h2 {
+                color: #ece8de !important;
+              }
+              #asks-list-page .ask-item {
+                color: #ece8de !important;
+                border-bottom-color: rgba(90, 85, 72, 0.4) !important;
+              }
+              #asks-list-page .ask-status {
+                color: #b0a898 !important;
+              }
+              #asks-list-page .ask-item.answered {
+                background: rgba(74, 112, 64, 0.2) !important;
+              }
+              #asks-list-page p {
+                color: #b0a898 !important;
+              }
+              /* Blue ask/respond buttons in dark mode */
+              #ask-button,
+              #respond-button {
+                background: #2a3442 !important;
+                border-color: rgb(0, 140, 128) !important;
+                color: #98a8b8 !important;
+              }
+              #ask-button:hover,
+              #respond-button:hover {
+                background: #324050 !important;
+                border-color: rgb(0, 170, 155) !important;
+              }
+              #ask-button:active,
+              #respond-button:active {
+                background: #3a4a5a !important;
+              }
+              /* Ask toggle ("my questions") + pending toggle buttons */
+              nav button.ask-toggle {
+                background: var(--button-background) !important;
+                border-color: var(--pink-border) !important;
+                color: var(--button-text) !important;
+                font-size: 100% !important;
+              }
+              nav button.ask-toggle:hover {
+                background: var(--button-background-highlight) !important;
+              }
+              nav button.ask-toggle:active {
+                background: var(--button-active-bg) !important;
+              }
+              nav button.pending-toggle {
+                background: #4a3a30 !important;
+                border-color: #7a5a40 !important;
+                color: #e8d0b8 !important;
+              }
+              nav button.pending-toggle:hover {
+                background: #5a4a3a !important;
+              }
+              nav button.pending-toggle:active {
+                background: #6a5a4a !important;
+              }
+              #ask-chars-left {
+                background: linear-gradient(
+                  to bottom,
+                  rgba(26, 42, 56, 0.85) 25%,
+                  transparent 100%
+                ) !important;
+              }
+              #asks-top-veil {
+                background: linear-gradient(
+                  to bottom,
+                  rgba(26, 42, 56, 0.85) 25%,
+                  transparent 100%
+                ) !important;
+              }
+              #nav-ask-editor {
+                background: linear-gradient(
+                  to top,
+                  rgba(26, 42, 56, 0.8) 25%,
+                  transparent 100%
+                ) !important;
+              }
+
+              /* === Respond Editor === */
+              #respond-editor-page {
+                background-color: #2a3442 !important;
+                border-color: #3a4a5a !important;
+              }
+              #respond-editor-page .respond-date {
+                color: #e0e8f0 !important;
+              }
+              #respond-editor-page .respond-title {
+                color: #b8c8d8 !important;
+              }
+              #respond-editor-page .respond-question-section .respond-counter {
+                color: #b8c8d8 !important;
+              }
+              #respond-editor-page .respond-question-text {
+                color: #e8f0f5 !important;
+              }
+              #respond-editor-page .respond-separator {
+                border-top-color: rgba(255, 255, 255, 0.12) !important;
+              }
+              #respond-editor-page #respond-words-wrapper {
+                background: #243340 !important;
+              }
+              #respond-editor-page #respond-words-wrapper::before,
+              #respond-editor-page #respond-words-wrapper::after {
+                background: #1e2d3a !important;
+              }
+              #respond-editor-page .respond-textarea {
+                color: #f5f0e8 !important;
+                caret-color: #e8a0b8 !important;
+              }
+              #respond-editor-page .page-number {
+                color: #d8c8b8 !important;
+              }
+              #respond-lines-left {
+                background: linear-gradient(
+                  to bottom,
+                  rgba(26, 42, 56, 0.85) 25%,
+                  transparent 100%
+                ) !important;
+              }
+              #respond-asked-by {
+                color: #b0a898 !important;
+              }
+              #respond-asked-by .asked-by-handle {
+                color: #d88aa0 !important;
+              }
+              #nav-respond-editor {
+                background: linear-gradient(
+                  to top,
+                  rgba(26, 42, 56, 0.8) 25%,
+                  transparent 100%
+                ) !important;
+              }
+
+              /* === Page placeholder (empty pages in garden) === */
+              .page-placeholder {
+                background: rgba(58, 56, 50, 0.5);
+                border-color: rgba(90, 85, 72, 0.3);
+                color: rgba(176, 168, 152, 0.4);
+              }
+
+              /* === Ask list items inside ask editor === */
+              #asks-list h3 {
+                color: #b0a898 !important;
+              }
+              .ask-item {
+                color: #ece8de !important;
+              }
+              .ask-item.answered {
+                background: rgba(74, 112, 64, 0.25) !important;
+              }
+              .ask-item.answered:hover {
+                background: rgba(74, 112, 64, 0.4) !important;
+              }
+              .ask-item button.take-back {
+                background: rgba(200, 80, 80, 0.15) !important;
+                border-color: rgba(200, 80, 80, 0.35) !important;
+                color: rgb(220, 120, 120) !important;
+                filter: drop-shadow(-0.04em 0.04em 0.04em rgba(200, 80, 80, 0.12)) !important;
+              }
+              .ask-item button.take-back:hover {
+                background: rgba(200, 80, 80, 0.25) !important;
+                border-color: rgba(200, 80, 80, 0.5) !important;
+              }
+              .ask-item button.take-back:active {
+                background: rgba(200, 80, 80, 0.35) !important;
+              }
+              #asks-list-page {
+                background: rgba(40, 35, 45, 0.65) !important;
+                border-color: rgba(90, 85, 72, 0.4) !important;
+                box-shadow:
+                  0 1px 4px rgba(0, 0, 0, 0.2),
+                  0 0 0 1px rgba(255, 255, 255, 0.06) inset !important;
+              }
+
+              /* === Prompt / back button on editor overlay === */
+              #prompt {
+                color: #b0a898 !important;
+              }
+              #prompt:hover {
+                color: #d88aa0 !important;
+              }
+
+              /* === Garden page text (rendered pages in scroll view) === */
+              #garden article.page .words,
+              #print-page article.page .words {
+                color: #ece8de !important;
+              }
+              #garden article.page div.page-number:hover {
+                color: #d0a070 !important;
+              }
+
+              /* === Write-a-page: textarea text + measurement overlay === */
+              #garden #editor textarea {
+                color: #ece8de !important;
+              }
+              #editor-measurement {
+                color: #ece8de !important;
+              }
+
+              /* === Respond view (non-admin user respond) === */
+              .respond-view .respond-handle {
+                color: #d88aa0 !important;
+              }
+              .respond-view .respond-question-text {
+                background: rgba(51, 50, 44, 0.6) !important;
+                border-left-color: #5a5548 !important;
+                color: #ece8de !important;
+              }
+              .respond-view .respond-label {
+                color: #7ab0e0 !important;
+              }
+              .respond-view .respond-textarea {
+                background: #33322c !important;
+                color: #ece8de !important;
+                caret-color: #d88aa0 !important;
+              }
+
+              /* === Lines-left counter text colors === */
+              .lines-left-lots {
+                color: #7ab07a !important;
+              }
+              .lines-left-little {
+                color: #d0a060 !important;
+              }
+              .lines-left-few {
+                color: #d07060 !important;
+              }
             }
-            #wrapper::-webkit-scrollbar-track {
-              background: rgba(255, 230, 240, 0.5);
-            }
+
+            /* Using default browser scrollbars */
 
             html,
             body {
@@ -416,6 +884,19 @@ export const handler = async (event, context) => {
             html.editing #garden #top-bar {
               z-index: 4;
               opacity: 0.5;
+              pointer-events: none;
+            }
+
+            html.editing #garden-canvas {
+              display: none;
+            }
+
+            /* Disable grab cursor in editing mode */
+            html.editing #garden {
+              cursor: default;
+            }
+            html.editing #garden:active {
+              cursor: default;
             }
 
             html.editing body {
@@ -451,6 +932,15 @@ export const handler = async (event, context) => {
               /* height: 100%; */
               /* overflow: hidden; */
               overscroll-behavior-y: none; /* prevent pull-to-refresh for Chrome 63+ */
+              color: var(--gate-text);
+            }
+            
+            a {
+              color: var(--link-color);
+            }
+            
+            a:hover {
+              opacity: 0.8;
             }
 
             /* prevent pull-to-refresh for Safari 16+ */
@@ -562,6 +1052,10 @@ export const handler = async (event, context) => {
               touch-action: pan-y;
               scroll-snap-type: y proximity;
             }
+            /* When garden is visible, wrapper shouldn't scroll - binding handles it */
+            #wrapper:has(#garden:not(.hidden)) {
+              overflow: hidden;
+            }
             body.reloading::after {
               content: "";
               position: fixed;
@@ -668,6 +1162,11 @@ export const handler = async (event, context) => {
               filter: drop-shadow(-2px 0px 1px rgba(0, 0, 0, 0.35));
               pointer-events: none;
             }
+            @media (prefers-color-scheme: dark) {
+              #gate #cookie {
+                filter: drop-shadow(-2px 0px 1px rgba(0, 0, 0, 0.5)) brightness(0.85);
+              }
+            }
             #gate #cookie-wrapper {
               position: relative;
               /* z-index: 1000; */
@@ -692,6 +1191,7 @@ export const handler = async (event, context) => {
               text-align: center;
               user-select: none;
               -webkit-user-select: none;
+              color: var(--gate-text);
             }
             #gate h2 {
               font-weight: normal;
@@ -701,6 +1201,7 @@ export const handler = async (event, context) => {
               padding-bottom: 1em;
               user-select: none;
               -webkit-user-select: none;
+              color: var(--gate-text);
             }
             #gate #nav-high {
               margin-top: -0.5em;
@@ -718,13 +1219,14 @@ export const handler = async (event, context) => {
             #pages-button,
             /*#chat-enter,*/
             #chat-button,
-            #ask-button {
-              color: black;
+            #ask-button,
+            #respond-button {
+              color: var(--button-text);
               background: var(--button-background);
               padding: 0.35em;
               font-size: 100%;
               border: 0.205em solid var(--pink-border);
-              filter: drop-shadow(-0.065em 0.065em 0.065em rgb(80, 80, 80));
+              filter: drop-shadow(-0.065em 0.065em 0.065em var(--chat-shadow));
               border-radius: 0.5em;
               cursor: pointer;
               user-select: none;
@@ -739,10 +1241,40 @@ export const handler = async (event, context) => {
             textarea {
               -webkit-tap-highlight-color: transparent;
             }
-            #chat-button,
-            #ask-button {
+            #chat-button {
               /* display: none; */
               margin-left: 1em;
+            }
+            #ask-button,
+            #respond-button {
+              margin-left: 1em;
+            }
+            @keyframes new-button-pulse {
+              0%, 100% { border-color: rgb(175, 195, 190); background: rgb(228, 242, 240); color: rgb(0, 120, 110); }
+              50% { border-color: rgb(170, 130, 190); background: rgb(240, 228, 248); color: rgb(80, 40, 110); }
+            }
+            @media (prefers-color-scheme: dark) {
+              @keyframes new-button-pulse {
+                0%, 100% { border-color: rgb(45, 80, 75); background: #2a3442; color: rgb(80, 210, 195); }
+                50% { border-color: #5a4a6a; background: #3a2a4a; color: #c8a8e0; }
+              }
+            }
+            #ask-button,
+            #respond-button {
+              animation: new-button-pulse 2.5s ease-in-out infinite;
+            }
+            #ask-button:hover,
+            #respond-button:hover,
+            #ask-button:active,
+            #respond-button:active {
+              animation: none;
+            }
+            @keyframes chat-unread-pulse {
+              0%, 100% { border-color: var(--pink-border); }
+              50% { border-color: var(--chat-handle); }
+            }
+            #chat-button.has-unread {
+              animation: chat-unread-pulse 1.5s ease-in-out infinite;
             }
             /* Ask Editor - reuses #editor styles with ask-specific additions */
             #ask-editor {
@@ -809,10 +1341,11 @@ export const handler = async (event, context) => {
               touch-action: none;
               margin-top: 15%;
               height: calc(var(--line-height) * 5);
+              background: rgb(235, 245, 255);
             }
             #ask-editor-page #ask-words-wrapper::before {
               content: "";
-              background: rgb(235, 245, 255);
+              background: rgb(200, 220, 255);
               width: 2em;
               height: 100%;
               display: block;
@@ -823,7 +1356,7 @@ export const handler = async (event, context) => {
             }
             #ask-editor-page #ask-words-wrapper::after {
               content: "";
-              background: rgb(235, 245, 255);
+              background: rgb(200, 220, 255);
               width: 2em;
               height: 100%;
               display: block;
@@ -832,13 +1365,51 @@ export const handler = async (event, context) => {
               right: 0;
               z-index: 101;
             }
+            #ask-editor-page #ask-highlights {
+              position: absolute;
+              top: 0;
+              left: 0;
+              width: 100%;
+              padding: 0 2em;
+              box-sizing: border-box;
+              font-family: var(--page-font), serif;
+              font-size: 100%;
+              line-height: var(--line-height);
+              text-align: justify;
+              hyphens: auto;
+              -webkit-hyphens: auto;
+              overflow-wrap: break-word;
+              white-space: pre-wrap;
+              pointer-events: none;
+              color: black;
+              z-index: 99;
+            }
+            #ask-editor-page #ask-highlights .handle-hl {
+              color: var(--chat-handle);
+            }
+            #ask-answer-space {
+              position: relative;
+              margin-top: 0.5em;
+              border-top: 1px dashed rgba(0, 0, 0, 0.15);
+              padding: 0 2em;
+              box-sizing: border-box;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              color: rgba(0, 0, 0, 0.2);
+              font-style: italic;
+              font-size: 85%;
+              transition: height 0.2s ease;
+              overflow: hidden;
+            }
             #ask-editor-page textarea {
               border: none;
               font-family: var(--page-font), serif;
               font-size: 100%;
               resize: none;
               display: block;
-              background: rgb(235, 245, 255);
+              background: transparent;
+              color: transparent;
               padding: 0 2em;
               text-indent: 0em;
               text-align: justify;
@@ -847,6 +1418,7 @@ export const handler = async (event, context) => {
               width: 100%;
               overflow: hidden;
               position: relative;
+              z-index: 100;
               hyphens: auto;
               -webkit-hyphens: auto;
               overflow-wrap: break-word;
@@ -870,23 +1442,43 @@ export const handler = async (event, context) => {
                 transparent 100%
               );
             }
+            #asks-top-veil {
+              position: fixed;
+              top: 0;
+              left: 0;
+              width: 100%;
+              text-align: center;
+              padding-top: 1.5em;
+              padding-bottom: 1.5em;
+              z-index: 6;
+              background: linear-gradient(
+                to bottom,
+                rgb(220 235 250 / 70%) 25%,
+                transparent 100%
+              );
+            }
             #nav-ask-editor {
               position: fixed;
               bottom: 0;
               left: 0;
               padding-top: 1em;
-              justify-content: space-between;
               width: 100%;
               padding-left: 1em;
               padding-right: 1em;
               box-sizing: border-box;
               display: flex;
-              z-index: 5;
+              justify-content: space-between;
+              z-index: 7;
               background: linear-gradient(
                 to top,
-                rgb(207 255 195 / 50%) 25%,
+                rgb(220 235 250 / 50%) 25%,
                 transparent 100%
               );
+            }
+            #nav-ask-editor .nav-center {
+              position: absolute;
+              left: 50%;
+              transform: translateX(-50%);
             }
             #asks-list {
               margin-top: 20%;
@@ -900,8 +1492,48 @@ export const handler = async (event, context) => {
               font-size: 90%;
               opacity: 0.6;
             }
+            #asks-list-page {
+              background: rgba(255, 255, 255, 0.55);
+              border: 0.16em solid var(--pink-border);
+              border-radius: 0.75em;
+              margin: 0.75em;
+              padding: 1em !important;
+              box-shadow:
+                0 1px 4px rgba(0, 0, 0, 0.06),
+                0 0 0 1px rgba(255, 255, 255, 0.3) inset;
+              backdrop-filter: blur(6px);
+              -webkit-backdrop-filter: blur(6px);
+            }
+            @media (prefers-color-scheme: dark) {
+              #asks-list-page {
+                background: rgba(40, 35, 45, 0.65) !important;
+                box-shadow:
+                  0 1px 4px rgba(0, 0, 0, 0.2),
+                  0 0 0 1px rgba(255, 255, 255, 0.06) inset;
+              }
+            }
+            #asks-list-page .ask-item {
+              padding: 0.75em 0.6em;
+              border-bottom: 1px solid rgba(180, 140, 160, 0.2);
+              font-size: 90%;
+            }
+            #asks-list-page .ask-item:last-child {
+              border-bottom: none;
+            }
+            #asks-list-page .ask-item.answered {
+              background: rgba(203, 238, 161, 0.2);
+              border-radius: 0.4em;
+              margin: 0.2em -0.3em;
+              padding-left: 0.9em;
+              padding-right: 0.9em;
+              cursor: pointer;
+              transition: background 0.15s ease;
+            }
+            #asks-list-page .ask-item.answered:hover {
+              background: rgba(203, 238, 161, 0.4);
+            }
             .ask-item {
-              padding: 0.5em 0;
+              padding: 0.75em 0.5em;
               border-bottom: 1px solid var(--pink-border);
               font-size: 90%;
             }
@@ -910,15 +1542,44 @@ export const handler = async (event, context) => {
             }
             .ask-item.answered {
               background: rgba(203, 238, 161, 0.3);
-              padding-left: 0.5em;
-              padding-right: 0.5em;
               margin-left: -0.5em;
               margin-right: -0.5em;
+              cursor: pointer;
+              transition: background 0.15s ease;
+            }
+            .ask-item.answered:hover {
+              background: rgba(203, 238, 161, 0.5);
             }
             .ask-item .ask-status {
-              font-size: 80%;
-              opacity: 0.6;
-              margin-top: 0.25em;
+              font-size: 75%;
+              opacity: 0.45;
+              text-transform: lowercase;
+              font-style: italic;
+            }
+            .ask-item button.take-back {
+              display: block;
+              margin-top: 0.5em;
+              font-size: 78%;
+              padding: 0.35em 0.85em;
+              background: rgba(180, 60, 60, 0.08);
+              border: 0.16em solid rgba(180, 60, 60, 0.35);
+              color: rgb(160, 50, 50);
+              cursor: pointer;
+              transition: background 0.15s ease, transform 0.1s ease, filter 0.1s ease;
+              border-radius: 0.5em;
+              filter: drop-shadow(-0.04em 0.04em 0.04em rgba(120, 40, 40, 0.15));
+              user-select: none;
+              -webkit-user-select: none;
+              -webkit-tap-highlight-color: transparent;
+            }
+            .ask-item button.take-back:hover {
+              background: rgba(180, 60, 60, 0.15);
+              border-color: rgba(180, 60, 60, 0.5);
+            }
+            .ask-item button.take-back:active {
+              background: rgba(180, 60, 60, 0.22);
+              transform: translate(-1px, 1px);
+              filter: drop-shadow(-0.02em 0.02em 0.02em rgba(120, 40, 40, 0.1));
             }
             #pages-button {
               position: fixed;
@@ -931,6 +1592,7 @@ export const handler = async (event, context) => {
               margin-top: 1em;
               /* transition: 0.25s filter; */
             }
+            #respond-button.deactivated,
             #write-a-page.deactivated {
               pointer-events: none;
               /* filter: saturate(0.5); */
@@ -976,7 +1638,8 @@ export const handler = async (event, context) => {
             /*#chat-enter:hover,*/
             #pages-button:hover,
             #chat-button:hover,
-            #ask-button:hover {
+            #ask-button:hover,
+            #respond-button:hover {
               background: var(--button-background-highlight);
             }
             nav button:active,
@@ -984,11 +1647,12 @@ export const handler = async (event, context) => {
             /*#chat-enter:active,*/
             #pages-button:active,
             #chat-button:active,
-            #ask-button:active {
+            #ask-button:active,
+            #respond-button:active {
               filter: none; /* drop-shadow(
                         -0.035em 0.035em 0.035em rgba(40, 40, 40, 0.8)
                       ); */
-              background: rgb(255, 248, 165);
+              background: var(--button-active-bg);
               transform: translate(-2px, 2px);
             }
             #write-a-page {
@@ -999,35 +1663,310 @@ export const handler = async (event, context) => {
               font-weight: normal;
             }
             nav button.positive {
-              background: rgb(203, 238, 161);
-              border-color: rgb(114, 203, 80);
+              background: var(--positive-bg);
+              border-color: var(--positive-border);
             }
             nav button.positive:hover {
-              background: rgb(199, 252, 136);
+              background: var(--positive-hover);
             }
             nav button.positive:active {
-              background: rgb(210, 252, 146);
+              background: var(--positive-active);
             }
             nav button.negative {
-              background: rgb(255 154 168);
-              border-color: rgb(255, 87, 87);
+              background: var(--negative-bg);
+              border-color: var(--negative-border);
             }
             nav button.negative:hover {
-              background: rgb(255, 171, 171);
+              background: var(--negative-hover);
             }
             nav button.negative:active {
-              background: rgb(255, 161, 186);
+              background: var(--negative-active);
             }
             nav button.ask-toggle {
               background: rgb(220, 235, 250);
               border-color: rgb(130, 170, 210);
-              font-size: 90%;
+              font-size: 100%;
             }
             nav button.ask-toggle:hover {
               background: rgb(200, 225, 250);
             }
             nav button.ask-toggle:active {
               background: rgb(190, 215, 245);
+            }
+            nav button.pending-toggle {
+              background: rgb(255, 235, 220);
+              border-color: rgb(200, 150, 100);
+              font-size: 90%;
+            }
+            nav button.pending-toggle:hover {
+              background: rgb(255, 225, 200);
+            }
+            nav button.pending-toggle:active {
+              background: rgb(255, 215, 190);
+            }
+            /* Respond view within ask editor (admin) */
+            .respond-view {
+              padding: 1em 2em;
+              height: 100%;
+              overflow-y: auto;
+              box-sizing: border-box;
+            }
+            .respond-view .respond-counter {
+              font-size: 80%;
+              opacity: 0.6;
+              text-align: center;
+              margin-bottom: 0.5em;
+            }
+            .respond-view .respond-handle {
+              font-size: 90%;
+              opacity: 0.8;
+              margin-bottom: 0.5em;
+              color: rgb(180, 72, 135);
+            }
+            .respond-view .respond-question-text {
+              font-size: 100%;
+              line-height: var(--line-height);
+              text-align: justify;
+              hyphens: auto;
+              -webkit-hyphens: auto;
+              padding: 0.5em;
+              background: rgba(255, 240, 220, 0.5);
+              border-left: 3px solid rgb(200, 150, 100);
+              margin-bottom: 1em;
+            }
+            .respond-view .respond-label {
+              font-size: 90%;
+              opacity: 0.8;
+              margin-bottom: 0.5em;
+              color: rgb(100, 150, 180);
+            }
+            .respond-view .respond-textarea {
+              border: none;
+              font-family: var(--page-font), serif;
+              font-size: 100%;
+              resize: none;
+              display: block;
+              background: rgb(245, 250, 255);
+              padding: 0.5em;
+              text-align: justify;
+              line-height: var(--line-height);
+              height: calc(var(--line-height) * 8);
+              width: 100%;
+              overflow: hidden;
+              hyphens: auto;
+              -webkit-hyphens: auto;
+              overflow-wrap: break-word;
+              caret-color: rgb(50, 100, 180);
+              box-sizing: border-box;
+            }
+            .respond-view .respond-textarea:focus {
+              outline: none;
+            }
+            .respond-nav-btns {
+              display: flex;
+              justify-content: space-between;
+              margin-top: 0.5em;
+            }
+            .respond-nav-btn {
+              font-size: 90%;
+              padding: 0.25em 0.5em;
+            }
+            .respond-nav-btn:disabled {
+              opacity: 0.4;
+              cursor: not-allowed;
+            }
+
+            /* 📝 Respond Editor Page Styles (Admin) */
+            #respond-editor {
+              position: relative;
+              width: 100%;
+              min-height: 100.1%;
+              top: 0;
+              left: 0;
+              border: none;
+              z-index: 4;
+              padding: 0;
+              display: flex;
+            }
+            #respond-editor-form {
+              padding-top: 100px;
+              padding-bottom: 72px;
+              padding-left: 16px;
+              padding-right: 16px;
+              box-sizing: border-box;
+              margin: 0 auto auto auto;
+            }
+            #respond-editor-page {
+              aspect-ratio: 4 / 5;
+              background-color: rgb(240, 248, 255);
+              border: calc(max(1px, 0.1em)) solid black;
+              box-sizing: border-box;
+              left: 0;
+              padding: 1em;
+              position: absolute;
+              top: 0;
+              transform-origin: top left;
+              width: calc(100px * 8);
+              font-family: var(--page-font), serif;
+              font-size: calc(2.78px * 8);
+            }
+            #respond-editor-page .respond-date {
+              position: absolute;
+              top: 6.5%;
+              left: 0;
+              width: 100%;
+              text-align: center;
+              color: black;
+            }
+            #respond-editor-page .respond-title {
+              position: absolute;
+              top: calc(6.5% + 1.5em);
+              left: 0;
+              width: 100%;
+              text-align: center;
+              color: black;
+              opacity: 0.6;
+              font-size: 90%;
+            }
+            #respond-editor-page .respond-question-section {
+              margin-top: 15%;
+              padding: 0 2em;
+            }
+            #respond-editor-page .respond-counter {
+              font-size: 80%;
+              opacity: 0.6;
+              text-align: center;
+              margin-bottom: 0.25em;
+            }
+            #respond-editor-page .respond-handle {
+              font-size: 90%;
+              opacity: 0.8;
+              margin-bottom: 0.25em;
+              color: rgb(180, 72, 135);
+            }
+            #respond-editor-page .respond-question-text {
+              font-size: 100%;
+              line-height: var(--line-height);
+              text-align: justify;
+              hyphens: auto;
+              -webkit-hyphens: auto;
+              padding: 0;
+            }
+            #respond-editor-page .respond-separator {
+              border: none;
+              border-top: 1px dashed rgba(0, 0, 0, 0.2);
+              margin: 0.5em 0;
+            }
+            #respond-editor-page .respond-response-section {
+              padding: 0;
+            }
+            #respond-editor-page #respond-words-wrapper {
+              position: relative;
+              touch-action: none;
+              background: rgb(245, 240, 230);
+            }
+            #respond-editor-page #respond-words-wrapper::before {
+              content: "";
+              background: rgb(220, 200, 180);
+              width: 2em;
+              height: 100%;
+              display: block;
+              position: absolute;
+              top: 0;
+              left: 0;
+              z-index: 101;
+            }
+            #respond-editor-page #respond-words-wrapper::after {
+              content: "";
+              background: rgb(220, 200, 180);
+              width: 2em;
+              height: 100%;
+              display: block;
+              position: absolute;
+              top: 0;
+              right: 0;
+              z-index: 101;
+            }
+            #respond-editor-page .respond-textarea {
+              border: none;
+              font-family: var(--page-font), serif;
+              font-size: 100%;
+              resize: none;
+              display: block;
+              background: transparent;
+              padding: 0 2em;
+              text-align: justify;
+              line-height: var(--line-height);
+              height: calc(var(--line-height) * 12); /* Default, overridden dynamically */
+              width: 100%;
+              overflow: hidden;
+              hyphens: auto;
+              -webkit-hyphens: auto;
+              overflow-wrap: break-word;
+              caret-color: rgb(50, 100, 180);
+              box-sizing: border-box;
+              position: relative;
+              z-index: 100;
+            }
+            #respond-editor-page .respond-textarea:focus {
+              outline: none;
+            }
+            #respond-editor-page .page-number {
+              position: absolute;
+              bottom: 6.5%;
+              left: 0;
+              width: 100%;
+              text-align: center;
+              color: black;
+            }
+            #respond-lines-left {
+              position: fixed;
+              top: 0;
+              left: 0;
+              width: 100%;
+              text-align: center;
+              padding-top: 1.5em;
+              padding-bottom: 1.5em;
+              z-index: 6;
+              background: linear-gradient(
+                to bottom,
+                rgb(220 235 250 / 70%) 25%,
+                transparent 100%
+              );
+            }
+            #respond-asked-by {
+              position: fixed;
+              top: 0;
+              left: 0;
+              padding-top: 1.5em;
+              padding-left: 1em;
+              z-index: 8;
+              color: black;
+            }
+            #respond-asked-by .asked-by-handle {
+              color: rgb(200, 80, 120);
+            }
+            #nav-respond-editor {
+              position: fixed;
+              bottom: 0;
+              left: 0;
+              padding-top: 1em;
+              justify-content: space-between;
+              width: 100%;
+              padding-left: 1em;
+              padding-right: 1em;
+              box-sizing: border-box;
+              display: flex;
+              z-index: 7;
+              background: linear-gradient(
+                to top,
+                rgb(220 235 250 / 50%) 25%,
+                transparent 100%
+              );
+            }
+            #nav-respond-editor button:disabled {
+              opacity: 0.4;
+              cursor: not-allowed;
             }
 
             #garden {
@@ -1036,6 +1975,18 @@ export const handler = async (event, context) => {
               /*transition: 0.15s opacity;*/
               opacity: 1;
               background-color: var(--garden-background);
+            }
+            
+            #garden-canvas {
+              display: block;
+              width: 100%;
+              height: calc(100vh - 72px);
+              margin-top: 72px;
+              background-color: var(--garden-background);
+            }
+            
+            #garden.hidden {
+              display: none !important;
             }
 
             #garden.faded,
@@ -1068,14 +2019,24 @@ export const handler = async (event, context) => {
               text-align: center;
             }
             #binding {
-              padding-top: 100px;
+              /* FYP-style: binding is the scroll container */
+              height: 100vh;
+              overflow-y: scroll;
+              scroll-snap-type: y mandatory;
+              scroll-behavior: smooth; /* Animate snap from current position */
+              -webkit-overflow-scrolling: touch;
+              overscroll-behavior: contain;
               padding-left: 16px;
               padding-right: 16px;
-              padding-bottom: 16px;
-              margin-bottom: 8px;
               margin-left: auto;
               margin-right: auto;
               box-sizing: border-box;
+              /* Hide scrollbar but keep scroll functionality */
+              scrollbar-width: none; /* Firefox */
+              -ms-overflow-style: none; /* IE/Edge */
+            }
+            #binding::-webkit-scrollbar {
+              display: none; /* Chrome/Safari/Opera */
             }
             #editor-form {
               padding-top: 100px;
@@ -1145,7 +2106,7 @@ export const handler = async (event, context) => {
               padding-right: 1em;
               box-sizing: border-box;
               display: flex;
-              z-index: 5;
+              z-index: 7;
             }
 
             .page *::selection,
@@ -1170,14 +2131,66 @@ export const handler = async (event, context) => {
             }
 
             #garden div.page-wrapper {
-              /* background-color: yellow; */
+              /* FYP-style: full viewport height, one page at a time */
+              width: 100%;
+              height: 100vh;
+              min-height: 100vh;
+              box-sizing: border-box;
+              scroll-snap-align: center;
+              scroll-snap-stop: always;
+              /* Flexbox to center the page-container vertically */
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              padding-top: 72px; /* header offset at mobile */
+            }
+            @media (min-width: ${miniBreakpoint}px) {
+              #garden div.page-wrapper {
+                padding-top: 100px; /* header offset at desktop */
+              }
+            }
+            
+            #garden div.page-wrapper .page-container {
               width: 100%;
               aspect-ratio: 4 / 5;
-              margin-bottom: 1em;
-              box-sizing: border-box;
               position: relative;
-              scroll-snap-align: start;
-              scroll-margin-top: 100px;
+            }
+            /* Grab cursor for dragging anywhere */
+            #garden {
+              cursor: grab;
+            }
+            #garden:active {
+              cursor: grabbing;
+            }
+            /* Keep pointer on interactive elements */
+            #garden > #binding .page-number,
+            #garden .ear,
+            #garden a,
+            #garden button {
+              cursor: pointer;
+            }
+            /* Editor page numbers are not interactive */
+            #editor-page .page-number,
+            #ask-editor-page .ask-number,
+            #respond-editor-page .page-number {
+              cursor: default !important;
+            }
+            
+            /* Drag direction indicators */
+            #garden.drag-up .page-container {
+              border-top: 4px solid #4CAF50; /* green = will go up/prev */
+            }
+            #garden.drag-down .page-container {
+              border-bottom: 4px solid #2196F3; /* blue = will go down/next */
+            }
+            #garden.drag-snap .page-container {
+              /* no indicator = will snap back */
+            }
+            
+            /* Smooth scroll behavior */
+            #binding {
+              scroll-behavior: smooth;
+              transition: transform 0.15s ease-out;
             }
 
             #garden article.page,
@@ -1202,15 +2215,14 @@ export const handler = async (event, context) => {
             #editor-page div.page-number {
               position: absolute;
               bottom: 5%;
-              left: 0;
-              width: 100%;
+              left: 50%;
+              transform: translateX(-50%);
               text-align: center;
               color: black;
             }
             
             #garden article.page div.page-number:hover {
               color: rgb(180, 120, 80);
-              text-decoration: underline;
             }
             
             /* Page number tooltip with scrolling ticker */
@@ -1629,7 +2641,7 @@ export const handler = async (event, context) => {
 
             #email {
               position: relative;
-              color: black;
+              color: var(--link-color);
             }
             #email.admin::after,
             .crumple-this-page::after {
@@ -1646,15 +2658,15 @@ export const handler = async (event, context) => {
               right: -1.75em;
             }
             #email:hover {
-              color: maroon;
+              color: var(--chat-handle);
             }
             #email:active {
               -webkit-tap-highlight-color: transparent;
-              color: darkgreen;
+              color: var(--positive-border);
             }
             #delete-account,
             #privacy-policy {
-              color: black;
+              color: var(--link-color);
               position: absolute;
               font-size: 80%;
               bottom: -15%;
@@ -1665,7 +2677,7 @@ export const handler = async (event, context) => {
             }
 
             #subscriber-count {
-              color: black;
+              color: var(--gate-text);
               position: absolute;
               font-size: 80%;
               bottom: -15%;
@@ -1692,10 +2704,10 @@ export const handler = async (event, context) => {
               /* 'width' and 'left' value calculated in js 'genSubscribeButton' */
             }
             #privacy-policy:hover {
-              color: rgb(0, 0, 200);
+              color: var(--chat-link-hover);
             }
             #privacy-policy:active {
-              color: blue;
+              color: var(--chat-link);
             }
             #logout-wrapper,
             #imnew-wrapper,
@@ -1704,31 +2716,25 @@ export const handler = async (event, context) => {
             }
             #cookie-menu {
               position: absolute;
+              top: 0;
+              left: 0;
               width: 100%;
               height: 100%;
               user-select: none;
               -webkit-user-select: none;
               cursor: pointer;
-              transition: 0.2s ease-out transform;
               background-color: var(--pink-border);
-              /* background-color: var(--spinner-background); */
-              /* mask-image: url("${assetPath}cookie-open.png"); */
-              /* filter: drop-shadow(-2px 0px 1px rgba(0, 0, 0, 0.35)); */
-              mask-size: cover;
+              mask-size: 100% 100%;
+              mask-position: center;
+              mask-repeat: no-repeat;
+              -webkit-mask-size: 100% 100%;
+              -webkit-mask-position: center;
+              -webkit-mask-repeat: no-repeat;
               -webkit-tap-highlight-color: transparent;
               touch-action: none;
               pointer-events: all;
-            }
-            #cookie-menu-wrapper:hover {
-              transform: scale(0.97);
-            }
-            #cookie-menu-wrapper:active {
-              transform: scale(0.94);
-              transition: 0.13s ease-out transform;
-            }
-            #cookie-menu-wrapper.nogarden {
-              filter: drop-shadow(0px -6px 6px var(--background-color))
-                drop-shadow(4px -14px 0px var(--background-color));
+              /* Apply drop shadow here instead of wrapper to avoid transform artifacts */
+              filter: drop-shadow(-2px 0px 1px rgba(0, 0, 0, 0.25));
             }
             #cookie-menu-wrapper {
               position: absolute;
@@ -1736,15 +2742,37 @@ export const handler = async (event, context) => {
               right: 0.25em;
               width: 90px;
               height: 90px;
-              filter: drop-shadow(0px -6px 6px var(--garden-background))
-                drop-shadow(4px -14px 0px var(--garden-background));
               z-index: 2;
+              cursor: pointer;
+              -webkit-tap-highlight-color: transparent;
+              /* Promote to GPU layer */
+              transform: translateZ(0);
+              backface-visibility: hidden;
+            }
+            #cookie-menu-wrapper:hover #cookie-menu {
+              transform: scale(0.97);
+              transition: transform 0.2s ease-out;
+            }
+            #cookie-menu-wrapper #cookie-menu {
+              transition: transform 0.15s ease-in;
+            }
+            #cookie-menu-wrapper:active #cookie-menu {
+              transform: scale(0.94);
+              transition: transform 0.13s ease-out;
+            }
+            #cookie-menu-wrapper.nogarden #cookie-menu {
+              /* Different shadow color when not in garden */
+              filter: drop-shadow(-2px 0px 1px rgba(0, 0, 0, 0.25));
             }
             #cookie-menu-img {
-              /* Used in lieu of a mask for now. */
+              /* Used to generate the mask dynamically */
+              position: absolute;
+              top: 0;
+              left: 0;
+              width: 100%;
+              height: 100%;
               visibility: hidden;
-              width: 60px;
-              height: 60px;
+              pointer-events: none;
             }
             @media (max-width: ${miniBreakpoint}px) {
               #cookie-menu-wrapper {
@@ -1843,7 +2871,8 @@ export const handler = async (event, context) => {
               z-index: 2; /* This may be wrong. 24.11.05.22.43 */
               width: 100%;
               height: 100%;
-              --chat-input-height: 2.5em;
+              height: 100dvh;
+              --chat-input-height: 2.25em;
               --chat-enter-width: 5em;
               --chat-input-border-color: rgb(130, 100, 100);
               /* --chat-input-border-color: var(--chat-input-bar-background); */
@@ -1901,7 +2930,7 @@ export const handler = async (event, context) => {
               margin-top: auto;
             }
             #chat-messages div.message {
-              border-bottom: 1.5px solid rgba(0, 0, 0, var(--msg-border-opacity, 0.15));
+              border-bottom: 1.5px solid var(--chat-message-border);
               box-sizing: border-box;
               padding: 0.25em 0.5em;
               line-height: 1.25em;
@@ -1910,7 +2939,7 @@ export const handler = async (event, context) => {
             #chat-messages div.message div.message-author {
               font-weight: bold;
               display: inline-block;
-              color: rgb(200, 80, 120); /* pink for handles */
+              color: var(--chat-handle);
               padding-right: 0.25em;
               user-select: text;
               cursor: pointer;
@@ -1920,20 +2949,20 @@ export const handler = async (event, context) => {
             }
             #chat-messages div.message div.message-content {
               display: inline-block;
-              color: rgb(50, 50, 50);
+              color: var(--chat-text);
               user-select: text;
               word-wrap: break-word;
               max-width: calc(100% - 0.5em);
             }
             #chat-messages div.message div.message-content a {
-              color: rgb(80, 120, 200); /* blue for links */
+              color: var(--chat-link);
               text-decoration: underline;
             }
             #chat-messages div.message div.message-content a:hover {
-              color: rgb(60, 100, 180);
+              color: var(--chat-link-hover);
             }
             #chat-messages div.message div.message-content .handle-mention {
-              color: rgb(200, 80, 120);
+              color: var(--chat-handle);
               font-weight: bold;
               cursor: pointer;
             }
@@ -1943,12 +2972,14 @@ export const handler = async (event, context) => {
             #chat-messages div.message div.message-content .page-link {
               font-weight: bold;
               cursor: pointer;
+              text-decoration: none;
+              display: inline;
             }
             #chat-messages div.message div.message-content .diary-link {
-              color: rgb(180, 120, 80);
+              color: var(--chat-diary-link);
             }
             #chat-messages div.message div.message-content .question-link {
-              color: rgb(80, 140, 200);
+              color: var(--chat-question-link);
             }
             #chat-messages div.message div.message-content .page-link:hover {
               text-decoration: none;
@@ -1958,9 +2989,10 @@ export const handler = async (event, context) => {
               position: fixed;
               width: 120px;
               aspect-ratio: 4 / 5;
-              background: white;
-              border: 1px solid rgba(0,0,0,0.3);
-              box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+              background: var(--card-background);
+              color: var(--chat-text);
+              border: 1px solid var(--card-border);
+              box-shadow: 0 4px 12px rgba(0,0,0,0.3);
               pointer-events: none;
               z-index: 1000;
               padding: 8px;
@@ -1993,14 +3025,16 @@ export const handler = async (event, context) => {
               opacity: 0.5;
             }
             #chat-messages div.message div.message-when {
-              opacity: var(--msg-when-opacity, 0.15);
+              color: var(--chat-timestamp);
+              opacity: 1;
               display: inline-block;
               font-size: 75%;
               padding-left: 0.5em;
               transition: opacity 0.15s ease;
             }
             #chat-messages div.message:hover div.message-when {
-              opacity: 0.5;
+              opacity: 1;
+              color: var(--chat-text);
             }
             #chat-input-bar {
               /* width: 100%; */ /* Set in JavaScript */
@@ -2008,6 +3042,7 @@ export const handler = async (event, context) => {
               background: var(--chat-input-bar-background);
               min-height: var(--chat-input-height);
               display: flex;
+              align-items: center;
               flex-shrink: 0;
               overflow: hidden;
               border-top: 2px solid rgba(0, 0, 0, 0.1);
@@ -2022,22 +3057,25 @@ export const handler = async (event, context) => {
               opacity: 0.5;
             }
             #chat-handle {
-              height: 100%;
-              line-height: var(--chat-input-height);
+              display: flex;
+              align-items: center;
               font-weight: bold;
-              padding: 0 0.25em;
-              vertical-align: center;
+              padding: 0;
+              margin-left: 0;
+              color: var(--chat-handle);
             }
             #chat-input-container {
               flex: 1;
               height: var(--chat-input-height);
-              margin: auto 0;
-              border-radius: 0.4em;
+              display: flex;
+              align-items: center;
+              border-radius: 0.5em;
               border: 0.205em solid var(--pink-border);
               box-sizing: border-box;
-              background: white;
+              background: var(--chat-input-bg);
               position: relative;
               overflow: hidden;
+              filter: drop-shadow(-0.065em 0.065em 0.065em var(--chat-shadow));
             }
             #chat-input-container .monaco-editor {
               position: absolute !important;
@@ -2047,10 +3085,29 @@ export const handler = async (event, context) => {
               bottom: 0;
             }
             #chat-input-container .monaco-editor .view-lines {
-              padding-left: 0.25em !important;
+              padding-left: 0.5em !important;
+              padding-top: 0.25em !important;
             }
             #chat-input-container .monaco-editor .cursors-layer {
-              padding-left: 0.25em !important;
+              padding-left: 0.5em !important;
+              padding-top: 0.25em !important;
+            }
+            #chat-input-container .monaco-editor,
+            #chat-input-container .monaco-editor .view-line {
+              font-family: var(--page-font), sans-serif !important;
+            }
+            /* Hide Monaco's mobile keyboard toggle button (SVG keyboard icon) */
+            #chat-input-container .monaco-editor .iPadShowKeyboard,
+            #chat-input-container .monaco-editor .codicon-keyboard,
+            #chat-input-container .monaco-editor .monaco-editor-overlaymessage,
+            #chat-input-container .monaco-editor .accessibilityHelpWidget {
+              display: none !important;
+            }
+            /* Ensure Monaco's hidden textarea is accessible for mobile keyboard */
+            #chat-input-container .monaco-editor .inputarea {
+              opacity: 0 !important;
+              height: 1em !important;
+              font-size: 16px !important; /* Prevents iOS zoom on focus */
             }
             #chat-input {
               flex: 1;
@@ -2061,7 +3118,8 @@ export const handler = async (event, context) => {
               box-sizing: border-box;
               font-size: 100%;
               padding: 0.35em 0.5em;
-              background: white;
+              background: var(--chat-input-bg);
+              color: var(--chat-input-text);
             }
             #chat-input:focus {
               outline: none;
@@ -2075,11 +3133,11 @@ export const handler = async (event, context) => {
               padding: 0.35em 0.75em;
               border: 0.205em solid var(--pink-border);
               box-sizing: border-box;
-              color: black;
+              color: var(--button-text);
               background-color: var(--button-background);
               cursor: pointer;
               border-radius: 0.5em;
-              filter: drop-shadow(-0.065em 0.065em 0.065em rgb(80, 80, 80));
+              filter: drop-shadow(-0.065em 0.065em 0.065em var(--chat-shadow));
               user-select: none;
               -webkit-user-select: none;
               -webkit-tap-highlight-color: transparent;
@@ -2089,14 +3147,14 @@ export const handler = async (event, context) => {
               background-color: var(--button-background-highlight);
             }
             #chat-enter:active {
-              background-color: yellow;
-              filter: drop-shadow(-0.03em 0.03em 0.03em rgb(80, 80, 80));
+              background-color: var(--button-background-highlight);
+              filter: drop-shadow(-0.03em 0.03em 0.03em var(--chat-shadow));
             }
             #chat-autocomplete {
               position: absolute;
               bottom: calc(100% + 0.25em);
               left: 0;
-              background: white;
+              background: var(--chat-autocomplete-bg);
               border: 0.205em solid var(--pink-border);
               border-radius: 0.5em;
               max-height: 150px;
@@ -2111,14 +3169,14 @@ export const handler = async (event, context) => {
             #chat-autocomplete .autocomplete-item {
               padding: 0.5em 0.75em;
               cursor: pointer;
-              color: rgb(200, 80, 120);
+              color: var(--chat-handle);
               font-weight: bold;
               -webkit-tap-highlight-color: transparent;
               touch-action: manipulation;
             }
             #chat-autocomplete .autocomplete-item:hover,
             #chat-autocomplete .autocomplete-item.selected {
-              background: var(--button-background-highlight);
+              background: var(--chat-autocomplete-selected);
             }
             @media (hover: none) {
               #chat-autocomplete .autocomplete-item:active {
@@ -2142,6 +3200,8 @@ export const handler = async (event, context) => {
             }
             #chat.hidden {
               opacity: 0;
+              pointer-events: none;
+              display: none;
             }
             #chat.inaccessible #chat-input-bar {
               display: none;
@@ -2260,6 +3320,14 @@ export const handler = async (event, context) => {
                   setTimeout(() => {
                     chatInput.value = message;
                     chatInput.focus();
+                    // Move cursor to end of input
+                    const len = message.length;
+                    chatInput.setSelectionRange(len, len);
+                    // Force focus again after a tick to ensure cursor is visible
+                    requestAnimationFrame(() => {
+                      chatInput.focus();
+                      chatInput.setSelectionRange(len, len);
+                    });
                   }, 100);
                 }
               }
@@ -2289,6 +3357,7 @@ export const handler = async (event, context) => {
                 const handle = e.target.innerText;
                 chatInput.value = chatInput.value + handle + " ";
                 chatInput.focus();
+                chatInput.setSelectionRange(chatInput.value.length, chatInput.value.length);
               }
               // Handle page link clicks (navigate within SPA)
               if (e.target.classList.contains("page-link")) {
@@ -2425,11 +3494,12 @@ export const handler = async (event, context) => {
               const handleRegex = new RegExp('(@[a-zA-Z0-9_.-]+)', 'g');
               result = result.replace(handleRegex, '<span class="handle-mention">$1</span>');
               // Link diary page references like -5-
+              const linkPrefix = dev ? "/sotce-net" : "";
               const diaryPageRegex = new RegExp('-(\\\\d+)-', 'g');
-              result = result.replace(diaryPageRegex, '<a href="/page/$1" class="page-link diary-link">-$1-</a>');
+              result = result.replace(diaryPageRegex, '<a href="' + linkPrefix + '/page/$1" class="page-link diary-link">-$1-</a>');
               // Link question references like *3*
               const questionRegex = new RegExp('\\\\*(\\\\d+)\\\\*', 'g');
-              result = result.replace(questionRegex, '<a href="/q/$1" class="page-link question-link">*$1*</a>');
+              result = result.replace(questionRegex, '<a href="' + linkPrefix + '/q/$1" class="page-link question-link">*$1*</a>');
               return result;
             }
 
@@ -2438,23 +3508,12 @@ export const handler = async (event, context) => {
               msg.classList.add("message");
               msg.dataset.when = when; // Store timestamp for recency calculations
               
-              // Calculate recency-based opacity (fade older messages' decorations)
-              const now = Date.now();
-              const age = now - new Date(when).getTime();
-              const hourMs = 60 * 60 * 1000;
-              const dayMs = 24 * hourMs;
-              // Messages fade from full opacity to minimal over 24 hours
-              const recencyFactor = Math.max(0.03, 1 - (age / dayMs));
-              msg.style.setProperty('--msg-border-opacity', (0.15 * recencyFactor).toFixed(3));
-              msg.style.setProperty('--msg-when-opacity', (0.15 * recencyFactor).toFixed(3));
-              
               const by = cel("div");
               by.classList.add("message-author");
               const txt = cel("div");
               txt.classList.add("message-content");
               const date = cel("div");
               date.classList.add("message-when");
-              date.style.opacity = (0.15 * recencyFactor).toFixed(3);
               // Add count multiplier if message was repeated
               const displayText = count > 1 ? text + " x" + count : text;
               // Auto-link URLs and escape HTML for non-URL parts
@@ -2480,6 +3539,31 @@ export const handler = async (event, context) => {
               while (chatMessages.children.length > 500) {
                 chatMessages.removeChild(chatMessages.firstChild);
               }
+              // Update position-based fading for all messages
+              updateMessageFading();
+            }
+            
+            // Update opacity of borders and timestamps based on position from bottom
+            // Most recent 30 messages are visible, then fade out slowly
+            function updateMessageFading() {
+              const messages = chatMessages.querySelectorAll(".message");
+              const total = messages.length;
+              const fadeStart = 30; // Start fading after this many messages from bottom
+              const fadeLength = 20; // Fade over this many messages
+              
+              messages.forEach((msg, i) => {
+                const posFromBottom = total - 1 - i;
+                let opacity;
+                if (posFromBottom < fadeStart) {
+                  opacity = 0.15; // Full opacity for recent messages
+                } else {
+                  const fadeProgress = (posFromBottom - fadeStart) / fadeLength;
+                  opacity = Math.max(0, 0.15 * (1 - fadeProgress));
+                }
+                msg.style.setProperty('--msg-border-opacity', opacity.toFixed(3));
+                const whenEl = msg.querySelector(".message-when");
+                if (whenEl) whenEl.style.opacity = opacity.toFixed(3);
+              });
             }
 
             function chatAddEmpty() {
@@ -2543,6 +3627,22 @@ export const handler = async (event, context) => {
               focus() {
                 if (chatEditor) chatEditor.focus();
                 else document.querySelector("#chat-input-fallback")?.focus();
+              },
+              setSelectionRange(start, end) {
+                if (chatEditor) {
+                  // Monaco: set cursor position at end
+                  const model = chatEditor.getModel();
+                  if (model) {
+                    const pos = model.getPositionAt(end);
+                    chatEditor.setPosition(pos);
+                    chatEditor.revealPosition(pos);
+                  }
+                } else {
+                  const fallback = document.querySelector("#chat-input-fallback");
+                  if (fallback && fallback.setSelectionRange) {
+                    fallback.setSelectionRange(start, end);
+                  }
+                }
               }
             };
             
@@ -2608,7 +3708,10 @@ export const handler = async (event, context) => {
               const val = chatInput.value;
               const atPos = val.lastIndexOf("@");
               if (atPos !== -1) {
-                chatInput.value = val.slice(0, atPos) + handle + " ";
+                const newVal = val.slice(0, atPos) + handle + " ";
+                chatInput.value = newVal;
+                // Set cursor to end of input
+                chatInput.setSelectionRange(newVal.length, newVal.length);
               }
               hideAutocomplete();
               chatInput.focus();
@@ -2665,7 +3768,8 @@ export const handler = async (event, context) => {
             require.config({ 
               paths: { 
                 vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs'
-              }
+              },
+              ignoreDuplicateModules: ['vs/editor/editor.main']
             });
             
             require(['vs/editor/editor.main'], function() {
@@ -2702,6 +3806,29 @@ export const handler = async (event, context) => {
                 }
               });
               
+              // Define sotce-chat theme (dark)
+              monaco.editor.defineTheme('sotce-chat-dark', {
+                base: 'vs-dark',
+                inherit: true,
+                rules: [
+                  { token: 'text', foreground: 'e8e0d8' },
+                  { token: 'page-link', foreground: 'd88aa0', fontStyle: 'bold' },      // Dusty pink for pages
+                  { token: 'question-link', foreground: 'b08ac0', fontStyle: 'bold' },  // Soft purple for questions
+                  { token: 'handle', foreground: 'd88aa0', fontStyle: 'bold' }          // Dusty pink for handles
+                ],
+                colors: {
+                  'editor.background': '#2a2420',
+                  'editor.foreground': '#e8e0d8',
+                  'editorCursor.foreground': '#d88aa0',
+                  'editor.lineHighlightBackground': '#2a242000',
+                  'editor.selectionBackground': '#d88aa044',
+                }
+              });
+              
+              // Detect system theme preference
+              const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+              const initialTheme = prefersDark ? 'sotce-chat-dark' : 'sotce-chat-light';
+              
               // Remove the fallback input
               chatInputFallback.remove();
               
@@ -2709,10 +3836,11 @@ export const handler = async (event, context) => {
               chatEditor = monaco.editor.create(chatInputContainer, {
                 value: '',
                 language: 'sotce-chat',
-                theme: 'sotce-chat-light',
+                theme: initialTheme,
                 minimap: { enabled: false },
                 scrollBeyondLastLine: false,
-                fontSize: 14,
+                fontSize: 16,
+                fontFamily: 'Helvetica, sans-serif',
                 lineNumbers: 'off',
                 glyphMargin: false,
                 folding: false,
@@ -2744,6 +3872,43 @@ export const handler = async (event, context) => {
                 occurrencesHighlight: 'off',
                 selectionHighlight: false,
                 find: { addExtraSpaceOnTop: false, autoFindInSelection: 'never' },
+              });
+              
+              // Mobile: ensure tapping chat input opens native keyboard
+              chatInputContainer.addEventListener('touchend', () => {
+                if (chatEditor) {
+                  chatEditor.focus();
+                  // Also explicitly focus the hidden textarea Monaco uses
+                  const textarea = chatInputContainer.querySelector('.inputarea');
+                  if (textarea) {
+                    textarea.style.position = 'absolute';
+                    textarea.style.top = '0';
+                    textarea.style.left = '0';
+                    textarea.focus();
+                  }
+                }
+              });
+              
+              // Mobile: adjust chat height when virtual keyboard opens/closes
+              if (window.visualViewport) {
+                const adjustForKeyboard = () => {
+                  const vv = window.visualViewport;
+                  const chatEl = document.getElementById('chat');
+                  if (chatEl) {
+                    chatEl.style.height = vv.height + 'px';
+                    // Scroll messages to bottom so input stays visible
+                    const msgs = document.getElementById('chat-messages');
+                    if (msgs) msgs.scrollTop = msgs.scrollHeight;
+                  }
+                };
+                window.visualViewport.addEventListener('resize', adjustForKeyboard);
+                window.visualViewport.addEventListener('scroll', adjustForKeyboard);
+              }
+              
+              // Listen for system theme changes and update Monaco
+              window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+                const newTheme = e.matches ? 'sotce-chat-dark' : 'sotce-chat-light';
+                monaco.editor.setTheme(newTheme);
               });
               
               // Handle Enter key for sending
@@ -2865,6 +4030,15 @@ export const handler = async (event, context) => {
               chatInterface.classList.add("hidden");
               chatInterface.classList.add("inaccessible");
               updatePath("/");
+              // Mark chat as read on close too
+              localStorage.setItem("sotce-chat-last-seen", new Date().toISOString());
+              // Restore garden/gate visibility
+              const gardenEl = document.getElementById("garden");
+              const gateEl = document.getElementById("gate-curtain");
+              if (gardenEl) gardenEl.style.visibility = "";
+              if (gateEl) gateEl.style.visibility = "";
+              // Trigger layout update for canvas/editors
+              setTimeout(() => computePageLayout?.(), 50);
             });
 
             // 🤖 Respond to every chat message...
@@ -2890,6 +4064,18 @@ export const handler = async (event, context) => {
                 });
 
                 if (chat.system.messages.length === 0) chatAddEmpty();
+
+                // Check for unread messages
+                const lastSeen = localStorage.getItem("sotce-chat-last-seen");
+                if (lastSeen && chat.system.messages.length > 0) {
+                  const lastMsg = chat.system.messages[chat.system.messages.length - 1];
+                  if (lastMsg.when && new Date(lastMsg.when) > new Date(lastSeen)) {
+                    chatButtonRef?.classList.add("has-unread");
+                  }
+                } else if (!lastSeen && chat.system.messages.length > 0) {
+                  // First visit ever — mark as unread so they discover chat
+                  chatButtonRef?.classList.add("has-unread");
+                }
 
                 const gateCurtain = document.querySelector("#gate-curtain");
                 const garden = document.querySelector("#garden");
@@ -2925,6 +4111,10 @@ export const handler = async (event, context) => {
                 }
                 chatAddMessage(msg.text, msg.from, msg.when, msg.count);
                 chatScrollToBottom({ always: false });
+                // If chat is hidden, mark unread
+                if (chatInterface.classList.contains("hidden")) {
+                  chatButtonRef?.classList.add("has-unread");
+                }
                 // sound.play(messageSfx);
                 return;
               }
@@ -3088,8 +4278,24 @@ export const handler = async (event, context) => {
             const maxLines = ${MAX_LINES};
 
             // #region 🥀 gate&garden
+            // Cache gate elements to avoid recreation
+            let cachedGateCurtain = null;
+            let cachedGateStatus = null;
+            
             async function gate(status, user, subscription) {
-              if (gating) return;
+              console.log("🚪 gate() called with status:", status);
+              // If gate already exists with same status, just return it (fast path)
+              if (cachedGateCurtain && cachedGateStatus === status && document.body.contains(cachedGateCurtain)) {
+                console.log("🚪 Reusing cached gate!");
+                return cachedGateCurtain;
+              }
+              
+              if (gating) {
+                // Return existing curtain if available
+                const existing = document.getElementById("gate-curtain");
+                if (existing) return existing;
+                return;
+              }
               gating = true;
               let message,
                 buttons = [],
@@ -3316,7 +4522,7 @@ export const handler = async (event, context) => {
                         // Check to see if the user has a subscription here, before rendering a subscribe button.
                         user.email_verified = u.email_verified;
                         user.sub = u.sub; // Add sub to user.
-                        const entered = await subscribed();
+                        const entered = await subscribed({ limit: 100 }); // Load more pages for feed
                         if (entered) {
                           status = "subscribed";
                           subscription = entered;
@@ -3461,15 +4667,34 @@ export const handler = async (event, context) => {
                 "click",
                 () => {
                   if (!cookieWrapper.classList.contains("interactive")) return;
+                  const enterStart = performance.now();
+                  console.log("🌻 Gate cookie click - ENTERING garden");
+                  
                   curtain.classList.add("hidden");
+                  console.log("  curtain.hidden:", (performance.now() - enterStart).toFixed(2), "ms");
+                  
                   cookieWrapper.classList.remove("interactive");
 
                   const garden = document.querySelector("#garden");
 
                   if (garden) {
                     document.documentElement.classList.add("garden");
+                    console.log("  [SYNC] Before removing hidden from garden");
                     garden.classList.remove("hidden");
+                    console.log("  garden.visible:", (performance.now() - enterStart).toFixed(2), "ms");
+                    console.log("  [SYNC] After removing hidden, before RAF");
+                    
+                    // Track when layout/paint actually completes
+                    requestAnimationFrame(() => {
+                      console.log("  RAF 1:", (performance.now() - enterStart).toFixed(2), "ms");
+                      requestAnimationFrame(() => {
+                        console.log("  RAF 2 (paint):", (performance.now() - enterStart).toFixed(2), "ms");
+                      });
+                    });
+                    
+                    console.log("  [SYNC] After RAF scheduled, before updatePath");
                     updatePath("/");
+                    console.log("  [SYNC] After updatePath, handler done:", (performance.now() - enterStart).toFixed(2), "ms");
                   } else {
                     // Only show chat for subscribed users and admins
                     if (status === "subscribed" || subscription?.admin) {
@@ -3559,17 +4784,17 @@ export const handler = async (event, context) => {
 
               curtain.appendChild(g);
 
+              const imageSrc = asset(
+                status === "subscribed" ? "cookie-open.png" : "cookie.png",
+              );
+              img.src = imageSrc;
+
               const imageLoadPromise = new Promise((resolve) => {
-                img.onload = function () {
+                const handleImageReady = () => {
                   document.getElementById("gate-curtain")?.remove(); // Rid old curtain.
                   const checkObscurity = setInterval(() => {
                     if (!curtain.classList.contains("obscured")) {
                       g.classList.remove("faded");
-                      // Check to see if the chat is connected.
-                      // Commented out to hide chat interface for logged-out users
-                      // if (!subscription && !chat.system.connecting) {
-                      //   chatInterface.classList.remove("hidden");
-                      // }
                       clearInterval(checkObscurity);
                     }
                   }, 10);
@@ -3579,16 +4804,39 @@ export const handler = async (event, context) => {
                     email.onclick = (e) =>
                       resend(e, status === "unverified" ? undefined : "change");
                   }
-                  resolve(); // Resolve the promise once the image is loaded.
+                  resolve();
                 };
+                
+                // If image is already cached/complete, fire immediately
+                if (img.complete && img.naturalWidth > 0) {
+                  handleImageReady();
+                } else {
+                  img.onload = handleImageReady;
+                }
               });
 
-              img.src = asset(
-                status === "subscribed" ? "cookie-open.png" : "cookie.png",
-              );
-
-              await imageLoadPromise; // Wait for the image to load.
+              await imageLoadPromise;
               gating = false;
+              
+              // Cache the curtain for fast re-entry
+              cachedGateCurtain = curtain;
+              cachedGateStatus = status;
+              
+              // Debug: Watch for unexpected hidden class changes
+              const hiddenObserver = new MutationObserver((mutations) => {
+                for (const mutation of mutations) {
+                  if (mutation.attributeName === 'class') {
+                    const hadHidden = mutation.oldValue?.includes('hidden');
+                    const hasHidden = curtain.classList.contains('hidden');
+                    if (hadHidden !== hasHidden) {
+                      console.log("🚪 Curtain hidden changed:", hadHidden, "→", hasHidden);
+                      console.trace("Stack trace for hidden change:");
+                    }
+                  }
+                }
+              });
+              hiddenObserver.observe(curtain, { attributes: true, attributeOldValue: true, attributeFilter: ['class'] });
+              
               return curtain;
             }
 
@@ -3807,15 +5055,33 @@ export const handler = async (event, context) => {
                 if (window.sotceHandle) {
                   chatHandle.innerText = window.sotceHandle;
                 }
+                // Mark chat as read
+                chatButton.classList.remove("has-unread");
+                localStorage.setItem("sotce-chat-last-seen", new Date().toISOString());
+                // Hide garden/gate behind chat so they don't bleed through on mobile keyboard
+                const gardenEl = document.getElementById("garden");
+                const gateEl = document.getElementById("gate-curtain");
+                if (gardenEl) gardenEl.style.visibility = "hidden";
+                if (gateEl) gateEl.style.visibility = "hidden";
+                // Trigger layout update for canvas/editors
+                setTimeout(() => computePageLayout?.(), 50);
               };
 
               topBar.appendChild(chatButton);
               // }
 
-              // ❓ Ask - Submit a question (editor-style like /write)
-              const askButton = cel("button");
-              askButton.id = "ask-button";
-              askButton.innerText = "ask";
+              // ❓ Ask + Respond buttons
+              const askButton = subscription?.subscribed ? cel("button") : null;
+              if (askButton) {
+                askButton.id = "ask-button";
+                askButton.innerText = "ask";
+              }
+
+              const respondButton = subscription?.admin ? cel("button") : null;
+              if (respondButton) {
+                respondButton.id = "respond-button";
+                respondButton.innerText = "respond";
+              }
 
               async function openAskEditor() {
                 scrollMemory = wrapper.scrollTop;
@@ -3848,24 +5114,34 @@ export const handler = async (event, context) => {
                 askDate.classList.add("ask-date");
                 askDate.innerText = dateTitle(new Date());
 
-                // Title below date
-                const askTitle = cel("div");
-                askTitle.classList.add("ask-title");
-                const userHandle = window.sotceHandle || "@you";
-                askTitle.innerText = userHandle + " asks @amelia";
-
                 const wordsWrapper = cel("div");
                 wordsWrapper.id = "ask-words-wrapper";
 
+                // Highlights overlay for @handle coloring
+                const highlights = cel("div");
+                highlights.id = "ask-highlights";
+
                 const words = cel("textarea");
-                words.placeholder = "Your question...";
+                // Restore draft if available, otherwise use default
+                const savedDraft = localStorage.getItem("sotce-ask-draft");
+                words.value = savedDraft || "Dear @amelia, ";
+                words.placeholder = "Dear @amelia,";
+
+                function updateHighlights() {
+                  highlights.innerHTML = words.value
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/@[a-zA-Z0-9_-]+/g, '<span class="handle-hl">$&</span>');
+                  if (highlights.innerHTML.endsWith("\\n")) highlights.innerHTML += " ";
+                }
+                updateHighlights();
 
                 const linesLeft = cel("div");
                 linesLeft.id = "ask-chars-left";
                 const maxAskLines = 5;
                 linesLeft.innerText = maxAskLines + " lines left";
 
-                let lastValidValue = "";
+                let lastValidValue = words.value;
                 words.addEventListener("input", () => {
                   // Line-based limit like diary pages
                   const wordsStyle = window.getComputedStyle(words);
@@ -3914,11 +5190,14 @@ export const handler = async (event, context) => {
                   } else {
                     linesLeft.classList.add("lines-left-loads");
                   }
+
+                  // Update handle highlighting
+                  updateHighlights();
                 });
 
+                wordsWrapper.appendChild(highlights);
                 wordsWrapper.appendChild(words);
                 askPage.appendChild(askDate);
-                askPage.appendChild(askTitle);
                 askPage.appendChild(wordsWrapper);
 
                 // My asks list (shown by swapping page content)
@@ -3935,33 +5214,32 @@ export const handler = async (event, context) => {
                 // Create asks list container (initially hidden)
                 const asksListPage = cel("div");
                 asksListPage.id = "asks-list-page";
-                asksListPage.style.cssText = "display:none;padding:1em 2em;height:100%;overflow-y:auto;box-sizing:border-box;";
+                asksListPage.style.cssText = "display:none;padding:1.25em 1em;height:100%;overflow-y:auto;box-sizing:border-box;";
 
                 function updateMyAsksLink() {
                   const count = asksData ? asksData.length : 0;
                   if (showingAsks) {
-                    myAsksBtn.innerText = "close";
+                    myAsksBtn.innerText = "back";
                     myAsksBtn.style.display = "block";
                   } else if (count > 0) {
-                    myAsksBtn.innerText = "my asks (" + count + ")";
+                    myAsksBtn.innerText = "my questions";
                     myAsksBtn.style.display = "block";
                   } else {
                     myAsksBtn.style.display = "none";
+                  }
+                  // Update veil text with dark mode support
+                  if (asksTopVeil) {
+                    asksTopVeil.innerText = showingAsks ? "my questions" : "";
                   }
                 }
 
                 function renderAsksList() {
                   asksListPage.innerHTML = "";
 
-                  const title = cel("h2");
-                  title.innerText = "My Asks";
-                  title.style.cssText = "margin:0 0 1em 0;text-align:center;font-weight:normal;";
-                  asksListPage.appendChild(title);
-
                   if (!asksData || asksData.length === 0) {
                     const empty = cel("p");
-                    empty.innerText = "No asks yet.";
-                    empty.style.cssText = "opacity:0.6;text-align:center;";
+                    empty.innerText = "No questions yet.";
+                    empty.style.cssText = "opacity:0.6;text-align:center;margin-top:2em;";
                     asksListPage.appendChild(empty);
                   } else {
                     asksData.forEach((ask) => {
@@ -3969,23 +5247,64 @@ export const handler = async (event, context) => {
                       item.classList.add("ask-item");
                       if (ask.state === "answered") item.classList.add("answered");
 
-                      const q = cel("div");
-                      q.innerText = ask.question;
-
-                      const statusRow = cel("div");
-                      statusRow.style.cssText = "display:flex;justify-content:space-between;align-items:center;margin-top:0.25em;";
-
-                      const status = cel("span");
-                      status.classList.add("ask-status");
                       const whenDate = new Date(ask.when).toLocaleDateString("en-US", {
-                        month: "short", day: "numeric", year: "numeric"
+                        weekday: "long", month: "long", day: "numeric"
                       });
-                      status.innerText = (ask.state === "pending" ? "Pending" : "Answered") + " - " + whenDate;
 
-                      statusRow.appendChild(status);
+                      const dateLine = cel("div");
+                      dateLine.classList.add("ask-status");
+                      if (ask.state === "answered") {
+                        dateLine.innerText = "Answered · " + whenDate;
+                      } else if (ask.draftStartedAt) {
+                        dateLine.innerText = "Being answered · " + whenDate;
+                      } else {
+                        dateLine.innerText = "Asked " + whenDate;
+                      }
+                      item.appendChild(dateLine);
 
+                      const q = cel("div");
+                      q.style.cssText = "margin-top:0.25em;";
+                      q.innerText = ask.question;
                       item.appendChild(q);
-                      item.appendChild(statusRow);
+
+                      // "take back" button for pending questions without a draft
+                      if (ask.state === "pending" && !ask.draftStartedAt) {
+                        const deleteBtn = cel("button");
+                        deleteBtn.innerText = "take back";
+                        deleteBtn.classList.add("take-back");
+                        deleteBtn.onclick = async (e) => {
+                          e.stopPropagation();
+                          if (!confirm("Take back this question?")) return;
+                          veil();
+                          const res = await userRequest("DELETE", "/sotce-net/ask/" + ask._id);
+                          unveil({ instant: true });
+                          if (res.status === 200) {
+                            asksData = asksData.filter(a => a._id !== ask._id);
+                            renderAsksList();
+                            updateMyAsksLink();
+                          } else {
+                            alert(res.message || "Could not delete.");
+                          }
+                        };
+                        item.appendChild(deleteBtn);
+                      }
+                      
+                      // Make answered questions clickable to navigate to them
+                      if (ask.state === "answered" && window.feedItems) {
+                        const feedItem = window.feedItems.find(fi => fi.type === "question" && fi._id?.toString() === ask._id?.toString());
+                        if (feedItem && feedItem.questionNumber) {
+                          item.onclick = () => {
+                            // Save draft if there's text
+                            if (words.value.trim()) {
+                              localStorage.setItem("sotce-ask-draft", words.value);
+                            }
+                            closeAskEditor();
+                            // Navigate to the question
+                            location.href = (dev ? "/sotce-net" : "") + "/q/" + feedItem.questionNumber;
+                          };
+                        }
+                      }
+                      
                       asksListPage.appendChild(item);
                     });
                   }
@@ -3998,10 +5317,19 @@ export const handler = async (event, context) => {
                     askPage.style.display = "none";
                     asksListPage.style.display = "block";
                     linesLeft.style.display = "none";
+                    // Show top gradient veil for list view
+                    asksTopVeil.style.display = "block";
+                    // Show nevermind (to exit editor) and hide ask button in list view
+                    cancelBtn.style.display = "";
+                    submitBtn.style.display = "none";
                   } else {
                     askPage.style.display = "block";
                     asksListPage.style.display = "none";
                     linesLeft.style.display = "block";
+                    asksTopVeil.style.display = "none";
+                    // Show ask and nevermind buttons
+                    cancelBtn.style.display = "";
+                    submitBtn.style.display = "";
                   }
                   updateMyAsksLink();
                 }
@@ -4009,6 +5337,12 @@ export const handler = async (event, context) => {
                 pageWrapper.appendChild(askPage);
                 pageWrapper.appendChild(asksListPage);
                 form.appendChild(pageWrapper);
+
+                // Top gradient veil for "my questions" list view
+                const asksTopVeil = cel("div");
+                asksTopVeil.id = "asks-top-veil";
+                asksTopVeil.style.display = "none";
+                asksTopVeil.innerText = "my questions";
 
                 // Nav buttons (like page editor)
                 const nav = cel("nav");
@@ -4020,8 +5354,8 @@ export const handler = async (event, context) => {
 
                 const myAsksBtn = cel("button");
                 const initialCount = asksData ? asksData.length : 0;
-                myAsksBtn.innerText = "my asks (" + initialCount + ")";
-                myAsksBtn.classList.add("ask-toggle");
+                myAsksBtn.innerText = "my questions";
+                myAsksBtn.classList.add("ask-toggle", "nav-center");
                 if (initialCount === 0) myAsksBtn.style.display = "none";
                 myAsksBtn.onclick = (e) => {
                   e.preventDefault();
@@ -4045,7 +5379,9 @@ export const handler = async (event, context) => {
                   editorPlacemat.remove();
                   nav.remove();
                   linesLeft.remove();
-                  askButton.classList.remove("deactivated");
+                  asksTopVeil.remove();
+                  askButton?.classList.remove("deactivated");
+                  respondButton?.classList.remove("deactivated");
                   wrapper.scrollTop = scrollMemory;
                   computePageLayout?.();
                   updatePath("/");
@@ -4053,14 +5389,17 @@ export const handler = async (event, context) => {
 
                 cancelBtn.onclick = (e) => {
                   e.preventDefault();
-                  if (words.value.length > 0 && !confirm("Discard your question?")) {
-                    return;
+                  if (words.value.trim()) {
+                    // Save draft to localStorage
+                    localStorage.setItem("sotce-ask-draft", words.value);
                   }
                   closeAskEditor();
                 };
 
                 form.addEventListener("submit", async (e) => {
                   e.preventDefault();
+
+                  // Handle ask mode (user submitting a question)
                   const question = words.value.trim();
                   if (!question) {
                     alert("Please enter a question.");
@@ -4072,14 +5411,17 @@ export const handler = async (event, context) => {
                   if (res.status === 200) {
                     words.value = "";
                     lastValidValue = "";
+                    localStorage.removeItem("sotce-ask-draft"); // Clear saved draft
                     linesLeft.innerText = maxAskLines + " lines left";
                     linesLeft.classList.remove("lines-left-few", "lines-left-little");
-                    // Refresh the list
+                    // Refresh the list and jump to my questions view
                     const newAsks = await userRequest("GET", "/sotce-net/asks");
                     if (newAsks.status === 200) {
                       asksData = newAsks.asks;
-                      updateMyAsksLink();
                     }
+                    // Jump to asks list view
+                    if (!showingAsks) toggleAsksView();
+                    else { renderAsksList(); updateMyAsksLink(); }
                   } else {
                     alert("Error: " + (res.message || "Could not submit question."));
                   }
@@ -4090,6 +5432,7 @@ export const handler = async (event, context) => {
 
                 askEditor.appendChild(form);
                 askEditor.appendChild(linesLeft);
+                askEditor.appendChild(asksTopVeil);
                 g.appendChild(nav);
 
                 document.documentElement.classList.add("editing");
@@ -4104,12 +5447,414 @@ export const handler = async (event, context) => {
                 const scale = goalWidth / baseWidth;
                 askPage.style.transform = "scale(" + scale + ")";
 
-                askButton.classList.add("deactivated");
+                askButton?.classList.add("deactivated");
+                respondButton?.classList.add("deactivated");
                 updatePath("/ask");
                 words.focus();
+                words.selectionStart = words.selectionEnd = words.value.length;
+                words.dispatchEvent(new Event("input"));
               }
 
-              askButton.onclick = openAskEditor;
+              // 📝 Respond Editor - Admin only, page-style editor for responding to questions
+              async function openRespondEditor() {
+                scrollMemory = wrapper.scrollTop;
+
+                veil();
+                const pendingRes = await userRequest("GET", "/sotce-net/asks/pending");
+                unveil({ instant: true });
+
+                let pendingData = pendingRes.status === 200 ? pendingRes.asks || [] : [];
+                let currentPendingIndex = 0;
+
+                const respondEditor = cel("div");
+                respondEditor.id = "respond-editor";
+
+                const editorPlacemat = cel("div");
+                editorPlacemat.id = "editor-placemat";
+
+                const form = cel("form");
+                form.id = "respond-editor-form";
+
+                const pageWrapper = cel("div");
+                pageWrapper.id = "editor-page-wrapper";
+
+                const respondPage = cel("div");
+                respondPage.id = "respond-editor-page";
+
+                // Match the binding style width
+                const binding = document.getElementById("binding");
+                if (binding) form.style.width = binding.style.width;
+
+                // Lines left indicator
+                const linesLeft = cel("div");
+                linesLeft.id = "respond-lines-left";
+                const totalPageLines = 19; // Max lines available for question + answer
+
+                // Asked by indicator (top left)
+                const askedBy = cel("div");
+                askedBy.id = "respond-asked-by";
+                let maxRespondLines = 12; // Will be calculated per question
+
+                let lastValidValue = "";
+                let responseWords = null;
+
+                // Relative time helper (e.g. "3 days ago")
+                function timeAgo(date) {
+                  const now = new Date();
+                  const d = (typeof date === "string") ? new Date(date) : date;
+                  const seconds = Math.floor((now - d) / 1000);
+                  if (seconds < 60) return "just now";
+                  const minutes = Math.floor(seconds / 60);
+                  if (minutes < 60) return minutes + (minutes === 1 ? " minute ago" : " minutes ago");
+                  const hours = Math.floor(minutes / 60);
+                  if (hours < 24) return hours + (hours === 1 ? " hour ago" : " hours ago");
+                  const days = Math.floor(hours / 24);
+                  if (days < 30) return days + (days === 1 ? " day ago" : " days ago");
+                  const months = Math.floor(days / 30);
+                  if (months < 12) return months + (months === 1 ? " month ago" : " months ago");
+                  const years = Math.floor(months / 12);
+                  return years + (years === 1 ? " year ago" : " years ago");
+                }
+
+                function renderRespondPage() {
+                  respondPage.innerHTML = "";
+
+                  if (!pendingData || pendingData.length === 0) {
+                    const empty = cel("p");
+                    empty.innerText = "No pending questions.";
+                    empty.style.cssText = "opacity:0.6;text-align:center;margin-top:40%;";
+                    respondPage.appendChild(empty);
+                    linesLeft.style.display = "none";
+                    return;
+                  }
+
+                  const question = pendingData[currentPendingIndex];
+                  const ago = question.when ? " " + timeAgo(question.when) : "";
+
+                  // Update asked-by indicator with relative time
+                  if (question.handle) {
+                    askedBy.innerHTML = "asked by <span class='asked-by-handle'>@" + question.handle + "</span>" + ago;
+                    askedBy.style.display = "block";
+                  } else {
+                    askedBy.innerText = "asked anonymously" + ago;
+                    askedBy.style.display = "block";
+                  }
+
+                  // Date at top (centered, matching ask page)
+                  const pageDate = cel("div");
+                  pageDate.classList.add("respond-date");
+                  pageDate.innerText = dateTitle(new Date());
+                  respondPage.appendChild(pageDate);
+
+                  // Question section
+                  const questionSection = cel("div");
+                  questionSection.classList.add("respond-question-section");
+
+                  // Counter (only show if multiple questions)
+                  const counter = cel("div");
+                  counter.classList.add("respond-counter");
+                  if (pendingData.length > 1) {
+                    counter.innerText = (currentPendingIndex + 1) + " / " + pendingData.length;
+                  }
+                  questionSection.appendChild(counter);
+
+                  // Question text (with @handles as tappable pink links)
+                  const questionText = cel("div");
+                  questionText.classList.add("respond-question-text");
+                  // Render question with @handles as tappable pink spans
+                  questionText.innerHTML = question.question
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/@[a-zA-Z0-9_-]+/g, '<span class="respond-handle-link" style="color: rgb(200, 80, 120); cursor: pointer; font-style: normal;">$&</span>');
+                  // Make @handle spans tappable → save draft and jump to chat
+                  questionText.querySelectorAll(".respond-handle-link").forEach(span => {
+                    span.addEventListener("click", async (e) => {
+                      e.stopPropagation();
+                      const handle = span.textContent;
+                      await saveDraft();
+                      closeRespondEditor();
+                      openChatWithMessage(handle + " ");
+                    });
+                  });
+                  questionSection.appendChild(questionText);
+
+                  respondPage.appendChild(questionSection);
+
+                  // Horizontal separator between question and response
+                  const separator = cel("hr");
+                  separator.classList.add("respond-separator");
+                  respondPage.appendChild(separator);
+
+                  // Response section
+                  const responseSection = cel("div");
+                  responseSection.classList.add("respond-response-section");
+
+                  const wordsWrapper = cel("div");
+                  wordsWrapper.id = "respond-words-wrapper";
+
+                  responseWords = cel("textarea");
+                  responseWords.classList.add("respond-textarea");
+                  responseWords.placeholder = "Your response...";
+                  // Pre-populate with saved draft if any
+                  if (question.draftAnswer) {
+                    responseWords.value = question.draftAnswer;
+                  }
+
+                  responseWords.addEventListener("input", () => {
+                    const wordsStyle = window.getComputedStyle(responseWords);
+                    const lineHeight = parseFloat(wordsStyle.lineHeight);
+                    
+                    let measurement = respondPage.querySelector("#respond-measurement");
+                    if (!measurement) {
+                      measurement = document.createElement("div");
+                      measurement.id = "respond-measurement";
+                      measurement.style.cssText = "position:absolute;z-index:-1;pointer-events:none;visibility:hidden;white-space:pre-wrap;text-align:justify;hyphens:auto;-webkit-hyphens:auto;overflow-wrap:break-word;";
+                      measurement.style.width = responseWords.clientWidth + "px";
+                      measurement.style.font = wordsStyle.font;
+                      measurement.style.fontSize = wordsStyle.fontSize;
+                      measurement.style.lineHeight = wordsStyle.lineHeight;
+                      measurement.style.padding = wordsStyle.padding;
+                      respondPage.appendChild(measurement);
+                    }
+                    
+                    measurement.style.width = responseWords.clientWidth + "px";
+                    measurement.textContent = responseWords.value || " ";
+                    if (responseWords.value.endsWith("\\n")) measurement.textContent += " ";
+                    
+                    const contentHeight = measurement.scrollHeight;
+                    let lineCount = Math.round(contentHeight / lineHeight);
+                    if (lineCount === 1 && responseWords.value.length === 0) lineCount = 0;
+                    
+                    const cursorPosition = responseWords.selectionStart;
+                    if (lineCount > maxRespondLines) {
+                      responseWords.value = lastValidValue;
+                      responseWords.setSelectionRange(Math.max(0, cursorPosition - 1), Math.max(0, cursorPosition - 1));
+                      lineCount = maxRespondLines;
+                    } else {
+                      lastValidValue = responseWords.value;
+                    }
+                    
+                    const remaining = maxRespondLines - Math.min(lineCount, maxRespondLines);
+                    linesLeft.innerText = remaining + " line" + (remaining !== 1 ? "s" : "") + " left";
+                    
+                    linesLeft.classList.remove("lines-left-few", "lines-left-little", "lines-left-lots", "lines-left-loads");
+                    if (remaining === 0) {
+                      linesLeft.classList.add("lines-left-few");
+                    } else if (remaining <= 3) {
+                      linesLeft.classList.add("lines-left-little");
+                    } else if (remaining <= 8) {
+                      linesLeft.classList.add("lines-left-lots");
+                    } else {
+                      linesLeft.classList.add("lines-left-loads");
+                    }
+                  });
+
+                  wordsWrapper.appendChild(responseWords);
+                  responseSection.appendChild(wordsWrapper);
+                  respondPage.appendChild(responseSection);
+
+                  // Question number at bottom (with asterisks to denote questions)
+                  const pageNumber = cel("div");
+                  pageNumber.classList.add("page-number");
+                  pageNumber.innerText = "*" + (currentPendingIndex + 1) + "*";
+                  respondPage.appendChild(pageNumber);
+
+                  // Calculate how many lines the question takes, then set response lines
+                  setTimeout(() => {
+                    const qStyle = window.getComputedStyle(questionText);
+                    const qLineHeight = parseFloat(qStyle.lineHeight);
+                    const qHeight = questionText.scrollHeight;
+                    const questionLines = Math.ceil(qHeight / qLineHeight);
+                    
+                    // Available lines = total - question lines (minimum 5 for response)
+                    maxRespondLines = Math.max(5, totalPageLines - questionLines);
+                    
+                    // Update textarea height to match
+                    responseWords.style.height = "calc(var(--line-height) * " + maxRespondLines + ")";
+                    wordsWrapper.style.height = "calc(var(--line-height) * " + maxRespondLines + ")";
+                    
+                    linesLeft.innerText = maxRespondLines + " lines left";
+                    linesLeft.classList.remove("lines-left-few", "lines-left-little", "lines-left-lots");
+                    linesLeft.classList.add("lines-left-loads");
+                    
+                    responseWords?.focus();
+                  }, 50);
+
+                  linesLeft.style.display = "block";
+                  linesLeft.innerText = "...";
+
+                  lastValidValue = "";
+                }
+
+                renderRespondPage();
+
+                pageWrapper.appendChild(respondPage);
+                form.appendChild(pageWrapper);
+
+                // Nav buttons
+                const nav = cel("nav");
+                nav.id = "nav-respond-editor";
+                nav.style.width = topBar.style.width;
+
+                const nevermindBtn = cel("button");
+                nevermindBtn.innerText = "nevermind";
+
+                const prevBtn = cel("button");
+                prevBtn.innerText = "← prev";
+
+                const navCounter = cel("span");
+                navCounter.id = "respond-nav-counter";
+                navCounter.style.cssText = "opacity:0.6;font-size:0.85em;align-self:center;white-space:nowrap;";
+                
+                const nextBtn = cel("button");
+                nextBtn.innerText = "next →";
+
+                const submitBtn = cel("button");
+                submitBtn.type = "submit";
+                submitBtn.setAttribute("form", form.id);
+                submitBtn.innerText = "respond";
+                submitBtn.classList.add("positive");
+
+                function updateNavButtons() {
+                  const hasPrev = currentPendingIndex > 0;
+                  const hasNext = pendingData && currentPendingIndex < pendingData.length - 1;
+                  prevBtn.disabled = !hasPrev;
+                  nextBtn.disabled = !hasNext;
+                  prevBtn.style.display = (pendingData && pendingData.length > 1) ? "" : "none";
+                  nextBtn.style.display = (pendingData && pendingData.length > 1) ? "" : "none";
+                  navCounter.style.display = (pendingData && pendingData.length > 1) ? "" : "none";
+                  if (pendingData && pendingData.length > 1) {
+                    navCounter.innerText = (currentPendingIndex + 1) + " / " + pendingData.length;
+                  }
+                  if (!pendingData || pendingData.length === 0) {
+                    submitBtn.disabled = true;
+                  } else {
+                    submitBtn.disabled = false;
+                  }
+                }
+
+                updateNavButtons();
+
+                // Auto-save current draft to server
+                async function saveDraft() {
+                  if (!pendingData || pendingData.length === 0) return;
+                  const question = pendingData[currentPendingIndex];
+                  const draft = responseWords?.value?.trim() || "";
+                  if (draft || question.draftAnswer) {
+                    await userRequest("POST", "/sotce-net/ask/" + question._id + "/save-draft", { draft });
+                    question.draftAnswer = draft; // Update local cache
+                  }
+                }
+
+                prevBtn.onclick = async (e) => {
+                  e.preventDefault();
+                  if (currentPendingIndex > 0) {
+                    await saveDraft();
+                    currentPendingIndex--;
+                    renderRespondPage();
+                    updateNavButtons();
+                  }
+                };
+
+                nextBtn.onclick = async (e) => {
+                  e.preventDefault();
+                  if (currentPendingIndex < pendingData.length - 1) {
+                    await saveDraft();
+                    currentPendingIndex++;
+                    renderRespondPage();
+                    updateNavButtons();
+                  }
+                };
+
+                nevermindBtn.onclick = async (e) => {
+                  e.preventDefault();
+                  await saveDraft();
+                  closeRespondEditor();
+                };
+
+                nav.appendChild(nevermindBtn);
+                nav.appendChild(prevBtn);
+                nav.appendChild(navCounter);
+                nav.appendChild(nextBtn);
+                nav.appendChild(submitBtn);
+
+                function closeRespondEditor() {
+                  document.body.classList.remove("pages-hidden");
+                  document.documentElement.classList.remove("editing");
+                  respondEditor.remove();
+                  editorPlacemat.remove();
+                  nav.remove();
+                  linesLeft.remove();
+                  askedBy.remove();
+                  askButton?.classList.remove("deactivated");
+                  respondButton?.classList.remove("deactivated");
+                  wrapper.scrollTop = scrollMemory;
+                  computePageLayout?.();
+                  updatePath("/");
+                }
+
+                form.addEventListener("submit", async (e) => {
+                  e.preventDefault();
+                  if (!pendingData || pendingData.length === 0) return;
+
+                  const answer = responseWords?.value?.trim();
+                  if (!answer) {
+                    alert("Please enter a response.");
+                    return;
+                  }
+
+                  const question = pendingData[currentPendingIndex];
+                  veil();
+                  const res = await userRequest("POST", "/sotce-net/ask/" + question._id + "/respond", { answer });
+                  unveil({ instant: true });
+
+                  if (res.status === 200) {
+                    pendingData.splice(currentPendingIndex, 1);
+                    if (currentPendingIndex >= pendingData.length && pendingData.length > 0) {
+                      currentPendingIndex = pendingData.length - 1;
+                    }
+                    renderRespondPage();
+                    updateNavButtons();
+                    if (pendingData.length === 0) {
+                      closeRespondEditor();
+                    }
+                  } else {
+                    alert("Error: " + (res.message || "Could not submit response."));
+                  }
+                });
+
+                const scrollbarWidth = wrapper.offsetWidth - wrapper.clientWidth;
+                submitBtn.style.marginRight = scrollbarWidth / 1.5 + "px";
+
+                respondEditor.appendChild(form);
+                respondEditor.appendChild(linesLeft);
+                respondEditor.appendChild(askedBy);
+                g.appendChild(nav);
+
+                document.documentElement.classList.add("editing");
+
+                g.appendChild(editorPlacemat);
+                g.appendChild(respondEditor);
+                document.body.classList.add("pages-hidden");
+
+                // Scale the page
+                const baseWidth = 100 * 8;
+                const goalWidth = respondPage.parentElement.clientWidth;
+                const scale = goalWidth / baseWidth;
+                respondPage.style.transform = "scale(" + scale + ")";
+
+                askButton?.classList.add("deactivated");
+                respondButton?.classList.add("deactivated");
+                updatePath("/respond");
+              }
+
+              // Set button handlers
+              if (askButton) {
+                askButton.onclick = openAskEditor;
+              }
+              if (respondButton) {
+                respondButton.onclick = openRespondEditor;
+              }
 
               // Auto-open /ask route
               if (path === "/ask") {
@@ -4129,7 +5874,26 @@ export const handler = async (event, context) => {
                 }
               }
 
-              topBar.appendChild(askButton);
+              // Auto-open /respond route for admins
+              if (subscription?.admin && path === "/respond") {
+                const observer = new MutationObserver((mutationsList, observer) => {
+                  for (const mutation of mutationsList) {
+                    if (mutation.type === "childList" && Array.from(mutation.addedNodes).includes(g)) {
+                      openRespondEditor();
+                      observer.disconnect();
+                      break;
+                    }
+                  }
+                });
+                observer.observe(wrapper, { childList: true, subtree: true });
+                if (wrapper.contains(g)) {
+                  openRespondEditor();
+                  observer.disconnect();
+                }
+              }
+
+              if (askButton) topBar.appendChild(askButton);
+              if (respondButton) topBar.appendChild(respondButton);
 
               // 🪷 write-a-page - Create compose form.
               if (subscription?.admin) {
@@ -4616,7 +6380,53 @@ export const handler = async (event, context) => {
               const totalPages = subscription.totalPages || 0;
               const lastModified = subscription.lastModified;
               const loadedPagesData = subscription.pages || [];
+              const loadedQuestionsData = subscription.questions || [];
+              const totalQuestions = subscription.totalQuestions || 0;
               const pageIndex = subscription.pageIndex; // If loading specific page
+              
+              // Build combined feed: pages + answered questions, sorted by date
+              const feedItems = [];
+              
+              // Add pages with type marker
+              const pageStartNum = totalPages - loadedPagesData.length + 1;
+              loadedPagesData.forEach((page, idx) => {
+                feedItems.push({
+                  ...page,
+                  type: "page",
+                  pageNumber: pageStartNum + idx,
+                  sortDate: new Date(page.when || page.updatedAt)
+                });
+              });
+              
+              // Add questions with type marker
+              for (const q of loadedQuestionsData) {
+                feedItems.push({
+                  ...q,
+                  type: "question", 
+                  sortDate: new Date(q.answeredAt)
+                });
+              }
+              
+              // Sort combined feed by date (newest last for chronological order)
+              feedItems.sort((a, b) => a.sortDate - b.sortDate);
+              
+              // Assign feed indices (1-indexed) and question numbers (chronological)
+              let questionNum = 1;
+              feedItems.forEach((item, i) => {
+                item.feedIndex = i + 1;
+                if (item.type === "question") {
+                  item.questionNumber = questionNum++;
+                }
+              });
+              
+              const totalFeedItems = totalPages + totalQuestions;
+              
+              // Expose feedItems globally for ask editor to access
+              window.feedItems = feedItems;
+              
+              console.log("📦 Feed built:", feedItems.length, "items (", totalPages, "pages +", totalQuestions, "questions)");
+              console.log("📦 loadedPagesData.length:", loadedPagesData.length, "loadedQuestionsData.length:", loadedQuestionsData.length);
+              console.log("📦 First few feed items:", feedItems.slice(0, 5).map(i => ({ type: i.type, feedIndex: i.feedIndex, pageNumber: i.pageNumber, questionNumber: i.questionNumber, sortDate: i.sortDate })));
               
               // Check cache validity
               const cacheMeta = await getCacheMeta();
@@ -4634,13 +6444,1373 @@ export const handler = async (event, context) => {
                 await setCacheMeta(totalPages, lastModified);
               }
               
-              // Cache the loaded pages
+              // Cache the loaded pages (by page number for backwards compat)
               for (const page of loadedPagesData) {
                 const idx = pageIndex || (totalPages - loadedPagesData.length + loadedPagesData.indexOf(page) + 1);
                 await setCachedPage(idx, page);
               }
 
-              if (totalPages > 0 || loadedPagesData.length > 0) {
+              // 🎨 CANVAS-BASED PAGE RENDERING (single page + transitions)
+              const USE_CANVAS_GARDEN = true; // Feature flag
+              
+              if (USE_CANVAS_GARDEN && (totalFeedItems > 0 || feedItems.length > 0)) {
+                console.log("🎨 Using Canvas garden renderer (single page mode)");
+                
+                const canvas = cel("canvas");
+                canvas.id = "garden-canvas";
+                const ctx = canvas.getContext("2d");
+                
+                // Build a feed-index to item map for easy lookup
+                const feedItemMap = new Map();
+                feedItems.forEach(item => feedItemMap.set(item.feedIndex, item));
+                
+                // Total items is just the loaded items for now (not totalFeedItems which includes unfetched items)
+                const loadedFeedCount = feedItems.length;
+                console.log("📊 Feed counts: loaded =", loadedFeedCount, "total (pages + questions) =", totalFeedItems);
+                
+                // State - using feed indices (1 to loadedFeedCount)
+                let currentPageIndex = loadedFeedCount; // Start at most recent loaded item
+                let displayedPageIndex = loadedFeedCount;
+                let transitionProgress = 0; // 0 = showing current, 1 = showing next
+                let transitionDirection = 0; // -1 = prev, 0 = none, 1 = next
+                let transitionTarget = null;
+                let transitionSlow = false; // true when arrow keys triggered the transition
+                let textFadeIn = 1; // 0 to 1, fades in text when page becomes current
+                const pageCache = new Map(); // Cache by feed index
+                let cardWidth = 0;
+                let cardHeight = 0;
+                let cardX = 0;
+                let cardY = 0;
+                let dpr = window.devicePixelRatio || 1;
+                
+                // Drag state
+                let isDragging = false;
+                let dragStartY = 0;
+                let dragDelta = 0;
+                let wasDragging = false; // Persists until click event, prevents tap-on-release
+                
+                // Pending wheel direction — tracks scroll intent during animations
+                // so continuous scrolling isn't lost when a transition is playing
+                let pendingWheelDirection = 0; // -1, 0, or 1
+                
+                // Hover state for debug boxes
+                let hoverEar = false;
+                let hoverPageNum = false;
+                let hoverHandle = null; // Which handle is hovered on the back
+                
+                // Hit boxes for @handles on card back
+                let handleHitBoxes = []; // [{handle, x, y, w, h}]
+                // Hit boxes for interactive tokens on card front (handles, page links, question links)
+                let frontHitBoxes = []; // [{type, value, x, y, w, h}]
+                
+                // Card flip animation state (full 3D card flip)
+                let isFlipping = false;
+                let flipProgress = 0; // 0 = front showing, 1 = back showing
+                let flipDirection = 1; // 1 = flipping to back, -1 = flipping to front
+                let showingBack = false; // Whether the back of the card is currently displayed
+                
+                // Touch data cache for showing who touched each page
+                const touchCache = new Map(); // pageId -> { touches: [...], fetching: false }
+                
+                // Determine starting position from URL
+                const pageMatch = path.match(/^\\/page\\/(\\d+)$/);
+                const questionMatch = path.match(/^\\/q\\/(\\d+)$/);
+                if (pageMatch) {
+                  const requestedPageNum = parseInt(pageMatch[1], 10);
+                  // Find feed item with this page number
+                  const feedItem = feedItems.find(item => item.type === "page" && item.pageNumber === requestedPageNum);
+                  if (feedItem) {
+                    currentPageIndex = feedItem.feedIndex;
+                    displayedPageIndex = feedItem.feedIndex;
+                    console.log("📍 URL requested page", requestedPageNum, "-> feed index", feedItem.feedIndex);
+                  }
+                } else if (questionMatch) {
+                  const requestedQNum = parseInt(questionMatch[1], 10);
+                  // Find feed item with this question number
+                  const feedItem = feedItems.find(item => item.type === "question" && item.questionNumber === requestedQNum);
+                  if (feedItem) {
+                    currentPageIndex = feedItem.feedIndex;
+                    displayedPageIndex = feedItem.feedIndex;
+                    console.log("📍 URL requested question", requestedQNum, "-> feed index", feedItem.feedIndex);
+                  }
+                }
+                
+                // Cache feed items by feed index
+                console.log("🗃️ Caching", feedItems.length, "feed items:");
+                feedItems.forEach(item => {
+                  console.log("  -", item.feedIndex, ":", item.type, item.type === "question" ? item.question?.slice(0, 30) + "..." : item.when);
+                  pageCache.set(item.feedIndex, item);
+                });
+                console.log("🗃️ pageCache size after init:", pageCache.size);
+                
+                // 🎨 Theme colors reader - gets CSS custom properties for canvas rendering
+                function getThemeColors() {
+                  const style = getComputedStyle(document.documentElement);
+                  return {
+                    gardenBackground: style.getPropertyValue('--garden-background').trim() || '#FFD1DC',
+                    cardBackground: style.getPropertyValue('--card-background').trim() || '#f8f4ec',
+                    cardBackBackground: style.getPropertyValue('--card-back-background').trim() || '#f0ebe0',
+                    cardBorder: style.getPropertyValue('--card-border').trim() || '#d4c8b8',
+                    cardEar: style.getPropertyValue('--card-ear').trim() || '#e8e0d0',
+                    cardEarHover: style.getPropertyValue('--card-ear-hover').trim() || '#FFD1DC',
+                    cardText: style.getPropertyValue('--card-text').trim() || '#000000',
+                    cardTextMuted: style.getPropertyValue('--card-text-muted').trim() || '#666666',
+                    cardTextDim: style.getPropertyValue('--card-text-dim').trim() || '#999999',
+                    cardTextFaint: style.getPropertyValue('--card-text-faint').trim() || '#aaaaaa',
+                    questionCardBackground: style.getPropertyValue('--question-card-background').trim() || '#e8f0f8',
+                    questionCardBorder: style.getPropertyValue('--question-card-border').trim() || '#b8c8d8',
+                    questionCardEar: style.getPropertyValue('--question-card-ear').trim() || '#d0e0f0',
+                    questionAnswerText: style.getPropertyValue('--question-answer-text').trim() || 'rgb(0, 155, 145)',
+                    diaryLinkColor: style.getPropertyValue('--chat-diary-link').trim() || 'rgb(180, 120, 80)',
+                    questionLinkColor: style.getPropertyValue('--chat-question-link').trim() || 'rgb(80, 140, 200)',
+                    handleColor: style.getPropertyValue('--chat-handle').trim() || 'rgb(200, 80, 120)',
+                  };
+                }
+                
+                // Cache theme colors (update on system theme change)
+                let themeColors = getThemeColors();
+                
+                // Listen for system theme changes
+                if (window.matchMedia) {
+                  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+                    themeColors = getThemeColors();
+                  });
+                }
+                
+                // Resize canvas to fill container
+                function resizeCanvas() {
+                  const topBarHeight = 72;
+                  const bottomPadding = 32;
+                  const w = window.innerWidth;
+                  const h = window.innerHeight - topBarHeight;
+                  dpr = window.devicePixelRatio || 1;
+                  
+                  canvas.width = w * dpr;
+                  canvas.height = h * dpr;
+                  canvas.style.width = w + "px";
+                  canvas.style.height = h + "px";
+                  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                  
+                  // Compute card dimensions (4:5 aspect ratio, centered)
+                  const maxWidth = 600;
+                  const sidePadding = 32;
+                  const availableWidth = w - sidePadding * 2;
+                  const availableHeight = h - bottomPadding;
+                  
+                  // Calculate size to fit in viewport while maintaining 4:5 ratio
+                  cardWidth = Math.min(availableWidth, maxWidth);
+                  cardHeight = cardWidth * (5/4);
+                  
+                  // If too tall, scale down
+                  if (cardHeight > availableHeight) {
+                    cardHeight = availableHeight;
+                    cardWidth = cardHeight * (4/5);
+                  }
+                  
+                  // Center horizontally and vertically
+                  cardX = (w - cardWidth) / 2;
+                  cardY = (h - cardHeight) / 2;
+                  
+                  console.log("🎨 Canvas resized:", w, "x", h, "card:", cardWidth, "x", cardHeight);
+                }
+                
+                // Fetch page data (with deduplication)
+                const fetchingPages = new Set();
+                async function fetchPage(idx) {
+                  console.log("📥 fetchPage called for idx:", idx, "inCache:", pageCache.has(idx));
+                  if (pageCache.has(idx)) return pageCache.get(idx);
+                  if (fetchingPages.has(idx)) return null;
+                  
+                  fetchingPages.add(idx);
+                  try {
+                    let pageData = await getCachedPage(idx);
+                    console.log("📥 IndexedDB cache result for idx:", idx, "found:", !!pageData);
+                    if (!pageData) {
+                      console.log("📥 Fetching from server, pageNumber:", idx);
+                      const response = await subscribed({ pageNumber: idx, limit: 1 });
+                      console.log("📥 Server response:", response?.pages?.length, "pages");
+                      if (response?.pages?.[0]) {
+                        pageData = response.pages[0];
+                        await setCachedPage(idx, pageData);
+                      }
+                    }
+                    if (pageData) pageCache.set(idx, pageData);
+                    return pageData;
+                  } finally {
+                    fetchingPages.delete(idx);
+                  }
+                }
+                
+                // Prefetch nearby feed items
+                function prefetchPages(centerIdx) {
+                  [centerIdx - 1, centerIdx, centerIdx + 1].forEach(idx => {
+                    if (idx >= 1 && idx <= loadedFeedCount && !pageCache.has(idx)) {
+                      fetchPage(idx);
+                    }
+                  });
+                }
+                
+                // Text wrapping helper - handles newlines and word wrap
+                // IMPORTANT: font parameter is required — sets ctx.font for accurate measurement
+                function wrapText(text, maxWidth, font) {
+                  if (font) ctx.font = font; // Set font BEFORE measuring
+                  const paragraphs = (text || "").split("\\n");
+                  const lines = [];
+                  
+                  // Helper: break a single word into chunks that fit maxWidth
+                  function breakLongWord(word) {
+                    const parts = [];
+                    let start = 0;
+                    while (start < word.length) {
+                      let end = start + 1;
+                      while (end <= word.length && ctx.measureText(word.slice(start, end)).width <= maxWidth) {
+                        end++;
+                      }
+                      if (end > start + 1) end--; // Back up one char
+                      if (end === start) end = start + 1; // At least one char
+                      parts.push(word.slice(start, end));
+                      start = end;
+                    }
+                    return parts;
+                  }
+                  
+                  for (const paragraph of paragraphs) {
+                    if (paragraph.trim() === "") {
+                      // Empty line / paragraph break
+                      lines.push("");
+                      continue;
+                    }
+                    
+                    const words = paragraph.split(" ");
+                    let currentLine = "";
+                    
+                    for (const word of words) {
+                      // Check if a single word exceeds maxWidth
+                      if (ctx.measureText(word).width > maxWidth) {
+                        // Flush current line first
+                        if (currentLine) {
+                          lines.push(currentLine);
+                          currentLine = "";
+                        }
+                        // Break the long word into fitting chunks
+                        const parts = breakLongWord(word);
+                        for (let p = 0; p < parts.length - 1; p++) {
+                          lines.push(parts[p]);
+                        }
+                        currentLine = parts[parts.length - 1];
+                        continue;
+                      }
+                      const testLine = currentLine ? currentLine + " " + word : word;
+                      const metrics = ctx.measureText(testLine);
+                      if (metrics.width > maxWidth && currentLine) {
+                        lines.push(currentLine);
+                        currentLine = word;
+                      } else {
+                        currentLine = testLine;
+                      }
+                    }
+                    if (currentLine) lines.push(currentLine);
+                  }
+                  return lines;
+                }
+                
+                // Render a single page at position (ghost = blank card, textOpacity for fade)
+                function renderPage(pageData, idx, offsetY = 0, ghost = false, textOpacity = 1) {
+                  const x = cardX;
+                  const y = cardY + offsetY;
+                  const w = cardWidth;
+                  const h = cardHeight;
+                  
+                  // Font metrics needed for layout - scale proportionally with minimum for mobile readability
+                  const fontSize = Math.max((w / 600) * 17, 11);
+                  const em = fontSize;
+                  
+                  // Determine if this is a question card for different coloring
+                  const isQuestion = pageData?.type === "question";
+                  
+                  // Card background (themed - blue for questions)
+                  ctx.fillStyle = isQuestion ? themeColors.questionCardBackground : themeColors.cardBackground;
+                  ctx.fillRect(x, y, w, h);
+                  
+                  // Clip to card bounds so text never overflows
+                  ctx.save();
+                  ctx.beginPath();
+                  ctx.rect(x, y, w, h);
+                  ctx.clip();
+                  
+                  // Border (themed - blue for questions)
+                  ctx.strokeStyle = isQuestion ? themeColors.questionCardBorder : themeColors.cardBorder;
+                  ctx.lineWidth = 1;
+                  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+                  
+                  // Ear (corner fold) - 8% width - only for diary pages, not Q&A
+                  const earSize = w * 0.08;
+                  if (!isQuestion) {
+                    
+                    // Draw ear (themed)
+                    ctx.fillStyle = hoverEar && offsetY === 0 ? themeColors.cardEarHover : themeColors.cardEar;
+                    ctx.beginPath();
+                    ctx.moveTo(x + w - earSize, y + h);
+                    ctx.lineTo(x + w, y + h - earSize);
+                    ctx.lineTo(x + w, y + h);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.strokeStyle = themeColors.cardBorder;
+                    ctx.stroke();
+                  }
+                  
+                  // Debug box for ear when hovering (themed)
+                  if (hoverEar && offsetY === 0) {
+                    ctx.strokeStyle = themeColors.cardEarHover;
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(x + w - earSize, y + h - earSize, earSize, earSize);
+                  }
+                  
+                  // Ghost mode = blank card, no text
+                  if (ghost) { ctx.restore(); return; }
+                  
+                  if (!pageData) {
+                    ctx.fillStyle = themeColors.cardTextDim;
+                    ctx.font = "16px Helvetica, sans-serif";
+                    ctx.textAlign = "center";
+                    ctx.fillText("Loading...", x + w/2, y + h/2);
+                    ctx.textAlign = "left";
+                    ctx.restore();
+                    return;
+                  }
+                  
+                  // Font metrics already defined at top of function
+                  const lineHeight = fontSize * 1.76; // --line-height: 1.76em
+                  const padding = em * 2; // padding: 0 2em
+                  const textWidth = w - padding * 2;
+                  const maxLines = 19; // --max-lines: 19
+                  
+                  // Text color with opacity for fade-in (themed)
+                  const baseColor = themeColors.cardText;
+                  let textColor;
+                  if (textOpacity < 1) {
+                    // Parse hex color and add alpha
+                    const r = parseInt(baseColor.slice(1, 3), 16);
+                    const g = parseInt(baseColor.slice(3, 5), 16);
+                    const b = parseInt(baseColor.slice(5, 7), 16);
+                    textColor = \`rgba(\${r}, \${g}, \${b}, \${textOpacity})\`;
+                  } else {
+                    textColor = baseColor;
+                  }
+                  
+                  // Helper: draw a line with @handles, -N- page refs, *N* question refs highlighted
+                  function drawLineWithHighlights(line, lineX, lineY, baseFont, baseTextColor) {
+                    const lineColor = baseTextColor || textColor;
+                    // Combined regex: @handles, -N- diary links, *N* question links
+                    const tokenRegex = new RegExp("(@[a-zA-Z0-9_.-]+)|(-(\\\\d+)-)|(\\\\*(\\\\d+)\\\\*)", "g");
+                    let match;
+                    let lastIndex = 0;
+                    let cursorX = lineX;
+                    
+                    while ((match = tokenRegex.exec(line)) !== null) {
+                      // Draw text before token
+                      const before = line.slice(lastIndex, match.index);
+                      if (before) {
+                        ctx.fillStyle = lineColor;
+                        ctx.font = baseFont;
+                        ctx.fillText(before, cursorX, lineY);
+                        cursorX += ctx.measureText(before).width;
+                      }
+                      
+                      const token = match[0];
+                      let color, hitType, hitValue;
+                      
+                      if (match[1]) {
+                        // @handle
+                        color = themeColors.handleColor;
+                        hitType = "handle";
+                        hitValue = match[1];
+                      } else if (match[2]) {
+                        // -N- diary link
+                        color = themeColors.diaryLinkColor;
+                        hitType = "page";
+                        hitValue = match[3]; // the number
+                      } else if (match[4]) {
+                        // *N* question link
+                        color = themeColors.questionLinkColor;
+                        hitType = "question";
+                        hitValue = match[5]; // the number
+                      }
+                      
+                      ctx.fillStyle = color;
+                      ctx.font = baseFont;
+                      ctx.fillText(token, cursorX, lineY);
+                      const tokenWidth = ctx.measureText(token).width;
+                      
+                      // Track hit box for click detection (only for current page, not transitioning ones)
+                      if (offsetY === 0) {
+                        frontHitBoxes.push({
+                          type: hitType,
+                          value: hitValue,
+                          x: cursorX,
+                          y: lineY - fontSize,
+                          w: tokenWidth,
+                          h: fontSize * 1.4
+                        });
+                      }
+                      cursorX += tokenWidth;
+                      lastIndex = match.index + token.length;
+                    }
+                    // Draw remaining text
+                    const remaining = line.slice(lastIndex);
+                    if (remaining) {
+                      ctx.fillStyle = lineColor;
+                      ctx.font = baseFont;
+                      ctx.fillText(remaining, cursorX, lineY);
+                    }
+                  }
+                  
+                  // Different rendering for questions vs pages (isQuestion already defined at top)
+                  if (isQuestion) {
+                    // Clear front hit boxes (rebuilt each frame)
+                    if (offsetY === 0) frontHitBoxes = [];
+                    
+                    // QUESTION RENDERING
+                    // Date title at top (same as diary pages)
+                    const qDate = pageData.answeredAt || pageData.sortDate;
+                    if (qDate) {
+                      const qTitle = dateTitle(qDate);
+                      const qTitleY = y + h * 0.065 + fontSize;
+                      ctx.fillStyle = textColor;
+                      ctx.font = fontSize + "px Helvetica, sans-serif";
+                      ctx.textAlign = "center";
+                      ctx.fillText(qTitle, x + w/2, qTitleY);
+                      ctx.textAlign = "left";
+                    }
+                    
+                    // Header: question text (same size as answer)
+                    const headerY = y + h * 0.15 + fontSize;
+                    const headerFont = fontSize + "px Helvetica, sans-serif";
+                    ctx.font = headerFont; // Set font BEFORE measuring for correct wrapping
+                    ctx.textAlign = "left";
+                    
+                    // Wrap question text for header (pass font for accurate measurement)
+                    const questionLines = wrapText(pageData.question, textWidth, headerFont);
+                    const maxHeaderLines = 3; // Limit header to 3 lines
+                    
+                    for (let i = 0; i < Math.min(questionLines.length, maxHeaderLines); i++) {
+                      drawLineWithHighlights(questionLines[i], x + padding, headerY + i * (fontSize * 1.5), headerFont);
+                    }
+                    
+                    // Body: answer text - starts after question header
+                    const bodyFont = fontSize + "px Helvetica, sans-serif";
+                    ctx.font = bodyFont; // Set font BEFORE measuring for correct wrapping
+                    ctx.textAlign = "left";
+                    
+                    const usedHeaderLines = Math.min(questionLines.length, maxHeaderLines);
+                    
+                    const answerStartY = headerY + usedHeaderLines * (fontSize * 1.5) + fontSize; // Start answer after question
+                    const answerLines = wrapText(pageData.answer || "", textWidth, bodyFont);
+                    
+                    // Answer text in bright teal
+                    const answerColor = themeColors.questionAnswerText || "rgb(0, 155, 145)";
+                    
+                    for (let i = 0; i < Math.min(answerLines.length, maxLines - 2); i++) {
+                      const line = answerLines[i];
+                      if (line === "") continue;
+                      drawLineWithHighlights(line, x + padding, answerStartY + i * lineHeight, bodyFont, answerColor);
+                    }
+                    
+                    // Page number with asterisk format: *N* (use questionNumber)
+                    ctx.fillStyle = (hoverPageNum && offsetY === 0) ? themeColors.cardEarHover : textColor;
+                    ctx.font = fontSize + "px monospace";
+                    ctx.textAlign = "center";
+                    const pageNumY = y + h - em * 2;
+                    const displayNum = pageData.questionNumber || idx;
+                    const pageNumText = "*" + displayNum + "*";
+                    ctx.fillText(pageNumText, x + w/2, pageNumY);
+                  } else {
+                    // PAGE RENDERING (diary pages)
+                    // Date title - CENTERED at top: 6.5%
+                    const title = dateTitle(pageData.when);
+                    const titleY = y + h * 0.065 + fontSize;
+                    ctx.fillStyle = textColor;
+                    ctx.font = fontSize + "px Helvetica, sans-serif";
+                    ctx.textAlign = "center";
+                    ctx.fillText(title, x + w/2, titleY);
+                    
+                    // Clear front hit boxes (rebuilt each frame) — for diary pages too
+                    if (offsetY === 0) frontHitBoxes = [];
+                    
+                    // Body text - margin-top: 15%
+                    const pageBodyFont = fontSize + "px Helvetica, sans-serif";
+                    ctx.fillStyle = textColor;
+                    ctx.font = pageBodyFont;
+                    ctx.textAlign = "left";
+                    
+                    const lines = wrapText(pageData.words, textWidth, pageBodyFont);
+                    const textStartY = y + h * 0.15 + fontSize;
+                    
+                    for (let i = 0; i < Math.min(lines.length, maxLines); i++) {
+                      const line = lines[i];
+                      if (line === "") {
+                        // Empty line for paragraph break
+                        continue;
+                      }
+                      drawLineWithHighlights(line, x + padding, textStartY + i * lineHeight, pageBodyFont);
+                    }
+                    
+                    // Page number - centered at bottom with margin (use pageNumber)
+                    ctx.fillStyle = (hoverPageNum && offsetY === 0) ? themeColors.cardEarHover : textColor;
+                    ctx.font = fontSize + "px monospace";
+                    ctx.textAlign = "center";
+                    const pageNumY = y + h - em * 2;
+                    const displayNum = pageData.pageNumber || idx;
+                    ctx.fillText("- " + displayNum + " -", x + w/2, pageNumY);
+                  }
+                  
+                  ctx.textAlign = "left";
+                  ctx.restore(); // Remove card clip region
+                }
+                
+                // Render the back of a card (touch info only, positioned top-left at body text position)
+                function renderCardBack(pageData, idx) {
+                  const x = cardX;
+                  const y = cardY;
+                  const w = cardWidth;
+                  const h = cardHeight;
+                  
+                  // Font metrics (same as front - with minimum for mobile readability)
+                  const fontSize = Math.max((w / 600) * 17, 11);
+                  const em = fontSize;
+                  const lineHeight = fontSize * 1.76;
+                  const padding = em * 2;
+                  
+                  // Card back background (themed)
+                  ctx.fillStyle = themeColors.cardBackBackground;
+                  ctx.fillRect(x, y, w, h);
+                  
+                  // Border (themed)
+                  ctx.strokeStyle = themeColors.cardBorder;
+                  ctx.lineWidth = 1;
+                  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+                  
+                  // Ear on back (bottom-left, mirrored, themed)
+                  const earSize = w * 0.08;
+                  ctx.fillStyle = hoverEar ? themeColors.cardEarHover : themeColors.cardEar;
+                  ctx.beginPath();
+                  ctx.moveTo(x + earSize, y + h);
+                  ctx.lineTo(x, y + h - earSize);
+                  ctx.lineTo(x, y + h);
+                  ctx.closePath();
+                  ctx.fill();
+                  ctx.strokeStyle = themeColors.cardBorder;
+                  ctx.stroke();
+                  
+                  if (!pageData) return;
+                  
+                  // Body text position (same as front - margin-top: 15%)
+                  const textStartY = y + h * 0.15 + fontSize;
+                  const textWidth = w - padding * 2;
+                  
+                  // Touches section - top left, at body text position
+                  const pageId = pageData._id;
+                  const touchData = touchCache.get(pageId);
+                  
+                  ctx.font = fontSize + "px Helvetica, sans-serif";
+                  ctx.textAlign = "left";
+                  
+                  let textY = textStartY;
+                  
+                  if (touchData?.fetching) {
+                    ctx.fillStyle = themeColors.cardTextDim;
+                    ctx.fillText("Loading...", x + padding, textY);
+                  } else if (touchData?.touches && touchData.touches.length > 0) {
+                    const touches = touchData.touches;
+                    let touchedBy = "";
+                    if (touches.length === 1) {
+                      touchedBy = touches[0] + " touched this page.";
+                    } else if (touches.length === 2) {
+                      touchedBy = touches[0] + " and " + touches[1] + " touched this page.";
+                    } else {
+                      const lastTouch = touches[touches.length - 1];
+                      const others = touches.slice(0, -1);
+                      touchedBy = others.join(", ") + ", and " + lastTouch + " touched this page.";
+                    }
+                    
+                    // Word wrap touch text, tracking @handle positions for hit testing
+                    handleHitBoxes = [];
+                    const allWords = touchedBy.split(" ");
+                    let line = "";
+                    let lineWords = [];
+                    
+                    function flushLine(lineStr, lineY, wordsInLine) {
+                      // Measure each word to find @handle positions
+                      let cursorX = x + padding;
+                      for (const lw of wordsInLine) {
+                        const wordWidth = ctx.measureText(lw).width;
+                        const spaceWidth = ctx.measureText(" ").width;
+                        if (lw.startsWith("@")) {
+                          // Draw handle in pink
+                          ctx.fillStyle = "rgb(200, 80, 120)";
+                          ctx.fillText(lw, cursorX, lineY);
+                          ctx.fillStyle = themeColors.cardTextMuted;
+                          handleHitBoxes.push({
+                            handle: lw,
+                            x: cursorX,
+                            y: lineY - fontSize,
+                            w: wordWidth,
+                            h: fontSize * 1.4
+                          });
+                        } else {
+                          ctx.fillText(lw, cursorX, lineY);
+                        }
+                        cursorX += wordWidth + spaceWidth;
+                      }
+                    }
+                    
+                    ctx.fillStyle = themeColors.cardTextMuted;
+                    for (const word of allWords) {
+                      const testLine = line ? line + " " + word : word;
+                      if (ctx.measureText(testLine).width > textWidth && line) {
+                        flushLine(line, textY, lineWords);
+                        textY += lineHeight;
+                        line = word;
+                        lineWords = [word];
+                      } else {
+                        line = testLine;
+                        lineWords.push(word);
+                      }
+                    }
+                    if (line) flushLine(line, textY, lineWords);
+                  } else {
+                    ctx.fillStyle = themeColors.cardTextFaint;
+                    ctx.fillText("No one has touched this page yet.", x + padding, textY);
+                  }
+                }
+                
+                // Main render function
+                let lastLoggedIdx = -1;
+                function render() {
+                  const w = canvas.width / dpr;
+                  const h = canvas.height / dpr;
+                  
+                  // Clear with garden background color (themed)
+                  ctx.fillStyle = themeColors.gardenBackground;
+                  ctx.fillRect(0, 0, w, h);
+                  
+                  const pageData = pageCache.get(displayedPageIndex);
+                  if (displayedPageIndex !== lastLoggedIdx) {
+                    console.log("🎨 Rendering idx:", displayedPageIndex, "hasData:", !!pageData, "type:", pageData?.type, "cacheSize:", pageCache.size);
+                    lastLoggedIdx = displayedPageIndex;
+                  }
+                  
+                  // Handle card flip animation with 3D perspective (no zoom, just rotation)
+                  if (isFlipping || showingBack) {
+                    // Calculate rotation angle (0 to PI)
+                    const angle = flipProgress * Math.PI;
+                    const isFrontVisible = flipProgress < 0.5;
+                    
+                    const centerX = cardX + cardWidth / 2;
+                    
+                    // When showing back, render the front first (semi-transparent)
+                    if (!isFrontVisible) {
+                      ctx.save();
+                      ctx.globalAlpha = 0.15; // Semi-transparent front showing through
+                      
+                      // Front face scale (it's on the "back" side now)
+                      const frontAngle = angle - Math.PI;
+                      const frontScaleX = Math.abs(Math.cos(frontAngle));
+                      
+                      ctx.translate(centerX, 0);
+                      ctx.scale(frontScaleX, 1);
+                      ctx.translate(-centerX, 0);
+                      
+                      if (frontScaleX > 0.01) {
+                        renderPage(pageData, displayedPageIndex, 0, false, 1);
+                      }
+                      ctx.restore();
+                    }
+                    
+                    // Render the main visible side
+                    ctx.save();
+                    
+                    // Simple horizontal scale to simulate Y-axis rotation (no zoom)
+                    const scaleX = Math.abs(Math.cos(angle));
+                    
+                    ctx.translate(centerX, 0);
+                    ctx.scale(scaleX, 1);
+                    ctx.translate(-centerX, 0);
+                    
+                    // Only render if card has some width
+                    if (scaleX > 0.01) {
+                      if (isFrontVisible) {
+                        renderPage(pageData, displayedPageIndex, 0, false, 1);
+                      } else {
+                        renderCardBack(pageData, displayedPageIndex);
+                      }
+                    }
+                    
+                    ctx.restore();
+                    
+                    // Fetch current page if not cached
+                    if (!pageData) fetchPage(displayedPageIndex);
+                    return;
+                  }
+                  
+                  if (transitionDirection !== 0 && transitionTarget !== null) {
+                    // Animating transition - both pages show text (pre-rendered)
+                    const slideDistance = cardHeight + 40;
+                    const incomingData = pageCache.get(transitionTarget) || null;
+                    
+                    if (transitionDirection > 0) {
+                      // Going to higher page (next) - current slides up, next comes from below
+                      renderPage(pageData, displayedPageIndex, -transitionProgress * slideDistance, false, 1);
+                      renderPage(incomingData, transitionTarget, (1 - transitionProgress) * slideDistance, false, 1);
+                    } else {
+                      // Going to lower page (prev) - current slides down, prev comes from above
+                      renderPage(pageData, displayedPageIndex, transitionProgress * slideDistance, false, 1);
+                      renderPage(incomingData, transitionTarget, -(1 - transitionProgress) * slideDistance, false, 1);
+                    }
+                  } else if ((isDragging || isWheelScrolling) && Math.abs(dragDelta) > 0) {
+                    // Dragging or wheel scrolling - both feed items show text (pre-rendered)
+                    const nextIdx = dragDelta > 0 ? displayedPageIndex + 1 : displayedPageIndex - 1;
+                    if (nextIdx >= 1 && nextIdx <= loadedFeedCount) {
+                      const slideDistance = cardHeight + 40;
+                      const progress = Math.min(1, Math.abs(dragDelta) / slideDistance);
+                      const nextData = pageCache.get(nextIdx) || null;
+                      
+                      if (dragDelta > 0) {
+                        renderPage(pageData, displayedPageIndex, -progress * slideDistance, false, 1);
+                        renderPage(nextData, nextIdx, (1 - progress) * slideDistance, false, 1);
+                      } else {
+                        renderPage(pageData, displayedPageIndex, progress * slideDistance, false, 1);
+                        renderPage(nextData, nextIdx, -(1 - progress) * slideDistance, false, 1);
+                      }
+                    } else {
+                      // At boundary - just offset current page with resistance
+                      renderPage(pageData, displayedPageIndex, -dragDelta * 0.3);
+                    }
+                  } else {
+                    // Static - show current page with text (fade in if just arrived)
+                    // Also render adjacent page edges peeking from above/below
+                    // to hint that there's more content to scroll through.
+                    const peekAmount = 24; // px of adjacent card visible
+                    const slideDistance = cardHeight + 40;
+                    const peekOffset = slideDistance - peekAmount;
+                    const peekAlpha = 0.35;
+                    
+                    // Previous page peek (above)
+                    if (displayedPageIndex > 1) {
+                      const prevData = pageCache.get(displayedPageIndex - 1) || null;
+                      ctx.save();
+                      ctx.globalAlpha = peekAlpha;
+                      renderPage(prevData, displayedPageIndex - 1, -peekOffset, true, 0);
+                      ctx.restore();
+                    }
+                    
+                    // Next page peek (below)
+                    if (displayedPageIndex < loadedFeedCount) {
+                      const nextData = pageCache.get(displayedPageIndex + 1) || null;
+                      ctx.save();
+                      ctx.globalAlpha = peekAlpha;
+                      renderPage(nextData, displayedPageIndex + 1, peekOffset, true, 0);
+                      ctx.restore();
+                    }
+                    
+                    // Current page (main, on top)
+                    renderPage(pageData, displayedPageIndex, 0, false, textFadeIn);
+                  }
+                  
+                  // Fetch current page if not cached
+                  if (!pageData) fetchPage(displayedPageIndex);
+                }
+                
+                // Animation update
+                function update() {
+                  if (transitionDirection !== 0 && transitionTarget !== null) {
+                    transitionProgress += transitionSlow ? 0.045 : 0.12; // Slower for arrow keys
+                    
+                    if (transitionProgress >= 1) {
+                      // Transition complete
+                      displayedPageIndex = transitionTarget;
+                      currentPageIndex = transitionTarget;
+                      transitionProgress = 0;
+                      transitionDirection = 0;
+                      transitionTarget = null;
+                      transitionSlow = false;
+                      textFadeIn = 1; // Text already visible, no fade needed
+                      // Update URL based on item type (question vs page)
+                      const currentItem = pageCache.get(currentPageIndex);
+                      if (currentItem?.type === "question") {
+                        const qNum = currentItem.questionNumber || currentPageIndex;
+                        updatePath("/q/" + qNum);
+                      } else {
+                        const pNum = currentItem?.pageNumber || currentPageIndex;
+                        updatePath("/page/" + pNum);
+                      }
+                      prefetchPages(currentPageIndex);
+                      
+                      // If user kept scrolling during the animation, continue
+                      // to the next page immediately for fluid browsing.
+                      if (pendingWheelDirection !== 0) {
+                        const nextIdx = currentPageIndex + pendingWheelDirection;
+                        pendingWheelDirection = 0;
+                        if (nextIdx >= 1 && nextIdx <= loadedFeedCount) {
+                          goToPage(nextIdx);
+                        }
+                      }
+                    }
+                  }
+                  
+                  // Fade in text when static
+                  if (transitionDirection === 0 && textFadeIn < 1) {
+                    textFadeIn = Math.min(1, textFadeIn + 0.08);
+                  }
+                  
+                  // Card flip animation
+                  if (isFlipping) {
+                    flipProgress += 0.04 * flipDirection; // Smooth flip speed
+                    if (flipProgress >= 1) {
+                      flipProgress = 1;
+                      isFlipping = false;
+                      showingBack = true;
+                      // Card is now showing back - it stays there until user clicks again
+                    } else if (flipProgress <= 0) {
+                      flipProgress = 0;
+                      isFlipping = false;
+                      showingBack = false;
+                      flipDirection = 1;
+                    }
+                  }
+                }
+                
+                // Animation loop
+                let running = true;
+                function loop() {
+                  if (!running) return;
+                  update();
+                  render();
+                  requestAnimationFrame(loop);
+                }
+                
+                // Go to a specific feed item with animation
+                function goToPage(targetIdx, startProgress = 0, slow = false) {
+                  if (targetIdx < 1 || targetIdx > loadedFeedCount) return;
+                  if (targetIdx === displayedPageIndex) return;
+                  if (transitionDirection !== 0) return; // Already animating
+                  if (isFlipping || showingBack) return; // Don't change pages while flipped
+                  
+                  transitionSlow = slow;
+                  transitionDirection = targetIdx > displayedPageIndex ? 1 : -1;
+                  transitionTarget = targetIdx;
+                  transitionProgress = startProgress; // Start from where drag left off
+                  prefetchPages(targetIdx);
+                }
+                
+                // Input handling
+                canvas.addEventListener("pointerdown", (e) => {
+                  if (transitionDirection !== 0) return; // Don't drag during animation
+                  if (isFlipping || showingBack) return; // Don't drag when flipped
+                  
+                  isDragging = true;
+                  dragStartY = e.clientY;
+                  dragDelta = 0;
+                  
+                  // Cancel any pending wheel scroll
+                  isWheelScrolling = false;
+                  wheelDelta = 0;
+                  pendingWheelDirection = 0;
+                  clearTimeout(wheelIdleTimer);
+                  
+                  canvas.setPointerCapture(e.pointerId);
+                  canvas.style.cursor = "grabbing";
+                  e.preventDefault();
+                });
+                
+                canvas.addEventListener("pointermove", (e) => {
+                  if (!isDragging) return;
+                  dragDelta = dragStartY - e.clientY;
+                  
+                  // Clamp at boundaries – small rubber-band only
+                  const maxRubber = 40;
+                  const atStart = displayedPageIndex <= 1 && dragDelta < 0;
+                  const atEnd = displayedPageIndex >= loadedFeedCount && dragDelta > 0;
+                  if (atStart) dragDelta = Math.max(dragDelta, -maxRubber);
+                  if (atEnd) dragDelta = Math.min(dragDelta, maxRubber);
+                  
+                  // Prefetch the feed item we might be going to
+                  const nextIdx = dragDelta > 0 ? displayedPageIndex + 1 : displayedPageIndex - 1;
+                  if (nextIdx >= 1 && nextIdx <= loadedFeedCount && !pageCache.has(nextIdx)) {
+                    fetchPage(nextIdx);
+                  }
+                });
+                
+                canvas.addEventListener("pointerup", (e) => {
+                  if (!isDragging) return;
+                  isDragging = false;
+                  wasDragging = Math.abs(dragDelta) > 5;
+                  canvas.releasePointerCapture(e.pointerId);
+                  canvas.style.cursor = "grab";
+                  
+                  const threshold = cardHeight * 0.2; // 20% of card height to trigger
+                  const slideDistance = cardHeight + 40;
+                  const currentProgress = Math.min(1, Math.abs(dragDelta) / slideDistance);
+                  
+                  if (Math.abs(dragDelta) > threshold) {
+                    // Commit to page change - continue from current drag position
+                    const nextIdx = dragDelta > 0 ? displayedPageIndex + 1 : displayedPageIndex - 1;
+                    if (nextIdx >= 1 && nextIdx <= loadedFeedCount) {
+                      goToPage(nextIdx, currentProgress);
+                    }
+                  }
+                  // If threshold not met, render() will snap back automatically
+                  dragDelta = 0;
+                });
+                
+                canvas.addEventListener("pointercancel", (e) => {
+                  if (!isDragging) return;
+                  isDragging = false;
+                  canvas.releasePointerCapture(e.pointerId);
+                  canvas.style.cursor = "grab";
+                  dragDelta = 0;
+                });
+                
+                // Keyboard navigation
+                document.addEventListener("keydown", (e) => {
+                  if (!document.body.contains(canvas)) return;
+                  if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+                  if (transitionDirection !== 0) return;
+                  if (isFlipping || showingBack) return; // Don't navigate when flipped
+                  
+                  if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
+                    e.preventDefault();
+                    goToPage(currentPageIndex - 1, 0, true);
+                  } else if (e.key === "ArrowDown" || e.key === "ArrowRight") {
+                    e.preventDefault();
+                    goToPage(currentPageIndex + 1, 0, true);
+                  }
+                });
+                
+                // Scroll wheel navigation (incremental, drag-like)
+                let wheelDelta = 0;
+                let wheelIdleTimer = null;
+                let isWheelScrolling = false;
+                canvas.addEventListener("wheel", (e) => {
+                  if (!document.body.contains(canvas)) return;
+                  if (isFlipping || showingBack) return;
+                  e.preventDefault();
+                  
+                  // During animation, track scroll direction so we can
+                  // continue to the next page when the transition finishes.
+                  if (transitionDirection !== 0) {
+                    pendingWheelDirection = e.deltaY > 0 ? 1 : -1;
+                    return;
+                  }
+                  
+                  // Accumulate wheel delta into dragDelta (like pointer drag)
+                  const sensitivity = 1.5;
+                  wheelDelta += e.deltaY * sensitivity;
+                  
+                  // Cap to one page of visual travel so the card can't fly off screen
+                  const slideDistance = cardHeight + 40;
+                  const maxRubber = 40; // pixels of visual give at edges
+                  const atStart = displayedPageIndex <= 1 && wheelDelta < 0;
+                  const atEnd = displayedPageIndex >= loadedFeedCount && wheelDelta > 0;
+                  if (atStart) {
+                    wheelDelta = Math.max(wheelDelta, -maxRubber);
+                  } else if (atEnd) {
+                    wheelDelta = Math.min(wheelDelta, maxRubber);
+                  } else {
+                    // Mid-feed: clamp to one slideDistance so card never leaves the viewport
+                    wheelDelta = Math.max(-slideDistance, Math.min(slideDistance, wheelDelta));
+                  }
+                  
+                  dragDelta = wheelDelta;
+                  isWheelScrolling = true;
+                  
+                  // Prefetch the page we might be going to
+                  const nextIdx = dragDelta > 0 ? displayedPageIndex + 1 : displayedPageIndex - 1;
+                  if (nextIdx >= 1 && nextIdx <= loadedFeedCount && !pageCache.has(nextIdx)) {
+                    fetchPage(nextIdx);
+                  }
+                  
+                  // Reset idle timer - commit page change when scrolling stops
+                  clearTimeout(wheelIdleTimer);
+                  wheelIdleTimer = setTimeout(() => {
+                    if (!isWheelScrolling) return;
+                    isWheelScrolling = false;
+                    
+                    const threshold = cardHeight * 0.2;
+                    const slideDistance = cardHeight + 40;
+                    const currentProgress = Math.min(1, Math.abs(wheelDelta) / slideDistance);
+                    
+                    if (Math.abs(wheelDelta) > threshold) {
+                      const nextIdx = wheelDelta > 0 ? displayedPageIndex + 1 : displayedPageIndex - 1;
+                      if (nextIdx >= 1 && nextIdx <= loadedFeedCount) {
+                        dragDelta = 0;
+                        goToPage(nextIdx, currentProgress);
+                      }
+                    }
+                    
+                    wheelDelta = 0;
+                    dragDelta = 0;
+                  }, 120);
+                }, { passive: false });
+                
+                // Click detection for ear and page number
+                canvas.addEventListener("click", (e) => {
+                  if (wasDragging) { wasDragging = false; return; } // Was scrolling
+                  wasDragging = false;
+                  
+                  const rect = canvas.getBoundingClientRect();
+                  const x = e.clientX - rect.left;
+                  const y = e.clientY - rect.top;
+                  
+                  // Check if click is within card bounds
+                  if (x < cardX || x > cardX + cardWidth) return;
+                  if (y < cardY || y > cardY + cardHeight) return;
+                  
+                  const localX = x - cardX;
+                  const localY = y - cardY;
+                  
+                  // Font metrics for hit detection (must match hover)
+                  const baseFontSize = (cardWidth / 600) * 17;
+                  const em = Math.max(10, baseFontSize);
+                  const earSize = cardWidth * 0.08;
+                  
+                  // Check ear region - depends on which side of card is showing
+                  // Front: bottom-right, Back: bottom-left (mirrored)
+                  const earHit = showingBack
+                    ? (localX < earSize && localY > cardHeight - earSize)
+                    : (localX > cardWidth - earSize && localY > cardHeight - earSize);
+                  
+                  // Skip ear interactions for question cards (no doggy ear)
+                  const clickedItem = pageCache.get(displayedPageIndex);
+                  const clickedIsQuestion = clickedItem?.type === "question";
+                  
+                  if (earHit && !clickedIsQuestion) {
+                    console.log("🎨 Ear clicked on page", displayedPageIndex, showingBack ? "(back)" : "(front)");
+                    
+                    // If showing front, flip to back and touch the page
+                    if (!showingBack && !isFlipping) {
+                      isFlipping = true;
+                      flipProgress = 0;
+                      flipDirection = 1;
+                      
+                      // Touch the page (send to database)
+                      const pageData = pageCache.get(displayedPageIndex);
+                      if (pageData?._id) {
+                        const pageId = pageData._id;
+                        // Mark as fetching
+                        touchCache.set(pageId, { touches: [], fetching: true });
+                        
+                        // Make API call to touch the page
+                        userRequest("POST", "/sotce-net/touch-a-page", { _id: pageId })
+                          .then(res => {
+                            if (res.status === 200) {
+                              touchCache.set(pageId, { touches: res.touches || [], fetching: false });
+                            } else {
+                              touchCache.set(pageId, { touches: [], fetching: false });
+                            }
+                          })
+                          .catch(err => {
+                            console.error("Touch error:", err);
+                            touchCache.set(pageId, { touches: [], fetching: false });
+                          });
+                      }
+                    }
+                    // If showing back, flip back to front
+                    else if (showingBack && !isFlipping) {
+                      isFlipping = true;
+                      flipProgress = 1;
+                      flipDirection = -1;
+                    }
+                    return;
+                  }
+                  
+                  // Check interactive token hit boxes on card front
+                  if (!showingBack && frontHitBoxes.length > 0) {
+                    const absX = e.clientX - rect.left;
+                    const absY = e.clientY - rect.top;
+                    for (const hb of frontHitBoxes) {
+                      if (absX >= hb.x && absX <= hb.x + hb.w && absY >= hb.y && absY <= hb.y + hb.h) {
+                        if (hb.type === "handle") {
+                          console.log("🎨 Handle clicked:", hb.value);
+                          openChatWithMessage(hb.value + " ");
+                        } else if (hb.type === "page") {
+                          console.log("🎨 Page link clicked:", hb.value);
+                          const targetFeedItem = feedItems.find(fi => fi.type === "page" && fi.pageNumber === parseInt(hb.value, 10));
+                          if (targetFeedItem) {
+                            currentPageIndex = targetFeedItem.feedIndex;
+                            displayedPageIndex = targetFeedItem.feedIndex;
+                            textFadeIn = 0;
+                            updatePath("/page/" + hb.value);
+                          }
+                        } else if (hb.type === "question") {
+                          console.log("🎨 Question link clicked:", hb.value);
+                          const targetFeedItem = feedItems.find(fi => fi.type === "question" && fi.questionNumber === parseInt(hb.value, 10));
+                          if (targetFeedItem) {
+                            currentPageIndex = targetFeedItem.feedIndex;
+                            displayedPageIndex = targetFeedItem.feedIndex;
+                            textFadeIn = 0;
+                            updatePath("/q/" + hb.value);
+                          }
+                        }
+                        return;
+                      }
+                    }
+                  }
+                  
+                  // Check page number region (must match hover detection) - only on front
+                  if (!showingBack) {
+                    const pageNumTop = cardHeight - em * 3;
+                    const pageNumBottom = cardHeight - em * 0.5;
+                    if (localY > pageNumTop && localY < pageNumBottom) {
+                      const pageData = pageCache.get(displayedPageIndex);
+                      const isQuestion = pageData?.type === "question";
+                      const displayNum = isQuestion ? (pageData?.questionNumber || displayedPageIndex) : (pageData?.pageNumber || displayedPageIndex);
+                      const pageRef = isQuestion 
+                        ? "*" + displayNum + "* " 
+                        : "-" + displayNum + "- ";
+                      console.log("🎨 Page number clicked:", displayNum, "type:", pageData?.type);
+                      openChatWithMessage(pageRef);
+                      return;
+                    }
+                  }
+                  
+                  // Check handle hit boxes on back
+                  if (showingBack && handleHitBoxes.length > 0) {
+                    const absX = e.clientX - rect.left;
+                    const absY = e.clientY - rect.top;
+                    for (const hb of handleHitBoxes) {
+                      if (absX >= hb.x && absX <= hb.x + hb.w && absY >= hb.y && absY <= hb.y + hb.h) {
+                        console.log("🎨 Handle clicked:", hb.handle);
+                        openChatWithMessage(hb.handle + " ");
+                        return;
+                      }
+                    }
+                  }
+                });
+                
+                // Hover cursor changes for ear and page number
+                canvas.addEventListener("mousemove", (e) => {
+                  if (isDragging) {
+                    hoverEar = false;
+                    hoverPageNum = false;
+                    return;
+                  }
+                  
+                  const rect = canvas.getBoundingClientRect();
+                  const x = e.clientX - rect.left;
+                  const y = e.clientY - rect.top;
+                  
+                  // Check if within card bounds
+                  if (x < cardX || x > cardX + cardWidth || y < cardY || y > cardY + cardHeight) {
+                    canvas.style.cursor = showingBack ? "default" : "grab";
+                    hoverEar = false;
+                    hoverPageNum = false;
+                    return;
+                  }
+                  
+                  const localX = x - cardX;
+                  const localY = y - cardY;
+                  
+                  // Font metrics for hit detection
+                  const baseFontSize = (cardWidth / 600) * 17;
+                  const em = Math.max(10, baseFontSize);
+                  const earSize = cardWidth * 0.08;
+                  
+                  // Check ear region - depends on which side is showing
+                  const earHit = showingBack
+                    ? (localX < earSize && localY > cardHeight - earSize)
+                    : (localX > cardWidth - earSize && localY > cardHeight - earSize);
+                  
+                  // Skip ear hover for question cards (no doggy ear)
+                  const hoveredItem = pageCache.get(displayedPageIndex);
+                  const hoveredIsQuestion = hoveredItem?.type === "question";
+                  
+                  if (earHit && !hoveredIsQuestion) {
+                    canvas.style.cursor = "pointer";
+                    hoverEar = true;
+                    hoverPageNum = false;
+                    return;
+                  }
+                  
+                  // Check page number region (only on front) - only the number text, not full width
+                  if (!showingBack) {
+                    const pageNumTop = cardHeight - em * 3;
+                    const pageNumBottom = cardHeight - em * 0.5;
+                    // Measure the page number text width to limit hit area
+                    const hovItem = pageCache.get(displayedPageIndex);
+                    ctx.font = baseFontSize + "px monospace";
+                    let pnText;
+                    if (hovItem?.type === "question") {
+                      pnText = "*" + (hovItem.questionNumber || displayedPageIndex) + "*";
+                    } else {
+                      pnText = "- " + (hovItem?.pageNumber || displayedPageIndex) + " -";
+                    }
+                    const pnWidth = ctx.measureText(pnText).width + em;
+                    const pnLeft = (cardWidth - pnWidth) / 2;
+                    const pnRight = pnLeft + pnWidth;
+                    if (localY > pageNumTop && localY < pageNumBottom && localX > pnLeft && localX < pnRight) {
+                      canvas.style.cursor = "pointer";
+                      hoverPageNum = true;
+                      hoverEar = false;
+                      return;
+                    }
+                  }
+                  
+                  hoverEar = false;
+                  hoverPageNum = false;
+                  hoverHandle = null;
+                  
+                  // Check handle hit boxes on back
+                  if (showingBack && handleHitBoxes.length > 0) {
+                    for (const hb of handleHitBoxes) {
+                      if (x >= hb.x && x <= hb.x + hb.w && y >= hb.y && y <= hb.y + hb.h) {
+                        canvas.style.cursor = "pointer";
+                        hoverHandle = hb.handle;
+                        return;
+                      }
+                    }
+                  }
+                  
+                  // Check interactive token hit boxes on card front
+                  if (!showingBack && frontHitBoxes.length > 0) {
+                    for (const hb of frontHitBoxes) {
+                      if (x >= hb.x && x <= hb.x + hb.w && y >= hb.y && y <= hb.y + hb.h) {
+                        canvas.style.cursor = "pointer";
+                        return;
+                      }
+                    }
+                  }
+                  
+                  canvas.style.cursor = showingBack ? "default" : "grab";
+                });
+                
+                // Reset hover state when leaving canvas
+                canvas.addEventListener("mouseleave", () => {
+                  hoverEar = false;
+                  hoverPageNum = false;
+                  canvas.style.cursor = "grab";
+                });
+                
+                // Touch support for hover highlight (show on touch start, hide on touch end)
+                canvas.addEventListener("touchstart", (e) => {
+                  if (e.touches.length !== 1) return;
+                  const touch = e.touches[0];
+                  const rect = canvas.getBoundingClientRect();
+                  const x = touch.clientX - rect.left;
+                  const y = touch.clientY - rect.top;
+                  
+                  if (x < cardX || x > cardX + cardWidth || y < cardY || y > cardY + cardHeight) return;
+                  
+                  const localX = x - cardX;
+                  const localY = y - cardY;
+                  
+                  const baseFontSize = (cardWidth / 600) * 17;
+                  const em = Math.max(10, baseFontSize);
+                  const earSize = cardWidth * 0.08;
+                  
+                  // Check ear region - depends on which side is showing
+                  const earHit = showingBack
+                    ? (localX < earSize && localY > cardHeight - earSize)
+                    : (localX > cardWidth - earSize && localY > cardHeight - earSize);
+                  
+                  if (earHit) {
+                    hoverEar = true;
+                    hoverPageNum = false;
+                  } else if (!showingBack) {
+                    const pageNumTop = cardHeight - em * 3;
+                    const pageNumBottom = cardHeight - em * 0.5;
+                    if (localY > pageNumTop && localY < pageNumBottom) {
+                      hoverPageNum = true;
+                      hoverEar = false;
+                    }
+                  }
+                }, { passive: true });
+                
+                canvas.addEventListener("touchend", () => {
+                  // Small delay so user sees the highlight before it disappears
+                  setTimeout(() => {
+                    hoverEar = false;
+                    hoverPageNum = false;
+                  }, 100);
+                }, { passive: true });
+                
+                // Expose for external use
+                g.goToPage = goToPage;
+                g.totalPages = totalPages;
+                g.getCurrentPage = () => currentPageIndex;
+                
+                // Cleanup
+                const observer = new MutationObserver(() => {
+                  if (!document.body.contains(canvas)) {
+                    running = false;
+                    observer.disconnect();
+                  }
+                });
+                observer.observe(document.body, { childList: true, subtree: true });
+                
+                // Create hidden binding reference for editors (matches DOM mode structure)
+                const binding = cel("div");
+                binding.id = "binding";
+                binding.style.cssText = "position:absolute;pointer-events:none;opacity:0;";
+                g.appendChild(binding);
+                
+                // Initialize
+                g.appendChild(canvas);
+                resizeCanvas();
+                prefetchPages(currentPageIndex);
+                
+                // Update binding size when canvas resizes
+                function updateBindingSize() {
+                  binding.style.width = cardWidth + "px";
+                }
+                
+                // Re-scale any open editor pages (ask, respond, write)
+                function rescaleEditors() {
+                  const baseWidth = 100 * 8;
+                  const editors = [
+                    { form: "editor-form", page: "editor-page" },
+                    { form: "ask-editor-form", page: "ask-editor-page" },
+                    { form: "respond-editor-form", page: "respond-editor-page" },
+                  ];
+                  for (const { form, page } of editors) {
+                    const formEl = document.getElementById(form);
+                    const pageEl = document.getElementById(page);
+                    if (formEl && pageEl) {
+                      formEl.style.width = cardWidth + "px";
+                      const goalWidth = pageEl.parentElement.clientWidth;
+                      const scale = goalWidth / baseWidth;
+                      pageEl.style.transform = "scale(" + scale + ")";
+                    }
+                  }
+                  // Also update nav widths
+                  const topBar = document.getElementById("top-bar");
+                  if (topBar) {
+                    const navIds = ["nav-editor", "nav-ask-editor", "nav-respond-editor"];
+                    for (const id of navIds) {
+                      const navEl = document.getElementById(id);
+                      if (navEl) navEl.style.width = topBar.style.width;
+                    }
+                  }
+                }
+                
+                window.addEventListener("resize", () => {
+                  resizeCanvas();
+                  updateBindingSize();
+                  rescaleEditors();
+                });
+                updateBindingSize();
+                loop();
+                
+                computePageLayout = function() {
+                  resizeCanvas();
+                  updateBindingSize();
+                  // Re-scale any open editor pages
+                  rescaleEditors();
+                };
+                
+                canvas.style.touchAction = "none";
+                canvas.style.cursor = "grab";
+              } else if (totalPages > 0 || loadedPagesData.length > 0) {
                 const binding = cel("div");
                 binding.id = "binding";
                 binding.classList.add("hidden");
@@ -4676,10 +7846,6 @@ export const handler = async (event, context) => {
                     e.stopPropagation();
                     openChatWithMessage("-" + index + "- ");
                   };
-                  pageNumber.addEventListener("pointerenter", (e) => {
-                    showPageNumberTooltip(e, page.content?.substring(0, 100), index);
-                  });
-                  pageNumber.addEventListener("pointerleave", hidePageNumberTooltip);
 
                   const ear = cel("div");
                   ear.classList.add("ear");
@@ -4799,114 +7965,536 @@ export const handler = async (event, context) => {
                   pageWrapper.appendChild(ear);
                 }
                 
-                // Create placeholder for unloaded page
-                function createPlaceholder(index) {
+                // 📖 VIRTUALIZED PAGE SYSTEM - Only 3 pages in DOM at a time, scroll-based
+                let currentPageIndex = totalPages; // Start at most recent page
+                const pageCache = new Map(); // Cache page data by index
+                const renderedPages = new Map(); // Track which page indices are currently in DOM
+                
+                // Determine starting page from URL
+                const pageMatch = path.match(/^\\/page\\/(\\d+)$/);
+                if (pageMatch) {
+                  const requestedPage = parseInt(pageMatch[1], 10);
+                  if (requestedPage >= 1 && requestedPage <= totalPages) {
+                    currentPageIndex = requestedPage;
+                  }
+                }
+                
+                // Cache initially loaded pages
+                if (pageIndex && loadedPagesData[0]) {
+                  pageCache.set(pageIndex, loadedPagesData[0]);
+                  currentPageIndex = pageIndex;
+                } else {
+                  const startIdx = totalPages - loadedPagesData.length + 1;
+                  loadedPagesData.forEach((page, i) => {
+                    pageCache.set(startIdx + i, page);
+                  });
+                }
+                
+                // Create a page wrapper element
+                function createPageWrapper(index) {
                   const pageWrapper = cel("div");
                   pageWrapper.classList.add("page-wrapper");
                   pageWrapper.dataset.pageNumber = index;
                   pageWrapper.dataset.pageType = "diary";
                   pageWrapper.dataset.loaded = "false";
                   pageWrapper.id = "page-" + index;
-                  
-                  // Simple loading placeholder
-                  const placeholder = cel("div");
-                  placeholder.classList.add("page-placeholder");
-                  placeholder.innerHTML = "<span class='loading-dots'>Loading</span>";
-                  pageWrapper.appendChild(placeholder);
-                  
                   return pageWrapper;
                 }
                 
-                // Create all page wrappers (placeholders first)
-                for (let i = 1; i <= totalPages; i++) {
-                  const pw = createPlaceholder(i);
-                  pageWrappers[i] = pw;
-                  binding.appendChild(pw);
-                }
-                
-                // Render initially loaded pages
-                if (pageIndex) {
-                  // Single page loaded
-                  if (loadedPagesData[0]) renderFullPage(loadedPagesData[0], pageIndex);
-                } else {
-                  // Last N pages loaded
-                  const startIdx = totalPages - loadedPagesData.length + 1;
-                  loadedPagesData.forEach((page, i) => {
-                    renderFullPage(page, startIdx + i);
-                  });
-                }
-                
-                // Lazy load function
-                async function loadPage(index) {
-                  if (loadedPages.has(index) || !pageWrappers[index]) return;
+                // Render page content into a wrapper
+                async function renderPageContent(pageWrapper, pageIdx) {
+                  if (!pageWrapper || pageIdx < 1 || pageIdx > totalPages) return;
+                  if (pageWrapper.dataset.loaded === "true") return;
                   
-                  // Try cache first
-                  let pageData = await getCachedPage(index);
+                  // Show loading state only if wrapper is offscreen
+                  const wrapperRect = pageWrapper.getBoundingClientRect();
+                  const bindingRect = binding.getBoundingClientRect();
+                  const isVisible = wrapperRect.bottom > bindingRect.top && wrapperRect.top < bindingRect.bottom;
+                  if (!isVisible && pageWrapper.childElementCount === 0) {
+                    pageWrapper.innerHTML = "<div class='page-container'><div class='page-placeholder'><span class='loading-dots'>Loading</span></div></div>";
+                  }
+                  
+                  // Check memory cache first
+                  let pageData = pageCache.get(pageIdx);
                   
                   if (!pageData) {
-                    // Fetch from server
-                    const response = await subscribed({ pageNumber: index, limit: 1 });
-                    if (response?.pages?.[0]) {
-                      pageData = response.pages[0];
-                      await setCachedPage(index, pageData);
+                    // Try IndexedDB cache
+                    pageData = await getCachedPage(pageIdx);
+                    
+                    if (!pageData) {
+                      // Fetch from server
+                      const response = await subscribed({ pageNumber: pageIdx, limit: 1 });
+                      if (response?.pages?.[0]) {
+                        pageData = response.pages[0];
+                        await setCachedPage(pageIdx, pageData);
+                      }
+                    }
+                    
+                    if (pageData) {
+                      pageCache.set(pageIdx, pageData);
                     }
                   }
                   
                   if (pageData) {
-                    renderFullPage(pageData, index);
-                    computePageLayout?.();
+                    pageWrapper.innerHTML = "";
+                    pageWrapper.dataset.loaded = "true";
+                    
+                    const page = pageData;
+                    const pageEl = cel("article");
+                    pageEl.classList.add("page");
+                    pageEl.classList.add("page-style-a");
+
+                    const pageTitle = cel("div");
+                    pageTitle.classList.add("page-title");
+                    pageTitle.innerText = dateTitle(page.when);
+
+                    const pageNumber = cel("div");
+                    pageNumber.classList.add("page-number");
+                    pageNumber.innerText = "- " + pageIdx + " -";
+                    pageNumber.style.cursor = "pointer";
+                    pageNumber.onclick = (e) => {
+                      e.stopPropagation();
+                      openChatWithMessage("-" + pageIdx + "- ");
+                    };
+                    
+                    // Page flip ear
+                    const ear = cel("div");
+                    ear.classList.add("ear");
+                    
+                    // Ear hover/active states
+                    const leave = () => {
+                      ear.classList.remove("hover");
+                      ear.classList.remove("active");
+                    };
+                    
+                    ear.addEventListener("pointerenter", () => {
+                      if (!ear.classList.contains("hover")) {
+                        ear.classList.add("hover");
+                        ear.addEventListener("pointerleave", leave, { once: true });
+                      }
+                    });
+                    
+                    ear.addEventListener("pointerdown", (e) => {
+                      e.preventDefault();
+                      ear.classList.remove("hover");
+                      ear.classList.add("active");
+                      window.addEventListener("pointerup", (upE) => {
+                        ear.removeEventListener("pointerleave", leave);
+                        const elementUnderPointer = document.elementFromPoint(upE.clientX, upE.clientY);
+                        if (elementUnderPointer !== ear) leave();
+                      }, { once: true });
+                    });
+                    
+                    ear.onclick = async () => {
+                      if (ear.classList.contains("reverse")) {
+                        ear.classList.remove("reverse");
+                        pageEl.classList.remove("reverse");
+                        pageWrapper.classList.remove("reverse");
+                        return;
+                      }
+                      
+                      // Flip to backpage
+                      veil();
+                      let touches = [];
+                      const res = await userRequest("POST", "/sotce-net/touch", { pageId: page._id });
+                      if (res.status === 200) touches = res.touches;
+                      unveil({ instant: true });
+
+                      let touchedBy = "";
+                      if (touches.length === 1) touchedBy = touches[0] + " touched this page.";
+                      else if (touches.length === 2) touchedBy = touches[0] + " and " + touches[1] + " touched this page.";
+                      else if (touches.length > 2) {
+                        const lastTouch = touches.pop();
+                        touchedBy = touches.join(", ") + ", and " + lastTouch + " touched this page.";
+                      }
+
+                      const backpage = cel("article");
+                      backpage.classList.add("page", "backpage");
+
+                      const touchesEl = cel("p");
+                      touchesEl.classList.add("touches");
+                      if (touchedBy) touchesEl.innerText = touchedBy;
+
+                      if (subscription.admin) {
+                        const crumplePage = cel("a");
+                        crumplePage.innerText = "crumple this page";
+                        crumplePage.href = "";
+                        crumplePage.classList.add("crumple-this-page");
+                        crumplePage.onclick = async (e) => {
+                          e.preventDefault();
+                          if (!confirm("💣 Unpublish this page?")) return;
+                          veil();
+                          const res = await userRequest("POST", "/sotce-net/write-a-page", { draft: "crumple", _id: page._id });
+                          if (res.status === 200) {
+                            await clearPageCache();
+                            unveil({ instant: true });
+                            window.location.reload();
+                          } else {
+                            alert("☠️ There was a problem crumpling this page.");
+                            unveil({ instant: true });
+                          }
+                        };
+                        backpage.appendChild(crumplePage);
+                      }
+
+                      const print = cel("button");
+                      print.innerText = "Print";
+                      print.onclick = () => window.print();
+                      backpage.appendChild(print);
+                      backpage.appendChild(touchesEl);
+
+                      ear.classList.add("reverse");
+                      pageEl.classList.add("reverse");
+                      pageWrapper.classList.add("reverse");
+                      ear.classList.remove("active");
+
+                      // Add backpage to the page-container
+                      const container = pageWrapper.querySelector(".page-container");
+                      container.querySelector(".backpage")?.remove();
+                      container.appendChild(backpage);
+                    };
+
+                    const wordsEl = cel("p");
+                    wordsEl.classList.add("words");
+                    wordsEl.innerText = page.words;
+
+                    pageEl.appendChild(pageTitle);
+                    pageEl.appendChild(wordsEl);
+                    pageEl.appendChild(pageNumber);
+                    
+                    // Wrap page in container for centering
+                    const pageContainer = cel("div");
+                    pageContainer.classList.add("page-container");
+                    pageContainer.appendChild(pageEl);
+                    pageContainer.appendChild(ear);
+                    pageWrapper.appendChild(pageContainer);
                   }
                 }
                 
-                // Lazy load multiple pages (for batch loading on scroll)
-                async function loadPagesRange(startIdx, endIdx) {
-                  const toLoad = [];
-                  for (let i = startIdx; i <= endIdx; i++) {
-                    if (!loadedPages.has(i) && pageWrappers[i]) toLoad.push(i);
-                  }
-                  if (toLoad.length === 0) return;
+                // Update which pages are in the DOM based on current page
+                // Keep 5 pages in DOM for smoother rapid navigation
+                async function updateVisiblePages(centerIdx, skipScroll = false) {
+                  const pagesToShow = [centerIdx - 2, centerIdx - 1, centerIdx, centerIdx + 1, centerIdx + 2].filter(i => i >= 1 && i <= totalPages);
                   
-                  // Try cache first
-                  const cached = await getCachedPages(startIdx, endIdx);
-                  const cachedSet = new Set(cached.map((_, i) => startIdx + i));
+                  // Get viewport bounds to check what's visible
+                  const viewportTop = binding.scrollTop;
+                  const viewportBottom = viewportTop + binding.clientHeight;
                   
-                  for (const page of cached) {
-                    const idx = startIdx + cached.indexOf(page);
-                    if (page) renderFullPage(page, idx);
-                  }
-                  
-                  // Fetch uncached from server
-                  const uncached = toLoad.filter(i => !cachedSet.has(i));
-                  if (uncached.length > 0) {
-                    // Batch fetch - get a range
-                    const minIdx = Math.min(...uncached);
-                    const maxIdx = Math.max(...uncached);
-                    const offset = totalPages - maxIdx;
-                    const limit = maxIdx - minIdx + 1;
-                    
-                    const response = await subscribed({ offset, limit });
-                    if (response?.pages) {
-                      const fetchedStartIdx = totalPages - offset - response.pages.length + 1;
-                      response.pages.forEach((page, i) => {
-                        const idx = fetchedStartIdx + i;
-                        setCachedPage(idx, page);
-                        renderFullPage(page, idx);
-                      });
+                  // Remove pages that shouldn't be visible AND are off-screen
+                  for (const [idx, wrapper] of renderedPages) {
+                    if (!pagesToShow.includes(idx)) {
+                      // Only remove if completely off-screen
+                      const wrapperTop = wrapper.offsetTop;
+                      const wrapperBottom = wrapperTop + wrapper.clientHeight;
+                      const isVisible = wrapperBottom > viewportTop && wrapperTop < viewportBottom;
+                      
+                      if (!isVisible) {
+                        wrapper.remove();
+                        renderedPages.delete(idx);
+                      }
                     }
                   }
                   
-                  computePageLayout?.();
+                  // Add/update pages that should be visible
+                  for (const idx of pagesToShow) {
+                    if (!renderedPages.has(idx)) {
+                      const wrapper = createPageWrapper(idx);
+                      renderedPages.set(idx, wrapper);
+                      
+                      // Insert in correct order
+                      const existingWrappers = Array.from(binding.querySelectorAll(".page-wrapper"));
+                      const insertBefore = existingWrappers.find(w => parseInt(w.dataset.pageNumber) > idx);
+                      if (insertBefore) {
+                        binding.insertBefore(wrapper, insertBefore);
+                      } else {
+                        binding.appendChild(wrapper);
+                      }
+                      
+                      await renderPageContent(wrapper, idx);
+                    }
+                  }
+                  
+                  // IMPORTANT: After DOM changes, scroll to center page (instant, no animation)
+                  if (!skipScroll) {
+                    const centerWrapper = document.getElementById("page-" + centerIdx);
+                    if (centerWrapper) {
+                      centerWrapper.scrollIntoView({ block: "center", behavior: "auto" });
+                    }
+                  }
+                  
+                  // Prefetch data for pages further ahead (cache only, don't render)
+                  const prefetchRange = [centerIdx - 4, centerIdx - 3, centerIdx + 3, centerIdx + 4].filter(i => i >= 1 && i <= totalPages);
+                  for (const idx of prefetchRange) {
+                    if (!pageCache.has(idx)) {
+                      // Async prefetch without awaiting
+                      (async () => {
+                        let pageData = await getCachedPage(idx);
+                        if (!pageData) {
+                          const response = await subscribed({ pageNumber: idx, limit: 1 });
+                          if (response?.pages?.[0]) {
+                            pageData = response.pages[0];
+                            await setCachedPage(idx, pageData);
+                          }
+                        }
+                        if (pageData) pageCache.set(idx, pageData);
+                      })();
+                    }
+                  }
+                  // Update URL
+                  updatePath("/page/" + centerIdx);
+                  currentPageIndex = centerIdx;
                 }
                 
-                g.appendChild(binding);
+                // Initial render - show 3 pages around current
+                console.log("📖 Virtualized scroll view: starting at page", currentPageIndex, "of", totalPages);
+                await updateVisiblePages(currentPageIndex, true); // skipScroll=true, we'll do it manually
                 
-                // Store lazy load function for use by scroll handler
-                g.loadPagesRange = loadPagesRange;
-                g.loadPage = loadPage;
+                // Scroll to current page after initial render
+                setTimeout(() => {
+                  const currentWrapper = document.getElementById("page-" + currentPageIndex);
+                  if (currentWrapper) {
+                    currentWrapper.scrollIntoView({ block: "center", behavior: "auto" });
+                  }
+                }, 50);
+                
+                // Handle scroll to update visible pages
+                // #binding is now the scroll container (FYP-style)
+                let isAnimating = false;
+                let animationTimeout;
+                let scrollTimeout;
+                let isUpdating = false;
+                binding.addEventListener("scroll", () => {
+                  if (isUpdating || isDragging || isAnimating) return; // Skip during drag/animation
+                  
+                  clearTimeout(scrollTimeout);
+                  scrollTimeout = setTimeout(async () => {
+                    if (isDragging) return; // Double-check
+                    
+                    // Find which page is centered in viewport
+                    const bindingCenter = binding.scrollTop + binding.clientHeight / 2;
+                    
+                    let closestPage = currentPageIndex;
+                    let closestDistance = Infinity;
+                    
+                    for (const [idx, pageWrapper] of renderedPages) {
+                      const elCenter = pageWrapper.offsetTop + pageWrapper.clientHeight / 2;
+                      const distance = Math.abs(elCenter - bindingCenter);
+                      
+                      if (distance < closestDistance) {
+                        closestDistance = distance;
+                        closestPage = idx;
+                      }
+                    }
+                    
+                    if (closestPage !== currentPageIndex) {
+                      isUpdating = true;
+                      await updateVisiblePages(closestPage, true); // skipScroll - user scrolled here
+                      computePageLayout?.();
+                      isUpdating = false;
+                    }
+                  }, 150);
+                }, { passive: true });
+                
+                // Keyboard navigation
+                document.addEventListener("keydown", (e) => {
+                  if (!document.body.contains(binding)) return;
+                  if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+                  
+                  if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
+                    e.preventDefault();
+                    if (currentPageIndex > 1) {
+                      animateToPage(currentPageIndex - 1, "keyboard-prev");
+                    }
+                  } else if (e.key === "ArrowDown" || e.key === "ArrowRight") {
+                    e.preventDefault();
+                    if (currentPageIndex < totalPages) {
+                      animateToPage(currentPageIndex + 1, "keyboard-next");
+                    }
+                  }
+                });
+                
+                // Drag-to-scroll anywhere in garden (FYP-like swipe)
+                let isDragging = false;
+                let dragStartY = 0;
+                let dragStartScrollTop = 0;
+                let dragStartPageIndex = 0;
+                let dragVelocity = 0;
+                let lastDragY = 0;
+                let lastDragTime = 0;
+
+                async function animateToPage(targetPage, reason = "") {
+                  if (!targetPage) return;
+                  isAnimating = true;
+                  clearTimeout(animationTimeout);
+
+                  const targetWrapper = document.getElementById("page-" + targetPage);
+                  if (targetWrapper) {
+                    if (reason) console.log("🧭 animateToPage:", reason, "->", targetPage);
+                    targetWrapper.scrollIntoView({ block: "center", behavior: "smooth" });
+                  } else {
+                    console.log("🧭 animateToPage: WARNING missing wrapper for", targetPage);
+                  }
+
+                  animationTimeout = setTimeout(async () => {
+                    await updateVisiblePages(targetPage, true);
+                    computePageLayout?.();
+                    isAnimating = false;
+                  }, 400);
+                }
+                
+                g.addEventListener("pointerdown", (e) => {
+                  // Don't drag on interactive elements
+                  if (e.target.closest(".ear, .page-number, a, button, input, textarea")) return;
+                  if (isAnimating) return;
+                  
+                  // Figure out which page we're ACTUALLY on based on scroll position
+                  const bindingCenter = binding.scrollTop + binding.clientHeight / 2;
+                  let actualPage = currentPageIndex;
+                  let closestDistance = Infinity;
+                  
+                  for (const [idx, pageWrapper] of renderedPages) {
+                    const elCenter = pageWrapper.offsetTop + pageWrapper.clientHeight / 2;
+                    const distance = Math.abs(elCenter - bindingCenter);
+                    if (distance < closestDistance) {
+                      closestDistance = distance;
+                      actualPage = idx;
+                    }
+                  }
+                  
+                  // Use actual scroll position, not potentially stale currentPageIndex
+                  isDragging = true;
+                  dragStartY = e.clientY;
+                  dragStartScrollTop = binding.scrollTop;
+                  dragStartPageIndex = actualPage;
+                  lastDragY = e.clientY;
+                  lastDragTime = Date.now();
+                  dragVelocity = 0;
+                  
+                  console.log("🖐️ Drag START:", {
+                    clientY: e.clientY,
+                    scrollTop: binding.scrollTop,
+                    bindingCenter,
+                    currentPageIndex,
+                    actualPage,
+                    dragStartPageIndex,
+                    renderedPages: [...renderedPages.keys()],
+                  });
+                  
+                  // Disable smooth scroll and snap during drag
+                  binding.style.scrollBehavior = "auto";
+                  binding.style.scrollSnapType = "none";
+                  g.setPointerCapture(e.pointerId);
+                  e.preventDefault();
+                });
+                
+                g.addEventListener("pointermove", (e) => {
+                  if (!isDragging) return;
+                  
+                  const deltaY = dragStartY - e.clientY;
+                  binding.scrollTop = dragStartScrollTop + deltaY;
+                  
+                  // Calculate velocity for momentum
+                  const now = Date.now();
+                  const dt = now - lastDragTime;
+                  if (dt > 0) {
+                    dragVelocity = (lastDragY - e.clientY) / dt;
+                  }
+                  lastDragY = e.clientY;
+                  lastDragTime = now;
+                  
+                  // Visual feedback - show which direction we'll go
+                  const threshold = 100;
+                  g.classList.remove("drag-up", "drag-down", "drag-snap");
+                  if (deltaY > threshold && dragStartPageIndex < totalPages) {
+                    g.classList.add("drag-up"); // Will go to higher page number (drag up)
+                  } else if (deltaY < -threshold && dragStartPageIndex > 1) {
+                    g.classList.add("drag-down"); // Will go to lower page number (drag down)
+                  } else {
+                    g.classList.add("drag-snap"); // Will snap back
+                  }
+                });
+                
+                g.addEventListener("pointerup", async (e) => {
+                  if (!isDragging) return;
+                  isDragging = false;
+                  
+                  g.releasePointerCapture(e.pointerId);
+                  // Re-enable smooth scroll and snap
+                  binding.style.scrollBehavior = "smooth";
+                  binding.style.scrollSnapType = "y mandatory";
+                  
+                  // Clear visual indicator
+                  g.classList.remove("drag-up", "drag-down", "drag-snap");
+                  
+                  const totalDrag = dragStartY - e.clientY;
+                  const threshold = 100; // Minimum drag to trigger page change (increased from 50)
+                  
+                  console.log("🖐️ Drag release:", {
+                    dragStartY,
+                    endY: e.clientY,
+                    totalDrag,
+                    velocity: dragVelocity,
+                    dragStartPageIndex,
+                    currentPageIndex,
+                    totalPages,
+                    direction: totalDrag > 0 ? "UP (finger moved up)" : "DOWN (finger moved down)"
+                  });
+                  
+                  // Determine target page based on drag distance/velocity
+                  let targetPage = dragStartPageIndex;
+                  
+                  // Physics: combine distance and velocity
+                  // velocity is in px/ms, so scale it up
+                  const velocityBoost = dragVelocity * 100; // Convert to more usable scale
+                  const effectiveDistance = totalDrag + velocityBoost;
+                  
+                  console.log("🖐️ Physics:", {
+                    totalDrag,
+                    velocityRaw: dragVelocity,
+                    velocityBoost,
+                    effectiveDistance,
+                    threshold,
+                    willTrigger: Math.abs(effectiveDistance) > threshold
+                  });
+                  
+                  if (Math.abs(effectiveDistance) > threshold) {
+                    if (effectiveDistance > 0 && dragStartPageIndex < totalPages) {
+                      // Dragged up - go to higher page number
+                      targetPage = dragStartPageIndex + 1;
+                    } else if (effectiveDistance < 0 && dragStartPageIndex > 1) {
+                      // Dragged down - go to lower page number
+                      targetPage = dragStartPageIndex - 1;
+                    }
+                  }
+                  
+                  console.log("🖐️ -> Target page:", targetPage, "(from", dragStartPageIndex, ")");
+                  
+                  await animateToPage(targetPage, "drag-release");
+                });
+                
+                g.addEventListener("pointercancel", async (e) => {
+                  if (!isDragging) return;
+                  isDragging = false;
+                  g.releasePointerCapture(e.pointerId);
+                  g.classList.remove("drag-up", "drag-down", "drag-snap");
+                  binding.style.scrollBehavior = "smooth";
+                  binding.style.scrollSnapType = "y mandatory";
+                  // Snap back to current
+                  await animateToPage(currentPageIndex, "pointer-cancel");
+                });
+                
+                // Expose for external use
+                g.goToPage = async (idx) => {
+                  await updateVisiblePages(idx, true); // skipScroll - we'll animate
+                  await animateToPage(idx, "goToPage");
+                };
                 g.totalPages = totalPages;
-                g.loadedPages = loadedPages;
+                g.getCurrentPage = () => currentPageIndex;
+                
+                g.appendChild(binding);
 
                 computePageLayout = function (e) {
+                  const layoutStart = performance.now();
                   // Relational scroll wip - 24.09.25.17.43
                   // const bindingRect = binding.getBoundingClientRect();
                   // if (
@@ -4979,22 +8567,40 @@ export const handler = async (event, context) => {
                     askEditorPage.style.transform = "scale(" + scale + ")";
                   }
 
+                  const queryStart = performance.now();
+                  // Only process VISIBLE pages (+ small buffer) for performance
                   const allPages = document.querySelectorAll(
                     "#garden article.page",
                   );
+                  const queryTime = performance.now() - queryStart;
+                  
+                  const wrapperRect = wrapper.getBoundingClientRect();
+                  const viewportBuffer = wrapperRect.height * 1.5; // Process pages within 1.5x viewport
 
+                  const pagesStart = performance.now();
+                  let processedPages = 0;
                   let scale;
                   allPages.forEach((page) => {
+                    // Skip pages that are far off-screen
+                    const pageRect = page.getBoundingClientRect();
+                    const isNearViewport = pageRect.bottom > wrapperRect.top - viewportBuffer && 
+                                          pageRect.top < wrapperRect.bottom + viewportBuffer;
+                    
                     if (!scale) {
                       const baseWidth = 100 * 8;
                       const goalWidth = page.parentElement.clientWidth;
                       scale = goalWidth / baseWidth;
                     }
                     page.style.transform = "scale(" + scale + ")";
+                    
+                    // Only do expensive text processing for visible pages
+                    if (!isNearViewport) return;
+                    processedPages++;
 
                     // Check to see if the last line of the page needs
                     // justification or not.
                     const words = page.querySelector(".words");
+                    if (!words) return;
                     const wcs = window.getComputedStyle(words);
                     const lineCount = round(
                       words.clientHeight / parseFloat(wcs.lineHeight),
@@ -5020,12 +8626,22 @@ export const handler = async (event, context) => {
                       }
                     }
                   });
+                  const pagesTime = performance.now() - pagesStart;
 
+                  const earsStart = performance.now();
                   const ears = document.querySelectorAll(
                     "#garden .page-wrapper div.ear",
                   );
+                  let processedEars = 0;
 
                   ears.forEach((ear) => {
+                    // Skip ears far off-screen
+                    const earRect = ear.getBoundingClientRect();
+                    const isNearViewport = earRect.bottom > wrapperRect.top - viewportBuffer && 
+                                          earRect.top < wrapperRect.bottom + viewportBuffer;
+                    if (!isNearViewport) return;
+                    processedEars++;
+                    
                     ear.style = "";
                     const earStyle = window.getComputedStyle(ear);
                     const computedWidth = parseFloat(earStyle.width);
@@ -5037,6 +8653,15 @@ export const handler = async (event, context) => {
                     ear.style.top = "calc(100% - " + roundedW + "px + 0.12em)";
                     ear.style.left = "calc(100% - " + roundedW + "px + 0.12em)";
                   });
+                  const earsTime = performance.now() - earsStart;
+                  
+                  const layoutTime = performance.now() - layoutStart;
+                  if (layoutTime > 10) {
+                    console.log("📐 computePageLayout:", layoutTime.toFixed(1), "ms",
+                      "| query:", queryTime.toFixed(1), "ms",
+                      "| pages:", pagesTime.toFixed(1), "ms (" + processedPages + "/" + allPages.length + " processed)",
+                      "| ears:", earsTime.toFixed(1), "ms (" + processedEars + "/" + ears.length + ")");
+                  }
                 };
 
                 // Adjust width of '#top-bar' for scrollbar appearance.
@@ -5051,13 +8676,14 @@ export const handler = async (event, context) => {
 
                 let previousBodyHeight = document.body.clientHeight;
 
-                window.addEventListener("resize", function resizeEvent(e) {
+                function resizeHandler(e) {
                   if (!document.body.contains(binding)) {
-                    window.removeEventListener(resizeEvent);
+                    window.removeEventListener("resize", resizeHandler);
                   } else {
                     computePageLayout(e);
                   }
-                });
+                }
+                window.addEventListener("resize", resizeHandler);
               }
 
               const cookieMenuWrapper = cel("div");
@@ -5082,6 +8708,9 @@ export const handler = async (event, context) => {
                 gateCurtain.querySelector("#cookie-wrapper");
 
               cookieMenu.onclick = function () {
+                const perfStart = performance.now();
+                console.log("🍪 Garden cookie click - CLOSING garden, OPENING gate");
+                
                 scrollMemory = wrapper.scrollTop;
                 gateCurtain.classList.remove("hidden");
                 g.classList.add("hidden");
@@ -5089,6 +8718,37 @@ export const handler = async (event, context) => {
                 document.documentElement.classList.remove("garden");
                 curtainCookie.classList.add("interactive");
                 updatePath("/gate");
+                
+                console.log("🍪 Classes updated:", (performance.now() - perfStart).toFixed(2), "ms");
+                
+                // Track frames to see when paint actually happens
+                requestAnimationFrame(() => {
+                  console.log("🍪 RAF 1:", (performance.now() - perfStart).toFixed(2), "ms");
+                  requestAnimationFrame(() => {
+                    console.log("🍪 RAF 2 (paint):", (performance.now() - perfStart).toFixed(2), "ms");
+                  });
+                });
+                
+                // Track visibility over time to catch delayed changes
+                let checkCount = 0;
+                const trackVisibility = () => {
+                  checkCount++;
+                  const elapsed = (performance.now() - perfStart).toFixed(0);
+                  const gc = document.getElementById("gate-curtain");
+                  if (gc) {
+                    const gcVis = getComputedStyle(gc).visibility;
+                    const hasHidden = gc.classList.contains("hidden");
+                    // Only log if state changed or at key intervals
+                    if (checkCount === 1 || checkCount === 3 || checkCount === 10 || hasHidden) {
+                      console.log("🍪 @" + elapsed + "ms - curtain visibility: " + gcVis + ", .hidden: " + hasHidden);
+                    }
+                    if (hasHidden && checkCount > 1) {
+                      console.log("⚠️ Curtain was re-hidden at " + elapsed + "ms - investigate what caused this!");
+                    }
+                  }
+                  if (checkCount < 20 && !gc?.classList.contains("hidden")) setTimeout(trackVisibility, 500);
+                };
+                setTimeout(trackVisibility, 16); // Check after first frame
               };
 
               if (showGate) curtainCookie.classList.add("interactive");
@@ -5105,6 +8765,8 @@ export const handler = async (event, context) => {
                   cookieMenu.style.maskImage = "url(" + dataUrl + ")";
 
                   document.getElementById("garden")?.remove(); // Remove old gardens.
+                  const gardenBuildStart = performance.now();
+                  console.log("🌻 Garden build starting...");
                   const observer = new MutationObserver(
                     (mutationsList, observer) => {
                       for (let mutation of mutationsList) {
@@ -5112,6 +8774,7 @@ export const handler = async (event, context) => {
                           mutation.type === "childList" &&
                           mutation.addedNodes.length > 0
                         ) {
+                          console.log("🌻 MutationObserver triggered:", (performance.now() - gardenBuildStart).toFixed(2), "ms");
                           const checkWidthSettled = (previousWidth) => {
                             const currentWidth = parseInt(
                               window.getComputedStyle(wrapper).width,
@@ -5122,179 +8785,12 @@ export const handler = async (event, context) => {
                               g.scrollHeight > 0 ||
                               showGate
                             ) {
-                              //console.log(
-                              //  "🟢 Computing page layout...",
-                              //  performance.now(),
-                              //);
+                              console.log("🌻 Width settled, computing layout:", (performance.now() - gardenBuildStart).toFixed(2), "ms");
                               computePageLayout?.();
-                              // console.log("🟩 Done", performance.now());
-                              // TODO:    ^ This takes awhile and the spinner could hold until the initial
-                              //            computation is done. 24.10.16.07.06
-
-                              // Check if we need to scroll to a specific page.
-                              const pageMatch = path.match(/^\\/page\\/(\\d+)$/);
-                              const qMatch = path.match(/^\\/q\\/(\\d+)$/);
-                              
-                              if (pageMatch) {
-                                const pageNum = parseInt(pageMatch[1], 10);
-                                const targetPage = document.getElementById("page-" + pageNum);
-                                if (targetPage) {
-                                  targetPage.scrollIntoView({ block: "start" });
-                                } else {
-                                  // Page not found, scroll to bottom
-                                  wrapper.scrollTop = wrapper.scrollHeight - wrapper.clientHeight;
-                                }
-                              } else if (qMatch) {
-                                const qNum = parseInt(qMatch[1], 10);
-                                const targetQ = document.getElementById("q-" + qNum);
-                                if (targetQ) {
-                                  targetQ.scrollIntoView({ block: "start" });
-                                } else {
-                                  // Question not found, scroll to bottom
-                                  wrapper.scrollTop = wrapper.scrollHeight - wrapper.clientHeight;
-                                }
-                              } else {
-                                // Default: scroll to bottom (most recent)
-                                wrapper.scrollTop = wrapper.scrollHeight - wrapper.clientHeight;
-                              }
+                              console.log("🌻 Layout computed:", (performance.now() - gardenBuildStart).toFixed(2), "ms");
                               
                               g.classList.remove("faded");
-                              
-                              // Set up IntersectionObserver to update URL as user scrolls
-                              const pageObserver = new IntersectionObserver((entries) => {
-                                entries.forEach((entry) => {
-                                  if (entry.isIntersecting) {
-                                    const pageWrapper = entry.target;
-                                    const pageNum = pageWrapper.dataset.pageNumber;
-                                    const pageType = pageWrapper.dataset.pageType;
-                                    
-                                    if (pageNum && pageType) {
-                                      const newPath = pageType === "diary" 
-                                        ? "/page/" + pageNum 
-                                        : "/q/" + pageNum;
-                                      
-                                      // Only update if different from current path
-                                      if (window.location.pathname !== newPath) {
-                                        updatePath(newPath);
-                                        // Update document title
-                                        document.title = pageType === "diary"
-                                          ? "sotce.net - page " + pageNum
-                                          : "sotce.net - question " + pageNum;
-                                      }
-                                    }
-                                  }
-                                });
-                              }, {
-                                root: wrapper,
-                                threshold: 0.5 // Trigger when 50% of page is visible
-                              });
-                              
-                              // Observe all page wrappers
-                              document.querySelectorAll("#garden .page-wrapper").forEach((pw) => {
-                                pageObserver.observe(pw);
-                              });
-                              
-                              // Tap navigation: top half = prev page, bottom half = next page
-                              // Also: clicking on any page snaps to it
-                              let currentVisiblePage = null;
-                              
-                              const updateCurrentPage = () => {
-                                const pages = document.querySelectorAll("#garden .page-wrapper");
-                                const wrapperRect = wrapper.getBoundingClientRect();
-                                const centerY = wrapperRect.top + wrapperRect.height / 2;
-                                
-                                for (const page of pages) {
-                                  const rect = page.getBoundingClientRect();
-                                  if (rect.top <= centerY && rect.bottom >= centerY) {
-                                    currentVisiblePage = page;
-                                    break;
-                                  }
-                                }
-                              };
-                              
-                              let scrollTimeout;
-                              let isLoadingPages = false;
-                              wrapper.addEventListener("scroll", () => {
-                                updateCurrentPage();
-                                
-                                // Lazy load pages when scrolling near unloaded content
-                                if (g.loadPagesRange && !isLoadingPages) {
-                                  const visibleTop = wrapper.scrollTop;
-                                  const viewportHeight = wrapper.clientHeight;
-                                  
-                                  // Check for unloaded pages in visible area + buffer
-                                  const buffer = viewportHeight * 2;
-                                  const pageWrappers = document.querySelectorAll("#garden .page-wrapper");
-                                  const toLoad = [];
-                                  
-                                  pageWrappers.forEach((pw) => {
-                                    if (pw.dataset.loaded === "false") {
-                                      const rect = pw.getBoundingClientRect();
-                                      const wrapperRect = wrapper.getBoundingClientRect();
-                                      const relativeTop = rect.top - wrapperRect.top;
-                                      
-                                      // Check if within visible area + buffer
-                                      if (relativeTop < viewportHeight + buffer && relativeTop + rect.height > -buffer) {
-                                        toLoad.push(parseInt(pw.dataset.pageNumber, 10));
-                                      }
-                                    }
-                                  });
-                                  
-                                  if (toLoad.length > 0) {
-                                    isLoadingPages = true;
-                                    const minPage = Math.min(...toLoad);
-                                    const maxPage = Math.max(...toLoad);
-                                    g.loadPagesRange(minPage, maxPage).finally(() => {
-                                      isLoadingPages = false;
-                                    });
-                                  }
-                                }
-                              }, { passive: true });
-                              updateCurrentPage();
-                              
-                              g.addEventListener("click", (e) => {
-                                // Check if clicking on a page (not interactive elements)
-                                const clickedPage = e.target.closest(".page-wrapper");
-                                const isInteractive = e.target.closest("a, button, input, textarea, .ear");
-                                
-                                if (isInteractive) return;
-                                
-                                // If clicked on a page, snap to that page
-                                if (clickedPage) {
-                                  clickedPage.scrollIntoView({ block: "start", behavior: "smooth" });
-                                  return;
-                                }
-                                
-                                // Otherwise use top/bottom half navigation
-                                const wrapperRect = wrapper.getBoundingClientRect();
-                                const clickY = e.clientY - wrapperRect.top;
-                                const halfHeight = wrapperRect.height / 2;
-                                
-                                const pages = Array.from(document.querySelectorAll("#garden .page-wrapper"));
-                                if (pages.length === 0) return;
-                                
-                                updateCurrentPage();
-                                const currentIndex = currentVisiblePage ? pages.indexOf(currentVisiblePage) : -1;
-                                
-                                if (clickY < halfHeight) {
-                                  // Top half: go to previous page
-                                  const prevIndex = currentIndex > 0 ? currentIndex - 1 : 0;
-                                  pages[prevIndex].scrollIntoView({ block: "start", behavior: "smooth" });
-                                } else {
-                                  // Bottom half: go to next page  
-                                  const nextIndex = currentIndex < pages.length - 1 ? currentIndex + 1 : pages.length - 1;
-                                  pages[nextIndex].scrollIntoView({ block: "start", behavior: "smooth" });
-                                }
-                              });
-                              
-                              //g.addEventListener(
-                              //  "transitionend",
-                              //  () => {
                               resolve(g);
-
-                              // },
-                              // { once: true },
-                              //);
                             } else {
                               requestAnimationFrame(() =>
                                 checkWidthSettled(currentWidth),
@@ -5314,8 +8810,10 @@ export const handler = async (event, context) => {
                   );
                   observer.observe(wrapper, { childList: true });
 
+                  console.log("🌻 Appending garden to DOM...", (performance.now() - gardenBuildStart).toFixed(2), "ms");
                   g.classList.add("faded");
                   wrapper.appendChild(g);
+                  console.log("🌻 Garden appended:", (performance.now() - gardenBuildStart).toFixed(2), "ms");
                   if (!showGate) {
                     document.documentElement.classList.add("garden");
                   }
@@ -5555,17 +9053,15 @@ export const handler = async (event, context) => {
                   // The user's email is verified...
 
                   // Determine pagination based on path
-                  const pageMatch = path.match(/^\\/page\\/(\\d+)$/);
+                  const pageMatchUrl = path.match(/^\\/page\\/(\\d+)$/);
+                  const questionMatchUrl = path.match(/^\\/q\\/(\\d+)$/);
                   const subscribeOptions = {};
                   
-                  if (pageMatch) {
-                    // Loading a specific page - just fetch that one
-                    subscribeOptions.pageNumber = parseInt(pageMatch[1], 10);
-                    subscribeOptions.limit = 1;
-                  } else {
-                    // Default: just load last few pages, lazy load rest
-                    subscribeOptions.limit = 3;
-                  }
+                  // Always load plenty of pages for the feed - don't set pageNumber
+                  // which would limit server to just that one page
+                  subscribeOptions.limit = 100;
+                  
+                  console.log("📄 subscribeOptions:", subscribeOptions, "for path:", path);
 
                   let entered = await subscribed(subscribeOptions);
                   let times = 0;
@@ -6180,14 +9676,18 @@ export const handler = async (event, context) => {
         
         // Pagination parameters
         const requestedPage = body.pageNumber; // Specific page number (1-indexed)
-        const limit = body.limit || 5; // Default to 5 pages per request
+        const limit = Math.min(body.limit || 5, 500); // Default to 5, max 500 pages per request
         const offset = body.offset || 0; // For loading older pages
         const metaOnly = body.metaOnly; // Only return page count and last modified
         
+        shell.log("📄 Pagination: requestedPage=", requestedPage, "limit=", limit, "offset=", offset);
+        
         // Always get total count and last modified for cache validation
-        const totalCount = await pages.countDocuments({ state: "published" });
+        // Exclude Q&A pages (isQA: true) — those are shown as question cards from sotce-asks
+        const pageFilter = { state: "published", isQA: { $ne: true } };
+        const totalCount = await pages.countDocuments(pageFilter);
         const lastModifiedDoc = await pages.findOne(
-          { state: "published" },
+          pageFilter,
           { sort: { updatedAt: -1 }, projection: { updatedAt: 1, when: 1 } }
         );
         out.totalPages = totalCount;
@@ -6204,7 +9704,7 @@ export const handler = async (event, context) => {
           // Fetch a specific page by its index (1-indexed)
           retrievedPages = await pages
             .aggregate([
-              { $match: { state: "published" } },
+              { $match: pageFilter },
               { $sort: { when: 1 } },
               { $skip: requestedPage - 1 },
               { $limit: 1 },
@@ -6215,7 +9715,7 @@ export const handler = async (event, context) => {
           // Fetch latest pages (from the end), with optional offset for loading older
           retrievedPages = await pages
             .aggregate([
-              { $match: { state: "published" } },
+              { $match: pageFilter },
               { $sort: { when: -1 } }, // Newest first
               { $skip: offset },
               { $limit: limit },
@@ -6238,10 +9738,34 @@ export const handler = async (event, context) => {
         }
 
         out.pages = retrievedPages;
+
+        // ❓ Also fetch answered questions to mix into the feed
+        const asks = database.db.collection("sotce-asks");
+        const answeredQuestions = await asks
+          .find({ state: "answered" })
+          .sort({ answeredAt: -1 })
+          .limit(50) // Reasonable limit for now
+          .project({ draftAnswer: 0, draftStartedAt: 0, draftLastEditedAt: 0 })
+          .toArray();
+        
+        // Add handles to questions
+        for (const q of answeredQuestions) {
+          let handle = subsToHandles[q.user];
+          if (!handle) {
+            handle = await handleFor(q.user, "sotce");
+            if (handle) subsToHandles[q.user] = handle;
+          }
+          q.handle = handle;
+          q.type = "question"; // Mark as question for client-side rendering
+        }
+        
+        out.questions = answeredQuestions;
+        out.totalQuestions = await asks.countDocuments({ state: "answered" });
+
         await database.disconnect();
 
         // TODO: 👤 'Handled' pages filtered by user..
-        shell.log("🫐 Retrieved:", retrievedPages.length, "pages", performance.now());
+        shell.log("🫐 Retrieved:", retrievedPages.length, "pages,", answeredQuestions.length, "questions", performance.now());
       }
       return respond(200, out);
     } else {
@@ -6580,11 +10104,12 @@ export const handler = async (event, context) => {
     const database = await connect();
     const asks = database.db.collection("sotce-asks");
 
-    const handle = await handleFor(user.sub, "sotce");
+    // Look up the user's handle to store with the question
+    const askerHandle = await handleFor(user.sub, "sotce");
 
     const insertion = await asks.insertOne({
       user: user.sub,
-      handle: handle || null,
+      handle: askerHandle || null,
       question,
       when: new Date(),
       state: "pending",
@@ -6604,6 +10129,7 @@ export const handler = async (event, context) => {
     const userAsks = await asks.find({ user: user.sub })
       .sort({ when: -1 })
       .limit(50)
+      .project({ draftAnswer: 0, answer: 0, answeredBy: 0 }) // Don't expose answers to users yet
       .toArray();
 
     await database.disconnect();
@@ -6622,28 +10148,189 @@ export const handler = async (event, context) => {
       .limit(100)
       .toArray();
 
+    // Resolve handles for questions that don't have one stored
+    for (const q of pending) {
+      if (!q.handle && q.user) {
+        const h = await handleFor(q.user, "sotce");
+        if (h) q.handle = h;
+      }
+    }
+
     await database.disconnect();
     return respond(200, { asks: pending });
-  // NOTE: Question deletion disabled - once asked, questions are permanent
-  // } else if (path.startsWith("/ask/") && method === "delete") {
-  //   // ❓ Delete a pending question
-  //   const user = await authorize(event.headers, "sotce");
-  //   if (!user) return respond(401, { message: "Unauthorized." });
-  //   const askId = path.replace("/ask/", "");
-  //   if (!askId) return respond(400, { message: "Missing question ID." });
-  //   const database = await connect();
-  //   const asks = database.db.collection("sotce-asks");
-  //   const result = await asks.deleteOne({
-  //     _id: new ObjectId(askId),
-  //     user: user.sub,
-  //     state: "pending"
-  //   });
-  //   await database.disconnect();
-  //   if (result.deletedCount === 0) {
-  //     return respond(404, { message: "Question not found or already answered." });
-  //   }
-  //   shell.log("❓ Question deleted:", askId);
-  //   return respond(200, { deleted: true });
+  } else if (path.match(/^\/ask\/[a-f0-9]+\/respond$/) && method === "post") {
+    // ❓ Respond to a question (admin only)
+    const user = await authorize(event.headers, "sotce");
+    const isAdmin = await hasAdmin(user, "sotce");
+    if (!user || !isAdmin) return respond(401, { message: "Unauthorized." });
+
+    const askId = path.split("/")[2];
+    if (!askId) return respond(400, { message: "Missing question ID." });
+
+    const { answer } = JSON.parse(event.body || "{}");
+    if (!answer || !answer.trim()) {
+      return respond(400, { message: "Response cannot be empty." });
+    }
+    if (answer.length > 2000) {
+      return respond(400, { message: "Response too long (max 2000 chars)." });
+    }
+
+    const database = await connect();
+    const asks = database.db.collection("sotce-asks");
+
+    // Find the question
+    const question = await asks.findOne({ _id: new ObjectId(askId) });
+    if (!question) {
+      await database.disconnect();
+      return respond(404, { message: "Question not found." });
+    }
+
+    // Update the question with the answer
+    const result = await asks.updateOne(
+      { _id: new ObjectId(askId) },
+      {
+        $set: {
+          state: "answered",
+          answer: answer.trim(),
+          answeredBy: user.sub,
+          answeredAt: new Date().toISOString(),
+        },
+      }
+    );
+
+    if (result.modifiedCount === 0) {
+      await database.disconnect();
+      return respond(500, { message: "Could not save response." });
+    }
+
+    // NOTE: No separate page is created — answered questions live only in
+    // sotce-asks and get swizzled into the feed client-side alongside diary pages.
+
+    await database.disconnect();
+
+    shell.log("❓ Question answered:", askId, "by", user.email);
+    return respond(200, { success: true, askId });
+  } else if (path.match(/^\/ask\/[a-f0-9]+\/save-draft$/) && method === "post") {
+    // ❓ Save a draft response (admin only) - also marks draftStartedAt
+    const user = await authorize(event.headers, "sotce");
+    const isAdmin = await hasAdmin(user, "sotce");
+    if (!user || !isAdmin) return respond(401, { message: "Unauthorized." });
+
+    const askId = path.split("/")[2];
+    if (!askId) return respond(400, { message: "Missing question ID." });
+
+    const { draft } = JSON.parse(event.body || "{}");
+
+    const database = await connect();
+    const asks = database.db.collection("sotce-asks");
+
+    const question = await asks.findOne({ _id: new ObjectId(askId) });
+    if (!question) {
+      await database.disconnect();
+      return respond(404, { message: "Question not found." });
+    }
+
+    const updateFields = {
+      draftLastEditedAt: new Date().toISOString(),
+    };
+    if (!question.draftStartedAt) {
+      updateFields.draftStartedAt = new Date().toISOString();
+    }
+    if (draft !== undefined) {
+      updateFields.draftAnswer = draft;
+    }
+
+    await asks.updateOne(
+      { _id: new ObjectId(askId) },
+      { $set: updateFields }
+    );
+
+    await database.disconnect();
+    shell.log("❓ Draft saved for:", askId, "by", user.email);
+    return respond(200, { success: true, askId });
+  } else if (path.match(/^\/ask\/[a-f0-9]+\/reject$/) && method === "post") {
+    // ❓ Reject a question (admin only)
+    const user = await authorize(event.headers, "sotce");
+    const isAdmin = await hasAdmin(user, "sotce");
+    if (!user || !isAdmin) return respond(401, { message: "Unauthorized." });
+
+    const askId = path.split("/")[2];
+    if (!askId) return respond(400, { message: "Missing question ID." });
+
+    const database = await connect();
+    const asks = database.db.collection("sotce-asks");
+
+    // Find the question
+    const question = await asks.findOne({ _id: new ObjectId(askId) });
+    if (!question) {
+      await database.disconnect();
+      return respond(404, { message: "Question not found." });
+    }
+
+    // Update the question state to rejected
+    const result = await asks.updateOne(
+      { _id: new ObjectId(askId) },
+      {
+        $set: {
+          state: "rejected",
+          rejectedBy: user.sub,
+          rejectedAt: new Date().toISOString(),
+        },
+      }
+    );
+
+    await database.disconnect();
+
+    if (result.modifiedCount === 0) {
+      return respond(500, { message: "Could not reject question." });
+    }
+
+    shell.log("❓ Question rejected:", askId, "by", user.email);
+    return respond(200, { success: true, askId });
+  } else if (path === "/asks/clear-all" && method === "delete") {
+    // ❓ Clear all questions (admin only) - for development/reset
+    const user = await authorize(event.headers, "sotce");
+    const isAdmin = await hasAdmin(user, "sotce");
+    if (!user || !isAdmin) return respond(401, { message: "Unauthorized." });
+
+    const database = await connect();
+    const asks = database.db.collection("sotce-asks");
+    
+    const result = await asks.deleteMany({});
+    
+    await database.disconnect();
+    shell.log("❓ All questions cleared:", result.deletedCount, "by", user.email);
+    return respond(200, { success: true, deletedCount: result.deletedCount });
+  } else if (path.match(/^\/ask\/[a-f0-9]+$/) && method === "delete") {
+    // ❓ Delete own pending question (only if no draft started by @amelia)
+    const user = await authorize(event.headers, "sotce");
+    if (!user) return respond(401, { message: "Unauthorized." });
+    const askId = path.replace("/ask/", "");
+    if (!askId) return respond(400, { message: "Missing question ID." });
+    const database = await connect();
+    const asks = database.db.collection("sotce-asks");
+    // Only allow deletion if: owned by user, still pending, and no draft started
+    const question = await asks.findOne({ _id: new ObjectId(askId) });
+    if (!question) {
+      await database.disconnect();
+      return respond(404, { message: "Question not found." });
+    }
+    if (question.user !== user.sub) {
+      await database.disconnect();
+      return respond(403, { message: "Not your question." });
+    }
+    if (question.state !== "pending") {
+      await database.disconnect();
+      return respond(400, { message: "Cannot delete — already answered." });
+    }
+    if (question.draftStartedAt) {
+      await database.disconnect();
+      return respond(400, { message: "Cannot delete — @amelia has started drafting a response." });
+    }
+    const result = await asks.deleteOne({ _id: new ObjectId(askId) });
+    await database.disconnect();
+    shell.log("❓ Question deleted:", askId, "by", user.sub);
+    return respond(200, { deleted: true });
   } else if (path === "/privacy-policy" && method === "get") {
     const subscribers = await getActiveSubscriptionCount(productId);
 
@@ -6692,30 +10379,31 @@ export const handler = async (event, context) => {
         <body>
           <h1>Sotce Net's Privacy Policy</h1>
           <p>
-            Sotce Net keeps pages on a remote server so they can be shared
-            with and viewed by subscribers.
+            Sotce Net keeps pages on a server for subscribers to read.
           </p>
           <p>
-            Sotce Net allows you to associate an email with a
-            <code>@handle</code> to represent your identity.
+            You can associate an email with a <code>@handle</code> to represent your identity.
           </p>
           <p>
-            Sotce Net does not sell or exchange any user data with third
-            parties.
+            We use cookies and third-party services for login, analytics, and payments.
           </p>
           <p>
-            Sotce Net is brought to you by the partnership of <code><a href="https://sotce.com">Sotce</a></code> and
-            <code><a href="https://aesthetic.computer/privacy-policy">Aesthetic Computer</code>.</a>
+            We federate handles with <code><a href="https://aesthetic.computer/privacy-policy">Aesthetic Computer</a></code> — same email means shared <code>@handle</code>.
+          </p>
+          <p>
+            We do not sell your data.
+          </p>
+          <p>
+            Delete your account from the settings page. Write to <code>mail@sotce.net</code> with questions.
+          </p>
+          <p>
+            Brought to you by <code><a href="https://sotce.com">Sotce</a></code> and <code><a href="https://aesthetic.computer">Aesthetic Computer</a></code>.
           </p>
           ${subscribers > 0 ? "<p>Sotce Net has <code>" + subscribers + "</code> active subscriber" + (subscribers > 1 ? "s" : "") + ".</p>" : ""}
-          <p>
-            For more information write to <code>mail@sotce.net</code> to
-            communicate with the author.
-          </p>
           <a href="${dev ? "/sotce-net" : "/"}"><img width="128" src="${assetPath + "cookie.png"}" /></a>
           <br />
           <br />
-          <sub>Edited on September 25, 2024</sub>
+          <sub>February 2026</sub>
         </body>
       </html>
     `;

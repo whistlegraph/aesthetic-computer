@@ -1,0 +1,1330 @@
+<!DOCTYPE html>
+<!-- KidLisp.com Keeps - A permanent index of all evaluated KidLisp $codes -->
+<!-- URL: kidlisp.com/keeps -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Keeps · KidLisp.com</title>
+
+  <!-- Open Graph / Social Preview -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://kidlisp.com/keeps" />
+  <meta property="og:title" content="Keeps · KidLisp.com" />
+  <meta property="og:description" content="A permanent index of every evaluated KidLisp program, each assigned a unique $code by the Aesthetic Computer database." />
+  <meta property="og:image" content="https://oven.aesthetic.computer/kidlisp-og.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Keeps · KidLisp.com" />
+  <meta name="twitter:description" content="A permanent index of every evaluated KidLisp program." />
+  <meta name="twitter:image" content="https://oven.aesthetic.computer/kidlisp-og.png" />
+
+  <link rel="icon" type="image/gif" href="https://assets.aesthetic.computer/kidlisp-favicon.gif" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Comic+Relief:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+
+  <style>
+    /* ========================================
+       FONTS
+       ======================================== */
+    @font-face {
+      font-family: 'YWFTProcessing-Regular';
+      src: url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2') format('woff2'),
+           url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff') format('woff');
+      font-weight: normal;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'YWFTProcessing-Bold';
+      src: url('https://aesthetic.computer/type/webfonts/ywft-processing-bold.woff2') format('woff2'),
+           url('https://aesthetic.computer/type/webfonts/ywft-processing-bold.woff') format('woff');
+      font-weight: bold;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    /* ========================================
+       CSS VARIABLES (from kidlisp.com)
+       ======================================== */
+    :root {
+      --bg-primary: #f7f7f7;
+      --bg-secondary: #e8e8e8;
+      --bg-tertiary: white;
+      --text-primary: #111;
+      --text-secondary: #333;
+      --text-tertiary: #666;
+      --border-color: #ddd;
+      --border-subtle: #e0e0e0;
+      --code-bg: #e8e8e8;
+      --code-text: #a31515;
+      --ac-purple: rgb(205, 92, 155);
+      --ac-purple-light: rgb(240, 235, 250);
+      --ac-purple-dark: rgb(48, 43, 58);
+      --font-mono: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
+      --font-display: 'YWFTProcessing-Regular', monospace;
+      --font-fun: 'Comic Relief', 'Comic Sans MS', cursive;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-primary: #1e1e1e;
+        --bg-secondary: #252526;
+        --bg-tertiary: #2d2d30;
+        --text-primary: #d4d4d4;
+        --text-secondary: #d4d4d4;
+        --text-tertiary: #858585;
+        --border-color: #3e3e42;
+        --border-subtle: #3e3e42;
+        --code-bg: #252526;
+        --code-text: #ce9178;
+      }
+    }
+
+    /* ========================================
+       RESET & BASE
+       ======================================== */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg-secondary); }
+    ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: var(--font-mono);
+      font-size: 14px;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      cursor: url('https://aesthetic.computer/aesthetic.computer/cursors/precise.svg') 12 12, auto;
+    }
+
+    a { color: var(--ac-purple); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* Colored dot for Aesthetic.Computer links */
+    .ac-dot {
+      color: #4ECDC4;
+      font-weight: bold;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .ac-dot { color: #70D6FF; }
+    }
+
+    /* ========================================
+       HEADER
+       ======================================== */
+    .keeps-header {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .keeps-header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .keeps-logo {
+      font-family: var(--font-fun);
+      font-weight: bold;
+      font-size: 22px;
+      display: flex;
+      align-items: center;
+      gap: 0;
+      cursor: pointer;
+    }
+
+    .keeps-logo .baby-k { color: #FF6B6B; }
+    .keeps-logo .baby-i { color: #4ECDC4; }
+    .keeps-logo .baby-d { color: #FFE66D; }
+    .keeps-logo .baby-l { color: #A8E6CF; }
+    .keeps-logo .baby-i2 { color: #FF8B94; }
+    .keeps-logo .baby-s { color: #F7DC6F; }
+    .keeps-logo .baby-p { color: #BB8FCE; }
+    .keeps-logo .com-part { color: #70D6FF; }
+    .keeps-logo span { text-shadow: 1px 1px 0px rgba(0,0,0,0.3); }
+    .keeps-logo .com-part { text-shadow: none; }
+
+    .keeps-title {
+      font-family: var(--font-display);
+      font-size: 16px;
+      color: var(--text-secondary);
+      border-left: 2px solid var(--ac-purple);
+      padding-left: 16px;
+    }
+
+    .keeps-header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .keeps-sort-btn {
+      padding: 6px 14px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .keeps-sort-btn:hover { border-color: var(--ac-purple); color: var(--ac-purple); }
+    .keeps-sort-btn.active {
+      background: var(--ac-purple);
+      color: white;
+      border-color: var(--ac-purple);
+    }
+
+    .keeps-count {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      white-space: nowrap;
+    }
+
+    /* ========================================
+       CASTLE HERO
+       ======================================== */
+    .keeps-hero {
+      background: var(--bg-tertiary);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 24px 24px 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    .keeps-castle-wrap {
+      position: relative;
+      width: 100%;
+      max-width: 520px;
+      height: 240px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    .keeps-castle-wrap svg {
+      width: 180px;
+      height: auto;
+      filter: drop-shadow(0 2px 8px rgba(205, 92, 155, 0.18));
+    }
+
+    /* Floating $codes rising from castle */
+    .keeps-code-float {
+      position: absolute;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 700;
+      opacity: 0;
+      animation: floatUp 6s ease-in-out infinite;
+      pointer-events: none;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.12);
+    }
+    .keeps-code-float:nth-child(1) { left: 18%; animation-delay: 0s; color: #FF6B6B; }
+    .keeps-code-float:nth-child(2) { left: 35%; animation-delay: 1.2s; color: #4ECDC4; }
+    .keeps-code-float:nth-child(3) { left: 52%; animation-delay: 0.6s; color: #FFE66D; }
+    .keeps-code-float:nth-child(4) { left: 68%; animation-delay: 2.0s; color: #A8E6CF; }
+    .keeps-code-float:nth-child(5) { left: 80%; animation-delay: 3.2s; color: #BB8FCE; }
+    .keeps-code-float:nth-child(6) { left: 25%; animation-delay: 4.0s; color: #FF8B94; }
+    .keeps-code-float:nth-child(7) { left: 60%; animation-delay: 1.8s; color: #70D6FF; }
+    .keeps-code-float:nth-child(8) { left: 42%; animation-delay: 2.8s; color: #F7DC6F; }
+
+    @keyframes floatUp {
+      0%   { opacity: 0; transform: translateY(0); }
+      10%  { opacity: 1; }
+      80%  { opacity: 0.8; }
+      100% { opacity: 0; transform: translateY(-200px); }
+    }
+
+    /* ========================================
+       ABOUT SECTION (below castle)
+       ======================================== */
+    .keeps-about {
+      background: var(--bg-tertiary);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 20px 24px;
+      line-height: 1.7;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .keeps-about p {
+      margin: 0 0 10px 0;
+      max-width: 720px;
+    }
+
+    .keeps-about p:last-child { margin-bottom: 0; }
+
+    .keeps-about code {
+      background: var(--code-bg);
+      color: var(--code-text);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 12px;
+    }
+
+    .keeps-about a {
+      color: var(--ac-purple);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .keeps-about a:hover { text-decoration: underline; }
+
+    .keeps-about-toggle {
+      font-size: 12px;
+      color: var(--ac-purple);
+      cursor: pointer;
+      user-select: none;
+      display: inline-block;
+      margin-top: 4px;
+    }
+    .keeps-about-toggle:hover { text-decoration: underline; }
+
+    .keeps-about-extra {
+      display: none;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border-subtle);
+    }
+    .keeps-about-extra.open { display: block; }
+
+    /* ========================================
+       LOADING / ERROR STATES
+       ======================================== */
+    .keeps-loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      gap: 12px;
+      color: var(--text-tertiary);
+      font-size: 14px;
+    }
+
+    .keeps-loading .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border-color);
+      border-top: 2px solid var(--ac-purple);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .keeps-error {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      gap: 12px;
+      color: var(--text-tertiary);
+    }
+    .keeps-error .error-icon { font-size: 32px; opacity: 0.5; }
+    .keeps-error .error-msg { font-size: 13px; }
+    .keeps-error .retry-btn {
+      margin-top: 8px;
+      padding: 8px 16px;
+      background: var(--ac-purple);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+    .keeps-error .retry-btn:hover { filter: brightness(1.1); }
+
+    /* ========================================
+       SEARCH BAR
+       ======================================== */
+    .keeps-search-bar {
+      padding: 12px 24px;
+      background: var(--bg-primary);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .keeps-search-input {
+      flex: 1;
+      padding: 8px 12px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .keeps-search-input::placeholder { color: var(--text-tertiary); }
+    .keeps-search-input:focus { border-color: var(--ac-purple); }
+
+    .keeps-filter-btn {
+      padding: 8px 12px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .keeps-filter-btn:hover { border-color: var(--ac-purple); }
+    .keeps-filter-btn.active {
+      background: rgba(205, 92, 155, 0.15);
+      border-color: var(--ac-purple);
+      color: var(--ac-purple);
+    }
+
+    /* ========================================
+       GRID
+       ======================================== */
+    .keeps-grid {
+      flex: 1;
+      padding: 16px 24px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 12px;
+      align-content: start;
+      overflow-y: auto;
+    }
+
+    /* ========================================
+       CARD
+       ======================================== */
+    .keeps-card {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      overflow: hidden;
+      transition: all 0.15s;
+      display: flex;
+      flex-direction: column;
+    }
+    .keeps-card:hover {
+      border-color: var(--ac-purple);
+      box-shadow: 0 2px 12px rgba(205, 92, 155, 0.12);
+    }
+    .keeps-card.kept {
+      border-color: rgba(74, 156, 93, 0.4);
+    }
+    .keeps-card.kept:hover {
+      border-color: #4a9c5d;
+      box-shadow: 0 2px 12px rgba(74, 156, 93, 0.15);
+    }
+
+    .keeps-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .keeps-card-code {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--ac-purple);
+      cursor: pointer;
+    }
+    .keeps-card-code:hover { text-decoration: underline; }
+
+    .keeps-card-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+
+    .keeps-card-handle {
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .keeps-card-hits {
+      opacity: 0.7;
+    }
+
+    .keeps-card-preview {
+      position: relative;
+      aspect-ratio: 4 / 3;
+      background: #0d0d1a;
+      overflow: hidden;
+    }
+
+    .keeps-card-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      image-rendering: pixelated;
+      opacity: 0.7;
+      transition: opacity 0.2s;
+    }
+
+    .keeps-card:hover .keeps-card-preview img {
+      opacity: 0.9;
+    }
+
+    .keeps-card-preview .preview-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.55) 100%);
+      pointer-events: none;
+    }
+
+    .keeps-card-body {
+      padding: 10px 12px;
+      flex: 1;
+      min-height: 0;
+    }
+
+    /* Syntax-highlighted source with colored line numbers */
+    .keeps-card-source {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      line-height: 1.5;
+      color: var(--text-secondary);
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 100px;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+    }
+
+    .keeps-card-source .line-nums {
+      flex-shrink: 0;
+      width: 2.2em;
+      text-align: right;
+      padding-right: 6px;
+      user-select: none;
+      border-right: 1px solid var(--border-subtle);
+      margin-right: 6px;
+    }
+
+    .keeps-card-source .line-nums span {
+      display: block;
+      opacity: 0.7;
+    }
+    .keeps-card-source .line-nums span:nth-child(6n+1) { color: #FF6B6B; }
+    .keeps-card-source .line-nums span:nth-child(6n+2) { color: #4ECDC4; }
+    .keeps-card-source .line-nums span:nth-child(6n+3) { color: #FFE66D; }
+    .keeps-card-source .line-nums span:nth-child(6n+4) { color: #A8E6CF; }
+    .keeps-card-source .line-nums span:nth-child(6n+5) { color: #70D6FF; }
+    .keeps-card-source .line-nums span:nth-child(6n+6) { color: #BB8FCE; }
+
+    .keeps-card-source .source-text {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .keeps-card-source::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 28px;
+      background: linear-gradient(transparent, var(--bg-tertiary));
+      pointer-events: none;
+    }
+
+    .keeps-card-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .keeps-card-btn {
+      padding: 4px 10px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .keeps-card-btn:hover {
+      border-color: var(--ac-purple);
+      color: var(--ac-purple);
+      text-decoration: none;
+    }
+
+    .keeps-card-btn.kept-badge {
+      background: rgba(74, 156, 93, 0.15);
+      border-color: rgba(74, 156, 93, 0.3);
+      color: #4a9c5d;
+      cursor: default;
+    }
+
+    .keeps-card-btn.html-btn:hover {
+      background: rgba(59, 130, 246, 0.1);
+      border-color: rgba(59, 130, 246, 0.5);
+      color: #3b82f6;
+    }
+
+    .keeps-card-btn.tezos-btn:hover {
+      background: rgba(74, 156, 93, 0.1);
+      border-color: rgba(74, 156, 93, 0.5);
+      color: #4a9c5d;
+    }
+
+    /* ========================================
+       PREVIEW MODAL
+       ======================================== */
+    .keeps-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 10000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      opacity: 0;
+      transition: opacity 0.2s ease-out;
+    }
+    .keeps-modal-overlay.open {
+      display: flex;
+      animation: modalFadeIn 0.2s ease-out forwards;
+    }
+
+    @keyframes modalFadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes modalScaleIn {
+      from { transform: scale(0.92); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .keeps-modal {
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      max-width: 900px;
+      width: 100%;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      animation: modalScaleIn 0.25s ease-out;
+    }
+
+    .keeps-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .keeps-modal-title {
+      font-family: var(--font-mono);
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--ac-purple);
+    }
+
+    .keeps-modal-close {
+      width: 32px;
+      height: 32px;
+      background: none;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 18px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+    .keeps-modal-close:hover {
+      background: var(--bg-tertiary);
+      border-color: var(--ac-purple);
+      color: var(--ac-purple);
+    }
+
+    .keeps-modal-body {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .keeps-modal-preview {
+      flex: 1;
+      min-width: 0;
+      background: black;
+      position: relative;
+    }
+
+    .keeps-modal-preview iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      min-height: 360px;
+    }
+
+    .keeps-modal-sidebar {
+      width: 300px;
+      flex-shrink: 0;
+      border-left: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .keeps-modal-source {
+      padding: 16px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--text-secondary);
+      white-space: pre-wrap;
+      word-break: break-word;
+      flex: 1;
+      overflow-y: auto;
+      background: var(--bg-tertiary);
+    }
+
+    .keeps-modal-source .line-nums span {
+      display: block;
+      opacity: 0.7;
+    }
+    .keeps-modal-source .line-nums span:nth-child(6n+1) { color: #FF6B6B; }
+    .keeps-modal-source .line-nums span:nth-child(6n+2) { color: #4ECDC4; }
+    .keeps-modal-source .line-nums span:nth-child(6n+3) { color: #FFE66D; }
+    .keeps-modal-source .line-nums span:nth-child(6n+4) { color: #A8E6CF; }
+    .keeps-modal-source .line-nums span:nth-child(6n+5) { color: #70D6FF; }
+    .keeps-modal-source .line-nums span:nth-child(6n+6) { color: #BB8FCE; }
+
+    .keeps-modal-actions {
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      border-top: 1px solid var(--border-subtle);
+      background: var(--bg-secondary);
+    }
+
+    .keeps-modal-action-btn {
+      padding: 10px 16px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: center;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .keeps-modal-action-btn.edit-btn {
+      background: var(--ac-purple);
+      color: white;
+      border-color: var(--ac-purple);
+    }
+    .keeps-modal-action-btn.edit-btn:hover { filter: brightness(1.1); text-decoration: none; }
+
+    .keeps-modal-action-btn.html-btn {
+      background: var(--bg-tertiary);
+      color: #3b82f6;
+      border-color: rgba(59, 130, 246, 0.3);
+    }
+    .keeps-modal-action-btn.html-btn:hover { background: rgba(59, 130, 246, 0.1); text-decoration: none; }
+
+    .keeps-modal-action-btn.tezos-btn {
+      background: var(--bg-tertiary);
+      color: #4a9c5d;
+      border-color: rgba(74, 156, 93, 0.3);
+    }
+    .keeps-modal-action-btn.tezos-btn:hover { background: rgba(74, 156, 93, 0.1); text-decoration: none; }
+
+    .keeps-modal-info {
+      padding: 10px 16px;
+      font-size: 11px;
+      color: var(--text-tertiary);
+      border-top: 1px solid var(--border-subtle);
+    }
+    .keeps-modal-info span { display: block; margin-bottom: 2px; }
+
+    /* ========================================
+       FOOTER
+       ======================================== */
+    .keeps-footer {
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border-color);
+      padding: 14px 24px;
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-tertiary);
+      flex-shrink: 0;
+    }
+    .keeps-footer a { color: var(--ac-purple); }
+
+    /* ========================================
+       RESPONSIVE
+       ======================================== */
+    @media (max-width: 768px) {
+      .keeps-header { padding: 12px 16px; }
+      .keeps-title { display: none; }
+      .keeps-hero { padding: 16px 16px 0; }
+      .keeps-castle-wrap { height: 180px; }
+      .keeps-castle-wrap svg { width: 140px; }
+      .keeps-about { padding: 16px; }
+      .keeps-search-bar { padding: 10px 16px; flex-wrap: wrap; }
+      .keeps-grid { padding: 12px 16px; grid-template-columns: 1fr; }
+      .keeps-modal-body { flex-direction: column; }
+      .keeps-modal-sidebar { width: 100%; border-left: none; border-top: 1px solid var(--border-color); max-height: 240px; }
+      .keeps-modal-preview iframe { min-height: 240px; }
+      .keeps-header-right { flex-wrap: wrap; }
+    }
+
+    @media (max-width: 480px) {
+      .keeps-grid { grid-template-columns: 1fr; gap: 10px; }
+      .keeps-card-actions { flex-wrap: wrap; }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- HEADER -->
+  <header class="keeps-header">
+    <div class="keeps-header-left">
+      <a href="/" class="keeps-logo" title="Back to KidLisp.com editor">
+        <span class="baby-k">K</span><span class="baby-i">i</span><span class="baby-d">d</span><span class="baby-l">L</span><span class="baby-i2">i</span><span class="baby-s">s</span><span class="baby-p">p</span><span class="com-part">.com</span>
+      </a>
+      <div class="keeps-title">keeps</div>
+    </div>
+    <div class="keeps-header-right">
+      <button class="keeps-sort-btn active" data-sort="recent">Newest</button>
+      <button class="keeps-sort-btn" data-sort="hits">Most Viewed</button>
+      <span class="keeps-count" id="keeps-count"></span>
+    </div>
+  </header>
+
+  <!-- CASTLE HERO -->
+  <section class="keeps-hero">
+    <div class="keeps-castle-wrap">
+      <!-- Floating $codes -->
+      <span class="keeps-code-float">$39j</span>
+      <span class="keeps-code-float">$a1b</span>
+      <span class="keeps-code-float">$zyx</span>
+      <span class="keeps-code-float">$k7m</span>
+      <span class="keeps-code-float">$p2q</span>
+      <span class="keeps-code-float">$n4f</span>
+      <span class="keeps-code-float">$h8w</span>
+      <span class="keeps-code-float">$c3v</span>
+      <!-- Castle SVG -->
+      <svg viewBox="0 0 200 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Foundation -->
+        <rect x="30" y="120" width="140" height="60" rx="4" fill="var(--text-tertiary)" opacity="0.18"/>
+        <!-- Main wall -->
+        <rect x="40" y="80" width="120" height="100" rx="3" fill="var(--ac-purple)" opacity="0.22"/>
+        <rect x="42" y="82" width="116" height="96" rx="2" fill="var(--bg-tertiary)" stroke="var(--ac-purple)" stroke-width="1.5" opacity="0.95"/>
+        <!-- Gate arch -->
+        <path d="M82 180 V140 Q82 120 100 120 Q118 120 118 140 V180" fill="var(--ac-purple)" opacity="0.18"/>
+        <path d="M84 180 V141 Q84 123 100 123 Q116 123 116 141 V180" fill="none" stroke="var(--ac-purple)" stroke-width="1.5"/>
+        <!-- Gate detail bars -->
+        <line x1="95" y1="123" x2="95" y2="180" stroke="var(--ac-purple)" stroke-width="0.7" opacity="0.35"/>
+        <line x1="105" y1="123" x2="105" y2="180" stroke="var(--ac-purple)" stroke-width="0.7" opacity="0.35"/>
+        <line x1="84" y1="150" x2="116" y2="150" stroke="var(--ac-purple)" stroke-width="0.7" opacity="0.35"/>
+        <!-- Left tower -->
+        <rect x="24" y="55" width="36" height="125" rx="2" fill="var(--bg-tertiary)" stroke="var(--ac-purple)" stroke-width="1.5"/>
+        <!-- Left tower battlements -->
+        <rect x="22" y="50" width="10" height="12" rx="1" fill="var(--ac-purple)" opacity="0.5"/>
+        <rect x="36" y="50" width="10" height="12" rx="1" fill="var(--ac-purple)" opacity="0.5"/>
+        <rect x="50" y="50" width="10" height="12" rx="1" fill="var(--ac-purple)" opacity="0.5"/>
+        <!-- Right tower -->
+        <rect x="140" y="55" width="36" height="125" rx="2" fill="var(--bg-tertiary)" stroke="var(--ac-purple)" stroke-width="1.5"/>
+        <!-- Right tower battlements -->
+        <rect x="138" y="50" width="10" height="12" rx="1" fill="var(--ac-purple)" opacity="0.5"/>
+        <rect x="152" y="50" width="10" height="12" rx="1" fill="var(--ac-purple)" opacity="0.5"/>
+        <rect x="166" y="50" width="10" height="12" rx="1" fill="var(--ac-purple)" opacity="0.5"/>
+        <!-- Center battlements -->
+        <rect x="60" y="74" width="10" height="12" rx="1" fill="var(--ac-purple)" opacity="0.4"/>
+        <rect x="76" y="74" width="10" height="12" rx="1" fill="var(--ac-purple)" opacity="0.4"/>
+        <rect x="92" y="68" width="16" height="18" rx="1" fill="var(--ac-purple)" opacity="0.35"/>
+        <rect x="114" y="74" width="10" height="12" rx="1" fill="var(--ac-purple)" opacity="0.4"/>
+        <rect x="130" y="74" width="10" height="12" rx="1" fill="var(--ac-purple)" opacity="0.4"/>
+        <!-- Flag on center -->
+        <line x1="100" y1="68" x2="100" y2="38" stroke="var(--ac-purple)" stroke-width="1.2"/>
+        <path d="M100 38 L116 44 L100 50" fill="#FF6B6B" opacity="0.7"/>
+        <!-- Tower windows -->
+        <rect x="36" y="72" width="12" height="14" rx="6" fill="var(--ac-purple)" opacity="0.2"/>
+        <rect x="36" y="100" width="12" height="14" rx="6" fill="var(--ac-purple)" opacity="0.2"/>
+        <rect x="152" y="72" width="12" height="14" rx="6" fill="var(--ac-purple)" opacity="0.2"/>
+        <rect x="152" y="100" width="12" height="14" rx="6" fill="var(--ac-purple)" opacity="0.2"/>
+        <!-- Wall windows -->
+        <rect x="56" y="95" width="10" height="12" rx="5" fill="var(--ac-purple)" opacity="0.15"/>
+        <rect x="134" y="95" width="10" height="12" rx="5" fill="var(--ac-purple)" opacity="0.15"/>
+        <!-- Sparkle dots (treasure metaphor) -->
+        <circle cx="100" cy="115" r="2" fill="#FFE66D" opacity="0.7">
+          <animate attributeName="opacity" values="0.3;1;0.3" dur="2s" repeatCount="indefinite"/>
+        </circle>
+        <circle cx="92" cy="135" r="1.5" fill="#A8E6CF" opacity="0.5">
+          <animate attributeName="opacity" values="0.2;0.8;0.2" dur="2.5s" repeatCount="indefinite"/>
+        </circle>
+        <circle cx="108" cy="132" r="1.5" fill="#70D6FF" opacity="0.5">
+          <animate attributeName="opacity" values="0.4;1;0.4" dur="1.8s" repeatCount="indefinite"/>
+        </circle>
+      </svg>
+    </div>
+  </section>
+
+  <!-- ABOUT -->
+  <section class="keeps-about">
+    <p>
+      Every KidLisp program evaluated on <a href="https://aesthetic.computer" target="_blank">Aesthetic<span class="ac-dot">.</span>Computer</a>
+      is assigned a permanent <code>$code</code> &mdash; a short, unique identifier stored forever in the 
+      <a href="https://aesthetic.computer" target="_blank">Aesthetic<span class="ac-dot">.</span>Computer</a> database.
+      This page is a living index of every <code>$code</code> ever created &mdash; a castle full of keeps.
+    </p>
+    <span class="keeps-about-toggle" id="about-toggle">Learn more...</span>
+    <div class="keeps-about-extra" id="about-extra">
+      <p>
+        <strong>What is a $code?</strong> When you write and run KidLisp on 
+        <a href="https://kidlisp.com">kidlisp.com</a> or <a href="https://aesthetic.computer" target="_blank">Aesthetic<span class="ac-dot">.</span>Computer</a>, 
+        the source is hashed and stored. If it&rsquo;s new, a unique short code like <code>$39j</code> is generated.
+        Identical source always resolves to the same <code>$code</code>.
+      </p>
+      <p>
+        <strong>Keeping as HTML</strong> &mdash; Any <code>$code</code> can be bundled into a self-contained HTML file 
+        via the <code>/api/bundle-html</code> endpoint. This creates a standalone artifact that runs independently, 
+        perfect for archiving or embedding.
+      </p>
+      <p>
+        <strong>Keeping on Tezos</strong> &mdash; KidLisp programs can be minted as on-chain NFTs on the 
+        Tezos blockchain, making them permanently decentralized. Kept pieces are marked with a green badge below.
+      </p>
+      <p>
+        <strong>Links</strong> &mdash; 
+        Visit any code at <code>kidlisp.com/$code</code> to edit, 
+        or <code>aesthetic.computer/$code</code> to run fullscreen.
+      </p>
+    </div>
+  </section>
+
+  <!-- SEARCH -->
+  <div class="keeps-search-bar">
+    <input type="text" class="keeps-search-input" id="search-input" 
+           placeholder="Search $codes, source code, or @handles..." autocomplete="off" spellcheck="false" />
+    <button class="keeps-filter-btn" id="filter-kept" title="Show only pieces kept on Tezos">Kept on Tezos</button>
+  </div>
+
+  <!-- GRID -->
+  <div class="keeps-grid" id="keeps-grid">
+    <div class="keeps-loading" id="keeps-loading">
+      <div class="spinner"></div>
+      <span>Loading all $codes...</span>
+    </div>
+  </div>
+
+  <!-- PREVIEW MODAL -->
+  <div class="keeps-modal-overlay" id="modal-overlay">
+    <div class="keeps-modal">
+      <div class="keeps-modal-header">
+        <span class="keeps-modal-title" id="modal-title">$code</span>
+        <button class="keeps-modal-close" id="modal-close" title="Close">&times;</button>
+      </div>
+      <div class="keeps-modal-body">
+        <div class="keeps-modal-preview">
+          <iframe id="modal-iframe" sandbox="allow-scripts allow-same-origin" loading="lazy"></iframe>
+        </div>
+        <div class="keeps-modal-sidebar">
+          <div class="keeps-modal-source" id="modal-source"></div>
+          <div class="keeps-modal-actions" id="modal-actions"></div>
+          <div class="keeps-modal-info" id="modal-info"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="keeps-footer">
+    <a href="/">kidlisp.com</a> &middot; 
+    <a href="https://aesthetic.computer" target="_blank">Aesthetic<span class="ac-dot">.</span>Computer</a> &middot; 
+    Permanent code storage &mdash; a castle full of keeps.
+  </footer>
+
+  <script>
+    // =========================================
+    // KidLisp.com Keeps - Index Page
+    // =========================================
+
+    const isDev = window.location.hostname === 'localhost' || window.location.hostname === 'local.aesthetic.computer';
+    const isKidlispDomain = window.location.hostname.includes('kidlisp.com');
+    // Use relative API paths on kidlisp.com (proxied via Netlify), absolute on dev
+    const API_BASE = isDev ? 'http://localhost:8888' : (isKidlispDomain ? '' : 'https://aesthetic.computer');
+    const AC_BASE = isDev ? 'http://localhost:8888' : 'https://aesthetic.computer';
+    const KL_BASE = isDev ? 'http://localhost:8888/kidlisp.com' : 'https://kidlisp.com';
+
+    let allCodes = [];
+    let filteredCodes = [];
+    let currentSort = 'recent';
+    let showOnlyKept = false;
+    let searchQuery = '';
+
+    // DOM
+    const grid = document.getElementById('keeps-grid');
+    const loading = document.getElementById('keeps-loading');
+    const countEl = document.getElementById('keeps-count');
+    const searchInput = document.getElementById('search-input');
+    const filterKeptBtn = document.getElementById('filter-kept');
+    const aboutToggle = document.getElementById('about-toggle');
+    const aboutExtra = document.getElementById('about-extra');
+    const modalOverlay = document.getElementById('modal-overlay');
+    const modalTitle = document.getElementById('modal-title');
+    const modalIframe = document.getElementById('modal-iframe');
+    const modalSource = document.getElementById('modal-source');
+    const modalActions = document.getElementById('modal-actions');
+    const modalInfo = document.getElementById('modal-info');
+    const modalClose = document.getElementById('modal-close');
+
+    // =========================================
+    // FETCH ALL CODES
+    // =========================================
+    async function fetchAllCodes(sort = 'recent') {
+      try {
+        const url = `${AC_BASE}/api/store-kidlisp?recent=true&limit=100000&sort=${sort}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        return data.recent || [];
+      } catch (err) {
+        console.error('Failed to fetch codes:', err);
+        return null;
+      }
+    }
+
+    // =========================================
+    // RENDER
+    // =========================================
+    function renderGrid() {
+      // Clear grid (keep loading element structure intact)
+      grid.innerHTML = '';
+
+      if (filteredCodes.length === 0) {
+        grid.innerHTML = `
+          <div class="keeps-error" style="grid-column: 1 / -1;">
+            <div class="error-icon">&#x1F50D;</div>
+            <div class="error-msg">${allCodes.length === 0 ? 'No $codes found.' : 'No matches for your search.'}</div>
+            ${allCodes.length === 0 ? '<button class="retry-btn" onclick="init()">Retry</button>' : ''}
+          </div>`;
+        return;
+      }
+
+      // Create document fragment for performance
+      const frag = document.createDocumentFragment();
+
+      for (const entry of filteredCodes) {
+        const card = document.createElement('div');
+        card.className = 'keeps-card' + (entry.kept ? ' kept' : '');
+
+        const when = entry.when ? new Date(entry.when) : null;
+        const timeStr = when ? formatRelativeTime(when) : '';
+        const handle = entry.handle || 'anon';
+        const hits = entry.hits || 0;
+        const isKept = !!entry.kept;
+
+        // Build syntax-highlighted source with colored line numbers
+        const sourceLines = (entry.source || '').split('\n');
+        const lineNumsHtml = sourceLines.map((_, i) => `<span>${i + 1}</span>`).join('');
+        const sourceTextHtml = escapeHtml(entry.source || '');
+
+        // WebP preview image URL
+        const webpUrl = `https://oven.aesthetic.computer/grab/webp/280/210/$${entry.code}?duration=2000&fps=8&quality=70&density=1&nowait=true`;
+
+        card.innerHTML = `
+          <div class="keeps-card-header">
+            <a class="keeps-card-code" href="${KL_BASE}/$${entry.code}" title="Edit in KidLisp.com">$${entry.code}</a>
+            <div class="keeps-card-meta">
+              <span class="keeps-card-handle">${escapeHtml(handle)}</span>
+              <span class="keeps-card-hits">${hits} hit${hits !== 1 ? 's' : ''}</span>
+            </div>
+          </div>
+          <div class="keeps-card-preview">
+            <img src="${webpUrl}" alt="$${entry.code} preview" loading="lazy" />
+            <div class="preview-overlay"></div>
+          </div>
+          <div class="keeps-card-body">
+            <div class="keeps-card-source"><div class="line-nums">${lineNumsHtml}</div><div class="source-text">${sourceTextHtml}</div></div>
+          </div>
+          <div class="keeps-card-actions">
+            <button class="keeps-card-btn preview-btn" data-code="${entry.code}" title="Preview">&#x25B6; Preview</button>
+            <a class="keeps-card-btn" href="${KL_BASE}/$${entry.code}" title="Open in editor">&#x270E; Edit</a>
+            <a class="keeps-card-btn html-btn" href="${AC_BASE}/api/bundle-html?code=${entry.code}" target="_blank" title="Download as standalone HTML">&#x1F4E6; HTML</a>
+            ${isKept ? `<span class="keeps-card-btn kept-badge" title="Kept on Tezos (Token #${entry.kept.tokenId || '?'})">&#x2714; Kept</span>` : ''}
+            ${timeStr ? `<span style="margin-left: auto; font-size: 10px; color: var(--text-tertiary);">${timeStr}</span>` : ''}
+          </div>`;
+
+        // Click on preview image or card body → open modal
+        const previewImg = card.querySelector('.keeps-card-preview');
+        if (previewImg) previewImg.style.cursor = 'pointer';
+        if (previewImg) previewImg.addEventListener('click', () => openModal(entry));
+
+        // Preview button handler
+        card.querySelector('.preview-btn').addEventListener('click', () => openModal(entry));
+
+        frag.appendChild(card);
+      }
+
+      grid.appendChild(frag);
+      countEl.textContent = `${filteredCodes.length.toLocaleString()} of ${allCodes.length.toLocaleString()} $codes`;
+    }
+
+    // =========================================
+    // FILTER & SEARCH
+    // =========================================
+    function applyFilters() {
+      const q = searchQuery.toLowerCase().trim();
+      filteredCodes = allCodes.filter(entry => {
+        // Kept filter
+        if (showOnlyKept && !entry.kept) return false;
+
+        // Search filter
+        if (q) {
+          const code = ('$' + entry.code).toLowerCase();
+          const source = (entry.source || '').toLowerCase();
+          const handle = (entry.handle || '').toLowerCase();
+          if (!code.includes(q) && !source.includes(q) && !handle.includes(q)) return false;
+        }
+
+        return true;
+      });
+      renderGrid();
+    }
+
+    // =========================================
+    // MODAL
+    // =========================================
+    function openModal(entry) {
+      modalTitle.textContent = '$' + entry.code;
+
+      // Syntax-highlighted source in modal sidebar
+      const sourceLines = (entry.source || '(no source)').split('\n');
+      const lineNumsHtml = sourceLines.map((_, i) => `<span>${i + 1}</span>`).join('');
+      const sourceTextHtml = escapeHtml(entry.source || '(no source)');
+      modalSource.innerHTML = `<div class="line-nums" style="flex-shrink:0;width:2.4em;text-align:right;padding-right:6px;user-select:none;border-right:1px solid var(--border-subtle);margin-right:6px;">${lineNumsHtml}</div><div style="flex:1;white-space:pre-wrap;word-break:break-word;">${sourceTextHtml}</div>`;
+      modalSource.style.display = 'flex';
+
+      // Load preview iframe
+      const previewUrl = `${AC_BASE}/$${entry.code}`;
+      modalIframe.src = previewUrl;
+
+      // Build actions
+      const handle = entry.handle || 'anon';
+      const hits = entry.hits || 0;
+      const when = entry.when ? new Date(entry.when) : null;
+
+      let actionsHTML = `
+        <a class="keeps-modal-action-btn edit-btn" href="${KL_BASE}/$${entry.code}" title="Open in KidLisp.com editor">&#x270E; Edit in KidLisp.com</a>
+        <a class="keeps-modal-action-btn html-btn" href="${AC_BASE}/api/bundle-html?code=${entry.code}" target="_blank" title="Bundle as standalone HTML">&#x1F4E6; Download HTML Bundle</a>`;
+
+      if (entry.kept) {
+        actionsHTML += `<span class="keeps-modal-action-btn tezos-btn" style="cursor: default;">&#x2714; Kept on Tezos (Token #${entry.kept.tokenId || '?'})</span>`;
+      } else {
+        actionsHTML += `<a class="keeps-modal-action-btn tezos-btn" href="${AC_BASE}/keep~$${entry.code}" target="_blank" title="Keep this code on Tezos">&#x26D3; Keep on Tezos</a>`;
+      }
+
+      modalActions.innerHTML = actionsHTML;
+
+      // Info
+      let infoHTML = `<span><strong>Author:</strong> ${escapeHtml(handle)}</span>`;
+      infoHTML += `<span><strong>Views:</strong> ${hits.toLocaleString()}</span>`;
+      if (when) infoHTML += `<span><strong>Created:</strong> ${when.toLocaleDateString()} ${when.toLocaleTimeString()}</span>`;
+      if (entry.kept) {
+        infoHTML += `<span><strong>Network:</strong> ${entry.kept.network || 'mainnet'}</span>`;
+        if (entry.kept.contractAddress) infoHTML += `<span><strong>Contract:</strong> ${entry.kept.contractAddress}</span>`;
+      }
+      modalInfo.innerHTML = infoHTML;
+
+      modalOverlay.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal() {
+      modalOverlay.classList.remove('open');
+      modalIframe.src = 'about:blank';
+      document.body.style.overflow = '';
+    }
+
+    // =========================================
+    // EVENT LISTENERS
+    // =========================================
+
+    // Sort buttons
+    document.querySelectorAll('.keeps-sort-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const sort = btn.dataset.sort;
+        if (sort === currentSort) return;
+        currentSort = sort;
+        document.querySelectorAll('.keeps-sort-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        // Re-fetch with new sort
+        grid.innerHTML = '<div class="keeps-loading"><div class="spinner"></div><span>Sorting...</span></div>';
+        const codes = await fetchAllCodes(sort);
+        if (codes) {
+          allCodes = codes;
+          applyFilters();
+        }
+      });
+    });
+
+    // Search
+    let searchDebounce;
+    searchInput.addEventListener('input', () => {
+      clearTimeout(searchDebounce);
+      searchDebounce = setTimeout(() => {
+        searchQuery = searchInput.value;
+        applyFilters();
+      }, 200);
+    });
+
+    // Kept filter toggle
+    filterKeptBtn.addEventListener('click', () => {
+      showOnlyKept = !showOnlyKept;
+      filterKeptBtn.classList.toggle('active', showOnlyKept);
+      applyFilters();
+    });
+
+    // About toggle
+    aboutToggle.addEventListener('click', () => {
+      aboutExtra.classList.toggle('open');
+      aboutToggle.textContent = aboutExtra.classList.contains('open') ? 'Show less' : 'Learn more...';
+    });
+
+    // Modal close
+    modalClose.addEventListener('click', closeModal);
+    modalOverlay.addEventListener('click', e => {
+      if (e.target === modalOverlay) closeModal();
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && modalOverlay.classList.contains('open')) closeModal();
+    });
+
+    // =========================================
+    // UTILITIES
+    // =========================================
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function formatRelativeTime(date) {
+      const now = Date.now();
+      const diff = now - date.getTime();
+      const seconds = Math.floor(diff / 1000);
+      const minutes = Math.floor(seconds / 60);
+      const hours = Math.floor(minutes / 60);
+      const days = Math.floor(hours / 24);
+      const months = Math.floor(days / 30);
+      const years = Math.floor(days / 365);
+
+      if (seconds < 60) return 'just now';
+      if (minutes < 60) return `${minutes}m ago`;
+      if (hours < 24) return `${hours}h ago`;
+      if (days < 30) return `${days}d ago`;
+      if (months < 12) return `${months}mo ago`;
+      return `${years}y ago`;
+    }
+
+    // =========================================
+    // INIT
+    // =========================================
+    async function init() {
+      loading.style.display = 'flex';
+      grid.innerHTML = '';
+      grid.appendChild(loading);
+
+      const codes = await fetchAllCodes(currentSort);
+      loading.style.display = 'none';
+
+      if (codes === null) {
+        grid.innerHTML = `
+          <div class="keeps-error" style="grid-column: 1 / -1;">
+            <div class="error-icon">&#x26A0;</div>
+            <div class="error-msg">Failed to load $codes. Check your connection and try again.</div>
+            <button class="retry-btn" onclick="init()">Retry</button>
+          </div>`;
+        return;
+      }
+
+      allCodes = codes;
+      filteredCodes = codes;
+      countEl.textContent = `${codes.length.toLocaleString()} $codes`;
+      renderGrid();
+
+      // Populate floating castle $codes with real ones
+      const floaters = document.querySelectorAll('.keeps-code-float');
+      if (codes.length >= floaters.length) {
+        const shuffled = [...codes].sort(() => Math.random() - 0.5);
+        floaters.forEach((el, i) => { el.textContent = '$' + shuffled[i].code; });
+      }
+
+      // Handle ?q= search param
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has('q')) {
+        searchInput.value = urlParams.get('q');
+        searchQuery = urlParams.get('q');
+        applyFilters();
+      }
+      if (urlParams.has('kept')) {
+        showOnlyKept = true;
+        filterKeptBtn.classList.add('active');
+        applyFilters();
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
