@@ -5318,21 +5318,13 @@ async function initGpuEffects() {
       gpuSpinAvailable = gpuSpinModule.isGpuEffectsAvailable();
       gpuFloodAvailable = gpuSpinModule.isGpuFloodAvailable?.() ?? false;
       gpuLayerCompositeAvailable = gpuSpinModule.isGpuLayerCompositeAvailable?.() ?? false;
-      if (gpuSpinAvailable) {
-        console.log('🎮 GPU Effects: Available and enabled');
-      } else {
-        console.log('🎮 GPU Effects: Not available, using CPU fallback');
-      }
-      if (gpuFloodAvailable) {
-        console.log('🎮 GPU Flood: Available (JFA algorithm)');
-      } else {
-        console.log('🎮 GPU Flood: Not available (no float texture support), using CPU fallback');
-      }
-      if (gpuLayerCompositeAvailable) {
-        console.log('🎮 GPU Layer Composite: Available (up to 8 layers)');
-      } else {
-        console.log('🎮 GPU Layer Composite: Not available, using CPU fallback');
-      }
+      // GPU init status logs (enable with window.acGpuDebug = true)
+      // if (gpuSpinAvailable) console.log('🎮 GPU Effects: Available and enabled');
+      // else console.log('🎮 GPU Effects: Not available, using CPU fallback');
+      // if (gpuFloodAvailable) console.log('🎮 GPU Flood: Available (JFA algorithm)');
+      // else console.log('🎮 GPU Flood: Not available (no float texture support), using CPU fallback');
+      // if (gpuLayerCompositeAvailable) console.log('🎮 GPU Layer Composite: Available (up to 8 layers)');
+      // else console.log('🎮 GPU Layer Composite: Not available, using CPU fallback');
     } catch (e) {
       console.warn('🎮 GPU Effects: Module load failed, using CPU fallback', e);
       gpuSpinAvailable = false;

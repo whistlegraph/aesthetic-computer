@@ -657,13 +657,14 @@ export const handler = stream(async (event, context) => {
           : `https://aesthetic.computer/api/bundle-html?code=${pieceName}&format=json`;
         
         // Add timeout to prevent function from hanging if bundle-html is slow
-        // Bundle generation can take 15-25s on cold starts due to SWC minification
+        // Bundle generation can take 15-30s on cold starts due to SWC minification
         const bundleController = new AbortController();
-        const bundleTimeout = setTimeout(() => bundleController.abort(), 20000); // 20 second timeout
+        const bundleTimeout = setTimeout(() => bundleController.abort(), 40000); // 40 second timeout
         
         console.log(`🪙 KEEP: Fetching bundle from ${bundleUrl}...`);
+        await send("progress", { stage: "bundle", message: "Requesting bundle from API..." });
         const bundleStartTime = Date.now();
-        
+
         let bundleResponse;
         try {
           bundleResponse = await fetch(bundleUrl, { signal: bundleController.signal });
@@ -671,34 +672,44 @@ export const handler = stream(async (event, context) => {
           clearTimeout(bundleTimeout);
           const elapsed = ((Date.now() - bundleStartTime) / 1000).toFixed(1);
           console.error(`🪙 KEEP: Bundle fetch failed after ${elapsed}s:`, fetchErr.message);
+          await send("progress", { stage: "bundle", message: `Fetch error after ${elapsed}s: ${fetchErr.message}` });
           if (fetchErr.name === "AbortError") {
-            throw new Error("Bundle generation timed out (>20s). The server may be cold-starting. Please try again in a moment.");
+            throw new Error("Bundle generation timed out (>40s). The server may be cold-starting. Please try again in a moment.");
           }
           throw fetchErr;
         }
         clearTimeout(bundleTimeout);
-        
+
         const bundleElapsed = ((Date.now() - bundleStartTime) / 1000).toFixed(1);
-        console.log(`🪙 KEEP: Bundle response received in ${bundleElapsed}s, status: ${bundleResponse.status}`);
-        
+        console.log(`🪙 KEEP: Bundle HTTP response received in ${bundleElapsed}s, status: ${bundleResponse.status}`);
+        await send("progress", { stage: "bundle", message: `Response received (${bundleElapsed}s, status ${bundleResponse.status})` });
+
         if (!bundleResponse.ok) {
+          const errorText = await bundleResponse.text();
+          console.error(`🪙 KEEP: Bundle generation failed with status ${bundleResponse.status}:`, errorText.slice(0, 200));
           throw new Error(`Bundle generation failed: ${bundleResponse.status}`);
         }
-        
+
+        console.log(`🪙 KEEP: Parsing bundle JSON response...`);
         const bundleData = await bundleResponse.json();
+        console.log(`🪙 KEEP: Bundle JSON parsed successfully, has error: ${!!bundleData.error}`);
+
         if (bundleData.error) {
+          console.error(`🪙 KEEP: Bundle API returned error:`, bundleData.error);
           throw new Error(`Bundle error: ${bundleData.error}`);
         }
-        
+
+        console.log(`🪙 KEEP: Decoding bundle content...`);
         bundleHtml = Buffer.from(bundleData.content, "base64").toString("utf8");
         bundleFilename = bundleData.filename || `$${pieceName}.lisp.html`;
         authorHandle = bundleData.authorHandle || `@${userHandle}`;
         userCode = bundleData.userCode;
         packDate = bundleData.packDate;
         depCount = bundleData.depCount || 0;
-        
+
         // Calculate bundle size
         const bundleSize = Math.round(bundleHtml.length / 1024);
+        console.log(`🪙 KEEP: Bundle ready: ${bundleSize}KB with ${depCount} deps`);
         await send("progress", { stage: "bundle", message: `Packed ${bundleSize}KB · ${depCount} deps` });
       } else {
         // Use cached values
