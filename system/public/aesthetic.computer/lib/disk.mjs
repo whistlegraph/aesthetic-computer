@@ -4462,8 +4462,8 @@ async function processMessage(msg) {
     // 👰‍♀️ Update the user handle if it changed.
     const newHandle = msg.split(":").pop();
     HANDLE = "@" + newHandle;
-    window.acHANDLE = HANDLE; // Expose for UDP identity
-    if (window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
+    if (typeof window !== 'undefined') window.acHANDLE = HANDLE; // Expose for UDP identity
+    if (typeof window !== 'undefined' && window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
     send({ type: "handle", content: HANDLE });
     store["handle:received"] = true;
     store["handle"] = newHandle;
@@ -15019,8 +15019,8 @@ async function makeFrame({ data: { type, content } }) {
       const cachedHandle = store["handle"];
       if (cachedHandle && !HANDLE) {
         HANDLE = "@" + cachedHandle;
-        window.acHANDLE = HANDLE;
-        if (window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
+        if (typeof window !== 'undefined') window.acHANDLE = HANDLE;
+        if (typeof window !== 'undefined' && window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
         send({ type: "handle", content: HANDLE });
         console.log(`🔐 Recovered cached handle: ${HANDLE}`);
       }
@@ -15068,8 +15068,8 @@ async function handle(retryCount = 0) {
       const newHandle = "@" + storedHandle;
       if (HANDLE === newHandle) return;
       HANDLE = "@" + storedHandle;
-      window.acHANDLE = HANDLE; // Expose for UDP identity
-      if (window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
+      if (typeof window !== 'undefined') window.acHANDLE = HANDLE; // Expose for UDP identity
+      if (typeof window !== 'undefined' && window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
       send({ type: "handle", content: HANDLE });
       store["handle:received"] = true;
       if (bootHandle) store["handle"] = bootHandle; // Cache boot-fetched handle
