@@ -171,7 +171,9 @@
       },
       "extensions": [
         "mongodb.mongodb-vscode",
-        "Anthropic.claude-code"
+        "Anthropic.claude-code",
+        "ms-python.python",
+        "ms-toolsai.jupyter"
       ]
     }
   },

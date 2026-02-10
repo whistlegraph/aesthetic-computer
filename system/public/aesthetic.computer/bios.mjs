@@ -16922,7 +16922,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
       
       // Only log reframe operations to debug flicker
-      const isHudOverlay = name === "label" || name === "qrOverlay" || name === "qrCornerLabel" || name === "qrFullscreenLabel" || name === "authorOverlay";
+      const isHudOverlay = name === "label" || name === "qrOverlay" || name === "qrCornerLabel" || name === "qrFullscreenLabel" || name === "authorOverlay" || name === "bumperOverlay";
 
       // Skip tape progress bar in clean mode only
       if (name === "tapeProgressBar" && window.currentRecordingOptions?.cleanMode) {
@@ -16932,8 +16932,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       if (!o || !o.img) {
         // During reframes, if overlay data is missing but we have a cached version, use it
-        // EXCEPT for tapeProgressBar, merryProgressBar, durationProgressBar, durationTimecode and qrOverlay which should never use cached versions
-        if (content.reframe && window.framePersistentOverlayCache[name] && name !== "tapeProgressBar" && name !== "merryProgressBar" && name !== "durationProgressBar" && name !== "durationTimecode" && name !== "qrOverlay" && name !== "qrCornerLabel" && name !== "qrFullscreenLabel" && name !== "authorOverlay") {
+        // EXCEPT for tapeProgressBar, merryProgressBar, durationProgressBar, durationTimecode, qrOverlay and bumperOverlay which should never use cached versions
+        if (content.reframe && window.framePersistentOverlayCache[name] && name !== "tapeProgressBar" && name !== "merryProgressBar" && name !== "durationProgressBar" && name !== "durationTimecode" && name !== "qrOverlay" && name !== "qrCornerLabel" && name !== "qrFullscreenLabel" && name !== "authorOverlay" && name !== "bumperOverlay") {
           paintOverlays[name] = window.framePersistentOverlayCache[name];
           return;
         }
@@ -17142,8 +17142,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // Don't cache QR overlay painters to allow animation
       // Don't cache tapeProgressBar, merryProgressBar or durationProgressBar painters either - force regeneration every frame
-      // Don't cache authorOverlay as it changes per piece
-      if (isHudOverlay && name !== "qrOverlay" && name !== "qrCornerLabel" && name !== "qrFullscreenLabel" && name !== "authorOverlay" && name !== "tapeProgressBar" && name !== "merryProgressBar" && name !== "durationProgressBar") {
+      // Don't cache authorOverlay or bumperOverlay as they change per piece
+      if (isHudOverlay && name !== "qrOverlay" && name !== "qrCornerLabel" && name !== "qrFullscreenLabel" && name !== "authorOverlay" && name !== "bumperOverlay" && name !== "tapeProgressBar" && name !== "merryProgressBar" && name !== "durationProgressBar") {
         window.framePersistentOverlayCache[name] = paintOverlays[name];
       }
     }
@@ -17202,6 +17202,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       };
     }
 
+    buildOverlay("bumperOverlay", content.bumperOverlay); // 🎪 Bumper ticker at the top
     buildOverlay("label", content.label);
     buildOverlay("qrOverlay", content.qrOverlay);
     buildOverlay("qrCornerLabel", content.qrCornerLabel);
@@ -17421,6 +17422,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               // Non-blocking async rendering
               window.pixelOptimizer.renderImageDataAsync(imageData, ctx, 0, 0).then(() => {
                 // Paint overlays after async fallback rendering completes
+                if (paintOverlays["bumperOverlay"]) paintOverlays["bumperOverlay"](); // Paint bumper first (at the top)
                 if (paintOverlays["label"]) paintOverlays["label"]();
                 if (paintOverlays["qrOverlay"]) paintOverlays["qrOverlay"]();
                 if (paintOverlays["qrCornerLabel"]) paintOverlays["qrCornerLabel"]();
@@ -17503,6 +17505,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 if (!forceSynchronousRendering && window.pixelOptimizer && window.pixelOptimizer.asyncRenderingSupported) {
                   try {
                     window.pixelOptimizer.renderImageDataAsync(imageData, ctx, 0, 0).then(() => {
+                      if (paintOverlays["bumperOverlay"]) paintOverlays["bumperOverlay"](); // Paint bumper first
                       if (paintOverlays["label"]) paintOverlays["label"]();
                       if (paintOverlays["qrOverlay"]) paintOverlays["qrOverlay"]();
                       if (paintOverlays["qrCornerLabel"]) paintOverlays["qrCornerLabel"]();
@@ -17592,6 +17595,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           tapeProgressPainter = paintOverlays["tapeProgressBar"] || null;
         }
         let paintTapeProgressAfterCapture = false;
+
+        // 🎪 Paint bumper overlay first (at the top)
+        if (!skipImmediateOverlays && paintOverlays["bumperOverlay"]) {
+          paintOverlays["bumperOverlay"]();
+        }
 
         if (paintOverlays["label"]) {
           if (!skipImmediateOverlays || isRecording || needs$creenshot) {
