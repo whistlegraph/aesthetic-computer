@@ -13,7 +13,13 @@
       "Bash(git pull:*)",
       "Bash(git stash:*)",
       "Bash(xxd:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Read(//Users/jas/Library/Application Support/Code/logs/20260209T235357/window1/exthost/ms-vscode-remote.remote-containers/**)",
+      "Bash(jupyter kernelspec:*)",
+      "Bash(jupyter notebook:*)",
+      "Bash(sudo tee:*)",
+      "Bash(/dev/null << 'EOF'\n{\n \"argv\": [\n  \"/opt/py311/bin/python\",\n  \"-Xfrozen_modules=off\",\n  \"-m\",\n  \"ipykernel_launcher\",\n  \"-f\",\n  \"{connection_file}\"\n ],\n \"display_name\": \"Python 3 \\(ipykernel\\)\",\n \"language\": \"python\",\n \"metadata\": {\n  \"debugger\": true\n }\n}\nEOF)",
+      "Bash(/opt/py311/bin/python -m pip:*)"
     ],
     "additionalDirectories": [
       "/home/me/.claude",
