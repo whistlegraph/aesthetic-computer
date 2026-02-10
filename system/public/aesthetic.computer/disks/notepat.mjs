@@ -2568,12 +2568,6 @@ function paint({
   }
   perfStats.lastFrameTimestamp = paintStart;
 
-  // 🎪 Offset content downward if bumper is enabled
-  const BUMPER_OFFSET = api.bumper.enabled ? api.bumper.height : 0;
-  if (BUMPER_OFFSET > 0) {
-    scroll(0, BUMPER_OFFSET);
-  }
-
   const active = orderedByCount(sounds);
   const scopeSamples = Math.max(1, Math.floor(scope || 1));
   const rawWaveformsLeft = sound.speaker?.waveforms?.left;
