@@ -11664,9 +11664,11 @@ async function makeFrame({ data: { type, content } }) {
 
       // Use screen.width/height instead of content.width/height to get the most up-to-date dimensions
       // content.width/height can be stale if a reframe just happened
+      // 🎪 Reduce available height when bumper is enabled
+      const bumperOffset = bumperConfig.enabled ? bumperConfig.height : 0;
       $api.screen = {
         width: screen.width,
-        height: screen.height,
+        height: screen.height - bumperOffset,
         pixels: screen.pixels,
       };
 
