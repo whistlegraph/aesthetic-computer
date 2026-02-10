@@ -28,8 +28,8 @@ import { MongoClient } from "mongodb";
 const MONGODB_URI = process.env.MONGODB_CONNECTION_STRING || process.env.MONGODB_URI || process.env.DATABASE_URL;
 const MONGODB_NAME = process.env.MONGODB_NAME || "aesthetic";
 
-// Contract configuration
-const CONTRACT_ADDRESS = process.env.TEZOS_KEEPS_CONTRACT || "KT1JEVyKjsMLts63e4CNaMUywWTPgeQ41Smi";
+// Contract configuration - v4 mainnet by default
+const CONTRACT_ADDRESS = process.env.TEZOS_KEEPS_CONTRACT || "KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W";
 const NETWORK = process.env.TEZOS_NETWORK || "mainnet";
 const TZKT_API = NETWORK === "mainnet" ? "https://api.tzkt.io/v1" : `https://api.${NETWORK}.tzkt.io/v1`;
 
