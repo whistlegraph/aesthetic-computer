@@ -28,7 +28,7 @@ import * as readline from "readline";
 // Configuration
 // ═══════════════════════════════════════════════════════════════════
 
-const CONTRACT_ADDRESS = "KT1NeytR5BHDfGBjG9ZuLkPd7nmufmH1icVc";
+const CONTRACT_ADDRESS = "KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K"; // Ghostnet v3
 const NETWORK = "ghostnet";
 const RPC_URL = "https://ghostnet.ecadinfra.com";
 const OVEN_URL = process.env.OVEN_URL || "https://oven.aesthetic.computer";

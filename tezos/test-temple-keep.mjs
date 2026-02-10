@@ -16,8 +16,8 @@ import { pairWallet, sendContractCall } from "./beacon-node.mjs";
 import { connect } from "../system/backend/database.mjs";
 import { TezosToolkit } from "@taquito/taquito";
 
-// Contract and network config
-const CONTRACT_ADDRESS = "KT1NeytR5BHDfGBjG9ZuLkPd7nmufmH1icVc";
+// Contract and network config - Ghostnet v3
+const CONTRACT_ADDRESS = "KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K";
 const NETWORK = "ghostnet";
 const RPC = "https://ghostnet.ecadinfra.com";
 
