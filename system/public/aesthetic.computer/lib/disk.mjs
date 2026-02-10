@@ -11664,12 +11664,13 @@ async function makeFrame({ data: { type, content } }) {
 
       // Use screen.width/height instead of content.width/height to get the most up-to-date dimensions
       // content.width/height can be stale if a reframe just happened
-      // 🎪 Reduce available height when bumper is enabled
+      // 🎪 Reduce available height when bumper is enabled so piece layouts correctly
       const bumperOffset = bumperConfig.enabled ? bumperConfig.height : 0;
       $api.screen = {
         width: screen.width,
         height: screen.height - bumperOffset,
         pixels: screen.pixels,
+        bumperOffset, // Expose this so pieces can adjust if needed
       };
 
       $api.cursor = (code) => (cursorCode = code);
@@ -12595,18 +12596,8 @@ async function makeFrame({ data: { type, content } }) {
             // Reset zebra cache at the start of each frame so it can advance once per frame
             $api.num.resetZebraCache();
 
-            // 🎪 Apply bumper offset if enabled - push piece content down
-            if (bumperConfig.enabled && bumperConfig.height > 0) {
-              $api.pan(0, bumperConfig.height);
-            }
-
             // Always call paint() - piece paints underneath, GOL overlays on top
             paintOut = paint($api); // Returns `undefined`, `false`, or `DirtyBox`.
-
-            // 🎪 Remove bumper offset after painting
-            if (bumperConfig.enabled && bumperConfig.height > 0) {
-              $api.unpan();
-            }
             // Increment piece frame counter only when we actually paint
             pieceFrameCount++;
             
