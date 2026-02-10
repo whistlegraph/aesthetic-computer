@@ -999,9 +999,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let statsFrameCount = 0;
   let statsLastTime = performance.now();
 
-  // Enable reframe debug logging by default for flicker investigation
+  // Enable reframe debug logging (off by default, set window.acReframeDebug = true to enable)
   if (typeof window !== "undefined" && window.acReframeDebug === undefined) {
-    window.acReframeDebug = true;
+    window.acReframeDebug = false;
   }
 
   let webglBlitter = null;
@@ -1914,7 +1914,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     reframeJustCompleted = true; // Mark that we just completed a reframe
     needsReappearance = true; // Only for `native-cursor` mode.
     // Send reframed BEFORE needs-paint so worker updates dimensions before painting
-    if (underlayFrame) {
+    if (underlayFrame && window.acReframeDebug) {
       console.log('📤 REFRAME: Sending reframe message to worker. New dimensions:', width, 'x', height);
     }
     awaitingReframePixels = true;
@@ -2852,7 +2852,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   };
   if (typeof window !== 'undefined') {
     window.__bios_sound_telemetry = soundTelemetry;
-    console.log('🔬 BIOS: Exposed __bios_sound_telemetry on window');
+    // console.log('🔬 BIOS: Exposed __bios_sound_telemetry on window');
   }
 
   // 🎸 M4L Console Forwarding (for Ableton integration debugging)
@@ -3014,7 +3014,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Notify pieces of initial AudioContext state
     if (!window.acPACK_MODE) {
-      console.log("🎵 BIOS sending initial AudioContext state:", { state: audioContext.state, hasAudio: true });
+      // console.log("🎵 BIOS sending initial AudioContext state:", { state: audioContext.state, hasAudio: true });
     }
     acDISK_SEND({ 
       type: "tape:audio-context-state", 
@@ -3818,19 +3818,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   //          decoding all the sounds after an initial tap.
 
   async function playSfx(id, soundData, options, completed) {
-    console.log("🎵 BIOS playSfx called:", { id: id?.substring?.(0, 50), soundData: soundData?.substring?.(0, 50), options, hasAudioContext: !!audioContext });
+    // console.log("🎵 BIOS playSfx called:", { id: id?.substring?.(0, 50), soundData: soundData?.substring?.(0, 50), options, hasAudioContext: !!audioContext });
     
     if (audioContext) {
       
       if (sfxCancel.includes(id)) {
-        console.log("🎵 BIOS playSfx cancelled for:", id);
+        // console.log("🎵 BIOS playSfx cancelled for:", id);
         sfxCancel.length = 0;
         return;
       }
 
       // Handle stream option - audio should be silent for streaming
       if (options?.stream) {
-        console.log("🎵 BIOS stream option detected, audio will be silent:", soundData);
+        // console.log("🎵 BIOS stream option detected, audio will be silent:", soundData);
         // Create a dummy playback object for tracking
         sfxPlaying[id] = {
           kill: () => {
@@ -3841,17 +3841,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       // Instantly decode the audio before playback if it hasn't been already.
-      console.log("🎵 BIOS attempting to decode sfx:", soundData?.substring?.(0, 50), "current type:", typeof sfx[soundData]);
+      // console.log("🎵 BIOS attempting to decode sfx:", soundData?.substring?.(0, 50), "current type:", typeof sfx[soundData]);
       await decodeSfx(soundData);
-      console.log("🎵 BIOS decode complete, sfx type now:", typeof sfx[soundData], "isAudioBuffer:", sfx[soundData] instanceof AudioBuffer);
+      // console.log("🎵 BIOS decode complete, sfx type now:", typeof sfx[soundData], "isAudioBuffer:", sfx[soundData] instanceof AudioBuffer);
 
       if (sfx[soundData] instanceof ArrayBuffer) {
-        console.log("🎵 BIOS sfx still ArrayBuffer, returning early");
+        // console.log("🎵 BIOS sfx still ArrayBuffer, returning early");
         return;
       }
 
       if (!sfx[soundData]) {
-        console.log("🎵 BIOS sfx not found after decode, queuing:", soundData?.substring?.(0, 50));
+        // console.log("🎵 BIOS sfx not found after decode, queuing:", soundData?.substring?.(0, 50));
         // Queue the sound effect to be played once it's loaded
         pendingSfxQueue.push({
           id,
@@ -3903,13 +3903,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         length: sfx[soundData].length,
       };
 
-      console.log("🎵 BIOS sample prepared:", {
+      /*console.log("🎵 BIOS sample prepared:", {
         soundData: soundData?.substring?.(0, 50),
         sampleChannels: sample.channels.length,
         sampleRate: sample.sampleRate,
         length: sample.length,
         triggerSoundAvailable: !!triggerSound
-      });
+      });*/
 
       // TODO: ⏰ Memoize the buffer data after first playback so it doesn't have to
       //          keep being sent on every playthrough. 25.02.15.08.22
@@ -3926,7 +3926,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         speed = options.pitch / basePitch;
       }
 
-      console.log("🎵 BIOS about to call triggerSound:", {
+      /*console.log("🎵 BIOS about to call triggerSound:", {
         id: id?.substring?.(0, 30),
         speed,
         volume: options?.volume,
@@ -3934,7 +3934,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         loop: options?.loop,
         targetDuration: options?.targetDuration,
         sfxLoadedForData: !!sfxLoaded[soundData]
-      });
+      });*/
 
       const playResult = triggerSound?.({
         id,
@@ -3958,11 +3958,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // decay: 0,
       });
 
-      console.log("🎵 BIOS triggerSound result:", {
+      /*console.log("🎵 BIOS triggerSound result:", {
         id: id?.substring?.(0, 30),
         playResult,
         playResultType: typeof playResult
-      });
+      });*/
 
       sfxPlaying[id] = playResult;
 
@@ -5439,7 +5439,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           } 
         });
       } else {
-        console.log("🎵 BIOS no audio context available");
+        // console.log("🎵 BIOS no audio context available");
       }
       return;
     }
@@ -12457,7 +12457,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Initialize some global stuff after the first piece loads.
     // Unload some already initialized stuff if this wasn't the first load.
     if (type === "disk-loaded") {
-      console.log(`🔍 BIOS: Received disk-loaded for "${content.text}", path="${content.path}"`);
+      // console.log(`🔍 BIOS: Received disk-loaded for "${content.text}", path="${content.path}"`);
       
       // 🧹 Clean up any GPU/stats/glaze state from previous piece
       // This ensures cleanup even if the previous piece's leave() failed
@@ -17336,7 +17336,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           imageData.height === ctx.canvas.height
         ) {
           // Dimensions match - clear mismatch counter and log if we just recovered
-          if (underlayFrame && dimensionMismatchCount > 0) {
+          if (underlayFrame && dimensionMismatchCount > 0 && window.acReframeDebug) {
             console.log('✅ REFRAME: Dimension sync restored after', dimensionMismatchCount, 'mismatched frames. Canvas:', ctx.canvas.width, 'x', ctx.canvas.height);
             dimensionMismatchCount = 0;
           }
