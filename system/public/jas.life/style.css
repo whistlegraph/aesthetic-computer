@@ -1,16 +1,16 @@
-/* Dark theme (default) */
+/* Dark theme (default) - aesthetic.computer inspired */
 :root {
   --bg: rgb(0, 0, 0);
-  --fg: rgb(255, 0, 0);
+  --fg: rgb(166, 201, 208);
   --wrapper-bg: rgba(0, 0, 0, 0.8);
-  --link: rgb(255, 0, 0);
-  --link-visited: rgb(152, 15, 15);
-  --link-hover: rgb(255, 150, 0);
-  --link-active: rgb(255, 230, 0);
+  --link: rgb(100, 180, 255);
+  --link-visited: rgb(140, 120, 180);
+  --link-hover: rgb(255, 200, 100);
+  --link-active: rgb(255, 150, 200);
   --mark-color: rgb(166, 201, 208);
   --mark-bg: black;
-  --hr-bg: rgb(59, 7, 7);
-  --hr-border: rgb(176, 35, 35);
+  --hr-bg: rgb(20, 30, 40);
+  --hr-border: rgb(100, 150, 180);
 }
 
 /* Light theme */
