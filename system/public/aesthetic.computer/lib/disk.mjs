@@ -11874,8 +11874,14 @@ async function makeFrame({ data: { type, content } }) {
                   volume: 0.15,
                 });
 
-                // 🌐 Branded domain: tapping HUD label navigates to aesthetic.computer
-                if (redirectIfBrandedDomain()) return;
+                // 🌐 Branded domain with .com superscript: tapping HUD label navigates to aesthetic.computer
+                if (typeof window !== "undefined") {
+                  const host = window.location?.hostname;
+                  if (host && (host === "notepat.com" || host === "www.notepat.com") && currentHUDSuperscript === ".com") {
+                    window.location.href = "https://aesthetic.computer";
+                    return;
+                  }
+                }
 
                 if (!labelBack) {
                   // Only clear prompt text when leaving NON-kidlisp pieces by tapping HUD
