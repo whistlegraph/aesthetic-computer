@@ -1730,7 +1730,7 @@ function paint($) {
 
     // Header with network/staging badge
     const baseNetLabel = (alreadyMinted.network || NETWORK).toUpperCase();
-    const netLabel = KEEPS_STAGING ? "STAGING V3" : baseNetLabel;
+    const netLabel = KEEPS_STAGING ? "STAGING V4" : baseNetLabel;
     const isMainnet = baseNetLabel === "MAINNET";
     const netColor = KEEPS_STAGING ? [255, 180, 100] : (isMainnet ? [100, 220, 100] : [220, 180, 100]);
 
@@ -2477,7 +2477,7 @@ function paint($) {
 
       // Network badge
       if (showNetwork) {
-        const netLabel = KEEPS_STAGING ? "STAGING V3" : NETWORK.toUpperCase();
+        const netLabel = KEEPS_STAGING ? "STAGING V4" : NETWORK.toUpperCase();
         const isMainnet = NETWORK === "mainnet";
         const netColor = KEEPS_STAGING ? [255, 180, 100] : (isMainnet ? [100, 220, 100] : [220, 180, 100]);
         ink(netColor[0], netColor[1], netColor[2], 200).write(netLabel, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
@@ -2972,11 +2972,12 @@ function paint($) {
 
       y += tollH + 2;
 
-      // "to keep on mainnet staging" with clickable staging button
+      // "to keep on mainnet staging" with clickable staging button showing contract version and address
       if (KEEPS_STAGING) {
         const netName = preparedData.network || NETWORK || "mainnet";
         const prefix = "to keep on " + netName + " ";
-        const stagingLabel = "staging v3";
+        const contractShort = KEEPS_CONTRACT.slice(0, 10) + "..";
+        const stagingLabel = `v4: ${contractShort}`;
         // MatrixChunky8 is ~4px per char
         const prefixW = prefix.length * 4;
         const stagingW = stagingLabel.length * 4 + 8; // padding
@@ -3011,7 +3012,7 @@ function paint($) {
   const reviewStep = timeline.find(t => t.id === "review");
   if (reviewStep?.status === "active" && preparedData) {
     const baseNet = (preparedData.network || "mainnet").toUpperCase();
-    const netLabel = KEEPS_STAGING && baseNet === "MAINNET" ? "MAINNET (STAGING V3)" : baseNet;
+    const netLabel = KEEPS_STAGING && baseNet === "MAINNET" ? "MAINNET (STAGING V4)" : baseNet;
     const isGhostnet = baseNet === "GHOSTNET";
     const ghostW = isGhostnet ? 16 : 0; // Space for ghost icon
     const netW = netLabel.length * 4 + 8 + ghostW;
