@@ -2159,7 +2159,7 @@ function paint($) {
     const showDate = !compact && !tightSpace;
     const showProse = !compact && !tightSpace;
     const showNetwork = !tiny && !severeSpace;
-    const showContract = !tiny && !tightSpace;
+    const showContract = KEEPS_STAGING ? true : (!tiny && !tightSpace); // Always show contract in staging mode
     
     // Preview thumbnail size - responsive to layout mode and space constraints
     const previewThumbSize = useHorizontalLayout 
@@ -2275,15 +2275,28 @@ function paint($) {
         btn.btn.box.h = confirmSize.h;
         paintLgBtn(confirmX, cy, confirmText, { ink, line: ink }, confirmScheme, btn.btn.down);
         cy += confirmSize.h + tinyGap;
-        
-        // Network label only if space
-        if (cy + 12 < h) {
-          const netLabel = KEEPS_STAGING ? "STAGING" : NETWORK.toUpperCase();
-          const netColor = KEEPS_STAGING ? [255, 180, 100] : [100, 220, 100];
+
+        // Contract button showing version and address (clickable)
+        if (cy + 12 < h && KEEPS_STAGING) {
+          const contractShort = KEEPS_CONTRACT.slice(0, 10) + "..";
+          const contractLabel = `v4: ${contractShort}`;
+          const contractScheme = pal.btnContract;
+          const contractSize = mc8ButtonSize(contractLabel);
+          const contractX = floor(cx - contractSize.w / 2);
+          contractBtn.btn.box.x = contractX;
+          contractBtn.btn.box.y = cy;
+          contractBtn.btn.box.w = contractSize.w;
+          contractBtn.btn.box.h = contractSize.h;
+          paintMC8Btn(contractX, cy, contractLabel, { ink, line: ink }, contractScheme, contractBtn.btn.down || contractBtn.btn.over);
+        } else if (cy + 12 < h) {
+          // Non-staging: just show network name
+          const netLabel = NETWORK.toUpperCase();
+          const netColor = [100, 220, 100];
           ink(netColor[0], netColor[1], netColor[2], 180).write(netLabel, { x: cx, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+          contractBtn.btn.box.w = 0;
+        } else {
+          contractBtn.btn.box.w = 0;
         }
-        // Hide contract button in horizontal layout to save space
-        contractBtn.btn.box.w = 0;
       } else if (pieceAuthorSub && !userSub) {
         ink(210, 160, 110).write("Login to keep", { x: cx, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
         cy += 10 + tinyGap;
@@ -2487,14 +2500,15 @@ function paint($) {
       // Contract button (clickable link to TzKT)
       if (showContract) {
         const contractScheme = pal.btnContract;
-        const shortContract = KEEPS_CONTRACT.slice(0, 8) + "..";
-        const contractSize = mc8ButtonSize(shortContract);
+        const contractShort = KEEPS_CONTRACT.slice(0, 10) + "..";
+        const contractLabel = KEEPS_STAGING ? `v4: ${contractShort}` : contractShort;
+        const contractSize = mc8ButtonSize(contractLabel);
         const contractX = floor((w - contractSize.w) / 2);
         contractBtn.btn.box.x = contractX;
         contractBtn.btn.box.y = cy;
         contractBtn.btn.box.w = contractSize.w;
         contractBtn.btn.box.h = contractSize.h;
-        paintMC8Btn(contractX, cy, shortContract, { ink, line: ink }, contractScheme, contractBtn.btn.down || contractBtn.btn.over);
+        paintMC8Btn(contractX, cy, contractLabel, { ink, line: ink }, contractScheme, contractBtn.btn.down || contractBtn.btn.over);
         cy += 12 + vGapLarge;
       } else {
         contractBtn.btn.box.x = 0;
