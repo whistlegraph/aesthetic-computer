@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm test:*)",
+      "Bash(ls:*)",
+      "Bash(git push:*)",
+      "Bash(ln:*)",
+      "Bash(python:*)",
+      "Bash(node keeps.mjs deploy:*)",
+      "Bash(node:*)",
+      "Bash(git commit:*)",
+      "Bash(curl:*)",
+      "Bash(git pull:*)",
+      "Bash(git stash:*)",
+      "Bash(xxd:*)",
+      "Bash(python3:*)"
+    ],
+    "additionalDirectories": [
+      "/home/me/.claude",
+      "/tmp"
+    ]
+  }
+}
