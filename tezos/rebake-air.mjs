@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Rebake $air token metadata on v3 staging contract
+ * Rebake $air token metadata on v4 staging contract
  * This will regenerate the bundle and update on-chain metadata
  */
 
@@ -15,8 +15,8 @@ import https from 'https';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// V3 staging contract
-const V3_CONTRACT = 'KT1JEVyKjsMLts63e4CNaMUywWTPgeQ41Smi';
+// V4 staging contract
+const V4_CONTRACT = 'KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W';
 const TOKEN_ID = 3; // $air
 const PIECE_CODE = 'air';
 
@@ -44,7 +44,7 @@ console.log('\n╔════════════════════�
 console.log('║  🔄 Rebake $air Metadata                                     ║');
 console.log('╚══════════════════════════════════════════════════════════════╝\n');
 
-console.log(`📍 Contract: ${V3_CONTRACT}`);
+console.log(`📍 Contract: ${V4_CONTRACT}`);
 console.log(`🎨 Token: #${TOKEN_ID} ($${PIECE_CODE})`);
 console.log(`👤 Admin: ${stagingAddress}\n`);
 
@@ -158,7 +158,7 @@ const tokenInfo = {
 console.log('📤 Calling edit_metadata...');
 
 try {
-  const contract = await tezos.contract.at(V3_CONTRACT);
+  const contract = await tezos.contract.at(V4_CONTRACT);
 
   const op = await contract.methods.edit_metadata(TOKEN_ID, tokenInfo).send();
 
@@ -169,7 +169,7 @@ try {
 
   console.log('\n✅ Metadata updated!');
   console.log(`   🔗 Explorer: https://tzkt.io/${op.hash}`);
-  console.log(`   🎨 View on objkt: https://objkt.com/tokens/${V3_CONTRACT}/${TOKEN_ID}\n`);
+  console.log(`   🎨 View on objkt: https://objkt.com/tokens/${V4_CONTRACT}/${TOKEN_ID}\n`);
 
 } catch (error) {
   console.error('\n❌ Update failed!');
