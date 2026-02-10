@@ -170,7 +170,8 @@
         "settingsSync.keybindingsPerPlatform": false
       },
       "extensions": [
-        "mongodb.mongodb-vscode"
+        "mongodb.mongodb-vscode",
+        "Anthropic.claude-code"
       ]
     }
   },
