@@ -1155,19 +1155,36 @@ async function boot({
 
   // Define bumper renderer function
   const renderBumper = (api, width, height) => {
+    // Update ticker animation
+    if (bumperTicker) {
+      bumperTicker.update(api);
+    }
+
+    // Measure text width BEFORE creating the painting (where we have access to api.text)
+    const text = "Welcome to notepat.com · Tap the pads to play · Press keys for notes";
+    const separator = " · ";
+    const fullText = text + separator;
+    const textMeasurement = api.text.box(fullText);
+    const cycleWidth = textMeasurement.box.width;
+    const offset = bumperTicker ? bumperTicker.getOffset() % cycleWidth : 0;
+
     return api.painting(width, height, ($) => {
       // Dark background for the bumper
       $.ink(0, 0, 0, 200).box(0, 0, width, height);
 
-      // Update and render the ticker
-      if (bumperTicker) {
-        bumperTicker.update($);
-        const tickerY = Math.floor((height - 8) / 2); // Center vertically (8 is default font height)
-        bumperTicker.paint($, 0, tickerY, {
-          width: width,
-          color: [255, 200, 240], // Pink color matching prompt
-          alpha: 255,
-        });
+      // Manually render ticker text
+      if (bumperTicker && cycleWidth > 0) {
+        const numCycles = Math.ceil((width + cycleWidth) / cycleWidth) + 1;
+        const textY = Math.floor((height - 8) / 2); // Center vertically
+
+        // Render multiple cycles to fill the width
+        $.ink(255, 200, 240, 255); // Pink color
+        for (let i = 0; i < numCycles; i++) {
+          const x = i * cycleWidth - offset;
+          if (x > -cycleWidth && x < width + cycleWidth) {
+            $.write(fullText, { x, y: textY });
+          }
+        }
       }
     });
   };
@@ -2550,7 +2567,13 @@ function paint({
     }
   }
   perfStats.lastFrameTimestamp = paintStart;
-  
+
+  // 🎪 Offset content downward if bumper is enabled
+  const BUMPER_OFFSET = api.bumper.enabled ? api.bumper.height : 0;
+  if (BUMPER_OFFSET > 0) {
+    scroll(0, BUMPER_OFFSET);
+  }
+
   const active = orderedByCount(sounds);
   const scopeSamples = Math.max(1, Math.floor(scope || 1));
   const rawWaveformsLeft = sound.speaker?.waveforms?.left;
