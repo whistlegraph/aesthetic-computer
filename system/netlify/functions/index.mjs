@@ -146,6 +146,24 @@ async function fun(event, context) {
     }
   }
 
+  // Serve jas.life/index.html for /jas.life path
+  if (event.path === "/jas.life" || event.path.startsWith("/jas.life/")) {
+    try {
+      const htmlContent = await fs.readFile(
+        path.join(process.cwd(), "public/jas.life/index.html"),
+        "utf8"
+      );
+      return {
+        statusCode: 200,
+        headers: { "Content-Type": "text/html" },
+        body: htmlContent,
+      };
+    } catch (err) {
+      console.error("❌ Error serving jas.life:", err);
+      return respond(500, "Error loading jas.life");
+    }
+  }
+
   // Serve GIF files directly as static assets (for mockup previews, etc.)
   if (event.path.endsWith(".gif")) {
     try {
