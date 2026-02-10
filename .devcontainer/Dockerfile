@@ -11,7 +11,7 @@ RUN set -eux; \
 
 ENV NODE_OPTIONS=--max_old_space_size=8192
 ENV DENO_DIR=/home/me/.cache/deno
-ENV NETLIFY_DENO_VERSION=2.6.6
+ENV NETLIFY_DENO_VERSION=2.4.5
 # Prevent paging for LLM/agentic use
 ENV PAGER=cat
 ENV GIT_PAGER=cat
@@ -50,9 +50,10 @@ RUN dnf install -y \
 
 # --- Python 3.11 venv as default "python" -------------------------------------
 RUN /usr/bin/python3.11 -m venv /opt/py311 && \
-    /opt/py311/bin/pip install -U pip setuptools wheel ipykernel && \
+    /opt/py311/bin/pip install -U pip setuptools wheel ipykernel jupyter && \
     ln -s /opt/py311/bin/python /usr/local/bin/python && \
-    ln -s /opt/py311/bin/pip /usr/local/bin/pip
+    ln -s /opt/py311/bin/pip /usr/local/bin/pip && \
+    /opt/py311/bin/python -m ipykernel install --prefix=/opt/py311 --name=python3 --display-name="Python 3 (ipykernel)"
 ENV PATH="/opt/py311/bin:${PATH}"
 
 # --- SmartPy (pinned) + smoke test -------------------------------------------
@@ -97,7 +98,7 @@ RUN set -eux; \
         aarch64) ARCH=arm64 ;; \
         *) echo "Unsupported architecture: $(uname -m)" && exit 1 ;; \
     esac && \
-    curl -fsSL "https://github.com/stripe/stripe-cli/releases/download/v1.34.0/stripe_1.34.0_linux_${ARCH}.tar.gz" \
+    curl -fsSL "https://github.com/stripe/stripe-cli/releases/download/v1.30.0/stripe_1.30.0_linux_${ARCH}.tar.gz" \
     | tar xz -C /usr/local/bin
 
 # --- redli (architecture-aware) ----------------------------------------------
@@ -141,7 +142,7 @@ RUN set -eux; \
         aarch64) ARCH=arm64 ;; \
         *) echo "Unsupported architecture: $(uname -m)" && exit 1 ;; \
     esac && \
-    DOCTL_VERSION=1.149.0 && \
+    DOCTL_VERSION=1.109.0 && \
     curl -fsSL "https://github.com/digitalocean/doctl/releases/download/v${DOCTL_VERSION}/doctl-${DOCTL_VERSION}-linux-${ARCH}.tar.gz" -o /tmp/doctl.tar.gz && \
     tar -xzf /tmp/doctl.tar.gz -C /usr/local/bin && rm /tmp/doctl.tar.gz && \
     chmod +x /usr/local/bin/doctl
@@ -162,8 +163,8 @@ RUN ARCH=$(uname -m) && \
 # --- s3cmd (for DigitalOcean Spaces management) -------------------------------
 RUN dnf install -y s3cmd && dnf clean all
 
-# --- Jupyter bits -------------------------------------------------------------
-RUN dnf install -y python3-notebook python3-nbconvert && dnf clean all
+# --- Jupyter bits (installed via pip in py311 venv above) --------------------
+# Note: Jupyter is now installed in the Python 3.11 venv to ensure consistency
 
 # --- gcloud SDK ---------------------------------------------------------------
 RUN curl -sSL https://sdk.cloud.google.com > /tmp/install_gcloud.sh && \
@@ -243,7 +244,7 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
 ENV PATH="/home/me/.local/bin:${PATH}"
 
 # --- Deno ---------------------------------------------------------------------
-RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/home/me/.deno sh -s v2.6.6 && \
+RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/home/me/.deno sh -s v2.4.5 && \
     /home/me/.deno/bin/deno --version && \
     /home/me/.deno/bin/deno cache https://v2-13-0--edge.netlify.com/bootstrap/index-combined.ts 2>/dev/null || true && \
     /home/me/.deno/bin/deno cache https://v2-13-0--edge.netlify.com/bootstrap/handler.ts 2>/dev/null || true && \
@@ -259,9 +260,10 @@ RUN echo "set -U fish_greeting ''" >> /home/me/.config/fish/config.fish && \
     chown -R me:me /home/me/.config/fish && \
     chmod -R 755 /home/me/.config/fish
 
-# Ensure jupyter directory exists with correct permissions
+# Ensure jupyter directory exists with correct permissions and register user kernel
 RUN mkdir -p /home/me/.jupyter && \
-    chmod -R u+rw /home/me/.jupyter
+    chmod -R u+rw /home/me/.jupyter && \
+    /opt/py311/bin/python -m ipykernel install --user --name=py311 --display-name="Python 3.11.14"
 
 # --- IPython preload ----------------------------------------------------------
 RUN mkdir -p /home/me/.ipython/profile_default/startup && \

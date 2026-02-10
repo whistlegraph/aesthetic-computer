@@ -87,5 +87,8 @@
   "task.allowAutomaticTasks": "on",
   "github.copilot.advanced": {
     "defaultModel": "claude-opus-4.5"
-  }
+  },
+  "python.defaultInterpreterPath": "/opt/py311/bin/python",
+  "jupyter.kernels.filter": [],
+  "jupyter.notebookFileRoot": "${workspaceFolder}"
 }

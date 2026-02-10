@@ -253,7 +253,7 @@ def l(*args, **kwargs):
     return λ(*args, **kwargs)
 
 # Lambda symbol alias - perfect for functional programming!
-    def λ(*args, **kwargs):
+def λ(*args, **kwargs):
     """
     Lambda symbol alias for kidlisp function - λ()
     

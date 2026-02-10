@@ -2067,6 +2067,35 @@ function redirectIfBrandedDomain() {
   return false;
 }
 
+// 🎪 Bumper mode configuration - horizontal bar above the piece for tickers/banners
+let bumperConfig = {
+  enabled: false,
+  height: 0,
+  renderer: null, // Function called by piece to render bumper content
+};
+
+// Enable bumper mode with specified height
+function enableBumper(height = 20, renderer = null) {
+  bumperConfig.enabled = true;
+  bumperConfig.height = height;
+  bumperConfig.renderer = renderer;
+}
+
+// Disable bumper mode
+function disableBumper() {
+  bumperConfig.enabled = false;
+  bumperConfig.height = 0;
+  bumperConfig.renderer = null;
+}
+
+// Check if bumper should be enabled based on hostname (for automatic activation)
+function isBumperDomain() {
+  const { hostname } = getSafeUrlParts();
+  if (!hostname) return false;
+  // Bumper is enabled for notepat.com
+  return hostname === "notepat.com" || hostname === "www.notepat.com";
+}
+
 let storeRetrievalResolutions = {},
   storeDeletionResolutions = {};
 
@@ -3305,6 +3334,25 @@ const $commonApi = {
       labelBack = true;
       // Store the source piece for special handling (e.g., chat returning to prompt)
       send({ type: "labelBack:source", content: { sourcePiece: $commonApi.piece } });
+    },
+  },
+  // 🎪 Bumper API - horizontal bar above the piece for tickers/banners
+  bumper: {
+    enable: (height = 20, renderer = null) => {
+      enableBumper(height, renderer);
+    },
+    disable: () => {
+      disableBumper();
+    },
+    get enabled() {
+      return bumperConfig.enabled;
+    },
+    get height() {
+      return bumperConfig.height;
+    },
+    // Allow piece to set a custom renderer function
+    setRenderer: (renderer) => {
+      bumperConfig.renderer = renderer;
     },
   },
   // 📱 LAN Dev mode identity (from session server)
@@ -13893,7 +13941,8 @@ async function makeFrame({ data: { type, content } }) {
   const finalX = currentHUDOffset.x + hudAnimationState.slideOffset.x - currentHUDLeftPad;
         // Move label up by 4px when QR is present for tighter fit
         const qrYOffset = currentHUDQR ? -4 : 0;
-        const finalY = currentHUDOffset.y + hudAnimationState.slideOffset.y + qrYOffset;
+        const bumperOffset = bumperConfig.enabled ? bumperConfig.height : 0;
+        const finalY = currentHUDOffset.y + hudAnimationState.slideOffset.y + qrYOffset + bumperOffset;
         
         sendData.label = {
           x: finalX,
@@ -14793,6 +14842,31 @@ async function makeFrame({ data: { type, content } }) {
           };
         } catch (err) {
           console.warn("Failed to generate author overlay:", err);
+        }
+      }
+
+      // 🎪 Bumper overlay - horizontal bar at the top for tickers/banners
+      if (bumperConfig.enabled && bumperConfig.height > 0) {
+        try {
+          // Call the piece's custom renderer if provided, otherwise render a default bumper
+          let bumperPainting = null;
+
+          if (bumperConfig.renderer && typeof bumperConfig.renderer === 'function') {
+            // Let the piece render custom content
+            bumperPainting = bumperConfig.renderer($api, screen.width, bumperConfig.height);
+          }
+
+          // If piece provided a painting, use it; otherwise create a default one
+          if (bumperPainting) {
+            sendData.bumperOverlay = {
+              x: 0,
+              y: 0,
+              opacity: 1.0,
+              img: (({ width, height, pixels }) => ({ width, height, pixels }))(bumperPainting),
+            };
+          }
+        } catch (err) {
+          console.warn("Failed to generate bumper overlay:", err);
         }
       }
 
