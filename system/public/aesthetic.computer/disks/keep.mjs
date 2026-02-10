@@ -2273,7 +2273,7 @@ function paint($) {
         btn.btn.box.y = cy;
         btn.btn.box.w = confirmSize.w;
         btn.btn.box.h = confirmSize.h;
-        paintLgBtn(confirmX, cy, confirmText, { ink, line: ink }, confirmScheme, btn.btn.down);
+        paintLgBtn(confirmX, cy, confirmText, { ink, line: ink }, confirmScheme, btn.btn.down || btn.btn.over);
         cy += confirmSize.h + tinyGap;
 
         // Contract button showing version and address (clickable)
@@ -2314,7 +2314,7 @@ function paint($) {
         loginBtn.btn.box.y = cy;
         loginBtn.btn.box.w = loginSize.w;
         loginBtn.btn.box.h = loginSize.h;
-        paintLgBtn(loginX, cy, loginText, { ink, line: ink }, loginScheme, loginBtn.btn.down);
+        paintLgBtn(loginX, cy, loginText, { ink, line: ink }, loginScheme, loginBtn.btn.down || loginBtn.btn.over);
       } else if (isAuthor === false) {
         ink(210, 110, 110).write("✗ Not yours", { x: cx, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
         cy += 10 + tinyGap;
