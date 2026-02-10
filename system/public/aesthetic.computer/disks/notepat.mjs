@@ -2571,7 +2571,7 @@ function paint({
   // 🎪 Offset content down if bumper is enabled
   const bumperOffset = screen.bumperOffset || 0;
   if (bumperOffset > 0) {
-    scroll(0, bumperOffset);
+    pan(0, bumperOffset);
   }
 
   const active = orderedByCount(sounds);
