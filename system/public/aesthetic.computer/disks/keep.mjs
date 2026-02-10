@@ -3129,7 +3129,7 @@ function act({ event: e, screen }) {
 
     // REBAKE button - regenerate media without resetting timeline
     if (preparedData.usedCachedMedia && !rebaking) {
-      rebakeBtn.btn.act(e, { push: async () => {
+      rebakeBtn.btn.act(e, { ...hoverCb, push: async () => {
         console.log("🪙 KEEP: Rebaking media (in-place)...");
         rebaking = true;
         rebakeProgress = "Regenerating...";
