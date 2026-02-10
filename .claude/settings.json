@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: prevent black flashing during rapid reframing\n\nFixes blacking issue when window rapidly resizes by preventing cleared\nrendering canvases from being shown before new pixels arrive. During\nrapid reframes \\(e.g., mobile scrolling\\), the canvas size changes faster\nthan the worker can provide new pixels, causing black flashes.\n\nChanges:\n- Guard WebGL/WebGPU canvas visibility with dimension mismatch check\n- Skip canvas pixel recovery when awaiting reframe pixels\n- Keep freeze frame visible until matching pixels are received\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Read(//home/me/.claude/**)"
+    ]
+  }
+}
