@@ -1,11 +1,10 @@
-# Score for Aesthetic Computer
+# Score for Computer
 
 *Directed by [@jeffrey](https://prompt.ac/@jeffrey)*
 
 <img width="200" src="https://assets.aesthetic.computer/aesthetic-inc/pals.png">
 
-> A mobile-first runtime and social network for creative computing.
-> https://aesthetic.computer
+> Implemented on aesthetic.computer and its various properties of this monorepo.
 
 *This is the score. All agents — human and AI — perform from it.*
 
