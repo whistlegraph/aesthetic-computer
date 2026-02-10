@@ -292,7 +292,7 @@ class SpeakerProcessor extends AudioWorkletProcessor {
       // Update properties of an existing sound, if found.
       if (msg.type === "update") {
         const soundInstance = this.#running[msg.data.id];
-        console.log(`📻 SPEAKER update: id=${msg.data.id}, found=${!!soundInstance}, props=${JSON.stringify(msg.data.properties)}`);
+        // console.log(`📻 SPEAKER update: id=${msg.data.id}, found=${!!soundInstance}, props=${JSON.stringify(msg.data.properties)}`);
         soundInstance?.update(msg.data.properties);
         return;
       }
@@ -302,22 +302,22 @@ class SpeakerProcessor extends AudioWorkletProcessor {
         const { label, buffer } = msg.data;
         const runningIds = Object.keys(this.#running);
         const runningLabels = Object.values(this.#running).map(s => s?.sampleLabel).filter(Boolean);
-        console.log(`🔴 SPEAKER: sample:update for "${label}", running: ${runningIds.length} sounds, labels: [${runningLabels.join(', ')}]`);
+        // console.log(`🔴 SPEAKER: sample:update for "${label}", running: ${runningIds.length} sounds, labels: [${runningLabels.join(', ')}]`);
         // Update the stored sample buffer
         if (sampleStore[label]) {
           sampleStore[label] = buffer;
-          console.log(`🔴 SPEAKER: Updated sampleStore["${label}"]`);
+          // console.log(`🔴 SPEAKER: Updated sampleStore["${label}"]`);
         }
         // Update all running sounds that are using this sample
         let updatedCount = 0;
         Object.values(this.#running).forEach((sound) => {
           if (sound && sound.sampleLabel === label) {
-            console.log(`🔴 SPEAKER: Updating synth buffer for label="${label}", sound.id=${sound.id}`);
+            // console.log(`🔴 SPEAKER: Updating synth buffer for label="${label}", sound.id=${sound.id}`);
             sound.update({ sampleData: buffer });
             updatedCount++;
           }
         });
-        console.log(`🔴 SPEAKER: Updated ${updatedCount} running sounds`);
+        // console.log(`🔴 SPEAKER: Updated ${updatedCount} running sounds`);
         return;
       }
 
@@ -523,16 +523,9 @@ class SpeakerProcessor extends AudioWorkletProcessor {
           });
 
           // 🔊 Debug: Log when sample synth is created
-          if (msg.data.type === "sample") {
-            console.log("🔊 SPEAKER creating sample synth:", {
-              id: msg.data.id?.substring?.(0, 50),
-              duration: duration,
-              volume: msg.data.volume ?? 1,
-              speed: synthOptions.speed,
-              preserveDuration: synthOptions.preserveDuration,
-              queueLengthBefore: this.#queue.length
-            });
-          }
+          // if (msg.data.type === "sample") {
+          //   console.log("🔊 SPEAKER creating sample synth:", { id: msg.data.id?.substring?.(0, 50), duration, volume: msg.data.volume ?? 1, speed: synthOptions.speed, preserveDuration: synthOptions.preserveDuration, queueLengthBefore: this.#queue.length });
+          // }
 
           // if (duration === Infinity && msg.data.id > -1n) {
           this.#running[msg.data.id] = sound; // Index by the unique id.
@@ -734,22 +727,15 @@ class SpeakerProcessor extends AudioWorkletProcessor {
         const amplitude = instrument.next(s); // this.#queue.length;
 
         // 🔊 Debug: Log sample instrument output at key points
-        if (instrument.type === "sample" && s === 0 && this._sampleDebugCounter === undefined) {
-          this._sampleDebugCounter = 0;
-        }
-        if (instrument.type === "sample" && s === 0) {
-          this._sampleDebugCounter = (this._sampleDebugCounter || 0) + 1;
-          if (this._sampleDebugCounter % 100 === 1) { // Log every ~100 blocks (~0.3 sec)
-            console.log("🔊 SPEAKER sample output:", {
-              queueLength: this.#queue.length,
-              instrumentType: instrument.type,
-              amplitude: amplitude,
-              pan: instrument._pan || 0,
-              playing: instrument.playing,
-              vstEnabled: this.#vstBridgeEnabled
-            });
-          }
-        }
+        // if (instrument.type === "sample" && s === 0 && this._sampleDebugCounter === undefined) {
+        //   this._sampleDebugCounter = 0;
+        // }
+        // if (instrument.type === "sample" && s === 0) {
+        //   this._sampleDebugCounter = (this._sampleDebugCounter || 0) + 1;
+        //   if (this._sampleDebugCounter % 100 === 1) {
+        //     console.log("🔊 SPEAKER sample output:", { queueLength: this.#queue.length, instrumentType: instrument.type, amplitude, pan: instrument._pan || 0, playing: instrument.playing, vstEnabled: this.#vstBridgeEnabled });
+        //   }
+        // }
 
         output[0][s] += instrument.pan(0, amplitude);
         output[1][s] += instrument.pan(1, amplitude);

@@ -972,7 +972,7 @@ function initWebGL2(width, height) {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
         layerTextures.push(tex);
       }
-      console.log('🎮 GPU Layer Composite: Available (up to 8 layers)');
+      // console.log('🎮 GPU Layer Composite: Available (up to 8 layers)');
     }
     
     // Create VAO for efficient attribute setup
@@ -1074,7 +1074,7 @@ function initWebGL2(width, height) {
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, floodTexture2, 0);
         
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        console.log('🎮 GPU Effects: Flood fill JFA initialized');
+        // console.log('🎮 GPU Effects: Flood fill JFA initialized');
       } else {
         console.warn('🎮 GPU Effects: Float textures not supported, flood fill GPU disabled');
         floodSeedProgram = null;
@@ -1090,7 +1090,7 @@ function initWebGL2(width, height) {
     lastHeight = height;
     initialized = true;
     
-    console.log(`🎮 GPU Effects: Initialized ${width}x${height}`);
+    // console.log(`🎮 GPU Effects: Initialized ${width}x${height}`);
     return true;
   } catch (e) {
     console.error('🎮 GPU Effects: Init failed:', e);
