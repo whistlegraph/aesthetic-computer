@@ -17284,19 +17284,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const db = content.dirtyBox;
       if (db) {
         if (!underlayFrame && webglCompositeActive && imageData) {
+          // Don't show rendering canvas if awaiting reframe pixels with dimension mismatch
+          const canShowCanvas = !awaitingReframePixels || (imageData.width === canvas.width && imageData.height === canvas.height);
           if (canvas.style.visibility !== "hidden") {
             canvas.style.visibility = "hidden";
           }
-          if (webglCompositeCanvas.style.display === "none") {
+          if (canShowCanvas && webglCompositeCanvas.style.display === "none") {
             webglCompositeCanvas.style.display = "block";
           }
-          if (overlayCan.style.display === "none") {
+          if (canShowCanvas && overlayCan.style.display === "none") {
             overlayCan.style.display = "block";
           }
           if (webgpuCanvas.style.display !== "none") {
             webgpuCanvas.style.display = "none";
           }
-          webglBlitter.render(imageData);
+          if (canShowCanvas) {
+            webglBlitter.render(imageData);
+          }
         } else {
           if (canvas.style.visibility !== "visible") {
             canvas.style.visibility = "visible";
@@ -17348,12 +17352,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 log.gpu.warn?.(`Failed to switch to ${content.gpuBackend}:`, err);
               });
             }
-            
+
+            // Don't show rendering canvas if awaiting reframe pixels with dimension mismatch
+            const canShowCanvas = !awaitingReframePixels || (imageData.width === canvas.width && imageData.height === canvas.height);
+
             // Hide CPU canvas and rely on WebGPU surface
             if (canvas.style.visibility !== "hidden") {
               canvas.style.visibility = "hidden";
             }
-            if (webgpuCanvas.style.display === "none") {
+            if (canShowCanvas && webgpuCanvas.style.display === "none") {
               webgpuCanvas.style.display = "block";
             }
             if (webglCompositeCanvas.style.display !== "none") {
@@ -17364,19 +17371,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
             skipImmediateOverlays = true; // Overlays will be handled separately
           } else if (webglCompositeActive) {
+            // Don't show rendering canvas if awaiting reframe pixels with dimension mismatch
+            const canShowCanvas = !awaitingReframePixels || (imageData.width === canvas.width && imageData.height === canvas.height);
             if (canvas.style.visibility !== "hidden") {
               canvas.style.visibility = "hidden";
             }
-            if (webglCompositeCanvas.style.display === "none") {
+            if (canShowCanvas && webglCompositeCanvas.style.display === "none") {
               webglCompositeCanvas.style.display = "block";
             }
-            if (overlayCan.style.display === "none") {
+            if (canShowCanvas && overlayCan.style.display === "none") {
               overlayCan.style.display = "block";
             }
             if (webgpuCanvas.style.display !== "none") {
               webgpuCanvas.style.display = "none";
             }
-            webglBlitter.render(imageData);
+            if (canShowCanvas) {
+              webglBlitter.render(imageData);
+            }
             skipImmediateOverlays = false;
           } else if (underlayFrame) {
             if (canvas.style.visibility !== "visible") {
@@ -17469,7 +17480,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             setTimeout(() => send({ type: "needs-paint" }), 0);
           } else {
             // For normal pieces, try to recover by getting fresh imageData from canvas
+            // BUT: Don't try to recover from canvas if we're awaiting reframe pixels
+            // (the canvas was just cleared by resize, reading it would give black pixels)
             if (
+              !awaitingReframePixels &&
               imageData &&
               imageData.data &&
               imageData.data.buffer &&
