@@ -1,0 +1,14 @@
+Comment...
+ h1: Keeps FA2 v4 - Production Contract
+Creating contract KT1TezoooozzSmartPyzzSTATiCzzzwwBFA1
+ -> (Pair "tz1SfRoaCkrBkXqTzhz67QYVPJAU9Y2g48kq" (Pair {} (Pair False (Pair 1000 (Pair 0 (Pair {} (Pair {} (Pair {} (Pair 0 (Pair {} (Pair False (Pair {} {}))))))))))))
+file KeepsFA2v4/step_002_cont_0_storage.tz
+file KeepsFA2v4/step_002_cont_0_storage.json
+file KeepsFA2v4/step_002_cont_0_storage.py
+file KeepsFA2v4/step_002_cont_0_types.py
+file KeepsFA2v4/step_002_cont_0_contract.tz contract KeepsFA2
+file KeepsFA2v4/step_002_cont_0_contract.json contract KeepsFA2
+Comment...
+ p: ✅ Contract compiled successfully
+Comment...
+ p: v4 features: royalties, pause, admin transfer

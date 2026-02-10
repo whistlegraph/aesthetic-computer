@@ -32,12 +32,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CONFIG = {
   // Network settings
   ghostnet: {
-    rpc: 'https://ghostnet.ecadinfra.com',
+    rpc: 'https://rpc.ghostnet.teztnets.com',  // Changed from ecadinfra
     name: 'Ghostnet (Testnet)',
     explorer: 'https://ghostnet.tzkt.io'
   },
   mainnet: {
-    rpc: 'https://mainnet.ecadinfra.com',
+    rpc: 'https://mainnet.api.tez.ie',  // Changed from ecadinfra for better deployment support
     name: 'Mainnet',
     explorer: 'https://tzkt.io'
   },
@@ -55,9 +55,11 @@ const CONFIG = {
   
   // Contract paths
   paths: {
-    // SmartPy v3 contract (FA2 library based, owner-editable metadata)
-    contract: path.join(__dirname, 'KeepsFA2v3/step_002_cont_0_contract.tz'),
-    storage: path.join(__dirname, 'KeepsFA2v3/step_002_cont_0_storage.tz'),
+    // SmartPy v4 contract (PRODUCTION: royalties, pause, admin transfer)
+    contract: path.join(__dirname, 'KeepsFA2v4/step_002_cont_0_contract.tz'),
+    storage: path.join(__dirname, 'KeepsFA2v4/step_002_cont_0_storage.tz'),
+    // Legacy v3 contract path
+    v3Contract: path.join(__dirname, 'KeepsFA2v3/step_002_cont_0_contract.tz'),
     // Legacy v2 contract path
     v2Contract: path.join(__dirname, 'KeepsFA2v2/step_002_cont_0_contract.tz'),
     // Legacy contract path
@@ -165,8 +167,8 @@ async function createTezosClient(network = 'mainnet') {
 
 async function deployContract(network = 'mainnet') {
   console.log('\n╔══════════════════════════════════════════════════════════════╗');
-  console.log('║  🚀 Deploying Keeps FA2 v3 Contract                          ║');
-  console.log('║  (Owner-editable metadata)                                   ║');
+  console.log('║  🚀 Deploying Keeps FA2 v4 Contract (PRODUCTION)             ║');
+  console.log('║  (Royalties + Pause + Admin Transfer)                       ║');
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
   
   const { tezos, credentials, config } = await createTezosClient(network);
@@ -192,47 +194,47 @@ async function deployContract(network = 'mainnet') {
   }
   
   const contractSource = fs.readFileSync(CONFIG.paths.contract, 'utf8');
-  console.log('   ✓ Contract loaded: KeepsFA2v3 (SmartPy FA2 library, owner-editable)');
+  console.log('   ✓ Contract loaded: KeepsFA2v4 (Production: royalties, pause, admin transfer)');
   
   // Parse the contract using michel-codec
   const parser = new Parser();
   const parsedContract = parser.parseScript(contractSource);
   
   // Create initial storage
-  // Storage structure from SmartPy FA2 v3:
-  // Layout: ("administrator", ("content_hashes", ("contract_metadata_locked", ("keep_fee", 
-  //   ("ledger", ("metadata", ("metadata_locked", ("next_token_id", 
-  //   ("operators", ("token_creators", "token_metadata"))))))))))
+  // Storage structure from SmartPy FA2 v4:
+  // Layout: ("administrator", ("content_hashes", ("contract_metadata_locked", ("default_royalty_bps",
+  //   ("keep_fee", ("ledger", ("metadata", ("metadata_locked", ("next_token_id",
+  //   ("operators", ("paused", ("token_creators", "token_metadata"))))))))))))
   console.log('\n💾 Creating initial storage...');
-  
+
   // Build contract metadata (TZIP-16)
-  // Include dynamic oven thumbnail that shows latest kept piece
   const contractMetadataJson = JSON.stringify({
     name: "KidLisp Keeps",
-    version: "3.0.0",
+    version: "4.0.0",
     interfaces: ["TZIP-012", "TZIP-016", "TZIP-021"],
     authors: ["aesthetic.computer"],
     homepage: "https://aesthetic.computer",
     imageUri: "https://oven.aesthetic.computer/keeps/latest",
-    description: "Self-contained generative art pieces created with KidLisp on aesthetic.computer (v3 - owner editable)"
+    description: "Self-contained generative art with 10% royalties (v4 - royalties + pause + admin transfer)"
   });
   const contractMetadataBytes = stringToBytes(contractMetadataJson);
   const tezosStoragePointer = stringToBytes("tezos-storage:content");
-  
-  // Initial storage Michelson - v3 format with token_creators bigmap
-  // Format: (Pair admin (Pair content_hashes (Pair contract_metadata_locked (Pair keep_fee (Pair ledger (Pair metadata (Pair metadata_locked (Pair next_token_id (Pair operators (Pair token_creators token_metadata))))))))))
-  const initialStorageMichelson = `(Pair "${credentials.address}" (Pair {} (Pair False (Pair 0 (Pair {} (Pair {Elt "" 0x${tezosStoragePointer}; Elt "content" 0x${contractMetadataBytes}} (Pair {} (Pair 0 (Pair {} (Pair {} {}))))))))))`;
-  
+
+  // Initial storage Michelson - v4 format with royalties and pause
+  // Format: (Pair admin (Pair {} (Pair False (Pair 1000 (Pair 0 (Pair {} (Pair metadata (Pair {} (Pair 0 (Pair {} (Pair False (Pair {} {}))))))))))))
+  const initialStorageMichelson = `(Pair "${credentials.address}" (Pair {} (Pair False (Pair 1000 (Pair 0 (Pair {} (Pair {Elt "" 0x${tezosStoragePointer}; Elt "content" 0x${contractMetadataBytes}} (Pair {} (Pair 0 (Pair {} (Pair False (Pair {} {}))))))))))))`;
+
   const parsedStorage = parser.parseMichelineExpression(initialStorageMichelson);
-  
+
   console.log(`   ✓ Administrator: ${credentials.address}`);
   console.log('   ✓ Initial token ID: 0');
   console.log('   ✓ Keep fee: 0 mutez (free)');
+  console.log('   ✓ Default royalty: 10% (1000 basis points)');
+  console.log('   ✓ Paused: false');
   console.log('   ✓ Contract metadata: TZIP-16 compliant');
   console.log('   ✓ Collection image: https://oven.aesthetic.computer/keeps/latest');
   console.log('   ✓ Content hash uniqueness: enabled');
-  console.log('   ✓ Contract metadata locked: false');
-  console.log('   ✓ Token creators tracking: enabled (v3)');
+  console.log('   ✓ Token creators tracking: enabled (v4)');
   
   // Deploy
   console.log('\n📤 Deploying contract...');
@@ -1963,6 +1965,205 @@ async function withdrawFees(destination, options = {}) {
 }
 
 // ============================================================================
+// v4 NEW FEATURES - Royalty, Pause, Admin Transfer
+// ============================================================================
+
+async function getRoyalty(network = 'mainnet') {
+  console.log('\n╔══════════════════════════════════════════════════════════════╗');
+  console.log('║  🎨 Current Royalty Configuration                           ║');
+  console.log('╚══════════════════════════════════════════════════════════════╝\n');
+
+  const { tezos, config } = await createTezosClient(network);
+  const addressPath = getContractAddressPath(network);
+
+  if (!fs.existsSync(addressPath)) {
+    throw new Error(`No contract address found for ${network}. Deploy contract first.`);
+  }
+
+  const contractAddress = fs.readFileSync(addressPath, 'utf8').trim();
+  const contract = await tezos.contract.at(contractAddress);
+  const storage = await contract.storage();
+
+  const royaltyBps = storage.default_royalty_bps ? storage.default_royalty_bps.toNumber() : 1000;
+  const royaltyPercent = (royaltyBps / 100).toFixed(1);
+
+  console.log(`   Contract:  ${contractAddress}`);
+  console.log(`   Network:   ${config.name}`);
+  console.log(`   Royalty:   ${royaltyPercent}% (${royaltyBps} basis points)`);
+  console.log(`   Explorer:  ${config.explorer}/${contractAddress}\n`);
+
+  return { contractAddress, royaltyBps, royaltyPercent };
+}
+
+async function setRoyalty(percentage, options = {}) {
+  const network = options.network || 'mainnet';
+
+  console.log('\n╔══════════════════════════════════════════════════════════════╗');
+  console.log('║  🎨 Setting Default Royalty                                  ║');
+  console.log('╚══════════════════════════════════════════════════════════════╝\n');
+
+  if (percentage < 0 || percentage > 25) {
+    throw new Error('Royalty must be between 0% and 25%');
+  }
+
+  const bps = Math.round(percentage * 100); // Convert to basis points
+
+  const { tezos, credentials, config } = await createTezosClient(network);
+  const addressPath = getContractAddressPath(network);
+
+  if (!fs.existsSync(addressPath)) {
+    throw new Error(`No contract address found for ${network}. Deploy contract first.`);
+  }
+
+  const contractAddress = fs.readFileSync(addressPath, 'utf8').trim();
+
+  console.log(`   Setting royalty to ${percentage}% (${bps} basis points)...`);
+  console.log(`   Contract: ${contractAddress}`);
+  console.log(`   Admin:    ${credentials.address}\n`);
+
+  const contract = await tezos.contract.at(contractAddress);
+  const op = await contract.methodsObject.set_default_royalty(bps).send();
+
+  console.log(`   Transaction: ${op.hash}`);
+  console.log(`   Waiting for confirmation...`);
+
+  await op.confirmation(1);
+
+  console.log(`\n✅ Royalty set to ${percentage}%`);
+  console.log(`🔗 ${config.explorer}/${op.hash}\n`);
+}
+
+async function pauseContract(options = {}) {
+  const network = options.network || 'mainnet';
+
+  console.log('\n╔══════════════════════════════════════════════════════════════╗');
+  console.log('║  🚨 EMERGENCY PAUSE                                          ║');
+  console.log('╚══════════════════════════════════════════════════════════════╝\n');
+
+  const { tezos, credentials, config } = await createTezosClient(network);
+  const addressPath = getContractAddressPath(network);
+
+  if (!fs.existsSync(addressPath)) {
+    throw new Error(`No contract address found for ${network}. Deploy contract first.`);
+  }
+
+  const contractAddress = fs.readFileSync(addressPath, 'utf8').trim();
+
+  console.log(`   ⚠️  This will stop all minting and metadata edits`);
+  console.log(`   Contract: ${contractAddress}`);
+  console.log(`   Admin:    ${credentials.address}\n`);
+
+  // Confirmation prompt
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const answer = await new Promise(resolve => {
+    rl.question('Pause contract? (y/N): ', resolve);
+  });
+  rl.close();
+
+  if (answer.toLowerCase() !== 'y' && answer.toLowerCase() !== 'yes') {
+    console.log('\n❌ Cancelled.\n');
+    return;
+  }
+
+  const contract = await tezos.contract.at(contractAddress);
+  const op = await contract.methodsObject.pause().send();
+
+  console.log(`\n   Transaction: ${op.hash}`);
+  console.log(`   Waiting for confirmation...`);
+
+  await op.confirmation(1);
+
+  console.log(`\n✅ Contract PAUSED`);
+  console.log(`🔗 ${config.explorer}/${op.hash}\n`);
+  console.log(`⚠️  Minting and metadata edits are now disabled`);
+  console.log(`   Use "node keeps.mjs unpause" to resume operations\n`);
+}
+
+async function unpauseContract(options = {}) {
+  const network = options.network || 'mainnet';
+
+  console.log('\n╔══════════════════════════════════════════════════════════════╗');
+  console.log('║  ✅ UNPAUSE CONTRACT                                         ║');
+  console.log('╚══════════════════════════════════════════════════════════════╝\n');
+
+  const { tezos, credentials, config } = await createTezosClient(network);
+  const addressPath = getContractAddressPath(network);
+
+  if (!fs.existsSync(addressPath)) {
+    throw new Error(`No contract address found for ${network}. Deploy contract first.`);
+  }
+
+  const contractAddress = fs.readFileSync(addressPath, 'utf8').trim();
+
+  console.log(`   Resuming normal operations...`);
+  console.log(`   Contract: ${contractAddress}`);
+  console.log(`   Admin:    ${credentials.address}\n`);
+
+  const contract = await tezos.contract.at(contractAddress);
+  const op = await contract.methodsObject.unpause().send();
+
+  console.log(`   Transaction: ${op.hash}`);
+  console.log(`   Waiting for confirmation...`);
+
+  await op.confirmation(1);
+
+  console.log(`\n✅ Contract UNPAUSED`);
+  console.log(`🔗 ${config.explorer}/${op.hash}\n`);
+  console.log(`   Minting and metadata edits are now enabled\n`);
+}
+
+async function adminTransfer(tokenId, fromAddress, toAddress, options = {}) {
+  const network = options.network || 'mainnet';
+
+  console.log('\n╔══════════════════════════════════════════════════════════════╗');
+  console.log('║  🔄 Admin Emergency Transfer                                 ║');
+  console.log('╚══════════════════════════════════════════════════════════════╝\n');
+
+  const { tezos, credentials, config } = await createTezosClient(network);
+  const addressPath = getContractAddressPath(network);
+
+  if (!fs.existsSync(addressPath)) {
+    throw new Error(`No contract address found for ${network}. Deploy contract first.`);
+  }
+
+  const contractAddress = fs.readFileSync(addressPath, 'utf8').trim();
+
+  console.log(`   Token ID:  #${tokenId}`);
+  console.log(`   From:      ${fromAddress}`);
+  console.log(`   To:        ${toAddress}`);
+  console.log(`   Contract:  ${contractAddress}`);
+  console.log(`   Admin:     ${credentials.address}\n`);
+
+  // Confirmation prompt
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const answer = await new Promise(resolve => {
+    rl.question('Transfer token? (y/N): ', resolve);
+  });
+  rl.close();
+
+  if (answer.toLowerCase() !== 'y' && answer.toLowerCase() !== 'yes') {
+    console.log('\n❌ Cancelled.\n');
+    return;
+  }
+
+  const contract = await tezos.contract.at(contractAddress);
+  const op = await contract.methodsObject.admin_transfer({
+    token_id: tokenId,
+    from_: fromAddress,
+    to_: toAddress
+  }).send();
+
+  console.log(`\n   Transaction: ${op.hash}`);
+  console.log(`   Waiting for confirmation...`);
+
+  await op.confirmation(1);
+
+  console.log(`\n✅ Token transferred`);
+  console.log(`🔗 ${config.explorer}/${op.hash}`);
+  console.log(`📊 ${config.explorer}/${contractAddress}/tokens/${tokenId}\n`);
+}
+
+// ============================================================================
 // CLI Interface
 // ============================================================================
 
@@ -2158,7 +2359,66 @@ async function main() {
         await setAdministrator(newAdmin, { network: getNetwork(2) });
         break;
       }
-        
+
+      // v4 NEW COMMANDS
+      case 'royalty':
+      case 'royalty:get':
+        await getRoyalty(getNetwork(1));
+        break;
+
+      case 'royalty:set': {
+        if (!args[1]) {
+          console.error('Usage: node keeps.mjs royalty:set <percentage> [network]');
+          console.error('');
+          console.error('Examples:');
+          console.error('  node keeps.mjs royalty:set 10      # Set royalty to 10%');
+          console.error('  node keeps.mjs royalty:set 15      # Set royalty to 15%');
+          console.error('  node keeps.mjs royalty:set 0       # No royalties');
+          console.error('');
+          console.error('Maximum: 25%');
+          process.exit(1);
+        }
+        const percentage = parseFloat(args[1]);
+        if (isNaN(percentage)) {
+          console.error('❌ Invalid percentage. Must be a number.');
+          process.exit(1);
+        }
+        await setRoyalty(percentage, { network: getNetwork(2) });
+        break;
+      }
+
+      case 'pause':
+        await pauseContract({ network: getNetwork(1) });
+        break;
+
+      case 'unpause':
+        await unpauseContract({ network: getNetwork(1) });
+        break;
+
+      case 'transfer:admin': {
+        if (!args[1] || !args[2] || !args[3]) {
+          console.error('Usage: node keeps.mjs transfer:admin <token_id> <from_address> <to_address> [network]');
+          console.error('');
+          console.error('Examples:');
+          console.error('  node keeps.mjs transfer:admin 5 tz1abc... tz1def...');
+          console.error('');
+          console.error('Note: This is for customer service / emergency use only.');
+          console.error('      Requires admin authorization.');
+          process.exit(1);
+        }
+        const tokenId = parseInt(args[1]);
+        const fromAddr = args[2];
+        const toAddr = args[3];
+
+        if (!fromAddr.startsWith('tz') || !toAddr.startsWith('tz')) {
+          console.error('❌ Invalid Tezos address. Must start with tz1, tz2, or tz3.');
+          process.exit(1);
+        }
+
+        await adminTransfer(tokenId, fromAddr, toAddr, { network: getNetwork(4) });
+        break;
+      }
+
       case 'help':
       default:
         console.log(`
@@ -2184,6 +2444,14 @@ Commands:
   set-fee <tez> [network]       Set keep fee (admin only)
   set-admin <address>           Change contract administrator (admin only)
   withdraw [dest] [network]     Withdraw accumulated fees to address
+
+v4 Commands (Royalties, Pause, Admin Transfer):
+  royalty [network]             Show current default royalty percentage
+  royalty:set <pct> [network]   Set default royalty (0-25%, admin only)
+  pause [network]               Emergency pause (stops minting, admin only)
+  unpause [network]             Resume operations (admin only)
+  transfer:admin <id> <from> <to>  Emergency token transfer (admin only)
+
   help                          Show this help
 
 Networks:
@@ -2205,6 +2473,13 @@ Examples:
   node keeps.mjs update 0 wand              # Re-upload bundle & update metadata
   node keeps.mjs lock 0                     # Permanently lock token 0
   node keeps.mjs burn 0                     # Burn token 0 (allows re-mint)
+
+v4 Examples:
+  node keeps.mjs royalty:set 10             # Set royalty to 10%
+  node keeps.mjs royalty                    # View current royalty
+  node keeps.mjs pause                      # Emergency pause
+  node keeps.mjs unpause                    # Resume operations
+  node keeps.mjs transfer:admin 5 tz1... tz1...  # Emergency transfer
   
   # Fee management
   node keeps.mjs fee                        # Show current keep fee

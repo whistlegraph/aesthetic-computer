@@ -889,6 +889,14 @@ export const handler = stream(async (event, context) => {
       // creators array contains just the wallet address for on-chain attribution
       const creatorsArray = [creatorWalletAddress];
       
+      // v4: 10% royalty to creator on secondary sales
+      const royalties = {
+        decimals: 4,
+        shares: {
+          [creatorWalletAddress]: "1000"  // 10% = 1000/10000 basis points
+        }
+      };
+
       const metadataJson = {
         name: tokenName,
         description,
@@ -901,6 +909,7 @@ export const handler = stream(async (event, context) => {
         shouldPreferSymbol: false,
         minter: authorHandle,
         creators: creatorsArray,
+        royalties,  // v4: Add royalty configuration
         rights: "© All rights reserved",
         mintingTool: "https://aesthetic.computer",
         formats: [{
@@ -938,6 +947,7 @@ export const handler = stream(async (event, context) => {
         tags: stringToBytes(JSON.stringify(tags)),
         attributes: stringToBytes(JSON.stringify(attributes)),
         creators: stringToBytes(JSON.stringify(creatorsArray)),
+        royalties: stringToBytes(JSON.stringify(royalties)),  // v4: Add royalty on-chain
         // NOTE: Don't set minter field - objkt uses creators array for artist attribution
         // Setting minter to a display handle breaks objkt's profile resolution
         rights: stringToBytes("© All rights reserved"),
@@ -984,6 +994,7 @@ export const handler = stream(async (event, context) => {
           name: onChainMetadata.name,
           owner: ownerAddress,
           rights: onChainMetadata.rights,
+          royalties: onChainMetadata.royalties,  // v4: Include royalty metadata
           shouldPreferSymbol: onChainMetadata.shouldPreferSymbol,
           symbol: onChainMetadata.symbol,
           tags: onChainMetadata.tags,
@@ -1051,6 +1062,7 @@ export const handler = stream(async (event, context) => {
         name: onChainMetadata.name,
         owner: destinationAddress,
         rights: onChainMetadata.rights,
+        royalties: onChainMetadata.royalties,  // v4: Include royalty metadata
         shouldPreferSymbol: onChainMetadata.shouldPreferSymbol,
         symbol: onChainMetadata.symbol,
         tags: onChainMetadata.tags,

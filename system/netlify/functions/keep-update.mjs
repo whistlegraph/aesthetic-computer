@@ -353,7 +353,15 @@ export const handler = stream(async (event) => {
       
       // Build complete off-chain metadata JSON (TZIP-21 compliant)
       const creatorsArray = [originalMinter];
-      
+
+      // v4: Preserve 10% royalty to original creator
+      const royalties = {
+        decimals: 4,
+        shares: {
+          [originalMinter]: "1000"  // 10% = 1000/10000 basis points
+        }
+      };
+
       const metadataJson = {
         name: tokenName,
         description: description.replace(/\n+/g, ", "),
@@ -366,6 +374,7 @@ export const handler = stream(async (event) => {
         shouldPreferSymbol: false,
         minter: authorHandle, // Display handle for UI (objkt shows this)
         creators: creatorsArray, // Wallet address for on-chain attribution
+        royalties,  // v4: Preserve royalty on metadata update
         rights: "© All rights reserved",
         mintingTool: "https://aesthetic.computer",
         formats: [{
@@ -412,6 +421,7 @@ export const handler = stream(async (event) => {
       tokenInfo.set("tags", stringToBytes(JSON.stringify(tags)));
       tokenInfo.set("attributes", stringToBytes(JSON.stringify(attributes)));
       tokenInfo.set("creators", stringToBytes(JSON.stringify(creatorsArray)));
+      tokenInfo.set("royalties", stringToBytes(JSON.stringify(royalties)));  // v4: Preserve royalty
       tokenInfo.set("rights", stringToBytes("© All rights reserved"));
       tokenInfo.set("content_type", stringToBytes("KidLisp"));
       tokenInfo.set("content_hash", stringToBytes(pieceName));

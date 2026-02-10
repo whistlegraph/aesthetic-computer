@@ -968,64 +968,9 @@ function generateHTMLBundle(opts) {
   <style>
     body { margin: 0; padding: 0; background: black; overflow: hidden; }
     canvas { display: block; image-rendering: pixelated; }
-    #fps-meter {
-      position: fixed;
-      top: 4px;
-      left: 4px;
-      font-family: monospace;
-      font-size: 12px;
-      color: lime;
-      background: rgba(0,0,0,0.7);
-      padding: 2px 6px;
-      z-index: 99999;
-      pointer-events: none;
-      border-radius: 2px;
-    }
   </style>
 </head>
 <body>
-  <div id="fps-meter">FPS: --</div>
-  <script>
-    // FPS meter with diagnostics
-    (function() {
-      const meter = document.getElementById('fps-meter');
-      let frames = 0;
-      let lastTime = performance.now();
-      let fps = 0;
-      let minFrameTime = Infinity;
-      let maxFrameTime = 0;
-      let lastFrameTime = performance.now();
-      
-      function tick() {
-        const now = performance.now();
-        const frameTime = now - lastFrameTime;
-        lastFrameTime = now;
-        
-        if (frameTime > 0 && frameTime < 10000) {
-          minFrameTime = Math.min(minFrameTime, frameTime);
-          maxFrameTime = Math.max(maxFrameTime, frameTime);
-        }
-        
-        frames++;
-        if (now - lastTime >= 1000) {
-          fps = Math.round(frames * 1000 / (now - lastTime));
-          frames = 0;
-          lastTime = now;
-          
-          // Show FPS and frame time range
-          const mem = performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1024 / 1024) + 'MB' : '?';
-          meter.innerHTML = 'FPS: ' + fps + '<br>Frame: ' + Math.round(minFrameTime) + '-' + Math.round(maxFrameTime) + 'ms<br>Mem: ' + mem;
-          meter.style.color = fps >= 30 ? 'lime' : fps >= 15 ? 'yellow' : 'red';
-          
-          // Reset for next second
-          minFrameTime = Infinity;
-          maxFrameTime = 0;
-        }
-        requestAnimationFrame(tick);
-      }
-      tick();
-    })();
-  </script>
   <script type="module">
     window.acPACK_MODE = true; // Required for import map resolution from blob URLs
     window.KIDLISP_SUPPRESS_SNAPSHOT_LOGS = true; // Disable console screenshots

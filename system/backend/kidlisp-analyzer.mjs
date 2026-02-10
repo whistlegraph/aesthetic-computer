@@ -50,79 +50,12 @@ const PRIMITIVES = {
 
 export function analyzeKidLisp(source, options = {}) {
   if (!source || typeof source !== "string") {
-    return { error: "Invalid source", traits: [] };
+    return { error: "Invalid source", chars: 0 };
   }
 
-  // Basic metrics
-  const lines = source.split("\n");
-  const codeLines = lines.filter(l => l.trim() && !l.trim().startsWith(";"));
-  const commentLines = lines.filter(l => l.trim().startsWith(";"));
-  
-  // S-expression analysis
-  const sexp = analyzeSExpressions(source);
-  
-  // Form analysis
-  const forms = analyzeForms(source);
-  
-  // Timing patterns
-  const timing = analyzeTimingPatterns(source);
-  
-  // Definitions
-  const defs = analyzeDefinitions(source);
-  
-  // Dependencies (embeds)
-  const deps = analyzeDependencies(source);
-  
-  // Color usage
-  const colors = analyzeColors(source);
-  
-  // Behavioral traits
-  const behavior = analyzeBehavior(source, forms, timing);
-  
-  // Build formal traits for NFT
-  const traits = buildFormalTraits({
-    source,
-    lines: codeLines.length,
-    comments: commentLines.length,
-    chars: source.length,
-    sexp,
-    forms,
-    timing,
-    defs,
-    deps,
-    colors,
-    behavior,
-  });
-
+  // Only return character count
   return {
-    // Structural metrics
-    lines: codeLines.length,
-    comments: commentLines.length,
     chars: source.length,
-    
-    // S-expression structure
-    sexp,
-    
-    // Form breakdown
-    forms,
-    
-    // Timing
-    timing,
-    
-    // Definitions
-    defs,
-    
-    // Dependencies
-    deps,
-    
-    // Colors
-    colors,
-    
-    // Behavior flags
-    behavior,
-    
-    // NFT Traits
-    traits,
   };
 }
 
@@ -459,4 +392,4 @@ function buildFormalTraits(analysis) {
 }
 
 // Export version for tracking
-export const ANALYZER_VERSION = "2.0.0";
+export const ANALYZER_VERSION = "3.0.0"; // Simplified: only character count
