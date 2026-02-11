@@ -17343,7 +17343,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
           // Use async rendering for better performance (except during tape playback for immediate UI)
           const forceSynchronousRendering = isRecording || needs$creenshot;
-          
+
+          // 🎪 Calculate bumper offset for piece content positioning
+          const bumperOffset = content.bumperOverlay?.img?.height || 0;
+
           // Skip CPU rendering if WebGPU is enabled
           if (content.webgpuEnabled) {
             // Switch backend if piece requests a specific one
@@ -17404,7 +17407,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               overlayCan.style.display = "none";
             }
             // Force sync rendering during tape playback for immediate UI updates
-            ctx.putImageData(imageData, 0, 0);
+            ctx.putImageData(imageData, 0, bumperOffset);
           } else if (!forceSynchronousRendering && window.pixelOptimizer && window.pixelOptimizer.asyncRenderingSupported) {
             try {
               if (canvas.style.visibility !== "visible") {
@@ -17420,7 +17423,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 overlayCan.style.display = "none";
               }
               // Non-blocking async rendering
-              window.pixelOptimizer.renderImageDataAsync(imageData, ctx, 0, 0).then(() => {
+              window.pixelOptimizer.renderImageDataAsync(imageData, ctx, 0, bumperOffset).then(() => {
                 // Paint overlays after async fallback rendering completes
                 if (paintOverlays["bumperOverlay"]) paintOverlays["bumperOverlay"](); // Paint bumper first (at the top)
                 if (paintOverlays["label"]) paintOverlays["label"]();
@@ -17433,7 +17436,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 if (paintOverlays["hitboxDebug"]) paintOverlays["hitboxDebug"](); // Debug overlay (green hitbox)
               }).catch(err => {
                 console.warn('🟡 Fallback async rendering failed:', err);
-                ctx.putImageData(imageData, 0, 0);
+                ctx.putImageData(imageData, 0, bumperOffset);
                 skipImmediateOverlays = false;
               });
               skipImmediateOverlays = true; // Skip immediate overlays; they'll paint in async callback
@@ -17450,7 +17453,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               if (overlayCan.style.display !== "none") {
                 overlayCan.style.display = "none";
               }
-              ctx.putImageData(imageData, 0, 0);
+              ctx.putImageData(imageData, 0, bumperOffset);
               skipImmediateOverlays = false;
             }
           } else {
@@ -17466,7 +17469,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             if (overlayCan.style.display !== "none") {
               overlayCan.style.display = "none";
             }
-            ctx.putImageData(imageData, 0, 0);
+            ctx.putImageData(imageData, 0, bumperOffset);
             skipImmediateOverlays = false;
           }
         } else {
@@ -17500,11 +17503,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 ctx.canvas.height,
               );
               if (imageData.data.buffer.byteLength > 0) {
+                // 🎪 Calculate bumper offset for piece content positioning
+                const bumperOffset = content.bumperOverlay?.img?.height || 0;
+
                 // Use async rendering for better performance (except during tape playback for immediate UI)
                 const forceSynchronousRendering = isRecording || needs$creenshot;
                 if (!forceSynchronousRendering && window.pixelOptimizer && window.pixelOptimizer.asyncRenderingSupported) {
                   try {
-                    window.pixelOptimizer.renderImageDataAsync(imageData, ctx, 0, 0).then(() => {
+                    window.pixelOptimizer.renderImageDataAsync(imageData, ctx, 0, bumperOffset).then(() => {
                       if (paintOverlays["bumperOverlay"]) paintOverlays["bumperOverlay"](); // Paint bumper first
                       if (paintOverlays["label"]) paintOverlays["label"]();
                       if (paintOverlays["qrOverlay"]) paintOverlays["qrOverlay"]();
@@ -17516,17 +17522,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                       if (paintOverlays["hitboxDebug"]) paintOverlays["hitboxDebug"]();
                     }).catch(err => {
                       console.warn('🟡 Async rendering failed:', err);
-                      ctx.putImageData(imageData, 0, 0);
+                      ctx.putImageData(imageData, 0, bumperOffset);
                       skipImmediateOverlays = false;
                     });
                     skipImmediateOverlays = true; // Skip immediate overlays; they'll paint in async callback
                   } catch (err) {
                     console.warn('🟡 Async render setup failed, using fallback:', err);
-                    ctx.putImageData(imageData, 0, 0);
+                    ctx.putImageData(imageData, 0, bumperOffset);
                     skipImmediateOverlays = false;
                   }
                 } else {
-                  ctx.putImageData(imageData, 0, 0);
+                  ctx.putImageData(imageData, 0, bumperOffset);
                   skipImmediateOverlays = false;
                 }
               }

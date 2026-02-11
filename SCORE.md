@@ -182,11 +182,83 @@ The development environment uses Emacs with named terminal buffers. Use Emacs MC
 3. Send newline to execute
 
 **Fish Shell Commands (`ac-*` helpers):**
+
+#### Emacs & Development Environment
+- `ac-aesthetic` — Connect to aesthetic emacs UI (alias for `aesthetic-now`)
+- `ac-emacs-restart` — Kill and restart emacs daemon
+- `ac-emacs-full-restart` — Restart emacs and reconnect UI
+- `ac-emacs-kill` — Kill emacs daemon
+- `ac-emacs-status` — Check emacs daemon health
+- `ac-emacs-logs` — View emacs logs
+- `ac-emacs-health-check` — Verify emacs config loaded correctly
+- `ac-restart` — Restart all AC tabs/processes (calls emacs `ac-restart`)
+- `ac-crash-diary` — View emacs crash log
+- `ac-emacs-crash-monitor` — Background process that monitors emacs
+
+#### Core Development
+- `ac-artery` — Start artery development server
+- `ac-artery-dev` — Start artery in dev mode
+- `ac-site` — Start site server
+- `ac-session` — Start session server
+- `ac-url` — Get local tunnel URL
+- `ac-views` — View stats
+- `ac-watch` — Watch and rebuild (alias for `npm run watch`)
+- `ac-repl` — Start REPL
+
+#### Testing & Debugging
+- `ac-test-tabs` — Test tab functionality
+- `ac-diagnose` — Run diagnostics
+- `ac-profile-start` — Start performance profiling
+- `ac-profile-stop` — Stop performance profiling
+- `ac-profile-report` — Generate profile report
+- `ac-watch-cpu` — Monitor CPU usage
+- `ac-dev-log` — View development logs
+- `ac-dev-logs` — View all dev logs
+- `ac-dev-log-clean` — Clean old logs
+- `ac-dev-log-new` — Create new log
+
+#### Deployment & Distribution
+- `ac-pack` — Package for distribution
+- `ac-unpack` — Unpack distribution
+- `ac-ship` — Deploy/ship changes
+- `ac-keep` — Save state/backup
+- `ac-keeps` — List saved states
+- `ac-keep-test` — Test keep functionality
+
+#### Media & Recording
+- `ac-tv` — TV mode
+- `ac-record` — Start recording
+- `ac-pix` — Image utilities
+- `ac-media` — Media server
+
+#### Services & Infrastructure
+- `ac-servers` — Start all servers
+- `ac-tunnel` — Start tunnel
+- `ac-chat-system` — Start chat system
+- `ac-chat-sotce` — Start sotce chat
+- `ac-chat-clock` — Start clock chat
+- `ac-stripe-print` — Stripe print service
+- `ac-stripe-ticket` — Stripe ticket service
+- `ac-logger` — View netlify function logs
+- `ac-oven` — Oven service
+- `ac-offline` — Offline mode
+
+#### Authentication & Tokens
+- `ac-login` — Login to AC
+- `ac-token` — Manage auth tokens
+
+#### Other Tools
 - `ac-host` — List machines, SSH connection info
-- `ac-ff1` — FF1 art computer control
-- `ac-electron-*` — Electron app management
-- `ac-tv`, `ac-pack`, `ac-keep` — Various dev tools
-- (Run `ac-host` in fishy to see all available commands)
+- `ac-cdp-tunnel` — CDP tunnel
+- `ac-cdp-status` — CDP status
+- `ac-extension` — Build VSCode extension
+
+**Quick Start:**
+```fish
+ac-aesthetic          # Connect to development UI
+ac-emacs-full-restart # Restart everything
+ac-restart            # Restart AC services only
+```
 
 **NPM Scripts:**
 - `npm run aesthetic` — Full-stack local (site + session + services)
