@@ -3649,8 +3649,7 @@ const notepatOGCache = {
 
 /**
  * Generate a branded OG image for notepat.com (1200x630 PNG).
- * Renders a piano-pad grid with notepat's signature note colors,
- * "notepat.com" branding, and a decorative waveform — all from SVG, no Puppeteer.
+ * Shows the actual split-layout chromatic pad interface with keyboard shortcuts.
  */
 export async function generateNotepatOGImage(forceRegenerate = false) {
   console.log(`\n🎹 Notepat OG Image Request (force: ${forceRegenerate})`);
@@ -3666,112 +3665,153 @@ export async function generateNotepatOGImage(forceRegenerate = false) {
   const W = 1200;
   const H = 630;
 
-  // Notepat note colors (from note-colors.mjs — base octave 4 ROYGBIV)
-  const noteColors = {
-    C: [255, 50, 50],
-    D: [255, 160, 0],
-    E: [255, 230, 0],
-    F: [50, 200, 50],
-    G: [50, 120, 255],
-    A: [130, 50, 200],
-    B: [180, 80, 255],
-  };
+  // Full chromatic scale note colors (matching note-colors.mjs logic)
+  const getNoteColor = (noteName, octave) => {
+    const baseColors = {
+      'C':  [255, 50, 50],    // Red
+      'C#': [255, 100, 30],   // Red-Orange
+      'D':  [255, 160, 0],    // Orange
+      'D#': [255, 200, 0],    // Yellow-Orange
+      'E':  [255, 230, 0],    // Yellow
+      'F':  [50, 200, 50],    // Green
+      'F#': [50, 160, 120],   // Teal
+      'G':  [50, 120, 255],   // Blue
+      'G#': [90, 80, 220],    // Blue-Purple
+      'A':  [130, 50, 200],   // Purple
+      'A#': [160, 50, 220],   // Purple-Magenta
+      'B':  [180, 80, 255],   // Magenta
+    };
 
-  // Upper octave dayglo colors
-  const daygloColors = {
-    C: [255, 40, 80],
-    D: [255, 180, 0],
-    E: [255, 255, 50],
-    F: [50, 255, 100],
-    G: [50, 200, 255],
-    A: [180, 50, 255],
-    B: [255, 80, 255],
-  };
-
-  const notes = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
-
-  // Layout: 2 rows of 7 pads (two octaves)
-  const cols = 7;
-  const rows = 2;
-  const padGap = 12;
-  const gridW = 720;
-  const gridH = 300;
-  const padW = (gridW - (cols - 1) * padGap) / cols;
-  const padH = (gridH - (rows - 1) * padGap) / rows;
-  const gridX = (W - gridW) / 2;
-  const gridY = 230;
-  const padRadius = 10;
-
-  // Build pad SVG elements
-  let padsSvg = '';
-  for (let row = 0; row < rows; row++) {
-    const colors = row === 0 ? noteColors : daygloColors;
-    for (let col = 0; col < cols; col++) {
-      const note = notes[col];
-      const [r, g, b] = colors[note];
-      const x = gridX + col * (padW + padGap);
-      const y = gridY + row * (padH + padGap);
-
-      // Pad rectangle
-      padsSvg += `<rect x="${x}" y="${y}" width="${padW}" height="${padH}" rx="${padRadius}" fill="rgb(${r},${g},${b})" opacity="0.9"/>`;
-
-      // Note label (centered in pad)
-      const labelX = x + padW / 2;
-      const labelY = y + padH / 2 + 10;
-      const textColor = (note === 'E' || note === 'F') ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.7)';
-      padsSvg += `<text x="${labelX}" y="${labelY}" font-family="monospace, 'Courier New'" font-size="28" font-weight="bold" fill="${textColor}" text-anchor="middle">${note}${row === 0 ? '4' : '5'}</text>`;
+    // Octave 5 gets brighter dayglo treatment
+    if (octave === 5) {
+      const boost = 40;
+      const [r, g, b] = baseColors[noteName];
+      return [
+        Math.min(255, r + boost),
+        Math.min(255, g + boost),
+        Math.min(255, b + boost),
+      ];
     }
+    return baseColors[noteName];
+  };
+
+  // All 24 chromatic notes in notepat layout
+  const leftOctave = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  const rightOctave = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+  // Keyboard mappings (matching NOTE_TO_KEYBOARD_KEY)
+  const leftKeys = ['c', 'v', 'd', 's', 'e', 'f', 'w', 'g', 'r', 'a', 'q', 'b'];
+  const rightKeys = ['h', 't', 'i', 'y', 'j', 'k', 'u', 'l', 'o', 'm', 'p', 'n'];
+
+  // Layout: Split design with left and right octaves
+  const padW = 42;
+  const padH = 90;
+  const padGap = 6;
+  const padRadius = 4;
+
+  const cols = 4; // 4 columns per octave side
+  const rows = 3; // 3 rows per octave side
+
+  const octaveW = cols * padW + (cols - 1) * padGap;
+  const octaveH = rows * padH + (rows - 1) * padGap;
+
+  const splitGap = 140; // Center gap for split layout
+  const totalW = octaveW * 2 + splitGap;
+
+  const leftX = (W - totalW) / 2;
+  const rightX = leftX + octaveW + splitGap;
+  const topY = 180;
+
+  // Build pads SVG
+  let padsSvg = '';
+
+  // Left octave (octave 4)
+  for (let i = 0; i < 12; i++) {
+    const row = Math.floor(i / cols);
+    const col = i % cols;
+    const x = leftX + col * (padW + padGap);
+    const y = topY + row * (padH + padGap);
+
+    const noteName = leftOctave[i];
+    const key = leftKeys[i];
+    const [r, g, b] = getNoteColor(noteName, 4);
+
+    // Pad
+    padsSvg += `<rect x="${x}" y="${y}" width="${padW}" height="${padH}" rx="${padRadius}" fill="rgb(${r},${g},${b})" opacity="0.92"/>`;
+
+    // Note label (top)
+    const noteLabel = noteName.replace('#', '♯');
+    const textColor = (noteName.includes('E') || noteName.includes('F')) ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.85)';
+    padsSvg += `<text x="${x + padW/2}" y="${y + 18}" font-family="monospace" font-size="13" font-weight="bold" fill="${textColor}" text-anchor="middle">${noteLabel}</text>`;
+
+    // Key label (bottom)
+    padsSvg += `<text x="${x + padW/2}" y="${y + padH - 8}" font-family="monospace" font-size="11" fill="${textColor}" opacity="0.7" text-anchor="middle">${key}</text>`;
   }
 
-  // Waveform path (decorative sine-ish wave across the top)
-  let wavePath = `M 80 120`;
-  for (let i = 0; i <= 100; i++) {
-    const x = 80 + (i / 100) * (W - 160);
-    const y = 120 + Math.sin(i * 0.18) * 30 * Math.sin(i * 0.04) + Math.sin(i * 0.07) * 15;
+  // Right octave (octave 5)
+  for (let i = 0; i < 12; i++) {
+    const row = Math.floor(i / cols);
+    const col = i % cols;
+    const x = rightX + col * (padW + padGap);
+    const y = topY + row * (padH + padGap);
+
+    const noteName = rightOctave[i];
+    const key = rightKeys[i];
+    const [r, g, b] = getNoteColor(noteName, 5);
+
+    // Pad
+    padsSvg += `<rect x="${x}" y="${y}" width="${padW}" height="${padH}" rx="${padRadius}" fill="rgb(${r},${g},${b})" opacity="0.92"/>`;
+
+    // Note label (top)
+    const noteLabel = noteName.replace('#', '♯');
+    const textColor = (noteName.includes('E') || noteName.includes('F')) ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.85)';
+    padsSvg += `<text x="${x + padW/2}" y="${y + 18}" font-family="monospace" font-size="13" font-weight="bold" fill="${textColor}" text-anchor="middle">${noteLabel}</text>`;
+
+    // Key label (bottom)
+    padsSvg += `<text x="${x + padW/2}" y="${y + padH - 8}" font-family="monospace" font-size="11" fill="${textColor}" opacity="0.7" text-anchor="middle">${key}</text>`;
+  }
+
+  // Decorative waveform across top
+  let wavePath = `M 60 100`;
+  for (let i = 0; i <= 120; i++) {
+    const x = 60 + (i / 120) * (W - 120);
+    const y = 100 + Math.sin(i * 0.15) * 18 + Math.cos(i * 0.08) * 12;
     wavePath += ` L ${x.toFixed(1)} ${y.toFixed(1)}`;
-  }
-
-  // Subtle scan line pattern
-  let scanLines = '';
-  for (let y = 0; y < H; y += 4) {
-    scanLines += `<rect x="0" y="${y}" width="${W}" height="1" fill="#000" opacity="0.06"/>`;
   }
 
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#0a0a12"/>
-      <stop offset="100%" style="stop-color:#12121e"/>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a3c"/>
+      <stop offset="100%" style="stop-color:#0d0d28"/>
     </linearGradient>
     <linearGradient id="waveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" style="stop-color:#4ecdc4;stop-opacity:0"/>
-      <stop offset="20%" style="stop-color:#4ecdc4;stop-opacity:0.5"/>
-      <stop offset="50%" style="stop-color:#ff6b9d;stop-opacity:0.6"/>
-      <stop offset="80%" style="stop-color:#4ecdc4;stop-opacity:0.5"/>
-      <stop offset="100%" style="stop-color:#4ecdc4;stop-opacity:0"/>
+      <stop offset="0%" style="stop-color:#6080ff;stop-opacity:0.15"/>
+      <stop offset="50%" style="stop-color:#8090ff;stop-opacity:0.35"/>
+      <stop offset="100%" style="stop-color:#6080ff;stop-opacity:0.15"/>
     </linearGradient>
   </defs>
 
-  <!-- Background -->
+  <!-- Background (notepat's blue theme) -->
   <rect width="${W}" height="${H}" fill="url(#bg)"/>
 
-  <!-- Scan lines -->
-  ${scanLines}
+  <!-- Waveform decoration -->
+  <path d="${wavePath}" fill="none" stroke="url(#waveGrad)" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
 
-  <!-- Waveform -->
-  <path d="${wavePath}" fill="none" stroke="url(#waveGrad)" stroke-width="2.5" stroke-linecap="round"/>
-
-  <!-- Pads -->
+  <!-- Pads (split layout) -->
   ${padsSvg}
 
-  <!-- "notepat" text -->
-  <text x="${W / 2 - 30}" y="${gridY + gridH + 75}" font-family="monospace, 'Courier New'" font-size="42" font-weight="bold" fill="#e8e4de" text-anchor="middle" letter-spacing="3">notepat</text>
-  <!-- ".com" accent -->
-  <text x="${W / 2 + 128}" y="${gridY + gridH + 58}" font-family="monospace, 'Courier New'" font-size="18" fill="#4ecdc4">.com</text>
+  <!-- Octave labels -->
+  <text x="${leftX + octaveW/2}" y="${topY - 20}" font-family="monospace" font-size="14" fill="rgba(200,200,255,0.5)" text-anchor="middle">octave 4</text>
+  <text x="${rightX + octaveW/2}" y="${topY - 20}" font-family="monospace" font-size="14" fill="rgba(200,200,255,0.5)" text-anchor="middle">octave 5</text>
 
-  <!-- Subtle tagline -->
-  <text x="${W / 2}" y="${H - 30}" font-family="monospace, 'Courier New'" font-size="16" fill="rgba(232,228,222,0.35)" text-anchor="middle">tap the pads to play</text>
+  <!-- "notepat" branding -->
+  <text x="${W / 2}" y="${topY + octaveH + 70}" font-family="monospace" font-size="48" font-weight="bold" fill="#e8e4de" text-anchor="middle" letter-spacing="4">notepat</text>
+  <text x="${W / 2}" y="${topY + octaveH + 100}" font-family="monospace" font-size="16" fill="rgba(200,210,255,0.6)" text-anchor="middle">split-layout chromatic piano</text>
+
+  <!-- Footer tagline -->
+  <text x="${W / 2}" y="${H - 25}" font-family="monospace" font-size="14" fill="rgba(200,200,220,0.4)" text-anchor="middle">aesthetic.computer/notepat</text>
 </svg>`;
 
   // Convert SVG to PNG using sharp
