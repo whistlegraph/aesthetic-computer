@@ -2782,9 +2782,10 @@
 
         if (!colorStyles.has(colorKey)) {
           // Create and inject CSS for this color
+          // Must use Monaco's DOM structure path
           const style = document.createElement('style');
           style.id = `monaco-color-${colorKey}`;
-          style.textContent = `.${className} { color: ${color} !important; }`;
+          style.textContent = `.monaco-editor .view-line > span > span.${className} { color: ${color} !important; font-weight: bold; }`;
           document.head.appendChild(style);
           colorStyles.set(colorKey, className);
           console.log('📺 Created Monaco style:', className, '→', color);
