@@ -990,14 +990,20 @@
         // Create Monaco editor in the container
         const container = document.getElementById('monaco-container');
         if (container) {
+          // Calculate font size to match scramble overlay
+          // Scramble uses: calc(var(--ui-scale, 8) * 2.5px)
+          const uiScale = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ui-scale') || '8');
+          const fontSize = uiScale * 2.5;
+          const lineHeight = fontSize * 1.5;
+
           deviceMonacoEditor = monaco.editor.create(container, {
             value: '',
             language: 'kidlisp',
             theme: 'kidlisp-device',
             minimap: { enabled: false },
             scrollBeyondLastLine: false,
-            fontSize: 14,
-            lineHeight: 21,
+            fontSize: fontSize,
+            lineHeight: lineHeight,
             lineNumbers: 'off',
             glyphMargin: false,
             folding: false,
