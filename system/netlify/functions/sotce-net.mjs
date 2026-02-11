@@ -6937,10 +6937,10 @@ export const handler = async (event, context) => {
                     ctx.textAlign = "center";
                     const pageNumY = y + h - em * 2;
                     const displayNum = pageData.questionNumber || idx;
-                    // Show syntax form on hover, fancy symbols otherwise
+                    // Show syntax form on hover, fleurons otherwise (like old Wingdings-2 h/g)
                     const pageNumText = (hoverPageNum && offsetY === 0)
                       ? "*" + displayNum + "*"
-                      : "✦ " + displayNum + " ✦";
+                      : "☙ " + displayNum + " ❧";
                     ctx.fillText(pageNumText, x + w/2, pageNumY);
                   } else {
                     // PAGE RENDERING (diary pages)
@@ -6979,10 +6979,10 @@ export const handler = async (event, context) => {
                     ctx.textAlign = "center";
                     const pageNumY = y + h - em * 2;
                     const displayNum = pageData.pageNumber || idx;
-                    // Show syntax form on hover, fancy symbols otherwise
+                    // Show syntax form on hover, fleurons otherwise (like old Wingdings-2 h/g)
                     const pageNumText = (hoverPageNum && offsetY === 0)
                       ? "- " + displayNum + " -"
-                      : "❧ " + displayNum + " ☙";
+                      : "☙ " + displayNum + " ❧";
                     ctx.fillText(pageNumText, x + w/2, pageNumY);
                   }
                   
@@ -7345,9 +7345,60 @@ export const handler = async (event, context) => {
                     }
                   }
 
+                  // Apply wheel momentum with smooth inertia
+                  if (isWheelScrolling && transitionDirection === 0) {
+                    // Apply velocity to position
+                    wheelDelta += wheelVelocity;
+                    dragDelta = wheelDelta;
+
+                    // Apply friction/decay to velocity for natural slowdown
+                    const friction = 0.92;
+                    wheelVelocity *= friction;
+
+                    // Stop when velocity is negligible
+                    if (Math.abs(wheelVelocity) < 0.5) {
+                      wheelVelocity = 0;
+                    }
+
+                    // Check if we should transition to next/prev page
+                    const slideDistance = cardHeight + 40;
+                    const threshold = slideDistance * 0.35; // Lower threshold for smoother page changes
+
+                    if (Math.abs(wheelDelta) > threshold) {
+                      const targetIdx = wheelDelta > 0 ? displayedPageIndex + 1 : displayedPageIndex - 1;
+
+                      if (targetIdx >= 1 && targetIdx <= loadedFeedCount) {
+                        // Smooth transition to next page
+                        const currentProgress = Math.min(1, Math.abs(wheelDelta) / slideDistance);
+                        goToPage(targetIdx, currentProgress);
+                        wheelDelta = 0;
+                        wheelVelocity = 0;
+                        isWheelScrolling = false;
+                      } else {
+                        // Hit boundary - bounce back with damping
+                        wheelVelocity *= -0.3;
+                        wheelDelta *= 0.7;
+                      }
+                    }
+
+                    // Stop scrolling if velocity died out and we're close to center
+                    if (wheelVelocity === 0 && Math.abs(wheelDelta) < threshold) {
+                      isWheelScrolling = false;
+                      // Let snap-back animation take over
+                    }
+
+                    // Prefetch adjacent pages
+                    const nextIdx = wheelDelta > 0 ? displayedPageIndex + 1 : displayedPageIndex - 1;
+                    if (nextIdx >= 1 && nextIdx <= loadedFeedCount && !pageCache.has(nextIdx)) {
+                      fetchPage(nextIdx);
+                    }
+                  }
+
                   // Smooth snap-back when drag released without meeting threshold
                   if (!isDragging && !isWheelScrolling && transitionDirection === 0 && dragDelta !== 0) {
-                    dragDelta *= 0.82;
+                    // Smoother exponential decay with spring-like behavior
+                    const returnSpeed = 0.15; // Lower = slower, smoother return
+                    dragDelta -= dragDelta * returnSpeed;
                     if (Math.abs(dragDelta) < 0.5) dragDelta = 0;
                   }
 
@@ -7515,74 +7566,38 @@ export const handler = async (event, context) => {
                   }
                 });
                 
-                // Scroll wheel navigation (incremental, drag-like)
+                // Scroll wheel navigation with smooth inertia
+                let wheelVelocity = 0; // pixels per frame
                 let wheelDelta = 0;
                 let wheelIdleTimer = null;
                 let isWheelScrolling = false;
+                let lastWheelTime = 0;
+
                 canvas.addEventListener("wheel", (e) => {
                   if (!document.body.contains(canvas)) return;
                   if (isFlipping || showingBack) return;
                   e.preventDefault();
                   showMinimap();
 
-                  // During animation, accumulate scroll intent so continuous
-                  // scrolling chains across pages without stopping.
-                  if (transitionDirection !== 0) {
-                    pendingWheelPages += Math.sign(e.deltaY);
-                    // Cap to prevent runaway accumulation
-                    pendingWheelPages = Math.max(-5, Math.min(5, pendingWheelPages));
-                    fastScrolling = true;
-                    return;
-                  }
-                  
-                  // Accumulate wheel delta into dragDelta (like pointer drag)
-                  const sensitivity = 1.5;
-                  wheelDelta += e.deltaY * sensitivity;
-                  
-                  // Cap to one page of visual travel so the card can't fly off screen
-                  const slideDistance = cardHeight + 40;
-                  const maxRubber = 40; // pixels of visual give at edges
-                  const atStart = displayedPageIndex <= 1 && wheelDelta < 0;
-                  const atEnd = displayedPageIndex >= loadedFeedCount && wheelDelta > 0;
-                  if (atStart) {
-                    wheelDelta = Math.max(wheelDelta, -maxRubber);
-                  } else if (atEnd) {
-                    wheelDelta = Math.min(wheelDelta, maxRubber);
-                  } else {
-                    // Mid-feed: clamp to one slideDistance so card never leaves the viewport
-                    wheelDelta = Math.max(-slideDistance, Math.min(slideDistance, wheelDelta));
-                  }
-                  
-                  dragDelta = wheelDelta;
+                  // Add to velocity for smooth momentum scrolling
+                  const now = performance.now();
+                  const dt = Math.min(100, now - lastWheelTime) / 16.67; // normalize to ~60fps
+                  lastWheelTime = now;
+
+                  const sensitivity = 0.8; // Less aggressive than before for smoother feel
+                  wheelVelocity += e.deltaY * sensitivity;
+
+                  // Cap velocity to prevent runaway scrolling
+                  const maxVelocity = 50;
+                  wheelVelocity = Math.max(-maxVelocity, Math.min(maxVelocity, wheelVelocity));
+
                   isWheelScrolling = true;
-                  
-                  // Prefetch the page we might be going to
-                  const nextIdx = dragDelta > 0 ? displayedPageIndex + 1 : displayedPageIndex - 1;
-                  if (nextIdx >= 1 && nextIdx <= loadedFeedCount && !pageCache.has(nextIdx)) {
-                    fetchPage(nextIdx);
-                  }
-                  
-                  // Reset idle timer - commit page change when scrolling stops
+
+                  // Extend idle timer for smoother deceleration
                   clearTimeout(wheelIdleTimer);
                   wheelIdleTimer = setTimeout(() => {
-                    if (!isWheelScrolling) return;
-                    isWheelScrolling = false;
-                    
-                    const threshold = cardHeight * 0.2;
-                    const slideDistance = cardHeight + 40;
-                    const currentProgress = Math.min(1, Math.abs(wheelDelta) / slideDistance);
-                    
-                    if (Math.abs(wheelDelta) > threshold) {
-                      const nextIdx = wheelDelta > 0 ? displayedPageIndex + 1 : displayedPageIndex - 1;
-                      if (nextIdx >= 1 && nextIdx <= loadedFeedCount) {
-                        dragDelta = 0;
-                        goToPage(nextIdx, currentProgress);
-                      }
-                    }
-                    
-                    wheelDelta = 0;
-                    // Don't zero dragDelta — update() animates smooth snap-back
-                  }, 120);
+                    // Let momentum carry through
+                  }, 100);
                 }, { passive: false });
                 
                 // Click detection for ear and page number
@@ -7773,9 +7788,9 @@ export const handler = async (event, context) => {
                     ctx.font = baseFontSize + "px monospace";
                     let pnText;
                     if (hovItem?.type === "question") {
-                      pnText = "✦ " + (hovItem.questionNumber || displayedPageIndex) + " ✦";
+                      pnText = "☙ " + (hovItem.questionNumber || displayedPageIndex) + " ❧";
                     } else {
-                      pnText = "❧ " + (hovItem?.pageNumber || displayedPageIndex) + " ☙";
+                      pnText = "☙ " + (hovItem?.pageNumber || displayedPageIndex) + " ❧";
                     }
                     const pnWidth = ctx.measureText(pnText).width + em;
                     const pnLeft = (cardWidth - pnWidth) / 2;
