@@ -2019,6 +2019,7 @@
       };
 
       // Listen for boot-log messages from iframe
+      let decodeTriggered = false;
       window.addEventListener('message', (e) => {
         if (e.data?.type === 'boot-log') {
           const msg = e.data.message;
@@ -2027,10 +2028,20 @@
           // Feed the boot message to the scramble animation (woven into text)
           window.setBootMessage?.(msg);
 
-          // Signal decode when piece starts running
-          // "loaded" is sent when the piece finishes loading
-          if (msg === 'loaded' || msg === 'running boot' || msg?.includes?.('running')) {
-            window.signalDecode?.();
+          // Signal decode when piece starts running or disk loads
+          // With noboot=true, we trigger on disk load instead of "loaded"
+          if (!decodeTriggered && (
+            msg === 'loaded' ||
+            msg === 'running boot' ||
+            msg?.includes?.('running') ||
+            msg?.includes?.('loading disk:')
+          )) {
+            decodeTriggered = true;
+            // Small delay to let disk actually load
+            setTimeout(() => {
+              window.signalDecode?.();
+              console.log('📺 Decode triggered by:', msg);
+            }, 300);
           }
         }
       });
