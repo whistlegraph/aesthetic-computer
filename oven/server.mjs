@@ -724,7 +724,7 @@ app.get('/', (req, res) => {
     <a href="/" class="logo">🔥 oven</a>
     <nav style="display:flex;gap:1em;font-size:0.85em;">
       <a href="/app-screenshots?piece=prompt" style="color:#88f;text-decoration:none;">📱 App Screenshots</a>
-      <a href="/kidlisp-og/preview" style="color:#88f;text-decoration:none;">🖼️ OG Images</a>
+      <a href="/og-preview" style="color:#88f;text-decoration:none;">🖼️ OG Images</a>
     </nav>
     <div class="status">
       <div class="status-dot" id="ws-dot"></div>
@@ -1778,46 +1778,126 @@ app.get('/kidlisp-og/status', (req, res) => {
   });
 });
 
-// Preview all OG layouts (for testing/comparison)
-app.get('/kidlisp-og/preview', (req, res) => {
-  const layouts = ['featured', 'mosaic', 'filmstrip', 'code-split'];
+// Preview all OG images (generalized for kidlisp, notepat, etc)
+app.get('/og-preview', (req, res) => {
   const baseUrl = req.protocol + '://' + req.get('host');
-  
+
+  const ogImages = [
+    {
+      name: 'KidLisp',
+      slug: 'kidlisp-og',
+      prodUrls: [
+        'https://kidlisp.com',
+        'https://aesthetic.computer/kidlisp'
+      ],
+      layouts: ['featured', 'mosaic', 'filmstrip', 'code-split'],
+      description: 'Dynamic layouts featuring recent KidLisp pieces'
+    },
+    {
+      name: 'Notepat',
+      slug: 'notepat-og',
+      prodUrls: [
+        'https://notepat.com',
+        'https://aesthetic.computer/notepat'
+      ],
+      layouts: null, // Single layout
+      description: 'Split-layout chromatic piano interface'
+    }
+  ];
+
   res.setHeader('Content-Type', 'text/html');
   res.send(`<!DOCTYPE html>
 <html>
 <head>
-  <title>KidLisp OG Preview</title>
+  <title>OG Image Preview</title>
   <style>
-    body { font-family: monospace; background: #1a1a2e; color: white; padding: 20px; }
+    body { font-family: monospace; background: #1a1a2e; color: white; padding: 20px; max-width: 1400px; margin: 0 auto; }
     h1 { color: #88ff88; }
-    .note { background: #2a2a4e; padding: 16px; border-radius: 8px; margin: 20px 0; }
-    .note code { background: #3a3a5e; padding: 2px 6px; border-radius: 4px; }
-    .layout { margin: 20px 0; }
-    .layout h2 { color: #ffaa00; }
-    .layout img { max-width: 100%; border: 2px solid #444; }
-    .layout a { color: #88ccff; }
+    h2 { color: #ffaa00; margin-top: 40px; }
+    h3 { color: #ff88aa; margin-top: 20px; }
+    .note { background: #2a2a4e; padding: 16px; border-radius: 8px; margin: 20px 0; line-height: 1.6; }
+    .note code { background: #3a3a5e; padding: 2px 6px; border-radius: 4px; color: #88ffaa; }
+    .og-section { border: 2px solid #333; padding: 20px; border-radius: 8px; margin: 30px 0; background: #16162e; }
+    .prod-urls { margin: 15px 0; }
+    .prod-urls a {
+      display: inline-block;
+      color: #88ccff;
+      text-decoration: none;
+      background: #2a2a4e;
+      padding: 6px 12px;
+      border-radius: 4px;
+      margin: 4px 4px 4px 0;
+    }
+    .prod-urls a:hover { background: #3a3a5e; }
+    .layout { margin: 20px 0; padding: 15px; background: #0a0a1e; border-radius: 6px; }
+    .layout h4 { color: #ffcc66; margin: 0 0 10px 0; }
+    .layout img { max-width: 100%; border: 2px solid #444; border-radius: 4px; }
+    .layout .actions { margin: 10px 0; }
+    .layout .actions a {
+      color: #88ccff;
+      margin-right: 15px;
+      text-decoration: none;
+    }
+    .layout .actions a:hover { text-decoration: underline; }
+    .single-image { margin: 20px 0; }
+    .single-image img { max-width: 100%; border: 2px solid #444; border-radius: 4px; }
+    .back-link { display: inline-block; margin-top: 40px; color: #888; text-decoration: none; }
+    .back-link:hover { color: #aaa; }
   </style>
 </head>
 <body>
-  <h1>🖼️ KidLisp.com OG Preview Layouts</h1>
+  <h1>🖼️ OG Image Preview Dashboard</h1>
   <div class="note">
-    <strong>For meta tags use:</strong> <code>${baseUrl}/kidlisp-og.png</code><br>
-    This endpoint redirects instantly to cached CDN images (no timeout issues for Twitter/X).
+    <strong>About:</strong> This page shows all Open Graph (OG) images used for social media previews.<br>
+    <strong>Usage:</strong> Use the <code>.png</code> endpoints in meta tags for instant CDN redirects (no timeouts).<br>
+    <strong>Testing:</strong> Click production URLs below to verify OG tags are working correctly.
   </div>
-  <p>These are the available OG image layouts for social previews.</p>
-  ${layouts.map(layout => `
-    <div class="layout">
-      <h2>${layout.charAt(0).toUpperCase() + layout.slice(1)}</h2>
-      <p><a href="${baseUrl}/kidlisp-og?layout=${layout}&force=true">Force regenerate</a></p>
-      <img src="${baseUrl}/kidlisp-og?layout=${layout}" alt="${layout} layout" loading="lazy">
+
+  ${ogImages.map(og => `
+    <div class="og-section">
+      <h2>${og.name}</h2>
+      <p style="color: #aaa; margin: 10px 0;">${og.description}</p>
+
+      <div class="prod-urls">
+        <strong style="color: #88ff88;">Production URLs:</strong><br>
+        ${og.prodUrls.map(url => `<a href="${url}" target="_blank">${url} →</a>`).join(' ')}
+      </div>
+
+      <div class="note">
+        <strong>OG Endpoint:</strong> <code>${baseUrl}/${og.slug}.png</code>
+      </div>
+
+      ${og.layouts ? `
+        <h3>Layouts:</h3>
+        ${og.layouts.map(layout => `
+          <div class="layout">
+            <h4>${layout.charAt(0).toUpperCase() + layout.slice(1)}</h4>
+            <div class="actions">
+              <a href="${baseUrl}/${og.slug}?layout=${layout}&force=true">Force Regenerate</a>
+              <a href="${baseUrl}/${og.slug}/status">Cache Status</a>
+            </div>
+            <img src="${baseUrl}/${og.slug}?layout=${layout}" alt="${layout} layout" loading="lazy">
+          </div>
+        `).join('')}
+      ` : `
+        <div class="single-image">
+          <div class="actions">
+            <a href="${baseUrl}/${og.slug}.png?force=true">Force Regenerate</a>
+          </div>
+          <img src="${baseUrl}/${og.slug}.png" alt="${og.name} OG image" loading="lazy">
+        </div>
+      `}
     </div>
   `).join('')}
-  <p style="margin-top: 40px;">
-    <a href="${baseUrl}/kidlisp-og/status">View cache status</a>
-  </p>
+
+  <a href="/" class="back-link">← Back to Oven Dashboard</a>
 </body>
 </html>`);
+});
+
+// Legacy redirect for old kidlisp preview URL
+app.get('/kidlisp-og/preview', (req, res) => {
+  res.redirect(302, '/og-preview');
 });
 
 // Notepat branded OG image for notepat.com
