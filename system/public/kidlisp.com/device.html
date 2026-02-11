@@ -996,7 +996,7 @@
             lightbulb: { enabled: 'off' },
             inlayHints: { enabled: 'off' },
             links: false,
-            contextmenu: false,
+            contextmenu: true,
             accessibilitySupport: 'off',
             renderWhitespace: 'none',
             renderControlCharacters: false,
@@ -1609,15 +1609,19 @@
         const codeEl = document.getElementById('source-code');
         const overlay = document.getElementById('source-overlay');
 
-        if (inner && pendingHighlightedHtml) {
-          // Crossfade into highlighted code to avoid a white flash
-          inner.style.opacity = '0';
-          inner.innerHTML = pendingHighlightedHtml;
-          requestAnimationFrame(() => {
-            inner.style.opacity = '1';
-          });
+        // Remove scrambling class to reveal Monaco editor and hide scramble overlay
+        if (overlay) {
+          overlay.classList.remove('scrambling');
+          console.log('📺 Decode complete - revealing Monaco editor');
+        }
 
-          // Setup scrolling for long code
+        // Monaco is now showing the code, but we can keep the highlighted HTML
+        // in the inner div for fallback (it will be hidden by CSS opacity: 0)
+        if (inner && pendingHighlightedHtml) {
+          // Don't set inline opacity - let CSS transitions handle it
+          inner.innerHTML = pendingHighlightedHtml;
+
+          // Setup scrolling for long code (not needed for Monaco, but keep for fallback)
           requestAnimationFrame(() => {
             const containerHeight = codeEl.clientHeight;
             const contentHeight = inner.scrollHeight;
@@ -1637,12 +1641,6 @@
             const clampedDuration = Math.max(0.1, Math.min(duration, 10));
             el.style.setProperty('--timing-duration', clampedDuration + 's');
           });
-        }
-
-        // Remove scrambling class to reveal Monaco editor
-        if (overlay) {
-          overlay.classList.remove('scrambling');
-          console.log('📺 Decode complete - revealing Monaco editor');
         }
 
         isScrambling = false;
@@ -3193,6 +3191,8 @@
       }
 
       document.body.addEventListener('pointerdown', (e) => {
+        // Only respond to left clicks (button 0), not right clicks
+        if (e.button !== 0) return;
         if (isInteractiveTarget(e.target)) return;
         if (overlay.classList.contains('scrambling')) return;
 
