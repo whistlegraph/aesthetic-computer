@@ -291,6 +291,7 @@
       transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
       padding-right: calc(var(--ui-scale, 8) * 0.5px);
       padding-bottom: calc(var(--ui-scale, 8) * 0.5px);
+      transform-origin: bottom right;
     }
     
     #qr-wrap:hover {
@@ -1159,13 +1160,13 @@
           });
         }
         
-        // Use 24fps interval with rhythmic variation for per-character updates
+        // Use global 24fps clock with rhythmic variation for per-character updates
         function animateInitialScramble() {
           if (!initialScrambleActive) return;
 
           // Rhythmic skip - sometimes skip this beat
           if (shouldSkipBeat()) {
-            return; // Skip this frame but keep interval running
+            return; // Skip this frame but keep clock running
           }
 
           // Use eager source if available, otherwise show nothing (waiting)
@@ -1175,14 +1176,17 @@
           }
         }
 
-        initialScrambleFrame = setInterval(animateInitialScramble, SCRAMBLE_24FPS);
+        // Register with global clock
+        scrambleCallbacks.add(animateInitialScramble);
+        startScrambleClock();
+        initialScrambleFrame = animateInitialScramble; // Store reference for cleanup
       })();
       
       // Stop initial scramble when real scramble starts
       function stopInitialScramble() {
         initialScrambleActive = false;
         if (initialScrambleFrame) {
-          clearInterval(initialScrambleFrame);
+          scrambleCallbacks.delete(initialScrambleFrame);
           initialScrambleFrame = null;
         }
         document.body.classList.remove('booting');
@@ -1194,7 +1198,7 @@
         isScrambling = false;
         waitingForDecode = false;
         if (scrambleIntervalId) {
-          clearInterval(scrambleIntervalId);
+          scrambleCallbacks.delete(scrambleIntervalId);
           scrambleIntervalId = null;
         }
         const inner = document.getElementById('source-code-inner');
@@ -1222,20 +1226,23 @@
         
         console.log('📺 Starting scramble animation with per-character rhythm at 24fps...');
 
-        // Use 24fps interval with rhythmic variation for smooth per-character rhythm updates
+        // Use global 24fps clock with rhythmic variation for smooth per-character rhythm updates
         function scrambleLoop() {
           if (!isScrambling || !waitingForDecode) return;
 
           // Rhythmic skip - sometimes skip this beat
           if (shouldSkipBeat()) {
-            return; // Skip this frame but keep interval running
+            return; // Skip this frame but keep clock running
           }
 
           // Show scrambled plain text with per-character rhythm
           inner.innerHTML = buildScrambledTextWithRhythm(pendingSource);
         }
 
-        scrambleIntervalId = setInterval(scrambleLoop, SCRAMBLE_24FPS);
+        // Register with global clock
+        scrambleCallbacks.add(scrambleLoop);
+        startScrambleClock();
+        scrambleIntervalId = scrambleLoop; // Store reference for cleanup
 
         // Start color transition after a short delay (start whiter)
         setTimeout(() => {
@@ -1258,7 +1265,7 @@
         waitingForDecode = false;
 
         if (scrambleIntervalId) {
-          clearInterval(scrambleIntervalId);
+          scrambleCallbacks.delete(scrambleIntervalId);
           scrambleIntervalId = null;
         }
 
@@ -1405,7 +1412,7 @@
         isScrambling = false;
         waitingForDecode = false;
         if (scrambleIntervalId) {
-          clearInterval(scrambleIntervalId);
+          scrambleCallbacks.delete(scrambleIntervalId);
           scrambleIntervalId = null;
         }
         finalize();
@@ -1416,8 +1423,30 @@
       // Scramble and reveal text in UI elements (QR label, metadata, etc.)
       // ═══════════════════════════════════════════════════════════════════════════
 
-      // 24fps rhythmic scrambling for UI elements
+      // ═══════════════════════════════════════════════════════════════════════════
+      // CENTRALIZED 24FPS SCRAMBLE CLOCK
+      // All scrambling is synchronized to the same beat
+      // ═══════════════════════════════════════════════════════════════════════════
+
       const SCRAMBLE_24FPS = 1000 / 24; // ~41.67ms per frame
+      const scrambleCallbacks = new Set();
+      let scrambleClockId = null;
+
+      // Start the global scramble clock
+      function startScrambleClock() {
+        if (scrambleClockId) return; // Already running
+
+        scrambleClockId = setInterval(() => {
+          // Call all registered callbacks on each beat
+          scrambleCallbacks.forEach(callback => {
+            try {
+              callback();
+            } catch (e) {
+              console.error('Scramble callback error:', e);
+            }
+          });
+        }, SCRAMBLE_24FPS);
+      }
 
       // Helper to add rhythmic variation - sometimes skip beats
       function shouldSkipBeat() {
@@ -1430,17 +1459,14 @@
 
         const chars = targetText.split('');
         const startTime = performance.now();
-        let intervalId;
-        let lastUpdateTime = startTime;
 
         function animate() {
-          const now = performance.now();
-
           // Rhythmic skip - sometimes skip this beat
           if (shouldSkipBeat()) {
             return; // Skip this frame but keep interval running
           }
 
+          const now = performance.now();
           const elapsed = now - startTime;
           const progress = continuous ? 0 : Math.min(elapsed / duration, 1);
 
@@ -1464,18 +1490,25 @@
 
           if (!continuous && progress >= 1) {
             element.textContent = targetText; // Final reveal
-            clearInterval(intervalId);
+            // Unregister from clock
+            if (element._scrambleCallback) {
+              scrambleCallbacks.delete(element._scrambleCallback);
+              element._scrambleCallback = null;
+            }
           }
         }
 
         // Cancel any previous animation on this element
-        if (element._scrambleInterval) {
-          clearInterval(element._scrambleInterval);
+        if (element._scrambleCallback) {
+          scrambleCallbacks.delete(element._scrambleCallback);
         }
 
-        // Start 24fps interval
-        intervalId = setInterval(animate, SCRAMBLE_24FPS);
-        element._scrambleInterval = intervalId;
+        // Register callback with global clock
+        element._scrambleCallback = animate;
+        scrambleCallbacks.add(animate);
+
+        // Start global clock if not running
+        startScrambleClock();
 
         animate(); // Run immediately
       };
@@ -1530,18 +1563,25 @@
               rect.setAttribute('x', x);
               rect.setAttribute('y', y);
             });
-            clearInterval(intervalId);
+            // Unregister from clock
+            if (svgElement._qrScrambleCallback) {
+              scrambleCallbacks.delete(svgElement._qrScrambleCallback);
+              svgElement._qrScrambleCallback = null;
+            }
           }
         }
 
         // Cancel any previous animation on this SVG
-        if (svgElement._qrScrambleInterval) {
-          clearInterval(svgElement._qrScrambleInterval);
+        if (svgElement._qrScrambleCallback) {
+          scrambleCallbacks.delete(svgElement._qrScrambleCallback);
         }
 
-        // Start 24fps interval
-        intervalId = setInterval(animate, SCRAMBLE_24FPS);
-        svgElement._qrScrambleInterval = intervalId;
+        // Register callback with global clock
+        svgElement._qrScrambleCallback = animate;
+        scrambleCallbacks.add(animate);
+
+        // Start global clock if not running
+        startScrambleClock();
 
         animate(); // Run immediately
       };
