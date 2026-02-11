@@ -6475,6 +6475,8 @@ export const handler = async (event, context) => {
                 let transitionDirection = 0; // -1 = prev, 0 = none, 1 = next
                 let transitionTarget = null;
                 let transitionSlow = false; // true when arrow keys triggered the transition
+                let transitionStartProgress = 0; // where animation starts (from drag position)
+                let transitionStartTime = 0; // performance.now() when animation began
                 let textFadeIn = 1; // 0 to 1, fades in text when page becomes current
                 const pageCache = new Map(); // Cache by feed index
                 let cardWidth = 0;
@@ -6488,10 +6490,22 @@ export const handler = async (event, context) => {
                 let dragStartY = 0;
                 let dragDelta = 0;
                 let wasDragging = false; // Persists until click event, prevents tap-on-release
+                let dragVelocity = 0; // px/ms for flick detection
+                let lastDragY = 0;
+                let lastDragTime = 0;
                 
-                // Pending wheel direction — tracks scroll intent during animations
-                // so continuous scrolling isn't lost when a transition is playing
-                let pendingWheelDirection = 0; // -1, 0, or 1
+                // Pending wheel pages — accumulates scroll intent during animations
+                // so continuous scrolling chains smoothly across pages
+                let pendingWheelPages = 0; // accumulates: +N forward, -N backward
+                let fastScrolling = false; // true when chaining transitions rapidly
+
+                // Minimap/position indicator — shows during scrolling
+                let minimapOpacity = 0; // 0-1, fades in/out
+                let minimapShowUntil = 0; // performance.now() timestamp to keep visible
+
+                function showMinimap() {
+                  minimapShowUntil = performance.now() + 1200; // visible for 1.2s after last scroll
+                }
                 
                 // Hover state for debug boxes
                 let hoverEar = false;
@@ -6783,7 +6797,8 @@ export const handler = async (event, context) => {
                   const lineHeight = fontSize * 1.76; // --line-height: 1.76em
                   const padding = em * 2; // padding: 0 2em
                   const textWidth = w - padding * 2;
-                  const maxLines = 19; // --max-lines: 19
+                  // Use the same MAX_LINES constant as the editor for consistent pagination
+                  const maxLines = ${MAX_LINES};
                   
                   // Text color with opacity for fade-in (themed)
                   const baseColor = themeColors.cardText;
@@ -6922,7 +6937,10 @@ export const handler = async (event, context) => {
                     ctx.textAlign = "center";
                     const pageNumY = y + h - em * 2;
                     const displayNum = pageData.questionNumber || idx;
-                    const pageNumText = "*" + displayNum + "*";
+                    // Show syntax form on hover, fancy symbols otherwise
+                    const pageNumText = (hoverPageNum && offsetY === 0)
+                      ? "*" + displayNum + "*"
+                      : "✦ " + displayNum + " ✦";
                     ctx.fillText(pageNumText, x + w/2, pageNumY);
                   } else {
                     // PAGE RENDERING (diary pages)
@@ -6961,7 +6979,11 @@ export const handler = async (event, context) => {
                     ctx.textAlign = "center";
                     const pageNumY = y + h - em * 2;
                     const displayNum = pageData.pageNumber || idx;
-                    ctx.fillText("- " + displayNum + " -", x + w/2, pageNumY);
+                    // Show syntax form on hover, fancy symbols otherwise
+                    const pageNumText = (hoverPageNum && offsetY === 0)
+                      ? "- " + displayNum + " -"
+                      : "❧ " + displayNum + " ☙";
+                    ctx.fillText(pageNumText, x + w/2, pageNumY);
                   }
                   
                   ctx.textAlign = "left";
@@ -7219,14 +7241,72 @@ export const handler = async (event, context) => {
                   
                   // Fetch current page if not cached
                   if (!pageData) fetchPage(displayedPageIndex);
+
+                  // Minimap / position indicator (left side) with color-coded page bars
+                  if (minimapOpacity > 0.01 && loadedFeedCount > 1) {
+                    ctx.save();
+                    ctx.globalAlpha = minimapOpacity * 0.7;
+
+                    const mapX = 12; // left margin
+                    const mapTop = cardY + 8; // Reduced margin for taller minimap
+                    const mapBottom = cardY + cardHeight - 8; // Reduced margin for taller minimap
+                    const mapH = mapBottom - mapTop;
+                    const trackW = 3;
+
+                    // Background track
+                    ctx.fillStyle = themeColors.cardBorder || "#d4c8b8";
+                    ctx.fillRect(mapX, mapTop, trackW, mapH);
+
+                    // Draw individual page bars color-coded by type
+                    const barHeight = Math.max(2, mapH / loadedFeedCount);
+                    const barGap = 0.5; // small gap between bars
+                    for (let i = 1; i <= loadedFeedCount; i++) {
+                      const itemData = pageCache.get(i);
+                      const isQuestionPage = itemData?.type === "question";
+                      const barY = mapTop + ((i - 1) / loadedFeedCount) * mapH;
+
+                      // Color: blue for questions, pink for diary pages
+                      ctx.fillStyle = isQuestionPage
+                        ? (themeColors.questionCardBorder || "#8ab4d8")
+                        : (themeColors.diaryLinkColor || "#d88aa0");
+                      ctx.globalAlpha = minimapOpacity * 0.5;
+                      ctx.fillRect(mapX, barY, trackW, Math.max(barHeight - barGap, 1));
+                    }
+
+                    // Current position indicator (highlight)
+                    const pos = (displayedPageIndex - 1) / (loadedFeedCount - 1);
+                    // During drag/transition, interpolate position smoothly
+                    let visualPos = pos;
+                    if (transitionDirection !== 0 && transitionTarget !== null) {
+                      const targetPos = (transitionTarget - 1) / (loadedFeedCount - 1);
+                      visualPos = pos + (targetPos - pos) * transitionProgress;
+                    } else if (dragDelta !== 0) {
+                      const slideDistance = cardHeight + 40;
+                      const dragFrac = dragDelta / slideDistance;
+                      visualPos = Math.max(0, Math.min(1, pos + dragFrac / loadedFeedCount));
+                    }
+                    const indicatorY = mapTop + visualPos * (mapH - 8);
+                    const indicatorH = Math.max(8, mapH / loadedFeedCount);
+
+                    ctx.globalAlpha = minimapOpacity;
+                    ctx.fillStyle = themeColors.cardText || "#000000";
+                    ctx.fillRect(mapX - 1, indicatorY, trackW + 2, indicatorH);
+
+                    ctx.restore();
+                  }
                 }
                 
                 // Animation update
                 function update() {
                   if (transitionDirection !== 0 && transitionTarget !== null) {
-                    transitionProgress += transitionSlow ? 0.045 : 0.12; // Slower for arrow keys
-                    
-                    if (transitionProgress >= 1) {
+                    // Ease-out timing: fast departure, gentle arrival
+                    const elapsed = performance.now() - transitionStartTime;
+                    const duration = fastScrolling ? 160 : (transitionSlow ? 420 : 260); // ms
+                    const t = Math.min(1, elapsed / duration);
+                    const eased = easeOutCubic(t);
+                    transitionProgress = transitionStartProgress + (1 - transitionStartProgress) * eased;
+
+                    if (t >= 1) {
                       // Transition complete
                       displayedPageIndex = transitionTarget;
                       currentPageIndex = transitionTarget;
@@ -7234,6 +7314,7 @@ export const handler = async (event, context) => {
                       transitionDirection = 0;
                       transitionTarget = null;
                       transitionSlow = false;
+                      transitionStartProgress = 0;
                       textFadeIn = 1; // Text already visible, no fade needed
                       // Update URL based on item type (question vs page)
                       const currentItem = pageCache.get(currentPageIndex);
@@ -7246,23 +7327,44 @@ export const handler = async (event, context) => {
                       }
                       prefetchPages(currentPageIndex);
                       
-                      // If user kept scrolling during the animation, continue
-                      // to the next page immediately for fluid browsing.
-                      if (pendingWheelDirection !== 0) {
-                        const nextIdx = currentPageIndex + pendingWheelDirection;
-                        pendingWheelDirection = 0;
+                      // If user kept scrolling during the animation, chain
+                      // to the next page immediately for fluid continuous browsing.
+                      if (pendingWheelPages !== 0) {
+                        const dir = Math.sign(pendingWheelPages);
+                        const nextIdx = currentPageIndex + dir;
+                        pendingWheelPages -= dir; // Consume one page from queue
                         if (nextIdx >= 1 && nextIdx <= loadedFeedCount) {
                           goToPage(nextIdx);
+                        } else {
+                          pendingWheelPages = 0; // Hit boundary, clear queue
+                          fastScrolling = false;
                         }
+                      } else {
+                        fastScrolling = false;
                       }
                     }
                   }
-                  
+
+                  // Smooth snap-back when drag released without meeting threshold
+                  if (!isDragging && !isWheelScrolling && transitionDirection === 0 && dragDelta !== 0) {
+                    dragDelta *= 0.82;
+                    if (Math.abs(dragDelta) < 0.5) dragDelta = 0;
+                  }
+
                   // Fade in text when static
                   if (transitionDirection === 0 && textFadeIn < 1) {
                     textFadeIn = Math.min(1, textFadeIn + 0.08);
                   }
-                  
+
+                  // Minimap fade in/out
+                  const now = performance.now();
+                  const shouldShowMinimap = now < minimapShowUntil || isDragging || isWheelScrolling || transitionDirection !== 0;
+                  if (shouldShowMinimap) {
+                    minimapOpacity = Math.min(1, minimapOpacity + 0.12);
+                  } else {
+                    minimapOpacity = Math.max(0, minimapOpacity - 0.04);
+                  }
+
                   // Card flip animation
                   if (isFlipping) {
                     flipProgress += 0.04 * flipDirection; // Smooth flip speed
@@ -7290,16 +7392,21 @@ export const handler = async (event, context) => {
                 }
                 
                 // Go to a specific feed item with animation
+                // Ease-out cubic — fast start, gentle deceleration
+                function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+
                 function goToPage(targetIdx, startProgress = 0, slow = false) {
                   if (targetIdx < 1 || targetIdx > loadedFeedCount) return;
                   if (targetIdx === displayedPageIndex) return;
                   if (transitionDirection !== 0) return; // Already animating
                   if (isFlipping || showingBack) return; // Don't change pages while flipped
-                  
+
                   transitionSlow = slow;
                   transitionDirection = targetIdx > displayedPageIndex ? 1 : -1;
                   transitionTarget = targetIdx;
-                  transitionProgress = startProgress; // Start from where drag left off
+                  transitionStartProgress = startProgress;
+                  transitionStartTime = performance.now();
+                  transitionProgress = startProgress;
                   prefetchPages(targetIdx);
                 }
                 
@@ -7307,17 +7414,21 @@ export const handler = async (event, context) => {
                 canvas.addEventListener("pointerdown", (e) => {
                   if (transitionDirection !== 0) return; // Don't drag during animation
                   if (isFlipping || showingBack) return; // Don't drag when flipped
-                  
+
                   isDragging = true;
                   dragStartY = e.clientY;
                   dragDelta = 0;
-                  
+                  dragVelocity = 0;
+                  lastDragY = e.clientY;
+                  lastDragTime = performance.now();
+
                   // Cancel any pending wheel scroll
                   isWheelScrolling = false;
                   wheelDelta = 0;
-                  pendingWheelDirection = 0;
+                  pendingWheelPages = 0;
+                  fastScrolling = false;
                   clearTimeout(wheelIdleTimer);
-                  
+
                   canvas.setPointerCapture(e.pointerId);
                   canvas.style.cursor = "grabbing";
                   e.preventDefault();
@@ -7326,7 +7437,17 @@ export const handler = async (event, context) => {
                 canvas.addEventListener("pointermove", (e) => {
                   if (!isDragging) return;
                   dragDelta = dragStartY - e.clientY;
-                  
+                  showMinimap();
+
+                  // Track velocity for flick detection
+                  const now = performance.now();
+                  const dt = now - lastDragTime;
+                  if (dt > 0) {
+                    dragVelocity = (lastDragY - e.clientY) / dt; // px/ms, positive = up
+                  }
+                  lastDragY = e.clientY;
+                  lastDragTime = now;
+
                   // Clamp at boundaries – small rubber-band only
                   const maxRubber = 40;
                   const atStart = displayedPageIndex <= 1 && dragDelta < 0;
@@ -7347,20 +7468,25 @@ export const handler = async (event, context) => {
                   wasDragging = Math.abs(dragDelta) > 5;
                   canvas.releasePointerCapture(e.pointerId);
                   canvas.style.cursor = "grab";
-                  
+
                   const threshold = cardHeight * 0.2; // 20% of card height to trigger
+                  const velocityThreshold = 0.4; // px/ms — fast flick triggers page change
                   const slideDistance = cardHeight + 40;
                   const currentProgress = Math.min(1, Math.abs(dragDelta) / slideDistance);
-                  
-                  if (Math.abs(dragDelta) > threshold) {
-                    // Commit to page change - continue from current drag position
-                    const nextIdx = dragDelta > 0 ? displayedPageIndex + 1 : displayedPageIndex - 1;
+
+                  // Combine distance and velocity for page change decision
+                  const shouldChange = Math.abs(dragDelta) > threshold || Math.abs(dragVelocity) > velocityThreshold;
+                  const direction = Math.abs(dragDelta) > threshold ? Math.sign(dragDelta) : Math.sign(dragVelocity);
+
+                  if (shouldChange) {
+                    const nextIdx = direction > 0 ? displayedPageIndex + 1 : displayedPageIndex - 1;
                     if (nextIdx >= 1 && nextIdx <= loadedFeedCount) {
+                      dragDelta = 0;
                       goToPage(nextIdx, currentProgress);
+                      return;
                     }
                   }
-                  // If threshold not met, render() will snap back automatically
-                  dragDelta = 0;
+                  // Threshold not met — don't zero dragDelta; update() animates snap-back
                 });
                 
                 canvas.addEventListener("pointercancel", (e) => {
@@ -7380,9 +7506,11 @@ export const handler = async (event, context) => {
                   
                   if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
                     e.preventDefault();
+                    showMinimap();
                     goToPage(currentPageIndex - 1, 0, true);
                   } else if (e.key === "ArrowDown" || e.key === "ArrowRight") {
                     e.preventDefault();
+                    showMinimap();
                     goToPage(currentPageIndex + 1, 0, true);
                   }
                 });
@@ -7395,11 +7523,15 @@ export const handler = async (event, context) => {
                   if (!document.body.contains(canvas)) return;
                   if (isFlipping || showingBack) return;
                   e.preventDefault();
-                  
-                  // During animation, track scroll direction so we can
-                  // continue to the next page when the transition finishes.
+                  showMinimap();
+
+                  // During animation, accumulate scroll intent so continuous
+                  // scrolling chains across pages without stopping.
                   if (transitionDirection !== 0) {
-                    pendingWheelDirection = e.deltaY > 0 ? 1 : -1;
+                    pendingWheelPages += Math.sign(e.deltaY);
+                    // Cap to prevent runaway accumulation
+                    pendingWheelPages = Math.max(-5, Math.min(5, pendingWheelPages));
+                    fastScrolling = true;
                     return;
                   }
                   
@@ -7449,7 +7581,7 @@ export const handler = async (event, context) => {
                     }
                     
                     wheelDelta = 0;
-                    dragDelta = 0;
+                    // Don't zero dragDelta — update() animates smooth snap-back
                   }, 120);
                 }, { passive: false });
                 
@@ -7636,14 +7768,14 @@ export const handler = async (event, context) => {
                   if (!showingBack) {
                     const pageNumTop = cardHeight - em * 3;
                     const pageNumBottom = cardHeight - em * 0.5;
-                    // Measure the page number text width to limit hit area
+                    // Measure the page number text width to limit hit area (use fancy symbols for default display)
                     const hovItem = pageCache.get(displayedPageIndex);
                     ctx.font = baseFontSize + "px monospace";
                     let pnText;
                     if (hovItem?.type === "question") {
-                      pnText = "*" + (hovItem.questionNumber || displayedPageIndex) + "*";
+                      pnText = "✦ " + (hovItem.questionNumber || displayedPageIndex) + " ✦";
                     } else {
-                      pnText = "- " + (hovItem?.pageNumber || displayedPageIndex) + " -";
+                      pnText = "❧ " + (hovItem?.pageNumber || displayedPageIndex) + " ☙";
                     }
                     const pnWidth = ctx.measureText(pnText).width + em;
                     const pnLeft = (cardWidth - pnWidth) / 2;
@@ -8338,6 +8470,7 @@ export const handler = async (event, context) => {
                   animationTimeout = setTimeout(async () => {
                     await updateVisiblePages(targetPage, true);
                     computePageLayout?.();
+                    binding.style.scrollSnapType = "y mandatory"; // Re-enable snap after settle
                     isAnimating = false;
                   }, 400);
                 }
@@ -8419,9 +8552,8 @@ export const handler = async (event, context) => {
                   isDragging = false;
                   
                   g.releasePointerCapture(e.pointerId);
-                  // Re-enable smooth scroll and snap
+                  // Re-enable smooth scroll — snap re-enabled after animation settles
                   binding.style.scrollBehavior = "smooth";
-                  binding.style.scrollSnapType = "y mandatory";
                   
                   // Clear visual indicator
                   g.classList.remove("drag-up", "drag-down", "drag-snap");
@@ -8478,8 +8610,7 @@ export const handler = async (event, context) => {
                   g.releasePointerCapture(e.pointerId);
                   g.classList.remove("drag-up", "drag-down", "drag-snap");
                   binding.style.scrollBehavior = "smooth";
-                  binding.style.scrollSnapType = "y mandatory";
-                  // Snap back to current
+                  // Snap re-enabled in animateToPage timeout
                   await animateToPage(currentPageIndex, "pointer-cancel");
                 });
                 

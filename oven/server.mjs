@@ -10,7 +10,7 @@ import fs from 'fs';
 import { execSync } from 'child_process';
 import { WebSocketServer } from 'ws';
 import { healthHandler, bakeHandler, statusHandler, bakeCompleteHandler, bakeStatusHandler, getActiveBakes, getIncomingBakes, getRecentBakes, subscribeToUpdates, cleanupStaleBakes } from './baker.mjs';
-import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus, getFrozenPieces, clearFrozenPiece, getLatestOGImageUrl, regenerateOGImagesBackground, generateKidlispBackdrop, getLatestBackdropUrl, APP_SCREENSHOT_PRESETS } from './grabber.mjs';
+import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus, getFrozenPieces, clearFrozenPiece, getLatestOGImageUrl, regenerateOGImagesBackground, generateKidlispBackdrop, getLatestBackdropUrl, APP_SCREENSHOT_PRESETS, generateNotepatOGImage, getLatestNotepatOGUrl } from './grabber.mjs';
 import archiver from 'archiver';
 
 const app = express();
@@ -1818,6 +1818,41 @@ app.get('/kidlisp-og/preview', (req, res) => {
   </p>
 </body>
 </html>`);
+});
+
+// Notepat branded OG image for notepat.com
+app.get('/notepat-og.png', async (req, res) => {
+  try {
+    const force = req.query.force === 'true';
+    
+    addServerLog('info', '🎹', `Notepat OG request${force ? ' (force)' : ''}`);
+    
+    const result = await generateNotepatOGImage(force);
+    
+    if (result.cached && result.url) {
+      // Redirect to CDN URL for cached image
+      addServerLog('success', '📦', `Notepat OG cache hit`);
+      res.setHeader('X-Cache', 'HIT');
+      res.setHeader('Cache-Control', 'public, max-age=604800'); // 7-day cache
+      return res.redirect(301, result.url);
+    }
+    
+    // Fresh generation - return the buffer directly
+    addServerLog('success', '🎨', `Notepat OG generated`);
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Content-Length', result.buffer.length);
+    res.setHeader('Cache-Control', 'public, max-age=604800'); // 7-day cache
+    res.setHeader('X-Cache', 'MISS');
+    res.send(result.buffer);
+    
+  } catch (error) {
+    console.error('Notepat OG error:', error);
+    addServerLog('error', '❌', `Notepat OG error: ${error.message}`);
+    res.status(500).json({ 
+      error: 'Failed to generate Notepat OG image',
+      message: error.message 
+    });
+  }
 });
 
 // =============================================================================
