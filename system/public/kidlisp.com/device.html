@@ -127,25 +127,16 @@
       /* For scrolling long code */
       transition: opacity 0.25s ease;
     }
-    
-    /* Hide UI elements during scramble animation - only show code */
+
+    /* UI elements always visible - they have their own scramble animations */
     #qr-wrap,
     #piece-handle,
     #piece-hits,
     #piece-when,
     .ff1-module {
-      transition: opacity 0.3s ease, transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     }
-    
-    #source-overlay.scrambling #qr-wrap,
-    #source-overlay.scrambling #piece-handle,
-    #source-overlay.scrambling #piece-hits,
-    #source-overlay.scrambling #piece-when,
-    #source-overlay.scrambling .ff1-module {
-      opacity: 0;
-      pointer-events: none;
-    }
-    
+
     /* Slide animations for overlay elements during playback */
     /* QR slides to bottom-right corner */
     #source-overlay.slid-out #qr-wrap,
@@ -1063,9 +1054,7 @@
         if (!inner) return;
         if (hasPlaylist) return;
         document.body.classList.add('booting');
-        
-        // Add scrambling class to hide QR/stats during initial load
-        if (overlay) overlay.classList.add('scrambling');
+
         scheduleScrambleColoring(inner);
         
         // Check if eager fetch completed - use that source for scrambling
@@ -1117,9 +1106,6 @@
           clearInterval(scrambleIntervalId);
           scrambleIntervalId = null;
         }
-        // Remove scrambling class to show QR/stats
-        const overlay = document.getElementById('source-overlay');
-        if (overlay) overlay.classList.remove('scrambling');
         const inner = document.getElementById('source-code-inner');
         if (inner) inner.classList.remove('scramble-coloring');
       };
@@ -1132,11 +1118,9 @@
         
         // Stop the initial placeholder scramble
         stopInitialScramble();
-        
-        // Add scrambling class to hide QR/stats during scramble
-        if (overlay) overlay.classList.add('scrambling');
+
         scheduleScrambleColoring(inner);
-        
+
         pendingSource = source;
         pendingHighlightedHtml = highlightedHtml;
         isScrambling = true;
@@ -1318,11 +1302,7 @@
             el.style.setProperty('--timing-duration', clampedDuration + 's');
           });
         }
-        
-        // Remove scrambling class to show QR/stats
-        const overlay = document.getElementById('source-overlay');
-        if (overlay) overlay.classList.remove('scrambling');
-        
+
         isScrambling = false;
         pendingSource = null;
         pendingHighlightedHtml = null;
