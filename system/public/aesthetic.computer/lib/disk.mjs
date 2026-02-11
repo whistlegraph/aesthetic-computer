@@ -11666,6 +11666,16 @@ async function makeFrame({ data: { type, content } }) {
       // content.width/height can be stale if a reframe just happened
       // 🎪 Reduce height when bumper enabled - piece gets viewport below bumper
       const bumperOffset = bumperConfig.enabled ? bumperConfig.height : 0;
+
+      if (bumperOffset > 0) {
+        console.log('🎪 BUMPER DEBUG:', {
+          'Physical screen.height': screen.height,
+          'Bumper offset': bumperOffset,
+          'Piece screen.height': screen.height - bumperOffset,
+          'Pan offset will shift to': `y=${bumperOffset} to y=${screen.height}`
+        });
+      }
+
       $api.screen = {
         width: screen.width,
         height: screen.height - bumperOffset,
@@ -12610,6 +12620,10 @@ async function makeFrame({ data: { type, content } }) {
             // 🎪 Apply bumper viewport offset before paint
             const bumperViewportOffset = bumperConfig.enabled && bumperConfig.height > 0 ? bumperConfig.height : 0;
             if (bumperViewportOffset > 0) {
+              // Log once per 60 frames to avoid spam
+              if (paintCount % 60n === 0n) {
+                console.log('🎪 Applying pan offset:', bumperViewportOffset, 'Piece will render from y=' + bumperViewportOffset + ' to y=' + ($api.screen.height + bumperViewportOffset));
+              }
               $api.pan(0, bumperViewportOffset);
             }
 
