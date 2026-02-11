@@ -202,6 +202,11 @@
       pointer-events: auto;
       touch-action: manipulation;
       transition: opacity 0.5s ease;
+      /* Prevent text selection on all overlay elements */
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
     }
     
     /* Source code always visible with piece info */
@@ -232,9 +237,36 @@
       transition: opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     }
     
+    /* Monaco container - fills the source code area */
+    #monaco-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+
+    /* Show Monaco after scramble finishes */
+    #source-overlay:not(.scrambling) #monaco-container {
+      opacity: 1;
+    }
+
     #source-code-inner {
-      /* For scrolling long code */
-      transition: opacity 0.25s ease;
+      /* Overlay on top of Monaco for scramble animation */
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      transition: opacity 0.5s ease;
+      pointer-events: none;
+    }
+
+    /* Hide scramble overlay after decode */
+    #source-overlay:not(.scrambling) #source-code-inner {
+      opacity: 0;
     }
 
     /* UI elements always visible - they have their own scramble animations */
@@ -512,6 +544,29 @@
     }
     
     /* KidLisp syntax highlighting */
+    /* All syntax highlighting needs harsh shadows for visibility */
+    .hl-comment,
+    .hl-string,
+    .hl-number,
+    .hl-keyword,
+    .hl-api,
+    .hl-color,
+    .hl-timing,
+    .hl-paren,
+    .hl-code-ref,
+    .hl-code-id,
+    .hl-paint-ref,
+    .hl-paint-id,
+    .hl-fade,
+    .hl-fade-sep,
+    .hl-fade-dir,
+    .hl-fade-colon,
+    .hl-rainbow,
+    .hl-zebra,
+    .scramble-char {
+      text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
+    }
+
     .hl-comment { color: #6272a4; font-style: italic; }
     .hl-string { color: orange; }
     .hl-number { color: lime; }
@@ -838,13 +893,125 @@
     };
   </script>
   <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs/loader.min.js"></script>
+
+  <!-- Monaco Editor Setup -->
+  <script>
+    // Wait for Monaco loader to be ready
+    let deviceMonacoEditor = null;
+
+    function initMonaco() {
+      if (typeof require === 'undefined') {
+        setTimeout(initMonaco, 100);
+        return;
+      }
+
+      require.config({
+        paths: {
+          vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs'
+        }
+      });
+
+      require(['vs/editor/editor.main'], function() {
+        console.log('📺 Monaco loaded for device mode');
+
+        // Register KidLisp language
+        monaco.languages.register({ id: 'kidlisp' });
+
+        // Simple Monaco language definition
+        monaco.languages.setMonarchTokensProvider('kidlisp', {
+          tokenizer: {
+            root: [
+              [/./, 'text']
+            ]
+          }
+        });
+
+        // Define theme for device mode - darker background with light text
+        monaco.editor.defineTheme('kidlisp-device', {
+          base: 'vs-dark',
+          inherit: true,
+          rules: [
+            { token: 'text', foreground: 'ffffff' }
+          ],
+          colors: {
+            'editor.background': '#00000000', // Transparent to see through
+            'editor.foreground': '#ffffff',
+            'editorCursor.foreground': '#FF69B4',
+            'editor.lineHighlightBackground': '#ffffff08',
+            'editorLineNumber.foreground': '#ffffff40',
+            'editorLineNumber.activeForeground': '#ffffff80',
+            'editor.selectionBackground': '#ff8c0066',
+            'editor.inactiveSelectionBackground': '#ff8c0033',
+          }
+        });
+
+        // Create Monaco editor in the container
+        const container = document.getElementById('monaco-container');
+        if (container) {
+          deviceMonacoEditor = monaco.editor.create(container, {
+            value: '',
+            language: 'kidlisp',
+            theme: 'kidlisp-device',
+            minimap: { enabled: false },
+            scrollBeyondLastLine: false,
+            fontSize: 14,
+            lineNumbers: 'off',
+            glyphMargin: false,
+            folding: false,
+            lineDecorationsWidth: 0,
+            lineNumbersMinChars: 0,
+            roundedSelection: false,
+            renderLineHighlight: 'none',
+            selectionHighlight: false,
+            occurrencesHighlight: 'off',
+            overviewRulerLanes: 0,
+            scrollbar: {
+              vertical: 'hidden',
+              horizontal: 'hidden',
+              useShadows: false
+            },
+            automaticLayout: true,
+            wordWrap: 'on',
+            readOnly: true,
+            cursorStyle: 'line',
+            padding: { top: 0, bottom: 0 },
+            hover: { enabled: false },
+            parameterHints: { enabled: false },
+            quickSuggestions: false,
+            suggestOnTriggerCharacters: false,
+            codeLens: false,
+            lightbulb: { enabled: 'off' },
+            inlayHints: { enabled: 'off' },
+            links: false,
+            contextmenu: false,
+            accessibilitySupport: 'off',
+          });
+
+          // Make globally accessible
+          window.deviceMonacoEditor = deviceMonacoEditor;
+
+          console.log('📺 Monaco editor created for device mode');
+        }
+      });
+    }
+
+    // Start initialization after DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initMonaco);
+    } else {
+      initMonaco();
+    }
+  </script>
 </head>
 <body>
   <!-- Boot animation now handled by iframe's acBootCanvas with device mode -->
   
   <!-- KidLisp source overlay with syntax highlighting and QR -->
   <div id="source-overlay" class="scrambling">
-    <div id="source-code"><div id="source-code-inner"></div></div>
+    <div id="source-code">
+      <div id="monaco-container"></div>
+      <div id="source-code-inner"></div>
+    </div>
     <div id="qr-wrap">
       <div id="code-label"></div>
       <div id="qr-container"></div>
@@ -1425,7 +1592,8 @@
       function finalize() {
         const inner = document.getElementById('source-code-inner');
         const codeEl = document.getElementById('source-code');
-        
+        const overlay = document.getElementById('source-overlay');
+
         if (inner && pendingHighlightedHtml) {
           // Crossfade into highlighted code to avoid a white flash
           inner.style.opacity = '0';
@@ -1433,12 +1601,12 @@
           requestAnimationFrame(() => {
             inner.style.opacity = '1';
           });
-          
+
           // Setup scrolling for long code
           requestAnimationFrame(() => {
             const containerHeight = codeEl.clientHeight;
             const contentHeight = inner.scrollHeight;
-            
+
             if (contentHeight > containerHeight + 20) {
               const scrollDistance = contentHeight - containerHeight + 20;
               inner.classList.add('scrolling');
@@ -1447,7 +1615,7 @@
               inner.style.setProperty('--scroll-duration', `${scrollDuration}s`);
             }
           });
-          
+
           // Apply timing durations to timing elements
           inner.querySelectorAll('.hl-timing-active[data-duration]').forEach(el => {
             const duration = parseFloat(el.dataset.duration) || 1;
@@ -1456,10 +1624,16 @@
           });
         }
 
+        // Remove scrambling class to reveal Monaco editor
+        if (overlay) {
+          overlay.classList.remove('scrambling');
+          console.log('📺 Decode complete - revealing Monaco editor');
+        }
+
         isScrambling = false;
         pendingSource = null;
         pendingHighlightedHtml = null;
-        
+
         if (decodeResolver) {
           decodeResolver();
           decodeResolver = null;
@@ -2349,7 +2523,13 @@
       const inner = document.getElementById('source-code-inner');
       if (!inner || !source) return;
 
-      // Generate highlighted HTML
+      // Load source into Monaco editor if available
+      if (window.deviceMonacoEditor) {
+        window.deviceMonacoEditor.setValue(source);
+        console.log('📺 Source loaded into Monaco editor');
+      }
+
+      // Generate highlighted HTML for scramble overlay
       const highlightedHtml = highlightKidlisp(source);
 
       // Stop any running scramble animation before starting new one
@@ -2474,8 +2654,8 @@
           handleEl.style.color = 'rgb(255, 107, 157)';
           handleEl.style.cursor = 'pointer';
           handleEl.onclick = () => {
-            // Open aesthetic.computer chat with handle prefilled
-            window.open(`https://aesthetic.computer/prompt~${encodeURIComponent('@' + data.handle)}`, '_blank');
+            // Open prompt.ac chat with handle
+            window.open(`https://prompt.ac/@${data.handle}`, '_blank');
           };
           handleEl.title = `Chat with ${data.handle}`;
 
