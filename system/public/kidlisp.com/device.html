@@ -2707,8 +2707,27 @@
       temp.innerHTML = highlightedHtml;
 
       const decorations = [];
+      const colorStyles = new Map(); // Cache CSS styles per color
       const lines = source.split('\n');
       let charIndex = 0;
+
+      // Create CSS class for a color (cached)
+      function getColorClass(color) {
+        const colorKey = color.replace(/[^a-z0-9]/gi, '').toLowerCase();
+        const className = `monaco-syntax-${colorKey}`;
+
+        if (!colorStyles.has(colorKey)) {
+          // Create and inject CSS for this color
+          const style = document.createElement('style');
+          style.id = `monaco-color-${colorKey}`;
+          style.textContent = `.${className} { color: ${color} !important; }`;
+          document.head.appendChild(style);
+          colorStyles.set(colorKey, className);
+          console.log('📺 Created Monaco style:', className, '→', color);
+        }
+
+        return className;
+      }
 
       // Walk through the highlighted HTML and create Monaco decorations
       const walker = document.createTreeWalker(temp, NodeFilter.SHOW_TEXT, null);
@@ -2725,7 +2744,7 @@
           const style = el.getAttribute('style') || '';
           const colorMatch = style.match(/color\s*:\s*([^;]+)/i);
           if (colorMatch) {
-            color = colorMatch[1];
+            color = colorMatch[1].trim();
             break;
           }
           // Check for class-based colors
@@ -2753,6 +2772,8 @@
 
         // Create decoration if we have a color
         if (color && text.length > 0) {
+          const className = getColorClass(color);
+
           for (let i = 0; i < text.length; i++) {
             const currentChar = text[i];
             if (currentChar !== '\n') {
@@ -2772,18 +2793,9 @@
               decorations.push({
                 range: new monaco.Range(lineNum, colNum, lineNum, colNum + 1),
                 options: {
-                  inlineClassName: `monaco-syntax-${color.replace(/[^a-z0-9]/gi, '')}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+                  inlineClassName: className
                 }
               });
-
-              // Inject CSS for this decoration
-              const styleId = `monaco-color-${color.replace(/[^a-z0-9]/gi, '')}-${Date.now()}`;
-              if (!document.getElementById(styleId)) {
-                const style = document.createElement('style');
-                style.id = styleId;
-                style.textContent = `.monaco-syntax-${color.replace(/[^a-z0-9]/gi, '')}-${Date.now()}-${Math.random().toString(36).substr(2, 9)} { color: ${color} !important; }`;
-                document.head.appendChild(style);
-              }
             }
             charIndex++;
           }
@@ -2796,7 +2808,7 @@
 
       // Apply all decorations at once
       window.deviceMonacoEditor.deltaDecorations([], decorations);
-      console.log('📺 Applied', decorations.length, 'Monaco syntax decorations');
+      console.log('📺 Applied', decorations.length, 'Monaco syntax decorations with', colorStyles.size, 'colors');
     }
 
     // Display syntax-highlighted source code with scramble animation
