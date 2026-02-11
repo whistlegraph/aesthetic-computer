@@ -6831,10 +6831,8 @@ $commonApi.resolution = function (width, height = width, gap = 8) {
 
   if (width === undefined && height === undefined) {
     // 1. Generate a new width and height.
-    // 🎪 Reduce height when bumper enabled - piece gets smaller viewport
-    const bumperOffset = bumperConfig.enabled ? bumperConfig.height : 0;
     width = round(currentDisplay.width / currentDisplay.subdivisions);
-    height = round((currentDisplay.height - bumperOffset) / currentDisplay.subdivisions);
+    height = round(currentDisplay.height / currentDisplay.subdivisions);
     // Build a reframe request that will be sent to the main thread, mirroring this.
     reframe = {
       width: undefined,
@@ -10727,16 +10725,12 @@ async function makeFrame({ data: { type, content } }) {
       const oldWidth = screen.width;
       const oldHeight = screen.height;
       const oldBufferSize = screen.pixels.length;
-
-      // 🎪 Reduce height when bumper enabled - piece gets smaller viewport
-      const bumperOffset = bumperConfig.enabled ? bumperConfig.height : 0;
-      const effectiveHeight = content.height - bumperOffset;
-
+      
       screen.width = content.width;
-      screen.height = effectiveHeight;
+      screen.height = content.height;
       // Create fresh buffer - bios.mjs freeze frame provides visual continuity
       // The piece's paint() will fill correct content on next frame
-      screen.pixels = new Uint8ClampedArray(content.width * effectiveHeight * 4);
+      screen.pixels = new Uint8ClampedArray(content.width * content.height * 4);
       
       // if ($commonApi.rec.presenting && (oldWidth !== content.width || oldHeight !== content.height)) {
       //   console.log('📐 REFRAME: Worker dimensions updated', oldWidth, 'x', oldHeight, '→', content.width, 'x', content.height);
@@ -11060,17 +11054,6 @@ async function makeFrame({ data: { type, content } }) {
       //       Re-test this when pointers is not empty! 22.11.12.20.02
       const pointers = content.pen.pointers;
       const pointersValues = Object.values(pointers);
-
-      // 🎪 Adjust pointer Y coordinates for bumper offset
-      {
-        const bumperOffset = bumperConfig.enabled ? bumperConfig.height : 0;
-        if (bumperOffset > 0) {
-          pointersValues.forEach((p) => {
-            if (p.y !== undefined) p.y -= bumperOffset;
-            if (p.py !== undefined) p.py -= bumperOffset;
-          });
-        }
-      }
 
       // Make all available dragBoxes into `Box` instances.
       pointersValues.forEach((p) => {
@@ -11679,11 +11662,24 @@ async function makeFrame({ data: { type, content } }) {
 
       $api.inFocus = inFocus;
 
+      // Use screen.width/height instead of content.width/height to get the most up-to-date dimensions
+      // content.width/height can be stale if a reframe just happened
+      // 🎪 Reduce height when bumper enabled - piece gets viewport below bumper
       const bumperOffset = bumperConfig.enabled ? bumperConfig.height : 0;
+
+      if (bumperOffset > 0) {
+        console.log('🎪 BUMPER DEBUG:', {
+          'Physical screen.height': screen.height,
+          'Bumper offset': bumperOffset,
+          'Piece screen.height': screen.height - bumperOffset,
+          'Piece renders': `y=0 to y=${screen.height - bumperOffset}`,
+          'Bumper overlays': `y=0 to y=${bumperOffset}`
+        });
+      }
 
       $api.screen = {
         width: screen.width,
-        height: screen.height, // Already reduced during reframe
+        height: screen.height - bumperOffset,
         pixels: screen.pixels,
         bumperOffset, // Expose this so pieces can adjust if needed
       };
@@ -12246,22 +12242,18 @@ async function makeFrame({ data: { type, content } }) {
 
       // Make a screen buffer or resize it automatically if it doesn't exist.
 
-      // 🎪 Reduce height when bumper enabled - piece gets smaller viewport
-      const bumperOffset = bumperConfig.enabled ? bumperConfig.height : 0;
-      const effectiveHeight = content.height - bumperOffset;
-
       if (
         !screen ||
         screen.width !== content.width ||
-        screen.height !== effectiveHeight
+        screen.height !== content.height
       ) {
         const hasScreen = screen !== undefined;
 
         screen = {
           pixels:
-            pixels || new Uint8ClampedArray(content.width * effectiveHeight * 4),
+            pixels || new Uint8ClampedArray(content.width * content.height * 4),
           width: content.width,
-          height: effectiveHeight,
+          height: content.height,
           load: function load(name) {
             if (store[name]?.pixels) {
               this.pixels = new Uint8ClampedArray(store[name].pixels);
@@ -13484,9 +13476,7 @@ async function makeFrame({ data: { type, content } }) {
         } // End of skipHudRender check - close the if (!skipHudRender) block
 
       // Return frame data back to the main thread.
-      // 🎪 bumperOffset (declared earlier near $api.screen) is included so bios
-      //    can position piece content correctly without relying on the overlay.
-      let sendData = { width: screen.width, height: screen.height, bumperOffset };
+      let sendData = { width: screen.width, height: screen.height };
 
       // Tack on the merry progress bar at the TOP if a pipeline is running
       if ($api.system.merry && $api.system.merry.running) {
@@ -14914,9 +14904,9 @@ async function makeFrame({ data: { type, content } }) {
         if ($commonApi.rec.presenting) {
           // Log dirtyBox usage during tape playback
         }
-      } else if (painted === true || (bumperConfig.enabled && bumperConfig.renderer)) {
-        // Send pixels when piece painted OR when bumper is active (bios needs
-        // them every frame for composition even if the piece didn't draw).
+      } else if (painted === true) {
+        // TODO: Toggling this causes a flicker in `line`... but helps prompt. 2022.01.29.13.21
+        // Otherwise render everything if we drew anything!
         transferredPixels = screen.pixels;
         sendData.pixels = transferredPixels;
       } else {
@@ -14925,11 +14915,7 @@ async function makeFrame({ data: { type, content } }) {
 
 
       // Optional messages to send.
-      // 🎪 When bumper has an active renderer, always mark as changed so the
-      //    overlay is repainted each frame (e.g., animated ticker).
-      if (painted === true || (bumperConfig.enabled && bumperConfig.renderer)) {
-        sendData.paintChanged = true;
-      }
+      if (painted === true) sendData.paintChanged = true;
       if (loading === true) sendData.loading = true;
       
       // WebGPU state (tell main thread whether to skip CPU rendering)
@@ -15007,12 +14993,6 @@ async function makeFrame({ data: { type, content } }) {
         // 👤 Create a copy for transfer to avoid detaching the author overlay buffer
         const authorPixelsCopy = new Uint8ClampedArray(sendData.authorOverlay.img.pixels);
         transferredObjects.push(authorPixelsCopy.buffer);
-      }
-
-      if (sendData.bumperOverlay) {
-        // 🎪 Create a copy for transfer to avoid detaching the bumper overlay buffer
-        const bumperPixelsCopy = new Uint8ClampedArray(sendData.bumperOverlay.img.pixels);
-        transferredObjects.push(bumperPixelsCopy.buffer);
       }
 
       // 🎬 Add recording UI overlays (visible on screen but NOT captured in tape)
