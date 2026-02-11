@@ -7958,7 +7958,7 @@
           scrambleIterations: 1, // Single scramble during reveal (was 2) - faster!
           minCharDelay: 1,       // Reveal speed (was 3) - faster!
           waitForSignal: true,   // Keep scrambling until signaled
-          maxWait: 10000,        // Safety: auto-complete after 10s
+          maxWait: 5000,         // Safety: auto-complete after 5s (was 10s - too long on mobile)
         },
         // Instant - no animation at all
         instant: {
@@ -8445,23 +8445,32 @@
             });
             
             // Scramble animation while waiting
+            // THROTTLED: Only update editor every ~120ms to avoid crashing
+            // iOS Safari / mobile WebKit. editor.setValue() is expensive - triggers
+            // full re-tokenization, layout, and DOM update each call.
             let scrambleFrame;
+            let lastScrambleUpdate = 0;
+            const SCRAMBLE_INTERVAL = 120; // ms between editor updates
             const scrambleWhileWaiting = () => {
               if (currentAnimationId !== animationId || !isDecrypting) {
                 finalize();
                 return;
               }
-              
+
               if (!waitingForSignal) {
                 // Signal received - proceed to reveal phase
                 return;
               }
-              
-              // Keep updating with scrambled text
-              editor.setValue(buildScrambledText());
+
+              // Only update editor at throttled rate
+              const now = performance.now();
+              if (now - lastScrambleUpdate >= SCRAMBLE_INTERVAL) {
+                editor.setValue(buildScrambledText());
+                lastScrambleUpdate = now;
+              }
               scrambleFrame = requestAnimationFrame(scrambleWhileWaiting);
             };
-            
+
             scrambleWhileWaiting();
             await waitPromise;
             cancelAnimationFrame(scrambleFrame);
@@ -8473,74 +8482,80 @@
             }
           }
           
-          // Phase 2: Reveal animation
+          // Phase 2: Reveal animation (throttled setValue for mobile perf)
           const settled = new Array(chars.length).fill(false);
           const scrambleCounts = new Array(chars.length).fill(0);
           let currentRevealIndex = 0;
           let lastRevealTime = 0;
+          let lastRevealUpdate = 0;
+          const REVEAL_INTERVAL = 50; // ms between editor updates (faster than scramble since bounded)
           const revealStartTime = performance.now();
-          
+
           const { revealDuration, maxDuration, scrambleIterations, minCharDelay } = settings;
           const duration = revealDuration || maxDuration || 300;
-          
+
           // Calculate charDelay to fit animation in duration
           let charDelay = Math.max(minCharDelay || 2, Math.floor(duration / (chars.length * scrambleIterations)));
           charDelay = Math.min(charDelay, 15);
-          
+
           const animateReveal = () => {
             // Check if this animation was cancelled
             if (currentAnimationId !== animationId) {
               resolve();
               return;
             }
-            
+
             // Check if stopped externally
             if (!isDecrypting) {
               finalize();
               return;
             }
-            
+
             const now = performance.now();
             const elapsed = now - revealStartTime;
-            
+
             // Safety: Force complete if we've exceeded duration
             if (elapsed > duration * 1.5) {
               finalize();
               return;
             }
-            
-            // Reveal next character after delay
-            if (now - lastRevealTime >= charDelay && currentRevealIndex < chars.length) {
+
+            // Advance reveal index (logic runs every frame for timing accuracy)
+            while (now - lastRevealTime >= charDelay && currentRevealIndex < chars.length) {
               scrambleCounts[currentRevealIndex]++;
-              
+
               if (scrambleCounts[currentRevealIndex] >= scrambleIterations) {
                 settled[currentRevealIndex] = true;
                 currentRevealIndex++;
                 lastRevealTime = now;
+              } else {
+                break;
               }
             }
-            
-            // Build and update text
-            const currentText = chars.map((char, i) => {
-              if (settled[i]) return char;
-              if (char === '\n' || char === ' ') return char;
-              return getScrambledChar(char);
-            }).join('');
-            
-            if (currentAnimationId === animationId) {
-              editor.setValue(currentText);
-            }
-            
+
             // Check if done
             if (settled.every(s => s)) {
               finalize();
               return;
             }
-            
-            // Use requestAnimationFrame for smooth 60fps
+
+            // Only update the editor at throttled rate
+            if (now - lastRevealUpdate >= REVEAL_INTERVAL) {
+              const currentText = chars.map((char, i) => {
+                if (settled[i]) return char;
+                if (char === '\n' || char === ' ') return char;
+                return getScrambledChar(char);
+              }).join('');
+
+              if (currentAnimationId === animationId) {
+                editor.setValue(currentText);
+              }
+              lastRevealUpdate = now;
+            }
+
             requestAnimationFrame(animateReveal);
           };
-          
+
           // Start reveal animation
           requestAnimationFrame(animateReveal);
         });
