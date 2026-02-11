@@ -1898,7 +1898,101 @@
         animate(); // Run immediately
       };
 
-      // Scramble QR code SVG by randomizing rect positions with 24fps rhythmic animation
+      // Regenerate QR code on every chunk (24fps) - stops when metadata stops
+      window.scrambleQRCodeRegenerate = function(qrUrl, container) {
+        if (!container || typeof qrcode === 'undefined') return;
+
+        let scrambling = true;
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_~';
+
+        function regenerateRandomQR() {
+          if (!scrambling) return;
+
+          // Generate random URL variation (scramble the URL)
+          const randomUrl = qrUrl.split('').map(char => {
+            if (Math.random() < 0.3) { // 30% chance to scramble each char
+              return chars[Math.floor(Math.random() * chars.length)];
+            }
+            return char;
+          }).join('');
+
+          try {
+            const qrGen = qrcode(0, 'L');
+            qrGen.addData(randomUrl);
+            qrGen.make();
+            const svg = qrGen.createSvgTag(2, 0);
+            container.innerHTML = svg;
+            const svgEl = container.querySelector('svg');
+            if (svgEl) {
+              svgEl.style.display = 'block';
+              svgEl.style.width = '100%';
+              svgEl.style.height = '100%';
+            }
+          } catch (e) {
+            // If QR generation fails, just skip this frame
+          }
+        }
+
+        // Register with global 24fps clock
+        function animate() {
+          if (!scrambling) return;
+
+          // Rhythmic skip - sometimes skip this beat
+          if (shouldSkipBeat()) {
+            return;
+          }
+
+          regenerateRandomQR();
+        }
+
+        // Store callback so we can stop it later
+        container._qrRegenerateCallback = animate;
+        scrambleCallbacks.add(animate);
+        startScrambleClock();
+
+        // Stop regenerating when overlay is no longer scrambling
+        const overlay = document.getElementById('source-overlay');
+        if (overlay) {
+          const observer = new MutationObserver(() => {
+            if (!overlay.classList.contains('scrambling')) {
+              scrambling = false;
+              if (container._qrRegenerateCallback) {
+                scrambleCallbacks.delete(container._qrRegenerateCallback);
+                container._qrRegenerateCallback = null;
+              }
+
+              // Generate final correct QR
+              try {
+                const qrGen = qrcode(0, 'L');
+                qrGen.addData(qrUrl);
+                qrGen.make();
+                const svg = qrGen.createSvgTag(2, 0);
+                container.innerHTML = svg;
+                const svgEl = container.querySelector('svg');
+                if (svgEl) {
+                  svgEl.style.display = 'block';
+                  svgEl.style.width = '100%';
+                  svgEl.style.height = '100%';
+                }
+                console.log('📺 QR regeneration stopped - final QR displayed');
+              } catch (e) {
+                console.error('📺 Failed to generate final QR:', e);
+              }
+
+              observer.disconnect();
+            }
+          });
+
+          observer.observe(overlay, {
+            attributes: true,
+            attributeFilter: ['class']
+          });
+        }
+
+        console.log('📺 QR regeneration started');
+      };
+
+      // OLD: Scramble QR code SVG by randomizing rect positions with 24fps rhythmic animation
       window.scrambleQRCode = function(svgElement, duration = 800, continuous = false) {
         if (!svgElement) return;
 
@@ -2887,18 +2981,18 @@
 
       // Build label with colored $ and code
       if (labelEl) {
-        const dollar = displayCode[0] === '$' ? '$' : '';
+        const dollar = '$'; // Always show $
         const code = displayCode.startsWith('$') ? displayCode.slice(1) : displayCode;
         const targetText = dollar + code;
 
         // Create HTML structure for scrambling
         labelEl.innerHTML = `<span class="code-dollar">${dollar}</span><span class="code-name">${code}</span>`;
 
-        // Scramble the label text continuously (animate both dollar and code spans independently)
+        // Scramble the label text but NOT continuously - reveal then stop
         const dollarSpan = labelEl.querySelector('.code-dollar');
         const codeSpan = labelEl.querySelector('.code-name');
-        if (dollarSpan && dollar) window.scrambleTextElement?.(dollarSpan, dollar, 400, true);
-        if (codeSpan) window.scrambleTextElement?.(codeSpan, code, 600, true);
+        if (dollarSpan) window.scrambleTextElement?.(dollarSpan, dollar, 400, false);
+        if (codeSpan) window.scrambleTextElement?.(codeSpan, code, 600, false);
 
         console.log('📺 Label set with scramble:', targetText);
       }
@@ -2921,6 +3015,12 @@
       if (qrContainer && typeof qrcode !== 'undefined') {
         try {
           console.log('📺 Generating QR for:', qrUrl);
+
+          // Store QR URL globally for regeneration during scramble
+          window.currentQRUrl = qrUrl;
+          window.qrContainer = qrContainer;
+
+          // Initial QR generation
           const qrGen = qrcode(0, 'L');
           qrGen.addData(qrUrl);
           qrGen.make();
@@ -2933,10 +3033,10 @@
             svgEl.style.width = '100%';
             svgEl.style.height = '100%';
 
-            // 🎲 SCRAMBLE THE QR CODE! Most fun part! Continuous 24fps rhythmic animation
-            window.scrambleQRCode?.(svgEl, 800, true);
+            // 🎲 REGENERATE QR CODE on every chunk! Stops when everything else stops
+            window.scrambleQRCodeRegenerate?.(qrUrl, qrContainer);
 
-            console.log('📺 QR SVG created with scramble animation');
+            console.log('📺 QR SVG created with regeneration animation');
           }
         } catch (e) {
           console.error('📺 QR generation error:', e);
