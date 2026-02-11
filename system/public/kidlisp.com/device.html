@@ -2866,64 +2866,32 @@
 
     // Display syntax-highlighted source code with scramble animation
     function displaySourceCode(source) {
-      const codeEl = document.getElementById('source-code');
-      const inner = document.getElementById('source-code-inner');
-      if (!inner || !source) return;
+      if (!source) return;
 
-      // Generate highlighted HTML for scramble overlay
+      console.log('📺 displaySourceCode called with', source.length, 'chars');
+
+      // Generate highlighted HTML for syntax colors
       const highlightedHtml = highlightKidlisp(source);
-
-      // Load source into Monaco editor if available
-      if (window.deviceMonacoEditor) {
-        window.deviceMonacoEditor.setValue(source);
-        // Apply syntax highlighting decorations
-        setTimeout(() => {
-          applyMonacoSyntaxHighlighting(source, highlightedHtml);
-        }, 100); // Small delay to ensure Monaco has processed the setValue
-        console.log('📺 Source loaded into Monaco editor with syntax highlighting');
-      }
 
       // Stop any running scramble animation before starting new one
       if (window.stopScrambleAnimation) window.stopScrambleAnimation();
 
-      // Reset scrolling classes before starting new animation
-      inner.classList.remove('scrolling');
-      inner.style.removeProperty('--scroll-distance');
-      inner.style.removeProperty('--scroll-duration');
-
-      // Start scramble animation - will decode when piece starts running
-      if (window.startScrambleAnimation) {
+      // Start scramble animation in Monaco - will decode when piece starts running
+      if (window.startScrambleAnimation && window.deviceMonacoEditor) {
         window.startScrambleAnimation(source, highlightedHtml);
+        console.log('📺 Monaco scramble animation started');
+      } else if (window.deviceMonacoEditor) {
+        // Fallback: show code immediately if scramble not available
+        window.deviceMonacoEditor.setValue(source);
+        setTimeout(() => {
+          applyMonacoSyntaxHighlighting(source, highlightedHtml);
+        }, 100);
+        console.log('📺 Source loaded into Monaco (no scramble)');
       } else {
-        // Fallback: show highlighted code immediately
-        inner.innerHTML = highlightedHtml;
-        document.body.classList.remove('booting');
-        setupScrolling(codeEl, inner);
+        console.warn('📺 Monaco not ready yet');
       }
     }
     
-    // Setup scrolling for long code (called after decode finishes)
-    function setupScrolling(codeEl, inner) {
-      requestAnimationFrame(() => {
-        const containerHeight = codeEl.clientHeight;
-        const contentHeight = inner.scrollHeight;
-        
-        if (contentHeight > containerHeight + 20) {
-          const scrollDistance = contentHeight - containerHeight + 20;
-          inner.classList.add('scrolling');
-          inner.style.setProperty('--scroll-distance', `-${scrollDistance}px`);
-          const scrollDuration = 12 + (scrollDistance / 150);
-          inner.style.setProperty('--scroll-duration', `${scrollDuration}s`);
-        }
-      });
-      
-      // Apply timing durations to timing elements
-      inner.querySelectorAll('.hl-timing-active[data-duration]').forEach(el => {
-        const duration = parseFloat(el.dataset.duration) || 1;
-        const clampedDuration = Math.max(0.1, Math.min(duration, 10));
-        el.style.setProperty('--timing-duration', clampedDuration + 's');
-      });
-    }
     
     // Generate QR code pointing to kidlisp.com/$piece
     function generateQRAndLabel(displayCode) {
