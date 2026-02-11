@@ -999,9 +999,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let statsFrameCount = 0;
   let statsLastTime = performance.now();
 
-  // Enable reframe debug logging (off by default, set window.acReframeDebug = true to enable)
+  // Enable reframe debug logging by default for flicker investigation
   if (typeof window !== "undefined" && window.acReframeDebug === undefined) {
-    window.acReframeDebug = false;
+    window.acReframeDebug = true;
   }
 
   let webglBlitter = null;
@@ -1914,7 +1914,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     reframeJustCompleted = true; // Mark that we just completed a reframe
     needsReappearance = true; // Only for `native-cursor` mode.
     // Send reframed BEFORE needs-paint so worker updates dimensions before painting
-    if (underlayFrame && window.acReframeDebug) {
+    if (underlayFrame) {
       console.log('📤 REFRAME: Sending reframe message to worker. New dimensions:', width, 'x', height);
     }
     awaitingReframePixels = true;
@@ -2852,7 +2852,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   };
   if (typeof window !== 'undefined') {
     window.__bios_sound_telemetry = soundTelemetry;
-    // console.log('🔬 BIOS: Exposed __bios_sound_telemetry on window');
+    console.log('🔬 BIOS: Exposed __bios_sound_telemetry on window');
   }
 
   // 🎸 M4L Console Forwarding (for Ableton integration debugging)
@@ -3014,7 +3014,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Notify pieces of initial AudioContext state
     if (!window.acPACK_MODE) {
-      // console.log("🎵 BIOS sending initial AudioContext state:", { state: audioContext.state, hasAudio: true });
+      console.log("🎵 BIOS sending initial AudioContext state:", { state: audioContext.state, hasAudio: true });
     }
     acDISK_SEND({ 
       type: "tape:audio-context-state", 
@@ -3818,19 +3818,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   //          decoding all the sounds after an initial tap.
 
   async function playSfx(id, soundData, options, completed) {
-    // console.log("🎵 BIOS playSfx called:", { id: id?.substring?.(0, 50), soundData: soundData?.substring?.(0, 50), options, hasAudioContext: !!audioContext });
+    console.log("🎵 BIOS playSfx called:", { id: id?.substring?.(0, 50), soundData: soundData?.substring?.(0, 50), options, hasAudioContext: !!audioContext });
     
     if (audioContext) {
       
       if (sfxCancel.includes(id)) {
-        // console.log("🎵 BIOS playSfx cancelled for:", id);
+        console.log("🎵 BIOS playSfx cancelled for:", id);
         sfxCancel.length = 0;
         return;
       }
 
       // Handle stream option - audio should be silent for streaming
       if (options?.stream) {
-        // console.log("🎵 BIOS stream option detected, audio will be silent:", soundData);
+        console.log("🎵 BIOS stream option detected, audio will be silent:", soundData);
         // Create a dummy playback object for tracking
         sfxPlaying[id] = {
           kill: () => {
@@ -3841,17 +3841,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       // Instantly decode the audio before playback if it hasn't been already.
-      // console.log("🎵 BIOS attempting to decode sfx:", soundData?.substring?.(0, 50), "current type:", typeof sfx[soundData]);
+      console.log("🎵 BIOS attempting to decode sfx:", soundData?.substring?.(0, 50), "current type:", typeof sfx[soundData]);
       await decodeSfx(soundData);
-      // console.log("🎵 BIOS decode complete, sfx type now:", typeof sfx[soundData], "isAudioBuffer:", sfx[soundData] instanceof AudioBuffer);
+      console.log("🎵 BIOS decode complete, sfx type now:", typeof sfx[soundData], "isAudioBuffer:", sfx[soundData] instanceof AudioBuffer);
 
       if (sfx[soundData] instanceof ArrayBuffer) {
-        // console.log("🎵 BIOS sfx still ArrayBuffer, returning early");
+        console.log("🎵 BIOS sfx still ArrayBuffer, returning early");
         return;
       }
 
       if (!sfx[soundData]) {
-        // console.log("🎵 BIOS sfx not found after decode, queuing:", soundData?.substring?.(0, 50));
+        console.log("🎵 BIOS sfx not found after decode, queuing:", soundData?.substring?.(0, 50));
         // Queue the sound effect to be played once it's loaded
         pendingSfxQueue.push({
           id,
@@ -3903,13 +3903,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         length: sfx[soundData].length,
       };
 
-      /*console.log("🎵 BIOS sample prepared:", {
+      console.log("🎵 BIOS sample prepared:", {
         soundData: soundData?.substring?.(0, 50),
         sampleChannels: sample.channels.length,
         sampleRate: sample.sampleRate,
         length: sample.length,
         triggerSoundAvailable: !!triggerSound
-      });*/
+      });
 
       // TODO: ⏰ Memoize the buffer data after first playback so it doesn't have to
       //          keep being sent on every playthrough. 25.02.15.08.22
@@ -3926,7 +3926,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         speed = options.pitch / basePitch;
       }
 
-      /*console.log("🎵 BIOS about to call triggerSound:", {
+      console.log("🎵 BIOS about to call triggerSound:", {
         id: id?.substring?.(0, 30),
         speed,
         volume: options?.volume,
@@ -3934,7 +3934,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         loop: options?.loop,
         targetDuration: options?.targetDuration,
         sfxLoadedForData: !!sfxLoaded[soundData]
-      });*/
+      });
 
       const playResult = triggerSound?.({
         id,
@@ -3958,11 +3958,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // decay: 0,
       });
 
-      /*console.log("🎵 BIOS triggerSound result:", {
+      console.log("🎵 BIOS triggerSound result:", {
         id: id?.substring?.(0, 30),
         playResult,
         playResultType: typeof playResult
-      });*/
+      });
 
       sfxPlaying[id] = playResult;
 
@@ -5439,7 +5439,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           } 
         });
       } else {
-        // console.log("🎵 BIOS no audio context available");
+        console.log("🎵 BIOS no audio context available");
       }
       return;
     }
@@ -12457,7 +12457,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Initialize some global stuff after the first piece loads.
     // Unload some already initialized stuff if this wasn't the first load.
     if (type === "disk-loaded") {
-      // console.log(`🔍 BIOS: Received disk-loaded for "${content.text}", path="${content.path}"`);
+      console.log(`🔍 BIOS: Received disk-loaded for "${content.text}", path="${content.path}"`);
       
       // 🧹 Clean up any GPU/stats/glaze state from previous piece
       // This ensures cleanup even if the previous piece's leave() failed
@@ -16922,7 +16922,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
       
       // Only log reframe operations to debug flicker
-      const isHudOverlay = name === "label" || name === "qrOverlay" || name === "qrCornerLabel" || name === "qrFullscreenLabel" || name === "authorOverlay" || name === "bumperOverlay";
+      const isHudOverlay = name === "label" || name === "qrOverlay" || name === "qrCornerLabel" || name === "qrFullscreenLabel" || name === "authorOverlay";
 
       // Skip tape progress bar in clean mode only
       if (name === "tapeProgressBar" && window.currentRecordingOptions?.cleanMode) {
@@ -16932,8 +16932,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       if (!o || !o.img) {
         // During reframes, if overlay data is missing but we have a cached version, use it
-        // EXCEPT for tapeProgressBar, merryProgressBar, durationProgressBar, durationTimecode, qrOverlay and bumperOverlay which should never use cached versions
-        if (content.reframe && window.framePersistentOverlayCache[name] && name !== "tapeProgressBar" && name !== "merryProgressBar" && name !== "durationProgressBar" && name !== "durationTimecode" && name !== "qrOverlay" && name !== "qrCornerLabel" && name !== "qrFullscreenLabel" && name !== "authorOverlay" && name !== "bumperOverlay") {
+        // EXCEPT for tapeProgressBar, merryProgressBar, durationProgressBar, durationTimecode and qrOverlay which should never use cached versions
+        if (content.reframe && window.framePersistentOverlayCache[name] && name !== "tapeProgressBar" && name !== "merryProgressBar" && name !== "durationProgressBar" && name !== "durationTimecode" && name !== "qrOverlay" && name !== "qrCornerLabel" && name !== "qrFullscreenLabel" && name !== "authorOverlay") {
           paintOverlays[name] = window.framePersistentOverlayCache[name];
           return;
         }
@@ -17142,8 +17142,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // Don't cache QR overlay painters to allow animation
       // Don't cache tapeProgressBar, merryProgressBar or durationProgressBar painters either - force regeneration every frame
-      // Don't cache authorOverlay or bumperOverlay as they change per piece
-      if (isHudOverlay && name !== "qrOverlay" && name !== "qrCornerLabel" && name !== "qrFullscreenLabel" && name !== "authorOverlay" && name !== "bumperOverlay" && name !== "tapeProgressBar" && name !== "merryProgressBar" && name !== "durationProgressBar") {
+      // Don't cache authorOverlay as it changes per piece
+      if (isHudOverlay && name !== "qrOverlay" && name !== "qrCornerLabel" && name !== "qrFullscreenLabel" && name !== "authorOverlay" && name !== "tapeProgressBar" && name !== "merryProgressBar" && name !== "durationProgressBar") {
         window.framePersistentOverlayCache[name] = paintOverlays[name];
       }
     }
@@ -17202,7 +17202,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       };
     }
 
-    buildOverlay("bumperOverlay", content.bumperOverlay); // 🎪 Bumper ticker at the top
     buildOverlay("label", content.label);
     buildOverlay("qrOverlay", content.qrOverlay);
     buildOverlay("qrCornerLabel", content.qrCornerLabel);
@@ -17328,39 +17327,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const isPlaybackOnly =
           underlayFrame && !isRecording && !needs$creenshot;
 
-        // 🎪 Calculate bumper offset for piece content positioning (before dimension check)
-        const bumperOffset = content.bumperOverlay?.img?.height || 0;
-
-        // 🔍 DEBUG: Log imageData state
-        console.log('🎨 [RENDER] imageData check:', {
-          hasImageData: !!imageData,
-          hasData: !!imageData?.data,
-          hasBuffer: !!imageData?.data?.buffer,
-          byteLength: imageData?.data?.buffer?.byteLength,
-          imageDims: imageData ? `${imageData.width}x${imageData.height}` : 'null',
-          canvasDims: `${ctx.canvas.width}x${ctx.canvas.height}`,
-          bumperOffset: bumperOffset,
-          heightMatch: imageData?.height === ctx.canvas.height,
-          heightWithBumper: imageData?.height === ctx.canvas.height - bumperOffset
-        });
-
         if (
           imageData &&
           imageData.data &&
           imageData.data.buffer &&
           imageData.data.buffer.byteLength > 0 &&
           imageData.width === ctx.canvas.width &&
-          (imageData.height === ctx.canvas.height || imageData.height === ctx.canvas.height - bumperOffset)
+          imageData.height === ctx.canvas.height
         ) {
-          console.log('✅ [RENDER] Dimension check PASSED - rendering pixels');
-          // Dimensions match (accounting for bumper offset) - clear mismatch counter and log if we just recovered
-          if (underlayFrame && dimensionMismatchCount > 0 && window.acReframeDebug) {
+          // Dimensions match - clear mismatch counter and log if we just recovered
+          if (underlayFrame && dimensionMismatchCount > 0) {
             console.log('✅ REFRAME: Dimension sync restored after', dimensionMismatchCount, 'mismatched frames. Canvas:', ctx.canvas.width, 'x', ctx.canvas.height);
             dimensionMismatchCount = 0;
           }
           // Use async rendering for better performance (except during tape playback for immediate UI)
           const forceSynchronousRendering = isRecording || needs$creenshot;
-
+          
           // Skip CPU rendering if WebGPU is enabled
           if (content.webgpuEnabled) {
             // Switch backend if piece requests a specific one
@@ -17421,8 +17403,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               overlayCan.style.display = "none";
             }
             // Force sync rendering during tape playback for immediate UI updates
-            console.log('🎨 [RENDER] putImageData called (underlayFrame sync)', { x: 0, y: bumperOffset });
-            ctx.putImageData(imageData, 0, bumperOffset);
+            ctx.putImageData(imageData, 0, 0);
           } else if (!forceSynchronousRendering && window.pixelOptimizer && window.pixelOptimizer.asyncRenderingSupported) {
             try {
               if (canvas.style.visibility !== "visible") {
@@ -17438,11 +17419,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 overlayCan.style.display = "none";
               }
               // Non-blocking async rendering
-              console.log('🎨 [RENDER] Starting async rendering', { x: 0, y: bumperOffset });
-              window.pixelOptimizer.renderImageDataAsync(imageData, ctx, 0, bumperOffset).then(() => {
-                console.log('✅ [RENDER] Async rendering completed');
+              window.pixelOptimizer.renderImageDataAsync(imageData, ctx, 0, 0).then(() => {
                 // Paint overlays after async fallback rendering completes
-                if (paintOverlays["bumperOverlay"]) paintOverlays["bumperOverlay"](); // Paint bumper first (at the top)
                 if (paintOverlays["label"]) paintOverlays["label"]();
                 if (paintOverlays["qrOverlay"]) paintOverlays["qrOverlay"]();
                 if (paintOverlays["qrCornerLabel"]) paintOverlays["qrCornerLabel"]();
@@ -17453,7 +17431,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 if (paintOverlays["hitboxDebug"]) paintOverlays["hitboxDebug"](); // Debug overlay (green hitbox)
               }).catch(err => {
                 console.warn('🟡 Fallback async rendering failed:', err);
-                ctx.putImageData(imageData, 0, bumperOffset);
+                ctx.putImageData(imageData, 0, 0);
                 skipImmediateOverlays = false;
               });
               skipImmediateOverlays = true; // Skip immediate overlays; they'll paint in async callback
@@ -17470,7 +17448,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               if (overlayCan.style.display !== "none") {
                 overlayCan.style.display = "none";
               }
-              ctx.putImageData(imageData, 0, bumperOffset);
+              ctx.putImageData(imageData, 0, 0);
               skipImmediateOverlays = false;
             }
           } else {
@@ -17486,12 +17464,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             if (overlayCan.style.display !== "none") {
               overlayCan.style.display = "none";
             }
-            console.log('🎨 [RENDER] putImageData called (sync fallback)', { x: 0, y: bumperOffset });
-            ctx.putImageData(imageData, 0, bumperOffset);
+            ctx.putImageData(imageData, 0, 0);
             skipImmediateOverlays = false;
           }
         } else {
-          console.log('❌ [RENDER] Dimension check FAILED - entering recovery path');
           // Dimension mismatch - handle differently for tape playback vs normal
           if (underlayFrame) {
             // During tape playback, keep the canvas at correct size and wait for matching data
@@ -17522,15 +17498,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 ctx.canvas.height,
               );
               if (imageData.data.buffer.byteLength > 0) {
-                // 🎪 Calculate bumper offset for piece content positioning
-                const bumperOffset = content.bumperOverlay?.img?.height || 0;
-
                 // Use async rendering for better performance (except during tape playback for immediate UI)
                 const forceSynchronousRendering = isRecording || needs$creenshot;
                 if (!forceSynchronousRendering && window.pixelOptimizer && window.pixelOptimizer.asyncRenderingSupported) {
                   try {
-                    window.pixelOptimizer.renderImageDataAsync(imageData, ctx, 0, bumperOffset).then(() => {
-                      if (paintOverlays["bumperOverlay"]) paintOverlays["bumperOverlay"](); // Paint bumper first
+                    window.pixelOptimizer.renderImageDataAsync(imageData, ctx, 0, 0).then(() => {
                       if (paintOverlays["label"]) paintOverlays["label"]();
                       if (paintOverlays["qrOverlay"]) paintOverlays["qrOverlay"]();
                       if (paintOverlays["qrCornerLabel"]) paintOverlays["qrCornerLabel"]();
@@ -17541,17 +17513,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                       if (paintOverlays["hitboxDebug"]) paintOverlays["hitboxDebug"]();
                     }).catch(err => {
                       console.warn('🟡 Async rendering failed:', err);
-                      ctx.putImageData(imageData, 0, bumperOffset);
+                      ctx.putImageData(imageData, 0, 0);
                       skipImmediateOverlays = false;
                     });
                     skipImmediateOverlays = true; // Skip immediate overlays; they'll paint in async callback
                   } catch (err) {
                     console.warn('🟡 Async render setup failed, using fallback:', err);
-                    ctx.putImageData(imageData, 0, bumperOffset);
+                    ctx.putImageData(imageData, 0, 0);
                     skipImmediateOverlays = false;
                   }
                 } else {
-                  ctx.putImageData(imageData, 0, bumperOffset);
+                  ctx.putImageData(imageData, 0, 0);
                   skipImmediateOverlays = false;
                 }
               }
@@ -17620,11 +17592,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           tapeProgressPainter = paintOverlays["tapeProgressBar"] || null;
         }
         let paintTapeProgressAfterCapture = false;
-
-        // 🎪 Paint bumper overlay first (at the top)
-        if (!skipImmediateOverlays && paintOverlays["bumperOverlay"]) {
-          paintOverlays["bumperOverlay"]();
-        }
 
         if (paintOverlays["label"]) {
           if (!skipImmediateOverlays || isRecording || needs$creenshot) {
