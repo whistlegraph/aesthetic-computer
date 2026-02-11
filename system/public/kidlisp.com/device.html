@@ -237,15 +237,14 @@
       transition: opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     }
     
-    /* Monaco container - fills the source code area */
+    /* Monaco container - always visible, fills the source code area */
     #monaco-container {
       position: absolute;
       top: 0;
       left: 0;
       right: 0;
       bottom: 0;
-      opacity: 0;
-      transition: opacity 0.5s ease;
+      opacity: 1;
       overflow: hidden;
     }
 
@@ -256,29 +255,20 @@
       outline: none !important;
     }
 
-    /* Show Monaco after scramble finishes */
-    #source-overlay:not(.scrambling) #monaco-container {
-      opacity: 1;
+    /* Better text spacing in Monaco */
+    #monaco-container .monaco-editor .view-line {
+      letter-spacing: 0.5px;
     }
 
-    #source-code-inner {
-      /* Overlay on top of Monaco for scramble animation */
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      opacity: 1;
-      transition: opacity 0.5s ease;
-      pointer-events: none;
-      z-index: 1;
-    }
-
-    /* Hide scramble overlay after decode */
-    #source-overlay:not(.scrambling) #source-code-inner {
-      opacity: 0;
-      pointer-events: none;
-      visibility: hidden; /* Fully hide to prevent doubling */
+    /* Unified text size for all DOM elements */
+    #code-label,
+    #piece-handle,
+    #piece-hits,
+    #piece-when,
+    #ff1-playlist-title,
+    #ff1-playlist-position {
+      font-size: calc(var(--ui-scale, 8) * 2.5px) !important;
+      line-height: 1.5 !important;
     }
 
     /* UI elements always visible - they have their own scramble animations */
@@ -1137,7 +1127,6 @@
   <div id="source-overlay" class="scrambling">
     <div id="source-code">
       <div id="monaco-container"></div>
-      <div id="source-code-inner"></div>
     </div>
     <div id="qr-wrap">
       <div id="code-label"></div>
@@ -1599,52 +1588,60 @@
         if (inner) inner.classList.remove('scramble-coloring');
       };
       
-      // Start scramble animation - keeps scrambling until signaled
+      // Start scramble animation - applies directly to Monaco
       window.startScrambleAnimation = function(source, highlightedHtml) {
-        const inner = document.getElementById('source-code-inner');
         const overlay = document.getElementById('source-overlay');
-        if (!inner || !source) return;
-        
+        if (!source || !window.deviceMonacoEditor) return;
+
         // Stop the initial placeholder scramble
         stopInitialScramble();
-
-        scheduleScrambleColoring(inner);
 
         pendingSource = source;
         pendingHighlightedHtml = highlightedHtml;
         isScrambling = true;
         waitingForDecode = true;
-        
+
         // Initialize per-character rhythms for the source
         initCharStates(source, highlightedHtml);
-        
-        console.log('📺 Starting scramble animation with per-character rhythm at 24fps...');
 
-        // Use global 24fps clock with rhythmic variation for smooth per-character rhythm updates
+        console.log('📺 Starting Monaco scramble animation at 24fps...');
+
+        // Build scrambled text for Monaco
+        function buildScrambledMonacoText(source) {
+          const chars = source.split('');
+          return chars.map((char, idx) => {
+            const state = charStates[idx];
+            if (!state || state.isWhitespace) return char;
+
+            const now = performance.now();
+            const elapsed = now - state.lastChange;
+            if (elapsed >= state.interval) {
+              state.currentChar = getScrambledChar(state.original);
+              state.lastChange = now;
+            }
+            return state.currentChar;
+          }).join('');
+        }
+
+        // Use global 24fps clock to update Monaco content
         function scrambleLoop() {
           if (!isScrambling || !waitingForDecode) return;
 
           // Rhythmic skip - sometimes skip this beat
           if (shouldSkipBeat()) {
-            return; // Skip this frame but keep clock running
+            return;
           }
 
-          // Show scrambled plain text with per-character rhythm
-          inner.innerHTML = buildScrambledTextWithRhythm(pendingSource);
+          // Update Monaco with scrambled text
+          const scrambledText = buildScrambledMonacoText(pendingSource);
+          window.deviceMonacoEditor.setValue(scrambledText);
         }
 
         // Register with global clock
         scrambleCallbacks.add(scrambleLoop);
         startScrambleClock();
-        scrambleIntervalId = scrambleLoop; // Store reference for cleanup
+        scrambleIntervalId = scrambleLoop;
 
-        // Start color transition after a short delay (start whiter)
-        setTimeout(() => {
-          if (isScrambling && waitingForDecode) {
-            inner.classList.add('scramble-coloring');
-          }
-        }, 600);
-        
         // Return promise that resolves when decode is triggered
         return new Promise(resolve => {
           decodeResolver = resolve;
@@ -1667,20 +1664,16 @@
         revealCode();
       };
       
-      // Reveal animation - characters reveal individually based on their seeded timing
+      // Reveal animation - characters reveal individually in Monaco
       function revealCode() {
-        const inner = document.getElementById('source-code-inner');
-        if (!inner || !pendingSource) {
+        if (!pendingSource || !window.deviceMonacoEditor) {
           finalize();
           return;
         }
-        
+
         const chars = pendingSource.split('');
         const revealStartTime = performance.now();
         const revealDuration = 800; // Total reveal time in ms
-
-        // Keep scramble coloring active during reveal to avoid white flash
-        inner.classList.add('scramble-coloring');
         
         // Each character has a reveal time based on its seed
         const revealTimes = chars.map((char, idx) => {
@@ -1701,39 +1694,27 @@
             finalize();
             return;
           }
-          
+
           const now = performance.now();
           const elapsed = now - revealStartTime;
-          
+
           // Safety: Force complete if exceeded duration
           if (elapsed > revealDuration * 1.5) {
             finalize();
             return;
           }
-          
-          // Build current HTML - each char reveals at its own time
-          const currentHtml = chars.map((char, i) => {
-            if (char === '\n' || char === ' ' || char === '\t') return escapeHtmlChar(char);
 
-            const targetColor = charColors[i] || null;
-            const colorDelayMs = 200 + ((char.charCodeAt(0) * 5 + i * 7) % 1800);
-            const colorDelay = (colorDelayMs / 1000).toFixed(2);
-
-            // Dynamic shadow: opposite of target color
-            const inverseShadow = targetColor ? getInverseColor(targetColor) : 'rgb(0, 0, 0)';
-            const shadowStyle = `1px 1px 0 ${inverseShadow}, -1px -1px 0 ${inverseShadow}, 1px -1px 0 ${inverseShadow}, -1px 1px 0 ${inverseShadow}, 2px 2px 0 ${inverseShadow}`;
-
-            const colorStyle = targetColor
-              ? ` style="--target-color: ${targetColor}; --color-delay: ${colorDelay}s; text-shadow: ${shadowStyle};"`
-              : ` style="--color-delay: ${colorDelay}s; text-shadow: ${shadowStyle};"`;
+          // Build current text with characters revealing over time
+          const currentText = chars.map((char, i) => {
+            if (char === '\n' || char === ' ' || char === '\t') return char;
 
             // Check if this character should be revealed yet
             if (elapsed >= revealTimes[i]) {
               settled[i] = true;
-              return `<span class="scramble-char"${colorStyle}>${escapeHtmlChar(char)}</span>`;
+              return char; // Show original character
             }
 
-            // Still scrambling - use the charStates rhythm if available
+            // Still scrambling
             if (charStates[i] && !charStates[i].isWhitespace) {
               const state = charStates[i];
               const stateElapsed = now - state.lastChange;
@@ -1741,75 +1722,47 @@
                 state.currentChar = getScrambledChar(state.original);
                 state.lastChange = now;
               }
-              return `<span class="scramble-char"${colorStyle}>${escapeHtmlChar(state.currentChar)}</span>`;
+              return state.currentChar;
             }
 
-            return `<span class="scramble-char"${colorStyle}>${escapeHtmlChar(getScrambledChar(char))}</span>`;
+            return getScrambledChar(char);
           }).join('');
 
-          inner.innerHTML = currentHtml;
-          
+          // Update Monaco
+          window.deviceMonacoEditor.setValue(currentText);
+
           // Check if done
           if (settled.every(s => s)) {
             finalize();
             return;
           }
-          
+
           requestAnimationFrame(animateReveal);
         }
-        
+
         requestAnimationFrame(animateReveal);
       }
       
-      // Finalize - show highlighted code and setup scrolling
+      // Finalize - set final code in Monaco and apply syntax highlighting
       function finalize() {
-        const inner = document.getElementById('source-code-inner');
-        const codeEl = document.getElementById('source-code');
         const overlay = document.getElementById('source-overlay');
 
-        // Remove scrambling class to reveal Monaco editor and hide scramble overlay
+        // Remove scrambling class
         if (overlay) {
           overlay.classList.remove('scrambling');
-          console.log('📺 Decode complete - revealing Monaco editor');
-
-          // Clear scramble overlay content after fade completes
-          if (inner) {
-            inner.addEventListener('transitionend', function clearScramble(e) {
-              if (e.propertyName === 'opacity') {
-                inner.innerHTML = '';
-                inner.removeEventListener('transitionend', clearScramble);
-                console.log('📺 Scramble overlay cleared');
-              }
-            });
-          }
+          console.log('📺 Decode complete - Monaco showing final code');
         }
 
-        // Monaco is now showing the code, but we can keep the highlighted HTML
-        // in the inner div for fallback (it will be hidden by CSS opacity: 0)
-        if (inner && pendingHighlightedHtml) {
-          // Don't set inline opacity - let CSS transitions handle it
-          inner.innerHTML = pendingHighlightedHtml;
+        // Set final source code in Monaco
+        if (window.deviceMonacoEditor && pendingSource) {
+          window.deviceMonacoEditor.setValue(pendingSource);
 
-          // Setup scrolling for long code (not needed for Monaco, but keep for fallback)
-          requestAnimationFrame(() => {
-            const containerHeight = codeEl.clientHeight;
-            const contentHeight = inner.scrollHeight;
-
-            if (contentHeight > containerHeight + 20) {
-              const scrollDistance = contentHeight - containerHeight + 20;
-              inner.classList.add('scrolling');
-              inner.style.setProperty('--scroll-distance', `-${scrollDistance}px`);
-              const scrollDuration = 12 + (scrollDistance / 150);
-              inner.style.setProperty('--scroll-duration', `${scrollDuration}s`);
+          // Apply syntax highlighting decorations
+          setTimeout(() => {
+            if (pendingHighlightedHtml) {
+              applyMonacoSyntaxHighlighting(pendingSource, pendingHighlightedHtml);
             }
-          });
-
-          // Apply timing durations to timing elements
-          inner.querySelectorAll('.hl-timing-active[data-duration]').forEach(el => {
-            const duration = parseFloat(el.dataset.duration) || 1;
-            const clampedDuration = Math.max(0.1, Math.min(duration, 10));
-            el.style.setProperty('--timing-duration', clampedDuration + 's');
-          });
+          }, 100);
         }
 
         isScrambling = false;
