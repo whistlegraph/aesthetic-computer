@@ -143,11 +143,22 @@ end
 set -l ss_key_src ~/aesthetic-computer-vault/session-server/session_server
 set -l ss_key_dst ~/.ssh/session_server
 if test -f $ss_key_src; and not test -f $ss_key_dst
-    mkdir -p ~/.ssh
+    # Ensure .ssh directory exists with correct ownership and permissions
+    sudo mkdir -p ~/.ssh
+    sudo chown me:me ~/.ssh
+    sudo chmod 700 ~/.ssh
+
     cp $ss_key_src $ss_key_dst
     cp "$ss_key_src.pub" "$ss_key_dst.pub"
     chmod 600 $ss_key_dst
     chmod 644 "$ss_key_dst.pub"
+
+    # Create config file if it doesn't exist with correct ownership
+    if not test -f ~/.ssh/config
+        touch ~/.ssh/config
+        chmod 600 ~/.ssh/config
+    end
+
     # Add SSH config entry if missing
     if not grep -q "Host session-server" ~/.ssh/config 2>/dev/null
         echo "" >> ~/.ssh/config
@@ -566,9 +577,12 @@ if test -d /home/me/aesthetic-computer
     if test -d $vault_ssh
         # Only copy if id_rsa doesn't exist yet (first time setup)
         if not test -f /home/me/.ssh/id_rsa
-            mkdir -p /home/me/.ssh
+            # Ensure .ssh directory exists with correct ownership and permissions
+            sudo mkdir -p /home/me/.ssh
+            sudo chown -R me:me /home/me/.ssh 2>/dev/null
+            sudo chmod 700 /home/me/.ssh 2>/dev/null
+
             cp -f $vault_ssh/* /home/me/.ssh/ 2>/dev/null
-            chown -R me:me /home/me/.ssh 2>/dev/null
             chmod 700 /home/me/.ssh 2>/dev/null
             chmod 600 /home/me/.ssh/id_rsa 2>/dev/null
             chmod 644 /home/me/.ssh/id_rsa.pub 2>/dev/null
@@ -613,16 +627,17 @@ log_ok "Ensured /home/me/.emacs-logs exists"
 log_info "Fixing fish config permissions..."
 ensure_fish_config_permissions
 
-# Fix SSH directory permissions (only if we own it - don't use sudo which can fail)
+# Fix SSH directory permissions (use sudo to fix ownership if needed)
 if test -d /home/me/.ssh
-    if test -O /home/me/.ssh
-        chmod 700 /home/me/.ssh 2>/dev/null
-        chmod 600 /home/me/.ssh/* 2>/dev/null
-        chmod 644 /home/me/.ssh/*.pub 2>/dev/null
-        echo "✅ Fixed permissions for /home/me/.ssh"
-    else
-        log_info "SSH dir not owned by me, skipping permission fix"
+    if not test -O /home/me/.ssh
+        # SSH dir owned by root (probably from vault setup), fix ownership
+        sudo chown -R me:me /home/me/.ssh 2>/dev/null
+        log_ok "Fixed SSH directory ownership"
     end
+    chmod 700 /home/me/.ssh 2>/dev/null
+    chmod 600 /home/me/.ssh/* 2>/dev/null
+    chmod 644 /home/me/.ssh/*.pub 2>/dev/null
+    log_ok "Fixed permissions for /home/me/.ssh"
 end
 
 # Fix Copilot CLI directory permissions (volume mount may have root ownership)
@@ -676,10 +691,47 @@ function verify_npm_versions
     end
 end
 
+# Function to check and fix esbuild architecture mismatches
+function fix_esbuild_architecture
+    set -l dir $argv[1]
+    set -l dir_name (basename $dir)
+
+    # Check if this directory has esbuild installed
+    if test -d $dir/node_modules/@esbuild
+        set -l arch (uname -m)
+        set -l expected_esbuild
+
+        # Determine expected esbuild platform package
+        if test "$arch" = "x86_64"
+            set expected_esbuild "linux-x64"
+        else if test "$arch" = "aarch64"
+            set expected_esbuild "linux-arm64"
+        else
+            return 0  # Unknown architecture, skip
+        end
+
+        # Check what's actually installed
+        set -l installed_arch (ls $dir/node_modules/@esbuild 2>/dev/null | grep -E "^linux-")
+
+        if test -n "$installed_arch"; and test "$installed_arch" != "$expected_esbuild"
+            echo "🔧 Wrong esbuild architecture in $dir_name: $installed_arch (need $expected_esbuild)"
+            echo "   Reinstalling dependencies to fix..."
+            cd $dir
+            rm -rf node_modules package-lock.json
+            log_cmd npm install --no-fund --no-audit
+            if test $status -eq 0
+                echo "✅ Fixed esbuild architecture in $dir_name"
+            else
+                echo "⚠️  Failed to fix esbuild in $dir_name"
+            end
+        end
+    end
+end
+
 function install_npm_deps
     set -l dir $argv[1]
     set -l dir_name (basename $dir)
-    
+
     if test -f $dir/package.json
         if not test -d $dir/node_modules || not count $dir/node_modules/* >/dev/null 2>/dev/null
             echo "📦 Installing dependencies in $dir_name..."
@@ -691,6 +743,8 @@ function install_npm_deps
             end
         else
             echo "✅ $dir_name already has node_modules"
+            # Check for architecture mismatches even if node_modules exists
+            fix_esbuild_architecture $dir
         end
         verify_npm_versions $dir
     end
