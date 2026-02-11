@@ -1236,6 +1236,35 @@
         return colors;
       }
       
+      // Calculate inverse/opposite color for dynamic shadows
+      function getInverseColor(colorStr) {
+        if (!colorStr) return 'rgb(0, 0, 0)'; // Default to black shadow
+
+        // Parse RGB from various formats
+        let r, g, b;
+        const rgbMatch = colorStr.match(/rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/i);
+        const hexMatch = colorStr.match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+
+        if (rgbMatch) {
+          r = parseInt(rgbMatch[1]);
+          g = parseInt(rgbMatch[2]);
+          b = parseInt(rgbMatch[3]);
+        } else if (hexMatch) {
+          r = parseInt(hexMatch[1], 16);
+          g = parseInt(hexMatch[2], 16);
+          b = parseInt(hexMatch[3], 16);
+        } else {
+          return 'rgb(0, 0, 0)'; // Fallback
+        }
+
+        // Calculate inverse
+        const invR = 255 - r;
+        const invG = 255 - g;
+        const invB = 255 - b;
+
+        return `rgb(${invR}, ${invG}, ${invB})`;
+      }
+
       // Scramble a character (preserve whitespace and casing)
       function getScrambledChar(original) {
         if (original === '\n' || original === ' ' || original === '\t') return original;
@@ -1318,20 +1347,25 @@
         
         const result = charStates.map((state, idx) => {
           if (state.isWhitespace) return escapeHtmlChar(state.char);
-          
+
           // Check if this character should change based on its own rhythm
           const elapsed = now - state.lastChange;
           if (elapsed >= state.interval) {
             state.currentChar = getScrambledChar(state.original);
             state.lastChange = now;
           }
-          
+
           const char = escapeHtmlChar(state.currentChar);
           const colorDelayMs = 200 + ((state.original.charCodeAt(0) * 5 + idx * 7) % 1800);
           const colorDelay = (colorDelayMs / 1000).toFixed(2);
+
+          // Dynamic shadow: opposite of target color
+          const inverseShadow = state.color ? getInverseColor(state.color) : 'rgb(0, 0, 0)';
+          const shadowStyle = `1px 1px 0 ${inverseShadow}, -1px -1px 0 ${inverseShadow}, 1px -1px 0 ${inverseShadow}, -1px 1px 0 ${inverseShadow}, 2px 2px 0 ${inverseShadow}`;
+
           const colorStyle = state.color
-            ? ` style="--target-color: ${state.color}; --color-delay: ${colorDelay}s;"`
-            : ` style="--color-delay: ${colorDelay}s;"`;
+            ? ` style="--target-color: ${state.color}; --color-delay: ${colorDelay}s; text-shadow: ${shadowStyle};"`
+            : ` style="--color-delay: ${colorDelay}s; text-shadow: ${shadowStyle};"`;
           return `<span class="scramble-char"${colorStyle}>${char}</span>`;
         });
         
@@ -1565,9 +1599,14 @@
             const targetColor = charColors[i] || null;
             const colorDelayMs = 200 + ((char.charCodeAt(0) * 5 + i * 7) % 1800);
             const colorDelay = (colorDelayMs / 1000).toFixed(2);
+
+            // Dynamic shadow: opposite of target color
+            const inverseShadow = targetColor ? getInverseColor(targetColor) : 'rgb(0, 0, 0)';
+            const shadowStyle = `1px 1px 0 ${inverseShadow}, -1px -1px 0 ${inverseShadow}, 1px -1px 0 ${inverseShadow}, -1px 1px 0 ${inverseShadow}, 2px 2px 0 ${inverseShadow}`;
+
             const colorStyle = targetColor
-              ? ` style="--target-color: ${targetColor}; --color-delay: ${colorDelay}s;"`
-              : ` style="--color-delay: ${colorDelay}s;"`;
+              ? ` style="--target-color: ${targetColor}; --color-delay: ${colorDelay}s; text-shadow: ${shadowStyle};"`
+              : ` style="--color-delay: ${colorDelay}s; text-shadow: ${shadowStyle};"`;
 
             // Check if this character should be revealed yet
             if (elapsed >= revealTimes[i]) {
@@ -2530,20 +2569,125 @@
       }
     }
     
+    // Apply KidLisp syntax highlighting to Monaco using decorations
+    function applyMonacoSyntaxHighlighting(source, highlightedHtml) {
+      if (!window.deviceMonacoEditor || !window.monaco) return;
+
+      // Parse the highlighted HTML to extract colors and positions
+      const temp = document.createElement('div');
+      temp.innerHTML = highlightedHtml;
+
+      const decorations = [];
+      const lines = source.split('\n');
+      let charIndex = 0;
+
+      // Walk through the highlighted HTML and create Monaco decorations
+      const walker = document.createTreeWalker(temp, NodeFilter.SHOW_TEXT, null);
+      let node = walker.nextNode();
+
+      while (node) {
+        const text = node.textContent || '';
+        const parent = node.parentElement;
+
+        // Get color from parent element
+        let color = null;
+        let el = parent;
+        while (el && el !== temp) {
+          const style = el.getAttribute('style') || '';
+          const colorMatch = style.match(/color\s*:\s*([^;]+)/i);
+          if (colorMatch) {
+            color = colorMatch[1];
+            break;
+          }
+          // Check for class-based colors
+          if (el.classList) {
+            if (el.classList.contains('hl-comment')) color = '#6272a4';
+            else if (el.classList.contains('hl-string')) color = 'orange';
+            else if (el.classList.contains('hl-number')) color = 'lime';
+            else if (el.classList.contains('hl-keyword')) color = 'pink';
+            else if (el.classList.contains('hl-api')) color = 'cyan';
+            else if (el.classList.contains('hl-timing')) color = '#ffb86c';
+            else if (el.classList.contains('hl-paren')) color = '#888';
+            else if (el.classList.contains('hl-code-ref')) color = 'limegreen';
+            else if (el.classList.contains('hl-code-id')) color = 'lime';
+            else if (el.classList.contains('hl-paint-ref')) color = 'magenta';
+            else if (el.classList.contains('hl-paint-id')) color = 'orange';
+            else if (el.classList.contains('hl-fade')) color = '#ffb86c';
+            else if (el.classList.contains('hl-fade-sep')) color = 'mediumseagreen';
+            else if (el.classList.contains('hl-fade-dir')) color = 'cyan';
+            else if (el.classList.contains('hl-fade-colon')) color = 'lime';
+
+            if (color) break;
+          }
+          el = el.parentElement;
+        }
+
+        // Create decoration if we have a color
+        if (color && text.length > 0) {
+          for (let i = 0; i < text.length; i++) {
+            const currentChar = text[i];
+            if (currentChar !== '\n') {
+              // Find line and column for this character
+              let lineNum = 1;
+              let colNum = 1;
+              let counted = 0;
+              for (let l = 0; l < lines.length; l++) {
+                if (counted + lines[l].length >= charIndex + i) {
+                  lineNum = l + 1;
+                  colNum = (charIndex + i - counted) + 1;
+                  break;
+                }
+                counted += lines[l].length + 1; // +1 for newline
+              }
+
+              decorations.push({
+                range: new monaco.Range(lineNum, colNum, lineNum, colNum + 1),
+                options: {
+                  inlineClassName: `monaco-syntax-${color.replace(/[^a-z0-9]/gi, '')}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+                }
+              });
+
+              // Inject CSS for this decoration
+              const styleId = `monaco-color-${color.replace(/[^a-z0-9]/gi, '')}-${Date.now()}`;
+              if (!document.getElementById(styleId)) {
+                const style = document.createElement('style');
+                style.id = styleId;
+                style.textContent = `.monaco-syntax-${color.replace(/[^a-z0-9]/gi, '')}-${Date.now()}-${Math.random().toString(36).substr(2, 9)} { color: ${color} !important; }`;
+                document.head.appendChild(style);
+              }
+            }
+            charIndex++;
+          }
+        } else {
+          charIndex += text.length;
+        }
+
+        node = walker.nextNode();
+      }
+
+      // Apply all decorations at once
+      window.deviceMonacoEditor.deltaDecorations([], decorations);
+      console.log('📺 Applied', decorations.length, 'Monaco syntax decorations');
+    }
+
     // Display syntax-highlighted source code with scramble animation
     function displaySourceCode(source) {
       const codeEl = document.getElementById('source-code');
       const inner = document.getElementById('source-code-inner');
       if (!inner || !source) return;
 
+      // Generate highlighted HTML for scramble overlay
+      const highlightedHtml = highlightKidlisp(source);
+
       // Load source into Monaco editor if available
       if (window.deviceMonacoEditor) {
         window.deviceMonacoEditor.setValue(source);
-        console.log('📺 Source loaded into Monaco editor');
+        // Apply syntax highlighting decorations
+        setTimeout(() => {
+          applyMonacoSyntaxHighlighting(source, highlightedHtml);
+        }, 100); // Small delay to ensure Monaco has processed the setValue
+        console.log('📺 Source loaded into Monaco editor with syntax highlighting');
       }
-
-      // Generate highlighted HTML for scramble overlay
-      const highlightedHtml = highlightKidlisp(source);
 
       // Stop any running scramble animation before starting new one
       if (window.stopScrambleAnimation) window.stopScrambleAnimation();
