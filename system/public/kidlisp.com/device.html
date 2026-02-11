@@ -137,6 +137,11 @@
     const uiScale = parseInt(urlParams.get('ui_scale')) || getSmartUIScale(window.densityParam);
     document.documentElement.style.setProperty('--ui-scale', uiScale);
     console.log('📺 UI Scale:', uiScale, '(density=' + window.densityParam + ', dpr=' + (window.devicePixelRatio || 1) + ', screen=' + window.screen.width + 'x' + window.screen.height + ')');
+
+    // Show body after UI scale is set
+    document.addEventListener('DOMContentLoaded', () => {
+      document.body.classList.add('ready');
+    });
   </script>
   <style>
     * {
@@ -159,7 +164,17 @@
       background: #000;
       font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
     }
-    
+
+    /* Hide body until UI scale is set to prevent flash */
+    body {
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+
+    body.ready {
+      opacity: 1;
+    }
+
     #display-iframe {
       position: absolute;
       top: 0;
