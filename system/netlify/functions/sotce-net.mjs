@@ -273,8 +273,8 @@ export const handler = async (event, context) => {
       path === "/write" ||
       path === "/ask" ||
       path === "/respond" ||
-      path.match(/^\/page\/\d+$/) ||
-      path.match(/^\/q\/\d+$/)) &&
+      path.match(/^\/\d+$/) ||
+      path.match(/^\/q\d+$/)) &&
     method === "get"
   ) {
     const miniBreakpoint = 245;
@@ -3368,8 +3368,8 @@ export const handler = async (event, context) => {
                 if (chatPagesBtn) chatPagesBtn.click(); // Close chat via pages button
                 updatePath(href);
                 // Scroll to target page
-                const pageMatch = href.match(/^\\/page\\/(\\d+)$/);
-                const qMatch = href.match(/^\\/q\\/(\\d+)$/);
+                const pageMatch = href.match(/^\\/(\\d+)$/);
+                const qMatch = href.match(/^\\/q(\\d+)$/);
                 if (pageMatch) {
                   const targetPage = document.getElementById("page-" + pageMatch[1]);
                   if (targetPage) targetPage.scrollIntoView({ block: "start", behavior: "smooth" });
@@ -3379,7 +3379,7 @@ export const handler = async (event, context) => {
                 }
               }
             });
-            
+
             // Page preview tooltip on hover
             const pagePreview = cel("div");
             pagePreview.id = "page-preview";
@@ -3496,10 +3496,10 @@ export const handler = async (event, context) => {
               // Link diary page references like -5-
               const linkPrefix = dev ? "/sotce-net" : "";
               const diaryPageRegex = new RegExp('-(\\\\d+)-', 'g');
-              result = result.replace(diaryPageRegex, '<a href="' + linkPrefix + '/page/$1" class="page-link diary-link">-$1-</a>');
+              result = result.replace(diaryPageRegex, '<a href="' + linkPrefix + '/$1" class="page-link diary-link">-$1-</a>');
               // Link question references like *3*
               const questionRegex = new RegExp('\\\\*(\\\\d+)\\\\*', 'g');
-              result = result.replace(questionRegex, '<a href="' + linkPrefix + '/q/$1" class="page-link question-link">*$1*</a>');
+              result = result.replace(questionRegex, '<a href="' + linkPrefix + '/q$1" class="page-link question-link">*$1*</a>');
               return result;
             }
 
@@ -6936,10 +6936,17 @@ export const handler = async (event, context) => {
                       drawLineWithHighlights(line, x + padding, answerStartY + i * lineHeight, bodyFont, answerColor);
                     }
                     
+                    // "q" label above the page number in answer color
+                    const answerColor = themeColors.questionAnswerText || "rgb(0, 155, 145)";
+                    ctx.fillStyle = answerColor;
+                    ctx.font = fontSize + "px Helvetica, sans-serif";
+                    ctx.textAlign = "center";
+                    const qLabelY = y + h - em * 4;
+                    ctx.fillText("q", x + w/2, qLabelY);
+
                     // Page number with asterisk format: *N* (use questionNumber)
                     ctx.fillStyle = (hoverPageNum && offsetY === 0) ? themeColors.cardEarHover : textColor;
                     ctx.font = fontSize + "px monospace";
-                    ctx.textAlign = "center";
                     const pageNumY = y + h - em * 2;
                     const displayNum = pageData.questionNumber || idx;
                     // Show syntax form on hover, asterisk-style fleurons for questions
@@ -7373,98 +7380,73 @@ export const handler = async (event, context) => {
                     return;
                   }
                   
-                  // Helper: render peek of adjacent pages (always visible for context)
-                  const peekAmount = 24; // px of adjacent card visible
+                  // Consistent slide distance for all modes
                   const slideDistance = cardHeight + 40;
-                  const peekOffset = slideDistance - peekAmount;
-                  const peekAlpha = 0.35;
 
-                  function renderAdjacentPeeks(currentIdx) {
-                    // Previous page peek (above)
+                  // Helper: render adjacent pages at full opacity with consistent spacing
+                  function renderAdjacent(currentIdx, currentOffset) {
                     if (currentIdx > 1) {
                       const prevData = pageCache.get(currentIdx - 1) || null;
-                      ctx.save();
-                      ctx.globalAlpha = peekAlpha * 0.7; // Slightly dimmer during motion
-                      renderPage(prevData, currentIdx - 1, -peekOffset, true, 0);
-                      ctx.restore();
+                      renderPage(prevData, currentIdx - 1, currentOffset - slideDistance, false, 1);
                     }
-
-                    // Next page peek (below)
                     if (currentIdx < loadedFeedCount) {
                       const nextData = pageCache.get(currentIdx + 1) || null;
-                      ctx.save();
-                      ctx.globalAlpha = peekAlpha * 0.7;
-                      renderPage(nextData, currentIdx + 1, peekOffset, true, 0);
-                      ctx.restore();
+                      renderPage(nextData, currentIdx + 1, currentOffset + slideDistance, false, 1);
                     }
                   }
 
                   if (transitionDirection !== 0 && transitionTarget !== null) {
-                    // Animating transition - show transitioning pages + one beyond for infinite feel
-                    const slideDistance = cardHeight + 40;
+                    // Animating transition
                     const incomingData = pageCache.get(transitionTarget) || null;
 
                     if (transitionDirection > 0) {
-                      // Going to higher page (next) - show current + next + one beyond
-                      renderPage(pageData, displayedPageIndex, -transitionProgress * slideDistance, false, 1);
-                      renderPage(incomingData, transitionTarget, (1 - transitionProgress) * slideDistance, false, 1);
-
-                      // Show page beyond for infinite scroll feel
+                      // Going to higher page (next)
+                      const currentOff = -transitionProgress * slideDistance;
+                      const incomingOff = (1 - transitionProgress) * slideDistance;
+                      renderPage(pageData, displayedPageIndex, currentOff, false, 1);
+                      renderPage(incomingData, transitionTarget, incomingOff, false, 1);
+                      // Beyond page
                       if (transitionTarget + 1 <= loadedFeedCount) {
                         const beyondData = pageCache.get(transitionTarget + 1) || null;
-                        ctx.save();
-                        ctx.globalAlpha = 0.4;
-                        renderPage(beyondData, transitionTarget + 1, slideDistance + (1 - transitionProgress) * slideDistance, false, 1);
-                        ctx.restore();
+                        renderPage(beyondData, transitionTarget + 1, incomingOff + slideDistance, false, 1);
                       }
                     } else {
-                      // Going to lower page (prev) - show current + prev + one beyond
-                      renderPage(pageData, displayedPageIndex, transitionProgress * slideDistance, false, 1);
-                      renderPage(incomingData, transitionTarget, -(1 - transitionProgress) * slideDistance, false, 1);
-
-                      // Show page beyond for infinite scroll feel
+                      // Going to lower page (prev)
+                      const currentOff = transitionProgress * slideDistance;
+                      const incomingOff = -(1 - transitionProgress) * slideDistance;
+                      renderPage(pageData, displayedPageIndex, currentOff, false, 1);
+                      renderPage(incomingData, transitionTarget, incomingOff, false, 1);
+                      // Beyond page
                       if (transitionTarget - 1 >= 1) {
                         const beyondData = pageCache.get(transitionTarget - 1) || null;
-                        ctx.save();
-                        ctx.globalAlpha = 0.4;
-                        renderPage(beyondData, transitionTarget - 1, -slideDistance - (1 - transitionProgress) * slideDistance, false, 1);
-                        ctx.restore();
+                        renderPage(beyondData, transitionTarget - 1, incomingOff - slideDistance, false, 1);
                       }
                     }
                   } else if ((isDragging || isWheelScrolling) && Math.abs(dragDelta) > 0) {
-                    // Dragging or wheel scrolling - NO PEEKS, just show dragged pages for infinite scroll
+                    // Dragging or wheel scrolling
                     const nextIdx = dragDelta > 0 ? displayedPageIndex + 1 : displayedPageIndex - 1;
 
                     if (nextIdx >= 1 && nextIdx <= loadedFeedCount) {
-                      const slideDistance = cardHeight + 40;
                       const progress = Math.min(1, Math.abs(dragDelta) / slideDistance);
                       const nextData = pageCache.get(nextIdx) || null;
 
                       if (dragDelta > 0) {
-                        // Scrolling down - show current + next + one beyond
-                        renderPage(pageData, displayedPageIndex, -progress * slideDistance, false, 1);
-                        renderPage(nextData, nextIdx, (1 - progress) * slideDistance, false, 1);
-
-                        // Show page beyond for infinite scroll
+                        const currentOff = -progress * slideDistance;
+                        const nextOff = (1 - progress) * slideDistance;
+                        renderPage(pageData, displayedPageIndex, currentOff, false, 1);
+                        renderPage(nextData, nextIdx, nextOff, false, 1);
                         if (nextIdx + 1 <= loadedFeedCount) {
                           const beyondData = pageCache.get(nextIdx + 1) || null;
-                          ctx.save();
-                          ctx.globalAlpha = 0.3;
-                          renderPage(beyondData, nextIdx + 1, slideDistance + (1 - progress) * slideDistance, false, 1);
-                          ctx.restore();
+                          renderPage(beyondData, nextIdx + 1, nextOff + slideDistance, false, 1);
                         }
                       } else {
-                        // Scrolling up - show current + prev + one beyond
-                        renderPage(pageData, displayedPageIndex, progress * slideDistance, false, 1);
-                        renderPage(nextData, nextIdx, -(1 - progress) * slideDistance, false, 1);
-
-                        // Show page beyond for infinite scroll
+                        const currentOff = progress * slideDistance;
+                        const nextOff = -(1 - progress) * slideDistance;
+                        renderPage(pageData, displayedPageIndex, currentOff, false, 1);
+                        renderPage(nextData, nextIdx, nextOff, false, 1);
                         if (nextIdx - 1 >= 1) {
                           const beyondData = pageCache.get(nextIdx - 1) || null;
-                          ctx.save();
-                          ctx.globalAlpha = 0.3;
-                          renderPage(beyondData, nextIdx - 1, -slideDistance - (1 - progress) * slideDistance, false, 1);
-                          ctx.restore();
+                          renderPage(beyondData, nextIdx - 1, nextOff - slideDistance, false, 1);
                         }
                       }
                     } else {
@@ -7472,25 +7454,8 @@ export const handler = async (event, context) => {
                       renderPage(pageData, displayedPageIndex, -dragDelta * 0.3);
                     }
                   } else {
-                    // Static - show current page with text (fade in if just arrived)
-                    // Render adjacent peeks (more visible when static)
-                    if (displayedPageIndex > 1) {
-                      const prevData = pageCache.get(displayedPageIndex - 1) || null;
-                      ctx.save();
-                      ctx.globalAlpha = peekAlpha;
-                      renderPage(prevData, displayedPageIndex - 1, -peekOffset, false, 0.6); // Dimmed text in peek
-                      ctx.restore();
-                    }
-
-                    if (displayedPageIndex < loadedFeedCount) {
-                      const nextData = pageCache.get(displayedPageIndex + 1) || null;
-                      ctx.save();
-                      ctx.globalAlpha = peekAlpha;
-                      renderPage(nextData, displayedPageIndex + 1, peekOffset, false, 0.6); // Dimmed text in peek
-                      ctx.restore();
-                    }
-
-                    // Current page (main, on top)
+                    // Static - render adjacent pages first (behind), then current on top
+                    renderAdjacent(displayedPageIndex, 0);
                     renderPage(pageData, displayedPageIndex, 0, false, textFadeIn);
                   }
                   
