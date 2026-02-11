@@ -11664,11 +11664,11 @@ async function makeFrame({ data: { type, content } }) {
 
       // Use screen.width/height instead of content.width/height to get the most up-to-date dimensions
       // content.width/height can be stale if a reframe just happened
-      // 🎪 Don't reduce height - pan offset handles the shift, piece uses full screen
+      // 🎪 Reduce height when bumper enabled - piece gets viewport below bumper
       const bumperOffset = bumperConfig.enabled ? bumperConfig.height : 0;
       $api.screen = {
         width: screen.width,
-        height: screen.height,
+        height: screen.height - bumperOffset,
         pixels: screen.pixels,
         bumperOffset, // Expose this so pieces can adjust if needed
       };
@@ -12411,9 +12411,20 @@ async function makeFrame({ data: { type, content } }) {
             type: "boot-log",
             content: "running boot"
           });
-          
+
+          // 🎪 Apply bumper viewport offset before boot
+          const bumperViewportOffset = bumperConfig.enabled && bumperConfig.height > 0 ? bumperConfig.height : 0;
+          if (bumperViewportOffset > 0) {
+            $api.pan(0, bumperViewportOffset);
+          }
+
           if (system === "nopaint") nopaint_boot({ ...$api, params: $api.params, colon: $api.colon });
           await boot($api);
+
+          // 🎪 Restore after boot
+          if (bumperViewportOffset > 0) {
+            $api.unpan();
+          }
           const bootEndTime = performance.now();
           diskTimings.bootComplete = Math.round(bootEndTime - diskTimingStart);
           // Silent: boot() completed
@@ -12596,9 +12607,19 @@ async function makeFrame({ data: { type, content } }) {
             // Reset zebra cache at the start of each frame so it can advance once per frame
             $api.num.resetZebraCache();
 
+            // 🎪 Apply bumper viewport offset before paint
+            const bumperViewportOffset = bumperConfig.enabled && bumperConfig.height > 0 ? bumperConfig.height : 0;
+            if (bumperViewportOffset > 0) {
+              $api.pan(0, bumperViewportOffset);
+            }
+
             // Always call paint() - piece paints underneath, GOL overlays on top
-            // 🎪 Piece should use screen.bumperOffset to adjust its layout
             paintOut = paint($api); // Returns `undefined`, `false`, or `DirtyBox`.
+
+            // 🎪 Restore after paint
+            if (bumperViewportOffset > 0) {
+              $api.unpan();
+            }
             // Increment piece frame counter only when we actually paint
             pieceFrameCount++;
             
