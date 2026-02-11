@@ -1606,6 +1606,9 @@
 
         console.log('📺 Starting Monaco scramble animation at 24fps...');
 
+        // Apply syntax highlighting decorations immediately (they'll stay during scrambling)
+        applyMonacoSyntaxHighlighting(source, highlightedHtml);
+
         // Build scrambled text for Monaco
         function buildScrambledMonacoText(source) {
           const chars = source.split('');
@@ -1757,12 +1760,10 @@
         if (window.deviceMonacoEditor && pendingSource) {
           window.deviceMonacoEditor.setValue(pendingSource);
 
-          // Apply syntax highlighting decorations
-          setTimeout(() => {
-            if (pendingHighlightedHtml) {
-              applyMonacoSyntaxHighlighting(pendingSource, pendingHighlightedHtml);
-            }
-          }, 100);
+          // Re-apply syntax highlighting decorations after final setValue
+          if (pendingHighlightedHtml) {
+            applyMonacoSyntaxHighlighting(pendingSource, pendingHighlightedHtml);
+          }
         }
 
         isScrambling = false;
