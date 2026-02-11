@@ -2767,11 +2767,20 @@
 
     // Apply KidLisp syntax highlighting to Monaco using decorations
     function applyMonacoSyntaxHighlighting(source, highlightedHtml) {
-      if (!window.deviceMonacoEditor || !window.monaco) return;
+      if (!window.deviceMonacoEditor || !window.monaco) {
+        console.warn('📺 Monaco not ready for highlighting');
+        return;
+      }
+
+      console.log('📺 applyMonacoSyntaxHighlighting called');
+      console.log('📺 Source length:', source.length);
+      console.log('📺 Highlighted HTML length:', highlightedHtml.length);
 
       // Parse the highlighted HTML to extract colors and positions
       const temp = document.createElement('div');
       temp.innerHTML = highlightedHtml;
+
+      console.log('📺 Parsed HTML, child nodes:', temp.childNodes.length);
 
       const decorations = [];
       const colorStyles = new Map(); // Cache CSS styles per color
@@ -2875,8 +2884,14 @@
       }
 
       // Apply all decorations at once and store the IDs
+      console.log('📺 About to apply', decorations.length, 'decorations');
+      console.log('📺 First few decorations:', decorations.slice(0, 3));
+      console.log('📺 Color styles created:', Array.from(colorStyles.entries()));
+
       currentMonacoDecorations = window.deviceMonacoEditor.deltaDecorations(currentMonacoDecorations, decorations);
-      console.log('📺 Applied', decorations.length, 'Monaco syntax decorations with', colorStyles.size, 'colors');
+
+      console.log('📺 Applied decorations, new IDs:', currentMonacoDecorations.length);
+      console.log('📺 Total:', decorations.length, 'Monaco syntax decorations with', colorStyles.size, 'colors');
     }
 
     // Display syntax-highlighted source code with scramble animation
