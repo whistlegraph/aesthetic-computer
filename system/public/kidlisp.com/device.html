@@ -208,8 +208,8 @@
       overflow: hidden;
       /* Harsh shadow matching stats for visibility on complex animations */
       text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
-      /* Gray offset shadow matching QR container */
-      box-shadow: calc(var(--ui-scale, 8) * 0.5px) calc(var(--ui-scale, 8) * 0.5px) 0 rgba(64, 64, 64, 0.8);
+      /* Gray offset shadow matching QR container - increased for visibility */
+      box-shadow: calc(var(--ui-scale, 8) * 1px) calc(var(--ui-scale, 8) * 1px) 0 rgba(0, 0, 0, 0.6);
       white-space: pre-wrap;
       word-break: break-word;
       -webkit-mask-image: linear-gradient(to bottom, black 0%, black 85%, transparent 100%);
@@ -809,6 +809,20 @@
     }
 
   </style>
+
+  <!-- Monaco Editor - using jsDelivr CDN -->
+  <script type="module">
+    // Configure Monaco Environment before loading
+    window.MonacoEnvironment = {
+      getWorkerUrl: function(moduleId, label) {
+        // Use data URLs for workers to avoid CORS issues
+        const workerCode = `self.MonacoEnvironment = { baseUrl: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/' };
+          importScripts('https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs/base/worker/workerMain.js');`;
+        return 'data:text/javascript;charset=utf-8,' + encodeURIComponent(workerCode);
+      }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs/loader.min.js"></script>
 </head>
 <body>
   <!-- Boot animation now handled by iframe's acBootCanvas with device mode -->
@@ -2040,8 +2054,8 @@
           return;
         }
         
-        // Update playlist title in FF1 module with continuous scramble
-        if (playlistTitle) window.scrambleTextElement?.(playlistTitle, slideshowPlaylist.title || 'Untitled Playlist', 600, true);
+        // Update playlist title in FF1 module - scramble then reveal
+        if (playlistTitle) window.scrambleTextElement?.(playlistTitle, slideshowPlaylist.title || 'Untitled Playlist', 600, false);
         
         // Clamp start index to valid range
         if (slideshowIndex >= slideshowPlaylist.items.length) {
@@ -2450,8 +2464,8 @@
           };
           handleEl.title = `Chat with ${data.handle}`;
 
-          // 🎲 Scramble the handle text continuously
-          window.scrambleTextElement?.(handleEl, handleText, 500, true);
+          // 🎲 Scramble the handle text then reveal
+          window.scrambleTextElement?.(handleEl, handleText, 500, false);
 
           console.log('📺 Handle with scramble:', handleText);
         } else {
@@ -2461,8 +2475,8 @@
           handleEl.onclick = null;
           handleEl.title = '';
 
-          // 🎲 Scramble "anonymous" too! Continuously
-          window.scrambleTextElement?.(handleEl, anonText, 500, true);
+          // 🎲 Scramble "anonymous" too! Then reveal
+          window.scrambleTextElement?.(handleEl, anonText, 500, false);
 
           console.log('📺 Handle: anonymous');
         }
@@ -2471,8 +2485,8 @@
       if (hitsEl && typeof data.hits === 'number') {
         const hitsText = data.hits.toLocaleString() + ' hits';
 
-        // 🎲 Scramble the hits counter continuously
-        window.scrambleTextElement?.(hitsEl, hitsText, 550, true);
+        // 🎲 Scramble the hits counter then reveal
+        window.scrambleTextElement?.(hitsEl, hitsText, 550, false);
 
         console.log('📺 Hits with scramble:', hitsText);
       }
@@ -2485,8 +2499,8 @@
           day: 'numeric'
         });
 
-        // 🎲 Scramble the date continuously
-        window.scrambleTextElement?.(whenEl, formatted, 600, true);
+        // 🎲 Scramble the date then reveal
+        window.scrambleTextElement?.(whenEl, formatted, 600, false);
 
         console.log('📺 When with scramble:', formatted);
       }
