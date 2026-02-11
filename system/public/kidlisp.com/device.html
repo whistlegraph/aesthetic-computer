@@ -195,7 +195,7 @@
     /* QR code and label - bottom right (like give.aesthetic.computer) */
     #qr-wrap {
       position: absolute;
-      bottom: calc(var(--ui-scale, 8) * 3px);
+      bottom: calc(var(--ui-scale, 8) * 6px); /* Increased from 3px for more space above progress bar */
       right: calc(var(--ui-scale, 8) * 3px);
       display: flex;
       flex-direction: column;
@@ -1342,16 +1342,116 @@
         }
         finalize();
       };
-      
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // TEXT ELEMENT SCRAMBLE ANIMATIONS
+      // Scramble and reveal text in UI elements (QR label, metadata, etc.)
+      // ═══════════════════════════════════════════════════════════════════════════
+
+      // Scramble text content of an element with reveal animation
+      window.scrambleTextElement = function(element, targetText, duration = 600) {
+        if (!element || !targetText) return;
+
+        const chars = targetText.split('');
+        const startTime = performance.now();
+        let animFrame;
+
+        function animate() {
+          const elapsed = performance.now() - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+
+          // Build scrambled text with progressive reveal
+          const result = chars.map((char, idx) => {
+            // Reveal characters progressively based on position and time
+            const revealThreshold = (idx / chars.length) * 0.7 + 0.3; // Stagger: 30-100%
+            if (progress >= revealThreshold) {
+              return char; // Revealed
+            } else {
+              // Still scrambling
+              return getScrambledChar(char);
+            }
+          }).join('');
+
+          element.textContent = result;
+
+          if (progress < 1) {
+            animFrame = requestAnimationFrame(animate);
+          } else {
+            element.textContent = targetText; // Final reveal
+          }
+        }
+
+        // Cancel any previous animation on this element
+        if (element._scrambleAnim) {
+          cancelAnimationFrame(element._scrambleAnim);
+        }
+        element._scrambleAnim = animFrame;
+
+        animate();
+      };
+
+      // Scramble QR code SVG by randomizing rect positions with reveal animation
+      window.scrambleQRCode = function(svgElement, duration = 800) {
+        if (!svgElement) return;
+
+        const rects = Array.from(svgElement.querySelectorAll('rect'));
+        if (rects.length === 0) return;
+
+        // Store original positions
+        const originalPositions = rects.map(rect => ({
+          x: parseFloat(rect.getAttribute('x') || 0),
+          y: parseFloat(rect.getAttribute('y') || 0),
+          rect: rect
+        }));
+
+        const startTime = performance.now();
+        let animFrame;
+
+        function animate() {
+          const elapsed = performance.now() - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+
+          // Ease out cubic for smooth settle
+          const eased = 1 - Math.pow(1 - progress, 3);
+
+          originalPositions.forEach(({ x, y, rect }, idx) => {
+            if (progress < 1) {
+              // Scramble phase: random offsets that decrease over time
+              const scrambleAmount = (1 - eased) * 20; // Max 20px offset
+              const offsetX = (Math.random() - 0.5) * scrambleAmount;
+              const offsetY = (Math.random() - 0.5) * scrambleAmount;
+              rect.setAttribute('x', x + offsetX);
+              rect.setAttribute('y', y + offsetY);
+            } else {
+              // Final settle to original position
+              rect.setAttribute('x', x);
+              rect.setAttribute('y', y);
+            }
+          });
+
+          if (progress < 1) {
+            animFrame = requestAnimationFrame(animate);
+          }
+        }
+
+        // Cancel any previous animation on this SVG
+        if (svgElement._qrScrambleAnim) {
+          cancelAnimationFrame(svgElement._qrScrambleAnim);
+        }
+        svgElement._qrScrambleAnim = animFrame;
+
+        animate();
+      };
+
       // Listen for boot-log messages from iframe
       window.addEventListener('message', (e) => {
         if (e.data?.type === 'boot-log') {
           const msg = e.data.message;
           console.log('📺 Boot log:', msg);
-          
+
           // Feed the boot message to the scramble animation (woven into text)
           window.setBootMessage?.(msg);
-          
+
           // Signal decode when piece starts running
           // "loaded" is sent when the piece finishes loading
           if (msg === 'loaded' || msg === 'running boot' || msg?.includes?.('running')) {
@@ -2218,24 +2318,40 @@
       const labelEl = document.getElementById('code-label');
       const qrContainer = document.getElementById('qr-container');
       const qrWrap = document.getElementById('qr-wrap');
-      
+
       // Build label with colored $ and code
       if (labelEl) {
         const dollar = displayCode[0] === '$' ? '$' : '';
         const code = displayCode.startsWith('$') ? displayCode.slice(1) : displayCode;
+        const targetText = dollar + code;
+
+        // Create HTML structure for scrambling
         labelEl.innerHTML = `<span class="code-dollar">${dollar}</span><span class="code-name">${code}</span>`;
-        console.log('📺 Label set:', dollar + code);
+
+        // Scramble the label text (animate both dollar and code spans independently)
+        const dollarSpan = labelEl.querySelector('.code-dollar');
+        const codeSpan = labelEl.querySelector('.code-name');
+        if (dollarSpan && dollar) window.scrambleTextElement?.(dollarSpan, dollar, 400);
+        if (codeSpan) window.scrambleTextElement?.(codeSpan, code, 600);
+
+        console.log('📺 Label set with scramble:', targetText);
       }
-      
+
       // Generate QR code pointing to kidlisp.com (NOT aesthetic.computer)
       const qrUrl = `https://kidlisp.com/${displayCode}`;
-      
-      // Make QR wrap clickable to open the URL
+
+      // Make QR wrap clickable with confirmation dialog
       if (qrWrap) {
-        qrWrap.onclick = () => window.open(qrUrl, '_blank');
-        qrWrap.title = qrUrl;
+        qrWrap.onclick = () => {
+          // Show native confirmation dialog
+          const confirmed = confirm(`Edit ${displayCode} on KidLisp.com?`);
+          if (confirmed) {
+            window.open(qrUrl, '_blank');
+          }
+        };
+        qrWrap.title = `Tap to edit ${displayCode}`;
       }
-      
+
       if (qrContainer && typeof qrcode !== 'undefined') {
         try {
           console.log('📺 Generating QR for:', qrUrl);
@@ -2250,7 +2366,11 @@
             svgEl.style.display = 'block';
             svgEl.style.width = '100%';
             svgEl.style.height = '100%';
-            console.log('📺 QR SVG created');
+
+            // 🎲 SCRAMBLE THE QR CODE! Most fun part!
+            window.scrambleQRCode?.(svgEl, 800);
+
+            console.log('📺 QR SVG created with scramble animation');
           }
         } catch (e) {
           console.error('📺 QR generation error:', e);
@@ -2265,10 +2385,10 @@
       const handleEl = document.getElementById('piece-handle');
       const hitsEl = document.getElementById('piece-hits');
       const whenEl = document.getElementById('piece-when');
-      
+
       if (handleEl) {
         if (data.handle) {
-          handleEl.textContent = data.handle;
+          const handleText = data.handle;
           handleEl.style.color = 'rgb(255, 107, 157)';
           handleEl.style.cursor = 'pointer';
           handleEl.onclick = () => {
@@ -2276,31 +2396,46 @@
             window.open(`https://aesthetic.computer/prompt~${encodeURIComponent('@' + data.handle)}`, '_blank');
           };
           handleEl.title = `Chat with ${data.handle}`;
-          console.log('📺 Handle:', data.handle);
+
+          // 🎲 Scramble the handle text
+          window.scrambleTextElement?.(handleEl, handleText, 500);
+
+          console.log('📺 Handle with scramble:', handleText);
         } else {
-          handleEl.textContent = 'anonymous';
+          const anonText = 'anonymous';
           handleEl.style.color = 'rgb(150, 150, 150)';
           handleEl.style.cursor = 'default';
           handleEl.onclick = null;
           handleEl.title = '';
+
+          // 🎲 Scramble "anonymous" too!
+          window.scrambleTextElement?.(handleEl, anonText, 500);
+
           console.log('📺 Handle: anonymous');
         }
       }
-      
+
       if (hitsEl && typeof data.hits === 'number') {
-        hitsEl.textContent = data.hits.toLocaleString() + ' hits';
-        console.log('📺 Hits:', data.hits);
+        const hitsText = data.hits.toLocaleString() + ' hits';
+
+        // 🎲 Scramble the hits counter
+        window.scrambleTextElement?.(hitsEl, hitsText, 550);
+
+        console.log('📺 Hits with scramble:', hitsText);
       }
-      
+
       if (whenEl && data.when) {
         const date = new Date(data.when);
-        const formatted = date.toLocaleDateString('en-US', { 
-          year: 'numeric', 
-          month: 'short', 
-          day: 'numeric' 
+        const formatted = date.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
         });
-        whenEl.textContent = formatted;
-        console.log('📺 When:', formatted);
+
+        // 🎲 Scramble the date
+        window.scrambleTextElement?.(whenEl, formatted, 600);
+
+        console.log('📺 When with scramble:', formatted);
       }
 
       // Re-check overlap after stats update
