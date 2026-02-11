@@ -1,0 +1,67 @@
+name: Build FFOS ISO
+
+on:
+  workflow_dispatch:
+    inputs:
+      ffos_branch:
+        description: "FFOS branch to build"
+        default: "develop"
+        type: string
+      ffos_user_branch:
+        description: "FFOS-USER branch to build"
+        default: "develop"
+        type: string
+      version:
+        description: "Version tag (e.g. 1.0.0)"
+        default: "1.0.0"
+        type: string
+
+jobs:
+  build-iso:
+    name: Build FFOS ISO
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Free up disk space
+        run: |
+          # GitHub runners have ~14GB free; ISO build needs headroom
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache
+          sudo apt-get clean
+          echo "Available disk space:"
+          df -h /
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rsync
+
+      - name: Build FFOS ISO
+        env:
+          FFOS_BRANCH: ${{ inputs.ffos_branch }}
+          FFOS_USER_BRANCH: ${{ inputs.ffos_user_branch }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          bash utilities/ffos-build/build.sh
+
+      - name: List build output
+        run: |
+          OUT_DIR="utilities/ffos-build/.ffos-cache/out"
+          echo "=== Build artifacts ==="
+          ls -lh "$OUT_DIR/"
+          echo ""
+          echo "=== Checksums ==="
+          cat "$OUT_DIR"/*.sha256 2>/dev/null || echo "No checksums found"
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffos-ac-iso-${{ inputs.version }}
+          path: |
+            utilities/ffos-build/.ffos-cache/out/*.iso
+            utilities/ffos-build/.ffos-cache/out/*.sha256
+          retention-days: 30
+          compression-level: 0
