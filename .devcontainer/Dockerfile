@@ -1,5 +1,5 @@
 # Rebuilt to run SmartPy on Python 3.11 and avoid 3.13 BrokenPipe
-FROM fedora:latest
+FROM --platform=linux/amd64 fedora:latest
 
 # Preconfigure DNF to minimize footprint and avoid unnecessary optional deps
 RUN set -eux; \
@@ -19,7 +19,8 @@ ENV SYSTEMD_PAGER=cat
 ENV MANPAGER=cat
 
 # --- Base toolchain & deps ----------------------------------------------------
-RUN dnf update -y && \
+RUN dnf clean all && rm -rf /var/cache/dnf && \
+    dnf update -y --refresh --setopt=zchunk=false && \
     dnf install -y \
       awk which tree procps-ng coreutils unzip jq bat ripgrep \
       git gh gcc gcc-c++ clang make cmake \
@@ -42,18 +43,17 @@ RUN dnf update -y && \
         && dnf clean all && rm -rf /var/cache/dnf
 
 # --- FFmpeg from RPM Fusion ---------------------------------------------------
-RUN dnf install -y \
+RUN dnf install -y --setopt=zchunk=false \
       https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
       https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm \
-    && dnf install -y --allowerasing --skip-unavailable ffmpeg ffmpeg-devel \
+    && dnf install -y --allowerasing --skip-unavailable --setopt=zchunk=false ffmpeg ffmpeg-devel \
         && dnf clean all && rm -rf /var/cache/dnf
 
 # --- Python 3.11 venv as default "python" -------------------------------------
 RUN /usr/bin/python3.11 -m venv /opt/py311 && \
-    /opt/py311/bin/pip install -U pip setuptools wheel ipykernel jupyter && \
+    /opt/py311/bin/pip install -U pip setuptools wheel && \
     ln -s /opt/py311/bin/python /usr/local/bin/python && \
-    ln -s /opt/py311/bin/pip /usr/local/bin/pip && \
-    /opt/py311/bin/python -m ipykernel install --prefix=/opt/py311 --name=python3 --display-name="Python 3 (ipykernel)"
+    ln -s /opt/py311/bin/pip /usr/local/bin/pip
 ENV PATH="/opt/py311/bin:${PATH}"
 
 # --- SmartPy (pinned) + smoke test -------------------------------------------
@@ -82,7 +82,7 @@ RUN set -eux; \
 
 # --- Docker CLI (for running latest Octez via Docker) ------------------------
 # This allows us to use tezos/tezos:master which supports current Ghostnet protocol
-RUN dnf install -y docker && dnf clean all && rm -rf /var/cache/dnf
+RUN dnf install -y --setopt=zchunk=false docker && dnf clean all && rm -rf /var/cache/dnf
 
 # Pre-pull Tezos & SmartPy Docker images during build (saves time later)
 # Note: This requires BuildKit and may fail in some build environments
@@ -161,10 +161,10 @@ RUN ARCH=$(uname -m) && \
     rm /tmp/powershell.tar.gz
 
 # --- s3cmd (for DigitalOcean Spaces management) -------------------------------
-RUN dnf install -y s3cmd && dnf clean all
+RUN dnf install -y --setopt=zchunk=false s3cmd && dnf clean all
 
-# --- Jupyter bits (installed via pip in py311 venv above) --------------------
-# Note: Jupyter is now installed in the Python 3.11 venv to ensure consistency
+# --- Jupyter bits -------------------------------------------------------------
+RUN dnf install -y --setopt=zchunk=false python3-notebook python3-nbconvert && dnf clean all
 
 # --- gcloud SDK ---------------------------------------------------------------
 RUN curl -sSL https://sdk.cloud.google.com > /tmp/install_gcloud.sh && \
@@ -255,15 +255,9 @@ RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/home/me/.deno sh -s 
 COPY --chown=me:me config.fish /home/me/.config/fish/config.fish
 COPY --chown=me:me entry.fish /entry.fish
 
-# Ensure fish doesn't try to use universal variable daemon (causes permission issues)
-RUN echo "set -U fish_greeting ''" >> /home/me/.config/fish/config.fish && \
-    chown -R me:me /home/me/.config/fish && \
-    chmod -R 755 /home/me/.config/fish
-
-# Ensure jupyter directory exists with correct permissions and register user kernel
+# Ensure jupyter directory exists with correct permissions
 RUN mkdir -p /home/me/.jupyter && \
-    chmod -R u+rw /home/me/.jupyter && \
-    /opt/py311/bin/python -m ipykernel install --user --name=py311 --display-name="Python 3.11.14"
+    chmod -R u+rw /home/me/.jupyter
 
 # --- IPython preload ----------------------------------------------------------
 RUN mkdir -p /home/me/.ipython/profile_default/startup && \
