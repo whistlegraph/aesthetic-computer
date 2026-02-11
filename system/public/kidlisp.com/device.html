@@ -278,6 +278,7 @@
     #source-overlay:not(.scrambling) #source-code-inner {
       opacity: 0;
       pointer-events: none;
+      visibility: hidden; /* Fully hide to prevent doubling */
     }
 
     /* UI elements always visible - they have their own scramble animations */
@@ -1764,6 +1765,17 @@
         if (overlay) {
           overlay.classList.remove('scrambling');
           console.log('📺 Decode complete - revealing Monaco editor');
+
+          // Clear scramble overlay content after fade completes
+          if (inner) {
+            inner.addEventListener('transitionend', function clearScramble(e) {
+              if (e.propertyName === 'opacity') {
+                inner.innerHTML = '';
+                inner.removeEventListener('transitionend', clearScramble);
+                console.log('📺 Scramble overlay cleared');
+              }
+            });
+          }
         }
 
         // Monaco is now showing the code, but we can keep the highlighted HTML
