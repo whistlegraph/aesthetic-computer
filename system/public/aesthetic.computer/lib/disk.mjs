@@ -11672,7 +11672,8 @@ async function makeFrame({ data: { type, content } }) {
           'Physical screen.height': screen.height,
           'Bumper offset': bumperOffset,
           'Piece screen.height': screen.height - bumperOffset,
-          'Pan offset will shift to': `y=${bumperOffset} to y=${screen.height}`
+          'Piece renders': `y=0 to y=${screen.height - bumperOffset}`,
+          'Bumper overlays': `y=0 to y=${bumperOffset}`
         });
       }
 
@@ -11812,6 +11813,13 @@ async function makeFrame({ data: { type, content } }) {
       
       content.pen?.events.forEach((data) => {
         penEventCount++;
+
+        // 🎪 Adjust Y coordinate for bumper offset - events are in physical coords, piece uses reduced viewport
+        const bumperOffset = bumperConfig.enabled ? bumperConfig.height : 0;
+        if (bumperOffset > 0 && data.y !== undefined) {
+          data.y = data.y - bumperOffset;
+        }
+
         Object.assign(data, {
           device: data.device,
           hudButtonActive: currentHUDButtonActive, // Add global HUD button flag
@@ -12422,19 +12430,8 @@ async function makeFrame({ data: { type, content } }) {
             content: "running boot"
           });
 
-          // 🎪 Apply bumper viewport offset before boot
-          const bumperViewportOffset = bumperConfig.enabled && bumperConfig.height > 0 ? bumperConfig.height : 0;
-          if (bumperViewportOffset > 0) {
-            $api.pan(0, bumperViewportOffset);
-          }
-
           if (system === "nopaint") nopaint_boot({ ...$api, params: $api.params, colon: $api.colon });
           await boot($api);
-
-          // 🎪 Restore after boot
-          if (bumperViewportOffset > 0) {
-            $api.unpan();
-          }
           const bootEndTime = performance.now();
           diskTimings.bootComplete = Math.round(bootEndTime - diskTimingStart);
           // Silent: boot() completed
@@ -12617,23 +12614,9 @@ async function makeFrame({ data: { type, content } }) {
             // Reset zebra cache at the start of each frame so it can advance once per frame
             $api.num.resetZebraCache();
 
-            // 🎪 Apply bumper viewport offset before paint
-            const bumperViewportOffset = bumperConfig.enabled && bumperConfig.height > 0 ? bumperConfig.height : 0;
-            if (bumperViewportOffset > 0) {
-              // Log once per 60 frames to avoid spam
-              if (paintCount % 60n === 0n) {
-                console.log('🎪 Applying pan offset:', bumperViewportOffset, 'Piece will render from y=' + bumperViewportOffset + ' to y=' + ($api.screen.height + bumperViewportOffset));
-              }
-              $api.pan(0, bumperViewportOffset);
-            }
-
             // Always call paint() - piece paints underneath, GOL overlays on top
+            // 🎪 Piece gets reduced screen.height, renders at y=0, bumper overlays on top
             paintOut = paint($api); // Returns `undefined`, `false`, or `DirtyBox`.
-
-            // 🎪 Restore after paint
-            if (bumperViewportOffset > 0) {
-              $api.unpan();
-            }
             // Increment piece frame counter only when we actually paint
             pieceFrameCount++;
             
