@@ -1038,7 +1038,37 @@
         // For numbers and symbols, use other chars
         return SCRAMBLE_CHARS_OTHER[Math.floor(Math.random() * SCRAMBLE_CHARS_OTHER.length)];
       }
-      
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // CENTRALIZED 24FPS SCRAMBLE CLOCK
+      // All scrambling is synchronized to the same beat
+      // ═══════════════════════════════════════════════════════════════════════════
+
+      const SCRAMBLE_24FPS = 1000 / 24; // ~41.67ms per frame
+      const scrambleCallbacks = new Set();
+      let scrambleClockId = null;
+
+      // Start the global scramble clock
+      function startScrambleClock() {
+        if (scrambleClockId) return; // Already running
+
+        scrambleClockId = setInterval(() => {
+          // Call all registered callbacks on each beat
+          scrambleCallbacks.forEach(callback => {
+            try {
+              callback();
+            } catch (e) {
+              console.error('Scramble callback error:', e);
+            }
+          });
+        }, SCRAMBLE_24FPS);
+      }
+
+      // Helper to add rhythmic variation - sometimes skip beats
+      function shouldSkipBeat() {
+        return Math.random() < 0.15; // 15% chance to skip a frame
+      }
+
       // Initialize per-character states from source
       function initCharStates(source, highlightedHtml) {
         const chars = source.split('');
@@ -1422,36 +1452,6 @@
       // TEXT ELEMENT SCRAMBLE ANIMATIONS
       // Scramble and reveal text in UI elements (QR label, metadata, etc.)
       // ═══════════════════════════════════════════════════════════════════════════
-
-      // ═══════════════════════════════════════════════════════════════════════════
-      // CENTRALIZED 24FPS SCRAMBLE CLOCK
-      // All scrambling is synchronized to the same beat
-      // ═══════════════════════════════════════════════════════════════════════════
-
-      const SCRAMBLE_24FPS = 1000 / 24; // ~41.67ms per frame
-      const scrambleCallbacks = new Set();
-      let scrambleClockId = null;
-
-      // Start the global scramble clock
-      function startScrambleClock() {
-        if (scrambleClockId) return; // Already running
-
-        scrambleClockId = setInterval(() => {
-          // Call all registered callbacks on each beat
-          scrambleCallbacks.forEach(callback => {
-            try {
-              callback();
-            } catch (e) {
-              console.error('Scramble callback error:', e);
-            }
-          });
-        }, SCRAMBLE_24FPS);
-      }
-
-      // Helper to add rhythmic variation - sometimes skip beats
-      function shouldSkipBeat() {
-        return Math.random() < 0.15; // 15% chance to skip a frame
-      }
 
       // Continuous scramble text content of an element with rhythmic timing
       window.scrambleTextElement = function(element, targetText, duration = 600, continuous = false) {
