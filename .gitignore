@@ -1,3 +1,6 @@
+# MongoDB backup (contains user data)
+mongodb-backup/
+
 # entire ac-pill directory
 ac-pill/
 

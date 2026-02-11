@@ -3637,4 +3637,192 @@ export async function getLatestBackdropUrl() {
   return null;
 }
 
+// =============================================================================
+// Notepat.com OG Preview Image
+// =============================================================================
+
+// Notepat OG image cache (memory)
+const notepatOGCache = {
+  url: null,
+  expires: 0,
+};
+
+/**
+ * Generate a branded OG image for notepat.com (1200x630 PNG).
+ * Renders a piano-pad grid with notepat's signature note colors,
+ * "notepat.com" branding, and a decorative waveform — all from SVG, no Puppeteer.
+ */
+export async function generateNotepatOGImage(forceRegenerate = false) {
+  console.log(`\n🎹 Notepat OG Image Request (force: ${forceRegenerate})`);
+
+  // Check cache first
+  if (!forceRegenerate) {
+    const cachedUrl = await getLatestNotepatOGUrl();
+    if (cachedUrl) {
+      return { url: cachedUrl, cached: true };
+    }
+  }
+
+  const W = 1200;
+  const H = 630;
+
+  // Notepat note colors (from note-colors.mjs — base octave 4 ROYGBIV)
+  const noteColors = {
+    C: [255, 50, 50],
+    D: [255, 160, 0],
+    E: [255, 230, 0],
+    F: [50, 200, 50],
+    G: [50, 120, 255],
+    A: [130, 50, 200],
+    B: [180, 80, 255],
+  };
+
+  // Upper octave dayglo colors
+  const daygloColors = {
+    C: [255, 40, 80],
+    D: [255, 180, 0],
+    E: [255, 255, 50],
+    F: [50, 255, 100],
+    G: [50, 200, 255],
+    A: [180, 50, 255],
+    B: [255, 80, 255],
+  };
+
+  const notes = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+
+  // Layout: 2 rows of 7 pads (two octaves)
+  const cols = 7;
+  const rows = 2;
+  const padGap = 12;
+  const gridW = 720;
+  const gridH = 300;
+  const padW = (gridW - (cols - 1) * padGap) / cols;
+  const padH = (gridH - (rows - 1) * padGap) / rows;
+  const gridX = (W - gridW) / 2;
+  const gridY = 230;
+  const padRadius = 10;
+
+  // Build pad SVG elements
+  let padsSvg = '';
+  for (let row = 0; row < rows; row++) {
+    const colors = row === 0 ? noteColors : daygloColors;
+    for (let col = 0; col < cols; col++) {
+      const note = notes[col];
+      const [r, g, b] = colors[note];
+      const x = gridX + col * (padW + padGap);
+      const y = gridY + row * (padH + padGap);
+
+      // Pad rectangle
+      padsSvg += `<rect x="${x}" y="${y}" width="${padW}" height="${padH}" rx="${padRadius}" fill="rgb(${r},${g},${b})" opacity="0.9"/>`;
+
+      // Note label (centered in pad)
+      const labelX = x + padW / 2;
+      const labelY = y + padH / 2 + 10;
+      const textColor = (note === 'E' || note === 'F') ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.7)';
+      padsSvg += `<text x="${labelX}" y="${labelY}" font-family="monospace, 'Courier New'" font-size="28" font-weight="bold" fill="${textColor}" text-anchor="middle">${note}${row === 0 ? '4' : '5'}</text>`;
+    }
+  }
+
+  // Waveform path (decorative sine-ish wave across the top)
+  let wavePath = `M 80 120`;
+  for (let i = 0; i <= 100; i++) {
+    const x = 80 + (i / 100) * (W - 160);
+    const y = 120 + Math.sin(i * 0.18) * 30 * Math.sin(i * 0.04) + Math.sin(i * 0.07) * 15;
+    wavePath += ` L ${x.toFixed(1)} ${y.toFixed(1)}`;
+  }
+
+  // Subtle scan line pattern
+  let scanLines = '';
+  for (let y = 0; y < H; y += 4) {
+    scanLines += `<rect x="0" y="${y}" width="${W}" height="1" fill="#000" opacity="0.06"/>`;
+  }
+
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a0a12"/>
+      <stop offset="100%" style="stop-color:#12121e"/>
+    </linearGradient>
+    <linearGradient id="waveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#4ecdc4;stop-opacity:0"/>
+      <stop offset="20%" style="stop-color:#4ecdc4;stop-opacity:0.5"/>
+      <stop offset="50%" style="stop-color:#ff6b9d;stop-opacity:0.6"/>
+      <stop offset="80%" style="stop-color:#4ecdc4;stop-opacity:0.5"/>
+      <stop offset="100%" style="stop-color:#4ecdc4;stop-opacity:0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="${W}" height="${H}" fill="url(#bg)"/>
+
+  <!-- Scan lines -->
+  ${scanLines}
+
+  <!-- Waveform -->
+  <path d="${wavePath}" fill="none" stroke="url(#waveGrad)" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Pads -->
+  ${padsSvg}
+
+  <!-- "notepat" text -->
+  <text x="${W / 2 - 30}" y="${gridY + gridH + 75}" font-family="monospace, 'Courier New'" font-size="42" font-weight="bold" fill="#e8e4de" text-anchor="middle" letter-spacing="3">notepat</text>
+  <!-- ".com" accent -->
+  <text x="${W / 2 + 128}" y="${gridY + gridH + 58}" font-family="monospace, 'Courier New'" font-size="18" fill="#4ecdc4">.com</text>
+
+  <!-- Subtle tagline -->
+  <text x="${W / 2}" y="${H - 30}" font-family="monospace, 'Courier New'" font-size="16" fill="rgba(232,228,222,0.35)" text-anchor="middle">tap the pads to play</text>
+</svg>`;
+
+  // Convert SVG to PNG using sharp
+  const buffer = await sharp(Buffer.from(svg))
+    .png()
+    .toBuffer();
+
+  // Upload to Spaces
+  const key = `og/notepat/notepat-og.png`;
+  await spacesClient.send(new PutObjectCommand({
+    Bucket: SPACES_BUCKET,
+    Key: key,
+    Body: buffer,
+    ContentType: 'image/png',
+    ACL: 'public-read',
+    CacheControl: 'public, max-age=604800', // 7-day cache
+  }));
+
+  const url = `${SPACES_CDN_BASE}/${key}`;
+
+  // Update memory cache
+  notepatOGCache.url = url;
+  notepatOGCache.expires = Date.now() + 7 * 24 * 60 * 60 * 1000;
+
+  console.log(`📤 Notepat OG image uploaded: ${url} (${(buffer.length / 1024).toFixed(1)} KB)`);
+  return { url, cached: false, buffer };
+}
+
+/**
+ * Get the latest cached notepat OG image URL without triggering generation.
+ */
+export async function getLatestNotepatOGUrl() {
+  // Check memory cache
+  if (notepatOGCache.url && Date.now() < notepatOGCache.expires) {
+    return notepatOGCache.url;
+  }
+
+  // Check Spaces
+  const key = `og/notepat/notepat-og.png`;
+  try {
+    await spacesClient.send(new HeadObjectCommand({
+      Bucket: SPACES_BUCKET,
+      Key: key,
+    }));
+    const url = `${SPACES_CDN_BASE}/${key}`;
+    notepatOGCache.url = url;
+    notepatOGCache.expires = Date.now() + 60 * 60 * 1000; // 1hr memory cache
+    return url;
+  } catch {
+    return null;
+  }
+}
+
 export { IPFS_GATEWAY };

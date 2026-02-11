@@ -547,8 +547,14 @@ function metadata(host, slug, pieceMetadata, protocol = "https:", objktContext =
     ogImage = twitterImage = pieceMetadata.image_url;
   } else {
     // Use oven service for screenshot generation
-    ogImage = `https://oven.aesthetic.computer/preview/1200x630/${slug}.png`;
-    twitterImage = `https://oven.aesthetic.computer/preview/1800x900/${slug}.png`;
+    // Special case: notepat.com uses branded OG image
+    if ('notepat' === slug) {
+      ogImage = `https://oven.aesthetic.computer/notepat-og.png`;
+      twitterImage = `https://oven.aesthetic.computer/notepat-og.png`;
+    } else {
+      ogImage = `https://oven.aesthetic.computer/preview/1200x630/${slug}.png`;
+      twitterImage = `https://oven.aesthetic.computer/preview/1800x900/${slug}.png`;
+    }
   }
 
   // Extract just the piece name (before ~) for icon URL

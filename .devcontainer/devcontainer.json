@@ -70,7 +70,7 @@
   // 10000-10007: WebRTC media ports for peer connections
   // 7890: Devcontainer status dashboard
   // 5555: VS Code extension views dev server (process-tree 3D viz)
-  "forwardPorts": [8888, 8111, 8112, 8889, 8083, 8084, 8085, 4040, 12345, 3478, 7890, 5555, 4177, 10000, 10001, 10002, 10003, 10004, 10005, 10006, 10007],
+  "forwardPorts": [8888, 8111, 8112, 8889, 8083, 8084, 8085, 4040, 12345, 3478, 7890, 5555, 4177, 3003, 10000, 10001, 10002, 10003, 10004, 10005, 10006, 10007],
 
   "portsAttributes": {
     "8888": {
@@ -89,7 +89,8 @@
     "8084": { "label": "Chat SOTCE", "onAutoForward": "silent", "visibility": "public" },
     "8085": { "label": "Chat Clock", "onAutoForward": "silent", "visibility": "public" },
     "5555": { "label": "Extension Views Dev", "onAutoForward": "silent" },
-    "4177": { "label": "AT User Pages Dev", "onAutoForward": "notify", "visibility": "public" }
+    "4177": { "label": "AT User Pages Dev", "onAutoForward": "notify", "visibility": "public" },
+    "3003": { "label": "Silo", "onAutoForward": "silent" }
   },
 
   // ─────────────────────────────────────────────────────────────────────────────

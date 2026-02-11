@@ -38,4 +38,12 @@
 	# Force Connection: close to prevent keep-alive truncation issues
 	# through Netlify dev HTTPS proxy (fixes ERR_CONTENT_LENGTH_MISMATCH)
 	header Connection "close"
+
+	# Silo data dashboard proxy → localhost:3003
+	handle /silo.aesthetic.computer {
+		redir /silo.aesthetic.computer/ permanent
+	}
+	handle_path /silo.aesthetic.computer/* {
+		reverse_proxy localhost:3003
+	}
 }

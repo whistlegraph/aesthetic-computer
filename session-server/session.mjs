@@ -209,6 +209,7 @@ fastify.options("*", async (req, reply) => {
   const allowedOrigins = [
     "https://aesthetic.local:8888",
     "https://aesthetic.computer",
+    "https://notepat.com",
   ];
 
   const origin = req.headers.origin;
@@ -823,7 +824,11 @@ const io = geckos({
   },
   cors: {
     allowAuthorization: true,
-    origin: dev ? "*" : "https://aesthetic.computer",
+    origin: dev ? "*" : (req) => {
+      const allowed = ["https://aesthetic.computer", "https://notepat.com"];
+      const reqOrigin = req.headers?.origin;
+      return allowed.includes(reqOrigin) ? reqOrigin : allowed[0];
+    },
   },
 });
 io.addServer(server); // Hook up to the HTTP Server - must be before listen()

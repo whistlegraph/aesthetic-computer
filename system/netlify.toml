@@ -371,6 +371,7 @@ autoLaunch = false
 
 [dev.environment]
 OVEN_URL = "https://localhost:3002"
+SILO_URL = "https://localhost:3003"
 
 # Context for local development: uses HTTPS with local SSL certificates
 [context.local.dev]

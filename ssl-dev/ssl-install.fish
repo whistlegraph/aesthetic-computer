@@ -70,4 +70,4 @@ else
     echo "🔴 Certificate not found: $CERT_FILE"
 end
 
-cd -
+cd - 2>/dev/null || true
