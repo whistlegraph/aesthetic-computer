@@ -2134,6 +2134,31 @@ function ac-oven
     npm run dev
 end
 
+# Silo service (data & storage dashboard)
+function ac-silo
+    echo "🏗️ Starting silo service..."
+    ac
+    cd silo
+
+    echo "🔍 Cleaning up any stuck processes..."
+    pkill -f "node.*silo/server.mjs" 2>/dev/null
+    sleep 1
+    npx kill-port 3003 2>/dev/null
+
+    # SSH tunnel to DO droplet MongoDB (localhost:27018 → droplet:27017)
+    if not pgrep -f "ssh.*27018:localhost:27017.*64.23.151.169" >/dev/null 2>&1
+        echo "🔗 Setting up SSH tunnel to DO droplet MongoDB..."
+        ssh -fN -L 27018:localhost:27017 -i ~/.ssh/silo-deploy-key root@64.23.151.169 2>/dev/null
+        and echo "   tunnel established (localhost:27018)"
+        or echo "   tunnel failed (check SSH key)"
+    else
+        echo "🔗 SSH tunnel already active (localhost:27018)"
+    end
+
+    echo "🚀 Starting silo on https://localhost:3003..."
+    npm run dev
+end
+
 alias ac-stripe-print 'ac; npm run stripe-print-micro'
 alias ac-stripe-ticket 'ac; npm run stripe-ticket-micro'
 alias ac-extension 'ac; cd vscode-extension; npm run build; ac'

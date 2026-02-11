@@ -1,0 +1,19 @@
+{
+  "name": "silo",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Data & storage dashboard for aesthetic.computer",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "nodemon -I --watch server.mjs server.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.540.0",
+    "dotenv": "^17.2.3",
+    "express": "^4.18.2",
+    "mongodb": "^6.20.0",
+    "redis": "^4.7.0",
+    "ws": "^8.18.3"
+  }
+}
