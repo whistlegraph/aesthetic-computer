@@ -829,7 +829,14 @@ class TextButton {
   #h = 12 + this.#g2; // 19; //
   #offset = { x: this.#gap, y: this.#gap };
 
-  constructor(text = "Button", pos = { x: 0, y: 0 }, typeface = TYPEFACE_UI) {
+  constructor(text = "Button", pos = { x: 0, y: 0 }, typeface = TYPEFACE_UI, gap = null) {
+    // Allow custom gap/padding if provided
+    if (gap !== null) {
+      this.#gap = gap;
+      this.#g2 = this.#gap * 2;
+      this.#offset = { x: this.#gap, y: this.#gap };
+    }
+
     this.#cw = typeface.blockWidth;
     this.#h = typeface.blockHeight + this.#gap * 2;
 
