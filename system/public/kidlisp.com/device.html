@@ -334,6 +334,36 @@
       0%, 15% { transform: translateY(0); }
       85%, 100% { transform: translateY(var(--scroll-distance, 0)); }
     }
+
+    /* Custom context menu for Monaco */
+    #monaco-context-menu {
+      position: fixed;
+      background: rgba(20, 20, 20, 0.95);
+      border: 2px solid #ff69b4;
+      padding: 8px 0;
+      z-index: 9999;
+      font-family: 'Noto Sans Mono', monospace;
+      font-size: 14px;
+      min-width: 200px;
+      display: none;
+      backdrop-filter: blur(10px);
+    }
+
+    #monaco-context-menu.visible {
+      display: block;
+    }
+
+    .monaco-context-item {
+      padding: 8px 16px;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.1s ease;
+      user-select: none;
+    }
+
+    .monaco-context-item:hover {
+      background: rgba(255, 105, 180, 0.3);
+    }
     
     /* QR code and label - bottom right (like give.aesthetic.computer) */
     #qr-wrap {
@@ -996,7 +1026,7 @@
             lightbulb: { enabled: 'off' },
             inlayHints: { enabled: 'off' },
             links: false,
-            contextmenu: true,
+            contextmenu: false, // Disable default, we'll add custom
             accessibilitySupport: 'off',
             renderWhitespace: 'none',
             renderControlCharacters: false,
@@ -1005,9 +1035,84 @@
           // Make globally accessible
           window.deviceMonacoEditor = deviceMonacoEditor;
 
+          // Add custom context menu
+          setupCustomContextMenu(container);
+
           console.log('📺 Monaco editor created for device mode');
         }
       });
+    }
+
+    // Setup custom context menu for Monaco
+    function setupCustomContextMenu(editorContainer) {
+      const contextMenu = document.getElementById('monaco-context-menu');
+      if (!contextMenu || !editorContainer) return;
+
+      let currentCodeId = null;
+
+      // Store code ID globally for context menu
+      window.setCurrentCodeIdForContext = (codeId) => {
+        currentCodeId = codeId;
+      };
+
+      // Handle context menu on Monaco editor
+      editorContainer.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Position the menu at cursor
+        contextMenu.style.left = e.pageX + 'px';
+        contextMenu.style.top = e.pageY + 'px';
+        contextMenu.classList.add('visible');
+
+        console.log('📺 Custom context menu opened');
+      });
+
+      // Handle menu item clicks
+      contextMenu.querySelectorAll('.monaco-context-item').forEach(item => {
+        item.addEventListener('click', async (e) => {
+          const action = e.target.dataset.action;
+          contextMenu.classList.remove('visible');
+
+          if (!currentCodeId) {
+            console.warn('📺 No code ID available for context menu');
+            return;
+          }
+
+          const cleanCode = currentCodeId.startsWith('$') ? currentCodeId.slice(1) : currentCodeId;
+
+          if (action === 'edit') {
+            // Edit on KidLisp.com
+            window.open(`https://kidlisp.com/${cleanCode}`, '_blank');
+          } else if (action === 'view') {
+            // View on Prompt.ac
+            window.open(`https://prompt.ac/$${cleanCode}`, '_blank');
+          } else if (action === 'bundle') {
+            // Keep as HTML - use bundle endpoint
+            const dev = window.location.hostname === 'localhost' || window.location.hostname === 'local.aesthetic.computer';
+            const apiUrl = dev ? 'https://localhost:8888' : 'https://aesthetic.computer';
+            const bundleUrl = `${apiUrl}/api/bundle-kidlisp?code=${cleanCode}`;
+
+            console.log('📺 Opening bundle URL:', bundleUrl);
+            window.open(bundleUrl, '_blank');
+          }
+        });
+      });
+
+      // Close menu when clicking elsewhere
+      document.addEventListener('click', (e) => {
+        if (!contextMenu.contains(e.target) && !editorContainer.contains(e.target)) {
+          contextMenu.classList.remove('visible');
+        }
+      });
+
+      // Prevent body pointerdown from hiding overlay when context menu is open
+      document.body.addEventListener('pointerdown', (e) => {
+        if (contextMenu.classList.contains('visible')) {
+          e.stopImmediatePropagation();
+          contextMenu.classList.remove('visible');
+        }
+      }, true); // Use capture phase to intercept before other handlers
     }
 
     // Start initialization after DOM is ready
@@ -1062,6 +1167,13 @@
   
   <!-- FPS meter for performance comparison -->
   <div id="fps-meter">FPS: --</div>
+
+  <!-- Custom context menu for Monaco -->
+  <div id="monaco-context-menu">
+    <div class="monaco-context-item" data-action="edit">Edit on KidLisp.com</div>
+    <div class="monaco-context-item" data-action="view">View on Prompt.ac</div>
+    <div class="monaco-context-item" data-action="bundle">Keep as HTML</div>
+  </div>
   
   <!-- DEPRECATED: Playlist info overlay - kept for backwards compatibility but hidden via CSS -->
   <!-- All playlist info is now in the #ff1-module inside #piece-info -->
@@ -2528,6 +2640,11 @@
       // Strip $ prefix if present for API call
       const pieceCode = codeId.startsWith('$') ? codeId.slice(1) : codeId;
       const displayCode = codeId.startsWith('$') ? codeId : '$' + codeId;
+
+      // Store code ID for context menu
+      if (window.setCurrentCodeIdForContext) {
+        window.setCurrentCodeIdForContext(displayCode);
+      }
       
       // Always generate QR code and label first (even before source loads)
       generateQRAndLabel(displayCode);
