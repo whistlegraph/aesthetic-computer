@@ -7874,6 +7874,15 @@ export const handler = async (event, context) => {
                   const sensitivity = 2.0; // Higher = more responsive to wheel input
                   wheelVelocity += e.deltaY * sensitivity;
 
+                  // Clamp at boundaries to prevent jank/jutter
+                  const atStart = displayedPageIndex <= 1 && wheelVelocity < 0;
+                  const atEnd = displayedPageIndex >= loadedFeedCount && wheelVelocity > 0;
+                  if (atStart || atEnd) {
+                    wheelVelocity = 0;
+                    wheelDelta = 0;
+                    return;
+                  }
+
                   // Higher cap for faster scrolling
                   const maxVelocity = 120;
                   wheelVelocity = Math.max(-maxVelocity, Math.min(maxVelocity, wheelVelocity));
