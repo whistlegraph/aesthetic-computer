@@ -7175,34 +7175,99 @@ export const handler = async (event, context) => {
                     return;
                   }
                   
+                  // Helper: render peek of adjacent pages (always visible for context)
+                  const peekAmount = 24; // px of adjacent card visible
+                  const slideDistance = cardHeight + 40;
+                  const peekOffset = slideDistance - peekAmount;
+                  const peekAlpha = 0.35;
+
+                  function renderAdjacentPeeks(currentIdx) {
+                    // Previous page peek (above)
+                    if (currentIdx > 1) {
+                      const prevData = pageCache.get(currentIdx - 1) || null;
+                      ctx.save();
+                      ctx.globalAlpha = peekAlpha * 0.7; // Slightly dimmer during motion
+                      renderPage(prevData, currentIdx - 1, -peekOffset, true, 0);
+                      ctx.restore();
+                    }
+
+                    // Next page peek (below)
+                    if (currentIdx < loadedFeedCount) {
+                      const nextData = pageCache.get(currentIdx + 1) || null;
+                      ctx.save();
+                      ctx.globalAlpha = peekAlpha * 0.7;
+                      renderPage(nextData, currentIdx + 1, peekOffset, true, 0);
+                      ctx.restore();
+                    }
+                  }
+
                   if (transitionDirection !== 0 && transitionTarget !== null) {
-                    // Animating transition - both pages show text (pre-rendered)
+                    // Animating transition - show transitioning pages + one beyond for infinite feel
                     const slideDistance = cardHeight + 40;
                     const incomingData = pageCache.get(transitionTarget) || null;
-                    
+
                     if (transitionDirection > 0) {
-                      // Going to higher page (next) - current slides up, next comes from below
+                      // Going to higher page (next) - show current + next + one beyond
                       renderPage(pageData, displayedPageIndex, -transitionProgress * slideDistance, false, 1);
                       renderPage(incomingData, transitionTarget, (1 - transitionProgress) * slideDistance, false, 1);
+
+                      // Show page beyond for infinite scroll feel
+                      if (transitionTarget + 1 <= loadedFeedCount) {
+                        const beyondData = pageCache.get(transitionTarget + 1) || null;
+                        ctx.save();
+                        ctx.globalAlpha = 0.4;
+                        renderPage(beyondData, transitionTarget + 1, slideDistance + (1 - transitionProgress) * slideDistance, false, 1);
+                        ctx.restore();
+                      }
                     } else {
-                      // Going to lower page (prev) - current slides down, prev comes from above
+                      // Going to lower page (prev) - show current + prev + one beyond
                       renderPage(pageData, displayedPageIndex, transitionProgress * slideDistance, false, 1);
                       renderPage(incomingData, transitionTarget, -(1 - transitionProgress) * slideDistance, false, 1);
+
+                      // Show page beyond for infinite scroll feel
+                      if (transitionTarget - 1 >= 1) {
+                        const beyondData = pageCache.get(transitionTarget - 1) || null;
+                        ctx.save();
+                        ctx.globalAlpha = 0.4;
+                        renderPage(beyondData, transitionTarget - 1, -slideDistance - (1 - transitionProgress) * slideDistance, false, 1);
+                        ctx.restore();
+                      }
                     }
                   } else if ((isDragging || isWheelScrolling) && Math.abs(dragDelta) > 0) {
-                    // Dragging or wheel scrolling - both feed items show text (pre-rendered)
+                    // Dragging or wheel scrolling - NO PEEKS, just show dragged pages for infinite scroll
                     const nextIdx = dragDelta > 0 ? displayedPageIndex + 1 : displayedPageIndex - 1;
+
                     if (nextIdx >= 1 && nextIdx <= loadedFeedCount) {
                       const slideDistance = cardHeight + 40;
                       const progress = Math.min(1, Math.abs(dragDelta) / slideDistance);
                       const nextData = pageCache.get(nextIdx) || null;
-                      
+
                       if (dragDelta > 0) {
+                        // Scrolling down - show current + next + one beyond
                         renderPage(pageData, displayedPageIndex, -progress * slideDistance, false, 1);
                         renderPage(nextData, nextIdx, (1 - progress) * slideDistance, false, 1);
+
+                        // Show page beyond for infinite scroll
+                        if (nextIdx + 1 <= loadedFeedCount) {
+                          const beyondData = pageCache.get(nextIdx + 1) || null;
+                          ctx.save();
+                          ctx.globalAlpha = 0.3;
+                          renderPage(beyondData, nextIdx + 1, slideDistance + (1 - progress) * slideDistance, false, 1);
+                          ctx.restore();
+                        }
                       } else {
+                        // Scrolling up - show current + prev + one beyond
                         renderPage(pageData, displayedPageIndex, progress * slideDistance, false, 1);
                         renderPage(nextData, nextIdx, -(1 - progress) * slideDistance, false, 1);
+
+                        // Show page beyond for infinite scroll
+                        if (nextIdx - 1 >= 1) {
+                          const beyondData = pageCache.get(nextIdx - 1) || null;
+                          ctx.save();
+                          ctx.globalAlpha = 0.3;
+                          renderPage(beyondData, nextIdx - 1, -slideDistance - (1 - progress) * slideDistance, false, 1);
+                          ctx.restore();
+                        }
                       }
                     } else {
                       // At boundary - just offset current page with resistance
@@ -7210,31 +7275,23 @@ export const handler = async (event, context) => {
                     }
                   } else {
                     // Static - show current page with text (fade in if just arrived)
-                    // Also render adjacent page edges peeking from above/below
-                    // to hint that there's more content to scroll through.
-                    const peekAmount = 24; // px of adjacent card visible
-                    const slideDistance = cardHeight + 40;
-                    const peekOffset = slideDistance - peekAmount;
-                    const peekAlpha = 0.35;
-                    
-                    // Previous page peek (above)
+                    // Render adjacent peeks (more visible when static)
                     if (displayedPageIndex > 1) {
                       const prevData = pageCache.get(displayedPageIndex - 1) || null;
                       ctx.save();
                       ctx.globalAlpha = peekAlpha;
-                      renderPage(prevData, displayedPageIndex - 1, -peekOffset, true, 0);
+                      renderPage(prevData, displayedPageIndex - 1, -peekOffset, false, 0.6); // Dimmed text in peek
                       ctx.restore();
                     }
-                    
-                    // Next page peek (below)
+
                     if (displayedPageIndex < loadedFeedCount) {
                       const nextData = pageCache.get(displayedPageIndex + 1) || null;
                       ctx.save();
                       ctx.globalAlpha = peekAlpha;
-                      renderPage(nextData, displayedPageIndex + 1, peekOffset, true, 0);
+                      renderPage(nextData, displayedPageIndex + 1, peekOffset, false, 0.6); // Dimmed text in peek
                       ctx.restore();
                     }
-                    
+
                     // Current page (main, on top)
                     renderPage(pageData, displayedPageIndex, 0, false, textFadeIn);
                   }
@@ -7347,42 +7404,60 @@ export const handler = async (event, context) => {
 
                   // Apply wheel momentum with smooth inertia
                   if (isWheelScrolling && transitionDirection === 0) {
-                    // Apply velocity to position
+                    // Apply velocity to position immediately - no lag
                     wheelDelta += wheelVelocity;
                     dragDelta = wheelDelta;
 
-                    // Apply friction/decay to velocity for natural slowdown
-                    const friction = 0.92;
+                    // Very gentle friction for long momentum carry (additive scrolling)
+                    const friction = 0.96; // Higher = momentum builds up from rapid flicks
                     wheelVelocity *= friction;
 
                     // Stop when velocity is negligible
-                    if (Math.abs(wheelVelocity) < 0.5) {
+                    if (Math.abs(wheelVelocity) < 0.2) {
                       wheelVelocity = 0;
                     }
 
-                    // Check if we should transition to next/prev page
+                    // Check if we should transition to next/prev page(s)
                     const slideDistance = cardHeight + 40;
-                    const threshold = slideDistance * 0.35; // Lower threshold for smoother page changes
+                    const threshold = slideDistance * 0.25; // Lower threshold for fluid page changes
 
                     if (Math.abs(wheelDelta) > threshold) {
-                      const targetIdx = wheelDelta > 0 ? displayedPageIndex + 1 : displayedPageIndex - 1;
+                      // Calculate how many pages to skip based on accumulated delta
+                      const direction = Math.sign(wheelDelta);
+                      const pagesToSkip = Math.floor(Math.abs(wheelDelta) / slideDistance);
+                      const pagesJump = Math.max(1, pagesToSkip); // At least 1 page
 
-                      if (targetIdx >= 1 && targetIdx <= loadedFeedCount) {
-                        // Smooth transition to next page
-                        const currentProgress = Math.min(1, Math.abs(wheelDelta) / slideDistance);
-                        goToPage(targetIdx, currentProgress);
+                      const targetIdx = displayedPageIndex + (direction * pagesJump);
+                      const clampedTarget = Math.max(1, Math.min(loadedFeedCount, targetIdx));
+
+                      console.log("🎡 Wheel scroll:", {
+                        wheelDelta: wheelDelta.toFixed(1),
+                        wheelVelocity: wheelVelocity.toFixed(2),
+                        pagesToSkip: pagesJump,
+                        from: displayedPageIndex,
+                        to: clampedTarget
+                      });
+
+                      if (clampedTarget !== displayedPageIndex) {
+                        // Jump to target page (can skip multiple pages!)
+                        goToPage(clampedTarget, 0);
+
+                        // STOP wheel scrolling completely to prevent bouncing
+                        isWheelScrolling = false;
                         wheelDelta = 0;
                         wheelVelocity = 0;
-                        isWheelScrolling = false;
+                        console.log("✅ Page changed, STOPPED all momentum");
                       } else {
-                        // Hit boundary - bounce back with damping
-                        wheelVelocity *= -0.3;
-                        wheelDelta *= 0.7;
+                        // Hit boundary - stop completely
+                        console.log("🛑 Hit boundary, stopping");
+                        wheelVelocity = 0;
+                        wheelDelta = 0;
+                        isWheelScrolling = false;
                       }
                     }
 
                     // Stop scrolling if velocity died out and we're close to center
-                    if (wheelVelocity === 0 && Math.abs(wheelDelta) < threshold) {
+                    if (wheelVelocity === 0 && Math.abs(wheelDelta) < threshold * 0.5) {
                       isWheelScrolling = false;
                       // Let snap-back animation take over
                     }
@@ -7449,8 +7524,25 @@ export const handler = async (event, context) => {
                 function goToPage(targetIdx, startProgress = 0, slow = false) {
                   if (targetIdx < 1 || targetIdx > loadedFeedCount) return;
                   if (targetIdx === displayedPageIndex) return;
-                  if (transitionDirection !== 0) return; // Already animating
                   if (isFlipping || showingBack) return; // Don't change pages while flipped
+
+                  // Cancel any ongoing transition and jump immediately (for rapid scrolling)
+                  if (transitionDirection !== 0) {
+                    console.log("⚡ Cancelling transition, jumping immediately");
+                    displayedPageIndex = targetIdx;
+                    currentPageIndex = targetIdx;
+                    transitionDirection = 0;
+                    transitionTarget = null;
+                    textFadeIn = 1;
+                    const currentItem = pageCache.get(currentPageIndex);
+                    if (currentItem?.type === "question") {
+                      updatePath("/q/" + (currentItem.questionNumber || currentPageIndex));
+                    } else {
+                      updatePath("/page/" + (currentItem?.pageNumber || currentPageIndex));
+                    }
+                    prefetchPages(currentPageIndex);
+                    return;
+                  }
 
                   transitionSlow = slow;
                   transitionDirection = targetIdx > displayedPageIndex ? 1 : -1;
@@ -7579,25 +7671,16 @@ export const handler = async (event, context) => {
                   e.preventDefault();
                   showMinimap();
 
-                  // Add to velocity for smooth momentum scrolling
-                  const now = performance.now();
-                  const dt = Math.min(100, now - lastWheelTime) / 16.67; // normalize to ~60fps
-                  lastWheelTime = now;
-
-                  const sensitivity = 0.8; // Less aggressive than before for smoother feel
+                  // Immediate, responsive velocity - no delay
+                  const sensitivity = 2.0; // Higher = more responsive to wheel input
                   wheelVelocity += e.deltaY * sensitivity;
 
-                  // Cap velocity to prevent runaway scrolling
-                  const maxVelocity = 50;
+                  // Higher cap for faster scrolling
+                  const maxVelocity = 120;
                   wheelVelocity = Math.max(-maxVelocity, Math.min(maxVelocity, wheelVelocity));
 
                   isWheelScrolling = true;
-
-                  // Extend idle timer for smoother deceleration
-                  clearTimeout(wheelIdleTimer);
-                  wheelIdleTimer = setTimeout(() => {
-                    // Let momentum carry through
-                  }, 100);
+                  lastWheelTime = performance.now();
                 }, { passive: false });
                 
                 // Click detection for ear and page number
@@ -7686,7 +7769,7 @@ export const handler = async (event, context) => {
                           if (targetFeedItem) {
                             currentPageIndex = targetFeedItem.feedIndex;
                             displayedPageIndex = targetFeedItem.feedIndex;
-                            textFadeIn = 0;
+                            textFadeIn = 1; // Show text immediately, no fade
                             updatePath("/page/" + hb.value);
                           }
                         } else if (hb.type === "question") {
@@ -7695,7 +7778,7 @@ export const handler = async (event, context) => {
                           if (targetFeedItem) {
                             currentPageIndex = targetFeedItem.feedIndex;
                             displayedPageIndex = targetFeedItem.feedIndex;
-                            textFadeIn = 0;
+                            textFadeIn = 1; // Show text immediately, no fade
                             updatePath("/q/" + hb.value);
                           }
                         }
