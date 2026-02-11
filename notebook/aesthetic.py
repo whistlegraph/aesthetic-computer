@@ -1,3 +1,28 @@
+"""
+Aesthetic Computer Python Library for Jupyter Notebooks
+
+Usage:
+    import aesthetic
+
+    # Toggle between production and localhost:
+    aesthetic.USE_PRODUCTION = True   # Use aesthetic.computer (production)
+    aesthetic.USE_PRODUCTION = False  # Use localhost:8888 (default)
+
+Examples:
+    # Use localhost (default)
+    %%ac
+    (ink red) (line 0 0 100 100)
+
+    # Switch to production
+    aesthetic.USE_PRODUCTION = True
+
+    # Now all pieces load from aesthetic.computer
+    %%ac
+    prompt
+
+Note: All URLs include ?notebook=true for custom boot animation
+"""
+
 import sys
 import importlib
 import urllib.parse
@@ -13,6 +38,14 @@ from IPython.display import display, IFrame, HTML
 from IPython.core.magic import Magics, cell_magic, line_magic, magics_class
 
 DEFAULT_DENSITY = 2
+
+# Global configuration for production vs localhost
+# Set to True to use aesthetic.computer (production), False for localhost:8888 (default)
+USE_PRODUCTION = False
+
+def _get_base_url():
+    """Get the base URL based on USE_PRODUCTION setting"""
+    return "https://aesthetic.computer" if USE_PRODUCTION else "https://localhost:8888"
 
 def _get_ipython_context():
     try:
@@ -88,14 +121,12 @@ def _compute_iframe_dimensions(width, height, density):
 
 def show(piece, width="100%", height=54, density=None):
     importlib.reload(importlib.import_module('aesthetic'))
-    # Ensure parameters are separated explicitly in the URL
-    # url = f"https://aesthetic.computer/{piece}?nolabel&nogap"
-    url = f"https://localhost:8888/{piece}?nolabel=true&nogap=true"
+    base_url = _get_base_url()
+    url = f"{base_url}/{piece}?nolabel=true&nogap=true&notebook=true"
     density_value = _normalize_density(density, _get_ipython_context())
     iframe_width, iframe_height = _compute_iframe_dimensions(width, height, density_value)
     if density_value is not None:
-        separator = "&" if "?" in url else "?"
-        url += f"{separator}density={density_value}"
+        url += f"&density={density_value}"
     display(IFrame(src=url, width=iframe_width, height=iframe_height, frameborder="0"))
 
 def encode_kidlisp_with_node(code):
@@ -125,8 +156,9 @@ def encode_kidlisp_with_node(code):
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError) as e:
         print(f"Falling back to Python encoder: {e}")
         # Fallback to Python implementation with full URL
+        base_url = _get_base_url()
         encoded = code.replace(' ', '_').replace('\n', '~')
-        return f"https://localhost:8888/{encoded}?nolabel=true&nogap=true"
+        return f"{base_url}/{encoded}?nolabel=true&nogap=true&notebook=true"
 
 def kidlisp(code, width="100%", height=500, auto_scale=False, tv_mode=False, density=None):
     """
@@ -206,7 +238,7 @@ def kidlisp_display(code, width="100%", height=400, auto_scale=False, density=No
 def show_side_by_side(*pieces_and_options):
     """
     Display multiple pieces side by side in a horizontal layout.
-    
+
     Args:
         *pieces_and_options: Can be either:
             - Just piece names as strings: show_side_by_side("clock:4", "clock:5")
@@ -214,9 +246,10 @@ def show_side_by_side(*pieces_and_options):
             - Mix of both
     """
     importlib.reload(importlib.import_module('aesthetic'))
-    
+
+    base_url = _get_base_url()
     iframes_html = []
-    
+
     for item in pieces_and_options:
         if isinstance(item, tuple):
             piece, width, height = item
@@ -224,8 +257,8 @@ def show_side_by_side(*pieces_and_options):
             piece = item
             width = 200
             height = 100
-            
-        url = f"https://localhost:8888/{piece}?nolabel=true&nogap=true"
+
+        url = f"{base_url}/{piece}?nolabel=true&nogap=true&notebook=true"
         iframe_html = f'<iframe src="{url}" width="{width}" height="{height}" frameborder="0" style="margin: 0; padding: 0; border: none;"></iframe>'
         iframes_html.append(iframe_html)
     
@@ -412,8 +445,9 @@ class AestheticComputerMagics(Magics):
             # Handle as piece invocation - construct URL directly
             # Replace spaces with ~ for piece parameters
             piece_url = cell_content.replace(' ', '~')
-            url = f"https://localhost:8888/{piece_url}?nolabel=true&nogap=true"
-            
+            base_url = _get_base_url()
+            url = f"{base_url}/{piece_url}?nolabel=true&nogap=true&notebook=true"
+
             # Add TV mode parameter if requested
             if tv_mode:
                 url += "&tv=true"
@@ -528,7 +562,8 @@ class AestheticComputerMagics(Magics):
             # Handle as piece invocation - construct URL directly
             # Replace spaces with ~ for piece parameters
             piece_url = actual_content.replace(' ', '~')
-            url = f"https://localhost:8888/{piece_url}?nolabel=true&nogap=true"
+            base_url = _get_base_url()
+            url = f"{base_url}/{piece_url}?nolabel=true&nogap=true&notebook=true"
 
             if density_value is not None:
                 url += f"&density={density_value}"
@@ -585,5 +620,5 @@ def _setup_ipython():
 # Auto-setup when module is imported
 _setup_ipython()
 
-# Export all functions for proper IDE support
-__all__ = ['show', 'show_side_by_side', 'kidlisp', 'kidlisp_display', 'k', '_', 'l', 'λ', 'AestheticComputerMagics']
+# Export all functions and configuration for proper IDE support
+__all__ = ['show', 'show_side_by_side', 'kidlisp', 'kidlisp_display', 'k', '_', 'l', 'λ', 'AestheticComputerMagics', 'USE_PRODUCTION']

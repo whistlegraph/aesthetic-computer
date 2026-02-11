@@ -1076,6 +1076,8 @@ async function fun(event, context) {
           var isDeviceMode=qs.indexOf('device=true')>=0;
           // Notepat.com: piano-themed boot animation
           var isNotepat=location.hostname==='notepat.com'||location.hostname==='www.notepat.com'||location.pathname==='/notepat'||location.pathname.startsWith('/notepat?')||location.pathname.startsWith('/notepat/');
+          // Notebook: Python/Jupyter notebook with scientific aesthetic
+          var isNotebook=qs.indexOf('notebook=true')>=0;
           // Density param for scaling (default 1, FF1 uses 8 for 4K)
           var densityMatch=qs.match(/density=(\d+)/);var densityParam=densityMatch?parseInt(densityMatch[1]):1;
           var isLightMode=window.matchMedia&&window.matchMedia('(prefers-color-scheme:light)').matches;
@@ -1143,6 +1145,11 @@ async function fun(event, context) {
           var NP_KEYS=[];var NP_PARTICLES=[];var NP_LAST_KEY=0;var NP_KEY_INTERVAL=120;
           var NP_NOTE_NAMES=['C','D','E','F','G','A','B'];
           var NP_KEY_COLS=[[255,107,157],[78,205,196],[255,217,61],[149,225,211],[255,154,162],[170,150,218],[112,214,255],[255,183,77]];
+          // 📊 Notebook scientific aesthetic boot animation state
+          var NB_DATA_POINTS=[];var NB_GRID_LINES=[];var NB_WAVEFORMS=[];var NB_LAST_SPAWN=0;
+          var NB_COLS_DARK=[[0,180,255],[0,255,180],[120,220,255],[80,200,120],[100,255,255]];
+          var NB_COLS_LIGHT=[[0,100,180],[0,140,100],[60,120,180],[40,120,80],[40,160,160]];
+          function getNbCols(){return isLightMode?NB_COLS_LIGHT:NB_COLS_DARK;}
           // Theme-aware KidLisp colors - darker/more saturated for light mode
           var KIDLISP_COLS_DARK=[[255,107,107],[78,205,196],[255,230,109],[149,225,211],[243,129,129],[170,150,218],[112,214,255]];
           var KIDLISP_COLS_LIGHT=[[200,60,60],[30,140,130],[180,150,40],[50,150,130],[180,70,70],[100,80,160],[40,130,190]];
@@ -1183,6 +1190,34 @@ async function fun(event, context) {
             var baseShk=0.5+Math.sin(t*2)*0.3,shk=baseShk+chaos*chaos*4+lb*3+touchGlitch*8,sx=(Math.random()-0.5)*shk+touchDx,sy=(Math.random()-0.5)*shk+touchDy;
             // File cycling - swap displayed files periodically as boot progresses
             var now=performance.now();if(files.length>1&&now-lastFileSwap>FILE_SWAP_INTERVAL){lastFileSwap=now;displayFileIdx=(displayFileIdx+1)%files.length;for(var k in scrollYs)scrollYs[k]=0;}
+            // 📊 Notebook scientific aesthetic boot animation
+            if(isNotebook){
+              var nbBg=isLightMode?'#f5f5f5':'#0a0a0f';x.fillStyle=nbBg;x.fillRect(0,0,W,H);
+              // Grid lines (subtle data visualization background)
+              x.globalAlpha=isLightMode?0.08:0.12;x.strokeStyle=isLightMode?'#999':'#333';x.lineWidth=S*0.5;
+              var gridSpacing=Math.floor(20*S);for(var gx=0;gx<W;gx+=gridSpacing){x.beginPath();x.moveTo(gx,0);x.lineTo(gx,H);x.stroke();}
+              for(var gy=0;gy<H;gy+=gridSpacing){x.beginPath();x.moveTo(0,gy);x.lineTo(W,gy);x.stroke();}
+              x.globalAlpha=1;
+              // Spawn new data points
+              if(now-NB_LAST_SPAWN>100+Math.random()*200){NB_LAST_SPAWN=now;var nbCols=getNbCols();var ci=Math.floor(Math.random()*nbCols.length);NB_DATA_POINTS.push({x:W+10*S,y:20*S+Math.random()*(H-40*S),vx:-(0.8+Math.random()*1.2)*S,vy:(Math.random()-0.5)*0.3*S,life:1,ci:ci,sz:(1.5+Math.random()*2)*S,type:Math.random()>0.5?'circle':'square'});}
+              // Update and draw data points
+              for(var dpi=NB_DATA_POINTS.length-1;dpi>=0;dpi--){var dp=NB_DATA_POINTS[dpi];dp.x+=dp.vx;dp.y+=dp.vy;dp.life-=0.008;
+                if(dp.life<=0||dp.x<-10*S){NB_DATA_POINTS.splice(dpi,1);continue;}
+                var nbCols2=getNbCols();var dpc=nbCols2[dp.ci%nbCols2.length];x.globalAlpha=dp.life*0.8;x.fillStyle='rgb('+dpc[0]+','+dpc[1]+','+dpc[2]+')';
+                if(dp.type==='circle'){x.beginPath();x.arc(dp.x,dp.y,dp.sz,0,Math.PI*2);x.fill();}
+                else{x.fillRect(dp.x-dp.sz,dp.y-dp.sz,dp.sz*2,dp.sz*2);}
+                // Trailing line
+                x.globalAlpha=dp.life*0.3;x.strokeStyle='rgb('+dpc[0]+','+dpc[1]+','+dpc[2]+')';x.lineWidth=S*0.5;x.beginPath();x.moveTo(dp.x,dp.y);x.lineTo(dp.x+10*S,dp.y);x.stroke();}
+              x.globalAlpha=1;
+              // Simple waveform at bottom
+              var waveY=H-30*S;var waveH=20*S;x.strokeStyle=isLightMode?'rgba(0,100,180,0.5)':'rgba(0,180,255,0.5)';x.lineWidth=S*1.5;x.beginPath();
+              for(var wx=0;wx<W;wx+=2*S){var wy=waveY+Math.sin((wx+f*2)*0.05)*waveH*0.3;if(wx===0)x.moveTo(wx,wy);else x.lineTo(wx,wy);}x.stroke();
+              // "notebook" text top-left
+              var nbFS=Math.floor(8*S);x.font='bold '+nbFS+'px monospace';var nbTxt='notebook';x.fillStyle=isLightMode?'rgba(0,100,180,0.7)':'rgba(0,180,255,0.7)';x.fillText(nbTxt,8*S,16*S);
+              // Boot log messages (minimal, scientific style)
+              var nbLogFS=4*S;x.font=nbLogFS+'px monospace';var nbLogY=30*S;
+              for(var li=0;li<lines.length&&li<6;li++){var ln=lines[li],ly=nbLogY+li*5*S,la=Math.max(0.4,1-li*0.12);var nbCols3=getNbCols();var lc3=nbCols3[li%nbCols3.length];x.globalAlpha=la;x.fillStyle='rgb('+lc3[0]+','+lc3[1]+','+lc3[2]+')';x.fillText('> '+ln.text,8*S,ly);}
+              x.globalAlpha=1;requestAnimationFrame(anim);return;}
             // 🎹 Notepat.com piano boot animation
             if(isNotepat){
               var npBg=isLightMode?'#f8f6f0':'#0a0a12';x.fillStyle=npBg;x.fillRect(0,0,W,H);
