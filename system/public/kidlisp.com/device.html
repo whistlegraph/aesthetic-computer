@@ -2015,19 +2015,24 @@
       
       // Try to extract codeId from URL for source display
       const codeMatch = itemUrl.match(/\/(\$[a-z0-9]+)/i) || itemUrl.match(/device\.kidlisp\.com\/(\$?[a-z0-9]+)/i);
-      
-      // Clear previous piece info before loading new
-      document.getElementById('piece-handle').textContent = '';
-      document.getElementById('piece-hits').textContent = '';
-      document.getElementById('piece-when').textContent = '';
-      
+
+      // Don't clear previous piece info - let new content replace it smoothly
+      // This prevents blackout/flashing during transitions
+
       if (codeMatch) {
         let extractedCodeId = codeMatch[1];
         if (!extractedCodeId.startsWith('$')) extractedCodeId = '$' + extractedCodeId;
         fetchAndDisplaySource(extractedCodeId);
       } else {
-        // Clear source display for non-kidlisp items
-        document.getElementById('source-code-inner').innerHTML = '';
+        // For non-kidlisp items, fade out source display gracefully
+        const sourceInner = document.getElementById('source-code-inner');
+        if (sourceInner && sourceInner.innerHTML) {
+          sourceInner.style.opacity = '0.3';
+          setTimeout(() => {
+            sourceInner.innerHTML = '';
+            sourceInner.style.opacity = '1';
+          }, 300);
+        }
       }
       
       // Start preloading the NEXT item in the hidden iframe
@@ -2161,31 +2166,25 @@
       const codeEl = document.getElementById('source-code');
       const inner = document.getElementById('source-code-inner');
       if (!inner || !source) return;
-      
+
       // Generate highlighted HTML
       const highlightedHtml = highlightKidlisp(source);
-      
-      // In slideshow mode, skip scramble - show highlighted code immediately
-      if (slideshowMode) {
-        // Stop any running scramble animation
-        if (window.stopScrambleAnimation) window.stopScrambleAnimation();
-        inner.innerHTML = highlightedHtml;
-        document.body.classList.remove('booting');
-        // Reset scrolling classes
-        inner.classList.remove('scrolling');
-        inner.style.removeProperty('--scroll-distance');
-        inner.style.removeProperty('--scroll-duration');
-        // Setup fresh scrolling for this source
-        setupScrolling(codeEl, inner);
-        return;
-      }
-      
+
+      // Stop any running scramble animation before starting new one
+      if (window.stopScrambleAnimation) window.stopScrambleAnimation();
+
+      // Reset scrolling classes before starting new animation
+      inner.classList.remove('scrolling');
+      inner.style.removeProperty('--scroll-distance');
+      inner.style.removeProperty('--scroll-duration');
+
       // Start scramble animation - will decode when piece starts running
       if (window.startScrambleAnimation) {
         window.startScrambleAnimation(source, highlightedHtml);
       } else {
         // Fallback: show highlighted code immediately
         inner.innerHTML = highlightedHtml;
+        document.body.classList.remove('booting');
         setupScrolling(codeEl, inner);
       }
     }
