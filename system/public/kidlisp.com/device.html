@@ -246,6 +246,14 @@
       bottom: 0;
       opacity: 0;
       transition: opacity 0.5s ease;
+      overflow: hidden;
+    }
+
+    /* Remove Monaco borders */
+    #monaco-container .monaco-editor,
+    #monaco-container .monaco-editor .overflow-guard {
+      border: none !important;
+      outline: none !important;
     }
 
     /* Show Monaco after scramble finishes */
@@ -260,13 +268,16 @@
       left: 0;
       right: 0;
       bottom: 0;
+      opacity: 1;
       transition: opacity 0.5s ease;
       pointer-events: none;
+      z-index: 1;
     }
 
     /* Hide scramble overlay after decode */
     #source-overlay:not(.scrambling) #source-code-inner {
       opacity: 0;
+      pointer-events: none;
     }
 
     /* UI elements always visible - they have their own scramble animations */
@@ -955,6 +966,7 @@
             minimap: { enabled: false },
             scrollBeyondLastLine: false,
             fontSize: 14,
+            lineHeight: 21,
             lineNumbers: 'off',
             glyphMargin: false,
             folding: false,
@@ -971,7 +983,8 @@
               useShadows: false
             },
             automaticLayout: true,
-            wordWrap: 'on',
+            wordWrap: 'off',
+            wrappingStrategy: 'advanced',
             readOnly: true,
             cursorStyle: 'line',
             padding: { top: 0, bottom: 0 },
@@ -985,6 +998,8 @@
             links: false,
             contextmenu: false,
             accessibilitySupport: 'off',
+            renderWhitespace: 'none',
+            renderControlCharacters: false,
           });
 
           // Make globally accessible
