@@ -46,6 +46,98 @@
       }
     })();
   </script>
+  <!-- 🎨 Set UI scale BEFORE styles load to prevent flash -->
+  <script>
+    // Calculate smart default density based on screen resolution
+    // 4K (3840x2160+) → density 8 (larger pixels for viewing distance)
+    // Everything else → density 4 (good default for most displays)
+    function getSmartDensity() {
+      const screenWidth = window.screen.width * (window.devicePixelRatio || 1);
+      const screenHeight = window.screen.height * (window.devicePixelRatio || 1);
+      const maxDim = Math.max(screenWidth, screenHeight);
+
+      if (maxDim >= 3840) return 8;  // 4K+
+      return 4;                       // Default for all other resolutions
+    }
+
+    // Calculate smart UI scale based on density and screen characteristics
+    // UI scale should be proportional to density for visual consistency
+    // On native 4K (dpr=1), we need extra scaling since browser doesn't auto-scale
+    function getSmartUIScale(density) {
+      const dpr = window.devicePixelRatio || 1;
+      const screenWidth = window.screen.width;
+      const screenHeight = window.screen.height;
+      const maxDim = Math.max(screenWidth, screenHeight);
+      const hostname = window.location.hostname;
+
+      // Hardcoded optimal UI scales for common TV/display resolutions
+      // Format: [width, height, dpr] → uiScale
+      const resolutionMap = [
+        // 4K displays
+        { w: 3840, h: 2160, dpr: 1, scale: 20 },  // 4K native (e.g., F1 FF1)
+        { w: 1920, h: 1200, dpr: 2, scale: 10 },  // Retina laptop (e.g., MacBook 16")
+        { w: 1920, h: 1080, dpr: 2, scale: 10 },  // Retina laptop 1080p
+        // 1080p displays
+        { w: 1920, h: 1080, dpr: 1, scale: 12 },  // 1080p native
+        { w: 1366, h: 768, dpr: 1, scale: 8 },    // 1366x768 laptop
+        { w: 1440, h: 900, dpr: 1, scale: 10 },   // 1440x900 laptop
+        // Mobile/portrait
+        { w: 800, h: 1280, dpr: 1, scale: 6 },    // Standard portrait phone
+      ];
+
+      // Try to find an exact or close match
+      for (const entry of resolutionMap) {
+        if (screenWidth === entry.w && screenHeight === entry.h && dpr === entry.dpr) {
+          return entry.scale;  // Exact match
+        }
+      }
+
+      // Fallback to proportional calculation
+      const baseScale = density * 1.5;
+
+      // Device subdomains (device.kidlisp.com, top.kidlisp.com) are typically
+      // displayed on 4K TVs/displays viewed from a distance - use larger UI
+      // BUT only if the screen is actually 4K resolution
+      const isDeviceSubdomain = hostname === 'device.kidlisp.com' ||
+                                hostname === 'top.kidlisp.com' ||
+                                window.location.pathname.startsWith('/device.kidlisp.com') ||
+                                window.location.pathname.startsWith('/top.kidlisp.com');
+
+      // Check if this is a 4K-class display (3840x2160 or similar)
+      // FF1 reports CSS pixels 1920x1200 which is 4K scaled by dpr=2
+      // Native 4K would be 3840+ with dpr=1
+      const is4KDisplay = (maxDim >= 3840 && dpr === 1) ||
+                          (maxDim >= 1920 && screenHeight >= 1080 && dpr >= 2);
+
+      if (isDeviceSubdomain && is4KDisplay) {
+        // FF1/device mode on 4K: 2x multiplier for comfortable TV viewing distance
+        // (density=4 → baseScale=6 → scale≈12, close to default 20 which already works for 4K)
+        return Math.round(baseScale * 2);
+      } else if (isDeviceSubdomain) {
+        // Device subdomain but NOT 4K (e.g., laptop or 1080p TV)
+        // density=4,dpr=2 → scale ~6
+        return Math.max(2, Math.round(baseScale));
+      }
+
+      // For native 4K/high-res with dpr=1, apply additional multiplier
+      if (dpr === 1 && maxDim >= 3840) return Math.round(baseScale * 20);  // 4K native
+      if (dpr === 1 && maxDim >= 2560) return Math.round(baseScale * 10);  // 1440p native
+      return Math.round(baseScale);                                         // Retina/scaled displays
+    }
+
+    // Get density from URL params, fallback to smart density
+    const urlParams = new URLSearchParams(window.location.search);
+    window.densityParam = parseInt(urlParams.get('density')) || getSmartDensity();
+
+    // Set CSS custom property for density-based sizing (for piece rendering)
+    document.documentElement.style.setProperty('--density', window.densityParam);
+
+    // Set UI scale - can be explicit via ?ui_scale=X or derived from density
+    // UI scale is proportional to density for visual consistency
+    const uiScale = parseInt(urlParams.get('ui_scale')) || getSmartUIScale(window.densityParam);
+    document.documentElement.style.setProperty('--ui-scale', uiScale);
+    console.log('📺 UI Scale:', uiScale, '(density=' + window.densityParam + ', dpr=' + (window.devicePixelRatio || 1) + ', screen=' + window.screen.width + 'x' + window.screen.height + ')');
+  </script>
   <style>
     * {
       margin: 0;
@@ -826,10 +918,7 @@
       const SCRAMBLE_CHARS_OTHER = '0123456789(),-=+*/<>:;\"\'.!?@#$%^&_~`[]{}|';
       
       let isScrambling = false;
-      let scrambleAnimationFrame = null;
       let scrambleIntervalId = null;
-      const SCRAMBLE_FPS = 12; // Slower base rate (12fps)
-      const SCRAMBLE_INTERVAL = 1000 / SCRAMBLE_FPS;
       let pendingSource = null;
       let pendingHighlightedHtml = null;
       let decodeResolver = null;
@@ -1070,26 +1159,30 @@
           });
         }
         
-        // Use requestAnimationFrame for smoother per-character updates
+        // Use 24fps interval with rhythmic variation for per-character updates
         function animateInitialScramble() {
           if (!initialScrambleActive) return;
+
+          // Rhythmic skip - sometimes skip this beat
+          if (shouldSkipBeat()) {
+            return; // Skip this frame but keep interval running
+          }
+
           // Use eager source if available, otherwise show nothing (waiting)
-          const now = performance.now();
-          if (eagerSource && now - lastScrambleRenderTime >= 33) {
+          if (eagerSource) {
             inner.innerHTML = buildScrambledTextWithRhythm(eagerSource);
             document.body.classList.remove('booting');
-            lastScrambleRenderTime = now;
           }
-          initialScrambleFrame = requestAnimationFrame(animateInitialScramble);
         }
-        animateInitialScramble();
+
+        initialScrambleFrame = setInterval(animateInitialScramble, SCRAMBLE_24FPS);
       })();
       
       // Stop initial scramble when real scramble starts
       function stopInitialScramble() {
         initialScrambleActive = false;
         if (initialScrambleFrame) {
-          cancelAnimationFrame(initialScrambleFrame);
+          clearInterval(initialScrambleFrame);
           initialScrambleFrame = null;
         }
         document.body.classList.remove('booting');
@@ -1100,10 +1193,6 @@
         stopInitialScramble();
         isScrambling = false;
         waitingForDecode = false;
-        if (scrambleAnimationFrame) {
-          cancelAnimationFrame(scrambleAnimationFrame);
-          scrambleAnimationFrame = null;
-        }
         if (scrambleIntervalId) {
           clearInterval(scrambleIntervalId);
           scrambleIntervalId = null;
@@ -1131,23 +1220,22 @@
         // Initialize per-character rhythms for the source
         initCharStates(source, highlightedHtml);
         
-        console.log('📺 Starting scramble animation with per-character rhythm...');
-        
-        // Use requestAnimationFrame for smooth per-character rhythm updates
-        let lastScrambleFrameTime = 0;
+        console.log('📺 Starting scramble animation with per-character rhythm at 24fps...');
+
+        // Use 24fps interval with rhythmic variation for smooth per-character rhythm updates
         function scrambleLoop() {
           if (!isScrambling || !waitingForDecode) return;
-          
-          const now = performance.now();
-          // Show scrambled plain text with per-character rhythm (throttled to ~30fps)
-          if (now - lastScrambleFrameTime >= 33) {
-            inner.innerHTML = buildScrambledTextWithRhythm(pendingSource);
-            lastScrambleFrameTime = now;
+
+          // Rhythmic skip - sometimes skip this beat
+          if (shouldSkipBeat()) {
+            return; // Skip this frame but keep interval running
           }
-          
-          scrambleAnimationFrame = requestAnimationFrame(scrambleLoop);
+
+          // Show scrambled plain text with per-character rhythm
+          inner.innerHTML = buildScrambledTextWithRhythm(pendingSource);
         }
-        scrambleLoop();
+
+        scrambleIntervalId = setInterval(scrambleLoop, SCRAMBLE_24FPS);
 
         // Start color transition after a short delay (start whiter)
         setTimeout(() => {
@@ -1165,18 +1253,15 @@
       // Signal to start decoding (called when piece starts running)
       window.signalDecode = function() {
         if (!waitingForDecode || !pendingSource) return;
-        
+
         console.log('📺 Signal received - starting decode animation');
         waitingForDecode = false;
-        
-        if (scrambleAnimationFrame) {
-          cancelAnimationFrame(scrambleAnimationFrame);
-        }
+
         if (scrambleIntervalId) {
           clearInterval(scrambleIntervalId);
           scrambleIntervalId = null;
         }
-        
+
         // Start reveal animation
         revealCode();
       };
@@ -1319,8 +1404,9 @@
       window.stopScramble = function() {
         isScrambling = false;
         waitingForDecode = false;
-        if (scrambleAnimationFrame) {
-          cancelAnimationFrame(scrambleAnimationFrame);
+        if (scrambleIntervalId) {
+          clearInterval(scrambleIntervalId);
+          scrambleIntervalId = null;
         }
         finalize();
       };
@@ -1330,50 +1416,72 @@
       // Scramble and reveal text in UI elements (QR label, metadata, etc.)
       // ═══════════════════════════════════════════════════════════════════════════
 
-      // Scramble text content of an element with reveal animation
-      window.scrambleTextElement = function(element, targetText, duration = 600) {
+      // 24fps rhythmic scrambling for UI elements
+      const SCRAMBLE_24FPS = 1000 / 24; // ~41.67ms per frame
+
+      // Helper to add rhythmic variation - sometimes skip beats
+      function shouldSkipBeat() {
+        return Math.random() < 0.15; // 15% chance to skip a frame
+      }
+
+      // Continuous scramble text content of an element with rhythmic timing
+      window.scrambleTextElement = function(element, targetText, duration = 600, continuous = false) {
         if (!element || !targetText) return;
 
         const chars = targetText.split('');
         const startTime = performance.now();
-        let animFrame;
+        let intervalId;
+        let lastUpdateTime = startTime;
 
         function animate() {
-          const elapsed = performance.now() - startTime;
-          const progress = Math.min(elapsed / duration, 1);
+          const now = performance.now();
 
-          // Build scrambled text with progressive reveal
+          // Rhythmic skip - sometimes skip this beat
+          if (shouldSkipBeat()) {
+            return; // Skip this frame but keep interval running
+          }
+
+          const elapsed = now - startTime;
+          const progress = continuous ? 0 : Math.min(elapsed / duration, 1);
+
+          // Build scrambled text with progressive reveal (or continuous scramble if continuous=true)
           const result = chars.map((char, idx) => {
-            // Reveal characters progressively based on position and time
-            const revealThreshold = (idx / chars.length) * 0.7 + 0.3; // Stagger: 30-100%
-            if (progress >= revealThreshold) {
-              return char; // Revealed
-            } else {
-              // Still scrambling
+            if (continuous) {
+              // Continuous scrambling - always scramble
               return getScrambledChar(char);
+            } else {
+              // Reveal characters progressively based on position and time
+              const revealThreshold = (idx / chars.length) * 0.7 + 0.3; // Stagger: 30-100%
+              if (progress >= revealThreshold) {
+                return char; // Revealed
+              } else {
+                return getScrambledChar(char);
+              }
             }
           }).join('');
 
           element.textContent = result;
 
-          if (progress < 1) {
-            animFrame = requestAnimationFrame(animate);
-          } else {
+          if (!continuous && progress >= 1) {
             element.textContent = targetText; // Final reveal
+            clearInterval(intervalId);
           }
         }
 
         // Cancel any previous animation on this element
-        if (element._scrambleAnim) {
-          cancelAnimationFrame(element._scrambleAnim);
+        if (element._scrambleInterval) {
+          clearInterval(element._scrambleInterval);
         }
-        element._scrambleAnim = animFrame;
 
-        animate();
+        // Start 24fps interval
+        intervalId = setInterval(animate, SCRAMBLE_24FPS);
+        element._scrambleInterval = intervalId;
+
+        animate(); // Run immediately
       };
 
-      // Scramble QR code SVG by randomizing rect positions with reveal animation
-      window.scrambleQRCode = function(svgElement, duration = 800) {
+      // Scramble QR code SVG by randomizing rect positions with 24fps rhythmic animation
+      window.scrambleQRCode = function(svgElement, duration = 800, continuous = false) {
         if (!svgElement) return;
 
         const rects = Array.from(svgElement.querySelectorAll('rect'));
@@ -1387,19 +1495,24 @@
         }));
 
         const startTime = performance.now();
-        let animFrame;
+        let intervalId;
 
         function animate() {
-          const elapsed = performance.now() - startTime;
-          const progress = Math.min(elapsed / duration, 1);
+          // Rhythmic skip - sometimes skip this beat
+          if (shouldSkipBeat()) {
+            return; // Skip this frame but keep interval running
+          }
 
-          // Ease out cubic for smooth settle
-          const eased = 1 - Math.pow(1 - progress, 3);
+          const elapsed = performance.now() - startTime;
+          const progress = continuous ? 0 : Math.min(elapsed / duration, 1);
+
+          // Ease out cubic for smooth settle (when not continuous)
+          const eased = continuous ? 0 : (1 - Math.pow(1 - progress, 3));
 
           originalPositions.forEach(({ x, y, rect }, idx) => {
-            if (progress < 1) {
-              // Scramble phase: random offsets that decrease over time
-              const scrambleAmount = (1 - eased) * 20; // Max 20px offset
+            if (continuous || progress < 1) {
+              // Scramble phase: random offsets
+              const scrambleAmount = continuous ? 3 : ((1 - eased) * 20); // Subtle continuous or decreasing
               const offsetX = (Math.random() - 0.5) * scrambleAmount;
               const offsetY = (Math.random() - 0.5) * scrambleAmount;
               rect.setAttribute('x', x + offsetX);
@@ -1411,18 +1524,26 @@
             }
           });
 
-          if (progress < 1) {
-            animFrame = requestAnimationFrame(animate);
+          if (!continuous && progress >= 1) {
+            // Restore original positions and stop
+            originalPositions.forEach(({ x, y, rect }) => {
+              rect.setAttribute('x', x);
+              rect.setAttribute('y', y);
+            });
+            clearInterval(intervalId);
           }
         }
 
         // Cancel any previous animation on this SVG
-        if (svgElement._qrScrambleAnim) {
-          cancelAnimationFrame(svgElement._qrScrambleAnim);
+        if (svgElement._qrScrambleInterval) {
+          clearInterval(svgElement._qrScrambleInterval);
         }
-        svgElement._qrScrambleAnim = animFrame;
 
-        animate();
+        // Start 24fps interval
+        intervalId = setInterval(animate, SCRAMBLE_24FPS);
+        svgElement._qrScrambleInterval = intervalId;
+
+        animate(); // Run immediately
       };
 
       // Listen for boot-log messages from iframe
@@ -1445,109 +1566,19 @@
   </script>
   
   <script>
-    // Calculate smart default density based on screen resolution
-    // 4K (3840x2160+) → density 8 (larger pixels for viewing distance)
-    // Everything else → density 4 (good default for most displays)
-    function getSmartDensity() {
-      const screenWidth = window.screen.width * (window.devicePixelRatio || 1);
-      const screenHeight = window.screen.height * (window.devicePixelRatio || 1);
-      const maxDim = Math.max(screenWidth, screenHeight);
-      
-      if (maxDim >= 3840) return 8;  // 4K+
-      return 4;                       // Default for all other resolutions
-    }
-    
-    // Calculate smart UI scale based on density and screen characteristics
-    // UI scale should be proportional to density for visual consistency
-    // On native 4K (dpr=1), we need extra scaling since browser doesn't auto-scale
-    function getSmartUIScale(density) {
-      const dpr = window.devicePixelRatio || 1;
-      const screenWidth = window.screen.width;
-      const screenHeight = window.screen.height;
-      const maxDim = Math.max(screenWidth, screenHeight);
-      const hostname = window.location.hostname;
-      
-      // Hardcoded optimal UI scales for common TV/display resolutions
-      // Format: [width, height, dpr] → uiScale
-      const resolutionMap = [
-        // 4K displays
-        { w: 3840, h: 2160, dpr: 1, scale: 20 },  // 4K native (e.g., F1 FF1)
-        { w: 1920, h: 1200, dpr: 2, scale: 10 },  // Retina laptop (e.g., MacBook 16")
-        { w: 1920, h: 1080, dpr: 2, scale: 10 },  // Retina laptop 1080p
-        // 1080p displays
-        { w: 1920, h: 1080, dpr: 1, scale: 12 },  // 1080p native
-        { w: 1366, h: 768, dpr: 1, scale: 8 },    // 1366x768 laptop
-        { w: 1440, h: 900, dpr: 1, scale: 10 },   // 1440x900 laptop
-        // Mobile/portrait
-        { w: 800, h: 1280, dpr: 1, scale: 6 },    // Standard portrait phone
-      ];
-      
-      // Try to find an exact or close match
-      for (const entry of resolutionMap) {
-        if (screenWidth === entry.w && screenHeight === entry.h && dpr === entry.dpr) {
-          return entry.scale;  // Exact match
-        }
-      }
-      
-      // Fallback to proportional calculation
-      const baseScale = density * 1.5;
-      
-      // Device subdomains (device.kidlisp.com, top.kidlisp.com) are typically
-      // displayed on 4K TVs/displays viewed from a distance - use larger UI
-      // BUT only if the screen is actually 4K resolution
-      const isDeviceSubdomain = hostname === 'device.kidlisp.com' || 
-                                hostname === 'top.kidlisp.com' ||
-                                window.location.pathname.startsWith('/device.kidlisp.com') ||
-                                window.location.pathname.startsWith('/top.kidlisp.com');
-      
-      // Check if this is a 4K-class display (3840x2160 or similar)
-      // FF1 reports CSS pixels 1920x1200 which is 4K scaled by dpr=2
-      // Native 4K would be 3840+ with dpr=1
-      const is4KDisplay = (maxDim >= 3840 && dpr === 1) || 
-                          (maxDim >= 1920 && screenHeight >= 1080 && dpr >= 2);
-      
-      if (isDeviceSubdomain && is4KDisplay) {
-        // FF1/device mode on 4K: 2x multiplier for comfortable TV viewing distance
-        // (density=4 → baseScale=6 → scale≈12, close to default 20 which already works for 4K)
-        return Math.round(baseScale * 2);
-      } else if (isDeviceSubdomain) {
-        // Device subdomain but NOT 4K (e.g., laptop or 1080p TV)
-        // density=4,dpr=2 → scale ~6
-        return Math.max(2, Math.round(baseScale));
-      }
-      
-      // For native 4K/high-res with dpr=1, apply additional multiplier
-      if (dpr === 1 && maxDim >= 3840) return Math.round(baseScale * 20);  // 4K native
-      if (dpr === 1 && maxDim >= 2560) return Math.round(baseScale * 10);  // 1440p native
-      return Math.round(baseScale);                                         // Retina/scaled displays
-    }
-    
-    // Get density from URL params, fallback to smart density
-    const urlParams = new URLSearchParams(window.location.search);
-    let densityParam = parseInt(urlParams.get('density')) || getSmartDensity();
-    
-    // Set CSS custom property for density-based sizing (for piece rendering)
-    document.documentElement.style.setProperty('--density', densityParam);
-    
-    // Set UI scale - can be explicit via ?ui_scale=X or derived from density
-    // UI scale is proportional to density for visual consistency
-    const uiScale = parseInt(urlParams.get('ui_scale')) || getSmartUIScale(densityParam);
-    document.documentElement.style.setProperty('--ui-scale', uiScale);
-    console.log('📺 UI Scale:', uiScale, '(density=' + densityParam + ', dpr=' + (window.devicePixelRatio || 1) + ', screen=' + window.screen.width + 'x' + window.screen.height + ')');
-    
     // Listen for density changes from iframe (Cmd+/- keyboard controls)
     window.addEventListener('message', (e) => {
       // Accept both message formats: 'ac:density-change' (new) and 'ac-density-change' (legacy)
       if ((e.data?.type === 'ac:density-change' || e.data?.type === 'ac-density-change') && typeof e.data.density === 'number') {
-        densityParam = e.data.density;
-        document.documentElement.style.setProperty('--density', densityParam);
+        window.densityParam = e.data.density;
+        document.documentElement.style.setProperty('--density', window.densityParam);
         // Update UI scale proportionally when density changes
-        const newUiScale = getSmartUIScale(densityParam);
+        const newUiScale = getSmartUIScale(window.densityParam);
         document.documentElement.style.setProperty('--ui-scale', newUiScale);
         // Update progress bar height (1.5x density for medium thickness)
         const progressBar = document.getElementById('progress-bar');
-        if (progressBar) progressBar.style.height = `${Math.max(2, Math.round(1.5 * densityParam))}px`;
-        console.log('📺 Density updated from iframe:', densityParam, '→ UI Scale:', newUiScale);
+        if (progressBar) progressBar.style.height = `${Math.max(2, Math.round(1.5 * window.densityParam))}px`;
+        console.log('📺 Density updated from iframe:', window.densityParam, '→ UI Scale:', newUiScale);
       }
     });
     
@@ -1944,8 +1975,8 @@
       // Get the FF1 module elements (playlist info is now inside the FF1 module)
       const playlistTitle = document.getElementById('ff1-playlist-title');
       const playlistPosition = document.getElementById('ff1-playlist-position');
-      
-      if (playlistTitle) playlistTitle.textContent = 'Loading playlist...';
+
+      if (playlistTitle) window.scrambleTextElement?.(playlistTitle, 'Loading playlist...', 600, true);
       
       // Setup FF1 copy button for playlist mode (also shows playlist header)
       setupFF1CopyButtonForPlaylist();
@@ -1969,8 +2000,8 @@
           return;
         }
         
-        // Update playlist title in FF1 module
-        if (playlistTitle) playlistTitle.textContent = slideshowPlaylist.title || 'Untitled Playlist';
+        // Update playlist title in FF1 module with continuous scramble
+        if (playlistTitle) window.scrambleTextElement?.(playlistTitle, slideshowPlaylist.title || 'Untitled Playlist', 600, true);
         
         // Clamp start index to valid range
         if (slideshowIndex >= slideshowPlaylist.items.length) {
@@ -2310,11 +2341,11 @@
         // Create HTML structure for scrambling
         labelEl.innerHTML = `<span class="code-dollar">${dollar}</span><span class="code-name">${code}</span>`;
 
-        // Scramble the label text (animate both dollar and code spans independently)
+        // Scramble the label text continuously (animate both dollar and code spans independently)
         const dollarSpan = labelEl.querySelector('.code-dollar');
         const codeSpan = labelEl.querySelector('.code-name');
-        if (dollarSpan && dollar) window.scrambleTextElement?.(dollarSpan, dollar, 400);
-        if (codeSpan) window.scrambleTextElement?.(codeSpan, code, 600);
+        if (dollarSpan && dollar) window.scrambleTextElement?.(dollarSpan, dollar, 400, true);
+        if (codeSpan) window.scrambleTextElement?.(codeSpan, code, 600, true);
 
         console.log('📺 Label set with scramble:', targetText);
       }
@@ -2349,8 +2380,8 @@
             svgEl.style.width = '100%';
             svgEl.style.height = '100%';
 
-            // 🎲 SCRAMBLE THE QR CODE! Most fun part!
-            window.scrambleQRCode?.(svgEl, 800);
+            // 🎲 SCRAMBLE THE QR CODE! Most fun part! Continuous 24fps rhythmic animation
+            window.scrambleQRCode?.(svgEl, 800, true);
 
             console.log('📺 QR SVG created with scramble animation');
           }
@@ -2379,8 +2410,8 @@
           };
           handleEl.title = `Chat with ${data.handle}`;
 
-          // 🎲 Scramble the handle text
-          window.scrambleTextElement?.(handleEl, handleText, 500);
+          // 🎲 Scramble the handle text continuously
+          window.scrambleTextElement?.(handleEl, handleText, 500, true);
 
           console.log('📺 Handle with scramble:', handleText);
         } else {
@@ -2390,8 +2421,8 @@
           handleEl.onclick = null;
           handleEl.title = '';
 
-          // 🎲 Scramble "anonymous" too!
-          window.scrambleTextElement?.(handleEl, anonText, 500);
+          // 🎲 Scramble "anonymous" too! Continuously
+          window.scrambleTextElement?.(handleEl, anonText, 500, true);
 
           console.log('📺 Handle: anonymous');
         }
@@ -2400,8 +2431,8 @@
       if (hitsEl && typeof data.hits === 'number') {
         const hitsText = data.hits.toLocaleString() + ' hits';
 
-        // 🎲 Scramble the hits counter
-        window.scrambleTextElement?.(hitsEl, hitsText, 550);
+        // 🎲 Scramble the hits counter continuously
+        window.scrambleTextElement?.(hitsEl, hitsText, 550, true);
 
         console.log('📺 Hits with scramble:', hitsText);
       }
@@ -2414,8 +2445,8 @@
           day: 'numeric'
         });
 
-        // 🎲 Scramble the date
-        window.scrambleTextElement?.(whenEl, formatted, 600);
+        // 🎲 Scramble the date continuously
+        window.scrambleTextElement?.(whenEl, formatted, 600, true);
 
         console.log('📺 When with scramble:', formatted);
       }
