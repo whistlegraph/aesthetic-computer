@@ -1606,7 +1606,14 @@
 
         console.log('📺 Starting Monaco scramble animation at 24fps...');
 
-        // Apply syntax highlighting decorations immediately (they'll stay during scrambling)
+        // Set initial scrambled text first
+        const initialScrambled = source.split('').map((char, idx) => {
+          if (char === '\n' || char === ' ' || char === '\t') return char;
+          return getScrambledChar(char);
+        }).join('');
+        window.deviceMonacoEditor.setValue(initialScrambled);
+
+        // NOW apply syntax highlighting decorations (after setValue so they persist)
         applyMonacoSyntaxHighlighting(source, highlightedHtml);
 
         // Build scrambled text for Monaco
@@ -2811,9 +2818,13 @@
       const walker = document.createTreeWalker(temp, NodeFilter.SHOW_TEXT, null);
       let node = walker.nextNode();
 
+      console.log('📺 Walking HTML tree...');
+
       while (node) {
         const text = node.textContent || '';
         const parent = node.parentElement;
+
+        console.log('📺 Text node:', JSON.stringify(text), 'parent:', parent?.tagName, parent?.className);
 
         // Get color from parent element
         let color = null;
@@ -2842,6 +2853,17 @@
             else if (el.classList.contains('hl-fade-sep')) color = 'mediumseagreen';
             else if (el.classList.contains('hl-fade-dir')) color = 'cyan';
             else if (el.classList.contains('hl-fade-colon')) color = 'lime';
+            // Rainbow colors (from CSS animation cycle)
+            else if (el.classList.contains('hl-rainbow-0')) color = 'red';
+            else if (el.classList.contains('hl-rainbow-1')) color = 'magenta';
+            else if (el.classList.contains('hl-rainbow-2')) color = 'blue';
+            else if (el.classList.contains('hl-rainbow-3')) color = 'cyan';
+            else if (el.classList.contains('hl-rainbow-4')) color = 'green';
+            else if (el.classList.contains('hl-rainbow-5')) color = 'yellow';
+            else if (el.classList.contains('hl-rainbow-6')) color = 'orange';
+            // Zebra colors (alternating)
+            else if (el.classList.contains('hl-zebra-0')) color = 'white';
+            else if (el.classList.contains('hl-zebra-1')) color = '#333';
 
             if (color) break;
           }
@@ -2850,6 +2872,7 @@
 
         // Create decoration if we have a color
         if (color && text.length > 0) {
+          console.log('📺 Found color', color, 'for text:', JSON.stringify(text));
           const className = getColorClass(color);
 
           for (let i = 0; i < text.length; i++) {
@@ -2877,7 +2900,39 @@
             }
             charIndex++;
           }
+        } else if (text.trim().length > 0) {
+          // Default color for identifiers/variables (matches kidlisp.mjs default)
+          console.log('📺 No color for text:', JSON.stringify(text), '- using default orange');
+          const className = getColorClass('orange');
+
+          for (let i = 0; i < text.length; i++) {
+            const currentChar = text[i];
+            if (currentChar !== '\n' && currentChar.trim() !== '') {
+              // Find line and column for this character
+              let lineNum = 1;
+              let colNum = 1;
+              let counted = 0;
+              for (let l = 0; l < lines.length; l++) {
+                if (counted + lines[l].length >= charIndex + i) {
+                  lineNum = l + 1;
+                  colNum = (charIndex + i - counted) + 1;
+                  break;
+                }
+                counted += lines[l].length + 1; // +1 for newline
+              }
+
+              decorations.push({
+                range: new window.monaco.Range(lineNum, colNum, lineNum, colNum + 1),
+                options: {
+                  inlineClassName: className
+                }
+              });
+            }
+          }
+          charIndex += text.length;
         } else {
+          // Pure whitespace - skip it
+          console.log('📺 Whitespace text - skipping', text.length, 'chars');
           charIndex += text.length;
         }
 

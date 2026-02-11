@@ -4253,8 +4253,8 @@ function paint($) {
         // Normal rainbow mode - add hover effect
         let bgColor;
         if (isDown) {
-          // Distinct cyan color when pressed (not part of rainbow cycle)
-          bgColor = [0, 255, 255]; // Bright cyan
+          // Frozen black-on-yellow when pressed
+          bgColor = [255, 220, 0]; // Bright yellow
         } else if (isHover) {
           // On hover: brighter, faster color cycling, larger pulse
           const hoverPulse = Math.sin(t * 10) * 0.5 + 0.5; // Faster pulse on hover
@@ -4264,9 +4264,11 @@ function paint($) {
         }
 
         ink(...bgColor).box(btnBox, "fill");
-        
-        // Hover: thicker/brighter outline
-        if (isHover) {
+
+        // Outline: black when down, white otherwise
+        if (isDown) {
+          ink(0, 0, 0).box(btnBox, "outline");
+        } else if (isHover) {
           const outlineHue = (hue + 180) % 360; // Complementary color outline
           const outlineColor = hslToRgb(outlineHue, 100, 80);
           ink(...outlineColor).box(btnBox.x - 1, btnBox.y - 1, btnBox.w + 2, btnBox.h + 2, "outline");
@@ -4282,21 +4284,30 @@ function paint($) {
         const textY = btnBox.y + 4; // padding
 
         chars.forEach((char, i) => {
-          // Each letter gets different hue offset
-          const letterHue = (hue + i * 90) % 360;
           let letterColor;
-          if (isHover) {
-            // Brighter text on hover with faster animation
-            letterColor = hslToRgb(letterHue, 100, 90); // Almost white but tinted
-          } else {
-            letterColor = hslToRgb(letterHue, 100, isDown ? 40 : 75);
-          }
+          let shakeX = 0;
+          let shakeY = 0;
 
-          // Shake offset - each letter shakes independently (more on hover)
-          const shakeAmount = isHover ? 2 : 1;
-          const shakeSpeed = isHover ? 30 : 20;
-          const shakeX = Math.sin(t * shakeSpeed + i * 2) * shakeAmount;
-          const shakeY = Math.cos(t * (shakeSpeed + 5) + i * 3) * shakeAmount;
+          if (isDown) {
+            // Frozen black text when pressed
+            letterColor = [0, 0, 0];
+            // No shake when down
+          } else {
+            // Each letter gets different hue offset
+            const letterHue = (hue + i * 90) % 360;
+            if (isHover) {
+              // Brighter text on hover with faster animation
+              letterColor = hslToRgb(letterHue, 100, 90); // Almost white but tinted
+            } else {
+              letterColor = hslToRgb(letterHue, 100, 75);
+            }
+
+            // Shake offset - each letter shakes independently (more on hover)
+            const shakeAmount = isHover ? 2 : 1;
+            const shakeSpeed = isHover ? 30 : 20;
+            shakeX = Math.sin(t * shakeSpeed + i * 2) * shakeAmount;
+            shakeY = Math.cos(t * (shakeSpeed + 5) + i * 3) * shakeAmount;
+          }
 
           const x = textStartX + i * charWidth + shakeX;
           const y = textY + shakeY;
@@ -4390,8 +4401,8 @@ function paint($) {
       soSoftConfigChangeTime = now;
     }
 
-    // Responsive sizing: use MatrixChunky8 for small screens
-    const useTinyFont = screen.width < 256; // Easier to test at 256px threshold
+    // Responsive sizing: use MatrixChunky8 for small screens or short screens
+    const useTinyFont = screen.width < 256 || screen.height < 200;
     const charWidth = useTinyFont ? 4 : 6; // MatrixChunky8 is 4px, default is 6px
     const charHeight = useTinyFont ? 7 : 12; // MatrixChunky8 is 7px, default is 12px
     // TextButtonSmall uses padX=2, padY=2. TextButton uses gap parameter (we use 2)

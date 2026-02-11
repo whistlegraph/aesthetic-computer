@@ -17331,19 +17331,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // 🎪 Calculate bumper offset for piece content positioning (before dimension check)
         const bumperOffset = content.bumperOverlay?.img?.height || 0;
 
-        // 🔍 DEBUG: Log imageData state
-        console.log('🎨 [RENDER] imageData check:', {
-          hasImageData: !!imageData,
-          hasData: !!imageData?.data,
-          hasBuffer: !!imageData?.data?.buffer,
-          byteLength: imageData?.data?.buffer?.byteLength,
-          imageDims: imageData ? `${imageData.width}x${imageData.height}` : 'null',
-          canvasDims: `${ctx.canvas.width}x${ctx.canvas.height}`,
-          bumperOffset: bumperOffset,
-          heightMatch: imageData?.height === ctx.canvas.height,
-          heightWithBumper: imageData?.height === ctx.canvas.height - bumperOffset
-        });
-
         if (
           imageData &&
           imageData.data &&
@@ -17352,7 +17339,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           imageData.width === ctx.canvas.width &&
           (imageData.height === ctx.canvas.height || imageData.height === ctx.canvas.height - bumperOffset)
         ) {
-          console.log('✅ [RENDER] Dimension check PASSED - rendering pixels');
           // Dimensions match (accounting for bumper offset) - clear mismatch counter and log if we just recovered
           if (underlayFrame && dimensionMismatchCount > 0 && window.acReframeDebug) {
             console.log('✅ REFRAME: Dimension sync restored after', dimensionMismatchCount, 'mismatched frames. Canvas:', ctx.canvas.width, 'x', ctx.canvas.height);
@@ -17421,7 +17407,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               overlayCan.style.display = "none";
             }
             // Force sync rendering during tape playback for immediate UI updates
-            console.log('🎨 [RENDER] putImageData called (underlayFrame sync)', { x: 0, y: bumperOffset });
             ctx.putImageData(imageData, 0, bumperOffset);
           } else if (!forceSynchronousRendering && window.pixelOptimizer && window.pixelOptimizer.asyncRenderingSupported) {
             try {
@@ -17438,9 +17423,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 overlayCan.style.display = "none";
               }
               // Non-blocking async rendering
-              console.log('🎨 [RENDER] Starting async rendering', { x: 0, y: bumperOffset });
               window.pixelOptimizer.renderImageDataAsync(imageData, ctx, 0, bumperOffset).then(() => {
-                console.log('✅ [RENDER] Async rendering completed');
                 // Paint overlays after async fallback rendering completes
                 if (paintOverlays["bumperOverlay"]) paintOverlays["bumperOverlay"](); // Paint bumper first (at the top)
                 if (paintOverlays["label"]) paintOverlays["label"]();
@@ -17486,12 +17469,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             if (overlayCan.style.display !== "none") {
               overlayCan.style.display = "none";
             }
-            console.log('🎨 [RENDER] putImageData called (sync fallback)', { x: 0, y: bumperOffset });
             ctx.putImageData(imageData, 0, bumperOffset);
             skipImmediateOverlays = false;
           }
         } else {
-          console.log('❌ [RENDER] Dimension check FAILED - entering recovery path');
           // Dimension mismatch - handle differently for tape playback vs normal
           if (underlayFrame) {
             // During tape playback, keep the canvas at correct size and wait for matching data
