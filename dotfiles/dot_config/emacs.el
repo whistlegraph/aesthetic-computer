@@ -610,19 +610,14 @@ Also updates VS Code task status bar to 'done'."
 
 ;; Auto-scroll eat terminals to bottom on new output
 (defun ac-eat-auto-scroll ()
-  "Scroll eat buffer to bottom when new output arrives (if not actively viewing history)."
+  "Scroll eat buffer to bottom when new output arrives - ALWAYS auto-scroll."
   (when (derived-mode-p 'eat-mode)
-    ;; Only auto-scroll if we're near the bottom already (within ~5 lines)
-    ;; This allows users to scroll up and read without being yanked back
+    ;; Always auto-scroll to bottom on any output
     (let ((window (get-buffer-window (current-buffer))))
       (when window
         (with-selected-window window
-          (let* ((point-max (point-max))
-                 (window-end-pos (window-end nil t))
-                 (near-bottom (>= window-end-pos (- point-max 200))))
-            (when near-bottom
-              (goto-char point-max)
-              (recenter -1))))))))
+          (goto-char (point-max))
+          (recenter -1))))))
 
 ;; Add auto-scroll to eat-update-hook
 (with-eval-after-load 'eat
@@ -1245,15 +1240,19 @@ Optional TARGET-TAB specifies which tab to land on (default: artery)."
 
 ;; DISABLED: These hooks were causing CPU spikes with 16+ terminals
 ;; Each terminal output triggers filter functions, overwhelming emacs
-;; (add-hook 'eat-mode-hook
-;;           (lambda ()
-;;             (setq-local comint-scroll-to-bottom-on-output t
-;;                         comint-show-maximum-output t
-;;                         comint-move-point-for-output t
-;;                         window-point-insertion-type t)
-;;             (add-hook 'comint-output-filter-functions
-;;                       #'comint-postoutput-scroll-to-bottom
-;;                       nil t)))
+;; Enable aggressive auto-scrolling for all shell/comint buffers
+(setq comint-scroll-to-bottom-on-input t
+      comint-scroll-to-bottom-on-output t
+      comint-move-point-for-output t
+      comint-scroll-show-maximum-output t)
+
+(add-hook 'comint-mode-hook
+          (lambda ()
+            (setq-local scroll-conservatively 101)))
+
+(add-hook 'shell-mode-hook
+          (lambda ()
+            (setq-local scroll-conservatively 101)))
 
 ;; Main backend function
 (defvar ac--directory-path "~/aesthetic-computer")
