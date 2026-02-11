@@ -6516,6 +6516,10 @@ export const handler = async (event, context) => {
                 let handleHitBoxes = []; // [{handle, x, y, w, h}]
                 // Hit boxes for interactive tokens on card front (handles, page links, question links)
                 let frontHitBoxes = []; // [{type, value, x, y, w, h}]
+                // Hit boxes for buttons on question card back
+                let backButtonHitBoxes = []; // [{action, x, y, w, h}]
+                // Copied feedback timer for question card back
+                let copiedFeedbackUntil = 0;
                 
                 // Card flip animation state (full 3D card flip)
                 let isFlipping = false;
@@ -6757,19 +6761,20 @@ export const handler = async (event, context) => {
                   ctx.lineWidth = 1;
                   ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
                   
-                  // Ear (corner fold) - 8% width - only for diary pages, not Q&A
+                  // Ear (corner fold) - 8% width - for all pages
                   const earSize = w * 0.08;
-                  if (!isQuestion) {
-                    
-                    // Draw ear (themed)
-                    ctx.fillStyle = hoverEar && offsetY === 0 ? themeColors.cardEarHover : themeColors.cardEar;
+                  {
+                    // Draw ear (themed - use question ear color for question cards)
+                    const earColor = isQuestion ? themeColors.questionCardEar : themeColors.cardEar;
+                    const earBorder = isQuestion ? themeColors.questionCardBorder : themeColors.cardBorder;
+                    ctx.fillStyle = hoverEar && offsetY === 0 ? themeColors.cardEarHover : earColor;
                     ctx.beginPath();
                     ctx.moveTo(x + w - earSize, y + h);
                     ctx.lineTo(x + w, y + h - earSize);
                     ctx.lineTo(x + w, y + h);
                     ctx.closePath();
                     ctx.fill();
-                    ctx.strokeStyle = themeColors.cardBorder;
+                    ctx.strokeStyle = earBorder;
                     ctx.stroke();
                   }
                   
@@ -6937,10 +6942,10 @@ export const handler = async (event, context) => {
                     ctx.textAlign = "center";
                     const pageNumY = y + h - em * 2;
                     const displayNum = pageData.questionNumber || idx;
-                    // Show syntax form on hover, fleurons otherwise (like old Wingdings-2 h/g)
+                    // Show syntax form on hover, asterisk-style fleurons for questions
                     const pageNumText = (hoverPageNum && offsetY === 0)
                       ? "*" + displayNum + "*"
-                      : "☙ " + displayNum + " ❧";
+                      : "✱ " + displayNum + " ✱";
                     ctx.fillText(pageNumText, x + w/2, pageNumY);
                   } else {
                     // PAGE RENDERING (diary pages)
@@ -6990,122 +6995,315 @@ export const handler = async (event, context) => {
                   ctx.restore(); // Remove card clip region
                 }
                 
-                // Render the back of a card (touch info only, positioned top-left at body text position)
+                // Render the back of a card (touch info for diary, share buttons for questions)
                 function renderCardBack(pageData, idx) {
                   const x = cardX;
                   const y = cardY;
                   const w = cardWidth;
                   const h = cardHeight;
-                  
+
                   // Font metrics (same as front - with minimum for mobile readability)
                   const fontSize = Math.max((w / 600) * 17, 11);
                   const em = fontSize;
                   const lineHeight = fontSize * 1.76;
                   const padding = em * 2;
-                  
+
+                  const isQuestion = pageData?.type === "question";
+
                   // Card back background (themed)
                   ctx.fillStyle = themeColors.cardBackBackground;
                   ctx.fillRect(x, y, w, h);
-                  
+
                   // Border (themed)
-                  ctx.strokeStyle = themeColors.cardBorder;
+                  const borderColor = isQuestion ? themeColors.questionCardBorder : themeColors.cardBorder;
+                  ctx.strokeStyle = borderColor;
                   ctx.lineWidth = 1;
                   ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
-                  
+
                   // Ear on back (bottom-left, mirrored, themed)
                   const earSize = w * 0.08;
-                  ctx.fillStyle = hoverEar ? themeColors.cardEarHover : themeColors.cardEar;
+                  const earColor = isQuestion ? themeColors.questionCardEar : themeColors.cardEar;
+                  ctx.fillStyle = hoverEar ? themeColors.cardEarHover : earColor;
                   ctx.beginPath();
                   ctx.moveTo(x + earSize, y + h);
                   ctx.lineTo(x, y + h - earSize);
                   ctx.lineTo(x, y + h);
                   ctx.closePath();
                   ctx.fill();
-                  ctx.strokeStyle = themeColors.cardBorder;
+                  ctx.strokeStyle = borderColor;
                   ctx.stroke();
-                  
+
                   if (!pageData) return;
-                  
+
                   // Body text position (same as front - margin-top: 15%)
                   const textStartY = y + h * 0.15 + fontSize;
                   const textWidth = w - padding * 2;
-                  
-                  // Touches section - top left, at body text position
-                  const pageId = pageData._id;
-                  const touchData = touchCache.get(pageId);
-                  
-                  ctx.font = fontSize + "px Helvetica, sans-serif";
-                  ctx.textAlign = "left";
-                  
-                  let textY = textStartY;
-                  
-                  if (touchData?.fetching) {
-                    ctx.fillStyle = themeColors.cardTextDim;
-                    ctx.fillText("Loading...", x + padding, textY);
-                  } else if (touchData?.touches && touchData.touches.length > 0) {
-                    const touches = touchData.touches;
-                    let touchedBy = "";
-                    if (touches.length === 1) {
-                      touchedBy = touches[0] + " touched this page.";
-                    } else if (touches.length === 2) {
-                      touchedBy = touches[0] + " and " + touches[1] + " touched this page.";
-                    } else {
-                      const lastTouch = touches[touches.length - 1];
-                      const others = touches.slice(0, -1);
-                      touchedBy = others.join(", ") + ", and " + lastTouch + " touched this page.";
-                    }
-                    
-                    // Word wrap touch text, tracking @handle positions for hit testing
-                    handleHitBoxes = [];
-                    const allWords = touchedBy.split(" ");
-                    let line = "";
-                    let lineWords = [];
-                    
-                    function flushLine(lineStr, lineY, wordsInLine) {
-                      // Measure each word to find @handle positions
-                      let cursorX = x + padding;
-                      for (const lw of wordsInLine) {
-                        const wordWidth = ctx.measureText(lw).width;
-                        const spaceWidth = ctx.measureText(" ").width;
-                        if (lw.startsWith("@")) {
-                          // Draw handle in pink
-                          ctx.fillStyle = "rgb(200, 80, 120)";
-                          ctx.fillText(lw, cursorX, lineY);
-                          ctx.fillStyle = themeColors.cardTextMuted;
-                          handleHitBoxes.push({
-                            handle: lw,
-                            x: cursorX,
-                            y: lineY - fontSize,
-                            w: wordWidth,
-                            h: fontSize * 1.4
-                          });
-                        } else {
-                          ctx.fillText(lw, cursorX, lineY);
-                        }
-                        cursorX += wordWidth + spaceWidth;
-                      }
-                    }
-                    
-                    ctx.fillStyle = themeColors.cardTextMuted;
-                    for (const word of allWords) {
-                      const testLine = line ? line + " " + word : word;
-                      if (ctx.measureText(testLine).width > textWidth && line) {
-                        flushLine(line, textY, lineWords);
-                        textY += lineHeight;
-                        line = word;
-                        lineWords = [word];
-                      } else {
-                        line = testLine;
-                        lineWords.push(word);
-                      }
-                    }
-                    if (line) flushLine(line, textY, lineWords);
+
+                  if (isQuestion) {
+                    // QUESTION CARD BACK: Copy Text + Save Image buttons
+                    backButtonHitBoxes = [];
+
+                    const btnWidth = Math.min(w * 0.6, 240);
+                    const btnHeight = em * 3;
+                    const btnX = x + (w - btnWidth) / 2;
+                    const btnGap = em * 2;
+                    const centerY = y + h * 0.4;
+
+                    // "Copy Text" button
+                    const copyY = centerY - btnHeight - btnGap / 2;
+                    const now = performance.now();
+                    const isCopied = now < copiedFeedbackUntil;
+
+                    ctx.fillStyle = isCopied ? "rgb(0, 155, 145)" : themeColors.cardBackBackground;
+                    ctx.fillRect(btnX, copyY, btnWidth, btnHeight);
+                    ctx.strokeStyle = isCopied ? "rgb(0, 155, 145)" : themeColors.cardTextMuted;
+                    ctx.lineWidth = 1.5;
+                    ctx.strokeRect(btnX, copyY, btnWidth, btnHeight);
+
+                    ctx.fillStyle = isCopied ? "#ffffff" : themeColors.cardText;
+                    ctx.font = fontSize * 1.1 + "px Helvetica, sans-serif";
+                    ctx.textAlign = "center";
+                    ctx.fillText(isCopied ? "Copied!" : "Copy Text", btnX + btnWidth / 2, copyY + btnHeight / 2 + fontSize * 0.35);
+
+                    backButtonHitBoxes.push({ action: "copy", x: btnX, y: copyY, w: btnWidth, h: btnHeight });
+
+                    // "Save Image" button
+                    const saveY = centerY + btnGap / 2;
+
+                    ctx.fillStyle = themeColors.cardBackBackground;
+                    ctx.fillRect(btnX, saveY, btnWidth, btnHeight);
+                    ctx.strokeStyle = themeColors.cardTextMuted;
+                    ctx.lineWidth = 1.5;
+                    ctx.strokeRect(btnX, saveY, btnWidth, btnHeight);
+
+                    ctx.fillStyle = themeColors.cardText;
+                    ctx.font = fontSize * 1.1 + "px Helvetica, sans-serif";
+                    ctx.textAlign = "center";
+                    ctx.fillText("Save Image", btnX + btnWidth / 2, saveY + btnHeight / 2 + fontSize * 0.35);
+
+                    backButtonHitBoxes.push({ action: "save", x: btnX, y: saveY, w: btnWidth, h: btnHeight });
+
+                    ctx.textAlign = "left";
                   } else {
-                    ctx.fillStyle = themeColors.cardTextFaint;
-                    ctx.fillText("No one has touched this page yet.", x + padding, textY);
+                    // DIARY CARD BACK: Touch info
+                    const pageId = pageData._id;
+                    const touchData = touchCache.get(pageId);
+
+                    ctx.font = fontSize + "px Helvetica, sans-serif";
+                    ctx.textAlign = "left";
+
+                    let textY = textStartY;
+
+                    if (touchData?.fetching) {
+                      ctx.fillStyle = themeColors.cardTextDim;
+                      ctx.fillText("Loading...", x + padding, textY);
+                    } else if (touchData?.touches && touchData.touches.length > 0) {
+                      const touches = touchData.touches;
+                      let touchedBy = "";
+                      if (touches.length === 1) {
+                        touchedBy = touches[0] + " touched this page.";
+                      } else if (touches.length === 2) {
+                        touchedBy = touches[0] + " and " + touches[1] + " touched this page.";
+                      } else {
+                        const lastTouch = touches[touches.length - 1];
+                        const others = touches.slice(0, -1);
+                        touchedBy = others.join(", ") + ", and " + lastTouch + " touched this page.";
+                      }
+
+                      // Word wrap touch text, tracking @handle positions for hit testing
+                      handleHitBoxes = [];
+                      const allWords = touchedBy.split(" ");
+                      let line = "";
+                      let lineWords = [];
+
+                      function flushLine(lineStr, lineY, wordsInLine) {
+                        // Measure each word to find @handle positions
+                        let cursorX = x + padding;
+                        for (const lw of wordsInLine) {
+                          const wordWidth = ctx.measureText(lw).width;
+                          const spaceWidth = ctx.measureText(" ").width;
+                          if (lw.startsWith("@")) {
+                            // Draw handle in pink
+                            ctx.fillStyle = "rgb(200, 80, 120)";
+                            ctx.fillText(lw, cursorX, lineY);
+                            ctx.fillStyle = themeColors.cardTextMuted;
+                            handleHitBoxes.push({
+                              handle: lw,
+                              x: cursorX,
+                              y: lineY - fontSize,
+                              w: wordWidth,
+                              h: fontSize * 1.4
+                            });
+                          } else {
+                            ctx.fillText(lw, cursorX, lineY);
+                          }
+                          cursorX += wordWidth + spaceWidth;
+                        }
+                      }
+
+                      ctx.fillStyle = themeColors.cardTextMuted;
+                      for (const word of allWords) {
+                        const testLine = line ? line + " " + word : word;
+                        if (ctx.measureText(testLine).width > textWidth && line) {
+                          flushLine(line, textY, lineWords);
+                          textY += lineHeight;
+                          line = word;
+                          lineWords = [word];
+                        } else {
+                          line = testLine;
+                          lineWords.push(word);
+                        }
+                      }
+                      if (line) flushLine(line, textY, lineWords);
+                    } else {
+                      ctx.fillStyle = themeColors.cardTextFaint;
+                      ctx.fillText("No one has touched this page yet.", x + padding, textY);
+                    }
                   }
                 }
                 
+                // Export a question card as a PNG image for download/share
+                function exportQuestionImage(pageData, idx) {
+                  const exportW = 800;
+                  const exportH = 1000;
+                  const offscreen = document.createElement("canvas");
+                  offscreen.width = exportW;
+                  offscreen.height = exportH;
+                  const oc = offscreen.getContext("2d");
+
+                  // Font metrics at export resolution
+                  const fontSize = (exportW / 600) * 17;
+                  const em = fontSize;
+                  const lineHeight = fontSize * 1.76;
+                  const padding = em * 2;
+                  const textWidth = exportW - padding * 2;
+                  const maxLines = ${MAX_LINES};
+
+                  // Card background
+                  oc.fillStyle = themeColors.questionCardBackground;
+                  oc.fillRect(0, 0, exportW, exportH);
+
+                  // Border
+                  oc.strokeStyle = themeColors.questionCardBorder;
+                  oc.lineWidth = 1;
+                  oc.strokeRect(0.5, 0.5, exportW - 1, exportH - 1);
+
+                  // Ear
+                  const earSize = exportW * 0.08;
+                  oc.fillStyle = themeColors.questionCardEar;
+                  oc.beginPath();
+                  oc.moveTo(exportW - earSize, exportH);
+                  oc.lineTo(exportW, exportH - earSize);
+                  oc.lineTo(exportW, exportH);
+                  oc.closePath();
+                  oc.fill();
+                  oc.strokeStyle = themeColors.questionCardBorder;
+                  oc.stroke();
+
+                  // Date title
+                  const qDate = pageData.answeredAt || pageData.sortDate;
+                  if (qDate) {
+                    const qTitle = dateTitle(qDate);
+                    const qTitleY = exportH * 0.065 + fontSize;
+                    oc.fillStyle = themeColors.cardText;
+                    oc.font = fontSize + "px Helvetica, sans-serif";
+                    oc.textAlign = "center";
+                    oc.fillText(qTitle, exportW / 2, qTitleY);
+                    oc.textAlign = "left";
+                  }
+
+                  // Question text (header)
+                  const headerY = exportH * 0.15 + fontSize;
+                  const headerFont = fontSize + "px Helvetica, sans-serif";
+                  oc.font = headerFont;
+                  oc.textAlign = "left";
+
+                  // wrapText uses ctx — temporarily swap or re-measure
+                  function localWrap(text, maxW, font) {
+                    oc.font = font;
+                    const words = text.split(" ");
+                    const lines = [];
+                    let currentLine = "";
+                    for (const word of words) {
+                      if (word.includes("\\n")) {
+                        const parts = word.split("\\n");
+                        for (let p = 0; p < parts.length; p++) {
+                          if (p > 0) { lines.push(currentLine); currentLine = ""; }
+                          const testLine = currentLine ? currentLine + " " + parts[p] : parts[p];
+                          if (oc.measureText(testLine).width > maxW && currentLine) {
+                            lines.push(currentLine);
+                            currentLine = parts[p];
+                          } else {
+                            currentLine = testLine;
+                          }
+                        }
+                      } else {
+                        const testLine = currentLine ? currentLine + " " + word : word;
+                        if (oc.measureText(testLine).width > maxW && currentLine) {
+                          lines.push(currentLine);
+                          currentLine = word;
+                        } else {
+                          currentLine = testLine;
+                        }
+                      }
+                    }
+                    if (currentLine) lines.push(currentLine);
+                    return lines;
+                  }
+
+                  const questionLines = localWrap(pageData.question || "", textWidth, headerFont);
+                  const maxHeaderLines = 3;
+
+                  oc.fillStyle = themeColors.cardText;
+                  for (let i = 0; i < Math.min(questionLines.length, maxHeaderLines); i++) {
+                    oc.fillText(questionLines[i], padding, headerY + i * (fontSize * 1.5));
+                  }
+
+                  // Answer text
+                  const bodyFont = fontSize + "px Helvetica, sans-serif";
+                  oc.font = bodyFont;
+                  const usedHeaderLines = Math.min(questionLines.length, maxHeaderLines);
+                  const answerStartY = headerY + usedHeaderLines * (fontSize * 1.5) + fontSize;
+                  const answerLines = localWrap(pageData.answer || "", textWidth, bodyFont);
+                  const answerColor = themeColors.questionAnswerText || "rgb(0, 155, 145)";
+
+                  oc.fillStyle = answerColor;
+                  for (let i = 0; i < Math.min(answerLines.length, maxLines - 2); i++) {
+                    if (answerLines[i] === "") continue;
+                    oc.fillText(answerLines[i], padding, answerStartY + i * lineHeight);
+                  }
+
+                  // Page number with asterisk fleurons
+                  oc.fillStyle = themeColors.cardText;
+                  oc.font = fontSize + "px monospace";
+                  oc.textAlign = "center";
+                  const pageNumY = exportH - em * 2;
+                  const displayNum = pageData.questionNumber || idx;
+                  oc.fillText("✱ " + displayNum + " ✱", exportW / 2, pageNumY);
+
+                  // Export as PNG
+                  offscreen.toBlob((blob) => {
+                    if (!blob) return;
+                    const filename = "sotce-q" + displayNum + ".png";
+
+                    if ((iOS || Android) && navigator.share) {
+                      const file = new File([blob], filename, { type: "image/png" });
+                      navigator.share({ files: [file] }).catch(() => {});
+                    } else {
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = filename;
+                      document.body.appendChild(a);
+                      a.click();
+                      setTimeout(() => {
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                      }, 1000);
+                    }
+                  }, "image/png");
+                }
+
                 // Main render function
                 let lastLoggedIdx = -1;
                 function render() {
@@ -7711,39 +7909,62 @@ export const handler = async (event, context) => {
                     ? (localX < earSize && localY > cardHeight - earSize)
                     : (localX > cardWidth - earSize && localY > cardHeight - earSize);
                   
-                  // Skip ear interactions for question cards (no doggy ear)
                   const clickedItem = pageCache.get(displayedPageIndex);
                   const clickedIsQuestion = clickedItem?.type === "question";
-                  
-                  if (earHit && !clickedIsQuestion) {
+
+                  // Check back-side button hit boxes for question cards
+                  if (showingBack && clickedIsQuestion && backButtonHitBoxes.length > 0) {
+                    for (const btn of backButtonHitBoxes) {
+                      if (x >= btn.x && x <= btn.x + btn.w && y >= btn.y && y <= btn.y + btn.h) {
+                        if (btn.action === "copy") {
+                          // Copy question + answer as text
+                          const q = clickedItem.question || "";
+                          const a = clickedItem.answer || "";
+                          const text = "Q: " + q + "\\n\\nA: " + a;
+                          navigator.clipboard.writeText(text).then(() => {
+                            copiedFeedbackUntil = performance.now() + 1200;
+                            console.log("📋 Copied question text to clipboard");
+                          }).catch(err => console.error("Copy failed:", err));
+                        } else if (btn.action === "save") {
+                          // Render card front to offscreen canvas and save/share
+                          exportQuestionImage(clickedItem, displayedPageIndex);
+                        }
+                        return;
+                      }
+                    }
+                  }
+
+                  if (earHit) {
                     console.log("🎨 Ear clicked on page", displayedPageIndex, showingBack ? "(back)" : "(front)");
-                    
-                    // If showing front, flip to back and touch the page
+
+                    // If showing front, flip to back
                     if (!showingBack && !isFlipping) {
                       isFlipping = true;
                       flipProgress = 0;
                       flipDirection = 1;
-                      
-                      // Touch the page (send to database)
-                      const pageData = pageCache.get(displayedPageIndex);
-                      if (pageData?._id) {
-                        const pageId = pageData._id;
-                        // Mark as fetching
-                        touchCache.set(pageId, { touches: [], fetching: true });
-                        
-                        // Make API call to touch the page
-                        userRequest("POST", "/sotce-net/touch-a-page", { _id: pageId })
-                          .then(res => {
-                            if (res.status === 200) {
-                              touchCache.set(pageId, { touches: res.touches || [], fetching: false });
-                            } else {
+
+                      // Touch the page (diary pages only - send to database)
+                      if (!clickedIsQuestion) {
+                        const pageData = pageCache.get(displayedPageIndex);
+                        if (pageData?._id) {
+                          const pageId = pageData._id;
+                          // Mark as fetching
+                          touchCache.set(pageId, { touches: [], fetching: true });
+
+                          // Make API call to touch the page
+                          userRequest("POST", "/sotce-net/touch-a-page", { _id: pageId })
+                            .then(res => {
+                              if (res.status === 200) {
+                                touchCache.set(pageId, { touches: res.touches || [], fetching: false });
+                              } else {
+                                touchCache.set(pageId, { touches: [], fetching: false });
+                              }
+                            })
+                            .catch(err => {
+                              console.error("Touch error:", err);
                               touchCache.set(pageId, { touches: [], fetching: false });
-                            }
-                          })
-                          .catch(err => {
-                            console.error("Touch error:", err);
-                            touchCache.set(pageId, { touches: [], fetching: false });
-                          });
+                            });
+                        }
                       }
                     }
                     // If showing back, flip back to front
@@ -7852,15 +8073,25 @@ export const handler = async (event, context) => {
                     ? (localX < earSize && localY > cardHeight - earSize)
                     : (localX > cardWidth - earSize && localY > cardHeight - earSize);
                   
-                  // Skip ear hover for question cards (no doggy ear)
                   const hoveredItem = pageCache.get(displayedPageIndex);
-                  const hoveredIsQuestion = hoveredItem?.type === "question";
-                  
-                  if (earHit && !hoveredIsQuestion) {
+
+                  if (earHit) {
                     canvas.style.cursor = "pointer";
                     hoverEar = true;
                     hoverPageNum = false;
                     return;
+                  }
+
+                  // Check back-side button hover for question cards
+                  if (showingBack && hoveredItem?.type === "question" && backButtonHitBoxes.length > 0) {
+                    for (const btn of backButtonHitBoxes) {
+                      if (x >= btn.x && x <= btn.x + btn.w && y >= btn.y && y <= btn.y + btn.h) {
+                        canvas.style.cursor = "pointer";
+                        hoverEar = false;
+                        hoverPageNum = false;
+                        return;
+                      }
+                    }
                   }
                   
                   // Check page number region (only on front) - only the number text, not full width
@@ -7872,7 +8103,7 @@ export const handler = async (event, context) => {
                     ctx.font = baseFontSize + "px monospace";
                     let pnText;
                     if (hovItem?.type === "question") {
-                      pnText = "☙ " + (hovItem.questionNumber || displayedPageIndex) + " ❧";
+                      pnText = "✱ " + (hovItem.questionNumber || displayedPageIndex) + " ✱";
                     } else {
                       pnText = "☙ " + (hovItem?.pageNumber || displayedPageIndex) + " ❧";
                     }
