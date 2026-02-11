@@ -2762,6 +2762,9 @@
       }
     }
     
+    // Store decoration IDs so they persist
+    let currentMonacoDecorations = [];
+
     // Apply KidLisp syntax highlighting to Monaco using decorations
     function applyMonacoSyntaxHighlighting(source, highlightedHtml) {
       if (!window.deviceMonacoEditor || !window.monaco) return;
@@ -2871,8 +2874,8 @@
         node = walker.nextNode();
       }
 
-      // Apply all decorations at once
-      window.deviceMonacoEditor.deltaDecorations([], decorations);
+      // Apply all decorations at once and store the IDs
+      currentMonacoDecorations = window.deviceMonacoEditor.deltaDecorations(currentMonacoDecorations, decorations);
       console.log('📺 Applied', decorations.length, 'Monaco syntax decorations with', colorStyles.size, 'colors');
     }
 
