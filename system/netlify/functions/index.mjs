@@ -1075,7 +1075,7 @@ async function fun(event, context) {
           // Device mode: FF1/display device with black background and white/gray bars
           var isDeviceMode=qs.indexOf('device=true')>=0;
           // Notepat.com: piano-themed boot animation
-          var isNotepat=location.hostname==='notepat.com'||location.hostname==='www.notepat.com';
+          var isNotepat=location.hostname==='notepat.com'||location.hostname==='www.notepat.com'||location.pathname==='/notepat'||location.pathname.startsWith('/notepat?')||location.pathname.startsWith('/notepat/');
           // Density param for scaling (default 1, FF1 uses 8 for 4K)
           var densityMatch=qs.match(/density=(\d+)/);var densityParam=densityMatch?parseInt(densityMatch[1]):1;
           var isLightMode=window.matchMedia&&window.matchMedia('(prefers-color-scheme:light)').matches;
