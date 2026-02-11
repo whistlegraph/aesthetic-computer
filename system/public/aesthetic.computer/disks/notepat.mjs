@@ -2568,6 +2568,12 @@ function paint({
   }
   perfStats.lastFrameTimestamp = paintStart;
 
+  // 🎪 Get bumper offset and shift all content down
+  const bumperOffset = screen.bumperOffset || 0;
+  if (bumperOffset > 0) {
+    pan(0, bumperOffset);
+  }
+
   const active = orderedByCount(sounds);
   const scopeSamples = Math.max(1, Math.floor(scope || 1));
   const rawWaveformsLeft = sound.speaker?.waveforms?.left;
