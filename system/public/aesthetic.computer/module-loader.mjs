@@ -2,7 +2,7 @@
 // Provides faster module loading by bypassing HTTP proxy chain
 
 const DB_NAME = "ac-module-cache";
-const DB_VERSION = 2; // Increment to force schema update
+const DB_VERSION = 3; // Bumped to force cache clear after bumper system fixes
 const STORE_NAME = "modules";
 
 // Get WebSocket URL from session endpoint (same approach as disk.mjs/socket.mjs)
@@ -92,7 +92,13 @@ class ModuleLoader {
         this.openDatabase(),
         this.connectWebSocket(timeoutMs).catch(() => false) // WS failure is OK
       ]);
-      
+
+      // ?nocache URL parameter forces a full cache clear for development
+      if (new URLSearchParams(location.search).has("nocache")) {
+        await this.clearCache();
+        console.log("📦 Cache cleared via ?nocache parameter");
+      }
+
       if (this.connected) {
         console.log("📦 ModuleLoader ready (WebSocket)");
       } else {
@@ -119,9 +125,11 @@ class ModuleLoader {
       
       request.onupgradeneeded = (event) => {
         const db = event.target.result;
-        if (!db.objectStoreNames.contains(STORE_NAME)) {
-          db.createObjectStore(STORE_NAME, { keyPath: "path" });
+        // Clear old store on version upgrade to force fresh module loads
+        if (db.objectStoreNames.contains(STORE_NAME)) {
+          db.deleteObjectStore(STORE_NAME);
         }
+        db.createObjectStore(STORE_NAME, { keyPath: "path" });
       };
       
       request.onsuccess = () => {
