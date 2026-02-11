@@ -662,10 +662,10 @@ async function fun(event, context) {
           content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
         />
         <meta name="description" content="${encode(desc)}" />
-        <meta name="og:title" content="${encode(title)}" />
-        <meta name="og:description" content="${encode(desc)}" />
+        <meta property="og:title" content="${encode(title)}" />
+        <meta property="og:description" content="${encode(desc)}" />
         ${!previewOrIcon
-          ? html`<meta name="og:image" content="${ogImage}" />`
+          ? html`<meta property="og:image" content="${ogImage}" />`
           : ""}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="${encode(title)}" />
@@ -910,9 +910,9 @@ async function fun(event, context) {
                   var desc = normalizedPayload.desc || normalizedPayload.description;
                   document.title = normalizedPayload.title;
                   setMeta('meta[name="description"]', "content", desc);
-                  setMeta('meta[name="og:title"]', "content", normalizedPayload.title);
-                  setMeta('meta[name="og:description"]', "content", desc);
-                  setMeta('meta[name="og:image"]', "content", normalizedPayload.image);
+                  setMeta('meta[property="og:title"]', "content", normalizedPayload.title);
+                  setMeta('meta[property="og:description"]', "content", desc);
+                  setMeta('meta[property="og:image"]', "content", normalizedPayload.image);
                   setMeta('meta[name="twitter:title"]', "content", normalizedPayload.title);
                   setMeta('meta[name="twitter:description"]', "content", desc);
                   setMeta('meta[name="twitter:image"]', "content", normalizedPayload.image);
