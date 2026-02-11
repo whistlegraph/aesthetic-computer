@@ -4816,9 +4816,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           width: canvas.width,
           height: canvas.height,
           // TODO: Do all fields of `pointer` need to be sent? 22.09.19.23.30
-          pen: { 
-            events: resolution.tv ? [] : (pen?.events || []), // Skip pen events in TV mode
-            pointers: pen?.pointers || {} 
+          pen: {
+            events: resolution.tv ? [] : (pen?.events || []),
+            pointers: pen?.pointers || {}
           },
           pen3d: ThreeD?.pollControllers(), // TODO: Implement pointers in 3D.
           hand: handData,
@@ -16752,10 +16752,34 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (content.cursorCode) pen?.setCursorCode(content.cursorCode);
 
     // Abort the render if pixels don't match.
+    // When bumper is active, the worker sends a reduced buffer (height - bumperOffset),
+    // so also accept pixels that match the content's own declared dimensions.
+    const contentSelfConsistent = content.pixels?.length === content.width * content.height * 4;
+
+    // 🔍 DIAG: Track bumper frame rendering (remove after debugging)
+    if (!window._bfc) window._bfc = 0;
+    if (content.bumperOffset > 0) {
+      window._bfc++;
+      if (window._bfc <= 5) {
+        console.log(`🎪 F${window._bfc}:`, {
+          abort: content.dirtyBox === undefined && content.pixels?.length !== undefined && content.pixels?.length !== screen.pixels.length && !contentSelfConsistent,
+          selfConsistent: contentSelfConsistent,
+          pxLen: content.pixels?.length,
+          screenPxLen: screen.pixels.length,
+          paintChanged: content.paintChanged,
+          reframe: content.reframe,
+          hasPixels: !!content.pixels,
+          hasBumperOverlay: !!content.bumperOverlay,
+          contentDims: `${content.width}x${content.height}`,
+        });
+      }
+    }
+
     if (
       content.dirtyBox === undefined &&
       content.pixels?.length !== undefined &&
-      content.pixels?.length !== screen.pixels.length
+      content.pixels?.length !== screen.pixels.length &&
+      !contentSelfConsistent
     ) {
       if (underlayFrame) console.log("🛑 VIDEO: Aborted render - pixel buffer mismatch!", "Content:", content.pixels.length, "Screen:", screen.pixels.length);
       console.warn("Aborted render. Pixel buffers did not match.");
@@ -16893,6 +16917,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
       }
     }
+
+    // 🎪 Store current bumper offset globally — use explicit value from worker,
+    //    falling back to overlay height for backwards compat.
+    const bumperOffsetFromWorker = content.bumperOffset || content.bumperOverlay?.img?.height || 0;
+    window.currentBumperOffset = bumperOffsetFromWorker;
 
     pixelsDidChange = content.paintChanged || false;
 
@@ -17282,6 +17311,26 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // �🅰️ Draw updated content from the piece.
 
+      // 🎪 Use explicit bumperOffset from worker (doesn't depend on overlay being present)
+      const bumperOffset = content.bumperOffset || 0;
+
+      // 🔍 DIAG: draw() path tracking (remove after debugging)
+      if (bumperOffset > 0 && window._bfc <= 5) {
+        console.log(`🎪 draw() F${window._bfc}:`, {
+          hasImageData: !!imageData,
+          imgDims: imageData ? `${imageData.width}x${imageData.height}` : 'none',
+          bufferOK: imageData?.data?.buffer?.byteLength > 0,
+          dimMatch: imageData ? {
+            w: imageData.width === ctx.canvas.width,
+            h: imageData.height === ctx.canvas.height,
+            hBumper: imageData.height === ctx.canvas.height - bumperOffset
+          } : 'n/a',
+          hasDirtyBox: !!content.dirtyBox,
+          pixelsDidChange,
+          bumperOffset,
+        });
+      }
+
       const db = content.dirtyBox;
       if (db) {
         if (!underlayFrame && webglCompositeActive && imageData) {
@@ -17312,8 +17361,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           if (overlayCan.style.display !== "none") {
             overlayCan.style.display = "none";
           }
-          ctx.drawImage(dirtyBoxBitmapCan, db.x, db.y);
-          if (glaze.on) Glaze.update(dirtyBoxBitmapCan, db.x, db.y);
+          ctx.drawImage(dirtyBoxBitmapCan, db.x, db.y + bumperOffset);
+          if (glaze.on) Glaze.update(dirtyBoxBitmapCan, db.x, db.y + bumperOffset);
         }
       } else if (
         pixelsDidChange ||
@@ -17328,22 +17377,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const isPlaybackOnly =
           underlayFrame && !isRecording && !needs$creenshot;
 
-        // 🎪 Calculate bumper offset for piece content positioning (before dimension check)
-        const bumperOffset = content.bumperOverlay?.img?.height || 0;
-
-        // 🔍 DEBUG: Log imageData state
-        console.log('🎨 [RENDER] imageData check:', {
-          hasImageData: !!imageData,
-          hasData: !!imageData?.data,
-          hasBuffer: !!imageData?.data?.buffer,
-          byteLength: imageData?.data?.buffer?.byteLength,
-          imageDims: imageData ? `${imageData.width}x${imageData.height}` : 'null',
-          canvasDims: `${ctx.canvas.width}x${ctx.canvas.height}`,
-          bumperOffset: bumperOffset,
-          heightMatch: imageData?.height === ctx.canvas.height,
-          heightWithBumper: imageData?.height === ctx.canvas.height - bumperOffset
-        });
-
         if (
           imageData &&
           imageData.data &&
@@ -17352,7 +17385,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           imageData.width === ctx.canvas.width &&
           (imageData.height === ctx.canvas.height || imageData.height === ctx.canvas.height - bumperOffset)
         ) {
-          console.log('✅ [RENDER] Dimension check PASSED - rendering pixels');
           // Dimensions match (accounting for bumper offset) - clear mismatch counter and log if we just recovered
           if (underlayFrame && dimensionMismatchCount > 0 && window.acReframeDebug) {
             console.log('✅ REFRAME: Dimension sync restored after', dimensionMismatchCount, 'mismatched frames. Canvas:', ctx.canvas.width, 'x', ctx.canvas.height);
@@ -17421,7 +17453,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               overlayCan.style.display = "none";
             }
             // Force sync rendering during tape playback for immediate UI updates
-            console.log('🎨 [RENDER] putImageData called (underlayFrame sync)', { x: 0, y: bumperOffset });
             ctx.putImageData(imageData, 0, bumperOffset);
           } else if (!forceSynchronousRendering && window.pixelOptimizer && window.pixelOptimizer.asyncRenderingSupported) {
             try {
@@ -17438,9 +17469,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 overlayCan.style.display = "none";
               }
               // Non-blocking async rendering
-              console.log('🎨 [RENDER] Starting async rendering', { x: 0, y: bumperOffset });
               window.pixelOptimizer.renderImageDataAsync(imageData, ctx, 0, bumperOffset).then(() => {
-                console.log('✅ [RENDER] Async rendering completed');
                 // Paint overlays after async fallback rendering completes
                 if (paintOverlays["bumperOverlay"]) paintOverlays["bumperOverlay"](); // Paint bumper first (at the top)
                 if (paintOverlays["label"]) paintOverlays["label"]();
@@ -17486,12 +17515,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             if (overlayCan.style.display !== "none") {
               overlayCan.style.display = "none";
             }
-            console.log('🎨 [RENDER] putImageData called (sync fallback)', { x: 0, y: bumperOffset });
             ctx.putImageData(imageData, 0, bumperOffset);
             skipImmediateOverlays = false;
           }
         } else {
-          console.log('❌ [RENDER] Dimension check FAILED - entering recovery path');
           // Dimension mismatch - handle differently for tape playback vs normal
           if (underlayFrame) {
             // During tape playback, keep the canvas at correct size and wait for matching data
@@ -17513,7 +17540,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               imageData.data.buffer &&
               (imageData.data.buffer.byteLength === 0 ||
                 imageData.width !== ctx.canvas.width ||
-                imageData.height !== ctx.canvas.height)
+                (imageData.height !== ctx.canvas.height && imageData.height !== ctx.canvas.height - bumperOffset))
             ) {
               imageData = ctx.getImageData(
                 0,
@@ -17522,9 +17549,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 ctx.canvas.height,
               );
               if (imageData.data.buffer.byteLength > 0) {
-                // 🎪 Calculate bumper offset for piece content positioning
-                const bumperOffset = content.bumperOverlay?.img?.height || 0;
-
                 // Use async rendering for better performance (except during tape playback for immediate UI)
                 const forceSynchronousRendering = isRecording || needs$creenshot;
                 if (!forceSynchronousRendering && window.pixelOptimizer && window.pixelOptimizer.asyncRenderingSupported) {
