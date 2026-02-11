@@ -139,11 +139,16 @@ let login, // A login button in the center of the display.
   kidlispBtn; // KidLisp.com button (shown when in KidLisp mode)
 let adBtnParticles = []; // Sparkle particles for AD button
 let adBtnHue = 0; // Color cycling for AD button
+let soBtn, softBtn; // SO SOFT ad buttons
+let soSoftBlinkPhase = 0; // Blink animation counter for SO SOFT
+let soSoftConfigIndex = 0; // Which configuration to use
+let soSoftConfigChangeTime = 0; // When to change config
+let soSoftLastTinyFont = false; // Track if we're using tiny font to recreate buttons on size change
 let shopBtnParticles = []; // Sparkle particles for SHOP button
 let shopBtnHue = 0; // Color cycling for SHOP button
 
-// 🎰 Top-right button random selection: "give", "ad", or "shop" (~1/3 each)
-const TOP_RIGHT_BTN_CHOICES = ["give", "ad", "shop"];
+// 🎰 Top-right button random selection: 50/50 A/B test between "give" and "ad"
+const TOP_RIGHT_BTN_CHOICES = ["give", "ad"];
 const topRightBtnChoice = TOP_RIGHT_BTN_CHOICES[Math.floor(Math.random() * TOP_RIGHT_BTN_CHOICES.length)];
 let resendVerificationText;
 let ellipsisTicker;
@@ -3890,53 +3895,96 @@ function paint($) {
       }
     }
 
-    // 📊 Character limit meter (show when typing, similar to chat.mjs)
+    // 📊 Character limit counter (per-character chaos with fast color cycling)
     const PROMPT_CHAR_LIMIT = 256;
     const charLen = currentInputText.length;
     const charCountText = `${charLen}/${PROMPT_CHAR_LIMIT}`;
-    const isOverLimit = charLen > PROMPT_CHAR_LIMIT;
-    const isNearLimit = charLen > PROMPT_CHAR_LIMIT * 0.8; // 80% = 204 chars
-    
-    // Color based on usage: gray -> yellow -> red
+
+    // Calculate fill percentage
+    const fillPercent = charLen / PROMPT_CHAR_LIMIT; // 0 to 1+
+
+    // Color zones with power-of-2 thresholds
+    const grayColor = $.dark ? [120, 120, 130] : [100, 100, 110];
+    const yellowColor = [255, 200, 60];
+    const orangeColor = [255, 140, 40];
+    const redColor = [255, 50, 50];
+
     let meterColor;
-    if (isOverLimit) {
-      meterColor = [255, 60, 60]; // Red when over
-    } else if (isNearLimit) {
-      meterColor = [255, 200, 60]; // Yellow when near limit
+    let blinkSpeed = 0;
+
+    if (charLen < 64) {
+      // 0-63: Simple gray, no cycling
+      meterColor = grayColor;
+    } else if (charLen < 128) {
+      // 64-127: Gray → Yellow with gentle blinking
+      const progress = (charLen - 64) / 64; // 0 to 1
+      blinkSpeed = progress * 3;
+      const blink = Math.sin($.store.t * blinkSpeed) * 0.5 + 0.5;
+      const r = Math.floor(grayColor[0] + (yellowColor[0] - grayColor[0]) * progress * blink);
+      const g = Math.floor(grayColor[1] + (yellowColor[1] - grayColor[1]) * progress * blink);
+      const b = Math.floor(grayColor[2] + (yellowColor[2] - grayColor[2]) * progress * blink);
+      meterColor = [r, g, b];
+    } else if (charLen < 192) {
+      // 128-191: Yellow → Orange with faster blinking
+      const progress = (charLen - 128) / 64; // 0 to 1
+      blinkSpeed = 3 + progress * 8;
+      const blink = Math.sin($.store.t * blinkSpeed) * 0.5 + 0.5;
+      const r = Math.floor(yellowColor[0] + (orangeColor[0] - yellowColor[0]) * progress * blink);
+      const g = Math.floor(yellowColor[1] + (orangeColor[1] - yellowColor[1]) * progress * blink);
+      const b = Math.floor(yellowColor[2] + (orangeColor[2] - yellowColor[2]) * progress * blink);
+      meterColor = [r, g, b];
     } else {
-      meterColor = $.dark ? [100, 100, 120] : [120, 120, 140]; // Gray normally
+      // 192-256+: Orange → Red with rapid blinking
+      const progress = Math.min(1, (charLen - 192) / 64); // 0 to 1
+      blinkSpeed = 11 + progress * 20;
+      const blink = Math.sin($.store.t * blinkSpeed) * 0.5 + 0.5;
+      const r = Math.floor(orangeColor[0] + (redColor[0] - orangeColor[0]) * progress * blink);
+      const g = Math.floor(orangeColor[1] + (redColor[1] - orangeColor[1]) * progress * blink);
+      const b = Math.floor(orangeColor[2] + (redColor[2] - orangeColor[2]) * progress * blink);
+      meterColor = [r, g, b];
     }
-    
-    // Module dimensions and positioning with margin from screen edges
-    const margin = 4;
-    const padding = 3;
-    const barWidth = 40;
-    const textWidth = charCountText.length * 4;
-    const moduleWidth = Math.max(barWidth, textWidth) + padding * 2;
-    const moduleHeight = 8 + 3 + padding * 2; // text height + bar height + padding
-    const moduleX = screen.width - moduleWidth - margin;
-    const moduleY = margin;
-    
-    // Draw bounding box background
-    const bgColor = $.dark ? [30, 30, 40, 180] : [240, 240, 245, 200];
-    ink(...bgColor).box(moduleX, moduleY, moduleWidth, moduleHeight);
-    
-    // Draw character count text inside module
-    const charCountX = moduleX + padding;
-    const charCountY = moduleY + padding;
-    ink(...meterColor).write(charCountText, { x: charCountX, y: charCountY }, undefined, undefined, false, "MatrixChunky8");
-    
-    // Draw small progress bar below the count
-    const barX = charCountX;
-    const barY = charCountY + 10;
-    const fillRatio = Math.min(1, charLen / PROMPT_CHAR_LIMIT);
-    const fillWidth = Math.floor(barWidth * fillRatio);
-    
-    // Background bar
-    ink($.dark ? [40, 40, 50] : [200, 200, 210]).box(barX, barY, barWidth, 3);
-    // Fill bar
-    if (fillWidth > 0) {
-      ink(...meterColor).box(barX, barY, fillWidth, 3);
+
+    // Only show counter when we hit 32 characters
+    if (charLen >= 32) {
+      // Switch to larger font when approaching limit (at 70% = 179 chars)
+      const useLargeFont = fillPercent > 0.7;
+      const charFont = useLargeFont ? undefined : "MatrixChunky8"; // undefined = default 6x8 font
+      const charWidth = useLargeFont ? 6 : 4;
+
+      // Position in top right corner with small margin
+      const charMargin = 6;
+      const baseCharCountX = screen.width - (charCountText.length * charWidth) - charMargin;
+      const baseCharCountY = 6;
+
+      // Gentle per-character chaos (slower, subtler movement)
+      const chaosThreshold = 0.5;
+      const chaosAmount = Math.max(0, (fillPercent - chaosThreshold) * 3); // Reduced from 8 to 3
+
+      // Draw each character individually with its own gentle chaos offset
+      const shadowOffset = 1;
+      const shadowColor = $.dark ? [0, 0, 0, 180] : [255, 255, 255, 180];
+
+      for (let i = 0; i < charCountText.length; i++) {
+        const char = charCountText[i];
+        const charX = baseCharCountX + (i * charWidth);
+        const charY = baseCharCountY;
+
+        // Each character gets gentle random jitter
+        const jitterX = (Math.random() - 0.5) * chaosAmount;
+        const jitterY = (Math.random() - 0.5) * chaosAmount;
+
+        // Draw shadow
+        ink(...shadowColor).write(char, {
+          x: charX + shadowOffset + jitterX,
+          y: charY + shadowOffset + jitterY
+        }, undefined, undefined, false, charFont);
+
+        // Draw character
+        ink(...meterColor).write(char, {
+          x: charX + jitterX,
+          y: charY + jitterY
+        }, undefined, undefined, false, charFont);
+      }
     }
   }
 
@@ -4205,7 +4253,8 @@ function paint($) {
         // Normal rainbow mode - add hover effect
         let bgColor;
         if (isDown) {
-          bgColor = hslToRgb(hue, 100, 70);
+          // Distinct cyan color when pressed (not part of rainbow cycle)
+          bgColor = [0, 255, 255]; // Bright cyan
         } else if (isHover) {
           // On hover: brighter, faster color cycling, larger pulse
           const hoverPulse = Math.sin(t * 10) * 0.5 + 0.5; // Faster pulse on hover
@@ -4326,157 +4375,265 @@ function paint($) {
     giveBtnParticles = []; // Clear particles when button hidden
   }
 
-  //  AD MODE button in top-right corner (randomly shown ~1/3 of loads)
+  //  SO SOFT AD - Two buttons with wavy line connector (for Casey & Lauren's studio)
   if (topRightBtnChoice === "ad" && showLoginCurtain) {
     const now = Date.now();
-    
-    // Cycle through catchy ad phrases
-    const adPhrases = [
-      "YOUR AD HERE",
-      "AD SPACE ✦",
-      "ADVERTISE!",
-      "📢 ADS 📢",
-      "★ YOUR AD ★",
-      "GET SEEN!",
-    ];
-    const phraseIndex = Math.floor(now / 2000) % adPhrases.length;
-    const adBtnText = adPhrases[phraseIndex];
-    
-    // Position the button in top-right (similar to GIVE button)
-    const btnPaddingTop = 6;
-    const btnPaddingRight = 6;
-    const charWidth = 6;
-    const btnWidth = adBtnText.length * charWidth + 8; // Text width + padding
-    const btnHeight = 19;
-    const adBtnY = btnPaddingTop;
-    const adBtnX = screen.width - btnWidth - btnPaddingRight;
-    
-    // Create or reposition the button
-    if (!adBtn) {
-      adBtn = new $.ui.TextButton(adBtnText, { x: adBtnX, y: adBtnY });
+    const t = performance.now() / 1000;
+
+    // Blink between white-on-black and black-on-white at ~2Hz (500ms cycle)
+    soSoftBlinkPhase = Math.floor(t * 2) % 2; // 0 or 1
+    const isWhiteOnBlack = soSoftBlinkPhase === 0;
+
+    // Change configuration every 5 seconds
+    if (now - soSoftConfigChangeTime > 5000) {
+      soSoftConfigIndex = (soSoftConfigIndex + 1) % 4; // 4 different configurations
+      soSoftConfigChangeTime = now;
+    }
+
+    // Responsive sizing: use MatrixChunky8 for small screens
+    const useTinyFont = screen.width < 256; // Easier to test at 256px threshold
+    const charWidth = useTinyFont ? 4 : 6; // MatrixChunky8 is 4px, default is 6px
+    const charHeight = useTinyFont ? 7 : 12; // MatrixChunky8 is 7px, default is 12px
+    // TextButtonSmall uses padX=2, padY=2. TextButton uses gap parameter (we use 2)
+    const btnPadX = 2; // Horizontal padding (same for both button types)
+    const btnPadY = 2; // Vertical padding (same for both button types)
+    const btnPaddingRight = useTinyFont ? 4 : 6;
+
+    let soConfig, softConfig, lineConfig, lineStyle;
+
+    // Scale spacing based on font size
+    const spacingScale = useTinyFont ? 0.6 : 1;
+    const boxHeight = charHeight + btnPadY * 2; // Button box height
+    const boxWidth = (text) => text.length * charWidth + btnPadX * 2;
+    const minSpacing = 8; // Minimum distance between buttons
+
+    // Configuration 0: Horizontal aligned with wavy line
+    if (soSoftConfigIndex === 0) {
+      const btnSpacing = Math.max(minSpacing, Math.floor(10 * spacingScale));
+      const baseY = useTinyFont ? 3 : 6;
+      softConfig = { x: screen.width - boxWidth("SOFT") - btnPaddingRight, y: baseY };
+      soConfig = { x: softConfig.x - boxWidth("SO") - btnSpacing, y: baseY };
+      lineConfig = "horizontal";
+      lineStyle = "wavy"; // Wavy sine wave
+    }
+    // Configuration 1: Vertical stacked with elbow connector
+    else if (soSoftConfigIndex === 1) {
+      const baseX = screen.width - boxWidth("SOFT") - btnPaddingRight;
+      const vertSpacing = Math.max(minSpacing, Math.floor(8 * spacingScale));
+      const baseY = useTinyFont ? 3 : 6;
+      soConfig = { x: baseX, y: baseY };
+      softConfig = { x: baseX, y: soConfig.y + boxHeight + vertSpacing };
+      lineConfig = "vertical";
+      lineStyle = "elbow"; // L-shaped elbow connector
+    }
+    // Configuration 2: Diagonal layout with bezier curve
+    else if (soSoftConfigIndex === 2) {
+      const diagSpacing = Math.max(minSpacing * 3, Math.floor(30 * spacingScale));
+      const vertOffset = Math.max(minSpacing * 2, Math.floor(16 * spacingScale));
+      const baseY = useTinyFont ? 3 : 6;
+      soConfig = { x: screen.width - boxWidth("SO") - btnPaddingRight - diagSpacing, y: baseY };
+      softConfig = { x: screen.width - boxWidth("SOFT") - btnPaddingRight, y: baseY + vertOffset };
+      lineConfig = "diagonal";
+      lineStyle = "bezier"; // Smooth bezier curve
+    }
+    // Configuration 3: Wide horizontal with wavy line
+    else {
+      const btnSpacing = Math.max(minSpacing * 2, Math.floor(20 * spacingScale));
+      const baseY = useTinyFont ? 6 : 12;
+      softConfig = { x: screen.width - boxWidth("SOFT") - btnPaddingRight, y: baseY };
+      soConfig = { x: softConfig.x - boxWidth("SO") - btnSpacing, y: baseY };
+      lineConfig = "wide-horizontal";
+      lineStyle = "wavy"; // Wavy with larger amplitude
+    }
+
+    // Add gentle vertical and horizontal oscillation (reduced for stability)
+    const oscillationAmount = useTinyFont ? 1.5 : 2;
+    const vertOscillation1 = Math.sin(t * 1.2) * oscillationAmount;
+    const vertOscillation2 = Math.sin(t * 1.4 + 1) * oscillationAmount;
+    const horzOscillation1 = Math.cos(t * 0.9) * oscillationAmount;
+    const horzOscillation2 = Math.cos(t * 1.1 + 0.5) * oscillationAmount;
+
+    soConfig.y += vertOscillation1;
+    softConfig.y += vertOscillation2;
+    soConfig.x += horzOscillation1;
+    softConfig.x += horzOscillation2;
+
+    // Ensure buttons stay within screen bounds
+    const screenMargin = 2;
+    soConfig.x = Math.max(screenMargin, Math.min(soConfig.x, screen.width - boxWidth("SO") - screenMargin));
+    soConfig.y = Math.max(screenMargin, Math.min(soConfig.y, screen.height - boxHeight - screenMargin));
+    softConfig.x = Math.max(screenMargin, Math.min(softConfig.x, screen.width - boxWidth("SOFT") - screenMargin));
+    softConfig.y = Math.max(screenMargin, Math.min(softConfig.y, screen.height - boxHeight - screenMargin));
+
+    // Prevent overlap - check if buttons would overlap and adjust
+    const soRight = soConfig.x + boxWidth("SO");
+    const softLeft = softConfig.x;
+    const soBottom = soConfig.y + boxHeight;
+    const softTop = softConfig.y;
+
+    const horizontalOverlap = soRight > softLeft && soConfig.x < softConfig.x + boxWidth("SOFT");
+    const verticalOverlap = soBottom > softTop && soConfig.y < softConfig.y + boxHeight;
+
+    if (horizontalOverlap && verticalOverlap) {
+      // Overlap detected, shift them apart
+      if (lineConfig === "horizontal" || lineConfig === "wide-horizontal") {
+        // Shift SO left
+        soConfig.x = Math.max(screenMargin, softConfig.x - boxWidth("SO") - minSpacing);
+      } else if (lineConfig === "vertical") {
+        // Shift SOFT down
+        softConfig.y = Math.max(screenMargin, soConfig.y + boxHeight + minSpacing);
+      }
+    }
+
+    // Recreate buttons if screen size changed (font size changed)
+    if (useTinyFont !== soSoftLastTinyFont) {
+      soBtn = null;
+      softBtn = null;
+      soSoftLastTinyFont = useTinyFont;
+    }
+
+    // Create or reposition buttons with appropriate size
+    if (!soBtn) {
+      soBtn = useTinyFont
+        ? new $.ui.TextButtonSmall("SO", soConfig)
+        : new $.ui.TextButton("SO", soConfig, undefined, btnPadX);
     } else {
-      adBtn.reposition({ x: adBtnX, y: adBtnY }, adBtnText);
+      soBtn.reposition(soConfig, "SO");
     }
-    
-    // Rainbow hue cycling (slower than GIVE button for chill vibes)
-    adBtnHue = (adBtnHue + 0.5) % 360;
-    
-    // HSL to RGB conversion helper
-    const hslToRgb = (h, s, l) => {
-      h /= 360; s /= 100; l /= 100;
-      let r, g, b;
-      if (s === 0) { r = g = b = l; }
-      else {
-        const hue2rgb = (p, q, t) => {
-          if (t < 0) t += 1;
-          if (t > 1) t -= 1;
-          if (t < 1/6) return p + (q - p) * 6 * t;
-          if (t < 1/2) return q;
-          if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-          return p;
-        };
-        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-        const p = 2 * l - q;
-        r = hue2rgb(p, q, h + 1/3);
-        g = hue2rgb(p, q, h);
-        b = hue2rgb(p, q, h - 1/3);
-      }
-      return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
-    };
-    
-    const btnBox = adBtn?.btn?.box;
-    
-    if (btnBox) {
-      const isDown = adBtn.btn.down;
-      const t = performance.now() / 1000;
-      
-      // Gentle floating effect
-      const float = Math.sin(t * 2) * 1.5;
-      const floatY = btnBox.y + float;
-      
-      // Draw button background with rainbow color
-      const bgColor = hslToRgb(adBtnHue, 85, isDown ? 45 : 55);
-      ink(...bgColor).box(btnBox.x, floatY, btnBox.w, btnBox.h, "fill");
-      ink(255, 255, 255, 180).box(btnBox.x, floatY, btnBox.w, btnBox.h, "outline");
-      
-      // Draw text with subtle color variation per character
-      const chars = adBtnText.split('');
-      const textStartX = btnBox.x + 4;
-      const textY = floatY + 4;
-      
-      chars.forEach((char, i) => {
-        const letterHue = (adBtnHue + i * 30) % 360;
-        const letterColor = hslToRgb(letterHue, 100, isDown ? 90 : 95);
-        const shimmer = Math.sin(t * 3 + i * 0.5) * 0.5;
-        const x = textStartX + i * charWidth + shimmer;
-        ink(...letterColor).write(char, { x: Math.round(x), y: Math.round(textY) });
-      });
-      
-      // Sparkle particles (less intense than GIVE button)
-      if (Math.random() < 0.12) {
-        const sparkleHue = (adBtnHue + 120) % 360;
-        const sparkleColor = hslToRgb(sparkleHue, 90, 70);
-        
-        // Emit from random edge
-        const edge = Math.floor(Math.random() * 4);
-        let px, py, vx, vy;
-        
-        switch (edge) {
-          case 0: // Top
-            px = btnBox.x + Math.random() * btnBox.w;
-            py = floatY;
-            vx = (Math.random() - 0.5) * 1.5;
-            vy = -Math.random() * 1.5 - 0.5;
-            break;
-          case 1: // Right
-            px = btnBox.x + btnBox.w;
-            py = floatY + Math.random() * btnBox.h;
-            vx = Math.random() * 1.5 + 0.5;
-            vy = (Math.random() - 0.5) * 1.5;
-            break;
-          case 2: // Bottom
-            px = btnBox.x + Math.random() * btnBox.w;
-            py = floatY + btnBox.h;
-            vx = (Math.random() - 0.5) * 1.5;
-            vy = Math.random() * 1.5 + 0.5;
-            break;
-          case 3: // Left
-            px = btnBox.x;
-            py = floatY + Math.random() * btnBox.h;
-            vx = -Math.random() * 1.5 - 0.5;
-            vy = (Math.random() - 0.5) * 1.5;
-            break;
+
+    if (!softBtn) {
+      softBtn = useTinyFont
+        ? new $.ui.TextButtonSmall("SOFT", softConfig)
+        : new $.ui.TextButton("SOFT", softConfig, undefined, btnPadX);
+    } else {
+      softBtn.reposition(softConfig, "SOFT");
+    }
+
+    // Get button boxes for rendering
+    const soBox = soBtn?.btn?.box;
+    const softBox = softBtn?.btn?.box;
+
+    // Draw everything
+    if (soBox && softBox) {
+      const bgColor = isWhiteOnBlack ? [255, 255, 255] : [0, 0, 0];
+      const textColor = isWhiteOnBlack ? [0, 0, 0] : [255, 255, 255];
+      const lineColor = isWhiteOnBlack ? [255, 255, 255] : [0, 0, 0]; // Line matches button bg
+
+      // FIRST: Draw connector line BEHIND the buttons
+      const lineStartX = soBox.x + soBox.w;
+      const lineStartY = soBox.y + soBox.h / 2;
+      const lineEndX = softBox.x;
+      const lineEndY = softBox.y + softBox.h / 2;
+
+      if (lineStyle === "wavy") {
+        // Gentle wavy sine wave connector (reduced complexity)
+        const waveAmplitude = lineConfig === "wide-horizontal" ? 3 : 2;
+        const numSegments = 20; // Fewer segments for simpler line
+        const lineY = (lineStartY + lineEndY) / 2;
+
+        for (let i = 0; i < numSegments; i++) {
+          const progress = i / numSegments;
+          const x1 = lineStartX + progress * (lineEndX - lineStartX);
+          const x2 = lineStartX + ((i + 1) / numSegments) * (lineEndX - lineStartX);
+          const y1 = lineY + Math.sin(progress * Math.PI * 3 + t * 2) * waveAmplitude; // 1.5 waves, slower
+          const y2 = lineY + Math.sin(((i + 1) / numSegments) * Math.PI * 3 + t * 2) * waveAmplitude;
+
+          ink(...lineColor).line(x1, y1, x2, y2);
         }
-        
-        adBtnParticles.push({
-          x: px, y: py, vx: vx, vy: vy,
-          life: 1.0,
-          color: sparkleColor,
-          size: Math.random() < 0.2 ? 2 : 1,
-        });
+      } else if (lineStyle === "bezier") {
+        // Smooth bezier curve connector (gentle animation)
+        const numSegments = 20; // Fewer segments
+
+        // Control points for bezier curve with gentle animated offset
+        const bezierOffset = Math.sin(t * 1.5) * 5; // Slower, smaller offset
+        const midX = (lineStartX + lineEndX) / 2;
+        const midY = (lineStartY + lineEndY) / 2;
+
+        // Control point creates curve bulge
+        const cp1X = lineStartX + (lineEndX - lineStartX) * 0.3;
+        const cp1Y = lineStartY + bezierOffset;
+        const cp2X = lineStartX + (lineEndX - lineStartX) * 0.7;
+        const cp2Y = lineEndY - bezierOffset;
+
+        for (let i = 0; i < numSegments; i++) {
+          const t1 = i / numSegments;
+          const t2 = (i + 1) / numSegments;
+
+          // Cubic bezier formula
+          const x1 = Math.pow(1-t1, 3) * lineStartX +
+                    3 * Math.pow(1-t1, 2) * t1 * cp1X +
+                    3 * (1-t1) * Math.pow(t1, 2) * cp2X +
+                    Math.pow(t1, 3) * lineEndX;
+          const y1 = Math.pow(1-t1, 3) * lineStartY +
+                    3 * Math.pow(1-t1, 2) * t1 * cp1Y +
+                    3 * (1-t1) * Math.pow(t1, 2) * cp2Y +
+                    Math.pow(t1, 3) * lineEndY;
+          const x2 = Math.pow(1-t2, 3) * lineStartX +
+                    3 * Math.pow(1-t2, 2) * t2 * cp1X +
+                    3 * (1-t2) * Math.pow(t2, 2) * cp2X +
+                    Math.pow(t2, 3) * lineEndX;
+          const y2 = Math.pow(1-t2, 3) * lineStartY +
+                    3 * Math.pow(1-t2, 2) * t2 * cp1Y +
+                    3 * (1-t2) * Math.pow(t2, 2) * cp2Y +
+                    Math.pow(t2, 3) * lineEndY;
+
+          ink(...lineColor).line(x1, y1, x2, y2);
+        }
+      } else if (lineStyle === "elbow") {
+        // L-shaped elbow connector with gentle animated corner
+        const elbowOffset = Math.sin(t * 1.5) * 3; // Slower, smaller offset
+
+        if (lineConfig === "vertical") {
+          // For vertical layout: horizontal then vertical
+          const cornerY = (lineStartY + lineEndY) / 2 + elbowOffset;
+          ink(...lineColor).line(lineStartX, lineStartY, lineStartX, cornerY);
+          ink(...lineColor).line(lineStartX, cornerY, lineEndX, cornerY);
+          ink(...lineColor).line(lineEndX, cornerY, lineEndX, lineEndY);
+        } else {
+          // For other layouts: vertical then horizontal
+          const cornerX = (lineStartX + lineEndX) / 2 + elbowOffset;
+          ink(...lineColor).line(lineStartX, lineStartY, cornerX, lineStartY);
+          ink(...lineColor).line(cornerX, lineStartY, cornerX, lineEndY);
+          ink(...lineColor).line(cornerX, lineEndY, lineEndX, lineEndY);
+        }
       }
+
+      // THEN: Draw buttons on top of the line with adjusted spacing
+      // Adjusted box sizes: 1px less on right and bottom for normal font, full size for tiny font
+      const boxAdjust = useTinyFont ? 0 : 1; // Tiny font needs full box for better margins
+      const soBoxW = soBox.w - boxAdjust;
+      const soBoxH = soBox.h - boxAdjust;
+      const softBoxW = softBox.w - boxAdjust;
+      const softBoxH = softBox.h - boxAdjust;
+
+      // Font selection for text rendering
+      const fontName = useTinyFont ? "MatrixChunky8" : undefined;
+
+      // Draw SO button with distinct press state
+      const soIsDown = soBtn.btn.down;
+      const soDownBg = [255, 220, 0]; // Bright yellow/gold when pressed
+      const soDownText = [0, 0, 0]; // Black text when pressed
+      const soBg = soIsDown ? soDownBg : bgColor;
+      const soText = soIsDown ? soDownText : textColor;
+      ink(...soBg).box(soBox.x, soBox.y, soBoxW, soBoxH, "fill");
+      ink(...soText).box(soBox.x, soBox.y, soBoxW, soBoxH, "outline");
+      ink(...soText).write("SO", { x: soBox.x + btnPadX, y: soBox.y + btnPadY }, undefined, undefined, false, fontName);
+
+      // Draw SOFT button with distinct press state
+      const softIsDown = softBtn.btn.down;
+      const softDownBg = [255, 220, 0]; // Bright yellow/gold when pressed (matching SO)
+      const softDownText = [0, 0, 0]; // Black text when pressed
+      const softBg = softIsDown ? softDownBg : bgColor;
+      const softText = softIsDown ? softDownText : textColor;
+      ink(...softBg).box(softBox.x, softBox.y, softBoxW, softBoxH, "fill");
+      ink(...softText).box(softBox.x, softBox.y, softBoxW, softBoxH, "outline");
+      ink(...softText).write("SOFT", { x: softBox.x + btnPadX, y: softBox.y + btnPadY }, undefined, undefined, false, fontName);
     }
-    
-    // Update and draw sparkle particles
-    adBtnParticles = adBtnParticles.filter(p => {
-      p.x += p.vx;
-      p.y += p.vy;
-      p.vx *= 0.94;
-      p.vy *= 0.94;
-      p.life -= 0.025;
-      
-      if (p.life > 0) {
-        const alpha = Math.floor(p.life * 255);
-        ink(...p.color, alpha).box(Math.round(p.x), Math.round(p.y), p.size, p.size);
-      }
-      
-      return p.life > 0;
-    });
-    
+
     $.needsPaint(); // Keep animating
   } else {
-    adBtn = null;
-    adBtnParticles = []; // Clear particles when button hidden
+    soBtn = null;
+    softBtn = null;
   }
 
   // � SHOP button in top-right corner (randomly shown ~1/3 of loads)
@@ -7606,6 +7763,41 @@ function act({
     }
   }
 
+  // 🎨 SO SOFT studio ad buttons - link to sosoft.arts.ucla.edu
+  const soSoftUrl = "https://sosoft.arts.ucla.edu";
+
+  if (soBtn && !soBtn.disabled) {
+    soBtn.act(e, {
+      down: () => downSound(),
+      push: () => {
+        pushSound();
+        // Handle external URL opening (supports VSCode extension)
+        if (net.iframe) {
+          send({ type: "post-to-parent", content: { type: "openExternal", url: soSoftUrl } });
+        } else {
+          jump(soSoftUrl); // Opens in new tab for external URLs
+        }
+      },
+      cancel: () => cancelSound(),
+    });
+  }
+
+  if (softBtn && !softBtn.disabled) {
+    softBtn.act(e, {
+      down: () => downSound(),
+      push: () => {
+        pushSound();
+        // Handle external URL opening (supports VSCode extension)
+        if (net.iframe) {
+          send({ type: "post-to-parent", content: { type: "openExternal", url: soSoftUrl } });
+        } else {
+          jump(soSoftUrl); // Opens in new tab for external URLs
+        }
+      },
+      cancel: () => cancelSound(),
+    });
+  }
+
   // 📦 Product button interaction (DISABLED)
   // const showLoginCurtainAct =
   //   (!login?.btn.disabled && !profile) ||
@@ -7927,6 +8119,8 @@ function act({
       (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
       (giveBtn?.btn.disabled === false && giveBtn?.btn.box.contains(e)) ||
       (adBtn?.btn.disabled === false && adBtn?.btn.box.contains(e)) ||
+      (soBtn?.btn.disabled === false && soBtn?.btn.box.contains(e)) ||
+      (softBtn?.btn.disabled === false && softBtn?.btn.box.contains(e)) ||
       (commitBtn?.btn.disabled === false && commitBtn?.btn.box.contains(e)) ||
       (kidlispBtn?.btn.disabled === false && kidlispBtn?.btn.box.contains(e)) ||
       (products.getActiveProduct()?.button?.disabled === false && products.getActiveProduct()?.button?.box.contains(e)) ||
@@ -8006,7 +8200,13 @@ function act({
       down: () => downSound(),
       push: () => {
         pushSound();
-        jump("out:https://give.aesthetic.computer");
+        // Handle external URL opening (supports VSCode extension)
+        const giveUrl = "https://give.aesthetic.computer";
+        if (net.iframe) {
+          send({ type: "post-to-parent", content: { type: "openExternal", url: giveUrl } });
+        } else {
+          jump(giveUrl); // Opens in new tab for external URLs
+        }
       },
       cancel: () => cancelSound(),
     });
