@@ -2061,39 +2061,10 @@ function redirectIfBrandedDomain() {
   if (!hostname) return false;
   // Match notepat.com or www.notepat.com (add more branded domains here as needed)
   if (hostname === "notepat.com" || hostname === "www.notepat.com") {
-    send({ type: "web", content: { url: "https://aesthetic.computer", blank: false } });
+    send({ type: "web", content: { url: "https://aesthetic.computer/prompt", blank: false } });
     return true;
   }
   return false;
-}
-
-// 🎪 Bumper mode configuration - horizontal bar above the piece for tickers/banners
-let bumperConfig = {
-  enabled: false,
-  height: 0,
-  renderer: null, // Function called by piece to render bumper content
-};
-
-// Enable bumper mode with specified height
-function enableBumper(height = 20, renderer = null) {
-  bumperConfig.enabled = true;
-  bumperConfig.height = height;
-  bumperConfig.renderer = renderer;
-}
-
-// Disable bumper mode
-function disableBumper() {
-  bumperConfig.enabled = false;
-  bumperConfig.height = 0;
-  bumperConfig.renderer = null;
-}
-
-// Check if bumper should be enabled based on hostname (for automatic activation)
-function isBumperDomain() {
-  const { hostname } = getSafeUrlParts();
-  if (!hostname) return false;
-  // Bumper is enabled for notepat.com
-  return hostname === "notepat.com" || hostname === "www.notepat.com";
 }
 
 let storeRetrievalResolutions = {},
@@ -3336,25 +3307,6 @@ const $commonApi = {
       send({ type: "labelBack:source", content: { sourcePiece: $commonApi.piece } });
     },
   },
-  // 🎪 Bumper API - horizontal bar above the piece for tickers/banners
-  bumper: {
-    enable: (height = 20, renderer = null) => {
-      enableBumper(height, renderer);
-    },
-    disable: () => {
-      disableBumper();
-    },
-    get enabled() {
-      return bumperConfig.enabled;
-    },
-    get height() {
-      return bumperConfig.height;
-    },
-    // Allow piece to set a custom renderer function
-    setRenderer: (renderer) => {
-      bumperConfig.renderer = renderer;
-    },
-  },
   // 📱 LAN Dev mode identity (from session server)
   get devIdentity() { return devIdentity; },
   send,
@@ -4510,8 +4462,8 @@ async function processMessage(msg) {
     // 👰‍♀️ Update the user handle if it changed.
     const newHandle = msg.split(":").pop();
     HANDLE = "@" + newHandle;
-    if (typeof window !== 'undefined') window.acHANDLE = HANDLE; // Expose for UDP identity
-    if (typeof window !== 'undefined' && window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
+    window.acHANDLE = HANDLE; // Expose for UDP identity
+    if (window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
     send({ type: "handle", content: HANDLE });
     store["handle:received"] = true;
     store["handle"] = newHandle;
@@ -10732,10 +10684,10 @@ async function makeFrame({ data: { type, content } }) {
       // The piece's paint() will fill correct content on next frame
       screen.pixels = new Uint8ClampedArray(content.width * content.height * 4);
       
-      // if ($commonApi.rec.presenting && (oldWidth !== content.width || oldHeight !== content.height)) {
-      //   console.log('📐 REFRAME: Worker dimensions updated', oldWidth, 'x', oldHeight, '→', content.width, 'x', content.height);
-      //   console.log('   Buffer:', oldBufferSize, '→', screen.pixels.length, '| Expected:', content.width * content.height * 4);
-      // }
+      if ($commonApi.rec.presenting && (oldWidth !== content.width || oldHeight !== content.height)) {
+        console.log('📐 REFRAME: Worker dimensions updated', oldWidth, 'x', oldHeight, '→', content.width, 'x', content.height);
+        console.log('   Buffer:', oldBufferSize, '→', screen.pixels.length, '| Expected:', content.width * content.height * 4);
+      }
     }
 
     // Only trigger a reframe event if we have already passed `boot` (painted
@@ -11664,24 +11616,10 @@ async function makeFrame({ data: { type, content } }) {
 
       // Use screen.width/height instead of content.width/height to get the most up-to-date dimensions
       // content.width/height can be stale if a reframe just happened
-      // 🎪 Reduce height when bumper enabled - piece gets viewport below bumper
-      const bumperOffset = bumperConfig.enabled ? bumperConfig.height : 0;
-
-      if (bumperOffset > 0) {
-        console.log('🎪 BUMPER DEBUG:', {
-          'Physical screen.height': screen.height,
-          'Bumper offset': bumperOffset,
-          'Piece screen.height': screen.height - bumperOffset,
-          'Piece renders': `y=0 to y=${screen.height - bumperOffset}`,
-          'Bumper overlays': `y=0 to y=${bumperOffset}`
-        });
-      }
-
       $api.screen = {
         width: screen.width,
-        height: screen.height - bumperOffset,
+        height: screen.height,
         pixels: screen.pixels,
-        bumperOffset, // Expose this so pieces can adjust if needed
       };
 
       $api.cursor = (code) => (cursorCode = code);
@@ -11813,13 +11751,6 @@ async function makeFrame({ data: { type, content } }) {
       
       content.pen?.events.forEach((data) => {
         penEventCount++;
-
-        // 🎪 Adjust Y coordinate for bumper offset - events are in physical coords, piece uses reduced viewport
-        const bumperOffset = bumperConfig.enabled ? bumperConfig.height : 0;
-        if (bumperOffset > 0 && data.y !== undefined) {
-          data.y = data.y - bumperOffset;
-        }
-
         Object.assign(data, {
           device: data.device,
           hudButtonActive: currentHUDButtonActive, // Add global HUD button flag
@@ -12429,7 +12360,7 @@ async function makeFrame({ data: { type, content } }) {
             type: "boot-log",
             content: "running boot"
           });
-
+          
           if (system === "nopaint") nopaint_boot({ ...$api, params: $api.params, colon: $api.colon });
           await boot($api);
           const bootEndTime = performance.now();
@@ -12613,9 +12544,8 @@ async function makeFrame({ data: { type, content } }) {
           if (shouldPaint) {
             // Reset zebra cache at the start of each frame so it can advance once per frame
             $api.num.resetZebraCache();
-
+            
             // Always call paint() - piece paints underneath, GOL overlays on top
-            // 🎪 Piece gets reduced screen.height, renders at y=0, bumper overlays on top
             paintOut = paint($api); // Returns `undefined`, `false`, or `DirtyBox`.
             // Increment piece frame counter only when we actually paint
             pieceFrameCount++;
@@ -12688,7 +12618,7 @@ async function makeFrame({ data: { type, content } }) {
               if (typeof window !== "undefined") {
                 window.acPieceReady = true;
                 window.acPieceReadyTime = Date.now();
-                // console.log("🟢 acPieceReady = true (first paint complete)");
+                console.log("🟢 acPieceReady = true (first paint complete)");
               }
             }
             
@@ -13963,8 +13893,7 @@ async function makeFrame({ data: { type, content } }) {
   const finalX = currentHUDOffset.x + hudAnimationState.slideOffset.x - currentHUDLeftPad;
         // Move label up by 4px when QR is present for tighter fit
         const qrYOffset = currentHUDQR ? -4 : 0;
-        const bumperOffset = bumperConfig.enabled ? bumperConfig.height : 0;
-        const finalY = currentHUDOffset.y + hudAnimationState.slideOffset.y + qrYOffset + bumperOffset;
+        const finalY = currentHUDOffset.y + hudAnimationState.slideOffset.y + qrYOffset;
         
         sendData.label = {
           x: finalX,
@@ -14867,31 +14796,6 @@ async function makeFrame({ data: { type, content } }) {
         }
       }
 
-      // 🎪 Bumper overlay - horizontal bar at the top for tickers/banners
-      if (bumperConfig.enabled && bumperConfig.height > 0) {
-        try {
-          // Call the piece's custom renderer if provided, otherwise render a default bumper
-          let bumperPainting = null;
-
-          if (bumperConfig.renderer && typeof bumperConfig.renderer === 'function') {
-            // Let the piece render custom content
-            bumperPainting = bumperConfig.renderer($api, screen.width, bumperConfig.height);
-          }
-
-          // If piece provided a painting, use it; otherwise create a default one
-          if (bumperPainting) {
-            sendData.bumperOverlay = {
-              x: 0,
-              y: 0,
-              opacity: 1.0,
-              img: (({ width, height, pixels }) => ({ width, height, pixels }))(bumperPainting),
-            };
-          }
-        } catch (err) {
-          console.warn("Failed to generate bumper overlay:", err);
-        }
-      }
-
       let transferredPixels;
 
       // Check to see if we have a dirtyBox to render from.
@@ -15115,8 +15019,8 @@ async function makeFrame({ data: { type, content } }) {
       const cachedHandle = store["handle"];
       if (cachedHandle && !HANDLE) {
         HANDLE = "@" + cachedHandle;
-        if (typeof window !== 'undefined') window.acHANDLE = HANDLE;
-        if (typeof window !== 'undefined' && window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
+        window.acHANDLE = HANDLE;
+        if (window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
         send({ type: "handle", content: HANDLE });
         console.log(`🔐 Recovered cached handle: ${HANDLE}`);
       }
@@ -15164,8 +15068,8 @@ async function handle(retryCount = 0) {
       const newHandle = "@" + storedHandle;
       if (HANDLE === newHandle) return;
       HANDLE = "@" + storedHandle;
-      if (typeof window !== 'undefined') window.acHANDLE = HANDLE; // Expose for UDP identity
-      if (typeof window !== 'undefined' && window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
+      window.acHANDLE = HANDLE; // Expose for UDP identity
+      if (window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
       send({ type: "handle", content: HANDLE });
       store["handle:received"] = true;
       if (bootHandle) store["handle"] = bootHandle; // Cache boot-fetched handle
