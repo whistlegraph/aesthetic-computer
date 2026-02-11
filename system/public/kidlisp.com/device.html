@@ -116,6 +116,8 @@
       overflow: hidden;
       /* Harsh shadow matching stats for visibility on complex animations */
       text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
+      /* Gray offset shadow matching QR container */
+      box-shadow: calc(var(--ui-scale, 8) * 0.5px) calc(var(--ui-scale, 8) * 0.5px) 0 rgba(64, 64, 64, 0.8);
       white-space: pre-wrap;
       word-break: break-word;
       -webkit-mask-image: linear-gradient(to bottom, black 0%, black 85%, transparent 100%);
@@ -1470,8 +1472,8 @@
       const resolutionMap = [
         // 4K displays
         { w: 3840, h: 2160, dpr: 1, scale: 20 },  // 4K native (e.g., F1 FF1)
-        { w: 1920, h: 1200, dpr: 2, scale: 20 },  // 4K scaled (e.g., MacBook 16")
-        { w: 1920, h: 1080, dpr: 2, scale: 24 },  // 1080p scaled to 4K-like (e.g., FF1 in some configs)
+        { w: 1920, h: 1200, dpr: 2, scale: 10 },  // Retina laptop (e.g., MacBook 16")
+        { w: 1920, h: 1080, dpr: 2, scale: 10 },  // Retina laptop 1080p
         // 1080p displays
         { w: 1920, h: 1080, dpr: 1, scale: 12 },  // 1080p native
         { w: 1366, h: 768, dpr: 1, scale: 8 },    // 1366x768 laptop

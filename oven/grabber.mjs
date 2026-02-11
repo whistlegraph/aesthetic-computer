@@ -3703,11 +3703,11 @@ export async function generateNotepatOGImage(forceRegenerate = false) {
   const leftKeys = ['c', 'v', 'd', 's', 'e', 'f', 'w', 'g', 'r', 'a', 'q', 'b'];
   const rightKeys = ['h', 't', 'i', 'y', 'j', 'k', 'u', 'l', 'o', 'm', 'p', 'n'];
 
-  // Layout: Split design with left and right octaves
-  const padW = 42;
-  const padH = 90;
-  const padGap = 6;
-  const padRadius = 4;
+  // Layout: MUCH LARGER pads to fill the space
+  const padW = 90;  // More than doubled
+  const padH = 130; // Significantly taller
+  const padGap = 10;
+  const padRadius = 6;
 
   const cols = 4; // 4 columns per octave side
   const rows = 3; // 3 rows per octave side
@@ -3715,12 +3715,12 @@ export async function generateNotepatOGImage(forceRegenerate = false) {
   const octaveW = cols * padW + (cols - 1) * padGap;
   const octaveH = rows * padH + (rows - 1) * padGap;
 
-  const splitGap = 140; // Center gap for split layout
+  const splitGap = 80; // Tighter split gap
   const totalW = octaveW * 2 + splitGap;
 
   const leftX = (W - totalW) / 2;
   const rightX = leftX + octaveW + splitGap;
-  const topY = 180;
+  const topY = 60; // Move up significantly
 
   // Build pads SVG
   let padsSvg = '';
