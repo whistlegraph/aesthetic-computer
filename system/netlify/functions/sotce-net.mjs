@@ -7471,10 +7471,11 @@ export const handler = async (event, context) => {
 
                   // Smooth snap-back when drag released without meeting threshold
                   if (!isDragging && !isWheelScrolling && transitionDirection === 0 && dragDelta !== 0) {
-                    // Smoother exponential decay with spring-like behavior
-                    const returnSpeed = 0.15; // Lower = slower, smoother return
+                    // Gentle spring-like return animation
+                    const returnSpeed = 0.08; // Lower = slower, more visible animation
                     dragDelta -= dragDelta * returnSpeed;
-                    if (Math.abs(dragDelta) < 0.5) dragDelta = 0;
+                    // Only snap to 0 when very close
+                    if (Math.abs(dragDelta) < 0.2) dragDelta = 0;
                   }
 
                   // Fade in text when static
