@@ -48,6 +48,7 @@
     "server:socket": "cd socket-server; npm run server",
     "assets:sync:down": "aws s3 sync s3://assets-aesthetic-computer system/public/assets --endpoint-url https://sfo3.digitaloceanspaces.com --exclude 'false.work/spiderlily-*.zip*' || echo 'Sync completed with some directory conflicts (safe to ignore)'",
     "assets:sync:up": "aws s3 sync system/public/assets s3://assets-aesthetic-computer --endpoint-url https://sfo3.digitaloceanspaces.com --exclude '*.DS_Store' --exclude 'false.work/spiderlily-*.zip*' --acl public-read",
+    "publish:m4l": "node ac-m4l/publish.mjs",
     "session:reset": "f() { cd session-server; npx jamsocket backend terminate $1 };f",
     "session:alive": "cd session-server; npx jamsocket backend list",
     "session:publish": "cd session-server; npm run build; npm run deploy",
