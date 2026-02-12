@@ -1307,10 +1307,11 @@ export const handler = async (event, context) => {
               border: calc(max(1px, 0.1em)) solid black;
               box-sizing: border-box;
               padding: 1em;
-              position: relative;
-              /* Responsive to both width and height - prioritize fitting in viewport */
-              width: min(calc(100px * 8), calc(100vw - 32px), calc((100vh - 200px) * 0.8));
-              max-height: calc(100vh - 200px);
+              position: absolute;
+              top: 0;
+              left: 0;
+              transform-origin: top left;
+              width: calc(100px * 8);
               font-family: var(--page-font), serif;
               font-size: calc(2.78px * 8);
             }
@@ -1817,10 +1818,11 @@ export const handler = async (event, context) => {
               border: calc(max(1px, 0.1em)) solid black;
               box-sizing: border-box;
               padding: 1em;
-              position: relative;
-              /* Responsive to both width and height - prioritize fitting in viewport */
-              width: min(calc(100px * 8), calc(100vw - 32px), calc((100vh - 200px) * 0.8));
-              max-height: calc(100vh - 200px);
+              position: absolute;
+              top: 0;
+              left: 0;
+              transform-origin: top left;
+              width: calc(100px * 8);
               font-family: var(--page-font), serif;
               font-size: calc(2.78px * 8);
             }
@@ -5479,6 +5481,8 @@ export const handler = async (event, context) => {
                 unveil({ instant: true });
 
                 let pendingData = pendingRes.status === 200 ? pendingRes.asks || [] : [];
+                // Sort by most recently asked first
+                pendingData.sort((a, b) => new Date(b.when) - new Date(a.when));
                 let currentPendingIndex = 0;
 
                 const respondEditor = cel("div");
@@ -5564,14 +5568,6 @@ export const handler = async (event, context) => {
                   // Question section
                   const questionSection = cel("div");
                   questionSection.classList.add("respond-question-section");
-
-                  // Counter (only show if multiple questions)
-                  const counter = cel("div");
-                  counter.classList.add("respond-counter");
-                  if (pendingData.length > 1) {
-                    counter.innerText = (currentPendingIndex + 1) + " / " + pendingData.length;
-                  }
-                  questionSection.appendChild(counter);
 
                   // Question text (with @handles as tappable pink links)
                   const questionText = cel("div");
@@ -5715,7 +5711,7 @@ export const handler = async (event, context) => {
 
                 const navCounter = cel("span");
                 navCounter.id = "respond-nav-counter";
-                navCounter.style.cssText = "opacity:0.6;font-size:0.85em;align-self:center;white-space:nowrap;";
+                navCounter.style.cssText = "opacity:0.6;font-size:1em;align-self:center;white-space:nowrap;";
                 
                 const nextBtn = cel("button");
                 nextBtn.innerText = "next →";
