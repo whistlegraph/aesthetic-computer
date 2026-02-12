@@ -638,89 +638,241 @@ function generateHTML(docs) {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${docs.title}</title>
+  <link rel="icon" href="https://aesthetic.computer/favicon.ico" type="image/x-icon">
   <style>
+    * { box-sizing: border-box; }
     body {
-      font-family: sans-serif;
-      background-color: rgb(235, 235, 235);
-      -webkit-text-size-adjust: none;
-      max-width: 800px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #1a1a1a;
+      margin: 0;
+      padding: 0;
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+    }
+    .container {
+      max-width: 900px;
       margin: 0 auto;
       padding: 20px;
-      line-height: 1.6;
     }
-    h1 { margin-bottom: 0.25em; }
-    h2 { margin-top: 2em; margin-bottom: 0.5em; }
-    h3 { margin-top: 1.5em; margin-bottom: 0.5em; font-weight: normal; }
-    h4 { margin-top: 1em; margin-bottom: 0.5em; font-weight: normal; font-style: italic; }
-    code, pre {
-      font-family: monospace;
-      font-weight: bold;
+    .header {
+      background: rgba(255, 255, 255, 0.98);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      padding: 40px;
+      margin-bottom: 30px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      text-align: center;
+    }
+    .logo {
+      font-size: 48px;
+      margin-bottom: 20px;
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));
+    }
+    h1 {
+      margin: 0 0 10px 0;
+      font-size: 2.5em;
+      font-weight: 800;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .tagline {
+      font-size: 1.1em;
+      color: #666;
+      margin-bottom: 20px;
+    }
+    .version {
+      display: inline-block;
+      background: #f0f0f0;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.85em;
+      color: #666;
+      margin-bottom: 15px;
+    }
+    .quick-links {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-block;
+      padding: 10px 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 600;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+    }
+    .btn-secondary {
+      background: white;
+      color: #667eea;
+      border: 2px solid #667eea;
+    }
+    .section {
+      background: rgba(255, 255, 255, 0.98);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      padding: 30px;
+      margin-bottom: 20px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    }
+    h2 {
+      margin-top: 0;
+      font-size: 1.8em;
+      font-weight: 700;
+      color: #2d3748;
+      border-bottom: 3px solid #667eea;
+      padding-bottom: 10px;
+    }
+    h3 {
+      font-size: 1.3em;
+      font-weight: 600;
+      color: #4a5568;
+      margin-top: 1.5em;
+    }
+    h4 {
+      font-size: 1.1em;
+      font-weight: 500;
+      color: #718096;
+      font-style: italic;
+    }
+    code {
+      font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
+      background: #f7fafc;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.9em;
+      color: #d73a49;
+      font-weight: 600;
     }
     pre {
-      background: white;
-      padding: 1em;
+      background: #1a202c;
+      color: #e2e8f0;
+      padding: 20px;
+      border-radius: 8px;
       overflow-x: auto;
-      border-left: 3px solid black;
+      font-size: 0.9em;
+      line-height: 1.5;
+      box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+    pre code {
+      background: transparent;
+      padding: 0;
+      color: #e2e8f0;
       font-weight: normal;
     }
     .method {
       display: inline-block;
-      background: black;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
-      padding: 0.15em 0.5em;
-      font-weight: bold;
+      padding: 4px 12px;
+      border-radius: 6px;
+      font-weight: 700;
       font-size: 0.85em;
-      margin-right: 0.5em;
+      margin-right: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
     .path {
-      font-family: monospace;
-      font-weight: bold;
+      font-family: "SF Mono", Monaco, monospace;
+      font-weight: 600;
+      color: #667eea;
     }
     .tabs {
       display: flex;
-      gap: 0.25em;
-      margin: 0.5em 0;
+      gap: 4px;
+      margin: 15px 0 10px 0;
+      border-bottom: 2px solid #e2e8f0;
     }
     .tab {
-      padding: 0.5em 1em;
-      background: white;
-      border: 1px solid black;
+      padding: 10px 20px;
+      background: transparent;
+      border: none;
       cursor: pointer;
-      font-size: 0.9em;
-      font-weight: bold;
+      font-size: 0.95em;
+      font-weight: 600;
+      color: #718096;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s;
     }
-    .tab.active { background: black; color: white; }
-    .tab-content { display: none; }
+    .tab:hover { color: #667eea; }
+    .tab.active {
+      color: #667eea;
+      border-bottom-color: #667eea;
+    }
+    .tab-content { display: none; margin-top: 10px; }
     .tab-content.active { display: block; }
     .notes {
-      background: white;
-      padding: 1em;
-      margin: 2em 0;
-      border-left: 3px solid black;
+      background: linear-gradient(135deg, #fef5e7 0%, #fdebd0 100%);
+      border-left: 4px solid #f39c12;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
     }
-    .notes ul { margin-left: 1.5em; }
+    .notes h3 { margin-top: 0; color: #e67e22; }
+    .notes ul { margin: 10px 0 0 20px; }
+    .notes li { margin-bottom: 8px; }
     .footer {
       text-align: center;
-      margin-top: 3em;
-      padding: 2em 0;
+      margin-top: 40px;
+      padding: 30px 0;
+      color: rgba(255, 255, 255, 0.9);
     }
-    .footer a { color: black; }
-    a { color: black; text-decoration: underline; }
-    .version { font-style: italic; opacity: 0.7; }
+    .footer a {
+      color: white;
+      text-decoration: none;
+      font-weight: 600;
+      padding: 8px 16px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      margin: 0 5px;
+      transition: background 0.2s;
+    }
+    .footer a:hover { background: rgba(255, 255, 255, 0.3); }
+    a { color: #667eea; text-decoration: none; font-weight: 600; }
+    a:hover { text-decoration: underline; }
+    .endpoint-card {
+      border-left: 4px solid #667eea;
+      padding-left: 20px;
+      margin-bottom: 40px;
+    }
+    @media (max-width: 768px) {
+      .header { padding: 30px 20px; }
+      h1 { font-size: 2em; }
+      .section { padding: 20px; }
+      .tabs { flex-wrap: wrap; }
+    }
   </style>
 </head>
 <body>
-  <h1>${docs.title}</h1>
-  <p class="version">Version ${docs.version}</p>
-  <p>${docs.description}</p>
-  <p><a href="?format=json">View as JSON</a></p>
-  <hr>
+  <div class="container">
+    <div class="header">
+      <div class="logo">🎨💻✨</div>
+      <h1>${docs.title}</h1>
+      <p class="tagline">${docs.description}</p>
+      <div class="version">v${docs.version}</div>
+      <div class="quick-links">
+        <a href="?format=json" class="btn btn-secondary">📄 View as JSON</a>
+        <a href="https://aesthetic.computer" class="btn">🏠 Go to Site</a>
+        <a href="https://github.com/whistlegraph/aesthetic-computer" class="btn">⚡ GitHub</a>
+      </div>
+    </div>
 
-  <h2>🤖 MCP Server</h2>
-  <p><strong>${docs.mcp.title}:</strong> ${docs.mcp.description}</p>
-  <p><strong>Package:</strong> <code>${docs.mcp.package}</code></p>
-  <p><strong>Install:</strong> <code>${docs.mcp.install}</code></p>
-  <p><a href="${docs.mcp.repository}">View on GitHub</a></p>
+    <div class="section">
+      <h2>🤖 MCP Server</h2>
+      <p><strong>${docs.mcp.title}:</strong> ${docs.mcp.description}</p>
+      <p><strong>📦 Package:</strong> <code>${docs.mcp.package}</code></p>
+      <p><strong>⚡ Install:</strong> <code>${docs.mcp.install}</code></p>
+      <p><a href="${docs.mcp.repository}">📂 View on GitHub →</a></p>
 
   <h3>Tools</h3>
   ${docs.mcp.tools.map(tool => `
@@ -740,20 +892,21 @@ function generateHTML(docs) {
     <p>Arguments: ${prompt.arguments.join(', ')}</p>
   `).join('')}
 
-  <h3>Configuration Examples</h3>
-  ${Object.entries(docs.mcp.configuration).map(([client, config]) => `
-    <h4>${client}</h4>
-    <pre>${escapeHTML(config)}</pre>
-  `).join('')}
+      <h3>⚙️ Configuration Examples</h3>
+      ${Object.entries(docs.mcp.configuration).map(([client, config]) => `
+        <h4>${client}</h4>
+        <pre><code>${escapeHTML(config)}</code></pre>
+      `).join('')}
+    </div>
 
-  <hr>
+    <div class="section">
+      <h2>📡 HTTP Endpoints</h2>
 
-  <h2>📡 HTTP Endpoints</h2>
-
-  ${docs.endpoints.map((endpoint, idx) => `
-    <h2><span class="method">${endpoint.method}</span> ${endpoint.name}</h2>
-    <p><code class="path">${docs.baseURL}${endpoint.path}</code></p>
-    <p>${endpoint.description}</p>
+      ${docs.endpoints.map((endpoint, idx) => `
+        <div class="endpoint-card">
+          <h3><span class="method">${endpoint.method}</span> ${endpoint.name}</h3>
+          <p><code class="path">${docs.baseURL}${endpoint.path}</code></p>
+          <p>${endpoint.description}</p>
 
       ${endpoint.examples.map((example, exIdx) => `
         <h3>${example.title}</h3>
@@ -775,26 +928,30 @@ function generateHTML(docs) {
           <pre>${escapeHTML(example.python)}</pre>
         </div>
 
-        <h4>Response:</h4>
-        <pre>${JSON.stringify(example.response.body, null, 2)}</pre>
+          <h4>📬 Response:</h4>
+          <pre><code>${JSON.stringify(example.response.body, null, 2)}</code></pre>
+        `).join('')}
+        </div>
       `).join('')}
-  `).join('')}
+    </div>
 
-  <hr>
+    <div class="notes">
+      <h3>📝 Important Notes</h3>
+      <ul>
+        ${docs.notes.map(note => `<li>${note}</li>`).join('')}
+      </ul>
+    </div>
 
-  <div class="notes">
-    <h3>Important Notes</h3>
-    <ul>
-      ${docs.notes.map(note => `<li>${note}</li>`).join('')}
-    </ul>
-  </div>
-
-  <div class="footer">
-    <p>
-      ${docs.relatedResources.map(r =>
-        `<a href="${r.url}" target="_blank">${r.name}</a>`
-      ).join(' · ')}
-    </p>
+    <div class="footer">
+      <p>
+        ${docs.relatedResources.map(r =>
+          `<a href="${r.url}" target="_blank">${r.name}</a>`
+        ).join(' ')}
+      </p>
+      <p style="margin-top: 20px; opacity: 0.8;">
+        Made with 💜 by <a href="https://aesthetic.computer" style="background: transparent;">aesthetic.computer</a>
+      </p>
+    </div>
   </div>
 
   <script>
