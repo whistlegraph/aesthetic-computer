@@ -48,6 +48,8 @@ import {
   uint8ArrayToBase64,
   base64ToUint8Array,
 } from "./helpers.mjs";
+import { createRestrictedApi, shouldRestrictPiece } from "./restricted-api.mjs";
+import { clearPermissions } from "./piece-permissions.mjs";
 const { pow, abs, round, sin, random, min, max, floor, cos } = Math;
 const { keys } = Object;
 
@@ -145,6 +147,27 @@ if (typeof globalThis !== "undefined") {
   }
 }
 
+// Fetch piece metadata (trust level, author, etc.) from API
+async function fetchPieceMetadata(pieceCode) {
+  try {
+    const { protocol, hostname } = getSafeUrlParts();
+    const apiUrl = `${protocol}//${hostname}/api/piece-metadata?code=${encodeURIComponent(pieceCode)}`;
+
+    const response = await fetch(apiUrl);
+    if (!response.ok) {
+      console.warn(`⚠️  Failed to fetch metadata for piece: ${pieceCode}`);
+      return { code: pieceCode, trustLevel: "untrusted", anonymous: true };
+    }
+
+    const metadata = await response.json();
+    return metadata;
+  } catch (error) {
+    console.warn(`⚠️  Error fetching piece metadata:`, error);
+    // Default to untrusted on error
+    return { code: pieceCode, trustLevel: "untrusted", anonymous: true };
+  }
+}
+
 // Helper function to safely check for sandboxed environments in both main thread and worker contexts
 function isSandboxed() {
   try {
@@ -152,7 +175,7 @@ function isSandboxed() {
     if (typeof window !== "undefined" && window.acSPIDER) {
       return true; // Spider mode should behave like sandboxed for URL construction
     }
-    
+
     // In workers, window is undefined but we can still check self.origin or location
     if (typeof window !== "undefined") {
       return window.origin === "null";
@@ -1657,6 +1680,7 @@ function enableFrameBasedMonitoring() {
 // 🎨 Broadcast throttling to prevent infinite loops
 let lastBroadcastTime = 0;
 let broadcastThrottleDelay = 100; // Minimum ms between broadcasts
+let pieceMetadata = null; // Metadata for current piece (trustLevel, etc.)
 let currentPath,
   currentHost,
   currentSearch,
@@ -7399,9 +7423,16 @@ async function load(
         // );
         sourceCode = sourceToRun;
         originalCode = sourceCode;
-        
+
+        // 🔒 KidLisp pieces are always restricted (safe by design)
+        pieceMetadata = {
+          code: slug || "kidlisp",
+          trustLevel: "kidlisp",
+          anonymous: true
+        };
+
         log.lisp.log("Initializing KidLisp piece...");
-        
+
         // Notify boot progress
         const compileStartTime = performance.now();
         const fetchElapsed = Math.round(compileStartTime - fetchStartTime);
@@ -7461,6 +7492,31 @@ async function load(
 
         // Initialize persistent image cache for paste/stamp (also for .mjs pieces)
         imageCache.init(store);
+
+        // 🔒 Fetch piece metadata for security restrictions
+        if (slug && !devReload) {
+          try {
+            // Clear permissions from previous piece
+            if (pieceMetadata?.code) {
+              clearPermissions(pieceMetadata.code);
+            }
+
+            pieceMetadata = await fetchPieceMetadata(slug);
+            if (logs.loading) {
+              console.log(`🔒 Piece metadata:`, {
+                code: pieceMetadata.code,
+                trustLevel: pieceMetadata.trustLevel,
+                anonymous: pieceMetadata.anonymous
+              });
+            }
+          } catch (err) {
+            console.warn(`⚠️  Failed to fetch piece metadata, defaulting to untrusted:`, err);
+            pieceMetadata = { code: slug, trustLevel: "untrusted", anonymous: true };
+          }
+        } else {
+          // Dev reload or no slug - default to untrusted
+          pieceMetadata = { code: slug || "unknown", trustLevel: "untrusted", anonymous: true };
+        }
 
         originalCode = sourceToRun;
         const updatedCode = updateCode(sourceToRun, host, debug);
@@ -11597,14 +11653,11 @@ async function makeFrame({ data: { type, content } }) {
 
     // Act & Sim (Occurs after first boot and paint, `boot` occurs below.)
     if (booted && paintCount > 0n /*&& !leaving*/) {
-      const $api = {};
+      let $api = {};
       keys($commonApi).forEach((key) => ($api[key] = $commonApi[key]));
       keys($updateApi).forEach((key) => ($api[key] = $updateApi[key]));
       keys(painting.api).forEach((key) => ($api[key] = painting.api[key]));
       $api.api = $api; // Add a reference to the whole API.
-
-      cachedAPI = $api; // Remember this API for any other acts outside
-      // of this loop, like a focus change or custom act broadcast.
 
       // 🎮 Add gamepad helper API (separate event streams per gamepad)
       $api.gamepads = createGamepadAPI(content.gamepads);
@@ -11613,6 +11666,14 @@ async function makeFrame({ data: { type, content } }) {
       $api.robo.setAPI($api);
 
       $api.inFocus = inFocus;
+
+      // 🔒 Apply security restrictions for untrusted pieces
+      if (pieceMetadata && shouldRestrictPiece(pieceMetadata)) {
+        $api = createRestrictedApi($api, pieceMetadata);
+      }
+
+      cachedAPI = $api; // Remember this API for any other acts outside
+      // of this loop, like a focus change or custom act broadcast.
 
       // Use screen.width/height instead of content.width/height to get the most up-to-date dimensions
       // content.width/height can be stale if a reframe just happened
@@ -12148,19 +12209,24 @@ async function makeFrame({ data: { type, content } }) {
 
     // 🖼 Paint
     if (content.needsRender) {
-      const $api = {};
+      let $api = {};
       keys($commonApi).forEach((key) => ($api[key] = $commonApi[key]));
       keys(painting.api).forEach((key) => ($api[key] = painting.api[key]));
       $api.api = $api; // Add a reference to the whole API.
-
-      cachedAPI = $api; // Remember this API for any other acts outside
-      // of this loop, like a focus change or custom act broadcast.
 
       // 🎮 Add gamepad helper API (separate event streams per gamepad)
       $api.gamepads = createGamepadAPI(content.gamepads);
 
       // Set the robo API context so it can send events
       $api.robo.setAPI($api);
+
+      // 🔒 Apply security restrictions for untrusted pieces
+      if (pieceMetadata && shouldRestrictPiece(pieceMetadata)) {
+        $api = createRestrictedApi($api, pieceMetadata);
+      }
+
+      cachedAPI = $api; // Remember this API for any other acts outside
+      // of this loop, like a focus change or custom act broadcast.
 
       // Object.assign($api, $commonApi);
       // Object.assign($api, painting.api);

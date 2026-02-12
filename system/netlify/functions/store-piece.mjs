@@ -206,6 +206,34 @@ export async function handler(event, context) {
       return respond(500, { error: 'Failed to upload piece to storage' });
     }
 
+    // Determine trust level
+    const anonymous = !user?.sub;
+    let trustLevel = "untrusted"; // Default to untrusted
+
+    if (user?.sub) {
+      // Check user's account age and piece count to determine trust
+      const userPieces = await collection.countDocuments({ user: user.sub });
+
+      // Get user's account creation date (from first piece or user record)
+      const firstPiece = await collection.findOne(
+        { user: user.sub },
+        { sort: { when: 1 } }
+      );
+
+      if (firstPiece) {
+        const accountAge = now - firstPiece.when;
+        const daysOld = accountAge / (1000 * 60 * 60 * 24);
+
+        // Trust criteria: 7+ days old AND 10+ pieces
+        if (daysOld >= 7 && userPieces >= 10) {
+          trustLevel = "trusted";
+          console.log(`✅ User ${user.sub} is trusted (${Math.floor(daysOld)} days, ${userPieces} pieces)`);
+        } else {
+          console.log(`⏳ User ${user.sub} is untrusted (${Math.floor(daysOld)} days, ${userPieces} pieces)`);
+        }
+      }
+    }
+
     // Create database record
     const doc = {
       code,
@@ -216,11 +244,14 @@ export async function handler(event, context) {
       lastAccessed: now,
       hits: 1,
       bucket,
+      anonymous,
+      trustLevel,
     };
 
     // Add optional fields
     if (user?.sub) {
       doc.user = user.sub;
+      doc.authorSub = user.sub;
       console.log(`🔗 Linked to user: ${user.sub}`);
     }
 
