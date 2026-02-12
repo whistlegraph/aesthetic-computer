@@ -8,6 +8,7 @@ import {
 } from "../lib/note-colors.mjs";
 import { drawMiniControllerDiagram } from "../lib/gamepad-diagram.mjs";
 import { detectChord } from "../lib/chord-detection.mjs";
+import { Ticker } from "../lib/ticker.mjs";
 
 /* 📝 Notes 
    - [] Make `slide` work with `composite`.
@@ -296,6 +297,9 @@ let zeroWaveformsCache = {
 let padsBase = null;
 let padsBaseKey = null;
 
+// 🎪 Bumper ticker for piece-specific top bar
+let bumperTicker = null;
+
 // 🎨 Color cache for performance - cleared when octave changes
 let colorCache = new Map();
 let colorCacheOctave = null;
@@ -349,7 +353,10 @@ const edges = "zx;']"; // below and above the octave
 //                       // or alt on   D E G A B for flats
 // This is a notes -> keys mapping, that uses v for c#
 
-const TOP_BAR_BOTTOM = 21;
+// Bumper bar (piece-specific top bar with branding)
+const BUMPER_HEIGHT = 18;
+
+const TOP_BAR_BOTTOM = BUMPER_HEIGHT + 21;
 const TOP_BAR_PIANO_HEIGHT = 10; // Mini piano strip in top bar
 const TRACK_HEIGHT = 25;
 const TRACK_GAP = 6;
@@ -1139,6 +1146,15 @@ async function boot({
   // ✨ Show ".com" superscript in the HUD corner label (notepat.com branding)
   hud.superscript(".com");
   dotComMode = true;
+
+  // 🎪 Initialize bumper ticker with piece branding
+  bumperTicker = new Ticker("notepat.com · Tap the pads to play · Press keys for notes", {
+    speed: 1,
+    separator: " · ",
+  });
+
+  // Hide HUD label (we'll render it in the bumper instead)
+  hud.label(undefined);
 
   // 🎹 Check if we're in DAW mode (loaded from Ableton M4L)
   dawMode = query?.daw === "1" || query?.daw === 1 || query?.daw === true;
@@ -2709,6 +2725,23 @@ function paint({
     box(0, screen.height - flashWidth, screen.width, flashWidth); // Bottom
     box(0, 0, flashWidth, screen.height); // Left
     box(screen.width - flashWidth, 0, flashWidth, screen.height); // Right
+  }
+
+  // 🎪 Draw bumper bar (piece-specific top bar with ticker)
+  if (!paintPictureOverlay && !projector) {
+    // Draw bumper background - dark gradient
+    ink(15, 15, 20, 220).box(0, 0, screen.width, BUMPER_HEIGHT);
+
+    // Update and render ticker
+    if (bumperTicker) {
+      const tickerText = bumperTicker.tick();
+
+      // Draw ticker text in bumper
+      ink(180, 200, 255).write(tickerText, { x: 4, y: 4, size: 1 });
+    }
+
+    // Draw subtle separator line at bottom of bumper
+    ink(40, 45, 60, 180).line(0, BUMPER_HEIGHT - 1, screen.width, BUMPER_HEIGHT - 1);
   }
 
   // 🎹 Draw mini piano strip in top bar (not in recital mode or fullscreen modes)
