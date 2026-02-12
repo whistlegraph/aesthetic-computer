@@ -2516,8 +2516,10 @@ function paint({
 
   // 🎨 Syntax highlight "notepat" HUD label based on active notes
   // Mapping: notepat → cdefgab (in order)
+  // Black keys (semitones) shown as dots: c#, d#, f#, g#, a#
   const notepatLetters = "notepat";
   const noteMapping = ['c', 'd', 'e', 'f', 'g', 'a', 'b'];
+  const blackKeyMapping = ['c#', 'd#', null, 'f#', 'g#', 'a#', null]; // null = no black key after
   let coloredLabel = "";
 
   for (let i = 0; i < notepatLetters.length; i++) {
@@ -2556,6 +2558,45 @@ function paint({
       const g = Math.floor(color[1] * 0.35);
       const b = Math.floor(color[2] * 0.35);
       coloredLabel += `\\${r},${g},${b}\\${char}\\r\\`;
+    }
+
+    // Add tick dot for black key (semitone) if one exists after this note
+    const blackKey = blackKeyMapping[i];
+    if (blackKey) {
+      const blackLowerActive = sounds[blackKey];
+      const blackUpperActive = sounds['+' + blackKey];
+
+      if (blackLowerActive || blackUpperActive) {
+        const blackColor = getCachedColor(blackKey, num);
+
+        // Both octaves: blink
+        if (blackLowerActive && blackUpperActive) {
+          const blinkPhase = Math.floor(paintCount / 3) % 2;
+          const brightness = blinkPhase === 0 ? 0 : 100;
+          const r = Math.min(255, blackColor[0] + brightness);
+          const g = Math.min(255, blackColor[1] + brightness);
+          const b = Math.min(255, blackColor[2] + brightness);
+          coloredLabel += `\\${r},${g},${b}\\·\\r\\`;
+        }
+        // Upper octave only: brighter
+        else if (blackUpperActive) {
+          const r = Math.min(255, blackColor[0] + 60);
+          const g = Math.min(255, blackColor[1] + 60);
+          const b = Math.min(255, blackColor[2] + 60);
+          coloredLabel += `\\${r},${g},${b}\\·\\r\\`;
+        }
+        // Lower octave only: normal color
+        else {
+          coloredLabel += `\\${blackColor[0]},${blackColor[1]},${blackColor[2]}\\·\\r\\`;
+        }
+      } else {
+        // Inactive: faded black key tick
+        const blackColor = getCachedColor(blackKey, num);
+        const r = Math.floor(blackColor[0] * 0.35);
+        const g = Math.floor(blackColor[1] * 0.35);
+        const b = Math.floor(blackColor[2] * 0.35);
+        coloredLabel += `\\${r},${g},${b}\\·\\r\\`;
+      }
     }
   }
 
@@ -5722,18 +5763,11 @@ function act({
     }
   }
 
-  if (e.is("keyboard:down:.") && !e.repeat) {
-    upperOctaveShift += 1;
-  }
-
-  if (e.is("keyboard:down:,") && !e.repeat) {
-    upperOctaveShift -= 1;
-  }
-
   // 🏠 Room mode toggle (/ key) - global reverb
   if (e.is("keyboard:down:/") && !e.repeat) {
     roomMode = !roomMode;
     room.toggle();
+    api.beep(roomMode ? 500 : 400); // Higher pitch when enabled
   }
 
   // 🧩 Glitch mode toggle (backspace key) - global raw synth effect
@@ -5741,6 +5775,7 @@ function act({
     glitchMode = !glitchMode;
     glitch?.toggle?.();
     cleanupOrphanedSounds(pens, true);
+    api.beep(glitchMode ? 500 : 400); // Higher pitch when enabled
   }
 
   if (
@@ -5750,6 +5785,7 @@ function act({
     e.code === "ShiftLeft"
   ) {
     quickFade = !quickFade;
+    api.beep(quickFade ? 500 : 400); // Higher pitch when enabled
   }
 
   if (
@@ -5760,6 +5796,7 @@ function act({
   ) {
     // console.log("Code:", e.code);
     slide = !slide;
+    api.beep(slide ? 500 : 400); // Higher pitch when enabled
 
     if (slide && Object.keys(tonestack).length > 1) {
       const orderedTones = orderedByCount(tonestack);
@@ -6560,8 +6597,8 @@ function act({
     // 🎛️ Toggle button interactions
     slideBtn?.act(e, {
       push: () => {
-        api.beep();
         slide = !slide;
+        api.beep(slide ? 500 : 400); // Higher pitch when enabled
         // Kill extra tones when enabling slide mode (keep only most recent)
         if (slide && Object.keys(tonestack).length > 1) {
           const orderedTones = orderedByCount(tonestack);
@@ -6582,9 +6619,9 @@ function act({
 
     roomBtn?.act(e, {
       push: () => {
-        api.beep();
         roomMode = !roomMode;
         room.toggle();
+        api.beep(roomMode ? 500 : 400); // Higher pitch when enabled
       },
     });
 
@@ -6606,9 +6643,9 @@ function act({
 
     glitchBtn?.act(e, {
       push: () => {
-        api.beep();
         glitchMode = !glitchMode;
         glitch?.toggle?.();
+        api.beep(glitchMode ? 500 : 400); // Higher pitch when enabled
         // Clean up any stuck sounds when toggling glitch
         cleanupOrphanedSounds(pens, true);
       },
@@ -6616,8 +6653,8 @@ function act({
 
     quickBtn?.act(e, {
       push: () => {
-        api.beep();
         quickFade = !quickFade;
+        api.beep(quickFade ? 500 : 400); // Higher pitch when enabled
       },
     });
 
