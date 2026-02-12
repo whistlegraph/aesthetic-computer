@@ -389,6 +389,71 @@ included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 external_node_modules = ["mongodb", "mongodb-connection-string-url"]
 included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME", "BUILDS_API_KEY"]
 
+[functions.auth-cli-callback]
+included_env_vars = ["AUTH0_DOMAIN", "AUTH0_CLIENT_ID", "AUTH0_CLIENT_SECRET"]
+
+[functions.ff1-proxy]
+included_env_vars = []
+
+[functions.firebase-config]
+included_env_vars = ["AC_FIREBASE_API_KEY", "AC_FIREBASE_AUTH_DOMAIN", "AC_FIREBASE_PROJECT_ID", "AC_FIREBASE_STORAGE_BUCKET", "AC_FIREBASE_MESSAGING_SENDER_ID", "AC_FIREBASE_APP_ID"]
+
+[functions.give-image]
+included_env_vars = []
+
+[functions.gives]
+external_node_modules = ["stripe"]
+included_env_vars = ["CONTEXT", "STRIPE_API_PRIV_KEY"]
+
+[functions.keep-update-confirm]
+included_env_vars = ["TEZOS_KEEPS_CONTRACT"]
+
+[functions.kidlisp-count]
+included_env_vars = []
+
+[functions.kidlisp-list]
+included_env_vars = []
+
+[functions.m4l-plugins]
+included_env_vars = []
+
+[functions.migrate-piece-paths]
+included_env_vars = ["ART_KEY", "ART_SECRET", "DO_SPACES_KEY", "DO_SPACES_SECRET"]
+
+[functions.news]
+included_env_vars = ["CONTEXT", "NETLIFY_DEV", "NODE_ENV"]
+
+[functions.news-api]
+included_env_vars = ["ADMIN_SUB"]
+
+[functions.news-guidelines]
+included_env_vars = []
+
+[functions.news-toll]
+external_node_modules = ["stripe"]
+included_env_vars = ["CONTEXT", "STRIPE_API_TEST_PRIV_KEY", "STRIPE_API_PRIV_KEY", "STRIPE_ENDPOINT_DEV_SECRET", "STRIPE_ENDPOINT_SECRET"]
+
+[functions.og-preview]
+included_env_vars = ["NETLIFY_DEV", "CONTEXT"]
+
+[functions.patch]
+included_env_vars = ["CONTEXT", "GITHUB_COPILOT_TOKEN"]
+
+[functions.permahandle]
+included_env_vars = []
+
+[functions.piece-dates]
+included_env_vars = []
+
+[functions.stories]
+included_env_vars = ["BUILDS_PASSWORD"]
+
+[functions.update-tezos-address]
+included_env_vars = []
+
+[functions.mugs]
+included_env_vars = []
+
 [dev]
 NODE_ENV = "development"
 publish = "public/"
