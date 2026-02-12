@@ -104,6 +104,38 @@ Start-Process -WindowStyle Hidden -FilePath "code" -ArgumentList `
 Write-Host "✓ VS Code launched" -ForegroundColor Green
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# Install SSL certificate (if needed)
+# ═══════════════════════════════════════════════════════════════════════════════
+Write-Host "› Checking SSL certificate..." -ForegroundColor Magenta
+
+# Check if mkcert root CA is already trusted
+$certExists = Get-ChildItem -Path Cert:\LocalMachine\Root | Where-Object { $_.Subject -match "mkcert.*@aesthetic" }
+
+if (!$certExists) {
+    Write-Host "  ! SSL certificate not installed" -ForegroundColor Yellow
+    Write-Host "  › Installing SSL certificate from container..." -ForegroundColor Magenta
+
+    try {
+        # Copy certificate from container
+        $tempCert = "$env:TEMP\mkcert-rootCA.pem"
+        wsl -d Ubuntu -e docker cp aesthetic:/workspaces/aesthetic-computer/ssl-dev/rootCA.pem /tmp/rootCA.pem 2>$null
+        wsl -d Ubuntu -e cat /tmp/rootCA.pem | Out-File -FilePath $tempCert -Encoding ASCII
+
+        if (Test-Path $tempCert) {
+            Import-Certificate -FilePath $tempCert -CertStoreLocation Cert:\LocalMachine\Root | Out-Null
+            Remove-Item $tempCert
+            Write-Host "  ✓ SSL certificate installed (restart browser to apply)" -ForegroundColor Green
+        } else {
+            Write-Host "  ! Could not copy certificate from container" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  ! Certificate installation failed: $_" -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "  ✓ SSL certificate already trusted" -ForegroundColor Green
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # Clipboard listener (receives from container via netcat)
 # ═══════════════════════════════════════════════════════════════════════════════
 Write-Host ""
