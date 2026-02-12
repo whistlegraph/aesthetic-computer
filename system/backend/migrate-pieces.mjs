@@ -1,63 +1,39 @@
-// Migrate Piece Paths, 2026.02.12
-// One-time migration to simplify anonymous piece S3 paths
-// Changes slug from "YYYY/MM/DD/code" to just "code" for anonymous pieces
+#!/usr/bin/env node
+// Migrate Piece Paths - Standalone Script
+// Run with: node system/backend/migrate-pieces.mjs
 
-import { authorize } from "../../backend/authorization.mjs";
-import { connect } from "../../backend/database.mjs";
-import { respond } from "../../backend/http.mjs";
+import { connect } from "./database.mjs";
 import { S3Client, CopyObjectCommand, PutObjectAclCommand } from "@aws-sdk/client-s3";
 
-export async function handler(event, context) {
-  console.log(`🔧 Migration request: ${event.httpMethod} ${event.path || event.rawUrl || 'unknown'}`);
-
-  if (event.httpMethod === 'OPTIONS') {
-    return respond(204, '');
-  }
-
-  if (event.httpMethod !== 'POST') {
-    return respond(405, { error: 'Method not allowed' });
-  }
-
-  // Require admin authorization
-  let user;
-  try {
-    user = await authorize(event.headers);
-    console.log(`👤 User authorized: ${user.sub}`);
-  } catch (error) {
-    return respond(401, { error: 'Unauthorized - admin access required' });
-  }
-
-  // TODO: Add proper admin check here
-  // For now, just require any authenticated user
-  if (!user?.sub) {
-    return respond(401, { error: 'Unauthorized - admin access required' });
-  }
+async function migrate() {
+  console.log('🔧 Starting piece path migration...\n');
 
   let database;
   try {
     database = await connect();
+    console.log('✅ Connected to database\n');
   } catch (connectError) {
     console.error('❌ MongoDB connection failed:', connectError.message);
-    return respond(503, { error: 'Database temporarily unavailable' });
+    process.exit(1);
   }
 
   try {
     const collection = database.db.collection('pieces');
 
-    // Find all pieces that need S3 files copied (have oldSlug field)
+    // Find all anonymous pieces with date-based slugs
+    // Note: Some pieces may not have type/extension fields if published before those were added
     const piecesToMigrate = await collection.find({
-      needsS3Copy: true,
-      oldSlug: { $exists: true }
+      anonymous: true,
+      slug: /^\d{4}\/\d{2}\/\d{2}\//,  // Matches "YYYY/MM/DD/..." pattern
+      bucket: "art-aesthetic-computer"  // Anonymous pieces bucket
     }).toArray();
 
-    console.log(`📦 Found ${piecesToMigrate.length} pieces to migrate`);
+    console.log(`📦 Found ${piecesToMigrate.length} pieces to migrate\n`);
 
     if (piecesToMigrate.length === 0) {
+      console.log('✅ No pieces need migration');
       await database.disconnect();
-      return respond(200, {
-        message: 'No pieces need migration',
-        migrated: 0
-      });
+      process.exit(0);
     }
 
     const s3Client = new S3Client({
@@ -93,7 +69,7 @@ export async function handler(event, context) {
         });
 
         await s3Client.send(copyCommand);
-        console.log(`✅ Copied S3: ${oldSlug}.mjs → ${newSlug}.mjs`);
+        console.log(`   ✅ Copied S3: ${oldSlug}.mjs → ${newSlug}.mjs`);
 
         // Make the new file publicly readable
         const aclCommand = new PutObjectAclCommand({
@@ -104,24 +80,25 @@ export async function handler(event, context) {
 
         await s3Client.send(aclCommand);
 
-        // Update database record to mark S3 copy complete
+        // Update database record with new slug and add missing fields
         await collection.updateOne(
           { _id: piece._id },
           {
             $set: {
-              s3MigratedAt: new Date()
-            },
-            $unset: {
-              needsS3Copy: ""  // Remove flag after successful copy
+              slug: newSlug,
+              migratedAt: new Date(),
+              oldSlug: oldSlug,  // Keep reference to old path
+              type: "piece",      // Add if missing
+              extension: ".mjs"   // Add if missing
             }
           }
         );
 
-        console.log(`💾 Updated database for ${piece.code}`);
+        console.log(`   💾 Updated database for ${piece.code}\n`);
         results.migrated++;
 
       } catch (error) {
-        console.error(`❌ Failed to migrate ${piece.code}:`, error.message);
+        console.error(`   ❌ Failed to migrate ${piece.code}:`, error.message);
         results.errors.push({
           code: piece.code,
           error: error.message
@@ -129,16 +106,30 @@ export async function handler(event, context) {
       }
     }
 
-    await database.disconnect();
+    console.log('\n' + '='.repeat(50));
+    console.log('📊 Migration Results:');
+    console.log(`   Total: ${results.total}`);
+    console.log(`   ✅ Migrated: ${results.migrated}`);
+    console.log(`   ⏭️  Skipped: ${results.skipped}`);
+    console.log(`   ❌ Errors: ${results.errors.length}`);
 
-    return respond(200, {
-      message: 'Migration complete',
-      ...results
-    });
+    if (results.errors.length > 0) {
+      console.log('\n⚠️  Failed migrations:');
+      results.errors.forEach(err => {
+        console.log(`   - ${err.code}: ${err.error}`);
+      });
+    }
+
+    console.log('='.repeat(50));
+
+    await database.disconnect();
+    process.exit(results.errors.length > 0 ? 1 : 0);
 
   } catch (error) {
     console.error('❌ Migration error:', error);
     await database.disconnect();
-    return respond(500, { error: 'Migration failed', details: error.message });
+    process.exit(1);
   }
 }
+
+migrate();
