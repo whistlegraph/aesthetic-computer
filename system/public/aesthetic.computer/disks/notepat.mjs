@@ -2526,12 +2526,27 @@ function paint({
 
     if (lowerActive || upperActive) {
       const color = getCachedColor(note, num);
-      // Brighten color for upper octave
-      const brightness = upperActive ? 60 : 0;
-      const r = Math.min(255, color[0] + brightness);
-      const g = Math.min(255, color[1] + brightness);
-      const b = Math.min(255, color[2] + brightness);
-      coloredLabel += `\\${r},${g},${b}\\${char}\\r\\`;
+
+      // Both octaves: blink between normal and bright (double blink)
+      if (lowerActive && upperActive) {
+        const blinkPhase = Math.floor(paintCount / 3) % 2; // Fast blink every 3 frames
+        const brightness = blinkPhase === 0 ? 0 : 100;
+        const r = Math.min(255, color[0] + brightness);
+        const g = Math.min(255, color[1] + brightness);
+        const b = Math.min(255, color[2] + brightness);
+        coloredLabel += `\\${r},${g},${b}\\${char}\\r\\`;
+      }
+      // Upper octave only: brighter
+      else if (upperActive) {
+        const r = Math.min(255, color[0] + 60);
+        const g = Math.min(255, color[1] + 60);
+        const b = Math.min(255, color[2] + 60);
+        coloredLabel += `\\${r},${g},${b}\\${char}\\r\\`;
+      }
+      // Lower octave only: normal color
+      else {
+        coloredLabel += `\\${color[0]},${color[1]},${color[2]}\\${char}\\r\\`;
+      }
     } else {
       coloredLabel += char;
     }
