@@ -25,7 +25,7 @@ const { floor } = Math;
 export const boot = ({ net }) => {
   // Fetch plugins from API
   net
-    .fetch("/m4l-plugins")
+    .preload("/m4l-plugins")
     .then((data) => {
       plugins = data;
       loading = false;
