@@ -702,7 +702,7 @@ function generateHTML(docs) {
     .ascii-art {
       font-size: 10px;
       line-height: 1.2;
-      color: var(--accent);
+      color: var(--text-dim);
       margin-bottom: 1em;
       white-space: pre;
       font-family: monospace;
@@ -711,7 +711,7 @@ function generateHTML(docs) {
     h1 {
       font-size: 1.5em;
       font-weight: bold;
-      color: var(--accent);
+      color: var(--text);
       margin-bottom: 0.5em;
     }
 
@@ -722,8 +722,8 @@ function generateHTML(docs) {
 
     .version {
       display: inline-block;
-      border: 1px solid var(--accent);
-      color: var(--accent);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
       padding: 0.2em 0.5em;
       font-size: 0.85em;
       margin-bottom: 1em;
@@ -767,7 +767,7 @@ function generateHTML(docs) {
     h2 {
       font-size: 1.3em;
       font-weight: bold;
-      color: var(--accent);
+      color: var(--text);
       margin-bottom: 1em;
       border-bottom: 2px solid var(--border);
       padding-bottom: 0.5em;
@@ -828,7 +828,6 @@ function generateHTML(docs) {
 
     .path {
       font-weight: bold;
-      color: var(--accent);
     }
 
     .tabs {
@@ -869,14 +868,14 @@ function generateHTML(docs) {
     }
 
     .notes {
-      border: 2px solid var(--accent);
+      border: 2px solid var(--border);
       padding: 1em;
       margin: 1em 0;
       background: var(--bg-alt);
     }
 
     .notes h3 {
-      color: var(--accent);
+      color: var(--text);
       margin-bottom: 0.5em;
     }
 
@@ -890,17 +889,16 @@ function generateHTML(docs) {
     }
 
     .footer {
-      text-align: center;
       margin-top: 2em;
-      padding: 1em;
-      border-top: 2px solid var(--border);
+      padding-top: 1em;
+      border-top: 1px solid var(--border);
       color: var(--text-dim);
+      font-size: 0.9em;
     }
 
     .footer a {
       color: var(--link);
       text-decoration: none;
-      margin: 0 0.5em;
     }
 
     .footer a:hover {
@@ -919,7 +917,7 @@ function generateHTML(docs) {
     }
 
     .endpoint-card {
-      border-left: 3px solid var(--accent);
+      border-left: 3px solid var(--border);
       padding-left: 1em;
       margin: 2em 0;
     }
@@ -1025,12 +1023,9 @@ function generateHTML(docs) {
   </div>
 
   <div class="footer">
-    <p>
-      ${docs.relatedResources.map(r =>
-        `<a href="${r.url}" target="_blank">${r.name}</a>`
-      ).join(' | ')}
-    </p>
-    <p style="margin-top: 1em;">made with love by aesthetic.computer</p>
+    ${docs.relatedResources.map(r =>
+      `<a href="${r.url}" target="_blank">${r.name}</a>`
+    ).join(' • ')}
   </div>
 
   <script>
