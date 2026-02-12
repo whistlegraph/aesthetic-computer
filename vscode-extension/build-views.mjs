@@ -8,12 +8,12 @@ import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const processTreeJS = readFileSync(join(__dirname, 'views', 'process-tree.js'), 'utf-8');
+const processTreeJS = readFileSync(join(__dirname, 'views', 'process-tree-2d.js'), 'utf-8');
 const astTreeJS = readFileSync(join(__dirname, 'views', 'ast-tree.js'), 'utf-8');
 
 // Export for use in extension.ts at build time
 const output = `// Auto-generated - DO NOT EDIT DIRECTLY
-// Edit views/process-tree.js and views/ast-tree.js instead and run: node build-views.mjs
+// Edit views/process-tree-2d.js and views/ast-tree.js instead and run: node build-views.mjs
 
 export const PROCESS_TREE_JS = ${JSON.stringify(processTreeJS)};
 
@@ -21,5 +21,5 @@ export const AST_TREE_JS = ${JSON.stringify(astTreeJS)};
 `;
 
 writeFileSync(join(__dirname, 'generated-views.ts'), output);
-console.log('✅ Generated views/process-tree.js → generated-views.ts');
+console.log('✅ Generated views/process-tree-2d.js → generated-views.ts');
 console.log('✅ Generated views/ast-tree.js → generated-views.ts');
