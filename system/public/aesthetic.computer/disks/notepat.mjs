@@ -2561,57 +2561,6 @@ function paint({
 
   api.hud.label(coloredLabel, undefined, 0, "notepat");
 
-  // 🎹 Draw black key tick dots between letters (render separately to avoid spacing issues)
-  // Black keys (semitones) shown as small dots: c#, d#, f#, g#, a#
-  const blackKeyMapping = ['c#', 'd#', null, 'f#', 'g#', 'a#', null]; // null = no black key after
-  const hudLabelBaseX = 2; // HUD label starts at x=2
-  const hudLabelBaseY = 0; // HUD label at y=0
-  const letterSpacing = 4; // MatrixChunky8 letter width
-
-  for (let i = 0; i < notepatLetters.length; i++) {
-    const blackKey = blackKeyMapping[i];
-    if (blackKey) {
-      const dotX = hudLabelBaseX + (i + 1) * letterSpacing - 1; // Position between letters
-      const dotY = hudLabelBaseY + 6; // Vertically centered with text
-
-      const blackLowerActive = sounds[blackKey];
-      const blackUpperActive = sounds['+' + blackKey];
-      const blackColor = getCachedColor(blackKey, num);
-
-      let r, g, b;
-      if (blackLowerActive || blackUpperActive) {
-        // Both octaves: blink
-        if (blackLowerActive && blackUpperActive) {
-          const blinkPhase = Math.floor(paintCount / 3) % 2;
-          const brightness = blinkPhase === 0 ? 0 : 100;
-          r = Math.min(255, blackColor[0] + brightness);
-          g = Math.min(255, blackColor[1] + brightness);
-          b = Math.min(255, blackColor[2] + brightness);
-        }
-        // Upper octave only: brighter
-        else if (blackUpperActive) {
-          r = Math.min(255, blackColor[0] + 60);
-          g = Math.min(255, blackColor[1] + 60);
-          b = Math.min(255, blackColor[2] + 60);
-        }
-        // Lower octave only: normal color
-        else {
-          r = blackColor[0];
-          g = blackColor[1];
-          b = blackColor[2];
-        }
-      } else {
-        // Inactive: faded black key tick
-        r = Math.floor(blackColor[0] * 0.35);
-        g = Math.floor(blackColor[1] * 0.35);
-        b = Math.floor(blackColor[2] * 0.35);
-      }
-
-      // Draw small tick dot
-      ink(r, g, b).plot(dotX, dotY);
-    }
-  }
-
   // Hover state (for newbie-friendly overlays)
   let hoveredNote = null;
   let hoveredKeyLabel = null;
@@ -2848,6 +2797,57 @@ function paint({
 
       // Mask any ticker text that wraps to left side (fully opaque)
       ink(15, 15, 20, 255).box(0, 0, tickerStartX, BUMPER_HEIGHT);
+    }
+
+    // 🎹 Draw black key tick dots above letters in HUD label
+    // Black keys (semitones) shown as small dots: c#, d#, f#, g#, a#
+    const notepatLetters = "notepat";
+    const blackKeyMapping = ['c#', 'd#', null, 'f#', 'g#', 'a#', null]; // null = no black key after
+    const hudLabelBaseX = 2; // HUD label starts at x=2
+    const letterSpacing = 4; // MatrixChunky8 letter width
+
+    for (let i = 0; i < notepatLetters.length; i++) {
+      const blackKey = blackKeyMapping[i];
+      if (blackKey) {
+        const dotX = hudLabelBaseX + (i + 1) * letterSpacing - 1; // Position between letters
+        const dotY = 1; // Above the text (text is at y=2-9, so dot at y=1)
+
+        const blackLowerActive = sounds[blackKey];
+        const blackUpperActive = sounds['+' + blackKey];
+        const blackColor = getCachedColor(blackKey, num);
+
+        let r, g, b;
+        if (blackLowerActive || blackUpperActive) {
+          // Both octaves: blink
+          if (blackLowerActive && blackUpperActive) {
+            const blinkPhase = Math.floor(paintCount / 3) % 2;
+            const brightness = blinkPhase === 0 ? 0 : 100;
+            r = Math.min(255, blackColor[0] + brightness);
+            g = Math.min(255, blackColor[1] + brightness);
+            b = Math.min(255, blackColor[2] + brightness);
+          }
+          // Upper octave only: brighter
+          else if (blackUpperActive) {
+            r = Math.min(255, blackColor[0] + 60);
+            g = Math.min(255, blackColor[1] + 60);
+            b = Math.min(255, blackColor[2] + 60);
+          }
+          // Lower octave only: normal color
+          else {
+            r = blackColor[0];
+            g = blackColor[1];
+            b = blackColor[2];
+          }
+        } else {
+          // Inactive: faded black key tick
+          r = Math.floor(blackColor[0] * 0.35);
+          g = Math.floor(blackColor[1] * 0.35);
+          b = Math.floor(blackColor[2] * 0.35);
+        }
+
+        // Draw small tick dot (single pixel)
+        ink(r, g, b).plot(dotX, dotY);
+      }
     }
 
     // Draw subtle separator line at bottom of bumper
