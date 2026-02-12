@@ -6727,7 +6727,7 @@ function paint($) {
       if (cBox) {
         ink(40, 35, 20).box(cBox, "fill");
         ink(80, 70, 40).box(cBox, "outline");
-        commitBtn.btn.paint($, [255, 180, 80]);
+        commitBtn.paint($, [255, 180, 80]);
       }
       versionCommit = versionInfo.deployed;
     } else {
