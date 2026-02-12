@@ -10,7 +10,7 @@ if test -z "$batch_size"
 end
 
 # Load MongoDB credentials
-set -x MONGODB_CONNECTION_STRING "mongodb+srv://admin:REDACTED_ATLAS_PASSWORD@aesthetic.qencn.mongodb.net/?retryWrites=true&w=majority"
+set -x MONGODB_CONNECTION_STRING $MONGODB_CONNECTION_STRING
 set -x MONGODB_NAME "aesthetic"
 
 echo "🔍 Starting continuous chat message moderation test..."

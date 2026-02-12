@@ -3,7 +3,7 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { MongoClient } = require('/workspaces/aesthetic-computer/system/node_modules/mongodb');
 
-const uri = 'mongodb+srv://admin:REDACTED_ATLAS_PASSWORD@aesthetic.qencn.mongodb.net/?retryWrites=true&w=majority';
+const uri = process.env.MONGODB_CONNECTION_STRING;
 const dbName = 'aesthetic';
 
 async function main() {
