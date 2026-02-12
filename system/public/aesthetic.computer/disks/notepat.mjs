@@ -2794,14 +2794,6 @@ function paint({
       const tickerStartX = 90;
       const tickerWidth = screen.width - tickerStartX;
 
-      // Highlight ticker if hovered
-      if (bumperTickerHovered) {
-        ink(220, 240, 255);
-      } else {
-        ink(180, 200, 255);
-      }
-      bumperTicker.paint(api, tickerStartX, 4, { width: tickerWidth });
-
       // Store ticker bounds for click detection
       bumperTickerBounds = {
         x: tickerStartX,
@@ -2810,9 +2802,24 @@ function paint({
         h: BUMPER_HEIGHT
       };
 
+      // Hover highlight background (like uniticker in prompt.mjs)
+      if (bumperTickerHovered) {
+        ink(80, 100, 180, 50).box(tickerStartX, 0, tickerWidth, BUMPER_HEIGHT);
+        ink(180, 140, 240, 230).line(tickerStartX, 0, tickerStartX + tickerWidth, 0);
+        ink(180, 140, 240, 230).line(tickerStartX, BUMPER_HEIGHT - 1, tickerStartX + tickerWidth, BUMPER_HEIGHT - 1);
+      }
+
+      // Ticker text (brighter on hover)
+      if (bumperTickerHovered) {
+        ink(240, 250, 255);
+      } else {
+        ink(180, 200, 255);
+      }
+      bumperTicker.paint(api, tickerStartX, 4, { width: tickerWidth });
+
       // Draw underline if hovered
       if (bumperTickerHovered) {
-        ink(220, 240, 255, 128).box(tickerStartX, BUMPER_HEIGHT - 2, tickerWidth, 1);
+        ink(220, 240, 255, 180).box(tickerStartX, BUMPER_HEIGHT - 2, tickerWidth, 1);
       }
 
       // Mask any ticker text that wraps to left side (fully opaque)
@@ -5739,10 +5746,10 @@ function act({
         pen.y < bumperTickerBounds.y + bumperTickerBounds.h;
     }
 
-    // Handle click - navigate to ableton plugin manager
+    // Handle click - open ableton plugin manager in new window
     if (e.is("touch") && bumperTickerHovered) {
       synth({ type: "sine", tone: 440, beats: 0.1, volume: 0.3 });
-      api.jump("ableton");
+      window.open("https://aesthetic.computer/ableton", "_blank");
       return;
     }
   }

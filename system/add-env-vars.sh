@@ -17,8 +17,8 @@ npx netlify env:set ART_ENDPOINT "sfo3.digitaloceanspaces.com" --context product
 npx netlify env:set USER_ENDPOINT "sfo3.digitaloceanspaces.com" --context production
 npx netlify env:set WAND_ENDPOINT "sfo3.digitaloceanspaces.com" --context production
 
-# Add MongoDB credentials
-npx netlify env:set MONGODB_CONNECTION_STRING "mongodb+srv://admin:REDACTED_ATLAS_PASSWORD@aesthetic.qencn.mongodb.net/?retryWrites=true&w=majority" --context production
+# Add MongoDB credentials (Silo - self-hosted)
+npx netlify env:set MONGODB_CONNECTION_STRING "mongodb://aesthetic_app:REDACTED_SILO_PASSWORD@silo.aesthetic.computer:27017/aesthetic?authSource=aesthetic&replicaSet=rs0" --context production
 npx netlify env:set MONGODB_NAME "aesthetic" --context production
 
 echo "Done! Environment variables added to Netlify production."

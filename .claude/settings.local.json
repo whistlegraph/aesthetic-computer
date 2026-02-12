@@ -72,11 +72,16 @@
       "Bash(openssl rand:*)",
       "Bash(git status:*)",
       "Bash(gh api:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(npx netlify env:set:*)",
+      "Bash(npx netlify deploy:*)",
+      "Bash(./utilities/generate-piece-commits.sh:*)",
+      "Bash(npx netlify status)"
     ],
     "additionalDirectories": [
       "/home/me/.claude",
-      "/tmp"
+      "/tmp",
+      "/workspaces/aesthetic-computer/utilities"
     ]
   }
 }

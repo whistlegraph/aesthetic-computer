@@ -99,12 +99,15 @@ let commands = {};
 let userPieces = {};     // User-created pieces from MongoDB
 let hitStats = {};       // { pieceName: hitCount }
 let pieceDates = {};     // { pieceName: { created: Date, author: string } }
+let pieceCommits = {};   // { pieceName: { message: string, date: string, author: string, hash: string } }
 let currentTab = "all"; // "all" | "pieces" | "commands" | "popular" | "user"
 let expandedCategories = new Set();
 let scroll = 0;
 let selectedItem = null;
 let anyDown = false;
 let layoutMode = "large"; // "tiny" | "small" | "medium" | "large"
+let sortBy = "name";     // "name" | "edited" | "hits" | "desc"
+let sortDir = "asc";     // "asc" | "desc"
 
 // 🔗 Confirmation modal for navigation
 // { name: string, type: "piece"|"command", desc: string, yesBtn, noBtn, hoverYes, hoverNo }
@@ -114,6 +117,7 @@ let confirmModal = null;
 let tabButtons = [];
 let itemButtons = [];
 let categoryButtons = [];
+let sortButtons = []; // Sort column buttons for "all" tab
 
 // Cached data
 let allItems = [];      // Flat list for "all" tab
@@ -136,13 +140,14 @@ async function boot({ ui, net, store, params, screen }) {
   // Determine layout mode
   updateLayoutMode(screen);
   
-  // Fetch docs, hit stats, and user pieces in parallel
+  // Fetch docs, hit stats, user pieces, and commits in parallel
   if (!params[0]) {
-    const [docsResult, hitsResult, userResult, datesResult] = await Promise.all([
+    const [docsResult, hitsResult, userResult, datesResult, commitsResult] = await Promise.all([
       net.requestDocs(),
       fetch("/api/piece-hit?top=100").then(r => r.json()).catch(() => ({ pieces: [] })),
       fetch("/api/kidlisp-list?limit=200").then(r => r.json()).catch(() => ({ pieces: [] })),
       fetch("/api/piece-dates").then(r => r.json()).catch(() => ({ dates: {} })),
+      fetch("/api/piece-commits").then(r => r.json()).catch(() => ({ commits: {} })),
     ]);
     
     docs = docsResult;
@@ -171,6 +176,9 @@ async function boot({ ui, net, store, params, screen }) {
     
     // Build piece dates map
     pieceDates = datesResult?.dates || {};
+
+    // Build piece commits map
+    pieceCommits = commitsResult?.commits || {};
     
     if (docs) {
       // Separate pieces and commands, filter hidden
@@ -205,6 +213,8 @@ async function boot({ ui, net, store, params, screen }) {
       scroll = (await store.retrieve("list:scroll:" + currentTab)) || 0;
       const savedExpanded = await store.retrieve("list:expanded");
       if (savedExpanded) expandedCategories = new Set(savedExpanded);
+      sortBy = (await store.retrieve("list:sortBy")) || "name";
+      sortDir = (await store.retrieve("list:sortDir")) || "asc";
       
       // Build visible items
       rebuildVisibleItems(ui);
@@ -289,18 +299,53 @@ function buildCategorizedLists(ui) {
   }
 }
 
-// Build flat alphabetical list for "all" tab
+// Build flat alphabetical list for "all" tab with sorting support
 function buildAllList(ui) {
   const combined = {
     ...Object.fromEntries(keys(pieces).map(k => [k, { ...pieces[k], _type: "piece" }])),
     ...Object.fromEntries(keys(commands).map(k => [k, { ...commands[k], _type: "command" }])),
   };
-  
-  allItems = keys(combined).sort().map(name => ({
+
+  allItems = keys(combined).map(name => ({
     name,
     data: combined[name],
     type: combined[name]._type,
+    hits: hitStats[name] || 0,
+    lastEdit: pieceCommits[name]?.date || pieceDates[name]?.created || null,
+    hasDesc: (combined[name]?.desc || "").length > 0,
   }));
+
+  // Sort based on current sort settings
+  sortAllItems();
+}
+
+// Sort allItems based on sortBy and sortDir
+function sortAllItems() {
+  const mult = sortDir === "asc" ? 1 : -1;
+
+  allItems.sort((a, b) => {
+    let result = 0;
+
+    if (sortBy === "name") {
+      result = a.name.localeCompare(b.name);
+    } else if (sortBy === "edited") {
+      // Sort by last edit date (newest first for desc, oldest for asc)
+      const aDate = a.lastEdit ? new Date(a.lastEdit) : new Date(0);
+      const bDate = b.lastEdit ? new Date(b.lastEdit) : new Date(0);
+      result = aDate - bDate;
+    } else if (sortBy === "hits") {
+      result = a.hits - b.hits;
+    } else if (sortBy === "desc") {
+      // Sort by whether has description (yes first), then alphabetically
+      if (a.hasDesc === b.hasDesc) {
+        result = a.name.localeCompare(b.name);
+      } else {
+        result = a.hasDesc ? -1 : 1;
+      }
+    }
+
+    return result * mult;
+  });
 }
 
 // Build popular list sorted by hit count (Top 100 style)
@@ -563,8 +608,33 @@ function paint({ wipe, ink, screen, dark, paintCount }) {
         const dateX = screen.width - dateWidth - 6;
         ink(pal.dateText).write(dateStr, { x: dateX, y: y + 2 }, undefined, undefined, false, COMPACT_FONT);
       }
-      // Description (if space allows and not in popular/user tab)
-      else if (maxDescLen > 0 && item.data?.desc && currentTab !== "popular" && currentTab !== "user") {
+      // Show metadata in All tab OR description in other tabs
+      else if (currentTab === "all" && layoutMode !== "tiny") {
+        // In All tab, show last edit date OR commit message based on sortBy
+        const commit = pieceCommits[item.name];
+
+        if (sortBy === "edited" && commit?.date) {
+          // When sorted by edited, show the date
+          const dateStr = formatShortDate(commit.date);
+          const dateWidth = dateStr.length * COMPACT_CHAR_WIDTH;
+          const dateX = screen.width - dateWidth - 6;
+          ink(pal.dateText).write(dateStr, { x: dateX, y: y + 2 }, undefined, undefined, false, COMPACT_FONT);
+        } else if (commit?.message && maxDescLen > 20) {
+          // Show last commit message if available
+          const descX = LEFT_MARGIN + item.name.length * 6 + 8 + indent;
+          const remainingSpace = floor((screen.width - descX - 4) / 6);
+          const commitMsg = truncate(commit.message, min(maxDescLen, remainingSpace));
+          ink(pal.description, 180).write(commitMsg, { x: descX, y: y + 1 });
+        } else if (maxDescLen > 0 && item.data?.desc) {
+          // Fallback to description if no commit
+          const descX = LEFT_MARGIN + item.name.length * 6 + 8 + indent;
+          const remainingSpace = floor((screen.width - descX - 4) / 6);
+          const desc = truncate(item.data.desc, min(maxDescLen, remainingSpace));
+          ink(pal.description).write(desc, { x: descX, y: y + 1 });
+        }
+      }
+      // Description (if space allows and not in popular/user/all tab)
+      else if (maxDescLen > 0 && item.data?.desc && currentTab !== "popular" && currentTab !== "user" && currentTab !== "all") {
         const descX = LEFT_MARGIN + item.name.length * 6 + 8 + indent;
         const remainingSpace = floor((screen.width - descX - 4) / 6);
         const desc = truncate(item.data.desc, min(maxDescLen, remainingSpace));
@@ -635,8 +705,39 @@ function paint({ wipe, ink, screen, dark, paintCount }) {
       tabButtons.push({ id, x: tabX - 2, y: tabY, w: tabWidth, h: TAB_HEIGHT });
       tabX += tabWidth + 6;
     });
+
+    // Sort controls (only for "all" tab)
+    if (currentTab === "all") {
+      const sortY = tabY + TAB_HEIGHT + 2;
+      const sortLabels = layoutMode === "small"
+        ? [["name", "Name"], ["desc", "Desc"], ["edited", "Edit"], ["hits", "Hits"]]
+        : [["name", "Name"], ["desc", "Desc?"], ["edited", "Edited"], ["hits", "Hits"]];
+
+      sortButtons = [];
+      let sortX = LEFT_MARGIN;
+
+      sortLabels.forEach(([id, label]) => {
+        const isActive = sortBy === id;
+        const arrow = isActive ? (sortDir === "asc" ? "↑" : "↓") : "";
+        const displayLabel = `${label}${arrow}`;
+        const btnWidth = displayLabel.length * COMPACT_CHAR_WIDTH + 4;
+
+        // Draw sort button
+        if (isActive) {
+          ink(pal.tabAll, 100).box(sortX, sortY, btnWidth, COMPACT_ROW_HEIGHT);
+        }
+        ink(isActive ? pal.tabAll : pal.tabInactive).write(
+          displayLabel,
+          { x: sortX + 2, y: sortY + 1 },
+          undefined, undefined, false, COMPACT_FONT
+        );
+
+        sortButtons.push({ id, x: sortX, y: sortY, w: btnWidth, h: COMPACT_ROW_HEIGHT });
+        sortX += btnWidth + 4;
+      });
+    }
   }
-  
+
   // === CONFIRMATION MODAL (overlay over everything) ===
   if (confirmModal) {
     const { name, type, desc } = confirmModal;
@@ -773,7 +874,7 @@ function act({ event: e, screen, hud, piece, jump, needsPaint, geo, beep }) {
   // Tab clicks
   if (e.is("touch") && layoutMode !== "tiny") {
     tabButtons.forEach(tab => {
-      if (e.x >= tab.x && e.x <= tab.x + tab.w && 
+      if (e.x >= tab.x && e.x <= tab.x + tab.w &&
           e.y >= tab.y && e.y <= tab.y + tab.h) {
         if (currentTab !== tab.id) {
           currentTab = tab.id;
@@ -784,7 +885,27 @@ function act({ event: e, screen, hud, piece, jump, needsPaint, geo, beep }) {
       }
     });
   }
-  
+
+  // Sort button clicks (only for "all" tab)
+  if (e.is("touch") && layoutMode !== "tiny" && currentTab === "all") {
+    sortButtons.forEach(btn => {
+      if (e.x >= btn.x && e.x <= btn.x + btn.w &&
+          e.y >= btn.y && e.y <= btn.y + btn.h) {
+        // Toggle sort direction if clicking same column, otherwise switch column
+        if (sortBy === btn.id) {
+          sortDir = sortDir === "asc" ? "desc" : "asc";
+        } else {
+          sortBy = btn.id;
+          sortDir = btn.id === "name" || btn.id === "desc" ? "asc" : "desc";
+        }
+        beep?.();
+        sortAllItems();
+        rebuildVisibleItems();
+        needsPaint();
+      }
+    });
+  }
+
   // Category expand/collapse
   if (e.is("touch") && layoutMode !== "tiny" && currentTab !== "all") {
     categoryButtons.forEach(cat => {
@@ -868,7 +989,9 @@ function leave({ store }) {
   store["list:tab"] = currentTab;
   store["list:scroll:" + currentTab] = scroll;
   store["list:expanded"] = Array.from(expandedCategories);
-  store.persist("list:tab", "list:scroll:" + currentTab, "list:expanded");
+  store["list:sortBy"] = sortBy;
+  store["list:sortDir"] = sortDir;
+  store.persist("list:tab", "list:scroll:" + currentTab, "list:expanded", "list:sortBy", "list:sortDir");
 }
 
 // 📰 Meta

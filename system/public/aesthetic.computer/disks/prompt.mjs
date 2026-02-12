@@ -6697,10 +6697,43 @@ function paint($) {
       }
     }
 
-    // 🚫 DEPRECATED: Handle Stats - now shown in uniticker instead
-    // Handles count is now displayed as a ticker item with the rest of the content
-    commitBtn = null;
-    versionCommit = null;
+    // 📦 Commit hash button - only show when client is behind main
+    if (versionInfo && versionInfo.status === "behind" && versionInfo.deployed) {
+      const commitText = versionInfo.deployed + (versionInfo.behindBy ? ` (${versionInfo.behindBy} behind)` : "");
+      // Position at bottom center, above the input bar
+      const pasteBox = $.system.prompt.input?.paste?.btn?.box;
+      const enterBox = $.system.prompt.input?.enter?.btn?.box;
+      let cBtnX, cBtnY;
+      if (pasteBox && enterBox) {
+        const gapStart = pasteBox.x + pasteBox.w;
+        const gapEnd = enterBox.x;
+        const gapCenter = gapStart + (gapEnd - gapStart) / 2;
+        const btnWidth = commitText.length * 4 + 4;
+        cBtnX = Math.floor(gapCenter - btnWidth / 2);
+        cBtnY = pasteBox.y;
+      } else {
+        const btnWidth = commitText.length * 4 + 4;
+        cBtnX = Math.floor(screen.width / 2 - btnWidth / 2);
+        cBtnY = screen.height - 18;
+      }
+      if (!commitBtn) {
+        commitBtn = new $.ui.TextButton(commitText, { x: cBtnX, y: cBtnY });
+      } else {
+        commitBtn.reposition({ x: cBtnX, y: cBtnY }, commitText);
+        commitBtn.btn.disabled = false;
+      }
+      // Paint with dim yellow/orange
+      const cBox = commitBtn.btn.box;
+      if (cBox) {
+        ink(40, 35, 20).box(cBox, "fill");
+        ink(80, 70, 40).box(cBox, "outline");
+        commitBtn.btn.paint($, [255, 180, 80]);
+      }
+      versionCommit = versionInfo.deployed;
+    } else {
+      commitBtn = null;
+      versionCommit = null;
+    }
 
     // 🚫 DEPRECATED: MOTD (Mood of the Day) - now shown in boot canvas2d initializer instead
     // The boot loader shows MOTDs faster with potential redis caching
