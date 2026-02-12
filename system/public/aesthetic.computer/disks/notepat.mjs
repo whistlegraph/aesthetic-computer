@@ -4119,8 +4119,8 @@ function paint({
     const sy = BUMPER_HEIGHT + 3; // Position below bumper
     const sh = 15; // screen.height - sy;
 
-    // Visualizer starts at left edge (flush with piano)
-    const vizStartX = 0;
+    // Visualizer starts after piano keys end
+    const vizStartX = topBarPianoEndX;
     const availableWidth = waveBtn.box.x - vizStartX;
 
     sound.paint.bars(
@@ -4189,8 +4189,10 @@ function paint({
         audioTextWidth = measureMatrixTextBoxWidth(tinyText, api, screen.width) || measureMatrixTextWidth(tinyText, typeface);
       }
       const totalBadgeWidth = audioTextWidth + audioPadding * 2;
-      // Center within visualizer bar area (0 to rightEdge)
-      audioBadgeX = Math.floor((rightEdge - totalBadgeWidth) / 2);
+      // Center within visualizer bar area (topBarPianoEndX to rightEdge)
+      const vizBarStart = topBarPianoEndX;
+      const vizBarWidth = rightEdge - vizBarStart;
+      audioBadgeX = vizBarStart + Math.floor((vizBarWidth - totalBadgeWidth) / 2);
       ink(180, 0, 0, 240).box(audioBadgeX, audioBadgeY, totalBadgeWidth, max(9, audioBadgeHeight));
       ink(255, 255, 0).write(audioText, { x: audioBadgeX + audioPadding, y: audioBadgeY + 2 }, undefined, undefined, false, "MatrixChunky8");
     }
