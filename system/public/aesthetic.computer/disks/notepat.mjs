@@ -5204,27 +5204,44 @@ function paint({
     for (let i = 0; i < notepatLetters.length; i++) {
       const blackKey = blackKeyMapping[i];
       if (blackKey) {
-        const dotX = hudLabelBaseX + (i + 1) * letterSpacing - 1; // Position between letters
-        const dotY = 1; // Above the text
+        const dotX = hudLabelBaseX + (i + 1) * letterSpacing + 1; // Position between letters (moved right)
+        const dotY = 3; // Above the text (moved down)
 
         const blackLowerActive = sounds[blackKey];
         const blackUpperActive = sounds['+' + blackKey];
         const blackColor = getCachedColor(blackKey, num);
 
-        let r, g, b, a;
+        let r, g, b;
         if (blackLowerActive || blackUpperActive) {
-          // Active: bright white for testing visibility
-          r = 255; g = 255; b = 255; a = 255;
+          // Both octaves: blink
+          if (blackLowerActive && blackUpperActive) {
+            const blinkPhase = Math.floor(paintCount / 3) % 2;
+            const brightness = blinkPhase === 0 ? 0 : 100;
+            r = Math.min(255, blackColor[0] + brightness);
+            g = Math.min(255, blackColor[1] + brightness);
+            b = Math.min(255, blackColor[2] + brightness);
+          }
+          // Upper octave only: brighter
+          else if (blackUpperActive) {
+            r = Math.min(255, blackColor[0] + 60);
+            g = Math.min(255, blackColor[1] + 60);
+            b = Math.min(255, blackColor[2] + 60);
+          }
+          // Lower octave only: normal color
+          else {
+            r = blackColor[0];
+            g = blackColor[1];
+            b = blackColor[2];
+          }
         } else {
           // Inactive: faded black key tick
           r = Math.floor(blackColor[0] * 0.35);
           g = Math.floor(blackColor[1] * 0.35);
           b = Math.floor(blackColor[2] * 0.35);
-          a = 180;
         }
 
-        // Draw 2x2 tick dot for better visibility
-        ink(r, g, b, a).box(dotX, dotY, 2, 2);
+        // Draw single pixel tick dot
+        ink(r, g, b).plot(dotX, dotY);
       }
     }
   }
