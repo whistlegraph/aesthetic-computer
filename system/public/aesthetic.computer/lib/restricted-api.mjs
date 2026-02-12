@@ -218,11 +218,12 @@ function createPermissionWrapper(fn, pieceCode, permission, errorMessage) {
  */
 function isAestheticComputerUrl(url) {
   try {
-    const parsed = new URL(url, location.href);
+    const loc = typeof location !== "undefined" ? location : self.location;
+    const parsed = new URL(url, loc.href);
     return (
       parsed.hostname === "aesthetic.computer" ||
       parsed.hostname.endsWith(".aesthetic.computer") ||
-      parsed.hostname === location.hostname
+      parsed.hostname === loc.hostname
     );
   } catch {
     return false;

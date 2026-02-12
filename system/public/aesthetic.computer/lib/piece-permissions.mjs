@@ -1,8 +1,15 @@
 // piece-permissions.mjs
 // Permission prompt system for untrusted pieces requesting sensitive APIs
+// Works in both main thread (DOM modal) and worker context (routes to bios.mjs)
 
 // Store granted permissions per piece (session-based)
 const grantedPermissions = new Map(); // pieceCode -> Set<permission>
+
+// Pending permission requests waiting for bios.mjs response (worker context)
+const pendingRequests = new Map(); // requestId -> { resolve }
+let nextRequestId = 0;
+
+const isWorker = typeof document === "undefined";
 
 /**
  * Request permission from the user for a sensitive operation
@@ -18,7 +25,7 @@ export async function requestPermission(pieceCode, permission, details = {}) {
     return true;
   }
 
-  // Show permission prompt
+  // Show permission prompt (routes through bios.mjs in worker context)
   const granted = await showPermissionPrompt(pieceCode, permission, details);
 
   if (granted) {
@@ -54,9 +61,40 @@ export function clearPermissions(pieceCode) {
 }
 
 /**
- * Show a permission prompt UI
+ * Resolve a pending permission request from bios.mjs (called from disk.mjs)
+ */
+export function resolvePermissionRequest(requestId, granted) {
+  const pending = pendingRequests.get(requestId);
+  if (pending) {
+    pending.resolve(granted);
+    pendingRequests.delete(requestId);
+  }
+}
+
+/**
+ * Show a permission prompt - routes to bios.mjs via postMessage in worker context
  */
 async function showPermissionPrompt(pieceCode, permission, details) {
+  if (isWorker) {
+    // In worker: send request to bios.mjs and wait for response
+    const requestId = nextRequestId++;
+    return new Promise((resolve) => {
+      pendingRequests.set(requestId, { resolve });
+      postMessage({
+        type: "permission-request",
+        content: { requestId, pieceCode, permission, details },
+      });
+    });
+  }
+
+  // In main thread: show DOM modal directly
+  return showDOMPermissionPrompt(pieceCode, permission, details);
+}
+
+/**
+ * Show a DOM-based permission modal (main thread only)
+ */
+function showDOMPermissionPrompt(pieceCode, permission, details) {
   return new Promise((resolve) => {
     const messages = {
       network: {
@@ -68,7 +106,7 @@ async function showPermissionPrompt(pieceCode, permission, details) {
       auth: {
         title: "Authentication Access",
         message: `The piece "${pieceCode}" wants to access your authentication tokens.`,
-        warning: "⚠️ This gives the piece access to your account credentials.",
+        warning: "This gives the piece access to your account credentials.",
         details: null,
       },
       "storage-full": {
@@ -142,10 +180,10 @@ async function showPermissionPrompt(pieceCode, permission, details) {
     }
 
     if (config.details) {
-      const details = document.createElement("p");
-      details.textContent = config.details;
-      details.style.cssText = "margin: 0 0 12px 0; font-family: monospace; font-size: 12px; word-break: break-all;";
-      dialog.appendChild(details);
+      const detailsEl = document.createElement("p");
+      detailsEl.textContent = config.details;
+      detailsEl.style.cssText = "margin: 0 0 12px 0; font-family: monospace; font-size: 12px; word-break: break-all;";
+      dialog.appendChild(detailsEl);
     }
 
     const buttonContainer = document.createElement("div");
