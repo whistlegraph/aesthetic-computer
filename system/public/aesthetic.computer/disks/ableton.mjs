@@ -22,12 +22,15 @@ let selectedCategory = null; // null = all, "instrument", "effect", "midi"
 
 const { floor } = Math;
 
-export const boot = ({ net }) => {
+export const boot = () => {
   // Fetch plugins from API
-  net
-    .preload("/m4l-plugins")
+  fetch("/m4l-plugins")
+    .then((res) => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    })
     .then((data) => {
-      plugins = data;
+      plugins = Array.isArray(data) ? data : [];
       loading = false;
       console.log(`📦 Loaded ${plugins.length} plugins`);
     })

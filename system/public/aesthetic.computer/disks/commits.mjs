@@ -40,6 +40,9 @@ let selectedCommit = null;
 const statsCache = new Map();
 const statsFetching = new Set();
 
+// GitHub link box for click detection
+let githubLinkBox = null;
+
 // Visual theming
 const FONT = "MatrixChunky8";
 const COLORS = {
@@ -329,7 +332,17 @@ function paint({ wipe, ink, screen, line, text, box, typeface, num, needsPaint, 
   
   // Draw decorative corner elements
   drawDecor(ink, line, box, w, h, pulsePhase);
-  
+
+  // Header: title left, GitHub link right
+  const headerY = 8;
+  ink(200, 200, 220).write("Commits", { x: 4, y: headerY }, false, undefined, false, FONT);
+  const ghText = "GitHub →";
+  const ghTextW = text.width(ghText, FONT);
+  const ghX = w - ghTextW - 4;
+  const ghGlow = 150 + sin(pulsePhase * 1.5) * 40;
+  ink(100, 140, 255, ghGlow).write(ghText, { x: ghX, y: headerY }, false, undefined, false, FONT);
+  githubLinkBox = { x: ghX - 2, y: headerY - 2, w: ghTextW + 4, h: 12 };
+
   // Top divider line with gradient effect
   const topLineY = topMargin - 1;
   for (let i = 0; i < w; i++) {
@@ -718,6 +731,15 @@ function act({ event: e, screen, store, jump }) {
     fetchCommits(1, false);
   }
   
+  // GitHub link click
+  if (e.is("touch") && githubLinkBox) {
+    const { x, y } = e;
+    if (x >= githubLinkBox.x && x <= githubLinkBox.x + githubLinkBox.w &&
+        y >= githubLinkBox.y && y <= githubLinkBox.y + githubLinkBox.h) {
+      jump(`out:https://github.com/${REPO}`);
+    }
+  }
+
   // Back to prompt
   if (e.is("keyboard:down:escape")) {
     jump("prompt");
