@@ -2734,9 +2734,9 @@ function paint({
     ink(15, 15, 20, 220).box(0, 0, screen.width, BUMPER_HEIGHT);
 
     // Calculate HUD label area (top-left for "notepat.com")
-    // Actual HUD renders "notepat" (~60px) + ".com" superscript (~30px) + padding
-    // Total width with padding: ~120px to ensure ticker starts after HUD
-    const hudLabelWidth = 120;
+    // Actual HUD: "notepat" (7 chars × 6px = 42px) + gap + ".com" (4 chars × ~5px = 20px)
+    // Total: ~42 + 2 + 20 + padding = 70px. Use 80px for safety.
+    const hudLabelWidth = 80;
 
     // Draw background box for HUD label area (title for the marquee)
     ink(25, 30, 40, 200).box(0, 0, hudLabelWidth, BUMPER_HEIGHT);
