@@ -1264,7 +1264,6 @@
       let isScrambling = false;
       let scrambleIntervalId = null;
       let pendingSource = null;
-      let pendingHighlightedHtml = null;
       let decodeResolver = null;
       let waitingForDecode = false;
       let currentBootMessage = ''; // Current boot message to weave into scramble
@@ -1293,7 +1292,6 @@
       
       // Per-character state for seeded rhythms
       let charStates = []; // { lastChange: timestamp, interval: ms, currentChar: string }
-      let charColors = []; // Per-character target colors based on syntax highlight
       let globalTick = 0;
 
       function scheduleScrambleColoring(inner) {
@@ -1442,12 +1440,8 @@
       }
 
       // Initialize per-character states from source
-      function initCharStates(source, highlightedHtml) {
+      function initCharStates(source) {
         const chars = source.split('');
-        charColors = buildColorMapFromHighlightedHtml(highlightedHtml);
-        if (charColors.length !== chars.length) {
-          charColors = new Array(chars.length).fill(null);
-        }
         charStates = chars.map((char, idx) => {
           if (char === '\n' || char === ' ' || char === '\t') {
             return { isWhitespace: true, char: char };
@@ -1462,7 +1456,6 @@
             interval: interval,
             lastChange: performance.now() - Math.random() * interval, // Stagger start times
             tickOffset: (seed + idx) % 20, // Phase offset for visual variety
-            color: charColors[idx] || null,
           };
         });
       }
@@ -1474,7 +1467,7 @@
         
         // Initialize states if needed
         if (charStates.length !== source.length) {
-          initCharStates(source, pendingHighlightedHtml);
+          initCharStates(source);
         }
         
         const result = charStates.map((state, idx) => {
@@ -1613,7 +1606,7 @@
       };
       
       // Start scramble animation - applies directly to Monaco
-      window.startScrambleAnimation = function(source, highlightedHtml) {
+      window.startScrambleAnimation = function(source) {
         const overlay = document.getElementById('source-overlay');
         if (!source || !window.deviceMonacoEditor) return;
 
@@ -1621,12 +1614,11 @@
         stopInitialScramble();
 
         pendingSource = source;
-        pendingHighlightedHtml = highlightedHtml;
         isScrambling = true;
         waitingForDecode = true;
 
         // Initialize per-character rhythms for the source
-        initCharStates(source, highlightedHtml);
+        initCharStates(source);
 
         console.log('📺 Starting Monaco scramble animation at 24fps...');
 
@@ -1637,8 +1629,8 @@
         }).join('');
         window.deviceMonacoEditor.setValue(initialScrambled);
 
-        // NOW apply syntax highlighting decorations (after setValue so they persist)
-        applyMonacoSyntaxHighlighting(source, highlightedHtml);
+        // Syntax highlighting is now handled automatically by MonacoKidLispHighlighter
+        // (Old manual decoration system removed)
 
         // Build scrambled text for Monaco
         function buildScrambledMonacoText(source) {
@@ -1791,15 +1783,12 @@
         if (window.deviceMonacoEditor && pendingSource) {
           window.deviceMonacoEditor.setValue(pendingSource);
 
-          // Re-apply syntax highlighting decorations after final setValue
-          if (pendingHighlightedHtml) {
-            applyMonacoSyntaxHighlighting(pendingSource, pendingHighlightedHtml);
-          }
+          // Syntax highlighting is now handled automatically by MonacoKidLispHighlighter
+          // (Old manual decoration system removed)
         }
 
         isScrambling = false;
         pendingSource = null;
-        pendingHighlightedHtml = null;
 
         if (decodeResolver) {
           decodeResolver();
@@ -2974,28 +2963,23 @@
       console.log('📺 Total:', decorations.length, 'Monaco syntax decorations with', colorStyles.size, 'colors');
     }
 
-    // Display syntax-highlighted source code with scramble animation
+    // Display source code with scramble animation
     function displaySourceCode(source) {
       if (!source) return;
 
       console.log('📺 displaySourceCode called with', source.length, 'chars');
 
-      // Generate highlighted HTML for syntax colors
-      const highlightedHtml = highlightKidlisp(source);
-
       // Stop any running scramble animation before starting new one
       if (window.stopScrambleAnimation) window.stopScrambleAnimation();
 
       // Start scramble animation in Monaco - will decode when piece starts running
+      // Note: Syntax highlighting is handled automatically by MonacoKidLispHighlighter
       if (window.startScrambleAnimation && window.deviceMonacoEditor) {
-        window.startScrambleAnimation(source, highlightedHtml);
+        window.startScrambleAnimation(source);
         console.log('📺 Monaco scramble animation started');
       } else if (window.deviceMonacoEditor) {
         // Fallback: show code immediately if scramble not available
         window.deviceMonacoEditor.setValue(source);
-        setTimeout(() => {
-          applyMonacoSyntaxHighlighting(source, highlightedHtml);
-        }, 100);
         console.log('📺 Source loaded into Monaco (no scramble)');
       } else {
         console.warn('📺 Monaco not ready yet');
