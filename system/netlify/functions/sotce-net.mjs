@@ -9073,6 +9073,28 @@ export const handler = async (event, context) => {
                     askEditorPage.style.transform = "scale(" + scale + ")";
                   }
 
+                  // Set the size of the respond editor if it's open.
+                  const respondEditorForm = document.getElementById("respond-editor-form");
+                  const respondEditorPage = document.getElementById("respond-editor-page");
+
+                  if (respondEditorForm) {
+                    respondEditorForm.style.width = binding.style.width;
+                    const baseWidth = 100 * 8;
+                    const goalWidth = respondEditorPage.parentElement.clientWidth;
+                    const scale = goalWidth / baseWidth;
+                    respondEditorPage.style.transform = "scale(" + scale + ")";
+                  }
+
+                  // Update nav widths to match top bar
+                  const topBarEl = document.getElementById("top-bar");
+                  if (topBarEl) {
+                    const navIds = ["nav-editor", "nav-ask-editor", "nav-respond-editor"];
+                    for (const id of navIds) {
+                      const navEl = document.getElementById(id);
+                      if (navEl) navEl.style.width = topBarEl.style.width;
+                    }
+                  }
+
                   const queryStart = performance.now();
                   // Only process VISIBLE pages (+ small buffer) for performance
                   const allPages = document.querySelectorAll(
