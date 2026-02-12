@@ -300,6 +300,8 @@ let padsBaseKey = null;
 
 // 🎪 Bumper ticker for piece-specific top bar
 let bumperTicker = null;
+let bumperTickerBounds = null;
+let bumperTickerHovered = false;
 
 // 🎨 Color cache for performance - cleared when octave changes
 let colorCache = new Map();
@@ -1151,7 +1153,7 @@ async function boot({
   dotComMode = true;
 
   // 🎪 Initialize bumper ticker with piece branding
-  bumperTicker = new Ticker("notepat.com · Tap the pads to play · Press keys for notes", {
+  bumperTicker = new Ticker("notepat.com · Tap the pads to play · Download M4L Plugins", {
     speed: 1,
     separator: " · ",
   });
@@ -2792,8 +2794,26 @@ function paint({
       const tickerStartX = 90;
       const tickerWidth = screen.width - tickerStartX;
 
-      ink(180, 200, 255);
+      // Highlight ticker if hovered
+      if (bumperTickerHovered) {
+        ink(220, 240, 255);
+      } else {
+        ink(180, 200, 255);
+      }
       bumperTicker.paint(api, tickerStartX, 4, { width: tickerWidth });
+
+      // Store ticker bounds for click detection
+      bumperTickerBounds = {
+        x: tickerStartX,
+        y: 0,
+        w: tickerWidth,
+        h: BUMPER_HEIGHT
+      };
+
+      // Draw underline if hovered
+      if (bumperTickerHovered) {
+        ink(220, 240, 255, 128).box(tickerStartX, BUMPER_HEIGHT - 2, tickerWidth, 1);
+      }
 
       // Mask any ticker text that wraps to left side (fully opaque)
       ink(15, 15, 20, 255).box(0, 0, tickerStartX, BUMPER_HEIGHT);
@@ -5704,6 +5724,27 @@ function act({
   if (recitalMode && e.is("touch") && e.y < TOP_BAR_BOTTOM) {
     recitalMode = false;
     return;
+  }
+
+  // 🎪 Bumper ticker hover and click handling
+  if (bumperTickerBounds && !recitalMode && !fullscreen && !notesVisualization && !song) {
+    const pen = pens();
+
+    // Track hover state
+    if ((e.is("move") || e.is("draw")) && pen) {
+      bumperTickerHovered =
+        pen.x >= bumperTickerBounds.x &&
+        pen.x < bumperTickerBounds.x + bumperTickerBounds.w &&
+        pen.y >= bumperTickerBounds.y &&
+        pen.y < bumperTickerBounds.y + bumperTickerBounds.h;
+    }
+
+    // Handle click - navigate to ableton plugin manager
+    if (e.is("touch") && bumperTickerHovered) {
+      synth({ type: "sine", tone: 440, beats: 0.1, volume: 0.3 });
+      api.jump("ableton");
+      return;
+    }
   }
 
   // � Handle top bar piano touches (before recital mode toggle check)
