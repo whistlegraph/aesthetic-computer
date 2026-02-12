@@ -2753,6 +2753,9 @@ function paint({
       // Render ticker at correct position
       ink(180, 200, 255);
       bumperTicker.paint(api, tickerStartX, 4, { width: tickerWidth });
+
+      // Mask ticker overflow by redrawing HUD label background on top
+      ink(25, 30, 40, 200).box(0, 0, hudLabelWidth, BUMPER_HEIGHT);
     }
 
     // Draw subtle separator line at bottom of bumper
