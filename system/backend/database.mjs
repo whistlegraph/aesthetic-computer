@@ -46,34 +46,23 @@ async function connect() {
   }
 
   // Try multiple connection strategies
+  // TLS is controlled by the connection string (mongodb+srv:// defaults to TLS,
+  // mongodb:// defaults to no TLS). Don't force tls: true here.
   const strategies = [
     {
       name: 'standard',
       options: {
-        // serverApi: {
-        //   version: '1',
-        //   strict: true,
-        //   deprecationErrors: true,
-        // },
-        tls: true,
-        directConnection: false,
         serverSelectionTimeoutMS: 10000,
         connectTimeoutMS: 10000,
         socketTimeoutMS: 45000,
-        maxPoolSize: 10, // Limit pool size for serverless
+        maxPoolSize: 10,
         minPoolSize: 1,
       }
     },
     {
       name: 'direct',
       options: {
-        serverApi: {
-          version: '1',
-          strict: true,
-          deprecationErrors: true,
-        },
-        tls: true,
-        directConnection: true, // Try direct connection
+        directConnection: true,
         serverSelectionTimeoutMS: 5000,
         connectTimeoutMS: 5000,
         socketTimeoutMS: 30000,
@@ -84,7 +73,6 @@ async function connect() {
     {
       name: 'minimal',
       options: {
-        tls: true,
         serverSelectionTimeoutMS: 5000,
         connectTimeoutMS: 5000,
         maxPoolSize: 10,
