@@ -1263,16 +1263,16 @@ async function fun(event, context) {
               x.globalAlpha=1;
               // Update key presses (fade out)
               for(var nki=NP_KEYS.length-1;nki>=0;nki--){NP_KEYS[nki].life-=0.02;if(NP_KEYS[nki].life<=0)NP_KEYS.splice(nki,1);}
-              // "notepat" text centered above keyboard
-              var npFS=Math.floor(12*S);x.font='bold '+npFS+'px monospace';var npTxt='notepat';var npTW=x.measureText(npTxt).width;var npTX=(W-npTW)/2;var npTY=pianoY-12*S;
+              // "notepat" text in top-left
+              var npFS=Math.floor(12*S);x.font='bold '+npFS+'px monospace';var npTxt='notepat';var npTW=x.measureText(npTxt).width;var npTX=8*S;var npTY=16*S;
               // Subtle pulsing glow behind text
               var npPulse=0.15+Math.sin(f*0.06)*0.08;x.globalAlpha=npPulse;x.fillStyle=isLightMode?'rgba(255,107,157,0.3)':'rgba(78,205,196,0.25)';x.beginPath();x.roundRect(npTX-8*S,npTY-npFS*0.8,npTW+16*S,npFS*1.4,4*S);x.fill();
               x.globalAlpha=0.9;x.fillStyle=isLightMode?'#333':'#e8e4de';x.fillText(npTxt,npTX,npTY);
               // ".com" superscript
               var comFS=Math.floor(6*S);x.font=comFS+'px monospace';x.fillStyle=isLightMode?'#0891b2':'#4ecdc4';x.fillText('.com',npTX+npTW+2*S,npTY-npFS*0.35);
               x.globalAlpha=1;
-              // Boot log messages (top-left, like kidlisp)
-              var npLogFS=4*S;x.font=npLogFS+'px monospace';var npLogY=8*S;
+              // Boot log messages (below notepat title)
+              var npLogFS=4*S;x.font=npLogFS+'px monospace';var npLogY=npTY+npFS;
               for(var li=0;li<lines.length&&li<8;li++){var ln=lines[li],ly=npLogY+li*5*S,la=Math.max(0.3,1-li*0.1);var lc2=NP_KEY_COLS[li%NP_KEY_COLS.length];x.globalAlpha=la*0.15;x.fillStyle='rgb('+lc2[0]+','+lc2[1]+','+lc2[2]+')';var tw=x.measureText(ln.text).width;x.beginPath();x.roundRect(4*S,ly-npLogFS*0.7,tw+12*S,npLogFS*1.1,2*S);x.fill();x.globalAlpha=la;x.fillStyle='rgb('+lc2[0]+','+lc2[1]+','+lc2[2]+')';x.fillText(ln.text,6*S,ly);}
               x.globalAlpha=1;requestAnimationFrame(anim);return;}
             // KidLisp simplified mode: colored bars + logs only (or device mode: black/white)
