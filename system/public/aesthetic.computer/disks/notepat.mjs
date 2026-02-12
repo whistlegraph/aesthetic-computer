@@ -2550,7 +2550,12 @@ function paint({
         coloredLabel += `\\${color[0]},${color[1]},${color[2]}\\${char}\\r\\`;
       }
     } else {
-      coloredLabel += char;
+      // Inactive: show faded note color as visual guide
+      const color = getCachedColor(note, num);
+      const r = Math.floor(color[0] * 0.35);
+      const g = Math.floor(color[1] * 0.35);
+      const b = Math.floor(color[2] * 0.35);
+      coloredLabel += `\\${r},${g},${b}\\${char}\\r\\`;
     }
   }
 
