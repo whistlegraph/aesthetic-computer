@@ -2746,8 +2746,8 @@ function paint({
       ink(180, 200, 255);
       bumperTicker.paint(api, tickerStartX, 4, { width: tickerWidth });
 
-      // Mask any ticker text that wraps to left side
-      ink(15, 15, 20, 220).box(0, 0, tickerStartX, BUMPER_HEIGHT);
+      // Mask any ticker text that wraps to left side (fully opaque)
+      ink(15, 15, 20, 255).box(0, 0, tickerStartX, BUMPER_HEIGHT);
     }
 
     // Draw subtle separator line at bottom of bumper
