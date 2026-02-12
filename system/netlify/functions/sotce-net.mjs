@@ -1294,19 +1294,23 @@ export const handler = async (event, context) => {
               padding-left: 16px;
               padding-right: 16px;
               box-sizing: border-box;
-              margin: 0 auto auto auto;
+              margin: 0 auto;
+              width: 100%;
+              min-height: 100vh;
+              display: flex;
+              align-items: center;
+              justify-content: center;
             }
             #ask-editor-page {
               aspect-ratio: 4 / 5;
               background-color: rgb(240, 248, 255);
               border: calc(max(1px, 0.1em)) solid black;
               box-sizing: border-box;
-              left: 0;
               padding: 1em;
-              position: absolute;
-              top: 0;
-              transform-origin: top left;
-              width: calc(100px * 8);
+              position: relative;
+              /* Responsive to both width and height - prioritize fitting in viewport */
+              width: min(calc(100px * 8), calc(100vw - 32px), calc((100vh - 200px) * 0.8));
+              max-height: calc(100vh - 200px);
               font-family: var(--page-font), serif;
               font-size: calc(2.78px * 8);
             }
@@ -1605,7 +1609,8 @@ export const handler = async (event, context) => {
               width: 100%;
               background: linear-gradient(
                 to bottom,
-                var(--garden-background) 25%,
+                var(--garden-background) 0%,
+                var(--garden-background) 30%,
                 transparent 100%
               );
               z-index: 3;
@@ -1620,7 +1625,12 @@ export const handler = async (event, context) => {
               left: 0;
               width: 100%;
               height: 300%;
-              background: var(--garden-background);
+              background: linear-gradient(
+                to bottom,
+                var(--garden-background) 0%,
+                var(--garden-background) 90%,
+                transparent 100%
+              );
               z-index: 2;
             }
 
@@ -1794,19 +1804,23 @@ export const handler = async (event, context) => {
               padding-left: 16px;
               padding-right: 16px;
               box-sizing: border-box;
-              margin: 0 auto auto auto;
+              margin: 0 auto;
+              width: 100%;
+              min-height: 100vh;
+              display: flex;
+              align-items: center;
+              justify-content: center;
             }
             #respond-editor-page {
               aspect-ratio: 4 / 5;
               background-color: rgb(240, 248, 255);
               border: calc(max(1px, 0.1em)) solid black;
               box-sizing: border-box;
-              left: 0;
               padding: 1em;
-              position: absolute;
-              top: 0;
-              transform-origin: top left;
-              width: calc(100px * 8);
+              position: relative;
+              /* Responsive to both width and height - prioritize fitting in viewport */
+              width: min(calc(100px * 8), calc(100vw - 32px), calc((100vh - 200px) * 0.8));
+              max-height: calc(100vh - 200px);
               font-family: var(--page-font), serif;
               font-size: calc(2.78px * 8);
             }
@@ -2045,13 +2059,19 @@ export const handler = async (event, context) => {
               padding-right: 16px;
               box-sizing: border-box;
               /* opacity: 0.5; */
-              margin: 0 auto auto auto;
+              margin: 0 auto;
+              width: 100%;
+              min-height: 100vh;
+              display: flex;
+              align-items: center;
+              justify-content: center;
             }
             #editor-page-wrapper {
-              width: 100%;
-              height: 100%;
+              width: min(100%, calc(100px * 8), calc((100vh - 200px) * 0.8));
+              max-height: calc(100vh - 200px);
               aspect-ratio: 4 / 5;
               position: relative;
+              margin: 0 auto;
               /* overflow: hidden; */
             }
             /*
@@ -3389,7 +3409,7 @@ export const handler = async (event, context) => {
             chatMessages.addEventListener("mouseover", async (e) => {
               if (e.target.classList.contains("page-link")) {
                 const href = e.target.getAttribute("href");
-                const pageMatch = href.match(/^\\/page\\/(\\d+)$/);
+                const pageMatch = href.match(/^\\/(\\d+)$/);
                 if (pageMatch) {
                   const pageNum = parseInt(pageMatch[1], 10);
                   clearTimeout(previewTimeout);
@@ -3493,13 +3513,13 @@ export const handler = async (event, context) => {
               // Highlight @handles
               const handleRegex = new RegExp('(@[a-zA-Z0-9_.-]+)', 'g');
               result = result.replace(handleRegex, '<span class="handle-mention">$1</span>');
-              // Link diary page references like -5-
+              // Link diary page references like p5
               const linkPrefix = dev ? "/sotce-net" : "";
-              const diaryPageRegex = new RegExp('-(\\\\d+)-', 'g');
-              result = result.replace(diaryPageRegex, '<a href="' + linkPrefix + '/$1" class="page-link diary-link">-$1-</a>');
-              // Link question references like *3*
-              const questionRegex = new RegExp('\\\\*(\\\\d+)\\\\*', 'g');
-              result = result.replace(questionRegex, '<a href="' + linkPrefix + '/q$1" class="page-link question-link">*$1*</a>');
+              const diaryPageRegex = new RegExp('\\\\bp(\\\\d+)\\\\b', 'g');
+              result = result.replace(diaryPageRegex, '<a href="' + linkPrefix + '/$1" class="page-link diary-link">p$1</a>');
+              // Link question references like q3
+              const questionRegex = new RegExp('\\\\bq(\\\\d+)\\\\b', 'g');
+              result = result.replace(questionRegex, '<a href="' + linkPrefix + '/q$1" class="page-link question-link">q$1</a>');
               return result;
             }
 
@@ -3779,8 +3799,8 @@ export const handler = async (event, context) => {
               monaco.languages.setMonarchTokensProvider('sotce-chat', {
                 tokenizer: {
                   root: [
-                    [/-\\d+-/, 'page-link'],      // Page references like -1-
-                    [/\\*\\d+\\*/, 'question-link'], // Question references like *1*
+                    [/\\bp\\d+\\b/, 'page-link'],      // Page references like p1
+                    [/\\bq\\d+\\b/, 'question-link'], // Question references like q1
                     [/@[a-zA-Z0-9_-]+/, 'handle'], // Handles like @user
                     [/./, 'text']
                   ]
@@ -5203,12 +5223,7 @@ export const handler = async (event, context) => {
                 // My asks list (shown by swapping page content)
                 let asksData = asksRes.status === 200 ? asksRes.asks : [];
 
-                // Question number at bottom with asterisks
-                const askNumber = cel("div");
-                askNumber.classList.add("ask-number");
-                const nextAskNum = asksData.length + 1;
-                askNumber.innerText = "*" + nextAskNum + "*";
-                askPage.appendChild(askNumber);
+                // Question number removed - not assigned until submitted
                 let showingAsks = false;
 
                 // Create asks list container (initially hidden)
@@ -5300,7 +5315,7 @@ export const handler = async (event, context) => {
                             }
                             closeAskEditor();
                             // Navigate to the question
-                            location.href = (dev ? "/sotce-net" : "") + "/q/" + feedItem.questionNumber;
+                            location.href = (dev ? "/sotce-net" : "") + "/q" + feedItem.questionNumber;
                           };
                         }
                       }
@@ -5653,11 +5668,7 @@ export const handler = async (event, context) => {
                   responseSection.appendChild(wordsWrapper);
                   respondPage.appendChild(responseSection);
 
-                  // Question number at bottom (with asterisks to denote questions)
-                  const pageNumber = cel("div");
-                  pageNumber.classList.add("page-number");
-                  pageNumber.innerText = "*" + (currentPendingIndex + 1) + "*";
-                  respondPage.appendChild(pageNumber);
+                  // Question number removed - counter at top shows position if multiple questions
 
                   // Calculate how many lines the question takes, then set response lines
                   setTimeout(() => {
@@ -6511,6 +6522,8 @@ export const handler = async (event, context) => {
                 let hoverEar = false;
                 let hoverPageNum = false;
                 let hoverHandle = null; // Which handle is hovered on the back
+                let hoverPrintButton = false; // Hover state for print button
+                let downPrintButton = false; // Down state for print button
                 
                 // Hit boxes for @handles on card back
                 let handleHitBoxes = []; // [{handle, x, y, w, h}]
@@ -6531,8 +6544,8 @@ export const handler = async (event, context) => {
                 const touchCache = new Map(); // pageId -> { touches: [...], fetching: false }
                 
                 // Determine starting position from URL
-                const pageMatch = path.match(/^\\/page\\/(\\d+)$/);
-                const questionMatch = path.match(/^\\/q\\/(\\d+)$/);
+                const pageMatch = path.match(/^\\/(\\d+)$/);
+                const questionMatch = path.match(/^\\/q(\\d+)$/);
                 if (pageMatch) {
                   const requestedPageNum = parseInt(pageMatch[1], 10);
                   // Find feed item with this page number
@@ -6602,7 +6615,7 @@ export const handler = async (event, context) => {
                   const w = window.innerWidth;
                   const h = window.innerHeight - topBarHeight;
                   dpr = window.devicePixelRatio || 1;
-                  
+
                   canvas.width = w * dpr;
                   canvas.height = h * dpr;
                   canvas.style.width = w + "px";
@@ -6936,24 +6949,18 @@ export const handler = async (event, context) => {
                       drawLineWithHighlights(line, x + padding, answerStartY + i * lineHeight, bodyFont, answerColor);
                     }
                     
-                    // "q" label above the page number in answer color
-                    const answerColor = themeColors.questionAnswerText || "rgb(0, 155, 145)";
-                    ctx.fillStyle = answerColor;
-                    ctx.font = fontSize + "px Helvetica, sans-serif";
-                    ctx.textAlign = "center";
-                    const qLabelY = y + h - em * 4;
-                    ctx.fillText("q", x + w/2, qLabelY);
-
-                    // Page number with asterisk format: *N* (use questionNumber)
+                    // Page number: q## on hover, just number normally
                     ctx.fillStyle = (hoverPageNum && offsetY === 0) ? themeColors.cardEarHover : textColor;
                     ctx.font = fontSize + "px monospace";
+                    ctx.textAlign = "center";
                     const pageNumY = y + h - em * 2;
                     const displayNum = pageData.questionNumber || idx;
-                    // Show syntax form on hover, asterisk-style fleurons for questions
+                    // Show q## syntax on hover, just number with fleurons normally
                     const pageNumText = (hoverPageNum && offsetY === 0)
-                      ? "*" + displayNum + "*"
+                      ? "q" + displayNum
                       : "✱ " + displayNum + " ✱";
                     ctx.fillText(pageNumText, x + w/2, pageNumY);
+                    ctx.textAlign = "left";
                   } else {
                     // PAGE RENDERING (diary pages)
                     // Date title - CENTERED at top: 6.5%
@@ -6985,15 +6992,15 @@ export const handler = async (event, context) => {
                       drawLineWithHighlights(line, x + padding, textStartY + i * lineHeight, pageBodyFont);
                     }
                     
-                    // Page number - centered at bottom with margin (use pageNumber)
+                    // Page number: p## on hover, just number normally
                     ctx.fillStyle = (hoverPageNum && offsetY === 0) ? themeColors.cardEarHover : textColor;
                     ctx.font = fontSize + "px monospace";
                     ctx.textAlign = "center";
                     const pageNumY = y + h - em * 2;
                     const displayNum = pageData.pageNumber || idx;
-                    // Show syntax form on hover, fleurons otherwise (like old Wingdings-2 h/g)
+                    // Show p## syntax on hover, fleurons otherwise (like old Wingdings-2 h/g)
                     const pageNumText = (hoverPageNum && offsetY === 0)
-                      ? "- " + displayNum + " -"
+                      ? "p" + displayNum
                       : "☙ " + displayNum + " ❧";
                     ctx.fillText(pageNumText, x + w/2, pageNumY);
                   }
@@ -7047,48 +7054,48 @@ export const handler = async (event, context) => {
                   const textWidth = w - padding * 2;
 
                   if (isQuestion) {
-                    // QUESTION CARD BACK: Copy Text + Save Image buttons
+                    // QUESTION CARD BACK: Keep button
                     backButtonHitBoxes = [];
 
-                    const btnWidth = Math.min(w * 0.6, 240);
-                    const btnHeight = em * 3;
-                    const btnX = x + (w - btnWidth) / 2;
-                    const btnGap = em * 2;
-                    const centerY = y + h * 0.4;
+                    // Compact button sized to fit text with less side padding
+                    ctx.font = fontSize * 0.85 + "px Helvetica, sans-serif";
+                    const textWidth = ctx.measureText("Keep").width;
+                    const btnPadX = em * 0.7; // Reduced from 1.2
+                    const btnPadY = em * 0.6;
+                    const btnWidth = textWidth + btnPadX * 2;
+                    const btnHeight = fontSize * 0.85 + btnPadY * 2;
+                    const btnMargin = em * 1.5;
+                    const btnY = y + h - btnHeight - btnMargin;
 
-                    // "Copy Text" button
-                    const copyY = centerY - btnHeight - btnGap / 2;
-                    const now = performance.now();
-                    const isCopied = now < copiedFeedbackUntil;
+                    // "Keep" button (centered at bottom)
+                    const printX = x + (w - btnWidth) / 2;
 
-                    ctx.fillStyle = isCopied ? "rgb(0, 155, 145)" : themeColors.cardBackBackground;
-                    ctx.fillRect(btnX, copyY, btnWidth, btnHeight);
-                    ctx.strokeStyle = isCopied ? "rgb(0, 155, 145)" : themeColors.cardTextMuted;
-                    ctx.lineWidth = 1.5;
-                    ctx.strokeRect(btnX, copyY, btnWidth, btnHeight);
+                    // Draw rounded rectangle with subtle theme colors
+                    const radius = 6;
 
-                    ctx.fillStyle = isCopied ? "#ffffff" : themeColors.cardText;
-                    ctx.font = fontSize * 1.1 + "px Helvetica, sans-serif";
+                    // State-based colors: down > hover > normal
+                    if (downPrintButton) {
+                      ctx.fillStyle = themeColors.questionAnswerText; // Teal when pressed
+                    } else if (hoverPrintButton) {
+                      ctx.fillStyle = themeColors.questionCardBorder; // Medium blue on hover
+                    } else {
+                      ctx.fillStyle = themeColors.questionCardEar; // Light blue normal
+                    }
+                    ctx.beginPath();
+                    ctx.roundRect(printX, btnY, btnWidth, btnHeight, radius);
+                    ctx.fill();
+
+                    // Subtle border - darker when down
+                    ctx.strokeStyle = downPrintButton ? themeColors.questionAnswerText : (hoverPrintButton ? themeColors.questionCardBorder : themeColors.cardTextFaint);
+                    ctx.lineWidth = downPrintButton ? 2 : 1.5;
+                    ctx.stroke();
+
+                    // Text color - white when down or hover
+                    ctx.fillStyle = (downPrintButton || hoverPrintButton) ? "#ffffff" : themeColors.cardText;
                     ctx.textAlign = "center";
-                    ctx.fillText(isCopied ? "Copied!" : "Copy Text", btnX + btnWidth / 2, copyY + btnHeight / 2 + fontSize * 0.35);
+                    ctx.fillText("Keep", printX + btnWidth / 2, btnY + btnHeight / 2 + fontSize * 0.3);
 
-                    backButtonHitBoxes.push({ action: "copy", x: btnX, y: copyY, w: btnWidth, h: btnHeight });
-
-                    // "Save Image" button
-                    const saveY = centerY + btnGap / 2;
-
-                    ctx.fillStyle = themeColors.cardBackBackground;
-                    ctx.fillRect(btnX, saveY, btnWidth, btnHeight);
-                    ctx.strokeStyle = themeColors.cardTextMuted;
-                    ctx.lineWidth = 1.5;
-                    ctx.strokeRect(btnX, saveY, btnWidth, btnHeight);
-
-                    ctx.fillStyle = themeColors.cardText;
-                    ctx.font = fontSize * 1.1 + "px Helvetica, sans-serif";
-                    ctx.textAlign = "center";
-                    ctx.fillText("Save Image", btnX + btnWidth / 2, saveY + btnHeight / 2 + fontSize * 0.35);
-
-                    backButtonHitBoxes.push({ action: "save", x: btnX, y: saveY, w: btnWidth, h: btnHeight });
+                    backButtonHitBoxes.push({ action: "save", x: printX, y: btnY, w: btnWidth, h: btnHeight });
 
                     ctx.textAlign = "left";
                   } else {
@@ -7171,56 +7178,61 @@ export const handler = async (event, context) => {
                 
                 // Export a question card as a PNG image for download/share
                 function exportQuestionImage(pageData, idx) {
-                  const exportW = 800;
-                  const exportH = 1000;
+                  const cardW = 800;
+                  const cardH = 1000;
+                  const margin = 60; // Margin around card
+                  const exportW = cardW + margin * 2;
+                  const exportH = cardH + margin * 2;
                   const offscreen = document.createElement("canvas");
                   offscreen.width = exportW;
                   offscreen.height = exportH;
                   const oc = offscreen.getContext("2d");
 
                   // Font metrics at export resolution
-                  const fontSize = (exportW / 600) * 17;
+                  const fontSize = (cardW / 600) * 17;
                   const em = fontSize;
                   const lineHeight = fontSize * 1.76;
                   const padding = em * 2;
-                  const textWidth = exportW - padding * 2;
+                  const textWidth = cardW - padding * 2;
                   const maxLines = ${MAX_LINES};
 
-                  // Card background
+                  // Draw drop shadow
+                  oc.shadowColor = "rgba(0, 0, 0, 0.25)";
+                  oc.shadowBlur = 30;
+                  oc.shadowOffsetX = 8;
+                  oc.shadowOffsetY = 8;
+
+                  // Card background (with shadow)
                   oc.fillStyle = themeColors.questionCardBackground;
-                  oc.fillRect(0, 0, exportW, exportH);
+                  oc.fillRect(margin, margin, cardW, cardH);
+
+                  // Reset shadow for border and content
+                  oc.shadowColor = "transparent";
+                  oc.shadowBlur = 0;
+                  oc.shadowOffsetX = 0;
+                  oc.shadowOffsetY = 0;
 
                   // Border
                   oc.strokeStyle = themeColors.questionCardBorder;
                   oc.lineWidth = 1;
-                  oc.strokeRect(0.5, 0.5, exportW - 1, exportH - 1);
+                  oc.strokeRect(margin + 0.5, margin + 0.5, cardW - 1, cardH - 1);
 
-                  // Ear
-                  const earSize = exportW * 0.08;
-                  oc.fillStyle = themeColors.questionCardEar;
-                  oc.beginPath();
-                  oc.moveTo(exportW - earSize, exportH);
-                  oc.lineTo(exportW, exportH - earSize);
-                  oc.lineTo(exportW, exportH);
-                  oc.closePath();
-                  oc.fill();
-                  oc.strokeStyle = themeColors.questionCardBorder;
-                  oc.stroke();
+                  // Ear removed from exported image
 
                   // Date title
                   const qDate = pageData.answeredAt || pageData.sortDate;
                   if (qDate) {
                     const qTitle = dateTitle(qDate);
-                    const qTitleY = exportH * 0.065 + fontSize;
+                    const qTitleY = margin + cardH * 0.065 + fontSize;
                     oc.fillStyle = themeColors.cardText;
                     oc.font = fontSize + "px Helvetica, sans-serif";
                     oc.textAlign = "center";
-                    oc.fillText(qTitle, exportW / 2, qTitleY);
+                    oc.fillText(qTitle, margin + cardW / 2, qTitleY);
                     oc.textAlign = "left";
                   }
 
                   // Question text (header)
-                  const headerY = exportH * 0.15 + fontSize;
+                  const headerY = margin + cardH * 0.15 + fontSize;
                   const headerFont = fontSize + "px Helvetica, sans-serif";
                   oc.font = headerFont;
                   oc.textAlign = "left";
@@ -7263,7 +7275,7 @@ export const handler = async (event, context) => {
 
                   oc.fillStyle = themeColors.cardText;
                   for (let i = 0; i < Math.min(questionLines.length, maxHeaderLines); i++) {
-                    oc.fillText(questionLines[i], padding, headerY + i * (fontSize * 1.5));
+                    oc.fillText(questionLines[i], margin + padding, headerY + i * (fontSize * 1.5));
                   }
 
                   // Answer text
@@ -7277,16 +7289,16 @@ export const handler = async (event, context) => {
                   oc.fillStyle = answerColor;
                   for (let i = 0; i < Math.min(answerLines.length, maxLines - 2); i++) {
                     if (answerLines[i] === "") continue;
-                    oc.fillText(answerLines[i], padding, answerStartY + i * lineHeight);
+                    oc.fillText(answerLines[i], margin + padding, answerStartY + i * lineHeight);
                   }
 
                   // Page number with asterisk fleurons
                   oc.fillStyle = themeColors.cardText;
                   oc.font = fontSize + "px monospace";
                   oc.textAlign = "center";
-                  const pageNumY = exportH - em * 2;
+                  const pageNumY = margin + cardH - em * 2;
                   const displayNum = pageData.questionNumber || idx;
-                  oc.fillText("✱ " + displayNum + " ✱", exportW / 2, pageNumY);
+                  oc.fillText("✱ " + displayNum + " ✱", margin + cardW / 2, pageNumY);
 
                   // Export as PNG
                   offscreen.toBlob((blob) => {
@@ -7425,9 +7437,11 @@ export const handler = async (event, context) => {
                   } else if ((isDragging || isWheelScrolling) && Math.abs(dragDelta) > 0) {
                     // Dragging or wheel scrolling
                     const nextIdx = dragDelta > 0 ? displayedPageIndex + 1 : displayedPageIndex - 1;
+                    const progress = Math.min(1, Math.abs(dragDelta) / slideDistance);
 
+                    // Always render adjacent pages during drag for smooth transitions
+                    // Even at boundaries, show the next page to prevent disappearing
                     if (nextIdx >= 1 && nextIdx <= loadedFeedCount) {
-                      const progress = Math.min(1, Math.abs(dragDelta) / slideDistance);
                       const nextData = pageCache.get(nextIdx) || null;
 
                       if (dragDelta > 0) {
@@ -7450,8 +7464,18 @@ export const handler = async (event, context) => {
                         }
                       }
                     } else {
-                      // At boundary - just offset current page with resistance
-                      renderPage(pageData, displayedPageIndex, -dragDelta * 0.3);
+                      // At boundary - render current page with resistance AND ghost next page
+                      const currentOff = -dragDelta * 0.3;
+                      renderPage(pageData, displayedPageIndex, currentOff, false, 1);
+
+                      // Render ghost page at boundary to prevent visual disappearing
+                      if (dragDelta > 0 && displayedPageIndex >= loadedFeedCount) {
+                        const ghostOff = (1 - progress) * slideDistance;
+                        renderPage(null, displayedPageIndex + 1, ghostOff, true, 1);
+                      } else if (dragDelta < 0 && displayedPageIndex <= 1) {
+                        const ghostOff = -(1 - progress) * slideDistance;
+                        renderPage(null, displayedPageIndex - 1, ghostOff, true, 1);
+                      }
                     }
                   } else {
                     // Static - render adjacent pages first (behind), then current on top
@@ -7540,13 +7564,13 @@ export const handler = async (event, context) => {
                       const currentItem = pageCache.get(currentPageIndex);
                       if (currentItem?.type === "question") {
                         const qNum = currentItem.questionNumber || currentPageIndex;
-                        updatePath("/q/" + qNum);
+                        updatePath("/q" + qNum);
                       } else {
                         const pNum = currentItem?.pageNumber || currentPageIndex;
-                        updatePath("/page/" + pNum);
+                        updatePath("/" + pNum);
                       }
                       prefetchPages(currentPageIndex);
-                      
+
                       // If user kept scrolling during the animation, chain
                       // to the next page immediately for fluid continuous browsing.
                       if (pendingWheelPages !== 0) {
@@ -7700,9 +7724,9 @@ export const handler = async (event, context) => {
                     textFadeIn = 1;
                     const currentItem = pageCache.get(currentPageIndex);
                     if (currentItem?.type === "question") {
-                      updatePath("/q/" + (currentItem.questionNumber || currentPageIndex));
+                      updatePath("/q" + (currentItem.questionNumber || currentPageIndex));
                     } else {
-                      updatePath("/page/" + (currentItem?.pageNumber || currentPageIndex));
+                      updatePath("/" + (currentItem?.pageNumber || currentPageIndex));
                     }
                     prefetchPages(currentPageIndex);
                     return;
@@ -7721,6 +7745,16 @@ export const handler = async (event, context) => {
                 canvas.addEventListener("pointerdown", (e) => {
                   if (transitionDirection !== 0) return; // Don't drag during animation
                   if (isFlipping || showingBack) return; // Don't drag when flipped
+
+                  // Check if clicking on ear - don't start dragging
+                  const rect = canvas.getBoundingClientRect();
+                  const x = e.clientX - rect.left;
+                  const y = e.clientY - rect.top;
+                  const localX = x - cardX;
+                  const localY = y - cardY;
+                  const earSize = cardWidth * 0.08;
+                  const earHit = localX > cardWidth - earSize && localY > cardHeight - earSize;
+                  if (earHit) return; // Don't drag when clicking ear
 
                   isDragging = true;
                   dragStartY = e.clientY;
@@ -7832,6 +7866,8 @@ export const handler = async (event, context) => {
                 canvas.addEventListener("wheel", (e) => {
                   if (!document.body.contains(canvas)) return;
                   if (isFlipping || showingBack) return;
+                  // Don't allow new wheel scrolls during page transitions
+                  if (transitionDirection !== 0 && transitionProgress > 0 && transitionProgress < 1) return;
                   e.preventDefault();
                   showMinimap();
 
@@ -7855,7 +7891,31 @@ export const handler = async (event, context) => {
                   isWheelScrolling = true;
                   lastWheelTime = performance.now();
                 }, { passive: false });
-                
+
+                // Mousedown handler for button press state
+                canvas.addEventListener("mousedown", (e) => {
+                  const rect = canvas.getBoundingClientRect();
+                  const x = e.clientX - rect.left;
+                  const y = e.clientY - rect.top;
+
+                  const hoveredItem = pageCache.get(displayedPageIndex);
+
+                  // Check if clicking on print button
+                  if (showingBack && hoveredItem?.type === "question" && backButtonHitBoxes.length > 0) {
+                    for (const btn of backButtonHitBoxes) {
+                      if (x >= btn.x && x <= btn.x + btn.w && y >= btn.y && y <= btn.y + btn.h) {
+                        downPrintButton = true;
+                        return;
+                      }
+                    }
+                  }
+                });
+
+                // Mouseup handler to reset button press state
+                canvas.addEventListener("mouseup", () => {
+                  downPrintButton = false;
+                });
+
                 // Click detection for ear and page number
                 canvas.addEventListener("click", (e) => {
                   if (wasDragging) { wasDragging = false; return; } // Was scrolling
@@ -7890,16 +7950,7 @@ export const handler = async (event, context) => {
                   if (showingBack && clickedIsQuestion && backButtonHitBoxes.length > 0) {
                     for (const btn of backButtonHitBoxes) {
                       if (x >= btn.x && x <= btn.x + btn.w && y >= btn.y && y <= btn.y + btn.h) {
-                        if (btn.action === "copy") {
-                          // Copy question + answer as text
-                          const q = clickedItem.question || "";
-                          const a = clickedItem.answer || "";
-                          const text = "Q: " + q + "\\n\\nA: " + a;
-                          navigator.clipboard.writeText(text).then(() => {
-                            copiedFeedbackUntil = performance.now() + 1200;
-                            console.log("📋 Copied question text to clipboard");
-                          }).catch(err => console.error("Copy failed:", err));
-                        } else if (btn.action === "save") {
+                        if (btn.action === "save") {
                           // Render card front to offscreen canvas and save/share
                           exportQuestionImage(clickedItem, displayedPageIndex);
                         }
@@ -7966,7 +8017,7 @@ export const handler = async (event, context) => {
                             currentPageIndex = targetFeedItem.feedIndex;
                             displayedPageIndex = targetFeedItem.feedIndex;
                             textFadeIn = 1; // Show text immediately, no fade
-                            updatePath("/page/" + hb.value);
+                            updatePath("/" + hb.value);
                           }
                         } else if (hb.type === "question") {
                           console.log("🎨 Question link clicked:", hb.value);
@@ -7975,7 +8026,7 @@ export const handler = async (event, context) => {
                             currentPageIndex = targetFeedItem.feedIndex;
                             displayedPageIndex = targetFeedItem.feedIndex;
                             textFadeIn = 1; // Show text immediately, no fade
-                            updatePath("/q/" + hb.value);
+                            updatePath("/q" + hb.value);
                           }
                         }
                         return;
@@ -7991,9 +8042,9 @@ export const handler = async (event, context) => {
                       const pageData = pageCache.get(displayedPageIndex);
                       const isQuestion = pageData?.type === "question";
                       const displayNum = isQuestion ? (pageData?.questionNumber || displayedPageIndex) : (pageData?.pageNumber || displayedPageIndex);
-                      const pageRef = isQuestion 
-                        ? "*" + displayNum + "* " 
-                        : "-" + displayNum + "- ";
+                      const pageRef = isQuestion
+                        ? "q" + displayNum + " "
+                        : "p" + displayNum + " ";
                       console.log("🎨 Page number clicked:", displayNum, "type:", pageData?.type);
                       openChatWithMessage(pageRef);
                       return;
@@ -8019,6 +8070,7 @@ export const handler = async (event, context) => {
                   if (isDragging) {
                     hoverEar = false;
                     hoverPageNum = false;
+                    hoverPrintButton = false;
                     return;
                   }
                   
@@ -8063,10 +8115,12 @@ export const handler = async (event, context) => {
                         canvas.style.cursor = "pointer";
                         hoverEar = false;
                         hoverPageNum = false;
+                        hoverPrintButton = true;
                         return;
                       }
                     }
                   }
+                  hoverPrintButton = false;
                   
                   // Check page number region (only on front) - only the number text, not full width
                   if (!showingBack) {
@@ -8094,6 +8148,7 @@ export const handler = async (event, context) => {
                   
                   hoverEar = false;
                   hoverPageNum = false;
+                  hoverPrintButton = false;
                   hoverHandle = null;
                   
                   // Check handle hit boxes on back
@@ -8124,6 +8179,8 @@ export const handler = async (event, context) => {
                 canvas.addEventListener("mouseleave", () => {
                   hoverEar = false;
                   hoverPageNum = false;
+                  hoverPrintButton = false;
+                  downPrintButton = false;
                   canvas.style.cursor = "grab";
                 });
                 
@@ -8134,21 +8191,33 @@ export const handler = async (event, context) => {
                   const rect = canvas.getBoundingClientRect();
                   const x = touch.clientX - rect.left;
                   const y = touch.clientY - rect.top;
-                  
+
                   if (x < cardX || x > cardX + cardWidth || y < cardY || y > cardY + cardHeight) return;
-                  
+
                   const localX = x - cardX;
                   const localY = y - cardY;
-                  
+
                   const baseFontSize = (cardWidth / 600) * 17;
                   const em = Math.max(10, baseFontSize);
                   const earSize = cardWidth * 0.08;
-                  
+
+                  const touchedItem = pageCache.get(displayedPageIndex);
+
+                  // Check if touching print button
+                  if (showingBack && touchedItem?.type === "question" && backButtonHitBoxes.length > 0) {
+                    for (const btn of backButtonHitBoxes) {
+                      if (x >= btn.x && x <= btn.x + btn.w && y >= btn.y && y <= btn.y + btn.h) {
+                        downPrintButton = true;
+                        return;
+                      }
+                    }
+                  }
+
                   // Check ear region - depends on which side is showing
                   const earHit = showingBack
                     ? (localX < earSize && localY > cardHeight - earSize)
                     : (localX > cardWidth - earSize && localY > cardHeight - earSize);
-                  
+
                   if (earHit) {
                     hoverEar = true;
                     hoverPageNum = false;
@@ -8167,6 +8236,8 @@ export const handler = async (event, context) => {
                   setTimeout(() => {
                     hoverEar = false;
                     hoverPageNum = false;
+                    hoverPrintButton = false;
+                    downPrintButton = false;
                   }, 100);
                 }, { passive: true });
                 
@@ -8280,7 +8351,7 @@ export const handler = async (event, context) => {
                   pageNumber.dataset.pageContent = page.content?.substring(0, 200) || "";
                   pageNumber.onclick = (e) => {
                     e.stopPropagation();
-                    openChatWithMessage("-" + index + "- ");
+                    openChatWithMessage("p" + index + " ");
                   };
 
                   const ear = cel("div");
@@ -8407,7 +8478,7 @@ export const handler = async (event, context) => {
                 const renderedPages = new Map(); // Track which page indices are currently in DOM
                 
                 // Determine starting page from URL
-                const pageMatch = path.match(/^\\/page\\/(\\d+)$/);
+                const pageMatch = path.match(/^\\/(\\d+)$/);
                 if (pageMatch) {
                   const requestedPage = parseInt(pageMatch[1], 10);
                   if (requestedPage >= 1 && requestedPage <= totalPages) {
@@ -8490,7 +8561,7 @@ export const handler = async (event, context) => {
                     pageNumber.style.cursor = "pointer";
                     pageNumber.onclick = (e) => {
                       e.stopPropagation();
-                      openChatWithMessage("-" + pageIdx + "- ");
+                      openChatWithMessage("p" + pageIdx + " ");
                     };
                     
                     // Page flip ear
@@ -8677,7 +8748,7 @@ export const handler = async (event, context) => {
                     }
                   }
                   // Update URL
-                  updatePath("/page/" + centerIdx);
+                  updatePath("/" + centerIdx);
                   currentPageIndex = centerIdx;
                 }
                 
@@ -9488,8 +9559,8 @@ export const handler = async (event, context) => {
                   // The user's email is verified...
 
                   // Determine pagination based on path
-                  const pageMatchUrl = path.match(/^\\/page\\/(\\d+)$/);
-                  const questionMatchUrl = path.match(/^\\/q\\/(\\d+)$/);
+                  const pageMatchUrl = path.match(/^\\/(\\d+)$/);
+                  const questionMatchUrl = path.match(/^\\/q(\\d+)$/);
                   const subscribeOptions = {};
                   
                   // Always load plenty of pages for the feed - don't set pageNumber
