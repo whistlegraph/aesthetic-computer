@@ -160,7 +160,7 @@ print(f"Listen at: https://aesthetic.computer/clock~{data['code']}")`,
         name: "Track Media (Publish Artwork)",
         method: "POST",
         path: "/api/track-media",
-        description: "Publish a painting (PNG), JavaScript piece (MJS), or recording tape (ZIP) anonymously",
+        description: "Publish a painting (PNG), JavaScript piece (MJS), or recording tape (ZIP) anonymously. Note: Files must be uploaded to S3/storage before calling this endpoint.",
         authentication: "Optional (Bearer token for authenticated users)",
         requestBody: {
           contentType: "application/json",
@@ -194,53 +194,136 @@ print(f"Listen at: https://aesthetic.computer/clock~{data['code']}")`,
             code: {
               type: "string",
               description: "Short code for accessing the media"
-            },
-            url: {
-              type: "string",
-              description: "Full URL to view the media"
             }
           }
         },
         examples: [
           {
             title: "Publish a JavaScript Piece",
-            request: {
-              method: "POST",
-              url: "https://aesthetic.computer/api/track-media",
-              headers: {
-                "Content-Type": "application/json"
-              },
-              body: {
-                slug: "2025/02/12/my-piece.mjs",
-                ext: "mjs"
-              }
-            },
+            description: "After uploading .mjs file to S3, register it in the database",
+            curl: `curl -X POST https://aesthetic.computer/api/track-media \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "slug": "2026/02/12/my-piece.mjs",
+    "ext": "mjs"
+  }'`,
+            javascript: `// Step 1: Upload your .mjs file to S3 (requires credentials)
+// Step 2: Register the uploaded file
+const response = await fetch("https://aesthetic.computer/api/track-media", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    slug: "2026/02/12/my-piece.mjs",
+    ext: "mjs"
+  })
+});
+
+const { code } = await response.json();
+console.log(\`View at: https://aesthetic.computer/\${code}\`);`,
+            python: `import requests
+
+# After uploading your .mjs file to S3
+response = requests.post(
+    "https://aesthetic.computer/api/track-media",
+    json={
+        "slug": "2026/02/12/my-piece.mjs",
+        "ext": "mjs"
+    }
+)
+
+data = response.json()
+print(f"View at: https://aesthetic.computer/{data['code']}")`,
             response: {
               status: 200,
               body: {
-                code: "abc456",
-                url: "https://aesthetic.computer/abc456"
+                code: "abc456"
               }
             }
           },
           {
             title: "Publish a Painting (PNG)",
-            request: {
-              method: "POST",
-              url: "https://aesthetic.computer/api/track-media",
-              headers: {
-                "Content-Type": "application/json"
-              },
-              body: {
-                slug: "2025/02/12/my-painting.png",
-                ext: "png"
-              }
-            },
+            description: "Register a painting image after uploading to S3",
+            curl: `curl -X POST https://aesthetic.computer/api/track-media \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "slug": "2026/02/12/my-painting.png",
+    "ext": "png"
+  }'`,
+            javascript: `const response = await fetch("https://aesthetic.computer/api/track-media", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    slug: "2026/02/12/my-painting.png",
+    ext: "png"
+  })
+});
+
+const { code } = await response.json();
+console.log(\`View at: https://aesthetic.computer/\${code}\`);`,
+            python: `import requests
+
+response = requests.post(
+    "https://aesthetic.computer/api/track-media",
+    json={
+        "slug": "2026/02/12/my-painting.png",
+        "ext": "png"
+    }
+)
+
+data = response.json()
+print(f"View at: https://aesthetic.computer/{data['code']}")`,
             response: {
               status: 200,
               body: {
-                code: "def789",
-                url: "https://aesthetic.computer/def789"
+                code: "def789"
+              }
+            }
+          },
+          {
+            title: "Publish a Recording Tape (ZIP)",
+            description: "Register a recording after uploading ZIP to S3",
+            curl: `curl -X POST https://aesthetic.computer/api/track-media \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "slug": "2026/02/12/my-recording.zip",
+    "ext": "zip",
+    "metadata": {
+      "totalDuration": 15.5
+    }
+  }'`,
+            javascript: `const response = await fetch("https://aesthetic.computer/api/track-media", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    slug: "2026/02/12/my-recording.zip",
+    ext: "zip",
+    metadata: {
+      totalDuration: 15.5  // seconds (max 30)
+    }
+  })
+});
+
+const { code } = await response.json();
+console.log(\`Watch at: https://aesthetic.computer/\${code}\`);`,
+            python: `import requests
+
+response = requests.post(
+    "https://aesthetic.computer/api/track-media",
+    json={
+        "slug": "2026/02/12/my-recording.zip",
+        "ext": "zip",
+        "metadata": {
+            "totalDuration": 15.5  # seconds (max 30)
+        }
+    }
+)
+
+data = response.json()
+print(f"Watch at: https://aesthetic.computer/{data['code']}")`,
+            response: {
+              status: 200,
+              body: {
+                code: "ghi012"
               }
             }
           }
@@ -249,12 +332,14 @@ print(f"Listen at: https://aesthetic.computer/clock~{data['code']}")`,
     ],
 
     notes: [
-      "All endpoints support anonymous (guest) uploads without authentication",
-      "To associate uploads with your account, include a Bearer token in the Authorization header",
-      "KidLisp is a creative coding language - visit https://kidlisp.com for documentation",
-      "Files must be uploaded to S3/storage before calling /api/track-media (contact admins for upload credentials)",
-      "Maximum KidLisp source code length is 50,000 characters",
-      "Maximum tape duration is 30 seconds"
+      "✨ All endpoints support anonymous (guest) publishing without authentication",
+      "🔑 To associate uploads with your account, include a Bearer token in the Authorization header",
+      "🎨 KidLisp is a creative coding language - visit https://kidlisp.com for documentation",
+      "📦 For /api/track-media: Files must be uploaded to S3/storage first (contact admins for credentials)",
+      "📏 Maximum KidLisp source code length: 50,000 characters",
+      "⏱️ Maximum clock melody length: 10,000 characters",
+      "🎬 Maximum tape duration: 30 seconds",
+      "♻️ Duplicate content is automatically deduplicated (same content returns same code)"
     ],
 
     relatedResources: [
