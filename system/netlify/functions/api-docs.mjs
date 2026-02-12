@@ -640,318 +640,397 @@ function generateHTML(docs) {
   <title>${docs.title}</title>
   <link rel="icon" href="https://aesthetic.computer/favicon.ico" type="image/x-icon">
   <style>
-    * { box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: #1a1a1a;
+    /* CSS Variables for theming */
+    :root {
+      --bg: #f7f7f7;
+      --bg-alt: #fff;
+      --text: #111;
+      --text-dim: #666;
+      --border: #ddd;
+      --accent: rgb(205, 92, 155);
+      --accent-hover: rgb(240, 180, 215);
+      --code-bg: #e8e8e8;
+      --code-text: #a31515;
+      --pre-bg: #2a2520;
+      --pre-text: #fffacd;
+      --link: rgb(0, 80, 180);
+      --link-hover: rgb(205, 92, 155);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1e1e1e;
+        --bg-alt: #252526;
+        --text: #d4d4d4;
+        --text-dim: #858585;
+        --border: #3e3e42;
+        --accent: rgb(205, 92, 155);
+        --accent-hover: rgb(240, 180, 215);
+        --code-bg: #252526;
+        --code-text: #ce9178;
+        --pre-bg: #1a1a1a;
+        --pre-text: #e2e8f0;
+        --link: rgb(150, 180, 255);
+        --link-hover: rgb(205, 92, 155);
+      }
+    }
+
+    * {
+      box-sizing: border-box;
       margin: 0;
       padding: 0;
-      line-height: 1.7;
-      -webkit-font-smoothing: antialiased;
     }
-    .container {
-      max-width: 900px;
+
+    body {
+      font-family: 'Berkeley Mono Variable', 'Noto Sans Mono', 'SF Mono', Monaco, Consolas, monospace;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 1em;
+      max-width: 960px;
       margin: 0 auto;
-      padding: 20px;
+      font-size: 14px;
     }
+
     .header {
-      background: rgba(255, 255, 255, 0.98);
-      backdrop-filter: blur(10px);
-      border-radius: 16px;
-      padding: 40px;
-      margin-bottom: 30px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-      text-align: center;
+      border: 2px solid var(--border);
+      padding: 1.5em;
+      margin-bottom: 1em;
+      background: var(--bg-alt);
     }
-    .logo {
-      font-size: 48px;
-      margin-bottom: 20px;
-      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));
+
+    .ascii-art {
+      font-size: 10px;
+      line-height: 1.2;
+      color: var(--accent);
+      margin-bottom: 1em;
+      white-space: pre;
+      font-family: monospace;
     }
+
     h1 {
-      margin: 0 0 10px 0;
-      font-size: 2.5em;
-      font-weight: 800;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      font-size: 1.5em;
+      font-weight: bold;
+      color: var(--accent);
+      margin-bottom: 0.5em;
     }
+
     .tagline {
-      font-size: 1.1em;
-      color: #666;
-      margin-bottom: 20px;
+      color: var(--text-dim);
+      margin-bottom: 1em;
     }
+
     .version {
       display: inline-block;
-      background: #f0f0f0;
-      padding: 4px 12px;
-      border-radius: 20px;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      padding: 0.2em 0.5em;
       font-size: 0.85em;
-      color: #666;
-      margin-bottom: 15px;
+      margin-bottom: 1em;
     }
+
     .quick-links {
       display: flex;
-      gap: 10px;
-      justify-content: center;
+      gap: 0.5em;
       flex-wrap: wrap;
+      margin-top: 1em;
     }
+
     .btn {
       display: inline-block;
-      padding: 10px 20px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 0.5em 1em;
+      background: var(--accent);
       color: white;
       text-decoration: none;
-      border-radius: 8px;
-      font-weight: 600;
-      transition: transform 0.2s, box-shadow 0.2s;
+      border: 2px solid var(--accent);
+      transition: all 0.2s;
     }
+
     .btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+      color: var(--text);
     }
+
     .btn-secondary {
-      background: white;
-      color: #667eea;
-      border: 2px solid #667eea;
+      background: transparent;
+      color: var(--accent);
     }
+
     .section {
-      background: rgba(255, 255, 255, 0.98);
-      backdrop-filter: blur(10px);
-      border-radius: 16px;
-      padding: 30px;
-      margin-bottom: 20px;
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      border: 2px solid var(--border);
+      padding: 1.5em;
+      margin-bottom: 1em;
+      background: var(--bg-alt);
     }
+
     h2 {
-      margin-top: 0;
-      font-size: 1.8em;
-      font-weight: 700;
-      color: #2d3748;
-      border-bottom: 3px solid #667eea;
-      padding-bottom: 10px;
-    }
-    h3 {
       font-size: 1.3em;
-      font-weight: 600;
-      color: #4a5568;
-      margin-top: 1.5em;
+      font-weight: bold;
+      color: var(--accent);
+      margin-bottom: 1em;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 0.5em;
     }
-    h4 {
+
+    h3 {
       font-size: 1.1em;
-      font-weight: 500;
-      color: #718096;
-      font-style: italic;
+      font-weight: bold;
+      margin-top: 1.5em;
+      margin-bottom: 0.5em;
     }
+
+    h4 {
+      font-size: 1em;
+      font-weight: bold;
+      margin-top: 1em;
+      margin-bottom: 0.5em;
+      color: var(--text-dim);
+    }
+
+    p {
+      margin-bottom: 0.8em;
+    }
+
     code {
-      font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
-      background: #f7fafc;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 0.9em;
-      color: #d73a49;
-      font-weight: 600;
+      font-family: 'Berkeley Mono Variable', 'Noto Sans Mono', Monaco, Consolas, monospace;
+      background: var(--code-bg);
+      padding: 0.2em 0.4em;
+      font-size: 0.95em;
+      color: var(--code-text);
     }
+
     pre {
-      background: #1a202c;
-      color: #e2e8f0;
-      padding: 20px;
-      border-radius: 8px;
+      background: var(--pre-bg);
+      color: var(--pre-text);
+      padding: 1em;
       overflow-x: auto;
-      font-size: 0.9em;
-      line-height: 1.5;
-      box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+      margin: 1em 0;
+      border: 1px solid var(--border);
+      line-height: 1.4;
     }
+
     pre code {
       background: transparent;
       padding: 0;
-      color: #e2e8f0;
-      font-weight: normal;
+      color: var(--pre-text);
     }
+
     .method {
       display: inline-block;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: var(--accent);
       color: white;
-      padding: 4px 12px;
-      border-radius: 6px;
-      font-weight: 700;
+      padding: 0.2em 0.5em;
+      font-weight: bold;
       font-size: 0.85em;
-      margin-right: 8px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      margin-right: 0.5em;
     }
+
     .path {
-      font-family: "SF Mono", Monaco, monospace;
-      font-weight: 600;
-      color: #667eea;
+      font-weight: bold;
+      color: var(--accent);
     }
+
     .tabs {
       display: flex;
-      gap: 4px;
-      margin: 15px 0 10px 0;
-      border-bottom: 2px solid #e2e8f0;
+      gap: 0;
+      margin: 1em 0 0 0;
+      border-bottom: 2px solid var(--border);
     }
+
     .tab {
-      padding: 10px 20px;
+      padding: 0.5em 1em;
       background: transparent;
       border: none;
       cursor: pointer;
+      font-family: inherit;
       font-size: 0.95em;
-      font-weight: 600;
-      color: #718096;
-      border-bottom: 3px solid transparent;
-      transition: all 0.2s;
+      color: var(--text-dim);
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
     }
-    .tab:hover { color: #667eea; }
+
+    .tab:hover {
+      color: var(--accent);
+      background: var(--code-bg);
+    }
+
     .tab.active {
-      color: #667eea;
-      border-bottom-color: #667eea;
+      color: var(--accent);
+      border-bottom-color: var(--accent);
     }
-    .tab-content { display: none; margin-top: 10px; }
-    .tab-content.active { display: block; }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
     .notes {
-      background: linear-gradient(135deg, #fef5e7 0%, #fdebd0 100%);
-      border-left: 4px solid #f39c12;
-      padding: 20px;
-      border-radius: 8px;
-      margin: 20px 0;
+      border: 2px solid var(--accent);
+      padding: 1em;
+      margin: 1em 0;
+      background: var(--bg-alt);
     }
-    .notes h3 { margin-top: 0; color: #e67e22; }
-    .notes ul { margin: 10px 0 0 20px; }
-    .notes li { margin-bottom: 8px; }
+
+    .notes h3 {
+      color: var(--accent);
+      margin-bottom: 0.5em;
+    }
+
+    .notes ul {
+      margin-left: 1.5em;
+      list-style: square;
+    }
+
+    .notes li {
+      margin-bottom: 0.5em;
+    }
+
     .footer {
       text-align: center;
-      margin-top: 40px;
-      padding: 30px 0;
-      color: rgba(255, 255, 255, 0.9);
+      margin-top: 2em;
+      padding: 1em;
+      border-top: 2px solid var(--border);
+      color: var(--text-dim);
     }
+
     .footer a {
-      color: white;
+      color: var(--link);
       text-decoration: none;
-      font-weight: 600;
-      padding: 8px 16px;
-      background: rgba(255, 255, 255, 0.2);
-      border-radius: 6px;
-      margin: 0 5px;
-      transition: background 0.2s;
+      margin: 0 0.5em;
     }
-    .footer a:hover { background: rgba(255, 255, 255, 0.3); }
-    a { color: #667eea; text-decoration: none; font-weight: 600; }
-    a:hover { text-decoration: underline; }
+
+    .footer a:hover {
+      color: var(--link-hover);
+      text-decoration: underline;
+    }
+
+    a {
+      color: var(--link);
+      text-decoration: none;
+    }
+
+    a:hover {
+      color: var(--link-hover);
+      text-decoration: underline;
+    }
+
     .endpoint-card {
-      border-left: 4px solid #667eea;
-      padding-left: 20px;
-      margin-bottom: 40px;
+      border-left: 3px solid var(--accent);
+      padding-left: 1em;
+      margin: 2em 0;
     }
+
     @media (max-width: 768px) {
-      .header { padding: 30px 20px; }
-      h1 { font-size: 2em; }
-      .section { padding: 20px; }
-      .tabs { flex-wrap: wrap; }
+      body { padding: 0.5em; font-size: 13px; }
+      .header { padding: 1em; }
+      .section { padding: 1em; }
+      .ascii-art { font-size: 8px; }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <div class="logo">🎨💻✨</div>
-      <h1>${docs.title}</h1>
-      <p class="tagline">${docs.description}</p>
-      <div class="version">v${docs.version}</div>
-      <div class="quick-links">
-        <a href="?format=json" class="btn btn-secondary">📄 View as JSON</a>
-        <a href="https://aesthetic.computer" class="btn">🏠 Go to Site</a>
-        <a href="https://github.com/whistlegraph/aesthetic-computer" class="btn">⚡ GitHub</a>
-      </div>
+  <div class="header">
+    <div class="ascii-art"> ___  ____  ____
+/ __)(  _ \\(_  _)
+\\__ \\ ) __/ _)(_
+(___/(__)  (____)</div>
+    <h1>${docs.title}</h1>
+    <p class="tagline">${docs.description}</p>
+    <div class="version">version ${docs.version}</div>
+    <div class="quick-links">
+      <a href="?format=json" class="btn btn-secondary">[ view json ]</a>
+      <a href="https://aesthetic.computer" class="btn">[ home ]</a>
+      <a href="https://github.com/whistlegraph/aesthetic-computer" class="btn">[ github ]</a>
     </div>
+  </div>
 
-    <div class="section">
-      <h2>🤖 MCP Server</h2>
-      <p><strong>${docs.mcp.title}:</strong> ${docs.mcp.description}</p>
-      <p><strong>📦 Package:</strong> <code>${docs.mcp.package}</code></p>
-      <p><strong>⚡ Install:</strong> <code>${docs.mcp.install}</code></p>
-      <p><a href="${docs.mcp.repository}">📂 View on GitHub →</a></p>
+  <div class="section">
+    <h2>// MCP Server</h2>
+    <p><strong>${docs.mcp.title}</strong></p>
+    <p>${docs.mcp.description}</p>
+    <p><strong>package:</strong> <code>${docs.mcp.package}</code></p>
+    <p><strong>install:</strong> <code>${docs.mcp.install}</code></p>
+    <p><a href="${docs.mcp.repository}">view on github &rarr;</a></p>
 
-  <h3>Tools</h3>
-  ${docs.mcp.tools.map(tool => `
-    <p><strong><code>${tool.name}</code></strong> — ${tool.description}</p>
-    <p>Input: <code>${JSON.stringify(tool.input)}</code></p>
-    <p>Output: <code>${typeof tool.output === 'string' ? tool.output : JSON.stringify(tool.output)}</code></p>
-  `).join('')}
+    <h3>tools</h3>
+    ${docs.mcp.tools.map(tool => `
+      <p><strong><code>${tool.name}</code></strong> &mdash; ${tool.description}</p>
+      <p>input: <code>${JSON.stringify(tool.input)}</code><br>
+      output: <code>${typeof tool.output === 'string' ? tool.output : JSON.stringify(tool.output)}</code></p>
+    `).join('')}
 
-  <h3>Resources</h3>
-  ${docs.mcp.resources.map(resource => `
-    <p><strong><code>${resource.uri}</code></strong> — ${resource.description}</p>
-  `).join('')}
+    <h3>resources</h3>
+    ${docs.mcp.resources.map(resource => `
+      <p><strong><code>${resource.uri}</code></strong> &mdash; ${resource.description}</p>
+    `).join('')}
 
-  <h3>Prompts</h3>
-  ${docs.mcp.prompts.map(prompt => `
-    <p><strong><code>${prompt.name}</code></strong> — ${prompt.description}</p>
-    <p>Arguments: ${prompt.arguments.join(', ')}</p>
-  `).join('')}
+    <h3>prompts</h3>
+    ${docs.mcp.prompts.map(prompt => `
+      <p><strong><code>${prompt.name}</code></strong> &mdash; ${prompt.description}</p>
+      <p>args: ${prompt.arguments.join(', ')}</p>
+    `).join('')}
 
-      <h3>⚙️ Configuration Examples</h3>
-      ${Object.entries(docs.mcp.configuration).map(([client, config]) => `
-        <h4>${client}</h4>
-        <pre><code>${escapeHTML(config)}</code></pre>
-      `).join('')}
-    </div>
+    <h3>configuration examples</h3>
+    ${Object.entries(docs.mcp.configuration).map(([client, config]) => `
+      <h4>${client}</h4>
+      <pre><code>${escapeHTML(config)}</code></pre>
+    `).join('')}
+  </div>
 
-    <div class="section">
-      <h2>📡 HTTP Endpoints</h2>
+  <div class="section">
+    <h2>// HTTP endpoints</h2>
 
-      ${docs.endpoints.map((endpoint, idx) => `
-        <div class="endpoint-card">
-          <h3><span class="method">${endpoint.method}</span> ${endpoint.name}</h3>
-          <p><code class="path">${docs.baseURL}${endpoint.path}</code></p>
-          <p>${endpoint.description}</p>
+    ${docs.endpoints.map((endpoint, idx) => `
+      <div class="endpoint-card">
+        <h3><span class="method">${endpoint.method}</span> ${endpoint.name}</h3>
+        <p><code class="path">${docs.baseURL}${endpoint.path}</code></p>
+        <p>${endpoint.description}</p>
 
-      ${endpoint.examples.map((example, exIdx) => `
-        <h3>${example.title}</h3>
-        <p>${example.description}</p>
+        ${endpoint.examples.map((example, exIdx) => `
+          <h3>${example.title}</h3>
+          <p>${example.description}</p>
 
-        <div class="tabs" id="tabs-${idx}-${exIdx}">
-          <button class="tab active" onclick="showTab(${idx}, ${exIdx}, 'curl')">cURL</button>
-          <button class="tab" onclick="showTab(${idx}, ${exIdx}, 'js')">JavaScript</button>
-          <button class="tab" onclick="showTab(${idx}, ${exIdx}, 'py')">Python</button>
-        </div>
+          <div class="tabs" id="tabs-${idx}-${exIdx}">
+            <button class="tab active" onclick="showTab(${idx}, ${exIdx}, 'curl')">curl</button>
+            <button class="tab" onclick="showTab(${idx}, ${exIdx}, 'js')">javascript</button>
+            <button class="tab" onclick="showTab(${idx}, ${exIdx}, 'py')">python</button>
+          </div>
 
-        <div class="tab-content active" id="content-${idx}-${exIdx}-curl">
-          <pre>${escapeHTML(example.curl)}</pre>
-        </div>
-        <div class="tab-content" id="content-${idx}-${exIdx}-js">
-          <pre>${escapeHTML(example.javascript)}</pre>
-        </div>
-        <div class="tab-content" id="content-${idx}-${exIdx}-py">
-          <pre>${escapeHTML(example.python)}</pre>
-        </div>
+          <div class="tab-content active" id="content-${idx}-${exIdx}-curl">
+            <pre>${escapeHTML(example.curl)}</pre>
+          </div>
+          <div class="tab-content" id="content-${idx}-${exIdx}-js">
+            <pre>${escapeHTML(example.javascript)}</pre>
+          </div>
+          <div class="tab-content" id="content-${idx}-${exIdx}-py">
+            <pre>${escapeHTML(example.python)}</pre>
+          </div>
 
-          <h4>📬 Response:</h4>
+          <h4>response:</h4>
           <pre><code>${JSON.stringify(example.response.body, null, 2)}</code></pre>
         `).join('')}
-        </div>
-      `).join('')}
-    </div>
+      </div>
+    `).join('')}
+  </div>
 
-    <div class="notes">
-      <h3>📝 Important Notes</h3>
-      <ul>
-        ${docs.notes.map(note => `<li>${note}</li>`).join('')}
-      </ul>
-    </div>
+  <div class="notes">
+    <h3>// important notes</h3>
+    <ul>
+      ${docs.notes.map(note => `<li>${note}</li>`).join('')}
+    </ul>
+  </div>
 
-    <div class="footer">
-      <p>
-        ${docs.relatedResources.map(r =>
-          `<a href="${r.url}" target="_blank">${r.name}</a>`
-        ).join(' ')}
-      </p>
-      <p style="margin-top: 20px; opacity: 0.8;">
-        Made with 💜 by <a href="https://aesthetic.computer" style="background: transparent;">aesthetic.computer</a>
-      </p>
-    </div>
+  <div class="footer">
+    <p>
+      ${docs.relatedResources.map(r =>
+        `<a href="${r.url}" target="_blank">${r.name}</a>`
+      ).join(' | ')}
+    </p>
+    <p style="margin-top: 1em;">made with love by aesthetic.computer</p>
   </div>
 
   <script>
