@@ -5193,56 +5193,104 @@ function paint({
     }
   }
 
-  // 🎹 Draw black key tick dots above letters in HUD label (rendered last, on top of everything)
-  // Black keys (semitones) shown as small dots: c#, d#, f#, g#, a#
+  // 🎹 Draw micro piano keys above HUD label (rendered last, on top of everything)
+  // White keys: c, d, e, f, g, a, b (3px wide)
+  // Black keys: c#, d#, f#, g#, a# (1px wide, positioned above white keys)
   if (!paintPictureOverlay && !projector) {
-    const notepatLetters = "notepat";
-    const blackKeyMapping = ['c#', 'd#', null, 'f#', 'g#', 'a#', null]; // null = no black key after
-    const hudLabelBaseX = 2; // HUD label starts at x=2
-    const letterSpacing = 4; // MatrixChunky8 letter width
+    const whiteNotes = ['c', 'd', 'e', 'f', 'g', 'a', 'b'];
+    const blackNotes = [
+      { note: 'c#', afterWhite: 0 },
+      { note: 'd#', afterWhite: 1 },
+      { note: 'f#', afterWhite: 3 },
+      { note: 'g#', afterWhite: 4 },
+      { note: 'a#', afterWhite: 5 },
+    ];
 
-    for (let i = 0; i < notepatLetters.length; i++) {
-      const blackKey = blackKeyMapping[i];
-      if (blackKey) {
-        const dotX = hudLabelBaseX + (i + 1) * letterSpacing + 1; // Position between letters (moved right)
-        const dotY = 3; // Above the text (moved down)
+    const pianoStartX = 2;
+    const pianoY = 1;
+    const whiteKeyWidth = 3;
+    const whiteKeyHeight = 6;
+    const blackKeyWidth = 1;
+    const blackKeyHeight = 4;
 
-        const blackLowerActive = sounds[blackKey];
-        const blackUpperActive = sounds['+' + blackKey];
-        const blackColor = getCachedColor(blackKey, num);
+    // Draw white keys
+    for (let i = 0; i < whiteNotes.length; i++) {
+      const note = whiteNotes[i];
+      const x = pianoStartX + i * whiteKeyWidth;
 
-        let r, g, b;
-        if (blackLowerActive || blackUpperActive) {
-          // Both octaves: blink
-          if (blackLowerActive && blackUpperActive) {
-            const blinkPhase = Math.floor(paintCount / 3) % 2;
-            const brightness = blinkPhase === 0 ? 0 : 100;
-            r = Math.min(255, blackColor[0] + brightness);
-            g = Math.min(255, blackColor[1] + brightness);
-            b = Math.min(255, blackColor[2] + brightness);
-          }
-          // Upper octave only: brighter
-          else if (blackUpperActive) {
-            r = Math.min(255, blackColor[0] + 60);
-            g = Math.min(255, blackColor[1] + 60);
-            b = Math.min(255, blackColor[2] + 60);
-          }
-          // Lower octave only: normal color
-          else {
-            r = blackColor[0];
-            g = blackColor[1];
-            b = blackColor[2];
-          }
-        } else {
-          // Inactive: faded black key tick
-          r = Math.floor(blackColor[0] * 0.35);
-          g = Math.floor(blackColor[1] * 0.35);
-          b = Math.floor(blackColor[2] * 0.35);
+      const lowerActive = sounds[note];
+      const upperActive = sounds['+' + note];
+      const color = getCachedColor(note, num);
+
+      let r, g, b;
+      if (lowerActive || upperActive) {
+        // Both octaves: blink
+        if (lowerActive && upperActive) {
+          const blinkPhase = Math.floor(paintCount / 3) % 2;
+          const brightness = blinkPhase === 0 ? 0 : 100;
+          r = Math.min(255, color[0] + brightness);
+          g = Math.min(255, color[1] + brightness);
+          b = Math.min(255, color[2] + brightness);
         }
-
-        // Draw small vertical tick bar (2px wide, 3px tall)
-        ink(r, g, b).box(dotX, dotY, 1, 3);
+        // Upper octave only: brighter
+        else if (upperActive) {
+          r = Math.min(255, color[0] + 60);
+          g = Math.min(255, color[1] + 60);
+          b = Math.min(255, color[2] + 60);
+        }
+        // Lower octave only: normal color
+        else {
+          r = color[0];
+          g = color[1];
+          b = color[2];
+        }
+      } else {
+        // Inactive: white
+        r = 200; g = 200; b = 200;
       }
+
+      // Draw white key
+      ink(r, g, b).box(x, pianoY, whiteKeyWidth, whiteKeyHeight);
+    }
+
+    // Draw black keys on top
+    for (let i = 0; i < blackNotes.length; i++) {
+      const { note, afterWhite } = blackNotes[i];
+      const x = pianoStartX + afterWhite * whiteKeyWidth + whiteKeyWidth - 1;
+
+      const lowerActive = sounds[note];
+      const upperActive = sounds['+' + note];
+      const color = getCachedColor(note, num);
+
+      let r, g, b;
+      if (lowerActive || upperActive) {
+        // Both octaves: blink
+        if (lowerActive && upperActive) {
+          const blinkPhase = Math.floor(paintCount / 3) % 2;
+          const brightness = blinkPhase === 0 ? 0 : 100;
+          r = Math.min(255, color[0] + brightness);
+          g = Math.min(255, color[1] + brightness);
+          b = Math.min(255, color[2] + brightness);
+        }
+        // Upper octave only: brighter
+        else if (upperActive) {
+          r = Math.min(255, color[0] + 60);
+          g = Math.min(255, color[1] + 60);
+          b = Math.min(255, color[2] + 60);
+        }
+        // Lower octave only: normal color
+        else {
+          r = color[0];
+          g = color[1];
+          b = color[2];
+        }
+      } else {
+        // Inactive: dark gray
+        r = 60; g = 60; b = 60;
+      }
+
+      // Draw black key
+      ink(r, g, b).box(x, pianoY, blackKeyWidth, blackKeyHeight);
     }
   }
 }
