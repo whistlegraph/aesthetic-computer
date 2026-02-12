@@ -531,8 +531,8 @@ function getMiniPianoBlackKeyHeight(isCompact) {
 function getTopBarPianoMetrics(screen) {
   const topPianoY = BUMPER_HEIGHT + 3; // Position below bumper
   const topPianoHeight = 15;
-  // Push piano right when .com superscript is shown to avoid overlap with HUD label
-  const topPianoStartX = dotComMode ? 75 : 54;
+  // Start piano after HUD label area (allow visualizer more space)
+  const topPianoStartX = dotComMode ? 54 : 54;
   const availableWidth = Math.max(0, screen.width - topPianoStartX);
 
   const fullWidth = Math.min(140, Math.floor(availableWidth * 0.5));
@@ -4339,7 +4339,7 @@ function paint({
           undefined, undefined, false, "MatrixChunky8"
         );
       } else {
-        write(wave, { right: 27, top: btn.box.y + 3 });
+        write(wave, { right: 27, top: btn.box.y + 6 });
       }
     });
 
@@ -4374,7 +4374,7 @@ function paint({
           undefined, undefined, false, "MatrixChunky8"
         );
       } else {
-        write(octave, { right: 8, top: btn.box.y + 3 });
+        write(octave, { right: 8, top: btn.box.y + 6 });
       }
     });
   }
