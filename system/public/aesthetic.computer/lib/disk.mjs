@@ -7366,13 +7366,14 @@ async function load(
           if (response.status === 404 || response.status === 403) {
             const extension = path.endsWith('.lisp') ? '.lisp' : '.mjs';
             // Handle sandboxed environments for anon URL construction
-            const { protocol } = getSafeUrlParts();
+            const { protocol} = getSafeUrlParts();
+            // Use full path (includes date directories for pieces)
             const anonUrl =
               protocol +
               "//" +
               "art.aesthetic.computer" +
               "/" +
-              path.split("/").pop() +
+              path +
               extension +
               "#" +
               Date.now();
@@ -7589,12 +7590,13 @@ async function load(
       if (response.status === 404 || response.status === 403) {
         // Handle sandboxed environments for anon URL construction
         const { protocol } = getSafeUrlParts();
+        // Use full path (includes date directories for pieces)
         const anonUrl =
           protocol +
           "//" +
           "art.aesthetic.computer" +
           "/" +
-          path.split("/").pop() +
+          path +
           ".lisp" +
           "#" +
           Date.now();
