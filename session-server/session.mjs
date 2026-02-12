@@ -122,6 +122,22 @@ initializeApp(
 const chatManager = new ChatManager({ dev: process.env.NODE_ENV === "development" });
 await chatManager.init();
 
+// Graceful shutdown — persist in-memory chat messages before exit
+let shuttingDown = false;
+async function gracefulShutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`\n${signal} received, persisting chat messages...`);
+  try {
+    await chatManager.shutdown();
+  } catch (err) {
+    console.error("Shutdown error:", err);
+  }
+  process.exit(0);
+}
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+
 // Helper function to get handles of users currently on a specific piece
 // Used by chatManager to determine who's actually viewing the chat piece
 function getHandlesOnPiece(pieceName) {
