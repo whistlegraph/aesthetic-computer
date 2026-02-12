@@ -2734,9 +2734,9 @@ function paint({
     ink(15, 15, 20, 220).box(0, 0, screen.width, BUMPER_HEIGHT);
 
     // Calculate HUD label area (top-left for "notepat.com")
-    // Actual HUD renders "notepat" (~7 chars × 8-9px) + ".com" superscript (~25px)
-    // Total width with padding: ~100px
-    const hudLabelWidth = 100;
+    // Actual HUD renders "notepat" (~60px) + ".com" superscript (~30px) + padding
+    // Total width with padding: ~120px to ensure ticker starts after HUD
+    const hudLabelWidth = 120;
 
     // Draw background box for HUD label area (title for the marquee)
     ink(25, 30, 40, 200).box(0, 0, hudLabelWidth, BUMPER_HEIGHT);
@@ -4106,7 +4106,7 @@ function paint({
 
     // MIDI badge now renders in the top mini bar (left)
   } else if (!paintPictureOverlay) {
-    const sy = 3;
+    const sy = BUMPER_HEIGHT + 3; // Position below bumper
     const sh = 15; // screen.height - sy;
 
     // Visualizer starts after the top bar piano (or at 54 if piano not shown)
