@@ -10,6 +10,90 @@ export async function handler(event, context) {
     description: "Public APIs for publishing creative works anonymously to aesthetic.computer",
     baseURL: "https://aesthetic.computer",
 
+    mcp: {
+      title: "MCP Server",
+      description: "Model Context Protocol server for AI assistants (Claude, GPT-4, etc.) to interact with aesthetic.computer APIs",
+      package: "@aesthetic-computer/mcp",
+      install: "npx @aesthetic-computer/mcp",
+      repository: "https://github.com/whistlegraph/aesthetic-computer/tree/main/mcp-server",
+
+      tools: [
+        {
+          name: "publish_piece",
+          description: "Publish a JavaScript piece to aesthetic.computer",
+          input: { source: "string", name: "string (optional)" },
+          output: { code: "string", url: "string", cached: "boolean" }
+        },
+        {
+          name: "publish_kidlisp",
+          description: "Publish KidLisp code to aesthetic.computer",
+          input: { source: "string" },
+          output: { code: "string", url: "string", cached: "boolean" }
+        },
+        {
+          name: "publish_clock",
+          description: "Publish a clock melody to aesthetic.computer",
+          input: { source: "string" },
+          output: { code: "string", url: "string", cached: "boolean" }
+        },
+        {
+          name: "get_api_info",
+          description: "Fetch the full API documentation",
+          input: {},
+          output: "API documentation object"
+        }
+      ],
+
+      resources: [
+        {
+          uri: "aesthetic-computer://piece-template",
+          description: "Starter template for a new aesthetic.computer piece with all lifecycle functions"
+        },
+        {
+          uri: "aesthetic-computer://kidlisp-reference",
+          description: "Quick reference guide for KidLisp syntax and common functions"
+        }
+      ],
+
+      prompts: [
+        {
+          name: "create-piece",
+          description: "Guided prompt for creating an aesthetic.computer piece",
+          arguments: ["name (required)", "description (required)"]
+        }
+      ],
+
+      configuration: {
+        "Claude Desktop": `{
+  "mcpServers": {
+    "aesthetic-computer": {
+      "command": "npx",
+      "args": ["-y", "@aesthetic-computer/mcp"],
+      "env": {
+        "AC_TOKEN": "optional-bearer-token"
+      }
+    }
+  }
+}`,
+        "Claude Code": `{
+  "mcpServers": {
+    "aesthetic-computer": {
+      "command": "npx",
+      "args": ["-y", "@aesthetic-computer/mcp"]
+    }
+  }
+}`,
+        "Cursor": `{
+  "mcpServers": {
+    "aesthetic-computer": {
+      "command": "npx",
+      "args": ["-y", "@aesthetic-computer/mcp"]
+    }
+  }
+}`
+      }
+    },
+
     endpoints: [
       {
         name: "Store KidLisp Code",
@@ -631,6 +715,40 @@ function generateHTML(docs) {
   <p>${docs.description}</p>
   <p><a href="?format=json">View as JSON</a></p>
   <hr>
+
+  <h2>🤖 MCP Server</h2>
+  <p><strong>${docs.mcp.title}:</strong> ${docs.mcp.description}</p>
+  <p><strong>Package:</strong> <code>${docs.mcp.package}</code></p>
+  <p><strong>Install:</strong> <code>${docs.mcp.install}</code></p>
+  <p><a href="${docs.mcp.repository}">View on GitHub</a></p>
+
+  <h3>Tools</h3>
+  ${docs.mcp.tools.map(tool => `
+    <p><strong><code>${tool.name}</code></strong> — ${tool.description}</p>
+    <p>Input: <code>${JSON.stringify(tool.input)}</code></p>
+    <p>Output: <code>${typeof tool.output === 'string' ? tool.output : JSON.stringify(tool.output)}</code></p>
+  `).join('')}
+
+  <h3>Resources</h3>
+  ${docs.mcp.resources.map(resource => `
+    <p><strong><code>${resource.uri}</code></strong> — ${resource.description}</p>
+  `).join('')}
+
+  <h3>Prompts</h3>
+  ${docs.mcp.prompts.map(prompt => `
+    <p><strong><code>${prompt.name}</code></strong> — ${prompt.description}</p>
+    <p>Arguments: ${prompt.arguments.join(', ')}</p>
+  `).join('')}
+
+  <h3>Configuration Examples</h3>
+  ${Object.entries(docs.mcp.configuration).map(([client, config]) => `
+    <h4>${client}</h4>
+    <pre>${escapeHTML(config)}</pre>
+  `).join('')}
+
+  <hr>
+
+  <h2>📡 HTTP Endpoints</h2>
 
   ${docs.endpoints.map((endpoint, idx) => `
     <h2><span class="method">${endpoint.method}</span> ${endpoint.name}</h2>
