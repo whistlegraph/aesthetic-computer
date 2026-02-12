@@ -186,14 +186,15 @@ export async function handler(event, context) {
     });
     console.log(`✨ Generated code: ${code}`);
 
-    // Determine slug (date-based path like other media)
+    // Determine slug: code is globally unique, so use it directly for anon pieces
+    // Only use date-based paths for user pieces (for organization)
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
     const slug = user
       ? `${user.sub}/${year}/${month}/${day}/${code}`
-      : `${year}/${month}/${day}/${code}`;
+      : code;  // Just use code directly - it's globally unique!
 
     const bucket = user ? "user-aesthetic-computer" : "art-aesthetic-computer";
 
