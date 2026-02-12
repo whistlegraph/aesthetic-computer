@@ -18556,7 +18556,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
       }
       
       // Initialize AC Login
-      initACLogin();
+      if (typeof initACLogin === 'function') initACLogin();
       
       // Preload Top Hits in the background so they're ready when the tab is opened
       setTimeout(() => {
