@@ -531,8 +531,8 @@ function getMiniPianoBlackKeyHeight(isCompact) {
 function getTopBarPianoMetrics(screen) {
   const topPianoY = BUMPER_HEIGHT + 3; // Position below bumper
   const topPianoHeight = 15;
-  // Start piano further left to maximize visualizer space
-  const topPianoStartX = 24;
+  // Start piano flush left with screen to maximize visualizer space
+  const topPianoStartX = 0;
   const availableWidth = Math.max(0, screen.width - topPianoStartX);
 
   const fullWidth = Math.min(140, Math.floor(availableWidth * 0.5));
