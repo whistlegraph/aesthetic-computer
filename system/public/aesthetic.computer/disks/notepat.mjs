@@ -2531,7 +2531,7 @@ function paint({
       const r = Math.min(255, color[0] + brightness);
       const g = Math.min(255, color[1] + brightness);
       const b = Math.min(255, color[2] + brightness);
-      coloredLabel += `\\${r},${g},${b}\\${char}`;
+      coloredLabel += `\\${r},${g},${b}\\${char}\\r\\`;
     } else {
       coloredLabel += char;
     }
