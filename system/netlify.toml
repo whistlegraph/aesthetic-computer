@@ -2,7 +2,7 @@
 base = "system"
 publish = "public"
 ignore = "bash ./ignore-index.sh"
-command = "rm -f public/index.html && echo $COMMIT_REF > public/.commit-ref && bash ../utilities/generate-piece-commits.sh" # Write commit ref + piece commit data
+command = "rm -f public/index.html && echo $COMMIT_REF > public/.commit-ref && (bash ../utilities/generate-piece-commits.sh || echo 'piece-commits generation skipped')" # Write commit ref + piece commit data
 # command = "bash ./github-discord.sh"
 # command = "echo 'Building...'"
 
