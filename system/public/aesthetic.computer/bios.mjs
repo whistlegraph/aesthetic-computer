@@ -4949,6 +4949,123 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
     }
 
+  // 🔒 Show a permission modal for untrusted piece requests (from worker)
+  function showPermissionModal(pieceCode, permission, details = {}) {
+    return new Promise((resolve) => {
+      const messages = {
+        network: {
+          title: "Network Access",
+          message: `The piece "${pieceCode}" wants to make network requests.`,
+          warning: "This allows the piece to send data to external servers.",
+          details: details.url ? `URL: ${details.url}` : null,
+        },
+        auth: {
+          title: "Authentication Access",
+          message: `The piece "${pieceCode}" wants to access your authentication tokens.`,
+          warning: "This gives the piece access to your account credentials.",
+          details: null,
+        },
+        "storage-full": {
+          title: "Full Storage Access",
+          message: `The piece "${pieceCode}" wants to access all stored data.`,
+          warning: "This allows the piece to read data from other pieces.",
+          details: null,
+        },
+        "upload-external": {
+          title: "External Upload",
+          message: `The piece "${pieceCode}" wants to upload a file to an external server.`,
+          warning: "The file will be sent outside aesthetic.computer.",
+          details: details.url ? `Destination: ${details.url}` : null,
+        },
+        "navigate-external": {
+          title: "External Navigation",
+          message: `The piece "${pieceCode}" wants to navigate to an external URL.`,
+          warning: "You will leave aesthetic.computer.",
+          details: details.url ? `URL: ${details.url}` : null,
+        },
+      };
+
+      const config = messages[permission] || {
+        title: "Permission Request",
+        message: `The piece "${pieceCode}" wants permission for: ${permission}`,
+        warning: null,
+        details: null,
+      };
+
+      const modal = document.createElement("div");
+      modal.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0, 0, 0, 0.8); display: flex; align-items: center;
+        justify-content: center; z-index: 100000; font-family: sans-serif;
+      `;
+
+      const dialog = document.createElement("div");
+      dialog.style.cssText = `
+        background: rgb(235, 235, 235); color: black; padding: 24px;
+        max-width: 400px; border: 2px solid black;
+      `;
+
+      const titleEl = document.createElement("h2");
+      titleEl.textContent = config.title;
+      titleEl.style.cssText = "margin: 0 0 16px 0; font-size: 18px; font-weight: bold;";
+
+      const messageEl = document.createElement("p");
+      messageEl.textContent = config.message;
+      messageEl.style.cssText = "margin: 0 0 12px 0; line-height: 1.4;";
+
+      dialog.appendChild(titleEl);
+      dialog.appendChild(messageEl);
+
+      if (config.warning) {
+        const warningEl = document.createElement("p");
+        warningEl.textContent = config.warning;
+        warningEl.style.cssText = "margin: 0 0 12px 0; color: rgb(200, 0, 0); font-weight: bold;";
+        dialog.appendChild(warningEl);
+      }
+
+      if (config.details) {
+        const detailsEl = document.createElement("p");
+        detailsEl.textContent = config.details;
+        detailsEl.style.cssText = "margin: 0 0 12px 0; font-family: monospace; font-size: 12px; word-break: break-all;";
+        dialog.appendChild(detailsEl);
+      }
+
+      const buttonContainer = document.createElement("div");
+      buttonContainer.style.cssText = "display: flex; gap: 12px; margin-top: 20px;";
+
+      const allowButton = document.createElement("button");
+      allowButton.textContent = "Allow";
+      allowButton.style.cssText = `
+        flex: 1; padding: 10px; background: black; color: white;
+        border: none; cursor: pointer; font-size: 14px; font-weight: bold;
+      `;
+
+      const denyButton = document.createElement("button");
+      denyButton.textContent = "Deny";
+      denyButton.style.cssText = `
+        flex: 1; padding: 10px; background: white; color: black;
+        border: 2px solid black; cursor: pointer; font-size: 14px; font-weight: bold;
+      `;
+
+      allowButton.addEventListener("click", () => {
+        document.body.removeChild(modal);
+        resolve(true);
+      });
+
+      denyButton.addEventListener("click", () => {
+        document.body.removeChild(modal);
+        resolve(false);
+      });
+
+      buttonContainer.appendChild(allowButton);
+      buttonContainer.appendChild(denyButton);
+      dialog.appendChild(buttonContainer);
+      modal.appendChild(dialog);
+      document.body.appendChild(modal);
+      denyButton.focus();
+    });
+  }
+
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
     // 🔍 DEBUG: Log ALL incoming messages to trace what's being received
@@ -5008,6 +5125,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // 📊 Receive disk worker timing data (silent)
     if (type === "disk-timings") {
       window.acDiskTimings = content;
+      return;
+    }
+
+    // 🔒 Permission request from worker (piece-permissions.mjs)
+    if (type === "permission-request") {
+      const { requestId, pieceCode, permission, details } = content;
+      showPermissionModal(pieceCode, permission, details).then((granted) => {
+        send({ type: "permission-response", content: { requestId, granted } });
+      });
       return;
     }
 

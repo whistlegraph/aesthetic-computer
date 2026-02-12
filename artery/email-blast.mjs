@@ -7,8 +7,14 @@
 //   node artery/email-blast.mjs --export         # Export all emails to CSV
 //   node artery/email-blast.mjs --test EMAIL     # Send test email
 //   node artery/email-blast.mjs --preview        # Preview email content
-//   node artery/email-blast.mjs --send           # Send to all (with confirmation)
+//   node artery/email-blast.mjs --send           # Send to VERIFIED users (default)
+//   node artery/email-blast.mjs --send --all     # Send to ALL users
 //   node artery/email-blast.mjs --send --resume  # Resume from last sent
+//
+// Gmail SMTP limits:
+//   ~500 emails/day with app passwords.
+//   Verified users (~5.3k) = ~11 days. All users (~18k) = ~36 days.
+//   Use --resume to continue across multiple days.
 
 import { config } from 'dotenv';
 import { fileURLToPath } from 'url';
@@ -16,11 +22,29 @@ import { dirname, join } from 'path';
 import { createTransport } from 'nodemailer';
 import { createInterface } from 'readline';
 import { existsSync, readFileSync, writeFileSync, appendFileSync, unlinkSync } from 'fs';
+import { createHmac, timingSafeEqual } from 'crypto';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Load env from at/.env (has Auth0 M2M creds)
 config({ path: join(__dirname, '../at/.env') });
+
+// HMAC token generation for unsubscribe links
+function generateUnsubscribeToken(email) {
+  const secret = process.env.UNSUBSCRIBE_SECRET;
+  if (!secret) {
+    console.warn('WARNING: UNSUBSCRIBE_SECRET not set — unsubscribe links will not work');
+    return 'no-secret';
+  }
+  return createHmac('sha256', secret)
+    .update(email.toLowerCase().trim())
+    .digest('hex');
+}
+
+function getUnsubscribeUrl(email) {
+  const token = generateUnsubscribeToken(email);
+  return `https://aesthetic.computer/api/unsubscribe?email=${encodeURIComponent(email)}&token=${token}`;
+}
 
 // File paths for tracking (user data goes to vault, logs stay in scratch)
 const VAULT_DIR = join(__dirname, '../aesthetic-computer-vault/user-reports');
@@ -195,31 +219,40 @@ if (!SMTP_CONFIG.auth.pass) {
 }
 
 const EMAIL_SUBJECT = 'help aesthetic.computer stay online 💾';
-const EMAIL_TEXT = `hi!
 
-you've been logging into aesthetic.computer pretty frequently and i really appreciate that 💛
+function getEmailText(recipientEmail) {
+  const unsubUrl = getUnsubscribeUrl(recipientEmail);
+  return `hi!
 
-aesthetic computer needs your help to pay this month's server bills.
+you signed up for aesthetic.computer and i really appreciate that.
+
+aesthetic computer needs your help to keep running.
 
 if you can, please visit: https://give.aesthetic.computer
 
 you can give with:
-  💳 card (USD or DKK)
-  🔮 Tezos (XTZ)
-  💎 Ethereum (ETH)
-  🟠 Bitcoin (BTC)
+  card (USD or DKK)
+  Tezos (XTZ)
+  Ethereum (ETH)
+  Bitcoin (BTC)
 
 you can also add a personal note, or subscribe monthly to become an ongoing supporter.
 
 every bit helps. thank you for being part of this!
 
-— jas`;
+— jas
 
-const EMAIL_HTML = `<p>hi!</p>
+---
+Unsubscribe: ${unsubUrl}`;
+}
 
-<p>you've been logging into aesthetic.computer pretty frequently and i really appreciate that 💛</p>
+function getEmailHtml(recipientEmail) {
+  const unsubUrl = getUnsubscribeUrl(recipientEmail);
+  return `<p>hi!</p>
 
-<p>aesthetic computer needs your help to pay this month's server bills.</p>
+<p>you signed up for aesthetic.computer and i really appreciate that.</p>
+
+<p>aesthetic computer needs your help to keep running.</p>
 
 <p>if you can, please visit: <a href="https://give.aesthetic.computer">give.aesthetic.computer</a></p>
 
@@ -233,7 +266,13 @@ const EMAIL_HTML = `<p>hi!</p>
 
 <p>every bit helps. thank you for being part of this!</p>
 
-<p>— jas</p>`;
+<p>— jas</p>
+
+<hr style="border: none; border-top: 1px solid #444; margin: 24px 0;">
+<p style="font-size: 12px; color: #888;">
+  <a href="${unsubUrl}" style="color: #888;">Unsubscribe</a> from aesthetic.computer emails
+</p>`;
+}
 
 // Get Auth0 access token
 async function getAuth0Token() {
@@ -502,18 +541,23 @@ function previewEmail() {
   console.log(`From: mail@aesthetic.computer`);
   console.log(`Subject: ${EMAIL_SUBJECT}`);
   console.log('─'.repeat(60));
-  console.log(EMAIL_TEXT);
+  console.log(getEmailText('preview@example.com'));
   console.log('─'.repeat(60));
 }
 
 // Send a single email
 async function sendEmail(transporter, to) {
+  const unsubUrl = getUnsubscribeUrl(to);
   const result = await transporter.sendMail({
     from: '"Aesthetic Computer" <mail@aesthetic.computer>',
     to,
     subject: EMAIL_SUBJECT,
-    text: EMAIL_TEXT,
-    html: EMAIL_HTML,
+    text: getEmailText(to),
+    html: getEmailHtml(to),
+    headers: {
+      'List-Unsubscribe': `<${unsubUrl}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    },
   });
   return result;
 }
@@ -566,23 +610,35 @@ function logFailedEmail(email, error) {
 
 // Get muted users from MongoDB
 async function getMutedUsers() {
-  const { connect } = await import('./system/backend/database.mjs');
+  const { connect } = await import('../system/backend/database.mjs');
   const db = await connect();
-  
+
   const mutesCollections = ['chat-sotce-mutes', 'chat-clock-mutes', 'chat-system-mutes'];
   const mutedUsers = new Set();
-  
+
   for (const col of mutesCollections) {
     const mutes = await db.db.collection(col).find({}).toArray();
     mutes.forEach(m => mutedUsers.add(m.user));
   }
-  
+
   await db.disconnect();
   return mutedUsers;
 }
 
-// Send blast to all users (verified + unverified, excluding muted)
-async function sendBlast(resume = false, verifiedOnly = false) {
+// Get unsubscribed emails from MongoDB
+async function getUnsubscribedEmails() {
+  const { connect } = await import('../system/backend/database.mjs');
+  const db = await connect();
+
+  const docs = await db.db.collection('email-blast-unsubscribes').find({}).toArray();
+  const emails = new Set(docs.map(d => d.email.toLowerCase()));
+
+  await db.disconnect();
+  return emails;
+}
+
+// Send blast to verified users by default, excluding muted + unsubscribed
+async function sendBlast(resume = false, verifiedOnly = true) {
   console.log('\n🚀 EMAIL BLAST MODE\n');
 
   // Load cached users
@@ -591,18 +647,24 @@ async function sendBlast(resume = false, verifiedOnly = false) {
     console.log('⚠️  No cached users. Fetching...');
     users = await getAllAuth0Users(false, false);
   }
-  
-  // Get muted users
+
+  // Get muted users and unsubscribed emails
   console.log('📋 Checking muted users...');
   const mutedUsers = await getMutedUsers();
-  
+  console.log('📋 Checking unsubscribed emails...');
+  const unsubscribedEmails = await getUnsubscribedEmails();
+
   // Filter users
-  let eligibleUsers = users.filter(u => u.email && !mutedUsers.has(u.user_id));
-  
+  let eligibleUsers = users.filter(u =>
+    u.email &&
+    !mutedUsers.has(u.user_id) &&
+    !unsubscribedEmails.has(u.email.toLowerCase())
+  );
+
   if (verifiedOnly) {
     eligibleUsers = eligibleUsers.filter(u => u.email_verified);
   }
-  
+
   const verified = eligibleUsers.filter(u => u.email_verified).length;
   const unverified = eligibleUsers.length - verified;
   
@@ -613,11 +675,12 @@ async function sendBlast(resume = false, verifiedOnly = false) {
   console.log(`\n📊 Stats:`);
   console.log(`   Total eligible: ${eligibleUsers.length} (${verified} verified, ${unverified} unverified)`);
   console.log(`   Muted/excluded: ${mutedUsers.size}`);
+  console.log(`   Unsubscribed: ${unsubscribedEmails.size}`);
   if (resume) {
     console.log(`   Already sent: ${alreadySent.size}`);
   }
   console.log(`   To send now: ${toSend.length}`);
-  
+
   if (toSend.length === 0) {
     console.log('\n✅ All emails already sent!');
     return;
@@ -625,10 +688,12 @@ async function sendBlast(resume = false, verifiedOnly = false) {
 
   // Estimate time
   const estimatedMinutes = Math.ceil(toSend.length * 1.2 / 60); // 1.2s per email avg
-  console.log(`   Estimated time: ~${estimatedMinutes} minutes`);
-  
+  const estimatedDays = Math.ceil(toSend.length / 450);
+  console.log(`   Estimated time: ~${estimatedMinutes} minutes per day`);
+  console.log(`   Estimated days: ~${estimatedDays} (Gmail ~500/day limit)`);
+
   console.log(`\n⚠️  WARNING: This will send ${toSend.length} emails!`);
-  console.log(`   Gmail limit: ~500/day - this may take multiple days`);
+  console.log(`   Use --resume to continue across multiple days.`);
   
   const confirmed = await confirm('\nType "yes" to confirm: ');
   
@@ -732,14 +797,14 @@ if (args.includes('--fetch') || args.includes('-f')) {
   }
   await sendTestEmail(testEmail);
 } else if (args.includes('--send') || args.includes('-s')) {
-  const verifiedOnly = args.includes('--verified-only') || args.includes('-v');
-  await sendBlast(hasResume, verifiedOnly);
+  const includeUnverified = args.includes('--all') || args.includes('--include-unverified');
+  await sendBlast(hasResume, !includeUnverified);
 } else if (args.includes('--clear')) {
   clearFetchCheckpoint();
   console.log('✅ Cleared all cached data and checkpoints');
 } else {
   console.log(`
-📧 Email Blast Tool - give.aesthetic.computer
+📧 Email Blast Tool — give.aesthetic.computer
 
 Usage:
   node artery/email-blast.mjs --fetch          Fetch users (page-based, max 1000)
@@ -748,19 +813,21 @@ Usage:
   node artery/email-blast.mjs --export         Export to CSV
   node artery/email-blast.mjs --preview        Preview email content
   node artery/email-blast.mjs --test EMAIL     Send test email
-  node artery/email-blast.mjs --send           Send to ALL users (verified + unverified)
-  node artery/email-blast.mjs --send --verified-only   Send only to verified
+  node artery/email-blast.mjs --send           Send to VERIFIED users only (default)
+  node artery/email-blast.mjs --send --all     Send to ALL users (verified + unverified)
   node artery/email-blast.mjs --send --resume  Resume interrupted send
   node artery/email-blast.mjs --clear          Clear all cached data
 
-Files (in scratch/):
-  email-blast-users.json  - All fetched users (local cache)
-  email-blast-sent.log    - Emails successfully sent
-  email-blast-failed.log  - Failed emails
+Files:
+  vault/user-reports/email-blast-users.json  - Cached user list
+  scratch/email-blast-sent.log               - Emails successfully sent
+  scratch/email-blast-failed.log             - Failed emails
 
 Notes:
-  - Muted users automatically excluded
+  - Muted + unsubscribed users automatically excluded
   - Use --fetch-all for 16k+ users (Auth0 bulk export)
-  - Gmail limit: ~500 emails/day
+  - Gmail limit: ~500 emails/day (~11 days for verified, ~36 days for all)
+  - Use --resume to continue across multiple days
+  - Each email includes a personalized unsubscribe link
 `);
 }

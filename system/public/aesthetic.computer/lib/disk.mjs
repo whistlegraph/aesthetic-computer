@@ -49,7 +49,7 @@ import {
   base64ToUint8Array,
 } from "./helpers.mjs";
 import { createRestrictedApi, shouldRestrictPiece } from "./restricted-api.mjs";
-import { clearPermissions } from "./piece-permissions.mjs";
+import { clearPermissions, resolvePermissionRequest } from "./piece-permissions.mjs";
 const { pow, abs, round, sin, random, min, max, floor, cos } = Math;
 const { keys } = Object;
 
@@ -9306,6 +9306,12 @@ async function makeFrame({ data: { type, content } }) {
     console.log("🎹🎹🎹 makeFrame received:", type, content);
   }
   
+  // Handle permission responses from bios.mjs
+  if (type === "permission-response") {
+    resolvePermissionRequest(content.requestId, content.granted);
+    return;
+  }
+
   // Runs once on boot.
   if (type === "init-from-bios") {
     debug = content.debug;
