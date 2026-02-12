@@ -29,6 +29,13 @@ const activityLog = [];
 const MAX_LOG = 200;
 let wss = null;
 
+// --- Firehose (MongoDB change stream) ---
+let changeStream = null;
+const firehoseThrottle = { count: 0, resetAt: 0 };
+const FIREHOSE_MAX_PER_SEC = 50;
+const firehoseBuffer = [];
+const FIREHOSE_BUFFER_SIZE = 50;
+
 function log(type, msg) {
   const entry = { time: new Date().toISOString(), type, msg };
   activityLog.unshift(entry);
@@ -72,6 +79,72 @@ async function connectMongo() {
     log("info", `mongo connected (${parseMongoHost(uri)})`);
   } catch (err) {
     log("error", `mongo connect failed: ${err.message}`);
+  }
+}
+
+// Extract a short summary from the full document (admin-only dashboard, safe to show)
+function firehoseSummary(coll, op, doc) {
+  if (!doc || op === "delete") return null;
+  switch (coll) {
+    case "chat-system": case "chat-clock": case "chat-sotce":
+      return doc.user ? `@${doc.user}` : (doc.text?.slice(0, 40) || null);
+    case "@handles": return doc.handle ? `@${doc.handle}` : null;
+    case "users": return doc.email?.split("@")[0] || doc.name || null;
+    case "paintings": return doc.slug || doc.title || null;
+    case "tapes": return doc.piece || null;
+    case "pieces": return doc.slug || doc.name || null;
+    case "kidlisp": return doc.name || null;
+    case "moods": return doc.mood || null;
+    case "verifications": return doc.handle ? `@${doc.handle}` : null;
+    default: return null;
+  }
+}
+
+function startFirehose() {
+  if (!db) return;
+  try {
+    changeStream = db.watch(
+      [{ $match: { operationType: { $in: ["insert", "update", "replace", "delete"] } } }],
+      { fullDocument: "updateLookup" }
+    );
+    log("info", "firehose change stream started");
+
+    changeStream.on("change", (change) => {
+      const now = Date.now();
+      if (now > firehoseThrottle.resetAt) {
+        firehoseThrottle.count = 0;
+        firehoseThrottle.resetAt = now + 1000;
+      }
+      if (firehoseThrottle.count >= FIREHOSE_MAX_PER_SEC) return;
+      firehoseThrottle.count++;
+
+      const coll = change.ns?.coll || "unknown";
+      const op = change.operationType;
+      const event = {
+        ns: coll,
+        op,
+        time: now,
+        id: change.documentKey?._id?.toString() || null,
+        summary: firehoseSummary(coll, op, change.fullDocument),
+      };
+
+      // Buffer for history replay on new connections
+      firehoseBuffer.push(event);
+      if (firehoseBuffer.length > FIREHOSE_BUFFER_SIZE) firehoseBuffer.shift();
+
+      if (wss?.clients) {
+        const data = JSON.stringify({ firehose: event });
+        wss.clients.forEach((c) => c.readyState === 1 && c.send(data));
+      }
+    });
+
+    changeStream.on("error", (err) => {
+      log("error", `firehose stream error: ${err.message}`);
+      changeStream = null;
+      setTimeout(startFirehose, 5000);
+    });
+  } catch (err) {
+    log("error", `firehose setup failed: ${err.message}`);
   }
 }
 
@@ -607,6 +680,30 @@ a:hover { text-decoration: underline; }
 .sync-btn:hover { color: var(--fg); border-color: var(--fg2); }
 .sync-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* firehose */
+.firehose-panel { padding: 0 !important; overflow: hidden !important; }
+.firehose-panel canvas { display: block; width: 100%; height: 100%; }
+.firehose-hud {
+  position: absolute; top: 8px; right: 12px; z-index: 2;
+  display: flex; gap: 12px; font-size: 11px; color: var(--fg2);
+  pointer-events: none;
+}
+.firehose-counter { color: var(--fg); }
+.firehose-rate { color: var(--accent); }
+.firehose-sidebar {
+  position: absolute; bottom: 8px; left: 8px; z-index: 2;
+  font-size: 10px; pointer-events: none;
+  max-height: calc(100% - 40px); overflow: hidden;
+}
+.fh-counter-row {
+  display: flex; align-items: center; gap: 4px; padding: 1px 0;
+  opacity: 0.7;
+}
+.fh-counter-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.fh-counter-ns { color: var(--fg); min-width: 80px; }
+.fh-counter-val { color: var(--fg); font-variant-numeric: tabular-nums; min-width: 30px; text-align: right; }
+.fh-counter-ops { color: var(--fg2); margin-left: 2px; }
+
 @media (max-width: 640px) {
   .bar { gap: 4px; padding: 4px 6px; }
   body { font-size: 12px; }
@@ -647,6 +744,7 @@ a:hover { text-decoration: underline; }
     <button class="tab-btn" data-tab="2">services</button>
     <button class="tab-btn" data-tab="3">storage</button>
     <button class="tab-btn" data-tab="4">log</button>
+    <button class="tab-btn" data-tab="5">firehose</button>
   </div>
 
   <div class="panels">
@@ -717,6 +815,16 @@ a:hover { text-decoration: underline; }
     <div class="log-panel" data-panel="4">
       <div class="log-hd">log <b id="logCount">0</b></div>
       <div class="log-scroll" id="logEntries"></div>
+    </div>
+
+    <!-- firehose -->
+    <div class="panel firehose-panel" data-panel="5">
+      <div class="firehose-hud">
+        <span class="firehose-counter"><span id="firehoseCount">0</span> events</span>
+        <span class="firehose-rate" id="firehoseRate">0/s</span>
+      </div>
+      <div class="firehose-sidebar" id="firehoseCounters"></div>
+      <canvas id="firehoseCanvas"></canvas>
     </div>
   </div>
 </div>
@@ -808,6 +916,7 @@ function connectWS() {
   ws.onmessage = (e) => {
     const data = JSON.parse(e.data);
     if (data.logEntry) addLog(data.logEntry);
+    if (data.firehose) fhIngest(data.firehose);
   };
 }
 function dot(id, ok) {
@@ -998,6 +1107,170 @@ document.getElementById('logo').onclick = () => {
   location.href = location.host === 'silo.aesthetic.computer' ? 'https://aesthetic.computer' : '/';
 };
 
+// --- Firehose Visualization ---
+const FIREHOSE_COLORS = {
+  'chat-system': '#4a4', 'chat-clock': '#4c4', 'chat-sotce': '#6a4',
+  'users': '#48f', '@handles': '#68c', 'verifications': '#cc4',
+  'paintings': '#a6f', 'pieces': '#c6a', 'kidlisp': '#fa4',
+  'moods': '#f8a', 'tapes': '#f80',
+};
+const FH_DEFAULT_COLOR = '#888';
+const OP_SYM = { insert: '+', update: '~', replace: '=', delete: '-' };
+
+const fh = {
+  particles: [], ambient: [], canvas: null, ctx: null, running: false,
+  totalEvents: 0, eventsThisSec: 0, eps: 0, lastRateReset: Date.now(),
+  MAX_P: 200, MAX_AMB: 30,
+  counters: {},  // { 'chat-system': { insert: 5, update: 2 }, ... }
+};
+
+function fhParticle(ev) {
+  const c = fh.canvas; if (!c) return null;
+  const dpr = window.devicePixelRatio || 1;
+  const w = c.width / dpr, h = c.height / dpr;
+  return {
+    x: 40 + Math.random() * 60,
+    y: 40 + Math.random() * (h - 80),
+    vx: 0.5 + Math.random() * 1.5,
+    vy: (Math.random() - 0.5) * 0.3,
+    color: FIREHOSE_COLORS[ev.ns] || FH_DEFAULT_COLOR,
+    label: (OP_SYM[ev.op] || '?') + ' ' + ev.ns + (ev.summary ? ' ' + ev.summary : ''),
+    alpha: 1, size: 4 + Math.random() * 3,
+    life: 5000 + Math.random() * 3000, born: Date.now(),
+  };
+}
+
+function fhAmbient() {
+  const c = fh.canvas; if (!c) return null;
+  const dpr = window.devicePixelRatio || 1;
+  return {
+    x: Math.random() * (c.width / dpr),
+    y: Math.random() * (c.height / dpr),
+    vx: (Math.random() - 0.5) * 0.2,
+    vy: (Math.random() - 0.5) * 0.15,
+    alpha: 0.08 + Math.random() * 0.12,
+    size: 1 + Math.random() * 2,
+    color: darkMode ? '#444' : '#ccc',
+    life: 8000 + Math.random() * 6000, born: Date.now(),
+  };
+}
+
+function fhIngest(ev) {
+  fh.totalEvents++;
+  fh.eventsThisSec++;
+  // aggregate counters
+  if (!fh.counters[ev.ns]) fh.counters[ev.ns] = {};
+  fh.counters[ev.ns][ev.op] = (fh.counters[ev.ns][ev.op] || 0) + 1;
+  // update HUD
+  const el = document.getElementById('firehoseCount');
+  if (el) el.textContent = fh.totalEvents.toLocaleString();
+  fhUpdateCounters();
+  // spawn particle
+  if (fh.particles.length >= fh.MAX_P) fh.particles.shift();
+  const p = fhParticle(ev);
+  if (p) fh.particles.push(p);
+}
+
+function fhUpdateCounters() {
+  const el = document.getElementById('firehoseCounters');
+  if (!el) return;
+  const entries = Object.entries(fh.counters)
+    .map(([ns, ops]) => {
+      const total = Object.values(ops).reduce((s, n) => s + n, 0);
+      return { ns, total, ops };
+    })
+    .sort((a, b) => b.total - a.total);
+  el.innerHTML = entries.map(e => {
+    const color = FIREHOSE_COLORS[e.ns] || FH_DEFAULT_COLOR;
+    const parts = Object.entries(e.ops).map(([op, n]) => (OP_SYM[op] || op) + n).join(' ');
+    return '<div class="fh-counter-row">' +
+      '<span class="fh-counter-dot" style="background:' + color + '"></span>' +
+      '<span class="fh-counter-ns">' + e.ns + '</span>' +
+      '<span class="fh-counter-val">' + e.total + '</span>' +
+      '<span class="fh-counter-ops">' + parts + '</span></div>';
+  }).join('');
+}
+
+function fhTick() {
+  if (!fh.running) return;
+  requestAnimationFrame(fhTick);
+  const { canvas, ctx, particles, ambient } = fh;
+  if (!canvas || !ctx) return;
+  const now = Date.now();
+  const dpr = window.devicePixelRatio || 1;
+
+  // rate counter
+  if (now - fh.lastRateReset >= 1000) {
+    fh.eps = fh.eventsThisSec; fh.eventsThisSec = 0; fh.lastRateReset = now;
+    const rEl = document.getElementById('firehoseRate');
+    if (rEl) rEl.textContent = fh.eps + '/s';
+  }
+
+  // clear
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = darkMode ? '#111' : '#f4f4f4';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // ambient
+  while (ambient.length < fh.MAX_AMB) { const a = fhAmbient(); if (a) ambient.push(a); }
+  for (let i = ambient.length - 1; i >= 0; i--) {
+    const p = ambient[i];
+    const age = now - p.born;
+    if (age > p.life) { ambient.splice(i, 1); continue; }
+    p.x += p.vx; p.y += p.vy;
+    const prog = age / p.life;
+    const fade = prog < 0.1 ? prog / 0.1 : prog > 0.8 ? (1 - prog) / 0.2 : 1;
+    ctx.globalAlpha = p.alpha * fade;
+    ctx.beginPath();
+    ctx.arc(p.x * dpr, p.y * dpr, p.size * dpr, 0, Math.PI * 2);
+    ctx.fillStyle = p.color;
+    ctx.fill();
+  }
+
+  // event particles
+  ctx.textBaseline = 'middle';
+  ctx.font = (11 * dpr) + 'px "Berkeley Mono Variable", monospace';
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    const age = now - p.born;
+    if (age > p.life) { particles.splice(i, 1); continue; }
+    p.x += p.vx; p.y += p.vy;
+    const prog = age / p.life;
+    p.alpha = prog < 0.05 ? prog / 0.05 : 1 - prog * prog;
+    if (p.alpha <= 0) { particles.splice(i, 1); continue; }
+    ctx.globalAlpha = p.alpha;
+    ctx.beginPath();
+    ctx.arc(p.x * dpr, p.y * dpr, p.size * dpr, 0, Math.PI * 2);
+    ctx.fillStyle = p.color;
+    ctx.fill();
+    ctx.globalAlpha = p.alpha * 0.85;
+    ctx.fillStyle = p.color;
+    ctx.fillText(p.label, (p.x + p.size + 6) * dpr, p.y * dpr);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function fhResize() {
+  const c = fh.canvas; if (!c) return;
+  const panel = c.parentElement; if (!panel) return;
+  const dpr = window.devicePixelRatio || 1;
+  const rect = panel.getBoundingClientRect();
+  c.width = rect.width * dpr;
+  c.height = rect.height * dpr;
+  c.style.width = rect.width + 'px';
+  c.style.height = rect.height + 'px';
+}
+
+function fhInit() {
+  fh.canvas = document.getElementById('firehoseCanvas');
+  if (!fh.canvas) return;
+  fh.ctx = fh.canvas.getContext('2d');
+  fhResize();
+  window.addEventListener('resize', fhResize);
+}
+function fhStart() { if (fh.running) return; fh.running = true; fhResize(); fhTick(); }
+function fhStop() { fh.running = false; }
+
 // --- tabs (always visible, persisted) ---
 let activeTab = parseInt(localStorage.getItem('silo-tab') || '0');
 const tabBtns = document.querySelectorAll('.tab-btn');
@@ -1013,6 +1286,8 @@ function setTab(idx) {
     const el = document.getElementById('logEntries');
     requestAnimationFrame(() => el.scrollTop = el.scrollHeight);
   }
+  // firehose animation: start/stop with tab
+  if (idx === 5) { fhStart(); } else { fhStop(); }
 }
 tabBtns.forEach(b => b.addEventListener('click', () => setTab(parseInt(b.dataset.tab))));
 setTab(activeTab);
@@ -1044,6 +1319,7 @@ document.getElementById('syncBtn').onclick = async () => {
 
 function loadAll() {
   loadOverview(); loadCompare(); loadCollections(); loadStorage(); loadServices();
+  fhInit();
   setInterval(loadOverview, 30000);
   setInterval(loadCompare, 60000);
   setInterval(loadServices, 60000);
@@ -1082,11 +1358,16 @@ wss.on("connection", async (ws) => {
   for (const entry of activityLog.slice(0, 30).reverse()) {
     ws.send(JSON.stringify({ logEntry: entry }));
   }
+  // Send firehose history so the tab isn't empty on load
+  for (const event of firehoseBuffer) {
+    ws.send(JSON.stringify({ firehose: event }));
+  }
   ws.on("close", () => log("info", "dashboard client disconnected"));
 });
 
 // --- Boot ---
 await connectMongo();
+startFirehose();
 await connectAtlas();
 await connectRedis();
 
@@ -1098,6 +1379,7 @@ server.listen(PORT, () => {
 // --- Shutdown ---
 function shutdown(signal) {
   log("info", `received ${signal}, shutting down...`);
+  if (changeStream) changeStream.close().catch(() => {});
   wss.clients.forEach((ws) => ws.close());
   server.close();
   mongoClient?.close();
