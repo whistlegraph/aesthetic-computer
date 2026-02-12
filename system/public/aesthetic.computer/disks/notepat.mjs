@@ -1153,8 +1153,8 @@ async function boot({
     separator: " · ",
   });
 
-  // Hide HUD label (we'll render it in the bumper instead)
-  hud.label(undefined);
+  // Enable HUD label (it will appear in the bumper area)
+  hud.label("notepat");
 
   // 🎹 Check if we're in DAW mode (loaded from Ableton M4L)
   dawMode = query?.daw === "1" || query?.daw === 1 || query?.daw === true;
@@ -2732,15 +2732,27 @@ function paint({
     // Draw bumper background - dark gradient
     ink(15, 15, 20, 220).box(0, 0, screen.width, BUMPER_HEIGHT);
 
-    // Update and render ticker
+    // Calculate HUD label area (top-right corner for "notepat.com")
+    // Estimate: "notepat.com" is ~11 chars * 6px = 66px, plus padding
+    const hudLabelWidth = 80;
+    const hudLabelX = screen.width - hudLabelWidth;
+
+    // Draw background box for HUD label area (title for the marquee)
+    ink(25, 30, 40, 200).box(hudLabelX, 0, hudLabelWidth, BUMPER_HEIGHT);
+
+    // Update and render ticker (aware of HUD label width)
     if (bumperTicker) {
       bumperTicker.update(api);
       ink(180, 200, 255);
-      bumperTicker.paint(api, 4, 4, { width: screen.width - 8 });
+      // Ticker runs from left edge to HUD label area
+      bumperTicker.paint(api, 4, 4, { width: hudLabelX - 8 });
     }
 
     // Draw subtle separator line at bottom of bumper
     ink(40, 45, 60, 180).line(0, BUMPER_HEIGHT - 1, screen.width, BUMPER_HEIGHT - 1);
+
+    // Draw separator between ticker and HUD label area
+    ink(40, 45, 60, 180).line(hudLabelX, 0, hudLabelX, BUMPER_HEIGHT - 1);
   }
 
   // 🎹 Draw mini piano strip in top bar (not in recital mode or fullscreen modes)
