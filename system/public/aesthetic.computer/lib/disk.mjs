@@ -7367,13 +7367,17 @@ async function load(
             const extension = path.endsWith('.lisp') ? '.lisp' : '.mjs';
             // Handle sandboxed environments for anon URL construction
             const { protocol} = getSafeUrlParts();
-            // Use full path (includes date directories for pieces)
+            // Extract code from path (e.g., "aesthetic.computer/disks/zod" → "zod")
+            const code = path.split("/").pop();
+
+            // TODO: Fetch slug from database API to get proper S3 path with date dirs
+            // For now, try direct code path (will 404 for new date-based pieces)
             const anonUrl =
               protocol +
               "//" +
               "art.aesthetic.computer" +
               "/" +
-              path +
+              code +
               extension +
               "#" +
               Date.now();
@@ -7590,13 +7594,14 @@ async function load(
       if (response.status === 404 || response.status === 403) {
         // Handle sandboxed environments for anon URL construction
         const { protocol } = getSafeUrlParts();
-        // Use full path (includes date directories for pieces)
+        // Extract code from path for S3 URL
+        const code = path.split("/").pop();
         const anonUrl =
           protocol +
           "//" +
           "art.aesthetic.computer" +
           "/" +
-          path +
+          code +
           ".lisp" +
           "#" +
           Date.now();
