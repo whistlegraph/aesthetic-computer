@@ -2512,6 +2512,22 @@ function paint({
 }) {
   const paintStart = performance.now();
 
+  // 🎨 Syntax highlight "notepat" HUD label based on active keys
+  // Mapping: n=note(+b), o=sharp(+c#), t=sharp(c#), e=note(e), p=sharp(+a#), a=note(a)
+  const keyToNote = { n: '+b', o: '+c#', t: 'c#', e: 'e', p: '+a#', a: 'a' };
+  let coloredLabel = "";
+  for (const char of "notepat") {
+    const note = keyToNote[char];
+    const isActive = note && sounds[note];
+    if (isActive) {
+      const color = getCachedColor(note, num);
+      coloredLabel += `\\${color[0]},${color[1]},${color[2]}\\${char}`;
+    } else {
+      coloredLabel += char;
+    }
+  }
+  api.hud.label(coloredLabel, undefined, 0, "notepat");
+
   // Hover state (for newbie-friendly overlays)
   let hoveredNote = null;
   let hoveredKeyLabel = null;
