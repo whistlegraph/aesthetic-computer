@@ -459,6 +459,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
   --ok: #396; --err: #c44; --warn: #a80;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; overflow: hidden; }
 body {
   font-family: 'Berkeley Mono Variable', monospace;
   font-size: 13px; line-height: 1.4;
@@ -484,11 +485,17 @@ a:hover { text-decoration: underline; }
 #loginBtn:hover { border-color: var(--accent); }
 #authStatus { font-size: 11px; color: var(--fg2); }
 
+/* layout */
+#dashboard {
+  display: none; flex-direction: column; height: 100vh; overflow: hidden;
+}
+#dashboard.visible { display: flex; }
+
 /* header */
 .bar {
   display: flex; align-items: center; gap: 6px; padding: 6px 8px;
-  border-bottom: 1px solid var(--border); position: sticky; top: 0;
-  background: var(--bg); z-index: 10; flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg); z-index: 10; flex-shrink: 0; flex-wrap: wrap;
 }
 .bar-title { font-size: 14px; color: var(--fg); cursor: pointer; letter-spacing: 2px; }
 .bar-title:hover { color: var(--accent); }
@@ -505,25 +512,44 @@ a:hover { text-decoration: underline; }
 }
 .btn:hover { color: var(--fg); border-color: var(--fg2); }
 
-/* tiles */
-#dashboard { padding: 6px; display: none; }
-.tiles {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 6px;
+/* tabs */
+.tab-bar {
+  display: flex; overflow-x: auto; white-space: nowrap;
+  gap: 0; border-bottom: 1px solid var(--border);
+  padding: 0 6px; background: var(--bg); flex-shrink: 0;
 }
-.tile {
-  border: 1px solid var(--border); background: var(--bg2);
-  padding: 8px; overflow: hidden;
+.tab-btn {
+  font-family: inherit; font-size: 11px; padding: 5px 10px;
+  background: none; color: var(--fg2); border: none; border-bottom: 2px solid transparent;
+  cursor: pointer; white-space: nowrap;
 }
-.tile-hd {
+.tab-btn:hover { color: var(--fg); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* panels */
+.panels { flex: 1; overflow: hidden; position: relative; }
+.panel {
+  display: none; position: absolute; inset: 0;
+  overflow-y: auto; padding: 8px;
+}
+.panel.active { display: block; }
+
+/* overview two-col on wide screens */
+.overview-grid { display: grid; grid-template-columns: 1fr; gap: 6px; }
+@media (min-width: 700px) {
+  .overview-grid { grid-template-columns: 1fr 1fr; }
+}
+
+.card {
+  border: 1px solid var(--border); background: var(--bg2); padding: 8px;
+}
+.card-hd {
   font-size: 11px; color: var(--fg2); text-transform: uppercase;
   letter-spacing: 1px; padding-bottom: 4px; margin-bottom: 6px;
   border-bottom: 1px solid var(--border);
   display: flex; justify-content: space-between; align-items: center;
 }
-.tile-hd b { color: var(--fg); font-weight: normal; }
-.tile-wide { grid-column: 1 / -1; }
+.card-hd b { color: var(--fg); font-weight: normal; }
 
 /* stats */
 .kv { display: flex; justify-content: space-between; padding: 2px 0; font-size: 12px; }
@@ -541,7 +567,6 @@ a:hover { text-decoration: underline; }
 .tbl td { padding: 2px 4px; border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent); }
 .tbl td.r { text-align: right; font-variant-numeric: tabular-nums; }
 .tbl tr:hover td { background: var(--hover); }
-.tbl-scroll { max-height: 300px; overflow-y: auto; }
 
 /* storage bars */
 .sbar { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 12px; }
@@ -551,7 +576,14 @@ a:hover { text-decoration: underline; }
 .sbar-val { min-width: 80px; text-align: right; color: var(--fg2); font-size: 11px; font-variant-numeric: tabular-nums; }
 
 /* log */
-.log-scroll { max-height: 200px; overflow-y: auto; }
+.log-panel { display: none; position: absolute; inset: 0; flex-direction: column; }
+.log-panel.active { display: flex; }
+.log-hd {
+  font-size: 11px; color: var(--fg2); text-transform: uppercase;
+  letter-spacing: 1px; padding: 8px 8px 4px; flex-shrink: 0;
+}
+.log-hd b { color: var(--fg); font-weight: normal; }
+.log-scroll { flex: 1; overflow-y: auto; padding: 0 8px 8px; }
 .log-row { display: flex; gap: 8px; padding: 1px 0; font-size: 11px; }
 .log-t { color: var(--fg2); min-width: 60px; font-variant-numeric: tabular-nums; }
 .log-m { color: var(--fg); word-break: break-word; }
@@ -566,27 +598,6 @@ a:hover { text-decoration: underline; }
 
 .loading { color: var(--fg2); }
 
-/* tabs (compact / short viewport) */
-.tab-bar {
-  display: none; overflow-x: auto; white-space: nowrap;
-  gap: 0; border-bottom: 1px solid var(--border);
-  padding: 0 6px; background: var(--bg);
-}
-.tab-btn {
-  font-family: inherit; font-size: 11px; padding: 5px 10px;
-  background: none; color: var(--fg2); border: none; border-bottom: 2px solid transparent;
-  cursor: pointer; white-space: nowrap;
-}
-.tab-btn:hover { color: var(--fg); }
-.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
-#dashboard.compact .tab-bar { display: flex; }
-#dashboard.compact .tiles { display: block; }
-#dashboard.compact .tile { display: none; }
-#dashboard.compact .tile.active-tile { display: block; }
-#dashboard.compact .tile-wide { grid-column: auto; }
-#dashboard.compact .tile { max-height: calc(100vh - 80px); overflow-y: auto; }
-#dashboard.compact { overflow: hidden; height: 100vh; }
-
 /* sync button */
 .sync-btn {
   font-family: inherit; font-size: 10px; padding: 1px 6px;
@@ -597,10 +608,9 @@ a:hover { text-decoration: underline; }
 .sync-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 @media (max-width: 640px) {
-  .tiles { grid-template-columns: 1fr; }
   .bar { gap: 4px; padding: 4px 6px; }
   body { font-size: 12px; }
-  .tile { padding: 6px; }
+  .card { padding: 6px; }
 }
 </style>
 </head>
@@ -633,52 +643,48 @@ a:hover { text-decoration: underline; }
 
   <div class="tab-bar" id="tabBar">
     <button class="tab-btn active" data-tab="0">overview</button>
-    <button class="tab-btn" data-tab="1">databases</button>
-    <button class="tab-btn" data-tab="2">redis</button>
-    <button class="tab-btn" data-tab="3">services</button>
-    <button class="tab-btn" data-tab="4">collections</button>
-    <button class="tab-btn" data-tab="5">storage</button>
-    <button class="tab-btn" data-tab="6">log</button>
+    <button class="tab-btn" data-tab="1">data</button>
+    <button class="tab-btn" data-tab="2">services</button>
+    <button class="tab-btn" data-tab="3">storage</button>
+    <button class="tab-btn" data-tab="4">log</button>
   </div>
 
-  <div class="tiles">
+  <div class="panels">
     <!-- overview -->
-    <div class="tile">
-      <div class="tile-hd">overview</div>
-      <div class="kv"><span class="k">users</span><span class="v" id="s-users">-</span></div>
-      <div class="kv"><span class="k">paintings</span><span class="v" id="s-paintings">-</span></div>
-      <div class="kv"><span class="k">kidlisp</span><span class="v" id="s-kidlisp">-</span></div>
-      <div class="kv"><span class="k">moods</span><span class="v" id="s-moods">-</span></div>
-      <div class="kv"><span class="k">chat</span><span class="v" id="s-chat">-</span></div>
-      <div class="kv"><span class="k">collections</span><span class="v" id="s-cols">-</span></div>
-      <div class="kv"><span class="k">total docs</span><span class="v" id="s-docs">-</span></div>
-      <div class="kv"><span class="k">db size</span><span class="v" id="s-dbsize">-</span></div>
-      <div class="kv"><span class="k">storage</span><span class="v" id="s-storage">-</span></div>
+    <div class="panel active" data-panel="0">
+      <div class="overview-grid">
+        <div class="card">
+          <div class="card-hd">stats</div>
+          <div class="kv"><span class="k">users</span><span class="v" id="s-users">-</span></div>
+          <div class="kv"><span class="k">paintings</span><span class="v" id="s-paintings">-</span></div>
+          <div class="kv"><span class="k">kidlisp</span><span class="v" id="s-kidlisp">-</span></div>
+          <div class="kv"><span class="k">moods</span><span class="v" id="s-moods">-</span></div>
+          <div class="kv"><span class="k">chat</span><span class="v" id="s-chat">-</span></div>
+          <div class="kv"><span class="k">collections</span><span class="v" id="s-cols">-</span></div>
+          <div class="kv"><span class="k">total docs</span><span class="v" id="s-docs">-</span></div>
+          <div class="kv"><span class="k">db size</span><span class="v" id="s-dbsize">-</span></div>
+          <div class="kv"><span class="k">storage</span><span class="v" id="s-storage">-</span></div>
+        </div>
+        <div class="card">
+          <div class="card-hd">services</div>
+          <div class="kv"><span class="k"><span class="dot" id="svc-oven-dot"></span> oven</span><span class="v" id="svc-oven-meta">...</span></div>
+          <div class="kv"><span class="k"><span class="dot" id="svc-session-dot"></span> session</span><span class="v" id="svc-session-meta">...</span></div>
+          <div style="margin-top:8px">
+            <div class="card-hd">redis</div>
+            <div id="redisTile" class="loading">loading...</div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <!-- db compare -->
-    <div class="tile">
-      <div class="tile-hd">databases <b id="dbSyncStatus"></b> <button class="sync-btn" id="syncBtn" title="Sync Atlas to Primary">sync from atlas</button></div>
-      <div id="dbCompare" class="loading">loading...</div>
-    </div>
-
-    <!-- redis -->
-    <div class="tile">
-      <div class="tile-hd">redis</div>
-      <div id="redisTile" class="loading">loading...</div>
-    </div>
-
-    <!-- services -->
-    <div class="tile">
-      <div class="tile-hd">services</div>
-      <div class="kv"><span class="k"><span class="dot" id="svc-oven-dot"></span> oven</span><span class="v" id="svc-oven-meta">...</span></div>
-      <div class="kv"><span class="k"><span class="dot" id="svc-session-dot"></span> session</span><span class="v" id="svc-session-meta">...</span></div>
-    </div>
-
-    <!-- collections -->
-    <div class="tile">
-      <div class="tile-hd">collections <b id="colCount"></b></div>
-      <div class="tbl-scroll">
+    <!-- data (databases + collections) -->
+    <div class="panel" data-panel="1">
+      <div class="card" style="margin-bottom:6px">
+        <div class="card-hd">databases <b id="dbSyncStatus"></b> <button class="sync-btn" id="syncBtn" title="Sync Atlas to Primary">sync from atlas</button></div>
+        <div id="dbCompare" class="loading">loading...</div>
+      </div>
+      <div class="card">
+        <div class="card-hd">collections <b id="colCount"></b></div>
         <table class="tbl">
           <thead><tr><th>name</th><th style="text-align:right">docs</th></tr></thead>
           <tbody id="collectionsBody"><tr><td colspan="2" class="loading">loading...</td></tr></tbody>
@@ -686,15 +692,30 @@ a:hover { text-decoration: underline; }
       </div>
     </div>
 
+    <!-- services detail -->
+    <div class="panel" data-panel="2">
+      <div class="card">
+        <div class="card-hd">services</div>
+        <div class="kv"><span class="k"><span class="dot" id="svc-oven-dot2"></span> oven</span><span class="v" id="svc-oven-meta2">...</span></div>
+        <div class="kv"><span class="k"><span class="dot" id="svc-session-dot2"></span> session</span><span class="v" id="svc-session-meta2">...</span></div>
+      </div>
+      <div class="card" style="margin-top:6px">
+        <div class="card-hd">redis</div>
+        <div id="redisTile2" class="loading">loading...</div>
+      </div>
+    </div>
+
     <!-- storage -->
-    <div class="tile">
-      <div class="tile-hd">storage <b id="stoTotal"></b></div>
-      <div id="storageBuckets" class="loading">loading...</div>
+    <div class="panel" data-panel="3">
+      <div class="card">
+        <div class="card-hd">storage <b id="stoTotal"></b></div>
+        <div id="storageBuckets" class="loading">loading...</div>
+      </div>
     </div>
 
     <!-- log -->
-    <div class="tile tile-wide">
-      <div class="tile-hd">log <b id="logCount">0</b></div>
+    <div class="log-panel" data-panel="4">
+      <div class="log-hd">log <b id="logCount">0</b></div>
       <div class="log-scroll" id="logEntries"></div>
     </div>
   </div>
@@ -760,7 +781,7 @@ async function initAuth() {
         return;
       }
       document.getElementById('login').style.display = 'none';
-      document.getElementById('dashboard').style.display = 'block';
+      document.getElementById('dashboard').classList.add('visible');
       document.getElementById('logoutBtn').style.display = 'inline';
       connectWS(); loadAll();
     } else {
@@ -812,10 +833,10 @@ async function loadOverview() {
     document.getElementById('s-storage').textContent = (d.storage?.totalGB || '0') + ' GB';
     dot('mongoStatus', true);
 
-    // redis
+    // redis (update both overview and detail tabs)
     if (d.redis?.connected) {
       dot('redisStatus', true);
-      document.getElementById('redisTile').innerHTML =
+      const redisHtml =
         kv('memory', d.redis.usedMemory || '-') +
         kv('peak', d.redis.peakMemory || '-') +
         kv('keys', fmt(d.redis.totalKeys)) +
@@ -823,9 +844,15 @@ async function loadOverview() {
         kv('hit rate', d.redis.hitRate + '%') +
         kv('uptime', fmtDuration(d.redis.uptimeSeconds)) +
         kv('version', d.redis.version || '-');
+      document.getElementById('redisTile').innerHTML = redisHtml;
+      const r2 = document.getElementById('redisTile2');
+      if (r2) r2.innerHTML = redisHtml;
     } else {
       dot('redisStatus', false);
-      document.getElementById('redisTile').innerHTML = '<span class="loading">not connected</span>';
+      const msg = '<span class="loading">not connected</span>';
+      document.getElementById('redisTile').innerHTML = msg;
+      const r2 = document.getElementById('redisTile2');
+      if (r2) r2.innerHTML = msg;
     }
 
     // uptime
@@ -915,27 +942,37 @@ async function checkSvc(name) {
     const d = await authFetch('/api/services/' + name).then(r => r.json());
     const ok = d.status === 'ok';
     dot('svc-' + name + '-dot', ok);
-    document.getElementById('svc-' + name + '-meta').textContent = ok ? d.responseMs + 'ms' : 'down';
-    document.getElementById('svc-' + name + '-meta').className = 'v ' + (ok ? 'ok' : 'err');
+    dot('svc-' + name + '-dot2', ok);
+    const txt = ok ? d.responseMs + 'ms' : 'down';
+    const cls = 'v ' + (ok ? 'ok' : 'err');
+    for (const suffix of ['', '2']) {
+      const el = document.getElementById('svc-' + name + '-meta' + suffix);
+      if (el) { el.textContent = txt; el.className = cls; }
+    }
   } catch (e) {
     dot('svc-' + name + '-dot', false);
-    const m = document.getElementById('svc-' + name + '-meta');
-    m.textContent = 'error'; m.className = 'v err';
+    dot('svc-' + name + '-dot2', false);
+    for (const suffix of ['', '2']) {
+      const m = document.getElementById('svc-' + name + '-meta' + suffix);
+      if (m) { m.textContent = 'error'; m.className = 'v err'; }
+    }
   }
 }
 
-// log
+// log (append at bottom, auto-scroll when near bottom)
 function addLog(entry) {
   logCount++;
   document.getElementById('logCount').textContent = logCount;
   const el = document.getElementById('logEntries');
+  const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
   const div = document.createElement('div');
   div.className = 'log-row';
   const t = new Date(entry.time);
   const ts = String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0') + ':' + String(t.getSeconds()).padStart(2,'0');
   div.innerHTML = '<span class="log-t">' + ts + '</span><span class="log-m ' + (entry.type || '') + '">' + esc(entry.msg) + '</span>';
-  el.insertBefore(div, el.firstChild);
-  while (el.children.length > 100) el.removeChild(el.lastChild);
+  el.appendChild(div);
+  while (el.children.length > 200) el.removeChild(el.firstChild);
+  if (atBottom) el.scrollTop = el.scrollHeight;
 }
 
 // util
@@ -961,25 +998,24 @@ document.getElementById('logo').onclick = () => {
   location.href = location.host === 'silo.aesthetic.computer' ? 'https://aesthetic.computer' : '/';
 };
 
-// --- tabs (compact mode for short viewports) ---
-let activeTab = 0;
+// --- tabs (always visible, persisted) ---
+let activeTab = parseInt(localStorage.getItem('silo-tab') || '0');
 const tabBtns = document.querySelectorAll('.tab-btn');
+const panels = document.querySelectorAll('[data-panel]');
 
 function setTab(idx) {
   activeTab = idx;
+  localStorage.setItem('silo-tab', idx);
   tabBtns.forEach((b, i) => b.classList.toggle('active', i === idx));
-  document.querySelectorAll('.tiles .tile').forEach((t, i) => t.classList.toggle('active-tile', i === idx));
+  panels.forEach(p => p.classList.toggle('active', parseInt(p.dataset.panel) === idx));
+  // auto-scroll log to bottom when switching to log tab
+  if (idx === 4) {
+    const el = document.getElementById('logEntries');
+    requestAnimationFrame(() => el.scrollTop = el.scrollHeight);
+  }
 }
 tabBtns.forEach(b => b.addEventListener('click', () => setTab(parseInt(b.dataset.tab))));
-
-function checkCompact() {
-  const compact = window.innerHeight < 600;
-  const dash = document.getElementById('dashboard');
-  if (!dash) return;
-  dash.classList.toggle('compact', compact);
-  if (compact) setTab(activeTab);
-}
-window.addEventListener('resize', checkCompact);
+setTab(activeTab);
 
 // --- sync button ---
 document.getElementById('syncBtn').onclick = async () => {
@@ -1008,7 +1044,6 @@ document.getElementById('syncBtn').onclick = async () => {
 
 function loadAll() {
   loadOverview(); loadCompare(); loadCollections(); loadStorage(); loadServices();
-  checkCompact();
   setInterval(loadOverview, 30000);
   setInterval(loadCompare, 60000);
   setInterval(loadServices, 60000);
