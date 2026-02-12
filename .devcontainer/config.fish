@@ -1634,15 +1634,11 @@ end
 # ⏲️ Wait on `entry.fish` to touch the `.waiter` file.
 
 function aesthetic
-    # Only kill emacs if it's a zombie (running but unresponsive).
-    # If it's healthy (e.g. pre-started by entry.fish), keep it for faster connect.
+    # Always kill emacs daemon to ensure clean state.
+    # Prevents issues where daemon passes connectivity test but aesthetic-backend is corrupted.
     if pgrep -f "emacs.*daemon" >/dev/null 2>&1
-        if not timeout 3 emacsclient -e t >/dev/null 2>&1
-            echo "⚠️  Emacs daemon is unresponsive (zombie) — restarting..."
-            ac-emacs-kill
-        else
-            echo "✅ Reusing healthy emacs daemon"
-        end
+        echo "🔄 Killing existing emacs daemon for clean start..."
+        ac-emacs-kill
     end
     
     # Check if --no-wait flag is passed

@@ -34,30 +34,122 @@ export async function handler(event, context) {
               type: "string",
               description: "Short code for accessing the piece (e.g. 'abc123')"
             },
-            url: {
-              type: "string",
-              description: "Full URL to view the piece (e.g. 'https://aesthetic.computer/abc123')"
+            cached: {
+              type: "boolean",
+              description: "True if code already existed (deduplication)"
             }
           }
         },
         examples: [
           {
-            title: "Anonymous KidLisp Piece",
-            request: {
-              method: "POST",
-              url: "https://aesthetic.computer/api/store-kidlisp",
-              headers: {
-                "Content-Type": "application/json"
-              },
-              body: {
-                source: "(wipe blue)\n(ink yellow)\n(circle (/ w 2) (/ h 2) 100)"
-              }
-            },
+            title: "Publish a KidLisp Piece",
+            description: "Create a simple animated piece with KidLisp",
+            curl: `curl -X POST https://aesthetic.computer/api/store-kidlisp \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "source": "(wipe blue)\\n(ink yellow)\\n(circle (/ w 2) (/ h 2) 100)"
+  }'`,
+            javascript: `const response = await fetch("https://aesthetic.computer/api/store-kidlisp", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    source: "(wipe blue)\\n(ink yellow)\\n(circle (/ w 2) (/ h 2) 100)"
+  })
+});
+
+const { code, cached } = await response.json();
+console.log(\`View at: https://aesthetic.computer/\${code}\`);`,
+            python: `import requests
+
+response = requests.post(
+    "https://aesthetic.computer/api/store-kidlisp",
+    json={
+        "source": "(wipe blue)\\n(ink yellow)\\n(circle (/ w 2) (/ h 2) 100)"
+    }
+)
+
+data = response.json()
+print(f"View at: https://aesthetic.computer/{data['code']}")`,
             response: {
-              status: 200,
+              status: 201,
               body: {
                 code: "xyz789",
-                url: "https://aesthetic.computer/xyz789"
+                cached: false
+              }
+            }
+          }
+        ]
+      },
+
+      {
+        name: "Store Clock Melody",
+        method: "POST",
+        path: "/api/store-clock",
+        description: "Publish a clock melody string and get a pronounceable short code",
+        authentication: "Optional (Bearer token for authenticated users)",
+        requestBody: {
+          contentType: "application/json",
+          schema: {
+            source: {
+              type: "string",
+              required: true,
+              description: "Clock melody string (max 10,000 characters)",
+              example: "c4 d4 e4 f4 g4"
+            },
+            melody: {
+              type: "string",
+              required: false,
+              description: "Legacy field name (use 'source' instead)"
+            }
+          }
+        },
+        responseBody: {
+          schema: {
+            code: {
+              type: "string",
+              description: "Pronounceable short code (e.g. 'bako', 'milu')"
+            },
+            cached: {
+              type: "boolean",
+              description: "True if melody already existed (deduplication)"
+            }
+          }
+        },
+        examples: [
+          {
+            title: "Publish a Clock Melody",
+            description: "Store a musical sequence for the clock piece",
+            curl: `curl -X POST https://aesthetic.computer/api/store-clock \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "source": "c4 e4 g4 c5 g4 e4 c4"
+  }'`,
+            javascript: `const response = await fetch("https://aesthetic.computer/api/store-clock", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    source: "c4 e4 g4 c5 g4 e4 c4"
+  })
+});
+
+const { code, cached } = await response.json();
+console.log(\`Listen at: https://aesthetic.computer/clock~\${code}\`);`,
+            python: `import requests
+
+response = requests.post(
+    "https://aesthetic.computer/api/store-clock",
+    json={
+        "source": "c4 e4 g4 c5 g4 e4 c4"
+    }
+)
+
+data = response.json()
+print(f"Listen at: https://aesthetic.computer/clock~{data['code']}")`,
+            response: {
+              status: 201,
+              body: {
+                code: "bako",
+                cached: false
               }
             }
           }
