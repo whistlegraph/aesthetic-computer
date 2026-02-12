@@ -2734,13 +2734,20 @@ function paint({
     // Draw bumper background - dark gradient
     ink(15, 15, 20, 220).box(0, 0, screen.width, BUMPER_HEIGHT);
 
-    // Update and render ticker (runs full width, HUD label renders on top)
+    // Update and render ticker (starts after HUD label)
     if (bumperTicker) {
       bumperTicker.update(api);
 
-      // Render ticker across full width
+      // Ticker starts after HUD corner label "notepat.com"
+      // HUD label is ~60-70px, use 90px to give breathing room
+      const tickerStartX = 90;
+      const tickerWidth = screen.width - tickerStartX;
+
       ink(180, 200, 255);
-      bumperTicker.paint(api, 0, 4, { width: screen.width });
+      bumperTicker.paint(api, tickerStartX, 4, { width: tickerWidth });
+
+      // Mask any ticker text that wraps to left side
+      ink(15, 15, 20, 220).box(0, 0, tickerStartX, BUMPER_HEIGHT);
     }
 
     // Draw subtle separator line at bottom of bumper
