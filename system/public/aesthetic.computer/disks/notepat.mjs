@@ -529,7 +529,7 @@ function getMiniPianoBlackKeyHeight(isCompact) {
 }
 
 function getTopBarPianoMetrics(screen) {
-  const topPianoY = 3;
+  const topPianoY = BUMPER_HEIGHT + 3; // Position below bumper
   const topPianoHeight = 15;
   // Push piano right when .com superscript is shown to avoid overlap with HUD label
   const topPianoStartX = dotComMode ? 75 : 54;
@@ -2734,8 +2734,9 @@ function paint({
     ink(15, 15, 20, 220).box(0, 0, screen.width, BUMPER_HEIGHT);
 
     // Calculate HUD label area (top-left for "notepat.com")
-    // Estimate: "notepat.com" is ~11 chars * 6px = 66px, plus padding
-    const hudLabelWidth = 80;
+    // Actual HUD renders "notepat" (~7 chars × 8-9px) + ".com" superscript (~25px)
+    // Total width with padding: ~100px
+    const hudLabelWidth = 100;
 
     // Draw background box for HUD label area (title for the marquee)
     ink(25, 30, 40, 200).box(0, 0, hudLabelWidth, BUMPER_HEIGHT);
