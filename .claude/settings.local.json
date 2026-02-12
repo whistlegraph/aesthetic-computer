@@ -68,7 +68,8 @@
       "Bash(sudo chmod:*)",
       "Bash(git rm:*)",
       "Bash(git revert:*)",
-      "Bash(git check-ignore:*)"
+      "Bash(git check-ignore:*)",
+      "Bash(npm run build:*)"
     ],
     "additionalDirectories": [
       "/home/me/.claude",
