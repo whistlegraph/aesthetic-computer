@@ -1000,6 +1000,12 @@ from = "https://device.kidlisp.com/qr/*"
 to = "/kidlisp.com/qr.html?token=:splat"
 status = 200
 force = true
+# Serve static JS assets for device subdomain
+[[redirects]]
+from = "https://device.kidlisp.com/js/*"
+to = "/kidlisp.com/js/:splat"
+status = 200
+force = true
 [[redirects]]
 from = "https://device.kidlisp.com/*"
 to = "/kidlisp.com/device.html"
@@ -1010,6 +1016,12 @@ force = true
 [[redirects]]
 from = "https://top.kidlisp.com"
 to = "/kidlisp.com/device.html"
+status = 200
+force = true
+# Serve static JS assets for top subdomain
+[[redirects]]
+from = "https://top.kidlisp.com/js/*"
+to = "/kidlisp.com/js/:splat"
 status = 200
 force = true
 [[redirects]]
