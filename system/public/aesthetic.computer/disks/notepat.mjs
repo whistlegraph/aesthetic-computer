@@ -2516,10 +2516,8 @@ function paint({
 
   // 🎨 Syntax highlight "notepat" HUD label based on active notes
   // Mapping: notepat → cdefgab (in order)
-  // Black keys (semitones) shown as dots: c#, d#, f#, g#, a#
   const notepatLetters = "notepat";
   const noteMapping = ['c', 'd', 'e', 'f', 'g', 'a', 'b'];
-  const blackKeyMapping = ['c#', 'd#', null, 'f#', 'g#', 'a#', null]; // null = no black key after
   let coloredLabel = "";
 
   for (let i = 0; i < notepatLetters.length; i++) {
@@ -2559,48 +2557,60 @@ function paint({
       const b = Math.floor(color[2] * 0.35);
       coloredLabel += `\\${r},${g},${b}\\${char}\\r\\`;
     }
+  }
 
-    // Add tick dot for black key (semitone) if one exists after this note
+  api.hud.label(coloredLabel, undefined, 0, "notepat");
+
+  // 🎹 Draw black key tick dots between letters (render separately to avoid spacing issues)
+  // Black keys (semitones) shown as small dots: c#, d#, f#, g#, a#
+  const blackKeyMapping = ['c#', 'd#', null, 'f#', 'g#', 'a#', null]; // null = no black key after
+  const hudLabelBaseX = 2; // HUD label starts at x=2
+  const hudLabelBaseY = 0; // HUD label at y=0
+  const letterSpacing = 4; // MatrixChunky8 letter width
+
+  for (let i = 0; i < notepatLetters.length; i++) {
     const blackKey = blackKeyMapping[i];
     if (blackKey) {
+      const dotX = hudLabelBaseX + (i + 1) * letterSpacing - 1; // Position between letters
+      const dotY = hudLabelBaseY + 6; // Vertically centered with text
+
       const blackLowerActive = sounds[blackKey];
       const blackUpperActive = sounds['+' + blackKey];
+      const blackColor = getCachedColor(blackKey, num);
 
+      let r, g, b;
       if (blackLowerActive || blackUpperActive) {
-        const blackColor = getCachedColor(blackKey, num);
-
         // Both octaves: blink
         if (blackLowerActive && blackUpperActive) {
           const blinkPhase = Math.floor(paintCount / 3) % 2;
           const brightness = blinkPhase === 0 ? 0 : 100;
-          const r = Math.min(255, blackColor[0] + brightness);
-          const g = Math.min(255, blackColor[1] + brightness);
-          const b = Math.min(255, blackColor[2] + brightness);
-          coloredLabel += `\\${r},${g},${b}\\·\\r\\`;
+          r = Math.min(255, blackColor[0] + brightness);
+          g = Math.min(255, blackColor[1] + brightness);
+          b = Math.min(255, blackColor[2] + brightness);
         }
         // Upper octave only: brighter
         else if (blackUpperActive) {
-          const r = Math.min(255, blackColor[0] + 60);
-          const g = Math.min(255, blackColor[1] + 60);
-          const b = Math.min(255, blackColor[2] + 60);
-          coloredLabel += `\\${r},${g},${b}\\·\\r\\`;
+          r = Math.min(255, blackColor[0] + 60);
+          g = Math.min(255, blackColor[1] + 60);
+          b = Math.min(255, blackColor[2] + 60);
         }
         // Lower octave only: normal color
         else {
-          coloredLabel += `\\${blackColor[0]},${blackColor[1]},${blackColor[2]}\\·\\r\\`;
+          r = blackColor[0];
+          g = blackColor[1];
+          b = blackColor[2];
         }
       } else {
         // Inactive: faded black key tick
-        const blackColor = getCachedColor(blackKey, num);
-        const r = Math.floor(blackColor[0] * 0.35);
-        const g = Math.floor(blackColor[1] * 0.35);
-        const b = Math.floor(blackColor[2] * 0.35);
-        coloredLabel += `\\${r},${g},${b}\\·\\r\\`;
+        r = Math.floor(blackColor[0] * 0.35);
+        g = Math.floor(blackColor[1] * 0.35);
+        b = Math.floor(blackColor[2] * 0.35);
       }
+
+      // Draw small tick dot
+      ink(r, g, b).plot(dotX, dotY);
     }
   }
-
-  api.hud.label(coloredLabel, undefined, 0, "notepat");
 
   // Hover state (for newbie-friendly overlays)
   let hoveredNote = null;
@@ -3014,7 +3024,30 @@ function paint({
     
     // Segment 4: Toggle buttons (dark purple tint)
     ink(25, 18, 30, 180).box(toggleStart, SECONDARY_BAR_TOP, screen.width - toggleStart, SECONDARY_BAR_HEIGHT);
-    
+
+    // 🎹 Draw DAW label when in DAW mode (left of slide button)
+    if (dawMode && slideBtn?.box) {
+      const dawText = "DAW";
+      const dawTextW = matrixGlyphMetrics.width * dawText.length;
+      const dawBoxX = slideBtn.box.x - dawTextW - 8; // 8px gap before slide button
+      const dawBoxY = SECONDARY_BAR_TOP;
+      const dawTextY = SECONDARY_BAR_TOP + 3;
+
+      // Purple/magenta background for DAW mode indicator
+      const dawBgColor = dawSynced ? [60, 30, 80, 200] : [40, 30, 50, 180];
+      const dawTextColor = dawSynced ? [220, 140, 255] : [140, 100, 160];
+
+      ink(dawBgColor[0], dawBgColor[1], dawBgColor[2], dawBgColor[3]).box(dawBoxX, dawBoxY, dawTextW + 4, SECONDARY_BAR_HEIGHT);
+      ink(dawTextColor[0], dawTextColor[1], dawTextColor[2]).write(
+        dawText,
+        { x: dawBoxX + 2, y: dawTextY },
+        undefined,
+        undefined,
+        false,
+        "MatrixChunky8",
+      );
+    }
+
     // Paint slide button
     slideBtn?.paint((btn) => {
       const base = [0, 220, 140];
@@ -3206,10 +3239,10 @@ function paint({
     // 🏀 Draw bouncing ball animation when metronome is running
     if (metronomeEnabled && bpmPlusBtn?.box && slideBtn?.box) {
       const ballTrackStartX = bpmPlusBtn.box.x + bpmPlusBtn.box.w + 4;
-      const ballTrackEndX = slideBtn.box.x - 4;
-      const ballTrackWidth = ballTrackEndX - ballTrackStartX;
-      
-      if (ballTrackWidth > 16) {
+      const ballTrackWidth = 16; // Fixed width for metronome animation
+      const ballTrackEndX = ballTrackStartX + ballTrackWidth;
+
+      if (ballTrackWidth > 0) {
         const ballY = SECONDARY_BAR_TOP + Math.floor(SECONDARY_BAR_HEIGHT / 2);
         const ballRadius = 3;
         // Ball bounces from left to right based on metronomeBallPos (0-1)
@@ -4114,31 +4147,6 @@ function paint({
       "MatrixChunky8",
     );
     cursorX += fpsTextW;
-
-    // 🎹 Draw DAW label when in DAW mode
-    if (dawMode) {
-      // Divider
-      cursorX += 2;
-      if (cursorX > maxX) return;
-      ink(divR, divG, divB).line(cursorX, boxY + 2, cursorX, boxY + SECONDARY_BAR_HEIGHT - 2);
-      cursorX += 3;
-
-      const dawText = "DAW";
-      const dawTextW = measureMatrixTextWidth(dawText);
-      if (cursorX + dawTextW > maxX) return;
-      // Purple/magenta background for DAW mode indicator
-      const dawBgColor = dawSynced ? [60, 30, 80, 180] : [40, 30, 50, 160];
-      const dawTextColor = dawSynced ? [220, 140, 255] : [140, 100, 160];
-      ink(dawBgColor[0], dawBgColor[1], dawBgColor[2], dawBgColor[3]).box(cursorX, boxY, dawTextW, SECONDARY_BAR_HEIGHT);
-      ink(dawTextColor[0], dawTextColor[1], dawTextColor[2]).write(
-        dawText,
-        { x: cursorX, y: baseY },
-        undefined,
-        undefined,
-        false,
-        "MatrixChunky8",
-      );
-    }
   }
 
 
