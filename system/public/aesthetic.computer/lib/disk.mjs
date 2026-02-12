@@ -15161,8 +15161,8 @@ async function handle(retryCount = 0) {
       const newHandle = "@" + storedHandle;
       if (HANDLE === newHandle) return;
       HANDLE = "@" + storedHandle;
-      window.acHANDLE = HANDLE; // Expose for UDP identity
-      if (window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
+      if (typeof window !== 'undefined') window.acHANDLE = HANDLE; // Expose for UDP identity
+      if (typeof window !== 'undefined' && window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
       send({ type: "handle", content: HANDLE });
       store["handle:received"] = true;
       if (bootHandle) store["handle"] = bootHandle; // Cache boot-fetched handle
