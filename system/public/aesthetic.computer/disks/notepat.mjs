@@ -6117,16 +6117,17 @@ function act({
     });
   };
 
-  // Helper to trigger percussion keys (space, alt, arrows)
+  // Helper to trigger percussion keys (alt, arrows) and metronome (space)
   const triggerPercKey = (key, velocity = 1, isDown = true) => {
     if (key === "space" && isDown && !tap) {
-      perc = pc;
-      percDowns.space = true;
-      makeSnare(velocity);
+      // Toggle metronome (except in DAW mode where Ableton controls it)
+      if (!dawMode) {
+        metronomeEnabled = !metronomeEnabled;
+      }
       return true;
     }
     if (key === "space" && !isDown) {
-      delete percDowns.space;
+      // No action needed on space release for metronome
       return true;
     }
     if (key === "alt" && isDown) {
