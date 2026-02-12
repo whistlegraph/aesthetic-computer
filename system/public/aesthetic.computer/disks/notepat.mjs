@@ -2746,21 +2746,13 @@ function paint({
     if (bumperTicker) {
       bumperTicker.update(api);
 
-      // Render ticker to a layer to properly clip it
+      // Ticker starts after HUD label
       const tickerStartX = hudLabelWidth + 4;
       const tickerWidth = screen.width - tickerStartX;
-      const tickerLayer = painting(tickerWidth, BUMPER_HEIGHT, ({ wipe }) => {
-        wipe(0, 0, 0, 0); // Transparent background
-      });
 
-      // Paint ticker to layer at x=0 (relative to layer)
-      page(tickerLayer);
+      // Render ticker at correct position
       ink(180, 200, 255);
-      bumperTicker.paint(api, 0, 4, { width: tickerWidth });
-      page(screen);
-
-      // Paste ticker layer at correct position
-      paste(tickerLayer, tickerStartX, 0);
+      bumperTicker.paint(api, tickerStartX, 4, { width: tickerWidth });
     }
 
     // Draw subtle separator line at bottom of bumper
