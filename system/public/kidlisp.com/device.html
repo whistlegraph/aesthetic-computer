@@ -1032,12 +1032,36 @@
           // Make globally accessible
           window.deviceMonacoEditor = deviceMonacoEditor;
 
+          // Setup KidLisp syntax highlighting
+          setupDeviceMonacoHighlighting(deviceMonacoEditor);
+
           // Add custom context menu
           setupCustomContextMenu(container);
 
           console.log('📺 Monaco editor created for device mode');
         }
       });
+    }
+
+    // Setup syntax highlighting for device mode using MonacoKidLispHighlighter
+    async function setupDeviceMonacoHighlighting(editor) {
+      try {
+        // Dynamically import the highlighting module and KidLisp library
+        const { setupKidLispHighlighting } = await import('./js/monaco-kidlisp-highlighting.mjs');
+
+        // Setup highlighting with timing blinks enabled for device mode
+        const highlighter = setupKidLispHighlighting(editor, {
+          enableTimingBlinks: true,
+          lightModeHighContrast: false // Device mode uses dark theme
+        });
+
+        // Start timing blinks animation loop
+        highlighter.startTimingBlinksLoop(() => true);
+
+        console.log('📺 KidLisp syntax highlighting enabled for device mode');
+      } catch (error) {
+        console.error('📺 Failed to setup KidLisp highlighting:', error);
+      }
     }
 
     // Setup custom context menu for Monaco

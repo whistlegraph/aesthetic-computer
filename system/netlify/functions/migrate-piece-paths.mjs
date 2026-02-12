@@ -2,7 +2,7 @@
 // One-time migration to simplify anonymous piece S3 paths
 // Changes slug from "YYYY/MM/DD/code" to just "code" for anonymous pieces
 
-import { authorize } from "../../backend/authorization.mjs";
+import { authorize, hasAdmin } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 import { S3Client, CopyObjectCommand, PutObjectAclCommand } from "@aws-sdk/client-s3";
@@ -27,11 +27,14 @@ export async function handler(event, context) {
     return respond(401, { error: 'Unauthorized - admin access required' });
   }
 
-  // TODO: Add proper admin check here
-  // For now, just require any authenticated user
-  if (!user?.sub) {
-    return respond(401, { error: 'Unauthorized - admin access required' });
+  // Check if user has admin privileges
+  const isAdmin = await hasAdmin(user);
+  if (!isAdmin) {
+    console.log(`❌ User ${user.sub} is not an admin`);
+    return respond(403, { error: 'Forbidden - admin access required' });
   }
+
+  console.log(`✅ Admin access confirmed for ${user.sub}`);
 
   let database;
   try {
