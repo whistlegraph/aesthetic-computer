@@ -7493,14 +7493,17 @@ async function load(
         // Initialize persistent image cache for paste/stamp (also for .mjs pieces)
         imageCache.init(store);
 
-        // 🔒 Fetch piece metadata for security restrictions
-        if (slug && !devReload) {
-          try {
-            // Clear permissions from previous piece
-            if (pieceMetadata?.code) {
-              clearPermissions(pieceMetadata.code);
-            }
+        // 🔒 Determine piece trust level
+        // System pieces loaded from disks/ are always trusted.
+        if (pieceMetadata?.code) {
+          clearPermissions(pieceMetadata.code);
+        }
 
+        const isSystemPiece = path && path.includes("/disks/");
+        if (isSystemPiece) {
+          pieceMetadata = { code: slug, trustLevel: "trusted", anonymous: false };
+        } else if (slug && !devReload) {
+          try {
             pieceMetadata = await fetchPieceMetadata(slug);
             if (logs.loading) {
               console.log(`🔒 Piece metadata:`, {
@@ -7514,7 +7517,6 @@ async function load(
             pieceMetadata = { code: slug, trustLevel: "untrusted", anonymous: true };
           }
         } else {
-          // Dev reload or no slug - default to untrusted
           pieceMetadata = { code: slug || "unknown", trustLevel: "untrusted", anonymous: true };
         }
 
