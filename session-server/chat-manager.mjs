@@ -724,4 +724,72 @@ export class ChatManager {
       when: msg.when
     })).reverse(); // Most recent first
   }
+
+  // Persist any in-memory messages that weren't saved to MongoDB.
+  // Messages received while this.db was null (broken env) have a `sub` field
+  // but were never inserted. Messages loaded from DB on startup do not have `sub`.
+  async persistAllMessages() {
+    // Establish a connection if we don't have one
+    if (!this.db && this.mongoConnectionString) {
+      try {
+        console.log("💬 Connecting to MongoDB for message persistence...");
+        this.mongoClient = new MongoClient(this.mongoConnectionString);
+        await this.mongoClient.connect();
+        this.db = this.mongoClient.db(this.mongoDbName);
+        console.log("💬 MongoDB connected for persistence!");
+      } catch (err) {
+        console.error("💬 Failed to connect to MongoDB for persistence:", err);
+        return 0;
+      }
+    }
+
+    if (!this.db) {
+      console.error("💬 No MongoDB connection available, cannot persist messages");
+      return 0;
+    }
+
+    let totalPersisted = 0;
+
+    for (const [, instance] of Object.entries(this.instances)) {
+      const collectionName = instance.config.name;
+      // Only persist user messages (have `sub` field) — logs and DB-loaded messages don't.
+      const unpersisted = instance.messages.filter(msg => msg.sub);
+
+      if (unpersisted.length === 0) {
+        console.log(`💬 [${collectionName}] No unpersisted messages`);
+        continue;
+      }
+
+      try {
+        const collection = this.db.collection(collectionName);
+        const docs = unpersisted.map(msg => ({
+          user: msg.sub,
+          text: msg.text,
+          when: msg.when,
+          font: msg.font || "font_1",
+        }));
+
+        const result = await collection.insertMany(docs, { ordered: false });
+        totalPersisted += result.insertedCount;
+        console.log(`💬 [${collectionName}] Persisted ${result.insertedCount} messages`);
+      } catch (err) {
+        // insertMany with ordered:false continues on duplicate errors
+        if (err.insertedCount) totalPersisted += err.insertedCount;
+        console.error(`💬 [${collectionName}] Persistence error:`, err.message);
+      }
+    }
+
+    return totalPersisted;
+  }
+
+  async shutdown() {
+    console.log("💬 ChatManager shutting down...");
+    const count = await this.persistAllMessages();
+    console.log(`💬 Persisted ${count} total messages`);
+
+    if (this.mongoClient) {
+      await this.mongoClient.close();
+      console.log("💬 MongoDB connection closed");
+    }
+  }
 }
