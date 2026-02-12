@@ -531,8 +531,8 @@ function getMiniPianoBlackKeyHeight(isCompact) {
 function getTopBarPianoMetrics(screen) {
   const topPianoY = BUMPER_HEIGHT + 3; // Position below bumper
   const topPianoHeight = 15;
-  // Start piano after HUD label area (allow visualizer more space)
-  const topPianoStartX = dotComMode ? 54 : 54;
+  // Start piano further left to maximize visualizer space
+  const topPianoStartX = 24;
   const availableWidth = Math.max(0, screen.width - topPianoStartX);
 
   const fullWidth = Math.min(140, Math.floor(availableWidth * 0.5));
@@ -2734,35 +2734,17 @@ function paint({
     // Draw bumper background - dark gradient
     ink(15, 15, 20, 220).box(0, 0, screen.width, BUMPER_HEIGHT);
 
-    // Calculate HUD label area (top-left for "notepat.com")
-    // Actual HUD: "notepat" (7 chars × 6px = 42px) + gap + ".com" (4 chars × ~5px = 20px)
-    // Total: ~42 + 2 + 20 + padding = 70px. Use 80px for safety.
-    const hudLabelWidth = 80;
-
-    // Draw background box for HUD label area (title for the marquee)
-    ink(25, 30, 40, 200).box(0, 0, hudLabelWidth, BUMPER_HEIGHT);
-
-    // Update and render ticker (starts after HUD label)
+    // Update and render ticker (runs full width, HUD label renders on top)
     if (bumperTicker) {
       bumperTicker.update(api);
 
-      // Ticker starts after HUD label
-      const tickerStartX = hudLabelWidth + 4;
-      const tickerWidth = screen.width - tickerStartX;
-
-      // Render ticker at correct position
+      // Render ticker across full width
       ink(180, 200, 255);
-      bumperTicker.paint(api, tickerStartX, 4, { width: tickerWidth });
-
-      // Mask ticker overflow by redrawing HUD label background on top
-      ink(25, 30, 40, 200).box(0, 0, hudLabelWidth, BUMPER_HEIGHT);
+      bumperTicker.paint(api, 0, 4, { width: screen.width });
     }
 
     // Draw subtle separator line at bottom of bumper
     ink(40, 45, 60, 180).line(0, BUMPER_HEIGHT - 1, screen.width, BUMPER_HEIGHT - 1);
-
-    // Draw separator between HUD label and ticker area
-    ink(40, 45, 60, 180).line(hudLabelWidth, 0, hudLabelWidth, BUMPER_HEIGHT - 1);
   }
 
   // 🎹 Draw mini piano strip in top bar (not in recital mode or fullscreen modes)
