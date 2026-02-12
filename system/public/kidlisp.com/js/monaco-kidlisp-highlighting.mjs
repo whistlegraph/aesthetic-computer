@@ -10,11 +10,12 @@ import { tokenize, KidLisp } from 'https://aesthetic.computer/aesthetic.computer
  * @param {object} options - Configuration options
  * @param {boolean} options.enableTimingBlinks - Enable animated timing blinks (default: true)
  * @param {boolean} options.lightModeHighContrast - Use high-contrast colors for light mode
+ * @param {KidLisp} options.kidlispInstance - Use an existing KidLisp instance instead of creating a new one
  */
 export class MonacoKidLispHighlighter {
   constructor(editor, options = {}) {
     this.editor = editor;
-    this.kidlisp = new KidLisp();
+    this.kidlisp = options.kidlispInstance || new KidLisp();
     this.currentDecorations = [];
     this.isUpdating = false;
     this.updateLoopRunning = false;
@@ -168,7 +169,7 @@ export class MonacoKidLispHighlighter {
   _handleTokenDecoration(token, colorName, decorations, lineNumber, columnNumber, endColumn) {
     // Handle RAINBOW special marker
     if (colorName === 'RAINBOW') {
-      const rainbowColors = ['red', 'orange', 'yellow', 'lime', 'blue', 'purple', 'magenta'];
+      const rainbowColors = ['#ff0000', '#ff7f00', '#ffff00', '#00ff00', '#0000ff', '#4b0082', '#9400d3'];
       for (let i = 0; i < token.length; i++) {
         const charColor = rainbowColors[i % rainbowColors.length];
         const cssClass = this._getOrCreateCssClass(charColor);
@@ -182,7 +183,7 @@ export class MonacoKidLispHighlighter {
 
     // Handle ZEBRA special marker
     if (colorName === 'ZEBRA') {
-      const zebraColors = ['white', 'black'];
+      const zebraColors = ['#000000', '#ffffff'];
       for (let i = 0; i < token.length; i++) {
         const charColor = zebraColors[i % zebraColors.length];
         const cssClass = this._getOrCreateCssClass(charColor);

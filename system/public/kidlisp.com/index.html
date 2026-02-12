@@ -12175,6 +12175,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
 
     import { tokenize } from 'https://aesthetic.computer/aesthetic.computer/lib/kidlisp.mjs';
     import { KidLisp } from 'https://aesthetic.computer/aesthetic.computer/lib/kidlisp.mjs';
+    import { MonacoKidLispHighlighter } from './js/monaco-kidlisp-highlighting.mjs';
 
     const editorContainer = document.getElementById('kidlisp-editor');
     const sendButton = document.getElementById('send-button');
@@ -15689,8 +15690,8 @@ s("ape_breaks_3").loopAt(2)</textarea>
       // Note: OS theme change listener is in applyTheme section below
       // to avoid duplicate listeners and respect manual theme selection
 
-      // Track decorations for syntax highlighting blinks
-      let currentDecorations = [];
+      // Track decorations for execution trace highlighting (separate from syntax highlighting)
+      let highlightTraceDecorations = [];
       let errorDecorations = []; // Track error underlines separately
       
       // Reassign the stub functions to real implementations
@@ -15728,419 +15729,11 @@ s("ape_breaks_3").loopAt(2)</textarea>
         }
       };
       
-      // Helper function to get shadow color for dark text (from disk.mjs approach)
-      function getShadowForColor(colorStr) {
-        if (!colorStr) return null;
-        
-        let rgb;
-        // Parse RGB format
-        if (colorStr.startsWith('rgb(')) {
-          const match = colorStr.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-          if (match) {
-            rgb = [parseInt(match[1]), parseInt(match[2]), parseInt(match[3])];
-          }
-        } else if (colorStr.includes(',')) {
-          rgb = colorStr.split(',').map(n => parseInt(n.trim()));
-        } else {
-          // Named colors - approximate common dark colors
-          const darkColors = {
-            'black': [0, 0, 0],
-            'darkblue': [0, 0, 139],
-            'darkgreen': [0, 100, 0],
-            'darkred': [139, 0, 0],
-            'navy': [0, 0, 128],
-            'maroon': [128, 0, 0],
-            'purple': [128, 0, 128],
-            'indigo': [75, 0, 130]
-          };
-          rgb = darkColors[colorStr.toLowerCase()];
-        }
-        
-        if (!rgb || rgb.length < 3) return null;
-        
-        const [r, g, b] = rgb;
-        // Check if color is dark (low luminance)
-        const luminance = (0.299 * r + 0.587 * g + 0.114 * b);
-        
-        if (luminance < 50) {
-          // Very dark - needs bright shadow
-          return '1px 1px 0px rgba(220, 220, 220, 0.8)';
-        } else if (luminance < 100) {
-          // Somewhat dark - needs lighter shadow
-          return '1px 1px 0px rgba(200, 200, 200, 0.6)';
-        }
-        
-        return null; // Light color, no shadow needed
-      }
-      
-      // Helper function to get shadow color for dark text (from disk.mjs approach)
-      function getShadowForColor(colorStr) {
-        if (!colorStr) return null;
-        
-        let rgb;
-        // Parse RGB format
-        if (colorStr.startsWith('rgb(')) {
-          const match = colorStr.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-          if (match) {
-            rgb = [parseInt(match[1]), parseInt(match[2]), parseInt(match[3])];
-          }
-        } else if (colorStr.includes(',')) {
-          rgb = colorStr.split(',').map(n => parseInt(n.trim()));
-        } else {
-          // Named colors - approximate common dark colors
-          const darkColors = {
-            'black': [0, 0, 0],
-            'darkblue': [0, 0, 139],
-            'darkgreen': [0, 100, 0],
-            'darkred': [139, 0, 0],
-            'navy': [0, 0, 128],
-            'maroon': [128, 0, 0],
-            'purple': [128, 0, 128],
-            'indigo': [75, 0, 130]
-          };
-          rgb = darkColors[colorStr.toLowerCase()];
-        }
-        
-        if (!rgb || rgb.length < 3) return null;
-        
-        const [r, g, b] = rgb;
-        // Check if color is dark (low luminance)
-        const luminance = (0.299 * r + 0.587 * g + 0.114 * b);
-        
-        if (luminance < 50) {
-          // Very dark - needs bright shadow
-          return '1px 1px 0px rgba(220, 220, 220, 0.8)';
-        } else if (luminance < 100) {
-          // Somewhat dark - needs lighter shadow
-          return '1px 1px 0px rgba(200, 200, 200, 0.6)';
-        }
-        
-        return null; // Light color, no shadow needed
-      }
-      
       // Edit mode for timing blinks is controlled dynamically based on playback state
-      // (see scheduleDecorationUpdate which sets kidlisp.isEditMode = isPlaying && !isPaused)
       kidlisp.isEditMode = false;
       
-      // Detect if we're in light mode for high-contrast syntax colors
-      const isLightMode = !window.matchMedia('(prefers-color-scheme: dark)').matches;
-      kidlisp.lightModeHighContrast = isLightMode;
-      
-      // Listen for theme changes to update contrast mode
-      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-        kidlisp.lightModeHighContrast = !e.matches;
-      });
-      
-      // CSS color name to RGB mapping
-      const cssColorMap = {
-        aliceblue: [240, 248, 255], antiquewhite: [250, 235, 215], aqua: [0, 255, 255],
-        aquamarine: [127, 255, 212], azure: [240, 255, 255], beige: [245, 245, 220],
-        bisque: [255, 228, 196], black: [0, 0, 0], blanchedalmond: [255, 235, 205],
-        blue: [0, 0, 255], blueviolet: [138, 43, 226], brown: [165, 42, 42],
-        burlywood: [222, 184, 135], cadetblue: [95, 158, 160], chartreuse: [127, 255, 0],
-        chocolate: [210, 105, 30], coral: [255, 127, 80], cornflowerblue: [100, 149, 237],
-        cornsilk: [255, 248, 220], crimson: [220, 20, 60], cyan: [0, 255, 255],
-        darkblue: [0, 0, 139], darkcyan: [0, 139, 139], darkgoldenrod: [184, 134, 11],
-        darkgray: [169, 169, 169], darkgrey: [169, 169, 169], darkgreen: [0, 100, 0],
-        darkkhaki: [189, 183, 107], darkmagenta: [139, 0, 139], darkolivegreen: [85, 107, 47],
-        darkorange: [255, 140, 0], darkorchid: [153, 50, 204], darkred: [139, 0, 0],
-        darksalmon: [233, 150, 122], darkseagreen: [143, 188, 143], darkslateblue: [72, 61, 139],
-        darkslategray: [47, 79, 79], darkslategrey: [47, 79, 79], darkturquoise: [0, 206, 209],
-        darkviolet: [148, 0, 211], deeppink: [255, 20, 147], deepskyblue: [0, 191, 255],
-        dimgray: [105, 105, 105], dimgrey: [105, 105, 105], dodgerblue: [30, 144, 255],
-        firebrick: [178, 34, 34], floralwhite: [255, 250, 240], forestgreen: [34, 139, 34],
-        fuchsia: [255, 0, 255], gainsboro: [220, 220, 220], ghostwhite: [248, 248, 255],
-        gold: [255, 215, 0], goldenrod: [218, 165, 32], gray: [128, 128, 128],
-        grey: [128, 128, 128], green: [0, 128, 0], greenyellow: [173, 255, 47],
-        honeydew: [240, 255, 240], hotpink: [255, 105, 180], indianred: [205, 92, 92],
-        indigo: [75, 0, 130], ivory: [255, 255, 240], khaki: [240, 230, 140],
-        lavender: [230, 230, 250], lavenderblush: [255, 240, 245], lawngreen: [124, 252, 0],
-        lemonchiffon: [255, 250, 205], lightblue: [173, 216, 230], lightcoral: [240, 128, 128],
-        lightcyan: [224, 255, 255], lightgoldenrodyellow: [250, 250, 210], lightgray: [211, 211, 211],
-        lightgrey: [211, 211, 211], lightgreen: [144, 238, 144], lightpink: [255, 182, 193],
-        lightsalmon: [255, 160, 122], lightseagreen: [32, 178, 170], lightskyblue: [135, 206, 250],
-        lightslategray: [119, 136, 153], lightslategrey: [119, 136, 153], lightsteelblue: [176, 196, 222],
-        lightyellow: [255, 255, 224], lime: [0, 255, 0], limegreen: [50, 205, 50],
-        linen: [250, 240, 230], magenta: [255, 0, 255], maroon: [128, 0, 0],
-        mediumaquamarine: [102, 205, 170], mediumblue: [0, 0, 205], mediumorchid: [186, 85, 211],
-        mediumpurple: [147, 112, 219], mediumseagreen: [60, 179, 113], mediumslateblue: [123, 104, 238],
-        mediumspringgreen: [0, 250, 154], mediumturquoise: [72, 209, 204], mediumvioletred: [199, 21, 133],
-        midnightblue: [25, 25, 112], mintcream: [245, 255, 250], mistyrose: [255, 228, 225],
-        moccasin: [255, 228, 181], navajowhite: [255, 222, 173], navy: [0, 0, 128],
-        oldlace: [253, 245, 230], olive: [128, 128, 0], olivedrab: [107, 142, 35],
-        orange: [255, 165, 0], orangered: [255, 69, 0], orchid: [218, 112, 214],
-        palegoldenrod: [238, 232, 170], palegreen: [152, 251, 152], paleturquoise: [175, 238, 238],
-        palevioletred: [219, 112, 147], papayawhip: [255, 239, 213], peachpuff: [255, 218, 185],
-        peru: [205, 133, 63], pink: [255, 192, 203], plum: [221, 160, 221],
-        powderblue: [176, 224, 230], purple: [128, 0, 128], rebeccapurple: [102, 51, 153],
-        red: [255, 0, 0], rosybrown: [188, 143, 143], royalblue: [65, 105, 225],
-        saddlebrown: [139, 69, 19], salmon: [250, 128, 114], sandybrown: [244, 164, 96],
-        seagreen: [46, 139, 87], seashell: [255, 245, 238], sienna: [160, 82, 45],
-        silver: [192, 192, 192], skyblue: [135, 206, 235], slateblue: [106, 90, 205],
-        slategray: [112, 128, 144], slategrey: [112, 128, 144], snow: [255, 250, 250],
-        springgreen: [0, 255, 127], steelblue: [70, 130, 180], tan: [210, 180, 140],
-        teal: [0, 128, 128], thistle: [216, 191, 216], tomato: [255, 99, 71],
-        turquoise: [64, 224, 208], violet: [238, 130, 238], wheat: [245, 222, 179],
-        white: [255, 255, 255], whitesmoke: [245, 245, 245], yellow: [255, 255, 0],
-        yellowgreen: [154, 205, 50]
-      };
-      
-      // Function to apply color name decorations using KidLisp's own syntax highlighting
-      function applyColorNameDecorations() {
-        if (!editor) return;
-        const model = editor.getModel();
-        if (!model) return;
-        
-        const decorations = [];
-        const code = model.getValue();
-        
-        if (!code.trim()) {
-          currentDecorations = editor.deltaDecorations(currentDecorations, []);
-          return;
-        }
-        
-        try {
-          // Use KidLisp's tokenizer
-          const tokens = tokenize(code);
-          kidlisp.initializeSyntaxHighlighting(code);
-          
-          // Track position in code
-          let searchPos = 0;
-          
-          tokens.forEach((token, index) => {
-            // Get the color from KidLisp's getTokenColor method (with timing support in edit mode)
-            let colorName = kidlisp.getTokenColor(token, tokens, index);
-            
-            // Find the token's position in the code starting from searchPos
-            const tokenPos = code.indexOf(token, searchPos);
-            if (tokenPos === -1) {
-              return;
-            }
-            
-            // Calculate line and column from position
-            const beforeToken = code.substring(0, tokenPos);
-            const lines = beforeToken.split('\n');
-            const lineNumber = lines.length;
-            const columnNumber = lines[lines.length - 1].length + 1;
-            const endColumn = columnNumber + token.length;
-            
-            // Validate range before creating decorations
-            if (lineNumber < 1 || columnNumber < 1 || endColumn < columnNumber) {
-              searchPos = tokenPos + token.length;
-              return;
-            }
-            
-            // Convert KidLisp color to CSS
-            let cssColor = null;
-            let cssClass = null;
-            
-            // Handle fade: expressions with multi-color highlighting
-            if (token.startsWith('fade:')) {
-              const coloredFadeString = kidlisp.colorFadeExpression(token);
-              // Parse the colored fade string format: \color1\text1\color2\text2...
-              const segments = coloredFadeString.split('\\').filter(s => s);
-              
-              let charOffset = 0;
-              for (let i = 0; i < segments.length; i += 2) {
-                const segmentColor = segments[i];
-                const segmentText = segments[i + 1] || '';
-                
-                // Convert segment color to CSS
-                let segmentCssColor = segmentColor;
-                if (segmentColor.includes(',')) {
-                  segmentCssColor = `rgb(${segmentColor})`;
-                }
-                
-                // Apply high-contrast colors for light mode
-                if (kidlisp.lightModeHighContrast) {
-                  const lightModeColorMap = {
-                    'yellow': '#cc9900',
-                    'cyan': '#0099cc',
-                    'lime': '#00aa00',
-                    'pink': '#cc0066',
-                    'orange': '#cc6600',
-                    'magenta': '#cc00cc',
-                    'mediumseagreen': '#2e8b57',
-                    'gray': '#666666',
-                  };
-                  
-                  if (lightModeColorMap[segmentColor]) {
-                    segmentCssColor = lightModeColorMap[segmentColor];
-                  }
-                }
-                
-                const segmentClass = `fade-segment-${segmentColor.replace(/,/g, '-').replace(/ /g, '')}`;
-                if (!document.getElementById(segmentClass)) {
-                  const style = document.createElement('style');
-                  style.id = segmentClass;
-                  style.textContent = `.monaco-editor .view-line > span > span.${segmentClass} { color: ${segmentCssColor}; font-weight: bold; }`;
-                  document.head.appendChild(style);
-                }
-                
-                // Apply color to each character in the segment
-                for (let charIdx = 0; charIdx < segmentText.length; charIdx++) {
-                  decorations.push({
-                    range: new monaco.Range(lineNumber, columnNumber + charOffset, lineNumber, columnNumber + charOffset + 1),
-                    options: { inlineClassName: segmentClass }
-                  });
-                  charOffset++;
-                }
-              }
-              
-              searchPos = tokenPos + token.length;
-              return;
-            }
-            
-            // Handle special color markers
-            if (colorName === 'RAINBOW') {
-              // Rainbow effect - each character gets a different color
-              const rainbowColors = ['#ff0000', '#ff7f00', '#ffff00', '#00ff00', '#0000ff', '#4b0082', '#9400d3'];
-              for (let i = 0; i < token.length; i++) {
-                const charColor = rainbowColors[i % rainbowColors.length];
-                const styleId = `rainbow-char-${i % rainbowColors.length}`;
-                if (!document.getElementById(styleId)) {
-                  const style = document.createElement('style');
-                  style.id = styleId;
-                  style.textContent = `.monaco-editor .view-line > span > span.${styleId} { color: ${charColor}; font-weight: bold; }`;
-                  document.head.appendChild(style);
-                }
-                decorations.push({
-                  range: new monaco.Range(lineNumber, columnNumber + i, lineNumber, columnNumber + i + 1),
-                  options: { inlineClassName: styleId }
-                });
-              }
-              searchPos = tokenPos + token.length;
-              return;
-            } else if (colorName === 'ZEBRA') {
-              // Zebra effect - alternating black and white
-              // Note: We don't add background to allow selection highlighting to show through
-              for (let i = 0; i < token.length; i++) {
-                const zebraColor = i % 2 === 0 ? '#000000' : '#ffffff';
-                const zebraClass = i % 2 === 0 ? 'zebra-black' : 'zebra-white';
-                const styleId = zebraClass;
-                if (!document.getElementById(styleId)) {
-                  const style = document.createElement('style');
-                  style.id = styleId;
-                  // Only set color and font-weight, not background, to allow selection to show
-                  style.textContent = `.monaco-editor .view-line > span > span.${styleId} { color: ${zebraColor}; font-weight: bold; }`;
-                  document.head.appendChild(style);
-                }
-                decorations.push({
-                  range: new monaco.Range(lineNumber, columnNumber + i, lineNumber, columnNumber + i + 1),
-                  options: { inlineClassName: styleId }
-                });
-              }
-              searchPos = tokenPos + token.length;
-              return;
-            } else if (colorName && colorName.startsWith('COMPOUND:')) {
-              // Handle compound colors like $codes and #codes
-              const parts = colorName.split(':');
-              const prefixColor = parts[1];
-              const identifierColor = parts[2];
-              
-              // Color the prefix character
-              cssColor = prefixColor.includes(',') ? `rgb(${prefixColor})` : prefixColor;
-              cssClass = `compound-prefix-${prefixColor.replace(/,/g, '-').replace(/ /g, '')}`;
-              if (!document.getElementById(cssClass)) {
-                const style = document.createElement('style');
-                style.id = cssClass;
-                style.textContent = `.monaco-editor .view-line > span > span.${cssClass} { color: ${cssColor}; font-weight: bold; }`;
-                document.head.appendChild(style);
-              }
-              decorations.push({
-                range: new monaco.Range(lineNumber, columnNumber, lineNumber, columnNumber + 1),
-                options: { inlineClassName: cssClass }
-              });
-              
-              // Color the identifier part
-              const idColor = identifierColor.includes(',') ? `rgb(${identifierColor})` : identifierColor;
-              const idClass = `compound-id-${identifierColor.replace(/,/g, '-').replace(/ /g, '')}`;
-              if (!document.getElementById(idClass)) {
-                const style = document.createElement('style');
-                style.id = idClass;
-                style.textContent = `.monaco-editor .view-line > span > span.${idClass} { color: ${idColor}; font-weight: bold; }`;
-                document.head.appendChild(style);
-              }
-              decorations.push({
-                range: new monaco.Range(lineNumber, columnNumber + 1, lineNumber, endColumn),
-                options: { inlineClassName: idClass }
-              });
-              
-              searchPos = tokenPos + token.length;
-              return;
-            } else if (colorName) {
-              // Regular color - convert to CSS
-              let originalColor = colorName;
-              
-              // Apply high-contrast colors for light mode
-              if (kidlisp.lightModeHighContrast) {
-                // Map light colors to darker, higher contrast versions
-                const lightModeColorMap = {
-                  'yellow': '#cc9900',      // Darker yellow/gold
-                  'cyan': '#0099cc',        // Darker cyan
-                  'lime': '#00aa00',        // Darker lime
-                  'pink': '#cc0066',        // Darker pink/magenta
-                  'orange': '#cc6600',      // Keep orange similar
-                  'magenta': '#cc00cc',     // Darker magenta
-                  'gray': '#666666',        // Darker gray
-                  'lightgray': '#999999',   // Medium gray
-                  'white': '#cccccc',       // Light gray instead of white
-                };
-                
-                if (lightModeColorMap[colorName]) {
-                  colorName = lightModeColorMap[colorName];
-                }
-              }
-              
-              if (colorName.includes(',')) {
-                // RGB format
-                cssColor = `rgb(${colorName})`;
-                cssClass = `color-rgb-${colorName.replace(/,/g, '-').replace(/ /g, '')}`;
-              } else {
-                // Named color
-                cssColor = colorName;
-                cssClass = `color-${colorName.replace(/ /g, '-')}`;
-              }
-              
-              // Create or reuse style
-              if (!document.getElementById(cssClass)) {
-                const style = document.createElement('style');
-                style.id = cssClass;
-                
-                // Add text-shadow for dark colors in dark mode
-                const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark' || 
-                                 (!document.documentElement.getAttribute('data-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
-                const shadow = isDarkMode ? getShadowForColor(cssColor) : null;
-                const shadowStyle = shadow ? ` text-shadow: ${shadow};` : '';
-                
-                style.textContent = `.monaco-editor .view-line > span > span.${cssClass} { color: ${cssColor}; font-weight: bold;${shadowStyle} }`;
-                document.head.appendChild(style);
-              }
-              
-              decorations.push({
-                range: new monaco.Range(lineNumber, columnNumber, lineNumber, endColumn),
-                options: { inlineClassName: cssClass }
-              });
-            }
-            
-            searchPos = tokenPos + token.length;
-          });
-          
-        } catch (error) {
-          // Silently handle errors to avoid console spam during typing
-          log.editor.verbose('Decoration error:', error.message);
-        }
-        
-        // Safely apply decorations with error handling
-        try {
-          if (editor && editor.getModel()) {
-            currentDecorations = editor.deltaDecorations(currentDecorations, decorations);
-          }
-        } catch (error) {
-          log.editor.verbose('Failed to apply decorations:', error.message);
-          currentDecorations = [];
-        }
-      }
+      // Syntax highlighting via shared MonacoKidLispHighlighter module
+      const syntaxHighlighter = new MonacoKidLispHighlighter(editor, { kidlispInstance: kidlisp });
       
       // Apply color decorations on content change
       editor.onDidChangeModelContent(() => {
@@ -16154,7 +15747,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
           clearTimeout(window.decorationTimeout);
         }
         window.decorationTimeout = setTimeout(() => {
-          applyColorNameDecorations();
+          syntaxHighlighter.applyDecorations(true);
         }, 50);
         // Don't save scrambled animation content to localStorage
         if (!(window.isDecrypting && window.isDecrypting())) {
@@ -16180,25 +15773,11 @@ s("ape_breaks_3").loopAt(2)</textarea>
       
       // Initial application after a short delay to ensure editor is ready
       setTimeout(() => {
-        applyColorNameDecorations();
+        syntaxHighlighter.applyDecorations(true);
       }, 100);
-      
+
       // Continuously update decorations for timing blinks (60fps)
-      // Use requestAnimationFrame for better performance and to avoid conflicts
-      let isUpdating = false;
-      function scheduleDecorationUpdate() {
-        if (!isUpdating && editor && editor.getModel()) {
-          isUpdating = true;
-          requestAnimationFrame(() => {
-            // Only animate timing blinks when playing (not paused/stopped)
-            kidlisp.isEditMode = isPlaying && !isPaused;
-            applyColorNameDecorations();
-            isUpdating = false;
-            setTimeout(scheduleDecorationUpdate, 16); // ~60fps
-          });
-        }
-      }
-      scheduleDecorationUpdate();
+      syntaxHighlighter.startTimingBlinksLoop(() => isPlaying && !isPaused);
 
       // Update line numbers based on maxLines setting
       function updateLineNumbers() {
@@ -16279,7 +15858,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
       // Update clear button visibility on content change
       editor.onDidChangeModelContent(() => {
         updateLineNumbers();
-        applyColorNameDecorations();
+        syntaxHighlighter.applyDecorations(true);
         updateClearButtonVisibility();
         // Also update slide button visibility (depends on whether code has numbers)
         if (window.updateSlideButtonVisibility) window.updateSlideButtonVisibility();
@@ -16875,7 +16454,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
         
         // Re-apply decorations with new theme
         if (editor) {
-          applyColorNameDecorations();
+          syntaxHighlighter.applyDecorations(true);
         }
         
         // Regenerate QR code with new theme colors
@@ -18710,7 +18289,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
       });
 
       // Apply decorations
-      currentDecorations = editor.deltaDecorations(currentDecorations, decorations);
+      highlightTraceDecorations = editor.deltaDecorations(highlightTraceDecorations, decorations);
     }
 
     // Populate reference grids automatically
