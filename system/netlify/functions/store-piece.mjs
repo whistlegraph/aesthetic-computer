@@ -246,6 +246,8 @@ export async function handler(event, context) {
       bucket,
       anonymous,
       trustLevel,
+      type: "piece",           // Mark as JavaScript piece (not kidlisp)
+      extension: ".mjs",       // File extension for loading
     };
 
     // Add optional fields
