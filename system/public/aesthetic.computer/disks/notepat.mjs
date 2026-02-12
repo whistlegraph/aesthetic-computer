@@ -2512,20 +2512,31 @@ function paint({
 }) {
   const paintStart = performance.now();
 
-  // 🎨 Syntax highlight "notepat" HUD label based on active keys
-  // Mapping: n=note(+b), o=sharp(+c#), t=sharp(c#), e=note(e), p=sharp(+a#), a=note(a)
-  const keyToNote = { n: '+b', o: '+c#', t: 'c#', e: 'e', p: '+a#', a: 'a' };
+  // 🎨 Syntax highlight "notepat" HUD label based on active notes
+  // Mapping: notepat → cdefgab (in order)
+  const notepatLetters = "notepat";
+  const noteMapping = ['c', 'd', 'e', 'f', 'g', 'a', 'b'];
   let coloredLabel = "";
-  for (const char of "notepat") {
-    const note = keyToNote[char];
-    const isActive = note && sounds[note];
-    if (isActive) {
+
+  for (let i = 0; i < notepatLetters.length; i++) {
+    const char = notepatLetters[i];
+    const note = noteMapping[i];
+    const lowerActive = sounds[note];
+    const upperActive = sounds['+' + note];
+
+    if (lowerActive || upperActive) {
       const color = getCachedColor(note, num);
-      coloredLabel += `\\${color[0]},${color[1]},${color[2]}\\${char}`;
+      // Brighten color for upper octave
+      const brightness = upperActive ? 60 : 0;
+      const r = Math.min(255, color[0] + brightness);
+      const g = Math.min(255, color[1] + brightness);
+      const b = Math.min(255, color[2] + brightness);
+      coloredLabel += `\\${r},${g},${b}\\${char}`;
     } else {
       coloredLabel += char;
     }
   }
+
   api.hud.label(coloredLabel, undefined, 0, "notepat");
 
   // Hover state (for newbie-friendly overlays)
