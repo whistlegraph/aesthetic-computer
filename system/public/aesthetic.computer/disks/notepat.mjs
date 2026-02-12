@@ -1,5 +1,6 @@
 // Notepat, 2024.6.26.23.17.58.736
 // Tap the pads to play musical notes, or use the keyboard keys.
+// 🎨 Boot canvas animation: system/netlify/functions/index.mjs:1266-1277
 
 import {
   getNoteColorWithOctave,
