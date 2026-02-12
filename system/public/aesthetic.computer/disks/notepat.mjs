@@ -5727,7 +5727,7 @@ function act({
   }
 
   // 🎪 Bumper ticker hover and click handling
-  if (bumperTickerBounds && !recitalMode && !notesVisualization && !song) {
+  if (bumperTickerBounds && !recitalMode && !song) {
     const pen = pens();
 
     // Track hover state
