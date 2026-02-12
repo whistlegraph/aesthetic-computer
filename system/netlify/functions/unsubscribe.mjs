@@ -77,14 +77,12 @@ function html(title, body) {
     .brand { font-size: 1.1em; margin-bottom: 6px; }
     .brand a { text-decoration: none; color: #eee; }
     .brand a:hover { color: #fff; }
-    .tagline { color: #666; font-size: 0.85em; margin-bottom: 4px; }
   </style>
 </head>
 <body>
   ${body}
   <div class="footer">
     <p class="brand"><a href="https://aesthetic.computer">Aesthetic<span class="dot">.</span>Computer</a></p>
-    <p class="tagline">a creative platform for anyone</p>
     <p><a href="https://give.aesthetic.computer">give<span class="dot">.</span>aesthetic<span class="dot">.</span>computer</a></p>
   </div>
 </body>
