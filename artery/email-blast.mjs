@@ -278,10 +278,7 @@ function getEmailHtml(recipientEmail) {
 
 <p>— jas</p>
 
-<hr style="border: none; border-top: 1px solid #444; margin: 24px 0;">
-<p style="font-size: 12px; color: #888;">
-  <a href="${unsubUrl}" style="color: #888;">Unsubscribe</a> from aesthetic.computer emails
-</p>`;
+<p><a href="${unsubUrl}">unsubscribe</a></p>`;
 }
 
 // Get Auth0 access token

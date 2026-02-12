@@ -41,7 +41,7 @@ function html(title, body) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${title} — aesthetic.computer</title>
+  <title>${title} — Aesthetic.Computer</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -68,16 +68,25 @@ function html(title, body) {
     button:hover { background: #333; border-color: #666; }
     .ok { color: #7c7; }
     .err { color: #c77; }
-    a { color: #88f; }
-    hr { border: none; border-top: 1px solid #333; margin: 24px 0; }
+    a { color: #eee; }
+    a:hover { color: #fff; }
+    .dot { color: #0ff; }
+    .footer { margin-top: 32px; font-size: 0.9em; color: #999; }
+    .footer a { color: #999; }
+    .footer a:hover { color: #eee; }
+    .brand { font-size: 1.1em; margin-bottom: 6px; }
+    .brand a { text-decoration: none; color: #eee; }
+    .brand a:hover { color: #fff; }
+    .tagline { color: #666; font-size: 0.85em; margin-bottom: 4px; }
   </style>
 </head>
 <body>
   ${body}
-  <hr>
-  <p style="font-size: 0.85em; color: #666;">
-    <a href="https://aesthetic.computer" style="color: #666;">aesthetic.computer</a>
-  </p>
+  <div class="footer">
+    <p class="brand"><a href="https://aesthetic.computer">Aesthetic<span class="dot">.</span>Computer</a></p>
+    <p class="tagline">a creative platform for anyone</p>
+    <p><a href="https://give.aesthetic.computer">give<span class="dot">.</span>aesthetic<span class="dot">.</span>computer</a></p>
+  </div>
 </body>
 </html>`;
 }
