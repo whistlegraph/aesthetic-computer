@@ -85,26 +85,63 @@ async function connectMongo() {
 // Extract a short summary from the full document (admin-only dashboard, safe to show)
 function firehoseSummary(coll, op, doc) {
   if (!doc || op === "delete") return null;
+  // Try to extract a user handle from common fields
+  const handle = doc.handle || doc.user;
+  const who = handle ? `@${handle}` : null;
   switch (coll) {
     case "chat-system": case "chat-clock": case "chat-sotce":
-      return doc.user ? `@${doc.user}` : (doc.text?.slice(0, 40) || null);
-    case "@handles": return doc.handle ? `@${doc.handle}` : null;
-    case "users": return doc.email?.split("@")[0] || doc.name || null;
-    case "paintings": return doc.slug || doc.title || null;
-    case "tapes": return doc.piece || null;
+      return (who || "anon") + (doc.text ? ` "${doc.text.slice(0, 30)}"` : "");
+    case "@handles": return who || null;
+    case "users": return doc.email?.split("@")[0] || doc.name || who || null;
+    case "paintings": return (who ? who + " " : "") + (doc.slug || doc.title || "");
+    case "tapes": return (who ? who + " " : "") + (doc.piece || "");
     case "pieces": return doc.slug || doc.name || null;
-    case "kidlisp": return doc.name || null;
-    case "moods": return doc.mood || null;
-    case "verifications": return doc.handle ? `@${doc.handle}` : null;
-    default: return null;
+    case "kidlisp": return (who ? who + " " : "") + (doc.name || "");
+    case "moods": return (who ? who + " " : "") + (doc.mood || "");
+    case "verifications": return who || null;
+    case "boots": {
+      const host = doc.meta?.host || "";
+      const path = doc.meta?.path || "/";
+      const user = doc.meta?.user;
+      const status = doc.status || "";
+      return (user ? `@${user}` : "visitor") + " " + host + path + (status !== "started" ? ` [${status}]` : "");
+    }
+    case "oven-bakes": return doc.status || null;
+    default: {
+      // Generic: try to find any identifying info
+      return who || doc.slug || doc.name || doc.email?.split("@")[0] || null;
+    }
+  }
+}
+
+const FIREHOSE_COLLECTION = "_firehose";
+const FIREHOSE_TTL_DAYS = 30;
+
+async function ensureFirehoseCollection() {
+  if (!db) return;
+  try {
+    const col = db.collection(FIREHOSE_COLLECTION);
+    // TTL index: auto-delete events older than 30 days
+    await col.createIndex({ time: 1 }, { expireAfterSeconds: FIREHOSE_TTL_DAYS * 86400 });
+    // Index for recent queries
+    await col.createIndex({ ns: 1, time: -1 });
+    log("info", `_firehose collection ready (${FIREHOSE_TTL_DAYS}d TTL)`);
+  } catch (err) {
+    log("error", `_firehose index setup: ${err.message}`);
   }
 }
 
 function startFirehose() {
   if (!db) return;
+  const firehoseCol = db.collection(FIREHOSE_COLLECTION);
   try {
     changeStream = db.watch(
-      [{ $match: { operationType: { $in: ["insert", "update", "replace", "delete"] } } }],
+      [{
+        $match: {
+          operationType: { $in: ["insert", "update", "replace", "delete"] },
+          "ns.coll": { $ne: FIREHOSE_COLLECTION },  // avoid infinite loop
+        },
+      }],
       { fullDocument: "updateLookup" }
     );
     log("info", "firehose change stream started");
@@ -123,17 +160,21 @@ function startFirehose() {
       const event = {
         ns: coll,
         op,
-        time: now,
-        id: change.documentKey?._id?.toString() || null,
+        time: new Date(now),
+        docId: change.documentKey?._id?.toString() || null,
         summary: firehoseSummary(coll, op, change.fullDocument),
       };
 
-      // Buffer for history replay on new connections
-      firehoseBuffer.push(event);
+      // Persist to MongoDB (fire-and-forget)
+      firehoseCol.insertOne(event).catch(() => {});
+
+      // Buffer for in-memory replay
+      const wsEvent = { ...event, time: now };
+      firehoseBuffer.push(wsEvent);
       if (firehoseBuffer.length > FIREHOSE_BUFFER_SIZE) firehoseBuffer.shift();
 
       if (wss?.clients) {
-        const data = JSON.stringify({ firehose: event });
+        const data = JSON.stringify({ firehose: wsEvent });
         wss.clients.forEach((c) => c.readyState === 1 && c.send(data));
       }
     });
@@ -504,6 +545,36 @@ app.get("/api/services/session", async (req, res) => {
     const data = await resp.json();
     res.json({ status: "ok", responseMs: Date.now() - start, ...data });
   } catch (err) { res.json({ status: "unreachable", error: err.message }); }
+});
+
+app.get("/api/firehose/history", async (req, res) => {
+  if (!db) return res.json([]);
+  const limit = Math.min(parseInt(req.query.limit) || 100, 1000);
+  const ns = req.query.ns || null;
+  const query = ns ? { ns } : {};
+  try {
+    const events = await db.collection(FIREHOSE_COLLECTION)
+      .find(query).sort({ time: -1 }).limit(limit).toArray();
+    res.json(events.reverse());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/firehose/stats", async (req, res) => {
+  if (!db) return res.json({});
+  try {
+    const col = db.collection(FIREHOSE_COLLECTION);
+    const total = await col.estimatedDocumentCount();
+    const pipeline = [
+      { $group: { _id: { ns: "$ns", op: "$op" }, count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+    ];
+    const breakdown = await col.aggregate(pipeline).toArray();
+    res.json({ total, breakdown });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // --- Dashboard ---
@@ -1367,6 +1438,7 @@ wss.on("connection", async (ws) => {
 
 // --- Boot ---
 await connectMongo();
+await ensureFirehoseCollection();
 startFirehose();
 await connectAtlas();
 await connectRedis();
