@@ -2744,12 +2744,22 @@ function paint({
     // Update and render ticker (starts after HUD label)
     if (bumperTicker) {
       bumperTicker.update(api);
-      ink(180, 200, 255);
-      // Ticker starts after HUD label and runs to right edge
-      // HUD label + separator + padding
+
+      // Render ticker to a layer to clip it to the right area
       const tickerStartX = hudLabelWidth + 4;
       const tickerWidth = screen.width - tickerStartX;
-      bumperTicker.paint(api, tickerStartX, 4, { width: tickerWidth });
+      const tickerLayer = api.painting(tickerWidth, BUMPER_HEIGHT, ({ wipe }) => {
+        wipe(0, 0, 0, 0); // Transparent background
+      });
+
+      // Paint ticker to layer at x=0 (relative to layer)
+      page(tickerLayer);
+      ink(180, 200, 255);
+      bumperTicker.paint(api, 0, 4, { width: tickerWidth });
+      page(screen);
+
+      // Paste ticker layer at correct position
+      paste(tickerLayer, tickerStartX, 0);
     }
 
     // Draw subtle separator line at bottom of bumper
@@ -4333,7 +4343,7 @@ function paint({
           undefined, undefined, false, "MatrixChunky8"
         );
       } else {
-        write(wave, { right: 27, top: 6 });
+        write(wave, { right: 27, top: btn.box.y + 3 });
       }
     });
 
@@ -4368,7 +4378,7 @@ function paint({
           undefined, undefined, false, "MatrixChunky8"
         );
       } else {
-        write(octave, { right: 8, top: 6 });
+        write(octave, { right: 8, top: btn.box.y + 3 });
       }
     });
   }
