@@ -5240,8 +5240,8 @@ function paint({
           b = Math.floor(blackColor[2] * 0.35);
         }
 
-        // Draw single pixel tick dot
-        ink(r, g, b).plot(dotX, dotY);
+        // Draw small vertical tick bar (2px wide, 3px tall)
+        ink(r, g, b).box(dotX, dotY, 1, 3);
       }
     }
   }
