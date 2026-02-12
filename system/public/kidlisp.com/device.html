@@ -1596,6 +1596,7 @@
         stopInitialScramble();
         isScrambling = false;
         waitingForDecode = false;
+        pendingSource = null;
         if (scrambleIntervalId) {
           scrambleCallbacks.delete(scrambleIntervalId);
           scrambleIntervalId = null;
@@ -1667,6 +1668,16 @@
         startScrambleClock();
         scrambleIntervalId = scrambleLoop;
 
+        // If piece is already ready (preloaded/swapped), auto-decode after
+        // a brief scramble so the animation plays but doesn't get stuck
+        if (window._pieceAlreadyReady) {
+          window._pieceAlreadyReady = false;
+          console.log('📺 Piece already ready - will auto-decode after brief scramble');
+          setTimeout(() => {
+            window.signalDecode?.();
+          }, 800);
+        }
+
         // Return promise that resolves when decode is triggered
         return new Promise(resolve => {
           decodeResolver = resolve;
@@ -1675,7 +1686,15 @@
       
       // Signal to start decoding (called when piece starts running)
       window.signalDecode = function() {
-        if (!waitingForDecode || !pendingSource) return;
+        if (!waitingForDecode || !pendingSource) {
+          // Piece is ready but scramble hasn't started yet (API fetch still pending).
+          // Set flag so startScrambleAnimation auto-decodes when it begins.
+          if (!waitingForDecode && !pendingSource) {
+            window._pieceAlreadyReady = true;
+            console.log('📺 signalDecode: scramble not started yet — flagged for auto-decode');
+          }
+          return;
+        }
 
         console.log('📺 Signal received - starting decode animation');
         waitingForDecode = false;
@@ -2040,6 +2059,12 @@
 
       // Listen for boot-log messages from iframe
       let decodeTriggered = false;
+
+      // Allow slideshow to reset decode state for new slides
+      window.resetDecodeState = function() {
+        decodeTriggered = false;
+      };
+
       window.addEventListener('message', (e) => {
         if (e.data?.type === 'boot-log') {
           const msg = e.data.message;
@@ -2586,7 +2611,7 @@
 
     function playCurrentItem() {
       if (!slideshowPlaylist || !slideshowPlaylist.items) return;
-      
+
       const item = slideshowPlaylist.items[slideshowIndex];
       if (!item) {
         console.log('📺 No more items, looping to start');
@@ -2594,41 +2619,62 @@
         playCurrentItem();
         return;
       }
-      
+
       console.log('📺 Playing item', slideshowIndex + 1, '/', slideshowPlaylist.items.length, ':', item.title);
-      
+
       // Reset progress bar flag for new piece
       progressBarStarted = false;
-      
+
+      // Reset decode state so new boot messages can trigger signalDecode
+      // (fixes: decodeTriggered stuck at true from previous slide)
+      window.resetDecodeState?.();
+
       // Update position display in FF1 module
       const playlistPosition = document.getElementById('ff1-playlist-position');
       if (playlistPosition) playlistPosition.textContent = `${slideshowIndex + 1} / ${slideshowPlaylist.items.length}`;
-      
+
       const itemUrl = resolveItemUrl(item);
-      
+
       // Check if this piece is already preloaded in the hidden iframe
-      if (preloadedUrl === itemUrl) {
+      const isPreloaded = preloadedUrl === itemUrl && preloadReady;
+
+      if (isPreloaded) {
         // Instant swap — no loading, no black screen
         console.log('📺 Using preloaded iframe for instant cut');
+        swapIframes();
+        // Mark that the piece is already running so startScrambleAnimation
+        // will auto-decode after a brief scramble (no boot messages will come)
+        window._pieceAlreadyReady = true;
+      } else if (preloadedUrl === itemUrl) {
+        // Preloaded but not yet ready — swap anyway (will show loading state)
+        console.log('📺 Preloaded iframe not ready yet, swapping anyway');
         swapIframes();
       } else {
         // First item or cache miss — load directly into active iframe
         iframe.src = itemUrl;
       }
-      
+
       // Get duration from item or playlist defaults
       const duration = item.duration || slideshowPlaylist.defaults?.duration || 120;
-      
+
       // Clear any existing timer
       if (slideshowTimer) {
         clearTimeout(slideshowTimer);
       }
-      
-      // Progress bar will be started when piece is ready (not immediately)
-      // Store duration for when ready message arrives
-      window.pendingSlideshowDuration = duration;
-      console.log('📺 Waiting for piece ready before starting slideshow progress bar...');
-      
+
+      if (isPreloaded) {
+        // Piece is already running — start progress bar immediately
+        // (ready message was already consumed while it was the preload iframe)
+        progressBarStarted = true;
+        startSlideshowProgressBar(duration);
+        console.log('📺 Preloaded piece — progress bar started immediately');
+      } else {
+        // Progress bar will be started when piece is ready (not immediately)
+        // Store duration for when ready message arrives
+        window.pendingSlideshowDuration = duration;
+        console.log('📺 Waiting for piece ready before starting slideshow progress bar...');
+      }
+
       // Try to extract codeId from URL for source display
       const codeMatch = itemUrl.match(/\/(\$[a-z0-9]+)/i) || itemUrl.match(/device\.kidlisp\.com\/(\$?[a-z0-9]+)/i);
 
