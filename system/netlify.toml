@@ -225,7 +225,13 @@ included_env_vars = ["CONTEXT", "STRIPE_API_TEST_PRIV_KEY", "STRIPE_API_PRIV_KEY
 # Email blast unsubscribe/resubscribe endpoint
 external_node_modules = ["mongodb", "mongodb-connection-string-url"]
 included_files = ["backend/**/*.mjs"]
-included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME", "UNSUBSCRIBE_SECRET"]
+included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
+
+[functions.mail-status]
+# Email preferences and blast history API
+external_node_modules = ["mongodb", "mongodb-connection-string-url"]
+included_files = ["backend/**/*.mjs"]
+included_env_vars = ["CONTEXT", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET"]
 
 [functions.bundle-html]
 # Generates KidLisp .lisp.html bundles on-demand via API
@@ -882,6 +888,10 @@ force = true
 [[redirects]]
 from = "/api/unsubscribe"
 to = "/.netlify/functions/unsubscribe"
+status = 200
+[[redirects]]
+from = "/api/mail-status"
+to = "/.netlify/functions/mail-status"
 status = 200
 
 # 🎹 notepat.com — proxies to aesthetic.computer/notepat (preserves notepat.com in URL bar)
