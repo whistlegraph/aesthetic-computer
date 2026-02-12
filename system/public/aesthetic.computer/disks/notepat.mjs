@@ -2734,10 +2734,9 @@ function paint({
 
     // Update and render ticker
     if (bumperTicker) {
-      const tickerText = bumperTicker.tick();
-
-      // Draw ticker text in bumper
-      ink(180, 200, 255).write(tickerText, { x: 4, y: 4, size: 1 });
+      bumperTicker.update(api);
+      ink(180, 200, 255);
+      bumperTicker.paint(api, 4, 4, { width: screen.width - 8 });
     }
 
     // Draw subtle separator line at bottom of bumper
