@@ -2746,8 +2746,10 @@ function paint({
       bumperTicker.update(api);
       ink(180, 200, 255);
       // Ticker starts after HUD label and runs to right edge
-      const tickerX = hudLabelWidth + 4;
-      bumperTicker.paint(api, tickerX, 4, { width: screen.width - tickerX });
+      // HUD label + separator + padding
+      const tickerStartX = hudLabelWidth + 4;
+      const tickerWidth = screen.width - tickerStartX;
+      bumperTicker.paint(api, tickerStartX, 4, { width: tickerWidth });
     }
 
     // Draw subtle separator line at bottom of bumper
@@ -7617,7 +7619,7 @@ function buildWaveButton({ screen, ui, typeface }) {
   const margin = isNarrow ? 2 : 4;
   waveBtn = new ui.Button(
     screen.width - waveWidth - 26 - margin * 2,
-    0,
+    BUMPER_HEIGHT, // Position below bumper
     waveWidth + margin * 2 + 5,
     10 + margin * 2 - 1 + 2,
   );
@@ -7633,7 +7635,7 @@ function buildOctButton({ screen, ui, typeface }) {
   const margin = isNarrow ? 2 : 4;
   octBtn = new ui.Button(
     screen.width - octWidth - 6 - margin * 2,
-    0,
+    BUMPER_HEIGHT, // Position below bumper
     octWidth + margin * 2 + 7,
     10 + margin * 2 - 1 + 2,
   );
