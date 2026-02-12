@@ -2507,7 +2507,8 @@ function paint({
   zoom,
   blur,
   scroll,
-  sharpen
+  sharpen,
+  painting
 }) {
   const paintStart = performance.now();
 
@@ -2745,17 +2746,21 @@ function paint({
     if (bumperTicker) {
       bumperTicker.update(api);
 
-      // Ticker starts after HUD label
+      // Render ticker to a layer to properly clip it
       const tickerStartX = hudLabelWidth + 4;
       const tickerWidth = screen.width - tickerStartX;
+      const tickerLayer = painting(tickerWidth, BUMPER_HEIGHT, ({ wipe }) => {
+        wipe(0, 0, 0, 0); // Transparent background
+      });
 
-      // Render ticker
+      // Paint ticker to layer at x=0 (relative to layer)
+      page(tickerLayer);
       ink(180, 200, 255);
-      bumperTicker.paint(api, tickerStartX, 4, { width: tickerWidth });
+      bumperTicker.paint(api, 0, 4, { width: tickerWidth });
+      page(screen);
 
-      // Mask out any ticker text that wraps to the left (over HUD label area)
-      // by redrawing the HUD background box on top
-      ink(25, 30, 40, 200).box(0, 0, hudLabelWidth, BUMPER_HEIGHT);
+      // Paste ticker layer at correct position
+      paste(tickerLayer, tickerStartX, 0);
     }
 
     // Draw subtle separator line at bottom of bumper
