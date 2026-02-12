@@ -153,6 +153,7 @@ gcp-firebase-service-key.json
 
 # GitHub workflows directory - track workflows for CI/CD
 # Other .github content can be local-only
+.github
 !.github/workflows/
 
 __pycache__/
