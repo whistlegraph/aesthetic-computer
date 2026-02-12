@@ -16,8 +16,7 @@ const colors = {
 };
 
 // MongoDB connection details
-const MONGODB_CONNECTION_STRING = process.env.MONGODB_CONNECTION_STRING || 
-  'mongodb+srv://admin:REDACTED_ATLAS_PASSWORD@aesthetic.qencn.mongodb.net/?retryWrites=true&w=majority';
+const MONGODB_CONNECTION_STRING = process.env.MONGODB_CONNECTION_STRING;
 const MONGODB_NAME = process.env.MONGODB_NAME || 'aesthetic';
 const COLLECTION_NAME = 'chat-system';
 

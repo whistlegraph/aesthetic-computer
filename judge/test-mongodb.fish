@@ -8,7 +8,7 @@ if test -z "$limit"
 end
 
 # Load MongoDB credentials from vault
-set -x MONGODB_CONNECTION_STRING "mongodb+srv://admin:REDACTED_ATLAS_PASSWORD@aesthetic.qencn.mongodb.net/?retryWrites=true&w=majority"
+set -x MONGODB_CONNECTION_STRING $MONGODB_CONNECTION_STRING
 set -x MONGODB_NAME "aesthetic"
 
 echo "Testing $limit messages from MongoDB chat-system collection..."

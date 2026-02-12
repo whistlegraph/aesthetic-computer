@@ -4,7 +4,7 @@ import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 
-const MONGODB_URI = 'mongodb+srv://admin:REDACTED_ATLAS_PASSWORD@aesthetic.qencn.mongodb.net/aesthetic';
+const MONGODB_URI = process.env.MONGODB_CONNECTION_STRING;
 const OLLAMA_API = 'http://localhost:11434/api/generate';
 const MODEL = 'gemma2:2b';
 const MESSAGE_COUNT = 200;
