@@ -1047,7 +1047,7 @@
     async function setupDeviceMonacoHighlighting(editor) {
       try {
         // Dynamically import the highlighting module and KidLisp library
-        const { setupKidLispHighlighting } = await import('./js/monaco-kidlisp-highlighting.mjs');
+        const { setupKidLispHighlighting } = await import('https://aesthetic.computer/kidlisp.com/js/monaco-kidlisp-highlighting.mjs');
 
         // Setup highlighting with timing blinks enabled for device mode
         const highlighter = setupKidLispHighlighting(editor, {
