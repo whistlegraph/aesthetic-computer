@@ -13,8 +13,8 @@ export async function handler(event, context) {
     mcp: {
       title: "MCP Server",
       description: "Model Context Protocol server for AI assistants (Claude, GPT-4, etc.) to interact with aesthetic.computer APIs",
-      package: "@aesthetic-computer/mcp",
-      install: "npx @aesthetic-computer/mcp",
+      package: "@aesthetic.computer/mcp",
+      install: "npx @aesthetic.computer/mcp",
       repository: "https://github.com/whistlegraph/aesthetic-computer/tree/main/mcp-server",
 
       tools: [
@@ -68,7 +68,7 @@ export async function handler(event, context) {
   "mcpServers": {
     "aesthetic-computer": {
       "command": "npx",
-      "args": ["-y", "@aesthetic-computer/mcp"],
+      "args": ["-y", "@aesthetic.computer/mcp"],
       "env": {
         "AC_TOKEN": "optional-bearer-token"
       }

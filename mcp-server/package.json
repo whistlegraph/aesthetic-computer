@@ -1,5 +1,5 @@
 {
-  "name": "@aesthetic-computer/mcp",
+  "name": "@aesthetic.computer/mcp",
   "version": "1.0.0",
   "description": "MCP server for publishing and exploring pieces on aesthetic.computer",
   "type": "module",
