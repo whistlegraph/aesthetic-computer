@@ -10,7 +10,7 @@
     </filter>
   </svg>
   <meta name="description" content="Aesthetic Computer" />
-  <link rel="icon" href="https://aesthetic.computer/purple-pals.svg" type="image/svg+xml" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
   <!-- Social sharing meta tags -->
@@ -959,7 +959,7 @@
       isolation: isolate;
       overflow: hidden;
       /* Maintain aspect ratio when page narrows */
-      aspect-ratio: 3 / 1;
+      aspect-ratio: 9 / 1;
       min-height: 0;
       /* Loading state - starts blurred */
       filter: blur(8px) brightness(0.7);
@@ -1449,9 +1449,12 @@
       outline: none;
       cursor: pointer;
       margin: 0;
+      padding: 0 20px;
+      box-sizing: content-box;
       display: block;
       position: relative;
-      z-index: 10;
+      z-index: 1000;
+      overflow: visible;
     }
 
     .gift-controls input[type="range"]::-webkit-slider-thumb {
@@ -1466,6 +1469,8 @@
       transition: background 0.2s ease, transform 0.1s ease, box-shadow 0.1s ease;
       transform: scale(1.6);
       transform-origin: center center;
+      position: relative;
+      z-index: 1001;
     }
 
     .gift-controls input[type="range"]::-webkit-slider-thumb:hover {
@@ -1490,6 +1495,8 @@
       transition: background 0.2s ease, transform 0.1s ease, box-shadow 0.1s ease;
       transform: scale(1.6);
       transform-origin: center center;
+      position: relative;
+      z-index: 1001;
     }
 
     .gift-controls input[type="range"]::-moz-range-thumb:hover {
@@ -1836,7 +1843,7 @@
     .gift-btn {
       font-family: 'YWFTProcessing-Regular', sans-serif;
       font-size: 1.4em;
-      padding: 1.2em 1.5em;
+      padding: 0.8em 1.5em;
       background: linear-gradient(180deg, var(--green) 0%, #3a8a4a 100%);
       color: white;
       border: 2px solid #5ab06a;
@@ -7528,10 +7535,7 @@
         widget.classList.add('monthly-mode');
       }
     });
-    
-    // Log variant for analytics
-    console.log(`🧪 A/B/C Test Variant: ${abcTestVariant} ($${abcTestStartPrice}${abcTestIsMonthly ? '/mo' : ''})`);
-    
+
     // ====== Jeffreys Ken Burns Canvas Slideshow ======
     // POI (Points of Interest) data: faces, bodies, hands
     // Detected using OpenCV DNN + Haar cascades
@@ -8705,11 +8709,12 @@
         
         // Draw logo and price on canvas (after restore, no filters)
         ctx.filter = 'none'; // Ensure no filters affect logo/price
-        
+
         // Floating gives are rendered as HTML overlay for better performance
         // (canvas shadowBlur on many characters kills FPS)
-        
-        if (logoLoaded && logoImg.complete) {
+
+        // Logo and price hidden in compact mode
+        if (false && logoLoaded && logoImg.complete) {
           // Parse current price to get dollar amount for subtle scaling
           const priceNum = parseFloat(currentPrice.replace(/[^0-9.]/g, '')) || 128;
           // Very subtle scale: $128 = 1.0 (default), range is 0.95 to 1.08
@@ -8718,9 +8723,9 @@
           
           // Logo size with very subtle price-based scaling
           const baseSize = Math.min(w, h);
-          const logoSize = baseSize * 0.65 * Math.min(priceScale, 1.12); // Cap at 1.12x
-          const logoX = (w - logoSize) / 2;
-          const logoY = (h - logoSize) / 2;
+          const logoSize = baseSize * 0.85 * Math.min(priceScale, 1.12); // Cap at 1.12x
+          const logoX = (w - logoSize) / 2; // Centered
+          const logoY = (h - logoSize) / 2 + h * 0.08; // Move down slightly
           
           // Draw logo-shaped drop shadow for prominence (soft offset shadow)
           ctx.save();
@@ -8808,7 +8813,7 @@
           // Draw price at top-right of logo (very subtle scaling)
           ctx.save();
           const fontScale = Math.min(priceScale, 1.08); // Even more subtle for price tag
-          const fontSize = logoSize * 0.16 * fontScale;
+          const fontSize = logoSize * 0.18 * fontScale;
           ctx.font = `bold ${fontSize}px 'YWFTProcessing-Regular', monospace`;
           
           // Price background
@@ -8903,15 +8908,15 @@
           ctx.fillText(currentPrice, priceX + paddingX, priceY + priceH / 2 + fontSize * 0.08);
           ctx.restore();
         }
-        
-        // Draw QR code in bottom-right corner
-        // Note: giveQrImg is generated ONCE at init, not every frame
-        if (giveQrLoaded && giveQrImg.complete) {
+
+
+        // QR code hidden in compact mode
+        if (false && giveQrLoaded && giveQrImg.complete) {
           ctx.save();
-          const qrSize = Math.min(w, h) * 0.28; // 28% of canvas size
+          const qrSize = Math.min(w, h) * 0.65; // 65% of canvas size
           const qrPadding = 24; // More margin from edges
           const qrX = w - qrSize - qrPadding; // Right edge
-          const qrY = h - qrSize - qrPadding; // Bottom edge
+          const qrY = (h - qrSize) / 2; // Centered vertically
           
           // Pulsing white glow effect (use cached time for perf)
           const qrTime = Date.now();
@@ -9176,7 +9181,6 @@
     // Check for prefilled email (from logged-in users via kidlisp.com or aesthetic.computer)
     const prefillEmail = urlParams.get('email');
     if (prefillEmail) {
-      console.log('💌 Email prefilled for checkout:', prefillEmail);
       // Clean up URL without reloading (remove email param for privacy)
       const cleanUrl = new URL(window.location.href);
       cleanUrl.searchParams.delete('email');
@@ -10381,7 +10385,6 @@
       
       markReady(panel) {
         this.ready[panel] = true;
-        console.log(`✓ ${panel} panel ready`);
         this.checkAllReady();
       },
       
@@ -10395,7 +10398,6 @@
         if (this.started) return;
         const allReady = Object.values(this.ready).every(v => v);
         if (allReady) {
-          console.log('🎬 All panels ready - starting synchronized rotation');
           this.started = true;
           // Small delay to ensure UI is settled, then start all at once
           setTimeout(() => {
@@ -10442,11 +10444,12 @@
     }
 
     function renderShopMaintenance(container, detail = '') {
-      const detailHtml = detail ? `<div style="opacity:.8;font-size:12px;margin-top:6px;">${detail}</div>` : '';
       container.innerHTML = `
-        <div class="module-loading">
-          shop closed for maintenance
-          ${detailHtml}
+        <div style="display:flex;align-items:center;justify-content:center;height:100%;min-height:300px;">
+          <div style="text-align:center;color:#888;">
+            <div style="font-size:120px;line-height:1;color:#ff4444;">✕</div>
+            <div style="font-size:14px;margin-top:8px;">closed for maintenance</div>
+          </div>
         </div>
       `;
     }
@@ -10490,25 +10493,9 @@
         panelSync.markReady('shop');
         panelSync.registerStarter(() => startShopCycle());
       } catch (e) {
-        console.error('Shop load error (attempt ' + shopLoadAttempts + '):', e);
-
-        // If the shop endpoint is up but not usable (billing/permissions/maintenance), show a clear message.
-        if (e?.status && e.status !== 429) {
-          renderShopMaintenance(container, '(temporarily unavailable)');
-          panelSync.markReady('shop');
-          return;
-        }
-        
-        // Retry with exponential backoff
-        if (shopLoadAttempts < SHOP_MAX_RETRIES) {
-          const delay = e?.retryAfterMs || SHOP_RETRY_DELAYS[shopLoadAttempts - 1] || 8000;
-          console.log('Shop: retrying in ' + delay + 'ms...');
-          container.innerHTML = '<div class="module-loading">retrying...</div>';
-          setTimeout(() => loadShopProducts(true), delay);
-        } else {
-          renderShopMaintenance(container, '(temporarily unavailable)');
-          panelSync.markReady('shop'); // Still mark ready even on error
-        }
+        // Shop unavailable - show closed message
+        renderShopMaintenance(container);
+        panelSync.markReady('shop');
       }
     }
     
@@ -10521,7 +10508,6 @@
         entries.forEach(entry => {
           if (entry.isIntersecting && !shopLoaded && shopLoadAttempts > 0) {
             // Section became visible and we haven't loaded yet - retry
-            console.log('Shop: section visible, retrying load...');
             shopLoadAttempts = 0; // Reset attempts for visibility-triggered retry
             loadShopProducts(true);
           }
@@ -11171,16 +11157,14 @@
           floatEl.remove();
         }, 30000);
       }
-      
-      // Show messages one at a time with longer gaps so they don't overlap
-      setTimeout(showNextGive, 3000);
-      
-      // Continue spawning new gives every 12-18 seconds (spaced out, one at a time)
-      setInterval(() => {
-        if (document.visibilityState === 'visible') {
-          showNextGive();
-        }
-      }, 12000 + Math.random() * 6000);
+
+      // Floating animations disabled
+      // setTimeout(showNextGive, 3000);
+      // setInterval(() => {
+      //   if (document.visibilityState === 'visible') {
+      //     showNextGive();
+      //   }
+      // }, 12000 + Math.random() * 6000);
     }
     
     setTimeout(loadRecentGives, 300);
@@ -11377,13 +11361,11 @@
       const container = document.getElementById('tvPlayer');
       const header = document.getElementById('tvHeader');
       const tape = tvTapes[index];
-      
+
       // Increment play ID to invalidate callbacks from previous video loads
       const currentPlayId = ++tvPlayId;
-      console.log(`[TV] playTVVideo(${index}) started, playId=${currentPlayId}, tape=${tape?.code || 'unknown'}`);
-      
+
       if (!tape) {
-        console.warn(`[TV] No tape at index ${index}`);
         container.innerHTML = '<div class="tv-no-signal">No signal</div>';
         return;
       }
@@ -11449,11 +11431,9 @@
       // Remove ALL old slides and glows (not just one) to prevent overlap on rapid clicks
       // Also STOP old videos immediately to prevent continued loading
       const oldSlides = container.querySelectorAll('.tv-slide');
-      console.log(`[TV] Cleaning up ${oldSlides.length} old slides`);
       oldSlides.forEach(oldSlide => {
         const oldVideo = oldSlide.querySelector('video');
         if (oldVideo) {
-          console.log(`[TV] Stopping old video: ${oldVideo.src?.slice(-30)}`);
           oldVideo.pause();
           oldVideo.removeAttribute('src');
           oldVideo.load(); // Abort any ongoing fetch
@@ -11493,8 +11473,6 @@
       // Create new slide (main video only)
       const slide = document.createElement('div');
       slide.className = 'tv-slide entering';
-      console.log(`[TV] Loading video URL: ${tape.media.videoUrl}`);
-      console.log(`[TV] Full tape data:`, tape);
       slide.innerHTML = `
         <video 
           src="${tape.media.videoUrl}" 
@@ -11659,49 +11637,38 @@
         tvPlayer.addEventListener('ended', () => {
           // Ignore if this video is from an old play session (user clicked rapidly)
           if (currentPlayId !== tvPlayId) {
-            console.log(`[TV] IGNORED ended event: playId=${currentPlayId} but current=${tvPlayId}`);
             return;
           }
-          console.log(`[TV] ended event, advancing from index ${tvIndex} to ${(tvIndex + 1) % tvTapes.length}`);
           tvErrorCount = 0; // Reset error count on successful play
           tvIndex = (tvIndex + 1) % tvTapes.length;
           playTVVideo(tvIndex);
         });
         tvPlayer.addEventListener('canplay', () => {
           if (currentPlayId !== tvPlayId) {
-            console.log(`[TV] IGNORED canplay event: playId=${currentPlayId} but current=${tvPlayId}`);
             return;
           }
-          console.log(`[TV] canplay event, playId=${currentPlayId}`);
           tvErrorCount = 0; // Reset error count when video loads successfully
         });
         tvPlayer.addEventListener('error', (e) => {
           // Ignore errors from old video loads (user clicked rapidly)
           if (currentPlayId !== tvPlayId) {
-            console.log(`[TV] IGNORED error event: playId=${currentPlayId} but current=${tvPlayId}`);
             return;
           }
-          console.error(`[TV] error event, playId=${currentPlayId}, errorCount=${tvErrorCount + 1}`, tvPlayer.error);
           tvErrorCount++;
           if (tvErrorCount >= TV_MAX_ERRORS) {
-            console.error(`[TV] Too many errors (${tvErrorCount}), showing no signal`);
             container.innerHTML = '<div class="tv-no-signal">No signal</div>';
             return;
           }
           // Skip broken videos
-          console.log(`[TV] Skipping to next tape due to error`);
           tvIndex = (tvIndex + 1) % tvTapes.length;
           setTimeout(() => playTVVideo(tvIndex), 500);
         });
       }
-      
+
       attachListeners();
-      
-      console.log(`[TV] Calling play() for playId=${currentPlayId}`);
+
       tvPlayer.play().then(() => {
-        console.log(`[TV] play() succeeded for playId=${currentPlayId}`);
       }).catch((err) => {
-        console.warn(`[TV] play() failed for playId=${currentPlayId}:`, err.message);
         // Autoplay blocked - add click overlay (keep video and listeners intact)
         const overlay = document.createElement('div');
         overlay.className = 'module-loading';
@@ -11808,8 +11775,10 @@
             atRecordIndex = (atRecordIndex + 1) % atRecords.length;
             const nextSlot = atCurrentSlot === 0 ? 1 : 0;
             showATRecord(atRecordIndex, nextSlot);
-            document.getElementById(`atRecord${atCurrentSlot}`).classList.remove('active');
-            document.getElementById(`atRecord${nextSlot}`).classList.add('active');
+            const currentEl = document.getElementById(`atRecord${atCurrentSlot}`);
+            const nextEl = document.getElementById(`atRecord${nextSlot}`);
+            if (currentEl) currentEl.classList.remove('active');
+            if (nextEl) nextEl.classList.add('active');
             atCurrentSlot = nextSlot;
             startATProgressBar();
           }, AT_CYCLE_DURATION);
@@ -11837,19 +11806,22 @@
     function showATRecord(index, slot) {
       const record = atRecords[index];
       if (!record) return;
-      
+
       const uriEl = document.getElementById(`atUri${slot}`);
       const centerEl = document.getElementById(`atCenter${slot}`);
       const handleEl = document.getElementById(`atHandle${slot}`);
       const typeEl = document.getElementById(`atType${slot}`);
       const collectionEl = document.getElementById(`atCollection${slot}`);
-      
+
+      // If elements don't exist, bail out
+      if (!uriEl || !centerEl || !handleEl || !typeEl || !collectionEl) return;
+
       // Extract interesting parts from URI for proof
       const uriParts = record.uri.replace('at://', '').split('/');
       const did = uriParts[0];
       const collection = uriParts[1];
       const rkey = uriParts[2];
-      
+
       // Show more of the hash/rkey for proof
       const shortDid = did.substring(0, 16) + '...';
       const displayUri = `${shortDid}/${collection}/${rkey}`;
@@ -11857,7 +11829,7 @@
       handleEl.textContent = `@${record.handle}`;
       typeEl.textContent = record.type;
       collectionEl.textContent = `computer.aesthetic.${record.collection}`;
-      
+
       if (record.type === 'mood') {
         centerEl.innerHTML = `<div class="at-record-mood">${escapeHtml(record.content)}</div>`;
       } else if (record.type === 'painting' && record.thumbnail) {
@@ -12387,14 +12359,8 @@
             const hex = `#${firstColor.r.toString(16).padStart(2,'0')}${firstColor.g.toString(16).padStart(2,'0')}${firstColor.b.toString(16).padStart(2,'0')}`;
             reason = `UNIFORM_COLOR:${hex}`;
           }
-          
-          // Only log on final frame attempt
-          const isLastFrame = frameNum === totalFrames - 1;
-          if (!valid && isLastFrame) {
-            // Log as warning (not error) since these are filtered correctly
-            console.warn(`⚠️ KidLisp dud filtered: $${code} - ${reason}`);
-          }
-          
+
+
           resolve({ valid, reason, samples, code, maxColorDiff });
           
         } catch (e) {
@@ -12997,7 +12963,6 @@
                 const source = slide.dataset.source || '';
                 if (isDuplicateSource(code, source)) {
                   // Duplicate detected - slide stays blank
-                  console.warn(`KidLisp $${code}: Filtered as duplicate source`);
                 } else {
                   // Track this source for future duplicate checks
                   if (source.length >= MIN_SOURCE_LENGTH) {
@@ -13016,7 +12981,6 @@
                 }
               } else {
                 // Dud detected - slide stays blank (no ready class)
-                console.warn(`KidLisp $${code}: Not showing dud image (${validation.reason})`);
               }
             } else {
               // Blank/tiny image - slide stays blank
@@ -13026,7 +12990,6 @@
           img.onerror = () => {
             // On error, slide stays blank
             slide.classList.remove('validating');
-            console.warn(`KidLisp $${code}: Image failed to load`);
           };
           
           // Generate QR code for this slide (don't wait for image)
@@ -13338,11 +13301,9 @@
         const data = await res.json();
         const paintings = data.media?.paintings || [];
         if (!paintings.length) {
-          console.log('No paintings found');
           return;
         }
-        console.log(`Loaded ${paintings.length} paintings for floating`);
-        
+
         // Group paintings by handle and take max 3-4 per user for variety
         const byHandle = {};
         for (const p of paintings) {
@@ -13452,10 +13413,9 @@
           if (m.handle) handleSet.add(m.handle);
         }
         const handles = Array.from(handleSet);
-        
+
         if (!handles.length) return;
-        console.log(`Loaded ${handles.length} unique handles for floating`);
-        
+
         let index = 0;
         
         function spawnFloater() {
@@ -13541,10 +13501,9 @@
           }
           idx++;
         }
-        
+
         if (!mixed.length) return;
-        console.log(`Loaded ${mixed.length} moods from ${handles.length} users for floating`);
-        
+
         let index = 0;
         
         function spawnFloater() {
@@ -13635,10 +13594,9 @@
           }
           idx++;
         }
-        
+
         if (!mixed.length) return;
-        console.log(`Loaded ${mixed.length} kidlisp codes from ${handles.length} users for floating`);
-        
+
         let index = 0;
         
         function spawnFloater() {
@@ -13712,10 +13670,9 @@
           if (pieces[i]) commands.push(pieces[i]);
           if (prompts[i]) commands.push(prompts[i]);
         }
-        
+
         if (!commands.length) return;
-        console.log(`Loaded ${commands.length} commands (${pieces.length} pieces, ${prompts.length} prompts)`);
-        
+
         let index = 0;
         
         function spawnFloater() {
@@ -13787,8 +13744,7 @@
         }
         
         if (!allMsgs.length) return;
-        console.log(`Loaded ${allMsgs.length} messages for floating (${clockMsgs.length} clock, ${chatMsgs.length} chat)`);
-        
+
         let index = 0;
         
         function spawnFloater() {
@@ -13972,22 +13928,18 @@
           reconnectInterval = null;
         }
         
-        const connectionUrl = window.location.hostname.includes('local.') 
-          ? 'wss://session.local.aesthetic.computer' 
+        const connectionUrl = window.location.hostname.includes('local.')
+          ? 'wss://session.local.aesthetic.computer'
           : 'wss://localhost:8889';
-        
-        console.log('🔄 [give] Connecting to session server for live reload...');
-        
+
         try {
           sessionWs = new WebSocket(connectionUrl);
         } catch (error) {
-          console.warn('🔄 [give] Connection failed:', error.message);
           scheduleReconnect();
           return;
         }
 
         sessionWs.onopen = () => {
-          console.log('🔄 [give] Connected to session server');
         };
 
         sessionWs.onmessage = (e) => {
@@ -13996,7 +13948,6 @@
             if (msg.type === 'reload') {
               const piece = msg.content?.piece;
               if (piece === '*refresh*' || piece === 'give.aesthetic.computer' || piece?.includes('give')) {
-                console.log('🔄 [give] Reloading page...');
                 setTimeout(() => window.location.reload(), 150);
               }
             }
@@ -14006,11 +13957,9 @@
         };
 
         sessionWs.onerror = () => {
-          console.warn('🔄 [give] WebSocket error');
         };
 
         sessionWs.onclose = () => {
-          console.log('🔄 [give] Disconnected from session server');
           sessionWs = null;
           scheduleReconnect();
         };
@@ -14089,7 +14038,6 @@
         const res = await fetch('https://at.aesthetic.computer/xrpc/com.atproto.sync.listRepos?limit=100');
         if (res.ok) {
           const data = await res.json();
-          console.log('[AT Handles] Raw data:', data);
           // Extract handles from repo DIDs (we'll resolve them or use fallbacks)
           handles = (data.repos || [])
             .map(r => r.handle)
@@ -14097,16 +14045,13 @@
             .map(h => h.replace('.aesthetic.computer', ''))
             .filter(h => h && h !== 'at' && h !== 'art.at')
             .slice(0, 20);
-          console.log('[AT Handles] Filtered handles:', handles);
         }
       } catch (e) {
-        console.log('[AT Handles] Error fetching:', e);
       }
 
       // Fallback handles if API fails or returns nothing
       if (!handles.length) {
         handles = ['jeffrey', 'kai', 'luna', 'zen', 'pixel', 'nova'];
-        console.log('[AT Handles] Using fallback handles');
       }
 
       let currentIndex = 0;
@@ -14220,8 +14165,7 @@
             mugImage.src = mug.preview;
             mugImage.style.display = 'block';
             mugIcon.style.display = 'none';
-            console.log('[InvestMug] Full mug data:', mug);
-            
+
             // Update link to go directly to this mug's page
             if (mugLink && mug.code) {
               mugLink.href = `${baseUrl}/+${mug.code}`;
@@ -14254,9 +14198,8 @@
           }
         }
       } catch (e) {
-        console.log('[InvestMug] Could not load latest mug');
       }
-      
+
       // Link always goes to /+ (singular mug route)
     })();
   </script>
