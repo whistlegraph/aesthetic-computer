@@ -157,6 +157,173 @@ print(f"Listen at: https://aesthetic.computer/clock~{data['code']}")`,
       },
 
       {
+        name: "Store JavaScript Piece",
+        method: "POST",
+        path: "/api/store-piece",
+        description: "Publish a JavaScript piece (.mjs) anonymously by providing source code as a string. No S3 credentials needed - the server handles storage automatically.",
+        authentication: "Optional (Bearer token for authenticated users)",
+        requestBody: {
+          contentType: "application/json",
+          schema: {
+            source: {
+              type: "string",
+              required: true,
+              description: "JavaScript piece source code (max 100,000 characters). Must contain at least one lifecycle function export.",
+              example: "export function boot($) { $.wipe('blue'); }\nexport function paint($) { $.ink('red'); $.box(10, 10, 50, 50); }"
+            },
+            name: {
+              type: "string",
+              required: false,
+              description: "Optional name for the piece (used for code generation)"
+            }
+          }
+        },
+        responseBody: {
+          schema: {
+            code: {
+              type: "string",
+              description: "Short code for accessing the piece (e.g. 'drift', 'wave')"
+            },
+            cached: {
+              type: "boolean",
+              description: "True if code already existed (deduplication)"
+            },
+            url: {
+              type: "string",
+              description: "Full URL to view the piece"
+            }
+          }
+        },
+        examples: [
+          {
+            title: "Publish a Simple Piece",
+            description: "Create a piece with basic drawing",
+            curl: `curl -X POST https://aesthetic.computer/api/store-piece \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "source": "export function boot($) {\\n  $.wipe(\"blue\");\\n}\\n\\nexport function paint($) {\\n  $.ink(\"red\");\\n  $.box(10, 10, 50, 50);\\n}",
+    "name": "red-box"
+  }'`,
+            javascript: `const source = \`export function boot($) {
+  $.wipe("blue");
+}
+
+export function paint($) {
+  $.ink("red");
+  $.box(10, 10, 50, 50);
+}\`;
+
+const response = await fetch("https://aesthetic.computer/api/store-piece", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    source,
+    name: "red-box"
+  })
+});
+
+const { code, url, cached } = await response.json();
+console.log(\`View at: \${url}\`);`,
+            python: `import requests
+
+source = """export function boot($) {
+  $.wipe("blue");
+}
+
+export function paint($) {
+  $.ink("red");
+  $.box(10, 10, 50, 50);
+}"""
+
+response = requests.post(
+    "https://aesthetic.computer/api/store-piece",
+    json={
+        "source": source,
+        "name": "red-box"
+    }
+)
+
+data = response.json()
+print(f"View at: {data['url']}")`,
+            response: {
+              status: 201,
+              body: {
+                code: "red-box",
+                cached: false,
+                url: "https://aesthetic.computer/red-box"
+              }
+            }
+          },
+          {
+            title: "Publish Interactive Piece",
+            description: "Create a piece with user interaction",
+            curl: `curl -X POST https://aesthetic.computer/api/store-piece \\
+  -H "Content-Type: "application/json" \\
+  -d '{
+    "source": "let x = 0;\\n\\nexport function boot($) {\\n  x = $.screen.width / 2;\\n}\\n\\nexport function paint($) {\\n  $.wipe(\"black\");\\n  $.ink(\"yellow\");\\n  $.circle(x, $.screen.height / 2, 20);\\n}\\n\\nexport function act($) {\\n  if ($.event.is(\"touch\")) x = $.event.x;\\n}"
+  }'`,
+            javascript: `const source = \`let x = 0;
+
+export function boot($) {
+  x = $.screen.width / 2;
+}
+
+export function paint($) {
+  $.wipe("black");
+  $.ink("yellow");
+  $.circle(x, $.screen.height / 2, 20);
+}
+
+export function act($) {
+  if ($.event.is("touch")) x = $.event.x;
+}\`;
+
+const response = await fetch("https://aesthetic.computer/api/store-piece", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ source })
+});
+
+const { code, url } = await response.json();
+console.log(\`View at: \${url}\`);`,
+            python: `import requests
+
+source = """let x = 0;
+
+export function boot($) {
+  x = $.screen.width / 2;
+}
+
+export function paint($) {
+  $.wipe("black");
+  $.ink("yellow");
+  $.circle(x, $.screen.height / 2, 20);
+}
+
+export function act($) {
+  if ($.event.is("touch")) x = $.event.x;
+}"""
+
+response = requests.post(
+    "https://aesthetic.computer/api/store-piece",
+    json={"source": source}
+)
+
+data = response.json()
+print(f"View at: {data['url']}")`,
+            response: {
+              status: 201,
+              body: {
+                code: "touch",
+                cached: false,
+                url: "https://aesthetic.computer/touch"
+              }
+            }
+          }
+        ]
+      },
+
+      {
         name: "Track Media (Publish Artwork)",
         method: "POST",
         path: "/api/track-media",
@@ -335,11 +502,13 @@ print(f"Watch at: https://aesthetic.computer/{data['code']}")`,
       "✨ All endpoints support anonymous (guest) publishing without authentication",
       "🔑 To associate uploads with your account, include a Bearer token in the Authorization header",
       "🎨 KidLisp is a creative coding language - visit https://kidlisp.com for documentation",
+      "💾 /api/store-piece handles storage automatically - no S3 credentials needed",
       "📦 For /api/track-media: Files must be uploaded to S3/storage first (contact admins for credentials)",
-      "📏 Maximum KidLisp source code length: 50,000 characters",
+      "📏 Maximum source code lengths: KidLisp 50,000 chars, JavaScript pieces 100,000 chars",
       "⏱️ Maximum clock melody length: 10,000 characters",
       "🎬 Maximum tape duration: 30 seconds",
-      "♻️ Duplicate content is automatically deduplicated (same content returns same code)"
+      "♻️ Duplicate content is automatically deduplicated (same content returns same code)",
+      "🔧 JavaScript pieces must export at least one lifecycle function: boot, paint, sim, or act"
     ],
 
     relatedResources: [
