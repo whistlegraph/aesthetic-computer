@@ -1145,7 +1145,9 @@ async function boot({
   autopatTypeface = typeface;
 
   // ✨ Show ".com" superscript in the HUD corner label (notepat.com branding)
-  hud.superscript(".com");
+  if (api.hud?.superscript) {
+    api.hud.superscript(".com");
+  }
   dotComMode = true;
 
   // 🎪 Initialize bumper ticker with piece branding
