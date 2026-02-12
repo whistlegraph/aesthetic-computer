@@ -555,166 +555,117 @@ function generateHTML(docs) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${docs.title}</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      line-height: 1.6;
-      color: #333;
-      max-width: 1200px;
+      font-family: sans-serif;
+      background-color: rgb(235, 235, 235);
+      -webkit-text-size-adjust: none;
+      max-width: 800px;
       margin: 0 auto;
-      padding: 2rem;
-      background: #f5f5f5;
+      padding: 20px;
+      line-height: 1.6;
     }
-    header {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      padding: 2rem;
-      border-radius: 8px;
-      margin-bottom: 2rem;
-    }
-    h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
-    .version { opacity: 0.9; font-size: 0.9rem; }
-    .description { margin-top: 1rem; font-size: 1.1rem; }
-    .endpoint {
-      background: white;
-      border-radius: 8px;
-      padding: 2rem;
-      margin-bottom: 2rem;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .endpoint h2 {
-      color: #667eea;
-      margin-bottom: 0.5rem;
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-    }
-    .method {
-      background: #667eea;
-      color: white;
-      padding: 0.25rem 0.75rem;
-      border-radius: 4px;
-      font-size: 0.9rem;
+    h1 { margin-bottom: 0.25em; }
+    h2 { margin-top: 2em; margin-bottom: 0.5em; }
+    h3 { margin-top: 1.5em; margin-bottom: 0.5em; font-weight: normal; }
+    h4 { margin-top: 1em; margin-bottom: 0.5em; font-weight: normal; font-style: italic; }
+    code, pre {
+      font-family: monospace;
       font-weight: bold;
     }
-    .path {
-      font-family: 'Courier New', monospace;
-      background: #f0f0f0;
-      padding: 0.5rem 1rem;
-      border-radius: 4px;
-      margin: 1rem 0;
-      font-size: 0.95rem;
-    }
-    .example {
-      background: #f8f8f8;
-      border-left: 4px solid #667eea;
-      padding: 1rem;
-      margin: 1rem 0;
-      border-radius: 4px;
-    }
-    .example h4 { color: #667eea; margin-bottom: 0.5rem; }
     pre {
-      background: #2d2d2d;
-      color: #f8f8f2;
-      padding: 1rem;
-      border-radius: 4px;
+      background: white;
+      padding: 1em;
       overflow-x: auto;
-      margin: 0.5rem 0;
-      font-size: 0.85rem;
+      border-left: 3px solid black;
+      font-weight: normal;
+    }
+    .method {
+      display: inline-block;
+      background: black;
+      color: white;
+      padding: 0.15em 0.5em;
+      font-weight: bold;
+      font-size: 0.85em;
+      margin-right: 0.5em;
+    }
+    .path {
+      font-family: monospace;
+      font-weight: bold;
     }
     .tabs {
       display: flex;
-      gap: 0.5rem;
-      margin-bottom: 0.5rem;
+      gap: 0.25em;
+      margin: 0.5em 0;
     }
     .tab {
-      padding: 0.5rem 1rem;
-      background: #e0e0e0;
-      border: none;
-      border-radius: 4px 4px 0 0;
+      padding: 0.5em 1em;
+      background: white;
+      border: 1px solid black;
       cursor: pointer;
-      font-size: 0.9rem;
+      font-size: 0.9em;
+      font-weight: bold;
     }
-    .tab.active { background: #2d2d2d; color: white; }
+    .tab.active { background: black; color: white; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
     .notes {
-      background: #fff3cd;
-      border-left: 4px solid #ffc107;
-      padding: 1rem;
-      border-radius: 4px;
-      margin: 2rem 0;
+      background: white;
+      padding: 1em;
+      margin: 2em 0;
+      border-left: 3px solid black;
     }
-    .notes h3 { color: #856404; margin-bottom: 0.5rem; }
-    .notes ul { margin-left: 1.5rem; }
+    .notes ul { margin-left: 1.5em; }
     .footer {
       text-align: center;
-      margin-top: 3rem;
-      padding: 2rem;
-      color: #666;
+      margin-top: 3em;
+      padding: 2em 0;
     }
-    .footer a { color: #667eea; text-decoration: none; }
-    .footer a:hover { text-decoration: underline; }
-    .json-link {
-      display: inline-block;
-      margin-top: 1rem;
-      padding: 0.5rem 1rem;
-      background: rgba(255,255,255,0.2);
-      border-radius: 4px;
-      color: white;
-      text-decoration: none;
-      font-size: 0.9rem;
-    }
-    .json-link:hover { background: rgba(255,255,255,0.3); }
+    .footer a { color: black; }
+    a { color: black; text-decoration: underline; }
+    .version { font-style: italic; opacity: 0.7; }
   </style>
 </head>
 <body>
-  <header>
-    <h1>${docs.title}</h1>
-    <div class="version">Version ${docs.version}</div>
-    <div class="description">${docs.description}</div>
-    <a href="?format=json" class="json-link">📄 View as JSON</a>
-  </header>
+  <h1>${docs.title}</h1>
+  <p class="version">Version ${docs.version}</p>
+  <p>${docs.description}</p>
+  <p><a href="?format=json">View as JSON</a></p>
+  <hr>
 
   ${docs.endpoints.map((endpoint, idx) => `
-    <div class="endpoint">
-      <h2>
-        <span class="method">${endpoint.method}</span>
-        ${endpoint.name}
-      </h2>
-      <div class="path">${docs.baseURL}${endpoint.path}</div>
-      <p>${endpoint.description}</p>
+    <h2><span class="method">${endpoint.method}</span> ${endpoint.name}</h2>
+    <p><code class="path">${docs.baseURL}${endpoint.path}</code></p>
+    <p>${endpoint.description}</p>
 
       ${endpoint.examples.map((example, exIdx) => `
-        <div class="example">
-          <h4>${example.title}</h4>
-          <p>${example.description}</p>
+        <h3>${example.title}</h3>
+        <p>${example.description}</p>
 
-          <div class="tabs" id="tabs-${idx}-${exIdx}">
-            <button class="tab active" onclick="showTab(${idx}, ${exIdx}, 'curl')">cURL</button>
-            <button class="tab" onclick="showTab(${idx}, ${exIdx}, 'js')">JavaScript</button>
-            <button class="tab" onclick="showTab(${idx}, ${exIdx}, 'py')">Python</button>
-          </div>
-
-          <div class="tab-content active" id="content-${idx}-${exIdx}-curl">
-            <pre>${escapeHTML(example.curl)}</pre>
-          </div>
-          <div class="tab-content" id="content-${idx}-${exIdx}-js">
-            <pre>${escapeHTML(example.javascript)}</pre>
-          </div>
-          <div class="tab-content" id="content-${idx}-${exIdx}-py">
-            <pre>${escapeHTML(example.python)}</pre>
-          </div>
-
-          <h4 style="margin-top: 1rem;">Response:</h4>
-          <pre>${JSON.stringify(example.response.body, null, 2)}</pre>
+        <div class="tabs" id="tabs-${idx}-${exIdx}">
+          <button class="tab active" onclick="showTab(${idx}, ${exIdx}, 'curl')">cURL</button>
+          <button class="tab" onclick="showTab(${idx}, ${exIdx}, 'js')">JavaScript</button>
+          <button class="tab" onclick="showTab(${idx}, ${exIdx}, 'py')">Python</button>
         </div>
+
+        <div class="tab-content active" id="content-${idx}-${exIdx}-curl">
+          <pre>${escapeHTML(example.curl)}</pre>
+        </div>
+        <div class="tab-content" id="content-${idx}-${exIdx}-js">
+          <pre>${escapeHTML(example.javascript)}</pre>
+        </div>
+        <div class="tab-content" id="content-${idx}-${exIdx}-py">
+          <pre>${escapeHTML(example.python)}</pre>
+        </div>
+
+        <h4>Response:</h4>
+        <pre>${JSON.stringify(example.response.body, null, 2)}</pre>
       `).join('')}
-    </div>
   `).join('')}
 
+  <hr>
+
   <div class="notes">
-    <h3>📝 Important Notes</h3>
+    <h3>Important Notes</h3>
     <ul>
       ${docs.notes.map(note => `<li>${note}</li>`).join('')}
     </ul>
