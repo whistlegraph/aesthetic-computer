@@ -173,7 +173,7 @@ async function fetchAuthorInfo(userId) {
     const response = await devFetch(`${baseUrl}/handle?for=${encodeURIComponent(userId)}`);
     if (response.ok) {
       const data = await response.json();
-      if (data.handle) acHandle = `@${data.handle}`;
+      if (data.handle) acHandle = data.handle; // Don't add @ prefix for filenames
     }
   } catch { /* ignore */ }
   
@@ -248,7 +248,7 @@ async function getKidLispSourceWithDeps(pieceName) {
   }
   
   // Resolve author info (AC handle and permanent user code)
-  let authorHandle = '@anon';
+  let authorHandle = 'anon';
   let userCode = null;
   if (mainPieceUserId) {
     const authorInfo = await fetchAuthorInfo(mainPieceUserId);
