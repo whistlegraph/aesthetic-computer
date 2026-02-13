@@ -291,23 +291,6 @@
     }
     .keeps-about a:hover { text-decoration: underline; }
 
-    .keeps-about-toggle {
-      font-size: 12px;
-      color: var(--ac-purple);
-      cursor: pointer;
-      user-select: none;
-      display: inline-block;
-      margin-top: 4px;
-    }
-    .keeps-about-toggle:hover { text-decoration: underline; }
-
-    .keeps-about-extra {
-      display: none;
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px solid var(--border-subtle);
-    }
-    .keeps-about-extra.open { display: block; }
 
     /* ========================================
        TABS SYSTEM
@@ -333,8 +316,10 @@
       font-family: var(--font-mono);
       font-size: 13px;
       color: var(--text-tertiary);
-      cursor: pointer;
+      background: none;
+      border: none;
       border-bottom: 2px solid transparent;
+      cursor: pointer;
       transition: all 0.15s;
       white-space: nowrap;
       user-select: none;
@@ -625,11 +610,14 @@
       height: 100%;
       object-fit: cover;
       image-rendering: pixelated;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .keeps-card-preview img.loaded {
       opacity: 0.7;
-      transition: opacity 0.2s;
     }
 
-    .keeps-card:hover .keeps-card-preview img {
+    .keeps-card:hover .keeps-card-preview img.loaded {
       opacity: 0.9;
     }
 
@@ -638,6 +626,43 @@
       inset: 0;
       background: linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.55) 100%);
       pointer-events: none;
+    }
+
+    /* Animated noise placeholder (oven style) */
+    .keeps-card-preview .preview-noise {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+    }
+    .keeps-card-preview .preview-noise canvas {
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+    }
+    .keeps-card-preview .preview-noise .oven-label {
+      position: absolute;
+      bottom: 8px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.5);
+      letter-spacing: 1px;
+      pointer-events: none;
+    }
+    .keeps-card-preview .preview-noise .oven-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--ac-purple), #70D6FF);
+      animation: oven-pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes oven-pulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 1; }
     }
 
     .keeps-card-body {
@@ -655,9 +680,32 @@
       white-space: pre-wrap;
       word-break: break-word;
       max-height: 100px;
-      overflow: hidden;
+      overflow-y: auto;
       position: relative;
       display: flex;
+    }
+
+    /* KidLisp syntax highlighting tokens */
+    .kl-comment { color: #6b7280; font-style: italic; }
+    .kl-string { color: #eab308; }
+    .kl-number { color: #f472b6; }
+    .kl-fn { color: #22d3ee; }
+    .kl-special { color: #c084fc; }
+    .kl-op { color: #84cc16; }
+    .kl-var { color: #fb923c; }
+    .kl-code-ref { color: #4ade80; }
+    .kl-paren { color: #9ca3af; }
+
+    @media (prefers-color-scheme: dark) {
+      .kl-comment { color: #6b7280; }
+      .kl-string { color: #e5c07b; }
+      .kl-number { color: #d19a66; }
+      .kl-fn { color: #61afef; }
+      .kl-special { color: #c084fc; }
+      .kl-op { color: #98c379; }
+      .kl-var { color: #e06c75; }
+      .kl-code-ref { color: #98c379; }
+      .kl-paren { color: #858585; }
     }
 
     .keeps-card-source .line-nums {
@@ -686,16 +734,6 @@
       min-width: 0;
     }
 
-    .keeps-card-source::after {
-      content: '';
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 28px;
-      background: linear-gradient(transparent, var(--bg-tertiary));
-      pointer-events: none;
-    }
 
     .keeps-card-actions {
       display: flex;
@@ -1067,33 +1105,30 @@
   <section class="keeps-about">
     <p>
       Every KidLisp program evaluated on <a href="https://aesthetic.computer" target="_blank">Aesthetic<span class="ac-dot">.</span>Computer</a>
-      is assigned a permanent <code>$code</code> &mdash; a short, unique identifier stored forever in the 
+      is assigned a permanent <code>$code</code> &mdash; a short, unique identifier stored forever in the
       <a href="https://aesthetic.computer" target="_blank">Aesthetic<span class="ac-dot">.</span>Computer</a> database.
       This page is a living index of every <code>$code</code> ever created &mdash; a castle full of keeps.
     </p>
-    <span class="keeps-about-toggle" id="about-toggle">Learn more...</span>
-    <div class="keeps-about-extra" id="about-extra">
-      <p>
-        <strong>What is a $code?</strong> When you write and run KidLisp on 
-        <a href="https://kidlisp.com">kidlisp.com</a> or <a href="https://aesthetic.computer" target="_blank">Aesthetic<span class="ac-dot">.</span>Computer</a>, 
-        the source is hashed and stored. If it&rsquo;s new, a unique short code like <code>$39j</code> is generated.
-        Identical source always resolves to the same <code>$code</code>.
-      </p>
-      <p>
-        <strong>Keeping as HTML</strong> &mdash; Any <code>$code</code> can be bundled into a self-contained HTML file 
-        via the <code>/api/bundle-html</code> endpoint. This creates a standalone artifact that runs independently, 
-        perfect for archiving or embedding.
-      </p>
-      <p>
-        <strong>Keeping on Tezos</strong> &mdash; KidLisp programs can be minted as on-chain NFTs on the 
-        Tezos blockchain, making them permanently decentralized. Kept pieces are marked with a green badge below.
-      </p>
-      <p>
-        <strong>Links</strong> &mdash; 
-        Visit any code at <code>kidlisp.com/$code</code> to edit, 
-        or <code>aesthetic.computer/$code</code> to run fullscreen.
-      </p>
-    </div>
+    <p>
+      <strong>What is a $code?</strong> When you write and run KidLisp on
+      <a href="https://kidlisp.com">kidlisp.com</a> or <a href="https://aesthetic.computer" target="_blank">Aesthetic<span class="ac-dot">.</span>Computer</a>,
+      the source is hashed and stored. If it&rsquo;s new, a unique short code like <code>$39j</code> is generated.
+      Identical source always resolves to the same <code>$code</code>.
+    </p>
+    <p>
+      <strong>Keeping as HTML</strong> &mdash; Any <code>$code</code> can be bundled into a self-contained HTML file
+      via the <code>/api/bundle-html</code> endpoint. This creates a standalone artifact that runs independently,
+      perfect for archiving or embedding.
+    </p>
+    <p>
+      <strong>Keeping on Tezos</strong> &mdash; KidLisp programs can be minted as on-chain NFTs on the
+      Tezos blockchain, making them permanently decentralized. Kept pieces are marked with a green badge below.
+    </p>
+    <p>
+      <strong>Links</strong> &mdash;
+      Visit any code at <code>kidlisp.com/$code</code> to edit,
+      or <code>aesthetic.computer/$code</code> to run fullscreen.
+    </p>
   </section>
 
   <!-- TABS SYSTEM -->
@@ -1101,7 +1136,6 @@
     <div class="keeps-tabs">
       <button class="keeps-tab active" data-tab="index">Index</button>
       <button class="keeps-tab" data-tab="v4docs">V4 Docs</button>
-      <button class="keeps-tab" data-tab="about">About</button>
     </div>
 
     <!-- TAB: Index (default view - search + grid) -->
@@ -1376,45 +1410,6 @@
       </div>
     </div>
 
-    <!-- TAB: About (moved from above) -->
-    <div class="keeps-tab-content" id="tab-about">
-      <div style="padding: 24px; max-width: 900px; margin: 0 auto;">
-        <h2 style="margin: 0 0 16px; color: var(--text-primary); font-size: 24px; font-weight: 600;">
-          About Keeps
-        </h2>
-        <p style="line-height: 1.6; color: var(--text-secondary); margin-bottom: 16px;">
-          Every KidLisp program evaluated on <a href="https://aesthetic.computer" target="_blank">Aesthetic<span class="ac-dot">.</span>Computer</a>
-          is assigned a permanent <code>$code</code> &mdash; a short, unique identifier stored forever in the
-          <a href="https://aesthetic.computer" target="_blank">Aesthetic<span class="ac-dot">.</span>Computer</a> database.
-          This page is a living index of every <code>$code</code> ever created &mdash; a castle full of keeps.
-        </p>
-
-        <h3 style="margin: 24px 0 12px; color: var(--text-primary); font-size: 18px; font-weight: 600;">What is a $code?</h3>
-        <p style="line-height: 1.6; color: var(--text-secondary); margin-bottom: 16px;">
-          When you write and run KidLisp on <a href="https://kidlisp.com">kidlisp.com</a> or
-          <a href="https://aesthetic.computer" target="_blank">Aesthetic<span class="ac-dot">.</span>Computer</a>,
-          the source is hashed and stored. If it&rsquo;s new, a unique short code like <code>$39j</code> is generated.
-          Identical source always resolves to the same <code>$code</code>.
-        </p>
-
-        <h3 style="margin: 24px 0 12px; color: var(--text-primary); font-size: 18px; font-weight: 600;">Keeping as HTML</h3>
-        <p style="line-height: 1.6; color: var(--text-secondary); margin-bottom: 16px;">
-          Any <code>$code</code> can be bundled into a self-contained HTML file via the <code>/api/bundle-html</code> endpoint.
-          This creates a standalone artifact that runs independently, perfect for archiving or embedding.
-        </p>
-
-        <h3 style="margin: 24px 0 12px; color: var(--text-primary); font-size: 18px; font-weight: 600;">Keeping on Tezos</h3>
-        <p style="line-height: 1.6; color: var(--text-secondary); margin-bottom: 16px;">
-          KidLisp programs can be minted as on-chain NFTs on the Tezos blockchain, making them permanently decentralized.
-          Kept pieces are marked with a green badge below.
-        </p>
-
-        <h3 style="margin: 24px 0 12px; color: var(--text-primary); font-size: 18px; font-weight: 600;">Links</h3>
-        <p style="line-height: 1.6; color: var(--text-secondary);">
-          Visit any code at <code>kidlisp.com/$code</code> to edit, or <code>aesthetic.computer/$code</code> to run fullscreen.
-        </p>
-      </div>
-    </div>
   </div>
 
   <!-- SEARCH -->
@@ -1488,8 +1483,6 @@
     const countEl = document.getElementById('keeps-count');
     const searchInput = document.getElementById('search-input');
     const filterKeptBtn = document.getElementById('filter-kept');
-    const aboutToggle = document.getElementById('about-toggle');
-    const aboutExtra = document.getElementById('about-extra');
     const modalOverlay = document.getElementById('modal-overlay');
     const modalTitle = document.getElementById('modal-title');
     const modalIframe = document.getElementById('modal-iframe');
@@ -1530,7 +1523,7 @@
       // Build syntax-highlighted source with colored line numbers
       const sourceLines = (entry.source || '').split('\n');
       const lineNumsHtml = sourceLines.map((_, i) => `<span>${i + 1}</span>`).join('');
-      const sourceTextHtml = escapeHtml(entry.source || '');
+      const sourceTextHtml = highlightKidLisp(entry.source || '');
 
       // WebP preview image URL
       const webpUrl = `https://oven.aesthetic.computer/grab/webp/280/210/$${entry.code}?duration=2000&fps=8&quality=70&density=1&nowait=true`;
@@ -1544,7 +1537,8 @@
           </div>
         </div>
         <div class="keeps-card-preview">
-          <img src="${webpUrl}" alt="$${entry.code} preview" loading="lazy" />
+          <div class="preview-noise"><div class="oven-label">oven</div><div class="oven-bar"></div></div>
+          <img alt="$${entry.code} preview" loading="lazy" />
           <div class="preview-overlay"></div>
         </div>
         <div class="keeps-card-body">
@@ -1558,10 +1552,28 @@
           ${timeStr ? `<span style="margin-left: auto; font-size: 10px; color: var(--text-tertiary);">${timeStr}</span>` : ''}
         </div>`;
 
-      // Click on preview image or card body → open modal
-      const previewImg = card.querySelector('.keeps-card-preview');
-      if (previewImg) previewImg.style.cursor = 'pointer';
-      if (previewImg) previewImg.addEventListener('click', () => openModal(entry));
+      // Set up animated noise placeholder
+      const noiseEl = card.querySelector('.preview-noise');
+      const { canvas, ctx, imageData } = createNoiseCanvas(56, 42);
+      noiseEl.insertBefore(canvas, noiseEl.firstChild);
+      const noiseId = startNoiseAnimation(canvas, ctx, imageData);
+
+      // Load image with oven-style fallback
+      const img = card.querySelector('.keeps-card-preview img');
+      img.onload = () => {
+        img.classList.add('loaded');
+        clearInterval(noiseId);
+        noiseEl.remove();
+      };
+      img.onerror = () => {
+        // Keep noise placeholder visible — image not baked yet
+      };
+      img.src = webpUrl;
+
+      // Click on preview area → open modal
+      const previewArea = card.querySelector('.keeps-card-preview');
+      previewArea.style.cursor = 'pointer';
+      previewArea.addEventListener('click', () => openModal(entry));
 
       // Preview button handler
       card.querySelector('.preview-btn').addEventListener('click', () => openModal(entry));
@@ -1660,7 +1672,7 @@
       // Syntax-highlighted source in modal sidebar
       const sourceLines = (entry.source || '(no source)').split('\n');
       const lineNumsHtml = sourceLines.map((_, i) => `<span>${i + 1}</span>`).join('');
-      const sourceTextHtml = escapeHtml(entry.source || '(no source)');
+      const sourceTextHtml = highlightKidLisp(entry.source || '(no source)');
       modalSource.innerHTML = `<div class="line-nums" style="flex-shrink:0;width:2.4em;text-align:right;padding-right:6px;user-select:none;border-right:1px solid var(--border-subtle);margin-right:6px;">${lineNumsHtml}</div><div style="flex:1;white-space:pre-wrap;word-break:break-word;">${sourceTextHtml}</div>`;
       modalSource.style.display = 'flex';
 
@@ -1745,12 +1757,6 @@
       applyFilters();
     });
 
-    // About toggle
-    aboutToggle.addEventListener('click', () => {
-      aboutExtra.classList.toggle('open');
-      aboutToggle.textContent = aboutExtra.classList.contains('open') ? 'Show less' : 'Learn more...';
-    });
-
     // Tab switching
     document.querySelectorAll('.keeps-tab').forEach(tab => {
       tab.addEventListener('click', () => {
@@ -1782,6 +1788,87 @@
       const div = document.createElement('div');
       div.textContent = str;
       return div.innerHTML;
+    }
+
+    // Animated noise placeholder (oven-style)
+    function createNoiseCanvas(width = 56, height = 42) {
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      const imageData = ctx.createImageData(width, height);
+      const data = imageData.data;
+      for (let i = 0; i < data.length; i += 4) {
+        const gray = Math.floor(Math.random() * 80) + 20;
+        data[i] = gray;
+        data[i + 1] = gray;
+        data[i + 2] = gray + Math.floor(Math.random() * 20);
+        data[i + 3] = 255;
+      }
+      ctx.putImageData(imageData, 0, 0);
+      return { canvas, ctx, imageData };
+    }
+
+    function startNoiseAnimation(canvas, ctx, imageData, interval = 180) {
+      const data = imageData.data;
+      const id = setInterval(() => {
+        for (let i = 0; i < data.length; i += 4) {
+          const gray = Math.floor(Math.random() * 80) + 20;
+          data[i] = gray;
+          data[i + 1] = gray;
+          data[i + 2] = gray + Math.floor(Math.random() * 20);
+          data[i + 3] = 255;
+        }
+        ctx.putImageData(imageData, 0, 0);
+      }, interval);
+      return id;
+    }
+
+    // Lightweight KidLisp syntax highlighter
+    const KL_SPECIAL = new Set(['def', 'if', 'cond', 'later', 'once', 'lambda', 'let', 'do', 'repeat']);
+    const KL_OPS = new Set(['+', '-', '*', '/', '%', 'mod', '=', '>', '<', '>=', '<=', 'abs', 'sqrt', 'min', 'max']);
+    const KL_FNS = new Set([
+      'line', 'box', 'circle', 'write', 'paste', 'stamp', 'ink', 'wipe', 'flood',
+      'scroll', 'zoom', 'blur', 'contrast', 'spin', 'draw', 'wiggle', 'pan', 'jump',
+      'grid', 'noise', 'sin', 'cos', 'rand', 'floor', 'ceil', 'round', 'log',
+      'list', 'nth', 'len', 'push', 'pop', 'map', 'filter', 'reduce', 'apply',
+      'print', 'type', 'str', 'num', 'not', 'and', 'or', 'true', 'false',
+      'pixel', 'plot', 'poly', 'ellipse', 'rect', 'tri', 'quad', 'arc',
+      'color', 'opacity', 'scale', 'rotate', 'translate', 'move', 'goto',
+      'sound', 'synth', 'wave', 'freq', 'vol', 'note', 'beat', 'bpm',
+      'load', 'save', 'fetch', 'delay', 'every', 'after',
+    ]);
+
+    function highlightKidLisp(source) {
+      // Tokenize using a regex that matches comments, strings, parens, whitespace, and words
+      const tokenRegex = /(;[^\n]*|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|[()[\],]|\s+|[^\s()[\],"';]+)/g;
+      let result = '';
+      let match;
+      while ((match = tokenRegex.exec(source)) !== null) {
+        const tok = match[1];
+        if (tok.startsWith(';')) {
+          result += `<span class="kl-comment">${escapeHtml(tok)}</span>`;
+        } else if (tok.startsWith('"') || tok.startsWith("'")) {
+          result += `<span class="kl-string">${escapeHtml(tok)}</span>`;
+        } else if (/^\s+$/.test(tok)) {
+          result += tok;
+        } else if (tok === '(' || tok === ')' || tok === '[' || tok === ']' || tok === ',') {
+          result += `<span class="kl-paren">${tok}</span>`;
+        } else if (/^-?\d+(\.\d+)?$/.test(tok) || /^\d*\.?\d+[sf]!?$/.test(tok) || /^\d*\.?\d+[sf]\.\.\.?$/.test(tok)) {
+          result += `<span class="kl-number">${escapeHtml(tok)}</span>`;
+        } else if (/^[$#!][0-9A-Za-z]+$/.test(tok)) {
+          result += `<span class="kl-code-ref">${escapeHtml(tok)}</span>`;
+        } else if (KL_SPECIAL.has(tok)) {
+          result += `<span class="kl-special">${escapeHtml(tok)}</span>`;
+        } else if (KL_OPS.has(tok)) {
+          result += `<span class="kl-op">${escapeHtml(tok)}</span>`;
+        } else if (KL_FNS.has(tok)) {
+          result += `<span class="kl-fn">${escapeHtml(tok)}</span>`;
+        } else {
+          result += `<span class="kl-var">${escapeHtml(tok)}</span>`;
+        }
+      }
+      return result;
     }
 
     function formatRelativeTime(date) {

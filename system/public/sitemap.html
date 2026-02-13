@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="/icon/128x128/prompt.png" type="image/png">
+<title>houses &middot; Aesthetic Computer</title>
+<style>
+  ::-webkit-scrollbar { display: none; }
+  html {
+    cursor: url("/aesthetic.computer/cursors/precise.svg") 12 12, auto;
+  }
+  body {
+    margin: 0;
+    font-size: 22px;
+    font-family: monospace;
+    -webkit-text-size-adjust: none;
+    overflow-x: hidden;
+  }
+  h1 {
+    font-weight: normal;
+    font-size: 22px;
+    margin: 0;
+    position: fixed;
+    z-index: 10;
+  }
+  h1 a, h1 a:visited {
+    color: inherit;
+    cursor: inherit;
+    text-decoration: none;
+  }
+  h1:before {
+    content: "";
+    height: 2.5em;
+    width: 100vw;
+    position: absolute;
+    z-index: -1;
+    top: -16px;
+    left: -16px;
+  }
+  #pals {
+    position: fixed;
+    bottom: 5px;
+    right: 16px;
+    user-select: none;
+    z-index: 10;
+  }
+  section.main {
+    margin: 12px 16px 12px 16px;
+    padding-top: 2.5em;
+    font-size: 65%;
+  }
+  .stats {
+    display: flex;
+    gap: 0.75em;
+    flex-wrap: wrap;
+    margin-bottom: 1.25em;
+  }
+  .stat {
+    padding: 0.4em 0.6em;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+  .stat strong { font-size: 1.15em; }
+  #search {
+    border: 1px solid;
+    padding: 0.4em 0.6em;
+    font-family: inherit;
+    font-size: 1em;
+    width: 100%;
+    max-width: 24em;
+    border-radius: 3px;
+    margin-bottom: 1.5em;
+    outline: none;
+    cursor: inherit;
+  }
+  #search::placeholder { opacity: 0.4; }
+  .card {
+    border-radius: 4px;
+    margin-bottom: 1.25em;
+    overflow: hidden;
+  }
+  details > summary {
+    padding: 0.6em 0.75em;
+    cursor: inherit;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    list-style: none;
+    font-size: 1.05em;
+  }
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary::before {
+    content: "\25b6";
+    font-size: 0.55em;
+    transition: transform 0.2s;
+    opacity: 0.4;
+  }
+  details[open] > summary::before { transform: rotate(90deg); }
+  .tag {
+    font-size: 0.6em;
+    padding: 1px 5px;
+    border-radius: 2px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .section-title { font-weight: bold; }
+  .section-count { opacity: 0.35; font-size: 0.8em; margin-left: auto; }
+  .section-desc {
+    font-size: 0.85em;
+    opacity: 0.6;
+    padding: 0.4em 0.75em 0.5em;
+    line-height: 1.6;
+  }
+  .routes {
+    padding: 0.5em 0.75em;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(14em, 1fr));
+    gap: 0.15em 0.75em;
+    max-height: 38em;
+    overflow-y: auto;
+  }
+  .routes.single-col { grid-template-columns: 1fr; }
+  .route {
+    font-size: 0.85em;
+    padding: 2px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .route::before { content: "/"; opacity: 0.3; }
+  .route.full-url::before { content: ""; }
+  .route-group-label {
+    font-size: 0.75em;
+    padding: 0.6em 0.75em 0.15em;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: bold;
+    grid-column: 1 / -1;
+  }
+  .redirect-row {
+    font-size: 0.82em;
+    padding: 3px 0;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto;
+    gap: 0.4em;
+    align-items: center;
+  }
+  .redirect-from { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .redirect-arrow { opacity: 0.3; }
+  .redirect-to { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .redirect-status {
+    font-size: 0.7em;
+    padding: 1px 4px;
+    border-radius: 2px;
+    font-weight: bold;
+  }
+  .dynamic-pattern {
+    font-size: 0.82em;
+    padding: 3px 0;
+    font-style: italic;
+  }
+  .dynamic-pattern::before { content: "\2731 "; }
+  .note {
+    font-size: 0.75em;
+    opacity: 0.35;
+    padding: 0.4em 0.75em;
+  }
+  .divider {
+    text-align: center;
+    opacity: 0.3;
+    font-size: 0.8em;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    padding: 1.5em 0 0.5em;
+  }
+  .divider::before, .divider::after { content: " ---- "; }
+  .hidden { display: none !important; }
+
+  /* Dark mode (default for docs style) */
+  @media (prefers-color-scheme: dark) {
+    body {
+      background-color: rgb(64, 56, 74);
+      color: rgba(255, 255, 255, 0.85);
+    }
+    h1 a:hover { color: rgb(205, 92, 155); }
+    h1:before {
+      background-image: linear-gradient(to bottom, rgba(64, 56, 74, 0.75) 80%, transparent);
+    }
+    .stat {
+      background: rgba(255,255,255,0.06);
+    }
+    .stat strong { color: rgb(92, 205, 155); }
+    #search {
+      background: rgba(255,255,255,0.06);
+      border-color: rgba(255,255,255,0.15);
+      color: rgba(255,255,255,0.85);
+    }
+    #search:focus { border-color: rgb(205, 92, 155); }
+    .card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    details > summary:hover { background: rgba(255,255,255,0.04); }
+    .tag-primary { background: rgb(205, 92, 155); color: #fff; }
+    .tag-microsite { background: rgb(92, 205, 155); color: rgb(20, 40, 30); }
+    .tag-subdomain { background: rgb(155, 120, 205); color: #fff; }
+    .tag-redirect { background: rgb(205, 155, 92); color: rgb(40, 30, 20); }
+    .tag-api { background: rgb(92, 155, 205); color: rgb(20, 30, 40); }
+    .tag-external { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.7); }
+    .tag-client { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.6); }
+    .route-group-label { color: rgb(92, 205, 155); }
+    .redirect-to { color: rgb(92, 205, 155); }
+    .dynamic-pattern { color: rgb(155, 120, 205); }
+    .dynamic-pattern::before { color: rgb(205, 92, 155); }
+    .status-200 { background: rgba(92, 205, 155, 0.2); color: rgb(92, 205, 155); }
+    .status-301 { background: rgba(205, 155, 92, 0.2); color: rgb(205, 155, 92); }
+    .status-302 { background: rgba(155, 120, 205, 0.2); color: rgb(155, 120, 205); }
+    a, a:visited { color: rgb(205, 92, 155); }
+  }
+
+  /* Light mode */
+  @media (prefers-color-scheme: light) {
+    body {
+      background-color: rgba(244, 235, 250);
+      color: rgb(64, 56, 74);
+    }
+    h1 a:hover { color: rgb(205, 92, 155); }
+    h1:before {
+      background-image: linear-gradient(to bottom, rgba(244, 235, 250, 0.75) 80%, transparent);
+    }
+    .stat {
+      background: rgba(64, 56, 74, 0.06);
+    }
+    .stat strong { color: rgb(30, 120, 80); }
+    #search {
+      background: rgba(64, 56, 74, 0.04);
+      border-color: rgba(64, 56, 74, 0.2);
+      color: rgb(64, 56, 74);
+    }
+    #search:focus { border-color: rgb(205, 92, 155); }
+    .card {
+      background: rgba(64, 56, 74, 0.04);
+      border: 1px solid rgba(64, 56, 74, 0.08);
+    }
+    details > summary:hover { background: rgba(64, 56, 74, 0.04); }
+    .tag-primary { background: rgb(180, 72, 135); color: #fff; }
+    .tag-microsite { background: rgb(30, 140, 90); color: #fff; }
+    .tag-subdomain { background: rgb(120, 80, 180); color: #fff; }
+    .tag-redirect { background: rgb(180, 130, 60); color: #fff; }
+    .tag-api { background: rgb(60, 120, 180); color: #fff; }
+    .tag-external { background: rgba(64, 56, 74, 0.15); color: rgb(64, 56, 74); }
+    .tag-client { background: rgba(64, 56, 74, 0.1); color: rgba(64, 56, 74, 0.7); }
+    .route-group-label { color: rgb(30, 140, 90); }
+    .redirect-to { color: rgb(30, 140, 90); }
+    .dynamic-pattern { color: rgb(120, 80, 180); }
+    .dynamic-pattern::before { color: rgb(180, 72, 135); }
+    .status-200 { background: rgba(30, 140, 90, 0.15); color: rgb(20, 100, 60); }
+    .status-301 { background: rgba(180, 130, 60, 0.15); color: rgb(140, 100, 40); }
+    .status-302 { background: rgba(120, 80, 180, 0.15); color: rgb(100, 60, 160); }
+    a, a:visited { color: rgb(180, 72, 135); }
+  }
+
+  @media (max-width: 600px) {
+    .routes { grid-template-columns: 1fr; }
+    .redirect-row { grid-template-columns: 1fr; gap: 0.1em; }
+    .stats { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<section class="main">
+<h1><span id="title"><a href="/sitemap">houses</a></span></h1>
+
+<div style="padding-top: 0.5em;">
+<div class="stats">
+  <div class="stat">Domains &amp; Microsites: <strong>16</strong></div>
+  <div class="stat">Disk Routes: <strong>~480</strong></div>
+  <div class="stat">API Endpoints: <strong>~85</strong></div>
+  <div class="stat">Functions: <strong>~106</strong></div>
+  <div class="stat">Redirects: <strong>~120</strong></div>
+</div>
+
+<input type="text" id="search" placeholder="Filter routes..." autofocus>
+</div>
+
+<!-- aesthetic.computer -->
+<div class="card">
+<details open>
+<summary>
+  <span class="tag tag-primary">Primary</span>
+  <span class="section-title">aesthetic.computer</span>
+  <span class="section-count">~480 disk routes</span>
+</summary>
+<div class="section-desc">The main platform. A creative computing environment where every .mjs disk becomes a live, shareable tool &mdash; drawing, music, games, programming, and more. User profiles live at /@handle.</div>
+<div class="route-group-label">Core / Navigation</div>
+<div class="routes">
+  <div class="route">about</div>
+  <div class="route">login-pattern</div>
+  <div class="route">login-wait</div>
+  <div class="route">profile</div>
+  <div class="route">handle</div>
+  <div class="route">handles</div>
+  <div class="route">get-handle</div>
+  <div class="route">connect-wallet</div>
+  <div class="route">wallet</div>
+  <div class="route">token</div>
+  <div class="route">desktop</div>
+  <div class="route">download</div>
+  <div class="route">delete-erase-and-forget-me</div>
+  <div class="route">404</div>
+  <div class="route">error</div>
+  <div class="route">support</div>
+  <div class="route">privacy-policy</div>
+  <div class="route">aesthetic-direct</div>
+</div>
+<div class="route-group-label">Creative Tools / Drawing</div>
+<div class="routes">
+  <div class="route">paint</div>
+  <div class="route">nopaint</div>
+  <div class="route">line</div>
+  <div class="route">pline</div>
+  <div class="route">oldline</div>
+  <div class="route">shape</div>
+  <div class="route">oldshape</div>
+  <div class="route">oval</div>
+  <div class="route">rect</div>
+  <div class="route">fill</div>
+  <div class="route">spray</div>
+  <div class="route">smear</div>
+  <div class="route">marker</div>
+  <div class="route">crayon</div>
+  <div class="route">sparkle-brush</div>
+  <div class="route">multipen</div>
+  <div class="route">doodle</div>
+  <div class="route">wand</div>
+  <div class="route">oldwand</div>
+  <div class="route">crop</div>
+  <div class="route">stamp</div>
+  <div class="route">stample</div>
+  <div class="route">blur</div>
+  <div class="route">wipe</div>
+  <div class="route">snap</div>
+  <div class="route">paste</div>
+  <div class="route">pull</div>
+  <div class="route">oldpull</div>
+  <div class="route">make</div>
+  <div class="route">oldmake</div>
+  <div class="route">painting</div>
+  <div class="route">handprint</div>
+  <div class="route">nail</div>
+  <div class="route">colors</div>
+  <div class="route">colplay</div>
+  <div class="route">gradient-test</div>
+  <div class="route">graphics</div>
+  <div class="route">plot</div>
+  <div class="route">icon</div>
+  <div class="route">images</div>
+  <div class="route">selfie</div>
+  <div class="route">camera</div>
+  <div class="route">cards</div>
+</div>
+<div class="route-group-label">Music / Audio</div>
+<div class="routes">
+  <div class="route">notepat</div>
+  <div class="route">notepat-tv</div>
+  <div class="route">beat</div>
+  <div class="route">tone</div>
+  <div class="route">chord</div>
+  <div class="route">melody</div>
+  <div class="route">song</div>
+  <div class="route">sing</div>
+  <div class="route">bleep</div>
+  <div class="route">say</div>
+  <div class="route">whistle</div>
+  <div class="route">metronome</div>
+  <div class="route">microphone</div>
+  <div class="route">uke</div>
+  <div class="route">pedal</div>
+  <div class="route">amp</div>
+  <div class="route">bgm</div>
+  <div class="route">sfx</div>
+  <div class="route">r8dio</div>
+  <div class="route">baktok</div>
+  <div class="route">squaresong</div>
+  <div class="route">rattle</div>
+  <div class="route">visualizer</div>
+  <div class="route">tracker</div>
+</div>
+<div class="route-group-label">KidLisp / Programming</div>
+<div class="routes">
+  <div class="route">kidlisp</div>
+  <div class="route">kidlisp-piece</div>
+  <div class="route">kidlisp-in-js</div>
+  <div class="route">kidlisp-gb-test</div>
+  <div class="route">debug-kidlisp-hud</div>
+  <div class="route">keep</div>
+  <div class="route">kept</div>
+  <div class="route">learn</div>
+  <div class="route">lang</div>
+  <div class="route">decode</div>
+  <div class="route">encode</div>
+  <div class="route">prompt</div>
+  <div class="route">chat</div>
+  <div class="route">docgen</div>
+  <div class="route">docs/*</div>
+</div>
+<div class="route-group-label">Games / Interactive</div>
+<div class="routes">
+  <div class="route">game</div>
+  <div class="route">play</div>
+  <div class="route">1v1</div>
+  <div class="route">brick-breaker</div>
+  <div class="route">flap</div>
+  <div class="route">fly</div>
+  <div class="route">hop</div>
+  <div class="route">scawy-snake</div>
+  <div class="route">run&amp;gun</div>
+  <div class="route">gostop</div>
+  <div class="route">staka</div>
+  <div class="route">pond</div>
+  <div class="route">balls</div>
+  <div class="route">box</div>
+  <div class="route">boxes</div>
+  <div class="route">bubble</div>
+  <div class="route">rain</div>
+  <div class="route">sno</div>
+  <div class="route">starfield</div>
+  <div class="route">metaballs</div>
+  <div class="route">noise</div>
+  <div class="route">ant</div>
+  <div class="route">field</div>
+  <div class="route">a-star</div>
+  <div class="route">toss</div>
+</div>
+<div class="route-group-label">Social / Community</div>
+<div class="routes">
+  <div class="route">mood</div>
+  <div class="route">moods</div>
+  <div class="route">share</div>
+  <div class="route">sign</div>
+  <div class="route">signature</div>
+  <div class="route">mail</div>
+  <div class="route">list</div>
+</div>
+<div class="route-group-label">Media / TV / Tapes</div>
+<div class="routes">
+  <div class="route">tv</div>
+  <div class="route">tapes</div>
+  <div class="route">screen</div>
+  <div class="route">screenshots</div>
+  <div class="route">screentest</div>
+  <div class="route">replay</div>
+  <div class="route">video</div>
+</div>
+<div class="route-group-label">Whistlegraph</div>
+<div class="routes">
+  <div class="route">whistlegraph</div>
+  <div class="route">wg</div>
+  <div class="route">wgr</div>
+  <div class="route">m2w2</div>
+  <div class="route">wipppps</div>
+  <div class="route">oldwipppps</div>
+  <div class="route">neo-wipppps</div>
+</div>
+<div class="route-group-label">Shop / Commerce</div>
+<div class="routes">
+  <div class="route">mug</div>
+  <div class="route">mugs</div>
+  <div class="route">paintball</div>
+  <div class="route">shop/*</div>
+</div>
+<div class="route-group-label">Utilities / System</div>
+<div class="routes">
+  <div class="route">blank</div>
+  <div class="route">blank-canvas2d</div>
+  <div class="route">blank-webgl2</div>
+  <div class="route">blank-blend2d</div>
+  <div class="route">blank-thorvg</div>
+  <div class="route">blank-vello</div>
+  <div class="route">debug</div>
+  <div class="route">test</div>
+  <div class="route">perf</div>
+  <div class="route">fps</div>
+  <div class="route">clock</div>
+  <div class="route">clocks</div>
+  <div class="route">demo</div>
+  <div class="route">desk</div>
+  <div class="route">stage</div>
+  <div class="route">keys</div>
+  <div class="route">gamepad</div>
+  <div class="route">gameboy</div>
+  <div class="route">gesture</div>
+  <div class="route">pressure</div>
+  <div class="route">transform</div>
+  <div class="route">rotate-text-demo</div>
+  <div class="route">zoom-test</div>
+  <div class="route">cross-tab-test</div>
+  <div class="route">sab</div>
+  <div class="route">udp</div>
+  <div class="route">wave</div>
+  <div class="route">weather</div>
+  <div class="route">commits</div>
+  <div class="route">aframe</div>
+  <div class="route">ableton</div>
+  <div class="route">imessage</div>
+  <div class="route">ptt</div>
+  <div class="route">booted-by</div>
+  <div class="route">run</div>
+  <div class="route">dync</div>
+</div>
+<div class="route-group-label">People / Characters</div>
+<div class="routes">
+  <div class="route">mom</div>
+  <div class="route">dad</div>
+  <div class="route">brother</div>
+  <div class="route">sister</div>
+  <div class="route">husband</div>
+  <div class="route">wife</div>
+  <div class="route">boyfriend</div>
+  <div class="route">girlfriend</div>
+  <div class="route">kid</div>
+  <div class="route">angel</div>
+  <div class="route">robo</div>
+  <div class="route">sage</div>
+  <div class="route">tobby</div>
+  <div class="route">valbear</div>
+  <div class="route">gargoyle</div>
+  <div class="route">dolls</div>
+</div>
+<div class="route-group-label">Experiments / Misc</div>
+<div class="routes">
+  <div class="route">liar</div>
+  <div class="route">hell_-world</div>
+  <div class="route">hha</div>
+  <div class="route">hw</div>
+  <div class="route">horizon</div>
+  <div class="route">seashells</div>
+  <div class="route">sparkle</div>
+  <div class="route">sprinkles</div>
+  <div class="route">spline</div>
+  <div class="route">split</div>
+  <div class="route">sprite</div>
+  <div class="route">stick</div>
+  <div class="route">throb</div>
+  <div class="route">tremory</div>
+  <div class="route">triquilt</div>
+  <div class="route">rainbow-x</div>
+  <div class="route">freaky-flowers</div>
+  <div class="route">lmn-flower</div>
+  <div class="route">lmn-petal</div>
+  <div class="route">pip</div>
+  <div class="route">slip</div>
+  <div class="route">word</div>
+  <div class="route">words</div>
+  <div class="route">textfence</div>
+  <div class="route">chart</div>
+  <div class="route">vary</div>
+  <div class="route">ordfish</div>
+  <div class="route">ordsy</div>
+  <div class="route">zzzwap</div>
+  <div class="route">basic-line-pointer</div>
+  <div class="route">phand</div>
+  <div class="route">cap</div>
+  <div class="route">boots</div>
+  <div class="route">bits</div>
+  <div class="route">mobile</div>
+  <div class="route">handtime</div>
+  <div class="route">description</div>
+  <div class="route">autopat</div>
+  <div class="route">deck</div>
+  <div class="route">snappidagg</div>
+  <div class="route">snappidaggs</div>
+  <div class="route">botce</div>
+  <div class="route">alex-row</div>
+  <div class="route">alphapoet</div>
+  <div class="route">amby</div>
+  <div class="route">sb</div>
+  <div class="route">ss</div>
+  <div class="route">mo</div>
+  <div class="route">kpbj</div>
+  <div class="route">slgb</div>
+  <div class="route">prutti</div>
+  <div class="route">hueber</div>
+  <div class="route">merry</div>
+  <div class="route">merryo</div>
+  <div class="route">f3ral3xp</div>
+  <div class="route">digitpain0</div>
+  <div class="route">digitpain1</div>
+  <div class="route">digitpain2</div>
+  <div class="route">digitpain3</div>
+  <div class="route">bundle</div>
+</div>
+<div class="route-group-label">Language Variants</div>
+<div class="routes">
+  <div class="route">en</div>
+  <div class="route">es</div>
+  <div class="route">da</div>
+  <div class="route">english</div>
+  <div class="route">spanish</div>
+  <div class="route">danish</div>
+  <div class="route">laer-klokken</div>
+</div>
+<div class="route-group-label">UCLA Course Disks</div>
+<div class="routes">
+  <div class="route">ucla-1</div>
+  <div class="route">ucla-2</div>
+  <div class="route">ucla-3</div>
+  <div class="route">ucla-3-keyboard</div>
+  <div class="route">ucla-4</div>
+  <div class="route">ucla-4-box</div>
+  <div class="route">ucla-5</div>
+  <div class="route">ucla-6</div>
+  <div class="route">ucla-6-turtle</div>
+  <div class="route">ucla-7</div>
+  <div class="route">ucla-7-balls</div>
+  <div class="route">ucla-7-dial</div>
+  <div class="route">ucla-7-jump</div>
+</div>
+<div class="route-group-label">Single-Letter &amp; Numeric Routes</div>
+<div class="routes">
+  <div class="route">$</div>
+  <div class="route">0</div><div class="route">1</div><div class="route">2</div><div class="route">3</div><div class="route">4</div><div class="route">5</div><div class="route">6</div><div class="route">7</div><div class="route">8</div><div class="route">9</div>
+  <div class="route">a</div><div class="route">b</div><div class="route">c</div><div class="route">d</div><div class="route">e</div><div class="route">f</div><div class="route">g</div><div class="route">h</div><div class="route">i</div><div class="route">j</div><div class="route">k</div><div class="route">l</div><div class="route">m</div><div class="route">n</div><div class="route">o</div><div class="route">p</div><div class="route">q</div><div class="route">r</div><div class="route">s</div><div class="route">t</div><div class="route">u</div><div class="route">v</div><div class="route">w</div><div class="route">x</div><div class="route">y</div><div class="route">z</div>
+</div>
+<div class="route-group-label">FF1 Device System</div>
+<div class="routes">
+  <div class="route">ff</div>
+  <div class="route">ff1</div>
+  <div class="route">ff1-debug</div>
+</div>
+<div class="route-group-label">Dynamic Route Patterns</div>
+<div class="routes single-col">
+  <div class="dynamic-pattern">/* &rarr; SPA catch-all via index serverless function</div>
+  <div class="dynamic-pattern">/preview/* &rarr; oven.aesthetic.computer screenshot proxy</div>
+  <div class="dynamic-pattern">/icon/* &rarr; oven.aesthetic.computer icon proxy</div>
+  <div class="dynamic-pattern">/media/* &rarr; edge function (media processing)</div>
+  <div class="dynamic-pattern">/session/* &rarr; Jamsocket session creation</div>
+  <div class="dynamic-pattern">/reload/* &rarr; Redis cache reload</div>
+  <div class="dynamic-pattern">/@:handle &rarr; user profile (dynamic, via index function)</div>
+  <div class="dynamic-pattern">/@:handle/:piece &rarr; user piece (dynamic, via index function)</div>
+  <div class="dynamic-pattern">/disks/* &rarr; raw disk .mjs files</div>
+  <div class="dynamic-pattern">/assets/* &rarr; S3 proxy (assets.aesthetic.computer)</div>
+  <div class="dynamic-pattern">/assets/type/* &rarr; local font files (overrides S3)</div>
+</div>
+</details>
+</div>
+
+<!-- kidlisp.com -->
+<div class="card">
+<details>
+<summary>
+  <span class="tag tag-microsite">Microsite</span>
+  <span class="section-title">kidlisp.com</span>
+  <span class="section-count">6 pages + 3 subdomains</span>
+</summary>
+<div class="section-desc">A Lisp-based creative programming language built on Aesthetic Computer. Write code, save &ldquo;keeps&rdquo; (minted artifacts), pair with physical FF1 devices, and browse a top-100 playlist.</div>
+<div class="routes single-col">
+  <div class="route full-url">kidlisp.com/ &mdash; Main editor (SPA)</div>
+  <div class="route full-url">kidlisp.com/keeps &mdash; Keeps gallery</div>
+  <div class="route full-url">kidlisp.com/learn &mdash; Learning/reference</div>
+  <div class="route full-url">kidlisp.com/pj/* &mdash; Piece Jockey mode</div>
+  <div class="route full-url">kidlisp.com/api/* &rarr; proxied to aesthetic.computer/api/*</div>
+  <div class="route full-url">kidlisp.com/api/ff1/* &rarr; FF1 device API</div>
+</div>
+<div class="route-group-label">pj.kidlisp.com (Piece Jockey)</div>
+<div class="routes single-col">
+  <div class="route full-url">pj.kidlisp.com/ &mdash; PJ editor page</div>
+  <div class="route full-url">pj.kidlisp.com/* &mdash; PJ with code param</div>
+</div>
+<div class="route-group-label">device.kidlisp.com (FF1 Display)</div>
+<div class="routes single-col">
+  <div class="route full-url">device.kidlisp.com/ &mdash; Device display mode</div>
+  <div class="route full-url">device.kidlisp.com/:codeId &mdash; Run specific code</div>
+  <div class="route full-url">device.kidlisp.com/qr/:token &mdash; QR pairing page</div>
+  <div class="route full-url">device.kidlisp.com/js/* &mdash; Static JS assets</div>
+  <div class="route full-url">device.kidlisp.com/api/ff1/* &mdash; FF1 API</div>
+</div>
+<div class="route-group-label">top.kidlisp.com (Top 100 Playlist)</div>
+<div class="routes single-col">
+  <div class="route full-url">top.kidlisp.com/ &mdash; Top 100 device display</div>
+  <div class="route full-url">top.kidlisp.com/js/* &mdash; Static JS assets</div>
+  <div class="route full-url">top.kidlisp.com/* &mdash; Catch-all to device.html</div>
+</div>
+<div class="note">Planned: learn.kidlisp.com (pending DNS setup)</div>
+</details>
+</div>
+
+<!-- sotce.net -->
+<div class="card">
+<details>
+<summary>
+  <span class="tag tag-microsite">Microsite</span>
+  <span class="section-title">sotce.net</span>
+  <span class="section-count">Dynamic SSR</span>
+</summary>
+<div class="section-desc">Server-rendered social platform with its own identity system. Fully generated by a single Netlify function &mdash; handles auth, user profiles, email, and content.</div>
+<div class="routes single-col">
+  <div class="route full-url">sotce.net/ &mdash; Main page (serverless rendered)</div>
+  <div class="route full-url">sotce.net/* &mdash; All routes via sotce-net function</div>
+  <div class="route full-url">sotce.net/user &rarr; user function</div>
+  <div class="route full-url">sotce.net/handle &rarr; handle function</div>
+  <div class="route full-url">sotce.net/api/email &rarr; email function</div>
+  <div class="route full-url">sotce.net/aesthetic.computer/* &rarr; AC static assets</div>
+  <div class="route full-url">sotce.net/redirect-proxy-sotce &rarr; redirect proxy</div>
+</div>
+<div class="note">Also accessible at /sotce-net/* and /sotce.net/* on main domain.</div>
+</details>
+</div>
+
+<!-- API -->
+<div class="card">
+<details>
+<summary>
+  <span class="tag tag-api">API</span>
+  <span class="section-title">aesthetic.computer/api/*</span>
+  <span class="section-count">~85 endpoints</span>
+</summary>
+<div class="section-desc">The serverless backbone. Covers auth, user management, KidLisp storage, media processing, payments (Stripe/PayPal), AI (Anthropic/OpenAI), Tezos NFT minting, and more. Also exposes a remote MCP server and machine-readable API docs.</div>
+<div class="route-group-label">Auth &amp; Users</div>
+<div class="routes">
+  <div class="route">api/authorized</div>
+  <div class="route">api/auth/cli-callback</div>
+  <div class="route">api/auth0-events</div>
+  <div class="route">api/profile/*</div>
+  <div class="route">api/delete-erase-and-forget-me</div>
+  <div class="route">api/email</div>
+  <div class="route">api/unsubscribe</div>
+  <div class="route">api/mail-status</div>
+  <div class="route">api/atproto-user-stats</div>
+  <div class="route">handle</div>
+  <div class="route">user</div>
+  <div class="route">api/handles</div>
+</div>
+<div class="route-group-label">KidLisp &amp; Keeps</div>
+<div class="routes">
+  <div class="route">api/store-kidlisp</div>
+  <div class="route">api/kidlisp-count</div>
+  <div class="route">api/store-piece</div>
+  <div class="route">api/piece-metadata</div>
+  <div class="route">api/piece-hit</div>
+  <div class="route">api/piece-fans</div>
+  <div class="route">api/keep-mint</div>
+  <div class="route">api/keep-confirm</div>
+  <div class="route">api/keep-update</div>
+  <div class="route">api/bundle-html</div>
+  <div class="route">api/bundle-telemetry</div>
+  <div class="route">api/bundle-telemetry-query</div>
+  <div class="route">api/boot-log</div>
+</div>
+<div class="route-group-label">Media &amp; Tapes</div>
+<div class="routes">
+  <div class="route">api/track-media</div>
+  <div class="route">api/track-tape</div>
+  <div class="route">api/tape-convert-background</div>
+  <div class="route">api/get-tape</div>
+  <div class="route">api/get-tape-status</div>
+  <div class="route">api/oven-complete</div>
+  <div class="route">api/tv</div>
+  <div class="route">api/tv-tapes</div>
+  <div class="route">api/painting-code</div>
+  <div class="route">api/painting-metadata</div>
+  <div class="route">api/bdf-glyph</div>
+  <div class="route">media-collection/*</div>
+</div>
+<div class="route-group-label">Commerce &amp; Payments</div>
+<div class="routes">
+  <div class="route">api/print/*</div>
+  <div class="route">api/mug</div>
+  <div class="route">api/mugs</div>
+  <div class="route">api/mockup-gif</div>
+  <div class="route">api/mockup-webp</div>
+  <div class="route">api/ticket/*</div>
+  <div class="route">api/shop</div>
+  <div class="route">api/give</div>
+  <div class="route">api/gives</div>
+  <div class="route">api/give-portal</div>
+  <div class="route">api/give-image</div>
+  <div class="route">api/billing</div>
+  <div class="route">api/metrics</div>
+  <div class="route">api/paypal</div>
+</div>
+<div class="route-group-label">Content &amp; AI</div>
+<div class="routes">
+  <div class="route">api/ask</div>
+  <div class="route">api/say</div>
+  <div class="route">api/vary</div>
+  <div class="route">api/mood/*</div>
+  <div class="route">api/chat/messages</div>
+  <div class="route">api/news</div>
+  <div class="route">api/news/*</div>
+  <div class="route">api/news/toll</div>
+  <div class="route">api/playlist</div>
+  <div class="route">api/stretched-paintings</div>
+  <div class="route">api/jas-tags</div>
+  <div class="route">api/subscribe-to-topic</div>
+</div>
+<div class="route-group-label">System / Infra</div>
+<div class="routes">
+  <div class="route">api/version</div>
+  <div class="route">api/logo/*</div>
+  <div class="route">api/logo.png</div>
+  <div class="route">api/pixel/*</div>
+  <div class="route">api/clock</div>
+  <div class="route">api/store-clock</div>
+  <div class="route">api &mdash; API docs</div>
+  <div class="route">api/ff1/*</div>
+  <div class="route">mcp &mdash; Remote MCP server</div>
+  <div class="route">docs/*</div>
+  <div class="route">docs.json</div>
+  <div class="route">slash</div>
+  <div class="route">run</div>
+  <div class="route">redirect-proxy</div>
+  <div class="route">presigned-upload-url/*</div>
+  <div class="route">presigned-download-url/*</div>
+  <div class="route">.well-known/apple-developer-merchantid-domain-association</div>
+</div>
+</details>
+</div>
+
+<!-- news.aesthetic.computer -->
+<div class="card">
+<details>
+<summary>
+  <span class="tag tag-subdomain">Subdomain</span>
+  <span class="section-title">news.aesthetic.computer</span>
+  <span class="section-count">Newsletter</span>
+</summary>
+<div class="section-desc">Server-rendered newsletter with a Stripe-powered paywall. CRUD API for managing posts and a guidelines page for contributors.</div>
+<div class="routes single-col">
+  <div class="route full-url">news.aesthetic.computer/ &mdash; Latest newsletter (SSR)</div>
+  <div class="route full-url">news.aesthetic.computer/guidelines &mdash; Posting guidelines</div>
+  <div class="route full-url">news.aesthetic.computer/* &mdash; Individual issues</div>
+  <div class="route full-url">news.aesthetic.computer/api/news &mdash; News CRUD API</div>
+  <div class="route full-url">news.aesthetic.computer/api/news/* &mdash; Issue operations</div>
+  <div class="route full-url">news.aesthetic.computer/api/news/toll &mdash; Stripe paywall</div>
+</div>
+</details>
+</div>
+
+<!-- justanothersystem.org -->
+<div class="card">
+<details>
+<summary>
+  <span class="tag tag-microsite">Microsite</span>
+  <span class="section-title">justanothersystem.org</span>
+  <span class="section-count">Gallery + API</span>
+</summary>
+<div class="section-desc">Jeffrey Alan Scudder's stretched paintings gallery with a CRUD API for paintings and a tagging system. Admin-only write access via Auth0.</div>
+<div class="routes single-col">
+  <div class="route full-url">justanothersystem.org/ &mdash; Stretched paintings gallery</div>
+  <div class="route full-url">justanothersystem.org/* &mdash; Static content</div>
+  <div class="route full-url">justanothersystem.org/api/stretched-paintings &mdash; Paintings CRUD</div>
+  <div class="route full-url">justanothersystem.org/api/stretched-paintings/* &mdash; By ID</div>
+  <div class="route full-url">justanothersystem.org/api/tags &mdash; Tags CRUD</div>
+  <div class="route full-url">justanothersystem.org/api/tags/* &mdash; Tag operations</div>
+</div>
+<div class="note">www.justanothersystem.org &rarr; 301 to naked domain.</div>
+</details>
+</div>
+
+<!-- jas.life -->
+<div class="card">
+<details>
+<summary>
+  <span class="tag tag-microsite">Microsite</span>
+  <span class="section-title">jas.life</span>
+  <span class="section-count">Portfolio</span>
+</summary>
+<div class="section-desc">Jeffrey Alan Scudder's personal portfolio and CV. Supersedes the older digitpain.com domain.</div>
+<div class="routes single-col">
+  <div class="route full-url">jas.life/ &mdash; Portfolio home</div>
+  <div class="route full-url">jas.life/* &mdash; Static sub-pages</div>
+</div>
+<div class="note">Also at /jas.life/* on main domain. digitpain.com 301s here.</div>
+</details>
+</div>
+
+<!-- give.aesthetic.computer -->
+<div class="card">
+<details>
+<summary>
+  <span class="tag tag-subdomain">Subdomain</span>
+  <span class="section-title">give.aesthetic.computer</span>
+  <span class="section-count">Donations</span>
+</summary>
+<div class="section-desc">Support page for AC. Accepts payments via Stripe with a subscriber portal. Localized into Danish, Spanish, German, and Chinese.</div>
+<div class="routes single-col">
+  <div class="route full-url">give.aesthetic.computer/ &mdash; Main donation page</div>
+  <div class="route full-url">give.aesthetic.computer/da &mdash; Danish (DKK)</div>
+  <div class="route full-url">give.aesthetic.computer/es &mdash; Spanish (USD)</div>
+  <div class="route full-url">give.aesthetic.computer/de &mdash; German (EUR)</div>
+  <div class="route full-url">give.aesthetic.computer/cn &mdash; Chinese (USD)</div>
+  <div class="route full-url">give.aesthetic.computer/api/give &rarr; Stripe payment</div>
+  <div class="route full-url">give.aesthetic.computer/api/give-portal &rarr; Stripe portal</div>
+  <div class="route full-url">give.aesthetic.computer/api/billing &rarr; Billing data</div>
+</div>
+</details>
+</div>
+
+<!-- false.work -->
+<div class="card">
+<details>
+<summary>
+  <span class="tag tag-microsite">Microsite</span>
+  <span class="section-title">false.work</span>
+  <span class="section-count">Studio + builds</span>
+</summary>
+<div class="section-desc">Studio landing page. builds.false.work is a password-protected dashboard for tracking cross-platform app builds, roadmap, and build reports.</div>
+<div class="routes single-col">
+  <div class="route full-url">false.work/ &mdash; Landing page</div>
+  <div class="route full-url">false.work/* &mdash; Static content</div>
+</div>
+<div class="route-group-label">builds.false.work</div>
+<div class="routes single-col">
+  <div class="route full-url">builds.false.work/ &mdash; Build dashboard</div>
+  <div class="route full-url">builds.false.work/roadmap.html &mdash; Roadmap</div>
+  <div class="route full-url">builds.false.work/ios-build-status.html &mdash; iOS status</div>
+  <div class="route full-url">builds.false.work/ios/ &mdash; iOS build details</div>
+  <div class="route full-url">builds.false.work/api/register-build</div>
+  <div class="route full-url">builds.false.work/api/get-builds</div>
+  <div class="route full-url">builds.false.work/api/verify-password</div>
+</div>
+</details>
+</div>
+
+<!-- shop.aesthetic.computer -->
+<div class="card">
+<details>
+<summary>
+  <span class="tag tag-external">External</span>
+  <span class="section-title">shop.aesthetic.computer</span>
+  <span class="section-count">~30 product shortcuts</span>
+</summary>
+<div class="section-desc">Shopify storefront for physical goods &mdash; books, prints, bikes, shirts, tools, music. Short-code URLs on AC redirect to product pages.</div>
+<div class="routes single-col">
+  <div class="redirect-row">
+    <span class="redirect-from">/shop/@jeffrey/help</span>
+    <span class="redirect-arrow">&rarr;</span>
+    <span class="redirect-to">45 min computer help</span>
+    <span class="redirect-status status-301">301</span>
+  </div>
+  <div class="redirect-row">
+    <span class="redirect-from">/shop/*</span>
+    <span class="redirect-arrow">&rarr;</span>
+    <span class="redirect-to">shop.aesthetic.computer/*</span>
+    <span class="redirect-status status-301">301</span>
+  </div>
+</div>
+<div class="route-group-label">Books</div>
+<div class="routes">
+  <div class="route">25.4.8.21.19 &mdash; Shape of Things (Flusser)</div>
+  <div class="route">25.4.8.21.17 &mdash; Art as Social System (Luhmann)</div>
+  <div class="route">25.4.8.21.11 &mdash; Play (Garvey)</div>
+  <div class="route">25.4.8.21.08 &mdash; What is Landscape (Stilgoe)</div>
+  <div class="route">25.4.8.21.07 &mdash; Complete Poems (Dickinson)</div>
+  <div class="route">25.11.17.19.03 &mdash; Radical Computer Music</div>
+  <div class="route">25.4.8.21.0 &mdash; Art of Seeing (Huxley)</div>
+  <div class="route">25.4.8.20.47 &mdash; Does Writing Have Future</div>
+  <div class="route">25.4.8.21.13 &mdash; Musical Gestures</div>
+</div>
+<div class="route-group-label">Music / Pictures / Bikes / Tools / Shirts</div>
+<div class="routes">
+  <div class="route">25.11.3.14.17 &mdash; Baktok 7-inch</div>
+  <div class="route">25.4.13.17.47 &mdash; Picture</div>
+  <div class="route">25.4.13.19.06 &mdash; Picture</div>
+  <div class="route">25.4.13.18.18 &mdash; Picture</div>
+  <div class="route">25.4.13.19.24 &mdash; Picture</div>
+  <div class="route">25.4.13.18.54 &mdash; Picture</div>
+  <div class="route">25.12.4.10.09 &mdash; Adult Bike</div>
+  <div class="route">25.12.4.10.08 &mdash; Kids Bike</div>
+  <div class="route">25.12.4.11.21 &mdash; New Experiences</div>
+  <div class="route">25.12.4.11.22 &mdash; Prompt AC</div>
+  <div class="route">25.12.4.11.23 &mdash; My Songs</div>
+  <div class="route">25.12.4.11.24 &mdash; Pretty Pictures</div>
+  <div class="route">25.12.4.11.25 &mdash; Play</div>
+  <div class="route">26.1.3.0.02 &mdash; Beige Abex Tee M</div>
+  <div class="route">26.1.3.0.00 &mdash; Coral Abex Tee L</div>
+</div>
+</details>
+</div>
+
+<!-- Desktop downloads -->
+<div class="card">
+<details>
+<summary>
+  <span class="tag tag-redirect">Downloads</span>
+  <span class="section-title">Desktop App Downloads</span>
+  <span class="section-count">5 platforms</span>
+</summary>
+<div class="section-desc">Short URLs that redirect to the latest GitHub release for each platform.</div>
+<div class="routes single-col">
+  <div class="redirect-row">
+    <span class="redirect-from">/desktop/mac</span>
+    <span class="redirect-arrow">&rarr;</span>
+    <span class="redirect-to">GitHub Release (.dmg)</span>
+    <span class="redirect-status status-302">302</span>
+  </div>
+  <div class="redirect-row">
+    <span class="redirect-from">/desktop/win</span>
+    <span class="redirect-arrow">&rarr;</span>
+    <span class="redirect-to">GitHub Release (.exe)</span>
+    <span class="redirect-status status-302">302</span>
+  </div>
+  <div class="redirect-row">
+    <span class="redirect-from">/desktop/linux</span>
+    <span class="redirect-arrow">&rarr;</span>
+    <span class="redirect-to">GitHub Release (.AppImage)</span>
+    <span class="redirect-status status-302">302</span>
+  </div>
+  <div class="redirect-row">
+    <span class="redirect-from">/desktop/fedora</span>
+    <span class="redirect-arrow">&rarr;</span>
+    <span class="redirect-to">GitHub Release (.rpm)</span>
+    <span class="redirect-status status-302">302</span>
+  </div>
+  <div class="redirect-row">
+    <span class="redirect-from">/desktop/deb</span>
+    <span class="redirect-arrow">&rarr;</span>
+    <span class="redirect-to">GitHub Release (.deb)</span>
+    <span class="redirect-status status-302">302</span>
+  </div>
+</div>
+</details>
+</div>
+
+<!-- Domain aliases -->
+<div class="card">
+<details>
+<summary>
+  <span class="tag tag-redirect">Redirects</span>
+  <span class="section-title">Domain Aliases &amp; Redirects</span>
+  <span class="section-count">8 domains</span>
+</summary>
+<div class="section-desc">Vanity domains, legacy redirects, and shortcut aliases that funnel into the core AC platform.</div>
+<div class="routes single-col">
+  <div class="redirect-row">
+    <span class="redirect-from">botce.ac</span>
+    <span class="redirect-arrow">&rarr;</span>
+    <span class="redirect-to">aesthetic.computer/botce</span>
+    <span class="redirect-status status-200">200</span>
+  </div>
+  <div class="redirect-row">
+    <span class="redirect-from">wand.ac</span>
+    <span class="redirect-arrow">&rarr;</span>
+    <span class="redirect-to">aesthetic.computer/wand</span>
+    <span class="redirect-status status-301">301</span>
+  </div>
+  <div class="redirect-row">
+    <span class="redirect-from">edit.ac</span>
+    <span class="redirect-arrow">&rarr;</span>
+    <span class="redirect-to">vscode.dev/.../blank.mjs</span>
+    <span class="redirect-status status-301">301</span>
+  </div>
+  <div class="redirect-row">
+    <span class="redirect-from">prompt.ac/*</span>
+    <span class="redirect-arrow">&rarr;</span>
+    <span class="redirect-to">aesthetic.computer/*</span>
+    <span class="redirect-status status-301">301</span>
+  </div>
+  <div class="redirect-row">
+    <span class="redirect-from">4esthetic.com/*</span>
+    <span class="redirect-arrow">&rarr;</span>
+    <span class="redirect-to">aesthetic.computer/*</span>
+    <span class="redirect-status status-301">301</span>
+  </div>
+  <div class="redirect-row">
+    <span class="redirect-from">whistlegraph.com/*</span>
+    <span class="redirect-arrow">&rarr;</span>
+    <span class="redirect-to">trio.whistlegraph.com/*</span>
+    <span class="redirect-status status-301">301</span>
+  </div>
+  <div class="redirect-row">
+    <span class="redirect-from">m2w2.whistlegraph.com</span>
+    <span class="redirect-arrow">&rarr;</span>
+    <span class="redirect-to">aesthetic.computer/wg~m2w2</span>
+    <span class="redirect-status status-200">200</span>
+  </div>
+  <div class="redirect-row">
+    <span class="redirect-from">digitpain.com/*</span>
+    <span class="redirect-arrow">&rarr;</span>
+    <span class="redirect-to">jas.life/*</span>
+    <span class="redirect-status status-301">301</span>
+  </div>
+</div>
+</details>
+</div>
+
+<!-- Edge functions -->
+<div class="card">
+<details>
+<summary>
+  <span class="tag tag-api">Edge</span>
+  <span class="section-title">Edge Functions</span>
+  <span class="section-count">1 function</span>
+</summary>
+<div class="section-desc">Deno-based edge functions running at the CDN layer for low-latency processing.</div>
+<div class="routes single-col">
+  <div class="route full-url">/media/* &mdash; media.js edge function</div>
+</div>
+</details>
+</div>
+
+<div class="divider">Clients &amp; Pals</div>
+
+<!-- notepat.com -->
+<div class="card">
+<details>
+<summary>
+  <span class="tag tag-client">Client</span>
+  <span class="section-title">notepat.com</span>
+  <span class="section-count">Proxied</span>
+</summary>
+<div class="section-desc">Standalone domain for the Notepat music tool. Transparently proxies to aesthetic.computer/notepat.</div>
+<div class="routes single-col">
+  <div class="route full-url">notepat.com/ &rarr; aesthetic.computer/notepat (200 proxy)</div>
+  <div class="route full-url">notepat.com/* &rarr; aesthetic.computer/* (200 proxy)</div>
+</div>
+</details>
+</div>
+
+<!-- sundarakarma.com -->
+<div class="card">
+<details>
+<summary>
+  <span class="tag tag-client">Client</span>
+  <span class="section-title">sundarakarma.com</span>
+  <span class="section-count">Band site</span>
+</summary>
+<div class="section-desc">Hosted site for the band Sundara Karma. Static pages served from AC's public directory.</div>
+<div class="routes single-col">
+  <div class="route full-url">sundarakarma.com/ &mdash; Main page</div>
+  <div class="route full-url">sundarakarma.com/oscar &mdash; Oscar page</div>
+</div>
+</details>
+</div>
+
+<!-- wipppps.world -->
+<div class="card">
+<details>
+<summary>
+  <span class="tag tag-client">Client</span>
+  <span class="section-title">wipppps.world</span>
+  <span class="section-count">Proxied</span>
+</summary>
+<div class="section-desc">Vanity domain for the Wipppps interactive piece. Transparently proxies to aesthetic.computer/wipppps.</div>
+<div class="routes single-col">
+  <div class="route full-url">wipppps.world &rarr; aesthetic.computer/wipppps (200 proxy)</div>
+</div>
+</details>
+</div>
+
+<!-- aesthetic.direct -->
+<div class="card">
+<details>
+<summary>
+  <span class="tag tag-client">Client</span>
+  <span class="section-title">aesthetic.direct</span>
+  <span class="section-count">1 page</span>
+</summary>
+<div class="section-desc">Direct access landing page. Proxies to /aesthetic-direct on AC.</div>
+<div class="routes single-col">
+  <div class="route full-url">aesthetic.direct &rarr; aesthetic.computer/aesthetic-direct (200 proxy)</div>
+</div>
+</details>
+</div>
+
+<!-- gift.aesthetic.computer -->
+<div class="card">
+<details>
+<summary>
+  <span class="tag tag-client">Client</span>
+  <span class="section-title">gift.aesthetic.computer</span>
+  <span class="section-count">1 page</span>
+</summary>
+<div class="section-desc">Gift card or gifting page for Aesthetic Computer.</div>
+<div class="routes single-col">
+  <div class="route full-url">gift.aesthetic.computer/ &mdash; Gift page</div>
+</div>
+</details>
+</div>
+
+<!-- pals.aesthetic.computer -->
+<div class="card">
+<details>
+<summary>
+  <span class="tag tag-client">Client</span>
+  <span class="section-title">pals.aesthetic.computer</span>
+  <span class="section-count">Logo proxy</span>
+</summary>
+<div class="section-desc">Dynamic logo generation service. All requests proxy to /api/logo/* for partner/pal branding assets.</div>
+<div class="routes single-col">
+  <div class="route full-url">pals.aesthetic.computer/* &rarr; /api/logo/*</div>
+</div>
+</details>
+</div>
+
+</section>
+
+<img id="pals" width="64" src="/purple-pals.svg">
+
+<script>
+const search = document.getElementById("search");
+search.addEventListener("input", () => {
+  const q = search.value.toLowerCase().trim();
+  document.querySelectorAll(".route, .redirect-row, .dynamic-pattern").forEach(el => {
+    const text = el.textContent.toLowerCase();
+    el.classList.toggle("hidden", q && !text.includes(q));
+  });
+  document.querySelectorAll("details").forEach(det => {
+    const visible = det.querySelectorAll(".route:not(.hidden), .redirect-row:not(.hidden), .dynamic-pattern:not(.hidden)");
+    det.closest(".card").classList.toggle("hidden", q && visible.length === 0);
+    if (q && visible.length > 0) det.open = true;
+  });
+  const divider = document.querySelector(".divider");
+  if (divider) divider.classList.toggle("hidden", !!q);
+});
+</script>
+</body>
+</html>

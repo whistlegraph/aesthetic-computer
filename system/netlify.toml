@@ -890,6 +890,10 @@ from = "/preview/*"
 to = "https://oven.aesthetic.computer/preview/:splat"
 status = 200
 [[redirects]]
+from = "/sitemap"
+to = "/sitemap.html"
+status = 200
+[[redirects]]
 from = "/support"
 to = "/support.html"
 status = 200
