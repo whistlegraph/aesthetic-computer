@@ -72,6 +72,10 @@ included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_S
 included_files = ["public/aesthetic.computer/lib/text.mjs", "backend/**/*.mjs"]
 external_node_modules = ["got", "mongodb", "mongodb-connection-string-url", "obscenity", "@atproto/api", "sharp"]
 included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "REDIS_CONNECTION_STRING", "NETLIFY_DEV", "LOGGER_KEY", "PDS_URL", "PDS_ADMIN_PASSWORD"]
+[functions.handle-colors]
+included_files = ["backend/**/*.mjs"]
+external_node_modules = ["mongodb", "mongodb-connection-string-url"]
+included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "NETLIFY_DEV", "LOGGER_KEY"]
 [functions.atproto-user-stats]
 external_node_modules = ["mongodb", "mongodb-connection-string-url"]
 included_files = ["backend/**/*.mjs"]
@@ -1791,3 +1795,8 @@ from = "/*"
 to = "/.netlify/functions/index"
 status = 200
 force = false
+[functions.fix-tezos-network-prod]
+# One-time function to fix production database - DELETE AFTER USE
+included_files = ["backend/**/*.mjs"]
+external_node_modules = ["mongodb", "mongodb-connection-string-url"]
+included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "ADMIN_SUB"]
