@@ -191,8 +191,9 @@ function paint({ ink, wipe, write, screen, ui, help }) {
     "MatrixChunky8"
   );
 
-  // 🎚️ RGB Sliders - centered on screen
-  const sliderStartY = chunkyY + 50;
+  // 🎚️ RGB Sliders - centered at bottom of screen with padding
+  // Reserve 50px at bottom for buttons/status, position sliders above that
+  const sliderStartY = screen.height - 216; // Position from bottom: 3 sliders + gaps + swatch + padding
   const sliderX = floor((screen.width - sliderConfig.width) / 2);
   const currentColor = colors[selectedCharIndex];
 
@@ -352,8 +353,8 @@ function act({ event: e, screen, net, help, jump, sound }) {
 
   const handleWithAt = "@" + handle;
 
-  // Calculate slider position for hover detection
-  const sliderStartY = screen.height > 200 ? 175 : 140; // Adjust based on screen size
+  // Calculate slider position for hover detection (matches paint calculation)
+  const sliderStartY = screen.height - 216; // Position from bottom: 3 sliders + gaps + swatch + padding
   const sliderX = floor((screen.width - sliderConfig.width) / 2);
 
   // Update hover state for sliders
