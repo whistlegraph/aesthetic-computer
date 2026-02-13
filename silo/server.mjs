@@ -36,6 +36,30 @@ const FIREHOSE_MAX_PER_SEC = 50;
 const firehoseBuffer = [];
 const FIREHOSE_BUFFER_SIZE = 50;
 
+// --- Handle Cache (Auth0 sub → handle) ---
+const handleCache = new Map();
+
+async function loadHandleCache() {
+  if (!db) return;
+  try {
+    const docs = await db.collection("@handles").find({}).toArray();
+    for (const doc of docs) {
+      if (doc._id && doc.handle) handleCache.set(String(doc._id), doc.handle);
+    }
+    log("info", `handle cache loaded: ${handleCache.size} entries`);
+  } catch (err) {
+    log("error", `handle cache load failed: ${err.message}`);
+  }
+}
+
+function resolveHandle(str) {
+  if (!str || typeof str !== "string") return null;
+  if (/^(auth0|google-oauth2|apple|windowslive|github)\|/.test(str)) {
+    return handleCache.get(str) || null;
+  }
+  return str;
+}
+
 function log(type, msg) {
   const entry = { time: new Date().toISOString(), type, msg };
   activityLog.unshift(entry);
@@ -85,14 +109,21 @@ async function connectMongo() {
 // Extract a short summary from the full document (admin-only dashboard, safe to show)
 function firehoseSummary(coll, op, doc) {
   if (!doc || op === "delete") return null;
-  // Try to extract a user handle from common fields
-  const handle = doc.handle || doc.user;
-  const who = handle ? `@${handle}` : null;
+  // Try to resolve user handle from common fields, resolving Auth0 subs
+  const rawHandle = doc.handle || doc.user;
+  const resolved = rawHandle ? resolveHandle(String(rawHandle)) : null;
+  // Also try resolving the doc _id (often an Auth0 sub in user-related collections)
+  const resolvedId = doc._id ? resolveHandle(String(doc._id)) : null;
+  const who = resolved ? `@${resolved}` : (resolvedId && resolvedId !== String(doc._id) ? `@${resolvedId}` : null);
   switch (coll) {
     case "chat-system": case "chat-clock": case "chat-sotce":
       return (who || "anon") + (doc.text ? ` "${doc.text.slice(0, 30)}"` : "");
-    case "@handles": return who || null;
-    case "users": return doc.email?.split("@")[0] || doc.name || who || null;
+    case "@handles": return who || (doc.handle ? `@${doc.handle}` : null);
+    case "users": {
+      const name = doc.name ? resolveHandle(String(doc.name)) : null;
+      const displayName = name && name !== doc.name ? `@${name}` : doc.name;
+      return doc.email?.split("@")[0] || displayName || who || null;
+    }
     case "paintings": return (who ? who + " " : "") + (doc.slug || doc.title || "");
     case "tapes": return (who ? who + " " : "") + (doc.piece || "");
     case "pieces": return doc.slug || doc.name || null;
@@ -102,13 +133,13 @@ function firehoseSummary(coll, op, doc) {
     case "boots": {
       const host = doc.meta?.host || "";
       const path = doc.meta?.path || "/";
-      const user = doc.meta?.user;
+      const rawUser = doc.meta?.user;
+      const bootUser = rawUser ? (resolveHandle(String(rawUser)) || rawUser) : null;
       const status = doc.status || "";
-      return (user ? `@${user}` : "visitor") + " " + host + path + (status !== "started" ? ` [${status}]` : "");
+      return (bootUser ? `@${bootUser}` : "visitor") + " " + host + path + (status !== "started" ? ` [${status}]` : "");
     }
     case "oven-bakes": return doc.status || null;
     default: {
-      // Generic: try to find any identifying info
       return who || doc.slug || doc.name || doc.email?.split("@")[0] || null;
     }
   }
@@ -157,6 +188,13 @@ function startFirehose() {
 
       const coll = change.ns?.coll || "unknown";
       const op = change.operationType;
+
+      // Keep handle cache fresh when @handles collection changes
+      if (coll === "@handles" && change.fullDocument) {
+        const hDoc = change.fullDocument;
+        if (hDoc._id && hDoc.handle) handleCache.set(String(hDoc._id), hDoc.handle);
+      }
+
       const event = {
         ns: coll,
         op,
@@ -1195,17 +1233,48 @@ const fh = {
   counters: {},  // { 'chat-system': { insert: 5, update: 2 }, ... }
 };
 
+const FH_URL_COLOR = '#0ee';
+const FH_TS_COLOR = '#777';
+const FH_URL_RE = /(https?:\\/\\/[^\\s"'<>]+|[a-z0-9-]+\\.[a-z]{2,}(?:\\/[^\\s"'<>]*))/gi;
+
+function fhLabelSegments(label, baseColor) {
+  const segs = [];
+  let last = 0, m;
+  FH_URL_RE.lastIndex = 0;
+  while ((m = FH_URL_RE.exec(label)) !== null) {
+    if (m.index > last) segs.push({ text: label.slice(last, m.index), color: baseColor });
+    segs.push({ text: m[0], color: FH_URL_COLOR });
+    last = FH_URL_RE.lastIndex;
+  }
+  if (last < label.length) segs.push({ text: label.slice(last), color: baseColor });
+  return segs;
+}
+
+function fhTimestamp(time) {
+  return new Date(time).toLocaleTimeString('en-US', {
+    timeZone: 'America/Los_Angeles',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+  });
+}
+
 function fhParticle(ev) {
   const c = fh.canvas; if (!c) return null;
   const dpr = window.devicePixelRatio || 1;
   const w = c.width / dpr, h = c.height / dpr;
+  const color = FIREHOSE_COLORS[ev.ns] || FH_DEFAULT_COLOR;
+  const ts = fhTimestamp(ev.time);
+  const body = (OP_SYM[ev.op] || '?') + ' ' + ev.ns + (ev.summary ? ' ' + ev.summary : '');
+  const bodySegs = fhLabelSegments(body, color);
+  // Prepend timestamp segment
+  const segments = [{ text: ts + ' ', color: FH_TS_COLOR }, ...bodySegs];
   return {
     x: 40 + Math.random() * 60,
     y: 40 + Math.random() * (h - 80),
     vx: 0.5 + Math.random() * 1.5,
     vy: (Math.random() - 0.5) * 0.3,
-    color: FIREHOSE_COLORS[ev.ns] || FH_DEFAULT_COLOR,
-    label: (OP_SYM[ev.op] || '?') + ' ' + ev.ns + (ev.summary ? ' ' + ev.summary : ''),
+    color,
+    segments,
+    label: ts + ' ' + body,
     alpha: 1, size: 4 + Math.random() * 3,
     life: 5000 + Math.random() * 3000, born: Date.now(),
   };
@@ -1314,9 +1383,21 @@ function fhTick() {
     ctx.arc(p.x * dpr, p.y * dpr, p.size * dpr, 0, Math.PI * 2);
     ctx.fillStyle = p.color;
     ctx.fill();
-    ctx.globalAlpha = p.alpha * 0.85;
-    ctx.fillStyle = p.color;
-    ctx.fillText(p.label, (p.x + p.size + 6) * dpr, p.y * dpr);
+    // Draw label segments with URL + timestamp color highlighting
+    let textX = (p.x + p.size + 6) * dpr;
+    const textY = p.y * dpr;
+    if (p.segments) {
+      for (const seg of p.segments) {
+        ctx.globalAlpha = p.alpha * 0.85;
+        ctx.fillStyle = seg.color;
+        ctx.fillText(seg.text, textX, textY);
+        textX += ctx.measureText(seg.text).width;
+      }
+    } else {
+      ctx.globalAlpha = p.alpha * 0.85;
+      ctx.fillStyle = p.color;
+      ctx.fillText(p.label, textX, textY);
+    }
   }
   ctx.globalAlpha = 1;
 }
@@ -1438,6 +1519,7 @@ wss.on("connection", async (ws) => {
 
 // --- Boot ---
 await connectMongo();
+await loadHandleCache();
 await ensureFirehoseCollection();
 startFirehose();
 await connectAtlas();

@@ -16976,8 +16976,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // const dbCtx = dirtyBoxBitmapCan.getContext("bitmaprenderer");
         // dbCtx.transferFromImageBitmap(dirtyBoxBitmap);
       }
-    } else if (content.paintChanged && content.pixels && !content.reframe) {
-      // 🅱️ Normal full-screen update (skip during reframe to avoid dimension mismatch) - OPTIMIZED
+    } else if (content.paintChanged && content.pixels && (!content.reframe || (content.width === canvas.width && content.height === canvas.height))) {
+      // 🅱️ Normal full-screen update (allow during reframe if dimensions match to prevent black screen)
       if (window.pixelOptimizer) {
         try {
           // Use zero-copy optimization for full screen updates
