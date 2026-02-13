@@ -8943,15 +8943,7 @@
           <div class="console-output" id="mobile-console-output"></div>
         </div>
         <div class="docs-content" id="guide-content">
-          <div id="guides-list"></div>
-          <div id="guide-detail" class="hidden">
-            <div class="guide-detail-header">
-              <button class="guide-back-btn">← Back</button>
-              <span class="guide-detail-author"></span>
-            </div>
-            <div class="guide-detail-title"></div>
-            <div class="guide-detail-body"></div>
-          </div>
+          <iframe id="learn-iframe" data-src="https://kidlisp.com/learn" style="width: 100%; height: 100%; border: none; flex: 1;"></iframe>
         </div>
         <div class="docs-content hidden" id="list-content">
           <!-- List sub-tabs -->
@@ -14334,10 +14326,12 @@ s("ape_breaks_3").loopAt(2)</textarea>
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.includes('local.');
     const aestheticUrl = isLocalDev ? 'https://localhost:8888' : 'https://aesthetic.computer';
 
-    // Set keeps iframe data-src for dev mode (actual loading deferred until tab is clicked)
+    // Set iframe data-src for dev mode (actual loading deferred until tab is clicked)
     if (isLocalDev) {
       const keepsIframe = document.getElementById('keeps-iframe');
       if (keepsIframe) keepsIframe.dataset.src = 'https://localhost:8888/kidlisp.com/keeps.html';
+      const learnIframe = document.getElementById('learn-iframe');
+      if (learnIframe) learnIframe.dataset.src = 'https://localhost:8888/kidlisp.com/learn.html';
     }
 
     // Configure Monaco with jsDelivr CDN (modern, well-supported)
@@ -15758,8 +15752,10 @@ s("ape_breaks_3").loopAt(2)</textarea>
         // Only update if word changed
         if (wordText !== currentCursorWord) {
           currentCursorWord = wordText;
-          if (typeof updateLearnDocumentation === 'function') {
-            updateLearnDocumentation(wordText);
+          // Send identifier to Learn iframe via postMessage
+          const learnIframe = document.getElementById('learn-iframe');
+          if (learnIframe?.contentWindow) {
+            learnIframe.contentWindow.postMessage({ type: 'kidlisp-identify', word: wordText }, '*');
           }
         }
       });
@@ -18679,12 +18675,17 @@ s("ape_breaks_3").loopAt(2)</textarea>
         e.stopPropagation();
         e.preventDefault();
         log.tabs.debug('Guide tab');
-        
+
         deactivateAllTabs();
         hideAllTabContents();
         guideTab.classList.add('active');
         guideContent.classList.remove('hidden');
         expandReferencePanelOnMobile();
+        // Lazy-load learn iframe on first click
+        const learnIframe = document.getElementById('learn-iframe');
+        if (learnIframe && !learnIframe.hasAttribute('src')) {
+          learnIframe.src = learnIframe.dataset.src;
+        }
       });
       
       // List tab - shows the list content with dropdown inside
