@@ -247,7 +247,6 @@ included_files = [
   "public/aesthetic.computer/dep/**/*.mjs",
   "backend/**/*.mjs"
 ]
-external_node_modules = ["@swc/wasm"]
 included_env_vars = ["GIT_COMMIT", "CONTEXT"]
 
 [functions.bundle-telemetry]
