@@ -25,6 +25,7 @@
   <!-- Note: We use inline @font-face instead of external CSS which has broken relative URLs -->
   <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js" async></script>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Comic+Relief:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+Mono:wght@400;700&display=swap" rel="stylesheet">
   <!-- Flag icons for language selector (lazy-loaded — not needed at startup) -->
@@ -17312,6 +17313,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
     let pendingHistoryTabSwitch = false; // Flag to switch to History when DOM ready
     
     // Forward declare auth and keeps state (initialized later)
+    let acAuth0Client = null;
     let acToken = null;
     let acUser = null;
     let acHandle = null; // The user's AC handle (@username)
@@ -18742,8 +18744,140 @@ s("ape_breaks_3").loopAt(2)</textarea>
         });
       }
       
-      // Initialize AC Login
-      if (typeof initACLogin === 'function') initACLogin();
+      // === Auth0 Login/Logout ===
+      async function initAuth0() {
+        try {
+          if (externalSessionHydrated && acUser && acToken) {
+            updateACLoginUI();
+            logBoot('auth', 'session');
+            return;
+          }
+          if (!window.auth0) {
+            updateACLoginUI();
+            logBoot('auth', 'unavailable');
+            return;
+          }
+          const isKidlispDomain = window.location.hostname === 'kidlisp.com' || window.location.hostname === 'www.kidlisp.com';
+          const redirectUri = isKidlispDomain ? window.location.origin : window.location.origin + '/kidlisp.com';
+          acAuth0Client = await window.auth0.createAuth0Client({
+            domain: 'aesthetic.us.auth0.com',
+            clientId: 'LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt',
+            authorizationParams: { redirect_uri: redirectUri, audience: 'https://aesthetic.us.auth0.com/api/v2/' },
+            cacheLocation: 'localstorage',
+            useRefreshTokens: true,
+            useRefreshTokensFallback: true
+          });
+          if (window.location.search.includes('code=') || window.location.search.includes('error=')) {
+            try { await acAuth0Client.handleRedirectCallback(); window.history.replaceState({}, document.title, window.location.pathname); } catch (e) { /* auth callback error */ }
+          }
+          let isAuthenticated = await acAuth0Client.isAuthenticated();
+          if (!isAuthenticated) {
+            try { await acAuth0Client.getTokenSilently(); isAuthenticated = await acAuth0Client.isAuthenticated(); } catch (e) { /* silent auth failed */ }
+          }
+          if (isAuthenticated) {
+            acUser = await acAuth0Client.getUser();
+            acToken = await acAuth0Client.getTokenSilently();
+            try {
+              const userRes = await fetch(`${aestheticUrl}/user?from=${encodeURIComponent(acUser.email)}&withHandle=true`);
+              const userData = await userRes.json();
+              if (userData.handle) acHandle = userData.handle;
+            } catch (e) { /* could not fetch handle */ }
+            logAuth('restore', acHandle || acUser?.email?.split('@')[0]);
+            if (typeof switchToHistoryTab === 'function') switchToHistoryTab();
+          }
+          updateACLoginUI();
+          logBoot('auth', isAuthenticated ? 'authenticated' : 'guest');
+        } catch (e) {
+          updateACLoginUI();
+          logBoot('auth', 'error');
+        }
+      }
+
+      function updateACLoginUI() {
+        const headerAuthButtons = document.getElementById('header-auth-buttons');
+        const headerUserMenu = document.getElementById('header-user-menu');
+        const headerUserHandle = document.getElementById('header-user-handle');
+        const isACPlatform = currentPlatform === 'aesthetic-computer';
+        if (acUser) {
+          if (headerAuthButtons) headerAuthButtons.style.display = 'none';
+          if (headerUserMenu) {
+            headerUserMenu.style.display = isACPlatform ? 'flex' : 'none';
+            const displayName = acHandle ? `@${acHandle}` : acUser.email?.split('@')[0] || 'User';
+            if (headerUserHandle) headerUserHandle.textContent = displayName;
+          }
+        } else {
+          if (headerAuthButtons) headerAuthButtons.style.display = isACPlatform ? 'flex' : 'none';
+          if (headerUserMenu) headerUserMenu.style.display = 'none';
+        }
+      }
+
+      async function acLogin() {
+        try {
+          if (isVSCode) {
+            window.parent?.postMessage({ type: 'kidlisp:login' }, '*');
+            window.parent?.postMessage({ type: 'login', tenant: 'aesthetic' }, '*');
+            return;
+          }
+          if (!acAuth0Client) await initAuth0();
+          if (!acAuth0Client) return;
+          logAuth('check');
+          await acAuth0Client.loginWithRedirect({ authorizationParams: { prompt: 'login' } });
+        } catch (e) { /* login error */ }
+      }
+
+      async function acLogout() {
+        if (isVSCode) {
+          window.parent?.postMessage({ type: 'kidlisp:logout' }, '*');
+          window.parent?.postMessage({ type: 'logout', tenant: 'aesthetic' }, '*');
+          acUser = null; acToken = null; acHandle = null;
+          externalSessionHydrated = false;
+          updateACLoginUI();
+          return;
+        }
+        if (!acAuth0Client) return;
+        logAuth('logout', acHandle || acUser?.email?.split('@')[0]);
+        acUser = null; acToken = null; acHandle = null;
+        const isKidlispDomain = window.location.hostname === 'kidlisp.com' || window.location.hostname === 'www.kidlisp.com';
+        const returnTo = isKidlispDomain ? window.location.origin : window.location.origin + '/kidlisp.com';
+        await acAuth0Client.logout({ logoutParams: { returnTo } });
+      }
+
+      function initACLogin() {
+        const headerLoginBtn = document.getElementById('header-login-btn');
+        if (headerLoginBtn) headerLoginBtn.addEventListener('click', acLogin);
+
+        const headerSignupBtn = document.getElementById('header-signup-btn');
+        if (headerSignupBtn) {
+          headerSignupBtn.addEventListener('click', async () => {
+            try {
+              if (isVSCode) {
+                window.parent?.postMessage({ type: 'kidlisp:login' }, '*');
+                window.parent?.postMessage({ type: 'login', tenant: 'aesthetic' }, '*');
+                return;
+              }
+              if (!acAuth0Client) await initAuth0();
+              if (!acAuth0Client) return;
+              logAuth('check');
+              await acAuth0Client.loginWithRedirect({
+                authorizationParams: { prompt: 'login', screen_hint: 'signup' }
+              });
+            } catch (e) { /* signup error */ }
+          });
+        }
+
+        const headerLogoutBtn = document.getElementById('header-logout-btn');
+        if (headerLogoutBtn) {
+          headerLogoutBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            acLogout();
+          });
+        }
+
+        // Initialize Auth0 (async — doesn't block)
+        initAuth0();
+      }
+
+      initACLogin();
       
       // Preload Top Hits in the background so they're ready when the tab is opened
       setTimeout(() => {
