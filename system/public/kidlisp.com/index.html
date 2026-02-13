@@ -9757,11 +9757,17 @@ s("ape_breaks_3").loopAt(2)</textarea>
     let ff1BridgePollingInterval = null;
     
     async function checkFF1Bridge() {
+      // Safari (and other browsers) block HTTP requests from HTTPS pages (mixed content).
+      // The Electron bridge runs on localhost HTTP, so skip on production HTTPS to avoid
+      // repeated console errors that can degrade Safari performance.
+      if (location.protocol === 'https:' && location.hostname !== 'localhost') {
+        return { available: false };
+      }
       try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 2000);
         // Use mode: 'no-cors' won't work, so just catch silently
-        const response = await fetch('http://127.0.0.1:19999/status', { 
+        const response = await fetch('http://127.0.0.1:19999/status', {
           signal: controller.signal,
           // Prevent preflight which causes extra console noise
           headers: { 'Accept': 'application/json' }
