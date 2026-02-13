@@ -2988,18 +2988,12 @@
     .route-code-tab {
       display: none;
       align-items: center;
-      justify-content: center;
-      gap: 4px;
-      padding: 2px 8px;
-      border-radius: 8px;
-      background: rgba(88, 78, 108, 0.08);
-      border: 1px solid rgba(88, 78, 108, 0.25);
       font-family: 'Comic Relief', 'Comic Sans MS', cursive;
       font-weight: 700;
       letter-spacing: 0.04em;
       white-space: nowrap;
       line-height: 1;
-      margin-left: 6px;
+      margin-left: 2px;
     }
 
     .route-code-tab.visible {
@@ -14387,6 +14381,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
         inlayHints: { enabled: 'off' },
         links: false,
         contextmenu: true, // Enable for KidLisp documentation lookup
+        fixedOverflowWidgets: true, // Render context menu at body level (above playback controls)
         // Disable accessibility features (removes keyboard icon in top-right)
         accessibilitySupport: 'off',
         ariaLabel: 'KidLisp Code Editor',
