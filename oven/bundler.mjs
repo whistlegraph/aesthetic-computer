@@ -80,6 +80,28 @@ function timestamp(date = new Date()) {
   return `${date.getFullYear()}.${date.getMonth() + 1}.${date.getDate()}.${date.getHours()}.${date.getMinutes()}.${date.getSeconds()}.${pad(date.getMilliseconds(), 3)}`;
 }
 
+// CSS color names recognized by KidLisp (must match kidlisp.mjs KIDLISP_COLORS)
+const KIDLISP_COLORS = new Set([
+  "red", "green", "blue", "yellow", "orange", "purple", "pink", "cyan", "magenta",
+  "black", "white", "gray", "grey", "brown", "lime", "navy", "teal", "olive",
+  "maroon", "aqua", "fuchsia", "silver", "gold", "coral", "salmon", "khaki",
+  "indigo", "violet", "turquoise", "tomato", "crimson", "lavender", "beige",
+  "plum", "orchid", "tan", "chocolate", "sienna", "peru", "wheat",
+]);
+
+// Extract the first color word from KidLisp source for the page background.
+// KidLisp shorthand puts a bare color name as the first token, e.g. "purple, ink, line"
+function extractFirstColor(source) {
+  if (!source) return null;
+  // Get the first token (split on whitespace or comma)
+  const firstToken = source.trim().split(/[\s,()]+/)[0]?.toLowerCase();
+  if (firstToken && KIDLISP_COLORS.has(firstToken)) return firstToken;
+  // Also check inside (wipe "color") or (wipe color)
+  const wipeMatch = source.match(/\(\s*wipe\s+["']?([a-z]+)["']?\s*\)/i);
+  if (wipeMatch && KIDLISP_COLORS.has(wipeMatch[1].toLowerCase())) return wipeMatch[1].toLowerCase();
+  return null;
+}
+
 function extractPaintingCodes(source) {
   const codes = [];
   const regex = /#([a-zA-Z0-9]{3})\b/g;
@@ -454,10 +476,12 @@ export async function createBundle(pieceName, onProgress = () => {}, nocompress 
 
   const filename = `$${PIECE_NAME_NO_DOLLAR}-${authorHandle}-${bundleTimestamp}.lisp.html`;
 
+  const bgColor = extractFirstColor(mainSource);
+
   const htmlContent = generateHTMLBundle({
     PIECE_NAME, PIECE_NAME_NO_DOLLAR, mainSource, kidlispSources,
     files, paintingData, authorHandle, packDate, packTime,
-    gitVersion: GIT_COMMIT, filename, density,
+    gitVersion: GIT_COMMIT, filename, density, bgColor,
   });
 
   onProgress({ stage: "compress", message: nocompress ? "Skipping compression..." : "Compressing..." });
@@ -469,7 +493,7 @@ export async function createBundle(pieceName, onProgress = () => {}, nocompress 
   const compressed = gzipSync(Buffer.from(htmlContent, "utf-8"), { level: 9 });
   const base64 = compressed.toString("base64");
 
-  const finalHtml = generateSelfExtractingHTML(PIECE_NAME, base64);
+  const finalHtml = generateSelfExtractingHTML(PIECE_NAME, base64, bgColor);
 
   return { html: finalHtml, filename, sizeKB: Math.round(finalHtml.length / 1024), mainSource, authorHandle, userCode, packDate, depCount };
 }
@@ -616,13 +640,14 @@ export async function createM4DBundle(pieceName, isJSPiece, onProgress = () => {
 
 // ─── Self-extracting HTML wrapper ───────────────────────────────────
 
-function generateSelfExtractingHTML(title, gzipBase64) {
+function generateSelfExtractingHTML(title, gzipBase64, bgColor = null) {
+  const bgRule = bgColor ? `background:${bgColor};` : "";
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <title>${title} · Aesthetic Computer</title>
-  <style>body{margin:0;background:#000;overflow:hidden}</style>
+  <style>body{margin:0;${bgRule}overflow:hidden}</style>
 </head>
 <body>
   <script>
@@ -643,8 +668,10 @@ function generateSelfExtractingHTML(title, gzipBase64) {
 function generateHTMLBundle(opts) {
   const {
     PIECE_NAME, PIECE_NAME_NO_DOLLAR, mainSource, kidlispSources,
-    files, paintingData, authorHandle, packDate, packTime, gitVersion, filename, density,
+    files, paintingData, authorHandle, packDate, packTime, gitVersion, filename, density, bgColor,
   } = opts;
+
+  const bgRule = bgColor ? `background: ${bgColor}; ` : "";
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -653,7 +680,7 @@ function generateHTMLBundle(opts) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>${PIECE_NAME} · Aesthetic Computer</title>
   <style>
-    body { margin: 0; padding: 0; background: black; overflow: hidden; }
+    body { margin: 0; padding: 0; ${bgRule}overflow: hidden; }
     canvas { display: block; image-rendering: pixelated; }
   </style>
 </head>
@@ -828,7 +855,7 @@ function generateJSPieceHTMLBundle(opts) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>${pieceName} · Aesthetic Computer</title>
   <style>
-    body { margin: 0; padding: 0; background: black; overflow: hidden; }
+    body { margin: 0; padding: 0; overflow: hidden; }
     canvas { display: block; image-rendering: pixelated; }
   </style>
 </head>
