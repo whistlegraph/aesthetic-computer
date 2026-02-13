@@ -6852,26 +6852,36 @@ function paint($) {
     }
 
     // 📦 Commit hash button - only show when client is behind main
-    if (versionInfo && versionInfo.status === "behind" && versionInfo.deployed) {
+    if (versionInfo && versionInfo.deployed) {
       const commitText = versionInfo.deployed + (versionInfo.behindBy ? ` (${versionInfo.behindBy} behind)` : "");
       // Create button using TextButtonSmall (MatrixChunky8 font) centered at bottom
+      const buttonY = screen.height - 20; // 20px from bottom
       if (!commitBtn) {
-        commitBtn = new $.ui.TextButtonSmall(commitText, { center: "x", bottom: 8, screen });
+        commitBtn = new $.ui.TextButtonSmall(commitText, { center: "x", y: buttonY, screen });
       } else {
-        commitBtn.reposition({ center: "x", bottom: 8, screen }, commitText);
+        commitBtn.reposition({ center: "x", y: buttonY, screen }, commitText);
         commitBtn.btn.disabled = false;
       }
       // Paint with dim yellow/orange and translucent (alpha: ~50%)
+      // If behind, use more prominent orange; if up-to-date, use dimmer gray/blue
       const cBox = commitBtn.btn.box;
       if (cBox) {
         // TextButtonSmall paint scheme: [fillColor, outlineColor, textAlpha, unused]
-        // Using translucent colors with alpha ~128 (50% transparency)
-        commitBtn.paint($, [
-          [40, 35, 20, 128],    // fill: dark orange, semi-transparent
-          [80, 70, 40, 128],    // outline: lighter orange, semi-transparent
-          128,                  // text alpha
-          [40, 35, 20, 128]     // unused fill
-        ]);
+        const isBehind = versionInfo.status === "behind";
+        const colors = isBehind
+          ? [
+              [40, 35, 20, 128],    // fill: dark orange (behind)
+              [80, 70, 40, 128],    // outline: lighter orange
+              128,                  // text alpha
+              [40, 35, 20, 128]     // unused fill
+            ]
+          : [
+              [20, 25, 30, 128],    // fill: dark blue/gray (up-to-date)
+              [40, 50, 60, 128],    // outline: lighter blue/gray
+              128,                  // text alpha
+              [20, 25, 30, 128]     // unused fill
+            ];
+        commitBtn.paint($, colors);
       }
       versionCommit = versionInfo.deployed;
     } else {
