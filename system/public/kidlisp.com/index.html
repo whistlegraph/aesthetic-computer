@@ -15930,6 +15930,12 @@ s("ape_breaks_3").loopAt(2)</textarea>
       if (clearButton) {
         clearButton.addEventListener('click', () => {
           if (editor) {
+            // Confirm before clearing to prevent accidental data loss
+            const confirmed = confirm('Clear the editor? This will erase all your code.');
+            if (!confirmed) {
+              return; // User cancelled, don't clear
+            }
+
             isSettingValueProgrammatically = true;
             editor.setValue('');
             isSettingValueProgrammatically = false;
