@@ -17,6 +17,10 @@ import { publishPieceTool, publishPiece } from "./tools/publish-piece.js";
 import { publishKidLispTool, publishKidLisp } from "./tools/publish-kidlisp.js";
 import { publishClockTool, publishClock } from "./tools/publish-clock.js";
 import { getAPIInfoTool, getAPIInfo } from "./tools/get-api-info.js";
+import {
+  previewKidLispTool,
+  previewKidLisp,
+} from "./tools/preview-kidlisp.js";
 
 // Import resources
 import {
@@ -27,12 +31,20 @@ import {
   kidlispReferenceResource,
   getKidLispReference,
 } from "./resources/kidlisp-reference.js";
+import {
+  pieceExamplesResource,
+  getPieceExamples,
+} from "./resources/piece-examples.js";
 
 // Import prompts
 import {
   createPiecePrompt,
   getCreatePiecePrompt,
 } from "./prompts/create-piece.js";
+import {
+  createKidLispPrompt,
+  getCreateKidLispPrompt,
+} from "./prompts/create-kidlisp.js";
 
 export class AestheticComputerServer {
   private server: Server;
@@ -43,7 +55,7 @@ export class AestheticComputerServer {
     this.server = new Server(
       {
         name: "aesthetic-computer",
-        version: "1.0.0",
+        version: "1.1.0",
       },
       {
         capabilities: {
@@ -65,6 +77,7 @@ export class AestheticComputerServer {
         publishKidLispTool,
         publishClockTool,
         getAPIInfoTool,
+        previewKidLispTool,
       ],
     }));
 
@@ -129,6 +142,20 @@ export class AestheticComputerServer {
               ],
             };
 
+          case "preview_kidlisp":
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(
+                    await previewKidLisp(args as { source: string }),
+                    null,
+                    2
+                  ),
+                },
+              ],
+            };
+
           default:
             throw new Error(`Unknown tool: ${name}`);
         }
@@ -147,7 +174,11 @@ export class AestheticComputerServer {
 
     // List available resources
     this.server.setRequestHandler(ListResourcesRequestSchema, async () => ({
-      resources: [pieceTemplateResource, kidlispReferenceResource],
+      resources: [
+        pieceTemplateResource,
+        kidlispReferenceResource,
+        pieceExamplesResource,
+      ],
     }));
 
     // Read resource content
@@ -177,6 +208,17 @@ export class AestheticComputerServer {
             ],
           };
 
+        case "aesthetic-computer://piece-examples":
+          return {
+            contents: [
+              {
+                uri,
+                mimeType: "text/markdown",
+                text: getPieceExamples(),
+              },
+            ],
+          };
+
         default:
           throw new Error(`Unknown resource: ${uri}`);
       }
@@ -184,7 +226,7 @@ export class AestheticComputerServer {
 
     // List available prompts
     this.server.setRequestHandler(ListPromptsRequestSchema, async () => ({
-      prompts: [createPiecePrompt],
+      prompts: [createPiecePrompt, createKidLispPrompt],
     }));
 
     // Get prompt content
@@ -201,6 +243,21 @@ export class AestheticComputerServer {
                   type: "text",
                   text: getCreatePiecePrompt(
                     args as { name: string; description: string }
+                  ),
+                },
+              },
+            ],
+          };
+
+        case "create-kidlisp":
+          return {
+            messages: [
+              {
+                role: "user",
+                content: {
+                  type: "text",
+                  text: getCreateKidLispPrompt(
+                    args as { description: string }
                   ),
                 },
               },
