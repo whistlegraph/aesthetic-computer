@@ -6869,19 +6869,35 @@ function paint($) {
       if (cBox) {
         // TextButtonSmall paint scheme: [fillColor, outlineColor, textAlpha, unused]
         const isBehind = versionInfo.status === "behind";
+        const isHover = commitBtn.btn.over && !commitBtn.btn.down;
+
         const colors = isBehind
-          ? [
-              [40, 35, 20, 128],    // fill: dark orange (behind)
-              [80, 70, 40, 128],    // outline: lighter orange
-              128,                  // text alpha
-              [40, 35, 20, 128]     // unused fill
-            ]
-          : [
-              [20, 25, 30, 128],    // fill: dark blue/gray (up-to-date)
-              [40, 50, 60, 128],    // outline: lighter blue/gray
-              128,                  // text alpha
-              [20, 25, 30, 128]     // unused fill
-            ];
+          ? isHover
+            ? [
+                [60, 52, 30, 160],    // fill: brighter orange on hover
+                [120, 105, 60, 180],  // outline: much brighter orange
+                180,                  // text alpha brighter
+                [60, 52, 30, 160]     // unused fill
+              ]
+            : [
+                [40, 35, 20, 128],    // fill: dark orange (behind)
+                [80, 70, 40, 128],    // outline: lighter orange
+                128,                  // text alpha
+                [40, 35, 20, 128]     // unused fill
+              ]
+          : isHover
+            ? [
+                [35, 42, 50, 160],    // fill: brighter blue/gray on hover
+                [70, 84, 100, 180],   // outline: much brighter blue/gray
+                180,                  // text alpha brighter
+                [35, 42, 50, 160]     // unused fill
+              ]
+            : [
+                [20, 25, 30, 128],    // fill: dark blue/gray (up-to-date)
+                [40, 50, 60, 128],    // outline: lighter blue/gray
+                128,                  // text alpha
+                [20, 25, 30, 128]     // unused fill
+              ];
         commitBtn.paint($, colors);
       }
       versionCommit = versionInfo.deployed;
