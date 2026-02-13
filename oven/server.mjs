@@ -1910,13 +1910,24 @@ app.get('/notepat-og.png', async (req, res) => {
     const result = await generateNotepatOGImage(force);
     
     if (result.cached && result.url) {
-      // Redirect to CDN URL for cached image
-      addServerLog('success', '📦', `Notepat OG cache hit`);
-      res.setHeader('X-Cache', 'HIT');
-      res.setHeader('Cache-Control', 'public, max-age=604800'); // 7-day cache
-      return res.redirect(301, result.url);
+      // Proxy the image back instead of redirecting (iOS crawlers won't follow 301s on og:image)
+      addServerLog('success', '📦', `Notepat OG cache hit → proxying`);
+      try {
+        const cdnResponse = await fetch(result.url);
+        if (!cdnResponse.ok) throw new Error(`CDN fetch failed: ${cdnResponse.status}`);
+        const buffer = Buffer.from(await cdnResponse.arrayBuffer());
+        res.setHeader('Content-Type', 'image/png');
+        res.setHeader('Content-Length', buffer.length);
+        res.setHeader('Cache-Control', 'public, max-age=604800'); // 7-day cache
+        res.setHeader('X-Cache', 'HIT');
+        return res.send(buffer);
+      } catch (fetchErr) {
+        // Fall back to redirect if proxy fails
+        addServerLog('warn', '⚠️', `Notepat OG proxy failed, falling back to redirect: ${fetchErr.message}`);
+        return res.redirect(301, result.url);
+      }
     }
-    
+
     // Fresh generation - return the buffer directly
     addServerLog('success', '🎨', `Notepat OG generated`);
     res.setHeader('Content-Type', 'image/png');
