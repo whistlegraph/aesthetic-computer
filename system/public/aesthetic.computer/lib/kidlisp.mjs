@@ -4477,15 +4477,9 @@ class KidLisp {
         if (api.kidlispCreateCode) {
           console.log('🚀 createCode flag detected, sending code to parent...');
           console.log('📦 Code to send:', data.code);
-          
-          // Generate QR code as data URI (only works in browser, not in worker)
+
+          // Skip QR code generation in kidlisp.com editor (not needed and causes errors in worker context)
           let qrDataUri = null;
-          try {
-            qrDataUri = await this.generateQRDataUri(data.code);
-            console.log('📊 QR generated:', qrDataUri ? 'success' : 'failed');
-          } catch (error) {
-            console.log('⚠️ QR generation skipped (worker context):', error.message);
-          }
           
           // Send messages via the send API (works in worker context)
           if (api.send) {
