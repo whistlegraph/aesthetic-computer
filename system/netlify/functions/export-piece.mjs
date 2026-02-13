@@ -200,47 +200,54 @@ async function getInlinedCSS() {
       const cssPath = resolve(fontDir, cssFile);
       let cssContent = await readFile(cssPath, "utf-8");
 
-      // Find all url(...) references
+      // Find all url(...) references — only inline .woff2 files
       const urlRegex = /url\(['"]?([^'"\)]+)['"]?\)/g;
       const replacements = [];
       let match;
 
       while ((match = urlRegex.exec(cssContent)) !== null) {
         const relativeUrl = match[1];
-        // Skip data URLs or hashes
         if (relativeUrl.startsWith("data:") || relativeUrl.startsWith("#")) continue;
-
-        // Clean up query params like ?#iefix
         const cleanUrl = relativeUrl.split("?")[0].split("#")[0];
+        // Only inline woff2 — skip eot, woff, ttf, svg
+        if (!cleanUrl.endsWith(".woff2")) continue;
         const fontPath = resolve(fontDir, cleanUrl);
-        
         try {
           const fontData = await readFile(fontPath);
           const base64 = fontData.toString("base64");
-          let mimeType = "application/octet-stream";
-          if (cleanUrl.endsWith(".woff2")) mimeType = "font/woff2";
-          else if (cleanUrl.endsWith(".woff")) mimeType = "font/woff";
-          else if (cleanUrl.endsWith(".ttf")) mimeType = "font/ttf";
-          else if (cleanUrl.endsWith(".svg")) mimeType = "image/svg+xml";
-          else if (cleanUrl.endsWith(".eot")) mimeType = "application/vnd.ms-fontobject";
-
           replacements.push({
             original: match[0],
-            replacement: `url('data:${mimeType};base64,${base64}')`
+            replacement: `url('data:font/woff2;base64,${base64}')`
           });
         } catch (err) {
-          console.warn(`⚠️ Could not inline font ${cleanUrl}:`, err.message);
+          // Skip missing font files
         }
       }
 
-      // Apply replacements
       for (const { original, replacement } of replacements) {
         cssContent = cssContent.replace(original, replacement);
       }
 
+      // Strip non-woff2 src entries: rewrite @font-face to only keep woff2
+      // Remove standalone eot fallback lines: src: url('x.eot');
+      cssContent = cssContent.replace(/\bsrc:\s*url\([^)]*\.eot[^)]*\)\s*;\s*\n?/g, '');
+      // From multi-format src blocks, keep only the woff2 (data: URI) entry
+      cssContent = cssContent.replace(
+        /\bsrc:\s*(.*?)\s*;/gs,
+        (match, srcBody) => {
+          // Find the woff2 entry (now a data: URI)
+          const woff2Match = srcBody.match(/url\('data:font\/woff2;base64,[^']+'\)\s*format\(['"]woff2['"]\)/);
+          if (woff2Match) return `src: ${woff2Match[0]};`;
+          // For Berkeley Mono (no format()), keep data: URI entries as-is
+          const dataMatch = srcBody.match(/url\('data:[^']+'\)/);
+          if (dataMatch) return `src: ${dataMatch[0]};`;
+          return match; // Keep original if no woff2 found
+        }
+      );
+
       combinedCSS += `\n/* ${cssFile} */\n${cssContent}`;
     } catch (err) {
-      console.warn(`⚠️ Could not process CSS ${cssFile}:`, err.message);
+      // Skip CSS files that can't be processed
     }
   }
 
@@ -292,16 +299,17 @@ async function minifyJS(content, relativePath) {
     const minified = await minify(content, {
       compress: {
         dead_code: true,
-        drop_console: false,
+        drop_console: true,
         drop_debugger: true,
         unused: true,
-        passes: 1,
+        passes: 3,
         pure_getters: true,
         unsafe: true,
         unsafe_math: true,
         unsafe_proto: true
       },
-      mangle: false, // Keep names for debugging and safety
+      mangle: true,
+      module: true, // Support top-level await and import/export
       format: { comments: false, ascii_only: false, ecma: 2020 }
     });
     
@@ -387,18 +395,15 @@ async function buildMinimalBundle(pieceName, kidlispSource) {
     }
   };
 
-  // Helper to add font glyphs
+  // Helper to add font glyphs in compact format:
+  // {r:[w,h],c:[[x1,y1,x2,y2],...],p:[[x,y],...]} instead of full JSON
   const addFontGlyphs = async (fontName, fontData) => {
     for (const [char, path] of Object.entries(fontData)) {
       if (char.startsWith("glyph") || typeof path !== "string" || path === "false" || path.length === 0) continue;
-      
-      // Construct the file path
-      // font_1 paths are relative to "font_1/" in the drawings directory
-      // microtype paths are relative to drawings directory directly (based on lib/type.mjs logic)
-      
+
       let relativePath;
       let vfsPath;
-      
+
       if (fontName === "font_1") {
         relativePath = `disks/drawings/${fontName}/${path}.json`;
         vfsPath = `aesthetic.computer/${relativePath}`;
@@ -412,12 +417,20 @@ async function buildMinimalBundle(pieceName, kidlispSource) {
       try {
         const content = await readLocalFile(relativePath);
         if (content) {
-          vfs[vfsPath] = content;
-        } else {
-          // console.warn(`⚠️ Missing glyph file content for ${char}: ${relativePath}`);
+          const data = JSON.parse(content);
+          // Compact format: {r:[w,h], c:[[args],...], p:[[args],...]}
+          const compact = { r: data.resolution };
+          const lines = [], points = [];
+          for (const cmd of data.commands || []) {
+            if (cmd.name === "point") points.push(cmd.args);
+            else lines.push(cmd.args); // "line" is the default
+          }
+          if (lines.length) compact.c = lines;
+          if (points.length) compact.p = points;
+          vfs[vfsPath] = JSON.stringify(compact);
         }
       } catch (err) {
-        // console.warn(`⚠️ Missing glyph ${char} for ${fontName}: ${relativePath}`);
+        // Skip missing glyph files
       }
     }
   };
@@ -430,13 +443,10 @@ async function buildMinimalBundle(pieceName, kidlispSource) {
   await addFontGlyphs("font_1", font_1);
   // Note: microtype glyphs don't exist as files, font uses fallback rendering
 
-  // Add the piece source code to VFS with multiple key variations
+  // Add the piece source code to VFS (single canonical key)
   if (kidlispSource) {
     const cleanName = pieceName.replace(/^\$/, '');
-    // Add with all possible key formats for maximum compatibility
-    vfs[`aesthetic.computer/disks/${pieceName}.lisp`] = kidlispSource;
     vfs[`aesthetic.computer/disks/${cleanName}.lisp`] = kidlispSource;
-    vfs[`aesthetic.computer/disks/$${cleanName}.lisp`] = kidlispSource;
   }
 
   // Get inlined CSS
@@ -461,18 +471,6 @@ async function buildMinimalBundle(pieceName, kidlispSource) {
 </head>
 <body>
   <script type="module">
-    // Startup message
-    console.log('Aesthetic.Computer');
-    console.log('');
-    console.log('${pieceName} is a piece by @jeffrey');
-    console.log('');
-    console.log('KidLisp source:', ${safeJSONStringify(kidlispSource)});
-    console.log('');
-    console.log('This minimal copy was packed on ${packDate}');
-    console.log('');
-    console.log('Using aesthetic-computer git version ${gitVersion}');
-    console.log('');
-    
     // Pack mode flags
     window.acPACK_MODE = true;
     window.acSTARTING_PIECE = "${pieceName}";
@@ -495,21 +493,15 @@ async function buildMinimalBundle(pieceName, kidlispSource) {
       imports: {}
     };
     
-    // Add entries for each module with multiple path variations
+    // Add entries for each module (3 key variations: bare, /, https://)
     const moduleFiles = ${JSON.stringify(moduleFiles).replace(/<\/script/gi, '<\\/script')};
     moduleFiles.forEach(filepath => {
       const blobUrl = URL.createObjectURL(
         new Blob([window.VFS[filepath]], { type: 'application/javascript' })
       );
-      
-      // Register multiple path variations for maximum compatibility
       importMap.imports[filepath] = blobUrl;
       importMap.imports['/' + filepath] = blobUrl;
-      importMap.imports['aesthetic.computer/' + filepath] = blobUrl;
-      importMap.imports['/aesthetic.computer/' + filepath] = blobUrl;
-      importMap.imports['./aesthetic.computer/' + filepath] = blobUrl;
       importMap.imports['https://aesthetic.computer/' + filepath] = blobUrl;
-      importMap.imports['./' + filepath] = blobUrl;
     });
     
     // Inject the import map
@@ -523,89 +515,64 @@ async function buildMinimalBundle(pieceName, kidlispSource) {
     window.fetch = function(url, options) {
       const urlStr = typeof url === 'string' ? url : url.url;
       
-      // Handle direct .lisp file requests (common in packed mode)
+      // Handle direct .lisp file requests (canonical key: clean name without $)
       if (urlStr.includes('.lisp')) {
-        const packPiece = window.acPACK_PIECE;
-        const packPieceClean = packPiece.replace(/^\$/, '');
-        
-        if (urlStr.includes(packPiece + '.lisp') || urlStr.includes(packPieceClean + '.lisp')) {
-          const vfsKeys = [
-            "aesthetic.computer/disks/" + packPiece + ".lisp",
-            "aesthetic.computer/disks/" + packPieceClean + ".lisp",
-            "aesthetic.computer/disks/$" + packPieceClean + ".lisp"
-          ];
-          
-          for (const vfsKey of vfsKeys) {
-            if (window.VFS[vfsKey]) {
-              // console.log('✅ Intercepted .lisp request:', vfsKey);
-              return Promise.resolve(new Response(window.VFS[vfsKey], { 
-                status: 200,
-                headers: { 'Content-Type': 'text/plain' }
-              }));
-            }
+        const packPieceClean = window.acPACK_PIECE.replace(/^\$/, '');
+        if (urlStr.includes(packPieceClean + '.lisp')) {
+          const vfsKey = "aesthetic.computer/disks/" + packPieceClean + ".lisp";
+          if (window.VFS[vfsKey]) {
+            return Promise.resolve(new Response(window.VFS[vfsKey], {
+              status: 200,
+              headers: { 'Content-Type': 'text/plain' }
+            }));
           }
         }
       }
 
-      // Handle font glyph requests
+      // Handle font glyph requests — expand compact format back to full JSON
       if (urlStr.includes('/disks/drawings/font_1/') || urlStr.includes('/disks/drawings/microtype/')) {
-        // Extract the path relative to aesthetic.computer
-        let vfsKey = null;
-        
-        // Try to match the URL to a VFS key
-        // URL format: http://localhost:8765/aesthetic.computer/disks/drawings/font_1/numbers/0%20-%202021.12.16.18.28.06.json
-        
-        // Decode URL components (handle %20 spaces)
         const decodedUrl = decodeURIComponent(urlStr);
-        
-        // Find the part starting with aesthetic.computer
         const match = decodedUrl.match(/aesthetic\.computer\/disks\/drawings\/.+/);
         if (match) {
-          vfsKey = match[0];
-        }
-        
-        if (vfsKey && window.VFS[vfsKey]) {
-          // console.log('✅ Intercepted font glyph request:', vfsKey);
-          return Promise.resolve(new Response(window.VFS[vfsKey], { 
-            status: 200,
-            headers: { 'Content-Type': 'application/json' }
-          }));
+          const vfsKey = match[0];
+          const raw = window.VFS[vfsKey];
+          if (raw) {
+            // Expand compact glyph format {r,c,p} → full {resolution,commands}
+            let expanded = raw;
+            try {
+              const d = JSON.parse(raw);
+              if (d.r && !d.resolution) {
+                const cmds = [];
+                if (d.c) for (const a of d.c) cmds.push({name:"line",args:a});
+                if (d.p) for (const a of d.p) cmds.push({name:"point",args:a});
+                expanded = JSON.stringify({resolution:d.r,commands:cmds});
+              }
+            } catch(e) {}
+            return Promise.resolve(new Response(expanded, {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' }
+            }));
+          }
         }
       }
 
       // Handle store-kidlisp API requests
-      if (urlStr.includes('/api/store-kidlisp') || urlStr.includes('store-kidlisp') || urlStr.includes('functions/store-kidlisp')) {
+      if (urlStr.includes('store-kidlisp')) {
         try {
           const urlObj = new URL(urlStr, window.location.origin);
-          const params = new URLSearchParams(urlObj.search);
-          const requestedCode = params.get('code');
-          
-          // Match against the packed piece (with or without $ prefix)
+          const requestedCode = urlObj.searchParams.get('code');
           const packPiece = window.acPACK_PIECE.replace(/^\$/, '');
           const cleanRequested = requestedCode ? requestedCode.replace(/^\$/, '') : '';
-          
           if (cleanRequested === packPiece) {
-            // Try multiple VFS key variations
-            const vfsKeys = [
-              "aesthetic.computer/disks/" + window.acPACK_PIECE + ".lisp",
-              "aesthetic.computer/disks/" + packPiece + ".lisp",
-              "aesthetic.computer/disks/$" + packPiece + ".lisp"
-            ];
-            
-            for (const vfsKey of vfsKeys) {
-              if (window.VFS[vfsKey]) {
-                // console.log('✅ Intercepted store-kidlisp API:', vfsKey);
-                const responseData = { source: window.VFS[vfsKey], code: requestedCode };
-                return Promise.resolve(new Response(JSON.stringify(responseData), { 
-                  status: 200,
-                  headers: { 'Content-Type': 'application/json' }
-                }));
-              }
+            const vfsKey = "aesthetic.computer/disks/" + packPiece + ".lisp";
+            if (window.VFS[vfsKey]) {
+              return Promise.resolve(new Response(JSON.stringify({ source: window.VFS[vfsKey], code: requestedCode }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
+              }));
             }
           }
-        } catch (e) {
-          console.error('Error intercepting store-kidlisp:', e);
-        }
+        } catch (e) {}
       }
       
       // Extract the path from various URL formats
@@ -691,10 +658,9 @@ async function buildMinimalBundle(pieceName, kidlispSource) {
     };
     
     // Boot the system
-    import('boot.mjs').then(boot => {
-      console.log('✅ Boot module loaded');
-    }).catch(error => {
-      console.error('❌ Failed to load boot module:', error);
+    import('boot.mjs').catch(error => {
+      document.body.style.color='#fff';
+      document.body.textContent='Boot failed: '+error.message;
     });
   </script>
 </body>
@@ -773,7 +739,7 @@ async function createBrotliSelfDecompressingBundle(html, pieceName) {
 
 export async function handler(event, context) {
   try {
-    const { piece, format = 'gzip' } = event.queryStringParameters || {};
+    const { piece, format = 'brotli' } = event.queryStringParameters || {};
     
     if (!piece) {
       return respond(400, { error: 'Missing piece parameter. Usage: ?piece=$pie (KidLisp) or ?piece=line (.mjs)' });
