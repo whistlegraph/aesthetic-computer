@@ -622,6 +622,9 @@ class AestheticComputerMagics(Magics):
         to avoid Python syntax parsing issues.
         """
         line_content = line.strip()
+        
+        # Parse potential size parameters from the beginning of the line
+        parts = line_content.split()
         width = "100%"
         height = 30
         density = None
