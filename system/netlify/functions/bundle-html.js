@@ -14,7 +14,7 @@
 const { promises: fs } = require("fs");
 const fsSync = require("fs");
 const path = require("path");
-const { gzipSync, brotliCompressSync, constants: zlibConstants } = require("zlib");
+const { gzipSync } = require("zlib");
 const https = require("https");
 const { execSync } = require("child_process");
 
@@ -573,13 +573,8 @@ async function createJSPieceBundle(pieceName, onProgress = () => {}, nocompress 
     return { html: htmlContent, filename, sizeKB: Math.round(htmlContent.length / 1024) };
   }
   
-  // Create brotli-compressed self-extracting bundle
-  const compressed = brotliCompressSync(Buffer.from(htmlContent, 'utf-8'), {
-    params: {
-      [zlibConstants.BROTLI_PARAM_MODE]: zlibConstants.BROTLI_MODE_TEXT,
-      [zlibConstants.BROTLI_PARAM_QUALITY]: 11,
-    }
-  });
+  // Create gzip-compressed self-extracting bundle (brotli not supported in DecompressionStream)
+  const compressed = gzipSync(Buffer.from(htmlContent, 'utf-8'), { level: 9 });
   const base64 = compressed.toString('base64');
 
   const finalHtml = `<!DOCTYPE html>
@@ -591,9 +586,9 @@ async function createJSPieceBundle(pieceName, onProgress = () => {}, nocompress 
 </head>
 <body>
   <script>
-    fetch('data:application/x-br;base64,${base64}')
+    fetch('data:application/gzip;base64,${base64}')
       .then(r=>r.blob())
-      .then(b=>b.stream().pipeThrough(new DecompressionStream('br')))
+      .then(b=>b.stream().pipeThrough(new DecompressionStream('gzip')))
       .then(s=>new Response(s).text())
       .then(h=>{document.open();document.write(h);document.close();})
       .catch(e=>{document.body.style.color='#fff';document.body.textContent='Bundle error: '+e.message;});
@@ -1091,13 +1086,8 @@ async function createBundle(pieceName, onProgress = () => {}, nocompress = false
     };
   }
   
-  // Create brotli-compressed self-extracting bundle (native DecompressionStream, no extra JS)
-  const compressed = brotliCompressSync(Buffer.from(htmlContent, 'utf-8'), {
-    params: {
-      [zlibConstants.BROTLI_PARAM_MODE]: zlibConstants.BROTLI_MODE_TEXT,
-      [zlibConstants.BROTLI_PARAM_QUALITY]: 11,
-    }
-  });
+  // Create gzip-compressed self-extracting bundle (brotli not supported in DecompressionStream)
+  const compressed = gzipSync(Buffer.from(htmlContent, 'utf-8'), { level: 9 });
   const base64 = compressed.toString('base64');
 
   const finalHtml = `<!DOCTYPE html>
@@ -1109,9 +1099,9 @@ async function createBundle(pieceName, onProgress = () => {}, nocompress = false
 </head>
 <body>
   <script>
-    fetch('data:application/x-br;base64,${base64}')
+    fetch('data:application/gzip;base64,${base64}')
       .then(r=>r.blob())
-      .then(b=>b.stream().pipeThrough(new DecompressionStream('br')))
+      .then(b=>b.stream().pipeThrough(new DecompressionStream('gzip')))
       .then(s=>new Response(s).text())
       .then(h=>{document.open();document.write(h);document.close();})
       .catch(e=>{document.body.style.color='#fff';document.body.textContent='Bundle error: '+e.message;});

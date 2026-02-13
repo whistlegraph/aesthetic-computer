@@ -14,7 +14,6 @@ import { execSync } from "child_process";
 import { font_1, microtype } from "../../public/aesthetic.computer/disks/common/fonts.mjs";
 
 const gzip = promisify(zlib.gzip);
-const brotliCompress = promisify(zlib.brotliCompress);
 
 // Resolve public directory
 // Netlify functions might not have import.meta.url, so use __dirname fallback
@@ -709,15 +708,11 @@ async function createSelfDecompressingBundle(html, pieceName) {
 </html>`;
 }
 
-async function createBrotliSelfDecompressingBundle(html, pieceName) {
-  const compressed = await brotliCompress(Buffer.from(html, 'utf-8'), {
-    params: {
-      [zlib.constants.BROTLI_PARAM_MODE]: zlib.constants.BROTLI_MODE_TEXT,
-      [zlib.constants.BROTLI_PARAM_QUALITY]: 11, // Maximum compression
-    }
-  });
+async function createGzipNativeSelfDecompressingBundle(html, pieceName) {
+  const gzipCompress = promisify(zlib.gzip);
+  const compressed = await gzipCompress(Buffer.from(html, 'utf-8'), { level: 9 });
   const base64 = compressed.toString('base64');
-  
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -727,9 +722,9 @@ async function createBrotliSelfDecompressingBundle(html, pieceName) {
 </head>
 <body>
   <script>
-    fetch('data:application/x-br;base64,${base64}')
+    fetch('data:application/gzip;base64,${base64}')
       .then(r=>r.blob())
-      .then(b=>b.stream().pipeThrough(new DecompressionStream('br')))
+      .then(b=>b.stream().pipeThrough(new DecompressionStream('gzip')))
       .then(s=>new Response(s).text())
       .then(h=>{document.open();document.write(h);document.close();});
   </script>
@@ -739,7 +734,7 @@ async function createBrotliSelfDecompressingBundle(html, pieceName) {
 
 export async function handler(event, context) {
   try {
-    const { piece, format = 'brotli' } = event.queryStringParameters || {};
+    const { piece, format = 'gzip-native' } = event.queryStringParameters || {};
     
     if (!piece) {
       return respond(400, { error: 'Missing piece parameter. Usage: ?piece=$pie (KidLisp) or ?piece=line (.mjs)' });
@@ -772,11 +767,11 @@ export async function handler(event, context) {
     
     let finalHtml, filename, size;
     
-    if (format === 'brotli') {
-      finalHtml = await createBrotliSelfDecompressingBundle(html, piece);
-      filename = `${cleanPiece}-brotli.html`;
+    if (format === 'gzip-native') {
+      finalHtml = await createGzipNativeSelfDecompressingBundle(html, piece);
+      filename = `${cleanPiece}.html`;
       size = Math.round(finalHtml.length / 1024);
-      console.log(`✅ Brotli self-decompressing bundle: ${size} KB`);
+      console.log(`✅ Gzip native self-decompressing bundle: ${size} KB`);
     } else if (format === 'gzip' || format === 'selfdecompressing') {
       finalHtml = await createSelfDecompressingBundle(html, piece);
       filename = `${cleanPiece}-gzip.html`;
