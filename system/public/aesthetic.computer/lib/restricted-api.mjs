@@ -12,8 +12,8 @@ import { requestPermission } from "./piece-permissions.mjs";
 export function createRestrictedApi(fullApi, pieceMetadata) {
   const { code: pieceCode, trustLevel = "untrusted" } = pieceMetadata;
 
-  // If already trusted, return full API
-  if (trustLevel === "trusted") {
+  // If already trusted or kidlisp, return full API (kidlisp pieces are safe by design)
+  if (trustLevel === "trusted" || trustLevel === "kidlisp") {
     return fullApi;
   }
 
@@ -28,13 +28,10 @@ export function createRestrictedApi(fullApi, pieceMetadata) {
     // Namespace storage per piece
     store: createNamespacedStore(fullApi.store, pieceCode),
 
-    // Block auth APIs (require permission)
-    authorize: createPermissionWrapper(
-      fullApi.authorize,
-      pieceCode,
-      "auth",
-      "authorize() requires permission"
-    ),
+    // Block auth APIs for untrusted pieces (no user-uploaded piece should have auth tokens)
+    authorize: async () => {
+      throw new Error(`Auth tokens are not available to user-uploaded pieces for security reasons`);
+    },
 
     // Wrap upload with external URL check
     upload: createRestrictedUpload(fullApi.upload, pieceCode),
@@ -79,23 +76,16 @@ function createRestrictedNetApi(netApi, pieceCode) {
           `Network access denied. The piece "${pieceCode}" requested access to: ${url}`
         );
       }
-      // Also require auth permission since this uses tokens
-      const authGranted = await requestPermission(pieceCode, "auth", {});
-      if (!authGranted) {
-        throw new Error(
-          `Authentication access denied. The piece "${pieceCode}" tried to make an authenticated request.`
-        );
-      }
-      return netApi.userRequest(url, options);
+      // Block authenticated requests for untrusted pieces
+      throw new Error(
+        `Authenticated requests are not available to user-uploaded pieces for security reasons`
+      );
     },
 
-    // Block getToken (direct token access)
-    getToken: createPermissionWrapper(
-      netApi.getToken,
-      pieceCode,
-      "auth",
-      "getToken() requires permission"
-    ),
+    // Block getToken for untrusted pieces
+    getToken: async () => {
+      throw new Error(`Auth tokens are not available to user-uploaded pieces for security reasons`);
+    },
 
     // Keep other net APIs that don't involve external requests
     // (signup, login, etc. can stay since they're internal to AC)
