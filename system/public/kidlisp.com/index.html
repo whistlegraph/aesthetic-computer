@@ -18987,8 +18987,99 @@ s("ape_breaks_3").loopAt(2)</textarea>
     // Track current cursor word for live docs
     let currentCursorWord = null;
     
-    // Helper function to syntax highlight KidLisp code for Learn docs
+    // Enhanced syntax highlighting for Learn docs using actual KidLisp tokenizer (Monaco engine)
     function highlightKidlispCodeForLearn(code, isSignature = false) {
+      // Check if KidLisp tokenizer is available (loaded after Monaco init)
+      if (typeof tokenize !== 'function' || typeof KidLisp !== 'function') {
+        // Fallback to simple highlighting if KidLisp not loaded yet
+        return highlightKidlispCodeForLearnSimple(code, isSignature);
+      }
+
+      try {
+        // Create a dedicated KidLisp instance for Learn tab highlighting
+        const learnKidlisp = new KidLisp();
+        learnKidlisp.isEditMode = true; // Edit mode for static display
+        learnKidlisp.initializeSyntaxHighlighting(code);
+        const coloredString = learnKidlisp.buildColoredKidlispString();
+
+        // Convert KidLisp color codes to HTML spans with CSS classes
+        // The KidLisp tokenizer outputs format: \color\text\color\text...
+        let highlightedHtml = coloredString.replace(/\\([^\\]+)\\([^\\]*)/g, (match, color, text) => {
+          if (!text) return '';
+
+          // Escape HTML entities in text
+          const escapedText = text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+
+          // Map KidLisp RGB colors to CSS classes for theme support
+          // Parse RGB color from tokenizer
+          let cssClass = 'kl-var'; // default
+
+          // Handle RGB colors from tokenizer
+          if (color.match(/^\d+,\s*\d+,\s*\d+(,\s*\d+)?$/)) {
+            const parts = color.split(',').map(n => parseInt(n.trim()));
+            const [r, g, b] = parts;
+
+            // Map RGB to semantic CSS classes based on KidLisp color scheme
+            // Cyan-ish (0-255, 180-255, 180-255) -> functions
+            if (r < 100 && g > 150 && b > 150) {
+              cssClass = 'kl-fn';
+            }
+            // Yellow-ish (200-255, 200-255, 0-100) -> strings
+            else if (r > 200 && g > 200 && b < 100) {
+              cssClass = 'kl-str';
+            }
+            // Pink-ish (200-255, 100-200, 180-255) -> numbers
+            else if (r > 200 && g > 100 && g < 200 && b > 180) {
+              cssClass = 'kl-num';
+            }
+            // Orange-ish (200-255, 100-200, 0-100) -> variables/parameters
+            else if (r > 200 && g > 100 && g < 200 && b < 100) {
+              cssClass = isSignature ? 'kl-param' : 'kl-var';
+            }
+            // Green-ish (0-100, 200-255, 0-100) -> math operators
+            else if (r < 100 && g > 200 && b < 100) {
+              cssClass = 'kl-math';
+            }
+            // Red-ish (200-255, 50-150, 50-150) -> parentheses
+            else if (r > 200 && g > 50 && g < 150 && b > 50 && b < 150) {
+              cssClass = 'kl-paren';
+            }
+            // Gray-ish -> brackets or comments
+            else if (Math.abs(r - g) < 30 && Math.abs(g - b) < 30 && Math.abs(r - b) < 30 && r < 180) {
+              cssClass = 'kl-bracket';
+            }
+            // Handle special tokens by content
+            else if (text.match(/^\d*\.?\d+[sf]\.\.\.?$/) || text.match(/^\d*\.?\d+[sf]!?$/)) {
+              cssClass = 'kl-timing';
+            }
+            else if (text === 'rainbow') {
+              cssClass = 'kl-rainbow';
+            }
+            else if (text === 'zebra') {
+              cssClass = 'kl-special';
+            }
+            // Check if it's a color name
+            else if (/^(red|blue|green|yellow|purple|orange|pink|cyan|magenta|lime|white|black|gray|grey|navy|teal|coral|gold|silver|maroon|olive|aqua|fuchsia|indigo|violet|brown|tan|salmon|crimson|turquoise|plum|khaki|tomato|peru|sienna|chocolate|firebrick|hotpink|deeppink)$/i.test(text)) {
+              // For color names, use kl-color class and inline style for actual color
+              return `<span class="kl-color" style="color: rgb(${r},${g},${b});">${escapedText}</span>`;
+            }
+          }
+
+          return `<span class="${cssClass}">${escapedText}</span>`;
+        });
+
+        return highlightedHtml;
+      } catch (e) {
+        // Fallback to simple highlighting on error
+        return highlightKidlispCodeForLearnSimple(code, isSignature);
+      }
+    }
+
+    // Fallback simple highlighting (when KidLisp tokenizer not available)
+    function highlightKidlispCodeForLearnSimple(code, isSignature = false) {
       // Escape HTML first
       const escapeHtml = (str) => str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       
