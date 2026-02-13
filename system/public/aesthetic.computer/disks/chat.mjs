@@ -319,9 +319,12 @@ async function boot(
   otherChat,
   options,
 ) {
+  // Clear handle colors cache on each boot so edits are picked up.
+  handleColorsCache.clear();
+
   // Store dom API reference for YouTube modal
   domApi = dom;
-  
+
   // Store net.preload reference for YouTube thumbnail loading in paint()
   netPreload = net.preload;
   

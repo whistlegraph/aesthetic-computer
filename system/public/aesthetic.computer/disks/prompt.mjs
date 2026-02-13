@@ -828,6 +828,9 @@ async function boot({
   fetchVersion();
   setInterval(fetchVersion, 5 * 60 * 1000); // Refresh every 5 minutes
 
+  // Clear handle colors cache on each boot so edits are picked up immediately.
+  handleColorsCache.clear();
+
   // Boot starfield with a clear backdrop.
   starfield.boot(api, { stars: 128 });
   starfield.wipe(false);
