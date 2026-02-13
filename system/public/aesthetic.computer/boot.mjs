@@ -71,6 +71,20 @@ const bootTelemetry = (() => {
   const queue = [];
   let flushTimer = null;
   let started = false;
+  const ua = navigator?.userAgent || "";
+  const parseBrowser = (s) => {
+    if (!s) return null;
+    // Order matters: check specific before generic
+    const m = s.match(/(Edg|OPR|Firefox|SamsungBrowser|CriOS|FxiOS)\/(\d+)/) ||
+              s.match(/Version\/(\d+).+Safari/) ||
+              s.match(/Chrome\/(\d+)/);
+    if (m) {
+      const names = { Edg: "Edge", OPR: "Opera", CriOS: "Chrome iOS", FxiOS: "Firefox iOS", SamsungBrowser: "Samsung" };
+      if (m[1] === "Version") return "Safari " + m[1]; // Version/X Safari
+      return (names[m[1]] || m[1]) + " " + m[2];
+    }
+    return null;
+  };
   const meta = {
     bootId,
     startedAt: new Date().toISOString(),
@@ -79,9 +93,14 @@ const bootTelemetry = (() => {
     path: typeof location !== "undefined" ? location.pathname : null,
     search: typeof location !== "undefined" ? location.search : null,
     hash: typeof location !== "undefined" ? location.hash : null,
-    userAgent: navigator?.userAgent,
+    referrer: document?.referrer || null,
+    userAgent: ua,
+    browser: parseBrowser(ua),
+    mobile: /Mobi|Android|iPhone|iPad/i.test(ua),
     language: navigator?.language,
     timezone: Intl?.DateTimeFormat?.().resolvedOptions?.().timeZone,
+    screen: window.screen ? { w: screen.width, h: screen.height, dpr: devicePixelRatio } : null,
+    connection: navigator?.connection?.effectiveType || null,
     embedded: window !== window.top,
     packMode: Boolean(window.acPACK_MODE),
     localDev: typeof location !== "undefined" && location.hostname === "localhost",
