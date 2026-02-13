@@ -6791,7 +6791,7 @@ class KidLisp {
                 const globalEnv = this.getGlobalEnv();
                 if (globalEnv[direction] && typeof globalEnv[direction] === "function") {
                   // It's a function, call it with the API
-                  evalResult = globalEnv[direction](api);
+                  evalResult = globalEnv[direction](api, []);
                   // console.log(`🎬 COAT DEBUG: Evaluated ${direction} as function = ${evalResult}`);
                 } else {
                   // Try to evaluate as expression or variable
@@ -10778,7 +10778,7 @@ class KidLisp {
                     const globalEnv = this.getGlobalEnv();
                     if (globalEnv[direction] && typeof globalEnv[direction] === "function") {
                       // It's a function, call it with the API
-                      evalResult = globalEnv[direction](api);
+                      evalResult = globalEnv[direction](api, []);
                     } else {
                       // Try to evaluate as expression or variable
                       evalResult = this.evaluate(direction, api, env);
@@ -11094,7 +11094,7 @@ class KidLisp {
                       const globalEnv = this.getGlobalEnv();
                       if (globalEnv[direction] && typeof globalEnv[direction] === "function") {
                         // It's a function, call it with the API
-                        evalResult = globalEnv[direction](api);
+                        evalResult = globalEnv[direction](api, []);
                       } else {
                         // Try to evaluate as expression or variable
                         evalResult = this.evaluate(direction, api, env);

@@ -26,6 +26,7 @@ class Glaze {
   type;
 
   #uniforms;
+  #dynamicUniforms = {}; // Store dynamic uniform overrides
 
   constructor(type = "prompt", w, h, rect) {
     this.w = w;
@@ -55,14 +56,21 @@ class Glaze {
     callback();
   }
 
+  // Set or update dynamic uniform overrides
+  setDynamicUniform(uniformIdentifier, value) {
+    this.#dynamicUniforms[uniformIdentifier] = value;
+  }
+
   // Export a list of clean uniform names... everything after the ":".
   setCustomUniforms(locations, gl) {
     // Parse every key in custom uniforms, then apply the uniform values.
-    keys(this.#uniforms).forEach((uniformIdentifier) => {
+    // Dynamic uniforms override static ones
+    const allUniforms = { ...this.#uniforms, ...this.#dynamicUniforms };
+    keys(allUniforms).forEach((uniformIdentifier) => {
       const [type, name] = uniformIdentifier.split(":");
       gl[`uniform${type}`](
         locations[name],
-        ...wrapNotArray(this.#uniforms[uniformIdentifier]),
+        ...wrapNotArray(allUniforms[uniformIdentifier]),
       );
     });
   }
@@ -424,6 +432,13 @@ export function freeze(fCtx) {
 
 export function unfreeze() {
   if (canvas) canvas.style.removeProperty("opacity");
+}
+
+// Set dynamic uniform values that override static ones
+export function setDynamicUniform(uniformIdentifier, value) {
+  if (glaze) {
+    glaze.setDynamicUniform(uniformIdentifier, value);
+  }
 }
 
 export function render(time, mouse) {

@@ -39,6 +39,53 @@ import { FUNDING_MODE } from "./prompt.mjs";
 import { createHandleAutocomplete } from "../lib/autocomplete.mjs";
 import { iOS } from "../lib/platform.mjs";
 
+// 🎨 Handle Colors System
+// Cache for handle colors: Map<handle, Array<{r, g, b}>>
+const handleColorsCache = new Map();
+
+// Convert a handle to colored text using \color\ syntax
+function colorizeHandle(handle, colors) {
+  if (!colors || colors.length === 0) return handle;
+
+  const handleWithAt = handle.startsWith("@") ? handle : "@" + handle;
+  let result = "";
+  const defaultColor = "255,255,255"; // White
+
+  for (let i = 0; i < handleWithAt.length && i < colors.length; i++) {
+    const char = handleWithAt[i];
+    const color = colors[i];
+    // Format: \r,g,b\char\defaultColor\
+    result += `\\${color.r},${color.g},${color.b}\\${char}\\${defaultColor}\\`;
+  }
+
+  return result;
+}
+
+// Fetch handle colors from API
+async function fetchHandleColors(handle, api) {
+  // Remove @ if present
+  const cleanHandle = handle.startsWith("@") ? handle.slice(1) : handle;
+
+  if (handleColorsCache.has(cleanHandle)) {
+    return handleColorsCache.get(cleanHandle);
+  }
+
+  try {
+    const response = await fetch(`/.netlify/functions/handle-colors?handle=${encodeURIComponent(cleanHandle)}`);
+    if (response.ok) {
+      const data = await response.json();
+      if (data.colors) {
+        handleColorsCache.set(cleanHandle, data.colors);
+        return data.colors;
+      }
+    }
+  } catch (error) {
+    console.warn(`Failed to fetch colors for @${cleanHandle}:`, error);
+  }
+
+  return null;
+}
+
 // 🔤 Chat Font System
 // Available fonts for chat messages - each user can pick their preferred font
 export const CHAT_FONTS = {
@@ -324,6 +371,22 @@ async function boot(
     const matrixFont = new api.Typeface("MatrixChunky8");
     await matrixFont.load(net.preload);
   }
+
+  // Prefetch handle colors for existing messages
+  const uniqueHandles = new Set();
+  client.messages.forEach(msg => {
+    if (msg.from && msg.from !== "log") {
+      const cleanHandle = msg.from.startsWith("@") ? msg.from.slice(1) : msg.from;
+      uniqueHandles.add(cleanHandle);
+    }
+  });
+
+  // Fetch colors for all unique handles (async, non-blocking)
+  uniqueHandles.forEach(handle => {
+    fetchHandleColors(handle, api).catch(err => {
+      console.warn(`Failed to prefetch colors for @${handle}:`, err);
+    });
+  });
 
   // �🗨️ Chat Networking
 
@@ -876,11 +939,33 @@ function paint(
           
           // Get color based on type and hover state
           let color;
+          let customColorCodedText = null; // For per-character handle colors
+
           if (element.type === "kidlisp-token") {
             // Use yellow on hover, otherwise use the token's specific syntax color
             color = isHovered ? theme.kidlispHover : element.color;
           } else if (element.type === "handle") {
-            color = isHovered ? theme.handleHover : theme.handle;
+            if (isHovered) {
+              color = theme.handleHover;
+            } else {
+              // Check for custom per-character colors
+              const cleanHandle = elementText.startsWith("@") ? elementText.slice(1) : elementText;
+              const customColors = handleColorsCache.get(cleanHandle);
+
+              if (customColors && customColors.length === elementText.length) {
+                // Build per-character color codes
+                const textColorStr = Array.isArray(theme.messageText) ? theme.messageText.join(',') : theme.messageText;
+                let perCharText = "";
+                for (let i = 0; i < elementText.length; i++) {
+                  const char = elementText[i];
+                  const col = customColors[i];
+                  perCharText += `\\${col.r},${col.g},${col.b}\\${char}\\${textColorStr}\\`;
+                }
+                customColorCodedText = perCharText;
+              } else {
+                color = theme.handle;
+              }
+            }
           } else if (element.type === "url") {
             color = isHovered ? theme.urlHover : theme.url;
           } else if (element.type === "prompt") {
@@ -900,15 +985,23 @@ function paint(
           } else if (element.type === "youtube") {
             color = isHovered ? theme.youtubeHover : theme.youtube;
           }
-          
-          if (color) {
+
+          // Apply color coding
+          if (customColorCodedText) {
+            // Use custom per-character colors for handles
+            colorCodedLine =
+              colorCodedLine.substring(0, elemStartInLine) +
+              customColorCodedText +
+              colorCodedLine.substring(elemEndInLine);
+          } else if (color) {
+            // Use single color for element
             const colorStr = Array.isArray(color) ? color.join(',') : color;
             const textColorStr = Array.isArray(theme.messageText) ? theme.messageText.join(',') : theme.messageText;
             const colorCodedText = `\\${colorStr}\\${elementText}\\${textColorStr}\\`;
-            
-            colorCodedLine = 
-              colorCodedLine.substring(0, elemStartInLine) + 
-              colorCodedText + 
+
+            colorCodedLine =
+              colorCodedLine.substring(0, elemStartInLine) +
+              colorCodedText +
               colorCodedLine.substring(elemEndInLine);
           }
         }
@@ -3881,6 +3974,8 @@ function computeMessagesHeight({ text, screen, typeface }, chat, defaultTypeface
     
     // Add count multiplier if message was repeated
     const countSuffix = message.count > 1 ? ` x${message.count}` : "";
+
+    // Use plain handle for layout (colors applied during rendering)
     const fullMessage = message.from + " " + message.text + countSuffix;
     const tb = text.box(
       fullMessage,

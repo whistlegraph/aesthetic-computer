@@ -278,6 +278,52 @@ let lastMotdTime = 0; // Timestamp for MOTD animation
 let motdCandidates = [];
 let motdCandidateIndex = 0;
 let lastMotdCycleTime = 0;
+
+// 🎨 Handle Colors System
+const handleColorsCache = new Map();
+
+// Convert a handle to colored text using \color\ syntax
+function colorizeHandle(handle, colors) {
+  if (!colors || colors.length === 0) return handle;
+
+  const handleWithAt = handle.startsWith("@") ? handle : "@" + handle;
+  let result = "";
+
+  const defaultColor = "255,255,255"; // White
+
+  for (let i = 0; i < handleWithAt.length && i < colors.length; i++) {
+    const char = handleWithAt[i];
+    const color = colors[i];
+    // Format: \r,g,b\char\defaultColor\
+    result += `\\${color.r},${color.g},${color.b}\\${char}\\${defaultColor}\\`;
+  }
+
+  return result;
+}
+
+// Fetch handle colors from API
+async function fetchHandleColors(handle) {
+  const cleanHandle = handle.startsWith("@") ? handle.slice(1) : handle;
+
+  if (handleColorsCache.has(cleanHandle)) {
+    return handleColorsCache.get(cleanHandle);
+  }
+
+  try {
+    const response = await fetch(`/.netlify/functions/handle-colors?handle=${encodeURIComponent(cleanHandle)}`);
+    if (response.ok) {
+      const data = await response.json();
+      if (data.colors) {
+        handleColorsCache.set(cleanHandle, data.colors);
+        return data.colors;
+      }
+    }
+  } catch (error) {
+    console.warn(`Failed to fetch colors for @${cleanHandle}:`, error);
+  }
+
+  return null;
+}
 const MOTD_CYCLE_MS = 8000;
 let previousKidlispMode = false; // Track previous KidLisp mode state for sound triggers
 let versionInfo = null; // { deployed, latest, status, behindBy } - git commit status
@@ -770,7 +816,17 @@ async function boot({
     if (hand) {
       profileAction = "profile";
       profile = new ui.TextButton(hand, btnPos);
-      profile.stickyScrubbing = true; // Prevent drag-between-button behavior
+      profile.stickyScrubbing = true;
+
+      // Apply colored handle asynchronously
+      fetchHandleColors(hand).then(colors => {
+        if (colors) {
+          const coloredHandle = colorizeHandle(hand, colors);
+          profile = new ui.TextButton(coloredHandle, btnPos);
+          profile.stickyScrubbing = true;
+          needsPaint();
+        }
+      });
     } else if (!user.email_verified) {
       profile = new ui.TextButton("Resend email", btnPos);
       profile.stickyScrubbing = true; // Prevent drag-between-button behavior
@@ -2721,15 +2777,23 @@ async function halt($, text) {
     makeFlash($);
     return true;
   } else if (text.startsWith("handle") && !text.startsWith("handles")) {
-    // Set user handle.
+    // Set user handle or jump to handle color customization piece.
 
     // Make sure there is a parameter.
     let newHandle = text.split(" ")[1];
     if (!newHandle) {
-      flashColor = [0, 0, 128];
-      makeFlash($);
-      notice("EMPTY", ["cyan", "blue"]);
-      return true;
+      // No parameter - jump to handle customization piece
+      if (user && handle()) {
+        makeFlash($);
+        jump("handle");
+        return true;
+      } else {
+        // User doesn't have a handle yet - show empty notice
+        flashColor = [0, 0, 128];
+        makeFlash($);
+        notice("EMPTY", ["cyan", "blue"]);
+        return true;
+      }
     }
 
     if (newHandle[0] === "@") newHandle = newHandle.slice(1); // Strip off any leading "@" sign to help with validation.
@@ -6790,34 +6854,24 @@ function paint($) {
     // 📦 Commit hash button - only show when client is behind main
     if (versionInfo && versionInfo.status === "behind" && versionInfo.deployed) {
       const commitText = versionInfo.deployed + (versionInfo.behindBy ? ` (${versionInfo.behindBy} behind)` : "");
-      // Position at bottom center, above the input bar
-      const pasteBox = $.system.prompt.input?.paste?.btn?.box;
-      const enterBox = $.system.prompt.input?.enter?.btn?.box;
-      let cBtnX, cBtnY;
-      if (pasteBox && enterBox) {
-        const gapStart = pasteBox.x + pasteBox.w;
-        const gapEnd = enterBox.x;
-        const gapCenter = gapStart + (gapEnd - gapStart) / 2;
-        const btnWidth = commitText.length * 4 + 4;
-        cBtnX = Math.floor(gapCenter - btnWidth / 2);
-        cBtnY = pasteBox.y;
-      } else {
-        const btnWidth = commitText.length * 4 + 4;
-        cBtnX = Math.floor(screen.width / 2 - btnWidth / 2);
-        cBtnY = screen.height - 18;
-      }
+      // Create button using TextButtonSmall (MatrixChunky8 font) centered at bottom
       if (!commitBtn) {
-        commitBtn = new $.ui.TextButton(commitText, { x: cBtnX, y: cBtnY });
+        commitBtn = new $.ui.TextButtonSmall(commitText, { center: "x", bottom: 8, screen });
       } else {
-        commitBtn.reposition({ x: cBtnX, y: cBtnY }, commitText);
+        commitBtn.reposition({ center: "x", bottom: 8, screen }, commitText);
         commitBtn.btn.disabled = false;
       }
-      // Paint with dim yellow/orange
+      // Paint with dim yellow/orange and translucent (alpha: ~50%)
       const cBox = commitBtn.btn.box;
       if (cBox) {
-        ink(40, 35, 20).box(cBox, "fill");
-        ink(80, 70, 40).box(cBox, "outline");
-        commitBtn.paint($, [255, 180, 80]);
+        // TextButtonSmall paint scheme: [fillColor, outlineColor, textAlpha, unused]
+        // Using translucent colors with alpha ~128 (50% transparency)
+        commitBtn.paint($, [
+          [40, 35, 20, 128],    // fill: dark orange, semi-transparent
+          [80, 70, 40, 128],    // outline: lighter orange, semi-transparent
+          128,                  // text alpha
+          [40, 35, 20, 128]     // unused fill
+        ]);
       }
       versionCommit = versionInfo.deployed;
     } else {
@@ -7433,9 +7487,9 @@ function paint($) {
       login.paint(
         $,
         $.dark ? scheme.dark.login : scheme.light.login,
-        undefined, // hoverScheme (use default)
+        $.dark ? scheme.dark.loginDown : scheme.light.loginDown, // downScheme (pressed)
         undefined, // disabledScheme (use default)
-        $.dark ? scheme.dark.loginRollover : scheme.light.loginRollover
+        $.dark ? scheme.dark.loginRollover : scheme.light.loginRollover  // rolloverScheme (hover)
       );
     }
   }
@@ -7732,11 +7786,26 @@ function sim($) {
   // }
 
   if ($.store["handle:received"]) {
-    profile = new $.ui.TextButton($.handle(), {
+    const hand = $.handle();
+    profile = new $.ui.TextButton(hand, {
       center: "xy",
       screen: $.screen,
     });
     profile.stickyScrubbing = true; // Prevent drag-between-button behavior
+
+    // Apply colored handle asynchronously
+    fetchHandleColors(hand, $).then((colors) => {
+      if (colors) {
+        const coloredHandle = colorizeHandle(hand, colors);
+        profile = new $.ui.TextButton(coloredHandle, {
+          center: "xy",
+          screen: $.screen,
+        });
+        profile.stickyScrubbing = true;
+        $.needsPaint();
+      }
+    });
+
     if (login) login.btn.disabled = true;
     if (signup) signup.btn.disabled = true;
     delete $.store["handle:received"];
@@ -7870,6 +7939,7 @@ function act({
     });
   };
 
+  // 🎮 Process button interactions (must be called early so state is ready for paint)
   if (!net.sandboxed) {
     if (login && !login.btn.disabled) {
       login.btn.act(e, {
@@ -7891,11 +7961,14 @@ function act({
         push: () => {
           pushSound();
           net.signup();
+          // if (net.iframe) jump("signup-wait");
         },
         cancel: () => cancelSound(),
       });
     }
   }
+
+  // End of button processing
 
   // 🎨 SO SOFT studio ad buttons - link to sosoft.arts.ucla.edu
   const soSoftUrl = "https://sosoft.arts.ucla.edu";
@@ -8671,7 +8744,8 @@ export const scheme = {
     highlight: [255, 100, 0],
     guideline: [0, 0, 255, 64],
     login: [[0, 0, 64], 255, 255, [0, 0, 64]],
-    loginRollover: [[0, 60, 120], [100, 200, 255], [100, 200, 255], [0, 60, 120]], // Cyan glow on hover
+    loginRollover: [[0, 100, 160], [120, 220, 255], [120, 220, 255], [0, 100, 160]], // Brighter blue glow on hover
+    loginDown: [[0, 40, 120], [80, 160, 200], [255, 255, 255], [0, 40, 120]], // Pressed (darker blue, white text)
     signup: [[0, 64, 0], 255, 255, [0, 64, 0]],
     signupRollover: [[40, 100, 40], [100, 255, 100], [100, 255, 100], [40, 100, 40]], // Bright green glow
     profile: [[64, 0, 64], [255, 100, 255], [255, 100, 255], [64, 0, 64]], // Magenta base
@@ -8693,7 +8767,8 @@ export const scheme = {
     guideline: [255, 207, 105],
     // login: [255, [0, 0, 64], [0, 0, 64], 255],
     login: [[0, 0, 128], 255, 255, [0, 0, 128]],
-    loginRollover: [[30, 80, 180], [150, 200, 255], [150, 200, 255], [30, 80, 180]], // Lighter blue glow
+    loginRollover: [[60, 120, 220], [180, 230, 255], [180, 230, 255], [60, 120, 220]], // Brighter blue glow on hover
+    loginDown: [[40, 90, 200], [150, 200, 255], [255, 255, 255], [40, 90, 200]], // Pressed (darker blue, white text)
     // signup: [255, [0, 64, 0], [0, 64, 0], 255],
     signup: [[0, 128, 0], 255, 255, [0, 128, 0]],
     signupRollover: [[50, 160, 50], [150, 255, 150], [150, 255, 150], [50, 160, 50]], // Lighter green glow
@@ -9298,6 +9373,15 @@ function fetchUser() {
           profileAction = "profile";
           profile = new ui.TextButton(previousHandle, { center: "xy", screen });
           profile.stickyScrubbing = true; // Prevent drag-between-button behavior
+
+          // Apply colored handle asynchronously
+          fetchHandleColors(previousHandle, api).then((colors) => {
+            if (colors) {
+              const coloredHandle = colorizeHandle(previousHandle, colors);
+              profile = new ui.TextButton(coloredHandle, { center: "xy", screen });
+              profile.stickyScrubbing = true;
+            }
+          });
         } else if (u.handle) {
           broadcast("handle:updated:" + u.handle);
           store["handle"] = u.handle;
