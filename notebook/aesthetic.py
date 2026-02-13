@@ -654,33 +654,21 @@ class AestheticComputerMagics(Magics):
 
         parts = filtered_parts
         
-        # Check if first part(s) are numeric parameters
-        if len(parts) >= 2:  # Need at least 2 parts to have a size parameter + content
-            try:
-                # Try to parse first part as a number (height only)
-                first_num = _safe_eval(parts[0], context)
-                if not isinstance(first_num, (int, float)):
-                    raise ValueError
-                if len(parts) >= 3:
-                    try:
-                        # Try to parse second part as a number (width, height)
-                        second_num = _safe_eval(parts[1], context)
-                        if not isinstance(second_num, (int, float)):
-                            raise ValueError
+        # Check if first part(s) are numeric parameters (use _is_numeric_like to avoid warning)
+        if len(parts) >= 1 and _is_numeric_like(parts[0]):
+            # First part looks numeric - parse it
+            first_num = _safe_eval(parts[0], context)
+            if isinstance(first_num, (int, float)):
+                height = first_num
+                content_start_index = 1
+                
+                # Check if second part is also numeric (width)
+                if len(parts) >= 3 and _is_numeric_like(parts[1]):
+                    second_num = _safe_eval(parts[1], context)
+                    if isinstance(second_num, (int, float)):
                         width = first_num
                         height = second_num
                         content_start_index = 2
-                    except ValueError:
-                        # Second part is not a number, so first is height only
-                        height = first_num
-                        content_start_index = 1
-                else:
-                    # Only two parts total, first is height, second is content
-                    height = first_num
-                    content_start_index = 1
-            except ValueError:
-                # First part is not a number, treat entire line as content
-                pass
         
         # Extract the actual content (after size parameters)
         if content_start_index > 0:
@@ -764,33 +752,21 @@ class AestheticComputerMagics(Magics):
 
         parts = filtered_parts
         
-        # Check if first part(s) are numeric parameters
-        if len(parts) >= 2:  # Need at least 2 parts to have a size parameter + content
-            try:
-                # Try to parse first part as a number (height only)
-                first_num = _safe_eval(parts[0], context)
-                if not isinstance(first_num, (int, float)):
-                    raise ValueError
-                if len(parts) >= 3:
-                    try:
-                        # Try to parse second part as a number (width, height)
-                        second_num = _safe_eval(parts[1], context)
-                        if not isinstance(second_num, (int, float)):
-                            raise ValueError
+        # Check if first part(s) are numeric parameters (use _is_numeric_like to avoid warning)
+        if len(parts) >= 1 and _is_numeric_like(parts[0]):
+            # First part looks numeric - parse it
+            first_num = _safe_eval(parts[0], context)
+            if isinstance(first_num, (int, float)):
+                height = first_num
+                content_start_index = 1
+                
+                # Check if second part is also numeric (width)
+                if len(parts) >= 3 and _is_numeric_like(parts[1]):
+                    second_num = _safe_eval(parts[1], context)
+                    if isinstance(second_num, (int, float)):
                         width = first_num
                         height = second_num
                         content_start_index = 2
-                    except ValueError:
-                        # Second part is not a number, so first is height only
-                        height = first_num
-                        content_start_index = 1
-                else:
-                    # Only two parts total, first is height, second is content
-                    height = first_num
-                    content_start_index = 1
-            except ValueError:
-                # First part is not a number, treat entire line as content
-                pass
         
         # Extract the actual content (after size parameters)
         if content_start_index > 0:
