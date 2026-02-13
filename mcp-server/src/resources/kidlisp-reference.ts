@@ -248,5 +248,7 @@ Timing expressions control when code runs:
 8. **Use \`bake\` for layering** — commits drawing to background
 9. **Timing expressions drive animation** — \`0.1s\`, \`1s...\`, etc.
 10. **Bare words work** — \`red\` = \`(wipe "red")\`, \`line\` = \`(line)\` with random coords
+
+Live reference with function popularity data: https://kidlisp.com/learn
 `;
 }

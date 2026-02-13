@@ -354,7 +354,100 @@ export async function handler(event, context) {
       const code = event.queryStringParameters?.code;
       const codes = event.queryStringParameters?.codes;
       const recent = event.queryStringParameters?.recent;
-      
+      const stats = event.queryStringParameters?.stats;
+
+      // Handle function usage statistics across all pieces
+      if (stats === 'functions') {
+        console.log(`📊 Function stats request`);
+
+        // Fetch top pieces sorted by hits (covers most real usage)
+        const scanLimit = parseInt(event.queryStringParameters?.limit) || 5000;
+        const docs = await collection.find(
+          {},
+          { projection: { source: 1, hits: 1, _id: 0 } }
+        ).sort({ hits: -1 }).limit(scanLimit).toArray();
+
+        // Parse function calls from source code
+        const rawCounts = {};   // unweighted: each piece counts once
+        const weightedCounts = {}; // weighted by piece hits
+        let totalHits = 0;
+
+        const funcPattern = /\(\s*([a-zA-Z_+\-*/%?][a-zA-Z0-9_]*)/g;
+
+        // Known bare-word commands (functions that work without parens)
+        const bareCommands = new Set([
+          'wipe', 'ink', 'line', 'box', 'circle', 'plot', 'point', 'flood',
+          'scroll', 'spin', 'zoom', 'blur', 'contrast', 'suck', 'sort',
+          'bake', 'fill', 'outline', 'stroke', 'nofill', 'nostroke',
+          'resolution', 'mask', 'unmask', 'steal', 'putback',
+          'rainbow', 'zebra', 'noise', 'unpan', 'resetSpin',
+        ]);
+
+        // Known CSS color names used as bare wipe commands
+        const bareColors = new Set([
+          'red', 'green', 'blue', 'yellow', 'orange', 'purple', 'pink',
+          'cyan', 'magenta', 'black', 'white', 'gray', 'grey', 'brown',
+          'lime', 'navy', 'teal', 'olive', 'maroon', 'aqua', 'fuchsia',
+          'silver', 'gold', 'coral', 'salmon', 'khaki', 'indigo', 'violet',
+          'turquoise', 'tomato', 'crimson', 'lavender', 'beige', 'plum',
+          'orchid', 'tan', 'chocolate', 'sienna', 'peru', 'wheat',
+          'deepskyblue', 'hotpink', 'springgreen', 'darkslategray',
+        ]);
+
+        for (const doc of docs) {
+          const src = doc.source || '';
+          const hits = doc.hits || 1;
+          totalHits += hits;
+          const seenInPiece = new Set(); // track unique functions per piece
+
+          // Extract parenthesized function calls
+          let match;
+          funcPattern.lastIndex = 0;
+          while ((match = funcPattern.exec(src)) !== null) {
+            const fn = match[1];
+            seenInPiece.add(fn);
+          }
+
+          // Detect bare-word commands (words at start of line or after comma)
+          const tokens = src.split(/[,\n]/).map(t => t.trim().split(/\s+/)[0]);
+          for (const token of tokens) {
+            if (bareCommands.has(token)) seenInPiece.add(token);
+            if (bareColors.has(token)) seenInPiece.add('wipe'); // bare color = implicit wipe
+          }
+
+          // Detect embedded piece references ($codeId)
+          if (/\$[a-zA-Z0-9]+/.test(src)) seenInPiece.add('embed');
+
+          // Detect timing expressions
+          if (/\d+\.?\d*s[.!]?/.test(src)) seenInPiece.add('timing');
+
+          // Detect fade gradient syntax
+          if (/fade:/.test(src)) seenInPiece.add('fade');
+
+          // Aggregate
+          for (const fn of seenInPiece) {
+            rawCounts[fn] = (rawCounts[fn] || 0) + 1;
+            weightedCounts[fn] = (weightedCounts[fn] || 0) + hits;
+          }
+        }
+
+        // Sort by weighted count descending
+        const sorted = Object.entries(weightedCounts)
+          .sort((a, b) => b[1] - a[1])
+          .map(([name, weighted]) => ({
+            name,
+            pieces: rawCounts[name] || 0,
+            weighted,
+          }));
+
+        await database.disconnect();
+        return respond(200, {
+          functions: sorted,
+          total_pieces: docs.length,
+          total_hits: totalHits,
+        });
+      }
+
       // Handle recent codes feed (for $.mjs piece)
       if (recent) {
         const limit = parseInt(event.queryStringParameters?.limit) || 50;

@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<!-- KidLisp.com Learn - Language reference with live function popularity data -->
+<!-- URL: kidlisp.com/learn (future: learn.kidlisp.com) -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Learn · KidLisp.com</title>
+
+  <!-- Open Graph / Social Preview -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://kidlisp.com/learn" />
+  <meta property="og:title" content="Learn · KidLisp.com" />
+  <meta property="og:description" content="KidLisp language reference — 118 functions for generative art, with live popularity data from the community." />
+  <meta property="og:image" content="https://oven.aesthetic.computer/kidlisp-og.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Learn · KidLisp.com" />
+  <meta name="twitter:description" content="KidLisp language reference with live function popularity." />
+  <meta name="twitter:image" content="https://oven.aesthetic.computer/kidlisp-og.png" />
+
+  <link rel="icon" type="image/gif" href="https://assets.aesthetic.computer/kidlisp-favicon.gif" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Comic+Relief:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+
+  <style>
+    @font-face {
+      font-family: 'YWFTProcessing-Regular';
+      src: url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2') format('woff2'),
+           url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff') format('woff');
+      font-weight: normal; font-style: normal; font-display: swap;
+    }
+    @font-face {
+      font-family: 'YWFTProcessing-Bold';
+      src: url('https://aesthetic.computer/type/webfonts/ywft-processing-bold.woff2') format('woff2'),
+           url('https://aesthetic.computer/type/webfonts/ywft-processing-bold.woff') format('woff');
+      font-weight: bold; font-style: normal; font-display: swap;
+    }
+
+    :root {
+      --bg-primary: #f7f7f7;
+      --bg-secondary: #e8e8e8;
+      --bg-tertiary: white;
+      --text-primary: #111;
+      --text-secondary: #555;
+      --text-muted: #888;
+      --accent: #4a6fff;
+      --accent-dim: rgba(74, 111, 255, 0.1);
+      --border: #ddd;
+      --code-bg: #f0f0f0;
+      --bar-color: #4a6fff;
+      --font-mono: 'Berkeley Mono Variable', 'Noto Sans Mono', monospace;
+      --font-display: 'YWFTProcessing-Regular', monospace;
+      --font-fun: 'Comic Relief', cursive;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-primary: #111;
+        --bg-secondary: #1a1a1a;
+        --bg-tertiary: #222;
+        --text-primary: #eee;
+        --text-secondary: #aaa;
+        --text-muted: #666;
+        --border: #333;
+        --code-bg: #1a1a1a;
+        --bar-color: #6b8aff;
+        --accent-dim: rgba(107, 138, 255, 0.15);
+      }
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--font-mono);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      font-size: 14px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 24px 20px 80px;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+    }
+    header h1 {
+      font-family: var(--font-display);
+      font-size: 28px;
+      font-weight: normal;
+      letter-spacing: -0.5px;
+    }
+    header h1 span { color: var(--text-muted); }
+    header nav { display: flex; gap: 16px; }
+    header nav a {
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 13px;
+    }
+    header nav a:hover { text-decoration: underline; }
+
+    /* Sections */
+    section { margin-bottom: 40px; }
+    section h2 {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: normal;
+      margin-bottom: 16px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    section h3 {
+      font-size: 14px;
+      font-weight: bold;
+      margin: 20px 0 8px;
+      color: var(--text-secondary);
+    }
+    p, li { color: var(--text-secondary); margin-bottom: 8px; }
+
+    /* Code blocks */
+    code {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      background: var(--code-bg);
+      padding: 2px 5px;
+      border-radius: 3px;
+    }
+    pre {
+      background: var(--code-bg);
+      padding: 12px 16px;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 8px 0 16px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    pre code { background: none; padding: 0; }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 8px 0 16px;
+      font-size: 13px;
+    }
+    th, td {
+      text-align: left;
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-weight: bold;
+      color: var(--text-muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    td code { font-size: 12px; }
+
+    /* Function popularity bars */
+    #popularity { min-height: 100px; }
+    .pop-loading { color: var(--text-muted); font-style: italic; }
+    .pop-grid {
+      display: grid;
+      grid-template-columns: 120px 1fr 60px;
+      gap: 4px 12px;
+      align-items: center;
+    }
+    .pop-name {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: bold;
+    }
+    .pop-bar-wrap {
+      height: 18px;
+      background: var(--accent-dim);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .pop-bar {
+      height: 100%;
+      background: var(--bar-color);
+      border-radius: 3px;
+      transition: width 0.4s ease;
+    }
+    .pop-count {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: right;
+    }
+    .pop-meta {
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Top hits */
+    #top-hits { min-height: 100px; }
+    .hit-card {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .hit-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 8px;
+    }
+    .hit-code {
+      font-family: var(--font-mono);
+      font-weight: bold;
+      font-size: 15px;
+    }
+    .hit-code a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .hit-code a:hover { text-decoration: underline; }
+    .hit-views { font-size: 12px; color: var(--text-muted); }
+    .hit-source {
+      background: var(--code-bg);
+      padding: 10px 12px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      .container { padding: 16px 12px 60px; }
+      header h1 { font-size: 22px; }
+      .pop-grid { grid-template-columns: 90px 1fr 50px; gap: 3px 8px; }
+      .pop-name { font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>Learn <span>· KidLisp.com</span></h1>
+    <nav>
+      <a href="https://kidlisp.com">Editor</a>
+      <a href="https://kidlisp.com/keeps">Keeps</a>
+      <a href="https://top.kidlisp.com">Top 100</a>
+    </nav>
+  </header>
+
+  <!-- Function Popularity (loaded from API) -->
+  <section>
+    <h2>Most Used Functions</h2>
+    <div id="popularity"><p class="pop-loading">Loading function popularity data...</p></div>
+  </section>
+
+  <!-- Language Reference -->
+  <section>
+    <h2>Language Reference</h2>
+    <p>KidLisp is a minimal Lisp dialect for creating generative art. It uses S-expressions where the first element is a function name followed by arguments.</p>
+
+    <h3>Syntax</h3>
+    <pre><code>; Comments start with semicolon
+(function-name arg1 arg2 ...)
+
+; Shorthand comma syntax
+purple, ink, line, blur 5
+
+; Variables &amp; functions
+(def x 10)
+(later star x y (ink "yellow") (circle x y 20))
+(star 100 100)
+
+; Loops
+(repeat 50 i (circle (wiggle w) (wiggle h) 10))</code></pre>
+    <p>Shorthand: <code>w</code> = width, <code>h</code> = height, <code>f</code> = frame. <code>?</code> = random, <code>...</code> = cycle values.</p>
+    <p>Identifiers: no dashes (parsed as subtraction). Use <code>my_var</code> not <code>my-var</code>.</p>
+
+    <h3>Drawing</h3>
+    <table>
+      <tr><th>Function</th><th>Usage</th><th>Description</th></tr>
+      <tr><td><code>wipe</code></td><td><code>(wipe color)</code></td><td>Clear screen</td></tr>
+      <tr><td><code>ink</code></td><td><code>(ink color [alpha])</code></td><td>Set draw color</td></tr>
+      <tr><td><code>line</code></td><td><code>(line x1 y1 x2 y2)</code> or <code>(line)</code></td><td>Line (random if no args)</td></tr>
+      <tr><td><code>box</code></td><td><code>(box x y w h)</code></td><td>Rectangle</td></tr>
+      <tr><td><code>circle</code></td><td><code>(circle x y radius)</code></td><td>Circle</td></tr>
+      <tr><td><code>tri</code></td><td><code>(tri x1 y1 x2 y2 x3 y3)</code></td><td>Triangle</td></tr>
+      <tr><td><code>plot</code></td><td><code>(plot x y)</code></td><td>Single pixel</td></tr>
+      <tr><td><code>flood</code></td><td><code>(flood x y)</code></td><td>Flood fill</td></tr>
+      <tr><td><code>shape</code></td><td><code>(shape pts... "fill")</code></td><td>Polygon</td></tr>
+      <tr><td><code>fill</code>/<code>outline</code></td><td><code>(fill)</code> / <code>(outline)</code></td><td>Shape mode</td></tr>
+    </table>
+
+    <h3>Colors</h3>
+    <p>Named: <code>red</code>, <code>blue</code>, <code>lime</code>, <code>navy</code>, etc. (all CSS colors, no quotes needed)<br>
+       RGB: <code>(ink 255 0 0)</code> &mdash; With alpha: <code>(ink red 128)</code><br>
+       Special: <code>rainbow</code>, <code>zebra</code>, <code>erase</code><br>
+       Gradients: <code>fade:red-blue-black</code>, <code>fade:zebra-rainbow-zebra:direction</code></p>
+
+    <h3>Math</h3>
+    <table>
+      <tr><th>Function</th><th>Usage</th><th>Description</th></tr>
+      <tr><td><code>+</code> <code>-</code> <code>*</code> <code>/</code> <code>%</code></td><td><code>(+ a b c...)</code></td><td>Arithmetic</td></tr>
+      <tr><td><code>sin</code> <code>cos</code> <code>tan</code></td><td><code>(sin x)</code></td><td>Trigonometry</td></tr>
+      <tr><td><code>random</code> / <code>?</code></td><td><code>(? a b c)</code></td><td>Random pick</td></tr>
+      <tr><td><code>wiggle</code></td><td><code>(wiggle amount)</code></td><td>Random &plusmn;amount/2</td></tr>
+      <tr><td><code>min</code> <code>max</code> <code>abs</code></td><td><code>(min a b)</code></td><td>Comparison</td></tr>
+      <tr><td><code>sqrt</code> <code>pow</code></td><td><code>(sqrt x)</code></td><td>Power/root</td></tr>
+      <tr><td><code>floor</code> <code>ceil</code> <code>round</code></td><td><code>(floor x)</code></td><td>Rounding</td></tr>
+    </table>
+
+    <h3>System</h3>
+    <p><code>width</code>/<code>w</code>, <code>height</code>/<code>h</code> &mdash; canvas size.
+       <code>frame</code>/<code>f</code> &mdash; frame count.
+       <code>clock</code> &mdash; UTC time. <code>pi</code> &mdash; &pi;.
+       <code>(fps rate)</code> &mdash; set frame rate.</p>
+
+    <h3>Control Flow</h3>
+    <table>
+      <tr><th>Function</th><th>Usage</th><th>Description</th></tr>
+      <tr><td><code>def</code></td><td><code>(def x 10)</code></td><td>Variable</td></tr>
+      <tr><td><code>later</code></td><td><code>(later fn params body)</code></td><td>Define function</td></tr>
+      <tr><td><code>if</code></td><td><code>(if cond then else)</code></td><td>Conditional</td></tr>
+      <tr><td><code>once</code></td><td><code>(once expr)</code></td><td>Run once only</td></tr>
+      <tr><td><code>repeat</code>/<code>bunch</code></td><td><code>(repeat n i expr)</code></td><td>Loop</td></tr>
+      <tr><td><code>?</code>/<code>choose</code></td><td><code>(? a b c)</code></td><td>Random pick</td></tr>
+      <tr><td><code>...</code></td><td><code>(... a b c)</code></td><td>Cycle over time</td></tr>
+      <tr><td><code>now</code></td><td><code>(now var value)</code></td><td>Update variable</td></tr>
+    </table>
+
+    <h3>Timing</h3>
+    <pre><code>1s              ; after 1 second
+2s...           ; cycle every 2 seconds
+0.5s!           ; once after 0.5s
+0.1s            ; every 0.1 seconds (fast)
+
+(0.25s (wipe (... red yellow blue)))  ; cycle bg color
+(1s (blur 1))                         ; periodic blur</code></pre>
+
+    <h3>Pixel Transforms</h3>
+    <table>
+      <tr><th>Function</th><th>Usage</th><th>Description</th></tr>
+      <tr><td><code>scroll</code></td><td><code>(scroll dx dy)</code></td><td>Translate with wrapping</td></tr>
+      <tr><td><code>zoom</code></td><td><code>(zoom factor)</code></td><td>Scale from center</td></tr>
+      <tr><td><code>spin</code></td><td><code>(spin angle)</code></td><td>Rotate</td></tr>
+      <tr><td><code>suck</code></td><td><code>(suck strength)</code></td><td>Vortex displacement</td></tr>
+      <tr><td><code>blur</code></td><td><code>(blur amount)</code></td><td>Gaussian blur</td></tr>
+      <tr><td><code>contrast</code></td><td><code>(contrast amount)</code></td><td>Adjust contrast</td></tr>
+      <tr><td><code>sort</code></td><td><code>(sort)</code></td><td>Sort pixels by brightness</td></tr>
+      <tr><td><code>bake</code></td><td><code>(bake)</code></td><td>Commit to background</td></tr>
+      <tr><td><code>pan</code>/<code>unpan</code></td><td><code>(pan dx dy)</code></td><td>Camera movement</td></tr>
+    </table>
+
+    <h3>Images, Text &amp; Media</h3>
+    <table>
+      <tr><th>Function</th><th>Usage</th><th>Description</th></tr>
+      <tr><td><code>paste</code></td><td><code>(paste url x y [scale])</code></td><td>Paste image (URLs can be unquoted)</td></tr>
+      <tr><td><code>stamp</code></td><td><code>(stamp url x y)</code></td><td>Paste centered</td></tr>
+      <tr><td><code>write</code></td><td><code>(write text x y)</code></td><td>Draw text</td></tr>
+      <tr><td><code>tape</code></td><td><code>(tape !CODE x y w h)</code></td><td>Embed video</td></tr>
+    </table>
+
+    <h3>Audio</h3>
+    <p><code>mic</code>, <code>amplitude</code>, <code>melody</code>, <code>overtone</code>, <code>noise</code>, <code>speaker</code></p>
+
+    <h3>3D</h3>
+    <p><code>cube</code>, <code>form</code>, <code>trans</code> (move, scale, spin), <code>cubespin</code>, <code>cubepos</code>, <code>cubescale</code>, <code>camrot</code>, <code>camspin</code></p>
+
+    <h3>Embedding &amp; Navigation</h3>
+    <pre><code>($codeId)              ; execute another piece
+($codeId x y w h alpha) ; embed with position/size/alpha
+(jump "piece")          ; navigate to piece
+(jump $id)              ; navigate to cached piece</code></pre>
+  </section>
+
+  <!-- Top Hits (loaded from API) -->
+  <section>
+    <h2>Top Hits</h2>
+    <p style="color:var(--text-muted); margin-bottom: 16px;">Real pieces with the most views &mdash; proven patterns from the community.</p>
+    <div id="top-hits"><p class="pop-loading">Loading top hits...</p></div>
+  </section>
+</div>
+
+<script>
+// Fetch function popularity
+(async () => {
+  const el = document.getElementById('popularity');
+  try {
+    const res = await fetch('/api/store-kidlisp?stats=functions');
+    const data = await res.json();
+    const top = data.functions.slice(0, 30);
+    if (!top.length) { el.innerHTML = '<p>No data yet.</p>'; return; }
+
+    const maxW = top[0].weighted;
+    let html = '<div class="pop-grid">';
+    for (const fn of top) {
+      const pct = Math.round((fn.weighted / maxW) * 100);
+      html += `<div class="pop-name">${esc(fn.name)}</div>`;
+      html += `<div class="pop-bar-wrap"><div class="pop-bar" style="width:${pct}%"></div></div>`;
+      html += `<div class="pop-count">${fn.pieces.toLocaleString()}</div>`;
+    }
+    html += '</div>';
+    html += `<p class="pop-meta">Scanned ${data.total_pieces.toLocaleString()} pieces &middot; ${data.total_hits.toLocaleString()} total views &middot; counts = pieces using function</p>`;
+    el.innerHTML = html;
+  } catch (e) {
+    el.innerHTML = '<p style="color:var(--text-muted)">Could not load popularity data.</p>';
+  }
+})();
+
+// Fetch top hits
+(async () => {
+  const el = document.getElementById('top-hits');
+  try {
+    const res = await fetch('/api/store-kidlisp?recent=true&sort=hits&limit=30');
+    const data = await res.json();
+    const hits = (data.recent || []).filter(p => p.hits >= 500 && p.source.length > 15);
+
+    if (!hits.length) { el.innerHTML = '<p>No top hits found.</p>'; return; }
+
+    let html = '';
+    for (const p of hits.slice(0, 15)) {
+      const url = `https://aesthetic.computer/${encodeURIComponent(p.code)}`;
+      html += `<div class="hit-card">`;
+      html += `<div class="hit-header">`;
+      html += `<span class="hit-code"><a href="${url}" target="_blank" rel="noopener">$${esc(p.code)}</a></span>`;
+      html += `<span class="hit-views">${p.hits.toLocaleString()} views${p.handle ? ' · ' + esc(p.handle) : ''}</span>`;
+      html += `</div>`;
+      html += `<div class="hit-source">${esc(p.source)}</div>`;
+      html += `</div>`;
+    }
+    el.innerHTML = html;
+  } catch (e) {
+    el.innerHTML = '<p style="color:var(--text-muted)">Could not load top hits.</p>';
+  }
+})();
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+</script>
+
+</body>
+</html>
