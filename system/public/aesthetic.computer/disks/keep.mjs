@@ -591,7 +591,7 @@ async function loadPiecePreview() {
         frames: result.frames
       };
       piecePreviewFrameIndex = 0;
-      piecePreviewLastFrameTime = performance.now();
+      piecePreviewLastFrameTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
       piecePreviewBitmap = {
         width: result.width,
         height: result.height,
@@ -751,7 +751,7 @@ async function loadThumbnail(ipfsUri) {
         frames: result.frames
       };
       thumbnailFrameIndex = 0;
-      thumbnailLastFrameTime = performance.now();
+      thumbnailLastFrameTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
 
       // Set first frame as current bitmap
       const firstFrame = result.frames[0];
@@ -1583,7 +1583,7 @@ function sim() {
 
   // Animate thumbnail frames if we have an animated WebP
   if (thumbnailFrames && thumbnailFrames.frameCount > 1) {
-    const now = performance.now();
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
     const currentFrame = thumbnailFrames.frames[thumbnailFrameIndex];
     const frameDuration = currentFrame?.duration || 100; // Default 100ms per frame
 
@@ -1601,10 +1601,10 @@ function sim() {
       };
     }
   }
-  
+
   // Animate piece preview frames (for confirmation view)
   if (piecePreviewFrames && piecePreviewFrames.frameCount > 1) {
-    const now = performance.now();
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
     const currentFrame = piecePreviewFrames.frames[piecePreviewFrameIndex];
     const frameDuration = currentFrame?.duration || 100;
 
