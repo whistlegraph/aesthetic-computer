@@ -149,12 +149,19 @@ function firehoseSummary(coll, op, doc) {
     case "moods": return (who ? who + " " : "") + (doc.mood || "");
     case "verifications": return who || null;
     case "boots": {
-      const host = doc.meta?.host || "";
-      const path = doc.meta?.path || "/";
-      const rawUser = doc.meta?.user;
+      const m = doc.meta || {};
+      const rawUser = m.user?.handle || m.user?.sub || m.user;
       const bootUser = rawUser ? (resolveHandle(String(rawUser)) || rawUser) : null;
+      const who = bootUser ? `@${bootUser}` : "visitor";
       const status = doc.status || "";
-      return (bootUser ? `@${bootUser}` : "visitor") + " " + host + path + (status !== "started" ? ` [${status}]` : "");
+      const statusTag = status !== "started" ? ` [${status}]` : "";
+      // Rich info: browser, device, referrer, geo
+      const browser = m.browser || "";
+      const device = m.mobile ? "mobile" : "";
+      const geo = doc.server?.country || "";
+      const referrer = m.referrer ? ` via ${m.referrer.replace(/^https?:\/\//, "").split("/")[0]}` : "";
+      const parts = [who, m.host + (m.path || "/"), browser, device, geo].filter(Boolean);
+      return parts.join(" ") + referrer + statusTag;
     }
     case "oven-bakes": return doc.status || null;
     default: {

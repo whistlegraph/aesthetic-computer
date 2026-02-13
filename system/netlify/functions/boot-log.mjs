@@ -54,6 +54,16 @@ export async function handler(event) {
     const boots = database.db.collection("boots");
     const now = new Date();
 
+    // Capture server-side request headers (Cloudflare, IP, etc.)
+    const headers = event.headers || {};
+    const server = {
+      ip: headers["x-nf-client-connection-ip"] || headers["x-forwarded-for"]?.split(",")[0]?.trim() || null,
+      country: headers["x-country"] || headers["x-nf-country-code"] || null,
+      region: headers["x-nf-subdivision-code"] || null,
+      city: headers["x-nf-city"] || null,
+      referer: headers["referer"] || headers["referrer"] || null,
+    };
+
     if (phase === "start") {
       await boots.updateOne(
         { bootId },
@@ -62,6 +72,7 @@ export async function handler(event) {
             bootId,
             createdAt: now,
             meta,
+            server,
             status: "started",
           },
           $set: {
