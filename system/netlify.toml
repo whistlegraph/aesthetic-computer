@@ -229,7 +229,7 @@ included_env_vars = ["CONTEXT", "STRIPE_API_TEST_PRIV_KEY", "STRIPE_API_PRIV_KEY
 # Email blast unsubscribe/resubscribe endpoint
 external_node_modules = ["mongodb", "mongodb-connection-string-url"]
 included_files = ["backend/**/*.mjs"]
-included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
+included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME", "UNSUBSCRIBE_SECRET"]
 
 [functions.mail-status]
 # Email preferences and blast history API

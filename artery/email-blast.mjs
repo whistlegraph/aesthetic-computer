@@ -29,24 +29,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // Load env from at/.env (has Auth0 M2M creds)
 config({ path: join(__dirname, '../at/.env') });
 
-// Secrets loaded from MongoDB at startup
-let SECRETS = null;
-
-async function loadSecrets() {
-  if (SECRETS) return SECRETS;
-  const { connect } = await import('../system/backend/database.mjs');
-  const db = await connect();
-  SECRETS = await db.db.collection('secrets').findOne({ _id: 'email-blast' });
-  await db.disconnect();
-  if (!SECRETS) throw new Error('email-blast secrets not found in database');
-  return SECRETS;
-}
-
 // HMAC token generation for unsubscribe links
 function generateUnsubscribeToken(email) {
-  const secret = SECRETS?.unsubscribeSecret;
+  const secret = process.env.UNSUBSCRIBE_SECRET;
   if (!secret) {
-    console.warn('WARNING: unsubscribeSecret not loaded — unsubscribe links will not work');
+    console.warn('WARNING: UNSUBSCRIBE_SECRET not set — unsubscribe links will not work');
     return 'no-secret';
   }
   return createHmac('sha256', secret)
@@ -214,18 +201,21 @@ async function exportAllUsers() {
   return users;
 }
 
-// SMTP config — loaded from DB secrets at runtime
-function getSmtpConfig() {
-  if (!SECRETS) throw new Error('Secrets not loaded — call loadSecrets() first');
-  return {
-    host: SECRETS.smtpHost || 'smtp.gmail.com',
-    port: SECRETS.smtpPort || 465,
-    secure: true,
-    auth: {
-      user: SECRETS.smtpUser,
-      pass: SECRETS.smtpPass,
-    },
-  };
+// SMTP config from at/deploy.env
+const SMTP_CONFIG = {
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true,
+  auth: {
+    user: process.env.SMTP_USER || 'mail@aesthetic.computer',
+    pass: process.env.SMTP_PASS, // Required: set in environment or at/.env
+  },
+};
+
+if (!SMTP_CONFIG.auth.pass) {
+  console.error('❌ SMTP_PASS environment variable is required!');
+  console.error('   Set it in at/.env or export it before running.');
+  process.exit(1);
 }
 
 const EMAIL_SUBJECT = 'help aesthetic.computer stay online 💾';
@@ -278,7 +268,10 @@ function getEmailHtml(recipientEmail) {
 
 <p>— jas</p>
 
-<p><a href="${unsubUrl}">unsubscribe</a></p>`;
+<hr style="border: none; border-top: 1px solid #444; margin: 24px 0;">
+<p style="font-size: 12px; color: #888;">
+  <a href="${unsubUrl}" style="color: #888;">Unsubscribe</a> from aesthetic.computer emails
+</p>`;
 }
 
 // Get Auth0 access token
@@ -542,11 +535,10 @@ async function exportUsers() {
 }
 
 // Preview email content
-async function previewEmail() {
-  await loadSecrets();
+function previewEmail() {
   console.log('\n📧 EMAIL PREVIEW\n');
   console.log('─'.repeat(60));
-  console.log(`From: ${SECRETS.smtpUser}`);
+  console.log(`From: mail@aesthetic.computer`);
   console.log(`Subject: ${EMAIL_SUBJECT}`);
   console.log('─'.repeat(60));
   console.log(getEmailText('preview@example.com'));
@@ -572,10 +564,9 @@ async function sendEmail(transporter, to) {
 
 // Send test email
 async function sendTestEmail(testEmail) {
-  await loadSecrets();
   console.log(`\n📧 Sending test email to: ${testEmail}\n`);
 
-  const transporter = createTransport(getSmtpConfig());
+  const transporter = createTransport(SMTP_CONFIG);
 
   try {
     const result = await sendEmail(transporter, testEmail);
@@ -617,36 +608,6 @@ function logFailedEmail(email, error) {
   appendFileSync(FAILED_LOG_FILE, `${email}|${error}\n`);
 }
 
-// Record blast metadata in MongoDB
-async function createBlastRecord(subject, totalAttempted) {
-  const { connect } = await import('../system/backend/database.mjs');
-  const db = await connect();
-  const col = db.db.collection('email-blast-history');
-  const result = await col.insertOne({
-    when: new Date(),
-    subject,
-    status: 'in-progress',
-    totalAttempted,
-    sent: 0,
-    failed: 0,
-    lastUpdated: new Date(),
-  });
-  await db.disconnect();
-  return result.insertedId;
-}
-
-async function updateBlastRecord(blastId, update) {
-  const { connect } = await import('../system/backend/database.mjs');
-  const { ObjectId } = await import('mongodb');
-  const db = await connect();
-  const col = db.db.collection('email-blast-history');
-  await col.updateOne(
-    { _id: blastId instanceof ObjectId ? blastId : new ObjectId(blastId) },
-    { $set: { ...update, lastUpdated: new Date() } },
-  );
-  await db.disconnect();
-}
-
 // Get muted users from MongoDB
 async function getMutedUsers() {
   const { connect } = await import('../system/backend/database.mjs');
@@ -678,7 +639,6 @@ async function getUnsubscribedEmails() {
 
 // Send blast to verified users by default, excluding muted + unsubscribed
 async function sendBlast(resume = false, verifiedOnly = true) {
-  await loadSecrets();
   console.log('\n🚀 EMAIL BLAST MODE\n');
 
   // Load cached users
@@ -746,16 +706,7 @@ async function sendBlast(resume = false, verifiedOnly = true) {
   console.log(`   Progress saved to: ${SENT_LOG_FILE}`);
   console.log(`   Use --send --resume to continue if interrupted\n`);
 
-  // Record blast in database
-  let blastId;
-  try {
-    blastId = await createBlastRecord(EMAIL_SUBJECT, toSend.length);
-    console.log(`   Blast ID: ${blastId}\n`);
-  } catch (err) {
-    console.warn(`   ⚠️  Could not record blast in DB: ${err.message}\n`);
-  }
-
-  const transporter = createTransport(getSmtpConfig());
+  const transporter = createTransport(SMTP_CONFIG);
   
   let sent = 0;
   let failed = 0;
@@ -805,21 +756,6 @@ async function sendBlast(resume = false, verifiedOnly = true) {
   }
 
   const totalTime = ((Date.now() - startTime) / 1000 / 60).toFixed(1);
-
-  // Update blast record in database
-  if (blastId) {
-    try {
-      await updateBlastRecord(blastId, {
-        sent,
-        failed,
-        status: 'completed',
-        completedAt: new Date(),
-        duration: `${totalTime} minutes`,
-      });
-    } catch (err) {
-      console.warn(`⚠️  Could not update blast record: ${err.message}`);
-    }
-  }
 
   console.log('\n' + '═'.repeat(60));
   console.log(`📊 BLAST COMPLETE`);
