@@ -516,16 +516,19 @@
       padding-bottom: calc(var(--ui-scale, 8) * 0.3px);
       margin-bottom: calc(var(--ui-scale, 8) * 0.2px);
     }
-    
+
     .ff1-playlist-header.visible {
-      display: block;
+      display: flex;
+      flex-direction: row;
+      align-items: baseline;
+      gap: calc(var(--ui-scale, 8) * 1px);
     }
     
     .ff1-playlist-title {
       color: rgba(255, 255, 255, 0.9);
       font-family: 'Noto Sans Mono', monospace;
       font-size: calc(var(--ui-scale, 8) * 2.5px);
-      font-weight: bold;
+      font-weight: 400;
       line-height: 1.2;
       text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
     }
@@ -534,7 +537,7 @@
       color: rgba(255, 215, 0, 0.9);
       font-family: 'Noto Sans Mono', monospace;
       font-size: calc(var(--ui-scale, 8) * 2.5px);
-      margin-top: calc(var(--ui-scale, 8) * 0.15px);
+      white-space: nowrap;
       text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
     }
     
@@ -967,7 +970,6 @@
 
       .ff1-playlist-position {
         font-size: 12px;
-        margin-top: 2px;
       }
 
       /* FF1 copy button - flush left on mobile, no icon indent */
@@ -3330,30 +3332,41 @@
     }
 
     function updateFF1Overlap() {
+      const pieceInfo = document.getElementById('piece-info');
       const ff1Module = document.getElementById('ff1-module');
       const qrWrap = document.getElementById('qr-wrap');
-      if (!ff1Module || !qrWrap) return;
+      if (!pieceInfo || !qrWrap) return;
 
-      const ff1Rect = ff1Module.getBoundingClientRect();
+      // Temporarily reset scale to measure natural size
+      pieceInfo.style.transform = '';
+      pieceInfo.style.transformOrigin = '';
+
+      const infoRect = pieceInfo.getBoundingClientRect();
       const qrRect = qrWrap.getBoundingClientRect();
       const uiScaleValue = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ui-scale')) || 10;
       const margin = Math.max(12, uiScaleValue * 1.5);
 
-      const expanded = {
-        left: qrRect.left - margin,
-        right: qrRect.right + margin,
-        top: qrRect.top - margin,
-        bottom: qrRect.bottom + margin,
-      };
+      // Check horizontal overlap: piece-info right edge vs qr-wrap left edge
+      const availableWidth = qrRect.left - margin - infoRect.left;
+      const neededWidth = infoRect.width;
 
-      const overlap = !(
-        ff1Rect.right < expanded.left ||
-        ff1Rect.left > expanded.right ||
-        ff1Rect.bottom < expanded.top ||
-        ff1Rect.top > expanded.bottom
-      );
+      // Check vertical overlap: do the two elements share vertical space?
+      const verticalOverlap = !(infoRect.bottom < qrRect.top - margin || infoRect.top > qrRect.bottom + margin);
 
-      ff1Module.classList.toggle('overlap-fade', overlap);
+      let scale = 1;
+      if (verticalOverlap && neededWidth > availableWidth && availableWidth > 0) {
+        scale = Math.max(0.5, availableWidth / neededWidth);
+      }
+
+      if (scale < 1) {
+        pieceInfo.style.transform = `scale(${scale})`;
+        pieceInfo.style.transformOrigin = 'bottom left';
+      }
+
+      // Also toggle overlap-fade on ff1-module for text truncation
+      if (ff1Module) {
+        ff1Module.classList.toggle('overlap-fade', scale < 0.95);
+      }
     }
 
     window.addEventListener('resize', () => requestAnimationFrame(updateFF1Overlap));

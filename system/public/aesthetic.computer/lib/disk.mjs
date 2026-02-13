@@ -9343,8 +9343,11 @@ async function makeFrame({ data: { type, content } }) {
     }
     
     // Store noauth flag for iframe embedding (kidlisp.com)
+    // In noauth mode, mark session as started immediately so piece loading
+    // doesn't wait for the session:started message (resilience when session server is down)
     if (content.noauth) {
       globalThis.NOAUTH_MODE = true;
+      sessionStarted = true;
     }
 
     USER = content.user;
