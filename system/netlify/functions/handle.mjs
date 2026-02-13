@@ -46,10 +46,14 @@ export async function handler(event, context) {
       !count &&
       !event.queryStringParameters?.for
     ) {
+      // Check if user is logged in - if so, redirect to prompt; otherwise to get-handle
+      const user = await authorize(event.headers, "aesthetic").catch(() => null);
+      const redirectTo = user ? "/prompt" : "/get-handle";
+
       return {
         statusCode: 302,
         headers: {
-          Location: "/get-handle",
+          Location: redirectTo,
           "Cache-Control": "no-cache",
         },
         body: "",
@@ -89,6 +93,7 @@ export async function handler(event, context) {
     } else {
       // Get handle `for`
       const id = event.queryStringParameters.for;
+      const includeColors = event.queryStringParameters.colors === "true";
 
       if (!id) {
         return respond(400, {
@@ -98,6 +103,23 @@ export async function handler(event, context) {
       const result = await handleFor(id);
 
       if (typeof result === "string") {
+        // If colors requested, fetch from MongoDB
+        if (includeColors) {
+          try {
+            const database = await connect();
+            const handles = database.db.collection("@handles");
+            const user = await handles.findOne({
+              handle: { $regex: new RegExp(`^${result}$`, "i") },
+            });
+            await database.disconnect();
+
+            if (user && user.colors) {
+              return respond(200, { handle: result, colors: user.colors });
+            }
+          } catch (error) {
+            console.error("Failed to fetch colors:", error);
+          }
+        }
         return respond(200, { handle: result });
       } else if (Array.isArray(result) && result.length > 0) {
         return respond(200, { handles: result });

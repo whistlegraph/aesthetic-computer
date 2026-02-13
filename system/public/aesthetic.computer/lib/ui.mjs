@@ -7,6 +7,14 @@ let spinnerDelay = 0;
 
 let TYPEFACE_UI; // A default `Typeface` instance carried over from `disk`.
 
+// Strip \color\ codes from text to get visible length
+// Format: \r,g,b\text\r,g,b\ -> text
+function stripColorCodes(text) {
+  if (!text || typeof text !== 'string') return text;
+  // Remove all \...\  patterns (color codes)
+  return text.replace(/\\[^\\]*\\/g, '');
+}
+
 function spinnerReset() {
   spinnerDelay = 0;
 }
@@ -562,6 +570,27 @@ class Button {
     //       which often differs among use cases such as pianos or general GUIs.
 
     // 4. Rollover: Run a rollover event if dragged on.
+    // Hover handling on pointer move: trigger hover/leave callbacks immediately.
+    if (e.is && e.is("move")) {
+      try {
+        const containsNow = btn.box.contains(e);
+        if (containsNow && !btn.over) {
+          // Enter hover
+          try { console.log("UI: hover enter", { box: btn.box, pointer: e.pointer, x: e.x, y: e.y }); } catch (err) {}
+          callbacks.hover?.(btn);
+          callbacks.over?.(btn);
+          btn.over = true;
+        } else if (!containsNow && btn.over) {
+          // Leave hover
+          try { console.log("UI: hover leave", { box: btn.box, pointer: e.pointer, x: e.x, y: e.y }); } catch (err) {}
+          callbacks.leave?.(btn);
+          btn.over = false;
+        }
+      } catch (err) {
+        // ignore
+      }
+    }
+
     // if (e.is("draw:any") && !this.down && this.box.contains(e)) {
 
     // For offScreenScrubbing, check if cursor is horizontally within bounds
@@ -626,12 +655,26 @@ class Button {
         !shouldPreventRollover ||
         horizontallyWithin
       ) {
+        // Debug: rollover/over activation
+        try {
+          console.log("UI: rollover ->", {
+            box: btn.box,
+            down: btn.down,
+            pointer: e?.pointer,
+            drag: !!e?.drag,
+          });
+        } catch (err) {
+          /* swallow */
+        }
         if (callbacks.rollover) {
           callbacks.rollover(btn);
         } else {
           callbacks.over?.(btn);
         }
         btn.over = true;
+        try {
+          console.log("UI: btn.over set true", { box: btn.box });
+        } catch (err) {}
       }
     }
 
@@ -666,6 +709,10 @@ class Button {
         (btn.stickyScrubbing && btn.down) ||
         (btn.offScreenScrubbing && btn.down && horizontallyWithinForOffScreen)
       ) {
+        // Debug: scrub callback invocation
+        try {
+          console.log("UI: scrub ->", { box: btn.box, pointer: e.pointer, drag: e.drag });
+        } catch (err) {}
         callbacks.scrub?.(btn);
       }
     }
@@ -881,7 +928,8 @@ class TextButton {
   }
 
   get width() {
-    return this.txt.length * this.#cw + this.#gap * 2;
+    const visibleText = stripColorCodes(this.txt);
+    return visibleText.length * this.#cw + this.#gap * 2;
   }
 
   get height() {
@@ -895,7 +943,8 @@ class TextButton {
   #computePosition(text, pos = { x: 0, y: 0 }) {
     pos = { ...pos }; // Make a shallow copy of pos because we will mutate it.
     let x, y;
-    const w = text.length * this.#cw + this.#g2;
+    const visibleText = stripColorCodes(text);
+    const w = visibleText.length * this.#cw + this.#g2;
     const h = this.#h;
 
     if (pos.screen) {
@@ -959,10 +1008,11 @@ class TextButton {
     disabledScheme = [64, 127, 127, 64],
     rolloverScheme = null, // Optional: used when mouse is over but not pressed
   ) {
+    // Choose scheme based on state: disabled, pressed (down), rollover (hover), default
     let s;
     if (this.btn.disabled) {
       s = disabledScheme;
-    } else if (this.btn.down) {
+    } else if (this.btn.down && hoverScheme) {
       s = hoverScheme;
     } else if (this.btn.over && rolloverScheme) {
       s = rolloverScheme;
@@ -970,12 +1020,21 @@ class TextButton {
       s = scheme;
     }
 
-    $.ink(s[0])
-      .box(this.btn.box, "fill")
-      .ink(s[1])
-      .box(this.btn.box, "outline")
-      .ink(s[2])
-      .write(this.txt, p2.add(this.btn.box, this.#offset), s[3]);
+    // Normalize scheme parts. Many callers pass nested arrays like
+    // [fillColor, outlineColor, textColor, textAlpha] or sometimes numbers.
+    const fillColor = s[0] !== undefined ? s[0] : [0, 0, 0];
+    const outlineColor = s[1] !== undefined ? s[1] : fillColor;
+    const textColor = s[2] !== undefined ? s[2] : outlineColor;
+    const textAlpha = typeof s[3] === "number" ? s[3] : undefined;
+
+    // Paint fill, outline, then text. Use textAlpha only if numeric.
+    $.ink(fillColor).box(this.btn.box, "fill");
+    $.ink(outlineColor).box(this.btn.box, "outline");
+    if (textAlpha !== undefined) {
+      $.ink(textColor).write(this.txt, p2.add(this.btn.box, this.#offset), undefined, textAlpha);
+    } else {
+      $.ink(textColor).write(this.txt, p2.add(this.btn.box, this.#offset));
+    }
   }
 }
 
@@ -1026,15 +1085,17 @@ class TextButtonSmall {
   }
   
   get width() {
-    return this.txt.length * this.#cw + this.#padX * 2;
+    const visibleText = stripColorCodes(this.txt);
+    return visibleText.length * this.#cw + this.#padX * 2;
   }
-  
+
   get height() {
     return this.#ch + this.#padY * 2;
   }
-  
+
   #computePosition(text, pos = { x: 0, y: 0 }) {
-    const w = text.length * this.#cw + this.#padX * 2;
+    const visibleText = stripColorCodes(text);
+    const w = visibleText.length * this.#cw + this.#padX * 2;
     const h = this.#ch + this.#padY * 2;
     
     let x = pos.x || 0;
