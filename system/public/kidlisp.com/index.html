@@ -27,11 +27,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Comic+Relief:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+Mono:wght@400;700&display=swap" rel="stylesheet">
-  <!-- Flag icons for language selector -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.2.3/css/flag-icons.min.css" />
+  <!-- Flag icons for language selector (lazy-loaded — not needed at startup) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.2.3/css/flag-icons.min.css" media="print" onload="this.media='all'" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <!-- Auth0 SPA SDK (same as give.aesthetic.computer) -->
-  <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
   <!-- Modular CSS Architecture -->
   <link rel="stylesheet" href="/kidlisp.com/css/main.css" />
   <style>
@@ -9077,31 +9075,31 @@ s("ape_breaks_3").loopAt(2)</textarea>
   <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs/loader.min.js"></script>
   
   <script type="module">
-    // Import QR code library
-    import { qrcode as qr, ErrorCorrectLevel } from 'https://aesthetic.computer/aesthetic.computer/dep/@akamfoad/qr/qr.mjs';
-    window.qr = qr;
-    window.ErrorCorrectLevel = ErrorCorrectLevel;
+    // Lazy-load QR code library — not needed at startup
+    import('https://aesthetic.computer/aesthetic.computer/dep/@akamfoad/qr/qr.mjs').then(m => {
+      window.qr = m.qrcode;
+      window.ErrorCorrectLevel = m.ErrorCorrectLevel;
+    });
   </script>
   
   <!-- Development reload logic. -->
   <script type="module">
-    // Import KidLisp logger - use full URL to work on both localhost and production domains
+    // Non-blocking logger import — no-op proxies until loaded so init isn't delayed
+    const _noop = () => {};
+    const _noopLogger = new Proxy({}, { get: () => new Proxy(_noop, { get: () => _noop }) });
+    let log = _noopLogger;
+    let showHeader = _noop, logPlatformSwitch = _noop, logCodeOperation = _noop;
+    let logEditorInit = _noop, logAuth = _noop, logBoot = _noop, debug = _noop;
+
     const loggerBase = (window.location.hostname === 'localhost' || window.location.hostname.includes('local.'))
       ? 'https://localhost:8888' : 'https://aesthetic.computer';
-    const { 
-      log, 
-      showHeader, 
-      logPlatformSwitch, 
-      logCodeOperation, 
-      logEditorInit, 
-      logAuth, 
-      logBoot,
-      debug 
-    } = await import(`${loggerBase}/kidlisp.com/js/logger.js`);
-    
-    // Show beautiful header on load
-    showHeader();
-    logBoot('start', window.location.pathname);
+    import(`${loggerBase}/kidlisp.com/js/logger.js`).then(m => {
+      log = m.log; showHeader = m.showHeader; logPlatformSwitch = m.logPlatformSwitch;
+      logCodeOperation = m.logCodeOperation; logEditorInit = m.logEditorInit;
+      logAuth = m.logAuth; logBoot = m.logBoot; debug = m.debug;
+      showHeader();
+      logBoot('start', window.location.pathname);
+    }).catch(err => console.warn('Logger load failed:', err));
     
     // Internationalization
     const i18n = {
@@ -12175,7 +12173,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
 
     import { tokenize } from 'https://aesthetic.computer/aesthetic.computer/lib/kidlisp.mjs';
     import { KidLisp } from 'https://aesthetic.computer/aesthetic.computer/lib/kidlisp.mjs';
-    import { MonacoKidLispHighlighter } from 'https://aesthetic.computer/kidlisp.com/js/monaco-kidlisp-highlighting.mjs';
+    import { MonacoKidLispHighlighter } from 'https://aesthetic.computer/kidlisp.com/js/monaco-kidlisp-highlighting.mjs?v=3';
 
     const editorContainer = document.getElementById('kidlisp-editor');
     const sendButton = document.getElementById('send-button');
@@ -17242,7 +17240,6 @@ s("ape_breaks_3").loopAt(2)</textarea>
     
     // Forward declare auth and keeps state (initialized later)
     let acToken = null;
-    let acAuth0Client = null;
     let acUser = null;
     let acHandle = null; // The user's AC handle (@username)
 
@@ -18540,19 +18537,22 @@ s("ape_breaks_3").loopAt(2)</textarea>
         expandReferencePanelOnMobile();
       });
       
-      // Jukebox tab - shows audio player and Strudel
+      // Jukebox tab - shows audio player and Strudel (lazy-init on first click)
       jukeboxTab?.addEventListener('click', function(e) {
         e.stopPropagation();
         e.preventDefault();
         log.tabs.debug('Jukebox tab');
-        
+
         deactivateAllTabs();
         hideAllTabContents();
         jukeboxTab.classList.add('active');
         jukeboxContent.classList.remove('hidden');
         expandReferencePanelOnMobile();
-        
-        // Eager load Strudel when Music tab is clicked (not just when playing)
+
+        // Lazy-init jukebox/strudel UI on first tab open
+        if (typeof window._initJukeboxLazy === 'function') window._initJukeboxLazy();
+
+        // Load Strudel when Music tab is clicked (not just when playing)
         if (typeof loadStrudel === 'function') {
           loadStrudel().catch(err => console.warn('🌀 Strudel preload failed:', err));
         }
@@ -23274,15 +23274,14 @@ s("ape_breaks_3").loopAt(2)</textarea>
       });
     }
     
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => {
-        initJukebox();
-        initStrudelUI();
-      });
-    } else {
+    // Lazy init: jukebox/strudel UI only initializes when music tab is first opened
+    let jukeboxInitialized = false;
+    window._initJukeboxLazy = function() {
+      if (jukeboxInitialized) return;
+      jukeboxInitialized = true;
       initJukebox();
       initStrudelUI();
-    }
+    };
   </script>
   
   <!-- Slide mode overlays -->
