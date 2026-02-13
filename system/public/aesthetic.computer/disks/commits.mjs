@@ -20,7 +20,7 @@ let error = null;
 let lastFetch = 0;
 let pollTimer = null;
 let rowHeight = 10; // MatrixChunky8 is 8px + 2px spacing for elegance
-let topMargin = 28; // Below HUD label with breathing room
+let topMargin = 18; // Below HUD label
 let bottomMargin = 20; // Footer area
 let hue = 0;
 let pulsePhase = 0;
@@ -127,13 +127,6 @@ async function fetchCommitStats(sha) {
         additions: data.stats?.additions || 0,
         deletions: data.stats?.deletions || 0,
         files: data.files?.length || 0,
-        fileList: (data.files || []).slice(0, 5).map(f => ({
-          name: f.filename.split('/').pop(),
-          path: f.filename,
-          add: f.additions,
-          del: f.deletions,
-          status: f.status,
-        })),
       });
     }
   } catch (e) {
@@ -333,9 +326,8 @@ function paint({ wipe, ink, screen, line, text, box, typeface, num, needsPaint, 
   // Draw decorative corner elements
   drawDecor(ink, line, box, w, h, pulsePhase);
 
-  // Header: title left, GitHub link right
+  // Header: GitHub link right only (HUD handles piece name)
   const headerY = 8;
-  ink(200, 200, 220).write("Commits", { x: 4, y: headerY }, false, undefined, false, FONT);
   const ghText = "GitHub →";
   const ghTextW = text.width(ghText, FONT);
   const ghX = w - ghTextW - 4;
@@ -373,8 +365,8 @@ function paint({ wipe, ink, screen, line, text, box, typeface, num, needsPaint, 
   
   // Calculate heights - expanded view with stats
   chatHeight = h - topMargin - bottomMargin;
-  const baseCommitHeight = rowHeight * 2 + 4; // Add padding between commits
-  const expandedCommitHeight = rowHeight * 5 + 6; // Extra space for stats + generous padding
+  const baseCommitHeight = rowHeight + 2; // Single row per commit
+  const expandedCommitHeight = rowHeight * 4 + 4; // Space for stats (no file list)
   const commitHeight = showDetailedView ? expandedCommitHeight : baseCommitHeight;
   const yearMarkerHeight = 18; // More prominent year markers
   const monthMarkerHeight = 14;
@@ -475,16 +467,21 @@ function paint({ wipe, ink, screen, line, text, box, typeface, num, needsPaint, 
     }
     
     // Commit row background (alternating subtle stripes with inner padding)
-    const rowPadding = 3;
-    if (i % 2 === 0) {
-      ink(18, 20, 28, 100).box(0, y + rowPadding, w, commitHeight - rowPadding * 2);
+    if (showDetailedView) {
+      const rowPadding = 3;
+      if (i % 2 === 0) {
+        ink(18, 20, 28, 100).box(0, y + rowPadding, w, commitHeight - rowPadding * 2);
+      }
+      // Subtle separator line between commits
+      ink(40, 45, 60, 40).line(4, y + commitHeight - 1, w - 4, y + commitHeight - 1);
+    } else {
+      if (i % 2 === 0) {
+        ink(18, 20, 28, 60).box(0, y, w, commitHeight);
+      }
     }
     
-    // Subtle separator line between commits
-    ink(40, 45, 60, 40).line(4, y + commitHeight - 1, w - 4, y + commitHeight - 1);
-    
     // Row 1: SHA, time, author (with vertical offset for padding)
-    const contentY = y + 4; // Top padding within commit block
+    const contentY = y + (showDetailedView ? 4 : 1); // Top padding within commit block
     const isNew = i === 0 && hue > 60;
     const shaPulse = isNew ? 200 + sin(pulsePhase * 4) * 55 : 0;
     const shaColor = isNew ? [150 + shaPulse * 0.4, 255, 150 + shaPulse * 0.2] : COLORS.sha;
@@ -508,16 +505,40 @@ function paint({ wipe, ink, screen, line, text, box, typeface, num, needsPaint, 
     // Author (truncate to fit)
     const author = "@" + commit.author.split(" ")[0].toLowerCase().slice(0, 12);
     ink(...COLORS.author).write(author, { x: xOffset, y: contentY + 1 }, false, undefined, false, FONT);
-    
+    const authorEndX = xOffset + text.width(author, FONT);
+
+    const charWidth = 4;
+
+    if (!showDetailedView) {
+      // Single-row mode: ticker message after author
+      const msgX = authorEndX + 6;
+      const availableChars = Math.floor((w - msgX - 8) / charWidth);
+      const msg = commit.message;
+
+      if (msg.length <= availableChars) {
+        ink(...COLORS.message).write(msg, { x: msgX, y: contentY + 1 }, false, undefined, false, FONT);
+      } else {
+        // Ticker: scroll the message with seamless wrap
+        const separator = "   ·   ";
+        const fullTicker = msg + separator;
+        const tickerLen = fullTicker.length;
+        const speed = 0.06;
+        const offset = Math.floor(frameCount * speed) % tickerLen;
+        const doubled = fullTicker + fullTicker;
+        const visible = doubled.slice(offset, offset + availableChars);
+        ink(...COLORS.message).write(visible, { x: msgX, y: contentY + 1 }, false, undefined, false, FONT);
+      }
+    }
+
+    if (showDetailedView) {
     // Row 2: Message (with extra line spacing)
     const msgY = contentY + rowHeight + 2;
-    const charWidth = 4;
     const maxChars = Math.floor((w - 8) / charWidth);
     const msg = commit.message.slice(0, maxChars);
     ink(...COLORS.message).write(msg, { x: 4, y: msgY }, false, undefined, false, FONT);
-    
+
     // Row 3-4: Stats (if detailed view and stats loaded)
-    if (showDetailedView) {
+    {
       const statsY = contentY + rowHeight * 2 + 4; // Extra spacing before stats
       
       if (stats) {
@@ -548,24 +569,6 @@ function paint({ wipe, ink, screen, line, text, box, typeface, num, needsPaint, 
           ink(...COLORS.deletions, 180).box(sx + addW, statsY + 2, delW, 4);
         }
         
-        // File names preview (Row 4)
-        if (stats.fileList?.length > 0) {
-          const fileY = statsY + rowHeight + 2; // Extra spacing for file list
-          let fx = 4;
-          const maxFileWidth = w - 8;
-          
-          for (const f of stats.fileList.slice(0, 3)) {
-            const statusChar = f.status === "added" ? "+" : (f.status === "removed" ? "-" : "~");
-            const statusColor = f.status === "added" ? COLORS.additions : 
-                               (f.status === "removed" ? COLORS.deletions : COLORS.files);
-            
-            const fileStr = `${statusChar}${f.name.slice(0, 12)}`;
-            if (fx + text.width(fileStr, FONT) > maxFileWidth) break;
-            
-            ink(...statusColor, 150).write(fileStr, { x: fx, y: fileY }, false, undefined, false, FONT);
-            fx += text.width(fileStr + " ", FONT);
-          }
-        }
       } else if (statsFetching.has(commit.fullSha)) {
         // Loading indicator for stats
         const loadDots = ".".repeat((floor(frameCount / 8) % 4));
@@ -575,12 +578,15 @@ function paint({ wipe, ink, screen, line, text, box, typeface, num, needsPaint, 
         ink(50, 50, 60).write("···", { x: 4, y: statsY }, false, undefined, false, FONT);
       }
     }
-    
-    // Subtle separator with gradient
-    const sepY = y + commitHeight - 1;
-    for (let sx = 4; sx < w - 4; sx++) {
-      const alpha = 20 + sin(sx * 0.1) * 10;
-      ink(35, 38, 50, alpha).box(sx, sepY, 1, 1);
+    } // end showDetailedView
+
+    // Subtle separator with gradient (detail view only)
+    if (showDetailedView) {
+      const sepY = y + commitHeight - 1;
+      for (let sx = 4; sx < w - 4; sx++) {
+        const alpha = 20 + sin(sx * 0.1) * 10;
+        ink(35, 38, 50, alpha).box(sx, sepY, 1, 1);
+      }
     }
     
     y += commitHeight;
@@ -660,7 +666,7 @@ function paint({ wipe, ink, screen, line, text, box, typeface, num, needsPaint, 
   ink(60, 80, 60).write(cacheText, { x: countX - text.width(cacheText + " ", FONT), y: footerY }, false, undefined, false, FONT);
   
   // Keep painting for animations
-  if (autoScroll || waitingToScroll || statsFetching.size > 0) needsPaint();
+  if (autoScroll || waitingToScroll || statsFetching.size > 0 || !showDetailedView) needsPaint();
 }
 
 function act({ event: e, screen, store, jump }) {
