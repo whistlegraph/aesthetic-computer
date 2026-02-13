@@ -364,6 +364,7 @@ export class MonacoKidLispHighlighter {
           // Set edit mode to enable timing blinks
           this.kidlisp.isEditMode = shouldAnimate();
           this.applyDecorations(true);
+          if (window.perfCounters) window.perfCounters.decorations++;
           setTimeout(scheduleUpdate, 16); // ~60fps
         });
       } else {
