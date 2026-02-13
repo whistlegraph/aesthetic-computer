@@ -347,7 +347,8 @@ async function minifyJS(content, relativePath) {
     });
 
     return result.code || processedContent;
-  } catch {
+  } catch (err) {
+    console.error(`[minifyJS] Failed to minify ${relativePath}:`, err.message);
     return processedContent;
   }
 }
