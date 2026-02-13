@@ -7,6 +7,8 @@ set -e
 OVEN_HOST="137.184.237.166"
 SSH_KEY="${SSH_KEY:-$(dirname "$0")/../aesthetic-computer-vault/oven/ssh/oven-deploy-key}"
 REMOTE_DIR="/opt/oven"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+AC_SOURCE="$SCRIPT_DIR/../system/public/aesthetic.computer"
 
 echo "🚀 Deploying oven..."
 echo "   Host: $OVEN_HOST"
@@ -20,25 +22,45 @@ echo "   Version: $GIT_VERSION"
 START_TIME=$(date +%s%3N)
 
 echo ""
-echo "📦 Syncing files..."
+echo "📦 Syncing oven files..."
 rsync -avz --progress --delete \
   --exclude='node_modules' \
   --exclude='.git' \
   --exclude='*.log' \
+  --exclude='ac-source' \
   -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=no" \
-  "$(dirname "$0")/" \
+  "$SCRIPT_DIR/" \
   "root@$OVEN_HOST:$REMOTE_DIR/"
 
 END_SYNC=$(date +%s%3N)
 SYNC_TIME=$((END_SYNC - START_TIME))
 echo ""
-echo "✅ Sync complete in ${SYNC_TIME}ms"
+echo "✅ Oven sync complete in ${SYNC_TIME}ms"
+
+# Sync aesthetic.computer source files needed for bundle generation
+echo ""
+echo "📦 Syncing ac-source files for bundler..."
+rsync -avz --progress --delete \
+  --include='*/' \
+  --include='*.mjs' \
+  --include='*.js' \
+  --include='*.json' \
+  --include='*.lisp' \
+  --exclude='*' \
+  -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=no" \
+  "$AC_SOURCE/" \
+  "root@$OVEN_HOST:$REMOTE_DIR/ac-source/"
+
+END_AC_SYNC=$(date +%s%3N)
+AC_SYNC_TIME=$((END_AC_SYNC - END_SYNC))
+echo ""
+echo "✅ ac-source sync complete in ${AC_SYNC_TIME}ms"
 
 # Restart unless --no-restart flag
 if [ "$1" != "--no-restart" ]; then
   echo ""
   echo "🔄 Restarting oven service..."
-  
+
   # Update OVEN_VERSION in env and restart
   ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "root@$OVEN_HOST" "
 cd $REMOTE_DIR
@@ -49,16 +71,29 @@ else
   echo 'OVEN_VERSION=$GIT_VERSION' >> .env
 fi
 systemctl restart oven
-sleep 1
+sleep 2
 systemctl status oven --no-pager | head -5
 "
-  
+
   END_RESTART=$(date +%s%3N)
-  RESTART_TIME=$((END_RESTART - END_SYNC))
-  TOTAL_TIME=$((END_RESTART - START_TIME))
-  
+  RESTART_TIME=$((END_RESTART - END_AC_SYNC))
+
   echo ""
   echo "✅ Restart complete in ${RESTART_TIME}ms"
+
+  # Prewarm the bundle cache after restart
+  echo ""
+  echo "🔥 Prewarming bundle cache..."
+  PREWARM_RESULT=$(ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "root@$OVEN_HOST" \
+    "curl -s -X POST http://localhost:3002/bundle-prewarm --max-time 120" 2>/dev/null || echo '{"error":"prewarm timeout"}')
+  echo "   $PREWARM_RESULT"
+
+  END_PREWARM=$(date +%s%3N)
+  PREWARM_TIME=$((END_PREWARM - END_RESTART))
+  TOTAL_TIME=$((END_PREWARM - START_TIME))
+
+  echo ""
+  echo "✅ Prewarm complete in ${PREWARM_TIME}ms"
   echo "🏁 Total deploy time: ${TOTAL_TIME}ms"
 else
   echo ""
