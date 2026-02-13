@@ -747,9 +747,10 @@ async function boot({
         );
         if (ghRes.ok) {
           const commits = await ghRes.json();
+          const currentHash = commits[0]?.sha?.slice(0, 7);
           versionInfo = {
-            deployed: "dev",
-            latest: commits[0]?.sha?.slice(0, 7),
+            deployed: currentHash || "dev",
+            latest: currentHash,
             status: "local",
           };
           // Extract commits for uniticker (local dev mode)
