@@ -5,6 +5,7 @@ import { authorize } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 import { shell } from "../../backend/shell.mjs";
+import * as logger from "../../backend/logger.mjs";
 
 export async function handler(event, context) {
   // GET: Retrieve handle colors for a user (no auth required for GET)
@@ -120,6 +121,12 @@ export async function handler(event, context) {
       await handles.updateOne({ _id: sub }, { $set: { colors } });
 
       await database.disconnect();
+
+      // Broadcast color change to all chat servers (no DB log entry).
+      await logger.broadcast(
+        `@${handle} updated their handle colors`,
+        { user: sub, action: "handle:colors", value: JSON.stringify({ handle, colors }) },
+      );
 
       return respond(200, { message: "Colors saved successfully", colors });
     } catch (error) {
