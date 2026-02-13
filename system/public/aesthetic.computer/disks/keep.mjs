@@ -3076,12 +3076,17 @@ function paint($) {
 function act({ event: e, screen }) {
   if (e.is("reframed")) _needsPaint?.();
 
-  // Confirmation button handler
+  // Define hover callbacks once for all buttons
+  const hoverCb = { over: () => _needsPaint?.(), out: () => _needsPaint?.() };
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // STATE 1: CONFIRMATION DIALOG
+  // ═══════════════════════════════════════════════════════════════════════
   if (waitingConfirmation) {
-    const hoverCb = { over: () => _needsPaint?.(), out: () => _needsPaint?.() };
     // Only enable keep button if user is author - anonymous pieces cannot be kept
     const isAnonymousClick = !pieceAuthorSub && !loadingPieceInfo;
     const canKeep = isAuthor === true && !isAnonymousClick;
+
     if (canKeep) {
       btn.btn.act(e, { ...hoverCb, push: () => {
         console.log("🪙 KEEP: User confirmed, starting mint process...");
@@ -3091,14 +3096,17 @@ function act({ event: e, screen }) {
         runProcess();
       }});
     }
+
     // Preview button - jump to the piece to preview it
     previewBtn.btn.act(e, { ...hoverCb, push: () => {
       console.log("🪙 KEEP: Jumping to preview piece $" + piece);
       _jump?.(`$${piece}`);
     }});
+
     // Contract button - link to TzKT
     const tzktContractUrl = `https://${NETWORK}.tzkt.io/${KEEPS_CONTRACT}`;
     contractBtn.btn.act(e, { ...hoverCb, push: () => openUrl(tzktContractUrl) });
+
     // Login button - trigger auth0 login (show when piece has author but user not logged in)
     if (pieceAuthorSub && !userSub) {
       loginBtn.btn.act(e, { ...hoverCb, push: () => {
@@ -3106,23 +3114,29 @@ function act({ event: e, screen }) {
         _api?.login?.(); // Triggers full auth0 login flow via redirect
       }});
     }
-    return;
+
+    return; // Early return - only process confirmation buttons
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // STATE 2: PREPARATION IN PROGRESS
+  // ═══════════════════════════════════════════════════════════════════════
   if (isPreparationInProgress()) {
-    const hoverCb = { over: () => _needsPaint?.(), out: () => _needsPaint?.() };
     cancelBtn.btn.act(e, { ...hoverCb, push: () => {
       cancelMintPreparation();
       _jump?.("prompt");
     }});
+    return; // Early return - only process cancel button during preparation
   }
 
   const reviewStep = timeline.find(t => t.id === "review");
   const completeStep = timeline.find(t => t.id === "complete");
 
-  // Asset link buttons + network button + rebake
+  // ═══════════════════════════════════════════════════════════════════════
+  // STATE 3: REVIEW & SIGN (preparation complete, ready to mint)
+  // ═══════════════════════════════════════════════════════════════════════
   if (reviewStep?.status === "active" && preparedData) {
-    const hoverCb = { over: () => _needsPaint?.(), out: () => _needsPaint?.() };
+    // Asset link buttons
     if (preparedData.artifactUri) htmlBtn.btn.act(e, { ...hoverCb, push: () => openUrl(preparedData.artifactUri) });
     if (preparedData.thumbnailUri) thumbBtn.btn.act(e, { ...hoverCb, push: () => openUrl(preparedData.thumbnailUri) });
     if (preparedData.metadataUri) metaBtn.btn.act(e, { ...hoverCb, push: () => openUrl(preparedData.metadataUri) });
@@ -3229,11 +3243,17 @@ function act({ event: e, screen }) {
       btn.staging.act(e, { push: () => openUrl(tzktStagingUrl) });
     }
 
+    // Main action button - sign and mint transaction
     btn.btn.act(e, { ...hoverCb, push: () => signAndMint() });
+
+    return; // Early return - only process review buttons
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // STATE 4: MINT COMPLETE
+  // ═══════════════════════════════════════════════════════════════════════
   if (completeStep?.status === "done") {
-    const hoverCb = { over: () => _needsPaint?.(), out: () => _needsPaint?.() };
+    // Main button - view on objkt.com
     btn.btn.act(e, { ...hoverCb, push: () => {
       const networkPrefix = preparedData?.network === "mainnet" ? "" : "ghostnet.";
       const url = tokenId
@@ -3241,20 +3261,28 @@ function act({ event: e, screen }) {
         : `https://${networkPrefix}objkt.com/collections/${preparedData.contractAddress}`;
       openUrl(url);
     }});
+
+    return; // Early return - only process completion buttons
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // STATE 5: ERROR (preparation or minting failed)
+  // ═══════════════════════════════════════════════════════════════════════
   if (hasError()) {
-    const hoverCb = { over: () => _needsPaint?.(), out: () => _needsPaint?.() };
+    // Retry button
     btn.btn.act(e, { ...hoverCb, push: () => {
       resetTimeline();
       startTime = Date.now();
       runProcess();
     }});
+
+    return; // Early return - only process retry button on error
   }
 
-  // Already minted view interactions
+  // ═══════════════════════════════════════════════════════════════════════
+  // STATE 6: ALREADY MINTED (viewing existing Keep)
+  // ═══════════════════════════════════════════════════════════════════════
   if (alreadyMinted) {
-    const hoverCb = { over: () => _needsPaint?.(), out: () => _needsPaint?.() };
     if (alreadyMinted.artifactUri) htmlBtn.btn.act(e, { ...hoverCb, push: () => openUrl(alreadyMinted.artifactUri) });
     if (alreadyMinted.thumbnailUri) thumbBtn.btn.act(e, { ...hoverCb, push: () => openUrl(alreadyMinted.thumbnailUri) });
     // META button - open TzKT token metadata view
@@ -3569,20 +3597,36 @@ function act({ event: e, screen }) {
         }
       }});
     }
+
+    return; // Early return - only process already-minted view buttons
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // KEYBOARD SHORTCUTS (available in all states)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // Enter key - trigger primary action based on current state
   if (e.is("keyboard:down:enter")) {
-    if (alreadyMinted) openUrl(alreadyMinted.objktUrl);
-    else if (reviewStep?.status === "active" && preparedData) signAndMint();
-    else if (hasError()) { resetTimeline(); startTime = Date.now(); runProcess(); }
+    if (alreadyMinted) {
+      openUrl(alreadyMinted.objktUrl);
+    } else if (reviewStep?.status === "active" && preparedData) {
+      signAndMint();
+    } else if (hasError()) {
+      resetTimeline();
+      startTime = Date.now();
+      runProcess();
+    }
+    return;
   }
 
+  // Escape key - cancel/exit current operation
   if (e.is("keyboard:down:escape")) {
     // If preparation is in progress, cancel it before jumping away
     if (isPreparationInProgress()) {
       cancelMintPreparation();
     }
     _jump?.("prompt");
+    return;
   }
 }
 
