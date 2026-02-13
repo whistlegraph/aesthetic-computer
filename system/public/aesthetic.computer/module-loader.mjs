@@ -15,7 +15,11 @@ async function getSessionWsUrl() {
   // This works better with VS Code webview proxy
   if (isLocalhost || isLAN) {
     try {
-      const res = await fetch('/session/prompt?service=monolith');
+      // Timeout the fetch so boot isn't blocked if session server is down
+      const controller = new AbortController();
+      const fetchTimeout = setTimeout(() => controller.abort(), 1000);
+      const res = await fetch('/session/prompt?service=monolith', { signal: controller.signal });
+      clearTimeout(fetchTimeout);
       if (res.ok) {
         const session = await res.json();
         // Convert https to wss for WebSocket
@@ -55,6 +59,7 @@ class ModuleLoader {
     this.connecting = (async () => {
       // 🚀 Check for early WebSocket connection started in HTML <script>
       const earlyWS = window.acEarlyWS;
+      let earlyWsFailed = false;
       if (earlyWS) {
         // Use the early connection if it's already connected or wait for it
         const earlyConnected = earlyWS.isConnected() || await earlyWS.connected;
@@ -63,7 +68,7 @@ class ModuleLoader {
           this.ws = earlyWS.ws;
           this.connected = true;
           this.wsUrl = earlyWS.ws.url;
-          
+
           // Set up message handler
           this.ws.onmessage = (event) => {
             this.handleMessage(JSON.parse(event.data));
@@ -75,24 +80,33 @@ class ModuleLoader {
             }
             this.pending.clear();
           };
-          
+
           // Open IndexedDB in parallel
           await this.openDatabase();
           console.log("📦 ModuleLoader ready (early WebSocket ⚡)");
           return true;
+        } else {
+          // Early WS failed — session server is down, skip redundant connect attempts
+          earlyWsFailed = true;
         }
       }
-      
+
+      // Open IndexedDB (always useful for caching)
+      await this.openDatabase();
+
+      // If early WS already failed, skip the redundant fetch + WS connect
+      if (earlyWsFailed) {
+        console.log("📦 ModuleLoader ready (HTTP fallback, early WS failed)");
+        return false;
+      }
+
       // Fall back to normal connection flow
       // Get WebSocket URL (may involve fetch to session endpoint)
       this.wsUrl = await getSessionWsUrl();
-      
+
       // 🚀 Run DB and WS connection in parallel, but don't let WS failure block DB
-      const [dbResult] = await Promise.all([
-        this.openDatabase(),
-        this.connectWebSocket(timeoutMs).catch(() => false) // WS failure is OK
-      ]);
-      
+      await this.connectWebSocket(timeoutMs).catch(() => false); // WS failure is OK
+
       if (this.connected) {
         console.log("📦 ModuleLoader ready (WebSocket)");
       } else {

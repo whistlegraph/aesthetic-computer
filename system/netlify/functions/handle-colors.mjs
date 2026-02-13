@@ -4,7 +4,6 @@
 import { authorize } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
-import * as logger from "../../backend/logger.mjs";
 import { shell } from "../../backend/shell.mjs";
 
 export async function handler(event, context) {
@@ -89,24 +88,17 @@ export async function handler(event, context) {
     }
 
     // Authorize the user
-    shell.log(`🎨 Attempting to authorize user for tenant: ${tenant}`);
     const user = await authorize(event.headers, tenant);
 
-    shell.log(`🎨 Authorization result:`, user ? `User ID: ${user.sub}, Email verified: ${user.email_verified}` : "No user");
-
     if (!user) {
-      shell.log(`🎨 Authorization failed: no user`);
       return respond(401, { message: "unauthorized" });
     }
 
     if (!user.email_verified) {
-      shell.log(`🎨 Authorization failed: email not verified`);
       return respond(401, { message: "unverified" });
     }
 
     try {
-      shell.log(`🎨 Saving handle colors for ${tenant}:`, handle);
-
       const database = await connect();
       const handles = database.db.collection("@handles");
 
@@ -130,24 +122,7 @@ export async function handler(event, context) {
       }
 
       // Update the colors
-      const updateResult = await handles.updateOne({ _id: sub }, { $set: { colors } });
-
-      shell.log(`🎨 MongoDB update result:`, updateResult);
-      shell.log(`🎨 Saved ${colors.length} colors for @${handle}`);
-
-      // Verify the save by reading back
-      const verifyUser = await handles.findOne({ _id: sub });
-      shell.log(`🎨 Verification - colors in DB:`, verifyUser?.colors ? `${verifyUser.colors.length} colors` : "no colors");
-
-      // Log the color change
-      if (!sub.startsWith("sotce-")) {
-        await logger.link(database);
-        await logger.log(`@${handle} updated their handle colors`, {
-          user: sub,
-          action: "handle:colors:update",
-          value: JSON.stringify(colors),
-        });
-      }
+      await handles.updateOne({ _id: sub }, { $set: { colors } });
 
       await database.disconnect();
 

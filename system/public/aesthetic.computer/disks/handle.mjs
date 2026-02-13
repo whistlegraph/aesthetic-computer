@@ -16,6 +16,8 @@ let saveBtn, resetBtn; // Buttons
 let loading = true;
 let saveStatus = null; // "saving", "saved", "error"
 let lastSaveTime = 0;
+let saving = false; // Guard against concurrent saves
+const SAVE_COOLDOWN = 3000; // Minimum ms between save attempts
 let hoveredCharIndex = -1; // Track hovered character
 let hoveredSlider = null; // Track hovered slider ("r", "g", "b", or null)
 
@@ -49,9 +51,9 @@ function boot({ get, net, store }) {
       if (data.colors && data.colors.length === handleWithAt.length) {
         // Load existing colors
         colors = data.colors.map((c) => ({
-          r: c.r || 255,
-          g: c.g || 255,
-          b: c.b || 255,
+          r: c.r ?? 255,
+          g: c.g ?? 255,
+          b: c.b ?? 255,
         }));
         console.log(`🎨 Loaded ${colors.length} custom colors`);
       } else {
@@ -536,28 +538,26 @@ function act({ event: e, screen, net, help, jump, sound }) {
 }
 
 async function saveColors(net, help, sound) {
-  saveStatus = "saving";
-  lastSaveTime = Date.now();
-  help.repeat();
+  // Rate limit: prevent concurrent saves and enforce cooldown
+  const now = Date.now();
+  if (saving || (now - lastSaveTime < SAVE_COOLDOWN)) return;
+  saving = true;
 
-  console.log(`🎨 Saving ${colors.length} colors for handle: ${handle}`);
+  saveStatus = "saving";
+  lastSaveTime = now;
+  help.repeat();
 
   try {
     const payload = {
       handle,
       colors: colors.map((c) => ({ r: c.r, g: c.g, b: c.b })),
     };
-    console.log(`🎨 Save payload:`, payload);
-
     const response = await net.userRequest("POST", "/.netlify/functions/handle-colors", payload);
-
-    console.log(`🎨 Save response:`, response);
 
     if (response.status === 200) {
       saveStatus = "saved";
       // Update defaults to current colors after successful save
       defaultColors = colors.map((c) => ({ ...c }));
-      console.log(`✅ Colors saved successfully`);
       sound.synth({
         type: "sine",
         tone: 600,
@@ -573,6 +573,7 @@ async function saveColors(net, help, sound) {
     console.error("❌ Error saving handle colors:", err);
   }
 
+  saving = false;
   lastSaveTime = Date.now();
   help.repeat();
 

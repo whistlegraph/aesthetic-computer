@@ -751,9 +751,17 @@ async function importWithRetry(modulePath, retries = IMPORT_MAX_RETRIES, useWsBu
   });
 
   // Parallel paths on localhost or when explicitly requested
-  if (useWsBundle || isLocalhost) {
+  // Skip WS race if loader already confirmed not connected (avoids unnecessary delays)
+  if ((useWsBundle || isLocalhost) && loader?.connected !== false) {
     try {
       return await raceToSuccess([tryLoadViaWs(), tryLoadViaHttp()]);
+    } catch (err) {
+      // Fall through to retry loop
+    }
+  } else if (useWsBundle || isLocalhost) {
+    // Loader is confirmed disconnected — just use HTTP directly
+    try {
+      return await tryLoadViaHttp();
     } catch (err) {
       // Fall through to retry loop
     }
@@ -854,9 +862,13 @@ async function fetchAndShowSource(path, displayName) {
 
 let boot, parse, slug;
 try {
-  // 🚀 Wait for WebSocket module loader (max 800ms, already started at top of file)
+  // 🚀 Wait for WebSocket module loader (max 2s total, already started at top of file)
   // This ensures we USE the WebSocket when available instead of falling back to HTTP
-  const useWsBundle = await moduleLoaderReady;
+  // Race with a timeout so boot never stalls if module loader hangs
+  const useWsBundle = await Promise.race([
+    moduleLoaderReady,
+    new Promise(resolve => setTimeout(() => resolve(false), 2000))
+  ]);
   const loader = window.acModuleLoader;
   
   // Update boot canvas with session status
