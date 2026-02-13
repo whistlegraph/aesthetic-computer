@@ -57,7 +57,7 @@
       const maxDim = Math.max(screenWidth, screenHeight);
 
       if (maxDim >= 3840) return 8;  // 4K+
-      return 4;                       // Default for all other resolutions
+      return 3;                       // Default for all other resolutions
     }
 
     // Calculate smart UI scale based on density and screen characteristics
@@ -75,12 +75,12 @@
       const resolutionMap = [
         // 4K displays
         { w: 3840, h: 2160, dpr: 1, scale: 20 },  // 4K native (e.g., F1 FF1)
-        { w: 1920, h: 1200, dpr: 2, scale: 10 },  // Retina laptop (e.g., MacBook 16")
-        { w: 1920, h: 1080, dpr: 2, scale: 10 },  // Retina laptop 1080p
+        { w: 1920, h: 1200, dpr: 2, scale: 12 },  // Retina laptop (e.g., MacBook 16")
+        { w: 1920, h: 1080, dpr: 2, scale: 12 },  // Retina laptop 1080p
         // 1080p displays
-        { w: 1920, h: 1080, dpr: 1, scale: 12 },  // 1080p native
-        { w: 1366, h: 768, dpr: 1, scale: 8 },    // 1366x768 laptop
-        { w: 1440, h: 900, dpr: 1, scale: 10 },   // 1440x900 laptop
+        { w: 1920, h: 1080, dpr: 1, scale: 14 },  // 1080p native
+        { w: 1366, h: 768, dpr: 1, scale: 10 },   // 1366x768 laptop
+        { w: 1440, h: 900, dpr: 1, scale: 12 },   // 1440x900 laptop
         // Mobile/portrait
         { w: 800, h: 1280, dpr: 1, scale: 6 },    // Standard portrait phone
       ];
@@ -115,14 +115,14 @@
         return Math.round(baseScale * 2);
       } else if (isDeviceSubdomain) {
         // Device subdomain but NOT 4K (e.g., laptop or 1080p TV)
-        // density=4,dpr=2 → scale ~6
-        return Math.max(2, Math.round(baseScale));
+        // density=3,dpr=2 → baseScale=4.5 → scale ~9
+        return Math.max(4, Math.round(baseScale * 2));
       }
 
       // For native 4K/high-res with dpr=1, apply additional multiplier
       if (dpr === 1 && maxDim >= 3840) return Math.round(baseScale * 20);  // 4K native
       if (dpr === 1 && maxDim >= 2560) return Math.round(baseScale * 10);  // 1440p native
-      return Math.round(baseScale);                                         // Retina/scaled displays
+      return Math.max(6, Math.round(baseScale * 2));                        // Retina/scaled displays
     }
 
     // Get density from URL params, fallback to smart density
@@ -258,6 +258,26 @@
     /* Better text spacing in Monaco */
     #monaco-container .monaco-editor .view-line {
       letter-spacing: 0.5px;
+    }
+
+    /* Hide cursor and disable click/selection in device Monaco */
+    #monaco-container .monaco-editor .cursors-layer {
+      display: none !important;
+    }
+    #monaco-container .monaco-editor .view-overlays .current-line,
+    #monaco-container .monaco-editor .view-overlays .selected-text {
+      display: none !important;
+    }
+    #monaco-container .monaco-editor .inputarea {
+      pointer-events: none !important;
+    }
+    #monaco-container .monaco-editor .view-lines {
+      cursor: default !important;
+      user-select: none !important;
+      -webkit-user-select: none !important;
+    }
+    #monaco-container .monaco-editor .margin {
+      pointer-events: none !important;
     }
 
     /* Unified text size for all DOM elements */
@@ -1014,6 +1034,8 @@
             readOnly: true,
             domReadOnly: true, // Prevent mobile keyboard from opening
             cursorStyle: 'line',
+            cursorBlinking: 'hidden',
+            cursorWidth: 0,
             padding: { top: 0, bottom: 0 },
             hover: { enabled: false },
             parameterHints: { enabled: false },
@@ -1082,6 +1104,14 @@
         contextMenu.classList.add('visible');
         console.log('📺 Custom context menu opened');
       }
+
+      // Block left/middle clicks on Monaco to prevent cursor positioning and selection
+      editorContainer.addEventListener('mousedown', (e) => {
+        if (e.button !== 2) { // Allow right-click for context menu
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }, true); // Use capture phase to intercept before Monaco
 
       // Handle context menu on Monaco editor (right-click / long-press)
       editorContainer.addEventListener('contextmenu', (e) => {
