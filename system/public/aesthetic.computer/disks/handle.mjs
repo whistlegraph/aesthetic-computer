@@ -1,8 +1,7 @@
-// Handle, 2026.02.13.03.00
+// Handle, 2026.02.13.09.00
 // Customize your @handle colors - per-character RGB customization with dynamic shadows.
 
 /* #region 🏁 TODO
-  - [ ] Add "Reset to default" button
   - [ ] Add color presets/themes
   - [ ] Add copy/share color scheme feature
 #endregion */
@@ -11,20 +10,20 @@ const { floor, max, min } = Math;
 
 let handle; // User's handle
 let colors = []; // RGB colors for @ sign + each character [{r, g, b}, ...]
+let defaultColors = []; // Store defaults for reset
 let selectedCharIndex = 0; // Currently selected character for editing
-let saveBtn; // Save button
+let saveBtn, resetBtn; // Buttons
 let loading = true;
 let saveStatus = null; // "saving", "saved", "error"
 let lastSaveTime = 0;
 let hoveredCharIndex = -1; // Track hovered character
+let hoveredSlider = null; // Track hovered slider ("r", "g", "b", or null)
 
-// Slider config - larger and more responsive
+// Slider config - responsive and centered
 const sliderConfig = {
-  x: 30,
-  y: 180,
-  width: 250,
-  height: 20,
-  gap: 35,
+  width: 220,
+  height: 18,
+  gap: 32,
 };
 
 function boot({ get, net, store }) {
@@ -60,12 +59,15 @@ function boot({ get, net, store }) {
         colors = handleWithAt.split("").map(() => ({ r: 255, g: 255, b: 255 }));
         console.log(`🎨 Using default white colors (${colors.length} chars)`);
       }
+      // Store defaults for reset functionality
+      defaultColors = colors.map((c) => ({ ...c }));
       loading = false;
     })
     .catch((err) => {
       console.warn("⚠️ Failed to load handle colors, using defaults:", err);
       // Default to white for all characters
       colors = handleWithAt.split("").map(() => ({ r: 255, g: 255, b: 255 }));
+      defaultColors = colors.map((c) => ({ ...c }));
       loading = false;
     });
 }
@@ -80,84 +82,118 @@ function paint({ ink, wipe, write, screen, ui, help }) {
 
   const handleWithAt = "@" + handle;
 
-  // 🎨 Draw title with gradient effect
-  ink(150, 180, 255).write("Customize Your Handle", { x: 20, y: 15 });
-  ink(100, 140, 200).write("Click any character to edit its color", {
-    x: 20,
-    y: 28,
-  }, undefined, undefined, false, "MatrixChunky8");
+  // 🎨 Draw title
+  ink(150, 180, 255).write("Customize Your Handle", { center: "x", y: 12, screen });
 
-  // 🌈 Draw handle preview LARGE - with both normal and MatrixChunky8
-  const previewY = 55;
-  const normalCharWidth = 6; // Normal font width
-  const normalCharHeight = 12; // Normal font height
-  const handleWidth = handleWithAt.length * normalCharWidth;
-  const previewStartX = floor((screen.width - handleWidth) / 2);
+  // 🌈 LARGE Unifont handle at top (main preview)
+  const unifontY = 40;
+  const unifontCharWidth = 8; // Unifont is 8x16
+  const unifontCharHeight = 16;
+  const unifontHandleWidth = handleWithAt.length * unifontCharWidth;
+  const unifontStartX = floor((screen.width - unifontHandleWidth) / 2);
 
-  // Draw normal font version
   handleWithAt.split("").forEach((char, i) => {
-    const x = previewStartX + i * normalCharWidth;
+    const x = unifontStartX + i * unifontCharWidth;
     const color = colors[i];
 
     // Draw shadow (darker, offset)
     const shadowR = floor(color.r * 0.25);
     const shadowG = floor(color.g * 0.25);
     const shadowB = floor(color.b * 0.25);
-    ink(shadowR, shadowG, shadowB, 200).write(char, { x: x + 2, y: previewY + 2 });
+    ink(shadowR, shadowG, shadowB, 200).write(char, { x: x + 2, y: unifontY + 2 }, undefined, undefined, false, "unifont");
 
     // Draw character with color
-    ink(color.r, color.g, color.b).write(char, { x, y: previewY });
+    ink(color.r, color.g, color.b).write(char, { x, y: unifontY }, undefined, undefined, false, "unifont");
 
     // Highlight selected or hovered character
     if (i === selectedCharIndex) {
-      ink(255, 255, 0, 120).box(x - 1, previewY - 1, normalCharWidth + 2, normalCharHeight + 2);
+      ink(255, 255, 0, 120).box(x - 1, unifontY - 1, unifontCharWidth + 2, unifontCharHeight + 2, "outline");
     } else if (i === hoveredCharIndex) {
-      ink(255, 255, 255, 60).box(x - 1, previewY - 1, normalCharWidth + 2, normalCharHeight + 2);
+      ink(255, 255, 255, 60).box(x - 1, unifontY - 1, unifontCharWidth + 2, unifontCharHeight + 2, "outline");
     }
   });
 
-  // Draw MatrixChunky8 version below (larger, pixelated)
-  const chunkyY = previewY + 25;
-  const chunkyCharWidth = 8;
-  const chunkyCharHeight = 14;
-  const chunkyHandleWidth = handleWithAt.length * chunkyCharWidth;
-  const chunkyStartX = floor((screen.width - chunkyHandleWidth) / 2);
+  // Draw smaller normal font version below
+  const normalY = unifontY + 30;
+  const normalCharWidth = 6;
+  const normalCharHeight = 12;
+  const normalHandleWidth = handleWithAt.length * normalCharWidth;
+  const normalStartX = floor((screen.width - normalHandleWidth) / 2);
 
   handleWithAt.split("").forEach((char, i) => {
-    const x = chunkyStartX + i * chunkyCharWidth;
+    const x = normalStartX + i * normalCharWidth;
     const color = colors[i];
 
     // Draw shadow
     const shadowR = floor(color.r * 0.25);
     const shadowG = floor(color.g * 0.25);
     const shadowB = floor(color.b * 0.25);
-    ink(shadowR, shadowG, shadowB, 200)
-      .write(char, { x: x + 2, y: chunkyY + 2 }, undefined, undefined, false, "MatrixChunky8");
+    ink(shadowR, shadowG, shadowB, 180).write(char, { x: x + 1, y: normalY + 1 });
 
     // Draw character
-    ink(color.r, color.g, color.b)
-      .write(char, { x, y: chunkyY }, undefined, undefined, false, "MatrixChunky8");
+    ink(color.r, color.g, color.b).write(char, { x, y: normalY });
 
     // Highlight selected or hovered
     if (i === selectedCharIndex) {
-      ink(255, 255, 0, 100).box(x - 2, chunkyY - 2, chunkyCharWidth + 4, chunkyCharHeight + 4, "outline");
+      ink(255, 255, 0, 80).box(x - 1, normalY - 1, normalCharWidth + 2, normalCharHeight + 2, "outline");
     } else if (i === hoveredCharIndex) {
-      ink(255, 255, 255, 50).box(x - 2, chunkyY - 2, chunkyCharWidth + 4, chunkyCharHeight + 4, "outline");
+      ink(255, 255, 255, 40).box(x - 1, normalY - 1, normalCharWidth + 2, normalCharHeight + 2, "outline");
     }
   });
 
-  // 📝 Instructions
+  // Draw MatrixChunky8 version below (with proper spacing)
+  const chunkyY = normalY + 25;
+  // MatrixChunky8 glyphs are 4px wide with variable spacing - calculate actual width
+  let chunkyTotalWidth = 0;
+  const charWidths = handleWithAt.split("").map((char) => {
+    // Most chars in MatrixChunky8 are 4-5px, @ is typically wider
+    return char === "@" ? 6 : 5;
+  });
+  chunkyTotalWidth = charWidths.reduce((sum, w) => sum + w, 0);
+
+  const chunkyStartX = floor((screen.width - chunkyTotalWidth) / 2);
+  const chunkyCharHeight = 8;
+
+  let currentX = chunkyStartX;
+  handleWithAt.split("").forEach((char, i) => {
+    const charWidth = charWidths[i];
+    const color = colors[i];
+
+    // Draw shadow
+    const shadowR = floor(color.r * 0.25);
+    const shadowG = floor(color.g * 0.25);
+    const shadowB = floor(color.b * 0.25);
+    ink(shadowR, shadowG, shadowB, 180)
+      .write(char, { x: currentX + 1, y: chunkyY + 1 }, undefined, undefined, false, "MatrixChunky8");
+
+    // Draw character
+    ink(color.r, color.g, color.b)
+      .write(char, { x: currentX, y: chunkyY }, undefined, undefined, false, "MatrixChunky8");
+
+    // Highlight selected or hovered
+    if (i === selectedCharIndex) {
+      ink(255, 255, 0, 80).box(currentX - 1, chunkyY - 1, charWidth + 2, chunkyCharHeight + 2, "outline");
+    } else if (i === hoveredCharIndex) {
+      ink(255, 255, 255, 40).box(currentX - 1, chunkyY - 1, charWidth + 2, chunkyCharHeight + 2, "outline");
+    }
+
+    currentX += charWidth;
+  });
+
+  // 📝 Selected character info
   const selectedChar = handleWithAt[selectedCharIndex];
   ink(180, 200, 255).write(
     `Editing: '${selectedChar}' (${selectedCharIndex + 1}/${handleWithAt.length})`,
-    { x: sliderConfig.x, y: sliderConfig.y - 25 },
+    { center: "x", y: chunkyY + 25, screen },
     undefined,
     undefined,
     false,
     "MatrixChunky8"
   );
 
-  // 🎚️ RGB Sliders for selected character - BIGGER
+  // 🎚️ RGB Sliders - centered on screen
+  const sliderStartY = chunkyY + 50;
+  const sliderX = floor((screen.width - sliderConfig.width) / 2);
   const currentColor = colors[selectedCharIndex];
 
   // R slider
@@ -165,12 +201,13 @@ function paint({ ink, wipe, write, screen, ui, help }) {
     ink,
     write,
     "R",
-    sliderConfig.x,
-    sliderConfig.y,
+    sliderX,
+    sliderStartY,
     sliderConfig.width,
     sliderConfig.height,
     currentColor.r,
-    [255, 0, 0]
+    [255, 0, 0],
+    hoveredSlider === "r"
   );
 
   // G slider
@@ -178,12 +215,13 @@ function paint({ ink, wipe, write, screen, ui, help }) {
     ink,
     write,
     "G",
-    sliderConfig.x,
-    sliderConfig.y + sliderConfig.gap,
+    sliderX,
+    sliderStartY + sliderConfig.gap,
     sliderConfig.width,
     sliderConfig.height,
     currentColor.g,
-    [0, 255, 0]
+    [0, 255, 0],
+    hoveredSlider === "g"
   );
 
   // B slider
@@ -191,44 +229,61 @@ function paint({ ink, wipe, write, screen, ui, help }) {
     ink,
     write,
     "B",
-    sliderConfig.x,
-    sliderConfig.y + sliderConfig.gap * 2,
+    sliderX,
+    sliderStartY + sliderConfig.gap * 2,
     sliderConfig.width,
     sliderConfig.height,
     currentColor.b,
-    [0, 0, 255]
+    [0, 0, 255],
+    hoveredSlider === "b"
   );
 
-  // RGB preview box
-  const previewBoxX = sliderConfig.x + sliderConfig.width + 30;
-  const previewBoxY = sliderConfig.y;
-  const previewBoxSize = sliderConfig.height * 3 + sliderConfig.gap * 2;
+  // Small color preview swatch (below sliders)
+  const swatchSize = 40;
+  const swatchX = floor(screen.width / 2 - swatchSize / 2);
+  const swatchY = sliderStartY + sliderConfig.gap * 3 + 5;
+
   ink(currentColor.r, currentColor.g, currentColor.b).box(
-    previewBoxX,
-    previewBoxY,
-    previewBoxSize,
-    previewBoxSize,
+    swatchX,
+    swatchY,
+    swatchSize,
+    swatchSize,
     "fill"
   );
   ink(255, 255, 255, 150).box(
-    previewBoxX,
-    previewBoxY,
-    previewBoxSize,
-    previewBoxSize,
+    swatchX,
+    swatchY,
+    swatchSize,
+    swatchSize,
     "outline"
   );
 
-  // 💾 Save button
-  if (!saveBtn) {
-    saveBtn = new ui.TextButton("Save Colors", {
-      center: "x",
-      y: screen.height - 50,
+  // 💾 Reset and Save buttons (bottom left and right like prompt curtain)
+  if (!resetBtn) {
+    resetBtn = new ui.TextButton("Reset", {
+      x: 8,
+      bottom: 8,
       screen,
     });
   } else {
-    saveBtn.reposition({ center: "x", y: screen.height - 50, screen });
+    resetBtn.reposition({ x: 8, bottom: 8, screen });
   }
 
+  if (!saveBtn) {
+    saveBtn = new ui.TextButton("Save", {
+      right: 8,
+      bottom: 8,
+      screen,
+    });
+  } else {
+    saveBtn.reposition({ right: 8, bottom: 8, screen });
+  }
+
+  // Reset button color (cyan/teal)
+  const resetColor = [[0, 100, 100], [0, 180, 180], 255];
+  resetBtn.paint({ ink, box: (b) => ink().box(b) }, resetColor);
+
+  // Save button color (green/yellow/red based on status)
   let saveBtnColor = [[0, 100, 0], [0, 180, 0], 255]; // Green
   if (saveStatus === "saving") {
     saveBtnColor = [[100, 100, 0], [180, 180, 0], 255]; // Yellow
@@ -255,36 +310,40 @@ function paint({ ink, wipe, write, screen, ui, help }) {
 
     ink(statusColor).write(statusText, {
       center: "x",
-      y: screen.height - 30,
+      y: screen.height - 25,
       screen,
     }, undefined, undefined, false, "MatrixChunky8");
   }
 }
 
-function drawSlider(ink, write, label, x, y, width, height, value, color) {
+function drawSlider(ink, write, label, x, y, width, height, value, color, hovered) {
   // Label
   ink(220, 220, 220).write(`${label}:`, {
-    x: x - 20,
-    y: y + floor(height / 2) - 6,
+    x: x - 18,
+    y: y + floor(height / 2) - 4,
   }, undefined, undefined, false, "MatrixChunky8");
 
-  // Track background
-  ink(40, 40, 50).box(x, y, width, height, "fill");
-  ink(80, 80, 90).box(x, y, width, height, "outline");
+  // Track background with hover effect
+  const bgBrightness = hovered ? 50 : 40;
+  const outlineBrightness = hovered ? 100 : 80;
+  ink(bgBrightness, bgBrightness, bgBrightness + 10).box(x, y, width, height, "fill");
+  ink(outlineBrightness, outlineBrightness, outlineBrightness + 10).box(x, y, width, height, "outline");
 
   // Fill (shows current value)
   const fillWidth = floor((value / 255) * width);
-  ink(color[0], color[1], color[2], 180).box(x + 1, y + 1, fillWidth - 1, height - 2, "fill");
+  const fillAlpha = hovered ? 220 : 180;
+  ink(color[0], color[1], color[2], fillAlpha).box(x + 1, y + 1, fillWidth - 1, height - 2, "fill");
 
-  // Handle (draggable indicator)
+  // Handle (draggable indicator) with hover effect
   const handleX = x + fillWidth - 3;
-  ink(color).box(handleX, y - 3, 6, height + 6, "fill");
+  const handleColor = hovered ? [255, 255, 255] : color;
+  ink(...handleColor).box(handleX, y - 3, 6, height + 6, "fill");
   ink(255, 255, 255).box(handleX, y - 3, 6, height + 6, "outline");
 
   // Value display
   ink(255, 255, 255).write(value.toString().padStart(3, " "), {
-    x: x + width + 15,
-    y: y + floor(height / 2) - 6,
+    x: x + width + 10,
+    y: y + floor(height / 2) - 4,
   }, undefined, undefined, false, "MatrixChunky8");
 }
 
@@ -293,26 +352,69 @@ function act({ event: e, screen, net, help, jump, sound }) {
 
   const handleWithAt = "@" + handle;
 
+  // Calculate slider position for hover detection
+  const sliderStartY = screen.height > 200 ? 175 : 140; // Adjust based on screen size
+  const sliderX = floor((screen.width - sliderConfig.width) / 2);
+
+  // Update hover state for sliders
+  hoveredSlider = null;
+  const sliders = [
+    { key: "r", y: sliderStartY },
+    { key: "g", y: sliderStartY + sliderConfig.gap },
+    { key: "b", y: sliderStartY + sliderConfig.gap * 2 },
+  ];
+
+  for (const slider of sliders) {
+    if (
+      e.y >= slider.y &&
+      e.y < slider.y + sliderConfig.height &&
+      e.x >= sliderX &&
+      e.x < sliderX + sliderConfig.width
+    ) {
+      hoveredSlider = slider.key;
+      help.repeat();
+      break;
+    }
+  }
+
+  // Update hover state for unifont preview
+  const unifontY = 40;
+  const unifontCharWidth = 8;
+  const unifontCharHeight = 16;
+  const unifontHandleWidth = handleWithAt.length * unifontCharWidth;
+  const unifontStartX = floor((screen.width - unifontHandleWidth) / 2);
+
   // Update hover state for normal font preview
-  const previewY = 55;
+  const normalY = unifontY + 30;
   const normalCharWidth = 6;
   const normalCharHeight = 12;
-  const handleWidth = handleWithAt.length * normalCharWidth;
-  const previewStartX = floor((screen.width - handleWidth) / 2);
+  const normalHandleWidth = handleWithAt.length * normalCharWidth;
+  const normalStartX = floor((screen.width - normalHandleWidth) / 2);
 
-  // Update hover state for MatrixChunky8 preview
-  const chunkyY = previewY + 25;
-  const chunkyCharWidth = 8;
-  const chunkyCharHeight = 14;
-  const chunkyHandleWidth = handleWithAt.length * chunkyCharWidth;
-  const chunkyStartX = floor((screen.width - chunkyHandleWidth) / 2);
+  // Update hover state for MatrixChunky8 preview (with proper spacing)
+  const chunkyY = normalY + 25;
+  const charWidths = handleWithAt.split("").map((char) => char === "@" ? 6 : 5);
+  const chunkyStartX = floor((screen.width - charWidths.reduce((sum, w) => sum + w, 0)) / 2);
+  const chunkyCharHeight = 8;
 
   hoveredCharIndex = -1;
 
-  // Check hover on normal font
-  if (e.y >= previewY && e.y < previewY + normalCharHeight) {
+  // Check hover on unifont
+  if (e.y >= unifontY && e.y < unifontY + unifontCharHeight) {
     for (let i = 0; i < handleWithAt.length; i++) {
-      const x = previewStartX + i * normalCharWidth;
+      const x = unifontStartX + i * unifontCharWidth;
+      if (e.x >= x && e.x < x + unifontCharWidth) {
+        hoveredCharIndex = i;
+        help.repeat();
+        break;
+      }
+    }
+  }
+
+  // Check hover on normal font
+  if (e.y >= normalY && e.y < normalY + normalCharHeight) {
+    for (let i = 0; i < handleWithAt.length; i++) {
+      const x = normalStartX + i * normalCharWidth;
       if (e.x >= x && e.x < x + normalCharWidth) {
         hoveredCharIndex = i;
         help.repeat();
@@ -323,22 +425,42 @@ function act({ event: e, screen, net, help, jump, sound }) {
 
   // Check hover on chunky font
   if (e.y >= chunkyY && e.y < chunkyY + chunkyCharHeight) {
+    let currentX = chunkyStartX;
     for (let i = 0; i < handleWithAt.length; i++) {
-      const x = chunkyStartX + i * chunkyCharWidth;
-      if (e.x >= x && e.x < x + chunkyCharWidth) {
+      const charWidth = charWidths[i];
+      if (e.x >= currentX && e.x < currentX + charWidth) {
         hoveredCharIndex = i;
         help.repeat();
         break;
       }
+      currentX += charWidth;
     }
   }
 
-  // Handle character selection (click on preview)
+  // Handle character selection (click on any preview)
   if (e.is("lift") || e.is("touch")) {
-    // Check click on normal font
-    if (e.y >= previewY && e.y < previewY + normalCharHeight) {
+    // Check click on unifont
+    if (e.y >= unifontY && e.y < unifontY + unifontCharHeight) {
       for (let i = 0; i < handleWithAt.length; i++) {
-        const x = previewStartX + i * normalCharWidth;
+        const x = unifontStartX + i * unifontCharWidth;
+        if (e.x >= x && e.x < x + unifontCharWidth) {
+          selectedCharIndex = i;
+          sound.synth({
+            type: "triangle",
+            tone: 400 + i * 50,
+            duration: 0.05,
+            volume: 0.3,
+          });
+          help.repeat();
+          return;
+        }
+      }
+    }
+
+    // Check click on normal font
+    if (e.y >= normalY && e.y < normalY + normalCharHeight) {
+      for (let i = 0; i < handleWithAt.length; i++) {
+        const x = normalStartX + i * normalCharWidth;
         if (e.x >= x && e.x < x + normalCharWidth) {
           selectedCharIndex = i;
           sound.synth({
@@ -355,9 +477,10 @@ function act({ event: e, screen, net, help, jump, sound }) {
 
     // Check click on chunky font
     if (e.y >= chunkyY && e.y < chunkyY + chunkyCharHeight) {
+      let currentX = chunkyStartX;
       for (let i = 0; i < handleWithAt.length; i++) {
-        const x = chunkyStartX + i * chunkyCharWidth;
-        if (e.x >= x && e.x < x + chunkyCharWidth) {
+        const charWidth = charWidths[i];
+        if (e.x >= currentX && e.x < currentX + charWidth) {
           selectedCharIndex = i;
           sound.synth({
             type: "triangle",
@@ -368,33 +491,40 @@ function act({ event: e, screen, net, help, jump, sound }) {
           help.repeat();
           return;
         }
+        currentX += charWidth;
       }
     }
-
-    // Check save button (only on lift/touch, not draw)
-    if (saveBtn && saveBtn.act) {
-      saveColors(net, help, sound);
-      return;
-    }
   }
+
+  // Handle Reset button with proper act callback
+  resetBtn.act(e, () => {
+    colors = defaultColors.map((c) => ({ ...c }));
+    sound.synth({
+      type: "square",
+      tone: 300,
+      duration: 0.08,
+      volume: 0.3,
+    });
+    help.repeat();
+  });
+
+  // Handle Save button with proper act callback
+  saveBtn.act(e, () => {
+    saveColors(net, help, sound);
+  });
 
   // Handle slider dragging
   if (e.is("draw") || e.is("lift") || e.is("touch")) {
     const currentColor = colors[selectedCharIndex];
-    const sliders = [
-      { key: "r", y: sliderConfig.y },
-      { key: "g", y: sliderConfig.y + sliderConfig.gap },
-      { key: "b", y: sliderConfig.y + sliderConfig.gap * 2 },
-    ];
 
     for (const slider of sliders) {
       if (
         e.y >= slider.y &&
         e.y < slider.y + sliderConfig.height &&
-        e.x >= sliderConfig.x &&
-        e.x < sliderConfig.x + sliderConfig.width
+        e.x >= sliderX &&
+        e.x < sliderX + sliderConfig.width
       ) {
-        const relX = e.x - sliderConfig.x;
+        const relX = e.x - sliderX;
         const newValue = floor((relX / sliderConfig.width) * 255);
         currentColor[slider.key] = max(0, min(255, newValue));
         help.repeat();
@@ -424,6 +554,8 @@ async function saveColors(net, help, sound) {
 
     if (response.status === 200) {
       saveStatus = "saved";
+      // Update defaults to current colors after successful save
+      defaultColors = colors.map((c) => ({ ...c }));
       console.log(`✅ Colors saved successfully`);
       sound.synth({
         type: "sine",
@@ -452,11 +584,13 @@ async function saveColors(net, help, sound) {
   }, 2500);
 }
 
+export { boot, paint, act };
+
 function meta() {
   return {
-    title: "Handle Color Customization",
-    desc: "Customize the colors of your @handle - per-character RGB control.",
+    title: "Handle",
+    desc: "Customize your @handle colors.",
   };
 }
 
-export { boot, paint, act, meta };
+export { meta };
