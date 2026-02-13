@@ -1012,6 +1012,7 @@
             wordWrap: 'off',
             wrappingStrategy: 'advanced',
             readOnly: true,
+            domReadOnly: true, // Prevent mobile keyboard from opening
             cursorStyle: 'line',
             padding: { top: 0, bottom: 0 },
             hover: { enabled: false },
@@ -1075,18 +1076,30 @@
         currentCodeId = codeId;
       };
 
-      // Handle context menu on Monaco editor
+      function openContextMenuAt(x, y) {
+        contextMenu.style.left = x + 'px';
+        contextMenu.style.top = y + 'px';
+        contextMenu.classList.add('visible');
+        console.log('📺 Custom context menu opened');
+      }
+
+      // Handle context menu on Monaco editor (right-click / long-press)
       editorContainer.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         e.stopPropagation();
-
-        // Position the menu at cursor
-        contextMenu.style.left = e.pageX + 'px';
-        contextMenu.style.top = e.pageY + 'px';
-        contextMenu.classList.add('visible');
-
-        console.log('📺 Custom context menu opened');
+        openContextMenuAt(e.pageX, e.pageY);
       });
+
+      // Two-finger tap opens context menu on mobile
+      editorContainer.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2) {
+          e.preventDefault();
+          // Use midpoint of two fingers
+          const x = (e.touches[0].pageX + e.touches[1].pageX) / 2;
+          const y = (e.touches[0].pageY + e.touches[1].pageY) / 2;
+          openContextMenuAt(x, y);
+        }
+      }, { passive: false });
 
       // Handle menu item clicks
       contextMenu.querySelectorAll('.monaco-context-item').forEach(item => {
@@ -1119,16 +1132,18 @@
         });
       });
 
-      // Close menu when clicking elsewhere
+      // Close menu when clicking elsewhere (not on menu items)
       document.addEventListener('click', (e) => {
-        if (!contextMenu.contains(e.target) && !editorContainer.contains(e.target)) {
+        if (contextMenu.classList.contains('visible') && !contextMenu.contains(e.target)) {
           contextMenu.classList.remove('visible');
         }
       });
 
       // Prevent body pointerdown from hiding overlay when context menu is open
+      // but allow clicks ON the context menu items to pass through
       document.body.addEventListener('pointerdown', (e) => {
         if (contextMenu.classList.contains('visible')) {
+          if (contextMenu.contains(e.target)) return; // Let menu item clicks through
           e.stopImmediatePropagation();
           contextMenu.classList.remove('visible');
         }
