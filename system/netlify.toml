@@ -1003,6 +1003,12 @@ from = "https://kidlisp.com/keeps"
 to = "/kidlisp.com/keeps.html"
 status = 200
 force = true
+# Learn / reference page
+[[redirects]]
+from = "https://kidlisp.com/learn"
+to = "/kidlisp.com/learn.html"
+status = 200
+force = true
 [[redirects]]
 from = "https://kidlisp.com/*"
 to = "https://aesthetic.computer/kidlisp.com/:splat"
@@ -1030,11 +1036,34 @@ from = "https://www.kidlisp.com/keeps"
 to = "/kidlisp.com/keeps.html"
 status = 200
 force = true
+# Learn / reference page
+[[redirects]]
+from = "https://www.kidlisp.com/learn"
+to = "/kidlisp.com/learn.html"
+status = 200
+force = true
 [[redirects]]
 from = "https://www.kidlisp.com/*"
 to = "https://aesthetic.computer/kidlisp.com/:splat"
 status = 200
 force = true
+
+# learn.kidlisp.com subdomain (uncomment when DNS is ready)
+# [[redirects]]
+# from = "https://learn.kidlisp.com"
+# to = "/kidlisp.com/learn.html"
+# status = 200
+# force = true
+# [[redirects]]
+# from = "https://learn.kidlisp.com/api/*"
+# to = "/api/:splat"
+# status = 200
+# force = true
+# [[redirects]]
+# from = "https://learn.kidlisp.com/*"
+# to = "/kidlisp.com/learn.html"
+# status = 200
+# force = true
 
 # PJ subdomain for kidlisp.com - pj.kidlisp.com/code (Piece Jockey)
 [[redirects]]
