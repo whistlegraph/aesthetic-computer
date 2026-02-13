@@ -779,6 +779,226 @@ function generateJSPieceHTMLBundle(opts) {
 </html>`;
 }
 
+// M4L .amxd binary header for Instrument devices
+// Format: "ampf" + 4-byte type marker + "meta" + 4 zero bytes + "ptch"
+const M4L_HEADER_INSTRUMENT = Buffer.from(
+  'ampf\x04\x00\x00\x00iiiimeta\x04\x00\x00\x00\x00\x00\x00\x00ptch', 'binary'
+);
+
+// Generate a Max for Live instrument patcher with an embedded offline HTML bundle
+function generateM4DPatcher(pieceName, dataUri, width = 400, height = 200) {
+  const density = 1.5;
+  return {
+    patcher: {
+      fileversion: 1,
+      appversion: { major: 9, minor: 0, revision: 7, architecture: "x64", modernui: 1 },
+      classnamespace: "box",
+      rect: [134.0, 174.0, 800.0, 600.0],
+      openrect: [0.0, 0.0, width, height],
+      openinpresentation: 1,
+      gridsize: [15.0, 15.0],
+      enablehscroll: 0,
+      enablevscroll: 0,
+      devicewidth: width,
+      description: `Aesthetic Computer ${pieceName} (offline)`,
+      boxes: [
+        {
+          box: {
+            disablefind: 0,
+            id: "obj-jweb",
+            latency: 0,
+            maxclass: "jweb~",
+            numinlets: 1,
+            numoutlets: 3,
+            outlettype: ["signal", "signal", ""],
+            patching_rect: [10.0, 50.0, width, height],
+            presentation: 1,
+            presentation_rect: [0.0, 0.0, width + 1, height + 1],
+            rendermode: 1,
+            url: dataUri
+          }
+        },
+        {
+          box: {
+            id: "obj-plugout",
+            maxclass: "newobj",
+            numinlets: 2,
+            numoutlets: 0,
+            patching_rect: [10.0, 280.0, 75.0, 22.0],
+            text: "plugout~ 1 2"
+          }
+        },
+        {
+          box: {
+            id: "obj-thisdevice",
+            maxclass: "newobj",
+            numinlets: 1,
+            numoutlets: 3,
+            outlettype: ["bang", "int", "int"],
+            patching_rect: [350.0, 50.0, 85.0, 22.0],
+            text: "live.thisdevice"
+          }
+        },
+        {
+          box: {
+            id: "obj-print",
+            maxclass: "newobj",
+            numinlets: 1,
+            numoutlets: 0,
+            patching_rect: [350.0, 80.0, 150.0, 22.0],
+            text: `print [AC-${pieceName.toUpperCase()}]`
+          }
+        },
+        {
+          box: {
+            id: "obj-route",
+            maxclass: "newobj",
+            numinlets: 1,
+            numoutlets: 2,
+            outlettype: ["", ""],
+            patching_rect: [350.0, 140.0, 60.0, 22.0],
+            text: "route ready"
+          }
+        },
+        {
+          box: {
+            id: "obj-activate",
+            maxclass: "message",
+            numinlets: 2,
+            numoutlets: 1,
+            outlettype: [""],
+            patching_rect: [350.0, 170.0, 60.0, 22.0],
+            text: "activate 1"
+          }
+        },
+        {
+          box: {
+            id: "obj-jweb-print",
+            maxclass: "newobj",
+            numinlets: 1,
+            numoutlets: 0,
+            patching_rect: [350.0, 110.0, 90.0, 22.0],
+            text: "print [AC-JWEB]"
+          }
+        },
+        {
+          box: {
+            id: "obj-route-logs",
+            maxclass: "newobj",
+            numinlets: 1,
+            numoutlets: 4,
+            outlettype: ["", "", "", ""],
+            patching_rect: [470.0, 140.0, 120.0, 22.0],
+            text: "route log error warn"
+          }
+        },
+        {
+          box: {
+            id: "obj-udpsend",
+            maxclass: "newobj",
+            numinlets: 1,
+            numoutlets: 0,
+            patching_rect: [470.0, 210.0, 160.0, 22.0],
+            text: "udpsend 127.0.0.1 7777"
+          }
+        },
+        {
+          box: {
+            id: "obj-prepend-log",
+            maxclass: "newobj",
+            numinlets: 1,
+            numoutlets: 1,
+            outlettype: [""],
+            patching_rect: [470.0, 170.0, 55.0, 22.0],
+            text: "prepend log"
+          }
+        },
+        {
+          box: {
+            id: "obj-prepend-error",
+            maxclass: "newobj",
+            numinlets: 1,
+            numoutlets: 1,
+            outlettype: [""],
+            patching_rect: [530.0, 170.0, 65.0, 22.0],
+            text: "prepend error"
+          }
+        },
+        {
+          box: {
+            id: "obj-prepend-warn",
+            maxclass: "newobj",
+            numinlets: 1,
+            numoutlets: 1,
+            outlettype: [""],
+            patching_rect: [600.0, 170.0, 60.0, 22.0],
+            text: "prepend warn"
+          }
+        }
+      ],
+      lines: [
+        { patchline: { destination: ["obj-plugout", 0], source: ["obj-jweb", 0] } },
+        { patchline: { destination: ["obj-plugout", 1], source: ["obj-jweb", 1] } },
+        { patchline: { destination: ["obj-print", 0], source: ["obj-thisdevice", 0] } },
+        { patchline: { destination: ["obj-jweb-print", 0], source: ["obj-jweb", 2] } },
+        { patchline: { destination: ["obj-route", 0], source: ["obj-jweb", 2] } },
+        { patchline: { destination: ["obj-activate", 0], source: ["obj-route", 0] } },
+        { patchline: { destination: ["obj-jweb", 0], source: ["obj-activate", 0] } },
+        { patchline: { destination: ["obj-route-logs", 0], source: ["obj-jweb", 2] } },
+        { patchline: { destination: ["obj-prepend-log", 0], source: ["obj-route-logs", 0] } },
+        { patchline: { destination: ["obj-prepend-error", 0], source: ["obj-route-logs", 1] } },
+        { patchline: { destination: ["obj-prepend-warn", 0], source: ["obj-route-logs", 2] } },
+        { patchline: { destination: ["obj-udpsend", 0], source: ["obj-prepend-log", 0] } },
+        { patchline: { destination: ["obj-udpsend", 0], source: ["obj-prepend-error", 0] } },
+        { patchline: { destination: ["obj-udpsend", 0], source: ["obj-prepend-warn", 0] } }
+      ],
+      dependency_cache: [],
+      latency: 0,
+      is_mpe: 0,
+      external_mpe_tuning_enabled: 0,
+      minimum_live_version: "",
+      minimum_max_version: "",
+      platform_compatibility: 0,
+      autosave: 0
+    }
+  };
+}
+
+// Build a complete .amxd binary from a patcher object
+function packAMXD(patcher) {
+  const patcherJson = Buffer.from(JSON.stringify(patcher));
+  const lengthBuf = Buffer.alloc(4);
+  lengthBuf.writeUInt32LE(patcherJson.length, 0);
+  return Buffer.concat([M4L_HEADER_INSTRUMENT, lengthBuf, patcherJson]);
+}
+
+// Create an offline M4L device (.amxd) with an embedded HTML bundle
+async function createM4DBundle(pieceName, isJSPiece, onProgress = () => {}, density = null) {
+  onProgress({ stage: 'fetch', message: `Building M4L device for ${pieceName}...` });
+
+  // Generate the offline HTML bundle using existing infrastructure
+  const bundleResult = isJSPiece
+    ? await createJSPieceBundle(pieceName, onProgress, false, density)
+    : await createBundle(pieceName, onProgress, false, density);
+
+  onProgress({ stage: 'generate', message: 'Embedding bundle in M4L device...' });
+
+  // Encode the full HTML as a data: URI for jweb~
+  const htmlBase64 = Buffer.from(bundleResult.html).toString('base64');
+  const dataUri = `data:text/html;base64,${htmlBase64}`;
+
+  // Generate the instrument patcher with the embedded bundle
+  const patcher = generateM4DPatcher(pieceName, dataUri);
+
+  onProgress({ stage: 'compress', message: 'Packing .amxd binary...' });
+
+  // Pack into .amxd format
+  const amxdBinary = packAMXD(patcher);
+  const filename = `AC ${pieceName} (offline).amxd`;
+
+  return { binary: amxdBinary, filename, sizeKB: Math.round(amxdBinary.length / 1024) };
+}
+
 // Main bundle creation for KidLisp pieces
 async function createBundle(pieceName, onProgress = () => {}, nocompress = false, density = null) {
   const PIECE_NAME_NO_DOLLAR = pieceName.replace(/^\$/, '');
@@ -1359,6 +1579,38 @@ exports.handler = stream(async (event) => {
     };
   }
   
+  // M4D mode: generate an offline .amxd Max for Live device
+  if (format === 'm4d') {
+    try {
+      const onProgress = (progress) => {
+        console.log(`[bundle-html] m4d ${progress.stage}: ${progress.message}`);
+      };
+
+      const { binary, filename, sizeKB } = await createM4DBundle(
+        bundleTarget, isJSPiece, onProgress, density
+      );
+
+      return {
+        statusCode: 200,
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "Content-Disposition": `attachment; filename="${filename}"`,
+          "Content-Length": binary.length.toString(),
+          "Cache-Control": "no-cache",
+        },
+        body: binary.toString('base64'),
+        isBase64Encoded: true,
+      };
+    } catch (error) {
+      console.error("M4D bundle creation failed:", error);
+      return {
+        statusCode: 500,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ error: error.message }),
+      };
+    }
+  }
+
   // Streaming mode with SSE progress updates
   if (format === 'stream') {
     const readable = new ReadableStream({
@@ -1375,8 +1627,8 @@ exports.handler = stream(async (event) => {
           };
           
           const { html, filename, sizeKB } = isJSPiece
-            ? await createJSPieceBundle(bundleTarget, onProgress)
-            : await createBundle(bundleTarget, onProgress);
+            ? await createJSPieceBundle(bundleTarget, onProgress, nocompress, density)
+            : await createBundle(bundleTarget, onProgress, nocompress, density);
           
           sendEvent('complete', {
             filename,
