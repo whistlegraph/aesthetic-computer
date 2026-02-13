@@ -84,6 +84,12 @@ function nopaint_boot({
   // Initialize session logging
   initSessionLogging(api);
 
+  // Guard: system.painting must exist before nopaint can initialize
+  if (!system.painting) {
+    console.warn("🥾 nopaint_boot: system.painting is undefined, skipping nopaint initialization");
+    return;
+  }
+
   system.nopaint.buffer = painting(
     system.painting.width,
     system.painting.height,
@@ -96,17 +102,17 @@ function nopaint_boot({
   if (params && num) {
     // Parse color centrally for all brushes
     system.nopaint.color = num.parseColor(params);
-    
+
     // Generate colored HUD label using the full syntax highlighting system
     const modifiers = colon && colon.length > 0 ? `:${colon.join(":")}` : "";
     const brushName = api.slug || "brush";
-    
+
     // Extract just the piece name (without parameters) for the base
     const pieceName = brushName.split('~')[0].split(':')[0];
-    
+
     // Use generateNopaintHUDLabel for proper color syntax highlighting
     const label = generateNopaintHUDLabel(pieceName, system.nopaint.color, params, modifiers);
-    
+
     // Completely replace currentHUDTxt directly instead of using hud.label
     if (typeof window !== 'undefined' && window.currentHUDTxt !== undefined) {
       window.currentHUDTxt = label;
