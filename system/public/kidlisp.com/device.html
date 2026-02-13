@@ -1953,6 +1953,9 @@
           console.log('📺 Decode complete - Monaco showing final code');
         }
 
+        // Reveal all continuous text scrambles (label, handle, hits)
+        window.revealAllTextScrambles?.();
+
         // Set final source code in Monaco
         if (window.deviceMonacoEditor && pendingSource) {
           window.deviceMonacoEditor.setValue(pendingSource);
@@ -2036,6 +2039,9 @@
           scrambleCallbacks.delete(element._scrambleCallback);
         }
 
+        // Store target text so it can be revealed later
+        element._scrambleTarget = targetText;
+
         // Register callback with global clock
         element._scrambleCallback = animate;
         scrambleCallbacks.add(animate);
@@ -2044,6 +2050,33 @@
         startScrambleClock();
 
         animate(); // Run immediately
+      };
+
+      // Stop all continuous text scrambles and reveal final text
+      window.revealAllTextScrambles = function() {
+        const els = [
+          document.querySelector('#code-label .code-dollar'),
+          document.querySelector('#code-label .code-name'),
+          document.getElementById('piece-handle'),
+          document.getElementById('piece-hits'),
+          document.getElementById('piece-when'),
+          document.getElementById('ff1-playlist-position'),
+          document.getElementById('ff1-playlist-title'),
+          document.querySelector('.ff1-cmd'),
+        ];
+        for (const el of els) {
+          if (!el) continue;
+          if (el._scrambleCallback) {
+            scrambleCallbacks.delete(el._scrambleCallback);
+            el._scrambleCallback = null;
+          }
+          // Use stored HTML if available (for formatted elements like ff1 cmd)
+          if (el._scrambleTargetHTML) {
+            el.innerHTML = el._scrambleTargetHTML;
+          } else if (el._scrambleTarget) {
+            el.textContent = el._scrambleTarget;
+          }
+        }
       };
 
       // Regenerate QR code on every chunk (24fps) - stops when metadata stops
@@ -2777,9 +2810,22 @@
       // (fixes: decodeTriggered stuck at true from previous slide)
       window.resetDecodeState?.();
 
-      // Update position display in FF1 module
+      // Scramble position and playlist title for this transition
       const playlistPosition = document.getElementById('ff1-playlist-position');
-      if (playlistPosition) playlistPosition.textContent = `${slideshowIndex + 1} / ${slideshowPlaylist.items.length}`;
+      if (playlistPosition) {
+        const posText = `${slideshowIndex + 1} / ${slideshowPlaylist.items.length}`;
+        window.scrambleTextElement?.(playlistPosition, posText, 500, true);
+      }
+      const playlistTitleEl = document.getElementById('ff1-playlist-title');
+      if (playlistTitleEl && slideshowPlaylist.title) {
+        window.scrambleTextElement?.(playlistTitleEl, slideshowPlaylist.title, 600, true);
+      }
+      // Re-scramble ff1 cmd text
+      const ff1CmdSpan = document.querySelector('.ff1-cmd');
+      if (ff1CmdSpan && currentFF1Command) {
+        ff1CmdSpan._scrambleTargetHTML = formatFF1Command(currentFF1Command);
+        window.scrambleTextElement?.(ff1CmdSpan, currentFF1Command, 600, true);
+      }
 
       const itemUrl = resolveItemUrl(item);
 
@@ -3313,8 +3359,8 @@
           day: 'numeric'
         });
 
-        // 🎲 Scramble the date then reveal
-        window.scrambleTextElement?.(whenEl, formatted, 600, false);
+        // 🎲 Scramble the date continuously until piece is ready
+        window.scrambleTextElement?.(whenEl, formatted, 600, true);
 
         console.log('📺 When with scramble:', formatted);
       }
@@ -3469,13 +3515,14 @@
       const cliCmd = `ff1 play "${slideshowUrl}"`;
       currentFF1Command = cliCmd;
       
-      // Update button text to show the actual command
+      // Scramble the FF1 command text, store formatted HTML for reveal
       const cmdSpan = copyBtn.querySelector('.ff1-cmd');
       if (cmdSpan) {
-        cmdSpan.innerHTML = formatFF1Command(cliCmd);
+        cmdSpan._scrambleTargetHTML = formatFF1Command(cliCmd);
         cmdSpan.title = cliCmd;
+        window.scrambleTextElement?.(cmdSpan, cliCmd, 600, true);
       }
-      
+
       console.log('📺 FF1 copy button setup for playlist with command:', cliCmd);
     }
     

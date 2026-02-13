@@ -4283,6 +4283,28 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     
     // Start the first worker attempt
     createWorker();
+
+    // Timeout: fall back to noWorker mode if worker never responds
+    const workerTimeoutMs = isLocalhost ? 3000 : 10000;
+    setTimeout(async () => {
+      if (workerReady || workerFailed) return; // Already resolved
+      console.warn(`🟡 Worker timeout (${workerTimeoutMs}ms) — falling back to noWorker mode`);
+      workerFailed = true;
+
+      let module;
+      const loader = window.acModuleLoader;
+      if (isLocalhost && loader?.connected && loader.blobUrls?.has('lib/disk.mjs')) {
+        const blobUrl = loader.blobUrls.get('lib/disk.mjs');
+        module = await import(blobUrl);
+      } else {
+        module = await import(`./lib/disk.mjs`);
+      }
+      module.noWorker.postMessage = (e) => onMessage(e);
+      send = (e) => module.noWorker.onMessage(e);
+      window.acSEND = send;
+      send(firstMessage);
+      consumeDiskSends(send);
+    }, workerTimeoutMs);
   } else {
     // B. No Worker Mode
     if (debug) console.log("🔴 No Worker");
