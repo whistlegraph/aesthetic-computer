@@ -1231,8 +1231,10 @@ async function fun(event, context) {
               // Simple waveform at bottom
               var waveY=H-30*S;var waveH=20*S;x.strokeStyle=isLightMode?'rgba(0,100,180,0.5)':'rgba(0,180,255,0.5)';x.lineWidth=S*1.5;x.beginPath();
               for(var wx=0;wx<W;wx+=2*S){var wy=waveY+Math.sin((wx+f*2)*0.05)*waveH*0.3;if(wx===0)x.moveTo(wx,wy);else x.lineTo(wx,wy);}x.stroke();
-              // "notebook" text top-left
-              var nbFS=Math.floor(8*S);x.font='bold '+nbFS+'px monospace';var nbTxt='notebook';x.fillStyle=isLightMode?'rgba(0,100,180,0.7)':'rgba(0,180,255,0.7)';x.fillText(nbTxt,8*S,16*S);
+              // Prompt text top-left (shows the piece being loaded)
+              var nbFS=Math.floor(8*S);x.font='bold '+nbFS+'px monospace';var nbTxt=window.acSTARTING_PIECE||'prompt';x.fillStyle=isLightMode?'rgba(0,100,180,0.7)':'rgba(0,180,255,0.7)';x.fillText(nbTxt,8*S,16*S);
+              // Domain indicator bottom-right (prod vs localhost)
+              var isDev=window.location.hostname==='localhost'||window.location.hostname==='127.0.0.1';var domainTxt=isDev?'localhost':'aesthetic.computer';var domainFS=Math.floor(6*S);x.font=domainFS+'px monospace';var domainWidth=x.measureText(domainTxt).width;x.fillStyle=isLightMode?'rgba(0,100,180,0.5)':'rgba(0,180,255,0.5)';x.fillText(domainTxt,W-domainWidth-8*S,H-8*S);
               // Boot log messages (minimal, scientific style)
               var nbLogFS=4*S;x.font=nbLogFS+'px monospace';var nbLogY=30*S;
               for(var li=0;li<lines.length&&li<6;li++){var ln=lines[li],ly=nbLogY+li*5*S,la=Math.max(0.4,1-li*0.12);var nbCols3=getNbCols();var lc3=nbCols3[li%nbCols3.length];x.globalAlpha=la;x.fillStyle='rgb('+lc3[0]+','+lc3[1]+','+lc3[2]+')';x.fillText('> '+ln.text,8*S,ly);}
