@@ -352,6 +352,19 @@ def λ(*args, **kwargs):
     
     return kidlisp(code, width, height, auto_scale, False, density)
 
+def _is_numeric_like(s):
+    """Check if a string looks numeric without evaluation (avoids warnings)"""
+    if not isinstance(s, str):
+        return False
+    s = s.strip()
+    if not s:
+        return False
+    try:
+        float(s)
+        return True
+    except (ValueError, TypeError):
+        return False
+
 # IPython Magic Commands for Native Kidlisp Syntax
 @magics_class
 class AestheticComputerMagics(Magics):
