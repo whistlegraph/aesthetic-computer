@@ -12646,6 +12646,60 @@ class KidLisp {
       }
     }
 
+    // Check if this token is inside a (? ...) or (choose ...) expression in edit mode
+    // Show the "active" choice with full color, desaturate others (similar to timing expressions)
+    if (this.isEditMode && token !== "(" && token !== ")") {
+      for (let i = index - 1; i >= 0; i--) {
+        const prevToken = tokens[i];
+
+        // Found a ? or choose function call
+        if ((prevToken === "?" || prevToken === "choose") && i > 0 && tokens[i - 1] === "(") {
+          const argInfo = this.getTokenArgPosition(tokens, i, index);
+          if (argInfo !== null && argInfo.argIndex >= 0) {
+            const totalArgs = this.getTimingArgsCount(tokens, i);
+            if (totalArgs > 1) {
+              // Cycle through choices at ~1.5s per choice
+              // Offset by expression position so multiple ? expressions cycle out of phase
+              const now = performance.now();
+              const holdDuration = 1500;
+              const offset = (i * 577) % holdDuration; // Spread phases using prime multiplier
+              const cyclePosition = Math.floor((now + offset) / holdDuration) % totalArgs;
+              const blinkDuration = 150;
+              const cyclePhase = (now + offset) % holdDuration;
+              const isInBlinkPhase = cyclePhase < blinkDuration;
+
+              if (argInfo.argIndex === cyclePosition) {
+                // Active choice: brief lime flash at transition, then normal colors
+                if (isInBlinkPhase) {
+                  return "lime";
+                }
+                // Fall through to normal coloring
+              } else {
+                // Inactive choice: desaturate
+                const normalColor = this.getNormalTokenColor(token, tokens, index);
+                if (normalColor) {
+                  const rgb = this.parseColorToRGB(normalColor);
+                  if (rgb) {
+                    const desaturated = this.desaturateColor(rgb);
+                    if (desaturated) {
+                      return desaturated.join(',');
+                    }
+                  }
+                }
+                return "128,128,128";
+              }
+            }
+          }
+          break;
+        }
+
+        // Stop searching at enclosing paren that isn't for ? or choose
+        if (prevToken === '(') {
+          break;
+        }
+      }
+    }
+
     // Check if this token is inside a delay timer
     const delayTimerState = this.getTimingTokenState(token, tokens, index);
 
