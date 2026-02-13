@@ -37,6 +37,10 @@
   // envs: Environment/secrets directory (API keys, credentials)
   //       Sourced by entry.fish, kept separate from git-tracked config
   //
+  // aesthetic-mkcert-ca: mkcert CA root key and certificate
+  //                      Persisted so the same CA survives rebuilds and the
+  //                      Windows/macOS host trust store stays valid
+  //
   // aesthetic-fish-data: Fish shell history, completions cache
   //                      Named volume so shell history persists across rebuilds
   //
@@ -53,6 +57,7 @@
     "source=${localWorkspaceFolder}/.devcontainer/.emacs.d,target=/home/me/.emacs.d,type=bind,consistency=cached",
     "source=${localWorkspaceFolder}/.devcontainer/envs,target=/home/me/envs,type=bind,consistency=cached",
     "source=${localEnv:HOME}${localEnv:USERPROFILE}/.claude,target=/home/me/.claude,type=bind,consistency=cached",
+    "source=aesthetic-mkcert-ca,target=/home/me/.local/share/mkcert,type=volume",
     "source=aesthetic-fish-data,target=/home/me/.local/share/fish,type=volume",
     "source=aesthetic-copilot-data,target=/home/me/.copilot,type=volume",
     "source=/var/run/docker.sock,target=/var/run/docker-host.sock,type=bind",

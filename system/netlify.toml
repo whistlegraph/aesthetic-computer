@@ -2,7 +2,7 @@
 base = "system"
 publish = "public"
 ignore = "bash ./ignore-index.sh"
-command = "rm -f public/index.html && echo $COMMIT_REF > public/.commit-ref"
+command = "rm -f public/index.html && echo $COMMIT_REF > public/.commit-ref && bash ../utilities/generate-llms-txt.sh"
 # command = "bash ./github-discord.sh"
 # command = "echo 'Building...'"
 
