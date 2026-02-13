@@ -818,9 +818,81 @@
     }
 
     /* ═══════════════════════════════════════════════════════════════════════════
-       MOBILE RESPONSIVE STYLES - 9x16 portrait aspect ratio
-       Targets phones in portrait mode to prevent element overlapping
+       RESPONSIVE STYLES - Scale UI down on smaller viewports
+       Prevents element overlapping and ensures readability across screen sizes
        ═══════════════════════════════════════════════════════════════════════════ */
+
+    /* Large tablets / Small laptops (1024px - 1366px) */
+    @media (max-width: 1366px) {
+      html {
+        --ui-scale: clamp(8, 1.2vw, 14);
+      }
+    }
+
+    /* Tablets (768px - 1024px) */
+    @media (max-width: 1024px) {
+      html {
+        --ui-scale: clamp(6, 1vw, 10);
+      }
+    }
+
+    /* Small tablets / Large phones (600px - 768px) */
+    @media (max-width: 768px) {
+      html {
+        --ui-scale: clamp(5, 0.9vw, 8);
+      }
+
+      #source-code {
+        top: calc(var(--ui-scale) * 2px);
+        left: calc(var(--ui-scale) * 2px);
+        right: calc(var(--ui-scale) * 2px);
+        bottom: calc(var(--ui-scale) * 18px);
+      }
+
+      #qr-wrap {
+        bottom: calc(var(--ui-scale) * 2px);
+        right: calc(var(--ui-scale) * 2px);
+      }
+
+      #piece-info {
+        bottom: calc(var(--ui-scale) * 2px);
+        left: calc(var(--ui-scale) * 2px);
+        max-width: calc(100% - var(--ui-scale) * 14px);
+      }
+    }
+
+    /* Extra small screens - prevent any overlap */
+    @media (max-width: 600px) {
+      html {
+        --ui-scale: clamp(4, 0.8vw, 6);
+      }
+    }
+
+    /* Short viewports - scale down UI when height is limited */
+    @media (max-height: 600px) {
+      html {
+        --ui-scale: clamp(4, 0.7vh, 8);
+      }
+
+      #source-code {
+        bottom: calc(var(--ui-scale) * 16px);
+      }
+    }
+
+    /* Very short viewports - more aggressive scaling */
+    @media (max-height: 400px) {
+      html {
+        --ui-scale: clamp(3, 0.6vh, 5);
+      }
+
+      #source-code {
+        font-size: calc(var(--ui-scale) * 2px);
+        bottom: calc(var(--ui-scale) * 12px);
+      }
+    }
+
+    /* MOBILE RESPONSIVE STYLES - 9x16 portrait aspect ratio
+       Targets phones in portrait mode to prevent element overlapping */
     @media (max-aspect-ratio: 10/16) and (max-width: 600px) {
       :root {
         /* Mobile layout spacing and dimensions */
@@ -1183,11 +1255,8 @@
             // View on Prompt.ac
             window.open(`https://prompt.ac/$${cleanCode}`, '_blank');
           } else if (action === 'bundle') {
-            // Keep as HTML - use bundle endpoint
-            const dev = window.location.hostname === 'localhost' || window.location.hostname === 'local.aesthetic.computer';
-            const apiUrl = dev ? 'https://localhost:8888' : 'https://aesthetic.computer';
-            const bundleUrl = `${apiUrl}/api/bundle-kidlisp?code=${cleanCode}`;
-
+            // Keep Offline - use bundle~$code route
+            const bundleUrl = `https://aesthetic.computer/bundle~$${cleanCode}`;
             console.log('📺 Opening bundle URL:', bundleUrl);
             window.open(bundleUrl, '_blank');
           }
@@ -1269,7 +1338,7 @@
     <div class="monaco-context-item" data-action="toggle-ui">Toggle UI</div>
     <div class="monaco-context-item" data-action="edit">Edit on KidLisp.com</div>
     <div class="monaco-context-item" data-action="view">View on Prompt.ac</div>
-    <div class="monaco-context-item" data-action="bundle">Keep as HTML</div>
+    <div class="monaco-context-item" data-action="bundle">Keep Offline</div>
   </div>
   
   <!-- DEPRECATED: Playlist info overlay - kept for backwards compatibility but hidden via CSS -->
