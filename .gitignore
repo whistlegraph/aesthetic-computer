@@ -327,7 +327,7 @@ ff1-cli/
 
 # Test scripts that may contain secrets or tokens
 test-keep-mint-*.mjs
-check-*-secrets.mjs
+check-*secrets.mjs
 
 # Silo scripts that access production database or contain wallet keys
 silo/use-staging-wallet.mjs
