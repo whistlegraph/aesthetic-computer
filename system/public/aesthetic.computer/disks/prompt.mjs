@@ -118,8 +118,55 @@ let progressPhase = ""; // Current phase of upload (e.g., "ZIPPING", "UPLOADING 
 let progressPercentage = 0; // 0-100
 
 // 📦 Bundle progress state
-let bundleProgress = null; // { stage, message, startTime, animPhase }
-const BUNDLE_STAGES = ['fetch', 'deps', 'cache-hit', 'discover', 'minify', 'paintings', 'fonts', 'generate', 'compress', 'complete'];
+let bundleProgress = null; // { timeline, startTime, code } or null
+
+// Structured bundle timeline — each step has an id, label, and status.
+// Steps are marked done/active/skipped as SSE progress events arrive.
+const BUNDLE_STEP_DEFS = [
+  { id: 'fetch',     label: 'Fetch Source' },
+  { id: 'init',      label: 'Initialize' },       // .mjs pieces
+  { id: 'deps',      label: 'Resolve Dependencies' },
+  { id: 'cache-hit', label: 'Load Cache' },        // skipped on cold start
+  { id: 'discover',  label: 'Discover Files' },    // skipped on cache hit
+  { id: 'minify',    label: 'Minify Code' },       // skipped on cache hit
+  { id: 'fonts',     label: 'Embed Fonts' },       // skipped on cache hit
+  { id: 'piece',     label: 'Load Piece' },        // .mjs pieces only
+  { id: 'paintings', label: 'Embed Paintings' },   // only if paintings exist
+  { id: 'generate',  label: 'Generate HTML' },
+  { id: 'compress',  label: 'Compress Bundle' },
+  { id: 'complete',  label: 'Done!' },
+];
+
+function makeBundleTimeline() {
+  return BUNDLE_STEP_DEFS.map(s => ({
+    ...s, status: 'pending', message: null, time: null,
+  }));
+}
+
+// Mark a timeline step active, completing the previous active step.
+function advanceBundleStep(timeline, stageId, message) {
+  // Complete any currently-active step.
+  for (const step of timeline) {
+    if (step.status === 'active') {
+      step.status = 'done';
+      step.time = performance.now();
+    }
+  }
+  const step = timeline.find(s => s.id === stageId);
+  if (step) {
+    step.status = 'active';
+    step.message = message;
+    step.time = performance.now();
+  }
+}
+
+// Finish: mark all remaining pending steps as skipped and active as done.
+function finalizeBundleTimeline(timeline) {
+  for (const step of timeline) {
+    if (step.status === 'active') step.status = 'done';
+    else if (step.status === 'pending') step.status = 'skipped';
+  }
+}
 
 // 🎄 Autorun state (for URL-based command execution like merry URLs)
 let pendingAutorun = null; // { text: string, api: object }
@@ -2430,14 +2477,10 @@ async function halt($, text) {
     const code = isKidlisp ? pieceCode.slice(1) : pieceCode;
     const displayName = isKidlisp ? `$${code}` : code;
 
-    // Initialize bundle progress UI
-    bundleProgress = {
-      stage: 'fetch',
-      message: `Bundling ${displayName}...`,
-      startTime: performance.now(),
-      animPhase: 0,
-      code: displayName
-    };
+    // Initialize bundle progress UI with structured timeline
+    const timeline = makeBundleTimeline();
+    advanceBundleStep(timeline, 'fetch', `Fetching ${displayName}...`);
+    bundleProgress = { timeline, startTime: performance.now(), code: displayName };
     needsPaint();
 
     try {
@@ -2474,16 +2517,15 @@ async function halt($, text) {
               const data = JSON.parse(line.slice(6));
 
               if (currentEventType === 'progress') {
-                // Update bundle progress state
-                bundleProgress = {
-                  ...bundleProgress,
-                  stage: data.stage || bundleProgress.stage,
-                  message: data.message
-                };
+                // Advance the structured timeline
+                if (data.stage) {
+                  advanceBundleStep(bundleProgress.timeline, data.stage, data.message);
+                }
                 needsPaint();
               } else if (currentEventType === 'complete') {
                 result = data;
-                bundleProgress = { ...bundleProgress, stage: 'complete', message: 'Complete!' };
+                advanceBundleStep(bundleProgress.timeline, 'complete', 'Done!');
+                finalizeBundleTimeline(bundleProgress.timeline);
                 needsPaint();
               }
             } catch (parseErr) {
@@ -2570,13 +2612,9 @@ async function halt($, text) {
     const displayName = isKidlisp ? `$${code}` : code;
 
     // Show indeterminate progress overlay
-    bundleProgress = {
-      stage: 'fetch',
-      message: `Building M4L device for ${displayName}...`,
-      startTime: performance.now(),
-      animPhase: 0,
-      code: displayName
-    };
+    const m4dTimeline = makeBundleTimeline();
+    advanceBundleStep(m4dTimeline, 'fetch', `Building M4L device for ${displayName}...`);
+    bundleProgress = { timeline: m4dTimeline, startTime: performance.now(), code: displayName };
     needsPaint();
 
     try {
@@ -2588,7 +2626,8 @@ async function halt($, text) {
         throw new Error(err.error || `M4D API returned ${response.status}`);
       }
 
-      bundleProgress = { ...bundleProgress, stage: 'complete', message: 'Downloading .amxd...' };
+      advanceBundleStep(bundleProgress.timeline, 'complete', 'Downloading .amxd...');
+      finalizeBundleTimeline(bundleProgress.timeline);
       needsPaint();
 
       // Download the binary .amxd file
@@ -4189,105 +4228,99 @@ function paint($) {
     }
   }
 
-  // 📦 Bundle progress overlay
+  // 📦 Bundle progress overlay — structured step list
   if (bundleProgress) {
-    const { stage, message, startTime, code } = bundleProgress;
+    const { timeline, startTime, code } = bundleProgress;
     const elapsed = performance.now() - startTime;
 
-    // Stage index for progress calculation
-    const stageIndex = BUNDLE_STAGES.indexOf(stage);
-    const totalStages = BUNDLE_STAGES.length - 1; // Exclude 'complete'
-    const baseProgress = stageIndex >= 0 ? stageIndex / totalStages : 0;
+    // Count completed steps for progress bar
+    const done = timeline.filter(s => s.status === 'done').length;
+    const progress = done / timeline.length;
 
-    // Animate within current stage
-    const stageProgress = Math.min(1, (elapsed % 2000) / 2000); // Smooth animation per stage
-    const visualProgress = Math.min(1, baseProgress + (stageProgress * 0.1)); // Small animation within stage
-
-    // Color cycling (pink -> purple -> green)
-    const colorPhase = (elapsed * 0.003) % 3;
-    let progressColor;
-    if (colorPhase < 1) {
-      progressColor = [255, 100, 200]; // Pink
-    } else if (colorPhase < 2) {
-      progressColor = [200, 100, 255]; // Purple
-    } else {
-      progressColor = [100, 255, 150]; // Green
-    }
+    // Accent color (pink)
+    const accent = [255, 100, 200];
 
     // Semi-transparent overlay
-    const overlayAlpha = Math.floor(120 + Math.sin(elapsed * 0.005) * 20);
-    ink(0, 0, 0, overlayAlpha).box(0, 0, screen.width, screen.height);
+    ink(0, 0, 0, 140).box(0, 0, screen.width, screen.height);
 
-    // 🎯 Progress bar at top - marching ants style
+    // 🎯 Progress bar at top — only moves forward
     const barY = 1;
     const barHeight = 2;
     const fullWidth = screen.width - 2;
-    const filledWidth = Math.floor(fullWidth * visualProgress);
-
-    // Background track (dark)
+    const filledWidth = Math.floor(fullWidth * progress);
     ink(40, 40, 40).box(1, barY, fullWidth, barHeight);
+    if (filledWidth > 0) ink(...accent).box(1, barY, filledWidth, barHeight);
 
-    // Filled portion with marching ants pattern
-    const antOffset = Math.floor(elapsed / 50) % 4;
-    for (let x = 0; x < filledWidth; x++) {
-      const pattern = (x + antOffset) % 4;
-      if (pattern < 2) {
-        ink(...progressColor).box(1 + x, barY, 1, barHeight);
+    // 📋 Title
+    const titleText = `BUNDLE ${code}`;
+    const titleY = 6;
+    ink(...accent).write(titleText, { center: "x", y: titleY });
+
+    // Step list — show done + active + first pending, skip others
+    const rowH = 10;
+    const margin = 6;
+    let y = titleY + 12;
+    let shownPending = false;
+
+    for (const step of timeline) {
+      const isDone = step.status === 'done';
+      const isActive = step.status === 'active';
+      const isSkipped = step.status === 'skipped';
+      const isPending = step.status === 'pending';
+
+      // Skip steps that were never reached
+      if (isSkipped) continue;
+
+      // Only show the first pending step (as "...")
+      if (isPending) {
+        if (shownPending) continue;
+        shownPending = true;
+      }
+
+      // Don't render past screen bottom
+      if (y + rowH > screen.height - 2) break;
+
+      // Background stripe for active step
+      if (isActive) {
+        ink(accent[0], accent[1], accent[2], 30).box(0, y, screen.width, rowH);
+      }
+
+      // Status indicator
+      let indicator, indicatorColor;
+      if (isDone) {
+        indicator = '+';
+        indicatorColor = [100, 255, 100];
+      } else if (isActive) {
+        // Animated spinner: - \ | /
+        const spinChars = ['-', '\\', '|', '/'];
+        indicator = spinChars[Math.floor(elapsed / 150) % 4];
+        indicatorColor = accent;
       } else {
-        ink(...progressColor, 150).box(1 + x, barY, 1, barHeight);
+        indicator = '-';
+        indicatorColor = [100, 100, 100];
       }
-    }
 
-    // Animated leading edge sparkle
-    if (filledWidth > 0 && filledWidth < fullWidth) {
-      const sparkle = Math.sin(elapsed * 0.02) * 0.5 + 0.5;
-      ink(255, 255, 255, Math.floor(100 + sparkle * 155)).box(1 + filledWidth - 1, barY, 2, barHeight);
-    }
+      ink(...indicatorColor).write(indicator, { x: margin, y });
 
-    // 📝 Message box in center
-    const textPadding = 8;
-    const lineHeight = 10;
-    const boxWidth = Math.max(message.length * 6 + textPadding * 2, 100);
-    const boxHeight = lineHeight * 2 + textPadding * 2;
-    const boxX = (screen.width - boxWidth) / 2;
-    const boxY = screen.height / 2 - boxHeight / 2;
+      // Label
+      const labelColor = isDone ? [150, 150, 150] : isActive ? [255, 255, 255] : [80, 80, 80];
+      ink(...labelColor).write(step.label, { x: margin + 8, y });
 
-    // Box background with pulsing border
-    ink(0, 0, 0, 200).box(boxX, boxY, boxWidth, boxHeight);
-
-    // Dotted border (marching ants)
-    const dotSpacing = 3;
-    for (let x = boxX; x < boxX + boxWidth; x += dotSpacing) {
-      const offset = Math.floor(elapsed / 100) % dotSpacing;
-      if ((x + offset) % dotSpacing === 0) {
-        ink(...progressColor).box(x, boxY, 1, 1);
-        ink(...progressColor).box(x, boxY + boxHeight - 1, 1, 1);
+      // Detail message (right side, for active step)
+      if (isActive && step.message) {
+        const maxMsgLen = Math.floor((screen.width - margin * 2 - step.label.length * 6 - 16) / 6);
+        const msg = step.message.length > maxMsgLen
+          ? step.message.slice(0, maxMsgLen - 2) + '..'
+          : step.message;
+        ink(accent[0], accent[1], accent[2], 180).write(msg, {
+          x: screen.width - margin - msg.length * 6, y
+        });
       }
-    }
-    for (let y = boxY; y < boxY + boxHeight; y += dotSpacing) {
-      const offset = Math.floor(elapsed / 100) % dotSpacing;
-      if ((y + offset) % dotSpacing === 0) {
-        ink(...progressColor).box(boxX, y, 1, 1);
-        ink(...progressColor).box(boxX + boxWidth - 1, y, 1, 1);
-      }
+
+      y += rowH;
     }
 
-    // Title line: "BUNDLING $code" or "BUNDLING piece"
-    const titleText = `BUNDLING ${code}`;
-    ink(...progressColor).write(titleText, { center: "x", y: boxY + textPadding });
-
-    // Status line: current message
-    const statusText = message.toUpperCase();
-    ink(255, 255, 255, 200).write(statusText, { center: "x", y: boxY + textPadding + lineHeight });
-
-    // Animated dots after status
-    const dots = Math.floor((elapsed / 300) % 4);
-    ink(255, 255, 255, 150).write(".".repeat(dots), {
-      x: (screen.width + statusText.length * 6) / 2 + 2,
-      y: boxY + textPadding + lineHeight
-    });
-
-    // Keep animating
+    // Keep animating (for the spinner)
     $.needsPaint();
   }
 
