@@ -8629,10 +8629,11 @@ async function load(
 
     // 📚 nopaint system
     if (
-      module.system?.startsWith("nopaint") ||
+      !Array.isArray(module) &&
+      (module.system?.startsWith("nopaint") ||
       typeof module?.brush === "function" ||
       typeof module?.lift === "function" ||
-      typeof module?.filter === "function"
+      typeof module?.filter === "function")
     ) {
       // If there is no painting is in ram, then grab it from the local store,
       // or generate one.
