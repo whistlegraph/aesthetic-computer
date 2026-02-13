@@ -167,6 +167,21 @@ export class Chat {
           }
         }
 
+        // Handle color updates from other users.
+        if (type === "handle:colors") {
+          const msg = JSON.parse(content);
+          console.log("🎨 Handle colors update received:", msg.handle);
+          const cleanHandle = msg.handle.startsWith("@") ? msg.handle.slice(1) : msg.handle;
+          handleColorsCache.set(cleanHandle, msg.colors);
+          // Re-colorize all messages from this handle.
+          this.system.messages.forEach((message) => {
+            const msgHandle = message.from?.startsWith("@") ? message.from.slice(1) : message.from;
+            if (msgHandle?.toLowerCase() === cleanHandle.toLowerCase()) {
+              extra.layoutChanged = true;
+            }
+          });
+        }
+
         if (type === "chat-system:mute" || type === "chat-system:unmute") {
           const msg = JSON.parse(content);
           content = msg;
