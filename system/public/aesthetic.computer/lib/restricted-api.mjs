@@ -1,8 +1,7 @@
 // restricted-api.mjs
 // Creates restricted $ API for untrusted JavaScript pieces
-// Silently enforces safety boundaries without permission prompts.
-// Network, upload, and navigation are allowed (browser security handles those).
-// Token/auth access is silently blocked. Storage is namespaced per piece.
+
+import { requestPermission } from "./piece-permissions.mjs";
 
 /**
  * Create a restricted API for an untrusted piece
@@ -23,21 +22,28 @@ export function createRestrictedApi(fullApi, pieceMetadata) {
     // Copy all safe APIs (rendering, input, utilities)
     ...fullApi,
 
-    // Wrap network APIs - allow requests but block direct token access
+    // Wrap network APIs with permission checks
     net: createRestrictedNetApi(fullApi.net, pieceCode),
 
     // Namespace storage per piece
     store: createNamespacedStore(fullApi.store, pieceCode),
 
-    // Silently block auth APIs (no token leaking)
-    authorize: async () => {
-      console.warn(`🔒 authorize() blocked for untrusted piece: ${pieceCode}`);
-      return undefined;
-    },
+    // Block auth APIs (require permission)
+    authorize: createPermissionWrapper(
+      fullApi.authorize,
+      pieceCode,
+      "auth",
+      "authorize() requires permission"
+    ),
 
-    // Upload and jump pass through (browser security handles external URLs)
-    upload: fullApi.upload,
-    jump: fullApi.jump,
+    // Wrap upload with external URL check
+    upload: createRestrictedUpload(fullApi.upload, pieceCode),
+
+    // Wrap jump with external URL check
+    jump: createRestrictedJump(fullApi.jump, pieceCode),
+
+    // Block dynamic imports by not exposing import functionality
+    // (pieces can still use static imports in their source)
   };
 
   // Add metadata flag
@@ -48,26 +54,51 @@ export function createRestrictedApi(fullApi, pieceMetadata) {
 }
 
 /**
- * Create restricted network API - allows requests, blocks token access
+ * Create restricted network API that requires permission
  */
 function createRestrictedNetApi(netApi, pieceCode) {
   return {
     ...netApi,
 
-    // preload (fetch) is allowed - browser CORS handles security
-    preload: netApi.preload,
-
-    // userRequest blocked - it sends auth tokens
-    userRequest: async () => {
-      console.warn(`🔒 userRequest() blocked for untrusted piece: ${pieceCode} (leaks auth tokens)`);
-      return undefined;
+    // Wrap preload (fetch wrapper)
+    preload: async (url, options) => {
+      const granted = await requestPermission(pieceCode, "network", { url });
+      if (!granted) {
+        throw new Error(
+          `Network access denied. The piece "${pieceCode}" requested access to: ${url}`
+        );
+      }
+      return netApi.preload(url, options);
     },
 
-    // getToken blocked - direct token access
-    getToken: async () => {
-      console.warn(`🔒 getToken() blocked for untrusted piece: ${pieceCode}`);
-      return undefined;
+    // Wrap userRequest (authenticated fetch)
+    userRequest: async (url, options) => {
+      const granted = await requestPermission(pieceCode, "network", { url });
+      if (!granted) {
+        throw new Error(
+          `Network access denied. The piece "${pieceCode}" requested access to: ${url}`
+        );
+      }
+      // Also require auth permission since this uses tokens
+      const authGranted = await requestPermission(pieceCode, "auth", {});
+      if (!authGranted) {
+        throw new Error(
+          `Authentication access denied. The piece "${pieceCode}" tried to make an authenticated request.`
+        );
+      }
+      return netApi.userRequest(url, options);
     },
+
+    // Block getToken (direct token access)
+    getToken: createPermissionWrapper(
+      netApi.getToken,
+      pieceCode,
+      "auth",
+      "getToken() requires permission"
+    ),
+
+    // Keep other net APIs that don't involve external requests
+    // (signup, login, etc. can stay since they're internal to AC)
   };
 }
 
@@ -109,14 +140,101 @@ function createNamespacedStore(fullStore, pieceCode) {
         await this.delete(key);
       }
     },
+
+    // Expose method to request full storage access
+    async requestFullAccess() {
+      const granted = await requestPermission(pieceCode, "storage-full", {});
+      if (granted) {
+        // Return the full store
+        return fullStore;
+      }
+      throw new Error("Full storage access denied");
+    },
   };
+}
+
+/**
+ * Wrap upload to check for external URLs
+ */
+function createRestrictedUpload(uploadFn, pieceCode) {
+  return async (file, options = {}) => {
+    // If uploading to external URL, require permission
+    if (options.url && !isAestheticComputerUrl(options.url)) {
+      const granted = await requestPermission(pieceCode, "upload-external", {
+        url: options.url,
+      });
+      if (!granted) {
+        throw new Error(
+          `External upload denied. The piece "${pieceCode}" tried to upload to: ${options.url}`
+        );
+      }
+    }
+    return uploadFn(file, options);
+  };
+}
+
+/**
+ * Wrap jump to check for external URLs
+ */
+function createRestrictedJump(jumpFn, pieceCode) {
+  return async (destination, ...args) => {
+    // If jumping to external URL, require permission
+    if (
+      typeof destination === "string" &&
+      (destination.startsWith("http://") ||
+        destination.startsWith("https://")) &&
+      !isAestheticComputerUrl(destination)
+    ) {
+      const granted = await requestPermission(
+        pieceCode,
+        "navigate-external",
+        { url: destination }
+      );
+      if (!granted) {
+        throw new Error(
+          `External navigation denied. The piece "${pieceCode}" tried to navigate to: ${destination}`
+        );
+      }
+    }
+    return jumpFn(destination, ...args);
+  };
+}
+
+/**
+ * Create a wrapper that requires permission before calling the function
+ */
+function createPermissionWrapper(fn, pieceCode, permission, errorMessage) {
+  return async (...args) => {
+    const granted = await requestPermission(pieceCode, permission, {});
+    if (!granted) {
+      throw new Error(`${errorMessage} (piece: ${pieceCode})`);
+    }
+    return fn(...args);
+  };
+}
+
+/**
+ * Check if a URL is an aesthetic.computer URL (safe)
+ */
+function isAestheticComputerUrl(url) {
+  try {
+    const loc = typeof location !== "undefined" ? location : self.location;
+    const parsed = new URL(url, loc.href);
+    return (
+      parsed.hostname === "aesthetic.computer" ||
+      parsed.hostname.endsWith(".aesthetic.computer") ||
+      parsed.hostname === loc.hostname
+    );
+  } catch {
+    return false;
+  }
 }
 
 /**
  * Check if a piece should be restricted based on metadata
  */
 export function shouldRestrictPiece(pieceMetadata) {
-  const { trustLevel, anonymous } = pieceMetadata;
+  const { trustLevel, authorSub, anonymous } = pieceMetadata;
 
   // Always restrict anonymous pieces
   if (anonymous !== false) {
