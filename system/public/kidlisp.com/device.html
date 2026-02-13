@@ -1090,8 +1090,17 @@
         openContextMenuAt(e.pageX, e.pageY);
       });
 
-      // Two-finger tap opens context menu on mobile
-      editorContainer.addEventListener('touchstart', (e) => {
+      // Handle context menu anywhere on the page (right-click)
+      document.body.addEventListener('contextmenu', (e) => {
+        // Don't interfere with Monaco's context menu handler
+        if (editorContainer.contains(e.target)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        openContextMenuAt(e.pageX, e.pageY);
+      });
+
+      // Two-finger tap opens context menu on mobile (anywhere)
+      document.body.addEventListener('touchstart', (e) => {
         if (e.touches.length === 2) {
           e.preventDefault();
           // Use midpoint of two fingers
@@ -1106,6 +1115,29 @@
         item.addEventListener('click', async (e) => {
           const action = e.target.dataset.action;
           contextMenu.classList.remove('visible');
+
+          if (action === 'toggle-ui') {
+            // Toggle UI visibility
+            const overlay = document.getElementById('source-overlay');
+            const progressBar = document.getElementById('progress-bar');
+            if (overlay.classList.contains('tap-hidden')) {
+              // Show UI
+              overlay.classList.remove('tap-hidden');
+              overlay.classList.add('hover-reveal');
+              progressBar.classList.add('force-visible');
+              progressBar.classList.remove('force-hidden');
+              progressBar.classList.remove('hidden-mid');
+              updateFF1Overlap();
+            } else {
+              // Hide UI
+              overlay.classList.add('tap-hidden');
+              overlay.classList.remove('hover-reveal');
+              progressBar.classList.add('force-hidden');
+              progressBar.classList.remove('force-visible');
+              updateFF1Overlap();
+            }
+            return;
+          }
 
           if (!currentCodeId) {
             console.warn('📺 No code ID available for context menu');
@@ -1204,6 +1236,7 @@
 
   <!-- Custom context menu for Monaco -->
   <div id="monaco-context-menu">
+    <div class="monaco-context-item" data-action="toggle-ui">Toggle UI</div>
     <div class="monaco-context-item" data-action="edit">Edit on KidLisp.com</div>
     <div class="monaco-context-item" data-action="view">View on Prompt.ac</div>
     <div class="monaco-context-item" data-action="bundle">Keep as HTML</div>
@@ -1618,6 +1651,10 @@
         }
         const inner = document.getElementById('source-code-inner');
         if (inner) inner.classList.remove('scramble-coloring');
+
+        // Immediately remove scrambling class to stop all animations (QR, metadata, etc.)
+        const overlay = document.getElementById('source-overlay');
+        if (overlay) overlay.classList.remove('scrambling');
       };
       
       // Start scramble animation - applies directly to Monaco
@@ -1627,6 +1664,9 @@
 
         // Stop the initial placeholder scramble
         stopInitialScramble();
+
+        // Add scrambling class to trigger all animations (QR, metadata, etc.)
+        if (overlay) overlay.classList.add('scrambling');
 
         pendingSource = source;
         isScrambling = true;
@@ -1684,13 +1724,13 @@
         scrambleIntervalId = scrambleLoop;
 
         // If piece is already ready (preloaded/swapped), auto-decode after
-        // a brief scramble so the animation plays but doesn't get stuck
+        // a longer scramble to give all animations time to synchronize and look smooth
         if (window._pieceAlreadyReady) {
           window._pieceAlreadyReady = false;
-          console.log('📺 Piece already ready - will auto-decode after brief scramble');
+          console.log('📺 Piece already ready - will auto-decode after synchronized scramble');
           setTimeout(() => {
             window.signalDecode?.();
-          }, 800);
+          }, 1600); // Increased from 800ms to allow all animations to sync and finish together
         }
 
         // Return promise that resolves when decode is triggered
@@ -2699,7 +2739,14 @@
       if (codeMatch) {
         let extractedCodeId = codeMatch[1];
         if (!extractedCodeId.startsWith('$')) extractedCodeId = '$' + extractedCodeId;
-        fetchAndDisplaySource(extractedCodeId);
+
+        // Delay animation start when using preloaded iframe to ensure smooth visual transition
+        // This prevents scramble animations from starting before the iframe swap is visible
+        const animationDelay = isPreloaded ? 200 : 0;
+
+        setTimeout(() => {
+          fetchAndDisplaySource(extractedCodeId);
+        }, animationDelay);
       } else {
         // For non-kidlisp items, fade out source display gracefully
         const sourceInner = document.getElementById('source-code-inner');
@@ -3627,48 +3674,8 @@
       iframe.src = iframe.src.replace(/&t=\d+/, '') + '&t=' + Date.now();
       requestAnimationFrame(updateProgressBar);
     }
-    
-    // Tap-to-toggle UI: tap empty space to hide/show overlay elements
-    (function setupTapToggle() {
-      const overlay = document.getElementById('source-overlay');
-      if (!overlay) return;
 
-      const isInteractiveTarget = (target) => {
-        return !!target?.closest?.(
-          'a, button, #qr-wrap, #piece-info, #ff1-module, #piece-ff1-copy, #progress-bar, #fps-meter'
-        );
-      };
-
-      function applyManualHidden() {
-        overlay.classList.add('tap-hidden');
-        overlay.classList.remove('hover-reveal');
-        progressBar.classList.add('force-hidden');
-        progressBar.classList.remove('force-visible');
-        updateFF1Overlap();
-      }
-
-      function applyManualVisible() {
-        overlay.classList.remove('tap-hidden');
-        overlay.classList.add('hover-reveal');
-        progressBar.classList.add('force-visible');
-        progressBar.classList.remove('force-hidden');
-        progressBar.classList.remove('hidden-mid');
-        updateFF1Overlap();
-      }
-
-      document.body.addEventListener('pointerdown', (e) => {
-        // Only respond to left clicks (button 0), not right clicks
-        if (e.button !== 0) return;
-        if (isInteractiveTarget(e.target)) return;
-        if (overlay.classList.contains('scrambling')) return;
-
-        if (overlay.classList.contains('tap-hidden')) {
-          applyManualVisible();
-        } else {
-          applyManualHidden();
-        }
-      });
-    })();
+    // Tap-to-toggle UI feature removed - use right-click context menu instead
     
     // Start the app
     init();
