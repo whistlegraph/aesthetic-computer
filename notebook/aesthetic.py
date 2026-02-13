@@ -360,9 +360,10 @@ class AestheticComputerMagics(Magics):
     @cell_magic
     def ac(self, line, cell):
         """
-        Cell magic to execute kidlisp code or piece invocations directly.
+        Cell magic to execute kidlisp code or piece invocations from PRODUCTION (aesthetic.computer).
+        Uppercase %%AC loads from development localhost instead.
         
-        Usage:
+        Usage (Production):
             %%ac
             (ink red)
             (line 0 0 100 100)
@@ -377,11 +378,16 @@ class AestheticComputerMagics(Magics):
             %%ac 320 240*2    # Math expressions supported
             (your kidlisp code here)
 
+        Development (use %%AC uppercase for localhost:8888):
+            %%AC
+            prompt
+
         Note: Width/height are virtual AC pixels. Iframe size is scaled by density.
             
         Parameters support math expressions and variables from the current namespace.
         Examples:
-            %%ac 400*2        # Height = 800, width = 100%
+            %%ac 400*2        # Height = 800, width = 100% (production)
+            %%AC 400*2        # Height = 800, width = 100% (development)
             %%ac my_width my_height
             %%ac int(800/2) int(600*1.5)  # Width = 400, height = 900
             %%ac 320 240 density=2        # Virtual size with explicit density
@@ -441,39 +447,162 @@ class AestheticComputerMagics(Magics):
             len(cell_content.split()) >= 1
         )
         
-        if is_piece_invocation:
-            # Handle as piece invocation - construct URL directly
-            # Replace spaces with ~ for piece parameters
-            piece_url = cell_content.replace(' ', '~')
-            base_url = _get_base_url()
-            url = f"{base_url}/{piece_url}?nolabel=true&nogap=true&notebook=true"
+        # Force PRODUCTION mode for lowercase %ac
+        global USE_PRODUCTION
+        old_production = USE_PRODUCTION
+        try:
+            USE_PRODUCTION = True
+            
+            if is_piece_invocation:
+                # Handle as piece invocation - construct URL directly
+                # Replace spaces with ~ for piece parameters
+                piece_url = cell_content.replace(' ', '~')
+                base_url = _get_base_url()
+                url = f"{base_url}/{piece_url}?nolabel=true&nogap=true&notebook=true"
 
-            # Add TV mode parameter if requested
-            if tv_mode:
-                url += "&tv=true"
+                # Add TV mode parameter if requested
+                if tv_mode:
+                    url += "&tv=true"
 
-            if density_value is not None:
-                url += f"&density={density_value}"
+                if density_value is not None:
+                    url += f"&density={density_value}"
+                
+                # Create iframe directly
+                content_hash = hashlib.md5(f"{cell_content}{width}{height}{tv_mode}{density_value}".encode()).hexdigest()[:8]
+                iframe_id = f"ac-iframe-{content_hash}"
+                
+                iframe_html = f'''
+                <div style="margin: -8px -8px 0 -8px; padding: 0; overflow: hidden;">
+                    <iframe id="{iframe_id}" src="{url}" 
+                            width="{iframe_width}" 
+                            height="{iframe_height}" 
+                            frameborder="0"
+                            style="background: transparent; margin: 0; padding: 0; border: none; display: block;">
+                    </iframe>
+                </div>
+                '''
+                
+                display(HTML(iframe_html))
+            else:
+                # Handle as kidlisp code
+                return kidlisp(cell_content, width, height, False, tv_mode, density_value)
+        finally:
+            USE_PRODUCTION = old_production
+    
+    @cell_magic
+    def AC(self, line, cell):
+        """
+        Cell magic to execute kidlisp code or piece invocations from DEVELOPMENT (localhost:8888).
+        Lowercase %%ac loads from production aesthetic.computer instead.
+        
+        Usage (Development):
+            %%AC
+            prompt
             
-            # Create iframe directly
-            content_hash = hashlib.md5(f"{cell_content}{width}{height}{tv_mode}{density_value}".encode()).hexdigest()[:8]
-            iframe_id = f"ac-iframe-{content_hash}"
+        Or for piece invocations:
+            %%AC
+            clock cdefg
             
-            iframe_html = f'''
-            <div style="margin: -8px -8px 0 -8px; padding: 0; overflow: hidden;">
-                <iframe id="{iframe_id}" src="{url}" 
-                        width="{iframe_width}" 
-                        height="{iframe_height}" 
-                        frameborder="0"
-                        style="background: transparent; margin: 0; padding: 0; border: none; display: block;">
-                </iframe>
-            </div>
-            '''
+        With size options:
+            %%AC 400          # Height only (width = 100%)
+            %%AC 800 600      # Width and height
             
-            display(HTML(iframe_html))
-        else:
-            # Handle as kidlisp code
-            return kidlisp(cell_content, width, height, False, tv_mode, density_value)
+        Production (use %%ac lowercase for aesthetic.computer):
+            %%ac prompt
+
+        Note: Uppercase AC = localhost/dev, lowercase ac = production domain
+        """
+        # Parse and evaluate arguments with math support
+        args = line.strip().split() if line.strip() else []
+        width = "100%"
+        height = 30
+        tv_mode = False
+        density = None
+        
+        # Look for tv_mode parameter
+        filtered_args = []
+        for arg in args:
+            if arg.startswith('tv_mode='):
+                tv_mode = arg.split('=')[1].lower() in ('true', '1', 'yes')
+            elif arg.startswith('density=') or arg.startswith('d='):
+                density = arg.split('=', 1)[1]
+            else:
+                filtered_args.append(arg)
+        
+        args = filtered_args
+        
+        context = _get_ipython_context()
+        
+        if len(args) >= 1:
+            # If only one argument, treat it as height and keep width as "100%"
+            if len(args) == 1:
+                height_expr = args[0]
+                height = _safe_eval(height_expr, context)
+                # width stays as "100%" (already set above)
+            else:
+                # If two or more arguments, first is width, second is height
+                width_expr = args[0]
+                width = _safe_eval(width_expr, context)
+                if len(args) >= 2:
+                    height_expr = args[1]
+                    height = _safe_eval(height_expr, context)
+
+        density_value = _normalize_density(density, context)
+        iframe_width, iframe_height = _compute_iframe_dimensions(width, height, density_value)
+        
+        # Check if the cell content is a piece invocation or kidlisp code
+        cell_content = cell.strip()
+        
+        # Detect if this is a piece invocation vs kidlisp code
+        is_piece_invocation = (
+            cell_content and
+            not cell_content.startswith('(') and 
+            not cell_content.startswith(';') and
+            '\n' not in cell_content and
+            not cell_content.startswith('~') and
+            len(cell_content.split()) >= 1
+        )
+        
+        # Force DEVELOPMENT mode (localhost) for uppercase AC
+        global USE_PRODUCTION
+        old_production = USE_PRODUCTION
+        try:
+            USE_PRODUCTION = False
+            
+            if is_piece_invocation:
+                # Handle as piece invocation - construct URL directly
+                piece_url = cell_content.replace(' ', '~')
+                base_url = _get_base_url()  # This will now use localhost
+                url = f"{base_url}/{piece_url}?nolabel=true&nogap=true&notebook=true"
+
+                # Add TV mode parameter if requested
+                if tv_mode:
+                    url += "&tv=true"
+
+                if density_value is not None:
+                    url += f"&density={density_value}"
+                
+                # Create iframe directly
+                content_hash = hashlib.md5(f"{cell_content}{width}{height}{tv_mode}{density_value}".encode()).hexdigest()[:8]
+                iframe_id = f"ac-iframe-{content_hash}"
+                
+                iframe_html = f'''
+                <div style="margin: -8px -8px 0 -8px; padding: 0; overflow: hidden;">
+                    <iframe id="{iframe_id}" src="{url}" 
+                            width="{iframe_width}" 
+                            height="{iframe_height}" 
+                            frameborder="0"
+                            style="background: transparent; margin: 0; padding: 0; border: none; display: block;">
+                    </iframe>
+                </div>
+                '''
+                
+                display(HTML(iframe_html))
+            else:
+                # Handle as kidlisp code
+                return kidlisp(cell_content, width, height, False, tv_mode, density_value)
+        finally:
+            USE_PRODUCTION = old_production
     
     @line_magic
     def ac_line(self, line):
