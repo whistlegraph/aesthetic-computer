@@ -193,7 +193,7 @@ let linkConfirmModal = null;
 // 📋 Message copy modal system
 // { message: string, from: string, copied: boolean, error: boolean }
 let messageCopyModal = null;
-let deleteAllowed = false; // Set to true when options.allowDelete is passed
+let deleteAllowed = true; // Delete is allowed by default in all chat contexts
 
 // 📰 News ticker system
 let newsHeadlines = []; // Array of { title, code, user } from news.aesthetic.computer
@@ -584,6 +584,8 @@ function paint(
     youtubeHover: [255, 50, 50],
     timestamp: [100 / 1.3, 100 / 1.3, 145 / 1.3],
     timestampHover: "yellow",
+    deleted: [180, 140, 140], // Foreground-visible color for [deleted] text
+    deletedName: "pink", // Username color on deleted messages
   };
   
   // Merge custom theme with defaults
@@ -768,19 +770,33 @@ function paint(
       );
     }
     
-    // Render deleted messages with dim styling and skip element parsing
+    // Render deleted messages with theme-aware styling and skip element parsing
     if (message.deleted) {
       const lineY = y;
-      ink(120, 120, 120, 150).write(
-        "[deleted]",
-        { x, y: lineY },
-        false, undefined, false, msgTypefaceName
-      );
+      // Show who sent the message
+      const nameText = message.from + " ";
+      if (Array.isArray(theme.deletedName)) {
+        ink(...theme.deletedName).write(nameText, { x, y: lineY }, false, undefined, false, msgTypefaceName);
+      } else {
+        ink(theme.deletedName).write(nameText, { x, y: lineY }, false, undefined, false, msgTypefaceName);
+      }
+      const nameW = text.width(nameText, msgTypefaceName);
+      // Render [deleted] with visible foreground color
+      if (Array.isArray(theme.deleted)) {
+        ink(...theme.deleted).write("[deleted]", { x: x + nameW, y: lineY }, false, undefined, false, msgTypefaceName);
+      } else {
+        ink(theme.deleted).write("[deleted]", { x: x + nameW, y: lineY }, false, undefined, false, msgTypefaceName);
+      }
       // Still render timestamp after the deleted text
       const ago = timeAgo(message.when);
       if (ago) {
-        const tsX = x + text.width("[deleted]", msgTypefaceName) + 4;
-        ink(100, 100, 100, 100).write(ago, { x: tsX, y: lineY }, undefined, undefined, false, "MatrixChunky8");
+        const tsX = x + nameW + text.width("[deleted]", msgTypefaceName) + 4;
+        const tsColor = theme.timestamp;
+        if (Array.isArray(tsColor)) {
+          ink(...tsColor).write(ago, { x: tsX, y: lineY }, undefined, undefined, false, "MatrixChunky8");
+        } else {
+          ink(tsColor).write(ago, { x: tsX, y: lineY }, undefined, undefined, false, "MatrixChunky8");
+        }
       }
       continue;
     }
@@ -2059,7 +2075,7 @@ function act(
 ) {
   const client = otherChat || chat;
   const typefaceName = options?.typeface;
-  if (options?.allowDelete) deleteAllowed = true;
+  if (options?.allowDelete === false) deleteAllowed = false;
 
   // Calculate rowHeight based on the typeface being used
   const currentRowHeight = typefaceName === "unifont" ? 17 : (typeface.blockHeight + 1);
