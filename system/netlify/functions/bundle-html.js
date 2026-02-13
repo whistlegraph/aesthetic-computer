@@ -335,15 +335,11 @@ async function minifyJS(content, relativePath) {
         drop_console: true,
         drop_debugger: true,
         unused: true,
-        passes: 3,
-        pure_getters: true,
-        unsafe: true,
-        unsafe_math: true,
-        unsafe_proto: true
+        passes: 1,
       },
       mangle: true,
       module: true,
-      format: { comments: false, ascii_only: false, ecma: 2020 }
+      format: { comments: false }
     });
 
     return result.code || processedContent;
@@ -419,23 +415,29 @@ async function getCoreBundle(acDir, onProgress = () => {}, forceRefresh = false)
   
   onProgress({ stage: 'minify', message: `Minifying ${allFiles.length} files...` });
   
-  // Load and minify files
+  // Load and minify files in parallel batches for speed
   let minifiedCount = 0;
-  for (const file of allFiles) {
-    const fullPath = path.join(acDir, file);
-    try {
-      if (!fsSync.existsSync(fullPath)) continue;
-      let content = await fs.readFile(fullPath, 'utf8');
-      content = await minifyJS(content, file);
-      coreFiles[file] = { content, binary: false, type: path.extname(file).slice(1) };
-      minifiedCount++;
-      // Progress update every 10 files
-      if (minifiedCount % 10 === 0) {
-        onProgress({ stage: 'minify', message: `Minified ${minifiedCount}/${allFiles.length} files...` });
+  const BATCH_SIZE = 10;
+  for (let i = 0; i < allFiles.length; i += BATCH_SIZE) {
+    const batch = allFiles.slice(i, i + BATCH_SIZE);
+    const results = await Promise.all(batch.map(async (file) => {
+      const fullPath = path.join(acDir, file);
+      try {
+        if (!fsSync.existsSync(fullPath)) return null;
+        let content = await fs.readFile(fullPath, 'utf8');
+        content = await minifyJS(content, file);
+        return { file, content };
+      } catch {
+        return null;
       }
-    } catch {
-      // Skip files that can't be loaded
+    }));
+    for (const r of results) {
+      if (r) {
+        coreFiles[r.file] = { content: r.content, binary: false, type: path.extname(r.file).slice(1) };
+        minifiedCount++;
+      }
     }
+    onProgress({ stage: 'minify', message: `Minified ${minifiedCount}/${allFiles.length} files...` });
   }
   
   // Load nanoid
