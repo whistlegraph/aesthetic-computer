@@ -312,7 +312,94 @@
       .pop-grid { grid-template-columns: 90px 1fr 50px; gap: 3px 8px; }
       .pop-name { font-size: 12px; }
     }
+
+    /* Embedded in parent editor iframe — hide branding */
+    .embedded header { display: none; }
+    .embedded .container { padding-top: 0; }
+    .embedded .tabs { margin-top: 0; }
+    .embedded .tab-panel { padding-top: 8px; }
+
+    /* Identifierdex detail card */
+    .id-detail {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+      animation: id-fade-in 0.2s ease;
+    }
+    @keyframes id-fade-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+    .id-detail-back {
+      font-size: 12px;
+      color: var(--accent);
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-family: var(--font-mono);
+      padding: 0;
+      margin-bottom: 8px;
+    }
+    .id-detail-back:hover { text-decoration: underline; }
+    .id-detail-name {
+      font-family: var(--font-fun);
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+    .id-detail-category {
+      display: inline-block;
+      font-size: 11px;
+      padding: 2px 8px;
+      background: var(--accent-dim);
+      color: var(--accent);
+      border-radius: 10px;
+      margin-bottom: 8px;
+    }
+    .id-detail-sig {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      background: var(--code-bg);
+      padding: 6px 10px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+    }
+    .id-detail-desc {
+      color: var(--text-secondary);
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 10px;
+    }
+    .id-detail-stats {
+      display: flex;
+      gap: 16px;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+    .id-detail-stats strong { color: var(--text-primary); }
+    .id-detail-examples-title {
+      font-size: 12px;
+      font-weight: bold;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+    .id-detail-example {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      background: var(--code-bg);
+      padding: 6px 10px;
+      border-radius: 4px;
+      margin-bottom: 4px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .id-detail-example:hover { background: var(--accent-dim); }
+
+    /* Clickable popularity rows */
+    .pop-row { cursor: pointer; display: contents; }
+    .pop-row:hover .pop-name { color: var(--accent); }
   </style>
+  <script>if (window.self !== window.top) document.documentElement.classList.add('embedded');</script>
 </head>
 <body>
 
@@ -472,6 +559,134 @@ tabs.forEach(tab => {
   });
 });
 
+// Identifierdex global state
+let popData = null;
+let popMeta = { totalPieces: 0, totalHits: 0 };
+let topHitsData = [];
+
+// Reference data for all KidLisp identifiers
+const KIDLISP_REF = {
+  // Drawing
+  wipe: { cat: 'Drawing', sig: '(wipe [color])', desc: 'Clear the entire canvas. With a color argument, fills with that color.' },
+  ink: { cat: 'Drawing', sig: '(ink color [alpha])', desc: 'Set the current drawing color. Accepts named colors (red, blue), RGB values (255 0 0), or special keywords (rainbow, zebra).' },
+  line: { cat: 'Drawing', sig: '(line x1 y1 x2 y2)', desc: 'Draw a line between two points. With no arguments, draws a random line.' },
+  lines: { cat: 'Drawing', sig: '(lines x1 y1 x2 y2 ...)', desc: 'Draw multiple connected line segments.' },
+  box: { cat: 'Drawing', sig: '(box x y w h)', desc: 'Draw a rectangle at position (x, y) with width w and height h.' },
+  circle: { cat: 'Drawing', sig: '(circle x y radius)', desc: 'Draw a circle centered at (x, y) with the given radius.' },
+  tri: { cat: 'Drawing', sig: '(tri x1 y1 x2 y2 x3 y3)', desc: 'Draw a triangle with three vertex points.' },
+  plot: { cat: 'Drawing', sig: '(plot x y)', desc: 'Draw a single pixel at position (x, y).' },
+  point: { cat: 'Drawing', sig: '(point x y)', desc: 'Alias for plot — draw a single pixel.' },
+  flood: { cat: 'Drawing', sig: '(flood x y)', desc: 'Flood fill from (x, y), replacing adjacent same-color pixels with the current ink.' },
+  shape: { cat: 'Drawing', sig: '(shape x1 y1 x2 y2 ... "fill")', desc: 'Draw a polygon from point pairs. Pass "fill" as last arg to fill it.' },
+  fill: { cat: 'Drawing', sig: '(fill)', desc: 'Set drawing mode to filled shapes.' },
+  outline: { cat: 'Drawing', sig: '(outline)', desc: 'Set drawing mode to outlines only.' },
+  stroke: { cat: 'Drawing', sig: '(stroke width)', desc: 'Set the stroke width for outlines and lines.' },
+  nofill: { cat: 'Drawing', sig: '(nofill)', desc: 'Disable fill for shapes.' },
+  nostroke: { cat: 'Drawing', sig: '(nostroke)', desc: 'Disable stroke/outline for shapes.' },
+  resolution: { cat: 'Drawing', sig: '(resolution w h)', desc: 'Set the canvas resolution. Smaller values = more pixelated.' },
+  coat: { cat: 'Drawing', sig: '(coat n)', desc: 'Set the number of paint coats per stroke.' },
+  mask: { cat: 'Drawing', sig: '(mask)', desc: 'Enable masking — subsequent drawing only appears where pixels already exist.' },
+  unmask: { cat: 'Drawing', sig: '(unmask)', desc: 'Disable masking mode.' },
+  draw: { cat: 'Drawing', sig: '(draw)', desc: 'Trigger a draw/render cycle.' },
+  label: { cat: 'Drawing', sig: '(label text x y)', desc: 'Draw a text label at position (x, y).' },
+  // Pixel transforms
+  scroll: { cat: 'Transform', sig: '(scroll dx dy)', desc: 'Shift all pixels by (dx, dy) with wrapping at edges.' },
+  zoom: { cat: 'Transform', sig: '(zoom factor)', desc: 'Scale the canvas from the center by the given factor.' },
+  spin: { cat: 'Transform', sig: '(spin angle)', desc: 'Rotate the canvas by angle (degrees).' },
+  suck: { cat: 'Transform', sig: '(suck strength)', desc: 'Apply a vortex/swirl displacement effect.' },
+  blur: { cat: 'Transform', sig: '(blur amount)', desc: 'Apply Gaussian blur to the canvas.' },
+  contrast: { cat: 'Transform', sig: '(contrast amount)', desc: 'Adjust image contrast. Values >1 increase, <1 decrease.' },
+  sort: { cat: 'Transform', sig: '(sort)', desc: 'Sort all pixels by brightness — creates a pixel-sorting glitch effect.' },
+  pan: { cat: 'Transform', sig: '(pan dx dy)', desc: 'Move the camera/viewport by (dx, dy).' },
+  unpan: { cat: 'Transform', sig: '(unpan)', desc: 'Reset the camera/viewport to origin.' },
+  resetSpin: { cat: 'Transform', sig: '(resetSpin)', desc: 'Reset rotation to 0.' },
+  smoothspin: { cat: 'Transform', sig: '(smoothspin angle)', desc: 'Smooth interpolated rotation.' },
+  bake: { cat: 'Transform', sig: '(bake)', desc: 'Commit the current frame to the background layer permanently.' },
+  // Images, Text & Media
+  paste: { cat: 'Media', sig: '(paste url x y [scale])', desc: 'Paste an image from URL at (x, y). Optional scale factor.' },
+  stamp: { cat: 'Media', sig: '(stamp url x y)', desc: 'Paste an image centered at (x, y).' },
+  painting: { cat: 'Media', sig: '(painting url)', desc: 'Load a painting/image as background.' },
+  steal: { cat: 'Media', sig: '(steal)', desc: 'Capture the current frame as a texture for later use.' },
+  putback: { cat: 'Media', sig: '(putback)', desc: 'Restore a previously stolen texture.' },
+  tape: { cat: 'Media', sig: '(tape !CODE x y w h)', desc: 'Embed a video clip at position with size.' },
+  write: { cat: 'Media', sig: '(write text x y)', desc: 'Draw text at position (x, y) using the current ink color.' },
+  len: { cat: 'Media', sig: '(len str)', desc: 'Get the length of a string.' },
+  // Audio
+  mic: { cat: 'Audio', sig: '(mic)', desc: 'Enable microphone input for audio-reactive visuals.' },
+  amplitude: { cat: 'Audio', sig: '(amplitude)', desc: 'Get the current audio amplitude (0–1) from mic or speaker.' },
+  speaker: { cat: 'Audio', sig: '(speaker freq [vol])', desc: 'Play a tone at the given frequency.' },
+  melody: { cat: 'Audio', sig: '(melody notes...)', desc: 'Play a sequence of musical notes.' },
+  overtone: { cat: 'Audio', sig: '(overtone freq)', desc: 'Add a harmonic overtone to the audio.' },
+  noise: { cat: 'Audio', sig: '(noise [type])', desc: 'Generate noise — white, pink, or brown.' },
+  // 3D
+  cube: { cat: '3D', sig: '(cube [size])', desc: 'Draw a 3D cube with optional size.' },
+  quad: { cat: '3D', sig: '(quad ...)', desc: 'Draw a 3D quad/plane.' },
+  form: { cat: '3D', sig: '(form type ...)', desc: 'Create a 3D form/mesh.' },
+  trans: { cat: '3D', sig: '(trans x y z)', desc: 'Translate 3D position.' },
+  cubespin: { cat: '3D', sig: '(cubespin rx ry rz)', desc: 'Set 3D cube rotation speeds.' },
+  cubepos: { cat: '3D', sig: '(cubepos x y z)', desc: 'Set 3D cube position.' },
+  cubescale: { cat: '3D', sig: '(cubescale sx sy sz)', desc: 'Set 3D cube scale.' },
+  camrot: { cat: '3D', sig: '(camrot rx ry rz)', desc: 'Set camera rotation angles.' },
+  camspin: { cat: '3D', sig: '(camspin rx ry rz)', desc: 'Set camera spin speeds.' },
+  // Control flow
+  def: { cat: 'Control', sig: '(def name value)', desc: 'Define a variable with a name and value.' },
+  later: { cat: 'Control', sig: '(later name params body)', desc: 'Define a reusable function with parameters.' },
+  'if': { cat: 'Control', sig: '(if cond then [else])', desc: 'Conditional: evaluate then-expr if cond is true, otherwise else-expr.' },
+  once: { cat: 'Control', sig: '(once expr)', desc: 'Execute an expression only on the first frame.' },
+  now: { cat: 'Control', sig: '(now var value)', desc: "Update an existing variable's value." },
+  not: { cat: 'Control', sig: '(not expr)', desc: 'Boolean negation.' },
+  die: { cat: 'Control', sig: '(die)', desc: 'Stop execution of the current piece.' },
+  repeat: { cat: 'Control', sig: '(repeat n i expr)', desc: 'Loop n times with iterator variable i.' },
+  rep: { cat: 'Control', sig: '(rep n i expr)', desc: 'Alias for repeat — loop n times.' },
+  bunch: { cat: 'Control', sig: '(bunch n i expr)', desc: 'Alias for repeat — loop n times.' },
+  choose: { cat: 'Control', sig: '(choose a b c ...)', desc: 'Randomly pick one of the arguments.' },
+  tap: { cat: 'Control', sig: '(tap expr)', desc: 'Execute on screen tap/click.' },
+  // Navigation
+  embed: { cat: 'Navigation', sig: '($code x y w h alpha)', desc: 'Embed another piece with position, size, and opacity.' },
+  jump: { cat: 'Navigation', sig: '(jump "piece")', desc: 'Navigate to another piece.' },
+  hop: { cat: 'Navigation', sig: '(hop "piece")', desc: 'Navigate to another piece (alias for jump).' },
+  // Math
+  random: { cat: 'Math', sig: '(random [max])', desc: 'Generate a random number. With max, returns 0 to max.' },
+  wiggle: { cat: 'Math', sig: '(wiggle amount)', desc: 'Random value in range ±amount/2 centered at 0.' },
+  min: { cat: 'Math', sig: '(min a b)', desc: 'Return the smaller of two values.' },
+  max: { cat: 'Math', sig: '(max a b)', desc: 'Return the larger of two values.' },
+  abs: { cat: 'Math', sig: '(abs x)', desc: 'Absolute value.' },
+  sqrt: { cat: 'Math', sig: '(sqrt x)', desc: 'Square root.' },
+  pow: { cat: 'Math', sig: '(pow base exp)', desc: 'Raise base to the power of exp.' },
+  floor: { cat: 'Math', sig: '(floor x)', desc: 'Round down to nearest integer.' },
+  ceil: { cat: 'Math', sig: '(ceil x)', desc: 'Round up to nearest integer.' },
+  round: { cat: 'Math', sig: '(round x)', desc: 'Round to nearest integer.' },
+  sin: { cat: 'Math', sig: '(sin x)', desc: 'Sine of x (in radians).' },
+  cos: { cat: 'Math', sig: '(cos x)', desc: 'Cosine of x (in radians).' },
+  tan: { cat: 'Math', sig: '(tan x)', desc: 'Tangent of x (in radians).' },
+  // Operators
+  '+': { cat: 'Math', sig: '(+ a b ...)', desc: 'Addition — sum all arguments.' },
+  '-': { cat: 'Math', sig: '(- a b)', desc: 'Subtraction.' },
+  '*': { cat: 'Math', sig: '(* a b ...)', desc: 'Multiplication.' },
+  '/': { cat: 'Math', sig: '(/ a b)', desc: 'Division.' },
+  '%': { cat: 'Math', sig: '(% a b)', desc: 'Modulo (remainder).' },
+  '?': { cat: 'Control', sig: '(? a b c ...)', desc: 'Randomly pick one of the arguments (alias for choose/random).' },
+  '...': { cat: 'Control', sig: '(... a b c)', desc: 'Cycle through values over time, advancing each frame.' },
+  '=': { cat: 'Math', sig: '(= a b)', desc: 'Equality comparison.' },
+  '<': { cat: 'Math', sig: '(< a b)', desc: 'Less than comparison.' },
+  '>': { cat: 'Math', sig: '(> a b)', desc: 'Greater than comparison.' },
+  // System
+  fps: { cat: 'System', sig: '(fps rate)', desc: 'Set the frame rate (frames per second).' },
+  debug: { cat: 'System', sig: '(debug)', desc: 'Enable debug mode — shows extra info.' },
+  width: { cat: 'System', sig: 'width (alias: w)', desc: 'Canvas width in pixels.' },
+  w: { cat: 'System', sig: 'w', desc: 'Shorthand for width — canvas width in pixels.' },
+  height: { cat: 'System', sig: 'height (alias: h)', desc: 'Canvas height in pixels.' },
+  h: { cat: 'System', sig: 'h', desc: 'Shorthand for height — canvas height in pixels.' },
+  frame: { cat: 'System', sig: 'frame (alias: f)', desc: 'Current frame number, incrementing each tick.' },
+  f: { cat: 'System', sig: 'f', desc: 'Shorthand for frame — current frame count.' },
+  clock: { cat: 'System', sig: 'clock', desc: 'Current UTC time value.' },
+  pi: { cat: 'System', sig: 'pi', desc: 'The constant π (3.14159...).' },
+  // Colors (special)
+  rainbow: { cat: 'Color', sig: 'rainbow', desc: 'Cycles through rainbow colors automatically.' },
+  zebra: { cat: 'Color', sig: 'zebra', desc: 'Alternating black and white pattern.' },
+  erase: { cat: 'Color', sig: 'erase', desc: 'Use as ink color to erase (draw transparent).' },
+};
+
 // KidLisp syntax highlighter
 const KL_FNS = new Set([
   'wipe','ink','line','lines','box','circle','tri','plot','point','flood','shape',
@@ -580,26 +795,14 @@ document.querySelectorAll('code.kidlisp').forEach(el => {
 
 // Fetch function popularity
 (async () => {
-  const el = document.getElementById('popularity');
   try {
     const res = await fetch('/api/store-kidlisp?stats=functions');
     const data = await res.json();
-    const top = data.functions.slice(0, 30);
-    if (!top.length) { el.innerHTML = '<p>No data yet.</p>'; return; }
-
-    const maxW = top[0].weighted;
-    let html = '<div class="pop-grid">';
-    for (const fn of top) {
-      const pct = Math.round((fn.weighted / maxW) * 100);
-      html += '<div class="pop-name">' + esc(fn.name) + '</div>';
-      html += '<div class="pop-bar-wrap"><div class="pop-bar" style="width:' + pct + '%"></div></div>';
-      html += '<div class="pop-count">' + fn.pieces.toLocaleString() + '</div>';
-    }
-    html += '</div>';
-    html += '<p class="pop-meta">Scanned ' + data.total_pieces.toLocaleString() + ' pieces &middot; ' + data.total_hits.toLocaleString() + ' total views &middot; counts = pieces using function</p>';
-    el.innerHTML = html;
+    popData = data.functions || [];
+    popMeta = { totalPieces: data.total_pieces || 0, totalHits: data.total_hits || 0 };
+    renderPopularity();
   } catch (e) {
-    el.innerHTML = '<p style="color:var(--text-muted)">Could not load popularity data.</p>';
+    document.getElementById('popularity').innerHTML = '<p style="color:var(--text-muted)">Could not load popularity data.</p>';
   }
 })();
 
@@ -610,6 +813,7 @@ document.querySelectorAll('code.kidlisp').forEach(el => {
     const res = await fetch('/api/store-kidlisp?recent=true&sort=hits&limit=30');
     const data = await res.json();
     const hits = (data.recent || []).filter(p => p.hits >= 500 && p.source.length > 15);
+    topHitsData = hits;
 
     if (!hits.length) { el.innerHTML = '<p>No top hits found.</p>'; return; }
 
@@ -630,11 +834,116 @@ document.querySelectorAll('code.kidlisp').forEach(el => {
   }
 })();
 
-// Handle ?tab= URL param
-const urlTab = new URLSearchParams(window.location.search).get('tab');
+// Render the popularity grid (main view of Functions tab)
+function renderPopularity() {
+  const el = document.getElementById('popularity');
+  const top = (popData || []).slice(0, 30);
+  if (!top.length) { el.innerHTML = '<p>No data yet.</p>'; return; }
+
+  const maxW = top[0].weighted;
+  let html = '<div class="pop-grid">';
+  for (const fn of top) {
+    const pct = Math.round((fn.weighted / maxW) * 100);
+    html += '<div class="pop-row" data-fn="' + esc(fn.name) + '">';
+    html += '<div class="pop-name">' + esc(fn.name) + '</div>';
+    html += '<div class="pop-bar-wrap"><div class="pop-bar" style="width:' + pct + '%"></div></div>';
+    html += '<div class="pop-count">' + fn.pieces.toLocaleString() + '</div>';
+    html += '</div>';
+  }
+  html += '</div>';
+  html += '<p class="pop-meta">Scanned ' + popMeta.totalPieces.toLocaleString() + ' pieces &middot; ' + popMeta.totalHits.toLocaleString() + ' total views &middot; click a function for details</p>';
+  el.innerHTML = html;
+
+  // Click handlers for rows
+  el.querySelectorAll('.pop-row').forEach(row => {
+    row.addEventListener('click', () => selectIdentifier(row.dataset.fn));
+  });
+}
+
+// Show identifier detail card (Pokedex entry)
+function selectIdentifier(word) {
+  if (!word) return;
+  const ref = KIDLISP_REF[word] || KIDLISP_REF[word.toLowerCase()];
+
+  // Switch to Functions tab
+  const fnTab = document.querySelector('.tab[data-tab="functions"]');
+  if (fnTab && !fnTab.classList.contains('active')) fnTab.click();
+
+  const el = document.getElementById('popularity');
+
+  if (!ref) {
+    // Unknown identifier — show a minimal card
+    el.innerHTML = '<div class="id-detail">' +
+      '<button class="id-detail-back" onclick="renderPopularity()">&larr; All functions</button>' +
+      '<div class="id-detail-name">' + esc(word) + '</div>' +
+      '<div class="id-detail-desc" style="color:var(--text-muted)">No reference data for this identifier.</div>' +
+      '</div>';
+    return;
+  }
+
+  const w = word.toLowerCase();
+  const fnPop = (popData || []).find(f => f.name === w || f.name === word);
+
+  let html = '<div class="id-detail">';
+  html += '<button class="id-detail-back" onclick="renderPopularity()">&larr; All functions</button>';
+  html += '<div class="id-detail-name">' + esc(word) + '</div>';
+  html += '<div class="id-detail-category">' + esc(ref.cat) + '</div>';
+  html += '<div class="id-detail-sig">' + esc(ref.sig) + '</div>';
+  html += '<div class="id-detail-desc">' + esc(ref.desc) + '</div>';
+
+  // Stats
+  html += '<div class="id-detail-stats">';
+  if (fnPop) {
+    html += '<span>Used in <strong>' + fnPop.pieces.toLocaleString() + '</strong> pieces</span>';
+    html += '<span>Weighted: <strong>' + fnPop.weighted.toLocaleString() + '</strong></span>';
+    if (popMeta.totalPieces) html += '<span><strong>' + Math.round(fnPop.pieces / popMeta.totalPieces * 100) + '%</strong> of all pieces</span>';
+  } else {
+    html += '<span>No usage data yet</span>';
+  }
+  html += '</div>';
+
+  // Top pieces using this function
+  const piecesUsing = (topHitsData || []).filter(p => {
+    const src = p.source.toLowerCase();
+    return src.includes('(' + w + ' ') || src.includes('(' + w + ')') || src.includes(w + ',') || src.includes(', ' + w);
+  }).slice(0, 5);
+
+  if (piecesUsing.length) {
+    html += '<div class="id-detail-examples-title">Top pieces using ' + esc(word) + '</div>';
+    for (const p of piecesUsing) {
+      const url = 'https://aesthetic.computer/' + encodeURIComponent(p.code);
+      html += '<div class="id-detail-example" onclick="window.open(\'' + url.replace(/'/g, "\\'") + '\', \'_blank\')">';
+      html += '<span style="color:var(--accent)">$' + esc(p.code) + '</span>';
+      html += '<span style="float:right;color:var(--text-muted);font-size:11px">' + p.hits.toLocaleString() + ' views</span>';
+      html += '</div>';
+    }
+  }
+
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+// PostMessage receiver — parent editor sends identifier to highlight
+window.addEventListener('message', (event) => {
+  if (event.data?.type === 'kidlisp-identify' && event.data.word) {
+    selectIdentifier(event.data.word);
+  }
+});
+
+// Handle ?tab= and ?id= URL params
+const urlParams = new URLSearchParams(window.location.search);
+const urlTab = urlParams.get('tab');
 if (urlTab) {
   const target = document.querySelector('.tab[data-tab="' + urlTab + '"]');
   if (target) target.click();
+}
+const urlId = urlParams.get('id');
+if (urlId) {
+  // Wait for data to load, then select the identifier
+  const waitForData = setInterval(() => {
+    if (popData) { clearInterval(waitForData); selectIdentifier(urlId); }
+  }, 100);
+  setTimeout(() => clearInterval(waitForData), 5000); // timeout after 5s
 }
 </script>
 

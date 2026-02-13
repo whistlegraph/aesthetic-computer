@@ -830,7 +830,13 @@
       .keeps-grid { grid-template-columns: 1fr; gap: 10px; }
       .keeps-card-actions { flex-wrap: wrap; }
     }
+
+    /* Embedded in parent editor iframe — hide branding, keep controls */
+    .embedded .keeps-header-left { display: none; }
+    .embedded .keeps-hero { display: none; }
+    .embedded .keeps-header { justify-content: flex-start; padding: 8px 12px; }
   </style>
+  <script>if (window.self !== window.top) document.documentElement.classList.add('embedded');</script>
 </head>
 
 <body>
