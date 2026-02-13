@@ -5396,7 +5396,39 @@
       opacity: 0.7;
       margin-top: 8px;
     }
-    
+
+    .learn-doc-ticker {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 6px 8px;
+      margin-bottom: 8px;
+      background: var(--bg-tertiary);
+      border-radius: 4px;
+      font-family: 'Berkeley Mono Variable', monospace;
+      font-size: 10px;
+    }
+
+    .learn-doc-ticker-nav {
+      color: rgb(205, 92, 155);
+      opacity: 0.6;
+      transition: opacity 0.15s ease;
+    }
+
+    .learn-doc-ticker-nav.disabled {
+      opacity: 0.2;
+      color: var(--text-tertiary);
+    }
+
+    .learn-doc-ticker-current {
+      color: rgb(205, 92, 155);
+      font-weight: bold;
+      padding: 2px 6px;
+      background: rgba(205, 92, 155, 0.1);
+      border-radius: 3px;
+    }
+
     .learn-doc-content {
       font-family: monospace;
     }
@@ -15744,14 +15776,30 @@ s("ape_breaks_3").loopAt(2)</textarea>
       editor.onDidChangeCursorPosition((e) => {
         const model = editor.getModel();
         if (!model) return;
-        
+
         const position = e.position;
         const word = model.getWordAtPosition(position);
         const wordText = word ? word.word : null;
-        
+
+        // Extract all identifiers from the code
+        const code = model.getValue();
+        const identifiers = extractIdentifiersFromCode(code);
+
+        // Find current word index and neighbors
+        let currentIndex = -1;
+        if (wordText && identifiers.includes(wordText)) {
+          // Find the closest instance of this word to cursor position
+          currentIndex = identifiers.findIndex(id => id === wordText);
+        }
+
+        const prevWord = currentIndex > 0 ? identifiers[currentIndex - 1] : null;
+        const nextWord = currentIndex >= 0 && currentIndex < identifiers.length - 1 ? identifiers[currentIndex + 1] : null;
+
         // Only update if word changed
         if (wordText !== currentCursorWord) {
           currentCursorWord = wordText;
+          // Update Learn documentation with ticker
+          updateLearnDocumentation(wordText, prevWord, nextWord);
           // Send identifier to Learn iframe via postMessage
           const learnIframe = document.getElementById('learn-iframe');
           if (learnIframe?.contentWindow) {
@@ -19074,13 +19122,44 @@ s("ape_breaks_3").loopAt(2)</textarea>
       return result;
     }
     
-    function updateLearnDocumentation(word) {
+    // Extract all identifiers from KidLisp code for ticker navigation
+    function extractIdentifiersFromCode(code) {
+      const identifiers = [];
+      const seen = new Set();
+
+      // Match words (identifiers) - anything that's not whitespace, parens, or quotes
+      const wordPattern = /[^\s()"']+/g;
+      let match;
+
+      while ((match = wordPattern.exec(code)) !== null) {
+        const word = match[0];
+        // Only include documented identifiers and avoid duplicates
+        if (KIDLISP_DOCS[word] && !seen.has(word)) {
+          identifiers.push(word);
+          seen.add(word);
+        }
+      }
+
+      return identifiers;
+    }
+
+    function updateLearnDocumentation(word, prevWord = null, nextWord = null) {
       const docSection = document.getElementById('learn-doc-section');
       if (!docSection) return;
-      
+
+      // Ticker navigation HTML
+      const tickerHtml = (prevWord || nextWord) ? `
+        <div class="learn-doc-ticker">
+          <span class="learn-doc-ticker-nav ${!prevWord ? 'disabled' : ''}">${prevWord || '---'}</span>
+          <span class="learn-doc-ticker-current">${word || '---'}</span>
+          <span class="learn-doc-ticker-nav ${!nextWord ? 'disabled' : ''}">${nextWord || '---'}</span>
+        </div>
+      ` : '';
+
       if (!word || !KIDLISP_DOCS[word]) {
         // Show empty state with hint
         docSection.innerHTML = `
+          ${tickerHtml}
           <div class="learn-doc-empty">
             Place your cursor on a KidLisp function to see its documentation here.
           </div>
@@ -19133,6 +19212,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
         : `color: ${nameColor};`;
       
       docSection.innerHTML = `
+        ${tickerHtml}
         <div class="learn-doc-content">
           <div class="learn-doc-name" style="${nameStyle}">${word}</div>
           ${doc.signature ? `<div class="learn-doc-signature">${signatureHtml}</div>` : ''}
