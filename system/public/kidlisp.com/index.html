@@ -3010,9 +3010,9 @@
       font-family: 'Comic Relief', 'Comic Sans MS', cursive;
       font-weight: 700;
       pointer-events: none;
-      transition: top 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
-                  left 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
-                  font-size 0.4s ease,
+      transition: top 0.5s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  left 0.5s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  font-size 0.5s ease,
                   color 0.3s ease;
     }
     
@@ -7792,26 +7792,87 @@
           
           // Show main content (logo still visible on top)
           mainEl.style.opacity = '1';
-          
+
           // Force reflow to apply position lock and get landing zone position
           void landingZone.offsetHeight;
           const landingRect = landingZone.getBoundingClientRect();
-          
+
           // Calculate target - center logo vertically in landing zone
           const targetTop = landingRect.top + (landingRect.height - endFontSize) / 2;
           const targetLeft = landingRect.left + 12;
-          
+
+          // === Fly-in: measure /$code while logo is STILL BIG, break off simultaneously ===
+          let flyClones = null;
+          if (initialRouteCode && splashRoute) {
+            const splashChars = splashRoute.querySelectorAll('.splash-letter');
+            if (splashChars.length > 0) {
+              // Measure source positions at BIG size
+              const sourceRects = Array.from(splashChars).map(ch => {
+                const r = ch.getBoundingClientRect();
+                return { top: r.top, left: r.left, text: ch.textContent, fontSize: parseFloat(getComputedStyle(ch).fontSize) };
+              });
+
+              // Populate hidden target to measure destination
+              const routeCodeTab = document.getElementById('route-code-tab');
+              if (routeCodeTab) {
+                routeCodeTab.classList.add('fly-target');
+                window.setRouteCodeInUI?.(initialRouteCode, { immediate: true, animate: false });
+                void routeCodeTab.offsetHeight;
+                const targetChars = routeCodeTab.querySelectorAll('.code-char');
+                const targetRects = Array.from(targetChars).map(ch => ch.getBoundingClientRect());
+
+                // Hide splash route text (clones will replace it)
+                splashRoute.style.visibility = 'hidden';
+
+                // Create fixed-position clones at BIG source positions
+                const charColors = { 0: 'var(--text-tertiary)', 1: 'rgb(205, 92, 155)' };
+                const clones = [];
+                sourceRects.forEach((src, i) => {
+                  const clone = document.createElement('span');
+                  clone.className = 'route-code-fly-char';
+                  clone.textContent = src.text;
+                  clone.style.top = src.top + 'px';
+                  clone.style.left = src.left + 'px';
+                  clone.style.fontSize = src.fontSize + 'px';
+                  clone.style.color = charColors[i] || 'rgb(147, 112, 219)';
+                  document.body.appendChild(clone);
+                  clones.push(clone);
+                });
+                flyClones = { clones, targetRects, targetChars, routeCodeTab };
+              }
+            }
+          }
+
           // Enable transitions
           splashLogo.classList.add('flying');
-          
-          // Animate to target position (use double rAF for reliable transition)
+
+          // Animate logo to header AND clones to dropdown simultaneously
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
               splashLogo.style.top = targetTop + 'px';
               splashLogo.style.left = targetLeft + 'px';
               splashLogo.style.fontSize = endFontSize + 'px';
+              // Fly clones to dropdown at the same time
+              if (flyClones) {
+                flyClones.clones.forEach((clone, i) => {
+                  if (flyClones.targetRects[i]) {
+                    clone.style.top = flyClones.targetRects[i].top + 'px';
+                    clone.style.left = flyClones.targetRects[i].left + 'px';
+                    clone.style.fontSize = getComputedStyle(flyClones.targetChars[i]).fontSize;
+                  }
+                });
+              }
             });
           });
+
+          // Clean up clones after animation
+          if (flyClones) {
+            setTimeout(() => {
+              flyClones.routeCodeTab.classList.remove('fly-target');
+              flyClones.clones.forEach(c => c.remove());
+              if (splashRoute) splashRoute.innerHTML = '';
+            }, 500);
+          }
           
           // After animation completes, snap into place
           setTimeout(() => {
@@ -7851,69 +7912,11 @@
               }
             });
 
-            // Fly-in animation: /$code chars break off splash and fly to dropdown
-            if (initialRouteCode && splashRoute) {
-              const splashChars = splashRoute.querySelectorAll('.splash-letter');
-              if (splashChars.length > 0) {
-                // 1. Measure source positions of splash route chars
-                const sourceRects = Array.from(splashChars).map(ch => {
-                  const r = ch.getBoundingClientRect();
-                  return { top: r.top, left: r.left, width: r.width, height: r.height, text: ch.textContent, fontSize: parseFloat(getComputedStyle(ch).fontSize) };
-                });
-
-                // 2. Populate the target route-code-tab (hidden via .fly-target)
-                const routeCodeTab = document.getElementById('route-code-tab');
-                if (routeCodeTab) {
-                  routeCodeTab.classList.add('fly-target');
-                  window.setRouteCodeInUI?.(initialRouteCode, { immediate: true, animate: false });
-
-                  // Force layout so we can measure target positions
-                  void routeCodeTab.offsetHeight;
-                  const targetChars = routeCodeTab.querySelectorAll('.code-char');
-                  const targetRects = Array.from(targetChars).map(ch => ch.getBoundingClientRect());
-
-                  // 3. Clear the splash route
-                  splashRoute.innerHTML = '';
-
-                  // 4. Create floating clones at source positions
-                  const clones = [];
-                  const charColors = { 0: 'var(--text-tertiary)', 1: 'rgb(205, 92, 155)' }; // / is grey, $ is pink
-                  sourceRects.forEach((src, i) => {
-                    const clone = document.createElement('span');
-                    clone.className = 'route-code-fly-char';
-                    clone.textContent = src.text;
-                    clone.style.top = src.top + 'px';
-                    clone.style.left = src.left + 'px';
-                    clone.style.fontSize = src.fontSize + 'px';
-                    clone.style.color = charColors[i] || 'rgb(147, 112, 219)';
-                    document.body.appendChild(clone);
-                    clones.push(clone);
-                  });
-
-                  // 5. Animate clones to target positions (double rAF for transition)
-                  requestAnimationFrame(() => {
-                    requestAnimationFrame(() => {
-                      clones.forEach((clone, i) => {
-                        if (targetRects[i]) {
-                          clone.style.top = targetRects[i].top + 'px';
-                          clone.style.left = targetRects[i].left + 'px';
-                          clone.style.fontSize = getComputedStyle(targetChars[i]).fontSize;
-                        }
-                      });
-                    });
-                  });
-
-                  // 6. After animation: reveal target, remove clones
-                  setTimeout(() => {
-                    routeCodeTab.classList.remove('fly-target');
-                    clones.forEach(c => c.remove());
-                  }, 450);
-                }
-              } else {
-                // No splash chars to animate from — just show immediately
-                if (splashRoute) splashRoute.innerHTML = '';
-                window.setRouteCodeInUI?.(initialRouteCode, { immediate: true, animate: false });
-              }
+            // Clean up splash route (clones already handled above)
+            if (splashRoute) splashRoute.innerHTML = '';
+            if (initialRouteCode && !flyClones) {
+              // Fallback: no fly animation happened, just show immediately
+              window.setRouteCodeInUI?.(initialRouteCode, { immediate: true, animate: false });
             }
 
 
