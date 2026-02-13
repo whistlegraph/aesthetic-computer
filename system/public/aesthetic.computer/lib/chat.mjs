@@ -127,6 +127,18 @@ export class Chat {
           }
         }
 
+        if (type === "message:delete") {
+          const deleteData = JSON.parse(content);
+          if (logs.chat) console.log("💬 Chat message deleted:", deleteData);
+          const msg = this.system.messages.find((m) => m.id === deleteData.id);
+          if (msg) {
+            msg.text = "[deleted]";
+            msg.deleted = true;
+            delete msg.redactedText;
+            extra.layoutChanged = true;
+          }
+        }
+
         // Auto parse handle updates.
         if (type === "handle:update" || type === "handle:strip") {
           const msg = JSON.parse(content);

@@ -55,7 +55,7 @@ function paint($) {
 }
 
 function act($) {
-  chat.act($, client.system);
+  chat.act($, client.system, { allowDelete: true });
 }
 
 function sim($) {

@@ -10,7 +10,7 @@ import https from "https";
 import { filter } from "./filter.mjs";
 import { redact, unredact } from "./redact.mjs";
 
-import { MongoClient } from "mongodb";
+import { MongoClient, ObjectId } from "mongodb";
 import { getMessaging } from "firebase-admin/messaging";
 
 const MAX_MESSAGES = 500;
@@ -156,13 +156,19 @@ export class ChatManager {
           from = message.from || "deleted";
         }
 
-        instance.messages.push({
+        const msg = {
           from,
-          text: filter(message.text, this.filterDebug) || "message forgotten",
+          text: message.deleted
+            ? "[deleted]"
+            : filter(message.text, this.filterDebug) || "message forgotten",
           redactedText: message.redactedText,
           when: message.when,
+          sub: message.user || undefined,
           font: message.font || "font_1", // 🔤 Include font from DB (default for old messages)
-        });
+        };
+        if (message._id) msg.id = message._id.toString();
+        if (message.deleted) msg.deleted = true;
+        instance.messages.push(msg);
       }
       
       console.log(`💬 Loaded ${instance.messages.length} messages for ${collectionName}`);
@@ -297,6 +303,8 @@ export class ChatManager {
       delete instance.authorizedConnections[id];
     } else if (msg.type === "chat:message") {
       await this.handleChatMessage(instance, ws, id, msg);
+    } else if (msg.type === "chat:delete") {
+      await this.handleDeleteMessage(instance, ws, id, msg);
     }
   }
 
@@ -388,6 +396,7 @@ export class ChatManager {
       }
 
       // Store in MongoDB (production only, non-muted users)
+      let insertedId;
       if (!this.dev && !userIsMuted && this.db) {
         const dbmsg = {
           user: message.sub,
@@ -397,7 +406,8 @@ export class ChatManager {
         };
         const collection = this.db.collection(instance.config.name);
         await collection.createIndex({ when: 1 });
-        await collection.insertOne(dbmsg);
+        const result = await collection.insertOne(dbmsg);
+        insertedId = result.insertedId?.toString();
         console.log("💬 Message stored");
       }
 
@@ -409,6 +419,7 @@ export class ChatManager {
         sub: fromSub,
         font: message.font || "font_1", // 🔤 Include font in broadcast
       };
+      if (insertedId) out.id = insertedId;
 
       // Duplicate detection
       const lastMsg = instance.messages[instance.messages.length - 1];
@@ -429,6 +440,70 @@ export class ChatManager {
     } catch (err) {
       console.error("💬 Message handling error:", err);
     }
+  }
+
+  async handleDeleteMessage(instance, ws, id, msg) {
+    const { token, sub, id: messageId } = msg.content;
+    console.log(
+      `💬 [${instance.config.name}] Delete request from ${sub} for message ${messageId}`
+    );
+
+    if (!messageId) {
+      ws.send(this.pack("error", { message: "Missing message id." }));
+      return;
+    }
+
+    // Authorize the user
+    let authorized;
+    if (instance.authorizedConnections[id]?.token === token) {
+      authorized = instance.authorizedConnections[id].user;
+    } else {
+      authorized = await this.authorize(instance, token);
+      if (authorized) {
+        instance.authorizedConnections[id] = { token, user: authorized };
+      }
+    }
+
+    if (!authorized || authorized.sub !== sub) {
+      ws.send(this.pack("unauthorized", { message: "Please login." }, id));
+      return;
+    }
+
+    // Find the message in memory and verify ownership
+    const message = instance.messages.find((m) => m.id === messageId);
+    if (!message) {
+      ws.send(this.pack("error", { message: "Message not found." }));
+      return;
+    }
+    if (message.sub !== sub) {
+      ws.send(this.pack("error", { message: "You can only delete your own messages." }));
+      return;
+    }
+
+    // Already deleted
+    if (message.deleted) return;
+
+    // Soft-delete in MongoDB
+    if (this.db) {
+      try {
+        const collection = this.db.collection(instance.config.name);
+        await collection.updateOne(
+          { _id: new ObjectId(messageId) },
+          { $set: { deleted: true } }
+        );
+        console.log("💬 Message soft-deleted in DB");
+      } catch (err) {
+        console.error("💬 Failed to delete message in DB:", err);
+      }
+    }
+
+    // Update in-memory
+    message.text = "[deleted]";
+    message.deleted = true;
+    delete message.redactedText;
+
+    // Broadcast deletion to all clients
+    this.broadcast(instance, this.pack("message:delete", { id: messageId }));
   }
 
   async authorize(instance, token) {

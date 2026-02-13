@@ -106,7 +106,7 @@ function stripInlineColorCodes(s) {
   return out;
 }
 
-let input, inputBtn, handleBtn, token;
+let input, inputBtn, handleBtn, token, currentUserSub;
 let messagesNeedLayout = true;
 let tapState = null;
 let inputTypefaceName; // Store the typeface name for text input
@@ -193,6 +193,7 @@ let linkConfirmModal = null;
 // 📋 Message copy modal system
 // { message: string, from: string, copied: boolean, error: boolean }
 let messageCopyModal = null;
+let deleteAllowed = false; // Set to true when options.allowDelete is passed
 
 // 📰 News ticker system
 let newsHeadlines = []; // Array of { title, code, user } from news.aesthetic.computer
@@ -327,6 +328,7 @@ async function boot(
   // �🗨️ Chat Networking
 
   // Get the user token for sending authorized messages.
+  currentUserSub = user?.sub;
   try {
     token = await authorize();
     // console.log("🔐 Authorized token:", token);
@@ -766,6 +768,23 @@ function paint(
       );
     }
     
+    // Render deleted messages with dim styling and skip element parsing
+    if (message.deleted) {
+      const lineY = y;
+      ink(120, 120, 120, 150).write(
+        "[deleted]",
+        { x, y: lineY },
+        false, undefined, false, msgTypefaceName
+      );
+      // Still render timestamp after the deleted text
+      const ago = timeAgo(message.when);
+      if (ago) {
+        const tsX = x + text.width("[deleted]", msgTypefaceName) + 4;
+        ink(100, 100, 100, 100).write(ago, { x: tsX, y: lineY }, undefined, undefined, false, "MatrixChunky8");
+      }
+      continue;
+    }
+
     // Render each line of the message separately for proper multi-line display
     // Parse elements once for this message
     const parsedElements = parseMessageElements(message.fullMessage);
@@ -1942,28 +1961,49 @@ function paint(
     }
     
     // Buttons
+    const showDelete = deleteAllowed && messageCopyModal.isOwn && messageCopyModal.id;
     const btnW = 50;
     const btnH = 14;
     const btnY = modalY + modalH - btnH - 8;
-    const btnGap = 12;
-    const totalBtnW = btnW * 2 + btnGap;
+    const btnGap = 8;
+    const btnCount = showDelete ? 3 : 2;
+    const totalBtnW = btnW * btnCount + btnGap * (btnCount - 1);
     const btnStartX = modalX + Math.floor((modalW - totalBtnW) / 2);
-    
+
     // Store button positions for hit detection
-    messageCopyModal.copyBtn = { x: btnStartX, y: btnY, w: btnW, h: btnH };
-    messageCopyModal.closeBtn = { x: btnStartX + btnW + btnGap, y: btnY, w: btnW, h: btnH };
-    
+    let nextX = btnStartX;
+    messageCopyModal.copyBtn = { x: nextX, y: btnY, w: btnW, h: btnH };
+    nextX += btnW + btnGap;
+    if (showDelete) {
+      messageCopyModal.deleteBtn = { x: nextX, y: btnY, w: btnW, h: btnH };
+      nextX += btnW + btnGap;
+    } else {
+      messageCopyModal.deleteBtn = null;
+    }
+    messageCopyModal.closeBtn = { x: nextX, y: btnY, w: btnW, h: btnH };
+
     // Copy button - cyan theme
     const copyHover = messageCopyModal.hoverCopy;
-    ink(copyHover ? [40, 100, 130] : [30, 70, 90]).box(btnStartX, btnY, btnW, btnH);
-    ink(copyHover ? [80, 180, 220] : [60, 130, 160]).box(btnStartX, btnY, btnW, btnH, "outline");
-    ink(copyHover ? [180, 240, 255] : [150, 210, 230]).write("copy", { x: btnStartX + 10, y: btnY + 3 }, undefined, undefined, false, "MatrixChunky8");
-    
+    const copyX = messageCopyModal.copyBtn.x;
+    ink(copyHover ? [40, 100, 130] : [30, 70, 90]).box(copyX, btnY, btnW, btnH);
+    ink(copyHover ? [80, 180, 220] : [60, 130, 160]).box(copyX, btnY, btnW, btnH, "outline");
+    ink(copyHover ? [180, 240, 255] : [150, 210, 230]).write("copy", { x: copyX + 10, y: btnY + 3 }, undefined, undefined, false, "MatrixChunky8");
+
+    // Delete button - red theme (only for own messages)
+    if (showDelete) {
+      const delHover = messageCopyModal.hoverDelete;
+      const delX = messageCopyModal.deleteBtn.x;
+      ink(delHover ? [130, 40, 40] : [90, 30, 30]).box(delX, btnY, btnW, btnH);
+      ink(delHover ? [220, 80, 80] : [160, 60, 60]).box(delX, btnY, btnW, btnH, "outline");
+      ink(delHover ? [255, 180, 180] : [230, 150, 150]).write("delete", { x: delX + 5, y: btnY + 3 }, undefined, undefined, false, "MatrixChunky8");
+    }
+
     // Close button - gray theme
     const closeHover = messageCopyModal.hoverClose;
-    ink(closeHover ? [80, 75, 90] : [55, 50, 65]).box(btnStartX + btnW + btnGap, btnY, btnW, btnH);
-    ink(closeHover ? [120, 110, 140] : [90, 80, 110]).box(btnStartX + btnW + btnGap, btnY, btnW, btnH, "outline");
-    ink(closeHover ? [200, 200, 210] : [170, 170, 180]).write("close", { x: btnStartX + btnW + btnGap + 7, y: btnY + 3 }, undefined, undefined, false, "MatrixChunky8");
+    const closeX = messageCopyModal.closeBtn.x;
+    ink(closeHover ? [80, 75, 90] : [55, 50, 65]).box(closeX, btnY, btnW, btnH);
+    ink(closeHover ? [120, 110, 140] : [90, 80, 110]).box(closeX, btnY, btnW, btnH, "outline");
+    ink(closeHover ? [200, 200, 210] : [170, 170, 180]).write("close", { x: closeX + 7, y: btnY + 3 }, undefined, undefined, false, "MatrixChunky8");
     
     needsPaint();
   }
@@ -2019,10 +2059,11 @@ function act(
 ) {
   const client = otherChat || chat;
   const typefaceName = options?.typeface;
-  
+  if (options?.allowDelete) deleteAllowed = true;
+
   // Calculate rowHeight based on the typeface being used
   const currentRowHeight = typefaceName === "unifont" ? 17 : (typeface.blockHeight + 1);
-  
+
   // Calculate dynamic bottom margin based on selected font
   const selectedFontConfig = CHAT_FONTS[userSelectedFont] || CHAT_FONTS["font_1"];
   const bottomMargin = getBottomMargin(selectedFontConfig, typeface.blockHeight);
@@ -2144,10 +2185,10 @@ function act(
     return; // Block all other interactions when modal is open
   }
   
-  // � Message copy modal intercepts all events
+  // Message copy modal intercepts all events
   if (messageCopyModal) {
-    const { copyBtn, closeBtn, message: msgText } = messageCopyModal;
-    
+    const { copyBtn, deleteBtn, closeBtn, message: msgText } = messageCopyModal;
+
     // Handle hover states
     if (e.is("move") || e.is("draw")) {
       if (copyBtn && closeBtn) {
@@ -2155,9 +2196,13 @@ function act(
                                       pen.y >= copyBtn.y && pen.y < copyBtn.y + copyBtn.h;
         messageCopyModal.hoverClose = pen.x >= closeBtn.x && pen.x < closeBtn.x + closeBtn.w &&
                                        pen.y >= closeBtn.y && pen.y < closeBtn.y + closeBtn.h;
+        if (deleteBtn) {
+          messageCopyModal.hoverDelete = pen.x >= deleteBtn.x && pen.x < deleteBtn.x + deleteBtn.w &&
+                                          pen.y >= deleteBtn.y && pen.y < deleteBtn.y + deleteBtn.h;
+        }
       }
     }
-    
+
     // Handle clicks
     if (e.is("lift") || e.is("touch")) {
       if (copyBtn && closeBtn) {
@@ -2165,7 +2210,10 @@ function act(
                             pen.y >= copyBtn.y && pen.y < copyBtn.y + copyBtn.h;
         const clickedClose = pen.x >= closeBtn.x && pen.x < closeBtn.x + closeBtn.w &&
                              pen.y >= closeBtn.y && pen.y < closeBtn.y + closeBtn.h;
-        
+        const clickedDelete = deleteBtn &&
+                              pen.x >= deleteBtn.x && pen.x < deleteBtn.x + deleteBtn.w &&
+                              pen.y >= deleteBtn.y && pen.y < deleteBtn.y + deleteBtn.h;
+
         if (clickedCopy) {
           beep();
           // Use the direct clipboard API in bios
@@ -2176,6 +2224,15 @@ function act(
           setTimeout(() => {
             if (messageCopyModal) messageCopyModal = null;
           }, 800);
+        } else if (clickedDelete) {
+          beep();
+          // Send delete request via WebSocket
+          client.server.send("chat:delete", {
+            token,
+            sub: currentUserSub,
+            id: messageCopyModal.id,
+          });
+          messageCopyModal = null;
         } else if (clickedClose) {
           beep();
           messageCopyModal = null;
@@ -2394,17 +2451,20 @@ function act(
             break;
           }
 
+          // Skip element interaction for deleted messages
+          if (message.deleted) break;
+
           // Check for hover on interactive elements
           const parsedElements = parseMessageElements(message.fullMessage);
           const relativeX = e.x - message.layout.x;
           const relativeY = e.y - message.layout.y;
-          
+
           // Reset hover states
           if (!message.layout.hoveredElements) {
             message.layout.hoveredElements = new Set();
           }
           message.layout.hoveredElements.clear();
-          
+
           // Check each interactive element for hover
           for (const element of parsedElements) {
             // Use per-message font settings
@@ -2542,10 +2602,13 @@ function act(
           if (wasScrollingOnLift) {
             continue; // User was scrolling, skip link activation
           }
-          
+
+          // Skip interaction for deleted messages
+          if (message.deleted) continue;
+
           // Track if any interactive element was clicked
           let clickedInteractiveElement = false;
-          
+
           // Parse the original message to find interactive elements
           const parsedElements = parseMessageElements(message.fullMessage);
           
@@ -2823,14 +2886,17 @@ function act(
           if (!clickedInteractiveElement && !linkConfirmModal && !modalPainting) {
             // Check if click was within the message text bounds
             const messageTextHeight = message.layout.height;
-            if (relativeX >= 0 && relativeY >= 0 && relativeY < messageTextHeight) {
+            if (relativeX >= 0 && relativeY >= 0 && relativeY < messageTextHeight && !message.deleted) {
               beep();
               messageCopyModal = {
                 message: message.fullMessage,
                 from: message.from,
                 when: message.when,
+                sub: message.sub,
+                id: message.id,
+                isOwn: !!(currentUserSub && message.sub === currentUserSub),
                 copied: false,
-                error: false
+                error: false,
               };
             }
           }
@@ -2927,18 +2993,21 @@ function act(
         ) {
           // 🎯 Track which message is hovered for background highlight
           hoveredMessageIndex = i;
-          
+
+          // Skip element interaction for deleted messages
+          if (message.deleted) break;
+
           // Check for hover on interactive elements
           const parsedElements = parseMessageElements(message.fullMessage);
           const relativeX = e.x - message.layout.x;
           const relativeY = e.y - message.layout.y;
-          
+
           // Reset hover states
           if (!message.layout.hoveredElements) {
             message.layout.hoveredElements = new Set();
           }
           message.layout.hoveredElements.clear();
-          
+
           // Check each interactive element for hover
           for (const element of parsedElements) {
             // Use per-message font settings
