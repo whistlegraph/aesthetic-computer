@@ -116,24 +116,8 @@ export async function handler(event, context) {
         });
       }
 
-      // Update the colors (with majority write concern for durability)
-      const result = await handles.updateOne(
-        { _id: sub },
-        { $set: { colors } },
-        { writeConcern: { w: 1 } },
-      );
-
-      console.log("handle-colors updateOne result:", JSON.stringify(result));
-
-      if (!result.acknowledged || result.matchedCount === 0) {
-        console.error("handle-colors: write not acknowledged or no match", result);
-        await database.disconnect();
-        return respond(500, { message: "Failed to persist colors" });
-      }
-
-      // Verify the write persisted
-      const verify = await handles.findOne({ _id: sub });
-      console.log("handle-colors verify:", verify?.colors ? `${verify.colors.length} colors` : "NO COLORS");
+      // Update the colors
+      await handles.updateOne({ _id: sub }, { $set: { colors } });
 
       await database.disconnect();
 
