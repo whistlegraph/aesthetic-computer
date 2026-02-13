@@ -2997,6 +2997,23 @@
     .route-code-tab.visible {
       display: inline-flex;
     }
+
+    .route-code-tab.fly-target {
+      display: inline-flex;
+      opacity: 0;
+    }
+
+    .route-code-fly-char {
+      position: fixed;
+      z-index: 10000;
+      font-family: 'Comic Relief', 'Comic Sans MS', cursive;
+      font-weight: 700;
+      pointer-events: none;
+      transition: top 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  left 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  font-size 0.4s ease,
+                  color 0.3s ease;
+    }
     
     #preview-title .platform-logo {
       height: 16px;
@@ -7811,11 +7828,9 @@
             let lastColorIndex = -1;
             letters.forEach(letter => {
               let color;
-              // Preserve specific colors for .com-part letters
               if (letter.classList.contains('com-part')) {
                 color = comColors[letter.textContent] || '#70D6FF';
               } else if (letter.classList.contains('splash-dot')) {
-                // Skip dot - it uses CSS variable for connectivity
                 return;
               } else {
                 let randomIndex;
@@ -7825,16 +7840,7 @@
                 lastColorIndex = randomIndex;
                 color = colors[randomIndex];
               }
-
-              if (initialRouteCode) {
-                if (splashRoute) {
-                  splashRoute.innerHTML = '';
-                }
-                window.setRouteCodeInUI?.(initialRouteCode, { immediate: true, animate: false });
-              }
               letter.style.color = color;
-              
-              // Add subtle shadow
               const rgb = color.match(/\w\w/g);
               if (rgb) {
                 const r = Math.max(0, parseInt(rgb[0], 16) - 80);
@@ -7844,9 +7850,72 @@
               }
             });
 
-            
+            // Fly-in animation: /$code chars break off splash and fly to dropdown
+            if (initialRouteCode && splashRoute) {
+              const splashChars = splashRoute.querySelectorAll('.splash-letter');
+              if (splashChars.length > 0) {
+                // 1. Measure source positions of splash route chars
+                const sourceRects = Array.from(splashChars).map(ch => {
+                  const r = ch.getBoundingClientRect();
+                  return { top: r.top, left: r.left, width: r.width, height: r.height, text: ch.textContent, fontSize: parseFloat(getComputedStyle(ch).fontSize) };
+                });
 
-            
+                // 2. Populate the target route-code-tab (hidden via .fly-target)
+                const routeCodeTab = document.getElementById('route-code-tab');
+                if (routeCodeTab) {
+                  routeCodeTab.classList.add('fly-target');
+                  window.setRouteCodeInUI?.(initialRouteCode, { immediate: true, animate: false });
+
+                  // Force layout so we can measure target positions
+                  void routeCodeTab.offsetHeight;
+                  const targetChars = routeCodeTab.querySelectorAll('.code-char');
+                  const targetRects = Array.from(targetChars).map(ch => ch.getBoundingClientRect());
+
+                  // 3. Clear the splash route
+                  splashRoute.innerHTML = '';
+
+                  // 4. Create floating clones at source positions
+                  const clones = [];
+                  const charColors = { 0: 'var(--text-tertiary)', 1: 'rgb(205, 92, 155)' }; // / is grey, $ is pink
+                  sourceRects.forEach((src, i) => {
+                    const clone = document.createElement('span');
+                    clone.className = 'route-code-fly-char';
+                    clone.textContent = src.text;
+                    clone.style.top = src.top + 'px';
+                    clone.style.left = src.left + 'px';
+                    clone.style.fontSize = src.fontSize + 'px';
+                    clone.style.color = charColors[i] || 'rgb(147, 112, 219)';
+                    document.body.appendChild(clone);
+                    clones.push(clone);
+                  });
+
+                  // 5. Animate clones to target positions (double rAF for transition)
+                  requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                      clones.forEach((clone, i) => {
+                        if (targetRects[i]) {
+                          clone.style.top = targetRects[i].top + 'px';
+                          clone.style.left = targetRects[i].left + 'px';
+                          clone.style.fontSize = getComputedStyle(targetChars[i]).fontSize;
+                        }
+                      });
+                    });
+                  });
+
+                  // 6. After animation: reveal target, remove clones
+                  setTimeout(() => {
+                    routeCodeTab.classList.remove('fly-target');
+                    clones.forEach(c => c.remove());
+                  }, 450);
+                }
+              } else {
+                // No splash chars to animate from — just show immediately
+                if (splashRoute) splashRoute.innerHTML = '';
+                window.setRouteCodeInUI?.(initialRouteCode, { immediate: true, animate: false });
+              }
+            }
+
+
             // Add click handler - back navigation OR preferences modal
             splashLogo.style.cursor = 'pointer';
             if (window.kidlispBackToPrompt) {
@@ -8682,7 +8751,7 @@
       <div class="preview-panel" id="preview-panel" style="display: flex; flex-direction: column;">
         <div class="docs-header" style="display: flex; align-items: center; gap: 8px;">
           <div id="platform-selector" class="platform-selector">
-            <span id="preview-title" class="booting"><span class="title-full"><span class="title-letter">A</span><span class="title-letter">e</span><span class="title-letter">s</span><span class="title-letter">t</span><span class="title-letter">h</span><span class="title-letter">e</span><span class="title-letter">t</span><span class="title-letter">i</span><span class="title-letter">c</span></span><span class="title-short">prompt</span><span class="bounce-dot">.</span><span class="title-full"><span class="title-letter">C</span><span class="title-letter">o</span><span class="title-letter">m</span><span class="title-letter">p</span><span class="title-letter">u</span><span class="title-letter">t</span><span class="title-letter">e</span><span class="title-letter">r</span></span><span class="title-short">AC</span></span>
+            <span id="preview-title" class="booting"><span class="title-full"><span class="title-letter">A</span><span class="title-letter">e</span><span class="title-letter">s</span><span class="title-letter">t</span><span class="title-letter">h</span><span class="title-letter">e</span><span class="title-letter">t</span><span class="title-letter">i</span><span class="title-letter">c</span></span><span class="title-short">prompt</span><span class="bounce-dot">.</span><span class="title-full"><span class="title-letter">C</span><span class="title-letter">o</span><span class="title-letter">m</span><span class="title-letter">p</span><span class="title-letter">u</span><span class="title-letter">t</span><span class="title-letter">e</span><span class="title-letter">r</span></span><span class="title-short">AC</span><span id="route-code-tab" class="route-code-tab"></span></span>
             <span class="platform-arrow">▼</span>
             <div class="platform-dropdown" id="platform-dropdown">
               <div class="platform-option active" data-platform="aesthetic-computer">
@@ -8714,7 +8783,6 @@
               -->
             </div>
           </div>
-          <span id="route-code-tab" class="route-code-tab"></span>
           <button id="popout-btn" class="popout-btn" title="Broadcast to PJ window" aria-label="Broadcast to PJ window">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M4.9 16.1C1 12.2 1 5.8 4.9 1.9"/>
@@ -15782,9 +15850,11 @@ s("ape_breaks_3").loopAt(2)</textarea>
           // Reset preview title to current platform name (using global helper)
           const previewTitle = document.getElementById('preview-title');
           if (previewTitle) {
+            const savedTab = document.getElementById('route-code-tab');
             const platformOption = document.querySelector(`.platform-option[data-platform="${currentPlatform}"]`);
             const platformName = platformOption?.querySelector('.platform-opt-name')?.textContent || 'Aesthetic.Computer';
             previewTitle.innerHTML = getPlatformTitleHTML(currentPlatform, platformName);
+            if (savedTab) previewTitle.appendChild(savedTab);
           }
         }
       });
@@ -17165,12 +17235,15 @@ s("ape_breaks_3").loopAt(2)</textarea>
       const previewTitle = document.getElementById('preview-title');
       if (!previewTitle) return;
 
+      // Save #route-code-tab before innerHTML replaces children
+      const routeCodeTab = document.getElementById('route-code-tab');
+
       if (!cleanCode) {
         previewTitle.innerHTML = getACTitleHTML();
-        const routeCodeTab = document.getElementById('route-code-tab');
         if (routeCodeTab) {
           routeCodeTab.classList.remove('visible');
           routeCodeTab.innerHTML = '';
+          previewTitle.appendChild(routeCodeTab);
         }
         return;
       }
@@ -17180,10 +17253,10 @@ s("ape_breaks_3").loopAt(2)</textarea>
         .map((c, i) => `<span class="code-char${i === 0 ? ' slash' : i === 1 ? ' dollar' : ' code'}">${c}</span>`)
         .join('');
       previewTitle.innerHTML = getACTitleHTML();
-      const routeCodeTab = document.getElementById('route-code-tab');
       if (routeCodeTab) {
         routeCodeTab.classList.add('visible');
         routeCodeTab.innerHTML = `<span class="code-display">${codeChars}</span>`;
+        previewTitle.appendChild(routeCodeTab);
       }
 
       if (!immediate) {
@@ -18227,12 +18300,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
           localStorage.setItem('kidlisp-current-code', event.data.code);
           
           // Update preview pane title with scramble animation
-          const previewTitle = document.getElementById('preview-title');
-          // First set the base title
-          previewTitle.innerHTML = getACTitleHTML();
-          // Then animate the code part
-          const codeDisplay = previewTitle.querySelector('.code-display');
-          scrambleToCode(event.data.code, codeDisplay);
+          window.setRouteCodeInUI?.(event.data.code);
         }
         
         if (event.data.qr) {
