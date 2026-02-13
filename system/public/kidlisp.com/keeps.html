@@ -122,33 +122,48 @@
     }
 
     /* ========================================
-       HEADER
+       HERO HEADER (logo + /keeps inside castle area)
        ======================================== */
-    .keeps-header {
-      background: var(--bg-secondary);
-      border-bottom: 1px solid var(--border-color);
-      padding: 10px 24px;
+    .keeps-hero-header {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      flex-shrink: 0;
+      gap: 8px;
+      margin-bottom: 8px;
     }
 
-    .keeps-title {
-      font-family: var(--font-display);
-      font-size: 16px;
-      color: var(--text-secondary);
+    .keeps-logo {
+      font-family: var(--font-fun);
+      font-weight: bold;
+      font-size: 22px;
+      display: flex;
+      align-items: center;
+      gap: 0;
       text-decoration: none;
     }
-    .keeps-title:hover {
-      color: var(--ac-purple);
-      text-decoration: none;
+    .keeps-logo:hover { text-decoration: none; }
+
+    .keeps-logo .baby-k { color: #FF6B6B; }
+    .keeps-logo .baby-i { color: #4ECDC4; }
+    .keeps-logo .baby-d { color: #FFE66D; }
+    .keeps-logo .baby-l { color: #A8E6CF; }
+    .keeps-logo .baby-i2 { color: #FF8B94; }
+    .keeps-logo .baby-s { color: #F7DC6F; }
+    .keeps-logo .baby-p { color: #BB8FCE; }
+    .keeps-logo .com-part { color: #70D6FF; }
+    .keeps-logo span { text-shadow: 1px 1px 0px rgba(0,0,0,0.3); }
+    .keeps-logo .com-part { text-shadow: none; }
+
+    .keeps-slash {
+      font-family: var(--font-display);
+      font-size: 16px;
+      color: var(--text-tertiary);
     }
 
     .keeps-count {
       font-size: 12px;
       color: var(--text-tertiary);
       white-space: nowrap;
+      margin-left: auto;
     }
 
     /* ========================================
@@ -264,6 +279,12 @@
 
     .keeps-tab-content.active {
       display: block;
+    }
+
+    /* Index tab is full-width with no padding (search bar + grid have their own) */
+    #tab-index {
+      max-width: none;
+      padding: 0;
     }
 
     .keeps-tab-content p {
@@ -906,7 +927,6 @@
        RESPONSIVE
        ======================================== */
     @media (max-width: 768px) {
-      .keeps-header { padding: 10px 16px; }
       .keeps-hero { padding: 16px 16px 0; }
       .keeps-castle-wrap { height: 180px; }
       .keeps-castle-wrap svg { width: 140px; }
@@ -922,22 +942,22 @@
       .keeps-card-actions { flex-wrap: wrap; }
     }
 
-    /* Embedded in parent editor iframe — hide branding, keep controls */
+    /* Embedded in parent editor iframe — hide branding */
     .embedded .keeps-hero { display: none; }
-    .embedded .keeps-header { padding: 8px 12px; }
   </style>
   <script>if (window.self !== window.top) document.documentElement.classList.add('embedded');</script>
 </head>
 
 <body>
-  <!-- HEADER -->
-  <header class="keeps-header">
-    <a href="/" class="keeps-title" title="Back to KidLisp.com editor">/keeps</a>
-    <span class="keeps-count" id="keeps-count"></span>
-  </header>
-
   <!-- CASTLE HERO -->
   <section class="keeps-hero">
+    <div class="keeps-hero-header">
+      <a href="/" class="keeps-logo" title="Back to KidLisp.com editor">
+        <span class="baby-k">K</span><span class="baby-i">i</span><span class="baby-d">d</span><span class="baby-l">L</span><span class="baby-i2">i</span><span class="baby-s">s</span><span class="baby-p">p</span><span class="com-part">.com</span>
+      </a>
+      <span class="keeps-slash">/keeps</span>
+      <span class="keeps-count" id="keeps-count"></span>
+    </div>
     <div class="keeps-castle-wrap">
       <!-- Floating $codes -->
       <span class="keeps-code-float">$39j</span>
@@ -1015,7 +1035,17 @@
 
     <!-- TAB: Index (default view - search + grid) -->
     <div class="keeps-tab-content active" id="tab-index">
-      <!-- This is where the search bar and grid will be moved/shown -->
+      <div class="keeps-search-bar">
+        <input type="text" class="keeps-search-input" id="search-input"
+               placeholder="Search $codes, source code, or @handles..." autocomplete="off" spellcheck="false" />
+        <button class="keeps-filter-btn" id="filter-kept" title="Show only pieces kept on Tezos">Kept on Tezos</button>
+      </div>
+      <div class="keeps-grid" id="keeps-grid">
+        <div class="keeps-loading" id="keeps-loading">
+          <div class="spinner"></div>
+          <span>Loading all $codes...</span>
+        </div>
+      </div>
     </div>
 
     <!-- TAB: V4 Docs -->
@@ -1318,21 +1348,6 @@
       </p>
     </div>
 
-  </div>
-
-  <!-- SEARCH -->
-  <div class="keeps-search-bar">
-    <input type="text" class="keeps-search-input" id="search-input" 
-           placeholder="Search $codes, source code, or @handles..." autocomplete="off" spellcheck="false" />
-    <button class="keeps-filter-btn" id="filter-kept" title="Show only pieces kept on Tezos">Kept on Tezos</button>
-  </div>
-
-  <!-- GRID -->
-  <div class="keeps-grid" id="keeps-grid">
-    <div class="keeps-loading" id="keeps-loading">
-      <div class="spinner"></div>
-      <span>Loading all $codes...</span>
-    </div>
   </div>
 
   <!-- PREVIEW MODAL -->
