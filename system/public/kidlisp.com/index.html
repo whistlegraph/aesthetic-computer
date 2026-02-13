@@ -8915,7 +8915,7 @@
             </div>
           </div>
           <div class="list-subcontent hidden" id="keeps-subcontent">
-            <iframe id="keeps-iframe" src="https://kidlisp.com/keeps" style="width: 100%; height: 100%; border: none; flex: 1;"></iframe>
+            <iframe id="keeps-iframe" data-src="https://kidlisp.com/keeps" style="width: 100%; height: 100%; border: none; flex: 1;"></iframe>
           </div>
         </div><!-- /list-content -->
         <div class="docs-content hidden" id="jukebox-content">
@@ -14246,15 +14246,34 @@ s("ape_breaks_3").loopAt(2)</textarea>
       }
     }
 
+    // =========================================
+    // SAFARI PERFORMANCE DIAGNOSTICS
+    // =========================================
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    const perfCounters = { messages: 0, decorations: 0, audioTicks: 0, strudelTicks: 0 };
+    window.perfCounters = perfCounters; // Expose for modules (e.g. highlighting)
+    if (isSafari) {
+      setInterval(() => {
+        if (perfCounters.messages || perfCounters.decorations || perfCounters.audioTicks || perfCounters.strudelTicks) {
+          console.log(`🔍 [PERF 5s] msgs:${perfCounters.messages} decorations:${perfCounters.decorations} audioTicks:${perfCounters.audioTicks} strudelTicks:${perfCounters.strudelTicks}`);
+          perfCounters.messages = 0;
+          perfCounters.decorations = 0;
+          perfCounters.audioTicks = 0;
+          perfCounters.strudelTicks = 0;
+        }
+      }, 5000);
+      console.log('🔍 [PERF] Safari detected — performance counters enabled (logged every 5s)');
+    }
+
     // Define aestheticUrl early - used for iframe communication and API calls throughout
     // Note: only use localhost for true localhost, not for Codespaces (app.github.dev)
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.includes('local.');
     const aestheticUrl = isLocalDev ? 'https://localhost:8888' : 'https://aesthetic.computer';
 
-    // Set keeps iframe src for dev mode
+    // Set keeps iframe data-src for dev mode (actual loading deferred until tab is clicked)
     if (isLocalDev) {
       const keepsIframe = document.getElementById('keeps-iframe');
-      if (keepsIframe) keepsIframe.src = 'https://localhost:8888/kidlisp.com/keeps.html';
+      if (keepsIframe) keepsIframe.dataset.src = 'https://localhost:8888/kidlisp.com/keeps.html';
     }
 
     // Configure Monaco with jsDelivr CDN (modern, well-supported)
@@ -18076,6 +18095,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
     
     // Listen for console messages and syntax highlighting signals from iframe
     window.addEventListener('message', (event) => {
+      if (isSafari) perfCounters.messages++;
       // Ignore setCode messages - they're for other pieces, not kidlisp
       if (event.data?.type === 'setCode') {
         return;
@@ -18443,6 +18463,13 @@ s("ape_breaks_3").loopAt(2)</textarea>
         if (!recentLoaded) loadRecent();
       } else if (subtab === 'history') {
         loadHistory();
+      } else if (subtab === 'keeps') {
+        // Lazy-load keeps iframe on first click (avoid loading 14k+ items on page init)
+        const keepsIframe = document.getElementById('keeps-iframe');
+        if (keepsIframe && !keepsIframe.hasAttribute('src')) {
+          console.log('📦 [KEEPS] Lazy-loading keeps iframe');
+          keepsIframe.src = keepsIframe.dataset.src;
+        }
       }
     }
     
@@ -22776,6 +22803,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
       
       function analyze() {
         if (!jukeboxIsPlaying) return;
+        if (isSafari) perfCounters.audioTicks++;
         jukeboxAnalyser.getByteFrequencyData(freqData);
         jukeboxAnalyser.getByteTimeDomainData(timeData);
         
@@ -22951,7 +22979,8 @@ s("ape_breaks_3").loopAt(2)</textarea>
       // Run at ~250Hz for smooth streaming (matching songs tab)
       strudelStreamInterval = setInterval(() => {
         if (!strudelPlaying) return;
-        
+        if (isSafari) perfCounters.strudelTicks++;
+
         let amp = 0.1; // Base level when no audio
         let bass = 0.1, mid = 0.1, treble = 0.1;
         

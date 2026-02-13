@@ -1011,6 +1011,11 @@
     let showOnlyKept = false;
     let searchQuery = '';
 
+    // Pagination: render in batches to avoid freezing on large datasets
+    const PAGE_SIZE = 50;
+    let renderedCount = 0;
+    let isLoadingMore = false;
+
     // DOM
     const grid = document.getElementById('keeps-grid');
     const loading = document.getElementById('keeps-loading');
@@ -1044,11 +1049,64 @@
     }
 
     // =========================================
-    // RENDER
+    // RENDER (paginated — renders PAGE_SIZE cards at a time)
     // =========================================
+    function createCard(entry) {
+      const card = document.createElement('div');
+      card.className = 'keeps-card' + (entry.kept ? ' kept' : '');
+
+      const when = entry.when ? new Date(entry.when) : null;
+      const timeStr = when ? formatRelativeTime(when) : '';
+      const handle = entry.handle || 'anon';
+      const hits = entry.hits || 0;
+      const isKept = !!entry.kept;
+
+      // Build syntax-highlighted source with colored line numbers
+      const sourceLines = (entry.source || '').split('\n');
+      const lineNumsHtml = sourceLines.map((_, i) => `<span>${i + 1}</span>`).join('');
+      const sourceTextHtml = escapeHtml(entry.source || '');
+
+      // WebP preview image URL
+      const webpUrl = `https://oven.aesthetic.computer/grab/webp/280/210/$${entry.code}?duration=2000&fps=8&quality=70&density=1&nowait=true`;
+
+      card.innerHTML = `
+        <div class="keeps-card-header">
+          <a class="keeps-card-code" href="${KL_BASE}/$${entry.code}" title="Edit in KidLisp.com">$${entry.code}</a>
+          <div class="keeps-card-meta">
+            <span class="keeps-card-handle">${escapeHtml(handle)}</span>
+            <span class="keeps-card-hits">${hits} hit${hits !== 1 ? 's' : ''}</span>
+          </div>
+        </div>
+        <div class="keeps-card-preview">
+          <img src="${webpUrl}" alt="$${entry.code} preview" loading="lazy" />
+          <div class="preview-overlay"></div>
+        </div>
+        <div class="keeps-card-body">
+          <div class="keeps-card-source"><div class="line-nums">${lineNumsHtml}</div><div class="source-text">${sourceTextHtml}</div></div>
+        </div>
+        <div class="keeps-card-actions">
+          <button class="keeps-card-btn preview-btn" data-code="${entry.code}" title="Preview">&#x25B6; Preview</button>
+          <a class="keeps-card-btn" href="${KL_BASE}/$${entry.code}" title="Open in editor">&#x270E; Edit</a>
+          <a class="keeps-card-btn html-btn" href="${AC_BASE}/api/bundle-html?code=${entry.code}" target="_blank" title="Download as standalone HTML">&#x1F4E6; HTML</a>
+          ${isKept ? `<span class="keeps-card-btn kept-badge" title="Kept on Tezos (Token #${entry.kept.tokenId || '?'})">&#x2714; Kept</span>` : ''}
+          ${timeStr ? `<span style="margin-left: auto; font-size: 10px; color: var(--text-tertiary);">${timeStr}</span>` : ''}
+        </div>`;
+
+      // Click on preview image or card body → open modal
+      const previewImg = card.querySelector('.keeps-card-preview');
+      if (previewImg) previewImg.style.cursor = 'pointer';
+      if (previewImg) previewImg.addEventListener('click', () => openModal(entry));
+
+      // Preview button handler
+      card.querySelector('.preview-btn').addEventListener('click', () => openModal(entry));
+
+      return card;
+    }
+
     function renderGrid() {
-      // Clear grid (keep loading element structure intact)
+      // Clear grid and reset pagination
       grid.innerHTML = '';
+      renderedCount = 0;
 
       if (filteredCodes.length === 0) {
         grid.innerHTML = `
@@ -1057,66 +1115,52 @@
             <div class="error-msg">${allCodes.length === 0 ? 'No $codes found.' : 'No matches for your search.'}</div>
             ${allCodes.length === 0 ? '<button class="retry-btn" onclick="init()">Retry</button>' : ''}
           </div>`;
+        countEl.textContent = `0 of ${allCodes.length.toLocaleString()} $codes`;
         return;
       }
 
-      // Create document fragment for performance
+      // Render first batch
+      renderMoreCards();
+      countEl.textContent = `${filteredCodes.length.toLocaleString()} of ${allCodes.length.toLocaleString()} $codes`;
+    }
+
+    function renderMoreCards() {
+      if (isLoadingMore || renderedCount >= filteredCodes.length) return;
+      isLoadingMore = true;
+
       const frag = document.createDocumentFragment();
+      const end = Math.min(renderedCount + PAGE_SIZE, filteredCodes.length);
 
-      for (const entry of filteredCodes) {
-        const card = document.createElement('div');
-        card.className = 'keeps-card' + (entry.kept ? ' kept' : '');
-
-        const when = entry.when ? new Date(entry.when) : null;
-        const timeStr = when ? formatRelativeTime(when) : '';
-        const handle = entry.handle || 'anon';
-        const hits = entry.hits || 0;
-        const isKept = !!entry.kept;
-
-        // Build syntax-highlighted source with colored line numbers
-        const sourceLines = (entry.source || '').split('\n');
-        const lineNumsHtml = sourceLines.map((_, i) => `<span>${i + 1}</span>`).join('');
-        const sourceTextHtml = escapeHtml(entry.source || '');
-
-        // WebP preview image URL
-        const webpUrl = `https://oven.aesthetic.computer/grab/webp/280/210/$${entry.code}?duration=2000&fps=8&quality=70&density=1&nowait=true`;
-
-        card.innerHTML = `
-          <div class="keeps-card-header">
-            <a class="keeps-card-code" href="${KL_BASE}/$${entry.code}" title="Edit in KidLisp.com">$${entry.code}</a>
-            <div class="keeps-card-meta">
-              <span class="keeps-card-handle">${escapeHtml(handle)}</span>
-              <span class="keeps-card-hits">${hits} hit${hits !== 1 ? 's' : ''}</span>
-            </div>
-          </div>
-          <div class="keeps-card-preview">
-            <img src="${webpUrl}" alt="$${entry.code} preview" loading="lazy" />
-            <div class="preview-overlay"></div>
-          </div>
-          <div class="keeps-card-body">
-            <div class="keeps-card-source"><div class="line-nums">${lineNumsHtml}</div><div class="source-text">${sourceTextHtml}</div></div>
-          </div>
-          <div class="keeps-card-actions">
-            <button class="keeps-card-btn preview-btn" data-code="${entry.code}" title="Preview">&#x25B6; Preview</button>
-            <a class="keeps-card-btn" href="${KL_BASE}/$${entry.code}" title="Open in editor">&#x270E; Edit</a>
-            <a class="keeps-card-btn html-btn" href="${AC_BASE}/api/bundle-html?code=${entry.code}" target="_blank" title="Download as standalone HTML">&#x1F4E6; HTML</a>
-            ${isKept ? `<span class="keeps-card-btn kept-badge" title="Kept on Tezos (Token #${entry.kept.tokenId || '?'})">&#x2714; Kept</span>` : ''}
-            ${timeStr ? `<span style="margin-left: auto; font-size: 10px; color: var(--text-tertiary);">${timeStr}</span>` : ''}
-          </div>`;
-
-        // Click on preview image or card body → open modal
-        const previewImg = card.querySelector('.keeps-card-preview');
-        if (previewImg) previewImg.style.cursor = 'pointer';
-        if (previewImg) previewImg.addEventListener('click', () => openModal(entry));
-
-        // Preview button handler
-        card.querySelector('.preview-btn').addEventListener('click', () => openModal(entry));
-
-        frag.appendChild(card);
+      for (let i = renderedCount; i < end; i++) {
+        frag.appendChild(createCard(filteredCodes[i]));
       }
 
+      // Remove the "load more" sentinel if it exists
+      const sentinel = document.getElementById('keeps-load-more');
+      if (sentinel) sentinel.remove();
+
       grid.appendChild(frag);
-      countEl.textContent = `${filteredCodes.length.toLocaleString()} of ${allCodes.length.toLocaleString()} $codes`;
+      renderedCount = end;
+
+      // Add a sentinel / "load more" trigger if there are more cards
+      if (renderedCount < filteredCodes.length) {
+        const loadMore = document.createElement('div');
+        loadMore.id = 'keeps-load-more';
+        loadMore.style.cssText = 'grid-column: 1 / -1; text-align: center; padding: 20px; color: var(--text-tertiary); font-size: 13px;';
+        loadMore.textContent = `Showing ${renderedCount.toLocaleString()} of ${filteredCodes.length.toLocaleString()} — scroll for more`;
+        grid.appendChild(loadMore);
+
+        // Use IntersectionObserver to load more when sentinel is visible
+        const observer = new IntersectionObserver((entries) => {
+          if (entries[0].isIntersecting) {
+            observer.disconnect();
+            renderMoreCards();
+          }
+        }, { rootMargin: '200px' });
+        observer.observe(loadMore);
+      }
+
+      isLoadingMore = false;
     }
 
     // =========================================
