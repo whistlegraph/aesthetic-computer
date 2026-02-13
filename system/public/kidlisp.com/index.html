@@ -17387,6 +17387,97 @@ s("ape_breaks_3").loopAt(2)</textarea>
     // Initialize: show the correct boot screen for the saved platform
     showBootScreen(currentPlatform);
 
+    // Platform selector dropdown
+    (function initPlatformSelector() {
+      const selector = document.getElementById('platform-selector');
+      const previewTitle = document.getElementById('preview-title');
+      const dropdown = document.querySelector('.platform-dropdown');
+      const options = document.querySelectorAll('.platform-option');
+
+      if (!selector || !dropdown) return;
+
+      // Toggle dropdown on click
+      selector.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // Position dropdown BEFORE opening to prevent flash
+        if (!selector.classList.contains('open') && dropdown) {
+          const rect = selector.getBoundingClientRect();
+          dropdown.style.top = (rect.bottom + 4) + 'px';
+          dropdown.style.left = rect.left + 'px';
+        }
+        selector.classList.toggle('open');
+      });
+
+      // Handle platform selection
+      options.forEach(option => {
+        option.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const platform = option.dataset.platform;
+          const isComingSoon = option.classList.contains('coming-soon');
+          const isExperimental = option.classList.contains('experimental');
+          const name = option.querySelector('.platform-opt-name')?.textContent || 'Unknown';
+
+          if (isComingSoon) { showToast(`${name} coming soon`, 'info'); return; }
+          if (isExperimental) { showToast(`${name} is experimental`, 'warning'); }
+
+          // Update title (save/restore route-code-tab)
+          if (previewTitle) {
+            const savedTab = document.getElementById('route-code-tab');
+            previewTitle.innerHTML = getPlatformTitleHTML(platform, name);
+            previewTitle.dataset.platform = platform;
+            if (savedTab) previewTitle.appendChild(savedTab);
+          }
+
+          // Update panel data-platform for header color styling
+          const previewPanel = document.getElementById('preview-panel');
+          if (previewPanel) previewPanel.dataset.platform = platform;
+
+          // Update active state
+          options.forEach(o => o.classList.remove('active'));
+          option.classList.add('active');
+
+          // Update global platform and stop playback
+          currentPlatform = platform;
+          stopPlayback();
+
+          // Close dropdown
+          selector.classList.remove('open');
+
+          // Emit event for platform change
+          window.dispatchEvent(new CustomEvent('kidlisp-platform-change', {
+            detail: { platform, name, isExperimental }
+          }));
+
+          // Log platform switch
+          const previousPlatform = localStorage.getItem('kidlisp-previous-platform') || 'aesthetic-computer';
+          logPlatformSwitch(previousPlatform, platform, { comingSoon: isComingSoon, experimental: isExperimental });
+          localStorage.setItem('kidlisp-previous-platform', platform);
+        });
+      });
+    })();
+
+    // Header user menu - click to toggle dropdown
+    const headerUserMenu = document.getElementById('header-user-menu');
+    if (headerUserMenu) {
+      const userDropdown = document.getElementById('header-user-dropdown');
+      headerUserMenu.addEventListener('click', (e) => {
+        e.stopPropagation();
+        headerUserMenu.classList.toggle('open');
+        if (headerUserMenu.classList.contains('open') && userDropdown) {
+          const rect = headerUserMenu.getBoundingClientRect();
+          userDropdown.style.top = (rect.bottom + 4) + 'px';
+          userDropdown.style.right = (window.innerWidth - rect.right) + 'px';
+        }
+      });
+    }
+
+    // Close dropdowns when clicking elsewhere
+    document.addEventListener('click', () => {
+      if (headerUserMenu) headerUserMenu.classList.remove('open');
+      const platformSelector = document.getElementById('platform-selector');
+      if (platformSelector) platformSelector.classList.remove('open');
+    });
+
     // Listen for sessions coming from the VS Code extension
     window.addEventListener('message', (event) => {
       if (event.data?.type === 'setSession' && event.data?.tenant === 'aesthetic') {
