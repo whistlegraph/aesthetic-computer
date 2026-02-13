@@ -57,9 +57,8 @@ function boot({ get, net, store }) {
         }));
         console.log(`🎨 Loaded ${colors.length} custom colors`);
       } else {
-        // Initialize with default white colors
-        colors = handleWithAt.split("").map(() => ({ r: 255, g: 255, b: 255 }));
-        console.log(`🎨 Using default white colors (${colors.length} chars)`);
+        // Initialize with default magenta (matching prompt button theme)
+        colors = handleWithAt.split("").map(() => ({ r: 255, g: 100, b: 255 }));
       }
       // Store defaults for reset functionality
       defaultColors = colors.map((c) => ({ ...c }));
@@ -67,8 +66,7 @@ function boot({ get, net, store }) {
     })
     .catch((err) => {
       console.warn("⚠️ Failed to load handle colors, using defaults:", err);
-      // Default to white for all characters
-      colors = handleWithAt.split("").map(() => ({ r: 255, g: 255, b: 255 }));
+      colors = handleWithAt.split("").map(() => ({ r: 255, g: 100, b: 255 }));
       defaultColors = colors.map((c) => ({ ...c }));
       loading = false;
     });

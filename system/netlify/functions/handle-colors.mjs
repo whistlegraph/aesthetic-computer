@@ -27,13 +27,8 @@ export async function handler(event, context) {
       await database.disconnect();
 
       if (!user || !user.colors) {
-        // Return default colors (white for all characters)
-        const defaultColors = ("@" + handle).split("").map(() => ({
-          r: 255,
-          g: 255,
-          b: 255,
-        }));
-        return respond(200, { colors: defaultColors });
+        // No custom colors set — return null so clients use their native theme color
+        return respond(200, { colors: null });
       }
 
       return respond(200, { colors: user.colors });
