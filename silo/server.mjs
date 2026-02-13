@@ -36,6 +36,22 @@ const FIREHOSE_MAX_PER_SEC = 50;
 const firehoseBuffer = [];
 const FIREHOSE_BUFFER_SIZE = 50;
 
+// --- Collection Categories ---
+const COLLECTION_CATEGORIES = {
+  "users": "identity", "@handles": "identity", "verifications": "identity",
+  "paintings": "content", "pieces": "content", "kidlisp": "content",
+  "tapes": "content", "moods": "content",
+  "chat-system": "communication", "chat-clock": "communication", "chat-sotce": "communication",
+  "boots": "system", "oven-bakes": "system", "_firehose": "system",
+};
+const CATEGORY_META = {
+  identity: { label: "Users & Identity", color: "#48f" },
+  content: { label: "Content", color: "#a6f" },
+  communication: { label: "Communication", color: "#4a4" },
+  system: { label: "System & Logs", color: "#f80" },
+  other: { label: "Other", color: "#888" },
+};
+
 // --- Handle Cache (Auth0 sub → handle) ---
 const handleCache = new Map();
 
@@ -296,8 +312,21 @@ async function getCollectionStats(database, label) {
     const collections = await database.listCollections().toArray();
     const stats = [];
     for (const col of collections) {
-      const count = await database.collection(col.name).estimatedDocumentCount();
-      stats.push({ name: col.name, count });
+      try {
+        const cs = await database.command({ collStats: col.name });
+        stats.push({
+          name: col.name, count: cs.count || 0,
+          size: cs.size || 0, storageSize: cs.storageSize || 0,
+          indexSize: cs.totalIndexSize || 0,
+          category: COLLECTION_CATEGORIES[col.name] || "other",
+        });
+      } catch {
+        const count = await database.collection(col.name).estimatedDocumentCount();
+        stats.push({
+          name: col.name, count, size: 0, storageSize: 0, indexSize: 0,
+          category: COLLECTION_CATEGORIES[col.name] || "other",
+        });
+      }
     }
     stats.sort((a, b) => b.count - a.count);
     return stats;
@@ -466,7 +495,74 @@ app.get("/api/overview", async (req, res) => {
 
 app.get("/api/db/collections", async (req, res) => {
   log("info", "collections requested");
-  res.json(await getDbStats() || []);
+  const stats = await getDbStats() || [];
+  res.json({ collections: stats, categories: CATEGORY_META });
+});
+
+app.get("/api/db/backups", async (req, res) => {
+  log("info", "backups requested");
+  const backups = [];
+  // Check local filesystem for mongodump backups
+  const backupPath = process.env.BACKUP_PATH || "/var/backups/mongodb";
+  try {
+    if (fs.existsSync(backupPath)) {
+      const entries = fs.readdirSync(backupPath, { withFileTypes: true });
+      for (const entry of entries) {
+        try {
+          const fullPath = backupPath + "/" + entry.name;
+          const stat = fs.statSync(fullPath);
+          let totalSize = stat.size;
+          // For directories (mongodump output), sum up contents
+          if (entry.isDirectory()) {
+            totalSize = 0;
+            const walk = (dir) => {
+              for (const f of fs.readdirSync(dir, { withFileTypes: true })) {
+                const fp = dir + "/" + f.name;
+                if (f.isDirectory()) walk(fp);
+                else totalSize += fs.statSync(fp).size;
+              }
+            };
+            walk(fullPath);
+          }
+          backups.push({
+            name: entry.name, source: "local", size: totalSize,
+            date: stat.mtime.toISOString(), isDirectory: entry.isDirectory(),
+          });
+        } catch {}
+      }
+    }
+  } catch (err) {
+    log("error", `backup scan (local): ${err.message}`);
+  }
+  // Check S3 for backups
+  const backupBucket = process.env.BACKUP_BUCKET;
+  const backupPrefix = process.env.BACKUP_PREFIX || "backups/";
+  if (backupBucket) {
+    try {
+      let continuationToken;
+      do {
+        const resp = await s3.send(new ListObjectsV2Command({
+          Bucket: backupBucket, Prefix: backupPrefix,
+          ContinuationToken: continuationToken,
+        }));
+        if (resp.Contents) {
+          for (const obj of resp.Contents) {
+            const name = obj.Key.replace(backupPrefix, "");
+            if (!name) continue;
+            backups.push({
+              name, source: "s3", bucket: backupBucket,
+              size: obj.Size, date: obj.LastModified?.toISOString(),
+            });
+          }
+        }
+        continuationToken = resp.IsTruncated ? resp.NextContinuationToken : undefined;
+      } while (continuationToken);
+    } catch (err) {
+      log("error", `backup scan (s3): ${err.message}`);
+    }
+  }
+  backups.sort((a, b) => new Date(b.date) - new Date(a.date));
+  res.json({ backups, backupPath, backupBucket: backupBucket || null });
 });
 
 app.get("/api/db/compare", async (req, res) => {
@@ -477,8 +573,8 @@ app.get("/api/db/compare", async (req, res) => {
   const primaryHost = parseMongoHost(process.env.MONGODB_CONNECTION_STRING);
   const atlasHost = parseMongoHost(process.env.ATLAS_CONNECTION_STRING);
 
-  // The production Netlify site uses Atlas until we switch its env vars
-  const activeDb = "atlas";
+  // Silo is now the source of truth; Atlas is deprecated
+  const activeDb = "silo";
 
   const allNames = new Set([
     ...(primary || []).map(c => c.name),
@@ -813,6 +909,56 @@ a:hover { text-decoration: underline; }
 .fh-counter-val { color: var(--fg); font-variant-numeric: tabular-nums; min-width: 30px; text-align: right; }
 .fh-counter-ops { color: var(--fg2); margin-left: 2px; }
 
+/* sub-tabs */
+.sub-tab-bar {
+  display: flex; gap: 0; margin-bottom: 8px;
+  border-bottom: 1px solid var(--border); padding: 0 2px;
+}
+.sub-tab-btn {
+  font-family: inherit; font-size: 11px; padding: 4px 10px;
+  background: none; color: var(--fg2); border: none; border-bottom: 2px solid transparent;
+  cursor: pointer; white-space: nowrap;
+}
+.sub-tab-btn:hover { color: var(--fg); }
+.sub-tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.sub-tab-btn.deprecated { opacity: 0.6; }
+.dep-badge {
+  font-size: 9px; padding: 1px 3px; background: var(--warn);
+  color: var(--bg); vertical-align: middle; margin-left: 2px;
+}
+.sub-panel { display: none; }
+.sub-panel.active { display: block; }
+
+/* data grid */
+.data-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+@media (min-width: 700px) {
+  .data-grid { grid-template-columns: 220px 1fr; }
+}
+
+/* pie chart */
+#pieChart { display: block; margin: 4px auto; }
+.pie-legend-row { display: flex; align-items: center; gap: 4px; padding: 2px 0; font-size: 11px; }
+.pie-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.pie-label { color: var(--fg); flex: 1; }
+.pie-val { color: var(--fg2); font-variant-numeric: tabular-nums; }
+
+/* category groups */
+.cat-group { margin-bottom: 8px; }
+.cat-hd {
+  font-size: 11px; color: var(--fg); padding: 3px 6px;
+  display: flex; justify-content: space-between; align-items: center;
+  background: color-mix(in srgb, var(--bg2) 80%, var(--border));
+}
+.cat-meta { color: var(--fg2); font-size: 10px; }
+
+/* deprecated card */
+.card.deprecated { border-color: var(--warn); opacity: 0.7; }
+.card.deprecated:hover { opacity: 0.9; }
+
+/* backup empty */
+.backup-empty { color: var(--fg2); font-size: 12px; padding: 8px 0; }
+.backup-detail { font-size: 11px; color: var(--fg2); margin-top: 4px; }
+
 @media (max-width: 640px) {
   .bar { gap: 4px; padding: 4px 6px; }
   body { font-size: 12px; }
@@ -884,18 +1030,41 @@ a:hover { text-decoration: underline; }
       </div>
     </div>
 
-    <!-- data (databases + collections) -->
+    <!-- data (collections, backups, atlas) -->
     <div class="panel" data-panel="1">
-      <div class="card" style="margin-bottom:6px">
-        <div class="card-hd">databases <b id="dbSyncStatus"></b> <button class="sync-btn" id="syncBtn" title="Sync Atlas to Primary">sync from atlas</button></div>
-        <div id="dbCompare" class="loading">loading...</div>
+      <div class="sub-tab-bar">
+        <button class="sub-tab-btn active" data-subtab="collections">collections</button>
+        <button class="sub-tab-btn" data-subtab="backups">backups</button>
+        <button class="sub-tab-btn deprecated" data-subtab="atlas">atlas <span class="dep-badge">deprecated</span></button>
       </div>
-      <div class="card">
-        <div class="card-hd">collections <b id="colCount"></b></div>
-        <table class="tbl">
-          <thead><tr><th>name</th><th style="text-align:right">docs</th></tr></thead>
-          <tbody id="collectionsBody"><tr><td colspan="2" class="loading">loading...</td></tr></tbody>
-        </table>
+
+      <div class="sub-panel active" data-subpanel="collections">
+        <div class="data-grid">
+          <div class="card">
+            <div class="card-hd">size by category</div>
+            <canvas id="pieChart"></canvas>
+            <div id="pieLegend"></div>
+          </div>
+          <div class="card">
+            <div class="card-hd">all collections <b id="colCount"></b></div>
+            <div id="categorizedCollections" class="loading">loading...</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sub-panel" data-subpanel="backups">
+        <div class="card">
+          <div class="card-hd">database backups</div>
+          <div id="backupsList" class="loading">loading...</div>
+        </div>
+      </div>
+
+      <div class="sub-panel" data-subpanel="atlas">
+        <div class="card deprecated" style="margin-bottom:6px">
+          <div class="card-hd"><span style="color:var(--warn)">atlas</span> <b id="dbSyncStatus"></b> <button class="sync-btn" id="syncBtn" title="Sync Atlas to Primary">sync from atlas</button></div>
+          <div style="font-size:11px; color:var(--fg2); margin-bottom:6px;">Atlas is the legacy database. Silo is now the source of truth. This view is kept for reference and emergency sync only.</div>
+          <div id="dbCompare" class="loading">loading...</div>
+        </div>
       </div>
     </div>
 
@@ -1122,15 +1291,157 @@ async function loadCompare() {
   }
 }
 
+let cachedCollections = null, cachedCatMeta = {};
 async function loadCollections() {
   try {
-    const data = await authFetch('/api/db/collections').then(r => r.json());
-    document.getElementById('colCount').textContent = data.length;
-    document.getElementById('collectionsBody').innerHTML = data.map(c =>
-      '<tr><td>' + esc(c.name) + '</td><td class="r">' + fmt(c.count) + '</td></tr>'
-    ).join('');
+    const resp = await authFetch('/api/db/collections').then(r => r.json());
+    const cols = resp.collections || resp;
+    const cats = resp.categories || {};
+    cachedCollections = cols;
+    cachedCatMeta = cats;
+    document.getElementById('colCount').textContent = cols.length;
+    renderCategorizedCollections(cols, cats);
+    drawPieChart(cols, cats);
   } catch (e) {
-    document.getElementById('collectionsBody').innerHTML = '<tr><td colspan="2" class="loading">error</td></tr>';
+    const el = document.getElementById('categorizedCollections');
+    if (el) el.innerHTML = '<span class="loading">error loading</span>';
+  }
+}
+
+function renderCategorizedCollections(collections, catMeta) {
+  const el = document.getElementById('categorizedCollections');
+  if (!el) return;
+  const catOrder = ['identity', 'content', 'communication', 'system', 'other'];
+  const groups = {};
+  for (const c of collections) {
+    const cat = c.category || 'other';
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(c);
+  }
+  let html = '';
+  for (const cat of catOrder) {
+    const items = groups[cat];
+    if (!items || items.length === 0) continue;
+    const meta = catMeta[cat] || { label: cat, color: '#888' };
+    const catTotal = items.reduce((s, c) => s + c.count, 0);
+    const catSize = items.reduce((s, c) => s + (c.size || 0), 0);
+    html += '<div class="cat-group">';
+    html += '<div class="cat-hd" style="border-left:3px solid ' + meta.color + '">';
+    html += '<span>' + esc(meta.label) + '</span>';
+    html += '<span class="cat-meta">' + fmt(catTotal) + ' docs / ' + fmtBytes(catSize) + '</span>';
+    html += '</div>';
+    html += '<table class="tbl"><thead><tr><th>name</th><th style="text-align:right">docs</th><th style="text-align:right">size</th></tr></thead><tbody>';
+    for (const c of items.sort((a, b) => b.count - a.count)) {
+      html += '<tr><td>' + esc(c.name) + '</td><td class="r">' + fmt(c.count) + '</td><td class="r">' + fmtBytes(c.size) + '</td></tr>';
+    }
+    html += '</tbody></table></div>';
+  }
+  el.innerHTML = html;
+  el.classList.remove('loading');
+}
+
+function drawPieChart(collections, catMeta) {
+  const canvas = document.getElementById('pieChart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const container = canvas.parentElement;
+  const size = Math.min(container.clientWidth - 16, 200);
+  canvas.width = size * dpr;
+  canvas.height = size * dpr;
+  canvas.style.width = size + 'px';
+  canvas.style.height = size + 'px';
+
+  // Aggregate by category
+  const catTotals = {};
+  for (const c of collections) {
+    const cat = c.category || 'other';
+    catTotals[cat] = (catTotals[cat] || 0) + (c.size || c.count || 0);
+  }
+  const total = Object.values(catTotals).reduce((s, v) => s + v, 0);
+  if (total === 0) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--fg2').trim();
+    ctx.font = (11 * dpr) + 'px "Berkeley Mono Variable", monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('no data', canvas.width / 2, canvas.height / 2);
+    return;
+  }
+
+  const cx = canvas.width / 2, cy = canvas.height / 2;
+  const radius = Math.min(cx, cy) * 0.9;
+  let startAngle = -Math.PI / 2;
+  const slices = Object.entries(catTotals).sort((a, b) => b[1] - a[1]);
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (const [cat, val] of slices) {
+    const sliceAngle = (val / total) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, radius, startAngle, startAngle + sliceAngle);
+    ctx.closePath();
+    ctx.fillStyle = (catMeta[cat] || { color: '#888' }).color;
+    ctx.fill();
+    startAngle += sliceAngle;
+  }
+  // Donut hole
+  const bg2 = getComputedStyle(document.documentElement).getPropertyValue('--bg2').trim() || '#1a1a1a';
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius * 0.55, 0, Math.PI * 2);
+  ctx.fillStyle = bg2;
+  ctx.fill();
+  // Center text
+  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--fg').trim() || '#ccc';
+  ctx.font = (12 * dpr) + 'px "Berkeley Mono Variable", monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(fmtBytes(total), cx, cy);
+
+  // Legend
+  const legend = document.getElementById('pieLegend');
+  if (legend) {
+    legend.innerHTML = slices.map(([cat, val]) => {
+      const pct = ((val / total) * 100).toFixed(0);
+      const meta = catMeta[cat] || { label: cat, color: '#888' };
+      return '<div class="pie-legend-row">' +
+        '<span class="pie-dot" style="background:' + meta.color + '"></span>' +
+        '<span class="pie-label">' + esc(meta.label) + '</span>' +
+        '<span class="pie-val">' + pct + '%</span></div>';
+    }).join('');
+  }
+}
+
+async function loadBackups() {
+  const el = document.getElementById('backupsList');
+  if (!el) return;
+  el.innerHTML = '<span class="loading">loading...</span>';
+  try {
+    const data = await authFetch('/api/db/backups').then(r => r.json());
+    if (!data.backups || data.backups.length === 0) {
+      let html = '<div class="backup-empty">No backups found.';
+      html += '<div class="backup-detail">Local path: ' + esc(data.backupPath || '/var/backups/mongodb') + '</div>';
+      if (data.backupBucket) {
+        html += '<div class="backup-detail">S3 bucket: ' + esc(data.backupBucket) + '</div>';
+      } else {
+        html += '<div class="backup-detail">S3 bucket: not configured (set BACKUP_BUCKET)</div>';
+      }
+      html += '</div>';
+      el.innerHTML = html;
+      el.classList.remove('loading');
+      return;
+    }
+    let html = '<table class="tbl"><thead><tr><th>name</th><th>source</th><th style="text-align:right">size</th><th style="text-align:right">date</th></tr></thead><tbody>';
+    for (const b of data.backups) {
+      const date = b.date ? new Date(b.date).toLocaleString() : '-';
+      const srcBadge = b.source === 's3'
+        ? '<span style="color:var(--accent)">s3</span>'
+        : '<span style="color:var(--fg2)">local</span>';
+      html += '<tr><td>' + esc(b.name) + '</td><td>' + srcBadge + '</td><td class="r">' + fmtBytes(b.size) + '</td><td class="r">' + date + '</td></tr>';
+    }
+    html += '</tbody></table>';
+    el.innerHTML = html;
+    el.classList.remove('loading');
+  } catch (e) {
+    el.innerHTML = '<span class="loading">error loading backups</span>';
   }
 }
 
@@ -1444,6 +1755,19 @@ function setTab(idx) {
 tabBtns.forEach(b => b.addEventListener('click', () => setTab(parseInt(b.dataset.tab))));
 setTab(activeTab);
 
+// --- data sub-tabs ---
+let backupsLoaded = false;
+const subTabBtns = document.querySelectorAll('.sub-tab-btn');
+const subPanels = document.querySelectorAll('.sub-panel');
+subTabBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const target = btn.dataset.subtab;
+    subTabBtns.forEach(b => b.classList.toggle('active', b.dataset.subtab === target));
+    subPanels.forEach(p => p.classList.toggle('active', p.dataset.subpanel === target));
+    if (target === 'backups' && !backupsLoaded) { backupsLoaded = true; loadBackups(); }
+  });
+});
+
 // --- sync button ---
 document.getElementById('syncBtn').onclick = async () => {
   if (!confirm('Sync all collections from Atlas to primary?\\nThis will overwrite primary data.')) return;
@@ -1470,10 +1794,22 @@ document.getElementById('syncBtn').onclick = async () => {
 };
 
 function loadAll() {
-  loadOverview(); loadCompare(); loadCollections(); loadStorage(); loadServices();
+  loadOverview(); loadCollections(); loadStorage(); loadServices();
+  // Atlas compare is deferred — only load when that sub-tab is first visited
+  let atlasLoaded = false;
+  const origClick = document.querySelector('.sub-tab-btn[data-subtab="atlas"]');
+  if (origClick) {
+    const orig = origClick.onclick;
+    origClick.addEventListener('click', () => {
+      if (!atlasLoaded) { atlasLoaded = true; loadCompare(); }
+    });
+  }
   fhInit();
+  // Redraw pie chart on resize
+  window.addEventListener('resize', () => {
+    if (cachedCollections) drawPieChart(cachedCollections, cachedCatMeta);
+  });
   setInterval(loadOverview, 30000);
-  setInterval(loadCompare, 60000);
   setInterval(loadServices, 60000);
 }
 
