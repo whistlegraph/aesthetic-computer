@@ -78,15 +78,21 @@ export function getConfig() {
  * with FF1 bridge enabled
  */
 export async function checkElectronBridge() {
+  // Safari blocks HTTP requests from HTTPS pages (mixed content).
+  // Skip on production HTTPS to avoid repeated console errors.
+  if (location.protocol === 'https:' && location.hostname !== 'localhost') {
+    electronBridgeAvailable = false;
+    return { available: false };
+  }
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 2000);
-    
+
     const response = await fetch(`${ELECTRON_BRIDGE_URL}/status`, {
       signal: controller.signal
     });
     clearTimeout(timeout);
-    
+
     if (response.ok) {
       const data = await response.json();
       electronBridgeAvailable = data.ok === true;
@@ -97,7 +103,7 @@ export async function checkElectronBridge() {
     // Bridge not running (connection refused, timeout, etc.)
     electronBridgeAvailable = false;
   }
-  
+
   return { available: false };
 }
 

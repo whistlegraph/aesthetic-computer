@@ -274,8 +274,8 @@ class ModuleLoader {
           if (hadFallback) {
             hasHttpFallback = true;
           }
-          
-          const blob = new Blob([rewritten], { type: "application/javascript" });
+
+          const blob = new Blob([this.stripSourceMapComment(rewritten)], { type: "application/javascript" });
           const url = URL.createObjectURL(blob);
           
           this.blobUrls.set(modPath, url);
@@ -309,7 +309,7 @@ class ModuleLoader {
       const resolver = this.pending.get(msg.path);
       if (resolver) {
         // Single module - create blob URL directly (no deps)
-        const blob = new Blob([msg.content], { type: "application/javascript" });
+        const blob = new Blob([this.stripSourceMapComment(msg.content)], { type: "application/javascript" });
         const blobUrl = URL.createObjectURL(blob);
         
         // Cache in memory
@@ -346,6 +346,13 @@ class ModuleLoader {
     }
   }
   
+  // Strip sourceMappingURL comments from module content.
+  // Blob URLs have an opaque origin, so relative source map paths resolve to
+  // malformed URLs (e.g. blob://null...) causing cascading errors in Safari.
+  stripSourceMapComment(content) {
+    return content.replace(/\/\/[#@]\s*sourceMappingURL=.+$/gm, "");
+  }
+
   // Rewrite imports in module content to use blob URLs
   // Returns { content, hadFallback } - hadFallback true if any STATIC import needed HTTP fallback
   rewriteImportsToBlobs(content, modulePath, blobUrlMap) {
@@ -451,7 +458,7 @@ class ModuleLoader {
       const dbCached = await this.getCachedModule(modulePath);
       if (dbCached) {
         // Create blob URL and store in memory
-        const blob = new Blob([dbCached.content], { type: "application/javascript" });
+        const blob = new Blob([this.stripSourceMapComment(dbCached.content)], { type: "application/javascript" });
         const blobUrl = URL.createObjectURL(blob);
         this.modules.set(modulePath, { hash: dbCached.hash, blobUrl });
         this.blobUrls.set(modulePath, blobUrl);
