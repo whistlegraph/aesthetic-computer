@@ -7279,8 +7279,8 @@ async function load(
       let sourceToRun;
       let fetchStartTime = performance.now(); // Initialize timing at the start
       
-      // 💾 Check if this is a cached kidlisp code (starts with $ and has a valid nanoid cache ID)
-      if (slug && isKidlispSource(slug)) {
+      // 💾 Check if this is a cached kidlisp code (starts with $ followed by a cache ID)
+      if (slug && slug.startsWith("$") && slug.length > 1) {
         const cacheId = slug.slice(1); // Remove $ prefix
         
         // Clear author/hits immediately to prevent stale data showing during load
@@ -7408,7 +7408,7 @@ async function load(
         slug === "(...)" ||
         path === "(...)" ||
         (path && path.endsWith(".lisp")) ||
-        (slug && isKidlispSource(slug)) || // Cached codes are always kidlisp
+        (slug && slug.startsWith("$") && slug.length > 1) || // Cached codes are always kidlisp
         // Pack mode KidLisp pieces - but NOT if acPACK_COLOPHON explicitly says isKidLisp: false
         (typeof window !== 'undefined' && window.acPACK_PIECE && slug === window.acPACK_PIECE &&
           window.acPACK_COLOPHON?.piece?.isKidLisp !== false)
