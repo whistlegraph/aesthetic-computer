@@ -240,6 +240,7 @@ included_env_vars = ["CONTEXT", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "AU
 [functions.bundle-html]
 # Generates KidLisp .lisp.html bundles on-demand via API
 # Migrated from tezos/bundle-keep-html.mjs CLI tool
+external_node_modules = ["terser"]
 included_files = [
   "public/aesthetic.computer/**/*.mjs",
   "public/aesthetic.computer/**/*.js",
