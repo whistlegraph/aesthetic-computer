@@ -3586,6 +3586,12 @@ const $commonApi = {
       ) => {
         system.nopaint.needsPresent = false;
 
+        // Guard: system.painting must exist for present to work
+        if (!system.painting) {
+          console.warn("🖼️ present: system.painting is undefined, skipping");
+          return;
+        }
+
         const x = tx || system.nopaint.translation.x;
         const y = ty || system.nopaint.translation.y;
 
