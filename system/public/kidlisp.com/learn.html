@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- KidLisp.com Learn - Language reference with live function popularity data -->
+<!-- KidLisp.com Learn — Tabbed language reference with live function popularity data -->
 <!-- URL: kidlisp.com/learn (future: learn.kidlisp.com) -->
 <html lang="en">
 <head>
@@ -57,6 +57,16 @@
       --font-mono: 'Berkeley Mono Variable', 'Noto Sans Mono', monospace;
       --font-display: 'YWFTProcessing-Regular', monospace;
       --font-fun: 'Comic Relief', cursive;
+      /* Syntax highlighting — light mode */
+      --kl-comment: #a0a0a0;
+      --kl-string: #986801;
+      --kl-number: #986801;
+      --kl-fn: #4078f2;
+      --kl-op: #50a14f;
+      --kl-var: #b35000;
+      --kl-timing: #986801;
+      --kl-code: #50a14f;
+      --kl-fade: #0184bc;
     }
     @media (prefers-color-scheme: dark) {
       :root {
@@ -70,6 +80,16 @@
         --code-bg: #1a1a1a;
         --bar-color: #6b8aff;
         --accent-dim: rgba(107, 138, 255, 0.15);
+        /* Syntax highlighting — dark mode */
+        --kl-comment: #6a6a6a;
+        --kl-string: #e5c07b;
+        --kl-number: #d19a66;
+        --kl-fn: #61afef;
+        --kl-op: #98c379;
+        --kl-var: #e06c75;
+        --kl-timing: #e5c07b;
+        --kl-code: #98c379;
+        --kl-fade: #56b6c2;
       }
     }
 
@@ -81,12 +101,19 @@
       color: var(--text-primary);
       line-height: 1.6;
       font-size: 14px;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
     }
 
     .container {
       max-width: 900px;
       margin: 0 auto;
-      padding: 24px 20px 80px;
+      padding: 0 20px;
+      width: 100%;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
     }
 
     /* Header */
@@ -94,7 +121,7 @@
       display: flex;
       align-items: baseline;
       gap: 12px;
-      margin-bottom: 32px;
+      padding: 24px 0 16px;
       flex-wrap: wrap;
     }
     header h1 {
@@ -112,17 +139,41 @@
     }
     header nav a:hover { text-decoration: underline; }
 
-    /* Sections */
-    section { margin-bottom: 40px; }
-    section h2 {
-      font-family: var(--font-display);
-      font-size: 20px;
-      font-weight: normal;
-      margin-bottom: 16px;
-      padding-bottom: 6px;
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 2px;
       border-bottom: 1px solid var(--border);
+      margin-bottom: 0;
     }
-    section h3 {
+    .tab {
+      padding: 10px 20px;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .tab:hover { color: var(--text-primary); }
+    .tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+      font-weight: bold;
+    }
+
+    /* Tab panels */
+    .tab-panel {
+      display: none;
+      padding: 20px 0 80px;
+      flex: 1;
+    }
+    .tab-panel.active { display: block; }
+
+    /* Subsection headings */
+    h3 {
       font-size: 14px;
       font-weight: bold;
       margin: 20px 0 8px;
@@ -149,6 +200,17 @@
     }
     pre code { background: none; padding: 0; }
 
+    /* Syntax highlighting classes */
+    .kl-comment { color: var(--kl-comment); font-style: italic; }
+    .kl-string { color: var(--kl-string); }
+    .kl-number { color: var(--kl-number); }
+    .kl-fn { color: var(--kl-fn); font-weight: bold; }
+    .kl-op { color: var(--kl-op); font-weight: bold; }
+    .kl-var { color: var(--kl-var); }
+    .kl-timing { color: var(--kl-timing); font-weight: bold; }
+    .kl-code { color: var(--kl-code); }
+    .kl-fade { color: var(--kl-fade); }
+
     /* Tables */
     table {
       width: 100%;
@@ -171,7 +233,6 @@
     td code { font-size: 12px; }
 
     /* Function popularity bars */
-    #popularity { min-height: 100px; }
     .pop-loading { color: var(--text-muted); font-style: italic; }
     .pop-grid {
       display: grid;
@@ -208,7 +269,6 @@
     }
 
     /* Top hits */
-    #top-hits { min-height: 100px; }
     .hit-card {
       background: var(--bg-tertiary);
       border: 1px solid var(--border);
@@ -246,8 +306,9 @@
 
     /* Responsive */
     @media (max-width: 600px) {
-      .container { padding: 16px 12px 60px; }
+      .container { padding: 0 12px; }
       header h1 { font-size: 22px; }
+      .tab { padding: 8px 14px; font-size: 12px; }
       .pop-grid { grid-template-columns: 90px 1fr 50px; gap: 3px 8px; }
       .pop-name { font-size: 12px; }
     }
@@ -265,19 +326,21 @@
     </nav>
   </header>
 
-  <!-- Function Popularity (loaded from API) -->
-  <section>
-    <h2>Most Used Functions</h2>
+  <div class="tabs">
+    <button class="tab active" data-tab="functions">Functions</button>
+    <button class="tab" data-tab="reference">Reference</button>
+    <button class="tab" data-tab="hits">Hits</button>
+  </div>
+
+  <!-- Function Popularity — Live data from API showing which KidLisp functions are used most across all community pieces, weighted by view count -->
+  <div class="tab-panel active" id="tab-functions">
     <div id="popularity"><p class="pop-loading">Loading function popularity data...</p></div>
-  </section>
+  </div>
 
-  <!-- Language Reference -->
-  <section>
-    <h2>Language Reference</h2>
-    <p>KidLisp is a minimal Lisp dialect for creating generative art. It uses S-expressions where the first element is a function name followed by arguments.</p>
-
+  <!-- Language Reference — Complete KidLisp API: 118 functions across 12 categories for generative art on aesthetic.computer -->
+  <div class="tab-panel" id="tab-reference">
     <h3>Syntax</h3>
-    <pre><code>; Comments start with semicolon
+    <pre><code class="kidlisp">; Comments start with semicolon
 (function-name arg1 arg2 ...)
 
 ; Shorthand comma syntax
@@ -346,7 +409,7 @@ purple, ink, line, blur 5
     </table>
 
     <h3>Timing</h3>
-    <pre><code>1s              ; after 1 second
+    <pre><code class="kidlisp">1s              ; after 1 second
 2s...           ; cycle every 2 seconds
 0.5s!           ; once after 0.5s
 0.1s            ; every 0.1 seconds (fast)
@@ -384,21 +447,137 @@ purple, ink, line, blur 5
     <p><code>cube</code>, <code>form</code>, <code>trans</code> (move, scale, spin), <code>cubespin</code>, <code>cubepos</code>, <code>cubescale</code>, <code>camrot</code>, <code>camspin</code></p>
 
     <h3>Embedding &amp; Navigation</h3>
-    <pre><code>($codeId)              ; execute another piece
+    <pre><code class="kidlisp">($codeId)              ; execute another piece
 ($codeId x y w h alpha) ; embed with position/size/alpha
 (jump "piece")          ; navigate to piece
 (jump $id)              ; navigate to cached piece</code></pre>
-  </section>
+  </div>
 
-  <!-- Top Hits (loaded from API) -->
-  <section>
-    <h2>Top Hits</h2>
-    <p style="color:var(--text-muted); margin-bottom: 16px;">Real pieces with the most views &mdash; proven patterns from the community.</p>
+  <!-- Top Hits — Real pieces with the most views, proven patterns from the community with 500+ hits -->
+  <div class="tab-panel" id="tab-hits">
     <div id="top-hits"><p class="pop-loading">Loading top hits...</p></div>
-  </section>
+  </div>
 </div>
 
 <script>
+// Tab switching
+const tabs = document.querySelectorAll('.tab');
+const panels = document.querySelectorAll('.tab-panel');
+tabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    tabs.forEach(t => t.classList.remove('active'));
+    panels.forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+// KidLisp syntax highlighter
+const KL_FNS = new Set([
+  'wipe','ink','line','lines','box','circle','tri','plot','point','flood','shape',
+  'fill','outline','stroke','nofill','nostroke','resolution','coat','mask','unmask',
+  'scroll','zoom','spin','suck','blur','contrast','sort','pan','unpan','resetSpin','smoothspin','bake',
+  'paste','stamp','painting','steal','putback','tape','write','len',
+  'mic','amplitude','speaker','melody','overtone','noise',
+  'cube','quad','form','trans','cubespin','cubepos','cubescale','camrot','camspin',
+  'embed','jump','hop','def','later','if','once','now','not','die',
+  'repeat','rep','bunch','choose','tap','draw','label','fps','debug',
+  'random','wiggle','min','max','abs','sqrt','pow','floor','ceil','round',
+  'sin','cos','tan'
+]);
+const KL_COLORS = {
+  red:'#ff0000',blue:'#0000ff',green:'#008000',purple:'#800080',navy:'#000080',
+  brown:'#a52a2a',salmon:'#fa8072',cyan:'#00ffff',black:'#000000',white:'#ffffff',
+  yellow:'#ffff00',lime:'#00ff00',orange:'#ffa500',pink:'#ffc0cb',coral:'#ff7f50',
+  magenta:'#ff00ff',teal:'#008080',crimson:'#dc143c',gold:'#ffd700',silver:'#c0c0c0',
+  gray:'#808080',grey:'#808080',maroon:'#800000',olive:'#808000',aqua:'#00ffff',
+  indigo:'#4b0082',violet:'#ee82ee',beige:'#f5f5dc'
+};
+const KL_SPECIAL = new Set(['rainbow','zebra','erase']);
+const KL_OPS = new Set(['+','-','*','/','%','=','<','>','mod']);
+const PAREN_COLORS = ['#FF6B6B','#4ECDC4','#FFE66D','#A8E6CF','#70D6FF','#BB8FCE'];
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function highlightKL(src) {
+  let out = '', i = 0, depth = 0;
+  while (i < src.length) {
+    const ch = src[i];
+    // Comment
+    if (ch === ';') {
+      let end = src.indexOf('\n', i);
+      if (end === -1) end = src.length;
+      out += '<span class="kl-comment">' + esc(src.slice(i, end)) + '</span>';
+      i = end;
+      continue;
+    }
+    // String
+    if (ch === '"' || ch === "'") {
+      let end = i + 1;
+      while (end < src.length && src[end] !== ch) { if (src[end] === '\\') end++; end++; }
+      if (end < src.length) end++;
+      out += '<span class="kl-string">' + esc(src.slice(i, end)) + '</span>';
+      i = end;
+      continue;
+    }
+    // Parens
+    if (ch === '(') {
+      out += '<span style="color:' + PAREN_COLORS[depth % PAREN_COLORS.length] + '">(</span>';
+      depth++;
+      i++;
+      continue;
+    }
+    if (ch === ')') {
+      depth = Math.max(0, depth - 1);
+      out += '<span style="color:' + PAREN_COLORS[depth % PAREN_COLORS.length] + '">)</span>';
+      i++;
+      continue;
+    }
+    // Whitespace
+    if (/\s/.test(ch)) { out += ch; i++; continue; }
+    // Token
+    let end = i;
+    while (end < src.length && !/[\s();"']/.test(src[end])) end++;
+    const tok = src.slice(i, end);
+    const tokLow = tok.toLowerCase();
+    if (/^\d+\.?\d*s[.!]*$/.test(tok)) {
+      out += '<span class="kl-timing">' + esc(tok) + '</span>';
+    } else if (/^\d+(\.\d+)?$/.test(tok)) {
+      out += '<span class="kl-number">' + esc(tok) + '</span>';
+    } else if (KL_OPS.has(tok) || tok === '?' || tok === '...') {
+      out += '<span class="kl-op">' + esc(tok) + '</span>';
+    } else if (KL_FNS.has(tokLow)) {
+      out += '<span class="kl-fn">' + esc(tok) + '</span>';
+    } else if (KL_COLORS[tokLow]) {
+      const hex = KL_COLORS[tokLow];
+      const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+      const lum = 0.299*r + 0.587*g + 0.114*b;
+      const shadow = lum < 60 ? 'text-shadow:0 0 4px rgba(255,255,255,0.6);' : lum > 200 ? 'text-shadow:0 0 4px rgba(0,0,0,0.4);' : '';
+      out += '<span style="color:' + hex + ';font-weight:bold;' + shadow + '">' + esc(tok) + '</span>';
+    } else if (KL_SPECIAL.has(tokLow)) {
+      out += '<span class="kl-fade">' + esc(tok) + '</span>';
+    } else if (tok.startsWith('$')) {
+      out += '<span class="kl-code">' + esc(tok) + '</span>';
+    } else if (tok.startsWith('fade:')) {
+      out += '<span class="kl-fade">' + esc(tok) + '</span>';
+    } else if (tok.startsWith('!') || tok.startsWith('#')) {
+      out += '<span class="kl-code">' + esc(tok) + '</span>';
+    } else {
+      out += '<span class="kl-var">' + esc(tok) + '</span>';
+    }
+    i = end;
+  }
+  return out;
+}
+
+// Apply syntax highlighting to all code.kidlisp blocks
+document.querySelectorAll('code.kidlisp').forEach(el => {
+  const raw = el.textContent;
+  el.innerHTML = highlightKL(raw);
+});
+
 // Fetch function popularity
 (async () => {
   const el = document.getElementById('popularity');
@@ -412,12 +591,12 @@ purple, ink, line, blur 5
     let html = '<div class="pop-grid">';
     for (const fn of top) {
       const pct = Math.round((fn.weighted / maxW) * 100);
-      html += `<div class="pop-name">${esc(fn.name)}</div>`;
-      html += `<div class="pop-bar-wrap"><div class="pop-bar" style="width:${pct}%"></div></div>`;
-      html += `<div class="pop-count">${fn.pieces.toLocaleString()}</div>`;
+      html += '<div class="pop-name">' + esc(fn.name) + '</div>';
+      html += '<div class="pop-bar-wrap"><div class="pop-bar" style="width:' + pct + '%"></div></div>';
+      html += '<div class="pop-count">' + fn.pieces.toLocaleString() + '</div>';
     }
     html += '</div>';
-    html += `<p class="pop-meta">Scanned ${data.total_pieces.toLocaleString()} pieces &middot; ${data.total_hits.toLocaleString()} total views &middot; counts = pieces using function</p>`;
+    html += '<p class="pop-meta">Scanned ' + data.total_pieces.toLocaleString() + ' pieces &middot; ' + data.total_hits.toLocaleString() + ' total views &middot; counts = pieces using function</p>';
     el.innerHTML = html;
   } catch (e) {
     el.innerHTML = '<p style="color:var(--text-muted)">Could not load popularity data.</p>';
@@ -436,14 +615,14 @@ purple, ink, line, blur 5
 
     let html = '';
     for (const p of hits.slice(0, 15)) {
-      const url = `https://aesthetic.computer/${encodeURIComponent(p.code)}`;
-      html += `<div class="hit-card">`;
-      html += `<div class="hit-header">`;
-      html += `<span class="hit-code"><a href="${url}" target="_blank" rel="noopener">$${esc(p.code)}</a></span>`;
-      html += `<span class="hit-views">${p.hits.toLocaleString()} views${p.handle ? ' · ' + esc(p.handle) : ''}</span>`;
-      html += `</div>`;
-      html += `<div class="hit-source">${esc(p.source)}</div>`;
-      html += `</div>`;
+      const url = 'https://aesthetic.computer/' + encodeURIComponent(p.code);
+      html += '<div class="hit-card">';
+      html += '<div class="hit-header">';
+      html += '<span class="hit-code"><a href="' + url + '" target="_blank" rel="noopener">$' + esc(p.code) + '</a></span>';
+      html += '<span class="hit-views">' + p.hits.toLocaleString() + ' views' + (p.handle ? ' · ' + esc(p.handle) : '') + '</span>';
+      html += '</div>';
+      html += '<div class="hit-source">' + highlightKL(p.source) + '</div>';
+      html += '</div>';
     }
     el.innerHTML = html;
   } catch (e) {
@@ -451,10 +630,11 @@ purple, ink, line, blur 5
   }
 })();
 
-function esc(s) {
-  const d = document.createElement('div');
-  d.textContent = s;
-  return d.innerHTML;
+// Handle ?tab= URL param
+const urlTab = new URLSearchParams(window.location.search).get('tab');
+if (urlTab) {
+  const target = document.querySelector('.tab[data-tab="' + urlTab + '"]');
+  if (target) target.click();
 }
 </script>
 
