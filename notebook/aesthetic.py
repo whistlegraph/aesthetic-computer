@@ -160,7 +160,59 @@ def encode_kidlisp_with_node(code):
         encoded = code.replace(' ', '_').replace('\n', '~')
         return f"{base_url}/{encoded}?nolabel=true&nogap=true&notebook=true"
 
-def kidlisp(code, width="100%", height=500, auto_scale=False, tv_mode=False, density=None):
+def _highlight_kidlisp(code):
+    """Generate syntax-highlighted HTML for KidLisp code"""
+    # Simple KidLisp syntax highlighting
+    highlighted = code
+    
+    # KidLisp keywords and functions (green)
+    keywords = [
+        'ink', 'wipe', 'line', 'rect', 'circle', 'box', 'paste', 'write', 'text',
+        'sin', 'cos', 'tan', 'sqrt', 'abs', 'floor', 'ceil', 'round', 'max', 'min',
+        'random', 'noise', 'if', 'let', 'loop', 'for', 'while', 'define', 'defn',
+        'lambda', 'map', 'filter', 'reduce', 'quote', 'eval', 'quote', 'true', 'false'
+    ]
+    
+    # Build regex pattern for keywords
+    import re
+    for kw in keywords:
+        pattern = r'\b' + kw + r'\b'
+        highlighted = re.sub(pattern, f'<span style="color: #4CAF50; font-weight: bold;">{kw}</span>', highlighted, flags=re.IGNORECASE)
+    
+    # Numbers (blue)
+    highlighted = re.sub(r'\b(\d+\.?\d*)\b', r'<span style="color: #2196F3;">\1</span>', highlighted)
+    
+    # Strings (orange)
+    highlighted = re.sub(r'"([^"]*)"', r'<span style="color: #FF9800;">"\1"</span>', highlighted)
+    
+    # Comments (gray)
+    highlighted = re.sub(r';[^\n]*', lambda m: f'<span style="color: #999;">%s</span>' % m.group(0), highlighted)
+    
+    # Parentheses (purple)
+    highlighted = highlighted.replace('(', '<span style="color: #9C27B0;">(</span>')
+    highlighted = highlighted.replace(')', '<span style="color: #9C27B0;">)</span>')
+    
+    return highlighted
+
+def _display_kidlisp_source(code):
+    """Display KidLisp source code with syntax highlighting below the iframe"""
+    if not code or code.startswith('$'):
+        # External code reference - show a note
+        display(HTML(f'''
+        <div style="margin-top: 12px; padding: 8px 12px; background: #f5f5f5; border-left: 3px solid #999; font-family: monospace; font-size: 12px; color: #666;">
+            <span style="color: #999;">📌 External code reference: <code>{code}</code></span>
+        </div>
+        '''))
+    else:
+        # Inline code - show with syntax highlighting
+        highlighted_code = _highlight_kidlisp(code)
+        display(HTML(f'''
+        <pre style="margin-top: 12px; padding: 12px; background: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word;">
+        {highlighted_code}
+        </pre>
+        '''))
+
+def kidlisp(code, width="100%", height=500, auto_scale=False, tv_mode=False, density=None, show_source=True):
     """
     Run kidlisp code in Aesthetic Computer.
     
@@ -171,6 +223,7 @@ def kidlisp(code, width="100%", height=500, auto_scale=False, tv_mode=False, den
         auto_scale (bool): If True, iframe will scale to fit content (default: False)
         tv_mode (bool): If True, disables touch and keyboard input for TV display (default: False)
         density (number|str): Virtual pixel density (default: 2)
+        show_source (bool): If True, display syntax-highlighted source below iframe (default: True)
     """
     importlib.reload(importlib.import_module('aesthetic'))
     
@@ -219,6 +272,10 @@ def kidlisp(code, width="100%", height=500, auto_scale=False, tv_mode=False, den
         '''
     
     display(HTML(iframe_html))
+    
+    # Display source code if requested
+    if show_source:
+        _display_kidlisp_source(clean_code)
 
 def kidlisp_display(code, width="100%", height=400, auto_scale=False, density=None):
     """
@@ -496,6 +553,8 @@ class AestheticComputerMagics(Magics):
                 '''
                 
                 display(HTML(iframe_html))
+                # Display source code
+                _display_kidlisp_source(cell_content)
             else:
                 # Handle as kidlisp code
                 return kidlisp(cell_content, width, height, False, tv_mode, density_value)
@@ -611,6 +670,8 @@ class AestheticComputerMagics(Magics):
                 '''
                 
                 display(HTML(iframe_html))
+                # Display source code
+                _display_kidlisp_source(cell_content)
             else:
                 # Handle as kidlisp code
                 return kidlisp(cell_content, width, height, False, tv_mode, density_value)
