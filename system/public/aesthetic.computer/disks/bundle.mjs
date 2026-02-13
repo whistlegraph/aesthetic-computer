@@ -25,13 +25,13 @@ function boot({ api, params, jump, screen, user }) {
   }
 
   // Redirect to bundle API endpoint
-  const dev = window.location.hostname === "localhost" ||
-              window.location.hostname.includes("local.");
-  const apiUrl = dev ? "https://localhost:8888" : "https://aesthetic.computer";
+  const host = api.net.host || "";
+  const dev = host.startsWith("localhost") || host.includes("local.");
+  const apiUrl = dev ? `https://${host}` : "https://aesthetic.computer";
   const bundleUrl = `${apiUrl}/api/bundle-html?code=${encodeURIComponent(pieceCode)}`;
 
-  // Redirect to bundle endpoint (downloads HTML file)
-  window.location.href = bundleUrl;
+  // Navigate to bundle endpoint (downloads HTML file)
+  jump("out:" + bundleUrl);
 
   // Show loading message while redirecting
   wipe(32);
