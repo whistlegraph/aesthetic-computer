@@ -1334,8 +1334,8 @@ function isChaoticSource(source) {
   
   // Short input with no parentheses that's not a valid color/function name
   // e.g., just "kidlisp" or "hello" or "test" - should trigger chaos mode
-  // BUT: Skip this check if source contains commas (comma-separated KidLisp syntax)
-  if (openParens === 0 && closeParens === 0 && trimmed.length > 0 && !source.includes(',')) {
+  // BUT: Skip this check if source contains commas or newlines (valid KidLisp multi-expression syntax)
+  if (openParens === 0 && closeParens === 0 && trimmed.length > 0 && !source.includes(',') && !source.includes('\n')) {
     // Check if the entire input is a single recognized word (color or function)
     const isValidShorthand = KIDLISP_VOCABULARY.has(trimmed.toLowerCase());
     if (!isValidShorthand) {
@@ -1346,8 +1346,8 @@ function isChaoticSource(source) {
   }
   
   // No parentheses at all in longer input (valid KidLisp usually has parens)
-  // BUT: Skip this check if source contains commas (comma-separated KidLisp syntax)
-  if (openParens === 0 && closeParens === 0 && trimmed.length > 20 && !source.includes(',')) {
+  // BUT: Skip this check if source contains commas or newlines (valid KidLisp multi-expression syntax)
+  if (openParens === 0 && closeParens === 0 && trimmed.length > 20 && !source.includes(',') && !source.includes('\n')) {
     // Check if it's just a color name or simple expression
     if (!KIDLISP_VOCABULARY.has(trimmed.toLowerCase())) {
       chaosScore += 0.3;
@@ -7313,30 +7313,31 @@ class KidLisp {
       },
       point: (api, args = []) => {
         // Point drawing at x, y with current ink
-        // Usage: (point x y)
-        if (args.length >= 2) {
-          const drawPoint = () => {
-            api.point(args[0], args[1]);
-          };
+        // Usage: (point x y) or bare (point) for random position
+        const x = args.length >= 1 ? args[0] : Math.floor(this.seededRandom() * (api.screen?.width || 128));
+        const y = args.length >= 2 ? args[1] : Math.floor(this.seededRandom() * (api.screen?.height || 128));
 
-          if (this.suppressDrawingBeforeBake) {
-            this.executePreBakeDraw(api, drawPoint);
-            return;
-          }
+        const drawPoint = () => {
+          api.point(x, y);
+        };
 
-          // Check if we should defer this command
-          if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
-            this.postEmbedCommands = this.postEmbedCommands || [];
-            this.postEmbedCommands.push({
-              name: 'point',
-              func: api.point,
-              args: [args[0], args[1]]
-            });
-            return;
-          }
-
-          drawPoint();
+        if (this.suppressDrawingBeforeBake) {
+          this.executePreBakeDraw(api, drawPoint);
+          return;
         }
+
+        // Check if we should defer this command
+        if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
+          this.postEmbedCommands = this.postEmbedCommands || [];
+          this.postEmbedCommands.push({
+            name: 'point',
+            func: api.point,
+            args: [x, y]
+          });
+          return;
+        }
+
+        drawPoint();
       },
       tri: (api, args = []) => {
         // Triangle function with 6 coordinates and optional mode
