@@ -7685,7 +7685,7 @@ async function load(
   const moduleCheckTime = performance.now();
   // console.log(`⏰ Module check at ${moduleCheckTime}ms, module loaded: ${loadedModule !== undefined}`);
   
-  if (loadedModule === undefined) {
+  if (loadedModule == null) {
     loading = false;
     leaving = false;
     return false;

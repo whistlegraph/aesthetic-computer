@@ -10,7 +10,7 @@
 import { promises as fs } from "fs";
 import fsSync from "fs";
 import path from "path";
-import { gzipSync } from "zlib";
+import { gzipSync, brotliCompressSync, constants as zlibConstants } from "zlib";
 import { execSync } from "child_process";
 import { MongoClient } from "mongodb";
 
@@ -47,6 +47,25 @@ export function refreshGitCommit() {
 let coreBundleCache = null;
 let coreBundleCacheCommit = null;
 let skipMinification = false;
+
+// ─── Brotli WASM decoder (loaded once at startup) ──────────────────
+
+let brotliWasmGzBase64 = null; // gzip'd + base64'd WASM binary for inline embedding
+
+function loadBrotliWasmDecoder() {
+  try {
+    const wasmPath = path.resolve(process.cwd(), "node_modules/brotli-dec-wasm/pkg/brotli_dec_wasm_bg.wasm");
+    const wasmBytes = fsSync.readFileSync(wasmPath);
+    const gzipped = gzipSync(wasmBytes, { level: 9 });
+    brotliWasmGzBase64 = gzipped.toString("base64");
+    console.log(`[bundler] brotli WASM decoder loaded (${Math.round(brotliWasmGzBase64.length / 1024)} KB gzip+base64)`);
+  } catch (err) {
+    console.warn(`[bundler] brotli WASM decoder not available: ${err.message}`);
+  }
+}
+
+// Load on import
+loadBrotliWasmDecoder();
 
 // ─── Constants ──────────────────────────────────────────────────────
 
@@ -306,10 +325,20 @@ async function minifyJS(content, relativePath) {
   try {
     const { minify } = await import("terser");
     const result = await minify(processed, {
-      compress: { dead_code: true, drop_console: true, drop_debugger: true, unused: true, passes: 1 },
+      compress: {
+        dead_code: true,
+        drop_console: true,
+        drop_debugger: true,
+        unused: true,
+        passes: 3,
+        pure_getters: true,
+        unsafe: true,
+        unsafe_math: true,
+        unsafe_proto: true,
+      },
       mangle: true,
       module: true,
-      format: { comments: false },
+      format: { comments: false, ascii_only: false, ecma: 2020 },
     });
     return result.code || processed;
   } catch (err) {
@@ -428,7 +457,7 @@ async function getCoreBundle(onProgress = () => {}, forceRefresh = false) {
 
 // ─── KidLisp bundle ─────────────────────────────────────────────────
 
-export async function createBundle(pieceName, onProgress = () => {}, nocompress = false, density = null) {
+export async function createBundle(pieceName, onProgress = () => {}, nocompress = false, density = null, brotli = false) {
   const PIECE_NAME_NO_DOLLAR = pieceName.replace(/^\$/, "");
   const PIECE_NAME = "$" + PIECE_NAME_NO_DOLLAR;
 
@@ -484,23 +513,32 @@ export async function createBundle(pieceName, onProgress = () => {}, nocompress 
     gitVersion: GIT_COMMIT, filename, density, bgColor,
   });
 
-  onProgress({ stage: "compress", message: nocompress ? "Skipping compression..." : "Compressing..." });
+  const method = nocompress ? "none" : brotli ? "brotli" : "gzip";
+  onProgress({ stage: "compress", message: nocompress ? "Skipping compression..." : `Compressing (${method})...` });
 
   if (nocompress) {
     return { html: htmlContent, filename, sizeKB: Math.round(htmlContent.length / 1024), mainSource, authorHandle, userCode, packDate, depCount };
   }
 
-  const compressed = gzipSync(Buffer.from(htmlContent, "utf-8"), { level: 9 });
-  const base64 = compressed.toString("base64");
+  const htmlBuf = Buffer.from(htmlContent, "utf-8");
+  let finalHtml;
 
-  const finalHtml = generateSelfExtractingHTML(PIECE_NAME, base64, bgColor);
+  if (brotli && brotliWasmGzBase64) {
+    const compressed = brotliCompressSync(htmlBuf, {
+      params: { [zlibConstants.BROTLI_PARAM_MODE]: zlibConstants.BROTLI_MODE_TEXT, [zlibConstants.BROTLI_PARAM_QUALITY]: 11 },
+    });
+    finalHtml = generateSelfExtractingBrotliHTML(PIECE_NAME, compressed.toString("base64"), bgColor);
+  } else {
+    const compressed = gzipSync(htmlBuf, { level: 9 });
+    finalHtml = generateSelfExtractingHTML(PIECE_NAME, compressed.toString("base64"), bgColor);
+  }
 
   return { html: finalHtml, filename, sizeKB: Math.round(finalHtml.length / 1024), mainSource, authorHandle, userCode, packDate, depCount };
 }
 
 // ─── JS piece bundle ────────────────────────────────────────────────
 
-export async function createJSPieceBundle(pieceName, onProgress = () => {}, nocompress = false, density = null) {
+export async function createJSPieceBundle(pieceName, onProgress = () => {}, nocompress = false, density = null, brotli = false) {
   const acDir = AC_SOURCE_DIR;
   onProgress({ stage: "init", message: `Bundling ${pieceName}...` });
 
@@ -544,13 +582,23 @@ export async function createJSPieceBundle(pieceName, onProgress = () => {}, noco
   const htmlContent = generateJSPieceHTMLBundle({ pieceName, files, packDate, packTime, gitVersion: GIT_COMMIT });
   const filename = `${pieceName}-${bundleTimestamp}.html`;
 
-  onProgress({ stage: "compress", message: nocompress ? "Skipping compression..." : "Compressing..." });
+  const method = nocompress ? "none" : brotli ? "brotli" : "gzip";
+  onProgress({ stage: "compress", message: nocompress ? "Skipping compression..." : `Compressing (${method})...` });
 
   if (nocompress) return { html: htmlContent, filename, sizeKB: Math.round(htmlContent.length / 1024) };
 
-  const compressed = gzipSync(Buffer.from(htmlContent, "utf-8"), { level: 9 });
-  const base64 = compressed.toString("base64");
-  const finalHtml = generateSelfExtractingHTML(pieceName, base64);
+  const htmlBuf = Buffer.from(htmlContent, "utf-8");
+  let finalHtml;
+
+  if (brotli && brotliWasmGzBase64) {
+    const compressed = brotliCompressSync(htmlBuf, {
+      params: { [zlibConstants.BROTLI_PARAM_MODE]: zlibConstants.BROTLI_MODE_TEXT, [zlibConstants.BROTLI_PARAM_QUALITY]: 11 },
+    });
+    finalHtml = generateSelfExtractingBrotliHTML(pieceName, compressed.toString("base64"));
+  } else {
+    const compressed = gzipSync(htmlBuf, { level: 9 });
+    finalHtml = generateSelfExtractingHTML(pieceName, compressed.toString("base64"));
+  }
 
   return { html: finalHtml, filename, sizeKB: Math.round(finalHtml.length / 1024) };
 }
@@ -658,6 +706,54 @@ function generateSelfExtractingHTML(title, gzipBase64, bgColor = null) {
       .then(h=>{document.open();document.write(h);document.close();})
       .catch(e=>{document.body.style.color='#fff';document.body.textContent='Bundle error: '+e.message;});
   </script>
+</body>
+</html>`;
+}
+
+function generateSelfExtractingBrotliHTML(title, brotliBase64, bgColor = null) {
+  if (!brotliWasmGzBase64) throw new Error("Brotli WASM decoder not loaded");
+  const bgRule = bgColor ? `background:${bgColor};` : "";
+  // The inline script:
+  // 1. Decompresses the WASM decoder binary using browser's native gzip DecompressionStream
+  // 2. Instantiates the brotli-dec-wasm WASM module with minimal glue
+  // 3. Decompresses the brotli payload
+  // 4. Writes the resulting HTML
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>${title} · Aesthetic Computer</title>
+  <style>body{margin:0;${bgRule}overflow:hidden}</style>
+</head>
+<body>
+  <script>(async()=>{
+    const d=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+    const gz=async b=>new Uint8Array(await new Response(new Blob([b]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());
+    const wb=await gz(d("${brotliWasmGzBase64}"));
+    let w,m=null,V=0,dv=null;
+    const gM=()=>{if(!m||m.byteLength===0)m=new Uint8Array(w.memory.buffer);return m;};
+    const gD=()=>{if(!dv||dv.buffer!==w.memory.buffer)dv=new DataView(w.memory.buffer);return dv;};
+    const td=new TextDecoder('utf-8',{ignoreBOM:true,fatal:true});td.decode();
+    const te=new TextEncoder();
+    const gs=(p,l)=>td.decode(gM().subarray(p>>>0,(p>>>0)+l));
+    const imp={wbg:{}};
+    imp.wbg.__wbg_Error_52673b7de5a0ca89=(a,b)=>Error(gs(a,b));
+    imp.wbg.__wbg___wbindgen_throw_dd24417ed36fc46e=(a,b)=>{throw new Error(gs(a,b));};
+    imp.wbg.__wbg_error_7534b8e9a36f1ab4=(a,b)=>{try{console.error(gs(a,b));}finally{w.__wbindgen_free(a,b,1);}};
+    imp.wbg.__wbg_new_8a6f238a6ece86ea=()=>new Error();
+    imp.wbg.__wbg_stack_0ed75d68575b0f3c=(a,b)=>{const s=b.stack;const buf=te.encode(s);const p=w.__wbindgen_malloc(buf.length,1)>>>0;gM().subarray(p,p+buf.length).set(buf);gD().setInt32(a+4,buf.length,true);gD().setInt32(a,p,true);};
+    imp.wbg.__wbindgen_init_externref_table=()=>{const t=w.__wbindgen_externrefs;const o=t.grow(4);t.set(0,undefined);t.set(o,undefined);t.set(o+1,null);t.set(o+2,true);t.set(o+3,false);};
+    const{instance:inst}=await WebAssembly.instantiate(wb,imp);
+    w=inst.exports;m=null;dv=null;w.__wbindgen_start();
+    const br=d("${brotliBase64}");
+    const p0=w.__wbindgen_malloc(br.length,1)>>>0;gM().set(br,p0);V=br.length;
+    const r=w.decompress(p0,V);
+    if(r[3]){const v=w.__wbindgen_externrefs.get(r[2]);w.__externref_table_dealloc(r[2]);throw v;}
+    const out=gM().subarray(r[0]>>>0,(r[0]>>>0)+r[1]).slice();
+    w.__wbindgen_free(r[0],r[1],1);
+    const html=new TextDecoder().decode(out);
+    document.open();document.write(html);document.close();
+  })().catch(e=>{document.body.style.color='#fff';document.body.textContent='Bundle error: '+e.message;});<\/script>
 </body>
 </html>`;
 }

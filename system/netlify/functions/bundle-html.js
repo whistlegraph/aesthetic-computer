@@ -335,11 +335,15 @@ async function minifyJS(content, relativePath) {
         drop_console: true,
         drop_debugger: true,
         unused: true,
-        passes: 1,
+        passes: 3,
+        pure_getters: true,
+        unsafe: true,
+        unsafe_math: true,
+        unsafe_proto: true,
       },
       mangle: true,
       module: true,
-      format: { comments: false }
+      format: { comments: false, ascii_only: false, ecma: 2020 }
     });
 
     return result.code || processedContent;
