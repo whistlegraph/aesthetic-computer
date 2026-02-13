@@ -361,6 +361,7 @@ async function fetchHandleColors(handle) {
     if (response.ok) {
       const data = await response.json();
       if (data.colors) {
+        console.log(`🎨 Handle colors for @${cleanHandle}:`, data.colors);
         handleColorsCache.set(cleanHandle, data.colors);
         return data.colors;
       }
@@ -866,12 +867,10 @@ async function boot({
       profile = new ui.TextButton(hand, btnPos);
       profile.stickyScrubbing = true;
 
-      // Apply colored handle asynchronously
+      // Apply colored handle asynchronously (update in-place to avoid flicker)
       fetchHandleColors(hand).then(colors => {
         if (colors) {
-          const coloredHandle = colorizeHandle(hand, colors);
-          profile = new ui.TextButton(coloredHandle, btnPos);
-          profile.stickyScrubbing = true;
+          profile.replaceLabel(colorizeHandle(hand, colors));
           needsPaint();
         }
       });
@@ -7853,15 +7852,10 @@ function sim($) {
     });
     profile.stickyScrubbing = true; // Prevent drag-between-button behavior
 
-    // Apply colored handle asynchronously
+    // Apply colored handle asynchronously (update in-place to avoid flicker)
     fetchHandleColors(hand, $).then((colors) => {
       if (colors) {
-        const coloredHandle = colorizeHandle(hand, colors);
-        profile = new $.ui.TextButton(coloredHandle, {
-          center: "xy",
-          screen: $.screen,
-        });
-        profile.stickyScrubbing = true;
+        profile.replaceLabel(colorizeHandle(hand, colors));
         $.needsPaint();
       }
     });
@@ -9434,12 +9428,10 @@ function fetchUser() {
           profile = new ui.TextButton(previousHandle, { center: "xy", screen });
           profile.stickyScrubbing = true; // Prevent drag-between-button behavior
 
-          // Apply colored handle asynchronously
+          // Apply colored handle asynchronously (update in-place to avoid flicker)
           fetchHandleColors(previousHandle, api).then((colors) => {
             if (colors) {
-              const coloredHandle = colorizeHandle(previousHandle, colors);
-              profile = new ui.TextButton(coloredHandle, { center: "xy", screen });
-              profile.stickyScrubbing = true;
+              profile.replaceLabel(colorizeHandle(previousHandle, colors));
             }
           });
         } else if (u.handle) {

@@ -2229,20 +2229,12 @@
           // Feed the boot message to the scramble animation (woven into text)
           window.setBootMessage?.(msg);
 
-          // Signal decode when piece starts running or disk loads
-          // With noboot=true, we trigger on disk load instead of "loaded"
-          if (!decodeTriggered && (
-            msg === 'loaded' ||
-            msg === 'running boot' ||
-            msg?.includes?.('running') ||
-            msg?.includes?.('loading disk:')
-          )) {
+          // Signal decode when piece is actually ready (first frame painted)
+          // Wait for "ready:" which means the piece is rendering, not just loading
+          if (!decodeTriggered && msg?.startsWith?.('ready:')) {
             decodeTriggered = true;
-            // Small delay to let disk actually load
-            setTimeout(() => {
-              window.signalDecode?.();
-              console.log('📺 Decode triggered by:', msg);
-            }, 300);
+            window.signalDecode?.();
+            console.log('📺 Decode triggered by:', msg);
           }
         }
       });
@@ -3211,11 +3203,11 @@
         // Create HTML structure for scrambling
         labelEl.innerHTML = `<span class="code-dollar">${dollar}</span><span class="code-name">${code}</span>`;
 
-        // Scramble the label text but NOT continuously - reveal then stop
+        // Scramble the label text continuously until piece is ready
         const dollarSpan = labelEl.querySelector('.code-dollar');
         const codeSpan = labelEl.querySelector('.code-name');
-        if (dollarSpan) window.scrambleTextElement?.(dollarSpan, dollar, 400, false);
-        if (codeSpan) window.scrambleTextElement?.(codeSpan, code, 600, false);
+        if (dollarSpan) window.scrambleTextElement?.(dollarSpan, dollar, 400, true);
+        if (codeSpan) window.scrambleTextElement?.(codeSpan, code, 600, true);
 
         console.log('📺 Label set with scramble:', targetText);
       }
@@ -3286,8 +3278,8 @@
           };
           handleEl.title = `Chat with ${data.handle}`;
 
-          // 🎲 Scramble the handle text then reveal
-          window.scrambleTextElement?.(handleEl, handleText, 500, false);
+          // 🎲 Scramble the handle text continuously until piece is ready
+          window.scrambleTextElement?.(handleEl, handleText, 500, true);
 
           console.log('📺 Handle with scramble:', handleText);
         } else {
@@ -3297,8 +3289,8 @@
           handleEl.onclick = null;
           handleEl.title = '';
 
-          // 🎲 Scramble "anonymous" too! Then reveal
-          window.scrambleTextElement?.(handleEl, anonText, 500, false);
+          // 🎲 Scramble "anonymous" continuously until piece is ready
+          window.scrambleTextElement?.(handleEl, anonText, 500, true);
 
           console.log('📺 Handle: anonymous');
         }
@@ -3307,8 +3299,8 @@
       if (hitsEl && typeof data.hits === 'number') {
         const hitsText = data.hits.toLocaleString() + ' hits';
 
-        // 🎲 Scramble the hits counter then reveal
-        window.scrambleTextElement?.(hitsEl, hitsText, 550, false);
+        // 🎲 Scramble the hits counter continuously until piece is ready
+        window.scrambleTextElement?.(hitsEl, hitsText, 550, true);
 
         console.log('📺 Hits with scramble:', hitsText);
       }
