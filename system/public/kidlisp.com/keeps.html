@@ -127,72 +127,22 @@
     .keeps-header {
       background: var(--bg-secondary);
       border-bottom: 1px solid var(--border-color);
-      padding: 16px 24px;
+      padding: 10px 24px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       flex-shrink: 0;
-      gap: 16px;
-      flex-wrap: wrap;
     }
-
-    .keeps-header-left {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-
-    .keeps-logo {
-      font-family: var(--font-fun);
-      font-weight: bold;
-      font-size: 22px;
-      display: flex;
-      align-items: center;
-      gap: 0;
-      cursor: pointer;
-    }
-
-    .keeps-logo .baby-k { color: #FF6B6B; }
-    .keeps-logo .baby-i { color: #4ECDC4; }
-    .keeps-logo .baby-d { color: #FFE66D; }
-    .keeps-logo .baby-l { color: #A8E6CF; }
-    .keeps-logo .baby-i2 { color: #FF8B94; }
-    .keeps-logo .baby-s { color: #F7DC6F; }
-    .keeps-logo .baby-p { color: #BB8FCE; }
-    .keeps-logo .com-part { color: #70D6FF; }
-    .keeps-logo span { text-shadow: 1px 1px 0px rgba(0,0,0,0.3); }
-    .keeps-logo .com-part { text-shadow: none; }
 
     .keeps-title {
       font-family: var(--font-display);
       font-size: 16px;
       color: var(--text-secondary);
-      border-left: 2px solid var(--ac-purple);
-      padding-left: 16px;
+      text-decoration: none;
     }
-
-    .keeps-header-right {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .keeps-sort-btn {
-      padding: 6px 14px;
-      background: var(--bg-tertiary);
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      font-family: var(--font-mono);
-      font-size: 12px;
-      color: var(--text-secondary);
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    .keeps-sort-btn:hover { border-color: var(--ac-purple); color: var(--ac-purple); }
-    .keeps-sort-btn.active {
-      background: var(--ac-purple);
-      color: white;
-      border-color: var(--ac-purple);
+    .keeps-title:hover {
+      color: var(--ac-purple);
+      text-decoration: none;
     }
 
     .keeps-count {
@@ -257,39 +207,6 @@
       100% { opacity: 0; transform: translateY(-200px); }
     }
 
-    /* ========================================
-       ABOUT SECTION (below castle)
-       ======================================== */
-    .keeps-about {
-      background: var(--bg-tertiary);
-      border-bottom: 1px solid var(--border-subtle);
-      padding: 20px 24px;
-      line-height: 1.7;
-      font-size: 13px;
-      color: var(--text-secondary);
-    }
-
-    .keeps-about p {
-      margin: 0 0 10px 0;
-      max-width: 720px;
-    }
-
-    .keeps-about p:last-child { margin-bottom: 0; }
-
-    .keeps-about code {
-      background: var(--code-bg);
-      color: var(--code-text);
-      padding: 1px 5px;
-      border-radius: 3px;
-      font-size: 12px;
-    }
-
-    .keeps-about a {
-      color: var(--ac-purple);
-      text-decoration: none;
-      transition: color 0.15s;
-    }
-    .keeps-about a:hover { text-decoration: underline; }
 
 
     /* ========================================
@@ -989,18 +906,15 @@
        RESPONSIVE
        ======================================== */
     @media (max-width: 768px) {
-      .keeps-header { padding: 12px 16px; }
-      .keeps-title { display: none; }
+      .keeps-header { padding: 10px 16px; }
       .keeps-hero { padding: 16px 16px 0; }
       .keeps-castle-wrap { height: 180px; }
       .keeps-castle-wrap svg { width: 140px; }
-      .keeps-about { padding: 16px; }
       .keeps-search-bar { padding: 10px 16px; flex-wrap: wrap; }
       .keeps-grid { padding: 12px 16px; grid-template-columns: 1fr; }
       .keeps-modal-body { flex-direction: column; }
       .keeps-modal-sidebar { width: 100%; border-left: none; border-top: 1px solid var(--border-color); max-height: 240px; }
       .keeps-modal-preview iframe { min-height: 240px; }
-      .keeps-header-right { flex-wrap: wrap; }
     }
 
     @media (max-width: 480px) {
@@ -1009,9 +923,8 @@
     }
 
     /* Embedded in parent editor iframe — hide branding, keep controls */
-    .embedded .keeps-header-left { display: none; }
     .embedded .keeps-hero { display: none; }
-    .embedded .keeps-header { justify-content: flex-start; padding: 8px 12px; }
+    .embedded .keeps-header { padding: 8px 12px; }
   </style>
   <script>if (window.self !== window.top) document.documentElement.classList.add('embedded');</script>
 </head>
@@ -1019,17 +932,8 @@
 <body>
   <!-- HEADER -->
   <header class="keeps-header">
-    <div class="keeps-header-left">
-      <a href="/" class="keeps-logo" title="Back to KidLisp.com editor">
-        <span class="baby-k">K</span><span class="baby-i">i</span><span class="baby-d">d</span><span class="baby-l">L</span><span class="baby-i2">i</span><span class="baby-s">s</span><span class="baby-p">p</span><span class="com-part">.com</span>
-      </a>
-      <div class="keeps-title">keeps</div>
-    </div>
-    <div class="keeps-header-right">
-      <button class="keeps-sort-btn active" data-sort="recent">Newest</button>
-      <button class="keeps-sort-btn" data-sort="hits">Most Viewed</button>
-      <span class="keeps-count" id="keeps-count"></span>
-    </div>
+    <a href="/" class="keeps-title" title="Back to KidLisp.com editor">/keeps</a>
+    <span class="keeps-count" id="keeps-count"></span>
   </header>
 
   <!-- CASTLE HERO -->
@@ -1101,41 +1005,12 @@
     </div>
   </section>
 
-  <!-- ABOUT -->
-  <section class="keeps-about">
-    <p>
-      Every KidLisp program evaluated on <a href="https://aesthetic.computer" target="_blank">Aesthetic<span class="ac-dot">.</span>Computer</a>
-      is assigned a permanent <code>$code</code> &mdash; a short, unique identifier stored forever in the
-      <a href="https://aesthetic.computer" target="_blank">Aesthetic<span class="ac-dot">.</span>Computer</a> database.
-      This page is a living index of every <code>$code</code> ever created &mdash; a castle full of keeps.
-    </p>
-    <p>
-      <strong>What is a $code?</strong> When you write and run KidLisp on
-      <a href="https://kidlisp.com">kidlisp.com</a> or <a href="https://aesthetic.computer" target="_blank">Aesthetic<span class="ac-dot">.</span>Computer</a>,
-      the source is hashed and stored. If it&rsquo;s new, a unique short code like <code>$39j</code> is generated.
-      Identical source always resolves to the same <code>$code</code>.
-    </p>
-    <p>
-      <strong>Keeping as HTML</strong> &mdash; Any <code>$code</code> can be bundled into a self-contained HTML file
-      via the <code>/api/bundle-html</code> endpoint. This creates a standalone artifact that runs independently,
-      perfect for archiving or embedding.
-    </p>
-    <p>
-      <strong>Keeping on Tezos</strong> &mdash; KidLisp programs can be minted as on-chain NFTs on the
-      Tezos blockchain, making them permanently decentralized. Kept pieces are marked with a green badge below.
-    </p>
-    <p>
-      <strong>Links</strong> &mdash;
-      Visit any code at <code>kidlisp.com/$code</code> to edit,
-      or <code>aesthetic.computer/$code</code> to run fullscreen.
-    </p>
-  </section>
-
   <!-- TABS SYSTEM -->
   <div class="keeps-tabs-container">
     <div class="keeps-tabs">
       <button class="keeps-tab active" data-tab="index">Index</button>
       <button class="keeps-tab" data-tab="v4docs">V4 Docs</button>
+      <button class="keeps-tab" data-tab="about">About</button>
     </div>
 
     <!-- TAB: Index (default view - search + grid) -->
@@ -1410,6 +1285,39 @@
       </div>
     </div>
 
+    <!-- TAB: About -->
+    <div class="keeps-tab-content" id="tab-about">
+      <p>
+        Every KidLisp program evaluated on <a href="https://aesthetic.computer" target="_blank">Aesthetic<span class="ac-dot">.</span>Computer</a>
+        is assigned a permanent <code>$code</code> &mdash; a short, unique identifier stored forever in the
+        <a href="https://aesthetic.computer" target="_blank">Aesthetic<span class="ac-dot">.</span>Computer</a> database.
+        This page is a living index of every <code>$code</code> ever created &mdash; a castle full of keeps.
+      </p>
+      <h3>What is a $code?</h3>
+      <p>
+        When you write and run KidLisp on
+        <a href="https://kidlisp.com">kidlisp.com</a> or <a href="https://aesthetic.computer" target="_blank">Aesthetic<span class="ac-dot">.</span>Computer</a>,
+        the source is hashed and stored. If it&rsquo;s new, a unique short code like <code>$39j</code> is generated.
+        Identical source always resolves to the same <code>$code</code>.
+      </p>
+      <h3>Keeping as HTML</h3>
+      <p>
+        Any <code>$code</code> can be bundled into a self-contained HTML file
+        via the <code>/api/bundle-html</code> endpoint. This creates a standalone artifact that runs independently,
+        perfect for archiving or embedding.
+      </p>
+      <h3>Keeping on Tezos</h3>
+      <p>
+        KidLisp programs can be minted as on-chain NFTs on the
+        Tezos blockchain, making them permanently decentralized. Kept pieces are marked with a green badge below.
+      </p>
+      <h3>Links</h3>
+      <p>
+        Visit any code at <code>kidlisp.com/$code</code> to edit,
+        or <code>aesthetic.computer/$code</code> to run fullscreen.
+      </p>
+    </div>
+
   </div>
 
   <!-- SEARCH -->
@@ -1468,7 +1376,6 @@
 
     let allCodes = [];
     let filteredCodes = [];
-    let currentSort = 'recent';
     let showOnlyKept = false;
     let searchQuery = '';
 
@@ -1721,25 +1628,6 @@
     // EVENT LISTENERS
     // =========================================
 
-    // Sort buttons
-    document.querySelectorAll('.keeps-sort-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const sort = btn.dataset.sort;
-        if (sort === currentSort) return;
-        currentSort = sort;
-        document.querySelectorAll('.keeps-sort-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-
-        // Re-fetch with new sort
-        grid.innerHTML = '<div class="keeps-loading"><div class="spinner"></div><span>Sorting...</span></div>';
-        const codes = await fetchAllCodes(sort);
-        if (codes) {
-          allCodes = codes;
-          applyFilters();
-        }
-      });
-    });
-
     // Search
     let searchDebounce;
     searchInput.addEventListener('input', () => {
@@ -1897,7 +1785,7 @@
       grid.innerHTML = '';
       grid.appendChild(loading);
 
-      const codes = await fetchAllCodes(currentSort);
+      const codes = await fetchAllCodes();
       loading.style.display = 'none';
 
       if (codes === null) {
