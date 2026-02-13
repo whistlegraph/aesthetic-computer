@@ -138,6 +138,17 @@ export class ChatManager {
         ).reverse();
       }
 
+      // Deduplicate messages (removes duplicates caused by persist-on-shutdown bug)
+      {
+        const seen = new Set();
+        combinedMessages = combinedMessages.filter((msg) => {
+          const key = `${msg.user || msg.from}:${msg.text}:${msg.when?.getTime?.() ?? msg.when}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      }
+
       // Check mutes for chat-system
       if (collectionName === "chat-system") {
         for (const msg of combinedMessages) {
@@ -827,8 +838,10 @@ export class ChatManager {
 
     for (const [, instance] of Object.entries(this.instances)) {
       const collectionName = instance.config.name;
-      // Only persist user messages (have `sub` field) — logs and DB-loaded messages don't.
-      const unpersisted = instance.messages.filter(msg => msg.sub);
+      // Only persist messages that were never saved to DB.
+      // DB-loaded and successfully-stored messages have an `id` (from MongoDB _id).
+      // Messages received while DB was unavailable have `sub` but no `id`.
+      const unpersisted = instance.messages.filter(msg => msg.sub && !msg.id);
 
       if (unpersisted.length === 0) {
         console.log(`💬 [${collectionName}] No unpersisted messages`);
