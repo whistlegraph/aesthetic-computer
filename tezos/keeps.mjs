@@ -209,13 +209,12 @@ async function deployContract(network = 'mainnet') {
 
   // Build contract metadata (TZIP-16)
   const contractMetadataJson = JSON.stringify({
-    name: "KidLisp Keeps",
+    name: "KidLisp Keeps Beta",
     version: "4.0.0",
     interfaces: ["TZIP-012", "TZIP-016", "TZIP-021"],
     authors: ["aesthetic.computer"],
     homepage: "https://aesthetic.computer",
-    imageUri: "https://oven.aesthetic.computer/keeps/latest",
-    description: "Self-contained generative art with 10% royalties (v4 - royalties + pause + admin transfer)"
+    imageUri: "https://oven.aesthetic.computer/keeps/latest"
   });
   const contractMetadataBytes = stringToBytes(contractMetadataJson);
   const tezosStoragePointer = stringToBytes("tezos-storage:content");
