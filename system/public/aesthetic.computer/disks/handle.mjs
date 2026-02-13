@@ -422,7 +422,7 @@ async function saveColors(net, help, sound) {
 
     console.log(`🎨 Save response:`, response);
 
-    if (response.ok || response.status === 200) {
+    if (response.status === 200) {
       saveStatus = "saved";
       console.log(`✅ Colors saved successfully`);
       sound.synth({
@@ -433,7 +433,7 @@ async function saveColors(net, help, sound) {
       });
     } else {
       saveStatus = "error";
-      console.error("❌ Failed to save handle colors:", response);
+      console.error("❌ Failed to save handle colors. Status:", response.status, "Response:", response);
     }
   } catch (err) {
     saveStatus = "error";
