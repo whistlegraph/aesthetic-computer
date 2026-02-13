@@ -405,7 +405,7 @@ function hasError() {
 }
 
 let btn;
-let htmlBtn, thumbBtn, metaBtn, networkBtn, rebakeBtn, updateChainBtn;
+let htmlBtn, thumbBtn, metaBtn, docsBtn, networkBtn, rebakeBtn, updateChainBtn;
 let oldHtmlBtn, oldThumbBtn; // Buttons for original on-chain URIs
 let walletBtn; // Navigate to wallet piece
 let txBtn; // Transaction hash button after sync
@@ -439,6 +439,7 @@ function boot({ api, net, hud, params, store, cursor, jump, needsPaint, ui, scre
   htmlBtn = new ui.TextButton("HTML", { x: 0, y: 0, screen });
   thumbBtn = new ui.TextButton("THUMB", { x: 0, y: 0, screen });
   metaBtn = new ui.TextButton("META", { x: 0, y: 0, screen });
+  docsBtn = new ui.TextButton("DOCS", { x: 0, y: 0, screen });
   networkBtn = new ui.TextButton("GHOSTNET", { x: 0, y: 0, screen });
   rebakeBtn = new ui.TextButton("REBAKE", { x: 0, y: 0, screen });
   updateChainBtn = new ui.TextButton("UPDATE", { x: 0, y: 0, screen });
@@ -453,6 +454,7 @@ function boot({ api, net, hud, params, store, cursor, jump, needsPaint, ui, scre
   htmlBtn.btn.stickyScrubbing = true;
   thumbBtn.btn.stickyScrubbing = true;
   metaBtn.btn.stickyScrubbing = true;
+  docsBtn.btn.stickyScrubbing = true;
   networkBtn.btn.stickyScrubbing = true;
   rebakeBtn.btn.stickyScrubbing = true;
   updateChainBtn.btn.stickyScrubbing = true;
@@ -1833,6 +1835,14 @@ function paint($) {
     metaBtn.btn.box.h = metaBtnSize.h;
     paintMC8Btn(linkX, y, "META", { ink, line: ink }, linkScheme, metaBtn.btn.down || metaBtn.btn.over);
     linkX += metaBtnSize.w + 4;
+    // DOCS button - link to kidlisp.com/keeps documentation
+    const docsBtnSize = mc8ButtonSize("DOCS");
+    docsBtn.btn.box.x = linkX;
+    docsBtn.btn.box.y = y;
+    docsBtn.btn.box.w = docsBtnSize.w;
+    docsBtn.btn.box.h = docsBtnSize.h;
+    paintMC8Btn(linkX, y, "DOCS", { ink, line: ink }, linkScheme, docsBtn.btn.down || docsBtn.btn.over);
+    linkX += docsBtnSize.w + 4;
     // Show short CID
     if (alreadyMinted.artifactUri) {
       const cid = alreadyMinted.artifactUri.replace("ipfs://", "").split("/")[0];
@@ -3287,6 +3297,8 @@ function act({ event: e, screen }) {
     if (alreadyMinted.thumbnailUri) thumbBtn.btn.act(e, { ...hoverCb, push: () => openUrl(alreadyMinted.thumbnailUri) });
     // META button - open TzKT token metadata view
     metaBtn.btn.act(e, { ...hoverCb, push: () => openUrl(alreadyMinted.tzktUrl) });
+    // DOCS button - open kidlisp.com/keeps documentation
+    docsBtn.btn.act(e, { ...hoverCb, push: () => openUrl("https://kidlisp.com/keeps") });
     btn.btn.act(e, { ...hoverCb, push: () => openUrl(alreadyMinted.objktUrl) });
     walletBtn.btn.act(e, { ...hoverCb, push: () => _jump("wallet") });
 
