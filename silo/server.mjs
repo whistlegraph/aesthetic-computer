@@ -37,8 +37,6 @@ let wss = null;
 let changeStream = null;
 const firehoseThrottle = { count: 0, resetAt: 0 };
 const FIREHOSE_MAX_PER_SEC = 50;
-const firehoseBuffer = [];
-const FIREHOSE_BUFFER_SIZE = 50;
 
 // --- Collection Categories ---
 const COLLECTION_CATEGORIES = {
@@ -226,13 +224,8 @@ function startFirehose() {
       // Persist to MongoDB (fire-and-forget)
       firehoseCol.insertOne(event).catch(() => {});
 
-      // Buffer for in-memory replay
-      const wsEvent = { ...event, time: now };
-      firehoseBuffer.push(wsEvent);
-      if (firehoseBuffer.length > FIREHOSE_BUFFER_SIZE) firehoseBuffer.shift();
-
       if (wss?.clients) {
-        const data = JSON.stringify({ firehose: wsEvent });
+        const data = JSON.stringify({ firehose: { ...event, time: now } });
         wss.clients.forEach((c) => c.readyState === 1 && c.send(data));
       }
     });
@@ -761,10 +754,6 @@ wss.on("connection", async (ws) => {
   log("info", "dashboard client connected");
   for (const entry of activityLog.slice(0, 30).reverse()) {
     ws.send(JSON.stringify({ logEntry: entry }));
-  }
-  // Send firehose history so the tab isn't empty on load
-  for (const event of firehoseBuffer) {
-    ws.send(JSON.stringify({ firehose: event }));
   }
   ws.on("close", () => log("info", "dashboard client disconnected"));
 });
