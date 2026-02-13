@@ -45,7 +45,7 @@ const spacesClient = new S3Client({
   },
 });
 const SPACES_BUCKET = process.env.ART_SPACES_BUCKET || 'art-aesthetic-computer';
-const SPACES_CDN_BASE = `https://${SPACES_BUCKET}.sfo3.cdn.digitaloceanspaces.com`;
+const SPACES_CDN_BASE = process.env.ART_CDN_BASE || 'https://art.aesthetic.computer';
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 // MongoDB connection
@@ -101,26 +101,22 @@ export const APP_SCREENSHOT_PRESETS = {
 let browser = null;
 let browserLaunchPromise = null;
 
-// Simple grab queue to prevent parallel puppeteer page sessions from competing
+// Grab queue with concurrent worker pool
 const grabQueue = [];
-let grabRunning = false;
+let grabsRunning = 0;
+const MAX_CONCURRENT_GRABS = 6;
 
-// Queue metadata for visibility
-const queueMetadata = new Map(); // queueIndex -> { piece, format, addedAt }
+// Per-grab progress tracking (keyed by grabId)
+const grabProgressMap = new Map();
 
-// Current grab progress tracking
-let currentProgress = {
-  piece: null,
-  format: null,
-  stage: null, // 'loading' | 'waiting-content' | 'capturing' | 'encoding' | 'uploading'
-  stageDetail: null,
-  framesCaptured: 0,
-  framesTotal: 0,
-  percent: 0,
-  previewFrame: null, // base64 encoded low-res preview image
-  previewWidth: 0,
-  previewHeight: 0,
-};
+function createEmptyProgress(grabId, piece, format) {
+  return {
+    grabId, piece, format,
+    stage: null, stageDetail: null,
+    framesCaptured: 0, framesTotal: 0, percent: 0,
+    previewFrame: null, previewWidth: 0, previewHeight: 0,
+  };
+}
 
 // Callback for notifying subscribers of progress updates
 let progressNotifyCallback = null;
@@ -142,10 +138,15 @@ function notifySubscribers() {
 }
 
 /**
- * Update current progress state
+ * Update progress state for a specific grab
  */
-export function updateProgress(updates) {
-  Object.assign(currentProgress, updates);
+export function updateProgress(grabId, updates) {
+  let progress = grabProgressMap.get(grabId);
+  if (!progress) {
+    progress = createEmptyProgress(grabId, updates.piece, updates.format);
+    grabProgressMap.set(grabId, progress);
+  }
+  Object.assign(progress, updates);
   notifySubscribers();
 }
 
@@ -187,9 +188,9 @@ async function capturePreviewFrame(page, width = 64, height = 64) {
  * @param {Page} page - Puppeteer page  
  * @param {object} updates - Other progress updates
  */
-async function updateProgressWithPreview(page, updates) {
+async function updateProgressWithPreview(grabId, page, updates) {
   const previewFrame = await capturePreviewFrame(page, 80, 80);
-  updateProgress({
+  updateProgress(grabId, {
     ...updates,
     previewFrame,
     previewWidth: 80,
@@ -198,10 +199,38 @@ async function updateProgressWithPreview(page, updates) {
 }
 
 /**
- * Get current progress state
+ * Get current progress state (backward-compat: returns first active grab's progress)
  */
 export function getCurrentProgress() {
-  return { ...currentProgress };
+  for (const progress of grabProgressMap.values()) {
+    if (progress.stage) return { ...progress };
+  }
+  return createEmptyProgress(null, null, null);
+}
+
+/**
+ * Get all active grab progress entries
+ */
+export function getAllProgress() {
+  const result = {};
+  for (const [grabId, progress] of grabProgressMap.entries()) {
+    result[grabId] = { ...progress };
+  }
+  return result;
+}
+
+/**
+ * Get concurrency status
+ */
+export function getConcurrencyStatus() {
+  return { active: grabsRunning, max: MAX_CONCURRENT_GRABS, queueDepth: grabQueue.length };
+}
+
+/**
+ * Clear progress for a completed grab
+ */
+function clearProgress(grabId) {
+  grabProgressMap.delete(grabId);
 }
 
 /**
@@ -239,7 +268,8 @@ export function estimateWaitTime(queuePosition) {
   const avgDuration = recentDurations.length > 0
     ? recentDurations.reduce((a, b) => a + b, 0) / recentDurations.length
     : DEFAULT_GRAB_DURATION_MS;
-  return Math.round(avgDuration * queuePosition);
+  const batchesAhead = Math.ceil(queuePosition / MAX_CONCURRENT_GRABS);
+  return Math.round(avgDuration * batchesAhead);
 }
 
 async function enqueueGrab(fn, metadata = {}) {
@@ -252,37 +282,38 @@ async function enqueueGrab(fn, metadata = {}) {
 }
 
 async function processGrabQueue() {
-  if (grabRunning || grabQueue.length === 0) return;
-  
-  grabRunning = true;
-  const { fn, resolve, reject, metadata } = grabQueue.shift();
-  
-  console.log(`📋 Processing queue item: ${metadata?.piece || 'unknown'} (${grabQueue.length} remaining)`);
-  
-  try {
-    const result = await fn();
-    resolve(result);
-  } catch (error) {
-    console.error(`❌ Queue item failed: ${metadata?.piece || 'unknown'} - ${error.message}`);
-    
-    // If it's a browser connection error, try to reset the browser
-    if (error.message.includes('Connection closed') || 
-        error.message.includes('disconnected') ||
-        error.message.includes('Target closed')) {
-      console.log('🔄 Browser connection lost, resetting browser...');
-      browser = null;
-    }
-    
-    reject(error);
-  } finally {
-    grabRunning = false;
-    // Process next item after a small delay to let resources settle
-    if (grabQueue.length > 0) {
-      // Longer delay if browser needs to restart
-      const delay = browser === null ? 500 : 100;
-      console.log(`📋 Next queue item in ${delay}ms (${grabQueue.length} remaining)`);
-      setTimeout(processGrabQueue, delay);
-    }
+  while (grabsRunning < MAX_CONCURRENT_GRABS && grabQueue.length > 0) {
+    grabsRunning++;
+    const { fn, resolve, reject, metadata } = grabQueue.shift();
+
+    console.log(`📋 Processing queue item: ${metadata?.piece || 'unknown'} (${grabsRunning}/${MAX_CONCURRENT_GRABS} active, ${grabQueue.length} queued)`);
+
+    // Fire-and-forget async — each grab runs independently
+    (async () => {
+      try {
+        const result = await fn();
+        resolve(result);
+      } catch (error) {
+        console.error(`❌ Queue item failed: ${metadata?.piece || 'unknown'} - ${error.message}`);
+
+        // If it's a browser connection error, try to reset the browser
+        if (error.message.includes('Connection closed') ||
+            error.message.includes('disconnected') ||
+            error.message.includes('Target closed')) {
+          console.log('🔄 Browser connection lost, resetting browser...');
+          browser = null;
+        }
+
+        reject(error);
+      } finally {
+        grabsRunning--;
+        const delay = browser === null ? 500 : 100;
+        if (grabQueue.length > 0) {
+          console.log(`📋 Slot freed (${grabsRunning}/${MAX_CONCURRENT_GRABS} active, ${grabQueue.length} queued)`);
+          setTimeout(processGrabQueue, delay);
+        }
+      }
+    })();
   }
 }
 
@@ -455,10 +486,11 @@ export function clearAllActiveGrabs() {
   
   activeGrabs.clear();
   
-  // Also clear the queue
+  // Also clear the queue and progress
   const queueCount = grabQueue.length;
   grabQueue.length = 0;
-  grabRunning = false;
+  grabsRunning = 0;
+  grabProgressMap.clear();
   
   notifySubscribers();
   serverLog('cleanup', '🗑️', `Force cleared ${count} active grabs and ${queueCount} queued items`);
@@ -1129,6 +1161,7 @@ async function captureFrames(piece, options = {}) {
     viewportScale = null, // Override deviceScaleFactor (null = use density)
     baseUrl = 'https://aesthetic.computer',
     frames: explicitFrames, // Allow explicit frame count override
+    grabId = null, // For per-grab progress tracking
   } = options;
   
   // Calculate frames from duration and fps, or use explicit count
@@ -1201,7 +1234,7 @@ async function captureFrames(piece, options = {}) {
     // This is set by disk.mjs after the first paint completes
     console.log('   ⏳ Waiting for piece ready signal (window.acPieceReady)...');
     
-    await updateProgressWithPreview(page, {
+    await updateProgressWithPreview(grabId, page, {
       stage: 'loading',
       stageDetail: 'Waiting for piece...',
       percent: 5,
@@ -1231,7 +1264,7 @@ async function captureFrames(piece, options = {}) {
         
         // Stream preview every 200ms for smooth updates
         if (Date.now() - lastPreviewTime > 200) {
-          await updateProgressWithPreview(page, {
+          await updateProgressWithPreview(grabId, page, {
             stage: 'loading',
             stageDetail: `${phase} ${Math.round(elapsed/1000)}s`,
             percent: Math.min(25, 5 + (elapsed / maxPieceWait) * 20),
@@ -1262,7 +1295,7 @@ async function captureFrames(piece, options = {}) {
     console.log(`   ${isStill ? '⏳ Settling for still capture' : '⏳ Brief settle'}... (${settleTime}ms)`);
     
     // Send preview before settling
-    await updateProgressWithPreview(page, {
+    await updateProgressWithPreview(grabId, page, {
       stage: 'settling',
       stageDetail: `Settling... ${settleTime}ms`,
       percent: 28,
@@ -1275,7 +1308,7 @@ async function captureFrames(piece, options = {}) {
     const capturedFrames = [];
     
     // Update progress with preview: entering capture stage
-    await updateProgressWithPreview(page, {
+    await updateProgressWithPreview(grabId, page, {
       stage: 'capturing',
       stageDetail: `Starting frame capture...`,
       framesCaptured: 0,
@@ -1295,7 +1328,7 @@ async function captureFrames(piece, options = {}) {
       
       // Update progress with preview for each frame
       const capturePercent = 30 + ((i / frames) * 50); // 30% to 80% during capture
-      await updateProgressWithPreview(page, {
+      await updateProgressWithPreview(grabId, page, {
         framesCaptured: i,
         stageDetail: `Frame ${i + 1}/${frames}`,
         percent: Math.round(capturePercent),
@@ -1646,7 +1679,7 @@ export async function grabPiece(piece, options = {}) {
       activeGrabs.get(grabId).status = 'capturing';
       
       // Initialize progress state for this grab
-      updateProgress({
+      updateProgress(grabId, {
         piece: piece,
         format: format,
         stage: 'loading',
@@ -1666,8 +1699,8 @@ export async function grabPiece(piece, options = {}) {
         
       } else {
         // Animated WebP or GIF
-        const capturedFrames = await captureFrames(piece, { 
-          width, height, duration, fps, density, viewportScale, baseUrl 
+        const capturedFrames = await captureFrames(piece, {
+          width, height, duration, fps, density, viewportScale, baseUrl, grabId
         });
         
         if (capturedFrames.length === 0) {
@@ -1720,7 +1753,7 @@ export async function grabPiece(piece, options = {}) {
         activeGrabs.get(grabId).status = 'encoding';
         
         // Update progress: encoding stage
-        updateProgress({
+        updateProgress(grabId, {
           stage: 'encoding',
           stageDetail: `Encoding ${format.toUpperCase()}...`,
           percent: 85,
@@ -1753,7 +1786,7 @@ export async function grabPiece(piece, options = {}) {
       if (process.env.ART_SPACES_KEY) {
         try {
           // Update progress: uploading stage
-          updateProgress({
+          updateProgress(grabId, {
             stage: 'uploading',
             stageDetail: `Uploading to CDN...`,
             percent: 95,
@@ -1786,8 +1819,8 @@ export async function grabPiece(piece, options = {}) {
     saveGrab(grab); // Persist to MongoDB
     
     // Clear progress state (grab complete)
-    updateProgress({ stage: null, piece: null, format: null, percent: 0 });
-    
+    clearProgress(grabId);
+
     // Record duration for ETA estimation
     recordGrabDuration(grab.duration);
     
@@ -1815,7 +1848,7 @@ export async function grabPiece(piece, options = {}) {
       serverLog('error', '❌', `Grab failed: ${piece} - ${error.message}`);
       
       // Clear progress state on error
-      updateProgress({ stage: null, piece: null, format: null, percent: 0 });
+      clearProgress(grabId);
       
       const grab = activeGrabs.get(grabId);
       if (grab) {
