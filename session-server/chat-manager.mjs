@@ -708,16 +708,22 @@ export class ChatManager {
     }
 
     if (object === "handle") {
-      instance.subsToHandles[parsed.users[0]] = parsed.value;
+      if (behavior === "colors") {
+        // Broadcast handle color changes to all connected clients.
+        const data = JSON.parse(parsed.value);
+        this.broadcast(instance, this.pack("handle:colors", { user: parsed.users[0], handle: data.handle, colors: data.colors }));
+      } else {
+        instance.subsToHandles[parsed.users[0]] = parsed.value;
 
-      if (behavior === "update" || behavior === "strip") {
-        const from = behavior === "update" ? "@" + parsed.value : "nohandle";
-        instance.messages.forEach((msg) => {
-          if (msg.sub === parsed.users[0]) {
-            msg.from = from;
-          }
-        });
-        this.broadcast(instance, this.pack(parsed.action, { user: parsed.users[0], handle: from }));
+        if (behavior === "update" || behavior === "strip") {
+          const from = behavior === "update" ? "@" + parsed.value : "nohandle";
+          instance.messages.forEach((msg) => {
+            if (msg.sub === parsed.users[0]) {
+              msg.from = from;
+            }
+          });
+          this.broadcast(instance, this.pack(parsed.action, { user: parsed.users[0], handle: from }));
+        }
       }
     }
   }

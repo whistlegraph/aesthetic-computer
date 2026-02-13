@@ -61,7 +61,7 @@ async function log(text, data, from = "log") {
   // Note: Sotce users' handle changes are never logged (filtered in handle.mjs), so they won't reach here
   const isMultiChatAction = msg.action && (
     msg.action.match(/chat-system:(mute|unmute)/) ||
-    msg.action.match(/handle:(update|strip)/)
+    msg.action.match(/handle:(update|strip|colors)/)
   );
   
   const chatServers = isMultiChatAction ? [
@@ -94,4 +94,57 @@ async function log(text, data, from = "log") {
   // await database.disconnect();
 }
 
-export { link, log };
+// Broadcast-only: HTTP POST to chat servers without writing to the database.
+async function broadcast(text, data, from = "log") {
+  if (!got) {
+    try {
+      got = (await import("got")).got;
+    } catch (err) {
+      console.error("⚠️📡 Could not load `got` for broadcast:", err);
+      return;
+    }
+  }
+
+  console.log("📡 Broadcasting...", from, text);
+
+  const msg = { from, text, when: new Date() };
+
+  if (data.user) {
+    msg.users = [data.user];
+  } else {
+    msg.users = [];
+  }
+
+  if (data.action) msg.action = data.action;
+  if (data.value) msg.value = data.value;
+
+  const isMultiChatAction = msg.action && (
+    msg.action.match(/chat-system:(mute|unmute)/) ||
+    msg.action.match(/handle:(update|strip|colors)/)
+  );
+
+  const chatServers = isMultiChatAction ? [
+    { name: "chat-system", url: dev ? "https://localhost:8083/log" : "https://chat-system.aesthetic.computer/log" },
+    { name: "chat-clock", url: dev ? "https://localhost:8085/log" : "https://chat-clock.aesthetic.computer/log" },
+  ] : [
+    { name: "chat-system", url: dev ? "https://localhost:8083/log" : "https://chat-system.aesthetic.computer/log" }
+  ];
+
+  for (const server of chatServers) {
+    try {
+      const response = await got.post(server.url, {
+        json: msg,
+        headers: {
+          Authorization: `Bearer ${process.env.LOGGER_KEY}`,
+        },
+        https: { rejectUnauthorized: !dev },
+        timeout: { request: 10000 },
+      });
+      console.log(`Broadcast to \`${server.name}\` successful:`, response.body);
+    } catch (error) {
+      console.error(`Broadcast to \`${server.name}\` failed:`, error.message);
+    }
+  }
+}
+
+export { link, log, broadcast };
