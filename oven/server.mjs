@@ -12,6 +12,7 @@ import { WebSocketServer } from 'ws';
 import { healthHandler, bakeHandler, statusHandler, bakeCompleteHandler, bakeStatusHandler, getActiveBakes, getIncomingBakes, getRecentBakes, subscribeToUpdates, cleanupStaleBakes } from './baker.mjs';
 import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus, getFrozenPieces, clearFrozenPiece, getLatestOGImageUrl, regenerateOGImagesBackground, generateKidlispBackdrop, getLatestBackdropUrl, APP_SCREENSHOT_PRESETS, generateNotepatOGImage, getLatestNotepatOGUrl } from './grabber.mjs';
 import archiver from 'archiver';
+import { createBundle, createJSPieceBundle, createM4DBundle, generateDeviceHTML, prewarmCache, getCacheStatus, setSkipMinification } from './bundler.mjs';
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -2725,6 +2726,110 @@ app.get('/api/app-screenshots/:piece', async (req, res) => {
     zipUrl: `/app-screenshots/download/${piece}`,
     dashboardUrl: `/app-screenshots?piece=${piece}`,
   });
+});
+
+// ─── Bundle HTML endpoint ───────────────────────────────────────────
+
+app.get('/bundle-html', async (req, res) => {
+  const code = req.query.code;
+  const piece = req.query.piece;
+  const format = req.query.format || 'html';
+  const nocache = req.query.nocache === '1' || req.query.nocache === 'true';
+  const nocompress = req.query.nocompress === '1' || req.query.nocompress === 'true';
+  const nominify = req.query.nominify === '1' || req.query.nominify === 'true';
+  const inline = req.query.inline === '1' || req.query.inline === 'true';
+  const density = parseInt(req.query.density) || null;
+  const mode = req.query.mode;
+
+  // Device mode: simple iframe wrapper (fast path)
+  if (mode === 'device') {
+    const pieceCode = code || piece;
+    if (!pieceCode) return res.status(400).send('Missing code or piece parameter');
+    return res.set({ 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=60' }).send(generateDeviceHTML(pieceCode, density));
+  }
+
+  setSkipMinification(nominify);
+
+  const isJSPiece = !!piece;
+  const bundleTarget = piece || code;
+  if (!bundleTarget) {
+    return res.status(400).json({ error: "Missing 'code' or 'piece' parameter.", usage: { kidlisp: "/bundle-html?code=39j", javascript: "/bundle-html?piece=notepat" } });
+  }
+
+  // M4D mode: .amxd binary
+  if (format === 'm4d') {
+    try {
+      const onProgress = (p) => console.log(`[bundler] m4d ${p.stage}: ${p.message}`);
+      const { binary, filename } = await createM4DBundle(bundleTarget, isJSPiece, onProgress, density);
+      res.set({ 'Content-Type': 'application/octet-stream', 'Content-Disposition': `attachment; filename="${filename}"`, 'Cache-Control': 'no-cache' });
+      return res.send(binary);
+    } catch (error) {
+      console.error('M4D bundle failed:', error);
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
+  // SSE streaming mode
+  if (format === 'stream') {
+    res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'X-Accel-Buffering': 'no' });
+    res.flushHeaders();
+
+    const sendEvent = (type, data) => {
+      res.write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`);
+      if (typeof res.flush === 'function') res.flush();
+    };
+
+    try {
+      const onProgress = (p) => sendEvent('progress', p);
+      const { html, filename, sizeKB } = isJSPiece
+        ? await createJSPieceBundle(bundleTarget, onProgress, nocompress, density)
+        : await createBundle(bundleTarget, onProgress, nocompress, density);
+      sendEvent('complete', { filename, content: Buffer.from(html).toString('base64'), sizeKB });
+    } catch (error) {
+      console.error('Bundle failed:', error);
+      sendEvent('error', { error: error.message });
+    }
+    return res.end();
+  }
+
+  // Non-streaming modes (json, html download, inline)
+  try {
+    const progressLog = [];
+    const onProgress = (p) => { progressLog.push(p.message); console.log(`[bundler] ${p.stage}: ${p.message}`); };
+    const result = isJSPiece
+      ? await createJSPieceBundle(bundleTarget, onProgress, nocompress, density)
+      : await createBundle(bundleTarget, onProgress, nocompress, density);
+    const { html, filename, sizeKB, mainSource, authorHandle, userCode, packDate, depCount } = result;
+
+    if (format === 'json' || format === 'base64') {
+      return res.json({ filename, content: Buffer.from(html).toString('base64'), sizeKB, progress: progressLog, sourceCode: mainSource, authorHandle, userCode, packDate, depCount });
+    }
+
+    const headers = { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=3600' };
+    if (!inline) headers['Content-Disposition'] = `attachment; filename="${filename}"`;
+    return res.set(headers).send(html);
+  } catch (error) {
+    console.error('Bundle failed:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// Prewarm the core bundle cache (called by deploy.sh after restart)
+app.post('/bundle-prewarm', async (req, res) => {
+  try {
+    addServerLog('info', '📦', 'Bundle prewarm started...');
+    const result = await prewarmCache();
+    addServerLog('success', '📦', `Bundle cache ready: ${result.fileCount} files in ${result.elapsed}ms (${result.commit})`);
+    res.json(result);
+  } catch (error) {
+    addServerLog('error', '❌', `Bundle prewarm failed: ${error.message}`);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Cache status
+app.get('/bundle-status', (req, res) => {
+  res.json(getCacheStatus());
 });
 
 // 404 handler

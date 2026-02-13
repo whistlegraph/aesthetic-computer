@@ -1366,7 +1366,7 @@ to = "/.netlify/functions/piece-metadata"
 status = 200
 [[redirects]]
 from = "/api/bundle-html"
-to = "/.netlify/functions/bundle-html"
+to = "https://oven.aesthetic.computer/bundle-html"
 status = 200
 [[redirects]]
 from = "/api/bundle-telemetry"
