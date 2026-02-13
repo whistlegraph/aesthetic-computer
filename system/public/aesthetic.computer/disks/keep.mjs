@@ -2965,7 +2965,7 @@ function paint($) {
       const tollX = floor((w - totalTollW) / 2);
 
       // Button background
-      const tollScheme = btn.btn.down ? pal.btnToll.hover : pal.btnToll.normal;
+      const tollScheme = (btn.btn.down || btn.btn.over) ? pal.btnToll.hover : pal.btnToll.normal;
       ink(tollScheme.bg[0], tollScheme.bg[1], tollScheme.bg[2]).box(tollX, y + 3, totalTollW, tollH - 6);
       ink(100, 200, 140).box(tollX, y + 3, totalTollW, 1).box(tollX, y + tollH - 4, totalTollW, 1); // outline
 
@@ -3008,7 +3008,7 @@ function paint($) {
         btn.staging = btn.staging || { box: { x: 0, y: 0, w: 0, h: 0 }, down: false };
         btn.staging.box = { x: stagingBtnX, y: infoY, w: stagingW, h: 12 };
 
-        const stagingScheme = btn.staging.down ? pal.btnStaging.hover : pal.btnStaging.normal;
+        const stagingScheme = (btn.staging.down || btn.staging.over) ? pal.btnStaging.hover : pal.btnStaging.normal;
 
         // Button background
         ink(stagingScheme.bg[0], stagingScheme.bg[1], stagingScheme.bg[2]).box(stagingBtnX, infoY, stagingW, 12);
