@@ -357,18 +357,37 @@ export class MonacoKidLispHighlighter {
     if (this.updateLoopRunning) return;
     this.updateLoopRunning = true;
 
+    let lastAnimating = false;
+    let lastCode = '';
+
     const scheduleUpdate = () => {
       if (!this.updateLoopRunning) return;
       if (!this.isUpdating && this.editor && this.editor.getModel()) {
-        requestAnimationFrame(() => {
-          // Set edit mode to enable timing blinks
-          this.kidlisp.isEditMode = shouldAnimate();
-          this.applyDecorations(true);
-          if (window.perfCounters) window.perfCounters.decorations++;
-          setTimeout(scheduleUpdate, 16); // ~60fps
-        });
+        const animating = shouldAnimate();
+        if (animating) {
+          // Playing — update at 60fps for timing blinks
+          requestAnimationFrame(() => {
+            this.kidlisp.isEditMode = true;
+            this.applyDecorations(true);
+            if (window.perfCounters) window.perfCounters.decorations++;
+            lastAnimating = true;
+            setTimeout(scheduleUpdate, 16);
+          });
+        } else {
+          // Not playing — only redecorate when code changes or transitioning from playing
+          const currentCode = this.editor.getModel().getValue();
+          if (lastAnimating || currentCode !== lastCode) {
+            this.kidlisp.isEditMode = false;
+            this.applyDecorations(true);
+            if (window.perfCounters) window.perfCounters.decorations++;
+            lastCode = currentCode;
+            lastAnimating = false;
+          }
+          // Poll at low rate (~4fps) to catch code edits
+          setTimeout(scheduleUpdate, 250);
+        }
       } else {
-        setTimeout(scheduleUpdate, 16);
+        setTimeout(scheduleUpdate, 250);
       }
     };
 
