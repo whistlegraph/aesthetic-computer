@@ -90,7 +90,9 @@ const ESSENTIAL_FILES = [
   "lib/glazes/uniforms.js",
 ];
 
-const SKIP_FILES = [];
+const SKIP_FILES = [
+  "dep/wasmboy/", // GameBoy emulator (~424 KB) — only needed if piece uses GB features
+];
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
