@@ -102,6 +102,7 @@ To use Aesthetic Computer via a browser:
 - [brick-breaker](https://aesthetic.computer/brick-breaker) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/brick-breaker.mjs)): Bb, 2023.5.31.21.48.45
 - [brother](https://aesthetic.computer/brother) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/brother.mjs)): Brother,
 - [bubble](https://aesthetic.computer/bubble) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/bubble.mjs)): 🧋 Bubble 2022.02.04.17.46 [Sage: @mxsage + Jeffrey]
+- [bundle](https://aesthetic.computer/bundle) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/bundle.mjs)): bundle, 2026.02.13
 - [c](https://aesthetic.computer/c) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/c.mjs)): c.mjs - The letter C
 - [camera](https://aesthetic.computer/camera) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/camera.mjs)): Camera, 2022.6.19.11.16
 - [cap](https://aesthetic.computer/cap) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/cap.mjs)): Cap, 2026.01.28
@@ -169,6 +170,7 @@ To use Aesthetic Computer via a browser:
 - [gradient-test](https://aesthetic.computer/gradient-test) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/gradient-test.mjs)): Gradient Test, 2025.08.03
 - [graphics](https://aesthetic.computer/graphics) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/graphics.mjs)): Graphics, 2024.5.05.18.57.43.452
 - [h](https://aesthetic.computer/h) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/h.mjs)): h.mjs - The letter H
+- [handle](https://aesthetic.computer/handle) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/handle.mjs)): Handle, 2026.02.13.09.00
 - [handles](https://aesthetic.computer/handles) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/handles.mjs)): handles, 2025.2.3
 - [handprint](https://aesthetic.computer/handprint) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/handprint.mjs)): Handprint, 2023.7.06.15.18.20
 - [handtime](https://aesthetic.computer/handtime) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/handtime.mjs)): Handtime, 2023.7.11.17.06.34
@@ -266,7 +268,7 @@ To use Aesthetic Computer via a browser:
 - [rain](https://aesthetic.computer/rain) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/rain.mjs)): Rain, 2023.12.21.17.00.56.185
 - [rainbow-x](https://aesthetic.computer/rainbow-x) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/rainbow-x.mjs)): Rainbow X
 - [rattle](https://aesthetic.computer/rattle) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/rattle.mjs)): Rattle, 2023.8.14.21.03.16
-- [rect](https://aesthetic.computer/rect) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/rect.mjs)): 🟦 Rect, 23.04.21.12.16
+- [rect](https://aesthetic.computer/rect) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/rect.mjs)): rect, 26.02.13.XX.XX
 - [replay](https://aesthetic.computer/replay) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/replay.mjs)): Replay, 2025.01.18
 - [robo](https://aesthetic.computer/robo) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/robo.mjs)): Robot automation system for aesthetic.computer
 - [rotate-text-demo](https://aesthetic.computer/rotate-text-demo) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/rotate-text-demo.mjs)): Rotate Text Demo - MatrixChunky8 Testing
@@ -391,4 +393,4 @@ To use Aesthetic Computer via a browser:
 
 - [API Documentation](https://aesthetic.computer/api-docs): Internal API reference
 
-_Generated 2026-02-13T01:44:57Z — 336 pieces (318 JavaScript, 18 KidLisp)_
+_Generated 2026-02-13T22:38:32Z — 338 pieces (320 JavaScript, 18 KidLisp)_
