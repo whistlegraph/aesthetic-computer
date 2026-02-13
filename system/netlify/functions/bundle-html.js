@@ -14,7 +14,7 @@
 const { promises: fs } = require("fs");
 const fsSync = require("fs");
 const path = require("path");
-const { gzipSync } = require("zlib");
+const { gzipSync, brotliCompressSync, constants: zlibConstants } = require("zlib");
 const https = require("https");
 const { execSync } = require("child_process");
 
@@ -327,22 +327,25 @@ async function minifyJS(content, relativePath) {
   }
   
   try {
-    const { minify } = require("@swc/wasm");
-    
-    // 🚀 PERF FIX: Disable compression entirely - it breaks JIT optimization of hot loops
-    // SWC compression can transform loops in ways that V8/SpiderMonkey can't optimize
-    // (e.g., spin function goes from 30fps to 16fps with compression enabled)
-    // Just strip comments and whitespace for smaller files without perf impact
+    const { minify } = require("terser");
+
     const result = await minify(processedContent, {
-      compress: false,  // Disable all compression - preserves JIT-friendly code patterns
-      mangle: false,    // Don't mangle - can break dynamic lookups
-      format: { 
-        comments: false,  // Strip comments for smaller files
+      compress: {
+        dead_code: true,
+        drop_console: true,
+        drop_debugger: true,
+        unused: true,
+        passes: 3,
+        pure_getters: true,
+        unsafe: true,
+        unsafe_math: true,
+        unsafe_proto: true
       },
+      mangle: true,
       module: true,
-      sourceMap: false
+      format: { comments: false, ascii_only: false, ecma: 2020 }
     });
-    
+
     return result.code || processedContent;
   } catch {
     return processedContent;
@@ -569,48 +572,30 @@ async function createJSPieceBundle(pieceName, onProgress = () => {}, nocompress 
     return { html: htmlContent, filename, sizeKB: Math.round(htmlContent.length / 1024) };
   }
   
-  // Create gzip-compressed self-extracting bundle
-  const gzipCompressed = gzipSync(htmlContent, { level: 9 });
-  const gzipBase64 = gzipCompressed.toString('base64');
-  
+  // Create brotli-compressed self-extracting bundle
+  const compressed = brotliCompressSync(Buffer.from(htmlContent, 'utf-8'), {
+    params: {
+      [zlibConstants.BROTLI_PARAM_MODE]: zlibConstants.BROTLI_MODE_TEXT,
+      [zlibConstants.BROTLI_PARAM_QUALITY]: 11,
+    }
+  });
+  const base64 = compressed.toString('base64');
+
   const finalHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <title>${pieceName} · Aesthetic Computer</title>
-  <style>body{margin:0;background:#000;overflow:hidden;color:#0f0;font:24px monospace;padding:20px}</style>
+  <style>body{margin:0;background:#000;overflow:hidden}</style>
 </head>
 <body>
-  <div id="dbg"></div>
   <script>
-    function log(m){document.getElementById('dbg').innerHTML+='<div>'+m+'</div>';console.log(m);}
-    function err(m){document.getElementById('dbg').innerHTML+='<div style="color:red">'+m+'</div>';console.error(m);}
-    window.onerror=function(m,s,l,c,e){err('ERROR: '+m+' at '+s+':'+l);return false;};
-    log('Bundle loader starting...');
-    // Use blob: URL instead of data: URL for CSP compatibility (objkt sandboxing)
-    const b64='${gzipBase64}';
-    log('Base64 length: '+b64.length);
-    try {
-      const bin=atob(b64);
-      log('Decoded binary length: '+bin.length);
-      const bytes=new Uint8Array(bin.length);
-      for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
-      log('Created Uint8Array');
-      const blob=new Blob([bytes],{type:'application/gzip'});
-      log('Created blob');
-      const url=URL.createObjectURL(blob);
-      log('Created blob URL');
-      if(typeof DecompressionStream==='undefined'){err('DecompressionStream NOT SUPPORTED!');throw new Error('No DecompressionStream');}
-      log('DecompressionStream available');
-      fetch(url)
-        .then(r=>{log('Fetched blob');return r.blob();})
-        .then(b=>{log('Got blob, decompressing...');return b.stream().pipeThrough(new DecompressionStream('gzip'));})
-        .then(s=>{log('Decompressed, reading text...');return new Response(s).text();})
-        .then(h=>{log('Got HTML ('+h.length+' chars), writing...');URL.revokeObjectURL(url);document.open();document.write(h);document.close();})
-        .catch(e=>err('Decompress error: '+e.message));
-    } catch(e) {
-      err('Init error: '+e.message);
-    }
+    fetch('data:application/x-br;base64,${base64}')
+      .then(r=>r.blob())
+      .then(b=>b.stream().pipeThrough(new DecompressionStream('br')))
+      .then(s=>new Response(s).text())
+      .then(h=>{document.open();document.write(h);document.close();})
+      .catch(e=>{document.body.style.color='#fff';document.body.textContent='Bundle error: '+e.message;});
   </script>
 </body>
 </html>`;
@@ -771,7 +756,8 @@ function generateJSPieceHTMLBundle(opts) {
     
     (async function() {
       import(window.VFS_BLOB_URLS['boot.mjs']).catch(err => {
-        console.error('Failed to load boot.mjs:', err);
+        document.body.style.color='#fff';
+        document.body.textContent='Boot failed: '+err.message;
       });
     })();
   </script>
@@ -1104,48 +1090,30 @@ async function createBundle(pieceName, onProgress = () => {}, nocompress = false
     };
   }
   
-  // Create gzip-compressed self-extracting bundle
-  const gzipCompressed = gzipSync(htmlContent, { level: 9 });
-  const gzipBase64 = gzipCompressed.toString('base64');
-  
+  // Create brotli-compressed self-extracting bundle (native DecompressionStream, no extra JS)
+  const compressed = brotliCompressSync(Buffer.from(htmlContent, 'utf-8'), {
+    params: {
+      [zlibConstants.BROTLI_PARAM_MODE]: zlibConstants.BROTLI_MODE_TEXT,
+      [zlibConstants.BROTLI_PARAM_QUALITY]: 11,
+    }
+  });
+  const base64 = compressed.toString('base64');
+
   const finalHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <title>${PIECE_NAME} · Aesthetic Computer</title>
-  <style>body{margin:0;background:#000;overflow:hidden;color:#0f0;font:24px monospace;padding:20px}</style>
+  <style>body{margin:0;background:#000;overflow:hidden}</style>
 </head>
 <body>
-  <div id="dbg"></div>
   <script>
-    function log(m){document.getElementById('dbg').innerHTML+='<div>'+m+'</div>';console.log(m);}
-    function err(m){document.getElementById('dbg').innerHTML+='<div style="color:red">'+m+'</div>';console.error(m);}
-    window.onerror=function(m,s,l,c,e){err('ERROR: '+m+' at '+s+':'+l);return false;};
-    log('Bundle loader starting...');
-    // Use blob: URL instead of data: URL for CSP compatibility (objkt sandboxing)
-    const b64='${gzipBase64}';
-    log('Base64 length: '+b64.length);
-    try {
-      const bin=atob(b64);
-      log('Decoded binary length: '+bin.length);
-      const bytes=new Uint8Array(bin.length);
-      for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
-      log('Created Uint8Array');
-      const blob=new Blob([bytes],{type:'application/gzip'});
-      log('Created blob');
-      const url=URL.createObjectURL(blob);
-      log('Created blob URL');
-      if(typeof DecompressionStream==='undefined'){err('DecompressionStream NOT SUPPORTED!');throw new Error('No DecompressionStream');}
-      log('DecompressionStream available');
-      fetch(url)
-        .then(r=>{log('Fetched blob');return r.blob();})
-        .then(b=>{log('Got blob, decompressing...');return b.stream().pipeThrough(new DecompressionStream('gzip'));})
-        .then(s=>{log('Decompressed, reading text...');return new Response(s).text();})
-        .then(h=>{log('Got HTML ('+h.length+' chars), writing...');URL.revokeObjectURL(url);document.open();document.write(h);document.close();})
-        .catch(e=>err('Decompress error: '+e.message));
-    } catch(e) {
-      err('Init error: '+e.message);
-    }
+    fetch('data:application/x-br;base64,${base64}')
+      .then(r=>r.blob())
+      .then(b=>b.stream().pipeThrough(new DecompressionStream('br')))
+      .then(s=>new Response(s).text())
+      .then(h=>{document.open();document.write(h);document.close();})
+      .catch(e=>{document.body.style.color='#fff';document.body.textContent='Bundle error: '+e.message;});
   </script>
 </body>
 </html>`;
@@ -1402,7 +1370,7 @@ function generateHTMLBundle(opts) {
       // Skip if not on aesthetic.computer domain (sandboxed iframes have null origin)
       const origin = window.location?.origin || '';
       const isAcDomain = origin.includes('aesthetic.computer') || origin.includes('localhost');
-      console.log('[Telemetry] origin:', origin, 'isAcDomain:', isAcDomain);
+      // Telemetry origin check (silent)
       if (!isAcDomain) return;
       
       const bootStart = performance.now();
@@ -1490,7 +1458,8 @@ function generateHTMLBundle(opts) {
         await window.acDecodePaintingsPromise;
       }
       import(window.VFS_BLOB_URLS['boot.mjs']).catch(err => {
-        console.error('Failed to load boot.mjs:', err);
+        document.body.style.color='#fff';
+        document.body.textContent='Boot failed: '+err.message;
       });
     })();
   </script>
