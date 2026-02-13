@@ -2359,36 +2359,43 @@ async function halt($, text) {
     makeFlash($);
     return true;
   } else if (text.startsWith("html ") || text.startsWith("bundle ")) {
-    // Generate a self-contained .lisp.html bundle for a KidLisp piece
+    // Generate a self-contained HTML bundle for a piece (KidLisp $code or .mjs piece)
     const pieceCode = params[0];
     if (!pieceCode) {
-      notice("Usage: html $code", ["red"]);
+      notice("Usage: bundle $code or bundle piece", ["red"]);
       flashColor = [255, 0, 0];
       makeFlash($);
       return true;
     }
 
-    // Normalize piece code (ensure it starts with $)
-    const code = pieceCode.startsWith("$") ? pieceCode.slice(1) : pieceCode;
+    // Detect KidLisp ($code) vs normal .mjs piece
+    const isKidlisp = pieceCode.startsWith("$");
+    const code = isKidlisp ? pieceCode.slice(1) : pieceCode;
+    const displayName = isKidlisp ? `$${code}` : code;
 
     // Initialize bundle progress UI
     bundleProgress = {
       stage: 'fetch',
-      message: `Bundling $${code}...`,
+      message: `Bundling ${displayName}...`,
       startTime: performance.now(),
       animPhase: 0,
-      code
+      code: displayName
     };
     needsPaint();
 
     try {
       // Use streaming endpoint for progress updates
-      const response = await fetch(`/api/bundle-html?code=$${code}&format=stream`);
+      const bundleParam = isKidlisp ? `code=$${code}` : `piece=${code}`;
+      const response = await fetch(`/api/bundle-html?${bundleParam}&format=stream`);
+      if (!response.ok) {
+        throw new Error(`Bundle API returned ${response.status}`);
+      }
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
       let result = null;
       let currentEventType = null; // Persist across chunk boundaries
+      let serverError = null; // Track server-side errors from SSE
 
       // Helper to parse SSE lines
       const parseSSELines = (lines) => {
@@ -2396,6 +2403,16 @@ async function halt($, text) {
           if (line.startsWith('event: ')) {
             currentEventType = line.slice(7);
           } else if (line.startsWith('data: ') && currentEventType) {
+            if (currentEventType === 'error') {
+              try {
+                const data = JSON.parse(line.slice(6));
+                serverError = data.error || "Unknown server error";
+              } catch (e) {
+                serverError = line.slice(6);
+              }
+              currentEventType = null;
+              continue;
+            }
             try {
               const data = JSON.parse(line.slice(6));
 
@@ -2411,8 +2428,6 @@ async function halt($, text) {
                 result = data;
                 bundleProgress = { ...bundleProgress, stage: 'complete', message: 'Complete!' };
                 needsPaint();
-              } else if (currentEventType === 'error') {
-                throw new Error(data.error);
               }
             } catch (parseErr) {
               console.warn("SSE parse error:", parseErr, "line:", line.slice(0, 100));
@@ -2422,27 +2437,44 @@ async function halt($, text) {
         }
       };
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-          // Flush the decoder to get any remaining bytes
-          buffer += decoder.decode();
-          break;
+      // Timeout: abort the stream if it takes longer than 2 minutes
+      const BUNDLE_TIMEOUT = 120_000;
+      const timeoutId = setTimeout(() => {
+        reader.cancel();
+      }, BUNDLE_TIMEOUT);
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            // Flush the decoder to get any remaining bytes
+            buffer += decoder.decode();
+            break;
+          }
+
+          buffer += decoder.decode(value, { stream: true });
+
+          // Parse SSE events from buffer
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+          parseSSELines(lines);
+
+          // Stop reading if server sent an error event
+          if (serverError) break;
         }
-
-        buffer += decoder.decode(value, { stream: true });
-
-        // Parse SSE events from buffer
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || ''; // Keep incomplete line in buffer
-
-        parseSSELines(lines);
+      } finally {
+        clearTimeout(timeoutId);
       }
 
       // Process any remaining data in buffer after stream ends
       if (buffer.trim()) {
         const finalLines = buffer.split('\n');
         parseSSELines(finalLines);
+      }
+
+      if (serverError) {
+        throw new Error(serverError);
       }
 
       if (!result) {
@@ -2464,6 +2496,64 @@ async function halt($, text) {
     // Clear bundle progress
     bundleProgress = null;
 
+    makeFlash($);
+    return true;
+  } else if (text.startsWith("m4d ")) {
+    // Generate an offline Max for Live device (.amxd) for any piece
+    const pieceRef = params[0];
+    if (!pieceRef) {
+      notice("Usage: m4d piece or m4d $code", ["red"]);
+      flashColor = [255, 0, 0];
+      makeFlash($);
+      return true;
+    }
+
+    const isKidlisp = pieceRef.startsWith("$");
+    const code = isKidlisp ? pieceRef.slice(1) : pieceRef;
+    const displayName = isKidlisp ? `$${code}` : code;
+
+    // Show indeterminate progress overlay
+    bundleProgress = {
+      stage: 'fetch',
+      message: `Building M4L device for ${displayName}...`,
+      startTime: performance.now(),
+      animPhase: 0,
+      code: displayName
+    };
+    needsPaint();
+
+    try {
+      const bundleParam = isKidlisp ? `code=$${code}` : `piece=${code}`;
+      const response = await fetch(`/api/bundle-html?${bundleParam}&format=m4d`);
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+        throw new Error(err.error || `M4D API returned ${response.status}`);
+      }
+
+      bundleProgress = { ...bundleProgress, stage: 'complete', message: 'Downloading .amxd...' };
+      needsPaint();
+
+      // Download the binary .amxd file
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `AC ${displayName} (offline).amxd`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      notice(`Downloaded AC ${displayName} (offline).amxd`, ["lime"]);
+      flashColor = [0, 255, 0];
+    } catch (err) {
+      console.error("M4D error:", err);
+      notice("M4D failed: " + err.message, ["red"]);
+      flashColor = [255, 0, 0];
+    }
+
+    bundleProgress = null;
     makeFlash($);
     return true;
   } else if (text === "wallet" || text.startsWith("wallet ")) {
@@ -4117,8 +4207,8 @@ function paint($) {
       }
     }
 
-    // Title line: "BUNDLING $code"
-    const titleText = `BUNDLING $${code}`;
+    // Title line: "BUNDLING $code" or "BUNDLING piece"
+    const titleText = `BUNDLING ${code}`;
     ink(...progressColor).write(titleText, { center: "x", y: boxY + textPadding });
 
     // Status line: current message
