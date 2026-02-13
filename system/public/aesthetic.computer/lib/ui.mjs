@@ -990,6 +990,11 @@ class TextButton {
     return { x, y, w, h };
   }
 
+  // Update just the label text (keeps the same box when visible length matches).
+  replaceLabel(txt) {
+    this.txt = txt;
+  }
+
   reposition(pos, txt) {
     if (txt) this.txt = txt;
     this.btn.box = Box.from(this.#computePosition(this.txt, pos));
