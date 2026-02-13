@@ -10,7 +10,7 @@ import fs from 'fs';
 import { execSync } from 'child_process';
 import { WebSocketServer } from 'ws';
 import { healthHandler, bakeHandler, statusHandler, bakeCompleteHandler, bakeStatusHandler, getActiveBakes, getIncomingBakes, getRecentBakes, subscribeToUpdates, cleanupStaleBakes } from './baker.mjs';
-import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus, getFrozenPieces, clearFrozenPiece, getLatestOGImageUrl, regenerateOGImagesBackground, generateKidlispBackdrop, getLatestBackdropUrl, APP_SCREENSHOT_PRESETS, generateNotepatOGImage, getLatestNotepatOGUrl } from './grabber.mjs';
+import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, getAllProgress, getConcurrencyStatus, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus, getFrozenPieces, clearFrozenPiece, getLatestOGImageUrl, regenerateOGImagesBackground, generateKidlispBackdrop, getLatestBackdropUrl, APP_SCREENSHOT_PRESETS, generateNotepatOGImage, getLatestNotepatOGUrl } from './grabber.mjs';
 import archiver from 'archiver';
 import { createBundle, createJSPieceBundle, createM4DBundle, generateDeviceHTML, prewarmCache, getCacheStatus, setSkipMinification } from './bundler.mjs';
 
@@ -216,1204 +216,592 @@ app.use((req, res, next) => {
   next();
 });
 
-// Unified dashboard HTML - everything is a "bake"
+// Oven TV dashboard — live-updating visual bake monitor
 app.get('/', (req, res) => {
+  res.setHeader('Content-Type', 'text/html');
+  res.send(OVEN_TV_HTML);
+});
+
+const OVEN_TV_HTML = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>oven</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root {
+      --bg: #f7f7f7;
+      --bg-deep: #ececec;
+      --bg-card: #fff;
+      --bg-hover: #f0f0f0;
+      --text: #111;
+      --text-secondary: #555;
+      --text-muted: #888;
+      --text-dim: #aaa;
+      --border: #ddd;
+      --border-subtle: #e8e8e8;
+      --accent: rgb(205, 92, 155);
+      --accent-hover: rgb(220, 110, 170);
+      --success: #2a9a2a;
+      --error: #c44;
+      --preview-bg: #e0e0e0;
+      --overlay-bg: rgba(255,255,255,0.92);
+      --scrollbar: transparent;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1e1e1e;
+        --bg-deep: #161616;
+        --bg-card: #252526;
+        --bg-hover: #2a2a2a;
+        --text: #d4d4d4;
+        --text-secondary: #888;
+        --text-muted: #666;
+        --text-dim: #444;
+        --border: #3e3e42;
+        --border-subtle: #2e2e32;
+        --accent: rgb(205, 92, 155);
+        --accent-hover: rgb(225, 115, 175);
+        --success: #4caf50;
+        --error: #f44;
+        --preview-bg: #111;
+        --overlay-bg: rgba(0,0,0,0.88);
+      }
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    ::-webkit-scrollbar { display: none; }
+
+    body {
+      font-family: 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
+      font-size: 12px;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .status-bar {
+      background: var(--bg-deep);
+      border-bottom: 2px solid var(--accent);
+      padding: 5px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      gap: 8px;
+    }
+    .status-bar .title { color: var(--accent); font-weight: bold; font-size: 1.05em; }
+    .status-bar .stats { display: flex; gap: 12px; color: var(--text-muted); font-size: 0.9em; }
+    .status-bar .stats span { white-space: nowrap; }
+    .status-bar .stats .active { color: var(--success); }
+    .status-bar .stats .queued { color: var(--accent); }
+    .sb-btn {
+      background: var(--bg-card); color: var(--text-secondary); border: 1px solid var(--border);
+      padding: 3px 8px; cursor: pointer; font-family: inherit; font-size: 0.85em;
+      border-radius: 3px; text-decoration: none; display: inline-block;
+    }
+    .sb-btn:hover { color: var(--text); border-color: var(--accent); }
+
+    .hero {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 16px;
+      min-height: 0;
+      overflow: hidden;
+      flex-wrap: wrap;
+    }
+    .hero.idle { color: var(--text-dim); font-size: 1.2em; }
+    .hero-card {
+      background: var(--bg-card);
+      border: 2px solid var(--border);
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px;
+      min-width: 160px;
+      max-width: 260px;
+      flex: 1;
+    }
+    .hero-card.capturing { border-color: var(--accent); }
+    .hero-card .preview {
+      width: 120px;
+      height: 120px;
+      background: var(--preview-bg);
+      border-radius: 3px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 8px;
+    }
+    .hero-card .preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      image-rendering: pixelated;
+    }
+    .hero-card .preview .placeholder { color: var(--text-dim); font-size: 1.6em; }
+    .hero-card .info { text-align: center; width: 100%; }
+    .hero-card .piece-name { color: var(--accent); font-weight: bold; margin-bottom: 3px; font-size: 0.95em; }
+    .hero-card .stage { color: var(--text-muted); font-size: 0.85em; margin-bottom: 6px; }
+    .hero-card .progress-bar {
+      width: 100%;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .hero-card .progress-bar .fill {
+      height: 100%;
+      background: var(--accent);
+      transition: width 0.3s ease;
+    }
+
+    .strip {
+      background: var(--bg-deep);
+      border-top: 1px solid var(--border);
+      padding: 5px 12px;
+      flex-shrink: 0;
+    }
+    .strip-label {
+      color: var(--text-muted);
+      font-size: 0.75em;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+    .strip-items {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+    }
+    .strip-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 2px 8px;
+      white-space: nowrap;
+      font-size: 0.85em;
+      flex-shrink: 0;
+    }
+    .strip-item.queue { color: var(--accent); }
+    .strip-empty { color: var(--text-dim); font-size: 0.85em; padding: 2px 0; }
+
+    .history {
+      background: var(--bg-deep);
+      border-top: 1px solid var(--border);
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 0;
+    }
+    .history .strip-label { padding: 5px 12px 3px; }
+    .history-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 5px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .history-row:hover { background: var(--bg-hover); }
+    .history-row .h-thumb {
+      width: 44px;
+      height: 44px;
+      border-radius: 3px;
+      background: var(--bg-card);
+      flex-shrink: 0;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .history-row .h-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      image-rendering: pixelated;
+    }
+    .history-row .h-thumb .h-none { color: var(--text-dim); font-size: 1em; }
+    .history-row .h-main { flex: 1; min-width: 0; }
+    .history-row .h-piece { font-weight: bold; font-size: 0.9em; }
+    .history-row .h-piece a { color: inherit; text-decoration: none; }
+    .history-row .h-piece a:hover { text-decoration: underline; }
+    .history-row .h-meta { color: var(--text-muted); font-size: 0.78em; margin-top: 2px; display: flex; gap: 10px; flex-wrap: wrap; }
+    .history-row .h-meta span { white-space: nowrap; }
+    .history-row .h-error { color: var(--error); font-size: 0.78em; margin-top: 2px; opacity: 0.8; }
+    .history-row .h-links { margin-top: 2px; display: flex; gap: 8px; }
+    .history-row .h-links a { color: var(--accent); font-size: 0.78em; text-decoration: none; }
+    .history-row .h-links a:hover { text-decoration: underline; }
+    .history-row .h-right {
+      flex-shrink: 0;
+      text-align: right;
+      font-size: 0.8em;
+    }
+    .history-row .h-status-done { color: var(--success); }
+    .history-row .h-status-failed { color: var(--error); }
+    .history-row .h-status-other { color: var(--text-muted); }
+    .history-row .h-ago { color: var(--text-dim); font-size: 0.85em; }
+
+    .capture-bar { display: none; }
+
+    .log-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: var(--overlay-bg);
+      z-index: 200;
+      padding: 32px 16px 16px;
+      overflow-y: auto;
+    }
+    .log-overlay.open { display: block; }
+    .log-overlay .close {
+      position: fixed;
+      top: 6px;
+      right: 12px;
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-size: 1.3em;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .log-entry {
+      padding: 1px 0;
+      font-size: 0.82em;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .log-entry .time { color: var(--text-muted); }
+    .log-entry.error { color: var(--error); }
+    .log-entry.success { color: var(--success); }
+  </style>
+</head>
+<body>
+
+  <div class="status-bar">
+    <span class="title">oven</span>
+    <div class="stats">
+      <span class="active" id="stat-active">0/6 active</span>
+      <span class="queued" id="stat-queued">0 queued</span>
+      <span id="stat-uptime">--</span>
+      <span id="stat-version">--</span>
+    </div>
+    <div style="display:flex;gap:4px">
+      <a href="/tools" class="sb-btn">Tools</a>
+      <button class="sb-btn" id="log-btn" onclick="document.getElementById('log-overlay').classList.toggle('open')">Log</button>
+    </div>
+  </div>
+
+  <div class="hero idle" id="hero">Waiting for grabs...</div>
+
+  <div class="strip" id="queue-strip">
+    <div class="strip-label">Up Next</div>
+    <div class="strip-items" id="queue-items">
+      <span class="strip-empty">No items queued</span>
+    </div>
+  </div>
+
+  <div class="history" id="history">
+    <div class="strip-label">Recent</div>
+    <div id="history-items">
+      <span class="strip-empty">No recent grabs</span>
+    </div>
+  </div>
+
+  <div class="log-overlay" id="log-overlay">
+    <button class="close" onclick="this.parentElement.classList.remove('open')">x</button>
+    <div id="log-entries"></div>
+  </div>
+
+  <script>
+    let serverVersion = null;
+    let ws = null;
+    let reconnectTimer = null;
+
+    function connect() {
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(proto + '//' + location.host + '/ws');
+
+      ws.onopen = () => {
+        document.getElementById('stat-version').textContent = 'connected';
+        document.getElementById('stat-version').style.color = 'var(--success)';
+        if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+      };
+
+      ws.onclose = () => {
+        document.getElementById('stat-version').textContent = 'disconnected';
+        document.getElementById('stat-version').style.color = 'var(--error)';
+        reconnectTimer = setTimeout(connect, 2000);
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.logEntry) { addLog(data.logEntry); return; }
+        if (serverVersion && data.version && data.version !== serverVersion) {
+          location.reload();
+          return;
+        }
+        serverVersion = data.version;
+
+        if (data.recentLogs) {
+          data.recentLogs.forEach(addLog);
+        }
+
+        updateStatusBar(data);
+        renderHero(data.grabProgress || {});
+        renderQueue(data.grabs?.queue || []);
+        renderHistory(data.grabs?.recent || []);
+      };
+    }
+
+    function updateStatusBar(data) {
+      const c = data.concurrency || {};
+      document.getElementById('stat-active').textContent = (c.active || 0) + '/' + (c.max || 6) + ' active';
+      document.getElementById('stat-queued').textContent = (c.queueDepth || 0) + ' queued';
+
+      if (data.uptime) {
+        const s = Math.floor(data.uptime / 1000);
+        const m = Math.floor(s / 60);
+        const h = Math.floor(m / 60);
+        const d = Math.floor(h / 24);
+        let upStr;
+        if (d > 0) upStr = d + 'd ' + (h % 24) + 'h';
+        else if (h > 0) upStr = h + 'h ' + (m % 60) + 'm';
+        else upStr = m + 'm ' + (s % 60) + 's';
+        document.getElementById('stat-uptime').textContent = 'up ' + upStr;
+      }
+      if (data.version) {
+        document.getElementById('stat-version').textContent = data.version;
+        document.getElementById('stat-version').style.color = 'var(--text-muted)';
+      }
+    }
+
+    function renderHero(grabProgress) {
+      const hero = document.getElementById('hero');
+      const entries = Object.entries(grabProgress).filter(([, p]) => p.stage);
+
+      if (entries.length === 0) {
+        hero.className = 'hero idle';
+        hero.innerHTML = 'Waiting for grabs...';
+        return;
+      }
+
+      hero.className = 'hero';
+      hero.innerHTML = entries.map(([grabId, p]) => {
+        const previewSrc = p.previewFrame
+          ? 'data:image/jpeg;base64,' + p.previewFrame
+          : '';
+        const previewHTML = previewSrc
+          ? '<img src="' + previewSrc + '" alt="preview">'
+          : '<span class="placeholder">...</span>';
+        const stageLabel = p.stage ? (p.stage.charAt(0).toUpperCase() + p.stage.slice(1)) : '';
+        const detail = p.stageDetail || '';
+        const pct = p.percent || 0;
+
+        return '<div class="hero-card' + (p.stage === 'capturing' ? ' capturing' : '') + '">' +
+          '<div class="preview">' + previewHTML + '</div>' +
+          '<div class="info">' +
+            '<div class="piece-name">' + esc(p.piece || grabId) + '</div>' +
+            '<div class="stage">' + esc(stageLabel + (detail ? ' — ' + detail : '')) + '</div>' +
+            '<div class="progress-bar"><div class="fill" style="width:' + pct + '%"></div></div>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    function renderQueue(queue) {
+      const el = document.getElementById('queue-items');
+      if (!queue || queue.length === 0) {
+        el.innerHTML = '<span class="strip-empty">No items queued</span>';
+        return;
+      }
+      el.innerHTML = queue.map((item, i) =>
+        '<div class="strip-item queue">' +
+          '#' + (i + 1) + ' ' + esc(item.piece || '?') +
+          ' <span style="color:var(--text-muted)">(' + esc(item.format || '?') + ')</span>' +
+          (item.estimatedWait ? ' <span style="color:var(--text-dim)">~' + Math.ceil(item.estimatedWait / 1000) + 's</span>' : '') +
+        '</div>'
+      ).join('');
+    }
+
+    function renderHistory(recent) {
+      const el = document.getElementById('history-items');
+      if (!recent || recent.length === 0) {
+        el.innerHTML = '<span class="strip-empty" style="padding:5px 12px">No recent grabs</span>';
+        return;
+      }
+      el.innerHTML = recent.slice(0, 30).map(grab => {
+        const thumbImg = grab.cdnUrl
+          ? '<img src="' + esc(grab.cdnUrl) + '" alt="">'
+          : '<span class="h-none">--</span>';
+
+        const pieceClass = grab.status === 'failed' ? 'h-status-failed' : '';
+
+        const dur = grab.duration ? Math.round(grab.duration / 1000) + 's' : '';
+        const dim = grab.dimensions ? grab.dimensions.width + 'x' + grab.dimensions.height : '';
+        const fmt = (grab.format || '').toUpperCase();
+        const size = grab.size ? (grab.size > 1024*1024 ? (grab.size/1024/1024).toFixed(1)+'MB' : Math.round(grab.size/1024)+'KB') : '';
+
+        const metaParts = [fmt, dim, dur, size].filter(Boolean);
+        const metaHTML = metaParts.map(m => '<span>' + esc(m) + '</span>').join('');
+
+        const errorHTML = grab.error
+          ? '<div class="h-error">' + esc(grab.error) + '</div>'
+          : '';
+
+        let linksHTML = '';
+        if (grab.cdnUrl) {
+          linksHTML = '<div class="h-links">' +
+            '<a href="' + esc(grab.cdnUrl) + '" target="_blank">Open</a>' +
+            '<a href="' + esc(grab.cdnUrl) + '" download>Download</a>' +
+          '</div>';
+        }
+
+        const statusClass = grab.status === 'complete' ? 'h-status-done' :
+                             grab.status === 'failed' ? 'h-status-failed' : 'h-status-other';
+        const statusLabel = grab.status === 'complete' ? 'done' :
+                            grab.status === 'failed' ? 'failed' :
+                            esc(grab.status || '?');
+
+        const ago = grab.completedAt ? timeAgo(grab.completedAt) : '';
+
+        const pieceName = esc(grab.piece || grab.id || '?');
+        const pieceLink = grab.cdnUrl
+          ? '<a href="' + esc(grab.cdnUrl) + '" target="_blank">' + pieceName + '</a>'
+          : pieceName;
+
+        return '<div class="history-row">' +
+          '<div class="h-thumb">' + thumbImg + '</div>' +
+          '<div class="h-main">' +
+            '<div class="h-piece ' + pieceClass + '">' + pieceLink + '</div>' +
+            '<div class="h-meta">' + metaHTML + '</div>' +
+            errorHTML +
+            linksHTML +
+          '</div>' +
+          '<div class="h-right">' +
+            '<div class="' + statusClass + '">' + statusLabel + '</div>' +
+            '<div class="h-ago">' + esc(ago) + '</div>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    function timeAgo(ts) {
+      const s = Math.floor((Date.now() - ts) / 1000);
+      if (s < 60) return s + 's ago';
+      const m = Math.floor(s / 60);
+      if (m < 60) return m + 'm ago';
+      const h = Math.floor(m / 60);
+      if (h < 24) return h + 'h ago';
+      return Math.floor(h / 24) + 'd ago';
+    }
+
+    function addLog(entry) {
+      if (!entry) return;
+      const el = document.getElementById('log-entries');
+      const div = document.createElement('div');
+      div.className = 'log-entry' + (entry.type === 'error' ? ' error' : entry.type === 'success' ? ' success' : '');
+      const time = entry.time ? new Date(entry.time).toLocaleTimeString() : '';
+      div.innerHTML = '<span class="time">' + time + '</span> ' + esc((entry.icon || '') + ' ' + (entry.msg || ''));
+      el.prepend(div);
+      while (el.children.length > 200) el.removeChild(el.lastChild);
+    }
+
+    function esc(s) {
+      if (!s) return '';
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    connect();
+  </script>
+</body>
+</html>`;
+
+// Tools submenu — links to OG images, app screenshots, bundles, status pages
+app.get('/tools', (req, res) => {
   res.setHeader('Content-Type', 'text/html');
   res.send(`<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>🔥 Oven</title>
+  <title>oven / tools</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
+    :root {
+      --bg: #f7f7f7; --text: #111; --text-muted: #888; --text-dim: #aaa;
+      --accent: rgb(205, 92, 155); --border: #ddd;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1e1e1e; --text: #d4d4d4; --text-muted: #666; --text-dim: #444;
+        --accent: rgb(205, 92, 155); --border: #3e3e42;
+      }
+    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    ::-webkit-scrollbar { display: none; }
-    
-    body {
-      font-family: monospace;
-      font-size: 14px;
-      background: #000;
-      color: #fff;
-      min-height: 100vh;
-    }
-    
-    /* Header */
-    header {
-      position: sticky;
-      top: 0;
-      background: #000;
-      border-bottom: 2px solid yellow;
-      padding: 0.8em 1em;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      z-index: 100;
-    }
-    
-    .logo {
-      font-size: 1.5em;
-      color: yellow;
-      text-decoration: none;
-    }
-    
-    .status {
-      display: flex;
-      align-items: center;
-      gap: 1em;
-      font-size: 0.85em;
-    }
-    
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #666;
-    }
-    
-    .status-dot.connected { background: #4f4; }
-    .status-dot.disconnected { background: #f44; animation: pulse 1s infinite; }
-    
-    .version { opacity: 0.5; }
-    
-    /* Queue stats */
-    .stats {
-      display: flex;
-      gap: 1.5em;
-      padding: 0.8em 1em;
-      background: #111;
-      border-bottom: 1px solid #333;
-      font-size: 0.85em;
-    }
-    
-    .stat {
-      display: flex;
-      align-items: center;
-      gap: 0.4em;
-    }
-    
-    .stat-num {
-      color: yellow;
-      font-weight: bold;
-    }
-    
-    /* Bake grid */
-    .bakes {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 1em;
-      padding: 1em;
-    }
-    
-    /* Bake card */
-    .bake {
-      background: #111;
-      border: 1px solid #333;
-      border-radius: 4px;
-      overflow: hidden;
-      transition: border-color 0.2s;
-    }
-    
-    .bake:hover { border-color: #555; }
-    .bake.active { border-color: yellow; }
-    .bake.queued { border-color: #66f; }
-    .bake.error { border-color: #f44; }
-    
-    /* Preview area */
-    .bake-preview {
-      aspect-ratio: 16/9;
-      background: #000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-      overflow: hidden;
-    }
-    
-    .bake-preview img,
-    .bake-preview video {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-    }
-    
-    .bake-preview .loading {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(0,0,0,0.8);
-    }
-    
-    .spinner {
-      width: 24px;
-      height: 24px;
-      border: 2px solid #333;
-      border-top-color: yellow;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-    
-    @keyframes spin { to { transform: rotate(360deg); } }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-    
-    /* Bake info */
-    .bake-info {
-      padding: 0.8em;
-    }
-    
-    .bake-title {
-      display: flex;
-      align-items: center;
-      gap: 0.5em;
-      margin-bottom: 0.4em;
-    }
-    
-    .bake-title a {
-      color: #fff;
-      text-decoration: none;
-      font-weight: bold;
-    }
-    
-    .bake-title a:hover { color: yellow; }
-    
-    .bake-type {
-      font-size: 0.7em;
-      padding: 0.2em 0.5em;
-      background: #333;
-      border-radius: 2px;
-      text-transform: uppercase;
-    }
-    
-    .bake-type.tape { background: #306; }
-    .bake-type.icon { background: #063; }
-    .bake-type.preview { background: #630; }
-    .bake-type.grab { background: #360; }
-    
-    .bake-meta {
-      font-size: 0.8em;
-      opacity: 0.6;
-      display: flex;
-      gap: 1em;
-    }
-    
-    .bake-status {
-      margin-top: 0.5em;
-      font-size: 0.75em;
-      padding: 0.3em 0.6em;
-      background: rgba(255,255,0,0.1);
-      border: 1px solid yellow;
-      display: inline-block;
-    }
-    
-    .bake-status.queued {
-      background: rgba(100,100,255,0.1);
-      border-color: #66f;
-      color: #66f;
-    }
-    
-    .bake-status.error {
-      background: rgba(255,0,0,0.1);
-      border-color: #f44;
-      color: #f44;
-    }
-    
-    .bake-links {
-      margin-top: 0.5em;
-      font-size: 0.75em;
-      display: flex;
-      gap: 0.8em;
-    }
-    
-    .bake-links a {
-      color: #66f;
-      text-decoration: none;
-    }
-    
-    .bake-links a:hover { text-decoration: underline; }
-    
-    .empty {
-      grid-column: 1 / -1;
-      text-align: center;
-      padding: 3em;
-      opacity: 0.5;
-    }
-    
-    /* Activity Log */
-    .activity-panel {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: #0a0a0a;
-      border-top: 2px solid #333;
-      max-height: 200px;
-      overflow: hidden;
-      transition: max-height 0.3s ease;
-      z-index: 99;
-    }
-    
-    .activity-panel.collapsed {
-      max-height: 32px;
-    }
-    
-    .activity-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0.4em 1em;
-      background: #111;
-      border-bottom: 1px solid #333;
-      cursor: pointer;
-      user-select: none;
-    }
-    
-    .activity-header:hover {
-      background: #1a1a1a;
-    }
-    
-    .activity-title {
-      display: flex;
-      align-items: center;
-      gap: 0.5em;
-    }
-    
-    .activity-title .pulse {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #4f4;
-      animation: pulse 2s infinite;
-    }
-    
-    .activity-stats {
-      display: flex;
-      gap: 1em;
-      font-size: 0.75em;
-      opacity: 0.7;
-    }
-    
-    .activity-stats span {
-      display: flex;
-      align-items: center;
-      gap: 0.3em;
-    }
-    
-    .activity-controls {
-      display: flex;
-      gap: 0.5em;
-      align-items: center;
-    }
-    
-    .activity-controls button {
-      background: #222;
-      border: 1px solid #333;
-      color: #888;
-      padding: 0.2em 0.5em;
-      font-size: 0.75em;
-      cursor: pointer;
-      border-radius: 3px;
-    }
-    
-    .activity-controls button:hover {
-      background: #333;
-      color: #fff;
-    }
-    
-    .activity-log {
-      height: 168px;
-      overflow-y: auto;
-      font-size: 0.75em;
-      padding: 0.5em;
-    }
-    
-    .activity-log::-webkit-scrollbar {
-      width: 6px;
-    }
-    
-    .activity-log::-webkit-scrollbar-thumb {
-      background: #333;
-      border-radius: 3px;
-    }
-    
-    .log-entry {
-      padding: 0.2em 0.4em;
-      border-radius: 2px;
-      margin-bottom: 0.2em;
-      display: flex;
-      gap: 0.5em;
-      align-items: flex-start;
-    }
-    
-    .log-entry:hover {
-      background: #1a1a1a;
-    }
-    
-    .log-time {
-      color: #666;
-      flex-shrink: 0;
-      font-family: monospace;
-    }
-    
-    .log-icon {
-      flex-shrink: 0;
-    }
-    
-    .log-msg {
-      flex: 1;
-      word-break: break-word;
-    }
-    
-    .log-entry.info .log-msg { color: #aaa; }
-    .log-entry.success .log-msg { color: #4f4; }
-    .log-entry.warning .log-msg { color: #fa0; }
-    .log-entry.error .log-msg { color: #f44; }
-    .log-entry.capture .log-msg { color: #6bf; }
-    .log-entry.queue .log-msg { color: #b6f; }
-    
-    /* Add padding to bakes grid when activity panel is open */
-    .bakes {
-      padding-bottom: 220px;
-    }
-    
-    .filters {
-      display: flex;
-      gap: 1em;
-      padding: 0.5em 1em;
-      background: #0a0a0a;
-      border-bottom: 1px solid #222;
-      font-size: 0.85em;
-    }
-    
-    .filters label {
-      display: flex;
-      align-items: center;
-      gap: 0.3em;
-      cursor: pointer;
-      opacity: 0.7;
-    }
-    
-    .filters label:hover { opacity: 1; }
-    
-    .filters input[type="checkbox"] {
-      accent-color: yellow;
-    }
-    
-    /* Frozen Pieces Panel */
-    .frozen-panel {
-      background: #1a0f0f;
-      border: 1px solid #3a1a1a;
-      border-radius: 6px;
-      margin: 0.5em 1em;
-    }
-    
-    .frozen-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0.5em 0.8em;
-      cursor: pointer;
-      border-bottom: 1px solid #3a1a1a;
-    }
-    
-    .frozen-header:hover { background: #2a1515; }
-    
-    .frozen-title {
-      display: flex;
-      align-items: center;
-      gap: 0.8em;
-    }
-    
-    .frozen-count {
-      background: #f44;
-      color: #000;
-      font-weight: bold;
-      padding: 0.1em 0.5em;
-      border-radius: 10px;
-      font-size: 0.85em;
-    }
-    
-    .frozen-list {
-      max-height: 300px;
-      overflow-y: auto;
-      padding: 0.5em;
-    }
-    
-    .frozen-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0.4em 0.6em;
-      background: #200a0a;
-      border-radius: 4px;
-      margin-bottom: 0.3em;
-      font-size: 0.9em;
-      gap: 0.8em;
-    }
-    
-    .frozen-item:hover { background: #2a1212; }
-    
-    .frozen-preview {
-      width: 48px;
-      height: 48px;
-      object-fit: cover;
-      border-radius: 4px;
-      border: 1px solid #3a1a1a;
-      flex-shrink: 0;
-    }
-    
-    .frozen-no-preview {
-      width: 48px;
-      height: 48px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #1a0808;
-      border-radius: 4px;
-      border: 1px solid #3a1a1a;
-      flex-shrink: 0;
-      font-size: 1.5em;
-      opacity: 0.5;
-    }
-    
-    .frozen-item-name {
-      color: #f88;
-      font-family: monospace;
-      flex: 1;
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    
-    .frozen-item-info {
-      color: #888;
-      font-size: 0.8em;
-      display: flex;
-      gap: 0.8em;
-      align-items: center;
-    }
-    
-    .frozen-item-actions {
-      display: flex;
-      gap: 0.5em;
-    }
-    
-    .frozen-item-actions a, .frozen-item-actions button {
-      color: #888;
-      text-decoration: none;
-      font-size: 0.85em;
-      background: none;
-      border: 1px solid #444;
-      padding: 0.2em 0.5em;
-      border-radius: 3px;
-      cursor: pointer;
-    }
-    
-    .frozen-item-actions a:hover, .frozen-item-actions button:hover {
-      color: #fff;
-      border-color: #666;
-    }
-    
-    .frozen-item-actions .clear-btn { color: #4f4; border-color: #4f4; }
-    .frozen-item-actions .clear-btn:hover { background: #4f4; color: #000; }
-    
-    ${PROGRESS_UI_CSS}
+    body { font-family: 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace; font-size: 12px; background: var(--bg); color: var(--text); padding: 20px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    h1 { color: var(--accent); margin-bottom: 20px; font-size: 1.1em; }
+    h1 a { color: var(--text-muted); }
+    h2 { color: var(--text-muted); margin: 16px 0 6px; font-size: 0.9em; text-transform: uppercase; letter-spacing: 1px; }
+    .links { display: flex; flex-direction: column; gap: 4px; margin-left: 10px; }
+    .links a { padding: 2px 0; }
+    .desc { color: var(--text-dim); font-size: 0.85em; margin-left: 8px; }
+    hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
   </style>
 </head>
 <body>
-  <header>
-    <a href="/" class="logo">🔥 oven</a>
-    <nav style="display:flex;gap:1em;font-size:0.85em;">
-      <a href="/app-screenshots?piece=prompt" style="color:#88f;text-decoration:none;">📱 App Screenshots</a>
-      <a href="/og-preview" style="color:#88f;text-decoration:none;">🖼️ OG Images</a>
-    </nav>
-    <div class="status">
-      <div class="status-dot" id="ws-dot"></div>
-      <span id="ws-text">Connecting...</span>
-      <span id="uptime" style="opacity:0.5"></span>
-      <span class="version" id="version"></span>
-    </div>
-  </header>
-  
-  <div id="reboot-banner" style="display:none;background:rgba(255,200,0,0.15);color:#fa0;padding:0.4em 1em;text-align:center;font-size:0.85em;border-bottom:1px solid #333;">
-    ⚡ Server recently rebooted · queue restored from database
+  <h1><a href="/">oven</a> / tools</h1>
+
+  <h2>OG Images</h2>
+  <div class="links">
+    <div><a href="/kidlisp-og.png">/kidlisp-og.png</a><span class="desc">KidLisp OG image</span></div>
+    <div><a href="/kidlisp-og">/kidlisp-og</a><span class="desc">KidLisp OG HTML page</span></div>
+    <div><a href="/kidlisp-og/status">/kidlisp-og/status</a><span class="desc">OG cache status</span></div>
+    <div><a href="/kidlisp-og/preview">/kidlisp-og/preview</a><span class="desc">OG preview</span></div>
+    <div><a href="/og-preview">/og-preview</a><span class="desc">OG preview (alt)</span></div>
+    <div><a href="/notepat-og.png">/notepat-og.png</a><span class="desc">Notepat OG image</span></div>
+    <div><a href="/kidlisp-backdrop.webp">/kidlisp-backdrop.webp</a><span class="desc">KidLisp backdrop animation</span></div>
+    <div><a href="/kidlisp-backdrop">/kidlisp-backdrop</a><span class="desc">KidLisp backdrop page</span></div>
   </div>
-  
-  <div class="manual-capture" style="padding:0.8em 1em;background:#0a0a0a;border-bottom:1px solid #222;">
-    <form id="capture-form" style="display:flex;gap:0.5em;align-items:center;flex-wrap:wrap;">
-      <input type="text" id="capture-piece" placeholder="piece (e.g. $roz or wiggle)" 
-        style="flex:1;min-width:150px;padding:0.4em 0.6em;background:#111;border:1px solid #333;color:#fff;font-family:monospace;border-radius:3px;">
-      <select id="capture-format" style="padding:0.4em;background:#111;border:1px solid #333;color:#fff;font-family:monospace;border-radius:3px;">
-        <option value="png">PNG (still)</option>
-        <option value="webp" selected>WebP (animated)</option>
-        <option value="gif">GIF (animated)</option>
-      </select>
-      <select id="capture-resolution" style="padding:0.4em;background:#111;border:1px solid #333;color:#fff;font-family:monospace;border-radius:3px;">
-        <option value="128">128×128</option>
-        <option value="256">256×256</option>
-        <option value="512" selected>512×512</option>
-        <option value="768">768×768</option>
-        <option value="1024">1024×1024</option>
-        <option value="custom">Custom...</option>
-      </select>
-      <input type="number" id="capture-width" value="512" min="64" max="2048" step="1"
-        style="display:none;width:60px;padding:0.4em;background:#111;border:1px solid #333;color:#fff;font-family:monospace;border-radius:3px;text-align:center;"
-        title="Width">
-      <span id="custom-x" style="display:none;opacity:0.5;">×</span>
-      <input type="number" id="capture-height" value="512" min="64" max="2048" step="1"
-        style="display:none;width:60px;padding:0.4em;background:#111;border:1px solid #333;color:#fff;font-family:monospace;border-radius:3px;text-align:center;"
-        title="Height">
-      <input type="number" id="capture-duration" value="12" min="1" max="12" step="1"
-        style="width:50px;padding:0.4em;background:#111;border:1px solid #333;color:#fff;font-family:monospace;border-radius:3px;text-align:center;"
-        title="Duration in seconds (max 12)">
-      <span style="opacity:0.5;font-size:0.85em;">sec</span>
-      <button type="submit" style="padding:0.4em 1em;background:#fa0;color:#000;border:none;font-family:monospace;font-weight:bold;border-radius:3px;cursor:pointer;">
-        🔥 Bake
-      </button>
-      <a href="https://aesthetic.computer/prompt" style="margin-left:auto;color:#666;text-decoration:none;font-size:0.85em;" title="Back to prompt">← prompt</a>
-    </form>
-    <div id="capture-status" style="display:none;margin-top:0.5em;font-size:0.85em;"></div>
-    <div id="capture-preview" style="display:none;margin-top:0.5em;position:relative;height:100px;background:#0a0a0a;border-radius:4px;overflow:hidden;">
-      <div class="oven-loading" style="position:relative;height:100%;">
-        <img class="preview-img" alt="preview">
-        <span class="loading-text">🔥 Loading...</span>
-        <div class="progress-text"></div>
-        <div class="progress-bar"><div class="progress-bar-fill"></div></div>
-      </div>
-    </div>
+
+  <h2>App Screenshots</h2>
+  <div class="links">
+    <div><a href="/app-screenshots">/app-screenshots</a><span class="desc">Screenshot dashboard</span></div>
   </div>
-  
-  <div class="stats">
-    <div class="stat"><span class="stat-num" id="queue-count">0</span> queued</div>
-    <div class="stat"><span class="stat-num" id="active-count">0</span> baking</div>
-    <div class="stat"><span class="stat-num" id="complete-count">0</span> complete</div>
+
+  <h2>Bundles</h2>
+  <div class="links">
+    <div><a href="/bundle-status">/bundle-status</a><span class="desc">Bundle cache status</span></div>
+    <div><a href="/bundle-html?piece=prompt">/bundle-html?piece=...</a><span class="desc">Generate HTML bundle (SSE)</span></div>
   </div>
-  
-  <div class="filters">
-    <label><input type="checkbox" id="show-tape" checked onchange="applyFilters()"> tape</label>
-    <label><input type="checkbox" id="show-grab" checked onchange="applyFilters()"> grab</label>
-    <label><input type="checkbox" id="show-icon" checked onchange="applyFilters()"> icon</label>
-    <label><input type="checkbox" id="show-preview" checked onchange="applyFilters()"> preview</label>
+
+  <h2>Grabs</h2>
+  <div class="links">
+    <div><a href="/grab-status">/grab-status</a><span class="desc">Active grabs + queue (JSON)</span></div>
+    <div><a href="/api/frozen">/api/frozen</a><span class="desc">Frozen pieces list</span></div>
+    <div><a href="/keeps/all">/keeps/all</a><span class="desc">All latest IPFS uploads</span></div>
+    <div><a href="/keeps/latest">/keeps/latest</a><span class="desc">Latest keep thumbnail</span></div>
   </div>
-  
-  <!-- Frozen Pieces Panel -->
-  <div class="frozen-panel" id="frozen-panel" style="display:none;">
-    <div class="frozen-header" onclick="toggleFrozenPanel()">
-      <div class="frozen-title">
-        <span>🥶 Frozen Pieces</span>
-        <span class="frozen-count" id="frozen-count">0</span>
-      </div>
-      <span id="frozen-toggle">▶</span>
-    </div>
-    <div class="frozen-list" id="frozen-list" style="display:none;"></div>
+
+  <h2>Status</h2>
+  <div class="links">
+    <div><a href="/health">/health</a><span class="desc">Health check</span></div>
+    <div><a href="/status">/status</a><span class="desc">Server status + recent bakes</span></div>
   </div>
-  
-  <div class="bakes" id="bakes"></div>
-  
-  <!-- Activity Log Panel -->
-  <div class="activity-panel" id="activity-panel">
-    <div class="activity-header" onclick="toggleActivityPanel()">
-      <div class="activity-title">
-        <div class="pulse" id="activity-pulse"></div>
-        <span>📜 Activity</span>
-        <div class="activity-stats">
-          <span id="log-count">0 events</span>
-          <span id="log-errors" style="color:#f44;display:none;">0 errors</span>
-          <span id="log-success" style="color:#4f4;display:none;">0 success</span>
-        </div>
-      </div>
-      <div class="activity-controls">
-        <button onclick="event.stopPropagation();clearActivityLog();" title="Clear log">🗑️</button>
-        <span id="activity-toggle">▼</span>
-      </div>
-    </div>
-    <div class="activity-log" id="activity-log"></div>
-  </div>
-  
-  <script>
-    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    let ws, reconnectAttempts = 0, serverVersion = null;
-    let allBakes = []; // Store all bakes for filtering
-    let activityLog = []; // Store activity entries
-    const MAX_LOG_ENTRIES = 200;
-    let activityCollapsed = false;
-    
-    // HTML escape helper
-    function escapeHtml(str) {
-      if (!str) return '';
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
-    
-    ${PROGRESS_UI_JS}
-    
-    // Activity log functions
-    function addLogEntry(type, icon, msg) {
-      const entry = {
-        time: new Date(),
-        type,
-        icon,
-        msg
-      };
-      activityLog.unshift(entry);
-      if (activityLog.length > MAX_LOG_ENTRIES) {
-        activityLog.pop();
-      }
-      renderActivityLog();
-      
-      // Pulse the indicator
-      const pulse = document.getElementById('activity-pulse');
-      pulse.style.background = type === 'error' ? '#f44' : type === 'success' ? '#4f4' : '#6bf';
-      setTimeout(() => { pulse.style.background = '#4f4'; }, 500);
-    }
-    
-    function renderActivityLog() {
-      const container = document.getElementById('activity-log');
-      const countEl = document.getElementById('log-count');
-      const errorsEl = document.getElementById('log-errors');
-      const successEl = document.getElementById('log-success');
-      
-      const errorCount = activityLog.filter(e => e.type === 'error').length;
-      const successCount = activityLog.filter(e => e.type === 'success').length;
-      
-      countEl.textContent = activityLog.length + ' events';
-      
-      if (errorCount > 0) {
-        errorsEl.textContent = errorCount + ' errors';
-        errorsEl.style.display = 'inline';
-      } else {
-        errorsEl.style.display = 'none';
-      }
-      
-      if (successCount > 0) {
-        successEl.textContent = successCount + ' success';
-        successEl.style.display = 'inline';
-      } else {
-        successEl.style.display = 'none';
-      }
-      
-      container.innerHTML = activityLog.map(e => {
-        const time = e.time.toLocaleTimeString('en-US', { hour12: false });
-        return '<div class="log-entry ' + e.type + '">' +
-          '<span class="log-time">' + time + '</span>' +
-          '<span class="log-icon">' + e.icon + '</span>' +
-          '<span class="log-msg">' + e.msg + '</span>' +
-        '</div>';
-      }).join('');
-    }
-    
-    function clearActivityLog() {
-      activityLog = [];
-      renderActivityLog();
-    }
-    
-    function toggleActivityPanel() {
-      const panel = document.getElementById('activity-panel');
-      const toggle = document.getElementById('activity-toggle');
-      activityCollapsed = !activityCollapsed;
-      panel.classList.toggle('collapsed', activityCollapsed);
-      toggle.textContent = activityCollapsed ? '▲' : '▼';
-    }
-    
-    // Frozen pieces panel
-    let frozenCollapsed = true;
-    let frozenPieces = [];
-    
-    function toggleFrozenPanel() {
-      frozenCollapsed = !frozenCollapsed;
-      const list = document.getElementById('frozen-list');
-      const toggle = document.getElementById('frozen-toggle');
-      list.style.display = frozenCollapsed ? 'none' : 'block';
-      toggle.textContent = frozenCollapsed ? '▶' : '▼';
-    }
-    
-    function updateFrozenPanel(pieces) {
-      frozenPieces = pieces || [];
-      const panel = document.getElementById('frozen-panel');
-      const countEl = document.getElementById('frozen-count');
-      const listEl = document.getElementById('frozen-list');
-      
-      if (frozenPieces.length === 0) {
-        panel.style.display = 'none';
-        return;
-      }
-      
-      panel.style.display = 'block';
-      countEl.textContent = frozenPieces.length;
-      
-      listEl.innerHTML = frozenPieces.map(p => {
-        const timeSince = formatTimeAgo(p.lastAttempt);
-        const previewHtml = p.previewUrl 
-          ? '<img class="frozen-preview" src="' + p.previewUrl + '?t=' + Date.now() + '" alt="frozen preview">' 
-          : '<span class="frozen-no-preview">🖼️</span>';
-        return '<div class="frozen-item">' +
-          previewHtml +
-          '<span class="frozen-item-name">' + escapeHtml(p.piece) + '</span>' +
-          '<span class="frozen-item-info">' +
-            '<span>' + p.attempts + ' attempt' + (p.attempts > 1 ? 's' : '') + '</span>' +
-            '<span>' + timeSince + '</span>' +
-          '</span>' +
-          '<span class="frozen-item-actions">' +
-            '<a href="https://aesthetic.computer/' + encodeURIComponent(p.piece) + '" target="_blank" title="View piece">👁️</a>' +
-            '<button class="clear-btn" onclick="clearFrozenPiece(\\''+escapeHtml(p.piece)+'\\');" title="Clear from list">✓</button>' +
-          '</span>' +
-        '</div>';
-      }).join('');
-    }
-    
-    function formatTimeAgo(timestamp) {
-      const diff = Date.now() - timestamp;
-      const mins = Math.floor(diff / 60000);
-      const hours = Math.floor(mins / 60);
-      const days = Math.floor(hours / 24);
-      if (days > 0) return days + 'd ago';
-      if (hours > 0) return hours + 'h ago';
-      if (mins > 0) return mins + 'm ago';
-      return 'just now';
-    }
-    
-    async function clearFrozenPiece(piece) {
-      try {
-        const res = await fetch('/api/frozen/' + encodeURIComponent(piece), { method: 'DELETE' });
-        if (res.ok) {
-          addLogEntry('success', '✅', 'Cleared frozen piece: ' + piece);
-          // Refresh the frozen list
-          const dataRes = await fetch('/api/frozen');
-          const data = await dataRes.json();
-          updateFrozenPanel(data.frozen);
-        } else {
-          addLogEntry('error', '❌', 'Failed to clear frozen piece: ' + piece);
-        }
-      } catch (err) {
-        addLogEntry('error', '❌', 'Error clearing frozen piece: ' + err.message);
-      }
-    }
-    
-    // Log initial connection
-    addLogEntry('info', '🔌', 'Dashboard loaded, connecting to server...');
-    
-    // Resolution selector handler
-    document.getElementById('capture-resolution').addEventListener('change', (e) => {
-      const widthInput = document.getElementById('capture-width');
-      const heightInput = document.getElementById('capture-height');
-      const customX = document.getElementById('custom-x');
-      
-      if (e.target.value === 'custom') {
-        widthInput.style.display = 'block';
-        heightInput.style.display = 'block';
-        customX.style.display = 'inline';
-      } else {
-        widthInput.style.display = 'none';
-        heightInput.style.display = 'none';
-        customX.style.display = 'none';
-        const size = parseInt(e.target.value);
-        widthInput.value = size;
-        heightInput.value = size;
-      }
-    });
-    
-    // Manual capture form handler
-    let captureInProgress = false;
-    const captureForm = document.getElementById('capture-form');
-    const captureBtn = captureForm.querySelector('button[type="submit"]');
-    
-    captureForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      
-      // Prevent multiple submissions
-      if (captureInProgress) return;
-      
-      const piece = document.getElementById('capture-piece').value.trim();
-      const format = document.getElementById('capture-format').value;
-      const duration = parseInt(document.getElementById('capture-duration').value) || 12;
-      const resolution = document.getElementById('capture-resolution').value;
-      const width = resolution === 'custom' 
-        ? parseInt(document.getElementById('capture-width').value) || 512
-        : parseInt(resolution);
-      const height = resolution === 'custom'
-        ? parseInt(document.getElementById('capture-height').value) || 512
-        : parseInt(resolution);
-      const statusEl = document.getElementById('capture-status');
-      
-      if (!piece) {
-        statusEl.style.display = 'block';
-        statusEl.style.color = '#f44';
-        statusEl.textContent = '❌ Please enter a piece name';
-        return;
-      }
-      
-      // Lock the form
-      captureInProgress = true;
-      captureBtn.disabled = true;
-      captureBtn.textContent = '⏳ Capturing...';
-      captureBtn.style.opacity = '0.5';
-      
-      // Show progress preview
-      const previewEl = document.getElementById('capture-preview');
-      const loadingEl = previewEl.querySelector('.oven-loading');
-      previewEl.style.display = 'block';
-      statusEl.style.display = 'none';
-      
-      // Start polling for progress updates
-      const pollInterval = setInterval(async () => {
-        try {
-          const res = await fetch('/grab-status');
-          const data = await res.json();
-          if (data.progress && data.progress.piece) {
-            // Check if this is our capture
-            if (data.progress.piece === piece || data.progress.piece === '$' + piece) {
-              updateOvenLoadingUI(loadingEl, data.progress, data.queue);
-            }
-          }
-        } catch (e) {}
-      }, 150);
-      
-      addLogEntry('capture', '📸', 'Manual capture started: ' + piece + ' (' + width + '×' + height + ' ' + format + ')');
-      
-      try {
-        const url = '/grab/' + format + '/' + width + '/' + height + '/' + encodeURIComponent(piece) + 
-          '?duration=' + (duration * 1000);
-        
-        const response = await fetch(url);
-        clearInterval(pollInterval);
-        
-        if (response.ok) {
-          statusEl.style.display = 'block';
-          statusEl.style.color = '#4f4';
-          statusEl.textContent = '✅ Capture complete! Check the grid below.';
-          previewEl.style.display = 'none';
-          addLogEntry('success', '✅', 'Capture complete: ' + piece);
-          setTimeout(() => { statusEl.style.display = 'none'; }, 3000);
-        } else {
-          const err = await response.json();
-          statusEl.style.display = 'block';
-          statusEl.style.color = '#f44';
-          statusEl.textContent = '❌ ' + (err.error || 'Capture failed');
-          previewEl.style.display = 'none';
-          addLogEntry('error', '❌', 'Capture failed: ' + piece + ' - ' + (err.error || 'Unknown error'));
-        }
-      } catch (err) {
-        clearInterval(pollInterval);
-        statusEl.style.display = 'block';
-        statusEl.style.color = '#f44';
-        statusEl.textContent = '❌ ' + err.message;
-        previewEl.style.display = 'none';
-        addLogEntry('error', '❌', 'Capture error: ' + err.message);
-      } finally {
-        // Unlock the form
-        captureInProgress = false;
-        captureBtn.disabled = false;
-        captureBtn.textContent = '📸 Capture';
-        captureBtn.style.opacity = '1';
-      }
-    });
-    
-    // Update duration field visibility based on format
-    document.getElementById('capture-format').addEventListener('change', (e) => {
-      const durationInput = document.getElementById('capture-duration');
-      const secLabel = durationInput.nextElementSibling;
-      if (e.target.value === 'png') {
-        durationInput.style.opacity = '0.3';
-        secLabel.style.opacity = '0.3';
-        durationInput.title = 'Duration not used for stills';
-      } else {
-        durationInput.style.opacity = '1';
-        secLabel.style.opacity = '0.5';
-        durationInput.title = 'Duration in seconds';
-      }
-    });
-    
-    function connect() {
-      ws = new WebSocket(protocol + '//' + location.host + '/ws');
-      
-      ws.onopen = () => {
-        document.getElementById('ws-dot').className = 'status-dot connected';
-        document.getElementById('ws-text').textContent = 'Connected';
-        reconnectAttempts = 0;
-        addLogEntry('success', '✅', 'WebSocket connected to server');
-      };
-      
-      ws.onclose = () => {
-        document.getElementById('ws-dot').className = 'status-dot disconnected';
-        document.getElementById('ws-text').textContent = 'Reconnecting...';
-        addLogEntry('warning', '⚠️', 'WebSocket disconnected, reconnecting...');
-        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
-        reconnectAttempts++;
-        setTimeout(connect, delay);
-      };
-      
-      ws.onerror = () => {
-        addLogEntry('error', '❌', 'WebSocket error');
-        ws.close();
-      };
-      
-      ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        
-        // Handle streaming log entries from server
-        if (data.logEntry) {
-          const e = data.logEntry;
-          const entry = {
-            time: new Date(e.time),
-            type: e.type,
-            icon: e.icon,
-            msg: e.msg
-          };
-          activityLog.unshift(entry);
-          if (activityLog.length > MAX_LOG_ENTRIES) activityLog.pop();
-          renderActivityLog();
-          // Pulse indicator
-          const pulse = document.getElementById('activity-pulse');
-          pulse.style.background = e.type === 'error' ? '#f44' : e.type === 'success' ? '#4f4' : '#6bf';
-          setTimeout(() => { pulse.style.background = '#4f4'; }, 500);
-          return;
-        }
-        
-        // Handle initial log history
-        if (data.recentLogs) {
-          data.recentLogs.forEach(e => {
-            activityLog.push({
-              time: new Date(e.time),
-              type: e.type,
-              icon: e.icon,
-              msg: e.msg
-            });
-          });
-          if (activityLog.length > MAX_LOG_ENTRIES) {
-            activityLog = activityLog.slice(0, MAX_LOG_ENTRIES);
-          }
-          renderActivityLog();
-        }
-        
-        if (data.version && serverVersion && data.version !== serverVersion) {
-          location.reload();
-          return;
-        }
-        serverVersion = data.version;
-        if (data.version) document.getElementById('version').textContent = 'v' + data.version;
-        
-        // Update uptime display
-        if (data.uptime) {
-          document.getElementById('uptime').textContent = '⏱️ ' + formatUptime(data.uptime);
-          // Show reboot banner if server started less than 2 minutes ago
-          const rebootBanner = document.getElementById('reboot-banner');
-          if (data.uptime < 120000) {
-            rebootBanner.style.display = 'block';
-          } else {
-            rebootBanner.style.display = 'none';
-          }
-        }
-        
-        // Update frozen pieces panel
-        if (data.frozen) {
-          updateFrozenPanel(data.frozen);
-        }
-        
-        render(data);
-      };
-    }
-    connect();
-    
-    function formatUptime(ms) {
-      const s = Math.floor(ms / 1000);
-      if (s < 60) return s + 's';
-      const m = Math.floor(s / 60);
-      if (m < 60) return m + 'm ' + (s % 60) + 's';
-      const h = Math.floor(m / 60);
-      if (h < 24) return h + 'h ' + (m % 60) + 'm';
-      const d = Math.floor(h / 24);
-      return d + 'd ' + (h % 24) + 'h';
-    }
-    
-    function render(data) {
-      // Combine all bakes into unified list
-      allBakes = []; // Reset global array
-      
-      // Incoming/queued bakes (tapes waiting)
-      (data.incoming || []).forEach(b => allBakes.push({
-        type: 'tape', status: 'queued', id: b.code,
-        title: '!' + b.code, url: 'https://aesthetic.computer/!' + b.code,
-        startTime: b.detectedAt, details: b.details || 'Waiting...'
-      }));
-      
-      // Active bakes (tapes processing)
-      (data.active || []).forEach(b => allBakes.push({
-        type: 'tape', status: 'active', id: b.code || b.slug,
-        title: '!' + (b.code || b.slug), url: 'https://aesthetic.computer/!' + (b.code || b.slug),
-        startTime: b.startTime, details: b.details || b.status
-      }));
-      
-      // Active grabs
-      (data.grabs?.active || []).forEach(g => allBakes.push({
-        type: 'grab', status: 'active', id: g.id,
-        title: g.piece, url: 'https://aesthetic.computer/' + g.piece,
-        startTime: g.startTime, details: g.format + ' capturing...'
-      }));
-      
-      // Recent grabs (completed)
-      const ipfsThumbs = data.grabs?.ipfsThumbs || {};
-      (data.grabs?.recent || []).forEach(g => {
-        const ipfsCid = g.ipfsCid || ipfsThumbs[g.piece]?.ipfsCid;
-        // Priority: IPFS > Spaces CDN > fallback icon
-        const previewUrl = ipfsCid 
-          ? IPFS_GATEWAY + '/ipfs/' + ipfsCid 
-          : g.cdnUrl || ('https://oven.aesthetic.computer/icon/128x128/' + g.piece + '.png');
-        
-        // Build links array
-        const links = [];
-        // Source indicator (keep, manual, etc)
-        if (g.source === 'keep') {
-          if (g.keepId) {
-            links.push({ label: '🎫 Keep #' + g.keepId, url: 'https://objkt.com/tokens/KT1WRvHWcF6rVjNGEVrQu86cKvTCRPapSaHG/' + g.keepId });
-          } else {
-            links.push({ label: '🎫 Keep', url: 'https://objkt.com/collection/KT1WRvHWcF6rVjNGEVrQu86cKvTCRPapSaHG' });
-          }
-        } else if (g.source === 'manual') {
-          links.push({ label: '✋ Manual', url: null });
-        }
-        if (ipfsCid) {
-          links.push({ label: '📌 IPFS', url: 'https://ipfs.aesthetic.computer/ipfs/' + ipfsCid });
-        }
-        if (g.cdnUrl) {
-          links.push({ label: '☁️ CDN', url: g.cdnUrl });
-        }
-        // Show git version for dedup tracking
-        if (g.gitVersion) {
-          links.push({ label: '🏷️ ' + g.gitVersion.slice(0, 7), url: 'https://github.com/whistlegraph/aesthetic-computer/commit/' + g.gitVersion });
-        }
-        
-        allBakes.push({
-          type: 'grab', status: g.status === 'failed' ? 'error' : 'complete', id: g.id,
-          title: g.piece, url: 'https://aesthetic.computer/' + g.piece,
-          preview: previewUrl,
-          size: g.size, format: g.format, error: g.error,
-          completedAt: g.completedAt,
-          dimensions: g.dimensions,
-          captureKey: g.captureKey,
-          source: g.source,
-          keepId: g.keepId,
-          links
-        });
-      });
-      
-      // Recent bakes (tapes completed)
-      (data.recent || []).forEach(b => {
-        const code = b.code || b.slug || 'unknown';
-        const links = [];
-        if (b.atprotoRkey) {
-          const handle = b.userHandle ? b.userHandle + '.at.aesthetic.computer' : 'art.at.aesthetic.computer';
-          links.push({ label: '🦋 AT', url: 'https://pdsls.dev/at://' + handle + '/computer.aesthetic.tape/' + b.atprotoRkey });
-        }
-        allBakes.push({
-          type: 'tape', status: b.error ? 'error' : 'complete', id: code,
-          title: '!' + code, url: 'https://aesthetic.computer/!' + code,
-          preview: b.thumbnailUrl, video: b.mp4Url, error: b.error,
-          completedAt: b.completedAt, links
-        });
-      });
-      
-      // Update stats
-      const queued = allBakes.filter(b => b.status === 'queued').length;
-      const active = allBakes.filter(b => b.status === 'active').length;
-      const complete = allBakes.filter(b => b.status === 'complete' || b.status === 'error').length;
-      document.getElementById('queue-count').textContent = queued;
-      document.getElementById('active-count').textContent = active;
-      document.getElementById('complete-count').textContent = complete;
-      
-      // Apply filters and render
-      applyFilters();
-    }
-    
-    function applyFilters() {
-      const showTypes = {
-        tape: document.getElementById('show-tape').checked,
-        grab: document.getElementById('show-grab').checked,
-        icon: document.getElementById('show-icon').checked,
-        preview: document.getElementById('show-preview').checked
-      };
-      
-      const filtered = allBakes.filter(b => showTypes[b.type]);
-      renderBakes(filtered);
-    }
-    
-    function renderBakes(bakes) {
-      const container = document.getElementById('bakes');
-      if (bakes.length === 0) {
-        container.innerHTML = '<div class="empty">No bakes match filters</div>';
-        return;
-      }
-      
-      container.innerHTML = bakes.map(bake => {
-        let previewContent;
-        if (bake.video) {
-          previewContent = '<video autoplay loop muted playsinline src="' + bake.video + '"></video>';
-        } else if (bake.preview) {
-          previewContent = '<img src="' + bake.preview + '" loading="lazy" onerror="this.parentElement.innerHTML=\\'<span style=color:#f44>Load failed</span>\\'">';
-        } else if (bake.status === 'active' || bake.status === 'queued') {
-          previewContent = '<div class="loading"><div class="spinner"></div></div>';
-        } else {
-          const info = bake.type === 'tape' ? 'Thumbnail not available' :
-                       bake.type === 'grab' ? (bake.format || 'grab') + ' · ' + (bake.size ? (bake.size/1024).toFixed(1) + 'KB' : 'no IPFS') :
-                       'Preview pending';
-          previewContent = '<div style="color:#666;font-size:0.8em;text-align:center;padding:1em;">' + info + '</div>';
-        }
-        
-        let html = '<div class="bake ' + bake.status + '">';
-        html += '<div class="bake-preview">' + previewContent + '</div>';
-        html += '<div class="bake-info">';
-        html += '<div class="bake-title">';
-        html += '<a href="' + bake.url + '" target="_blank">' + bake.title + '</a>';
-        html += '<span class="bake-type ' + bake.type + '">' + bake.type + '</span>';
-        html += '</div>';
-        html += '<div class="bake-meta">';
-        if (bake.dimensions) html += '<span>' + bake.dimensions.width + '×' + bake.dimensions.height + '</span>';
-        if (bake.format) html += '<span>' + bake.format + '</span>';
-        if (bake.size) html += '<span>' + (bake.size/1024).toFixed(1) + ' KB</span>';
-        if (bake.startTime) html += '<span>' + formatDuration(Date.now() - bake.startTime) + '</span>';
-        if (bake.completedAt) html += '<span>' + formatAge(bake.completedAt) + ' ago</span>';
-        html += '</div>';
-        if (bake.status === 'active' || bake.status === 'queued') {
-          html += '<div class="bake-status ' + bake.status + '">' + (bake.details || bake.status) + '</div>';
-        }
-        if (bake.error) html += '<div class="bake-status error">' + bake.error + '</div>';
-        if (bake.links && bake.links.length) {
-          html += '<div class="bake-links">' + bake.links.map(l => '<a href="' + l.url + '" target="_blank">' + l.label + '</a>').join('') + '</div>';
-        }
-        html += '</div></div>';
-        return html;
-      }).join('');
-    }
-    
-    const IPFS_GATEWAY = 'https://ipfs.aesthetic.computer';
-    
-    function formatDuration(ms) {
-      const s = Math.floor(ms / 1000);
-      if (s < 60) return s + 's';
-      const m = Math.floor(s / 60);
-      return m + 'm ' + (s % 60) + 's';
-    }
-    
-    function formatAge(dateStr) {
-      const ms = Date.now() - new Date(dateStr).getTime();
-      const s = Math.floor(ms / 1000);
-      if (s < 60) return s + 's';
-      const m = Math.floor(s / 60);
-      if (m < 60) return m + 'm';
-      const h = Math.floor(m / 60);
-      if (h < 24) return h + 'h';
-      const d = Math.floor(h / 24);
-      return d + 'd';
-    }
-    
-    fetch('/status').then(r => r.json()).then(render);
-  </script>
 </body>
-</html>
-`);
+</html>`);
 });
 
 // API endpoints
@@ -1593,7 +981,9 @@ app.get('/grab-status', (req, res) => {
     active: getActiveGrabs(),
     recent: getRecentGrabs(),
     queue: getQueueStatus(),
-    progress: getCurrentProgress()
+    progress: getCurrentProgress(),
+    grabProgress: getAllProgress(),
+    concurrency: getConcurrencyStatus(),
   });
 });
 
@@ -1700,7 +1090,7 @@ app.get('/kidlisp-og.png', async (req, res) => {
     
     // Use yesterday's image as fallback (likely exists)
     const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-    const fallbackUrl = `https://art-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/og/kidlisp/${yesterday}-${layout}.png`;
+    const fallbackUrl = `https://art.aesthetic.computer/og/kidlisp/${yesterday}-${layout}.png`;
     
     res.setHeader('Cache-Control', 'public, max-age=300'); // Short cache for fallback
     return res.redirect(302, fallbackUrl);
@@ -1709,7 +1099,7 @@ app.get('/kidlisp-og.png', async (req, res) => {
     console.error('KidLisp OG PNG error:', error);
     // Ultimate fallback - yesterday's mosaic
     const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-    return res.redirect(302, `https://art-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/og/kidlisp/${yesterday}-mosaic.png`);
+    return res.redirect(302, `https://art.aesthetic.computer/og/kidlisp/${yesterday}-mosaic.png`);
   }
 });
 
@@ -2900,8 +2290,11 @@ setNotifyCallback(() => {
         grabs: {
           active: getActiveGrabs(),
           recent: getRecentGrabs(),
+          queue: getQueueStatus(),
           ipfsThumbs: getAllLatestIPFSUploads()
-        }
+        },
+        grabProgress: getAllProgress(),
+        concurrency: getConcurrencyStatus(),
       }));
     }
   });
@@ -2930,8 +2323,11 @@ wss.on('connection', async (ws) => {
     grabs: {
       active: getActiveGrabs(),
       recent: getRecentGrabs(),
+      queue: getQueueStatus(),
       ipfsThumbs: getAllLatestIPFSUploads()
     },
+    grabProgress: getAllProgress(),
+    concurrency: getConcurrencyStatus(),
     frozen: getFrozenPieces(),
     recentLogs: activityLogBuffer.slice(0, 50) // Send last 50 log entries
   }));
@@ -2949,8 +2345,11 @@ wss.on('connection', async (ws) => {
         grabs: {
           active: getActiveGrabs(),
           recent: getRecentGrabs(),
+          queue: getQueueStatus(),
           ipfsThumbs: getAllLatestIPFSUploads()
         },
+        grabProgress: getAllProgress(),
+        concurrency: getConcurrencyStatus(),
         frozen: getFrozenPieces()
       }));
     }
