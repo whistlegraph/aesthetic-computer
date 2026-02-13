@@ -622,9 +622,6 @@ class AestheticComputerMagics(Magics):
         to avoid Python syntax parsing issues.
         """
         line_content = line.strip()
-        
-        # Parse potential size parameters from the beginning of the line
-        parts = line_content.split()
         width = "100%"
         height = 30
         density = None
@@ -716,6 +713,124 @@ class AestheticComputerMagics(Magics):
         else:
             # Handle as kidlisp code
             return kidlisp(actual_content, width, height, False, False, density_value)
+    
+    @line_magic
+    def AC(self, line):
+        """
+        Line magic to execute a single line of kidlisp code or piece invocation from DEVELOPMENT.
+        
+        Usage:
+            %AC (ink red) (circle 25 25 10)
+            %AC clock cdefg
+            %AC 100 clock cdefg          # Height = 100, width = 100%
+            %AC 400 200 clock cdefg      # Width = 400, height = 200
+
+        Note: Uppercase AC = localhost/dev, lowercase ac = production domain
+        Note: Width/height are virtual AC pixels. Iframe size is scaled by density.
+        """
+        line_content = line.strip()
+        
+        # Parse potential size parameters from the beginning of the line
+        parts = line_content.split()
+        width = "100%"
+        height = 30
+        density = None
+        content_start_index = 0
+
+        context = _get_ipython_context()
+
+        filtered_parts = []
+        for part in parts:
+            if part.startswith('density=') or part.startswith('d='):
+                density = part.split('=', 1)[1]
+            else:
+                filtered_parts.append(part)
+
+        parts = filtered_parts
+        
+        # Check if first part(s) are numeric parameters
+        if len(parts) >= 2:  # Need at least 2 parts to have a size parameter + content
+            try:
+                # Try to parse first part as a number (height only)
+                first_num = _safe_eval(parts[0], context)
+                if not isinstance(first_num, (int, float)):
+                    raise ValueError
+                if len(parts) >= 3:
+                    try:
+                        # Try to parse second part as a number (width, height)
+                        second_num = _safe_eval(parts[1], context)
+                        if not isinstance(second_num, (int, float)):
+                            raise ValueError
+                        width = first_num
+                        height = second_num
+                        content_start_index = 2
+                    except ValueError:
+                        # Second part is not a number, so first is height only
+                        height = first_num
+                        content_start_index = 1
+                else:
+                    # Only two parts total, first is height, second is content
+                    height = first_num
+                    content_start_index = 1
+            except ValueError:
+                # First part is not a number, treat entire line as content
+                pass
+        
+        # Extract the actual content (after size parameters)
+        if content_start_index > 0:
+            actual_content = ' '.join(parts[content_start_index:])
+        else:
+            actual_content = line_content
+        
+        # Detect if this is a piece invocation vs kidlisp code
+        is_piece_invocation = (
+            actual_content and
+            not actual_content.startswith('(') and 
+            not actual_content.startswith(';') and
+            not actual_content.startswith('~') and
+            len(actual_content.split()) >= 1
+        )
+        
+        density_value = _normalize_density(density, context)
+        iframe_width, iframe_height = _compute_iframe_dimensions(width, height, density_value)
+
+        # Force DEVELOPMENT mode (localhost) for uppercase AC
+        global USE_PRODUCTION
+        old_production = USE_PRODUCTION
+        try:
+            USE_PRODUCTION = False
+            
+            if is_piece_invocation:
+                # Handle as piece invocation - construct URL directly
+                # Replace spaces with ~ for piece parameters
+                piece_url = actual_content.replace(' ', '~')
+                base_url = _get_base_url()  # This will now use localhost
+                url = f"{base_url}/{piece_url}?nolabel=true&nogap=true&notebook=true"
+
+                if density_value is not None:
+                    url += f"&density={density_value}"
+                
+                # Create iframe directly
+                content_hash = hashlib.md5(f"{actual_content}{width}{height}{density_value}".encode()).hexdigest()[:8]
+                iframe_id = f"ac-iframe-{content_hash}"
+                
+                iframe_html = f'''
+                <div style="margin: -8px -8px 0 -8px; padding: 0; overflow: hidden;">
+                    <iframe id="{iframe_id}" src="{url}" 
+                            width="{iframe_width}" 
+                            height="{iframe_height}" 
+                            frameborder="0"
+                            style="background: transparent; margin: 0; padding: 0; border: none; display: block;">
+                    </iframe>
+                </div>
+                '''
+                
+                display(HTML(iframe_html))
+            else:
+                # Handle as kidlisp code
+                return kidlisp(actual_content, width, height, False, False, density_value)
+        finally:
+            USE_PRODUCTION = old_production
 
 # Automatic IPython/Jupyter setup - makes λ globally available
 def _setup_ipython():
@@ -738,8 +853,30 @@ def _setup_ipython():
             magic_instance = AestheticComputerMagics(ip)
             ip.register_magics(AestheticComputerMagics)
             
-            # Also register the line magic under the same name 
-            ip.register_magic_function(magic_instance.ac_line, 'line', 'ac')
+            # Create and register line magics with production/dev modes forced
+            def ac_line_prod(line):
+                """Line magic for production (%ac)"""
+                global USE_PRODUCTION
+                old_production = USE_PRODUCTION
+                try:
+                    USE_PRODUCTION = True
+                    return magic_instance.ac_line(line)
+                finally:
+                    USE_PRODUCTION = old_production
+            
+            def AC_line_dev(line):
+                """Line magic for development (%AC)"""
+                global USE_PRODUCTION
+                old_production = USE_PRODUCTION
+                try:
+                    USE_PRODUCTION = False
+                    return magic_instance.ac_line(line)
+                finally:
+                    USE_PRODUCTION = old_production
+            
+            # Register the line magics with correct names
+            ip.register_magic_function(ac_line_prod, 'line', 'ac')
+            ip.register_magic_function(AC_line_dev, 'line', 'AC')
             
             return True
     except ImportError:
