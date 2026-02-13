@@ -925,6 +925,8 @@ const defaults = {
   }, // aka Setup
   sim: () => false, // A framerate independent of rendering.
   paint: ({ noise16Aesthetic, noise16Sotce, slug, wipe, ink, screen, net }) => {
+    // In PACK mode (exported bundles), skip noise16 — just show black
+    if (window.acPACK_MODE) { wipe("black"); return; }
     // TODO: Make this a boot choice via the index.html file?
     if (!projectionMode) {
       if (slug?.indexOf("wipppps") > -1) {
