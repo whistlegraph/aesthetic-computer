@@ -4215,19 +4215,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // https://bugzilla.mozilla.org/show_bug.cgi?id=1247687
         // Try to use WebSocket module loader for the fallback import (avoids HTTP proxy issues)
         let module;
-        const loader = window.acModuleLoader;
-        if (isLocalhost && loader?.connected && loader.blobUrls?.has('lib/disk.mjs')) {
-          // Use already-loaded blob URL from WebSocket bundle
-          const blobUrl = loader.blobUrls.get('lib/disk.mjs');
-          module = await import(blobUrl);
-        } else {
-          // Fall back to HTTP import
-          if (!isLocalhost) console.warn("🟡 Worker failed, using noWorker mode");
-          module = await import(`./lib/disk.mjs`);
+        try {
+          const loader = window.acModuleLoader;
+          if (isLocalhost && loader?.connected && loader.blobUrls?.has('lib/disk.mjs')) {
+            const blobUrl = loader.blobUrls.get('lib/disk.mjs');
+            module = await import(blobUrl);
+          } else {
+            if (!isLocalhost) console.warn("🟡 Worker failed, using noWorker mode");
+            module = await import(`./lib/disk.mjs`);
+          }
+        } catch (err) {
+          console.error("Failed to load disk module:", err);
         }
-        module.noWorker.postMessage = (e) => onMessage(e); // Define the disk's postMessage replacement.
-        send = (e) => module.noWorker.onMessage(e); // Hook up our post method to disk's onmessage replacement.
-        window.acSEND = send; // Make the message handler global, used in `speech.mjs` and also useful for debugging.
+        if (!module?.noWorker) return;
+        module.noWorker.postMessage = (e) => onMessage(e);
+        send = (e) => module.noWorker.onMessage(e);
+        window.acSEND = send;
         send(firstMessage);
         consumeDiskSends(send);
       };
@@ -4292,13 +4295,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       workerFailed = true;
 
       let module;
-      const loader = window.acModuleLoader;
-      if (isLocalhost && loader?.connected && loader.blobUrls?.has('lib/disk.mjs')) {
-        const blobUrl = loader.blobUrls.get('lib/disk.mjs');
-        module = await import(blobUrl);
-      } else {
-        module = await import(`./lib/disk.mjs`);
+      try {
+        const loader = window.acModuleLoader;
+        if (isLocalhost && loader?.connected && loader.blobUrls?.has('lib/disk.mjs')) {
+          const blobUrl = loader.blobUrls.get('lib/disk.mjs');
+          module = await import(blobUrl);
+        } else {
+          module = await import(`./lib/disk.mjs`);
+        }
+      } catch (err) {
+        console.error("Worker timeout: failed to load disk module:", err);
       }
+      if (!module?.noWorker) return;
       module.noWorker.postMessage = (e) => onMessage(e);
       send = (e) => module.noWorker.onMessage(e);
       window.acSEND = send;
@@ -4312,11 +4320,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     try {
       module = await import(`./lib/disk.mjs`);
     } catch (err) {
-      console.warn("Module load error:", err);
+      console.error("No-worker mode: failed to load disk module:", err);
     }
-    module.noWorker.postMessage = (e) => onMessage(e); // Define the disk's postMessage replacement.
-    send = (e) => module.noWorker.onMessage(e); // Hook up our post method to disk's onmessage replacement.
-    window.acSEND = send; // Make the message handler global, used in `speech.mjs` and also useful for debugging.
+    if (!module?.noWorker) return;
+    module.noWorker.postMessage = (e) => onMessage(e);
+    send = (e) => module.noWorker.onMessage(e);
+    window.acSEND = send;
   }
 
   // The initial message sends the path and host to load the disk.

@@ -1012,6 +1012,7 @@ function generateJSPieceHTMLBundle(opts) {
     const originalFetch = window.fetch;
     window.fetch = function(url, options) {
       const urlStr = typeof url === 'string' ? url : url.toString();
+      if (urlStr.includes('/api/')) return Promise.resolve(new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }));
       let vfsPath = decodeURIComponent(urlStr).replace(/^https?:\\/\\/[^\\/]+\\//g, '').replace(/^aesthetic\\.computer\\//g, '').replace(/#.*$/g, '').replace(/\\?.*$/g, '');
       vfsPath = vfsPath.replace(/^\\.\\.\\/+/g, '').replace(/^\\.\\//g, '').replace(/^\\//g, '').replace(/^aesthetic\\.computer\\//g, '');
       if (window.VFS[vfsPath]) {
