@@ -1325,7 +1325,6 @@
   </div>
   
   <iframe id="display-iframe"></iframe>
-  <iframe id="display-iframe-b" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;background:#000;z-index:0;visibility:hidden;"></iframe>
   
   <!-- YouTube-style progress bar for playlist mode -->
   <div id="progress-bar">
@@ -2310,12 +2309,7 @@
     const hostname = window.location.hostname;
     
     // UI elements
-    const iframeA = document.getElementById('display-iframe');
-    const iframeB = document.getElementById('display-iframe-b');
-    let iframe = iframeA;  // Active iframe reference (swaps during playlist transitions)
-    let preloadIframe = iframeB;  // Hidden preload iframe
-    let preloadedUrl = null;  // URL currently preloaded in the hidden iframe
-    let preloadReady = false;  // Whether the preloaded iframe has fired 'ready'
+    const iframe = document.getElementById('display-iframe');
     const errorScreen = document.getElementById('error-screen');
     const errorText = document.getElementById('error-text');
     
@@ -2560,6 +2554,9 @@
     let slideshowPlaylist = null;  // The fetched DP-1 playlist
     let slideshowIndex = startIndex;  // Current item index
     let slideshowTimer = null;  // Timer for auto-advance
+    let slideshowSources = {};  // Batch-fetched sources { code: { source, handle, hits, when } }
+    let slideshowInitialBoot = true;  // True until first piece sends "ready:"
+    let slideshowCacheWarmed = false;  // True after cache data sent to iframe
     
     // Build query string for display params
     function buildDisplayParams() {
@@ -2711,15 +2708,39 @@
         
         // Update playlist title in FF1 module - scramble then reveal
         if (playlistTitle) window.scrambleTextElement?.(playlistTitle, slideshowPlaylist.title || 'Untitled Playlist', 600, false);
-        
+
         // Clamp start index to valid range
         if (slideshowIndex >= slideshowPlaylist.items.length) {
           slideshowIndex = 0;
         }
-        
+
         // Set page title
         document.title = `KidLisp.com · ${slideshowPlaylist.title || 'Slideshow'}`;
-        
+
+        // Batch fetch all kidlisp sources for cache warming + metadata
+        const allCodes = slideshowPlaylist.items
+          .map(item => (item.title || '').replace('$', ''))
+          .filter(Boolean);
+        if (allCodes.length > 0) {
+          const apiBase = dev ? 'https://localhost:8888' : 'https://aesthetic.computer';
+          const batchSize = 50;
+          for (let i = 0; i < allCodes.length; i += batchSize) {
+            const batch = allCodes.slice(i, i + batchSize);
+            try {
+              const resp = await fetch(`${apiBase}/api/store-kidlisp?codes=${batch.join(',')}`, { credentials: 'omit' });
+              const data = await resp.json();
+              if (data.results) {
+                for (const [code, info] of Object.entries(data.results)) {
+                  if (info) slideshowSources[code] = info;
+                }
+              }
+            } catch (e) {
+              console.warn('📺 Batch fetch failed for chunk:', e);
+            }
+          }
+          console.log(`📺 Batch fetched ${Object.keys(slideshowSources).length} / ${allCodes.length} sources`);
+        }
+
         // Start playing from the start index
         playCurrentItem();
         
@@ -2751,45 +2772,6 @@
       return itemUrl;
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // DOUBLE-BUFFERED IFRAME PRELOADING
-    // Preloads the next playlist item in a hidden iframe so transitions
-    // are instant (no black screen flash between pieces).
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    function preloadNextItem() {
-      if (!slideshowPlaylist || !slideshowPlaylist.items) return;
-      const nextIndex = (slideshowIndex + 1) % slideshowPlaylist.items.length;
-      const nextItem = slideshowPlaylist.items[nextIndex];
-      if (!nextItem) return;
-
-      const nextUrl = resolveItemUrl(nextItem);
-      // Don't re-preload if already preloading the same URL
-      if (preloadedUrl === nextUrl) return;
-
-      preloadReady = false;
-      preloadedUrl = nextUrl;
-      preloadIframe.src = nextUrl;
-      console.log('📺 Preloading next item in hidden iframe:', nextIndex + 1, nextItem.title);
-    }
-
-    // Swap the active and preload iframes (instant visual cut)
-    function swapIframes() {
-      // Hide active, show preloaded
-      iframe.style.zIndex = '0';
-      iframe.style.visibility = 'hidden';
-      preloadIframe.style.zIndex = '1';
-      preloadIframe.style.visibility = 'visible';
-
-      // Swap references
-      const tmp = iframe;
-      iframe = preloadIframe;
-      preloadIframe = tmp;
-      preloadedUrl = null;
-      preloadReady = false;
-      console.log('📺 Iframes swapped — new active:', iframe.id);
-    }
-
     function playCurrentItem() {
       if (!slideshowPlaylist || !slideshowPlaylist.items) return;
 
@@ -2801,52 +2783,12 @@
         return;
       }
 
-      console.log('📺 Playing item', slideshowIndex + 1, '/', slideshowPlaylist.items.length, ':', item.title);
+      const codeId = (item.title || '').startsWith('$') ? item.title : `$${item.title || ''}`;
+      const code = codeId.replace('$', '');
+      console.log('📺 Playing item', slideshowIndex + 1, '/', slideshowPlaylist.items.length, ':', codeId);
 
       // Reset progress bar flag for new piece
       progressBarStarted = false;
-
-      // Reset decode state so new boot messages can trigger signalDecode
-      // (fixes: decodeTriggered stuck at true from previous slide)
-      window.resetDecodeState?.();
-
-      // Scramble position and playlist title for this transition
-      const playlistPosition = document.getElementById('ff1-playlist-position');
-      if (playlistPosition) {
-        const posText = `${slideshowIndex + 1} / ${slideshowPlaylist.items.length}`;
-        window.scrambleTextElement?.(playlistPosition, posText, 500, true);
-      }
-      const playlistTitleEl = document.getElementById('ff1-playlist-title');
-      if (playlistTitleEl && slideshowPlaylist.title) {
-        window.scrambleTextElement?.(playlistTitleEl, slideshowPlaylist.title, 600, true);
-      }
-      // Re-scramble ff1 cmd text
-      const ff1CmdSpan = document.querySelector('.ff1-cmd');
-      if (ff1CmdSpan && currentFF1Command) {
-        ff1CmdSpan._scrambleTargetHTML = formatFF1Command(currentFF1Command);
-        window.scrambleTextElement?.(ff1CmdSpan, currentFF1Command, 600, true);
-      }
-
-      const itemUrl = resolveItemUrl(item);
-
-      // Check if this piece is already preloaded in the hidden iframe
-      const isPreloaded = preloadedUrl === itemUrl && preloadReady;
-
-      if (isPreloaded) {
-        // Instant swap — no loading, no black screen
-        console.log('📺 Using preloaded iframe for instant cut');
-        swapIframes();
-        // Mark that the piece is already running so startScrambleAnimation
-        // will auto-decode after a brief scramble (no boot messages will come)
-        window._pieceAlreadyReady = true;
-      } else if (preloadedUrl === itemUrl) {
-        // Preloaded but not yet ready — swap anyway (will show loading state)
-        console.log('📺 Preloaded iframe not ready yet, swapping anyway');
-        swapIframes();
-      } else {
-        // First item or cache miss — load directly into active iframe
-        iframe.src = itemUrl;
-      }
 
       // Get duration from item or playlist defaults
       const duration = item.duration || slideshowPlaylist.defaults?.duration || 120;
@@ -2856,57 +2798,120 @@
         clearTimeout(slideshowTimer);
       }
 
-      if (isPreloaded) {
-        // Piece is already running — start progress bar immediately
-        // (ready message was already consumed while it was the preload iframe)
-        progressBarStarted = true;
-        startSlideshowProgressBar(duration);
-        console.log('📺 Preloaded piece — progress bar started immediately');
-      } else {
-        // Progress bar will be started when piece is ready (not immediately)
-        // Store duration for when ready message arrives
-        window.pendingSlideshowDuration = duration;
-        console.log('📺 Waiting for piece ready before starting slideshow progress bar...');
-      }
+      if (slideshowInitialBoot) {
+        // ═══ FIRST PIECE: Full iframe boot with scramble animation ═══
+        window.resetDecodeState?.();
 
-      // Try to extract codeId from URL for source display
-      const codeMatch = itemUrl.match(/\/(\$[a-z0-9]+)/i) || itemUrl.match(/device\.kidlisp\.com\/(\$?[a-z0-9]+)/i);
-
-      // Don't clear previous piece info - let new content replace it smoothly
-      // This prevents blackout/flashing during transitions
-
-      if (codeMatch) {
-        let extractedCodeId = codeMatch[1];
-        if (!extractedCodeId.startsWith('$')) extractedCodeId = '$' + extractedCodeId;
-
-        // Delay animation start when using preloaded iframe to ensure smooth visual transition
-        // This prevents scramble animations from starting before the iframe swap is visible
-        const animationDelay = isPreloaded ? 200 : 0;
-
-        setTimeout(() => {
-          fetchAndDisplaySource(extractedCodeId);
-        }, animationDelay);
-      } else {
-        // For non-kidlisp items, fade out source display gracefully
-        const sourceInner = document.getElementById('source-code-inner');
-        if (sourceInner && sourceInner.innerHTML) {
-          sourceInner.style.opacity = '0.3';
-          setTimeout(() => {
-            sourceInner.innerHTML = '';
-            sourceInner.style.opacity = '1';
-          }, 300);
+        // Scramble all UI elements
+        const playlistPosition = document.getElementById('ff1-playlist-position');
+        if (playlistPosition) {
+          window.scrambleTextElement?.(playlistPosition, `${slideshowIndex + 1} / ${slideshowPlaylist.items.length}`, 500, true);
         }
+        const playlistTitleEl = document.getElementById('ff1-playlist-title');
+        if (playlistTitleEl && slideshowPlaylist.title) {
+          window.scrambleTextElement?.(playlistTitleEl, slideshowPlaylist.title, 600, true);
+        }
+        const ff1CmdSpan = document.querySelector('.ff1-cmd');
+        if (ff1CmdSpan && currentFF1Command) {
+          ff1CmdSpan._scrambleTargetHTML = formatFF1Command(currentFF1Command);
+          window.scrambleTextElement?.(ff1CmdSpan, currentFF1Command, 600, true);
+        }
+
+        // Load first piece in iframe (full boot)
+        const itemUrl = resolveItemUrl(item);
+        iframe.src = itemUrl;
+
+        // Progress bar starts when "ready:" arrives
+        window.pendingSlideshowDuration = duration;
+        console.log('📺 Initial boot — waiting for piece ready...');
+
+        // Fetch and display source with scramble
+        fetchAndDisplaySource(codeId);
+      } else {
+        // ═══ SUBSEQUENT PIECES: Instant jump() via postMessage ═══
+        iframe.contentWindow?.postMessage({ type: 'ac:navigate', to: codeId }, '*');
+
+        // Quick-cut: instantly update all overlay text (no scramble)
+        updateOverlayInstant(codeId, code);
+
+        // Progress bar starts when "ready:" arrives from the jump
+        window.pendingSlideshowDuration = duration;
+        console.log('📺 Jump to', codeId, '— waiting for ready...');
       }
-      
-      // Start preloading the NEXT item in the hidden iframe
-      // (wait a few seconds so we don't compete for bandwidth with the current piece)
-      setTimeout(() => preloadNextItem(), 3000);
-      
+
       // Set timer to advance to next item
       slideshowTimer = setTimeout(() => {
-        slideshowIndex++;
+        slideshowIndex = (slideshowIndex + 1) % slideshowPlaylist.items.length;
         playCurrentItem();
       }, duration * 1000);
+    }
+
+    // Quick-cut update of overlay for instant transitions (no scramble)
+    function updateOverlayInstant(codeId, code) {
+      // Stop any running scramble animations first
+      window.revealAllTextScrambles?.();
+      window.stopScrambleAnimation?.();
+
+      // Update code label
+      const labelEl = document.getElementById('code-label');
+      if (labelEl) {
+        labelEl.innerHTML = `<span class="code-dollar">$</span><span class="code-name">${code}</span>`;
+      }
+
+      // Update QR code
+      const qrContainer = document.getElementById('qr-container');
+      const qrUrl = `https://kidlisp.com/${codeId}`;
+      if (qrContainer && typeof qrcode !== 'undefined') {
+        try {
+          const qrGen = qrcode(0, 'L');
+          qrGen.addData(qrUrl);
+          qrGen.make();
+          qrContainer.innerHTML = qrGen.createSvgTag(2, 0);
+          const svgEl = qrContainer.querySelector('svg');
+          if (svgEl) {
+            svgEl.style.display = 'block';
+            svgEl.style.width = '100%';
+            svgEl.style.height = '100%';
+          }
+        } catch (e) {}
+      }
+
+      // Update QR wrap click handler
+      const qrWrap = document.getElementById('qr-wrap');
+      if (qrWrap) {
+        qrWrap.onclick = () => {
+          if (confirm(`Edit ${codeId} on KidLisp.com?`)) window.open(qrUrl, '_blank');
+        };
+        qrWrap.title = `Tap to edit ${codeId}`;
+      }
+
+      // Update metadata from batch-fetched sources
+      const data = slideshowSources[code];
+      if (data) {
+        displayPieceInfo(data, true); // true = instant (no scramble)
+      }
+
+      // Update position
+      const posEl = document.getElementById('ff1-playlist-position');
+      if (posEl) posEl.textContent = `${slideshowIndex + 1} / ${slideshowPlaylist.items.length}`;
+
+      // Update playlist title
+      const titleEl = document.getElementById('ff1-playlist-title');
+      if (titleEl && slideshowPlaylist.title) titleEl.textContent = slideshowPlaylist.title;
+
+      // Update ff1 cmd (restore formatted HTML)
+      const ff1CmdSpan = document.querySelector('.ff1-cmd');
+      if (ff1CmdSpan && currentFF1Command) {
+        ff1CmdSpan.innerHTML = formatFF1Command(currentFF1Command);
+      }
+
+      // Update source code in Monaco (instant, no scramble)
+      if (data?.source && window.deviceMonacoEditor) {
+        window.deviceMonacoEditor.setValue(data.source);
+      }
+
+      // Re-check overlap
+      requestAnimationFrame(updateFF1Overlap);
     }
     
     function startSlideshowProgressBar(duration) {
@@ -3307,8 +3312,8 @@
       }
     }
     
-    // Display handle and hits info
-    function displayPieceInfo(data) {
+    // Display handle and hits info (instant=true skips scramble for quick-cut transitions)
+    function displayPieceInfo(data, instant = false) {
       const handleEl = document.getElementById('piece-handle');
       const hitsEl = document.getElementById('piece-hits');
       const whenEl = document.getElementById('piece-when');
@@ -3319,15 +3324,15 @@
           handleEl.style.color = 'rgb(255, 107, 157)';
           handleEl.style.cursor = 'pointer';
           handleEl.onclick = () => {
-            // Open prompt.ac chat with handle
             window.open(`https://prompt.ac/@${data.handle}`, '_blank');
           };
           handleEl.title = `Chat with ${data.handle}`;
 
-          // 🎲 Scramble the handle text continuously until piece is ready
-          window.scrambleTextElement?.(handleEl, handleText, 500, true);
-
-          console.log('📺 Handle with scramble:', handleText);
+          if (instant) {
+            handleEl.textContent = handleText;
+          } else {
+            window.scrambleTextElement?.(handleEl, handleText, 500, true);
+          }
         } else {
           const anonText = 'anonymous';
           handleEl.style.color = 'rgb(150, 150, 150)';
@@ -3335,20 +3340,21 @@
           handleEl.onclick = null;
           handleEl.title = '';
 
-          // 🎲 Scramble "anonymous" continuously until piece is ready
-          window.scrambleTextElement?.(handleEl, anonText, 500, true);
-
-          console.log('📺 Handle: anonymous');
+          if (instant) {
+            handleEl.textContent = anonText;
+          } else {
+            window.scrambleTextElement?.(handleEl, anonText, 500, true);
+          }
         }
       }
 
       if (hitsEl && typeof data.hits === 'number') {
         const hitsText = data.hits.toLocaleString() + ' hits';
-
-        // 🎲 Scramble the hits counter continuously until piece is ready
-        window.scrambleTextElement?.(hitsEl, hitsText, 550, true);
-
-        console.log('📺 Hits with scramble:', hitsText);
+        if (instant) {
+          hitsEl.textContent = hitsText;
+        } else {
+          window.scrambleTextElement?.(hitsEl, hitsText, 550, true);
+        }
       }
 
       if (whenEl && data.when) {
@@ -3358,11 +3364,11 @@
           month: 'short',
           day: 'numeric'
         });
-
-        // 🎲 Scramble the date continuously until piece is ready
-        window.scrambleTextElement?.(whenEl, formatted, 600, true);
-
-        console.log('📺 When with scramble:', formatted);
+        if (instant) {
+          whenEl.textContent = formatted;
+        } else {
+          window.scrambleTextElement?.(whenEl, formatted, 600, true);
+        }
       }
 
       // Re-check overlap after stats update
@@ -3735,14 +3741,21 @@
         // Start progress bar when piece is fully ready (after black screen / loading)
         // "ready: ..." is the final boot message indicating piece is running
         if (msg?.startsWith?.('ready:')) {
-          // Determine if this ready came from the active iframe or the preload iframe
-          const fromPreload = slideshowMode && e.source === preloadIframe.contentWindow;
-          
-          if (fromPreload) {
-            // The preloaded piece is ready — mark it so swap can be instant
-            preloadReady = true;
-            console.log('📺 Preloaded piece is ready (hidden iframe)');
-          } else if (!progressBarStarted) {
+          // Warm the kidlisp cache after first boot in slideshow mode
+          if (slideshowMode && slideshowInitialBoot && !slideshowCacheWarmed) {
+            slideshowCacheWarmed = true;
+            slideshowInitialBoot = false;
+            const codesToWarm = {};
+            for (const [code, info] of Object.entries(slideshowSources)) {
+              if (info?.source) codesToWarm[code] = info.source;
+            }
+            if (Object.keys(codesToWarm).length > 0) {
+              iframe.contentWindow?.postMessage({ type: 'ac:warm-cache', codes: codesToWarm }, '*');
+              console.log(`📺 Sent ${Object.keys(codesToWarm).length} codes to warm iframe cache`);
+            }
+          }
+
+          if (!progressBarStarted) {
             progressBarStarted = true;
             console.log('📺 Piece ready, starting progress bar now');
             
