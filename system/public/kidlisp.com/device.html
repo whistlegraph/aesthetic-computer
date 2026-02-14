@@ -2558,6 +2558,7 @@
     let slideshowCacheWarmed = false;  // True after cache data sent to iframe
     let slideshowNavigateSupported = false;  // True once jump() works (confirmed by ready: signal)
     let slideshowNavigateFallbackTimer = null;  // Timeout for fallback to iframe.src reload
+    let slideshowAwaitingNavigateReady = false;  // True while waiting for jump() to send ready:
     
     // Build query string for display params
     function buildDisplayParams() {
@@ -2835,24 +2836,23 @@
         updateOverlayInstant(codeId, code);
         window.pendingSlideshowDuration = duration;
 
-        if (slideshowNavigateSupported) {
-          // Fast path: jump() is confirmed working
-          iframe.contentWindow?.postMessage({ type: 'ac:navigate', to: codeId }, '*');
-          console.log('📺 Jump to', codeId, '(navigate confirmed)');
-        } else {
-          // Try postMessage first, fall back to iframe.src if no response
-          iframe.contentWindow?.postMessage({ type: 'ac:navigate', to: codeId }, '*');
-          console.log('📺 Jump to', codeId, '— trying navigate, fallback in 3s...');
+        // Send navigate postMessage and set fallback timer
+        slideshowAwaitingNavigateReady = true;
+        iframe.contentWindow?.postMessage({ type: 'ac:navigate', to: codeId }, '*');
+        console.log('📺 Jump to', codeId, slideshowNavigateSupported ? '(navigate confirmed)' : '— trying navigate...');
 
-          if (slideshowNavigateFallbackTimer) clearTimeout(slideshowNavigateFallbackTimer);
-          slideshowNavigateFallbackTimer = setTimeout(() => {
-            // No "ready:" arrived — navigate handler isn't available, use iframe.src reload
-            console.log('📺 Navigate not supported, falling back to iframe.src reload for', codeId);
-            const itemUrl = resolveItemUrl(item);
-            iframe.src = itemUrl;
-            fetchAndDisplaySource(codeId);
-          }, 3000);
-        }
+        // Always set a fallback — shorter timeout if navigate is confirmed working
+        if (slideshowNavigateFallbackTimer) clearTimeout(slideshowNavigateFallbackTimer);
+        const fallbackMs = slideshowNavigateSupported ? 5000 : 3000;
+        slideshowNavigateFallbackTimer = setTimeout(() => {
+          slideshowNavigateFallbackTimer = null;
+          slideshowAwaitingNavigateReady = false;
+          console.log('📺 Navigate timeout, falling back to iframe.src reload for', codeId);
+          slideshowNavigateSupported = false; // Reset — iframe was reloaded
+          const itemUrl = resolveItemUrl(item);
+          iframe.src = itemUrl;
+          fetchAndDisplaySource(codeId);
+        }, fallbackMs);
       }
 
       // Set timer to advance to next item
@@ -3757,15 +3757,15 @@
         // Start progress bar when piece is fully ready (after black screen / loading)
         // "ready: ..." is the final boot message indicating piece is running
         if (msg?.startsWith?.('ready:')) {
-          // Clear navigate fallback timer — the jump succeeded
-          if (slideshowNavigateFallbackTimer) {
-            clearTimeout(slideshowNavigateFallbackTimer);
-            slideshowNavigateFallbackTimer = null;
-            // If this ready came from a jump (not initial boot), mark navigate as supported
-            if (!slideshowInitialBoot) {
-              slideshowNavigateSupported = true;
-              console.log('📺 Navigate confirmed working via jump()');
+          // Check if this ready came from a successful jump() navigate
+          if (slideshowAwaitingNavigateReady && !slideshowInitialBoot) {
+            slideshowAwaitingNavigateReady = false;
+            if (slideshowNavigateFallbackTimer) {
+              clearTimeout(slideshowNavigateFallbackTimer);
+              slideshowNavigateFallbackTimer = null;
             }
+            slideshowNavigateSupported = true;
+            console.log('📺 Navigate confirmed working via jump()');
           }
 
           // Warm the kidlisp cache after first boot in slideshow mode
