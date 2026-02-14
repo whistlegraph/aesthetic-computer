@@ -92,10 +92,18 @@ const ESSENTIAL_FILES = [
 
 const SKIP_FILES = [
   "dep/wasmboy/", // GameBoy emulator (~424 KB) — only needed if piece uses GB features
-  // Note: disks/prompt.mjs and disks/chat.mjs cannot be skipped because
-  // lib/chat.mjs statically imports from ../disks/prompt.mjs, and
-  // lib/disk.mjs statically imports lib/chat.mjs.
+  "disks/prompt.mjs", // 377 KB — stubbed below (only FUNDING_MODE/FUNDING_SEVERITY needed)
+  "disks/chat.mjs",   // 184 KB — stubbed below (chat UI, not functional in PACK_MODE)
 ];
+
+// Lightweight stubs injected into VFS to satisfy static import chains
+// without bundling the full 560+ KB of source.
+// lib/chat.mjs imports { FUNDING_MODE } from "../disks/prompt.mjs"
+// lib/disk.mjs dynamically imports "../disks/chat.mjs" (dead code: chatEnabled = false)
+const VFS_STUBS = {
+  "disks/prompt.mjs": `export const FUNDING_SEVERITY="off";export const FUNDING_MODE=false;`,
+  "disks/chat.mjs": `export const CHAT_FONTS={};export function boot(){}export function paint(){}export function act(){}export function sim(){}export function receive(){}`,
+};
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
@@ -336,9 +344,11 @@ async function minifyJS(content, relativePath) {
         unused: true,
         passes: 3,
         pure_getters: "strict",
+        toplevel: true,
       },
       mangle: true,
       module: true,
+      toplevel: true,
       format: { comments: false, ascii_only: false, ecma: 2020 },
     });
     return result.code || processed;
@@ -480,6 +490,11 @@ export async function createBundle(pieceName, onProgress = () => {}, nocompress 
   const coreFiles = await getCoreBundle(onProgress);
   const files = { ...coreFiles };
 
+  // Inject lightweight stubs for skipped files
+  for (const [stubPath, stubContent] of Object.entries(VFS_STUBS)) {
+    files[stubPath] = { content: stubContent, binary: false, type: "mjs" };
+  }
+
   // Paintings
   const allKidlispSource = Object.values(kidlispSources).join("\n");
   const paintingCodes = extractPaintingCodes(allKidlispSource);
@@ -552,6 +567,11 @@ export async function createJSPieceBundle(pieceName, onProgress = () => {}, noco
 
   const coreFiles = await getCoreBundle(onProgress);
   const files = { ...coreFiles };
+
+  // Inject lightweight stubs for skipped files
+  for (const [stubPath, stubContent] of Object.entries(VFS_STUBS)) {
+    files[stubPath] = { content: stubContent, binary: false, type: "mjs" };
+  }
 
   const piecePath = `disks/${pieceName}.mjs`;
   const pieceFullPath = path.join(acDir, piecePath);
