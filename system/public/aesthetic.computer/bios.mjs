@@ -3811,6 +3811,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
     // Navigate to a new piece (device.html slideshow jump)
     if (e.data?.type === 'ac:navigate' && typeof e.data.to === 'string') {
+      console.log('🧭 bios: relaying ac:navigate →', e.data.to);
       send({ type: 'navigate', content: { to: e.data.to } });
     }
     // Warm the kidlisp code cache with pre-fetched sources
