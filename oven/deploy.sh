@@ -61,7 +61,7 @@ if [ "$1" != "--no-restart" ]; then
   echo ""
   echo "🔄 Restarting oven service..."
 
-  # Update OVEN_VERSION in env and restart
+  # Update OVEN_VERSION in both .env and systemd override, then restart
   ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "root@$OVEN_HOST" "
 cd $REMOTE_DIR
 # Update version in .env
@@ -70,6 +70,9 @@ if grep -q '^OVEN_VERSION=' .env 2>/dev/null; then
 else
   echo 'OVEN_VERSION=$GIT_VERSION' >> .env
 fi
+# Update systemd override (takes precedence over .env)
+sed -i 's/^Environment=OVEN_VERSION=.*/Environment=OVEN_VERSION=$GIT_VERSION/' /etc/systemd/system/oven.service.d/override.conf
+systemctl daemon-reload
 systemctl restart oven
 sleep 2
 systemctl status oven --no-pager | head -5
