@@ -989,6 +989,23 @@ async function fun(event, context) {
             }
           })();
         </script>
+        <script>
+          // 📺 Parent window message relay (device.html slideshow navigation)
+          // This inline script bypasses module-loader cache — always fresh from Netlify.
+          window.addEventListener('message', function(e) {
+            if (e.data && e.data.type === 'ac:navigate' && typeof e.data.to === 'string') {
+              // Wait for acSEND to be wired by bios.mjs, then forward to disk worker
+              if (window.acSEND) {
+                window.acSEND({ type: 'navigate', content: { to: e.data.to } });
+              }
+            }
+            if (e.data && e.data.type === 'ac:warm-cache' && e.data.codes) {
+              if (window.acSEND) {
+                window.acSEND({ type: 'warm-kidlisp-cache', content: { codes: e.data.codes } });
+              }
+            }
+          });
+        </script>
         <script
           crossorigin="anonymous"
           src="/aesthetic.computer/boot.mjs"

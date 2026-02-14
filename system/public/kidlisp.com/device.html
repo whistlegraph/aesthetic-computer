@@ -2841,18 +2841,17 @@
         iframe.contentWindow?.postMessage({ type: 'ac:navigate', to: codeId }, '*');
         console.log('📺 Jump to', codeId, slideshowNavigateSupported ? '(navigate confirmed)' : '— trying navigate...');
 
-        // Always set a fallback — shorter timeout if navigate is confirmed working
+        // Safety fallback — only if navigate truly fails (inline HTML handler should work)
         if (slideshowNavigateFallbackTimer) clearTimeout(slideshowNavigateFallbackTimer);
-        const fallbackMs = slideshowNavigateSupported ? 5000 : 3000;
         slideshowNavigateFallbackTimer = setTimeout(() => {
           slideshowNavigateFallbackTimer = null;
           slideshowAwaitingNavigateReady = false;
-          console.log('📺 Navigate timeout, falling back to iframe.src reload for', codeId);
-          slideshowNavigateSupported = false; // Reset — iframe was reloaded
+          console.warn('📺 Navigate timeout (10s), falling back to iframe.src reload for', codeId);
+          slideshowNavigateSupported = false;
           const itemUrl = resolveItemUrl(item);
           iframe.src = itemUrl;
           fetchAndDisplaySource(codeId);
-        }, fallbackMs);
+        }, 10000);
       }
 
       // Set timer to advance to next item
