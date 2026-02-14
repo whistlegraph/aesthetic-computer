@@ -4222,7 +4222,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             module = await import(blobUrl);
           } else {
             if (!isLocalhost) console.warn("🟡 Worker failed, using noWorker mode");
-            module = await import(`./lib/disk.mjs`);
+            const vfsBlobUrl = window.VFS_BLOB_URLS?.["lib/disk.mjs"];
+            module = await import(vfsBlobUrl || `./lib/disk.mjs`);
           }
         } catch (err) {
           console.error("Failed to load disk module:", err);
@@ -4301,7 +4302,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           const blobUrl = loader.blobUrls.get('lib/disk.mjs');
           module = await import(blobUrl);
         } else {
-          module = await import(`./lib/disk.mjs`);
+          const vfsBlobUrl = window.VFS_BLOB_URLS?.["lib/disk.mjs"];
+          module = await import(vfsBlobUrl || `./lib/disk.mjs`);
         }
       } catch (err) {
         console.error("Worker timeout: failed to load disk module:", err);
@@ -4318,7 +4320,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (debug) console.log("🔴 No Worker");
     let module;
     try {
-      module = await import(`./lib/disk.mjs`);
+      // Prefer VFS blob URL (works in offline bundles from file://)
+      const blobUrl = window.VFS_BLOB_URLS?.["lib/disk.mjs"];
+      module = await import(blobUrl || `./lib/disk.mjs`);
     } catch (err) {
       console.error("No-worker mode: failed to load disk module:", err);
     }
