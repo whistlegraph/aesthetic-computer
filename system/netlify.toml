@@ -382,7 +382,9 @@ included_files = ["public/aesthetic.computer/lib/helpers.mjs"]
 included_env_vars = []
 
 [functions.kidlisp-keep]
-included_env_vars = ["TEZOS_KEEPS_CONTRACT", "TEZOS_NETWORK", "OVEN_URL"]
+external_node_modules = ["mongodb", "mongodb-connection-string-url"]
+included_files = ["backend/**/*.mjs"]
+included_env_vars = ["CONTEXT", "TEZOS_KEEPS_CONTRACT", "TEZOS_NETWORK", "OVEN_URL", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "ADMIN_SUB"]
 
 [functions.test-tv-hits]
 external_node_modules = ["mongodb", "mongodb-connection-string-url"]
