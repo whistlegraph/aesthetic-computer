@@ -263,7 +263,7 @@ included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 [functions.keep-mint]
 # Mint KidLisp pieces as NFTs on Tezos (streaming SSE)
 included_files = ["backend/**/*.mjs"]
-external_node_modules = ["mongodb", "@taquito/taquito", "@taquito/signer", "@taquito/rpc", "@taquito/http-utils", "@taquito/utils", "@taquito/michelson-encoder", "@taquito/local-forging", "@taquito/michel-codec", "@taquito/core"]
+external_node_modules = ["mongodb", "mongodb-connection-string-url", "bn.js", "@taquito/taquito", "@taquito/signer", "@taquito/rpc", "@taquito/http-utils", "@taquito/utils", "@taquito/michelson-encoder", "@taquito/local-forging", "@taquito/michel-codec", "@taquito/core"]
 included_env_vars = ["CONTEXT", "TEZOS_KEEPS_CONTRACT", "TEZOS_NETWORK", "TEZOS_KIDLISP_KEY", "PINATA_API_KEY", "PINATA_API_SECRET", "OVEN_URL", "USE_IPFS_GATEWAY_URLS", "IPFS_GATEWAY", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "ADMIN_SUB"]
 
 [functions.boot-log]
@@ -281,7 +281,7 @@ included_env_vars = ["CONTEXT", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "AU
 [functions.keep-update]
 # Update on-chain metadata for already-minted Keeps
 included_files = ["backend/**/*.mjs"]
-external_node_modules = ["mongodb", "mongodb-connection-string-url", "@taquito/taquito", "@taquito/signer", "@taquito/rpc", "@taquito/http-utils", "@taquito/utils", "@taquito/michelson-encoder", "@taquito/local-forging", "@taquito/michel-codec", "@taquito/core"]
+external_node_modules = ["mongodb", "mongodb-connection-string-url", "bn.js", "@taquito/taquito", "@taquito/signer", "@taquito/rpc", "@taquito/http-utils", "@taquito/utils", "@taquito/michelson-encoder", "@taquito/local-forging", "@taquito/michel-codec", "@taquito/core"]
 included_env_vars = ["CONTEXT", "TEZOS_KEEPS_CONTRACT", "TEZOS_NETWORK", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "ADMIN_SUB"]
 
 [functions.run]
