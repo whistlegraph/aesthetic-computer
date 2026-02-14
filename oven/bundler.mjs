@@ -92,8 +92,9 @@ const ESSENTIAL_FILES = [
 
 const SKIP_FILES = [
   "dep/wasmboy/", // GameBoy emulator (~424 KB) — only needed if piece uses GB features
-  "disks/prompt.mjs", // Prompt UI (~84 KB) — dynamically imported, not needed in offline bundles
-  "disks/chat.mjs", // Chat UI (~48 KB) — dynamically imported, not needed in offline bundles
+  // Note: disks/prompt.mjs and disks/chat.mjs cannot be skipped because
+  // lib/chat.mjs statically imports from ../disks/prompt.mjs, and
+  // lib/disk.mjs statically imports lib/chat.mjs.
 ];
 
 // ─── Helpers ────────────────────────────────────────────────────────
@@ -334,11 +335,7 @@ async function minifyJS(content, relativePath) {
         drop_console: true,
         drop_debugger: true,
         unused: true,
-        passes: 3,
-        pure_getters: true,
-        unsafe: true,
-        unsafe_math: true,
-        unsafe_proto: true,
+        passes: 2,
       },
       mangle: true,
       module: true,
@@ -708,7 +705,7 @@ function generateSelfExtractingHTML(title, gzipBase64, bgColor = null) {
       .then(b=>b.stream().pipeThrough(new DecompressionStream('gzip')))
       .then(s=>new Response(s).text())
       .then(h=>{document.open();document.write(h);document.close();})
-      .catch(e=>{document.body.style.color='#fff';document.body.textContent='Bundle error: '+e.message;});
+      .catch(e=>{document.body.style.cssText='color:#fff;background:#000;padding:20px;font-family:monospace';document.body.textContent='Bundle error: '+e.message;});
   </script>
 </body>
 </html>`;
@@ -757,7 +754,7 @@ function generateSelfExtractingBrotliHTML(title, brotliBase64, bgColor = null) {
     w.__wbindgen_free(r[0],r[1],1);
     const html=new TextDecoder().decode(out);
     document.open();document.write(html);document.close();
-  })().catch(e=>{document.body.style.color='#fff';document.body.textContent='Bundle error: '+e.message;});<\/script>
+  })().catch(e=>{document.body.style.cssText='color:#fff;background:#000;padding:20px;font-family:monospace';document.body.textContent='Bundle error: '+e.message;});<\/script>
 </body>
 </html>`;
 }
@@ -941,7 +938,7 @@ function generateHTMLBundle(opts) {
     })();
     (async function() {
       if (window.acDecodePaintingsPromise) await window.acDecodePaintingsPromise;
-      import(window.VFS_BLOB_URLS['boot.mjs']).catch(err => { document.body.style.color='#fff'; document.body.textContent='Boot failed: '+err.message; });
+      import(window.VFS_BLOB_URLS['boot.mjs']).catch(err => { document.body.style.cssText='color:#fff;background:#000;padding:20px;font-family:monospace'; document.body.textContent='Boot failed: '+err.message; });
     })();
   </script>
 </body>
@@ -1038,7 +1035,7 @@ function generateJSPieceHTMLBundle(opts) {
       return originalFetch.call(this, url, options);
     };
     (async function() {
-      import(window.VFS_BLOB_URLS['boot.mjs']).catch(err => { document.body.style.color='#fff'; document.body.textContent='Boot failed: '+err.message; });
+      import(window.VFS_BLOB_URLS['boot.mjs']).catch(err => { document.body.style.cssText='color:#fff;background:#000;padding:20px;font-family:monospace'; document.body.textContent='Boot failed: '+err.message; });
     })();
   </script>
 </body>
