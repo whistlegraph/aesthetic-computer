@@ -3809,6 +3809,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (e.data && e.data.type === 'ac:request-fps') {
       window.acReportFpsToParent = true;
     }
+    // Navigate to a new piece (device.html slideshow jump)
+    if (e.data?.type === 'ac:navigate' && typeof e.data.to === 'string') {
+      send({ type: 'navigate', content: { to: e.data.to } });
+    }
+    // Warm the kidlisp code cache with pre-fetched sources
+    if (e.data?.type === 'ac:warm-cache' && e.data.codes) {
+      send({ type: 'warm-kidlisp-cache', content: { codes: e.data.codes } });
+    }
   });
 
   // Play a sound back through the sfx system.

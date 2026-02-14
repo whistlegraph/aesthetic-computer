@@ -66,7 +66,7 @@ import { CamDoll } from "./cam-doll.mjs";
 import { TextInput, Typeface } from "../lib/type.mjs";
 
 import * as lisp from "./kidlisp.mjs";
-import { isKidlispSource, fetchCachedCode, fetchKidlispMetadata, getCachedCode, initPersistentCache, getCachedCodeMultiLevel, enableKidlispConsole, enableKidlispTrace, disableKidlispTrace, clearExecutionTrace, postExecutionTrace } from "./kidlisp.mjs"; // Add lisp evaluator.
+import { isKidlispSource, fetchCachedCode, fetchKidlispMetadata, getCachedCode, initPersistentCache, getCachedCodeMultiLevel, saveCodeToAllCaches, enableKidlispConsole, enableKidlispTrace, disableKidlispTrace, clearExecutionTrace, postExecutionTrace } from "./kidlisp.mjs"; // Add lisp evaluator.
 
 import { qrcode as qr, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
 import { microtype, MatrixChunky8 } from "../disks/common/fonts.mjs";
@@ -8988,6 +8988,29 @@ async function makeFrame({ data: { type, content } }) {
   // Handle permission responses from bios.mjs
   if (type === "permission-response") {
     resolvePermissionRequest(content.requestId, content.granted);
+    return;
+  }
+
+  // Navigate to a new piece (device.html slideshow uses this for instant transitions)
+  if (type === "navigate") {
+    const target = content?.to;
+    if (target && $commonApi?.jump) {
+      $commonApi.jump(target);
+    }
+    return;
+  }
+
+  // Warm the kidlisp code cache with pre-fetched sources from parent
+  if (type === "warm-kidlisp-cache") {
+    const codes = content?.codes;
+    if (codes) {
+      let count = 0;
+      for (const [codeId, source] of Object.entries(codes)) {
+        saveCodeToAllCaches(codeId, source);
+        count++;
+      }
+      console.log(`🔥 Warmed kidlisp cache with ${count} codes`);
+    }
     return;
   }
 

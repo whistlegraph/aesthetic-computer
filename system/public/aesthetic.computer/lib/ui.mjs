@@ -574,15 +574,12 @@ class Button {
     if (e.is && e.is("move")) {
       try {
         const containsNow = btn.box.contains(e);
-        if (containsNow && !btn.over) {
-          // Enter hover
-          try { console.log("UI: hover enter", { box: btn.box, pointer: e.pointer, x: e.x, y: e.y }); } catch (err) {}
+        if (containsNow && !btn.over && !btn.down) {
+          // Enter hover (passive - no button pressed)
           callbacks.hover?.(btn);
-          callbacks.over?.(btn);
           btn.over = true;
-        } else if (!containsNow && btn.over) {
-          // Leave hover
-          try { console.log("UI: hover leave", { box: btn.box, pointer: e.pointer, x: e.x, y: e.y }); } catch (err) {}
+        } else if (!containsNow && btn.over && !btn.down) {
+          // Leave hover (passive - no button pressed)
           callbacks.leave?.(btn);
           btn.over = false;
         }
@@ -655,26 +652,12 @@ class Button {
         !shouldPreventRollover ||
         horizontallyWithin
       ) {
-        // Debug: rollover/over activation
-        try {
-          console.log("UI: rollover ->", {
-            box: btn.box,
-            down: btn.down,
-            pointer: e?.pointer,
-            drag: !!e?.drag,
-          });
-        } catch (err) {
-          /* swallow */
-        }
         if (callbacks.rollover) {
           callbacks.rollover(btn);
         } else {
           callbacks.over?.(btn);
         }
         btn.over = true;
-        try {
-          console.log("UI: btn.over set true", { box: btn.box });
-        } catch (err) {}
       }
     }
 
