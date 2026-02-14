@@ -332,10 +332,10 @@ async function minifyJS(content, relativePath) {
     const result = await minify(processed, {
       compress: {
         dead_code: true,
-        drop_console: true,
         drop_debugger: true,
         unused: true,
-        passes: 2,
+        passes: 3,
+        pure_getters: "strict",
       },
       mangle: true,
       module: true,
