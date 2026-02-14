@@ -92,6 +92,8 @@ const ESSENTIAL_FILES = [
 
 const SKIP_FILES = [
   "dep/wasmboy/", // GameBoy emulator (~424 KB) — only needed if piece uses GB features
+  "disks/prompt.mjs", // Prompt UI (~84 KB) — dynamically imported, not needed in offline bundles
+  "disks/chat.mjs", // Chat UI (~48 KB) — dynamically imported, not needed in offline bundles
 ];
 
 // ─── Helpers ────────────────────────────────────────────────────────
