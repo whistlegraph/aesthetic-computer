@@ -872,13 +872,16 @@ function generateHTMLBundle(opts) {
     const originalFetch = window.fetch;
     window.fetch = function(url, options) {
       const urlStr = typeof url === 'string' ? url : url.toString();
-      if (urlStr.includes('/api/painting-code')) {
-        const m = urlStr.match(/[?&]code=([^&]+)/);
-        if (m) {
-          const info = window.acPAINTING_CODE_MAP[m[1]];
-          if (info) return Promise.resolve(new Response(JSON.stringify({ code: info.code, handle: info.handle, slug: info.slug }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+      if (urlStr.includes('/api/')) {
+        if (urlStr.includes('/api/painting-code')) {
+          const m = urlStr.match(/[?&]code=([^&]+)/);
+          if (m) {
+            const info = window.acPAINTING_CODE_MAP[m[1]];
+            if (info) return Promise.resolve(new Response(JSON.stringify({ code: info.code, handle: info.handle, slug: info.slug }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+          }
+          return Promise.resolve(new Response(JSON.stringify({ error: 'Not found' }), { status: 404 }));
         }
-        return Promise.resolve(new Response(JSON.stringify({ error: 'Not found' }), { status: 404 }));
+        return Promise.resolve(new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }));
       }
       let vfsPath = decodeURIComponent(urlStr).replace(/^https?:\\/\\/[^\\/]+\\//g, '').replace(/^aesthetic\\.computer\\//g, '').replace(/#.*$/g, '').replace(/\\?.*$/g, '');
       vfsPath = vfsPath.replace(/^\\.\\.\\/+/g, '').replace(/^\\.\\//g, '').replace(/^\\//g, '').replace(/^aesthetic\\.computer\\//g, '');
