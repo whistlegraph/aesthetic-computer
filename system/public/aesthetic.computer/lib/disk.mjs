@@ -2413,7 +2413,7 @@ const $commonApi = {
   },
 
   jump: function jump(to, ahistorical = false, alias = false) {
-    // let url;
+    console.log("🧭 jump() called:", to, "SOLO_MODE:", SOLO_MODE, "leaving:", leaving, "loading:", loading);
 
     if (SOLO_MODE) {
       console.log("🔒 Jump blocked: solo mode active");
@@ -8994,8 +8994,11 @@ async function makeFrame({ data: { type, content } }) {
   // Navigate to a new piece (device.html slideshow uses this for instant transitions)
   if (type === "navigate") {
     const target = content?.to;
+    console.log("🧭 Navigate received:", target, "jump available:", !!$commonApi?.jump, "loading:", loading, "leaving:", leaving);
     if (target && $commonApi?.jump) {
       $commonApi.jump(target);
+    } else {
+      console.warn("🧭 Navigate failed: target=", target, "$commonApi=", !!$commonApi, "jump=", !!$commonApi?.jump);
     }
     return;
   }
