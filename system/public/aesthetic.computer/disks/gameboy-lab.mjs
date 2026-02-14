@@ -34,10 +34,14 @@ const ROMS = [
 
 let selectedIndex = 0;
 let scrollOffset = 0;
+let scroll = 0;
 let loading = false;
 let loadedRom = null;
 
-const ITEMS_PER_PAGE = 12;
+// Layout constants
+const TOP_MARGIN = 30;
+const ROW_HEIGHT = 22;
+const LEFT_MARGIN = 6;
 
 // 🥾 Boot
 export function boot({ wipe }) {
@@ -53,113 +57,153 @@ export function paint({
   hud,
   pen
 }) {
-  wipe(10, 10, 20); // Dark blue-gray background
+  // Dark background like list.mjs
+  wipe(16, 16, 24);
 
   // Hide default label
   hud.label();
 
-  // Title
-  ink("white").write("🎮 GameBoy ROM Lab", { x: 8, y: 8, size: 1 });
-  ink(100, 100, 100).write(`${ROMS.length} ROMs available`, { x: 8, y: 18, size: 0.75 });
+  // Header background (masks scrolling content)
+  ink(24, 24, 36).box(0, 0, screen.width, 24);
 
-  // Instructions
+  // Title
+  ink("white").write("🎮 GameBoy ROM Lab", { x: LEFT_MARGIN, y: 4 });
+
+  // ROM count using MatrixChunky8
+  const countText = `${ROMS.length}`;
+  ink(80, 80, 100).write(countText, {
+    x: screen.width - countText.length * 4 - 4,
+    y: 6
+  }, undefined, undefined, false, "MatrixChunky8");
+
+  // Instructions bar at bottom using MatrixChunky8
   const instructions = loading
-    ? "Loading ROM..."
-    : "↑↓ Navigate • Enter/Click to Load • Esc to Clear";
-  ink(150, 150, 150).write(instructions, { x: 8, y: screen.height - 12, size: 0.75 });
+    ? "Loading..."
+    : "↑↓ Nav • Enter Load • Esc Clear";
+  ink(100, 100, 120).write(instructions, {
+    x: LEFT_MARGIN,
+    y: screen.height - 9
+  }, undefined, undefined, false, "MatrixChunky8");
 
   // Calculate visible range
-  const startY = 35;
-  const lineHeight = 14;
-  const visibleStart = scrollOffset;
-  const visibleEnd = Math.min(scrollOffset + ITEMS_PER_PAGE, ROMS.length);
+  const contentTop = TOP_MARGIN;
+  const viewHeight = screen.height - contentTop - 12;
 
-  // Draw ROM list
-  ROMS.slice(visibleStart, visibleEnd).forEach((rom, i) => {
-    const index = visibleStart + i;
-    const y = startY + (i * lineHeight);
+  // Draw ROM list with alternating backgrounds
+  ROMS.forEach((rom, index) => {
+    const y = scroll + contentTop + (index * ROW_HEIGHT);
+
+    // Skip if off-screen
+    if (y < TOP_MARGIN - ROW_HEIGHT || y > screen.height) return;
+
     const isSelected = index === selectedIndex;
 
-    // Selection background
+    // Alternating row background
+    const rowColor = index % 2 === 0 ? [16, 16, 24] : [20, 20, 28];
+    ink(...rowColor).box(0, y, screen.width - 4, ROW_HEIGHT);
+
+    // Selection highlight
     if (isSelected) {
-      ink(50, 50, 80).box(4, y - 2, screen.width - 8, lineHeight - 2, "*");
+      ink(255, 255, 100, 60).box(0, y, screen.width - 4, ROW_HEIGHT);
     }
 
     // ROM type indicator (colored dot)
-    const dotColor = rom.type === "gbc" ? [255, 255, 0] : [0, 255, 0]; // Yellow for GBC, Green for GB
-    ink(...dotColor).box(8, y + 2, 4, 4, "*");
+    const dotColor = rom.type === "gbc" ? [255, 200, 100] : [100, 220, 150]; // Yellow for GBC, Green for GB
+    ink(...dotColor).box(LEFT_MARGIN + 2, y + 4, 6, 6, "*");
 
-    // ROM name
-    const nameColor = isSelected ? [255, 255, 255] : [200, 200, 200];
-    ink(...nameColor).write(rom.name, { x: 16, y, size: 0.85 });
+    // ROM name - color coded by type
+    const nameColor = isSelected
+      ? [255, 255, 100]  // Bright yellow when selected
+      : (rom.type === "gbc" ? [255, 200, 100] : [100, 220, 150]); // Yellow for GBC, Green for GB
+    ink(...nameColor).write(rom.name, { x: LEFT_MARGIN + 12, y: y + 2 });
 
-    // Description
-    const descColor = isSelected ? [180, 180, 255] : [120, 120, 140];
-    ink(...descColor).write(rom.desc, { x: 16, y: y + 7, size: 0.65 });
+    // Description using MatrixChunky8
+    const descColor = isSelected ? [180, 180, 200] : [100, 100, 120];
+    ink(...descColor).write(rom.desc, {
+      x: LEFT_MARGIN + 12,
+      y: y + 11
+    }, undefined, undefined, false, "MatrixChunky8");
   });
 
-  // Scroll indicators
-  if (scrollOffset > 0) {
-    ink("white").write("▲", { x: screen.width - 12, y: startY - 5, center: "x" });
-  }
-  if (visibleEnd < ROMS.length) {
-    ink("white").write("▼", { x: screen.width - 12, y: startY + (ITEMS_PER_PAGE * lineHeight) - 5, center: "x" });
+  // Scrollbar (like list.mjs)
+  const totalHeight = ROMS.length * ROW_HEIGHT;
+  const viewHeight2 = screen.height - TOP_MARGIN - 12;
+  if (totalHeight > viewHeight2) {
+    const scrollbarHeight = Math.max(10, (viewHeight2 / totalHeight) * viewHeight2);
+    const maxScroll = Math.max(0, totalHeight - viewHeight2);
+    const scrollRatio = maxScroll > 0 ? Math.abs(scroll) / maxScroll : 0;
+    const scrollbarY = TOP_MARGIN + (viewHeight2 - scrollbarHeight) * scrollRatio;
+
+    ink(60, 60, 80).box(screen.width - 3, TOP_MARGIN, 2, viewHeight2);
+    ink(100, 120, 180).box(screen.width - 3, scrollbarY, 2, scrollbarHeight);
   }
 
-  // Show loaded ROM indicator
+  // Show loaded ROM indicator in header
   if (loadedRom) {
-    ink(0, 255, 0).write(`✓ Loaded: ${loadedRom}`, { x: 8, y: 28, size: 0.75 });
+    ink(100, 220, 150).write(`✓ ${loadedRom}`, {
+      x: LEFT_MARGIN,
+      y: 15
+    }, undefined, undefined, false, "MatrixChunky8");
   }
 
   return false; // Don't paint every frame
 }
 
-// ⌨️ Act - Handle keyboard input
-export function act({ event: e, jump, debug, send }) {
+// ⌨️ Act - Handle keyboard and mouse input
+export function act({ event: e, jump, debug, send, screen, needsPaint }) {
   if (loading) return;
+
+  // Scroll handling (like list.mjs)
+  if (e.is("scroll")) {
+    scroll -= e.y;
+    clampScroll(screen);
+    needsPaint();
+    return;
+  }
+
+  // Drag scrolling
+  if (e.is("draw:1")) {
+    scroll += e.delta.y;
+    clampScroll(screen);
+    needsPaint();
+    return;
+  }
 
   // Arrow key navigation
   if (e.is("keyboard:down:ArrowDown") || e.is("keyboard:down:down")) {
     selectedIndex = Math.min(selectedIndex + 1, ROMS.length - 1);
-
-    // Auto-scroll down
-    if (selectedIndex >= scrollOffset + ITEMS_PER_PAGE) {
-      scrollOffset = Math.min(scrollOffset + 1, ROMS.length - ITEMS_PER_PAGE);
-    }
-
-    return { needsPaint: true };
+    autoScroll(screen);
+    needsPaint();
+    return;
   }
 
   if (e.is("keyboard:down:ArrowUp") || e.is("keyboard:down:up")) {
     selectedIndex = Math.max(selectedIndex - 1, 0);
-
-    // Auto-scroll up
-    if (selectedIndex < scrollOffset) {
-      scrollOffset = Math.max(scrollOffset - 1, 0);
-    }
-
-    return { needsPaint: true };
+    autoScroll(screen);
+    needsPaint();
+    return;
   }
 
   // Load ROM with Enter
   if (e.is("keyboard:down:Enter") || e.is("keyboard:down:return")) {
     loadROM(selectedIndex, { debug, send, jump });
-    return { needsPaint: true };
+    needsPaint();
+    return;
   }
 
   // Clear with Escape
   if (e.is("keyboard:down:Escape")) {
     loadedRom = null;
-    return { needsPaint: true };
+    needsPaint();
+    return;
   }
 
   // Touch/click to select and load
   if (e.is("lift")) {
-    const startY = 35;
-    const lineHeight = 14;
     const clickY = e.y;
 
-    const clickedIndex = Math.floor((clickY - startY) / lineHeight) + scrollOffset;
+    // Calculate which ROM was clicked based on scroll position
+    const clickedIndex = Math.floor((clickY - scroll - TOP_MARGIN) / ROW_HEIGHT);
 
     if (clickedIndex >= 0 && clickedIndex < ROMS.length) {
       if (clickedIndex === selectedIndex) {
@@ -169,9 +213,37 @@ export function act({ event: e, jump, debug, send }) {
         // First click = select
         selectedIndex = clickedIndex;
       }
-      return { needsPaint: true };
+      needsPaint();
+      return;
     }
   }
+}
+
+// Clamp scroll to valid range
+function clampScroll(screen) {
+  const totalHeight = ROMS.length * ROW_HEIGHT;
+  const viewHeight = screen.height - TOP_MARGIN - 12;
+  const maxScroll = 0;
+  const minScroll = -Math.max(0, totalHeight - viewHeight);
+  scroll = Math.max(minScroll, Math.min(maxScroll, scroll));
+}
+
+// Auto-scroll to keep selected item visible
+function autoScroll(screen) {
+  const itemY = scroll + TOP_MARGIN + (selectedIndex * ROW_HEIGHT);
+  const viewTop = TOP_MARGIN;
+  const viewBottom = screen.height - 12;
+
+  // Scroll down if item is below viewport
+  if (itemY + ROW_HEIGHT > viewBottom) {
+    scroll -= (itemY + ROW_HEIGHT - viewBottom);
+  }
+  // Scroll up if item is above viewport
+  else if (itemY < viewTop) {
+    scroll += (viewTop - itemY);
+  }
+
+  clampScroll(screen);
 }
 
 // Load a ROM
