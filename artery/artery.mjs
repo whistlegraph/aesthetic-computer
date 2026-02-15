@@ -425,32 +425,73 @@ class Artery {
 
   async activateAudio() {
     brightLog('🩸 Activating audio context...');
-    
-    // Click the canvas to activate audio
-    await this.click(100, 100);
-    
+
+    // Force-start audio by calling both click and manually resuming AudioContext
+    // Click the canvas multiple times to aggressively activate audio
+    for (let clickAttempt = 0; clickAttempt < 3; clickAttempt++) {
+      await this.click(100 + clickAttempt * 20, 100 + clickAttempt * 20);
+      await new Promise(r => setTimeout(r, 100));
+    }
+
+    // Manually resume AudioContext if it exists and is suspended
+    await this.eval(`
+      (async function() {
+        if (window.audioContext && window.audioContext.state === 'suspended') {
+          try {
+            await window.audioContext.resume();
+            console.log('🩸 AudioContext manually resumed');
+          } catch (e) {
+            console.warn('Failed to resume AudioContext:', e);
+          }
+        }
+      })()
+    `);
+
+    await new Promise(r => setTimeout(r, 500));
+
     // Wait for audio context to actually be running
     // Check audioWorkletReady flag set by bios when speaker processor is connected
-    const maxAttempts = 30; // 6 seconds max
+    const maxAttempts = 50; // 10 seconds max
     for (let i = 0; i < maxAttempts; i++) {
-      const workletReady = await this.eval('window.audioWorkletReady');
-      
-      if (workletReady) {
+      const status = await this.eval(`({
+        workletReady: window.audioWorkletReady,
+        audioState: window.audioContext?.state,
+        hasAudioContext: !!window.audioContext
+      })`);
+
+      if (status.workletReady) {
         brightLog('🩸 Audio worklet is ready');
         return;
       }
-      
+
       if (i % 5 === 0 && i > 0) {
-        darkLog(`🩸 Waiting for audio... (workletReady: ${workletReady})`);
+        darkLog(`🩸 Waiting for audio... (workletReady: ${status.workletReady}, state: ${status.audioState}, hasContext: ${status.hasAudioContext})`);
+        // Click again and try to resume every 5 attempts
+        await this.click(100, 100);
+        await this.eval(`
+          window.audioContext?.resume?.().catch(e => console.warn('Resume failed:', e))
+        `);
       }
-      
+
       await new Promise(r => setTimeout(r, 200));
     }
-    
-    // Final check
-    const finalReady = await this.eval('window.audioWorkletReady');
-    if (!finalReady) {
-      darkLog(`⚠️  Audio worklet not ready after timeout`);
+
+    // Final desperate attempt
+    brightLog('🩸 Final activation attempt - clicking and resuming...');
+    await this.click(100, 100);
+    await this.eval(`window.audioContext?.resume?.()`);
+    await new Promise(r => setTimeout(r, 1000));
+
+    const finalStatus = await this.eval(`({
+      workletReady: window.audioWorkletReady,
+      audioState: window.audioContext?.state,
+      hasAudioContext: !!window.audioContext
+    })`);
+
+    if (!finalStatus.workletReady) {
+      const error = `Audio worklet failed to initialize (context state: ${finalStatus.audioState}, hasContext: ${finalStatus.hasAudioContext})`;
+      darkLog(`❌ ${error}`);
+      throw new Error(error);
     }
   }
 
