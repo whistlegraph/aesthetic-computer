@@ -5,8 +5,8 @@ Wants=dbus.socket
 
 [Service]
 Type=simple
-# Boot straight to offline starfield bundle (no internet required)
-Environment=AC_URL=file:///opt/ac/offline-pieces/starfield.html
+# Boot straight to offline notepat bundle (no internet required)
+Environment=AC_URL=file:///opt/ac/offline-pieces/notepat.html
 # To use online mode instead, uncomment this line:
 # Environment=AC_URL=https://aesthetic.computer?tv=true&nogap=true&nolabel=true
 ExecStartPre=/bin/sleep 3

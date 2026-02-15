@@ -34,14 +34,9 @@ HOSTNAME=$(hostname 2>/dev/null || echo "ac-device")
 IP=$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{print $7; exit}' || echo "")
 VERSION=$(cat /opt/ac/version 2>/dev/null || echo "dev")
 
-# Build the startup URL — show local QR launcher first, then transition to AC
-if [ -f "$LAUNCHER_DIR/index.html" ]; then
-  START_URL="file://${LAUNCHER_DIR}/index.html?step=boot&hostname=${HOSTNAME}&ip=${IP}&version=${VERSION}&url=${AC_URL}"
-  log "Launcher found, starting with QR boot screen"
-else
-  START_URL="$AC_URL"
-  log "No launcher found, starting directly with AC URL"
-fi
+# Skip the FFOS launcher (ac-device) — go straight to AC_URL
+START_URL="$AC_URL"
+log "Starting directly with AC URL (launcher skipped)"
 log "Start URL: $START_URL"
 
 # Common Chromium flags
