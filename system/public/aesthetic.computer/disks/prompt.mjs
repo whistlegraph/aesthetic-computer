@@ -6934,7 +6934,7 @@ function paint($) {
     // 📦 Commit hash button - shows version status / update availability
     if (versionInfo && versionInfo.deployed) {
       const commitText = updateAvailable
-        ? "update available — tap to refresh"
+        ? "update ready"
         : versionInfo.deployed + (versionInfo.behindBy ? ` (${versionInfo.behindBy} behind)` : "");
       // Create button using TextButtonSmall (MatrixChunky8 font) centered at bottom
       const buttonY = screen.height - 20; // 20px from bottom
@@ -8556,13 +8556,17 @@ function act({
     });
   }
 
-  // �📦 Commit button - refresh if update available, else navigate to commits
+  // 📦 Commit button - reload page when update is ready, else navigate to commits
   if (commitBtn && !commitBtn.btn.disabled) {
     commitBtn.btn.act(e, {
       down: () => downSound(),
       push: () => {
         pushSound();
-        if (updateAvailable) { location.reload(); } else { jump("commits"); }
+        if (updateAvailable) {
+          location.reload();
+        } else {
+          jump("commits");
+        }
       },
       cancel: () => cancelSound(),
     });
