@@ -13,6 +13,7 @@
     "watch": "netlify watch",
     "test": "NODE_OPTIONS='--experimental-vm-modules --es-module-specifier-resolution=node' jest",
     "codespaces-dev": "kill-port 8880 8888 8889 8080 8000 8111 3333 3000 3001; netlify link --id $NETLIFY_SITE_ID; netlify dev --context codespace",
+    "codespaces-dev-autorestart": "kill-port 8880 8888 8889 8080 8000 8111 3333 3000 3001; netlify link --id $NETLIFY_SITE_ID; while true; do echo '\n🔄 Starting Netlify dev server...\n'; netlify dev --context codespace || echo '\n⚠️  Server crashed, restarting in 2 seconds...\n'; sleep 2; done",
     "stripe-dev-print": "stripe listen --forward-to https://localhost:8888/api/print",
     "stripe-dev-ticket": "stripe listen --forward-to https://localhost:8888/api/ticket/sotce",
     "stripe-dev-print-micro": "stripe listen --forward-to https://localhost:8888/api/print --api-key $STRIPE_API_KEY",
