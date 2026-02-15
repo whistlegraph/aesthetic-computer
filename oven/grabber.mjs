@@ -305,12 +305,50 @@ async function processGrabQueue() {
     const priorityLabel = metadata?.source === 'keep' ? ' [PRIORITY]' : '';
     console.log(`📋 Processing queue item: ${metadata?.piece || 'unknown'}${priorityLabel} (${grabsRunning}/${MAX_CONCURRENT_GRABS} active, ${grabQueue.length} queued)`);
 
-    // Fire-and-forget async — each grab runs independently
+    // Fire-and-forget async — each grab runs independently with timeout protection
     (async () => {
+      // Max grab duration: 60 seconds (enough for 20s load + 30s capture/encode + 10s buffer)
+      const GRAB_TIMEOUT_MS = 60000;
+      const startTime = Date.now();
+
+      const timeoutId = setTimeout(() => {
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        const error = new Error(`Grab exceeded ${GRAB_TIMEOUT_MS/1000}s timeout`);
+        console.error(`⏱️ Grab timeout: ${metadata?.piece || 'unknown'} after ${elapsed}s`);
+
+        // Mark any active grabs for this piece as timed out
+        const pieceName = metadata?.piece?.replace(/^\$/, '');
+        if (pieceName) {
+          for (const [grabId, grab] of activeGrabs.entries()) {
+            if (grab.piece === metadata.piece && grab.status === 'capturing') {
+              console.log(`   Marking ${grabId} as timed-out`);
+              grab.status = 'timeout';
+              grab.error = `Exceeded ${GRAB_TIMEOUT_MS/1000}s timeout`;
+              grab.completedAt = Date.now();
+
+              // Move to recent and remove from active
+              recentGrabs.unshift({
+                ...grab,
+                duration: Date.now() - grab.startTime,
+              });
+              activeGrabs.delete(grabId);
+            }
+          }
+        }
+
+        // Reset browser on timeout to prevent cascading failures
+        console.log('🔄 Resetting browser after timeout...');
+        browser = null;
+
+        reject(error);
+      }, GRAB_TIMEOUT_MS);
+
       try {
         const result = await fn();
+        clearTimeout(timeoutId);
         resolve(result);
       } catch (error) {
+        clearTimeout(timeoutId);
         console.error(`❌ Queue item failed: ${metadata?.piece || 'unknown'} - ${error.message}`);
 
         // If it's a browser connection error, try to reset the browser
