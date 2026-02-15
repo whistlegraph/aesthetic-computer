@@ -21,6 +21,25 @@ function getDeployedCommit() {
 
 export default async (request) => {
   const deployedCommit = getDeployedCommit();
+  const url = new URL(request.url);
+  const clientHash = url.searchParams.get("current");
+
+  // Long-poll mode: if client sends ?current=<hash> matching deployed version,
+  // wait ~4 seconds before responding (allows near-instant new-deploy detection)
+  if (clientHash && clientHash === deployedCommit.slice(0, 7)) {
+    await new Promise((r) => setTimeout(r, 4000));
+    // Re-check isn't useful (same function instance), but the NEXT call after
+    // a Netlify redeploy will hit the new function with a new .commit-ref
+    return new Response(
+      JSON.stringify({ changed: false, deployed: deployedCommit.slice(0, 7) }),
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
+        },
+      }
+    );
+  }
 
   try {
     // Fetch latest commits from GitHub (public, no auth needed)
