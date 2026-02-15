@@ -1,11 +1,14 @@
 [Unit]
-Description=Aesthetic Computer Kiosk
+Description=Aesthetic Computer Kiosk (Offline Starfield)
 After=graphical-session.target dbus.socket
 Wants=dbus.socket
 
 [Service]
 Type=simple
-Environment=AC_URL=https://aesthetic.computer?tv=true&nogap=true&nolabel=true
+# Boot straight to offline starfield bundle (no internet required)
+Environment=AC_URL=file:///opt/ac/offline-pieces/starfield.html
+# To use online mode instead, uncomment this line:
+# Environment=AC_URL=https://aesthetic.computer?tv=true&nogap=true&nolabel=true
 ExecStartPre=/bin/sleep 3
 ExecStart=/home/feralfile/scripts/start-aesthetic-kiosk.sh
 Restart=always

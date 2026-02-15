@@ -2,6 +2,13 @@
 
 This folder provides a **local FFOS ISO build pipeline** using Docker (Arch Linux + archiso). It avoids Git submodules to prevent Netlify build interference.
 
+## ✨ NEW: Boots Straight to Offline Starfield
+
+The ISO now boots **directly to offline starfield** - no internet required!
+
+- Bundled offline pieces: starfield, notepat, roz
+- See [OFFLINE-MODE.md](overlays/OFFLINE-MODE.md) for configuration
+
 ## Goals
 - Build FFOS ISO locally from a fork of `feral-file/ffos` + `feral-file/ffos-user`.
 - Keep **all external repos out of the monorepo** (no submodules).

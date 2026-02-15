@@ -80,7 +80,8 @@
       "Bash(npx netlify api:*)",
       "Bash(npx netlify env:get:*)",
       "Bash(git fetch:*)",
-      "Bash(git merge:*)"
+      "Bash(git merge:*)",
+      "Bash(tee:*)"
     ],
     "additionalDirectories": [
       "/home/me/.claude",
