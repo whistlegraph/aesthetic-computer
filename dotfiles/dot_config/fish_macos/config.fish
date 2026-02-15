@@ -133,3 +133,6 @@ set fish_vi_force_cursor true
 
 # vim bindings
 fish_vi_key_bindings
+
+# Created by `pipx` on 2026-02-14 21:34:00
+set PATH $PATH /Users/jas/.local/bin
