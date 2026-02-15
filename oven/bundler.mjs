@@ -10,7 +10,7 @@
 import { promises as fs } from "fs";
 import fsSync from "fs";
 import path from "path";
-import { gzipSync, brotliCompressSync, constants as zlibConstants } from "zlib";
+import { gzipSync, gunzipSync, brotliCompressSync, constants as zlibConstants } from "zlib";
 import { execSync } from "child_process";
 import { MongoClient } from "mongodb";
 
@@ -106,6 +106,111 @@ const VFS_STUBS = {
 };
 
 // ─── Helpers ────────────────────────────────────────────────────────
+
+// Parse BDF font file and extract glyphs for the given code point set.
+// Returns a map of hex-padded keys (e.g. "0041") to glyph data objects.
+function parseBDFGlyphs(bdfText, codePointSet) {
+  const lines = bdfText.split(/\r?\n/);
+  const map = {};
+  let fontAscent = 8, fontDescent = 0;
+  let inChar = false, inBitmap = false;
+  let charCode = -1, bbx = null, dwidth = null, bitmapLines = [];
+
+  for (const line of lines) {
+    if (line.startsWith("FONT_ASCENT")) {
+      fontAscent = parseInt(line.split(" ")[1]);
+    } else if (line.startsWith("FONT_DESCENT")) {
+      fontDescent = parseInt(line.split(" ")[1]);
+    } else if (line.startsWith("STARTCHAR")) {
+      inChar = true; inBitmap = false;
+      charCode = -1; bbx = null; dwidth = null; bitmapLines = [];
+    } else if (inChar && line.startsWith("ENCODING")) {
+      charCode = parseInt(line.split(" ")[1]);
+    } else if (inChar && line.startsWith("DWIDTH")) {
+      const p = line.split(" ");
+      dwidth = { x: parseInt(p[1]), y: parseInt(p[2]) };
+    } else if (inChar && line.startsWith("BBX")) {
+      const p = line.split(" ");
+      bbx = { width: parseInt(p[1]), height: parseInt(p[2]), xOffset: parseInt(p[3]), yOffset: parseInt(p[4]) };
+    } else if (inChar && line.trim() === "BITMAP") {
+      inBitmap = true;
+    } else if (inChar && line.startsWith("ENDCHAR")) {
+      if (codePointSet.has(charCode) && bbx && bbx.width > 0 && bbx.height > 0) {
+        // Parse bitmap into point commands
+        const points = [];
+        for (let r = 0; r < bbx.height && r < bitmapLines.length; r++) {
+          let hex = bitmapLines[r].trim();
+          if (hex.length % 2 !== 0) hex += "0";
+          const bytes = Buffer.from(hex, "hex");
+          for (let c = 0; c < bbx.width; c++) {
+            const bi = Math.floor(c / 8);
+            if (bi < bytes.length && (bytes[bi] >> (7 - (c % 8))) & 1) {
+              points.push({ name: "point", args: [c, r] });
+            }
+          }
+        }
+        // Optimize consecutive points into line commands
+        const commands = optimizeBDFPoints(points);
+        const hexKey = charCode.toString(16).toUpperCase().padStart(4, "0");
+        map[hexKey] = {
+          resolution: [bbx.width, bbx.height],
+          offset: [bbx.xOffset, bbx.yOffset],
+          baselineOffset: [bbx.xOffset, fontAscent - bbx.height - bbx.yOffset],
+          advance: dwidth ? dwidth.x : 4,
+          bbx: { width: bbx.width, height: bbx.height, xOffset: bbx.xOffset, yOffset: bbx.yOffset },
+          dwidth, fontMetrics: { ascent: fontAscent, descent: fontDescent },
+          commands,
+        };
+      }
+      inChar = false; inBitmap = false;
+    } else if (inChar && inBitmap && bbx && bitmapLines.length < bbx.height) {
+      bitmapLines.push(line.trim());
+    }
+  }
+  return map;
+}
+
+// Merge adjacent horizontal/vertical points into line commands for smaller JSON.
+function optimizeBDFPoints(points) {
+  if (points.length === 0) return [];
+  const unique = new Map();
+  for (const p of points) {
+    const k = `${p.args[0]},${p.args[1]}`;
+    if (!unique.has(k)) unique.set(k, { x: p.args[0], y: p.args[1] });
+  }
+  const pts = Array.from(unique.values()).sort((a, b) => a.y !== b.y ? a.y - b.y : a.x - b.x);
+  const used = new Set();
+  const cmds = [];
+  for (let i = 0; i < pts.length; i++) {
+    if (used.has(i)) continue;
+    const p = pts[i];
+    // Try horizontal run
+    const hRun = [i];
+    for (let j = i + 1; j < pts.length; j++) {
+      if (used.has(j) || pts[j].y !== p.y) break;
+      if (pts[j].x === p.x + hRun.length) hRun.push(j); else break;
+    }
+    if (hRun.length >= 2) {
+      cmds.push({ name: "line", args: [p.x, p.y, pts[hRun[hRun.length - 1]].x, p.y] });
+      hRun.forEach(idx => used.add(idx));
+      continue;
+    }
+    // Try vertical run
+    const vRun = [i];
+    for (let j = i + 1; j < pts.length; j++) {
+      if (used.has(j)) continue;
+      if (pts[j].x === p.x && pts[j].y === p.y + vRun.length) vRun.push(j);
+    }
+    if (vRun.length >= 2) {
+      cmds.push({ name: "line", args: [p.x, p.y, p.x, pts[vRun[vRun.length - 1]].y] });
+      vRun.forEach(idx => used.add(idx));
+      continue;
+    }
+    cmds.push({ name: "point", args: [p.x, p.y] });
+    used.add(i);
+  }
+  return cmds;
+}
 
 function timestamp(date = new Date()) {
   const pad = (n, digits = 2) => n.toString().padStart(digits, "0");
@@ -460,30 +565,66 @@ async function getCoreBundle(onProgress = () => {}, forceRefresh = false) {
     } catch { /* skip */ }
   }
 
-  // BDF glyph maps (MatrixChunky8 + unifont) — pre-parsed JSON for bundle embedding
-  onProgress({ stage: "glyphs", message: "Loading BDF glyph maps..." });
+  // BDF glyph maps — parse directly from BDF font files for comprehensive coverage
+  onProgress({ stage: "glyphs", message: "Parsing BDF font files..." });
   const bdfGlyphs = {};
-  // Production: /opt/oven/assets-type/ (synced by deploy.sh)
-  // Dev: sibling to aesthetic.computer/ under system/public/
   const prodTypeDir = path.resolve(process.cwd(), "assets-type");
   const devTypeDir = path.resolve(acDir, "../assets/type");
   const assetsTypeDir = fsSync.existsSync(prodTypeDir) ? prodTypeDir : devTypeDir;
-  for (const fontName of ["MatrixChunky8", "unifont-16.0.03"]) {
-    const fontDir = path.join(assetsTypeDir, fontName);
-    if (!fsSync.existsSync(fontDir)) continue;
-    const map = {};
+
+  // Character ranges to embed: ASCII printable + Latin-1 Supplement + common symbols
+  const EMBED_RANGES = [
+    [0x0020, 0x007E], // ASCII printable (95 chars)
+    [0x00A0, 0x00FF], // Latin-1 Supplement (96 chars)
+    [0x0100, 0x017F], // Latin Extended-A (128 chars)
+    [0x2000, 0x206F], // General Punctuation (112 chars)
+    [0x2190, 0x21FF], // Arrows (112 chars)
+    [0x2500, 0x257F], // Box Drawing (128 chars)
+    [0x25A0, 0x25FF], // Geometric Shapes (96 chars)
+    [0x2600, 0x26FF], // Misc Symbols (256 chars)
+  ];
+  const embedSet = new Set();
+  for (const [lo, hi] of EMBED_RANGES) {
+    for (let cp = lo; cp <= hi; cp++) embedSet.add(cp);
+  }
+
+  for (const { fontName, bdfFile, key } of [
+    { fontName: "MatrixChunky8", bdfFile: "MatrixChunky8.bdf", key: "MatrixChunky8" },
+    { fontName: "unifont-16.0.03", bdfFile: "unifont-16.0.03.bdf", key: "unifont" },
+  ]) {
+    const bdfPath = path.join(assetsTypeDir, bdfFile);
+    const bdfGzPath = bdfPath + ".gz";
+    let bdfText = null;
     try {
-      for (const f of fsSync.readdirSync(fontDir).filter((n) => n.endsWith(".json"))) {
-        const hex = f.replace(".json", "").toUpperCase();
-        // Pad to 4 hex chars to match type.mjs codePoint formatting (padStart(4, '0'))
-        const paddedHex = hex.length < 4 ? hex.padStart(4, "0") : hex;
-        const content = await fs.readFile(path.join(fontDir, f), "utf8");
-        map[paddedHex] = JSON.parse(content);
+      if (fsSync.existsSync(bdfPath)) {
+        bdfText = fsSync.readFileSync(bdfPath, "utf8");
+      } else if (fsSync.existsSync(bdfGzPath)) {
+        bdfText = gunzipSync(fsSync.readFileSync(bdfGzPath)).toString("utf8");
       }
-    } catch { /* skip */ }
-    const key = fontName === "unifont-16.0.03" ? "unifont" : fontName;
+    } catch (err) {
+      console.error(`[bundler] failed to read BDF ${bdfFile}:`, err.message);
+    }
+    if (!bdfText) {
+      // Fallback: read pre-cached JSON files
+      const fontDir = path.join(assetsTypeDir, fontName);
+      if (fsSync.existsSync(fontDir)) {
+        const map = {};
+        try {
+          for (const f of fsSync.readdirSync(fontDir).filter((n) => n.endsWith(".json"))) {
+            const hex = f.replace(".json", "").toUpperCase();
+            const paddedHex = hex.length < 4 ? hex.padStart(4, "0") : hex;
+            map[paddedHex] = JSON.parse(await fs.readFile(path.join(fontDir, f), "utf8"));
+          }
+        } catch { /* skip */ }
+        bdfGlyphs[key] = map;
+        console.log(`[bundler] fallback: loaded ${Object.keys(map).length} ${key} glyphs from cache`);
+      }
+      continue;
+    }
+
+    const map = parseBDFGlyphs(bdfText, embedSet);
     bdfGlyphs[key] = map;
-    console.log(`[bundler] loaded ${Object.keys(map).length} ${key} glyphs`);
+    console.log(`[bundler] parsed ${Object.keys(map).length} ${key} glyphs from BDF`);
   }
   coreFiles.__bdfGlyphs = bdfGlyphs;
 
