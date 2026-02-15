@@ -7,7 +7,7 @@ import {
 import {
 	strToU8,
 	zipSync,
-} from '../libs/fflate.module.js';
+} from './fflate.module.js';
 
 class USDNode {
 
