@@ -36,6 +36,68 @@ function parseEfluxUrl(url) {
   } catch { return null; }
 }
 
+// Detect Instagram URLs
+function parseInstagramUrl(url) {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    // Match instagram.com/p/POST_ID or instagram.com/reel/REEL_ID
+    if (!u.hostname.includes('instagram.com')) return null;
+    const match = u.pathname.match(/^\/(p|reel|reels)\/([a-zA-Z0-9_-]+)/);
+    if (!match) return null;
+    return url; // Return the full URL for fetching
+  } catch { return null; }
+}
+
+// Fetch Instagram post via Graph API (requires Facebook App credentials from database)
+async function fetchInstagramEmbed(instagramUrl, database) {
+  if (!database) {
+    console.log('[news] No database connection, falling back to og:image');
+    return null;
+  }
+
+  try {
+    const secrets = await database.db.collection("secrets").findOne({ _id: "facebook" });
+
+    if (!secrets || !secrets.appId || !secrets.appSecret) {
+      console.log('[news] Facebook credentials not found in database, falling back to og:image');
+      return null;
+    }
+
+    const appId = secrets.appId;
+    const appSecret = secrets.appSecret;
+
+    // Get app access token
+    const tokenUrl = `https://graph.facebook.com/oauth/access_token?client_id=${appId}&client_secret=${appSecret}&grant_type=client_credentials`;
+    const tokenRes = await fetch(tokenUrl);
+    const tokenData = await tokenRes.json();
+
+    if (!tokenData.access_token) {
+      console.error('[news] Failed to get Facebook access token');
+      return null;
+    }
+
+    // Fetch Instagram oEmbed
+    const oembedUrl = `https://graph.facebook.com/v21.0/instagram_oembed?url=${encodeURIComponent(instagramUrl)}&access_token=${tokenData.access_token}`;
+    const res = await fetch(oembedUrl);
+    const data = await res.json();
+
+    if (data.error) {
+      console.log('[news] Instagram API error:', data.error.message);
+      return null;
+    }
+
+    return {
+      html: data.html,
+      authorName: data.author_name,
+      mediaType: data.media_type, // 'IMAGE' or 'VIDEO'
+    };
+  } catch (e) {
+    console.error('[news] Instagram API error:', e.message);
+    return null;
+  }
+}
+
 // Fetch generic OpenGraph metadata from any URL
 async function fetchOgMeta(url) {
   try {
@@ -573,7 +635,7 @@ async function renderItemPage(database, basePath, code) {
   const acPreviewHtml = acPiece ? `
       <div class="news-ac-preview" data-ac-piece="${escapeHtml(acPiece)}">
         <a href="${escapeHtml(hydratedPost.url)}" target="_blank" rel="noreferrer" class="news-ac-link">
-          <img src="https://oven.aesthetic.computer/grab/webp/640/640/${escapeHtml(acPiece)}?duration=4000&fps=8&quality=80&density=1" alt="Aesthetic Computer piece preview" class="news-ac-webp" loading="lazy" />
+          <img src="https://oven.aesthetic.computer/grab/webp/960/540/${escapeHtml(acPiece)}?duration=4000&fps=8&quality=80&density=1" alt="Aesthetic Computer piece preview" class="news-ac-webp" loading="lazy" />
           <span class="news-ac-badge">aesthetic.computer/${escapeHtml(acPiece)}</span>
         </a>
       </div>` : '';
@@ -622,9 +684,42 @@ async function renderItemPage(database, basePath, code) {
     }
   }
 
+  // Check for Instagram preview (try Graph API first, fall back to og:image)
+  const instagramUrl = parseInstagramUrl(hydratedPost.url);
+  let instagramPreviewHtml = '';
+  if (instagramUrl && !youtubeId && !kidlispCode && !acPiece && !imgurUrl && !directImageUrl && !efluxPreviewHtml) {
+    // Try Instagram Graph API first
+    const embedData = await fetchInstagramEmbed(instagramUrl, database);
+    if (embedData && embedData.html) {
+      // Use official Instagram embed HTML
+      instagramPreviewHtml = `
+      <div class="news-instagram-preview news-instagram-embed">
+        ${embedData.html}
+      </div>`;
+    } else {
+      // Fallback to og:image
+      const ogMeta = await fetchOgMeta(instagramUrl);
+      if (ogMeta && ogMeta.image) {
+        instagramPreviewHtml = `
+      <div class="news-instagram-preview">
+        <a href="${escapeHtml(instagramUrl)}" target="_blank" rel="noopener" class="news-instagram-link">
+          <div class="news-instagram-image-container">
+            <img src="${escapeHtml(ogMeta.image)}" alt="${escapeHtml(ogMeta.title || 'Instagram post')}" class="news-instagram-image" loading="lazy" />
+          </div>
+          ${ogMeta.title || ogMeta.description ? `<div class="news-instagram-body">
+            <div class="news-instagram-site">📷 Instagram</div>
+            ${ogMeta.title ? `<div class="news-instagram-title">${escapeHtml(ogMeta.title)}</div>` : ''}
+            ${ogMeta.description ? `<div class="news-instagram-description">${escapeHtml(ogMeta.description)}</div>` : ''}
+          </div>` : ''}
+        </a>
+      </div>`;
+      }
+    }
+  }
+
   // Generic og:image fallback for any other URL
   let ogPreviewHtml = '';
-  if (hydratedPost.url && !youtubeId && !kidlispCode && !acPiece && !imgurUrl && !directImageUrl && !efluxPreviewHtml) {
+  if (hydratedPost.url && !youtubeId && !kidlispCode && !acPiece && !imgurUrl && !directImageUrl && !efluxPreviewHtml && !instagramPreviewHtml) {
     const ogMeta = await fetchOgMeta(hydratedPost.url);
     if (ogMeta && ogMeta.image) {
       ogPreviewHtml = `
@@ -643,8 +738,8 @@ async function renderItemPage(database, basePath, code) {
     }
   }
 
-  const hasMedia = youtubeId || kidlispCode || acPiece || imgurUrl || directImageUrl || efluxPreviewHtml || ogPreviewHtml;
-  const mediaHtml = youtubeEmbedHtml || kidlispPreviewHtml || acPreviewHtml || imgurPreviewHtml || directImagePreviewHtml || efluxPreviewHtml || ogPreviewHtml;
+  const hasMedia = youtubeId || kidlispCode || acPiece || imgurUrl || directImageUrl || efluxPreviewHtml || instagramPreviewHtml || ogPreviewHtml;
+  const mediaHtml = youtubeEmbedHtml || kidlispPreviewHtml || acPreviewHtml || imgurPreviewHtml || directImagePreviewHtml || efluxPreviewHtml || instagramPreviewHtml || ogPreviewHtml;
 
   const body = `
   ${header(basePath)}

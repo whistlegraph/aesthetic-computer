@@ -764,8 +764,10 @@ body {
 
 .news-ac-webp {
   display: block;
-  max-width: 100%;
+  width: 100%;
   height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
   border-radius: 6px;
   image-rendering: pixelated;
 }
@@ -869,6 +871,118 @@ body {
 
 .news-hero-media .news-og-image-container {
   border-radius: 0;
+}
+
+/* ===== Instagram Preview ===== */
+.news-instagram-preview {
+  width: 100%;
+  max-width: 100%;
+  margin: 16px 0;
+  background: var(--bg-secondary);
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Instagram Graph API embed (official HTML) */
+.news-instagram-embed {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.news-instagram-embed iframe,
+.news-instagram-embed blockquote {
+  max-width: 540px;
+  margin: 0 auto;
+}
+
+.news-instagram-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.news-instagram-link:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+
+.news-instagram-image-container {
+  width: 100%;
+  max-height: 500px;
+  overflow: hidden;
+  position: relative;
+  background: #000;
+  aspect-ratio: 1 / 1; /* Instagram posts are typically square */
+}
+
+.news-instagram-image {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.news-instagram-body {
+  padding: 16px;
+  background: var(--bg-secondary);
+}
+
+.news-instagram-site {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-meta);
+  margin-bottom: 8px;
+}
+
+.news-instagram-title {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.news-instagram-description {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+/* Instagram in hero media */
+.news-hero-media .news-instagram-preview {
+  margin: 0;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+}
+
+.news-hero-media .news-instagram-image-container {
+  border-radius: 0;
+  max-height: 600px;
+}
+
+@media (max-width: 600px) {
+  .news-instagram-image-container {
+    max-height: 400px;
+  }
+  .news-instagram-body {
+    padding: 12px;
+  }
+  .news-instagram-title {
+    font-size: 13px;
+  }
+  .news-instagram-description {
+    font-size: 11px;
+  }
 }
 
 /* ===== Generic OpenGraph Preview ===== */
