@@ -166,50 +166,44 @@ def get_current_wifi():
 def connect_wifi(ssid, pw):
     """Connect to WiFi network. Returns (success, message, debug_info)."""
     debug_lines = []
+    # Use sudo for nmcli to bypass polkit authorization issues
+    NMCLI = ["sudo", "nmcli"]
     try:
         debug_lines.append(f"SSID: {ssid}")
-        debug_lines.append(f"Credential: '{pw}'")  # Show full credential for debugging
         debug_lines.append(f"Credential length: {len(pw) if pw else 0}")
-        debug_lines.append(f"Credential repr: {repr(pw)}")  # Shows exact bytes
-        
+
         # Delete old connection if exists
-        del_result = subprocess.run(
-            ["nmcli", "con", "delete", ssid],
-            capture_output=True, text=True, timeout=10
-        )
-        debug_lines.append(f"Delete old conn: rc={del_result.returncode}")
-        
-        # Use nmcli con add for better handling of special characters
-        # This creates a connection profile first, then activates it
         con_name = f"ac-{ssid}"
-        
-        # Delete old AC connection if exists
         subprocess.run(
-            ["nmcli", "con", "delete", con_name],
+            NMCLI + ["con", "delete", ssid],
             capture_output=True, text=True, timeout=10
         )
-        
+        subprocess.run(
+            NMCLI + ["con", "delete", con_name],
+            capture_output=True, text=True, timeout=10
+        )
+
         # Create new connection with credential
-        add_cmd = [
-            "nmcli", "con", "add",
+        add_cmd = NMCLI + [
+            "con", "add",
             "type", "wifi",
             "con-name", con_name,
             "ssid", ssid,
             "wifi-sec.key-mgmt", "wpa-psk",
             "wifi-sec.psk", pw
         ]
-        debug_lines.append(f"Creating connection profile...")
+        debug_lines.append("Creating connection profile...")
         add_result = subprocess.run(add_cmd, capture_output=True, text=True, timeout=15)
         debug_lines.append(f"Add rc={add_result.returncode}")
         if add_result.stderr:
             debug_lines.append(f"Add err: {add_result.stderr.strip()[:80]}")
         if add_result.stdout:
             debug_lines.append(f"Add out: {add_result.stdout.strip()[:80]}")
-        
+
         if add_result.returncode != 0:
             # Fallback to direct connect
             debug_lines.append("Fallback: direct connect...")
-            cmd = ["nmcli", "dev", "wifi", "connect", ssid, "password", pw]
+            cmd = NMCLI + ["dev", "wifi", "connect", ssid, "password", pw]
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
             debug_lines.append(f"Direct rc={result.returncode}")
             if result.stderr:
@@ -218,11 +212,11 @@ def connect_wifi(ssid, pw):
                 debug_lines.append(f"stdout: {result.stdout.strip()[:80]}")
             output = result.stderr or result.stdout or "No output"
             return result.returncode == 0, output.strip(), "\n".join(debug_lines)
-        
+
         # Activate the connection
         debug_lines.append("Activating connection...")
         up_result = subprocess.run(
-            ["nmcli", "con", "up", con_name],
+            NMCLI + ["con", "up", con_name],
             capture_output=True, text=True, timeout=30
         )
         debug_lines.append(f"Up rc={up_result.returncode}")
@@ -230,10 +224,10 @@ def connect_wifi(ssid, pw):
             debug_lines.append(f"Up err: {up_result.stderr.strip()[:80]}")
         if up_result.stdout:
             debug_lines.append(f"Up out: {up_result.stdout.strip()[:80]}")
-        
+
         output = up_result.stderr or up_result.stdout or "No output"
         return up_result.returncode == 0, output.strip(), "\n".join(debug_lines)
-        
+
     except subprocess.TimeoutExpired:
         debug_lines.append("TIMEOUT!")
         return False, "Connection timed out", "\n".join(debug_lines)
@@ -788,11 +782,14 @@ def get_offline_pieces():
     return available
 
 def launch_offline_piece(piece_path):
-    """Launch Firefox in kiosk mode with the offline piece."""
-    # Use Firefox in kiosk mode pointing to the local HTML file
-    cmd = ["firefox", "--kiosk", f"file://{piece_path}"]
-    subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    return True
+    """Launch browser in kiosk mode with the offline piece."""
+    # Try chromium first, then firefox as fallback
+    for browser in ["chromium", "firefox"]:
+        if os.path.isfile(f"/usr/bin/{browser}"):
+            cmd = [browser, "--kiosk", f"file://{piece_path}"]
+            subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return True
+    return False
 
 def offline_mode_menu(stdscr, matrix=None):
     """Offline mode: select and launch bundled pieces."""
