@@ -274,7 +274,23 @@ export function estimateWaitTime(queuePosition) {
 
 async function enqueueGrab(fn, metadata = {}) {
   return new Promise((resolve, reject) => {
-    grabQueue.push({ fn, resolve, reject, metadata: { ...metadata, addedAt: Date.now() } });
+    const queueItem = { fn, resolve, reject, metadata: { ...metadata, addedAt: Date.now() } };
+
+    // Priority queue: 'keep' (NFT minting) jumps to front, others go to back
+    const isKeep = metadata.source === 'keep';
+    if (isKeep) {
+      // Find first non-keep item and insert before it (maintains FIFO among keeps)
+      const firstNonKeepIndex = grabQueue.findIndex(item => item.metadata?.source !== 'keep');
+      if (firstNonKeepIndex === -1) {
+        grabQueue.push(queueItem); // All items are keeps or queue is empty
+      } else {
+        grabQueue.splice(firstNonKeepIndex, 0, queueItem); // Insert before first non-keep
+      }
+      console.log(`🎯 Priority grab queued: ${metadata.piece} (keep #${metadata.keepId || '?'}) - position ${firstNonKeepIndex === -1 ? grabQueue.length : firstNonKeepIndex + 1}`);
+    } else {
+      grabQueue.push(queueItem);
+    }
+
     // Notify subscribers of queue change
     if (progressNotifyCallback) progressNotifyCallback();
     processGrabQueue();
@@ -286,7 +302,8 @@ async function processGrabQueue() {
     grabsRunning++;
     const { fn, resolve, reject, metadata } = grabQueue.shift();
 
-    console.log(`📋 Processing queue item: ${metadata?.piece || 'unknown'} (${grabsRunning}/${MAX_CONCURRENT_GRABS} active, ${grabQueue.length} queued)`);
+    const priorityLabel = metadata?.source === 'keep' ? ' [PRIORITY]' : '';
+    console.log(`📋 Processing queue item: ${metadata?.piece || 'unknown'}${priorityLabel} (${grabsRunning}/${MAX_CONCURRENT_GRABS} active, ${grabQueue.length} queued)`);
 
     // Fire-and-forget async — each grab runs independently
     (async () => {
@@ -1241,7 +1258,9 @@ async function captureFrames(piece, options = {}) {
     });
     
     const pieceWaitStart = Date.now();
-    const maxPieceWait = 30000; // 30 seconds max for piece to load
+    // Reduce wait time from 30s to 20s - most pieces signal ready within 5-10s
+    // For keep minting, we prioritize speed over edge cases
+    const maxPieceWait = 20000; // 20 seconds max for piece to load
     let pieceReady = false;
     let lastPreviewTime = 0;
     
