@@ -377,6 +377,8 @@ let previousKidlispMode = false; // Track previous KidLisp mode state for sound 
 let versionInfo = null; // { deployed, latest, status, behindBy } - git commit status
 let versionCommit = null; // Current commit hash for the commit button
 let recentCommits = []; // Recent commits for uniticker display: [{hash, message, author, date}]
+let updateAvailable = false; // True when a new deployment is detected via long-poll
+let versionPollController = null; // AbortController for long-poll requests
 
 // Multilingual "Prompt" translations cycling
 const promptTranslations = [
@@ -784,7 +786,7 @@ async function boot({
       console.warn("💁 Could not get handle count.");
     });
 
-  // Fetch git commit/version status
+  // Fetch git commit/version status with long-poll for deploy detection
   const fetchVersion = async () => {
     try {
       // On localhost, fetch GitHub directly to show latest remote commit
@@ -826,7 +828,49 @@ async function boot({
     }
   };
   fetchVersion();
-  setInterval(fetchVersion, 5 * 60 * 1000); // Refresh every 5 minutes
+
+  // Long-poll loop: detect new deployments within ~5 seconds
+  const startVersionPoll = async () => {
+    if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+      // Local dev: just poll every 60 seconds
+      setInterval(fetchVersion, 60 * 1000);
+      return;
+    }
+    const poll = async () => {
+      while (true) {
+        try {
+          if (!versionInfo?.deployed) {
+            await new Promise(r => setTimeout(r, 5000));
+            continue;
+          }
+          versionPollController = new AbortController();
+          const res = await fetch(
+            `/api/version?current=${versionInfo.deployed}`,
+            { signal: versionPollController.signal }
+          );
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          if (data.changed === false) {
+            // Same version — loop again immediately (server already waited ~4s)
+            continue;
+          }
+          // New deployment detected! Update version info
+          updateAvailable = true;
+          versionInfo = data;
+          recentCommits = data.recentCommits || [];
+          needsPaint();
+          console.log("📦 New deployment detected:", data.deployed);
+          break; // Stop polling — update is available
+        } catch (e) {
+          if (e.name === "AbortError") break;
+          console.warn("📦 Version poll error:", e);
+          await new Promise(r => setTimeout(r, 10000)); // Back off on error
+        }
+      }
+    };
+    poll();
+  };
+  startVersionPoll();
 
   // Clear handle colors cache on each boot so edits are picked up immediately.
   handleColorsCache.clear();
@@ -6887,9 +6931,11 @@ function paint($) {
       }
     }
 
-    // 📦 Commit hash button - only show when client is behind main
+    // 📦 Commit hash button - shows version status / update availability
     if (versionInfo && versionInfo.deployed) {
-      const commitText = versionInfo.deployed + (versionInfo.behindBy ? ` (${versionInfo.behindBy} behind)` : "");
+      const commitText = updateAvailable
+        ? "update available — tap to refresh"
+        : versionInfo.deployed + (versionInfo.behindBy ? ` (${versionInfo.behindBy} behind)` : "");
       // Create button using TextButtonSmall (MatrixChunky8 font) centered at bottom
       const buttonY = screen.height - 20; // 20px from bottom
       if (!commitBtn) {
@@ -6898,41 +6944,51 @@ function paint($) {
         commitBtn.reposition({ center: "x", y: buttonY, screen }, commitText);
         commitBtn.btn.disabled = false;
       }
-      // Paint with dim yellow/orange and translucent (alpha: ~50%)
-      // If behind, use more prominent orange; if up-to-date, use dimmer gray/blue
       const cBox = commitBtn.btn.box;
       if (cBox) {
-        // TextButtonSmall paint scheme: [fillColor, outlineColor, textAlpha, unused]
-        const isBehind = versionInfo.status === "behind";
         const isHover = commitBtn.btn.over && !commitBtn.btn.down;
 
-        const colors = isBehind
+        const colors = updateAvailable
           ? isHover
             ? [
-                [60, 52, 30, 160],    // fill: brighter orange on hover
-                [120, 105, 60, 180],  // outline: much brighter orange
-                180,                  // text alpha brighter
-                [60, 52, 30, 160]     // unused fill
+                [30, 60, 30, 180],    // fill: bright green on hover
+                [60, 140, 60, 200],   // outline: vivid green
+                220,                  // text alpha
+                [30, 60, 30, 180]
               ]
             : [
-                [40, 35, 20, 128],    // fill: dark orange (behind)
-                [80, 70, 40, 128],    // outline: lighter orange
-                128,                  // text alpha
-                [40, 35, 20, 128]     // unused fill
+                [20, 50, 20, 160],    // fill: green (update ready)
+                [50, 120, 50, 180],   // outline: green
+                180,                  // text alpha
+                [20, 50, 20, 160]
               ]
-          : isHover
-            ? [
-                [35, 42, 50, 160],    // fill: brighter blue/gray on hover
-                [70, 84, 100, 180],   // outline: much brighter blue/gray
-                180,                  // text alpha brighter
-                [35, 42, 50, 160]     // unused fill
-              ]
-            : [
-                [20, 25, 30, 128],    // fill: dark blue/gray (up-to-date)
-                [40, 50, 60, 128],    // outline: lighter blue/gray
-                128,                  // text alpha
-                [20, 25, 30, 128]     // unused fill
-              ];
+          : versionInfo.status === "behind"
+            ? isHover
+              ? [
+                  [60, 52, 30, 160],    // fill: brighter orange on hover
+                  [120, 105, 60, 180],  // outline: much brighter orange
+                  180,                  // text alpha brighter
+                  [60, 52, 30, 160]
+                ]
+              : [
+                  [40, 35, 20, 128],    // fill: dark orange (behind)
+                  [80, 70, 40, 128],    // outline: lighter orange
+                  128,                  // text alpha
+                  [40, 35, 20, 128]
+                ]
+            : isHover
+              ? [
+                  [35, 42, 50, 160],    // fill: brighter blue/gray on hover
+                  [70, 84, 100, 180],   // outline: much brighter blue/gray
+                  180,                  // text alpha brighter
+                  [35, 42, 50, 160]
+                ]
+              : [
+                  [20, 25, 30, 128],    // fill: dark blue/gray (up-to-date)
+                  [40, 50, 60, 128],    // outline: lighter blue/gray
+                  128,                  // text alpha
+                  [20, 25, 30, 128]
+                ];
         commitBtn.paint($, colors);
       }
       versionCommit = versionInfo.deployed;
@@ -8500,13 +8556,13 @@ function act({
     });
   }
 
-  // �📦 Commit button - navigate to commits piece
+  // �📦 Commit button - refresh if update available, else navigate to commits
   if (commitBtn && !commitBtn.btn.disabled) {
     commitBtn.btn.act(e, {
       down: () => downSound(),
       push: () => {
         pushSound();
-        jump("commits");
+        if (updateAvailable) { location.reload(); } else { jump("commits"); }
       },
       cancel: () => cancelSound(),
     });
@@ -8768,6 +8824,7 @@ function meta() {
 // 👋 Leave
 function leave() {
   motdController?.abort(); // Abort any motd update.
+  versionPollController?.abort(); // Stop version long-poll.
 }
 
 export const nohud = true;
