@@ -423,34 +423,133 @@ class Artery {
     brightLog('🩸 AC panel opened');
   }
 
+  // Wait for boot/piece to be fully ready before activating audio
+  async waitForBoot(timeoutMs = 15000) {
+    brightLog('🩸 Waiting for boot to complete...');
+
+    const startTime = Date.now();
+    let lastLogTime = 0;
+
+    while (Date.now() - startTime < timeoutMs) {
+      const bootStatus = await this.eval(`({
+        hasBios: typeof window.currentPiece !== 'undefined',
+        currentPiece: window.currentPiece || null,
+        hasActivateSound: typeof window.activateSound === 'function',
+        canvasExists: !!document.querySelector('canvas'),
+        locationPath: window.location?.pathname || '',
+        hasAudioContext: !!window.audioContext
+      })`);
+
+      // Boot is complete when currentPiece is set
+      if (bootStatus.currentPiece) {
+        brightLog(`🩸 Boot complete (piece: ${bootStatus.currentPiece})`);
+        return true;
+      }
+
+      // Log status every 2 seconds for debugging
+      const elapsed = Date.now() - startTime;
+      if (elapsed - lastLogTime > 2000) {
+        darkLog(`🩸 Waiting... hasBios=${bootStatus.hasBios}, canvas=${bootStatus.canvasExists}, path=${bootStatus.locationPath}`);
+        lastLogTime = elapsed;
+      }
+
+      await new Promise(r => setTimeout(r, 100));
+    }
+
+    darkLog('⚠️  Boot timeout - proceeding anyway');
+    return false;
+  }
+
   async activateAudio() {
     brightLog('🩸 Activating audio context...');
-    
-    // Click the canvas to activate audio
-    await this.click(100, 100);
-    
+
+    // FIRST: Wait for boot to complete so activateSound listener exists
+    await this.waitForBoot();
+
+    // Dispatch real pointerdown event to trigger activateSound listener in bios
+    await this.eval(`
+      (function() {
+        const event = new PointerEvent('pointerdown', {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+          clientX: 100,
+          clientY: 100
+        });
+        window.dispatchEvent(event);
+        console.log('🩸 Dispatched pointerdown event');
+      })()
+    `);
+
+    await new Promise(r => setTimeout(r, 300));
+
+    // Click canvas multiple times for good measure
+    for (let clickAttempt = 0; clickAttempt < 2; clickAttempt++) {
+      await this.click(100 + clickAttempt * 20, 100 + clickAttempt * 20);
+      await new Promise(r => setTimeout(r, 100));
+    }
+
+    // Manually resume AudioContext if it exists and is suspended
+    await this.eval(`
+      (async function() {
+        if (window.audioContext) {
+          if (window.audioContext.state === 'suspended') {
+            try {
+              await window.audioContext.resume();
+              console.log('🩸 AudioContext manually resumed');
+            } catch (e) {
+              console.warn('Failed to resume AudioContext:', e);
+            }
+          }
+        }
+      })()
+    `);
+
+    await new Promise(r => setTimeout(r, 500));
+
     // Wait for audio context to actually be running
     // Check audioWorkletReady flag set by bios when speaker processor is connected
-    const maxAttempts = 30; // 6 seconds max
+    const maxAttempts = 50; // 10 seconds max
     for (let i = 0; i < maxAttempts; i++) {
-      const workletReady = await this.eval('window.audioWorkletReady');
-      
-      if (workletReady) {
+      const status = await this.eval(`({
+        workletReady: window.audioWorkletReady,
+        audioState: window.audioContext?.state,
+        hasAudioContext: !!window.audioContext
+      })`);
+
+      if (status.workletReady) {
         brightLog('🩸 Audio worklet is ready');
         return;
       }
-      
+
       if (i % 5 === 0 && i > 0) {
-        darkLog(`🩸 Waiting for audio... (workletReady: ${workletReady})`);
+        darkLog(`🩸 Waiting for audio... (workletReady: ${status.workletReady}, state: ${status.audioState}, hasContext: ${status.hasAudioContext})`);
+        // Click again and try to resume every 5 attempts
+        await this.click(100, 100);
+        await this.eval(`
+          window.audioContext?.resume?.().catch(e => console.warn('Resume failed:', e))
+        `);
       }
-      
+
       await new Promise(r => setTimeout(r, 200));
     }
-    
-    // Final check
-    const finalReady = await this.eval('window.audioWorkletReady');
-    if (!finalReady) {
-      darkLog(`⚠️  Audio worklet not ready after timeout`);
+
+    // Final desperate attempt
+    brightLog('🩸 Final activation attempt - clicking and resuming...');
+    await this.click(100, 100);
+    await this.eval(`window.audioContext?.resume?.()`);
+    await new Promise(r => setTimeout(r, 1000));
+
+    const finalStatus = await this.eval(`({
+      workletReady: window.audioWorkletReady,
+      audioState: window.audioContext?.state,
+      hasAudioContext: !!window.audioContext
+    })`);
+
+    if (!finalStatus.workletReady) {
+      const error = `Audio worklet failed to initialize (context state: ${finalStatus.audioState}, hasContext: ${finalStatus.hasAudioContext})`;
+      darkLog(`❌ ${error}`);
+      throw new Error(error);
     }
   }
 

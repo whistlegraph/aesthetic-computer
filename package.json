@@ -37,7 +37,7 @@
     "ext:build": "cd vscode-extension; npm run build;",
     "ext:watch": "cd vscode-extension; npm run watch;",
     "ext:publish": "cd vscode-extension; npm run publish;",
-    "site": "cd system; npm run codespaces-dev; env nogreet=true fish",
+    "site": "cd system; npm run codespaces-dev-autorestart; env nogreet=true fish",
     "stripe": "cd system; npm run stripe-dev",
     "stripe-print-micro": "cd system; npm run stripe-dev-print-micro; env nogreet=true fish",
     "stripe-ticket-micro": "cd system; npm run stripe-dev-ticket-micro; env nogreet=true fish",
