@@ -382,7 +382,7 @@ User=feralfile
 Group=feralfile
 Environment="DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus"
 Environment="XDG_RUNTIME_DIR=/run/user/1000"
-ExecStartPre=/bin/bash -c 'n=0; while [ $n -lt 60 ]; do [ -S /run/user/1000/bus ] && exit 0; n=$((n+1)); sleep 1; done; echo WARN: D-Bus session bus not found after 60s >&2'
+ExecStartPre=/bin/bash -c "n=0; while [ \$n -lt 60 ]; do [ -S /run/user/1000/bus ] && exit 0; n=\$((n+1)); sleep 1; done; echo WARN: D-Bus session bus not found after 60s >&2"
 ExecStart=/usr/bin/feral-sys-monitord
 Restart=always
 RestartSec=5
