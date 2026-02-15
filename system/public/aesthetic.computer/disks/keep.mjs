@@ -1271,6 +1271,7 @@ async function runProcess(forceRegenerate = false) {
           setStep("thumbnail", "done", detail);
         } else if (stage === "bundle") {
           const detail = isCached ? "Cached" : message || "HTML packed";
+          console.log(`🪙 KEEP: ✓ Bundle stage COMPLETE - ${detail}`);
           setStep("bundle", "done", detail);
         } else if (stage === "ipfs") {
           // Track IPFS progress more granularly
@@ -1281,26 +1282,32 @@ async function runProcess(forceRegenerate = false) {
           // Only mark done if message indicates completion
           if (message?.includes("Pinned") || message?.includes("Cached") || message?.includes("ipfs://")) {
             setStep("ipfs", "done", detail);
-            console.log(`🪙 KEEP: IPFS complete in ${stageTimes.ipfs ? ((Date.now() - stageTimes.ipfs.start) / 1000).toFixed(1) : '?'}s`);
+            console.log(`🪙 KEEP: ✓ IPFS stage COMPLETE in ${stageTimes.ipfs ? ((Date.now() - stageTimes.ipfs.start) / 1000).toFixed(1) : '?'}s`);
           } else {
+            console.log(`🪙 KEEP: ⏳ IPFS stage ACTIVE - ${detail}`);
             setStep("ipfs", "active", detail);
           }
         } else if (stage === "metadata") {
           // Mark done if uploaded
           if (message?.includes("uploaded") || message?.includes("✓")) {
+            console.log(`🪙 KEEP: ✓ Metadata stage COMPLETE - message: "${message}"`);
             setStep("metadata", "done", "FA2 ready");
           } else {
+            console.log(`🪙 KEEP: ⏳ Metadata stage ACTIVE - message: "${message}"`);
             setStep("metadata", "active", "Building...");
           }
         } else if (stage === "ready") {
+          console.log(`🪙 KEEP: 🎯 READY stage - finalizing all steps`);
           // Mark all intermediate steps done if not already
           for (const stepId of ["validate", "analyze", "thumbnail", "bundle", "ipfs", "metadata"]) {
             const step = timeline.find(t => t.id === stepId);
             if (step && step.status !== "done") {
+              console.log(`🪙 KEEP: Forcing step "${stepId}" to done (was ${step.status})`);
               setStep(stepId, "done", step.detail || "Done");
             }
           }
           await delay(STEP_DELAY);
+          console.log(`🪙 KEEP: Activating REVIEW step`);
           setStep("review", "active", null); // Button speaks for itself
         }
       }
