@@ -429,8 +429,14 @@
       height: calc(var(--ui-scale, 8) * 10px);
       /* Gray offset hard shadow like disk.mjs pixel-rendered QR codes */
       box-shadow: calc(var(--ui-scale, 8) * 0.5px) calc(var(--ui-scale, 8) * 0.5px) 0 rgba(64, 64, 64, 0.8);
+      opacity: 0; /* Hidden until QR code is generated */
+      transition: opacity 0.2s ease;
     }
-    
+
+    #qr-container.qr-ready {
+      opacity: 1; /* Show once QR is generated */
+    }
+
     #qr-container svg {
       display: block;
       width: 100%;
@@ -2887,6 +2893,8 @@
             svgEl.style.display = 'block';
             svgEl.style.width = '100%';
             svgEl.style.height = '100%';
+            // Show QR container now that SVG is ready
+            qrContainer.classList.add('qr-ready');
           }
         } catch (e) {}
       }
@@ -3269,11 +3277,10 @@
         // Create HTML structure for scrambling
         labelEl.innerHTML = `<span class="code-dollar">${dollar}</span><span class="code-name">${code}</span>`;
 
-        // Scramble the label text continuously until piece is ready
-        const dollarSpan = labelEl.querySelector('.code-dollar');
+        // Scramble only the code part, keep $ always visible
         const codeSpan = labelEl.querySelector('.code-name');
-        if (dollarSpan) window.scrambleTextElement?.(dollarSpan, dollar, 400, true);
         if (codeSpan) window.scrambleTextElement?.(codeSpan, code, 600, true);
+        // Note: dollarSpan is NOT scrambled - $ stays visible during animation
 
         console.log('📺 Label set with scramble:', targetText);
       }
@@ -3313,6 +3320,9 @@
             svgEl.style.display = 'block';
             svgEl.style.width = '100%';
             svgEl.style.height = '100%';
+
+            // Show QR container now that SVG is ready
+            qrContainer.classList.add('qr-ready');
 
             // 🎲 REGENERATE QR CODE on every chunk! Stops when everything else stops
             window.scrambleQRCodeRegenerate?.(qrUrl, qrContainer);

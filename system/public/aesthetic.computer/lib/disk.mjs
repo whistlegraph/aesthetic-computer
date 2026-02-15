@@ -13619,13 +13619,13 @@ async function makeFrame({ data: { type, content } }) {
       sendData.TwoD = { code: twoDCommands };
 
       // Attach a label buffer if necessary.
-      // Hide label when QR is in fullscreen mode
-      if (label && !hudAnimationState.qrFullscreen) {
+      // Hide label when QR is in fullscreen mode or in device mode (device.html has its own overlay)
+      if (label && !hudAnimationState.qrFullscreen && !DEVICE_MODE) {
   const finalX = currentHUDOffset.x + hudAnimationState.slideOffset.x - currentHUDLeftPad;
         // Move label up by 4px when QR is present for tighter fit
         const qrYOffset = currentHUDQR ? -4 : 0;
         const finalY = currentHUDOffset.y + hudAnimationState.slideOffset.y + qrYOffset;
-        
+
         sendData.label = {
           x: finalX,
           y: finalY,
