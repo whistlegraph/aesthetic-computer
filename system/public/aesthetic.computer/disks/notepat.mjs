@@ -1,6 +1,5 @@
 // Notepat, 2024.6.26.23.17.58.736
 // Tap the pads to play musical notes, or use the keyboard keys.
-// 🎨 Boot canvas animation: system/netlify/functions/index.mjs:1266-1277
 
 import {
   getNoteColorWithOctave,
@@ -9,7 +8,6 @@ import {
 } from "../lib/note-colors.mjs";
 import { drawMiniControllerDiagram } from "../lib/gamepad-diagram.mjs";
 import { detectChord } from "../lib/chord-detection.mjs";
-import { Ticker } from "../lib/ticker.mjs";
 
 /* 📝 Notes 
    - [] Make `slide` work with `composite`.
@@ -298,11 +296,6 @@ let zeroWaveformsCache = {
 let padsBase = null;
 let padsBaseKey = null;
 
-// 🎪 Bumper ticker for piece-specific top bar
-let bumperTicker = null;
-let bumperTickerBounds = null;
-let bumperTickerHovered = false;
-
 // 🎨 Color cache for performance - cleared when octave changes
 let colorCache = new Map();
 let colorCacheOctave = null;
@@ -356,10 +349,7 @@ const edges = "zx;']"; // below and above the octave
 //                       // or alt on   D E G A B for flats
 // This is a notes -> keys mapping, that uses v for c#
 
-// Bumper bar (piece-specific top bar with branding)
-const BUMPER_HEIGHT = 18;
-
-const TOP_BAR_BOTTOM = BUMPER_HEIGHT + 21;
+const TOP_BAR_BOTTOM = 21;
 const TOP_BAR_PIANO_HEIGHT = 10; // Mini piano strip in top bar
 const TRACK_HEIGHT = 25;
 const TRACK_GAP = 6;
@@ -531,10 +521,10 @@ function getMiniPianoBlackKeyHeight(isCompact) {
 }
 
 function getTopBarPianoMetrics(screen) {
-  const topPianoY = BUMPER_HEIGHT + 3; // Position below bumper
+  const topPianoY = 3;
   const topPianoHeight = 15;
-  // Start piano flush left with screen to maximize visualizer space
-  const topPianoStartX = 0;
+  // Push piano right when .com superscript is shown to avoid overlap with HUD label
+  const topPianoStartX = dotComMode ? 75 : 54;
   const availableWidth = Math.max(0, screen.width - topPianoStartX);
 
   const fullWidth = Math.min(140, Math.floor(availableWidth * 0.5));
@@ -1147,19 +1137,8 @@ async function boot({
   autopatTypeface = typeface;
 
   // ✨ Show ".com" superscript in the HUD corner label (notepat.com branding)
-  if (api.hud?.superscript) {
-    api.hud.superscript(".com");
-  }
+  hud.superscript(".com");
   dotComMode = true;
-
-  // 🎪 Initialize bumper ticker with piece branding
-  bumperTicker = new Ticker("notepat.com · Tap the pads to play · Download M4L Plugins", {
-    speed: 1,
-    separator: " · ",
-  });
-
-  // Enable HUD label (it will appear in the bumper area)
-  hud.label("notepat");
 
   // 🎹 Check if we're in DAW mode (loaded from Ableton M4L)
   dawMode = query?.daw === "1" || query?.daw === 1 || query?.daw === true;
@@ -2511,57 +2490,9 @@ function paint({
   zoom,
   blur,
   scroll,
-  sharpen,
-  painting
+  sharpen
 }) {
   const paintStart = performance.now();
-
-  // 🎨 Syntax highlight "notepat" HUD label based on active notes
-  // Mapping: notepat → cdefgab (in order)
-  const notepatLetters = "notepat";
-  const noteMapping = ['c', 'd', 'e', 'f', 'g', 'a', 'b'];
-  let coloredLabel = "";
-
-  for (let i = 0; i < notepatLetters.length; i++) {
-    const char = notepatLetters[i];
-    const note = noteMapping[i];
-    const lowerActive = sounds[note];
-    const upperActive = sounds['+' + note];
-
-    if (lowerActive || upperActive) {
-      const color = getCachedColor(note, num);
-
-      // Both octaves: blink between normal and bright (double blink)
-      if (lowerActive && upperActive) {
-        const blinkPhase = Math.floor(paintCount / 3) % 2; // Fast blink every 3 frames
-        const brightness = blinkPhase === 0 ? 0 : 100;
-        const r = Math.min(255, color[0] + brightness);
-        const g = Math.min(255, color[1] + brightness);
-        const b = Math.min(255, color[2] + brightness);
-        coloredLabel += `\\${r},${g},${b}\\${char}\\r\\`;
-      }
-      // Upper octave only: brighter
-      else if (upperActive) {
-        const r = Math.min(255, color[0] + 60);
-        const g = Math.min(255, color[1] + 60);
-        const b = Math.min(255, color[2] + 60);
-        coloredLabel += `\\${r},${g},${b}\\${char}\\r\\`;
-      }
-      // Lower octave only: normal color
-      else {
-        coloredLabel += `\\${color[0]},${color[1]},${color[2]}\\${char}\\r\\`;
-      }
-    } else {
-      // Inactive: show faded note color as visual guide
-      const color = getCachedColor(note, num);
-      const r = Math.floor(color[0] * 0.35);
-      const g = Math.floor(color[1] * 0.35);
-      const b = Math.floor(color[2] * 0.35);
-      coloredLabel += `\\${r},${g},${b}\\${char}\\r\\`;
-    }
-  }
-
-  api.hud.label(coloredLabel, undefined, 0, "notepat");
 
   // Hover state (for newbie-friendly overlays)
   let hoveredNote = null;
@@ -2584,7 +2515,7 @@ function paint({
     }
   }
   perfStats.lastFrameTimestamp = paintStart;
-
+  
   const active = orderedByCount(sounds);
   const scopeSamples = Math.max(1, Math.floor(scope || 1));
   const rawWaveformsLeft = sound.speaker?.waveforms?.left;
@@ -2780,56 +2711,6 @@ function paint({
     box(screen.width - flashWidth, 0, flashWidth, screen.height); // Right
   }
 
-  // 🎪 Draw bumper bar (piece-specific top bar with ticker)
-  if (!paintPictureOverlay && !projector) {
-    // Draw bumper background - dark gradient
-    ink(15, 15, 20, 220).box(0, 0, screen.width, BUMPER_HEIGHT);
-
-    // Update and render ticker (starts after HUD label)
-    if (bumperTicker) {
-      bumperTicker.update(api);
-
-      // Ticker starts after HUD corner label "notepat.com"
-      // HUD label is ~60-70px, use 90px to give breathing room
-      const tickerStartX = 90;
-      const tickerWidth = screen.width - tickerStartX;
-
-      // Store ticker bounds for click detection
-      bumperTickerBounds = {
-        x: tickerStartX,
-        y: 0,
-        w: tickerWidth,
-        h: BUMPER_HEIGHT
-      };
-
-      // Hover highlight background (like uniticker in prompt.mjs)
-      if (bumperTickerHovered) {
-        ink(80, 100, 180, 50).box(tickerStartX, 0, tickerWidth, BUMPER_HEIGHT);
-        ink(180, 140, 240, 230).line(tickerStartX, 0, tickerStartX + tickerWidth, 0);
-        ink(180, 140, 240, 230).line(tickerStartX, BUMPER_HEIGHT - 1, tickerStartX + tickerWidth, BUMPER_HEIGHT - 1);
-      }
-
-      // Ticker text (brighter on hover)
-      if (bumperTickerHovered) {
-        ink(240, 250, 255);
-      } else {
-        ink(180, 200, 255);
-      }
-      bumperTicker.paint(api, tickerStartX, 4, { width: tickerWidth });
-
-      // Draw underline if hovered
-      if (bumperTickerHovered) {
-        ink(220, 240, 255, 180).box(tickerStartX, BUMPER_HEIGHT - 2, tickerWidth, 1);
-      }
-
-      // Mask any ticker text that wraps to left side (fully opaque)
-      ink(15, 15, 20, 255).box(0, 0, tickerStartX, BUMPER_HEIGHT);
-    }
-
-    // Draw subtle separator line at bottom of bumper
-    ink(40, 45, 60, 180).line(0, BUMPER_HEIGHT - 1, screen.width, BUMPER_HEIGHT - 1);
-  }
-
   // 🎹 Draw mini piano strip in top bar (not in recital mode or fullscreen modes)
   // Store piano end position for visualizer to use
   const topBarDefaultX = dotComMode ? 75 : 54;
@@ -3000,30 +2881,7 @@ function paint({
     
     // Segment 4: Toggle buttons (dark purple tint)
     ink(25, 18, 30, 180).box(toggleStart, SECONDARY_BAR_TOP, screen.width - toggleStart, SECONDARY_BAR_HEIGHT);
-
-    // 🎹 Draw DAW label when in DAW mode (left of slide button)
-    if (dawMode && slideBtn?.box) {
-      const dawText = "DAW";
-      const dawTextW = matrixGlyphMetrics.width * dawText.length;
-      const dawBoxX = slideBtn.box.x - dawTextW - 8; // 8px gap before slide button
-      const dawBoxY = SECONDARY_BAR_TOP;
-      const dawTextY = SECONDARY_BAR_TOP + 3;
-
-      // Purple/magenta background for DAW mode indicator
-      const dawBgColor = dawSynced ? [60, 30, 80, 200] : [40, 30, 50, 180];
-      const dawTextColor = dawSynced ? [220, 140, 255] : [140, 100, 160];
-
-      ink(dawBgColor[0], dawBgColor[1], dawBgColor[2], dawBgColor[3]).box(dawBoxX, dawBoxY, dawTextW + 4, SECONDARY_BAR_HEIGHT);
-      ink(dawTextColor[0], dawTextColor[1], dawTextColor[2]).write(
-        dawText,
-        { x: dawBoxX + 2, y: dawTextY },
-        undefined,
-        undefined,
-        false,
-        "MatrixChunky8",
-      );
-    }
-
+    
     // Paint slide button
     slideBtn?.paint((btn) => {
       const base = [0, 220, 140];
@@ -3215,10 +3073,10 @@ function paint({
     // 🏀 Draw bouncing ball animation when metronome is running
     if (metronomeEnabled && bpmPlusBtn?.box && slideBtn?.box) {
       const ballTrackStartX = bpmPlusBtn.box.x + bpmPlusBtn.box.w + 4;
-      const ballTrackWidth = 16; // Fixed width for metronome animation
-      const ballTrackEndX = ballTrackStartX + ballTrackWidth;
-
-      if (ballTrackWidth > 0) {
+      const ballTrackEndX = slideBtn.box.x - 4;
+      const ballTrackWidth = ballTrackEndX - ballTrackStartX;
+      
+      if (ballTrackWidth > 16) {
         const ballY = SECONDARY_BAR_TOP + Math.floor(SECONDARY_BAR_HEIGHT / 2);
         const ballRadius = 3;
         // Ball bounces from left to right based on metronomeBallPos (0-1)
@@ -3740,7 +3598,7 @@ function paint({
       const isPercKeyActive = (key) => {
         if (!key) return false;
         if (miniMapActiveKey === key) return true;
-        if (key === "space") return Boolean(percDowns.space);
+        // Space removed - now used for metronome toggle
         if (key === "alt") return Boolean(percDowns.alt);
         if (key === "left") return Boolean(percDowns.left);
         if (key === "right") return Boolean(percDowns.right);
@@ -4123,6 +3981,31 @@ function paint({
       "MatrixChunky8",
     );
     cursorX += fpsTextW;
+
+    // 🎹 Draw DAW label when in DAW mode
+    if (dawMode) {
+      // Divider
+      cursorX += 2;
+      if (cursorX > maxX) return;
+      ink(divR, divG, divB).line(cursorX, boxY + 2, cursorX, boxY + SECONDARY_BAR_HEIGHT - 2);
+      cursorX += 3;
+
+      const dawText = "DAW";
+      const dawTextW = measureMatrixTextWidth(dawText);
+      if (cursorX + dawTextW > maxX) return;
+      // Purple/magenta background for DAW mode indicator
+      const dawBgColor = dawSynced ? [60, 30, 80, 180] : [40, 30, 50, 160];
+      const dawTextColor = dawSynced ? [220, 140, 255] : [140, 100, 160];
+      ink(dawBgColor[0], dawBgColor[1], dawBgColor[2], dawBgColor[3]).box(cursorX, boxY, dawTextW, SECONDARY_BAR_HEIGHT);
+      ink(dawTextColor[0], dawTextColor[1], dawTextColor[2]).write(
+        dawText,
+        { x: cursorX, y: baseY },
+        undefined,
+        undefined,
+        false,
+        "MatrixChunky8",
+      );
+    }
   }
 
 
@@ -4170,19 +4053,17 @@ function paint({
         audioTextWidth = measureMatrixTextBoxWidth(tinyText, api, screen.width) || measureMatrixTextWidth(tinyText, typeface);
       }
       const totalBadgeWidth = audioTextWidth + audioPadding * 2;
-      // Center within visualizer bar area (0 to waveBtn.box.x)
-      const vizBarWidth = waveBtn?.box?.x ?? screen.width;
-      audioBadgeX = Math.floor((vizBarWidth - totalBadgeWidth) / 2);
+      audioBadgeX = Math.floor((screen.width - totalBadgeWidth) / 2); // Center horizontally
       ink(180, 0, 0, 240).box(audioBadgeX, audioBadgeY, totalBadgeWidth, audioBadgeHeight);
       ink(255, 255, 0).write(audioText, { x: audioBadgeX + audioPadding, y: audioBadgeY + 3 }, undefined, undefined, false, "MatrixChunky8");
     }
 
     // MIDI badge now renders in the top mini bar (left)
   } else if (!paintPictureOverlay) {
-    const sy = BUMPER_HEIGHT + 3; // Position below bumper
+    const sy = 3;
     const sh = 15; // screen.height - sy;
 
-    // Visualizer starts after piano keys end
+    // Visualizer starts after the top bar piano (or at 54 if piano not shown)
     const vizStartX = topBarPianoEndX;
     const availableWidth = waveBtn.box.x - vizStartX;
 
@@ -4252,10 +4133,7 @@ function paint({
         audioTextWidth = measureMatrixTextBoxWidth(tinyText, api, screen.width) || measureMatrixTextWidth(tinyText, typeface);
       }
       const totalBadgeWidth = audioTextWidth + audioPadding * 2;
-      // Center within visualizer bar area (topBarPianoEndX to rightEdge)
-      const vizBarStart = topBarPianoEndX;
-      const vizBarWidth = rightEdge - vizBarStart;
-      audioBadgeX = vizBarStart + Math.floor((vizBarWidth - totalBadgeWidth) / 2);
+      audioBadgeX = rightEdge - totalBadgeWidth - 4; // Position on right side before waveBtn
       ink(180, 0, 0, 240).box(audioBadgeX, audioBadgeY, totalBadgeWidth, max(9, audioBadgeHeight));
       ink(255, 255, 0).write(audioText, { x: audioBadgeX + audioPadding, y: audioBadgeY + 2 }, undefined, undefined, false, "MatrixChunky8");
     }
@@ -4407,7 +4285,7 @@ function paint({
           undefined, undefined, false, "MatrixChunky8"
         );
       } else {
-        write(wave, { right: 27, top: btn.box.y + 6 });
+        write(wave, { right: 27, top: 6 });
       }
     });
 
@@ -4442,7 +4320,7 @@ function paint({
           undefined, undefined, false, "MatrixChunky8"
         );
       } else {
-        write(octave, { right: 8, top: btn.box.y + 6 });
+        write(octave, { right: 8, top: 6 });
       }
     });
   }
@@ -5219,107 +5097,6 @@ function paint({
       api.sharpen(sharpenAmount);
     }
   }
-
-  // 🎹 Draw micro piano keys above HUD label (rendered last, on top of everything)
-  // White keys: c, d, e, f, g, a, b (3px wide)
-  // Black keys: c#, d#, f#, g#, a# (1px wide, positioned above white keys)
-  if (!paintPictureOverlay && !projector) {
-    const whiteNotes = ['c', 'd', 'e', 'f', 'g', 'a', 'b'];
-    const blackNotes = [
-      { note: 'c#', afterWhite: 0 },
-      { note: 'd#', afterWhite: 1 },
-      { note: 'f#', afterWhite: 3 },
-      { note: 'g#', afterWhite: 4 },
-      { note: 'a#', afterWhite: 5 },
-    ];
-
-    const pianoStartX = 2;
-    const pianoY = 1;
-    const whiteKeyWidth = 3;
-    const whiteKeyHeight = 6;
-    const blackKeyWidth = 1;
-    const blackKeyHeight = 4;
-
-    // Draw white keys
-    for (let i = 0; i < whiteNotes.length; i++) {
-      const note = whiteNotes[i];
-      const x = pianoStartX + i * whiteKeyWidth;
-
-      const lowerActive = sounds[note];
-      const upperActive = sounds['+' + note];
-      const color = getCachedColor(note, num);
-
-      let r, g, b;
-      if (lowerActive || upperActive) {
-        // Both octaves: blink
-        if (lowerActive && upperActive) {
-          const blinkPhase = Math.floor(paintCount / 3) % 2;
-          const brightness = blinkPhase === 0 ? 0 : 100;
-          r = Math.min(255, color[0] + brightness);
-          g = Math.min(255, color[1] + brightness);
-          b = Math.min(255, color[2] + brightness);
-        }
-        // Upper octave only: brighter
-        else if (upperActive) {
-          r = Math.min(255, color[0] + 60);
-          g = Math.min(255, color[1] + 60);
-          b = Math.min(255, color[2] + 60);
-        }
-        // Lower octave only: normal color
-        else {
-          r = color[0];
-          g = color[1];
-          b = color[2];
-        }
-      } else {
-        // Inactive: white
-        r = 200; g = 200; b = 200;
-      }
-
-      // Draw white key
-      ink(r, g, b).box(x, pianoY, whiteKeyWidth, whiteKeyHeight);
-    }
-
-    // Draw black keys on top
-    for (let i = 0; i < blackNotes.length; i++) {
-      const { note, afterWhite } = blackNotes[i];
-      const x = pianoStartX + afterWhite * whiteKeyWidth + whiteKeyWidth - 1;
-
-      const lowerActive = sounds[note];
-      const upperActive = sounds['+' + note];
-      const color = getCachedColor(note, num);
-
-      let r, g, b;
-      if (lowerActive || upperActive) {
-        // Both octaves: blink
-        if (lowerActive && upperActive) {
-          const blinkPhase = Math.floor(paintCount / 3) % 2;
-          const brightness = blinkPhase === 0 ? 0 : 100;
-          r = Math.min(255, color[0] + brightness);
-          g = Math.min(255, color[1] + brightness);
-          b = Math.min(255, color[2] + brightness);
-        }
-        // Upper octave only: brighter
-        else if (upperActive) {
-          r = Math.min(255, color[0] + 60);
-          g = Math.min(255, color[1] + 60);
-          b = Math.min(255, color[2] + 60);
-        }
-        // Lower octave only: normal color
-        else {
-          r = color[0];
-          g = color[1];
-          b = color[2];
-        }
-      } else {
-        // Inactive: dark gray
-        r = 60; g = 60; b = 60;
-      }
-
-      // Draw black key
-      ink(r, g, b).box(x, pianoY, blackKeyWidth, blackKeyHeight);
-    }
-  }
 }
 
 let anyDown = true;
@@ -5733,27 +5510,6 @@ function act({
     return;
   }
 
-  // 🎪 Bumper ticker hover and click handling
-  if (bumperTickerBounds && !recitalMode && !song) {
-    const pen = pens();
-
-    // Track hover state
-    if ((e.is("move") || e.is("draw")) && pen) {
-      bumperTickerHovered =
-        pen.x >= bumperTickerBounds.x &&
-        pen.x < bumperTickerBounds.x + bumperTickerBounds.w &&
-        pen.y >= bumperTickerBounds.y &&
-        pen.y < bumperTickerBounds.y + bumperTickerBounds.h;
-    }
-
-    // Handle click - open ableton plugin manager in new window
-    if (e.is("touch") && bumperTickerHovered) {
-      synth({ type: "sine", tone: 440, beats: 0.1, volume: 0.3 });
-      window.open("https://aesthetic.computer/ableton", "_blank");
-      return;
-    }
-  }
-
   // � Handle top bar piano touches (before recital mode toggle check)
   if (e.is("touch") && e.y < TOP_BAR_BOTTOM && !projector && !paintPictureOverlay && !recitalMode) {
     const topBarPianoNote = getTopBarPianoNoteAt(e.x, e.y, screen);
@@ -5869,11 +5625,18 @@ function act({
     }
   }
 
+  if (e.is("keyboard:down:.") && !e.repeat) {
+    upperOctaveShift += 1;
+  }
+
+  if (e.is("keyboard:down:,") && !e.repeat) {
+    upperOctaveShift -= 1;
+  }
+
   // 🏠 Room mode toggle (/ key) - global reverb
   if (e.is("keyboard:down:/") && !e.repeat) {
     roomMode = !roomMode;
     room.toggle();
-    api.beep(roomMode ? 500 : 400); // Higher pitch when enabled
   }
 
   // 🧩 Glitch mode toggle (backspace key) - global raw synth effect
@@ -5881,7 +5644,6 @@ function act({
     glitchMode = !glitchMode;
     glitch?.toggle?.();
     cleanupOrphanedSounds(pens, true);
-    api.beep(glitchMode ? 500 : 400); // Higher pitch when enabled
   }
 
   if (
@@ -5891,7 +5653,6 @@ function act({
     e.code === "ShiftLeft"
   ) {
     quickFade = !quickFade;
-    api.beep(quickFade ? 500 : 400); // Higher pitch when enabled
   }
 
   if (
@@ -5902,7 +5663,6 @@ function act({
   ) {
     // console.log("Code:", e.code);
     slide = !slide;
-    api.beep(slide ? 500 : 400); // Higher pitch when enabled
 
     if (slide && Object.keys(tonestack).length > 1) {
       const orderedTones = orderedByCount(tonestack);
@@ -6260,19 +6020,10 @@ function act({
     });
   };
 
-  // Helper to trigger percussion keys (alt, arrows) and metronome (space)
+  // Helper to trigger percussion keys (alt, arrows)
+  // Note: Space is no longer percussion - it toggles metronome now
   const triggerPercKey = (key, velocity = 1, isDown = true) => {
-    if (key === "space" && isDown && !tap) {
-      // Toggle metronome (except in DAW mode where Ableton controls it)
-      if (!dawMode) {
-        metronomeEnabled = !metronomeEnabled;
-      }
-      return true;
-    }
-    if (key === "space" && !isDown) {
-      // No action needed on space release for metronome
-      return true;
-    }
+    // Space key removed - now used for metronome toggle
     if (key === "alt" && isDown) {
       perc = pc;
       percDowns.alt = true;
@@ -6601,10 +6352,15 @@ function act({
   }
 
   if (!tap) {
+    // 🥁 Spacebar now toggles metronome on/off (instead of snare)
     if (e.is("keyboard:down:space") && !e.repeat) {
-      perc = pc; //"cyan";
-      percDowns.space = true;
-      makeSnare(e.velocity);
+      metronomeEnabled = !metronomeEnabled;
+      // Reset visual state when toggling off
+      if (!metronomeEnabled) {
+        metronomeVisualPhase = 0;
+        metronomeBallPos = 0;
+        metronomeFlash = 0;
+      }
     }
   }
 
@@ -6659,9 +6415,7 @@ function act({
     delete percDowns.up;
   }
 
-  if (e.is("keyboard:up:space") && !tap) {
-    delete percDowns.space;
-  }
+  // Spacebar keyup no longer needed (metronome toggle happens on keydown only)
 
   if (e.is("keyboard:up:alt")) {
     delete percDowns.alt;
@@ -6703,8 +6457,8 @@ function act({
     // 🎛️ Toggle button interactions
     slideBtn?.act(e, {
       push: () => {
+        api.beep();
         slide = !slide;
-        api.beep(slide ? 500 : 400); // Higher pitch when enabled
         // Kill extra tones when enabling slide mode (keep only most recent)
         if (slide && Object.keys(tonestack).length > 1) {
           const orderedTones = orderedByCount(tonestack);
@@ -6725,9 +6479,9 @@ function act({
 
     roomBtn?.act(e, {
       push: () => {
+        api.beep();
         roomMode = !roomMode;
         room.toggle();
-        api.beep(roomMode ? 500 : 400); // Higher pitch when enabled
       },
     });
 
@@ -6749,9 +6503,9 @@ function act({
 
     glitchBtn?.act(e, {
       push: () => {
+        api.beep();
         glitchMode = !glitchMode;
         glitch?.toggle?.();
-        api.beep(glitchMode ? 500 : 400); // Higher pitch when enabled
         // Clean up any stuck sounds when toggling glitch
         cleanupOrphanedSounds(pens, true);
       },
@@ -6759,8 +6513,8 @@ function act({
 
     quickBtn?.act(e, {
       push: () => {
+        api.beep();
         quickFade = !quickFade;
-        api.beep(quickFade ? 500 : 400); // Higher pitch when enabled
       },
     });
 
@@ -7812,7 +7566,7 @@ function buildWaveButton({ screen, ui, typeface }) {
   const margin = isNarrow ? 2 : 4;
   waveBtn = new ui.Button(
     screen.width - waveWidth - 26 - margin * 2,
-    BUMPER_HEIGHT, // Position below bumper
+    0,
     waveWidth + margin * 2 + 5,
     10 + margin * 2 - 1 + 2,
   );
@@ -7828,7 +7582,7 @@ function buildOctButton({ screen, ui, typeface }) {
   const margin = isNarrow ? 2 : 4;
   octBtn = new ui.Button(
     screen.width - octWidth - 6 - margin * 2,
-    BUMPER_HEIGHT, // Position below bumper
+    0,
     octWidth + margin * 2 + 7,
     10 + margin * 2 - 1 + 2,
   );
