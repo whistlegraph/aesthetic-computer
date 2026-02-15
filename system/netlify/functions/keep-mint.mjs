@@ -563,43 +563,60 @@ export const handler = stream(async (event, context) => {
       // STAGE 2: START THUMBNAIL IN PARALLEL (skip if cached)
       // ═══════════════════════════════════════════════════════════════════
       let thumbnailPromise = null;
-      
+
       // Fixed 256x256 thumbnail for consistent display across platforms
       const thumbW = 256;
       const thumbH = 256;
-      
+
+      // Thumbnail generation timeout - must complete within this time
+      const THUMBNAIL_TIMEOUT_MS = 45000; // 45 seconds (allows 30s piece load + 15s capture/encode/upload)
+
       if (!useCachedMedia) {
         logStage('thumbnail', `Starting ${thumbW * 2}x${thumbH * 2} WebP generation`);
         await send("progress", { stage: "thumbnail", message: `Baking ${thumbW * 2}x${thumbH * 2} WebP...` });
-        
-        // Helper to try oven thumbnail generation
-        const tryOvenThumbnail = async (ovenUrl) => {
-        const res = await fetch(`${ovenUrl}/grab-ipfs`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            piece: `$${pieceName}`,
-            format: "webp",
-            width: thumbW,
-            height: thumbH,
-            density: 2,
-            duration: 8000,
-            fps: 10,
-            playbackFps: 20,
-            quality: 70,
-            skipCache: true, // Force fresh grab to ensure we have buffer for IPFS upload
-            pinataKey: pinataCredentials.apiKey,
-            pinataSecret: pinataCredentials.apiSecret,
-          }),
-        });
-        if (!res.ok) throw new Error(`Thumbnail failed: ${res.status}`);
-        return res.json();
-      };
-      
-      // Try local oven first, then fallback to production
-      thumbnailPromise = !useCachedMedia ? (async () => {
+
+        // Helper to try oven thumbnail generation with timeout
+        const tryOvenThumbnail = async (ovenUrl, timeoutMs = 45000) => {
+        // Create abort controller for fetch timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
         try {
-          const result = await tryOvenThumbnail(OVEN_URL);
+          const res = await fetch(`${ovenUrl}/grab-ipfs`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              piece: `$${pieceName}`,
+              format: "webp",
+              width: thumbW,
+              height: thumbH,
+              density: 2,
+              duration: 8000,
+              fps: 10,
+              playbackFps: 20,
+              quality: 70,
+              skipCache: true, // Force fresh grab to ensure we have buffer for IPFS upload
+              pinataKey: pinataCredentials.apiKey,
+              pinataSecret: pinataCredentials.apiSecret,
+            }),
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+          if (!res.ok) throw new Error(`Thumbnail failed: ${res.status}`);
+          return res.json();
+        } catch (err) {
+          clearTimeout(timeoutId);
+          if (err.name === 'AbortError') {
+            throw new Error(`Oven request timed out after ${timeoutMs/1000}s`);
+          }
+          throw err;
+        }
+      };
+
+      // Try local oven first, then fallback to production - with overall timeout
+      const thumbnailGenerationPromise = !useCachedMedia ? (async () => {
+        try {
+          const result = await tryOvenThumbnail(OVEN_URL, THUMBNAIL_TIMEOUT_MS);
           console.log(`🪙 KEEP: Oven response:`, JSON.stringify(result));
           if (!result?.ipfsUri && result?.error) {
             throw new Error(result.error);
@@ -610,7 +627,7 @@ export const handler = stream(async (event, context) => {
           if (OVEN_URL !== OVEN_FALLBACK_URL) {
             console.log(`🪙 KEEP: Trying fallback oven: ${OVEN_FALLBACK_URL}`);
             try {
-              const fallbackResult = await tryOvenThumbnail(OVEN_FALLBACK_URL);
+              const fallbackResult = await tryOvenThumbnail(OVEN_FALLBACK_URL, THUMBNAIL_TIMEOUT_MS);
               console.log(`🪙 KEEP: Fallback oven response:`, JSON.stringify(fallbackResult));
               if (!fallbackResult?.ipfsUri && fallbackResult?.error) {
                 throw new Error(fallbackResult.error);
@@ -624,6 +641,14 @@ export const handler = stream(async (event, context) => {
           return { error: localErr.message };
         }
       })() : Promise.resolve({ ipfsUri: thumbnailUri });
+
+      // Wrap with timeout promise to ensure we don't hang indefinitely
+      thumbnailPromise = Promise.race([
+        thumbnailGenerationPromise,
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`Thumbnail generation timed out after ${THUMBNAIL_TIMEOUT_MS/1000}s`)), THUMBNAIL_TIMEOUT_MS)
+        )
+      ]);
       }
 
       // ═══════════════════════════════════════════════════════════════════
