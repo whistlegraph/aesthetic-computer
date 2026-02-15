@@ -3086,8 +3086,8 @@ function paint($) {
 function act({ event: e, screen }) {
   if (e.is("reframed")) _needsPaint?.();
 
-  // Define hover callbacks once for all buttons
-  const hoverCb = { over: () => _needsPaint?.(), out: () => _needsPaint?.() };
+  // Define hover callbacks once for all buttons (using correct callback names)
+  const hoverCb = { hover: () => _needsPaint?.(), leave: () => _needsPaint?.() };
 
   // ═══════════════════════════════════════════════════════════════════════
   // STATE 1: CONFIRMATION DIALOG
@@ -3246,11 +3246,37 @@ function act({ event: e, screen }) {
     // Staging contract link
     if (KEEPS_STAGING && btn.staging) {
       const tzktStagingUrl = `https://${NETWORK}.tzkt.io/${KEEPS_CONTRACT}`;
-      btn.staging.act = btn.staging.act || ((ev, opts) => {
-        if (ev.is("touch") && ev.button < 1) btn.staging.down = true;
-        if (ev.is("lift") && btn.staging.down) { btn.staging.down = false; opts.push?.(); }
-      });
-      btn.staging.act(e, { push: () => openUrl(tzktStagingUrl) });
+      // Proper button handler with hitbox checking and hover support
+      if (e.is("move")) {
+        const containsNow = btn.staging.box.x <= e.x && e.x < btn.staging.box.x + btn.staging.box.w &&
+                           btn.staging.box.y <= e.y && e.y < btn.staging.box.y + btn.staging.box.h;
+        if (containsNow && !btn.staging.over && !btn.staging.down) {
+          btn.staging.over = true;
+          _needsPaint?.();
+        } else if (!containsNow && btn.staging.over && !btn.staging.down) {
+          btn.staging.over = false;
+          _needsPaint?.();
+        }
+      }
+      if (e.is("touch") && e.button < 1) {
+        const containsNow = btn.staging.box.x <= e.x && e.x < btn.staging.box.x + btn.staging.box.w &&
+                           btn.staging.box.y <= e.y && e.y < btn.staging.box.y + btn.staging.box.h;
+        if (containsNow) {
+          btn.staging.down = true;
+          btn.staging.over = true;
+          _needsPaint?.();
+        }
+      }
+      if (e.is("lift") && btn.staging.down) {
+        const containsNow = btn.staging.box.x <= e.x && e.x < btn.staging.box.x + btn.staging.box.w &&
+                           btn.staging.box.y <= e.y && e.y < btn.staging.box.y + btn.staging.box.h;
+        btn.staging.down = false;
+        btn.staging.over = false;
+        if (containsNow) {
+          openUrl(tzktStagingUrl);
+        }
+        _needsPaint?.();
+      }
     }
 
     // Main action button - sign and mint transaction
@@ -3314,11 +3340,23 @@ function act({ event: e, screen }) {
 
     // Cached/Pending URI buttons (show latest generated bundle, not yet on-chain)
     const latestMedia = pendingRebake || cachedMedia;
-    if (latestMedia?.artifactUri) {
-      oldHtmlBtn.btn.act(e, { ...hoverCb, push: () => openUrl(latestMedia.artifactUri) });
-    }
-    if (latestMedia?.thumbnailUri) {
-      oldThumbBtn.btn.act(e, { ...hoverCb, push: () => openUrl(latestMedia.thumbnailUri) });
+    // Compute sync state to match paint function conditions
+    const onChainArtifact = alreadyMinted.artifactUri;
+    const onChainThumb = alreadyMinted.thumbnailUri;
+    const latestArtifact = latestMedia?.artifactUri;
+    const latestThumb = latestMedia?.thumbnailUri;
+    const artifactMatches = onChainArtifact === latestArtifact;
+    const thumbMatches = onChainThumb === latestThumb;
+    const isSynced = latestArtifact && artifactMatches && thumbMatches;
+
+    // Only make these buttons active if they're visible (latestMedia && !isSynced)
+    if (latestMedia && !isSynced) {
+      if (latestArtifact) {
+        oldHtmlBtn.btn.act(e, { ...hoverCb, push: () => openUrl(latestArtifact) });
+      }
+      if (latestThumb) {
+        oldThumbBtn.btn.act(e, { ...hoverCb, push: () => openUrl(latestThumb) });
+      }
     }
 
     // Rebake button - regenerate bundle and thumbnail
