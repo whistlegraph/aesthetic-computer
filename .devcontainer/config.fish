@@ -1636,10 +1636,9 @@ end
 function aesthetic
     # Always kill emacs daemon to ensure clean state.
     # Prevents issues where daemon passes connectivity test but aesthetic-backend is corrupted.
-    if pgrep -f "emacs.*daemon" >/dev/null 2>&1
-        echo "🔄 Killing existing emacs daemon for clean start..."
-        ac-emacs-kill
-    end
+    # This is UNCONDITIONAL - every ac-aesthetic implicitly runs ac-emacs-kill first.
+    echo "🔄 Killing any existing emacs processes for clean start..."
+    ac-emacs-kill
     
     # Check if --no-wait flag is passed
     if test "$argv[1]" = "--no-wait"
