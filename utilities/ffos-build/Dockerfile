@@ -1,6 +1,7 @@
 FROM --platform=linux/amd64 archlinux:base
 
-RUN pacman -Syu --noconfirm \
+# Disable pacman sandbox to avoid seccomp issues in Docker
+RUN pacman --disable-sandbox -Syu --noconfirm \
   archiso \
   git \
   rsync \
@@ -11,7 +12,7 @@ RUN pacman -Syu --noconfirm \
   rust \
   curl \
   openssl \
-  && pacman -Scc --noconfirm
+  && pacman --disable-sandbox -Scc --noconfirm
 
 # mkarchiso requires root for chroot mount operations
 # makepkg needs a non-root user, so we create one

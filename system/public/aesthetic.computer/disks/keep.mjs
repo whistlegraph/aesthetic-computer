@@ -1796,20 +1796,34 @@ function paint($) {
     }
     y += 14;
 
-    // === ON-CHAIN SECTION ===
-    // Format date for on-chain
-    let onChainDateStr = "";
-    if (alreadyMinted.mintedAt) {
+    // === CURRENT VERSION SECTION ===
+    // Show rebaked URIs if available, otherwise show on-chain URIs
+    const currentArtifact = rebakeResult?.artifactUri || pendingRebake?.artifactUri || alreadyMinted.artifactUri;
+    const currentThumb = rebakeResult?.thumbnailUri || pendingRebake?.thumbnailUri || alreadyMinted.thumbnailUri;
+    const hasRebaked = (rebakeResult || pendingRebake) && (currentArtifact !== alreadyMinted.artifactUri);
+
+    // Format date for header
+    let versionDateStr = "";
+    if (hasRebaked) {
+      const rebakedDate = (rebakeResult || pendingRebake)?.packDate || (rebakeResult || pendingRebake)?.createdAt;
+      if (rebakedDate) {
+        const d = new Date(rebakedDate);
+        if (!isNaN(d.getTime())) {
+          versionDateStr = ` ${d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" })}`;
+        }
+      }
+      ink(200, 160, 100).write("REBAKED" + versionDateStr, { x: margin, y }, undefined, undefined, false, "MatrixChunky8");
+    } else if (alreadyMinted.mintedAt) {
       const d = new Date(alreadyMinted.mintedAt);
-      onChainDateStr = ` since ${d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" })}`;
+      versionDateStr = ` since ${d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" })}`;
+      ink(120, 180, 200).write("ON-CHAIN" + versionDateStr, { x: margin, y }, undefined, undefined, false, "MatrixChunky8");
     }
-    ink(120, 180, 200).write("ON-CHAIN" + onChainDateStr, { x: margin, y }, undefined, undefined, false, "MatrixChunky8");
     y += 10;
 
-    const linkScheme = pal.btnLink;
+    const linkScheme = hasRebaked ? pal.btnCached : pal.btnLink;
 
     let linkX = margin;
-    if (alreadyMinted.artifactUri) {
+    if (currentArtifact) {
       const htmlSize = mc8ButtonSize("HTML");
       htmlBtn.btn.box.x = linkX;
       htmlBtn.btn.box.y = y;
@@ -1818,7 +1832,7 @@ function paint($) {
       paintMC8Btn(linkX, y, "HTML", { ink, line: ink }, linkScheme, htmlBtn.btn.down || htmlBtn.btn.over);
       linkX += htmlSize.w + 4;
     }
-    if (alreadyMinted.thumbnailUri) {
+    if (currentThumb) {
       const thumbBtnSize = mc8ButtonSize("THUMB");
       thumbBtn.btn.box.x = linkX;
       thumbBtn.btn.box.y = y;
@@ -1833,7 +1847,7 @@ function paint($) {
     metaBtn.btn.box.y = y;
     metaBtn.btn.box.w = metaBtnSize.w;
     metaBtn.btn.box.h = metaBtnSize.h;
-    paintMC8Btn(linkX, y, "META", { ink, line: ink }, linkScheme, metaBtn.btn.down || metaBtn.btn.over);
+    paintMC8Btn(linkX, y, "META", { ink, line: ink }, pal.btnLink, metaBtn.btn.down || metaBtn.btn.over);
     linkX += metaBtnSize.w + 4;
     // DOCS button - link to kidlisp.com/keeps documentation
     const docsBtnSize = mc8ButtonSize("DOCS");
@@ -1841,54 +1855,44 @@ function paint($) {
     docsBtn.btn.box.y = y;
     docsBtn.btn.box.w = docsBtnSize.w;
     docsBtn.btn.box.h = docsBtnSize.h;
-    paintMC8Btn(linkX, y, "DOCS", { ink, line: ink }, linkScheme, docsBtn.btn.down || docsBtn.btn.over);
+    paintMC8Btn(linkX, y, "DOCS", { ink, line: ink }, pal.btnLink, docsBtn.btn.down || docsBtn.btn.over);
     linkX += docsBtnSize.w + 4;
     // Show short CID
-    if (alreadyMinted.artifactUri) {
-      const cid = alreadyMinted.artifactUri.replace("ipfs://", "").split("/")[0];
-      ink(80, 120, 140).write(cid.slice(0, 8) + "...", { x: linkX + 2, y: y + 3 }, undefined, undefined, false, "MatrixChunky8");
+    if (currentArtifact) {
+      const cid = currentArtifact.replace("ipfs://", "").split("/")[0];
+      const cidColor = hasRebaked ? [120, 100, 80] : [80, 120, 140];
+      ink(...cidColor).write(cid.slice(0, 8) + "...", { x: linkX + 2, y: y + 3 }, undefined, undefined, false, "MatrixChunky8");
     }
     y += mc8ButtonSize("X").h + 4;
 
-    // === CACHED/GENERATED SECTION (if different from on-chain) ===
-    if (latestMedia && !isSynced) {
-      const cachedScheme = pal.btnCached;
-
-      // Format rebaked date
-      let rebakedDateStr = "";
-      const rebakedDate = latestMedia.packDate || latestMedia.createdAt;
-      if (rebakedDate) {
-        const d = new Date(rebakedDate);
-        if (!isNaN(d.getTime())) {
-          rebakedDateStr = ` ${d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" })}`;
-        }
-      }
-      ink(200, 160, 100).write("REBAKED" + rebakedDateStr, { x: margin, y }, undefined, undefined, false, "MatrixChunky8");
+    // === OLD ON-CHAIN VERSION (if rebaked and different) ===
+    if (hasRebaked) {
+      ink(100, 140, 160).write("OLD ON-CHAIN", { x: margin, y }, undefined, undefined, false, "MatrixChunky8");
       y += 10;
 
       linkX = margin;
-      if (latestArtifact) {
+      if (alreadyMinted.artifactUri) {
         const oldHtmlSize = mc8ButtonSize("HTML");
         oldHtmlBtn.btn.box.x = linkX;
         oldHtmlBtn.btn.box.y = y;
         oldHtmlBtn.btn.box.w = oldHtmlSize.w;
         oldHtmlBtn.btn.box.h = oldHtmlSize.h;
-        paintMC8Btn(linkX, y, "HTML", { ink, line: ink }, cachedScheme, oldHtmlBtn.btn.down || oldHtmlBtn.btn.over);
+        paintMC8Btn(linkX, y, "HTML", { ink, line: ink }, pal.btnLink, oldHtmlBtn.btn.down || oldHtmlBtn.btn.over);
         linkX += oldHtmlSize.w + 4;
       }
-      if (latestThumb) {
+      if (alreadyMinted.thumbnailUri) {
         const oldThumbSize = mc8ButtonSize("THUMB");
         oldThumbBtn.btn.box.x = linkX;
         oldThumbBtn.btn.box.y = y;
         oldThumbBtn.btn.box.w = oldThumbSize.w;
         oldThumbBtn.btn.box.h = oldThumbSize.h;
-        paintMC8Btn(linkX, y, "THUMB", { ink, line: ink }, cachedScheme, oldThumbBtn.btn.down || oldThumbBtn.btn.over);
+        paintMC8Btn(linkX, y, "THUMB", { ink, line: ink }, pal.btnLink, oldThumbBtn.btn.down || oldThumbBtn.btn.over);
         linkX += oldThumbSize.w + 4;
       }
       // Show short CID
-      if (latestArtifact) {
-        const cid = latestArtifact.replace("ipfs://", "").split("/")[0];
-        ink(120, 100, 80).write(cid.slice(0, 8) + "...", { x: linkX + 2, y: y + 3 }, undefined, undefined, false, "MatrixChunky8");
+      if (alreadyMinted.artifactUri) {
+        const cid = alreadyMinted.artifactUri.replace("ipfs://", "").split("/")[0];
+        ink(80, 120, 140).write(cid.slice(0, 8) + "...", { x: linkX + 2, y: y + 3 }, undefined, undefined, false, "MatrixChunky8");
       }
       y += mc8ButtonSize("X").h + 4;
     }
@@ -3319,8 +3323,13 @@ function act({ event: e, screen }) {
   // STATE 6: ALREADY MINTED (viewing existing Keep)
   // ═══════════════════════════════════════════════════════════════════════
   if (alreadyMinted) {
-    if (alreadyMinted.artifactUri) htmlBtn.btn.act(e, { ...hoverCb, push: () => openUrl(alreadyMinted.artifactUri) });
-    if (alreadyMinted.thumbnailUri) thumbBtn.btn.act(e, { ...hoverCb, push: () => openUrl(alreadyMinted.thumbnailUri) });
+    // Use rebaked/pending URIs if available, otherwise use on-chain URIs
+    const currentArtifact = rebakeResult?.artifactUri || pendingRebake?.artifactUri || alreadyMinted.artifactUri;
+    const currentThumb = rebakeResult?.thumbnailUri || pendingRebake?.thumbnailUri || alreadyMinted.thumbnailUri;
+    const hasRebaked = (rebakeResult || pendingRebake) && (currentArtifact !== alreadyMinted.artifactUri);
+
+    if (currentArtifact) htmlBtn.btn.act(e, { ...hoverCb, push: () => openUrl(currentArtifact) });
+    if (currentThumb) thumbBtn.btn.act(e, { ...hoverCb, push: () => openUrl(currentThumb) });
     // META button - open TzKT token metadata view
     metaBtn.btn.act(e, { ...hoverCb, push: () => openUrl(alreadyMinted.tzktUrl) });
     // DOCS button - open kidlisp.com/keeps documentation
@@ -3338,30 +3347,28 @@ function act({ event: e, screen }) {
       txBtn.btn.act(e, { ...hoverCb, push: () => openUrl(tzktTxUrl) });
     }
 
-    // Cached/Pending URI buttons (show latest generated bundle, not yet on-chain)
-    const latestMedia = pendingRebake || cachedMedia;
-    // Compute sync state to match paint function conditions
-    const onChainArtifact = alreadyMinted.artifactUri;
-    const onChainThumb = alreadyMinted.thumbnailUri;
-    const latestArtifact = latestMedia?.artifactUri;
-    const latestThumb = latestMedia?.thumbnailUri;
-    const artifactMatches = onChainArtifact === latestArtifact;
-    const thumbMatches = onChainThumb === latestThumb;
-    const isSynced = latestArtifact && artifactMatches && thumbMatches;
-
-    // Only make these buttons active if they're visible (latestMedia && !isSynced)
-    if (latestMedia && !isSynced) {
-      if (latestArtifact) {
-        oldHtmlBtn.btn.act(e, { ...hoverCb, push: () => openUrl(latestArtifact) });
+    // Old on-chain URI buttons (only shown if rebaked version is different)
+    // Show old on-chain buttons if there's a rebake with different URIs
+    if (hasRebaked) {
+      if (alreadyMinted.artifactUri) {
+        oldHtmlBtn.btn.act(e, { ...hoverCb, push: () => openUrl(alreadyMinted.artifactUri) });
       }
-      if (latestThumb) {
-        oldThumbBtn.btn.act(e, { ...hoverCb, push: () => openUrl(latestThumb) });
+      if (alreadyMinted.thumbnailUri) {
+        oldThumbBtn.btn.act(e, { ...hoverCb, push: () => openUrl(alreadyMinted.thumbnailUri) });
       }
     }
 
     // Rebake button - regenerate bundle and thumbnail
-    if (!rebaking) {
-      rebakeBtn.btn.act(e, { ...hoverCb, push: async () => {
+    // Always attach handler, but it checks rebaking state internally
+    rebakeBtn.btn.act(e, {
+      ...hoverCb,
+      push: async () => {
+        // Prevent double-clicks while rebaking
+        if (rebaking) {
+          console.log("🪙 KEEP: Rebake already in progress, ignoring click");
+          return;
+        }
+
         console.log("🪙 KEEP: Starting rebake for already-minted piece $" + piece);
 
         // Ensure wallet is connected (needed for on-chain ownership verification)
@@ -3444,10 +3451,18 @@ function act({ event: e, screen }) {
                       thumbnailUri: eventData.thumbnailUri,
                     };
                     rebakeProgress = "✓ Bundle regenerated!";
+                    _needsPaint?.();
                     console.log("🪙 REBAKE complete! New artifact:", rebakeResult.artifactUri);
+                    // Clear success message after 3 seconds
+                    setTimeout(() => {
+                      if (rebakeProgress === "✓ Bundle regenerated!") {
+                        rebakeProgress = null;
+                        _needsPaint?.();
+                      }
+                    }, 3000);
                     // Reload the thumbnail with the new IPFS URI (fire and forget)
                     if (eventData.thumbnailUri) {
-                      loadThumbnail(eventData.thumbnailUri).catch(e => 
+                      loadThumbnail(eventData.thumbnailUri).catch(e =>
                         console.warn("🪙 REBAKE: Thumbnail reload failed:", e.message)
                       );
                     }
@@ -3469,8 +3484,8 @@ function act({ event: e, screen }) {
           rebaking = false;
           _needsPaint?.();
         }
-      }});
-    }
+      }
+    });
 
     // Update Chain button - push new metadata on-chain (requires wallet)
     // Can sync if: rebakeResult exists, or pendingRebake exists, or we just want to force resync
