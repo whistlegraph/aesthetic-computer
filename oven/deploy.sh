@@ -56,11 +56,13 @@ AC_SYNC_TIME=$((END_AC_SYNC - END_SYNC))
 echo ""
 echo "✅ ac-source sync complete in ${AC_SYNC_TIME}ms"
 
-# Sync BDF font glyph caches (pre-parsed JSON) for bundle font embedding
+# Sync BDF font files + glyph caches for bundle font embedding
 echo ""
-echo "📦 Syncing font glyph caches..."
+echo "📦 Syncing font assets (BDF + glyph caches)..."
 rsync -avz --progress \
   --include='*/' \
+  --include='*.bdf' \
+  --include='*.bdf.gz' \
   --include='*.json' \
   --exclude='*' \
   -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=no" \
