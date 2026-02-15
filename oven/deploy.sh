@@ -56,6 +56,22 @@ AC_SYNC_TIME=$((END_AC_SYNC - END_SYNC))
 echo ""
 echo "✅ ac-source sync complete in ${AC_SYNC_TIME}ms"
 
+# Sync BDF font glyph caches (pre-parsed JSON) for bundle font embedding
+echo ""
+echo "📦 Syncing font glyph caches..."
+rsync -avz --progress \
+  --include='*/' \
+  --include='*.json' \
+  --exclude='*' \
+  -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=no" \
+  "$SCRIPT_DIR/../system/public/assets/type/" \
+  "root@$OVEN_HOST:$REMOTE_DIR/assets-type/"
+
+END_FONT_SYNC=$(date +%s%3N)
+FONT_SYNC_TIME=$((END_FONT_SYNC - END_AC_SYNC))
+echo ""
+echo "✅ Font glyph sync complete in ${FONT_SYNC_TIME}ms"
+
 # Restart unless --no-restart flag
 if [ "$1" != "--no-restart" ]; then
   echo ""
@@ -79,7 +95,7 @@ systemctl status oven --no-pager | head -5
 "
 
   END_RESTART=$(date +%s%3N)
-  RESTART_TIME=$((END_RESTART - END_AC_SYNC))
+  RESTART_TIME=$((END_RESTART - END_FONT_SYNC))
 
   echo ""
   echo "✅ Restart complete in ${RESTART_TIME}ms"

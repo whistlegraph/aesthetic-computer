@@ -460,6 +460,33 @@ async function getCoreBundle(onProgress = () => {}, forceRefresh = false) {
     } catch { /* skip */ }
   }
 
+  // BDF glyph maps (MatrixChunky8 + unifont) — pre-parsed JSON for bundle embedding
+  onProgress({ stage: "glyphs", message: "Loading BDF glyph maps..." });
+  const bdfGlyphs = {};
+  // Production: /opt/oven/assets-type/ (synced by deploy.sh)
+  // Dev: sibling to aesthetic.computer/ under system/public/
+  const prodTypeDir = path.resolve(process.cwd(), "assets-type");
+  const devTypeDir = path.resolve(acDir, "../assets/type");
+  const assetsTypeDir = fsSync.existsSync(prodTypeDir) ? prodTypeDir : devTypeDir;
+  for (const fontName of ["MatrixChunky8", "unifont-16.0.03"]) {
+    const fontDir = path.join(assetsTypeDir, fontName);
+    if (!fsSync.existsSync(fontDir)) continue;
+    const map = {};
+    try {
+      for (const f of fsSync.readdirSync(fontDir).filter((n) => n.endsWith(".json"))) {
+        const hex = f.replace(".json", "").toUpperCase();
+        // Pad to 4 hex chars to match type.mjs codePoint formatting (padStart(4, '0'))
+        const paddedHex = hex.length < 4 ? hex.padStart(4, "0") : hex;
+        const content = await fs.readFile(path.join(fontDir, f), "utf8");
+        map[paddedHex] = JSON.parse(content);
+      }
+    } catch { /* skip */ }
+    const key = fontName === "unifont-16.0.03" ? "unifont" : fontName;
+    bdfGlyphs[key] = map;
+    console.log(`[bundler] loaded ${Object.keys(map).length} ${key} glyphs`);
+  }
+  coreFiles.__bdfGlyphs = bdfGlyphs;
+
   coreBundleCache = coreFiles;
   coreBundleCacheCommit = GIT_COMMIT;
   console.log(`[bundler] cached ${Object.keys(coreFiles).length} core files`);
@@ -523,10 +550,14 @@ export async function createBundle(pieceName, onProgress = () => {}, nocompress 
 
   const bgColor = extractFirstColor(mainSource);
 
+  // Extract BDF glyph maps (not part of VFS)
+  const bdfGlyphs = files.__bdfGlyphs || {};
+  delete files.__bdfGlyphs;
+
   const htmlContent = generateHTMLBundle({
     PIECE_NAME, PIECE_NAME_NO_DOLLAR, mainSource, kidlispSources,
     files, paintingData, authorHandle, packDate, packTime,
-    gitVersion: GIT_COMMIT, filename, density, bgColor,
+    gitVersion: GIT_COMMIT, filename, density, bgColor, bdfGlyphs,
   });
 
   const method = nocompress ? "none" : brotli ? "brotli" : "gzip";
@@ -600,7 +631,11 @@ export async function createJSPieceBundle(pieceName, onProgress = () => {}, noco
 
   onProgress({ stage: "generate", message: "Generating HTML bundle..." });
 
-  const htmlContent = generateJSPieceHTMLBundle({ pieceName, files, packDate, packTime, gitVersion: GIT_COMMIT });
+  // Extract BDF glyph maps (not part of VFS)
+  const bdfGlyphs = files.__bdfGlyphs || {};
+  delete files.__bdfGlyphs;
+
+  const htmlContent = generateJSPieceHTMLBundle({ pieceName, files, packDate, packTime, gitVersion: GIT_COMMIT, bdfGlyphs });
   const filename = `${pieceName}-${bundleTimestamp}.html`;
 
   const method = nocompress ? "none" : brotli ? "brotli" : "gzip";
@@ -785,7 +820,7 @@ function generateSelfExtractingBrotliHTML(title, brotliBase64, bgColor = null) {
 function generateHTMLBundle(opts) {
   const {
     PIECE_NAME, PIECE_NAME_NO_DOLLAR, mainSource, kidlispSources,
-    files, paintingData, authorHandle, packDate, packTime, gitVersion, filename, density, bgColor,
+    files, paintingData, authorHandle, packDate, packTime, gitVersion, filename, density, bgColor, bdfGlyphs,
   } = opts;
 
   const bgRule = bgColor ? `background: ${bgColor}; ` : "";
@@ -819,6 +854,8 @@ function generateHTMLBundle(opts) {
     };
     window.acPAINTING_CODE_MAP = ${JSON.stringify(paintingData)};
     window.VFS = ${JSON.stringify(files).replace(/<\/script>/g, "<\\/script>")};
+    window.acBUNDLED_GLYPHS = ${JSON.stringify(bdfGlyphs)};
+    window.acOBJKT_MATRIX_CHUNKY_GLYPHS = window.acBUNDLED_GLYPHS.MatrixChunky8 || {};
     window.acEMBEDDED_PAINTING_BITMAPS = {};
     window.acPAINTING_BITMAPS_READY = false;
     async function decodePaintingToBitmap(code, base64Data) {
@@ -890,6 +927,15 @@ function generateHTMLBundle(opts) {
     window.fetch = function(url, options) {
       const urlStr = typeof url === 'string' ? url : url.toString();
       if (urlStr.includes('/api/')) {
+        if (urlStr.includes('/api/bdf-glyph') && window.acBUNDLED_GLYPHS) {
+          const fontM = urlStr.match(/[?&]font=([^&]+)/);
+          const charsM = urlStr.match(/[?&]chars?=([^&]+)/);
+          const fontKey = fontM ? decodeURIComponent(fontM[1]) : 'unifont';
+          const fontMap = window.acBUNDLED_GLYPHS[fontKey] || {};
+          const glyphs = {};
+          if (charsM) { for (const c of charsM[1].split(',')) { const hex = c.trim().toUpperCase(); if (fontMap[hex]) glyphs[c.trim()] = fontMap[hex]; } }
+          return Promise.resolve(new Response(JSON.stringify({ glyphs }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+        }
         if (urlStr.includes('/api/painting-code')) {
           const m = urlStr.match(/[?&]code=([^&]+)/);
           if (m) {
@@ -966,7 +1012,7 @@ function generateHTMLBundle(opts) {
 }
 
 function generateJSPieceHTMLBundle(opts) {
-  const { pieceName, files, packDate, packTime, gitVersion } = opts;
+  const { pieceName, files, packDate, packTime, gitVersion, bdfGlyphs } = opts;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -993,6 +1039,8 @@ function generateJSPieceHTMLBundle(opts) {
       build: { author: '@jeffrey', packTime: ${packTime}, gitCommit: '${gitVersion}', gitIsDirty: false, fileCount: ${Object.keys(files).length} }
     };
     window.VFS = ${JSON.stringify(files).replace(/<\/script>/g, "<\\/script>")};
+    window.acBUNDLED_GLYPHS = ${JSON.stringify(bdfGlyphs)};
+    window.acOBJKT_MATRIX_CHUNKY_GLYPHS = window.acBUNDLED_GLYPHS.MatrixChunky8 || {};
     const originalAppendChild = Element.prototype.appendChild;
     Element.prototype.appendChild = function(child) {
       if (child.tagName === 'LINK' && child.rel === 'stylesheet' && child.href && child.href.includes('.css')) return child;
@@ -1032,7 +1080,18 @@ function generateJSPieceHTMLBundle(opts) {
     const originalFetch = window.fetch;
     window.fetch = function(url, options) {
       const urlStr = typeof url === 'string' ? url : url.toString();
-      if (urlStr.includes('/api/')) return Promise.resolve(new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }));
+      if (urlStr.includes('/api/')) {
+        if (urlStr.includes('/api/bdf-glyph') && window.acBUNDLED_GLYPHS) {
+          const fontM = urlStr.match(/[?&]font=([^&]+)/);
+          const charsM = urlStr.match(/[?&]chars?=([^&]+)/);
+          const fontKey = fontM ? decodeURIComponent(fontM[1]) : 'unifont';
+          const fontMap = window.acBUNDLED_GLYPHS[fontKey] || {};
+          const glyphs = {};
+          if (charsM) { for (const c of charsM[1].split(',')) { const hex = c.trim().toUpperCase(); if (fontMap[hex]) glyphs[c.trim()] = fontMap[hex]; } }
+          return Promise.resolve(new Response(JSON.stringify({ glyphs }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+        }
+        return Promise.resolve(new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }));
+      }
       let vfsPath = decodeURIComponent(urlStr).replace(/^https?:\\/\\/[^\\/]+\\//g, '').replace(/^aesthetic\\.computer\\//g, '').replace(/#.*$/g, '').replace(/\\?.*$/g, '');
       vfsPath = vfsPath.replace(/^\\.\\.\\/+/g, '').replace(/^\\.\\//g, '').replace(/^\\//g, '').replace(/^aesthetic\\.computer\\//g, '');
       if (window.VFS[vfsPath]) {
