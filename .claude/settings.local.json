@@ -78,7 +78,9 @@
       "Bash(./utilities/generate-piece-commits.sh:*)",
       "Bash(npx netlify status)",
       "Bash(npx netlify api:*)",
-      "Bash(npx netlify env:get:*)"
+      "Bash(npx netlify env:get:*)",
+      "Bash(git fetch:*)",
+      "Bash(git merge:*)"
     ],
     "additionalDirectories": [
       "/home/me/.claude",
