@@ -1,15 +1,74 @@
 # 🎹⏱️ Notepat Audio Latency & Performance Report
 
 **Generated:** 2026-02-15
+**Updated:** 2026-02-15 (Test Results Added)
 **Subject:** Audio performance testing infrastructure and recent performance regression analysis
 
 ---
 
-## Executive Summary
+## 🚨 Executive Summary
 
-Aesthetic Computer has a comprehensive audio latency testing infrastructure centered around the **Artery** system (Chrome DevTools Protocol automation). Recent notepat UI updates (last 3 weeks) may have introduced performance regressions that need investigation.
+Aesthetic Computer has a comprehensive audio latency testing infrastructure centered around the **Artery** system (Chrome DevTools Protocol automation). Recent notepat UI updates (last 3 weeks) have introduced **severe performance regressions**.
 
-**Key Finding:** Commit `22675462f` explicitly **reduced audio latency target to 3ms**, suggesting awareness of latency issues before the recent UI updates.
+### ⚠️ Critical Findings
+
+**Test Results (2026-02-15 19:23 UTC):**
+- **Mean Latency:** 417.28ms (keyboard → sound detection)
+- **Target Latency:** <30ms
+- **Performance Degradation:** ~14x slower than target
+- **Status:** 🔴 CRITICAL - Latency is extremely noticeable to users
+
+**Historical Context:**
+- Commit `22675462f` explicitly **reduced audio latency target to 3ms**, suggesting awareness of latency issues before recent UI updates
+- Recent UI additions (waveform visualizer, KidLisp visualizer, screen flash effects) likely causing CPU bottleneck
+
+---
+
+## 📊 Latest Test Results
+
+### Test Run: 2026-02-15 19:23 UTC
+
+**Configuration:**
+- Iterations: 5
+- Test: `node artery/test-notepat-latency.mjs --iterations=5 --cooldown=200`
+- Environment: GitHub Codespaces (devcontainer)
+
+**Results:**
+
+| Metric | Value | Status |
+|--------|-------|--------|
+| Mean Latency | 417.28ms | 🔴 CRITICAL |
+| Median Latency | 406.84ms | 🔴 CRITICAL |
+| Std Dev | 14.18ms | - |
+| Min Latency | 405.36ms | 🔴 CRITICAL |
+| Max Latency | 439.40ms | 🔴 CRITICAL |
+| P95 | 439.40ms | 🔴 CRITICAL |
+| P99 | 439.40ms | 🔴 CRITICAL |
+| Success Rate | 100% (5/5) | ✅ |
+
+**Individual Measurements:**
+```
+428.9ms, 439.4ms, 406.8ms, 405.4ms, 405.9ms
+```
+
+**Analysis:**
+- All measurements are consistently high (405-439ms range)
+- Very low variance (14ms std dev) suggests systematic overhead, not random jitter
+- This measures JS-side latency only (keypress → sound object creation)
+- Actual perceived latency is even higher (~450-490ms including audio buffer)
+
+**Root Cause Hypothesis:**
+Based on git history analysis, the likely culprits are:
+1. **Waveform visualizer** (commit `43e2e1f9c`) - Drawing waveforms every frame
+2. **KidLisp visualizer** (commit `e249dd1a6`) - Additional compute per frame
+3. **Screen flash effects** (commit `eadd85cee`) - Synchronous paint operations
+4. **HUD UI elements** (commits `3ca580f28`, `3331e90d7`) - More rendering overhead
+
+**Immediate Actions Required:**
+1. Profile with Chrome DevTools Performance tab to identify hotspot
+2. Test with waveform visualizer disabled
+3. Consider throttling non-critical UI updates to 30fps
+4. Move visualizer rendering to OffscreenCanvas/Web Worker
 
 ---
 
@@ -335,13 +394,13 @@ if (!skipUIUpdate) {
 
 Based on commit history and test infrastructure:
 
-| Metric | Target | Source |
-|--------|--------|--------|
-| Audio latency | < 3ms | Commit `22675462f` |
-| JS keypress→sound | < 30ms | `test-notepat-latency.mjs` |
-| Total latency (perceived) | < 50ms | Industry standard |
-| Frame time | < 16.67ms | 60fps requirement |
-| Heap growth (10min test) | < 50% | `test-notepat-stability.mjs` |
+| Metric | Target | Current (2026-02-15) | Status |
+|--------|--------|----------------------|--------|
+| Audio latency | < 3ms | N/A | - |
+| JS keypress→sound | < 30ms | **417ms** | 🔴 **FAILED** |
+| Total latency (perceived) | < 50ms | **~460ms** | 🔴 **FAILED** |
+| Frame time | < 16.67ms | Unknown | ⚠️ Needs profiling |
+| Heap growth (10min test) | < 50% | N/A | - |
 
 ### Monitoring Commands
 

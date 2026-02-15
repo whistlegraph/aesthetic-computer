@@ -424,22 +424,33 @@ class Artery {
   }
 
   // Wait for boot/piece to be fully ready before activating audio
-  async waitForBoot(timeoutMs = 10000) {
+  async waitForBoot(timeoutMs = 15000) {
     brightLog('🩸 Waiting for boot to complete...');
 
     const startTime = Date.now();
+    let lastLogTime = 0;
+
     while (Date.now() - startTime < timeoutMs) {
       const bootStatus = await this.eval(`({
+        hasBios: typeof window.currentPiece !== 'undefined',
         currentPiece: window.currentPiece || null,
         hasActivateSound: typeof window.activateSound === 'function',
-        bootLogHidden: !document.querySelector('.boot-canvas')?.style?.display ||
-                       document.querySelector('.boot-canvas')?.style?.display === 'none'
+        canvasExists: !!document.querySelector('canvas'),
+        locationPath: window.location?.pathname || '',
+        hasAudioContext: !!window.audioContext
       })`);
 
-      // Boot is complete when currentPiece is set and activateSound listener exists
+      // Boot is complete when currentPiece is set
       if (bootStatus.currentPiece) {
         brightLog(`🩸 Boot complete (piece: ${bootStatus.currentPiece})`);
         return true;
+      }
+
+      // Log status every 2 seconds for debugging
+      const elapsed = Date.now() - startTime;
+      if (elapsed - lastLogTime > 2000) {
+        darkLog(`🩸 Waiting... hasBios=${bootStatus.hasBios}, canvas=${bootStatus.canvasExists}, path=${bootStatus.locationPath}`);
+        lastLogTime = elapsed;
       }
 
       await new Promise(r => setTimeout(r, 100));
