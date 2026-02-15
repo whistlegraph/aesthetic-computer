@@ -2450,6 +2450,30 @@ const $commonApi = {
       graph.unmask(); // Clear any active mask when leaving a piece
     }
 
+    // Preserve resolution parameters across jumps (device mode, TV mode, etc.)
+    // This ensures HUD visibility and other display settings persist when navigating
+    if (DEVICE_MODE || TV_MODE || SOLO_MODE || HIGHLIGHT_MODE || PERF_MODE || AUTO_SCALE_MODE) {
+      const params = [];
+      if (DEVICE_MODE) params.push("device=true");
+      if (TV_MODE) params.push("tv=true");
+      if (SOLO_MODE) params.push("solo=true");
+      if (HIGHLIGHT_MODE) {
+        if (HIGHLIGHT_COLOR && HIGHLIGHT_COLOR !== "64,64,64") {
+          params.push(`highlight=${encodeURIComponent(HIGHLIGHT_COLOR)}`);
+        } else {
+          params.push("highlight=true");
+        }
+      }
+      if (PERF_MODE) params.push("perf=true");
+      if (AUTO_SCALE_MODE) params.push("autoScale=true");
+
+      if (params.length > 0) {
+        const separator = to.includes("?") ? "&" : "?";
+        to = to + separator + params.join("&");
+        console.log("🧭 Preserving resolution params:", to);
+      }
+    }
+
     function loadLine() {
       load(parse(to), ahistorical, alias, false, callback);
     }
