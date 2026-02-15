@@ -3295,11 +3295,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           let workletUrl;
           
           if (isPackMode) {
-            // In PACK mode, load the bundled worklet from VFS blob URL
+            // In PACK mode, load the bundled worklet from VFS via data: URI
+            // (blob:null/ URLs are blocked by audioWorklet.addModule in file:// origin)
             if (window.VFS && window.VFS['lib/speaker-bundled.mjs']) {
               const workletSource = window.VFS['lib/speaker-bundled.mjs'].content;
-              const blob = new Blob([workletSource], { type: 'application/javascript' });
-              workletUrl = URL.createObjectURL(blob);
+              workletUrl = 'data:application/javascript;charset=utf-8,' + encodeURIComponent(workletSource);
               if (debug) console.log("🎭 Using bundled speaker worklet from VFS");
             } else {
               console.warn("🎭 PACK mode: speaker-bundled.mjs not found in VFS, audio synth will not work");
@@ -3318,10 +3318,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           
           await audioContext.audioWorklet.addModule(workletUrl);
           
-          // Clean up blob URL if we created one
-          if (isPackMode && workletUrl.startsWith('blob:')) {
-            URL.revokeObjectURL(workletUrl);
-          }
+          // (data: URIs don't need cleanup)
         
         const workletLoadTime = performance.now() - workletLoadStart;
         // console.log(`🎵 WORKLET_LOADED: Took ${workletLoadTime.toFixed(3)}ms`);
