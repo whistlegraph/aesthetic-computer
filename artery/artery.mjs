@@ -423,12 +423,57 @@ class Artery {
     brightLog('🩸 AC panel opened');
   }
 
+  // Wait for boot/piece to be fully ready before activating audio
+  async waitForBoot(timeoutMs = 10000) {
+    brightLog('🩸 Waiting for boot to complete...');
+
+    const startTime = Date.now();
+    while (Date.now() - startTime < timeoutMs) {
+      const bootStatus = await this.eval(`({
+        currentPiece: window.currentPiece || null,
+        hasActivateSound: typeof window.activateSound === 'function',
+        bootLogHidden: !document.querySelector('.boot-canvas')?.style?.display ||
+                       document.querySelector('.boot-canvas')?.style?.display === 'none'
+      })`);
+
+      // Boot is complete when currentPiece is set and activateSound listener exists
+      if (bootStatus.currentPiece) {
+        brightLog(`🩸 Boot complete (piece: ${bootStatus.currentPiece})`);
+        return true;
+      }
+
+      await new Promise(r => setTimeout(r, 100));
+    }
+
+    darkLog('⚠️  Boot timeout - proceeding anyway');
+    return false;
+  }
+
   async activateAudio() {
     brightLog('🩸 Activating audio context...');
 
-    // Force-start audio by calling both click and manually resuming AudioContext
-    // Click the canvas multiple times to aggressively activate audio
-    for (let clickAttempt = 0; clickAttempt < 3; clickAttempt++) {
+    // FIRST: Wait for boot to complete so activateSound listener exists
+    await this.waitForBoot();
+
+    // Dispatch real pointerdown event to trigger activateSound listener in bios
+    await this.eval(`
+      (function() {
+        const event = new PointerEvent('pointerdown', {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+          clientX: 100,
+          clientY: 100
+        });
+        window.dispatchEvent(event);
+        console.log('🩸 Dispatched pointerdown event');
+      })()
+    `);
+
+    await new Promise(r => setTimeout(r, 300));
+
+    // Click canvas multiple times for good measure
+    for (let clickAttempt = 0; clickAttempt < 2; clickAttempt++) {
       await this.click(100 + clickAttempt * 20, 100 + clickAttempt * 20);
       await new Promise(r => setTimeout(r, 100));
     }
@@ -436,12 +481,14 @@ class Artery {
     // Manually resume AudioContext if it exists and is suspended
     await this.eval(`
       (async function() {
-        if (window.audioContext && window.audioContext.state === 'suspended') {
-          try {
-            await window.audioContext.resume();
-            console.log('🩸 AudioContext manually resumed');
-          } catch (e) {
-            console.warn('Failed to resume AudioContext:', e);
+        if (window.audioContext) {
+          if (window.audioContext.state === 'suspended') {
+            try {
+              await window.audioContext.resume();
+              console.log('🩸 AudioContext manually resumed');
+            } catch (e) {
+              console.warn('Failed to resume AudioContext:', e);
+            }
           }
         }
       })()
