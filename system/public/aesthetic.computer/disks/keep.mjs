@@ -3204,7 +3204,7 @@ function act({ event: e, screen }) {
                   console.log("🪙 REBAKE:", eventType, eventData);
 
                   if (eventType === "progress") {
-                    rebakeProgress = eventData.message;
+                    rebakeProgress = eventData.message || (typeof eventData === 'string' ? eventData : JSON.stringify(eventData));
                     _needsPaint?.();
                   } else if (eventType === "ready" && eventData) {
                     // Update preparedData with new URIs
@@ -3437,22 +3437,26 @@ function act({ event: e, screen }) {
                   console.log("🪙 REBAKE:", eventType, eventData);
 
                   if (eventType === "progress") {
-                    rebakeProgress = eventData.message;
+                    rebakeProgress = eventData.message || (typeof eventData === 'string' ? eventData : JSON.stringify(eventData));
                     _needsPaint?.();
                   } else if (eventType === "ready" && eventData) {
                     rebakeResult = {
                       artifactUri: eventData.artifactUri,
                       thumbnailUri: eventData.thumbnailUri,
                       metadataUri: eventData.metadataUri,
+                      createdAt: eventData.createdAt,
+                      packDate: eventData.packDate,
                     };
                     // Update pendingRebake (but NOT alreadyMinted - that stays as on-chain state)
                     pendingRebake = {
                       artifactUri: eventData.artifactUri,
                       thumbnailUri: eventData.thumbnailUri,
+                      createdAt: eventData.createdAt,
+                      packDate: eventData.packDate,
                     };
                     rebakeProgress = "✓ Bundle regenerated!";
                     _needsPaint?.();
-                    console.log("🪙 REBAKE complete! New artifact:", rebakeResult.artifactUri);
+                    console.log("🪙 REBAKE complete! New artifact:", rebakeResult.artifactUri, "Date:", eventData.createdAt || eventData.packDate);
                     // Clear success message after 3 seconds
                     setTimeout(() => {
                       if (rebakeProgress === "✓ Bundle regenerated!") {
