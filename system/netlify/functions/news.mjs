@@ -36,6 +36,51 @@ function parseEfluxUrl(url) {
   } catch { return null; }
 }
 
+// Fetch generic OpenGraph metadata from any URL
+async function fetchOgMeta(url) {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'AestheticNewsBot/1.0 (+https://news.aesthetic.computer)',
+        'Accept': 'text/html',
+      },
+      redirect: 'follow',
+    });
+    clearTimeout(timeout);
+    if (!res.ok) return null;
+    // Read first 64KB for meta tags
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let html = '';
+    while (html.length < 65536) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      html += decoder.decode(value, { stream: true });
+    }
+    reader.cancel().catch(() => {});
+
+    const getOg = (prop) => {
+      const m = html.match(new RegExp(`<meta[^>]+(?:property|name)=["']${prop}["'][^>]+content=["']([^"']+)["']`, 'i'))
+        || html.match(new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${prop}["']`, 'i'));
+      return m ? m[1].replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim() : '';
+    };
+
+    const title = getOg('og:title');
+    const description = getOg('og:description') || getOg('description');
+    const image = getOg('og:image');
+    const siteName = getOg('og:site_name');
+
+    if (!image) return null; // Only show preview if there's an image
+    return { title, description, image, siteName };
+  } catch (e) {
+    console.error('[news] og:image fetch error:', e.message);
+    return null;
+  }
+}
+
 // Fetch e-flux article metadata from og: tags
 async function fetchEfluxMeta(url) {
   try {
@@ -118,6 +163,76 @@ async function fetchEfluxMeta(url) {
     console.error('[news] e-flux fetch error:', e.message);
     return null;
   }
+}
+
+// Detect aesthetic.computer piece URLs
+function parseAestheticComputerUrl(url) {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    // Match aesthetic.computer/piece or aesthetic.computer/@handle/piece
+    if (!u.hostname.includes('aesthetic.computer')) return null;
+    // Extract piece name (after removing leading slash)
+    const path = u.pathname.replace(/^\//, '');
+    // Skip common non-piece paths
+    if (!path || path === '' ||
+        path.startsWith('api/') ||
+        path.startsWith('news.') ||
+        path.startsWith('give.') ||
+        path.includes('.')) return null;
+    // Return the piece path (e.g., "wipe" or "@user/piece" or "piece:param")
+    return path.split('?')[0]; // Remove query params
+  } catch { return null; }
+}
+
+// Detect Imgur URLs and normalize to direct image URL
+function parseImgurUrl(url) {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    if (!u.hostname.includes('imgur.com')) return null;
+
+    // imgur.com/gallery/ID or imgur.com/a/ID (album) - use first image
+    // imgur.com/ID - single image
+    // i.imgur.com/ID.ext - direct image
+
+    // Already a direct image URL
+    if (u.hostname === 'i.imgur.com') {
+      return url;
+    }
+
+    // Extract image ID from various Imgur URL formats
+    const galleryMatch = u.pathname.match(/^\/(?:gallery|a)\/([a-zA-Z0-9]+)/);
+    const imageMatch = u.pathname.match(/^\/([a-zA-Z0-9]+)(?:\.|$)/);
+
+    const imageId = galleryMatch ? galleryMatch[1] : (imageMatch ? imageMatch[1] : null);
+
+    if (imageId) {
+      // Return direct image URL (Imgur serves JPEG by default, will redirect to actual format)
+      return `https://i.imgur.com/${imageId}.jpg`;
+    }
+
+    return null;
+  } catch { return null; }
+}
+
+// Detect direct image URLs
+function parseDirectImageUrl(url) {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    const path = u.pathname.toLowerCase();
+
+    // Check for common image extensions
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'];
+    const hasImageExt = imageExtensions.some(ext => path.endsWith(ext));
+
+    if (hasImageExt) {
+      return url;
+    }
+
+    return null;
+  } catch { return null; }
 }
 
 // Detect YouTube URLs and extract video ID
@@ -453,10 +568,38 @@ async function renderItemPage(database, basePath, code) {
         </a>
       </div>` : '';
 
+  // Check for aesthetic.computer piece preview
+  const acPiece = parseAestheticComputerUrl(hydratedPost.url);
+  const acPreviewHtml = acPiece ? `
+      <div class="news-ac-preview" data-ac-piece="${escapeHtml(acPiece)}">
+        <a href="${escapeHtml(hydratedPost.url)}" target="_blank" rel="noreferrer" class="news-ac-link">
+          <img src="https://oven.aesthetic.computer/grab/webp/640/640/${escapeHtml(acPiece)}?duration=4000&fps=8&quality=80&density=1" alt="Aesthetic Computer piece preview" class="news-ac-webp" loading="lazy" />
+          <span class="news-ac-badge">aesthetic.computer/${escapeHtml(acPiece)}</span>
+        </a>
+      </div>` : '';
+
+  // Check for Imgur images
+  const imgurUrl = parseImgurUrl(hydratedPost.url);
+  const imgurPreviewHtml = imgurUrl ? `
+      <div class="news-image-preview">
+        <a href="${escapeHtml(hydratedPost.url)}" target="_blank" rel="noreferrer" class="news-image-link">
+          <img src="${escapeHtml(imgurUrl)}" alt="Imgur image" class="news-image" loading="lazy" />
+        </a>
+      </div>` : '';
+
+  // Check for direct image URLs
+  const directImageUrl = !imgurUrl ? parseDirectImageUrl(hydratedPost.url) : null;
+  const directImagePreviewHtml = directImageUrl ? `
+      <div class="news-image-preview">
+        <a href="${escapeHtml(hydratedPost.url)}" target="_blank" rel="noreferrer" class="news-image-link">
+          <img src="${escapeHtml(directImageUrl)}" alt="Image" class="news-image" loading="lazy" />
+        </a>
+      </div>` : '';
+
   // Check for e-flux article preview
   const efluxUrl = parseEfluxUrl(hydratedPost.url);
   let efluxPreviewHtml = '';
-  if (efluxUrl && !youtubeId && !kidlispCode) {
+  if (efluxUrl && !youtubeId && !kidlispCode && !acPiece && !imgurUrl && !directImageUrl) {
     const meta = await fetchEfluxMeta(efluxUrl);
     if (meta) {
       const sectionBadge = meta.section ? `<span class="news-eflux-section">e-flux ${escapeHtml(meta.section)}${meta.issue ? ` ${escapeHtml(meta.issue)}` : ''}</span>` : '<span class="news-eflux-section">e-flux</span>';
@@ -479,8 +622,29 @@ async function renderItemPage(database, basePath, code) {
     }
   }
 
-  const hasMedia = youtubeId || kidlispCode || efluxPreviewHtml;
-  const mediaHtml = youtubeEmbedHtml || kidlispPreviewHtml || efluxPreviewHtml;
+  // Generic og:image fallback for any other URL
+  let ogPreviewHtml = '';
+  if (hydratedPost.url && !youtubeId && !kidlispCode && !acPiece && !imgurUrl && !directImageUrl && !efluxPreviewHtml) {
+    const ogMeta = await fetchOgMeta(hydratedPost.url);
+    if (ogMeta && ogMeta.image) {
+      ogPreviewHtml = `
+      <div class="news-og-preview">
+        <a href="${escapeHtml(hydratedPost.url)}" target="_blank" rel="noopener" class="news-og-link">
+          <div class="news-og-image-container">
+            <img src="${escapeHtml(ogMeta.image)}" alt="${escapeHtml(ogMeta.title || 'Preview')}" class="news-og-image" loading="lazy" />
+          </div>
+          ${ogMeta.title || ogMeta.description ? `<div class="news-og-body">
+            ${ogMeta.siteName ? `<div class="news-og-site">${escapeHtml(ogMeta.siteName)}</div>` : ''}
+            ${ogMeta.title ? `<div class="news-og-title">${escapeHtml(ogMeta.title)}</div>` : ''}
+            ${ogMeta.description ? `<div class="news-og-description">${escapeHtml(ogMeta.description)}</div>` : ''}
+          </div>` : ''}
+        </a>
+      </div>`;
+    }
+  }
+
+  const hasMedia = youtubeId || kidlispCode || acPiece || imgurUrl || directImageUrl || efluxPreviewHtml || ogPreviewHtml;
+  const mediaHtml = youtubeEmbedHtml || kidlispPreviewHtml || acPreviewHtml || imgurPreviewHtml || directImagePreviewHtml || efluxPreviewHtml || ogPreviewHtml;
 
   const body = `
   ${header(basePath)}
