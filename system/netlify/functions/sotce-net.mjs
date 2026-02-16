@@ -6823,7 +6823,9 @@ export const handler = async (event, context) => {
                   const padding = em * 2; // padding: 0 2em
                   const textWidth = w - padding * 2;
                   // Use the same MAX_LINES constant as the editor for consistent pagination
-                  const maxLines = ${MAX_LINES};
+                  // Reduce max lines on mobile Safari to prevent bottom overflow
+                  const isMobileSafari = /iPhone|iPad|iPod/.test(navigator.userAgent);
+                  const maxLines = isMobileSafari ? ${MAX_LINES - 2} : ${MAX_LINES};
                   
                   // Text color with opacity for fade-in (themed)
                   const baseColor = themeColors.cardText;
