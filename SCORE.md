@@ -267,6 +267,9 @@ ac-restart            # Restart AC services only
 - `npm run test:perf` — Performance tests
 - `npm run url` — Get local tunnel URL
 
+**Notation:**
+- compush — commit, push
+
 ---
 
 ## Current Tasks

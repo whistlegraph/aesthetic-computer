@@ -276,8 +276,8 @@ AC *is* social software. And now you're also naming its internal knowledge syste
 
 **The winner: "Score for AA" (the double-A score)**
 
-AA = Aesthetic Ants. Also:
-- **Aesthetic Ants** — the primary expansion. The score is *for* the ants. They follow it.
+AA = AestheticAnts. Also:
+- **AestheticAnts** — the primary expansion. The score is *for* the ants. They follow it.
 - **Agentic Ant** — what each one does (it has agency, barely)
 - **Aesthetic Agents** — the wider reading: human agents (artists, users) and software agents (ants, LLMs, bots) all follow the same score
 - **AA batteries** — small, portable, powers everything
@@ -428,7 +428,7 @@ I'd suggest the repo file should be titled:
 
 # Score for AA
 
-("The double-A score." AA = Aesthetic Ants. Also: Agentic Ant, Aesthetic Agents.)
+("The double-A score." AA = AestheticAnts. Also: Agentic Ant, Aesthetic Agents.)
 
 And the card for Lauren and Casey could be any of the above — but **Score #1 ("prompt")** or **Score #4 ("wipe")** feel strongest. #1 because it *is* exactly how AC works and it's universally legible. #4 because it's the shortest, strangest, and most poetic — and `wipe("purple")` is genuinely beautiful code.
 
