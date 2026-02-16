@@ -2077,19 +2077,22 @@ function paint($) {
     contractBtn.btn.box.h = contractSize.h;
     paintMC8Btn(w - margin - contractSize.w, h - contractSize.h - 4, shortContract, { ink, line: ink }, contractScheme, contractBtn.btn.down || contractBtn.btn.over);
 
-    // Show streaming progress
+    // Show streaming progress as a fixed overlay above the bottom buttons,
+    // so it's always visible regardless of content scroll position.
+    const progressY = h - walletSize.h - 18;
     if (rebaking && rebakeProgress) {
-      ink(200, 180, 120).write(rebakeProgress, { x: w/2, y, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-      y += 10;
+      ink(20, 25, 30, 220).box(0, progressY - 2, w, 14);
+      ink(200, 180, 120).write(rebakeProgress, { x: w/2, y: progressY, center: "x" }, undefined, undefined, false, "MatrixChunky8");
     }
     if (updatingChain && updateChainProgress) {
-      ink(150, 150, 200).write(updateChainProgress, { x: w/2, y, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-      y += 10;
+      ink(20, 25, 30, 220).box(0, progressY - 2, w, 14);
+      ink(150, 150, 200).write(updateChainProgress, { x: w/2, y: progressY, center: "x" }, undefined, undefined, false, "MatrixChunky8");
     }
 
-    // Success messages with transaction link
+    // Success messages with transaction link (fixed position above bottom buttons)
     if (updateChainResult) {
-      ink(100, 255, 150).write("[ok] Synced!", { x: margin, y }, undefined, undefined, false, "MatrixChunky8");
+      ink(20, 25, 30, 220).box(0, progressY - 2, w, 14);
+      ink(100, 255, 150).write("[ok] Synced!", { x: margin, y: progressY }, undefined, undefined, false, "MatrixChunky8");
 
       // TX button to view transaction on TzKT
       if (updateChainResult.opHash) {
@@ -2098,12 +2101,11 @@ function paint($) {
         const txSize = mc8ButtonSize(shortHash);
         const txX = margin + 52;
         txBtn.btn.box.x = txX;
-        txBtn.btn.box.y = y;
+        txBtn.btn.box.y = progressY;
         txBtn.btn.box.w = txSize.w;
         txBtn.btn.box.h = txSize.h;
-        paintMC8Btn(txX, y, shortHash, { ink, line: ink }, txScheme, txBtn.btn.down || txBtn.btn.over);
+        paintMC8Btn(txX, progressY, shortHash, { ink, line: ink }, txScheme, txBtn.btn.down || txBtn.btn.over);
       }
-      y += 14;
     }
 
     return;
@@ -3335,33 +3337,32 @@ function act({ event: e, screen }) {
     const currentThumb = rebakeResult?.thumbnailUri || pendingRebake?.thumbnailUri || alreadyMinted.thumbnailUri;
     const hasRebaked = (rebakeResult || pendingRebake) && (currentArtifact !== alreadyMinted.artifactUri);
 
-    if (currentArtifact) htmlBtn.btn.act(e, { ...hoverCb, push: () => openUrl(currentArtifact) });
-    if (currentThumb) thumbBtn.btn.act(e, { ...hoverCb, push: () => openUrl(currentThumb) });
-    // META button - open TzKT token metadata view
-    metaBtn.btn.act(e, { ...hoverCb, push: () => openUrl(alreadyMinted.tzktUrl) });
-    // DOCS button - open kidlisp.com/keeps documentation
-    docsBtn.btn.act(e, { ...hoverCb, push: () => openUrl("https://kidlisp.com/keeps") });
-    btn.btn.act(e, { ...hoverCb, push: () => openUrl(alreadyMinted.objktUrl) });
-    walletBtn.btn.act(e, { ...hoverCb, push: () => _jump("wallet") });
+    // Disable all navigation/link buttons while rebaking or updating chain
+    // to prevent accidental jump() during async operations.
+    if (!rebaking && !updatingChain) {
+      if (currentArtifact) htmlBtn.btn.act(e, { ...hoverCb, push: () => openUrl(currentArtifact) });
+      if (currentThumb) thumbBtn.btn.act(e, { ...hoverCb, push: () => openUrl(currentThumb) });
+      metaBtn.btn.act(e, { ...hoverCb, push: () => openUrl(alreadyMinted.tzktUrl) });
+      docsBtn.btn.act(e, { ...hoverCb, push: () => openUrl("https://kidlisp.com/keeps") });
+      btn.btn.act(e, { ...hoverCb, push: () => openUrl(alreadyMinted.objktUrl) });
+      walletBtn.btn.act(e, { ...hoverCb, push: () => _jump("wallet") });
 
-    // Contract button - open contract on TzKT
-    const tzktContractUrl = `https://${NETWORK}.tzkt.io/${KEEPS_CONTRACT}`;
-    contractBtn.btn.act(e, { ...hoverCb, push: () => openUrl(tzktContractUrl) });
+      const tzktContractUrl = `https://${NETWORK}.tzkt.io/${KEEPS_CONTRACT}`;
+      contractBtn.btn.act(e, { ...hoverCb, push: () => openUrl(tzktContractUrl) });
 
-    // TX button - open transaction on TzKT
-    if (updateChainResult?.opHash) {
-      const tzktTxUrl = `https://${NETWORK}.tzkt.io/${updateChainResult.opHash}`;
-      txBtn.btn.act(e, { ...hoverCb, push: () => openUrl(tzktTxUrl) });
-    }
-
-    // Old on-chain URI buttons (only shown if rebaked version is different)
-    // Show old on-chain buttons if there's a rebake with different URIs
-    if (hasRebaked) {
-      if (alreadyMinted.artifactUri) {
-        oldHtmlBtn.btn.act(e, { ...hoverCb, push: () => openUrl(alreadyMinted.artifactUri) });
+      if (updateChainResult?.opHash) {
+        const tzktTxUrl = `https://${NETWORK}.tzkt.io/${updateChainResult.opHash}`;
+        txBtn.btn.act(e, { ...hoverCb, push: () => openUrl(tzktTxUrl) });
       }
-      if (alreadyMinted.thumbnailUri) {
-        oldThumbBtn.btn.act(e, { ...hoverCb, push: () => openUrl(alreadyMinted.thumbnailUri) });
+
+      // Old on-chain URI buttons (only shown if rebaked version is different)
+      if (hasRebaked) {
+        if (alreadyMinted.artifactUri) {
+          oldHtmlBtn.btn.act(e, { ...hoverCb, push: () => openUrl(alreadyMinted.artifactUri) });
+        }
+        if (alreadyMinted.thumbnailUri) {
+          oldThumbBtn.btn.act(e, { ...hoverCb, push: () => openUrl(alreadyMinted.thumbnailUri) });
+        }
       }
     }
 

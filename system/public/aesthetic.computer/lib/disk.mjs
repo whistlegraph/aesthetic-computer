@@ -1804,9 +1804,13 @@ let udp = {
     receive: ({ type, content }) => {
       // console.log("🩰 Received `piece` message from UDP:", type, content);
 
-      // 🧚 Ambient cursor (fairies) support.
+      // 🧚 Ambient cursor (fairies) support. Disabled for KidLisp pieces.
       if (type === "fairy:point" /*&& socket?.id !== id*/ && visible) {
-        fairies.push({ x: content.x, y: content.y });
+        const isKidlisp = detectKidLispPiece({ currentPath, currentHUDTxt, currentText }) ||
+          (currentPath && currentPath.endsWith('.lisp'));
+        if (!isKidlisp) {
+          fairies.push({ x: content.x, y: content.y });
+        }
         return;
       }
 
@@ -10829,11 +10833,15 @@ async function makeFrame({ data: { type, content } }) {
         primaryPointer &&
         (primaryPointer.delta?.x !== 0 || primaryPointer.delta?.y !== 0)
       ) {
-        //socket?.send("ambient-pen:point", {
-        udp?.send("fairy:point", {
-          x: primaryPointer.x / screen.width,
-          y: primaryPointer.y / screen.height,
-        });
+        // Skip sending fairy points in KidLisp pieces.
+        const isKidlisp = detectKidLispPiece({ currentPath, currentHUDTxt, currentText }) ||
+          (currentPath && currentPath.endsWith('.lisp'));
+        if (!isKidlisp) {
+          udp?.send("fairy:point", {
+            x: primaryPointer.x / screen.width,
+            y: primaryPointer.y / screen.height,
+          });
+        }
       }
     }
 
