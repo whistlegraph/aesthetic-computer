@@ -2955,7 +2955,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     audioStarting = true;
 
-    if (navigator.audioSession) navigator.audioSession.type = "ambient";
+    if (navigator.audioSession) navigator.audioSession.type = "playback";
 
     // Notify parent of boot progress
     if (window.acBOOT_LOG) {
@@ -3002,6 +3002,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       latencyHint,
       sampleRate: targetSampleRate,
     });
+
+    // Resume immediately to capture the user gesture window.
+    // On iOS Safari, AudioContext may start "suspended" even during a gesture —
+    // calling resume() synchronously here ensures we don't lose the gesture.
+    audioContext.resume().catch(() => {});
 
     // 🎵 AUDIO CONTEXT LOGGING - Track timing characteristics
     // console.log(`🎵 AUDIO_CONTEXT_CREATED: sampleRate=${audioContext.sampleRate}, state=${audioContext.state}, baseLatency=${audioContext.baseLatency?.toFixed(6) || 'N/A'}s, outputLatency=${audioContext.outputLatency?.toFixed(6) || 'N/A'}s`);
@@ -3270,7 +3275,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // Setup microphone detachment function.
       detachMicrophone = () => {
-        if (navigator.audioSession) navigator.audioSession.type = "ambient";
+        if (navigator.audioSession) navigator.audioSession.type = "playback";
         micProcessorNode.disconnect();
         micNode.disconnect();
         micStream.getTracks().forEach((t) => t.stop());
@@ -3724,7 +3729,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     //enableAudioPlayback(true);
     window.addEventListener("pointerdown", () => enableAudioPlayback());
     window.addEventListener("keydown", () => enableAudioPlayback());
+    window.addEventListener("touchstart", () => enableAudioPlayback());
   }
+
+  // 🔊 Eagerly register audio activation on first user interaction.
+  // This ensures the first tap/key is never missed, even if the piece
+  // hasn't finished loading yet (e.g., on notepat.com where the user may
+  // tap before the piece's disk-loaded event fires).
+  function eagerAudioActivation() {
+    startSound();
+    window.removeEventListener("pointerdown", eagerAudioActivation);
+    window.removeEventListener("keydown", eagerAudioActivation);
+    window.removeEventListener("touchstart", eagerAudioActivation);
+  }
+  window.addEventListener("pointerdown", eagerAudioActivation);
+  window.addEventListener("keydown", eagerAudioActivation);
+  window.addEventListener("touchstart", eagerAudioActivation);
 
   // 🔍 Density Keyboard Controls (Cmd/Ctrl + / - / 0)
   // Uses standard zoom keys - browser may also zoom, but density will change too
