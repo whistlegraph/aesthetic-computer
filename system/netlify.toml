@@ -1796,6 +1796,12 @@ from = "/kidlisp.com/*"
 to = "/kidlisp.com/index.html"
 status = 200
 force = false
+# DOLLHOUSE report page
+[[redirects]]
+from = "/dollhouse"
+to = "/dollhouse/index.html"
+status = 200
+force = true
 [[redirects]]
 from = "/*"
 to = "/.netlify/functions/index"
