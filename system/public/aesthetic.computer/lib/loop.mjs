@@ -150,28 +150,6 @@ function start(inputFun, updateAndRenderFun) {
   lastNow = performance.now();
   paused = false;
   window.requestAnimationFrame(loop);
-  
-  // Fallback for iframes that might not get requestAnimationFrame immediately
-  // This ensures at least some frames run even if RAF is throttled
-  if (window.self !== window.top) {
-    let fallbackCount = 0;
-    const maxFallback = 20;
-    
-    // Use MessageChannel to properly yield to the event loop between frames
-    // This allows worker messages to be processed between iterations
-    const channel = new MessageChannel();
-    channel.port1.onmessage = () => {
-      if (fallbackCount < maxFallback && !paused) {
-        fallbackCount++;
-        const now = performance.now();
-        loop(now);
-        // Schedule next frame with a delay to allow responses to arrive
-        setTimeout(() => channel.port2.postMessage(null), 50);
-      }
-    };
-    // Start the fallback loop after initial delay
-    setTimeout(() => channel.port2.postMessage(null), 100);
-  }
 }
 
 function pause() {
