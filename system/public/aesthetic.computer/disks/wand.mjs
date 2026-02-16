@@ -1457,8 +1457,12 @@ function paint({
   }
 
   // TODO: Put other types in here to draw color patterns.
+  // Note: When using Three.js (cpu: false), use transparent wipe so the
+  //       3D background shows through from underneath. The background color
+  //       is set on the Three.js scene via the `background` parameter.
   if (needsWipe) {
-    wipe(...needsWipe);
+    // Use transparent wipe to let 3D content show through from below
+    wipe(0, 0, 0, 0); // Transparent - lets Three.js background show
     needsWipe = null;
   }
 
