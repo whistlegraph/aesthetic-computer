@@ -929,20 +929,7 @@ log "═════════════════════════
 log_info "End time: "(date -Iseconds)
 log_info "Log file: $ENTRY_LOG_REAL"
 
-# Auto-launch ac-aesthetic if not already running
-# Skip if AC_SKIP_AUTOLAUNCH is set (for manual control)
-if not set -q AC_SKIP_AUTOLAUNCH
-    if not pgrep -f "emacsclient.*aesthetic-backend" >/dev/null 2>&1
-        log_step "Auto-launching aesthetic platform..."
-        # Source config to load ac-aesthetic alias
-        source /workspaces/aesthetic-computer/.devcontainer/config.fish
-        # Run in background so entry.fish can complete
-        nohup fish -c "sleep 2; aesthetic --no-wait" >/tmp/aesthetic-autolaunch.log 2>&1 &
-        disown
-        log_ok "Aesthetic platform auto-launch initiated"
-    else
-        log_info "Aesthetic platform already running, skipping auto-launch"
-    end
-else
-    log_info "AC_SKIP_AUTOLAUNCH set, skipping auto-launch"
-end
+# Auto-launch is handled by the VS Code task (💻 Aesthetic) which runs on folder open
+# The task calls aesthetic-launch.sh which properly launches the emacs client
+# Background launch from entry.fish doesn't work because emacsclient -nw needs an interactive terminal
+log_info "Container setup complete - VS Code task will launch aesthetic platform"
