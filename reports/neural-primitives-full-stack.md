@@ -2,7 +2,7 @@
 
 ## Context
 
-This report analyzes how to integrate neural learning primitives into Aesthetic Computer's existing architecture, following the microGPT philosophy: many small, transparent, user-owned neural networks rather than monolithic models. The approach aligns with the Aesthetic Ants philosophy of small, graspable, confident changes.
+This report analyzes how to integrate neural learning primitives into Aesthetic Computer's existing architecture, following the microGPT philosophy: many small, transparent, user-owned neural networks rather than monolithic models. The approach aligns with the AestheticAnts philosophy of small, graspable, confident changes.
 
 **Philosophical Foundation**: Bernard Stiegler's concept of **idiotext** - the singular memory woven through technical prostheses - provides the theoretical grounding. Pieces develop "institutional memory" (tertiary retention) stored as neural weights in Digital Ocean Spaces.
 
@@ -1175,7 +1175,7 @@ net: {
 - Each piece has its own tiny neural network
 - Pieces share learned patterns via weight export/import
 - Emergent intelligence from many small models
-- Like Aesthetic Ants: pheromones = shared weights
+- Like AestheticAnts: pheromones = shared weights
 
 **Performance Strategy (Progressive Enhancement):**
 1. **Start with pure JavaScript** - Graspable reference implementation
@@ -1899,7 +1899,7 @@ const childWeights = w1.map((row, i) =>
 net.weights.set(child, "layer-0", childWeights);
 ```
 
-### 3.3 Aesthetic Ants Integration
+### 3.3 AestheticAnts Integration
 
 **Ants as Neural Trainers:**
 
@@ -2323,7 +2323,7 @@ describe("Neural Performance", () => {
 
 ## Part 7: Philosophy Alignment
 
-### 7.1 Aesthetic Ants Principles
+### 7.1 AestheticAnts Principles
 
 ✅ **Signal over noise:** Neural weights create visible behaviors (generative art, predictions)
 ✅ **Graspable changes:** 10-100 parameters you can visualize and understand
@@ -2493,4 +2493,4 @@ This approach takes microGPT's philosophy of transparent, minimal neural network
 
 4. **Zero new dependencies**: Pure JavaScript for baseline, WebGPU compute shaders for acceleration (reusing AC's existing GPU context). No TensorFlow.js, no external ML libraries.
 
-**The result:** Emergent intelligence from many small learners, not one giant model. Like Aesthetic Ants, but for neural networks. Grok it with JS, then accelerate it with GPU when you're ready.
+**The result:** Emergent intelligence from many small learners, not one giant model. Like AestheticAnts, but for neural networks. Grok it with JS, then accelerate it with GPU when you're ready.

@@ -6,9 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Aesthetic Computer (AC) is a mobile-first runtime and social network for creative computing. It's designed as a musical instrument-like interface where users discover memorizable paths through commands and published "pieces" (interactive programs). The system supports both JavaScript (.mjs) and KidLisp (.lisp) pieces.
 
-## Aesthetic Ants & Score.md
+## AestheticAnts & Score.md
 
-This repository uses an innovative automated maintenance system called "Aesthetic Ants" (AA). The `ants/score.md` file defines a philosophy and task list for automated agents that make small, confident, verified changes to the codebase.
+This repository uses an innovative automated maintenance system called "AestheticAnts" (AA). The `ants/score.md` file defines a philosophy and task list for automated agents that make small, confident, verified changes to the codebase.
 
 **Key principles:**
 - **Signal over noise**: Only make changes when 98% confident, not 70%
@@ -93,6 +93,10 @@ npm run assets:sync:down
 # Sync assets up to Digital Ocean Spaces
 npm run assets:sync:up
 ```
+
+### Notation
+
+- **compush** - commit & push
 
 ## Architecture
 
@@ -259,7 +263,7 @@ source piece-name          # Fork existing piece
 - `shared/` - Code shared between system and session servers
 - `kidlisp/` - KidLisp language documentation and tools
 - `spec/` - Jasmine tests for KidLisp
-- `ants/` - Aesthetic Ants automated maintenance system
+- `ants/` - AestheticAnts automated maintenance system
 
 ## Key Patterns
 
