@@ -81,7 +81,9 @@
       "Bash(npx netlify env:get:*)",
       "Bash(git fetch:*)",
       "Bash(git merge:*)",
-      "Bash(tee:*)"
+      "Bash(tee:*)",
+      "mcp__emacs__emacs_get_buffer_content",
+      "mcp__emacs__execute_emacs_lisp"
     ],
     "additionalDirectories": [
       "/home/me/.claude",
