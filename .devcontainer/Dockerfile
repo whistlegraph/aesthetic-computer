@@ -39,6 +39,7 @@ RUN dnf clean all && rm -rf /var/cache/dnf && \
       libXi libXdamage libXrandr alsa-lib gtk3 \
       xorg-x11-server-Xvfb psmisc lsof chromium \
       sbcl zeromq-devel redhat-rpm-config \
+      poppler-utils \
             caddy \
         && dnf clean all && rm -rf /var/cache/dnf
 
