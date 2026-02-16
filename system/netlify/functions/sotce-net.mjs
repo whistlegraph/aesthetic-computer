@@ -6459,10 +6459,13 @@ export const handler = async (event, context) => {
 
               // 🎨 CANVAS-BASED PAGE RENDERING (single page + transitions)
               const USE_CANVAS_GARDEN = true; // Feature flag
-              
+
               if (USE_CANVAS_GARDEN && (totalFeedItems > 0 || feedItems.length > 0)) {
                 console.log("🎨 Using Canvas garden renderer (single page mode)");
-                
+
+                // Wait for fonts to load before initializing canvas to ensure consistent text metrics across platforms
+                await document.fonts.ready;
+
                 const canvas = cel("canvas");
                 canvas.id = "garden-canvas";
                 const ctx = canvas.getContext("2d");
@@ -6740,14 +6743,18 @@ export const handler = async (event, context) => {
                   }
                   return lines;
                 }
-                
+
+                // Font family constant for consistent rendering across platforms
+                // Using explicit fallback chain for better iOS/cross-platform consistency
+                const CANVAS_FONT_FAMILY = "Helvetica, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+
                 // Render a single page at position (ghost = blank card, textOpacity for fade)
                 function renderPage(pageData, idx, offsetY = 0, ghost = false, textOpacity = 1) {
                   const x = cardX;
                   const y = cardY + offsetY;
                   const w = cardWidth;
                   const h = cardHeight;
-                  
+
                   // Font metrics needed for layout - scale proportionally with minimum for mobile readability
                   const fontSize = Math.max((w / 600) * 17, 11);
                   const em = fontSize;
@@ -6799,7 +6806,7 @@ export const handler = async (event, context) => {
                   
                   if (!pageData) {
                     ctx.fillStyle = themeColors.cardTextDim;
-                    ctx.font = "16px Helvetica, sans-serif";
+                    ctx.font = "16px " + CANVAS_FONT_FAMILY;
                     ctx.textAlign = "center";
                     ctx.fillText("Loading...", x + w/2, y + h/2);
                     ctx.textAlign = "left";
@@ -6906,7 +6913,7 @@ export const handler = async (event, context) => {
                       const qTitle = dateTitle(qDate);
                       const qTitleY = y + h * 0.065 + fontSize;
                       ctx.fillStyle = textColor;
-                      ctx.font = fontSize + "px Helvetica, sans-serif";
+                      ctx.font = fontSize + "px " + CANVAS_FONT_FAMILY;
                       ctx.textAlign = "center";
                       ctx.fillText(qTitle, x + w/2, qTitleY);
                       ctx.textAlign = "left";
@@ -6914,7 +6921,7 @@ export const handler = async (event, context) => {
                     
                     // Header: question text (same size as answer)
                     const headerY = y + h * 0.15 + fontSize;
-                    const headerFont = fontSize + "px Helvetica, sans-serif";
+                    const headerFont = fontSize + "px " + CANVAS_FONT_FAMILY;
                     ctx.font = headerFont; // Set font BEFORE measuring for correct wrapping
                     ctx.textAlign = "left";
                     
@@ -6927,7 +6934,7 @@ export const handler = async (event, context) => {
                     }
                     
                     // Body: answer text - starts after question header
-                    const bodyFont = fontSize + "px Helvetica, sans-serif";
+                    const bodyFont = fontSize + "px " + CANVAS_FONT_FAMILY;
                     ctx.font = bodyFont; // Set font BEFORE measuring for correct wrapping
                     ctx.textAlign = "left";
                     
@@ -6963,7 +6970,7 @@ export const handler = async (event, context) => {
                     const title = dateTitle(pageData.when);
                     const titleY = y + h * 0.065 + fontSize;
                     ctx.fillStyle = textColor;
-                    ctx.font = fontSize + "px Helvetica, sans-serif";
+                    ctx.font = fontSize + "px " + CANVAS_FONT_FAMILY;
                     ctx.textAlign = "center";
                     ctx.fillText(title, x + w/2, titleY);
                     
@@ -6971,7 +6978,7 @@ export const handler = async (event, context) => {
                     if (offsetY === 0) frontHitBoxes = [];
                     
                     // Body text - margin-top: 15%
-                    const pageBodyFont = fontSize + "px Helvetica, sans-serif";
+                    const pageBodyFont = fontSize + "px " + CANVAS_FONT_FAMILY;
                     ctx.fillStyle = textColor;
                     ctx.font = pageBodyFont;
                     ctx.textAlign = "left";
@@ -7054,7 +7061,7 @@ export const handler = async (event, context) => {
                     backButtonHitBoxes = [];
 
                     // Compact button sized to fit text with less side padding
-                    ctx.font = fontSize * 0.85 + "px Helvetica, sans-serif";
+                    ctx.font = fontSize * 0.85 + "px " + CANVAS_FONT_FAMILY;
                     const textWidth = ctx.measureText("Keep").width;
                     const btnPadX = em * 0.7; // Reduced from 1.2
                     const btnPadY = em * 0.6;
@@ -7099,7 +7106,7 @@ export const handler = async (event, context) => {
                     const pageId = pageData._id;
                     const touchData = touchCache.get(pageId);
 
-                    ctx.font = fontSize + "px Helvetica, sans-serif";
+                    ctx.font = fontSize + "px " + CANVAS_FONT_FAMILY;
                     ctx.textAlign = "left";
 
                     let textY = textStartY;
@@ -7221,7 +7228,7 @@ export const handler = async (event, context) => {
                     const qTitle = dateTitle(qDate);
                     const qTitleY = margin + cardH * 0.065 + fontSize;
                     oc.fillStyle = themeColors.cardText;
-                    oc.font = fontSize + "px Helvetica, sans-serif";
+                    oc.font = fontSize + "px " + CANVAS_FONT_FAMILY;
                     oc.textAlign = "center";
                     oc.fillText(qTitle, margin + cardW / 2, qTitleY);
                     oc.textAlign = "left";
@@ -7229,7 +7236,7 @@ export const handler = async (event, context) => {
 
                   // Question text (header)
                   const headerY = margin + cardH * 0.15 + fontSize;
-                  const headerFont = fontSize + "px Helvetica, sans-serif";
+                  const headerFont = fontSize + "px " + CANVAS_FONT_FAMILY;
                   oc.font = headerFont;
                   oc.textAlign = "left";
 
@@ -7275,7 +7282,7 @@ export const handler = async (event, context) => {
                   }
 
                   // Answer text
-                  const bodyFont = fontSize + "px Helvetica, sans-serif";
+                  const bodyFont = fontSize + "px " + CANVAS_FONT_FAMILY;
                   oc.font = bodyFont;
                   const usedHeaderLines = Math.min(questionLines.length, maxHeaderLines);
                   const answerStartY = headerY + usedHeaderLines * (fontSize * 1.5) + fontSize;
