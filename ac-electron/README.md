@@ -1,114 +1,73 @@
-# Aesthetic Computer - Electron App
+# Aesthetic Computer Electron Build Credentials
 
-## Starting the App
+This directory contains signing certificates and credentials for building and distributing the Aesthetic Computer desktop app across all platforms.
 
-### With Auto-Restart (Recommended)
-Use the wrapper scripts to automatically restart when requested:
+## Contents
 
-**macOS/Linux:**
-```bash
-./restart-electron.sh
-```
+### macOS Code Signing
+- `mac-developer-id.p12` - Apple Developer ID certificate (export from Xcode/Keychain)
+- `mac-developer-id-password.txt` - Password for the .p12 file
+- `mac-provisioning-profile.provisionprofile` - Provisioning profile (if needed)
+- `apple-id.txt` - Apple ID email for notarization
+- `apple-app-specific-password.txt` - App-specific password for notarization
 
-**Windows:**
-```powershell
-.\restart-electron.ps1
-```
+### Windows Code Signing
+- `windows-code-signing.pfx` - Windows Authenticode certificate
+- `windows-code-signing-password.txt` - Password for the .pfx file
 
-### Without Auto-Restart
-```bash
-npm start
-```
+### Linux
+No signing required for Linux builds (AppImage, deb, rpm are unsigned by default)
 
-## Rebooting from Container
+### Build Secrets
+- `.env` - Environment variables for build process:
+  ```bash
+  # macOS
+  CSC_LINK=./mac-developer-id.p12
+  CSC_KEY_PASSWORD=<from mac-developer-id-password.txt>
+  APPLE_ID=<from apple-id.txt>
+  APPLE_APP_SPECIFIC_PASSWORD=<from apple-app-specific-password.txt>
+  APPLE_TEAM_ID=<your Apple Team ID>
 
-From inside the devcontainer (Emacs terminal):
-```bash
-node ac-electron/trigger-reboot.js
-```
+  # Windows
+  WIN_CSC_LINK=./windows-code-signing.pfx
+  WIN_CSC_KEY_PASSWORD=<from windows-code-signing-password.txt>
 
-This creates a marker file that the Electron app watches. When detected:
-- App exits with code 42
-- Wrapper script automatically restarts it
-- Without wrapper, you'll need to manually reopen the app
+  # Publishing
+  GH_TOKEN=<GitHub Personal Access Token with repo scope>
+  ```
 
-## Development
+## Usage
 
-### Modes
-- **Development** (default): `npm start` or `npm run dev`
-  - Connects to `localhost:8888`
-  - Shows orange accent color
-  - Includes integrated terminal
+The `build-all-platforms.fish` script in the parent `ac-electron/` directory will:
+1. Source credentials from this vault
+2. Build for all platforms using Docker containers
+3. Sign apps with appropriate certificates
+4. Publish to GitHub releases
 
-- **Production**: `npm start -- --production`
-  - Connects to `https://aesthetic.computer`
-  - Shows green accent color
+## Getting Certificates
 
-- **Shell Only**: `npm start -- --shell`
-  - Terminal-only window (purple accent)
-  - Connects to devcontainer
+### macOS Developer ID Certificate
+1. Log into https://developer.apple.com
+2. Go to Certificates, Identifiers & Profiles
+3. Create a Developer ID Application certificate
+4. Download and install in Keychain Access
+5. Export as .p12 with a strong password
+6. Store .p12 and password in vault
 
-### Building
-```bash
-npm run build        # All platforms
-npm run build:mac    # macOS universal binary
-npm run build:win    # Windows x64
-npm run build:linux  # Linux AppImage + deb
-```
+### Windows Code Signing Certificate
+1. Purchase from a CA (DigiCert, Sectigo, etc.)
+2. Download the .pfx file
+3. Store .pfx and password in vault
 
-## Architecture
+### Apple App-Specific Password
+1. Log into https://appleid.apple.com
+2. Go to Security > App-Specific Passwords
+3. Generate a new password for "Aesthetic Computer Electron Builder"
+4. Store in vault
 
-- **main.js** - Electron main process
-  - Window management (AC Pane)
-  - IPC bridge for artery communication
-  - File watcher for reboot requests
-  
-- **renderer/** - Frontend HTML/JS
-  - `flip-view.html` - AC Pane (3D flip webview + terminal)
+## Security Notes
 
-- **preload.js** - Secure IPC bridge
-
-## IPC Handlers
-
-From renderer processes:
-
-```javascript
-const { ipcRenderer } = require('electron');
-
-// Reboot the app
-await ipcRenderer.invoke('app-reboot');
-
-// Switch modes
-await ipcRenderer.invoke('switch-mode', 'ac-pane');
-
-// Check Docker/container status
-const dockerOk = await ipcRenderer.invoke('check-docker');
-const containerOk = await ipcRenderer.invoke('check-container');
-
-// Start devcontainer
-await ipcRenderer.invoke('start-container');
-
-// Connect to PTY
-const connected = await ipcRenderer.invoke('connect-pty');
-```
-
-## Terminal Integration
-
-Currently uses **xterm.js** with WebGL acceleration.
-
-See [RIO-TERMINAL.md](./RIO-TERMINAL.md) for info on migrating to Rio Terminal (GPU-accelerated, WebAssembly-based).
-
-## Troubleshooting
-
-**App won't start:**
-- Check if another instance is running
-- Try `pkill Electron` then restart
-
-**Terminal not connecting:**
-- Ensure devcontainer is running: `docker ps | grep aesthetic`
-- Restart container: `docker restart aesthetic`
-
-**Reboot doesn't work:**
-- Make sure you're using the wrapper scripts
-- Check marker file: `ls ac-electron/.reboot-requested`
-- See [REBOOT-ELECTRON.md](./REBOOT-ELECTRON.md) for details
+- **NEVER commit certificates to git**
+- `.p12` and `.pfx` files should be mode 600 (owner read/write only)
+- Passwords stored in separate files for easier rotation
+- This directory is gitignored in the parent repo

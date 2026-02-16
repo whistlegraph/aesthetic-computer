@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "emacs": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "/workspaces/aesthetic-computer/artery/emacs-mcp.mjs"
+      ],
+      "env": {
+        "EMACSCLIENT": "/usr/sbin/emacsclient"
+      }
+    }
+  }
+}
