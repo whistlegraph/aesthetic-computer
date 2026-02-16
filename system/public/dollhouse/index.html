@@ -345,7 +345,7 @@
     </p>
     <div class="embed">
       <div class="embed-label">&gt; notepat.com</div>
-      <iframe src="https://notepat.com" allow="autoplay"></iframe>
+      <iframe src="https://notepat.com?density=2" allow="autoplay"></iframe>
     </div>
 
     <p>
@@ -358,7 +358,7 @@
     </p>
     <div class="embed">
       <div class="embed-label">&gt; aesthetic.computer/clock *wibe</div>
-      <iframe src="https://aesthetic.computer/clock *wibe" allow="autoplay"></iframe>
+      <iframe src="https://aesthetic.computer/clock *wibe?density=2" allow="autoplay"></iframe>
     </div>
 
     <p>
@@ -382,7 +382,7 @@
     </p>
     <div class="embed">
       <div class="embed-label">&gt; merryo:8-spinning-cube:8-brush:8-code</div>
-      <iframe src="https://aesthetic.computer/merryo:8-spinning-cube:8-brush:8-code" allow="autoplay"></iframe>
+      <iframe src="https://aesthetic.computer/merryo:8-spinning-cube:8-brush:8-code?density=2" allow="autoplay"></iframe>
     </div>
 
     <p>
@@ -445,7 +445,7 @@
     </p>
     <div class="embed">
       <div class="embed-label">&gt; top.kidlisp.com/@jeffrey</div>
-      <iframe src="https://top.kidlisp.com/@jeffrey" allow="autoplay"></iframe>
+      <iframe src="https://top.kidlisp.com/@jeffrey?density=2" allow="autoplay"></iframe>
     </div>
 
     <p style="opacity: 0.5; font-size: 0.85em;">
@@ -497,6 +497,30 @@
 
     function escModal(e) {
       if (e.key === 'Escape') closeModal();
+    }
+
+    // Live reload in dev mode
+    if (location.hostname === 'localhost' || location.hostname.includes('local')) {
+      var wsUrl = location.protocol === 'https:'
+        ? 'wss://localhost:8889'
+        : 'ws://localhost:8889';
+
+      function connectWS() {
+        var ws = new WebSocket(wsUrl);
+        ws.onopen = function() { console.log('🔄 Live reload connected'); };
+        ws.onmessage = function(e) {
+          try {
+            var msg = JSON.parse(e.data);
+            if (msg.type === 'reload' && msg.content?.piece === '*refresh*') {
+              console.log('🔄 Reloading...');
+              location.reload();
+            }
+          } catch(err) {}
+        };
+        ws.onclose = function() { setTimeout(connectWS, 2000); };
+        ws.onerror = function() { ws.close(); };
+      }
+      connectWS();
     }
   </script>
 </body>
