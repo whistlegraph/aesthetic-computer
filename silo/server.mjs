@@ -145,7 +145,7 @@ function firehoseSummary(coll, op, doc) {
     case "paintings": return (who ? who + " " : "") + (doc.slug || doc.title || "");
     case "tapes": return (who ? who + " " : "") + (doc.piece || "");
     case "pieces": return doc.slug || doc.name || null;
-    case "kidlisp": return (who ? who + " " : "") + (doc.name || "");
+    case "kidlisp": return (who ? who + " " : "") + (doc.code ? "$" + doc.code : "") + (doc.name ? " " + doc.name : "");
     case "moods": return (who ? who + " " : "") + (doc.mood || "");
     case "verifications": return who || null;
     case "boots": {
