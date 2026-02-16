@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AC x DOLLHOUSE — Aesthetic Computer</title>
+  <meta name="description" content="What Aesthetic Computer can bring to DOLLHOUSE: A Living Architecture of Stories">
+  <meta property="og:title" content="AC x DOLLHOUSE">
+  <meta property="og:description" content="What Aesthetic Computer can bring to DOLLHOUSE: A Living Architecture of Stories">
+  <meta property="og:type" content="website">
+  <style>
+    @font-face {
+      font-family: 'ManaspaceMono';
+      src: url('https://aesthetic.computer/type/webfonts/manaspace-mono.woff2') format('woff2');
+      font-weight: normal;
+      font-style: normal;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg: #0a0a0f;
+      --fg: #e8e4df;
+      --accent: #ff6b35;
+      --accent2: #7b68ee;
+      --dim: #666;
+      --card-bg: #141420;
+      --border: #2a2a3a;
+    }
+
+    body {
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 3rem 1.5rem;
+    }
+
+    header {
+      margin-bottom: 3rem;
+      padding-bottom: 2rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    header .mono {
+      font-family: 'ManaspaceMono', monospace;
+      font-size: 0.75rem;
+      color: var(--accent);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 0.75rem;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 300;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      margin-bottom: 0.5rem;
+    }
+
+    h1 span {
+      color: var(--accent);
+    }
+
+    .subtitle {
+      color: var(--dim);
+      font-size: 1rem;
+      font-style: italic;
+    }
+
+    h2 {
+      font-size: 1.4rem;
+      font-weight: 600;
+      margin-top: 3rem;
+      margin-bottom: 1rem;
+      color: var(--fg);
+    }
+
+    h2 .label {
+      font-family: 'ManaspaceMono', monospace;
+      font-size: 0.65rem;
+      color: var(--accent2);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      display: block;
+      margin-bottom: 0.25rem;
+      font-weight: normal;
+    }
+
+    h3 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-top: 2rem;
+      margin-bottom: 0.75rem;
+    }
+
+    p {
+      margin-bottom: 1rem;
+      color: #bbb;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.2s;
+    }
+
+    a:hover {
+      border-bottom-color: var(--accent);
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin: 1.25rem 0;
+    }
+
+    .card h3 {
+      margin-top: 0;
+      margin-bottom: 0.5rem;
+      color: var(--fg);
+    }
+
+    .card .tag {
+      font-family: 'ManaspaceMono', monospace;
+      font-size: 0.65rem;
+      color: var(--accent);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 0.5rem;
+      display: inline-block;
+    }
+
+    .card p {
+      font-size: 0.95rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .card .url {
+      font-family: 'ManaspaceMono', monospace;
+      font-size: 0.75rem;
+      color: var(--accent2);
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 3rem 0;
+    }
+
+    .path-header {
+      display: flex;
+      align-items: baseline;
+      gap: 1rem;
+      margin-top: 3rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .path-header h2 {
+      margin: 0;
+    }
+
+    .path-number {
+      font-family: 'ManaspaceMono', monospace;
+      font-size: 3rem;
+      color: var(--border);
+      font-weight: bold;
+      line-height: 1;
+    }
+
+    .combo {
+      background: linear-gradient(135deg, #141420, #1a1a2e);
+      border: 1px solid var(--accent2);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin: 1.25rem 0;
+    }
+
+    .combo h3 {
+      margin-top: 0;
+      color: var(--accent2);
+    }
+
+    .flow {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin: 1rem 0;
+      font-family: 'ManaspaceMono', monospace;
+      font-size: 0.75rem;
+    }
+
+    .flow .step {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      padding: 0.4rem 0.75rem;
+      border-radius: 4px;
+      color: var(--fg);
+    }
+
+    .flow .arrow {
+      color: var(--dim);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.5rem 0;
+      font-size: 0.9rem;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      color: var(--dim);
+      font-family: 'ManaspaceMono', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-weight: normal;
+    }
+
+    td {
+      color: #bbb;
+    }
+
+    td:first-child {
+      color: var(--fg);
+      font-weight: 500;
+    }
+
+    ul {
+      list-style: none;
+      margin: 1rem 0;
+    }
+
+    ul li {
+      padding: 0.35rem 0;
+      padding-left: 1.25rem;
+      position: relative;
+      color: #bbb;
+      font-size: 0.95rem;
+    }
+
+    ul li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0.75rem;
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+    }
+
+    .note {
+      background: #1a1520;
+      border-left: 3px solid var(--accent2);
+      padding: 1rem 1.25rem;
+      margin: 1.5rem 0;
+      border-radius: 0 6px 6px 0;
+      font-size: 0.9rem;
+    }
+
+    .note p {
+      margin-bottom: 0;
+      color: #aaa;
+    }
+
+    footer {
+      margin-top: 4rem;
+      padding-top: 2rem;
+      border-top: 1px solid var(--border);
+      color: var(--dim);
+      font-size: 0.85rem;
+    }
+
+    footer a {
+      color: var(--dim);
+    }
+
+    footer a:hover {
+      color: var(--accent);
+    }
+
+    @media (max-width: 480px) {
+      .container { padding: 2rem 1rem; }
+      h1 { font-size: 1.8rem; }
+      .path-number { font-size: 2rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <header>
+      <div class="mono">Aesthetic Computer</div>
+      <h1>AC <span>&times;</span> DOLLHOUSE</h1>
+      <p class="subtitle">What Aesthetic Computer can bring to a living architecture of stories</p>
+    </header>
+
+    <p>
+      Hey John — this is a rundown of what <a href="https://aesthetic.computer">Aesthetic Computer</a> can do for DOLLHOUSE.
+      Two paths below: one where I fill a single room as an artist, and one where AC powers the whole show infrastructure.
+      Both can coexist.
+    </p>
+
+    <!-- ============================================ -->
+    <!-- PATH A -->
+    <!-- ============================================ -->
+
+    <hr class="divider">
+
+    <div class="path-header">
+      <div class="path-number">A</div>
+      <h2>
+        <span class="label">One Room</span>
+        Jeffrey fills a room with AC
+      </h2>
+    </div>
+
+    <p>
+      I bring a device (or just a laptop) with HDMI out running a browser at full screen.
+      The projection in the room is a live, running program — not a video loop. It responds to time, to input,
+      and audience members can interact from their phones by scanning a QR code on or near the room.
+    </p>
+
+    <p>Here are the instruments I'd pull from:</p>
+
+    <div class="card">
+      <div class="tag">Instrument</div>
+      <h3>Notepat</h3>
+      <p>
+        A keyboard-driven musical instrument. The audience sees a visual piano interface reacting to
+        notes in real time. Someone scans the QR, and now they're playing the room from their phone.
+        Keys light up. Sound fills the space. Multiple people can play at once.
+      </p>
+      <div class="url"><a href="https://aesthetic.computer/notepat">aesthetic.computer/notepat</a></div>
+    </div>
+
+    <div class="card">
+      <div class="tag">Instrument</div>
+      <h3>Clock</h3>
+      <p>
+        A visual UTC-synchronized clock that plays generative melodies. Specify melodies in
+        compact notation — <code style="color: var(--accent);">clock cdefg</code> — and it loops them with
+        waveform control, swing, parallel tracks, and tempo shifts. The room becomes a ticking musical
+        object, different every time you listen.
+      </p>
+      <div class="url"><a href="https://aesthetic.computer/clock">aesthetic.computer/clock</a></div>
+    </div>
+
+    <div class="card">
+      <div class="tag">Language</div>
+      <h3>KidLisp</h3>
+      <p>
+        A minimal Lisp dialect for generative art — 118 built-in functions across 12 categories.
+        Spinning cubes, procedural patterns, color fields, 3D forms. The projection runs a KidLisp program,
+        and the QR code takes you to <a href="https://kidlisp.com">kidlisp.com</a> where you can
+        live-edit the code and see your changes on the wall.
+      </p>
+      <div class="url"><a href="https://kidlisp.com">kidlisp.com</a></div>
+    </div>
+
+    <div class="combo">
+      <h3>The Combination</h3>
+      <p>
+        I'd likely combine these — a room that shifts between modes or layers them. Generative visuals
+        running in KidLisp as the base layer, with Notepat or Clock providing the sonic dimension.
+        Or a custom piece built specifically for DOLLHOUSE that pulls from all of them.
+      </p>
+      <p>
+        The key thing: it's <em>live software</em>, not a recording. The room is awake.
+      </p>
+    </div>
+
+    <div class="note">
+      <p>
+        I have a box that runs this at 4K over HDMI. I can also bring small test devices.
+        The only requirement is power and a projection surface (or screen).
+      </p>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- PATH B -->
+    <!-- ============================================ -->
+
+    <hr class="divider">
+
+    <div class="path-header">
+      <div class="path-number">B</div>
+      <h2>
+        <span class="label">Full Infrastructure</span>
+        AC powers the whole show
+      </h2>
+    </div>
+
+    <p>
+      If you want to go bigger: Aesthetic Computer can serve as the technical backbone for all 30 rooms,
+      the anchor screen, and the audience interaction layer. Here's how that maps:
+    </p>
+
+    <h3>30 Rooms, 30 Pieces</h3>
+    <p>
+      Each room runs an AC "piece" — a small program at a unique URL. Artists create their visuals
+      in JavaScript or KidLisp. Every room is just a browser tab on a connected device.
+      No special software. No app installs for artists or audience.
+    </p>
+
+    <table>
+      <tr><th>Element</th><th>AC Solution</th></tr>
+      <tr><td>Room projection</td><td>Browser running <code>aesthetic.computer/@artist/room</code></td></tr>
+      <tr><td>Anchor screen</td><td><a href="https://top.kidlisp.com">top.kidlisp.com</a> — TV slideshow system, 4K HDMI out</td></tr>
+      <tr><td>Audience phones</td><td>QR &rarr; browser &rarr; interactive piece, no app needed</td></tr>
+      <tr><td>Live performance</td><td>Performer drives visuals from phone/tablet in real-time</td></tr>
+      <tr><td>Multi-device sync</td><td>Session server for real-time coordination across rooms</td></tr>
+    </table>
+
+    <h3>Audience Flow</h3>
+    <div class="flow">
+      <span class="step">See room</span>
+      <span class="arrow">&rarr;</span>
+      <span class="step">Scan QR</span>
+      <span class="arrow">&rarr;</span>
+      <span class="step">Phone opens piece</span>
+      <span class="arrow">&rarr;</span>
+      <span class="step">Interact / edit / play</span>
+    </div>
+    <p>
+      Every room can have a QR code. Scanning it opens that room's piece on the audience member's phone.
+      They can play it, remix it, or in the case of KidLisp pieces, actually edit the code that's running
+      on the wall. Spectators become participants.
+    </p>
+
+    <h3>Artist Onboarding</h3>
+    <ul>
+      <li>Artists with code experience use the full JavaScript API — graphics, audio, network, UI</li>
+      <li>Artists without code experience use KidLisp — a few lines produce complex generative visuals</li>
+      <li>A blank template generates in one command: <code style="color: var(--dim);">npm run new room-name</code></li>
+      <li>Artists publish and iterate from a browser — no dev environment needed</li>
+    </ul>
+
+    <h3>The Anchor Screen</h3>
+    <p>
+      <a href="https://top.kidlisp.com">top.kidlisp.com</a> is a purpose-built slideshow/display system.
+      It can cycle through curated pieces from all 30 rooms, hold on a single live visual, or run its own
+      program. Driven by a 4K box with HDMI out. This becomes the shared surface that ties the rooms together.
+    </p>
+
+    <h3>Live Performance</h3>
+    <p>
+      Pieces respond to real-time input — touch, keyboard, microphone, pen. A performer could drive
+      the anchor screen live from a phone or tablet. The session server supports multiplayer sync,
+      so you could even have a moment where every audience member's phone feeds into one shared display.
+    </p>
+
+    <div class="note">
+      <p>
+        <strong>What AC doesn't do:</strong> It outputs rectangular frames — not projection-mapped surfaces.
+        For non-rectangular projection you'd pair it with a media server (MadMapper, Resolume, etc.).
+        Audio routing is per-device, so individual room audio needs its own output chain.
+      </p>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- FOOTER -->
+    <!-- ============================================ -->
+
+    <hr class="divider">
+
+    <p>
+      Both paths work independently or together. I'm happy to fill one room and make it sing,
+      or help wire up the whole building. Let's talk about what fits.
+    </p>
+
+    <footer>
+      <p>
+        <a href="https://aesthetic.computer">aesthetic.computer</a> &middot;
+        <a href="https://kidlisp.com">kidlisp.com</a> &middot;
+        <a href="https://notepat.com">notepat.com</a>
+      </p>
+      <p style="margin-top: 0.5rem;">Jeffrey Scudder, 2026</p>
+    </footer>
+
+  </div>
+</body>
+</html>
