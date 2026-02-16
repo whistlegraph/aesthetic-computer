@@ -6470,6 +6470,16 @@ export const handler = async (event, context) => {
                 const canvas = cel("canvas");
                 canvas.id = "garden-canvas";
                 const ctx = canvas.getContext("2d");
+
+                // Diagnostic: platform info (remove after debugging)
+                console.log(
+                  "🔍 [DIAG] platform |",
+                  "iOS:", iOS, "| Safari:", Safari, "| Android:", Android,
+                  "| ua:", navigator.userAgent.slice(0, 80),
+                  "| screen:", screen.width, "x", screen.height,
+                  "| dpr:", window.devicePixelRatio,
+                  "| maxCanvasArea:", (screen.width * screen.height * (window.devicePixelRatio || 1) ** 2)
+                );
                 
                 // Build a feed-index to item map for easy lookup
                 const feedItemMap = new Map();
@@ -6642,7 +6652,18 @@ export const handler = async (event, context) => {
                   cardX = (w - cardWidth) / 2;
                   cardY = (h - cardHeight) / 2;
                   
-                  console.log("🎨 Canvas resized:", w, "x", h, "card:", cardWidth, "x", cardHeight);
+                  const cssHeight = getComputedStyle(canvas).height;
+                  console.log(
+                    "📐 [DIAG] resize |",
+                    "window:", window.innerWidth, "x", window.innerHeight,
+                    "| visualVP:", window.visualViewport?.width, "x", window.visualViewport?.height,
+                    "| dpr:", dpr,
+                    "| canvas buffer:", canvas.width, "x", canvas.height,
+                    "| canvas CSS:", canvas.style.width, canvas.style.height,
+                    "| computed CSS height:", cssHeight,
+                    "| card:", Math.round(cardWidth), "x", Math.round(cardHeight),
+                    "| heightClamped:", cardHeight < cardWidth * (5/4) - 1
+                  );
                 }
                 
                 // Fetch page data (with deduplication)
@@ -6822,6 +6843,26 @@ export const handler = async (event, context) => {
                   const textWidth = w - padding * 2;
                   // Use the same MAX_LINES constant as the editor for consistent pagination
                   const maxLines = ${MAX_LINES};
+
+                  // Diagnostic: text geometry (remove after debugging)
+                  if (offsetY === 0 && pageData) {
+                    const textStartY_diag = h * 0.15 + fontSize;
+                    const pageNumY_diag = h - em * 2;
+                    const availTextH = pageNumY_diag - textStartY_diag;
+                    const linesCanFit = Math.floor(availTextH / lineHeight);
+                    console.log(
+                      "📝 [DIAG] text |",
+                      "card:", Math.round(w), "x", Math.round(h),
+                      "| fontSize:", fontSize.toFixed(2),
+                      "| lineHeight:", lineHeight.toFixed(2),
+                      "| textStartY:", textStartY_diag.toFixed(1),
+                      "| pageNumY:", pageNumY_diag.toFixed(1),
+                      "| availTextH:", availTextH.toFixed(1),
+                      "| linesCanFit:", linesCanFit,
+                      "| maxLines:", maxLines,
+                      "| OVERFLOW:", linesCanFit < maxLines
+                    );
+                  }
                   
                   // Text color with opacity for fade-in (themed)
                   const baseColor = themeColors.cardText;
