@@ -15,8 +15,8 @@ uniforms.digitpain0 = {
 // TODO: - [] When 1f:radialBlurAmount is set to 0 there is an xy offset.
 //       (Reproduce by visiting `line` then going back to prompt with `)
 uniforms.prompt = {
-  "1i:fogIterations": 32,        // Increased for better quality
-  "1i:shadowIterations": 8,      // Increased for smoother shadows
+  "1i:fogIterations": 24,        // Balanced quality/performance
+  "1i:shadowIterations": 6,      // Smoother shadows
   "1i:freezeGrain": 1,
   "1f:focalLength": 1,
   "1f:screenScale": 1,
@@ -24,10 +24,10 @@ uniforms.prompt = {
   "1f:cameraDistance": 2.236,
   "1f:volumeRadius": 0.005,
   "1f:inputRadius": 0.005,
-  "1f:innerDensity": 32,         // Increased for more vibrant colors
+  "1f:innerDensity": 24,         // Darker, more subtle colors
   "1f:outerDensity": 10.1,
   "1f:anisotropy": -0.123,
-  "1f:lightPower": 16,           // Doubled for more glow
+  "1f:lightPower": 10,           // Reduced for darker, moodier feel
   "1f:radialBlurAmount": 0.9, // from 0-1 (or more or less if insane)
   "3f:lightColor": [1, 1, 1], // r, g, b
   "3f:lightDirection": [-1, -1, -0.05], // x, y, z
