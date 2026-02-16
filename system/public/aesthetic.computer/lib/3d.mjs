@@ -75,7 +75,7 @@ export function initialize(
   upload = receivedUpload;
 
   renderer = new THREE.WebGLRenderer({
-    alpha: false,
+    alpha: true, // Enable transparency for compositing with software renderer
     antialias: true,
     preserveDrawingBuffer: true,
   });
@@ -261,6 +261,16 @@ export function bake({ cam, forms, color }, { width, height }, size) {
       camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
     } else if (camera?.type === "OrthographicCamera") makeOrthoCamera(1);
 
+    if (!NO_FOG) scene.fog = new THREE.Fog(scene.background, FOG_NEAR, FOG_FAR);
+  }
+
+  // Update scene background color if provided
+  if (color && Array.isArray(color) && color.length >= 3) {
+    scene.background = new THREE.Color(
+      color[0] / 255,
+      color[1] / 255,
+      color[2] / 255
+    ).convertSRGBToLinear();
     if (!NO_FOG) scene.fog = new THREE.Fog(scene.background, FOG_NEAR, FOG_FAR);
   }
 

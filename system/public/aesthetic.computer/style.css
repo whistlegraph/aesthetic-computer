@@ -334,7 +334,7 @@ canvas[data-type="debug"] {
 }
 
 canvas[data-type="3d"] {
-  z-index: 0;
+  z-index: -1; /* Behind webgl-composite canvas for proper layering */
   /* width: 100% !important; */
   /* height: 100% !important; */
   opacity: 0;

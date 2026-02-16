@@ -95,7 +95,7 @@ export function createWebGLBlitter(canvas) {
   return {
     init() {
       gl = canvas.getContext("webgl2", {
-        alpha: false,
+        alpha: true, // Enable transparency for compositing with 3D canvas underneath
         antialias: false,
         depth: false,
         stencil: false,
