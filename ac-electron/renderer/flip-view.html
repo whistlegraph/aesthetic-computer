@@ -152,6 +152,7 @@
     
     /* Flip tabs - attached to card edges, swap appearance on flip */
     .flip-tab {
+      -webkit-app-region: drag; /* Native drag for PaperWM/Wayland compatibility */
       position: absolute;
       z-index: 250;
       width: 26px;
@@ -1372,62 +1373,21 @@
       }
     }
     
-    // Flip tabs - click to flip, drag to move window
+    // Flip tabs - click to flip, native drag to move window (PaperWM/Wayland compatible)
     console.log('[flip] Found flip tabs:', flipTabs.length);
     flipTabs.forEach(tab => {
-      let isDragging = false;
-      let startX, startY, startWinX, startWinY;
-      let hasMoved = false;
-      const DRAG_THRESHOLD = 5; // pixels before considered a drag
-      
-      tab.addEventListener('mousedown', (e) => {
+      // Simple click handler for flip - native drag (-webkit-app-region) handles movement
+      tab.addEventListener('click', (e) => {
         e.preventDefault();
-        isDragging = true;
-        hasMoved = false;
-        startX = e.screenX;
-        startY = e.screenY;
-        startWinX = window.screenX;
-        startWinY = window.screenY;
-        
-        // Use overlay to capture mouse even outside the tab
-        resizeOverlay.style.cursor = 'grabbing';
-        resizeOverlay.classList.add('active');
-        
-        const onMouseMove = (e) => {
-          if (!isDragging) return;
-          const dx = e.screenX - startX;
-          const dy = e.screenY - startY;
-          
-          // Check if we've moved enough to count as a drag
-          if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
-            hasMoved = true;
-          }
-          
-          if (hasMoved) {
-            ipcRenderer.send('move-window', { x: startWinX + dx, y: startWinY + dy });
-          }
-        };
-        
-        const onMouseUp = (e) => {
-          isDragging = false;
-          resizeOverlay.classList.remove('active');
-          document.removeEventListener('mousemove', onMouseMove);
-          document.removeEventListener('mouseup', onMouseUp);
-          
-          // If we didn't drag, treat as a click to flip
-          if (!hasMoved) {
-            // Base direction on SCREEN position, not tab class
-            // This way clicking right side of screen always rotates right
-            const windowCenter = window.innerWidth / 2;
-            const direction = (e.clientX > windowCenter) ? 'right' : 'left';
-            
-            console.log('[flip] Flip tab clicked at x:', e.clientX, 'center:', windowCenter, 'direction:', direction);
-            toggle(direction);
-          }
-        };
-        
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
+        e.stopPropagation();
+
+        // Base direction on SCREEN position, not tab class
+        // This way clicking right side of screen always rotates right
+        const windowCenter = window.innerWidth / 2;
+        const direction = (e.clientX > windowCenter) ? 'right' : 'left';
+
+        console.log('[flip] Flip tab clicked at x:', e.clientX, 'center:', windowCenter, 'direction:', direction);
+        toggle(direction);
       });
     });
     
