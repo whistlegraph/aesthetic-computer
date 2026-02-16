@@ -416,23 +416,27 @@
     }
     
     #settings-gear {
-      order: 2; /* Appear after the logo text */
+      position: absolute;
+      right: 32px; /* Left of the collapse arrow at right: 12px */
+      top: 50%;
+      transform: translateY(-50%);
       width: 16px;
       height: 16px;
-      opacity: 0;
+      opacity: 0.6;
       transition: opacity 0.2s;
-      pointer-events: none;
+      cursor: pointer;
       color: #a8a29e;
       flex-shrink: 0;
+      z-index: 501;
     }
-    
-    #splash-logo.landed {
-      order: 1; /* Logo text comes first */
-    }
-    
-    #logo-landing-zone:hover #settings-gear {
+
+    #settings-gear:hover {
       opacity: 1;
       animation: gear-spin 2s linear infinite;
+    }
+
+    #splash-logo.landed {
+      order: 1; /* Logo text comes first */
     }
     
     @keyframes gear-spin {
@@ -8705,13 +8709,14 @@
     <div class="top-row" id="top-row">
       <div class="editor-panel" id="editor-panel">
         <div class="editor-header">
+          <!-- Settings gear - always visible, positioned right of header before collapse arrow -->
+          <svg id="settings-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" title="Preferences">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
           <div style="display: flex; flex-direction: column; align-items: flex-start;">
             <!-- Logo landing zone - splash logo will fly here and stay (clickable for preferences) -->
             <div id="logo-landing-zone" style="margin-top: 4px; height: 24px; display: flex; align-items: center; cursor: pointer;" title="Preferences">
-              <svg id="settings-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="3"/>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-              </svg>
             </div>
           </div>
           <!-- Mini playback controls for mobile when main controls are obscured -->
@@ -9149,7 +9154,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
     <div id="qr-modal-content">
       <canvas id="qr-modal-canvas"></canvas>
       <div id="qr-modal-url"></div>
-      <div id="qr-modal-close">Click anywhere to close</div>
+      <div id="qr-modal-close">Tap anywhere to close</div>
     </div>
   </div>
 
@@ -14179,17 +14184,40 @@ s("ape_breaks_3").loopAt(2)</textarea>
     const previewQR = document.getElementById('preview-qr');
     if (previewQR) {
       previewQR.addEventListener('click', showQRModal);
+      // Touch handler for mobile Safari
+      previewQR.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        showQRModal();
+      });
     }
-    
+
     const qrModal = document.getElementById('qr-modal');
     if (qrModal) {
-      qrModal.addEventListener('click', (e) => {
+      const closeQR = (e) => {
         // Don't close if clicking a link inside the modal
         if (e.target.tagName === 'A' || e.target.closest('a')) {
           return;
         }
+        e.preventDefault();
         hideQRModal();
-      });
+      };
+      qrModal.addEventListener('click', closeQR);
+      // Touch handler for mobile Safari - prevent tap bar interference
+      qrModal.addEventListener('touchend', closeQR);
+    }
+
+    // ⚙️ Settings gear click handler — always visible in header
+    const settingsGear = document.getElementById('settings-gear');
+    if (settingsGear) {
+      const openPrefs = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof window.showPreferencesModal === 'function') {
+          window.showPreferencesModal();
+        }
+      };
+      settingsGear.addEventListener('click', openPrefs);
+      settingsGear.addEventListener('touchend', openPrefs);
     }
 
     // Scramble characters for code transition animation
