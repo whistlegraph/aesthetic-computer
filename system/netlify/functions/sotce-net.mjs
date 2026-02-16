@@ -1997,6 +1997,7 @@ export const handler = async (event, context) => {
               display: block;
               width: 100%;
               height: calc(100vh - 72px);
+              height: calc(100dvh - 72px);
               margin-top: 72px;
               background-color: var(--garden-background);
             }
@@ -6755,8 +6756,9 @@ export const handler = async (event, context) => {
                   const w = cardWidth;
                   const h = cardHeight;
 
-                  // Font metrics needed for layout - scale proportionally with minimum for mobile readability
-                  const fontSize = Math.max((w / 600) * 17, 11);
+                  // Font metrics - scale proportionally with card width to ensure
+                  // all lines fit within the 4:5 aspect ratio card at any size
+                  const fontSize = (w / 600) * 17;
                   const em = fontSize;
                   
                   // Determine if this is a question card for different coloring
