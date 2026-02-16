@@ -152,20 +152,20 @@
     
     /* Flip tabs - attached to card edges, swap appearance on flip */
     .flip-tab {
-      -webkit-app-region: drag; /* Native drag for PaperWM/Wayland compatibility */
       position: absolute;
       z-index: 250;
       width: 26px;
       top: 50%;
       height: 80px;
-      cursor: grab;
+      cursor: pointer;
       transform: translateY(-50%);
+      /* Don't set app-region here - we need click events on the parent */
     }
-    
-    .flip-tab:active {
-      cursor: grabbing;
+
+    .flip-tab:hover {
+      cursor: pointer;
     }
-    
+
     /* Tab front face - visible when not flipped */
     .flip-tab .tab-front {
       position: absolute;
@@ -174,6 +174,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      cursor: pointer;
     }
     
     .flip-tab .tab-front::after {
@@ -183,6 +184,7 @@
       background: var(--ac-accent);
       border-radius: 2px;
       transition: all 0.2s ease;
+      pointer-events: none; /* Don't block parent clicks */
     }
     
     .flip-tab:hover .tab-front {
@@ -204,8 +206,9 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      cursor: pointer;
     }
-    
+
     .flip-tab .tab-back::after {
       content: '';
       width: 3px;
@@ -213,6 +216,7 @@
       background: var(--ac-tab-back-accent);
       border-radius: 2px;
       transition: all 0.2s ease;
+      pointer-events: none; /* Don't block parent clicks */
     }
     
     /* Hover effect for back tab */
@@ -1374,20 +1378,34 @@
     }
     
     // Flip tabs - click to flip, native drag to move window (PaperWM/Wayland compatible)
+    // Inner elements have -webkit-app-region: drag for native window dragging
     console.log('[flip] Found flip tabs:', flipTabs.length);
     flipTabs.forEach(tab => {
-      // Simple click handler for flip - native drag (-webkit-app-region) handles movement
-      tab.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
+      // Use mousedown/mouseup to detect clicks (click event doesn't fire with app-region children)
+      let mouseDownTime = 0;
+      let mouseDownPos = { x: 0, y: 0 };
 
-        // Base direction on SCREEN position, not tab class
-        // This way clicking right side of screen always rotates right
-        const windowCenter = window.innerWidth / 2;
-        const direction = (e.clientX > windowCenter) ? 'right' : 'left';
+      tab.addEventListener('mousedown', (e) => {
+        mouseDownTime = Date.now();
+        mouseDownPos = { x: e.clientX, y: e.clientY };
+      });
 
-        console.log('[flip] Flip tab clicked at x:', e.clientX, 'center:', windowCenter, 'direction:', direction);
-        toggle(direction);
+      tab.addEventListener('mouseup', (e) => {
+        const timeDiff = Date.now() - mouseDownTime;
+        const moveDiff = Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y);
+
+        // If mouse was down for less than 300ms and didn't move much, treat as click
+        if (timeDiff < 300 && moveDiff < 10) {
+          e.preventDefault();
+          e.stopPropagation();
+
+          // Base direction on SCREEN position, not tab class
+          const windowCenter = window.innerWidth / 2;
+          const direction = (e.clientX > windowCenter) ? 'right' : 'left';
+
+          console.log('[flip] Flip tab clicked at x:', e.clientX, 'center:', windowCenter, 'direction:', direction);
+          toggle(direction);
+        }
       });
     });
     
