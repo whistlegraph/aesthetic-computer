@@ -6214,6 +6214,49 @@ class KidLisp {
         // Pass the arguments to the API shape function
         api.shape({ points, filled, thickness });
       },
+      // 🐢 Turtle Graphics
+      crawl: (api, args = []) => {
+        // Move turtle forward by steps (default 1)
+        // Usage: (crawl) or (crawl steps)
+        const steps = args.length > 0 ? args[0] : 1;
+        return api.crawl?.(steps);
+      },
+      left: (api, args = []) => {
+        // Turn turtle left by degrees (default 1)
+        // Usage: (left) or (left degrees)
+        const degrees = args.length > 0 ? args[0] : 1;
+        return api.left?.(degrees);
+      },
+      right: (api, args = []) => {
+        // Turn turtle right by degrees (default 1)
+        // Usage: (right) or (right degrees)
+        const degrees = args.length > 0 ? args[0] : 1;
+        return api.right?.(degrees);
+      },
+      up: (api, args = []) => {
+        // Lift turtle pen (stop drawing)
+        // Usage: (up)
+        return api.up?.();
+      },
+      down: (api, args = []) => {
+        // Lower turtle pen (start drawing)
+        // Usage: (down)
+        return api.down?.();
+      },
+      goto: (api, args = []) => {
+        // Teleport turtle to x, y (draws line if pen is down)
+        // Usage: (goto x y)
+        if (args.length >= 2) {
+          return api.goto?.(args[0], args[1]);
+        }
+        return api.goto?.(); // Default to center
+      },
+      face: (api, args = []) => {
+        // Set turtle heading to angle in degrees (default 0 = right)
+        // Usage: (face) or (face angle)
+        const angle = args.length > 0 ? args[0] : 0;
+        return api.face?.(angle);
+      },
       scroll: (api, args = []) => {
         // Request persistence for next frame to allow trails
         this.preserveLayer0NextFrame = true;
