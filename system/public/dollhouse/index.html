@@ -1,936 +1,469 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AC x DOLLHOUSE — Aesthetic Computer for Turbo Cheap</title>
-  <meta name="description" content="What Aesthetic Computer can bring to DOLLHOUSE at Turbo Cheap for Frieze LA">
-  <meta property="og:title" content="AC x DOLLHOUSE">
-  <meta property="og:description" content="What Aesthetic Computer can bring to DOLLHOUSE: A Living Architecture of Stories at Turbo Cheap">
+  <title>AC × DOLLHOUSE · Aesthetic Computer</title>
+  <meta charset="utf-8">
+  <meta name="author" content="Jeffrey Alan Scudder">
+  <meta name="description" content="What Aesthetic Computer can bring to DOLLHOUSE at Turbo Cheap for Frieze LA.">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta property="og:title" content="AC × DOLLHOUSE">
+  <meta property="og:description" content="Aesthetic Computer for DOLLHOUSE at Turbo Cheap — Frieze LA">
   <meta property="og:type" content="website">
-  <link rel="preconnect" href="https://aesthetic.computer">
   <style>
-    /* ===== Reset ===== */
-    *, *::before, *::after { box-sizing: border-box; }
-    html { -webkit-text-size-adjust: 100%; }
-    body { margin: 0; }
-    img, picture, video, canvas, svg, iframe { display: block; max-width: 100%; }
+    /* jas.life-inspired: monospace, monochrome, live background, document feel */
 
-    /* ===== Fonts (AC stack) ===== */
-    @font-face {
-      font-family: 'Berkeley Mono';
-      src: url('https://aesthetic.computer/type/webfonts/berkeley-mono-variable.woff2') format('woff2');
-      font-weight: 100 900;
-      font-style: normal;
-    }
-
-    /* ===== Light Theme (default, AC style) ===== */
     :root {
-      --bg-page: #f6f6ef;
-      --bg-body: #fff;
-      --bg-card: #fff;
-      --bg-secondary: #fafaf5;
-      --text-primary: #111;
-      --text-secondary: #555;
-      --text-meta: #828282;
-      --border-color: #e0e0dc;
-      --border-subtle: #f0f0ec;
+      --bg: rgb(0, 0, 0);
+      --fg: rgb(166, 201, 208);
+      --wrapper-bg: rgba(0, 0, 0, 0.85);
+      --link: rgb(100, 180, 255);
+      --link-visited: rgb(140, 120, 180);
+      --link-hover: rgb(255, 200, 100);
+      --link-active: rgb(255, 150, 200);
       --accent: rgb(205, 92, 155);
-      --accent-hover: rgb(220, 110, 170);
-      --ac-pink: rgb(205, 92, 155);
-      --mono-bg: rgba(205, 92, 155, 0.08);
-      --card-shadow: 0 1px 3px rgba(0,0,0,0.06);
-      --embed-border: 2px solid var(--accent);
-      --embed-shadow: 0 4px 12px rgba(205, 92, 155, 0.2);
-      --note-bg: rgba(205, 92, 155, 0.06);
-      --modal-backdrop: rgba(0, 0, 0, 0.75);
+      --mark-color: rgb(166, 201, 208);
+      --mark-bg: black;
+      --hr-bg: rgb(20, 30, 40);
+      --hr-border: rgb(100, 150, 180);
+      --cmd-bg: rgba(205, 92, 155, 0.15);
     }
 
-    /* ===== Dark Theme ===== */
-    @media (prefers-color-scheme: dark) {
+    @media (prefers-color-scheme: light) {
       :root {
-        --bg-page: #1a1a1a;
-        --bg-body: #111;
-        --bg-card: #1e1e1e;
-        --bg-secondary: #222;
-        --text-primary: #e8e8e8;
-        --text-secondary: #aaa;
-        --text-meta: #858585;
-        --border-color: #333;
-        --border-subtle: #2a2a2a;
-        --accent: rgb(220, 110, 170);
-        --accent-hover: rgb(235, 130, 190);
-        --mono-bg: rgba(220, 110, 170, 0.12);
-        --card-shadow: 0 1px 3px rgba(0,0,0,0.3);
-        --embed-shadow: 0 4px 12px rgba(220, 110, 170, 0.3);
-        --note-bg: rgba(220, 110, 170, 0.08);
+        --bg: rgb(250, 248, 245);
+        --fg: rgb(30, 30, 30);
+        --wrapper-bg: rgba(250, 248, 245, 0.92);
+        --link: rgb(0, 80, 180);
+        --link-visited: rgb(80, 40, 120);
+        --link-hover: rgb(200, 80, 0);
+        --link-active: rgb(180, 0, 0);
+        --accent: rgb(180, 60, 130);
+        --mark-color: rgb(0, 100, 120);
+        --mark-bg: rgb(220, 240, 245);
+        --hr-bg: rgb(220, 215, 210);
+        --hr-border: rgb(180, 175, 170);
+        --cmd-bg: rgba(205, 92, 155, 0.1);
       }
     }
 
-    /* ===== Typography (AC: Verdana body, Berkeley Mono code) ===== */
-    body {
-      font-family: Verdana, Geneva, sans-serif;
-      font-size: 11pt;
-      background: var(--bg-body);
-      color: var(--text-primary);
-      line-height: 1.6;
-      -webkit-font-smoothing: antialiased;
-    }
-
-    /* ===== Layout ===== */
-    .wrapper {
-      width: 85%;
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 0 0 40px;
-      background: var(--bg-page);
-      min-height: 100vh;
-    }
-
-    /* ===== Header (AC pink bar) ===== */
-    .header {
-      background: var(--accent);
-      color: #fff;
-      padding: 8px 16px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 10pt;
-    }
-
-    .header-logo {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 18px;
-      height: 18px;
-      border: 1px solid #fff;
-      font-weight: bold;
-      font-size: 11px;
-      color: #fff;
-      text-decoration: none;
-      flex-shrink: 0;
-    }
-
-    .header a {
-      color: #fff;
-      text-decoration: none;
-      font-weight: bold;
-    }
-
-    .header .sep {
-      opacity: 0.5;
-    }
-
-    .header .nav-link {
-      font-weight: normal;
-      opacity: 0.9;
-    }
-
-    .header .nav-link:hover {
-      opacity: 1;
-      text-decoration: underline;
-    }
-
-    /* ===== Main Content ===== */
-    .main {
-      padding: 24px 20px;
-    }
-
-    h1 {
-      font-size: 20pt;
-      font-weight: bold;
-      margin: 0 0 4px;
-      line-height: 1.25;
-    }
-
-    .subtitle {
-      color: var(--text-meta);
-      font-size: 10pt;
-      margin-bottom: 20px;
-    }
-
-    .subtitle a {
-      color: var(--accent);
-      text-decoration: none;
-    }
-
-    .subtitle a:hover {
-      text-decoration: underline;
-    }
-
-    .intro {
-      font-size: 11pt;
-      line-height: 1.65;
-      color: var(--text-primary);
-      margin-bottom: 24px;
-    }
-
-    h2 {
-      font-size: 14pt;
-      font-weight: bold;
-      margin: 32px 0 12px;
-      padding-top: 16px;
-      border-top: 2px solid var(--accent);
-    }
-
-    h2 .label {
-      font-family: 'Berkeley Mono', monospace;
-      font-size: 9px;
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
-      color: var(--accent);
-      display: block;
-      margin-bottom: 2px;
-      font-weight: normal;
-    }
-
-    h3 {
-      font-size: 12pt;
-      font-weight: bold;
-      margin: 24px 0 8px;
-      color: var(--text-primary);
-    }
-
-    p {
-      margin: 0 0 12px;
-      line-height: 1.65;
-      color: var(--text-secondary);
-      font-size: 10.5pt;
-    }
-
-    a {
-      color: var(--accent);
-      text-decoration: none;
-    }
-
-    a:hover {
-      text-decoration: underline;
-    }
-
-    /* ===== AC Command Links (syntax-highlighted, open modals) ===== */
-    .ac-cmd {
-      color: var(--accent);
-      background: var(--mono-bg);
-      padding: 1px 5px;
-      border-radius: 3px;
-      font-family: 'Berkeley Mono', monospace;
-      font-size: 0.9em;
-      text-decoration: none;
-      cursor: pointer;
-      transition: background 0.15s, color 0.15s;
-      border: none;
-    }
-
-    .ac-cmd:hover {
-      background: rgba(205, 92, 155, 0.2);
-      color: var(--accent);
-      text-decoration: none;
-    }
-
-    /* ===== Piece Cards ===== */
-    .card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      padding: 16px;
-      margin: 14px 0;
-      box-shadow: var(--card-shadow);
-    }
-
-    .card .tag {
-      font-family: 'Berkeley Mono', monospace;
-      font-size: 9px;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      color: var(--accent);
-      margin-bottom: 4px;
-      display: inline-block;
-    }
-
-    .card h3 {
-      margin: 0 0 6px;
-      font-size: 13pt;
-    }
-
-    .card p {
-      margin-bottom: 8px;
-    }
-
-    /* ===== Piece Embed (iframe preview with AC border) ===== */
-    .piece-embed {
-      margin: 12px 0;
-      border-radius: 8px;
-      overflow: hidden;
-      border: var(--embed-border);
-      box-shadow: var(--embed-shadow);
-      position: relative;
-      cursor: pointer;
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-
-    .piece-embed:hover {
-      transform: scale(1.01);
-      box-shadow: 0 6px 20px rgba(205, 92, 155, 0.4);
-    }
-
-    .piece-embed iframe {
-      width: 100%;
-      height: 280px;
-      border: none;
-      pointer-events: none;
-    }
-
-    .piece-embed .badge {
-      position: absolute;
-      bottom: 8px;
-      left: 8px;
-      background: rgba(205, 92, 155, 0.9);
-      color: #fff;
-      padding: 3px 10px;
-      border-radius: 4px;
-      font-family: 'Berkeley Mono', monospace;
-      font-size: 11px;
-      font-weight: bold;
-      text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-    }
-
-    .piece-embed:hover .badge {
-      background: rgba(205, 92, 155, 1);
-    }
-
-    /* ===== Prompt Link (styled like AC command line) ===== */
-    .prompt-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-family: 'Berkeley Mono', monospace;
-      font-size: 10px;
-      color: var(--text-meta);
-      text-decoration: none;
-      padding: 4px 8px;
-      border-radius: 3px;
-      background: var(--bg-secondary);
-      border: 1px solid var(--border-color);
-      cursor: pointer;
-      transition: background 0.15s, color 0.15s, border-color 0.15s;
-    }
-
-    .prompt-link:hover {
-      background: var(--accent);
-      color: #fff;
-      border-color: var(--accent);
-      text-decoration: none;
-    }
-
-    .prompt-link .prompt-char {
-      opacity: 0.5;
-    }
-
-    /* ===== Slideshow Section ===== */
-    .slideshow-example {
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      padding: 14px 16px;
-      margin: 14px 0;
-      font-family: 'Berkeley Mono', monospace;
-      font-size: 10px;
-      line-height: 1.8;
-      box-shadow: var(--card-shadow);
-    }
-
-    .slideshow-example .cmd-label {
-      font-family: Verdana, Geneva, sans-serif;
-      font-size: 9pt;
-      color: var(--text-meta);
-      margin-bottom: 6px;
-      font-weight: bold;
-    }
-
-    .slideshow-example code {
-      display: block;
-      color: var(--accent);
-      background: var(--mono-bg);
-      padding: 8px 12px;
-      border-radius: 4px;
-      margin: 4px 0;
-      cursor: pointer;
-      transition: background 0.15s;
-      word-break: break-all;
-    }
-
-    .slideshow-example code:hover {
-      background: rgba(205, 92, 155, 0.2);
-    }
-
-    .slideshow-example .desc {
-      font-family: Verdana, Geneva, sans-serif;
-      font-size: 9pt;
-      color: var(--text-meta);
-      margin-top: 2px;
-    }
-
-    /* ===== Combo card ===== */
-    .combo {
-      background: var(--note-bg);
-      border: 1px solid var(--accent);
-      border-radius: 6px;
-      padding: 16px;
-      margin: 14px 0;
-    }
-
-    .combo h3 {
-      margin: 0 0 6px;
-      color: var(--accent);
-    }
-
-    /* ===== Note ===== */
-    .note {
-      border-left: 3px solid var(--accent);
-      padding: 12px 16px;
-      margin: 16px 0;
-      background: var(--note-bg);
-      border-radius: 0 4px 4px 0;
-    }
-
-    .note p {
-      margin-bottom: 0;
-      font-size: 10pt;
-    }
-
-    /* ===== Flow diagram ===== */
-    .flow {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      flex-wrap: wrap;
-      margin: 12px 0;
-      font-family: 'Berkeley Mono', monospace;
-      font-size: 10px;
-    }
-
-    .flow .step {
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      padding: 5px 10px;
-      border-radius: 3px;
-      color: var(--text-primary);
-    }
-
-    .flow .arrow { color: var(--text-meta); }
-
-    /* ===== Table ===== */
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 14px 0;
-      font-size: 10pt;
-    }
-
-    th, td {
-      text-align: left;
-      padding: 8px 12px;
-      border-bottom: 1px solid var(--border-color);
-    }
-
-    th {
-      color: var(--text-meta);
-      font-family: 'Berkeley Mono', monospace;
-      font-size: 9px;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      font-weight: normal;
-    }
-
-    td { color: var(--text-secondary); }
-    td:first-child { color: var(--text-primary); font-weight: 500; }
-
-    /* ===== List ===== */
-    ul {
-      list-style: none;
-      margin: 12px 0;
-      padding: 0;
-    }
-
-    ul li {
-      padding: 4px 0 4px 16px;
-      position: relative;
-      color: var(--text-secondary);
-      font-size: 10pt;
-    }
-
-    ul li::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 11px;
-      width: 5px;
-      height: 5px;
-      background: var(--accent);
-      border-radius: 50%;
-    }
-
-    /* ===== Divider ===== */
-    hr {
-      border: none;
-      border-top: 1px solid var(--border-color);
-      margin: 28px 0;
-    }
-
-    /* ===== Footer (AC-style) ===== */
-    .footer {
-      padding: 16px 20px;
-      border-top: 2px solid var(--accent);
-      text-align: center;
-      font-size: 10pt;
-      color: var(--text-meta);
-      background: var(--bg-page);
-    }
-
-    .footer a {
-      color: var(--text-primary);
-      margin: 0 6px;
-      text-decoration: none;
-    }
-
-    .footer a:hover {
-      color: var(--accent);
-    }
-
-    .footer .sig {
-      margin-top: 8px;
-      font-size: 9pt;
-    }
-
-    /* ===== Modal (AC pattern from news.aesthetic.computer) ===== */
-    .ac-modal {
+    /* Live AC background */
+    #aesthetic {
       position: fixed;
       top: 0;
       left: 0;
-      right: 0;
-      bottom: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      border: 0;
+    }
+
+    html { height: 100%; }
+
+    body {
+      font-size: 100%;
+      margin: 0;
+      font-family: monospace;
+      background-color: var(--bg);
+      color: var(--fg);
+      -webkit-text-size-adjust: none;
+    }
+
+    #wrapper {
+      background: var(--wrapper-bg);
+      padding: 0.5em 0.5em 1em 0.5em;
+      max-width: 640px;
+    }
+
+    a, a:visited:hover { color: var(--link); }
+    a:active, a:visited:active { color: var(--link-active); }
+    a:visited { color: var(--link-visited); }
+    a:hover { color: var(--link-hover); }
+
+    h1, h2 { font-size: 1em; }
+
+    h1 { margin-bottom: 0; padding-top: 0.25em; }
+
+    mark {
+      color: var(--mark-color);
+      background: var(--mark-bg);
+    }
+
+    hr {
+      margin-top: 0.5em;
+      margin-bottom: 0.5em;
+      width: calc(100% + 1em);
+      margin-left: -0.5em;
+      height: 6px;
+      border-left: none;
+      border-right: none;
+      border-width: 2px;
+      background-color: var(--hr-bg);
+      border-color: var(--hr-border);
+    }
+
+    p {
+      margin: 0.5em 0;
+      line-height: 1.6;
+    }
+
+    /* AC command prompt links — open modals */
+    .cmd {
+      color: var(--accent);
+      background: var(--cmd-bg);
+      padding: 1px 4px;
+      border-radius: 2px;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .cmd:hover {
+      background: rgba(205, 92, 155, 0.3);
+      color: var(--accent);
+    }
+
+    /* Prompt-style clickable piece links */
+    .prompt {
+      display: block;
+      font-size: 0.9em;
+      margin: 0.4em 0;
+      padding: 0.3em 0.5em;
+      background: rgba(205, 92, 155, 0.08);
+      border-left: 3px solid var(--accent);
+      color: var(--accent);
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .prompt:hover {
+      background: rgba(205, 92, 155, 0.2);
+      color: var(--accent);
+    }
+
+    .prompt .arrow { opacity: 0.4; }
+
+    /* Description text */
+    .desc {
+      font-size: 0.85em;
+      opacity: 0.6;
+      margin-left: 0.5em;
+    }
+
+    /* Section labels */
+    .section-label {
+      font-size: 0.75em;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin: 0;
+    }
+
+    /* Indented block */
+    .indent {
+      margin-left: 1em;
+    }
+
+    /* List style */
+    ul {
+      margin: 0.3em 0;
+      padding-left: 1.5em;
+    }
+
+    ul li {
+      margin: 0.2em 0;
+      line-height: 1.5;
+    }
+
+    /* Simple table */
+    table {
+      border-collapse: collapse;
+      margin: 0.5em 0;
+      font-size: 0.9em;
+      width: 100%;
+    }
+
+    td {
+      padding: 0.2em 0.5em 0.2em 0;
+      vertical-align: top;
+    }
+
+    td:first-child {
+      white-space: nowrap;
+      opacity: 0.6;
+      padding-right: 1em;
+    }
+
+    /* Footer */
+    .sig {
+      opacity: 0.4;
+      font-size: 0.85em;
+      margin-top: 0.5em;
+    }
+
+    /* Modal (for opening pieces) */
+    .modal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
       z-index: 9999;
       display: flex;
       align-items: center;
       justify-content: center;
     }
 
-    .ac-modal-backdrop {
+    .modal-bg {
       position: absolute;
       inset: 0;
-      background: var(--modal-backdrop);
+      background: rgba(0, 0, 0, 0.8);
     }
 
-    .ac-modal-content {
+    .modal-frame {
       position: relative;
-      width: 90%;
-      max-width: 900px;
-      height: 80vh;
-      background: var(--bg-body);
-      border-radius: 8px;
+      width: 92%;
+      max-width: 960px;
+      height: 85vh;
+      border-radius: 4px;
       overflow: hidden;
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+      box-shadow: 0 0 40px rgba(205, 92, 155, 0.3);
     }
 
-    .ac-modal-close {
+    .modal-close {
       position: absolute;
-      top: -40px;
+      top: -32px;
       right: 0;
-      z-index: 10;
-      background: rgba(255, 255, 255, 0.9);
+      background: rgba(255, 255, 255, 0.85);
       border: none;
       border-radius: 50%;
-      width: 32px;
-      height: 32px;
-      font-size: 20px;
-      line-height: 1;
+      width: 28px;
+      height: 28px;
+      font-size: 18px;
       cursor: pointer;
       color: #000;
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: background 0.15s, transform 0.15s;
     }
 
-    .ac-modal-close:hover {
+    .modal-close:hover {
       background: #fff;
-      transform: scale(1.1);
     }
 
-    .ac-modal-content iframe {
+    .modal-frame iframe {
       width: 100%;
       height: 100%;
       border: none;
     }
-
-    /* ===== Responsive ===== */
-    @media only screen and (max-width: 750px) {
-      .wrapper {
-        width: 100%;
-        margin: 0;
-        min-height: 100vh;
-      }
-    }
-
-    @media (max-width: 600px) {
-      .main { padding: 16px 12px; }
-      h1 { font-size: 16pt; }
-      .piece-embed iframe { height: 200px; }
-    }
-
-    /* ===== Touch targets ===== */
-    @media (hover: none) and (pointer: coarse) {
-      .ac-cmd { padding: 3px 8px; }
-      .prompt-link { padding: 8px 12px; }
-    }
   </style>
 </head>
 <body>
-  <div class="wrapper">
+  <!-- Live AC piece as page background -->
+  <iframe id="aesthetic" src="https://aesthetic.computer/starfield?nolabel&nogap&noboot=true"></iframe>
 
-    <!-- AC Pink Header -->
-    <div class="header">
-      <a href="https://aesthetic.computer" class="header-logo">A</a>
+  <div id="wrapper">
+    <center>
+      <h1>
+        <mark>AC × DOLLHOUSE</mark>
+        <br>
+        <span style="opacity: 0.5;">a proposal for</span>
+        <a href="https://turbo.cheap">Turbo Cheap</a>
+      </h1>
+    </center>
+
+    <hr>
+
+    <p>
+      Hey John — this is what
       <a href="https://aesthetic.computer">Aesthetic Computer</a>
-      <span class="sep">|</span>
-      <a href="https://turbo.cheap" class="nav-link">Turbo Cheap</a>
-    </div>
+      can do for DOLLHOUSE. Two paths: one where I fill a single room,
+      one where AC powers the whole show. Both can coexist.
+    </p>
 
-    <div class="main">
+    <p>
+      Click any <a href="#" class="cmd" onclick="return false">pink link</a>
+      below to open a live preview.
+    </p>
 
-      <h1>AC &times; DOLLHOUSE</h1>
-      <div class="subtitle">
-        A proposal for <a href="https://turbo.cheap">Turbo Cheap</a> &mdash; Frieze LA opening weekend
-      </div>
+    <hr>
 
-      <p class="intro">
-        Hey John &mdash; this is a rundown of what
-        <a href="https://aesthetic.computer">Aesthetic Computer</a>
-        can do for DOLLHOUSE at <a href="https://turbo.cheap">Turbo Cheap</a>.
-        Two paths below: one where I fill a single room as an artist,
-        and one where AC powers the whole show infrastructure.
-        Both can coexist. Click any
-        <a href="#" class="ac-cmd" data-ac-cmd="prompt">pink command</a>
-        to open a live preview.
-      </p>
+    <p class="section-label">Path A — One Room</p>
+    <h2>Jeffrey fills a room with AC</h2>
 
-      <!-- ============================== -->
-      <!-- PATH A: ONE ROOM -->
-      <!-- ============================== -->
+    <p>
+      I bring a device with HDMI out running a browser fullscreen.
+      The projection is live software — not a video loop. It responds
+      to time and input. Audience scans a QR and interacts from their phone.
+    </p>
 
-      <h2>
-        <span class="label">Path A &mdash; One Room</span>
-        Jeffrey fills a room with AC
-      </h2>
+    <p><strong>Instruments:</strong></p>
 
-      <p>
-        I bring a device with HDMI out running a browser at full screen.
-        The projection is a live, running program &mdash; not a video loop.
-        It responds to time, to input, and audience members can interact
-        from their phones by scanning a QR code on or near the room.
-      </p>
+    <p>
+      <a href="#" class="cmd" onclick="openPiece('notepat'); return false">notepat</a>
+      — Keyboard-driven musical instrument. Audience sees a visual piano
+      reacting to notes in real time. Scan the QR, play the room from
+      your phone. Keys light up. Sound fills the space. Multiple people
+      can play at once.
+    </p>
+    <a href="#" class="prompt" onclick="openPiece('notepat'); return false">
+      <span class="arrow">&gt;</span> aesthetic.computer/notepat
+    </a>
 
-      <p>Here are the instruments I'd pull from:</p>
+    <p>
+      <a href="#" class="cmd" onclick="openPiece('clock'); return false">clock</a>
+      — UTC-synchronized clock that plays generative melodies.
+      Compact notation like
+      <a href="#" class="cmd" onclick="openPiece('clock:cdefg'); return false">clock cdefg</a>
+      loops melodies with waveform control, swing, parallel tracks,
+      and tempo shifts. The room becomes a ticking musical object.
+    </p>
+    <a href="#" class="prompt" onclick="openPiece('clock'); return false">
+      <span class="arrow">&gt;</span> aesthetic.computer/clock
+    </a>
 
-      <!-- Notepat -->
-      <div class="card">
-        <div class="tag">Instrument</div>
-        <h3>Notepat</h3>
-        <p>
-          A keyboard-driven musical instrument. The audience sees a visual piano interface
-          reacting to notes in real time. Someone scans the QR, and now they're playing the
-          room from their phone. Keys light up. Sound fills the space.
-          Multiple people can play at once.
-        </p>
-        <div class="piece-embed" data-ac-cmd="notepat" onclick="openACModal('notepat')">
-          <iframe src="https://aesthetic.computer/notepat" loading="lazy" sandbox="allow-scripts allow-same-origin"></iframe>
-          <div class="badge">notepat</div>
-        </div>
-        <a href="#" class="prompt-link" data-ac-cmd="notepat">
-          <span class="prompt-char">&gt;</span> aesthetic.computer/notepat
-        </a>
-      </div>
+    <p>
+      <a href="#" class="cmd" onclick="openPiece('kidlisp'); return false">kidlisp</a>
+      — Minimal Lisp for generative art. 118 built-in functions.
+      Spinning cubes, procedural patterns, color fields, 3D forms.
+      The QR takes you to <a href="https://kidlisp.com">kidlisp.com</a>
+      where you can live-edit the code running on the wall.
+    </p>
+    <a href="#" class="prompt" onclick="openPiece('kidlisp'); return false">
+      <span class="arrow">&gt;</span> kidlisp.com
+    </a>
 
-      <!-- Clock -->
-      <div class="card">
-        <div class="tag">Instrument</div>
-        <h3>Clock</h3>
-        <p>
-          A visual UTC-synchronized clock that plays generative melodies.
-          Specify melodies in compact notation &mdash;
-          <a href="#" class="ac-cmd" data-ac-cmd="clock:cdefg">clock cdefg</a>
-          &mdash; and it loops them with waveform control, swing, parallel tracks,
-          and tempo shifts. The room becomes a ticking musical object, different
-          every time you listen.
-        </p>
-        <div class="piece-embed" data-ac-cmd="clock" onclick="openACModal('clock')">
-          <iframe src="https://aesthetic.computer/clock" loading="lazy" sandbox="allow-scripts allow-same-origin"></iframe>
-          <div class="badge">clock</div>
-        </div>
-        <a href="#" class="prompt-link" data-ac-cmd="clock">
-          <span class="prompt-char">&gt;</span> aesthetic.computer/clock
-        </a>
-      </div>
+    <p><strong>Slideshows:</strong></p>
 
-      <!-- KidLisp -->
-      <div class="card">
-        <div class="tag">Language</div>
-        <h3>KidLisp</h3>
-        <p>
-          A minimal Lisp dialect for generative art &mdash; 118 built-in functions
-          across 12 categories. Spinning cubes, procedural patterns, color fields, 3D forms.
-          The projection runs a KidLisp program, and the QR code takes you to
-          <a href="https://kidlisp.com">kidlisp.com</a> where you can
-          live-edit the code and see your changes on the wall.
-        </p>
-        <div class="piece-embed" data-ac-cmd="kidlisp" onclick="openACModal('kidlisp')">
-          <iframe src="https://kidlisp.com" loading="lazy" sandbox="allow-scripts allow-same-origin"></iframe>
-          <div class="badge">kidlisp.com</div>
-        </div>
-        <a href="#" class="prompt-link" onclick="openACModal('kidlisp'); return false;">
-          <span class="prompt-char">&gt;</span> kidlisp.com
-        </a>
-      </div>
+    <p>
+      <a href="#" class="cmd" onclick="openPiece('merryo'); return false">merryo</a>
+      loops through pieces with custom timing — each "slide" is a live
+      running program, not an image.
+      <a href="#" class="cmd" onclick="openPiece('mo'); return false">mo</a>
+      is shorthand for uniform timing.
+    </p>
 
-      <!-- Slideshows: Merryo & Mo -->
-      <div class="card">
-        <div class="tag">Slideshow</div>
-        <h3>Merryo &amp; Mo</h3>
-        <p>
-          AC has built-in slideshow sequencers.
-          <a href="#" class="ac-cmd" data-ac-cmd="merryo">merryo</a>
-          loops through a sequence of pieces with custom timing &mdash; each
-          "slide" is a live running program, not an image.
-          <a href="#" class="ac-cmd" data-ac-cmd="mo">mo</a>
-          is shorthand for uniform timing across all pieces.
-        </p>
+    <a href="#" class="prompt" onclick="openPiece('merryo:8-notepat:8-clock:8-kidlisp'); return false">
+      <span class="arrow">&gt;</span> merryo:8-notepat:8-clock:8-kidlisp
+      <span class="desc">8s each, loops forever</span>
+    </a>
+    <a href="#" class="prompt" onclick="openPiece('mo.1:tone:shape:line'); return false">
+      <span class="arrow">&gt;</span> mo.1:tone:shape:line
+      <span class="desc">100ms rapid cycle</span>
+    </a>
 
-        <div class="slideshow-example">
-          <div class="cmd-label">Examples:</div>
-          <code data-ac-cmd="merryo:8-notepat:8-clock:8-kidlisp" onclick="openACModal('merryo:8-notepat:8-clock:8-kidlisp')">merryo:8-notepat:8-clock:8-kidlisp</code>
-          <div class="desc">Loop notepat, clock, kidlisp &mdash; 8 seconds each</div>
-          <code data-ac-cmd="mo.1:tone:shape:line" onclick="openACModal('mo.1:tone:shape:line')">mo.1:tone:shape:line</code>
-          <div class="desc">Rapid 100ms cycling between pieces</div>
-        </div>
+    <p>
+      I'd likely combine these — KidLisp visuals as base layer,
+      <a href="#" class="cmd" onclick="openPiece('notepat'); return false">notepat</a>
+      or <a href="#" class="cmd" onclick="openPiece('clock'); return false">clock</a>
+      for sound, sequenced via
+      <a href="#" class="cmd" onclick="openPiece('merryo'); return false">merryo</a>.
+      Or a custom piece for DOLLHOUSE.
+      The key: <em>live software</em>, not a recording. The room is awake.
+    </p>
 
-        <p>
-          This means a room projection can be a curated sequence of live programs,
-          auto-cycling on loop. Or the anchor screen can rotate through
-          every artist's room as a living slideshow &mdash; via
-          <a href="https://top.kidlisp.com">top.kidlisp.com</a>.
-        </p>
-      </div>
+    <p style="opacity: 0.5; font-size: 0.85em;">
+      I have a box that runs all of this at 4K over HDMI.
+      Only requirements: power + projection surface.
+    </p>
 
-      <!-- The Combination -->
-      <div class="combo">
-        <h3>The Combination</h3>
-        <p>
-          I'd likely combine these &mdash; a room that shifts between modes or layers them.
-          Generative visuals in KidLisp as the base layer, with
-          <a href="#" class="ac-cmd" data-ac-cmd="notepat">notepat</a> or
-          <a href="#" class="ac-cmd" data-ac-cmd="clock">clock</a>
-          providing the sonic dimension.
-          Or a custom piece built specifically for DOLLHOUSE.
-          Or a <a href="#" class="ac-cmd" data-ac-cmd="merryo">merryo</a>
-          slideshow sequencing all of them on a timer.
-        </p>
-        <p>
-          The key thing: it's <em>live software</em>, not a recording. The room is awake.
-        </p>
-      </div>
+    <hr>
 
-      <div class="note">
-        <p>
-          I have a box that runs this at 4K over HDMI.
-          I can also bring small test devices.
-          The only requirement is power and a projection surface (or screen).
-        </p>
-      </div>
+    <p class="section-label">Path B — Full Infrastructure</p>
+    <h2>AC powers the whole show</h2>
 
-      <!-- ============================== -->
-      <!-- PATH B: FULL INFRASTRUCTURE -->
-      <!-- ============================== -->
+    <p>
+      If you want to go bigger: AC can serve as the technical backbone
+      for all 30 rooms, the anchor screen, and audience interaction.
+    </p>
 
-      <hr>
+    <table>
+      <tr><td>rooms</td><td>Each room runs a browser at <a href="#" class="cmd" onclick="return false">aesthetic.computer/@artist/room</a></td></tr>
+      <tr><td>anchor</td><td><a href="https://top.kidlisp.com">top.kidlisp.com</a> — TV slideshow system, 4K HDMI</td></tr>
+      <tr><td>slideshow</td><td><a href="#" class="cmd" onclick="openPiece('merryo'); return false">merryo</a> / <a href="#" class="cmd" onclick="openPiece('mo'); return false">mo</a> — auto-cycle pieces on any screen</td></tr>
+      <tr><td>audience</td><td>QR → browser → interactive piece, no app needed</td></tr>
+      <tr><td>live</td><td>Performer drives visuals from phone/tablet in real-time</td></tr>
+      <tr><td>sync</td><td>Session server for coordination across rooms</td></tr>
+    </table>
 
-      <h2>
-        <span class="label">Path B &mdash; Full Infrastructure</span>
-        AC powers the whole show
-      </h2>
+    <p><strong>Audience flow:</strong></p>
+    <p style="opacity: 0.6;">
+      See room → scan QR → phone opens piece → interact / edit / play
+    </p>
 
-      <p>
-        If you want to go bigger: Aesthetic Computer can serve as the
-        technical backbone for all 30 rooms, the anchor screen, and
-        the audience interaction layer.
-      </p>
+    <p>
+      Every room gets a QR code. Scanning opens that room's piece on
+      your phone. Play it, remix it, or edit the code running on the wall.
+    </p>
 
-      <h3>30 Rooms, 30 Pieces</h3>
-      <p>
-        Each room runs an AC "piece" &mdash; a small program at a unique URL.
-        Artists create their visuals in JavaScript or KidLisp.
-        Every room is just a browser tab on a connected device.
-        No special software. No app installs for artists or audience.
-      </p>
+    <p><strong>Onboarding artists:</strong></p>
+    <ul>
+      <li>Code experience → full JS API (graphics, audio, network)</li>
+      <li>No code → KidLisp (a few lines = complex generative visuals)</li>
+      <li>Publish and iterate from a browser, no dev env needed</li>
+    </ul>
 
-      <table>
-        <tr><th>Element</th><th>AC Solution</th></tr>
-        <tr>
-          <td>Room projection</td>
-          <td>Browser running <a href="#" class="ac-cmd" data-ac-cmd="prompt">aesthetic.computer/@artist/room</a></td>
-        </tr>
-        <tr>
-          <td>Anchor screen</td>
-          <td><a href="https://top.kidlisp.com">top.kidlisp.com</a> &mdash; TV slideshow, 4K HDMI</td>
-        </tr>
-        <tr>
-          <td>Slideshow mode</td>
-          <td><a href="#" class="ac-cmd" data-ac-cmd="merryo">merryo</a> / <a href="#" class="ac-cmd" data-ac-cmd="mo">mo</a> &mdash; auto-cycle through pieces on any screen</td>
-        </tr>
-        <tr>
-          <td>Audience phones</td>
-          <td>QR &rarr; browser &rarr; interactive piece, no app needed</td>
-        </tr>
-        <tr>
-          <td>Live performance</td>
-          <td>Performer drives visuals from phone/tablet in real-time</td>
-        </tr>
-        <tr>
-          <td>Multi-device sync</td>
-          <td>Session server for real-time coordination across rooms</td>
-        </tr>
-      </table>
+    <p><strong>Anchor screen:</strong></p>
+    <p>
+      <a href="https://top.kidlisp.com">top.kidlisp.com</a> cycles
+      through curated pieces from all rooms using
+      <a href="#" class="cmd" onclick="openPiece('merryo'); return false">merryo</a>
+      sequencing. 4K box with HDMI out.
+    </p>
 
-      <h3>Audience Flow</h3>
-      <div class="flow">
-        <span class="step">See room</span>
-        <span class="arrow">&rarr;</span>
-        <span class="step">Scan QR</span>
-        <span class="arrow">&rarr;</span>
-        <span class="step">Phone opens piece</span>
-        <span class="arrow">&rarr;</span>
-        <span class="step">Interact / edit / play</span>
-      </div>
-      <p>
-        Every room can have a QR code. Scanning it opens that room's piece
-        on the audience member's phone. They can play it, remix it, or in the
-        case of KidLisp pieces, actually edit the code that's running on the wall.
-        Spectators become participants.
-      </p>
+    <p style="opacity: 0.5; font-size: 0.85em;">
+      AC outputs rectangular frames — not projection-mapped surfaces.
+      Pair with MadMapper/Resolume for non-rectangular projection.
+      Audio is per-device; individual rooms need their own output chain.
+    </p>
 
-      <h3>Artist Onboarding</h3>
-      <ul>
-        <li>Artists with code experience use the full JavaScript API &mdash; graphics, audio, network, UI</li>
-        <li>Artists without code use KidLisp &mdash; a few lines produce complex generative visuals</li>
-        <li>A blank template generates in one command: <span class="ac-cmd" style="cursor:default;">npm run new room-name</span></li>
-        <li>Artists publish and iterate from a browser &mdash; no dev environment needed</li>
-      </ul>
+    <hr>
 
-      <h3>The Anchor Screen</h3>
-      <p>
-        <a href="https://top.kidlisp.com">top.kidlisp.com</a> is a purpose-built
-        slideshow/display system. It can cycle through curated pieces from all 30 rooms
-        using <a href="#" class="ac-cmd" data-ac-cmd="merryo">merryo</a>
-        sequencing, hold on a single live visual, or run its own program.
-        Driven by a 4K box with HDMI out.
-      </p>
+    <p>
+      Both paths work independently or together. Happy to fill one room
+      and make it sing, or help wire up the whole building.
+    </p>
 
-      <h3>Live Performance</h3>
-      <p>
-        Pieces respond to real-time input &mdash; touch, keyboard, microphone, pen.
-        A performer could drive the anchor screen live from a phone or tablet.
-        The session server supports multiplayer sync, so you could have a moment
-        where every audience member's phone feeds into one shared display.
-      </p>
+    <p>
+      <a href="https://aesthetic.computer">aesthetic.computer</a> ·
+      <a href="https://kidlisp.com">kidlisp.com</a> ·
+      <a href="https://notepat.com">notepat.com</a> ·
+      <a href="https://turbo.cheap">turbo.cheap</a>
+    </p>
 
-      <div class="note">
-        <p>
-          <strong>What AC doesn't do:</strong> It outputs rectangular frames &mdash;
-          not projection-mapped surfaces. For non-rectangular projection you'd pair it
-          with a media server (MadMapper, Resolume, etc.).
-          Audio routing is per-device, so individual room audio needs its own output chain.
-        </p>
-      </div>
+    <p class="sig">Jeffrey Scudder, 2026</p>
+  </div>
 
-      <hr>
-
-      <p>
-        Both paths work independently or together. I'm happy to fill one room
-        and make it sing, or help wire up the whole building. Let's talk about what fits.
-      </p>
-
-    </div><!-- .main -->
-
-    <!-- Footer -->
-    <div class="footer">
-      <div>
-        <a href="https://aesthetic.computer">aesthetic.computer</a> |
-        <a href="https://kidlisp.com">kidlisp.com</a> |
-        <a href="https://notepat.com">notepat.com</a> |
-        <a href="https://turbo.cheap">turbo.cheap</a>
-      </div>
-      <div class="sig">Jeffrey Scudder, 2026</div>
-    </div>
-
-  </div><!-- .wrapper -->
-
-  <!-- ===== Modal + Command Link JS (AC pattern) ===== -->
   <script>
-    // Open AC piece in modal (same pattern as news.aesthetic.computer)
-    function openACModal(cmd) {
-      const piece = cmd.startsWith('$') ? cmd.slice(1) : cmd;
-      const isKidlisp = piece === 'kidlisp';
-      const url = isKidlisp
+    function openPiece(cmd) {
+      var piece = cmd.startsWith('$') ? cmd.slice(1) : cmd;
+      var url = piece === 'kidlisp'
         ? 'https://kidlisp.com'
-        : `https://aesthetic.computer/${piece}`;
+        : 'https://aesthetic.computer/' + piece;
 
-      // Remove existing modal
-      const existing = document.getElementById('ac-modal');
-      if (existing) existing.remove();
+      var old = document.getElementById('ac-modal');
+      if (old) old.remove();
 
-      const modal = document.createElement('div');
-      modal.id = 'ac-modal';
-      modal.className = 'ac-modal';
-      modal.innerHTML = `
-        <div class="ac-modal-backdrop"></div>
-        <div class="ac-modal-content">
-          <button class="ac-modal-close">&times;</button>
-          <iframe src="${url}" frameborder="0" allow="autoplay"></iframe>
-        </div>
-      `;
-      document.body.appendChild(modal);
+      var m = document.createElement('div');
+      m.id = 'ac-modal';
+      m.className = 'modal';
+      m.innerHTML =
+        '<div class="modal-bg"></div>' +
+        '<div class="modal-frame">' +
+        '<button class="modal-close">&times;</button>' +
+        '<iframe src="' + url + '" allow="autoplay"></iframe>' +
+        '</div>';
+      document.body.appendChild(m);
 
-      modal.querySelector('.ac-modal-backdrop').addEventListener('click', closeACModal);
-      modal.querySelector('.ac-modal-close').addEventListener('click', closeACModal);
-      document.addEventListener('keydown', handleModalEscape);
+      m.querySelector('.modal-bg').onclick = closeModal;
+      m.querySelector('.modal-close').onclick = closeModal;
+      document.addEventListener('keydown', escModal);
     }
 
-    function closeACModal() {
-      const modal = document.getElementById('ac-modal');
-      if (modal) modal.remove();
-      document.removeEventListener('keydown', handleModalEscape);
+    function closeModal() {
+      var m = document.getElementById('ac-modal');
+      if (m) m.remove();
+      document.removeEventListener('keydown', escModal);
     }
 
-    function handleModalEscape(e) {
-      if (e.key === 'Escape') closeACModal();
+    function escModal(e) {
+      if (e.key === 'Escape') closeModal();
     }
-
-    // Attach click handlers to all .ac-cmd links
-    document.querySelectorAll('.ac-cmd[data-ac-cmd]').forEach(link => {
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-        const cmd = link.dataset.acCmd;
-        if (cmd && cmd !== 'prompt') openACModal(cmd);
-      });
-    });
-
-    // Attach click handlers to .prompt-link elements
-    document.querySelectorAll('.prompt-link[data-ac-cmd]').forEach(link => {
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-        openACModal(link.dataset.acCmd);
-      });
-    });
   </script>
 </body>
 </html>
