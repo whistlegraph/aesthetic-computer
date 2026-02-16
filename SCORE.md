@@ -1,4 +1,4 @@
-# Score for Computer
+# Score for Aesthetic.Computer & Pals
 
 *Directed by [@jeffrey](https://prompt.ac/@jeffrey)*
 
