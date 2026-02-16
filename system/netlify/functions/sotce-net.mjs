@@ -7009,7 +7009,6 @@ export const handler = async (event, context) => {
                     ctx.fillStyle = (hoverPageNum && offsetY === 0) ? themeColors.cardEarHover : textColor;
                     ctx.font = fontSize + "px monospace";
                     ctx.textAlign = "center";
-                    const pageNumY = y + h - em * 2;
                     const displayNum = pageData.pageNumber || idx;
                     // Show p## syntax on hover, fleurons otherwise (like old Wingdings-2 h/g)
                     const pageNumText = (hoverPageNum && offsetY === 0)
