@@ -6771,7 +6771,11 @@ export const handler = async (event, context) => {
                   ctx.beginPath();
                   ctx.rect(x, y, w, h);
                   ctx.clip();
-                  
+
+                  // Set text baseline to 'top' for consistent vertical positioning across platforms
+                  // This prevents iOS font metrics from causing text overflow at the bottom
+                  ctx.textBaseline = 'top';
+
                   // Border (themed - blue for questions)
                   ctx.strokeStyle = isQuestion ? themeColors.questionCardBorder : themeColors.cardBorder;
                   ctx.lineWidth = 1;
@@ -7052,6 +7056,9 @@ export const handler = async (event, context) => {
 
                   if (!pageData) return;
 
+                  // Set text baseline for consistent vertical positioning across platforms
+                  ctx.textBaseline = 'top';
+
                   // Body text position (same as front - margin-top: 15%)
                   const textStartY = y + h * 0.15 + fontSize;
                   const textWidth = w - padding * 2;
@@ -7219,6 +7226,9 @@ export const handler = async (event, context) => {
                   oc.strokeStyle = themeColors.questionCardBorder;
                   oc.lineWidth = 1;
                   oc.strokeRect(margin + 0.5, margin + 0.5, cardW - 1, cardH - 1);
+
+                  // Set text baseline for consistent vertical positioning
+                  oc.textBaseline = 'top';
 
                   // Ear removed from exported image
 
