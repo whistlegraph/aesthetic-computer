@@ -6772,10 +6772,6 @@ export const handler = async (event, context) => {
                   ctx.rect(x, y, w, h);
                   ctx.clip();
 
-                  // Set text baseline to 'top' for consistent vertical positioning across platforms
-                  // This prevents iOS font metrics from causing text overflow at the bottom
-                  ctx.textBaseline = 'top';
-
                   // Border (themed - blue for questions)
                   ctx.strokeStyle = isQuestion ? themeColors.questionCardBorder : themeColors.cardBorder;
                   ctx.lineWidth = 1;
@@ -6823,9 +6819,7 @@ export const handler = async (event, context) => {
                   const padding = em * 2; // padding: 0 2em
                   const textWidth = w - padding * 2;
                   // Use the same MAX_LINES constant as the editor for consistent pagination
-                  // Reduce max lines on mobile Safari to prevent bottom overflow
-                  const isMobileSafari = /iPhone|iPad|iPod/.test(navigator.userAgent);
-                  const maxLines = isMobileSafari ? ${MAX_LINES - 2} : ${MAX_LINES};
+                  const maxLines = ${MAX_LINES};
                   
                   // Text color with opacity for fade-in (themed)
                   const baseColor = themeColors.cardText;
@@ -6991,7 +6985,15 @@ export const handler = async (event, context) => {
                     
                     const lines = wrapText(pageData.words, textWidth, pageBodyFont);
                     const textStartY = y + h * 0.15 + fontSize;
-                    
+
+                    // Create text clip region to prevent overflow into page number area
+                    ctx.save();
+                    const pageNumY = y + h - em * 2;
+                    const textClipHeight = pageNumY - y - fontSize;
+                    ctx.beginPath();
+                    ctx.rect(x, y, w, textClipHeight);
+                    ctx.clip();
+
                     for (let i = 0; i < Math.min(lines.length, maxLines); i++) {
                       const line = lines[i];
                       if (line === "") {
@@ -7000,6 +7002,8 @@ export const handler = async (event, context) => {
                       }
                       drawLineWithHighlights(line, x + padding, textStartY + i * lineHeight, pageBodyFont);
                     }
+
+                    ctx.restore(); // Remove text clip region
                     
                     // Page number: p## on hover, just number normally
                     ctx.fillStyle = (hoverPageNum && offsetY === 0) ? themeColors.cardEarHover : textColor;
@@ -7057,9 +7061,6 @@ export const handler = async (event, context) => {
                   ctx.stroke();
 
                   if (!pageData) return;
-
-                  // Set text baseline for consistent vertical positioning across platforms
-                  ctx.textBaseline = 'top';
 
                   // Body text position (same as front - margin-top: 15%)
                   const textStartY = y + h * 0.15 + fontSize;
@@ -7228,9 +7229,6 @@ export const handler = async (event, context) => {
                   oc.strokeStyle = themeColors.questionCardBorder;
                   oc.lineWidth = 1;
                   oc.strokeRect(margin + 0.5, margin + 0.5, cardW - 1, cardH - 1);
-
-                  // Set text baseline for consistent vertical positioning
-                  oc.textBaseline = 'top';
 
                   // Ear removed from exported image
 
