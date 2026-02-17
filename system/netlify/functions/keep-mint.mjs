@@ -859,6 +859,7 @@ export const handler = stream(async (event, context) => {
           );
           console.log(`🪙 KEEP: Stored pending rebake for $${pieceName}`);
           
+          const rebakeCreatedAt = new Date().toISOString();
           await send("progress", { stage: "ready", message: "Bundle regenerated!" });
           await send("ready", {
             success: true,
@@ -868,6 +869,7 @@ export const handler = stream(async (event, context) => {
             artifactUri,
             thumbnailUri,
             objktUrl: mintStatus.objktUrl,
+            createdAt: rebakeCreatedAt,
           });
           await database.disconnect();
           return;
@@ -889,7 +891,7 @@ export const handler = stream(async (event, context) => {
           artifactUri,
           thumbnailUri,
           objktUrl: mintStatus.objktUrl,
-          // Flag that this is from cache (pending rebake may already exist)
+          createdAt: piece.pendingRebake?.createdAt ? new Date(piece.pendingRebake.createdAt).toISOString() : new Date().toISOString(),
           fromCache: true,
         });
         await database.disconnect();

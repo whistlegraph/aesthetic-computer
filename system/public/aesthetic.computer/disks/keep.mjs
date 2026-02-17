@@ -3474,6 +3474,7 @@ function act({ event: e, screen }) {
                     }, 3000);
                     // Reload the thumbnail with the new IPFS URI (fire and forget)
                     if (eventData.thumbnailUri) {
+                      thumbnailBitmap = null; // Clear cached thumbnail so it reloads
                       loadThumbnail(eventData.thumbnailUri).catch(e =>
                         console.warn("🪙 REBAKE: Thumbnail reload failed:", e.message)
                       );
