@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>help</title>
+<link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png" />
+<link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css" />
+<style>
+:root {
+  --bg: #111; --bg2: #1a1a1a; --fg: #ccc; --fg2: #888;
+  --pink: #ff6b9d; --green: #6bcb77; --cyan: #4ecdc4;
+  --border: #333; --hover: #222;
+}
+[data-theme="light"] {
+  --bg: #f4f4f4; --bg2: #fff; --fg: #222; --fg2: #777;
+  --pink: rgb(205, 92, 155); --green: #059669; --cyan: #0891b2;
+  --border: #ccc; --hover: #eee;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+::-webkit-scrollbar { display: none; }
+html, body { height: 100%; }
+body {
+  font-family: 'Berkeley Mono Variable', monospace;
+  font-size: 14px; line-height: 1.6;
+  background: var(--bg); color: var(--fg);
+  cursor: url('https://aesthetic.computer/aesthetic.computer/cursors/precise.svg') 12 12, auto;
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 2em;
+  -webkit-text-size-adjust: none;
+}
+
+/* login screen */
+.landing {
+  max-width: 480px; width: 100%;
+  display: flex; flex-direction: column;
+  align-items: center; gap: 1.5em;
+  text-align: center;
+}
+.logo {
+  font-size: 24px; font-weight: normal;
+  letter-spacing: 3px; color: var(--fg);
+}
+.logo span { color: var(--pink); }
+.subtitle {
+  font-size: 12px; color: var(--fg2);
+  line-height: 1.7; max-width: 380px;
+}
+.subtitle a { color: var(--cyan); text-decoration: none; }
+.subtitle a:hover { text-decoration: underline; }
+
+/* sign in button */
+.sign-in {
+  font-family: inherit; font-size: 13px;
+  padding: 8px 24px; margin-top: 0.5em;
+  background: var(--bg2); color: var(--fg);
+  border: 1px solid var(--border);
+  cursor: pointer; letter-spacing: 1px;
+  transition: border-color 0.2s, color 0.2s;
+}
+.sign-in:hover { border-color: var(--pink); color: var(--pink); }
+
+/* authenticated state */
+.app {
+  display: none; flex-direction: column; align-items: center;
+  gap: 1.2em; max-width: 480px; width: 100%;
+  text-align: center;
+}
+.app.visible { display: flex; }
+.handle { font-size: 15px; color: var(--pink); }
+.handle-sub { font-size: 11px; color: var(--fg2); }
+
+/* api key setup */
+.key-section {
+  width: 100%; text-align: left;
+  border: 1px solid var(--border); padding: 1em;
+  background: var(--bg2);
+}
+.key-section h3 {
+  font-size: 12px; font-weight: normal;
+  color: var(--fg2); text-transform: uppercase;
+  letter-spacing: 1px; margin-bottom: 0.8em;
+}
+.key-input {
+  font-family: inherit; font-size: 12px;
+  width: 100%; padding: 6px 8px;
+  background: var(--bg); color: var(--fg);
+  border: 1px solid var(--border);
+  margin-bottom: 0.6em;
+}
+.key-input:focus { outline: none; border-color: var(--pink); }
+.key-input::placeholder { color: var(--fg2); }
+.key-save {
+  font-family: inherit; font-size: 11px;
+  padding: 4px 14px;
+  background: var(--bg); color: var(--green);
+  border: 1px solid var(--green);
+  cursor: pointer;
+}
+.key-save:hover { background: var(--green); color: var(--bg); }
+.key-status { font-size: 11px; color: var(--fg2); margin-top: 0.4em; }
+
+/* status line */
+.status { font-size: 11px; color: var(--fg2); }
+.status .dot {
+  display: inline-block; width: 6px; height: 6px;
+  border-radius: 50%; background: var(--fg2);
+  margin-right: 4px; vertical-align: middle;
+}
+.status .dot.ok { background: var(--green); }
+
+/* sign out */
+.sign-out {
+  font-family: inherit; font-size: 11px;
+  background: none; border: none; color: var(--fg2);
+  cursor: pointer; padding: 4px 8px;
+}
+.sign-out:hover { color: var(--fg); }
+
+/* steps */
+.steps {
+  text-align: left; width: 100%;
+  display: flex; flex-direction: column; gap: 0.8em;
+}
+.step {
+  font-size: 12px; color: var(--fg2);
+  padding-left: 1.5em; position: relative;
+}
+.step::before {
+  content: attr(data-n); position: absolute; left: 0;
+  color: var(--pink); font-size: 11px;
+}
+.step code {
+  color: var(--cyan); font-size: 11px;
+}
+
+/* divider */
+.divider {
+  width: 40px; height: 1px;
+  background: var(--border);
+}
+
+@media (max-width: 500px) {
+  body { padding: 1.5em; }
+  .logo { font-size: 20px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Landing / Login -->
+<div class="landing" id="landing">
+  <div class="logo"><span>help</span>.aesthetic.computer</div>
+  <div class="divider"></div>
+  <div class="subtitle">
+    AI assistant for the
+    <a href="https://aesthetic.computer" target="_blank">Aesthetic Computer</a>
+    community. Get help with pieces, KidLisp, creative computing, and more.
+  </div>
+
+  <div class="steps">
+    <div class="step" data-n="1.">
+      Sign in with your <a href="https://aesthetic.computer/handle" target="_blank" style="color: var(--cyan);">@handle</a>
+    </div>
+    <div class="step" data-n="2.">
+      Add your <a href="https://console.anthropic.com/" target="_blank" style="color: var(--cyan);">Anthropic API key</a>
+    </div>
+    <div class="step" data-n="3.">
+      Start asking questions about AC
+    </div>
+  </div>
+
+  <button class="sign-in" id="signInBtn">sign in</button>
+  <div class="status" id="authStatus"></div>
+</div>
+
+<!-- Authenticated App -->
+<div class="app" id="app">
+  <div class="logo"><span>help</span>.aesthetic.computer</div>
+  <div class="handle" id="handleDisplay"></div>
+  <div class="handle-sub">signed in</div>
+
+  <div class="key-section">
+    <h3>anthropic api key</h3>
+    <input class="key-input" id="apiKeyInput" type="password"
+           placeholder="sk-ant-..." autocomplete="off" />
+    <button class="key-save" id="saveKeyBtn">save key</button>
+    <div class="key-status" id="keyStatus"></div>
+  </div>
+
+  <div class="status">
+    <span class="dot" id="statusDot"></span>
+    <span id="statusText">ready</span>
+  </div>
+
+  <button class="sign-out" id="signOutBtn">sign out</button>
+</div>
+
+<script>
+let auth0Client = null;
+let accessToken = null;
+
+async function authFetch(url, opts = {}) {
+  const headers = { ...opts.headers };
+  if (accessToken) headers.Authorization = 'Bearer ' + accessToken;
+  const resp = await fetch(url, { ...opts, headers });
+  if (resp.status === 401 && auth0Client) {
+    try {
+      accessToken = await auth0Client.getTokenSilently({ cacheMode: 'off' });
+      headers.Authorization = 'Bearer ' + accessToken;
+      return fetch(url, { ...opts, headers });
+    } catch { auth0Client.loginWithRedirect(); }
+  }
+  return resp;
+}
+
+async function init() {
+  const status = document.getElementById('authStatus');
+  status.textContent = 'loading...';
+
+  try {
+    // Load Auth0 SPA SDK
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js';
+      s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    });
+
+    // Get config from server
+    const config = await fetch('/auth/config').then(r => r.json());
+    auth0Client = await window.auth0.createAuth0Client({
+      domain: config.domain,
+      clientId: config.clientId,
+      cacheLocation: 'localstorage',
+      useRefreshTokens: true,
+      authorizationParams: { redirect_uri: location.origin + location.pathname },
+    });
+
+    // Handle redirect callback
+    if (location.search.includes('state=') && location.search.includes('code=')) {
+      await auth0Client.handleRedirectCallback();
+      history.replaceState({}, '', location.pathname);
+    }
+
+    // Check auth state
+    if (await auth0Client.isAuthenticated()) {
+      accessToken = await auth0Client.getTokenSilently();
+      const me = await authFetch('/auth/me').then(r => r.json());
+      showApp(me);
+    } else {
+      status.textContent = '';
+      document.getElementById('signInBtn').onclick = () =>
+        auth0Client.loginWithRedirect();
+    }
+  } catch (err) {
+    console.error('auth init failed:', err);
+    status.textContent = 'error: ' + err.message;
+  }
+}
+
+function showApp(me) {
+  document.getElementById('landing').style.display = 'none';
+  document.getElementById('app').classList.add('visible');
+  document.getElementById('handleDisplay').textContent = '@' + (me.handle || '?');
+  document.getElementById('statusDot').classList.add('ok');
+
+  // Sign out
+  document.getElementById('signOutBtn').onclick = () => {
+    auth0Client.logout({ logoutParams: { returnTo: location.origin } });
+  };
+
+  // API key save (placeholder — stores in localStorage for now)
+  document.getElementById('saveKeyBtn').onclick = async () => {
+    const key = document.getElementById('apiKeyInput').value.trim();
+    if (!key) return;
+    const keyStatus = document.getElementById('keyStatus');
+    keyStatus.textContent = 'saving...';
+    try {
+      // TODO: Save to server (encrypted in MongoDB)
+      // For now, just validate format
+      if (!key.startsWith('sk-ant-')) {
+        keyStatus.textContent = 'key should start with sk-ant-';
+        keyStatus.style.color = 'var(--pink)';
+        return;
+      }
+      keyStatus.textContent = 'key saved';
+      keyStatus.style.color = 'var(--green)';
+      document.getElementById('apiKeyInput').value = '';
+      document.getElementById('statusText').textContent = 'key configured — chat coming soon';
+    } catch (err) {
+      keyStatus.textContent = 'error: ' + err.message;
+      keyStatus.style.color = 'var(--pink)';
+    }
+  };
+}
+
+// Theme
+const prefersDark = !window.matchMedia('(prefers-color-scheme: light)').matches;
+if (!prefersDark) document.documentElement.setAttribute('data-theme', 'light');
+window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', (e) => {
+  document.documentElement.setAttribute('data-theme', e.matches ? 'light' : '');
+});
+
+init();
+</script>
+</body>
+</html>
