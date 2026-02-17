@@ -326,6 +326,7 @@ let waitingConfirmation = false; // True when piece is ready to mint but awaitin
 let rebaking = false; // True when regenerating bundle for already-minted piece
 let rebakeResult = null; // Result from rebake: { artifactUri, thumbnailUri }
 let rebakeProgress = null; // Progress message during rebake
+let rebakeStageLog = []; // Tracked stages during rebake [{stage, message, done}]
 let originalOnChainUris = null; // Original URIs from chain before rebake { artifactUri, thumbnailUri }
 let pendingRebake = null; // Pending rebake from DB (not yet updated on chain)
 let cachedMedia = null; // Last generated bundle from DB { artifactUri, thumbnailUri, createdAt, sourceHash }
@@ -1775,6 +1776,32 @@ function paint($) {
       y += 34;
     }
 
+    // === REBAKE PROGRESS OVERLAY ===
+    if (rebaking && rebakeStageLog.length > 0) {
+      const stageNames = { validate: "Validate", thumbnail: "Thumbnail", analyze: "Analyze", bundle: "Bundle", ipfs: "IPFS" };
+      ink(25, 35, 40, 230).box(0, y - 1, w, rebakeStageLog.length * 10 + 14);
+      const pulse = sin(rotation * 4) * 0.3 + 0.7;
+      ink(255, 200, 100, floor(255 * pulse)).write("REBAKING", { x: w/2, y, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      y += 12;
+      for (const entry of rebakeStageLog) {
+        const label = stageNames[entry.stage] || entry.stage;
+        if (entry.done) {
+          ink(100, 220, 150).write(`✓ ${label}`, { x: 8, y }, undefined, undefined, false, "MatrixChunky8");
+        } else {
+          const glow = floor(180 + sin(rotation * 5) * 75);
+          ink(255, 200, 100, glow).write(`► ${label}`, { x: 8, y }, undefined, undefined, false, "MatrixChunky8");
+          ink(150, 140, 120).write(entry.message, { x: w - 6, y, right: true }, undefined, undefined, false, "MatrixChunky8");
+        }
+        y += 10;
+      }
+      y += 2;
+    } else if (rebaking) {
+      ink(25, 35, 40, 230).box(0, y - 1, w, 14);
+      const pulse = sin(rotation * 4) * 0.3 + 0.7;
+      ink(255, 200, 100, floor(255 * pulse)).write("REBAKING...", { x: w/2, y, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      y += 14;
+    }
+
     // === SYNC STATUS SECTION ===
     // Determine sync state by comparing on-chain URIs with latest generated
     const latestMedia = pendingRebake || cachedMedia;
@@ -2080,10 +2107,6 @@ function paint($) {
     // Show streaming progress as a fixed overlay above the bottom buttons,
     // so it's always visible regardless of content scroll position.
     const progressY = h - walletSize.h - 18;
-    if (rebaking && rebakeProgress) {
-      ink(20, 25, 30, 220).box(0, progressY - 2, w, 14);
-      ink(200, 180, 120).write(rebakeProgress, { x: w/2, y: progressY, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-    }
     if (updatingChain && updateChainProgress) {
       ink(20, 25, 30, 220).box(0, progressY - 2, w, 14);
       ink(150, 150, 200).write(updateChainProgress, { x: w/2, y: progressY, center: "x" }, undefined, undefined, false, "MatrixChunky8");
@@ -3400,6 +3423,7 @@ function act({ event: e, screen }) {
         rebaking = true;
         rebakeResult = null;
         rebakeProgress = "Starting...";
+        rebakeStageLog = [];
         _needsPaint?.();
 
         try {
@@ -3445,9 +3469,24 @@ function act({ event: e, screen }) {
                   console.log("🪙 REBAKE:", eventType, eventData);
 
                   if (eventType === "progress") {
-                    rebakeProgress = eventData.message || (typeof eventData === 'string' ? eventData : JSON.stringify(eventData));
+                    const stage = eventData.stage;
+                    const msg = eventData.message || (typeof eventData === 'string' ? eventData : JSON.stringify(eventData));
+                    rebakeProgress = msg;
+                    // Track stages: mark previous stages done, update or add current
+                    if (stage && stage !== "details") {
+                      const existing = rebakeStageLog.find(s => s.stage === stage);
+                      if (existing) {
+                        existing.message = msg;
+                      } else {
+                        // Mark all previous stages as done
+                        for (const s of rebakeStageLog) s.done = true;
+                        rebakeStageLog.push({ stage, message: msg, done: false });
+                      }
+                    }
                     _needsPaint?.();
                   } else if (eventType === "ready" && eventData) {
+                    // Mark all stages done
+                    for (const s of rebakeStageLog) s.done = true;
                     rebakeResult = {
                       artifactUri: eventData.artifactUri,
                       thumbnailUri: eventData.thumbnailUri,
