@@ -2945,19 +2945,39 @@ function paint($) {
         // Brighter text for better visibility
         ink(140, 220, 180).write(infoLabel, { x: infoX, y: y + 8 }, undefined, undefined, false, "MatrixChunky8");
       }
-      // REBAKE button if using cached media
-      if (isCached) {
-        const rebakeScheme = pal.btnRebake;
-        const rebakeSize = mc8ButtonSize("REBAKE");
-        const rebakeX = infoX;
-        const rebakeY = y + 20;
-        rebakeBtn.btn.box.x = rebakeX;
-        rebakeBtn.btn.box.y = rebakeY;
-        rebakeBtn.btn.box.w = rebakeSize.w;
-        rebakeBtn.btn.box.h = rebakeSize.h;
-        paintMC8Btn(rebakeX, rebakeY, "REBAKE", { ink, line: ink }, rebakeScheme, rebakeBtn.btn.down || rebakeBtn.btn.over);
+      // REBAKE button or progress overlay
+      if (rebaking && rebakeStageLog.length > 0) {
+        const stageNames = { validate: "Validate", thumbnail: "Thumbnail", analyze: "Analyze", bundle: "Bundle", ipfs: "IPFS" };
+        const overlayY = y + 20;
+        for (const entry of rebakeStageLog) {
+          const label = stageNames[entry.stage] || entry.stage;
+          if (entry.done) {
+            ink(100, 220, 150).write(`✓ ${label}`, { x: infoX, y: overlayY + (rebakeStageLog.indexOf(entry)) * 10 }, undefined, undefined, false, "MatrixChunky8");
+          } else {
+            const glow = floor(180 + sin(rotation * 5) * 75);
+            ink(255, 200, 100, glow).write(`► ${label}`, { x: infoX, y: overlayY + (rebakeStageLog.indexOf(entry)) * 10 }, undefined, undefined, false, "MatrixChunky8");
+          }
+        }
+        // Expand the row to fit stages
+        y += max(thumbH, 20 + rebakeStageLog.length * 10) + 2;
+      } else if (rebaking) {
+        const glow = floor(180 + sin(rotation * 5) * 75);
+        ink(255, 200, 100, glow).write("Rebaking...", { x: infoX, y: y + 20 }, undefined, undefined, false, "MatrixChunky8");
+        y += thumbH + 2;
+      } else {
+        if (isCached) {
+          const rebakeScheme = pal.btnRebake;
+          const rebakeSize = mc8ButtonSize("REBAKE");
+          const rebakeX = infoX;
+          const rebakeY = y + 20;
+          rebakeBtn.btn.box.x = rebakeX;
+          rebakeBtn.btn.box.y = rebakeY;
+          rebakeBtn.btn.box.w = rebakeSize.w;
+          rebakeBtn.btn.box.h = rebakeSize.h;
+          paintMC8Btn(rebakeX, rebakeY, "REBAKE", { ink, line: ink }, rebakeScheme, rebakeBtn.btn.down || rebakeBtn.btn.over);
+        }
+        y += thumbH + 2;
       }
-      y += thumbH + 2;
     }
 
     // IPFS links after metadata (inline text buttons)
@@ -3193,6 +3213,7 @@ function act({ event: e, screen }) {
         console.log("🪙 KEEP: Rebaking media (in-place)...");
         rebaking = true;
         rebakeProgress = "Regenerating...";
+        rebakeStageLog = [];
         _needsPaint?.();
 
         try {
@@ -3236,9 +3257,21 @@ function act({ event: e, screen }) {
                   console.log("🪙 REBAKE:", eventType, eventData);
 
                   if (eventType === "progress") {
-                    rebakeProgress = eventData.message || (typeof eventData === 'string' ? eventData : JSON.stringify(eventData));
+                    const stage = eventData.stage;
+                    const msg = eventData.message || (typeof eventData === 'string' ? eventData : JSON.stringify(eventData));
+                    rebakeProgress = msg;
+                    if (stage && stage !== "details") {
+                      const existing = rebakeStageLog.find(s => s.stage === stage);
+                      if (existing) {
+                        existing.message = msg;
+                      } else {
+                        for (const s of rebakeStageLog) s.done = true;
+                        rebakeStageLog.push({ stage, message: msg, done: false });
+                      }
+                    }
                     _needsPaint?.();
                   } else if (eventType === "ready" && eventData) {
+                    for (const s of rebakeStageLog) s.done = true;
                     // Update preparedData with new URIs
                     preparedData.artifactUri = eventData.artifactUri;
                     preparedData.thumbnailUri = eventData.thumbnailUri;
