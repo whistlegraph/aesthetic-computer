@@ -4028,35 +4028,13 @@ function paint({
     //ink("yellow").write(scope, 6, sy + sh + 5);
     ink("yellow").write(scope, 50 + 4, 6);
     // ink("pink").write(scopeTrim, 6 + 18, sy + sh + 5);
-    const audioBadgeWidth = 80;
-    const audioBadgeHeight = 12;
-    const audioBadgeY = sy + 4;
-    let audioBadgeX;
-
-    if (!audioReady) {
-      // "AUDIO ENGINE OFF" using actual MatrixChunky8 glyph metrics - shorten for narrow screens
-      const fullText = "AUDIO ENGINE OFF";
-      const shortText = "ENGINE OFF";
-      const tinyText = "OFF";
-      const fullWidth = measureMatrixTextBoxWidth(fullText, api, screen.width) || measureMatrixTextWidth(fullText, typeface);
-      const shortWidth = measureMatrixTextBoxWidth(shortText, api, screen.width) || measureMatrixTextWidth(shortText, typeface);
-      const audioPadding = 4;
-      // Choose text based on available width
-      let audioText = fullText;
-      let audioTextWidth = fullWidth;
-      if (fullWidth + audioPadding * 2 > screen.width - 20) {
-        audioText = shortText;
-        audioTextWidth = shortWidth;
-      }
-      if (shortWidth + audioPadding * 2 > screen.width - 20) {
-        audioText = tinyText;
-        audioTextWidth = measureMatrixTextBoxWidth(tinyText, api, screen.width) || measureMatrixTextWidth(tinyText, typeface);
-      }
-      const totalBadgeWidth = audioTextWidth + audioPadding * 2;
-      audioBadgeX = Math.floor((screen.width - totalBadgeWidth) / 2); // Center horizontally
-      ink(180, 0, 0, 240).box(audioBadgeX, audioBadgeY, totalBadgeWidth, audioBadgeHeight);
-      ink(255, 255, 0).write(audioText, { x: audioBadgeX + audioPadding, y: audioBadgeY + 3 }, undefined, undefined, false, "MatrixChunky8");
-    }
+    sound.paint.audioEngineBadge(
+      { ink, screen },
+      sound.speaker,
+      null,
+      sy + 4,
+      { align: "center", height: 12 },
+    );
 
     // MIDI badge now renders in the top mini bar (left)
   } else if (!paintPictureOverlay) {
@@ -4107,36 +4085,14 @@ function paint({
     // ink("cyan").write(sound.sampleRate, 6 + 18 + 20, sy + sh + 3);
 
     const rightEdge = waveBtn?.box?.x ?? screen.width - 8;
-    const audioBadgeWidth = 66;
-    const audioBadgeHeight = max(9, sh - 4);
-    const audioBadgeY = sy + 2;
-    let audioBadgeX;
 
-    if (!audioReady) {
-      // "AUDIO ENGINE OFF" using actual MatrixChunky8 glyph metrics - shorten for narrow screens
-      const fullText = "AUDIO ENGINE OFF";
-      const shortText = "ENGINE OFF";
-      const tinyText = "OFF";
-      const fullWidth = measureMatrixTextBoxWidth(fullText, api, screen.width) || measureMatrixTextWidth(fullText, typeface);
-      const shortWidth = measureMatrixTextBoxWidth(shortText, api, screen.width) || measureMatrixTextWidth(shortText, typeface);
-      const audioPadding = 4;
-      // Choose text based on available width before waveBtn
-      const availableForAudio = rightEdge - topBarPianoEndX - 4;
-      let audioText = fullText;
-      let audioTextWidth = fullWidth;
-      if (fullWidth + audioPadding * 2 > availableForAudio) {
-        audioText = shortText;
-        audioTextWidth = shortWidth;
-      }
-      if (shortWidth + audioPadding * 2 > availableForAudio) {
-        audioText = tinyText;
-        audioTextWidth = measureMatrixTextBoxWidth(tinyText, api, screen.width) || measureMatrixTextWidth(tinyText, typeface);
-      }
-      const totalBadgeWidth = audioTextWidth + audioPadding * 2;
-      audioBadgeX = rightEdge - totalBadgeWidth - 4; // Position on right side before waveBtn
-      ink(180, 0, 0, 240).box(audioBadgeX, audioBadgeY, totalBadgeWidth, max(9, audioBadgeHeight));
-      ink(255, 255, 0).write(audioText, { x: audioBadgeX + audioPadding, y: audioBadgeY + 2 }, undefined, undefined, false, "MatrixChunky8");
-    }
+    sound.paint.audioEngineBadge(
+      { ink, screen },
+      sound.speaker,
+      rightEdge - 4,
+      sy + 2,
+      { align: "right", height: max(9, sh - 4), maxWidth: rightEdge - topBarPianoEndX - 4 },
+    );
 
     if (song && melodyAliasBtn && melodyAliasBtn.box && melodyButtonRect) {
       const baseGlyphWidth = matrixGlyphMetrics.width;

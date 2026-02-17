@@ -11117,6 +11117,67 @@ async function makeFrame({ data: { type, content } }) {
             console.warn("🌊 Unsupported direction.");
           }
         },
+
+        // Renders an "AUDIO ENGINE OFF" badge when the audio context is
+        // suspended.  Returns { visible, x, y, width, height } so callers
+        // can react to its layout.
+        audioEngineBadge: function paintAudioEngineBadge(
+          { ink, screen },
+          speaker,
+          x,
+          y,
+          options = {},
+        ) {
+          const waveforms = speaker?.waveforms?.left;
+          const amp = speaker?.amplitudes?.left;
+          const ready =
+            waveforms &&
+            typeof waveforms.length === "number" &&
+            waveforms.length > 0 &&
+            typeof amp === "number" &&
+            Number.isFinite(amp);
+
+          if (ready) return { visible: false, x: 0, y: 0, width: 0, height: 0 };
+
+          const maxWidth =
+            options.maxWidth != null ? options.maxWidth : screen.width - 20;
+          const padding = 4;
+          const badgeHeight = options.height || 12;
+          const align = options.align || "center"; // "center" | "left" | "right"
+
+          // Responsive text choices
+          const texts = ["AUDIO ENGINE OFF", "ENGINE OFF", "OFF"];
+          let chosen = texts[0];
+          for (const t of texts) {
+            // Approximate glyph width for MatrixChunky8 is 6px per char + 1px gap
+            const tw = t.length * 7;
+            if (tw + padding * 2 <= maxWidth) {
+              chosen = t;
+              break;
+            }
+          }
+          const textWidth = chosen.length * 7;
+          const totalWidth = textWidth + padding * 2;
+
+          let bx = x;
+          if (align === "center") {
+            bx = x != null ? x : Math.floor((screen.width - totalWidth) / 2);
+          } else if (align === "right") {
+            bx = (x != null ? x : screen.width) - totalWidth;
+          }
+
+          ink(180, 0, 0, 240).box(bx, y, totalWidth, badgeHeight);
+          ink(255, 255, 0).write(
+            chosen,
+            { x: bx + padding, y: y + 3 },
+            undefined,
+            undefined,
+            false,
+            "MatrixChunky8",
+          );
+
+          return { visible: true, x: bx, y, width: totalWidth, height: badgeHeight };
+        },
       },
     };
 
