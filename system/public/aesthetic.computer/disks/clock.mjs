@@ -1485,24 +1485,6 @@ function paint({
       });
     }
 
-    // Audio engine off badge — bottom center, to the right of octave switcher
-    {
-      const glyphWidth = typeface?.glyphs?.["0"]?.resolution?.[0] || 6;
-      const padding = 4;
-      const octaveTextWidth = `${octave}`.length * glyphWidth + padding * 2;
-      const buttonWidth = 16;
-      const buttonHeight = 16;
-      const octaveEndX = buttonWidth + octaveTextWidth + buttonWidth;
-      const badgeY = screen.height - buttonHeight + 2;
-      sound.paint.audioEngineBadge(
-        { ink, screen },
-        sound.speaker,
-        octaveEndX + 4,
-        badgeY,
-        { align: "left" },
-      );
-    }
-
     // --- HUD preview clock label in the corner ---
     if (typeof hud !== "undefined" && hud.label) {
       // Check if melody timing has started (based on whether first synth has fired)
@@ -2575,6 +2557,24 @@ function paint({
         }
       }
     }
+  }
+
+  // Audio engine off badge — bottom, to the right of octave switcher (painted after timeline)
+  {
+    const glyphWidth = typeface?.glyphs?.["0"]?.resolution?.[0] || 6;
+    const padding = 4;
+    const octaveTextWidth = `${octave}`.length * glyphWidth + padding * 2;
+    const buttonWidth = 16;
+    const buttonHeight = 16;
+    const octaveEndX = buttonWidth + octaveTextWidth + buttonWidth;
+    const badgeY = screen.height - buttonHeight + 2;
+    sound.paint.audioEngineBadge(
+      { ink, screen },
+      sound.speaker,
+      octaveEndX + 4,
+      badgeY,
+      { align: "left" },
+    );
   }
 
   // No separate UTC time display - consolidated into main clock
