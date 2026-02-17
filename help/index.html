@@ -70,35 +70,72 @@ body {
 .handle { font-size: 15px; color: var(--pink); }
 .handle-sub { font-size: 11px; color: var(--fg2); }
 
-/* api key setup */
-.key-section {
+/* anthropic connect section */
+.connect-section {
   width: 100%; text-align: left;
   border: 1px solid var(--border); padding: 1em;
   background: var(--bg2);
 }
-.key-section h3 {
+.connect-section h3 {
   font-size: 12px; font-weight: normal;
   color: var(--fg2); text-transform: uppercase;
   letter-spacing: 1px; margin-bottom: 0.8em;
 }
-.key-input {
+.connect-btn {
+  font-family: inherit; font-size: 13px;
+  padding: 8px 20px;
+  background: var(--bg); color: var(--fg);
+  border: 1px solid var(--border);
+  cursor: pointer; letter-spacing: 1px;
+  transition: border-color 0.2s, color 0.2s;
+  width: 100%;
+}
+.connect-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+.connect-btn:disabled { opacity: 0.5; cursor: default; }
+
+/* code entry (shown after clicking connect) */
+.code-entry {
+  display: none; margin-top: 0.8em;
+  flex-direction: column; gap: 0.5em;
+}
+.code-entry.visible { display: flex; }
+.code-hint {
+  font-size: 11px; color: var(--fg2); line-height: 1.5;
+}
+.code-hint a { color: var(--cyan); text-decoration: none; }
+.code-hint a:hover { text-decoration: underline; }
+.code-input {
   font-family: inherit; font-size: 12px;
   width: 100%; padding: 6px 8px;
   background: var(--bg); color: var(--fg);
   border: 1px solid var(--border);
-  margin-bottom: 0.6em;
 }
-.key-input:focus { outline: none; border-color: var(--pink); }
-.key-input::placeholder { color: var(--fg2); }
-.key-save {
+.code-input:focus { outline: none; border-color: var(--cyan); }
+.code-input::placeholder { color: var(--fg2); }
+.code-submit {
   font-family: inherit; font-size: 11px;
-  padding: 4px 14px;
-  background: var(--bg); color: var(--green);
-  border: 1px solid var(--green);
+  padding: 5px 14px; align-self: flex-start;
+  background: var(--bg); color: var(--cyan);
+  border: 1px solid var(--cyan);
   cursor: pointer;
 }
-.key-save:hover { background: var(--green); color: var(--bg); }
-.key-status { font-size: 11px; color: var(--fg2); margin-top: 0.4em; }
+.code-submit:hover { background: var(--cyan); color: var(--bg); }
+.connect-status { font-size: 11px; color: var(--fg2); margin-top: 0.4em; }
+
+/* connected state */
+.connected-row {
+  display: flex; align-items: center;
+  justify-content: space-between; gap: 1em;
+}
+.connected-label {
+  font-size: 12px; color: var(--green);
+}
+.disconnect-btn {
+  font-family: inherit; font-size: 11px;
+  background: none; border: none;
+  color: var(--fg2); cursor: pointer; padding: 0;
+}
+.disconnect-btn:hover { color: var(--pink); }
 
 /* status line */
 .status { font-size: 11px; color: var(--fg2); }
@@ -130,9 +167,7 @@ body {
   content: attr(data-n); position: absolute; left: 0;
   color: var(--pink); font-size: 11px;
 }
-.step code {
-  color: var(--cyan); font-size: 11px;
-}
+.step code { color: var(--cyan); font-size: 11px; }
 
 /* divider */
 .divider {
@@ -163,7 +198,7 @@ body {
       Sign in with your <a href="https://aesthetic.computer/handle" target="_blank" style="color: var(--cyan);">@handle</a>
     </div>
     <div class="step" data-n="2.">
-      Add your <a href="https://console.anthropic.com/" target="_blank" style="color: var(--cyan);">Anthropic API key</a>
+      Connect your <a href="https://claude.ai" target="_blank" style="color: var(--cyan);">Anthropic account</a>
     </div>
     <div class="step" data-n="3.">
       Start asking questions about AC
@@ -180,12 +215,32 @@ body {
   <div class="handle" id="handleDisplay"></div>
   <div class="handle-sub">signed in</div>
 
-  <div class="key-section">
-    <h3>anthropic api key</h3>
-    <input class="key-input" id="apiKeyInput" type="password"
-           placeholder="sk-ant-..." autocomplete="off" />
-    <button class="key-save" id="saveKeyBtn">save key</button>
-    <div class="key-status" id="keyStatus"></div>
+  <div class="connect-section" id="connectSection">
+    <h3>anthropic account</h3>
+
+    <!-- Not connected -->
+    <div id="notConnected">
+      <button class="connect-btn" id="connectBtn">sign in with anthropic</button>
+
+      <div class="code-entry" id="codeEntry">
+        <div class="code-hint">
+          Anthropic opened in a new tab. Approve access, then paste the
+          authorization code shown on their page below.
+        </div>
+        <input class="code-input" id="codeInput" type="text"
+               placeholder="paste code from Anthropic..." autocomplete="off" />
+        <button class="code-submit" id="codeSubmit">connect</button>
+        <div class="connect-status" id="connectStatus"></div>
+      </div>
+    </div>
+
+    <!-- Connected -->
+    <div id="isConnected" style="display:none;">
+      <div class="connected-row">
+        <span class="connected-label">&#10003; anthropic connected</span>
+        <button class="disconnect-btn" id="disconnectBtn">disconnect</button>
+      </div>
+    </div>
   </div>
 
   <div class="status">
@@ -199,6 +254,7 @@ body {
 <script>
 let auth0Client = null;
 let accessToken = null;
+let pendingState = null;
 
 async function authFetch(url, opts = {}) {
   const headers = { ...opts.headers };
@@ -214,12 +270,27 @@ async function authFetch(url, opts = {}) {
   return resp;
 }
 
+async function checkAnthropicStatus() {
+  const resp = await authFetch('/api/anthropic/status');
+  const data = await resp.json();
+  const notConn = document.getElementById('notConnected');
+  const isConn = document.getElementById('isConnected');
+  if (data.connected) {
+    notConn.style.display = 'none';
+    isConn.style.display = 'block';
+    document.getElementById('statusDot').classList.add('ok');
+    document.getElementById('statusText').textContent = 'anthropic connected — chat coming soon';
+  } else {
+    notConn.style.display = 'block';
+    isConn.style.display = 'none';
+  }
+}
+
 async function init() {
   const status = document.getElementById('authStatus');
   status.textContent = 'loading...';
 
   try {
-    // Load Auth0 SPA SDK
     await new Promise((resolve, reject) => {
       const s = document.createElement('script');
       s.src = 'https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js';
@@ -227,7 +298,6 @@ async function init() {
       document.head.appendChild(s);
     });
 
-    // Get config from server
     const config = await fetch('/auth/config').then(r => r.json());
     auth0Client = await window.auth0.createAuth0Client({
       domain: config.domain,
@@ -237,13 +307,11 @@ async function init() {
       authorizationParams: { redirect_uri: location.origin + location.pathname },
     });
 
-    // Handle redirect callback
     if (location.search.includes('state=') && location.search.includes('code=')) {
       await auth0Client.handleRedirectCallback();
       history.replaceState({}, '', location.pathname);
     }
 
-    // Check auth state
     if (await auth0Client.isAuthenticated()) {
       accessToken = await auth0Client.getTokenSilently();
       const me = await authFetch('/auth/me').then(r => r.json());
@@ -263,36 +331,71 @@ function showApp(me) {
   document.getElementById('landing').style.display = 'none';
   document.getElementById('app').classList.add('visible');
   document.getElementById('handleDisplay').textContent = '@' + (me.handle || '?');
-  document.getElementById('statusDot').classList.add('ok');
 
-  // Sign out
   document.getElementById('signOutBtn').onclick = () => {
     auth0Client.logout({ logoutParams: { returnTo: location.origin } });
   };
 
-  // API key save (placeholder — stores in localStorage for now)
-  document.getElementById('saveKeyBtn').onclick = async () => {
-    const key = document.getElementById('apiKeyInput').value.trim();
-    if (!key) return;
-    const keyStatus = document.getElementById('keyStatus');
-    keyStatus.textContent = 'saving...';
+  // Connect with Anthropic
+  document.getElementById('connectBtn').onclick = async () => {
+    const btn = document.getElementById('connectBtn');
+    btn.disabled = true;
+    btn.textContent = 'opening anthropic...';
     try {
-      // TODO: Save to server (encrypted in MongoDB)
-      // For now, just validate format
-      if (!key.startsWith('sk-ant-')) {
-        keyStatus.textContent = 'key should start with sk-ant-';
-        keyStatus.style.color = 'var(--pink)';
-        return;
-      }
-      keyStatus.textContent = 'key saved';
-      keyStatus.style.color = 'var(--green)';
-      document.getElementById('apiKeyInput').value = '';
-      document.getElementById('statusText').textContent = 'key configured — chat coming soon';
+      const { url, state } = await authFetch('/api/anthropic/auth-url').then(r => r.json());
+      pendingState = state;
+      window.open(url, '_blank');
+      document.getElementById('codeEntry').classList.add('visible');
+      btn.textContent = 'sign in with anthropic';
+      btn.disabled = false;
     } catch (err) {
-      keyStatus.textContent = 'error: ' + err.message;
-      keyStatus.style.color = 'var(--pink)';
+      btn.textContent = 'sign in with anthropic';
+      btn.disabled = false;
+      document.getElementById('connectStatus').textContent = 'error: ' + err.message;
     }
   };
+
+  // Submit authorization code
+  document.getElementById('codeSubmit').onclick = async () => {
+    const code = document.getElementById('codeInput').value.trim();
+    const statusEl = document.getElementById('connectStatus');
+    if (!code) { statusEl.textContent = 'paste the code first'; return; }
+
+    statusEl.textContent = 'connecting...';
+    try {
+      const resp = await authFetch('/api/anthropic/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, state: pendingState }),
+      });
+      const data = await resp.json();
+      if (data.ok) {
+        statusEl.textContent = '';
+        document.getElementById('codeInput').value = '';
+        document.getElementById('codeEntry').classList.remove('visible');
+        await checkAnthropicStatus();
+      } else {
+        statusEl.textContent = data.error || 'connection failed';
+        statusEl.style.color = 'var(--pink)';
+      }
+    } catch (err) {
+      statusEl.textContent = 'error: ' + err.message;
+      statusEl.style.color = 'var(--pink)';
+    }
+  };
+
+  // Also submit on Enter
+  document.getElementById('codeInput').onkeydown = (e) => {
+    if (e.key === 'Enter') document.getElementById('codeSubmit').click();
+  };
+
+  // Disconnect
+  document.getElementById('disconnectBtn').onclick = async () => {
+    await authFetch('/api/anthropic/disconnect', { method: 'POST' });
+    await checkAnthropicStatus();
+  };
+
+  checkAnthropicStatus();
 }
 
 // Theme
