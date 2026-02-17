@@ -217,7 +217,7 @@
       top: calc(var(--ui-scale, 8) * 3px);
       left: calc(var(--ui-scale, 8) * 3px);
       right: calc(var(--ui-scale, 8) * 3px);
-      bottom: calc(var(--ui-scale, 8) * 22px);
+      bottom: calc(var(--ui-scale, 8) * 26px);
       font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
       font-size: calc(var(--ui-scale, 8) * 2.5px);
       line-height: 1.5;
@@ -520,10 +520,7 @@
     }
 
     .ff1-playlist-header.visible {
-      display: flex;
-      flex-direction: row;
-      align-items: baseline;
-      gap: calc(var(--ui-scale, 8) * 1px);
+      display: none;
     }
     
     .ff1-playlist-title {
@@ -545,7 +542,7 @@
     
     /* FF1 CLI copy button inside module */
     .piece-ff1-copy {
-      display: flex;
+      display: none;
       align-items: center;
       gap: calc(var(--ui-scale, 8) * 0.5px);
       margin: 0;
@@ -1139,6 +1136,53 @@
           console.log('📺 Monaco editor created for device mode');
         }
       });
+    }
+
+    // Auto-scroll Monaco source code when content overflows the visible area.
+    // Scrolls slowly top-to-bottom, pauses, then resets and repeats.
+    let monacoAutoScrollTimer = null;
+    function startMonacoAutoScroll(editor) {
+      if (monacoAutoScrollTimer) clearInterval(monacoAutoScrollTimer);
+      if (!editor) return;
+      const model = editor.getModel();
+      if (!model) return;
+      const lineCount = model.getLineCount();
+      const visibleLines = Math.floor(editor.getLayoutInfo().height / editor.getOption(monaco.editor.EditorOption.lineHeight));
+      if (lineCount <= visibleLines) return; // No scroll needed
+      let scrollTop = 0;
+      const maxScroll = editor.getScrollHeight() - editor.getLayoutInfo().height;
+      const pxPerTick = 0.5; // Slow scroll speed
+      const pauseAtEnd = 3000; // ms to pause at bottom
+      const pauseAtTop = 3000; // ms to pause at top
+      let pausing = false;
+      let pauseTimeout = null;
+      // Start with a pause at top
+      pausing = true;
+      pauseTimeout = setTimeout(() => { pausing = false; }, pauseAtTop);
+      monacoAutoScrollTimer = setInterval(() => {
+        if (pausing) return;
+        scrollTop += pxPerTick;
+        if (scrollTop >= maxScroll) {
+          scrollTop = maxScroll;
+          editor.setScrollTop(scrollTop);
+          pausing = true;
+          pauseTimeout = setTimeout(() => {
+            scrollTop = 0;
+            editor.setScrollTop(0);
+            pausing = true;
+            pauseTimeout = setTimeout(() => { pausing = false; }, pauseAtTop);
+          }, pauseAtEnd);
+          return;
+        }
+        editor.setScrollTop(scrollTop);
+      }, 32); // ~30fps
+    }
+
+    function stopMonacoAutoScroll() {
+      if (monacoAutoScrollTimer) {
+        clearInterval(monacoAutoScrollTimer);
+        monacoAutoScrollTimer = null;
+      }
     }
 
     // Setup syntax highlighting for device mode using MonacoKidLispHighlighter
@@ -1960,9 +2004,7 @@
         // Set final source code in Monaco
         if (window.deviceMonacoEditor && pendingSource) {
           window.deviceMonacoEditor.setValue(pendingSource);
-
-          // Syntax highlighting is now handled automatically by MonacoKidLispHighlighter
-          // (Old manual decoration system removed)
+          startMonacoAutoScroll(window.deviceMonacoEditor);
         }
 
         isScrambling = false;
@@ -2928,6 +2970,7 @@
       // Update source code in Monaco (instant, no scramble)
       if (data?.source && window.deviceMonacoEditor) {
         window.deviceMonacoEditor.setValue(data.source);
+        startMonacoAutoScroll(window.deviceMonacoEditor);
       }
 
       // Re-check overlap
@@ -3240,7 +3283,8 @@
 
       console.log('📺 displaySourceCode called with', source.length, 'chars');
 
-      // Stop any running scramble animation before starting new one
+      // Stop any running auto-scroll and scramble animation before starting new one
+      stopMonacoAutoScroll();
       if (window.stopScrambleAnimation) window.stopScrambleAnimation();
 
       // Start scramble animation in Monaco - will decode when piece starts running
@@ -3251,6 +3295,7 @@
       } else if (window.deviceMonacoEditor) {
         // Fallback: show code immediately if scramble not available
         window.deviceMonacoEditor.setValue(source);
+        startMonacoAutoScroll(window.deviceMonacoEditor);
         console.log('📺 Source loaded into Monaco (no scramble)');
       } else {
         console.warn('📺 Monaco not ready yet');
