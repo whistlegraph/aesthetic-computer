@@ -6,6 +6,7 @@ import express from "express";
 import http from "http";
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
 import { fileURLToPath } from "url";
 import { MongoClient } from "mongodb";
 
@@ -22,6 +23,28 @@ const AUTH0_CUSTOM_DOMAIN = "hi.aesthetic.computer";
 const ADMIN_SUB = process.env.ADMIN_SUB || "";
 const AUTH_CACHE_TTL = 300_000;
 const authCache = new Map();
+
+// --- Anthropic OAuth ---
+const ANTHROPIC_CLIENT_ID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
+const ANTHROPIC_AUTH_URL = "https://claude.ai/oauth/authorize";
+const ANTHROPIC_TOKEN_URL = "https://console.anthropic.com/v1/oauth/token";
+const ANTHROPIC_REDIRECT_URI = "https://console.anthropic.com/oauth/code/callback";
+const ANTHROPIC_SCOPES = "org:create_api_key user:profile user:inference";
+
+// In-memory PKCE state store (keyed by state, expires after 10 min)
+const pendingOAuth = new Map();
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of pendingOAuth) {
+    if (now - v.createdAt > 600_000) pendingOAuth.delete(k);
+  }
+}, 60_000);
+
+function generatePKCE() {
+  const verifier = crypto.randomBytes(32).toString("base64url");
+  const challenge = crypto.createHash("sha256").update(verifier).digest("base64url");
+  return { verifier, challenge };
+}
 
 // --- MongoDB ---
 let db = null;
@@ -107,10 +130,106 @@ app.get("/auth/me", async (req, res) => {
   res.json({ handle: auth.handle, isAdmin: auth.isAdmin });
 });
 
+// --- Anthropic OAuth ---
+
+// Step 1: generate PKCE + return the Anthropic authorization URL
+app.get("/api/anthropic/auth-url", requireAuth, (req, res) => {
+  const { verifier, challenge } = generatePKCE();
+  const state = crypto.randomBytes(16).toString("hex");
+
+  pendingOAuth.set(state, { verifier, createdAt: Date.now(), sub: req.auth.user.sub });
+
+  const params = new URLSearchParams({
+    client_id: ANTHROPIC_CLIENT_ID,
+    response_type: "code",
+    redirect_uri: ANTHROPIC_REDIRECT_URI,
+    scope: ANTHROPIC_SCOPES,
+    code_challenge: challenge,
+    code_challenge_method: "S256",
+    state,
+  });
+
+  res.json({ url: `${ANTHROPIC_AUTH_URL}?${params}`, state });
+});
+
+// Step 2: exchange authorization code for tokens, store in MongoDB
+app.post("/api/anthropic/connect", requireAuth, async (req, res) => {
+  const { code, state } = req.body;
+  if (!code || !state) return res.status(400).json({ error: "Missing code or state" });
+
+  const pending = pendingOAuth.get(state);
+  if (!pending) return res.status(400).json({ error: "Invalid or expired state" });
+  if (pending.sub !== req.auth.user.sub) return res.status(403).json({ error: "State mismatch" });
+
+  pendingOAuth.delete(state);
+
+  try {
+    const resp = await fetch(ANTHROPIC_TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        grant_type: "authorization_code",
+        client_id: ANTHROPIC_CLIENT_ID,
+        code,
+        redirect_uri: ANTHROPIC_REDIRECT_URI,
+        code_verifier: pending.verifier,
+      }),
+    });
+
+    if (!resp.ok) {
+      const err = await resp.text();
+      console.error("anthropic token exchange failed:", err);
+      return res.status(400).json({ error: "Token exchange failed", detail: err });
+    }
+
+    const tokens = await resp.json();
+    const expiresAt = Date.now() + (tokens.expires_in || 28800) * 1000;
+
+    if (db) {
+      await db.collection("help-anthropic-tokens").updateOne(
+        { _id: req.auth.user.sub },
+        {
+          $set: {
+            accessToken: tokens.access_token,
+            refreshToken: tokens.refresh_token,
+            expiresAt,
+            connectedAt: new Date(),
+            handle: req.auth.handle,
+          },
+        },
+        { upsert: true }
+      );
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("anthropic connect error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Check Anthropic connection status
+app.get("/api/anthropic/status", requireAuth, async (req, res) => {
+  if (!db) return res.json({ connected: false });
+  const doc = await db.collection("help-anthropic-tokens").findOne(
+    { _id: req.auth.user.sub },
+    { projection: { expiresAt: 1, connectedAt: 1 } }
+  );
+  if (!doc) return res.json({ connected: false });
+  res.json({ connected: true, expiresAt: doc.expiresAt, connectedAt: doc.connectedAt });
+});
+
+// Disconnect Anthropic account
+app.post("/api/anthropic/disconnect", requireAuth, async (req, res) => {
+  if (db) {
+    await db.collection("help-anthropic-tokens").deleteOne({ _id: req.auth.user.sub });
+  }
+  res.json({ ok: true });
+});
+
 // --- Start ---
 loadIndex();
 
-// Reload index on SIGHUP (zero-downtime dashboard update)
 process.on("SIGHUP", () => {
   console.log("SIGHUP — reloading index");
   loadIndex();
