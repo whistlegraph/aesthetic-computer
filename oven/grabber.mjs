@@ -159,25 +159,19 @@ export function updateProgress(grabId, updates) {
  */
 async function capturePreviewFrame(page, width = 64, height = 64) {
   try {
-    // Use CDP for faster, lower quality screenshot
-    const client = await page.createCDPSession();
-    const result = await Promise.race([
-      client.send('Page.captureScreenshot', {
-        format: 'jpeg',
-        quality: 20, // Very low quality for speed
-        clip: { 
-          x: 0, 
-          y: 0, 
-          width: page.viewport().width, 
-          height: page.viewport().height, 
-          scale: width / page.viewport().width // Scale down
-        },
-        captureBeyondViewport: false
-      }),
+    // Use page.screenshot() which handles deviceScaleFactor correctly,
+    // then resize with sharp. The old CDP clip.scale approach was wrong —
+    // it captured a top-left crop instead of a scaled-down full-frame preview.
+    const buffer = await Promise.race([
+      page.screenshot({ type: 'jpeg', quality: 20 }),
       new Promise((_, reject) => setTimeout(() => reject(new Error('Preview timeout')), 500))
     ]);
-    await client.detach().catch(() => {});
-    return result.data; // Already base64
+    if (!buffer) return null;
+    const resized = await sharp(buffer)
+      .resize(width, height, { fit: 'fill' })
+      .jpeg({ quality: 20 })
+      .toBuffer();
+    return resized.toString('base64');
   } catch (err) {
     return null; // Don't fail on preview errors
   }
@@ -1374,61 +1368,72 @@ async function captureFrames(piece, options = {}) {
     });
     
     console.log(`   Capturing frames...`);
-    for (let i = 0; i < frames; i++) {
-      // AC rendering stack has multiple canvases layered on top of each other:
-      // - Main 2D canvas (no dataset.type) - software renderer
-      // - Glaze canvas (dataset.type="glaze") - WebGL post-processing
-      // - UI canvas (dataset.type="ui")
-      // We need to composite them properly to get the full rendered output
-      
-      console.log(`   [Frame ${i+1}] Starting capture...`);
-      
-      // Update progress with preview for each frame
-      const capturePercent = 30 + ((i / frames) * 50); // 30% to 80% during capture
-      await updateProgressWithPreview(grabId, page, {
-        framesCaptured: i,
-        stageDetail: `Frame ${i + 1}/${frames}`,
-        percent: Math.round(capturePercent),
-      });
-      
-      // Use CDP directly for screenshot - more reliable than page.screenshot for WebGL
-      let frameBuffer;
-      try {
-        const client = await page.createCDPSession();
-        const screenshotPromise = client.send('Page.captureScreenshot', {
-          format: 'png',
-          clip: { x: 0, y: 0, width, height, scale: 1 },
-          captureBeyondViewport: false
-        });
-        
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('CDP Screenshot timeout')), 10000)
-        );
-        
-        const result = await Promise.race([screenshotPromise, timeoutPromise]);
-        frameBuffer = result.data;
-        await client.detach().catch(() => {}); // Ignore detach errors
-        console.log(`   [Frame ${i+1}] Screenshot captured (${frameBuffer.length} bytes)`);
-      } catch (err) {
-        console.log(`   ❌ Frame capture failed: ${err.message}`);
-        frameBuffer = null;
-      }
-      
-      if (frameBuffer) {
-        const buffer = Buffer.from(frameBuffer, 'base64');
-        // Check if frame is blank (all black or all transparent)
-        const isBlank = await isBlankFrame(buffer);
-        if (isBlank) {
-          console.log(`   ⚠️ Frame ${i + 1} is blank, skipping`);
+    // Create a single CDP session for the entire capture loop to avoid the
+    // overhead and potential compositor interference of creating/destroying a
+    // session per frame (90+ times for a 12-second animation).
+    const captureClient = await page.createCDPSession();
+    try {
+      for (let i = 0; i < frames; i++) {
+        console.log(`   [Frame ${i+1}] Starting capture...`);
+
+        // Only capture a live preview every 10 frames — calling page.screenshot()
+        // before every single frame added significant overhead and could cause
+        // the WebGL compositor to miss frames in the CDP capture.
+        const capturePercent = 30 + ((i / frames) * 50); // 30% to 80% during capture
+        if (i % 10 === 0) {
+          await updateProgressWithPreview(grabId, page, {
+            framesCaptured: i,
+            stageDetail: `Frame ${i + 1}/${frames}`,
+            percent: Math.round(capturePercent),
+          });
         } else {
-          capturedFrames.push(buffer);
+          updateProgress(grabId, {
+            framesCaptured: i,
+            stageDetail: `Frame ${i + 1}/${frames}`,
+            percent: Math.round(capturePercent),
+          });
+        }
+
+        // Use the shared CDP session for screenshot - more reliable than
+        // page.screenshot for WebGL, and avoids session churn per frame.
+        let frameBuffer;
+        try {
+          const screenshotPromise = captureClient.send('Page.captureScreenshot', {
+            format: 'png',
+            clip: { x: 0, y: 0, width, height, scale: 1 },
+            captureBeyondViewport: false
+          });
+
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('CDP Screenshot timeout')), 10000)
+          );
+
+          const result = await Promise.race([screenshotPromise, timeoutPromise]);
+          frameBuffer = result.data;
+          console.log(`   [Frame ${i+1}] Screenshot captured (${frameBuffer.length} bytes)`);
+        } catch (err) {
+          console.log(`   ❌ Frame capture failed: ${err.message}`);
+          frameBuffer = null;
+        }
+
+        if (frameBuffer) {
+          const buffer = Buffer.from(frameBuffer, 'base64');
+          // Check if frame is blank (all black or all transparent)
+          const isBlank = await isBlankFrame(buffer);
+          if (isBlank) {
+            console.log(`   ⚠️ Frame ${i + 1} is blank, skipping`);
+          } else {
+            capturedFrames.push(buffer);
+          }
+        }
+
+        // Wait for next frame
+        if (i < frames - 1) {
+          await new Promise(r => setTimeout(r, frameInterval));
         }
       }
-      
-      // Wait for next frame
-      if (i < frames - 1) {
-        await new Promise(r => setTimeout(r, frameInterval));
-      }
+    } finally {
+      await captureClient.detach().catch(() => {});
     }
     
     console.log(`   ✅ Captured ${capturedFrames.length} non-blank frames`);
