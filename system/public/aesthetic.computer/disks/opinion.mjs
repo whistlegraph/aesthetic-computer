@@ -9,8 +9,8 @@ const { min, max, floor, ceil } = Math;
 const BODY_FONT = "MatrixChunky8";
 const BODY_LINE_H = 10; // 8px font height + 2px gap
 const HEAD_LINE_H = 11; // 10px font height + 1px gap
-const SCROLL_BAR_W = 4; // Left-side scroll bar width (matches prutti)
-const LEFT_MARGIN = 10; // 4px scroll bar + 6px gap (matches prutti)
+const SCROLL_BAR_W = 3; // Left-side scroll bar width (matches chat.mjs)
+const LEFT_MARGIN = 9; // 3px scroll bar + 6px gap
 const RIGHT_MARGIN = 6;
 const TOP_PAD = 4;
 const BOTTOM_PAD = 10;
@@ -340,18 +340,13 @@ function paint({ wipe, ink, screen, text, line, dark, paintCount }) {
     }
   }
 
-  // Left-side scroll bar (matches prutti.mjs pattern)
+  // Left-side scroll bar (matches chat.mjs style)
   const viewH = screen.height;
   if (contentHeight > viewH) {
-    const scrollMax = contentHeight - viewH;
-    const totalScrollRange = scrollMax + 6;
-    const viewportRatio = viewH / (viewH + scrollMax);
-    const indicatorH = max(4, floor(viewH * viewportRatio));
-    const scrollProgress = (-scroll + scrollMax) / totalScrollRange;
-    const indicatorY = floor((1 - scrollProgress) * (viewH - indicatorH));
-
-    ink(pal.scrollTrack).box(0, 0, SCROLL_BAR_W, viewH);
-    ink(pal.scrollThumb).box(0, indicatorY, SCROLL_BAR_W, indicatorH);
+    ink("gray").box(0, 0, SCROLL_BAR_W, viewH);
+    const segH = max(1, floor((viewH / contentHeight) * viewH) - 1);
+    const thumbY = ceil(viewH - segH - (scroll / contentHeight) * viewH) || 0;
+    ink(pal.scrollThumb).box(0, thumbY, SCROLL_BAR_W, segH);
   }
 }
 
@@ -389,18 +384,13 @@ function paintIndex({ ink, screen, text, line, pal }) {
   // Update content height for index scrolling
   contentHeight = (headerBottom + 6) + indexData.length * (HEAD_LINE_H + BODY_LINE_H + 8) + BOTTOM_PAD;
 
-  // Left-side scroll bar for index
+  // Left-side scroll bar (matches chat.mjs style)
   const viewH = screen.height;
   if (contentHeight > viewH) {
-    const scrollMax = contentHeight - viewH;
-    const totalScrollRange = scrollMax + 6;
-    const viewportRatio = viewH / (viewH + scrollMax);
-    const indicatorH = max(4, floor(viewH * viewportRatio));
-    const scrollProgress = (-scroll + scrollMax) / totalScrollRange;
-    const indicatorY = floor((1 - scrollProgress) * (viewH - indicatorH));
-
-    ink(pal.scrollTrack).box(0, 0, SCROLL_BAR_W, viewH);
-    ink(pal.scrollThumb).box(0, indicatorY, SCROLL_BAR_W, indicatorH);
+    ink("gray").box(0, 0, SCROLL_BAR_W, viewH);
+    const segH = max(1, floor((viewH / contentHeight) * viewH) - 1);
+    const thumbY = ceil(viewH - segH - (scroll / contentHeight) * viewH) || 0;
+    ink(pal.scrollThumb).box(0, thumbY, SCROLL_BAR_W, segH);
   }
 }
 
