@@ -52,7 +52,7 @@ function act({ event: e, jump }) {
       msg = "";
       console.log("❌ Sign cleared!");
       flash = true;
-    } else if (key == "escape" || key === "`") {
+    } else if (key === "escape" || key === "`") {
       jump("prompt");
     } else if (key.length === 1 && e.ctrl === false) {
       msg += e.key;
