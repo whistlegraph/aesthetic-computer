@@ -6,7 +6,6 @@ import express from "express";
 import http from "http";
 import fs from "fs";
 import path from "path";
-import crypto from "crypto";
 import { fileURLToPath } from "url";
 import { MongoClient } from "mongodb";
 
@@ -16,35 +15,14 @@ const app = express();
 const PORT = process.env.PORT || 3004;
 const SERVER_START_TIME = Date.now();
 
-// --- Auth0 ---
+// --- Config ---
 const AUTH0_DOMAIN = process.env.AUTH0_DOMAIN || "aesthetic.us.auth0.com";
 const AUTH0_CLIENT_ID = process.env.AUTH0_CLIENT_ID || "";
 const AUTH0_CUSTOM_DOMAIN = "hi.aesthetic.computer";
 const ADMIN_SUB = process.env.ADMIN_SUB || "";
-const AUTH_CACHE_TTL = 300_000;
-const authCache = new Map();
-
-// --- Anthropic OAuth ---
-const ANTHROPIC_CLIENT_ID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
-const ANTHROPIC_AUTH_URL = "https://claude.ai/oauth/authorize";
-const ANTHROPIC_TOKEN_URL = "https://console.anthropic.com/v1/oauth/token";
-const ANTHROPIC_REDIRECT_URI = "https://console.anthropic.com/oauth/code/callback";
-const ANTHROPIC_SCOPES = "org:create_api_key user:profile user:inference";
-
-// In-memory PKCE state store (keyed by state, expires after 10 min)
-const pendingOAuth = new Map();
-setInterval(() => {
-  const now = Date.now();
-  for (const [k, v] of pendingOAuth) {
-    if (now - v.createdAt > 600_000) pendingOAuth.delete(k);
-  }
-}, 60_000);
-
-function generatePKCE() {
-  const verifier = crypto.randomBytes(32).toString("base64url");
-  const challenge = crypto.createHash("sha256").update(verifier).digest("base64url");
-  return { verifier, challenge };
-}
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "";
+const MODEL = "claude-haiku-4-5-20251001";
+const DAILY_LIMIT = 50; // messages per handle per day
 
 // --- MongoDB ---
 let db = null;
@@ -72,6 +50,9 @@ function loadIndex() {
 }
 
 // --- Auth ---
+const authCache = new Map();
+const AUTH_CACHE_TTL = 300_000;
+
 async function validateToken(authorization) {
   if (!authorization) return null;
   const cached = authCache.get(authorization);
@@ -104,6 +85,32 @@ async function requireAuth(req, res, next) {
   next();
 }
 
+// --- Rate Limiting ---
+async function checkRateLimit(handle) {
+  if (!db) return { ok: true, used: 0, limit: DAILY_LIMIT };
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD UTC
+  const doc = await db.collection("help-usage").findOneAndUpdate(
+    { _id: `${handle}:${today}` },
+    { $inc: { count: 1 }, $setOnInsert: { handle, date: today } },
+    { upsert: true, returnDocument: "after" }
+  );
+  const used = doc.count;
+  return { ok: used <= DAILY_LIMIT, used, limit: DAILY_LIMIT };
+};
+
+// --- System Prompt ---
+const SYSTEM_PROMPT = `You are a helpful AI assistant for Aesthetic Computer (aesthetic.computer), a mobile-first creative computing platform.
+
+You help users with:
+- Writing pieces in JavaScript (.mjs) — the core lifecycle functions: boot, paint, act, sim, leave
+- KidLisp (.lisp) — a minimal Lisp dialect for generative art with ~118 built-in functions
+- The piece API: graphics (wipe, ink, line, box, circle), text (write, type), input (event, pen, hand), audio (sound, speaker), UI (ui.Button, ui.TextInput), system (screen, params, store, net, jump, send)
+- Event handling: event.is("keyboard:down:space"), event.is("touch"), event.is("lift"), event.is("draw")
+- Publishing, forking, sharing pieces
+- General creative computing and generative art concepts
+
+Keep answers concise and practical. When showing code, use valid AC piece syntax. For KidLisp, output only valid .lisp code without markdown fencing unless illustrating a point.`;
+
 // --- Routes ---
 app.use(express.json());
 
@@ -113,11 +120,7 @@ app.get("/", (req, res) => {
 });
 
 app.get("/health", (req, res) => {
-  res.json({
-    status: "ok",
-    uptime: Date.now() - SERVER_START_TIME,
-    mongo: !!db,
-  });
+  res.json({ status: "ok", uptime: Date.now() - SERVER_START_TIME, mongo: !!db });
 });
 
 app.get("/auth/config", (req, res) => {
@@ -130,114 +133,98 @@ app.get("/auth/me", async (req, res) => {
   res.json({ handle: auth.handle, isAdmin: auth.isAdmin });
 });
 
-// --- Anthropic OAuth ---
+// --- Chat (streaming) ---
+app.post("/api/chat", requireAuth, async (req, res) => {
+  if (!ANTHROPIC_API_KEY) return res.status(500).json({ error: "API not configured" });
 
-// Step 1: generate PKCE + return the Anthropic authorization URL
-app.get("/api/anthropic/auth-url", requireAuth, (req, res) => {
-  const { verifier, challenge } = generatePKCE();
-  const state = crypto.randomBytes(16).toString("hex");
+  const { messages } = req.body;
+  if (!Array.isArray(messages) || messages.length === 0)
+    return res.status(400).json({ error: "messages required" });
 
-  pendingOAuth.set(state, { verifier, createdAt: Date.now(), sub: req.auth.user.sub });
+  const handle = req.auth.handle || req.auth.user.sub;
+  const rate = await checkRateLimit(handle);
+  if (!rate.ok) {
+    return res.status(429).json({
+      error: `Daily limit reached (${rate.limit} messages/day). Try again tomorrow.`,
+    });
+  }
 
-  const params = new URLSearchParams({
-    client_id: ANTHROPIC_CLIENT_ID,
-    response_type: "code",
-    redirect_uri: ANTHROPIC_REDIRECT_URI,
-    scope: ANTHROPIC_SCOPES,
-    code_challenge: challenge,
-    code_challenge_method: "S256",
-    state,
-  });
+  // Only keep user/assistant messages; inject system prompt server-side
+  const chatMessages = messages.filter(m => m.role !== "system").slice(-20); // last 20 turns
 
-  res.json({ url: `${ANTHROPIC_AUTH_URL}?${params}`, state });
-});
+  const payload = {
+    model: MODEL,
+    system: SYSTEM_PROMPT,
+    messages: chatMessages,
+    max_tokens: 2048,
+    temperature: 1,
+    stream: true,
+  };
 
-// Step 2: exchange authorization code for tokens, store in MongoDB
-app.post("/api/anthropic/connect", requireAuth, async (req, res) => {
-  const { code, state } = req.body;
-  if (!code || !state) return res.status(400).json({ error: "Missing code or state" });
+  let anthropicRes;
+  try {
+    anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch (err) {
+    return res.status(502).json({ error: "Anthropic unreachable" });
+  }
 
-  const pending = pendingOAuth.get(state);
-  if (!pending) return res.status(400).json({ error: "Invalid or expired state" });
-  if (pending.sub !== req.auth.user.sub) return res.status(403).json({ error: "State mismatch" });
+  if (!anthropicRes.ok) {
+    const text = await anthropicRes.text();
+    return res.status(anthropicRes.status).json({ error: text });
+  }
 
-  pendingOAuth.delete(state);
+  // Stream plain text back to client
+  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  res.setHeader("X-Rate-Limit-Used", rate.used);
+  res.setHeader("X-Rate-Limit-Total", rate.limit);
+
+  const reader = anthropicRes.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
 
   try {
-    const resp = await fetch(ANTHROPIC_TOKEN_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        grant_type: "authorization_code",
-        client_id: ANTHROPIC_CLIENT_ID,
-        code,
-        redirect_uri: ANTHROPIC_REDIRECT_URI,
-        code_verifier: pending.verifier,
-      }),
-    });
-
-    if (!resp.ok) {
-      const err = await resp.text();
-      console.error("anthropic token exchange failed:", err);
-      return res.status(400).json({ error: "Token exchange failed", detail: err });
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split("\n");
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const data = line.slice(6).trim();
+        if (data === "[DONE]") break;
+        try {
+          const evt = JSON.parse(data);
+          if (evt.type === "content_block_delta" && evt.delta?.type === "text_delta") {
+            res.write(evt.delta.text);
+          }
+        } catch { /* skip malformed */ }
+      }
     }
-
-    const tokens = await resp.json();
-    const expiresAt = Date.now() + (tokens.expires_in || 28800) * 1000;
-
-    if (db) {
-      await db.collection("help-anthropic-tokens").updateOne(
-        { _id: req.auth.user.sub },
-        {
-          $set: {
-            accessToken: tokens.access_token,
-            refreshToken: tokens.refresh_token,
-            expiresAt,
-            connectedAt: new Date(),
-            handle: req.auth.handle,
-          },
-        },
-        { upsert: true }
-      );
-    }
-
-    res.json({ ok: true });
-  } catch (err) {
-    console.error("anthropic connect error:", err.message);
-    res.status(500).json({ error: err.message });
+  } finally {
+    res.end();
   }
 });
 
-// Check Anthropic connection status
-app.get("/api/anthropic/status", requireAuth, async (req, res) => {
-  if (!db) return res.json({ connected: false });
-  const doc = await db.collection("help-anthropic-tokens").findOne(
-    { _id: req.auth.user.sub },
-    { projection: { expiresAt: 1, connectedAt: 1 } }
-  );
-  if (!doc) return res.json({ connected: false });
-  res.json({ connected: true, expiresAt: doc.expiresAt, connectedAt: doc.connectedAt });
-});
-
-// Disconnect Anthropic account
-app.post("/api/anthropic/disconnect", requireAuth, async (req, res) => {
-  if (db) {
-    await db.collection("help-anthropic-tokens").deleteOne({ _id: req.auth.user.sub });
-  }
-  res.json({ ok: true });
+// Usage stats for the UI
+app.get("/api/usage", requireAuth, async (req, res) => {
+  const handle = req.auth.handle || req.auth.user.sub;
+  if (!db) return res.json({ used: 0, limit: DAILY_LIMIT });
+  const today = new Date().toISOString().slice(0, 10);
+  const doc = await db.collection("help-usage").findOne({ _id: `${handle}:${today}` });
+  res.json({ used: doc?.count || 0, limit: DAILY_LIMIT });
 });
 
 // --- Start ---
 loadIndex();
-
-process.on("SIGHUP", () => {
-  console.log("SIGHUP — reloading index");
-  loadIndex();
-});
-
+process.on("SIGHUP", () => { console.log("SIGHUP — reloading index"); loadIndex(); });
 await connectMongo();
-
-const server = http.createServer(app);
-server.listen(PORT, () => {
-  console.log(`help listening on :${PORT}`);
-});
+http.createServer(app).listen(PORT, () => console.log(`help listening on :${PORT}`));

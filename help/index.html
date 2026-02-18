@@ -10,251 +10,182 @@
 :root {
   --bg: #111; --bg2: #1a1a1a; --fg: #ccc; --fg2: #888;
   --pink: #ff6b9d; --green: #6bcb77; --cyan: #4ecdc4;
-  --border: #333; --hover: #222;
+  --border: #333;
 }
 [data-theme="light"] {
   --bg: #f4f4f4; --bg2: #fff; --fg: #222; --fg2: #777;
   --pink: rgb(205, 92, 155); --green: #059669; --cyan: #0891b2;
-  --border: #ccc; --hover: #eee;
+  --border: #ccc;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
-::-webkit-scrollbar { display: none; }
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); }
 html, body { height: 100%; }
 body {
   font-family: 'Berkeley Mono Variable', monospace;
   font-size: 14px; line-height: 1.6;
   background: var(--bg); color: var(--fg);
   cursor: url('https://aesthetic.computer/aesthetic.computer/cursors/precise.svg') 12 12, auto;
-  display: flex; flex-direction: column; align-items: center;
-  justify-content: center; padding: 2em;
   -webkit-text-size-adjust: none;
 }
 
-/* login screen */
-.landing {
-  max-width: 480px; width: 100%;
-  display: flex; flex-direction: column;
-  align-items: center; gap: 1.5em;
-  text-align: center;
+/* ---- LANDING ---- */
+#landing {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; height: 100%;
+  padding: 2em; gap: 1.5em; text-align: center;
 }
-.logo {
-  font-size: 24px; font-weight: normal;
-  letter-spacing: 3px; color: var(--fg);
-}
+.logo { font-size: 24px; font-weight: normal; letter-spacing: 3px; }
 .logo span { color: var(--pink); }
-.subtitle {
-  font-size: 12px; color: var(--fg2);
-  line-height: 1.7; max-width: 380px;
-}
+.subtitle { font-size: 12px; color: var(--fg2); line-height: 1.7; max-width: 380px; }
 .subtitle a { color: var(--cyan); text-decoration: none; }
 .subtitle a:hover { text-decoration: underline; }
+.divider { width: 40px; height: 1px; background: var(--border); }
+.steps { text-align: left; max-width: 380px; width: 100%; display: flex; flex-direction: column; gap: 0.8em; }
+.step { font-size: 12px; color: var(--fg2); padding-left: 1.5em; position: relative; }
+.step::before { content: attr(data-n); position: absolute; left: 0; color: var(--pink); font-size: 11px; }
+.btn {
+  font-family: inherit; font-size: 13px; letter-spacing: 1px;
+  padding: 8px 24px; background: var(--bg2); color: var(--fg);
+  border: 1px solid var(--border); cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+.btn:hover { border-color: var(--pink); color: var(--pink); }
+#authStatus { font-size: 11px; color: var(--fg2); }
 
-/* sign in button */
-.sign-in {
+/* ---- CHAT APP ---- */
+#app {
+  display: none; flex-direction: column; height: 100%;
+}
+#app.visible { display: flex; }
+
+/* header */
+#header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px; border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+#header .logo { font-size: 16px; letter-spacing: 2px; }
+.header-right { display: flex; align-items: center; gap: 12px; }
+#usageBar { font-size: 11px; color: var(--fg2); }
+#handleBadge { font-size: 11px; color: var(--pink); }
+.sign-out-btn {
+  font-family: inherit; font-size: 11px; background: none;
+  border: none; color: var(--fg2); cursor: pointer; padding: 0;
+}
+.sign-out-btn:hover { color: var(--fg); }
+
+/* messages */
+#messages {
+  flex: 1; overflow-y: auto; padding: 16px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.msg { display: flex; flex-direction: column; gap: 4px; max-width: 680px; }
+.msg.user { align-self: flex-end; align-items: flex-end; }
+.msg.assistant { align-self: flex-start; align-items: flex-start; }
+.msg-role { font-size: 10px; color: var(--fg2); letter-spacing: 1px; text-transform: uppercase; }
+.msg.user .msg-role { color: var(--pink); }
+.msg-body {
+  font-size: 13px; line-height: 1.65; color: var(--fg);
+  background: var(--bg2); border: 1px solid var(--border);
+  padding: 10px 14px; white-space: pre-wrap; word-break: break-word;
+}
+
+/* typing indicator */
+#typing { display: none; align-self: flex-start; }
+#typing.visible { display: flex; }
+#typing .msg-body { color: var(--fg2); font-style: italic; }
+
+/* input area */
+#inputArea {
+  border-top: 1px solid var(--border); padding: 12px 16px;
+  display: flex; gap: 8px; align-items: flex-end; flex-shrink: 0;
+}
+#msgInput {
   font-family: inherit; font-size: 13px;
-  padding: 8px 24px; margin-top: 0.5em;
+  flex: 1; padding: 8px 12px; resize: none;
   background: var(--bg2); color: var(--fg);
   border: 1px solid var(--border);
-  cursor: pointer; letter-spacing: 1px;
-  transition: border-color 0.2s, color 0.2s;
+  min-height: 38px; max-height: 160px; overflow-y: auto; line-height: 1.5;
 }
-.sign-in:hover { border-color: var(--pink); color: var(--pink); }
+#msgInput:focus { outline: none; border-color: var(--cyan); }
+#msgInput::placeholder { color: var(--fg2); }
+#sendBtn {
+  font-family: inherit; font-size: 12px; letter-spacing: 1px;
+  padding: 8px 16px; height: 38px;
+  background: var(--bg2); color: var(--cyan);
+  border: 1px solid var(--cyan); cursor: pointer; flex-shrink: 0;
+}
+#sendBtn:hover { background: var(--cyan); color: var(--bg); }
+#sendBtn:disabled { opacity: 0.4; cursor: default; background: var(--bg2); color: var(--fg2); border-color: var(--border); }
 
-/* authenticated state */
-.app {
-  display: none; flex-direction: column; align-items: center;
-  gap: 1.2em; max-width: 480px; width: 100%;
-  text-align: center;
+/* empty state */
+#emptyState {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 8px;
+  color: var(--fg2); font-size: 12px; text-align: center;
+  padding: 2em;
 }
-.app.visible { display: flex; }
-.handle { font-size: 15px; color: var(--pink); }
-.handle-sub { font-size: 11px; color: var(--fg2); }
-
-/* anthropic connect section */
-.connect-section {
-  width: 100%; text-align: left;
-  border: 1px solid var(--border); padding: 1em;
-  background: var(--bg2);
-}
-.connect-section h3 {
-  font-size: 12px; font-weight: normal;
-  color: var(--fg2); text-transform: uppercase;
-  letter-spacing: 1px; margin-bottom: 0.8em;
-}
-.connect-btn {
-  font-family: inherit; font-size: 13px;
-  padding: 8px 20px;
-  background: var(--bg); color: var(--fg);
-  border: 1px solid var(--border);
-  cursor: pointer; letter-spacing: 1px;
-  transition: border-color 0.2s, color 0.2s;
-  width: 100%;
-}
-.connect-btn:hover { border-color: var(--cyan); color: var(--cyan); }
-.connect-btn:disabled { opacity: 0.5; cursor: default; }
-
-/* code entry (shown after clicking connect) */
-.code-entry {
-  display: none; margin-top: 0.8em;
-  flex-direction: column; gap: 0.5em;
-}
-.code-entry.visible { display: flex; }
-.code-hint {
-  font-size: 11px; color: var(--fg2); line-height: 1.5;
-}
-.code-hint a { color: var(--cyan); text-decoration: none; }
-.code-hint a:hover { text-decoration: underline; }
-.code-input {
-  font-family: inherit; font-size: 12px;
-  width: 100%; padding: 6px 8px;
-  background: var(--bg); color: var(--fg);
-  border: 1px solid var(--border);
-}
-.code-input:focus { outline: none; border-color: var(--cyan); }
-.code-input::placeholder { color: var(--fg2); }
-.code-submit {
-  font-family: inherit; font-size: 11px;
-  padding: 5px 14px; align-self: flex-start;
-  background: var(--bg); color: var(--cyan);
-  border: 1px solid var(--cyan);
-  cursor: pointer;
-}
-.code-submit:hover { background: var(--cyan); color: var(--bg); }
-.connect-status { font-size: 11px; color: var(--fg2); margin-top: 0.4em; }
-
-/* connected state */
-.connected-row {
-  display: flex; align-items: center;
-  justify-content: space-between; gap: 1em;
-}
-.connected-label {
-  font-size: 12px; color: var(--green);
-}
-.disconnect-btn {
-  font-family: inherit; font-size: 11px;
-  background: none; border: none;
-  color: var(--fg2); cursor: pointer; padding: 0;
-}
-.disconnect-btn:hover { color: var(--pink); }
-
-/* status line */
-.status { font-size: 11px; color: var(--fg2); }
-.status .dot {
-  display: inline-block; width: 6px; height: 6px;
-  border-radius: 50%; background: var(--fg2);
-  margin-right: 4px; vertical-align: middle;
-}
-.status .dot.ok { background: var(--green); }
-
-/* sign out */
-.sign-out {
-  font-family: inherit; font-size: 11px;
-  background: none; border: none; color: var(--fg2);
-  cursor: pointer; padding: 4px 8px;
-}
-.sign-out:hover { color: var(--fg); }
-
-/* steps */
-.steps {
-  text-align: left; width: 100%;
-  display: flex; flex-direction: column; gap: 0.8em;
-}
-.step {
-  font-size: 12px; color: var(--fg2);
-  padding-left: 1.5em; position: relative;
-}
-.step::before {
-  content: attr(data-n); position: absolute; left: 0;
-  color: var(--pink); font-size: 11px;
-}
-.step code { color: var(--cyan); font-size: 11px; }
-
-/* divider */
-.divider {
-  width: 40px; height: 1px;
-  background: var(--border);
-}
+#emptyState .hint { font-size: 11px; color: var(--border); }
 
 @media (max-width: 500px) {
-  body { padding: 1.5em; }
-  .logo { font-size: 20px; }
+  #header { padding: 8px 12px; }
+  #messages { padding: 12px; }
+  #inputArea { padding: 8px 12px; }
 }
 </style>
 </head>
 <body>
 
-<!-- Landing / Login -->
-<div class="landing" id="landing">
+<!-- Landing -->
+<div id="landing">
   <div class="logo"><span>help</span>.aesthetic.computer</div>
   <div class="divider"></div>
   <div class="subtitle">
-    AI assistant for the
-    <a href="https://aesthetic.computer" target="_blank">Aesthetic Computer</a>
-    community. Get help with pieces, KidLisp, creative computing, and more.
+    AI assistant for <a href="https://aesthetic.computer" target="_blank">Aesthetic Computer</a>.
+    Ask anything about pieces, KidLisp, or creative computing.
   </div>
-
   <div class="steps">
-    <div class="step" data-n="1.">
-      Sign in with your <a href="https://aesthetic.computer/handle" target="_blank" style="color: var(--cyan);">@handle</a>
-    </div>
-    <div class="step" data-n="2.">
-      Connect your <a href="https://claude.ai" target="_blank" style="color: var(--cyan);">Anthropic account</a>
-    </div>
-    <div class="step" data-n="3.">
-      Start asking questions about AC
-    </div>
+    <div class="step" data-n="1.">Sign in with your <a href="https://aesthetic.computer/handle" target="_blank" style="color:var(--cyan)">@handle</a></div>
+    <div class="step" data-n="2.">Ask anything about AC</div>
   </div>
-
-  <button class="sign-in" id="signInBtn">sign in</button>
-  <div class="status" id="authStatus"></div>
+  <button class="btn" id="signInBtn">sign in</button>
+  <div id="authStatus"></div>
 </div>
 
-<!-- Authenticated App -->
-<div class="app" id="app">
-  <div class="logo"><span>help</span>.aesthetic.computer</div>
-  <div class="handle" id="handleDisplay"></div>
-  <div class="handle-sub">signed in</div>
-
-  <div class="connect-section" id="connectSection">
-    <h3>anthropic account</h3>
-
-    <!-- Not connected -->
-    <div id="notConnected">
-      <button class="connect-btn" id="connectBtn">sign in with anthropic</button>
-
-      <div class="code-entry" id="codeEntry">
-        <div class="code-hint">
-          Anthropic opened in a new tab. Approve access, then paste the
-          authorization code shown on their page below.
-        </div>
-        <input class="code-input" id="codeInput" type="text"
-               placeholder="paste code from Anthropic..." autocomplete="off" />
-        <button class="code-submit" id="codeSubmit">connect</button>
-        <div class="connect-status" id="connectStatus"></div>
-      </div>
-    </div>
-
-    <!-- Connected -->
-    <div id="isConnected" style="display:none;">
-      <div class="connected-row">
-        <span class="connected-label">&#10003; anthropic connected</span>
-        <button class="disconnect-btn" id="disconnectBtn">disconnect</button>
-      </div>
+<!-- Chat App -->
+<div id="app">
+  <div id="header">
+    <div class="logo"><span>help</span>.ac</div>
+    <div class="header-right">
+      <span id="usageBar"></span>
+      <span id="handleBadge"></span>
+      <button class="sign-out-btn" id="signOutBtn">sign out</button>
     </div>
   </div>
 
-  <div class="status">
-    <span class="dot" id="statusDot"></span>
-    <span id="statusText">ready</span>
+  <div id="messages">
+    <div id="emptyState">
+      <div>ask me anything about aesthetic.computer</div>
+      <div class="hint">pieces · kidlisp · creative computing</div>
+    </div>
   </div>
 
-  <button class="sign-out" id="signOutBtn">sign out</button>
+  <div id="typing" class="msg assistant">
+    <div class="msg-body">...</div>
+  </div>
+
+  <div id="inputArea">
+    <textarea id="msgInput" rows="1" placeholder="ask something..."></textarea>
+    <button id="sendBtn">send</button>
+  </div>
 </div>
 
 <script>
 let auth0Client = null;
 let accessToken = null;
-let pendingState = null;
+const chatHistory = [];
 
 async function authFetch(url, opts = {}) {
   const headers = { ...opts.headers };
@@ -270,26 +201,8 @@ async function authFetch(url, opts = {}) {
   return resp;
 }
 
-async function checkAnthropicStatus() {
-  const resp = await authFetch('/api/anthropic/status');
-  const data = await resp.json();
-  const notConn = document.getElementById('notConnected');
-  const isConn = document.getElementById('isConnected');
-  if (data.connected) {
-    notConn.style.display = 'none';
-    isConn.style.display = 'block';
-    document.getElementById('statusDot').classList.add('ok');
-    document.getElementById('statusText').textContent = 'anthropic connected — chat coming soon';
-  } else {
-    notConn.style.display = 'block';
-    isConn.style.display = 'none';
-  }
-}
-
 async function init() {
-  const status = document.getElementById('authStatus');
-  status.textContent = 'loading...';
-
+  document.getElementById('authStatus').textContent = 'loading...';
   try {
     await new Promise((resolve, reject) => {
       const s = document.createElement('script');
@@ -309,7 +222,7 @@ async function init() {
 
     if (location.search.includes('state=') && location.search.includes('code=')) {
       await auth0Client.handleRedirectCallback();
-      history.replaceState({}, '', location.pathname);
+      window.history.replaceState({}, '', location.pathname);
     }
 
     if (await auth0Client.isAuthenticated()) {
@@ -317,90 +230,123 @@ async function init() {
       const me = await authFetch('/auth/me').then(r => r.json());
       showApp(me);
     } else {
-      status.textContent = '';
-      document.getElementById('signInBtn').onclick = () =>
-        auth0Client.loginWithRedirect();
+      document.getElementById('authStatus').textContent = '';
+      document.getElementById('signInBtn').onclick = () => auth0Client.loginWithRedirect();
     }
   } catch (err) {
-    console.error('auth init failed:', err);
-    status.textContent = 'error: ' + err.message;
+    document.getElementById('authStatus').textContent = 'error: ' + err.message;
   }
+}
+
+async function refreshUsage() {
+  try {
+    const { used, limit } = await authFetch('/api/usage').then(r => r.json());
+    document.getElementById('usageBar').textContent = `${used}/${limit} today`;
+  } catch {}
 }
 
 function showApp(me) {
   document.getElementById('landing').style.display = 'none';
   document.getElementById('app').classList.add('visible');
-  document.getElementById('handleDisplay').textContent = '@' + (me.handle || '?');
-
-  document.getElementById('signOutBtn').onclick = () => {
+  document.getElementById('handleBadge').textContent = '@' + (me.handle || '?');
+  document.getElementById('signOutBtn').onclick = () =>
     auth0Client.logout({ logoutParams: { returnTo: location.origin } });
-  };
+  refreshUsage();
+  setupChat();
+}
 
-  // Connect with Anthropic
-  document.getElementById('connectBtn').onclick = async () => {
-    const btn = document.getElementById('connectBtn');
-    btn.disabled = true;
-    btn.textContent = 'opening anthropic...';
+function addMessage(role, content) {
+  const empty = document.getElementById('emptyState');
+  if (empty) empty.remove();
+  const msgs = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  div.innerHTML = `<div class="msg-role">${role === 'user' ? 'you' : 'help'}</div><div class="msg-body"></div>`;
+  div.querySelector('.msg-body').textContent = content;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div.querySelector('.msg-body');
+}
+
+function setupChat() {
+  const input = document.getElementById('msgInput');
+  const sendBtn = document.getElementById('sendBtn');
+  const typing = document.getElementById('typing');
+  const msgs = document.getElementById('messages');
+
+  input.addEventListener('input', () => {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+  });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+  });
+  sendBtn.onclick = send;
+
+  async function send() {
+    const text = input.value.trim();
+    if (!text || sendBtn.disabled) return;
+
+    input.value = '';
+    input.style.height = 'auto';
+    sendBtn.disabled = true;
+
+    addMessage('user', text);
+    chatHistory.push({ role: 'user', content: text });
+
+    typing.classList.add('visible');
+    msgs.appendChild(typing);
+    msgs.scrollTop = msgs.scrollHeight;
+
+    let fullText = '';
+    let assistantBody = null;
+
     try {
-      const { url, state } = await authFetch('/api/anthropic/auth-url').then(r => r.json());
-      pendingState = state;
-      window.open(url, '_blank');
-      document.getElementById('codeEntry').classList.add('visible');
-      btn.textContent = 'sign in with anthropic';
-      btn.disabled = false;
-    } catch (err) {
-      btn.textContent = 'sign in with anthropic';
-      btn.disabled = false;
-      document.getElementById('connectStatus').textContent = 'error: ' + err.message;
-    }
-  };
-
-  // Submit authorization code
-  document.getElementById('codeSubmit').onclick = async () => {
-    const code = document.getElementById('codeInput').value.trim();
-    const statusEl = document.getElementById('connectStatus');
-    if (!code) { statusEl.textContent = 'paste the code first'; return; }
-
-    statusEl.textContent = 'connecting...';
-    try {
-      const resp = await authFetch('/api/anthropic/connect', {
+      const resp = await authFetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, state: pendingState }),
+        body: JSON.stringify({ messages: chatHistory }),
       });
-      const data = await resp.json();
-      if (data.ok) {
-        statusEl.textContent = '';
-        document.getElementById('codeInput').value = '';
-        document.getElementById('codeEntry').classList.remove('visible');
-        await checkAnthropicStatus();
-      } else {
-        statusEl.textContent = data.error || 'connection failed';
-        statusEl.style.color = 'var(--pink)';
+
+      typing.classList.remove('visible');
+
+      if (!resp.ok) {
+        const err = await resp.json();
+        addMessage('assistant', err.error || 'something went wrong');
+        sendBtn.disabled = false;
+        return;
       }
+
+      const used = resp.headers.get('X-Rate-Limit-Used');
+      const limit = resp.headers.get('X-Rate-Limit-Total');
+      if (used && limit) document.getElementById('usageBar').textContent = `${used}/${limit} today`;
+
+      assistantBody = addMessage('assistant', '');
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        fullText += decoder.decode(value, { stream: true });
+        assistantBody.textContent = fullText;
+        msgs.scrollTop = msgs.scrollHeight;
+      }
+
+      chatHistory.push({ role: 'assistant', content: fullText });
     } catch (err) {
-      statusEl.textContent = 'error: ' + err.message;
-      statusEl.style.color = 'var(--pink)';
+      typing.classList.remove('visible');
+      addMessage('assistant', 'error: ' + err.message);
     }
-  };
 
-  // Also submit on Enter
-  document.getElementById('codeInput').onkeydown = (e) => {
-    if (e.key === 'Enter') document.getElementById('codeSubmit').click();
-  };
-
-  // Disconnect
-  document.getElementById('disconnectBtn').onclick = async () => {
-    await authFetch('/api/anthropic/disconnect', { method: 'POST' });
-    await checkAnthropicStatus();
-  };
-
-  checkAnthropicStatus();
+    sendBtn.disabled = false;
+    input.focus();
+  }
 }
 
 // Theme
-const prefersDark = !window.matchMedia('(prefers-color-scheme: light)').matches;
-if (!prefersDark) document.documentElement.setAttribute('data-theme', 'light');
+if (window.matchMedia('(prefers-color-scheme: light)').matches)
+  document.documentElement.setAttribute('data-theme', 'light');
 window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', (e) => {
   document.documentElement.setAttribute('data-theme', e.matches ? 'light' : '');
 });
