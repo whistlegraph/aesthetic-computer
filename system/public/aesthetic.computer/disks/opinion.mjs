@@ -7,11 +7,11 @@
 const { min, max, floor, ceil } = Math;
 
 const BODY_FONT = "MatrixChunky8";
-const BODY_CHAR_W = 4;
 const BODY_LINE_H = 10; // 8px font height + 2px gap
-const HEAD_CHAR_W = 6;
 const HEAD_LINE_H = 11; // 10px font height + 1px gap
-const MARGIN = 6;
+const SCROLL_BAR_W = 4; // Left-side scroll bar width (matches prutti)
+const LEFT_MARGIN = 10; // 4px scroll bar + 6px gap (matches prutti)
+const RIGHT_MARGIN = 6;
 const TOP_PAD = 4;
 const BOTTOM_PAD = 10;
 
@@ -140,7 +140,7 @@ function stripMd(str) {
 function computeLayout(textApi, screenWidth) {
   const items = [];
   let y = TOP_PAD;
-  const wrapW = screenWidth - MARGIN * 2;
+  const wrapW = screenWidth - LEFT_MARGIN - RIGHT_MARGIN;
   const quoteIndent = 10;
   const listIndent = 8;
 
@@ -243,11 +243,12 @@ function clampScroll(screen) {
 }
 
 // 🥾
-async function boot({ colon, params }) {
+async function boot({ colon, params, hud }) {
   const slug = colon?.[0];
 
   if (!slug) {
     isIndex = true;
+    hud.label("opinion");
     try {
       const res = await fetch("/opinion/index.json");
       if (!res.ok) throw new Error("fetch failed");
@@ -257,6 +258,7 @@ async function boot({ colon, params }) {
     }
     loading = false;
   } else {
+    hud.label("opinion");
     try {
       const res = await fetch(`/opinion/${slug}.md`);
       if (!res.ok) throw new Error("not found");
@@ -305,62 +307,66 @@ function paint({ wipe, ink, screen, text, line, dark, paintCount }) {
   const viewTop = 0;
   const viewBottom = screen.height;
 
+  const contentW = screen.width - LEFT_MARGIN - RIGHT_MARGIN;
+
   for (const item of layoutItems) {
     const y = item.y + scroll;
     // Skip off-screen items
     if (y + item.height < viewTop || y > viewBottom) continue;
 
     if (item.type === "title") {
-      ink(pal.title).write(item.text, { x: MARGIN, y }, undefined, screen.width - MARGIN * 2, true);
+      ink(pal.title).write(item.text, { x: LEFT_MARGIN, y }, undefined, contentW, true);
     } else if (item.type === "meta") {
-      ink(pal.meta).write(item.text, { x: MARGIN, y }, undefined, screen.width - MARGIN * 2, true, BODY_FONT);
+      ink(pal.meta).write(item.text, { x: LEFT_MARGIN, y }, undefined, contentW, true, BODY_FONT);
     } else if (item.type === "source") {
-      ink(pal.h2).write(item.text, { x: MARGIN, y }, undefined, screen.width - MARGIN * 2, true, BODY_FONT);
+      ink(pal.h2).write(item.text, { x: LEFT_MARGIN, y }, undefined, contentW, true, BODY_FONT);
     } else if (item.type === "rule") {
       const ruleY = y + 3;
-      ink(pal.rule).line(MARGIN, ruleY, screen.width - MARGIN, ruleY);
+      ink(pal.rule).line(LEFT_MARGIN, ruleY, screen.width - RIGHT_MARGIN, ruleY);
     } else if (item.type === "h1") {
-      ink(pal.title).write(item.text, { x: MARGIN, y }, undefined, screen.width - MARGIN * 2, true);
+      ink(pal.title).write(item.text, { x: LEFT_MARGIN, y }, undefined, contentW, true);
     } else if (item.type === "h2") {
-      ink(pal.h2).write(item.text, { x: MARGIN, y }, undefined, screen.width - MARGIN * 2, true);
+      ink(pal.h2).write(item.text, { x: LEFT_MARGIN, y }, undefined, contentW, true);
     } else if (item.type === "h3") {
-      ink(pal.h3).write(item.text, { x: MARGIN, y }, undefined, screen.width - MARGIN * 2, true, BODY_FONT);
+      ink(pal.h3).write(item.text, { x: LEFT_MARGIN, y }, undefined, contentW, true, BODY_FONT);
     } else if (item.type === "paragraph") {
-      ink(pal.body).write(item.text, { x: MARGIN, y }, undefined, screen.width - MARGIN * 2, true, BODY_FONT);
+      ink(pal.body).write(item.text, { x: LEFT_MARGIN, y }, undefined, contentW, true, BODY_FONT);
     } else if (item.type === "quote") {
-      ink(pal.quoteBar).line(MARGIN + 2, y, MARGIN + 2, y + item.height);
-      ink(pal.quote).write(item.text, { x: MARGIN + 10, y }, undefined, screen.width - MARGIN * 2 - 10, true, BODY_FONT);
+      ink(pal.quoteBar).line(LEFT_MARGIN + 2, y, LEFT_MARGIN + 2, y + item.height);
+      ink(pal.quote).write(item.text, { x: LEFT_MARGIN + 10, y }, undefined, contentW - 10, true, BODY_FONT);
     } else if (item.type === "list") {
-      ink(pal.bullet).write("-", { x: MARGIN, y }, undefined, undefined, false, BODY_FONT);
-      ink(pal.body).write(item.text, { x: MARGIN + 8, y }, undefined, screen.width - MARGIN * 2 - 8, true, BODY_FONT);
+      ink(pal.bullet).write("-", { x: LEFT_MARGIN, y }, undefined, undefined, false, BODY_FONT);
+      ink(pal.body).write(item.text, { x: LEFT_MARGIN + 8, y }, undefined, contentW - 8, true, BODY_FONT);
     }
   }
 
-  // Scrollbar
+  // Left-side scroll bar (matches prutti.mjs pattern)
   const viewH = screen.height;
   if (contentHeight > viewH) {
-    const trackX = screen.width - 3;
-    const ratio = viewH / contentHeight;
-    const thumbH = max(8, floor(ratio * viewH));
-    const thumbY = floor((-scroll / contentHeight) * viewH);
-    ink(pal.scrollTrack).line(trackX, 0, trackX, viewH);
-    ink(pal.scrollThumb).line(trackX, thumbY, trackX, thumbY + thumbH);
+    const scrollMax = contentHeight - viewH;
+    const totalScrollRange = scrollMax + 6;
+    const viewportRatio = viewH / (viewH + scrollMax);
+    const indicatorH = max(4, floor(viewH * viewportRatio));
+    const scrollProgress = (-scroll + scrollMax) / totalScrollRange;
+    const indicatorY = floor((1 - scrollProgress) * (viewH - indicatorH));
+
+    ink(pal.scrollTrack).box(0, 0, SCROLL_BAR_W, viewH);
+    ink(pal.scrollThumb).box(0, indicatorY, SCROLL_BAR_W, indicatorH);
   }
 }
 
 function paintIndex({ ink, screen, text, line, pal }) {
   // Header
-  ink(pal.title).write("Opinions", { x: MARGIN, y: TOP_PAD });
+  ink(pal.title).write("Opinions", { x: LEFT_MARGIN, y: TOP_PAD });
   const headerBottom = TOP_PAD + HEAD_LINE_H + 2;
-  ink(pal.rule).line(MARGIN, headerBottom, screen.width - MARGIN, headerBottom);
+  ink(pal.rule).line(LEFT_MARGIN, headerBottom, screen.width - RIGHT_MARGIN, headerBottom);
 
   if (!indexData || indexData.length === 0) {
-    ink(pal.meta).write("No opinions yet.", { x: MARGIN, y: headerBottom + 8 }, undefined, undefined, true, BODY_FONT);
+    ink(pal.meta).write("No opinions yet.", { x: LEFT_MARGIN, y: headerBottom + 8 }, undefined, undefined, true, BODY_FONT);
     return;
   }
 
   let y = headerBottom + 6 + scroll;
-  const wrapW = screen.width - MARGIN * 2;
 
   for (const entry of indexData) {
     if (y > screen.height) break;
@@ -368,20 +374,34 @@ function paintIndex({ ink, screen, text, line, pal }) {
     // Title
     const titleH = HEAD_LINE_H;
     if (y + titleH > 0) {
-      ink(pal.listTitle).write(entry.title, { x: MARGIN, y });
+      ink(pal.listTitle).write(entry.title, { x: LEFT_MARGIN, y });
     }
     y += titleH;
 
     // Author + date
     const metaText = [entry.author, entry.date].filter(Boolean).join(" · ");
     if (y + BODY_LINE_H > 0) {
-      ink(pal.listAuthor).write(metaText, { x: MARGIN + 4, y }, undefined, undefined, true, BODY_FONT);
+      ink(pal.listAuthor).write(metaText, { x: LEFT_MARGIN + 4, y }, undefined, undefined, true, BODY_FONT);
     }
     y += BODY_LINE_H + 8;
   }
 
   // Update content height for index scrolling
   contentHeight = (headerBottom + 6) + indexData.length * (HEAD_LINE_H + BODY_LINE_H + 8) + BOTTOM_PAD;
+
+  // Left-side scroll bar for index
+  const viewH = screen.height;
+  if (contentHeight > viewH) {
+    const scrollMax = contentHeight - viewH;
+    const totalScrollRange = scrollMax + 6;
+    const viewportRatio = viewH / (viewH + scrollMax);
+    const indicatorH = max(4, floor(viewH * viewportRatio));
+    const scrollProgress = (-scroll + scrollMax) / totalScrollRange;
+    const indicatorY = floor((1 - scrollProgress) * (viewH - indicatorH));
+
+    ink(pal.scrollTrack).box(0, 0, SCROLL_BAR_W, viewH);
+    ink(pal.scrollThumb).box(0, indicatorY, SCROLL_BAR_W, indicatorH);
+  }
 }
 
 // 🎪
@@ -447,7 +467,7 @@ function act({ event: e, screen, needsPaint, jump, net }) {
 
     for (let i = 0; i < indexData.length; i++) {
       const entryY = headerBottom + i * entryH + scroll;
-      if (e.y >= entryY && e.y < entryY + entryH && e.x >= MARGIN) {
+      if (e.y >= entryY && e.y < entryY + entryH && e.x >= LEFT_MARGIN) {
         jump("opinion:" + indexData[i].slug);
         return;
       }
@@ -456,11 +476,10 @@ function act({ event: e, screen, needsPaint, jump, net }) {
 
   // Click source URL to open externally
   if (!isIndex && opinionMeta.source && e.is("lift")) {
-    // Check if clicking in the source area
     for (const item of layoutItems) {
       if (item.type === "source") {
         const y = item.y + scroll;
-        if (e.y >= y && e.y < y + item.height && e.x >= MARGIN) {
+        if (e.y >= y && e.y < y + item.height && e.x >= LEFT_MARGIN) {
           net.web(opinionMeta.source);
           return;
         }
