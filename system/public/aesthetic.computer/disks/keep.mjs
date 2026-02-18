@@ -3270,19 +3270,19 @@ function act({ event: e, screen }) {
                       }
                     }
                     _needsPaint?.();
-                  } else if (eventType === "ready" && eventData) {
+                  } else if ((eventType === "ready" || eventType === "prepared") && eventData) {
                     for (const s of rebakeStageLog) s.done = true;
                     // Update preparedData with new URIs
                     preparedData.artifactUri = eventData.artifactUri;
                     preparedData.thumbnailUri = eventData.thumbnailUri;
-                    preparedData.metadataUri = eventData.metadataUri;
+                    if (eventData.metadataUri) preparedData.metadataUri = eventData.metadataUri;
                     preparedData.usedCachedMedia = false; // Now using fresh media
                     thumbnailBitmap = null; // Clear cached thumbnail so it reloads
                     rebakeProgress = "✓ Regenerated!";
                     console.log("🪙 REBAKE complete:", eventData.artifactUri);
                     // Reload the thumbnail with the new IPFS URI (fire and forget)
                     if (eventData.thumbnailUri) {
-                      loadThumbnail(eventData.thumbnailUri).catch(e => 
+                      loadThumbnail(eventData.thumbnailUri).catch(e =>
                         console.warn("🪙 REBAKE: Thumbnail reload failed:", e.message)
                       );
                     }
