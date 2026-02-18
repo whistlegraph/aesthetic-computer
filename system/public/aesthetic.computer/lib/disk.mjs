@@ -1685,22 +1685,33 @@ const imageCache = {
     // Save to IndexedDB for persistence across refreshes
     if (this.store && imageBitmap) {
       try {
-        // Convert ImageBitmap to ImageData for storage
-        // Use OffscreenCanvas in Worker context, regular canvas in main thread
-        const canvas = typeof OffscreenCanvas !== 'undefined' 
-          ? new OffscreenCanvas(imageBitmap.width, imageBitmap.height)
-          : document.createElement('canvas');
-        canvas.width = imageBitmap.width;
-        canvas.height = imageBitmap.height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(imageBitmap, 0, 0);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        
-        // Store the ImageData along with metadata
+        let pixelData, imgWidth, imgHeight;
+
+        if (imageBitmap.pixels) {
+          // Already a pixel buffer { width, height, pixels }
+          imgWidth = imageBitmap.width;
+          imgHeight = imageBitmap.height;
+          pixelData = imageBitmap.pixels;
+        } else {
+          // ImageBitmap — convert to pixel data via canvas drawImage
+          const canvas = typeof OffscreenCanvas !== 'undefined'
+            ? new OffscreenCanvas(imageBitmap.width, imageBitmap.height)
+            : document.createElement('canvas');
+          canvas.width = imageBitmap.width;
+          canvas.height = imageBitmap.height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(imageBitmap, 0, 0);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          imgWidth = imageData.width;
+          imgHeight = imageData.height;
+          pixelData = imageData.data;
+        }
+
+        // Store the pixel data along with metadata
         this.store[`image-cache:${url}`] = {
-          width: imageData.width,
-          height: imageData.height,
-          data: Array.from(imageData.data), // Convert Uint8ClampedArray to regular array for storage
+          width: imgWidth,
+          height: imgHeight,
+          data: Array.from(pixelData),
           cached: Date.now(),
           version: 1
         };
