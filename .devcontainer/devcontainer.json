@@ -50,6 +50,9 @@
   // .claude: Claude Code session data and configuration
   //          Persists conversation history, memory, and settings
   //
+  // .codex: Codex CLI session data and configuration
+  //         Persists local thread history and auth/state across rebuilds
+  //
   // docker.sock: Host Docker socket for docker-in-docker
   //              Allows running `docker build` inside container
   //              Two mounts: one for VS Code's Docker extension, one for CLI
@@ -57,6 +60,7 @@
     "source=${localWorkspaceFolder}/.devcontainer/.emacs.d,target=/home/me/.emacs.d,type=bind,consistency=cached",
     "source=${localWorkspaceFolder}/.devcontainer/envs,target=/home/me/envs,type=bind,consistency=cached",
     "source=${localEnv:HOME}${localEnv:USERPROFILE}/.claude,target=/home/me/.claude,type=bind,consistency=cached",
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.codex,target=/home/me/.codex,type=bind,consistency=cached",
     "source=aesthetic-mkcert-ca,target=/home/me/.local/share/mkcert,type=volume",
     "source=aesthetic-fish-data,target=/home/me/.local/share/fish,type=volume",
     "source=aesthetic-copilot-data,target=/home/me/.copilot,type=volume",
@@ -121,7 +125,8 @@
     "HOST_IP": "${localEnv:HOST_IP}",
     "WSL_DISTRO_NAME": "${localEnv:WSL_DISTRO_NAME}",
     "DOCKER_BUILDKIT": "1",
-    "COMPOSE_DOCKER_CLI_BUILD": "1"
+    "COMPOSE_DOCKER_CLI_BUILD": "1",
+    "CODEX_HOME": "/home/me/.codex"
   },
 
   // ─────────────────────────────────────────────────────────────────────────────
