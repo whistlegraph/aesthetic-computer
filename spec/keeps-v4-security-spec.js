@@ -14,7 +14,14 @@ import {
   getAllTokens
 } from './helpers/tzkt-helper.mjs';
 
-describe("🔒 Keeps FA2 v4 Contract - Security Tests", () => {
+const RUN_KEEPS_V4_NETWORK_TESTS = process.env.RUN_KEEPS_V4_NETWORK_TESTS === 'true';
+const describeIfNetworkEnabled = RUN_KEEPS_V4_NETWORK_TESTS ? describe : xdescribe;
+
+if (!RUN_KEEPS_V4_NETWORK_TESTS) {
+  console.log('⏭️  Skipping v4 network security tests (set RUN_KEEPS_V4_NETWORK_TESTS=true to enable)');
+}
+
+describeIfNetworkEnabled("🔒 Keeps FA2 v4 Contract - Security Tests", () => {
   const network = 'mainnet';
   const address = CONTRACTS.mainnet;
 

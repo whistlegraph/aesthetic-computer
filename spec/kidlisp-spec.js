@@ -478,6 +478,28 @@ box 5 5 10 10`;
     expect(afterHighlight).toContain('\\'); // Should contain color codes
   });
 
+  it("Tiny timing tokens use fast pulsed blink windows", () => {
+    const lisp = new KidLisp();
+
+    // Sub-second timing should pulse quickly instead of staying continuously "on".
+    const tinySecondStart = lisp.getTimingEditBlinkState("0.01s", 0);
+    const tinySecondLater = lisp.getTimingEditBlinkState("0.01s", 40);
+    expect(tinySecondStart.isBlinking).toBeTrue();
+    expect(tinySecondLater.isBlinking).toBeFalse();
+
+    // Sub-frame timing gets the same fast pulse treatment.
+    const tinyFrameStart = lisp.getTimingEditBlinkState("1f", 0);
+    const tinyFrameLater = lisp.getTimingEditBlinkState("1f", 40);
+    expect(tinyFrameStart.isBlinking).toBeTrue();
+    expect(tinyFrameLater.isBlinking).toBeFalse();
+
+    // Longer timers keep a broader blink window.
+    const normalStart = lisp.getTimingEditBlinkState("1.5s", 0);
+    const normalLater = lisp.getTimingEditBlinkState("1.5s", 300);
+    expect(normalStart.isBlinking).toBeTrue();
+    expect(normalLater.isBlinking).toBeFalse();
+  });
+
   it("Auto-close incomplete expressions", () => {
     console.log("🔧 Testing auto-closing of incomplete expressions...");
     
