@@ -3163,11 +3163,11 @@ function ac-ff1 --description "Control FF1 Art Computer (direct network access)"
                 end
             else
                 # Regular aesthetic.computer piece - add &device if has query, else ?device
-                # Also add density=1 by default for FF1 4K display to prevent slow rendering
+                # density=4 for a good balance of quality and performance on FF1 4K display
                 if string match -q '*?*' $input
-                    set url "https://aesthetic.computer/$input&device&density=1"
+                    set url "https://aesthetic.computer/$input&device&density=4"
                 else
-                    set url "https://aesthetic.computer/$input?device&density=1"
+                    set url "https://aesthetic.computer/$input?device&density=4"
                 end
                 # Add perf param if requested
                 if test "$use_perf" = true

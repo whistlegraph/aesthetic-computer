@@ -967,9 +967,16 @@ async function boot({
   // Handle params - content is already decoded by parse.mjs
   if (params[0]) {
     // Check for !autorun flag (last param) - auto-execute the command
-    const hasAutorun = params[params.length - 1] === "!autorun";
-    const effectiveParams = hasAutorun ? params.slice(0, -1) : params;
-    const text = effectiveParams.join(" "); // Already decoded, just join if multiple params
+    // Also handles single-param case from prompt~ routing where ~!autorun is a suffix
+    let hasAutorun = params[params.length - 1] === "!autorun";
+    let effectiveParams = hasAutorun ? params.slice(0, -1) : params;
+    let text = effectiveParams.join(" "); // Already decoded, just join if multiple params
+
+    // Handle single-param with ~!autorun suffix (e.g. from mo.mjs / merry.mjs jump)
+    if (!hasAutorun && text.endsWith("~!autorun")) {
+      hasAutorun = true;
+      text = text.slice(0, -"~!autorun".length);
+    }
 
     // Set the text and user text first before activating
     system.prompt.input.text = text;
