@@ -6076,7 +6076,7 @@ const $paintApiUnwrapped = {
 
         painting = $activePaintApi.painting(width, height, (api) => {
           // Paste previous frame to maintain animation continuity (including across resizes)
-          if (previousPainting && !shouldReset) {
+          if (previousPainting && needsFreshExecution && !shouldReset) {
             api.paste(previousPainting);
           }
           
