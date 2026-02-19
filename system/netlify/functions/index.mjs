@@ -87,11 +87,16 @@ async function fun(event, context) {
   }
 
   // Serve top.kidlisp.com with dynamic meta tags for social previews / iMessage
-  if (event.path.startsWith("/top.kidlisp.com")) {
+  // event.path check handles local dev (localhost:8888/top.kidlisp.com via catch-all)
+  // host header check handles production (top.kidlisp.com domain → function proxy)
+  if (event.path.startsWith("/top.kidlisp.com") || event.headers["host"] === "top.kidlisp.com") {
     try {
       const pathParts = event.path.split("/").filter((p) => p);
-      // pathParts[0] = "top.kidlisp.com", pathParts[1] = "@handle" etc.
-      const handle = pathParts[1]?.startsWith("@") ? pathParts[1] : null;
+      // In local dev: pathParts[0] = "top.kidlisp.com", pathParts[1] = "@handle"
+      // In production: pathParts[0] = "@handle" (event.path is the original request path)
+      const startsWithDomain = event.path.startsWith("/top.kidlisp.com");
+      const handleIdx = startsWithDomain ? 1 : 0;
+      const handle = pathParts[handleIdx]?.startsWith("@") ? pathParts[handleIdx] : null;
 
       const title = handle
         ? `KidLisp Top 100 · ${handle}`
