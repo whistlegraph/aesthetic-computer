@@ -44,6 +44,17 @@ let changeStream = null;
 const firehoseThrottle = { count: 0, resetAt: 0 };
 const FIREHOSE_MAX_PER_SEC = 50;
 
+// Dedup: suppress rapid updates to the same document within a short window
+const FIREHOSE_DEDUP_MS = 2000;
+const firehoseDedup = new Map(); // "coll:docId" → timestamp
+// Clean stale dedup entries every 30s to prevent memory leak
+setInterval(() => {
+  const cutoff = Date.now() - FIREHOSE_DEDUP_MS * 2;
+  for (const [key, ts] of firehoseDedup) {
+    if (ts < cutoff) firehoseDedup.delete(key);
+  }
+}, 30_000);
+
 // --- Instagram (persistent session) ---
 let igClient = null;
 let igLoggedIn = false;
@@ -226,6 +237,7 @@ function startFirehose() {
 
       const coll = change.ns?.coll || "unknown";
       const op = change.operationType;
+      const docId = change.documentKey?._id?.toString() || null;
 
       // Keep handle cache fresh when @handles collection changes
       if (coll === "@handles" && change.fullDocument) {
@@ -233,11 +245,23 @@ function startFirehose() {
         if (hDoc._id && hDoc.handle) handleCache.set(String(hDoc._id), hDoc.handle);
       }
 
+      // Dedup: suppress rapid updates/replaces to the same document
+      // (e.g. boot telemetry writes start→log→complete to same bootId)
+      if (docId && (op === "update" || op === "replace")) {
+        const dedupKey = `${coll}:${docId}`;
+        const prev = firehoseDedup.get(dedupKey);
+        if (prev && now - prev < FIREHOSE_DEDUP_MS) {
+          firehoseDedup.set(dedupKey, now);
+          return; // suppress duplicate
+        }
+        firehoseDedup.set(dedupKey, now);
+      }
+
       const event = {
         ns: coll,
         op,
         time: new Date(now),
-        docId: change.documentKey?._id?.toString() || null,
+        docId,
         summary: firehoseSummary(coll, op, change.fullDocument),
       };
 
