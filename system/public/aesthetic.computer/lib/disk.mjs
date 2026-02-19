@@ -13859,7 +13859,7 @@ async function makeFrame({ data: { type, content } }) {
             sigil = "*";
           } else if (sourceCode.startsWith("$")) {
             // For $code format, the sourceCode IS the cached code (without $)
-            cachedCode = sourceCode.substring(1); // Remove the $ prefix
+            cachedCode = sourceCode.substring(1).split(":")[0]; // Remove the $ prefix and any :fps colon params
             // console.log("🔑 [QR Debug] Using $code format, cachedCode:", cachedCode);
           } else {
             // For regular KidLisp source, check if it has been cached
