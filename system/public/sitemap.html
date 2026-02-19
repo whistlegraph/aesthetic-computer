@@ -277,7 +277,7 @@
 
 <div style="padding-top: 0.5em;">
 <div class="stats">
-  <div class="stat">Domains &amp; Microsites: <strong>16</strong></div>
+  <div class="stat">Domains &amp; Microsites: <strong>18</strong></div>
   <div class="stat">Disk Routes: <strong>~355</strong></div>
   <div class="stat">API Endpoints: <strong>~85</strong></div>
   <div class="stat">Functions: <strong>~106</strong></div>
@@ -1122,11 +1122,45 @@
   <span class="section-title">oven.aesthetic.computer</span>
   <span class="section-count">Internal service</span>
 </summary>
-<div class="section-desc">Internal screenshot and asset generation service. AC proxies preview images, icons, and bundle-html requests through it. Not a public-facing site.</div>
+<div class="section-desc">Internal screenshot and asset generation service. AC proxies preview images, icons, and bundle-html requests through it. Node.js + Caddy on DigitalOcean (137.184.237.166).</div>
 <div class="routes single-col">
   <div class="route full-url">/preview/* &rarr; oven.aesthetic.computer/preview/:splat</div>
   <div class="route full-url">/icon/* &rarr; oven.aesthetic.computer/icon/:splat</div>
   <div class="route full-url">/api/bundle-html &rarr; oven.aesthetic.computer/bundle-html</div>
+</div>
+</details>
+</div>
+
+<!-- silo.aesthetic.computer -->
+<div class="card">
+<details>
+<summary>
+  <span class="tag tag-api">Infra</span>
+  <span class="section-title">silo.aesthetic.computer</span>
+  <span class="section-count">Data dashboard</span>
+</summary>
+<div class="section-desc">Internal MongoDB data &amp; storage dashboard for AC. Admin-only access. Node.js + Caddy on DigitalOcean (64.23.151.169).</div>
+<div class="routes single-col">
+  <div class="route full-url">silo.aesthetic.computer/ &mdash; Dashboard</div>
+</div>
+</details>
+</div>
+
+<!-- help.aesthetic.computer -->
+<div class="card">
+<details>
+<summary>
+  <span class="tag tag-api">Infra</span>
+  <span class="section-title">help.aesthetic.computer</span>
+  <span class="section-count">AI assistant</span>
+</summary>
+<div class="section-desc">Claude-powered AI assistant for the AC community. Auth0 sign-in required; users bring their own Anthropic API key. RBAC tool system (create-kidlisp, fork-piece, search-docs, explain-piece). Node.js + Caddy on DigitalOcean (146.190.150.173).</div>
+<div class="routes single-col">
+  <div class="route full-url">help.aesthetic.computer/ &mdash; Landing + chat UI</div>
+  <div class="route full-url">help.aesthetic.computer/auth/config &mdash; Auth0 config</div>
+  <div class="route full-url">help.aesthetic.computer/api/chat &mdash; Claude streaming (SSE)</div>
+  <div class="route full-url">help.aesthetic.computer/api/settings &mdash; API key management</div>
+  <div class="route full-url">help.aesthetic.computer/api/conversations &mdash; History</div>
 </div>
 </details>
 </div>
