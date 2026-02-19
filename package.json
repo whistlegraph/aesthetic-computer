@@ -6,6 +6,8 @@
   "scripts": {
     "platform": "devcontainer up --workspace-folder .; devcontainer exec --workspace-folder . fish -c 'aesthetic'",
     "test": "node run-tests.mjs",
+    "test:keeps:v5": "jasmine spec/keeps-v5-production-spec.js",
+    "test:keeps:v4:network": "RUN_KEEPS_V4_NETWORK_TESTS=true jasmine spec/keeps-v4-readonly-spec.js spec/keeps-v4-security-spec.js",
     "test:perf": "node tests/performance/boot-performance.test.mjs",
     "test:perf:chrome": "node tests/performance/chrome-devtools-test.mjs",
     "test:perf:lighthouse": "RUN_LIGHTHOUSE=true node tests/performance/chrome-devtools-test.mjs",

@@ -6,6 +6,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Aesthetic Computer (AC) is a mobile-first runtime and social network for creative computing. It's designed as a musical instrument-like interface where users discover memorizable paths through commands and published "pieces" (interactive programs). The system supports both JavaScript (.mjs) and KidLisp (.lisp) pieces.
 
+## Opener Storage (Jeffrey's Dev Sessions)
+
+When @jeffrey is working, **the very first prompt of each Claude Code session is automatically stored** to the MongoDB `openers` collection via the `UserPromptSubmit` hook. The model name is stored alongside it. This captures jeffrey's creative/developer voice over time for pattern analysis.
+
+- **Hook**: `.claude/settings.json` → `UserPromptSubmit` → `node ants/store-opener.mjs`
+- **Post-commit**: `.git/hooks/post-commit` also logs each commit message to `openers` (source: "post-commit")
+- **Script**: `ants/store-opener.mjs` — writes directly to MongoDB using env vars (`ADMIN_SUB`, `MONGODB_CONNECTION_STRING`, `MONGODB_NAME`)
+- **Collection**: `openers` — fields: `user` (auth0 sub, same as `moods`/`kidlisp`/`paintings`), `text`, `model`, `when`, `source`, `context` — handle resolved via `$lookup` on `@handles` when needed
+
+**First things first: store opener.** This happens automatically — no manual step needed.
+
 ## AestheticAnts & Score.md
 
 This repository uses an innovative automated maintenance system called "AestheticAnts" (AA). The `ants/score.md` file defines a philosophy and task list for automated agents that make small, confident, verified changes to the codebase.
