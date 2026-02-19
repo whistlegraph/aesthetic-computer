@@ -9,28 +9,31 @@ export function boot({ colon, params, jump }) {
   // Build the merry command from URL params
   // colon contains everything after the first `:` split by `:`
   // params contains everything after `~` split by `~`
-  
-  // Combine colon params (piece:duration format) into space-separated args
+
   const args = [];
-  
+  let fadeOption = "";
+
   if (colon && colon.length > 0) {
-    // Each colon segment is a piece with optional duration
-    // e.g., /merry:0.5-tone:0.5-clock -> ["0.5-tone", "0.5-clock"]
-    args.push(...colon);
+    for (const part of colon) {
+      if (/^fade(\.\d+)?$/.test(part)) {
+        fadeOption = ":" + part;
+      } else {
+        args.push(part);
+      }
+    }
   }
-  
+
   if (params && params.length > 0) {
     args.push(...params);
   }
-  
+
   if (args.length === 0) {
-    // No pieces specified, jump to prompt
     jump("prompt~merry");
     return;
   }
-  
+
   // Jump to prompt with merry command AND !autorun flag to execute immediately
-  jump("prompt~merry " + args.join(" ") + "~!autorun");
+  jump("prompt~merry" + fadeOption + " " + args.join(" ") + "~!autorun");
 }
 
 export const nohud = true;
