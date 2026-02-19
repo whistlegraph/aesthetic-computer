@@ -14706,6 +14706,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (glazeCan) glazeCan.style.display = "none";
         if (webglCompositeCanvas) webglCompositeCanvas.style.display = "none";
         if (overlayCan) overlayCan.style.display = "none";
+        // Clear the main canvas to transparent before revealing it — when the WebGL
+        // compositor is active, the main canvas has been hidden and holds stale pixels
+        // from whatever ran before (e.g. the dark prompt background). Without clearing,
+        // those pixels show as a black overlay over the tape video underlay.
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         canvas.style.visibility = "visible";
 
         // Make backgrounds transparent so the underlay shows through (avoid checkerboard bleed)
