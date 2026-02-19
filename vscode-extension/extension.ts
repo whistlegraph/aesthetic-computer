@@ -322,9 +322,11 @@ function stopLocalServerCheck() {
 }
 
 // 🌈 KidLisp Syntax Highlighting Setup
-// Creates decoration types and sets up refresh interval for timing blinks
+// Uses atomic decoration updates to avoid flickering (like Monaco's deltaDecorations)
 const kidlispDecorationTypes = new Map<string, vscode.TextEditorDecorationType>();
 let kidlispHighlightInterval: NodeJS.Timeout | undefined;
+// Track which decoration type keys were used in the last render per editor
+const lastUsedDecorationKeys = new Map<string, Set<string>>();
 
 function getOrCreateDecorationType(color: string, options: { bold?: boolean } = {}): vscode.TextEditorDecorationType {
   const key = `${color}-${options.bold ? 'bold' : 'normal'}`;
@@ -347,18 +349,18 @@ function applyKidLispDecorations(editor: vscode.TextEditor, isEditMode: boolean 
   const text = document.getText();
   const tokens = KidLispSyntax.tokenizeWithPositions(text);
   const tokenValues = tokens.map(t => t.value);
-  
+
   // Group decorations by color
   const decorationsByColor = new Map<string, vscode.DecorationOptions[]>();
-  
+
   // Check if we're in light mode
   const isLightTheme = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Light ||
                        vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.HighContrastLight;
-  
+
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i];
     let color = KidLispSyntax.getTokenColor(token.value, tokenValues, i, { isEditMode });
-    
+
     // Handle special color markers
     if (color === 'RAINBOW') {
       // Rainbow: each character gets a different color
@@ -367,7 +369,7 @@ function applyKidLispDecorations(editor: vscode.TextEditor, isEditMode: boolean 
         const startPos = document.positionAt(token.pos + j);
         const endPos = document.positionAt(token.pos + j + 1);
         const range = new vscode.Range(startPos, endPos);
-        
+
         if (!decorationsByColor.has(charColor)) {
           decorationsByColor.set(charColor, []);
         }
@@ -375,7 +377,7 @@ function applyKidLispDecorations(editor: vscode.TextEditor, isEditMode: boolean 
       }
       continue;
     }
-    
+
     if (color === 'ZEBRA') {
       // Zebra: alternating black and white
       for (let j = 0; j < token.value.length; j++) {
@@ -383,7 +385,7 @@ function applyKidLispDecorations(editor: vscode.TextEditor, isEditMode: boolean 
         const startPos = document.positionAt(token.pos + j);
         const endPos = document.positionAt(token.pos + j + 1);
         const range = new vscode.Range(startPos, endPos);
-        
+
         if (!decorationsByColor.has(charColor)) {
           decorationsByColor.set(charColor, []);
         }
@@ -391,58 +393,86 @@ function applyKidLispDecorations(editor: vscode.TextEditor, isEditMode: boolean 
       }
       continue;
     }
-    
+
     if (color.startsWith('COMPOUND:')) {
       // Compound: prefix char in one color, rest in another
       const [, prefixColor, identifierColor] = color.split(':');
-      
+
       // Prefix character ($ or # or !)
       const prefixStart = document.positionAt(token.pos);
       const prefixEnd = document.positionAt(token.pos + 1);
       const prefixRange = new vscode.Range(prefixStart, prefixEnd);
-      
+
       const finalPrefixColor = isLightTheme ? KidLispSyntax.getLightModeColor(prefixColor) : prefixColor;
       if (!decorationsByColor.has(finalPrefixColor)) {
         decorationsByColor.set(finalPrefixColor, []);
       }
       decorationsByColor.get(finalPrefixColor)!.push({ range: prefixRange });
-      
+
       // Identifier part
       const idStart = document.positionAt(token.pos + 1);
       const idEnd = document.positionAt(token.pos + token.value.length);
       const idRange = new vscode.Range(idStart, idEnd);
-      
+
       const finalIdColor = isLightTheme ? KidLispSyntax.getLightModeColor(identifierColor) : identifierColor;
       if (!decorationsByColor.has(finalIdColor)) {
         decorationsByColor.set(finalIdColor, []);
       }
       decorationsByColor.get(finalIdColor)!.push({ range: idRange });
-      
+
       continue;
     }
-    
+
     // Regular color
     const finalColor = isLightTheme ? KidLispSyntax.getLightModeColor(color) : color;
     const startPos = document.positionAt(token.pos);
     const endPos = document.positionAt(token.pos + token.value.length);
     const range = new vscode.Range(startPos, endPos);
-    
+
     if (!decorationsByColor.has(finalColor)) {
       decorationsByColor.set(finalColor, []);
     }
     decorationsByColor.get(finalColor)!.push({ range });
   }
-  
-  // Clear all previous decorations first
-  for (const [, decorationType] of kidlispDecorationTypes) {
-    editor.setDecorations(decorationType, []);
-  }
-  
-  // Apply decorations by color
+
+  // Atomic update: apply new decorations and clear stale ones in one pass
+  // setDecorations(type, ranges) replaces all decorations for that type,
+  // so we don't need to clear first — just set the new ranges.
+  const editorId = editor.document.uri.toString();
+  const currentKeys = new Set<string>();
+
   for (const [color, ranges] of decorationsByColor) {
     const decorationType = getOrCreateDecorationType(color, { bold: true });
+    const key = `${color}-bold`;
+    currentKeys.add(key);
     editor.setDecorations(decorationType, ranges);
   }
+
+  // Only clear decoration types that were used last time but NOT this time
+  const previousKeys = lastUsedDecorationKeys.get(editorId);
+  if (previousKeys) {
+    for (const key of previousKeys) {
+      if (!currentKeys.has(key)) {
+        const decorationType = kidlispDecorationTypes.get(key);
+        if (decorationType) {
+          editor.setDecorations(decorationType, []);
+        }
+      }
+    }
+  }
+
+  lastUsedDecorationKeys.set(editorId, currentKeys);
+}
+
+// Check if any visible KidLisp editor has timing tokens that need blinking
+const timingPattern = /\d*\.?\d+[sf](?:\.\.\.?|!?)/;
+function hasTimingTokens(): boolean {
+  for (const editor of vscode.window.visibleTextEditors) {
+    if (editor.document.languageId === 'kidlisp' && timingPattern.test(editor.document.getText())) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function setupKidLispHighlighting(context: vscode.ExtensionContext) {
@@ -454,17 +484,17 @@ function setupKidLispHighlighting(context: vscode.ExtensionContext) {
       }
     }
   }
-  
+
   // Initial application
   refreshAllKidLispEditors();
-  
+
   // Refresh when editors change
   context.subscriptions.push(
     vscode.window.onDidChangeVisibleTextEditors(() => {
       refreshAllKidLispEditors();
     })
   );
-  
+
   // Refresh when document content changes
   context.subscriptions.push(
     vscode.workspace.onDidChangeTextDocument(event => {
@@ -476,7 +506,7 @@ function setupKidLispHighlighting(context: vscode.ExtensionContext) {
       }
     })
   );
-  
+
   // Refresh when theme changes (for light/dark mode support)
   context.subscriptions.push(
     vscode.window.onDidChangeActiveColorTheme(() => {
@@ -485,18 +515,21 @@ function setupKidLispHighlighting(context: vscode.ExtensionContext) {
         decorationType.dispose();
       }
       kidlispDecorationTypes.clear();
+      lastUsedDecorationKeys.clear();
       refreshAllKidLispEditors();
     })
   );
-  
-  // Start interval for timing blink animations (~60fps equivalent, but limited to 16fps for performance)
+
+  // Timing blink animation interval — only refreshes when timing tokens exist
   if (kidlispHighlightInterval) {
     clearInterval(kidlispHighlightInterval);
   }
   kidlispHighlightInterval = setInterval(() => {
-    refreshAllKidLispEditors();
-  }, 62.5); // ~16fps for blink animation
-  
+    if (hasTimingTokens()) {
+      refreshAllKidLispEditors();
+    }
+  }, 250); // ~4fps is enough for blink animation
+
   // Clean up on deactivation
   context.subscriptions.push({
     dispose: () => {
@@ -508,6 +541,7 @@ function setupKidLispHighlighting(context: vscode.ExtensionContext) {
         decorationType.dispose();
       }
       kidlispDecorationTypes.clear();
+      lastUsedDecorationKeys.clear();
     }
   });
 }
