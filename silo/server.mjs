@@ -12,6 +12,12 @@ import { MongoClient } from "mongodb";
 import { createClient } from "redis";
 import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { WebSocketServer } from "ws";
+import {
+  IgApiClient,
+  IgCheckpointError,
+  IgLoginTwoFactorRequiredError,
+  IgLoginBadPasswordError,
+} from "instagram-private-api";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -38,13 +44,20 @@ let changeStream = null;
 const firehoseThrottle = { count: 0, resetAt: 0 };
 const FIREHOSE_MAX_PER_SEC = 50;
 
+// --- Instagram (persistent session) ---
+let igClient = null;
+let igLoggedIn = false;
+let igSessionUsername = null;
+let igLastUsed = null;
+let igChallengeInProgress = false;
+
 // --- Collection Categories ---
 const COLLECTION_CATEGORIES = {
   "users": "identity", "@handles": "identity", "verifications": "identity",
   "paintings": "content", "pieces": "content", "kidlisp": "content",
   "tapes": "content", "moods": "content",
   "chat-system": "communication", "chat-clock": "communication", "chat-sotce": "communication",
-  "boots": "system", "oven-bakes": "system", "_firehose": "system",
+  "boots": "system", "oven-bakes": "system", "_firehose": "system", "insta-sessions": "system",
 };
 const CATEGORY_META = {
   identity: { label: "Users & Identity", color: "#48f" },
@@ -465,6 +478,159 @@ app.get("/auth/me", async (req, res) => {
   res.json({ handle: auth.handle, isAdmin: auth.isAdmin });
 });
 
+// --- Instagram Session Management ---
+async function saveInstaSession(ig, username) {
+  if (!db) return;
+  try {
+    const serialized = await ig.state.serialize();
+    delete serialized.constants;
+    delete serialized.supportedCapabilities;
+    await db.collection("insta-sessions").updateOne(
+      { _id: username },
+      { $set: { _id: username, state: serialized, updatedAt: new Date() } },
+      { upsert: true },
+    );
+  } catch (e) {
+    log("warn", `insta session save failed: ${e.message}`);
+  }
+}
+
+async function getInstaClient() {
+  if (igClient && igLoggedIn) {
+    igLastUsed = Date.now();
+    return igClient;
+  }
+
+  if (!db) throw new Error("Database not connected");
+
+  // Get credentials from MongoDB secrets
+  const secrets = await db.collection("secrets").findOne({ _id: "instagram" });
+  if (!secrets?.username || !secrets?.password) {
+    throw new Error("Instagram credentials not configured in MongoDB secrets");
+  }
+  const username = secrets.username;
+
+  igClient = new IgApiClient();
+  igClient.state.generateDevice(username);
+  igSessionUsername = username;
+
+  // Save session after every Instagram API request
+  igClient.request.end$.subscribe(async () => {
+    await saveInstaSession(igClient, username);
+  });
+
+  // Try to restore session from MongoDB
+  try {
+    const sessionDoc = await db
+      .collection("insta-sessions")
+      .findOne({ _id: username });
+    if (sessionDoc?.state) {
+      await igClient.state.deserialize(sessionDoc.state);
+      await igClient.account.currentUser(); // verify session is alive
+      igLoggedIn = true;
+      igLastUsed = Date.now();
+      log("info", `insta session restored for @${username}`);
+      return igClient;
+    }
+  } catch {
+    log("info", "insta session restore failed, need fresh login via dashboard");
+  }
+
+  throw new Error(
+    "Instagram session not available. Log in via silo dashboard.",
+  );
+}
+
+function formatInstaCount(n) {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "m";
+  if (n >= 1000) return (n / 1000).toFixed(1) + "k";
+  return String(n);
+}
+
+// --- Instagram Public Routes (CORS-enabled, no auth) ---
+app.use("/insta", (req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") return res.sendStatus(200);
+  next();
+});
+
+app.get("/insta", async (req, res) => {
+  const { action, username, max } = req.query;
+
+  if (!action || !username) {
+    return res.status(400).json({ error: "action and username required" });
+  }
+
+  const cleanUsername = username.replace(/^@/, "").toLowerCase();
+
+  try {
+    const ig = await getInstaClient();
+
+    if (action === "profile") {
+      const userId = await ig.user.getIdByUsername(cleanUsername);
+      const info = await ig.user.info(userId);
+      return res.json({
+        username: info.username,
+        fullName: info.full_name || "",
+        bio: info.biography || "",
+        profilePicUrl: info.profile_pic_url,
+        mediaCount: info.media_count,
+        followerCount: info.follower_count,
+        followingCount: info.following_count,
+        isVerified: info.is_verified,
+        isPrivate: info.is_private,
+        externalUrl: info.external_url || null,
+        mediaCountFormatted: formatInstaCount(info.media_count),
+        followerCountFormatted: formatInstaCount(info.follower_count),
+        followingCountFormatted: formatInstaCount(info.following_count),
+      });
+    }
+
+    if (action === "feed") {
+      const maxPosts = parseInt(max || "18", 10);
+      const userId = await ig.user.getIdByUsername(cleanUsername);
+      const feed = ig.feed.user(userId);
+      const items = await feed.items();
+      const posts = items.slice(0, maxPosts).map((item) => ({
+        id: item.id,
+        shortcode: item.code,
+        mediaType: item.media_type,
+        caption: item.caption?.text || "",
+        likeCount: item.like_count || 0,
+        commentCount: item.comment_count || 0,
+        timestamp: item.taken_at,
+        width: item.original_width,
+        height: item.original_height,
+        thumbnailUrl:
+          item.image_versions2?.candidates?.[
+            item.image_versions2.candidates.length - 1
+          ]?.url || null,
+        likeCountFormatted: formatInstaCount(item.like_count || 0),
+        commentCountFormatted: formatInstaCount(item.comment_count || 0),
+      }));
+      return res.json({ posts, hasMore: feed.isMoreAvailable() });
+    }
+
+    return res.status(400).json({ error: `Unknown action: ${action}` });
+  } catch (err) {
+    log("error", `insta public API error: ${err.message}`);
+
+    if (err.message.includes("not configured") || err.message.includes("not available")) {
+      return res.status(503).json({ error: err.message });
+    }
+    if (err.message.includes("User not found") || err.name === "IgExactUserNotFoundError") {
+      return res.status(404).json({ error: `User @${cleanUsername} not found` });
+    }
+
+    // Session may have expired
+    igLoggedIn = false;
+    igClient = null;
+    return res.status(500).json({ error: "Instagram API error" });
+  }
+});
+
 app.use("/api", requireAdmin);
 
 app.get("/health", async (req, res) => {
@@ -713,6 +879,162 @@ app.get("/api/firehose/stats", async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// --- Instagram Admin Routes ---
+app.get("/api/insta/status", async (req, res) => {
+  const sessionDoc = db
+    ? await db.collection("insta-sessions").findOne({ _id: igSessionUsername }).catch(() => null)
+    : null;
+  res.json({
+    loggedIn: igLoggedIn,
+    username: igSessionUsername || null,
+    lastUsed: igLastUsed ? new Date(igLastUsed).toISOString() : null,
+    sessionAge: sessionDoc?.updatedAt
+      ? Math.round((Date.now() - new Date(sessionDoc.updatedAt).getTime()) / 1000)
+      : null,
+    challengeInProgress: igChallengeInProgress,
+  });
+});
+
+app.post("/api/insta/login", async (req, res) => {
+  if (!db) return res.status(500).json({ error: "Database not connected" });
+
+  const secrets = await db.collection("secrets").findOne({ _id: "instagram" });
+  if (!secrets?.username || !secrets?.password) {
+    return res.status(400).json({ error: "Instagram credentials not in MongoDB secrets" });
+  }
+
+  const username = secrets.username;
+  const password = secrets.password;
+
+  log("info", `insta login attempt for @${username}`);
+
+  igClient = new IgApiClient();
+  igClient.state.generateDevice(username);
+  igSessionUsername = username;
+
+  igClient.request.end$.subscribe(async () => {
+    await saveInstaSession(igClient, username);
+  });
+
+  // Pre-login flow (instagram-cli pattern)
+  try {
+    await igClient.launcher.preLoginSync();
+    log("info", "insta preLoginSync OK");
+  } catch (e) {
+    log("warn", `insta preLoginSync failed: ${e.message}`);
+  }
+
+  try {
+    await igClient.account.login(username, password);
+    igLoggedIn = true;
+    igLastUsed = Date.now();
+
+    // Post-login flow
+    try {
+      await igClient.feed.reelsTray("cold_start").request();
+      await igClient.feed.timeline("cold_start_fetch").request();
+    } catch (e) {
+      log("warn", `insta postLoginFlow failed: ${e.message}`);
+    }
+
+    await saveInstaSession(igClient, username);
+    log("info", `insta login success for @${username}`);
+    res.json({ ok: true, username });
+  } catch (err) {
+    if (err instanceof IgCheckpointError) {
+      log("info", "insta checkpoint triggered, requesting verification code");
+      try {
+        await igClient.challenge.auto(true);
+        igChallengeInProgress = true;
+        return res.json({
+          ok: false,
+          challenge: true,
+          message: "Verification code sent (check email/SMS). Submit via /api/insta/challenge.",
+        });
+      } catch (challengeErr) {
+        return res.status(500).json({ error: `Challenge setup failed: ${challengeErr.message}` });
+      }
+    }
+
+    if (err instanceof IgLoginTwoFactorRequiredError) {
+      const twoFactorInfo = err.response.body.two_factor_info;
+      igChallengeInProgress = true;
+      return res.json({
+        ok: false,
+        twoFactor: true,
+        method: twoFactorInfo.totp_two_factor_on ? "authenticator" : "sms",
+        twoFactorIdentifier: twoFactorInfo.two_factor_identifier,
+        message: "Enter 2FA code via /api/insta/challenge.",
+      });
+    }
+
+    if (err instanceof IgLoginBadPasswordError) {
+      return res.status(401).json({ error: "Bad password. Check credentials in MongoDB secrets." });
+    }
+
+    log("error", `insta login failed: ${err.message}`);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/insta/challenge", async (req, res) => {
+  if (!igClient || !igChallengeInProgress) {
+    return res.status(400).json({ error: "No challenge in progress" });
+  }
+
+  const { code, twoFactorIdentifier, method } = req.body || {};
+  if (!code) return res.status(400).json({ error: "code is required" });
+
+  try {
+    if (twoFactorIdentifier) {
+      // 2FA flow
+      await igClient.account.twoFactorLogin({
+        username: igSessionUsername,
+        verificationCode: String(code).trim(),
+        twoFactorIdentifier,
+        verificationMethod: method === "authenticator" ? "0" : "1",
+      });
+    } else {
+      // Checkpoint flow
+      await igClient.challenge.sendSecurityCode(String(code).trim());
+    }
+
+    igLoggedIn = true;
+    igChallengeInProgress = false;
+    igLastUsed = Date.now();
+
+    // Post-login flow
+    try {
+      await igClient.feed.reelsTray("cold_start").request();
+      await igClient.feed.timeline("cold_start_fetch").request();
+    } catch (e) {
+      log("warn", `insta postLoginFlow failed: ${e.message}`);
+    }
+
+    await saveInstaSession(igClient, igSessionUsername);
+    log("info", `insta challenge completed for @${igSessionUsername}`);
+    res.json({ ok: true, username: igSessionUsername });
+  } catch (err) {
+    log("error", `insta challenge failed: ${err.message}`);
+    res.status(400).json({ error: `Challenge verification failed: ${err.message}` });
+  }
+});
+
+app.post("/api/insta/logout", async (req, res) => {
+  igClient = null;
+  igLoggedIn = false;
+  igChallengeInProgress = false;
+  igLastUsed = null;
+
+  if (db && igSessionUsername) {
+    await db.collection("insta-sessions").deleteOne({ _id: igSessionUsername }).catch(() => {});
+  }
+
+  log("info", `insta session cleared for @${igSessionUsername}`);
+  igSessionUsername = null;
+  res.json({ ok: true });
 });
 
 // --- Dashboard (loaded from file, reloadable via SIGHUP) ---
