@@ -978,12 +978,15 @@ async function boot({
       text = text.slice(0, -"~!autorun".length);
     }
 
-    // Set the text and user text first before activating
-    system.prompt.input.text = text;
-    system.prompt.input.runnable = true;
-    system.prompt.input.addUserText(text);
-    system.prompt.input.snap();
-    send({ type: "keyboard:text:replace", content: { text } });
+    // Only show text visually if not autorunning — prevents command text flash
+    // when routing through prompt via mo.mjs / merry.mjs / merryo.mjs
+    if (!hasAutorun) {
+      system.prompt.input.text = text;
+      system.prompt.input.runnable = true;
+      system.prompt.input.addUserText(text);
+      system.prompt.input.snap();
+      send({ type: "keyboard:text:replace", content: { text } });
+    }
 
     activated({ ...api, params: effectiveParams }, true);
     system.prompt.input.canType = true;
@@ -996,14 +999,16 @@ async function boot({
     }
 
     // Ensure text and cursor position persist after any system initialization
-    setTimeout(() => {
-      if (system.prompt.input.text !== text) {
-        system.prompt.input.text = text;
-        send({ type: "keyboard:text:replace", content: { text } });
-      }
-      // Always ensure cursor is at the end
-      system.prompt.input.snap();
-    }, 100);
+    if (!hasAutorun) {
+      setTimeout(() => {
+        if (system.prompt.input.text !== text) {
+          system.prompt.input.text = text;
+          send({ type: "keyboard:text:replace", content: { text } });
+        }
+        // Always ensure cursor is at the end
+        system.prompt.input.snap();
+      }, 100);
+    }
   } else {
     system.prompt.input.text = "";
   }
@@ -7872,10 +7877,9 @@ function sim($) {
   if (pendingAutorun) {
     const { text } = pendingAutorun;
     pendingAutorun = null; // Clear immediately to prevent re-execution
-    // Execute the command via halt
-    if ($.system.prompt.input.text === text) {
-      halt($, text);
-    }
+    // Set text right before halt (may have been skipped in boot to avoid flash)
+    $.system.prompt.input.text = text;
+    halt($, text);
   }
 
   ellipsisTicker?.sim();
