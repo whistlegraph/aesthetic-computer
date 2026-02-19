@@ -2577,7 +2577,8 @@
     const noauth = params.get('noauth') ?? DEVICE_DEFAULTS.noauth;
     const popout = params.get('popout') ?? DEVICE_DEFAULTS.popout;
     const perf = params.get('perf') ?? DEVICE_DEFAULTS.perf;
-    
+    const nohud = params.has('nohud'); // Hide device.html overlays: code-label, QR, piece-info, progress-bar
+
     // Playlist mode params (for DP-1 playlist progress bar)
     const isPlaylist = params.get('playlist') === 'true';
     const playlistDuration = parseInt(params.get('duration')) || 120; // seconds
@@ -2640,6 +2641,14 @@
     // Initialize display
     function init() {
       logDevice('init', { codeId, density, dev, hostname, pathname, playlistUrl });
+
+      // 🫥 nohud: hide all device.html overlays for a clean display
+      if (nohud) {
+        const hide = (id) => { const el = document.getElementById(id); if (el) el.style.display = 'none'; };
+        hide('qr-wrap');
+        hide('piece-info');
+        hide('progress-bar');
+      }
       
       // Check if we're in slideshow mode (playlist_url param provided)
       if (playlistUrl) {

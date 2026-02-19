@@ -3074,12 +3074,15 @@ function ac-ff1 --description "Control FF1 Art Computer (direct network access)"
                 echo "Examples:"
                 echo "  ac-ff1 cast \$mtz             # KidLisp → device.kidlisp.com/mtz"
                 echo "  ac-ff1 cast \$mtz --perf      # With FPS/performance HUD"
+                echo "  ac-ff1 cast \$mtz --nohud     # No code-label, QR, or progress bar"
                 echo "  ac-ff1 cast \$mtz --socklogs  # Enable remote console logging"
                 echo "  ac-ff1 cast ceo              # Regular → aesthetic.computer/ceo?device"
                 echo "  ac-ff1 cast https://example.com/art.html"
                 echo ""
                 echo "Options:"
                 echo "  --perf       Enable KidLisp performance/FPS HUD overlay"
+                echo "  --nohud      Hide device.html overlays (code-label, QR, progress bar)"
+                echo "  --nolabel    Hide AC piece label (for regular pieces)"
                 echo "  --socklogs   Enable remote console logs (view with: ac-ff1 logs)"
                 echo "  --relay      Use cloud relay (requires API key)"
                 return 1
@@ -3088,7 +3091,9 @@ function ac-ff1 --description "Control FF1 Art Computer (direct network access)"
             set -l use_relay false
             set -l use_perf false
             set -l use_socklogs false
-            
+            set -l use_nohud false
+            set -l use_nolabel false
+
             # Parse flags
             for arg in $argv[3..-1]
                 switch $arg
@@ -3098,6 +3103,10 @@ function ac-ff1 --description "Control FF1 Art Computer (direct network access)"
                         set use_perf true
                     case '--socklogs'
                         set use_socklogs true
+                    case '--nohud'
+                        set use_nohud true
+                    case '--nolabel'
+                        set use_nolabel true
                 end
             end
             
@@ -3148,6 +3157,13 @@ function ac-ff1 --description "Control FF1 Art Computer (direct network access)"
                         set params "socklogs"
                     end
                 end
+                if test "$use_nohud" = true
+                    if test -n "$params"
+                        set params "$params&nohud"
+                    else
+                        set params "nohud"
+                    end
+                end
                 if test -n "$params"
                     set url "https://device.kidlisp.com/$code_id?$params"
                 else
@@ -3172,6 +3188,10 @@ function ac-ff1 --description "Control FF1 Art Computer (direct network access)"
                 # Add perf param if requested
                 if test "$use_perf" = true
                     set url "$url&perf"
+                end
+                # Add nolabel param if requested
+                if test "$use_nolabel" = true
+                    set url "$url&nolabel"
                 end
             end
             
