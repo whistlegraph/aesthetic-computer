@@ -1290,6 +1290,7 @@ class KidLisp {
 
     // 📺 Default FPS for KidLisp pieces
     this.targetFps = 60; // Default to 60fps unless overridden by (fps N) command
+    this.forcedFps = null; // When set, ignores (fps N) calls from piece code
 
     // �🎯 Performance monitoring system
     this.perf = {
@@ -2192,17 +2193,146 @@ class KidLisp {
     this.evaluationCounts.set(type, (this.evaluationCounts.get(type) || 0) + 1);
   }
 
+  // Parse timing tokens used by syntax highlighting animation.
+  // Supports both second-based (0.5s, 1s...) and frame-based (1f, 2f...) forms.
+  parseTimingTokenMeta(timingToken) {
+    if (typeof timingToken !== "string") return null;
+
+    let match = timingToken.match(/^(\d*\.?\d+)([sf])(\.\.\.?)$/);
+    if (match) {
+      const value = parseFloat(match[1]);
+      if (!Number.isFinite(value)) return null;
+      const unit = match[2];
+      const intervalMs = unit === "s" ? value * 1000 : (value / 60) * 1000;
+      return {
+        token: timingToken,
+        value,
+        unit,
+        isCycle: true,
+        isDelay: false,
+        isInstant: false,
+        intervalMs: Math.max(0, intervalMs)
+      };
+    }
+
+    match = timingToken.match(/^(\d*\.?\d+)([sf])(!)?$/);
+    if (match) {
+      const value = parseFloat(match[1]);
+      if (!Number.isFinite(value)) return null;
+      const unit = match[2];
+      const intervalMs = unit === "s" ? value * 1000 : (value / 60) * 1000;
+      return {
+        token: timingToken,
+        value,
+        unit,
+        isCycle: false,
+        isDelay: true,
+        isInstant: Boolean(match[3]),
+        intervalMs: Math.max(0, intervalMs)
+      };
+    }
+
+    return null;
+  }
+
+  getTimingIntervalMs(timingToken) {
+    const timingMeta = this.parseTimingTokenMeta(timingToken);
+    if (!timingMeta) return 1000;
+    // Keep a sane floor for visualization so tiny intervals don't collapse into "always on".
+    return Math.max(16, timingMeta.intervalMs);
+  }
+
+  getTimingBlinkProfile(timingToken) {
+    const timingMeta = this.parseTimingTokenMeta(timingToken);
+    if (!timingMeta) {
+      return {
+        isFast: false,
+        intervalMs: 1000,
+        pulseMs: 1000,
+        blinkWindowMs: 80
+      };
+    }
+
+    const intervalMs = Math.max(16, timingMeta.intervalMs);
+    // "Tiny" includes sub-second + sub-frame timers; make these blink visibly and quickly.
+    const isFast = intervalMs < 1000;
+
+    if (!isFast) {
+      return {
+        isFast: false,
+        intervalMs,
+        pulseMs: intervalMs,
+        blinkWindowMs: Math.min(200, Math.max(80, intervalMs * 0.25))
+      };
+    }
+
+    // Fast timers get a dedicated blink pulse so very small intervals don't appear solid.
+    const pulseMs = Math.max(60, Math.min(160, intervalMs * 4));
+    const blinkWindowMs = Math.max(20, Math.min(80, pulseMs * 0.45));
+
+    return {
+      isFast: true,
+      intervalMs,
+      pulseMs,
+      blinkWindowMs
+    };
+  }
+
+  getTimingEditBlinkState(timingToken, now = performance.now(), offsetMs = 0) {
+    const profile = this.getTimingBlinkProfile(timingToken);
+    const adjustedNow = now + offsetMs;
+    const pulseMs = Math.max(1, profile.pulseMs);
+    const phaseMs = ((adjustedNow % pulseMs) + pulseMs) % pulseMs;
+
+    return {
+      ...profile,
+      phaseMs,
+      isBlinking: phaseMs < profile.blinkWindowMs
+    };
+  }
+
+  getTimingCyclePosition(timingToken, totalArgs, now = performance.now(), offsetMs = 0) {
+    if (!Number.isFinite(totalArgs) || totalArgs <= 0) return 0;
+    const adjustedNow = now + offsetMs;
+    const intervalMs = this.getTimingIntervalMs(timingToken);
+    return Math.floor(adjustedNow / intervalMs) % totalArgs;
+  }
+
   // Mark a timing expression as triggered for blinking
   markTimingTriggered(timingToken) {
     const now = performance.now();
+    const blinkProfile = this.getTimingBlinkProfile(timingToken);
+    const isDelayTimer = /^\d*\.?\d+[sf]!?$/.test(timingToken);
+    const existingBlink = this.timingBlinks.get(timingToken);
 
-    // For delay timers, use shorter flash duration (1 frame)
-    const isDelayTimer = /^\d*\.?\d+s!?$/.test(timingToken);
-    const flashDuration = isDelayTimer ? 200 : this.blinkDuration; // 200ms to make it visible
+    // Tiny timers can trigger every frame; preserve pulse anchor briefly so they visibly blink.
+    if (
+      blinkProfile.isFast &&
+      existingBlink &&
+      now - existingBlink.triggerTime < blinkProfile.pulseMs
+    ) {
+      this.timingBlinks.set(timingToken, {
+        ...existingBlink,
+        duration: Math.max(existingBlink.duration || 0, 200),
+        blinkWindowMs: blinkProfile.blinkWindowMs,
+        pulseMs: blinkProfile.pulseMs,
+        isFast: true,
+        isDelayTimer
+      });
+      return;
+    }
+
+    const flashDuration = isDelayTimer
+      ? Math.max(200, blinkProfile.pulseMs)
+      : this.blinkDuration;
 
     this.timingBlinks.set(timingToken, {
       triggerTime: now,
-      duration: flashDuration
+      duration: flashDuration,
+      blinkWindowMs: blinkProfile.blinkWindowMs,
+      pulseMs: blinkProfile.pulseMs,
+      isFast: blinkProfile.isFast,
+      isDelayTimer
     });
   }
 
@@ -2220,15 +2350,22 @@ class KidLisp {
       return false;
     }
 
-    // For delay timers (non-cycling), implement the red flash + hold pattern
-    const isDelayTimer = /^\d*\.?\d+s!?$/.test(timingToken);
-    if (isDelayTimer) {
-      const isBlinking = elapsed < 80; // Red flash for first 80ms (~5 frames at 60fps) - longer so it's not missed
-      return isBlinking;
+    const blinkWindowMs = blinkInfo.blinkWindowMs ?? 80;
+
+    // Tiny timers should pulse quickly instead of appearing permanently "on".
+    if (blinkInfo.isFast) {
+      const pulseMs = Math.max(1, blinkInfo.pulseMs ?? 120);
+      const pulsePhase = elapsed % pulseMs;
+      return pulsePhase < blinkWindowMs;
     }
 
-    // For cycle timers, return true if we're in a brief lime flash period (like delay timers)
-    return elapsed < 80; // 80ms lime flash for cycle timers (matches delay timer duration)
+    // For standard timers, keep one-shot flash behavior.
+    const isDelayTimer = blinkInfo.isDelayTimer ?? /^\d*\.?\d+[sf]!?$/.test(timingToken);
+    if (isDelayTimer) {
+      return elapsed < blinkWindowMs;
+    }
+
+    return elapsed < blinkWindowMs;
   }
 
   // Scan source code for $codes and mark them as loading for syntax highlighting
@@ -3456,7 +3593,7 @@ class KidLisp {
 
     // 🧩 Piece API
     return {
-      boot: ({ wipe, params, clock, screen, sound, delay, pieceCount, net, backgroundFill, fps }) => {
+      boot: ({ wipe, params, clock, screen, sound, delay, pieceCount, net, backgroundFill, fps, colon }) => {
         // Store API reference for reframe operations
         this.lastUsedApi = { wipe, params, clock, screen, sound, delay, pieceCount, net, backgroundFill, fps };
 
@@ -3466,12 +3603,24 @@ class KidLisp {
         // Preload MatrixChunky8 font for QR code generation in KidLisp pieces
         net?.preloadTypeface?.("MatrixChunky8");
 
-        // 🎬 Set default FPS to 60 for KidLisp pieces
-        // This can be overridden later by calling (fps N) in the KidLisp code
+        // 🎬 Reset FPS state for each new piece (fixes persistence across merry jumps)
+        this.forcedFps = null;
+        this.targetFps = 60;
+
+        // 🎯 Check for forced fps from colon param (e.g., $noc:24)
+        // A purely numeric colon[0] overrides any (fps N) calls inside the piece
+        if (colon && colon.length > 0) {
+          const colonFps = parseFloat(colon[0]);
+          if (!isNaN(colonFps) && colonFps > 0 && colonFps <= 240 && /^\d+(\.\d+)?$/.test(String(colon[0]))) {
+            this.targetFps = colonFps;
+            this.forcedFps = colonFps;
+          }
+        }
+
         if (fps && typeof fps === "function") {
           fps(this.targetFps);
           if (!getPackMode()) {
-            log.lisp.debug(`Default FPS set to: ${this.targetFps}`);
+            log.lisp.debug(`Default FPS set to: ${this.targetFps}${this.forcedFps ? " (forced)" : ""}`);
           }
         }
 
@@ -7142,6 +7291,8 @@ class KidLisp {
         return this.perf.enabled;
       },
       fps: (api, args) => {
+        // 🔒 If fps was forced via colon param (e.g., $noc:24), ignore (fps N) calls
+        if (this.forcedFps !== null) return this.forcedFps;
         if (args.length > 0) {
           const parsed = parseFloat(args[0]);
           if (!isNaN(parsed)) {
@@ -10675,7 +10826,7 @@ class KidLisp {
   // Check if a token is part of a timing expression and get its state
   getTimingTokenState(token, tokens, index) {
     // First, check if the current token itself is a timing token
-    if (/^\d*\.?\d+s\.\.\.?$/.test(token)) {
+    if (/^\d*\.?\d+[sf]\.\.\.?$/.test(token)) {
       // Cycle timers - sequential execution
       // Try to find this timing key in our active tracking
       // We need to check all possible timing keys since we don't know the exact arg count here
@@ -10704,7 +10855,7 @@ class KidLisp {
           };
         }
       }
-    } else if (/^\d*\.?\d+s!?$/.test(token)) {
+    } else if (/^\d*\.?\d+[sf]!?$/.test(token)) {
       // Delay timers - all contents blink when triggered
       return {
         timingKey: token,
@@ -10722,7 +10873,7 @@ class KidLisp {
       const prevToken = tokens[i];
 
       // Handle cycle timer arguments
-      if (/^\d*\.?\d+s\.\.\.?$/.test(prevToken)) {
+      if (/^\d*\.?\d+[sf]\.\.\.?$/.test(prevToken)) {
         // Try to find this timing key in our active tracking
         for (const [timingKey, data] of this.activeTimingExpressions) {
           if (timingKey.startsWith(prevToken + "_")) {
@@ -10758,7 +10909,7 @@ class KidLisp {
             }
           }
         }
-      } else if (/^\d*\.?\d+s!?$/.test(prevToken)) {
+      } else if (/^\d*\.?\d+[sf]!?$/.test(prevToken)) {
         // Handle delay timer arguments - always return state to control visibility
         const isBlinking = this.isTimingBlinking(prevToken);
         const isActive = this.isDelayTimerActive(prevToken);
@@ -11182,27 +11333,9 @@ class KidLisp {
       
       // In edit mode, simulate blinking based on time or frames
       if (this.isEditMode) {
-        const match = token.match(/^(\d*\.?\d+)([sf])/);
-        if (match) {
-          const value = parseFloat(match[1]);
-          const unit = match[2];
-          const now = performance.now();
-          const blinkDuration = 200; // Quick blink duration
-          
-          let cyclePhase;
-          if (unit === 's') {
-            const duration = value * 1000;
-            cyclePhase = now % duration;
-          } else {
-            // Frame-based: assume 60fps for simulation
-            const duration = (value / 60) * 1000;
-            cyclePhase = now % duration;
-          }
-          
-          // Blink at the start of each cycle
-          if (cyclePhase < blinkDuration) {
-            return "lime"; // Brief lime flash
-          }
+        const blinkState = this.getTimingEditBlinkState(token);
+        if (blinkState.isBlinking) {
+          return "lime"; // Brief lime flash
         }
         return "yellow"; // Yellow rest of the time
       }
@@ -11230,27 +11363,9 @@ class KidLisp {
       
       // In edit mode, simulate blinking based on time or frames  
       if (this.isEditMode) {
-        const match = token.match(/^(\d*\.?\d+)([sf])/);
-        if (match) {
-          const value = parseFloat(match[1]);
-          const unit = match[2];
-          const now = performance.now();
-          const blinkDuration = 200; // Quick blink duration
-          
-          let cyclePhase;
-          if (unit === 's') {
-            const duration = value * 1000;
-            cyclePhase = now % duration;
-          } else {
-            // Frame-based: assume 60fps for simulation
-            const duration = (value / 60) * 1000;
-            cyclePhase = now % duration;
-          }
-          
-          // Blink at the start of each cycle
-          if (cyclePhase < blinkDuration) {
-            return "red"; // Brief red flash
-          }
+        const blinkState = this.getTimingEditBlinkState(token);
+        if (blinkState.isBlinking) {
+          return "red"; // Brief red flash
         }
         return "yellow"; // Yellow rest of the time
       }
@@ -11278,53 +11393,33 @@ class KidLisp {
       
       // In edit mode, simulate the cycle timer behavior
       if (this.isEditMode) {
-        // Extract timing info
         const timingToken = timingExprState.timingData.timingToken;
-        const match = timingToken.match(/^(\d*\.?\d+)([sf])/);
-        if (match) {
-          const value = parseFloat(match[1]);
-          const unit = match[2];
-          const now = performance.now();
-          const totalArgs = timingExprState.timingData.totalArgs;
-          const tokenArgIndex = timingExprState.currentArgIndex;
-          
-          // Calculate duration and cycle position
-          let duration;
-          if (unit === 's') {
-            duration = value * 1000;
-          } else {
-            // Frame-based: assume 60fps
-            duration = (value / 60) * 1000;
+        const now = performance.now();
+        const totalArgs = timingExprState.timingData.totalArgs;
+        const tokenArgIndex = timingExprState.currentArgIndex;
+        const cyclePosition = this.getTimingCyclePosition(timingToken, totalArgs, now);
+        const isInBlinkPhase = this.getTimingEditBlinkState(timingToken, now).isBlinking;
+
+        // If this is the active argument
+        if (tokenArgIndex === cyclePosition) {
+          // Active argument: blink lime at cycle start, otherwise show normal colors
+          if (isInBlinkPhase) {
+            return "lime"; // Lime flash for active argument
           }
-          
-          const cyclePosition = Math.floor(now / duration) % totalArgs;
-          const blinkDuration = 200;
-          const cyclePhase = now % duration;
-          
-          // Check if we're in the blink phase at the start of the cycle
-          const isInBlinkPhase = cyclePhase < blinkDuration;
-          
-          // If this is the active argument
-          if (tokenArgIndex === cyclePosition) {
-            // Active argument: blink lime at cycle start, otherwise show normal colors
-            if (isInBlinkPhase) {
-              return "lime"; // Lime flash for active argument
-            }
-            // Fall through to normal coloring for active argument when not blinking
-          } else {
-            // Inactive argument: desaturate to grayscale for clear contrast while keeping readability
-            const normalColor = this.getNormalTokenColor(token, tokens, index);
-            if (normalColor) {
-              const rgb = this.parseColorToRGB(normalColor);
-              if (rgb) {
-                const desaturated = this.desaturateColor(rgb);
-                if (desaturated) {
-                  return desaturated.join(',');
-                }
+          // Fall through to normal coloring for active argument when not blinking
+        } else {
+          // Inactive argument: desaturate to grayscale for clear contrast while keeping readability
+          const normalColor = this.getNormalTokenColor(token, tokens, index);
+          if (normalColor) {
+            const rgb = this.parseColorToRGB(normalColor);
+            if (rgb) {
+              const desaturated = this.desaturateColor(rgb);
+              if (desaturated) {
+                return desaturated.join(',');
               }
             }
-            return "128,128,128"; // Fallback to medium gray
           }
+          return "128,128,128"; // Fallback to medium gray
         }
       } else {
         // In display mode, use actual execution state
@@ -11357,59 +11452,44 @@ class KidLisp {
           const argInfo = this.getTokenArgPosition(tokens, i, index);
           if (argInfo !== null && argInfo.argIndex >= 0) {
             // This token is inside a cycle timer!
-            const match = prevToken.match(/^(\d*\.?\d+)([sf])/);
-            if (match) {
-              const value = parseFloat(match[1]);
-              const unit = match[2];
-              const now = performance.now();
-              
-              // Calculate total args for this cycle timer
-              const totalArgs = this.getTimingArgsCount(tokens, i);
-              
-              if (totalArgs === 0) {
-                break; // No arguments, not in a timing expression
+            const now = performance.now();
+
+            // Calculate total args for this cycle timer
+            const totalArgs = this.getTimingArgsCount(tokens, i);
+
+            if (totalArgs === 0) {
+              break; // No arguments, not in a timing expression
+            }
+
+            const cyclePosition = this.getTimingCyclePosition(prevToken, totalArgs, now);
+            const isInBlinkPhase = this.getTimingEditBlinkState(prevToken, now).isBlinking;
+
+            // Exclude parentheses from timing colors
+            if (token === "(" || token === ")") {
+              const normalColor = this.getNormalTokenColor(token, tokens, index);
+              return normalColor || "192,192,192";
+            }
+
+            // If this is the active argument (held for full duration)
+            if (argInfo.argIndex === cyclePosition) {
+              // Active argument: show lime flash at cycle start, then normal colors
+              if (isInBlinkPhase) {
+                return "lime"; // Brief lime flash at start of hold period
               }
-              
-              // Calculate duration and cycle position
-              let duration;
-              if (unit === 's') {
-                duration = value * 1000;
-              } else {
-                duration = (value / 60) * 1000;
-              }
-              
-              const cyclePosition = Math.floor(now / duration) % totalArgs;
-              const blinkDuration = 200;
-              const cyclePhase = now % duration;
-              const isInBlinkPhase = cyclePhase < blinkDuration;
-              
-              // Exclude parentheses from timing colors
-              if (token === "(" || token === ")") {
-                const normalColor = this.getNormalTokenColor(token, tokens, index);
-                return normalColor || "192,192,192";
-              }
-              
-              // If this is the active argument (held for full duration)
-              if (argInfo.argIndex === cyclePosition) {
-                // Active argument: show lime flash at cycle start, then normal colors
-                if (isInBlinkPhase) {
-                  return "lime"; // Brief lime flash at start of hold period
-                }
-                // Otherwise fall through to show normal syntax highlighting (argument is held/visible)
-              } else {
-                // Inactive argument: desaturate to grayscale for clear contrast while keeping readability
-                const normalColor = this.getNormalTokenColor(token, tokens, index);
-                if (normalColor) {
-                  const rgb = this.parseColorToRGB(normalColor);
-                  if (rgb) {
-                    const desaturated = this.desaturateColor(rgb);
-                    if (desaturated) {
-                      return desaturated.join(',');
-                    }
+              // Otherwise fall through to show normal syntax highlighting (argument is held/visible)
+            } else {
+              // Inactive argument: desaturate to grayscale for clear contrast while keeping readability
+              const normalColor = this.getNormalTokenColor(token, tokens, index);
+              if (normalColor) {
+                const rgb = this.parseColorToRGB(normalColor);
+                if (rgb) {
+                  const desaturated = this.desaturateColor(rgb);
+                  if (desaturated) {
+                    return desaturated.join(',');
                   }
                 }
-                return "128,128,128"; // Fallback to medium gray
               }
+              return "128,128,128"; // Fallback to medium gray
             }
             break; // Found the timer, stop searching
           }
@@ -11492,29 +11572,10 @@ class KidLisp {
       
       // In edit mode, simulate delay timer blinking
       if (this.isEditMode) {
-        // Get the timing token to extract duration
         const timingToken = delayTimerState.timingKey;
-        const match = timingToken.match(/^(\d*\.?\d+)([sf])/);
-        if (match) {
-          const value = parseFloat(match[1]);
-          const unit = match[2];
-          const now = performance.now();
-          const blinkDuration = 200;
-          
-          let duration;
-          if (unit === 's') {
-            duration = value * 1000;
-          } else {
-            // Frame-based: assume 60fps
-            duration = (value / 60) * 1000;
-          }
-          
-          const cyclePhase = now % duration;
-          
-          // Blink red at the start of each cycle (when delay elapses)
-          if (cyclePhase < blinkDuration) {
-            return "red"; // Red flash for delay timer contents
-          }
+        const now = performance.now();
+        if (this.getTimingEditBlinkState(timingToken, now).isBlinking) {
+          return "red"; // Red flash for delay timer contents
         }
         
         // When not blinking, show desaturated syntax highlighting
@@ -11715,12 +11776,12 @@ class KidLisp {
     }
 
     // Check for timing patterns (but exclude pure numbers which were handled above)
-    if (/^\d*\.?\d+s!?$/.test(token)) {
+    if (/^\d*\.?\d+[sf]!?$/.test(token)) {
       // Check if this timing token is currently blinking
       if (this.isTimingBlinking(token)) {
         return "red"; // Bright red flash when timing triggers
       }
-      return "yellow"; // Yellow for second-based timing like "1s", "0.5s", "0.1s"
+      return "yellow"; // Yellow for timing like "1s", "0.5s", "3f"
     }
 
     // Check for parentheses - use rainbow nesting colors
