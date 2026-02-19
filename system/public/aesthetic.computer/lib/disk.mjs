@@ -6014,10 +6014,30 @@ const $paintApiUnwrapped = {
       
       // Create persistent painting key with accumulation support
       let regionKey;
+      // Build a dimension-independent content key for finding previous paintings after resize
+      let contentKey;
       if (accumulate && accumulateKey) {
         regionKey = `${x},${y},${width},${height}:ACCUMULATE:${accumulateKey}`;
+        contentKey = `ACCUMULATE:auto_${x}_${y}_${firstWord}`;
       } else {
         regionKey = `${x},${y},${width},${height}:${resolvedSource}`;
+        contentKey = resolvedSource;
+      }
+
+      // 🔄 RESIZE RESILIENCE: If no cached painting at current dimensions,
+      // look for a previous painting with the same source at different dimensions.
+      // This preserves animation continuity when the screen resizes.
+      let resizedPreviousPainting = null;
+      let resizedPreviousKey = null;
+      if (!globalKidLispInstance.persistentPaintings.has(regionKey)) {
+        for (const [key, val] of globalKidLispInstance.persistentPaintings) {
+          // Match keys that share the same content suffix but differ in dimensions
+          if (key !== regionKey && key.endsWith(`:${contentKey}`)) {
+            resizedPreviousPainting = val;
+            resizedPreviousKey = key;
+            break;
+          }
+        }
       }
       
       // Check if the code contains frame-dependent randomization commands
@@ -6044,14 +6064,19 @@ const $paintApiUnwrapped = {
         // console.log(`🎨 Creating fresh painting for key: ${regionKey.slice(0, 50)}... (${reason})`);
         
         // For animations, start with previous frame if available (unless wiping)
-        const previousPainting = !shouldReset && globalKidLispInstance.persistentPaintings.has(regionKey) 
-          ? globalKidLispInstance.persistentPaintings.get(regionKey) 
-          : null;
-        
+        // Also check for resized previous painting from a different dimension
+        const previousPainting = !shouldReset && globalKidLispInstance.persistentPaintings.has(regionKey)
+          ? globalKidLispInstance.persistentPaintings.get(regionKey)
+          : (!shouldReset ? resizedPreviousPainting : null);
+
+        // Clean up the old dimension key if we found a resized previous
+        if (resizedPreviousKey && resizedPreviousPainting) {
+          globalKidLispInstance.persistentPaintings.delete(resizedPreviousKey);
+        }
+
         painting = $activePaintApi.painting(width, height, (api) => {
-          // For animations, paste previous frame first to maintain transformations
-          if (previousPainting && needsFreshExecution && !shouldReset) {
-            // console.log(`🎨 Pasting previous frame for animation continuity`);
+          // Paste previous frame to maintain animation continuity (including across resizes)
+          if (previousPainting && !shouldReset) {
             api.paste(previousPainting);
           }
           
