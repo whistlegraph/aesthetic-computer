@@ -73,7 +73,7 @@ export function boot({ colon, params, jump }) {
   }
 
   // Jump to prompt with merryo command, forwarding :fade if present
-  jump("prompt~merryo" + fadeOption + " " + args.join(" "));
+  jump("prompt~merryo" + fadeOption + " " + args.join(" ") + "~!autorun");
 }
 
 export const nohud = true;
