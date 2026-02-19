@@ -17001,7 +17001,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     const useWebGLComposite = shouldUseWebGLComposite(content);
     const webglCompositeActive = useWebGLComposite && webglBlitter?.isReady();
-    let overlayTargetCtx = webglCompositeActive ? octx : ctx;
+    // During tape playback (underlayFrame), overlays must paint to the main canvas
+    // since overlayCan is hidden to let the video underlay show through.
+    let overlayTargetCtx = (webglCompositeActive && !underlayFrame) ? octx : ctx;
 
     // ✨ UI Overlay (Composite) Layer
     // This currently paints corner labels and tape progress bars only.
@@ -17477,7 +17479,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               overlayCan.style.display = "none";
             }
             skipImmediateOverlays = true; // Overlays will be handled separately
-          } else if (webglCompositeActive) {
+          } else if (webglCompositeActive && !underlayFrame) {
             // Don't show rendering canvas if awaiting reframe pixels with dimension mismatch
             const canShowCanvas = !awaitingReframePixels || (imageData.width === canvas.width && imageData.height === canvas.height);
             if (canvas.style.visibility !== "hidden") {
@@ -17669,7 +17671,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // 📸 Capture clean screenshot data BEFORE overlays are painted (only when needed)
         let cleanScreenshotData = null;
         if (needs$creenshot) {
-          if (webglCompositeActive && webglCompositeCanvas) {
+          if (webglCompositeActive && !underlayFrame && webglCompositeCanvas) {
             const capCtx = ensureCaptureCompositeCanvas(
               ctx.canvas.width,
               ctx.canvas.height,
@@ -17693,7 +17695,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
 
         // Paint overlays (but exclude tape progress from recordings)
-        if (webglCompositeActive) {
+        if (webglCompositeActive && !underlayFrame) {
           octx.clearRect(0, 0, octx.canvas.width, octx.canvas.height);
         }
         
