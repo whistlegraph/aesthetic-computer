@@ -3,7 +3,7 @@
 // Only @jeffrey can create/update/delete
 
 import { connect } from "../../backend/database.mjs";
-import { authorize, hasAdmin, handleFor } from "../../backend/authorization.mjs";
+import { authorize, hasAdmin } from "../../backend/authorization.mjs";
 import { respond } from "../../backend/http.mjs";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
@@ -88,10 +88,10 @@ export async function handler(event, context) {
       return respond(401, { error: "Unauthorized" }, corsHeaders);
     }
     
-    // Check if user is @jeffrey (admin)
-    const handle = await handleFor(user.sub);
-    if (handle !== "jeffrey") {
-      return respond(403, { error: "Only @jeffrey can manage paintings" }, corsHeaders);
+    // Require full admin auth: verified account + canonical handle + pinned admin sub.
+    const isAdmin = await hasAdmin(user);
+    if (!isAdmin) {
+      return respond(403, { error: "Only @jeffrey admin can manage paintings" }, corsHeaders);
     }
     
     // GET presigned upload URL
