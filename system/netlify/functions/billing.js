@@ -5,6 +5,7 @@
 
 import { respond } from "../../backend/http.mjs";
 import { connect } from "../../backend/database.mjs";
+import { authorize, hasAdmin } from "../../backend/authorization.mjs";
 
 const dev = process.env.CONTEXT === "dev";
 
@@ -270,11 +271,15 @@ export async function handler(event, context) {
     return respond(405, { error: "Method not allowed" });
   }
 
-  // Optional: Add auth check for sensitive billing data
-  // const authHeader = event.headers.authorization;
-  // if (!authHeader || authHeader !== `Bearer ${process.env.BILLING_API_KEY}`) {
-  //   return respond(401, { error: "Unauthorized" });
-  // }
+  // Sensitive endpoint: require @jeffrey admin auth.
+  const user = await authorize(event.headers || {});
+  if (!user) {
+    return respond(401, { error: "Unauthorized" });
+  }
+  const isAdmin = await hasAdmin(user);
+  if (!isAdmin) {
+    return respond(403, { error: "Admin access required" });
+  }
 
   const query = event.queryStringParameters || {};
   const provider = query.provider; // Optional: filter by provider

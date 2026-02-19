@@ -3,7 +3,7 @@
 // Only @jeffrey can create/update/delete
 
 import { connect } from "../../backend/database.mjs";
-import { authorize, handleFor } from "../../backend/authorization.mjs";
+import { authorize, hasAdmin } from "../../backend/authorization.mjs";
 import { respond } from "../../backend/http.mjs";
 import { nanoid } from "nanoid";
 
@@ -77,10 +77,10 @@ export async function handler(event, context) {
       return respond(401, { error: "Unauthorized" }, corsHeaders);
     }
     
-    // Check if user is @jeffrey (admin)
-    const handle = await handleFor(user.sub);
-    if (handle !== "jeffrey") {
-      return respond(403, { error: "Only @jeffrey can manage tags" }, corsHeaders);
+    // Require full admin auth: verified account + canonical handle + pinned admin sub.
+    const isAdmin = await hasAdmin(user);
+    if (!isAdmin) {
+      return respond(403, { error: "Only @jeffrey admin can manage tags" }, corsHeaders);
     }
     
     // POST - Create new tag
