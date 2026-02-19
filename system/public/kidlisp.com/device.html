@@ -786,17 +786,7 @@
       width: 0%;
       /* White fill over black background - looks like it's filling in */
       background: #fff;
-      transition: width 0.25s linear, background-color 0.2s ease;
-    }
-    
-    /* Blinking red at end */
-    @keyframes blinkRed {
-      0%, 50% { background: #ff3333; }
-      51%, 100% { background: #990000; }
-    }
-    
-    #progress-fill.ending {
-      animation: blinkRed 0.5s ease-in-out infinite;
+      transition: width 0.25s linear;
     }
 
     /* FPS meter - top right (hidden by default) */
@@ -2928,6 +2918,8 @@
 
     // Quick-cut update of overlay for instant transitions (no scramble)
     function updateOverlayInstant(codeId, code) {
+      // Cancel any in-flight fetchAndDisplaySource so stale results don't restart scrambles
+      _fetchId++;
       // Stop any running scramble animations first
       window.revealAllTextScrambles?.();
       window.stopScrambleAnimation?.();
@@ -2997,6 +2989,15 @@
       requestAnimationFrame(updateFF1Overlap);
     }
     
+    // Returns a color for the progress fill: white → yellow → orange → red as pct → 100
+    function getProgressColor(pct) {
+      function lerp(a, b, t) { return Math.round(a + (b - a) * t); }
+      if (pct <= 70) return '#fff';
+      if (pct <= 85) { const t = (pct - 70) / 15; return `rgb(255,255,${lerp(255, 0, t)})`; }
+      if (pct <= 93) { const t = (pct - 85) / 8;  return `rgb(255,${lerp(255, 136, t)},0)`; }
+      const t = (pct - 93) / 7; return `rgb(255,${lerp(136, 51, t)},${lerp(0, 51, t)})`;
+    }
+
     function startSlideshowProgressBar(duration) {
       const progressBar = document.getElementById('progress-bar');
       const progressFill = document.getElementById('progress-fill');
@@ -3008,9 +3009,11 @@
       progressBar.classList.add('visible');
       progressBar.classList.add('fading-in');
       
-      // Reset progress and clear any ending state
+      // Reset progress — disable transition so it snaps to left, reset color to white
+      progressFill.style.transition = 'none';
       progressFill.style.width = '0%';
-      progressFill.classList.remove('ending');
+      progressFill.style.backgroundColor = '#fff';
+      requestAnimationFrame(() => { progressFill.style.transition = ''; });
       progressBar.classList.remove('hidden-mid');
       setTimeout(() => progressBar.classList.remove('fading-in'), 2000);
       if (overlay) overlay.classList.remove('slid-out');
@@ -3047,26 +3050,23 @@
           progressBar.classList.remove('hidden-mid');
         }
         
-        // Blink red towards the end (last 10%)
-        const shouldBlink = progress > 90;
-        if (shouldBlink && !progressFill.classList.contains('ending')) {
-          progressFill.classList.add('ending');
-        } else if (!shouldBlink && progressFill.classList.contains('ending')) {
-          progressFill.classList.remove('ending');
-        }
+        // Fade white → yellow → orange → red in last 30%
+        progressFill.style.backgroundColor = getProgressColor(progress);
 
         updateFF1Overlap();
-        
+
         if (progress < 100) {
           requestAnimationFrame(updateProgress);
         }
       }
-      
+
       requestAnimationFrame(updateProgress);
     }
     
     // Fetch KidLisp source from API (uses eager fetch if available)
+    let _fetchId = 0; // Incremented on each call; stale completions are discarded
     async function fetchAndDisplaySource(codeId) {
+      const myFetchId = ++_fetchId;
       console.log('📺 fetchAndDisplaySource called with:', codeId);
       // Strip $ prefix if present for API call
       const pieceCode = codeId.startsWith('$') ? codeId.slice(1) : codeId;
@@ -3100,6 +3100,10 @@
           }
         }
         
+        if (myFetchId !== _fetchId) {
+          console.log('📺 Stale fetch discarded for:', codeId);
+          return;
+        }
         if (data) {
           console.log('📺 Source data:', data);
           if (data.source) {
@@ -3907,13 +3911,8 @@
         progressBar.classList.remove('hidden-mid');
       }
       
-      // Blink red towards the end (last 10%)
-      const shouldBlink = progress > 90;
-      if (shouldBlink && !progressFill.classList.contains('ending')) {
-        progressFill.classList.add('ending');
-      } else if (!shouldBlink && progressFill.classList.contains('ending')) {
-        progressFill.classList.remove('ending');
-      }
+      // Fade white → yellow → orange → red in last 30%
+      progressFill.style.backgroundColor = getProgressColor(progress);
 
       updateFF1Overlap();
       
@@ -3931,8 +3930,10 @@
       console.log('📺 Reloading piece...');
       pieceHasChanged = false;
       progressStartTime = Date.now();
+      progressFill.style.transition = 'none'; // Snap to left instantly
       progressFill.style.width = '0%';
-      progressFill.classList.remove('ending'); // Reset red blink state
+      progressFill.style.backgroundColor = '#fff'; // Reset color to white
+      requestAnimationFrame(() => { progressFill.style.transition = ''; });
       iframe.src = iframe.src.replace(/&t=\d+/, '') + '&t=' + Date.now();
       requestAnimationFrame(updateProgressBar);
     }
