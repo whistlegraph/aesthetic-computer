@@ -5889,6 +5889,42 @@ const $paintApiUnwrapped = {
   noise16Aesthetic: graph.noise16Aesthetic,
   noise16Sotce: graph.noise16Sotce,
   noiseTinted: graph.noiseTinted,
+  // 🎨 Alpha-blended paste for crossfade compositing
+  pasteWithAlpha: function pasteWithAlpha(source, x, y, alpha) {
+    if (!source || !source.pixels || alpha <= 0) return;
+    const dst = $activePaintApi.screen;
+    if (!dst || !dst.pixels) return;
+    const srcPixels = source.pixels;
+    const dstPixels = dst.pixels;
+    const sw = source.width, sh = source.height;
+    const dw = dst.width, dh = dst.height;
+    if (alpha >= 255) {
+      $activePaintApi.paste(source, x, y);
+      return;
+    }
+    const alphaFactor = alpha / 255.0;
+    for (let sy = 0; sy < sh; sy++) {
+      const dy = sy + y;
+      if (dy < 0 || dy >= dh) continue;
+      for (let sx = 0; sx < sw; sx++) {
+        const dx = sx + x;
+        if (dx < 0 || dx >= dw) continue;
+        const si = (sy * sw + sx) * 4;
+        const di = (dy * dw + dx) * 4;
+        let srcA = srcPixels[si + 3];
+        if (srcA === 0 && (srcPixels[si] || srcPixels[si + 1] || srcPixels[si + 2])) {
+          srcA = 255; // Promote opaque RGB with zero alpha
+        }
+        if (srcA === 0) continue;
+        const ea = (srcA * alphaFactor + 1) | 0;
+        const inv = 256 - ea;
+        dstPixels[di]     = (ea * srcPixels[si]     + inv * dstPixels[di])     >> 8;
+        dstPixels[di + 1] = (ea * srcPixels[si + 1] + inv * dstPixels[di + 1]) >> 8;
+        dstPixels[di + 2] = (ea * srcPixels[si + 2] + inv * dstPixels[di + 2]) >> 8;
+        dstPixels[di + 3] = Math.min(255, dstPixels[di + 3] + ea);
+      }
+    }
+  },
   // 🎯 Simplified KidLisp integration using global singleton instance
   kidlisp: function kidlisp(x = 0, y = 0, width, height, source, options = {}) {
     // Initialize global instance if needed

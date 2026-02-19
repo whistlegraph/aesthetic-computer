@@ -7,22 +7,29 @@
 export function boot({ colon, params, jump }) {
   // Build the merryo command from URL params
   const args = [];
-  
+  let fadeOption = "";
+
   if (colon && colon.length > 0) {
-    args.push(...colon);
+    for (const part of colon) {
+      if (/^fade(\.\d+)?$/.test(part)) {
+        fadeOption = ":" + part;
+      } else {
+        args.push(part);
+      }
+    }
   }
-  
+
   if (params && params.length > 0) {
     args.push(...params);
   }
-  
+
   if (args.length === 0) {
     jump("prompt~merryo");
     return;
   }
-  
+
   // Jump to prompt with merryo command pre-filled
-  jump("prompt~merryo " + args.join(" "));
+  jump("prompt~merryo" + fadeOption + " " + args.join(" "));
 }
 
 export const nohud = true;

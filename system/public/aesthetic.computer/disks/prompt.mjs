@@ -1141,7 +1141,7 @@ async function halt($, text) {
 
   const activateMerry = async (
     pieceParams,
-    { markAsTaping = false, flashOnSuccess = true, loop = false, originalCommand = "" } = {}
+    { markAsTaping = false, flashOnSuccess = true, loop = false, originalCommand = "", fadeDuration = 0 } = {}
   ) => {
     if (!pieceParams || pieceParams.length === 0) {
       flashColor = [255, 0, 0];
@@ -1258,6 +1258,7 @@ async function halt($, text) {
       cycleCount: 0,
       originalCommand, // Store for backspace editing
       getUTCTime, // Store the helper for use in setTimeout calculations
+      fadeDuration, // Crossfade duration in seconds (0 = no fade)
     };
 
     console.log("🎄 Merry pipeline:", pipeline, `total: ${totalDuration}s`);
@@ -1364,20 +1365,41 @@ async function halt($, text) {
         };
       }
 
-      setTimeout(() => {
-        if (system.merry && system.merry.running) {
-          system.merry.elapsedTime += duration;
-          // Reset piece start for next piece (it will start fresh)
-          system.merry.currentPieceStart = getUTCTime();
-          startMerryPiece(index + 1);
-        }
-      }, remainingDuration);
+      // In fade mode, the merry-fade host piece handles all rendering via
+      // paintApi.kidlisp() — no jump() needed. The host reads system.merry
+      // timing state each frame and crossfades between $code pieces.
+      if (system.merry.fadeDuration > 0) {
+        // Only set up the next-piece timer; don't jump.
+        setTimeout(() => {
+          if (system.merry && system.merry.running) {
+            system.merry.elapsedTime += duration;
+            system.merry.currentPieceStart = getUTCTime();
+            startMerryPiece(index + 1);
+          }
+        }, remainingDuration);
+      } else {
+        setTimeout(() => {
+          if (system.merry && system.merry.running) {
+            system.merry.elapsedTime += duration;
+            // Reset piece start for next piece (it will start fresh)
+            system.merry.currentPieceStart = getUTCTime();
+            startMerryPiece(index + 1);
+          }
+        }, remainingDuration);
 
-      jump(piece);
+        jump(piece);
+      }
     };
 
     // Start at the calculated index (may be > 0 due to UTC sync)
-    startMerryPiece(startIndex);
+    if (fadeDuration > 0) {
+      // In fade mode, jump to the merry-fade host piece once.
+      // It reads system.merry state each frame and renders $code pieces.
+      jump("merry-fade");
+      startMerryPaintTicker();
+    } else {
+      startMerryPiece(startIndex);
+    }
 
     if (flashOnSuccess) {
       flashColor = [0, 255, 0];
@@ -1539,22 +1561,37 @@ async function halt($, text) {
       }
     }
     
+    // 🎄✨ Parse :fade option from colon params (e.g., merryo:fade, mo1:fade.5)
+    const slugColonParts = slug.split(":").slice(1); // Everything after the first colon segment
+    let fadeDuration = 0;
+    const nonFadeColonParts = [];
+    for (const part of slugColonParts) {
+      const fadeMatch = part.match(/^fade(\.\d+)?$/);
+      if (fadeMatch) {
+        fadeDuration = fadeMatch[1] ? parseFloat("0" + fadeMatch[1]) : 0.3;
+      } else {
+        nonFadeColonParts.push(part);
+      }
+    }
+
     // Apply uniform duration to all params if specified
     let processedParams = params;
     if (uniformDuration !== null && params.length > 0) {
       processedParams = params.map(piece => `${uniformDuration}-${piece}`);
     }
-    
+
     console.log(
       `🎄 ${slugWithoutColon.toUpperCase()} command received with params:`,
       processedParams,
       uniformDuration ? `(uniform: ${uniformDuration}s)` : "",
+      fadeDuration ? `(fade: ${fadeDuration}s)` : "",
     );
     activateMerry(processedParams, {
       markAsTaping: false,
       flashOnSuccess: true,
       loop,
       originalCommand: text, // Store the full original text (already has proper format)
+      fadeDuration,
     });
     return true;
   } else if (slug.startsWith("!") && slug.length > 1) {
