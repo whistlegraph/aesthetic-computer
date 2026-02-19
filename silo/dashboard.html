@@ -303,6 +303,7 @@ a:hover { text-decoration: underline; }
           <div class="card-hd">services</div>
           <div class="kv"><span class="k"><span class="dot" id="svc-oven-dot"></span> oven</span><span class="v" id="svc-oven-meta">...</span></div>
           <div class="kv"><span class="k"><span class="dot" id="svc-session-dot"></span> session</span><span class="v" id="svc-session-meta">...</span></div>
+          <div class="kv"><span class="k"><span class="dot" id="svc-insta-dot"></span> instagram</span><span class="v" id="svc-insta-meta">...</span></div>
           <div style="margin-top:8px">
             <div class="card-hd">redis</div>
             <div id="redisTile" class="loading">loading...</div>
@@ -359,6 +360,21 @@ a:hover { text-decoration: underline; }
       <div class="card" style="margin-top:6px">
         <div class="card-hd">redis</div>
         <div id="redisTile2" class="loading">loading...</div>
+      </div>
+      <div class="card" style="margin-top:6px">
+        <div class="card-hd"><span class="dot" id="insta-dot"></span> instagram</div>
+        <div class="kv"><span class="k">status</span><span class="v" id="insta-status">...</span></div>
+        <div class="kv"><span class="k">account</span><span class="v" id="insta-account">-</span></div>
+        <div class="kv"><span class="k">session age</span><span class="v" id="insta-age">-</span></div>
+        <div id="insta-actions" style="margin-top:6px">
+          <button class="btn" id="instaLoginBtn">login</button>
+          <button class="btn" id="instaLogoutBtn" style="display:none">logout</button>
+          <span id="insta-challenge" style="display:none">
+            <input id="instaCode" placeholder="verification code" style="font-family:inherit;font-size:11px;padding:2px 6px;background:var(--bg);color:var(--fg);border:1px solid var(--border);width:120px;">
+            <button class="btn" id="instaVerifyBtn">verify</button>
+          </span>
+          <span id="insta-msg" style="font-size:11px;color:var(--fg2);margin-left:6px"></span>
+        </div>
       </div>
     </div>
 
@@ -769,6 +785,122 @@ async function checkSvc(name) {
   }
 }
 
+// --- Instagram ---
+let instaTwoFactorId = null, instaTwoFactorMethod = null;
+
+async function loadInstaStatus() {
+  try {
+    const d = await authFetch('/api/insta/status').then(r => r.json());
+    const ok = d.loggedIn;
+    dot('insta-dot', ok);
+    dot('svc-insta-dot', ok);
+    const el = document.getElementById('insta-status');
+    const metaEl = document.getElementById('svc-insta-meta');
+    if (ok) {
+      el.textContent = 'active'; el.className = 'v ok';
+      if (metaEl) { metaEl.textContent = '@' + (d.username || '?'); metaEl.className = 'v ok'; }
+      document.getElementById('instaLoginBtn').style.display = 'none';
+      document.getElementById('instaLogoutBtn').style.display = '';
+    } else if (d.challengeInProgress) {
+      el.textContent = 'challenge'; el.className = 'v warn';
+      if (metaEl) { metaEl.textContent = 'challenge'; metaEl.className = 'v warn'; }
+      document.getElementById('insta-challenge').style.display = '';
+    } else {
+      el.textContent = 'not logged in'; el.className = 'v err';
+      if (metaEl) { metaEl.textContent = 'offline'; metaEl.className = 'v err'; }
+      document.getElementById('instaLoginBtn').style.display = '';
+      document.getElementById('instaLogoutBtn').style.display = 'none';
+    }
+    document.getElementById('insta-account').textContent = d.username ? '@' + d.username : '-';
+    document.getElementById('insta-age').textContent = d.sessionAge != null ? fmtDuration(d.sessionAge) : '-';
+  } catch (e) {
+    dot('insta-dot', false);
+    dot('svc-insta-dot', false);
+    const metaEl = document.getElementById('svc-insta-meta');
+    if (metaEl) { metaEl.textContent = 'error'; metaEl.className = 'v err'; }
+  }
+}
+
+document.getElementById('instaLoginBtn').onclick = async () => {
+  const msg = document.getElementById('insta-msg');
+  msg.textContent = 'logging in...';
+  try {
+    const resp = await fetch('/api/insta/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { Authorization: 'Bearer ' + accessToken } : {}),
+      },
+    });
+    const d = await resp.json();
+    if (d.ok) {
+      msg.textContent = 'logged in!';
+      loadInstaStatus();
+    } else if (d.challenge) {
+      msg.textContent = d.message || 'check email/SMS';
+      document.getElementById('insta-challenge').style.display = '';
+      instaTwoFactorId = null;
+    } else if (d.twoFactor) {
+      msg.textContent = d.message || 'enter 2FA code';
+      document.getElementById('insta-challenge').style.display = '';
+      instaTwoFactorId = d.twoFactorIdentifier;
+      instaTwoFactorMethod = d.method;
+    } else {
+      msg.textContent = d.error || 'failed';
+    }
+  } catch (e) {
+    msg.textContent = 'error: ' + e.message;
+  }
+};
+
+document.getElementById('instaVerifyBtn').onclick = async () => {
+  const code = document.getElementById('instaCode').value.trim();
+  if (!code) return;
+  const msg = document.getElementById('insta-msg');
+  msg.textContent = 'verifying...';
+  try {
+    const body = { code };
+    if (instaTwoFactorId) {
+      body.twoFactorIdentifier = instaTwoFactorId;
+      body.method = instaTwoFactorMethod;
+    }
+    const resp = await fetch('/api/insta/challenge', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { Authorization: 'Bearer ' + accessToken } : {}),
+      },
+      body: JSON.stringify(body),
+    });
+    const d = await resp.json();
+    if (d.ok) {
+      msg.textContent = 'verified!';
+      document.getElementById('insta-challenge').style.display = 'none';
+      instaTwoFactorId = null;
+      loadInstaStatus();
+    } else {
+      msg.textContent = d.error || 'verification failed';
+    }
+  } catch (e) {
+    msg.textContent = 'error: ' + e.message;
+  }
+};
+
+document.getElementById('instaLogoutBtn').onclick = async () => {
+  const msg = document.getElementById('insta-msg');
+  msg.textContent = 'logging out...';
+  try {
+    await fetch('/api/insta/logout', {
+      method: 'POST',
+      headers: accessToken ? { Authorization: 'Bearer ' + accessToken } : {},
+    });
+    msg.textContent = '';
+    loadInstaStatus();
+  } catch (e) {
+    msg.textContent = 'error: ' + e.message;
+  }
+};
+
 // log (append at bottom, auto-scroll when near bottom)
 function addLog(entry) {
   logCount++;
@@ -1064,7 +1196,7 @@ document.getElementById('syncBtn').onclick = async () => {
 };
 
 function loadAll() {
-  loadOverview(); loadCollections(); loadStorage(); loadServices();
+  loadOverview(); loadCollections(); loadStorage(); loadServices(); loadInstaStatus();
   // Atlas compare is deferred — only load when that sub-tab is first visited
   let atlasLoaded = false;
   const origClick = document.querySelector('.sub-tab-btn[data-subtab="atlas"]');
@@ -1081,6 +1213,7 @@ function loadAll() {
   });
   setInterval(loadOverview, 30000);
   setInterval(loadServices, 60000);
+  setInterval(loadInstaStatus, 60000);
 }
 
 initAuth();
