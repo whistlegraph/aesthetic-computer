@@ -56,7 +56,6 @@ included_files = [
   "public/aesthetic.computer/systems/**/*.mjs",
   "public/aesthetic.computer/lib/**/*.mjs",
   "backend/**/*.mjs",
-  "public/kidlisp.com/device.html",
 ]
 external_node_modules = ["he"]
 included_env_vars = []
