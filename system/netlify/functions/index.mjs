@@ -106,8 +106,9 @@ async function fun(event, context) {
         : "The top 100 KidLisp pieces";
       const ogImage = "https://oven.aesthetic.computer/kidlisp-og.png";
 
+      const baseDir = dev ? process.cwd() : "/var/task";
       let htmlContent = await fs.readFile(
-        path.join(process.cwd(), "public/kidlisp.com/device.html"),
+        path.join(baseDir, "public/kidlisp.com/device.html"),
         "utf8",
       );
 
