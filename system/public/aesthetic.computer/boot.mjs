@@ -239,7 +239,10 @@ function bootLog(message) {
 }
 
 // Hide the boot log overlay (called when boot completes)
+let bootLogHidden = false;
 function hideBootLog() {
+  if (bootLogHidden) return;
+  bootLogHidden = true;
   if (window.acBootCanvas?.hide) {
     window.acBootCanvas.hide();
   }
