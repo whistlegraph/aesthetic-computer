@@ -5,6 +5,7 @@ export const font_1 = {
   glyphHeight: 10,
   glyphWidth: 6,
   proportional: false, // Monospace font - fixed character width
+  bdfFallback: "6x10", // X11 Misc-Fixed 6x10 for Cyrillic, Greek, accented Latin, etc.
   0: "numbers/0 - 2021.12.16.18.28.06",
   1: "numbers/1 - 2021.12.16.17.56.44",
   2: "numbers/2 - 2021.12.16.17.59.01",

@@ -308,6 +308,174 @@ class Typeface {
       if (Object.keys(glyphsToCache).length > 0) {
         cacheGlyphsBulk(this.name, glyphsToCache);
       }
+
+      // === BDF FALLBACK for font_1 ===
+      // After loading hand-drawn glyphs, wrap this.glyphs in a Proxy
+      // that lazily fetches missing characters from a BDF font (e.g. 6x10).
+      if (this.data.bdfFallback) {
+        const bdfFontName = this.data.bdfFallback; // "6x10"
+
+        // Track which characters are from the hand-drawn set so we never
+        // override them with BDF glyphs.
+        const handDrawnChars = new Set(Object.keys(this.glyphs));
+
+        const loadingGlyphs = new Set();
+        const failedGlyphs = new Set();
+
+        // Batch queue for glyph requests
+        const batchQueue = [];
+        let batchTimeout = null;
+        const BATCH_DELAY = 16;
+        const MAX_BATCH_SIZE = 50;
+
+        const flushBatch = async () => {
+          if (batchQueue.length === 0) return;
+          const batch = batchQueue.splice(0, MAX_BATCH_SIZE);
+          batchTimeout = null;
+
+          const codePointStrs = batch
+            .map((item) => item.codePointStr)
+            .filter((s) => s && s.length > 0 && /^[0-9A-F_]+$/i.test(s));
+
+          if (codePointStrs.length === 0) {
+            for (const item of batch) {
+              failedGlyphs.add(item.char);
+              loadingGlyphs.delete(item.char);
+            }
+            return;
+          }
+
+          const charsParam = codePointStrs.join(",");
+
+          try {
+            const apiUrl =
+              typeof window !== "undefined" && window.acSPIDER
+                ? `https://aesthetic.computer/api/bdf-glyph?chars=${charsParam}&font=${bdfFontName}`
+                : `/api/bdf-glyph?chars=${charsParam}&font=${bdfFontName}`;
+
+            const response = await fetch(apiUrl);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const data = await response.json();
+            const glyphs = data.glyphs || {};
+
+            const glyphsToCache = {};
+            for (const item of batch) {
+              const glyphData = glyphs[item.codePointStr];
+              if (glyphData) {
+                item.target[item.char] = glyphData;
+                glyphsToCache[item.char] = glyphData;
+                this.invalidateAdvance(item.char);
+                if (
+                  needsPaintCallback &&
+                  typeof needsPaintCallback === "function"
+                ) {
+                  needsPaintCallback();
+                }
+              } else {
+                failedGlyphs.add(item.char);
+              }
+              loadingGlyphs.delete(item.char);
+            }
+
+            if (Object.keys(glyphsToCache).length > 0) {
+              cacheGlyphsBulk(bdfFontName, glyphsToCache);
+            }
+          } catch (err) {
+            for (const item of batch) {
+              failedGlyphs.add(item.char);
+              loadingGlyphs.delete(item.char);
+            }
+          }
+
+          if (batchQueue.length > 0 && !batchTimeout) {
+            batchTimeout = setTimeout(flushBatch, BATCH_DELAY);
+          }
+        };
+
+        const queueGlyphFetch = (char, codePointStr, target) => {
+          batchQueue.push({ char, codePointStr, target });
+          if (batchQueue.length >= MAX_BATCH_SIZE) {
+            if (batchTimeout) {
+              clearTimeout(batchTimeout);
+              batchTimeout = null;
+            }
+            flushBatch();
+          } else if (!batchTimeout) {
+            batchTimeout = setTimeout(flushBatch, BATCH_DELAY);
+          }
+        };
+
+        // Pre-warm BDF fallback glyphs from IndexedDB
+        preWarmGlyphCache(bdfFontName).then((count) => {
+          if (count > 0) {
+            for (const [key, data] of glyphMemoryCache.entries()) {
+              if (key.startsWith(`${bdfFontName}:`)) {
+                const char = key.slice(bdfFontName.length + 1);
+                if (!handDrawnChars.has(char) && !this.glyphs[char]) {
+                  this.glyphs[char] = data;
+                }
+              }
+            }
+            if (
+              needsPaintCallback &&
+              typeof needsPaintCallback === "function"
+            ) {
+              needsPaintCallback();
+            }
+          }
+        });
+
+        // Wrap this.glyphs in a Proxy for BDF fallback
+        this.glyphs = new Proxy(this.glyphs, {
+          get: (target, char) => {
+            // If glyph exists (hand-drawn or previously fetched BDF), return it
+            if (target[char]) return target[char];
+
+            // Check memory cache for BDF fallback
+            const cacheKey = `${bdfFontName}:${char}`;
+            if (glyphMemoryCache.has(cacheKey)) {
+              const cached = glyphMemoryCache.get(cacheKey);
+              target[char] = cached;
+              return cached;
+            }
+
+            // Skip non-string or empty chars
+            if (typeof char !== "string" || char.length === 0) return null;
+
+            // Already failed or loading
+            if (failedGlyphs.has(char)) return null;
+            if (loadingGlyphs.has(char)) return null;
+
+            // Start async BDF fetch
+            loadingGlyphs.add(char);
+
+            const codePoints = [];
+            try {
+              for (const singleChar of Array.from(char)) {
+                const cp = singleChar.codePointAt(0);
+                if (cp !== undefined && !(cp >= 0xd800 && cp <= 0xdfff)) {
+                  codePoints.push(
+                    cp
+                      .toString(16)
+                      .toUpperCase()
+                      .padStart(cp > 0xffff ? 5 : 4, "0"),
+                  );
+                }
+              }
+            } catch (e) {
+              codePoints.push("FFFD");
+            }
+            if (codePoints.length === 0) codePoints.push("FFFD");
+
+            queueGlyphFetch(char, codePoints.join("_"), target);
+
+            // Return null while loading — character appears on next paint
+            return null;
+          },
+        });
+      }
+      // === END BDF FALLBACK ===
     } else if (this.name === "microtype") {
       // Try to pre-warm from IndexedDB cache first
       const cachedCount = await preWarmGlyphCache(this.name);
