@@ -875,6 +875,41 @@ app.get("/api/services/session", async (req, res) => {
   } catch (err) { res.json({ status: "unreachable", error: err.message }); }
 });
 
+app.get("/api/services/billing", async (req, res) => {
+  const billingUrl = process.env.BILLING_URL || "https://aesthetic.computer/api/billing";
+  try {
+    const start = Date.now();
+    const authHeader = req.headers.authorization || "";
+    const resp = await fetch(billingUrl, {
+      headers: authHeader ? { Authorization: authHeader } : {},
+      signal: AbortSignal.timeout(10000),
+    });
+
+    let data = null;
+    try {
+      data = await resp.json();
+    } catch {
+      data = null;
+    }
+
+    if (!resp.ok) {
+      return res.status(resp.status).json({
+        status: "error",
+        responseMs: Date.now() - start,
+        error: data?.error || `Billing API error (${resp.status})`,
+      });
+    }
+
+    return res.json({
+      status: "ok",
+      responseMs: Date.now() - start,
+      ...data,
+    });
+  } catch (err) {
+    return res.json({ status: "unreachable", error: err.message });
+  }
+});
+
 app.get("/api/firehose/history", async (req, res) => {
   if (!db) return res.json([]);
   const limit = Math.min(parseInt(req.query.limit) || 100, 1000);

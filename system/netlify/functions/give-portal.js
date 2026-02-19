@@ -4,6 +4,7 @@
 
 import Stripe from "stripe";
 import { respond } from "../../backend/http.mjs";
+import { authorize } from "../../backend/authorization.mjs";
 
 const dev = process.env.CONTEXT === "dev";
 
@@ -18,6 +19,18 @@ export async function handler(event, context) {
     return respond(405, { error: "Method not allowed" });
   }
 
+  // Require authenticated user session; do not allow arbitrary email lookup.
+  const authHeader = event.headers?.authorization || event.headers?.Authorization;
+  const user = await authorize({ authorization: authHeader });
+  if (!user) {
+    return respond(401, { error: "Unauthorized" });
+  }
+
+  const authenticatedEmail = user.email?.trim().toLowerCase();
+  if (!authenticatedEmail) {
+    return respond(400, { error: "Could not determine account email from session" });
+  }
+
   const stripeKey = dev
     ? process.env.STRIPE_API_TEST_PRIV_KEY
     : process.env.STRIPE_API_PRIV_KEY;
@@ -30,20 +43,21 @@ export async function handler(event, context) {
 
   try {
     const body = JSON.parse(event.body || "{}");
-    const email = body.email;
+    const requestedEmail = body.email?.trim().toLowerCase();
 
-    if (!email) {
-      return respond(400, { error: "Email required to find your subscriptions" });
+    // Optional client-sent email must match authenticated identity.
+    if (requestedEmail && requestedEmail !== authenticatedEmail) {
+      return respond(403, { error: "Email does not match authenticated account" });
     }
 
     // Find customers by email
     const customers = await stripe.customers.list({
-      email: email,
+      email: authenticatedEmail,
       limit: 1,
     });
 
     if (!customers.data.length) {
-      return respond(404, { error: "No subscription found for this email. Try the email you used when giving." });
+      return respond(404, { error: "No subscription found for your account email." });
     }
 
     const customer = customers.data[0];

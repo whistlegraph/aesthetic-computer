@@ -9939,41 +9939,44 @@
         
         const prompts = {
           en: { 
-            email: 'Enter your email to manage your subscription:',
+            loginRequired: 'Please log in to manage your subscription.',
             loading: 'Loading...',
-            error: 'Could not find a subscription for that email. Please try again or contact support.',
+            error: 'Could not find a subscription for your account. Please try again or contact support.',
             errorGeneric: 'Something went wrong. Please try again.'
           },
           da: { 
-            email: 'Indtast din email for at administrere dit abonnement:',
+            loginRequired: 'Log ind for at administrere dit abonnement.',
             loading: 'Indlæser...',
-            error: 'Kunne ikke finde et abonnement for den email. Prøv igen eller kontakt support.',
+            error: 'Kunne ikke finde et abonnement for din konto. Prøv igen eller kontakt support.',
             errorGeneric: 'Noget gik galt. Prøv igen.'
           },
           de: { 
-            email: 'Geben Sie Ihre E-Mail ein, um Ihr Abonnement zu verwalten:',
+            loginRequired: 'Bitte melden Sie sich an, um Ihr Abonnement zu verwalten:',
             loading: 'Laden...',
-            error: 'Kein Abonnement für diese E-Mail gefunden. Bitte versuchen Sie es erneut oder kontaktieren Sie den Support.',
+            error: 'Kein Abonnement für Ihr Konto gefunden. Bitte versuchen Sie es erneut oder kontaktieren Sie den Support.',
             errorGeneric: 'Etwas ist schief gelaufen. Bitte versuchen Sie es erneut.'
           },
           zh: { 
-            email: '输入您的电子邮件以管理订阅：',
+            loginRequired: '请先登录以管理订阅。',
             loading: '加载中...',
-            error: '找不到该邮箱的订阅。请重试或联系支持。',
+            error: '找不到您账户的订阅。请重试或联系支持。',
             errorGeneric: '出了点问题。请重试。'
           },
           es: { 
-            email: 'Ingresa tu correo para gestionar tu suscripción:',
+            loginRequired: 'Inicia sesión para gestionar tu suscripción.',
             loading: 'Cargando...',
-            error: 'No se encontró una suscripción para ese correo. Intenta de nuevo o contacta soporte.',
+            error: 'No se encontró una suscripción para tu cuenta. Intenta de nuevo o contacta soporte.',
             errorGeneric: 'Algo salió mal. Intenta de nuevo.'
           }
         };
         
         const t = prompts[currentLang] || prompts.en;
-        const email = prompt(t.email);
-        
-        if (!email || !email.includes('@')) return;
+        const token = await getAuthToken();
+        if (!token || !acUser?.email) {
+          alert(t.loginRequired);
+          await footerLogin();
+          return;
+        }
         
         link.style.pointerEvents = 'none';
         const origText = link.innerHTML;
@@ -9982,8 +9985,11 @@
         try {
           const res = await fetch('/api/give-portal', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ email: acUser.email })
           });
           const data = await res.json();
           
@@ -13895,6 +13901,16 @@
       await auth0Client.loginWithRedirect({
         authorizationParams: { screen_hint: 'signup' }
       });
+    }
+
+    async function getAuthToken() {
+      if (!auth0Client) await initAuth0();
+      if (!auth0Client) return null;
+      try {
+        return await auth0Client.getTokenSilently();
+      } catch {
+        return null;
+      }
     }
     
     // Footer auth button event listeners

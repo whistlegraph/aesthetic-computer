@@ -298,6 +298,7 @@ a:hover { text-decoration: underline; }
           <div class="kv"><span class="k">total docs</span><span class="v" id="s-docs">-</span></div>
           <div class="kv"><span class="k">db size</span><span class="v" id="s-dbsize">-</span></div>
           <div class="kv"><span class="k">storage</span><span class="v" id="s-storage">-</span></div>
+          <div class="kv"><span class="k">billing est</span><span class="v" id="s-billing">-</span></div>
         </div>
         <div class="card">
           <div class="card-hd">services</div>
@@ -307,6 +308,10 @@ a:hover { text-decoration: underline; }
           <div style="margin-top:8px">
             <div class="card-hd">redis</div>
             <div id="redisTile" class="loading">loading...</div>
+          </div>
+          <div style="margin-top:8px">
+            <div class="card-hd">billing</div>
+            <div id="billingTile" class="loading">loading...</div>
           </div>
         </div>
       </div>
@@ -360,6 +365,10 @@ a:hover { text-decoration: underline; }
       <div class="card" style="margin-top:6px">
         <div class="card-hd">redis</div>
         <div id="redisTile2" class="loading">loading...</div>
+      </div>
+      <div class="card" style="margin-top:6px">
+        <div class="card-hd">billing</div>
+        <div id="billingTile2" class="loading">loading...</div>
       </div>
       <div class="card" style="margin-top:6px">
         <div class="card-hd"><span class="dot" id="insta-dot"></span> instagram</div>
@@ -785,6 +794,42 @@ async function checkSvc(name) {
   }
 }
 
+async function loadBilling() {
+  const setTiles = (html) => {
+    const b1 = document.getElementById('billingTile');
+    const b2 = document.getElementById('billingTile2');
+    if (b1) b1.innerHTML = html;
+    if (b2) b2.innerHTML = html;
+  };
+  try {
+    const d = await authFetch('/api/services/billing').then(r => r.json());
+    if (d.status !== 'ok') {
+      setTiles('<span class="loading">unavailable</span>');
+      document.getElementById('s-billing').textContent = '-';
+      return;
+    }
+
+    const providers = Array.isArray(d.providers) ? d.providers : [];
+    const top = providers
+      .filter(p => p && !p.skipped)
+      .slice(0, 4)
+      .map(p => p.name || p.provider)
+      .join(', ') || 'none';
+
+    setTiles(
+      kv('estimate', d.summary?.monthlyEstimate || '-') +
+      kv('providers', fmt(providers.length)) +
+      kv('top', esc(top)) +
+      kv('updated', d.generated ? new Date(d.generated).toLocaleTimeString() : '-')
+    );
+
+    document.getElementById('s-billing').textContent = d.summary?.monthlyEstimate || '-';
+  } catch (e) {
+    setTiles('<span class="loading">error</span>');
+    document.getElementById('s-billing').textContent = '-';
+  }
+}
+
 // --- Instagram ---
 let instaTwoFactorId = null, instaTwoFactorMethod = null;
 
@@ -1196,7 +1241,7 @@ document.getElementById('syncBtn').onclick = async () => {
 };
 
 function loadAll() {
-  loadOverview(); loadCollections(); loadStorage(); loadServices(); loadInstaStatus();
+  loadOverview(); loadCollections(); loadStorage(); loadServices(); loadBilling(); loadInstaStatus();
   // Atlas compare is deferred — only load when that sub-tab is first visited
   let atlasLoaded = false;
   const origClick = document.querySelector('.sub-tab-btn[data-subtab="atlas"]');
@@ -1213,6 +1258,7 @@ function loadAll() {
   });
   setInterval(loadOverview, 30000);
   setInterval(loadServices, 60000);
+  setInterval(loadBilling, 60000);
   setInterval(loadInstaStatus, 60000);
 }
 
