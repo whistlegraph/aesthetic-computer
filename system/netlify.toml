@@ -1117,20 +1117,21 @@ status = 200
 force = true
 
 # Top subdomain for kidlisp.com - top.kidlisp.com (alias for top100 playlist)
-[[redirects]]
-from = "https://top.kidlisp.com"
-to = "/kidlisp.com/device.html"
-status = 200
-force = true
-# Serve static JS assets for top subdomain
+# JS assets served statically (must come before function route)
 [[redirects]]
 from = "https://top.kidlisp.com/js/*"
 to = "/kidlisp.com/js/:splat"
 status = 200
 force = true
+# Route through index function for dynamic meta tags (social previews / iMessage)
+[[redirects]]
+from = "https://top.kidlisp.com"
+to = "/.netlify/functions/index/top.kidlisp.com"
+status = 200
+force = true
 [[redirects]]
 from = "https://top.kidlisp.com/*"
-to = "/kidlisp.com/device.html"
+to = "/.netlify/functions/index/top.kidlisp.com/:splat"
 status = 200
 force = true
 
