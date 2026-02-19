@@ -86,14 +86,60 @@ async function fun(event, context) {
     );
   }
 
+  // Serve top.kidlisp.com with dynamic meta tags for social previews / iMessage
+  if (event.path.startsWith("/top.kidlisp.com")) {
+    try {
+      const pathParts = event.path.split("/").filter((p) => p);
+      // pathParts[0] = "top.kidlisp.com", pathParts[1] = "@handle" etc.
+      const handle = pathParts[1]?.startsWith("@") ? pathParts[1] : null;
+
+      const title = handle
+        ? `KidLisp Top 100 · ${handle}`
+        : "KidLisp Top 100";
+      const desc = handle
+        ? `Top KidLisp pieces by ${handle}`
+        : "The top 100 KidLisp pieces";
+      const ogImage = "https://oven.aesthetic.computer/kidlisp-og.png";
+
+      let htmlContent = await fs.readFile(
+        path.join(process.cwd(), "public/kidlisp.com/device.html"),
+        "utf8",
+      );
+
+      // Replace title and static OG/Twitter tags with dynamic versions
+      htmlContent = htmlContent.replace(
+        /<title>KidLisp\.com · Device<\/title>[\s\S]*?<meta name="twitter:image"[^>]*\/>/,
+        `<title>${encode(title)}</title>
+  <meta name="description" content="${encode(desc)}" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="${encode(title)}" />
+  <meta property="og:description" content="${encode(desc)}" />
+  <meta property="og:image" content="${ogImage}" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${encode(title)}" />
+  <meta name="twitter:description" content="${encode(desc)}" />
+  <meta name="twitter:image" content="${ogImage}" />`,
+      );
+
+      return {
+        statusCode: 200,
+        headers: { "Content-Type": "text/html" },
+        body: htmlContent,
+      };
+    } catch (err) {
+      console.error("❌ Error serving top.kidlisp.com:", err);
+      return respond(500, "Error loading top.kidlisp.com");
+    }
+  }
+
   // Serve specific kidlisp.com pages before the catch-all
   // /kidlisp.com/device* → device.html (FF1 optimized display)
   // /device.kidlisp.com/* → device.html (local dev path for device.kidlisp.com)
-  // /top.kidlisp.com/* → device.html (local dev path for top.kidlisp.com - auto-loads top100)
   // /kidlisp.com/pj* → pj.html (PJ mode)
-  if (event.path.startsWith("/kidlisp.com/device") || 
-      event.path.startsWith("/device.kidlisp.com") ||
-      event.path.startsWith("/top.kidlisp.com")) {
+  if (event.path.startsWith("/kidlisp.com/device") ||
+      event.path.startsWith("/device.kidlisp.com")) {
     try {
       const htmlContent = await fs.readFile(
         path.join(process.cwd(), "public/kidlisp.com/device.html"),
