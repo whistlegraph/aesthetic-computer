@@ -160,6 +160,7 @@ To use Aesthetic Computer via a browser:
 - [freaky-flowers](https://aesthetic.computer/freaky-flowers) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/freaky-flowers.mjs)): Freaky Flowers, 22.11.23.14.01
 - [g](https://aesthetic.computer/g) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/g.mjs)): g.mjs - The letter G
 - [game](https://aesthetic.computer/game) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/game.mjs)): Game, 2025.6.05.09.16.18.504
+- [gameboy-lab](https://aesthetic.computer/gameboy-lab) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/gameboy-lab.mjs)): gameboy-lab - GameBoy ROM Testing Lab
 - [gameboy](https://aesthetic.computer/gameboy) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/gameboy.mjs)): GameBoy emulator display piece
 - [gamepad](https://aesthetic.computer/gamepad) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/gamepad.mjs)): Gamepad, 2024.11.08.02.41.47.840
 - [gargoyle](https://aesthetic.computer/gargoyle) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/gargoyle.mjs)): Gargoyle, 23.05.21.17.59
@@ -185,6 +186,7 @@ To use Aesthetic Computer via a browser:
 - [icon](https://aesthetic.computer/icon) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/icon.mjs)): Icon, 22.12.19.07.28
 - [images](https://aesthetic.computer/images) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/images.mjs)): Image IO, 22.09.30.10.05
 - [imessage](https://aesthetic.computer/imessage) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/imessage.mjs)): iMessage, 2023.12.05.14.08.23.293
+- [insta](https://aesthetic.computer/insta) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/insta.mjs)): Insta, 2026.02.18
 - [j](https://aesthetic.computer/j) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/j.mjs)): j.mjs - The letter J
 - [k](https://aesthetic.computer/k) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/k.mjs)): k.mjs - The letter K
 - [keep](https://aesthetic.computer/keep) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/keep.mjs)): keep, 2024.12.15
@@ -213,6 +215,7 @@ To use Aesthetic Computer via a browser:
 - [make](https://aesthetic.computer/make) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/make.mjs)): Make, 2025.9.2.15.30 - KidLisp Generator
 - [marker](https://aesthetic.computer/marker) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/marker.mjs)): Marker, 2024.4.17.00.53.23.779
 - [melody](https://aesthetic.computer/melody) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/melody.mjs)): Melody, 2022.01.16.16.02
+- [merry-fade](https://aesthetic.computer/merry-fade) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/merry-fade.mjs)): merry-fade — Host piece for crossfading between KidLisp $code pieces
 - [merry](https://aesthetic.computer/merry) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/merry.mjs)): merry, 26.01.10
 - [merryo](https://aesthetic.computer/merryo) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/merryo.mjs)): merryo, 26.01.10
 - [metaballs](https://aesthetic.computer/metaballs) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/metaballs.mjs)): Metaballs, 2025.6.05.19.30.22.187
@@ -229,6 +232,7 @@ To use Aesthetic Computer via a browser:
 - [n](https://aesthetic.computer/n) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/n.mjs)): n.mjs - The letter N
 - [nail](https://aesthetic.computer/nail) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/nail.mjs)): 💅 Nail, 22.12.31
 - [neo-wipppps](https://aesthetic.computer/neo-wipppps) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/neo-wipppps.mjs)): Wipppps, 2025.3.18.04.34.58.007
+- [neural-garden](https://aesthetic.computer/neural-garden) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/neural-garden.mjs)): Neural Garden - Learns drawing gestures with a tiny GPT
 - [noise](https://aesthetic.computer/noise) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/noise.mjs)): Noise, 2023.9.01.00.09.16.589
 - [nopaint](https://aesthetic.computer/nopaint) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/nopaint.mjs)): No Paint, 2023.7.15.23.42.19
 - [notepat-tv](https://aesthetic.computer/notepat-tv) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/notepat-tv.mjs)): Tv, 2024.12.08.03.22.28.351
@@ -240,6 +244,7 @@ To use Aesthetic Computer via a browser:
 - [oldshape](https://aesthetic.computer/oldshape) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/oldshape.mjs)): Shape, 23.02.09.20.23
 - [oldwand](https://aesthetic.computer/oldwand) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/oldwand.mjs)): Wand, 22.10.29.01.50 https://wand.ac
 - [oldwipppps](https://aesthetic.computer/oldwipppps) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/oldwipppps.mjs)): wipppps, 2025.6.04.01.26.48.500
+- [opinion](https://aesthetic.computer/opinion) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/opinion.mjs)): Opinion, 2026.02.17
 - [ordfish](https://aesthetic.computer/ordfish) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/ordfish.mjs)): 🐟 Ordfish, 23.05.06.13.15
 - [ordsy](https://aesthetic.computer/ordsy) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/ordsy.mjs)): Ordsy, 23.02.17.18.54
 - [oval](https://aesthetic.computer/oval) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/oval.mjs)): Oval, 23.02.13.01.24
@@ -330,6 +335,7 @@ To use Aesthetic Computer via a browser:
 - [tremory](https://aesthetic.computer/tremory) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/tremory.mjs)): Temory, 2025.3.31.22.47.48.311
 - [triquilt](https://aesthetic.computer/triquilt) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/triquilt.mjs)): Triquilt, 2024.10.14.21.42.15.061
 - [tv](https://aesthetic.computer/tv) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/tv.mjs)): TV, 2025.11.10.21.00
+- [typecheck](https://aesthetic.computer/typecheck) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/typecheck.mjs)): Typecheck, 2026.02.19
 - [u](https://aesthetic.computer/u) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/u.mjs)): u.mjs - The letter U
 - [ucla-1](https://aesthetic.computer/ucla-1) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/ucla-1.mjs)): ucla-1, 2024.6.27.19.14.56.196
 - [ucla-2](https://aesthetic.computer/ucla-2) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/ucla-2.mjs)): ucla-2, 2024.7.02.03.11.28.762
@@ -393,4 +399,4 @@ To use Aesthetic Computer via a browser:
 
 - [API Documentation](https://aesthetic.computer/api-docs): Internal API reference
 
-_Generated 2026-02-13T22:38:32Z — 338 pieces (320 JavaScript, 18 KidLisp)_
+_Generated 2026-02-19T20:20:39Z — 344 pieces (326 JavaScript, 18 KidLisp)_

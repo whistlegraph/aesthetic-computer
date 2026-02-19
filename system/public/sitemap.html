@@ -602,6 +602,7 @@
   <div class="route">digitpain3</div>
   <div class="route">bundle</div>
   <div class="route">neural-garden</div>
+  <div class="route">dollhouse</div>
 </div>
 <div class="route-group-label">Language Variants</div>
 <div class="routes">
@@ -1109,6 +1110,23 @@
 <div class="section-desc">Deno-based edge functions running at the CDN layer for low-latency processing.</div>
 <div class="routes single-col">
   <div class="route full-url">/media/* &mdash; media.js edge function</div>
+</div>
+</details>
+</div>
+
+<!-- oven.aesthetic.computer -->
+<div class="card">
+<details>
+<summary>
+  <span class="tag tag-api">Infra</span>
+  <span class="section-title">oven.aesthetic.computer</span>
+  <span class="section-count">Internal service</span>
+</summary>
+<div class="section-desc">Internal screenshot and asset generation service. AC proxies preview images, icons, and bundle-html requests through it. Not a public-facing site.</div>
+<div class="routes single-col">
+  <div class="route full-url">/preview/* &rarr; oven.aesthetic.computer/preview/:splat</div>
+  <div class="route full-url">/icon/* &rarr; oven.aesthetic.computer/icon/:splat</div>
+  <div class="route full-url">/api/bundle-html &rarr; oven.aesthetic.computer/bundle-html</div>
 </div>
 </details>
 </div>
