@@ -44,7 +44,7 @@
       }
       
       if (codeId) {
-        const pieceCode = codeId.startsWith('$') ? codeId.slice(1) : codeId;
+        const pieceCode = (codeId.startsWith('$') ? codeId.slice(1) : codeId).split(':')[0];
         const dev = hostname === 'localhost' || hostname === 'local.aesthetic.computer';
         const apiUrl = dev ? 'https://localhost:8888' : 'https://aesthetic.computer';
         const url = `${apiUrl}/api/store-kidlisp?code=${pieceCode}`;
@@ -3068,9 +3068,9 @@
     async function fetchAndDisplaySource(codeId) {
       const myFetchId = ++_fetchId;
       console.log('📺 fetchAndDisplaySource called with:', codeId);
-      // Strip $ prefix if present for API call
-      const pieceCode = codeId.startsWith('$') ? codeId.slice(1) : codeId;
-      const displayCode = codeId.startsWith('$') ? codeId : '$' + codeId;
+      // Strip $ prefix and any :fps colon params for API call and display
+      const pieceCode = (codeId.startsWith('$') ? codeId.slice(1) : codeId).split(':')[0];
+      const displayCode = '$' + pieceCode;
 
       // Store code ID for context menu
       if (window.setCurrentCodeIdForContext) {
@@ -3565,7 +3565,7 @@
       if (playlistHeader) playlistHeader.classList.remove('visible');
       
       // Build the device URL for the CLI command (official FF1 CLI format)
-      const cleanCode = pieceCodeId.startsWith('$') ? pieceCodeId.slice(1) : pieceCodeId;
+      const cleanCode = (pieceCodeId.startsWith('$') ? pieceCodeId.slice(1) : pieceCodeId).split(':')[0];
       const deviceUrl = `https://device.kidlisp.com/${cleanCode}`;
       currentFF1Command = `ff1 play "${deviceUrl}"`;
       
