@@ -7077,7 +7077,7 @@ async function load(
       
       // 💾 Check if this is a cached kidlisp code (starts with $ followed by a cache ID)
       if (slug && slug.startsWith("$") && slug.length > 1) {
-        const cacheId = slug.slice(1); // Remove $ prefix
+        const cacheId = slug.slice(1).split(":")[0]; // Remove $ prefix and any :fps colon params
         
         // Clear author/hits immediately to prevent stale data showing during load
         currentHUDAuthor = null;
