@@ -119,6 +119,7 @@
       // Native 4K would be 3840+ with dpr=1
       const is4KDisplay = (maxDim >= 3840 && dpr === 1) ||
                           (maxDim >= 1920 && screenHeight >= 1080 && dpr >= 2);
+      window.is4KDisplay = is4KDisplay;
 
       if (isDeviceSubdomain && is4KDisplay) {
         // FF1/device mode on 4K: 2x multiplier for comfortable TV viewing distance
@@ -2330,7 +2331,7 @@
         document.documentElement.style.setProperty('--ui-scale', newUiScale);
         // Update progress bar height (1.5x density for medium thickness)
         const progressBar = document.getElementById('progress-bar');
-        if (progressBar) progressBar.style.height = `${Math.max(2, Math.round(1.5 * window.densityParam))}px`;
+        if (progressBar) progressBar.style.height = `${window.is4KDisplay ? Math.max(2, Math.round(1.5 * window.densityParam)) : 2}px`;
         console.log('📺 Density updated from iframe:', window.densityParam, '→ UI Scale:', newUiScale);
       }
     });
@@ -2629,7 +2630,7 @@
     }
     
     // Initialize display
-    function init() {
+    async function init() {
       logDevice('init', { codeId, density, dev, hostname, pathname, playlistUrl });
 
       // 🫥 nohud: hide all device.html overlays for a clean display
@@ -2654,30 +2655,30 @@
       // Set page title (codeId already includes $ prefix)
       document.title = `KidLisp.com · ${codeId}`;
       
-      // Build the codeId URL with display params
-      // codeId (e.g. "$zo5") loads the stored kidlisp code from MongoDB
-      iframe.src = `${aestheticUrl}/${codeId}?${buildDisplayParams()}`;
-      
-      logDevice('iframe src', { src: iframe.src });
-      
       // Handle iframe load
       iframe.addEventListener('load', () => {
         logDevice('iframe loaded');
         // Source overlay stays visible always - shows code and QR
       });
-      
+
       // Listen for iframe errors
       iframe.addEventListener('error', (e) => {
         addLog(`iframe error: ${e.message || 'unknown'}`, 'error');
       });
-      
+
       // Progress bar will be started when piece is ready (not on iframe load)
       // See window.addEventListener('message', ...) for boot-log 'ready' handler
       console.log('📺 Playlist mode:', isPlaylist, 'duration:', playlistDuration);
       console.log('📺 Waiting for piece ready before starting progress bar...');
-      
-      // Fetch and display KidLisp source code with syntax highlighting
-      fetchAndDisplaySource(codeId);
+
+      // Fetch and display source FIRST — source code / QR must appear
+      // before the piece starts playing in the iframe.
+      await fetchAndDisplaySource(codeId);
+
+      // Now load the piece in iframe
+      // codeId (e.g. "$zo5") loads the stored kidlisp code from MongoDB
+      iframe.src = `${aestheticUrl}/${codeId}?${buildDisplayParams()}`;
+      logDevice('iframe src', { src: iframe.src });
       
       // Setup the FF1 CLI copy button for single pieces
       setupFF1CopyButton(codeId);
@@ -2831,7 +2832,7 @@
       return itemUrl;
     }
 
-    function playCurrentItem() {
+    async function playCurrentItem() {
       if (!slideshowPlaylist || !slideshowPlaylist.items) return;
 
       const item = slideshowPlaylist.items[slideshowIndex];
@@ -2876,16 +2877,17 @@
           window.scrambleTextElement?.(ff1CmdSpan, currentFF1Command, 600, true);
         }
 
-        // Load first piece in iframe (full boot)
+        // Fetch and display source FIRST — source code / QR must appear
+        // before the piece starts playing in the iframe.
+        await fetchAndDisplaySource(codeId);
+
+        // Now load the piece in iframe (full boot)
         const itemUrl = resolveItemUrl(item);
         iframe.src = itemUrl;
 
         // Progress bar starts when "ready:" arrives
         window.pendingSlideshowDuration = duration;
         console.log('📺 Initial boot — waiting for piece ready...');
-
-        // Fetch and display source with scramble
-        fetchAndDisplaySource(codeId);
       } else {
         // ═══ SUBSEQUENT PIECES: Try jump() via postMessage, fall back to iframe.src ═══
 
@@ -3023,8 +3025,8 @@
       const progressFill = document.getElementById('progress-fill');
       const overlay = document.getElementById('source-overlay');
       
-      // Set height based on density (1.5x for medium thickness)
-      const barHeight = Math.max(2, Math.round(1.5 * densityParam));
+      // On 4K/TV: density-based thickness; on laptop: always 2px
+      const barHeight = window.is4KDisplay ? Math.max(2, Math.round(1.5 * densityParam)) : 2;
       progressBar.style.height = `${barHeight}px`;
       progressBar.classList.add('visible');
       progressBar.classList.add('fading-in');
@@ -3831,8 +3833,8 @@
     
     function startProgressBar() {
       console.log('📺 startProgressBar called, densityParam:', densityParam);
-      // Set height based on density (1.5x for medium thickness, min 2px)
-      const barHeight = Math.max(2, Math.round(1.5 * densityParam));
+      // On 4K/TV: density-based thickness; on laptop: always 2px
+      const barHeight = window.is4KDisplay ? Math.max(2, Math.round(1.5 * densityParam)) : 2;
       console.log('📺 Progress bar height:', barHeight);
       progressBar.style.height = `${barHeight}px`;
       progressBar.classList.add('visible');

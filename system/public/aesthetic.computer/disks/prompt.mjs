@@ -3995,6 +3995,7 @@ function paint($) {
     if (now - lastMotdCycleTime >= MOTD_CYCLE_MS) {
       motdCandidateIndex = (motdCandidateIndex + 1) % motdCandidates.length;
       setMotdCandidate(motdCandidates[motdCandidateIndex]);
+      $.net.motd = motd;
       lastMotdCycleTime = now;
     }
   }
@@ -8040,13 +8041,14 @@ function act({
 
   // Via vscode extension.
   if (e.is("aesthetic-parent:focused")) {
-    // console.log("🔭 Focusing in on `prompt`...");
-    // Clear any latent text when gaining focus to prevent MOTD showing when focused
-    system.prompt.input.text = "";
-    // activated(api, true);
-    // system.prompt.input.canType = true;
-    send({ type: "keyboard:unlock" });
-    send({ type: "keyboard:open" }); // Necessary for desktop.
+    // Only clear text and reopen keyboard if the prompt isn't already active.
+    // This prevents wiping user-typed text and canceling curtain toggles
+    // when the VS Code panel regains focus from within.
+    if (!system.prompt.input.canType) {
+      system.prompt.input.text = "";
+      send({ type: "keyboard:unlock" });
+      send({ type: "keyboard:open" }); // Necessary for desktop.
+    }
   }
 
   // 👱 Handle Callback
@@ -8974,8 +8976,10 @@ async function makeMotd({ system, needsPaint, handle, user, net, api, notice }) 
     const langPhase = Math.floor(Date.now() / 3000) % 2;
     motd = langPhase === 0 ? "CRITICAL MEDIA SERVICES OFFLINE" : "KRITISKE MEDIETJENESTER OFFLINE";
     motdByHandle = null;
+    net.motd = motd;
   } else {
     motd = "aesthetic.computer";
+    net.motd = motd;
   }
   motdController = new AbortController();
 
@@ -8992,9 +8996,11 @@ async function makeMotd({ system, needsPaint, handle, user, net, api, notice }) 
         motdCandidates = data.moods;
         motdCandidateIndex = 0;
         setMotdCandidate(motdCandidates[0]);
+        net.motd = motd;
         lastMotdCycleTime = performance.now();
       } else if (data.mood) {
         setMotdCandidate(data);
+        net.motd = motd;
       }
       needsPaint();
     } else {

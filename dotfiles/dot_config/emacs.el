@@ -72,7 +72,6 @@
 
 (defvar ac--boot-steps
   '(("artery"      . "🩸 Artery dev server")
-    ("fishy"       . "🐟 Fish shell")
     ("status"      . "📡 Status monitors")
     ("stripe"      . "💳 Stripe listeners")
     ("chat"        . "💬 Chat services")
@@ -83,6 +82,7 @@
     ("llm"         . "🤖 LLM interface")
     ("top"         . "📊 System monitor")
     ("crash"       . "💥 Crash diary")
+    ("fishy"       . "🐟 Fish shell")
     ("cdp"         . "🔗 CDP tunnel")
     ("finalize"    . "✨ Finalizing"))
   "Boot steps with descriptions.")
@@ -1446,8 +1446,56 @@ Skips creation if tab already exists."
                       ;; Switch back to boot to show progress
                       (tab-bar-switch-to-tab "boot")))
 
-    ;; Create fishy tab
-    (run-with-timer 0.3 nil
+    ;; Create all the split tabs with optimized delays (reduced from 500ms to 350ms)
+    (let ((delay 0.5)
+          (step-delay 0.35)  ; Optimized: was 0.5
+          (tab-specs '(("status"   ("url" "tunnel"))
+                       ("stripe"   ("stripe-print" "stripe-ticket"))
+                       ("chat"     ("chat-system" "chat-sotce" "chat-clock"))
+                       ("web 1/2"  ("site" "session"))
+                       ("web 2/2"  ("redis" "bookmarks" "oven" "silo" "media"))
+                       ("tests"    ("kidlisp"))
+                       ("views"    ("views"))
+                       ("llm"      ("llm"))
+                       ("top"      ("top")))))
+      (dolist (tab-spec tab-specs)
+        (let ((tab-name (car tab-spec))
+              (commands (cadr tab-spec))
+              (current-delay delay))
+          (run-with-timer current-delay nil
+                          (lambda (name cmds)
+                            (ac--boot-start-step name)
+                            (condition-case err
+                                (progn
+                                  (ac--create-split-tab name cmds)
+                                  (ac--boot-complete-step name))
+                              (error
+                               (ac-debug-log (format "Error creating tab %s: %s" name err))
+                               (ac--boot-error-step name)))
+                            ;; Switch back to boot tab to show progress
+                            (when (ac--tab-exists-p "boot")
+                              (tab-bar-switch-to-tab "boot"))
+                            (redisplay t))
+                          tab-name commands)
+          (setq delay (+ delay step-delay)))))
+
+    ;; Create crash tab second-to-last (tab bar position 3: boot, fishy, crash, ...)
+    (run-with-timer 3.5 nil
+                    (lambda ()
+                      (ac--boot-start-step "crash")
+                      (condition-case err
+                          (progn
+                            (ac--create-split-tab "crash" '("crash-diary"))
+                            (ac--boot-complete-step "crash"))
+                        (error
+                         (ac-debug-log (format "Error creating tab crash: %s" err))
+                         (ac--boot-error-step "crash")))
+                      (when (ac--tab-exists-p "boot")
+                        (tab-bar-switch-to-tab "boot"))
+                      (redisplay t)))
+
+    ;; Create fishy tab last (tab bar position 2: boot, fishy, ...)
+    (run-with-timer 3.7 nil
                     (lambda ()
                       (ac--boot-start-step "fishy")
                       (unless (ac--tab-exists-p "fishy")
@@ -1473,41 +1521,7 @@ Skips creation if tab already exists."
                       (ac--boot-complete-step "fishy")
                       (tab-bar-switch-to-tab "boot")))
 
-    ;; Create all the split tabs with optimized delays (reduced from 500ms to 350ms)
-    (let ((delay 0.5)
-          (step-delay 0.35)  ; Optimized: was 0.5
-          (tab-specs '(("status"   ("url" "tunnel"))
-                       ("stripe"   ("stripe-print" "stripe-ticket"))
-                       ("chat"     ("chat-system" "chat-sotce" "chat-clock"))
-                       ("web 1/2"  ("site" "session"))
-                       ("web 2/2"  ("redis" "bookmarks" "oven" "silo" "media"))
-                       ("tests"    ("kidlisp"))
-                       ("views"    ("views"))
-                       ("llm"      ("llm"))
-                       ("top"      ("top"))
-                       ("crash"    ("crash-diary")))))
-      (dolist (tab-spec tab-specs)
-        (let ((tab-name (car tab-spec))
-              (commands (cadr tab-spec))
-              (current-delay delay))
-          (run-with-timer current-delay nil
-                          (lambda (name cmds)
-                            (ac--boot-start-step name)
-                            (condition-case err
-                                (progn
-                                  (ac--create-split-tab name cmds)
-                                  (ac--boot-complete-step name))
-                              (error
-                               (ac-debug-log (format "Error creating tab %s: %s" name err))
-                               (ac--boot-error-step name)))
-                            ;; Switch back to boot tab to show progress
-                            (when (ac--tab-exists-p "boot")
-                              (tab-bar-switch-to-tab "boot"))
-                            (redisplay t))
-                          tab-name commands)
-          (setq delay (+ delay step-delay)))))
-
-    ;; Calculate when tabs should be done (10 tabs * 0.35s = 3.5s + 0.5s initial = 4s)
+    ;; Calculate when tabs should be done (9 batch tabs * 0.35s = 3.15s + 0.5s initial = 3.65s, fishy at 3.7s)
     (let ((tabs-done-time 4.5))
       ;; Start CDP tunnel after tabs
       (run-with-timer tabs-done-time nil
