@@ -2565,6 +2565,24 @@ class TextInput {
       }
     }
 
+    // Deactivate on backdrop tap when already active (VSCode fix —
+    // in VSCode the hidden input never blurs so keyboard:close never fires)
+    if (
+      e.is("touch") &&
+      !this.#lock &&
+      this.canType &&
+      !this.backdropTouchOff &&
+      (this.copy.btn.disabled === true || !this.copy.btn.box.contains(e)) &&
+      (this.paste.btn.disabled === true || !this.paste.btn.box.contains(e)) &&
+      (this.enter.btn.disabled === true || !this.enter.btn.box.contains(e))
+    ) {
+      // Lock first to prevent bios pointerup from re-focusing the input
+      $.send({ type: "keyboard:lock" });
+      deactivate(this);
+      $.send({ type: "keyboard:close" });
+      this.backdropTouchOff = true;
+    }
+
     // Begin the prompt input mode / leave the splash.
     function activate(ti) {
       ti.activatedOnce = true;

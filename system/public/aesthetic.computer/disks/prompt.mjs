@@ -6111,7 +6111,7 @@ function paint($) {
           const arrowTipYWithBounce = arrowTipY + bounceOffset;
           const bgYWithBounce = arrowTipYWithBounce + arrowHeight;
           const verticalBgWidth = verticalTextHeight + 1;
-          const verticalBgHeight = verticalTextWidth + 4;
+          const verticalBgHeight = verticalTextWidth + 7;
 
           // Position text inside the box (accounting for rotation)
           const verticalTextY = bgYWithBounce + verticalTextWidth + 1 + bounceOffset;
