@@ -875,6 +875,56 @@ app.get("/api/services/session", async (req, res) => {
   } catch (err) { res.json({ status: "unreachable", error: err.message }); }
 });
 
+app.get("/api/services/feed", async (req, res) => {
+  const url = process.env.FEED_URL || "http://localhost:8787";
+  try {
+    const start = Date.now();
+    const resp = await fetch(`${url}/api/v1/health`, { signal: AbortSignal.timeout(5000) });
+    const data = await resp.json();
+    res.json({ status: "ok", responseMs: Date.now() - start, ...data });
+  } catch (err) { res.json({ status: "unreachable", error: err.message }); }
+});
+
+app.get("/api/services/feed/info", async (req, res) => {
+  const url = process.env.FEED_URL || "http://localhost:8787";
+  try {
+    const start = Date.now();
+    const resp = await fetch(`${url}/api/v1`, { signal: AbortSignal.timeout(5000) });
+    const data = await resp.json();
+    res.json({ status: "ok", responseMs: Date.now() - start, ...data });
+  } catch (err) { res.json({ status: "unreachable", error: err.message }); }
+});
+
+app.get("/api/services/feed/playlists", async (req, res) => {
+  const url = process.env.FEED_URL || "http://localhost:8787";
+  const apiSecret = process.env.FEED_API_SECRET || "";
+  try {
+    const start = Date.now();
+    const headers = apiSecret ? { Authorization: `Bearer ${apiSecret}` } : {};
+    const resp = await fetch(`${url}/api/v1/playlists?limit=100`, {
+      headers,
+      signal: AbortSignal.timeout(10000),
+    });
+    const data = await resp.json();
+    res.json({ status: "ok", responseMs: Date.now() - start, ...data });
+  } catch (err) { res.json({ status: "unreachable", error: err.message }); }
+});
+
+app.get("/api/services/feed/channels", async (req, res) => {
+  const url = process.env.FEED_URL || "http://localhost:8787";
+  const apiSecret = process.env.FEED_API_SECRET || "";
+  try {
+    const start = Date.now();
+    const headers = apiSecret ? { Authorization: `Bearer ${apiSecret}` } : {};
+    const resp = await fetch(`${url}/api/v1/channels?limit=100`, {
+      headers,
+      signal: AbortSignal.timeout(10000),
+    });
+    const data = await resp.json();
+    res.json({ status: "ok", responseMs: Date.now() - start, ...data });
+  } catch (err) { res.json({ status: "unreachable", error: err.message }); }
+});
+
 app.get("/api/services/billing", async (req, res) => {
   const billingUrl = process.env.BILLING_URL || "https://aesthetic.computer/api/billing";
   try {
