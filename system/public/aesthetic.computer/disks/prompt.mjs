@@ -5624,7 +5624,7 @@ function paint($) {
     }
 
     // 🟢 KidLisp.com button centered at bottom (between paste and enter buttons)
-    const kidlispBtnText = "KidLisp.com";
+    const kidlispBtnText = "Edit on KidLisp.com";
     
     // Get paste and enter button positions to center between them
     const pasteBox = $.system.prompt.input?.paste?.btn?.box;
@@ -6056,8 +6056,122 @@ function paint($) {
         // Draw filled cursor box with subtle transparency (no outline)
         ink(...fillColor).box(cursorPos.x, cursorPos.y, cursorPos.w, cursorPos.h);
 
-        // 🎯 TAP/TOUCH/TYPE vertical label - DISABLED for now
-        // (Was showing cycling action words with bounce animation and color cycling)
+        // 🎯 TAP/TOUCH/TYPE vertical label with black box pointing to cursor
+        // Shows cycling action words with bounce animation and color cycling
+        if (input.text === "" && !input.canType) {
+          const isDark = $.dark;
+          const now = performance.now();
+
+          // Update animation frame counter
+          if (!lastLanguageChangeTime) lastLanguageChangeTime = now;
+          const deltaTime = (now - lastLanguageChangeTime) / 1000;
+          lastLanguageChangeTime = now;
+          promptLanguageChangeFrame += deltaTime * 60;
+
+          // Position reference near cursor
+          const textY = cursorPos.y + cursorPos.h + 4;
+
+          // High contrast polychrome colors - cycle through vibrant colors
+          const textColorCycle = isDark ? [
+            [255, 100, 255], // Bright magenta
+            [100, 255, 255], // Bright cyan
+            [255, 255, 100], // Bright yellow
+            [100, 255, 100], // Bright green
+            [255, 150, 100], // Bright orange
+            [255, 100, 150], // Bright pink
+          ] : [
+            [255, 0, 255],   // Pure magenta
+            [0, 255, 255],   // Pure cyan
+            [255, 255, 0],   // Pure yellow
+            [0, 255, 0],     // Pure green
+            [255, 128, 0],   // Pure orange
+            [255, 0, 128],   // Pure pink
+          ];
+
+          // Vertical action text on LEFT side of screen - ROTATED
+          const actionVerbs = ["TOUCH", "TAP", "TYPE"];
+          const actionIndex = Math.floor(promptLanguageChangeFrame / 60) % actionVerbs.length;
+          const actionText = actionVerbs[actionIndex];
+
+          // Bounce animation - subtle up and down movement
+          const bounceOffset = Math.sin(promptLanguageChangeFrame * 0.1) * 3;
+
+          // Calculate text dimensions for background
+          const verticalTextWidth = actionText.length * 4; // MatrixChunky8 width per char
+          const verticalTextHeight = 8; // MatrixChunky8 height
+
+          // Position flush to left side
+          const leftMargin = 5;
+          const verticalTextX = leftMargin;
+
+          // Position label box near cursor
+          const bgX = leftMargin - 1;
+          const bgY = textY + bounceOffset;
+          const verticalBgWidth = verticalTextHeight + 1;
+          const verticalBgHeight = verticalTextWidth + 4;
+
+          // Position text inside the box (accounting for rotation)
+          const verticalTextY = bgY + verticalTextWidth + 1 + bounceOffset;
+
+          // Draw simple background box for label
+          ink(0, 0, 0, 200).box(bgX, bgY, verticalBgWidth, verticalBgHeight);
+
+          // Draw white text with flickering per-character brightness
+          let flickeringText = "";
+          for (let i = 0; i < actionText.length; i++) {
+            const char = actionText[i];
+            const flickerSeed = Math.sin((promptLanguageChangeFrame * 0.15) + (i * 0.5));
+            const brightness = Math.floor(200 + flickerSeed * 55);
+            flickeringText += `\\${brightness},${brightness},${brightness}\\${char}`;
+          }
+
+          ink(255, 255, 255, 150).write(flickeringText, {
+            x: verticalTextX,
+            y: verticalTextY,
+            rotation: 270
+          }, undefined, undefined, false, "MatrixChunky8");
+
+          // Color cycling for cursor overlay
+          const blinkColorIndex = Math.floor(promptLanguageChangeFrame * 0.05) % textColorCycle.length;
+
+          // Blinking overlay on the cursor block - magic jewel/gem effect
+          const blinkSpeed = Math.sin(promptLanguageChangeFrame * 0.08);
+          const blinkAlpha = isDark
+            ? Math.floor((blinkSpeed + 1) * 60 + 60)
+            : Math.floor((blinkSpeed + 1) * 80 + 100);
+
+          // Rhythmic subdivision pattern - changes every 30 frames
+          const patternPhase = Math.floor(promptLanguageChangeFrame / 30) % 4;
+          let cols, rows;
+
+          if (patternPhase === 0) {
+            cols = 2; rows = 2;
+          } else if (patternPhase === 1) {
+            cols = 4; rows = 2;
+          } else if (patternPhase === 2) {
+            cols = 2; rows = 4;
+          } else {
+            cols = 3; rows = 3;
+          }
+
+          const cellWidth = cursorPos.w / cols;
+          const cellHeight = cursorPos.h / rows;
+
+          for (let row = 0; row < rows; row++) {
+            for (let col = 0; col < cols; col++) {
+              const isCheckerSquare = ((col + row + Math.floor(promptLanguageChangeFrame / 20)) % 2 === 0);
+              if (isCheckerSquare) {
+                const squareColorIndex = (blinkColorIndex + col + row) % textColorCycle.length;
+                const squareColor = [...textColorCycle[squareColorIndex], blinkAlpha];
+                const cellX = cursorPos.x + Math.floor(col * cellWidth);
+                const cellY = cursorPos.y + Math.floor(row * cellHeight);
+                const cellW = Math.floor(cellWidth);
+                const cellH = Math.floor(cellHeight);
+                ink(...squareColor).box(cellX, cellY, cellW, cellH);
+              }
+            }
+          }
+        }
 
         // Reset to default layer
         $.layer(1);
@@ -6982,7 +7096,8 @@ function paint($) {
     }
 
     // 📦 Commit hash button - shows version status / update availability
-    if (versionInfo && versionInfo.deployed) {
+    // Hide commits button when KidLisp button is active (they share the same screen area)
+    if (versionInfo && versionInfo.deployed && !(kidlispBtn && !kidlispBtn.btn.disabled)) {
       const commitText = updateAvailable
         ? "update ready"
         : versionInfo.deployed + (versionInfo.behindBy ? ` (${versionInfo.behindBy} behind)` : "");
@@ -7043,6 +7158,7 @@ function paint($) {
       }
       versionCommit = versionInfo.deployed;
     } else {
+      if (commitBtn) commitBtn.btn.disabled = true;
       commitBtn = null;
       versionCommit = null;
     }
