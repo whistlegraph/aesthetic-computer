@@ -53,22 +53,31 @@ function paint({ wipe, screen, kidlisp, paste, pasteWithAlpha, system, needsPain
   const pieceName = pipeline[currentIndex].piece;
   const currentCode = pieceName.startsWith("$") ? pieceName : "$" + pieceName;
 
-  // Are we in a crossfade window? (last fadeMs of the current piece)
+  // Compute next piece identity once (used by both pre-warm and crossfade).
   const nextIndex = (currentIndex + 1) % pipeline.length;
+  const nextName = pipeline[nextIndex].piece;
+  const nextCode = nextName.startsWith("$") ? nextName : "$" + nextName;
+
   const isFading = timeLeft <= fadeMs && pipeline.length > 1;
 
+  // Pre-warm the next piece's painting cache before the fade window so it's
+  // ready the moment the crossfade starts (avoids a null incoming on first
+  // transition while the $code source is still being fetched).
+  if (!isFading && pipeline.length > 1) {
+    const preWarmMs = Math.max(fadeMs * 10, 2000);
+    if (timeLeft <= preWarmMs) {
+      kidlisp(0, 0, w, h, nextCode, { noPaste: true });
+    }
+  }
+
   if (isFading) {
-    const nextName = pipeline[nextIndex].piece;
-    const nextCode = nextName.startsWith("$") ? nextName : "$" + nextName;
     const fadeProgress = 1 - (timeLeft / fadeMs); // 0→1
 
-    // Render incoming piece (will be underneath).
+    // Render both pieces off-screen and composite manually.
     const incoming = kidlisp(0, 0, w, h, nextCode, { noPaste: true });
-
-    // Render outgoing piece to a buffer.
     const outgoing = kidlisp(0, 0, w, h, currentCode, { noPaste: true });
 
-    // Composite: incoming first (full opacity), outgoing on top fading out.
+    // Composite: incoming underneath at full opacity, outgoing on top fading out.
     wipe(0);
     if (incoming) paste(incoming, 0, 0);
     if (outgoing) {
