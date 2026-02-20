@@ -584,8 +584,29 @@ export async function handler(event, context) {
         
         console.log(`🔍 Looking up ${codeList.length} codes: ${codeList.join(', ')}`);
 
-        // Fetch all documents in a single database query
-        const docs = await collection.find({ code: { $in: codeList } }).toArray();
+        // Fetch all documents with handle lookup (aggregation pipeline)
+        const docs = await collection.aggregate([
+          { $match: { code: { $in: codeList } } },
+          {
+            $lookup: {
+              from: "@handles",
+              localField: "user",
+              foreignField: "_id",
+              as: "handleInfo"
+            }
+          },
+          {
+            $addFields: {
+              handle: {
+                $cond: {
+                  if: { $gt: [{ $size: "$handleInfo" }, 0] },
+                  then: { $concat: ["@", { $arrayElemAt: ["$handleInfo.handle", 0] }] },
+                  else: null
+                }
+              }
+            }
+          }
+        ]).toArray();
         
         // Update hit counts for found documents
         if (docs.length > 0) {
@@ -611,7 +632,8 @@ export async function handler(event, context) {
               source: doc.source,
               when: doc.when,
               hits: doc.hits + 1,
-              user: doc.user || null
+              user: doc.user || null,
+              handle: doc.handle || null
             };
             
             // Include kept status if the piece was minted as a KEEP NFT
