@@ -10,426 +10,579 @@ Created: 2026.02.20
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>feed · Aesthetic Computer</title>
   <meta name="description" content="DP-1 feed server for Aesthetic Computer — playlists, channels, and KidLisp pieces">
-  <link rel="icon" type="image/png"
-    href="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png">
+  <link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png">
+  <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
 
   <style>
-    * { box-sizing: border-box; }
+    /* -- reset & root -- */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     ::-webkit-scrollbar { display: none; }
 
+    /* -- dark (default) -- */
+    :root {
+      --bg: #1a1a2e;
+      --text: #e8e8e8;
+      --dim: #888;
+      --pink: #ff6b9d;
+      --cyan: #4ecdc4;
+      --green: #6bcb77;
+      --gold: #ffd93d;
+      --box-bg: rgba(255,255,255,0.03);
+      --box-border: rgba(255,255,255,0.1);
+    }
+
+    /* -- light -- */
+    body.light-mode {
+      --bg: #f5f5f5;
+      --text: #1a1a2e;
+      --dim: #666;
+      --pink: rgb(205, 92, 155);
+      --cyan: #0891b2;
+      --green: #059669;
+      --box-bg: rgba(0,0,0,0.03);
+      --box-border: rgba(0,0,0,0.12);
+    }
+
     body {
-      margin: 0;
+      font-family: 'Berkeley Mono Variable', 'Menlo', monospace;
       font-size: 14px;
-      font-family: monospace;
+      line-height: 1.5;
       -webkit-text-size-adjust: none;
-      background: #f5f5f5;
-      color: #000;
-      line-height: 1.4;
+      background: var(--bg);
+      color: var(--text);
+      cursor: url('https://aesthetic.computer/aesthetic.computer/cursors/precise.svg') 12 12, auto;
     }
 
-    @media (prefers-color-scheme: dark) {
-      body { background: #111; color: #ddd; }
-      .card { background: #1a1a1a; }
-      .item-row { background: #1a1a1a; }
-      .item-row:hover { background: rgba(205, 92, 155, 0.08); }
-      .endpoint { background: rgba(205, 92, 155, 0.08); }
-      footer { border-top-color: rgba(205, 92, 155, 0.2); }
+    a { color: var(--pink); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* -- animations -- */
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
     }
 
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-3px); }
+    }
+
+    /* -- layout -- */
     .container {
-      max-width: 900px;
+      max-width: 720px;
       margin: 0 auto;
-      padding: 1em 0.5em;
+      padding: 2em 1em;
+      animation: fadeIn 0.4s ease-out;
     }
 
+    /* -- header -- */
     header {
       text-align: center;
-      padding: 1em 0;
-      border-bottom: 2px solid rgb(205, 92, 155);
+      padding: 2em 0 1.5em;
+      margin-bottom: 1.5em;
+    }
+
+    .logo {
+      font-size: 2.2em;
+      font-weight: normal;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.1em;
+    }
+
+    .logo b { color: var(--pink); }
+    .logo .dot { color: var(--dim); }
+
+    .subtitle {
+      color: var(--dim);
+      font-size: 0.85em;
       margin-bottom: 1em;
     }
 
-    h1 {
-      margin: 0 0 0.1em 0;
-      font-size: 1.5em;
-      font-weight: normal;
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s ease-in-out infinite;
+      margin-right: 0.3em;
+      vertical-align: middle;
     }
 
-    h1 b { color: rgb(205, 92, 155); }
-
-    .subtitle {
-      color: #888;
-      font-size: 0.85em;
-      margin: 0;
+    .status-dot.offline {
+      background: #ef4444;
+      animation: none;
     }
 
     .stats {
       display: flex;
       justify-content: center;
-      gap: 0.5em;
-      margin-top: 0.8em;
+      gap: 0.6em;
       flex-wrap: wrap;
-      font-size: 0.75em;
+      font-size: 0.8em;
     }
 
     .stat {
-      padding: 0.3em 0.6em;
-      background: rgba(205, 92, 155, 0.1);
-      border-radius: 3px;
-    }
-
-    .stat strong { color: rgb(205, 92, 155); }
-
-    .section-title {
-      font-size: 1.1em;
-      font-weight: normal;
-      margin: 1.5em 0 0.5em 0;
-      padding-bottom: 0.3em;
-      border-bottom: 1px solid rgba(205, 92, 155, 0.3);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .section-count {
-      font-size: 0.7em;
-      color: rgb(205, 92, 155);
-      font-weight: bold;
-    }
-
-    .card {
-      background: white;
+      padding: 0.3em 0.7em;
+      background: var(--box-bg);
+      border: 1px solid var(--box-border);
       border-radius: 4px;
-      padding: 1em;
-      margin-bottom: 0.5em;
+      color: var(--dim);
     }
 
-    .card-title {
-      font-weight: bold;
-      color: rgb(205, 92, 155);
-      margin-bottom: 0.3em;
+    .stat strong { color: var(--pink); }
+
+    /* -- sections -- */
+    .section {
+      margin-bottom: 1.5em;
+      animation: slideIn 0.5s ease-out both;
     }
 
-    .card-meta {
-      color: #888;
+    .section:nth-child(2) { animation-delay: 0.1s; }
+    .section:nth-child(3) { animation-delay: 0.2s; }
+    .section:nth-child(4) { animation-delay: 0.3s; }
+
+    .section-hd {
       font-size: 0.85em;
-    }
-
-    .playlist-list {
-      display: flex;
-      flex-direction: column;
-      gap: 0;
-    }
-
-    .item-row {
-      background: white;
-      padding: 0.75em;
-      border-bottom: 1px solid rgba(205, 92, 155, 0.1);
-      text-decoration: none;
-      color: inherit;
-      transition: all 0.15s;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.6em;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 0.5em;
-      cursor: pointer;
     }
 
-    .item-row:first-child { border-radius: 4px 4px 0 0; }
-    .item-row:last-child { border-radius: 0 0 4px 4px; border-bottom: none; }
-    .item-row:hover { background: rgba(205, 92, 155, 0.05); padding-left: 1em; }
+    .section-count { color: var(--pink); }
 
-    .item-left {
+    /* -- channel card -- */
+    .channel-card {
+      background: var(--box-bg);
+      border: 1px solid var(--box-border);
+      border-radius: 6px;
+      padding: 1.2em;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .channel-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--pink), var(--cyan));
+    }
+
+    .channel-title {
+      font-size: 1.3em;
+      margin-bottom: 0.2em;
+    }
+
+    .channel-title b { color: var(--pink); }
+
+    .channel-meta {
+      color: var(--dim);
+      font-size: 0.85em;
+      line-height: 1.6;
+    }
+
+    .channel-curator {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3em;
+      color: var(--cyan);
+    }
+
+    /* -- playlist rows -- */
+    .playlist-list {
+      border: 1px solid var(--box-border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .pl-row {
+      padding: 0.8em 1em;
+      border-bottom: 1px solid var(--box-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.8em;
+      cursor: pointer;
+      transition: background 0.15s, padding-left 0.15s;
+    }
+
+    .pl-row:last-child { border-bottom: none; }
+    .pl-row:hover { background: var(--box-bg); padding-left: 1.2em; }
+    .pl-row.open { background: var(--box-bg); }
+
+    .pl-left {
       display: flex;
       align-items: center;
-      gap: 0.75em;
+      gap: 0.6em;
       flex: 1;
       min-width: 0;
     }
 
-    .item-rank {
-      color: #aaa;
-      font-size: 0.8em;
-      width: 2em;
-      text-align: right;
+    .pl-icon {
+      font-size: 1.1em;
       flex-shrink: 0;
+      animation: float 3s ease-in-out infinite;
     }
 
-    .item-info { min-width: 0; }
+    .pl-row:nth-child(2) .pl-icon { animation-delay: 0.3s; }
+    .pl-row:nth-child(3) .pl-icon { animation-delay: 0.6s; }
+    .pl-row:nth-child(4) .pl-icon { animation-delay: 0.9s; }
+    .pl-row:nth-child(5) .pl-icon { animation-delay: 1.2s; }
 
-    .item-title {
-      font-weight: bold;
-      color: rgb(205, 92, 155);
+    .pl-info { min-width: 0; }
+
+    .pl-title {
+      color: var(--text);
+      font-weight: normal;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
-    .item-summary {
+    .pl-summary {
       font-size: 0.8em;
-      color: #888;
+      color: var(--dim);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 500px;
+      max-width: 400px;
     }
 
-    .item-right {
+    .pl-right {
       display: flex;
       align-items: center;
-      gap: 0.8em;
+      gap: 0.6em;
       flex-shrink: 0;
       font-size: 0.8em;
-      color: #aaa;
+      color: var(--dim);
     }
 
     .badge {
-      padding: 0.15em 0.4em;
+      padding: 0.15em 0.5em;
       border-radius: 3px;
-      font-size: 0.8em;
+      font-size: 0.75em;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
 
     .badge-dynamic {
-      background: rgba(205, 92, 155, 0.15);
-      color: rgb(205, 92, 155);
+      background: rgba(255,107,157,0.12);
+      color: var(--pink);
     }
 
     .badge-static {
-      background: rgba(100, 100, 100, 0.1);
-      color: #888;
+      background: var(--box-bg);
+      border: 1px solid var(--box-border);
+      color: var(--dim);
     }
 
-    .endpoint {
-      font-size: 0.85em;
-      padding: 0.4em 0.6em;
-      background: rgba(0,0,0,0.03);
-      border-radius: 3px;
-      margin-bottom: 0.3em;
+    /* -- expanded piece list -- */
+    .pl-items {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease-out;
+      border-bottom: 1px solid var(--box-border);
+    }
+
+    .pl-items.open {
+      max-height: 2000px;
+      transition: max-height 0.5s ease-in;
+    }
+
+    .pl-items:last-child { border-bottom: none; }
+
+    .pl-items-inner {
+      padding: 0.5em 1em 0.8em;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+      gap: 0.3em;
+    }
+
+    .piece {
       display: flex;
-      gap: 0.5em;
-    }
-
-    .endpoint .method {
-      color: rgb(205, 92, 155);
-      font-weight: bold;
-      flex-shrink: 0;
-    }
-
-    .endpoint .path {
-      color: #555;
-    }
-
-    @media (prefers-color-scheme: dark) {
-      .endpoint .path { color: #aaa; }
-    }
-
-    .expand-items {
-      margin-top: 0.5em;
-      padding: 0.5em;
-      background: rgba(205, 92, 155, 0.05);
-      border-radius: 4px;
-      max-height: 400px;
-      overflow-y: auto;
-      font-size: 0.85em;
-      display: none;
-    }
-
-    .expand-items.open { display: block; }
-
-    .piece-row {
-      padding: 0.3em 0.5em;
-      display: flex;
-      gap: 0.5em;
       align-items: center;
-      border-bottom: 1px solid rgba(205, 92, 155, 0.05);
+      gap: 0.3em;
+      padding: 0.25em 0.4em;
+      border-radius: 3px;
+      transition: background 0.1s;
+      font-size: 0.85em;
     }
 
-    .piece-row:last-child { border-bottom: none; }
+    .piece:hover { background: rgba(255,107,157,0.08); }
 
     .piece-code {
-      color: rgb(205, 92, 155);
-      font-weight: bold;
+      color: var(--pink);
       text-decoration: none;
+      font-weight: normal;
     }
 
     .piece-code:hover { text-decoration: underline; }
 
-    .piece-rank {
-      color: #aaa;
-      width: 2.5em;
-      text-align: right;
+    /* -- api endpoints -- */
+    .endpoint-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.3em;
+    }
+
+    @media (max-width: 500px) {
+      .endpoint-grid { grid-template-columns: 1fr; }
+    }
+
+    .ep {
+      padding: 0.4em 0.6em;
+      background: var(--box-bg);
+      border: 1px solid var(--box-border);
+      border-radius: 4px;
+      display: flex;
+      gap: 0.5em;
+      font-size: 0.8em;
+    }
+
+    .ep .method {
+      color: var(--cyan);
+      font-weight: normal;
       flex-shrink: 0;
-      font-size: 0.9em;
+      min-width: 2.5em;
     }
 
-    .piece-title {
-      flex: 1;
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
+    .ep .path { color: var(--dim); }
 
+    /* -- footer -- */
     footer {
-      margin-top: 2em;
+      margin-top: 2.5em;
       padding-top: 1em;
-      border-top: 1px solid rgba(205, 92, 155, 0.2);
+      border-top: 1px solid var(--box-border);
       text-align: center;
       font-size: 0.8em;
-      color: #888;
+      color: var(--dim);
     }
 
-    footer a {
-      color: rgb(205, 92, 155);
-      text-decoration: none;
+    footer .heart {
+      color: var(--pink);
+      display: inline-block;
+      animation: float 2s ease-in-out infinite;
     }
 
-    footer a:hover { text-decoration: underline; }
+    /* -- responsive -- */
+    @media (max-width: 600px) {
+      .container { padding: 1em 0.6em; }
+      .logo { font-size: 1.6em; }
+      .pl-summary { display: none; }
+      .pl-right span:last-child { display: none; }
+      .pl-items-inner { grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); }
+    }
 
-    .loading { color: #aaa; font-style: italic; }
-    .err { color: #c44; }
+    .loading { color: var(--dim); animation: pulse 1.5s ease-in-out infinite; }
   </style>
 </head>
 <body>
   <div class="container">
     <header>
-      <h1><b>feed</b> · aesthetic computer</h1>
-      <p class="subtitle">DP-1 feed server &mdash; SQLite-backed playlists and channels</p>
+      <div class="logo"><b>feed</b> <span class="dot">&middot;</span> aesthetic computer</div>
+      <p class="subtitle">playlists and channels for KidLisp</p>
       <div class="stats" id="stats">
         <span class="loading">connecting...</span>
       </div>
     </header>
 
-    <div id="channels-section"></div>
-    <div id="playlists-section"></div>
+    <div id="content">
+      <div class="loading" style="text-align:center;padding:2em">loading feed...</div>
+    </div>
 
-    <div class="section-title">API</div>
-    <div id="endpoints">
-      <div class="endpoint"><span class="method">GET</span><span class="path">/api/v1</span></div>
-      <div class="endpoint"><span class="method">GET</span><span class="path">/api/v1/health</span></div>
-      <div class="endpoint"><span class="method">GET</span><span class="path">/api/v1/channels</span></div>
-      <div class="endpoint"><span class="method">GET</span><span class="path">/api/v1/channels/:id</span></div>
-      <div class="endpoint"><span class="method">GET</span><span class="path">/api/v1/playlists</span></div>
-      <div class="endpoint"><span class="method">GET</span><span class="path">/api/v1/playlists/:id</span></div>
-      <div class="endpoint"><span class="method">GET</span><span class="path">/api/v1/playlist-items</span></div>
-      <div class="endpoint"><span class="method">GET</span><span class="path">/api/v1/playlist-items/:id</span></div>
+    <div class="section" id="api-section" style="animation-delay:0.3s">
+      <div class="section-hd">API</div>
+      <div class="endpoint-grid">
+        <div class="ep"><span class="method">GET</span><span class="path">/api/v1</span></div>
+        <div class="ep"><span class="method">GET</span><span class="path">/api/v1/health</span></div>
+        <div class="ep"><span class="method">GET</span><span class="path">/api/v1/channels</span></div>
+        <div class="ep"><span class="method">GET</span><span class="path">/api/v1/channels/:id</span></div>
+        <div class="ep"><span class="method">GET</span><span class="path">/api/v1/playlists</span></div>
+        <div class="ep"><span class="method">GET</span><span class="path">/api/v1/playlists/:id</span></div>
+        <div class="ep"><span class="method">GET</span><span class="path">/api/v1/playlist-items</span></div>
+        <div class="ep"><span class="method">GET</span><span class="path">/api/v1/playlist-items/:id</span></div>
+      </div>
     </div>
 
     <footer>
-      <a href="https://github.com/display-protocol/dp1-feed">DP-1 Feed Operator</a> &middot;
-      <a href="https://aesthetic.computer">Aesthetic Computer</a> &middot;
-      <a href="https://aesthetic.computer/kidlisp">KidLisp</a>
+      <a href="https://github.com/whistlegraph/dp1-feed">dp1-feed</a>
+      &middot; <a href="https://aesthetic.computer">aesthetic.computer</a>
+      &middot; <a href="https://aesthetic.computer/kidlisp">kidlisp</a>
+      <br>
+      <span class="heart">~</span>
     </footer>
   </div>
 
   <script>
+    // Theme: follow system preference
+    function applyTheme() {
+      if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+        document.body.classList.add('light-mode');
+      } else {
+        document.body.classList.remove('light-mode');
+      }
+    }
+    applyTheme();
+    window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', applyTheme);
+
     const API = '/api/v1';
     const esc = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
 
+    // Pick an icon for a playlist based on its title
+    function plIcon(title) {
+      const t = (title || '').toLowerCase();
+      if (t.includes('top 100')) return '\u{1F3B0}';     // slot machine
+      if (t.includes('@jeffrey')) return '\u{1F451}';     // crown
+      if (t.includes('@fifi')) return '\u{1F338}';        // cherry blossom
+      if (t.includes('color')) return '\u{1F308}';        // rainbow
+      if (t.includes('chord')) return '\u{1F3B9}';        // musical keyboard
+      return '\u{1F4BF}';                                 // disc
+    }
+
     async function load() {
-      // Health / stats
+      // Health
       try {
-        const health = await fetch(`${API}/health`).then(r => r.json());
-        const info = await fetch(`${API}`).then(r => r.json());
+        const [health, info] = await Promise.all([
+          fetch(`${API}/health`).then(r => r.json()),
+          fetch(`${API}`).then(r => r.json()),
+        ]);
         const el = document.getElementById('stats');
-        const parts = [];
-        if (info.version) parts.push(`<span class="stat">version <strong>${esc(info.version)}</strong></span>`);
-        if (info.deployment) parts.push(`<span class="stat">deployment <strong>${esc(info.deployment)}</strong></span>`);
-        if (health.status === 'ok') parts.push(`<span class="stat">status <strong>ok</strong></span>`);
-        if (info.runtime) parts.push(`<span class="stat">runtime <strong>${esc(info.runtime)}</strong></span>`);
-        el.innerHTML = parts.join('') || '<span class="stat">online</span>';
+        const dot = health.status === 'ok'
+          ? '<span class="status-dot"></span>'
+          : '<span class="status-dot offline"></span>';
+        const parts = [dot + '<span class="stat"><strong>online</strong></span>'];
+        if (info.version) parts.push(`<span class="stat">v<strong>${esc(info.version)}</strong></span>`);
+        if (info.runtime) parts.push(`<span class="stat">${esc(info.runtime)}</span>`);
+        parts.push('<span class="stat">sqlite</span>');
+        el.innerHTML = parts.join('');
       } catch (e) {
-        document.getElementById('stats').innerHTML = '<span class="err">offline</span>';
+        document.getElementById('stats').innerHTML =
+          '<span class="status-dot offline"></span><span class="stat" style="color:#ef4444"><strong>offline</strong></span>';
       }
 
-      // Channels
+      // Channels + playlists
       try {
-        const data = await fetch(`${API}/channels`).then(r => r.json());
-        const items = data.items || [];
-        const sec = document.getElementById('channels-section');
-        if (items.length === 0) { sec.innerHTML = ''; return; }
+        const [chData, plData] = await Promise.all([
+          fetch(`${API}/channels`).then(r => r.json()),
+          fetch(`${API}/playlists?limit=100`).then(r => r.json()),
+        ]);
 
-        let html = `<div class="section-title">Channels <span class="section-count">${items.length}</span></div>`;
-        for (const ch of items) {
+        const channels = chData.items || [];
+        const playlists = plData.items || [];
+        let totalItems = 0;
+        playlists.forEach(p => totalItems += (p.items?.length || 0));
+
+        let html = '';
+
+        // Channel card
+        for (const ch of channels) {
           const plCount = ch.playlists?.length || 0;
-          html += `<div class="card">
-            <div class="card-title">${esc(ch.title)}</div>
-            <div class="card-meta">${esc(ch.summary || '')}</div>
-            <div class="card-meta" style="margin-top:0.3em">
-              curator: ${esc(ch.curator || '-')} &middot; ${plCount} playlists &middot; ${esc(ch.slug || '')}
+          html += `<div class="section">
+            <div class="channel-card">
+              <div class="channel-title"><b>${esc(ch.title)}</b></div>
+              <div class="channel-meta">
+                ${esc(ch.summary || '')}
+              </div>
+              <div class="channel-meta" style="margin-top:0.4em">
+                <span class="channel-curator">${esc(ch.curator || '-')}</span>
+                &middot; ${plCount} playlists &middot; ${totalItems} items
+              </div>
             </div>
           </div>`;
         }
-        sec.innerHTML = html;
-      } catch (e) {}
 
-      // Playlists
-      try {
-        const data = await fetch(`${API}/playlists?limit=100`).then(r => r.json());
-        const items = data.items || [];
-        const sec = document.getElementById('playlists-section');
-        if (items.length === 0) { sec.innerHTML = ''; return; }
+        // Playlists
+        if (playlists.length > 0) {
+          // Order by channel playlist order if possible
+          const chPlaylistIds = channels[0]?.playlists?.map(url => url.split('/').pop()) || [];
+          playlists.sort((a, b) => {
+            const ai = chPlaylistIds.indexOf(a.id);
+            const bi = chPlaylistIds.indexOf(b.id);
+            if (ai === -1 && bi === -1) return 0;
+            if (ai === -1) return 1;
+            if (bi === -1) return -1;
+            return ai - bi;
+          });
 
-        // Sort: dynamic (recently created) first, then static
-        items.sort((a, b) => new Date(b.created) - new Date(a.created));
+          html += `<div class="section">
+            <div class="section-hd">Playlists <span class="section-count">${playlists.length}</span></div>
+            <div class="playlist-list">`;
 
-        let totalItems = 0;
-        items.forEach(p => totalItems += (p.items?.length || 0));
+          playlists.forEach((p, i) => {
+            const count = p.items?.length || 0;
+            const isDynamic = /^Top /.test(p.title || '');
+            const icon = plIcon(p.title);
 
-        let html = `<div class="section-title">Playlists <span class="section-count">${items.length} playlists &middot; ${totalItems} items</span></div>`;
-        html += '<div class="playlist-list">';
-
-        items.forEach((p, i) => {
-          const count = p.items?.length || 0;
-          const isDynamic = (p.title || '').match(/^Top /);
-          const badgeClass = isDynamic ? 'badge-dynamic' : 'badge-static';
-          const badgeLabel = isDynamic ? 'dynamic' : 'static';
-          const created = p.created ? new Date(p.created).toLocaleDateString() : '';
-
-          html += `<div class="item-row" onclick="toggleItems('pl-${i}')">
-            <div class="item-left">
-              <span class="item-rank">#${i + 1}</span>
-              <div class="item-info">
-                <div class="item-title">${esc(p.title || p.slug)}</div>
-                <div class="item-summary">${esc(p.summary || '')}</div>
+            html += `<div class="pl-row" onclick="toggle(${i})" id="plr-${i}">
+              <div class="pl-left">
+                <span class="pl-icon">${icon}</span>
+                <div class="pl-info">
+                  <div class="pl-title">${esc(p.title || p.slug)}</div>
+                  <div class="pl-summary">${esc(p.summary || '')}</div>
+                </div>
+              </div>
+              <div class="pl-right">
+                <span class="badge ${isDynamic ? 'badge-dynamic' : 'badge-static'}">${isDynamic ? 'daily' : 'static'}</span>
+                <span>${count}</span>
               </div>
             </div>
-            <div class="item-right">
-              <span class="badge ${badgeClass}">${badgeLabel}</span>
-              <span>${count} items</span>
-              <span>${created}</span>
-            </div>
-          </div>`;
+            <div class="pl-items" id="pli-${i}">
+              <div class="pl-items-inner" id="plic-${i}"></div>
+            </div>`;
+          });
 
-          // Expandable items list
-          if (p.items && p.items.length > 0) {
-            html += `<div class="expand-items" id="pl-${i}">`;
-            p.items.forEach((item, j) => {
-              const code = item.title || item.id || '-';
-              const url = item.url || '#';
-              // Extract AC piece URL from item
-              let pieceUrl = '#';
-              if (item.url) {
-                // DP-1 item URLs point to the piece
-                pieceUrl = item.url;
-              }
-              html += `<div class="piece-row">
-                <span class="piece-rank">${j + 1}.</span>
-                <a class="piece-code" href="${esc(pieceUrl)}" target="_blank">${esc(code)}</a>
-              </div>`;
-            });
-            html += '</div>';
-          }
-        });
+          html += '</div></div>';
+          window._playlists = playlists;
+        }
 
-        html += '</div>';
-        sec.innerHTML = html;
-      } catch (e) {}
+        document.getElementById('content').innerHTML = html;
+      } catch (e) {
+        document.getElementById('content').innerHTML =
+          '<div style="text-align:center;color:var(--dim);padding:2em">could not load feed data</div>';
+      }
     }
 
-    function toggleItems(id) {
-      const el = document.getElementById(id);
-      if (el) el.classList.toggle('open');
+    function toggle(i) {
+      const items = document.getElementById('pli-' + i);
+      const row = document.getElementById('plr-' + i);
+      const inner = document.getElementById('plic-' + i);
+      if (!items) return;
+
+      const wasOpen = items.classList.contains('open');
+      items.classList.toggle('open');
+      row.classList.toggle('open');
+
+      // Lazy-render items on first open
+      if (!wasOpen && inner && !inner.dataset.loaded) {
+        const p = window._playlists?.[i];
+        if (p?.items?.length) {
+          inner.innerHTML = p.items.map((item, j) => {
+            const code = item.title || item.id || '-';
+            const url = item.url || '#';
+            return `<div class="piece"><a class="piece-code" href="${esc(url)}" target="_blank">${esc(code)}</a></div>`;
+          }).join('');
+        } else {
+          inner.innerHTML = '<div style="color:var(--dim);grid-column:1/-1">empty</div>';
+        }
+        inner.dataset.loaded = '1';
+      }
     }
 
     load();
