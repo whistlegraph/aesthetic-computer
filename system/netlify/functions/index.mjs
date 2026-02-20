@@ -1371,6 +1371,8 @@ async function fun(event, context) {
               if(f%barFreq===0&&KIDLISP_BARS.length<maxBars){var bci=Math.floor(Math.random()*klCols.length);KIDLISP_BARS.push({x:Math.random()*W,y:H+5*S*dS,w:(30+Math.random()*80)*S*dS,h:(2+Math.random()*3)*S*dS,ci:bci,s:(0.5+Math.random()*1.5)*S*dS,a:isDeviceMode?(0.6+Math.random()*0.4):(0.3+Math.random()*0.3)});}
               for(var bi=KIDLISP_BARS.length-1;bi>=0;bi--){var b=KIDLISP_BARS[bi];b.y-=b.s;if(b.y<-10*S*dS){KIDLISP_BARS.splice(bi,1);continue;}var fade=b.a*(1-(H-b.y)/H*0.5);x.globalAlpha=fade;var bc=klCols[b.ci%klCols.length];x.fillStyle='rgb('+bc[0]+','+bc[1]+','+bc[2]+')';x.beginPath();x.roundRect(b.x,b.y,b.w,b.h,b.h/2);x.fill();}
               x.globalAlpha=1;
+              // KidLisp title text (non-device mode only)
+              if(!isDeviceMode){var klTitleFS=Math.floor(6*S);x.font='bold '+klTitleFS+'px monospace';var klTitle='KidLisp';x.globalAlpha=0.7+Math.sin(f*0.04)*0.15;var klTci=Math.floor(f*0.05)%klCols.length;var klTc=klCols[klTci];x.fillStyle='rgb('+klTc[0]+','+klTc[1]+','+klTc[2]+')';x.fillText(klTitle,6*S,6*S);x.globalAlpha=1;}
               // Device mode: show centered initialization text (larger font for low density)
               if(isDeviceMode){var initText='initializing...';var initFS=densityParam===1?Math.max(24,Math.floor(H/20)):6*S*dS;x.font='bold '+initFS+'px monospace';var initW=x.measureText(initText).width;var initX=(W-initW)/2;var initY=H/2;var initPulse=0.5+Math.sin(f*0.1)*0.3;x.globalAlpha=initPulse;x.fillStyle='rgb(255,255,255)';x.fillText(initText,initX,initY);x.globalAlpha=1;}
               // Device mode low density: larger text for readability

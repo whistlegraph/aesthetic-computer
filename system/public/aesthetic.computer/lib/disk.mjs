@@ -924,7 +924,7 @@ const defaults = {
     cursor("native");
   }, // aka Setup
   sim: () => false, // A framerate independent of rendering.
-  paint: ({ noise16Aesthetic, noise16Sotce, slug, wipe, ink, screen, net }) => {
+  paint: ({ noise16Aesthetic, noise16Sotce, slug, wipe, ink, write, screen, net }) => {
     // In PACK mode (exported bundles), skip noise16 — just show black
     if (typeof window !== "undefined" && window.acPACK_MODE) { wipe("black"); return; }
     // TODO: Make this a boot choice via the index.html file?
@@ -935,6 +935,14 @@ const defaults = {
         noise16Sotce();
       } else {
         noise16Aesthetic();
+        if (net.motd) {
+          ink(255, 255, 255, 200).write(
+            net.motd,
+            { center: "x", y: Math.floor(screen.height / 2) },
+            undefined,
+            screen.width - 18,
+          );
+        }
         if (net.loadFailureText) {
           ink("white").write(
             net.loadFailureText,

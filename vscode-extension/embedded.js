@@ -151,8 +151,17 @@
   });
 
   // Add event listener for when the window is focused.
+  // Only send on actual blur→focus transitions to prevent spurious re-focus
+  // events from clearing prompt text and reopening the keyboard curtain.
+  let parentHadFocus = document.hasFocus();
+  window.addEventListener("blur", () => {
+    parentHadFocus = false;
+  });
   window.addEventListener("focus", () => {
-    iframe.contentWindow.postMessage({ type: "aesthetic-parent:focused" }, "*");
+    if (!parentHadFocus) {
+      parentHadFocus = true;
+      iframe.contentWindow.postMessage({ type: "aesthetic-parent:focused" }, "*");
+    }
   });
 
   // ♻️ Start the refresh timeout cycle
