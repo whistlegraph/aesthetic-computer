@@ -3118,14 +3118,19 @@
       generateQRAndLabel(displayCode);
       
       try {
-        // Use eager fetch result if available, otherwise fetch now
-        let data = null;
-        if (window.__eagerSourceFetch) {
+        // 1. Use pre-populated slideshowSources (instant — no network)
+        let data = slideshowSources[pieceCode] || null;
+        if (data) {
+          console.log('📺 Using cached slideshowSources for:', pieceCode);
+        }
+
+        // 2. Use eager fetch result if available
+        if (!data && window.__eagerSourceFetch) {
           console.log('📺 Using eager-fetched source');
           data = await window.__eagerSourceFetch;
         }
-        
-        // Fallback to regular fetch if eager fetch failed or wasn't available
+
+        // 3. Fallback to regular API fetch
         if (!data) {
           const apiUrl = dev ? 'https://localhost:8888' : 'https://aesthetic.computer';
           const url = `${apiUrl}/api/store-kidlisp?code=${pieceCode}`;
