@@ -1,0 +1,438 @@
+<!--
+DP-1 Feed Landing Page for feed.aesthetic.computer
+Live channel/playlist explorer backed by SQLite
+Created: 2026.02.20
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>feed · Aesthetic Computer</title>
+  <meta name="description" content="DP-1 feed server for Aesthetic Computer — playlists, channels, and KidLisp pieces">
+  <link rel="icon" type="image/png"
+    href="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png">
+
+  <style>
+    * { box-sizing: border-box; }
+    ::-webkit-scrollbar { display: none; }
+
+    body {
+      margin: 0;
+      font-size: 14px;
+      font-family: monospace;
+      -webkit-text-size-adjust: none;
+      background: #f5f5f5;
+      color: #000;
+      line-height: 1.4;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      body { background: #111; color: #ddd; }
+      .card { background: #1a1a1a; }
+      .item-row { background: #1a1a1a; }
+      .item-row:hover { background: rgba(205, 92, 155, 0.08); }
+      .endpoint { background: rgba(205, 92, 155, 0.08); }
+      footer { border-top-color: rgba(205, 92, 155, 0.2); }
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 1em 0.5em;
+    }
+
+    header {
+      text-align: center;
+      padding: 1em 0;
+      border-bottom: 2px solid rgb(205, 92, 155);
+      margin-bottom: 1em;
+    }
+
+    h1 {
+      margin: 0 0 0.1em 0;
+      font-size: 1.5em;
+      font-weight: normal;
+    }
+
+    h1 b { color: rgb(205, 92, 155); }
+
+    .subtitle {
+      color: #888;
+      font-size: 0.85em;
+      margin: 0;
+    }
+
+    .stats {
+      display: flex;
+      justify-content: center;
+      gap: 0.5em;
+      margin-top: 0.8em;
+      flex-wrap: wrap;
+      font-size: 0.75em;
+    }
+
+    .stat {
+      padding: 0.3em 0.6em;
+      background: rgba(205, 92, 155, 0.1);
+      border-radius: 3px;
+    }
+
+    .stat strong { color: rgb(205, 92, 155); }
+
+    .section-title {
+      font-size: 1.1em;
+      font-weight: normal;
+      margin: 1.5em 0 0.5em 0;
+      padding-bottom: 0.3em;
+      border-bottom: 1px solid rgba(205, 92, 155, 0.3);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .section-count {
+      font-size: 0.7em;
+      color: rgb(205, 92, 155);
+      font-weight: bold;
+    }
+
+    .card {
+      background: white;
+      border-radius: 4px;
+      padding: 1em;
+      margin-bottom: 0.5em;
+    }
+
+    .card-title {
+      font-weight: bold;
+      color: rgb(205, 92, 155);
+      margin-bottom: 0.3em;
+    }
+
+    .card-meta {
+      color: #888;
+      font-size: 0.85em;
+    }
+
+    .playlist-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .item-row {
+      background: white;
+      padding: 0.75em;
+      border-bottom: 1px solid rgba(205, 92, 155, 0.1);
+      text-decoration: none;
+      color: inherit;
+      transition: all 0.15s;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5em;
+      cursor: pointer;
+    }
+
+    .item-row:first-child { border-radius: 4px 4px 0 0; }
+    .item-row:last-child { border-radius: 0 0 4px 4px; border-bottom: none; }
+    .item-row:hover { background: rgba(205, 92, 155, 0.05); padding-left: 1em; }
+
+    .item-left {
+      display: flex;
+      align-items: center;
+      gap: 0.75em;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .item-rank {
+      color: #aaa;
+      font-size: 0.8em;
+      width: 2em;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .item-info { min-width: 0; }
+
+    .item-title {
+      font-weight: bold;
+      color: rgb(205, 92, 155);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .item-summary {
+      font-size: 0.8em;
+      color: #888;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 500px;
+    }
+
+    .item-right {
+      display: flex;
+      align-items: center;
+      gap: 0.8em;
+      flex-shrink: 0;
+      font-size: 0.8em;
+      color: #aaa;
+    }
+
+    .badge {
+      padding: 0.15em 0.4em;
+      border-radius: 3px;
+      font-size: 0.8em;
+    }
+
+    .badge-dynamic {
+      background: rgba(205, 92, 155, 0.15);
+      color: rgb(205, 92, 155);
+    }
+
+    .badge-static {
+      background: rgba(100, 100, 100, 0.1);
+      color: #888;
+    }
+
+    .endpoint {
+      font-size: 0.85em;
+      padding: 0.4em 0.6em;
+      background: rgba(0,0,0,0.03);
+      border-radius: 3px;
+      margin-bottom: 0.3em;
+      display: flex;
+      gap: 0.5em;
+    }
+
+    .endpoint .method {
+      color: rgb(205, 92, 155);
+      font-weight: bold;
+      flex-shrink: 0;
+    }
+
+    .endpoint .path {
+      color: #555;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .endpoint .path { color: #aaa; }
+    }
+
+    .expand-items {
+      margin-top: 0.5em;
+      padding: 0.5em;
+      background: rgba(205, 92, 155, 0.05);
+      border-radius: 4px;
+      max-height: 400px;
+      overflow-y: auto;
+      font-size: 0.85em;
+      display: none;
+    }
+
+    .expand-items.open { display: block; }
+
+    .piece-row {
+      padding: 0.3em 0.5em;
+      display: flex;
+      gap: 0.5em;
+      align-items: center;
+      border-bottom: 1px solid rgba(205, 92, 155, 0.05);
+    }
+
+    .piece-row:last-child { border-bottom: none; }
+
+    .piece-code {
+      color: rgb(205, 92, 155);
+      font-weight: bold;
+      text-decoration: none;
+    }
+
+    .piece-code:hover { text-decoration: underline; }
+
+    .piece-rank {
+      color: #aaa;
+      width: 2.5em;
+      text-align: right;
+      flex-shrink: 0;
+      font-size: 0.9em;
+    }
+
+    .piece-title {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    footer {
+      margin-top: 2em;
+      padding-top: 1em;
+      border-top: 1px solid rgba(205, 92, 155, 0.2);
+      text-align: center;
+      font-size: 0.8em;
+      color: #888;
+    }
+
+    footer a {
+      color: rgb(205, 92, 155);
+      text-decoration: none;
+    }
+
+    footer a:hover { text-decoration: underline; }
+
+    .loading { color: #aaa; font-style: italic; }
+    .err { color: #c44; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1><b>feed</b> · aesthetic computer</h1>
+      <p class="subtitle">DP-1 feed server &mdash; SQLite-backed playlists and channels</p>
+      <div class="stats" id="stats">
+        <span class="loading">connecting...</span>
+      </div>
+    </header>
+
+    <div id="channels-section"></div>
+    <div id="playlists-section"></div>
+
+    <div class="section-title">API</div>
+    <div id="endpoints">
+      <div class="endpoint"><span class="method">GET</span><span class="path">/api/v1</span></div>
+      <div class="endpoint"><span class="method">GET</span><span class="path">/api/v1/health</span></div>
+      <div class="endpoint"><span class="method">GET</span><span class="path">/api/v1/channels</span></div>
+      <div class="endpoint"><span class="method">GET</span><span class="path">/api/v1/channels/:id</span></div>
+      <div class="endpoint"><span class="method">GET</span><span class="path">/api/v1/playlists</span></div>
+      <div class="endpoint"><span class="method">GET</span><span class="path">/api/v1/playlists/:id</span></div>
+      <div class="endpoint"><span class="method">GET</span><span class="path">/api/v1/playlist-items</span></div>
+      <div class="endpoint"><span class="method">GET</span><span class="path">/api/v1/playlist-items/:id</span></div>
+    </div>
+
+    <footer>
+      <a href="https://github.com/display-protocol/dp1-feed">DP-1 Feed Operator</a> &middot;
+      <a href="https://aesthetic.computer">Aesthetic Computer</a> &middot;
+      <a href="https://aesthetic.computer/kidlisp">KidLisp</a>
+    </footer>
+  </div>
+
+  <script>
+    const API = '/api/v1';
+    const esc = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
+
+    async function load() {
+      // Health / stats
+      try {
+        const health = await fetch(`${API}/health`).then(r => r.json());
+        const info = await fetch(`${API}`).then(r => r.json());
+        const el = document.getElementById('stats');
+        const parts = [];
+        if (info.version) parts.push(`<span class="stat">version <strong>${esc(info.version)}</strong></span>`);
+        if (info.deployment) parts.push(`<span class="stat">deployment <strong>${esc(info.deployment)}</strong></span>`);
+        if (health.status === 'ok') parts.push(`<span class="stat">status <strong>ok</strong></span>`);
+        if (info.runtime) parts.push(`<span class="stat">runtime <strong>${esc(info.runtime)}</strong></span>`);
+        el.innerHTML = parts.join('') || '<span class="stat">online</span>';
+      } catch (e) {
+        document.getElementById('stats').innerHTML = '<span class="err">offline</span>';
+      }
+
+      // Channels
+      try {
+        const data = await fetch(`${API}/channels`).then(r => r.json());
+        const items = data.items || [];
+        const sec = document.getElementById('channels-section');
+        if (items.length === 0) { sec.innerHTML = ''; return; }
+
+        let html = `<div class="section-title">Channels <span class="section-count">${items.length}</span></div>`;
+        for (const ch of items) {
+          const plCount = ch.playlists?.length || 0;
+          html += `<div class="card">
+            <div class="card-title">${esc(ch.title)}</div>
+            <div class="card-meta">${esc(ch.summary || '')}</div>
+            <div class="card-meta" style="margin-top:0.3em">
+              curator: ${esc(ch.curator || '-')} &middot; ${plCount} playlists &middot; ${esc(ch.slug || '')}
+            </div>
+          </div>`;
+        }
+        sec.innerHTML = html;
+      } catch (e) {}
+
+      // Playlists
+      try {
+        const data = await fetch(`${API}/playlists?limit=100`).then(r => r.json());
+        const items = data.items || [];
+        const sec = document.getElementById('playlists-section');
+        if (items.length === 0) { sec.innerHTML = ''; return; }
+
+        // Sort: dynamic (recently created) first, then static
+        items.sort((a, b) => new Date(b.created) - new Date(a.created));
+
+        let totalItems = 0;
+        items.forEach(p => totalItems += (p.items?.length || 0));
+
+        let html = `<div class="section-title">Playlists <span class="section-count">${items.length} playlists &middot; ${totalItems} items</span></div>`;
+        html += '<div class="playlist-list">';
+
+        items.forEach((p, i) => {
+          const count = p.items?.length || 0;
+          const isDynamic = (p.title || '').match(/^Top /);
+          const badgeClass = isDynamic ? 'badge-dynamic' : 'badge-static';
+          const badgeLabel = isDynamic ? 'dynamic' : 'static';
+          const created = p.created ? new Date(p.created).toLocaleDateString() : '';
+
+          html += `<div class="item-row" onclick="toggleItems('pl-${i}')">
+            <div class="item-left">
+              <span class="item-rank">#${i + 1}</span>
+              <div class="item-info">
+                <div class="item-title">${esc(p.title || p.slug)}</div>
+                <div class="item-summary">${esc(p.summary || '')}</div>
+              </div>
+            </div>
+            <div class="item-right">
+              <span class="badge ${badgeClass}">${badgeLabel}</span>
+              <span>${count} items</span>
+              <span>${created}</span>
+            </div>
+          </div>`;
+
+          // Expandable items list
+          if (p.items && p.items.length > 0) {
+            html += `<div class="expand-items" id="pl-${i}">`;
+            p.items.forEach((item, j) => {
+              const code = item.title || item.id || '-';
+              const url = item.url || '#';
+              // Extract AC piece URL from item
+              let pieceUrl = '#';
+              if (item.url) {
+                // DP-1 item URLs point to the piece
+                pieceUrl = item.url;
+              }
+              html += `<div class="piece-row">
+                <span class="piece-rank">${j + 1}.</span>
+                <a class="piece-code" href="${esc(pieceUrl)}" target="_blank">${esc(code)}</a>
+              </div>`;
+            });
+            html += '</div>';
+          }
+        });
+
+        html += '</div>';
+        sec.innerHTML = html;
+      } catch (e) {}
+    }
+
+    function toggleItems(id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.toggle('open');
+    }
+
+    load();
+  </script>
+</body>
+</html>
