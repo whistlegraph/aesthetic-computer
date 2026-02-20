@@ -9,7 +9,7 @@ Created: 2026.02.20
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>feed · Aesthetic Computer</title>
-  <meta name="description" content="DP-1 feed server for Aesthetic Computer — playlists, channels, and KidLisp pieces">
+  <meta name="description" content="DP-1 feed server for Aesthetic Computer — channels and playlists for user-generated art, code, music, and more">
   <link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png">
   <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
 
@@ -100,7 +100,8 @@ Created: 2026.02.20
     }
 
     .logo b { color: var(--pink); }
-    .logo .dot { color: var(--dim); }
+    .dot-pink { color: var(--pink); font-weight: bold; }
+    .dot-cyan { color: var(--cyan); font-weight: bold; }
 
     .subtitle {
       color: var(--dim);
@@ -396,8 +397,8 @@ Created: 2026.02.20
 <body>
   <div class="container">
     <header>
-      <div class="logo"><b>feed</b> <span class="dot">&middot;</span> aesthetic computer</div>
-      <p class="subtitle">playlists and channels for KidLisp</p>
+      <div class="logo"><b>feed</b><span class="dot-pink">.</span><b>aesthetic</b><span class="dot-cyan">.</span><b>computer</b></div>
+      <p class="subtitle">channels and playlists for aesthetic computer</p>
       <div class="stats" id="stats">
         <span class="loading">connecting...</span>
       </div>
@@ -424,7 +425,7 @@ Created: 2026.02.20
     <footer>
       <a href="https://github.com/whistlegraph/dp1-feed">dp1-feed</a>
       &middot; <a href="https://aesthetic.computer">aesthetic.computer</a>
-      &middot; <a href="https://aesthetic.computer/kidlisp">kidlisp</a>
+      &middot; <a href="https://kidlisp.com">kidlisp</a>
       <br>
       <span class="heart">~</span>
     </footer>
@@ -445,15 +446,37 @@ Created: 2026.02.20
     const API = '/api/v1';
     const esc = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
 
-    // Pick an icon for a playlist based on its title
+    // Pick an icon for a channel or playlist
+    const channelIcons = {
+      kidlisp: '\u{1F4BB}',      // laptop
+      paintings: '\u{1F3A8}',    // artist palette
+      mugs: '\u{2615}',         // hot beverage
+      clocks: '\u{23F0}',       // alarm clock
+      moods: '\u{1F30A}',       // wave
+      chats: '\u{1F4AC}',       // speech bubble
+      instruments: '\u{1F3B9}', // musical keyboard
+      tapes: '\u{1F4FC}',       // videocassette
+    };
+
+    function chIcon(title) {
+      const t = (title || '').toLowerCase();
+      for (const [k, v] of Object.entries(channelIcons)) {
+        if (t.includes(k)) return v;
+      }
+      return '\u{1F4BF}';
+    }
+
     function plIcon(title) {
       const t = (title || '').toLowerCase();
-      if (t.includes('top 100')) return '\u{1F3B0}';     // slot machine
-      if (t.includes('@jeffrey')) return '\u{1F451}';     // crown
-      if (t.includes('@fifi')) return '\u{1F338}';        // cherry blossom
-      if (t.includes('color')) return '\u{1F308}';        // rainbow
-      if (t.includes('chord')) return '\u{1F3B9}';        // musical keyboard
-      return '\u{1F4BF}';                                 // disc
+      if (t.includes('top 100')) return '\u{1F3B0}';
+      if (t.includes('@jeffrey')) return '\u{1F451}';
+      if (t.includes('@fifi')) return '\u{1F338}';
+      if (t.includes('color')) return '\u{1F308}';
+      if (t.includes('chord')) return '\u{1F3B9}';
+      if (t.includes('recent')) return '\u{2728}';
+      if (t.includes('mood')) return '\u{1F30A}';
+      if (t.includes('chat')) return '\u{1F4AC}';
+      return '\u{1F4BF}';
     }
 
     async function load() {
@@ -479,77 +502,81 @@ Created: 2026.02.20
 
       // Channels + playlists
       try {
-        const [chData, plData] = await Promise.all([
-          fetch(`${API}/channels`).then(r => r.json()),
-          fetch(`${API}/playlists?limit=100`).then(r => r.json()),
-        ]);
-
+        const chData = await fetch(`${API}/channels`).then(r => r.json());
         const channels = chData.items || [];
-        const playlists = plData.items || [];
+
+        // Fetch all playlists for all channels
+        const allPlaylists = [];
+        const plById = {};
+        for (const ch of channels) {
+          for (const url of (ch.playlists || [])) {
+            const id = url.split('/').pop();
+            if (!plById[id]) {
+              const p = await fetch(`${API}/playlists/${id}`).then(r => r.json()).catch(() => null);
+              if (p) { plById[id] = p; allPlaylists.push(p); }
+            }
+          }
+        }
+
+        window._playlists = []; // will be filled in channel order
+        let globalIdx = 0;
+        let totalPlaylists = 0;
         let totalItems = 0;
-        playlists.forEach(p => totalItems += (p.items?.length || 0));
+        allPlaylists.forEach(p => { totalPlaylists++; totalItems += (p.items?.length || 0); });
+
+        // Stats summary
+        const statsEl = document.getElementById('stats');
+        const existingStats = statsEl.innerHTML;
+        statsEl.innerHTML = existingStats +
+          ` <span class="stat"><strong>${channels.length}</strong> channels</span>` +
+          ` <span class="stat"><strong>${totalPlaylists}</strong> playlists</span>` +
+          ` <span class="stat"><strong>${totalItems}</strong> items</span>`;
 
         let html = '';
 
-        // Channel card
         for (const ch of channels) {
-          const plCount = ch.playlists?.length || 0;
+          const chPlIds = (ch.playlists || []).map(url => url.split('/').pop());
+          const chPls = chPlIds.map(id => plById[id]).filter(Boolean);
+          const chItems = chPls.reduce((n, p) => n + (p.items?.length || 0), 0);
+          const icon = chIcon(ch.title);
+
           html += `<div class="section">
             <div class="channel-card">
-              <div class="channel-title"><b>${esc(ch.title)}</b></div>
-              <div class="channel-meta">
-                ${esc(ch.summary || '')}
-              </div>
+              <div class="channel-title"><span style="margin-right:0.3em">${icon}</span><b>${esc(ch.title)}</b></div>
+              <div class="channel-meta">${esc(ch.summary || '')}</div>
               <div class="channel-meta" style="margin-top:0.4em">
                 <span class="channel-curator">${esc(ch.curator || '-')}</span>
-                &middot; ${plCount} playlists &middot; ${totalItems} items
+                &middot; ${chPls.length} playlists &middot; ${chItems} items
               </div>
             </div>
-          </div>`;
-        }
+            <div class="playlist-list" style="margin-top:0.5em">`;
 
-        // Playlists
-        if (playlists.length > 0) {
-          // Order by channel playlist order if possible
-          const chPlaylistIds = channels[0]?.playlists?.map(url => url.split('/').pop()) || [];
-          playlists.sort((a, b) => {
-            const ai = chPlaylistIds.indexOf(a.id);
-            const bi = chPlaylistIds.indexOf(b.id);
-            if (ai === -1 && bi === -1) return 0;
-            if (ai === -1) return 1;
-            if (bi === -1) return -1;
-            return ai - bi;
-          });
-
-          html += `<div class="section">
-            <div class="section-hd">Playlists <span class="section-count">${playlists.length}</span></div>
-            <div class="playlist-list">`;
-
-          playlists.forEach((p, i) => {
+          for (const p of chPls) {
+            const idx = globalIdx++;
+            window._playlists[idx] = p;
             const count = p.items?.length || 0;
-            const isDynamic = /^Top /.test(p.title || '');
-            const icon = plIcon(p.title);
+            const isStatic = /(color|chord|chat)/i.test(p.title || '');
+            const pIcon = plIcon(p.title);
 
-            html += `<div class="pl-row" onclick="toggle(${i})" id="plr-${i}">
+            html += `<div class="pl-row" onclick="toggle(${idx})" id="plr-${idx}">
               <div class="pl-left">
-                <span class="pl-icon">${icon}</span>
+                <span class="pl-icon">${pIcon}</span>
                 <div class="pl-info">
                   <div class="pl-title">${esc(p.title || p.slug)}</div>
                   <div class="pl-summary">${esc(p.summary || '')}</div>
                 </div>
               </div>
               <div class="pl-right">
-                <span class="badge ${isDynamic ? 'badge-dynamic' : 'badge-static'}">${isDynamic ? 'daily' : 'static'}</span>
+                <span class="badge ${isStatic ? 'badge-static' : 'badge-dynamic'}">${isStatic ? 'static' : 'daily'}</span>
                 <span>${count}</span>
               </div>
             </div>
-            <div class="pl-items" id="pli-${i}">
-              <div class="pl-items-inner" id="plic-${i}"></div>
+            <div class="pl-items" id="pli-${idx}">
+              <div class="pl-items-inner" id="plic-${idx}"></div>
             </div>`;
-          });
+          }
 
           html += '</div></div>';
-          window._playlists = playlists;
         }
 
         document.getElementById('content').innerHTML = html;
