@@ -83,7 +83,10 @@
       "Bash(git merge:*)",
       "Bash(tee:*)",
       "mcp__emacs__emacs_get_buffer_content",
-      "mcp__emacs__execute_emacs_lisp"
+      "mcp__emacs__execute_emacs_lisp",
+      "Bash(npx esbuild:*)",
+      "Bash(pkill:*)",
+      "Bash(gh repo fork:*)"
     ],
     "additionalDirectories": [
       "/home/me/.claude",
