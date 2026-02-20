@@ -13419,6 +13419,25 @@ async function makeFrame({ data: { type, content } }) {
                 }
               }
               
+              // Fade zone overlay: blend toward next piece color at end of each segment
+              if (merry.fadeDuration > 0 && merry.pipeline.length > 1) {
+                const fadeZonePixels = Math.max(2, Math.floor(pieceWidth * merry.fadeDuration / piece.duration));
+                const pixelOffset = x - xOffset;
+                if (pixelOffset >= pieceWidth - fadeZonePixels) {
+                  const t = (pixelOffset - (pieceWidth - fadeZonePixels)) / Math.max(1, fadeZonePixels - 1);
+                  const nextIdx = (index + 1) % merry.pipeline.length;
+                  const nc = pieceColors[nextIdx % pieceColors.length];
+                  const maxCh = Math.max(1, color.r, color.g, color.b);
+                  const bright = Math.max(baseR, baseG, baseB) / maxCh;
+                  const nR = Math.floor(nc.r * bright);
+                  const nG = Math.floor(nc.g * bright);
+                  const nB = Math.floor(nc.b * bright);
+                  baseR = Math.min(255, Math.floor(baseR * (1 - t) + nR * t));
+                  baseG = Math.min(255, Math.floor(baseG * (1 - t) + nG * t));
+                  baseB = Math.min(255, Math.floor(baseB * (1 - t) + nB * t));
+                }
+              }
+
               // Apply transition flash boost to current piece
               if (isCurrent && flashIntensity > 0) {
                 const boost = 1 + flashIntensity * 0.8; // Up to 80% brighter
@@ -13426,7 +13445,7 @@ async function makeFrame({ data: { type, content } }) {
                 baseG = Math.min(255, Math.floor(baseG * boost));
                 baseB = Math.min(255, Math.floor(baseB * boost));
               }
-              
+
               $.ink(baseR, baseG, baseB, alpha).box(x, 0, 1, 1);
             }
             
