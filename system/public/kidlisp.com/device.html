@@ -2611,6 +2611,13 @@
     let slideshowNavigateSupported = false;  // True once jump() works (confirmed by ready: signal)
     let slideshowNavigateFallbackTimer = null;  // Timeout for fallback to iframe.src reload
     let slideshowAwaitingNavigateReady = false;  // True while waiting for jump() to send ready:
+
+    // 🧹 Memory hygiene: full page refresh every ~30 minutes of playlist playback.
+    // This clears accumulated caches (tapeEmbeds, singletonDollarCodeCache, etc.)
+    // that the singleton KidLisp instance never releases between piece transitions.
+    // The refresh happens at the next piece transition so it's seamless.
+    const REFRESH_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
+    let slideshowSessionStart = Date.now();
     
     // Build query string for display params
     function buildDisplayParams() {
@@ -2885,6 +2892,19 @@
 
     async function playCurrentItem() {
       if (!slideshowPlaylist || !slideshowPlaylist.items) return;
+
+      // 🧹 Memory hygiene: if we've been running long enough, do a full
+      // page refresh at this natural transition point. The URL preserves
+      // the current slideshowIndex via start_index so playback continues
+      // seamlessly from the next piece.
+      if (slideshowMode && Date.now() - slideshowSessionStart >= REFRESH_INTERVAL_MS) {
+        const elapsed = ((Date.now() - slideshowSessionStart) / 60000).toFixed(1);
+        console.log(`🧹 Memory refresh after ${elapsed} min — reloading at index ${slideshowIndex}`);
+        const url = new URL(location.href);
+        url.searchParams.set('start_index', String(slideshowIndex));
+        location.replace(url.toString());
+        return; // Page will reload
+      }
 
       const item = slideshowPlaylist.items[slideshowIndex];
       if (!item) {
