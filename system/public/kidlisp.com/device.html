@@ -2991,13 +2991,31 @@
       requestAnimationFrame(updateFF1Overlap);
     }
     
-    // Returns a color for the progress fill: white → yellow → orange → red as pct → 100
+    // Returns a color for the progress fill: white until the very end,
+    // then a quick 3-frame flash of yellow → orange → red at 100%
+    let _flashFrame = 0;
+    let _flashTimer = null;
     function getProgressColor(pct) {
-      function lerp(a, b, t) { return Math.round(a + (b - a) * t); }
-      if (pct <= 70) return '#fff';
-      if (pct <= 85) { const t = (pct - 70) / 15; return `rgb(255,255,${lerp(255, 0, t)})`; }
-      if (pct <= 93) { const t = (pct - 85) / 8;  return `rgb(255,${lerp(255, 136, t)},0)`; }
-      const t = (pct - 93) / 7; return `rgb(255,${lerp(136, 51, t)},${lerp(0, 51, t)})`;
+      if (pct < 100) { _flashFrame = 0; return '#fff'; }
+      // At 100%: kick off a 3-frame flash (yellow → orange → red) ~33ms each
+      if (_flashFrame === 0 && !_flashTimer) {
+        const fill = document.getElementById('progress-fill');
+        const colors = ['#ffff00', '#ff8800', '#ff3333'];
+        _flashFrame = 1;
+        fill.style.backgroundColor = colors[0];
+        let i = 1;
+        _flashTimer = setInterval(() => {
+          if (i < colors.length) {
+            fill.style.backgroundColor = colors[i];
+            i++;
+          } else {
+            clearInterval(_flashTimer);
+            _flashTimer = null;
+            _flashFrame = 0;
+          }
+        }, 33);
+      }
+      return '#fff';
     }
 
     function startSlideshowProgressBar(duration) {
@@ -3012,6 +3030,8 @@
       progressBar.classList.add('fading-in');
       
       // Reset progress — disable transition so it snaps to left, reset color to white
+      if (_flashTimer) { clearInterval(_flashTimer); _flashTimer = null; }
+      _flashFrame = 0;
       progressFill.style.transition = 'none';
       progressFill.style.width = '0%';
       progressFill.style.backgroundColor = '#fff';
