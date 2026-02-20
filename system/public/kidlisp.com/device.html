@@ -2717,7 +2717,20 @@
       const duration = 24;
       const filterLabel = handleFilter || 'anonymous';
       const dateFormatted = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-      
+
+      // Pre-populate slideshowSources from the data we already have
+      // (the recent API returns source, handle, hits, when)
+      for (const p of pieces) {
+        if (p.code && p.source) {
+          slideshowSources[p.code] = {
+            source: p.source,
+            handle: p.handle || null,
+            hits: p.hits || 0,
+            when: p.when || null,
+          };
+        }
+      }
+
       return {
         dpVersion: '1.1.0',
         title: `Top ${pieces.length} by ${filterLabel} as of ${dateFormatted}`,
