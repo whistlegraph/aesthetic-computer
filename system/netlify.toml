@@ -886,11 +886,45 @@ from = "https://prompt.ac/*"
 to = "https://aesthetic.computer/:splat"
 status = 301
 force = true
+# sitemap.prompt.ac → sitemap.aesthetic.computer
+[[redirects]]
+from = "https://sitemap.prompt.ac"
+to = "https://sitemap.aesthetic.computer"
+status = 301
+force = true
+[[redirects]]
+from = "https://sitemap.prompt.ac/*"
+to = "https://sitemap.aesthetic.computer/:splat"
+status = 301
+force = true
+# api.prompt.ac → api.aesthetic.computer
+[[redirects]]
+from = "https://api.prompt.ac"
+to = "https://api.aesthetic.computer"
+status = 301
+force = true
+[[redirects]]
+from = "https://api.prompt.ac/*"
+to = "https://api.aesthetic.computer/:splat"
+status = 301
+force = true
 # Screenshot generation handled by oven.aesthetic.computer
 [[redirects]]
 from = "/preview/*"
 to = "https://oven.aesthetic.computer/preview/:splat"
 status = 200
+# sitemap.aesthetic.computer subdomain
+[[redirects]]
+from = "https://sitemap.aesthetic.computer"
+to = "/sitemap.html"
+status = 200
+force = true
+[[redirects]]
+from = "https://sitemap.aesthetic.computer/*"
+to = "/sitemap.html"
+status = 200
+force = true
+
 [[redirects]]
 from = "/sitemap"
 to = "/sitemap.html"
@@ -1187,6 +1221,18 @@ from = "/news.aesthetic.computer/"
 to = "/.netlify/functions/news"
 status = 200
 force = true
+# api.aesthetic.computer subdomain
+[[redirects]]
+from = "https://api.aesthetic.computer"
+to = "/.netlify/functions/api-docs"
+status = 200
+force = true
+[[redirects]]
+from = "https://api.aesthetic.computer/*"
+to = "/api/:splat"
+status = 200
+force = true
+
 # Path-based API routes (must be before /* catch-all)
 # API Documentation - LLM-readable API reference
 [[redirects]]
