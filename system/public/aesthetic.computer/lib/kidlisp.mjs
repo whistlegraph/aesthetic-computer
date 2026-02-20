@@ -3870,6 +3870,11 @@ class KidLisp {
           // This ensures proper alpha compositing: layer0 content replaces screen
           // rather than blending with previous frame's screen content
           if (screen && screen.pixels) {
+            // 🎯 Clear any stale mask from previous frame before wiping screen
+            // Without this, the wipe only clears the masked region, leaving
+            // stale content in unmasked areas (e.g., left half of $faim)
+            $.unmask();
+
             // DEBUG: Check what we're about to clear
             if (this.bakes && this.bakes[0]) {
               const aboutToClearBake = screen.pixels === this.bakes[0].pixels;
@@ -3878,7 +3883,7 @@ class KidLisp {
                 // console.error("❌ ERROR: About to clear BAKE BUFFER instead of display!");
               // }
             }
-            
+
             if (this.firstLineColor) {
               // Fill with first-line color as background
               $.wipe(this.firstLineColor);
@@ -4059,7 +4064,12 @@ class KidLisp {
           // During evaluation, $.screen may have been switched to layer0 or bake buffers
           // We need to composite all layers onto the ORIGINAL screen buffer
           $.page(screen);
-          
+
+          // 🎯 Clear mask before compositing to ensure full layer0 is pasted
+          // Without this, the mask from the last KidLisp mask() call clips
+          // the layer0 paste, hiding content outside the masked region
+          $.unmask();
+
           // 🚨 CRITICAL FIX: Manually update $.screen to point to the display screen
           $.screen.width = screen.width;
           $.screen.height = screen.height;
