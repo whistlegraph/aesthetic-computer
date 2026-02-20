@@ -5535,14 +5535,16 @@ function batchedEffects(options = {}) {
 
 // Internal CPU-only zoom (for fallback)
 function zoom_cpu(scale, anchorX = 0.5, anchorY = 0.5) {
-  // Implementation matches existing zoom() but without GPU attempt
-  // ... (the existing zoom code will be called from the main zoom function)
+  // CPU fallback for batched zoom - call the full zoom function
+  // which will skip its own GPU attempt and fall through to CPU path
+  zoom(scale, anchorX, anchorY);
 }
 
-// Internal CPU-only scroll (for fallback) 
+// Internal CPU-only scroll (for fallback)
 function scroll_cpu(dx, dy) {
-  // Implementation matches existing scroll() but without GPU attempt
-  // ... (the existing scroll code will be called from the main scroll function)
+  // CPU fallback for batched scroll - call the full scroll function
+  // which will skip its own GPU attempt and fall through to CPU path
+  scroll(dx, dy);
 }
 
 // 🧪 EXPERIMENTAL: Toggle block-based processing for performance testing
