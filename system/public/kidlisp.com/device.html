@@ -2704,16 +2704,50 @@
       
       const data = await response.json();
       let pieces = data.recent || [];
-      
+
       // For anon filter, keep only pieces with no handle
       if (anonFilter) {
         pieces = pieces.filter(p => !p.handle);
       }
-      
+
       if (pieces.length === 0) {
         throw new Error(handleFilter ? `No pieces found for ${handleFilter}` : 'No anonymous pieces found');
       }
-      
+
+      // Deduplicate near-identical sources (e.g. same piece with one number tweaked).
+      // Uses 3-char ngram Jaccard similarity — pieces already sorted by hits desc,
+      // so first occurrence is the highest-hit version.
+      function getNgrams(src, n = 3) {
+        const grams = new Set();
+        for (let i = 0; i <= src.length - n; i++) grams.add(src.substring(i, i + n));
+        return grams;
+      }
+      function jaccardSim(a, b) {
+        let inter = 0;
+        for (const g of a) { if (b.has(g)) inter++; }
+        const union = a.size + b.size - inter;
+        return union === 0 ? 0 : inter / union;
+      }
+      const beforeDedup = pieces.length;
+      const uniquePieces = [];
+      const uniqueNgrams = [];
+      for (const p of pieces) {
+        if (!p.source) { uniquePieces.push(p); continue; }
+        const grams = getNgrams(p.source);
+        let isDup = false;
+        for (const existing of uniqueNgrams) {
+          if (jaccardSim(grams, existing) > 0.85) { isDup = true; break; }
+        }
+        if (!isDup) {
+          uniquePieces.push(p);
+          uniqueNgrams.push(grams);
+        }
+      }
+      pieces = uniquePieces;
+      if (pieces.length < beforeDedup) {
+        console.log(`📺 Deduped: ${beforeDedup} → ${pieces.length} unique works`);
+      }
+
       const duration = 24;
       const filterLabel = handleFilter || 'anonymous';
       const dateFormatted = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
