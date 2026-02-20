@@ -12,9 +12,11 @@ set vault_env /workspaces/aesthetic-computer/aesthetic-computer-vault/feed/.env
 
 if test -f $vault_env
     echo "📦 Loading secrets from vault..."
-    # Export environment variables for fish
+    # Export environment variables for fish (split on first = only, strip quotes)
     for line in (cat $vault_env | grep -v '^#' | grep '=')
-        set -gx (string split '=' $line)
+        set -l parts (string split -m1 '=' $line)
+        set -l val (string trim -c '"' $parts[2])
+        set -gx $parts[1] $val
     end
     echo "✅ Secrets loaded"
     echo ""

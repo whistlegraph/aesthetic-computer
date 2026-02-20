@@ -1,43 +1,66 @@
 {
   "channel": {
-    "id": "23b63744-649f-4274-add5-d1b439984e51",
-    "slug": "kidlisp-4212",
+    "id": "156c4235-4b24-4001-bec9-61ce0ac7c25e",
+    "slug": "kidlisp-7108",
     "title": "KidLisp",
     "curator": "prompt.ac",
     "summary": "KidLisp is a TV friendly programming language for kids of all ages! Developed by @jeffrey of Aesthetic Computer.",
-    "created": "2025-10-06T04:32:10.521Z",
-    "url": "https://feed.aesthetic.computer/api/v1/channels/23b63744-649f-4274-add5-d1b439984e51"
+    "created": "2026-02-20T06:45:44.127Z",
+    "url": "https://feed.aesthetic.computer/api/v1/channels/156c4235-4b24-4001-bec9-61ce0ac7c25e"
   },
   "playlists": [
     {
-      "id": "f60493a2-9e69-4e6b-837e-76047f48438c",
-      "title": "Top 100 as of Monday, October 6, 2025",
-      "description": "Top 100 most-hit KidLisp pieces from MongoDB aesthetic database",
+      "slot": 0,
+      "type": "dynamic",
+      "title": "Top 100",
+      "description": "Top 100 most-hit KidLisp pieces from MongoDB (all authors)",
       "items": 100,
-      "url": "https://feed.aesthetic.computer/api/v1/playlists/f60493a2-9e69-4e6b-837e-76047f48438c",
-      "generator": "create-top-kidlisp-playlist.mjs"
+      "generator": "silo-update-top100.mjs (handle: null)"
     },
     {
-      "id": "2680b102-04ee-47b5-b7d7-f814094695e7",
+      "slot": 1,
+      "type": "dynamic",
+      "title": "Top @jeffrey",
+      "description": "Top 100 most-hit KidLisp pieces by @jeffrey",
+      "items": 100,
+      "generator": "silo-update-top100.mjs (handle: jeffrey)"
+    },
+    {
+      "slot": 2,
+      "type": "dynamic",
+      "title": "Top @fifi",
+      "description": "Top 100 most-hit KidLisp pieces by @fifi",
+      "items": 100,
+      "generator": "silo-update-top100.mjs (handle: fifi)"
+    },
+    {
+      "slot": 3,
+      "type": "static",
+      "id": "a590114b-2e51-4eed-93d2-3601e0c50e46",
       "title": "Colors",
       "description": "151 CSS color names as solid color displays",
       "items": 151,
-      "url": "https://feed.aesthetic.computer/api/v1/playlists/2680b102-04ee-47b5-b7d7-f814094695e7",
+      "url": "https://feed.aesthetic.computer/api/v1/playlists/a590114b-2e51-4eed-93d2-3601e0c50e46",
       "generator": "create-kidlisp-colors-playlist.mjs"
     },
     {
-      "id": "e1bf1aae-2427-4dd0-a39d-f5da89fdf02e",
+      "slot": 4,
+      "type": "static",
+      "id": "ea5e26c9-e755-4f88-807e-c68a91cff49a",
       "title": "Chords for `clock`",
       "description": "31 Western musical chords using the clock piece with notepat notation",
       "items": 31,
-      "url": "https://feed.aesthetic.computer/api/v1/playlists/e1bf1aae-2427-4dd0-a39d-f5da89fdf02e",
+      "url": "https://feed.aesthetic.computer/api/v1/playlists/ea5e26c9-e755-4f88-807e-c68a91cff49a",
       "generator": "create-kidlisp-chords-playlist.mjs"
     }
   ],
   "metadata": {
-    "lastUpdated": "2025-10-06",
-    "totalItems": 282,
-    "tvParams": "?tv=true&density=5",
-    "dpVersion": "1.0.0"
+    "lastUpdated": "2026-02-20",
+    "totalItems": 482,
+    "backend": "sqlite (silo.aesthetic.computer)",
+    "dpVersion": "1.1.0",
+    "dynamicSlots": 3,
+    "staticSlots": 2,
+    "updateSchedule": "daily at 06:00 UTC"
   }
 }

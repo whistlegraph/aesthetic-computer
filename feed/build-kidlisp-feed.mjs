@@ -20,7 +20,7 @@ const execAsync = promisify(exec);
 
 const FEED_API_URL = 'https://feed.aesthetic.computer/api/v1';
 const API_SECRET = process.env.FEED_API_SECRET || 'YOUR_FEED_API_SECRET_HERE';
-const KIDLISP_CHANNEL_ID = '23b63744-649f-4274-add5-d1b439984e51';
+const KIDLISP_CHANNEL_ID = process.env.KIDLISP_CHANNEL_ID || '156c4235-4b24-4001-bec9-61ce0ac7c25e';
 
 // Keep track of playlist IDs we want to preserve
 let keepPlaylistIds = new Set();
