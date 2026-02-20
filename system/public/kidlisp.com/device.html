@@ -2713,7 +2713,7 @@
         throw new Error(handleFilter ? `No pieces found for ${handleFilter}` : 'No anonymous pieces found');
       }
       
-      const duration = 120;
+      const duration = 24;
       const filterLabel = handleFilter || 'anonymous';
       const dateFormatted = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
       
@@ -2774,7 +2774,12 @@
         // Set page title
         document.title = `KidLisp.com · ${slideshowPlaylist.title || 'Slideshow'}`;
 
-        // Batch fetch all kidlisp sources for cache warming + metadata
+        // Start playing the first piece immediately (don't wait for batch fetch)
+        playCurrentItem();
+
+        // Batch fetch all kidlisp sources in background for cache warming + metadata
+        // This runs concurrently while the first piece boots in the iframe.
+        // Sources are sent to the iframe via ac:warm-cache when the first piece sends "ready:".
         const allCodes = slideshowPlaylist.items
           .map(item => (item.title || '').replace('$', ''))
           .filter(Boolean);
@@ -2797,9 +2802,6 @@
           }
           console.log(`📺 Batch fetched ${Object.keys(slideshowSources).length} / ${allCodes.length} sources`);
         }
-
-        // Start playing from the start index
-        playCurrentItem();
         
       } catch (e) {
         console.error('📺 Failed to load playlist:', e);
