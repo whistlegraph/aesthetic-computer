@@ -6104,17 +6104,27 @@ function paint($) {
           const leftMargin = 5;
           const verticalTextX = leftMargin;
 
-          // Position label box near cursor
+          // Position label box below cursor with triangle tip
+          const arrowHeight = 10;
+          const arrowTipY = textY + 3;
           const bgX = leftMargin - 1;
-          const bgY = textY + bounceOffset;
+          const arrowTipYWithBounce = arrowTipY + bounceOffset;
+          const bgYWithBounce = arrowTipYWithBounce + arrowHeight;
           const verticalBgWidth = verticalTextHeight + 1;
           const verticalBgHeight = verticalTextWidth + 4;
 
           // Position text inside the box (accounting for rotation)
-          const verticalTextY = bgY + verticalTextWidth + 1 + bounceOffset;
+          const verticalTextY = bgYWithBounce + verticalTextWidth + 1 + bounceOffset;
 
-          // Draw simple background box for label
-          ink(0, 0, 0, 200).box(bgX, bgY, verticalBgWidth, verticalBgHeight);
+          // Draw black label box with triangle tip pointing up
+          ink(0, 0, 0, 200).shape([
+            [bgX, bgYWithBounce],
+            [bgX, arrowTipYWithBounce],
+            [bgX + verticalBgWidth, bgYWithBounce],
+            [bgX + verticalBgWidth, bgYWithBounce + verticalBgHeight],
+            [bgX, bgYWithBounce + verticalBgHeight],
+            [bgX, bgYWithBounce]
+          ]);
 
           // Draw white text with flickering per-character brightness
           let flickeringText = "";
