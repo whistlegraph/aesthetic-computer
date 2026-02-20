@@ -3088,7 +3088,8 @@
       progressFill.style.transition = 'none';
       progressFill.style.width = '0%';
       progressFill.style.backgroundColor = '#fff';
-      requestAnimationFrame(() => { progressFill.style.transition = ''; });
+      progressFill.offsetWidth; // Force reflow so 0% renders before transition re-enables
+      progressFill.style.transition = '';
       progressBar.classList.remove('hidden-mid');
       setTimeout(() => progressBar.classList.remove('fading-in'), 2000);
       if (overlay) overlay.classList.remove('slid-out');
@@ -3896,6 +3897,12 @@
       progressBar.classList.add('visible');
       progressBar.classList.add('fading-in');
       console.log('📺 Progress bar visible class added');
+      // Reset progress fill to 0% instantly (no animation)
+      progressFill.style.transition = 'none';
+      progressFill.style.width = '0%';
+      progressFill.style.backgroundColor = '#fff';
+      progressFill.offsetWidth; // Force reflow so 0% renders before transition re-enables
+      progressFill.style.transition = '';
       progressStartTime = Date.now();
       updateProgressBar();
       setTimeout(() => progressBar.classList.remove('fading-in'), 2000);
@@ -4013,7 +4020,8 @@
       progressFill.style.transition = 'none'; // Snap to left instantly
       progressFill.style.width = '0%';
       progressFill.style.backgroundColor = '#fff'; // Reset color to white
-      requestAnimationFrame(() => { progressFill.style.transition = ''; });
+      progressFill.offsetWidth; // Force reflow so 0% renders before transition re-enables
+      progressFill.style.transition = '';
       iframe.src = iframe.src.replace(/&t=\d+/, '') + '&t=' + Date.now();
       requestAnimationFrame(updateProgressBar);
     }
