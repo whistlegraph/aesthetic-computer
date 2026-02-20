@@ -119,7 +119,6 @@
       // Native 4K would be 3840+ with dpr=1
       const is4KDisplay = (maxDim >= 3840 && dpr === 1) ||
                           (maxDim >= 1920 && screenHeight >= 1080 && dpr >= 2);
-      window.is4KDisplay = is4KDisplay;
 
       if (isDeviceSubdomain && is4KDisplay) {
         // FF1/device mode on 4K: 2x multiplier for comfortable TV viewing distance
@@ -137,6 +136,11 @@
     // Get density from URL params, fallback to smart density
     const urlParams = new URLSearchParams(window.location.search);
     window.densityParam = parseInt(urlParams.get('density')) || getSmartDensity();
+
+    // Large display flag — uses physical pixels (same as getSmartDensity)
+    // so progress bar thickness matches the density breakpoint exactly.
+    const physicalMax = Math.max(window.screen.width, window.screen.height) * (window.devicePixelRatio || 1);
+    window.is4KDisplay = physicalMax >= 3840;
 
     // Set CSS custom property for density-based sizing (for piece rendering)
     document.documentElement.style.setProperty('--density', window.densityParam);
