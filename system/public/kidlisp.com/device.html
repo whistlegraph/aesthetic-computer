@@ -87,18 +87,18 @@
       // Hardcoded optimal UI scales for common TV/display resolutions
       // Format: [width, height, dpr] → uiScale
       const resolutionMap = [
-        // 4K displays (device mode - perfect as-is for TV viewing)
-        { w: 3840, h: 2160, dpr: 1, scale: 20 },  // 4K native (e.g., F1 FF1)
+        // 4K displays (device mode - TV viewing distance needs large UI)
+        { w: 3840, h: 2160, dpr: 1, scale: 30 },  // 4K native (e.g., F1 FF1)
         // Square displays (FF1 art computer - 1080x1080)
-        { w: 1080, h: 1080, dpr: 1, scale: 8 },   // FF1 art computer (QR ~7.4% of screen)
-        { w: 1920, h: 1200, dpr: 2, scale: 8 },   // Retina laptop (e.g., MacBook 16")
-        { w: 1920, h: 1080, dpr: 2, scale: 8 },   // Retina laptop 1080p
+        { w: 1080, h: 1080, dpr: 1, scale: 12 },  // FF1 art computer
+        { w: 1920, h: 1200, dpr: 2, scale: 12 },  // Retina laptop (e.g., MacBook 16")
+        { w: 1920, h: 1080, dpr: 2, scale: 12 },  // Retina laptop 1080p
         // 1080p displays
-        { w: 1920, h: 1080, dpr: 1, scale: 10 },  // 1080p native
-        { w: 1366, h: 768, dpr: 1, scale: 7 },    // 1366x768 laptop
-        { w: 1440, h: 900, dpr: 1, scale: 8 },    // 1440x900 laptop
+        { w: 1920, h: 1080, dpr: 1, scale: 15 },  // 1080p native
+        { w: 1366, h: 768, dpr: 1, scale: 10 },   // 1366x768 laptop
+        { w: 1440, h: 900, dpr: 1, scale: 12 },   // 1440x900 laptop
         // Mobile/portrait
-        { w: 800, h: 1280, dpr: 1, scale: 6 },    // Standard portrait phone
+        { w: 800, h: 1280, dpr: 1, scale: 9 },    // Standard portrait phone
       ];
 
       // Try to find an exact or close match
@@ -135,9 +135,8 @@
         return Math.round(baseScale * 2);
       }
 
-      // Square art display (FF1 art computer) — scale proportional to screen size
-      // QR target: 5-10% of screen width (ui-scale * 10px / 1080px ≈ 7.4%)
-      if (isSquareArtDisplay) return 8;
+      // Square art display (FF1 art computer)
+      if (isSquareArtDisplay) return 12;
 
       // Device subdomain on laptop (NOT 4K) falls through to normal scaling below
 
@@ -184,7 +183,7 @@
       /* UI scale for DOM elements - independent of piece rendering density */
       /* Default to 20 for good visibility on FF1/device displays (increased for 4K TVs) */
       /* Set on html only so JS override on documentElement propagates to body via inheritance */
-      --ui-scale: 20;
+      --ui-scale: 30;
     }
 
     html, body {
@@ -455,8 +454,8 @@
       background: #fff;
       padding: calc(var(--ui-scale, 8) * 0.25px);
       line-height: 0;
-      width: calc(var(--ui-scale, 8) * 10px);
-      height: calc(var(--ui-scale, 8) * 10px);
+      width: 15vmin;
+      height: 15vmin;
       /* Gray offset hard shadow like disk.mjs pixel-rendered QR codes */
       box-shadow: calc(var(--ui-scale, 8) * 0.5px) calc(var(--ui-scale, 8) * 0.5px) 0 rgba(64, 64, 64, 0.8);
       opacity: 0; /* Hidden until QR code is generated */
@@ -850,21 +849,21 @@
     /* Large tablets / Small laptops (1024px - 1366px) */
     @media (max-width: 1366px) {
       html {
-        --ui-scale: clamp(8, 1.2vw, 14);
+        --ui-scale: clamp(10, 1.8vw, 20);
       }
     }
 
     /* Tablets (768px - 1024px) */
     @media (max-width: 1024px) {
       html {
-        --ui-scale: clamp(6, 1vw, 10);
+        --ui-scale: clamp(8, 1.5vw, 15);
       }
     }
 
     /* Small tablets / Large phones (600px - 768px) */
     @media (max-width: 768px) {
       html {
-        --ui-scale: clamp(5, 0.9vw, 8);
+        --ui-scale: clamp(7, 1.3vw, 12);
       }
 
       #source-code {
@@ -889,14 +888,14 @@
     /* Extra small screens - prevent any overlap */
     @media (max-width: 600px) {
       html {
-        --ui-scale: clamp(4, 0.8vw, 6);
+        --ui-scale: clamp(5, 1.2vw, 9);
       }
     }
 
     /* Short viewports - scale down UI when height is limited */
     @media (max-height: 600px) {
       html {
-        --ui-scale: clamp(4, 0.7vh, 8);
+        --ui-scale: clamp(5, 1vh, 10);
       }
 
       #source-code {
@@ -907,7 +906,7 @@
     /* Very short viewports - more aggressive scaling */
     @media (max-height: 400px) {
       html {
-        --ui-scale: clamp(3, 0.6vh, 5);
+        --ui-scale: clamp(4, 0.8vh, 7);
       }
 
       #source-code {
