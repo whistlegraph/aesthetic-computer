@@ -10,59 +10,9 @@
 
 ---
 
-## Welcome, Agent
-
-You've arrived at the hub. Choose your path:
-
-### 🐜 Become an Ant
-**Wander the codebase. Find signal. Make small, confident changes.**
-
-- **Interactive (Claude Code)**: Type `/ant` to wake up and scout for work
-- **Automated (colony)**: `fish ants/colony.fish` runs ants on a timer
-- **Philosophy**: Read [The Mindset](#the-mindset) below
-
-Ants follow the score (this file), look at [Current Tasks](#current-tasks), make the smallest possible change with 98% confidence, verify tests pass, and commit.
-
-### 📊 Find Data
-**Explore the architecture. Understand where things live.**
-
-- `system/public/aesthetic.computer/` — main web client
-- `system/public/aesthetic.computer/disks/` — pieces (interactive programs)
-- `system/public/aesthetic.computer/lib/` — shared libraries
-- `kidlisp/` — KidLisp language implementation
-- `session-server/` — real-time multiplayer backend
-- `ac-electron/` — desktop app
-- `spec/` — KidLisp test specs (Jasmine)
-- `tests/` — integration/performance tests
-
-See [The System](#the-system) below for full map.
-
-### 🎯 Pick a Task
-**Grab something from the board and do it.**
-
-See [Current Tasks](#current-tasks) below for what needs work right now.
-
-### 📖 Read the Story
-**Understand the vision and history.**
-
-- [The AC Story](STORY.md) — Technical history and evolution
-- [Write a Piece](WRITE-A-PIECE.md) — Create your own AC program
-- [KidLisp Docs](kidlisp/) — Language reference
-- [User Guide](USER-GUIDE.md) — How to use AC as a player
-
-### 🤝 Join the Community
-**Talk to humans.**
-
-1. Visit https://aesthetic.computer
-2. Enter `imnew` to register
-3. Set a @handle via `handle your-name`
-4. Enter `chat` to say hi to [@jeffrey](https://prompt.ac/@jeffrey) and others
-
----
-
 ## The Mindset
 
-**This applies to ALL agents working on Aesthetic Computer — human, AI, ant, or otherwise.**
+**This applies to ALL agents working on Aesthetic Computer — human, AI, or otherwise.**
 
 You **wander** until you find a **path**.
 
@@ -81,11 +31,11 @@ Not 70%. Not "probably." **98%.**
 
 **Graspable** means: a human using the software could **notice** what you did.
 
-- A fixed visual glitch ✅
-- A typo corrected on screen ✅
-- A broken interaction that now works ✅
-- An error message that now makes sense ✅
-- Abstract refactoring no one will see ❌
+- A fixed visual glitch
+- A typo corrected on screen
+- A broken interaction that now works
+- An error message that now makes sense
+- Abstract refactoring no one will see — not graspable
 
 Aesthetic Computer is for **users**, not abstractions. If your change isn't visible in the UI or felt by a person using the system, it's probably not the right path.
 
@@ -315,69 +265,13 @@ When @jeffrey is working, the first prompt of each session is stored to the `ope
 - This README/score file itself
 - Anything that changes user-facing behavior without explicit approval
 
-### Colony Rules (for Ants)
-
-1. **Wander.** Read the score. Look at Current Tasks. Run tests. Read code.
-2. **Find signal.** Pick ONE task where you see a clear, small, correct change.
-3. **Follow the path.** Make the smallest change that accomplishes it.
-4. **Verify.** Run `npm test` from repo root. Tests must pass.
-5. **Leave a pheromone.** If tests pass, commit with: `ant: <description>`
-6. **Revert if wrong.** If tests fail: `git checkout .` and report FAILURE.
-7. NEVER touch files outside the scope of your task.
-8. NEVER make speculative changes. 98% confidence or walk away.
-9. Prefer fixing/improving existing code over adding new code.
-10. If you wandered and found no signal, report IDLE. That's fine. That's most runs.
-
----
-
-## The Colony
-
-### Pheromone Trail
-
-When agents complete tasks, they leave pheromones (git commits) so others can see what's been done.
-
-**Recent pheromones:**
-```bash
-# Check what other agents did recently
-tail -20 ants/pheromones.log
-git log --oneline -10
-```
-
-### Colony Roles
-
-- **Queen**: [@jeffrey](https://prompt.ac/@jeffrey) — writes this score, sets direction, maintains vision
-- **Ants**: autonomous agents — do small, confident work
-- **Contributors**: humans — all are welcome in `chat`
-
-### Running the Colony
-
-**Manual ant (interactive):**
-```bash
-# In Claude Code:
-/ant
-
-# Or via script:
-fish ants/colony.fish --once
-```
-
-**Automated colony (timer-based):**
-```bash
-# Run ants every 30 minutes
-fish ants/colony.fish --interval 30
-
-# With specific provider/model
-fish ants/colony.fish --provider gh-models --model openai/gpt-4o-mini
-```
-
-See `ants/` directory for full colony implementation.
-
 ---
 
 ## For Users
 
 Want to **use** Aesthetic Computer (not develop it)?
 
-👉 See [USER-GUIDE.md](USER-GUIDE.md) for tutorials on making paintings, playing melodies, and joining the community.
+See [USER-GUIDE.md](USER-GUIDE.md) for tutorials on making paintings, playing melodies, and joining the community.
 
 ---
 
@@ -391,4 +285,51 @@ Want to **use** Aesthetic Computer (not develop it)?
 
 ---
 
-**You are now in the hub. Choose your path.** 🐜✨
+## Other Scores
+
+### AestheticAnts (Automated Colony)
+
+The ant colony is an automated maintenance system where AI agents make small, confident changes to the codebase. See the `ants/` directory for full implementation.
+
+**Running ants:**
+- **Interactive**: Type `/ant` in Claude Code
+- **Script**: `fish ants/colony.fish --once`
+- **Automated**: `fish ants/colony.fish --interval 30`
+
+**Colony rules:**
+
+1. **Wander.** Read the score. Look at Current Tasks. Run tests. Read code.
+2. **Find signal.** Pick ONE task where you see a clear, small, correct change.
+3. **Follow the path.** Make the smallest change that accomplishes it.
+4. **Verify.** Run `npm test` from repo root. Tests must pass.
+5. **Leave a pheromone.** If tests pass, commit with: `ant: <description>`
+6. **Revert if wrong.** If tests fail: `git checkout .` and report FAILURE.
+7. NEVER touch files outside the scope of your task.
+8. NEVER make speculative changes. 98% confidence or walk away.
+9. Prefer fixing/improving existing code over adding new code.
+10. If you wandered and found no signal, report IDLE. That's fine. That's most runs.
+
+**Colony roles:**
+- **Queen**: [@jeffrey](https://prompt.ac/@jeffrey) — writes scores, sets direction
+- **Ants**: autonomous agents — small, confident work
+- **Contributors**: humans — all are welcome in `chat`
+
+**Pheromone trail:**
+```bash
+tail -20 ants/pheromones.log
+git log --oneline -10
+```
+
+### Other Resources
+
+- [The AC Story](STORY.md) — Technical history and evolution
+- [Write a Piece](WRITE-A-PIECE.md) — Create your own AC program
+- [KidLisp Docs](kidlisp/) — Language reference
+- [User Guide](USER-GUIDE.md) — How to use AC as a player
+
+### Join the Community
+
+1. Visit https://aesthetic.computer
+2. Enter `imnew` to register
+3. Set a @handle via `handle your-name`
+4. Enter `chat` to say hi
