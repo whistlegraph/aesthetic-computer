@@ -1156,6 +1156,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let reframeDrawn = false;
   let reframeDrawnAt = 0;
   let lastReframeTime = 0; // Track when the last reframe was requested for debouncing
+  let freezeFrameRemovalTimeout = null; // Track pending freeze frame removal to prevent stale timeouts
 
   function markReframePixelsReceived(source, width, height) {
     if (!awaitingReframePixels) return;
@@ -1288,13 +1289,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       if (!wrapper.contains(freezeFrameCan)) {
         wrapper.append(freezeFrameCan);
-      } else {
-        freezeFrameCan.style.removeProperty("opacity");
       }
-      
+      // Disable transition to instantly reset opacity (prevents partial
+      // transparency if a CSS fade-out was in progress)
+      freezeFrameCan.style.transition = "none";
+      freezeFrameCan.style.opacity = "1";
+
       // Force browser to paint the freeze frame before we continue
       // This ensures it's visible before we clear the canvases
       freezeFrameCan.offsetHeight;
+      // Re-enable transition for future fade-out
+      freezeFrameCan.style.transition = "opacity 50ms ease-out";
 
       freezeFrameFrozen = true;
     }
@@ -1796,6 +1801,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         window.clearTimeout(timeout); // Small timer to save on performance.
         timeout = setTimeout(() => {
+          // Cancel any pending freeze frame removal from a previous resize cycle
+          if (freezeFrameRemovalTimeout !== null) {
+            clearTimeout(freezeFrameRemovalTimeout);
+            freezeFrameRemovalTimeout = null;
+          }
           // Capture freeze frame before reframing to prevent black flicker
           if (imageData && imageData.data && imageData.data.buffer && imageData.data.buffer.byteLength > 0) {
             freezeFrame = true;
@@ -1843,10 +1853,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             if (!wrapper.contains(freezeFrameCan)) {
               wrapper.append(freezeFrameCan);
             }
-            freezeFrameCan.style.removeProperty("opacity");
-            
+            // Disable transition to instantly reset opacity (prevents partial
+            // transparency if a CSS fade-out was in progress from a previous cycle)
+            freezeFrameCan.style.transition = "none";
+            freezeFrameCan.style.opacity = "1";
+
             // Force paint before continuing
             freezeFrameCan.offsetHeight;
+            // Re-enable transition for future fade-out
+            freezeFrameCan.style.transition = "opacity 50ms ease-out";
             freezeFrameFrozen = true;
           }
           awaitingReframePixels = true;
@@ -1904,6 +1919,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           send({ type: "needs-paint" }); // Render a frame through glaze
         },
       );
+      // If Glaze.on() returned early (same dimensions/type, nothing to do),
+      // the loaded() callback was never called, leaving glazeReady stuck at
+      // false. This would permanently block freeze frame removal and leave
+      // the glaze canvas hidden. Restore the flag so the reframe can complete.
+      if (!glazeReady) {
+        glazeReady = true;
+        Glaze.unfreeze();
+      }
     } else {
       Glaze.off();
       glaze.on = false;
@@ -18014,7 +18037,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       needs$creenshot ||
       mediaRecorder?.state === "recording" ||
       (pen && pen.changedInPiece) ||
-      content.tapeProgressBar // Force draw when tape progress bar is active
+      content.tapeProgressBar || // Force draw when tape progress bar is active
+      (freezeFrame && freezeFrameFrozen && !awaitingReframePixels && !reframeDrawn) // Force draw after reframe pixels arrive
     ) {
       frameCached = false;
       if (pen) pen.changedInPiece = false;
@@ -18034,13 +18058,25 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Hide the freezeFrame - wait for glaze to be ready if it's enabled
     // Also ensure resize has stabilized by waiting 100ms after last reframe request
     const reframeStabilized = performance.now() - lastReframeTime > 100;
+    // Failsafe: force-remove freeze frame if stuck for over 500ms
+    const reframeFailsafe = freezeFrame && freezeFrameFrozen && performance.now() - lastReframeTime > 500;
+    if (reframeFailsafe && (awaitingReframePixels || !reframeDrawn || (glaze.on && !glazeReady))) {
+      console.warn("⚠️ REFRAME: Failsafe - force removing stuck freeze frame after 500ms");
+      awaitingReframePixels = false;
+      reframeDrawn = true;
+      if (glaze.on && !glazeReady) {
+        glazeReady = true;
+        Glaze.unfreeze();
+      }
+    }
     if (freezeFrame && freezeFrameFrozen && !awaitingReframePixels && reframeDrawn && reframeStabilized && (!glaze.on || glazeReady)) {
       if (glaze.on === false) {
         canvas.style.removeProperty("opacity");
       }
       // Fade out freeze frame smoothly then remove
       freezeFrameCan.style.opacity = "0";
-      setTimeout(() => {
+      freezeFrameRemovalTimeout = setTimeout(() => {
+        freezeFrameRemovalTimeout = null;
         if (wrapper.contains(freezeFrameCan)) {
           freezeFrameCan.remove();
           freezeFrameCan.style.removeProperty("opacity");
