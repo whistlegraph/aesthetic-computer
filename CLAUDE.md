@@ -19,22 +19,9 @@ When @jeffrey is working, **the very first prompt of each Claude Code session is
 
 ## AestheticAnts & Score.md
 
-This repository uses an innovative automated maintenance system called "AestheticAnts" (AA). The `ants/score.md` file defines a philosophy and task list for automated agents that make small, confident, verified changes to the codebase.
+This repository uses an automated maintenance system called "AestheticAnts" (AA). The `ants/score.md` file defines the mindset, philosophy, tasks, and rules for all agents (human and AI) working on the codebase. Read it before contributing.
 
-**Key principles:**
-- **Signal over noise**: Only make changes when 98% confident, not 70%
-- **Graspable changes**: Fixes must be visible/felt by users (UI fixes, typos, broken interactions)
-- **Small & verified**: Make minimal changes, verify with tests, commit or revert
-- **Wandering is valid**: IDLE (doing nothing) is a valid outcome when no clear signal exists
-
-The `ants/colony.fish` script runs automated ants that:
-1. Scout for a task from the score
-2. Make a small, confident change
-3. Run `npm test` to verify
-4. Commit if tests pass, revert if they fail
-5. Log pheromones (traces of what worked/didn't)
-
-**Important:** Do not modify `ants/score.md` unless you are the queen (@jeffrey). When working on the codebase, the AA philosophy is a good guide: make small, confident, graspable changes and always verify with tests.
+**Important:** Do not modify `ants/score.md` unless you are the queen (@jeffrey).
 
 ## Development Commands
 
@@ -339,4 +326,4 @@ function act({ event: e }) {
 - All coordinates are in pixels
 - Default color depth is 8-bit RGB (0-255 per channel)
 - The `wipe` function clears the screen and should be called first in `paint`
-- When making changes, follow the AA philosophy: small, confident, graspable, verified with tests
+- When making changes, consult `ants/score.md` for the project's working philosophy
