@@ -108,6 +108,7 @@ let anyDown = false;
 let layoutMode = "large"; // "tiny" | "small" | "medium" | "large"
 let sortBy = "name";     // "name" | "edited" | "hits" | "desc"
 let sortDir = "asc";     // "asc" | "desc"
+let supplementaryLoaded = false;
 
 // 🔗 Confirmation modal for navigation
 // { name: string, type: "piece"|"command", desc: string, yesBtn, noBtn, hoverYes, hoverNo }
@@ -140,46 +141,16 @@ async function boot({ ui, net, store, params, screen }) {
   // Determine layout mode
   updateLayoutMode(screen);
   
-  // Fetch docs, hit stats, user pieces, and commits in parallel
   if (!params[0]) {
-    const [docsResult, hitsResult, userResult, datesResult, commitsResult] = await Promise.all([
-      net.requestDocs(),
-      fetch("/api/piece-hit?top=100").then(r => r.json()).catch(() => ({ pieces: [] })),
-      fetch("/api/kidlisp-list?limit=200").then(r => r.json()).catch(() => ({ pieces: [] })),
-      fetch("/api/piece-dates").then(r => r.json()).catch(() => ({ dates: {} })),
-      fetch("/api/piece-commits").then(r => r.json()).catch(() => ({ commits: {} })),
-    ]);
-    
-    docs = docsResult;
-    
-    // Build hit stats map
-    hitStats = {};
-    if (hitsResult?.pieces) {
-      hitsResult.pieces.forEach(p => {
-        hitStats[p.piece] = p.hits;
-      });
-    }
-    
-    // Build user pieces map
-    userPieces = {};
-    if (userResult?.pieces) {
-      userResult.pieces.forEach(p => {
-        const key = p.handle ? `@${p.handle}/${p.code}` : p.code;
-        userPieces[key] = { 
-          desc: p.title || "", 
-          code: p.code,
-          handle: p.handle,
-          when: p.when,
-        };
-      });
-    }
-    
-    // Build piece dates map
-    pieceDates = datesResult?.dates || {};
+    // Start all fetches in parallel
+    const docsPromise = net.requestDocs();
+    const hitsPromise = fetch("/api/piece-hit?top=100").then(r => r.json()).catch(() => ({ pieces: [] }));
+    const userPromise = fetch("/api/kidlisp-list?limit=200").then(r => r.json()).catch(() => ({ pieces: [] }));
+    const commitsPromise = fetch("/api/piece-commits").then(r => r.json()).catch(() => ({ commits: {} }));
 
-    // Build piece commits map
-    pieceCommits = commitsResult?.commits || {};
-    
+    // Await docs first (essential for rendering the list)
+    docs = await docsPromise;
+
     if (docs) {
       // Separate pieces and commands, filter hidden
       pieces = {};
@@ -196,18 +167,12 @@ async function boot({ ui, net, store, params, screen }) {
         });
       }
       
-      // Build categorized lists
+      // Build lists from docs (available immediately)
       buildCategorizedLists(ui);
-      
-      // Build flat "all" list
       buildAllList(ui);
-      
-      // Build popular list
       buildPopularList(ui);
-      
-      // Build user list
       buildUserList(ui);
-      
+
       // Restore state
       currentTab = (await store.retrieve("list:tab")) || "all";
       scroll = (await store.retrieve("list:scroll:" + currentTab)) || 0;
@@ -215,9 +180,12 @@ async function boot({ ui, net, store, params, screen }) {
       if (savedExpanded) expandedCategories = new Set(savedExpanded);
       sortBy = (await store.retrieve("list:sortBy")) || "name";
       sortDir = (await store.retrieve("list:sortDir")) || "asc";
-      
-      // Build visible items
+
+      // Build visible items (renders immediately with docs data)
       rebuildVisibleItems(ui);
+
+      // Load supplementary data (hits, user pieces, commits) in background
+      loadSupplementaryData(hitsPromise, userPromise, commitsPromise);
     }
   } else {
     // Handle-specific pieces (legacy behavior)
@@ -237,6 +205,44 @@ async function boot({ ui, net, store, params, screen }) {
       console.error("Error fetching pieces:", err);
     }
   }
+}
+
+// Load supplementary data in background for progressive rendering
+function loadSupplementaryData(hitsPromise, userPromise, commitsPromise) {
+  hitsPromise.then(result => {
+    if (result?.pieces) {
+      result.pieces.forEach(p => { hitStats[p.piece] = p.hits; });
+      buildPopularList();
+      buildAllList();
+      rebuildVisibleItems();
+    }
+  });
+
+  userPromise.then(result => {
+    if (result?.pieces) {
+      result.pieces.forEach(p => {
+        const key = p.handle ? `@${p.handle}/${p.code}` : p.code;
+        userPieces[key] = {
+          desc: p.title || "",
+          code: p.code,
+          handle: p.handle,
+          when: p.when,
+        };
+      });
+      buildUserList();
+      rebuildVisibleItems();
+    }
+  });
+
+  commitsPromise.then(result => {
+    pieceCommits = result?.commits || {};
+    buildAllList();
+    rebuildVisibleItems();
+  });
+
+  Promise.all([hitsPromise, userPromise, commitsPromise]).then(() => {
+    supplementaryLoaded = true;
+  });
 }
 
 // Build categorized piece list
@@ -410,19 +416,19 @@ function rebuildVisibleItems(ui) {
   if (currentTab === "all" || layoutMode === "tiny") {
     // Flat list, no categories
     sourceItems = allItems;
-    visibleItems = sourceItems.map((item, i) => ({ ...item, y: CONTENT_TOP + i * ROW_HEIGHT }));
+    visibleItems = sourceItems.map((item, i) => ({ ...item, y: getContentTop() + i * ROW_HEIGHT }));
   } else if (currentTab === "popular") {
     // Popular list sorted by hits (flat, no categories)
     sourceItems = popularItems;
-    visibleItems = sourceItems.map((item, i) => ({ ...item, y: CONTENT_TOP + i * ROW_HEIGHT }));
+    visibleItems = sourceItems.map((item, i) => ({ ...item, y: getContentTop() + i * ROW_HEIGHT }));
   } else if (currentTab === "user") {
     // User pieces sorted by date (flat, no categories)
     sourceItems = userItems;
-    visibleItems = sourceItems.map((item, i) => ({ ...item, y: CONTENT_TOP + i * ROW_HEIGHT }));
+    visibleItems = sourceItems.map((item, i) => ({ ...item, y: getContentTop() + i * ROW_HEIGHT }));
   } else {
     // Categorized list (pieces or commands)
     sourceItems = currentTab === "pieces" ? pieceItems : commandItems;
-    let y = CONTENT_TOP;
+    let y = getContentTop();
     let currentCategory = null;
     let skipUntilNextCategory = false;
     
@@ -471,6 +477,14 @@ function updateLayoutMode(screen) {
   HEADER_HEIGHT = layoutMode === "tiny" ? 12 : 18;
   TAB_HEIGHT = layoutMode === "tiny" ? 0 : (layoutMode === "small" ? 12 : 14);
   CONTENT_TOP = HEADER_HEIGHT + TAB_HEIGHT + 4;
+}
+
+// Get effective content top, accounting for sort controls on "all" tab
+function getContentTop() {
+  if (currentTab === "all" && layoutMode !== "tiny") {
+    return CONTENT_TOP + COMPACT_ROW_HEIGHT + 2;
+  }
+  return CONTENT_TOP;
 }
 
 // Get max description length based on mode and screen width
@@ -524,7 +538,8 @@ function paint({ wipe, ink, screen, dark, paintCount }) {
   
   // Empty state
   if (visibleItems.length === 0) {
-    ink(pal.description).write("No items", { center: "xy" });
+    const isLoadingTab = !supplementaryLoaded && (currentTab === "popular" || currentTab === "user");
+    ink(pal.description).write(isLoadingTab ? "Loading..." : "No items", { center: "xy" });
     return;
   }
   
@@ -536,7 +551,7 @@ function paint({ wipe, ink, screen, dark, paintCount }) {
     const y = item.y + scroll;
     
     // Skip if off-screen (including header/tab area)
-    if (y < CONTENT_TOP || y > contentBottom) return;
+    if (y < getContentTop() || y > contentBottom) return;
     
     if (item.type === "category") {
       // Category header
@@ -645,12 +660,13 @@ function paint({ wipe, ink, screen, dark, paintCount }) {
   
   // Scrollbar (if needed)
   const totalHeight = visibleItems.length * ROW_HEIGHT;
-  const viewHeight = screen.height - CONTENT_TOP;
+  const effectiveTop = getContentTop();
+  const viewHeight = screen.height - effectiveTop;
   if (totalHeight > viewHeight) {
     const scrollbarHeight = max(10, (viewHeight / totalHeight) * viewHeight);
-    const scrollbarY = CONTENT_TOP + (-scroll / totalHeight) * viewHeight;
-    
-    ink(pal.scrollbar).box(screen.width - 3, CONTENT_TOP, 2, viewHeight);
+    const scrollbarY = effectiveTop + (-scroll / totalHeight) * viewHeight;
+
+    ink(pal.scrollbar).box(screen.width - 3, effectiveTop, 2, viewHeight);
     ink(pal.scrollbarThumb).box(screen.width - 3, scrollbarY, 2, scrollbarHeight);
   }
   
@@ -669,8 +685,9 @@ function paint({ wipe, ink, screen, dark, paintCount }) {
   if (layoutMode !== "tiny") {
     const tabY = HEADER_HEIGHT + 1;
     
-    // Tab bar background (masks content)
-    ink(pal.tabBg).box(0, tabY - 1, screen.width, TAB_HEIGHT + 2);
+    // Tab bar background (masks content, extended for sort controls on "all" tab)
+    const tabBgHeight = TAB_HEIGHT + 2 + (currentTab === "all" ? COMPACT_ROW_HEIGHT + 4 : 0);
+    ink(pal.tabBg).box(0, tabY - 1, screen.width, tabBgHeight);
     
     // Tab color map
     const tabColors = {
@@ -978,7 +995,7 @@ function act({ event: e, screen, hud, piece, jump, needsPaint, geo, beep }) {
 // Clamp scroll to valid range
 function clampScroll(screen) {
   const totalHeight = visibleItems.length * ROW_HEIGHT;
-  const viewHeight = screen.height - CONTENT_TOP;
+  const viewHeight = screen.height - getContentTop();
   const maxScroll = 0;
   const minScroll = -max(0, totalHeight - viewHeight);
   scroll = max(minScroll, min(maxScroll, scroll));
