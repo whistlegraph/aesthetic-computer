@@ -61,13 +61,16 @@
   <script>
     // Calculate smart default density based on screen resolution
     // 4K (3840x2160+) → density 8 (larger pixels for viewing distance)
-    // Everything else → density 4 (good default for most displays)
+    // 1080x1080 (FF1 art computer) → density 4 (proportional to 4K)
+    // Everything else → density 3 (good default for most displays)
     function getSmartDensity() {
       const screenWidth = window.screen.width * (window.devicePixelRatio || 1);
       const screenHeight = window.screen.height * (window.devicePixelRatio || 1);
       const maxDim = Math.max(screenWidth, screenHeight);
 
       if (maxDim >= 3840) return 8;  // 4K+
+      // Square ~1080 displays (FF1 art computer) — proportional to 4K density
+      if (Math.abs(screenWidth - screenHeight) < 100 && maxDim >= 1000 && maxDim <= 1200) return 4;
       return 3;                       // Default for all other resolutions
     }
 
@@ -86,6 +89,8 @@
       const resolutionMap = [
         // 4K displays (device mode - perfect as-is for TV viewing)
         { w: 3840, h: 2160, dpr: 1, scale: 20 },  // 4K native (e.g., F1 FF1)
+        // Square displays (FF1 art computer - 1080x1080)
+        { w: 1080, h: 1080, dpr: 1, scale: 8 },   // FF1 art computer (QR ~7.4% of screen)
         { w: 1920, h: 1200, dpr: 2, scale: 8 },   // Retina laptop (e.g., MacBook 16")
         { w: 1920, h: 1080, dpr: 2, scale: 8 },   // Retina laptop 1080p
         // 1080p displays
@@ -120,11 +125,20 @@
       const is4KDisplay = (maxDim >= 3840 && dpr === 1) ||
                           (maxDim >= 1920 && screenHeight >= 1080 && dpr >= 2);
 
+      // Check if this is a square art display (~1080x1080, FF1 art computer)
+      const isSquareArtDisplay = Math.abs(screenWidth - screenHeight) < 100 &&
+                                  maxDim >= 1000 && maxDim <= 1200;
+
       if (isDeviceSubdomain && is4KDisplay) {
         // FF1/device mode on 4K: 2x multiplier for comfortable TV viewing distance
         // (density=4 → baseScale=6 → scale≈12, close to default 20 which already works for 4K)
         return Math.round(baseScale * 2);
       }
+
+      // Square art display (FF1 art computer) — scale proportional to screen size
+      // QR target: 5-10% of screen width (ui-scale * 10px / 1080px ≈ 7.4%)
+      if (isSquareArtDisplay) return 8;
+
       // Device subdomain on laptop (NOT 4K) falls through to normal scaling below
 
       // For native 4K/high-res with dpr=1, apply additional multiplier
@@ -137,10 +151,13 @@
     const urlParams = new URLSearchParams(window.location.search);
     window.densityParam = parseInt(urlParams.get('density')) || getSmartDensity();
 
-    // Large display flag — uses physical pixels (same as getSmartDensity)
-    // so progress bar thickness matches the density breakpoint exactly.
+    // Dedicated display flag — true for 4K TVs and square art computers (FF1)
+    // Controls density-based progress bar thickness vs fixed 2px laptop default.
     const physicalMax = Math.max(window.screen.width, window.screen.height) * (window.devicePixelRatio || 1);
-    window.is4KDisplay = physicalMax >= 3840;
+    const physicalW = window.screen.width * (window.devicePixelRatio || 1);
+    const physicalH = window.screen.height * (window.devicePixelRatio || 1);
+    const isSquareArtDisplay = Math.abs(physicalW - physicalH) < 100 && physicalMax >= 1000 && physicalMax <= 1200;
+    window.is4KDisplay = physicalMax >= 3840 || isSquareArtDisplay;
 
     // Set CSS custom property for density-based sizing (for piece rendering)
     document.documentElement.style.setProperty('--density', window.densityParam);
