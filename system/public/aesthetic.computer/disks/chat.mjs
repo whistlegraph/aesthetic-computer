@@ -773,8 +773,9 @@ function paint(
   // if (!client.connecting) {
   // Calculate effective margins based on whether input preview is showing
   // The preview appears at the TOP (starting at topMargin), so we adjust the top edge of the mask
+  // Only adjust when NOT leaving — otherwise the preview won't paint but the mask gap remains blank
   let effectiveTopMargin = topMargin;
-  if (input.canType) {
+  if (input.canType && !leaving()) {
     // When typing, the preview frame covers the top area
     const previewFrameHeight = getPreviewFrameHeight();
     effectiveTopMargin = topMargin + previewFrameHeight;
@@ -2401,19 +2402,11 @@ function act(
   
   // 🔤 Font picker interaction
   if (input.canType) {
-    // Check if touch/lift is over interactive elements (don't soft-lock these!)
-    const isOverEnterBtn = input.enter?.btn?.box?.contains(e);
-    const isOverFontPickerBtn = fontPickerBtnBounds && e.x >= fontPickerBtnBounds.x && e.x < fontPickerBtnBounds.x + fontPickerBtnBounds.w &&
-                                e.y >= fontPickerBtnBounds.y && e.y < fontPickerBtnBounds.y + fontPickerBtnBounds.h;
-    const isOverCopyBtn = input.copy?.btn?.box?.contains(e);
-    const isOverPasteBtn = input.paste?.btn?.box?.contains(e);
-    const isOverInteractiveElement = isOverEnterBtn || isOverFontPickerBtn || isOverCopyBtn || isOverPasteBtn;
-    
     // 🔧 FIX: Soft-lock keyboard during content area touch/draw to prevent bios pointerup blur
-    // BUT don't soft-lock if touching interactive buttons!
+    // Soft-lock for ALL content area touches, including interactive buttons (Aa, Enter, etc.)
+    // so the keyboard stays open while interacting with them.
     const isInContentArea = e.y < api.screen.height - bottomMargin;
-    console.log("📍 [chat act] canType=true | e:", e.name, "| y:", e.y, "| screenH:", api.screen.height, "| bottomMargin:", bottomMargin, "| isInContentArea:", isInContentArea, "| isOverInteractive:", isOverInteractiveElement);
-    if (isInContentArea && !isOverInteractiveElement) {
+    if (isInContentArea) {
       if (e.is("touch") || e.is("draw")) {
         console.log("🔒 [chat act] SOFT-LOCKING keyboard (content area touch/draw)");
         send({ type: "keyboard:soft-lock" });
