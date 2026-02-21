@@ -121,6 +121,7 @@
   // DOCKER_BUILDKIT: Enable BuildKit for faster container builds
   //                  Used when building nested containers (rare)
   "containerEnv": {
+    "TZ": "America/Los_Angeles",
     "DISPLAY": "${localEnv:DISPLAY}",
     "HOST_IP": "${localEnv:HOST_IP}",
     "WSL_DISTRO_NAME": "${localEnv:WSL_DISTRO_NAME}",
