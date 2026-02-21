@@ -424,6 +424,9 @@ class Artery {
   }
 
   // Wait for boot/piece to be fully ready before activating audio
+  // NOTE: `window.currentPiece` does not exist — currentPiece is a local
+  // variable inside bios.mjs boot(). The reliable signal is `window.preloaded`
+  // which is set to true by bios when "disk-loaded-and-booted" fires.
   async waitForBoot(timeoutMs = 15000) {
     brightLog('🩸 Waiting for boot to complete...');
 
@@ -432,24 +435,25 @@ class Artery {
 
     while (Date.now() - startTime < timeoutMs) {
       const bootStatus = await this.eval(`({
-        hasBios: typeof window.currentPiece !== 'undefined',
-        currentPiece: window.currentPiece || null,
+        preloaded: window.preloaded === true,
+        hasSend: typeof window.acSEND === 'function',
         hasActivateSound: typeof window.activateSound === 'function',
         canvasExists: !!document.querySelector('canvas'),
         locationPath: window.location?.pathname || '',
         hasAudioContext: !!window.audioContext
       })`);
 
-      // Boot is complete when currentPiece is set
-      if (bootStatus.currentPiece) {
-        brightLog(`🩸 Boot complete (piece: ${bootStatus.currentPiece})`);
+      // Boot is complete when preloaded is true and acSEND is available
+      if (bootStatus.preloaded && bootStatus.hasSend) {
+        const elapsed = Date.now() - startTime;
+        brightLog(`🩸 Boot complete in ${elapsed}ms (path: ${bootStatus.locationPath})`);
         return true;
       }
 
       // Log status every 2 seconds for debugging
       const elapsed = Date.now() - startTime;
       if (elapsed - lastLogTime > 2000) {
-        darkLog(`🩸 Waiting... hasBios=${bootStatus.hasBios}, canvas=${bootStatus.canvasExists}, path=${bootStatus.locationPath}`);
+        darkLog(`🩸 Waiting... preloaded=${bootStatus.preloaded}, hasSend=${bootStatus.hasSend}, canvas=${bootStatus.canvasExists}, path=${bootStatus.locationPath}`);
         lastLogTime = elapsed;
       }
 
@@ -458,6 +462,36 @@ class Artery {
 
     darkLog('⚠️  Boot timeout - proceeding anyway');
     return false;
+  }
+
+  // Wait for a specific piece to be fully loaded and ready.
+  // More targeted than waitForBoot — checks URL path and preloaded signal.
+  async waitForPiece(expectedPath = null, timeoutMs = 10000) {
+    const label = expectedPath ? `"${expectedPath}"` : 'piece';
+    darkLog(`🩸 Waiting for ${label} to load...`);
+
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < timeoutMs) {
+      const status = await this.eval(`({
+        preloaded: window.preloaded === true,
+        hasSend: typeof window.acSEND === 'function',
+        path: window.location?.pathname || '',
+        hasCanvas: !!document.querySelector('canvas'),
+      })`);
+
+      const pathOk = !expectedPath || status.path?.includes(expectedPath);
+      if (status.preloaded && status.hasSend && pathOk) {
+        const elapsed = Date.now() - startTime;
+        brightLog(`🩸 ${label} ready in ${elapsed}ms`);
+        return { ready: true, ...status };
+      }
+
+      await new Promise(r => setTimeout(r, 150));
+    }
+
+    darkLog(`⚠️  ${label} wait timeout after ${timeoutMs}ms`);
+    return { ready: false, timedOut: true };
   }
 
   async activateAudio() {

@@ -27,47 +27,62 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const execAsync = promisify(exec);
 
 // Key processes we care about for Aesthetic Computer
+// IMPORTANT: Order matters! First match wins, so specific patterns must come before broad ones.
 const INTERESTING_PROCESSES = [
   // Emacs & terminals
   { pattern: /emacs.*daemon|emacs.*--daemon/, name: 'Emacs Daemon', icon: '🔮', category: 'editor' },
   { pattern: /emacsclient/, name: 'Emacs Client', icon: '📝', category: 'editor' },
   { pattern: /artery-tui|artery\.mjs/, name: 'Artery TUI', icon: '🩸', category: 'tui' },
   { pattern: /emacs-mcp/, name: 'Emacs MCP', icon: '🧠', category: 'bridge' },
-  
+
   // Eat terminals (emacs tabs)
   { pattern: /eat.*fishy|🐟.*fishy/, name: '🐟 Fishy', icon: '🐟', category: 'shell' },
   { pattern: /eat.*kidlisp|🧪.*kidlisp/, name: '🧪 KidLisp', icon: '🧪', category: 'shell' },
   { pattern: /eat.*tunnel|🚇.*tunnel/, name: '🚇 Tunnel', icon: '🚇', category: 'shell' },
   { pattern: /eat.*url|⚡.*url/, name: '⚡ URL', icon: '⚡', category: 'shell' },
   { pattern: /eat.*bookmarks|🔖.*bookmarks/, name: '🔖 Bookmarks', icon: '🔖', category: 'shell' },
-  
-  // Node.js processes
+
+  // AI - Claude Code (BEFORE vscode-server since their paths contain it)
+  { pattern: /native-binary\/claude/, name: 'Claude Code', icon: '🧠', category: 'ai' },
+  { pattern: /(?:^|\/)claude(?:\s|$)/, name: 'Claude CLI', icon: '🤖', category: 'ai' },
+  { pattern: /ollama/, name: 'Ollama', icon: '🤖', category: 'ai' },
+
+  // VS Code main servers (BEFORE LSP - their cmds contain extension names like mongodb-vscode)
+  { pattern: /server-main\.js/, name: 'VS Code Server', icon: '💻', category: 'ide' },
+  { pattern: /extensionHost/, name: 'VS Code', icon: '💻', category: 'ide' },
+  { pattern: /bootstrap-fork.*fileWatcher/, name: 'VS Code Files', icon: '💻', category: 'ide' },
+  { pattern: /ptyHost/, name: 'VS Code PTY', icon: '💻', category: 'ide' },
+
+  // LSP servers (child processes of extensionHost with specific server scripts)
+  { pattern: /tsserver/, name: 'TypeScript LSP', icon: '📘', category: 'lsp' },
+  { pattern: /vscode-pylance|server\.bundle\.js/, name: 'Pylance', icon: '🐍', category: 'lsp' },
+  { pattern: /mongodb.*languageServer/, name: 'MongoDB LSP', icon: '🍃', category: 'lsp' },
+  { pattern: /eslint.*server|eslintServer/, name: 'ESLint', icon: '📏', category: 'lsp' },
+  { pattern: /prettier/, name: 'Prettier', icon: '✨', category: 'lsp' },
+  { pattern: /cssServerMain/, name: 'CSS LSP', icon: '🎨', category: 'lsp' },
+  { pattern: /jsonServerMain/, name: 'JSON LSP', icon: '📋', category: 'lsp' },
+  { pattern: /copilot-agent|github\.copilot/, name: 'Copilot', icon: '✨', category: 'ai' },
+
+  // Node.js processes (specific before generic)
   { pattern: /node.*session\.mjs/, name: 'Session Server', icon: '🔗', category: 'dev' },
   { pattern: /node.*server\.mjs/, name: 'Main Server', icon: '🖥️', category: 'dev' },
   { pattern: /node.*chat\.mjs/, name: 'Chat Service', icon: '💬', category: 'dev' },
   { pattern: /node.*devcontainer-status/, name: 'Status Server', icon: '📊', category: 'dev' },
   { pattern: /node.*stripe/, name: 'Stripe', icon: '💳', category: 'dev' },
   { pattern: /node.*netlify/, name: 'Netlify CLI', icon: '🌐', category: 'dev' },
+  { pattern: /netlify-log-filter/, name: 'Log Filter', icon: '📝', category: 'dev' },
   { pattern: /nodemon/, name: 'Nodemon', icon: '👀', category: 'dev' },
-  { pattern: /node(?!.*vscode)(?!.*copilot)/, name: 'Node.js', icon: '🟢', category: 'dev' },
-  
+  { pattern: /esbuild/, name: 'esbuild', icon: '⚡', category: 'dev' },
+
   // Infrastructure
   { pattern: /redis-server/, name: 'Redis', icon: '📦', category: 'db' },
   { pattern: /caddy/, name: 'Caddy', icon: '🌐', category: 'proxy' },
   { pattern: /ngrok|cloudflared/, name: 'Tunnel', icon: '🚇', category: 'proxy' },
   { pattern: /deno/, name: 'Deno', icon: '🦕', category: 'dev' },
-  
-  // AI
-  { pattern: /ollama/, name: 'Ollama', icon: '🤖', category: 'ai' },
-  { pattern: /copilot/, name: 'Copilot', icon: '✨', category: 'ai' },
-  
-  // IDE/LSP
-  { pattern: /vscode-server/, name: 'VS Code', icon: '💻', category: 'ide' },
-  { pattern: /tsserver/, name: 'TypeScript', icon: '📘', category: 'lsp' },
-  { pattern: /mongodb-vscode/, name: 'MongoDB LSP', icon: '🍃', category: 'lsp' },
-  { pattern: /eslint/, name: 'ESLint', icon: '📏', category: 'lsp' },
-  { pattern: /prettier/, name: 'Prettier', icon: '✨', category: 'lsp' },
-  
+
+  // Generic Node.js (last resort for node processes)
+  { pattern: /node(?!.*vscode)(?!.*copilot)/, name: 'Node.js', icon: '🟢', category: 'dev' },
+
   // Shells
   { pattern: /fish(?!.*vscode)/, name: 'Fish Shell', icon: '🐚', category: 'shell' },
   { pattern: /bash/, name: 'Bash', icon: '🐚', category: 'shell' },
