@@ -285,42 +285,17 @@ See [USER-GUIDE.md](USER-GUIDE.md) for tutorials on making paintings, playing me
 
 ---
 
-## Other Scores
+## Embodiments
 
-### AestheticAnts (Automated Colony)
+Different agents perform from this score in different ways.
 
-The ant colony is an automated maintenance system where AI agents make small, confident changes to the codebase. See the `ants/` directory for full implementation.
+- **AestheticAnts** — Automated AI colony that makes small, confident changes. See `ants/` for colony rules and implementation.
+- **Human contributors** — Welcome in `chat`. Read the mindset, pick a task, follow signal.
+- **@jeffrey (the queen)** — Writes and maintains this score.
 
-**Running ants:**
-- **Interactive**: Type `/ant` in Claude Code
-- **Script**: `fish ants/colony.fish --once`
-- **Automated**: `fish ants/colony.fish --interval 30`
+---
 
-**Colony rules:**
-
-1. **Wander.** Read the score. Look at Current Tasks. Run tests. Read code.
-2. **Find signal.** Pick ONE task where you see a clear, small, correct change.
-3. **Follow the path.** Make the smallest change that accomplishes it.
-4. **Verify.** Run `npm test` from repo root. Tests must pass.
-5. **Leave a pheromone.** If tests pass, commit with: `ant: <description>`
-6. **Revert if wrong.** If tests fail: `git checkout .` and report FAILURE.
-7. NEVER touch files outside the scope of your task.
-8. NEVER make speculative changes. 98% confidence or walk away.
-9. Prefer fixing/improving existing code over adding new code.
-10. If you wandered and found no signal, report IDLE. That's fine. That's most runs.
-
-**Colony roles:**
-- **Queen**: [@jeffrey](https://prompt.ac/@jeffrey) — writes scores, sets direction
-- **Ants**: autonomous agents — small, confident work
-- **Contributors**: humans — all are welcome in `chat`
-
-**Pheromone trail:**
-```bash
-tail -20 ants/pheromones.log
-git log --oneline -10
-```
-
-### Other Resources
+## Resources
 
 - [The AC Story](STORY.md) — Technical history and evolution
 - [Write a Piece](WRITE-A-PIECE.md) — Create your own AC program
