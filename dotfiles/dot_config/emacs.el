@@ -13,8 +13,8 @@
   "Name of the boot progress buffer.")
 (defvar ac--boot-step-count 0
   "Current step number in boot sequence.")
-(defvar ac--boot-total-steps 14
-  "Total expected steps: artery, fishy, + 10 tabs + cdp + finalize.")
+(defvar ac--boot-total-steps 12
+  "Total expected steps: artery, fishy, + 8 tabs + cdp + finalize.")
 (defvar ac--boot-start-time nil
   "Time when boot started.")
 
@@ -78,10 +78,8 @@
     ("web 1/2"     . "🌐 Web servers (1/2)")
     ("web 2/2"     . "🌐 Web servers (2/2)")
     ("tests"       . "🧪 Test runners")
-    ("views"       . "🖼️ Extension views")
     ("llm"         . "🤖 LLM interface")
     ("top"         . "📊 System monitor")
-    ("crash"       . "💥 Crash diary")
     ("fishy"       . "🐟 Fish shell")
     ("cdp"         . "🔗 CDP tunnel")
     ("finalize"    . "✨ Finalizing"))
@@ -556,15 +554,13 @@ Also updates VS Code task status bar to 'done'."
          (tab-name (alist-get 'name tab))
          ;; Define colors for each tab type (bg . fg)
          (tab-colors '(("artery"  . ("#8B0000" . "#FFFFFF"))  ; Dark red
-                       ("status"  . ("#006400" . "#FFFFFF"))  ; Dark green  
+                       ("status"  . ("#006400" . "#FFFFFF"))  ; Dark green
                        ("stripe"  . ("#4B0082" . "#FFFFFF"))  ; Indigo
                        ("chat"    . ("#00008B" . "#FFFFFF"))  ; Dark blue
                        ("web 1/2" . ("#008B8B" . "#FFFFFF"))  ; Dark cyan
                        ("web 2/2" . ("#2F4F4F" . "#FFFFFF"))  ; Dark slate gray
                        ("tests"   . ("#8B4513" . "#FFFFFF"))  ; Saddle brown
-                       ("views"   . ("#556B2F" . "#FFFFFF"))  ; Dark olive green
                        ("llm"     . ("#5B2C83" . "#FFFFFF"))  ; Deep purple
-                       ("crash"   . ("#5A1B1B" . "#FFFFFF"))  ; Dark maroon
                        ("fishy"   . ("#005F73" . "#FFFFFF")))) ; Deep teal
          (colors (or (cdr (assoc tab-name tab-colors))
                      '("#333333" . "#FFFFFF")))  ; Default dark gray
@@ -1115,7 +1111,7 @@ COMMAND is the ac- fish command to run (e.g., \"site\")."
 
 ;;; --- Aesthetic Computer Restart Functions ---
 
-(defvar ac--tab-names '("artery" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests")
+(defvar ac--tab-names '("artery" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests" "llm" "top" "fishy")
   "List of all AC tab names.")
 
 (defvar ac--buffer-prefixes '("🩸" "📡" "⚡" "🚇" "💳" "🎫" "🤖" "🧠" "⏰" "🌐" "📋" "🔴" "🔖" "🧪" "🔥" "📦")
@@ -1263,7 +1259,7 @@ Optional TARGET-TAB specifies which tab to land on (default: artery)."
     ("chat-clock" . "⏰") ("site" . "🌐") ("session" . "📋")
     ("redis" . "🔴") ("bookmarks" . "🔖") ("kidlisp" . "🧪")
     ("oven" . "🔥") ("silo" . "🏗️") ("media" . "📦") ("llm" . "🤖") ("top" . "📊")
-    ("crash-diary" . "💥") ("views" . "🖼️")))
+    ("crash-diary" . "💥") ("views" . "🖼️") ("boot" . "🚀")))
 
 (defun ac--tab-exists-p (tab-name)
   "Check if a tab with TAB-NAME already exists."
@@ -1364,7 +1360,7 @@ Skips creation if tab already exists."
     (run-with-timer 0.5 nil
                     (lambda (target)
                       (condition-case nil
-                          (when (member target '("artery" "fishy" "boot" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests" "llm" "top" "views"))
+                          (when (member target '("artery" "fishy" "boot" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests" "llm" "top"))
                             (tab-bar-switch-to-tab target))
                         (error nil)))
                     target-tab)
@@ -1410,41 +1406,36 @@ Skips creation if tab already exists."
             (kill-buffer buf)))
       (error nil))
 
-    ;; Create boot tab FIRST - this shows progress
+    ;; Create artery tab FIRST - this is the primary tab (leftmost)
+    (tab-rename "artery")
+    (ac--boot-start-step "artery")
+    (let ((default-directory ac--directory-path)
+          (buf (or (get-buffer "🩸-artery")
+                   (generate-new-buffer "🩸-artery"))))
+      (with-current-buffer buf
+        (condition-case err
+            (progn
+              (unless (eq major-mode 'eat-mode)
+                (eat-mode)
+                (eat-exec buf "🩸-artery" "/usr/bin/fish" nil '("-c" "ac-artery-dev")))
+              (eat-semi-char-mode)
+              (when (and (boundp 'evil-mode) evil-mode)
+                (evil-emacs-state)))
+          (error
+           (ac-debug-log (format "Error starting artery eat buffer: %s" err))
+           (ac--boot-error-step "artery"))))
+      (switch-to-buffer buf)
+      (redisplay t))
+    (ac--boot-complete-step "artery")
+
+    ;; Create boot tab SECOND - shows progress + crash diary after boot
+    (tab-new)
     (tab-rename "boot")
     (let ((boot-buf (get-buffer ac--boot-buffer-name)))
       (when boot-buf
         (switch-to-buffer boot-buf)
         (ac-boot-mode)
         (redisplay t)))
-
-    ;; Initialize artery tab (after short delay to let boot tab render)
-    (run-with-timer 0.1 nil
-                    (lambda ()
-                      (ac--boot-start-step "artery")
-                      (unless (ac--tab-exists-p "artery")
-                        (tab-new)
-                        (tab-rename "artery")
-                        (let ((default-directory ac--directory-path)
-                              (buf (or (get-buffer "🩸-artery")
-                                       (generate-new-buffer "🩸-artery"))))
-                          (with-current-buffer buf
-                            (condition-case err
-                                (progn
-                                  (unless (eq major-mode 'eat-mode)
-                                    (eat-mode)
-                                    (eat-exec buf "🩸-artery" "/usr/bin/fish" nil '("-c" "ac-artery-dev")))
-                                  (eat-semi-char-mode)
-                                  (when (and (boundp 'evil-mode) evil-mode)
-                                    (evil-emacs-state)))
-                              (error
-                               (ac-debug-log (format "Error starting artery eat buffer: %s" err))
-                               (ac--boot-error-step "artery"))))
-                          (switch-to-buffer buf)
-                          (redisplay t)))
-                      (ac--boot-complete-step "artery")
-                      ;; Switch back to boot to show progress
-                      (tab-bar-switch-to-tab "boot")))
 
     ;; Create all the split tabs with optimized delays (reduced from 500ms to 350ms)
     (let ((delay 0.5)
@@ -1453,9 +1444,8 @@ Skips creation if tab already exists."
                        ("stripe"   ("stripe-print" "stripe-ticket"))
                        ("chat"     ("chat-system" "chat-sotce" "chat-clock"))
                        ("web 1/2"  ("site" "session"))
-                       ("web 2/2"  ("redis" "bookmarks" "oven" "silo" "media"))
+                       ("web 2/2"  ("redis" "bookmarks" "oven" "silo" "media" "views"))
                        ("tests"    ("kidlisp"))
-                       ("views"    ("views"))
                        ("llm"      ("llm"))
                        ("top"      ("top")))))
       (dolist (tab-spec tab-specs)
@@ -1479,23 +1469,8 @@ Skips creation if tab already exists."
                           tab-name commands)
           (setq delay (+ delay step-delay)))))
 
-    ;; Create crash tab second-to-last (tab bar position 3: boot, fishy, crash, ...)
+    ;; Create fishy tab (tab bar position after other tabs)
     (run-with-timer 3.5 nil
-                    (lambda ()
-                      (ac--boot-start-step "crash")
-                      (condition-case err
-                          (progn
-                            (ac--create-split-tab "crash" '("crash-diary"))
-                            (ac--boot-complete-step "crash"))
-                        (error
-                         (ac-debug-log (format "Error creating tab crash: %s" err))
-                         (ac--boot-error-step "crash")))
-                      (when (ac--tab-exists-p "boot")
-                        (tab-bar-switch-to-tab "boot"))
-                      (redisplay t)))
-
-    ;; Create fishy tab last (tab bar position 2: boot, fishy, ...)
-    (run-with-timer 3.7 nil
                     (lambda ()
                       (ac--boot-start-step "fishy")
                       (unless (ac--tab-exists-p "fishy")
@@ -1521,8 +1496,8 @@ Skips creation if tab already exists."
                       (ac--boot-complete-step "fishy")
                       (tab-bar-switch-to-tab "boot")))
 
-    ;; Calculate when tabs should be done (9 batch tabs * 0.35s = 3.15s + 0.5s initial = 3.65s, fishy at 3.7s)
-    (let ((tabs-done-time 4.5))
+    ;; Calculate when tabs should be done (8 batch tabs * 0.35s = 2.8s + 0.5s initial = 3.3s, fishy at 3.5s)
+    (let ((tabs-done-time 4.2))
       ;; Start CDP tunnel after tabs
       (run-with-timer tabs-done-time nil
                       (lambda ()
@@ -1545,11 +1520,28 @@ Skips creation if tab already exists."
                               ac--backend-initializing nil)
                         (ac--boot-complete-step "finalize")
                         (ac-perf-log "aesthetic-backend initialization complete")
-                        ;; Show final boot screen for a moment
-                        (run-with-timer 0.5 nil
+                        ;; Convert boot tab into crash diary (combined boot+crash)
+                        (run-with-timer 1.0 nil
+                                        (lambda ()
+                                          (when (ac--tab-exists-p "boot")
+                                            (tab-bar-switch-to-tab "boot")
+                                            (let ((default-directory ac--directory-path)
+                                                  (buf (generate-new-buffer "💥-crash-diary")))
+                                              (with-current-buffer buf
+                                                (condition-case err
+                                                    (progn
+                                                      (eat-mode)
+                                                      (eat-exec buf "💥-crash-diary" "/usr/bin/fish" nil
+                                                                '("-c" "ac-crash-diary")))
+                                                  (error
+                                                   (ac-debug-log (format "Error starting crash diary: %s" err)))))
+                                              (switch-to-buffer buf)
+                                              (redisplay t)))))
+                        ;; Switch to target tab
+                        (run-with-timer 1.5 nil
                                         (lambda (tgt)
                                           (condition-case nil
-                                              (when (member tgt '("artery" "fishy" "boot" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests" "llm" "top" "crash" "views"))
+                                              (when (member tgt '("artery" "fishy" "boot" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests" "llm" "top"))
                                                 (tab-bar-switch-to-tab tgt)
                                                 (when (eq major-mode 'eat-mode)
                                                   (goto-char (point-max)))
@@ -1668,16 +1660,15 @@ REASON is logged for debugging."
   (ac-debug-log "aesthetic-backend-minimal complete"))
 
 (cl-defun aesthetic-backend-full ()
-  "Load all remaining tabs (status, stripe, chat, web, tests, views, llm, top)."
+  "Load all remaining tabs (status, stripe, chat, web, tests, llm, top)."
   (interactive)
   (message "Loading additional tabs...")
   (dolist (tab-spec '(("status"   ("url" "tunnel"))
                       ("stripe"   ("stripe-print" "stripe-ticket"))
                       ("chat"     ("chat-system" "chat-sotce" "chat-clock"))
                       ("web 1/2"  ("site" "session"))
-                      ("web 2/2"  ("redis" "bookmarks" "oven" "silo" "media"))
+                      ("web 2/2"  ("redis" "bookmarks" "oven" "silo" "media" "views"))
                       ("tests"    ("kidlisp"))
-                      ("views"    ("views"))
                       ("llm"      ("llm"))
                       ("top"      ("top"))))
     (let ((tab-name (car tab-spec))
