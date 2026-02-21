@@ -23,7 +23,7 @@ ENV MANPAGER=cat
 RUN dnf clean all && rm -rf /var/cache/dnf && \
     dnf update -y --refresh --setopt=zchunk=false && \
     dnf install -y \
-      awk which tree procps-ng coreutils unzip jq bat ripgrep \
+      awk which tree procps-ng htop coreutils unzip jq bat ripgrep \
       git gh gcc gcc-c++ clang make cmake \
       python3.11 python3.11-devel python3-pip python3-devel \
       emacs-nox fish util-linux-user util-linux-script sshpass \

@@ -86,7 +86,8 @@
       "mcp__emacs__execute_emacs_lisp",
       "Bash(npx esbuild:*)",
       "Bash(pkill:*)",
-      "Bash(gh repo fork:*)"
+      "Bash(gh repo fork:*)",
+      "Bash(bash -n:*)"
     ],
     "additionalDirectories": [
       "/home/me/.claude",

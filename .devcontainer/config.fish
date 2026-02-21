@@ -2404,9 +2404,9 @@ alias acw 'cd ~/aesthetic-computer/system; npm run watch'
 # Uses GH_TOKEN from vault for auth, runs interactively
 # Default to Claude Opus 4.5 for best quality
 # Use --continue to resume last session after reboot
-alias ac-llm 'clear; ac; copilot --model claude-opus-4.5'
-alias ac-llm-continue 'clear; ac; copilot --model claude-opus-4.5 --continue'
-alias ac-llm-resume 'clear; ac; copilot --model claude-opus-4.5 --resume'
+alias ac-llm 'clear; ac; claude'
+alias ac-llm-continue 'clear; ac; claude --continue'
+alias ac-llm-resume 'clear; ac; claude --resume'
 
 # Process viewer (htop for monitoring system resources)
 alias ac-top 'clear; htop'
