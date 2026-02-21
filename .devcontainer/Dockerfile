@@ -9,6 +9,7 @@ RUN set -eux; \
     echo 'install_weak_deps=False' >> /etc/dnf/dnf.conf; \
     echo 'tsflags=nodocs' >> /etc/dnf/dnf.conf
 
+ENV TZ=America/Los_Angeles
 ENV NODE_OPTIONS=--max_old_space_size=8192
 ENV DENO_DIR=/home/me/.cache/deno
 ENV NETLIFY_DENO_VERSION=2.4.5
