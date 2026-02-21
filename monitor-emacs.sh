@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# DEPRECATED: Use ac-emacs-crash-monitor (fish) instead.
+# The fish monitor has startup-lock awareness, correct config on restart,
+# load-aware timeouts, and CPU monitoring. Run: ac-emacs-start-monitor
+#
 # Emacs Watchdog - monitors emacs daemon health and auto-recovers from hangs
 # Run: ./monitor-emacs.sh (foreground) or ./monitor-emacs.sh & (background)
 # Stop: kill $(cat /tmp/emacs-watchdog.pid) or ac-watchdog-stop

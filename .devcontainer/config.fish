@@ -920,10 +920,12 @@ function ac-emacs-restart
             echo "✅ Emacs daemon ready!"
             echo "📝 Logs: $log_file"
             
-            # Start the crash monitor in background
-            fish -c "ac-emacs-crash-monitor" &>/dev/null &
-            disown
-            
+            # Start the crash monitor in background (if not already running)
+            if not pgrep -f "ac-emacs-crash-monitor" >/dev/null 2>&1
+                fish -c "ac-emacs-crash-monitor" &>/dev/null &
+                disown
+            end
+
             echo ""
             echo "💡 To connect UI: aesthetic-now (or ac-aesthetic)"
             return 0
@@ -1036,6 +1038,21 @@ function ac-crash-diary
         else
             echo "  $line"
         end
+    end
+end
+
+# Calculate health check timeout based on system load.
+# Under heavy load, the daemon may be slow to respond without being dead.
+function ac--health-check-timeout
+    set -l load_1m (string split ' ' < /proc/loadavg)[1]
+    set -l num_cpus (nproc 2>/dev/null; or echo 2)
+    set -l load_ratio (math "$load_1m / $num_cpus")
+    if test (math "$load_ratio > 2.0") -eq 1
+        echo 30
+    else if test (math "$load_ratio > 1.0") -eq 1
+        echo 20
+    else
+        echo 10
     end
 end
 
@@ -1159,17 +1176,35 @@ function ac-emacs-crash-monitor
                     # Stale lock - remove it and check responsiveness
                     echo "["(date -Iseconds)"] ⚠️ Stale startup lock ($lock_age""s) - removing" >> $crash_log
                     rm -f $startup_lock
-                    if not timeout 10 emacsclient -e t >/dev/null 2>&1
-                        echo "["(date -Iseconds)"] ⚠️ Daemon unresponsive (PID: $daemon_pid), forcing restart..." >> $crash_log
+                    # Use load-aware timeout to prevent false positives under heavy load
+                    set -l health_timeout (ac--health-check-timeout)
+                    if not timeout $health_timeout emacsclient -e t >/dev/null 2>&1
+                        echo "["(date -Iseconds)"] ⚠️ Daemon unresponsive (PID: $daemon_pid, timeout: $health_timeout""s), forcing restart..." >> $crash_log
                         pkill -9 -f "emacs.*daemon" 2>/dev/null
                     end
                 end
             else
-                # No startup lock - normal responsiveness check (increased timeout)
-                if not timeout 10 emacsclient -e t >/dev/null 2>&1
-                    echo "["(date -Iseconds)"] ⚠️ Daemon unresponsive (PID: $daemon_pid), forcing restart..." >> $crash_log
+                # No startup lock - normal responsiveness check with load-aware timeout
+                set -l health_timeout (ac--health-check-timeout)
+                if not timeout $health_timeout emacsclient -e t >/dev/null 2>&1
+                    echo "["(date -Iseconds)"] ⚠️ Daemon unresponsive (PID: $daemon_pid, timeout: $health_timeout""s), forcing restart..." >> $crash_log
                     pkill -9 -f "emacs.*daemon" 2>/dev/null
                     # Loop will detect it's gone and restart
+                else
+                    # Daemon is responsive - also check CPU usage
+                    set -l cpu_usage (ps -p $daemon_pid -o %cpu= 2>/dev/null | string trim | string split '.')[1]
+                    if test -n "$cpu_usage"; and test "$cpu_usage" -gt 85
+                        set -g ac_high_cpu_count (math (set -q ac_high_cpu_count; and echo $ac_high_cpu_count; or echo 0) + 1)
+                        if test $ac_high_cpu_count -ge 3
+                            echo "["(date -Iseconds)"] ⚠️ Sustained high CPU ($cpu_usage%) for 3 checks, forcing restart..." >> $crash_log
+                            pkill -9 -f "emacs.*daemon" 2>/dev/null
+                            set -g ac_high_cpu_count 0
+                        else
+                            echo "["(date -Iseconds)"] ⚠️ High CPU ($cpu_usage%) sample $ac_high_cpu_count/3" >> $crash_log
+                        end
+                    else if set -q ac_high_cpu_count; and test $ac_high_cpu_count -gt 0
+                        set -g ac_high_cpu_count 0
+                    end
                 end
             end
         end
@@ -1541,10 +1576,20 @@ function ensure-emacs-daemon-ready
         sleep 2
     else if pgrep -f "emacs.*daemon" >/dev/null
         if timeout 3 emacsclient -e t >/dev/null 2>&1
-            if test $silent -ne 1
-                echo "✅ Emacs daemon already running"
+            # Verify the correct config is loaded (not a bare emacs --daemon)
+            set -l has_config (timeout 3 emacsclient -e '(fboundp (quote aesthetic-backend))' 2>/dev/null)
+            if test "$has_config" = "t"
+                if test $silent -ne 1
+                    echo "✅ Emacs daemon already running with correct config"
+                end
+                return 0
+            else
+                if test $silent -ne 1
+                    echo "⚠️  Emacs daemon running but wrong config loaded, restarting..."
+                end
+                pkill -f "emacs.*daemon" 2>/dev/null
+                sleep 2
             end
-            return 0
         else
             if test $silent -ne 1
                 echo "⚠️  Emacs daemon process unresponsive, restarting..."
@@ -1588,9 +1633,11 @@ function ensure-emacs-daemon-ready
             if test $silent -ne 1
                 echo "✅ Emacs daemon is ready!"
             end
-            # Start crash monitor in background (don't let it block)
-            fish -c "ac-emacs-crash-monitor" &>/dev/null &
-            disown %last 2>/dev/null
+            # Start crash monitor in background (if not already running)
+            if not pgrep -f "ac-emacs-crash-monitor" >/dev/null 2>&1
+                fish -c "ac-emacs-crash-monitor" &>/dev/null &
+                disown %last 2>/dev/null
+            end
             echo "[DEBUG] ensure-emacs-daemon-ready returning 0"
             return 0
         end
@@ -1634,24 +1681,34 @@ end
 # ⏲️ Wait on `entry.fish` to touch the `.waiter` file.
 
 function aesthetic
-    # Always kill emacs daemon to ensure clean state.
-    # Prevents issues where daemon passes connectivity test but aesthetic-backend is corrupted.
-    # This is UNCONDITIONAL - every ac-aesthetic implicitly runs ac-emacs-kill first.
-    echo "🔄 Killing any existing emacs processes for clean start..."
-    ac-emacs-kill
-    
+    # Parse flags: --force (full kill+restart), --no-wait (skip .waiter)
+    set -l force 0
+    set -l no_wait 0
+    for arg in $argv
+        switch $arg
+            case "--force"
+                set force 1
+            case "--no-wait"
+                set no_wait 1
+        end
+    end
+
+    # Only kill if --force is passed. Otherwise ensure-emacs-daemon-ready
+    # will reuse a healthy daemon or restart an unhealthy one.
+    if test $force -eq 1
+        echo "🔄 Force restart: killing existing emacs..."
+        ac-emacs-kill
+    end
+
     # Check if --no-wait flag is passed
-    if test "$argv[1]" = "--no-wait"
+    if test $no_wait -eq 1
         echo "Skipping wait for .waiter file..."
     else
         # Check if entry.fish already completed (container is ready)
-        # If dockerd is running and emacs daemon is responsive, we can skip waiting
         set -l skip_wait 0
-        if pgrep -x dockerd >/dev/null 2>&1
-            if timeout 3 emacsclient -e t >/dev/null 2>&1
-                echo "✅ Container already configured, skipping wait..."
-                set skip_wait 1
-            end
+        if test -f /home/me/.waiter
+            echo "✅ Container already configured, skipping wait..."
+            set skip_wait 1
         end
         
         if test $skip_wait -eq 0
