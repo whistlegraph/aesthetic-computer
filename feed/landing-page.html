@@ -392,6 +392,70 @@ Created: 2026.02.20
     }
 
     .loading { color: var(--dim); animation: pulse 1.5s ease-in-out infinite; }
+
+    /* -- modal overlay -- */
+    .feed-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .feed-modal-backdrop {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.75);
+    }
+
+    .feed-modal-content {
+      position: relative;
+      width: 90%;
+      max-width: 900px;
+      height: 80vh;
+      background: var(--bg);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+    }
+
+    .feed-modal-close {
+      position: absolute;
+      top: -40px;
+      right: 0;
+      z-index: 10;
+      background: rgba(255, 255, 255, 0.9);
+      border: none;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      font-size: 20px;
+      line-height: 1;
+      cursor: pointer;
+      color: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, transform 0.15s;
+    }
+
+    .feed-modal-close:hover {
+      background: #fff;
+      transform: scale(1.1);
+    }
+
+    .feed-modal-content iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
   </style>
 </head>
 <body>
@@ -424,8 +488,8 @@ Created: 2026.02.20
 
     <footer>
       <a href="https://github.com/whistlegraph/dp1-feed">dp1-feed</a>
-      &middot; <a href="https://aesthetic.computer">aesthetic.computer</a>
-      &middot; <a href="https://kidlisp.com">kidlisp</a>
+      &middot; <a href="https://aesthetic.computer" onclick="event.preventDefault(); openModal(this.href)">aesthetic.computer</a>
+      &middot; <a href="https://kidlisp.com" onclick="event.preventDefault(); openModal(this.href)">kidlisp</a>
       <br>
       <span class="heart">~</span>
     </footer>
@@ -603,13 +667,45 @@ Created: 2026.02.20
           inner.innerHTML = p.items.map((item, j) => {
             const code = item.title || item.id || '-';
             const url = item.url || '#';
-            return `<div class="piece"><a class="piece-code" href="${esc(url)}" target="_blank">${esc(code)}</a></div>`;
+            return `<div class="piece"><a class="piece-code" href="${esc(url)}" onclick="event.preventDefault(); openModal(this.href)">${esc(code)}</a></div>`;
           }).join('');
         } else {
           inner.innerHTML = '<div style="color:var(--dim);grid-column:1/-1">empty</div>';
         }
         inner.dataset.loaded = '1';
       }
+    }
+
+    // -- Modal --
+    function openModal(url) {
+      const existing = document.getElementById('feed-modal');
+      if (existing) existing.remove();
+
+      const modal = document.createElement('div');
+      modal.id = 'feed-modal';
+      modal.className = 'feed-modal';
+      modal.innerHTML = `
+        <div class="feed-modal-backdrop"></div>
+        <div class="feed-modal-content">
+          <button class="feed-modal-close">\u00d7</button>
+          <iframe src="${url}" frameborder="0"></iframe>
+        </div>
+      `;
+      document.body.appendChild(modal);
+
+      modal.querySelector('.feed-modal-backdrop').addEventListener('click', closeModal);
+      modal.querySelector('.feed-modal-close').addEventListener('click', closeModal);
+      document.addEventListener('keydown', handleEscape);
+    }
+
+    function closeModal() {
+      const modal = document.getElementById('feed-modal');
+      if (modal) modal.remove();
+      document.removeEventListener('keydown', handleEscape);
+    }
+
+    function handleEscape(e) {
+      if (e.key === 'Escape') closeModal();
     }
 
     load();
