@@ -176,7 +176,13 @@ async function main() {
     // ── Step 1: Create a new 128×128 painting ──────────────────
     stepLog('Creating new 128×128 painting...');
     await client.jump('new~128');
-    await sleep(3000); // Give time for painting creation + nopaint init
+
+    // Wait for AC to fully boot with the new painting (polls window.preloaded)
+    const newResult = await client.waitForPiece('new', 10000);
+    if (!newResult.ready) {
+      failLog('Boot timeout waiting for new~128');
+      dimLog('Proceeding anyway...');
+    }
 
     // Verify painting was created
     let state = await getNopaintState(client);
@@ -192,7 +198,13 @@ async function main() {
     // ── Step 2: Enter line brush ───────────────────────────────
     stepLog('Entering line brush...');
     await client.jump('line');
-    await sleep(2000); // Wait for piece load + nopaint boot
+
+    // Wait for the line piece to load (polls window.preloaded + URL path)
+    const lineResult = await client.waitForPiece('line', 10000);
+    if (!lineResult.ready) {
+      failLog('Piece timeout waiting for line brush');
+      dimLog('Proceeding anyway...');
+    }
 
     // Verify we're on the line piece
     const currentPiece = await client.getCurrentPiece();
