@@ -6089,9 +6089,17 @@ function paint($) {
           ];
 
           // Vertical action text on LEFT side of screen - ROTATED
-          const actionVerbs = ["TOUCH", "TAP", "TYPE"];
-          const actionIndex = Math.floor(promptLanguageChangeFrame / 60) % actionVerbs.length;
-          const actionText = actionVerbs[actionIndex];
+          const actionPhrases = ["tap 2 prompt", "touch 2 prompt", "type to prompt"];
+          const actionIndex = Math.floor(promptLanguageChangeFrame / 60) % actionPhrases.length;
+          // Jumble casing per-character for attention
+          let actionText = "";
+          const phrase = actionPhrases[actionIndex];
+          for (let ci = 0; ci < phrase.length; ci++) {
+            const ch = phrase[ci];
+            // Use a time-varying seed per character for animated case jumbling
+            const caseSeed = Math.sin(promptLanguageChangeFrame * 0.12 + ci * 1.7);
+            actionText += caseSeed > 0 ? ch.toUpperCase() : ch.toLowerCase();
+          }
 
           // Bounce animation - subtle up and down movement
           const bounceOffset = Math.sin(promptLanguageChangeFrame * 0.1) * 3;
