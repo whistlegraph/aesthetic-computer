@@ -8713,8 +8713,8 @@
         // Floating gives are rendered as HTML overlay for better performance
         // (canvas shadowBlur on many characters kills FPS)
 
-        // Logo and price hidden in compact mode
-        if (false && logoLoaded && logoImg.complete) {
+        // Draw logo and price on canvas
+        if (logoLoaded && logoImg.complete) {
           // Parse current price to get dollar amount for subtle scaling
           const priceNum = parseFloat(currentPrice.replace(/[^0-9.]/g, '')) || 128;
           // Very subtle scale: $128 = 1.0 (default), range is 0.95 to 1.08
@@ -8910,13 +8910,14 @@
         }
 
 
-        // QR code hidden in compact mode
-        if (false && giveQrLoaded && giveQrImg.complete) {
+        // Draw QR code in bottom-right corner
+        // Note: giveQrImg is generated ONCE at init, not every frame
+        if (giveQrLoaded && giveQrImg.complete) {
           ctx.save();
-          const qrSize = Math.min(w, h) * 0.65; // 65% of canvas size
+          const qrSize = Math.min(w, h) * 0.28; // 28% of canvas size
           const qrPadding = 24; // More margin from edges
           const qrX = w - qrSize - qrPadding; // Right edge
-          const qrY = (h - qrSize) / 2; // Centered vertically
+          const qrY = h - qrSize - qrPadding; // Bottom edge
           
           // Pulsing white glow effect (use cached time for perf)
           const qrTime = Date.now();
