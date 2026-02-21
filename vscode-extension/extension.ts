@@ -2625,6 +2625,17 @@ function getWebViewContent(webview: any, slug: string) {
 
   // Show waiting UI if local mode is enabled but server isn't available yet
   if (local && !localServerAvailable && !isCodespaces) {
+    // Theme-aware colors for waiting screen
+    const themeKind = vscode.window.activeColorTheme.kind;
+    const isDark = themeKind === 2 || themeKind === 3; // Dark or HighContrast
+    const bg = isDark ? '#181318' : '#fcf7c5';
+    const textColor = isDark ? '#ffffffcc' : '#3b2a1a';
+    const titleColor = isDark ? '#a87090' : '#387adf';
+    const subtitleBg = isDark ? '#101010' : '#fff9f0';
+    const subtitleBorder = isDark ? '#483848' : '#e2d4c3';
+    const subtitleColor = isDark ? '#b0a0a8' : '#6b4a2e';
+    const codeColor = isDark ? '#70c070' : '#006400';
+
     return `<!DOCTYPE html>
       <html lang="en">
       <head>
@@ -2642,8 +2653,8 @@ function getWebViewContent(webview: any, slug: string) {
             justify-content: center;
             height: 100vh;
             margin: 0;
-            background: #181318;
-            color: #ffffffcc;
+            background: ${bg};
+            color: ${textColor};
             font-family: system-ui, -apple-system, sans-serif;
           }
           .waiting {
@@ -2657,21 +2668,21 @@ function getWebViewContent(webview: any, slug: string) {
           .title {
             font-size: 20px;
             font-weight: 500;
-            color: #a87090;
+            color: ${titleColor};
             margin-bottom: 12px;
             letter-spacing: 0.5px;
           }
           .subtitle {
             font-size: 14px;
-            color: #b0a0a8;
+            color: ${subtitleColor};
             font-family: monospace;
-            background: #101010;
+            background: ${subtitleBg};
             padding: 8px 16px;
             border-radius: 4px;
-            border: 1px solid #483848;
+            border: 1px solid ${subtitleBorder};
           }
           .subtitle code {
-            color: #70c070;
+            color: ${codeColor};
             font-weight: 600;
           }
           .dots::after {
