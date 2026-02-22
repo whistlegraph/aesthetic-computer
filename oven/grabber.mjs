@@ -951,14 +951,26 @@ async function isBlankFrame(buffer) {
 loadRecentGrabs();
 loadFrozenPieces();
 
+function normalizeCacheKey(cacheKey) {
+  if (cacheKey === null || cacheKey === undefined) return '';
+  const normalized = String(cacheKey)
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 48);
+  return normalized;
+}
+
 /**
  * Generate a unique capture key for deduplication
- * Format: {piece}_{width}x{height}_{format}_{animated}_{gitVersion}
+ * Format: {piece}_{width}x{height}_{format}_{animated}_{gitVersion}[_key]
  */
-function getCaptureKey(piece, width, height, format, animated = false) {
+function getCaptureKey(piece, width, height, format, animated = false, cacheKey = '') {
   const cleanPiece = piece.replace(/^\$/, ''); // Normalize piece name
   const animFlag = animated ? 'anim' : 'still';
-  return `${cleanPiece}_${width}x${height}_${format}_${animFlag}_${GIT_VERSION}`;
+  const normalizedKey = normalizeCacheKey(cacheKey);
+  const keySuffix = normalizedKey ? `_${normalizedKey}` : '';
+  return `${cleanPiece}_${width}x${height}_${format}_${animFlag}_${GIT_VERSION}${keySuffix}`;
 }
 
 /**
@@ -1679,6 +1691,7 @@ export async function grabPiece(piece, options = {}) {
     quality = 90,
     baseUrl = 'https://aesthetic.computer',
     skipCache = false, // Force regeneration
+    cacheKey = '', // Optional extra cache discriminator (e.g. source hash)
     source = 'manual', // 'keep', 'manual', 'api', etc.
     keepId = null, // Tezos keep token ID if source is 'keep'
   } = options;
@@ -1689,7 +1702,7 @@ export async function grabPiece(piece, options = {}) {
   const outputHeight = height * effectiveScale;
   
   const animated = format !== 'png';
-  const captureKey = getCaptureKey(piece, outputWidth, outputHeight, format, animated);
+  const captureKey = getCaptureKey(piece, outputWidth, outputHeight, format, animated, cacheKey);
   
   // Check for existing capture (deduplication)
   if (!skipCache) {
@@ -2133,6 +2146,7 @@ export async function grabHandler(req, res) {
     density = 1,
     quality = 80,
     skipCache = false,
+    cacheKey = '',
   } = req.body;
   
   if (!piece) {
@@ -2164,6 +2178,7 @@ export async function grabHandler(req, res) {
       density: parseFloat(density) || 1,
       quality: parseInt(quality) || 80,
       skipCache: skipCache === true || skipCache === 'true',
+      cacheKey,
     });
     
     if (result.success) {
@@ -2231,7 +2246,7 @@ export async function grabHandler(req, res) {
  */
 export async function grabGetHandler(req, res) {
   const { format, width, height, piece } = req.params;
-  const { duration = 12000, fps = 7.5, density = 1, quality = 80, source = 'manual', skipCache = 'false', nowait = 'false' } = req.query;
+  const { duration = 12000, fps = 7.5, density = 1, quality = 80, source = 'manual', skipCache = 'false', nowait = 'false', cacheKey = '' } = req.query;
   
   if (!piece) {
     return res.status(400).json({ error: 'Missing piece parameter' });
@@ -2257,7 +2272,7 @@ export async function grabGetHandler(req, res) {
   // Calculate captureKey to check for in-progress grabs
   const animated = format !== 'png';
   const parsedDensity = parseFloat(density) || 1;
-  const captureKey = getCaptureKey(piece, w * parsedDensity, h * parsedDensity, format, animated);
+  const captureKey = getCaptureKey(piece, w * parsedDensity, h * parsedDensity, format, animated, cacheKey);
   
   // If nowait=true, check if there's already a grab in progress for this key
   if (nowait === 'true' || nowait === true) {
@@ -2304,6 +2319,7 @@ export async function grabGetHandler(req, res) {
       density: parsedDensity,
       quality: parseInt(quality) || 80,
       source: source || 'manual',
+      cacheKey,
     });
     
     if (result.success) {
@@ -2375,6 +2391,7 @@ export async function grabIPFSHandler(req, res) {
     density = 2,      // 2x density for crisp pixels (was 1)
     quality = 70,     // Lower quality for smaller files
     skipCache = false, // Force regeneration (bypass CDN cache)
+    cacheKey = '',    // Optional cache discriminator (e.g. source hash)
     pinataKey,
     pinataSecret,
     source,           // Optional: 'keep', 'manual', etc.
@@ -2410,6 +2427,7 @@ export async function grabIPFSHandler(req, res) {
       density: parseFloat(density) || 1,
       quality: parseInt(quality) || 90,
       skipCache: skipCache === true || skipCache === 'true',
+      cacheKey,
       source: source || 'manual',
       keepId: keepId || null,
     });
