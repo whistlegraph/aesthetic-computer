@@ -441,13 +441,18 @@ body {
 
 /* Handle links (profile modal) */
 .news-handle-link {
-  color: var(--text-meta);
+  color: var(--accent);
+  font-weight: bold;
   text-decoration: none;
   cursor: pointer;
 }
 
-.news-handle-link:hover {
+.news-handle-link:visited {
   color: var(--accent);
+}
+
+.news-handle-link:hover {
+  color: var(--accent-hover);
   text-decoration: underline;
 }
 
@@ -631,6 +636,7 @@ body {
   display: none; /* Hidden by default, shown via JS for admins/owners */
   margin: 0;
   padding: 0;
+  align-items: center;
 }
 
 .news-delete-btn {
