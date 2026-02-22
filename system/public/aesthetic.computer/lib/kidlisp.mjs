@@ -4225,6 +4225,7 @@ class KidLisp {
           // These run AFTER embedded layers are composited, so they affect the full result
           // 🚀 GPU OPTIMIZATION: Batch compatible effects (zoom/scroll/contrast/brightness) into ONE GPU pass
           if (this.postCompositeCommands && this.postCompositeCommands.length > 0) {
+            console.log(`🎯 POST-COMPOSITE: Executing ${this.postCompositeCommands.length} commands:`, this.postCompositeCommands.map(c => `${c.name}(${c.args})`));
             // Separate batchable effects from non-batchable
             const batchableEffects = { zoom: 1.0, scrollX: 0, scrollY: 0, contrast: 1.0, brightness: 0 };
             const nonBatchableCommands = [];
