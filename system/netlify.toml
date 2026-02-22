@@ -737,6 +737,11 @@ to = "/justanothersystem.org/index.html"
 status = 200
 force = true
 [[redirects]]
+from = "https://justanothersystem.org/bio"
+to = "/justanothersystem.org/bio.html"
+status = 200
+force = true
+[[redirects]]
 from = "https://justanothersystem.org/*"
 to = "/justanothersystem.org/:splat"
 status = 200
