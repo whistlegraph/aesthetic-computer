@@ -31,6 +31,7 @@ const AUTH0_DOMAIN = process.env.AUTH0_DOMAIN || "aesthetic.us.auth0.com";
 const AUTH0_CLIENT_ID = process.env.AUTH0_CLIENT_ID || "";
 const AUTH0_CUSTOM_DOMAIN = "hi.aesthetic.computer";
 const ADMIN_SUB = process.env.ADMIN_SUB || "";
+const PUBLISH_SECRET = process.env.PUBLISH_SECRET || "";
 const AUTH_CACHE_TTL = 300_000;
 const authCache = new Map();
 
@@ -508,6 +509,11 @@ async function validateToken(authorization) {
 }
 
 async function requireAdmin(req, res, next) {
+  // Allow publish secret for CI/CLI scripts
+  if (PUBLISH_SECRET && req.headers["x-publish-secret"] === PUBLISH_SECRET) {
+    req.auth = { handle: "cli", isAdmin: true };
+    return next();
+  }
   const auth = await validateToken(req.headers.authorization);
   if (!auth) return res.status(401).json({ error: "Unauthorized" });
   if (!auth.isAdmin) return res.status(403).json({ error: "Admin access required" });
