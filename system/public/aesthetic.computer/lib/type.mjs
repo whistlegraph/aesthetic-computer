@@ -2739,19 +2739,20 @@ class TextInput {
           this.#activatingPress = false;
         }
         // Don't reset #edgeCancelled here - let it persist to prevent keyboard events from activating
-      } else {
+      } else if (!shouldPreventActivation) {
         // Handle deactivation for active TextInput
+        // Skip if backdropTouchOff was set (e.g. scrubbing a ticker button)
         // Don't deactivate if lift is over Enter button and button is down (push is about to occur)
         const isOverEnterButton = (this.enter.btn.disabled === false && this.enter.btn.box.contains(e));
         const enterButtonIsDown = this.enter.btn.down;
-        
+
         // Check if lift is over any interactive element
         const isOverInteractive = (
           (this.copy.btn.disabled === false && this.copy.btn.box.contains(e)) ||
           (this.paste.btn.disabled === false && this.paste.btn.box.contains(e)) ||
           isOverEnterButton
         );
-        
+
         // Don't deactivate if:
         // 1. Over interactive elements OR if over active enter button
         // 2. Just finished character sliding (recentlyShifting)
