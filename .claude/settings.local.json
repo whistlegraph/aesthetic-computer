@@ -89,7 +89,11 @@
       "Bash(gh repo fork:*)",
       "Bash(bash -n:*)",
       "Bash(source:*)",
-      "Bash(npx electron-builder:*)"
+      "Bash(npx electron-builder:*)",
+      "Bash(for i in 1 2 3 4 5)",
+      "Bash(do ssh -o StrictHostKeyChecking=no me@172.17.0.1 \"lsblk /dev/sda 2>/dev/null\")",
+      "Bash(break)",
+      "Bash(done)"
     ],
     "additionalDirectories": [
       "/home/me/.claude",
