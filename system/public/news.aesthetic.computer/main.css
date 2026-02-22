@@ -1776,14 +1776,39 @@ body {
   }
 
   .header-login-btn {
-    padding: 6px 12px;
-    font-size: 11pt;
-    line-height: 14px;
+    padding: 8px 14px;
+    font-size: 14pt;
+    line-height: 16px;
   }
 
   .header-user-handle {
-    font-size: 11pt;
-    line-height: 14px;
+    font-size: 14pt;
+    line-height: 16px;
+  }
+
+  .header-user-menu {
+    padding: 6px 12px;
+  }
+
+  .news-report-link {
+    font-size: 14pt;
+    padding: 12px 24px;
+  }
+
+  .news-footer .news-lang-selector .lang-text {
+    font-size: 14pt;
+  }
+
+  .news-footer .news-lang-selector .lang-flag {
+    font-size: 18px;
+  }
+
+  .news-footer .news-lang-selector .lang-option {
+    font-size: 14pt;
+  }
+
+  .news-footer-links a {
+    font-size: 14pt;
   }
 
   /* Uniform font size: headlines, rank, meta, domain, footer */
