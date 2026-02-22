@@ -530,6 +530,7 @@ function connectWS() {
     const data = JSON.parse(e.data);
     if (data.logEntry) addLog(data.logEntry);
     if (data.firehose) fhIngest(data.firehose);
+    if (data.fairyPoint) fhFirefly(data.fairyPoint);
   };
 }
 function dot(id, ok) {
@@ -1025,9 +1026,9 @@ const FH_DEFAULT_COLOR = '#888';
 const OP_SYM = { insert: '+', update: '~', replace: '=', delete: '-' };
 
 const fh = {
-  particles: [], ambient: [], canvas: null, ctx: null, running: false,
+  particles: [], ambient: [], fireflies: [], canvas: null, ctx: null, running: false,
   totalEvents: 0, eventsThisSec: 0, eps: 0, lastRateReset: Date.now(),
-  MAX_P: 200, MAX_AMB: 30,
+  MAX_P: 200, MAX_AMB: 30, MAX_FLY: 60,
   counters: {},
 };
 
@@ -1090,6 +1091,25 @@ function fhAmbient() {
     color: darkMode ? '#444' : '#ccc',
     life: 8000 + Math.random() * 6000, born: Date.now(),
   };
+}
+
+const FIREFLY_COLORS = ['#fa4', '#fc6', '#f80', '#fe8', '#fd4', '#ec6'];
+
+function fhFirefly(point) {
+  if (!fh.canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const w = fh.canvas.width / dpr, h = fh.canvas.height / dpr;
+  const nx = Math.max(0, Math.min(1, point.x));
+  const ny = Math.max(0, Math.min(1, point.y));
+  if (fh.fireflies.length >= fh.MAX_FLY) fh.fireflies.shift();
+  fh.fireflies.push({
+    x: nx * w, y: ny * h,
+    vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.3,
+    alpha: 0.9, size: 2 + Math.random() * 2,
+    color: FIREFLY_COLORS[Math.floor(Math.random() * FIREFLY_COLORS.length)],
+    life: 1500 + Math.random() * 1000, born: Date.now(),
+    pulsePhase: Math.random() * Math.PI * 2,
+  });
 }
 
 function fhIngest(ev) {
@@ -1155,6 +1175,30 @@ function fhTick() {
     ctx.beginPath();
     ctx.arc(p.x * dpr, p.y * dpr, p.size * dpr, 0, Math.PI * 2);
     ctx.fillStyle = p.color;
+    ctx.fill();
+  }
+
+  // Fireflies (fairy:point cursors from session server)
+  for (let i = fh.fireflies.length - 1; i >= 0; i--) {
+    const f = fh.fireflies[i];
+    const age = now - f.born;
+    if (age > f.life) { fh.fireflies.splice(i, 1); continue; }
+    f.x += f.vx; f.y += f.vy;
+    const prog = age / f.life;
+    const fade = prog < 0.05 ? prog / 0.05 : prog > 0.6 ? (1 - prog) / 0.4 : 1;
+    const pulse = 0.7 + 0.3 * Math.sin(age * 0.008 + f.pulsePhase);
+    const alpha = f.alpha * fade * pulse;
+    // Outer glow
+    ctx.globalAlpha = alpha * 0.3;
+    ctx.beginPath();
+    ctx.arc(f.x * dpr, f.y * dpr, (f.size * 2.5) * dpr, 0, Math.PI * 2);
+    ctx.fillStyle = f.color;
+    ctx.fill();
+    // Inner core
+    ctx.globalAlpha = alpha;
+    ctx.beginPath();
+    ctx.arc(f.x * dpr, f.y * dpr, f.size * dpr, 0, Math.PI * 2);
+    ctx.fillStyle = f.color;
     ctx.fill();
   }
 
