@@ -5,10 +5,9 @@
 #   inst.ks=https://raw.githubusercontent.com/whistlegraph/aesthetic-computer/main/fedac/kickstart/fedac-thinkpad.ks
 #
 # Or for local kickstart on USB:
-#   inst.ks=hd:LABEL=FEDAC:/fedac-thinkpad.ks
+#   inst.ks=hd:LABEL=BOOT:/fedac.ks
 
-# Install mode (not live)
-install
+# Text mode install (no 'install' directive — removed in Fedora 38+)
 text
 
 # Language and locale
@@ -32,15 +31,15 @@ clearpart --all --initlabel
 autopart --type=plain --fstype=ext4
 
 # Bootloader
-bootloader --location=mbr --append="quiet splash"
+bootloader --append="quiet splash"
 
-# Enable graphical boot target
+# Boot into graphical target
 firstboot --disable
-skipx
+xconfig --startxonboot
 
 # Packages
 %packages
-@base-x
+@base-graphical
 @fonts
 @gnome-desktop
 @hardware-support

@@ -985,8 +985,8 @@ Also updates VS Code task status bar to 'done'."
       eat-show-title-on-mode-line nil        ; We name buffers ourselves
       eat-term-scrollback-size 8192          ; 8KB - minimal scrollback
       eat-enable-auto-line-mode nil          ; Keep in semi-char mode
-      eat-minimum-latency 0.1                ; Batch output updates (100ms)
-      eat-maximum-latency 0.2                ; Max batch delay (200ms)
+      eat-minimum-latency 0.2                ; Batch output updates (200ms)
+      eat-maximum-latency 0.5                ; Max batch delay (500ms)
       eat-enable-blinking-text nil           ; Disable blinking
       eat-enable-mouse nil)                  ; Disable mouse support
 
