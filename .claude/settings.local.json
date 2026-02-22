@@ -87,7 +87,9 @@
       "Bash(npx esbuild:*)",
       "Bash(pkill:*)",
       "Bash(gh repo fork:*)",
-      "Bash(bash -n:*)"
+      "Bash(bash -n:*)",
+      "Bash(source:*)",
+      "Bash(npx electron-builder:*)"
     ],
     "additionalDirectories": [
       "/home/me/.claude",

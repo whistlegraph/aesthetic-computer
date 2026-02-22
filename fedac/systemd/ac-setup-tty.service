@@ -1,0 +1,21 @@
+[Unit]
+Description=Aesthetic Computer Setup TUI on tty2
+After=multi-user.target
+ConditionPathExists=/opt/ac/bin/ac-setup
+
+[Service]
+Type=simple
+ExecStart=/opt/ac/bin/ac-setup --force
+StandardInput=tty
+StandardOutput=tty
+TTYPath=/dev/tty2
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+User=me
+Environment=TERM=linux
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
