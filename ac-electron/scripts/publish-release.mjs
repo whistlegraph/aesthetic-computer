@@ -7,7 +7,7 @@
 // Requires env vars (from silo/.env or environment):
 //   SPACES_KEY, SPACES_SECRET, SPACES_ENDPOINT
 //   SILO_URL (default: https://silo.aesthetic.computer)
-//   SILO_AUTH_TOKEN (auth token for silo admin API)
+//   PUBLISH_SECRET (shared secret for silo admin API)
 
 import fs from "fs";
 import path from "path";
@@ -36,7 +36,7 @@ const BUCKET = "assets-aesthetic-computer";
 const PREFIX = "desktop/";
 const BASE_URL = "https://assets.aesthetic.computer/desktop";
 const SILO_URL = process.env.SILO_URL || "https://silo.aesthetic.computer";
-const AUTH_TOKEN = process.env.SILO_AUTH_TOKEN || "";
+const PUBLISH_SECRET = process.env.PUBLISH_SECRET || "";
 
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
@@ -144,7 +144,7 @@ async function registerWithSilo(platforms) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${AUTH_TOKEN}`,
+      "X-Publish-Secret": PUBLISH_SECRET,
     },
     body: JSON.stringify(body),
   });
@@ -187,9 +187,12 @@ async function main() {
     const content = fs.readFileSync(file.path, "utf8");
     const parsed = parseYml(content);
     if (parsed.path) {
+      // Get size from actual file on disk (yml may not have top-level size)
+      const binaryPath = path.join(distDir, parsed.path);
+      const size = parsed.size || (fs.existsSync(binaryPath) ? fs.statSync(binaryPath).size : 0);
       platforms[platform] = {
         filename: parsed.path,
-        size: parsed.size || 0,
+        size,
         sha512: parsed.sha512 || "",
         url: `${BASE_URL}/${parsed.path}`,
       };
