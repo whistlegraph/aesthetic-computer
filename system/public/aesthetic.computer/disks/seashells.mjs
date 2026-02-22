@@ -7,44 +7,90 @@
   emerge from simple mathematical expressions operating on integers.
 */
 
-let mouseSound = null;
-let isDragging = false;
+const touchVoices = new Map();
+const maxTouchPointers = 8;
+const hudSafeTop = 22; // Keep local guide below prompt HUD corner label.
+const uiFont = "MatrixChunky8";
+const touchOverlayPalette = [
+  [255, 120, 110],
+  [110, 225, 255],
+  [145, 255, 160],
+  [255, 220, 120],
+  [220, 140, 255],
+  [255, 170, 130],
+  [170, 255, 255],
+  [255, 255, 180]
+];
+
+const interactionState = {
+  scanOffset: 0,
+  scanVelocity: 0.003,
+  scanSpread: 1.0,
+  orbit: 0,
+  memory: 0,
+  chaosBias: 0,
+  density: 1.0,
+  lastTouchAt: 0
+};
+
+function createDefaultFeedback() {
+  return {
+    timeModulation: 0,
+    shiftMod1: 0,
+    shiftMod2: 0,
+    harmonicScale: 1.0,
+    rhythmScale: 1.0,
+    bitMod1: 0,
+    bitMod2: 0,
+    complexMod: 0,
+    sierpinskiMod: 0,
+    mixSpeed: 1.0,
+    patternBias: 0,
+    blendIntensity: 1.0,
+    intensity: 1.0,
+    chaosLevel: 0,
+    colorMod: { r: 1.0, g: 1.0, b: 1.0 }
+  };
+}
+
+let sharedPixelFeedback = createDefaultFeedback();
 
 // Bytebeat generator
 const generator = {
   // Bytebeat algorithmic synthesis with pixel feedback capability
   bytebeat: ({ frequency, sampleRate, time, samplesNeeded, feedback = null }) => {
+    const liveFeedback = feedback || null;
     const samples = [];
     const freqScale = frequency / 440; // Scale relative to A440
     
     // Apply feedback to time offset if available
     let timeOffset = Math.floor(time * sampleRate * freqScale * 0.3);
-    if (feedback && feedback.timeModulation) {
-      timeOffset += feedback.timeModulation;
+    if (liveFeedback && liveFeedback.timeModulation) {
+      timeOffset += liveFeedback.timeModulation;
     }
     
     for (let i = 0; i < samplesNeeded; i++) {
       const t = timeOffset + Math.floor(i * freqScale * 0.8); // Sample-based time progression
       
       // Classic bytebeat patterns - now modifiable by feedback
-      let shiftMod1 = feedback?.shiftMod1 || 0;
-      let shiftMod2 = feedback?.shiftMod2 || 0;
-      let harmonicScale = feedback?.harmonicScale || 1.0;
-      let rhythmScale = feedback?.rhythmScale || 1.0;
+      let shiftMod1 = liveFeedback?.shiftMod1 || 0;
+      let shiftMod2 = liveFeedback?.shiftMod2 || 0;
+      let harmonicScale = liveFeedback?.harmonicScale || 1.0;
+      let rhythmScale = liveFeedback?.rhythmScale || 1.0;
       
       // Pattern 1: XOR cascade (crisp, digital texture)
       const pattern1 = (t ^ (t >> (8 + shiftMod1)) ^ (t >> (9 + shiftMod2))) & 255;
       
       // Pattern 2: Melodic stepped pattern with harmonic scaling
       const harmonic = Math.max(1, Math.floor(freqScale * 2 * harmonicScale));
-      const pattern2 = ((t * harmonic) & (t >> (5 + (feedback?.bitMod1 || 0))) | (t >> (4 + (feedback?.bitMod2 || 0)))) & 255;
+      const pattern2 = ((t * harmonic) & (t >> (5 + (liveFeedback?.bitMod1 || 0))) | (t >> (4 + (liveFeedback?.bitMod2 || 0)))) & 255;
       
       // Pattern 3: Complex rhythmic pattern with frequency modulation
       const rhythmMod = Math.floor((freqScale - 1) * 8 * rhythmScale) + 7;
-      const pattern3 = (t | (t >> rhythmMod | t >> 7)) * (t & (t >> 11 | t >> (9 + (feedback?.complexMod || 0)))) & 255;
+      const pattern3 = (t | (t >> rhythmMod | t >> 7)) * (t & (t >> 11 | t >> (9 + (liveFeedback?.complexMod || 0)))) & 255;
       
       // Pattern 4: Sierpinski triangle-like pattern
-      const pattern4 = (t & (t >> (5 + (feedback?.sierpinskiMod || 0)) | t >> 8)) & 255;
+      const pattern4 = (t & (t >> (5 + (liveFeedback?.sierpinskiMod || 0)) | t >> 8)) & 255;
       
       // Pattern 5: Frequency-responsive melodic pattern
       const melodyScale = Math.floor(freqScale * 6) + 1;
@@ -52,15 +98,15 @@ const generator = {
       
       // Dynamic pattern mixing based on time, frequency, and feedback
       let mixPhase = (time * 0.08 + freqScale * 0.5) % 5;
-      if (feedback && feedback.mixSpeed) {
-        mixPhase = (time * 0.08 * feedback.mixSpeed + freqScale * 0.5) % 5;
+      if (liveFeedback && liveFeedback.mixSpeed) {
+        mixPhase = (time * 0.08 * liveFeedback.mixSpeed + freqScale * 0.5) % 5;
       }
-      if (feedback && feedback.patternBias) {
-        mixPhase = (mixPhase + feedback.patternBias) % 5;
+      if (liveFeedback && liveFeedback.patternBias) {
+        mixPhase = (mixPhase + liveFeedback.patternBias) % 5;
       }
       
       let finalPattern;
-      let blendIntensity = feedback?.blendIntensity || 1.0;
+      let blendIntensity = liveFeedback?.blendIntensity || 1.0;
       
       if (mixPhase < 1) {
         const blend = mixPhase * blendIntensity;
@@ -80,20 +126,20 @@ const generator = {
       }
       
       // Apply feedback intensity modulation
-      if (feedback && feedback.intensity) {
-        finalPattern *= feedback.intensity;
+      if (liveFeedback && liveFeedback.intensity) {
+        finalPattern *= liveFeedback.intensity;
       }
       
       // Apply chaos injection from feedback
-      if (feedback && feedback.chaosLevel > 0.5) {
-        finalPattern = finalPattern ^ Math.floor(feedback.chaosLevel * 128);
+      if (liveFeedback && liveFeedback.chaosLevel > 0.5) {
+        finalPattern = finalPattern ^ Math.floor(liveFeedback.chaosLevel * 128);
       }
       
       // Convert from 0-255 byte range to -1 to 1 audio range
       let sample = (finalPattern / 127.5) - 1;
       
-      // Apply dynamic filtering based on frequency to reduce harshness
-      const filterAmount = Math.min(0.8, 0.3 + (freqScale - 1) * 0.1);
+      // Keep bytebeat texture but avoid over-attenuating overall loudness.
+      const filterAmount = clamp(0.55 + (freqScale - 1) * 0.14, 0.55, 1.0);
       sample *= filterAmount;
       
       // Add subtle bit-crushing effect for authentic bytebeat character
@@ -110,13 +156,224 @@ const generator = {
 let localWaveform = [];
 const waveformBufferSize = 512; // Size of local waveform buffer
 
-let targetFrequency = 440; // Target frequency for smooth interpolation
-let currentFrequency = 440; // Current interpolated frequency
+let currentFrequency = 440; // Pixel-derived frequency used by active voices
+
+function clamp(value, low, high) {
+  return Math.max(low, Math.min(high, value));
+}
+
+function derivePixelFrequency(feedback) {
+  if (!feedback) return 440;
+
+  const harmonicNorm = clamp((feedback.harmonicScale - 0.5) / 1.7, 0, 1);
+  const rhythmNorm = clamp((feedback.rhythmScale - 0.3) / 1.7, 0, 1);
+  const brightnessNorm = clamp((feedback.intensity - 0.5) / 0.9, 0, 1);
+  const chaosNorm = clamp(feedback.chaosLevel, 0, 1);
+  const colorAvg = (feedback.colorMod.r + feedback.colorMod.g + feedback.colorMod.b) / 3;
+  const colorNorm = clamp(colorAvg - 0.5, 0, 1);
+  const biasNorm = ((feedback.patternBias % 4) + 4) % 4 / 4;
+
+  const normalized = clamp(
+    harmonicNorm * 0.36 +
+      rhythmNorm * 0.2 +
+      brightnessNorm * 0.2 +
+      colorNorm * 0.12 +
+      biasNorm * 0.12 -
+      chaosNorm * 0.08,
+    0,
+    1
+  );
+
+  return 120 + normalized * 980;
+}
+
+function mapXToFrequency(x, width) {
+  const w = Math.max(1, width - 1);
+  const nx = clamp((x ?? w / 2) / w, 0, 1);
+  const minHz = 80;
+  const maxHz = 1600;
+  return minHz * Math.pow(maxHz / minHz, nx);
+}
+
+function mapYToPitchFactor(y, height) {
+  const h = Math.max(1, height - 1);
+  const ny = clamp((y ?? h / 2) / h, 0, 1);
+  // Two-octave span from bottom to top: 0.5x -> 2x.
+  return Math.pow(2, (0.5 - ny) * 2);
+}
+
+function deriveVoiceFrequency({ x, y, screenWidth, screenHeight }) {
+  const base = mapXToFrequency(x, screenWidth) * mapYToPitchFactor(y, screenHeight);
+  return clamp(base, 55, 2600);
+}
+
+function drawTouchMapping({ ink, line, write, screen, emphasized = false }) {
+  const padTop = Math.min(hudSafeTop, Math.max(0, screen.height - 4));
+  const padBottom = screen.height - 1;
+  const width = Math.max(1, screen.width - 1);
+  const height = Math.max(1, padBottom - padTop);
+
+  const gridColor = emphasized ? [56, 88, 128] : [34, 56, 84];
+  const axisColor = emphasized ? [94, 138, 182] : [54, 84, 124];
+  const textColor = emphasized ? [232, 242, 255] : [180, 206, 232];
+
+  ink(gridColor[0], gridColor[1], gridColor[2]);
+  for (let i = 1; i < 8; i++) {
+    const x = Math.floor((i / 8) * width);
+    const y = padTop + Math.floor((i / 8) * height);
+    line(x, padTop, x, padBottom);
+    line(0, y, width, y);
+  }
+
+  ink(axisColor[0], axisColor[1], axisColor[2]);
+  line(0, padTop, width, padTop);
+  line(Math.floor(width * 0.5), padTop, Math.floor(width * 0.5), padBottom);
+
+  const lowHz = Math.round(mapXToFrequency(0, screen.width));
+  const midHz = Math.round(mapXToFrequency(width * 0.5, screen.width));
+  const highHz = Math.round(mapXToFrequency(width, screen.width));
+  const topMult = mapYToPitchFactor(padTop, screen.height);
+  const midMult = mapYToPitchFactor(padTop + height * 0.5, screen.height);
+  const lowMult = mapYToPitchFactor(padBottom, screen.height);
+
+  ink(textColor[0], textColor[1], textColor[2]);
+  write(`${lowHz}hz`, { x: 2, y: padTop + 2 }, undefined, undefined, false, uiFont);
+  write(`${midHz}hz`, { x: Math.max(2, Math.floor(width * 0.5) - 12), y: padTop + 2 }, undefined, undefined, false, uiFont);
+  write(`${highHz}hz`, { x: Math.max(2, width - 28), y: padTop + 2 }, undefined, undefined, false, uiFont);
+  write(`x${topMult.toFixed(2)}`, { x: 2, y: Math.max(padTop + 2, padTop + 12) }, undefined, undefined, false, uiFont);
+  write(`x${midMult.toFixed(2)}`, { x: 2, y: padTop + Math.floor(height * 0.5) - 4 }, undefined, undefined, false, uiFont);
+  write(`x${lowMult.toFixed(2)}`, { x: 2, y: Math.max(padTop + 2, padBottom - 8) }, undefined, undefined, false, uiFont);
+}
+
+function drawTouchOverlays({ ink, line, circle, write, screen }) {
+  for (const [key, voice] of touchVoices.entries()) {
+    const pointerIndex = Number(key.split("-")[1]) || 1;
+    const [r, g, b] = touchOverlayPalette[(pointerIndex - 1) % touchOverlayPalette.length];
+    const x = clamp(Math.round(voice.x ?? screen.width * 0.5), 0, screen.width - 1);
+    const y = clamp(Math.round(voice.y ?? screen.height * 0.5), 0, screen.height - 1);
+
+    ink(r, g, b, 64);
+    circle(x, y, 14);
+    ink(r, g, b);
+    circle(x, y, 9);
+    line(x - 16, y, x + 16, y);
+    line(x, y - 16, x, y + 16);
+
+    ink(245, 245, 255);
+    const labelX = clamp(x + 10, 1, Math.max(1, screen.width - 70));
+    const labelY = clamp(y - 11, hudSafeTop, Math.max(hudSafeTop, screen.height - 8));
+    write(`${pointerIndex}:${Math.round(voice.frequency)}hz`, { x: labelX, y: labelY }, undefined, undefined, false, uiFont);
+  }
+}
+
+function rebalanceVoiceVolumes() {
+  const count = touchVoices.size;
+  if (count <= 0) return;
+
+  const baseVolume = clamp(0.58 / Math.sqrt(count), 0.16, 0.5);
+
+  for (const voice of touchVoices.values()) {
+    voice.sound?.update?.({ volume: baseVolume });
+  }
+}
+
+function applyTouchInfluence({ x, y, screenWidth, screenHeight }) {
+  const nx = clamp((x ?? screenWidth * 0.5) / Math.max(1, screenWidth), 0, 1);
+  const ny = clamp((y ?? screenHeight * 0.5) / Math.max(1, screenHeight), 0, 1);
+
+  interactionState.scanOffset = (interactionState.scanOffset + nx * 0.11 + ny * 0.07) % 1;
+  interactionState.orbit += (nx - 0.5) * 0.18;
+  interactionState.scanSpread = clamp(
+    interactionState.scanSpread * 0.9 + (0.65 + ny) * 0.1,
+    0.5,
+    2.0
+  );
+  interactionState.memory = clamp(
+    interactionState.memory * 0.94 + 0.05 + Math.abs(nx - 0.5) * 0.08,
+    0,
+    1
+  );
+  interactionState.chaosBias = clamp(
+    interactionState.chaosBias * 0.9 + Math.abs(nx - 0.5) * 0.25,
+    0,
+    0.75
+  );
+  interactionState.density = clamp(1 + interactionState.memory * 0.8 + touchVoices.size * 0.05, 0.75, 1.9);
+  interactionState.lastTouchAt = performance.now();
+}
+
+function createVoice({ sound, frequency, volume = 0.5 }) {
+  return sound.synth({
+    type: "custom",
+    tone: frequency,
+    duration: "🔁",
+    volume,
+    generator: generator.bytebeat
+  });
+}
+
+function startTouchVoice({ pointerIndex, x, y, screenWidth, screenHeight, sound }) {
+  applyTouchInfluence({ x, y, screenWidth, screenHeight });
+
+  const key = `touch-${pointerIndex}`;
+  if (touchVoices.has(key)) return;
+
+  const initialFrequency = deriveVoiceFrequency({
+    x,
+    y,
+    screenWidth,
+    screenHeight
+  });
+  const soundVoice = createVoice({ sound, frequency: initialFrequency, volume: 0.5 });
+  touchVoices.set(key, {
+    sound: soundVoice,
+    x,
+    y,
+    frequency: initialFrequency
+  });
+
+  rebalanceVoiceVolumes();
+}
+
+function updateTouchVoice({ pointerIndex, x, y, screenWidth, screenHeight, sound }) {
+  applyTouchInfluence({ x, y, screenWidth, screenHeight });
+  const key = `touch-${pointerIndex}`;
+  const existingVoice = touchVoices.get(key);
+  if (!existingVoice) {
+    startTouchVoice({ pointerIndex, x, y, screenWidth, screenHeight, sound });
+    return;
+  }
+  existingVoice.x = x;
+  existingVoice.y = y;
+}
+
+function stopTouchVoice(pointerIndex, fade = 0.1) {
+  const key = `touch-${pointerIndex}`;
+  const voice = touchVoices.get(key);
+  if (!voice) return;
+  voice.sound?.kill(fade);
+  touchVoices.delete(key);
+  rebalanceVoiceVolumes();
+}
+
+function stopAllVoices(fade = 0.1) {
+  for (const voice of touchVoices.values()) {
+    voice.sound?.kill(fade);
+  }
+  touchVoices.clear();
+}
+
+function totalVoiceCount() {
+  return touchVoices.size;
+}
 
 // FEEDBACK SYSTEM: Sample pixels to influence bytebeat generation
 function samplePixelFeedback(screen) {
   const samples = [];
-  const samplePoints = 16; // Number of strategic sampling points
+  const samplePoints = 12 + Math.floor(8 * interactionState.density);
+  const now = performance.now() * 0.001;
+  const scanOffset = interactionState.scanOffset;
+  const spread = interactionState.scanSpread;
   
   // Sample pixels from different regions of the screen
   for (let i = 0; i < samplePoints; i++) {
@@ -140,14 +397,17 @@ function samplePixelFeedback(screen) {
     } else if (i < 12) {
       // Diagonal sampling
       const diag = i - 8;
-      const progress = diag / 4;
+      const progress = ((diag / 4) + scanOffset) % 1;
       x = Math.floor(progress * screen.width);
-      y = Math.floor(progress * screen.height);
+      y = Math.floor(((progress * spread) % 1) * screen.height);
     } else {
-      // Random strategic points influenced by current frequency
-      const freq_offset = (currentFrequency / 440) * (i - 12);
-      x = Math.floor((Math.sin(performance.now() * 0.001 + freq_offset) * 0.5 + 0.5) * screen.width);
-      y = Math.floor((Math.cos(performance.now() * 0.001 + freq_offset) * 0.5 + 0.5) * screen.height);
+      // Orbital scanning pattern modified by interaction memory.
+      const phase = now + interactionState.orbit + scanOffset * Math.PI * 2 + (i - 12) * 0.17;
+      const wobble = 0.2 + interactionState.memory * 0.7;
+      const radiusX = 0.5 + Math.sin(phase * 0.61) * wobble;
+      const radiusY = 0.5 + Math.cos(phase * 0.79) * wobble * spread;
+      x = Math.floor(radiusX * screen.width);
+      y = Math.floor(radiusY * screen.height);
     }
     
     // Clamp to screen bounds
@@ -177,7 +437,7 @@ function samplePixelFeedback(screen) {
   const variance = brightnesses.reduce((sum, b) => sum + Math.pow(b - avgBrightness, 2), 0) / brightnesses.length;
   
   // Convert pixel data into bytebeat modulation parameters
-  return {
+  const feedback = {
     // Time modulation based on red channel
     timeModulation: Math.floor((avgR / 255) * 10000 - 5000),
     
@@ -213,54 +473,34 @@ function samplePixelFeedback(screen) {
       b: 0.5 + (avgB / 255) * 1.0
     }
   };
+
+  // Persistent interaction state nudges future pixel scanning and sound behavior.
+  feedback.timeModulation += Math.floor((interactionState.memory - 0.5) * 4500);
+  feedback.shiftMod1 = clamp(feedback.shiftMod1 + Math.round((interactionState.scanSpread - 1) * 2), -3, 3);
+  feedback.shiftMod2 = clamp(feedback.shiftMod2 + Math.round(interactionState.orbit), -3, 3);
+  feedback.patternBias = (feedback.patternBias + scanOffset * 4) % 4;
+  feedback.mixSpeed = clamp(feedback.mixSpeed * (0.8 + interactionState.scanSpread * 0.4), 0.4, 3.5);
+  feedback.blendIntensity = clamp(feedback.blendIntensity + interactionState.memory * 0.25, 0.2, 1.0);
+  feedback.chaosLevel = clamp(feedback.chaosLevel + interactionState.chaosBias * 0.6, 0, 1);
+  feedback.intensity = clamp(feedback.intensity + interactionState.memory * 0.2, 0.5, 1.4);
+
+  return feedback;
 }
 
 function paint({ api, wipe, ink, line, screen, box, circle, pen, write, sound }) {
   // NO WIPE - let pixels accumulate over time for trails and patterns
   
-  if (!mouseSound) {
-    // Only show instructions when no sound, using direct pixel manipulation
-    const centerX = Math.floor(screen.width / 2);
-    const centerY = Math.floor(screen.height / 2);
-    
-    // Draw instruction text pixel by pixel (simple approach)
-    // Fill a dark overlay first
-    for (let y = 0; y < screen.height; y++) {
-      for (let x = 0; x < screen.width; x++) {
-        const pixelIndex = (y * screen.width + x) * 4;
-        screen.pixels[pixelIndex] = 32;     // R
-        screen.pixels[pixelIndex + 1] = 32; // G  
-        screen.pixels[pixelIndex + 2] = 32; // B
-        screen.pixels[pixelIndex + 3] = 180; // A
-      }
-    }
-    
-    // Simple centered text using pixels
-    const text = "PRESS SPACE TO START";
-    const charWidth = 8;
-    const startX = centerX - (text.length * charWidth) / 2;
-    
-    for (let i = 0; i < text.length; i++) {
-      const charX = Math.floor(startX + i * charWidth);
-      // Draw a simple character representation
-      for (let dy = -4; dy <= 4; dy++) {
-        for (let dx = -3; dx <= 3; dx++) {
-          const x = charX + dx;
-          const y = centerY + dy;
-          if (x >= 0 && x < screen.width && y >= 0 && y < screen.height) {
-            const pixelIndex = (y * screen.width + x) * 4;
-            screen.pixels[pixelIndex] = 255;     // R
-            screen.pixels[pixelIndex + 1] = 255; // G
-            screen.pixels[pixelIndex + 2] = 255; // B
-            screen.pixels[pixelIndex + 3] = 255; // A
-          }
-        }
-      }
-    }
+  if (totalVoiceCount() === 0) {
+    wipe(10, 14, 22);
+    drawTouchMapping({ ink, line, write, screen, emphasized: true });
+    ink(210, 232, 255);
+    write("hold touches to play", { x: 2, y: Math.max(hudSafeTop + 2, screen.height - 16) }, undefined, undefined, false, uiFont);
+    write("x=base hz  y=pitch mult", { x: 2, y: Math.max(hudSafeTop + 10, screen.height - 8) }, undefined, undefined, false, uiFont);
     return;
   }
     // FEEDBACK LOOP: Sample existing pixels to influence the bytebeat algorithm
-  const feedback = samplePixelFeedback(screen);
+  sharedPixelFeedback = samplePixelFeedback(screen);
+  const feedback = sharedPixelFeedback;
   
   // Generate current bytebeat data for pixel manipulation (now with feedback influence)
   const freqScale = currentFrequency / 440;
@@ -371,27 +611,8 @@ function paint({ api, wipe, ink, line, screen, box, circle, pen, write, sound })
     screen.pixels[sweepPixelIndex + 3] = 255;
   }
   
-  // Visual cursor feedback using pixel manipulation
-  if (pen) {
-    const cursorSize = 8;
-    for (let dy = -cursorSize; dy <= cursorSize; dy++) {
-      for (let dx = -cursorSize; dx <= cursorSize; dx++) {
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        if (distance <= cursorSize) {
-          const x = pen.x + dx;
-          const y = pen.y + dy;
-          if (x >= 0 && x < screen.width && y >= 0 && y < screen.height) {
-            const pixelIndex = (y * screen.width + x) * 4;
-            const intensity = 1 - (distance / cursorSize);
-            screen.pixels[pixelIndex] = Math.min(255, screen.pixels[pixelIndex] + 128 * intensity);     // Green cursor
-            screen.pixels[pixelIndex + 1] = Math.min(255, screen.pixels[pixelIndex + 1] + 255 * intensity);
-            screen.pixels[pixelIndex + 2] = Math.min(255, screen.pixels[pixelIndex + 2] + 128 * intensity);
-            screen.pixels[pixelIndex + 3] = 255;
-          }
-        }
-      }
-    }
-  }
+  drawTouchMapping({ ink, line, write, screen, emphasized: false });
+  drawTouchOverlays({ ink, line, circle, write, screen });
 }
 
 // 📚 Library
@@ -401,74 +622,128 @@ function boot({ hud }) {
   // hud.label("🐚 Seashell");
 }
 
-function act({ event: e, sound, screen, hud }) {
-  // Space to toggle sound
-  if (e.is("keyboard:down:space")) {
-    if (mouseSound) {
-      mouseSound.kill(0.1);
-      mouseSound = null;
-    } else {      // Start playing with bytebeat generator
-      mouseSound = sound.synth({
-        type: "custom",
-        tone: currentFrequency,
-        duration: "🔁", // Infinite duration
-        volume: 0.5,
-        generator: generator.bytebeat
+function act({ event: e, sound, screen, pens }) {
+  let touchHandled = false;
+  let drawHandled = false;
+  let liftHandled = false;
+
+  // Multi-touch indexed handling: each pointer index owns one voice.
+  for (let i = 1; i <= maxTouchPointers; i++) {
+    if (e.is(`touch:${i}`)) {
+      touchHandled = true;
+      const pointer = pens?.(i);
+      const pointerX = pointer?.x ?? e.x;
+      const pointerY = pointer?.y ?? e.y;
+      startTouchVoice({
+        pointerIndex: i,
+        x: pointerX,
+        y: pointerY,
+        screenWidth: screen.width,
+        screenHeight: screen.height,
+        sound
       });
     }
-  }
-    // Mouse/touch interaction
-  if (e.is("touch")) {
-    isDragging = true;
-    targetFrequency = 200 + (e.x / screen.width) * 800;
-    if (!mouseSound) {
-      currentFrequency = targetFrequency; // Immediate set for new sound
-      mouseSound = sound.synth({
-        type: "custom",
-        tone: currentFrequency,
-        duration: "🔁",
-        volume: 0.5,
-        generator: generator.bytebeat
+
+    if (e.is(`draw:${i}`)) {
+      drawHandled = true;
+      const pointer = pens?.(i);
+      const pointerX = pointer?.x ?? e.x;
+      const pointerY = pointer?.y ?? e.y;
+      updateTouchVoice({
+        pointerIndex: i,
+        x: pointerX,
+        y: pointerY,
+        screenWidth: screen.width,
+        screenHeight: screen.height,
+        sound
       });
     }
-  }
-  
-  if (e.is("draw") && isDragging && mouseSound) {
-    // Update target frequency based on mouse position
-    targetFrequency = 200 + (e.x / screen.width) * 800;
-  }
-  
-  if (e.is("lift")) {
-    isDragging = false;
-    if (mouseSound) {
-      mouseSound.kill(0.1);
-      mouseSound = null;
+
+    if (e.is(`lift:${i}`)) {
+      liftHandled = true;
+      stopTouchVoice(i, 0.08);
     }
+  }
+
+  // Fallback for environments that only emit generic touch/draw/lift.
+  if (!touchHandled && e.is("touch")) {
+    startTouchVoice({
+      pointerIndex: 1,
+      x: e.x,
+      y: e.y,
+      screenWidth: screen.width,
+      screenHeight: screen.height,
+      sound
+    });
+  }
+
+  if (!drawHandled && e.is("draw")) {
+    updateTouchVoice({
+      pointerIndex: 1,
+      x: e.x,
+      y: e.y,
+      screenWidth: screen.width,
+      screenHeight: screen.height,
+      sound
+    });
+  }
+
+  if (!liftHandled && e.is("lift")) {
+    stopTouchVoice(1, 0.08);
   }
 }
 
-function sim({ sound, hud }) {
+function sim({ sound, hud, screen }) {
   // Poll for waveform data
   sound.speaker?.poll();
   
   // Update HUD with current frequency
   // hud.label(`🐚 Seashell ${Math.round(currentFrequency)}Hz`);
   
-  // Smooth frequency interpolation
-  const lerpSpeed = 0.05; // Adjust this for faster/slower interpolation (0.01 = very smooth, 0.1 = faster)
-  
-  if (Math.abs(targetFrequency - currentFrequency) > 0.5) {
-    // Lerp current frequency towards target frequency
-    currentFrequency += (targetFrequency - currentFrequency) * lerpSpeed;
-    
-    // Update the sound with the smoothly interpolated frequency
-    if (mouseSound) {
-      mouseSound.update({ tone: currentFrequency });
-    }
+  const lerpSpeed = 0.08;
+
+  const millisecondsSinceTouch = performance.now() - interactionState.lastTouchAt;
+  const touchRecentlyActive = millisecondsSinceTouch < 250;
+  interactionState.memory *= touchRecentlyActive ? 0.998 : 0.992;
+  interactionState.chaosBias *= touchRecentlyActive ? 0.997 : 0.985;
+  interactionState.orbit *= 0.992;
+  interactionState.scanVelocity = 0.0015 + interactionState.memory * 0.01;
+  interactionState.scanOffset = (interactionState.scanOffset + interactionState.scanVelocity + interactionState.orbit * 0.0008 + 1) % 1;
+  interactionState.scanSpread = clamp(
+    interactionState.scanSpread * 0.996 + (touchVoices.size > 0 ? 0.003 : -0.001),
+    0.5,
+    2.0
+  );
+  interactionState.density = clamp(1 + interactionState.memory * 0.8 + touchVoices.size * 0.05, 0.75, 1.9);
+  const pixelTargetFrequency = derivePixelFrequency(sharedPixelFeedback);
+  if (Math.abs(pixelTargetFrequency - currentFrequency) > 0.5) {
+    currentFrequency += (pixelTargetFrequency - currentFrequency) * lerpSpeed;
   } else {
-    // Close enough, snap to target
-    currentFrequency = targetFrequency;
+    currentFrequency = pixelTargetFrequency;
   }
+
+  for (const voice of touchVoices.values()) {
+    const targetFrequency = deriveVoiceFrequency({
+      x: voice.x,
+      y: voice.y,
+      screenWidth: screen.width,
+      screenHeight: screen.height
+    });
+
+    if (Math.abs(targetFrequency - voice.frequency) > 0.5) {
+      voice.frequency += (targetFrequency - voice.frequency) * 0.22;
+    } else {
+      voice.frequency = targetFrequency;
+    }
+
+    voice.sound?.update?.({
+      tone: voice.frequency
+    });
+  }
+}
+
+function leave() {
+  stopAllVoices(0.05);
 }
 
 // function boot() {
