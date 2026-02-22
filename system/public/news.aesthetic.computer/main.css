@@ -1835,6 +1835,42 @@ body {
   .news-item-title {
     font-size: 14pt;
   }
+
+  .news-item-meta {
+    font-size: 14pt;
+  }
+
+  .news-text {
+    font-size: 14pt;
+  }
+
+  .news-op-meta {
+    font-size: 14pt;
+  }
+
+  .news-op-body {
+    font-size: 14pt;
+  }
+
+  .news-comment-meta {
+    font-size: 14pt;
+  }
+
+  .news-comment-body {
+    font-size: 14pt;
+  }
+
+  .news-comment-form textarea {
+    font-size: 14pt;
+  }
+
+  .news-comment-form button[type="submit"] {
+    font-size: 14pt;
+  }
+
+  .news-comment-guidelines {
+    font-size: 14pt;
+  }
 }
 
 /* ===== Touch-friendly tap targets ===== */
