@@ -243,6 +243,11 @@ body {
   display: flex;
   align-items: center;
   gap: 4px;
+  visibility: hidden; /* Hidden until JS determines auth state */
+}
+
+.news-auth.ready {
+  visibility: visible;
 }
 
 /* ===== Auth Buttons (AC-style colored, compact, smaller text) ===== */

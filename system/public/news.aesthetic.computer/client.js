@@ -369,6 +369,10 @@ function updateAuthUI() {
     if (reportSection) reportSection.classList.remove('logged-in');
   }
   
+  // Reveal auth area now that state is determined
+  const authEl = document.querySelector('.news-auth');
+  if (authEl) authEl.classList.add('ready');
+
   // Update admin UI (delete buttons)
   updateAdminUI();
   
