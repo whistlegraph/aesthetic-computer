@@ -657,11 +657,7 @@ async function handleCommentSubmit(form) {
         <form class="news-admin-delete" data-news-action="delete" data-item-type="comment" data-item-id="${commentId}" data-handle="${acHandle}" method="post" action="/api/news/delete" style="display:inline-flex;">
           <input type="hidden" name="itemType" value="comment" />
           <input type="hidden" name="itemId" value="${commentId}" />
-          <button type="submit" class="news-delete-btn" title="Delete comment">
-            <svg class="news-x-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>
-            </svg>
-          </button>
+          <button type="submit" class="news-delete-btn" title="Delete comment">delete</button>
         </form>
       </div>
       <div class="news-comment-body">${escapeHtmlClient(text)}</div>

@@ -646,31 +646,21 @@ body {
 
 .news-delete-btn {
   background: none;
-  border: none;
+  border: 1px solid var(--text-meta);
   color: var(--text-meta);
   cursor: pointer;
-  padding: 0;
-  opacity: 0.5;
-  transition: opacity 0.15s, color 0.15s;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  margin-left: 6px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-family: inherit;
+  border-radius: 3px;
+  margin-left: 8px;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
 .news-delete-btn:hover {
-  opacity: 1;
   color: #c00;
-  background: rgba(200, 0, 0, 0.1);
-}
-
-/* X icon SVG - same style as kidlisp.com clear button */
-.news-x-icon {
-  width: 12px;
-  height: 12px;
+  border-color: #c00;
+  background: rgba(200, 0, 0, 0.08);
 }
 
 /* ===== Live Update Banner ===== */
