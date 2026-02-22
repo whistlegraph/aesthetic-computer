@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Aesthetic Computer
+Comment=Boot to Aesthetic Computer (Electron kiosk)
+Exec=/opt/ac/bin/aesthetic-computer.AppImage --no-sandbox --kiosk
+Icon=aesthetic-computer
+Terminal=false
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=2
+Categories=Graphics;Art;
