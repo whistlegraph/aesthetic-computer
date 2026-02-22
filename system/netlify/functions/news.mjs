@@ -751,14 +751,14 @@ async function renderItemPage(database, basePath, code) {
               <span class="news-item-title">
                 <a href="${url || '#'}" ${url ? 'target="_blank" rel="noreferrer"' : ""}>${postTitle}</a>
                 ${displayUrl ? `<span class="news-domain">(<a href="${url}" target="_blank" rel="noreferrer">${displayUrl}</a>)</span>` : ""}
-              </span>
-              <div class="news-item-meta">
-                ${atLinkHtml}
                 <form class="news-admin-delete" data-news-action="delete" data-item-type="post" data-item-id="${hydratedPost.code}" data-handle="${escapeHtml(hydratedPost.handle?.replace('@', '') || '')}" method="post" action="/api/news/delete" style="display:none;">
                   <input type="hidden" name="itemType" value="post" />
                   <input type="hidden" name="itemId" value="${hydratedPost.code}" />
                   <button type="submit" class="news-delete-btn" title="Delete post">delete</button>
                 </form>
+              </span>
+              <div class="news-item-meta">
+                ${atLinkHtml}
               </div>
             </td>
           </tr>

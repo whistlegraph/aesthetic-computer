@@ -604,20 +604,38 @@ Also updates VS Code task status bar to 'done'."
   (when (fboundp 'display-fill-column-indicator-mode)
     (display-fill-column-indicator-mode -1)))
 
-;; Auto-scroll eat terminals to bottom on new output
-(defun ac-eat-auto-scroll ()
-  "Scroll eat buffer to bottom when new output arrives - ALWAYS auto-scroll."
-  (when (derived-mode-p 'eat-mode)
-    ;; Always auto-scroll to bottom on any output
-    (let ((window (get-buffer-window (current-buffer))))
-      (when window
-        (with-selected-window window
-          (goto-char (point-max))
-          (recenter -1))))))
+;; Auto-scroll eat terminals to bottom on new output.
+;; Strategy: a single global idle timer scrolls all dirty visible buffers.
+;; The hook just marks buffers dirty (cheap hash-set op, no timer churn).
+;; This keeps overhead constant regardless of how many terminals produce output.
+(defvar ac--eat-dirty-bufs (make-hash-table :test 'eq)
+  "Set of eat buffers that received output since last scroll.")
 
-;; Add auto-scroll to eat-update-hook
+(defvar ac--eat-scroll-idle-timer nil
+  "Single global idle timer for eat auto-scroll.")
+
+(defun ac--eat-scroll-dirty ()
+  "Scroll all dirty eat buffers that have a visible window, then clear."
+  (maphash (lambda (buf _)
+             (when (buffer-live-p buf)
+               (let ((window (get-buffer-window buf)))
+                 (when window
+                   (with-selected-window window
+                     (goto-char (point-max))
+                     (recenter -1))))))
+           ac--eat-dirty-bufs)
+  (clrhash ac--eat-dirty-bufs))
+
+(defun ac-eat-auto-scroll ()
+  "Mark current eat buffer as needing scroll. Actual scroll happens on idle."
+  (when (derived-mode-p 'eat-mode)
+    (puthash (current-buffer) t ac--eat-dirty-bufs)))
+
+;; Single idle timer — fires 0.5s after Emacs goes idle, repeats every 1s
 (with-eval-after-load 'eat
-  (add-hook 'eat-update-hook #'ac-eat-auto-scroll))
+  (add-hook 'eat-update-hook #'ac-eat-auto-scroll)
+  (setq ac--eat-scroll-idle-timer
+        (run-with-idle-timer 0.5 t #'ac--eat-scroll-dirty)))
 
 (add-hook 'eshell-mode-hook 'disable-line-numbers-in-modes)
 (add-hook 'eat-mode-hook 'disable-line-numbers-in-modes)
@@ -967,8 +985,8 @@ Also updates VS Code task status bar to 'done'."
       eat-show-title-on-mode-line nil        ; We name buffers ourselves
       eat-term-scrollback-size 8192          ; 8KB - minimal scrollback
       eat-enable-auto-line-mode nil          ; Keep in semi-char mode
-      eat-minimum-latency 0.1                ; Batch output updates (100ms)
-      eat-maximum-latency 0.2                ; Max batch delay (200ms)
+      eat-minimum-latency 0.2                ; Batch output updates (200ms)
+      eat-maximum-latency 0.5                ; Max batch delay (500ms)
       eat-enable-blinking-text nil           ; Disable blinking
       eat-enable-mouse nil)                  ; Disable mouse support
 

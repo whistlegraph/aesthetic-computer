@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bio — Jeffrey Alan Scudder</title>
+  <meta name="author" content="Jeffrey Alan Scudder">
+  <meta name="description" content="Jeffrey Alan Scudder is an American artist, educator, and programmer working across digital painting, performance, and software.">
+  <link rel="icon" href="https://aesthetic.computer/favicon.ico">
+
+  <!-- Social sharing meta tags -->
+  <meta property="og:title" content="Bio — Jeffrey Alan Scudder" />
+  <meta property="og:description" content="Jeffrey Alan Scudder is an American artist, educator, and programmer working across digital painting, performance, and software." />
+  <meta property="og:url" content="https://justanothersystem.org/bio" />
+  <meta property="og:type" content="profile" />
+  <meta property="og:image" content="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--01.jpg" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Bio — Jeffrey Alan Scudder" />
+  <meta name="twitter:description" content="Jeffrey Alan Scudder is an American artist, educator, and programmer working across digital painting, performance, and software." />
+  <meta name="twitter:site" content="@whistlegraph" />
+  <meta name="twitter:image" content="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--01.jpg" />
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+    :root {
+      --bg: #faf9f6;
+      --fg: #1a1a1a;
+      --dim: #666;
+      --accent: #333;
+      --border: #ddd;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0a0a0a;
+        --fg: #f0f0f0;
+        --dim: #888;
+        --accent: #ccc;
+        --border: #333;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'IBM Plex Mono', monospace;
+      background: var(--bg);
+      color: var(--fg);
+      min-height: 100vh;
+      line-height: 1.7;
+      font-size: 14px;
+    }
+
+    .page {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 1.5rem;
+    }
+
+    header {
+      margin-bottom: 2rem;
+    }
+
+    header a {
+      color: var(--dim);
+      text-decoration: none;
+      font-size: 0.85rem;
+    }
+
+    header a:hover {
+      color: var(--fg);
+    }
+
+    .bio-layout {
+      display: flex;
+      gap: 2rem;
+      margin-bottom: 2.5rem;
+      align-items: flex-start;
+    }
+
+    .headshot {
+      flex-shrink: 0;
+      width: 200px;
+    }
+
+    .headshot img {
+      width: 100%;
+      display: block;
+      filter: grayscale(10%);
+    }
+
+    .bio-header {
+      flex: 1;
+    }
+
+    .bio-header h1 {
+      font-size: 1.2rem;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      margin-bottom: 0.5rem;
+    }
+
+    .bio-header .tagline {
+      color: var(--dim);
+      font-size: 0.85rem;
+      margin-bottom: 1rem;
+    }
+
+    .bio-header .links {
+      font-size: 0.8rem;
+    }
+
+    .bio-header .links a {
+      color: var(--dim);
+      text-decoration: none;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .bio-header .links a:hover {
+      color: var(--fg);
+      border-color: var(--fg);
+    }
+
+    .bio-text {
+      margin-bottom: 2.5rem;
+    }
+
+    .bio-text p {
+      margin-bottom: 1rem;
+    }
+
+    section {
+      margin-bottom: 2rem;
+    }
+
+    section h2 {
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--dim);
+      margin-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.35rem;
+    }
+
+    section ul {
+      list-style: none;
+      font-size: 0.85rem;
+    }
+
+    section ul li {
+      padding: 0.2rem 0;
+    }
+
+    section ul li .year {
+      color: var(--dim);
+      display: inline-block;
+      min-width: 3.5rem;
+    }
+
+    section a {
+      color: var(--fg);
+      text-decoration: none;
+      border-bottom: 1px solid var(--border);
+    }
+
+    section a:hover {
+      border-color: var(--fg);
+    }
+
+    .contact {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.85rem;
+      color: var(--dim);
+    }
+
+    .contact a {
+      color: var(--dim);
+      text-decoration: none;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .contact a:hover {
+      color: var(--fg);
+      border-color: var(--fg);
+    }
+
+    @media (max-width: 560px) {
+      .bio-layout {
+        flex-direction: column;
+        gap: 1.5rem;
+      }
+
+      .headshot {
+        width: 100%;
+        max-width: 280px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <header>
+      <a href="/">&larr; justanothersystem.org</a>
+    </header>
+
+    <div class="bio-layout">
+      <div class="headshot">
+        <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--01.jpg" alt="Jeffrey Alan Scudder">
+      </div>
+      <div class="bio-header">
+        <h1>Jeffrey Alan Scudder</h1>
+        <div class="tagline">b. 1989, Assonet, MA</div>
+        <div class="links">
+          <a href="https://aesthetic.computer">aesthetic.computer</a> &middot;
+          <a href="https://jas.life">jas.life</a> &middot;
+          <a href="https://whistlegraph.com">whistlegraph</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="bio-text">
+      <p>
+        Jeffrey Alan Scudder is an American artist, educator, and software programmer whose practice spans digital painting, lecture performance, instrument building, and creative computing. His work develops computational and conceptual tools that redefine approaches to traditional drawing and painting, grounded in an attention to digital materiality and the politics of picture-making.
+      </p>
+      <p>
+        Central to Scudder's practice is <em>Radical Digital Painting</em>, a framework he has articulated through a widely circulated manifesto, lecture performances, and exhibitions since 2017. The project advances an optimistic position on painting's future, beginning from the assertion that "painting is just a kind of picture message," and proposing that digital tools are not supplements to painting but its next material ground.
+      </p>
+      <p>
+        Scudder is the creator of <a href="https://aesthetic.computer">Aesthetic Computer</a>, a mobile-first runtime and social network for creative computing, and co-founder of <a href="https://whistlegraph.com">Whistlegraph</a>, a performance group whose TikTok account has reached over 1.3 million followers through musical drawing tutorials and lecture-performances. His software works include <a href="https://nopaint.art">No Paint</a>, a constraint-based drawing application, and <a href="https://kidlisp.com">KidLisp</a>, a minimal programming language for generative art.
+      </p>
+      <p>
+        He holds an MFA from Yale School of Art (Sculpture, 2013) and a BFA from Ringling College of Art and Design (Fine Art, 2011). He has taught at Parsons School of Design and UCLA Design Media Arts, and has held a position as Assistant Professor of Emerging Digital Practices at Southern Oregon University.
+      </p>
+    </div>
+
+    <section>
+      <h2>Selected Exhibitions &amp; Presentations</h2>
+      <ul>
+        <li><span class="year">2023</span> <a href="https://wild.xyz/jeffrey-scudder/hell-world">hell_ world</a>, Wild.xyz</li>
+        <li><span class="year">2022</span> <a href="https://feralfile.com/exhibitions/ten-whistlegraphs-thv">Ten Whistlegraphs</a>, Feral File</li>
+        <li><span class="year">2019</span> Artist in Residence, Internet Archive, San Francisco</li>
+        <li><span class="year">2018</span> <a href="https://media.ccc.de/v/35c3-9774-radical_digital_painting">Radical Digital Painting</a>, 35th Chaos Communication Congress (35c3)</li>
+        <li><span class="year">2018</span> <a href="http://www.johannesvogt.nyc/jeffrey-scudder-and-julia-yerger-radical-digital-painting">Radical Digital Painting</a> (w/ Julia Yerger), Johannes Vogt Gallery, NYC</li>
+        <li><span class="year">2018</span> Hash Award, <a href="https://zkm.de/en/person/jeffrey-alan-scudder">ZKM Center for Art and Media Karlsruhe</a></li>
+        <li><span class="year">2018</span> Radical Digital Painting, Pioneer Works, Brooklyn</li>
+        <li><span class="year">2017</span> Web Residency, <a href="https://schloss-post.com/person/jeffrey-alan-scudder/">Akademie Schloss Solitude</a></li>
+        <li><span class="year">2017</span> <a href="https://schloss-post.com/manifesto-radical-digital-painting/">A Manifesto for Radical Digital Painting</a>, Schlosspost</li>
+        <li><span class="year">2017</span> In the Grid, Babycastles, NYC</li>
+        <li><span class="year">2017</span> TIME_FRAME Exhibition, GIPHY, NYC</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Selected Lectures</h2>
+      <ul>
+        <li>Yale University, Harvard, Rhode Island School of Design, Oberlin College, UCLA, UC Santa Barbara, Cooper Union, Temple University, Rutgers, SUNY Purchase</li>
+        <li>The Vera List Center for Art and Politics, AIGA</li>
+        <li>Bauhaus University Weimar, Estonian Academy of Arts, Royal Swedish Academy of Fine Arts, Jan Van Eyck Academie, Sibelius Academy, Oslo National Academy of the Arts, Iceland Academy of the Arts, University of Fine Arts Hamburg, ZKM Karlsruhe</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Education</h2>
+      <ul>
+        <li><span class="year">2013</span> MFA, Sculpture, Yale School of Art</li>
+        <li><span class="year">2011</span> BFA, Fine Art, Ringling College of Art and Design</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Selected Press &amp; Writing</h2>
+      <ul>
+        <li><a href="https://rhizome.org/editorial/2017/dec/05/Artist-Profile-Jeffrey-Alan-Scudder/">Artist Profile: Jeffrey Alan Scudder</a>, Rhizome (2017)</li>
+        <li><a href="https://thecreativeindependent.com/weekends/drawing-is-the-best-videogame-by-jeffrey-alan-scudder/">Drawing is the Best Videogame</a>, The Creative Independent</li>
+        <li><a href="https://schloss-post.com/manifesto-radical-digital-painting/">A Manifesto for Radical Digital Painting</a>, Schlosspost (2017)</li>
+        <li><a href="https://www.theartword.com/content/jeffrey-alan-scudder">The Artword Podcast</a></li>
+      </ul>
+    </section>
+
+    <div class="contact">
+      <a href="mailto:jeffrey@aesthetic.computer">jeffrey@aesthetic.computer</a>
+    </div>
+
+  </div>
+</body>
+</html>
