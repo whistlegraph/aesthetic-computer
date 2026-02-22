@@ -533,6 +533,7 @@ export const handler = stream(async (event, context) => {
       
       // Send piece details for client display
       const ownerHandle = await handleFor(piece.user);
+      const pieceSourceHash = hashSource(piece.source || "");
       await send("progress", { 
         stage: "details", 
         piece: pieceName,
@@ -595,7 +596,9 @@ export const handler = stream(async (event, context) => {
               fps: 10,
               playbackFps: 20,
               quality: 70,
-              skipCache: true, // Force fresh grab to ensure we have buffer for IPFS upload
+              // Source-aware cache key lets oven reuse only when source + constraints match.
+              cacheKey: `src-${pieceSourceHash}`,
+              skipCache: false,
               pinataKey: pinataCredentials.apiKey,
               pinataSecret: pinataCredentials.apiSecret,
             }),
@@ -810,7 +813,7 @@ export const handler = stream(async (event, context) => {
             ipfsMedia: {
               artifactUri,
               thumbnailUri,
-              sourceHash: hashSource(piece.source || ""),
+              sourceHash: pieceSourceHash,
               authorHandle,
               userCode,
               packDate,
@@ -852,7 +855,7 @@ export const handler = stream(async (event, context) => {
                   artifactUri,
                   thumbnailUri,
                   createdAt: new Date(),
-                  sourceHash: hashSource(piece.source || ""),
+                  sourceHash: pieceSourceHash,
                 }
               }
             }

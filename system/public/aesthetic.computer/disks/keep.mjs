@@ -1138,8 +1138,9 @@ function syntaxHighlightKidlisp(source) {
   }
 }
 
-async function runProcess(forceRegenerate = false) {
-  console.log("🪙 KEEP: Starting mint process for $" + piece + (forceRegenerate ? " (force regenerate)" : ""));
+async function runProcess(forceRegenerate = false, retryAttempt = 0) {
+  const retryLabel = retryAttempt > 0 ? ` (retry ${retryAttempt})` : "";
+  console.log("🪙 KEEP: Starting mint process for $" + piece + (forceRegenerate ? " (force regenerate)" : "") + retryLabel);
   console.log("🪙 KEEP: Network:", NETWORK, "Contract:", KEEPS_CONTRACT);
   console.log("🪙 KEEP: Staging mode:", KEEPS_STAGING);
 
@@ -1404,10 +1405,19 @@ async function runProcess(forceRegenerate = false) {
     if (!preparedData) {
       const lastStage = lastEventData?.stage || lastEventType || "unknown";
       const tail = lastEventData?.message ? ` (last: ${lastEventData.message})` : "";
-      if (!forceRegenerate && !mintCancelled) {
-        setStep("validate", "active", `Retrying with regenerate… (${lastStage})`);
-        await delay(350);
-        return await runProcess(true);
+      if (!mintCancelled) {
+        // First retry should reuse any just-cached media from the previous attempt.
+        if (!forceRegenerate && retryAttempt === 0) {
+          setStep("validate", "active", `Retrying without regenerate… (${lastStage})`);
+          await delay(350);
+          return await runProcess(false, retryAttempt + 1);
+        }
+        // Only force regenerate after a cache-based retry also fails.
+        if (!forceRegenerate && retryAttempt === 1) {
+          setStep("validate", "active", `Retrying with regenerate… (${lastStage})`);
+          await delay(350);
+          return await runProcess(true, retryAttempt + 1);
+        }
       }
       setStep("validate", "error", `Server did not return prepared data (${lastStage})${tail}`);
     }
