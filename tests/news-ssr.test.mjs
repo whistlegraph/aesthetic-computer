@@ -73,7 +73,7 @@ function makeCollection(initial = []) {
 
 function makeDatabase() {
   const post = {
-    code: "abc123",
+    code: "nabc123",
     title: "Hello News",
     url: "https://example.com",
     user: "user-1",
@@ -83,7 +83,7 @@ function makeDatabase() {
     status: "live",
   };
   const comment = {
-    postCode: "abc123",
+    postCode: "nabc123",
     text: "Nice!",
     user: "user-1",
     when: new Date(),
@@ -127,7 +127,7 @@ async function testItemPageRendersComments() {
   const res = await handler({
     httpMethod: "GET",
     headers: { host: "localhost:8888" },
-    queryStringParameters: { path: "item/abc123" },
+    queryStringParameters: { path: "nabc123" },
   });
   assert.equal(res.statusCode, 200, "item page should render");
   assert.ok(res.body.includes("Nice!"), "comment text should render");

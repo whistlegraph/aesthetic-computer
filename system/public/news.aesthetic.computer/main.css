@@ -17,8 +17,8 @@ p, h1, h2, h3, h4, h5, h6 { overflow-wrap: break-word; }
 
 /* ===== Light Theme (default) ===== */
 :root {
-  --bg-page: #fffacd; /* Legal pad yellow like kidlisp.com */
-  --bg-body: #fff; /* White backdrop */
+  --bg-page: #fff5f3; /* Warm off-white with light pink tint */
+  --bg-body: #fff5f3; /* Matching warm backdrop */
   --bg-header: rgb(205, 92, 155);
   --bg-secondary: #fff8dc;
   --bg-input: white;
@@ -75,9 +75,9 @@ p, h1, h2, h3, h4, h5, h6 { overflow-wrap: break-word; }
 
 /* Manual theme overrides */
 [data-theme="light"] {
-  --bg-page: #f6f6ef;
+  --bg-page: #fff5f3;
   --bg-header: rgb(205, 92, 155);
-  --bg-secondary: #fafaf5;
+  --bg-secondary: #fff0ed;
   --bg-input: white;
   --text-primary: #000;
   --text-secondary: #828282;
@@ -1750,6 +1750,65 @@ body {
   
   .news-nav {
     font-size: 10px;
+  }
+}
+
+/* ===== Desktop: larger header ===== */
+@media (min-width: 751px) {
+  .news-header {
+    padding: 6px 8px;
+    font-size: 14pt;
+    line-height: 18px;
+  }
+
+  .news-logo-icon {
+    width: 26px;
+    height: 26px;
+    font-size: 15px;
+  }
+
+  .news-logo a {
+    font-size: 14pt;
+  }
+
+  .news-nav {
+    font-size: 14pt;
+  }
+
+  .header-login-btn {
+    padding: 6px 12px;
+    font-size: 11pt;
+    line-height: 14px;
+  }
+
+  .header-user-handle {
+    font-size: 11pt;
+    line-height: 14px;
+  }
+
+  /* Uniform font size: headlines, rank, meta, domain, footer */
+  .news-title {
+    font-size: 14pt;
+  }
+
+  .news-rank {
+    font-size: 14pt;
+  }
+
+  .news-domain {
+    font-size: 14pt;
+  }
+
+  .news-meta {
+    font-size: 14pt;
+  }
+
+  .news-footer {
+    font-size: 14pt;
+  }
+
+  .news-item-title {
+    font-size: 14pt;
   }
 }
 
