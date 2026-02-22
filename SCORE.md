@@ -155,6 +155,9 @@ The development environment uses Emacs with named terminal buffers. Use Emacs MC
 - `ac-watch` — Watch and rebuild (alias for `npm run watch`)
 - `ac-repl` — Start REPL
 
+#### KidLisp Tools
+- `ac-st` — KidLisp source tree viewer (`ac-st cow`, `ac-st $cow`, `ac-st cow --source`)
+
 #### Testing & Debugging
 - `ac-test-tabs` — Test tab functionality
 - `ac-diagnose` — Run diagnostics
