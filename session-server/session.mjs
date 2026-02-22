@@ -68,6 +68,10 @@ function getModuleHash(modulePath) {
   }
 }
 
+// Fairy:point throttle (for silo firehose visualization)
+const fairyThrottle = new Map(); // channelId -> last publish timestamp
+const FAIRY_THROTTLE_MS = 100; // 10Hz max per connection
+
 // Error logging ring buffer (for dashboard display)
 const errorLog = [];
 const MAX_ERRORS = 50;
@@ -2508,6 +2512,7 @@ io.onConnection((channel) => {
   channel.onDisconnect(() => {
     log(`🩰 ${channel.id} got disconnected`);
     delete udpChannels[channel.id];
+    fairyThrottle.delete(channel.id);
     
     // Clean up client record if no longer connected via any protocol
     if (clients[channel.id]) {
@@ -2545,6 +2550,14 @@ io.onConnection((channel) => {
       try {
         channel.broadcast.emit("fairy:point", data);
         // ^ emit the to all channels in the same room except the sender
+
+        // Publish to Redis for silo firehose visualization (throttled ~10Hz)
+        const now = Date.now();
+        const last = fairyThrottle.get(channel.id) || 0;
+        if (now - last >= FAIRY_THROTTLE_MS) {
+          fairyThrottle.set(channel.id, now);
+          pub.publish("fairy:point", data).catch(() => {});
+        }
       } catch (err) {
         console.warn("Broadcast error:", err);
       }
