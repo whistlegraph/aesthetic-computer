@@ -300,7 +300,7 @@ export function createHandler({
 
           const shortCode = await generateUniqueCodeFn(posts, { mode: "random" });
           const now = new Date();
-          const code = shortCode; // e.g., "icd" (no prefix sigil, like paintings)
+          const code = `n${shortCode}`; // n-prefixed news code, e.g. "nicd"
           const doc = {
             code,
             title,
@@ -339,7 +339,7 @@ export function createHandler({
             }
           }).catch(e => console.error('ATProto sync error:', e));
 
-          const redirectTo = `${resolveBasePath(event)}/item/${code}`;
+          const redirectTo = `${resolveBasePath(event)}/${code}`;
           if (wantsHtml(event)) {
             return redirect(redirectTo);
           }
@@ -376,7 +376,7 @@ export function createHandler({
           });
           await posts.updateOne({ code: postCode }, { $inc: { commentCount: 1 } });
 
-          const redirectTo = `${resolveBasePath(event)}/item/${postCode}`;
+          const redirectTo = `${resolveBasePath(event)}/${postCode}`;
           if (wantsHtml(event)) {
             return redirect(redirectTo);
           }

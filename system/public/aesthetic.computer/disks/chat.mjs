@@ -2217,7 +2217,7 @@ function act(
       beep();
       const latest = newsHeadlines[0];
       const target = latest?.code
-        ? `out:https://news.aesthetic.computer/item/${latest.code}`
+        ? `out:https://news.aesthetic.computer/${latest.code}`
         : "out:https://news.aesthetic.computer";
       jump(target);
     }

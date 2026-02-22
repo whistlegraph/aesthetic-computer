@@ -147,7 +147,7 @@ async function testSubmitCreatesPostAndVote() {
   });
   const payload = JSON.parse(res.body);
   assert.equal(res.statusCode, 200, "submit should return ok");
-  assert.equal(payload.code, "abc123", "submit should return generated code");
+  assert.equal(payload.code, "nabc123", "submit should return n-prefixed code");
   const posts = database.db.collection("news-posts").docs;
   const votes = database.db.collection("news-votes").docs;
   assert.equal(posts.length, 1, "post should be inserted");
@@ -159,7 +159,7 @@ async function testCommentIncrementsCount() {
     httpMethod: "POST",
     headers: {},
     queryStringParameters: { path: "comment" },
-    body: "postCode=abc123&text=Nice",
+    body: "postCode=nabc123&text=Nice",
   });
   assert.equal(res.statusCode, 200, "comment should succeed");
   const post = database.db.collection("news-posts").docs[0];
@@ -171,7 +171,7 @@ async function testDuplicateVoteReturnsDuplicateFlag() {
     httpMethod: "POST",
     headers: {},
     queryStringParameters: { path: "vote" },
-    body: "itemType=post&itemId=abc123&dir=1",
+    body: "itemType=post&itemId=nabc123&dir=1",
   };
   const first = await handler(event);
   assert.equal(first.statusCode, 200, "first vote should succeed");

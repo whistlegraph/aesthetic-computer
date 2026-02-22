@@ -147,7 +147,7 @@ export async function handler(event, context) {
     
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
-      success_url: `${baseUrl}/item/${postCode}?toll=paid`,
+      success_url: `${baseUrl}/${postCode}?toll=paid`,
       cancel_url: `${baseUrl}/report?toll=cancelled&code=${postCode}`,
       line_items: [
         {
