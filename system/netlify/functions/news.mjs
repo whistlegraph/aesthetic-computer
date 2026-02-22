@@ -469,13 +469,13 @@ function renderPostRow(post, idx, basePath) {
       return path;
     } catch { return ""; }
   })() : "";
-  const itemUrl = `${basePath}/item/${post.code}`;
+  const itemUrl = `${basePath}/${post.code}`;
   return `
   <div class="news-row">
     <div class="news-rank">${idx + 1}.</div>
     <div class="news-content">
       <div class="news-title">
-        <a href="${url || itemUrl}" ${url ? 'target="_blank" rel="noreferrer"' : ""}>${title}</a>
+        <a href="${itemUrl}">${title}</a>
         ${displayUrl ? `<span class="news-domain">(<a href="${url}" target="_blank" rel="noreferrer">${displayUrl}</a>)</span>` : ""}
       </div>
       <div class="news-meta">
@@ -870,11 +870,16 @@ export function createHandler({ connect: connectFn = connect, respond: respondFn
       } else if (route === "new") {
         title = "New | Aesthetic News";
         body = await renderFrontPage(database, basePath, "new");
-      } else if (route.startsWith("item/")) {
-        const code = route.split("/").slice(1).join("/");
+      } else if (route.startsWith("n")) {
+        const code = route; // whole route IS the n-prefixed code, e.g. "nabc"
         const result = await renderItemPage(database, basePath, code);
         body = result.body || result;
         title = result.title || "Aesthetic News";
+      } else if (route.startsWith("item/")) {
+        // Backward compat: redirect old /item/CODE to /nCODE
+        const oldCode = route.slice(5);
+        await database.disconnect();
+        return respondFn(301, "", { Location: `${basePath}/n${oldCode}`, "Content-Type": "text/html" });
       } else if (route === "report" || route === "submit") {
         title = "Report · Aesthetic News";
         body = await renderReportPage(basePath);
