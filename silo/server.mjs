@@ -329,6 +329,32 @@ async function connectRedis() {
   }
 }
 
+// --- Redis Subscriber (for fairy:point from session server) ---
+let redisSub;
+
+async function connectRedisSub() {
+  const url = process.env.REDIS_CONNECTION_STRING;
+  if (!url) return;
+  try {
+    redisSub = createClient({ url });
+    redisSub.on("error", (err) => log("error", `redis sub error: ${err.message}`));
+    await redisSub.connect();
+
+    await redisSub.subscribe("fairy:point", (message) => {
+      if (wss?.clients) {
+        try {
+          const payload = JSON.stringify({ fairyPoint: JSON.parse(message) });
+          wss.clients.forEach((c) => c.readyState === 1 && c.send(payload));
+        } catch {}
+      }
+    });
+
+    log("info", "redis subscriber connected (fairy:point)");
+  } catch (err) {
+    log("error", `redis sub connect failed: ${err.message}`);
+  }
+}
+
 // --- S3 (DigitalOcean Spaces) ---
 const s3 = new S3Client({
   endpoint: process.env.SPACES_ENDPOINT,
@@ -1203,6 +1229,7 @@ await ensureFirehoseCollection();
 startFirehose();
 await connectAtlas();
 await connectRedis();
+await connectRedisSub();
 
 server.listen(PORT, () => {
   const proto = dev ? "https" : "http";
@@ -1218,6 +1245,7 @@ function shutdown(signal) {
   mongoClient?.close();
   if (atlasClient && atlasClient !== mongoClient) atlasClient?.close();
   redisClient?.quit().catch(() => {});
+  redisSub?.quit().catch(() => {});
   setTimeout(() => process.exit(0), 500);
 }
 process.on("SIGTERM", () => shutdown("SIGTERM"));
