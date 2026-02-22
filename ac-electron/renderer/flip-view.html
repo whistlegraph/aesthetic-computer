@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <script>if(new URLSearchParams(location.search).get('wm')==='paper')document.documentElement.classList.add('paperwm')</script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AC Pane</title>
   <link rel="stylesheet" href="../node_modules/@xterm/xterm/css/xterm.css">
@@ -636,6 +637,40 @@
       pointer-events: none !important;
     }
 
+    /* PaperWM: full-bleed webview only, no card chrome, no back face */
+    html.paperwm { background: #000; }
+    html.paperwm body { perspective: none; }
+    html.paperwm .flip-perspective {
+      top: 0; left: 0; right: 0; bottom: 0;
+      perspective: none;
+    }
+    html.paperwm .flip-card {
+      transform-style: flat;
+      transition: none;
+    }
+    html.paperwm .card-face {
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+    }
+    html.paperwm .card-back,
+    html.paperwm .flip-tab,
+    html.paperwm .mode-tags,
+    html.paperwm .volume-control,
+    html.paperwm .backend-controls,
+    html.paperwm .resize-handle,
+    html.paperwm .resize-overlay {
+      display: none !important;
+    }
+    html.paperwm .card-front {
+      position: absolute;
+      inset: 0;
+    }
+    html.paperwm .card-front webview {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
   </style>
 </head>
 <body>
@@ -720,10 +755,12 @@
   </div> <!-- close flip-perspective -->
 
   <script>
-    const { Terminal } = require('@xterm/xterm');
-    const { FitAddon } = require('@xterm/addon-fit');
-    const { WebglAddon } = require('@xterm/addon-webgl');
+    const isPaperWM = document.documentElement.classList.contains('paperwm');
     const { ipcRenderer } = require('electron');
+    // Only load terminal deps if we have a back face
+    const Terminal = isPaperWM ? null : require('@xterm/xterm').Terminal;
+    const FitAddon = isPaperWM ? null : require('@xterm/addon-fit').FitAddon;
+    const WebglAddon = isPaperWM ? null : require('@xterm/addon-webgl').WebglAddon;
     
     const flipCard = document.querySelector('.flip-card');
     const webviewEl = document.getElementById('front-webview');
@@ -1087,8 +1124,13 @@
     });
     
     // ========== Terminal Setup ==========
-    const terminalContainer = document.getElementById('terminal-container');
+    if (isPaperWM) {
+      // PaperWM: no terminal, no back face — just the webview
+      var term = null, fitTerminal = () => {}, fitAddon = null;
+    }
+    const terminalContainer = !isPaperWM ? document.getElementById('terminal-container') : null;
     
+    if (!isPaperWM) {
     // Theme definitions for terminal
     const darkTermTheme = {
       background: '#0a0a12',
@@ -1317,6 +1359,7 @@
     
     // Start gathering info immediately
     gatherSystemInfo();
+    } // end if (!isPaperWM)
 
     // ========== Toggle Logic ==========
     let rotationAngle = 0; // Track cumulative rotation
@@ -1369,7 +1412,7 @@
       console.log('[flip] Will show', willShowTerminal ? 'terminal' : 'webview', 'rotation:', rotationAngle, 'normalized:', normalized);
       
       // After flip completes, fit terminal and focus if showing terminal
-      if (willShowTerminal) {
+      if (willShowTerminal && term) {
         setTimeout(() => {
           fitTerminal();
           term.focus();

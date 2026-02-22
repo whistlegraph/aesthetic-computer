@@ -99,89 +99,130 @@ fi
 cp "$KS_SRC" "$MOUNT_DIR/fedac.ks"
 echo -e "  Copied to ${GREEN}$MOUNT_DIR/fedac.ks${NC}"
 
-# ── 2. Find and read existing GRUB config ──
-echo -e "${CYAN}[2/3] Patching GRUB config...${NC}"
+# ── 2. Install GRUB theme ──
+echo -e "${CYAN}[2/4] Installing GRUB theme...${NC}"
 
-# Find the grub.cfg (could be in several places)
-GRUB_CFG=""
-for candidate in \
-  "$MOUNT_DIR/EFI/BOOT/grub.cfg" \
-  "$MOUNT_DIR/EFI/fedora/grub.cfg" \
-  "$MOUNT_DIR/boot/grub2/grub.cfg"; do
-  if [ -f "$candidate" ]; then
-    GRUB_CFG="$candidate"
-    break
+THEME_SRC="$FEDAC_DIR/grub-theme"
+THEME_DST="$MOUNT_DIR/EFI/BOOT/fedac-theme"
+
+mkdir -p "$THEME_DST"
+
+# Copy theme.txt (always from repo)
+if [ -f "$THEME_SRC/theme.txt" ]; then
+  cp "$THEME_SRC/theme.txt" "$THEME_DST/"
+  echo -e "  theme.txt"
+fi
+
+# Copy generated assets if they exist, otherwise generate on the fly
+NEED_GENERATE=false
+for asset in background.png DejaVuSansBold36.pf2 DejaVuSans18.pf2 DejaVuSans10.pf2 select_c.png menu_c.png; do
+  if [ -f "$THEME_SRC/$asset" ]; then
+    cp "$THEME_SRC/$asset" "$THEME_DST/"
+    echo -e "  $asset"
+  else
+    NEED_GENERATE=true
   fi
 done
 
-if [ -z "$GRUB_CFG" ]; then
-  echo -e "${RED}Could not find grub.cfg on EFI partition${NC}"
-  ls -laR "$MOUNT_DIR/"
+if [ "$NEED_GENERATE" = true ]; then
+  echo -e "  ${YELLOW}Some theme assets missing — generating...${NC}"
+  if [ -x "$THEME_SRC/prepare-theme.sh" ]; then
+    bash "$THEME_SRC/prepare-theme.sh"
+    # Re-copy generated files
+    for asset in background.png DejaVuSansBold36.pf2 DejaVuSans18.pf2 DejaVuSans10.pf2 select_c.png menu_c.png; do
+      if [ -f "$THEME_SRC/$asset" ]; then
+        cp "$THEME_SRC/$asset" "$THEME_DST/"
+      fi
+    done
+  else
+    echo -e "  ${YELLOW}Warning: prepare-theme.sh not found, theme may be incomplete${NC}"
+  fi
+fi
+
+echo -e "  ${GREEN}Theme installed to EFI${NC}"
+
+# ── 3. Patch GRUB config ──
+echo -e "${CYAN}[3/4] Patching GRUB config...${NC}"
+
+GRUB_CFG="$MOUNT_DIR/EFI/BOOT/grub.cfg"
+if [ ! -f "$GRUB_CFG" ]; then
+  echo -e "${RED}No EFI/BOOT/grub.cfg found${NC}"
   umount "$MOUNT_DIR"
   rmdir "$MOUNT_DIR"
   exit 1
 fi
 
-echo -e "  Found: ${GREEN}$GRUB_CFG${NC}"
-
 # Back up original
 cp "$GRUB_CFG" "${GRUB_CFG}.orig"
-echo -e "  Backed up to ${GRUB_CFG}.orig"
+echo -e "  Backed up original grub.cfg"
 
-# Extract the original linux/initrd lines from the first menuentry
-# We need the kernel path, initrd path, and boot params
-LINUX_LINE=$(grep -m1 '^\s*linux\|^\s*linuxefi' "$GRUB_CFG" || true)
-INITRD_LINE=$(grep -m1 '^\s*initrd\|^\s*initrdefi' "$GRUB_CFG" || true)
+CDLABEL="Fedora-WS-Live-43"
 
-if [ -z "$LINUX_LINE" ]; then
-  echo -e "${YELLOW}Warning: Could not find linux/linuxefi line in grub.cfg${NC}"
-  echo -e "${YELLOW}Writing generic FedAC grub.cfg...${NC}"
-  # Generic fallback
-  LINUX_CMD="linuxefi"
-  LINUX_ARGS="/images/pxeboot/vmlinuz root=live:CDLABEL=Fedora-WS-Live-43-1-6 rd.live.image quiet"
-  INITRD_CMD="initrdefi"
-  INITRD_ARGS="/images/pxeboot/initrd.img"
-else
-  # Parse the existing line
-  LINUX_CMD=$(echo "$LINUX_LINE" | awk '{print $1}')
-  # Get everything after the command (kernel path + args)
-  LINUX_ARGS=$(echo "$LINUX_LINE" | sed "s/^[[:space:]]*${LINUX_CMD}[[:space:]]*//")
-  INITRD_CMD=$(echo "$INITRD_LINE" | awk '{print $1}')
-  INITRD_ARGS=$(echo "$INITRD_LINE" | sed "s/^[[:space:]]*${INITRD_CMD}[[:space:]]*//")
-fi
+echo -e "${CYAN}[4/4] Writing FedAC GRUB config...${NC}"
 
-echo -e "  Kernel: $LINUX_CMD $LINUX_ARGS"
-
-# ── 3. Write new GRUB config ──
-echo -e "${CYAN}[3/3] Writing FedAC GRUB config...${NC}"
-
-cat > "$GRUB_CFG" << GRUBEOF
+cat > "$GRUB_CFG" << 'GRUBEOF'
 # FedAC — Fedora Boot-to-Aesthetic-Computer
 # Auto-patched by fedac/scripts/patch-usb.sh
 
 set default=0
-set timeout=3
+set timeout=5
 
-# Purple theme
-set color_normal=magenta/black
-set color_highlight=white/magenta
+# ── Graphics modules ──
+if [ "$grub_platform" == "efi" ]; then
+  insmod efi_gop
+  insmod efi_uga
+fi
+insmod all_video
+insmod gzio
+insmod part_gpt
+insmod ext2
+insmod png
+insmod font
 
-menuentry "FedAC — Install Aesthetic Computer" {
-  $LINUX_CMD $LINUX_ARGS inst.ks=hd:LABEL=EFI\\\\SYSTPART:/fedac.ks
-  $INITRD_CMD $INITRD_ARGS
+# ── Save EFI partition root before search changes it ──
+set efi_root=$root
+
+# ── Load fonts from EFI partition (before $root changes) ──
+loadfont ($efi_root)/EFI/BOOT/fedac-theme/DejaVuSansBold36.pf2
+loadfont ($efi_root)/EFI/BOOT/fedac-theme/DejaVuSans18.pf2
+loadfont ($efi_root)/EFI/BOOT/fedac-theme/DejaVuSans10.pf2
+
+# ── Switch to graphical terminal ──
+set gfxmode=auto
+set gfxpayload=keep
+terminal_input console
+terminal_output gfxterm
+
+# ── Load theme from EFI partition ──
+if [ -f ($efi_root)/EFI/BOOT/fedac-theme/theme.txt ]; then
+  set theme=($efi_root)/EFI/BOOT/fedac-theme/theme.txt
+else
+  set color_normal=magenta/black
+  set color_highlight=white/magenta
+fi
+
+# ── Find Fedora live partition (changes $root) ──
+search --file --set=root /boot/0x4da30161
+
+menuentry "  FedAC — Install Aesthetic Computer" --class fedora {
+  linux ($root)/boot/x86_64/loader/linux quiet rhgb root=live:CDLABEL=FEDAC_CDLABEL rd.live.image inst.ks=https://raw.githubusercontent.com/whistlegraph/aesthetic-computer/main/fedac/kickstart/fedac-thinkpad.ks
+  initrd ($root)/boot/x86_64/loader/initrd
 }
 
-menuentry "FedAC — Install (manual, no kickstart)" {
-  $LINUX_CMD $LINUX_ARGS
-  $INITRD_CMD $INITRD_ARGS
+menuentry "  FedAC — Live Desktop (no install)" --class fedora {
+  linux ($root)/boot/x86_64/loader/linux quiet rhgb root=live:CDLABEL=FEDAC_CDLABEL rd.live.image
+  initrd ($root)/boot/x86_64/loader/initrd
 }
 
-menuentry "Boot from local drive" {
+menuentry "  Boot from local drive" {
   exit
 }
 GRUBEOF
 
-echo -e "  ${GREEN}GRUB config written${NC}"
+# Substitute the CDLABEL placeholder
+sed -i "s/FEDAC_CDLABEL/${CDLABEL}/g" "$GRUB_CFG"
+
+echo -e "  ${GREEN}GRUB config written (graphical theme)${NC}"
 echo ""
 
 # ── Done ──
@@ -191,9 +232,9 @@ rmdir "$MOUNT_DIR"
 
 echo -e "${GREEN}=== USB patched ===${NC}"
 echo ""
-echo -e "Boot menu will show:"
-echo -e "  ${PURPLE}1. FedAC — Install Aesthetic Computer${NC}  (auto-selected after 3s)"
-echo -e "  2. FedAC — Install (manual, no kickstart)"
+echo -e "Boot menu will show (with pals logo + large text):"
+echo -e "  ${PURPLE}1. FedAC — Install Aesthetic Computer${NC}  (auto-selected after 5s)"
+echo -e "  2. FedAC — Live Desktop (no install)"
 echo -e "  3. Boot from local drive"
 echo ""
 echo -e "The kickstart at ${GREEN}/fedac.ks${NC} on the EFI partition will automate the install."

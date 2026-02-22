@@ -52,8 +52,23 @@ function getAppPath(relativePath) {
 // macOS Tahoe + Chromium fontations workaround (testing with Electron 39 / Chromium M142)
 // Disable problematic font features that may trigger fontations_ffi crash
 app.commandLine.appendSwitch('disable-features', 'FontationsFontBackend,Fontations');
-// Use Metal for GPU acceleration on macOS
-app.commandLine.appendSwitch('use-angle', 'metal');
+if (process.platform === 'darwin') {
+  app.commandLine.appendSwitch('use-angle', 'metal');
+} else if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('enable-gpu-rasterization');
+  app.commandLine.appendSwitch('enable-zero-copy');
+  app.commandLine.appendSwitch('ignore-gpu-blocklist');
+  app.commandLine.appendSwitch('enable-native-gpu-memory-buffers');
+  app.commandLine.appendSwitch('enable-accelerated-video-decode');
+  app.commandLine.appendSwitch('enable-webgl2-compute-context');
+  app.commandLine.appendSwitch('canvas-oop-rasterization');
+}
+// Performance: no throttling, more memory, high-priority audio
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-background-timer-throttling');
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=4096');
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 // Preferences storage
 const PREFS_PATH = path.join(app.getPath('userData'), 'preferences.json');
@@ -1209,7 +1224,7 @@ async function openAcPaneWindowInternal(options = {}) {
   // Calculate position to avoid overlap
   const { x, y } = getOffsetWindowPosition(sourceWindow, index);
   
-  const win = new BrowserWindow({
+  const winOpts = {
     width: winWidth,
     height: winHeight,
     x,
@@ -1225,11 +1240,15 @@ async function openAcPaneWindowInternal(options = {}) {
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
-      webviewTag: true, // Enable webview for front side
+      webviewTag: true,
+      backgroundThrottling: false,
     },
-  });
-  
-  win.loadFile(getAppPath('renderer/flip-view.html'));
+  };
+  // On PaperWM, use 'normal' type so the WM tiles it instead of floating
+  if (isPaperWM) winOpts.type = 'normal';
+  const win = new BrowserWindow(winOpts);
+
+  win.loadFile(getAppPath('renderer/flip-view.html'), isPaperWM ? { query: { wm: 'paper' } } : undefined);
   
   // Track it
   const windowId = windowIdCounter++;
