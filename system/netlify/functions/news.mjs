@@ -870,11 +870,6 @@ export function createHandler({ connect: connectFn = connect, respond: respondFn
       } else if (route === "new") {
         title = "New | Aesthetic News";
         body = await renderFrontPage(database, basePath, "new");
-      } else if (route.startsWith("n")) {
-        const code = route; // whole route IS the n-prefixed code, e.g. "nabc"
-        const result = await renderItemPage(database, basePath, code);
-        body = result.body || result;
-        title = result.title || "Aesthetic News";
       } else if (route.startsWith("item/")) {
         // Backward compat: redirect old /item/CODE to /nCODE
         const oldCode = route.slice(5);
@@ -883,9 +878,15 @@ export function createHandler({ connect: connectFn = connect, respond: respondFn
       } else if (route === "report" || route === "submit") {
         title = "Report · Aesthetic News";
         body = await renderReportPage(basePath);
-      } else {
+      } else if (route === "guidelines") {
+        // handled elsewhere, but don't 404 on it
         title = "Not Found | Aesthetic News";
         body = `${header(basePath)}<main class="news-main"><p>Page not found.</p></main>${footer()}`;
+      } else {
+        // Treat any other route as a potential news code (n-prefixed or legacy)
+        const result = await renderItemPage(database, basePath, route);
+        body = result.body || result;
+        title = result.title || "Aesthetic News";
       }
 
       const html = layout({ title, body, assetBase, assetOrigin });
