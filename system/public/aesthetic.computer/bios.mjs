@@ -16588,6 +16588,44 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // Seek streaming audio to a specific time position
+    if (type === "stream:seek") {
+      const { id, time } = content;
+      if (streamAudio[id]?.audio) {
+        streamAudio[id].audio.currentTime = time;
+        send({ type: "stream:seeked", content: { id, time } });
+      }
+      return;
+    }
+
+    // Get current playback time, duration, and buffer state
+    if (type === "stream:time") {
+      const { id } = content;
+      if (streamAudio[id]?.audio) {
+        const audio = streamAudio[id].audio;
+        const buffered = audio.buffered.length > 0
+          ? audio.buffered.end(audio.buffered.length - 1)
+          : 0;
+        send({
+          type: "stream:time-data",
+          content: {
+            id,
+            currentTime: audio.currentTime,
+            duration: Number.isFinite(audio.duration) ? audio.duration : 0,
+            buffered,
+            paused: audio.paused,
+            ended: audio.ended,
+          },
+        });
+      } else {
+        send({
+          type: "stream:time-data",
+          content: { id, currentTime: 0, duration: 0, buffered: 0, paused: true, ended: false },
+        });
+      }
+      return;
+    }
+
     if (type === "fullscreen-enable") {
       curReframeDelay = 0;
       enableFullscreen();

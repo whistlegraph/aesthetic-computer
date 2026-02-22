@@ -177,7 +177,7 @@ function initLangSelectors() {
 let auth0Client = null;
 let acUser = null;
 let acToken = null;
-let acHandle = null;
+let acHandle = localStorage.getItem('news-handle') || null;
 let auth0Initialized = false;
 let sessionListenerAttached = false;
 let spaInitialized = false;
@@ -201,7 +201,10 @@ async function hydrateHandleFromEmail(email) {
     // Use full URL to main API since we're on news.aesthetic.computer subdomain
     const res = await fetch(`https://aesthetic.computer/user?from=${encodeURIComponent(email)}&withHandle=true`);
     const data = await res.json();
-    if (data.handle) acHandle = data.handle;
+    if (data.handle) {
+      acHandle = data.handle;
+      localStorage.setItem('news-handle', acHandle);
+    }
   } catch (error) {
     console.warn("Handle lookup failed", error);
   }
@@ -246,6 +249,7 @@ async function applySession(session) {
     acUser = null;
     acToken = null;
     acHandle = null;
+    localStorage.removeItem('news-handle');
     updateAuthUI();
     return;
   }
@@ -256,6 +260,7 @@ async function applySession(session) {
   if (label) {
     if (label.startsWith("@")) {
       acHandle = label.slice(1);
+      localStorage.setItem('news-handle', acHandle);
       acUser = { email: label }; // Set user object so we know they're logged in
     } else {
       acUser = { email: label };
@@ -933,76 +938,30 @@ async function navigateTo(url, { push = true } = {}) {
   }
 
   const currentWrapper = document.querySelector('.news-wrapper');
-  
-  // Helper to wait for transition end
-  const waitForTransition = (el, duration = 150) => new Promise(resolve => {
-    const timeout = setTimeout(resolve, duration + 50); // fallback
-    el.addEventListener('transitionend', function handler(e) {
-      if (e.target === el) {
-        clearTimeout(timeout);
-        el.removeEventListener('transitionend', handler);
-        resolve();
-      }
-    });
-  });
 
   try {
     closeModal();
-    
-    // Start fade-out transition
-    if (currentWrapper) {
-      currentWrapper.classList.add('page-transitioning-out');
-    }
-    
-    console.log('[news] Fetching:', nextPath);
+
     const res = await fetch(nextPath, { headers: { 'X-Requested-With': 'spa' } });
-    console.log('[news] Fetch response:', res.status);
     const html = await res.text();
-    console.log('[news] HTML length:', html.length, 'preview:', html.substring(0, 200));
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const nextWrapper = doc.querySelector('.news-wrapper');
-    console.log('[news] Wrappers found:', !!nextWrapper, !!currentWrapper);
-    console.log('[news] nextWrapper innerHTML length:', nextWrapper?.innerHTML?.length);
     if (!nextWrapper || !currentWrapper) {
-      console.log('[news] Falling back to full navigation');
       window.location.href = nextUrl;
       return;
     }
-    
-    // Wait for fade-out to complete (or timeout if fetch was fast)
-    if (currentWrapper.classList.contains('page-transitioning-out')) {
-      await waitForTransition(currentWrapper);
-    }
-    
-    // Swap content while hidden
-    console.log('[news] Replacing content, old length:', currentWrapper.innerHTML.length, 'new length:', nextWrapper.innerHTML.length);
+
     currentWrapper.innerHTML = nextWrapper.innerHTML;
-    console.log('[news] After replace, current length:', currentWrapper.innerHTML.length);
-    
-    // Prepare for fade-in
-    currentWrapper.classList.remove('page-transitioning-out');
-    currentWrapper.classList.add('page-transitioning-in');
-    
-    // Force reflow to ensure transition triggers
-    currentWrapper.offsetHeight;
-    
-    // Fade in
-    currentWrapper.classList.remove('page-transitioning-in');
-    
+
     const newTitle = doc.title || 'Aesthetic News';
     document.title = newTitle;
     if (push) {
-      // Cache the HTML content in history state for instant back/forward
       history.pushState({ title: newTitle, url: nextPath, html: nextWrapper.innerHTML }, newTitle, nextPath);
     }
     window.scrollTo(0, 0);
     reinitPage();
   } catch (error) {
     console.error('[news] Navigation error:', error);
-    // Clean up transition state on error
-    if (currentWrapper) {
-      currentWrapper.classList.remove('page-transitioning-out', 'page-transitioning-in');
-    }
     window.location.href = nextUrl;
   }
 }
@@ -1050,23 +1009,11 @@ function initSpaRouting() {
       document.title = e.state.title;
     }
     
-    // If we have cached HTML, use it with transition
+    // If we have cached HTML, swap instantly
     if (e.state && e.state.html) {
       const currentWrapper = document.querySelector('.news-wrapper');
       if (currentWrapper) {
-        // Fade out
-        currentWrapper.classList.add('page-transitioning-out');
-        await new Promise(r => setTimeout(r, 150));
-        
-        // Swap content
         currentWrapper.innerHTML = e.state.html;
-        
-        // Prepare for fade-in
-        currentWrapper.classList.remove('page-transitioning-out');
-        currentWrapper.classList.add('page-transitioning-in');
-        currentWrapper.offsetHeight; // force reflow
-        currentWrapper.classList.remove('page-transitioning-in');
-        
         window.scrollTo(0, 0);
         reinitPage();
         return;
@@ -1698,6 +1645,8 @@ function setupHeroToggle() {
 
 // Initialize YouTube features
 document.addEventListener('DOMContentLoaded', () => {
+  // Show admin delete buttons immediately from cached handle (no pop-in)
+  if (acHandle) updateAdminUI();
   initYouTubePlayer();
   setupTimecodeButton();
   linkifyTimecodes(document);
