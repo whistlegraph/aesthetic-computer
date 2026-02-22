@@ -4197,7 +4197,7 @@
       color: var(--jukebox-text);
     }
     
-    /* Jukebox fixed controls area */
+    /* Jukebox fixed controls area (used by Strudel) */
     .jukebox-controls-area {
       flex-shrink: 0;
       padding: 12px;
@@ -4206,95 +4206,114 @@
       gap: 10px;
       border-bottom: 1px solid var(--jukebox-accent-dim, rgba(236, 72, 153, 0.2));
     }
-    
-    /* Jukebox scrollable content area */
+
+    /* Jukebox scrollable content area (tracklist) */
     .jukebox-scroll-area {
       flex: 1;
       overflow-y: auto;
-      padding: 8px 12px 12px;
+      padding: 6px 8px;
       min-height: 0;
     }
-    .jukebox-now-playing {
+
+    /* Mini Player bar at bottom */
+    .jukebox-mini-player {
+      flex-shrink: 0;
+      border-top: 1px solid var(--jukebox-accent-dim, rgba(29, 185, 84, 0.2));
+      background: var(--jukebox-bg-elevated, #181818);
+      padding: 6px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .jukebox-mini-player-top {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 8px 12px;
-      background: var(--jukebox-accent-dim, rgba(236, 72, 153, 0.15));
-      border-radius: 6px;
-      font-weight: 600;
     }
-    .jukebox-track-icon { font-size: 1.2em; }
+    .jukebox-mini-art {
+      width: 32px;
+      height: 32px;
+      border-radius: 3px;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
     .jukebox-track-name {
       flex: 1;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      font-size: 12px;
+      font-weight: 600;
     }
-    .jukebox-controls {
+    .jukebox-mini-transport {
       display: flex;
-      gap: 8px;
-      justify-content: center;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
     }
-    .jukebox-btn {
-      width: 40px;
-      height: 40px;
-      border: none;
-      border-radius: 50%;
-      background: var(--jukebox-accent, #1DB954);
-      color: #000;
-      font-size: 16px;
-      cursor: pointer;
-      transition: transform 0.1s, opacity 0.2s, background 0.2s;
+    .jukebox-mini-player-bottom {
+      display: flex;
+      align-items: center;
     }
-    .jukebox-btn:hover:not(:disabled) { transform: scale(1.1); background: var(--jukebox-accent-hover, #1ed760); }
-    .jukebox-btn:disabled { opacity: 0.4; cursor: not-allowed; }
     .jukebox-progress {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
+      flex: 1;
     }
     .jukebox-progress input[type="range"] {
       flex: 1;
-      height: 6px;
+      height: 4px;
       -webkit-appearance: none;
       background: var(--jukebox-accent-mid, rgba(29, 185, 84, 0.3));
-      border-radius: 3px;
+      border-radius: 2px;
     }
     .jukebox-progress input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
-      width: 14px;
-      height: 14px;
+      width: 10px;
+      height: 10px;
       background: var(--jukebox-accent, #1DB954);
       border-radius: 50%;
       cursor: pointer;
     }
     .jukebox-time {
-      font-size: 11px;
+      font-size: 10px;
       color: var(--jukebox-text-dim, #b3b3b3);
-      min-width: 80px;
+      min-width: 70px;
       text-align: right;
     }
     .jukebox-volume {
       display: flex;
       align-items: center;
-      gap: 8px;
-      font-size: 14px;
+      gap: 4px;
+      flex-shrink: 0;
     }
     .jukebox-volume input[type="range"] {
-      flex: 1;
-      max-width: 100px;
-      height: 4px;
+      width: 50px;
+      height: 3px;
       -webkit-appearance: none;
       background: var(--jukebox-accent-mid, rgba(29, 185, 84, 0.3));
       border-radius: 2px;
     }
     .jukebox-volume input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
-      width: 12px;
-      height: 12px;
+      width: 10px;
+      height: 10px;
       background: var(--jukebox-accent, #1DB954);
       border-radius: 50%;
       cursor: pointer;
+    }
+    .jukebox-beat-indicator {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #333;
+      transition: background 0.05s, box-shadow 0.05s;
+      flex-shrink: 0;
+    }
+    .jukebox-beat-indicator.active {
+      background: var(--jukebox-accent, #1DB954);
+      box-shadow: 0 0 8px var(--jukebox-accent, #1DB954);
     }
     .jukebox-meters {
       display: flex;
@@ -4336,33 +4355,23 @@
       font-family: monospace;
       color: var(--jukebox-text-dim, #b3b3b3);
     }
-    .jukebox-beat-indicator {
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      background: #333;
-      transition: background 0.05s, box-shadow 0.05s;
-    }
-    .jukebox-beat-indicator.active {
-      background: var(--jukebox-accent, #1DB954);
-      box-shadow: 0 0 8px var(--jukebox-accent, #1DB954);
-    }
     .jukebox-tracklist {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 2px;
     }
     .jukebox-track {
-      padding: 8px 12px;
+      padding: 6px 10px;
       background: var(--jukebox-bg-elevated, #181818);
-      border-radius: 4px;
+      border-radius: 3px;
       cursor: pointer;
       transition: background 0.15s;
-      font-size: 13px;
+      font-size: 12px;
       color: var(--jukebox-text, #fff);
       display: flex;
-      flex-direction: column;
-      gap: 2px;
+      flex-direction: row;
+      align-items: center;
+      gap: 8px;
     }
     .jukebox-track:hover { background: var(--jukebox-accent-dim, rgba(29, 185, 84, 0.15)); }
     .jukebox-track-title {
@@ -4371,6 +4380,7 @@
     .jukebox-track-artist {
       font-size: 11px;
       color: var(--jukebox-text-dim, #b3b3b3);
+      margin-left: auto;
     }
     .jukebox-track.playing {
       background: var(--jukebox-accent-mid, rgba(29, 185, 84, 0.3));
@@ -4545,15 +4555,7 @@
       display: none;
     }
     
-    /* Spotify-style player transport controls */
-    .spotify-transport {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 16px;
-      padding: 16px 0;
-    }
-    
+    /* Compact transport controls for mini player */
     .spotify-btn {
       border: none;
       background: transparent;
@@ -4564,35 +4566,35 @@
       align-items: center;
       justify-content: center;
     }
-    
+
     .spotify-btn:hover:not(:disabled) {
       transform: scale(1.1);
     }
-    
+
     .spotify-btn:disabled {
       opacity: 0.4;
       cursor: not-allowed;
     }
-    
+
     .spotify-btn svg {
       fill: currentColor;
     }
-    
+
     .spotify-btn-prev,
     .spotify-btn-next {
-      width: 32px;
-      height: 32px;
+      width: 24px;
+      height: 24px;
       color: var(--jukebox-text, #fff);
     }
-    
+
     .spotify-btn-play {
-      width: 56px;
-      height: 56px;
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
       background: var(--jukebox-accent, #1DB954) !important;
       color: #000;
     }
-    
+
     .spotify-btn-play:hover:not(:disabled) {
       background: var(--jukebox-accent-hover, #1ed760) !important;
     }
@@ -9048,54 +9050,7 @@
           
           <!-- Songs subcontent -->
           <div class="jukebox-subcontent" id="songs-subcontent">
-            <div class="jukebox-controls-area">
-              <!-- Now Playing with Cover Art -->
-              <div class="jukebox-now-playing" style="display: flex; align-items: center; gap: 12px;">
-                <img id="jukebox-cover-art" src="https://aesthetic.computer/assets/oskie/wipppps/wipppps_cover.jpeg" alt="Album cover" style="width: 48px; height: 48px; border-radius: 4px; object-fit: cover; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
-                <span class="jukebox-track-name" id="jukebox-track-name">Select a track</span>
-              </div>
-              
-              <!-- Spotify-style Transport Controls -->
-              <div class="spotify-transport">
-                <button class="spotify-btn spotify-btn-prev" id="jukebox-prev" title="Previous">
-                  <svg width="32" height="32" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
-                </button>
-                <button class="spotify-btn spotify-btn-play" id="jukebox-play-pause" title="Play">
-                  <svg width="28" height="28" viewBox="0 0 24 24" id="jukebox-play-icon"><polygon points="8,5 19,12 8,19"/></svg>
-                  <svg width="28" height="28" viewBox="0 0 24 24" id="jukebox-pause-icon" style="display:none;"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-                </button>
-                <button class="spotify-btn spotify-btn-next" id="jukebox-next" title="Next">
-                  <svg width="32" height="32" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zm10-12v12h2V6z"/></svg>
-                </button>
-              </div>
-              
-              <!-- Progress Bar -->
-              <div class="jukebox-progress">
-                <input type="range" id="jukebox-seek" min="0" max="100" value="0" disabled>
-                <span class="jukebox-time" id="jukebox-time">0:00 / 0:00</span>
-              </div>
-              
-              <!-- Volume -->
-              <div class="jukebox-volume">
-                <span>🔊</span>
-                <input type="range" id="jukebox-volume" min="0" max="100" value="70">
-              </div>
-              
-              <!-- Audio Meters -->
-              <div class="jukebox-meters">
-                <div class="jukebox-meter-row">
-                  <span class="jukebox-meter-label">amp</span>
-                  <div class="jukebox-meter-bar"><div class="jukebox-meter-fill" id="jukebox-amp-meter"></div></div>
-                  <span class="jukebox-meter-value" id="jukebox-amp-value">0.0</span>
-                </div>
-                <div class="jukebox-meter-row">
-                  <span class="jukebox-meter-label">kick</span>
-                  <div class="jukebox-beat-indicator" id="jukebox-kick-indicator"></div>
-                </div>
-              </div>
-            </div>
-            
-            <!-- Track List (scrollable) -->
+            <!-- Track List (scrollable, at top) -->
             <div class="jukebox-scroll-area">
               <div class="jukebox-tracklist" id="jukebox-tracklist">
                 <div class="jukebox-track" data-track="zzzZWAP.wav"><span class="jukebox-track-title">zzzZWAP</span><span class="jukebox-track-artist">oskie</span></div>
@@ -9106,6 +9061,41 @@
                 <div class="jukebox-track" data-track="KLOnK.wav"><span class="jukebox-track-title">KLOnK</span><span class="jukebox-track-artist">oskie</span></div>
                 <div class="jukebox-track" data-track="PaFf_master.wav"><span class="jukebox-track-title">PaFf</span><span class="jukebox-track-artist">oskie</span></div>
                 <div class="jukebox-track" data-track="WHoOSh.wav"><span class="jukebox-track-title">WHoOSh</span><span class="jukebox-track-artist">oskie</span></div>
+              </div>
+            </div>
+
+            <!-- Mini Player (compact, at bottom) -->
+            <div class="jukebox-mini-player">
+              <div class="jukebox-mini-player-top">
+                <img id="jukebox-cover-art" src="https://aesthetic.computer/assets/oskie/wipppps/wipppps_cover.jpeg" alt="Album cover" class="jukebox-mini-art">
+                <span class="jukebox-track-name" id="jukebox-track-name">Select a track</span>
+                <div class="jukebox-mini-transport">
+                  <button class="spotify-btn spotify-btn-prev" id="jukebox-prev" title="Previous">
+                    <svg width="20" height="20" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+                  </button>
+                  <button class="spotify-btn spotify-btn-play" id="jukebox-play-pause" title="Play">
+                    <svg width="20" height="20" viewBox="0 0 24 24" id="jukebox-play-icon"><polygon points="8,5 19,12 8,19"/></svg>
+                    <svg width="20" height="20" viewBox="0 0 24 24" id="jukebox-pause-icon" style="display:none;"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                  </button>
+                  <button class="spotify-btn spotify-btn-next" id="jukebox-next" title="Next">
+                    <svg width="20" height="20" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zm10-12v12h2V6z"/></svg>
+                  </button>
+                </div>
+                <div class="jukebox-volume">
+                  <input type="range" id="jukebox-volume" min="0" max="100" value="70">
+                </div>
+                <div class="jukebox-beat-indicator" id="jukebox-kick-indicator"></div>
+              </div>
+              <div class="jukebox-mini-player-bottom">
+                <div class="jukebox-progress">
+                  <input type="range" id="jukebox-seek" min="0" max="100" value="0" disabled>
+                  <span class="jukebox-time" id="jukebox-time">0:00 / 0:00</span>
+                </div>
+              </div>
+              <!-- Hidden meter for JS compatibility -->
+              <div style="display:none;">
+                <div class="jukebox-meter-fill" id="jukebox-amp-meter"></div>
+                <span id="jukebox-amp-value">0.0</span>
               </div>
             </div>
           </div>
