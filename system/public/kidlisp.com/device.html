@@ -2508,13 +2508,56 @@
       addLog(args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' '));
     };
     
-    // Known playlist shortcuts (for nice URLs like /playlist/top100)
-    const KNOWN_PLAYLISTS = {
-      'top100': '0b322cf5-ed2f-439a-8f5e-b59474866a89',
-      'colors': 'a590114b-2e51-4eed-93d2-3601e0c50e46',
-      'chords': 'ea5e26c9-e755-4f88-807e-c68a91cff49a',
-    };
+    // KidLisp channel ID (stable — playlists inside it rotate)
+    const KIDLISP_CHANNEL_ID = '156c4235-4b24-4001-bec9-61ce0ac7c25e';
     const FEED_URL = 'https://feed.aesthetic.computer';
+
+    // Resolve a playlist shortcut (e.g. "top100", "colors") to a full feed URL
+    // by fetching the KidLisp channel and matching playlist titles.
+    async function resolvePlaylistUrl(shortcut) {
+      try {
+        const channelResp = await fetch(`${FEED_URL}/api/v1/channels/${KIDLISP_CHANNEL_ID}`);
+        if (!channelResp.ok) throw new Error(`Channel fetch failed: ${channelResp.status}`);
+        const channel = await channelResp.json();
+        const playlistUrls = channel.playlists || [];
+
+        // Title-matching rules for shortcuts
+        const matchers = {
+          'top100': (title) => /^top 100/i.test(title),
+          'colors': (title) => /^colors/i.test(title),
+          'chords': (title) => /^chords/i.test(title),
+        };
+
+        const matcher = matchers[shortcut];
+        if (!matcher) {
+          // Unknown shortcut — fall back to first playlist
+          console.warn('📺 Unknown playlist shortcut:', shortcut, '— using first playlist');
+          return playlistUrls[0] || null;
+        }
+
+        // Fetch all playlist headers in parallel and find the match
+        const results = await Promise.all(playlistUrls.map(async (url) => {
+          try {
+            const resp = await fetch(url);
+            if (!resp.ok) return null;
+            const playlist = await resp.json();
+            return { url, title: playlist.title || '' };
+          } catch { return null; }
+        }));
+        const match = results.find(r => r && matcher(r.title));
+        if (match) {
+          console.log('📺 Resolved shortcut', shortcut, '→', match.title, match.url);
+          return match.url;
+        }
+
+        // No match — fall back to first playlist for "top100", null otherwise
+        if (shortcut === 'top100' && playlistUrls.length > 0) return playlistUrls[0];
+        return null;
+      } catch (err) {
+        console.error('📺 Failed to resolve playlist shortcut:', shortcut, err);
+        return null;
+      }
+    }
     
     // Parse codeId or playlist path:
     // device.kidlisp.com/codeId
@@ -2601,21 +2644,12 @@
     let playlistUrl = params.get('playlist_url');
     const startIndex = parseInt(params.get('start_index')) || 0;
     
-    // Resolve slideshow shortcut to full playlist URL
-    // If handle or anon filter is active, we'll build a dynamic playlist from the API instead
+    // Playlist shortcut resolution is deferred to init() since it requires async fetch.
+    // If handle or anon filter is active, we'll build a dynamic playlist from the API instead.
     const usesDynamicPlaylist = handleFilter || anonFilter;
-    console.log('📺 Before playlist resolution:', { slideshowShortcut, KNOWN_PLAYLISTS, handleFilter, anonFilter, usesDynamicPlaylist });
-    if (slideshowShortcut && KNOWN_PLAYLISTS[slideshowShortcut] && !usesDynamicPlaylist) {
-      playlistUrl = `${FEED_URL}/api/v1/playlists/${KNOWN_PLAYLISTS[slideshowShortcut]}`;
-      console.log('📺 Resolved playlist shortcut:', slideshowShortcut, '→', playlistUrl);
-    } else if (usesDynamicPlaylist) {
-      // Mark as dynamic playlist - will be built in initSlideshow
-      playlistUrl = 'dynamic';
-      console.log('📺 Dynamic playlist mode:', handleFilter ? `handle=${handleFilter}` : 'anon');
-    }
-    
-    // Flag to indicate we're in slideshow mode (skip scramble animation)
-    const slideshowMode = !!playlistUrl;
+
+    // Flag to indicate we're in slideshow mode (set in init() after async resolution)
+    let slideshowMode = !!playlistUrl;
     
     // Slideshow state (populated when playlist_url is provided)
     let slideshowPlaylist = null;  // The fetched DP-1 playlist
@@ -2658,6 +2692,22 @@
     
     // Initialize display
     async function init() {
+      // Resolve playlist shortcut (e.g. "top100") to a feed URL via the channel
+      if (slideshowShortcut && !usesDynamicPlaylist && !playlistUrl) {
+        console.log('📺 Resolving playlist shortcut:', slideshowShortcut);
+        playlistUrl = await resolvePlaylistUrl(slideshowShortcut);
+        if (playlistUrl) {
+          slideshowMode = true;
+          console.log('📺 Resolved playlist shortcut:', slideshowShortcut, '→', playlistUrl);
+        } else {
+          console.error('📺 Could not resolve playlist shortcut:', slideshowShortcut);
+        }
+      } else if (usesDynamicPlaylist) {
+        playlistUrl = 'dynamic';
+        slideshowMode = true;
+        console.log('📺 Dynamic playlist mode:', handleFilter ? `handle=${handleFilter}` : 'anon');
+      }
+
       logDevice('init', { codeId, density, dev, hostname, pathname, playlistUrl });
 
       // 🫥 nohud: hide all device.html overlays for a clean display
@@ -2667,7 +2717,7 @@
         hide('piece-info');
         hide('progress-bar');
       }
-      
+
       // Check if we're in slideshow mode (playlist_url param provided)
       if (playlistUrl) {
         initSlideshow();
