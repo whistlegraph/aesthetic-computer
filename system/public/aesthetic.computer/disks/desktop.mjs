@@ -34,32 +34,22 @@ let pulsePhase = 0;
 let TB;
 let currentScreen;
 
-// Fetch GitHub release data
+// Fetch release data from silo
 async function fetchReleaseInfo() {
   try {
     const response = await fetch(
-      "https://api.github.com/repos/whistlegraph/aesthetic-computer/releases/latest"
+      "https://silo.aesthetic.computer/desktop/latest"
     );
     if (!response.ok) throw new Error("Failed to fetch release");
     const data = await response.json();
-    
-    releaseInfo.version = data.tag_name?.replace(/^v/, "") || "0.1.0";
-    releaseInfo.publishedAt = data.published_at ? new Date(data.published_at) : null;
-    
-    // Find platform-specific assets
-    for (const asset of data.assets || []) {
-      const name = asset.name.toLowerCase();
-      if (name.endsWith(".dmg")) {
-        releaseInfo.macUrl = asset.browser_download_url;
-      } else if (name.endsWith(".exe") || name.includes("setup")) {
-        releaseInfo.winUrl = asset.browser_download_url;
-      } else if (name.endsWith(".appimage")) {
-        releaseInfo.linuxUrl = asset.browser_download_url;
-      }
-    }
-    
+
+    releaseInfo.version = data.version || "0.1.0";
+    releaseInfo.publishedAt = data.publishedAt ? new Date(data.publishedAt) : null;
+    releaseInfo.macUrl = data.platforms?.mac?.url || DOWNLOADS.mac;
+    releaseInfo.winUrl = data.platforms?.win?.url || DOWNLOADS.win;
+    releaseInfo.linuxUrl = data.platforms?.linux?.url || DOWNLOADS.linux;
     releaseInfo.loaded = true;
-    
+
     // Check update status if running in Electron
     checkUpdateStatus();
   } catch (err) {

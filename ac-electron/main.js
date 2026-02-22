@@ -29,6 +29,18 @@ if (isDevMode) {
   console.log('[main] 🔧 DEV MODE ENABLED - loading files from:', DEV_REPO_PATH);
 }
 
+// Detect PaperWM tiling window manager (GNOME extension)
+let isPaperWM = false;
+if (process.platform === 'linux') {
+  try {
+    const extensions = execSync('gnome-extensions list --enabled 2>/dev/null', { encoding: 'utf8', timeout: 3000 });
+    isPaperWM = extensions.includes('paperwm');
+    if (isPaperWM) console.log('[main] PaperWM detected - using tiling-friendly window mode');
+  } catch (e) {
+    // Not GNOME or gnome-extensions not available
+  }
+}
+
 // Helper to get file path (repo in dev mode, bundle in production)
 function getAppPath(relativePath) {
   if (isDevMode) {
@@ -81,8 +93,7 @@ let trayIconState = 'normal'; // 'normal', 'update', 'blink'
 let originalTrayIcon = null;
 let updateTrayIcon = null;
 const UPDATE_CHECK_INTERVAL = 60 * 60 * 1000; // Check every hour
-const GITHUB_REPO = 'whistlegraph/aesthetic-computer';
-const GITHUB_RELEASES_URL = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
+const SILO_RELEASE_URL = 'https://silo.aesthetic.computer/desktop/latest';
 
 try {
   autoUpdater = require('electron-updater').autoUpdater;
@@ -163,50 +174,51 @@ function startUpdateChecks() {
   setInterval(checkForUpdates, UPDATE_CHECK_INTERVAL);
 }
 
-// GitHub release checking (works in dev mode too)
-function checkGitHubForUpdates() {
+// Silo release checking (works in dev mode too)
+function checkSiloForUpdates() {
   const currentVersion = app.getVersion();
-  console.log('[github] Checking for updates, current version:', currentVersion);
-  
-  const request = net.request(GITHUB_RELEASES_URL);
+  console.log('[silo] Checking for updates, current version:', currentVersion);
+
+  const request = net.request(SILO_RELEASE_URL);
   request.setHeader('User-Agent', 'Aesthetic-Computer-Electron');
-  request.setHeader('Accept', 'application/vnd.github.v3+json');
-  
+
   let responseData = '';
-  
+
   request.on('response', (response) => {
     response.on('data', (chunk) => {
       responseData += chunk.toString();
     });
-    
+
     response.on('end', () => {
       try {
         const release = JSON.parse(responseData);
-        const latestVersion = release.tag_name?.replace(/^v/, '') || release.name?.replace(/^v/, '');
-        
+        const latestVersion = release.version;
+
         if (latestVersion && isNewerVersion(latestVersion, currentVersion)) {
-          console.log('[github] Update available:', latestVersion);
+          console.log('[silo] Update available:', latestVersion);
+          const platformKey = process.platform === 'darwin' ? 'mac'
+                            : process.platform === 'win32' ? 'win' : 'linux';
           updateAvailable = {
             version: latestVersion,
-            url: release.html_url,
-            releaseNotes: release.body,
-            publishedAt: release.published_at
+            url: release.platforms?.[platformKey]?.url || 'https://aesthetic.computer/desktop',
+            releaseNotes: release.releaseNotes,
+            publishedAt: release.publishedAt
           };
           startTrayBlink();
           rebuildTrayMenu();
         } else {
-          console.log('[github] App is up to date');
+          console.log('[silo] App is up to date');
         }
       } catch (e) {
-        console.warn('[github] Failed to parse release info:', e.message);
+        console.warn('[silo] Failed to parse release info:', e.message);
       }
     });
   });
-  
+
   request.on('error', (err) => {
-    console.warn('[github] Failed to check for updates:', err.message);
+    console.warn('[silo] Failed to check for updates:', err.message);
   });
-  
+
   request.end();
 }
 
@@ -290,13 +302,13 @@ function createUpdateIcon(baseIcon) {
   }
 }
 
-// Start GitHub update checks (works in both dev and production)
-function startGitHubUpdateChecks() {
+// Start silo update checks (works in both dev and production)
+function startSiloUpdateChecks() {
   // Initial check after 10 seconds
-  setTimeout(checkGitHubForUpdates, 10000);
-  
+  setTimeout(checkSiloForUpdates, 10000);
+
   // Then check every hour
-  setInterval(checkGitHubForUpdates, UPDATE_CHECK_INTERVAL);
+  setInterval(checkSiloForUpdates, UPDATE_CHECK_INTERVAL);
 }
 
 // Set app name before anything else
@@ -997,7 +1009,7 @@ function rebuildTrayMenu() {
       {
         label: 'Check for Updates',
         click: () => {
-          checkGitHubForUpdates();
+          checkSiloForUpdates();
           if (!updateAvailable) {
             dialog.showMessageBox({
               type: 'info',
@@ -1206,10 +1218,10 @@ async function openAcPaneWindowInternal(options = {}) {
     minHeight: 240,
     title: 'AC Pane',
     frame: false,
-    transparent: true,
-    hasShadow: false,
-    alwaysOnTop: true,
-    backgroundColor: '#00000000',
+    transparent: !isPaperWM,
+    hasShadow: isPaperWM,
+    alwaysOnTop: !isPaperWM,
+    backgroundColor: isPaperWM ? '#000000' : '#00000000',
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
@@ -1777,7 +1789,7 @@ ipcMain.handle('get-app-info', () => {
     arch: process.arch,
     isPackaged: app.isPackaged,
     updateAvailable: updateAvailable,
-    latestVersion: latestGitHubVersion,
+    latestVersion: updateAvailable?.version || null,
   };
 });
 
@@ -2189,7 +2201,7 @@ app.whenReady().then(async () => {
   ff1Bridge.startBridge();
   
   // Start GitHub update checks (works in dev and production)
-  startGitHubUpdateChecks();
+  startSiloUpdateChecks();
   
   // Check for updates on startup (production builds only)
   if (autoUpdater && !startInDevMode && app.isPackaged) {

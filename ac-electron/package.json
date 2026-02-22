@@ -131,10 +131,8 @@
       "category": "Graphics"
     },
     "publish": {
-      "provider": "github",
-      "owner": "whistlegraph",
-      "repo": "aesthetic-computer",
-      "releaseType": "release"
+      "provider": "generic",
+      "url": "https://assets.aesthetic.computer/desktop"
     }
   },
   "keywords": [

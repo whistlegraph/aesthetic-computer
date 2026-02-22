@@ -240,6 +240,37 @@ a:hover { text-decoration: underline; }
 .backup-empty { color: var(--fg2); font-size: 12px; padding: 8px 0; }
 .backup-detail { font-size: 11px; color: var(--fg2); margin-top: 4px; }
 
+/* browse */
+.browse-layout { display: grid; grid-template-columns: 1fr; gap: 6px; }
+@media (min-width: 700px) {
+  .browse-layout { grid-template-columns: 180px 1fr; }
+}
+.browse-sidebar { max-height: 60vh; overflow-y: auto; }
+.browse-coll {
+  padding: 3px 6px; font-size: 12px; cursor: pointer; color: var(--fg2);
+  border-left: 2px solid transparent;
+}
+.browse-coll:hover { color: var(--fg); background: var(--hover); }
+.browse-coll.active { color: var(--accent); border-left-color: var(--accent); }
+.browse-coll-count { float: right; font-size: 10px; color: var(--fg2); }
+.browse-input {
+  font-family: inherit; font-size: 11px; padding: 2px 6px;
+  background: var(--bg); color: var(--fg); border: 1px solid var(--border);
+}
+.browse-input:focus { border-color: var(--accent); outline: none; }
+.browse-json {
+  font-family: 'Berkeley Mono Variable', monospace; font-size: 11px;
+  background: var(--bg); color: var(--fg); padding: 8px;
+  border: 1px solid var(--border); overflow: auto; max-height: 50vh;
+  white-space: pre-wrap; word-break: break-word; line-height: 1.4;
+  margin-top: 4px;
+}
+.browse-json.editing {
+  border-color: var(--accent); outline: none;
+}
+.browse-row { cursor: pointer; }
+.browse-row:hover td { background: var(--hover); }
+
 @media (max-width: 640px) {
   .bar { gap: 4px; padding: 4px 6px; }
   body { font-size: 12px; }
@@ -323,6 +354,7 @@ a:hover { text-decoration: underline; }
     <div class="panel" data-panel="1">
       <div class="sub-tab-bar">
         <button class="sub-tab-btn active" data-subtab="collections">collections</button>
+        <button class="sub-tab-btn" data-subtab="browse">browse</button>
         <button class="sub-tab-btn" data-subtab="backups">backups</button>
         <button class="sub-tab-btn deprecated" data-subtab="atlas">atlas <span class="dep-badge">deprecated</span></button>
       </div>
@@ -337,6 +369,45 @@ a:hover { text-decoration: underline; }
           <div class="card">
             <div class="card-hd">all collections <b id="colCount"></b></div>
             <div id="categorizedCollections" class="loading">loading...</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sub-panel" data-subpanel="browse">
+        <div class="browse-layout">
+          <div class="browse-sidebar card">
+            <div class="card-hd">collections</div>
+            <div id="browseCollList" class="loading">loading...</div>
+          </div>
+          <div class="browse-main card">
+            <div class="card-hd">
+              <span id="browseCollName">select a collection</span>
+              <span style="display:flex;gap:4px;align-items:center">
+                <input id="browseSearch" placeholder="search..." class="browse-input" style="width:140px">
+                <button class="btn" id="browseSearchBtn">go</button>
+              </span>
+            </div>
+            <div id="browseDocs" style="font-size:12px;color:var(--fg2)">click a collection to browse</div>
+            <div id="browsePager" style="margin-top:6px;font-size:11px;display:flex;gap:6px;align-items:center">
+              <button class="btn" id="browsePrev" disabled>prev</button>
+              <span id="browseRange" style="color:var(--fg2)"></span>
+              <button class="btn" id="browseNext" disabled>next</button>
+            </div>
+          </div>
+        </div>
+        <div id="browseDocDetail" style="display:none">
+          <div class="card" style="margin-top:6px">
+            <div class="card-hd">
+              <span>document <b id="browseDocId"></b></span>
+              <span style="display:flex;gap:4px">
+                <button class="btn" id="browseDocEdit">edit</button>
+                <button class="btn" id="browseDocSave" style="display:none">save</button>
+                <button class="btn" id="browseDocCancel" style="display:none">cancel</button>
+                <button class="btn" id="browseDocDelete">delete</button>
+                <button class="btn" id="browseDocClose">close</button>
+              </span>
+            </div>
+            <pre id="browseDocJson" class="browse-json"></pre>
           </div>
         </div>
       </div>
@@ -1286,6 +1357,7 @@ subTabBtns.forEach(btn => {
     subTabBtns.forEach(b => b.classList.toggle('active', b.dataset.subtab === target));
     subPanels.forEach(p => p.classList.toggle('active', p.dataset.subpanel === target));
     if (target === 'backups' && !backupsLoaded) { backupsLoaded = true; loadBackups(); }
+    if (target === 'browse' && !browseLoaded) { browseLoaded = true; loadBrowseCollections(); }
   });
 });
 
@@ -1379,6 +1451,214 @@ async function loadFeed() {
     document.getElementById('feed-channels').innerHTML = '<span class="loading">error</span>';
   }
 }
+
+// --- Database Browser ---
+let browseState = { collection: null, skip: 0, limit: 25, total: 0, q: '', docs: [], rawDoc: null };
+
+async function loadBrowseCollections() {
+  const el = document.getElementById('browseCollList');
+  if (!el) return;
+  try {
+    const resp = await authFetch('/api/db/collections').then(r => r.json());
+    const cols = resp.collections || resp;
+    el.innerHTML = cols.map(c =>
+      '<div class="browse-coll" data-coll="' + esc(c.name) + '">' +
+      esc(c.name) + '<span class="browse-coll-count">' + fmt(c.count) + '</span></div>'
+    ).join('');
+    el.classList.remove('loading');
+    el.querySelectorAll('.browse-coll').forEach(item => {
+      item.onclick = () => {
+        browseState.collection = item.dataset.coll;
+        browseState.skip = 0;
+        browseState.q = '';
+        document.getElementById('browseSearch').value = '';
+        el.querySelectorAll('.browse-coll').forEach(x => x.classList.remove('active'));
+        item.classList.add('active');
+        loadBrowseDocs();
+      };
+    });
+  } catch (e) {
+    el.innerHTML = '<span class="loading">error</span>';
+  }
+}
+
+async function loadBrowseDocs() {
+  const { collection, skip, limit, q } = browseState;
+  if (!collection) return;
+  document.getElementById('browseCollName').textContent = collection;
+  const el = document.getElementById('browseDocs');
+  el.innerHTML = '<span class="loading">loading...</span>';
+  try {
+    const params = new URLSearchParams({ skip, limit, sort: '_id', dir: 'desc' });
+    if (q) params.set('q', q);
+    const data = await authFetch('/api/db/browse/' + encodeURIComponent(collection) + '?' + params).then(r => r.json());
+    browseState.total = data.total;
+    browseState.docs = data.docs;
+
+    if (data.docs.length === 0) {
+      el.innerHTML = '<span style="color:var(--fg2)">no documents' + (q ? ' matching "' + esc(q) + '"' : '') + '</span>';
+    } else {
+      // Discover columns from first few docs
+      const keys = new Set();
+      data.docs.slice(0, 10).forEach(d => Object.keys(d).forEach(k => keys.add(k)));
+      const cols = ['_id', ...([...keys].filter(k => k !== '_id').slice(0, 5))];
+
+      let html = '<table class="tbl"><thead><tr>';
+      for (const c of cols) html += '<th>' + esc(c) + '</th>';
+      html += '</tr></thead><tbody>';
+      for (const doc of data.docs) {
+        html += '<tr class="browse-row" data-id="' + esc(String(doc._id)) + '">';
+        for (const c of cols) {
+          let val = doc[c];
+          if (val === undefined || val === null) val = '';
+          else if (typeof val === 'object') val = JSON.stringify(val).slice(0, 60);
+          else val = String(val).slice(0, 60);
+          html += '<td>' + esc(val) + '</td>';
+        }
+        html += '</tr>';
+      }
+      html += '</tbody></table>';
+      el.innerHTML = html;
+
+      el.querySelectorAll('.browse-row').forEach(row => {
+        row.onclick = () => openBrowseDoc(row.dataset.id);
+      });
+    }
+
+    // Pager
+    const rangeEl = document.getElementById('browseRange');
+    rangeEl.textContent = (skip + 1) + '-' + Math.min(skip + limit, data.total) + ' of ' + fmt(data.total);
+    document.getElementById('browsePrev').disabled = skip === 0;
+    document.getElementById('browseNext').disabled = skip + limit >= data.total;
+  } catch (e) {
+    el.innerHTML = '<span class="loading">error: ' + esc(e.message) + '</span>';
+  }
+}
+
+async function openBrowseDoc(id) {
+  const detail = document.getElementById('browseDocDetail');
+  const jsonEl = document.getElementById('browseDocJson');
+  const idEl = document.getElementById('browseDocId');
+  detail.style.display = 'block';
+  idEl.textContent = id;
+  jsonEl.textContent = 'loading...';
+  jsonEl.contentEditable = 'false';
+  jsonEl.classList.remove('editing');
+  document.getElementById('browseDocEdit').style.display = '';
+  document.getElementById('browseDocSave').style.display = 'none';
+  document.getElementById('browseDocCancel').style.display = 'none';
+
+  try {
+    const doc = await authFetch('/api/db/browse/' + encodeURIComponent(browseState.collection) + '/' + encodeURIComponent(id)).then(r => r.json());
+    browseState.rawDoc = doc;
+    jsonEl.textContent = JSON.stringify(doc, null, 2);
+  } catch (e) {
+    jsonEl.textContent = 'error: ' + e.message;
+  }
+}
+
+document.getElementById('browseDocEdit').onclick = () => {
+  const jsonEl = document.getElementById('browseDocJson');
+  jsonEl.contentEditable = 'true';
+  jsonEl.classList.add('editing');
+  jsonEl.focus();
+  document.getElementById('browseDocEdit').style.display = 'none';
+  document.getElementById('browseDocSave').style.display = '';
+  document.getElementById('browseDocCancel').style.display = '';
+};
+
+document.getElementById('browseDocCancel').onclick = () => {
+  const jsonEl = document.getElementById('browseDocJson');
+  jsonEl.contentEditable = 'false';
+  jsonEl.classList.remove('editing');
+  if (browseState.rawDoc) jsonEl.textContent = JSON.stringify(browseState.rawDoc, null, 2);
+  document.getElementById('browseDocEdit').style.display = '';
+  document.getElementById('browseDocSave').style.display = 'none';
+  document.getElementById('browseDocCancel').style.display = 'none';
+};
+
+document.getElementById('browseDocSave').onclick = async () => {
+  const jsonEl = document.getElementById('browseDocJson');
+  const id = document.getElementById('browseDocId').textContent;
+  let parsed;
+  try {
+    parsed = JSON.parse(jsonEl.textContent);
+  } catch (e) {
+    alert('Invalid JSON: ' + e.message);
+    return;
+  }
+  if (!confirm('Save changes to ' + browseState.collection + '/' + id + '?')) return;
+  try {
+    const resp = await fetch('/api/db/browse/' + encodeURIComponent(browseState.collection) + '/' + encodeURIComponent(id), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...(accessToken ? { Authorization: 'Bearer ' + accessToken } : {}) },
+      body: JSON.stringify(parsed),
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      jsonEl.contentEditable = 'false';
+      jsonEl.classList.remove('editing');
+      document.getElementById('browseDocEdit').style.display = '';
+      document.getElementById('browseDocSave').style.display = 'none';
+      document.getElementById('browseDocCancel').style.display = 'none';
+      loadBrowseDocs();
+    } else {
+      alert('Save failed: ' + (data.error || 'unknown'));
+    }
+  } catch (e) {
+    alert('Save error: ' + e.message);
+  }
+};
+
+document.getElementById('browseDocDelete').onclick = async () => {
+  const id = document.getElementById('browseDocId').textContent;
+  if (!confirm('Delete ' + browseState.collection + '/' + id + '? This cannot be undone.')) return;
+  try {
+    const resp = await fetch('/api/db/browse/' + encodeURIComponent(browseState.collection) + '/' + encodeURIComponent(id), {
+      method: 'DELETE',
+      headers: accessToken ? { Authorization: 'Bearer ' + accessToken } : {},
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      document.getElementById('browseDocDetail').style.display = 'none';
+      loadBrowseDocs();
+    } else {
+      alert('Delete failed: ' + (data.error || 'unknown'));
+    }
+  } catch (e) {
+    alert('Delete error: ' + e.message);
+  }
+};
+
+document.getElementById('browseDocClose').onclick = () => {
+  document.getElementById('browseDocDetail').style.display = 'none';
+};
+
+document.getElementById('browsePrev').onclick = () => {
+  browseState.skip = Math.max(0, browseState.skip - browseState.limit);
+  loadBrowseDocs();
+};
+
+document.getElementById('browseNext').onclick = () => {
+  browseState.skip += browseState.limit;
+  loadBrowseDocs();
+};
+
+document.getElementById('browseSearchBtn').onclick = () => {
+  browseState.q = document.getElementById('browseSearch').value.trim();
+  browseState.skip = 0;
+  loadBrowseDocs();
+};
+
+document.getElementById('browseSearch').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    browseState.q = e.target.value.trim();
+    browseState.skip = 0;
+    loadBrowseDocs();
+  }
+});
+
+let browseLoaded = false;
 
 function loadAll() {
   loadOverview(); loadCollections(); loadStorage(); loadServices(); loadBilling(); loadInstaStatus();

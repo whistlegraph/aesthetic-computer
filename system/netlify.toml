@@ -541,6 +541,13 @@ to = "/assets/type/:splat"
 status = 200
 force = true
 
+# Serve pruttipal assets locally (dub output, audio files)
+[[redirects]]
+from = "/assets/pruttipal/*"
+to = "/assets/pruttipal/:splat"
+status = 200
+force = true
+
 # Proxy assets to S3 (DigitalOcean Spaces) - avoids uploading 13GB to Netlify
 [[redirects]]
 from = "/assets/*"
@@ -560,26 +567,18 @@ from = "/lib/*"
 to = "/aesthetic.computer/lib/:splat"
 status = 200
 
-# Desktop app download shortcuts
+# Desktop app download shortcuts (via silo → DigitalOcean Spaces)
 [[redirects]]
 from = "/desktop/mac"
-to = "https://github.com/whistlegraph/aesthetic-computer/releases/latest/download/Aesthetic.Computer-0.1.0-universal.dmg"
+to = "https://silo.aesthetic.computer/desktop/download/mac"
 status = 302
 [[redirects]]
 from = "/desktop/win"
-to = "https://github.com/whistlegraph/aesthetic-computer/releases/latest/download/Aesthetic.Computer.Setup.0.1.0.exe"
+to = "https://silo.aesthetic.computer/desktop/download/win"
 status = 302
 [[redirects]]
 from = "/desktop/linux"
-to = "https://github.com/whistlegraph/aesthetic-computer/releases/latest/download/Aesthetic.Computer-0.1.0.AppImage"
-status = 302
-[[redirects]]
-from = "/desktop/fedora"
-to = "https://github.com/whistlegraph/aesthetic-computer/releases/latest/download/aesthetic-computer-0.1.0.x86_64.rpm"
-status = 302
-[[redirects]]
-from = "/desktop/deb"
-to = "https://github.com/whistlegraph/aesthetic-computer/releases/latest/download/aesthetic-computer_0.1.0_amd64.deb"
+to = "https://silo.aesthetic.computer/desktop/download/linux"
 status = 302
 
 [[redirects]]
