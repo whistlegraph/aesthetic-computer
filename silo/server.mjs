@@ -8,9 +8,9 @@ import http from "http";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { MongoClient } from "mongodb";
+import { MongoClient, ObjectId } from "mongodb";
 import { createClient } from "redis";
-import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
+import { S3Client, ListObjectsV2Command, PutObjectCommand } from "@aws-sdk/client-s3";
 import { WebSocketServer } from "ws";
 import {
   IgApiClient,
@@ -1016,6 +1016,97 @@ app.get("/api/firehose/stats", async (req, res) => {
   }
 });
 
+// --- Database Browser ---
+app.get("/api/db/browse/:collection", async (req, res) => {
+  if (!db) return res.status(503).json({ error: "Database not connected" });
+  const colName = req.params.collection;
+  const skip = Math.max(0, parseInt(req.query.skip) || 0);
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 25));
+  const sortField = req.query.sort || "_id";
+  const sortDir = req.query.dir === "asc" ? 1 : -1;
+  const q = req.query.q || "";
+
+  try {
+    const col = db.collection(colName);
+    let filter = {};
+    if (q) {
+      // Search by _id (string or ObjectId) or text match on common fields
+      const conditions = [
+        { _id: q },
+      ];
+      if (ObjectId.isValid(q) && q.length === 24) {
+        conditions.push({ _id: new ObjectId(q) });
+      }
+      // Regex search on string fields
+      const regex = { $regex: q, $options: "i" };
+      conditions.push(
+        { handle: regex }, { user: regex }, { name: regex },
+        { slug: regex }, { text: regex }, { email: regex },
+        { code: regex }, { mood: regex }, { piece: regex },
+      );
+      filter = { $or: conditions };
+    }
+    const [docs, total] = await Promise.all([
+      col.find(filter).sort({ [sortField]: sortDir }).skip(skip).limit(limit).toArray(),
+      col.countDocuments(filter),
+    ]);
+    res.json({ docs, total, skip, limit });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/db/browse/:collection/:id", async (req, res) => {
+  if (!db) return res.status(503).json({ error: "Database not connected" });
+  try {
+    const col = db.collection(req.params.collection);
+    const id = req.params.id;
+    let doc = await col.findOne({ _id: id });
+    if (!doc && ObjectId.isValid(id) && id.length === 24) {
+      doc = await col.findOne({ _id: new ObjectId(id) });
+    }
+    if (!doc) return res.status(404).json({ error: "Document not found" });
+    res.json(doc);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put("/api/db/browse/:collection/:id", async (req, res) => {
+  if (!db) return res.status(503).json({ error: "Database not connected" });
+  const { _id, ...update } = req.body;
+  try {
+    const col = db.collection(req.params.collection);
+    const id = req.params.id;
+    let result = await col.updateOne({ _id: id }, { $set: update });
+    if (result.matchedCount === 0 && ObjectId.isValid(id) && id.length === 24) {
+      result = await col.updateOne({ _id: new ObjectId(id) }, { $set: update });
+    }
+    if (result.matchedCount === 0) return res.status(404).json({ error: "Document not found" });
+    log("info", `browse: updated ${req.params.collection}/${id}`);
+    res.json({ ok: true, modified: result.modifiedCount });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/api/db/browse/:collection/:id", async (req, res) => {
+  if (!db) return res.status(503).json({ error: "Database not connected" });
+  try {
+    const col = db.collection(req.params.collection);
+    const id = req.params.id;
+    let result = await col.deleteOne({ _id: id });
+    if (result.deletedCount === 0 && ObjectId.isValid(id) && id.length === 24) {
+      result = await col.deleteOne({ _id: new ObjectId(id) });
+    }
+    if (result.deletedCount === 0) return res.status(404).json({ error: "Document not found" });
+    log("info", `browse: deleted ${req.params.collection}/${id}`);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- Instagram Admin Routes ---
 app.get("/api/insta/status", async (req, res) => {
   const sessionDoc = db
@@ -1172,6 +1263,114 @@ app.post("/api/insta/logout", async (req, res) => {
   res.json({ ok: true });
 });
 
+// --- Desktop Release Distribution ---
+const DESKTOP_BUCKET = "assets-aesthetic-computer";
+const DESKTOP_PREFIX = "desktop/";
+const DESKTOP_BASE_URL = "https://assets.aesthetic.computer/desktop";
+
+async function ensureReleasesCollection() {
+  if (!db) return;
+  try {
+    const col = db.collection("releases");
+    await col.createIndex({ version: 1 }, { unique: true });
+    await col.createIndex({ current: 1 });
+    log("info", "releases collection ready");
+  } catch (err) {
+    log("error", `releases index setup: ${err.message}`);
+  }
+}
+
+// Public routes (CORS-enabled, no auth)
+app.use("/desktop", (req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") return res.sendStatus(200);
+  next();
+});
+
+app.get("/desktop/latest", async (req, res) => {
+  if (!db) return res.status(503).json({ error: "Database not connected" });
+  try {
+    const release = await db.collection("releases").findOne({ current: true });
+    if (!release) return res.status(404).json({ error: "No release published" });
+    res.json({
+      version: release.version,
+      publishedAt: release.publishedAt,
+      releaseNotes: release.releaseNotes || null,
+      platforms: release.platforms,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/desktop/download/:platform", async (req, res) => {
+  if (!db) return res.status(503).json({ error: "Database not connected" });
+  const platform = req.params.platform;
+  try {
+    const release = await db.collection("releases").findOne({ current: true });
+    if (!release) return res.status(404).json({ error: "No release published" });
+    const plat = release.platforms?.[platform];
+    if (!plat?.url) return res.status(404).json({ error: `No ${platform} build available` });
+    res.redirect(302, plat.url);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin routes
+app.post("/api/desktop/register", async (req, res) => {
+  if (!db) return res.status(503).json({ error: "Database not connected" });
+  const { version, platforms, releaseNotes } = req.body;
+  if (!version || !platforms) {
+    return res.status(400).json({ error: "version and platforms required" });
+  }
+
+  // Build full URLs from filenames
+  for (const [key, plat] of Object.entries(platforms)) {
+    if (plat.filename && !plat.url) {
+      plat.url = `${DESKTOP_BASE_URL}/${plat.filename}`;
+    }
+  }
+
+  try {
+    // Unset current on all previous releases
+    await db.collection("releases").updateMany({}, { $set: { current: false } });
+    // Upsert this release
+    await db.collection("releases").updateOne(
+      { version },
+      {
+        $set: {
+          version,
+          platforms,
+          releaseNotes: releaseNotes || null,
+          publishedAt: new Date(),
+          publishedBy: req.auth?.handle || "unknown",
+          current: true,
+        },
+      },
+      { upsert: true },
+    );
+    log("info", `desktop release registered: v${version} by @${req.auth?.handle}`);
+    res.json({ ok: true, version });
+  } catch (err) {
+    log("error", `desktop register failed: ${err.message}`);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/desktop/releases", async (req, res) => {
+  if (!db) return res.json({ releases: [] });
+  try {
+    const releases = await db.collection("releases")
+      .find({}).sort({ publishedAt: -1 }).limit(20).toArray();
+    res.json({ releases });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- Dashboard (loaded from file, reloadable via SIGHUP) ---
 const DASHBOARD_PATH = path.join(__dirname, "dashboard.html");
 let dashboardHtml = "";
@@ -1226,6 +1425,7 @@ wss.on("connection", async (ws) => {
 await connectMongo();
 await loadHandleCache();
 await ensureFirehoseCollection();
+await ensureReleasesCollection();
 startFirehose();
 await connectAtlas();
 await connectRedis();
