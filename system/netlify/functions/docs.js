@@ -1874,6 +1874,64 @@ export async function handler(event, context) {
         desc: "Toggle minimal black & white prompt.",
         done: false,
       },
+      stop: {
+        sig: "stop",
+        desc: "Stop a running merry pipeline.",
+        done: false,
+      },
+      mug: {
+        sig: "mug [code] [color]",
+        desc: "Preview & order a mug with a painting.",
+        params: [
+          { name: "code", type: "string", required: false, desc: "Painting code" },
+          { name: "color", type: "string", required: false, desc: "Mug color (white, black, blue, pink, orange)" },
+        ],
+        done: true,
+      },
+      merry: {
+        sig: "merry [duration-]piece ...",
+        desc: "Run pieces in sequence.",
+        params: [
+          { name: "pieces", type: "string", required: true, desc: "Pieces to chain, optionally with duration prefix" },
+        ],
+        done: true,
+      },
+      merryo: {
+        sig: "merryo [duration-]piece ...",
+        desc: "Run pieces in a loop.",
+        params: [
+          { name: "pieces", type: "string", required: true, desc: "Pieces to chain and loop" },
+        ],
+        done: true,
+      },
+      mo: {
+        sig: "mo[.duration] piece ...",
+        desc: "Shorthand for merryo (looping merry).",
+        done: true,
+      },
+      desktop: {
+        sig: "desktop",
+        desc: "Download the desktop app.",
+        done: false,
+      },
+      chatgpt: {
+        sig: "chatgpt",
+        desc: "Open ChatGPT.",
+        done: false,
+        hidden: true,
+      },
+      nws: {
+        sig: "nws",
+        desc: "Open Aesthetic News.",
+        done: false,
+        hidden: true,
+      },
+      product: {
+        sig: "product [key]",
+        desc: "Switch or view active shop product.",
+        done: false,
+        hidden: true,
+      },
       2022: {
         sig: "2022",
         desc: "",
