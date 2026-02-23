@@ -4024,8 +4024,12 @@ class KidLisp {
           // Update embedded layer buffers without pasting
           if (this.embeddedLayers && this.embeddedLayers.length > 0) {
             const frameValue = $.frame || this.frameCount || 0;
-            
+
             this.embeddedLayers.forEach((embeddedLayer, index) => {
+              // Skip layers already evaluated this frame by updateEmbeddedLayer()
+              // (called from embed() during main AST evaluate above).
+              // Without this guard, each embedded layer runs twice per frame.
+              if (embeddedLayer.lastFrameEvaluated === frameValue) return;
               const shouldEvaluate = this.shouldLayerExecuteThisFrame($, embeddedLayer);
               this.renderSingleLayer($, embeddedLayer, frameValue, shouldEvaluate);
             });
@@ -14122,7 +14126,11 @@ class KidLisp {
         embeddedApi,
         embeddedEnv
       );
-      
+
+      // Mark as evaluated this frame so the paint() forEach doesn't re-evaluate.
+      embeddedLayer.hasBeenEvaluated = true;
+      embeddedLayer.lastFrameEvaluated = frameValue;
+
       // console.log(`✅ Embedded layer execution complete: ${embeddedLayer.originalCacheId}`);
 
     } catch (error) {
