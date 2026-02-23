@@ -893,7 +893,7 @@ export async function createM4DBundle(pieceName, isJSPiece, onProgress = () => {
 function generateSelfExtractingHTML(title, gzipBase64, bgColor = null, boxArtPNG = null) {
   const bgRule = bgColor ? `background:${bgColor};` : "";
   const boxArtTag = boxArtPNG
-    ? `<img id="ac-box-art" src="data:image/png;base64,${boxArtPNG}" alt="${title}" style="position:fixed;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;">`
+    ? `<img id="ac-box-art" src="data:image/png;base64,${boxArtPNG}" alt="${title}" style="position:fixed;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;">`
     : "";
   return `<!DOCTYPE html>
 <html lang="en">
@@ -927,7 +927,7 @@ function generateSelfExtractingBrotliHTML(title, brotliBase64, bgColor = null, b
   if (!brotliWasmGzBase64) throw new Error("Brotli WASM decoder not loaded");
   const bgRule = bgColor ? `background:${bgColor};` : "";
   const boxArtTag = boxArtPNG
-    ? `<img id="ac-box-art" src="data:image/png;base64,${boxArtPNG}" alt="${title}" style="position:fixed;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;">`
+    ? `<img id="ac-box-art" src="data:image/png;base64,${boxArtPNG}" alt="${title}" style="position:fixed;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;">`
     : "";
   // The inline script:
   // 1. Decompresses the WASM decoder binary using browser's native gzip DecompressionStream
@@ -1004,34 +1004,38 @@ function boxArtTextColor(bgColor) {
 }
 
 async function generateBoxArtPNG(pieceName, authorHandle, bgColor) {
-  const bg = bgColor || "#0d1b2a";
-  const fg = boxArtTextColor(bg);
-  const fgMid = fg === "white" ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.45)";
-  const fgLow = fg === "white" ? "rgba(255,255,255,0.22)" : "rgba(0,0,0,0.28)";
-  const line = fg === "white" ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.25)";
+  // AC theme: deep purple → purple gradient, hot pink accents, white type
+  const W = 800, H = 1000; // portrait 4:5
 
   const display = pieceName.startsWith("$") ? pieceName.slice(1) : pieceName;
   const len = display.length;
-  const namePx = len <= 6 ? 80 : len <= 10 ? 64 : len <= 14 ? 50 : len <= 18 ? 40 : 30;
-  const nameY = authorHandle ? 222 : 256;
+  const namePx = len <= 5 ? 136 : len <= 8 ? 110 : len <= 12 ? 86 : len <= 16 ? 66 : len <= 22 ? 50 : 38;
   const author = authorHandle && authorHandle !== "unknown" ? escapeXml(authorHandle) : "";
+  const nameY = H / 2 + (author ? -namePx * 0.55 : 0);
+  const authorY = nameY + namePx * 0.65 + 52;
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" fill="${escapeXml(bg)}"/>
-  <rect x="40" y="40" width="432" height="432" rx="12" fill="none" stroke="${line}" stroke-width="1.5"/>
-  <rect x="40" y="40" width="432" height="3" fill="${line}"/>
-  <rect x="40" y="469" width="432" height="3" fill="${line}"/>
-  <text x="256" y="${nameY}"
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0%" stop-color="#1a0635"/>
+      <stop offset="100%" stop-color="#3b0d72"/>
+    </linearGradient>
+  </defs>
+  <rect width="${W}" height="${H}" fill="url(#bg)"/>
+  <rect x="0" y="88" width="${W}" height="7" fill="#ff64c8"/>
+  <rect x="0" y="${H - 95}" width="${W}" height="7" fill="#ff64c8"/>
+  <text x="${W / 2}" y="${nameY}"
     font-family="'Courier New',Courier,monospace"
     font-size="${namePx}" font-weight="bold"
-    fill="${fg}" text-anchor="middle" dominant-baseline="middle">${escapeXml(display)}</text>
-  ${author ? `<text x="256" y="${nameY + namePx + 22}"
+    fill="#ffffff" text-anchor="middle" dominant-baseline="middle">${escapeXml(display)}</text>
+  ${author ? `<text x="${W / 2}" y="${authorY}"
     font-family="'Courier New',Courier,monospace"
-    font-size="24" fill="${fgMid}" text-anchor="middle" dominant-baseline="middle">${author}</text>` : ""}
-  <text x="256" y="458"
+    font-size="38" fill="#ff64c8"
+    text-anchor="middle" dominant-baseline="middle">${author}</text>` : ""}
+  <text x="${W / 2}" y="${H - 46}"
     font-family="'Courier New',Courier,monospace"
-    font-size="15" letter-spacing="1"
-    fill="${fgLow}" text-anchor="middle" dominant-baseline="middle">aesthetic.computer</text>
+    font-size="22" letter-spacing="4"
+    fill="rgba(255,100,200,0.55)" text-anchor="middle" dominant-baseline="middle">aesthetic.computer</text>
 </svg>`;
 
   const buf = await sharp(Buffer.from(svg)).png({ compressionLevel: 9 }).toBuffer();
@@ -1061,7 +1065,7 @@ function generateHTMLBundle(opts) {
   <style>
     body { margin: 0; padding: 0; ${bgRule}overflow: hidden; }
     canvas { display: block; image-rendering: pixelated; }
-    #ac-box-art { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center; pointer-events: none; }
+    #ac-box-art { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; pointer-events: none; }
   </style>
 </head>
 <body>
@@ -1257,7 +1261,7 @@ function generateJSPieceHTMLBundle(opts) {
   <style>
     body { margin: 0; padding: 0; overflow: hidden; }
     canvas { display: block; image-rendering: pixelated; }
-    #ac-box-art { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center; pointer-events: none; }
+    #ac-box-art { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; pointer-events: none; }
   </style>
 </head>
 <body>
