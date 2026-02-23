@@ -70,11 +70,8 @@ function paint({ wipe, ink, write, screen, ui }) {
     ink(colors.negative).write("❌ " + error, { x: cx, y: cy - 20, center: "xy" });
     ui.button("Try Again", { x: cx - 60, y: cy + 30, w: 120 });
   } else {
-    // Initial state - show connect buttons
-    ink(colors.textDim).write("Choose your wallet:", { x: cx, y: cy - 60, center: "xy" });
-    
-    ui.button("🦊 Temple", { x: cx - 70, y: cy - 20, w: 140 });
-    ui.button("🥝 Kukai", { x: cx - 70, y: cy + 30, w: 140 });
+    // Initial state - show connect button
+    ui.button("🔷 Connect Wallet", { x: cx - 80, y: cy - 10, w: 160 });
   }
   
   // Session indicator
@@ -85,41 +82,33 @@ function paint({ wipe, ink, write, screen, ui }) {
 
 async function act({ event: e, wallet, net }) {
   if (e.is("touch")) {
-    if (e.button?.label === "🦊 Temple") {
-      await connectWallet(wallet, "temple", net);
-    } else if (e.button?.label === "🥝 Kukai") {
-      await connectWallet(wallet, "kukai", net);
+    if (e.button?.label === "🔷 Connect Wallet") {
+      await connectWallet(wallet, net);
     } else if (e.button?.label === "Try Again") {
       error = null;
     }
   }
 }
 
-async function connectWallet(wallet, type, net) {
+async function connectWallet(wallet, net) {
   connecting = true;
   error = null;
-  
+
   try {
-    const network = "mainnet"; // Now using mainnet by default
-    
-    if (type === "temple") {
-      await wallet.connectTemple(network);
-    } else if (type === "kukai") {
-      await wallet.connectKukai(network);
-    }
-    
+    const network = "mainnet";
+    await wallet.connect({ network });
+
     wallet.sync();
     walletState = wallet.get();
-    
+
     if (walletState?.connected) {
-      // Save to AC profile
       await saveToProfile(walletState.address, network, net);
       done = true;
     }
   } catch (err) {
     error = err.message || "Connection failed";
   }
-  
+
   connecting = false;
 }
 
