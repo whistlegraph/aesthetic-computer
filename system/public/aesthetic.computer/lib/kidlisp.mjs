@@ -13723,7 +13723,13 @@ class KidLisp {
       frame: 0, // Updated per render
       
       // 🚨 CRITICAL: Include clock API for timing expressions in embedded layers
-      clock: api.clock
+      clock: api.clock,
+
+      // 🚨 FIX: Override globalEnv.fps from the spread above.
+      // globalEnv.fps calls api.fps(targetFps) — if api.fps is globalEnv.fps (from the
+      // spread), it recurses with one arg causing fps(number, undefined) → args crash.
+      // Use the BIOS api.fps directly so the call resolves correctly.
+      fps: typeof api.fps === "function" ? api.fps : undefined
     };
 
     return embeddedApi;
