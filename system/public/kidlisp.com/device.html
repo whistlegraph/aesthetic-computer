@@ -827,8 +827,8 @@
     }
 
     #progress-bar.thin-mid {
-      height: 1px !important;
-      opacity: 0.5;
+      height: 2px !important;
+      opacity: 0.3;
       transition: height 0.4s ease, opacity 0.4s ease;
     }
 
@@ -3084,7 +3084,8 @@
         console.log('📺 Initial boot — waiting for piece ready...');
       } else if (crossfadeEnabled) {
         // ═══ CALM CROSSFADE: Load next piece in back iframe, crossfade live ═══
-        updateOverlayInstant(codeId, code);
+        // Use scramble animation for overlay text (matches the slow crossfade mood)
+        fetchAndDisplaySource(codeId);
         window.pendingSlideshowDuration = duration;
 
         // Cancel any in-progress crossfade
