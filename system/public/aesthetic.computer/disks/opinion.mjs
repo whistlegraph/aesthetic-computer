@@ -13,7 +13,7 @@ const SCROLL_BAR_W = 3; // Left-side scroll bar width (matches chat.mjs)
 const LEFT_MARGIN = 9; // 3px scroll bar + 6px gap
 const RIGHT_MARGIN = 6;
 const TOP_PAD = 4;
-const BOTTOM_PAD = 10;
+const BOTTOM_PAD = 44; // Clear the bottom-left HUD prompt label
 
 const scheme = {
   dark: {
