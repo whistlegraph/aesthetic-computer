@@ -1,4 +1,4 @@
-// Export Piece, 25.11.21
+// Export Piece, 25.11.21 [DEPRECATED — bundling now happens on oven]
 // Generate self-contained HTML bundles for aesthetic.computer pieces
 // Supports both KidLisp pieces ($pie) and regular .mjs pieces (line)
 // Usage: GET /.netlify/functions/export-piece?piece=$pie  or  ?piece=line
@@ -699,10 +699,13 @@ async function createSelfDecompressingBundle(html, pieceName) {
 <body>
   <script>${pakoCode}</script>
   <script>
-    fetch('data:application/gzip;base64,${base64}')
-      .then(r=>r.arrayBuffer())
-      .then(b=>pako.inflate(new Uint8Array(b),{to:'string'}))
-      .then(h=>{document.open();document.write(h);document.close();});
+    // Use blob: URL instead of data: URL for CSP compatibility (objkt sandboxing)
+    const b64='${base64}';
+    const bin=atob(b64);
+    const bytes=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+    const h=pako.inflate(bytes,{to:'string'});
+    document.open();document.write(h);document.close();
   </script>
 </body>
 </html>`;
@@ -722,11 +725,18 @@ async function createGzipNativeSelfDecompressingBundle(html, pieceName) {
 </head>
 <body>
   <script>
-    fetch('data:application/gzip;base64,${base64}')
+    // Use blob: URL instead of data: URL for CSP compatibility (objkt sandboxing)
+    const b64='${base64}';
+    const bin=atob(b64);
+    const bytes=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+    const blob=new Blob([bytes],{type:'application/gzip'});
+    const url=URL.createObjectURL(blob);
+    fetch(url)
       .then(r=>r.blob())
       .then(b=>b.stream().pipeThrough(new DecompressionStream('gzip')))
       .then(s=>new Response(s).text())
-      .then(h=>{document.open();document.write(h);document.close();});
+      .then(h=>{URL.revokeObjectURL(url);document.open();document.write(h);document.close();});
   </script>
 </body>
 </html>`;

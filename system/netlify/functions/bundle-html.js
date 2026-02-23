@@ -1,4 +1,4 @@
-// bundle-html.js - Netlify Function
+// bundle-html.js - Netlify Function [DEPRECATED — bundling now happens on oven]
 // Generates self-contained HTML bundles on-demand via API
 // Supports both KidLisp pieces ($code) and JavaScript pieces (piece=name)
 //
@@ -592,11 +592,18 @@ async function createJSPieceBundle(pieceName, onProgress = () => {}, nocompress 
 </head>
 <body>
   <script>
-    fetch('data:application/gzip;base64,${base64}')
+    // Use blob: URL instead of data: URL for CSP compatibility (objkt sandboxing)
+    const b64='${base64}';
+    const bin=atob(b64);
+    const bytes=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+    const blob=new Blob([bytes],{type:'application/gzip'});
+    const url=URL.createObjectURL(blob);
+    fetch(url)
       .then(r=>r.blob())
       .then(b=>b.stream().pipeThrough(new DecompressionStream('gzip')))
       .then(s=>new Response(s).text())
-      .then(h=>{document.open();document.write(h);document.close();})
+      .then(h=>{URL.revokeObjectURL(url);document.open();document.write(h);document.close();})
       .catch(e=>{document.body.style.color='#fff';document.body.textContent='Bundle error: '+e.message;});
   </script>
 </body>
@@ -1105,19 +1112,26 @@ async function createBundle(pieceName, onProgress = () => {}, nocompress = false
 </head>
 <body>
   <script>
-    fetch('data:application/gzip;base64,${base64}')
+    // Use blob: URL instead of data: URL for CSP compatibility (objkt sandboxing)
+    const b64='${base64}';
+    const bin=atob(b64);
+    const bytes=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+    const blob=new Blob([bytes],{type:'application/gzip'});
+    const url=URL.createObjectURL(blob);
+    fetch(url)
       .then(r=>r.blob())
       .then(b=>b.stream().pipeThrough(new DecompressionStream('gzip')))
       .then(s=>new Response(s).text())
-      .then(h=>{document.open();document.write(h);document.close();})
+      .then(h=>{URL.revokeObjectURL(url);document.open();document.write(h);document.close();})
       .catch(e=>{document.body.style.color='#fff';document.body.textContent='Bundle error: '+e.message;});
   </script>
 </body>
 </html>`;
-  
-  return { 
-    html: finalHtml, 
-    filename, 
+
+  return {
+    html: finalHtml,
+    filename,
     sizeKB: Math.round(finalHtml.length / 1024),
     mainSource,
     authorHandle,
