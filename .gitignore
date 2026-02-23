@@ -331,3 +331,4 @@ check-*secrets.mjs
 
 # Silo scripts that access production database or contain wallet keys
 silo/use-staging-wallet.mjs
+.claude/settings.local.json
