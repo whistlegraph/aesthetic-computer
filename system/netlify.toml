@@ -667,6 +667,24 @@ to = "https://jas.life/:splat"
 status = 301
 force = true
 
+# rdp.jas.life - Radical Digital Painting collection (239 paintings, 2016–2021)
+# Local dev: https://localhost:8888/rdp.jas.life/
+[[redirects]]
+from = "https://rdp.jas.life/*"
+to = "/rdp.jas.life/:splat"
+status = 200
+force = true
+[[redirects]]
+from = "/rdp.jas.life"
+to = "/rdp.jas.life/"
+status = 200
+force = true
+[[redirects]]
+from = "/rdp.jas.life/*"
+to = "/rdp.jas.life/:splat"
+status = 200
+force = true
+
 # justanothersystem.org - Stretched paintings by Jeffrey Alan Scudder
 # API routes first (before catch-all)
 [[redirects]]
