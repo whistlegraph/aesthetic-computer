@@ -13552,15 +13552,24 @@ class KidLisp {
       // This ensures fade strings (e.g., fade:red-blue-black-red) work in embeds.
       // Without this, embedded buffers start transparent and scroll/accumulation
       // effects have nothing to work with, rendering as all gray.
-      if (embeddedLayer.kidlispInstance.firstLineColor) {
-        // Temporarily allow wipe through the isEmbeddedLayer guard
-        embeddedLayer.kidlispInstance.isEmbeddedLayer = false;
-        embeddedLayer.kidlispInstance.embeddedLayerWipedOnce = false;
-        const globalEnv = embeddedLayer.kidlispInstance.getGlobalEnv();
-        if (globalEnv.wipe) {
-          globalEnv.wipe(embeddedApi, [embeddedLayer.kidlispInstance.firstLineColor]);
+      // Direct pixel fill avoids routing through KidLisp wipe (which corrupts state).
+      if (embeddedLayer.kidlispInstance.firstLineColor && embeddedLayer.buffer?.pixels) {
+        const flc = embeddedLayer.kidlispInstance.firstLineColor;
+        let bgRgb = null;
+        if (typeof flc === 'string' && flc.startsWith('fade:')) {
+          const fadeColors = embeddedLayer.kidlispInstance.parseFadeString(flc);
+          if (fadeColors && fadeColors.length > 0) bgRgb = fadeColors[0];
+        } else {
+          const resolved = embeddedLayer.kidlispInstance.resolveColorToRGBA(flc, embeddedApi);
+          if (resolved && resolved[3] > 0) bgRgb = resolved;
         }
-        embeddedLayer.kidlispInstance.isEmbeddedLayer = true;
+        if (bgRgb) {
+          const px = embeddedLayer.buffer.pixels;
+          const r = bgRgb[0], g = bgRgb[1], b = bgRgb[2];
+          for (let i = 0, len = px.length; i < len; i += 4) {
+            px[i] = r; px[i + 1] = g; px[i + 2] = b; px[i + 3] = 255;
+          }
+        }
       }
 
       // Execute the code
@@ -14098,15 +14107,24 @@ class KidLisp {
 
       // 🎨 Apply firstLineColor background each frame for embedded layers.
       // This ensures fade strings (e.g., fade:red-blue-black-red) animate properly.
-      if (embeddedLayer.kidlispInstance.firstLineColor) {
-        // Temporarily allow wipe through the isEmbeddedLayer guard
-        embeddedLayer.kidlispInstance.isEmbeddedLayer = false;
-        embeddedLayer.kidlispInstance.embeddedLayerWipedOnce = false;
-        const globalEnv = embeddedLayer.kidlispInstance.getGlobalEnv();
-        if (globalEnv.wipe) {
-          globalEnv.wipe(embeddedApi, [embeddedLayer.kidlispInstance.firstLineColor]);
+      // Direct pixel fill avoids routing through KidLisp wipe (which corrupts state).
+      if (embeddedLayer.kidlispInstance.firstLineColor && embeddedLayer.buffer?.pixels) {
+        const flc = embeddedLayer.kidlispInstance.firstLineColor;
+        let bgRgb = null;
+        if (typeof flc === 'string' && flc.startsWith('fade:')) {
+          const fadeColors = embeddedLayer.kidlispInstance.parseFadeString(flc);
+          if (fadeColors && fadeColors.length > 0) bgRgb = fadeColors[0];
+        } else {
+          const resolved = embeddedLayer.kidlispInstance.resolveColorToRGBA(flc, embeddedApi);
+          if (resolved && resolved[3] > 0) bgRgb = resolved;
         }
-        embeddedLayer.kidlispInstance.isEmbeddedLayer = true;
+        if (bgRgb) {
+          const px = embeddedLayer.buffer.pixels;
+          const r = bgRgb[0], g = bgRgb[1], b = bgRgb[2];
+          for (let i = 0, len = px.length; i < len; i += 4) {
+            px[i] = r; px[i + 1] = g; px[i + 2] = b; px[i + 3] = 255;
+          }
+        }
       }
 
       // Execute the KidLisp code (it will draw to the embedded buffer via page())
