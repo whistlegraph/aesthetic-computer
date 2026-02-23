@@ -206,7 +206,8 @@
       opacity: 1;
     }
 
-    #display-iframe {
+    #display-iframe,
+    #display-iframe-back {
       position: absolute;
       top: 0;
       left: 0;
@@ -215,6 +216,10 @@
       border: none;
       background: #000;
       z-index: 1;
+    }
+    #display-iframe-back {
+      z-index: 0;
+      opacity: 0;
     }
     
     /* Boot screen - now handled by iframe's boot animation */
@@ -346,6 +351,14 @@
     #source-overlay.wiggle-warning #piece-info,
     #source-overlay.wiggle-warning #source-code {
       animation: wiggle 0.3s ease-in-out infinite;
+    }
+
+    /* When slid-out is added while still wiggling, cancel the animation
+       so the CSS transform transition can smoothly slide elements out */
+    #source-overlay.slid-out.wiggle-warning #qr-wrap,
+    #source-overlay.slid-out.wiggle-warning #piece-info,
+    #source-overlay.slid-out.wiggle-warning #source-code {
+      animation: none;
     }
 
     /* Slide animations for overlay elements during playback */
@@ -1418,6 +1431,7 @@
   </div>
   
   <iframe id="display-iframe"></iframe>
+  <iframe id="display-iframe-back"></iframe>
   
   <!-- YouTube-style progress bar for playlist mode -->
   <div id="progress-bar">
@@ -2401,6 +2415,7 @@
     
     // UI elements
     const iframe = document.getElementById('display-iframe');
+    const iframeBack = document.getElementById('display-iframe-back');
     const errorScreen = document.getElementById('error-screen');
     const errorText = document.getElementById('error-text');
     
@@ -2696,6 +2711,14 @@
     let slideshowNavigateFallbackTimer = null;  // Timeout for fallback to iframe.src reload
     let slideshowAwaitingNavigateReady = false;  // True while waiting for jump() to send ready:
 
+    // 🌊 Crossfade state (calm playlists only — dual-iframe live crossfade)
+    const CROSSFADE_MS = 3000;  // 3-second crossfade
+    let crossfadeEnabled = isCalmPlaylist;  // Only calm gets crossfade
+    let crossfadeActive = false;  // True during a crossfade transition
+    let frontIframe = iframe;     // Currently visible iframe
+    let backIframe = iframeBack;  // Hidden iframe for preloading next piece
+    let crossfadeSwapTimer = null;  // Timer to swap iframes after crossfade completes
+
     // 🧹 Memory hygiene: full page refresh every ~30 minutes of playlist playback.
     // This clears accumulated caches (tapeEmbeds, singletonDollarCodeCache, etc.)
     // that the singleton KidLisp instance never releases between piece transitions.
@@ -2714,6 +2737,7 @@
       if (noauth) p.set('noauth', 'true');
       if (popout) p.set('popout', 'true');
       if (perf) p.set('perf', 'true');
+      if (crossfadeEnabled) p.set('crossfade', CROSSFADE_MS);
       p.set('noboot', 'true'); // Skip boot animation for clean device display
       p.set('t', Date.now()); // Cache bust
       return p.toString();
@@ -3053,11 +3077,29 @@
 
         // Now load the piece in iframe (full boot)
         const itemUrl = resolveItemUrl(item);
-        iframe.src = itemUrl;
+        frontIframe.src = itemUrl;
 
         // Progress bar starts when "ready:" arrives
         window.pendingSlideshowDuration = duration;
         console.log('📺 Initial boot — waiting for piece ready...');
+      } else if (crossfadeEnabled) {
+        // ═══ CALM CROSSFADE: Load next piece in back iframe, crossfade live ═══
+        updateOverlayInstant(codeId, code);
+        window.pendingSlideshowDuration = duration;
+
+        // Cancel any in-progress crossfade
+        if (crossfadeSwapTimer) {
+          clearTimeout(crossfadeSwapTimer);
+          crossfadeSwapTimer = null;
+        }
+
+        // Load new piece in the back iframe
+        const itemUrl = resolveItemUrl(item);
+        crossfadeActive = true;
+        backIframe.src = itemUrl;
+        console.log('🌊 Crossfade: loading next piece in back iframe', codeId);
+        // The crossfade starts when backIframe sends "ready:" (handled in message listener)
+
       } else {
         // ═══ SUBSEQUENT PIECES: Try jump() via postMessage, fall back to iframe.src ═══
 
@@ -3067,7 +3109,7 @@
 
         // Send navigate postMessage and set fallback timer
         slideshowAwaitingNavigateReady = true;
-        iframe.contentWindow?.postMessage({ type: 'ac:navigate', to: codeId }, '*');
+        frontIframe.contentWindow?.postMessage({ type: 'ac:navigate', to: codeId }, '*');
         console.log('📺 Jump to', codeId, slideshowNavigateSupported ? '(navigate confirmed)' : '— trying navigate...');
 
         // Safety fallback — only if navigate truly fails (inline HTML handler should work)
@@ -3078,7 +3120,7 @@
           console.warn('📺 Navigate timeout (10s), falling back to iframe.src reload for', codeId);
           slideshowNavigateSupported = false;
           const itemUrl = resolveItemUrl(item);
-          iframe.src = itemUrl;
+          frontIframe.src = itemUrl;
           fetchAndDisplaySource(codeId);
         }, 10000);
       }
@@ -3231,9 +3273,13 @@
           if (isDeviceSubdomain) {
             const shouldWiggle = elapsedSec > 5 && elapsedSec <= 6 && remainingSec > 6;
             const shouldSlideOut = elapsedSec > 6 && remainingSec > 6;
+            // Wiggle → slide: keep wiggle-warning while slid-out is active briefly
+            // (CSS rule cancels animation so transform transition can take over)
+            // Clean up wiggle-warning 0.5s after slide-out starts
+            const shouldCleanupWiggle = elapsedSec > 6.5 || remainingSec <= 6;
             if (shouldWiggle && !overlay.classList.contains('wiggle-warning')) {
               overlay.classList.add('wiggle-warning');
-            } else if (!shouldWiggle && overlay.classList.contains('wiggle-warning')) {
+            } else if (shouldCleanupWiggle && overlay.classList.contains('wiggle-warning')) {
               overlay.classList.remove('wiggle-warning');
             }
             if (shouldSlideOut && !overlay.classList.contains('slid-out')) {
@@ -4069,6 +4115,35 @@
         // Start progress bar when piece is fully ready (after black screen / loading)
         // "ready: ..." is the final boot message indicating piece is running
         if (msg?.startsWith?.('ready:')) {
+          // 🌊 Crossfade: back iframe is ready — start the live crossfade
+          if (crossfadeActive && e.source === backIframe.contentWindow) {
+            console.log('🌊 Back iframe ready — starting crossfade');
+            // Apply CSS transition and swap opacity
+            frontIframe.style.transition = `opacity ${CROSSFADE_MS}ms ease-in-out`;
+            backIframe.style.transition = `opacity ${CROSSFADE_MS}ms ease-in-out`;
+            frontIframe.style.opacity = '0';
+            backIframe.style.opacity = '1';
+            // After crossfade completes, swap roles
+            if (crossfadeSwapTimer) clearTimeout(crossfadeSwapTimer);
+            crossfadeSwapTimer = setTimeout(() => {
+              crossfadeSwapTimer = null;
+              // Swap front/back
+              const temp = frontIframe;
+              frontIframe = backIframe;
+              backIframe = temp;
+              // Update z-index so new front is on top
+              frontIframe.style.zIndex = '1';
+              backIframe.style.zIndex = '0';
+              // Reset back iframe opacity instantly (no transition) for next crossfade
+              backIframe.style.transition = 'none';
+              backIframe.style.opacity = '0';
+              backIframe.offsetHeight; // Force reflow
+              backIframe.style.transition = '';
+              crossfadeActive = false;
+              console.log('🌊 Crossfade complete — iframes swapped');
+            }, CROSSFADE_MS);
+          }
+
           // Check if this ready came from a successful jump() navigate
           if (slideshowAwaitingNavigateReady && !slideshowInitialBoot) {
             slideshowAwaitingNavigateReady = false;
@@ -4089,7 +4164,7 @@
               if (info?.source) codesToWarm[code] = info.source;
             }
             if (Object.keys(codesToWarm).length > 0) {
-              iframe.contentWindow?.postMessage({ type: 'ac:warm-cache', codes: codesToWarm }, '*');
+              frontIframe.contentWindow?.postMessage({ type: 'ac:warm-cache', codes: codesToWarm }, '*');
               console.log(`📺 Sent ${Object.keys(codesToWarm).length} codes to warm iframe cache`);
             }
           }
