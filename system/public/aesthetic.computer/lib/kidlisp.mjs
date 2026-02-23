@@ -13565,13 +13565,20 @@ class KidLisp {
       localEnv.frame = embeddedLayer.localFrameCount;
       localEnv.scroll = frameValue % (embeddedLayer.width + embeddedLayer.height);
 
-      // 🎨 SKIP background wipe for embedded layers - they should render on transparent
-      // so they can be composited properly. The parent piece controls the background.
-      // Apply fade background only once
-      // if (embeddedLayer.kidlispInstance.firstLineColor && !embeddedLayer.fadeApplied) {
-      //   embeddedApi.wipe(embeddedLayer.kidlispInstance.firstLineColor);
-      //   embeddedLayer.fadeApplied = true;
-      // }
+      // 🎨 Apply firstLineColor background each frame for embedded layers.
+      // This ensures fade strings (e.g., fade:red-blue-black-red) work in embeds.
+      // Without this, embedded buffers start transparent and scroll/accumulation
+      // effects have nothing to work with, rendering as all gray.
+      if (embeddedLayer.kidlispInstance.firstLineColor) {
+        // Temporarily allow wipe through the isEmbeddedLayer guard
+        embeddedLayer.kidlispInstance.isEmbeddedLayer = false;
+        embeddedLayer.kidlispInstance.embeddedLayerWipedOnce = false;
+        const globalEnv = embeddedLayer.kidlispInstance.getGlobalEnv();
+        if (globalEnv.wipe) {
+          globalEnv.wipe(embeddedApi, [embeddedLayer.kidlispInstance.firstLineColor]);
+        }
+        embeddedLayer.kidlispInstance.isEmbeddedLayer = true;
+      }
 
       // Execute the code
       const scrollNodesInAST = Array.isArray(embeddedLayer.parsedCode) ?
@@ -14106,10 +14113,17 @@ class KidLisp {
       const embeddedEnv = localEnv; // Reuse instead of spreading
       embeddedEnv.scroll = modScrollValue;
 
-      // Apply the detected fade string as background if available (only once when layer is created)
-      if (embeddedLayer.kidlispInstance.firstLineColor && !embeddedLayer.fadeApplied) {
-        embeddedApi.wipe(embeddedLayer.kidlispInstance.firstLineColor);
-        embeddedLayer.fadeApplied = true;
+      // 🎨 Apply firstLineColor background each frame for embedded layers.
+      // This ensures fade strings (e.g., fade:red-blue-black-red) animate properly.
+      if (embeddedLayer.kidlispInstance.firstLineColor) {
+        // Temporarily allow wipe through the isEmbeddedLayer guard
+        embeddedLayer.kidlispInstance.isEmbeddedLayer = false;
+        embeddedLayer.kidlispInstance.embeddedLayerWipedOnce = false;
+        const globalEnv = embeddedLayer.kidlispInstance.getGlobalEnv();
+        if (globalEnv.wipe) {
+          globalEnv.wipe(embeddedApi, [embeddedLayer.kidlispInstance.firstLineColor]);
+        }
+        embeddedLayer.kidlispInstance.isEmbeddedLayer = true;
       }
 
       // Execute the KidLisp code (it will draw to the embedded buffer via page())
