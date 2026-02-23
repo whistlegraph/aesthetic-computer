@@ -2759,7 +2759,8 @@
       }
       
       if (!codeId) {
-        showError('Usage: device.kidlisp.com/{codeId} or ?playlist_url=...');
+        const domain = isDeviceSubdomain ? hostname : 'device.kidlisp.com';
+        showError(`Usage: ${domain}/{codeId} or ?playlist_url=...`);
         return;
       }
       
