@@ -27,8 +27,8 @@ if (dev) {
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 }
 
-// Configuration - Mainnet v4 contract by default
-const CONTRACT_ADDRESS = process.env.TEZOS_KEEPS_CONTRACT || "KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W";
+// Configuration - Mainnet v5 RC staging contract
+const CONTRACT_ADDRESS = process.env.TEZOS_KEEPS_CONTRACT || "KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido";
 const NETWORK = process.env.TEZOS_NETWORK || "mainnet";
 const OVEN_URL = process.env.OVEN_URL || "https://oven.aesthetic.computer";
 const OVEN_FALLBACK_URL = "https://oven.aesthetic.computer"; // Always available fallback
@@ -675,9 +675,9 @@ export const handler = stream(async (event, context) => {
         logStage('bundle', 'Generating HTML bundle');
         await send("progress", { stage: "bundle", message: "Packing HTML bundle..." });
         
-        const bundleUrl = dev 
+        const bundleUrl = dev
           ? `https://localhost:8888/api/bundle-html?code=${pieceName}&format=json`
-          : `https://aesthetic.computer/api/bundle-html?code=${pieceName}&format=json`;
+          : `https://oven.aesthetic.computer/bundle-html?code=${pieceName}&format=json`;
         
         // Add timeout to prevent function from hanging if bundle-html is slow
         // Bundle generation can take 15-30s on cold starts due to SWC minification
@@ -907,7 +907,8 @@ export const handler = stream(async (event, context) => {
       const description = piece.source || "A KidLisp piece preserved on Tezos";
 
       // Build tags
-      const tags = [`$${pieceName}`, "KidLisp", "Aesthetic.Computer", "interactive"];
+      const tags = [`$${pieceName}`, "KidLisp", "Aesthetic.Computer"];
+      if (authorHandle) tags.push(`@${authorHandle.replace(/^@/, "")}`);
       if (userCode) tags.push(userCode);
 
       // Use analyzer traits + add author/packed info as attributes
