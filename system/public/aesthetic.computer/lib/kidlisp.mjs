@@ -12707,6 +12707,28 @@ class KidLisp {
       return undefined;
     }
 
+    // 🎨 Initialize buffer with firstLineColor (mirrors how standalone mode seeds layer0).
+    // This gives scroll/accumulation effects visible content to work with on frame 1.
+    // Only done ONCE at creation — subsequent frames accumulate on top naturally.
+    if (embeddedKidLisp.firstLineColor && embeddedBuffer.pixels) {
+      const flc = embeddedKidLisp.firstLineColor;
+      let bgRgb = null;
+      if (typeof flc === 'string' && flc.startsWith('fade:')) {
+        const fadeColors = embeddedKidLisp.parseFadeString(flc);
+        if (fadeColors && fadeColors.length > 0) bgRgb = fadeColors[0];
+      } else {
+        const resolved = embeddedKidLisp.resolveColorToRGBA(flc, {});
+        if (resolved && resolved[3] > 0) bgRgb = resolved;
+      }
+      if (bgRgb) {
+        const px = embeddedBuffer.pixels;
+        const r = bgRgb[0], g = bgRgb[1], b = bgRgb[2];
+        for (let i = 0, len = px.length; i < len; i += 4) {
+          px[i] = r; px[i + 1] = g; px[i + 2] = b; px[i + 3] = 255;
+        }
+      }
+    }
+
     const embeddedLayer = {
       id: `embedded_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // Unique ID for each layer
       cacheId: layerKey,
@@ -13548,30 +13570,6 @@ class KidLisp {
       localEnv.frame = embeddedLayer.localFrameCount;
       localEnv.scroll = frameValue % (embeddedLayer.width + embeddedLayer.height);
 
-      // 🎨 Apply firstLineColor background each frame for embedded layers.
-      // This ensures fade strings (e.g., fade:red-blue-black-red) work in embeds.
-      // Without this, embedded buffers start transparent and scroll/accumulation
-      // effects have nothing to work with, rendering as all gray.
-      // Direct pixel fill avoids routing through KidLisp wipe (which corrupts state).
-      if (embeddedLayer.kidlispInstance.firstLineColor && embeddedLayer.buffer?.pixels) {
-        const flc = embeddedLayer.kidlispInstance.firstLineColor;
-        let bgRgb = null;
-        if (typeof flc === 'string' && flc.startsWith('fade:')) {
-          const fadeColors = embeddedLayer.kidlispInstance.parseFadeString(flc);
-          if (fadeColors && fadeColors.length > 0) bgRgb = fadeColors[0];
-        } else {
-          const resolved = embeddedLayer.kidlispInstance.resolveColorToRGBA(flc, embeddedApi);
-          if (resolved && resolved[3] > 0) bgRgb = resolved;
-        }
-        if (bgRgb) {
-          const px = embeddedLayer.buffer.pixels;
-          const r = bgRgb[0], g = bgRgb[1], b = bgRgb[2];
-          for (let i = 0, len = px.length; i < len; i += 4) {
-            px[i] = r; px[i + 1] = g; px[i + 2] = b; px[i + 3] = 255;
-          }
-        }
-      }
-
       // Execute the code
       const scrollNodesInAST = Array.isArray(embeddedLayer.parsedCode) ?
         embeddedLayer.parsedCode.filter(node => {
@@ -14110,28 +14108,6 @@ class KidLisp {
       const modScrollValue = frameValue % (embeddedLayer.width + embeddedLayer.height);
       const embeddedEnv = localEnv; // Reuse instead of spreading
       embeddedEnv.scroll = modScrollValue;
-
-      // 🎨 Apply firstLineColor background each frame for embedded layers.
-      // This ensures fade strings (e.g., fade:red-blue-black-red) animate properly.
-      // Direct pixel fill avoids routing through KidLisp wipe (which corrupts state).
-      if (embeddedLayer.kidlispInstance.firstLineColor && embeddedLayer.buffer?.pixels) {
-        const flc = embeddedLayer.kidlispInstance.firstLineColor;
-        let bgRgb = null;
-        if (typeof flc === 'string' && flc.startsWith('fade:')) {
-          const fadeColors = embeddedLayer.kidlispInstance.parseFadeString(flc);
-          if (fadeColors && fadeColors.length > 0) bgRgb = fadeColors[0];
-        } else {
-          const resolved = embeddedLayer.kidlispInstance.resolveColorToRGBA(flc, embeddedApi);
-          if (resolved && resolved[3] > 0) bgRgb = resolved;
-        }
-        if (bgRgb) {
-          const px = embeddedLayer.buffer.pixels;
-          const r = bgRgb[0], g = bgRgb[1], b = bgRgb[2];
-          for (let i = 0, len = px.length; i < len; i += 4) {
-            px[i] = r; px[i + 1] = g; px[i + 2] = b; px[i + 3] = 255;
-          }
-        }
-      }
 
       // Execute the KidLisp code (it will draw to the embedded buffer via page())
       // console.log(`🎮 Executing embedded layer: ${embeddedLayer.originalCacheId}`);
