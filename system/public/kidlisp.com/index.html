@@ -7859,85 +7859,96 @@
           // Show main content (logo still visible on top)
           mainEl.style.opacity = '1';
 
-          // Force reflow to apply position lock and get landing zone position
-          void landingZone.offsetHeight;
-          const landingRect = landingZone.getBoundingClientRect();
-
-          // Calculate target - center logo vertically in landing zone
-          const targetTop = landingRect.top + (landingRect.height - endFontSize) / 2;
-          const targetLeft = landingRect.left + 12;
-
-          // === Fly-in: measure /$code while logo is STILL BIG, break off simultaneously ===
+          // Dwell: if loading a $code, pause so the user can read it on the centered logo
+          const dwell = initialRouteCode ? 800 : 0;
           let flyClones = null;
-          if (initialRouteCode && splashRoute) {
-            const splashChars = splashRoute.querySelectorAll('.splash-letter');
-            if (splashChars.length > 0) {
-              // Measure source positions at BIG size
-              const sourceRects = Array.from(splashChars).map(ch => {
-                const r = ch.getBoundingClientRect();
-                return { top: r.top, left: r.left, text: ch.textContent, fontSize: parseFloat(getComputedStyle(ch).fontSize) };
-              });
 
-              // Populate hidden target to measure destination
-              const routeCodeTab = document.getElementById('route-code-tab');
-              if (routeCodeTab) {
-                routeCodeTab.classList.add('fly-target');
-                window.setRouteCodeInUI?.(initialRouteCode, { immediate: true, animate: false });
-                void routeCodeTab.offsetHeight;
-                const targetChars = routeCodeTab.querySelectorAll('.code-char');
-                const targetRects = Array.from(targetChars).map(ch => ch.getBoundingClientRect());
+          function startFlyAnimation() {
+            // Force reflow to apply position lock and get landing zone position
+            void landingZone.offsetHeight;
+            const landingRect = landingZone.getBoundingClientRect();
 
-                // Hide splash route text (clones will replace it)
-                splashRoute.style.visibility = 'hidden';
+            // Calculate target - center logo vertically in landing zone
+            const targetTop = landingRect.top + (landingRect.height - endFontSize) / 2;
+            const targetLeft = landingRect.left + 12;
 
-                // Create fixed-position clones at BIG source positions
-                const charColors = { 0: 'var(--text-tertiary)', 1: 'rgb(205, 92, 155)' };
-                const clones = [];
-                sourceRects.forEach((src, i) => {
-                  const clone = document.createElement('span');
-                  clone.className = 'route-code-fly-char';
-                  clone.textContent = src.text;
-                  clone.style.top = src.top + 'px';
-                  clone.style.left = src.left + 'px';
-                  clone.style.fontSize = src.fontSize + 'px';
-                  clone.style.color = charColors[i] || 'rgb(147, 112, 219)';
-                  document.body.appendChild(clone);
-                  clones.push(clone);
+            // === Fly-in: measure /$code while logo is STILL BIG, break off simultaneously ===
+            if (initialRouteCode && splashRoute) {
+              const splashChars = splashRoute.querySelectorAll('.splash-letter');
+              if (splashChars.length > 0) {
+                // Measure source positions at BIG size
+                const sourceRects = Array.from(splashChars).map(ch => {
+                  const r = ch.getBoundingClientRect();
+                  return { top: r.top, left: r.left, text: ch.textContent, fontSize: parseFloat(getComputedStyle(ch).fontSize) };
                 });
-                flyClones = { clones, targetRects, targetChars, routeCodeTab };
+
+                // Populate hidden target to measure destination
+                const routeCodeTab = document.getElementById('route-code-tab');
+                if (routeCodeTab) {
+                  routeCodeTab.classList.add('fly-target');
+                  window.setRouteCodeInUI?.(initialRouteCode, { immediate: true, animate: false });
+                  void routeCodeTab.offsetHeight;
+                  const targetChars = routeCodeTab.querySelectorAll('.code-char');
+                  const targetRects = Array.from(targetChars).map(ch => ch.getBoundingClientRect());
+
+                  // Hide splash route text (clones will replace it)
+                  splashRoute.style.visibility = 'hidden';
+
+                  // Create fixed-position clones at BIG source positions
+                  const charColors = { 0: 'var(--text-tertiary)', 1: 'rgb(205, 92, 155)' };
+                  const clones = [];
+                  sourceRects.forEach((src, i) => {
+                    const clone = document.createElement('span');
+                    clone.className = 'route-code-fly-char';
+                    clone.textContent = src.text;
+                    clone.style.top = src.top + 'px';
+                    clone.style.left = src.left + 'px';
+                    clone.style.fontSize = src.fontSize + 'px';
+                    clone.style.color = charColors[i] || 'rgb(147, 112, 219)';
+                    document.body.appendChild(clone);
+                    clones.push(clone);
+                  });
+                  flyClones = { clones, targetRects, targetChars, routeCodeTab };
+                }
               }
+            }
+
+            // Enable transitions
+            splashLogo.classList.add('flying');
+
+            // Animate logo to header AND clones to dropdown simultaneously
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                splashLogo.style.top = targetTop + 'px';
+                splashLogo.style.left = targetLeft + 'px';
+                splashLogo.style.fontSize = endFontSize + 'px';
+                // Fly clones to dropdown at the same time
+                if (flyClones) {
+                  flyClones.clones.forEach((clone, i) => {
+                    if (flyClones.targetRects[i]) {
+                      clone.style.top = flyClones.targetRects[i].top + 'px';
+                      clone.style.left = flyClones.targetRects[i].left + 'px';
+                      clone.style.fontSize = getComputedStyle(flyClones.targetChars[i]).fontSize;
+                    }
+                  });
+                }
+              });
+            });
+
+            // Clean up clones after animation
+            if (flyClones) {
+              setTimeout(() => {
+                flyClones.routeCodeTab.classList.remove('fly-target');
+                flyClones.clones.forEach(c => c.remove());
+                if (splashRoute) splashRoute.innerHTML = '';
+              }, 500);
             }
           }
 
-          // Enable transitions
-          splashLogo.classList.add('flying');
-
-          // Animate logo to header AND clones to dropdown simultaneously
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              splashLogo.style.top = targetTop + 'px';
-              splashLogo.style.left = targetLeft + 'px';
-              splashLogo.style.fontSize = endFontSize + 'px';
-              // Fly clones to dropdown at the same time
-              if (flyClones) {
-                flyClones.clones.forEach((clone, i) => {
-                  if (flyClones.targetRects[i]) {
-                    clone.style.top = flyClones.targetRects[i].top + 'px';
-                    clone.style.left = flyClones.targetRects[i].left + 'px';
-                    clone.style.fontSize = getComputedStyle(flyClones.targetChars[i]).fontSize;
-                  }
-                });
-              }
-            });
-          });
-
-          // Clean up clones after animation
-          if (flyClones) {
-            setTimeout(() => {
-              flyClones.routeCodeTab.classList.remove('fly-target');
-              flyClones.clones.forEach(c => c.remove());
-              if (splashRoute) splashRoute.innerHTML = '';
-            }, 500);
+          if (dwell > 0) {
+            setTimeout(startFlyAnimation, dwell);
+          } else {
+            startFlyAnimation();
           }
           
           // After animation completes, snap into place
@@ -8001,13 +8012,13 @@
                 }
               });
             }
-          }, 550);
-          
+          }, 550 + dwell);
+
           // Fade out splash background
           setTimeout(() => {
             splash.classList.add('fading');
             setTimeout(() => splash.remove(), 300);
-          }, 200);
+          }, 200 + dwell);
         } else {
           // Fallback: just show everything
           if (mainEl) mainEl.style.opacity = '1';
