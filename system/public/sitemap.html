@@ -195,6 +195,7 @@
     .tag-redirect { background: rgb(205, 155, 92); color: rgb(40, 30, 20); }
     .tag-api { background: rgb(92, 155, 205); color: rgb(20, 30, 40); }
     .tag-external { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.7); }
+    .tag-infra { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.7); }
 
     .route-group-label { color: rgb(92, 205, 155); }
     .redirect-to { color: rgb(92, 205, 155); }
@@ -234,6 +235,7 @@
     .tag-redirect { background: rgb(180, 130, 60); color: #fff; }
     .tag-api { background: rgb(60, 120, 180); color: #fff; }
     .tag-external { background: rgba(64, 56, 74, 0.15); color: rgb(64, 56, 74); }
+    .tag-infra { background: rgba(64, 56, 74, 0.15); color: rgb(64, 56, 74); }
 
     .route-group-label { color: rgb(30, 140, 90); }
     .redirect-to { color: rgb(30, 140, 90); }
@@ -259,7 +261,7 @@
 
 <div style="padding-top: 0.5em;">
 <div class="stats">
-  <div class="stat">Domains &amp; Microsites: <strong>18</strong></div>
+  <div class="stat">Domains &amp; Microsites: <strong>19</strong></div>
   <div class="stat">Disk Routes: <strong>~355</strong></div>
   <div class="stat">API Endpoints: <strong>~85</strong></div>
   <div class="stat">Functions: <strong>~106</strong></div>
@@ -1235,6 +1237,44 @@
 <div class="section-desc">Dynamic logo generation service. All requests proxy to /api/logo/* for partner/pal branding assets.</div>
 <div class="routes single-col">
   <div class="route full-url">pals.aesthetic.computer/* &rarr; /api/logo/*</div>
+</div>
+</details>
+</div>
+
+<!-- jas.life legacy sites (pre-2016 / pre-AC) -->
+<div class="card">
+<details>
+<summary>
+  <span class="tag tag-infra">Legacy</span>
+  <span class="section-title">*.jas.life &mdash; Pre-AC Archive (2014&ndash;2016)</span>
+  <span class="section-count">14 sites</span>
+</summary>
+<div class="section-desc">Jeffrey Scudder's projects predating Aesthetic Computer, hosted on a legacy DigitalOcean droplet (Ubuntu 16.04) and served via Cloudflare-proxied subdomains of jas.life. Includes drawing apps, hypertext poetry, course syllabi, artist portfolios, and a 109 GB personal file archive.</div>
+
+<div class="route-group-label">Web Apps (Rails / Passenger)</div>
+<div class="routes single-col">
+  <div class="redirect-row"><a class="redirect-from" href="https://bigwalt59-com.jas.life" target="_blank">bigwalt59-com.jas.life</a><span class="redirect-arrow">&mdash;</span><span class="redirect-to">Hypertext poem (Lali Foster &amp; Jeffrey Scudder, Global Game Jam 2015)</span><span class="redirect-status status-200">200</span></div>
+  <div class="redirect-row"><a class="redirect-from" href="https://drawings-rey-sc.jas.life" target="_blank">drawings-rey-sc.jas.life</a><span class="redirect-arrow">&mdash;</span><span class="redirect-to">Drawing app &mdash; 3 996 files in PostgreSQL</span><span class="redirect-status status-200">200</span></div>
+  <div class="redirect-row"><a class="redirect-from" href="https://nopaint-org.jas.life" target="_blank">nopaint-org.jas.life</a><span class="redirect-arrow">&mdash;</span><span class="redirect-to">No Paint</span><span class="redirect-status status-200">200</span></div>
+  <div class="redirect-row"><a class="redirect-from" href="https://ww-rey-sc.jas.life" target="_blank">ww-rey-sc.jas.life</a><span class="redirect-arrow">&mdash;</span><span class="redirect-to">Word Web</span><span class="redirect-status status-200">200</span></div>
+</div>
+
+<div class="route-group-label">Static Sites &amp; Portfolios</div>
+<div class="routes single-col">
+  <div class="redirect-row"><a class="redirect-from" href="https://rey-sc.jas.life" target="_blank">rey-sc.jas.life</a><span class="redirect-arrow">&mdash;</span><span class="redirect-to">Jeffrey Scudder &mdash; CV, portfolio, course pages</span><span class="redirect-status status-200">200</span></div>
+  <div class="redirect-row"><a class="redirect-from" href="https://syl-rey-sc.jas.life" target="_blank">syl-rey-sc.jas.life</a><span class="redirect-arrow">&mdash;</span><span class="redirect-to">Course syllabi (PSAM 3210, PUCD 2035/2126)</span><span class="redirect-status status-200">200</span></div>
+  <div class="redirect-row"><a class="redirect-from" href="https://gordilloscudder-com.jas.life" target="_blank">gordilloscudder-com.jas.life</a><span class="redirect-arrow">&mdash;</span><span class="redirect-to">Gordillo&ndash;Scudder artist portfolio &amp; press</span><span class="redirect-status status-200">200</span></div>
+  <div class="redirect-row"><a class="redirect-from" href="https://daisychainbook-com.jas.life" target="_blank">daisychainbook-com.jas.life</a><span class="redirect-arrow">&mdash;</span><span class="redirect-to">Daisy Chain Book</span><span class="redirect-status status-200">200</span></div>
+  <div class="redirect-row"><a class="redirect-from" href="https://maskware-net.jas.life" target="_blank">maskware-net.jas.life</a><span class="redirect-arrow">&mdash;</span><span class="redirect-to">Maskware</span><span class="redirect-status status-200">200</span></div>
+  <div class="redirect-row"><a class="redirect-from" href="https://teacherdirectedactivity-com.jas.life" target="_blank">teacherdirectedactivity-com.jas.life</a><span class="redirect-arrow">&mdash;</span><span class="redirect-to">TDA &mdash; audio + interactive</span><span class="redirect-status status-200">200</span></div>
+  <div class="redirect-row"><a class="redirect-from" href="https://traveller-minnna.jas.life" target="_blank">traveller-minnna.jas.life</a><span class="redirect-arrow">&mdash;</span><span class="redirect-to">Traveller (2014)</span><span class="redirect-status status-200">200</span></div>
+</div>
+
+<div class="route-group-label">Art Projects &amp; Archives</div>
+<div class="routes single-col">
+  <div class="redirect-row"><a class="redirect-from" href="https://interludes-and-remnants-net.jas.life" target="_blank">interludes-and-remnants-net.jas.life</a><span class="redirect-arrow">&mdash;</span><span class="redirect-to">Interludes &amp; Remnants (401 MB)</span><span class="redirect-status status-200">200</span></div>
+  <div class="redirect-row"><a class="redirect-from" href="https://digpain-org.jas.life" target="_blank">digpain-org.jas.life</a><span class="redirect-arrow">&mdash;</span><span class="redirect-to">Digital Pain</span><span class="redirect-status status-200">200</span></div>
+  <div class="redirect-row"><a class="redirect-from" href="https://bin-sc.jas.life" target="_blank">bin-sc.jas.life</a><span class="redirect-arrow">&mdash;</span><span class="redirect-to">File archive &mdash; 109 GB (Projects, Teaching, JeffreyPaint)</span><span class="redirect-status status-200">200</span></div>
 </div>
 </details>
 </div>
