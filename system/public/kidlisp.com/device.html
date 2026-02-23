@@ -329,6 +329,8 @@
 
     /* UI elements always visible - they have their own scramble animations */
     #qr-wrap,
+    #piece-info,
+    #source-code,
     #piece-handle,
     #piece-hits,
     #piece-when,
@@ -2543,7 +2545,13 @@
     const isDeviceSubdomain = hostname === 'device.kidlisp.com' || hostname === 'top.kidlisp.com' || hostname === 'calm.kidlisp.com';
     const isTopPlaylist = hostname === 'top.kidlisp.com' || pathname.startsWith('/top.kidlisp.com');
     const isCalmPlaylist = hostname === 'calm.kidlisp.com' || pathname.startsWith('/calm.kidlisp.com');
-    
+
+    // Calm mode: hide all overlay UI (QR, source code, piece info) — only progress bar visible
+    if (isCalmPlaylist) {
+      const overlay = document.getElementById('source-overlay');
+      if (overlay) overlay.style.display = 'none';
+    }
+
     const logDevice = (...args) => {
       console.log('📺 DEVICE:', ...args);
       addLog(args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' '));
@@ -3052,26 +3060,28 @@
 
       if (slideshowInitialBoot) {
         // ═══ FIRST PIECE: Full iframe boot with scramble animation ═══
-        window.resetDecodeState?.();
+        if (!isCalmPlaylist) {
+          window.resetDecodeState?.();
 
-        // Scramble all UI elements
-        const playlistPosition = document.getElementById('ff1-playlist-position');
-        if (playlistPosition) {
-          window.scrambleTextElement?.(playlistPosition, `${slideshowIndex + 1} - ${slideshowPlaylist.items.length}`, 500, true);
-        }
-        const playlistTitleEl = document.getElementById('ff1-playlist-title');
-        if (playlistTitleEl && slideshowPlaylist.title) {
-          window.scrambleTextElement?.(playlistTitleEl, slideshowPlaylist.title, 600, true);
-        }
-        const ff1CmdSpan = document.querySelector('.ff1-cmd');
-        if (ff1CmdSpan && currentFF1Command) {
-          ff1CmdSpan._scrambleTargetHTML = formatFF1Command(currentFF1Command);
-          window.scrambleTextElement?.(ff1CmdSpan, currentFF1Command, 600, true);
-        }
+          // Scramble all UI elements
+          const playlistPosition = document.getElementById('ff1-playlist-position');
+          if (playlistPosition) {
+            window.scrambleTextElement?.(playlistPosition, `${slideshowIndex + 1} - ${slideshowPlaylist.items.length}`, 500, true);
+          }
+          const playlistTitleEl = document.getElementById('ff1-playlist-title');
+          if (playlistTitleEl && slideshowPlaylist.title) {
+            window.scrambleTextElement?.(playlistTitleEl, slideshowPlaylist.title, 600, true);
+          }
+          const ff1CmdSpan = document.querySelector('.ff1-cmd');
+          if (ff1CmdSpan && currentFF1Command) {
+            ff1CmdSpan._scrambleTargetHTML = formatFF1Command(currentFF1Command);
+            window.scrambleTextElement?.(ff1CmdSpan, currentFF1Command, 600, true);
+          }
 
-        // Fetch and display source FIRST — source code / QR must appear
-        // before the piece starts playing in the iframe.
-        await fetchAndDisplaySource(codeId);
+          // Fetch and display source FIRST — source code / QR must appear
+          // before the piece starts playing in the iframe.
+          await fetchAndDisplaySource(codeId);
+        }
 
         // Now load the piece in iframe (full boot)
         const itemUrl = resolveItemUrl(item);
@@ -3082,8 +3092,8 @@
         console.log('📺 Initial boot — waiting for piece ready...');
       } else if (crossfadeEnabled) {
         // ═══ CALM CROSSFADE: Load next piece in back iframe, crossfade live ═══
-        // Use scramble animation for overlay text (matches the slow crossfade mood)
-        fetchAndDisplaySource(codeId);
+        // Use scramble animation for overlay text (skip for calm — no overlay)
+        if (!isCalmPlaylist) fetchAndDisplaySource(codeId);
         window.pendingSlideshowDuration = duration;
 
         // Cancel any in-progress crossfade
@@ -4198,9 +4208,13 @@
         if (isDeviceSubdomain) {
           const shouldWiggle = elapsed > 5 && elapsed <= 6 && remainingSec > 6;
           const shouldSlideOut = elapsed > 6 && remainingSec > 6;
+          // Wiggle → slide: keep wiggle-warning while slid-out is active briefly
+          // (CSS rule cancels animation so transform transition can take over)
+          // Clean up wiggle-warning 0.5s after slide-out starts
+          const shouldCleanupWiggle = elapsed > 6.5 || remainingSec <= 6;
           if (shouldWiggle && !overlay.classList.contains('wiggle-warning')) {
             overlay.classList.add('wiggle-warning');
-          } else if (!shouldWiggle && overlay.classList.contains('wiggle-warning')) {
+          } else if (shouldCleanupWiggle && overlay.classList.contains('wiggle-warning')) {
             overlay.classList.remove('wiggle-warning');
           }
           if (shouldSlideOut && !overlay.classList.contains('slid-out')) {
