@@ -85,10 +85,49 @@
       margin-bottom: 3rem;
     }
 
-    .hero img {
+    .hero-slideshow {
+      position: relative;
       width: 100%;
-      display: block;
+      aspect-ratio: 1 / 1;
+      overflow: hidden;
       margin-bottom: 1.5rem;
+      background: #111;
+    }
+
+    .hero-slideshow img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center top;
+      opacity: 0;
+      transition: opacity 1.5s ease-in-out;
+    }
+
+    .hero-slideshow img.active {
+      opacity: 1;
+    }
+
+    @keyframes kb-zoom-in {
+      0%   { transform: scale(1)    translate(0, 0); }
+      100% { transform: scale(1.12) translate(-1.5%, -1.5%); }
+    }
+    @keyframes kb-zoom-out {
+      0%   { transform: scale(1.12) translate(1.5%, 0); }
+      100% { transform: scale(1)    translate(0, 1.5%); }
+    }
+    @keyframes kb-pan-right {
+      0%   { transform: scale(1.08) translate(-2%, 0); }
+      100% { transform: scale(1.08) translate(2%, -1%); }
+    }
+    @keyframes kb-pan-left {
+      0%   { transform: scale(1.1)  translate(2%, -1%); }
+      100% { transform: scale(1)    translate(-1%, 1%); }
+    }
+    @keyframes kb-zoom-center {
+      0%   { transform: scale(1)    translate(0, 0); }
+      100% { transform: scale(1.1)  translate(0, -1%); }
     }
 
     .hero h1 {
@@ -429,7 +468,15 @@
 
     <!-- HERO -->
     <div class="hero">
-      <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--05.jpg" alt="Jeffrey Alan Scudder">
+      <div class="hero-slideshow" id="heroSlideshow">
+        <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--05.jpg" alt="Jeffrey Alan Scudder" class="active">
+        <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--40.jpg" alt="Jeffrey Alan Scudder">
+        <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--20.jpg" alt="Jeffrey Alan Scudder">
+        <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--02.jpg" alt="Jeffrey Alan Scudder">
+        <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--45.jpg" alt="Jeffrey Alan Scudder">
+        <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--50.jpg" alt="Jeffrey Alan Scudder">
+        <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--55.jpg" alt="Jeffrey Alan Scudder">
+      </div>
       <h1>Jeffrey Alan Scudder</h1>
       <div class="tagline">b. 1989, Assonet, MA</div>
       <div class="links">
@@ -795,5 +842,35 @@
     </div>
 
   </div>
+
+  <script>
+    (function () {
+      const kbAnims = ['kb-zoom-in', 'kb-zoom-out', 'kb-pan-right', 'kb-pan-left', 'kb-zoom-center'];
+      const duration = 6000; // ms per slide
+      const fadeDuration = 1500; // ms (matches CSS transition)
+      const slideshow = document.getElementById('heroSlideshow');
+      const slides = Array.from(slideshow.querySelectorAll('img'));
+      let current = 0;
+
+      function applyKenBurns(img, animName) {
+        img.style.animation = 'none';
+        img.offsetHeight; // force reflow to restart animation
+        img.style.animation = `${animName} ${duration + fadeDuration}ms ease-in-out both`;
+      }
+
+      // Start first slide
+      applyKenBurns(slides[0], kbAnims[0]);
+
+      setInterval(function () {
+        const prev = current;
+        current = (current + 1) % slides.length;
+        const animName = kbAnims[current % kbAnims.length];
+
+        slides[prev].classList.remove('active');
+        applyKenBurns(slides[current], animName);
+        slides[current].classList.add('active');
+      }, duration);
+    })();
+  </script>
 </body>
 </html>
