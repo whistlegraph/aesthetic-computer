@@ -3189,27 +3189,34 @@
         currentProgressPercent = progress;
         progressFill.style.width = `${progress}%`;
         
-        // Slide overlay elements based on progress:
-        // First 1/6 (0-16.7%): show elements
-        // Middle 4/6 (16.7%-83.3%): slide off
-        // Last 1/6 (83.3%-100%): bring back
-        // DISABLED for device subdomains - always show UI
-        if (overlay && !isDeviceSubdomain) {
-          const shouldSlideOut = progress > 16.67 && progress < 83.33;
+        // Slide overlay elements for fullscreen viewing:
+        // Device subdomains: time-based (show first 5s, hide middle, show last 5s)
+        // Others: percentage-based (first 1/6, middle 4/6, last 1/6)
+        if (overlay) {
+          const elapsedSec = elapsed / 1000;
+          const remainingSec = (durationMs - elapsed) / 1000;
+          const shouldSlideOut = isDeviceSubdomain
+            ? elapsedSec > 5 && remainingSec > 5
+            : progress > 16.67 && progress < 83.33;
           if (shouldSlideOut && !overlay.classList.contains('slid-out')) {
             overlay.classList.add('slid-out');
           } else if (!shouldSlideOut && overlay.classList.contains('slid-out')) {
             overlay.classList.remove('slid-out');
           }
         }
-        
+
         // Hide progress bar during middle section (same timing as slide out)
-        // DISABLED for device subdomains - always show progress bar
-        const shouldHideBar = !isDeviceSubdomain && progress > 16.67 && progress < 83.33;
-        if (shouldHideBar && !progressBar.classList.contains('hidden-mid')) {
-          progressBar.classList.add('hidden-mid');
-        } else if (!shouldHideBar && progressBar.classList.contains('hidden-mid')) {
-          progressBar.classList.remove('hidden-mid');
+        {
+          const elapsedSec = elapsed / 1000;
+          const remainingSec = (durationMs - elapsed) / 1000;
+          const shouldHideBar = isDeviceSubdomain
+            ? elapsedSec > 5 && remainingSec > 5
+            : progress > 16.67 && progress < 83.33;
+          if (shouldHideBar && !progressBar.classList.contains('hidden-mid')) {
+            progressBar.classList.add('hidden-mid');
+          } else if (!shouldHideBar && progressBar.classList.contains('hidden-mid')) {
+            progressBar.classList.remove('hidden-mid');
+          }
         }
         
         // Fade white → yellow → orange → red in last 30%
@@ -4060,28 +4067,33 @@
       currentProgressPercent = progress;
       progressFill.style.width = `${progress}%`;
       
-      // Slide overlay elements based on progress:
-      // First 1/6 (0-16.7%): show elements
-      // Middle 4/6 (16.7%-83.3%): slide off
-      // Last 1/6 (83.3%-100%): bring back
-      // DISABLED for device subdomains - always show UI
+      // Slide overlay elements for fullscreen viewing:
+      // Device subdomains: time-based (show first 5s, hide middle, show last 5s)
+      // Others: percentage-based (first 1/6, middle 4/6, last 1/6)
       const overlay = document.getElementById('source-overlay');
-      if (overlay && !isDeviceSubdomain) {
-        const shouldSlideOut = progress > 16.67 && progress < 83.33;
+      if (overlay) {
+        const remainingSec = playlistDuration - elapsed;
+        const shouldSlideOut = isDeviceSubdomain
+          ? elapsed > 5 && remainingSec > 5
+          : progress > 16.67 && progress < 83.33;
         if (shouldSlideOut && !overlay.classList.contains('slid-out')) {
           overlay.classList.add('slid-out');
         } else if (!shouldSlideOut && overlay.classList.contains('slid-out')) {
           overlay.classList.remove('slid-out');
         }
       }
-      
+
       // Hide progress bar during middle section (same timing as slide out)
-      // DISABLED for device subdomains - always show progress bar
-      const shouldHideBar = !isDeviceSubdomain && progress > 16.67 && progress < 83.33;
-      if (shouldHideBar && !progressBar.classList.contains('hidden-mid')) {
-        progressBar.classList.add('hidden-mid');
-      } else if (!shouldHideBar && progressBar.classList.contains('hidden-mid')) {
-        progressBar.classList.remove('hidden-mid');
+      {
+        const remainingSec = playlistDuration - elapsed;
+        const shouldHideBar = isDeviceSubdomain
+          ? elapsed > 5 && remainingSec > 5
+          : progress > 16.67 && progress < 83.33;
+        if (shouldHideBar && !progressBar.classList.contains('hidden-mid')) {
+          progressBar.classList.add('hidden-mid');
+        } else if (!shouldHideBar && progressBar.classList.contains('hidden-mid')) {
+          progressBar.classList.remove('hidden-mid');
+        }
       }
       
       // Fade white → yellow → orange → red in last 30%
