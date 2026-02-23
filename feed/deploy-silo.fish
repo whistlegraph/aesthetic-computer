@@ -2,8 +2,9 @@
 # Deploy dp1-feed (SQLite mode) to silo.aesthetic.computer
 #
 # Usage:
-#   fish deploy-silo.fish          # Full deploy (build, upload, restart)
-#   fish deploy-silo.fish --setup  # First-time setup (create dirs, systemd service, env)
+#   fish deploy-silo.fish            # Full deploy (build, upload, restart)
+#   fish deploy-silo.fish --landing  # Landing page only (no restart)
+#   fish deploy-silo.fish --setup    # First-time setup (create dirs, systemd service, env)
 
 set RED '\033[0;31m'
 set GREEN '\033[0;32m'
@@ -19,8 +20,12 @@ set REMOTE_DIR "/opt/dp1-feed"
 set DP1_DIR "$SCRIPT_DIR/dp1-feed"
 
 set SETUP false
+set LANDING_ONLY false
 if contains -- --setup $argv
     set SETUP true
+end
+if contains -- --landing $argv
+    set LANDING_ONLY true
 end
 
 # Check for SSH key
@@ -36,6 +41,16 @@ if not ssh -i $SSH_KEY -o StrictHostKeyChecking=no -o ConnectTimeout=10 $SILO_US
     exit 1
 end
 echo -e "$GREEN   Connected.$NC"
+
+if test $LANDING_ONLY = true
+    echo -e "$GREEN-> Uploading landing-page.html (no restart)...$NC"
+    scp -i $SSH_KEY -o StrictHostKeyChecking=no \
+        $SCRIPT_DIR/landing-page.html \
+        $SILO_USER@$SILO_HOST:$REMOTE_DIR/
+    ssh -i $SSH_KEY $SILO_USER@$SILO_HOST "chown dp1feed:dp1feed $REMOTE_DIR/landing-page.html"
+    echo -e "$GREEN   Landing page deployed.$NC"
+    exit 0
+end
 
 if test $SETUP = true
     # First-time setup: create dirs, systemd service, generate keys
@@ -131,6 +146,12 @@ scp -i $SSH_KEY -o StrictHostKeyChecking=no \
 scp -i $SSH_KEY -o StrictHostKeyChecking=no \
     $DP1_DIR/package.json \
     $DP1_DIR/package-lock.json \
+    $SILO_USER@$SILO_HOST:$REMOTE_DIR/
+
+# Upload landing page
+echo -e "$GREEN-> Uploading landing page...$NC"
+scp -i $SSH_KEY -o StrictHostKeyChecking=no \
+    $SCRIPT_DIR/landing-page.html \
     $SILO_USER@$SILO_HOST:$REMOTE_DIR/
 
 echo -e "$GREEN-> Installing dependencies & restarting...$NC"
