@@ -1366,6 +1366,7 @@ class TextInput {
   hideGutter = false;
   #gutterMax;
   #activatingPress = false;
+  #deactivatingPress = false; // Set on touch when active, deferred to lift for VSCode curtain close
   #edgeCancelled = false;
   #manuallyDeactivated = false;
   #manualDeactivationTime = 0;
@@ -2567,6 +2568,7 @@ class TextInput {
 
     // Deactivate on backdrop tap when already active (VSCode fix —
     // in VSCode the hidden input never blurs so keyboard:close never fires)
+    // Deferred to lift so swipe-right autocomplete gestures aren't cancelled.
     if (
       e.is("touch") &&
       !this.#lock &&
@@ -2576,11 +2578,7 @@ class TextInput {
       (this.paste.btn.disabled === true || !this.paste.btn.box.contains(e)) &&
       (this.enter.btn.disabled === true || !this.enter.btn.box.contains(e))
     ) {
-      // Lock first to prevent bios pointerup from re-focusing the input
-      $.send({ type: "keyboard:lock" });
-      deactivate(this);
-      $.send({ type: "keyboard:close" });
-      this.backdropTouchOff = true;
+      this.#deactivatingPress = true;
     }
 
     // Begin the prompt input mode / leave the splash.
@@ -2760,10 +2758,16 @@ class TextInput {
           if (!isOverInteractive && !this.#recentlyShifting) {
             this.#manuallyDeactivated = true;
             this.#manualDeactivationTime = Date.now();
+            // Send keyboard:close for VSCode where hidden input never blurs
+            if (this.#deactivatingPress) {
+              $.send({ type: "keyboard:lock" });
+              $.send({ type: "keyboard:close" });
+            }
             deactivate(this);
           }
         }
       }
+      this.#deactivatingPress = false;
     }
 
     // UI Button Actions
@@ -3041,6 +3045,7 @@ class TextInput {
 
         this.shifting = true;
         this.backdropTouchOff = true;
+        this.#deactivatingPress = false; // Cancel deferred deactivation — user is swiping, not tapping
       }
 
       if (
