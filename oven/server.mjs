@@ -228,6 +228,7 @@ const OVEN_TV_HTML = `<!DOCTYPE html>
   <meta charset="utf-8">
   <title>oven</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png">
   <style>
     :root {
       --bg: #f7f7f7;
