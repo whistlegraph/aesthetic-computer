@@ -351,10 +351,62 @@
     }
 
     .keeps-endpoint-name.v4::after {
-      content: " ★";
+      content: " v4";
       color: #FFE66D;
-      font-size: 12px;
+      font-size: 10px;
+      font-weight: 500;
+      margin-left: 6px;
     }
+
+    .keeps-endpoint-name.v5 {
+      color: #7FDBCA;
+    }
+
+    .keeps-endpoint-name.v5::after {
+      content: " v5";
+      color: #7FDBCA;
+      font-size: 10px;
+      font-weight: 500;
+      margin-left: 6px;
+    }
+
+    .keeps-version-select {
+      padding: 8px 12px;
+      font-family: var(--font-mono);
+      font-size: 14px;
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      cursor: pointer;
+      outline: none;
+    }
+
+    .keeps-version-select:focus {
+      border-color: var(--ac-purple);
+    }
+
+    .keeps-deprecated-banner {
+      padding: 10px 16px;
+      margin-bottom: 20px;
+      background: #3e3520;
+      border: 1px solid #665a30;
+      border-radius: 6px;
+      color: #d4b94a;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    @media (prefers-color-scheme: light) {
+      .keeps-deprecated-banner {
+        background: #fef9e7;
+        border-color: #e0d39a;
+        color: #8a7520;
+      }
+    }
+
+    .keeps-version-docs { display: none; }
+    .keeps-version-docs.active { display: block; }
 
     .keeps-endpoint-desc {
       font-size: 12px;
@@ -1161,7 +1213,7 @@
   <div class="keeps-tabs-container">
     <div class="keeps-tabs">
       <button class="keeps-tab active" data-tab="index">Index</button>
-      <button class="keeps-tab" data-tab="v4docs">V4 Docs</button>
+      <button class="keeps-tab" data-tab="docs">Docs</button>
       <button class="keeps-tab" data-tab="about">About</button>
     </div>
 
@@ -1180,267 +1232,416 @@
       </div>
     </div>
 
-    <!-- TAB: V4 Docs -->
-    <div class="keeps-tab-content" id="tab-v4docs">
+    <!-- TAB: Docs (versioned) -->
+    <div class="keeps-tab-content" id="tab-docs">
       <div style="padding: 24px; max-width: 900px; margin: 0 auto;">
-        <h2 style="margin: 0 0 16px; color: var(--text-primary); font-size: 24px; font-weight: 600;">
-          Keeps FA2 v4 Contract Documentation
-        </h2>
-
-        <div style="margin-bottom: 24px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
-          <div style="margin-bottom: 8px; color: var(--text-secondary); font-size: 13px; font-weight: 500;">Contract Address</div>
-          <div style="font-family: 'Courier New', monospace; color: var(--ac-purple); font-size: 14px; word-break: break-all;">
-            KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W
-          </div>
-          <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
-            <a href="https://tzkt.io/KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W" target="_blank"
-               style="padding: 6px 12px; background: var(--ac-purple); color: white; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
-              View on TzKT
-            </a>
-            <a href="https://objkt.com/collection/keeps" target="_blank"
-               style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
-              View on objkt
-            </a>
-            <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/keeps_fa2_v4.py" target="_blank"
-               style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
-              Source Code
-            </a>
-          </div>
+        <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 20px;">
+          <h2 style="margin: 0; color: var(--text-primary); font-size: 24px; font-weight: 600;">
+            Keeps FA2 Contract
+          </h2>
+          <select class="keeps-version-select" id="version-select">
+            <option value="v5" selected>v5 (Production)</option>
+            <option value="v4">v4 (Staging)</option>
+            <option value="v3">v3 (Dev Only)</option>
+            <option value="v2">v2 (Legacy)</option>
+          </select>
         </div>
 
-        <p style="margin-bottom: 24px; color: var(--text-secondary); line-height: 1.6;">
-          The Keeps FA2 v4 contract is a full-featured NFT system with 23 total endpoints.
-          It implements the TZIP-012 (FA2) standard with custom extensions for content deduplication,
-          editable metadata, royalties, and emergency controls.
-        </p>
+        <!-- ═══════════════════════════════════════ V5 ═══════════════════════════════════════ -->
+        <div class="keeps-version-docs active" id="docs-v5">
 
-        <div style="margin-bottom: 32px;">
-          <h3 style="margin: 0 0 16px; color: var(--text-primary); font-size: 18px; font-weight: 600; border-bottom: 2px solid var(--ac-purple); padding-bottom: 8px;">
-            Custom Endpoints (12)
-          </h3>
-
-          <div class="keeps-endpoint">
-            <div class="keeps-endpoint-name v4">★ pause</div>
-            <div class="keeps-endpoint-desc">Emergency pause contract (blocks minting/editing, allows transfers)</div>
-            <div class="keeps-endpoint-auth">Auth: admin only</div>
-            <div class="keeps-endpoint-desc" style="margin-top: 8px; font-style: italic;">New in v4 • Enables emergency stop without breaking FA2 composability</div>
-          </div>
-
-          <div class="keeps-endpoint">
-            <div class="keeps-endpoint-name v4">★ unpause</div>
-            <div class="keeps-endpoint-desc">Resume normal contract operations after pause</div>
-            <div class="keeps-endpoint-auth">Auth: admin only</div>
-            <div class="keeps-endpoint-desc" style="margin-top: 8px; font-style: italic;">New in v4 • Allows safe contract recovery</div>
-          </div>
-
-          <div class="keeps-endpoint">
-            <div class="keeps-endpoint-name v4">★ set_default_royalty</div>
-            <div class="keeps-endpoint-desc">Set default royalty percentage for all tokens (0-25%)</div>
-            <div class="keeps-endpoint-auth">Auth: admin only</div>
-            <div class="keeps-endpoint-desc" style="margin-top: 8px; font-style: italic;">New in v4 • Currently set to 10% (1000 basis points)</div>
-          </div>
-
-          <div class="keeps-endpoint">
-            <div class="keeps-endpoint-name v4">★ admin_transfer</div>
-            <div class="keeps-endpoint-desc">Emergency transfer for recovery (validates current owner)</div>
-            <div class="keeps-endpoint-auth">Auth: admin only</div>
-            <div class="keeps-endpoint-desc" style="margin-top: 8px; font-style: italic;">New in v4 • Safety feature for lost access recovery</div>
-          </div>
-
-          <div class="keeps-endpoint">
-            <div class="keeps-endpoint-name">keep</div>
-            <div class="keeps-endpoint-desc">Mint a new token with metadata (requires fee payment or admin)</div>
-            <div class="keeps-endpoint-auth">Auth: admin (free) or user (with fee)</div>
-            <div class="keeps-endpoint-desc" style="margin-top: 8px;">
-              <strong>Params:</strong> to (address), metadata (bytes), content_hash (bytes)
+          <div style="margin-bottom: 24px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
+            <div style="margin-bottom: 8px; color: var(--text-secondary); font-size: 13px; font-weight: 500;">Contract Address</div>
+            <div style="font-family: 'Courier New', monospace; color: var(--text-tertiary); font-size: 14px; word-break: break-all;">
+              Deploying to <strong style="color: var(--ac-purple);">keeps.tez</strong> &mdash; address TBD
             </div>
-            <div class="keeps-endpoint-desc" style="margin-top: 4px; font-style: italic;">
-              Enforces unique content_hash to prevent duplicates
+            <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
+              <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/keeps_fa2_v5.py" target="_blank"
+                 style="padding: 6px 12px; background: var(--ac-purple); color: white; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
+                Source Code
+              </a>
             </div>
           </div>
 
-          <div class="keeps-endpoint">
-            <div class="keeps-endpoint-name">edit_metadata</div>
-            <div class="keeps-endpoint-desc">Update token metadata (if not locked)</div>
-            <div class="keeps-endpoint-auth">Auth: admin, current owner, or original creator</div>
-            <div class="keeps-endpoint-desc" style="margin-top: 8px;">
-              <strong>Params:</strong> token_id (nat), new_metadata (bytes)
+          <p style="margin-bottom: 24px; color: var(--text-secondary); line-height: 1.6;">
+            The Keeps FA2 v5 contract is the final production release. It preserves all v4 features
+            and adds a 2.5 XTZ default minting fee, immutable content_hash protection during metadata edits,
+            and improved error messages.
+          </p>
+
+          <div style="margin-bottom: 32px;">
+            <h3 style="margin: 0 0 16px; color: var(--text-primary); font-size: 18px; font-weight: 600; border-bottom: 2px solid var(--ac-purple); padding-bottom: 8px;">
+              Custom Endpoints (12)
+            </h3>
+
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name v5">edit_metadata</div>
+              <div class="keeps-endpoint-desc">Update token metadata (if not locked). <strong>content_hash is immutable</strong> &mdash; always preserved from original mint.</div>
+              <div class="keeps-endpoint-auth">Auth: admin, current owner, or original creator</div>
+              <div class="keeps-endpoint-desc" style="margin-top: 8px;">
+                <strong>Params:</strong> token_id (nat), token_info (map[string, bytes])
+              </div>
+              <div class="keeps-endpoint-desc" style="margin-top: 4px; font-style: italic;">
+                New in v5: content_hash cannot be changed or removed via edit, preventing orphaned bigmap entries
+              </div>
+            </div>
+
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name v4">pause</div>
+              <div class="keeps-endpoint-desc">Emergency pause contract (blocks minting/editing, allows transfers)</div>
+              <div class="keeps-endpoint-auth">Auth: admin only</div>
+            </div>
+
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name v4">unpause</div>
+              <div class="keeps-endpoint-desc">Resume normal contract operations after pause</div>
+              <div class="keeps-endpoint-auth">Auth: admin only</div>
+            </div>
+
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name v4">set_default_royalty</div>
+              <div class="keeps-endpoint-desc">Set default royalty percentage for all tokens (0-25%)</div>
+              <div class="keeps-endpoint-auth">Auth: admin only</div>
+              <div class="keeps-endpoint-desc" style="margin-top: 8px;">
+                <strong>Params:</strong> bps (nat) &mdash; basis points, 1000 = 10%, max 2500
+              </div>
+            </div>
+
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name v4">admin_transfer</div>
+              <div class="keeps-endpoint-desc">Emergency transfer for recovery (validates current owner)</div>
+              <div class="keeps-endpoint-auth">Auth: admin only</div>
+              <div class="keeps-endpoint-desc" style="margin-top: 8px;">
+                <strong>Params:</strong> token_id (nat), from_ (address), to_ (address)
+              </div>
+            </div>
+
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name">keep</div>
+              <div class="keeps-endpoint-desc">Mint a new token with full TZIP-21 metadata + royalties</div>
+              <div class="keeps-endpoint-auth">Auth: admin (free) or user (with 2.5 XTZ fee)</div>
+              <div class="keeps-endpoint-desc" style="margin-top: 8px;">
+                <strong>Params:</strong> name, description, artifactUri, displayUri, thumbnailUri, decimals, symbol, isBooleanAmount, shouldPreferSymbol, formats, tags, attributes, creators, royalties, rights, content_type, content_hash, metadata_uri (all bytes), owner (address)
+              </div>
+              <div class="keeps-endpoint-desc" style="margin-top: 4px; font-style: italic;">
+                Enforces unique content_hash &bull; Non-admin must mint to self &bull; Default fee: 2.5 XTZ
+              </div>
+            </div>
+
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name">lock_metadata</div>
+              <div class="keeps-endpoint-desc">Permanently lock token metadata (irreversible)</div>
+              <div class="keeps-endpoint-auth">Auth: admin or current owner</div>
+              <div class="keeps-endpoint-desc" style="margin-top: 8px;">
+                <strong>Params:</strong> token_id (nat)
+              </div>
+            </div>
+
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name">set_contract_metadata</div>
+              <div class="keeps-endpoint-desc">Update contract-level metadata (name, description, etc.)</div>
+              <div class="keeps-endpoint-auth">Auth: admin only</div>
+              <div class="keeps-endpoint-desc" style="margin-top: 8px;">
+                <strong>Params:</strong> list of (key, value) pairs
+              </div>
+            </div>
+
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name">lock_contract_metadata</div>
+              <div class="keeps-endpoint-desc">Permanently lock contract metadata (irreversible)</div>
+              <div class="keeps-endpoint-auth">Auth: admin only</div>
+            </div>
+
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name">set_keep_fee</div>
+              <div class="keeps-endpoint-desc">Set minting fee in mutez (1 tez = 1,000,000 mutez)</div>
+              <div class="keeps-endpoint-auth">Auth: admin only</div>
+              <div class="keeps-endpoint-desc" style="margin-top: 8px;">
+                <strong>Params:</strong> new_fee (mutez) &mdash; Default: 2,500,000 (2.5 XTZ)
+              </div>
+            </div>
+
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name">withdraw_fees</div>
+              <div class="keeps-endpoint-desc">Withdraw collected fees to specified address (sends entire balance)</div>
+              <div class="keeps-endpoint-auth">Auth: admin only</div>
+              <div class="keeps-endpoint-desc" style="margin-top: 8px;">
+                <strong>Params:</strong> destination (address)
+              </div>
+            </div>
+
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name">burn_keep</div>
+              <div class="keeps-endpoint-desc">Permanently delete a token and free its content_hash</div>
+              <div class="keeps-endpoint-auth">Auth: admin only</div>
+              <div class="keeps-endpoint-desc" style="margin-top: 8px;">
+                <strong>Params:</strong> token_id (nat) &mdash; Cleans up all 5 storage maps
+              </div>
             </div>
           </div>
 
-          <div class="keeps-endpoint">
-            <div class="keeps-endpoint-name">lock_metadata</div>
-            <div class="keeps-endpoint-desc">Permanently lock token metadata (irreversible)</div>
-            <div class="keeps-endpoint-auth">Auth: admin or current owner</div>
-            <div class="keeps-endpoint-desc" style="margin-top: 8px;">
-              <strong>Params:</strong> token_id (nat)
+          <div style="margin-bottom: 32px;">
+            <h3 style="margin: 0 0 16px; color: var(--text-primary); font-size: 18px; font-weight: 600; border-bottom: 2px solid var(--ac-purple); padding-bottom: 8px;">
+              FA2 Standard Endpoints (6)
+            </h3>
+
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name">transfer</div>
+              <div class="keeps-endpoint-desc">Transfer tokens between addresses (FA2 standard)</div>
+              <div class="keeps-endpoint-auth">Auth: owner or approved operator</div>
+            </div>
+
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name">update_operators</div>
+              <div class="keeps-endpoint-desc">Add or remove approved operators for your tokens</div>
+              <div class="keeps-endpoint-auth">Auth: token owner</div>
+            </div>
+
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name">balance_of</div>
+              <div class="keeps-endpoint-desc">Query token balances (callback pattern)</div>
+              <div class="keeps-endpoint-auth">Auth: public</div>
+            </div>
+
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name">mint</div>
+              <div class="keeps-endpoint-desc">Basic FA2 mint (use 'keep' instead for content deduplication)</div>
+              <div class="keeps-endpoint-auth">Auth: admin only</div>
+            </div>
+
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name">burn</div>
+              <div class="keeps-endpoint-desc">Burn your own token (owner-initiated)</div>
+              <div class="keeps-endpoint-auth">Auth: token owner</div>
+            </div>
+
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name">set_administrator</div>
+              <div class="keeps-endpoint-desc">Transfer admin role to new address</div>
+              <div class="keeps-endpoint-auth">Auth: current admin only</div>
             </div>
           </div>
 
-          <div class="keeps-endpoint">
-            <div class="keeps-endpoint-name">set_contract_metadata</div>
-            <div class="keeps-endpoint-desc">Update contract-level metadata (name, description, etc.)</div>
-            <div class="keeps-endpoint-auth">Auth: admin only</div>
-            <div class="keeps-endpoint-desc" style="margin-top: 8px;">
-              <strong>Params:</strong> list of (key, value) pairs
+          <div style="margin-bottom: 32px;">
+            <h3 style="margin: 0 0 16px; color: var(--text-primary); font-size: 18px; font-weight: 600; border-bottom: 2px solid var(--ac-purple); padding-bottom: 8px;">
+              On-Chain Views (5)
+            </h3>
+
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name">get_balance</div>
+              <div class="keeps-endpoint-desc">Get balance for owner/token_id pair</div>
+              <div class="keeps-endpoint-auth">Auth: public (read-only) &mdash; Returns: nat (0 or 1)</div>
             </div>
-          </div>
 
-          <div class="keeps-endpoint">
-            <div class="keeps-endpoint-name">lock_contract_metadata</div>
-            <div class="keeps-endpoint-desc">Permanently lock contract metadata (irreversible)</div>
-            <div class="keeps-endpoint-auth">Auth: admin only</div>
-            <div class="keeps-endpoint-desc" style="margin-top: 8px; font-style: italic;">
-              Currently unlocked to allow updates
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name">total_supply</div>
+              <div class="keeps-endpoint-desc">Get total supply for a token_id</div>
+              <div class="keeps-endpoint-auth">Auth: public (read-only) &mdash; Returns: nat</div>
             </div>
-          </div>
 
-          <div class="keeps-endpoint">
-            <div class="keeps-endpoint-name">set_keep_fee</div>
-            <div class="keeps-endpoint-desc">Set minting fee in mutez (tez × 1,000,000)</div>
-            <div class="keeps-endpoint-auth">Auth: admin only</div>
-            <div class="keeps-endpoint-desc" style="margin-top: 8px;">
-              <strong>Params:</strong> fee_mutez (nat)
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name">is_operator</div>
+              <div class="keeps-endpoint-desc">Check if address is approved operator</div>
+              <div class="keeps-endpoint-auth">Auth: public (read-only) &mdash; Returns: bool</div>
             </div>
-          </div>
 
-          <div class="keeps-endpoint">
-            <div class="keeps-endpoint-name">withdraw_fees</div>
-            <div class="keeps-endpoint-desc">Withdraw collected fees to specified address</div>
-            <div class="keeps-endpoint-auth">Auth: admin only</div>
-            <div class="keeps-endpoint-desc" style="margin-top: 8px;">
-              <strong>Params:</strong> destination (address)
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name">all_tokens</div>
+              <div class="keeps-endpoint-desc">Get list of all token IDs</div>
+              <div class="keeps-endpoint-auth">Auth: public (read-only) &mdash; Returns: list of nat</div>
             </div>
-          </div>
 
-          <div class="keeps-endpoint">
-            <div class="keeps-endpoint-name">burn_keep</div>
-            <div class="keeps-endpoint-desc">Permanently delete a token (admin emergency use only)</div>
-            <div class="keeps-endpoint-auth">Auth: admin only</div>
-            <div class="keeps-endpoint-desc" style="margin-top: 8px;">
-              <strong>Params:</strong> token_id (nat)
-            </div>
-          </div>
-        </div>
-
-        <div style="margin-bottom: 32px;">
-          <h3 style="margin: 0 0 16px; color: var(--text-primary); font-size: 18px; font-weight: 600; border-bottom: 2px solid var(--ac-purple); padding-bottom: 8px;">
-            FA2 Standard Endpoints (6)
-          </h3>
-
-          <div class="keeps-endpoint">
-            <div class="keeps-endpoint-name">transfer</div>
-            <div class="keeps-endpoint-desc">Transfer tokens between addresses (FA2 standard)</div>
-            <div class="keeps-endpoint-auth">Auth: owner or approved operator</div>
-            <div class="keeps-endpoint-desc" style="margin-top: 8px;">
-              <strong>Params:</strong> list of (from, to, token_id, amount) transfers
-            </div>
-          </div>
-
-          <div class="keeps-endpoint">
-            <div class="keeps-endpoint-name">update_operators</div>
-            <div class="keeps-endpoint-desc">Add or remove approved operators for your tokens</div>
-            <div class="keeps-endpoint-auth">Auth: token owner</div>
-            <div class="keeps-endpoint-desc" style="margin-top: 8px;">
-              <strong>Params:</strong> list of add_operator or remove_operator actions
-            </div>
-          </div>
-
-          <div class="keeps-endpoint">
-            <div class="keeps-endpoint-name">balance_of</div>
-            <div class="keeps-endpoint-desc">Query token balances (callback pattern)</div>
-            <div class="keeps-endpoint-auth">Auth: public</div>
-            <div class="keeps-endpoint-desc" style="margin-top: 8px;">
-              <strong>Params:</strong> requests (list), callback (contract)
-            </div>
-          </div>
-
-          <div class="keeps-endpoint">
-            <div class="keeps-endpoint-name">mint</div>
-            <div class="keeps-endpoint-desc">Basic FA2 mint (use 'keep' instead for content deduplication)</div>
-            <div class="keeps-endpoint-auth">Auth: admin only</div>
-            <div class="keeps-endpoint-desc" style="margin-top: 8px;">
-              <strong>Params:</strong> to (address), metadata (bytes)
-            </div>
-          </div>
-
-          <div class="keeps-endpoint">
-            <div class="keeps-endpoint-name">burn</div>
-            <div class="keeps-endpoint-desc">Burn your own token (owner-initiated)</div>
-            <div class="keeps-endpoint-auth">Auth: token owner</div>
-            <div class="keeps-endpoint-desc" style="margin-top: 8px;">
-              <strong>Params:</strong> token_id (nat)
-            </div>
-          </div>
-
-          <div class="keeps-endpoint">
-            <div class="keeps-endpoint-name">set_administrator</div>
-            <div class="keeps-endpoint-desc">Transfer admin role to new address</div>
-            <div class="keeps-endpoint-auth">Auth: current admin only</div>
-            <div class="keeps-endpoint-desc" style="margin-top: 8px;">
-              <strong>Params:</strong> new_admin (address)
-            </div>
-          </div>
-        </div>
-
-        <div style="margin-bottom: 32px;">
-          <h3 style="margin: 0 0 16px; color: var(--text-primary); font-size: 18px; font-weight: 600; border-bottom: 2px solid var(--ac-purple); padding-bottom: 8px;">
-            On-Chain Views (5)
-          </h3>
-
-          <div class="keeps-endpoint">
-            <div class="keeps-endpoint-name">get_balance</div>
-            <div class="keeps-endpoint-desc">Get balance for owner/token_id pair</div>
-            <div class="keeps-endpoint-auth">Auth: public (read-only)</div>
-            <div class="keeps-endpoint-desc" style="margin-top: 8px;">
-              <strong>Returns:</strong> nat (0 or 1 for NFTs)
-            </div>
-          </div>
-
-          <div class="keeps-endpoint">
-            <div class="keeps-endpoint-name">total_supply</div>
-            <div class="keeps-endpoint-desc">Get total supply for a token_id</div>
-            <div class="keeps-endpoint-auth">Auth: public (read-only)</div>
-            <div class="keeps-endpoint-desc" style="margin-top: 8px;">
-              <strong>Returns:</strong> nat (1 if exists, 0 if burned)
-            </div>
-          </div>
-
-          <div class="keeps-endpoint">
-            <div class="keeps-endpoint-name">is_operator</div>
-            <div class="keeps-endpoint-desc">Check if address is approved operator</div>
-            <div class="keeps-endpoint-auth">Auth: public (read-only)</div>
-            <div class="keeps-endpoint-desc" style="margin-top: 8px;">
-              <strong>Params:</strong> owner (address), operator (address), token_id (nat)
-              <br><strong>Returns:</strong> bool
-            </div>
-          </div>
-
-          <div class="keeps-endpoint">
-            <div class="keeps-endpoint-name">all_tokens</div>
-            <div class="keeps-endpoint-desc">Get list of all token IDs (paginated)</div>
-            <div class="keeps-endpoint-auth">Auth: public (read-only)</div>
-            <div class="keeps-endpoint-desc" style="margin-top: 8px;">
-              <strong>Returns:</strong> list of nat
-            </div>
-          </div>
-
-          <div class="keeps-endpoint">
-            <div class="keeps-endpoint-name">get_balance_of</div>
-            <div class="keeps-endpoint-desc">Batch balance query (view version of balance_of)</div>
-            <div class="keeps-endpoint-auth">Auth: public (read-only)</div>
-            <div class="keeps-endpoint-desc" style="margin-top: 8px;">
-              <strong>Returns:</strong> list of (owner, token_id, balance) tuples
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name">get_balance_of</div>
+              <div class="keeps-endpoint-desc">Batch balance query (view version of balance_of)</div>
+              <div class="keeps-endpoint-auth">Auth: public (read-only) &mdash; Returns: list of (owner, token_id, balance)</div>
             </div>
           </div>
         </div>
 
-        <div style="padding: 16px; background: var(--bg-secondary); border-radius: 8px; border-left: 4px solid var(--ac-purple);">
+        <!-- ═══════════════════════════════════════ V4 ═══════════════════════════════════════ -->
+        <div class="keeps-version-docs" id="docs-v4">
+          <div class="keeps-deprecated-banner">Deprecated &mdash; v4 was a staging/testing contract. Superseded by v5.</div>
+
+          <div style="margin-bottom: 24px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
+            <div style="margin-bottom: 8px; color: var(--text-secondary); font-size: 13px; font-weight: 500;">Contract Address (Mainnet Staging)</div>
+            <div style="font-family: 'Courier New', monospace; color: var(--ac-purple); font-size: 14px; word-break: break-all;">
+              KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W
+            </div>
+            <div style="margin-top: 8px; color: var(--text-tertiary); font-size: 12px;">Admin: tz1dfo...de4Gzt (staging wallet)</div>
+            <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
+              <a href="https://tzkt.io/KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W" target="_blank"
+                 style="padding: 6px 12px; background: var(--ac-purple); color: white; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
+                View on TzKT
+              </a>
+              <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/keeps_fa2_v4.py" target="_blank"
+                 style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
+                Source Code
+              </a>
+            </div>
+          </div>
+
+          <p style="margin-bottom: 24px; color: var(--text-secondary); line-height: 1.6;">
+            v4 added emergency controls and royalty support to the Keeps system.
+            12 custom endpoints + 6 FA2 standard + 5 on-chain views = 23 total.
+            Default fee: 0 XTZ (staging). Royalty: 10% (1000 bps).
+          </p>
+
+          <div style="margin-bottom: 32px;">
+            <h3 style="margin: 0 0 16px; color: var(--text-primary); font-size: 18px; font-weight: 600; border-bottom: 2px solid var(--ac-purple); padding-bottom: 8px;">
+              New in v4
+            </h3>
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name v4">pause / unpause</div>
+              <div class="keeps-endpoint-desc">Emergency pause &mdash; blocks minting and metadata edits but preserves FA2 transfers</div>
+              <div class="keeps-endpoint-auth">Auth: admin only</div>
+            </div>
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name v4">set_default_royalty</div>
+              <div class="keeps-endpoint-desc">Set royalty percentage for new mints (0-25% via basis points)</div>
+              <div class="keeps-endpoint-auth">Auth: admin only</div>
+            </div>
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name v4">admin_transfer</div>
+              <div class="keeps-endpoint-desc">Emergency transfer for lost-access recovery (validates current owner)</div>
+              <div class="keeps-endpoint-auth">Auth: admin only</div>
+            </div>
+          </div>
+
+          <p style="color: var(--text-tertiary); font-size: 13px;">
+            Plus all v3 endpoints: keep, edit_metadata, lock_metadata, set_contract_metadata, lock_contract_metadata, set_keep_fee, withdraw_fees, burn_keep.
+            Plus FA2 standard: transfer, update_operators, balance_of, mint, burn, set_administrator.
+          </p>
+        </div>
+
+        <!-- ═══════════════════════════════════════ V3 ═══════════════════════════════════════ -->
+        <div class="keeps-version-docs" id="docs-v3">
+          <div class="keeps-deprecated-banner">Development only &mdash; v3 was never deployed. Features merged into v4.</div>
+
+          <p style="margin-bottom: 24px; color: var(--text-secondary); line-height: 1.6;">
+            v3 expanded metadata editing to token owners and original creators (not just admin),
+            and added creator tracking via a new <code>token_creators</code> bigmap.
+            8 custom endpoints + 1 on-chain view.
+          </p>
+
+          <div style="margin-bottom: 32px;">
+            <h3 style="margin: 0 0 16px; color: var(--text-primary); font-size: 18px; font-weight: 600; border-bottom: 2px solid var(--ac-purple); padding-bottom: 8px;">
+              New in v3
+            </h3>
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name">edit_metadata (expanded auth)</div>
+              <div class="keeps-endpoint-desc">Now allows admin, token owner, <strong>or original creator</strong> to edit (preserves objkt.com attribution)</div>
+              <div class="keeps-endpoint-auth">Auth: admin, owner, or creator (was admin-only in v2)</div>
+            </div>
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name">lock_metadata (expanded auth)</div>
+              <div class="keeps-endpoint-desc">Token owner can now lock their own metadata (was admin-only in v2)</div>
+              <div class="keeps-endpoint-auth">Auth: admin or owner</div>
+            </div>
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name">token_creators bigmap</div>
+              <div class="keeps-endpoint-desc">New storage: tracks original creator address for each token</div>
+              <div class="keeps-endpoint-auth">Written during mint, read during edit_metadata auth check</div>
+            </div>
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name">get_token_creator (on-chain view)</div>
+              <div class="keeps-endpoint-desc">Query original creator address for a token_id</div>
+              <div class="keeps-endpoint-auth">Auth: public (read-only)</div>
+            </div>
+          </div>
+
+          <p style="color: var(--text-tertiary); font-size: 13px;">
+            All v2 endpoints preserved: keep, set_contract_metadata, lock_contract_metadata, set_keep_fee, withdraw_fees, burn_keep.
+          </p>
+        </div>
+
+        <!-- ═══════════════════════════════════════ V2 ═══════════════════════════════════════ -->
+        <div class="keeps-version-docs" id="docs-v2">
+          <div class="keeps-deprecated-banner">Legacy &mdash; v2 was the first mainnet contract. Superseded by v4/v5.</div>
+
+          <div style="margin-bottom: 24px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
+            <div style="margin-bottom: 8px; color: var(--text-secondary); font-size: 13px; font-weight: 500;">Contract Address (Mainnet)</div>
+            <div style="font-family: 'Courier New', monospace; color: var(--ac-purple); font-size: 14px; word-break: break-all;">
+              KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM
+            </div>
+            <div style="margin-top: 8px; color: var(--text-tertiary); font-size: 12px;">Admin: keeps.tez (tz1Lc2...un2dC)</div>
+            <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
+              <a href="https://tzkt.io/KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM" target="_blank"
+                 style="padding: 6px 12px; background: var(--ac-purple); color: white; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
+                View on TzKT
+              </a>
+              <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/keeps_fa2_v2.py" target="_blank"
+                 style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
+                Source Code
+              </a>
+            </div>
+          </div>
+
+          <p style="margin-bottom: 24px; color: var(--text-secondary); line-height: 1.6;">
+            The original production Keeps contract. Introduced content hash deduplication,
+            metadata locking, fee system, and pre-encoded TZIP-21 metadata bytes.
+            8 custom endpoints. Default fee: 0 XTZ.
+          </p>
+
+          <div style="margin-bottom: 32px;">
+            <h3 style="margin: 0 0 16px; color: var(--text-primary); font-size: 18px; font-weight: 600; border-bottom: 2px solid var(--ac-purple); padding-bottom: 8px;">
+              Custom Endpoints (8)
+            </h3>
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name">keep</div>
+              <div class="keeps-endpoint-desc">Mint a new token with TZIP-21 metadata and content hash deduplication</div>
+              <div class="keeps-endpoint-auth">Auth: admin (free) or user (with fee, must mint to self)</div>
+            </div>
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name">edit_metadata</div>
+              <div class="keeps-endpoint-desc">Update token metadata (if not locked)</div>
+              <div class="keeps-endpoint-auth">Auth: admin only</div>
+            </div>
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name">lock_metadata</div>
+              <div class="keeps-endpoint-desc">Permanently lock token metadata</div>
+              <div class="keeps-endpoint-auth">Auth: admin only</div>
+            </div>
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name">set_contract_metadata</div>
+              <div class="keeps-endpoint-desc">Update contract-level metadata</div>
+              <div class="keeps-endpoint-auth">Auth: admin only</div>
+            </div>
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name">lock_contract_metadata</div>
+              <div class="keeps-endpoint-desc">Permanently lock contract metadata</div>
+              <div class="keeps-endpoint-auth">Auth: admin only</div>
+            </div>
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name">set_keep_fee</div>
+              <div class="keeps-endpoint-desc">Set minting fee in mutez</div>
+              <div class="keeps-endpoint-auth">Auth: admin only</div>
+            </div>
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name">withdraw_fees</div>
+              <div class="keeps-endpoint-desc">Withdraw collected fees</div>
+              <div class="keeps-endpoint-auth">Auth: admin only</div>
+            </div>
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name">burn_keep</div>
+              <div class="keeps-endpoint-desc">Burn token and free content_hash</div>
+              <div class="keeps-endpoint-auth">Auth: admin only</div>
+            </div>
+          </div>
+
+          <p style="color: var(--text-tertiary); font-size: 13px;">
+            Plus FA2 standard: transfer, update_operators, balance_of, mint, burn, set_administrator.
+          </p>
+        </div>
+
+        <!-- Version History (shared across all versions) -->
+        <div style="padding: 16px; margin-top: 24px; background: var(--bg-secondary); border-radius: 8px; border-left: 4px solid var(--ac-purple);">
           <h4 style="margin: 0 0 8px; color: var(--text-primary); font-size: 16px; font-weight: 600;">Version History</h4>
           <ul style="margin: 8px 0; padding-left: 20px; color: var(--text-secondary); line-height: 1.8;">
+            <li><strong>v5.0</strong> - Default 2.5 XTZ fee, immutable content_hash during edits, improved error messages</li>
             <li><strong>v4.0</strong> - Added royalty support, emergency pause/unpause, admin_transfer</li>
-            <li><strong>v3.0</strong> - Added editable metadata, creator tracking, fee system</li>
-            <li><strong>v2.0</strong> - Content hash deduplication</li>
+            <li><strong>v3.0</strong> - Added editable metadata (owner/creator), creator tracking</li>
+            <li><strong>v2.0</strong> - Content hash deduplication, metadata locking, fee system</li>
             <li><strong>v1.0</strong> - Basic FA2 implementation</li>
           </ul>
         </div>
@@ -1806,6 +2007,16 @@
         document.getElementById(`tab-${tabName}`).classList.add('active');
       });
     });
+
+    // Version dropdown switching (inside Docs tab)
+    const versionSelect = document.getElementById('version-select');
+    if (versionSelect) {
+      versionSelect.addEventListener('change', () => {
+        document.querySelectorAll('.keeps-version-docs').forEach(d => d.classList.remove('active'));
+        const target = document.getElementById(`docs-${versionSelect.value}`);
+        if (target) target.classList.add('active');
+      });
+    }
 
     // Modal close
     modalClose.addEventListener('click', closeModal);

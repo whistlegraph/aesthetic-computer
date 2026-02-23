@@ -49,6 +49,12 @@ describe('🚀 Keeps FA2 v5 Production Contract - Source Checks', () => {
     expect(v5ContractSource).toContain('"DUPLICATE_CONTENT_HASH"');
   });
 
+  it('preserves content_hash as immutable during edit_metadata', () => {
+    // edit_metadata must read existing content_hash and re-inject after update
+    expect(v5ContractSource).toContain('original_hash = existing_info.get("content_hash"');
+    expect(v5ContractSource).toContain('token_info["content_hash"] = original_hash');
+  });
+
   it('documents v5 launch as the production path', () => {
     expect(launchPlanSource).toContain('Keeps FA2 v5 Launch Plan');
     expect(launchPlanSource).toContain('Goal:** Deploy final production v5 contract');

@@ -660,15 +660,10 @@ export const handler = stream(async (event, context) => {
       await send("progress", { stage: "analyze", message: "Analyzing source code..." });
       
       const analysis = analyzeKidLisp(piece.source);
-      
-      // Derive a simple complexity tier from analysis
-      let tier = "simple";
-      if (analysis.sexp?.maxDepth >= 4 || analysis.behavior?.hasIteration) tier = "moderate";
-      if (analysis.sexp?.maxDepth >= 6 || analysis.behavior?.hasRecursion) tier = "complex";
-      
-      await send("progress", { 
-        stage: "analyze", 
-        message: `${analysis.lines || 0} lines, ${tier} ✓`
+
+      await send("progress", {
+        stage: "analyze",
+        message: `${analysis.chars} chars ✓`
       });
 
       // ═══════════════════════════════════════════════════════════════════
@@ -908,8 +903,8 @@ export const handler = stream(async (event, context) => {
 
       const tokenName = `$${pieceName}`;
       
-      // Description is the KidLisp source code, with newlines replaced by comma-space for readability
-      const description = (piece.source || `A KidLisp piece preserved on Tezos`).replace(/\n+/g, ", ").replace(/,\s*,/g, ",").trim();
+      // Description is the raw KidLisp source code (newlines preserved)
+      const description = piece.source || "A KidLisp piece preserved on Tezos";
 
       // Build tags
       const tags = [`$${pieceName}`, "KidLisp", "Aesthetic.Computer", "interactive"];
@@ -918,7 +913,7 @@ export const handler = stream(async (event, context) => {
       // Use analyzer traits + add author/packed info as attributes
       const attributes = [
         ...analysis.traits,
-        ...(authorHandle && authorHandle !== "@anon" ? [{ name: "Author", value: authorHandle }] : []),
+        ...(authorHandle && authorHandle !== "@anon" ? [{ name: "Handle", value: authorHandle }] : []),
         ...(userCode ? [{ name: "User Code", value: userCode }] : []),
         ...(depCount > 0 ? [{ name: "Dependencies", value: String(depCount) }] : []),
         ...(packDate ? [{ name: "Packed", value: packDate }] : []),
@@ -945,7 +940,7 @@ export const handler = stream(async (event, context) => {
         displayUri: artifactUri,
         thumbnailUri,
         decimals: 0,
-        symbol: "KEEP",
+        symbol: pieceName,
         isBooleanAmount: true,
         shouldPreferSymbol: false,
         minter: authorHandle,
@@ -973,26 +968,18 @@ export const handler = stream(async (event, context) => {
       // STAGE 8: PREPARE OR MINT
       // ═══════════════════════════════════════════════════════════════════
       
-      // Build on-chain metadata (shared between prepare and mint modes)
+      // Minimal on-chain metadata — full metadata lives in IPFS via metadata_uri
+      // description = raw KidLisp source (the actual art, preserved on-chain)
       const onChainMetadata = {
         name: stringToBytes(tokenName),
-        description: stringToBytes(description),
+        symbol: stringToBytes(pieceName),
+        description: stringToBytes(piece.source || ""),
         artifactUri: stringToBytes(artifactUri),
         displayUri: stringToBytes(artifactUri),
         thumbnailUri: stringToBytes(thumbnailUri),
         decimals: stringToBytes("0"),
-        symbol: stringToBytes("KEEP"),
-        isBooleanAmount: stringToBytes("true"),
-        shouldPreferSymbol: stringToBytes("false"),
-        formats: stringToBytes(JSON.stringify(metadataJson.formats)),
-        tags: stringToBytes(JSON.stringify(tags)),
-        attributes: stringToBytes(JSON.stringify(attributes)),
         creators: stringToBytes(JSON.stringify(creatorsArray)),
-        royalties: stringToBytes(JSON.stringify(royalties)),  // v4: Add royalty on-chain
-        // NOTE: Don't set minter field - objkt uses creators array for artist attribution
-        // Setting minter to a display handle breaks objkt's profile resolution
-        rights: stringToBytes("© All rights reserved"),
-        content_type: stringToBytes("KidLisp"),
+        royalties: stringToBytes(JSON.stringify(royalties)),
         content_hash: stringToBytes(pieceName),
         metadata_uri: stringToBytes(metadataUri),
       };
@@ -1021,25 +1008,18 @@ export const handler = stream(async (event, context) => {
         const ownerAddress = creatorWalletAddress;
         
         const transferParams = contract.methodsObject.keep({
-          artifactUri: onChainMetadata.artifactUri,
-          attributes: onChainMetadata.attributes,
-          content_hash: onChainMetadata.content_hash,
-          content_type: onChainMetadata.content_type,
-          creators: onChainMetadata.creators,
-          decimals: onChainMetadata.decimals,
-          description: onChainMetadata.description,
-          displayUri: onChainMetadata.displayUri,
-          formats: onChainMetadata.formats,
-          isBooleanAmount: onChainMetadata.isBooleanAmount,
-          metadata_uri: onChainMetadata.metadata_uri,
           name: onChainMetadata.name,
-          owner: ownerAddress,
-          rights: onChainMetadata.rights,
-          royalties: onChainMetadata.royalties,  // v4: Include royalty metadata
-          shouldPreferSymbol: onChainMetadata.shouldPreferSymbol,
           symbol: onChainMetadata.symbol,
-          tags: onChainMetadata.tags,
+          description: onChainMetadata.description,
+          artifactUri: onChainMetadata.artifactUri,
+          displayUri: onChainMetadata.displayUri,
           thumbnailUri: onChainMetadata.thumbnailUri,
+          decimals: onChainMetadata.decimals,
+          creators: onChainMetadata.creators,
+          royalties: onChainMetadata.royalties,
+          content_hash: onChainMetadata.content_hash,
+          metadata_uri: onChainMetadata.metadata_uri,
+          owner: ownerAddress,
         }).toTransferParams();
         
         await send("prepared", {
@@ -1089,25 +1069,18 @@ export const handler = stream(async (event, context) => {
         const keepFeeXtz = keepFeeMutez / 1_000_000;
       
       const op = await contract.methodsObject.keep({
-        artifactUri: onChainMetadata.artifactUri,
-        attributes: onChainMetadata.attributes,
-        content_hash: onChainMetadata.content_hash,
-        content_type: onChainMetadata.content_type,
-        creators: onChainMetadata.creators,
-        decimals: onChainMetadata.decimals,
-        description: onChainMetadata.description,
-        displayUri: onChainMetadata.displayUri,
-        formats: onChainMetadata.formats,
-        isBooleanAmount: onChainMetadata.isBooleanAmount,
-        metadata_uri: onChainMetadata.metadata_uri,
         name: onChainMetadata.name,
-        owner: destinationAddress,
-        rights: onChainMetadata.rights,
-        royalties: onChainMetadata.royalties,  // v4: Include royalty metadata
-        shouldPreferSymbol: onChainMetadata.shouldPreferSymbol,
         symbol: onChainMetadata.symbol,
-        tags: onChainMetadata.tags,
+        description: onChainMetadata.description,
+        artifactUri: onChainMetadata.artifactUri,
+        displayUri: onChainMetadata.displayUri,
         thumbnailUri: onChainMetadata.thumbnailUri,
+        decimals: onChainMetadata.decimals,
+        creators: onChainMetadata.creators,
+        royalties: onChainMetadata.royalties,
+        content_hash: onChainMetadata.content_hash,
+        metadata_uri: onChainMetadata.metadata_uri,
+        owner: destinationAddress,
       }).send();
 
       await send("progress", { stage: "mint", message: `Tx submitted: ${op.hash.slice(0, 12)}...` });
