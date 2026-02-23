@@ -139,6 +139,45 @@ async function fun(event, context) {
     }
   }
 
+  // Serve calm.kidlisp.com with dynamic meta tags for social previews
+  if (event.path.startsWith("/calm.kidlisp.com") || event.headers["host"] === "calm.kidlisp.com") {
+    try {
+      const title = "KidLisp Calm";
+      const desc = "A hand-curated selection of calming KidLisp pieces";
+      const ogImage = "https://oven.aesthetic.computer/kidlisp-og.png";
+
+      const baseUrl = dev ? "http://localhost:8888" : "https://aesthetic.computer";
+      const res = await fetch(`${baseUrl}/kidlisp.com/device.html`);
+      if (!res.ok) throw new Error(`fetch device.html: ${res.status}`);
+      let htmlContent = await res.text();
+
+      htmlContent = htmlContent.replace(
+        /<title>KidLisp\.com · Device<\/title>[\s\S]*?<meta name="twitter:image"[^>]*\/>/,
+        `<title>${encode(title)}</title>
+  <meta name="description" content="${encode(desc)}" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="${encode(title)}" />
+  <meta property="og:description" content="${encode(desc)}" />
+  <meta property="og:image" content="${ogImage}" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${encode(title)}" />
+  <meta name="twitter:description" content="${encode(desc)}" />
+  <meta name="twitter:image" content="${ogImage}" />`,
+      );
+
+      return {
+        statusCode: 200,
+        headers: { "Content-Type": "text/html" },
+        body: htmlContent,
+      };
+    } catch (err) {
+      console.error("❌ Error serving calm.kidlisp.com:", err);
+      return respond(500, "Error loading calm.kidlisp.com");
+    }
+  }
+
   // Serve specific kidlisp.com pages before the catch-all
   // /kidlisp.com/device* → device.html (FF1 optimized display)
   // /device.kidlisp.com/* → device.html (local dev path for device.kidlisp.com)
