@@ -13976,10 +13976,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           let isScrubbing = false;
           let lastSeekProgress = 0;
           
-          seekTapePlayback = (progress, { scrubbing = false, scrubEnd = false } = {}) => {
+          seekTapePlayback = (progress, { scrubbing = false, scrubEnd = false, speedScrub = false } = {}) => {
             // Seek to a specific position in the tape (0.0 to 1.0)
             // If scrubbing=true, we mute audio instead of restarting it every frame
             // If scrubEnd=true, we sync audio to final position
+            // If speedScrub=true, just seek frame — audio managed externally via tape:audio-shift
             
             // Clamp progress to valid range
             progress = Math.max(0, Math.min(1, progress));
@@ -14002,7 +14003,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               fctx.putImageData(recordedFrames[f][1], 0, 0);
               send({ type: "recorder:present-progress", content: progress });
             }
-            
+
+            // Speed-scrub mode: just moved the frame, don't touch audio
+            if (speedScrub) return;
+
             const workletReady = window.audioWorkletReady === true;
             const audioContextReady = audioContext?.state === "running";
             
@@ -14426,9 +14430,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (underlayFrame && seekTapePlayback) {
         // Support both simple progress value and object with scrubbing options
         if (typeof content === "object") {
-          seekTapePlayback?.(content.progress, { 
-            scrubbing: content.scrubbing, 
-            scrubEnd: content.scrubEnd 
+          seekTapePlayback?.(content.progress, {
+            scrubbing: content.scrubbing,
+            scrubEnd: content.scrubEnd,
+            speedScrub: content.speedScrub,
           });
         } else {
           const progress = content; // 0.0 to 1.0
