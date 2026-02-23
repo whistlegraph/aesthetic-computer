@@ -13,6 +13,7 @@ import path from "path";
 import { gzipSync, gunzipSync, brotliCompressSync, constants as zlibConstants } from "zlib";
 import { execSync } from "child_process";
 import { MongoClient } from "mongodb";
+import sharp from "sharp";
 
 // ─── Configuration ──────────────────────────────────────────────────
 
@@ -695,10 +696,12 @@ export async function createBundle(pieceName, onProgress = () => {}, nocompress 
   const bdfGlyphs = files.__bdfGlyphs || {};
   delete files.__bdfGlyphs;
 
+  const boxArtPNG = await generateBoxArtPNG(PIECE_NAME, authorHandle, bgColor).catch(() => null);
+
   const htmlContent = generateHTMLBundle({
     PIECE_NAME, PIECE_NAME_NO_DOLLAR, mainSource, kidlispSources,
     files, paintingData, authorHandle, packDate, packTime,
-    gitVersion: GIT_COMMIT, filename, density, bgColor, bdfGlyphs,
+    gitVersion: GIT_COMMIT, filename, density, bgColor, bdfGlyphs, boxArtPNG,
   });
 
   const method = nocompress ? "none" : brotli ? "brotli" : "gzip";
@@ -776,7 +779,9 @@ export async function createJSPieceBundle(pieceName, onProgress = () => {}, noco
   const bdfGlyphs = files.__bdfGlyphs || {};
   delete files.__bdfGlyphs;
 
-  const htmlContent = generateJSPieceHTMLBundle({ pieceName, files, packDate, packTime, gitVersion: GIT_COMMIT, bdfGlyphs });
+  const boxArtPNG = await generateBoxArtPNG(pieceName, null, null).catch(() => null);
+
+  const htmlContent = generateJSPieceHTMLBundle({ pieceName, files, packDate, packTime, gitVersion: GIT_COMMIT, bdfGlyphs, boxArtPNG });
   const filename = `${pieceName}-${bundleTimestamp}.html`;
 
   const method = nocompress ? "none" : brotli ? "brotli" : "gzip";
@@ -962,16 +967,82 @@ function generateSelfExtractingBrotliHTML(title, brotliBase64, bgColor = null) {
 </html>`;
 }
 
+// ─── Box art generation ──────────────────────────────────────────────
+
+function escapeXml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function boxArtTextColor(bgColor) {
+  if (!bgColor) return "white";
+  try {
+    const hex = bgColor.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+    if (hex) {
+      const lum = (0.299 * parseInt(hex[1], 16) + 0.587 * parseInt(hex[2], 16) + 0.114 * parseInt(hex[3], 16)) / 255;
+      return lum > 0.55 ? "#111111" : "white";
+    }
+    const rgb = bgColor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/i);
+    if (rgb) {
+      const lum = (0.299 * +rgb[1] + 0.587 * +rgb[2] + 0.114 * +rgb[3]) / 255;
+      return lum > 0.55 ? "#111111" : "white";
+    }
+  } catch { /* ignore */ }
+  return "white";
+}
+
+async function generateBoxArtPNG(pieceName, authorHandle, bgColor) {
+  const bg = bgColor || "#0d1b2a";
+  const fg = boxArtTextColor(bg);
+  const fgMid = fg === "white" ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.45)";
+  const fgLow = fg === "white" ? "rgba(255,255,255,0.22)" : "rgba(0,0,0,0.28)";
+  const line = fg === "white" ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.25)";
+
+  const display = pieceName.startsWith("$") ? pieceName.slice(1) : pieceName;
+  const len = display.length;
+  const namePx = len <= 6 ? 80 : len <= 10 ? 64 : len <= 14 ? 50 : len <= 18 ? 40 : 30;
+  const nameY = authorHandle ? 222 : 256;
+  const author = authorHandle && authorHandle !== "unknown" ? escapeXml(authorHandle) : "";
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="${escapeXml(bg)}"/>
+  <rect x="40" y="40" width="432" height="432" rx="12" fill="none" stroke="${line}" stroke-width="1.5"/>
+  <rect x="40" y="40" width="432" height="3" fill="${line}"/>
+  <rect x="40" y="469" width="432" height="3" fill="${line}"/>
+  <text x="256" y="${nameY}"
+    font-family="'Courier New',Courier,monospace"
+    font-size="${namePx}" font-weight="bold"
+    fill="${fg}" text-anchor="middle" dominant-baseline="middle">${escapeXml(display)}</text>
+  ${author ? `<text x="256" y="${nameY + namePx + 22}"
+    font-family="'Courier New',Courier,monospace"
+    font-size="24" fill="${fgMid}" text-anchor="middle" dominant-baseline="middle">${author}</text>` : ""}
+  <text x="256" y="458"
+    font-family="'Courier New',Courier,monospace"
+    font-size="15" letter-spacing="1"
+    fill="${fgLow}" text-anchor="middle" dominant-baseline="middle">aesthetic.computer</text>
+</svg>`;
+
+  const buf = await sharp(Buffer.from(svg)).png({ compressionLevel: 9 }).toBuffer();
+  return buf.toString("base64");
+}
+
 // ─── HTML templates ─────────────────────────────────────────────────
 // These are large template literals — kept as-is from the Netlify version.
 
 function generateHTMLBundle(opts) {
   const {
     PIECE_NAME, PIECE_NAME_NO_DOLLAR, mainSource, kidlispSources,
-    files, paintingData, authorHandle, packDate, packTime, gitVersion, filename, density, bgColor, bdfGlyphs,
+    files, paintingData, authorHandle, packDate, packTime, gitVersion, filename, density, bgColor, bdfGlyphs, boxArtPNG,
   } = opts;
 
   const bgRule = bgColor ? `background: ${bgColor}; ` : "";
+  const boxArtImg = boxArtPNG
+    ? `<img id="ac-box-art" src="data:image/png;base64,${boxArtPNG}" alt="${PIECE_NAME}">`
+    : "";
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -982,10 +1053,13 @@ function generateHTMLBundle(opts) {
   <style>
     body { margin: 0; padding: 0; ${bgRule}overflow: hidden; }
     canvas { display: block; image-rendering: pixelated; }
+    #ac-box-art { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center; pointer-events: none; }
   </style>
 </head>
 <body>
+  ${boxArtImg}
   <script type="module">
+    const _ba = document.getElementById('ac-box-art'); if (_ba) _ba.style.display = 'none';
     window.acPACK_MODE = true;
     window.KIDLISP_SUPPRESS_SNAPSHOT_LOGS = true;
     window.__acKidlispConsoleEnabled = false;
@@ -1160,7 +1234,11 @@ function generateHTMLBundle(opts) {
 }
 
 function generateJSPieceHTMLBundle(opts) {
-  const { pieceName, files, packDate, packTime, gitVersion, bdfGlyphs } = opts;
+  const { pieceName, files, packDate, packTime, gitVersion, bdfGlyphs, boxArtPNG } = opts;
+
+  const boxArtImg = boxArtPNG
+    ? `<img id="ac-box-art" src="data:image/png;base64,${boxArtPNG}" alt="${pieceName}">`
+    : "";
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -1171,10 +1249,13 @@ function generateJSPieceHTMLBundle(opts) {
   <style>
     body { margin: 0; padding: 0; overflow: hidden; }
     canvas { display: block; image-rendering: pixelated; }
+    #ac-box-art { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center; pointer-events: none; }
   </style>
 </head>
 <body>
+  ${boxArtImg}
   <script type="module">
+    const _ba = document.getElementById('ac-box-art'); if (_ba) _ba.style.display = 'none';
     window.acPACK_MODE = true;
     window.KIDLISP_SUPPRESS_SNAPSHOT_LOGS = true;
     window.__acKidlispConsoleEnabled = false;
