@@ -3297,26 +3297,17 @@
           }
         }
 
-        // Progress bar: device subdomains get thinner (not hidden) during slide-out
-        // Others: fully hidden during middle section
+        // Progress bar: always visible, just thinner + less opaque during slide-out
         {
           const elapsedSec = elapsed / 1000;
           const remainingSec = (durationMs - elapsed) / 1000;
           const inMiddle = isDeviceSubdomain
             ? elapsedSec > 6 && remainingSec > 6
             : progress > 16.67 && progress < 83.33;
-          if (isDeviceSubdomain) {
-            if (inMiddle && !progressBar.classList.contains('thin-mid')) {
-              progressBar.classList.add('thin-mid');
-            } else if (!inMiddle && progressBar.classList.contains('thin-mid')) {
-              progressBar.classList.remove('thin-mid');
-            }
-          } else {
-            if (inMiddle && !progressBar.classList.contains('hidden-mid')) {
-              progressBar.classList.add('hidden-mid');
-            } else if (!inMiddle && progressBar.classList.contains('hidden-mid')) {
-              progressBar.classList.remove('hidden-mid');
-            }
+          if (inMiddle && !progressBar.classList.contains('thin-mid')) {
+            progressBar.classList.add('thin-mid');
+          } else if (!inMiddle && progressBar.classList.contains('thin-mid')) {
+            progressBar.classList.remove('thin-mid');
           }
         }
         
@@ -4235,18 +4226,10 @@
         const inMiddle = isDeviceSubdomain
           ? elapsed > 6 && remainingSec > 6
           : progress > 16.67 && progress < 83.33;
-        if (isDeviceSubdomain) {
-          if (inMiddle && !progressBar.classList.contains('thin-mid')) {
-            progressBar.classList.add('thin-mid');
-          } else if (!inMiddle && progressBar.classList.contains('thin-mid')) {
-            progressBar.classList.remove('thin-mid');
-          }
-        } else {
-          if (inMiddle && !progressBar.classList.contains('hidden-mid')) {
-            progressBar.classList.add('hidden-mid');
-          } else if (!inMiddle && progressBar.classList.contains('hidden-mid')) {
-            progressBar.classList.remove('hidden-mid');
-          }
+        if (inMiddle && !progressBar.classList.contains('thin-mid')) {
+          progressBar.classList.add('thin-mid');
+        } else if (!inMiddle && progressBar.classList.contains('thin-mid')) {
+          progressBar.classList.remove('thin-mid');
         }
       }
       
