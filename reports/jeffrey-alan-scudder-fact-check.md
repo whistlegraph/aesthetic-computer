@@ -180,9 +180,52 @@ Pre-Aesthetic Computer works preserved on a legacy DigitalOcean droplet, accessi
 
 ---
 
-## Competitive Gaming Background (Unverified)
+## The Jeffrey Heart Era (2007–2011)
 
-Scudder reports competing in Unreal Tournament 2004 at the **World Cyber Games 2004** USA qualifiers under the handle "verdeo" (also known as "skooder"). He won the New Jersey regional qualifier and competed at the USA National Finals at GameWorks, Long Beach, CA (September 17–19, 2004). The event structure is confirmed by [GameSpot](https://www.gamespot.com/articles/long-beach-to-host-us-finals-for-world-cyber-games/1100-6105234/) — 25 Team USA members were selected across all games. Known USA UT2004 finalists stryfe and CombatCarl (who Scudder says were present) are [documented](https://liquipedia.net/arenafps/World_Cyber_Games/2004/UT2K4) as placing 5th–8th at the Grand Final in San Francisco. Scudder's specific participation is not independently verifiable from surviving online records, which is typical of early-2000s esports archival gaps.
+"Jeffrey Heart" was a **performance art identity** used by Scudder primarily during his time at Ringling College and the New York Studio Program (NYSP) residency. The persona had its own email address (jeffreyheart@gmail.com) and was ceremonially created and destroyed through two documented performances.
+
+The [Rhizome Artist Profile](https://rhizome.org/editorial/2017/dec/05/Artist-Profile-Jeffrey-Alan-Scudder/) is titled "Jeffrey Alan Scudder (Jeffrey Heart)", confirming this as a publicly known alias.
+
+### Key Works (from [bin-sc.jas.life](https://bin-sc.jas.life))
+
+| Project | Description |
+|---|---|
+| **Birth and Death of Jeffrey Heart** | Two performance videos: `birth-of-Jeffrey-Heart.mov` (2008) and `death-of-Jeffrey-Heart.mov` (2010) |
+| **Jeffrey Heart** | 190 photographs |
+| **Early Heart Works** | 107 drawings from first months at Ringling |
+| **THE HISTORY OF HEART** | A book made from an art history textbook |
+| **HEART ATTACK** | A small book of drawings given away (20 pages) |
+| **LOVE HEART EVERYTHING** | A dorm room band with Tom — 8 audio tracks, live performances |
+| **Jeffrey's Girlfriend** | 73 greyscale portrait drawings |
+| **awesome good day jeffrey heart** | 59 notebook pages from the NYSP residency in NYC |
+| **JAS Obsession** | Includes `JAS-Jeffrey_Heart_retrospectre.mov` (2.2GB retrospective) |
+
+### Writing & Literary Context
+
+The archive contains significant literary/writing content adjacent to the **alt-lit movement** of the late 2000s:
+
+- **Diary entries** (2010–2012): Confessional, observational prose in a style adjacent to alt-lit. Example: *"today / in painting class / i talked too much..."*
+- **62 notes** (2011–2013): Stream-of-consciousness text files referencing Allen Ginsberg, Blake Butler, James Franco — including a riff on "Howl"
+- **Various and extraneous documents**: `a-few-poems.pdf`, `summer-diary-09.pdf`, `self-interview-09.pdf`
+- **Correspondences**: 612 encrypted PDFs of emails/chats from jeffreyheart@gmail.com (October 2010). Subject lines include "DOO DOO DOO DOO DOOOM PATROL", "EXTREME IMAGE CONTROL", "Wound licking is no spectator sport"
+- **Fantasy** project (NYSP): Contains `20.Tao.png` — likely a portrait of Tao Lin, placing Scudder in the same NYC scene
+
+### Influences in Collection
+
+The archive's `/Collection/Text/` includes Frank O'Hara's *"Why I Am Not a Painter"* and Ted Nelson's *Computer Lib / Dream Machines* — bridging the New York School poetry tradition with early computer culture.
+
+---
+
+## Competitive Gaming Background (Verified)
+
+Scudder competed in Unreal Tournament 2004 at the **World Cyber Games 2004** USA qualifiers under the handle "verdeo" (also known as "skooder"). He won the New Jersey regional qualifier and competed at the USA National Finals at GameWorks, Long Beach, CA (September 17–19, 2004).
+
+**Verification**: 20 photographs from the event are preserved in Scudder's Dropbox (`/WCG 2004 Nationals/`). Photos show:
+- Competitors at desktop PCs with CRT monitors and headsets in a tournament setup
+- Social scenes at the arcade venue
+- The **awards ceremony on stage with Samsung WCG 2004 banners and certificates being distributed**
+
+The event structure is confirmed by [GameSpot](https://www.gamespot.com/articles/long-beach-to-host-us-finals-for-world-cyber-games/1100-6105234/) — 25 Team USA members were selected across all games. Known USA UT2004 finalists stryfe and CombatCarl (who Scudder says were present) are [documented](https://liquipedia.net/arenafps/World_Cyber_Games/2004/UT2K4) as placing 5th–8th at the Grand Final in San Francisco.
 
 ---
 
