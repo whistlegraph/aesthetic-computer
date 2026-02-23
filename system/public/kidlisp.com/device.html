@@ -326,7 +326,24 @@
     #piece-hits,
     #piece-when,
     .ff1-module {
-      transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+
+    /* Wiggle warning before slide-out */
+    @keyframes wiggle {
+      0%, 100% { transform: translate(0, 0); }
+      15% { transform: translate(-2px, 1px); }
+      30% { transform: translate(2px, -1px); }
+      45% { transform: translate(-1px, 2px); }
+      60% { transform: translate(1px, -2px); }
+      75% { transform: translate(-2px, -1px); }
+      90% { transform: translate(2px, 1px); }
+    }
+
+    #source-overlay.wiggle-warning #qr-wrap,
+    #source-overlay.wiggle-warning #piece-info,
+    #source-overlay.wiggle-warning #source-code {
+      animation: wiggle 0.3s ease-in-out infinite;
     }
 
     /* Slide animations for overlay elements during playback */
@@ -337,7 +354,7 @@
       opacity: 0;
       pointer-events: none;
     }
-    
+
     /* Stats slide to bottom-left corner */
     #source-overlay.slid-out #piece-info,
     #source-overlay.tap-hidden #piece-info {
@@ -345,7 +362,7 @@
       opacity: 0;
       pointer-events: none;
     }
-    
+
     /* Source code slides to top-left corner */
     #source-overlay.slid-out #source-code,
     #source-overlay.tap-hidden #source-code {
@@ -792,6 +809,12 @@
     
     #progress-bar.hidden-mid {
       opacity: 0;
+    }
+
+    #progress-bar.thin-mid {
+      height: 1px !important;
+      opacity: 0.5;
+      transition: height 0.4s ease, opacity 0.4s ease;
     }
 
     #progress-bar.force-visible {
@@ -2635,7 +2658,7 @@
 
     // Playlist mode params (for DP-1 playlist progress bar)
     const isPlaylist = params.get('playlist') === 'true';
-    const playlistDuration = parseInt(params.get('duration')) || 120; // seconds
+    const playlistDuration = parseInt(params.get('duration')) || 35; // seconds
     
     // Slideshow mode params (for full DP-1 playlist client)
     // playlist_url: URL to a DP-1 playlist JSON (e.g., feed.aesthetic.computer/api/v1/playlists/{id})
@@ -2988,7 +3011,7 @@
       progressBarStarted = false;
 
       // Get duration from item or playlist defaults
-      const duration = item.duration || slideshowPlaylist.defaults?.duration || 120;
+      const duration = item.duration || slideshowPlaylist.defaults?.duration || 35;
 
       // Clear any existing timer
       if (slideshowTimer) {
@@ -3190,32 +3213,54 @@
         progressFill.style.width = `${progress}%`;
         
         // Slide overlay elements for fullscreen viewing:
-        // Device subdomains: time-based (show first 5s, hide middle, show last 5s)
+        // Device subdomains: time-based (show first 6s, wiggle 1s warning, hide middle, show last 6s)
         // Others: percentage-based (first 1/6, middle 4/6, last 1/6)
         if (overlay) {
           const elapsedSec = elapsed / 1000;
           const remainingSec = (durationMs - elapsed) / 1000;
-          const shouldSlideOut = isDeviceSubdomain
-            ? elapsedSec > 5 && remainingSec > 5
-            : progress > 16.67 && progress < 83.33;
-          if (shouldSlideOut && !overlay.classList.contains('slid-out')) {
-            overlay.classList.add('slid-out');
-          } else if (!shouldSlideOut && overlay.classList.contains('slid-out')) {
-            overlay.classList.remove('slid-out');
+          if (isDeviceSubdomain) {
+            const shouldWiggle = elapsedSec > 5 && elapsedSec <= 6 && remainingSec > 6;
+            const shouldSlideOut = elapsedSec > 6 && remainingSec > 6;
+            if (shouldWiggle && !overlay.classList.contains('wiggle-warning')) {
+              overlay.classList.add('wiggle-warning');
+            } else if (!shouldWiggle && overlay.classList.contains('wiggle-warning')) {
+              overlay.classList.remove('wiggle-warning');
+            }
+            if (shouldSlideOut && !overlay.classList.contains('slid-out')) {
+              overlay.classList.add('slid-out');
+            } else if (!shouldSlideOut && overlay.classList.contains('slid-out')) {
+              overlay.classList.remove('slid-out');
+            }
+          } else {
+            const shouldSlideOut = progress > 16.67 && progress < 83.33;
+            if (shouldSlideOut && !overlay.classList.contains('slid-out')) {
+              overlay.classList.add('slid-out');
+            } else if (!shouldSlideOut && overlay.classList.contains('slid-out')) {
+              overlay.classList.remove('slid-out');
+            }
           }
         }
 
-        // Hide progress bar during middle section (same timing as slide out)
+        // Progress bar: device subdomains get thinner (not hidden) during slide-out
+        // Others: fully hidden during middle section
         {
           const elapsedSec = elapsed / 1000;
           const remainingSec = (durationMs - elapsed) / 1000;
-          const shouldHideBar = isDeviceSubdomain
-            ? elapsedSec > 5 && remainingSec > 5
+          const inMiddle = isDeviceSubdomain
+            ? elapsedSec > 6 && remainingSec > 6
             : progress > 16.67 && progress < 83.33;
-          if (shouldHideBar && !progressBar.classList.contains('hidden-mid')) {
-            progressBar.classList.add('hidden-mid');
-          } else if (!shouldHideBar && progressBar.classList.contains('hidden-mid')) {
-            progressBar.classList.remove('hidden-mid');
+          if (isDeviceSubdomain) {
+            if (inMiddle && !progressBar.classList.contains('thin-mid')) {
+              progressBar.classList.add('thin-mid');
+            } else if (!inMiddle && progressBar.classList.contains('thin-mid')) {
+              progressBar.classList.remove('thin-mid');
+            }
+          } else {
+            if (inMiddle && !progressBar.classList.contains('hidden-mid')) {
+              progressBar.classList.add('hidden-mid');
+            } else if (!inMiddle && progressBar.classList.contains('hidden-mid')) {
+              progressBar.classList.remove('hidden-mid');
+            }
           }
         }
         
@@ -4046,7 +4091,7 @@
               startSlideshowProgressBar(window.pendingSlideshowDuration);
               window.pendingSlideshowDuration = null;
             } else if (!slideshowMode) {
-              // Single piece mode: 120 second progress bar, then soft restart
+              // Single piece mode: 35 second progress bar, then soft restart
               startProgressBar();
             }
           }
@@ -4068,31 +4113,53 @@
       progressFill.style.width = `${progress}%`;
       
       // Slide overlay elements for fullscreen viewing:
-      // Device subdomains: time-based (show first 5s, hide middle, show last 5s)
+      // Device subdomains: time-based (show first 6s, wiggle 1s warning, hide middle, show last 6s)
       // Others: percentage-based (first 1/6, middle 4/6, last 1/6)
       const overlay = document.getElementById('source-overlay');
       if (overlay) {
         const remainingSec = playlistDuration - elapsed;
-        const shouldSlideOut = isDeviceSubdomain
-          ? elapsed > 5 && remainingSec > 5
-          : progress > 16.67 && progress < 83.33;
-        if (shouldSlideOut && !overlay.classList.contains('slid-out')) {
-          overlay.classList.add('slid-out');
-        } else if (!shouldSlideOut && overlay.classList.contains('slid-out')) {
-          overlay.classList.remove('slid-out');
+        if (isDeviceSubdomain) {
+          const shouldWiggle = elapsed > 5 && elapsed <= 6 && remainingSec > 6;
+          const shouldSlideOut = elapsed > 6 && remainingSec > 6;
+          if (shouldWiggle && !overlay.classList.contains('wiggle-warning')) {
+            overlay.classList.add('wiggle-warning');
+          } else if (!shouldWiggle && overlay.classList.contains('wiggle-warning')) {
+            overlay.classList.remove('wiggle-warning');
+          }
+          if (shouldSlideOut && !overlay.classList.contains('slid-out')) {
+            overlay.classList.add('slid-out');
+          } else if (!shouldSlideOut && overlay.classList.contains('slid-out')) {
+            overlay.classList.remove('slid-out');
+          }
+        } else {
+          const shouldSlideOut = progress > 16.67 && progress < 83.33;
+          if (shouldSlideOut && !overlay.classList.contains('slid-out')) {
+            overlay.classList.add('slid-out');
+          } else if (!shouldSlideOut && overlay.classList.contains('slid-out')) {
+            overlay.classList.remove('slid-out');
+          }
         }
       }
 
-      // Hide progress bar during middle section (same timing as slide out)
+      // Progress bar: device subdomains get thinner (not hidden) during slide-out
+      // Others: fully hidden during middle section
       {
         const remainingSec = playlistDuration - elapsed;
-        const shouldHideBar = isDeviceSubdomain
-          ? elapsed > 5 && remainingSec > 5
+        const inMiddle = isDeviceSubdomain
+          ? elapsed > 6 && remainingSec > 6
           : progress > 16.67 && progress < 83.33;
-        if (shouldHideBar && !progressBar.classList.contains('hidden-mid')) {
-          progressBar.classList.add('hidden-mid');
-        } else if (!shouldHideBar && progressBar.classList.contains('hidden-mid')) {
-          progressBar.classList.remove('hidden-mid');
+        if (isDeviceSubdomain) {
+          if (inMiddle && !progressBar.classList.contains('thin-mid')) {
+            progressBar.classList.add('thin-mid');
+          } else if (!inMiddle && progressBar.classList.contains('thin-mid')) {
+            progressBar.classList.remove('thin-mid');
+          }
+        } else {
+          if (inMiddle && !progressBar.classList.contains('hidden-mid')) {
+            progressBar.classList.add('hidden-mid');
+          } else if (!inMiddle && progressBar.classList.contains('hidden-mid')) {
+            progressBar.classList.remove('hidden-mid');
+          }
         }
       }
       
