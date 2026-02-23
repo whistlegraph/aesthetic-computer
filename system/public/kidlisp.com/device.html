@@ -2549,19 +2549,12 @@
       addLog(args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' '));
     };
     
-    // KidLisp channel ID (stable — playlists inside it rotate)
-    const KIDLISP_CHANNEL_ID = '156c4235-4b24-4001-bec9-61ce0ac7c25e';
     const FEED_URL = 'https://feed.aesthetic.computer';
 
     // Resolve a playlist shortcut (e.g. "top100", "colors") to a full feed URL
-    // by fetching the KidLisp channel and matching playlist titles.
+    // by searching all playlists on the feed API and matching by title.
     async function resolvePlaylistUrl(shortcut) {
       try {
-        const channelResp = await fetch(`${FEED_URL}/api/v1/channels/${KIDLISP_CHANNEL_ID}`);
-        if (!channelResp.ok) throw new Error(`Channel fetch failed: ${channelResp.status}`);
-        const channel = await channelResp.json();
-        const playlistUrls = channel.playlists || [];
-
         // Title-matching rules for shortcuts
         const matchers = {
           'top100': (title) => /^top 100/i.test(title),
@@ -2572,28 +2565,33 @@
 
         const matcher = matchers[shortcut];
         if (!matcher) {
-          // Unknown shortcut — fall back to first playlist
-          console.warn('📺 Unknown playlist shortcut:', shortcut, '— using first playlist');
-          return playlistUrls[0] || null;
+          console.warn('📺 Unknown playlist shortcut:', shortcut);
+          return null;
         }
 
-        // Fetch all playlist headers in parallel and find the match
-        const results = await Promise.all(playlistUrls.map(async (url) => {
-          try {
-            const resp = await fetch(url);
-            if (!resp.ok) return null;
-            const playlist = await resp.json();
-            return { url, title: playlist.title || '' };
-          } catch { return null; }
-        }));
-        const match = results.find(r => r && matcher(r.title));
+        // Search all playlists on the feed (paginated, newest first)
+        let cursor = null;
+        let match = null;
+        do {
+          const qs = cursor ? `?limit=100&sort=desc&cursor=${encodeURIComponent(cursor)}` : '?limit=100&sort=desc';
+          const resp = await fetch(`${FEED_URL}/api/v1/playlists${qs}`);
+          if (!resp.ok) throw new Error(`Playlist list failed: ${resp.status}`);
+          const data = await resp.json();
+          const items = data.items || [];
+
+          match = items.find(p => matcher(p.title || ''));
+          if (match) break;
+
+          cursor = data.hasMore ? data.cursor : null;
+        } while (cursor);
+
         if (match) {
-          console.log('📺 Resolved shortcut', shortcut, '→', match.title, match.url);
-          return match.url;
+          const url = `${FEED_URL}/api/v1/playlists/${match.id}`;
+          console.log('📺 Resolved shortcut', shortcut, '→', match.title, url);
+          return url;
         }
 
-        // No match — fall back to first playlist for "top100", null otherwise
-        if (shortcut === 'top100' && playlistUrls.length > 0) return playlistUrls[0];
+        console.warn('📺 No playlist found for shortcut:', shortcut);
         return null;
       } catch (err) {
         console.error('📺 Failed to resolve playlist shortcut:', shortcut, err);
