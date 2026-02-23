@@ -2,7 +2,7 @@
 // Native pixel-text renderer for opinion markdown files.
 // Reads from /opinion/*.md with YAML frontmatter.
 // Index view at aesthetic.computer/opinion
-// Single view at aesthetic.computer/opinion:slug-name
+// Single view at aesthetic.computer/opinion slug-name
 
 const { min, max, floor, ceil } = Math;
 
@@ -243,8 +243,8 @@ function clampScroll(screen) {
 }
 
 // 🥾
-async function boot({ colon, params, hud }) {
-  const slug = colon?.[0];
+async function boot({ params, hud }) {
+  const slug = params?.[0];
 
   if (!slug) {
     isIndex = true;
@@ -458,7 +458,7 @@ function act({ event: e, screen, needsPaint, jump, net }) {
     for (let i = 0; i < indexData.length; i++) {
       const entryY = headerBottom + i * entryH + scroll;
       if (e.y >= entryY && e.y < entryY + entryH && e.x >= LEFT_MARGIN) {
-        jump("opinion:" + indexData[i].slug);
+        jump("opinion " + indexData[i].slug);
         return;
       }
     }

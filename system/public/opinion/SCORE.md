@@ -28,7 +28,7 @@ Your opinion body in markdown...
 }
 ```
 
-3. Visit `aesthetic.computer/opinion:your-file-name` to see it.
+3. Visit `aesthetic.computer/opinion your-file-name` to see it.
 
 ## Frontmatter Fields
 
