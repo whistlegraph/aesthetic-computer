@@ -5,6 +5,7 @@ This contract is the production release based on v4 with revenue enabled.
 
 v5 CHANGES from v4:
 - Default fee: 2.5 XTZ (revenue enabled by default)
+- Immutable content_hash: edit_metadata preserves content_hash (prevents orphaned bigmap entries)
 - Improved error messages with context
 - All v4 features preserved
 
@@ -47,6 +48,7 @@ def keeps_module():
 
         v5 changes from v4:
         - Default fee set to 2.5 XTZ for revenue activation
+        - Immutable content_hash during metadata edits
         - Improved error messages with context
 
         v4 features: royalties, emergency pause, admin transfer
@@ -106,35 +108,27 @@ def keeps_module():
         @sp.entrypoint
         def keep(self, params):
             """
-            Mint a new Keep token with full TZIP-21 metadata + royalties.
+            Mint a new Keep token with minimal on-chain metadata.
+
+            Full metadata lives in IPFS (via metadata_uri). On-chain stores only
+            the essential fields needed for display and deduplication.
 
             Two modes:
             1. Admin calling: mints to specified owner (for server-side minting)
-            2. User calling: mints to sender, requires fee payment
-
-            v5: Fee defaults to 2.5 XTZ
-            v4: Automatically adds royalty metadata based on default_royalty_bps
-            v4: Respects pause flag (cannot mint when paused)
+            2. User calling: mints to sender, requires fee payment (default 2.5 XTZ)
 
             All bytes parameters should be raw hex-encoded UTF-8 strings.
             """
             sp.cast(params, sp.record(
                 name=sp.bytes,
+                symbol=sp.bytes,
                 description=sp.bytes,
                 artifactUri=sp.bytes,
                 displayUri=sp.bytes,
                 thumbnailUri=sp.bytes,
                 decimals=sp.bytes,
-                symbol=sp.bytes,
-                isBooleanAmount=sp.bytes,
-                shouldPreferSymbol=sp.bytes,
-                formats=sp.bytes,
-                tags=sp.bytes,
-                attributes=sp.bytes,
                 creators=sp.bytes,
                 royalties=sp.bytes,
-                rights=sp.bytes,
-                content_type=sp.bytes,
                 content_hash=sp.bytes,
                 metadata_uri=sp.bytes,
                 owner=sp.address
@@ -158,26 +152,19 @@ def keeps_module():
             # Get next token ID from the library's counter
             token_id = self.data.next_token_id
 
-            # Build token_info map with all TZIP-21 fields
+            # Minimal on-chain token_info — full metadata in IPFS via ""
             token_info = sp.cast({
                 "name": params.name,
+                "symbol": params.symbol,
                 "description": params.description,
                 "artifactUri": params.artifactUri,
                 "displayUri": params.displayUri,
                 "thumbnailUri": params.thumbnailUri,
                 "decimals": params.decimals,
-                "symbol": params.symbol,
-                "isBooleanAmount": params.isBooleanAmount,
-                "shouldPreferSymbol": params.shouldPreferSymbol,
-                "formats": params.formats,
-                "tags": params.tags,
-                "attributes": params.attributes,
                 "creators": params.creators,
                 "royalties": params.royalties,
-                "rights": params.rights,
-                "content_type": params.content_type,
                 "content_hash": params.content_hash,
-                "": params.metadata_uri  # Empty key for off-chain metadata URI
+                "": params.metadata_uri
             }, sp.map[sp.string, sp.bytes])
 
             # Store token metadata
@@ -212,6 +199,7 @@ def keeps_module():
             - Original creator (preserves objkt.com attribution)
 
             Respects pause flag (cannot edit when paused).
+            content_hash is immutable — always preserved from original mint.
             """
             sp.cast(params, sp.record(
                 token_id=sp.nat,
@@ -234,11 +222,18 @@ def keeps_module():
             is_locked = self.data.metadata_locked.get(params.token_id, default=False)
             assert not is_locked, "METADATA_LOCKED"
 
+            # Preserve immutable content_hash from original metadata
+            existing_info = self.data.token_metadata[params.token_id].token_info
+            original_hash = existing_info.get("content_hash", default=sp.bytes("0x"))
+
             # Update metadata
             self.data.token_metadata[params.token_id] = sp.record(
                 token_id=params.token_id,
                 token_info=params.token_info
             )
+
+            # Re-inject content_hash (immutable — cannot be changed or removed via edit)
+            self.data.token_metadata[params.token_id].token_info["content_hash"] = original_hash
 
         @sp.entrypoint
         def lock_metadata(self, token_id):
