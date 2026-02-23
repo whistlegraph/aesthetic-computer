@@ -18,7 +18,7 @@ const calmPieces = [
   'xom',
 ];
 
-const duration = 35; // seconds per piece
+const duration = 60; // seconds per piece
 
 function generateCalmPlaylist() {
   return {
