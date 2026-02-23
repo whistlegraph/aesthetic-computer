@@ -896,11 +896,18 @@ function generateSelfExtractingHTML(title, gzipBase64, bgColor = null) {
 </head>
 <body>
   <script>
-    fetch('data:application/gzip;base64,${gzipBase64}')
+    // Use blob: URL instead of data: URL for CSP compatibility (objkt sandboxing)
+    const b64='${gzipBase64}';
+    const bin=atob(b64);
+    const bytes=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+    const blob=new Blob([bytes],{type:'application/gzip'});
+    const url=URL.createObjectURL(blob);
+    fetch(url)
       .then(r=>r.blob())
       .then(b=>b.stream().pipeThrough(new DecompressionStream('gzip')))
       .then(s=>new Response(s).text())
-      .then(h=>{document.open();document.write(h);document.close();})
+      .then(h=>{URL.revokeObjectURL(url);document.open();document.write(h);document.close();})
       .catch(e=>{document.body.style.cssText='color:#fff;background:#000;padding:20px;font-family:monospace';document.body.textContent='Bundle error: '+e.message;});
   </script>
 </body>
