@@ -2718,7 +2718,7 @@
     let slideshowAwaitingNavigateReady = false;  // True while waiting for jump() to send ready:
 
     // 🌊 Crossfade state (calm playlists only — dual-iframe live crossfade)
-    const CROSSFADE_MS = 15000;  // 15-second crossfade
+    const CROSSFADE_MS = 50000;  // 50-second crossfade (~10s solo per piece)
     let crossfadeEnabled = isCalmPlaylist;  // Only calm gets crossfade
     let crossfadeActive = false;  // True during a crossfade transition
     let frontIframe = iframe;     // Currently visible iframe
@@ -4119,8 +4119,8 @@
           if (crossfadeActive && e.source === backIframe.contentWindow) {
             console.log('🌊 Back iframe ready — starting crossfade');
             // Apply CSS transition and swap opacity
-            frontIframe.style.transition = `opacity ${CROSSFADE_MS}ms ease-in-out`;
-            backIframe.style.transition = `opacity ${CROSSFADE_MS}ms ease-in-out`;
+            frontIframe.style.transition = `opacity ${CROSSFADE_MS}ms linear`;
+            backIframe.style.transition = `opacity ${CROSSFADE_MS}ms linear`;
             frontIframe.style.opacity = '0';
             backIframe.style.opacity = '1';
             // After crossfade completes, swap roles
@@ -4172,9 +4172,12 @@
           if (!progressBarStarted) {
             progressBarStarted = true;
             console.log('📺 Piece ready, starting progress bar now');
-            
+
             // Check if we're in slideshow mode with a pending duration
-            if (window.pendingSlideshowDuration) {
+            // (calm mode: no progress bar — crossfade IS the progress indicator)
+            if (isCalmPlaylist) {
+              window.pendingSlideshowDuration = null;
+            } else if (window.pendingSlideshowDuration) {
               startSlideshowProgressBar(window.pendingSlideshowDuration);
               window.pendingSlideshowDuration = null;
             } else if (!slideshowMode) {
