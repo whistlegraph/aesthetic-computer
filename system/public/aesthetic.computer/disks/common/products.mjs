@@ -1397,11 +1397,9 @@ async function fetchAndLoadProducts(api) {
       // Randomize starting product
       currentProductIndex = Math.floor(Math.random() * productKeys.length);
       activeProductKey = productKeys[currentProductIndex];
-      
+
       console.log(`🛒 Registered ${productKeys.length} live products. Starting with: ${products[activeProductKey]?.title}`);
-      
-      // Start loading images in background (sequential with delays)
-      loadProductImagesInBackground(api);
+      // Images load lazily in paint() when the widget is first visible
     }
   } catch (err) {
     console.warn('📦 Failed to fetch shop data:', err);
@@ -1441,24 +1439,6 @@ async function ensureProductLoaded(key, api, triggerRepaint = false) {
   }
 }
 
-// Load only the active product at boot (lazy load the rest on demand)
-async function loadProductImagesInBackground(api) {
-  // Only load the CURRENT product at boot - others load lazily when needed
-  if (activeProductKey) {
-    console.log(`📦 Loading active product: ${products[activeProductKey]?.title}`);
-    await ensureProductLoaded(activeProductKey, api, true);
-    
-    // Pre-load the NEXT product so first cycle is smooth
-    if (productKeys.length > 1) {
-      const nextIndex = (currentProductIndex + 1) % productKeys.length;
-      const nextKey = productKeys[nextIndex];
-      console.log(`📦 Pre-loading next product: ${products[nextKey]?.title}`);
-      ensureProductLoaded(nextKey, api); // Don't await - load in background
-    }
-  }
-  
-  console.log(`📦 Boot complete. Other products will load lazily on demand.`);
-}
 
 export function setActiveProduct(key) {
   if (products[key]) {
@@ -1538,13 +1518,26 @@ export function act($, event, callbacks) {
 
 export function paint($, screen, showLoginCurtain) {
   const product = getActiveProduct();
-  
+
   // Show loading animation if we're still booting (fetching shop data) or no products yet
   if (!product) {
     if (isBooting || productKeys.length === 0) {
       paintBootingAnimation($, screen, showLoginCurtain);
     }
     return;
+  }
+
+  // Lazily load the active product's image on first paint (avoids blocking prompt boot)
+  if (!product.imageScaled && !product.isLoading && bootApi) {
+    ensureProductLoaded(activeProductKey, bootApi, true);
+    // Also pre-load the next product while we're at it
+    if (productKeys.length > 1) {
+      const nextIndex = (currentProductIndex + 1) % productKeys.length;
+      const nextKey = productKeys[nextIndex];
+      if (!products[nextKey]?.imageScaled && !products[nextKey]?.isLoading) {
+        setTimeout(() => ensureProductLoaded(nextKey, bootApi), 500);
+      }
+    }
   }
   
   // 🎚️ Volume ducking: Adjust audio volume when curtain state changes
