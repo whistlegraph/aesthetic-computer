@@ -6,7 +6,7 @@
 <link rel="icon" href="/icon/128x128/prompt.png" type="image/png">
 <title>aesthetic.computer is home to &middot; Aesthetic Computer</title>
 <meta property="og:title" content="aesthetic.computer is home to">
-<meta property="og:description" content="19 domains &amp; microsites, ~355 disk routes, ~85 API endpoints, and more across the Aesthetic Computer network.">
+<meta property="og:description" content="22 domains &amp; microsites, ~355 disk routes, ~85 API endpoints, and more across the Aesthetic Computer network.">
 <meta property="og:image" content="https://aesthetic.computer/preview/1200x630/prompt.png">
 <meta property="og:url" content="https://sitemap.aesthetic.computer">
 <meta property="og:type" content="website">
@@ -283,7 +283,7 @@
 
 <div style="padding-top: 0.5em;">
 <div class="stats">
-  <div class="stat">Domains &amp; Microsites: <strong>19</strong></div>
+  <div class="stat">Domains &amp; Microsites: <strong>22</strong></div>
   <div class="stat">Disk Routes: <strong>~355</strong></div>
   <div class="stat">API Endpoints: <strong>~85</strong></div>
   <div class="stat">Functions: <strong>~106</strong></div>
@@ -1143,6 +1143,59 @@
   <div class="route full-url">/preview/* &rarr; oven.aesthetic.computer/preview/:splat</div>
   <div class="route full-url">/icon/* &rarr; oven.aesthetic.computer/icon/:splat</div>
   <div class="route full-url">/api/bundle-html &rarr; oven.aesthetic.computer/bundle-html</div>
+</div>
+</details>
+</div>
+
+<!-- at.aesthetic.computer -->
+<div class="card">
+<details>
+<summary>
+  <img class="card-thumb" src="/icon/128x128/prompt.png" loading="lazy" onerror="this.style.display='none'" alt="">
+  <span class="tag tag-api">Infra</span>
+  <span class="section-title">at.aesthetic.computer</span>
+  <span class="section-count">AT Protocol PDS</span>
+</summary>
+<div class="section-desc">Personal Data Server (PDS) for the AT Protocol / Bluesky network. Every AC user gets a DID and handle at <em>{handle}.at.aesthetic.computer</em>. Moods, paintings, pieces, and KidLisp are dual-written here. Handles account creation, invite codes, deletion, and Bluesky mirroring.</div>
+<div class="routes single-col">
+  <div class="route full-url">at.aesthetic.computer/ &mdash; PDS root (AT Protocol)</div>
+  <div class="route full-url">at.aesthetic.computer/xrpc/* &mdash; AT Protocol XRPC API</div>
+  <div class="dynamic-pattern">{handle}.at.aesthetic.computer &rarr; user DID / identity</div>
+  <div class="dynamic-pattern">api/atproto-user-stats &rarr; aggregated user stats</div>
+</div>
+</details>
+</div>
+
+<!-- feed.aesthetic.computer -->
+<div class="card">
+<details>
+<summary>
+  <img class="card-thumb" src="/icon/128x128/prompt.png" loading="lazy" onerror="this.style.display='none'" alt="">
+  <span class="tag tag-api">Edge</span>
+  <span class="section-title">feed.aesthetic.computer</span>
+  <span class="section-count">DP1 Feed Worker</span>
+</summary>
+<div class="section-desc">Cloudflare Worker serving the DP-1 playlist/feed protocol. Manages KidLisp, Top 100, Colors, and Chords playlists. Ed25519-signed, OpenAPI 3.1 compliant. Backed by Cloudflare KV and a write-queue.</div>
+<div class="routes single-col">
+  <div class="route full-url">feed.aesthetic.computer/api/v1/playlists &mdash; Playlists CRUD</div>
+  <div class="route full-url">feed.aesthetic.computer/api/v1/channels &mdash; Channels CRUD</div>
+  <div class="route full-url">feed.aesthetic.computer/api/v1/items &mdash; Playlist items CRUD</div>
+</div>
+</details>
+</div>
+
+<!-- grab.aesthetic.computer -->
+<div class="card">
+<details>
+<summary>
+  <img class="card-thumb" src="/icon/128x128/prompt.png" loading="lazy" onerror="this.style.display='none'" alt="">
+  <span class="tag tag-api">Edge</span>
+  <span class="section-title">grab.aesthetic.computer</span>
+  <span class="section-count">Screenshot Worker</span>
+</summary>
+<div class="section-desc">Cloudflare Worker using the Browser Rendering API to generate and cache screenshots of AC pieces. Rate-limited (60 req/min), 7-day cache, up to 10 concurrent browser sessions. Used for social previews and thumbnails.</div>
+<div class="routes single-col">
+  <div class="dynamic-pattern">grab.aesthetic.computer/* &rarr; screenshot generation &amp; cache</div>
 </div>
 </details>
 </div>
