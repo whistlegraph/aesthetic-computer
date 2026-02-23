@@ -27,7 +27,7 @@ function generateCalmPlaylist() {
     summary: 'A hand-curated selection of calming KidLisp pieces, perfect for ambient display.',
     items: calmPieces.map((code, index) => ({
       title: code,
-      source: `https://calm.kidlisp.com/${code}?playlist=true&duration=${duration}&index=${index}&total=${calmPieces.length}`,
+      source: `https://device.kidlisp.com/$${code}?playlist=true&duration=${duration}&index=${index}&total=${calmPieces.length}`,
       duration,
       license: 'open',
       provenance: {

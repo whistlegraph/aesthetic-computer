@@ -2972,15 +2972,13 @@
     // Convert a playlist item to an iframe-loadable URL
     function resolveItemUrl(item) {
       let itemUrl = item.source || item.url || '';
-      // Always convert to aesthetic.computer URL for the iframe
-      // device.kidlisp.com URLs should NOT be used directly - they'd load another device.html!
-      if (itemUrl.includes('device.kidlisp.com')) {
-        const deviceMatch = itemUrl.match(/device\.kidlisp\.com\/(\$?[a-z0-9_-]+)/i);
-        if (deviceMatch) {
-          const rawCode = deviceMatch[1];
-          const code = rawCode.startsWith('$') ? rawCode : `$${rawCode}`;
-          itemUrl = `${aestheticUrl}/${code}?${buildDisplayParams()}`;
-        }
+      // Always convert kidlisp.com subdomain URLs to aesthetic.computer for the iframe
+      // These subdomain URLs serve device.html, which would create an infinite loop!
+      const subdomainMatch = itemUrl.match(/(?:device|calm|top)\.kidlisp\.com\/(\$?[a-z0-9_-]+)/i);
+      if (subdomainMatch) {
+        const rawCode = subdomainMatch[1];
+        const code = rawCode.startsWith('$') ? rawCode : `$${rawCode}`;
+        itemUrl = `${aestheticUrl}/${code}?${buildDisplayParams()}`;
       } else if (!itemUrl.includes('aesthetic.computer')) {
         const separator = itemUrl.includes('?') ? '&' : '?';
         itemUrl = `${itemUrl}${separator}${buildDisplayParams()}`;
