@@ -116,8 +116,10 @@
       // BUT only if the screen is actually 4K resolution
       const isDeviceSubdomain = hostname === 'device.kidlisp.com' ||
                                 hostname === 'top.kidlisp.com' ||
+                                hostname === 'calm.kidlisp.com' ||
                                 window.location.pathname.startsWith('/device.kidlisp.com') ||
-                                window.location.pathname.startsWith('/top.kidlisp.com');
+                                window.location.pathname.startsWith('/top.kidlisp.com') ||
+                                window.location.pathname.startsWith('/calm.kidlisp.com');
 
       // Check if this is a 4K-class display (3840x2160 or similar)
       // FF1 reports CSS pixels 1920x1200 which is 4K scaled by dpr=2
@@ -2522,9 +2524,10 @@
     const dev = hostname === 'localhost' || hostname === 'local.aesthetic.computer';
     const aestheticUrl = dev ? 'https://localhost:8888' : 'https://aesthetic.computer';
     
-    // Check if this is an FF1/device subdomain (top.kidlisp.com, device.kidlisp.com)
-    const isDeviceSubdomain = hostname === 'device.kidlisp.com' || hostname === 'top.kidlisp.com';
+    // Check if this is an FF1/device subdomain (top/calm/device.kidlisp.com)
+    const isDeviceSubdomain = hostname === 'device.kidlisp.com' || hostname === 'top.kidlisp.com' || hostname === 'calm.kidlisp.com';
     const isTopPlaylist = hostname === 'top.kidlisp.com' || pathname.startsWith('/top.kidlisp.com');
+    const isCalmPlaylist = hostname === 'calm.kidlisp.com' || pathname.startsWith('/calm.kidlisp.com');
     
     const logDevice = (...args) => {
       console.log('📺 DEVICE:', ...args);
@@ -2549,6 +2552,7 @@
           'top100': (title) => /^top 100/i.test(title),
           'colors': (title) => /^colors/i.test(title),
           'chords': (title) => /^chords/i.test(title),
+          'calm': (title) => /^calm/i.test(title),
         };
 
         const matcher = matchers[shortcut];
@@ -2621,6 +2625,13 @@
         anonFilter = true;
         console.log('📺 Anonymous filter enabled (local dev)');
       }
+    } else if (hostname === 'calm.kidlisp.com') {
+      // calm.kidlisp.com auto-loads hand-curated calm playlist
+      slideshowShortcut = 'calm';
+      console.log('📺 Matched calm.kidlisp.com, set slideshowShortcut:', slideshowShortcut);
+    } else if (pathname.startsWith('/calm.kidlisp.com')) {
+      // Local dev: localhost:8888/calm.kidlisp.com
+      slideshowShortcut = 'calm';
     } else if (hostname === 'device.kidlisp.com') {
       // Production: device.kidlisp.com/codeId or /playlist/top100
       if (pathParts[0] === 'playlist' && pathParts[1]) {
@@ -3822,6 +3833,8 @@
         slideshowUrl = 'https://top.kidlisp.com/anon';
       } else if (slideshowShortcut === 'top100') {
         slideshowUrl = 'https://top.kidlisp.com';
+      } else if (slideshowShortcut === 'calm') {
+        slideshowUrl = 'https://calm.kidlisp.com';
       } else if (slideshowShortcut) {
         slideshowUrl = `https://device.kidlisp.com/playlist/${slideshowShortcut}`;
       } else {

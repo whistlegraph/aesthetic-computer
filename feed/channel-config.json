@@ -52,15 +52,25 @@
       "items": 31,
       "url": "https://feed.aesthetic.computer/api/v1/playlists/ea5e26c9-e755-4f88-807e-c68a91cff49a",
       "generator": "create-kidlisp-chords-playlist.mjs"
+    },
+    {
+      "slot": 5,
+      "type": "static",
+      "id": "5a328df6-3d80-4548-82ef-367ebac3de56",
+      "title": "Calm",
+      "description": "Hand-curated calming KidLisp pieces (calm.kidlisp.com)",
+      "items": 2,
+      "url": "https://feed.aesthetic.computer/api/v1/playlists/5a328df6-3d80-4548-82ef-367ebac3de56",
+      "generator": "create-kidlisp-calm-playlist.mjs"
     }
   ],
   "metadata": {
-    "lastUpdated": "2026-02-20",
-    "totalItems": 482,
+    "lastUpdated": "2026-02-22",
+    "totalItems": 484,
     "backend": "sqlite (silo.aesthetic.computer)",
     "dpVersion": "1.1.0",
     "dynamicSlots": 3,
-    "staticSlots": 2,
+    "staticSlots": 3,
     "updateSchedule": "daily at 06:00 UTC"
   }
 }

@@ -1185,6 +1185,25 @@ to = "/.netlify/functions/index/top.kidlisp.com/:splat"
 status = 200
 force = true
 
+# Calm subdomain for kidlisp.com - calm.kidlisp.com (hand-curated calm playlist)
+# JS assets served statically (must come before function route)
+[[redirects]]
+from = "https://calm.kidlisp.com/js/*"
+to = "/kidlisp.com/js/:splat"
+status = 200
+force = true
+# Route through index function for dynamic meta tags (social previews / iMessage)
+[[redirects]]
+from = "https://calm.kidlisp.com"
+to = "/.netlify/functions/index/calm.kidlisp.com"
+status = 200
+force = true
+[[redirects]]
+from = "https://calm.kidlisp.com/*"
+to = "/.netlify/functions/index/calm.kidlisp.com/:splat"
+status = 200
+force = true
+
 [[redirects]]
 from = "https://news.aesthetic.computer"
 to = "/.netlify/functions/news"
