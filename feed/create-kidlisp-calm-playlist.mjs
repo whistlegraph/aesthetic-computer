@@ -16,6 +16,7 @@ const CHANNEL_ID = '156c4235-4b24-4001-bec9-61ce0ac7c25e';
 const calmPieces = [
   'bop',
   'xom',
+  'faim',
 ];
 
 const duration = 60; // seconds per piece
