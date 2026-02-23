@@ -7744,12 +7744,13 @@
     }
 
     #splash-logo .splash-route {
-      margin-left: 6px;
-      font-family: 'YWFTProcessing-Regular', monospace;
-      font-size: 0.85em;
-      letter-spacing: 0.02em;
+      margin-left: 0;
+      font-family: inherit;
+      font-size: inherit;
+      font-weight: inherit;
+      letter-spacing: inherit;
       color: var(--text-tertiary);
-      text-shadow: none;
+      text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.2);
       display: inline-flex;
       align-items: center;
     }
@@ -7820,12 +7821,14 @@
           if (splashRoute) {
             if (initialRouteCode) {
               const slug = `/$${initialRouteCode}`;
+              const routeColors = ['#FF6B6B','#4ECDC4','#FFE66D','#95E1D3','#F38181','#AA96DA','#70D6FF'];
               splashRoute.innerHTML = slug
                 .split('')
                 .map((char, index) => {
                   const delay = 520 + index * 35;
                   const safeChar = char === ' ' ? '&nbsp;' : char;
-                  return `<span class="splash-letter" style="color: var(--text-tertiary); animation-delay: ${delay}ms;">${safeChar}</span>`;
+                  const color = routeColors[index % routeColors.length];
+                  return `<span class="splash-letter" style="color: ${color}; animation-delay: ${delay}ms;">${safeChar}</span>`;
                 })
                 .join('');
             } else {
@@ -7879,7 +7882,8 @@
                 // Measure source positions at BIG size
                 const sourceRects = Array.from(splashChars).map(ch => {
                   const r = ch.getBoundingClientRect();
-                  return { top: r.top, left: r.left, text: ch.textContent, fontSize: parseFloat(getComputedStyle(ch).fontSize) };
+                  const cs = getComputedStyle(ch);
+                  return { top: r.top, left: r.left, text: ch.textContent, fontSize: parseFloat(cs.fontSize), color: cs.color };
                 });
 
                 // Populate hidden target to measure destination
@@ -7895,7 +7899,6 @@
                   splashRoute.style.visibility = 'hidden';
 
                   // Create fixed-position clones at BIG source positions
-                  const charColors = { 0: 'var(--text-tertiary)', 1: 'rgb(205, 92, 155)' };
                   const clones = [];
                   sourceRects.forEach((src, i) => {
                     const clone = document.createElement('span');
@@ -7904,7 +7907,7 @@
                     clone.style.top = src.top + 'px';
                     clone.style.left = src.left + 'px';
                     clone.style.fontSize = src.fontSize + 'px';
-                    clone.style.color = charColors[i] || 'rgb(147, 112, 219)';
+                    clone.style.color = src.color || 'rgb(147, 112, 219)';
                     document.body.appendChild(clone);
                     clones.push(clone);
                   });
