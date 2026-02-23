@@ -393,6 +393,130 @@ Created: 2026.02.20
 
     .loading { color: var(--dim); animation: pulse 1.5s ease-in-out infinite; }
 
+    /* -- tv player -- */
+    .tv-wrapper {
+      margin-bottom: 1.5em;
+      animation: slideIn 0.5s ease-out both;
+    }
+
+    .tv-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5em;
+    }
+
+    .tv-label {
+      font-size: 0.85em;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .tv-now-playing {
+      font-size: 0.8em;
+      color: var(--pink);
+    }
+
+    .tv-screen {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #000;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid var(--box-border);
+    }
+
+    .tv-screen iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+    }
+
+    .tv-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.4em;
+      margin-top: 0.5em;
+    }
+
+    .tv-btn {
+      background: var(--box-bg);
+      border: 1px solid var(--box-border);
+      border-radius: 4px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.8em;
+      padding: 0.3em 0.6em;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .tv-btn:hover {
+      background: rgba(255,107,157,0.08);
+      border-color: var(--pink);
+    }
+
+    .tv-btn.active {
+      border-color: var(--pink);
+      color: var(--pink);
+    }
+
+    .tv-progress {
+      flex: 1;
+      height: 3px;
+      background: var(--box-border);
+      border-radius: 2px;
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    .tv-progress-bar {
+      height: 100%;
+      background: var(--pink);
+      border-radius: 2px;
+      transition: width 0.3s linear;
+    }
+
+    .tv-index {
+      font-size: 0.75em;
+      color: var(--dim);
+      min-width: 4em;
+      text-align: right;
+    }
+
+    .tv-playlist-picker {
+      display: flex;
+      gap: 0.3em;
+      margin-top: 0.4em;
+      flex-wrap: wrap;
+    }
+
+    .tv-playlist-chip {
+      background: var(--box-bg);
+      border: 1px solid var(--box-border);
+      border-radius: 4px;
+      color: var(--dim);
+      font-family: inherit;
+      font-size: 0.75em;
+      padding: 0.2em 0.5em;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+
+    .tv-playlist-chip:hover {
+      border-color: var(--pink);
+      color: var(--text);
+    }
+
+    .tv-playlist-chip.active {
+      border-color: var(--pink);
+      color: var(--pink);
+      background: rgba(255,107,157,0.08);
+    }
+
     /* -- modal overlay -- */
     .feed-modal {
       position: fixed;
@@ -467,6 +591,26 @@ Created: 2026.02.20
         <span class="loading">connecting...</span>
       </div>
     </header>
+
+    <div class="tv-wrapper" id="tv-wrapper" style="display:none">
+      <div class="tv-header">
+        <span class="tv-label">now playing</span>
+        <span class="tv-now-playing" id="tv-now-playing"></span>
+      </div>
+      <div class="tv-screen">
+        <iframe id="tv-iframe" allow="autoplay" sandbox="allow-scripts allow-same-origin"></iframe>
+      </div>
+      <div class="tv-controls">
+        <button class="tv-btn" id="tv-prev" title="Previous">&#9664;</button>
+        <button class="tv-btn" id="tv-playpause" title="Play/Pause">&#9646;&#9646;</button>
+        <button class="tv-btn" id="tv-next" title="Next">&#9654;</button>
+        <div class="tv-progress" id="tv-progress">
+          <div class="tv-progress-bar" id="tv-progress-bar"></div>
+        </div>
+        <span class="tv-index" id="tv-index"></span>
+      </div>
+      <div class="tv-playlist-picker" id="tv-playlist-picker"></div>
+    </div>
 
     <div id="content">
       <div class="loading" style="text-align:center;padding:2em">loading feed...</div>
@@ -633,6 +777,7 @@ Created: 2026.02.20
               <div class="pl-right">
                 <span class="badge ${isStatic ? 'badge-static' : 'badge-dynamic'}">${isStatic ? 'static' : 'daily'}</span>
                 <span>${count}</span>
+                <button class="tv-btn" onclick="event.stopPropagation(); tvSwitchPlaylist('${p.id}')" title="Play on TV" style="font-size:0.9em;padding:0.15em 0.4em">&#9654;</button>
               </div>
             </div>
             <div class="pl-items" id="pli-${idx}">
@@ -644,6 +789,13 @@ Created: 2026.02.20
         }
 
         document.getElementById('content').innerHTML = html;
+
+        // Start TV player — default to Colors playlist
+        tv.allPlaylists = allPlaylists;
+        const colorsPlaylist = allPlaylists.find(p => /^colors$/i.test(p.title));
+        if (colorsPlaylist) tvLoad(colorsPlaylist);
+        else if (allPlaylists.length) tvLoad(allPlaylists[0]);
+        tvBuildPicker();
       } catch (e) {
         document.getElementById('content').innerHTML =
           '<div style="text-align:center;color:var(--dim);padding:2em">could not load feed data</div>';
@@ -706,6 +858,112 @@ Created: 2026.02.20
 
     function handleEscape(e) {
       if (e.key === 'Escape') closeModal();
+    }
+
+    // -- TV Player --
+    const tv = {
+      items: [],
+      index: 0,
+      playing: true,
+      timer: null,
+      elapsed: 0,
+      tick: null,
+      playlistId: null,
+      allPlaylists: [],  // filled after load
+    };
+
+    function tvLoad(playlist) {
+      tv.items = (playlist.items || []).slice();
+      tv.index = 0;
+      tv.playlistId = playlist.id;
+      tv.playing = true;
+      // highlight active chip
+      document.querySelectorAll('.tv-playlist-chip').forEach(c => {
+        c.classList.toggle('active', c.dataset.id === playlist.id);
+      });
+      tvShow();
+      document.getElementById('tv-wrapper').style.display = '';
+    }
+
+    function tvShow() {
+      if (!tv.items.length) return;
+      const item = tv.items[tv.index];
+      const iframe = document.getElementById('tv-iframe');
+      iframe.src = item.source || item.url || '';
+      document.getElementById('tv-now-playing').textContent = item.title || '';
+      document.getElementById('tv-index').textContent =
+        `${tv.index + 1} / ${tv.items.length}`;
+      tv.elapsed = 0;
+      tvUpdateProgress();
+      tvStartTimer();
+    }
+
+    function tvStartTimer() {
+      tvStopTimer();
+      if (!tv.playing) return;
+      const duration = tv.items[tv.index]?.duration || 8;
+      tv.elapsed = 0;
+      tv.tick = setInterval(() => {
+        tv.elapsed += 0.25;
+        tvUpdateProgress();
+        if (tv.elapsed >= duration) {
+          tvNext();
+        }
+      }, 250);
+    }
+
+    function tvStopTimer() {
+      if (tv.tick) { clearInterval(tv.tick); tv.tick = null; }
+    }
+
+    function tvUpdateProgress() {
+      const duration = tv.items[tv.index]?.duration || 8;
+      const pct = Math.min(100, (tv.elapsed / duration) * 100);
+      document.getElementById('tv-progress-bar').style.width = pct + '%';
+    }
+
+    function tvNext() {
+      tv.index = (tv.index + 1) % tv.items.length;
+      tvShow();
+    }
+
+    function tvPrev() {
+      tv.index = (tv.index - 1 + tv.items.length) % tv.items.length;
+      tvShow();
+    }
+
+    function tvToggle() {
+      tv.playing = !tv.playing;
+      document.getElementById('tv-playpause').innerHTML =
+        tv.playing ? '&#9646;&#9646;' : '&#9654;';
+      document.getElementById('tv-playpause').classList.toggle('active', !tv.playing);
+      if (tv.playing) tvStartTimer(); else tvStopTimer();
+    }
+
+    document.getElementById('tv-prev').addEventListener('click', tvPrev);
+    document.getElementById('tv-next').addEventListener('click', tvNext);
+    document.getElementById('tv-playpause').addEventListener('click', tvToggle);
+    document.getElementById('tv-progress').addEventListener('click', (e) => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const pct = (e.clientX - rect.left) / rect.width;
+      const duration = tv.items[tv.index]?.duration || 8;
+      tv.elapsed = pct * duration;
+      tvUpdateProgress();
+    });
+
+    // Build playlist picker chips after data loads
+    function tvBuildPicker() {
+      const picker = document.getElementById('tv-playlist-picker');
+      picker.innerHTML = tv.allPlaylists.map(p => {
+        const icon = plIcon(p.title);
+        return `<button class="tv-playlist-chip${p.id === tv.playlistId ? ' active' : ''}"
+          data-id="${p.id}" onclick="tvSwitchPlaylist('${p.id}')">${icon} ${esc(p.title)}</button>`;
+      }).join('');
+    }
+
+    function tvSwitchPlaylist(id) {
+      const pl = tv.allPlaylists.find(p => p.id === id);
+      if (pl) tvLoad(pl);
     }
 
     load();
