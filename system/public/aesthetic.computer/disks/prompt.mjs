@@ -4031,8 +4031,14 @@ function paint($) {
   // Ensure pal is always defined with a fallback
   if (seriousMode) {
     pal = $.dark ? scheme.serious.dark : scheme.serious.light;
+    if ($.system.prompt?.input) {
+      $.system.prompt.input.scheme = { dark: scheme.serious.dark, light: scheme.serious.light };
+    }
   } else {
     pal = $.dark ? scheme.dark : scheme.light;
+    if ($.system.prompt?.input) {
+      $.system.prompt.input.scheme = scheme;
+    }
   }
 
   // 🅰️ Paint below the prompt || scheme.
@@ -9074,9 +9080,9 @@ function activated($, state) {
   }
   // console.log(state, firstCommandSent)
   // if (state === false && firstCommandSent) return;
-  if (login) login.btn.disabled = state;
-  if (signup) signup.btn.disabled = state;
-  if (profile) profile.btn.disabled = state;
+  if (login) login.btn.disabled = state || seriousMode;
+  if (signup) signup.btn.disabled = state || seriousMode;
+  if (profile) profile.btn.disabled = state || seriousMode;
   if (chatTickerButton) chatTickerButton.disabled = state;
 }
 
