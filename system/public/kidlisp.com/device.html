@@ -2710,7 +2710,7 @@
     let slideshowAwaitingNavigateReady = false;  // True while waiting for jump() to send ready:
 
     // 🌊 Crossfade state (calm playlists only — dual-iframe live crossfade)
-    const CROSSFADE_MS = 3000;  // 3-second crossfade
+    const CROSSFADE_MS = 15000;  // 15-second crossfade
     let crossfadeEnabled = isCalmPlaylist;  // Only calm gets crossfade
     let crossfadeActive = false;  // True during a crossfade transition
     let frontIframe = iframe;     // Currently visible iframe
