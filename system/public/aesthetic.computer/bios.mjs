@@ -19394,8 +19394,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // TODO: Video effects / filter kernels could be added here...
         // 💡 For GPU backed visuals. 23.04.29.20.47
 
-        // Send frames by default.
-        if (facingMode === "user" || (!iOS && !Android)) {
+        // Detect orientation mismatch (landscape video in portrait buffer or vice versa).
+        // Mobile sensors always return landscape pixels; in portrait mode we rotate -90° CCW.
+        const videoIsLandscape = video.videoWidth > video.videoHeight;
+        const bufferIsPortrait = buffer.height > buffer.width;
+        const needsRotation =
+          video.videoWidth > 0 &&
+          video.videoHeight > 0 &&
+          videoIsLandscape === bufferIsPortrait;
+        const needsMirror = facingMode === "user" || (!iOS && !Android);
+
+        // Send frames by default (non-rotation path only).
+        if (!needsRotation && needsMirror) {
           bufferCtx.translate(buffer.width / 2, buffer.height / 2);
           const zoom = 1;
           // if (hands) {
@@ -19427,42 +19437,78 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
 
         // Drawing a video frame to the buffer (mirrored, proportion adjusted).
-        const videoAR = video.videoWidth / video.videoHeight;
-        const bufferAR = buffer.width / buffer.height;
-        let outWidth,
-          outHeight,
-          outX = 0,
-          outY = 0;
+        if (needsRotation) {
+          // Landscape sensor pixels in portrait buffer: rotate -90° CCW so the
+          // video fills the portrait frame. Use the swapped AR for fit calculation.
+          const rotatedVideoAR = video.videoHeight / video.videoWidth;
+          const bufferAR = buffer.width / buffer.height;
+          let outWidth, outHeight;
 
-        if (fitMode === "contain") {
-          // "contain" mode: letterbox to fit entire video in buffer
-          if (videoAR >= bufferAR) {
-            // Video is wider - fit to width, letterbox top/bottom
-            outWidth = buffer.width;
-            outHeight = outWidth / videoAR;
+          if (fitMode === "contain") {
+            if (rotatedVideoAR >= bufferAR) {
+              outWidth = buffer.width;
+              outHeight = outWidth / rotatedVideoAR;
+            } else {
+              outHeight = buffer.height;
+              outWidth = outHeight * rotatedVideoAR;
+            }
           } else {
-            // Video is taller - fit to height, letterbox left/right
-            outHeight = buffer.height;
-            outWidth = outHeight * videoAR;
+            if (rotatedVideoAR <= bufferAR) {
+              outWidth = buffer.width;
+              outHeight = outWidth / rotatedVideoAR;
+            } else {
+              outHeight = buffer.height;
+              outWidth = outHeight * rotatedVideoAR;
+            }
           }
+
+          const outX = (buffer.width - outWidth) / 2;
+          const outY = (buffer.height - outHeight) / 2;
+
+          bufferCtx.save();
+          bufferCtx.translate(outX + outWidth / 2, outY + outHeight / 2);
+          bufferCtx.rotate(-Math.PI / 2); // CCW: landscape sensor → portrait buffer
+          if (needsMirror) bufferCtx.scale(1, -1); // Horizontal flip in portrait space
+          bufferCtx.drawImage(video, -outHeight / 2, -outWidth / 2, outHeight, outWidth);
+          bufferCtx.restore();
         } else {
-          // "cover" mode (default): crop to fill buffer completely
-          if (videoAR <= bufferAR) {
-            // Tall to wide.
-            outWidth = buffer.width;
-            outHeight = outWidth / videoAR;
+          const videoAR = video.videoWidth / video.videoHeight;
+          const bufferAR = buffer.width / buffer.height;
+          let outWidth,
+            outHeight,
+            outX = 0,
+            outY = 0;
+
+          if (fitMode === "contain") {
+            // "contain" mode: letterbox to fit entire video in buffer
+            if (videoAR >= bufferAR) {
+              // Video is wider - fit to width, letterbox top/bottom
+              outWidth = buffer.width;
+              outHeight = outWidth / videoAR;
+            } else {
+              // Video is taller - fit to height, letterbox left/right
+              outHeight = buffer.height;
+              outWidth = outHeight * videoAR;
+            }
           } else {
-            // Wide to tall.
-            outHeight = buffer.height;
-            outWidth = outHeight * videoAR;
+            // "cover" mode (default): crop to fill buffer completely
+            if (videoAR <= bufferAR) {
+              // Tall to wide.
+              outWidth = buffer.width;
+              outHeight = outWidth / videoAR;
+            } else {
+              // Wide to tall.
+              outHeight = buffer.height;
+              outWidth = outHeight * videoAR;
+            }
           }
+
+          outY = (buffer.height - outHeight) / 2; // Adjusting position.
+          outX = (buffer.width - outWidth) / 2;
+
+          bufferCtx.drawImage(video, outX, outY, outWidth, outHeight);
+          bufferCtx.resetTransform();
         }
-
-        outY = (buffer.height - outHeight) / 2; // Adjusting position.
-        outX = (buffer.width - outWidth) / 2;
-
-        bufferCtx.drawImage(video, outX, outY, outWidth, outHeight);
-        bufferCtx.resetTransform();
 
         if (options.hidden !== true) {
           const pixels = bufferCtx.getImageData(
