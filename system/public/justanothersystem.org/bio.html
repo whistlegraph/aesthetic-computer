@@ -119,36 +119,12 @@
     }
 
     /* Chapters */
-    .chapter {
-      margin-bottom: 3.5rem;
-    }
-
     .chapter-label {
       font-size: 0.75rem;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.08em;
       color: var(--dim);
-      margin-bottom: 0.5rem;
-    }
-
-    .chapter h2 {
-      font-size: 1.1rem;
-      font-weight: 500;
-      margin-bottom: 1rem;
-    }
-
-    .chapter p {
-      margin-bottom: 1rem;
-    }
-
-    .chapter a {
-      color: var(--fg);
-      border-bottom: 1px solid var(--border);
-    }
-
-    .chapter a:hover {
-      border-color: var(--fg);
     }
 
     /* Media breaks */
@@ -350,6 +326,86 @@
       border-color: var(--fg);
     }
 
+    /* Abstract */
+    .abstract {
+      margin-bottom: 3rem;
+      padding-bottom: 2rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .abstract p {
+      font-size: 0.95rem;
+      line-height: 1.75;
+    }
+
+    /* Collapsible chapters */
+    details.chapter {
+      margin-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    details.chapter > summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 0.75rem 0;
+      display: flex;
+      align-items: baseline;
+      gap: 0.75rem;
+      user-select: none;
+    }
+
+    details.chapter > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    details.chapter > summary::marker {
+      display: none;
+    }
+
+    details.chapter > summary .chapter-label {
+      margin-bottom: 0;
+      flex-shrink: 0;
+    }
+
+    details.chapter > summary h2 {
+      margin-bottom: 0;
+      font-size: 1rem;
+      color: var(--dim);
+    }
+
+    details.chapter > summary::after {
+      content: '+';
+      margin-left: auto;
+      color: var(--dim);
+      font-size: 1rem;
+      line-height: 1;
+    }
+
+    details.chapter[open] > summary::after {
+      content: '\2212';
+    }
+
+    details.chapter > summary:hover h2 {
+      color: var(--fg);
+    }
+
+    .chapter-body {
+      padding-bottom: 2.5rem;
+    }
+
+    .chapter-body p {
+      margin-bottom: 1rem;
+    }
+
+    .chapter-body a {
+      color: var(--fg);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .chapter-body a:hover {
+      border-color: var(--fg);
+    }
+
     /* Divider */
     hr {
       border: none;
@@ -384,155 +440,188 @@
       </div>
     </div>
 
-    <!-- I. ORIGINS -->
-    <div class="chapter">
-      <div class="chapter-label">I. Origins</div>
-      <h2>Assonet to Arena</h2>
-      <p>
-        Jeffrey Alan Scudder grew up in Assonet, Massachusetts &mdash; a small village in the town of Freetown, between Fall River and New Bedford. Before he ever held a paintbrush, he held a controller. As a teenager he competed in Unreal Tournament 2004 under the handle "verdeo," winning the New Jersey qualifier for the World Cyber Games 2004 and traveling to the USA National Finals at GameWorks in Long Beach, California.
-      </p>
-      <p>
-        Kid Pix was formative. Years later, he would track down its creator, Craig Hickman, and make a short film about the encounter.
-      </p>
-      <div class="video-embed">
-        <iframe src="https://www.youtube.com/embed/csalhuSixQU?rel=0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
-      </div>
-      <div class="media-caption">Meeting Mr. Kid Pix (2019)</div>
+    <!-- ABSTRACT -->
+    <div class="abstract">
+      <p>Jeffrey Alan Scudder (b. 1989, Assonet, MA) is an American artist, educator, and programmer. He is the creator of Aesthetic Computer, Whistlegraph, and No Paint &mdash; systems that treat constraint as medium and code as material. His practice spans 65+ institutional lecture-performances across the US and Europe, works in permanent collections at KADIST (San Francisco) and SMK (National Gallery of Denmark), and a TikTok audience of 2.7 million through @whistlegraph. He received the Hash Award at ZKM Karlsruhe in 2018. He holds an MFA from the Yale School of Art (2013) and a BFA from Ringling College of Art and Design (2011).</p>
     </div>
+
+    <!-- I. ORIGINS -->
+    <details class="chapter">
+      <summary>
+        <div class="chapter-label">I. Origins</div>
+        <h2>Assonet to Arena</h2>
+      </summary>
+      <div class="chapter-body">
+        <p>
+          Jeffrey Alan Scudder grew up in Assonet, Massachusetts &mdash; a small village in the town of Freetown, between Fall River and New Bedford. Before he ever held a paintbrush, he held a controller. As a teenager he competed in Unreal Tournament 2004 under the handle "verdeo," winning the New Jersey qualifier for the World Cyber Games 2004 and traveling to the USA National Finals at GameWorks in Long Beach, California.
+        </p>
+        <p>
+          Kid Pix was formative. Years later, he would track down its creator, Craig Hickman, and make a short film about the encounter.
+        </p>
+        <div class="video-embed">
+          <iframe src="https://www.youtube.com/embed/csalhuSixQU?rel=0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
+        </div>
+        <div class="media-caption">Meeting Mr. Kid Pix (2019)</div>
+      </div>
+    </details>
 
     <!-- II. JEFFREY HEART -->
-    <div class="chapter">
-      <div class="chapter-label">II. Jeffrey Heart</div>
-      <h2>The Performance Identity</h2>
-      <p>
-        At <a href="https://www.ringling.edu">Ringling College of Art and Design</a> (BFA Fine Art, 2011), Scudder created an artistic alter ego called <strong>Jeffrey Heart</strong> &mdash; a performance art identity with its own email address, ceremonially birthed in 2008 and killed in 2010. Under this name he drew compulsively, kept confessional diaries, formed a dorm-room band called LOVE HEART EVERYTHING, and produced handmade books of drawings: <em>HEART ATTACK</em>, <em>THE HISTORY OF HEART</em>, <em>Jeffrey's Girlfriend</em>.
-      </p>
-      <p>
-        The writing from this period &mdash; preserved in an archive of <a href="https://bin-sc.jas.life/Projects/">109 GB of projects</a> &mdash; reads like a hybrid of Frank O'Hara's lunch poems and early alt-lit: observational, diaristic, self-aware. His notebooks from the New York Studio Program residency are titled things like "TALK-TO-STRANGERS-CAMPAIGN" and "Future-is-Dead-Silent." A portrait of <a href="https://en.wikipedia.org/wiki/Tao_Lin">Tao Lin</a> sits in the archive alongside 612 encrypted email correspondences from jeffreyheart@gmail.com.
-      </p>
-      <p>
-        The <a href="https://rhizome.org/editorial/2017/dec/05/Artist-Profile-Jeffrey-Alan-Scudder/">Rhizome artist profile</a> still credits him as "Jeffrey Alan Scudder (Jeffrey Heart)." The identity was the first of many systems he would build and then dismantle.
-      </p>
-    </div>
+    <details class="chapter">
+      <summary>
+        <div class="chapter-label">II. Jeffrey Heart</div>
+        <h2>The Performance Identity</h2>
+      </summary>
+      <div class="chapter-body">
+        <p>
+          At <a href="https://www.ringling.edu">Ringling College of Art and Design</a> (BFA Fine Art, 2011), Scudder created an artistic alter ego called <strong>Jeffrey Heart</strong> &mdash; a performance art identity with its own email address, ceremonially birthed in 2008 and killed in 2010. Under this name he drew compulsively, kept confessional diaries, formed a dorm-room band called LOVE HEART EVERYTHING, and produced handmade books of drawings: <em>HEART ATTACK</em>, <em>THE HISTORY OF HEART</em>, <em>Jeffrey's Girlfriend</em>.
+        </p>
+        <p>
+          The writing from this period &mdash; preserved in an archive of <a href="https://bin-sc.jas.life/Projects/">109 GB of projects</a> &mdash; reads like a hybrid of Frank O'Hara's lunch poems and early alt-lit: observational, diaristic, self-aware. His notebooks from the New York Studio Program residency are titled things like "TALK-TO-STRANGERS-CAMPAIGN" and "Future-is-Dead-Silent." A portrait of <a href="https://en.wikipedia.org/wiki/Tao_Lin">Tao Lin</a> sits in the archive alongside 612 encrypted email correspondences from jeffreyheart@gmail.com.
+        </p>
+        <p>
+          The <a href="https://rhizome.org/editorial/2017/dec/05/Artist-Profile-Jeffrey-Alan-Scudder/">Rhizome artist profile</a> still credits him as "Jeffrey Alan Scudder (Jeffrey Heart)." The identity was the first of many systems he would build and then dismantle.
+        </p>
+      </div>
+    </details>
 
     <!-- III. YALE & EARLY SOFTWARE -->
-    <div class="chapter">
-      <div class="chapter-label">III. Sculpture as Software</div>
-      <h2>Yale and the First Instruments</h2>
-      <p>
-        At <a href="https://art.yale.edu/JeffreyScudder">Yale School of Art</a> (MFA Sculpture, 2013), Scudder began building his own drawing software &mdash; treating code as material the way a sculptor treats clay. The result was a series of homegrown instruments that would define his practice: tools with unusual constraints, where the interface <em>is</em> the artwork.
-      </p>
+    <details class="chapter">
+      <summary>
+        <div class="chapter-label">III. Sculpture as Software</div>
+        <h2>Yale and the First Instruments</h2>
+      </summary>
+      <div class="chapter-body">
+        <p>
+          At <a href="https://art.yale.edu/JeffreyScudder">Yale School of Art</a> (MFA Sculpture, 2013), Scudder began building his own drawing software &mdash; treating code as material the way a sculptor treats clay. The result was a series of homegrown instruments that would define his practice: tools with unusual constraints, where the interface <em>is</em> the artwork.
+        </p>
 
-      <div class="media-row">
-        <div>
-          <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--20.jpg" alt="Jeffrey with laptop showing code">
-          <div class="media-caption">With ThinkPad and Aesthetic Computer source code</div>
+        <div class="media-row">
+          <div>
+            <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--20.jpg" alt="Jeffrey with laptop showing code">
+            <div class="media-caption">With ThinkPad and Aesthetic Computer source code</div>
+          </div>
+          <div>
+            <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--45.jpg" alt="Jeffrey presenting code on blue backdrop">
+            <div class="media-caption">@jeffrey &mdash; 596 handles set</div>
+          </div>
         </div>
-        <div>
-          <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--45.jpg" alt="Jeffrey presenting code on blue backdrop">
-          <div class="media-caption">@jeffrey &mdash; 596 handles set</div>
+
+        <p>
+          After Yale he moved to New York, teaching at <a href="https://www.newschool.edu/parsons/">Parsons School of Design</a> (Digital Painting, Core Lab: Interaction, Web Advanced: JavaScript) while developing his first public software works. <a href="https://nopaint.art">No Paint</a> (2014) is a constraint-based drawing application that removes the undo button &mdash; every mark is permanent. The console poems (<em>Xbox Poem</em>, <em>Gamecube Poem</em>, <em>Team Scrub Poem</em>) from 2016 were his first video works, treating game hardware as sculptural material.
+        </p>
+
+        <div class="video-embed">
+          <iframe src="https://player.vimeo.com/video/164836866?rel=0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
         </div>
+        <div class="media-caption">Xbox Poem (2016)</div>
       </div>
-
-      <p>
-        After Yale he moved to New York, teaching at <a href="https://www.newschool.edu/parsons/">Parsons School of Design</a> (Digital Painting, Core Lab: Interaction, Web Advanced: JavaScript) while developing his first public software works. <a href="https://nopaint.art">No Paint</a> (2014) is a constraint-based drawing application that removes the undo button &mdash; every mark is permanent. The console poems (<em>Xbox Poem</em>, <em>Gamecube Poem</em>, <em>Team Scrub Poem</em>) from 2016 were his first video works, treating game hardware as sculptural material.
-      </p>
-
-      <div class="video-embed">
-        <iframe src="https://player.vimeo.com/video/164836866?rel=0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
-      </div>
-      <div class="media-caption">Xbox Poem (2016)</div>
-    </div>
+    </details>
 
     <!-- IV. RADICAL DIGITAL PAINTING -->
-    <div class="chapter">
-      <div class="chapter-label">IV. Radical Digital Painting</div>
-      <h2>Painting is Just a Kind of Picture Message</h2>
-      <p>
-        In 2017, Scudder published <a href="https://schloss-post.com/manifesto-radical-digital-painting/">A Manifesto for Radical Digital Painting</a> during a web residency at <a href="https://www.akademie-solitude.de/en/person/jeffrey-alan-scudder/">Akademie Schloss Solitude</a>. The manifesto proposed that digital tools are not supplements to painting but its next material ground. Over the following two years he gave more than 65 improvisational lecture performances at institutions across the US and Europe &mdash; Yale, Harvard, RISD, Cooper Union, UCLA, Bauhaus University Weimar, the Royal Swedish Academy, ZKM Karlsruhe, and many more.
-      </p>
+    <details class="chapter">
+      <summary>
+        <div class="chapter-label">IV. Radical Digital Painting</div>
+        <h2>Painting is Just a Kind of Picture Message</h2>
+      </summary>
+      <div class="chapter-body">
+        <p>
+          In 2017, Scudder published <a href="https://schloss-post.com/manifesto-radical-digital-painting/">A Manifesto for Radical Digital Painting</a> during a web residency at <a href="https://www.akademie-solitude.de/en/person/jeffrey-alan-scudder/">Akademie Schloss Solitude</a>. The manifesto proposed that digital tools are not supplements to painting but its next material ground. Over the following two years he gave more than 65 improvisational lecture performances at institutions across the US and Europe &mdash; Yale, Harvard, RISD, Cooper Union, UCLA, Bauhaus University Weimar, the Royal Swedish Academy, ZKM Karlsruhe, and many more.
+        </p>
 
-      <div class="pull-quote">
-        "Painting is just a kind of picture message."
+        <div class="pull-quote">
+          "Painting is just a kind of picture message."
+        </div>
+
+        <p>
+          Each lecture was itself an artwork: Scudder would draw with chalk on gallery walls while projecting his software, improvising a live argument about the future of painting. In 2018 he received the <a href="https://zkm.de/en/person/jeffrey-alan-scudder">Hash Award</a> at ZKM Karlsruhe, presented at the <a href="https://media.ccc.de/v/35c3-9774-radical_digital_painting">35th Chaos Communication Congress</a> to an audience of 3,000 hackers, and showed <a href="http://www.johannesvogt.nyc/jeffrey-scudder-and-julia-yerger-radical-digital-painting">Radical Digital Painting</a> with Julia Yerger at Johannes Vogt Gallery in New York.
+        </p>
+
+        <div class="video-embed">
+          <iframe src="https://www.youtube.com/embed/h9BI8ZBNbP4?rel=0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
+        </div>
+        <div class="media-caption">Radical Digital Painting at 35c3, Chaos Communication Congress (2018)</div>
+
+        <p>
+          The Radical Digital Painting collection &mdash; <a href="https://rdp.jas.life">239 pictures painted between 2016 and 2021</a> using his own software &mdash; is held in part by <a href="https://kadist.org/work/rdp-98-jas-17-4-16-17-03/">KADIST</a> (San Francisco) and <a href="https://www.smk.dk">SMK</a>, the National Gallery of Denmark. The European tour with <a href="https://en.wikipedia.org/wiki/Goodiepal">Goodiepal &amp; Pals</a> in 2018, mixing painting lectures with political rock performances, is documented in a feature-length road diary.
+        </p>
+
+        <div class="video-embed">
+          <iframe src="https://www.youtube.com/embed/uSk8M6PzDmQ?rel=0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
+        </div>
+        <div class="media-caption">Radical Digital Painting &amp; Political Rock Euro Tour (2018)</div>
       </div>
-
-      <p>
-        Each lecture was itself an artwork: Scudder would draw with chalk on gallery walls while projecting his software, improvising a live argument about the future of painting. In 2018 he received the <a href="https://zkm.de/en/person/jeffrey-alan-scudder">Hash Award</a> at ZKM Karlsruhe, presented at the <a href="https://media.ccc.de/v/35c3-9774-radical_digital_painting">35th Chaos Communication Congress</a> to an audience of 3,000 hackers, and showed <a href="http://www.johannesvogt.nyc/jeffrey-scudder-and-julia-yerger-radical-digital-painting">Radical Digital Painting</a> with Julia Yerger at Johannes Vogt Gallery in New York.
-      </p>
-
-      <div class="video-embed">
-        <iframe src="https://www.youtube.com/embed/h9BI8ZBNbP4?rel=0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
-      </div>
-      <div class="media-caption">Radical Digital Painting at 35c3, Chaos Communication Congress (2018)</div>
-
-      <p>
-        The Radical Digital Painting collection &mdash; <a href="https://rdp.jas.life">239 pictures painted between 2016 and 2021</a> using his own software &mdash; is held in part by <a href="https://kadist.org/work/rdp-98-jas-17-4-16-17-03/">KADIST</a> (San Francisco) and <a href="https://www.smk.dk">SMK</a>, the National Gallery of Denmark. The European tour with <a href="https://en.wikipedia.org/wiki/Goodiepal">Goodiepal &amp; Pals</a> in 2018, mixing painting lectures with political rock performances, is documented in a feature-length road diary.
-      </p>
-
-      <div class="video-embed">
-        <iframe src="https://www.youtube.com/embed/uSk8M6PzDmQ?rel=0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
-      </div>
-      <div class="media-caption">Radical Digital Painting &amp; Political Rock Euro Tour (2018)</div>
-    </div>
+    </details>
 
     <!-- V. WHISTLEGRAPH -->
-    <div class="chapter">
-      <div class="chapter-label">V. Whistlegraph</div>
-      <h2>Drawing You Can Sing</h2>
-      <p>
-        In 2019, while teaching as Assistant Professor of Emerging Digital Practices at <a href="https://sma.sou.edu/whistlegraph/">Southern Oregon University</a>, Scudder invented the <a href="https://whistlegraph.com">Whistlegraph</a> &mdash; a hybrid art form combining drawing, singing, and poetry into reproducible graphic scores. A Whistlegraph is a memorizable procedure: three performers draw simultaneously while singing instructions, producing a poetic image through the performance of a score. It's human-executable code.
-      </p>
+    <details class="chapter">
+      <summary>
+        <div class="chapter-label">V. Whistlegraph</div>
+        <h2>Drawing You Can Sing</h2>
+      </summary>
+      <div class="chapter-body">
+        <p>
+          In 2019, while teaching as Assistant Professor of Emerging Digital Practices at <a href="https://sma.sou.edu/whistlegraph/">Southern Oregon University</a>, Scudder invented the <a href="https://whistlegraph.com">Whistlegraph</a> &mdash; a hybrid art form combining drawing, singing, and poetry into reproducible graphic scores. A Whistlegraph is a memorizable procedure: three performers draw simultaneously while singing instructions, producing a poetic image through the performance of a score. It's human-executable code.
+        </p>
 
-      <div class="media">
-        <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--40.jpg" alt="Jeffrey seated with crossed arms on orange chair">
+        <div class="media">
+          <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--40.jpg" alt="Jeffrey seated with crossed arms on orange chair">
+        </div>
+
+        <p>
+          In 2020, the Whistlegraph trio formed with Alex Freundlich and Camille Klein. Their TikTok account, <a href="https://www.tiktok.com/@whistlegraph">@whistlegraph</a>, has reached over 2.7 million followers through musical drawing tutorials and live lecture-performances. In 2022, <a href="https://rhizome.org/events/the-longest-whistlegraph/">Rhizome commissioned the group</a> for a performance at the New Museum, and <a href="https://feralfile.com/exhibitions/ten-whistlegraphs-thv">Feral File</a> exhibited <em>Ten Whistlegraphs</em> as digital editions.
+        </p>
       </div>
-
-      <p>
-        In 2020, the Whistlegraph trio formed with Alex Freundlich and Camille Klein. Their TikTok account, <a href="https://www.tiktok.com/@whistlegraph">@whistlegraph</a>, has reached over 2.7 million followers through musical drawing tutorials and live lecture-performances. In 2022, <a href="https://rhizome.org/events/the-longest-whistlegraph/">Rhizome commissioned the group</a> for a performance at the New Museum, and <a href="https://feralfile.com/exhibitions/ten-whistlegraphs-thv">Feral File</a> exhibited <em>Ten Whistlegraphs</em> as digital editions.
-      </p>
-    </div>
+    </details>
 
     <!-- VI. AESTHETIC COMPUTER -->
-    <div class="chapter">
-      <div class="chapter-label">VI. Aesthetic Computer</div>
-      <h2>Building the Instrument</h2>
-      <p>
-        Since 2022, Scudder's central project has been <a href="https://aesthetic.computer">Aesthetic Computer</a> &mdash; a mobile-first runtime and social network for creative computing. It's designed like a musical instrument: users discover memorizable paths through commands and published "pieces" (interactive programs). Every tool he has built &mdash; the drawing apps, the painting instruments, the performance scores &mdash; converges here into a single platform.
-      </p>
+    <details class="chapter">
+      <summary>
+        <div class="chapter-label">VI. Aesthetic Computer</div>
+        <h2>Building the Instrument</h2>
+      </summary>
+      <div class="chapter-body">
+        <p>
+          Since 2022, Scudder's central project has been <a href="https://aesthetic.computer">Aesthetic Computer</a> &mdash; a mobile-first runtime and social network for creative computing. It's designed like a musical instrument: users discover memorizable paths through commands and published "pieces" (interactive programs). Every tool he has built &mdash; the drawing apps, the painting instruments, the performance scores &mdash; converges here into a single platform.
+        </p>
 
-      <div class="media-row">
-        <div>
-          <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--50.jpg" alt="Jeffrey with sticker-covered laptop, green glow">
-          <div class="media-caption">Aesthetic Computer, sticker side</div>
+        <div class="media-row">
+          <div>
+            <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--50.jpg" alt="Jeffrey with sticker-covered laptop, green glow">
+            <div class="media-caption">Aesthetic Computer, sticker side</div>
+          </div>
+          <div>
+            <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--55.jpg" alt="Jeffrey with laptop, pink glow">
+            <div class="media-caption">Building at night</div>
+          </div>
         </div>
-        <div>
-          <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--55.jpg" alt="Jeffrey with laptop, pink glow">
-          <div class="media-caption">Building at night</div>
-        </div>
+
+        <p>
+          The platform includes <a href="https://kidlisp.com">KidLisp</a>, a minimal programming language for generative art with 118 built-in functions across 12 categories, and a growing archive of community pieces. An archive of 3,996 drawings is catalogued at <a href="https://drawings-rey-sc.jas.life">Jeffrey's Drawings</a>. On <a href="https://justanothersystem.org">justanothersystem.org</a>, he has returned to physical painting &mdash; stretched canvases and linen, made with the same attention to material constraint that defines his software.
+        </p>
       </div>
-
-      <p>
-        The platform includes <a href="https://kidlisp.com">KidLisp</a>, a minimal programming language for generative art with 118 built-in functions across 12 categories, and a growing archive of community pieces. An archive of 3,996 drawings is catalogued at <a href="https://drawings-rey-sc.jas.life">Jeffrey's Drawings</a>. On <a href="https://justanothersystem.org">justanothersystem.org</a>, he has returned to physical painting &mdash; stretched canvases and linen, made with the same attention to material constraint that defines his software.
-      </p>
-    </div>
+    </details>
 
     <!-- VII. WHERE HE'S HEADED -->
-    <div class="chapter">
-      <div class="chapter-label">VII. Trajectory</div>
-      <h2>Where This Goes</h2>
-      <p>
-        Scudder is an artist who keeps rebuilding his own foundation. He created an identity and killed it. He made a painting manifesto and then built the instruments to realize it. He invented a performance medium and grew it to millions. Now he's building the operating system for all of it.
-      </p>
-      <p>
-        The through-line across every phase &mdash; Jeffrey Heart's handmade books, the Radical Digital Painting lectures, Whistlegraph, Aesthetic Computer &mdash; is a conviction that the tools we use to make pictures shape the pictures we can imagine. Rather than accepting the tools that exist, Scudder builds new ones from scratch, then teaches other people to use them. His work proposes that the most radical thing a painter can do in the 21st century is write their own software.
-      </p>
-      <p>
-        What distinguishes Scudder from other artist-programmers is that his software is not a means to an end &mdash; it <em>is</em> the work. No Paint removes undo. KidLisp fits on a napkin. Whistlegraph runs on three human bodies. Aesthetic Computer loads in a browser. Each system imposes a constraint that generates a new kind of picture. The constraint is the art.
-      </p>
-      <p>
-        He is heading toward a unified creative instrument &mdash; a system where drawing, painting, music, poetry, programming, teaching, and performance all happen in the same place, using the same language, on the same screen. Aesthetic Computer is not a portfolio site or a gallery. It's the thing itself: the studio, the canvas, the stage, the classroom, and the social network, compressed into a single URL.
-      </p>
-    </div>
+    <details class="chapter">
+      <summary>
+        <div class="chapter-label">VII. Trajectory</div>
+        <h2>Where This Goes</h2>
+      </summary>
+      <div class="chapter-body">
+        <p>
+          Scudder is an artist who keeps rebuilding his own foundation. He created an identity and killed it. He made a painting manifesto and then built the instruments to realize it. He invented a performance medium and grew it to millions. Now he's building the operating system for all of it.
+        </p>
+        <p>
+          The through-line across every phase &mdash; Jeffrey Heart's handmade books, the Radical Digital Painting lectures, Whistlegraph, Aesthetic Computer &mdash; is a conviction that the tools we use to make pictures shape the pictures we can imagine. Rather than accepting the tools that exist, Scudder builds new ones from scratch, then teaches other people to use them. His work proposes that the most radical thing a painter can do in the 21st century is write their own software.
+        </p>
+        <p>
+          What distinguishes Scudder from other artist-programmers is that his software is not a means to an end &mdash; it <em>is</em> the work. No Paint removes undo. KidLisp fits on a napkin. Whistlegraph runs on three human bodies. Aesthetic Computer loads in a browser. Each system imposes a constraint that generates a new kind of picture. The constraint is the art.
+        </p>
+        <p>
+          He is heading toward a unified creative instrument &mdash; a system where drawing, painting, music, poetry, programming, teaching, and performance all happen in the same place, using the same language, on the same screen. Aesthetic Computer is not a portfolio site or a gallery. It's the thing itself: the studio, the canvas, the stage, the classroom, and the social network, compressed into a single URL.
+        </p>
+      </div>
+    </details>
 
     <div class="media">
       <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--02.jpg" alt="Jeffrey seated on orange chair, hands on face, thinking">
