@@ -162,6 +162,12 @@ RUN ARCH=$(uname -m) && \
     ln -s /opt/microsoft/powershell/7/pwsh /usr/local/bin/powershell && \
     rm /tmp/powershell.tar.gz
 
+# --- dbxcli (Dropbox CLI) -----------------------------------------------------
+RUN set -eux; \
+    curl -fsSL "https://github.com/dropbox/dbxcli/releases/download/v3.0.0/dbxcli-linux-amd64" \
+      -o /usr/local/bin/dbxcli && \
+    chmod +x /usr/local/bin/dbxcli
+
 # --- s3cmd (for DigitalOcean Spaces management) -------------------------------
 RUN dnf install -y --setopt=zchunk=false s3cmd && dnf clean all
 
