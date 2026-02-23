@@ -5551,19 +5551,6 @@ class KidLisp {
         }
       },
       wipe: (api, args) => {
-        // 🎨 EMBEDDED LAYER FIX: Allow first wipe to set background, block subsequent wipes
-        if (this.isEmbeddedLayer) {
-          if (!this.embeddedLayerWipedOnce) {
-            // First wipe is allowed to set the initial background
-            this.embeddedLayerWipedOnce = true;
-            console.log(`✅ WIPE ALLOWED: First wipe for embedded layer to set background`);
-          } else {
-            // Subsequent wipes are blocked to preserve accumulation
-            console.log(`🚫 WIPE BLOCKED: Embedded layer tried to wipe again, ignoring to preserve accumulation`);
-            return;
-          }
-        }
-        
         const processedArgs = processArgStringTypes(args);
 
         const performWipe = () => {
@@ -8666,7 +8653,6 @@ class KidLisp {
         this.loadingEmbeddedLayers.add(cacheId);
 
         // Check if we already have the source code cached
-        console.log(`🔍 Checking embeddedSourceCache for ${cacheId}. Has it? ${this.embeddedSourceCache.has(cacheId)}`);
         if (this.embeddedSourceCache.has(cacheId)) {
           const cachedSource = this.embeddedSourceCache.get(cacheId);
           // Mark as loaded since we have cached source
@@ -12511,12 +12497,10 @@ class KidLisp {
 
       // 🔄 REUSE existing KidLisp instance but reset execution state
       const embeddedKidLisp = existingLayer.kidlispInstance;
-      console.log(`🎭 REUSING nested KidLisp instance for embedded layer: ${layerKey}`);
 
       // 🚨 CRITICAL: Clear onceExecuted to allow re-execution of once blocks
       // This was causing scroll commands to not execute on second load
       embeddedKidLisp.onceExecuted.clear();
-      console.log(`🔄 CLEARED onceExecuted for re-execution`);
 
       // CRITICAL: Restore isolated timing state for existing layers
       const layerCacheKey = `${source}_timing`;
@@ -12550,7 +12534,6 @@ class KidLisp {
 
       // Ensure it remains marked as a nested instance
       embeddedKidLisp.isNestedInstance = true;
-      console.log(`🎭 MARKED as nested instance: isNestedInstance = true`);
 
       // Update the alpha value
       existingLayer.alpha = alpha;
