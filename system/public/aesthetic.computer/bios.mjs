@@ -13868,6 +13868,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           frameCan.height = recordedFrames[0][1].height;
         }
 
+        // Scale the underlay canvas to fill the viewport (canvas px != CSS px at high DPR).
+        // Without this, a 130×281 canvas on a DPR=3 device would render as 130×281 CSS pixels
+        // in a 390×844 viewport — only a tiny corner of the screen shows the video.
+        frameCan.style.width = "100%";
+        frameCan.style.height = "100%";
+        frameCan.style.imageRendering = "pixelated";
+
         startTapePlayback = (
           transmitProgress = true,
           doneCb,
@@ -19438,7 +19445,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         // Drawing a video frame to the buffer (mirrored, proportion adjusted).
         if (needsRotation) {
-          // Landscape sensor pixels in portrait buffer: rotate -90° CCW so the
+          // Landscape sensor pixels in portrait buffer: rotate 90° CW so the
           // video fills the portrait frame. Use the swapped AR for fit calculation.
           const rotatedVideoAR = video.videoHeight / video.videoWidth;
           const bufferAR = buffer.width / buffer.height;
@@ -19467,7 +19474,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           bufferCtx.save();
           bufferCtx.translate(outX + outWidth / 2, outY + outHeight / 2);
-          bufferCtx.rotate(-Math.PI / 2); // CCW: landscape sensor → portrait buffer
+          bufferCtx.rotate(Math.PI / 2); // CW: landscape sensor → portrait buffer
           if (needsMirror) bufferCtx.scale(1, -1); // Horizontal flip in portrait space
           bufferCtx.drawImage(video, -outHeight / 2, -outWidth / 2, outHeight, outWidth);
           bufferCtx.restore();

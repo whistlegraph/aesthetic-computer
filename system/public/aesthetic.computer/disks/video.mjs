@@ -196,8 +196,8 @@ function boot({ wipe, rec, gizmo, jump, notice, store, params, send, hud }) {
     jump("prompt");
     return;
   }
-  wipe(0);
-  
+  wipe(0, 0, 0, 0); // Transparent from the start so underlay shows immediately
+
   // Reset all export states on boot
   isPrinting = false;
   isPostingTape = false;
@@ -324,13 +324,13 @@ function paint({
     canvasTransparencyEnsured = true;
   }
 
-  // Clear canvas with transparent wipe so video shows through
+  // Always keep canvas transparent when presenting so underlay shows through.
+  // Buttons and UI are drawn on top; no opaque fill ever blocks the video.
   if (presenting) {
-    if (playing && !isPrinting) {
-      wipe(0, 0, 0, 0); // Transparent so DOM video overlay shows
-    } else {
-      // Paused or exporting
-      wipe(0, 100).ink(255, 200).write(isPrinting ? "EXPORTING" : "||", { center: "xy" });
+    wipe(0, 0, 0, 0);
+    if (!playing && !isPrinting) {
+      // Paused: show "||" indicator without a black background
+      ink(255, 200).write("||", { center: "xy" });
       ink(255, 75).box(0, 0, screen.width, screen.height, "inline");
     }
   }
