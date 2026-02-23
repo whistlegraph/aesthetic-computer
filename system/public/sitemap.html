@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" href="/icon/128x128/prompt.png" type="image/png">
 <title>aesthetic.computer is home to &middot; Aesthetic Computer</title>
+<meta property="og:title" content="aesthetic.computer is home to">
+<meta property="og:description" content="19 domains &amp; microsites, ~355 disk routes, ~85 API endpoints, and more across the Aesthetic Computer network.">
+<meta property="og:image" content="https://aesthetic.computer/preview/1200x630/prompt.png">
+<meta property="og:url" content="https://sitemap.aesthetic.computer">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://aesthetic.computer/preview/1200x630/prompt.png">
 <style>
   ::-webkit-scrollbar { display: none; }
   html {
@@ -247,6 +254,21 @@
     a, a:visited { color: rgb(180, 72, 135); }
   }
 
+  .card-thumb {
+    width: 36px;
+    height: 36px;
+    border-radius: 4px;
+    object-fit: cover;
+    flex-shrink: 0;
+    display: block;
+  }
+  @media (prefers-color-scheme: dark) {
+    .card-thumb { background: rgba(255,255,255,0.06); }
+  }
+  @media (prefers-color-scheme: light) {
+    .card-thumb { background: rgba(64,56,74,0.06); }
+  }
+
   @media (max-width: 600px) {
     .routes { grid-template-columns: 1fr; }
     .redirect-row { grid-template-columns: 1fr; gap: 0.1em; }
@@ -275,6 +297,7 @@
 <div class="card">
 <details>
 <summary>
+  <img class="card-thumb" src="/icon/128x128/prompt.png" loading="lazy" onerror="this.style.display='none'" alt="">
   <span class="tag tag-primary">Primary</span>
   <span class="section-title">aesthetic.computer</span>
   <span class="section-count">~355 disk routes</span>
@@ -647,6 +670,7 @@
 <div class="card">
 <details>
 <summary>
+  <img class="card-thumb" src="/icon/128x128/kidlisp.png" loading="lazy" onerror="this.style.display='none'" alt="">
   <span class="tag tag-microsite">Microsite</span>
   <span class="section-title">kidlisp.com</span>
   <span class="section-count">6 pages + 3 subdomains</span>
@@ -687,6 +711,7 @@
 <div class="card">
 <details>
 <summary>
+  <img class="card-thumb" src="https://icons.duckduckgo.com/ip3/sotce.net.ico" loading="lazy" onerror="this.style.display='none'" alt="">
   <span class="tag tag-microsite">Microsite</span>
   <span class="section-title">sotce.net</span>
   <span class="section-count">Dynamic SSR</span>
@@ -819,6 +844,7 @@
 <div class="card">
 <details>
 <summary>
+  <img class="card-thumb" src="https://icons.duckduckgo.com/ip3/news.aesthetic.computer.ico" loading="lazy" onerror="this.style.display='none'" alt="">
   <span class="tag tag-subdomain">Subdomain</span>
   <span class="section-title">news.aesthetic.computer</span>
   <span class="section-count">Newsletter</span>
@@ -839,6 +865,7 @@
 <div class="card">
 <details>
 <summary>
+  <img class="card-thumb" src="https://icons.duckduckgo.com/ip3/justanothersystem.org.ico" loading="lazy" onerror="this.style.display='none'" alt="">
   <span class="tag tag-microsite">Microsite</span>
   <span class="section-title">justanothersystem.org</span>
   <span class="section-count">Gallery + API</span>
@@ -860,6 +887,7 @@
 <div class="card">
 <details>
 <summary>
+  <img class="card-thumb" src="https://icons.duckduckgo.com/ip3/jas.life.ico" loading="lazy" onerror="this.style.display='none'" alt="">
   <span class="tag tag-microsite">Microsite</span>
   <span class="section-title">jas.life</span>
   <span class="section-count">Portfolio</span>
@@ -877,6 +905,7 @@
 <div class="card">
 <details>
 <summary>
+  <img class="card-thumb" src="https://icons.duckduckgo.com/ip3/give.aesthetic.computer.ico" loading="lazy" onerror="this.style.display='none'" alt="">
   <span class="tag tag-subdomain">Subdomain</span>
   <span class="section-title">give.aesthetic.computer</span>
   <span class="section-count">Donations</span>
@@ -899,6 +928,7 @@
 <div class="card">
 <details>
 <summary>
+  <img class="card-thumb" src="https://icons.duckduckgo.com/ip3/false.work.ico" loading="lazy" onerror="this.style.display='none'" alt="">
   <span class="tag tag-microsite">Microsite</span>
   <span class="section-title">false.work</span>
   <span class="section-count">Studio + builds</span>
@@ -925,6 +955,7 @@
 <div class="card">
 <details>
 <summary>
+  <img class="card-thumb" src="https://icons.duckduckgo.com/ip3/shop.aesthetic.computer.ico" loading="lazy" onerror="this.style.display='none'" alt="">
   <span class="tag tag-external">External</span>
   <span class="section-title">shop.aesthetic.computer</span>
   <span class="section-count">~30 product shortcuts</span>
@@ -1134,6 +1165,7 @@
 <div class="card">
 <details>
 <summary>
+  <img class="card-thumb" src="https://icons.duckduckgo.com/ip3/help.aesthetic.computer.ico" loading="lazy" onerror="this.style.display='none'" alt="">
   <span class="tag tag-api">Infra</span>
   <span class="section-title">help.aesthetic.computer</span>
   <span class="section-count">AI assistant</span>
@@ -1153,6 +1185,7 @@
 <div class="card">
 <details>
 <summary>
+  <img class="card-thumb" src="/icon/128x128/notepat.png" loading="lazy" onerror="this.style.display='none'" alt="">
   <span class="tag tag-microsite">Microsite</span>
   <span class="section-title">notepat.com</span>
   <span class="section-count">Proxied</span>
@@ -1169,6 +1202,7 @@
 <div class="card">
 <details>
 <summary>
+  <img class="card-thumb" src="https://icons.duckduckgo.com/ip3/sundarakarma.com.ico" loading="lazy" onerror="this.style.display='none'" alt="">
   <span class="tag tag-microsite">Microsite</span>
   <span class="section-title">sundarakarma.com</span>
   <span class="section-count">Band site</span>
@@ -1185,6 +1219,7 @@
 <div class="card">
 <details>
 <summary>
+  <img class="card-thumb" src="/icon/128x128/wipppps.png" loading="lazy" onerror="this.style.display='none'" alt="">
   <span class="tag tag-microsite">Microsite</span>
   <span class="section-title">wipppps.world</span>
   <span class="section-count">Proxied</span>
@@ -1200,6 +1235,7 @@
 <div class="card">
 <details>
 <summary>
+  <img class="card-thumb" src="/icon/128x128/aesthetic-direct.png" loading="lazy" onerror="this.style.display='none'" alt="">
   <span class="tag tag-microsite">Microsite</span>
   <span class="section-title">aesthetic.direct</span>
   <span class="section-count">1 page</span>
