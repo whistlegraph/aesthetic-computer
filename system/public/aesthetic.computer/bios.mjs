@@ -2124,10 +2124,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     });
   }
 
-  // Tezos Wallet (Beacon SDK + Taquito)
+  // Tezos Wallet (Beacon SDK)
   let tezosWallet = null;
-  let tezosTk = null;
-  let tezosLoading = null;
   
   // 🔷 Persistent wallet state (survives piece transitions)
   const walletState = {
@@ -2143,195 +2141,115 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     send({ type: "wallet:state", content: { ...walletState } });
   }
   
-  // 🔷 Tezos Wallet Connection (Beacon-free)
-  // Uses direct communication with wallet extensions and localStorage for session persistence
-  
+  // 🔷 Tezos Wallet Connection (Beacon SDK only)
+  // All wallets (Temple, Kukai, etc.) connect through Beacon's universal wallet picker.
+
   const TEZOS_RPC = {
     mainnet: "https://mainnet.api.tez.ie",
     ghostnet: "https://ghostnet.ecadinfra.com",
   };
-  
-  // Restore wallet session from localStorage
+
+  // Beacon SDK singleton — NOTE: v4.0.12 is stable; v4.6.3+ has IndexedDB issues
+  let beaconClient = null;
+  let beaconNetwork = null;
+  let beaconSDK = null; // cached import
+
+  async function loadBeacon(network = "ghostnet") {
+    if (!beaconSDK) {
+      beaconSDK = await import("https://esm.sh/@airgap/beacon-sdk@4.0.12?bundle");
+    }
+    const { DAppClient, NetworkType } = beaconSDK;
+    const networkType = network === "mainnet" ? NetworkType.MAINNET : NetworkType.GHOSTNET;
+
+    if (!beaconClient || beaconNetwork !== network) {
+      if (beaconClient) {
+        try { await beaconClient.destroy(); } catch {}
+      }
+      beaconClient = new DAppClient({
+        name: "Aesthetic Computer",
+        preferredNetwork: networkType,
+      });
+      beaconNetwork = network;
+    }
+    return beaconClient;
+  }
+
+  // Build the tezosWallet wrapper from a connected Beacon client + address
+  function buildBeaconWallet(client, address, publicKey, network) {
+    const rpcUrl = TEZOS_RPC[network] || TEZOS_RPC.ghostnet;
+    return {
+      _client: client,
+      _rpcUrl: rpcUrl,
+      _network: network,
+      _publicKey: publicKey,
+      pkh: () => address,
+      sign: async (payload) => {
+        const result = await client.requestSignPayload({
+          signingType: "raw",
+          payload,
+        });
+        return result.signature;
+      },
+      sendOperations: async (operations) => {
+        const result = await client.requestOperation({
+          operationDetails: operations,
+        });
+        return result.transactionHash;
+      },
+    };
+  }
+
+  // Restore wallet session via Beacon's own persistence
   async function restoreWalletSession() {
     try {
       const savedSession = localStorage.getItem("ac:tezos:session");
-      if (savedSession) {
-        const session = JSON.parse(savedSession);
-        log.wallet.debug("Restoring wallet session:", session.address.slice(0, 8) + "...", "walletType:", session.walletType);
-        
+      if (!savedSession) {
+        log.wallet.verbose("No saved wallet session");
+        return false;
+      }
+
+      const session = JSON.parse(savedSession);
+      log.wallet.debug("Restoring wallet session:", session.address?.slice(0, 8) + "...");
+
+      const network = session.network || "ghostnet";
+      const client = await loadBeacon(network);
+      const activeAccount = await client.getActiveAccount();
+
+      if (activeAccount?.address) {
+        const address = activeAccount.address;
+        const publicKey = activeAccount.publicKey;
+
         walletState.connected = true;
-        walletState.address = session.address;
-        walletState.network = session.network || "ghostnet";
-        walletState.walletType = session.walletType || "unknown";
-        
-        const rpcUrl = TEZOS_RPC[walletState.network] || TEZOS_RPC.ghostnet;
-        
-        // Recreate the tezosWallet object with sendOperations for signing
-        if (session.walletType === "temple") {
-          // Recreate Temple client for signing operations
-          const templeClient = createTempleClient();
-          templeClient.init();
-          
-          // Verify Temple is still available
-          const available = await templeClient.isAvailable();
-          if (available) {
-            tezosWallet = {
-              _client: templeClient,
-              _rpcUrl: rpcUrl,
-              _network: walletState.network,
-              pkh: () => session.address,
-              sign: async (payload) => {
-                const result = await templeClient.request({
-                  type: "SIGN_REQUEST",
-                  payload,
-                  sourcePkh: session.address
-                });
-                return result?.signature;
-              },
-              sendOperations: async (operations) => {
-                const result = await templeClient.request({
-                  type: "OPERATION_REQUEST",
-                  sourcePkh: session.address,
-                  opParams: operations
-                });
-                return result?.opHash;
-              }
-            };
-            log.wallet.success("Temple wallet restored");
-          } else {
-            log.wallet.debug("Temple extension not available, session stale");
-            walletState.connected = false;
-            clearWalletSession();
-            broadcastWalletState();
-            return false;
-          }
-        } else if (session.walletType === "kukai") {
-          // For Kukai, we need to re-import Beacon SDK
-          // This is lazy - it will be re-established on first signing attempt
-          tezosWallet = {
-            _rpcUrl: rpcUrl,
-            _network: walletState.network,
-            _needsReconnect: true, // Flag to trigger reconnection on first use
-            pkh: () => session.address,
-            sendOperations: async (operations) => {
-              // Reconnect via Beacon on first signing attempt
-              log.wallet.log("Kukai needs reconnection for signing...");
-              throw new Error("Kukai session expired - please reconnect wallet");
-            }
-          };
-          log.wallet.debug("Kukai wallet session restored (signing requires reconnection)");
-        }
-        
-        // Fetch fresh balance and domain
+        walletState.address = address;
+        walletState.network = network;
+        walletState.walletType = "beacon";
+
+        tezosWallet = buildBeaconWallet(client, address, publicKey, network);
+        log.wallet.success("Beacon wallet restored:", address.slice(0, 8) + "...");
+
+        // Fetch fresh balance and domain in background
         Promise.all([
-          fetchTezosBalanceForBios(session.address, walletState.network),
-          fetchTezosDomain(session.address, walletState.network)
+          fetchTezosBalanceForBios(address, network),
+          fetchTezosDomain(address, network)
         ]).then(([balance, domain]) => {
           walletState.balance = balance;
           walletState.domain = domain;
           broadcastWalletState();
         });
-        
+
         broadcastWalletState();
         return true;
+      } else {
+        log.wallet.debug("Beacon has no active account, clearing stale session");
+        clearWalletSession();
+        return false;
       }
-      log.wallet.verbose("No saved wallet session");
     } catch (err) {
       log.wallet.debug("restoreWalletSession error:", err.message);
+      return false;
     }
-    return false;
   }
-  
-  // Helper to create Temple client (used by both connect and restore)
-  function createTempleClient() {
-    return {
-      _reqId: 0,
-      _pending: new Map(),
-      
-      init() {
-        window.addEventListener("message", this._handleMessage.bind(this));
-      },
-      
-      _handleMessage(event) {
-        if (event.source !== window || event.origin !== window.origin) return;
-        const data = event.data || {};
-        
-        if (data.type === "TEMPLE_PAGE_RESPONSE") {
-          const { payload, reqId } = data;
-          if (this._pending.has(reqId)) {
-            const { resolve, reject } = this._pending.get(reqId);
-            this._pending.delete(reqId);
-            if (payload?.error) {
-              reject(new Error(payload.error.message || payload.error));
-            } else {
-              resolve(payload);
-            }
-          }
-        }
-        
-        if (data.type === "TEMPLE_PAGE_ERROR_RESPONSE") {
-          const { payload, reqId } = data;
-          if (this._pending.has(reqId)) {
-            const { reject } = this._pending.get(reqId);
-            this._pending.delete(reqId);
-            reject(new Error(payload?.message || "Temple error"));
-          }
-        }
-      },
-      
-      async request(payload) {
-        const reqId = ++this._reqId;
-        return new Promise((resolve, reject) => {
-          this._pending.set(reqId, { resolve, reject });
-          
-          window.postMessage({
-            type: "TEMPLE_PAGE_REQUEST",
-            payload,
-            reqId
-          }, window.origin);
-          
-          setTimeout(() => {
-            if (this._pending.has(reqId)) {
-              this._pending.delete(reqId);
-              reject(new Error("Temple request timeout"));
-            }
-          }, 120000);
-        });
-      },
-      
-      async isAvailable() {
-        try {
-          const response = await Promise.race([
-            this.request("PING"),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 3000))
-          ]);
-          return response === "PONG";
-        } catch {
-          return false;
-        }
-      },
-      
-      async connect(networkType) {
-        const response = await this.request({
-          type: "PERMISSION_REQUEST",
-          network: networkType,
-          appMeta: { name: "Aesthetic Computer" },
-          force: true
-        });
-        return response;
-      },
-      
-      async getCurrentPermission() {
-        try {
-          const response = await this.request({ type: "GET_CURRENT_PERMISSION_REQUEST" });
-          return response;
-        } catch {
-          return null;
-        }
-      }
-    };
-  }
-  
+
   // Save wallet session to localStorage
   function saveWalletSession(address, network, walletType) {
     localStorage.setItem("ac:tezos:session", JSON.stringify({
@@ -2341,297 +2259,54 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       timestamp: Date.now(),
     }));
   }
-  
+
   // Clear wallet session
   function clearWalletSession() {
     localStorage.removeItem("ac:tezos:session");
   }
-  
-  // Initialize Tezos (no external SDK needed for basic operations)
-  async function loadTezos(network = "ghostnet") {
-    const rpcUrl = TEZOS_RPC[network] || TEZOS_RPC.ghostnet;
-    
-    // Create a minimal wallet interface for RPC operations
-    if (!tezosWallet) {
-      tezosWallet = {
-        _rpcUrl: rpcUrl,
-        _network: network,
-      };
-      tezosTk = { rpcUrl, network };
-      console.log("🔷 Tezos RPC ready:", network);
-    }
-    
-    return { wallet: tezosWallet, tezos: tezosTk };
-  }
-  
-  // Connect wallet via Temple Wallet browser extension
-  // Using direct postMessage communication with Temple's content script
-  async function connectTezosWallet(network = "ghostnet", options = {}) {
-    const rpcUrl = TEZOS_RPC[network] || TEZOS_RPC.ghostnet;
-    const walletType = options.walletType || "temple";
-    
-    console.log(`🔷 Attempting ${walletType} wallet connection...`);
-    
-    // Kukai wallet via Beacon SDK
-    if (walletType === "kukai") {
-      return connectKukaiWallet(network, rpcUrl);
-    }
-    
-    // Temple wallet via direct postMessage - use shared client creator
-    const templeClient = createTempleClient();
-    templeClient.init();
-    
-    // Check if Temple extension is available
-    console.log("🔷 Checking for Temple extension...");
-    const available = await templeClient.isAvailable();
-    console.log("🔷 Temple Wallet available:", available);
-    
-    if (!available) {
-      throw new Error("Temple Wallet not found. Install it from templewallet.com");
-    }
-    
+
+  // Connect wallet — Beacon handles wallet selection (Temple, Kukai, etc.)
+  async function connectTezosWallet(network = "ghostnet") {
+    console.log("🔷 Connecting wallet via Beacon SDK...");
+
     try {
-      // Check for existing permission first
-      const existingPerm = await templeClient.getCurrentPermission();
-      console.log("🔷 Existing permission:", existingPerm);
-      
-      let address, publicKey;
-      
-      if (existingPerm?.pkh) {
-        // Already connected
-        address = existingPerm.pkh;
-        publicKey = existingPerm.publicKey;
-        console.log("🔷 Using existing connection:", address);
-      } else {
-        // Request new connection - this should open Temple popup
-        console.log("🔷 Requesting connection...");
-        const connectResult = await templeClient.connect(network === "mainnet" ? "mainnet" : "ghostnet");
-        console.log("🔷 Connect result:", connectResult);
-        
-        if (connectResult?.type === "PERMISSION_RESPONSE") {
-          address = connectResult.pkh;
-          publicKey = connectResult.publicKey;
-        } else if (connectResult?.pkh) {
-          address = connectResult.pkh;
-          publicKey = connectResult.publicKey;
-        }
-      }
-      
-      if (!address) {
-        throw new Error("Connection cancelled or failed");
-      }
-      
-      console.log("🔷 Temple connected:", address);
-      
+      const { PermissionScope } = beaconSDK || await import("https://esm.sh/@airgap/beacon-sdk@4.0.12?bundle");
+      const client = await loadBeacon(network);
+
+      const permissions = await client.requestPermissions({
+        scopes: [PermissionScope.SIGN, PermissionScope.OPERATION_REQUEST],
+      });
+
+      const address = permissions.address;
+      const publicKey = permissions.publicKey;
+
+      console.log("🔷 Wallet connected:", address);
+
       walletState.connected = true;
       walletState.address = address;
       walletState.network = network;
-      walletState.walletType = "temple";
-      
-      // Store client reference for signing operations
-      tezosWallet = {
-        _client: templeClient,
-        _rpcUrl: rpcUrl,
-        _network: network,
-        _publicKey: publicKey,
-        pkh: () => address,
-        sign: async (payload) => {
-          const result = await templeClient.request({
-            type: "SIGN_REQUEST",
-            payload,
-            sourcePkh: address
-          });
-          return result?.signature;
-        },
-        sendOperations: async (operations) => {
-          const result = await templeClient.request({
-            type: "OPERATION_REQUEST",
-            sourcePkh: address,
-            opParams: operations
-          });
-          return result?.opHash;
-        }
-      };
-      
-      saveWalletSession(address, network, "temple");
-      
-      // Note: Tezos address persistence to MongoDB disabled - no auth token access in bios
-      // TODO: Implement proper auth token access if server-side persistence is needed
-      
-      // Fetch balance and domain
+      walletState.walletType = "beacon";
+
+      tezosWallet = buildBeaconWallet(client, address, publicKey, network);
+      saveWalletSession(address, network, "beacon");
+
+      // Fetch balance and domain in background
       Promise.all([
         fetchTezosBalanceForBios(address, network),
         fetchTezosDomain(address, network)
       ]).then(([balance, domain]) => {
-        console.log("🔷 Fetched balance:", balance, "domain:", domain);
         walletState.balance = balance;
         walletState.domain = domain;
         broadcastWalletState();
       }).catch(err => {
         console.warn("🔷 Failed to fetch balance/domain:", err);
       });
-      
+
       broadcastWalletState();
       return address;
-      
     } catch (err) {
-      console.log("🔷 Temple connection error:", err?.message || err);
-      throw new Error(err?.message || "Temple connection cancelled");
-    }
-  }
-  
-  // 🥝 Kukai Wallet Connection via Beacon SDK
-  // Kukai/Other wallets via Beacon SDK
-  // NOTE: Beacon SDK v4.6.3 has IndexedDB metrics issues
-  // Using older stable version v4.0.12
-  let beaconClient = null;
-  let beaconNetwork = null;
-  
-  async function connectKukaiWallet(network, rpcUrl) {
-    console.log("🥝 Connecting via Beacon SDK...");
-    
-    try {
-      // Use older stable version that doesn't have metrics issues
-      const beacon = await import("https://esm.sh/@airgap/beacon-sdk@4.0.12?bundle");
-      const { DAppClient, NetworkType, PermissionScope } = beacon;
-      
-      const networkType = network === "mainnet" ? NetworkType.MAINNET : NetworkType.GHOSTNET;
-      
-      // Create new client if network changed or doesn't exist
-      if (!beaconClient || beaconNetwork !== network) {
-        // Clear old client if exists
-        if (beaconClient) {
-          try {
-            await beaconClient.destroy();
-          } catch (e) {}
-        }
-        
-        beaconClient = new DAppClient({
-          name: "Aesthetic Computer",
-          preferredNetwork: networkType,
-        });
-        beaconNetwork = network;
-        
-        console.log("🥝 Beacon SDK loaded");
-      }
-      
-      // Request permissions
-      const permissions = await beaconClient.requestPermissions({
-        scopes: [PermissionScope.SIGN, PermissionScope.OPERATION_REQUEST],
-      });
-      
-      const address = permissions.address;
-      const publicKey = permissions.publicKey;
-      
-      console.log("🥝 Kukai connected:", address);
-      
-      walletState.connected = true;
-      walletState.address = address;
-      walletState.network = network;
-      walletState.walletType = "kukai";
-      
-      // Store client reference for signing
-      tezosWallet = {
-        _client: beaconClient,
-        _rpcUrl: rpcUrl,
-        _network: network,
-        _publicKey: publicKey,
-        pkh: () => address,
-        sign: async (payload) => {
-          const result = await beaconClient.requestSignPayload({
-            signingType: "raw",
-            payload: payload,
-          });
-          return result.signature;
-        },
-        sendOperations: async (operations) => {
-          const result = await beaconClient.requestOperation({
-            operationDetails: operations,
-          });
-          return result.transactionHash;
-        },
-      };
-      
-      saveWalletSession(address, network, "kukai");
-      
-      // Note: Tezos address persistence to MongoDB disabled - no auth token access in bios  
-      // TODO: Implement proper auth token access if server-side persistence is needed
-      
-      // Fetch balance and domain
-      Promise.all([
-        fetchTezosBalanceForBios(address, network),
-        fetchTezosDomain(address, network)
-      ]).then(([balance, domain]) => {
-        walletState.balance = balance;
-        walletState.domain = domain;
-        broadcastWalletState();
-      });
-      
-      broadcastWalletState();
-      return address;
-      
-    } catch (err) {
-      console.log("🥝 Kukai connection error:", err?.message || err);
-      throw new Error(err?.message || "Kukai connection cancelled");
-    }
-  }
-  
-  // Generate a Beacon pairing URI for mobile wallet connection
-  // This creates a QR code that Temple/Kukai mobile can scan
-  async function generatePairingUri(network = "ghostnet") {
-    console.log("🔷 Generating pairing URI for mobile wallet...");
-    
-    try {
-      // Generate our own P2P pairing request matching Beacon SDK format
-      // Load dependencies
-      const bs58check = await import("https://esm.sh/bs58check@3.0.1");
-      const { generateKeyPairFromSeed } = await import("https://esm.sh/@stablelib/ed25519@1.0.3");
-      const { hash } = await import("https://esm.sh/@stablelib/blake2b@1.0.1");
-      
-      // Generate a seed and keypair (matches Beacon's getKeypairFromSeed)
-      const seed = crypto.randomUUID();
-      const seedHash = hash(new TextEncoder().encode(seed), 32);
-      const keyPair = generateKeyPairFromSeed(seedHash);
-      
-      // Public key as hex (32 bytes = 64 hex chars)
-      const publicKey = Array.from(keyPair.publicKey).map(b => b.toString(16).padStart(2, '0')).join('');
-      
-      // Generate a unique ID
-      const id = crypto.randomUUID();
-      
-      // Build P2P pairing request (matches Beacon SDK P2PPairingRequest class)
-      const pairingRequest = {
-        type: "p2p-pairing-request",
-        id: id,
-        name: "Aesthetic Computer",
-        publicKey: publicKey,
-        version: "3", // Beacon protocol version
-        relayServer: "beacon-node-1.sky.papers.tech"
-      };
-      
-      console.log("🔷 P2P Pairing request:", pairingRequest);
-      console.log("🔷 Public key length:", publicKey.length);
-      
-      // Serialize with bs58check (how Beacon does it in Serializer.ts)
-      const jsonStr = JSON.stringify(pairingRequest);
-      const jsonBytes = new TextEncoder().encode(jsonStr);
-      
-      // bs58check.encode expects a Uint8Array
-      const encoded = bs58check.default.encode(jsonBytes);
-      
-      console.log("🔷 Serialized pairing code:", encoded);
-      console.log("🔷 Code length:", encoded.length);
-      
-      // Store the keypair for when we receive the response
-      window._beaconPairingKeyPair = keyPair;
-      window._beaconPairingRequest = pairingRequest;
-      
-      // Return the serialized code for QR generation
-      return encoded;
-      
-    } catch (err) {
-      console.log("🔷 Pairing error:", err?.message || err);
-      throw new Error(err?.message || "Failed to generate pairing code");
+      console.log("🔷 Wallet connection error:", err?.message || err);
+      throw new Error(err?.message || "Wallet connection cancelled");
     }
   }
   
@@ -11941,13 +11616,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "wallet:connect") {
       try {
         const network = content?.network || "ghostnet";
-        const options = {
-          address: content?.address,
-          network,
-          walletType: content?.walletType || "temple",
-          useTemple: content?.useTemple,
-        };
-        const address = await connectTezosWallet(network, options);
+        const address = await connectTezosWallet(network);
         // connectTezosWallet already updates walletState and broadcasts
       } catch (err) {
         console.error("🔴 Wallet connect error:", err);
@@ -11977,25 +11646,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
       } catch (err) {
         console.error("🔴 Wallet balance refresh error:", err);
-      }
-      return;
-    }
-
-    // Get pairing URI for mobile wallet QR code
-    if (type === "wallet:get-pairing-uri") {
-      try {
-        const network = content?.network || "ghostnet";
-        const pairingInfo = await generatePairingUri(network);
-        send({
-          type: "wallet:pairing-uri-response",
-          content: { result: "success", pairingInfo },
-        });
-      } catch (err) {
-        console.error("🔴 Wallet pairing error:", err);
-        send({
-          type: "wallet:pairing-uri-response",
-          content: { result: "error", error: err.message },
-        });
       }
       return;
     }

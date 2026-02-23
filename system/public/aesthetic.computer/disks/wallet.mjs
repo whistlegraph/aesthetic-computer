@@ -24,10 +24,6 @@ let transactions = [];
 let headBlock = null;
 let lastBlockTime = null;
 let blockProgress = 0;
-let showQR = false; // Toggle QR code display
-let qrCells = null; // Cached QR code cells
-let pairingUri = null; // Beacon pairing URI for mobile connection
-let pairingError = null; // Error if pairing fails
 let nftCount = 0; // Number of NFTs owned
 let userKidlisps = []; // User's KidLisp pieces
 let ownedKeeps = []; // Keeps tokens owned by wallet on current contract
@@ -60,14 +56,11 @@ let dataStreams = [];
 // UI
 let disconnectBtn;
 let connectTempleBtn;
-let connectMobileBtn;
-let connectExtensionBtn;
 let keepsLoginBtn; // Login button for keeps section
 let keepsSignupBtn; // Signup button for keeps section
 let keepButtons = {}; // Map of code -> ui.TextButtonSmall for keeping unkept KidLisps
 let stagingLinkBtn; // Link to staging contract on objkt
 let ownedKeepBtns = {}; // Map of tokenId -> ui.TextButtonSmall for objkt links
-let showConnectOptions = false; // Show extension vs mobile choice
 let connectError = null;
 let connecting = false; // Connection in progress
 let marqueeOffset = 0; // For scrolling source preview
@@ -436,19 +429,6 @@ async function boot({ wallet, wipe, hud, ui, screen, user, handle, net }) {
   connectTempleBtn = new ui.TextButton("Connect Wallet", {
     center: "x",
     y: -30,
-    screen
-  });
-
-  // Sub-buttons for connect options
-  connectMobileBtn = new ui.TextButton("📱 Mobile App", {
-    center: "x",
-    y: 30,
-    screen
-  });
-
-  connectExtensionBtn = new ui.TextButton("🔌 Browser Extension", {
-    center: "x",
-    y: 0,
     screen
   });
 
@@ -1255,35 +1235,14 @@ function paint($) {
 
     const btnOffsetY = userHandle ? 35 : 25;
 
-    if (showConnectOptions) {
-      // Show two options: Browser Extension and Mobile App
-      connectExtensionBtn?.reposition({ center: "x", y: cy + btnOffsetY, screen });
-      const extBtnColors = $.dark
-        ? [[[0, 60, 100], [0, 140, 200], [200, 230, 255], [0, 60, 100]],
-           [[0, 80, 130], [0, 180, 255], [255, 255, 255], [0, 80, 130]]]
-        : [[[210, 230, 245], [0, 100, 160], [0, 70, 120], [210, 230, 245]],
-           [[225, 240, 250], [0, 130, 190], [0, 90, 150], [225, 240, 250]]];
-      connectExtensionBtn?.paint($, ...extBtnColors);
-
-      connectMobileBtn?.reposition({ center: "x", y: cy + btnOffsetY + 30, screen });
-      const mobileBtnColors = $.dark
-        ? [[[60, 40, 80], [120, 80, 160], [200, 160, 255], [60, 40, 80]],
-           [[80, 60, 100], [160, 120, 200], [255, 255, 255], [80, 60, 100]]]
-        : [[[235, 225, 245], [100, 60, 140], [70, 40, 100], [235, 225, 245]],
-           [[245, 235, 250], [130, 80, 170], [90, 50, 120], [245, 235, 250]]];
-      connectMobileBtn?.paint($, ...mobileBtnColors);
-
-      ink(...colors.textDim).write("Choose connection method", { x: w/2, y: cy + btnOffsetY + 65, center: "x" });
-    } else {
-      // Connect Wallet button
-      connectTempleBtn?.reposition({ center: "x", y: cy + btnOffsetY, screen });
-      const connectBtnColors = $.dark
-        ? [[[0, 60, 100], [0, 140, 200], [200, 230, 255], [0, 60, 100]],
-           [[0, 80, 130], [0, 180, 255], [255, 255, 255], [0, 80, 130]]]
-        : [[[210, 230, 245], [0, 100, 160], [0, 70, 120], [210, 230, 245]],
-           [[225, 240, 250], [0, 130, 190], [0, 90, 150], [225, 240, 250]]];
-      connectTempleBtn?.paint($, ...connectBtnColors);
-    }
+    // Connect Wallet button — Beacon handles wallet selection
+    connectTempleBtn?.reposition({ center: "x", y: cy + btnOffsetY, screen });
+    const connectBtnColors = $.dark
+      ? [[[0, 60, 100], [0, 140, 200], [200, 230, 255], [0, 60, 100]],
+         [[0, 80, 130], [0, 180, 255], [255, 255, 255], [0, 80, 130]]]
+      : [[[210, 230, 245], [0, 100, 160], [0, 70, 120], [210, 230, 245]],
+         [[225, 240, 250], [0, 130, 190], [0, 90, 150], [225, 240, 250]]];
+    connectTempleBtn?.paint($, ...connectBtnColors);
 
     // Show connecting state or error
     if (connecting) {
@@ -1293,46 +1252,6 @@ function paint($) {
     }
   }
 
-  // === QR CODE OVERLAY (drawn last to overlay everything) ===
-  if (showQR) {
-    // Dark overlay
-    ink(0, 0, 0, 220).box(0, 0, w, h);
-
-    if (pairingError) {
-      // Show error
-      ink(...colors.negative).write("QR Generation Failed", { x: w/2, y: h/2 - 20, center: "x" });
-      ink(...colors.textDim).write(pairingError, { x: w/2, y: h/2, center: "x" });
-      ink(...colors.textDim).write("Tap to close", { x: w/2, y: h/2 + 30, center: "x" });
-    } else if (!qrCells) {
-      // Loading state
-      ink(...colors.primaryBright).write("Generating QR...", { x: w/2, y: h/2, center: "x" });
-    } else {
-      // QR code centered
-      const qrSize = Math.min(w, h) - 80;
-      const cellSize = Math.floor(qrSize / qrCells.length);
-      const qrW = cellSize * qrCells.length;
-      const qrX = Math.floor((w - qrW) / 2);
-      const qrY = Math.floor((h - qrW) / 2) - 30;
-
-      // White background
-      ink(255, 255, 255).box(qrX - 8, qrY - 8, qrW + 16, qrW + 16);
-
-      // QR cells
-      ink(0, 0, 0);
-      for (let row = 0; row < qrCells.length; row++) {
-        for (let col = 0; col < qrCells[row].length; col++) {
-          if (qrCells[row][col]) {
-            box(qrX + col * cellSize, qrY + row * cellSize, cellSize, cellSize);
-          }
-        }
-      }
-
-      // Labels
-      ink(...colors.primaryBright).write("SCAN WITH TEMPLE APP", { x: w/2, y: qrY + qrW + 16, center: "x" });
-      ink(...colors.textDim).write("Open Temple → Settings → Pair", { x: w/2, y: qrY + qrW + 30, center: "x" });
-      ink(...colors.textDim).write("Tap anywhere to close", { x: w/2, y: qrY + qrW + 50, center: "x" });
-    }
-  }
 }
 
 function getTimeAgo(date) {
@@ -1349,21 +1268,7 @@ function act({ event: e, wallet, jump, screen, net }) {
   if (e.is("reframed")) {
     disconnectBtn?.reposition({ bottom: 6, right: 6, screen });
     connectTempleBtn?.reposition({ center: "x", y: screen.height / 2 - 60 + 25, screen });
-    connectExtensionBtn?.reposition({ center: "x", y: screen.height / 2 - 60 + 35, screen });
-    connectMobileBtn?.reposition({ center: "x", y: screen.height / 2 - 60 + 65, screen });
     initDataStreams(screen);
-  }
-
-  // Close QR overlay on any tap when showing
-  if (showQR && (e.is("touch") || e.is("keyboard:down:escape") || e.is("keyboard:down:enter"))) {
-    showQR = false;
-    return;
-  }
-
-  // Close connect options on ESC
-  if (showConnectOptions && e.is("keyboard:down:escape")) {
-    showConnectOptions = false;
-    return;
   }
 
   // Scroll keeps list (mouse wheel or drag)
@@ -1393,68 +1298,26 @@ function act({ event: e, wallet, jump, screen, net }) {
     if (keepsSectionRect) keepsScroll = Math.max(0, keepsScroll - 20);
   }
 
-  // Handle wallet connect buttons when not connected
+  // Handle wallet connect button when not connected
   if (!walletState?.connected && !connecting) {
-    if (showConnectOptions) {
-      // Extension button
-      connectExtensionBtn?.btn.act(e, {
-        push: async () => {
-          showConnectOptions = false;
-          connecting = true;
-          connectError = null;
-          try {
-            await wallet.connect({ network: KEEPS_NETWORK, walletType: "temple" });
-          } catch (err) {
-            connectError = err.message || "Connection failed";
-            connecting = false;
-          }
+    connectTempleBtn?.btn.act(e, {
+      push: async () => {
+        connecting = true;
+        connectError = null;
+        try {
+          await wallet.connect({ network: KEEPS_NETWORK });
+        } catch (err) {
+          connectError = err.message || "Connection failed";
+          connecting = false;
         }
-      });
-
-      // Mobile app button - show our own QR code for P2P pairing
-      connectMobileBtn?.btn.act(e, {
-        push: () => {
-          showConnectOptions = false;
-          showQR = true;
-          qrCells = null;
-          pairingError = null;
-          // Request pairing code from bios
-          wallet.getPairingUri(KEEPS_NETWORK, (response) => {
-            // Pairing response received
-            if (response.result === "success" && response.pairingInfo) {
-              try {
-                // pairingInfo is now the bs58check encoded string
-                const code = typeof response.pairingInfo === "string"
-                  ? response.pairingInfo
-                  : JSON.stringify(response.pairingInfo);
-                qrCells = qr(code).modules;
-                // QR ready
-              } catch (err) {
-                pairingError = "QR generation failed";
-                console.error("🔷 QR error:", err);
-              }
-            } else {
-              pairingError = response.error || "Failed to generate pairing";
-            }
-          });
-        }
-      });
-    } else {
-      // Main Connect Wallet button - show options
-      connectTempleBtn?.btn.act(e, {
-        push: () => {
-          showConnectOptions = true;
-          connectError = null;
-        }
-      });
-    }
+      }
+    });
   }
 
   if (walletState?.connected) {
     disconnectBtn?.btn.act(e, {
       push: () => {
         wallet.disconnect();
-        showQR = false;
       }
     });
 
@@ -1506,11 +1369,7 @@ function act({ event: e, wallet, jump, screen, net }) {
   }
 
   if (e.is("keyboard:down:escape")) {
-    if (showQR) {
-      showQR = false;
-    } else {
-      jump("prompt");
-    }
+    jump("prompt");
   }
 }
 
