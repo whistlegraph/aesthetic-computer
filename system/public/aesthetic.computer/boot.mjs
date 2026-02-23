@@ -489,7 +489,8 @@ const LEGITIMATE_PARAMS = [
   'icon', 'preview', 'signup', 'supportSignUp', 'success', 'code', 
   'supportForgotPassword', 'message', 'vscode', 'nogap', 'nolabel', 
   'density', 'zoom', 'duration', 'session-aesthetic', 'session-sotce', 'notice', 'tv', 'highlight',
-  'noauth', 'nocache', 'daw', 'width', 'height', 'desktop', 'device', 'perf', 'auto-scale', 'solo'
+  'noauth', 'nocache', 'daw', 'width', 'height', 'desktop', 'device', 'perf', 'auto-scale', 'solo',
+  'crossfade'
 ];
 
 // Auth0 parameters that need to be temporarily processed but then removed
