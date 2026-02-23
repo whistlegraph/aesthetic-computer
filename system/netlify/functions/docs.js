@@ -1869,6 +1869,11 @@ export async function handler(event, context) {
         desc: "Enable light system theme.",
         done: false,
       },
+      serious: {
+        sig: "serious",
+        desc: "Toggle minimal black & white prompt.",
+        done: false,
+      },
       2022: {
         sig: "2022",
         desc: "",

@@ -106,6 +106,8 @@ const { floor } = Math;
 const { keys } = Object;
 
 // Error / feedback flash on command entry.
+let seriousMode = false; // Clean black/white prompt with no curtain decorations (prompt:serious)
+
 let flash;
 let flashShow = false;
 let flashColor = [];
@@ -750,6 +752,7 @@ async function boot({
   user,
   handle,
   params,
+  colon,
   notice,
   dark,
   store,
@@ -760,6 +763,7 @@ async function boot({
   promptSend = send;
   promptNeedsPaint = needsPaint;
   cachedGizmo = gizmo; // Cache gizmo for use in act() function
+  if (colon?.includes("serious")) seriousMode = true;
   if (dark) glaze({ on: true });
   // if (vscode) console.log("🟣 Running `prompt` in the VSCode extension.");
 
@@ -896,8 +900,8 @@ async function boot({
   // �📦 Load product images (DISABLED for now)
   // await products.boot(api);
 
-  // Create login & signup buttons.
-  if (!user) {
+  // Create login & signup buttons (skip in serious mode).
+  if (!user && !seriousMode) {
     login = new ui.TextButton("Log in", { center: "xy", screen });
     login.stickyScrubbing = true; // Prevent drag-between-button behavior
     signup = new ui.TextButton("I'm new", { center: "xy", screen });
@@ -905,7 +909,7 @@ async function boot({
     positionWelcomeButtons(screen, net.iframe);
   }
 
-  if (user) {
+  if (user && !seriousMode) {
     // console.log("User:", user);
     const hand = handle();
     const btnPos = { center: "xy", screen };
@@ -945,13 +949,15 @@ async function boot({
       (pieceCount > 0 && !store["prompt:splash"] && !net.devReload) ||
       (vscode && pieceCount === 0);
 
-    // Fetch the MOTD to display above login/signup buttons
-    if (!params[0]) makeMotd({ ...api, notice });
+    if (!seriousMode) {
+      // Fetch the MOTD to display above login/signup buttons
+      if (!params[0]) makeMotd({ ...api, notice });
 
-    // Fetch all content (kidlisp, painting, tape) for content ticker
-    // Always fetch content items, even when params exist (prefilled text)
-    fetchContentItems(api);
-    fetchClockChatMessages(); // Fetch Laer-Klokken clock chat messages
+      // Fetch all content (kidlisp, painting, tape) for content ticker
+      // Always fetch content items, even when params exist (prefilled text)
+      fetchContentItems(api);
+      fetchClockChatMessages(); // Fetch Laer-Klokken clock chat messages
+    }
 
     if (pieceCount === 0 || store["prompt:splash"] === true) {
       // Initial boot setup
@@ -3413,6 +3419,23 @@ async function halt($, text) {
     }
     makeFlash($);
     return true;
+  } else if (text === "serious") {
+    seriousMode = !seriousMode;
+    if (seriousMode) {
+      // Disable curtain buttons
+      if (login) login.btn.disabled = true;
+      if (signup) signup.btn.disabled = true;
+      if (profile) profile.btn.disabled = true;
+    } else {
+      // Re-enable curtain buttons
+      if (login) login.btn.disabled = false;
+      if (signup) signup.btn.disabled = false;
+      if (profile) profile.btn.disabled = false;
+    }
+    flashColor = seriousMode ? [0, 0, 0] : scheme.dark.block;
+    makeFlash($);
+    needsPaint();
+    return true;
   } else if (text.startsWith("2022")) {
     load(parse("wand~" + text)); // Execute the current command.
     return true;
@@ -4003,11 +4026,15 @@ function paint($) {
   if (fetchingUser) fetchUserAPI = $.api;
 
   // Ensure pal is always defined with a fallback
-  pal = $.dark ? scheme.dark : scheme.light;
+  if (seriousMode) {
+    pal = $.dark ? scheme.serious.dark : scheme.serious.light;
+  } else {
+    pal = $.dark ? scheme.dark : scheme.light;
+  }
 
   // 🅰️ Paint below the prompt || scheme.
   if ($.store["painting"]) {
-    $.wipe($.dark ? scheme.dark.background : scheme.light.background);
+    $.wipe(pal.background);
     $.system.nopaint.present($); // Render the painting.
     // Override pal if available from nopaint
     if ($.system.prompt.input.pal) {
@@ -4016,7 +4043,7 @@ function paint($) {
     scheme.dark.background[3] = 176; // Half semi-opaque palette background.
     scheme.light.background[3] = 190;
   } else {
-    $.wipe($.dark ? scheme.dark.background : scheme.light.background);
+    $.wipe(pal.background);
   }
 
   $.layer(1); // 🅱️ And above it...
@@ -4024,7 +4051,7 @@ function paint($) {
   const { screen, ink, history, net, help } = $;
 
   // Make prompt text semi-transparent when curtain is up
-  const showLoginCurtain = (!login?.btn.disabled && !profile) || (!login && !profile?.btn.disabled);
+  const showLoginCurtain = !seriousMode && ((!login?.btn.disabled && !profile) || (!login && !profile?.btn.disabled));
   if (showLoginCurtain && $.system.prompt.input.canType) {
     // Add opacity to text colors when curtain is up
     const originalDarkText = [...scheme.dark.text];
@@ -7754,6 +7781,45 @@ function paint($) {
     */
   }
 
+  // 🎹 Serious mode unfocused visual cues
+  if (seriousMode && !$.system.prompt.input.canType) {
+    const input = $.system.prompt.input;
+    const isDark = $.dark;
+    const fg = isDark ? [255, 255, 255] : [0, 0, 0];
+
+    if (input?.prompt) {
+      const cursorPos = input.prompt.pos(undefined, true);
+
+      if (cursorPos && cursorPos.x !== undefined && cursorPos.y !== undefined) {
+        $.layer(3);
+
+        // Dim blinking cursor
+        const blinkAlpha = Math.floor(Math.sin(motdFrame * 0.08) * 40 + 50); // 10-90
+        ink(...fg, blinkAlpha).box(cursorPos.x, cursorPos.y, cursorPos.w, cursorPos.h);
+
+        // Subtle border around cursor
+        const borderAlpha = Math.floor(Math.sin(motdFrame * 0.06) * 20 + 30); // 10-50
+        ink(...fg, borderAlpha)
+          .box(cursorPos.x - 1, cursorPos.y - 1, cursorPos.w + 2, 1) // top
+          .box(cursorPos.x - 1, cursorPos.y + cursorPos.h, cursorPos.w + 2, 1) // bottom
+          .box(cursorPos.x - 1, cursorPos.y, 1, cursorPos.h) // left
+          .box(cursorPos.x + cursorPos.w, cursorPos.y, 1, cursorPos.h); // right
+
+        $.layer(1);
+      }
+
+      // Faded last-typed text
+      if (input.text && input.text.length > 0) {
+        const fadedAlpha = Math.floor(Math.sin(motdFrame * 0.04) * 15 + 25); // 10-40
+        ink(...fg, fadedAlpha).write(input.text, {
+          x: input.prompt.left,
+          y: input.prompt.top,
+          size: input.prompt.scale,
+        });
+      }
+    }
+  }
+
   // Paint UI Buttons
   //if (!net.iframe) {
 
@@ -8059,17 +8125,24 @@ function sim($) {
     $.sound.speaker.poll();
   }
 
-  if (!login?.btn.disabled || !profile?.btn.disabled) {
+  if (!seriousMode && (!login?.btn.disabled || !profile?.btn.disabled)) {
     starfield.sim($);
     $.needsPaint();
   }
 
-  const now = Date.now();
-  if (now - lastClockChatFetchAt > CLOCK_CHAT_REFRESH_MS) {
-    fetchClockChatMessages();
+  // Drive blinking animation for serious mode unfocused cues
+  if (seriousMode && !$.system.prompt.input.canType) {
+    $.needsPaint();
   }
-  if (now - lastContentFetchAt > CONTENT_REFRESH_MS) {
-    fetchContentItems($);
+
+  const now = Date.now();
+  if (!seriousMode) {
+    if (now - lastClockChatFetchAt > CLOCK_CHAT_REFRESH_MS) {
+      fetchClockChatMessages();
+    }
+    if (now - lastContentFetchAt > CONTENT_REFRESH_MS) {
+      fetchContentItems($);
+    }
   }
 
   // 📦 Update product animations (DISABLED)
@@ -8984,7 +9057,7 @@ function activated($, state) {
 
   if (firstActivation) {
     $.sound.play(startupSfx); // Play startup sound...
-    flashColor = scheme.dark.block; // Trigger startup animation...
+    flashColor = seriousMode ? ($.dark ? [255] : [0]) : scheme.dark.block; // Trigger startup animation...
     makeFlash($ /*, $.params[0]*/); // Always sets firstActivation flag to false.
   }
   // console.log(state, firstCommandSent)
@@ -9083,6 +9156,51 @@ export const scheme = {
     auto: "red",
     statusColor: "darkgreen",
     focusOutline: "aqua",
+  },
+  // 🎹 Serious mode — piano black & white
+  serious: {
+    dark: {
+      text: [255],
+      background: [0, 0, 0],
+      prompt: [255],
+      block: [255],
+      highlight: [128],
+      guideline: [60, 60, 60, 64],
+      login: [[40, 40, 40], 200, 200, [40, 40, 40]],
+      loginRollover: [[60, 60, 60], 220, 220, [60, 60, 60]],
+      loginDown: [[30, 30, 30], 180, 255, [30, 30, 30]],
+      signup: [[40, 40, 40], 200, 200, [40, 40, 40]],
+      signupRollover: [[60, 60, 60], 220, 220, [60, 60, 60]],
+      profile: [[40, 40, 40], 200, 200, [40, 40, 40]],
+      profileRollover: [[60, 60, 60], 220, 220, [60, 60, 60]],
+      btnRollover: [40, 40, 40],
+      btnRolloverTxt: [220, 220, 220],
+      handleColor: [255, 255, 255, 128],
+      auto: "white",
+      statusColor: "gray",
+      focusOutline: "gray",
+    },
+    light: {
+      text: [0],
+      background: [255, 255, 255],
+      prompt: [0],
+      block: [0],
+      highlight: [128],
+      guideline: [200, 200, 200, 64],
+      login: [[220, 220, 220], 60, 60, [220, 220, 220]],
+      loginRollover: [[200, 200, 200], 40, 40, [200, 200, 200]],
+      loginDown: [[230, 230, 230], 80, 0, [230, 230, 230]],
+      signup: [[220, 220, 220], 60, 60, [220, 220, 220]],
+      signupRollover: [[200, 200, 200], 40, 40, [200, 200, 200]],
+      profile: [[220, 220, 220], 60, 60, [220, 220, 220]],
+      profileRollover: [[200, 200, 200], 40, 40, [200, 200, 200]],
+      btnRollover: [220, 220, 220],
+      btnRolloverTxt: [40, 40, 40],
+      handleColor: [0, 0, 0, 128],
+      auto: "black",
+      statusColor: "gray",
+      focusOutline: "gray",
+    },
   },
 };
 
