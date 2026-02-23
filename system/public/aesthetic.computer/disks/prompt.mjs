@@ -196,9 +196,12 @@ let soSoftLastTinyFont = false; // Track if we're using tiny font to recreate bu
 let shopBtnParticles = []; // Sparkle particles for SHOP button
 let shopBtnHue = 0; // Color cycling for SHOP button
 
-// 🎰 Top-right button random selection: 50/50 A/B test between "give" and "ad"
-const TOP_RIGHT_BTN_CHOICES = ["give", "ad"];
-const topRightBtnChoice = TOP_RIGHT_BTN_CHOICES[Math.floor(Math.random() * TOP_RIGHT_BTN_CHOICES.length)];
+// 🎰 Top-right slot cycling: rotates through "give", "ad", and "products" on a timer
+const TOP_RIGHT_BTN_CHOICES = ["give", "ad", "products"];
+let topRightBtnChoiceIndex = Math.floor(Math.random() * TOP_RIGHT_BTN_CHOICES.length);
+let topRightBtnChoice = TOP_RIGHT_BTN_CHOICES[topRightBtnChoiceIndex];
+const TOP_RIGHT_CYCLE_MS = 9000; // 9 seconds, same rhythm as products.mjs
+let topRightLastCycleTime = 0;
 let resendVerificationText;
 let ellipsisTicker;
 let chatTicker; // Ticker instance for chat messages
@@ -898,7 +901,7 @@ async function boot({
   handleAutocomplete = createHandleAutocomplete();
 
   // �📦 Load product images (DISABLED for now)
-  // await products.boot(api);
+  await products.boot(api);
 
   // Create login & signup buttons (skip in serious mode).
   if (!user && !seriousMode) {
@@ -5129,11 +5132,12 @@ function paint($) {
 
   // �📦 Paint product (book or record) in top-right corner (only on login curtain)
   // Hide carousel when prompt is editable or has text
-  // DISABLED: products carousel
-  // const promptHasContent = $.system.prompt.input.text && $.system.prompt.input.text.length > 0;
-  // const shouldShowCarousel = showLoginCurtain && !$.system.prompt.input.canType && !promptHasContent;
-  // products.paint({ ...$, login, signup }, $.screen, shouldShowCarousel);
-  // Old book code removed - now using products system
+  // 📦 Paint product when top-right slot shows "products"
+  if (topRightBtnChoice === "products") {
+    const promptHasContentCarousel = $.system.prompt.input.text && $.system.prompt.input.text.length > 0;
+    const shouldShowCarousel = showLoginCurtain && !$.system.prompt.input.canType && !promptHasContentCarousel;
+    products.paint({ ...$, login, signup }, $.screen, shouldShowCarousel);
+  }
   /*
   if (showLoginCurtain && bookImageScaled) {
     // Use pre-scaled cached image
@@ -8145,19 +8149,29 @@ function sim($) {
     }
   }
 
-  // 📦 Update product animations (DISABLED)
-  // const showLoginCurtain =
-  //   (!login?.btn.disabled && !profile) ||
-  //   (!login && !profile?.btn.disabled);
-  // const promptHasContent = $.system.prompt.input.text && $.system.prompt.input.text.length > 0;
-  // const shouldShowCarousel = showLoginCurtain && !$.system.prompt.input.canType && !promptHasContent;
-  // if (shouldShowCarousel) {
-  //   const product = products.getActiveProduct();
-  //   if (product && product.imageScaled) {
-  //     products.sim($);
-  //     $.needsPaint();
-  //   }
-  // }
+  // 📦 Update product animations (active when top-right slot shows "products")
+  if (topRightBtnChoice === "products") {
+    const showLoginCurtainSim =
+      (!login?.btn.disabled && !profile) ||
+      (!login && !profile?.btn.disabled);
+    const promptHasContent = $.system.prompt.input.text && $.system.prompt.input.text.length > 0;
+    const shouldShowCarousel = showLoginCurtainSim && !$.system.prompt.input.canType && !promptHasContent;
+    if (shouldShowCarousel) {
+      const product = products.getActiveProduct();
+      if (product && product.imageScaled) {
+        products.sim($);
+        $.needsPaint();
+      }
+    }
+  }
+  // 🎰 Cycle top-right slot (give → ad → products) on a timer
+  if (topRightLastCycleTime === 0) topRightLastCycleTime = performance.now();
+  if (performance.now() - topRightLastCycleTime >= TOP_RIGHT_CYCLE_MS) {
+    topRightLastCycleTime = performance.now();
+    topRightBtnChoiceIndex = (topRightBtnChoiceIndex + 1) % TOP_RIGHT_BTN_CHOICES.length;
+    topRightBtnChoice = TOP_RIGHT_BTN_CHOICES[topRightBtnChoiceIndex];
+    $.needsPaint();
+  }
 
   if ($.store["handle:received"]) {
     const hand = $.handle();
@@ -8375,33 +8389,31 @@ function act({
     });
   }
 
-  // 📦 Product button interaction (DISABLED)
-  // const showLoginCurtainAct =
-  //   (!login?.btn.disabled && !profile) ||
-  //   (!login && !profile?.btn.disabled);
-  // const promptHasContentAct = system.prompt.input.text && system.prompt.input.text.length > 0;
-  // const shouldShowCarouselAct = showLoginCurtainAct && !system.prompt.input.canType && !promptHasContentAct;
-  // if (shouldShowCarouselAct) {
-  //   products.act(
-  //     { api, needsPaint, net, screen, num, jump, system, user, store, send, handle, glaze, canShare, notice, ui, sound: { play, synth } },
-  //     e,
-  //     {
-  //       over: () => needsPaint(),
-  //       down: () => downSound(),
-  //       push: () => {
-  //         pushSound();
-  //         flashColor = [0, 255, 0];
-  //         makeFlash({ api, needsPaint, net, screen, num, jump, system, user, store, send, handle, glaze, canShare, notice, ui });
-  //       },
-  //       cancel: () => cancelSound(),
-  //     }
-  //   );
-  // } else {
-  //   const activeProduct = products.getActiveProduct();
-  //   if (activeProduct && activeProduct.button) {
-  //     activeProduct.button.disabled = true;
-  //   }
-  // }
+  // 📦 Product button interaction (active when top-right slot shows "products")
+  if (topRightBtnChoice === "products") {
+    const showLoginCurtainAct =
+      (!login?.btn.disabled && !profile) ||
+      (!login && !profile?.btn.disabled);
+    const promptHasContentAct = system.prompt.input.text && system.prompt.input.text.length > 0;
+    const shouldShowCarouselAct = showLoginCurtainAct && !system.prompt.input.canType && !promptHasContentAct;
+    if (shouldShowCarouselAct) {
+      products.act(
+        { needsPaint, net, screen, jump, send, sound: { play, synth }, ui },
+        e,
+        {
+          over: () => needsPaint(),
+          down: () => downSound(),
+          push: () => pushSound(),
+          cancel: () => cancelSound(),
+        }
+      );
+    } else {
+      const activeProduct = products.getActiveProduct();
+      if (activeProduct && activeProduct.button) {
+        activeProduct.button.disabled = true;
+      }
+    }
+  }
 
   // 🎰 UNITICKER button handler (unified ticker combining all content)
   if (unitickerButton && !unitickerButton.disabled) {
