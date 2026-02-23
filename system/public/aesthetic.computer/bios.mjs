@@ -18147,12 +18147,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (packTimeSinceLastSnap >= 5000) { // 5 seconds
         window._lastPackSnapTime = packNow;
         try {
-          const { dataUrl, displayWidth, displayHeight, dimensions } = captureFrame(canvas, {
+          const snapCanvas = (webglCompositeActive && !underlayFrame && webglCompositeCanvas) ? webglCompositeCanvas : canvas;
+          const { dataUrl, displayWidth, displayHeight, dimensions } = captureFrame(snapCanvas, {
             scaleFactor: 3,
             displayMax: 200
           });
           const ts = formatTimestamp();
-          
+
           // Get piece code (use acPACK_PIECE for the short name like "roz")
           const pieceName = window.acPACK_PIECE || 'piece';
           const pieceCode = pieceName.startsWith('$') ? pieceName : `$${pieceName}`;
@@ -18210,12 +18211,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
           window._lastKidlispSnapTime = now;
           try {
-            const { dataUrl, displayWidth, displayHeight, dimensions } = captureFrame(canvas, {
+            const snapCanvas = (webglCompositeActive && !underlayFrame && webglCompositeCanvas) ? webglCompositeCanvas : canvas;
+            const { dataUrl, displayWidth, displayHeight, dimensions } = captureFrame(snapCanvas, {
               scaleFactor: 3,
               displayMax: 200
             });
             const ts = formatTimestamp();
-          
+
             // Get the source code and look up its cached $code identifier
             const embeddedSource = window.__acCurrentKidlispCode || null;
             // Prefer codeId passed from kidlisp.com, then fall back to getCachedCode lookup
