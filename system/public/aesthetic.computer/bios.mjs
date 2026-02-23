@@ -2156,7 +2156,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   async function loadBeacon(network = "ghostnet") {
     if (!beaconSDK) {
-      beaconSDK = await import("https://esm.sh/@airgap/beacon-sdk@4.0.12?bundle");
+      beaconSDK = await import("https://esm.sh/v135/@airgap/beacon-sdk@4.0.12/es2022/beacon-sdk.bundle.mjs");
     }
     const { DAppClient, NetworkType } = beaconSDK;
     const networkType = network === "mainnet" ? NetworkType.MAINNET : NetworkType.GHOSTNET;
@@ -2270,7 +2270,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     console.log("🔷 Connecting wallet via Beacon SDK...");
 
     try {
-      const { PermissionScope } = beaconSDK || await import("https://esm.sh/@airgap/beacon-sdk@4.0.12?bundle");
+      const { PermissionScope } = beaconSDK || await import("https://esm.sh/v135/@airgap/beacon-sdk@4.0.12/es2022/beacon-sdk.bundle.mjs");
       const client = await loadBeacon(network);
 
       const permissions = await client.requestPermissions({
