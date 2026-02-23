@@ -718,10 +718,10 @@ export async function createBundle(pieceName, onProgress = () => {}, nocompress 
     const compressed = brotliCompressSync(htmlBuf, {
       params: { [zlibConstants.BROTLI_PARAM_MODE]: zlibConstants.BROTLI_MODE_TEXT, [zlibConstants.BROTLI_PARAM_QUALITY]: 11 },
     });
-    finalHtml = generateSelfExtractingBrotliHTML(PIECE_NAME, compressed.toString("base64"), bgColor);
+    finalHtml = generateSelfExtractingBrotliHTML(PIECE_NAME, compressed.toString("base64"), bgColor, boxArtPNG);
   } else {
     const compressed = gzipSync(htmlBuf, { level: 9 });
-    finalHtml = generateSelfExtractingHTML(PIECE_NAME, compressed.toString("base64"), bgColor);
+    finalHtml = generateSelfExtractingHTML(PIECE_NAME, compressed.toString("base64"), bgColor, boxArtPNG);
   }
 
   return { html: finalHtml, filename, sizeKB: Math.round(finalHtml.length / 1024), mainSource, authorHandle, userCode, packDate, depCount };
@@ -796,10 +796,10 @@ export async function createJSPieceBundle(pieceName, onProgress = () => {}, noco
     const compressed = brotliCompressSync(htmlBuf, {
       params: { [zlibConstants.BROTLI_PARAM_MODE]: zlibConstants.BROTLI_MODE_TEXT, [zlibConstants.BROTLI_PARAM_QUALITY]: 11 },
     });
-    finalHtml = generateSelfExtractingBrotliHTML(pieceName, compressed.toString("base64"));
+    finalHtml = generateSelfExtractingBrotliHTML(pieceName, compressed.toString("base64"), null, boxArtPNG);
   } else {
     const compressed = gzipSync(htmlBuf, { level: 9 });
-    finalHtml = generateSelfExtractingHTML(pieceName, compressed.toString("base64"));
+    finalHtml = generateSelfExtractingHTML(pieceName, compressed.toString("base64"), null, boxArtPNG);
   }
 
   return { html: finalHtml, filename, sizeKB: Math.round(finalHtml.length / 1024) };
@@ -890,8 +890,11 @@ export async function createM4DBundle(pieceName, isJSPiece, onProgress = () => {
 
 // ─── Self-extracting HTML wrapper ───────────────────────────────────
 
-function generateSelfExtractingHTML(title, gzipBase64, bgColor = null) {
+function generateSelfExtractingHTML(title, gzipBase64, bgColor = null, boxArtPNG = null) {
   const bgRule = bgColor ? `background:${bgColor};` : "";
+  const boxArtTag = boxArtPNG
+    ? `<img id="ac-box-art" src="data:image/png;base64,${boxArtPNG}" alt="${title}" style="position:fixed;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;">`
+    : "";
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -900,6 +903,7 @@ function generateSelfExtractingHTML(title, gzipBase64, bgColor = null) {
   <style>body{margin:0;${bgRule}overflow:hidden}</style>
 </head>
 <body>
+  ${boxArtTag}
   <script>
     // Use blob: URL instead of data: URL for CSP compatibility (objkt sandboxing)
     const b64='${gzipBase64}';
@@ -919,9 +923,12 @@ function generateSelfExtractingHTML(title, gzipBase64, bgColor = null) {
 </html>`;
 }
 
-function generateSelfExtractingBrotliHTML(title, brotliBase64, bgColor = null) {
+function generateSelfExtractingBrotliHTML(title, brotliBase64, bgColor = null, boxArtPNG = null) {
   if (!brotliWasmGzBase64) throw new Error("Brotli WASM decoder not loaded");
   const bgRule = bgColor ? `background:${bgColor};` : "";
+  const boxArtTag = boxArtPNG
+    ? `<img id="ac-box-art" src="data:image/png;base64,${boxArtPNG}" alt="${title}" style="position:fixed;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;">`
+    : "";
   // The inline script:
   // 1. Decompresses the WASM decoder binary using browser's native gzip DecompressionStream
   // 2. Instantiates the brotli-dec-wasm WASM module with minimal glue
@@ -935,6 +942,7 @@ function generateSelfExtractingBrotliHTML(title, brotliBase64, bgColor = null) {
   <style>body{margin:0;${bgRule}overflow:hidden}</style>
 </head>
 <body>
+  ${boxArtTag}
   <script>(async()=>{
     const d=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
     const gz=async b=>new Uint8Array(await new Response(new Blob([b]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());
