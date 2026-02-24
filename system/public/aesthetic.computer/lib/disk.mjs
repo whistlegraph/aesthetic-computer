@@ -665,11 +665,13 @@ let debug = false; // This can be overwritten on boot.
 let nopaintPerf = false; // Performance panel for nopaint system debugging (disabled by default)
 let visible = true; // Is aesthetic.computer visibly rendering or not?
 let pieceBackground = false; // Does the current piece want background sim ticks?
-// True screen buffer state — set on create/resize, never touched by page() sub-buffer calls.
-// Used to restore screen after brushes call page(system.painting) and corrupt screen.pixels.
+// True screen buffer state — refreshed each frame after content.pixels transfer.
+// _mainScreenObject tracks the actual screen object so page() can detect when a brush
+// switches back to the main screen (vs a sub-buffer) by object identity.
 let _trueScreenPixels = null;
 let _trueScreenWidth = 0;
 let _trueScreenHeight = 0;
+let _mainScreenObject = null;
 
 // 🎯 Global KidLisp Instance - Single source of truth for all KidLisp operations
 let globalKidLispInstance = null;
@@ -5965,21 +5967,28 @@ const $paintApiUnwrapped = {
       // console.log("New paint api?", arguments[0].api);
       // $activePaintApi = arguments[0].api;
     }
-    // console.log(arguments);
 
-    // const oldScreen = $activePaintApi.screen;
-    // Update the existing screen object's properties instead of replacing it
-    // This preserves methods like load, save, center that are attached to screen
-    $activePaintApi.screen.width = arguments[0].width;
-    $activePaintApi.screen.height = arguments[0].height;
-    $activePaintApi.screen.pixels = arguments[0].pixels;
-    //console.log(
-    //  "Updated active paint api:",
-    //  $activePaintApi.screen.width,
-    //  $activePaintApi.screen.height,
-    //);
-    // }
-    graph.setBuffer(...arguments);
+    const buf = arguments[0];
+
+    // If this is the main screen object (by identity), restore its true state.
+    // Brushes like smear call page(system.painting) which corrupts screen.pixels/
+    // width/height. When they later call page(screen), we recognise the original
+    // screen object and restore from the frame-start snapshot so subsequent code
+    // (including other brushes and the nopaint pre-processing restore at line ~12788)
+    // sees correct dimensions immediately rather than at end-of-frame.
+    if (buf === _mainScreenObject && _trueScreenPixels) {
+      buf.pixels = _trueScreenPixels;
+      buf.width = _trueScreenWidth;
+      buf.height = _trueScreenHeight;
+    } else {
+      // Switching to a sub-buffer: propagate its dimensions into screen so that
+      // code reading screen.width/height while on this buffer gets correct values.
+      $activePaintApi.screen.width = buf.width;
+      $activePaintApi.screen.height = buf.height;
+      $activePaintApi.screen.pixels = buf.pixels;
+    }
+
+    graph.setBuffer(buf);
   },
   edit: graph.changePixels, // Edit pixels by pasing a callback.
   // Color
@@ -12530,10 +12539,12 @@ async function makeFrame({ data: { type, content } }) {
       $api.screen.center = { x: screen.width / 2, y: screen.height / 2 };
 
       // Snapshot true screen state each frame (after content.pixels transfer).
-      // page(sub-buffer) mutates screen in place; we restore it after paint.
+      // page(sub-buffer) mutates screen in place; _mainScreenObject lets page()
+      // detect by identity when we're returning to the main screen and restore.
       _trueScreenPixels = screen.pixels;
       _trueScreenWidth = screen.width;
       _trueScreenHeight = screen.height;
+      _mainScreenObject = screen;
 
       $api.fps = function (newFps) {
         // Use piece-level timing instead of changing global render loop
