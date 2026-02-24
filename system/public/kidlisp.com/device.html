@@ -221,6 +221,12 @@
       z-index: 0;
       opacity: 0;
     }
+
+    /* Calm initial fade-in — removed when first piece is ready */
+    #display-iframe.calm-fade-in {
+      opacity: 0;
+      transition: opacity 3s ease;
+    }
     
     /* Boot screen - now handled by iframe's boot animation */
     #boot-screen {
@@ -2550,6 +2556,8 @@
     if (isCalmPlaylist) {
       const overlay = document.getElementById('source-overlay');
       if (overlay) overlay.style.display = 'none';
+      // Start front iframe invisible — fade in when first piece is ready
+      iframe.classList.add('calm-fade-in');
     }
 
     const logDevice = (...args) => {
@@ -2710,6 +2718,7 @@
     let slideshowPlaylist = null;  // The fetched DP-1 playlist
     let slideshowIndex = startIndex;  // Current item index
     let slideshowTimer = null;  // Timer for auto-advance
+    let shuffleDeck = [];  // Calm shuffle deck — indices popped in order, reshuffled when empty
     let slideshowSources = {};  // Batch-fetched sources { code: { source, handle, hits, when } }
     let slideshowInitialBoot = true;  // True until first piece sends "ready:"
     let slideshowCacheWarmed = false;  // True after cache data sent to iframe
@@ -2744,6 +2753,7 @@
       if (popout) p.set('popout', 'true');
       if (perf) p.set('perf', 'true');
       if (crossfadeEnabled) p.set('crossfade', CROSSFADE_MS);
+      if (crossfadeEnabled) p.set('maxfps', '60'); // Cap at 60fps for calm display mode
       p.set('noboot', 'true'); // Skip boot animation for clean device display
       p.set('t', Date.now()); // Cache bust
       return p.toString();
@@ -2922,6 +2932,17 @@
       };
     }
     
+    // Fisher-Yates shuffle of [0..length), optionally excluding one index
+    // (used for calm shuffle: exclude last-played to avoid immediate repeat on reshuffle)
+    function buildShuffleDeck(length, excludeIndex = -1) {
+      const indices = Array.from({ length }, (_, i) => i).filter(i => i !== excludeIndex);
+      for (let i = indices.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [indices[i], indices[j]] = [indices[j], indices[i]];
+      }
+      return indices;
+    }
+
     async function initSlideshow() {
       console.log('📺 Initializing slideshow mode with URL:', playlistUrl);
       
@@ -2959,6 +2980,13 @@
         // Clamp start index to valid range
         if (slideshowIndex >= slideshowPlaylist.items.length) {
           slideshowIndex = 0;
+        }
+
+        // Calm shuffle: build deck and pick first item randomly
+        if (isCalmPlaylist) {
+          shuffleDeck = buildShuffleDeck(slideshowPlaylist.items.length);
+          slideshowIndex = shuffleDeck.pop();
+          console.log('🎴 Calm shuffle deck built:', shuffleDeck.length + 1, 'items, starting at index', slideshowIndex);
         }
 
         // Set page title
@@ -3045,7 +3073,12 @@
 
       const codeId = (item.title || '').startsWith('$') ? item.title : `$${item.title || ''}`;
       const code = codeId.replace('$', '');
-      console.log('📺 Playing item', slideshowIndex + 1, '/', slideshowPlaylist.items.length, ':', codeId);
+      const sourcePreview = slideshowSources[code]?.source?.trim().slice(0, 60).replace(/\n/g, ' ') || '(source pending)';
+      if (isCalmPlaylist) {
+        console.log(`🌿 Calm [${slideshowIndex + 1}/${slideshowPlaylist.items.length}] ${codeId} — ${sourcePreview}`);
+      } else {
+        console.log('📺 Playing item', slideshowIndex + 1, '/', slideshowPlaylist.items.length, ':', codeId);
+      }
 
       // Reset progress bar flag for new piece
       progressBarStarted = false;
@@ -3089,7 +3122,8 @@
 
         // Progress bar starts when "ready:" arrives
         window.pendingSlideshowDuration = duration;
-        console.log('📺 Initial boot — waiting for piece ready...');
+        if (isCalmPlaylist) console.log(`🌿 Calm boot — ${codeId} — ${sourcePreview}`);
+        else console.log('📺 Initial boot — waiting for piece ready...');
       } else if (crossfadeEnabled) {
         // ═══ CALM CROSSFADE: Load next piece in back iframe, crossfade live ═══
         // Use scramble animation for overlay text (skip for calm — no overlay)
@@ -3106,7 +3140,7 @@
         const itemUrl = resolveItemUrl(item);
         crossfadeActive = true;
         backIframe.src = itemUrl;
-        console.log('🌊 Crossfade: loading next piece in back iframe', codeId);
+        console.log(`🌊 Crossfade → ${codeId} — ${sourcePreview}`);
         // The crossfade starts when backIframe sends "ready:" (handled in message listener)
 
       } else {
@@ -3136,7 +3170,16 @@
 
       // Set timer to advance to next item
       slideshowTimer = setTimeout(() => {
-        slideshowIndex = (slideshowIndex + 1) % slideshowPlaylist.items.length;
+        if (isCalmPlaylist) {
+          // Deck shuffle: pop next index; reshuffle when empty, excluding last-played
+          if (shuffleDeck.length === 0) {
+            shuffleDeck = buildShuffleDeck(slideshowPlaylist.items.length, slideshowIndex);
+            console.log('🎴 Calm shuffle deck exhausted — reshuffled', shuffleDeck.length, 'items');
+          }
+          slideshowIndex = shuffleDeck.pop();
+        } else {
+          slideshowIndex = (slideshowIndex + 1) % slideshowPlaylist.items.length;
+        }
         playCurrentItem();
       }, duration * 1000);
     }
@@ -4115,6 +4158,12 @@
         // Start progress bar when piece is fully ready (after black screen / loading)
         // "ready: ..." is the final boot message indicating piece is running
         if (msg?.startsWith?.('ready:')) {
+          // 🌅 Calm initial fade-in: first piece ready on front iframe
+          if (crossfadeEnabled && slideshowInitialBoot && e.source === frontIframe.contentWindow) {
+            frontIframe.classList.remove('calm-fade-in');
+            console.log('🌅 Calm initial fade-in triggered');
+          }
+
           // 🌊 Crossfade: back iframe is ready — start the live crossfade
           if (crossfadeActive && e.source === backIframe.contentWindow) {
             console.log('🌊 Back iframe ready — starting crossfade');

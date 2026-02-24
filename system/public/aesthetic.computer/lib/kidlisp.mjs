@@ -6536,7 +6536,6 @@ class KidLisp {
         // 🎯 CRITICAL FIX: When embedded layers exist, defer zoom to post-composite
         // This ensures zoom affects the ENTIRE composite (including embedded layers)
         // Not just layer0 or the burn buffer
-        console.log(`🔍 ZOOM DIAG: embeddedLayers=${this.embeddedLayers?.length}, inEmbed=${this.inEmbedPhase}, isEmbedded=${this.isEmbeddedContext}, args=${JSON.stringify(args)}`);
         if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase && !this.isEmbeddedContext) {
           this.postCompositeCommands.push({
             name: 'zoom',
@@ -9708,7 +9707,6 @@ class KidLisp {
             result = timingResult;
           } else if (seconds < 0.016) {
             // For very small intervals (less than ~60fps), limit to 60fps max to prevent excessive triggering
-            console.log(`⏰ FAST TIMING: ${head} (${seconds}s) using 60fps limiting`);
             const minInterval = 0.016; // ~16ms, roughly 60fps
             const clockResult = api.clock.time();
             if (!clockResult) continue;

@@ -490,7 +490,7 @@ const LEGITIMATE_PARAMS = [
   'supportForgotPassword', 'message', 'vscode', 'nogap', 'nolabel', 
   'density', 'zoom', 'duration', 'session-aesthetic', 'session-sotce', 'notice', 'tv', 'highlight',
   'noauth', 'nocache', 'daw', 'width', 'height', 'desktop', 'device', 'perf', 'auto-scale', 'solo',
-  'crossfade'
+  'crossfade', 'maxfps'
 ];
 
 // Auth0 parameters that need to be temporarily processed but then removed
@@ -1165,6 +1165,10 @@ const autoScale = autoScaleParam === true || autoScaleParam === "true";
 const soloParam = params.has("solo") || location.search.includes("solo");
 const solo = soloParam === true || soloParam === "true";
 
+// Check for maxfps parameter (caps render framerate, e.g. maxfps=60 for calm display mode)
+const maxfpsParam = params.get("maxfps");
+const maxfps = maxfpsParam ? parseInt(maxfpsParam, 10) : null;
+
 // Note: zoom parameter is available but not automatically applied to avoid text rendering issues
 // It's passed to the boot function for selective use
 
@@ -1185,7 +1189,7 @@ if (window.acVSCODE) {
 
 // Pass the parameters directly without stripping them
 bootLog(`booting: ${parsed?.text || 'prompt'}`);
-boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom, duration, tv, highlight, desktop, device, perf, autoScale, solo }, debug);
+boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom, duration, tv, highlight, desktop, device, perf, autoScale, solo, maxfps }, debug);
 
 // Start processing any early kidlisp messages that arrived before boot completed
 processEarlyKidlispQueue();
