@@ -9,12 +9,13 @@
 #endregion */
 
 import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
+import {
+  KEEPS_STAGING, DEFAULT_NETWORK, getNetwork, getContract,
+  getTzktApi, getObjktUrl, getTzktContractUrl,
+} from "../lib/keeps/constants.mjs";
 
-// Current Keeps contract (mainnet staging v5 RC)
-const KEEPS_CONTRACT = "KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido";
-const KEEPS_NETWORK = "mainnet";
-// TODO: Set to false when switching to production mainnet contract
-const KEEPS_STAGING = true;
+const KEEPS_NETWORK = DEFAULT_NETWORK;
+const KEEPS_CONTRACT = getContract(KEEPS_NETWORK);
 
 // State
 let walletState = null;
@@ -194,12 +195,6 @@ function drawGhost(ink, box, x, y, bodyColor = [255, 180, 50], size = 1, eyeOffs
   box(x + (9 + eyeOffset.x) * size, y + (5 + eyeOffset.y) * size, size, 2 * size);
 }
 
-// Get API base URL based on network
-function getApiBase(network) {
-  return network === "mainnet"
-    ? "https://api.tzkt.io"
-    : "https://api.ghostnet.tzkt.io";
-}
 
 // KidLisp syntax highlighting colors
 const syntaxColors = {
@@ -480,7 +475,7 @@ function generateStreamChars() {
 
 async function fetchTezPrice(network = "mainnet") {
   try {
-    const apiBase = getApiBase(network);
+    const apiBase = getTzktApi(network);
     const res = await fetch(`${apiBase}/v1/quotes/last`);
     if (res.ok) {
       const data = await res.json();
@@ -494,7 +489,7 @@ async function fetchTezPrice(network = "mainnet") {
 
 async function fetchHeadBlock(network = "mainnet") {
   try {
-    const apiBase = getApiBase(network);
+    const apiBase = getTzktApi(network);
     const res = await fetch(`${apiBase}/v1/head`);
     if (res.ok) {
       const newHead = await res.json();
@@ -509,7 +504,7 @@ async function fetchHeadBlock(network = "mainnet") {
 
 async function fetchTransactions(address, network = "mainnet") {
   try {
-    const apiBase = network === "mainnet" ? "https://api.tzkt.io" : "https://api.ghostnet.tzkt.io";
+    const apiBase = getTzktApi(network);
     const res = await fetch(`${apiBase}/v1/accounts/${address}/operations?limit=5&type=transaction`);
     if (res.ok) {
       const data = await res.json();
@@ -527,7 +522,7 @@ async function fetchTransactions(address, network = "mainnet") {
 
 async function fetchNFTCount(address, network = "mainnet") {
   try {
-    const apiBase = network === "mainnet" ? "https://api.tzkt.io" : "https://api.ghostnet.tzkt.io";
+    const apiBase = getTzktApi(network);
     const res = await fetch(`${apiBase}/v1/tokens/balances?account=${address}&balance.gt=0&limit=1000`);
     if (res.ok) {
       const data = await res.json();
@@ -541,7 +536,7 @@ async function fetchOwnedKeeps(address, network = "mainnet") {
   if (!address) return;
 
   try {
-    const apiBase = network === "mainnet" ? "https://api.tzkt.io" : "https://api.ghostnet.tzkt.io";
+    const apiBase = getTzktApi(network);
     // Query tokens owned by this address on the Keeps contract (include balance=0 for burned)
     const res = await fetch(`${apiBase}/v1/tokens/balances?account=${address}&token.contract=${KEEPS_CONTRACT}`);
     if (res.ok) {
@@ -590,7 +585,7 @@ async function fetchOwnedKeeps(address, network = "mainnet") {
           mintedAt: mintedAt ? new Date(mintedAt) : null,
           lastActivity: burned ? burn.burnedAt : (mintedAt ? new Date(mintedAt) : null),
           contract: KEEPS_CONTRACT,
-          objktUrl: `https://objkt.com/asset/${KEEPS_CONTRACT}/${tokenId}`,
+          objktUrl: getObjktUrl(tokenId, network),
           thumbnailUri: meta.thumbnailUri || meta.displayUri || meta.artifactUri || null,
           artifactUri: meta.artifactUri || null,
         };
@@ -930,7 +925,7 @@ function paint($) {
           mintedAt: owned?.mintedAt || (p.kept?.mintedAt ? new Date(p.kept.mintedAt) : null),
           lastActivity: owned?.lastActivity || owned?.mintedAt || (p.kept?.mintedAt ? new Date(p.kept.mintedAt) : null),
           balance: owned?.balance || 0,
-          objktUrl: owned?.objktUrl || (tid ? `https://objkt.com/tokens/${KEEPS_CONTRACT}/${tid}` : `https://objkt.com/collection/${KEEPS_CONTRACT}`),
+          objktUrl: owned?.objktUrl || (tid ? getObjktUrl(tid, KEEPS_NETWORK) : `${getNetwork(KEEPS_NETWORK).objkt}/collection/${KEEPS_CONTRACT}`),
           authored: true,
           source: p.source || '',
           hits: p.hits || 0,
@@ -996,7 +991,7 @@ function paint($) {
         if (KEEPS_STAGING) {
           const stagingX = innerX + 132; // After "YOUR KIDLISP KEEPS on "
           if (!stagingLinkBtn) {
-            stagingLinkBtn = new ui.TextButtonSmall("STAGING V3 ", { x: stagingX, y: headerY - 1 });
+            stagingLinkBtn = new ui.TextButtonSmall("STAGING V5 RC", { x: stagingX, y: headerY - 1 });
           } else {
             stagingLinkBtn.reposition({ x: stagingX, y: headerY - 1 });
           }
@@ -1349,8 +1344,7 @@ function act({ event: e, wallet, jump, screen, net }) {
     if (KEEPS_STAGING && stagingLinkBtn) {
       stagingLinkBtn.btn.act(e, {
         push: () => {
-          const objktUrl = `https://objkt.com/collections/${KEEPS_CONTRACT}`;
-          // Opening objkt...
+          const objktUrl = `${getNetwork(KEEPS_NETWORK).objkt}/collection/${KEEPS_CONTRACT}`;
           net.web(objktUrl, true);
         }
       });
@@ -1360,9 +1354,7 @@ function act({ event: e, wallet, jump, screen, net }) {
     for (const [tokenId, btn] of Object.entries(ownedKeepBtns)) {
       btn.btn.act(e, {
         push: () => {
-          const objktUrl = `https://objkt.com/tokens/${KEEPS_CONTRACT}/${tokenId}`;
-          // Opening token...
-          net.web(objktUrl, true);
+          net.web(getObjktUrl(tokenId, KEEPS_NETWORK), true);
         }
       });
     }
