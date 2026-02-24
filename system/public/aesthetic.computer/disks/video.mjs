@@ -317,13 +317,14 @@ function paint({
   wipe(0, 0, 0, 0);
 
   // 🔍 DEBUG: sample pixel buffer after wipe to confirm transparency
-  if (paintCount < 10n || paintCount % 60n === 0n) {
+  const _pc = Number(paintCount);
+  if (_pc < 10 || _pc % 60 === 0) {
     const p = screen.pixels;
     if (p?.length >= 4) {
       const r = p[0], g = p[1], b = p[2], a = p[3];
       const mid = Math.floor(p.length / 2);
       const mr = p[mid], mg = p[mid+1], mb = p[mid+2], ma = p[mid+3];
-      console.log(`🎬 VIDEO paint #${paintCount}: buf=${p.length} (${screen.width}×${screen.height}) corner=[${r},${g},${b},${a}] mid=[${mr},${mg},${mb},${ma}]`);
+      console.log(`🎬 VIDEO paint #${_pc}: buf=${p.length} (${screen.width}×${screen.height}) corner=[${r},${g},${b},${a}] mid=[${mr},${mg},${mb},${ma}]`);
     }
   }
 
@@ -527,7 +528,7 @@ function paint({
       }
       
       // Add simple animated ellipsis
-      const dots = Math.floor(paintCount / 20) % 4;
+      const dots = Math.floor(Number(paintCount) / 20) % 4;
       text += ".".repeat(dots);
 
       const barWidth = Math.max(1, Math.floor(printProgress * screen.width)); // Overall progress
