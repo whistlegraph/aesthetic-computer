@@ -15,7 +15,7 @@
 
 import { authorize, handleFor, hasAdmin } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
-import { analyzeKidLisp, ANALYZER_VERSION } from "../../backend/kidlisp-analyzer.mjs";
+import { analyzeKidLisp } from "../../backend/kidlisp-analyzer.mjs";
 import { stream } from "@netlify/functions";
 import { TezosToolkit } from "@taquito/taquito";
 import { InMemorySigner } from "@taquito/signer";
@@ -916,11 +916,10 @@ export const handler = stream(async (event, context) => {
       // Use analyzer traits + add author/packed info as attributes
       const attributes = [
         ...analysis.traits,
-        ...(authorHandle && authorHandle !== "@anon" ? [{ name: "Handle", value: `@${authorHandle.replace(/^@/, "")}` }] : []),
-        ...(userCode ? [{ name: "User Code", value: userCode }] : []),
+        ...(authorHandle && authorHandle !== "@anon" ? [{ name: "Author Handle", value: `@${authorHandle.replace(/^@/, "")}` }] : []),
+        ...(userCode ? [{ name: "Author Code", value: userCode }] : []),
         ...(depCount > 0 ? [{ name: "Dependencies", value: String(depCount) }] : []),
         ...(packDate ? [{ name: "Packed", value: packDate }] : []),
-        { name: "Analyzer Version", value: ANALYZER_VERSION },
       ];
 
       // Creator identity for metadata
