@@ -13876,11 +13876,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           frameCan.height = recordedFrames[0][1].height;
         }
 
-        // Scale the underlay canvas to fill the viewport (canvas px != CSS px at high DPR).
-        // Without this, a 130×281 canvas on a DPR=3 device would render as 130×281 CSS pixels
-        // in a 390×844 viewport — only a tiny corner of the screen shows the video.
-        frameCan.style.width = "100%";
-        frameCan.style.height = "100%";
+        // Fill the fixed-position parent reliably on all browsers (including iOS Safari).
+        // Using position:absolute + inset:0 is more reliable than width/height:100% on iOS,
+        // where height:100% inside a fixed div may not stretch to full viewport height —
+        // causing the canvas to render at its attribute height only, appearing stretched
+        // horizontally (widescreen) with a black area below.
+        frameCan.style.position = "absolute";
+        frameCan.style.inset = "0";
         frameCan.style.imageRendering = "pixelated";
 
         startTapePlayback = (
