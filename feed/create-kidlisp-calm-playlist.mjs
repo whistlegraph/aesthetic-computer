@@ -23,11 +23,7 @@ const calmPieces = [
   'air',
   '4bb',
   'noc',
-  'woe',
-  'otoc',
   'rip',
-  'ger',
-  'wul',
   'xkq',
 ];
 

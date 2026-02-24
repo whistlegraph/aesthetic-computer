@@ -56,11 +56,11 @@
     {
       "slot": 5,
       "type": "static",
-      "id": "5a328df6-3d80-4548-82ef-367ebac3de56",
+      "id": "e6a52da5-62c8-40cb-a9d5-f99ceac6a7d0",
       "title": "Calm",
       "description": "Hand-curated calming KidLisp pieces (calm.kidlisp.com)",
-      "items": 2,
-      "url": "https://feed.aesthetic.computer/api/v1/playlists/5a328df6-3d80-4548-82ef-367ebac3de56",
+      "items": 11,
+      "url": "https://feed.aesthetic.computer/api/v1/playlists/e6a52da5-62c8-40cb-a9d5-f99ceac6a7d0",
       "generator": "create-kidlisp-calm-playlist.mjs"
     }
   ],
