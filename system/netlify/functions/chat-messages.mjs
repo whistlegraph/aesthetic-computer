@@ -26,7 +26,7 @@ export async function handler(event, context) {
     const params = event.queryStringParameters || {};
     const instance = params.instance || "system";
     const limit = parseInt(params.limit || "50", 10);
-    
+
     if (limit > 100) {
       return respond(400, { message: "Limit cannot exceed 100" });
     }
@@ -40,11 +40,11 @@ export async function handler(event, context) {
         shell.log(`📨 Fetching ${limit} messages for chat instance: ${instance}`);
 
         const database = await connect();
-        
+
         // Use different collections based on instance
         const collectionName = instance === "clock" ? "chat-clock" : "chat-system";
         const collection = database.db.collection(collectionName);
-        
+
         shell.log(`📂 Using collection: ${collectionName} for instance: ${instance}`);
 
         // Query for messages, sorted by timestamp descending
@@ -57,42 +57,25 @@ export async function handler(event, context) {
         // Reverse to get chronological order (oldest to newest)
         messages.reverse();
 
-        // Resolve handles from user subs using the handle API
-        const messagesWithHandles = await Promise.all(
-          messages.map(async (msg) => {
-            let handle = "anon";
-            
-            if (msg.user) {
-              try {
-                // Determine prefix based on instance
-                let prefix = "";
-                if (instance === "sotce") prefix = "sotce-";
-                
-                // Always use production URL for handle lookup (even in dev)
-                const handleUrl = `https://aesthetic.computer/handle?for=${prefix}${msg.user}`;
-                
-                const handleResponse = await fetch(handleUrl);
-                
-                if (handleResponse.status === 200) {
-                  const handleData = await handleResponse.json();
-                  if (handleData.handle) {
-                    handle = "@" + handleData.handle;
-                  }
-                } else {
-                  shell.log(`⚠️ Handle lookup failed for user ${msg.user}: ${handleResponse.status}`);
-                }
-              } catch (error) {
-                shell.error(`❌ Handle lookup error for user ${msg.user}:`, error.message);
-              }
-            }
-            
-            return {
-              from: handle,
-              text: msg.text,
-              when: msg.when,
-            };
-          })
-        );
+        // Resolve handles via direct DB lookup (not HTTP) to avoid N+1 self-calls
+        const uniqueUserIds = [...new Set(messages.map(m => m.user).filter(Boolean))];
+        const handleMap = new Map();
+
+        if (uniqueUserIds.length > 0) {
+          const handles = database.db.collection("@handles");
+          const handleRecords = await handles
+            .find({ _id: { $in: uniqueUserIds } })
+            .toArray();
+          for (const rec of handleRecords) {
+            handleMap.set(rec._id, "@" + rec.handle);
+          }
+        }
+
+        const messagesWithHandles = messages.map((msg) => ({
+          from: (msg.user && handleMap.get(msg.user)) || "anon",
+          text: msg.text,
+          when: msg.when,
+        }));
 
         await database.disconnect();
 

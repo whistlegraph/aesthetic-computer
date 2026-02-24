@@ -293,9 +293,9 @@ async function fetchTapes(db, { limit }) {
   await Promise.all(uniqueDids.map(async (did) => {
     try {
       const atprotoUrl = `${PDS_URL}/xrpc/com.atproto.repo.listRecords?repo=${did}&collection=computer.aesthetic.tape&limit=100`;
-      const atRes = await fetch(atprotoUrl);
+      const atRes = await fetch(atprotoUrl, { signal: AbortSignal.timeout(5000) });
       if (!atRes.ok) return;
-      
+
       const atData = await atRes.json();
       for (const atRecord of atData.records || []) {
         if (atRecord.value?.video?.ref?.$link && atRecord.value?.code) {
@@ -533,31 +533,47 @@ async function fetchTVFeed({ requestedTypes, limit, filter, sort, boost }) {
     // This ensures we have enough items from each type to create a well-mixed feed
     const fetchLimit = limit * 3;
 
+    // Fetch all media types in parallel (they're independent DB queries)
+    const fetchPromises = [];
     for (const type of typesToFetch) {
       console.log(`📺 Fetching ${type}...`);
       if (type === "painting") {
-        media.paintings = await fetchPaintings(database.db, { limit: fetchLimit });
-        console.log(`📺 Fetched ${media.paintings.length} paintings`);
+        fetchPromises.push(
+          fetchPaintings(database.db, { limit: fetchLimit }).then(r => {
+            media.paintings = r;
+            console.log(`📺 Fetched ${r.length} paintings`);
+          })
+        );
       } else if (type === "kidlisp") {
-        // When sorting by hits, use the direct limit to get true top N
-        // Otherwise use fetchLimit for frecency mixing
         const kidlispLimit = sort === 'hits' ? limit : fetchLimit;
-        media.kidlisp = await fetchKidlisp(database.db, { limit: kidlispLimit, sort, boost });
-        console.log(`📺 Fetched ${media.kidlisp.length} kidlisp items`);
+        fetchPromises.push(
+          fetchKidlisp(database.db, { limit: kidlispLimit, sort, boost }).then(r => {
+            media.kidlisp = r;
+            console.log(`📺 Fetched ${r.length} kidlisp items`);
+          })
+        );
       } else if (type === "tape") {
-        media.tapes = await fetchTapes(database.db, { limit: fetchLimit });
-        console.log(`📺 Fetched ${media.tapes.length} tapes`);
+        fetchPromises.push(
+          fetchTapes(database.db, { limit: fetchLimit }).then(r => {
+            media.tapes = r;
+            console.log(`📺 Fetched ${r.length} tapes`);
+          })
+        );
       } else if (type === "clock") {
-        media.clocks = await fetchClocks(database.db, { limit: fetchLimit });
-        console.log(`📺 Fetched ${media.clocks.length} clocks`);
+        fetchPromises.push(
+          fetchClocks(database.db, { limit: fetchLimit }).then(r => {
+            media.clocks = r;
+            console.log(`📺 Fetched ${r.length} clocks`);
+          })
+        );
       } else if (["mood", "scream", "chat"].includes(type)) {
-        // Reserve keys for upcoming media types so clients can experiment early.
         media[`${type}s`] = [];
         pendingTypes.push(type);
       } else {
         unsupportedTypes.push(type);
       }
     }
+    await Promise.all(fetchPromises);
 
     const counts = Object.fromEntries(
       Object.entries(media).map(([key, value]) => [key, Array.isArray(value) ? value.length : 0]),
