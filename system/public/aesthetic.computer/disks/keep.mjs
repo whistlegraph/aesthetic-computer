@@ -1796,10 +1796,10 @@ function paint($) {
       for (const entry of rebakeStageLog) {
         const label = stageNames[entry.stage] || entry.stage;
         if (entry.done) {
-          ink(100, 220, 150).write(`✓ ${label}`, { x: 8, y }, undefined, undefined, false, "MatrixChunky8");
+          ink(100, 220, 150).write(`+ ${label}`, { x: 8, y }, undefined, undefined, false, "MatrixChunky8");
         } else {
           const glow = floor(180 + sin(rotation * 5) * 75);
-          ink(255, 200, 100, glow).write(`► ${label}`, { x: 8, y }, undefined, undefined, false, "MatrixChunky8");
+          ink(255, 200, 100, glow).write(`> ${label}`, { x: 8, y }, undefined, undefined, false, "MatrixChunky8");
           ink(150, 140, 120).write(entry.message, { x: w - 6, y, right: true }, undefined, undefined, false, "MatrixChunky8");
         }
         y += 10;
@@ -2311,7 +2311,7 @@ function paint($) {
       
       // Action area for horizontal layout - condensed
       if (isAuthor === true) {
-        ink(100, 200, 130).write("✓ Your code", { x: cx, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+        ink(100, 200, 130).write("+ Your code", { x: cx, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
         cy += 10 + tinyGap;
         
         // Keep button
@@ -2372,7 +2372,7 @@ function paint($) {
         loginBtn.btn.box.h = loginSize.h;
         paintLgBtn(loginX, cy, loginText, { ink, line: ink }, loginScheme, loginBtn.btn.down || loginBtn.btn.over);
       } else if (isAuthor === false) {
-        ink(210, 110, 110).write("✗ Not yours", { x: cx, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+        ink(210, 110, 110).write("x Not yours", { x: cx, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
         cy += 10 + tinyGap;
         ink(130, 130, 145).write(pieceAuthor || "unknown", { x: cx, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
       } else if (isAnonymous) {
@@ -2513,8 +2513,7 @@ function paint($) {
     // Ownership status and action area
     if (isAuthor === true) {
       // User IS the author - show keep button
-      const checkmark = "✓";
-      const ownershipMsg = userHandle ? `${checkmark} Logged in as @${userHandle}` : `${checkmark} You wrote this code`;
+      const ownershipMsg = userHandle ? `+ Logged in as @${userHandle}` : `+ You wrote this code`;
       ink(100, 200, 130).write(ownershipMsg, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
       cy += 10 + vGap;
 
@@ -2611,7 +2610,7 @@ function paint($) {
       ink(110, 150, 195).write(loggedInMsg, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
       cy += 10 + vGap;
 
-      ink(210, 110, 110).write("✗ Not your code", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      ink(210, 110, 110).write("x Not your code", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
       cy += 12 + tinyGap;
 
       if (tightSpace) {
@@ -2962,10 +2961,10 @@ function paint($) {
         for (const entry of rebakeStageLog) {
           const label = stageNames[entry.stage] || entry.stage;
           if (entry.done) {
-            ink(100, 220, 150).write(`✓ ${label}`, { x: infoX, y: overlayY + (rebakeStageLog.indexOf(entry)) * 10 }, undefined, undefined, false, "MatrixChunky8");
+            ink(100, 220, 150).write(`+ ${label}`, { x: infoX, y: overlayY + (rebakeStageLog.indexOf(entry)) * 10 }, undefined, undefined, false, "MatrixChunky8");
           } else {
             const glow = floor(180 + sin(rotation * 5) * 75);
-            ink(255, 200, 100, glow).write(`► ${label}`, { x: infoX, y: overlayY + (rebakeStageLog.indexOf(entry)) * 10 }, undefined, undefined, false, "MatrixChunky8");
+            ink(255, 200, 100, glow).write(`> ${label}`, { x: infoX, y: overlayY + (rebakeStageLog.indexOf(entry)) * 10 }, undefined, undefined, false, "MatrixChunky8");
           }
         }
         // Expand the row to fit stages
@@ -3288,7 +3287,7 @@ function act({ event: e, screen }) {
                     if (eventData.metadataUri) preparedData.metadataUri = eventData.metadataUri;
                     preparedData.usedCachedMedia = false; // Now using fresh media
                     thumbnailBitmap = null; // Clear cached thumbnail so it reloads
-                    rebakeProgress = "✓ Regenerated!";
+                    rebakeProgress = "+ Regenerated!";
                     console.log("🪙 REBAKE complete:", eventData.artifactUri);
                     // Reload the thumbnail with the new IPFS URI (fire and forget)
                     if (eventData.thumbnailUri) {
@@ -3297,7 +3296,7 @@ function act({ event: e, screen }) {
                       );
                     }
                   } else if (eventType === "error") {
-                    rebakeProgress = "✗ " + (eventData.error || "Failed");
+                    rebakeProgress = "x " + (eventData.error || "Failed");
                     console.error("🪙 REBAKE error:", eventData);
                   }
                 } catch (e) {
@@ -3309,7 +3308,7 @@ function act({ event: e, screen }) {
           }
         } catch (err) {
           console.error("🪙 REBAKE failed:", err);
-          rebakeProgress = "✗ " + err.message;
+          rebakeProgress = "x " + err.message;
         } finally {
           rebaking = false;
           _needsPaint?.();
@@ -3544,12 +3543,12 @@ function act({ event: e, screen }) {
                       createdAt: eventData.createdAt,
                       packDate: eventData.packDate,
                     };
-                    rebakeProgress = "✓ Bundle regenerated!";
+                    rebakeProgress = "+ Bundle regenerated!";
                     _needsPaint?.();
                     console.log("🪙 REBAKE complete! New artifact:", rebakeResult.artifactUri, "Date:", eventData.createdAt || eventData.packDate);
                     // Clear success message after 3 seconds
                     setTimeout(() => {
-                      if (rebakeProgress === "✓ Bundle regenerated!") {
+                      if (rebakeProgress === "+ Bundle regenerated!") {
                         rebakeProgress = null;
                         _needsPaint?.();
                       }
@@ -3562,7 +3561,7 @@ function act({ event: e, screen }) {
                       );
                     }
                   } else if (eventType === "error") {
-                    rebakeProgress = "✗ " + (eventData.error || "Failed");
+                    rebakeProgress = "x " + (eventData.error || "Failed");
                     console.error("🪙 REBAKE error:", eventData);
                   }
                 } catch (e) {
@@ -3574,7 +3573,7 @@ function act({ event: e, screen }) {
           }
         } catch (err) {
           console.error("🪙 REBAKE failed:", err);
-          rebakeProgress = "✗ " + err.message;
+          rebakeProgress = "x " + err.message;
         } finally {
           rebaking = false;
           _needsPaint?.();
@@ -3696,7 +3695,7 @@ function act({ event: e, screen }) {
                     console.log("🪙 UPDATE CHAIN complete! Op hash:", data.opHash);
                   } else if (eventType === "error") {
                     console.error("🪙 UPDATE CHAIN error:", data.error);
-                    updateChainProgress = "✗ " + data.error;
+                    updateChainProgress = "x " + data.error;
                   }
                 } catch (e) {
                   // Ignore JSON parse errors
@@ -3742,15 +3741,15 @@ function act({ event: e, screen }) {
               rebakeResult = null;
               originalOnChainUris = null;
               console.log("🪙 UPDATE CHAIN complete! Op hash:", opHash);
-              updateChainProgress = "✓ Updated on-chain!";
+              updateChainProgress = "+ Updated on-chain!";
             } catch (walletErr) {
               console.error("🪙 UPDATE CHAIN wallet error:", walletErr);
-              updateChainProgress = "✗ " + (walletErr.message || "Wallet error");
+              updateChainProgress = "x " + (walletErr.message || "Wallet error");
             }
           }
         } catch (err) {
           console.error("🪙 UPDATE CHAIN failed:", err);
-          updateChainProgress = "✗ " + err.message;
+          updateChainProgress = "x " + err.message;
         } finally {
           updatingChain = false;
           _needsPaint?.();
