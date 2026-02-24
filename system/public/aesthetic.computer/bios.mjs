@@ -2330,7 +2330,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // This function is kept for future use with wallets that support it
   async function signTezosMessage(message) {
     if (!walletState.connected || !tezosWallet) {
-      throw new Error("Wallet not connected");
+      console.log("🔷 Wallet not connected for signing, attempting auto-restore...");
+      const restored = await restoreWalletSession();
+      if (!restored || !walletState.connected || !tezosWallet) {
+        throw new Error("Wallet not connected");
+      }
     }
     
     // Convert message to hex payload (Micheline format)
@@ -2456,9 +2460,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   }
   
   async function callTezosContract(contractAddress, method, args, amount = 0) {
-    // Use the connected wallet to send operations
+    // Auto-restore wallet session if not connected (session may have been
+    // lost between prepare and sign steps in the keep flow)
     if (!walletState.connected || !tezosWallet) {
-      throw new Error("Wallet not connected - use 'wallet' command first");
+      console.log("🔷 Wallet not connected, attempting auto-restore...");
+      const restored = await restoreWalletSession();
+      if (!restored || !walletState.connected || !tezosWallet) {
+        throw new Error("Wallet not connected - use 'wallet' command first");
+      }
+      console.log("🔷 Wallet auto-restored:", walletState.address?.slice(0, 8) + "...");
     }
     
     console.log("🔷 Calling contract:", contractAddress, method, "amount:", amount);
