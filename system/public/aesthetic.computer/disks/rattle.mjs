@@ -85,99 +85,88 @@ function boot({ wipe, motion, colon, net, store, sound, ui, screen }) {
 
 // 🎨 Paint
 function paint({
-  api,
   wipe,
   ink,
   motion,
   screen,
-  sound: { synth },
   goto,
   face,
   crawl,
   down,
   up,
+  box,
+  circle,
   ui,
 }) {
   wipe(0, 130, 80);
 
-  ink(255).write(
-     JSON.stringify(values, null, 1),
-     { x: 12, y: 20 },
-     "blue",
-     screen.width,
-   );
-   
-  // Draw stample mode button
+  // Draw mode button
   if (stampleBtn) {
-    // Update button text to reflect current mode
     stampleBtn.txt = type === "stample" ? "stample" : "noise";
     stampleBtn.reposition({ top: 8, right: 8, screen }, stampleBtn.txt);
-    
     const isStampleMode = type === "stample";
-    // scheme = [background, border, text, text-shadow]
-    const scheme = isStampleMode 
+    const scheme = isStampleMode
       ? ["orange", "yellow", "black", "orange"]
       : ["gray", "white", "white", "gray"];
     const hoverScheme = isStampleMode
       ? ["yellow", "orange", "black", "yellow"]
       : ["white", "gray", "black", "white"];
-    
     stampleBtn.paint({ ink }, scheme, hoverScheme);
   }
 
   if (!motion.on) {
     ink(255).write("Press to enable motion.", { center: "xy" });
+    return;
   }
 
-  // 🪧 Add notice for disabling Shake to Undo? 24.11.26.18.32
-  if (motion.on) {
-    // TODO: Use turtle graphics to draw lines for the rotation?
+  const cx = screen.width / 2;
+  const cy = screen.height / 2;
 
-    // ink("yellow").line
-    /*
-    ink("white");
-    goto(screen.width / 2, screen.height / 2);
-    face(values.rotation.alpha - 90);
-    down();
-    crawl(32);
-    up();
+  // Rotation needles
+  const alpha = parseFloat(values.rotation?.alpha) || 0;
+  const beta  = parseFloat(values.rotation?.beta)  || 0;
+  const gamma = parseFloat(values.rotation?.gamma) || 0;
 
-    ink("yellow");
-    goto(screen.width / 2, screen.height / 2);
-    face(values.rotation.beta - 90);
-    down();
-    crawl(32);
-    up();
+  ink("cyan", 180);
+  goto(cx, cy); face(alpha - 90); down(); crawl(40); up();
 
-    ink("blue");
-    goto(screen.width / 2, screen.height / 2);
-    face(values.rotation.gamma - 90);
-    down();
-    crawl(32);
-    up();
-    */
+  ink("yellow", 180);
+  goto(cx, cy); face(beta - 90); down(); crawl(30); up();
 
-    ink("orange");
-    goto(screen.width / 2, screen.height / 2);
-    face(-90);
-    down();
-    crawl(values.accel.y * 32);
-    up();
-    
-    ink("brown");
-    goto(screen.width / 2, screen.height / 2);
-    face(0);
-    down();
-    crawl(values.accel.x * 32);
-    up();
-    
-    ink("white", 127);
-    goto(screen.width / 2, screen.height / 2);
-    face(45);
-    down();
-    crawl(values.accel.z * 32);
-    up();
-  }
+  ink("magenta", 180);
+  goto(cx, cy); face(gamma - 90); down(); crawl(20); up();
+
+  // Acceleration vectors
+  const ax = parseFloat(values.accel?.x) || 0;
+  const ay = parseFloat(values.accel?.y) || 0;
+  const az = parseFloat(values.accel?.z) || 0;
+
+  ink("orange");
+  goto(cx, cy); face(-90); down(); crawl(ay * 32); up();
+
+  ink(180, 80, 0);
+  goto(cx, cy); face(0); down(); crawl(ax * 32); up();
+
+  ink("white", 100);
+  goto(cx, cy); face(45); down(); crawl(az * 32); up();
+
+  // Center dot
+  ink("white").circle(cx, cy, 3, true);
+
+  // Volume bar at bottom
+  const pad = 16;
+  const barH = 8;
+  const barY = screen.height - pad - barH;
+  const barW = screen.width - pad * 2;
+  const vol = min(1, max(0, parseFloat(values.vol) || 0));
+  ink(0, 60, 0).box(pad, barY, barW, barH);
+  ink(type === "stample" ? "orange" : [80, 255, 80]).box(
+    pad, barY, Math.round(barW * vol), barH
+  );
+
+  // Tone label
+  const toneHz = Math.round(parseFloat(values.tone) || 0);
+  ink("white", 180).write(`${toneHz}Hz`, { x: pad, y: barY - 14 });
 }
 
 // 🎪 Act
@@ -367,10 +356,10 @@ function sim({ num, motion, pen, sound, sound: { synth } }) {
       const tone = 800 + values.t4t * 10;
       values.tone = tone;
       
-      // Update with pitch for stample, tone for synth
+      // Update with sampleSpeed for stample, tone for synth
       if (type === "stample" && stampleSampleId) {
         t4?.update({
-          pitch: tone,
+          sampleSpeed: tone / 440,
           volume: values.vol,
         });
       } else {
