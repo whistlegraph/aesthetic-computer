@@ -13876,14 +13876,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           frameCan.height = recordedFrames[0][1].height;
         }
 
-        // Fill the fixed-position parent reliably on all browsers (including iOS Safari).
-        // Using position:absolute + inset:0 is more reliable than width/height:100% on iOS,
-        // where height:100% inside a fixed div may not stretch to full viewport height —
-        // causing the canvas to render at its attribute height only, appearing stretched
-        // horizontally (widescreen) with a black area below.
-        frameCan.style.position = "absolute";
-        frameCan.style.inset = "0";
-        frameCan.style.imageRendering = "pixelated";
+        // CSS handles layout: `canvas` rule gives position:absolute; top:0; left:0,
+        // and `#underlay canvas` gives width:100%; height:100% filling the fixed parent.
+        // object-fit:contain was removed from #underlay canvas to prevent letterboxing.
 
         startTapePlayback = (
           transmitProgress = true,
