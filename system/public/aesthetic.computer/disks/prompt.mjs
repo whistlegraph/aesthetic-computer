@@ -3112,30 +3112,71 @@ async function halt($, text) {
     }
     return true;
   } else if (slug === "flip" || slug === "flop") {
-    const vertical = slug === "flip"; // `flop` is lateral
+    // Direct pixel remapping — paste() with negative scale is broken in grid().
     const w = system.painting.width,
       h = system.painting.height;
-    // Invert the scale of the painting, pasting it into a new one of the
-    // same size.
-    const scale = vertical ? { x: 1, y: -1 } : { x: -1, y: 1 };
-    system.painting = painting(w, h, (p) => {
-      p.wipe(64).paste(system.painting, 0, 0, { scale });
-    });
+    const src = system.painting.pixels;
+    const dst = new Uint8ClampedArray(w * h * 4);
 
-    // Persis the painting.
+    if (slug === "flip") {
+      // Vertical mirror: reverse row order.
+      for (let y = 0; y < h; y++) {
+        const srcOff = y * w * 4;
+        const dstOff = (h - 1 - y) * w * 4;
+        dst.set(src.subarray(srcOff, srcOff + w * 4), dstOff);
+      }
+    } else {
+      // Horizontal mirror: reverse each row left-to-right.
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const si = (y * w + x) * 4;
+          const di = (y * w + (w - 1 - x)) * 4;
+          dst[di] = src[si];
+          dst[di + 1] = src[si + 1];
+          dst[di + 2] = src[si + 2];
+          dst[di + 3] = src[si + 3];
+        }
+      }
+    }
+
+    system.painting = { width: w, height: h, pixels: dst };
+
+    // Also mirror the nopaint overlay buffer.
+    if (system.nopaint.buffer?.pixels) {
+      const bs = system.nopaint.buffer.pixels;
+      const bd = new Uint8ClampedArray(w * h * 4);
+      if (slug === "flip") {
+        for (let y = 0; y < h; y++) {
+          const off = y * w * 4;
+          bd.set(bs.subarray(off, off + w * 4), (h - 1 - y) * w * 4);
+        }
+      } else {
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            const si = (y * w + x) * 4;
+            const di = (y * w + (w - 1 - x)) * 4;
+            bd[di] = bs[si]; bd[di+1] = bs[si+1];
+            bd[di+2] = bs[si+2]; bd[di+3] = bs[si+3];
+          }
+        }
+      }
+      system.nopaint.buffer = { width: w, height: h, pixels: bd };
+    }
+
+    // Persist the painting.
     store["painting"] = {
       width: system.painting.width,
       height: system.painting.height,
       pixels: system.painting.pixels,
-    }; // system.painting;
-    store.persist("painting", "local:db"); // Also persist the painting.
+    };
+    store.persist("painting", "local:db");
 
     // 🎨 Broadcast painting flip/flop to other tabs
     if (typeof $commonApi !== 'undefined' && $commonApi.broadcastPaintingUpdate) {
       $commonApi.broadcastPaintingUpdate("updated", {
         source: "transform",
         operation: slug,
-        vertical: vertical
+        vertical: slug === "flip"
       });
     }
 
@@ -3144,30 +3185,52 @@ async function halt($, text) {
     makeFlash($);
     return true;
   } else if (slug === "right" || slug === "left") {
-    // Turn the canvas to the right or left.
-    const angle = slug === "right" ? 90 : -90;
-    const width = system.painting.height;
-    const height = system.painting.width;
+    // Direct pixel remapping — grid() rotation draws overlapping boxes.
+    const w = system.painting.width, h = system.painting.height;
+    const nw = h, nh = w; // Swapped dimensions for 90° rotation.
+    const src = system.painting.pixels;
+    const dst = new Uint8ClampedArray(nw * nh * 4);
 
-    let x = 0,
-      y = 0;
-
-    // Create a new painting with swapped width and height parameters.
-    system.painting = painting(width, height, (p) => {
-      // Then wipe, rotate and paste.
-      // Paste the original painting, rotated by 90 degrees.
-      if (angle === 90) {
-        x += system.painting.height;
-      } else if (angle === -90) {
-        y += system.painting.width;
+    for (let sy = 0; sy < h; sy++) {
+      for (let sx = 0; sx < w; sx++) {
+        const si = (sy * w + sx) * 4;
+        let dx, dy;
+        if (slug === "right") {
+          // 90° CW: src(x,y) → dst(h-1-y, x)
+          dx = h - 1 - sy;
+          dy = sx;
+        } else {
+          // 90° CCW: src(x,y) → dst(y, w-1-x)
+          dx = sy;
+          dy = w - 1 - sx;
+        }
+        const di = (dy * nw + dx) * 4;
+        dst[di] = src[si];
+        dst[di + 1] = src[si + 1];
+        dst[di + 2] = src[si + 2];
+        dst[di + 3] = src[si + 3];
       }
+    }
 
-      p.paste(system.painting, x, y, {
-        scale: { x: 1, y: 1 },
-        angle,
-        anchor: { x: 0, y: 0 },
-      });
-    });
+    system.painting = { width: nw, height: nh, pixels: dst };
+
+    // Rotate the nopaint overlay buffer with same transform.
+    if (system.nopaint.buffer?.pixels) {
+      const bs = system.nopaint.buffer.pixels;
+      const bd = new Uint8ClampedArray(nw * nh * 4);
+      for (let sy = 0; sy < h; sy++) {
+        for (let sx = 0; sx < w; sx++) {
+          const si = (sy * w + sx) * 4;
+          let dx, dy;
+          if (slug === "right") { dx = h-1-sy; dy = sx; }
+          else { dx = sy; dy = w-1-sx; }
+          const di = (dy * nw + dx) * 4;
+          bd[di] = bs[si]; bd[di+1] = bs[si+1];
+          bd[di+2] = bs[si+2]; bd[di+3] = bs[si+3];
+        }
+      }
+      system.nopaint.buffer = { width: nw, height: nh, pixels: bd };
+    }
 
     // Move the painting to the center of the screen.
     system.nopaint.resetTransform({ system, screen });
@@ -3178,20 +3241,20 @@ async function halt($, text) {
       width: system.painting.width,
       height: system.painting.height,
       pixels: system.painting.pixels,
-    }; // system.painting;
-    store.persist("painting", "local:db"); // Also persist the painting.
+    };
+    store.persist("painting", "local:db");
 
     // 🎨 Broadcast painting rotation to other tabs
     if (typeof $commonApi !== 'undefined' && $commonApi.broadcastPaintingUpdate) {
       $commonApi.broadcastPaintingUpdate("updated", {
         source: "rotate",
         direction: slug,
-        angle: angle
+        angle: slug === "right" ? 90 : -90
       });
     }
 
     system.nopaint.addUndoPainting(system.painting, slug);
-    store["painting:resolution-lock"] = true; // Set resolution lock.
+    store["painting:resolution-lock"] = true;
     store.persist("painting:resolution-lock", "local:db");
 
     flashColor = [0, 0, 255];
@@ -4287,7 +4350,7 @@ function paint($) {
       // Position in top right corner with small margin
       const charMargin = 6;
       const baseCharCountX = screen.width - (charCountText.length * charWidth) - charMargin;
-      const baseCharCountY = 15;
+      const baseCharCountY = 6;
 
       // Gentle per-character chaos (slower, subtler movement)
       const chaosThreshold = 0.5;
@@ -4330,7 +4393,7 @@ function paint($) {
       const cpWidth = 4;
       const cpMargin = 6;
       const cpX = screen.width - (cursorText.length * cpWidth) - cpMargin;
-      const cpY = fillPercent > 0.7 ? 25 : 23;
+      const cpY = fillPercent > 0.7 ? 16 : 14;
       const cpColor = $.dark ? [80, 80, 90] : [140, 140, 150];
       const cpShadow = $.dark ? [0, 0, 0, 120] : [255, 255, 255, 120];
       for (let i = 0; i < cursorText.length; i++) {
@@ -8098,7 +8161,7 @@ function paint($) {
     );
   }
 
-  // 🧹 "Blank" button (fixed top-right corner when user has typed text)
+  // 🧹 "Blank" button (fixed top-right, below char count, at 32+ chars)
   {
     const inp = $.system.prompt.input;
     if (inp?.canType && inp?.prompt && inp.text?.length >= 32) {
@@ -8109,7 +8172,7 @@ function paint($) {
       const bw = label.length * cw + pad * 2;
       const bh = ch + pad * 2;
       const bx = screen.width - bw - 2;
-      const by = 2;
+      const by = (inp.text.length / 256) > 0.7 ? 26 : 23;
       if (!clearBtn) {
         clearBtn = new $.ui.Button(bx, by, bw, bh);
       } else {
@@ -8120,14 +8183,14 @@ function paint($) {
         clearBtn.disabled = false;
       }
       $.layer(3);
-      const alpha = clearBtnConfirming ? 255 : clearBtn.over ? 200 : 140;
-      const bgAlpha = clearBtnConfirming ? 180 : clearBtn.over ? 60 : 30;
-      const textColor = clearBtnConfirming
-        ? [255, 80, 80, alpha]
-        : $.dark ? [180, 180, 190, alpha] : [100, 100, 110, alpha];
-      const bgColor = $.dark ? [40, 40, 50, bgAlpha] : [200, 200, 210, bgAlpha];
-      ink(...bgColor).box(bx, by, bw, bh, "fill");
-      ink(...textColor).write(label, { x: bx + pad, y: by + pad }, undefined, undefined, false, "MatrixChunky8");
+      const down = clearBtn.down;
+      const alpha = clearBtnConfirming ? 255 : down ? 255 : clearBtn.over ? 220 : 180;
+      const bg = clearBtnConfirming
+        ? [200, 30, 30, alpha]
+        : down ? [180, 20, 20, alpha] : [160, 40, 40, alpha];
+      const fg = [255, 255, 255, alpha];
+      ink(...bg).box(bx, by, bw, bh, "fill");
+      ink(...fg).write(label, { x: bx + pad, y: by + pad }, undefined, undefined, false, "MatrixChunky8");
       $.layer(1);
     } else if (clearBtn) {
       clearBtn.disabled = true;
@@ -8765,6 +8828,7 @@ function act({
       (profile?.btn.disabled === false && profile?.btn.box.contains(e)) ||
       (commitBtn?.btn.disabled === false && commitBtn?.btn.box.contains(e)) ||
       (kidlispBtn?.btn.disabled === false && kidlispBtn?.btn.box.contains(e)) ||
+      (clearBtn?.disabled === false && clearBtn?.box.contains(e)) ||
       isOverMotdHandle)
   ) {
     send({ type: "keyboard:lock" });
@@ -8781,6 +8845,7 @@ function act({
       (softBtn?.btn.disabled === false && softBtn?.btn.box.contains(e)) ||
       (commitBtn?.btn.disabled === false && commitBtn?.btn.box.contains(e)) ||
       (kidlispBtn?.btn.disabled === false && kidlispBtn?.btn.box.contains(e)) ||
+      (clearBtn?.disabled === false && clearBtn?.box.contains(e)) ||
       (products.getActiveProduct()?.button?.disabled === false && products.getActiveProduct()?.button?.box.contains(e)) ||
       (products.getActiveProduct()?.buyButton?.disabled === false && products.getActiveProduct()?.buyButton?.box.contains(e)) ||
       (unitickerButton?.disabled === false && unitickerButton?.box.contains(e)) ||
@@ -9117,13 +9182,18 @@ function act({
     needsPaint();
   }
 
-  // ✕ Clear prompt button
+  // 🧹 Blank button
   if (clearBtn && !clearBtn.disabled) {
     clearBtn.act(e, {
+      down: () => {
+        downSound();
+        system.prompt.input.backdropTouchOff = true;
+      },
       push: () => {
         if (clearBtnConfirming) {
           clearTimeout(clearBtnConfirmTimeout);
           clearBtnConfirming = false;
+          pushSound();
           system.prompt.input.blank();
           send({ type: "keyboard:text:replace", content: { text: "" } });
           needsPaint();
@@ -9136,6 +9206,10 @@ function act({
           }, 2000);
           needsPaint();
         }
+      },
+      cancel: () => {
+        cancelSound();
+        system.prompt.input.backdropTouchOff = true;
       },
     });
   }
