@@ -6108,10 +6108,32 @@ class KidLisp {
         // Usage: (circle x y radius "fill") - explicit fill
         // Usage: (circle x y radius "outline") - explicit outline
         // Usage: (circle x y radius "outline:5") - explicit outline with thickness
-        
+
+        // If no args provided, fill with undefined to trigger randomization
+        if (args.length === 0) {
+          args = [undefined, undefined, undefined];
+        }
+
+        // Handle undefined (?) values with contextual logic
+        const processedCircleArgs = args.map((arg, index) => {
+          if (arg === undefined) {
+            switch (index) {
+              case 0: // x coordinate
+                return Math.floor(this.seededRandom() * (api.screen?.width || 256));
+              case 1: // y coordinate
+                return Math.floor(this.seededRandom() * (api.screen?.height || 256));
+              case 2: // radius
+                return Math.floor(this.seededRandom() * (Math.min(api.screen?.width || 256, api.screen?.height || 256) / 8)) + 5;
+              default:
+                return Math.floor(this.seededRandom() * 256);
+            }
+          }
+          return arg;
+        });
+
         // If no explicit mode provided and only 3 args, append global fillMode
-        let circleArgs = [...args];
-        if (args.length === 3) {
+        let circleArgs = [...processedCircleArgs];
+        if (circleArgs.length === 3) {
           // No explicit mode - use global fillMode state
           circleArgs.push(this.fillMode);
         }
@@ -6182,9 +6204,27 @@ class KidLisp {
         // Usage: (tri x1 y1 x2 y2 x3 y3) - uses global fillMode
         // Usage: (tri x1 y1 x2 y2 x3 y3 mode) - explicit mode override
 
+        // If no args provided, fill with undefined to trigger randomization
+        if (args.length === 0) {
+          args = [undefined, undefined, undefined, undefined, undefined, undefined];
+        }
+
+        // Handle undefined (?) values with contextual logic
+        const processedTriArgs = args.map((arg, index) => {
+          if (arg === undefined) {
+            // Even indices are x coords, odd indices are y coords
+            if (index % 2 === 0) {
+              return Math.floor(this.seededRandom() * (api.screen?.width || 256));
+            } else {
+              return Math.floor(this.seededRandom() * (api.screen?.height || 256));
+            }
+          }
+          return arg;
+        });
+
         // If no explicit mode provided and only 6 numeric args, append global fillMode
-        let triArgs = [...args];
-        if (args.length === 6 && args.every(a => typeof a === 'number')) {
+        let triArgs = [...processedTriArgs];
+        if (triArgs.length === 6 && triArgs.every(a => typeof a === 'number')) {
           triArgs.push(this.fillMode ? "fill" : "outline");
         }
 

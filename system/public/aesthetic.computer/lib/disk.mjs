@@ -5898,18 +5898,20 @@ async function prefetchPicture(code) {
 
 const $paintApiUnwrapped = {
   // Turtle graphics: 🐢 crawl, left, right, up, down, goto, face
-  // Move the turtle forward based on angle.
+  // Move the turtle forward based on angle, wrapping at screen edges.
   crawl: (steps = 1) => {
+    const w = screen.width, h = screen.height;
     const x2 = turtlePosition.x + steps * cos(num.radians(turtleAngle));
     const y2 = turtlePosition.y + steps * sin(num.radians(turtleAngle));
-    if (turtleDown) {
-      graph.line(turtlePosition.x, turtlePosition.y, x2, y2);
-      // console.log($activePaintApi.line);
-      // console.log("turtle down lining!", turtlePosition, x2, y2);
+    const wx2 = ((x2 % w) + w) % w;
+    const wy2 = ((y2 % h) + h) % h;
+    // Only draw if we didn't cross a screen edge (avoids diagonal wrap lines).
+    const wrapped = Math.abs(wx2 - x2) > 0.5 || Math.abs(wy2 - y2) > 0.5;
+    if (turtleDown && !wrapped) {
+      graph.line(turtlePosition.x, turtlePosition.y, wx2, wy2);
     }
-    turtlePosition.x = x2;
-    turtlePosition.y = y2;
-    // console.log("🐢 Crawl:", steps);
+    turtlePosition.x = wx2;
+    turtlePosition.y = wy2;
     return { x: turtlePosition.x, y: turtlePosition.y };
   },
   // Turn turtle left n degrees.
@@ -5932,13 +5934,16 @@ const $paintApiUnwrapped = {
     turtleDown = true;
     // console.log("🐢 Down");
   },
-  // Teleport the turtle position.
+  // Teleport the turtle position (wraps to screen bounds).
   goto: (x = screen.width / 2, y = screen.height / 2) => {
+    const w = screen.width, h = screen.height;
+    const wx = ((x % w) + w) % w;
+    const wy = ((y % h) + h) % h;
     if (turtleDown) {
-      graph.line(turtlePosition.x, turtlePosition.y, x, y);
+      graph.line(turtlePosition.x, turtlePosition.y, wx, wy);
     }
-    turtlePosition.x = x;
-    turtlePosition.y = y;
+    turtlePosition.x = wx;
+    turtlePosition.y = wy;
     return { x: turtlePosition.x, y: turtlePosition.y };
   },
   face: (angle = 0) => {
