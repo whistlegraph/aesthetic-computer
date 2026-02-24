@@ -2651,9 +2651,23 @@ function paint({
   
   // 🎨 KidLisp background: forward amplitude + render
   if (kidlispBgEnabled) {
+    const freqs = sound.speaker?.frequencies?.left;
+    const freqBand = (name) => {
+      const b = freqs?.find?.((f) => f.name === name);
+      return b ? b.amplitude : 0;
+    };
+    const ampRight = sound.speaker?.amplitudes?.right;
     api.updateKidLispAudio({
       amp: amplitude * 10,
-      notes: active.length,
+      leftAmp: amplitude * 10,
+      rightAmp: (typeof ampRight === "number" && Number.isFinite(ampRight) ? ampRight : 0) * 10,
+      kick: sound.speaker?.beat?.detected ? 1 : 0,
+      beat: sound.speaker?.beat?.detected ? 1 : 0,
+      bass: freqBand("subBass") + freqBand("lowMid"),
+      mid: freqBand("mid"),
+      treble: freqBand("treble"),
+      highMid: freqBand("highMid"),
+      presence: freqBand("presence"),
     });
   }
 
