@@ -12189,6 +12189,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       diskSupervisor = { requestBeat, requestFrame };
 
+      // 🎞️ Cap render framerate if maxfps was requested (e.g. 60 for calm display mode)
+      if (resolution.maxfps && Number.isFinite(resolution.maxfps) && resolution.maxfps > 0) {
+        Loop.frameRate(resolution.maxfps);
+        console.log(`🎞️ maxfps: capped render rate to ${resolution.maxfps}fps`);
+      }
+
       // ➰ Core Loops for User Input, Music, Object Updates, and Rendering
       Loop.start(
         () => {
