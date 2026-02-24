@@ -143,6 +143,7 @@ import {
 } from "../lib/melody-parser.mjs";
 import { convertNotepatNotation } from "../lib/notepat-convert.mjs";
 import { getNoteColor } from "../lib/note-colors.mjs";
+import { loadPaintingAsAudio } from "../lib/pixel-sample.mjs";
 
 // Utility function for padding numbers with zeros
 function pad(num, size = 2) {
@@ -729,73 +730,6 @@ async function cacheMelody(melody) {
   }
 }
 
-// RGB decoding: 3 samples per pixel (R, G, B channels) - adapted from stample.mjs
-function decodeBitmapToSample(bitmap, meta) {
-  if (!bitmap?.pixels?.length || !bitmap?.width || !bitmap?.height) return null;
-  const totalPixels = bitmap.width * bitmap.height;
-  const samplesPerPixel = 3; // R, G, B
-  const maxSamples = totalPixels * samplesPerPixel;
-  const sampleLength = Math.min(meta?.sampleLength || maxSamples, maxSamples);
-  const data = new Array(sampleLength);
-
-  for (let i = 0; i < sampleLength; i += 1) {
-    const pixelIndex = Math.floor(i / samplesPerPixel);
-    const channel = i % samplesPerPixel; // 0=R, 1=G, 2=B
-    const byte = bitmap.pixels[pixelIndex * 4 + channel] || 0;
-    data[i] = byte / 127.5 - 1;
-  }
-
-  return data;
-}
-
-// Convert an image to a pixel buffer - adapted from stample.mjs
-async function imageToBuffer(image) {
-  if (!image) return null;
-  const source = image.img || image.bitmap || image;
-
-  if (source?.pixels && source?.width && source?.height) {
-    return {
-      width: source.width,
-      height: source.height,
-      pixels: new Uint8ClampedArray(source.pixels),
-    };
-  }
-
-  if (source?.data && source?.width && source?.height) {
-    return {
-      width: source.width,
-      height: source.height,
-      pixels: new Uint8ClampedArray(source.data),
-    };
-  }
-
-  const width = source.width || source.naturalWidth || source.videoWidth;
-  const height = source.height || source.naturalHeight || source.videoHeight;
-  if (!width || !height) return null;
-
-  let canvas;
-  if (typeof OffscreenCanvas !== "undefined") {
-    canvas = new OffscreenCanvas(width, height);
-  } else if (typeof document !== "undefined") {
-    canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-  }
-  if (!canvas) return null;
-
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return null;
-  ctx.clearRect(0, 0, width, height);
-  ctx.drawImage(source, 0, 0, width, height);
-  const imageData = ctx.getImageData(0, 0, width, height);
-
-  return {
-    width,
-    height,
-    pixels: new Uint8ClampedArray(imageData.data),
-  };
-}
-
 // Load a painting code as a stample sample (lazy loading)
 async function loadStampleCode(code, { preload, sound }) {
   if (!code) return null;
@@ -821,47 +755,28 @@ async function loadStampleCode(code, { preload, sound }) {
   // Mark as loading
   stampleCache.set(code, { loading: true, loaded: false });
   
-  const baseUrl = typeof location !== "undefined" && location.origin
-    ? location.origin
-    : "https://aesthetic.computer";
-  
   try {
-    // Fast path: short code direct media endpoint
-    const directUrl = `${baseUrl}/media/paintings/${code}.png?t=${Date.now()}`;
-    console.log(`🎵 Clock: Loading stample #${code} from ${directUrl}`);
-    
-    const img = await preload(directUrl, true);
-    const buffer = await imageToBuffer(img);
-    
-    if (!buffer?.pixels?.length) {
-      throw new Error("Failed to decode painting image");
-    }
-    
-    // Decode bitmap to audio
-    const totalPixels = buffer.width * buffer.height;
-    const meta = {
-      sampleLength: totalPixels * 3, // RGB = 3 samples per pixel
-      sampleRate: 48000,
-    };
-    
-    const decoded = decodeBitmapToSample(buffer, meta);
-    if (!decoded?.length) {
+    const sampleId = `stample:${code}`;
+    console.log(`🎵 Clock: Loading stample #${code}`);
+    const loaded = await loadPaintingAsAudio(`#${code}`, {
+      preload,
+      sound: { registerSample: sound?.registerSample, sampleRate: sound?.sampleRate || 48000 },
+      sampleId,
+    });
+    if (!loaded?.sampleData?.length) {
       throw new Error("Failed to decode bitmap to audio samples");
     }
     
-    const sampleId = `stample:${code}`;
-    sound?.registerSample?.(sampleId, decoded, meta.sampleRate);
-    
     const result = {
       sampleId,
-      data: decoded,
-      sampleRate: meta.sampleRate,
+      data: loaded.sampleData,
+      sampleRate: loaded.meta?.sampleRate || (sound?.sampleRate || 48000),
       loaded: true,
       loading: false,
     };
     
     stampleCache.set(code, result);
-    console.log(`🎵 Clock: Loaded stample #${code} (${decoded.length} samples)`);
+    console.log(`🎵 Clock: Loaded stample #${code} (${loaded.sampleData.length} samples)`);
     
     return result;
   } catch (err) {
