@@ -3013,6 +3013,21 @@ class TextInput {
       if (e.cursor === this.text.length) {
         // this.snap();
         this.#prompt.snapTo(this.text);
+      } else if (this.text[e.cursor]?.charCodeAt(0) === 10) {
+        // Newline character: position cursor at end of current line
+        // (one past the previous visible character) rather than jumping
+        // to the start of the next line where the newline is mapped.
+        if (e.cursor > 0 && this.#prompt.textToCursorMap[e.cursor - 1]) {
+          const prevPos = this.#prompt.textToCursorMap[e.cursor - 1];
+          this.#prompt.cursor = { ...prevPos };
+          // Only advance past the previous char if it's visible (not a newline).
+          if (this.text[e.cursor - 1]?.charCodeAt(0) !== 10) {
+            this.#prompt.forward();
+          }
+        } else {
+          // Newline is the first character — stay at origin.
+          this.#prompt.cursor = { x: 0, y: 0 };
+        }
       } else {
         this.#prompt.cursor = { ...this.#prompt.textToCursorMap[e.cursor] };
       }

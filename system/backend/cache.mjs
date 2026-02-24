@@ -33,30 +33,34 @@ async function disconnect() {
  * @returns {Promise<any>} - The cached or computed value
  */
 async function getOrCompute(key, computeFn, ttlSeconds = 1800) {
+  // Try reading from Redis cache first
+  let cacheAvailable = false;
   try {
     await connect();
-    
-    // Try to get from cache
     const cached = await client.get(key);
     if (cached) {
       console.log(`📦 Cache HIT: ${key}`);
       return JSON.parse(cached);
     }
-    
     console.log(`📭 Cache MISS: ${key}`);
-    
-    // Compute the value
-    const value = await computeFn();
-    
-    // Store in cache with TTL
-    await client.setEx(key, ttlSeconds, JSON.stringify(value));
-    
-    return value;
+    cacheAvailable = true;
   } catch (err) {
-    console.error(`⚠️ Cache error for ${key}:`, err.message);
-    // On cache error, just compute without caching
-    return await computeFn();
+    console.error(`⚠️ Cache read error for ${key}:`, err.message);
   }
+
+  // Compute the value (let errors propagate to caller)
+  const value = await computeFn();
+
+  // Try to store in cache (non-blocking, don't fail if Redis is down)
+  if (cacheAvailable) {
+    try {
+      await client.setEx(key, ttlSeconds, JSON.stringify(value));
+    } catch (err) {
+      console.error(`⚠️ Cache write error for ${key}:`, err.message);
+    }
+  }
+
+  return value;
 }
 
 /**

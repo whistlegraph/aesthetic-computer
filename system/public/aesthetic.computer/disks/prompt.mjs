@@ -186,7 +186,7 @@ let login, // A login button in the center of the display.
   shopBtn, // SHOP button for products (top-right)
   commitBtn, // Commit hash button (navigates to commits piece)
   kidlispBtn; // KidLisp.com button (shown when in KidLisp mode)
-let clearBtn; // ✕ Clear prompt button (appears below/right of cursor when typing)
+let clearBtn; // 🧹 "Blank" button (fixed top-right, appears at 32+ chars)
 let clearBtnConfirming = false; // Two-tap confirmation state
 let clearBtnConfirmTimeout = null; // Reset timer for confirmation
 let adBtnParticles = []; // Sparkle particles for AD button
@@ -4287,7 +4287,7 @@ function paint($) {
       // Position in top right corner with small margin
       const charMargin = 6;
       const baseCharCountX = screen.width - (charCountText.length * charWidth) - charMargin;
-      const baseCharCountY = 6;
+      const baseCharCountY = 15;
 
       // Gentle per-character chaos (slower, subtler movement)
       const chaosThreshold = 0.5;
@@ -4317,6 +4317,26 @@ function paint($) {
           x: charX + jitterX,
           y: charY + jitterY
         }, undefined, undefined, false, charFont);
+      }
+    }
+
+    // 📍 Cursor position indicator (below char count, shown at 32+ chars)
+    if (charLen >= 32) {
+      const sel = $.system.prompt.input.selection;
+      const cursorText = sel
+        ? `${sel[0]}-${sel[1]}`
+        : `${cursorCharPos}`;
+      const cpFont = "MatrixChunky8";
+      const cpWidth = 4;
+      const cpMargin = 6;
+      const cpX = screen.width - (cursorText.length * cpWidth) - cpMargin;
+      const cpY = fillPercent > 0.7 ? 25 : 23;
+      const cpColor = $.dark ? [80, 80, 90] : [140, 140, 150];
+      const cpShadow = $.dark ? [0, 0, 0, 120] : [255, 255, 255, 120];
+      for (let i = 0; i < cursorText.length; i++) {
+        const cx = cpX + (i * cpWidth);
+        ink(...cpShadow).write(cursorText[i], { x: cx + 1, y: cpY + 1 }, undefined, undefined, false, cpFont);
+        ink(...cpColor).write(cursorText[i], { x: cx, y: cpY }, undefined, undefined, false, cpFont);
       }
     }
   }
@@ -8078,32 +8098,37 @@ function paint($) {
     );
   }
 
-  // ✕ Clear prompt button (below-right of cursor when user has typed text)
+  // 🧹 "Blank" button (fixed top-right corner when user has typed text)
   {
     const inp = $.system.prompt.input;
-    if (inp?.canType && inp?.prompt && inp.text?.length > 0) {
-      const cp = inp.prompt.pos(undefined, true);
-      if (cp?.x !== undefined) {
-        const sz = 9;
-        const bx = Math.min(cp.x + cp.w + 3, screen.width - sz - 2);
-        const by = cp.y + cp.h + 3;
-        if (!clearBtn) {
-          clearBtn = new $.ui.Button(bx, by, sz, sz);
-        } else {
-          clearBtn.box.x = bx;
-          clearBtn.box.y = by;
-          clearBtn.box.w = sz;
-          clearBtn.box.h = sz;
-          clearBtn.disabled = false;
-        }
-        $.layer(3);
-        const alpha = clearBtnConfirming ? 255 : clearBtn.over ? 230 : 170;
-        ink(255, 0, 0, alpha).box(bx, by, sz, sz);
-        ink(255, 255, 255, alpha)
-          .line(bx + 2, by + 2, bx + sz - 3, by + sz - 3)
-          .line(bx + sz - 3, by + 2, bx + 2, by + sz - 3);
-        $.layer(1);
+    if (inp?.canType && inp?.prompt && inp.text?.length >= 32) {
+      const label = clearBtnConfirming ? "Blank?" : "Blank";
+      const cw = 4; // MatrixChunky8 char width
+      const ch = 7; // MatrixChunky8 char height
+      const pad = 2;
+      const bw = label.length * cw + pad * 2;
+      const bh = ch + pad * 2;
+      const bx = screen.width - bw - 2;
+      const by = 2;
+      if (!clearBtn) {
+        clearBtn = new $.ui.Button(bx, by, bw, bh);
+      } else {
+        clearBtn.box.x = bx;
+        clearBtn.box.y = by;
+        clearBtn.box.w = bw;
+        clearBtn.box.h = bh;
+        clearBtn.disabled = false;
       }
+      $.layer(3);
+      const alpha = clearBtnConfirming ? 255 : clearBtn.over ? 200 : 140;
+      const bgAlpha = clearBtnConfirming ? 180 : clearBtn.over ? 60 : 30;
+      const textColor = clearBtnConfirming
+        ? [255, 80, 80, alpha]
+        : $.dark ? [180, 180, 190, alpha] : [100, 100, 110, alpha];
+      const bgColor = $.dark ? [40, 40, 50, bgAlpha] : [200, 200, 210, bgAlpha];
+      ink(...bgColor).box(bx, by, bw, bh, "fill");
+      ink(...textColor).write(label, { x: bx + pad, y: by + pad }, undefined, undefined, false, "MatrixChunky8");
+      $.layer(1);
     } else if (clearBtn) {
       clearBtn.disabled = true;
     }
@@ -9104,7 +9129,7 @@ function act({
           needsPaint();
         } else {
           clearBtnConfirming = true;
-          notice("TAP × TO CLEAR", ["red"]);
+          notice("TAP BLANK TO CLEAR", ["red"]);
           clearBtnConfirmTimeout = setTimeout(() => {
             clearBtnConfirming = false;
             needsPaint();
@@ -9531,13 +9556,11 @@ async function fetchContentItems(api) {
       api.needsPaint();
     } else {
       console.warn("⚠️ Could not fetch content items. Status:", res.status);
-      // Try to read error details
       try {
-        const errorData = await res.json();
-        console.warn("⚠️ Error details:", errorData);
-      } catch (e) {
         const errorText = await res.text();
         console.warn("⚠️ Error response:", errorText);
+      } catch (e) {
+        // Body may be unavailable
       }
     }
   } catch (err) {
