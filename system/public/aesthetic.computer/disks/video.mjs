@@ -390,35 +390,6 @@ function paint({
     hud.label(`!${postedTapeCode}`);
   }
 
-  // Show "TAP TO ENABLE AUDIO" prompt only when AudioContext is truly suspended
-  const audioSuspended = hasAudioContext && audioContextState === "suspended" && presenting;
-  
-  
-  if (audioSuspended && !isPrinting) {
-    const pulse = Math.abs(Math.sin(paintCount * 0.1)); // Pulse effect
-    const alpha = Math.floor(128 + pulse * 127); // Fade between 128-255
-    const centerX = screen.width / 2;
-    const centerY = screen.height / 2;
-    
-    // Semi-transparent dark overlay
-    ink(0, 0, 0, 160).box(0, 0, screen.width, screen.height);
-    
-    // Pulsing prompt text
-    ink(255, 200, 100, alpha).write("TAP TO ENABLE AUDIO", {
-      x: centerX,
-      y: centerY,
-      center: "xy",
-    });
-    
-    // Smaller instruction text
-    ink(200, 200, 200, alpha * 0.8).write("Audio requires user interaction", {
-      x: centerX,
-      y: centerY + 16,
-      center: "xy",
-    });
-    
-    requestPaint?.(); // Keep animating the pulse
-  }
 
   // Export progress display (outside of presenting block so it shows during exports)
   if (isPrinting || isLoadingTape) {
