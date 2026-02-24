@@ -297,6 +297,12 @@ if [ ! -x "$ROOTFS_DIR/usr/bin/cage" ] && command -v dnf >/dev/null 2>&1; then
   dnf -y --installroot="$ROOTFS_DIR" --releasever="$FEDORA_VERSION" install cage >/dev/null 2>&1 || true
 fi
 
+# Ensure actkbd is available to map hardware volume keys to system volume.
+if [ ! -x "$ROOTFS_DIR/usr/sbin/actkbd" ] && [ ! -x "$ROOTFS_DIR/usr/bin/actkbd" ] && command -v dnf >/dev/null 2>&1; then
+  echo -e "  Installing actkbd into rootfs (volume keys)..."
+  dnf -y --installroot="$ROOTFS_DIR" --releasever="$FEDORA_VERSION" install actkbd >/dev/null 2>&1 || true
+fi
+
 # 3b. Kiosk session script
 cat > "$ROOTFS_DIR/usr/local/bin/kiosk-session.sh" << 'SESSEOF'
 #!/bin/bash
@@ -369,6 +375,82 @@ if ! chroot "$ROOTFS_DIR" /usr/bin/getent passwd liveuser >/dev/null 2>&1; then
 fi
 chroot "$ROOTFS_DIR" /usr/sbin/usermod -s /bin/bash liveuser >/dev/null 2>&1 || true
 chroot "$ROOTFS_DIR" /usr/bin/passwd -d liveuser >/dev/null 2>&1 || true
+
+# 3d. Hardware volume key handling (VolumeUp/Down/Mute) via actkbd.
+cat > "$ROOTFS_DIR/usr/local/bin/kiosk-volume-key" << 'VOLKEYEOF'
+#!/bin/bash
+set -euo pipefail
+
+ACTION="${1:-}"
+USER_NAME="liveuser"
+USER_UID="$(id -u "$USER_NAME" 2>/dev/null || echo 1000)"
+RUNTIME_DIR="/run/user/${USER_UID}"
+BUS_ADDR="unix:path=${RUNTIME_DIR}/bus"
+
+run_user_cmd() {
+  if command -v runuser >/dev/null 2>&1; then
+    runuser -u "$USER_NAME" -- "$@"
+  else
+    "$@"
+  fi
+}
+
+with_user_audio_env() {
+  run_user_cmd env \
+    XDG_RUNTIME_DIR="$RUNTIME_DIR" \
+    DBUS_SESSION_BUS_ADDRESS="$BUS_ADDR" \
+    "$@"
+}
+
+case "$ACTION" in
+  up)
+    if command -v wpctl >/dev/null 2>&1; then
+      with_user_audio_env wpctl set-volume -l 1.5 @DEFAULT_AUDIO_SINK@ 5%+ || true
+    elif command -v pactl >/dev/null 2>&1; then
+      with_user_audio_env pactl set-sink-volume @DEFAULT_SINK@ +5% || true
+    elif command -v amixer >/dev/null 2>&1; then
+      amixer -q set Master 5%+ unmute || true
+    fi
+    ;;
+  down)
+    if command -v wpctl >/dev/null 2>&1; then
+      with_user_audio_env wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%- || true
+    elif command -v pactl >/dev/null 2>&1; then
+      with_user_audio_env pactl set-sink-volume @DEFAULT_SINK@ -5% || true
+    elif command -v amixer >/dev/null 2>&1; then
+      amixer -q set Master 5%- unmute || true
+    fi
+    ;;
+  mute)
+    if command -v wpctl >/dev/null 2>&1; then
+      with_user_audio_env wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle || true
+    elif command -v pactl >/dev/null 2>&1; then
+      with_user_audio_env pactl set-sink-mute @DEFAULT_SINK@ toggle || true
+    elif command -v amixer >/dev/null 2>&1; then
+      amixer -q set Master toggle || true
+    fi
+    ;;
+  *)
+    exit 0
+    ;;
+esac
+VOLKEYEOF
+chmod +x "$ROOTFS_DIR/usr/local/bin/kiosk-volume-key"
+
+cat > "$ROOTFS_DIR/etc/actkbd.conf" << 'ACTKBDEOF'
+# Fedora/Kernel media key codes:
+# 113 = KEY_MUTE, 114 = KEY_VOLUMEDOWN, 115 = KEY_VOLUMEUP
+113 /usr/local/bin/kiosk-volume-key mute
+114 /usr/local/bin/kiosk-volume-key down
+115 /usr/local/bin/kiosk-volume-key up
+ACTKBDEOF
+
+if [ -f "$ROOTFS_DIR/usr/lib/systemd/system/actkbd.service" ] || [ -f "$ROOTFS_DIR/etc/systemd/system/actkbd.service" ]; then
+  chroot "$ROOTFS_DIR" /usr/bin/systemctl enable actkbd.service >/dev/null 2>&1 || true
+  echo -e "  ${GREEN}Volume keys mapped (actkbd)${NC}"
+else
+  echo -e "  ${YELLOW}actkbd service not found; volume key mapping skipped${NC}"
+fi
 
 mkdir -p "$ROOTFS_DIR/home/liveuser"
 cat > "$ROOTFS_DIR/home/liveuser/.bash_profile" << 'BPROFEOF'
