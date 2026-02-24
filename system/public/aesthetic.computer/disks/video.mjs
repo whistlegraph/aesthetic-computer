@@ -601,8 +601,8 @@ function paint({
     }
   }
 
-  // Show "NO VIDEO" message when there's no video available
-  if (!presenting && paintCount > 16n) {
+  // Show "NO VIDEO" message only when there is truly no video (not exporting, not loading)
+  if (!presenting && !exportAvailable && !isLoadingTape && paintCount > 16n) {
     wipe(40, 0, 0).ink(180, 0, 0).write("NO VIDEO", { center: "xy" });
   }
   
