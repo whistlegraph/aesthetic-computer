@@ -182,10 +182,10 @@ Total:        8-17s (currently), target: 6-10s
   Python server updated to accept `LISTEN_FDS` socket from systemd.
 
 ### 🌟 Long Term (deeper surgery)
-- [x] **initrd framebuffer hook** — appended cpio to `pals-initrd.img` adds a
-  systemd unit (`kiosk-fb.service`) that fills `/dev/fb0` with zeros after
-  `dracut-pre-trigger.service`. Eliminates BLACK #1 before Plymouth.
-  (Uses dracut-systemd unit injection via concatenated cpio, not shell hooks.)
+- [ ] **initrd framebuffer hook** — attempted: appended cpio to `pals-initrd.img`
+  caused "invalid magic at start of compressed archive" kernel error → reverted to
+  clean `live-initrd`. Needs correct newc cpio format + alignment investigation.
+  `kiosk-session.sh` `dd` handles post-Plymouth fb0 blackout as fallback.
 - [ ] **initrd framebuffer PALS logo** — extend the fb0 hook to blit the actual
   PALS logo (pre-converted PNG→raw BGRA) to center of screen instead of solid black. Options:
   - Solid PALS purple fill (trivial — write 4-byte pattern via Python)
