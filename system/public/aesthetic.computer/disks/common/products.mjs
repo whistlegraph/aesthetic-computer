@@ -8,7 +8,14 @@ const { abs, max, min, sin, cos, floor } = Math;
 // Uses createImageBitmap() for async GPU-accelerated downscaling so the main
 // thread is never stalled by a full-size getImageData() call.
 async function resizeBitmapToBuffer(src, targetW, targetH) {
-  const resized = await createImageBitmap(src, {
+  // AC's net.preload() returns a custom pixel buffer { width, height, pixels }
+  // rather than a native browser image type. Convert it to ImageData first so
+  // createImageBitmap can accept it.
+  let source = src;
+  if (src && src.pixels instanceof Uint8ClampedArray) {
+    source = new ImageData(src.pixels, src.width, src.height);
+  }
+  const resized = await createImageBitmap(source, {
     resizeWidth: targetW,
     resizeHeight: targetH,
     resizeQuality: "medium",
