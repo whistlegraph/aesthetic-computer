@@ -181,30 +181,12 @@ let login, // A login button in the center of the display.
   profile, // A profile page button.
   profileAction,
   walletBtn, // Tezos wallet button (shown when connected)
-  giveBtn, // GIVE button for funding mode (top-right)
-  adBtn, // AD button for non-funding mode (top-right)
-  shopBtn, // SHOP button for products (top-right)
   commitBtn, // Commit hash button (navigates to commits piece)
   kidlispBtn; // KidLisp.com button (shown when in KidLisp mode)
 let clearBtn; // 🧹 "Blank" button (fixed top-right, appears at 32+ chars)
 let clearBtnConfirming = false; // Two-tap confirmation state
 let clearBtnConfirmTimeout = null; // Reset timer for confirmation
-let adBtnParticles = []; // Sparkle particles for AD button
-let adBtnHue = 0; // Color cycling for AD button
-let soBtn, softBtn; // SO SOFT ad buttons
-let soSoftBlinkPhase = 0; // Blink animation counter for SO SOFT
-let soSoftConfigIndex = 0; // Which configuration to use
-let soSoftConfigChangeTime = 0; // When to change config
-let soSoftLastTinyFont = false; // Track if we're using tiny font to recreate buttons on size change
-let shopBtnParticles = []; // Sparkle particles for SHOP button
-let shopBtnHue = 0; // Color cycling for SHOP button
 
-// 🎰 Top-right slot cycling: rotates through "give", "ad", and "products" on a timer
-const TOP_RIGHT_BTN_CHOICES = ["give", "ad", "products"];
-let topRightBtnChoiceIndex = Math.floor(Math.random() * TOP_RIGHT_BTN_CHOICES.length);
-let topRightBtnChoice = TOP_RIGHT_BTN_CHOICES[topRightBtnChoiceIndex];
-const TOP_RIGHT_CYCLE_MS = 9000; // 9 seconds, same rhythm as products.mjs
-let topRightLastCycleTime = 0;
 let resendVerificationText;
 let ellipsisTicker;
 let chatTicker; // Ticker instance for chat messages
@@ -308,9 +290,6 @@ let handleAutocomplete;
 
 // 🎆 Corner particles (for cursor effect)
 let cornerParticles = [];
-
-// ✨ Sparkle particles for GIVE button
-let giveBtnParticles = [];
 
 let tapePromiseResolve, tapePromiseReject;
 let promptSend;
@@ -770,6 +749,7 @@ async function boot({
   promptNeedsPaint = needsPaint;
   cachedGizmo = gizmo; // Cache gizmo for use in act() function
   if (store["prompt:theme"]) theme = store["prompt:theme"];
+  if (store["prompt:lang"]) lang = store["prompt:lang"];
   if (colon?.includes("serious")) theme = "serious";
   if (colon?.includes("neo")) theme = "neo";
   if (dark) glaze({ on: true });
@@ -910,9 +890,9 @@ async function boot({
 
   // Create login & signup buttons (skip when not in default theme).
   if (!user && theme === "default") {
-    login = new ui.TextButton("Log in", { center: "xy", screen });
+    login = new ui.TextButton(currentLang().login, { center: "xy", screen });
     login.stickyScrubbing = true; // Prevent drag-between-button behavior
-    signup = new ui.TextButton("I'm new", { center: "xy", screen });
+    signup = new ui.TextButton(currentLang().signup, { center: "xy", screen });
     signup.stickyScrubbing = true; // Prevent drag-between-button behavior
     positionWelcomeButtons(screen, net.iframe);
   }
@@ -934,7 +914,7 @@ async function boot({
         }
       });
     } else if (!user.email_verified) {
-      profile = new ui.TextButton("Resend email", btnPos);
+      profile = new ui.TextButton(currentLang().resendEmail, btnPos);
       profile.stickyScrubbing = true; // Prevent drag-between-button behavior
       profileAction = "resend-verification";
       ellipsisTicker = new gizmo.EllipsisTicker();
@@ -2878,7 +2858,7 @@ async function halt($, text) {
         flashColor = [0, 255, 0];
         notice("Check " + res.email);
         send({ type: "keyboard:close" });
-        profile = new ui.TextButton("Resend email", { center: "xy", screen });
+        profile = new ui.TextButton(currentLang().resendEmail, { center: "xy", screen });
         profile.stickyScrubbing = true; // Prevent drag-between-button behavior
         profileAction = "resend-verification";
         ellipsisTicker = new gizmo.EllipsisTicker();
@@ -3504,6 +3484,9 @@ async function halt($, text) {
   } else if (text === "theme") {
     load(parse("theme"));
     return true;
+  } else if (text === "lang") {
+    load(parse("lang"));
+    return true;
   } else if (text.startsWith("2022")) {
     load(parse("wand~" + text)); // Execute the current command.
     return true;
@@ -4094,21 +4077,27 @@ function paint($) {
   if (fetchingUser) fetchUserAPI = $.api;
 
   // Ensure pal is always defined with a fallback
+  const langButtons = currentLang().buttons;
   if (theme === "serious") {
     pal = $.dark ? scheme.serious.dark : scheme.serious.light;
     if ($.system.prompt?.input) {
-      $.system.prompt.input.scheme = { dark: scheme.serious.dark, light: scheme.serious.light };
+      $.system.prompt.input.scheme = { dark: scheme.serious.dark, light: scheme.serious.light, buttons: langButtons };
     }
   } else if (theme === "neo") {
     pal = $.dark ? scheme.neo.dark : scheme.neo.light;
     if ($.system.prompt?.input) {
-      $.system.prompt.input.scheme = { dark: scheme.neo.dark, light: scheme.neo.light };
+      $.system.prompt.input.scheme = { dark: scheme.neo.dark, light: scheme.neo.light, buttons: langButtons };
     }
   } else {
     pal = $.dark ? scheme.dark : scheme.light;
     if ($.system.prompt?.input) {
-      $.system.prompt.input.scheme = scheme;
+      $.system.prompt.input.scheme = { ...scheme, buttons: langButtons };
     }
+  }
+
+  // Sync Enter button label with current language.
+  if ($.system.prompt?.input?.enter) {
+    $.system.prompt.input.enter.txt = langButtons.enter;
   }
 
   // 🅰️ Paint below the prompt || scheme.
@@ -4121,6 +4110,10 @@ function paint($) {
     }
     scheme.dark.background[3] = 176; // Half semi-opaque palette background.
     scheme.light.background[3] = 190;
+    scheme.serious.dark.background[3] = 176;
+    scheme.serious.light.background[3] = 190;
+    scheme.neo.dark.background[3] = 176;
+    scheme.neo.light.background[3] = 190;
   } else {
     $.wipe(pal.background);
   }
@@ -4549,1146 +4542,12 @@ function paint($) {
   // Calculate MOTD offset (do this before book rendering so it's always available)
   let motdXOffset = 0;
 
-  // 💸 GIVE button in top-right corner (randomly shown ~1/3 of loads)
-  if (topRightBtnChoice === "give" && showLoginCurtain) {
-    // Sync GIVE button with emotional face - angry = GIVE UP, others = currencies
-    const now = Date.now();
-
-    // Match the face emotion cycle: every 3 seconds, 0=angry, 1=sad, 2=crying
-    const emotionPhase = Math.floor(now / 3000) % 3;
-    const isGiveUpMode = emotionPhase === 0; // Angry face = GIVE UP mode
-
-    // Randomly pick ? or ! based on fast oscillation (only used in GIVE UP mode)
-    const punctuation = Math.floor(now / 150) % 2 === 0 ? "?" : "!";
-
-    let giveBtnText;
-    if (isGiveUpMode) {
-      giveBtnText = "GIVE UP" + punctuation;
-    } else {
-      const currencies = ["U$D", "TEZ", "DKK", "ETH", "BTC"];
-      const currencyIndex = Math.floor(now / 3000) % currencies.length;
-      giveBtnText = "GIVE " + currencies[currencyIndex];
-    }
-
-    const btnPaddingTop = 8; // Moved down 2px
-    const btnPaddingRight = 10; // Uniform margin with top
-    const btnWidth = 56; // Fixed width for consistent right alignment
-    const giveBtnY = btnPaddingTop;
-    const giveBtnX = screen.width - btnWidth - btnPaddingRight; // Right-aligned with padding
-
-    if (!giveBtn) {
-      giveBtn = new $.ui.TextButton(giveBtnText, {
-        x: giveBtnX,
-        y: giveBtnY,
-      });
-    } else {
-      giveBtn.reposition({ x: giveBtnX, y: giveBtnY }, giveBtnText);
-    }
-
-    // 🌈 Rainbow cycling colors for attention-seeking effect
-    const t = performance.now() / 1000;
-    const hue = (t * 80) % 360; // Cycle through hues faster
-    const pulse = Math.sin(t * 5) * 0.5 + 0.5; // Pulsing effect (0-1)
-
-    // Convert HSL to RGB for fill color
-    const hslToRgb = (h, s, l) => {
-      h /= 360; s /= 100; l /= 100;
-      let r, g, b;
-      if (s === 0) { r = g = b = l; }
-      else {
-        const hue2rgb = (p, q, t) => {
-          if (t < 0) t += 1;
-          if (t > 1) t -= 1;
-          if (t < 1/6) return p + (q - p) * 6 * t;
-          if (t < 1/2) return q;
-          if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-          return p;
-        };
-        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-        const p = 2 * l - q;
-        r = hue2rgb(p, q, h + 1/3);
-        g = hue2rgb(p, q, h);
-        b = hue2rgb(p, q, h - 1/3);
-      }
-      return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
-    };
-
-    // Bright saturated fill that cycles through rainbow
-    const fillColor = hslToRgb(hue, 100, 50 + pulse * 10); // 50-60% lightness
-    const btnBox = giveBtn?.btn?.box;
-
-    if (btnBox) {
-      // Draw button background and outline manually
-      const isDown = giveBtn.btn.down;
-      const isHover = giveBtn.btn.over && !isDown;
-
-      // 🔴⚪⚫ Special GIVE UP? mode - super fast red/white/black blinking
-      if (isGiveUpMode) {
-        // Fast oscillation at ~20Hz (50ms per cycle) between red, white, black
-        const blinkPhase = Math.floor(performance.now() / 50) % 3;
-        const blinkColors = [
-          [255, 0, 0],    // red
-          [255, 255, 255], // white
-          [0, 0, 0],      // black
-        ];
-        const bgColor = blinkColors[blinkPhase];
-        const textColor = blinkColors[(blinkPhase + 1) % 3]; // Offset text color for contrast
-        const outlineColor = blinkColors[(blinkPhase + 2) % 3];
-
-        // Special colors for punctuation
-        const punctColors = {
-          "?": [0, 255, 255],   // cyan for ?
-          "!": [255, 255, 0],   // yellow for !
-        };
-
-        ink(...bgColor).box(btnBox, "fill");
-        ink(...outlineColor).box(btnBox, "outline");
-
-        // Shake text aggressively
-        const chars = giveBtnText.split('');
-        const charWidth = 6;
-        const textStartX = btnBox.x + 4;
-        const textY = btnBox.y + 4;
-
-        chars.forEach((char, i) => {
-          const shakeX = (Math.random() - 0.5) * 3;
-          const shakeY = (Math.random() - 0.5) * 3;
-          // Use special color for ? or !
-          const charColor = punctColors[char] || textColor;
-          ink(...charColor).write(char, { x: Math.round(textStartX + i * charWidth + shakeX), y: Math.round(textY + shakeY) });
-        });
-
-        // No particles in GIVE UP? mode - too chaotic already
-      } else {
-        // Normal rainbow mode - add hover effect
-        let bgColor;
-        if (isDown) {
-          // Frozen black-on-yellow when pressed
-          bgColor = [255, 220, 0]; // Bright yellow
-        } else if (isHover) {
-          // On hover: brighter, faster color cycling, larger pulse
-          const hoverPulse = Math.sin(t * 10) * 0.5 + 0.5; // Faster pulse on hover
-          bgColor = hslToRgb((hue * 2) % 360, 100, 65 + hoverPulse * 15); // Brighter, double speed hue
-        } else {
-          bgColor = fillColor;
-        }
-
-        ink(...bgColor).box(btnBox, "fill");
-
-        // Outline: black when down, white otherwise
-        if (isDown) {
-          ink(0, 0, 0).box(btnBox, "outline");
-        } else if (isHover) {
-          const outlineHue = (hue + 180) % 360; // Complementary color outline
-          const outlineColor = hslToRgb(outlineHue, 100, 80);
-          ink(...outlineColor).box(btnBox.x - 1, btnBox.y - 1, btnBox.w + 2, btnBox.h + 2, "outline");
-          ink(255, 255, 255).box(btnBox, "outline");
-        } else {
-          ink(255, 255, 255).box(btnBox, "outline");
-        }
-
-        // 💥 Draw each letter with individual shake and color!
-        const chars = giveBtnText.split('');
-        const charWidth = 6; // font_1 char width
-        const textStartX = btnBox.x + 4; // padding
-        const textY = btnBox.y + 4; // padding
-
-        chars.forEach((char, i) => {
-          let letterColor;
-          let shakeX = 0;
-          let shakeY = 0;
-
-          if (isDown) {
-            // Frozen black text when pressed
-            letterColor = [0, 0, 0];
-            // No shake when down
-          } else {
-            // Each letter gets different hue offset
-            const letterHue = (hue + i * 90) % 360;
-            if (isHover) {
-              // Brighter text on hover with faster animation
-              letterColor = hslToRgb(letterHue, 100, 90); // Almost white but tinted
-            } else {
-              letterColor = hslToRgb(letterHue, 100, 75);
-            }
-
-            // Shake offset - each letter shakes independently (more on hover)
-            const shakeAmount = isHover ? 2 : 1;
-            const shakeSpeed = isHover ? 30 : 20;
-            shakeX = Math.sin(t * shakeSpeed + i * 2) * shakeAmount;
-            shakeY = Math.cos(t * (shakeSpeed + 5) + i * 3) * shakeAmount;
-          }
-
-          const x = textStartX + i * charWidth + shakeX;
-          const y = textY + shakeY;
-
-          ink(...letterColor).write(char, { x: Math.round(x), y: Math.round(y) });
-        });
-
-        // ✨ Spawn sparkle particles around the button (only in normal mode)
-        // More particles on hover!
-        const spawnChance = isHover ? 0.7 : 0.4;
-        if (Math.random() < spawnChance) {
-      const sparkleHue = (hue + Math.random() * 60 - 30) % 360; // Vary hue slightly
-      const sparkleColor = hslToRgb(sparkleHue, 100, 70);
-
-      // Spawn from random edge of button
-      const edge = Math.floor(Math.random() * 4);
-      let px, py, vx, vy;
-
-      switch(edge) {
-        case 0: // Top
-          px = btnBox.x + Math.random() * btnBox.w;
-          py = btnBox.y;
-          vx = (Math.random() - 0.5) * 2;
-          vy = -Math.random() * 2 - 1;
-          break;
-        case 1: // Right
-          px = btnBox.x + btnBox.w;
-          py = btnBox.y + Math.random() * btnBox.h;
-          vx = Math.random() * 2 + 1;
-          vy = (Math.random() - 0.5) * 2;
-          break;
-        case 2: // Bottom
-          px = btnBox.x + Math.random() * btnBox.w;
-          py = btnBox.y + btnBox.h;
-          vx = (Math.random() - 0.5) * 2;
-          vy = Math.random() * 2 + 1;
-          break;
-        case 3: // Left
-          px = btnBox.x;
-          py = btnBox.y + Math.random() * btnBox.h;
-          vx = -Math.random() * 2 - 1;
-          vy = (Math.random() - 0.5) * 2;
-          break;
-      }
-
-      giveBtnParticles.push({
-        x: px,
-        y: py,
-        vx: vx,
-        vy: vy,
-        life: 1.0,
-        color: sparkleColor,
-        size: Math.random() < 0.3 ? 2 : 1, // 30% chance of 2px particle
-      });
-        }
-      } // End of normal rainbow mode else block
-    }
-
-    // Update and draw sparkle particles
-    giveBtnParticles = giveBtnParticles.filter(p => {
-      p.x += p.vx;
-      p.y += p.vy;
-      p.vx *= 0.96; // Slow down
-      p.vy *= 0.96;
-      p.life -= 0.03;
-
-      if (p.life > 0) {
-        const alpha = Math.floor(p.life * 255);
-        ink(...p.color, alpha).box(Math.round(p.x), Math.round(p.y), p.size, p.size);
-      }
-
-      return p.life > 0;
-    });
-  } else {
-    giveBtn = null;
-    giveBtnParticles = []; // Clear particles when button hidden
+  // 📦 Paint SHOP box in top-right corner (hidden when typing)
+  {
+    const promptHasContent = $.system.prompt.input.text && $.system.prompt.input.text.length > 0;
+    const shouldShow = showLoginCurtain && !$.system.prompt.input.canType && !promptHasContent;
+    products.paint({ ...$, login, signup }, $.screen, shouldShow);
   }
-
-  //  SO SOFT AD - Two buttons with wavy line connector (for Casey & Lauren's studio)
-  if (topRightBtnChoice === "ad" && showLoginCurtain) {
-    const now = Date.now();
-    const t = performance.now() / 1000;
-
-    // Blink between white-on-black and black-on-white at ~2Hz (500ms cycle)
-    soSoftBlinkPhase = Math.floor(t * 2) % 2; // 0 or 1
-    const isWhiteOnBlack = soSoftBlinkPhase === 0;
-
-    // Change configuration every 5 seconds
-    if (now - soSoftConfigChangeTime > 5000) {
-      soSoftConfigIndex = (soSoftConfigIndex + 1) % 4; // 4 different configurations
-      soSoftConfigChangeTime = now;
-    }
-
-    // Responsive sizing: use MatrixChunky8 for small screens or short screens
-    const useTinyFont = screen.width < 256 || screen.height < 200;
-    const charWidth = useTinyFont ? 4 : 6; // MatrixChunky8 is 4px, default is 6px
-    const charHeight = useTinyFont ? 7 : 12; // MatrixChunky8 is 7px, default is 12px
-    // TextButtonSmall uses padX=2, padY=2. TextButton uses gap parameter (we use 2)
-    const btnPadX = 2; // Horizontal padding (same for both button types)
-    const btnPadY = 2; // Vertical padding (same for both button types)
-    const btnPaddingRight = useTinyFont ? 4 : 6;
-
-    let soConfig, softConfig, lineConfig, lineStyle;
-
-    // Scale spacing based on font size
-    const spacingScale = useTinyFont ? 0.6 : 1;
-    const boxHeight = charHeight + btnPadY * 2; // Button box height
-    const boxWidth = (text) => text.length * charWidth + btnPadX * 2;
-    const minSpacing = 8; // Minimum distance between buttons
-
-    // Configuration 0: Horizontal aligned with wavy line
-    if (soSoftConfigIndex === 0) {
-      const btnSpacing = Math.max(minSpacing, Math.floor(10 * spacingScale));
-      const baseY = useTinyFont ? 3 : 6;
-      softConfig = { x: screen.width - boxWidth("SOFT") - btnPaddingRight, y: baseY };
-      soConfig = { x: softConfig.x - boxWidth("SO") - btnSpacing, y: baseY };
-      lineConfig = "horizontal";
-      lineStyle = "wavy"; // Wavy sine wave
-    }
-    // Configuration 1: Vertical stacked with elbow connector
-    else if (soSoftConfigIndex === 1) {
-      const baseX = screen.width - boxWidth("SOFT") - btnPaddingRight;
-      const vertSpacing = Math.max(minSpacing, Math.floor(8 * spacingScale));
-      const baseY = useTinyFont ? 3 : 6;
-      soConfig = { x: baseX, y: baseY };
-      softConfig = { x: baseX, y: soConfig.y + boxHeight + vertSpacing };
-      lineConfig = "vertical";
-      lineStyle = "elbow"; // L-shaped elbow connector
-    }
-    // Configuration 2: Diagonal layout with bezier curve
-    else if (soSoftConfigIndex === 2) {
-      const diagSpacing = Math.max(minSpacing * 3, Math.floor(30 * spacingScale));
-      const vertOffset = Math.max(minSpacing * 2, Math.floor(16 * spacingScale));
-      const baseY = useTinyFont ? 3 : 6;
-      soConfig = { x: screen.width - boxWidth("SO") - btnPaddingRight - diagSpacing, y: baseY };
-      softConfig = { x: screen.width - boxWidth("SOFT") - btnPaddingRight, y: baseY + vertOffset };
-      lineConfig = "diagonal";
-      lineStyle = "bezier"; // Smooth bezier curve
-    }
-    // Configuration 3: Wide horizontal with wavy line
-    else {
-      const btnSpacing = Math.max(minSpacing * 2, Math.floor(20 * spacingScale));
-      const baseY = useTinyFont ? 6 : 12;
-      softConfig = { x: screen.width - boxWidth("SOFT") - btnPaddingRight, y: baseY };
-      soConfig = { x: softConfig.x - boxWidth("SO") - btnSpacing, y: baseY };
-      lineConfig = "wide-horizontal";
-      lineStyle = "wavy"; // Wavy with larger amplitude
-    }
-
-    // Add gentle vertical and horizontal oscillation (reduced for stability)
-    const oscillationAmount = useTinyFont ? 1.5 : 2;
-    const vertOscillation1 = Math.sin(t * 1.2) * oscillationAmount;
-    const vertOscillation2 = Math.sin(t * 1.4 + 1) * oscillationAmount;
-    const horzOscillation1 = Math.cos(t * 0.9) * oscillationAmount;
-    const horzOscillation2 = Math.cos(t * 1.1 + 0.5) * oscillationAmount;
-
-    soConfig.y += vertOscillation1;
-    softConfig.y += vertOscillation2;
-    soConfig.x += horzOscillation1;
-    softConfig.x += horzOscillation2;
-
-    // Ensure buttons stay within screen bounds
-    const screenMargin = 2;
-    soConfig.x = Math.max(screenMargin, Math.min(soConfig.x, screen.width - boxWidth("SO") - screenMargin));
-    soConfig.y = Math.max(screenMargin, Math.min(soConfig.y, screen.height - boxHeight - screenMargin));
-    softConfig.x = Math.max(screenMargin, Math.min(softConfig.x, screen.width - boxWidth("SOFT") - screenMargin));
-    softConfig.y = Math.max(screenMargin, Math.min(softConfig.y, screen.height - boxHeight - screenMargin));
-
-    // Prevent overlap - check if buttons would overlap and adjust
-    const soRight = soConfig.x + boxWidth("SO");
-    const softLeft = softConfig.x;
-    const soBottom = soConfig.y + boxHeight;
-    const softTop = softConfig.y;
-
-    const horizontalOverlap = soRight > softLeft && soConfig.x < softConfig.x + boxWidth("SOFT");
-    const verticalOverlap = soBottom > softTop && soConfig.y < softConfig.y + boxHeight;
-
-    if (horizontalOverlap && verticalOverlap) {
-      // Overlap detected, shift them apart
-      if (lineConfig === "horizontal" || lineConfig === "wide-horizontal") {
-        // Shift SO left
-        soConfig.x = Math.max(screenMargin, softConfig.x - boxWidth("SO") - minSpacing);
-      } else if (lineConfig === "vertical") {
-        // Shift SOFT down
-        softConfig.y = Math.max(screenMargin, soConfig.y + boxHeight + minSpacing);
-      }
-    }
-
-    // Recreate buttons if screen size changed (font size changed)
-    if (useTinyFont !== soSoftLastTinyFont) {
-      soBtn = null;
-      softBtn = null;
-      soSoftLastTinyFont = useTinyFont;
-    }
-
-    // Create or reposition buttons with appropriate size
-    if (!soBtn) {
-      soBtn = useTinyFont
-        ? new $.ui.TextButtonSmall("SO", soConfig)
-        : new $.ui.TextButton("SO", soConfig, undefined, btnPadX);
-    } else {
-      soBtn.reposition(soConfig, "SO");
-    }
-
-    if (!softBtn) {
-      softBtn = useTinyFont
-        ? new $.ui.TextButtonSmall("SOFT", softConfig)
-        : new $.ui.TextButton("SOFT", softConfig, undefined, btnPadX);
-    } else {
-      softBtn.reposition(softConfig, "SOFT");
-    }
-
-    // Get button boxes for rendering
-    const soBox = soBtn?.btn?.box;
-    const softBox = softBtn?.btn?.box;
-
-    // Draw everything
-    if (soBox && softBox) {
-      const bgColor = isWhiteOnBlack ? [255, 255, 255] : [0, 0, 0];
-      const textColor = isWhiteOnBlack ? [0, 0, 0] : [255, 255, 255];
-      const lineColor = isWhiteOnBlack ? [255, 255, 255] : [0, 0, 0]; // Line matches button bg
-
-      // FIRST: Draw connector line BEHIND the buttons
-      const lineStartX = soBox.x + soBox.w;
-      const lineStartY = soBox.y + soBox.h / 2;
-      const lineEndX = softBox.x;
-      const lineEndY = softBox.y + softBox.h / 2;
-
-      if (lineStyle === "wavy") {
-        // Gentle wavy sine wave connector (reduced complexity)
-        const waveAmplitude = lineConfig === "wide-horizontal" ? 3 : 2;
-        const numSegments = 20; // Fewer segments for simpler line
-        const lineY = (lineStartY + lineEndY) / 2;
-
-        for (let i = 0; i < numSegments; i++) {
-          const progress = i / numSegments;
-          const x1 = lineStartX + progress * (lineEndX - lineStartX);
-          const x2 = lineStartX + ((i + 1) / numSegments) * (lineEndX - lineStartX);
-          const y1 = lineY + Math.sin(progress * Math.PI * 3 + t * 2) * waveAmplitude; // 1.5 waves, slower
-          const y2 = lineY + Math.sin(((i + 1) / numSegments) * Math.PI * 3 + t * 2) * waveAmplitude;
-
-          ink(...lineColor).line(x1, y1, x2, y2);
-        }
-      } else if (lineStyle === "bezier") {
-        // Smooth bezier curve connector (gentle animation)
-        const numSegments = 20; // Fewer segments
-
-        // Control points for bezier curve with gentle animated offset
-        const bezierOffset = Math.sin(t * 1.5) * 5; // Slower, smaller offset
-        const midX = (lineStartX + lineEndX) / 2;
-        const midY = (lineStartY + lineEndY) / 2;
-
-        // Control point creates curve bulge
-        const cp1X = lineStartX + (lineEndX - lineStartX) * 0.3;
-        const cp1Y = lineStartY + bezierOffset;
-        const cp2X = lineStartX + (lineEndX - lineStartX) * 0.7;
-        const cp2Y = lineEndY - bezierOffset;
-
-        for (let i = 0; i < numSegments; i++) {
-          const t1 = i / numSegments;
-          const t2 = (i + 1) / numSegments;
-
-          // Cubic bezier formula
-          const x1 = Math.pow(1-t1, 3) * lineStartX +
-                    3 * Math.pow(1-t1, 2) * t1 * cp1X +
-                    3 * (1-t1) * Math.pow(t1, 2) * cp2X +
-                    Math.pow(t1, 3) * lineEndX;
-          const y1 = Math.pow(1-t1, 3) * lineStartY +
-                    3 * Math.pow(1-t1, 2) * t1 * cp1Y +
-                    3 * (1-t1) * Math.pow(t1, 2) * cp2Y +
-                    Math.pow(t1, 3) * lineEndY;
-          const x2 = Math.pow(1-t2, 3) * lineStartX +
-                    3 * Math.pow(1-t2, 2) * t2 * cp1X +
-                    3 * (1-t2) * Math.pow(t2, 2) * cp2X +
-                    Math.pow(t2, 3) * lineEndX;
-          const y2 = Math.pow(1-t2, 3) * lineStartY +
-                    3 * Math.pow(1-t2, 2) * t2 * cp1Y +
-                    3 * (1-t2) * Math.pow(t2, 2) * cp2Y +
-                    Math.pow(t2, 3) * lineEndY;
-
-          ink(...lineColor).line(x1, y1, x2, y2);
-        }
-      } else if (lineStyle === "elbow") {
-        // L-shaped elbow connector with gentle animated corner
-        const elbowOffset = Math.sin(t * 1.5) * 3; // Slower, smaller offset
-
-        if (lineConfig === "vertical") {
-          // For vertical layout: horizontal then vertical
-          const cornerY = (lineStartY + lineEndY) / 2 + elbowOffset;
-          ink(...lineColor).line(lineStartX, lineStartY, lineStartX, cornerY);
-          ink(...lineColor).line(lineStartX, cornerY, lineEndX, cornerY);
-          ink(...lineColor).line(lineEndX, cornerY, lineEndX, lineEndY);
-        } else {
-          // For other layouts: vertical then horizontal
-          const cornerX = (lineStartX + lineEndX) / 2 + elbowOffset;
-          ink(...lineColor).line(lineStartX, lineStartY, cornerX, lineStartY);
-          ink(...lineColor).line(cornerX, lineStartY, cornerX, lineEndY);
-          ink(...lineColor).line(cornerX, lineEndY, lineEndX, lineEndY);
-        }
-      }
-
-      // THEN: Draw buttons on top of the line with adjusted spacing
-      // Adjusted box sizes: 1px less on right and bottom for normal font, full size for tiny font
-      const boxAdjust = useTinyFont ? 0 : 1; // Tiny font needs full box for better margins
-      const soBoxW = soBox.w - boxAdjust;
-      const soBoxH = soBox.h - boxAdjust;
-      const softBoxW = softBox.w - boxAdjust;
-      const softBoxH = softBox.h - boxAdjust;
-
-      // Font selection for text rendering
-      const fontName = useTinyFont ? "MatrixChunky8" : undefined;
-
-      // Draw SO button with distinct press state
-      const soIsDown = soBtn.btn.down;
-      const soDownBg = [255, 220, 0]; // Bright yellow/gold when pressed
-      const soDownText = [0, 0, 0]; // Black text when pressed
-      const soBg = soIsDown ? soDownBg : bgColor;
-      const soText = soIsDown ? soDownText : textColor;
-      ink(...soBg).box(soBox.x, soBox.y, soBoxW, soBoxH, "fill");
-      ink(...soText).box(soBox.x, soBox.y, soBoxW, soBoxH, "outline");
-      ink(...soText).write("SO", { x: soBox.x + btnPadX, y: soBox.y + btnPadY }, undefined, undefined, false, fontName);
-
-      // Draw SOFT button with distinct press state
-      const softIsDown = softBtn.btn.down;
-      const softDownBg = [255, 220, 0]; // Bright yellow/gold when pressed (matching SO)
-      const softDownText = [0, 0, 0]; // Black text when pressed
-      const softBg = softIsDown ? softDownBg : bgColor;
-      const softText = softIsDown ? softDownText : textColor;
-      ink(...softBg).box(softBox.x, softBox.y, softBoxW, softBoxH, "fill");
-      ink(...softText).box(softBox.x, softBox.y, softBoxW, softBoxH, "outline");
-      ink(...softText).write("SOFT", { x: softBox.x + btnPadX, y: softBox.y + btnPadY }, undefined, undefined, false, fontName);
-    }
-
-    $.needsPaint(); // Keep animating
-  } else {
-    soBtn = null;
-    softBtn = null;
-  }
-
-  // � SHOP button in top-right corner (randomly shown ~1/3 of loads)
-  if (topRightBtnChoice === "shop" && showLoginCurtain) {
-    const now = Date.now();
-
-    // Cycle through shop phrases
-    const shopPhrases = [
-      "SHOP ✦",
-      "★ SHOP ★",
-      "BUY ART!",
-      "AC SHOP",
-      "NEW ITEMS",
-      "MERCH ✦",
-    ];
-    const phraseIndex = Math.floor(now / 2500) % shopPhrases.length;
-    const shopBtnText = shopPhrases[phraseIndex];
-
-    // Position the button in top-right (same as GIVE/AD)
-    const btnPaddingTop = 8;
-    const btnPaddingRight = 10;
-    const charWidth = 6;
-    const btnWidth = shopBtnText.length * charWidth + 8;
-    const btnHeight = 19;
-    const shopBtnY = btnPaddingTop;
-    const shopBtnX = screen.width - btnWidth - btnPaddingRight;
-
-    if (!shopBtn) {
-      shopBtn = new $.ui.TextButton(shopBtnText, { x: shopBtnX, y: shopBtnY });
-    } else {
-      shopBtn.reposition({ x: shopBtnX, y: shopBtnY }, shopBtnText);
-    }
-
-    // Warm hue cycling (golds, oranges, greens)
-    shopBtnHue = (shopBtnHue + 0.7) % 360;
-
-    const hslToRgb = (h, s, l) => {
-      h /= 360; s /= 100; l /= 100;
-      let r, g, b;
-      if (s === 0) { r = g = b = l; }
-      else {
-        const hue2rgb = (p, q, t) => {
-          if (t < 0) t += 1;
-          if (t > 1) t -= 1;
-          if (t < 1/6) return p + (q - p) * 6 * t;
-          if (t < 1/2) return q;
-          if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-          return p;
-        };
-        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-        const p = 2 * l - q;
-        r = hue2rgb(p, q, h + 1/3);
-        g = hue2rgb(p, q, h);
-        b = hue2rgb(p, q, h - 1/3);
-      }
-      return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
-    };
-
-    const btnBox = shopBtn?.btn?.box;
-
-    if (btnBox) {
-      const isDown = shopBtn.btn.down;
-      const isHover = shopBtn.btn.over && !isDown;
-      const t = performance.now() / 1000;
-
-      // Gentle floating effect
-      const float = Math.sin(t * 1.8) * 1.5;
-      const floatY = btnBox.y + float;
-
-      // Warm gold/green tones
-      const bgHue = (shopBtnHue + 40) % 360; // Shift into warm range
-      let bgColor;
-      if (isDown) {
-        bgColor = hslToRgb(bgHue, 90, 40);
-      } else if (isHover) {
-        const hoverPulse = Math.sin(t * 6) * 0.5 + 0.5;
-        bgColor = hslToRgb(bgHue, 95, 55 + hoverPulse * 15);
-      } else {
-        bgColor = hslToRgb(bgHue, 85, 50);
-      }
-
-      ink(...bgColor).box(btnBox.x, floatY, btnBox.w, btnBox.h, "fill");
-
-      if (isHover) {
-        const outlineHue = (bgHue + 180) % 360;
-        const outlineColor = hslToRgb(outlineHue, 100, 80);
-        ink(...outlineColor).box(btnBox.x - 1, floatY - 1, btnBox.w + 2, btnBox.h + 2, "outline");
-        ink(255, 255, 255).box(btnBox.x, floatY, btnBox.w, btnBox.h, "outline");
-      } else {
-        ink(255, 255, 255, 180).box(btnBox.x, floatY, btnBox.w, btnBox.h, "outline");
-      }
-
-      // Draw text with color variation per character
-      const chars = shopBtnText.split('');
-      const textStartX = btnBox.x + 4;
-      const textY = floatY + 4;
-
-      chars.forEach((char, i) => {
-        const letterHue = (shopBtnHue + i * 40) % 360;
-        const letterColor = hslToRgb(letterHue, 100, isDown ? 85 : (isHover ? 95 : 90));
-        const shimmer = Math.sin(t * 4 + i * 0.6) * 0.5;
-        const x = textStartX + i * charWidth + shimmer;
-        ink(...letterColor).write(char, { x: Math.round(x), y: Math.round(textY) });
-      });
-
-      // Sparkle particles (medium intensity)
-      if (Math.random() < (isHover ? 0.25 : 0.1)) {
-        const sparkleHue = (shopBtnHue + 90) % 360;
-        const sparkleColor = hslToRgb(sparkleHue, 90, 70);
-
-        const edge = Math.floor(Math.random() * 4);
-        let px, py, vx, vy;
-
-        switch (edge) {
-          case 0:
-            px = btnBox.x + Math.random() * btnBox.w;
-            py = floatY;
-            vx = (Math.random() - 0.5) * 1.5;
-            vy = -Math.random() * 1.5 - 0.5;
-            break;
-          case 1:
-            px = btnBox.x + btnBox.w;
-            py = floatY + Math.random() * btnBox.h;
-            vx = Math.random() * 1.5 + 0.5;
-            vy = (Math.random() - 0.5) * 1.5;
-            break;
-          case 2:
-            px = btnBox.x + Math.random() * btnBox.w;
-            py = floatY + btnBox.h;
-            vx = (Math.random() - 0.5) * 1.5;
-            vy = Math.random() * 1.5 + 0.5;
-            break;
-          case 3:
-            px = btnBox.x;
-            py = floatY + Math.random() * btnBox.h;
-            vx = -Math.random() * 1.5 - 0.5;
-            vy = (Math.random() - 0.5) * 1.5;
-            break;
-        }
-
-        shopBtnParticles.push({
-          x: px, y: py, vx: vx, vy: vy,
-          life: 1.0,
-          color: sparkleColor,
-          size: Math.random() < 0.2 ? 2 : 1,
-        });
-      }
-    }
-
-    // Update and draw sparkle particles
-    shopBtnParticles = shopBtnParticles.filter(p => {
-      p.x += p.vx;
-      p.y += p.vy;
-      p.vx *= 0.94;
-      p.vy *= 0.94;
-      p.life -= 0.025;
-
-      if (p.life > 0) {
-        const alpha = Math.floor(p.life * 255);
-        ink(...p.color, alpha).box(Math.round(p.x), Math.round(p.y), p.size, p.size);
-      }
-
-      return p.life > 0;
-    });
-
-    $.needsPaint();
-  } else {
-    shopBtn = null;
-    shopBtnParticles = [];
-  }
-
-  // �📦 Paint product (book or record) in top-right corner (only on login curtain)
-  // Hide carousel when prompt is editable or has text
-  // 📦 Paint product when top-right slot shows "products"
-  if (topRightBtnChoice === "products") {
-    const promptHasContentCarousel = $.system.prompt.input.text && $.system.prompt.input.text.length > 0;
-    const shouldShowCarousel = showLoginCurtain && !$.system.prompt.input.canType && !promptHasContentCarousel;
-    products.paint({ ...$, login, signup }, $.screen, shouldShowCarousel);
-  }
-  /*
-  if (showLoginCurtain && bookImageScaled) {
-    // Use pre-scaled cached image
-    const bookW = bookImageScaled.width;
-    const bookH = bookImageScaled.height;
-
-    // 📚 Second Product (Current)
-    const titleText = "What is Landscape?"; // Removed ? - causes giant fallback rendering from unknown source
-    const authorText = "by John R. Stilgoe";
-    const priceText = "$60 USD";
-
-    // 📚 First Product (Deprecated - SOLD)
-    // const titleText = "The Art of Seeing";
-    // const authorText = "by Aldous Huxley";
-    // const priceText = "$60 USD";
-
-    const titleW = titleText.length * 4; // 4px per char for MatrixChunky8
-    const authorW = authorText.length * 4; // 4px per char for MatrixChunky8
-    const textH = 8; // 8px height for MatrixChunky8
-    const lineSpacing = 1; // Tighter spacing between lines
-
-    // Position book image in top-right with tight corner layout
-    const rightEdge = screen.width - 6; // Right edge position
-
-    // Calculate actual width based on character advances for MatrixChunky8
-    // Most characters are 4px, but let's be precise: $=4, 6=4, 0=4, space=2, U=4, S=4, D=4
-    const priceActualW = 4 + 4 + 4 + 2 + 4 + 4 + 4; // "$60 USD" = 26px
-
-    // Book position (moved up 8px more)
-    const bookX = rightEdge - bookW;
-    const bookY = 8; // Moved up from 16 to 8
-
-    // Title overlaid ON the book image - moved up 4px more and left 4px from previous
-    const titleX = bookX + (bookW / 2) - (titleW / 2) - 4; // Center horizontally, then left 4px
-    const titleY = bookY + (bookH / 2) - (textH / 2) - 20; // Center, up 16px, then up 4px more = -20
-
-    // Author text positioned right below the title
-    const authorX = rightEdge - authorW + 3; // Right 3px
-    const authorY = titleY + textH + 6; // Just below title with small gap (moved down 4px)
-
-    // Price positioned much lower, toward the bottom
-    // Ensure price doesn't overlap with author by adding extra space if needed
-    const minPriceY = bookY + bookH + 35; // Even lower, toward bottom
-    const authorMaxY = authorY + 3.5; // Max Y with sway (authorY + authorSwayY max range)
-    const safeGap = 2; // Extra gap to prevent overlap
-    const priceY = Math.max(minPriceY, authorMaxY + textH + safeGap);
-    const priceX = bookX + (bookW / 2) - (priceActualW / 2);
-
-    // Calculate book ad bounding box (with minimal padding for tighter overlap detection)
-    const bookAdBox = {
-      x: Math.min(titleX, bookX, authorX) - 6, // Left edge with reduced padding
-      y: titleY - 2, // Top edge with minimal padding
-      w: Math.max(titleW, bookW, authorW) + 10, // Width with reduced padding
-      h: priceY + textH - titleY // Height from title top to price bottom (no bottom padding)
-    };
-
-    // Check for actual geometric overlap with login/signup buttons
-    let wouldOverlap = false;
-    const overlapReasons = [];
-
-    // Check overlap with login button
-    if (login && !login.btn.disabled && login.btn.box) {
-      const loginBox = login.btn.box;
-      // Only check overlap if login button is actually visible on screen
-      const isOnScreen = (
-        loginBox.x + loginBox.w >= 0 &&
-        loginBox.x <= screen.width &&
-        loginBox.y + loginBox.h >= 0 &&
-        loginBox.y <= screen.height
-      );
-      if (isOnScreen) {
-        const overlaps = (
-          bookAdBox.x < loginBox.x + loginBox.w &&
-          bookAdBox.x + bookAdBox.w > loginBox.x &&
-          bookAdBox.y < loginBox.y + loginBox.h &&
-          bookAdBox.y + bookAdBox.h > loginBox.y
-        );
-        if (overlaps) {
-          overlapReasons.push({ element: 'login', box: loginBox, isOnScreen });
-          wouldOverlap = true;
-        }
-      }
-    }
-
-    // Check overlap with signup button (only if it will actually be painted)
-    if (!$.net.iframe && signup && !signup.btn.disabled && signup.btn.box) {
-      const signupBox = signup.btn.box;
-      // Only check overlap if signup button is actually visible on screen
-      const isOnScreen = (
-        signupBox.x + signupBox.w >= 0 &&
-        signupBox.x <= screen.width &&
-        signupBox.y + signupBox.h >= 0 &&
-        signupBox.y <= screen.height
-      );
-      if (isOnScreen) {
-        const overlaps = (
-          bookAdBox.x < signupBox.x + signupBox.w &&
-          bookAdBox.x + bookAdBox.w > signupBox.x &&
-          bookAdBox.y < signupBox.y + signupBox.h &&
-          bookAdBox.y + bookAdBox.h > signupBox.y
-        );
-        if (overlaps) {
-          overlapReasons.push({ element: 'signup', box: signupBox, isOnScreen });
-          wouldOverlap = true;
-        }
-      }
-    }
-
-    // Check overlap with enter button
-    if ($.system.prompt.input?.enter && !$.system.prompt.input.enter.btn.disabled && $.system.prompt.input.enter.btn.box) {
-      const enterBox = $.system.prompt.input.enter.btn.box;
-      const overlaps = (
-        bookAdBox.x < enterBox.x + enterBox.w &&
-        bookAdBox.x + bookAdBox.w > enterBox.x &&
-        bookAdBox.y < enterBox.y + enterBox.h &&
-        bookAdBox.y + bookAdBox.h > enterBox.y
-      );
-      if (overlaps) {
-        overlapReasons.push({ element: 'enter', box: enterBox });
-        wouldOverlap = true;
-      }
-    }
-
-    // Check overlap with paste button
-    if ($.system.prompt.input?.paste && !$.system.prompt.input.paste.btn.disabled && $.system.prompt.input.paste.btn.box) {
-      const pasteBox = $.system.prompt.input.paste.btn.box;
-      const overlaps = (
-        bookAdBox.x < pasteBox.x + pasteBox.w &&
-        bookAdBox.x + bookAdBox.w > pasteBox.x &&
-        bookAdBox.y < pasteBox.y + pasteBox.h &&
-        bookAdBox.y + bookAdBox.h > pasteBox.y
-      );
-      if (overlaps) {
-        overlapReasons.push({ element: 'paste', box: pasteBox });
-        wouldOverlap = true;
-      }
-    }
-
-    // Check overlap with chat ticker
-    if (chatTickerButton && !chatTickerButton.disabled && chatTickerButton.box) {
-      const tickerBox = chatTickerButton.box;
-      const overlaps = (
-        bookAdBox.x < tickerBox.x + tickerBox.w &&
-        bookAdBox.x + bookAdBox.w > tickerBox.x &&
-        bookAdBox.y < tickerBox.y + tickerBox.h &&
-        bookAdBox.y + bookAdBox.h > tickerBox.y
-      );
-      if (overlaps) {
-        overlapReasons.push({ element: 'chatTicker', box: tickerBox });
-        wouldOverlap = true;
-      }
-    }
-
-    // Check overlap with MOTD (if present) and calculate offset if needed
-    if (motd && screen.height >= 180) {
-      // Calculate approximate MOTD bounding box with more aggressive wrapping
-      const motdMaxWidth = Math.min(screen.width - 18, 150); // Cap at 150px for much tighter wrapping
-      const motdY = screen.height / 2 - 64; // Moved up closer to top
-      const motdCharWidth = 6; // Default font char width
-      const motdLineHeight = 10; // Default font line height
-      const motdLines = Math.ceil((motd.length * motdCharWidth) / motdMaxWidth);
-      const motdHeight = motdLines * motdLineHeight;
-      const motdWidth = Math.min(motd.length * motdCharWidth, motdMaxWidth);
-
-      // First, check if centered MOTD would overlap with book
-      const centeredMotdBox = {
-        x: (screen.width - motdWidth) / 2,
-        y: motdY - 4,
-        w: motdWidth,
-        h: motdHeight + 8
-      };
-
-      const motdWouldOverlap = (
-        bookAdBox.x < centeredMotdBox.x + centeredMotdBox.w &&
-        bookAdBox.x + bookAdBox.w > centeredMotdBox.x &&
-        bookAdBox.y < centeredMotdBox.y + centeredMotdBox.h &&
-        bookAdBox.y + bookAdBox.h > centeredMotdBox.y
-      );
-
-      // Apply offset if there would be overlap with centered MOTD
-      if (motdWouldOverlap) {
-        // Apply graduated offset based on screen width
-        if (screen.width >= 400) {
-          motdXOffset = -60;
-        } else if (screen.width >= 280) {
-          // For smaller screens, shift more aggressively
-          motdXOffset = -80;
-        } else {
-          // Very small screens - shift even more
-          motdXOffset = -100;
-        }
-
-        // Recalculate MOTD box based on how it will ACTUALLY be positioned
-        let actualMotdBox;
-        const leftMargin = 9;
-
-        if (screen.width < 400) {
-          // Will be left-aligned on narrow screens
-          actualMotdBox = {
-            x: leftMargin,
-            y: motdY - 4,
-            w: motdWidth,
-            h: motdHeight + 8
-          };
-        } else {
-          // Will be offset from center on wider screens
-          const offsetMotdCenterX = screen.width / 2 + motdXOffset;
-          actualMotdBox = {
-            x: offsetMotdCenterX - (motdWidth / 2),
-            y: motdY - 4,
-            w: motdWidth,
-            h: motdHeight + 8
-          };
-        }
-
-        // Check if actual position still overlaps with book
-        const stillOverlaps = (
-          bookAdBox.x < actualMotdBox.x + actualMotdBox.w &&
-          bookAdBox.x + actualMotdBox.w > actualMotdBox.x &&
-          bookAdBox.y < actualMotdBox.y + actualMotdBox.h &&
-          bookAdBox.y + actualMotdBox.h > actualMotdBox.y
-        );
-
-        // Only mark as overlapping if the shift didn't help
-        if (stillOverlaps) {
-          wouldOverlap = true;
-        }
-      }
-    }
-
-    // Hide book if screen is too narrow (decreased to 75px to allow visibility on nearly all screens)
-    const screenTooNarrow = screen.width < 75;
-
-    // On narrow screens (like iPhone), allow book if screen is tall enough to show it above buttons
-    // On wider screens, enforce overlap detection
-    const isNarrowScreen = screen.width < 300;
-    const isTallEnough = screen.height >= 250; // Reduced from 300 to 250 for shorter screens
-    const shouldShowBook = !screenTooNarrow && (!wouldOverlap || (isNarrowScreen && isTallEnough));
-
-    // 📚 Log book visibility details
-    // console.log('📚 Book visibility:', {
-    //   shouldShowBook,
-    //   screenWidth: screen.width,
-    //   screenHeight: screen.height,
-    //   screenTooNarrow,
-    //   isNarrowScreen,
-    //   isTallEnough,
-    //   wouldOverlap,
-    //   overlapReasons,
-    //   bookAdBox
-    // });
-
-    if (shouldShowBook) {
-
-    // Theme-sensitive colors
-    const isDark = $.dark;
-    // const textColor = isDark ? [255, 255, 255] : [0, 0, 0]; // White in dark, black in light
-
-    // 📚 Second Product (Current) - New colors
-    const titleColor = isDark ? [150, 200, 255] : [50, 100, 200]; // Blue-ish tint for title
-    const titleHighlightColor = isDark ? [100, 200, 255] : [0, 150, 255]; // Brighter blue when highlighted
-    const authorColor = isDark ? [255, 200, 150] : [140, 80, 50]; // Warm/orange-ish byline
-    const authorHighlightColor = [255, 255, 0]; // Yellow highlight for byline when pressed
-
-    // 📚 First Product (Deprecated - SOLD) - Old colors
-    // const titleColor = isDark ? [255, 200, 150] : [200, 100, 50]; // Orange/warm tint for title
-    // const titleHighlightColor = isDark ? [255, 255, 100] : [255, 200, 0]; // Yellow tint when highlighted
-    // const authorColor = isDark ? [200, 200, 255] : [80, 80, 140]; // Tinted byline (blue-ish)
-    // const authorHighlightColor = [255, 255, 0]; // Yellow highlight for byline when pressed
-
-    const shadowColor = isDark ? [0, 0, 0] : [255, 255, 255]; // Black shadow in dark, white in light
-    const priceNormalColor = isDark ? [0, 255, 0] : [0, 180, 0]; // Bright green in dark, darker in light
-    const priceHoverColor = isDark ? [100, 255, 100] : [0, 255, 0]; // Brighter greens
-    const priceDownColor = [255, 255, 0]; // Yellow when pressed (same for both)
-
-    // Calculate drift/shake offset (a few pixels in x and y) - faster shaking
-    const driftX = Math.floor(Math.sin(bookRotation * 0.06) * 2); // Faster drift, 2px range
-    const driftY = Math.floor(Math.cos(bookRotation * 0.08) * 2); // Faster speed for more active feel
-
-    // Independent text sway animations for title and author
-    // Title shake (landscape)
-    const titleSwayX = Math.floor(Math.sin(bookRotation * 0.06) * 3); // 3px range, faster
-    const titleSwayY = Math.floor(Math.cos(bookRotation * 0.05) * 2.5); // 2.5px range
-
-    // Author shake (independent movement)
-    const authorSwayX = Math.floor(Math.sin(bookRotation * 0.08) * 3.5); // Different speed and range
-    const authorSwayY = Math.floor(Math.cos(bookRotation * 0.07) * 3); // Different vertical pattern
-
-    // Make button box around the image area (adjusted for drift)
-    const totalW = bookW + 4; // Add padding for drift
-    const totalH = bookH + 4;
-
-    // Create or update button
-    if (!bookButton) {
-      bookButton = new $.ui.Button(bookX - 2, bookY - 2, totalW, totalH);
-      bookButton.stickyScrubbing = true;
-    } else {
-      bookButton.disabled = false; // Re-enable when curtain is shown
-      bookButton.box.x = bookX - 2;
-      bookButton.box.y = bookY - 2;
-      bookButton.box.w = totalW;
-      bookButton.box.h = totalH;
-    }
-
-    // Determine highlight state (hover or down)
-    const isHighlighted = bookButton.over || bookButton.down;
-
-    // Scale effect when pressing down
-    const imageScale = bookButton.down ? 1.1 : 1;
-    const scaledBookW = Math.floor(bookW * imageScale);
-    const scaledBookH = Math.floor(bookH * imageScale);
-    const scaleOffsetX = Math.floor((scaledBookW - bookW) / 2);
-    const scaleOffsetY = Math.floor((scaledBookH - bookH) / 2);
-
-    // Draw shadow behind book (offset to bottom-right, scaled) - REMOVED
-    // $.ink(0, 0, 0, isDark ? 80 : 40) // Darker shadow in dark mode
-    //   .box(Math.floor(bookX + driftX + 2 - scaleOffsetX), Math.floor(bookY + driftY + 2 - scaleOffsetY), scaledBookW, scaledBookH);
-
-    // Draw book cover with drift/shake using paste (no rotation), with scale
-    if (bookButton.down && imageScale !== 1) {
-      // Use paste with scale object for custom dimensions
-      $.paste(
-        bookImageScaled,
-        Math.floor(bookX + driftX - scaleOffsetX),
-        Math.floor(bookY + driftY - scaleOffsetY),
-        { scale: imageScale, width: scaledBookW, height: scaledBookH }
-      );
-    } else {
-      $.paste(bookImageScaled, Math.floor(bookX + driftX), Math.floor(bookY + driftY));
-    }
-
-    // Apply brightness overlay when highlighted (always use scaled dimensions) - REMOVED
-    // if (isHighlighted) {
-    //   const overlayX = bookButton.down ? Math.floor(bookX + driftX - scaleOffsetX) : Math.floor(bookX + driftX);
-    //   const overlayY = bookButton.down ? Math.floor(bookY + driftY - scaleOffsetY) : Math.floor(bookY + driftY);
-    //   const overlayW = bookButton.down ? scaledBookW : bookW;
-    //   const overlayH = bookButton.down ? scaledBookH : bookH;
-    //   $.ink(255, 255, 255, bookButton.down ? 60 : 30) // Brighter when down
-    //     .box(overlayX, overlayY, overlayW, overlayH);
-    // }
-
-    // Determine text colors based on state - faster blinking when down
-    const blinkSpeed = bookButton.down ? 0.3 : 0.15; // Faster blink when pressed
-    const blinkPhase = Math.sin(bookRotation * blinkSpeed) > 0; // Boolean blink
-    const shouldBlink = bookButton.down && blinkPhase;
-
-    // Title color cycling (smooth fade between bright neon colors)
-    const titleBlinkSpeed = 0.05; // Much slower for smoother transitions
-    const titleColorCycle = [
-      [0, 255, 255],     // Bright cyan
-      [255, 0, 255],     // Bright magenta
-      [255, 255, 0],     // Bright yellow
-      [0, 255, 128],     // Bright green-cyan
-    ];
-    const titlePhase = (Math.sin(bookRotation * titleBlinkSpeed) * 0.5 + 0.5) * titleColorCycle.length;
-    const titleIndex1 = Math.floor(titlePhase) % titleColorCycle.length;
-    const titleIndex2 = (titleIndex1 + 1) % titleColorCycle.length;
-    const titleMix = titlePhase - Math.floor(titlePhase);
-    const finalTitleColor = [
-      Math.floor(titleColorCycle[titleIndex1][0] * (1 - titleMix) + titleColorCycle[titleIndex2][0] * titleMix),
-      Math.floor(titleColorCycle[titleIndex1][1] * (1 - titleMix) + titleColorCycle[titleIndex2][1] * titleMix),
-      Math.floor(titleColorCycle[titleIndex1][2] * (1 - titleMix) + titleColorCycle[titleIndex2][2] * titleMix)
-    ];
-
-    // Draw title text (with sway effect and highlight)
-    // Shadow
-    ink(shadowColor[0], shadowColor[1], shadowColor[2]).write(titleText, { x: titleX + titleSwayX + 1, y: titleY + titleSwayY + 1 }, undefined, undefined, false, "MatrixChunky8");
-    // Main text
-    ink(finalTitleColor[0], finalTitleColor[1], finalTitleColor[2]).write(titleText, { x: titleX + titleSwayX, y: titleY + titleSwayY }, undefined, undefined, false, "MatrixChunky8");
-
-    // Draw author text (with sway effect, bright neon colors with smooth fading)
-    const authorBlinkSpeed = 0.04; // Much slower and slightly different speed than title
-    const authorColorCycle = [
-      [255, 100, 255],   // Bright pink/magenta
-      [100, 255, 255],   // Bright cyan
-      [255, 255, 100],   // Bright yellow
-      [100, 255, 100],   // Bright green
-    ];
-    const authorPhase = (Math.sin(bookRotation * authorBlinkSpeed) * 0.5 + 0.5) * authorColorCycle.length;
-    const authorIndex1 = Math.floor(authorPhase) % authorColorCycle.length;
-    const authorIndex2 = (authorIndex1 + 1) % authorColorCycle.length;
-    const authorMix = authorPhase - Math.floor(authorPhase);
-    const finalAuthorColor = [
-      Math.floor(authorColorCycle[authorIndex1][0] * (1 - authorMix) + authorColorCycle[authorIndex2][0] * authorMix),
-      Math.floor(authorColorCycle[authorIndex1][1] * (1 - authorMix) + authorColorCycle[authorIndex2][1] * authorMix),
-      Math.floor(authorColorCycle[authorIndex1][2] * (1 - authorMix) + authorColorCycle[authorIndex2][2] * authorMix)
-    ];
-    ink(...shadowColor)
-      .write(authorText, { x: authorX + authorSwayX + 1, y: authorY + authorSwayY + 1 }, undefined, undefined, false, "MatrixChunky8");
-    ink(...finalAuthorColor)
-      .write(authorText, { x: authorX + authorSwayX, y: authorY + authorSwayY }, undefined, undefined, false, "MatrixChunky8");
-
-    // Price text below author byline, scale 1 with solid background and drift
-    const priceFont = 'MatrixChunky8';
-
-    // Price drift (side-to-side only, slower)
-    const priceDriftX = Math.floor(Math.sin(bookRotation * 0.05) * 3); // Slower, 3px horizontal range only
-
-    // Price position: below author, with horizontal drift only
-    const priceScale = 1; // Normal size
-    const priceW = priceActualW * priceScale;
-    const priceH = 8 * priceScale;
-    const padding = 2;
-    const priceTextX = rightEdge - priceW - padding * 2 + priceDriftX;
-    const priceTextY = bookY + bookH - 8; // Moved up 16px from previous (8 - 16 = -8)
-
-    // Solid background box for price (theme-sensitive)
-    const priceBg = isDark ? [0, 0, 0, 255] : [255, 255, 255, 255];
-    ink(...priceBg).box(priceTextX - padding, priceTextY - padding, priceW + padding * 2, priceH + padding * 2);
-
-    // Subtle dark shadow (not blinking) - tighter offset
-    ink(0, 0, 0, isDark ? 80 : 50).write(priceText, { x: priceTextX + 0.5, y: priceTextY + 0.5, size: priceScale }, undefined, undefined, false, priceFont);
-
-    // Price text - color cycling (always blinking)
-    const priceBlinkSpeed = 0.18; // Slightly different speed than title
-    const priceColorCycle = [
-      priceNormalColor,
-      priceHoverColor,
-      [priceNormalColor[0] * 0.7, priceNormalColor[1] * 0.7, priceNormalColor[2] * 0.7], // Dimmed
-    ];
-    const priceColorIndex = Math.floor((Math.sin(bookRotation * priceBlinkSpeed) * 0.5 + 0.5) * priceColorCycle.length) % priceColorCycle.length;
-    const priceFinalColor = priceColorCycle[priceColorIndex];
-    ink(...priceFinalColor).write(priceText, { x: priceTextX, y: priceTextY, size: priceScale }, undefined, undefined, false, priceFont);
-
-    // 📚 First Product (Deprecated - SOLD) - SOLD banner removed for second product
-    // // Draw "SOLD" banner centered on the book with unique animation
-    // const soldText = "SOLD";
-    // const soldTextWidth = soldText.length * 6; // Default font is 6px wide per character
-    // const soldTextHeight = 8; // Default font height
-    // const soldPadding = 4;
-    //
-    // // Center position on book (with slower side-to-side sway)
-    // const soldSway = Math.sin(bookRotation * 0.05) * 2; // Slower side-to-side, 2px range
-    // const soldX = bookX + (bookW / 2) - (soldTextWidth / 2) + driftX + soldSway;
-    // const soldY = bookY + (bookH / 2) - (soldTextHeight / 2) + driftY;
-    //
-    // // Red banner background with pulsing opacity
-    // const soldBgAlpha = Math.abs(Math.sin(bookRotation * 0.08)) * 80 + 160; // Pulse between 160-240
-    // ink(200, 0, 0, soldBgAlpha).box(soldX - soldPadding, soldY - soldPadding, soldTextWidth + soldPadding * 2, soldTextHeight + soldPadding * 2);
-    //
-    // // SOLD text blinking between yellow and red
-    // const soldBlink = Math.sin(bookRotation * 0.12) > 0; // Boolean blink
-    // const soldColor = soldBlink ? [255, 255, 0] : [255, 50, 50]; // Yellow or bright red
-    // ink(0, 0, 0, 180).write(soldText, { x: soldX + 1, y: soldY + 1 });
-    // ink(...soldColor).write(soldText, { x: soldX, y: soldY });
-    } else if (bookButton) {
-      // Hide book button if screen too small or would overlap
-      bookButton.disabled = true;
-    }
-  } else if (bookButton) {
-    // Disable button when not on login curtain
-    bookButton.disabled = true;
-  }
-  */
-
   // 🟢 KidLisp mode border effect (full window border with scrolling dots)
   // Only show when prompt is focused (canType is true)
   const isKidlispMode = $.system?.prompt?.actualKidlisp;
@@ -6371,6 +5230,7 @@ function paint($) {
     const mediaItems = [];
     const commitItems = [];
     const statsItems = [];
+    const moodItems = [];
 
     // Collect chat messages (blue) - code: 'chat'
     if (!isCriticalFunding && hasChatMessages) {
@@ -6465,10 +5325,27 @@ function paint($) {
       });
     }
 
+    // Collect moods (cyan/teal) - code: 'mood'
+    if (motdCandidates.length > 0) {
+      motdCandidates.forEach(candidate => {
+        if (!candidate?.mood) return;
+        const moodText = candidate.mood.replace(/[\r\n]+/g, ' ').slice(0, 60);
+        const handle = candidate.handle || candidate.handleInfo?.handle || candidate.owner?.handle || candidate.user?.handle || null;
+        const from = handle ? (handle.startsWith("@") ? handle : `@${handle}`) : 'anon';
+        moodItems.push({
+          type: 'mood',
+          text: `${from}: ${moodText}`,
+          code: 'mood',
+          color: [100, 255, 220], // Cyan/teal for moods
+        });
+      });
+    }
+
     // 🎲 Interleave items for frecency-style distribution
     // Round-robin through all item types to ensure good mixing
+    // Currently limited to: chats, laer-klokkens, and moods
     unitickerItems = [];
-    const allBuckets = [mediaItems, chatItems, clockItems, commitItems, statsItems].filter(b => b.length > 0);
+    const allBuckets = [chatItems, clockItems, moodItems].filter(b => b.length > 0);
     const bucketIndices = allBuckets.map(() => 0);
     const totalItems = allBuckets.reduce((sum, b) => sum + b.length, 0);
     
@@ -6759,6 +5636,10 @@ function paint($) {
             tooltipPrefix = "Enter '";
             tooltipCode = displayItem.code;
             tooltipSuffix = "' to browse";
+          } else if (displayItem.type === 'mood') {
+            tooltipPrefix = "Enter '";
+            tooltipCode = displayItem.code;
+            tooltipSuffix = "' to set yours";
           } else {
             tooltipPrefix = "Enter '";
             tooltipCode = displayItem.code;
@@ -8281,28 +7162,20 @@ function sim($) {
     }
   }
 
-  // 📦 Update product animations (active when top-right slot shows "products")
-  if (topRightBtnChoice === "products") {
+  // 📦 Update product animations
+  {
     const showLoginCurtainSim =
       (!login?.btn.disabled && !profile) ||
       (!login && !profile?.btn.disabled);
     const promptHasContent = $.system.prompt.input.text && $.system.prompt.input.text.length > 0;
-    const shouldShowCarousel = showLoginCurtainSim && !$.system.prompt.input.canType && !promptHasContent;
-    if (shouldShowCarousel) {
+    const shouldShow = showLoginCurtainSim && !$.system.prompt.input.canType && !promptHasContent;
+    if (shouldShow) {
       const product = products.getActiveProduct();
       if (product && product.imageScaled) {
         products.sim($);
         $.needsPaint();
       }
     }
-  }
-  // 🎰 Cycle top-right slot (give → ad → products) on a timer
-  if (topRightLastCycleTime === 0) topRightLastCycleTime = performance.now();
-  if (performance.now() - topRightLastCycleTime >= TOP_RIGHT_CYCLE_MS) {
-    topRightLastCycleTime = performance.now();
-    topRightBtnChoiceIndex = (topRightBtnChoiceIndex + 1) % TOP_RIGHT_BTN_CHOICES.length;
-    topRightBtnChoice = TOP_RIGHT_BTN_CHOICES[topRightBtnChoiceIndex];
-    $.needsPaint();
   }
 
   if ($.store["handle:received"]) {
@@ -8486,49 +7359,15 @@ function act({
 
   // End of button processing
 
-  // 🎨 SO SOFT studio ad buttons - link to sosoft.arts.ucla.edu
-  const soSoftUrl = "https://sosoft.arts.ucla.edu";
 
-  if (soBtn && !soBtn.disabled) {
-    soBtn.act(e, {
-      down: () => downSound(),
-      push: () => {
-        pushSound();
-        // Handle external URL opening (supports VSCode extension)
-        if (net.iframe) {
-          send({ type: "post-to-parent", content: { type: "openExternal", url: soSoftUrl } });
-        } else {
-          jump(soSoftUrl); // Opens in new tab for external URLs
-        }
-      },
-      cancel: () => cancelSound(),
-    });
-  }
-
-  if (softBtn && !softBtn.disabled) {
-    softBtn.act(e, {
-      down: () => downSound(),
-      push: () => {
-        pushSound();
-        // Handle external URL opening (supports VSCode extension)
-        if (net.iframe) {
-          send({ type: "post-to-parent", content: { type: "openExternal", url: soSoftUrl } });
-        } else {
-          jump(soSoftUrl); // Opens in new tab for external URLs
-        }
-      },
-      cancel: () => cancelSound(),
-    });
-  }
-
-  // 📦 Product button interaction (active when top-right slot shows "products")
-  if (topRightBtnChoice === "products") {
+  // 📦 SHOP box button interaction
+  {
     const showLoginCurtainAct =
       (!login?.btn.disabled && !profile) ||
       (!login && !profile?.btn.disabled);
     const promptHasContentAct = system.prompt.input.text && system.prompt.input.text.length > 0;
-    const shouldShowCarouselAct = showLoginCurtainAct && !system.prompt.input.canType && !promptHasContentAct;
-    if (shouldShowCarouselAct) {
+    const shouldShow = showLoginCurtainAct && !system.prompt.input.canType && !promptHasContentAct;
+    if (shouldShow) {
       products.act(
         { needsPaint, net, screen, jump, send, sound: { play, synth }, ui },
         e,
@@ -8539,11 +7378,6 @@ function act({
           cancel: () => cancelSound(),
         }
       );
-    } else {
-      const activeProduct = products.getActiveProduct();
-      if (activeProduct && activeProduct.button) {
-        activeProduct.button.disabled = true;
-      }
     }
   }
 
@@ -8839,15 +7673,10 @@ function act({
     (e.is("touch") || e.is("lift")) &&
     ((login?.btn.disabled === false && login?.btn.box.contains(e)) ||
       (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
-      (giveBtn?.btn.disabled === false && giveBtn?.btn.box.contains(e)) ||
-      (adBtn?.btn.disabled === false && adBtn?.btn.box.contains(e)) ||
-      (soBtn?.btn.disabled === false && soBtn?.btn.box.contains(e)) ||
-      (softBtn?.btn.disabled === false && softBtn?.btn.box.contains(e)) ||
       (commitBtn?.btn.disabled === false && commitBtn?.btn.box.contains(e)) ||
       (kidlispBtn?.btn.disabled === false && kidlispBtn?.btn.box.contains(e)) ||
       (clearBtn?.disabled === false && clearBtn?.box.contains(e)) ||
-      (products.getActiveProduct()?.button?.disabled === false && products.getActiveProduct()?.button?.box.contains(e)) ||
-      (products.getActiveProduct()?.buyButton?.disabled === false && products.getActiveProduct()?.buyButton?.box.contains(e)) ||
+      (products.getShopBoxButton()?.disabled === false && products.getShopBoxButton()?.box.contains(e)) ||
       (unitickerButton?.disabled === false && unitickerButton?.box.contains(e)) ||
       (chatTickerButton?.disabled === false && chatTickerButton?.box.contains(e)) ||
       (contentTickerButton?.disabled === false && contentTickerButton?.box.contains(e)) ||
@@ -8917,47 +7746,6 @@ function act({
   });
   }
 
-  // � GIVE button - navigate to give.aesthetic.computer
-  if (giveBtn && !giveBtn.btn.disabled) {
-    giveBtn.btn.act(e, {
-      down: () => downSound(),
-      push: () => {
-        pushSound();
-        // Handle external URL opening (supports VSCode extension)
-        const giveUrl = "https://give.aesthetic.computer";
-        if (net.iframe) {
-          send({ type: "post-to-parent", content: { type: "openExternal", url: giveUrl } });
-        } else {
-          jump(giveUrl); // Opens in new tab for external URLs
-        }
-      },
-      cancel: () => cancelSound(),
-    });
-  }
-
-  // � AD button - navigate to ads piece
-  if (adBtn && !adBtn.btn.disabled) {
-    adBtn.btn.act(e, {
-      down: () => downSound(),
-      push: () => {
-        pushSound();
-        jump("ads");
-      },
-      cancel: () => cancelSound(),
-    });
-  }
-
-  // � SHOP button - navigate to shop
-  if (shopBtn && !shopBtn.btn.disabled) {
-    shopBtn.btn.act(e, {
-      down: () => downSound(),
-      push: () => {
-        pushSound();
-        jump("out:https://shop.aesthetic.computer");
-      },
-      cancel: () => cancelSound(),
-    });
-  }
 
   // 📦 Commit button - reload page when update is ready, else navigate to commits
   if (commitBtn && !commitBtn.btn.disabled) {
@@ -9429,6 +8217,60 @@ export const scheme = {
     },
   },
 };
+
+// 🌍 Interface language strings
+export const languages = {
+  en: {
+    label: "English",
+    buttons: {
+      enter: "Enter",
+      copy: { label: "Copy", copied: "Copied", failed: "Failed" },
+      paste: { label: "Paste", pasted: "Pasted", empty: "Empty", failed: "Failed" },
+    },
+    login: "Log in",
+    signup: "I'm new",
+    resendEmail: "Resend email",
+  },
+  da: {
+    label: "Dansk",
+    buttons: {
+      enter: "Kør",
+      copy: { label: "Kopiér", copied: "Kopieret", failed: "Fejl" },
+      paste: { label: "Indsæt", pasted: "Indsat", empty: "Tom", failed: "Fejl" },
+    },
+    login: "Log ind",
+    signup: "Jeg er ny",
+    resendEmail: "Send igen",
+  },
+  es: {
+    label: "Español",
+    buttons: {
+      enter: "Entrar",
+      copy: { label: "Copiar", copied: "Copiado", failed: "Error" },
+      paste: { label: "Pegar", pasted: "Pegado", empty: "Vacío", failed: "Error" },
+    },
+    login: "Entrar",
+    signup: "Soy nuevo",
+    resendEmail: "Reenviar",
+  },
+  ru: {
+    label: "Русский",
+    buttons: {
+      enter: "Ввод",
+      copy: { label: "Копия", copied: "Скопировано", failed: "Ошибка" },
+      paste: { label: "Вставка", pasted: "Вставлено", empty: "Пусто", failed: "Ошибка" },
+    },
+    login: "Войти",
+    signup: "Я новый",
+    resendEmail: "Повторить",
+  },
+};
+
+let lang = "en"; // Current interface language
+
+function currentLang() {
+  return languages[lang] || languages.en;
+}
 
 // 📚 Library
 //   (Useful functions used throughout the piece)
