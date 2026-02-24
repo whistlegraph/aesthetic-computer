@@ -1929,7 +1929,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         glaze.type,
         () => {
           glazeReady = true; // Glaze shaders loaded, safe to show
-          Glaze.unfreeze(); // Make glaze canvas visible immediately
+          // Don't unfreeze here — let the render loop handle it once
+          // Glaze.update() has been called with valid pixels.
           send({ type: "needs-paint" }); // Render a frame through glaze
         },
       );
@@ -1939,7 +1940,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // the glaze canvas hidden. Restore the flag so the reframe can complete.
       if (!glazeReady) {
         glazeReady = true;
-        Glaze.unfreeze();
+        // Don't unfreeze here — render loop will unfreeze once pixels arrive.
       }
     } else {
       Glaze.off();
@@ -17817,7 +17818,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       freezeFrameFrozen = false;
     }
 
-    if (glaze.on && glazeReady) {
+    if (glaze.on && glazeReady && !awaitingReframePixels) {
       Glaze.unfreeze();
     } else if (!glaze.on) {
       canvas.style.removeProperty("opacity");
