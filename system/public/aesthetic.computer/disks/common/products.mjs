@@ -1490,109 +1490,167 @@ export function sim($) {
   const now = performance.now();
   const product = getActiveProduct();
   if (product) product.sim(now);
-  
+
   // Poll speaker for audio data (amplitude and waveform)
   $.sound?.speaker?.poll();
-  
-  // ⏱️ Auto-cycle products every 9 seconds (only if we have products)
-  if (productKeys.length === 0) return;
-  
-  // Initialize cycle timer on first call
-  if (lastCycleTime === 0) lastCycleTime = now;
-  
-  const elapsed = now - lastCycleTime;
-  if (elapsed >= CYCLE_DURATION_MS) {
-    lastCycleTime = now;
-    
-    // Gracefully stop any playing audio before switching
-    const currentProduct = getActiveProduct();
-    if (currentProduct && currentProduct.audioSfx && currentProduct.isPlaying) {
-      console.log(`🎵 Fading out audio for ${currentProduct.title} before product switch`);
-      currentProduct.isPlaying = false;
-      currentProduct.isBuffering = false;
-      if (currentProduct.audioSfx.fade) {
-        currentProduct.audioSfx.fade(0, 0.5); // Fade to 0 over 0.5 seconds
-        setTimeout(() => {
-          if (currentProduct.audioSfx) {
-            currentProduct.audioSfx.kill?.(0);
-            currentProduct.audioSfx = null;
-          }
-        }, 500);
-      } else {
-        currentProduct.audioSfx.kill?.(0.5);
-        currentProduct.audioSfx = null;
-      }
-    }
-    
-    // Switch to next product
-    currentProductIndex = (currentProductIndex + 1) % productKeys.length;
-    activeProductKey = productKeys[currentProductIndex];
-    console.log(`📦 Auto-cycled to product: ${products[activeProductKey]?.title}`);
-    
-    // 🦥 Lazy load: ensure new product and next one are loaded
-    const newProduct = products[activeProductKey];
-    if (newProduct && !newProduct.imageScaled && !newProduct.isLoading && bootApi) {
-      ensureProductLoaded(activeProductKey, bootApi, true);
-    }
-    // Pre-load next product in queue
-    const nextIndex = (currentProductIndex + 1) % productKeys.length;
-    const nextKey = productKeys[nextIndex];
-    if (nextKey && products[nextKey] && !products[nextKey].imageScaled && !products[nextKey].isLoading && bootApi) {
-      // Delay preload slightly to not compete with current
-      setTimeout(() => ensureProductLoaded(nextKey, bootApi), 500);
-    }
-  }
 }
 
+// 📦 Shared SHOP box button (one big button for the whole box)
+let shopBoxButton = null;
+
 export function act($, event, callbacks) {
+  if (!shopBoxButton || shopBoxButton.disabled) return;
   const product = getActiveProduct();
-  if (product) product.act($, event, callbacks);
+  shopBoxButton.act(event, {
+    over: () => { callbacks?.over?.(); $.needsPaint?.(); },
+    down: () => { callbacks?.down?.(); },
+    push: () => {
+      callbacks?.push?.();
+      // Open the product's shop URL, or the main shop
+      const url = product?.shopUrl || "https://shop.aesthetic.computer";
+      if ($.net?.iframe) {
+        $.send?.({ type: "post-to-parent", content: { type: "openExternal", url } });
+      } else if ($.jump) {
+        $.jump(url);
+      } else {
+        window.open(url, "_blank");
+      }
+    },
+    cancel: () => { callbacks?.cancel?.(); $.needsPaint?.(); },
+  });
 }
 
 export function paint($, screen, showLoginCurtain) {
-  const product = getActiveProduct();
-
-  // Show loading animation if we're still booting (fetching shop data) or no products yet
-  if (!product) {
-    if (isBooting || productKeys.length === 0) {
-      paintBootingAnimation($, screen, showLoginCurtain);
-    }
+  if (!showLoginCurtain) {
+    if (shopBoxButton) shopBoxButton.disabled = true;
     return;
   }
 
-  // Lazily load the active product's image on first paint (avoids blocking prompt boot)
-  if (!product.imageScaled && !product.isLoading && bootApi) {
+  const product = getActiveProduct();
+
+  // Lazily load the active product's image on first paint
+  if (product && !product.imageScaled && !product.isLoading && bootApi) {
     ensureProductLoaded(activeProductKey, bootApi, true);
-    // Also pre-load the next product while we're at it
-    if (productKeys.length > 1) {
-      const nextIndex = (currentProductIndex + 1) % productKeys.length;
-      const nextKey = productKeys[nextIndex];
-      if (!products[nextKey]?.imageScaled && !products[nextKey]?.isLoading) {
-        setTimeout(() => ensureProductLoaded(nextKey, bootApi), 500);
-      }
+  }
+
+  // Box dimensions and position (top-right)
+  const boxW = min(100, floor(screen.width * 0.35));
+  const boxH = boxW + 20; // Slightly taller than wide to fit text below image
+  const boxPad = 6;
+  const boxX = screen.width - boxW - boxPad;
+  const boxY = boxPad;
+
+  // Screen too narrow — hide
+  if (screen.width < 100) {
+    if (shopBoxButton) shopBoxButton.disabled = true;
+    return;
+  }
+
+  // Check overlap with login/signup buttons
+  const boxRect = { x: boxX, y: boxY, w: boxW, h: boxH };
+  let wouldOverlap = false;
+  if ($.login?.btn?.box) {
+    const lb = $.login.btn.box;
+    wouldOverlap = boxRect.x < lb.x + lb.w && boxRect.x + boxRect.w > lb.x &&
+                   boxRect.y < lb.y + lb.h && boxRect.y + boxRect.h > lb.y;
+  }
+  if (!wouldOverlap && $.signup?.btn?.box) {
+    const sb = $.signup.btn.box;
+    wouldOverlap = boxRect.x < sb.x + sb.w && boxRect.x + boxRect.w > sb.x &&
+                   boxRect.y < sb.y + sb.h && boxRect.y + boxRect.h > sb.y;
+  }
+  if (wouldOverlap) {
+    if (shopBoxButton) shopBoxButton.disabled = true;
+    return;
+  }
+
+  // Create or update the single SHOP box button
+  if (!shopBoxButton) {
+    shopBoxButton = new $.ui.Button(boxX, boxY, boxW, boxH);
+    shopBoxButton.stickyScrubbing = true;
+  } else {
+    shopBoxButton.disabled = false;
+    shopBoxButton.box.x = boxX;
+    shopBoxButton.box.y = boxY;
+    shopBoxButton.box.w = boxW;
+    shopBoxButton.box.h = boxH;
+  }
+
+  const isDark = $.dark;
+  const isHover = shopBoxButton.over;
+  const isDown = shopBoxButton.down;
+
+  // Background fill (masked area)
+  const bgAlpha = isDown ? 220 : (isHover ? 200 : 180);
+  const bg = isDark ? [20, 20, 30, bgAlpha] : [240, 240, 250, bgAlpha];
+  $.ink(...bg).box(boxX, boxY, boxW, boxH, "fill");
+
+  // Render product image centered in top portion of box
+  if (product?.imageScaled) {
+    const img = product.imageScaled;
+    // Fit image within box with padding
+    const imgAreaW = boxW - 4;
+    const imgAreaH = boxH - 24; // Leave room for SHOP text at bottom
+    const scale = min(imgAreaW / img.width, imgAreaH / img.height, 1);
+    const drawW = floor(img.width * scale);
+    const drawH = floor(img.height * scale);
+    const imgX = boxX + floor((boxW - drawW) / 2);
+    const imgY = boxY + 2 + floor((imgAreaH - drawH) / 2);
+
+    // Paste the image (already pre-scaled, just center it)
+    $.paste(img, imgX, imgY);
+
+    // Title text (truncated to fit box)
+    const maxChars = floor((boxW - 4) / 4); // MatrixChunky8 is 4px per char
+    let title = product.title || "";
+    if (title.length > maxChars) title = title.slice(0, maxChars - 1) + "\u2026";
+    const titleW = title.length * 4;
+    const titleX = boxX + floor((boxW - titleW) / 2);
+    const titleY = imgY + drawH + 2;
+
+    const titleColor = isDark ? [200, 220, 255] : [30, 30, 60];
+    $.ink(...titleColor).write(title, { x: titleX, y: titleY }, undefined, undefined, false, "MatrixChunky8");
+
+    // Byline text
+    let byline = product.byline || "";
+    if (byline.length > maxChars) byline = byline.slice(0, maxChars - 1) + "\u2026";
+    const bylineW = byline.length * 4;
+    const bylineX = boxX + floor((boxW - bylineW) / 2);
+    const bylineY = titleY + 9;
+
+    const bylineColor = isDark ? [150, 160, 180] : [80, 80, 100];
+    $.ink(...bylineColor).write(byline, { x: bylineX, y: bylineY }, undefined, undefined, false, "MatrixChunky8");
+  } else if (isBooting || !product) {
+    // Loading indicator
+    const t = Date.now() / 1000;
+    const cx = boxX + floor(boxW / 2);
+    const cy = boxY + floor((boxH - 20) / 2);
+    for (let i = 0; i < 4; i++) {
+      const angle = t * 3 + (i * Math.PI / 2);
+      const px = cx + floor(cos(angle) * 12);
+      const py = cy + floor(sin(angle) * 12);
+      const pulse = floor(150 + sin(t * 4 + i) * 100);
+      $.ink(pulse, pulse, 255, 200).box(px - 1, py - 1, 3, 3);
     }
   }
-  
-  // 🎚️ Volume ducking: Adjust audio volume when curtain state changes
-  if (product && product.audioSfx && product.isPlaying && !product.audioSfx.killed) {
-    if (previousCurtainState !== null && previousCurtainState !== showLoginCurtain) {
-      // Curtain state changed - adjust volume smoothly
-      const targetVolume = showLoginCurtain ? 0.7 : 0.3; // Full volume on curtain, ducked when not
-      console.log(`🎚️ Curtain changed (${previousCurtainState} → ${showLoginCurtain}), adjusting volume to ${targetVolume}`);
-      
-      // Smoothly adjust volume instead of restarting
-      if (product.audioSfx.fade) {
-        product.audioSfx.fade(targetVolume, 0.2); // Fade to target volume over 0.2 seconds
-      } else {
-        // Fallback if fade not available: set volume directly
-        product.audioSfx.volume = targetVolume;
-      }
-    }
-  }
-  
-  previousCurtainState = showLoginCurtain;
-  
-  if (product) product.paint($, screen, showLoginCurtain);
+
+  // "SHOP" label at the bottom of the box
+  const shopText = isDown ? "SHOP!" : "SHOP";
+  const shopCharW = 4;
+  const shopTextW = shopText.length * shopCharW;
+  const shopTextX = boxX + floor((boxW - shopTextW) / 2);
+  const shopTextY = boxY + boxH - 10;
+
+  // SHOP text color
+  const shopColor = isDown ? [255, 255, 0] : (isHover ? [100, 255, 200] : (isDark ? [0, 255, 180] : [0, 140, 80]));
+  $.ink(...shopColor).write(shopText, { x: shopTextX, y: shopTextY }, undefined, undefined, false, "MatrixChunky8");
+
+  // Border
+  const borderColor = isDown ? [255, 255, 0] : (isHover ? [0, 255, 200] : (isDark ? [80, 100, 120] : [150, 160, 180]));
+  const borderAlpha = isHover ? 255 : 180;
+  $.ink(...borderColor, borderAlpha).box(boxX, boxY, boxW, boxH, "outline");
+
+  $.needsPaint?.();
 }
 
 // 🌀 Paint loading animation while booting (fetching shop data)
@@ -1659,6 +1717,11 @@ function paintBootingAnimation($, screen, showLoginCurtain) {
   $.needsPaint?.();
 }
 
+// 📦 Get the shared SHOP box button (for keyboard lock checks)
+export function getShopBoxButton() {
+  return shopBoxButton;
+}
+
 // 🛒 Get live shop data (for external use)
 export function getLiveShopData() {
   return liveShopData;
@@ -1672,12 +1735,10 @@ export async function refreshShopData() {
 
 // 📊 Get product stats
 export function getProductStats() {
-  const elapsed = performance.now() - lastCycleTime;
   return {
     total: productKeys.length,
     current: activeProductKey,
     currentIndex: currentProductIndex,
-    cycleProgress: Math.min(elapsed / CYCLE_DURATION_MS, 1),
     hasLiveData: !!liveShopData,
     liveProductCount: liveShopData?.products?.length || 0,
     availableCount: liveShopData?.available?.length || 0,

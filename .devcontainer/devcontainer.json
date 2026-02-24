@@ -189,7 +189,8 @@
         "mongodb.mongodb-vscode",
         "Anthropic.claude-code",
         "ms-python.python",
-        "ms-toolsai.jupyter"
+        "ms-toolsai.jupyter",
+        "openai.chatgpt"
       ]
     }
   },

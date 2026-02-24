@@ -1723,6 +1723,7 @@ let currentPath,
   currentHUDLabelBlockWidth = tf?.blockWidth ?? DEFAULT_TYPEFACE_BLOCK_WIDTH,
   currentHUDLabelBlockHeight = tf?.blockHeight ?? DEFAULT_TYPEFACE_BLOCK_HEIGHT,
   currentHUDShareWidth = (tf?.blockWidth ?? DEFAULT_TYPEFACE_BLOCK_WIDTH) * "share ".length,
+  currentHUDEditWidth = tf?.blockWidth ?? DEFAULT_TYPEFACE_BLOCK_WIDTH,
   currentHUDLabelMeasuredWidth = 0,
   currentHUDTextHeight = 0,
   currentHUDTextBoxWidth = 0,
@@ -8587,6 +8588,7 @@ async function load(
   currentHUDLabelBlockWidth = tf.blockWidth;
   currentHUDLabelBlockHeight = tf.blockHeight;
   currentHUDShareWidth = tf.blockWidth * "share ".length;
+  currentHUDEditWidth = tf.blockWidth;
 
   // Initialize MatrixChunky8 font for QR code text rendering and keep it warm across pieces
   // Always register the font so kidlisp.com previews still render MatrixChunky8 labels
@@ -9310,7 +9312,7 @@ async function load(
     currentHUDStatusColor = "red"; //undefined;
     currentHUDButton = undefined;
     currentHUDScrub = 0;
-  currentHUDLeftPad = 0;
+    currentHUDLeftPad = 0;
     currentHUDQR = null; // Reset QR code when loading new piece
     currentHUDQRCells = null;
     currentHUDSuperscript = null; // Reset custom superscript
@@ -10981,6 +10983,79 @@ async function makeFrame({ data: { type, content } }) {
       }
     }
 
+    function getHudEditScrubThreshold() {
+      const promptLength = Math.max(
+        1,
+        (currentHUDPlainTxt || currentHUDTxt || currentText || "").length,
+      );
+      const blockWidth =
+        currentHUDLabelBlockWidth || tf?.blockWidth || DEFAULT_TYPEFACE_BLOCK_WIDTH;
+      const baseCaretWidth = blockWidth + 2;
+      const maxCaretWidth = blockWidth * 3;
+      if (promptLength <= 4) return baseCaretWidth;
+      if (promptLength <= 8) return Math.floor(baseCaretWidth * 1.5);
+      return Math.min(maxCaretWidth, Math.floor(promptLength * blockWidth * 0.25));
+    }
+
+    function triggerBackspaceAction(overrideContent) {
+      $commonApi.sound.synth({
+        tone: 800,
+        beats: 0.1,
+        attack: 0.01,
+        decay: 0.5,
+        volume: 0.15,
+      });
+      send({ type: "keyboard:unlock" });
+
+      const content =
+        overrideContent || currentHUDPlainTxt || currentHUDTxt || currentText;
+      let promptSlug = "prompt";
+      if (content) {
+        if (lisp.isKidlispSource(content)) {
+          promptSlug += "~" + lisp.encodeKidlispForUrl(content);
+        } else {
+          promptSlug += "~" + content.replace(/~/g, " ");
+        }
+      }
+
+      $commonApi.jump(promptSlug);
+      send({ type: "keyboard:open" });
+      currentHUDScrub = 0;
+      masked = true;
+      $api.needsPaint();
+    }
+
+    function triggerShareAction() {
+      $api.sound.synth({
+        tone: 1800,
+        beats: 0.15,
+        attack: 0.01,
+        decay: 0.5,
+        volume: 0.15,
+      });
+      $api.sound.synth({
+        tone: 1800 / 2,
+        beats: 0.15 * 2,
+        attack: 0.01,
+        decay: 0.5,
+        volume: 0.1,
+      });
+
+      // Prefer existing cached short codes so we don't re-embed long inline source
+      const cachedShortCode = getCachedCode(currentCode);
+      if (cachedShortCode) {
+        $api.jump("share~$" + cachedShortCode);
+      } else if (currentOriginalCodeId && currentOriginalCodeId.startsWith("$")) {
+        $api.jump("share~" + currentOriginalCodeId);
+      } else {
+        const textToShare = currentHUDPlainTxt || currentHUDTxt || currentText || "";
+        $api.jump("share~" + lisp.encodeKidlispForUrl(textToShare));
+      }
+      currentHUDScrub = 0;
+      masked = true;
+      $api.needsPaint();
+    }
+
     // 🌟 Global Keyboard Shortcuts (these could also be seen via `act`)
     content.keyboard.forEach((data) => {
       if (currentText && currentText.indexOf("botce") > -1) return; // No global keys on `botce`. 23.11.12.23.38
@@ -11152,20 +11227,11 @@ async function makeFrame({ data: { type, content } }) {
           if (!labelBack || data.key === "Backspace" || data.key === "Escape") {
             let promptSlug = "prompt";
             if (data.key === "Backspace") {
-              // Use merry original command if available, otherwise use current content
-              const content = merryOriginalCommand || currentHUDPlainTxt || currentHUDTxt || currentText;
-              // Only encode kidlisp content with kidlisp encoder
-              if (lisp.isKidlispSource(content)) {
-                const encodedContent = lisp.encodeKidlispForUrl(content);
-                promptSlug += "~" + encodedContent;
-              } else {
-                // For regular piece names, convert tildes to spaces for display
-                const spaceContent = content.replace(/~/g, " ");
-                promptSlug += "~" + spaceContent;
-              }
+              triggerBackspaceAction(merryOriginalCommand);
+            } else {
+              $commonApi.jump(promptSlug);
+              send({ type: "keyboard:open" });
             }
-            $commonApi.jump(promptSlug);
-            send({ type: "keyboard:open" });
           } else {
             if ($commonApi.history.length > 0) {
               send({ type: "back-to-piece" });
@@ -12136,6 +12202,7 @@ async function makeFrame({ data: { type, content } }) {
 
                 const fallbackShareWidth = tf.blockWidth * "share ".length;
                 const shareWidth = Math.max(currentHUDShareWidth || 0, fallbackShareWidth);
+                const editWidth = Math.max(currentHUDEditWidth || 0, getHudEditScrubThreshold());
                 
                 // 📦 PACK mode: no scrub-to-share, tap refreshes page
                 if (getPackMode()) {
@@ -12157,29 +12224,25 @@ async function makeFrame({ data: { type, content } }) {
 
                 // If scrubbed to reveal "share", jump to share piece
                 if (currentHUDScrub >= shareWidth) {
-                  // Clear global HUD button flags
                   currentHUDButtonActive = false;
                   currentHUDButtonDirectTouch = false;
+                  triggerShareAction();
+                  return;
+                }
 
-                  $api.sound.synth({
-                    tone: 1200,
-                    beats: 0.1,
-                    attack: 0.01,
-                    decay: 0.5,
-                    volume: 0.15,
-                  });
-
-                  // Build the share URL with current piece as parameter
-                  const content = currentHUDPlainTxt || currentHUDTxt;
-                  jump(`share~${content}`);
-                  $api.needsPaint();
-                  masked = true;
-                  currentHUDScrub = 0;
+                // If scrubbed left to edit threshold, trigger backspace-to-edit
+                if (currentHUDScrub <= -editWidth) {
+                  currentHUDButtonActive = false;
+                  currentHUDButtonDirectTouch = false;
+                  triggerBackspaceAction();
                   return;
                 }
 
                 // If scrubbed but not to max, cancel the push
-                if (currentHUDScrub > 0 && currentHUDScrub < shareWidth) {
+                if (
+                  (currentHUDScrub > 0 && currentHUDScrub < shareWidth) ||
+                  (currentHUDScrub < 0 && currentHUDScrub > -editWidth)
+                ) {
                   btn.actions.cancel?.();
                   return;
                 }
@@ -12221,12 +12284,14 @@ async function makeFrame({ data: { type, content } }) {
                 // Only allow scrubbing if this was a direct touch on the HUD button
                 if (!currentHUDButtonDirectTouch) return;
 
-                if (btn.over || currentHUDScrub > 0) {
-                  currentHUDScrub += e.delta.x;
+                if (btn.over || currentHUDScrub !== 0) {
+                  const deltaX = Number(e?.delta?.x) || 0;
+                  currentHUDScrub += deltaX;
                 }
 
                 const fallbackShareWidth = (currentHUDLabelBlockWidth || DEFAULT_TYPEFACE_BLOCK_WIDTH) * "share ".length;
                 const shareWidth = Math.max(currentHUDShareWidth || 0, fallbackShareWidth);
+                const editWidth = Math.max(currentHUDEditWidth || 0, getHudEditScrubThreshold());
 
                 if (currentHUDScrub >= 0) {
                   const fallbackWidth = hudAnimationState.labelWidth
@@ -12237,13 +12302,19 @@ async function makeFrame({ data: { type, content } }) {
                   // console.log(btn.b);
                 }
 
-                if (currentHUDScrub < 0) currentHUDScrub = 0;
+                if (currentHUDScrub > shareWidth) currentHUDScrub = shareWidth;
+                if (currentHUDScrub < -editWidth) currentHUDScrub = -editWidth;
 
                 if (currentHUDScrub >= shareWidth) {
                   currentHUDScrub = shareWidth;
                   currentHUDTextColor = [255, 255, 0];
+                } else if (currentHUDScrub <= -editWidth) {
+                  currentHUDScrub = -editWidth;
+                  currentHUDTextColor = [255, 255, 0];
                 } else if (currentHUDScrub > 0) {
                   currentHUDTextColor = [255, 0, 0];
+                } else if (currentHUDScrub < 0) {
+                  currentHUDTextColor = [255, 120, 180];
                 } else if (currentHUDScrub === 0) {
                   if (btn.over) {
                     currentHUDTextColor = [0, 255, 0];
@@ -12263,34 +12334,14 @@ async function makeFrame({ data: { type, content } }) {
 
                 const fallbackShareWidth = tf.blockWidth * "share ".length;
                 const shareWidth = Math.max(currentHUDShareWidth || 0, fallbackShareWidth);
+                const editWidth = Math.max(currentHUDEditWidth || 0, getHudEditScrubThreshold());
                 if (currentHUDScrub === shareWidth) {
-                  $api.sound.synth({
-                    tone: 1800,
-                    beats: 0.15,
-                    attack: 0.01,
-                    decay: 0.5,
-                    volume: 0.15,
-                  });
-                  $api.sound.synth({
-                    tone: 1800 / 2,
-                    beats: 0.15 * 2,
-                    attack: 0.01,
-                    decay: 0.5,
-                    volume: 0.1,
-                  });
-                  // Use tilde separator for proper URL structure: share~(encoded_kidlisp)
-                  // Prefer existing cached short codes so we don't re-embed long inline source
-                  const cachedShortCode = getCachedCode(currentCode);
+                  triggerShareAction();
+                  return;
+                }
 
-                  if (cachedShortCode) {
-                    $api.jump("share~$" + cachedShortCode);
-                  } else if (currentOriginalCodeId && currentOriginalCodeId.startsWith("$")) {
-                    $api.jump("share~" + currentOriginalCodeId);
-                  } else {
-                    // Use plain text version (without color codes) for sharing
-                    const textToShare = currentHUDPlainTxt || currentHUDTxt;
-                    $api.jump("share~" + lisp.encodeKidlispForUrl(textToShare));
-                  }
+                if (currentHUDScrub === -editWidth) {
+                  triggerBackspaceAction();
                   return;
                 }
 
@@ -13379,10 +13430,19 @@ async function makeFrame({ data: { type, content } }) {
         const effectiveShareWidth = measuredShareWidth > 0
           ? Math.max(measuredShareWidth, fallbackShareWidth)
           : fallbackShareWidth;
+        const measuredEditWidth = measureLineWidth("edit ", selectedTypeface);
+        const fallbackEditWidth = hudBlockWidth * "edit".length;
+        const dynamicEditWidth = getHudEditScrubThreshold();
+        const effectiveEditWidth = Math.max(
+          measuredEditWidth > 0 ? Math.max(measuredEditWidth, fallbackEditWidth) : fallbackEditWidth,
+          dynamicEditWidth,
+        );
         currentHUDShareWidth = effectiveShareWidth;
+        currentHUDEditWidth = effectiveEditWidth;
         const shareWidth = effectiveShareWidth;
         currentHUDLeftPad = shareWidth;
         const scrubExtension = Math.max(0, currentHUDScrub);
+        const editExtension = currentHUDScrub < 0 ? effectiveEditWidth : 0;
 
   currentHUDLabelFontName = selectedHudFont;
   currentHUDLabelBlockWidth = hudBlockWidth;
@@ -13444,7 +13504,7 @@ async function makeFrame({ data: { type, content } }) {
         
         // Use natural text dimensions for buffer - preserve original layout
         // Add QR code width to buffer if present
-        let bufferW = baseLabelWidth + scrubExtension + hudQRTotalWidth;
+        let bufferW = baseLabelWidth + scrubExtension + editExtension + hudQRTotalWidth;
         let bufferH = h;
         
         // Ensure buffer height fits QR code if present
@@ -13457,8 +13517,8 @@ async function makeFrame({ data: { type, content } }) {
         const minimumAllowedWidth = shareWidth + Math.max(minTextWidth, 0);
         const minBufferH = Math.max(hudBlockHeight, 20); // At least one line height
         
-        if (bufferW < minimumAllowedWidth + scrubExtension) {
-          bufferW = minimumAllowedWidth + scrubExtension;
+        if (bufferW < minimumAllowedWidth + scrubExtension + editExtension) {
+          bufferW = minimumAllowedWidth + scrubExtension + editExtension;
         }
         if (bufferH < minBufferH) {
           bufferH = minBufferH;
@@ -13642,6 +13702,39 @@ async function makeFrame({ data: { type, content } }) {
                 preserveColors: false,
               });
             }
+
+            // ⬅️ Draw backspace/edit reveal on right when scrubbing left
+            if (currentHUDScrub < 0) {
+              const scrubMagnitude = Math.abs(currentHUDScrub);
+              const editThreshold = Math.max(currentHUDEditWidth || 0, getHudEditScrubThreshold());
+              const editProgress = Math.min(1, scrubMagnitude / editThreshold);
+              const textWidth = Math.max(
+                1,
+                currentHUDTextBoxWidth || (stripColorCodes(text || "").length * hudBlockWidth),
+              );
+              const caretWidth = Math.max(2, Math.round(hudBlockWidth * 0.9));
+              const caretHeight = Math.max(hudBlockHeight, 6);
+              const caretX = Math.min(
+                Math.max(hudTextX + textWidth + 2, 0),
+                Math.max(bufferW - caretWidth - 2, 0),
+              );
+              const caretY = Math.max(0, Math.floor((h - caretHeight) / 2));
+              const fillWidth = Math.max(1, Math.round(caretWidth * editProgress));
+              const editColor = editProgress >= 1 ? [255, 170, 210] : [255, 107, 157];
+
+              $.ink(0, 0, 0, 180).box(caretX + 1, caretY + 1, caretWidth, caretHeight);
+              $.ink(...editColor).box(caretX, caretY, fillWidth, caretHeight);
+
+              const editTextX = Math.min(caretX + caretWidth + 3, Math.max(bufferW - effectiveEditWidth, 0));
+              drawHudLabelText($, "edit", {
+                x: editTextX,
+                y: 0,
+                typefaceName: undefined,
+                textColor: [255, 140, 190],
+                shadowColor: "black",
+                preserveColors: false,
+              });
+            }
           } else {
             $.ink(0).line(1, 1, 1, h - 1);
             $.ink(c).line(0, 0, 0, h - 2);
@@ -13735,8 +13828,8 @@ async function makeFrame({ data: { type, content } }) {
         const hitboxWidth = Math.max(1, Math.round(textWidthForHitbox + 7));
         const baseTextHeight = currentHUDTextHeight || currentHUDTextBoxHeight || h;
         const hitboxHeight = Math.max(1, Math.round(baseTextHeight + 7));
-        currentHUDButton.box.x = 0;
-        currentHUDButton.box.y = 0;
+        currentHUDButton.box.x = finalX;
+        currentHUDButton.box.y = finalY;
         currentHUDButton.box.w = hitboxWidth;
         currentHUDButton.box.h = Math.max(1, Math.round(hitboxHeight));
 
