@@ -16,6 +16,7 @@ const mapWidth = 64;
 const mapHeight = 48;
 const bits = new Uint8Array(mapWidth * mapHeight);
 const nextBits = new Uint8Array(mapWidth * mapHeight);
+const accumulation = new Float32Array(mapWidth * mapHeight);
 
 const palette = [
   [255, 120, 110],
@@ -77,6 +78,22 @@ function countNeighbors(x, y) {
   return count;
 }
 
+function findNearestLiveBit(startX, startY, maxRadius = 7) {
+  for (let radius = 1; radius <= maxRadius; radius++) {
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        if (Math.abs(dx) !== radius && Math.abs(dy) !== radius) continue;
+        const x = startX + dx;
+        const y = startY + dy;
+        if (getBit(x, y)) {
+          return { x: wrap(x, mapWidth), y: wrap(y, mapHeight) };
+        }
+      }
+    }
+  }
+  return null;
+}
+
 function gridToScreen(gx, gy, screen) {
   const width = Math.max(1, screen.width - 1);
   const mapTop = Math.min(hudSafeTop, Math.max(0, screen.height - 1));
@@ -99,6 +116,13 @@ function screenToGrid(x, y, screen) {
 
 function clearMap() {
   bits.fill(0);
+  accumulation.fill(0);
+}
+
+function countLiveBits() {
+  let total = 0;
+  for (let i = 0; i < bits.length; i++) total += bits[i];
+  return total;
 }
 
 function seedButterflyBits() {
@@ -112,10 +136,14 @@ function seedButterflyBits() {
         Math.sin(nx * 11.7) +
         Math.cos(ny * 8.9) +
         Math.sin((nx + ny) * 15.4) * 0.7;
-      const wingBit = wave > 1.15 ? 1 : 0;
+      const wingBit = wave > 0.9 ? 1 : 0;
       const mirrorX = Math.round(cx + (cx - x));
       setBit(x, y, wingBit);
       setBit(mirrorX, y, wingBit);
+      if (wingBit) {
+        accumulation[mapIndex(x, y)] = 0.45;
+        accumulation[mapIndex(mirrorX, y)] = 0.45;
+      }
     }
   }
 
@@ -123,6 +151,8 @@ function seedButterflyBits() {
   for (let y = 6; y < mapHeight - 6; y++) {
     setBit(Math.floor(cx), y, 1);
     setBit(Math.ceil(cx), y, 1);
+    accumulation[mapIndex(Math.floor(cx), y)] = 0.7;
+    accumulation[mapIndex(Math.ceil(cx), y)] = 0.7;
   }
 }
 
@@ -146,6 +176,10 @@ function stepAutomata() {
       }
 
       nextBits[i] = next;
+      const prevEnergy = accumulation[i];
+      const targetEnergy = next ? 1 : 0;
+      const decay = next ? 0.94 : 0.97;
+      accumulation[i] = clamp(prevEnergy * decay + targetEnergy * (next ? 0.075 : 0), 0, 1);
     }
   }
 
@@ -163,7 +197,15 @@ function writeTouchIntoMap(voice, screen) {
   for (let dy = -radius; dy <= radius; dy++) {
     for (let dx = -radius; dx <= radius; dx++) {
       if (dx * dx + dy * dy > radius * radius) continue;
-      setBit(pointerGrid.gx + dx, pointerGrid.gy + dy, writeBit);
+      const mx = pointerGrid.gx + dx;
+      const my = pointerGrid.gy + dy;
+      const idx = mapIndex(mx, my);
+      setBit(mx, my, writeBit);
+      accumulation[idx] = clamp(
+        accumulation[idx] + (writeBit ? 0.22 : -0.12),
+        0,
+        1
+      );
     }
   }
 }
@@ -261,13 +303,51 @@ function updateReaderForVoice(voice, screen) {
     1
   );
 
-  const driftX = (pointerXNorm - 0.5) * 0.32;
-  const driftY = (pointerYNorm - 0.5) * 0.32;
+  const driftX = (pointerXNorm - 0.5) * 0.18;
+  const driftY = (pointerYNorm - 0.5) * 0.18;
+  const shouldAdvance = ((simFrame + voice.pointerIndex) & 1) === 0;
 
-  voice.readerVX = clamp(voice.readerVX * 0.85 + steerX * 0.03 + driftX * 0.12, -1.2, 1.2);
-  voice.readerVY = clamp(voice.readerVY * 0.85 + steerY * 0.03 + driftY * 0.12, -1.2, 1.2);
-  voice.readerX = wrap(voice.readerX + voice.readerVX, mapWidth);
-  voice.readerY = wrap(voice.readerY + voice.readerVY, mapHeight);
+  let seekLiveX = 0;
+  let seekLiveY = 0;
+  const liveTarget = findNearestLiveBit(Math.floor(voice.readerX), Math.floor(voice.readerY), 7);
+  if (liveTarget) {
+    seekLiveX = shortestWrapDelta(voice.readerX, liveTarget.x, mapWidth);
+    seekLiveY = shortestWrapDelta(voice.readerY, liveTarget.y, mapHeight);
+  }
+
+  let seekOtherX = 0;
+  let seekOtherY = 0;
+  let nearestDist = Infinity;
+  for (const other of voices.values()) {
+    if (other === voice) continue;
+    const dx = shortestWrapDelta(voice.readerX, other.readerX, mapWidth);
+    const dy = shortestWrapDelta(voice.readerY, other.readerY, mapHeight);
+    const dist = dx * dx + dy * dy;
+    if (dist < nearestDist) {
+      nearestDist = dist;
+      seekOtherX = dx;
+      seekOtherY = dy;
+    }
+  }
+
+  voice.readerVX = clamp(
+    voice.readerVX * 0.93 + steerX * 0.012 + driftX * 0.05 + seekLiveX * 0.02 + seekOtherX * 0.01,
+    -0.42,
+    0.42
+  );
+  voice.readerVY = clamp(
+    voice.readerVY * 0.93 + steerY * 0.012 + driftY * 0.05 + seekLiveY * 0.02 + seekOtherY * 0.01,
+    -0.42,
+    0.42
+  );
+
+  if (shouldAdvance) {
+    voice.readerX = wrap(voice.readerX + voice.readerVX, mapWidth);
+    voice.readerY = wrap(voice.readerY + voice.readerVY, mapHeight);
+  } else {
+    voice.readerVX *= 0.9;
+    voice.readerVY *= 0.9;
+  }
 
   const rx = Math.floor(voice.readerX);
   const ry = Math.floor(voice.readerY);
@@ -284,8 +364,14 @@ function updateReaderForVoice(voice, screen) {
   const aheadY = Math.floor(voice.readerY + Math.sign(voice.readerVY));
   if (bit) {
     setBit(aheadX, aheadY, 1);
+    accumulation[mapIndex(aheadX, aheadY)] = clamp(
+      accumulation[mapIndex(aheadX, aheadY)] + 0.1,
+      0,
+      1
+    );
   } else if (density <= 2) {
     setBit(aheadX, aheadY, 0);
+    accumulation[mapIndex(aheadX, aheadY)] *= 0.9;
   }
 
   const noteIndex =
@@ -370,8 +456,13 @@ function sim({ sound, screen }) {
   simFrame++;
 
   // Keep automata simple and readable.
-  if ((simFrame & 1) === 0) {
+  if (simFrame % 3 === 0) {
     stepAutomata();
+  }
+
+  // Keep enough structure visible so the bitmap remains readable.
+  if (voices.size === 0 && simFrame % 180 === 0 && countLiveBits() < 24) {
+    seedButterflyBits();
   }
 
   for (const voice of voices.values()) {
@@ -393,8 +484,13 @@ function paint({ wipe, ink, line, circle, write, screen }) {
     const rowOffset = py * screen.width * 4;
     for (let x = 0; x <= width; x++) {
       const gx = Math.floor((x / width) * (mapWidth - 1));
-      const alive = bits[gy * mapWidth + gx];
-      const shade = alive ? 228 : 16;
+      const idx = gy * mapWidth + gx;
+      const alive = bits[idx];
+      const agg = accumulation[idx];
+      const checker = ((gx + gy) & 1) === 0 ? 0 : 8;
+      const shade = alive
+        ? Math.floor(214 + agg * 41)
+        : Math.floor(8 + checker + agg * 170);
       const pixel = rowOffset + x * 4;
       screen.pixels[pixel] = shade;
       screen.pixels[pixel + 1] = shade;
@@ -403,7 +499,7 @@ function paint({ wipe, ink, line, circle, write, screen }) {
     }
   }
 
-  ink(42, 52, 66);
+  ink(26, 34, 46);
   for (let i = 1; i < 8; i++) {
     const x = Math.floor((screen.width * i) / 8);
     line(x, mapTop, x, screen.height - 1);
