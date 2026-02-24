@@ -10099,6 +10099,22 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  if (type === "upload:status") {
+    // Forward backend upload status stages to the active piece.
+    if (cachedAPI?.piece?.receive) {
+      try {
+        cachedAPI.piece.receive({
+          type: "upload:status",
+          content,
+          is: (name) => name === "upload:status",
+        });
+      } catch (error) {
+        console.warn("📤 Error forwarding upload:status to piece:", error);
+      }
+    }
+    return;
+  }
+
   if (type === "focus-change") {
     if (!cachedAPI) return; // Hacky... 23.04.21.14.59
     const $api = cachedAPI;
