@@ -868,6 +868,7 @@ export const handler = stream(async (event, context) => {
             thumbnailUri,
             objktUrl: mintStatus.objktUrl,
             createdAt: rebakeCreatedAt,
+            packDate,
           });
           await database.disconnect();
           return;
@@ -890,6 +891,7 @@ export const handler = stream(async (event, context) => {
           thumbnailUri,
           objktUrl: mintStatus.objktUrl,
           createdAt: piece.pendingRebake?.createdAt ? new Date(piece.pendingRebake.createdAt).toISOString() : new Date().toISOString(),
+          packDate,
           fromCache: true,
         });
         await database.disconnect();
@@ -914,7 +916,7 @@ export const handler = stream(async (event, context) => {
       // Use analyzer traits + add author/packed info as attributes
       const attributes = [
         ...analysis.traits,
-        ...(authorHandle && authorHandle !== "@anon" ? [{ name: "Handle", value: authorHandle }] : []),
+        ...(authorHandle && authorHandle !== "@anon" ? [{ name: "Handle", value: `@${authorHandle.replace(/^@/, "")}` }] : []),
         ...(userCode ? [{ name: "User Code", value: userCode }] : []),
         ...(depCount > 0 ? [{ name: "Dependencies", value: String(depCount) }] : []),
         ...(packDate ? [{ name: "Packed", value: packDate }] : []),
@@ -944,7 +946,7 @@ export const handler = stream(async (event, context) => {
         symbol: pieceName,
         isBooleanAmount: true,
         shouldPreferSymbol: false,
-        minter: authorHandle,
+        minter: `@${(authorHandle || "anon").replace(/^@/, "")}`,
         creators: creatorsArray,
         royalties,  // v4: Add royalty configuration
         rights: "© All rights reserved",
