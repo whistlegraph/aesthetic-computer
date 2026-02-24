@@ -2,7 +2,7 @@
 base = "system"
 publish = "public"
 ignore = "bash ./ignore-index.sh"
-command = "rm -f public/index.html && echo $COMMIT_REF > public/.commit-ref" # Write commit ref for functions
+command = "rm -f public/index.html && echo $COMMIT_REF > public/.commit-ref && bash ../utilities/generate-llms-txt.sh"
 # command = "bash ./github-discord.sh"
 # command = "echo 'Building...'"
 
@@ -64,7 +64,7 @@ external_node_modules = ["@aws-sdk/client-s3", "@atproto/api", "mongodb", "mongo
 included_env_vars = ["USER_ENDPOINT", "ART_KEY", "ART_SECRET", "USER_SPACE_NAME", "CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "REDIS_CONNECTION_STRING", "NETLIFY_DEV", "PDS_URL", "PDS_ADMIN_PASSWORD"]
 [functions.say]
 external_node_modules = ["@google-cloud/text-to-speech"]
-included_env_vars = ["GCP_EMAIL", "GCP_TTS_KEY_URL", "CONTEXT"]
+included_env_vars = ["GCP_EMAIL", "GCP_TTS_KEY_URL", "CONTEXT", "ART_ENDPOINT", "ART_KEY", "ART_SECRET", "ART_SPACE_NAME", "OPENAI_API_KEY"]
 [functions.mood]
 external_node_modules = ["got", "firebase-admin", "obscenity", "@atproto/api", "sharp", "mongodb", "mongodb-connection-string-url"]
 included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "REDIS_CONNECTION_STRING", "NETLIFY_DEV", "GCM_FIREBASE_CONFIG_URL", "PDS_URL", "PDS_ADMIN_PASSWORD"]
@@ -72,6 +72,10 @@ included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_S
 included_files = ["public/aesthetic.computer/lib/text.mjs", "backend/**/*.mjs"]
 external_node_modules = ["got", "mongodb", "mongodb-connection-string-url", "obscenity", "@atproto/api", "sharp"]
 included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "REDIS_CONNECTION_STRING", "NETLIFY_DEV", "LOGGER_KEY", "PDS_URL", "PDS_ADMIN_PASSWORD"]
+[functions.handle-colors]
+included_files = ["backend/**/*.mjs"]
+external_node_modules = ["mongodb", "mongodb-connection-string-url"]
+included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "NETLIFY_DEV", "LOGGER_KEY"]
 [functions.atproto-user-stats]
 external_node_modules = ["mongodb", "mongodb-connection-string-url"]
 included_files = ["backend/**/*.mjs"]
@@ -115,7 +119,7 @@ external_node_modules = [
   "@aws-sdk/s3-request-presigner",
 ]
 included_files = ["backend/**/*.mjs"]
-included_env_vars = ["ART_ENDPOINT", "ART_KEY", "ART_SECRET", "WAND_ENDPOINT", "USER_ENDPOINT", "ART_SPACE_NAME", "USER_SPACE_NAME", "WAND_SPACE_NAME", "CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET"]
+included_env_vars = ["ART_ENDPOINT", "ART_KEY", "ART_SECRET", "DO_SPACES_KEY", "DO_SPACES_SECRET", "WAND_ENDPOINT", "USER_ENDPOINT", "ART_SPACE_NAME", "USER_SPACE_NAME", "WAND_SPACE_NAME", "CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET"]
 [functions.screenshot]
 external_node_modules = ["puppeteer-core"]
 included_env_vars = ["CONTEXT", "BROWSERLESS_API_KEY"]
@@ -188,7 +192,7 @@ included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 [functions.tv]
 external_node_modules = ["mongodb", "mongodb-connection-string-url"]
 included_files = ["backend/**/*.mjs"]
-included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME", "NETLIFY_DEV", "CONTEXT"]
+included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME", "NETLIFY_DEV", "CONTEXT", "MEDIA_BASE_URL"]
 
 [functions.tv-tapes]
 external_node_modules = ["mongodb", "mongodb-connection-string-url"]
@@ -227,9 +231,16 @@ external_node_modules = ["mongodb", "mongodb-connection-string-url"]
 included_files = ["backend/**/*.mjs"]
 included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME", "UNSUBSCRIBE_SECRET"]
 
+[functions.mail-status]
+# Email preferences and blast history API
+external_node_modules = ["mongodb", "mongodb-connection-string-url"]
+included_files = ["backend/**/*.mjs"]
+included_env_vars = ["CONTEXT", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET"]
+
 [functions.bundle-html]
 # Generates KidLisp .lisp.html bundles on-demand via API
 # Migrated from tezos/bundle-keep-html.mjs CLI tool
+external_node_modules = ["terser"]
 included_files = [
   "public/aesthetic.computer/**/*.mjs",
   "public/aesthetic.computer/**/*.js",
@@ -237,7 +248,6 @@ included_files = [
   "public/aesthetic.computer/dep/**/*.mjs",
   "backend/**/*.mjs"
 ]
-external_node_modules = ["@swc/wasm"]
 included_env_vars = ["GIT_COMMIT", "CONTEXT"]
 
 [functions.bundle-telemetry]
@@ -253,8 +263,8 @@ included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 [functions.keep-mint]
 # Mint KidLisp pieces as NFTs on Tezos (streaming SSE)
 included_files = ["backend/**/*.mjs"]
-external_node_modules = ["mongodb", "@taquito/taquito", "@taquito/signer"]
-included_env_vars = ["CONTEXT", "TEZOS_KEEPS_CONTRACT", "TEZOS_NETWORK", "TEZOS_KIDLISP_KEY", "PINATA_API_KEY", "PINATA_API_SECRET", "OVEN_URL", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "ADMIN_SUB"]
+external_node_modules = ["mongodb", "mongodb-connection-string-url", "bn.js", "@taquito/taquito", "@taquito/signer", "@taquito/rpc", "@taquito/http-utils", "@taquito/utils", "@taquito/michelson-encoder", "@taquito/local-forging", "@taquito/michel-codec", "@taquito/core"]
+included_env_vars = ["CONTEXT", "TEZOS_KEEPS_CONTRACT", "TEZOS_NETWORK", "TEZOS_KIDLISP_KEY", "PINATA_API_KEY", "PINATA_API_SECRET", "OVEN_URL", "USE_IPFS_GATEWAY_URLS", "IPFS_GATEWAY", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "ADMIN_SUB"]
 
 [functions.boot-log]
 # Store boot telemetry in MongoDB
@@ -271,7 +281,7 @@ included_env_vars = ["CONTEXT", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "AU
 [functions.keep-update]
 # Update on-chain metadata for already-minted Keeps
 included_files = ["backend/**/*.mjs"]
-external_node_modules = ["mongodb", "mongodb-connection-string-url", "@taquito/taquito", "@taquito/signer"]
+external_node_modules = ["mongodb", "mongodb-connection-string-url", "bn.js", "@taquito/taquito", "@taquito/signer", "@taquito/rpc", "@taquito/http-utils", "@taquito/utils", "@taquito/michelson-encoder", "@taquito/local-forging", "@taquito/michel-codec", "@taquito/core"]
 included_env_vars = ["CONTEXT", "TEZOS_KEEPS_CONTRACT", "TEZOS_NETWORK", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "ADMIN_SUB"]
 
 [functions.run]
@@ -291,7 +301,7 @@ included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_S
 [functions.track-media]
 external_node_modules = ["sharp", "mongodb", "mongodb-connection-string-url", "adm-zip", "@atproto/api"]
 included_files = ["backend/**/*.mjs"]
-included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "NETLIFY_DEV", "PDS_URL", "PDS_ADMIN_PASSWORD", "SOTCE_AUTH0_M2M_CLIENT_ID", "SOTCE_AUTH0_M2M_SECRET", "ART_KEY", "ART_SECRET", "ART_ENDPOINT", "ART_SPACE_NAME", "USER_SPACE_NAME", "USER_ENDPOINT", "OVEN_CALLBACK_SECRET", "OVEN_URL", "URL"]
+included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "NETLIFY_DEV", "PDS_URL", "PDS_ADMIN_PASSWORD", "SOTCE_AUTH0_M2M_CLIENT_ID", "SOTCE_AUTH0_M2M_SECRET", "ART_KEY", "ART_SECRET", "DO_SPACES_KEY", "DO_SPACES_SECRET", "ART_ENDPOINT", "ART_SPACE_NAME", "USER_SPACE_NAME", "USER_ENDPOINT", "OVEN_CALLBACK_SECRET", "OVEN_URL", "URL"]
 [functions.track-tape]
 external_node_modules = ["mongodb", "mongodb-connection-string-url"]
 included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "ART_KEY", "ART_SECRET", "ART_ENDPOINT", "ART_SPACE_NAME", "USER_SPACE_NAME", "DO_SPACES_KEY", "DO_SPACES_SECRET", "MP4_SERVICE_URL", "MP4_SERVICE_TOKEN", "URL"]
@@ -304,7 +314,7 @@ included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 [functions.oven-complete]
 external_node_modules = ["mongodb", "mongodb-connection-string-url", "adm-zip", "@atproto/api"]
 included_files = ["backend/**/*.mjs"]
-included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME", "PDS_URL", "PDS_ADMIN_PASSWORD", "OVEN_CALLBACK_SECRET"]
+included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME", "PDS_URL", "PDS_ADMIN_PASSWORD", "OVEN_CALLBACK_SECRET", "OVEN_URL"]
 [functions.get-painting]
 external_node_modules = ["mongodb", "mongodb-connection-string-url"]
 included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
@@ -334,6 +344,9 @@ included_env_vars = ["CONTEXT"]
 [functions.api-docs]
 # API documentation - no environment variables needed
 included_env_vars = []
+[functions.mcp-remote]
+# Remote MCP server - no environment variables needed (auth via headers)
+included_env_vars = []
 [functions.media-collection]
 external_node_modules = ["mongodb", "mongodb-connection-string-url"]
 included_env_vars = ["CONTEXT", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
@@ -349,7 +362,7 @@ included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 [functions.metrics]
 external_node_modules = ["mongodb", "mongodb-connection-string-url"]
 included_files = ["backend/**/*.mjs"]
-included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
+included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME", "PRINTFUL_API_TOKEN"]
 [functions.update-painting-slug]
 external_node_modules = ["mongodb", "mongodb-connection-string-url"]
 included_files = ["backend/**/*.mjs"]
@@ -369,7 +382,9 @@ included_files = ["public/aesthetic.computer/lib/helpers.mjs"]
 included_env_vars = []
 
 [functions.kidlisp-keep]
-included_env_vars = []
+external_node_modules = ["mongodb", "mongodb-connection-string-url"]
+included_files = ["backend/**/*.mjs"]
+included_env_vars = ["CONTEXT", "TEZOS_KEEPS_CONTRACT", "TEZOS_NETWORK", "OVEN_URL", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "ADMIN_SUB"]
 
 [functions.test-tv-hits]
 external_node_modules = ["mongodb", "mongodb-connection-string-url"]
@@ -379,6 +394,71 @@ included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 [functions.update-build]
 external_node_modules = ["mongodb", "mongodb-connection-string-url"]
 included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME", "BUILDS_API_KEY"]
+
+[functions.auth-cli-callback]
+included_env_vars = ["AUTH0_DOMAIN", "AUTH0_CLIENT_ID", "AUTH0_CLIENT_SECRET"]
+
+[functions.ff1-proxy]
+included_env_vars = []
+
+[functions.firebase-config]
+included_env_vars = ["AC_FIREBASE_API_KEY", "AC_FIREBASE_AUTH_DOMAIN", "AC_FIREBASE_PROJECT_ID", "AC_FIREBASE_STORAGE_BUCKET", "AC_FIREBASE_MESSAGING_SENDER_ID", "AC_FIREBASE_APP_ID"]
+
+[functions.give-image]
+included_env_vars = []
+
+[functions.gives]
+external_node_modules = ["stripe"]
+included_env_vars = ["CONTEXT", "STRIPE_API_PRIV_KEY"]
+
+[functions.keep-update-confirm]
+included_env_vars = ["TEZOS_KEEPS_CONTRACT"]
+
+[functions.kidlisp-count]
+included_env_vars = []
+
+[functions.kidlisp-list]
+included_env_vars = []
+
+[functions.m4l-plugins]
+included_env_vars = []
+
+[functions.migrate-piece-paths]
+included_env_vars = ["ART_KEY", "ART_SECRET", "DO_SPACES_KEY", "DO_SPACES_SECRET"]
+
+[functions.news]
+included_env_vars = ["CONTEXT", "NETLIFY_DEV", "NODE_ENV"]
+
+[functions.news-api]
+included_env_vars = ["ADMIN_SUB"]
+
+[functions.news-guidelines]
+included_env_vars = []
+
+[functions.news-toll]
+external_node_modules = ["stripe"]
+included_env_vars = ["CONTEXT", "STRIPE_API_TEST_PRIV_KEY", "STRIPE_API_PRIV_KEY", "STRIPE_ENDPOINT_DEV_SECRET", "STRIPE_ENDPOINT_SECRET"]
+
+[functions.og-preview]
+included_env_vars = ["NETLIFY_DEV", "CONTEXT"]
+
+[functions.patch]
+included_env_vars = ["CONTEXT", "GITHUB_COPILOT_TOKEN"]
+
+[functions.permahandle]
+included_env_vars = []
+
+[functions.piece-dates]
+included_env_vars = []
+
+[functions.stories]
+included_env_vars = ["BUILDS_PASSWORD"]
+
+[functions.update-tezos-address]
+included_env_vars = []
+
+[functions.mugs]
+included_env_vars = []
 
 [dev]
 NODE_ENV = "development"
@@ -461,6 +541,13 @@ to = "/assets/type/:splat"
 status = 200
 force = true
 
+# Serve pruttipal assets locally (dub output, audio files)
+[[redirects]]
+from = "/assets/pruttipal/*"
+to = "/assets/pruttipal/:splat"
+status = 200
+force = true
+
 # Proxy assets to S3 (DigitalOcean Spaces) - avoids uploading 13GB to Netlify
 [[redirects]]
 from = "/assets/*"
@@ -480,26 +567,18 @@ from = "/lib/*"
 to = "/aesthetic.computer/lib/:splat"
 status = 200
 
-# Desktop app download shortcuts
+# Desktop app download shortcuts (via silo → DigitalOcean Spaces)
 [[redirects]]
 from = "/desktop/mac"
-to = "https://github.com/whistlegraph/aesthetic-computer/releases/latest/download/Aesthetic.Computer-0.1.0-universal.dmg"
+to = "https://silo.aesthetic.computer/desktop/download/mac"
 status = 302
 [[redirects]]
 from = "/desktop/win"
-to = "https://github.com/whistlegraph/aesthetic-computer/releases/latest/download/Aesthetic.Computer.Setup.0.1.0.exe"
+to = "https://silo.aesthetic.computer/desktop/download/win"
 status = 302
 [[redirects]]
 from = "/desktop/linux"
-to = "https://github.com/whistlegraph/aesthetic-computer/releases/latest/download/Aesthetic.Computer-0.1.0.AppImage"
-status = 302
-[[redirects]]
-from = "/desktop/fedora"
-to = "https://github.com/whistlegraph/aesthetic-computer/releases/latest/download/aesthetic-computer-0.1.0.x86_64.rpm"
-status = 302
-[[redirects]]
-from = "/desktop/deb"
-to = "https://github.com/whistlegraph/aesthetic-computer/releases/latest/download/aesthetic-computer_0.1.0_amd64.deb"
+to = "https://silo.aesthetic.computer/desktop/download/linux"
 status = 302
 
 [[redirects]]
@@ -588,6 +667,24 @@ to = "https://jas.life/:splat"
 status = 301
 force = true
 
+# rdp.jas.life - Radical Digital Painting collection (239 paintings, 2016–2021)
+# Local dev: https://localhost:8888/rdp.jas.life/
+[[redirects]]
+from = "https://rdp.jas.life/*"
+to = "/rdp.jas.life/:splat"
+status = 200
+force = true
+[[redirects]]
+from = "/rdp.jas.life"
+to = "/rdp.jas.life/"
+status = 200
+force = true
+[[redirects]]
+from = "/rdp.jas.life/*"
+to = "/rdp.jas.life/:splat"
+status = 200
+force = true
+
 # justanothersystem.org - Stretched paintings by Jeffrey Alan Scudder
 # API routes first (before catch-all)
 [[redirects]]
@@ -655,6 +752,16 @@ force = true
 [[redirects]]
 from = "https://justanothersystem.org"
 to = "/justanothersystem.org/index.html"
+status = 200
+force = true
+[[redirects]]
+from = "https://justanothersystem.org/cv"
+to = "/justanothersystem.org/cv.html"
+status = 200
+force = true
+[[redirects]]
+from = "https://justanothersystem.org/bio"
+to = "/justanothersystem.org/bio.html"
 status = 200
 force = true
 [[redirects]]
@@ -806,10 +913,48 @@ from = "https://prompt.ac/*"
 to = "https://aesthetic.computer/:splat"
 status = 301
 force = true
+# sitemap.prompt.ac → sitemap.aesthetic.computer
+[[redirects]]
+from = "https://sitemap.prompt.ac"
+to = "https://sitemap.aesthetic.computer"
+status = 301
+force = true
+[[redirects]]
+from = "https://sitemap.prompt.ac/*"
+to = "https://sitemap.aesthetic.computer/:splat"
+status = 301
+force = true
+# api.prompt.ac → api.aesthetic.computer
+[[redirects]]
+from = "https://api.prompt.ac"
+to = "https://api.aesthetic.computer"
+status = 301
+force = true
+[[redirects]]
+from = "https://api.prompt.ac/*"
+to = "https://api.aesthetic.computer/:splat"
+status = 301
+force = true
 # Screenshot generation handled by oven.aesthetic.computer
 [[redirects]]
 from = "/preview/*"
 to = "https://oven.aesthetic.computer/preview/:splat"
+status = 200
+# sitemap.aesthetic.computer subdomain
+[[redirects]]
+from = "https://sitemap.aesthetic.computer"
+to = "/sitemap.html"
+status = 200
+force = true
+[[redirects]]
+from = "https://sitemap.aesthetic.computer/*"
+to = "/sitemap.html"
+status = 200
+force = true
+
+[[redirects]]
+from = "/sitemap"
+to = "/sitemap.html"
 status = 200
 [[redirects]]
 from = "/support"
@@ -880,6 +1025,10 @@ force = true
 from = "/api/unsubscribe"
 to = "/.netlify/functions/unsubscribe"
 status = 200
+[[redirects]]
+from = "/api/mail-status"
+to = "/.netlify/functions/mail-status"
+status = 200
 
 # 🎹 notepat.com — proxies to aesthetic.computer/notepat (preserves notepat.com in URL bar)
 [[redirects]]
@@ -925,6 +1074,12 @@ from = "https://kidlisp.com/keeps"
 to = "/kidlisp.com/keeps.html"
 status = 200
 force = true
+# Learn / reference page
+[[redirects]]
+from = "https://kidlisp.com/learn"
+to = "/kidlisp.com/learn.html"
+status = 200
+force = true
 [[redirects]]
 from = "https://kidlisp.com/*"
 to = "https://aesthetic.computer/kidlisp.com/:splat"
@@ -952,9 +1107,44 @@ from = "https://www.kidlisp.com/keeps"
 to = "/kidlisp.com/keeps.html"
 status = 200
 force = true
+# Learn / reference page
+[[redirects]]
+from = "https://www.kidlisp.com/learn"
+to = "/kidlisp.com/learn.html"
+status = 200
+force = true
 [[redirects]]
 from = "https://www.kidlisp.com/*"
 to = "https://aesthetic.computer/kidlisp.com/:splat"
+status = 200
+force = true
+
+# learn.kidlisp.com subdomain
+[[redirects]]
+from = "https://learn.kidlisp.com"
+to = "/kidlisp.com/learn.html"
+status = 200
+force = true
+[[redirects]]
+from = "https://learn.kidlisp.com/api/*"
+to = "/api/:splat"
+status = 200
+force = true
+[[redirects]]
+from = "https://learn.kidlisp.com/*"
+to = "/kidlisp.com/learn.html"
+status = 200
+force = true
+
+# keeps.kidlisp.com subdomain
+[[redirects]]
+from = "https://keeps.kidlisp.com"
+to = "/kidlisp.com/keeps.html"
+status = 200
+force = true
+[[redirects]]
+from = "https://keeps.kidlisp.com/*"
+to = "/kidlisp.com/keeps.html"
 status = 200
 force = true
 
@@ -987,6 +1177,12 @@ from = "https://device.kidlisp.com/qr/*"
 to = "/kidlisp.com/qr.html?token=:splat"
 status = 200
 force = true
+# Serve static JS assets for device subdomain
+[[redirects]]
+from = "https://device.kidlisp.com/js/*"
+to = "/kidlisp.com/js/:splat"
+status = 200
+force = true
 [[redirects]]
 from = "https://device.kidlisp.com/*"
 to = "/kidlisp.com/device.html"
@@ -994,14 +1190,39 @@ status = 200
 force = true
 
 # Top subdomain for kidlisp.com - top.kidlisp.com (alias for top100 playlist)
+# JS assets served statically (must come before function route)
+[[redirects]]
+from = "https://top.kidlisp.com/js/*"
+to = "/kidlisp.com/js/:splat"
+status = 200
+force = true
 [[redirects]]
 from = "https://top.kidlisp.com"
-to = "/kidlisp.com/device.html"
+to = "/.netlify/functions/index/top.kidlisp.com"
 status = 200
 force = true
 [[redirects]]
 from = "https://top.kidlisp.com/*"
-to = "/kidlisp.com/device.html"
+to = "/.netlify/functions/index/top.kidlisp.com/:splat"
+status = 200
+force = true
+
+# Calm subdomain for kidlisp.com - calm.kidlisp.com (hand-curated calm playlist)
+# JS assets served statically (must come before function route)
+[[redirects]]
+from = "https://calm.kidlisp.com/js/*"
+to = "/kidlisp.com/js/:splat"
+status = 200
+force = true
+# Route through index function for dynamic meta tags (social previews / iMessage)
+[[redirects]]
+from = "https://calm.kidlisp.com"
+to = "/.netlify/functions/index/calm.kidlisp.com"
+status = 200
+force = true
+[[redirects]]
+from = "https://calm.kidlisp.com/*"
+to = "/.netlify/functions/index/calm.kidlisp.com/:splat"
 status = 200
 force = true
 
@@ -1045,11 +1266,29 @@ from = "/news.aesthetic.computer/"
 to = "/.netlify/functions/news"
 status = 200
 force = true
+# api.aesthetic.computer subdomain
+[[redirects]]
+from = "https://api.aesthetic.computer"
+to = "/.netlify/functions/api-docs"
+status = 200
+force = true
+[[redirects]]
+from = "https://api.aesthetic.computer/*"
+to = "/api/:splat"
+status = 200
+force = true
+
 # Path-based API routes (must be before /* catch-all)
 # API Documentation - LLM-readable API reference
 [[redirects]]
 from = "/api"
 to = "/.netlify/functions/api-docs"
+status = 200
+
+# Remote MCP Server - SSE endpoint for Claude Pro/Team
+[[redirects]]
+from = "/mcp"
+to = "/.netlify/functions/mcp-remote"
 status = 200
 
 [[redirects]]
@@ -1237,7 +1476,7 @@ to = "/.netlify/functions/piece-metadata"
 status = 200
 [[redirects]]
 from = "/api/bundle-html"
-to = "/.netlify/functions/bundle-html"
+to = "https://oven.aesthetic.computer/bundle-html"
 status = 200
 [[redirects]]
 from = "/api/bundle-telemetry"
@@ -1661,8 +1900,19 @@ from = "/kidlisp.com/*"
 to = "/kidlisp.com/index.html"
 status = 200
 force = false
+# DOLLHOUSE report page
+[[redirects]]
+from = "/dollhouse"
+to = "/dollhouse/index.html"
+status = 200
+force = true
 [[redirects]]
 from = "/*"
 to = "/.netlify/functions/index"
 status = 200
 force = false
+[functions.fix-tezos-network-prod]
+# One-time function to fix production database - DELETE AFTER USE
+included_files = ["backend/**/*.mjs"]
+external_node_modules = ["mongodb", "mongodb-connection-string-url"]
+included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "ADMIN_SUB"]
