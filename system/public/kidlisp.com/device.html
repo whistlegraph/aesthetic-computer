@@ -2751,7 +2751,7 @@
       if (popout) p.set('popout', 'true');
       if (perf) p.set('perf', 'true');
       if (crossfadeEnabled) p.set('crossfade', CROSSFADE_MS);
-      if (crossfadeEnabled) p.set('maxfps', '60'); // Cap at 60fps for calm display mode
+      if (crossfadeEnabled) p.set('maxfps', '24'); // TEMP: 24fps for testing calm display mode (normally 60)
       p.set('noboot', 'true'); // Skip boot animation for clean device display
       p.set('t', Date.now()); // Cache bust
       return p.toString();
