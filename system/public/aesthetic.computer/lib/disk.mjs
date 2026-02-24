@@ -1719,6 +1719,7 @@ let currentPath,
   currentHUDButtonActive = false, // Global flag to block other button interactions when HUD is active
   currentHUDButtonDirectTouch = false, // Track if HUD button was directly tapped (not rolled over)
   currentHUDScrub = 0,
+  currentHUDScrubReadyState = null, // null | "share" | "edit"
   currentHUDLabelFontName,
   currentHUDLabelBlockWidth = tf?.blockWidth ?? DEFAULT_TYPEFACE_BLOCK_WIDTH,
   currentHUDLabelBlockHeight = tf?.blockHeight ?? DEFAULT_TYPEFACE_BLOCK_HEIGHT,
@@ -11033,6 +11034,7 @@ async function makeFrame({ data: { type, content } }) {
       $commonApi.jump(promptSlug);
       send({ type: "keyboard:open" });
       currentHUDScrub = 0;
+      currentHUDScrubReadyState = null;
       $commonApi.needsPaint?.();
     }
 
@@ -11063,6 +11065,7 @@ async function makeFrame({ data: { type, content } }) {
         $commonApi.jump("share~" + lisp.encodeKidlispForUrl(textToShare));
       }
       currentHUDScrub = 0;
+      currentHUDScrubReadyState = null;
       $commonApi.needsPaint?.();
     }
 
@@ -12185,6 +12188,7 @@ async function makeFrame({ data: { type, content } }) {
               down: () => {
                 originalColor = currentHUDTextColor;
                 currentHUDScrub = 0;
+                currentHUDScrubReadyState = null;
                 currentHUDTextColor = [0, 255, 0];
                 send({ type: "keyboard:enabled" }); // Enable keyboard flag.
                 send({ type: "keyboard:unlock" });
@@ -12219,6 +12223,7 @@ async function makeFrame({ data: { type, content } }) {
                   currentHUDButtonActive = false;
                   currentHUDButtonDirectTouch = false;
                   currentHUDScrub = 0;
+                  currentHUDScrubReadyState = null;
                   $api.sound.synth({
                     tone: 1200,
                     beats: 0.1,
@@ -12285,6 +12290,7 @@ async function makeFrame({ data: { type, content } }) {
                 $api.needsPaint();
                 masked = true;
                 currentHUDScrub = 0;
+                currentHUDScrubReadyState = null;
               },
               scrub: (btn) => {
                 if (getPackMode()) return; // No scrub-to-share in bundled mode.
@@ -12314,6 +12320,21 @@ async function makeFrame({ data: { type, content } }) {
 
                 if (currentHUDScrub > shareWidth) currentHUDScrub = shareWidth;
                 if (currentHUDScrub < -editWidth) currentHUDScrub = -editWidth;
+
+                let nextReadyState = null;
+                if (currentHUDScrub >= shareWidth) nextReadyState = "share";
+                if (currentHUDScrub <= -editWidth) nextReadyState = "edit";
+
+                if (nextReadyState !== currentHUDScrubReadyState && nextReadyState !== null) {
+                  $api.sound.synth({
+                    tone: nextReadyState === "share" ? 1600 : 900,
+                    beats: 0.07,
+                    attack: 0.01,
+                    decay: 0.2,
+                    volume: 0.12,
+                  });
+                }
+                currentHUDScrubReadyState = nextReadyState;
 
                 if (currentHUDScrub >= shareWidth) {
                   currentHUDScrub = shareWidth;
@@ -12355,7 +12376,18 @@ async function makeFrame({ data: { type, content } }) {
                   return;
                 }
 
+                if (currentHUDScrub !== 0) {
+                  $api.sound.synth({
+                    tone: 260,
+                    beats: 0.09,
+                    attack: 0.01,
+                    decay: 0.2,
+                    volume: 0.12,
+                  });
+                }
+
                 currentHUDScrub = 0;
+                currentHUDScrubReadyState = null;
                 // TODO: This might break on pieces where the keyboard is already
                 //       open.
                 send({ type: "keyboard:disabled" }); // Disable keyboard flag.
@@ -13725,22 +13757,12 @@ async function makeFrame({ data: { type, content } }) {
                 Math.max(hudTextX + textWidth + 2, 0),
                 Math.max(bufferW - caretWidth - 2, 0),
               );
-              const caretY = Math.max(0, Math.floor((h - caretHeight) / 2));
+              const caretY = Math.max(0, hudTextY);
               const fillWidth = Math.max(1, Math.round(caretWidth * editProgress));
               const editColor = editProgress >= 1 ? [255, 170, 210] : [255, 107, 157];
 
               $.ink(0, 0, 0, 180).box(caretX + 1, caretY + 1, caretWidth, caretHeight);
               $.ink(...editColor).box(caretX, caretY, fillWidth, caretHeight);
-
-              const editTextX = Math.min(caretX + caretWidth + 3, Math.max(bufferW - effectiveEditWidth, 0));
-              drawHudLabelText($, "edit", {
-                x: editTextX,
-                y: 0,
-                typefaceName: undefined,
-                textColor: [255, 140, 190],
-                shadowColor: "black",
-                preserveColors: false,
-              });
             }
           } else {
             $.ink(0).line(1, 1, 1, h - 1);
