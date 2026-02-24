@@ -425,7 +425,7 @@ function nopaint_act({
   // End
   if (
     nopaint_is("panning") &&
-    (e.is("keyboard:up:shift") || e.is("lift:2") || e.is("lift:1") || !e.shift)
+    (e.is("keyboard:up:shift") || e.is("lift:2") || e.is("lift:1") || (e.is("keyboard") && !e.shift))
   ) {
     // 🚨 SAFEGUARD: If this is a lift event and previousState was "painting", 
     // we should go to "idle" instead to prevent stuck painting state
