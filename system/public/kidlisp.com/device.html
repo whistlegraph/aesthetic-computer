@@ -4153,6 +4153,10 @@
       // Listen for boot-log ready message to start progress bar
       if (e.data?.type === 'boot-log') {
         const msg = e.data.message;
+        // Surface iframe fps cap confirmation to parent console
+        if (msg?.startsWith?.('maxfps:')) {
+          console.log(`🎞️ [iframe] ${msg}`);
+        }
         // Start progress bar when piece is fully ready (after black screen / loading)
         // "ready: ..." is the final boot message indicating piece is running
         if (msg?.startsWith?.('ready:')) {

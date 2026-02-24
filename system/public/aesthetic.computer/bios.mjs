@@ -12192,7 +12192,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // 🎞️ Cap render framerate if maxfps was requested (e.g. 60 for calm display mode)
       if (resolution.maxfps && Number.isFinite(resolution.maxfps) && resolution.maxfps > 0) {
         Loop.frameRate(resolution.maxfps);
-        console.log(`🎞️ maxfps: capped render rate to ${resolution.maxfps}fps`);
+        const msg = `maxfps: ${resolution.maxfps}fps cap applied`;
+        console.log(`🎞️ ${msg}`);
+        window.parent?.postMessage({ type: "boot-log", message: msg }, "*");
       }
 
       // ➰ Core Loops for User Input, Music, Object Updates, and Rendering
