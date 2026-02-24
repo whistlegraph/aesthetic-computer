@@ -7493,8 +7493,12 @@ async function load(
         // Initialize persistent image cache for paste/stamp (also for .mjs pieces)
         imageCache.init(store);
 
-        // 🔒 Fetch piece metadata for security restrictions
-        if (slug && !devReload) {
+        // 🔒 Determine piece trust level
+        // Built-in disk pieces (aesthetic.computer/disks/*) are always trusted
+        const isBuiltInDisk = path && path.includes("aesthetic.computer/disks/");
+        if (isBuiltInDisk) {
+          pieceMetadata = { code: slug || "system", trustLevel: "trusted", anonymous: false };
+        } else if (slug && !devReload) {
           try {
             // Clear permissions from previous piece
             if (pieceMetadata?.code) {
