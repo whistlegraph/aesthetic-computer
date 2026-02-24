@@ -22,9 +22,15 @@
   - [x] Show a tiny waveform in the record button for live feedback.
   - [x] Record a sample and spread it automatically.
   - [x] Draw the waveform over the buttons.
-  - [x] Spread out a predefined sample.
+ - [x] Spread out a predefined sample.
     - [x] Add start and end trimming to sound.play();
  */
+
+import {
+  encodeSampleToBitmap,
+  decodeBitmapToSample,
+  loadPaintingAsAudio,
+} from "../lib/pixel-sample.mjs";
 
 const { abs, min, max, floor, ceil } = Math;
 
@@ -351,22 +357,40 @@ async function boot({
       bitmapLoaded = false;
       bitmapPreview = null;
       bitmapMeta = null;
-      await loadPaintingCode(decodedParam, {
-        get,
+      const result = await loadPaintingAsAudio(decodedParam, {
+        sampleId: bitmapSampleId,
         preload,
         store,
+        get,
         sound: { registerSample, sampleRate },
       });
+      if (result?.bitmap?.pixels?.length) {
+        bitmapPreview = result.bitmap;
+        bitmapMeta = result.meta;
+        sampleData = result.sampleData;
+        sampleId = result.sampleId;
+        bitmapLoaded = true;
+      }
+      bitmapLoading = false;
     } else if (decodedParam === "painting" || decodedParam === "p") {
       bitmapLoading = true;
       bitmapLoaded = false;
       bitmapPreview = null;
       bitmapMeta = null;
-      await loadSystemPainting({
+      const result = await loadPaintingAsAudio(decodedParam, {
+        sampleId: bitmapSampleId,
         system,
         store,
         sound: { registerSample, sampleRate },
       });
+      if (result?.bitmap?.pixels?.length) {
+        bitmapPreview = result.bitmap;
+        bitmapMeta = result.meta;
+        sampleData = result.sampleData;
+        sampleId = result.sampleId;
+        bitmapLoaded = true;
+      }
+      bitmapLoading = false;
     } else {
       const parsedPats = parseInt(decodedParam);
       if (!Number.isNaN(parsedPats)) pats = parsedPats;
@@ -1294,244 +1318,3 @@ function layoutBitmapUI(screen) {
   }
 }
 
-// RGB encoding: 3 samples per pixel (R, G, B channels)
-// This gives 3x data density compared to grayscale
-// Visual enhancement: Add slight color tint based on sample rate of change
-function encodeSampleToBitmap(data, width = 256) {
-  if (!Array.isArray(data) || data.length === 0) return null;
-  const sampleLength = data.length;
-  const samplesPerPixel = 3; // R, G, B
-  const totalPixels = Math.ceil(sampleLength / samplesPerPixel);
-  const height = Math.ceil(totalPixels / width);
-  const pixels = new Uint8ClampedArray(width * height * 4);
-
-  for (let i = 0; i < sampleLength; i += 1) {
-    const v = Math.max(-1, Math.min(1, data[i]));
-    const byte = Math.round((v + 1) * 127.5);
-    const pixelIndex = Math.floor(i / samplesPerPixel);
-    const channel = i % samplesPerPixel; // 0=R, 1=G, 2=B
-    const idx = pixelIndex * 4 + channel;
-    pixels[idx] = byte;
-    // Set alpha to 255 for each pixel (only once per pixel)
-    if (channel === 0) pixels[pixelIndex * 4 + 3] = 255;
-  }
-
-  return { width, height, pixels, sampleLength };
-}
-
-// RGB decoding: 3 samples per pixel (R, G, B channels)
-function decodeBitmapToSample(bitmap, meta) {
-  if (!bitmap?.pixels?.length || !bitmap?.width || !bitmap?.height) return null;
-  const totalPixels = bitmap.width * bitmap.height;
-  const samplesPerPixel = 3; // R, G, B
-  const maxSamples = totalPixels * samplesPerPixel;
-  const sampleLength = Math.min(meta?.sampleLength || maxSamples, maxSamples);
-  const data = new Array(sampleLength);
-
-  for (let i = 0; i < sampleLength; i += 1) {
-    const pixelIndex = Math.floor(i / samplesPerPixel);
-    const channel = i % samplesPerPixel; // 0=R, 1=G, 2=B
-    const byte = bitmap.pixels[pixelIndex * 4 + channel] || 0;
-    data[i] = byte / 127.5 - 1;
-  }
-
-  return data;
-}
-
-async function loadPaintingCode(code, { get, preload, store, sound }) {
-  if (!code) return;
-  const normalized = decodeURIComponent(code).replace(/^#/, "");
-  const baseUrl =
-    typeof location !== "undefined" && location.origin
-      ? location.origin
-      : "https://aesthetic.computer";
-
-  // Fast path: short code direct media endpoint
-  if (preload && normalized.length <= 6) {
-    try {
-      const directUrl = `${baseUrl}/media/paintings/${normalized}.png?t=${Date.now()}`;
-      const directImg = await preload(directUrl, true);
-      const directBuffer = await imageToBuffer(directImg);
-      if (directBuffer?.pixels?.length) {
-        bitmapPreview = {
-          width: directBuffer.width,
-          height: directBuffer.height,
-          pixels: directBuffer.pixels,
-        };
-        // Update sampleLength to account for RGB encoding (3 samples per pixel)
-        const totalPixels = directBuffer.width * directBuffer.height;
-        bitmapMeta = {
-          sampleLength: totalPixels * 3, // RGB = 3 samples per pixel
-          sampleRate: sound?.sampleRate || 48000,
-        };
-
-        const decoded = decodeBitmapToSample(bitmapPreview, bitmapMeta);
-        if (decoded?.length) {
-          sampleData = decoded;
-          sampleId = bitmapSampleId;
-          sound?.registerSample?.(bitmapSampleId, decoded, bitmapMeta.sampleRate);
-          bitmapLoaded = true;
-          bitmapLoading = false;
-        }
-        return;
-      }
-    } catch (err) {
-      console.warn("🖼️ Stample direct code load failed", err);
-    }
-  }
-
-  let metadata = store?.[`painting-code:${normalized}`];
-  if (!metadata?.slug || !metadata?.handle) {
-    try {
-      const response = await fetch(`/api/painting-code?code=${normalized}`);
-      if (response.ok) {
-        metadata = await response.json();
-        if (metadata?.slug && metadata?.handle && store) {
-          store[`painting-code:${normalized}`] = metadata;
-        }
-      }
-    } catch (err) {
-      console.warn("🖼️ Stample failed to resolve painting code", err);
-      return;
-    }
-  }
-
-  if (!metadata?.slug || !metadata?.handle) return;
-
-  try {
-    let img;
-
-    if (preload) {
-      const handle = metadata.handle.replace(/^@/, "");
-      const base = `${baseUrl}/media/@${handle}/painting/${metadata.slug}.png`;
-      const bust = `${base}?t=${Date.now()}`;
-      img = await preload(bust, true);
-    }
-
-    if (!img && get?.painting) {
-      const got = await get.painting(metadata.slug).by(metadata.handle);
-      img = got?.img || got?.painting || got;
-    }
-
-    if (!img) return;
-
-    const buffer = await imageToBuffer(img);
-    if (!buffer?.pixels?.length) return;
-
-    bitmapPreview = {
-      width: buffer.width,
-      height: buffer.height,
-      pixels: buffer.pixels,
-    };
-    const totalPixels = buffer.width * buffer.height;
-    bitmapMeta = {
-      sampleLength: totalPixels * 3, // RGB = 3 samples per pixel
-      sampleRate: sound?.sampleRate || 48000,
-    };
-
-    const decoded = decodeBitmapToSample(bitmapPreview, bitmapMeta);
-    if (decoded?.length) {
-      sampleData = decoded;
-      sampleId = bitmapSampleId;
-      sound?.registerSample?.(bitmapSampleId, decoded, bitmapMeta.sampleRate);
-      bitmapLoaded = true;
-      bitmapLoading = false;
-    }
-  } catch (err) {
-    console.warn("🖼️ Stample failed to load painting", err);
-    bitmapLoading = false;
-  }
-}
-
-async function loadSystemPainting({ system, store, sound }) {
-  let source =
-    (system?.nopaint?.buffer?.pixels?.length && system?.nopaint?.buffer) ||
-    system?.painting ||
-    null;
-
-  if (!source?.pixels?.length || !source?.width || !source?.height) {
-    source = store?.painting || store?.["painting"] || null;
-  }
-
-  if (!source?.pixels?.length || !source?.width || !source?.height) {
-    try {
-      source = await store?.retrieve?.("painting", "local:db");
-    } catch (err) {
-      source = null;
-    }
-  }
-
-  if (!source?.pixels?.length || !source?.width || !source?.height) {
-    bitmapLoading = false;
-    return;
-  }
-
-  bitmapPreview = {
-    width: source.width,
-    height: source.height,
-    pixels: new Uint8ClampedArray(source.pixels),
-  };
-
-  const totalPixels = source.width * source.height;
-  bitmapMeta = {
-    sampleLength: totalPixels * 3, // RGB = 3 samples per pixel
-    sampleRate: sound?.sampleRate || 48000,
-  };
-
-  const decoded = decodeBitmapToSample(bitmapPreview, bitmapMeta);
-  if (decoded?.length) {
-    sampleData = decoded;
-    sampleId = bitmapSampleId;
-    sound?.registerSample?.(bitmapSampleId, decoded, bitmapMeta.sampleRate);
-    bitmapLoaded = true;
-  }
-
-  bitmapLoading = false;
-}
-
-async function imageToBuffer(image) {
-  if (!image) return null;
-  const source = image.img || image.bitmap || image;
-
-  if (source?.pixels && source?.width && source?.height) {
-    return {
-      width: source.width,
-      height: source.height,
-      pixels: new Uint8ClampedArray(source.pixels),
-    };
-  }
-
-  if (source?.data && source?.width && source?.height) {
-    return {
-      width: source.width,
-      height: source.height,
-      pixels: new Uint8ClampedArray(source.data),
-    };
-  }
-
-  const width = source.width || source.naturalWidth || source.videoWidth;
-  const height = source.height || source.naturalHeight || source.videoHeight;
-  if (!width || !height) return null;
-
-  let canvas;
-  if (typeof OffscreenCanvas !== "undefined") {
-    canvas = new OffscreenCanvas(width, height);
-  } else if (typeof document !== "undefined") {
-    canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-  }
-  if (!canvas) return null;
-
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return null;
-  ctx.clearRect(0, 0, width, height);
-  ctx.drawImage(source, 0, 0, width, height);
-  const imageData = ctx.getImageData(0, 0, width, height);
-
-  return {
-    width,
-    height,
-    pixels: new Uint8ClampedArray(imageData.data),
-  };
-}

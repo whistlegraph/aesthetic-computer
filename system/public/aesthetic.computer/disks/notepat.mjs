@@ -8,6 +8,10 @@ import {
 } from "../lib/note-colors.mjs";
 import { drawMiniControllerDiagram } from "../lib/gamepad-diagram.mjs";
 import { detectChord } from "../lib/chord-detection.mjs";
+import {
+  decodeBitmapToSample,
+  loadPaintingAsAudio,
+} from "../lib/pixel-sample.mjs";
 
 /* 📝 Notes 
    - [] Make `slide` work with `composite`.
@@ -1109,6 +1113,7 @@ let stampleSampleRate = null;
 let stampleNeedleProgress = 0;
 let stampleNeedleNote = null;
 let stampleProgressTick = 0;
+let kidlispSampleRefreshTick = 0;
 
 let autopatHud = null;
 let autopatTypeface = null;
@@ -1306,6 +1311,32 @@ async function boot({
   wave = requestedWave === "sample" ? "stample" : requestedWave;
   // Map 'noise' shorthand to 'noise-white' for the synth
   if (wave === "noise") wave = "noise-white";
+  const stampleSourceToken = colon?.[1];
+  const stampleSource = stampleSourceToken
+    ? (stampleSourceToken.startsWith("%23")
+        ? `#${stampleSourceToken.slice(3)}`
+        : decodeURIComponent(stampleSourceToken))
+    : null;
+  if ((wave === "stample" || wave === "sample") && stampleSource) {
+    const loaded = await loadPaintingAsAudio(stampleSource, {
+      sampleId: "stample:bitmap",
+      sound: {
+        registerSample: sound?.registerSample,
+        sampleRate: sound?.sampleRate,
+      },
+      preload: net?.preload,
+      store,
+      system: api?.system,
+      get: api?.get,
+      painting,
+      kidlispSize: 128,
+    });
+    if (loaded?.sampleData?.length) {
+      stampleSampleId = loaded.sampleId;
+      stampleSampleData = loaded.sampleData;
+      stampleSampleRate = loaded.meta?.sampleRate || sound?.sampleRate || 48000;
+    }
+  }
   // slide = true; // colon[0] === "slide" || colon[1] === "slide";
 
   const colonTokens = Array.isArray(colon) ? colon.filter(Boolean) : [];
@@ -1343,13 +1374,52 @@ async function boot({
   setupButtons(api);
 }
 
-function sim({ sound, simCount, num, clock }) {
+function sim({ sound, simCount, num, clock, painting }) {
   const simTick = typeof simCount === "bigint" ? Number(simCount) : simCount;
 
   if (lowLatencyMode) {
     if (simTick % 3 === 0) sound.speaker?.poll();
   } else {
     sound.speaker?.poll();
+  }
+
+  // In stample mode, keep a live KidLisp-backed sample updated for playback.
+  if (
+    kidlispBgEnabled &&
+    kidlispBackground &&
+    (wave === "stample" || wave === "sample") &&
+    typeof painting === "function"
+  ) {
+    kidlispSampleRefreshTick = (kidlispSampleRefreshTick + 1) % 4;
+    if (kidlispSampleRefreshTick === 0) {
+      const bufferSize = 128;
+      try {
+        const lispPainting = painting(bufferSize, bufferSize, (paintApi) => {
+          paintApi.kidlisp(0, 0, bufferSize, bufferSize, kidlispBackground);
+        });
+        if (lispPainting?.pixels?.length) {
+          const totalPixels = bufferSize * bufferSize;
+          const meta = {
+            sampleLength: totalPixels * 3,
+            sampleRate: sound?.sampleRate || 48000,
+          };
+          const decoded = decodeBitmapToSample(lispPainting, meta);
+          if (decoded?.length) {
+            if (sound?.updateSample) {
+              sound.updateSample("stample:bitmap", decoded, meta.sampleRate);
+            } else {
+              sound?.registerSample?.("stample:bitmap", decoded, meta.sampleRate);
+            }
+            stampleSampleId = "stample:bitmap";
+            stampleSampleData = decoded;
+            stampleSampleRate = meta.sampleRate;
+          }
+        }
+      } catch (err) {
+        // Non-fatal: keep notepat interactive if KidLisp render fails.
+        console.warn("🎨 Notepat KidLisp sample refresh failed", err);
+      }
+    }
   }
 
   // 🎹 Update DAW state from sound.daw (updated continuously by bios.mjs)
