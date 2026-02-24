@@ -1927,6 +1927,7 @@ class KidLisp {
   updateAudioGlobals(audioData) {
     if (audioData && typeof audioData === 'object') {
       if (typeof audioData.amp === 'number') {
+        if (this.frameCount % 60 === 0 && audioData.amp > 0) console.log("🔊 updateAudioGlobals amp:", audioData.amp);
         this.globalDef.amp = audioData.amp;
       }
       if (typeof audioData.leftAmp === 'number') {
@@ -9047,6 +9048,10 @@ class KidLisp {
         if (expr === "mic") {
           console.log("🎤 Mic global accessed! Current value:", this.globalDef.mic.toFixed(3));
           this.requestMicrophoneConnection(api);
+        }
+        // 🔊 Debug: log amp access periodically
+        if (expr === "amp" && this.frameCount % 60 === 0) {
+          console.log("🔊 KL amp resolved:", value, "globalDef.amp:", this.globalDef.amp);
         }
       }
 

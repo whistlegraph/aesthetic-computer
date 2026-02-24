@@ -2727,9 +2727,10 @@ function paint({
       return b ? b.amplitude : 0;
     };
     const ampRight = sound.speaker?.amplitudes?.right;
+    const klAmp = amplitude * 10;
     api.updateKidLispAudio({
-      amp: amplitude * 10,
-      leftAmp: amplitude * 10,
+      amp: klAmp,
+      leftAmp: klAmp,
       rightAmp: (typeof ampRight === "number" && Number.isFinite(ampRight) ? ampRight : 0) * 10,
       kick: sound.speaker?.beat?.detected ? 1 : 0,
       beat: sound.speaker?.beat?.detected ? 1 : 0,
@@ -2739,6 +2740,7 @@ function paint({
       highMid: freqBand("highMid"),
       presence: freqBand("presence"),
     });
+    if (paintCount % 60 === 0) console.log("🎵 KL audio:", { amp: klAmp, raw: amplitude, speakerLeft: sound.speaker?.amplitudes?.left });
   }
 
   // Compute layout early for kidlisp bounds (cached, no extra cost on second call)
