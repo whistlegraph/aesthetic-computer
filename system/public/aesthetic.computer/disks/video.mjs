@@ -77,6 +77,9 @@ let scrubCurrentProgress = 0; // Position during scrub (0-1)
 let wasPlayingBeforeScrub = false;
 let inertiaActive = false;
 let tapeWaveform = null; // Audio waveform data for visualization
+let scrubStripBtn = null; // STAMPLE-like sticky scrub area
+let scrubMoved = false; // Prevent tap toggle after a real scrub gesture
+let scrubAudioSpeed = 1; // Local estimate of tape audio sampleSpeed
 
 const buttonBottom = 6;
 const buttonLeft = 6;
@@ -104,6 +107,32 @@ async function handleAudioContextAndPlay(sound, rec, triggerRender) {
   
   console.log("🎵 Audio context resume requested - BIOS will handle the rest");
   triggerRender();
+}
+
+function ensureScrubStripButton(ui, screen, enabled) {
+  if (!enabled) {
+    scrubStripBtn = null;
+    return;
+  }
+  const bottomControlsHeight = 28;
+  const h = Math.max(1, screen.height - bottomControlsHeight);
+  if (!scrubStripBtn) {
+    scrubStripBtn = new ui.Button(0, 0, screen.width, h);
+    scrubStripBtn.stickyScrubbing = true;
+    scrubStripBtn.noRolloverActivation = true;
+  }
+  scrubStripBtn.box.x = 0;
+  scrubStripBtn.box.y = 0;
+  scrubStripBtn.box.w = screen.width;
+  scrubStripBtn.box.h = h;
+}
+
+function nudgeTapeAudioSpeed(send, targetSpeed) {
+  const clampedTarget = Math.max(-4, Math.min(4, targetSpeed));
+  const delta = clampedTarget - scrubAudioSpeed;
+  if (Math.abs(delta) < 0.0005) return;
+  send({ type: "tape:audio-shift", content: delta });
+  scrubAudioSpeed = clampedTarget;
 }
 
 // Enhanced progress tracking
@@ -194,6 +223,14 @@ function boot({ wipe, rec, gizmo, jump, notice, store, params, send, hud }) {
   printed = false;
   postedTapeCode = null; // Reset tape code from previous session
   tapeInfo = null; // Reset tape info for new recording
+  isScrubbing = false;
+  inertiaActive = false;
+  scrubSpeed = 0;
+  scrubCurrentProgress = 0;
+  wasPlayingBeforeScrub = false;
+  scrubStripBtn = null;
+  scrubMoved = false;
+  scrubAudioSpeed = 1;
   
   // Check if a tape code was passed (e.g., "video !abc")
   if (params[0] && params[0].startsWith("!")) {
@@ -396,6 +433,12 @@ function paint({
     mp4Btn = undefined;
     zipBtn = undefined;
   }
+
+  ensureScrubStripButton(
+    ui,
+    screen,
+    (rec?.presenting ?? false) && !isPrinting && !isPostingTape,
+  );
   
   // Update HUD label to show tape code after posting
   if (postedTapeCode) {
@@ -700,17 +743,21 @@ function sim({ needsPaint, rec, send }) {
       content: { progress: scrubCurrentProgress, speedScrub: true },
     });
 
+    // Match tape audio speed to scrub speed (incremental shift like stample)
+    nudgeTapeAudioSpeed(send, scrubSpeed);
+
     // Inertia: speed decays toward 0, then resume normal play
     if (inertiaActive && !isScrubbing) {
       scrubSpeed *= 0.88;
       if (Math.abs(scrubSpeed) < 0.04) {
         inertiaActive = false;
         scrubSpeed = 0;
+        nudgeTapeAudioSpeed(send, 1);
         send({
           type: "recorder:present:seek",
           content: { progress: scrubCurrentProgress, scrubEnd: true },
         });
-        if (wasPlayingBeforeScrub) rec.play();
+        if (!wasPlayingBeforeScrub) rec.pause();
       }
     }
 
@@ -724,6 +771,7 @@ let printed = false;
 function act({
   event: e,
   rec,
+  ui,
   download,
   num,
   jump,
@@ -751,6 +799,14 @@ function act({
   // Handle system messages first
   if (handleSystemMessage({ event: e, rec, needsPaint, jump })) {
     return; // Exit early if a system message was handled
+  }
+
+  if (!rec.presenting && (isScrubbing || inertiaActive)) {
+    isScrubbing = false;
+    inertiaActive = false;
+    scrubSpeed = 0;
+    scrubMoved = false;
+    nudgeTapeAudioSpeed(send, 1);
   }
 
   if (!rec.printing && !isPrinting) {
@@ -1667,8 +1723,6 @@ function act({
     });
     */
 
-    // Toggle play/pause when tapping on video (not on buttons)
-    // Add scrubbing support: drag to seek, tap to play/pause
     const anyButtonDown = 
       postBtn?.down || 
       mp4Btn?.down || 
@@ -1676,48 +1730,76 @@ function act({
       zipBtn?.down;
     
     if (!anyButtonDown && !isPrinting && !isPostingTape && rec.presenting) {
-      // Start scrubbing on first drag (STAMPLE-style: drag velocity = playback speed)
-      if (e.is("draw") && !isScrubbing) {
-        isScrubbing = true;
-        inertiaActive = false;
-        scrubCurrentProgress = rec.presentProgress || 0;
-        scrubSpeed = 0;
-        wasPlayingBeforeScrub = rec.playing;
-        if (rec.playing) rec.pause(); // We drive position via speed-scrub seeks
-      }
-
-      // Drag: instantaneous speed from drag velocity (like stample's update({ shift }))
-      if (e.drag && isScrubbing && Math.abs(e.delta.x) > 0) {
-        const SENSITIVITY = 0.25;
-        const MAX_SPEED = 4;
-        scrubSpeed = Math.max(-MAX_SPEED, Math.min(MAX_SPEED, e.delta.x * SENSITIVITY));
-        triggerRender();
-      }
-
-      // Lift: start inertia if moving, else restore playback
-      if (e.is("lift")) {
-        if (isScrubbing) {
+      ensureScrubStripButton(ui, screen, true);
+      scrubStripBtn?.act(e, {
+        down: () => {
+          scrubMoved = false;
+          isScrubbing = false;
+          inertiaActive = false;
+          scrubCurrentProgress = rec.presentProgress || 0;
+          scrubSpeed = 0;
+          wasPlayingBeforeScrub = rec.playing;
+          scrubAudioSpeed = 1;
+        },
+        scrub: () => {
+          if (Math.abs(e.delta.x) <= 0) return;
+          if (!isScrubbing) {
+            isScrubbing = true;
+            // STAMPLE-like: start a live source so drag can bend audio immediately.
+            if (!rec.playing) rec.play();
+            send({
+              type: "recorder:present:seek",
+              content: { progress: scrubCurrentProgress, speedScrub: true, scrubbing: true },
+            });
+          }
+          scrubMoved = true;
+          const SENSITIVITY = 0.25;
+          const MAX_SPEED = 4;
+          scrubSpeed = Math.max(-MAX_SPEED, Math.min(MAX_SPEED, e.delta.x * SENSITIVITY));
+          nudgeTapeAudioSpeed(send, scrubSpeed);
+          triggerRender();
+        },
+        up: () => {
+          if (!isScrubbing) return true;
           isScrubbing = false;
           if (Math.abs(scrubSpeed) > 0.1) {
-            inertiaActive = true; // Speed decays in sim()
+            inertiaActive = true;
           } else {
             scrubSpeed = 0;
-            send({ type: "recorder:present:seek", content: { progress: scrubCurrentProgress, scrubEnd: true } });
-            if (wasPlayingBeforeScrub) rec.play();
+            nudgeTapeAudioSpeed(send, 1);
+            send({
+              type: "recorder:present:seek",
+              content: { progress: scrubCurrentProgress, scrubEnd: true },
+            });
+            if (!wasPlayingBeforeScrub) rec.pause();
           }
-        } else {
-          // Regular tap — toggle play/pause
+          triggerRender();
+          return true;
+        },
+        cancel: () => {
+          if (!isScrubbing) return;
+          isScrubbing = false;
+          inertiaActive = false;
+          scrubSpeed = 0;
+          nudgeTapeAudioSpeed(send, 1);
+          send({
+            type: "recorder:present:seek",
+            content: { progress: scrubCurrentProgress, scrubEnd: true },
+          });
+          if (!wasPlayingBeforeScrub) rec.pause();
+          triggerRender();
+        },
+        push: () => {
+          if (scrubMoved || isScrubbing || inertiaActive) return;
           if (hasAudioContext && audioContextState === "suspended") {
             handleAudioContextAndPlay(sound, rec, triggerRender);
             return;
-          } else if (!rec.playing) {
-            rec.play();
-          } else {
-            rec.pause();
           }
+          if (!rec.playing) rec.play();
+          else rec.pause();
           triggerRender();
-        }
-      }
+        },
+      });
     }
   }
 }
@@ -2286,8 +2368,16 @@ function receive(e) {
 // Called when leaving the video disk (e.g., pressing escape to go back to prompt)
 function leave({ send }) {
   console.log("📼 Leaving video disk - stopping tape playback");
+  isScrubbing = false;
+  inertiaActive = false;
+  scrubSpeed = 0;
+  scrubCurrentProgress = 0;
+  scrubStripBtn = null;
+  scrubMoved = false;
+  scrubAudioSpeed = 1;
   
   // Stop any playing tape audio/video
+  send({ type: "tape:audio-shift", content: 0 });
   send({ type: "tape:stop" });
 }
 
