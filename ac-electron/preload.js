@@ -53,6 +53,9 @@ try {
     closeWindow: () => ipcRenderer.invoke('ac-close-window'),
     openExternalUrl: (url) => ipcRenderer.invoke('open-external-url', url),
     
+    // Open DevTools docked at bottom (toggled via ~ command in prompt)
+    openDevTools: () => ipcRenderer.send('open-devtools'),
+
     // App info (for desktop.mjs)
     getAppInfo: () => ipcRenderer.invoke('get-app-info'),
 

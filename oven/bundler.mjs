@@ -1070,8 +1070,11 @@ function generateHTMLBundle(opts) {
 </head>
 <body>
   ${boxArtImg}
-  <script type="module">
-    const _ba = document.getElementById('ac-box-art'); if (_ba) _ba.style.display = 'none';
+  <script>
+    // Phase 1: Setup VFS, blob URLs, import map, and fetch interception.
+    // This MUST run in a regular <script> (not type="module") so the import map
+    // is in the DOM BEFORE any <script type="module"> executes.
+    var _ba = document.getElementById('ac-box-art'); if (_ba) _ba.style.display = 'none';
     window.acPACK_MODE = true;
     window.KIDLISP_SUPPRESS_SNAPSHOT_LOGS = true;
     window.__acKidlispConsoleEnabled = false;
@@ -1092,114 +1095,119 @@ function generateHTMLBundle(opts) {
     window.acOBJKT_MATRIX_CHUNKY_GLYPHS = window.acBUNDLED_GLYPHS.MatrixChunky8 || {};
     window.acEMBEDDED_PAINTING_BITMAPS = {};
     window.acPAINTING_BITMAPS_READY = false;
-    async function decodePaintingToBitmap(code, base64Data) {
-      return new Promise((resolve, reject) => {
-        const img = new Image();
+    function decodePaintingToBitmap(code, base64Data) {
+      return new Promise(function(resolve, reject) {
+        var img = new Image();
         img.onload = function() {
-          const canvas = document.createElement('canvas');
+          var canvas = document.createElement('canvas');
           canvas.width = img.width; canvas.height = img.height;
-          const ctx = canvas.getContext('2d');
+          var ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0);
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
           resolve({ width: imageData.width, height: imageData.height, pixels: imageData.data });
         };
         img.onerror = reject;
         img.src = 'data:image/png;base64,' + base64Data;
       });
     }
-    window.acDecodePaintingsPromise = (async function() {
-      const promises = [];
-      for (const [code, info] of Object.entries(window.acPAINTING_CODE_MAP || {})) {
-        const vfsPath = 'paintings/' + code + '.png';
+    window.acDecodePaintingsPromise = (function() {
+      var promises = [];
+      var map = window.acPAINTING_CODE_MAP || {};
+      var codes = Object.keys(map);
+      for (var i = 0; i < codes.length; i++) {
+        var code = codes[i];
+        var vfsPath = 'paintings/' + code + '.png';
         if (window.VFS && window.VFS[vfsPath]) {
-          promises.push(decodePaintingToBitmap(code, window.VFS[vfsPath].content).then(bitmap => {
-            window.acEMBEDDED_PAINTING_BITMAPS['#' + code] = bitmap;
-            window.acEMBEDDED_PAINTING_BITMAPS[code] = bitmap;
-          }).catch(() => {}));
+          promises.push(decodePaintingToBitmap(code, window.VFS[vfsPath].content).then(function(c) { return function(bitmap) {
+            window.acEMBEDDED_PAINTING_BITMAPS['#' + c] = bitmap;
+            window.acEMBEDDED_PAINTING_BITMAPS[c] = bitmap;
+          }; }(code)).catch(function() {}));
         }
       }
-      await Promise.all(promises);
-      window.acPAINTING_BITMAPS_READY = true;
+      return Promise.all(promises).then(function() { window.acPAINTING_BITMAPS_READY = true; });
     })();
     window.EMBEDDED_KIDLISP_SOURCE = ${JSON.stringify(mainSource)};
     window.EMBEDDED_KIDLISP_PIECE = '${PIECE_NAME_NO_DOLLAR}';
     window.objktKidlispCodes = ${JSON.stringify(kidlispSources)};
     window.acPREFILL_CODE_CACHE = ${JSON.stringify(kidlispSources)};
-    const originalAppendChild = Element.prototype.appendChild;
+    var originalAppendChild = Element.prototype.appendChild;
     Element.prototype.appendChild = function(child) {
       if (child.tagName === 'LINK' && child.rel === 'stylesheet' && child.href && child.href.includes('.css')) return child;
       return originalAppendChild.call(this, child);
     };
-    const originalBodyAppend = HTMLBodyElement.prototype.append;
-    HTMLBodyElement.prototype.append = function(...nodes) {
-      return originalBodyAppend.call(this, ...nodes.filter(n => !(n.tagName === 'LINK' && n.rel === 'stylesheet')));
+    var originalBodyAppend = HTMLBodyElement.prototype.append;
+    HTMLBodyElement.prototype.append = function() {
+      var args = []; for (var i = 0; i < arguments.length; i++) { var n = arguments[i]; if (!(n.tagName === 'LINK' && n.rel === 'stylesheet')) args.push(n); }
+      return originalBodyAppend.apply(this, args);
     };
     window.VFS_BLOB_URLS = {};
     window.modulePaths = [];
-    Object.entries(window.VFS).forEach(([path, file]) => {
+    Object.entries(window.VFS).forEach(function(entry) {
+      var path = entry[0], file = entry[1];
       if (path.endsWith('.mjs') || path.endsWith('.js')) {
-        const blob = new Blob([file.content], { type: 'application/javascript' });
-        const blobUrl = URL.createObjectURL(blob);
-        window.VFS_BLOB_URLS[path] = blobUrl;
+        var blob = new Blob([file.content], { type: 'application/javascript' });
+        window.VFS_BLOB_URLS[path] = URL.createObjectURL(blob);
         window.modulePaths.push(path);
       }
     });
-    const importMapEntries = {};
-    for (const fp of window.modulePaths) {
+    var importMapEntries = {};
+    for (var i = 0; i < window.modulePaths.length; i++) {
+      var fp = window.modulePaths[i];
       if (window.VFS_BLOB_URLS[fp]) {
         importMapEntries[fp] = window.VFS_BLOB_URLS[fp];
         importMapEntries['/' + fp] = window.VFS_BLOB_URLS[fp];
-        importMapEntries[\`./\${fp}\`] = window.VFS_BLOB_URLS[fp];
+        importMapEntries['./' + fp] = window.VFS_BLOB_URLS[fp];
       }
     }
-    const importMap = { imports: importMapEntries };
-    const importMapScript = document.createElement('script');
+    var importMapScript = document.createElement('script');
     importMapScript.type = 'importmap';
-    importMapScript.textContent = JSON.stringify(importMap);
+    importMapScript.textContent = JSON.stringify({ imports: importMapEntries });
     document.head.appendChild(importMapScript);
-    const originalFetch = window.fetch;
+    var originalFetch = window.fetch;
     window.fetch = function(url, options) {
-      const urlStr = typeof url === 'string' ? url : url.toString();
+      var urlStr = typeof url === 'string' ? url : url.toString();
       if (urlStr.includes('/api/')) {
         if (urlStr.includes('/api/bdf-glyph') && window.acBUNDLED_GLYPHS) {
-          const fontM = urlStr.match(/[?&]font=([^&]+)/);
-          const charsM = urlStr.match(/[?&]chars?=([^&]+)/);
-          const fontKey = fontM ? decodeURIComponent(fontM[1]) : 'unifont';
-          const fontMap = window.acBUNDLED_GLYPHS[fontKey] || {};
-          const glyphs = {};
-          if (charsM) { for (const c of charsM[1].split(',')) { const hex = c.trim().toUpperCase(); if (fontMap[hex]) glyphs[c.trim()] = fontMap[hex]; } }
-          return Promise.resolve(new Response(JSON.stringify({ glyphs }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+          var fontM = urlStr.match(/[?&]font=([^&]+)/);
+          var charsM = urlStr.match(/[?&]chars?=([^&]+)/);
+          var fontKey = fontM ? decodeURIComponent(fontM[1]) : 'unifont';
+          var fontMap = window.acBUNDLED_GLYPHS[fontKey] || {};
+          var glyphs = {};
+          if (charsM) { for (var c of charsM[1].split(',')) { var hex = c.trim().toUpperCase(); if (fontMap[hex]) glyphs[c.trim()] = fontMap[hex]; } }
+          return Promise.resolve(new Response(JSON.stringify({ glyphs: glyphs }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
         }
         if (urlStr.includes('/api/painting-code')) {
-          const m = urlStr.match(/[?&]code=([^&]+)/);
+          var m = urlStr.match(/[?&]code=([^&]+)/);
           if (m) {
-            const info = window.acPAINTING_CODE_MAP[m[1]];
+            var info = window.acPAINTING_CODE_MAP[m[1]];
             if (info) return Promise.resolve(new Response(JSON.stringify({ code: info.code, handle: info.handle, slug: info.slug }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
           }
           return Promise.resolve(new Response(JSON.stringify({ error: 'Not found' }), { status: 404 }));
         }
         return Promise.resolve(new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }));
       }
-      let vfsPath = decodeURIComponent(urlStr).replace(/^https?:\\/\\/[^\\/]+\\//g, '').replace(/^aesthetic\\.computer\\//g, '').replace(/#.*$/g, '').replace(/\\?.*$/g, '');
+      var vfsPath = decodeURIComponent(urlStr).replace(/^https?:\\/\\/[^\\/]+\\//g, '').replace(/^aesthetic\\.computer\\//g, '').replace(/#.*$/g, '').replace(/\\?.*$/g, '');
       vfsPath = vfsPath.replace(/^\\.\\.\\/+/g, '').replace(/^\\.\\//g, '').replace(/^\\//g, '').replace(/^aesthetic\\.computer\\//g, '');
       if (urlStr.includes('/media/') && urlStr.includes('/painting/')) {
-        for (const [code, info] of Object.entries(window.acPAINTING_CODE_MAP || {})) {
-          if (urlStr.includes(info.slug)) {
-            const pvfs = 'paintings/' + code + '.png';
+        var paintKeys = Object.keys(window.acPAINTING_CODE_MAP || {});
+        for (var pi = 0; pi < paintKeys.length; pi++) {
+          var pcode = paintKeys[pi], pinfo = window.acPAINTING_CODE_MAP[pcode];
+          if (urlStr.includes(pinfo.slug)) {
+            var pvfs = 'paintings/' + pcode + '.png';
             if (window.VFS[pvfs]) {
-              const f = window.VFS[pvfs]; const bs = atob(f.content); const bytes = new Uint8Array(bs.length);
-              for (let i = 0; i < bs.length; i++) bytes[i] = bs.charCodeAt(i);
+              var f = window.VFS[pvfs]; var bs = atob(f.content); var bytes = new Uint8Array(bs.length);
+              for (var j = 0; j < bs.length; j++) bytes[j] = bs.charCodeAt(j);
               return Promise.resolve(new Response(bytes, { status: 200, headers: { 'Content-Type': 'image/png' } }));
             }
           }
         }
       }
       if (window.VFS[vfsPath]) {
-        const file = window.VFS[vfsPath]; let content; let ct = 'text/plain';
+        var file = window.VFS[vfsPath]; var content; var ct = 'text/plain';
         if (file.binary) {
-          const bs = atob(file.content); const bytes = new Uint8Array(bs.length);
-          for (let i = 0; i < bs.length; i++) bytes[i] = bs.charCodeAt(i);
-          content = bytes;
+          var bs2 = atob(file.content); var bytes2 = new Uint8Array(bs2.length);
+          for (var j2 = 0; j2 < bs2.length; j2++) bytes2[j2] = bs2.charCodeAt(j2);
+          content = bytes2;
           if (file.type === 'png') ct = 'image/png'; else if (file.type === 'jpg' || file.type === 'jpeg') ct = 'image/jpeg';
         } else {
           content = file.content;
@@ -1214,32 +1222,39 @@ function generateHTMLBundle(opts) {
     };
     // Telemetry
     (function initTelemetry() {
-      const origin = window.location?.origin || '';
-      if (!origin.includes('aesthetic.computer') && !origin.includes('localhost')) return;
-      const bootStart = performance.now();
-      const sid = Math.random().toString(36).slice(2) + Date.now().toString(36);
-      const tUrl = 'https://aesthetic.computer/api/bundle-telemetry';
+      var origin = window.location ? window.location.origin : '';
+      if (origin.indexOf('aesthetic.computer') < 0 && origin.indexOf('localhost') < 0) return;
+      var bootStart = performance.now();
+      var sid = Math.random().toString(36).slice(2) + Date.now().toString(36);
+      var tUrl = 'https://aesthetic.computer/api/bundle-telemetry';
       function send(type, data) {
         try {
-          const body = JSON.stringify({ type, data: { sessionId: sid, piece: window.acPACK_PIECE || 'unknown', density: window.acPACK_DENSITY || 2, screenWidth: innerWidth, screenHeight: innerHeight, devicePixelRatio: devicePixelRatio || 1, userAgent: navigator.userAgent, ...data } });
+          var body = JSON.stringify({ type: type, data: Object.assign({ sessionId: sid, piece: window.acPACK_PIECE || 'unknown', density: window.acPACK_DENSITY || 2, screenWidth: innerWidth, screenHeight: innerHeight, devicePixelRatio: devicePixelRatio || 1, userAgent: navigator.userAgent }, data) });
           if (navigator.sendBeacon && navigator.sendBeacon(tUrl, body)) return;
-          fetch(tUrl, { method: 'POST', body, headers: {'Content-Type':'application/json'}, keepalive: true }).catch(() => {});
-        } catch {}
+          fetch(tUrl, { method: 'POST', body: body, headers: {'Content-Type':'application/json'}, keepalive: true }).catch(function(){});
+        } catch(e) {}
       }
-      addEventListener('load', () => { send('boot', { bootTime: Math.round(performance.now() - bootStart), vfsFileCount: Object.keys(window.VFS || {}).length, blobUrlCount: Object.keys(window.VFS_BLOB_URLS || {}).length }); });
-      let lastFT = performance.now(), fc = 0, sc = 0; const ps = [], ms = 60;
+      addEventListener('load', function() { send('boot', { bootTime: Math.round(performance.now() - bootStart), vfsFileCount: Object.keys(window.VFS || {}).length, blobUrlCount: Object.keys(window.VFS_BLOB_URLS || {}).length }); });
+      var lastFT = performance.now(), fc = 0, sc = 0, ps = [], ms = 60;
       function mf() {
-        fc++; const now = performance.now();
-        if (now - lastFT >= 1000) { const fps = fc; fc = 0; lastFT = now; if (sc < ms) { ps.push({t:Math.round(now-bootStart),fps}); sc++; if (sc%10===0) send('perf',{samples:ps.slice(-10)}); } }
+        fc++; var now = performance.now();
+        if (now - lastFT >= 1000) { var fps = fc; fc = 0; lastFT = now; if (sc < ms) { ps.push({t:Math.round(now-bootStart),fps:fps}); sc++; if (sc%10===0) send('perf',{samples:ps.slice(-10)}); } }
         requestAnimationFrame(mf);
       }
       requestAnimationFrame(mf);
-      addEventListener('error', (e) => { send('error', { message: e.message, filename: e.filename, lineno: e.lineno, colno: e.colno }); });
+      addEventListener('error', function(e) { send('error', { message: e.message, filename: e.filename, lineno: e.lineno, colno: e.colno }); });
     })();
-    (async function() {
-      if (window.acDecodePaintingsPromise) await window.acDecodePaintingsPromise;
-      import(window.VFS_BLOB_URLS['boot.mjs']).catch(err => { document.body.style.cssText='color:#fff;background:#000;padding:20px;font-family:monospace'; document.body.textContent='Boot failed: '+err.message; });
-    })();
+  </script>
+  <script type="module">
+    // Phase 2: Boot the app. Import map is already in the DOM from Phase 1.
+    // Top-level await is valid in module scripts.
+    if (window.acDecodePaintingsPromise) await window.acDecodePaintingsPromise;
+    try {
+      await import(window.VFS_BLOB_URLS['boot.mjs']);
+    } catch (err) {
+      document.body.style.cssText='color:#fff;background:#000;padding:20px;font-family:monospace';
+      document.body.textContent='Boot failed: '+err.message;
+    }
   </script>
 </body>
 </html>`;
@@ -1266,8 +1281,11 @@ function generateJSPieceHTMLBundle(opts) {
 </head>
 <body>
   ${boxArtImg}
-  <script type="module">
-    const _ba = document.getElementById('ac-box-art'); if (_ba) _ba.style.display = 'none';
+  <script>
+    // Phase 1: Setup VFS, blob URLs, import map, and fetch interception.
+    // This MUST run in a regular <script> (not type="module") so the import map
+    // is in the DOM BEFORE any <script type="module"> executes.
+    var _ba = document.getElementById('ac-box-art'); if (_ba) _ba.style.display = 'none';
     window.acPACK_MODE = true;
     window.KIDLISP_SUPPRESS_SNAPSHOT_LOGS = true;
     window.__acKidlispConsoleEnabled = false;
@@ -1282,64 +1300,67 @@ function generateJSPieceHTMLBundle(opts) {
     window.VFS = ${JSON.stringify(files).replace(/<\/script>/g, "<\\/script>")};
     window.acBUNDLED_GLYPHS = ${JSON.stringify(bdfGlyphs)};
     window.acOBJKT_MATRIX_CHUNKY_GLYPHS = window.acBUNDLED_GLYPHS.MatrixChunky8 || {};
-    const originalAppendChild = Element.prototype.appendChild;
+    var originalAppendChild = Element.prototype.appendChild;
     Element.prototype.appendChild = function(child) {
       if (child.tagName === 'LINK' && child.rel === 'stylesheet' && child.href && child.href.includes('.css')) return child;
       return originalAppendChild.call(this, child);
     };
-    const originalBodyAppend = HTMLBodyElement.prototype.append;
-    HTMLBodyElement.prototype.append = function(...nodes) {
-      return originalBodyAppend.call(this, ...nodes.filter(n => !(n.tagName === 'LINK' && n.rel === 'stylesheet')));
+    var originalBodyAppend = HTMLBodyElement.prototype.append;
+    HTMLBodyElement.prototype.append = function() {
+      var args = []; for (var i = 0; i < arguments.length; i++) { var n = arguments[i]; if (!(n.tagName === 'LINK' && n.rel === 'stylesheet')) args.push(n); }
+      return originalBodyAppend.apply(this, args);
     };
     window.VFS_BLOB_URLS = {};
     window.modulePaths = [];
-    Object.entries(window.VFS).forEach(([path, file]) => {
+    Object.entries(window.VFS).forEach(function(entry) {
+      var path = entry[0], file = entry[1];
       if (path.endsWith('.mjs') || path.endsWith('.js')) {
-        const blob = new Blob([file.content], { type: 'application/javascript' });
+        var blob = new Blob([file.content], { type: 'application/javascript' });
         window.VFS_BLOB_URLS[path] = URL.createObjectURL(blob);
         window.modulePaths.push(path);
       }
     });
-    const entries = {};
-    for (const fp of window.modulePaths) {
+    var entries = {};
+    for (var i = 0; i < window.modulePaths.length; i++) {
+      var fp = window.modulePaths[i];
       if (window.VFS_BLOB_URLS[fp]) {
         entries[fp] = window.VFS_BLOB_URLS[fp];
         entries['/' + fp] = window.VFS_BLOB_URLS[fp];
-        entries[\`aesthetic.computer/\${fp}\`] = window.VFS_BLOB_URLS[fp];
-        entries[\`/aesthetic.computer/\${fp}\`] = window.VFS_BLOB_URLS[fp];
-        entries[\`./aesthetic.computer/\${fp}\`] = window.VFS_BLOB_URLS[fp];
-        entries[\`https://aesthetic.computer/\${fp}\`] = window.VFS_BLOB_URLS[fp];
-        entries[\`./\${fp}\`] = window.VFS_BLOB_URLS[fp];
-        entries[\`../\${fp}\`] = window.VFS_BLOB_URLS[fp];
-        entries[\`../../\${fp}\`] = window.VFS_BLOB_URLS[fp];
+        entries['aesthetic.computer/' + fp] = window.VFS_BLOB_URLS[fp];
+        entries['/aesthetic.computer/' + fp] = window.VFS_BLOB_URLS[fp];
+        entries['./aesthetic.computer/' + fp] = window.VFS_BLOB_URLS[fp];
+        entries['https://aesthetic.computer/' + fp] = window.VFS_BLOB_URLS[fp];
+        entries['./' + fp] = window.VFS_BLOB_URLS[fp];
+        entries['../' + fp] = window.VFS_BLOB_URLS[fp];
+        entries['../../' + fp] = window.VFS_BLOB_URLS[fp];
       }
     }
-    const s = document.createElement('script');
+    var s = document.createElement('script');
     s.type = 'importmap';
     s.textContent = JSON.stringify({ imports: entries });
     document.head.appendChild(s);
-    const originalFetch = window.fetch;
+    var originalFetch = window.fetch;
     window.fetch = function(url, options) {
-      const urlStr = typeof url === 'string' ? url : url.toString();
+      var urlStr = typeof url === 'string' ? url : url.toString();
       if (urlStr.includes('/api/')) {
         if (urlStr.includes('/api/bdf-glyph') && window.acBUNDLED_GLYPHS) {
-          const fontM = urlStr.match(/[?&]font=([^&]+)/);
-          const charsM = urlStr.match(/[?&]chars?=([^&]+)/);
-          const fontKey = fontM ? decodeURIComponent(fontM[1]) : 'unifont';
-          const fontMap = window.acBUNDLED_GLYPHS[fontKey] || {};
-          const glyphs = {};
-          if (charsM) { for (const c of charsM[1].split(',')) { const hex = c.trim().toUpperCase(); if (fontMap[hex]) glyphs[c.trim()] = fontMap[hex]; } }
-          return Promise.resolve(new Response(JSON.stringify({ glyphs }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+          var fontM = urlStr.match(/[?&]font=([^&]+)/);
+          var charsM = urlStr.match(/[?&]chars?=([^&]+)/);
+          var fontKey = fontM ? decodeURIComponent(fontM[1]) : 'unifont';
+          var fontMap = window.acBUNDLED_GLYPHS[fontKey] || {};
+          var glyphs = {};
+          if (charsM) { for (var c of charsM[1].split(',')) { var hex = c.trim().toUpperCase(); if (fontMap[hex]) glyphs[c.trim()] = fontMap[hex]; } }
+          return Promise.resolve(new Response(JSON.stringify({ glyphs: glyphs }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
         }
         return Promise.resolve(new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }));
       }
-      let vfsPath = decodeURIComponent(urlStr).replace(/^https?:\\/\\/[^\\/]+\\//g, '').replace(/^aesthetic\\.computer\\//g, '').replace(/#.*$/g, '').replace(/\\?.*$/g, '');
+      var vfsPath = decodeURIComponent(urlStr).replace(/^https?:\\/\\/[^\\/]+\\//g, '').replace(/^aesthetic\\.computer\\//g, '').replace(/#.*$/g, '').replace(/\\?.*$/g, '');
       vfsPath = vfsPath.replace(/^\\.\\.\\/+/g, '').replace(/^\\.\\//g, '').replace(/^\\//g, '').replace(/^aesthetic\\.computer\\//g, '');
       if (window.VFS[vfsPath]) {
-        const file = window.VFS[vfsPath]; let content; let ct = 'text/plain';
+        var file = window.VFS[vfsPath]; var content; var ct = 'text/plain';
         if (file.binary) {
-          const bs = atob(file.content); const bytes = new Uint8Array(bs.length);
-          for (let i = 0; i < bs.length; i++) bytes[i] = bs.charCodeAt(i);
+          var bs = atob(file.content); var bytes = new Uint8Array(bs.length);
+          for (var j = 0; j < bs.length; j++) bytes[j] = bs.charCodeAt(j);
           content = bytes;
           if (file.type === 'png') ct = 'image/png'; else if (file.type === 'jpg' || file.type === 'jpeg') ct = 'image/jpeg';
         } else {
@@ -1354,9 +1375,10 @@ function generateJSPieceHTMLBundle(opts) {
       if (vfsPath.endsWith('.mjs')) console.warn('[VFS] Missing .mjs file:', vfsPath);
       return originalFetch.call(this, url, options);
     };
-    (async function() {
-      import(window.VFS_BLOB_URLS['boot.mjs']).catch(err => { document.body.style.cssText='color:#fff;background:#000;padding:20px;font-family:monospace'; document.body.textContent='Boot failed: '+err.message; });
-    })();
+  </script>
+  <script type="module">
+    // Phase 2: Boot the app. The import map is already in the DOM from Phase 1.
+    import(window.VFS_BLOB_URLS['boot.mjs']).catch(err => { document.body.style.cssText='color:#fff;background:#000;padding:20px;font-family:monospace'; document.body.textContent='Boot failed: '+err.message; });
   </script>
 </body>
 </html>`;
