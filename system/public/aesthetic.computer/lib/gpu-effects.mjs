@@ -9,6 +9,7 @@ let invertProgram = null;  // Invert shader program
 let floodSeedProgram = null;  // Flood fill seed initialization
 let floodJFAProgram = null;   // Flood fill Jump Flooding Algorithm pass
 let floodFillProgram = null;  // Flood fill final color application
+let shearProgram = null;  // KidPix-style shear
 let layerCompositeProgram = null;  // Multi-layer alpha compositing
 let positionBuffer = null;
 let texCoordBuffer = null;
@@ -34,6 +35,7 @@ let sharpenUniforms = null;
 let floodSeedUniforms = null;
 let floodJFAUniforms = null;
 let floodFillUniforms = null;
+let shearUniforms = null;
 let layerCompositeUniforms = null;
 
 // Accumulated values (matching CPU behavior)
@@ -425,6 +427,68 @@ void main() {
 }`;
 
 // =========================================================================
+// SHEAR SHADER - KidPix-style row/column shifting
+// Each row shifts horizontally based on distance from vertical center,
+// each column shifts vertically based on distance from horizontal center.
+// Wraps around within the working area bounds.
+// =========================================================================
+const SHEAR_FRAGMENT_SHADER = `#version 300 es
+precision highp float;
+
+uniform sampler2D u_texture;
+uniform vec2 u_resolution;
+uniform vec4 u_bounds;  // minX, minY, maxX, maxY
+uniform float u_shearX; // horizontal shear factor
+uniform float u_shearY; // vertical shear factor
+
+in vec2 v_texCoord;
+out vec4 fragColor;
+
+void main() {
+  int destX = int(gl_FragCoord.x);
+  int destY = int(gl_FragCoord.y);
+
+  int minX = int(u_bounds.x);
+  int minY = int(u_bounds.y);
+  int maxX = int(u_bounds.z);
+  int maxY = int(u_bounds.w);
+  int boundsWidth = maxX - minX;
+  int boundsHeight = maxY - minY;
+
+  // Outside working area — pass through
+  if (destX < minX || destX >= maxX || destY < minY || destY >= maxY) {
+    fragColor = texelFetch(u_texture, ivec2(destX, destY), 0);
+    return;
+  }
+
+  int localX = destX - minX;
+  int localY = destY - minY;
+
+  // Apply horizontal shear (rows shift based on distance from vertical center)
+  int srcLocalX = localX;
+  if (u_shearX != 0.0) {
+    float distFromCenter = float(localY) - float(boundsHeight) / 2.0;
+    int rowShift = int(round(u_shearX * distFromCenter));
+    srcLocalX = localX - rowShift;
+    srcLocalX = ((srcLocalX % boundsWidth) + boundsWidth) % boundsWidth;
+  }
+
+  // Apply vertical shear (columns shift based on distance from horizontal center)
+  int srcLocalY = localY;
+  if (u_shearY != 0.0) {
+    float distFromCenter = float(srcLocalX) - float(boundsWidth) / 2.0;
+    int colShift = int(round(u_shearY * distFromCenter));
+    srcLocalY = localY - colShift;
+    srcLocalY = ((srcLocalY % boundsHeight) + boundsHeight) % boundsHeight;
+  }
+
+  int srcX = minX + srcLocalX;
+  int srcY = minY + srcLocalY;
+
+  fragColor = texelFetch(u_texture, ivec2(srcX, srcY), 0);
+}`;
+
+// =========================================================================
 // FLOOD FILL SHADERS - Jump Flooding Algorithm (JFA)
 // Three-pass algorithm:
 // 1. Seed pass: Initialize distance field from seed point
@@ -811,7 +875,21 @@ function initWebGL2(width, height) {
       console.error('🎮 GPU Effects: Sharpen program link failed:', gl.getProgramInfoLog(sharpenProgram));
       return false;
     }
-    
+
+    // Compile shear program
+    const shearVert = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
+    const shearFrag = compileShader(gl, gl.FRAGMENT_SHADER, SHEAR_FRAGMENT_SHADER);
+    if (!shearVert || !shearFrag) return false;
+
+    shearProgram = gl.createProgram();
+    gl.attachShader(shearProgram, shearVert);
+    gl.attachShader(shearProgram, shearFrag);
+    gl.linkProgram(shearProgram);
+    if (!gl.getProgramParameter(shearProgram, gl.LINK_STATUS)) {
+      console.error('🎮 GPU Effects: Shear program link failed:', gl.getProgramInfoLog(shearProgram));
+      return false;
+    }
+
     // Cache all uniform locations to avoid getUniformLocation calls every frame
     spinUniforms = {
       u_resolution: gl.getUniformLocation(spinProgram, 'u_resolution'),
@@ -862,7 +940,15 @@ function initWebGL2(width, height) {
       u_strength: gl.getUniformLocation(sharpenProgram, 'u_strength'),
       u_texture: gl.getUniformLocation(sharpenProgram, 'u_texture'),
     };
-    
+
+    shearUniforms = {
+      u_resolution: gl.getUniformLocation(shearProgram, 'u_resolution'),
+      u_bounds: gl.getUniformLocation(shearProgram, 'u_bounds'),
+      u_shearX: gl.getUniformLocation(shearProgram, 'u_shearX'),
+      u_shearY: gl.getUniformLocation(shearProgram, 'u_shearY'),
+      u_texture: gl.getUniformLocation(shearProgram, 'u_texture'),
+    };
+
     // Compile flood fill programs (3 passes: seed, JFA, fill)
     const floodSeedVert = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
     const floodSeedFrag = compileShader(gl, gl.FRAGMENT_SHADER, FLOOD_SEED_FRAGMENT_SHADER);
@@ -1631,6 +1717,66 @@ export function gpuSharpen(pixels, width, height, strength = 1, mask = null) {
 }
 
 /**
+ * GPU-accelerated shear (KidPix-style row/column shifting)
+ * @param {Uint8ClampedArray} pixels - Source/destination pixel buffer
+ * @param {number} width - Buffer width
+ * @param {number} height - Buffer height
+ * @param {number} shearX - Horizontal shear factor
+ * @param {number} shearY - Vertical shear factor
+ * @param {Object|null} mask - Optional mask bounds {x, y, width, height}
+ * @returns {boolean}
+ */
+export function gpuShear(pixels, width, height, shearX = 0, shearY = 0, mask = null) {
+  if (shearX === 0 && shearY === 0) return true;
+
+  if (!initWebGL2(width, height)) {
+    return false;
+  }
+
+  try {
+    const minX = mask?.x ?? 0;
+    const minY = mask?.y ?? 0;
+    const maxX = mask ? mask.x + mask.width : width;
+    const maxY = mask ? mask.y + mask.height : height;
+
+    // Upload pixels
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+    // Render to framebuffer
+    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+    gl.viewport(0, 0, width, height);
+
+    gl.useProgram(shearProgram);
+
+    // Set uniforms
+    gl.uniform2f(shearUniforms.u_resolution, width, height);
+    gl.uniform4f(shearUniforms.u_bounds, minX, minY, maxX, maxY);
+    gl.uniform1f(shearUniforms.u_shearX, shearX);
+    gl.uniform1f(shearUniforms.u_shearY, shearY);
+    gl.uniform1i(shearUniforms.u_texture, 0);
+
+    // Use VAO for efficient attribute binding
+    gl.bindVertexArray(vao);
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+    // Read back pixels
+    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+    return true;
+  } catch (e) {
+    console.error('🎮 GPU Shear: Render failed:', e);
+    return false;
+  }
+}
+
+/**
  * GPU-accelerated flood fill using Jump Flooding Algorithm (JFA)
  * O(log n) complexity vs O(n) for CPU scanline algorithm
  * @param {Uint8ClampedArray} pixels - Source/destination pixel buffer
@@ -1968,6 +2114,7 @@ export function cleanupGpuEffects() {
     if (blurHProgram) gl.deleteProgram(blurHProgram);
     if (blurVProgram) gl.deleteProgram(blurVProgram);
     if (sharpenProgram) gl.deleteProgram(sharpenProgram);
+    if (shearProgram) gl.deleteProgram(shearProgram);
     // Flood fill resources
     if (floodSeedProgram) gl.deleteProgram(floodSeedProgram);
     if (floodJFAProgram) gl.deleteProgram(floodJFAProgram);
@@ -1999,6 +2146,7 @@ export default {
   gpuInvert,
   gpuBlur,
   gpuSharpen,
+  gpuShear,
   gpuFlood,
   gpuCompositeLayers,
   isGpuEffectsAvailable,
