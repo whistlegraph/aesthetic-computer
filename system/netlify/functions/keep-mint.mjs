@@ -913,13 +913,14 @@ export const handler = stream(async (event, context) => {
       if (authorHandle) tags.push(`@${authorHandle.replace(/^@/, "")}`);
       if (userCode) tags.push(userCode);
 
-      // Use analyzer traits + add author/packed info as attributes
+      // Build attributes: Length first, then Packed on, then author info
       const attributes = [
         ...analysis.traits,
+        ...(packDate ? [{ name: "Packed on", value: packDate }] : []),
         ...(authorHandle && authorHandle !== "@anon" ? [{ name: "Author Handle", value: `@${authorHandle.replace(/^@/, "")}` }] : []),
         ...(userCode ? [{ name: "Author Code", value: userCode }] : []),
         ...(depCount > 0 ? [{ name: "Dependencies", value: String(depCount) }] : []),
-        ...(packDate ? [{ name: "Packed", value: packDate }] : []),
+        { name: "Analyzer Version", value: ANALYZER_VERSION },
       ];
 
       // Creator identity for metadata
