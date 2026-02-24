@@ -316,6 +316,17 @@ function paint({
   // Always start transparent — underlay video shows through every frame.
   wipe(0, 0, 0, 0);
 
+  // 🔍 DEBUG: sample pixel buffer after wipe to confirm transparency
+  if (paintCount < 10n || paintCount % 60n === 0n) {
+    const p = screen.pixels;
+    if (p?.length >= 4) {
+      const r = p[0], g = p[1], b = p[2], a = p[3];
+      const mid = Math.floor(p.length / 2);
+      const mr = p[mid], mg = p[mid+1], mb = p[mid+2], ma = p[mid+3];
+      console.log(`🎬 VIDEO paint #${paintCount}: buf=${p.length} (${screen.width}×${screen.height}) corner=[${r},${g},${b},${a}] mid=[${mr},${mg},${mb},${ma}]`);
+    }
+  }
+
   if (presenting && !playing && !isPrinting) {
     // Paused: subtle overlay without a black background
     ink(255, 200).write("||", { center: "xy" });
