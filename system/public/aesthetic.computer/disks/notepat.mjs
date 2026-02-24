@@ -2657,12 +2657,33 @@ function paint({
     });
   }
 
-  // 🎨 Fullscreen visualizer mode - draw bars as background behind everything
+  // Compute layout early for kidlisp bounds (cached, no extra cost on second call)
+  const earlySampleRateText = getSampleRateText(sound?.sampleRate);
+  const earlyLayout = getCachedLayout(screen, {
+    songMode: Boolean(song),
+    pictureOverlay: paintPictureOverlay,
+    rateText: earlySampleRateText,
+    rateLabel: earlySampleRateText ? MIDI_RATE_LABEL_TEXT : null,
+    sidePanelWidth: autopatConfig.sidePanelWidth,
+  }).layout;
+
+  // 🎨 KidLisp visualization — bounded to available space above/between buttons
   if (kidlispBgEnabled && kidlispBackground && !paintPictureOverlay) {
-    const bgPainting = api.kidlisp(
-      0, 0, screen.width, screen.height, kidlispBackground,
-    );
-    if (!bgPainting) wipe(bg); // Fallback while $code is loading
+    wipe(bg); // Base background first
+    const klY = SECONDARY_BAR_BOTTOM;
+    const klBottom = earlyLayout.topButtonY;
+    const klH = klBottom - klY;
+    if (klH > 10) {
+      let klX, klW;
+      if (earlyLayout.splitLayout && earlyLayout.centerAreaWidth >= 20) {
+        klX = earlyLayout.centerX;
+        klW = earlyLayout.centerAreaWidth;
+      } else {
+        klX = 0;
+        klW = screen.width;
+      }
+      api.kidlisp(klX, klY, klW, klH, kidlispBackground);
+    }
   } else if (visualizerFullscreen && !recitalMode) {
     wipe(0); // Black background first
     sound.paint.bars(
@@ -3167,83 +3188,35 @@ function paint({
       }
     }
 
-    // Linear active note list (colored) between stream and metronome buttons
-    const listStartX = streamLeft + (streamWidth > 0 ? streamWidth + 4 : 0) + (hoverPillWidth > 0 ? hoverPillWidth + 4 : 0);
-    // List should also stop before metronome buttons
-    const listRight = bpmMinusBtn?.box?.x ? bpmMinusBtn.box.x - 2 : (slideBtn?.box?.x ? slideBtn.box.x - 4 : screen.width - 4);
-    const listHeight = 8;
-    const listY =
-      SECONDARY_BAR_TOP +
-      Math.floor((SECONDARY_BAR_HEIGHT - listHeight) / 2);
-    const activeNotes = orderedByCount(sounds);
-    const activeNotesLen = activeNotes.length;
-    if (activeNotesLen > 0 && listRight - listStartX > 8) {
-      let x = listStartX;
-      const mgWidth = matrixGlyphMetrics.width;
-      for (let ani = 0; ani < activeNotesLen; ani++) {
-        const note = activeNotes[ani];
-        if (!note) continue;
-        const keyLabel = noteToKeyboardKey(note) || note;
-        const label = formatKeyLabel(keyLabel);
-        const labelWidth = label.length * mgWidth;
-        const boxW = Math.max(6, labelWidth + 4);
-        if (x + boxW > listRight) break;
-
-        const baseColor = getCachedColor(note, num);
-        const textColor = getContrastingTextColor(baseColor);
-        const outline = darkenColor(baseColor, 0.7);
-        const shadow = darkenColor(baseColor, 0.85);
-        const labelX = x + Math.max(1, Math.floor((boxW - labelWidth) / 2));
-        const labelY = listY + 0;
-
-        ink(baseColor[0], baseColor[1], baseColor[2], 200).box(x, listY, boxW, listHeight);
-        ink(outline[0], outline[1], outline[2], 200).box(x, listY, boxW, listHeight, "outline");
-        ink(shadow[0], shadow[1], shadow[2], 220).write(
-          label,
-          { x: labelX + 1, y: labelY + 1 },
-          undefined,
-          undefined,
-          false,
-          "MatrixChunky8",
-        );
-        ink(textColor[0], textColor[1], textColor[2]).write(
-          label,
-          { x: labelX, y: labelY },
-          undefined,
-          undefined,
-          false,
-          "MatrixChunky8",
-        );
-
-        x += boxW + 2;
-      }
-      
-      // 🎵 Chord Detection Display - show detected chord after active notes
-      const chord = detectChord(activeNotes);
-      if (chord && x + 20 < listRight) {
-        const chordText = chord.name;
-        const chordTextW = chordText.length * matrixGlyphMetrics.width;
-        const chordBoxW = chordTextW + 6;
-        const chordX = x + 4;
-        
-        if (chordX + chordBoxW < listRight) {
-          // Get color from root note of the chord
-          const rootNote = chord.root.toLowerCase();
-          const chordColor = getCachedColor(rootNote, num);
-          const chordTextColor = getContrastingTextColor(chordColor);
-          const chordOutline = darkenColor(chordColor, 0.6);
-          
-          // Draw chord pill with slightly different style (rounded feel via color)
-          ink(chordColor[0], chordColor[1], chordColor[2], 240).box(chordX, listY, chordBoxW, listHeight);
-          ink(chordOutline[0], chordOutline[1], chordOutline[2], 255).box(chordX, listY, chordBoxW, listHeight, "outline");
-          ink(chordTextColor[0], chordTextColor[1], chordTextColor[2]).write(
-            chordText,
-            { x: chordX + 3, y: listY },
-            undefined,
-            undefined,
-            false,
-            "MatrixChunky8",
-          );
+    // 🎵 Chord Detection Display - shown in stream area (between MIDI badge and metronome)
+    {
+      const chordStartX = streamLeft + (streamWidth > 0 ? streamWidth + 4 : 0) + (hoverPillWidth > 0 ? hoverPillWidth + 4 : 0);
+      const chordRight = bpmMinusBtn?.box?.x ? bpmMinusBtn.box.x - 2 : (slideBtn?.box?.x ? slideBtn.box.x - 4 : screen.width - 4);
+      const chordHeight = 8;
+      const chordY = SECONDARY_BAR_TOP + Math.floor((SECONDARY_BAR_HEIGHT - chordHeight) / 2);
+      const activeNotes = orderedByCount(sounds);
+      if (activeNotes.length > 0 && chordRight - chordStartX > 20) {
+        const chord = detectChord(activeNotes);
+        if (chord) {
+          const chordText = chord.name;
+          const chordTextW = chordText.length * matrixGlyphMetrics.width;
+          const chordBoxW = chordTextW + 6;
+          if (chordStartX + chordBoxW < chordRight) {
+            const rootNote = chord.root.toLowerCase();
+            const chordColor = getCachedColor(rootNote, num);
+            const chordTextColor = getContrastingTextColor(chordColor);
+            const chordOutline = darkenColor(chordColor, 0.6);
+            ink(chordColor[0], chordColor[1], chordColor[2], 240).box(chordStartX, chordY, chordBoxW, chordHeight);
+            ink(chordOutline[0], chordOutline[1], chordOutline[2], 255).box(chordStartX, chordY, chordBoxW, chordHeight, "outline");
+            ink(chordTextColor[0], chordTextColor[1], chordTextColor[2]).write(
+              chordText,
+              { x: chordStartX + 3, y: chordY },
+              undefined,
+              undefined,
+              false,
+              "MatrixChunky8",
+            );
+          }
         }
       }
     }
@@ -6311,8 +6284,11 @@ function act({
     // 🥁 Spacebar now toggles metronome on/off (instead of snare)
     if (e.is("keyboard:down:space") && !e.repeat) {
       metronomeEnabled = !metronomeEnabled;
-      // Reset visual state when toggling off
-      if (!metronomeEnabled) {
+      if (metronomeEnabled) {
+        // Seed beat count to current beat so first tick doesn't fire immediately
+        const now = metronomeClockRef?.time?.()?.getTime?.() ?? Date.now();
+        metronomeBeatCount = Math.floor(now / (60000 / metronomeBPM));
+      } else {
         metronomeVisualPhase = 0;
         metronomeBallPos = 0;
         metronomeFlash = 0;
@@ -6480,7 +6456,9 @@ function act({
         api.beep();
         // Decrease BPM by 5 (min 20)
         metronomeBPM = Math.max(20, metronomeBPM - 5);
-        metronomeBeatCount = 0; // Reset beat sync
+        // Resync beat count to current beat at new BPM
+        const now = metronomeClockRef?.time?.()?.getTime?.() ?? Date.now();
+        metronomeBeatCount = Math.floor(now / (60000 / metronomeBPM));
       },
     });
 
@@ -6489,7 +6467,9 @@ function act({
         api.beep();
         // Increase BPM by 5 (max 300)
         metronomeBPM = Math.min(300, metronomeBPM + 5);
-        metronomeBeatCount = 0; // Reset beat sync
+        // Resync beat count to current beat at new BPM
+        const now = metronomeClockRef?.time?.()?.getTime?.() ?? Date.now();
+        metronomeBeatCount = Math.floor(now / (60000 / metronomeBPM));
       },
     });
 
@@ -6498,8 +6478,9 @@ function act({
         api.beep();
         metronomeEnabled = !metronomeEnabled;
         if (metronomeEnabled) {
-          // Reset beat count to resync on enable
-          metronomeBeatCount = 0;
+          // Seed beat count to current beat so first tick doesn't fire immediately
+          const now = metronomeClockRef?.time?.()?.getTime?.() ?? Date.now();
+          metronomeBeatCount = Math.floor(now / (60000 / metronomeBPM));
           metronomeVisualPhase = 0;
         }
       },
