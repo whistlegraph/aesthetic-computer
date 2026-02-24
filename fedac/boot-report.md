@@ -157,40 +157,37 @@ Total:        8-17s (currently), target: 6-10s
 - [x] `loglevel=1 mitigations=off vt.handoff=7` kernel flags
 
 ### 🔜 Short Term (next USB build)
-- [ ] **zstd EROFS compression** — switch from `-zlzma` to `-zlz4hc` or `-zzstd`
-  in `mkfs.erofs` for 3× faster decompression. Tradeoff: ~10% larger image.
-  ```bash
-  mkfs.erofs -zlz4hc /path/to/squashfs.img /path/to/rootfs/
-  ```
-- [ ] **Black GRUB background image** — show PALS logo or solid black during
-  GRUB phase (even with timeout=0, gfxterm renders background). Add `background.png`
-  to EFI partition and reference in `grub.cfg`.
-- [ ] **`rd.udev.log-level=3`** in GRUB cmdline — quieter udev init
+- [x] **lz4hc EROFS compression** — switched from `-zlzma` to `-zlz4hc`.
+  ~25% larger image (2.0GB → 2.5GB) but 3× faster decompression.
+- [ ] **Black GRUB background image** — NOTE: with `timeout=0` GRUB never renders
+  the menu/background (boots instantly before gfxterm draws). Only useful if
+  timeout ≥ 1. Skipping for now.
+- [x] **`rd.udev.log-level=3`** in GRUB cmdline — quieter udev init
 - [ ] **Disable more systemd units** — audit `systemctl list-units` on a booted
   live system to find any remaining slow services
 - [ ] **Pre-warm Firefox profile** — run Firefox headless once in the rootfs build
   step to generate pre-compiled startup cache files (`startupCache/`, `*shelljit*`)
 
 ### 🔧 Medium Term (requires new tooling)
-- [ ] **`cage` compositor** — replace mutter entirely. cage is purpose-built
-  for exactly this: one Wayland compositor, one app, no background, 50ms start.
-  - Option A: `dnf install cage` once it lands in Fedora 44
-  - Option B: compile `cage` on host → copy static binary into rootfs build
-  - Option C: use the Fedora COPR `cage` package
+- [x] **`cage` compositor** — installed via `dnf install cage` (available in Fedora 43).
+  Zero background, no shell, 50ms start. Replaces mutter entirely.
   ```bash
-  # In make-kiosk-piece-usb.sh:
   exec cage -- firefox --kiosk --no-remote http://127.0.0.1:8080
   ```
 - [ ] **`gnome-kiosk` compositor** — simplified GNOME shell for kiosk. Check if
   available: `dnf info gnome-kiosk`. Handles blank background and single-app
   session natively.
-- [ ] **Piece server as socket-activated unit** — use systemd socket activation
-  so the piece server is guaranteed ready before any client can connect, with
-  zero race conditions.
+- [x] **Piece server as socket-activated unit** — systemd socket activation via
+  `kiosk-piece-server.socket`. Port 8080 bound before server process starts.
+  Python server updated to accept `LISTEN_FDS` socket from systemd.
 
 ### 🌟 Long Term (deeper surgery)
-- [ ] **initrd framebuffer hook** — dracut `pre-udev` hook that writes raw pixels
-  to `/dev/fb0` before Plymouth starts. Eliminates BLACK #1 entirely. Options:
+- [x] **initrd framebuffer hook** — appended cpio to `pals-initrd.img` adds a
+  systemd unit (`kiosk-fb.service`) that fills `/dev/fb0` with zeros after
+  `dracut-pre-trigger.service`. Eliminates BLACK #1 before Plymouth.
+  (Uses dracut-systemd unit injection via concatenated cpio, not shell hooks.)
+- [ ] **initrd framebuffer PALS logo** — extend the fb0 hook to blit the actual
+  PALS logo (pre-converted PNG→raw BGRA) to center of screen instead of solid black. Options:
   - Solid PALS purple fill (trivial — write 4-byte pattern via Python)
   - Full PALS logo (pre-convert PNG to raw BGRA, embed in initrd, blit to center)
   ```bash
