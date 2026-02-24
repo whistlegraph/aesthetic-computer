@@ -13,7 +13,7 @@ export function analyzeKidLisp(source, options = {}) {
     chars,
     lines,
     traits: [
-      { name: "Characters", value: String(chars) },
+      { name: "Length", value: String(chars) },
     ],
   };
 }
