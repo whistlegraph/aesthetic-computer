@@ -3056,7 +3056,7 @@ function paint($) {
       let textX = tollX + 8;
       ink(tollScheme.text[0], tollScheme.text[1], tollScheme.text[2]).write(tollText, { x: textX, y: y + 7 });
       textX += textW + 1;
-      ink(tollScheme.text[0], tollScheme.text[1], tollScheme.text[2]).write(tezSymbol, { x: textX, y: y + 4 }, undefined, undefined, false, "unifont");
+      ink(tollScheme.text[0], tollScheme.text[1], tollScheme.text[2]).write(tezSymbol, { x: textX + 1, y: y + 2 }, undefined, undefined, false, "unifont");
       textX += symbolW;
       ink(tollScheme.text[0], tollScheme.text[1], tollScheme.text[2]).write(tollSuffix, { x: textX, y: y + 7 });
 
