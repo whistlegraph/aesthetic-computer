@@ -5149,7 +5149,13 @@ function ink2() {
 function initializeGlobalKidLisp(api) {
   if (!globalKidLispInstance) {
     // console.log("🚀 Initializing global KidLisp instance");
-    globalKidLispInstance = new lisp.KidLisp();
+    if (typeof lisp.ensureGlobalInstance === "function") {
+      globalKidLispInstance = lisp.ensureGlobalInstance();
+    } else if (typeof lisp.getGlobalInstance === "function") {
+      globalKidLispInstance = lisp.getGlobalInstance() || new lisp.KidLisp();
+    } else {
+      globalKidLispInstance = new lisp.KidLisp();
+    }
     globalKidLispInstance.setAPI(api);
     // Expose to window for bios.mjs acCLEAR_BAKE_LAYERS
     if (typeof window !== 'undefined') {
@@ -5173,9 +5179,13 @@ function getGlobalKidLisp() {
 
 // 🎵 Update KidLisp audio globals (safe for worker contexts)
 function updateKidLispAudio(audioData) {
+  const payload =
+    audioData && typeof audioData === "object"
+      ? { ...audioData, __source: audioData.__source || "embedded:paintApi" }
+      : audioData;
   if (globalKidLispInstance && globalKidLispInstance.updateAudioGlobals) {
-    globalKidLispInstance.updateAudioGlobals(audioData);
-  } else if (audioData?.amp > 0) {
+    globalKidLispInstance.updateAudioGlobals(payload);
+  } else if (payload?.amp > 0) {
     console.warn("🔊 updateKidLispAudio: no instance!", !!globalKidLispInstance, !!globalKidLispInstance?.updateAudioGlobals);
   }
 }
@@ -13685,12 +13695,9 @@ async function makeFrame({ data: { type, content } }) {
 
             // 🔗 Draw "share" text in the LEFT reveal area when scrubbing
             if (currentHUDScrub > 0) {
-              // Draw opaque background to clip content on the right edge of share area
-              const shareBgColor = [20, 20, 20]; // Dark background
-              $.ink(...shareBgColor).box(0, 0, currentHUDLeftPad, h);
-              
-              // "share" text at fixed position (left of QR), using default font
-              const shareTextX = HUD_LABEL_TEXT_MARGIN;
+              // Slide "share" in from the left as the scrub progresses.
+              const shareTextX =
+                currentHUDLeftPad + currentHUDScrub - shareWidth + HUD_LABEL_TEXT_MARGIN;
               const shareTextY = 0;
 
               drawHudLabelText($, "share", {
@@ -13824,10 +13831,15 @@ async function makeFrame({ data: { type, content } }) {
         // Update button position to match label position (with slide offset)
         const finalX = currentHUDOffset.x + hudAnimationState.slideOffset.x - currentHUDLeftPad;
         const finalY = currentHUDOffset.y + hudAnimationState.slideOffset.y;
-        const textWidthForHitbox = currentHUDTextBoxWidth || currentHUDLabelMeasuredWidth;
-        const hitboxWidth = Math.max(1, Math.round(textWidthForHitbox + 7));
-        const baseTextHeight = currentHUDTextHeight || currentHUDTextBoxHeight || h;
-        const hitboxHeight = Math.max(1, Math.round(baseTextHeight + 7));
+        // Match hitbox to full rendered HUD label buffer (including scrub reveal areas).
+        const hitboxWidth = Math.max(
+          1,
+          Math.round(hudAnimationState.labelWidth || bufferW || currentHUDLabelMeasuredWidth || 1),
+        );
+        const hitboxHeight = Math.max(
+          1,
+          Math.round(hudAnimationState.labelHeight || bufferH || currentHUDTextHeight || currentHUDTextBoxHeight || h || 1),
+        );
         currentHUDButton.box.x = finalX;
         currentHUDButton.box.y = finalY;
         currentHUDButton.box.w = hitboxWidth;
