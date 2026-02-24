@@ -12501,11 +12501,6 @@ async function makeFrame({ data: { type, content } }) {
 
         screen[hasScreen ? "resized" : "created"] = true; // Screen change type.
 
-        // Track the true screen pixel buffer so we can restore it if page() corrupts it.
-        _trueScreenPixels = screen.pixels;
-        _trueScreenWidth = screen.width;
-        _trueScreenHeight = screen.height;
-
         // 🎨 Broadcast screen resize to other tabs
         if (hasScreen && $commonApi.broadcastPaintingUpdate) {
           $commonApi.broadcastPaintingUpdate("resized", {
@@ -12533,6 +12528,12 @@ async function makeFrame({ data: { type, content } }) {
 
       $api.screen = screen;
       $api.screen.center = { x: screen.width / 2, y: screen.height / 2 };
+
+      // Snapshot true screen state each frame (after content.pixels transfer).
+      // page(sub-buffer) mutates screen in place; we restore it after paint.
+      _trueScreenPixels = screen.pixels;
+      _trueScreenWidth = screen.width;
+      _trueScreenHeight = screen.height;
 
       $api.fps = function (newFps) {
         // Use piece-level timing instead of changing global render loop
