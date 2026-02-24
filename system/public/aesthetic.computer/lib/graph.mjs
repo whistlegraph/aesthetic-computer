@@ -6427,14 +6427,14 @@ zoomSimd.srcIndices = null;
 // Creates discrete, lossless pixel movement without blur or center holes
 function suck(strength = 1, centerX, centerY) {
   if (strength === 0.0) return; // No change needed - neutral suck
-  
+
   // Accumulate the suck strength like zoom does
   suckAccumulator += strength;
-  
+
   // Apply transformation when accumulator reaches threshold
-  const threshold = 0.5; // Higher threshold for more controlled movement
+  const threshold = 0.5;
   if (Math.abs(suckAccumulator) < threshold) return;
-  
+
   // Determine the area to process (mask or full screen)
   let minX = 0,
     minY = 0,
@@ -6454,41 +6454,61 @@ function suck(strength = 1, centerX, centerY) {
   const centerPixelX = centerX !== undefined ? centerX : minX + workingWidth * 0.5;
   const centerPixelY = centerY !== undefined ? centerY : minY + workingHeight * 0.5;
 
+  const displacementAmount = Math.abs(suckAccumulator);
+  // Positive strength = suck inward (source further out), Negative = blow outward
+  const direction = suckAccumulator > 0 ? 1 : -1;
+
+  if (displacementAmount < 0.01) {
+    suckAccumulator = 0.0;
+    return;
+  }
+
+  // 🚀 TRY GPU SUCK FIRST
+  if (gpuSpinEnabled && gpuSpinAvailable && gpuSpinModule?.gpuSuck && pixels && width && height) {
+    const mask = activeMask ? {
+      x: activeMask.x + panTranslation.x,
+      y: activeMask.y + panTranslation.y,
+      width: activeMask.width,
+      height: activeMask.height
+    } : null;
+
+    const success = gpuSpinModule.gpuSuck(
+      pixels, width, height, displacementAmount, direction,
+      centerPixelX, centerPixelY, mask
+    );
+    if (success) {
+      suckAccumulator = 0.0;
+      return;
+    }
+    // Fall through to CPU if GPU failed
+  }
+
+  // 🐢 CPU FALLBACK
+
   // 🛡️ SAFETY CHECK: If pixels buffer is detached, recreate it
   if (pixels.buffer && pixels.buffer.detached) {
     console.warn('🚨 Pixels buffer detached in suck, recreating from screen dimensions');
     pixels = new Uint8ClampedArray(width * height * 4);
-    pixels.fill(0); // Fill with transparent black
+    pixels.fill(0);
   }
-  
+
   // Create snapshot for pixel-perfect sampling
   const tempPixels = new Uint8ClampedArray(pixels);
 
-  // Use smooth displacement (no discrete steps for quality preservation)
-  const displacementAmount = Math.abs(suckAccumulator);
-  const direction = suckAccumulator > 0 ? 1 : -1; // Positive = inward, Negative = outward
-  
-  if (displacementAmount < 0.01) {
-    suckAccumulator = 0.0;
-    return; // No movement needed
-  }
-  
-  // Calculate maximum distance for wrapping
-  const maxDistance = Math.max(workingWidth, workingHeight);
-
-  // Apply pixel-perfect radial displacement
+  // Apply radial displacement — each dest pixel pulls from further/closer along
+  // the radial line from center.
+  // Suck (direction=1): srcDistance = distance + displacement (pull from further out)
+  // Blow (direction=-1): srcDistance = distance - displacement (pull from closer in)
   for (let destY = minY; destY < maxY; destY++) {
     const destRowOffset = destY * width;
-    
+
     for (let destX = minX; destX < maxX; destX++) {
-      // Calculate distance from center using Euclidean distance for natural circles
       const dx = destX - centerPixelX;
       const dy = destY - centerPixelY;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      
-      // Prevent center hole by having minimum movement radius
-      if (distance < 2.0) {
-        // Very center pixels stay put to prevent holes
+
+      // Very center pixels stay put to prevent holes
+      if (distance < 1.0) {
         const destIdx = (destRowOffset + destX) * 4;
         pixels[destIdx] = tempPixels[destIdx];
         pixels[destIdx + 1] = tempPixels[destIdx + 1];
@@ -6496,73 +6516,42 @@ function suck(strength = 1, centerX, centerY) {
         pixels[destIdx + 3] = tempPixels[destIdx + 3];
         continue;
       }
-      
-      // Calculate smooth source distance with sub-pixel precision
-      let srcDistance = distance - (direction * displacementAmount); // Smooth sub-pixel movement
-      
-      // Proper wrapping for true circulation
-      if (srcDistance <= 0) {
-        // Pixel moved past center, wrap to outer edge 
-        srcDistance = maxDistance + srcDistance; // Preserve the excess
-      } else if (srcDistance > maxDistance) {
-        // Pixel moved past edge, wrap back toward center
-        srcDistance = srcDistance - maxDistance;
-      }
-      
-      // Calculate source position using exact same direction as destination (fast trig)
-      const angle = Math.atan2(dy, dx);
-      const srcX = centerPixelX + srcDistance * cos(angle);
-      const srcY = centerPixelY + srcDistance * sin(angle);
-      
-      // Proper modulo wrapping for continuous circulation
-      let wrappedSrcX = srcX;
-      let wrappedSrcY = srcY;
-      
-      // True modulo wrapping that preserves circulation
-      while (wrappedSrcX < minX) {
-        wrappedSrcX += workingWidth;
-      }
-      while (wrappedSrcX >= maxX) {
-        wrappedSrcX -= workingWidth;
-      }
-      
-      while (wrappedSrcY < minY) {
-        wrappedSrcY += workingHeight;
-      }
-      while (wrappedSrcY >= maxY) {
-        wrappedSrcY -= workingHeight;
-      }
-      
-      // SMOOTH SAMPLING: Use bilinear interpolation for sub-pixel precision
-      const srcX_floor = Math.floor(wrappedSrcX);
-      const srcY_floor = Math.floor(wrappedSrcY);
-      const srcX_ceil = srcX_floor + 1;
-      const srcY_ceil = srcY_floor + 1;
-      
-      // Calculate interpolation weights
-      const wx = wrappedSrcX - srcX_floor;
-      const wy = wrappedSrcY - srcY_floor;
-      
-      // Clamp coordinates to valid range
+
+      // Source is along the same radial ray, shifted by displacement
+      const srcDistance = distance + (direction * displacementAmount);
+
+      // Compute source position along the same radial direction
+      // Use dx/dy ratio to avoid atan2 (faster, no angle discontinuities = no spiral)
+      const scale = srcDistance / distance;
+      let srcX = centerPixelX + dx * scale;
+      let srcY = centerPixelY + dy * scale;
+
+      // Clamp to bounds (no wrapping — pixels at the edge just repeat)
+      srcX = Math.max(minX, Math.min(maxX - 1.0, srcX));
+      srcY = Math.max(minY, Math.min(maxY - 1.0, srcY));
+
+      // Bilinear interpolation for sub-pixel precision
+      const srcX_floor = Math.floor(srcX);
+      const srcY_floor = Math.floor(srcY);
+      const wx = srcX - srcX_floor;
+      const wy = srcY - srcY_floor;
+
       const x1 = Math.max(minX, Math.min(maxX - 1, srcX_floor));
       const y1 = Math.max(minY, Math.min(maxY - 1, srcY_floor));
-      const x2 = Math.max(minX, Math.min(maxX - 1, srcX_ceil));
-      const y2 = Math.max(minY, Math.min(maxY - 1, srcY_ceil));
-      
-      // Get four corner pixels for bilinear interpolation
-      const idx1 = (y1 * width + x1) * 4; // top-left
-      const idx2 = (y1 * width + x2) * 4; // top-right  
-      const idx3 = (y2 * width + x1) * 4; // bottom-left
-      const idx4 = (y2 * width + x2) * 4; // bottom-right
-      
+      const x2 = Math.max(minX, Math.min(maxX - 1, srcX_floor + 1));
+      const y2 = Math.max(minY, Math.min(maxY - 1, srcY_floor + 1));
+
+      const idx1 = (y1 * width + x1) * 4;
+      const idx2 = (y1 * width + x2) * 4;
+      const idx3 = (y2 * width + x1) * 4;
+      const idx4 = (y2 * width + x2) * 4;
+
       const destIdx = (destRowOffset + destX) * 4;
-      
-      // Bilinear interpolation for each color channel
+
       for (let c = 0; c < 4; c++) {
         const topInterp = tempPixels[idx1 + c] * (1 - wx) + tempPixels[idx2 + c] * wx;
         const bottomInterp = tempPixels[idx3 + c] * (1 - wx) + tempPixels[idx4 + c] * wx;
-        const finalInterp = topInterp * (1 - wy) + bottomInterp * wy;
-        pixels[destIdx + c] = Math.round(finalInterp);
+        pixels[destIdx + c] = Math.round(topInterp * (1 - wy) + bottomInterp * wy);
       }
     }
   }

@@ -10,6 +10,7 @@ let floodSeedProgram = null;  // Flood fill seed initialization
 let floodJFAProgram = null;   // Flood fill Jump Flooding Algorithm pass
 let floodFillProgram = null;  // Flood fill final color application
 let shearProgram = null;  // KidPix-style shear
+let suckProgram = null;   // Radial suck/blow
 let layerCompositeProgram = null;  // Multi-layer alpha compositing
 let positionBuffer = null;
 let texCoordBuffer = null;
@@ -36,6 +37,7 @@ let floodSeedUniforms = null;
 let floodJFAUniforms = null;
 let floodFillUniforms = null;
 let shearUniforms = null;
+let suckUniforms = null;
 let layerCompositeUniforms = null;
 
 // Accumulated values (matching CPU behavior)
@@ -476,7 +478,7 @@ void main() {
   // Apply vertical shear (columns shift based on distance from horizontal center)
   int srcLocalY = localY;
   if (u_shearY != 0.0) {
-    float distFromCenter = float(srcLocalX) - float(boundsWidth) / 2.0;
+    float distFromCenter = float(localX) - float(boundsWidth) / 2.0;
     int colShift = int(round(u_shearY * distFromCenter));
     srcLocalY = localY - colShift;
     srcLocalY = ((srcLocalY % boundsHeight) + boundsHeight) % boundsHeight;
@@ -486,6 +488,84 @@ void main() {
   int srcY = minY + srcLocalY;
 
   fragColor = texelFetch(u_texture, ivec2(srcX, srcY), 0);
+}`;
+
+// =========================================================================
+// SUCK SHADER - Radial inward/outward pixel displacement
+// Each pixel samples along its radial ray from center, shifted by displacement.
+// Suck (direction=1): pulls from further out (content moves inward)
+// Blow (direction=-1): pulls from closer in (content moves outward)
+// =========================================================================
+const SUCK_FRAGMENT_SHADER = `#version 300 es
+precision highp float;
+
+uniform sampler2D u_texture;
+uniform vec2 u_resolution;
+uniform vec4 u_bounds;        // minX, minY, maxX, maxY
+uniform float u_displacement; // absolute displacement amount
+uniform float u_direction;    // 1.0 = suck inward, -1.0 = blow outward
+uniform vec2 u_center;        // center point (in pixel coords)
+
+in vec2 v_texCoord;
+out vec4 fragColor;
+
+void main() {
+  int destX = int(gl_FragCoord.x);
+  int destY = int(gl_FragCoord.y);
+
+  int minX = int(u_bounds.x);
+  int minY = int(u_bounds.y);
+  int maxX = int(u_bounds.z);
+  int maxY = int(u_bounds.w);
+
+  // Outside working area — pass through
+  if (destX < minX || destX >= maxX || destY < minY || destY >= maxY) {
+    fragColor = texelFetch(u_texture, ivec2(destX, destY), 0);
+    return;
+  }
+
+  float dx = float(destX) - u_center.x;
+  float dy = float(destY) - u_center.y;
+  float distance = sqrt(dx * dx + dy * dy);
+
+  // Very center pixels stay put
+  if (distance < 1.0) {
+    fragColor = texelFetch(u_texture, ivec2(destX, destY), 0);
+    return;
+  }
+
+  // Source distance along same radial ray
+  float srcDistance = distance + u_direction * u_displacement;
+
+  // Scale factor to move along the radial ray (no atan2, no spiral)
+  float scale = srcDistance / distance;
+  float srcX = u_center.x + dx * scale;
+  float srcY = u_center.y + dy * scale;
+
+  // Clamp to bounds
+  float fMinX = float(minX);
+  float fMinY = float(minY);
+  float fMaxX = float(maxX) - 1.0;
+  float fMaxY = float(maxY) - 1.0;
+  srcX = clamp(srcX, fMinX, fMaxX);
+  srcY = clamp(srcY, fMinY, fMaxY);
+
+  // Bilinear interpolation
+  int x0 = int(floor(srcX));
+  int y0 = int(floor(srcY));
+  int x1 = min(x0 + 1, int(fMaxX));
+  int y1 = min(y0 + 1, int(fMaxY));
+  float wx = srcX - float(x0);
+  float wy = srcY - float(y0);
+
+  vec4 tl = texelFetch(u_texture, ivec2(x0, y0), 0);
+  vec4 tr = texelFetch(u_texture, ivec2(x1, y0), 0);
+  vec4 bl = texelFetch(u_texture, ivec2(x0, y1), 0);
+  vec4 br = texelFetch(u_texture, ivec2(x1, y1), 0);
+
+  vec4 top = mix(tl, tr, wx);
+  vec4 bottom = mix(bl, br, wx);
+  fragColor = mix(top, bottom, wy);
 }`;
 
 // =========================================================================
@@ -890,6 +970,20 @@ function initWebGL2(width, height) {
       return false;
     }
 
+    // Compile suck program
+    const suckVert = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
+    const suckFrag = compileShader(gl, gl.FRAGMENT_SHADER, SUCK_FRAGMENT_SHADER);
+    if (!suckVert || !suckFrag) return false;
+
+    suckProgram = gl.createProgram();
+    gl.attachShader(suckProgram, suckVert);
+    gl.attachShader(suckProgram, suckFrag);
+    gl.linkProgram(suckProgram);
+    if (!gl.getProgramParameter(suckProgram, gl.LINK_STATUS)) {
+      console.error('🎮 GPU Effects: Suck program link failed:', gl.getProgramInfoLog(suckProgram));
+      return false;
+    }
+
     // Cache all uniform locations to avoid getUniformLocation calls every frame
     spinUniforms = {
       u_resolution: gl.getUniformLocation(spinProgram, 'u_resolution'),
@@ -947,6 +1041,15 @@ function initWebGL2(width, height) {
       u_shearX: gl.getUniformLocation(shearProgram, 'u_shearX'),
       u_shearY: gl.getUniformLocation(shearProgram, 'u_shearY'),
       u_texture: gl.getUniformLocation(shearProgram, 'u_texture'),
+    };
+
+    suckUniforms = {
+      u_resolution: gl.getUniformLocation(suckProgram, 'u_resolution'),
+      u_bounds: gl.getUniformLocation(suckProgram, 'u_bounds'),
+      u_displacement: gl.getUniformLocation(suckProgram, 'u_displacement'),
+      u_direction: gl.getUniformLocation(suckProgram, 'u_direction'),
+      u_center: gl.getUniformLocation(suckProgram, 'u_center'),
+      u_texture: gl.getUniformLocation(suckProgram, 'u_texture'),
     };
 
     // Compile flood fill programs (3 passes: seed, JFA, fill)
@@ -1777,6 +1880,69 @@ export function gpuShear(pixels, width, height, shearX = 0, shearY = 0, mask = n
 }
 
 /**
+ * GPU-accelerated radial suck/blow
+ * @param {Uint8ClampedArray} pixels - Source/destination pixel buffer
+ * @param {number} width - Buffer width
+ * @param {number} height - Buffer height
+ * @param {number} displacement - Absolute displacement amount
+ * @param {number} direction - 1 = suck inward, -1 = blow outward
+ * @param {number} centerX - Center X in pixel coords
+ * @param {number} centerY - Center Y in pixel coords
+ * @param {Object|null} mask - Optional mask bounds {x, y, width, height}
+ * @returns {boolean}
+ */
+export function gpuSuck(pixels, width, height, displacement, direction, centerX, centerY, mask = null) {
+  if (displacement === 0) return true;
+
+  if (!initWebGL2(width, height)) {
+    return false;
+  }
+
+  try {
+    const minX = mask?.x ?? 0;
+    const minY = mask?.y ?? 0;
+    const maxX = mask ? mask.x + mask.width : width;
+    const maxY = mask ? mask.y + mask.height : height;
+
+    // Upload pixels
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+    // Render to framebuffer
+    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+    gl.viewport(0, 0, width, height);
+
+    gl.useProgram(suckProgram);
+
+    // Set uniforms
+    gl.uniform2f(suckUniforms.u_resolution, width, height);
+    gl.uniform4f(suckUniforms.u_bounds, minX, minY, maxX, maxY);
+    gl.uniform1f(suckUniforms.u_displacement, displacement);
+    gl.uniform1f(suckUniforms.u_direction, direction);
+    gl.uniform2f(suckUniforms.u_center, centerX, centerY);
+    gl.uniform1i(suckUniforms.u_texture, 0);
+
+    // Use VAO for efficient attribute binding
+    gl.bindVertexArray(vao);
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+    // Read back pixels
+    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+    return true;
+  } catch (e) {
+    console.error('🎮 GPU Suck: Render failed:', e);
+    return false;
+  }
+}
+
+/**
  * GPU-accelerated flood fill using Jump Flooding Algorithm (JFA)
  * O(log n) complexity vs O(n) for CPU scanline algorithm
  * @param {Uint8ClampedArray} pixels - Source/destination pixel buffer
@@ -2115,6 +2281,7 @@ export function cleanupGpuEffects() {
     if (blurVProgram) gl.deleteProgram(blurVProgram);
     if (sharpenProgram) gl.deleteProgram(sharpenProgram);
     if (shearProgram) gl.deleteProgram(shearProgram);
+    if (suckProgram) gl.deleteProgram(suckProgram);
     // Flood fill resources
     if (floodSeedProgram) gl.deleteProgram(floodSeedProgram);
     if (floodJFAProgram) gl.deleteProgram(floodJFAProgram);
@@ -2147,6 +2314,7 @@ export default {
   gpuBlur,
   gpuSharpen,
   gpuShear,
+  gpuSuck,
   gpuFlood,
   gpuCompositeLayers,
   isGpuEffectsAvailable,
