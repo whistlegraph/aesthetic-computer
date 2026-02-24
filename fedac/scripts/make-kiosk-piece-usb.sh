@@ -8,16 +8,20 @@
 #   → Firefox fullscreen → bundled piece (offline, no WiFi needed)
 #
 # Usage:
-#   sudo bash fedac/scripts/make-kiosk-piece-usb.sh <piece-code> <device>
+#   sudo bash fedac/scripts/make-kiosk-piece-usb.sh <piece-code> [<device>] [options]
 #
 # Examples:
 #   sudo bash fedac/scripts/make-kiosk-piece-usb.sh roz /dev/sdb
-#   sudo bash fedac/scripts/make-kiosk-piece-usb.sh '$cow' /dev/sdb
-#   sudo bash fedac/scripts/make-kiosk-piece-usb.sh roz /dev/sdb --rootfs /path/to/rootfs
+#   sudo bash fedac/scripts/make-kiosk-piece-usb.sh '$cow' --image /tmp/fedac-roz.img
+#   sudo bash fedac/scripts/make-kiosk-piece-usb.sh roz /dev/sdb --image /tmp/fedac-roz.img
 #
 # Options:
 #   --rootfs <dir>    Use existing extracted rootfs (skip ISO download + extract)
 #   --iso <path>      Use local ISO instead of downloading
+#   --image <path>    Build a bootable disk image file (.img)
+#   --image-size <g>  Image size in GiB (default: 16)
+#   --density <n>     Default pack/runtime density query value (default: 8)
+#   --work-base <dir> Directory for large temp work files (default: /tmp)
 #   --no-eject        Don't eject when done
 #   --yes             Skip confirmation prompts
 #
@@ -47,22 +51,25 @@ FEDORA_URL="https://dl.fedoraproject.org/pub/fedora/linux/releases/${FEDORA_VERS
 FEDORA_SHA256="2a4a16c009244eb5ab2198700eb04103793b62407e8596f30a3e0cc8ac294d77"
 CACHE_DIR="${HOME}/Downloads"
 
-# Oven bundle endpoint
-OVEN_URL="https://oven.aesthetic.computer/bundle-html"
+# Oven pack/bundle endpoints (pack is preferred; bundle kept as fallback)
+OVEN_PACK_URL="https://oven.aesthetic.computer/pack-html"
+OVEN_BUNDLE_URL="https://oven.aesthetic.computer/bundle-html"
+PACK_DENSITY_DEFAULT="8"
 
 usage() {
   echo -e "${PINK}FedAC Kiosk Piece USB Creator${NC}"
   echo ""
   echo "Creates a live USB that boots into a fullscreen KidLisp piece (offline)."
   echo ""
-  echo "Usage: sudo $0 <piece-code> <device> [options]"
+  echo "Usage: sudo $0 <piece-code> [<device>] [options]"
   echo ""
   echo "  <piece-code>    KidLisp piece code (e.g., roz, \$cow)"
-  echo "  <device>        USB block device (e.g., /dev/sdb)"
+  echo "  <device>        Optional USB block device (e.g., /dev/sdb)"
   echo ""
   echo "Options:"
   echo "  --rootfs <dir>  Use existing extracted rootfs directory"
   echo "  --iso <path>    Use existing ISO instead of downloading"
+  echo "  --density <n>   Default pack/runtime density query value (default: 8)"
   echo "  --no-eject      Don't eject the USB when done"
   echo "  --yes           Skip confirmation prompts"
   echo "  --help          Show this help"
@@ -74,6 +81,10 @@ cleanup() {
   for mp in "${ISO_MOUNT:-}" "${ROOTFS_MOUNT:-}" "${EFI_MOUNT:-}" "${LIVE_MOUNT:-}"; do
     [ -n "$mp" ] && mountpoint -q "$mp" 2>/dev/null && umount "$mp" 2>/dev/null || true
   done
+  if [ -n "${LOOP_DEV:-}" ]; then
+    losetup -d "$LOOP_DEV" 2>/dev/null || true
+    LOOP_DEV=""
+  fi
 }
 trap cleanup EXIT
 
@@ -82,13 +93,21 @@ PIECE_CODE=""
 DEVICE=""
 ROOTFS_DIR=""
 ISO_PATH=""
+IMAGE_PATH=""
+IMAGE_SIZE_GB="16"
+WORK_BASE="/tmp"
 DO_EJECT=true
 SKIP_CONFIRM=false
+PACK_DENSITY="$PACK_DENSITY_DEFAULT"
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --rootfs) ROOTFS_DIR="$2"; shift 2 ;;
     --iso) ISO_PATH="$2"; shift 2 ;;
+    --image) IMAGE_PATH="$2"; shift 2 ;;
+    --image-size) IMAGE_SIZE_GB="$2"; shift 2 ;;
+    --density) PACK_DENSITY="$2"; shift 2 ;;
+    --work-base) WORK_BASE="$2"; shift 2 ;;
     --no-eject) DO_EJECT=false; shift ;;
     --yes) SKIP_CONFIRM=true; shift ;;
     --help|-h) usage ;;
@@ -98,8 +117,24 @@ while [ $# -gt 0 ]; do
 done
 
 [ -n "$PIECE_CODE" ] || { echo -e "${RED}Error: No piece code specified${NC}"; usage; }
-[ -n "$DEVICE" ] || { echo -e "${RED}Error: No device specified${NC}"; usage; }
-[ -b "$DEVICE" ] || { echo -e "${RED}Error: $DEVICE is not a block device${NC}"; exit 1; }
+[ -n "$DEVICE" ] || [ -n "$IMAGE_PATH" ] || {
+  echo -e "${RED}Error: Specify a USB device and/or --image path${NC}"
+  usage
+}
+[ -z "$DEVICE" ] || [ -b "$DEVICE" ] || { echo -e "${RED}Error: $DEVICE is not a block device${NC}"; exit 1; }
+[ -z "$IMAGE_PATH" ] || [[ "$IMAGE_SIZE_GB" =~ ^[0-9]+$ ]] || {
+  echo -e "${RED}Error: --image-size must be an integer GiB value${NC}"
+  exit 1
+}
+[[ "$PACK_DENSITY" =~ ^[1-9][0-9]*$ ]] || {
+  echo -e "${RED}Error: --density must be a positive integer${NC}"
+  exit 1
+}
+[ -d "$WORK_BASE" ] || mkdir -p "$WORK_BASE"
+[ -d "$WORK_BASE" ] || {
+  echo -e "${RED}Error: --work-base '$WORK_BASE' is not accessible${NC}"
+  exit 1
+}
 
 if [ "$(id -u)" -ne 0 ]; then
   echo -e "${RED}Error: Must run as root (sudo)${NC}"
@@ -107,17 +142,32 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 # Safety: refuse system disks
-case "$DEVICE" in
-  /dev/nvme*|/dev/vda|/dev/xvda|/dev/sda)
-    echo -e "${RED}REFUSED: $DEVICE looks like a system disk.${NC}"
-    exit 1
-    ;;
-esac
+if [ -n "$DEVICE" ]; then
+  case "$DEVICE" in
+    /dev/nvme*|/dev/vda|/dev/xvda)
+      echo -e "${RED}REFUSED: $DEVICE looks like a system disk.${NC}"
+      exit 1
+      ;;
+    /dev/sda)
+      RM_FLAG="$(lsblk -dn -o RM "$DEVICE" 2>/dev/null || echo "")"
+      if [ "$RM_FLAG" != "1" ]; then
+        echo -e "${RED}REFUSED: $DEVICE looks like a system disk.${NC}"
+        exit 1
+      fi
+      echo -e "${YELLOW}Warning: allowing /dev/sda because lsblk reports RM=1 (removable).${NC}"
+      ;;
+  esac
+fi
 
 # Check tools
 for tool in mkfs.erofs curl; do
   command -v "$tool" &>/dev/null || { echo -e "${RED}Error: $tool not found${NC}"; exit 1; }
 done
+if [ -n "$IMAGE_PATH" ]; then
+  for tool in losetup; do
+    command -v "$tool" &>/dev/null || { echo -e "${RED}Error: $tool not found${NC}"; exit 1; }
+  done
+fi
 
 echo -e "${PINK}╔═══════════════════════════════════════════════╗${NC}"
 echo -e "${PINK}║     FedAC Kiosk Piece USB Creator             ║${NC}"
@@ -125,7 +175,7 @@ echo -e "${PINK}║  Piece: ${CYAN}${PIECE_CODE}${PINK} → offline bootable USB
 echo -e "${PINK}╚═══════════════════════════════════════════════╝${NC}"
 echo ""
 
-WORK_DIR=$(mktemp -d /tmp/fedac-kiosk-XXXX)
+WORK_DIR=$(mktemp -d "$WORK_BASE/fedac-kiosk-XXXX")
 echo -e "Work dir: $WORK_DIR"
 echo ""
 
@@ -135,19 +185,40 @@ echo ""
 echo -e "${CYAN}[1/6] Fetching piece bundle: ${PIECE_CODE}...${NC}"
 
 BUNDLE_PATH="$WORK_DIR/piece.html"
-BUNDLE_URL="${OVEN_URL}?code=${PIECE_CODE}&nocompress=1"
+HTTP_CODE="000"
+USED_ENDPOINT=""
+USED_MODE=""
 
-echo -e "  URL: $BUNDLE_URL"
-HTTP_CODE=$(curl -s -o "$BUNDLE_PATH" -w "%{http_code}" "$BUNDLE_URL")
+if [[ "$PIECE_CODE" == \$* ]]; then
+  BUNDLE_MODES=(code piece)
+else
+  BUNDLE_MODES=(piece code)
+fi
+
+for endpoint in "$OVEN_PACK_URL" "$OVEN_BUNDLE_URL"; do
+  for mode in "${BUNDLE_MODES[@]}"; do
+    BUNDLE_URL="${endpoint}?${mode}=${PIECE_CODE}&nocompress=1&density=${PACK_DENSITY}"
+    echo -e "  URL: $BUNDLE_URL"
+    HTTP_CODE="$(curl -s -o "$BUNDLE_PATH" -w "%{http_code}" "$BUNDLE_URL" || echo "000")"
+    if [ "$HTTP_CODE" = "200" ]; then
+      USED_ENDPOINT="$endpoint"
+      USED_MODE="$mode"
+      break 2
+    fi
+    echo -e "  ${YELLOW}${mode} via ${endpoint##*/} failed (HTTP ${HTTP_CODE})${NC}"
+  done
+done
 
 if [ "$HTTP_CODE" != "200" ]; then
   echo -e "${RED}Failed to fetch bundle (HTTP $HTTP_CODE)${NC}"
-  echo "  Check that '$PIECE_CODE' is a valid piece code."
+  echo "  Tried pack-html and bundle-html with code/piece modes."
+  echo "  Check that '$PIECE_CODE' is a valid piece code/piece slug."
   exit 1
 fi
 
 BUNDLE_SIZE=$(stat -c%s "$BUNDLE_PATH")
 echo -e "  ${GREEN}Bundle fetched: $(numfmt --to=iec $BUNDLE_SIZE)${NC}"
+echo -e "  ${GREEN}Source: ${USED_ENDPOINT##*/} (${USED_MODE}), density=${PACK_DENSITY}${NC}"
 
 # Quick sanity check — bundle should contain HTML
 if ! head -1 "$BUNDLE_PATH" | grep -qi "<!DOCTYPE\|<html"; then
@@ -217,93 +288,102 @@ echo -e "${CYAN}[3/6] Injecting kiosk config...${NC}"
 mkdir -p "$ROOTFS_DIR/usr/local/share/kiosk"
 cp "$BUNDLE_PATH" "$ROOTFS_DIR/usr/local/share/kiosk/piece.html"
 echo -e "  ${GREEN}Piece bundle installed${NC}"
+KIOSK_PIECE_URL="file:///usr/local/share/kiosk/piece.html?density=${PACK_DENSITY}"
 
-# 3b. Piece HTTP server
-cat > "$ROOTFS_DIR/usr/local/bin/kiosk-piece-server.py" << 'PYEOF'
-#!/usr/bin/env python3
-"""FedAC Kiosk piece server — serves bundled HTML on localhost:8080."""
-import http.server, socketserver
+# Ensure cage is available (black, no-animation kiosk compositor).
+# If install fails (offline builds), mutter fallback is used in kiosk-session.sh.
+if [ ! -x "$ROOTFS_DIR/usr/bin/cage" ] && command -v dnf >/dev/null 2>&1; then
+  echo -e "  Installing cage into rootfs..."
+  dnf -y --installroot="$ROOTFS_DIR" --releasever="$FEDORA_VERSION" install cage >/dev/null 2>&1 || true
+fi
 
-PORT = 8080
-PIECE_PATH = "/usr/local/share/kiosk/piece.html"
-
-class Handler(http.server.BaseHTTPRequestHandler):
-    def log_message(self, fmt, *args): pass
-    def do_GET(self):
-        try:
-            with open(PIECE_PATH, "rb") as f:
-                data = f.read()
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(data)))
-            self.end_headers()
-            self.wfile.write(data)
-        except Exception as e:
-            self.send_response(500)
-            self.end_headers()
-            self.wfile.write(str(e).encode())
-
-if __name__ == "__main__":
-    socketserver.TCPServer.allow_reuse_address = True
-    with socketserver.TCPServer(("0.0.0.0", PORT), Handler) as httpd:
-        print(f"Piece server on http://0.0.0.0:{PORT}", flush=True)
-        httpd.serve_forever()
-PYEOF
-chmod +x "$ROOTFS_DIR/usr/local/bin/kiosk-piece-server.py"
-
-# 3c. Piece server systemd service
-cat > "$ROOTFS_DIR/etc/systemd/system/kiosk-piece-server.service" << 'SVCEOF'
-[Unit]
-Description=FedAC Kiosk Piece Server
-After=local-fs.target
-DefaultDependencies=no
-
-[Service]
-Type=simple
-ExecStart=/usr/bin/python3 /usr/local/bin/kiosk-piece-server.py
-Restart=always
-RestartSec=1
-
-[Install]
-WantedBy=multi-user.target
-SVCEOF
-mkdir -p "$ROOTFS_DIR/etc/systemd/system/multi-user.target.wants"
-ln -sf /etc/systemd/system/kiosk-piece-server.service \
-  "$ROOTFS_DIR/etc/systemd/system/multi-user.target.wants/kiosk-piece-server.service"
-echo -e "  ${GREEN}Piece server + service installed${NC}"
-
-# 3d. Kiosk session script
+# 3b. Kiosk session script
 cat > "$ROOTFS_DIR/usr/local/bin/kiosk-session.sh" << 'SESSEOF'
 #!/bin/bash
-# FedAC Kiosk Session — mutter as bare Wayland compositor + Firefox
-# No GNOME Shell, no GDM, no desktop.
+# FedAC Kiosk Session — prefer cage (black background, no window animations).
+set -euo pipefail
 export XDG_SESSION_TYPE=wayland
 export XDG_RUNTIME_DIR="/run/user/$(id -u)"
-for i in $(seq 1 30); do
-  curl -s -o /dev/null http://127.0.0.1:8080 && break
-  sleep 1
-done
-exec mutter --wayland --no-x11 -- firefox --kiosk --no-remote http://127.0.0.1:8080
+export MOZ_ENABLE_WAYLAND=1
+export MOZ_DBUS_REMOTE=0
+export NO_AT_BRIDGE=1
+export CLUTTER_DISABLE_ANIMATIONS=1
+PROFILE="/home/liveuser/.mozilla/firefox/kiosk"
+
+mkdir -p "$PROFILE/chrome"
+cat > "$PROFILE/user.js" << 'USERJSEOF'
+user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);
+user_pref("browser.sessionstore.resume_from_crash", false);
+user_pref("browser.tabs.drawInTitlebar", false);
+user_pref("browser.tabs.inTitlebar", 0);
+user_pref("browser.startup.homepage", "__KIOSK_PIECE_URL__");
+user_pref("browser.startup.page", 1);
+USERJSEOF
+
+cat > "$PROFILE/chrome/userChrome.css" << 'CHROMEEOF'
+#TabsToolbar,
+#titlebar,
+#toolbar-menubar,
+#nav-bar,
+#PersonalToolbar {
+  visibility: collapse !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+}
+CHROMEEOF
+
+if command -v cage >/dev/null 2>&1; then
+  TTY_DEV="$(tty 2>/dev/null || true)"
+  [ -n "$TTY_DEV" ] && printf '\033[2J\033[3J\033[H\033[?25l' >"$TTY_DEV" 2>/dev/null || true
+  exec cage -- firefox --kiosk --no-remote --new-instance \
+    --profile "$PROFILE" --private-window \
+    __KIOSK_PIECE_URL__
+fi
+
+exec mutter --wayland --no-x11 --sm-disable -- firefox --kiosk --no-remote \
+  --new-instance --profile "$PROFILE" --private-window \
+  __KIOSK_PIECE_URL__
 SESSEOF
+sed -i "s|__KIOSK_PIECE_URL__|$KIOSK_PIECE_URL|g" "$ROOTFS_DIR/usr/local/bin/kiosk-session.sh"
 chmod +x "$ROOTFS_DIR/usr/local/bin/kiosk-session.sh"
 echo -e "  ${GREEN}Kiosk session script installed${NC}"
 
-# 3e. Disable GDM entirely — direct autologin via systemd service
-#     PAMName=login gives logind a proper seat session (DRM master for mutter)
-mkdir -p "$ROOTFS_DIR/etc/systemd/system/graphical.target.wants"
+# 3c. Disable GDM and force tty1 autologin -> kiosk-session.sh
+# This path is resilient on Fedora live images even when graphical.target isn't reached.
+mkdir -p "$ROOTFS_DIR/etc/systemd/system/getty@tty1.service.d"
 
 # Mask GDM so it never starts
 ln -sf /dev/null "$ROOTFS_DIR/etc/systemd/system/gdm.service"
 ln -sf /dev/null "$ROOTFS_DIR/etc/systemd/system/display-manager.service"
 
-# Install kiosk autologin service
-cp "$OVERLAY_DIR/kiosk-autologin.service" \
-  "$ROOTFS_DIR/etc/systemd/system/kiosk-autologin.service"
-ln -sf /etc/systemd/system/kiosk-autologin.service \
-  "$ROOTFS_DIR/etc/systemd/system/graphical.target.wants/kiosk-autologin.service"
-echo -e "  ${GREEN}GDM masked, kiosk-autologin.service enabled${NC}"
+cat > "$ROOTFS_DIR/etc/systemd/system/getty@tty1.service.d/autologin.conf" << 'AGEOF'
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --noissue --nonewline --autologin liveuser --noclear %I $TERM
+Type=idle
+AGEOF
 
-# 3f. Slim livesys-gnome — no GDM config, just cleanup + schema compile
+# Some minimal roots don't ship a liveuser account; create it for tty1 autologin.
+if ! chroot "$ROOTFS_DIR" /usr/bin/getent passwd liveuser >/dev/null 2>&1; then
+  chroot "$ROOTFS_DIR" /usr/sbin/useradd -m -s /bin/bash liveuser >/dev/null 2>&1 || true
+fi
+chroot "$ROOTFS_DIR" /usr/sbin/usermod -s /bin/bash liveuser >/dev/null 2>&1 || true
+chroot "$ROOTFS_DIR" /usr/bin/passwd -d liveuser >/dev/null 2>&1 || true
+
+mkdir -p "$ROOTFS_DIR/home/liveuser"
+cat > "$ROOTFS_DIR/home/liveuser/.bash_profile" << 'BPROFEOF'
+#!/bin/bash
+TTY="$(tty 2>/dev/null || true)"
+if [ -z "${DISPLAY:-}" ] && { [ "${XDG_VTNR:-}" = "1" ] || [ "$TTY" = "/dev/tty1" ]; }; then
+  [ -n "$TTY" ] && printf '\033[2J\033[3J\033[H\033[?25l' >"$TTY" 2>/dev/null || true
+  exec /usr/local/bin/kiosk-session.sh </dev/null >/dev/null 2>&1
+fi
+BPROFEOF
+chmod 644 "$ROOTFS_DIR/home/liveuser/.bash_profile"
+chown liveuser:liveuser "$ROOTFS_DIR/home/liveuser/.bash_profile" 2>/dev/null || true
+echo -e "  ${GREEN}GDM masked, tty1 autologin configured${NC}"
+
+# 3d. Slim livesys-gnome — no GDM config, just cleanup + schema compile
 cat > "$ROOTFS_DIR/usr/libexec/livesys/sessions.d/livesys-gnome" << 'LSEOF'
 #!/usr/bin/sh
 # livesys-gnome: FedAC Kiosk — minimal live session cleanup
@@ -324,7 +404,7 @@ LSEOF
 chmod +x "$ROOTFS_DIR/usr/libexec/livesys/sessions.d/livesys-gnome"
 echo -e "  ${GREEN}livesys-gnome trimmed (no GDM)${NC}"
 
-# 3g. Disable unnecessary services for faster boot
+# 3e. Disable unnecessary services for faster boot
 for svc in \
   abrtd abrt-journal-core abrt-oops abrt-vmcore abrt-xorg \
   avahi-daemon cups cups-browsed \
@@ -339,7 +419,7 @@ for svc in \
 done
 echo -e "  ${GREEN}Unnecessary services masked${NC}"
 
-# 3h. Firefox policies (no default tabs, no welcome)
+# 3f. Firefox policies (no default tabs, no welcome)
 mkdir -p "$ROOTFS_DIR/usr/lib64/firefox/distribution"
 cat > "$ROOTFS_DIR/usr/lib64/firefox/distribution/policies.json" << 'FPEOF'
 {
@@ -347,7 +427,7 @@ cat > "$ROOTFS_DIR/usr/lib64/firefox/distribution/policies.json" << 'FPEOF'
     "OverrideFirstRunPage": "",
     "OverridePostUpdatePage": "",
     "Homepage": {
-      "URL": "http://127.0.0.1:8080",
+      "URL": "__KIOSK_PIECE_URL__",
       "StartPage": "homepage"
     },
     "NewTabPage": false,
@@ -363,6 +443,7 @@ cat > "$ROOTFS_DIR/usr/lib64/firefox/distribution/policies.json" << 'FPEOF'
   }
 }
 FPEOF
+sed -i "s|__KIOSK_PIECE_URL__|$KIOSK_PIECE_URL|g" "$ROOTFS_DIR/usr/lib64/firefox/distribution/policies.json"
 
 cat > "$ROOTFS_DIR/usr/lib64/firefox/defaults/pref/autoconfig.js" << 'ACEOF'
 pref("general.config.filename", "firefox.cfg");
@@ -374,17 +455,23 @@ cat > "$ROOTFS_DIR/usr/lib64/firefox/firefox.cfg" << 'CFGEOF'
 defaultPref("browser.sessionstore.resume_from_crash", false);
 defaultPref("browser.startup.homepage_override.mstone", "ignore");
 defaultPref("browser.startup.page", 1);
-defaultPref("browser.startup.homepage", "http://127.0.0.1:8080");
+defaultPref("browser.startup.homepage", "__KIOSK_PIECE_URL__");
+defaultPref("browser.startup.blankWindow", false);
+defaultPref("browser.display.background_color", "#000000");
 defaultPref("browser.tabs.warnOnClose", false);
+defaultPref("browser.tabs.drawInTitlebar", false);
+defaultPref("browser.tabs.inTitlebar", 0);
 defaultPref("browser.shell.checkDefaultBrowser", false);
 defaultPref("datareporting.policy.dataSubmissionEnabled", false);
 defaultPref("toolkit.telemetry.reportingpolicy.firstRun", false);
 defaultPref("browser.newtabpage.enabled", false);
 defaultPref("browser.aboutwelcome.enabled", false);
+defaultPref("toolkit.legacyUserProfileCustomizations.stylesheets", true);
 CFGEOF
+sed -i "s|__KIOSK_PIECE_URL__|$KIOSK_PIECE_URL|g" "$ROOTFS_DIR/usr/lib64/firefox/firefox.cfg"
 echo -e "  ${GREEN}Firefox policies installed${NC}"
 
-# 3i. Plymouth PALS logo
+# 3g. Plymouth PALS logo
 PALS_LOGO="$REPO_ROOT/fedac/plymouth/pals.png"
 if [ -f "$PALS_LOGO" ]; then
   cp "$PALS_LOGO" "$ROOTFS_DIR/usr/share/plymouth/themes/spinner/watermark.png"
@@ -399,7 +486,7 @@ PLYEOF
   echo -e "  ${GREEN}PALS Plymouth theme installed${NC}"
 fi
 
-# 3j. dconf kiosk settings
+# 3h. dconf kiosk settings
 mkdir -p "$ROOTFS_DIR/etc/dconf/db/local.d" "$ROOTFS_DIR/etc/dconf/profile"
 cp "$OVERLAY_DIR/00-kiosk" "$ROOTFS_DIR/etc/dconf/db/local.d/00-kiosk" 2>/dev/null || true
 cp "$OVERLAY_DIR/dconf-profile-user" "$ROOTFS_DIR/etc/dconf/profile/user" 2>/dev/null || true
@@ -435,81 +522,65 @@ rm -f "$ROOTFS_DIR/tmp/live-initrd.img"
 umount "$ROOTFS_DIR/proc" "$ROOTFS_DIR/sys" "$ROOTFS_DIR/dev"
 echo -e "  ${GREEN}Initrd built with PALS theme${NC}"
 
-# ══════════════════════════════════════════
-# Step 5: Partition and flash USB
-# ══════════════════════════════════════════
-echo -e "${CYAN}[5/6] Partitioning and flashing USB...${NC}"
+build_target() {
+  local target="$1"
+  local label="$2"
 
-# Confirm
-echo ""
-echo -e "Target: ${YELLOW}$DEVICE${NC}"
-lsblk "$DEVICE" 2>/dev/null || true
-echo ""
+  # Unmount existing partitions
+  for part in "${target}"*; do
+    umount "$part" 2>/dev/null || true
+  done
 
-if [ "$SKIP_CONFIRM" = false ]; then
-  echo -e "${RED}ALL DATA ON $DEVICE WILL BE DESTROYED${NC}"
-  read -p "Continue? [y/N] " confirm
-  [ "$confirm" = "y" ] || [ "$confirm" = "Y" ] || { echo "Aborted."; exit 0; }
-fi
+  # Wipe and partition: 400MB FAT32 EFI + rest ext4
+  echo -e "  Creating partition table on ${label}..."
+  wipefs -a "$target" >/dev/null 2>&1
+  parted -s "$target" mklabel gpt
+  parted -s "$target" mkpart '"EFI"' fat32 1MiB 401MiB
+  parted -s "$target" set 1 esp on
+  parted -s "$target" mkpart '"LIVE"' ext4 401MiB 100%
 
-# Unmount existing
-for part in "${DEVICE}"*; do
-  umount "$part" 2>/dev/null || true
-done
+  sleep 2
+  partprobe "$target" 2>/dev/null || true
+  sleep 2
 
-# Wipe and partition: 400MB FAT32 EFI + rest ext4
-echo -e "  Creating partition table..."
-wipefs -a "$DEVICE" >/dev/null 2>&1
-parted -s "$DEVICE" mklabel gpt
-parted -s "$DEVICE" mkpart '"EFI"' fat32 1MiB 401MiB
-parted -s "$DEVICE" set 1 esp on
-parted -s "$DEVICE" mkpart '"LIVE"' ext4 401MiB 100%
+  # Detect partition names
+  local p1="${target}1"
+  local p2="${target}2"
+  [ -b "$p1" ] || p1="${target}p1"
+  [ -b "$p2" ] || p2="${target}p2"
 
-sleep 2
-partprobe "$DEVICE" 2>/dev/null || true
-sleep 2
+  # Format
+  mkfs.vfat -F 32 -n BOOT "$p1" >/dev/null
+  mkfs.ext4 -L FEDAC-LIVE -q "$p2"
+  echo -e "  ${GREEN}${label}: partitions created${NC}"
 
-# Detect partition names
-P1="${DEVICE}1"
-P2="${DEVICE}2"
-[ -b "$P1" ] || P1="${DEVICE}p1"
-[ -b "$P2" ] || P2="${DEVICE}p2"
+  # Flash EROFS
+  LIVE_MOUNT=$(mktemp -d /tmp/fedac-live-XXXX)
+  mount "$p2" "$LIVE_MOUNT"
+  mkdir -p "$LIVE_MOUNT/LiveOS"
+  cp "$EROFS_PATH" "$LIVE_MOUNT/LiveOS/squashfs.img"
+  sync
+  umount "$LIVE_MOUNT"
+  rmdir "$LIVE_MOUNT"
+  LIVE_MOUNT=""
+  echo -e "  ${GREEN}${label}: EROFS written${NC}"
 
-# Format
-mkfs.vfat -F 32 -n BOOT "$P1" >/dev/null
-mkfs.ext4 -L FEDAC-LIVE -q "$P2"
-echo -e "  ${GREEN}Partitions created${NC}"
+  # Set up EFI partition
+  EFI_MOUNT=$(mktemp -d /tmp/fedac-efi-XXXX)
+  mount "$p1" "$EFI_MOUNT"
 
-# Flash EROFS
-LIVE_MOUNT=$(mktemp -d /tmp/fedac-live-XXXX)
-mount "$P2" "$LIVE_MOUNT"
-mkdir -p "$LIVE_MOUNT/LiveOS"
-cp "$EROFS_PATH" "$LIVE_MOUNT/LiveOS/squashfs.img"
-sync
-umount "$LIVE_MOUNT"
-rmdir "$LIVE_MOUNT"
-LIVE_MOUNT=""
-echo -e "  ${GREEN}EROFS written to USB${NC}"
+  mkdir -p "$EFI_MOUNT/EFI/BOOT"
+  if [ -f "$ROOTFS_DIR/boot/efi/EFI/fedora/grubx64.efi" ]; then
+    cp "$ROOTFS_DIR/boot/efi/EFI/fedora/grubx64.efi" "$EFI_MOUNT/EFI/BOOT/BOOTX64.EFI"
+  elif [ -f "$ROOTFS_DIR/usr/lib/grub/x86_64-efi/monolithic/grubx64.efi" ]; then
+    cp "$ROOTFS_DIR/usr/lib/grub/x86_64-efi/monolithic/grubx64.efi" "$EFI_MOUNT/EFI/BOOT/BOOTX64.EFI"
+  fi
 
-# Set up EFI partition
-EFI_MOUNT=$(mktemp -d /tmp/fedac-efi-XXXX)
-mount "$P1" "$EFI_MOUNT"
+  mkdir -p "$EFI_MOUNT/loader"
+  cp "$WORK_DIR/linux" "$EFI_MOUNT/loader/linux"
+  cp "$WORK_DIR/initrd" "$EFI_MOUNT/loader/initrd"
 
-# Copy GRUB EFI binary from rootfs
-mkdir -p "$EFI_MOUNT/EFI/BOOT"
-if [ -f "$ROOTFS_DIR/boot/efi/EFI/fedora/grubx64.efi" ]; then
-  cp "$ROOTFS_DIR/boot/efi/EFI/fedora/grubx64.efi" "$EFI_MOUNT/EFI/BOOT/BOOTX64.EFI"
-elif [ -f "$ROOTFS_DIR/usr/lib/grub/x86_64-efi/monolithic/grubx64.efi" ]; then
-  cp "$ROOTFS_DIR/usr/lib/grub/x86_64-efi/monolithic/grubx64.efi" "$EFI_MOUNT/EFI/BOOT/BOOTX64.EFI"
-fi
-
-# Copy kernel + initrd
-mkdir -p "$EFI_MOUNT/loader"
-cp "$WORK_DIR/linux" "$EFI_MOUNT/loader/linux"
-cp "$WORK_DIR/initrd" "$EFI_MOUNT/loader/initrd"
-
-# GRUB config
-cat > "$EFI_MOUNT/EFI/BOOT/grub.cfg" << 'GRUBEOF'
+  cat > "$EFI_MOUNT/EFI/BOOT/grub.cfg" << 'GRUBEOF'
 set default=0
 set timeout=0
 insmod all_video
@@ -521,19 +592,57 @@ set gfxpayload=keep
 terminal_input console
 terminal_output gfxterm
 menuentry "FedAC Kiosk" --class fedora {
-  linux /loader/linux quiet loglevel=1 rhgb root=live:LABEL=FEDAC-LIVE rd.live.image rd.plymouth=1 mitigations=off vt.handoff=7 vt.global_cursor_default=0
+  linux /loader/linux quiet splash rhgb loglevel=0 systemd.log_level=emerg systemd.show_status=false rd.systemd.show_status=false rd.udev.log_level=3 udev.log_priority=3 rd.plymouth=1 plymouth.ignore-serial-consoles vt.handoff=7 vt.global_cursor_default=0 logo.nologo root=live:LABEL=FEDAC-LIVE rd.live.image mitigations=off
   initrd /loader/initrd
 }
 GRUBEOF
 
-mkdir -p "$EFI_MOUNT/EFI/fedora"
-cp "$EFI_MOUNT/EFI/BOOT/grub.cfg" "$EFI_MOUNT/EFI/fedora/grub.cfg"
+  mkdir -p "$EFI_MOUNT/EFI/fedora"
+  cp "$EFI_MOUNT/EFI/BOOT/grub.cfg" "$EFI_MOUNT/EFI/fedora/grub.cfg"
 
-sync
-umount "$EFI_MOUNT"
-rmdir "$EFI_MOUNT"
-EFI_MOUNT=""
-echo -e "  ${GREEN}EFI partition configured${NC}"
+  sync
+  umount "$EFI_MOUNT"
+  rmdir "$EFI_MOUNT"
+  EFI_MOUNT=""
+  echo -e "  ${GREEN}${label}: EFI configured${NC}"
+}
+
+# ══════════════════════════════════════════
+# Step 5: Build image and/or flash USB
+# ══════════════════════════════════════════
+echo -e "${CYAN}[5/6] Building output media...${NC}"
+
+if [ -n "$IMAGE_PATH" ]; then
+  echo -e "  Building disk image: ${GREEN}${IMAGE_PATH}${NC} (${IMAGE_SIZE_GB}GiB)"
+  truncate -s "${IMAGE_SIZE_GB}G" "$IMAGE_PATH"
+  LOOP_DEV=$(losetup --find --show --partscan "$IMAGE_PATH")
+  build_target "$LOOP_DEV" "Disk image"
+  losetup -d "$LOOP_DEV"
+  LOOP_DEV=""
+  echo -e "  ${GREEN}Disk image ready${NC}"
+fi
+
+if [ -n "$DEVICE" ]; then
+  echo ""
+  echo -e "USB target: ${YELLOW}$DEVICE${NC}"
+  lsblk "$DEVICE" 2>/dev/null || true
+  echo ""
+
+  if [ "$SKIP_CONFIRM" = false ]; then
+    echo -e "${RED}ALL DATA ON $DEVICE WILL BE DESTROYED${NC}"
+    read -p "Continue? [y/N] " confirm
+    [ "$confirm" = "y" ] || [ "$confirm" = "Y" ] || { echo "Aborted."; exit 0; }
+  fi
+
+  if [ -n "$IMAGE_PATH" ]; then
+    echo -e "  Flashing image to USB..."
+    dd if="$IMAGE_PATH" of="$DEVICE" bs=4M status=progress conv=fsync
+    sync
+    echo -e "  ${GREEN}USB flashed from image${NC}"
+  else
+    build_target "$DEVICE" "USB"
+  fi
+fi
 
 # ══════════════════════════════════════════
 # Step 6: Finalize
@@ -541,7 +650,7 @@ echo -e "  ${GREEN}EFI partition configured${NC}"
 echo -e "${CYAN}[6/6] Finalizing...${NC}"
 sync
 
-if [ "$DO_EJECT" = true ]; then
+if [ "$DO_EJECT" = true ] && [ -n "$DEVICE" ]; then
   eject "$DEVICE" 2>/dev/null || true
   echo -e "  ${GREEN}Ejected${NC}"
 fi
@@ -557,9 +666,18 @@ fi
 
 echo ""
 echo -e "${GREEN}╔═══════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║       FedAC Kiosk USB Ready                   ║${NC}"
+echo -e "${GREEN}║       FedAC Kiosk Build Ready                 ║${NC}"
 echo -e "${GREEN}║  Piece: ${CYAN}${PIECE_CODE}${GREEN} (offline)                     ║${NC}"
 echo -e "${GREEN}╚═══════════════════════════════════════════════╝${NC}"
+echo ""
+if [ -n "$IMAGE_PATH" ]; then
+  echo -e "Image:"
+  echo -e "  ${CYAN}${IMAGE_PATH}${NC}"
+fi
+if [ -n "$DEVICE" ]; then
+  echo -e "USB:"
+  echo -e "  ${CYAN}${DEVICE}${NC}"
+fi
 echo ""
 echo -e "Boot flow:"
 echo -e "  Power on → GRUB (instant) → ${PINK}PALS splash${NC}"
