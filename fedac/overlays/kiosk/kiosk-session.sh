@@ -23,7 +23,7 @@ done
 # cage: purpose-built kiosk compositor, no background, no shell, 50ms start
 # --remote-debugging-port=9222 allows SSH-tunnel console access for debugging
 exec cage -- \
-  firefox --kiosk --no-remote \
+  firefox --fullscreen --no-remote \
   --remote-debugging-port=9222 \
   --profile /home/liveuser/.mozilla/firefox/kiosk \
   http://127.0.0.1:8080
