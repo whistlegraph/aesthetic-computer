@@ -1408,7 +1408,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     recordingUICan.height = height;
 
     // Restore the clean pixels onto the resized canvas
-    ctx.drawImage(tempCanvas, 0, 0);
+    // Skip during tape playback — canvas was just cleared to transparent by the
+    // resize, and copying stale content from the previous piece causes a black
+    // flash over the underlay video until the next wipe(0,0,0,0) paint.
+    if (!underlayFrame) {
+      ctx.drawImage(tempCanvas, 0, 0);
+    }
 
     // 🎨 REFRAME BACKGROUND FIX: Fill any new extended areas with background color
     // But skip during very early initialization to prevent purple flash
@@ -18879,6 +18884,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     } else if (ext === "zip") {
       MIME = "application/zip";
       object = URL.createObjectURL(data, { type: MIME });
+    } else if (data instanceof Blob) {
+      // Generic binary blob (e.g. .amxd or other unknown types)
+      object = URL.createObjectURL(data);
     }
 
     // Fetch download url from `/presigned-download-url?for=${filename}` if we

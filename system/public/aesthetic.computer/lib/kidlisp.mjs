@@ -165,20 +165,29 @@ function isChaoticSource(source) {
   // e.g., just "kidlisp" or "hello" or "test" - should trigger chaos mode
   // BUT: Skip this check if source contains commas or newlines (valid KidLisp multi-expression syntax)
   if (openParens === 0 && closeParens === 0 && trimmed.length > 0 && !source.includes(',') && !source.includes('\n')) {
-    // Check if the entire input is a single recognized word (color or function)
-    const isValidShorthand = KIDLISP_VOCABULARY.has(trimmed.toLowerCase());
+    // Check if the entire input is a single recognized word, color shorthand, or special syntax
+    const isValidShorthand = KIDLISP_VOCABULARY.has(trimmed.toLowerCase()) ||
+      trimmed.startsWith("fade:") ||
+      /^c\d+$/.test(trimmed) ||
+      /^p\d+$/.test(trimmed) ||
+      isValidRGBString(trimmed.replace(/_/g, " "));
     if (!isValidShorthand) {
       // Not a valid single-word shorthand, and no parentheses = invalid KidLisp
       chaosScore += 0.6;
       reasons.push('no parentheses and not a valid color/function name');
     }
   }
-  
+
   // No parentheses at all in longer input (valid KidLisp usually has parens)
   // BUT: Skip this check if source contains commas or newlines (valid KidLisp multi-expression syntax)
   if (openParens === 0 && closeParens === 0 && trimmed.length > 20 && !source.includes(',') && !source.includes('\n')) {
     // Check if it's just a color name or simple expression
-    if (!KIDLISP_VOCABULARY.has(trimmed.toLowerCase())) {
+    const isValidLongShorthand = KIDLISP_VOCABULARY.has(trimmed.toLowerCase()) ||
+      trimmed.startsWith("fade:") ||
+      /^c\d+$/.test(trimmed) ||
+      /^p\d+$/.test(trimmed) ||
+      isValidRGBString(trimmed.replace(/_/g, " "));
+    if (!isValidLongShorthand) {
       chaosScore += 0.3;
       reasons.push('no parentheses in long input');
     }
@@ -5716,6 +5725,10 @@ class KidLisp {
         } else {
           // Multiple arguments or non-array - process normally
           processedArgs = processArgStringTypes(args);
+          // Flatten if first element is a color array (e.g., from ...) + additional args like alpha
+          if (Array.isArray(processedArgs) && processedArgs.length > 1 && Array.isArray(processedArgs[0])) {
+            processedArgs = [...processedArgs[0], ...processedArgs.slice(1)];
+          }
         }
         // console.log("🖋️ Ink processed args:", processedArgs);
         // console.log("🖋️ Ink api.screen dimensions:", api.screen?.width, "x", api.screen?.height);
