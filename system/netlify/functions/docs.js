@@ -1416,9 +1416,9 @@ export async function handler(event, context) {
     },
     // 😱 Commands for entering into the prompt.
     prompts: {
-      // 📦 Bundle / Export
-      bundle: {
-        sig: "bundle <piece>",
+      // 📦 Pack / Export
+      pack: {
+        sig: "pack <piece>",
         desc: "Download a piece as a self-contained HTML file.",
         params: [
           { name: "piece", type: "string", required: true, desc: "Piece name or $code" }
