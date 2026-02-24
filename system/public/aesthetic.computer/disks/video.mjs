@@ -69,7 +69,6 @@ let apiSend = null; // Stored from boot() for sending messages to BIOS
 // AudioContext state from BIOS (since sound.bios is false for video piece)
 let audioContextState = "suspended"; // suspended, running, closed
 let hasAudioContext = false;
-let audioManuallyActivated = false; // Track if user has manually activated audio
 
 // Scrubbing state (STAMPLE-style speed-based scrubbing)
 let isScrubbing = false;
@@ -397,8 +396,8 @@ function paint({
     hud.label(`!${postedTapeCode}`);
   }
 
-  // Show "TAP TO ENABLE AUDIO" prompt if audio context is suspended
-  const audioSuspended = !audioManuallyActivated && hasAudioContext && presenting;
+  // Show "TAP TO ENABLE AUDIO" prompt only when AudioContext is truly suspended
+  const audioSuspended = hasAudioContext && audioContextState === "suspended" && presenting;
   
   
   if (audioSuspended && !isPrinting) {
@@ -1730,8 +1729,7 @@ function act({
           }
         } else {
           // Regular tap — toggle play/pause
-          if (!audioManuallyActivated && hasAudioContext && rec.playing) {
-            audioManuallyActivated = true;
+          if (hasAudioContext && audioContextState === "suspended") {
             handleAudioContextAndPlay(sound, rec, triggerRender);
             return;
           } else if (!rec.playing) {
