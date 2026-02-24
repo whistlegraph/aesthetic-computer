@@ -2746,16 +2746,9 @@ async function halt($, text) {
       finalizeBundleTimeline(bundleProgress.timeline);
       needsPaint();
 
-      // Download the binary .amxd file
+      // Download the binary .amxd file via the disk download API (worker-safe)
       const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `AC ${displayName} (offline).amxd`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      download(`AC ${displayName} (offline).amxd`, blob);
 
       notice(`Downloaded AC ${displayName} (offline).amxd`, ["lime"]);
       flashColor = [0, 255, 0];
