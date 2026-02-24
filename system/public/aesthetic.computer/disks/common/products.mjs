@@ -89,7 +89,7 @@ class Product {
 
       // Pre-scale the image to a consistent TARGET SIZE (not percentage)
       // This ensures all products display at similar sizes regardless of source image dimensions
-      const targetMaxDimension = this.type === "record" ? 100 : 80; // records 100px, others 80px
+      const targetMaxDimension = 55; // smaller thumbnails for all products
       const imgW = this.image.img.width;
       const imgH = this.image.img.height;
 
@@ -1495,37 +1495,12 @@ export function sim($) {
   $.sound?.speaker?.poll();
 }
 
-// 📦 Shared SHOP box button (one big button for the whole box)
-let shopBoxButton = null;
-
 export function act($, event, callbacks) {
-  if (!shopBoxButton || shopBoxButton.disabled) return;
   const product = getActiveProduct();
-  shopBoxButton.act(event, {
-    over: () => { callbacks?.over?.(); $.needsPaint?.(); },
-    down: () => { callbacks?.down?.(); },
-    push: () => {
-      callbacks?.push?.();
-      // Open the product's shop URL, or the main shop
-      const url = product?.shopUrl || "https://shop.aesthetic.computer";
-      if ($.net?.iframe) {
-        $.send?.({ type: "post-to-parent", content: { type: "openExternal", url } });
-      } else if ($.jump) {
-        $.jump(url);
-      } else {
-        window.open(url, "_blank");
-      }
-    },
-    cancel: () => { callbacks?.cancel?.(); $.needsPaint?.(); },
-  });
+  if (product) product.act($, event, callbacks);
 }
 
 export function paint($, screen, showLoginCurtain) {
-  if (!showLoginCurtain) {
-    if (shopBoxButton) shopBoxButton.disabled = true;
-    return;
-  }
-
   const product = getActiveProduct();
 
   // Lazily load the active product's image on first paint
@@ -1533,163 +1508,26 @@ export function paint($, screen, showLoginCurtain) {
     ensureProductLoaded(activeProductKey, bootApi, true);
   }
 
-  // Compact hit area in top-right (no framed card)
-  const boxW = min(72, floor(screen.width * 0.24));
-  const boxH = boxW;
-  const boxPad = 4;
-  const boxX = screen.width - boxW - boxPad;
-  const boxY = boxPad;
-
-  // Screen too narrow — hide
-  if (screen.width < 100) {
-    if (shopBoxButton) shopBoxButton.disabled = true;
-    return;
-  }
-
-  // Check overlap with login/signup buttons
-  const boxRect = { x: boxX, y: boxY, w: boxW, h: boxH };
-  let wouldOverlap = false;
-  if ($.login?.btn?.box) {
-    const lb = $.login.btn.box;
-    wouldOverlap = boxRect.x < lb.x + lb.w && boxRect.x + boxRect.w > lb.x &&
-                   boxRect.y < lb.y + lb.h && boxRect.y + boxRect.h > lb.y;
-  }
-  if (!wouldOverlap && $.signup?.btn?.box) {
-    const sb = $.signup.btn.box;
-    wouldOverlap = boxRect.x < sb.x + sb.w && boxRect.x + boxRect.w > sb.x &&
-                   boxRect.y < sb.y + sb.h && boxRect.y + boxRect.h > sb.y;
-  }
-  if (wouldOverlap) {
-    if (shopBoxButton) shopBoxButton.disabled = true;
-    return;
-  }
-
-  // Create or update the single SHOP box button
-  if (!shopBoxButton) {
-    shopBoxButton = new $.ui.Button(boxX, boxY, boxW, boxH);
-    shopBoxButton.stickyScrubbing = true;
-  } else {
-    shopBoxButton.disabled = false;
-    shopBoxButton.box.x = boxX;
-    shopBoxButton.box.y = boxY;
-    shopBoxButton.box.w = boxW;
-    shopBoxButton.box.h = boxH;
-  }
-
-  const isDark = $.dark;
-  const isHover = shopBoxButton.over;
-  const isDown = shopBoxButton.down;
-
-  // "SHOP" label in the top-right corner
-  const shopText = isDown ? "SHOP!" : "SHOP";
-  const shopCharW = 4;
-  const shopTextW = shopText.length * shopCharW;
-  const shopTextX = boxX + boxW - shopTextW;
-  const shopTextY = boxY;
-  const shopLabelH = 8;
-  const shopColor = isDown
-    ? [255, 255, 0]
-    : (isHover ? [100, 255, 200] : (isDark ? [0, 255, 180] : [0, 140, 80]));
-  $.ink(...shopColor).write(shopText, { x: shopTextX, y: shopTextY }, undefined, undefined, false, "MatrixChunky8");
-
-  // Render product image in remaining area under the SHOP label
-  if (product?.imageScaled) {
-    const img = product.imageScaled;
-    // Fit image tightly with minimal padding and no outer frame
-    const imgAreaW = boxW - 2;
-    const imgAreaH = boxH - shopLabelH - 1;
-    const scale = min(imgAreaW / img.width, imgAreaH / img.height, 1);
-    const drawW = floor(img.width * scale);
-    const drawH = floor(img.height * scale);
-    const imgX = boxX + floor((boxW - drawW) / 2);
-    const imgY = boxY + shopLabelH + floor((imgAreaH - drawH) / 2);
-
-    // Paste the image (already pre-scaled, just center it)
-    $.paste(img, imgX, imgY);
-  } else if (isBooting || !product) {
-    // Loading indicator
-    const t = Date.now() / 1000;
-    const cx = boxX + floor(boxW / 2);
-    const cy = boxY + shopLabelH + floor((boxH - shopLabelH) / 2);
-    for (let i = 0; i < 4; i++) {
-      const angle = t * 3 + (i * Math.PI / 2);
-      const px = cx + floor(cos(angle) * 12);
-      const py = cy + floor(sin(angle) * 12);
-      const pulse = floor(150 + sin(t * 4 + i) * 100);
-      $.ink(pulse, pulse, 255, 200).box(px - 1, py - 1, 3, 3);
+  // 🎚️ Volume ducking: Adjust audio volume when curtain state changes
+  if (product && product.audioSfx && product.isPlaying && !product.audioSfx.killed) {
+    if (previousCurtainState !== null && previousCurtainState !== showLoginCurtain) {
+      const targetVolume = showLoginCurtain ? 0.7 : 0.3;
+      if (product.audioSfx.fade) {
+        product.audioSfx.fade(targetVolume, 0.2);
+      } else {
+        product.audioSfx.volume = targetVolume;
+      }
     }
   }
+  previousCurtainState = showLoginCurtain;
 
-  $.needsPaint?.();
+  if (product) product.paint($, screen, showLoginCurtain);
 }
 
-// 🌀 Paint loading animation while booting (fetching shop data)
-function paintBootingAnimation($, screen, showLoginCurtain) {
-  if (!showLoginCurtain) return; // Hidden when curtain is down
-  
-  const rightEdge = screen.width - 6;
-  const loadingW = 60;
-  const loadingH = 80;
-  const loadingX = rightEdge - loadingW;
-  const loadingY = 8;
-  
-  const pulse = (sin(Date.now() / 200) + 1) / 2;
-  const alpha = floor(100 + pulse * 155);
-  
-  // Spinning box animation
-  const time = Date.now() / 1000;
-  const centerX = loadingX + loadingW / 2;
-  const centerY = loadingY + loadingH / 2 - 10;
-  const boxSize = 20 + sin(time * 2) * 5;
-  
-  // Draw rotating square corners
-  for (let corner = 0; corner < 4; corner++) {
-    const angle = time * 2 + (corner * Math.PI / 2);
-    const dist = boxSize;
-    const x = centerX + cos(angle) * dist;
-    const y = centerY + sin(angle) * dist;
-    
-    const colorPhase = (corner / 4 + time * 0.5) % 1;
-    const r = floor(100 + sin(colorPhase * Math.PI * 2) * 155);
-    const g = floor(100 + sin((colorPhase + 0.33) * Math.PI * 2) * 155);
-    const b = floor(100 + sin((colorPhase + 0.66) * Math.PI * 2) * 155);
-    
-    $.ink(r, g, b, alpha);
-    
-    // Draw small squares at corners
-    const sz = 4;
-    $.box(floor(x - sz/2), floor(y - sz/2), sz, sz);
-  }
-  
-  // Draw connecting lines
-  for (let i = 0; i < 4; i++) {
-    const angle1 = time * 2 + (i * Math.PI / 2);
-    const angle2 = time * 2 + ((i + 1) * Math.PI / 2);
-    const x1 = centerX + cos(angle1) * boxSize;
-    const y1 = centerY + sin(angle1) * boxSize;
-    const x2 = centerX + cos(angle2) * boxSize;
-    const y2 = centerY + sin(angle2) * boxSize;
-    
-    const lineAlpha = floor(50 + pulse * 100);
-    $.ink(200, 200, 200, lineAlpha);
-    $.line(floor(x1), floor(y1), floor(x2), floor(y2));
-  }
-  
-  // "Shop" text
-  const textY = loadingY + loadingH - 10;
-  const textR = floor(100 + sin(time * 3) * 155);
-  const textG = floor(100 + sin(time * 3 + 2) * 155);
-  const textB = floor(100 + sin(time * 3 + 4) * 155);
-  
-  $.ink(textR, textG, textB, alpha)
-    .write("Shop", { center: "xy", x: centerX, y: textY }, undefined, undefined, false, "MatrixChunky8");
-  
-  $.needsPaint?.();
-}
-
-// 📦 Get the shared SHOP box button (for keyboard lock checks)
+// 📦 Get the active product's button (for keyboard lock checks)
 export function getShopBoxButton() {
-  return shopBoxButton;
+  const product = getActiveProduct();
+  return product?.buyButton || product?.button || null;
 }
 
 // 🛒 Get live shop data (for external use)
