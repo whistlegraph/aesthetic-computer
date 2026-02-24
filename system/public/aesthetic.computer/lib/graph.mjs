@@ -4923,6 +4923,7 @@ function printLine(
   thickness = 1,
   rotation = 0,
   fontMetadata = null,
+  fallbackFont = null,
 ) {
   if (!text) return;
 
@@ -4948,6 +4949,41 @@ function printLine(
   const isProportional = fontMetadata?.proportional === true || 
                          fontMetadata?.bdfFont === "MatrixChunky8" ||
                          fontMetadata?.name === "MatrixChunky8";
+
+  const getGlyphForChar = (char) => {
+    let primaryGlyph = null;
+    let primaryQuestion = null;
+    let fallbackGlyph = null;
+    let fallbackQuestion = null;
+
+    try {
+      primaryGlyph = font?.[char] || null;
+      primaryQuestion = font?.["?"] || null;
+    } catch (err) {
+      primaryGlyph = null;
+      primaryQuestion = null;
+    }
+
+    // Prefer real glyphs over placeholders whenever possible.
+    if (primaryGlyph && !primaryGlyph.isPlaceholder) return primaryGlyph;
+
+    if (fallbackFont) {
+      try {
+        fallbackGlyph = fallbackFont?.[char] || null;
+        fallbackQuestion = fallbackFont?.["?"] || null;
+      } catch (err) {
+        fallbackGlyph = null;
+        fallbackQuestion = null;
+      }
+
+      if (fallbackGlyph && !fallbackGlyph.isPlaceholder) return fallbackGlyph;
+      if (fallbackQuestion) return fallbackQuestion;
+    }
+
+    if (primaryGlyph) return primaryGlyph;
+    if (primaryQuestion) return primaryQuestion;
+    return null;
+  };
 
   if (isProportional) {
     // Use character advance widths from font metadata
@@ -4976,7 +5012,7 @@ function printLine(
       const charAdvance = advances[char] || blockWidth;
       
       draw(
-        font[char],
+        getGlyphForChar(char),
         charX,
         charY,
         scale,
@@ -4991,7 +5027,7 @@ function printLine(
     // Use original monospace logic for fonts without proportional flag
     [...text.toString()].forEach((char, i) => {
       draw(
-        font[char],
+        getGlyphForChar(char),
         startX + blockWidth * scale * i + xOffset,
         startY,
         scale,
