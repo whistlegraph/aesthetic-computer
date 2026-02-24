@@ -1750,7 +1750,7 @@ function paint($) {
 
     // Header with network/staging badge
     const baseNetLabel = (alreadyMinted.network || NETWORK).toUpperCase();
-    const netLabel = KEEPS_STAGING ? "STAGING V4" : baseNetLabel;
+    const netLabel = KEEPS_STAGING ? "STAGING V5 RC" : baseNetLabel;
     const isMainnet = baseNetLabel === "MAINNET";
     const netColor = KEEPS_STAGING ? [255, 180, 100] : (isMainnet ? [100, 220, 100] : [220, 180, 100]);
 
@@ -2335,7 +2335,7 @@ function paint($) {
         // Contract button showing version and address (clickable)
         if (cy + 12 < h && KEEPS_STAGING) {
           const contractShort = KEEPS_CONTRACT.slice(0, 10) + "..";
-          const contractLabel = `v4: ${contractShort}`;
+          const contractLabel = `v5rc: ${contractShort}`;
           const contractScheme = pal.btnContract;
           const contractSize = mc8ButtonSize(contractLabel);
           const contractX = floor(cx - contractSize.w / 2);
@@ -2546,7 +2546,7 @@ function paint($) {
 
       // Network badge
       if (showNetwork) {
-        const netLabel = KEEPS_STAGING ? "STAGING V4" : NETWORK.toUpperCase();
+        const netLabel = KEEPS_STAGING ? "STAGING V5 RC" : NETWORK.toUpperCase();
         const isMainnet = NETWORK === "mainnet";
         const netColor = KEEPS_STAGING ? [255, 180, 100] : (isMainnet ? [100, 220, 100] : [220, 180, 100]);
         ink(netColor[0], netColor[1], netColor[2], 200).write(netLabel, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
@@ -2557,7 +2557,7 @@ function paint($) {
       if (showContract) {
         const contractScheme = pal.btnContract;
         const contractShort = KEEPS_CONTRACT.slice(0, 10) + "..";
-        const contractLabel = KEEPS_STAGING ? `v4: ${contractShort}` : contractShort;
+        const contractLabel = KEEPS_STAGING ? `v5rc: ${contractShort}` : contractShort;
         const contractSize = mc8ButtonSize(contractLabel);
         const contractX = floor((w - contractSize.w) / 2);
         contractBtn.btn.box.x = contractX;
@@ -3067,7 +3067,7 @@ function paint($) {
         const netName = preparedData.network || NETWORK || "mainnet";
         const prefix = "to keep on " + netName + " ";
         const contractShort = KEEPS_CONTRACT.slice(0, 10) + "..";
-        const stagingLabel = `v4: ${contractShort}`;
+        const stagingLabel = `v5rc: ${contractShort}`;
         // MatrixChunky8 is ~4px per char
         const prefixW = prefix.length * 4;
         const stagingW = stagingLabel.length * 4 + 8; // padding
@@ -3102,7 +3102,7 @@ function paint($) {
   const reviewStep = timeline.find(t => t.id === "review");
   if (reviewStep?.status === "active" && preparedData) {
     const baseNet = (preparedData.network || "mainnet").toUpperCase();
-    const netLabel = KEEPS_STAGING && baseNet === "MAINNET" ? "MAINNET (STAGING V4)" : baseNet;
+    const netLabel = KEEPS_STAGING && baseNet === "MAINNET" ? "MAINNET (STAGING V5 RC)" : baseNet;
     const isGhostnet = baseNet === "GHOSTNET";
     const ghostW = isGhostnet ? 16 : 0; // Space for ghost icon
     const netW = netLabel.length * 4 + 8 + ghostW;
