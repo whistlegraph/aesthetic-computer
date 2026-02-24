@@ -17,7 +17,8 @@ const __dirname = path.dirname(__filename);
 
 // Contract addresses
 export const CONTRACTS = {
-  mainnet: 'KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W',
+  mainnet: 'KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido', // v5 RC
+  mainnet_v4: 'KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W', // v4 staging (legacy)
   ghostnet: null // To be deployed for testing
 };
 

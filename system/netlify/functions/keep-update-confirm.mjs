@@ -8,8 +8,8 @@ import { authorize, hasAdmin } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 
-// Configuration - Mainnet v4 contract by default
-const CONTRACT_ADDRESS = process.env.TEZOS_KEEPS_CONTRACT || "KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W";
+// Configuration - Mainnet v5 RC contract by default
+const CONTRACT_ADDRESS = process.env.TEZOS_KEEPS_CONTRACT || "KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido";
 
 export async function handler(event, context) {
   if (event.httpMethod === "OPTIONS") {
