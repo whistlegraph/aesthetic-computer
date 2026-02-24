@@ -1958,6 +1958,40 @@ class KidLisp {
       if (typeof audioData.presence === 'number') {
         this.globalDef.presence = audioData.presence;
       }
+
+      // Optional debug trace for matching embedded vs module global feeds.
+      let shouldTraceEnv = false;
+      try {
+        shouldTraceEnv =
+          (typeof globalThis !== "undefined" && globalThis.AC_KL_ENV_TRACE === true) ||
+          (typeof localStorage !== "undefined" &&
+            localStorage.getItem("ac:kidlisp:env-trace") === "1");
+      } catch (_err) {
+        shouldTraceEnv = false;
+      }
+
+      if (shouldTraceEnv) {
+        const frame = Number.isFinite(this.frameCount) ? this.frameCount : 0;
+        if (!this.lastEnvTraceFrame || frame - this.lastEnvTraceFrame >= 60) {
+          const source = audioData.__source || "unknown";
+          console.log("🧭 KL env globals", {
+            source,
+            frame,
+            amp: this.globalDef.amp,
+            leftAmp: this.globalDef.leftAmp,
+            rightAmp: this.globalDef.rightAmp,
+            beat: this.globalDef.beat,
+            kick: this.globalDef.kick,
+            bass: this.globalDef.bass,
+            mid: this.globalDef.mid,
+            treble: this.globalDef.treble,
+            highMid: this.globalDef.highMid,
+            presence: this.globalDef.presence,
+            mic: this.globalDef.mic,
+          });
+          this.lastEnvTraceFrame = frame;
+        }
+      }
     }
   }
 
@@ -4351,16 +4385,10 @@ class KidLisp {
         // (bypasses worker message queue - updated by boot.mjs on postMessage)
         if (typeof window !== 'undefined' && window.__acAudioData) {
           const ad = window.__acAudioData;
-          if (typeof ad.amp === 'number') this.globalDef.amp = ad.amp;
-          if (typeof ad.leftAmp === 'number') this.globalDef.leftAmp = ad.leftAmp;
-          if (typeof ad.rightAmp === 'number') this.globalDef.rightAmp = ad.rightAmp;
-          if (typeof ad.kick === 'number') this.globalDef.kick = ad.kick;
-          if (typeof ad.beat === 'number') this.globalDef.beat = ad.beat;
-          if (typeof ad.bass === 'number') this.globalDef.bass = ad.bass;
-          if (typeof ad.mid === 'number') this.globalDef.mid = ad.mid;
-          if (typeof ad.treble === 'number') this.globalDef.treble = ad.treble;
-          if (typeof ad.highMid === 'number') this.globalDef.highMid = ad.highMid;
-          if (typeof ad.presence === 'number') this.globalDef.presence = ad.presence;
+          this.updateAudioGlobals({
+            ...ad,
+            __source: "module:window",
+          });
         }
         
         // �🎤 DEBUG: Log mic value occasionally
@@ -14319,12 +14347,16 @@ class KidLisp {
 // Singleton KidLisp instance to preserve state across inline and .lisp file executions
 let globalKidLispInstance = null;
 
-// Module function that reuses a singleton KidLisp instance to preserve `once` state
-function module(source, isLispFile = false) {
+function ensureGlobalInstance() {
   if (!globalKidLispInstance) {
     globalKidLispInstance = new KidLisp();
   }
-  return globalKidLispInstance.module(source, isLispFile);
+  return globalKidLispInstance;
+}
+
+// Module function that reuses a singleton KidLisp instance to preserve `once` state
+function module(source, isLispFile = false) {
+  return ensureGlobalInstance().module(source, isLispFile);
 }
 
 // Standalone parse function (for compatibility)
@@ -15055,6 +15087,7 @@ function getSyntaxHighlightingColors(source) {
 
 
 export {
+  ensureGlobalInstance,
   module,
   parse,
   evaluate,
