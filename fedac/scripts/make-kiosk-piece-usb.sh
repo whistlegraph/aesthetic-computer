@@ -272,10 +272,13 @@ ln -sf /etc/systemd/system/kiosk-piece-server.service \
   "$ROOTFS_DIR/etc/systemd/system/multi-user.target.wants/kiosk-piece-server.service"
 echo -e "  ${GREEN}Piece server + service installed${NC}"
 
-# 3d. Kiosk session (mutter + Firefox, no GNOME Shell)
+# 3d. Kiosk session script
 cat > "$ROOTFS_DIR/usr/local/bin/kiosk-session.sh" << 'SESSEOF'
 #!/bin/bash
+# FedAC Kiosk Session — mutter as bare Wayland compositor + Firefox
+# No GNOME Shell, no GDM, no desktop.
 export XDG_SESSION_TYPE=wayland
+export XDG_RUNTIME_DIR="/run/user/$(id -u)"
 for i in $(seq 1 30); do
   curl -s -o /dev/null http://127.0.0.1:8080 && break
   sleep 1
@@ -283,77 +286,60 @@ done
 exec mutter --wayland --no-x11 -- firefox --kiosk --no-remote http://127.0.0.1:8080
 SESSEOF
 chmod +x "$ROOTFS_DIR/usr/local/bin/kiosk-session.sh"
+echo -e "  ${GREEN}Kiosk session script installed${NC}"
 
-cat > "$ROOTFS_DIR/usr/share/wayland-sessions/kiosk.desktop" << 'DESKEOF'
-[Desktop Entry]
-Name=FedAC Kiosk
-Comment=Firefox Kiosk (no desktop)
-Exec=/usr/local/bin/kiosk-session.sh
-Type=Application
-DesktopNames=GNOME
-DESKEOF
-echo -e "  ${GREEN}Kiosk wayland session installed${NC}"
+# 3e. Disable GDM entirely — direct autologin via systemd service
+#     PAMName=login gives logind a proper seat session (DRM master for mutter)
+mkdir -p "$ROOTFS_DIR/etc/systemd/system/graphical.target.wants"
 
-# 3e. AccountsService — tell GDM to use kiosk session
-mkdir -p "$ROOTFS_DIR/var/lib/AccountsService/users"
-cat > "$ROOTFS_DIR/var/lib/AccountsService/users/liveuser" << 'ASEOF'
-[User]
-Session=kiosk
-XSession=kiosk
-SystemAccount=false
-ASEOF
+# Mask GDM so it never starts
+ln -sf /dev/null "$ROOTFS_DIR/etc/systemd/system/gdm.service"
+ln -sf /dev/null "$ROOTFS_DIR/etc/systemd/system/display-manager.service"
 
-# 3f. Replace livesys-gnome (Fedora live boot script)
+# Install kiosk autologin service
+cp "$OVERLAY_DIR/kiosk-autologin.service" \
+  "$ROOTFS_DIR/etc/systemd/system/kiosk-autologin.service"
+ln -sf /etc/systemd/system/kiosk-autologin.service \
+  "$ROOTFS_DIR/etc/systemd/system/graphical.target.wants/kiosk-autologin.service"
+echo -e "  ${GREEN}GDM masked, kiosk-autologin.service enabled${NC}"
+
+# 3f. Slim livesys-gnome — no GDM config, just cleanup + schema compile
 cat > "$ROOTFS_DIR/usr/libexec/livesys/sessions.d/livesys-gnome" << 'LSEOF'
 #!/usr/bin/sh
-# livesys-gnome: FedAC Kiosk setup
+# livesys-gnome: FedAC Kiosk — minimal live session cleanup
 
-cat >> /usr/share/glib-2.0/schemas/org.gnome.software.gschema.override << FOE
-[org.gnome.software]
-allow-updates=false
-download-updates=false
-FOE
-rm -f /etc/xdg/autostart/org.gnome.Software.desktop
-
+# Suppress GNOME initial setup / welcome screens
 mkdir -p ~liveuser/.config
 echo yes > ~liveuser/.config/gnome-initial-setup-done
-
 rm -f /etc/xdg/autostart/gnome-initial-setup*.desktop
-rm -f /usr/share/applications/gnome-initial-setup.desktop
+rm -f /etc/xdg/autostart/org.gnome.Tour.desktop
 rm -f ~liveuser/.config/autostart/org.fedoraproject.welcome-screen.desktop
 rm -f ~liveuser/.config/autostart/fedora-welcome.desktop
-rm -f /etc/xdg/autostart/org.gnome.Tour.desktop
-rm -f /usr/share/applications/anaconda.desktop
-rm -f /usr/share/applications/liveinst.desktop
 
-cat > /etc/gdm/custom.conf << FOE
-[daemon]
-AutomaticLoginEnable=True
-AutomaticLogin=liveuser
-DefaultSession=kiosk.desktop
-FOE
+# Compile glib schemas (mutter reads these at startup)
+glib-compile-schemas /usr/share/glib-2.0/schemas 2>/dev/null || true
 
-mkdir -p /var/lib/AccountsService/users
-cat > /var/lib/AccountsService/users/liveuser << FOE
-[User]
-Session=kiosk
-XSession=kiosk
-SystemAccount=false
-FOE
-
-cat >> /usr/share/glib-2.0/schemas/org.gnome.shell.gschema.override << FOE
-[org.gnome.shell]
-welcome-dialog-last-shown-version='4294967295'
-favorite-apps=@as []
-FOE
-
-glib-compile-schemas /usr/share/glib-2.0/schemas
 chown -R liveuser:liveuser ~liveuser/ 2>/dev/null || true
 LSEOF
 chmod +x "$ROOTFS_DIR/usr/libexec/livesys/sessions.d/livesys-gnome"
-echo -e "  ${GREEN}livesys-gnome replaced${NC}"
+echo -e "  ${GREEN}livesys-gnome trimmed (no GDM)${NC}"
 
-# 3g. Firefox policies (no default tabs, no welcome)
+# 3g. Disable unnecessary services for faster boot
+for svc in \
+  abrtd abrt-journal-core abrt-oops abrt-vmcore abrt-xorg \
+  avahi-daemon cups cups-browsed \
+  flatpak-system-update \
+  ModemManager \
+  sssd sssd-kcm \
+  thermald tuned \
+  rsyslog \
+  mdmonitor mcelog smartd atd \
+  NetworkManager-wait-online; do
+  ln -sf /dev/null "$ROOTFS_DIR/etc/systemd/system/${svc}.service" 2>/dev/null || true
+done
+echo -e "  ${GREEN}Unnecessary services masked${NC}"
+
+# 3h. Firefox policies (no default tabs, no welcome)
 mkdir -p "$ROOTFS_DIR/usr/lib64/firefox/distribution"
 cat > "$ROOTFS_DIR/usr/lib64/firefox/distribution/policies.json" << 'FPEOF'
 {
@@ -398,7 +384,7 @@ defaultPref("browser.aboutwelcome.enabled", false);
 CFGEOF
 echo -e "  ${GREEN}Firefox policies installed${NC}"
 
-# 3h. Plymouth PALS logo
+# 3i. Plymouth PALS logo
 PALS_LOGO="$REPO_ROOT/fedac/plymouth/pals.png"
 if [ -f "$PALS_LOGO" ]; then
   cp "$PALS_LOGO" "$ROOTFS_DIR/usr/share/plymouth/themes/spinner/watermark.png"
@@ -413,7 +399,7 @@ PLYEOF
   echo -e "  ${GREEN}PALS Plymouth theme installed${NC}"
 fi
 
-# 3i. dconf kiosk settings
+# 3j. dconf kiosk settings
 mkdir -p "$ROOTFS_DIR/etc/dconf/db/local.d" "$ROOTFS_DIR/etc/dconf/profile"
 cp "$OVERLAY_DIR/00-kiosk" "$ROOTFS_DIR/etc/dconf/db/local.d/00-kiosk" 2>/dev/null || true
 cp "$OVERLAY_DIR/dconf-profile-user" "$ROOTFS_DIR/etc/dconf/profile/user" 2>/dev/null || true
@@ -535,7 +521,7 @@ set gfxpayload=keep
 terminal_input console
 terminal_output gfxterm
 menuentry "FedAC Kiosk" --class fedora {
-  linux /loader/linux quiet rhgb root=live:LABEL=FEDAC-LIVE rd.live.image plymouth.splash-delay=0 vt.global_cursor_default=0
+  linux /loader/linux quiet loglevel=1 rhgb root=live:LABEL=FEDAC-LIVE rd.live.image rd.plymouth=1 mitigations=off vt.handoff=7 vt.global_cursor_default=0
   initrd /loader/initrd
 }
 GRUBEOF
