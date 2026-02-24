@@ -7412,11 +7412,8 @@ function setupButtons({ ui, screen, geo }) {
     };
 
     const keyLabelCandidate = noteToKeyboardKey(label) || label.toLowerCase();
-    const keyLabelMatchesNote =
-      keyLabelCandidate &&
-      keyLabelCandidate.toUpperCase() === noteLabelText.toUpperCase();
     // Skip apostrophe key - it's too wide and cuts into narrow pads
-    const keyLabel = keyLabelMatchesNote || keyLabelCandidate === "'" ? null : keyLabelCandidate;
+    const keyLabel = keyLabelCandidate === "'" ? null : keyLabelCandidate;
     const keyFont = buttonWidth >= 22 ? "unifont" : "MatrixChunky8";
     const keyGlyphWidth = keyFont === "unifont" ? 8 : glyphMetrics.width;
     const keyGlyphHeight = keyFont === "unifont" ? 16 : glyphMetrics.height;
@@ -7427,14 +7424,7 @@ function setupButtons({ ui, screen, geo }) {
     let keyOverlapsDefault = false;
     let keyOverlapsCentered = false;
 
-    // Skip key label when both note and key are single letters on small buttons (homogenize)
-    const skipKeyForHomogenization = 
-      keyLabel && 
-      noteLabelText.length === 1 && 
-      keyLabel.length === 1 && 
-      buttonWidth < 30;
-
-    if (keyLabel && !skipKeyForHomogenization) {
+    if (keyLabel) {
       keyLabelWidth = keyLabel.length * keyGlyphWidth;
       const keyBottom = {
         x: x + buttonWidth - keyLabelWidth - 2,
@@ -7463,7 +7453,7 @@ function setupButtons({ ui, screen, geo }) {
       noteGlyphHeight,
       noteLabelBoundsDefault,
       noteLabelBoundsCentered,
-      keyLabel: skipKeyForHomogenization ? null : keyLabel,
+      keyLabel,
       keyFont,
       keyGlyphWidth,
       keyGlyphHeight,

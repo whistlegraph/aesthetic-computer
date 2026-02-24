@@ -2210,6 +2210,24 @@ ipcMain.on('ac-reload', (event) => {
   }
 });
 
+// ~ command: toggle DevTools docked at bottom, navigating to Console panel
+ipcMain.on('open-devtools', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender) || BrowserWindow.getFocusedWindow();
+  if (!win) return;
+  if (win.webContents.isDevToolsOpened()) {
+    win.webContents.closeDevTools();
+  } else {
+    win.webContents.openDevTools({ mode: 'bottom' });
+    win.webContents.once('devtools-opened', () => {
+      try {
+        win.webContents.devToolsWebContents?.executeJavaScript(
+          'DevToolsAPI.showPanel("console")'
+        ).catch(() => {});
+      } catch (e) { /* ignore if DevTools API unavailable */ }
+    });
+  }
+});
+
 // App lifecycle
 app.whenReady().then(async () => {
   loadPreferences();

@@ -634,141 +634,96 @@ function generateJSPieceHTMLBundle(opts) {
   </style>
 </head>
 <body>
-  <script type="module">
-    window.acPACK_MODE = true; // Required for import map resolution from blob URLs
-    window.KIDLISP_SUPPRESS_SNAPSHOT_LOGS = true; // Disable console screenshots
-    window.__acKidlispConsoleEnabled = false; // Disable KidLisp console auto-snaps
+  <script>
+    // Phase 1: Setup VFS, blob URLs, import map, and fetch interception.
+    // This MUST run in a regular <script> (not type="module") so the import map
+    // is in the DOM BEFORE any <script type="module"> executes.
+    window.acPACK_MODE = true;
+    window.KIDLISP_SUPPRESS_SNAPSHOT_LOGS = true;
+    window.__acKidlispConsoleEnabled = false;
     window.acSTARTING_PIECE = "${pieceName}";
     window.acPACK_PIECE = "${pieceName}";
     window.acPACK_DATE = "${packDate}";
     window.acPACK_GIT = "${gitVersion}";
-    
     window.acPACK_COLOPHON = {
-      piece: {
-        name: '${pieceName}',
-        isKidLisp: false
-      },
-      build: {
-        author: '@jeffrey',
-        packTime: ${packTime},
-        gitCommit: '${gitVersion}',
-        gitIsDirty: false,
-        fileCount: ${Object.keys(files).length}
-      }
+      piece: { name: '${pieceName}', isKidLisp: false },
+      build: { author: '@jeffrey', packTime: ${packTime}, gitCommit: '${gitVersion}', gitIsDirty: false, fileCount: ${Object.keys(files).length} }
     };
-    
     window.VFS = ${JSON.stringify(files).replace(/<\/script>/g, '<\\/script>')};
-    
-    const originalAppendChild = Element.prototype.appendChild;
+    var originalAppendChild = Element.prototype.appendChild;
     Element.prototype.appendChild = function(child) {
-      if (child.tagName === 'LINK' && child.rel === 'stylesheet' && child.href && child.href.includes('.css')) {
-        return child;
-      }
+      if (child.tagName === 'LINK' && child.rel === 'stylesheet' && child.href && child.href.includes('.css')) return child;
       return originalAppendChild.call(this, child);
     };
-    
-    const originalBodyAppend = HTMLBodyElement.prototype.append;
-    HTMLBodyElement.prototype.append = function(...nodes) {
-      const filteredNodes = nodes.filter(node => {
-        if (node.tagName === 'LINK' && node.rel === 'stylesheet') {
-          return false;
-        }
-        return true;
-      });
-      return originalBodyAppend.call(this, ...filteredNodes);
+    var originalBodyAppend = HTMLBodyElement.prototype.append;
+    HTMLBodyElement.prototype.append = function() {
+      var args = []; for (var i = 0; i < arguments.length; i++) { var n = arguments[i]; if (!(n.tagName === 'LINK' && n.rel === 'stylesheet')) args.push(n); }
+      return originalBodyAppend.apply(this, args);
     };
-    
     window.VFS_BLOB_URLS = {};
     window.modulePaths = [];
-    
-    Object.entries(window.VFS).forEach(([path, file]) => {
+    Object.entries(window.VFS).forEach(function(entry) {
+      var path = entry[0], file = entry[1];
       if (path.endsWith('.mjs') || path.endsWith('.js')) {
-        const blob = new Blob([file.content], { type: 'application/javascript' });
-        const blobUrl = URL.createObjectURL(blob);
-        window.VFS_BLOB_URLS[path] = blobUrl;
+        var blob = new Blob([file.content], { type: 'application/javascript' });
+        window.VFS_BLOB_URLS[path] = URL.createObjectURL(blob);
         window.modulePaths.push(path);
       }
     });
-    
-    const importMapEntries = {};
-    for (const filepath of window.modulePaths) {
-      if (window.VFS_BLOB_URLS[filepath]) {
-        importMapEntries[filepath] = window.VFS_BLOB_URLS[filepath];
-        importMapEntries['/' + filepath] = window.VFS_BLOB_URLS[filepath];
-        importMapEntries[\`aesthetic.computer/\${filepath}\`] = window.VFS_BLOB_URLS[filepath];
-        importMapEntries[\`/aesthetic.computer/\${filepath}\`] = window.VFS_BLOB_URLS[filepath];
-        importMapEntries[\`./aesthetic.computer/\${filepath}\`] = window.VFS_BLOB_URLS[filepath];
-        importMapEntries[\`https://aesthetic.computer/\${filepath}\`] = window.VFS_BLOB_URLS[filepath];
-        importMapEntries[\`./\${filepath}\`] = window.VFS_BLOB_URLS[filepath];
-        // Add relative paths that disk.mjs might use in pack mode (../disks/piece.mjs)
-        importMapEntries[\`../\${filepath}\`] = window.VFS_BLOB_URLS[filepath];
-        importMapEntries[\`../../\${filepath}\`] = window.VFS_BLOB_URLS[filepath];
+    var importMapEntries = {};
+    for (var i = 0; i < window.modulePaths.length; i++) {
+      var fp = window.modulePaths[i];
+      if (window.VFS_BLOB_URLS[fp]) {
+        importMapEntries[fp] = window.VFS_BLOB_URLS[fp];
+        importMapEntries['/' + fp] = window.VFS_BLOB_URLS[fp];
+        importMapEntries['aesthetic.computer/' + fp] = window.VFS_BLOB_URLS[fp];
+        importMapEntries['/aesthetic.computer/' + fp] = window.VFS_BLOB_URLS[fp];
+        importMapEntries['./aesthetic.computer/' + fp] = window.VFS_BLOB_URLS[fp];
+        importMapEntries['https://aesthetic.computer/' + fp] = window.VFS_BLOB_URLS[fp];
+        importMapEntries['./' + fp] = window.VFS_BLOB_URLS[fp];
+        importMapEntries['../' + fp] = window.VFS_BLOB_URLS[fp];
+        importMapEntries['../../' + fp] = window.VFS_BLOB_URLS[fp];
       }
     }
-    
-    const importMap = { imports: importMapEntries };
-    const importMapScript = document.createElement('script');
-    importMapScript.type = 'importmap';
-    importMapScript.textContent = JSON.stringify(importMap);
-    document.head.appendChild(importMapScript);
-    
-    const originalFetch = window.fetch;
+    var s = document.createElement('script');
+    s.type = 'importmap';
+    s.textContent = JSON.stringify({ imports: importMapEntries });
+    document.head.appendChild(s);
+    var originalFetch = window.fetch;
     window.fetch = function(url, options) {
-      const urlStr = typeof url === 'string' ? url : url.toString();
-      
-      let vfsPath = decodeURIComponent(urlStr)
+      var urlStr = typeof url === 'string' ? url : url.toString();
+      var vfsPath = decodeURIComponent(urlStr)
         .replace(/^https?:\\/\\/[^\\/]+\\//g, '')
         .replace(/^aesthetic\\.computer\\//g, '')
         .replace(/#.*$/g, '')
         .replace(/\\?.*$/g, '');
-      
       vfsPath = vfsPath.replace(/^\\.\\.\\/+/g, '').replace(/^\\.\\//g, '').replace(/^\\//g, '').replace(/^aesthetic\\.computer\\//g, '');
-      
       if (window.VFS[vfsPath]) {
-        const file = window.VFS[vfsPath];
-        let content;
-        let contentType = 'text/plain';
-        
+        var file = window.VFS[vfsPath]; var content; var ct = 'text/plain';
         if (file.binary) {
-          const binaryStr = atob(file.content);
-          const bytes = new Uint8Array(binaryStr.length);
-          for (let i = 0; i < binaryStr.length; i++) {
-            bytes[i] = binaryStr.charCodeAt(i);
-          }
+          var bs = atob(file.content); var bytes = new Uint8Array(bs.length);
+          for (var j = 0; j < bs.length; j++) bytes[j] = bs.charCodeAt(j);
           content = bytes;
-          if (file.type === 'png') contentType = 'image/png';
-          else if (file.type === 'jpg' || file.type === 'jpeg') contentType = 'image/jpeg';
+          if (file.type === 'png') ct = 'image/png'; else if (file.type === 'jpg' || file.type === 'jpeg') ct = 'image/jpeg';
         } else {
           content = file.content;
-          if (file.type === 'mjs' || file.type === 'js') contentType = 'application/javascript';
-          else if (file.type === 'json') contentType = 'application/json';
+          if (file.type === 'mjs' || file.type === 'js') ct = 'application/javascript'; else if (file.type === 'json') ct = 'application/json';
         }
-        
-        return Promise.resolve(new Response(content, {
-          status: 200,
-          headers: { 'Content-Type': contentType }
-        }));
+        return Promise.resolve(new Response(content, { status: 200, headers: { 'Content-Type': ct } }));
       }
-      
-      // Silently handle expected missing files (fonts, cursors, SVGs, CSS) - but NOT .mjs files
       if (vfsPath.includes('disks/drawings/font_') || vfsPath.includes('cursors/') || vfsPath.endsWith('.svg') || vfsPath.endsWith('.css') || urlStr.includes('/type/webfonts/')) {
         return Promise.resolve(new Response('', { status: 200, headers: { 'Content-Type': 'text/css' } }));
       }
-      
-      // Log missing .mjs files for debugging
-      if (vfsPath.endsWith('.mjs')) {
-        console.warn('[VFS] Missing .mjs file:', vfsPath);
-      }
-      
+      if (vfsPath.endsWith('.mjs')) console.warn('[VFS] Missing .mjs file:', vfsPath);
       return originalFetch.call(this, url, options);
     };
-    
-    (async function() {
-      import(window.VFS_BLOB_URLS['boot.mjs']).catch(err => {
-        document.body.style.color='#fff';
-        document.body.textContent='Boot failed: '+err.message;
-      });
-    })();
+  </script>
+  <script type="module">
+    // Phase 2: Boot the app. Import map is already in the DOM from Phase 1.
+    import(window.VFS_BLOB_URLS['boot.mjs']).catch(err => {
+      document.body.style.cssText='color:#fff;background:#000;padding:20px;font-family:monospace';
+      document.body.textContent='Boot failed: '+err.message;
+    });
   </script>
 </body>
 </html>`;
