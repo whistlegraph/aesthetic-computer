@@ -1533,10 +1533,10 @@ export function paint($, screen, showLoginCurtain) {
     ensureProductLoaded(activeProductKey, bootApi, true);
   }
 
-  // Box dimensions and position (top-right)
-  const boxW = min(100, floor(screen.width * 0.35));
-  const boxH = boxW + 20; // Slightly taller than wide to fit text below image
-  const boxPad = 6;
+  // Compact hit area in top-right (no framed card)
+  const boxW = min(72, floor(screen.width * 0.24));
+  const boxH = boxW;
+  const boxPad = 4;
   const boxX = screen.width - boxW - boxPad;
   const boxY = boxPad;
 
@@ -1580,51 +1580,37 @@ export function paint($, screen, showLoginCurtain) {
   const isHover = shopBoxButton.over;
   const isDown = shopBoxButton.down;
 
-  // Background fill (masked area)
-  const bgAlpha = isDown ? 220 : (isHover ? 200 : 180);
-  const bg = isDark ? [20, 20, 30, bgAlpha] : [240, 240, 250, bgAlpha];
-  $.ink(...bg).box(boxX, boxY, boxW, boxH, "fill");
+  // "SHOP" label in the top-right corner
+  const shopText = isDown ? "SHOP!" : "SHOP";
+  const shopCharW = 4;
+  const shopTextW = shopText.length * shopCharW;
+  const shopTextX = boxX + boxW - shopTextW;
+  const shopTextY = boxY;
+  const shopLabelH = 8;
+  const shopColor = isDown
+    ? [255, 255, 0]
+    : (isHover ? [100, 255, 200] : (isDark ? [0, 255, 180] : [0, 140, 80]));
+  $.ink(...shopColor).write(shopText, { x: shopTextX, y: shopTextY }, undefined, undefined, false, "MatrixChunky8");
 
-  // Render product image centered in top portion of box
+  // Render product image in remaining area under the SHOP label
   if (product?.imageScaled) {
     const img = product.imageScaled;
-    // Fit image within box with padding
-    const imgAreaW = boxW - 4;
-    const imgAreaH = boxH - 24; // Leave room for SHOP text at bottom
+    // Fit image tightly with minimal padding and no outer frame
+    const imgAreaW = boxW - 2;
+    const imgAreaH = boxH - shopLabelH - 1;
     const scale = min(imgAreaW / img.width, imgAreaH / img.height, 1);
     const drawW = floor(img.width * scale);
     const drawH = floor(img.height * scale);
     const imgX = boxX + floor((boxW - drawW) / 2);
-    const imgY = boxY + 2 + floor((imgAreaH - drawH) / 2);
+    const imgY = boxY + shopLabelH + floor((imgAreaH - drawH) / 2);
 
     // Paste the image (already pre-scaled, just center it)
     $.paste(img, imgX, imgY);
-
-    // Title text (truncated to fit box)
-    const maxChars = floor((boxW - 4) / 4); // MatrixChunky8 is 4px per char
-    let title = product.title || "";
-    if (title.length > maxChars) title = title.slice(0, maxChars - 1) + "\u2026";
-    const titleW = title.length * 4;
-    const titleX = boxX + floor((boxW - titleW) / 2);
-    const titleY = imgY + drawH + 2;
-
-    const titleColor = isDark ? [200, 220, 255] : [30, 30, 60];
-    $.ink(...titleColor).write(title, { x: titleX, y: titleY }, undefined, undefined, false, "MatrixChunky8");
-
-    // Byline text
-    let byline = product.byline || "";
-    if (byline.length > maxChars) byline = byline.slice(0, maxChars - 1) + "\u2026";
-    const bylineW = byline.length * 4;
-    const bylineX = boxX + floor((boxW - bylineW) / 2);
-    const bylineY = titleY + 9;
-
-    const bylineColor = isDark ? [150, 160, 180] : [80, 80, 100];
-    $.ink(...bylineColor).write(byline, { x: bylineX, y: bylineY }, undefined, undefined, false, "MatrixChunky8");
   } else if (isBooting || !product) {
     // Loading indicator
     const t = Date.now() / 1000;
     const cx = boxX + floor(boxW / 2);
-    const cy = boxY + floor((boxH - 20) / 2);
+    const cy = boxY + shopLabelH + floor((boxH - shopLabelH) / 2);
     for (let i = 0; i < 4; i++) {
       const angle = t * 3 + (i * Math.PI / 2);
       const px = cx + floor(cos(angle) * 12);
@@ -1633,22 +1619,6 @@ export function paint($, screen, showLoginCurtain) {
       $.ink(pulse, pulse, 255, 200).box(px - 1, py - 1, 3, 3);
     }
   }
-
-  // "SHOP" label at the bottom of the box
-  const shopText = isDown ? "SHOP!" : "SHOP";
-  const shopCharW = 4;
-  const shopTextW = shopText.length * shopCharW;
-  const shopTextX = boxX + floor((boxW - shopTextW) / 2);
-  const shopTextY = boxY + boxH - 10;
-
-  // SHOP text color
-  const shopColor = isDown ? [255, 255, 0] : (isHover ? [100, 255, 200] : (isDark ? [0, 255, 180] : [0, 140, 80]));
-  $.ink(...shopColor).write(shopText, { x: shopTextX, y: shopTextY }, undefined, undefined, false, "MatrixChunky8");
-
-  // Border
-  const borderColor = isDown ? [255, 255, 0] : (isHover ? [0, 255, 200] : (isDark ? [80, 100, 120] : [150, 160, 180]));
-  const borderAlpha = isHover ? 255 : 180;
-  $.ink(...borderColor, borderAlpha).box(boxX, boxY, boxW, boxH, "outline");
 
   $.needsPaint?.();
 }
