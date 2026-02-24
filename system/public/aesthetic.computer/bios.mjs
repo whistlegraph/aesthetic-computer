@@ -1653,7 +1653,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       debugCanvas.style.height = projectedHeight + "px";
     }
 
-    if (
+    // During tape playback, don't restore stale content — the canvas was just
+    // cleared to transparent by the resize, and we need screen.pixels to be
+    // the correct new size so the render-abort mismatch check passes.
+    if (underlayFrame) {
+      imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      console.log(`🎬 REFRAME: tape playback reset imageData → ${imageData.width}×${imageData.height}, alpha[0]=${imageData.data[3]}`);
+    } else if (
       imageData &&
       imageData.data &&
       imageData.data.buffer &&
@@ -1667,6 +1673,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Store clean pixel data for worker communication (before any overlays are drawn)
     assign(screen, { pixels: imageData.data, width, height });
+    if (underlayFrame) {
+      console.log(`🎬 REFRAME: screen.pixels set → length=${screen.pixels.length} (${width}×${height}×4=${width*height*4})`);
+    }
 
     TwoD?.frame(width, height, wrapper); // Reframe the 2D GPU layer.
 
@@ -17255,6 +17264,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               overlayCan.style.display = "none";
             }
             // Force sync rendering during tape playback for immediate UI updates
+            {
+              const d = imageData.data;
+              const mid = Math.floor(d.length / 2);
+              console.log(`🎬 BIOS putImageData: ${imageData.width}×${imageData.height} corner=[${d[0]},${d[1]},${d[2]},${d[3]}] mid=[${d[mid]},${d[mid+1]},${d[mid+2]},${d[mid+3]}]`);
+            }
             ctx.putImageData(imageData, 0, bumperOffset);
           } else if (!forceSynchronousRendering && window.pixelOptimizer && window.pixelOptimizer.asyncRenderingSupported) {
             try {
