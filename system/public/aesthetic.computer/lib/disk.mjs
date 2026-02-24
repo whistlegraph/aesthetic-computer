@@ -11948,20 +11948,7 @@ async function makeFrame({ data: { type, content } }) {
                 if (redirectIfBrandedDomain()) return;
 
                 if (!labelBack) {
-                  // Only clear prompt text when leaving NON-kidlisp pieces by tapping HUD
-                  // For inline kidlisp prompts, preserve the content so user can continue editing
-                  const content = currentHUDPlainTxt || currentHUDTxt;
-                  let promptSlug = "prompt";
-                  if (content && lisp.isKidlispSource(content)) {
-                    // Preserve kidlisp content when tapping HUD to return to prompt for editing
-                    const encodedContent = lisp.encodeKidlispForUrl(content);
-                    promptSlug += "~" + encodedContent;
-                  } else if (content) {
-                    // For regular piece names, clear the prompt by not passing content as params
-                    // This allows the prompt to clear properly when leaving non-kidlisp pieces
-                    promptSlug = "prompt";
-                  }
-                  jump(promptSlug);
+                  jump("prompt");
                 } else {
                   labelBack = false; // Reset `labelBack` after jumping.
                   if ($commonApi.history.length > 0) {
