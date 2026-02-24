@@ -63,12 +63,13 @@ class Starfield {
     }
   }
 
-  paint({ ink, num: { randInt: r }, plot, api }, options) {
+  paint($, options) {
+    const r = $.num.randInt;
     for (let i = 0; i < this.numStars; i += 1) {
-      ink(
+      $.ink(
         options?.color || [r(255), r(255), r(255)],
         floor((options?.alpha || 1) * 255),
-      ).plot(...this.projection(api, i));
+      ).plot(...this.projection($, i));
     }
   }
 
