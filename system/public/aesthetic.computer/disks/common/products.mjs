@@ -3,6 +3,33 @@
 
 const { abs, max, min, sin, cos, floor } = Math;
 
+// GPU-resize a source image (ImageBitmap / HTMLImageElement) to a target size,
+// returning a plain { width, height, pixels } buffer compatible with $.paste().
+// Uses createImageBitmap() for async GPU-accelerated downscaling so the main
+// thread is never stalled by a full-size getImageData() call.
+async function resizeBitmapToBuffer(src, targetW, targetH) {
+  const resized = await createImageBitmap(src, {
+    resizeWidth: targetW,
+    resizeHeight: targetH,
+    resizeQuality: "medium",
+  });
+  // Yield one frame so rendering stays smooth while we extract pixels.
+  await new Promise((r) => setTimeout(r, 0));
+  // Extract pixels only from the small resized bitmap (~targetW*targetH*4 bytes).
+  const canvas =
+    typeof OffscreenCanvas !== "undefined"
+      ? new OffscreenCanvas(targetW, targetH)
+      : Object.assign(document.createElement("canvas"), {
+          width: targetW,
+          height: targetH,
+        });
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(resized, 0, 0);
+  const { data } = ctx.getImageData(0, 0, targetW, targetH);
+  resized.close?.(); // free GPU memory
+  return { width: targetW, height: targetH, pixels: data };
+}
+
 // 📦 Product Registry
 const products = {};
 
@@ -52,29 +79,28 @@ class Product {
   async load(net, api) {
     try {
       this.image = await net.preload(this.imageUrl);
-      
+
       // Pre-scale the image to a consistent TARGET SIZE (not percentage)
       // This ensures all products display at similar sizes regardless of source image dimensions
-      const targetMaxDimension = this.type === 'record' ? 100 : 80; // records 100px, others 80px
+      const targetMaxDimension = this.type === "record" ? 100 : 80; // records 100px, others 80px
       const imgW = this.image.img.width;
       const imgH = this.image.img.height;
-      
+
       // Calculate scale to fit within target max dimension while preserving aspect ratio
       const scaleFactor = Math.min(targetMaxDimension / imgW, targetMaxDimension / imgH);
       const scaledW = floor(imgW * scaleFactor);
       const scaledH = floor(imgH * scaleFactor);
-      
-      this.imageScaled = api.painting(scaledW, scaledH, (p) => {
-        p.paste(this.image.img, 0, 0, scaleFactor);
-      });
-      
-      // Pre-cache 1.1x scaled version for hover state (avoids per-frame scaling)
+
+      // Use GPU-accelerated async resize instead of api.painting() + paste().
+      // The old approach called getImageData() on the full-size source image
+      // (potentially 800×800+), causing a GPU→CPU pipeline flush that froze the UI.
+      // resizeBitmapToBuffer() does the downscale on the GPU async, then only
+      // extracts the small ~80px result — no main-thread stall.
       const hoverScale = 1.1;
       const hoverW = floor(scaledW * hoverScale);
       const hoverH = floor(scaledH * hoverScale);
-      this.imageScaledHover = api.painting(hoverW, hoverH, (p) => {
-        p.paste(this.image.img, 0, 0, scaleFactor * hoverScale);
-      });
+      this.imageScaled = await resizeBitmapToBuffer(this.image.img, scaledW, scaledH);
+      this.imageScaledHover = await resizeBitmapToBuffer(this.image.img, hoverW, hoverH);
       
       // Load audio if this is a record with an audioUrl
       if (this.type === 'record' && this.audioUrl) {
