@@ -313,19 +313,13 @@ function paint({
     canvasTransparencyEnsured = true;
   }
 
-  // Always keep canvas transparent when presenting so underlay shows through.
-  // Buttons and UI are drawn on top; no opaque fill ever blocks the video.
-  if (presenting) {
-    wipe(0, 0, 0, 0);
-    if (!playing && !isPrinting) {
-      // Paused: show "||" indicator without a black background
-      ink(255, 200).write("||", { center: "xy" });
-      ink(255, 75).box(0, 0, screen.width, screen.height, "inline");
-    }
-  }
+  // Always start transparent — underlay video shows through every frame.
+  wipe(0, 0, 0, 0);
 
-  if (!presenting && exportAvailable && !isPrinting) {
-    wipe(0, 0, 0, 0); // Transparent
+  if (presenting && !playing && !isPrinting) {
+    // Paused: subtle overlay without a black background
+    ink(255, 200).write("||", { center: "xy" });
+    ink(255, 75).box(0, 0, screen.width, screen.height, "inline");
   }
 
   // Draw export buttons - reposition every frame (simple!)
@@ -603,7 +597,8 @@ function paint({
 
   // Show "NO VIDEO" message only when there is truly no video (not exporting, not loading)
   if (!presenting && !exportAvailable && !isLoadingTape && paintCount > 16n) {
-    wipe(40, 0, 0).ink(180, 0, 0).write("NO VIDEO", { center: "xy" });
+    ink(40, 0, 0).box(0, 0, screen.width, screen.height);
+    ink(180, 0, 0).write("NO VIDEO", { center: "xy" });
   }
   
   // Scrub overlay (STAMPLE-style speed-based)
