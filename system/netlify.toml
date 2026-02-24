@@ -1475,12 +1475,24 @@ from = "/api/piece-metadata"
 to = "/.netlify/functions/piece-metadata"
 status = 200
 [[redirects]]
+from = "/api/pack-html"
+to = "https://oven.aesthetic.computer/pack-html"
+status = 200
+[[redirects]]
 from = "/api/bundle-html"
 to = "https://oven.aesthetic.computer/bundle-html"
 status = 200
 [[redirects]]
+from = "/api/pack-telemetry"
+to = "/.netlify/functions/bundle-telemetry"
+status = 200
+[[redirects]]
 from = "/api/bundle-telemetry"
 to = "/.netlify/functions/bundle-telemetry"
+status = 200
+[[redirects]]
+from = "/api/pack-telemetry-query"
+to = "/.netlify/functions/bundle-telemetry-query"
 status = 200
 [[redirects]]
 from = "/api/bundle-telemetry-query"

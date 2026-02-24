@@ -2119,9 +2119,9 @@ app.get('/api/app-screenshots/:piece', async (req, res) => {
   });
 });
 
-// ─── Bundle HTML endpoint ───────────────────────────────────────────
+// ─── Pack HTML endpoint (alias: /bundle-html) ──────────────────────
 
-app.get('/bundle-html', async (req, res) => {
+app.get(['/pack-html', '/bundle-html'], async (req, res) => {
   const code = req.query.code;
   const piece = req.query.piece;
   const format = req.query.format || 'html';
@@ -2146,7 +2146,7 @@ app.get('/bundle-html', async (req, res) => {
   const isJSPiece = !!piece;
   const bundleTarget = piece || code;
   if (!bundleTarget) {
-    return res.status(400).json({ error: "Missing 'code' or 'piece' parameter.", usage: { kidlisp: "/bundle-html?code=39j", javascript: "/bundle-html?piece=notepat" } });
+    return res.status(400).json({ error: "Missing 'code' or 'piece' parameter.", usage: { kidlisp: "/pack-html?code=39j", javascript: "/pack-html?piece=notepat" } });
   }
 
   // M4D mode: .amxd binary
@@ -2208,7 +2208,7 @@ app.get('/bundle-html', async (req, res) => {
 });
 
 // Prewarm the core bundle cache (called by deploy.sh after restart)
-app.post('/bundle-prewarm', async (req, res) => {
+app.post(['/pack-prewarm', '/bundle-prewarm'], async (req, res) => {
   try {
     addServerLog('info', '📦', 'Bundle prewarm started...');
     const result = await prewarmCache();
@@ -2221,7 +2221,7 @@ app.post('/bundle-prewarm', async (req, res) => {
 });
 
 // Cache status
-app.get('/bundle-status', (req, res) => {
+app.get(['/pack-status', '/bundle-status'], (req, res) => {
   res.json(getCacheStatus());
 });
 

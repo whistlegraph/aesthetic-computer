@@ -119,12 +119,12 @@ let cachedGizmo; // Reference to gizmo for use in act() function
 let progressPhase = ""; // Current phase of upload (e.g., "ZIPPING", "UPLOADING IMAGE")
 let progressPercentage = 0; // 0-100
 
-// 📦 Bundle progress state
-let bundleProgress = null; // { timeline, startTime, code } or null
+// 📦 Pack progress state
+let packProgress = null; // { timeline, startTime, code } or null
 
-// Structured bundle timeline — each step has an id, label, and status.
+// Structured pack timeline — each step has an id, label, and status.
 // Steps are marked done/active/skipped as SSE progress events arrive.
-const BUNDLE_STEP_DEFS = [
+const PACK_STEP_DEFS = [
   { id: 'fetch',     label: 'Fetch Source' },
   { id: 'init',      label: 'Initialize' },       // .mjs pieces
   { id: 'deps',      label: 'Resolve Dependencies' },
@@ -135,18 +135,18 @@ const BUNDLE_STEP_DEFS = [
   { id: 'piece',     label: 'Load Piece' },        // .mjs pieces only
   { id: 'paintings', label: 'Embed Paintings' },   // only if paintings exist
   { id: 'generate',  label: 'Generate HTML' },
-  { id: 'compress',  label: 'Compress Bundle' },
+  { id: 'compress',  label: 'Compress Pack' },
   { id: 'complete',  label: 'Done!' },
 ];
 
-function makeBundleTimeline() {
-  return BUNDLE_STEP_DEFS.map(s => ({
+function makePackTimeline() {
+  return PACK_STEP_DEFS.map(s => ({
     ...s, status: 'pending', message: null, time: null,
   }));
 }
 
 // Mark a timeline step active, completing the previous active step.
-function advanceBundleStep(timeline, stageId, message) {
+function advancePackStep(timeline, stageId, message) {
   // Complete any currently-active step.
   for (const step of timeline) {
     if (step.status === 'active') {
@@ -163,7 +163,7 @@ function advanceBundleStep(timeline, stageId, message) {
 }
 
 // Finish: mark all remaining pending steps as skipped and active as done.
-function finalizeBundleTimeline(timeline) {
+function finalizePackTimeline(timeline) {
   for (const step of timeline) {
     if (step.status === 'active') step.status = 'done';
     else if (step.status === 'pending') step.status = 'skipped';
@@ -2557,11 +2557,11 @@ async function halt($, text) {
 
     makeFlash($);
     return true;
-  } else if (text.startsWith("html ") || text.startsWith("bundle ")) {
-    // Generate a self-contained HTML bundle for a piece (KidLisp $code or .mjs piece)
+  } else if (text.startsWith("html ") || text.startsWith("pack ")) {
+    // Generate a self-contained HTML pack for a piece (KidLisp $code or .mjs piece)
     const pieceCode = params[0];
     if (!pieceCode) {
-      notice("Usage: bundle $code or bundle piece", ["red"]);
+      notice("Usage: pack $code or pack piece", ["red"]);
       flashColor = [255, 0, 0];
       makeFlash($);
       return true;
@@ -2572,19 +2572,19 @@ async function halt($, text) {
     const code = isKidlisp ? pieceCode.slice(1) : pieceCode;
     const displayName = isKidlisp ? `$${code}` : code;
 
-    // Initialize bundle progress UI with structured timeline
-    const timeline = makeBundleTimeline();
-    advanceBundleStep(timeline, 'fetch', `Fetching ${displayName}...`);
-    bundleProgress = { timeline, startTime: performance.now(), code: displayName };
+    // Initialize pack progress UI with structured timeline
+    const timeline = makePackTimeline();
+    advancePackStep(timeline, 'fetch', `Fetching ${displayName}...`);
+    packProgress = { timeline, startTime: performance.now(), code: displayName };
     needsPaint();
 
     try {
       // Use streaming endpoint for progress updates
       // Hit the oven directly to avoid Netlify proxy timeout (26s limit + SSE buffering)
       const bundleParam = isKidlisp ? `code=$${code}` : `piece=${code}`;
-      const response = await fetch(`https://oven.aesthetic.computer/bundle-html?${bundleParam}&format=stream`);
+      const response = await fetch(`https://oven.aesthetic.computer/pack-html?${bundleParam}&format=stream`);
       if (!response.ok) {
-        throw new Error(`Bundle API returned ${response.status}`);
+        throw new Error(`Pack API returned ${response.status}`);
       }
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -2615,13 +2615,13 @@ async function halt($, text) {
               if (currentEventType === 'progress') {
                 // Advance the structured timeline
                 if (data.stage) {
-                  advanceBundleStep(bundleProgress.timeline, data.stage, data.message);
+                  advancePackStep(packProgress.timeline, data.stage, data.message);
                 }
                 needsPaint();
               } else if (currentEventType === 'complete') {
                 result = data;
-                advanceBundleStep(bundleProgress.timeline, 'complete', 'Done!');
-                finalizeBundleTimeline(bundleProgress.timeline);
+                advancePackStep(packProgress.timeline, 'complete', 'Done!');
+                finalizePackTimeline(packProgress.timeline);
                 needsPaint();
               }
             } catch (parseErr) {
@@ -2633,10 +2633,10 @@ async function halt($, text) {
       };
 
       // Timeout: abort the stream if it takes longer than 2 minutes
-      const BUNDLE_TIMEOUT = 120_000;
+      const PACK_TIMEOUT = 120_000;
       const timeoutId = setTimeout(() => {
         reader.cancel();
-      }, BUNDLE_TIMEOUT);
+      }, PACK_TIMEOUT);
 
       try {
         while (true) {
@@ -2673,7 +2673,7 @@ async function halt($, text) {
       }
 
       if (!result) {
-        throw new Error("No result received from bundle API");
+        throw new Error("No result received from pack API");
       }
 
       // Decode base64 content and download
@@ -2683,13 +2683,13 @@ async function halt($, text) {
       notice("Downloaded " + result.filename + " (" + result.sizeKB + "KB)", ["lime"]);
       flashColor = [0, 255, 0];
     } catch (err) {
-      console.error("Bundle error:", err);
-      notice("Bundle failed: " + err.message, ["red"]);
+      console.error("Pack error:", err);
+      notice("Pack failed: " + err.message, ["red"]);
       flashColor = [255, 0, 0];
     }
 
-    // Clear bundle progress
-    bundleProgress = null;
+    // Clear pack progress
+    packProgress = null;
 
     makeFlash($);
     return true;
@@ -2708,22 +2708,22 @@ async function halt($, text) {
     const displayName = isKidlisp ? `$${code}` : code;
 
     // Show indeterminate progress overlay
-    const m4dTimeline = makeBundleTimeline();
-    advanceBundleStep(m4dTimeline, 'fetch', `Building M4L device for ${displayName}...`);
-    bundleProgress = { timeline: m4dTimeline, startTime: performance.now(), code: displayName };
+    const m4dTimeline = makePackTimeline();
+    advancePackStep(m4dTimeline, 'fetch', `Building M4L device for ${displayName}...`);
+    packProgress = { timeline: m4dTimeline, startTime: performance.now(), code: displayName };
     needsPaint();
 
     try {
       const bundleParam = isKidlisp ? `code=$${code}` : `piece=${code}`;
-      const response = await fetch(`/api/bundle-html?${bundleParam}&format=m4d`);
+      const response = await fetch(`/api/pack-html?${bundleParam}&format=m4d`);
 
       if (!response.ok) {
         const err = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
         throw new Error(err.error || `M4D API returned ${response.status}`);
       }
 
-      advanceBundleStep(bundleProgress.timeline, 'complete', 'Downloading .amxd...');
-      finalizeBundleTimeline(bundleProgress.timeline);
+      advancePackStep(packProgress.timeline, 'complete', 'Downloading .amxd...');
+      finalizePackTimeline(packProgress.timeline);
       needsPaint();
 
       // Download the binary .amxd file via the disk download API (worker-safe)
@@ -2738,7 +2738,7 @@ async function halt($, text) {
       flashColor = [255, 0, 0];
     }
 
-    bundleProgress = null;
+    packProgress = null;
     makeFlash($);
     return true;
   } else if (text === "wallet" || text.startsWith("wallet ")) {
@@ -4443,9 +4443,9 @@ function paint($) {
     }
   }
 
-  // 📦 Bundle progress overlay — structured step list
-  if (bundleProgress) {
-    const { timeline, startTime, code } = bundleProgress;
+  // 📦 Pack progress overlay — structured step list
+  if (packProgress) {
+    const { timeline, startTime, code } = packProgress;
     const elapsed = performance.now() - startTime;
 
     // Count completed steps for progress bar
@@ -4467,7 +4467,7 @@ function paint($) {
     if (filledWidth > 0) ink(...accent).box(1, barY, filledWidth, barHeight);
 
     // 📋 Title
-    const titleText = `BUNDLE ${code}`;
+    const titleText = `PACK ${code}`;
     const titleY = 6;
     ink(...accent).write(titleText, { center: "x", y: titleY });
 
