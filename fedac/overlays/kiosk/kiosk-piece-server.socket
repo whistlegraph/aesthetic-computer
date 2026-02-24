@@ -1,0 +1,10 @@
+[Unit]
+Description=FedAC Kiosk Piece Server Socket
+DefaultDependencies=no
+
+[Socket]
+ListenStream=8080
+Accept=no
+
+[Install]
+WantedBy=sockets.target
