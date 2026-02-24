@@ -18272,16 +18272,99 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 });
               }
               
-              options.body = JSON.stringify(body);
-              const added = await fetch("api/track-media", options);
-              
-              // Check for HTTP errors
-              if (!added.ok) {
-                console.error(`❌ track-media HTTP error: ${added.status} ${added.statusText}`);
+              // Emit backend processing status updates during DB/code/ATProto phases.
+              send({
+                type: "upload:status",
+                content: { stage: "init", message: "Preparing media record..." },
+              });
+
+              let addedData = null;
+              try {
+                options.body = JSON.stringify(body);
+                const streamResponse = await fetch("api/track-media-stream", options);
+                if (!streamResponse.ok) {
+                  throw new Error(`track-media-stream HTTP ${streamResponse.status}`);
+                }
+                if (!streamResponse.body) {
+                  throw new Error("track-media-stream returned empty body");
+                }
+
+                const reader = streamResponse.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = "";
+                let currentEventType = null;
+                let streamError = null;
+
+                const parseSSE = (lines) => {
+                  for (const line of lines) {
+                    if (line.startsWith("event: ")) {
+                      currentEventType = line.slice(7).trim();
+                    } else if (line.startsWith("data: ")) {
+                      const dataRaw = line.slice(6);
+                      let payload;
+                      try {
+                        payload = JSON.parse(dataRaw);
+                      } catch {
+                        payload = { message: dataRaw };
+                      }
+
+                      if (currentEventType === "progress") {
+                        send({
+                          type: "upload:status",
+                          content: {
+                            stage: payload.stage || "processing",
+                            message: payload.message || "Processing...",
+                          },
+                        });
+                      } else if (currentEventType === "complete") {
+                        addedData = payload;
+                      } else if (currentEventType === "error") {
+                        streamError = payload?.error || "Unknown stream error";
+                      }
+                      currentEventType = null;
+                    }
+                  }
+                };
+
+                while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) {
+                    buffer += decoder.decode();
+                    break;
+                  }
+                  buffer += decoder.decode(value, { stream: true });
+                  const lines = buffer.split("\n");
+                  buffer = lines.pop() || "";
+                  parseSSE(lines);
+                  if (streamError) break;
+                }
+
+                if (buffer.trim()) {
+                  parseSSE(buffer.split("\n"));
+                }
+
+                if (streamError) {
+                  throw new Error(streamError);
+                }
+                if (!addedData) {
+                  throw new Error("No complete event from track-media-stream");
+                }
+                console.log("🗞️ track-media-stream complete:", addedData);
+              } catch (streamErr) {
+                console.warn("⚠️ track-media-stream failed, falling back to /api/track-media:", streamErr);
+                send({
+                  type: "upload:status",
+                  content: { stage: "fallback", message: "Using fallback tracking..." },
+                });
+
+                options.body = JSON.stringify(body);
+                const added = await fetch("api/track-media", options);
+                if (!added.ok) {
+                  console.error(`❌ track-media HTTP error: ${added.status} ${added.statusText}`);
+                }
+                addedData = await added.json();
+                console.log("🗞️ track-media response:", addedData, "status:", added.status);
               }
-              
-              const addedData = await added.json();
-              console.log("🗞️ track-media response:", addedData, "status:", added.status);
               
               // Create data object first
               let data = { slug, url: url.toString(), ext };
@@ -18293,11 +18376,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               } else {
                 console.error("❌ No code received from track-media! Response:", addedData);
               }
+              if (addedData.paintingId) data.paintingId = addedData.paintingId;
 
               if (!userMedia && (ext === "mjs" || ext === "lisp")) {
                 data.url =
                   "https://art.aesthetic.computer/" + data.slug + "." + data.ext;
               }
+
+              send({
+                type: "upload:status",
+                content: { stage: "complete", message: "Media record complete." },
+              });
 
               send({
                 type: callbackMessage,

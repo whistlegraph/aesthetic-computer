@@ -8911,6 +8911,31 @@ function fetchUser() {
 function receive(e) {
   // console.log(`📨 ✅✅✅ PROMPT.MJS RECEIVE called with type: ${e.type}, is() available: ${typeof e.is === 'function'}`);
 
+  if (e.is("upload:status")) {
+    const { stage, message } = e.content || {};
+    const stageText = {
+      init: "PREPARING",
+      auth: "AUTHORIZING",
+      database: "CONNECTING DATABASE",
+      indexes: "PREPARING INDEXES",
+      code: "GENERATING CODE",
+      insert: "SAVING RECORD",
+      sync: "SYNCING FEED",
+      acl: "SETTING ACL",
+      oven: "SENDING TO OVEN",
+      fallback: "TRACKING (FALLBACK)",
+      complete: "FINALIZING",
+    };
+    progressPhase = String(message || stageText[stage] || "PROCESSING").toUpperCase();
+
+    // Keep "done" in indeterminate mode while backend stages are running.
+    if (progressBar < 0) {
+      progressBar = -2;
+      progressPercentage = -1;
+    }
+    promptNeedsPaint?.();
+  }
+
   if (e.is("tape:load-progress")) {
     const { code, phase, progress, loadedFrames, totalFrames } = e.content || {};
 
