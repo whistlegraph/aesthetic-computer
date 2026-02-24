@@ -676,8 +676,8 @@ export const handler = stream(async (event, context) => {
         await send("progress", { stage: "bundle", message: "Packing HTML bundle..." });
         
         const bundleUrl = dev
-          ? `https://localhost:8888/api/bundle-html?code=${pieceName}&format=json`
-          : `https://oven.aesthetic.computer/bundle-html?code=${pieceName}&format=json`;
+          ? `https://localhost:8888/api/bundle-html?code=${pieceName}&format=json&noboxart=1`
+          : `https://oven.aesthetic.computer/bundle-html?code=${pieceName}&format=json&noboxart=1`;
         
         // Add timeout to prevent function from hanging if bundle-html is slow
         // Bundle generation can take 15-30s on cold starts due to SWC minification
