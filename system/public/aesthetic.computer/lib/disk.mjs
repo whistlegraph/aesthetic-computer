@@ -5175,6 +5175,8 @@ function getGlobalKidLisp() {
 function updateKidLispAudio(audioData) {
   if (globalKidLispInstance && globalKidLispInstance.updateAudioGlobals) {
     globalKidLispInstance.updateAudioGlobals(audioData);
+  } else if (audioData?.amp > 0) {
+    console.warn("🔊 updateKidLispAudio: no instance!", !!globalKidLispInstance, !!globalKidLispInstance?.updateAudioGlobals);
   }
 }
 
@@ -11021,19 +11023,18 @@ async function makeFrame({ data: { type, content } }) {
       $commonApi.jump(promptSlug);
       send({ type: "keyboard:open" });
       currentHUDScrub = 0;
-      masked = true;
-      $api.needsPaint();
+      $commonApi.needsPaint?.();
     }
 
     function triggerShareAction() {
-      $api.sound.synth({
+      $commonApi.sound.synth({
         tone: 1800,
         beats: 0.15,
         attack: 0.01,
         decay: 0.5,
         volume: 0.15,
       });
-      $api.sound.synth({
+      $commonApi.sound.synth({
         tone: 1800 / 2,
         beats: 0.15 * 2,
         attack: 0.01,
@@ -11044,16 +11045,15 @@ async function makeFrame({ data: { type, content } }) {
       // Prefer existing cached short codes so we don't re-embed long inline source
       const cachedShortCode = getCachedCode(currentCode);
       if (cachedShortCode) {
-        $api.jump("share~$" + cachedShortCode);
+        $commonApi.jump("share~$" + cachedShortCode);
       } else if (currentOriginalCodeId && currentOriginalCodeId.startsWith("$")) {
-        $api.jump("share~" + currentOriginalCodeId);
+        $commonApi.jump("share~" + currentOriginalCodeId);
       } else {
         const textToShare = currentHUDPlainTxt || currentHUDTxt || currentText || "";
-        $api.jump("share~" + lisp.encodeKidlispForUrl(textToShare));
+        $commonApi.jump("share~" + lisp.encodeKidlispForUrl(textToShare));
       }
       currentHUDScrub = 0;
-      masked = true;
-      $api.needsPaint();
+      $commonApi.needsPaint?.();
     }
 
     // 🌟 Global Keyboard Shortcuts (these could also be seen via `act`)
@@ -13697,7 +13697,7 @@ async function makeFrame({ data: { type, content } }) {
                 x: shareTextX,
                 y: shareTextY,
                 typefaceName: undefined, // Use default font, not MatrixChunky8
-                textColor: c,
+                textColor: [255, 255, 255],
                 shadowColor: "black",
                 preserveColors: false,
               });

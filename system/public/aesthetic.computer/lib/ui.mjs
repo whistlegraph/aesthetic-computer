@@ -692,10 +692,6 @@ class Button {
         (btn.stickyScrubbing && btn.down) ||
         (btn.offScreenScrubbing && btn.down && horizontallyWithinForOffScreen)
       ) {
-        // Debug: scrub callback invocation
-        try {
-          console.log("UI: scrub ->", { box: btn.box, pointer: e.pointer, drag: e.drag });
-        } catch (err) {}
         callbacks.scrub?.(btn);
       }
     }
