@@ -2282,6 +2282,11 @@ export async function handler(event, context) {
         desc: "Make bubble boing. Sound on.",
         done: false,
       },
+      butterflies: {
+        sig: "butterflies",
+        desc: "A 1-bit bitmap reader instrument.",
+        done: false,
+      },
       camera: {
         sig: "camera[:mode]",
         desc: "Take a picture.",
@@ -2622,6 +2627,11 @@ export async function handler(event, context) {
         desc: "Come to Fía's birthday!",
         done: false,
       },
+      "kaos-pad-template": {
+        sig: "kaos-pad-template",
+        desc: "A simple multi-touch XY pad template.",
+        done: false,
+      },
       line: {
         sig: "line[:thickness]",
         desc: "Draw lines with your finger.",
@@ -2899,6 +2909,11 @@ export async function handler(event, context) {
         desc: "The classic game of snake.",
         done: false,
         //TODO: need replay button
+      },
+      seashells: {
+        sig: "seashells",
+        desc: "A multi-touch bytebeat instrument.",
+        done: false,
       },
       screenshots: {
         sig: "screenshots",

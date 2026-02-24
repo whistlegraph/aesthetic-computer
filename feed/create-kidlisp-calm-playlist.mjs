@@ -17,6 +17,18 @@ const calmPieces = [
   'bop',
   'xom',
   'faim',
+  'bair',
+  'cow',
+  'weus',
+  'air',
+  '4bb',
+  'noc',
+  'woe',
+  'otoc',
+  'rip',
+  'ger',
+  'wul',
+  'xkq',
 ];
 
 const duration = 60; // seconds per piece
