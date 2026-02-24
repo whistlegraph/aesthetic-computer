@@ -275,11 +275,11 @@ export const handler = stream(async (event) => {
       const tags = [`$${pieceName}`, "KidLisp", "Aesthetic.Computer"];
       if (authorHandle && authorHandle !== "@anon") tags.push(authorHandle);
 
-      // Use analyzer traits + add author/packed info as attributes (matches keep-mint.mjs)
+      // Build attributes (matches keep-mint.mjs field names)
       const attributes = [
         ...analysis.traits,
-        ...(authorHandle && authorHandle !== "@anon" ? [{ name: "Handle", value: authorHandle }] : []),
         { name: "Updated", value: new Date().toISOString().split('T')[0] },
+        ...(authorHandle && authorHandle !== "@anon" ? [{ name: "Handle", value: authorHandle }] : []),
         { name: "Analyzer Version", value: ANALYZER_VERSION },
       ];
 
