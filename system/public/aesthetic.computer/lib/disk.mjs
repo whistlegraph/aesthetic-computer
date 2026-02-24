@@ -13676,7 +13676,8 @@ async function makeFrame({ data: { type, content } }) {
             }
             
             const baseX = currentHUDLeftPad + qrOffset;
-            const hudTextX = baseX + HUD_LABEL_TEXT_MARGIN + currentHUDScrub;
+            // Keep text fixed while scrubbing left; only right-scrub shifts label content.
+            const hudTextX = baseX + HUD_LABEL_TEXT_MARGIN + Math.max(0, currentHUDScrub);
             const hudTextY = 0;
             const typefaceNameForWrite = selectedHudFont;
             const hasColorCodes = textContainsColorCodes(text);
