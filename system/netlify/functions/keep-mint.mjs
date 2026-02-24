@@ -1037,6 +1037,7 @@ export const handler = stream(async (event, context) => {
           artifactUri,
           thumbnailUri,
           metadataUri,
+          packDate, // Bundle pack date (for display after rebake)
           rpcUrl: RPC_URL,
           usedCachedMedia: useCachedMedia, // Tell client if we reused IPFS pins
           cacheGeneratedAt: useCachedMedia ? piece.ipfsMedia?.createdAt : null, // When cache was generated

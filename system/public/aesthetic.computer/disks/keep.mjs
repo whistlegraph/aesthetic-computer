@@ -3286,12 +3286,9 @@ function act({ event: e, screen }) {
                     _needsPaint?.();
                   } else if ((eventType === "ready" || eventType === "prepared") && eventData) {
                     for (const s of rebakeStageLog) s.done = true;
-                    // Update preparedData with new URIs
-                    preparedData.artifactUri = eventData.artifactUri;
-                    preparedData.thumbnailUri = eventData.thumbnailUri;
-                    if (eventData.metadataUri) preparedData.metadataUri = eventData.metadataUri;
-                    if (eventData.packDate) preparedData.packDate = eventData.packDate;
-                    preparedData.usedCachedMedia = false; // Now using fresh media
+                    // Replace ALL preparedData fields (including michelsonParams
+                    // for correct on-chain data after rebake)
+                    preparedData = { ...preparedData, ...eventData, usedCachedMedia: false };
                     thumbnailBitmap = null; // Clear cached thumbnail so it reloads
                     rebakeProgress = "+ Regenerated!";
                     console.log("🪙 REBAKE complete:", eventData.artifactUri);
