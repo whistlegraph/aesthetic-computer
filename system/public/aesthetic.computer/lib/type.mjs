@@ -717,6 +717,52 @@ class Typeface {
           batchTimeout = setTimeout(flushBatch, BATCH_DELAY);
         }
       };
+
+      // In PACK mode, unifont may not have API access. Use font_1 glyphs as a
+      // defensive fallback before dropping to generic placeholders.
+      const font1LoadingGlyphs = new Set();
+      const font1FailedGlyphs = new Set();
+      const getFont1CachedGlyph = (char) => {
+        const direct = glyphMemoryCache.get(`font_1:${char}`);
+        if (direct) return direct;
+        return glyphMemoryCache.get(`font_1:?`) || null;
+      };
+
+      const queueFont1FallbackFetch = (char, target) => {
+        if (font1LoadingGlyphs.has(char) || font1FailedGlyphs.has(char)) return;
+
+        const font1Path = fonts?.font_1?.[char] || fonts?.font_1?.["?"];
+        if (
+          typeof font1Path !== "string" ||
+          font1Path.length === 0 ||
+          font1Path === "false"
+        ) {
+          font1FailedGlyphs.add(char);
+          return;
+        }
+
+        font1LoadingGlyphs.add(char);
+        $preload(`aesthetic.computer/disks/drawings/font_1/${font1Path}.json`)
+          .then((glyph) => {
+            if (!glyph) {
+              font1FailedGlyphs.add(char);
+              return;
+            }
+
+            target[char] = glyph;
+            this.invalidateAdvance(char);
+            cacheGlyph("font_1", char, glyph);
+            if (needsPaintCallback && typeof needsPaintCallback === "function") {
+              needsPaintCallback();
+            }
+          })
+          .catch(() => {
+            font1FailedGlyphs.add(char);
+          })
+          .finally(() => {
+            font1LoadingGlyphs.delete(char);
+          });
+      };
       
       // Pre-warm glyph cache from IndexedDB for this font (non-blocking)
       preWarmGlyphCache(this.name).then(count => {
@@ -884,7 +930,16 @@ class Typeface {
             // Queue the glyph for batch fetching instead of individual requests
             queueGlyphFetch(char, codePointStr, target);
           } else {
-            // In OBJKT mode for non-MatrixChunky8 fonts, create simple fallback
+            const cachedFont1Glyph = getFont1CachedGlyph(char);
+            if (cachedFont1Glyph) {
+              target[char] = cachedFont1Glyph;
+              loadingGlyphs.delete(char);
+              return cachedFont1Glyph;
+            }
+
+            queueFont1FallbackFetch(char, target);
+
+            // Last-resort fallback while font_1 glyph is loading.
             const simpleFallback = {
               resolution: [6, 8],
               pixels: [
@@ -900,9 +955,11 @@ class Typeface {
             };
             target[char] = simpleFallback;
             loadingGlyphs.delete(char);
+            return simpleFallback;
           }
 
           // Return appropriate fallback immediately while loading
+          if (isObjktMode && target[char]) return target[char];
           return this.getEmojiFallback(char, target);
         },
       });
@@ -1105,6 +1162,7 @@ class Typeface {
   ) {
     // TODO: Pass printLine params through / make a state machine.
     const font = this.glyphs;
+    const fallbackFont = $.typeface?.glyphs || null;
     const size = pos.size || 1;
     const blockMargin = 1;
     const inferredBlockWidth =
@@ -1276,6 +1334,7 @@ class Typeface {
           thickness,
           rotation,
           this.data, // Pass font metadata to avoid BDF proxy issues
+          fallbackFont,
         );
 
         // Move to next character position using proper advance width
@@ -1305,6 +1364,7 @@ class Typeface {
             thickness,
             rotation,
             this.data,
+            fallbackFont,
           );
           
           // Move to next character position
@@ -1324,6 +1384,7 @@ class Typeface {
           thickness,
           rotation,
           this.data, // Pass font metadata to avoid BDF proxy issues
+          fallbackFont,
         ); // Text
       }
     }

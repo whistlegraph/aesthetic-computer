@@ -8301,13 +8301,20 @@ async function load(
     };
 
     // 🎒 PACK mode: Check VFS for embedded files first (used for offline bundles)
-    if (typeof window !== 'undefined' && window.acPACK_MODE && window.VFS) {
+    const packModeActive =
+      (typeof window !== "undefined" && window.acPACK_MODE) ||
+      (typeof globalThis !== "undefined" && globalThis.acPACK_MODE);
+    const packVfs =
+      (typeof window !== "undefined" && window.VFS) ||
+      (typeof globalThis !== "undefined" && globalThis.VFS);
+
+    if (packModeActive && packVfs) {
       let vfsPath = typeof path === "object" ? path.path : path;
       // Normalize path: strip leading slash and "aesthetic.computer/" prefix
       if (vfsPath.startsWith('/')) vfsPath = vfsPath.slice(1);
       if (vfsPath.startsWith('aesthetic.computer/')) vfsPath = vfsPath.slice('aesthetic.computer/'.length);
       
-      const vfsEntry = window.VFS[vfsPath];
+      const vfsEntry = packVfs[vfsPath];
       if (vfsEntry) {
         const ext = typeof path === "object" ? path.extension : vfsPath.split(".").pop().split("?")[0];
         progressReport?.(1); // Report completion immediately for VFS files
@@ -9524,7 +9531,13 @@ async function makeFrame({ data: { type, content } }) {
     SHARE_SUPPORTED = content.shareSupported;
     PREVIEW_OR_ICON = content.previewOrIcon;
   VSCODE = content.vscode;
-  setPackMode(content.objktMode || false);    // Store OBJKT KidLisp cache in worker global scope
+  setPackMode(
+    Boolean(
+      content.objktMode ||
+      content.packMode ||
+      (typeof globalThis !== "undefined" && globalThis.acPACK_MODE),
+    ),
+  );    // Store PACK/OBJKT mode flag in worker global scope
     if (content.objktKidlispCodes) {
       const globalScope = (function() {
         if (typeof globalThis !== 'undefined') return globalThis;
