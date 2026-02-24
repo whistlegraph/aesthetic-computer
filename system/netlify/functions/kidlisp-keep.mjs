@@ -13,7 +13,7 @@ import { analyzeKidLisp, ANALYZER_VERSION } from "../../backend/kidlisp-analyzer
 const dev = process.env.CONTEXT === "dev";
 
 // Configuration
-const CONTRACT_ADDRESS = process.env.TEZOS_KEEPS_CONTRACT || "KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W";
+const CONTRACT_ADDRESS = process.env.TEZOS_KEEPS_CONTRACT || "KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido";
 const NETWORK = process.env.TEZOS_NETWORK || "mainnet";
 
 // Convert string to hex bytes (for Tezos)

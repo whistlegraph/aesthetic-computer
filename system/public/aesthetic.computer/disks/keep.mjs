@@ -3285,6 +3285,7 @@ function act({ event: e, screen }) {
                     preparedData.artifactUri = eventData.artifactUri;
                     preparedData.thumbnailUri = eventData.thumbnailUri;
                     if (eventData.metadataUri) preparedData.metadataUri = eventData.metadataUri;
+                    if (eventData.packDate) preparedData.packDate = eventData.packDate;
                     preparedData.usedCachedMedia = false; // Now using fresh media
                     thumbnailBitmap = null; // Clear cached thumbnail so it reloads
                     rebakeProgress = "+ Regenerated!";

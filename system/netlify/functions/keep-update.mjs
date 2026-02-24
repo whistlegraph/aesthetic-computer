@@ -20,8 +20,8 @@ if (dev) {
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 }
 
-// Configuration - Mainnet v4 contract by default
-const CONTRACT_ADDRESS = process.env.TEZOS_KEEPS_CONTRACT || "KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W";
+// Configuration - Mainnet v5 RC contract by default
+const CONTRACT_ADDRESS = process.env.TEZOS_KEEPS_CONTRACT || "KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido";
 const NETWORK = process.env.TEZOS_NETWORK || "mainnet";
 const TZKT_API = NETWORK === "mainnet" ? "https://api.tzkt.io/v1" : `https://api.${NETWORK}.tzkt.io/v1`;
 const RPC_URL = NETWORK === "mainnet" 
@@ -272,12 +272,13 @@ export const handler = stream(async (event) => {
       // Build metadata
       const tokenName = `$${pieceName}`;
       const description = pieceDoc.source || `A KidLisp piece preserved on Tezos`;
-      const tags = [`$${pieceName}`, "KidLisp", "Aesthetic.Computer", "interactive"];
-      
+      const tags = [`$${pieceName}`, "KidLisp", "Aesthetic.Computer"];
+      if (authorHandle && authorHandle !== "@anon") tags.push(authorHandle);
+
       // Use analyzer traits + add author/packed info as attributes (matches keep-mint.mjs)
       const attributes = [
         ...analysis.traits,
-        ...(authorHandle && authorHandle !== "@anon" ? [{ name: "Author", value: authorHandle }] : []),
+        ...(authorHandle && authorHandle !== "@anon" ? [{ name: "Handle", value: authorHandle }] : []),
         { name: "Updated", value: new Date().toISOString().split('T')[0] },
         { name: "Analyzer Version", value: ANALYZER_VERSION },
       ];
