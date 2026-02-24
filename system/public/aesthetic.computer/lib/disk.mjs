@@ -1619,8 +1619,12 @@ function toggleQRFullscreen() {
   }
 }
 
+// In PACK mode, show HUD for non-KidLisp pieces (JS bundles) but hide for KidLisp
+const _packModeHudVisible = getPackMode()
+  ? (typeof window !== 'undefined' && window.acPACK_COLOPHON?.piece?.isKidLisp === false)
+  : true;
 let hudAnimationState = {
-  visible: !getPackMode(), // Hidden by default in OBJKT mode, visible otherwise
+  visible: _packModeHudVisible,
   animating: false,
   startTime: 0,
   duration: 500, // 500ms animation
@@ -12133,12 +12137,11 @@ async function makeFrame({ data: { type, content } }) {
                 const fallbackShareWidth = tf.blockWidth * "share ".length;
                 const shareWidth = Math.max(currentHUDShareWidth || 0, fallbackShareWidth);
                 
-                // If scrubbed to reveal "share", jump to share piece
-                if (currentHUDScrub >= shareWidth) {
-                  // Clear global HUD button flags
+                // 📦 PACK mode: no scrub-to-share, tap refreshes page
+                if (getPackMode()) {
                   currentHUDButtonActive = false;
                   currentHUDButtonDirectTouch = false;
-                  
+                  currentHUDScrub = 0;
                   $api.sound.synth({
                     tone: 1200,
                     beats: 0.1,
@@ -12146,7 +12149,26 @@ async function makeFrame({ data: { type, content } }) {
                     decay: 0.5,
                     volume: 0.15,
                   });
-                  
+                  if (typeof window !== 'undefined') window.location.reload();
+                  masked = true;
+                  $api.needsPaint();
+                  return;
+                }
+
+                // If scrubbed to reveal "share", jump to share piece
+                if (currentHUDScrub >= shareWidth) {
+                  // Clear global HUD button flags
+                  currentHUDButtonActive = false;
+                  currentHUDButtonDirectTouch = false;
+
+                  $api.sound.synth({
+                    tone: 1200,
+                    beats: 0.1,
+                    attack: 0.01,
+                    decay: 0.5,
+                    volume: 0.15,
+                  });
+
                   // Build the share URL with current piece as parameter
                   const content = currentHUDPlainTxt || currentHUDTxt;
                   jump(`share~${content}`);
@@ -12155,7 +12177,7 @@ async function makeFrame({ data: { type, content } }) {
                   currentHUDScrub = 0;
                   return;
                 }
-                
+
                 // If scrubbed but not to max, cancel the push
                 if (currentHUDScrub > 0 && currentHUDScrub < shareWidth) {
                   btn.actions.cancel?.();
@@ -12192,6 +12214,7 @@ async function makeFrame({ data: { type, content } }) {
                 currentHUDScrub = 0;
               },
               scrub: (btn) => {
+                if (getPackMode()) return; // No scrub-to-share in bundled mode.
                 if (piece === "share") return; // No need to share scrub while in share.
                 if (currentHUDQR || currentHUDQRCells?.length || hudAnimationState.qrFullscreen) return; // Disable swipe-to-share when QR is shown.
 

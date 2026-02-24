@@ -637,7 +637,7 @@ async function getCoreBundle(onProgress = () => {}, forceRefresh = false) {
 
 // ─── KidLisp bundle ─────────────────────────────────────────────────
 
-export async function createBundle(pieceName, onProgress = () => {}, nocompress = false, density = null, brotli = false) {
+export async function createBundle(pieceName, onProgress = () => {}, nocompress = false, density = null, brotli = false, noboxart = false) {
   const PIECE_NAME_NO_DOLLAR = pieceName.replace(/^\$/, "");
   const PIECE_NAME = "$" + PIECE_NAME_NO_DOLLAR;
 
@@ -696,7 +696,7 @@ export async function createBundle(pieceName, onProgress = () => {}, nocompress 
   const bdfGlyphs = files.__bdfGlyphs || {};
   delete files.__bdfGlyphs;
 
-  const boxArtPNG = await generateBoxArtPNG(PIECE_NAME, authorHandle, bgColor).catch(() => null);
+  const boxArtPNG = noboxart ? null : await generateBoxArtPNG(PIECE_NAME, authorHandle, bgColor).catch(() => null);
 
   const htmlContent = generateHTMLBundle({
     PIECE_NAME, PIECE_NAME_NO_DOLLAR, mainSource, kidlispSources,
@@ -729,7 +729,7 @@ export async function createBundle(pieceName, onProgress = () => {}, nocompress 
 
 // ─── JS piece bundle ────────────────────────────────────────────────
 
-export async function createJSPieceBundle(pieceName, onProgress = () => {}, nocompress = false, density = null, brotli = false) {
+export async function createJSPieceBundle(pieceName, onProgress = () => {}, nocompress = false, density = null, brotli = false, noboxart = false) {
   const acDir = AC_SOURCE_DIR;
   onProgress({ stage: "init", message: `Bundling ${pieceName}...` });
 
@@ -779,7 +779,7 @@ export async function createJSPieceBundle(pieceName, onProgress = () => {}, noco
   const bdfGlyphs = files.__bdfGlyphs || {};
   delete files.__bdfGlyphs;
 
-  const boxArtPNG = await generateBoxArtPNG(pieceName, null, null).catch(() => null);
+  const boxArtPNG = noboxart ? null : await generateBoxArtPNG(pieceName, null, null).catch(() => null);
 
   const htmlContent = generateJSPieceHTMLBundle({ pieceName, files, packDate, packTime, gitVersion: GIT_COMMIT, bdfGlyphs, boxArtPNG });
   const filename = `${pieceName}-${bundleTimestamp}.html`;
@@ -1171,6 +1171,7 @@ function generateHTMLBundle(opts) {
           var fontM = urlStr.match(/[?&]font=([^&]+)/);
           var charsM = urlStr.match(/[?&]chars?=([^&]+)/);
           var fontKey = fontM ? decodeURIComponent(fontM[1]) : 'unifont';
+          if (fontKey === 'unifont-16.0.03') fontKey = 'unifont';
           var fontMap = window.acBUNDLED_GLYPHS[fontKey] || {};
           var glyphs = {};
           if (charsM) { for (var c of charsM[1].split(',')) { var hex = c.trim().toUpperCase(); if (fontMap[hex]) glyphs[c.trim()] = fontMap[hex]; } }
@@ -1347,6 +1348,7 @@ function generateJSPieceHTMLBundle(opts) {
           var fontM = urlStr.match(/[?&]font=([^&]+)/);
           var charsM = urlStr.match(/[?&]chars?=([^&]+)/);
           var fontKey = fontM ? decodeURIComponent(fontM[1]) : 'unifont';
+          if (fontKey === 'unifont-16.0.03') fontKey = 'unifont';
           var fontMap = window.acBUNDLED_GLYPHS[fontKey] || {};
           var glyphs = {};
           if (charsM) { for (var c of charsM[1].split(',')) { var hex = c.trim().toUpperCase(); if (fontMap[hex]) glyphs[c.trim()] = fontMap[hex]; } }
