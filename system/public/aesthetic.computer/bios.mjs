@@ -17170,7 +17170,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             overlayCan.style.display = "none";
           }
           ctx.drawImage(dirtyBoxBitmapCan, db.x, db.y);
-          if (glaze.on) Glaze.update(dirtyBoxBitmapCan, db.x, db.y);
+          if (glaze.on && glazeReady) Glaze.update(dirtyBoxBitmapCan, db.x, db.y);
         }
       } else if (
         pixelsDidChange ||
@@ -17683,14 +17683,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         }
 
-        if (glaze.on) {
+        if (glaze.on && glazeReady && !awaitingReframePixels) {
           ThreeD?.pasteTo(glazeCompositeCtx);
           const glazeSource = webglCompositeActive ? webglCompositeCanvas : canvas;
           glazeCompositeCtx.drawImage(glazeSource, 0, 0);
           Glaze.update(glazeComposite);
         }
-
-        // TODO: Is this actually updating with a blank image at first? How to prevent the glaze.clear flicker? 2022.6.8
       }
 
       if (glaze.on) {
