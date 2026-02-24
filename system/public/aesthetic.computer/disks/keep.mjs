@@ -1213,7 +1213,7 @@ async function runProcess(forceRegenerate = false, retryAttempt = 0) {
 
     // Process events with staggered delays so user sees each step
     const delay = (ms) => new Promise(r => setTimeout(r, ms));
-    const STEP_DELAY = 350; // ms between each visual step
+    const STEP_DELAY = 150; // ms between each visual step
     let firstEvent = true;
     let lastEventType = null;
     let lastEventData = null;
@@ -1269,8 +1269,9 @@ async function runProcess(forceRegenerate = false, retryAttempt = 0) {
             setStep("analyze", "active", "Analyzing...");
           }
         } else if (stage === "thumbnail") {
+          const isWaiting = message?.includes("Awaiting") || message?.includes("Baking");
           const detail = isCached ? "Cached" : message || "WebP ready";
-          setStep("thumbnail", "done", detail);
+          setStep("thumbnail", isWaiting ? "active" : "done", detail);
         } else if (stage === "bundle") {
           const detail = isCached ? "Cached" : message || "HTML packed";
           console.log(`🪙 KEEP: ✓ Bundle stage COMPLETE - ${detail}`);
@@ -1379,7 +1380,10 @@ async function runProcess(forceRegenerate = false, retryAttempt = 0) {
             try { eventData = JSON.parse(line.slice(6)); } catch {}
           }
         }
-        if (eventType) await handleEvent(eventType, eventData);
+        if (eventType) {
+          await handleEvent(eventType, eventData);
+          if (eventType === "error") return;
+        }
       }
     } else {
       const text = await response.text();
@@ -1405,7 +1409,8 @@ async function runProcess(forceRegenerate = false, retryAttempt = 0) {
     if (!preparedData) {
       const lastStage = lastEventData?.stage || lastEventType || "unknown";
       const tail = lastEventData?.message ? ` (last: ${lastEventData.message})` : "";
-      if (!mintCancelled) {
+      const hadServerError = lastEventType === "error";
+      if (!mintCancelled && !hadServerError) {
         // First retry should reuse any just-cached media from the previous attempt.
         if (!forceRegenerate && retryAttempt === 0) {
           setStep("validate", "active", `Retrying without regenerate… (${lastStage})`);
