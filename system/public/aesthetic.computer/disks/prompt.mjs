@@ -186,6 +186,9 @@ let login, // A login button in the center of the display.
   shopBtn, // SHOP button for products (top-right)
   commitBtn, // Commit hash button (navigates to commits piece)
   kidlispBtn; // KidLisp.com button (shown when in KidLisp mode)
+let clearBtn; // ✕ Clear prompt button (appears below/right of cursor when typing)
+let clearBtnConfirming = false; // Two-tap confirmation state
+let clearBtnConfirmTimeout = null; // Reset timer for confirmation
 let adBtnParticles = []; // Sparkle particles for AD button
 let adBtnHue = 0; // Color cycling for AD button
 let soBtn, softBtn; // SO SOFT ad buttons
@@ -8075,6 +8078,37 @@ function paint($) {
     );
   }
 
+  // ✕ Clear prompt button (below-right of cursor when user has typed text)
+  {
+    const inp = $.system.prompt.input;
+    if (inp?.canType && inp?.prompt && inp.text?.length > 0) {
+      const cp = inp.prompt.pos(undefined, true);
+      if (cp?.x !== undefined) {
+        const sz = 9;
+        const bx = Math.min(cp.x + cp.w + 3, screen.width - sz - 2);
+        const by = cp.y + cp.h + 3;
+        if (!clearBtn) {
+          clearBtn = new $.ui.Button(bx, by, sz, sz);
+        } else {
+          clearBtn.box.x = bx;
+          clearBtn.box.y = by;
+          clearBtn.box.w = sz;
+          clearBtn.box.h = sz;
+          clearBtn.disabled = false;
+        }
+        $.layer(3);
+        const alpha = clearBtnConfirming ? 255 : clearBtn.over ? 230 : 170;
+        ink(255, 0, 0, alpha).box(bx, by, sz, sz);
+        ink(255, 255, 255, alpha)
+          .line(bx + 2, by + 2, bx + sz - 3, by + sz - 3)
+          .line(bx + sz - 3, by + 2, bx + 2, by + sz - 3);
+        $.layer(1);
+      }
+    } else if (clearBtn) {
+      clearBtn.disabled = true;
+    }
+  }
+
   // Trigger a red or green screen flash with a timer.
   if (flashShow) {
     let color = firstActivation ? scheme.dark.block : flashColor;
@@ -9056,6 +9090,29 @@ function act({
     flashColor = [255, 0, 0];
     if (MetaBrowser) api.system.prompt.input.canType = false;
     needsPaint();
+  }
+
+  // ✕ Clear prompt button
+  if (clearBtn && !clearBtn.disabled) {
+    clearBtn.act(e, {
+      push: () => {
+        if (clearBtnConfirming) {
+          clearTimeout(clearBtnConfirmTimeout);
+          clearBtnConfirming = false;
+          system.prompt.input.blank();
+          send({ type: "keyboard:text:replace", content: { text: "" } });
+          needsPaint();
+        } else {
+          clearBtnConfirming = true;
+          notice("TAP × TO CLEAR", ["red"]);
+          clearBtnConfirmTimeout = setTimeout(() => {
+            clearBtnConfirming = false;
+            needsPaint();
+          }, 2000);
+          needsPaint();
+        }
+      },
+    });
   }
 }
 
