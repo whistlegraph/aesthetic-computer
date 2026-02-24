@@ -196,6 +196,10 @@
       font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
     }
 
+    @media (prefers-color-scheme: light) {
+      html, body { background: #fff; }
+    }
+
     /* Hide body until UI scale is set to prevent flash */
     body {
       opacity: 0;
@@ -222,12 +226,6 @@
       opacity: 0;
     }
 
-    /* Calm initial fade-in — removed when first piece is ready */
-    #display-iframe.calm-fade-in {
-      opacity: 0;
-      transition: opacity 3s ease;
-    }
-    
     /* Boot screen - now handled by iframe's boot animation */
     #boot-screen {
       display: none;
@@ -2557,7 +2555,7 @@
       const overlay = document.getElementById('source-overlay');
       if (overlay) overlay.style.display = 'none';
       // Start front iframe invisible — fade in when first piece is ready
-      iframe.classList.add('calm-fade-in');
+      iframe.style.opacity = '0';
     }
 
     const logDevice = (...args) => {
@@ -4160,8 +4158,17 @@
         if (msg?.startsWith?.('ready:')) {
           // 🌅 Calm initial fade-in: first piece ready on front iframe
           if (crossfadeEnabled && slideshowInitialBoot && e.source === frontIframe.contentWindow) {
-            frontIframe.classList.remove('calm-fade-in');
+            frontIframe.style.transition = 'opacity 3s ease';
+            frontIframe.style.opacity = '1';
             console.log('🌅 Calm initial fade-in triggered');
+            // Immediately start loading next piece — don't wait for duration timer.
+            // Defer via setTimeout(0) so cache warming below sets slideshowInitialBoot=false first.
+            if (slideshowTimer) { clearTimeout(slideshowTimer); slideshowTimer = null; }
+            setTimeout(() => {
+              if (shuffleDeck.length === 0) shuffleDeck = buildShuffleDeck(slideshowPlaylist.items.length, slideshowIndex);
+              slideshowIndex = shuffleDeck.pop();
+              playCurrentItem();
+            }, 0);
           }
 
           // 🌊 Crossfade: back iframe is ready — start the live crossfade
