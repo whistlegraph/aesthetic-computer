@@ -66,7 +66,7 @@ import { CamDoll } from "./cam-doll.mjs";
 import { TextInput, Typeface } from "../lib/type.mjs";
 
 import * as lisp from "./kidlisp.mjs";
-import { isKidlispSource, fetchCachedCode, fetchKidlispMetadata, getCachedCode, initPersistentCache, getCachedCodeMultiLevel, saveCodeToAllCaches, enableKidlispConsole, enableKidlispTrace, disableKidlispTrace, clearExecutionTrace, postExecutionTrace } from "./kidlisp.mjs"; // Add lisp evaluator.
+import { isKidlispSource, fetchCachedCode, fetchKidlispMetadata, getCachedCode, initPersistentCache, getCachedCodeMultiLevel, enableKidlispConsole, enableKidlispTrace, disableKidlispTrace, clearExecutionTrace, postExecutionTrace } from "./kidlisp.mjs"; // Add lisp evaluator.
 
 import { qrcode as qr, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
 import { microtype, MatrixChunky8 } from "../disks/common/fonts.mjs";
@@ -924,9 +924,7 @@ const defaults = {
     cursor("native");
   }, // aka Setup
   sim: () => false, // A framerate independent of rendering.
-  paint: ({ noise16Aesthetic, noise16Sotce, slug, wipe, ink, write, screen, net }) => {
-    // In PACK mode (exported bundles), skip noise16 — just show black
-    if (typeof window !== "undefined" && window.acPACK_MODE) { wipe("black"); return; }
+  paint: ({ noise16Aesthetic, noise16Sotce, slug, wipe, ink, screen, net }) => {
     // TODO: Make this a boot choice via the index.html file?
     if (!projectionMode) {
       if (slug?.indexOf("wipppps") > -1) {
@@ -935,14 +933,6 @@ const defaults = {
         noise16Sotce();
       } else {
         noise16Aesthetic();
-        if (net.motd) {
-          ink(255, 255, 255, 200).write(
-            net.motd,
-            { center: "x", y: Math.floor(screen.height / 2) },
-            undefined,
-            screen.width - 18,
-          );
-        }
         if (net.loadFailureText) {
           ink("white").write(
             net.loadFailureText,
@@ -1113,6 +1103,318 @@ let lastPaintOut = undefined; // Store last paintOut to preserve correct noPaint
 let shouldSkipPaint = false; // Whether to skip this frame's paint call
 let pieceFrameCount = 0; // Frame counter that only increments when piece actually paints
 
+// 🎬 Piece Transition System
+// Two transition types available: "drip" (default, fast) and "bubble-wrap" (organic, slower)
+// Set to "none" to disable transitions entirely (fast cut)
+const TRANSITION_TYPE = "none"; // "none", "drip" or "bubble-wrap"
+
+// 🧬 Piece Transition State: overlay pixels → fades to reveal piece underneath
+// Captures the OUTGOING piece's pixels when transitioning between pieces
+let pieceTransition = {
+  active: false,
+  phase: "loading",    // "loading" (slow, reach ~50%) or "revealing" (fast, finish)
+  overlayPixels: null, // The captured frame that overlays on top (from outgoing piece)
+  generation: 0,
+  maxGenerations: 60,  // Total frames for full transition
+  width: 0,
+  height: 0,
+  // Drip-specific state (per-column y-offset) - BLINDS STYLE
+  dripOffsets: null,   // Int16Array of column y-offsets (positive = distance moved)
+  dripSpeeds: null,    // Float32Array of per-column speeds
+  dripDirections: null, // Int8Array: 1 = down, -1 = up (alternating blinds)
+  targetOffset: 0,     // Target offset for loading phase (~50% of height)
+  // Bubble-wrap-specific state
+  blockData: null,     // Per-block data for bubble-wrap
+  blockSize: 8,
+  blocksX: 0,
+  blocksY: 0,
+};
+
+// 🧬 Legacy alias for backwards compatibility
+const golTransition = pieceTransition;
+
+// 🧬 Scale overlay pixels to match new resolution (nearest-neighbor)
+function scaleOverlayPixels(srcPixels, srcWidth, srcHeight, dstWidth, dstHeight) {
+  const dstPixels = new Uint8ClampedArray(dstWidth * dstHeight * 4);
+  const xRatio = srcWidth / dstWidth;
+  const yRatio = srcHeight / dstHeight;
+  
+  for (let y = 0; y < dstHeight; y++) {
+    for (let x = 0; x < dstWidth; x++) {
+      const srcX = Math.floor(x * xRatio);
+      const srcY = Math.floor(y * yRatio);
+      const srcIdx = (srcY * srcWidth + srcX) * 4;
+      const dstIdx = (y * dstWidth + x) * 4;
+      
+      dstPixels[dstIdx] = srcPixels[srcIdx];
+      dstPixels[dstIdx + 1] = srcPixels[srcIdx + 1];
+      dstPixels[dstIdx + 2] = srcPixels[srcIdx + 2];
+      dstPixels[dstIdx + 3] = srcPixels[srcIdx + 3];
+    }
+  }
+  
+  return dstPixels;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🪟 BLINDS TRANSITION - Alternating up/down strips (FAST & PERFORMANT)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Initialize blinds transition - alternating columns slide up/down
+function initDripTransition(width, height) {
+  pieceTransition.dripOffsets = new Int16Array(width);
+  pieceTransition.dripSpeeds = new Float32Array(width);
+  pieceTransition.dripDirections = new Int8Array(width);
+  pieceTransition.maxGenerations = 30; // Faster!
+  pieceTransition.phase = "loading";
+  pieceTransition.targetOffset = Math.floor(height * 0.35); // ~35% during loading (less wait)
+  
+  // Initialize per-column state - alternating directions like blinds
+  for (let x = 0; x < width; x++) {
+    pieceTransition.dripOffsets[x] = 0; // Start at 0 (overlay fully in place)
+    // Alternate: even columns slide DOWN, odd columns slide UP
+    pieceTransition.dripDirections[x] = (x % 2 === 0) ? 1 : -1;
+    // Faster speed during loading phase
+    pieceTransition.dripSpeeds[x] = 4 + Math.random() * 3; // 4-7 pixels per frame
+  }
+}
+
+// Signal that piece is loaded - switch to fast reveal phase
+function transitionPieceLoaded() {
+  if (pieceTransition.active && pieceTransition.phase === "loading" && pieceTransition.dripSpeeds) {
+    pieceTransition.phase = "revealing";
+    // Boost speeds for the reveal phase - FAST!
+    for (let x = 0; x < pieceTransition.dripSpeeds.length; x++) {
+      pieceTransition.dripSpeeds[x] = 10 + Math.random() * 8; // 10-18 pixels per frame
+    }
+    console.log("🎬 Transition: Piece loaded! Switching to reveal phase");
+  }
+}
+
+// Step blinds transition - advance each column's offset
+function dripStep() {
+  pieceTransition.generation++;
+  const { dripOffsets, dripSpeeds, dripDirections, height, phase, targetOffset } = pieceTransition;
+  
+  let allDone = true;
+  
+  for (let x = 0; x < dripOffsets.length; x++) {
+    const currentOffset = dripOffsets[x];
+    
+    if (phase === "loading") {
+      // Loading phase: slowly move toward target (~45%)
+      if (currentOffset < targetOffset) {
+        dripOffsets[x] += dripSpeeds[x];
+        // Clamp to target during loading
+        if (dripOffsets[x] > targetOffset) {
+          dripOffsets[x] = targetOffset;
+        }
+        allDone = false;
+      }
+    } else {
+      // Revealing phase: accelerate to completion
+      if (currentOffset < height) {
+        dripOffsets[x] += dripSpeeds[x];
+        // Add acceleration (gravity/momentum)
+        dripSpeeds[x] += 0.3;
+        allDone = false;
+      }
+    }
+  }
+  
+  // During loading phase, never report "done" - wait for reveal
+  if (phase === "loading") {
+    return true; // Keep running
+  }
+  
+  return !allDone && pieceTransition.generation < pieceTransition.maxGenerations;
+}
+
+// Apply blinds overlay - alternating columns slide up/down to reveal new frame
+function applyDripOverlay(screenPixels) {
+  const { overlayPixels, dripOffsets, dripDirections, width, height } = pieceTransition;
+  if (!overlayPixels || !screenPixels || !dripOffsets || !dripDirections) return;
+  
+  for (let x = 0; x < width; x++) {
+    const offset = Math.max(0, dripOffsets[x] | 0);
+    const direction = dripDirections[x];
+    
+    if (offset >= height) continue; // Column fully slid off
+    
+    const visibleRows = height - offset;
+    
+    if (direction > 0) {
+      // SLIDE DOWN - overlay moves down, reveals new frame from TOP
+      for (let y = 0; y < visibleRows; y++) {
+        const srcY = y;              // Read from top of overlay
+        const dstY = y + offset;     // Write shifted down
+        const srcIdx = (srcY * width + x) * 4;
+        const dstIdx = (dstY * width + x) * 4;
+        
+        screenPixels[dstIdx] = overlayPixels[srcIdx];
+        screenPixels[dstIdx + 1] = overlayPixels[srcIdx + 1];
+        screenPixels[dstIdx + 2] = overlayPixels[srcIdx + 2];
+        screenPixels[dstIdx + 3] = overlayPixels[srcIdx + 3];
+      }
+    } else {
+      // SLIDE UP - overlay moves up, reveals new frame from BOTTOM
+      for (let y = 0; y < visibleRows; y++) {
+        const srcY = offset + y;     // Read from bottom portion of overlay
+        const dstY = y;              // Write shifted up
+        const srcIdx = (srcY * width + x) * 4;
+        const dstIdx = (dstY * width + x) * 4;
+        
+        screenPixels[dstIdx] = overlayPixels[srcIdx];
+        screenPixels[dstIdx + 1] = overlayPixels[srcIdx + 1];
+        screenPixels[dstIdx + 2] = overlayPixels[srcIdx + 2];
+        screenPixels[dstIdx + 3] = overlayPixels[srcIdx + 3];
+      }
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🫧 BUBBLE-WRAP TRANSITION - Organic morphing dissolve (DEPRECATED: slower)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Initialize bubble-wrap transition - per-pixel dissolve with organic noise
+function initBubbleWrapCells(width, height) {
+  pieceTransition.blockSize = 1; // Per-pixel
+  pieceTransition.blocksX = width;
+  pieceTransition.blocksY = height;
+  pieceTransition.blockData = null;
+  pieceTransition.maxGenerations = 30; // Slower for organic feel
+}
+
+// Step bubble-wrap transition
+function bubbleWrapStep(screenPixels) {
+  pieceTransition.generation++;
+  return pieceTransition.generation < pieceTransition.maxGenerations;
+}
+
+// Apply bubble-wrap overlay - chunky biological smoothie morph
+function applyBubbleWrapOverlay(screenPixels) {
+  const { overlayPixels, width, height, generation, maxGenerations } = pieceTransition;
+  if (!overlayPixels || !screenPixels) return;
+  
+  // Progress 0-1
+  const progress = generation / maxGenerations;
+  // Eased for smooth start/end
+  const eased = progress < 0.5 
+    ? 2 * progress * progress 
+    : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+  
+  // Time offset for animated noise
+  const t = generation * 0.1;
+  
+  // Displacement peaks mid-transition - CHUNKY
+  const dispPeak = Math.sin(progress * Math.PI);
+  const maxDisp = dispPeak * 16;
+  
+  // Block size for chunky feel
+  const bs = 4;
+  
+  for (let y = 0; y < height; y++) {
+    const rowOff = y * width;
+    // Quantize y for chunky blocks
+    const qy = (y / bs | 0) * bs;
+    
+    for (let x = 0; x < width; x++) {
+      const i = (rowOff + x) * 4;
+      // Quantize x for chunky blocks
+      const qx = (x / bs | 0) * bs;
+      
+      // Organic noise at block resolution for chunky dissolve
+      const n1 = Math.sin(qx * 0.05 + t) * Math.cos(qy * 0.04 + t * 0.7);
+      const n2 = Math.sin(qx * 0.09 + qy * 0.07 - t * 0.6) * 0.5;
+      const n3 = Math.cos(qx * 0.02 - qy * 0.03 + t * 0.4) * 0.4;
+      const noise = (n1 + n2 + n3) * 0.5 + 0.5;
+      
+      // Per-block blend with organic variation
+      const threshold = eased * 1.5 - 0.25;
+      const edge = 0.3;
+      let blend = (threshold - noise * 0.85) / edge;
+      blend = blend < 0 ? 0 : blend > 1 ? 1 : blend;
+      
+      // SMOOTHIE: chaotic displacement that samples from BOTH frames
+      const swirl = Math.sin(qx * 0.06 + qy * 0.04 + t * 1.5) * maxDisp;
+      const churn = Math.cos(qx * 0.05 - qy * 0.07 + t * 1.2) * maxDisp;
+      
+      // Sample old frame with swirling displacement
+      let ox = (x + swirl) | 0;
+      let oy = (y + churn) | 0;
+      ox = ox < 0 ? 0 : ox >= width ? width - 1 : ox;
+      oy = oy < 0 ? 0 : oy >= height ? height - 1 : oy;
+      const oi = (oy * width + ox) * 4;
+      
+      // Sample new frame with OPPOSITE swirl - mixing!
+      let nx = (x - churn * 0.7) | 0;
+      let ny = (y + swirl * 0.6) | 0;
+      nx = nx < 0 ? 0 : nx >= width ? width - 1 : nx;
+      ny = ny < 0 ? 0 : ny >= height ? height - 1 : ny;
+      const ni = (ny * width + nx) * 4;
+      
+      // Get swirled colors from both
+      const oldR = overlayPixels[oi];
+      const oldG = overlayPixels[oi + 1];
+      const oldB = overlayPixels[oi + 2];
+      const newR = screenPixels[ni];
+      const newG = screenPixels[ni + 1];
+      const newB = screenPixels[ni + 2];
+      
+      // Chunky biological blend - smoothie mix!
+      const inv = 1 - blend;
+      let r = oldR * inv + newR * blend;
+      let g = oldG * inv + newG * blend;
+      let b = oldB * inv + newB * blend;
+      
+      // Extra chaos: sometimes swap channels mid-transition
+      if (dispPeak > 0.5 && ((qx + qy + generation) & 7) === 0) {
+        const tmp = r;
+        r = g;
+        g = b;
+        b = tmp;
+      }
+      
+      screenPixels[i] = r;
+      screenPixels[i + 1] = g;
+      screenPixels[i + 2] = b;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎬 UNIFIED TRANSITION API - Dispatches to drip, bubble-wrap, or none
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Initialize transition based on current type
+function initGOLCells(width, height) {
+  if (TRANSITION_TYPE === "none") return; // No transition
+  if (TRANSITION_TYPE === "drip") {
+    initDripTransition(width, height);
+  } else {
+    initBubbleWrapCells(width, height);
+  }
+}
+
+// Step transition
+function golStep(screenPixels) {
+  if (TRANSITION_TYPE === "none") return false; // Immediately done
+  if (TRANSITION_TYPE === "drip") {
+    return dripStep();
+  } else {
+    return bubbleWrapStep(screenPixels);
+  }
+}
+
+// Apply transition overlay
+function applyGOLOverlay(screenPixels) {
+  if (TRANSITION_TYPE === "drip") {
+    applyDripOverlay(screenPixels);
+  } else {
+    applyBubbleWrapOverlay(screenPixels);
+  }
+}
 
 let boot = defaults.boot;
 let sim = defaults.sim;
@@ -1693,33 +1995,22 @@ const imageCache = {
     // Save to IndexedDB for persistence across refreshes
     if (this.store && imageBitmap) {
       try {
-        let pixelData, imgWidth, imgHeight;
-
-        if (imageBitmap.pixels) {
-          // Already a pixel buffer { width, height, pixels }
-          imgWidth = imageBitmap.width;
-          imgHeight = imageBitmap.height;
-          pixelData = imageBitmap.pixels;
-        } else {
-          // ImageBitmap — convert to pixel data via canvas drawImage
-          const canvas = typeof OffscreenCanvas !== 'undefined'
-            ? new OffscreenCanvas(imageBitmap.width, imageBitmap.height)
-            : document.createElement('canvas');
-          canvas.width = imageBitmap.width;
-          canvas.height = imageBitmap.height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(imageBitmap, 0, 0);
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          imgWidth = imageData.width;
-          imgHeight = imageData.height;
-          pixelData = imageData.data;
-        }
-
-        // Store the pixel data along with metadata
+        // Convert ImageBitmap to ImageData for storage
+        // Use OffscreenCanvas in Worker context, regular canvas in main thread
+        const canvas = typeof OffscreenCanvas !== 'undefined' 
+          ? new OffscreenCanvas(imageBitmap.width, imageBitmap.height)
+          : document.createElement('canvas');
+        canvas.width = imageBitmap.width;
+        canvas.height = imageBitmap.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(imageBitmap, 0, 0);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        
+        // Store the ImageData along with metadata
         this.store[`image-cache:${url}`] = {
-          width: imgWidth,
-          height: imgHeight,
-          data: Array.from(pixelData),
+          width: imageData.width,
+          height: imageData.height,
+          data: Array.from(imageData.data), // Convert Uint8ClampedArray to regular array for storage
           cached: Date.now(),
           version: 1
         };
@@ -1823,13 +2114,9 @@ let udp = {
     receive: ({ type, content }) => {
       // console.log("🩰 Received `piece` message from UDP:", type, content);
 
-      // 🧚 Ambient cursor (fairies) support. Disabled for KidLisp pieces.
+      // 🧚 Ambient cursor (fairies) support.
       if (type === "fairy:point" /*&& socket?.id !== id*/ && visible) {
-        const isKidlisp = detectKidLispPiece({ currentPath, currentHUDTxt, currentText }) ||
-          (currentPath && currentPath.endsWith('.lisp'));
-        if (!isKidlisp) {
-          fairies.push({ x: content.x, y: content.y });
-        }
+        fairies.push({ x: content.x, y: content.y });
         return;
       }
 
@@ -2436,7 +2723,7 @@ const $commonApi = {
   },
 
   jump: function jump(to, ahistorical = false, alias = false) {
-    console.log("🧭 jump() called:", to, "SOLO_MODE:", SOLO_MODE, "leaving:", leaving, "loading:", loading);
+    // let url;
 
     if (SOLO_MODE) {
       console.log("🔒 Jump blocked: solo mode active");
@@ -2471,30 +2758,6 @@ const $commonApi = {
     } else {
       leaving = true;
       graph.unmask(); // Clear any active mask when leaving a piece
-    }
-
-    // Preserve resolution parameters across jumps (device mode, TV mode, etc.)
-    // This ensures HUD visibility and other display settings persist when navigating
-    if (DEVICE_MODE || TV_MODE || SOLO_MODE || HIGHLIGHT_MODE || PERF_MODE || AUTO_SCALE_MODE) {
-      const params = [];
-      if (DEVICE_MODE) params.push("device=true");
-      if (TV_MODE) params.push("tv=true");
-      if (SOLO_MODE) params.push("solo=true");
-      if (HIGHLIGHT_MODE) {
-        if (HIGHLIGHT_COLOR && HIGHLIGHT_COLOR !== "64,64,64") {
-          params.push(`highlight=${encodeURIComponent(HIGHLIGHT_COLOR)}`);
-        } else {
-          params.push("highlight=true");
-        }
-      }
-      if (PERF_MODE) params.push("perf=true");
-      if (AUTO_SCALE_MODE) params.push("autoScale=true");
-
-      if (params.length > 0) {
-        const separator = to.includes("?") ? "&" : "?";
-        to = to + separator + params.join("&");
-        console.log("🧭 Preserving resolution params:", to);
-      }
     }
 
     function loadLine() {
@@ -3322,12 +3585,6 @@ const $commonApi = {
         ty,
       ) => {
         system.nopaint.needsPresent = false;
-
-        // Guard: system.painting must exist for present to work
-        if (!system.painting) {
-          console.warn("🖼️ present: system.painting is undefined, skipping");
-          return;
-        }
 
         const x = tx || system.nopaint.translation.x;
         const y = ty || system.nopaint.translation.y;
@@ -5897,42 +6154,6 @@ const $paintApiUnwrapped = {
   noise16Aesthetic: graph.noise16Aesthetic,
   noise16Sotce: graph.noise16Sotce,
   noiseTinted: graph.noiseTinted,
-  // 🎨 Alpha-blended paste for crossfade compositing
-  pasteWithAlpha: function pasteWithAlpha(source, x, y, alpha) {
-    if (!source || !source.pixels || alpha <= 0) return;
-    const dst = $activePaintApi.screen;
-    if (!dst || !dst.pixels) return;
-    const srcPixels = source.pixels;
-    const dstPixels = dst.pixels;
-    const sw = source.width, sh = source.height;
-    const dw = dst.width, dh = dst.height;
-    if (alpha >= 255) {
-      $activePaintApi.paste(source, x, y);
-      return;
-    }
-    const alphaFactor = alpha / 255.0;
-    for (let sy = 0; sy < sh; sy++) {
-      const dy = sy + y;
-      if (dy < 0 || dy >= dh) continue;
-      for (let sx = 0; sx < sw; sx++) {
-        const dx = sx + x;
-        if (dx < 0 || dx >= dw) continue;
-        const si = (sy * sw + sx) * 4;
-        const di = (dy * dw + dx) * 4;
-        let srcA = srcPixels[si + 3];
-        if (srcA === 0 && (srcPixels[si] || srcPixels[si + 1] || srcPixels[si + 2])) {
-          srcA = 255; // Promote opaque RGB with zero alpha
-        }
-        if (srcA === 0) continue;
-        const ea = (srcA * alphaFactor + 1) | 0;
-        const inv = 256 - ea;
-        dstPixels[di]     = (ea * srcPixels[si]     + inv * dstPixels[di])     >> 8;
-        dstPixels[di + 1] = (ea * srcPixels[si + 1] + inv * dstPixels[di + 1]) >> 8;
-        dstPixels[di + 2] = (ea * srcPixels[si + 2] + inv * dstPixels[di + 2]) >> 8;
-        dstPixels[di + 3] = Math.min(255, dstPixels[di + 3] + ea);
-      }
-    }
-  },
   // 🎯 Simplified KidLisp integration using global singleton instance
   kidlisp: function kidlisp(x = 0, y = 0, width, height, source, options = {}) {
     // Initialize global instance if needed
@@ -6022,30 +6243,10 @@ const $paintApiUnwrapped = {
       
       // Create persistent painting key with accumulation support
       let regionKey;
-      // Build a dimension-independent content key for finding previous paintings after resize
-      let contentKey;
       if (accumulate && accumulateKey) {
         regionKey = `${x},${y},${width},${height}:ACCUMULATE:${accumulateKey}`;
-        contentKey = `ACCUMULATE:auto_${x}_${y}_${firstWord}`;
       } else {
         regionKey = `${x},${y},${width},${height}:${resolvedSource}`;
-        contentKey = resolvedSource;
-      }
-
-      // 🔄 RESIZE RESILIENCE: If no cached painting at current dimensions,
-      // look for a previous painting with the same source at different dimensions.
-      // This preserves animation continuity when the screen resizes.
-      let resizedPreviousPainting = null;
-      let resizedPreviousKey = null;
-      if (!globalKidLispInstance.persistentPaintings.has(regionKey)) {
-        for (const [key, val] of globalKidLispInstance.persistentPaintings) {
-          // Match keys that share the same content suffix but differ in dimensions
-          if (key !== regionKey && key.endsWith(`:${contentKey}`)) {
-            resizedPreviousPainting = val;
-            resizedPreviousKey = key;
-            break;
-          }
-        }
       }
       
       // Check if the code contains frame-dependent randomization commands
@@ -6072,19 +6273,14 @@ const $paintApiUnwrapped = {
         // console.log(`🎨 Creating fresh painting for key: ${regionKey.slice(0, 50)}... (${reason})`);
         
         // For animations, start with previous frame if available (unless wiping)
-        // Also check for resized previous painting from a different dimension
-        const previousPainting = !shouldReset && globalKidLispInstance.persistentPaintings.has(regionKey)
-          ? globalKidLispInstance.persistentPaintings.get(regionKey)
-          : (!shouldReset ? resizedPreviousPainting : null);
-
-        // Clean up the old dimension key if we found a resized previous
-        if (resizedPreviousKey && resizedPreviousPainting) {
-          globalKidLispInstance.persistentPaintings.delete(resizedPreviousKey);
-        }
-
+        const previousPainting = !shouldReset && globalKidLispInstance.persistentPaintings.has(regionKey) 
+          ? globalKidLispInstance.persistentPaintings.get(regionKey) 
+          : null;
+        
         painting = $activePaintApi.painting(width, height, (api) => {
-          // Paste previous frame to maintain animation continuity (including across resizes)
+          // For animations, paste previous frame first to maintain transformations
           if (previousPainting && needsFreshExecution && !shouldReset) {
+            // console.log(`🎨 Pasting previous frame for animation continuity`);
             api.paste(previousPainting);
           }
           
@@ -7083,9 +7279,9 @@ async function load(
       let sourceToRun;
       let fetchStartTime = performance.now(); // Initialize timing at the start
       
-      // 💾 Check if this is a cached kidlisp code (starts with $ followed by a cache ID)
+      // 💾 Check if this is a cached kidlisp code (starts with $ and has content after it)
       if (slug && slug.startsWith("$") && slug.length > 1) {
-        const cacheId = slug.slice(1).split(":")[0]; // Remove $ prefix and any :fps colon params
+        const cacheId = slug.slice(1); // Remove $ prefix
         
         // Clear author/hits immediately to prevent stale data showing during load
         currentHUDAuthor = null;
@@ -7170,18 +7366,13 @@ async function load(
           if (response.status === 404 || response.status === 403) {
             const extension = path.endsWith('.lisp') ? '.lisp' : '.mjs';
             // Handle sandboxed environments for anon URL construction
-            const { protocol} = getSafeUrlParts();
-            // Extract code from path (e.g., "aesthetic.computer/disks/zod" → "zod")
-            const code = path.split("/").pop();
-
-            // TODO: Fetch slug from database API to get proper S3 path with date dirs
-            // For now, try direct code path (will 404 for new date-based pieces)
+            const { protocol } = getSafeUrlParts();
             const anonUrl =
               protocol +
               "//" +
               "art.aesthetic.computer" +
               "/" +
-              code +
+              path.split("/").pop() +
               extension +
               "#" +
               Date.now();
@@ -7302,17 +7493,14 @@ async function load(
         // Initialize persistent image cache for paste/stamp (also for .mjs pieces)
         imageCache.init(store);
 
-        // 🔒 Determine piece trust level
-        // System pieces loaded from disks/ are always trusted.
-        if (pieceMetadata?.code) {
-          clearPermissions(pieceMetadata.code);
-        }
-
-        const isSystemPiece = path && path.includes("/disks/");
-        if (isSystemPiece) {
-          pieceMetadata = { code: slug, trustLevel: "trusted", anonymous: false };
-        } else if (slug && !devReload) {
+        // 🔒 Fetch piece metadata for security restrictions
+        if (slug && !devReload) {
           try {
+            // Clear permissions from previous piece
+            if (pieceMetadata?.code) {
+              clearPermissions(pieceMetadata.code);
+            }
+
             pieceMetadata = await fetchPieceMetadata(slug);
             if (logs.loading) {
               console.log(`🔒 Piece metadata:`, {
@@ -7326,6 +7514,7 @@ async function load(
             pieceMetadata = { code: slug, trustLevel: "untrusted", anonymous: true };
           }
         } else {
+          // Dev reload or no slug - default to untrusted
           pieceMetadata = { code: slug || "unknown", trustLevel: "untrusted", anonymous: true };
         }
 
@@ -7398,14 +7587,12 @@ async function load(
       if (response.status === 404 || response.status === 403) {
         // Handle sandboxed environments for anon URL construction
         const { protocol } = getSafeUrlParts();
-        // Extract code from path for S3 URL
-        const code = path.split("/").pop();
         const anonUrl =
           protocol +
           "//" +
           "art.aesthetic.computer" +
           "/" +
-          code +
+          path.split("/").pop() +
           ".lisp" +
           "#" +
           Date.now();
@@ -7481,7 +7668,7 @@ async function load(
   const moduleCheckTime = performance.now();
   // console.log(`⏰ Module check at ${moduleCheckTime}ms, module loaded: ${loadedModule !== undefined}`);
   
-  if (loadedModule == null) {
+  if (loadedModule === undefined) {
     loading = false;
     leaving = false;
     return false;
@@ -8427,11 +8614,10 @@ async function load(
 
     // 📚 nopaint system
     if (
-      !Array.isArray(module) &&
-      (module.system?.startsWith("nopaint") ||
+      module.system?.startsWith("nopaint") ||
       typeof module?.brush === "function" ||
       typeof module?.lift === "function" ||
-      typeof module?.filter === "function")
+      typeof module?.filter === "function"
     ) {
       // If there is no painting is in ram, then grab it from the local store,
       // or generate one.
@@ -8836,6 +9022,33 @@ async function load(
     shouldSkipPaint = false;
     pieceFrameCount = 0;
     
+    // 🎬 Piece Transition: Capture CURRENT screen pixels BEFORE clearing
+    // This enables piece-to-piece morphing transitions (not just noise16→piece)
+    // Skip entirely if TRANSITION_TYPE is "none"
+    if (TRANSITION_TYPE !== "none") {
+      // Check if buffer is valid (not detached from transfer to main thread)
+      try {
+        if (screen?.pixels && screen.width > 0 && screen.height > 0 && 
+            screen.pixels.buffer && !screen.pixels.buffer.detached && screen.pixels.byteLength > 0) {
+          golTransition.overlayPixels = new Uint8ClampedArray(screen.pixels);
+          golTransition.width = screen.width;
+          golTransition.height = screen.height;
+          
+          // Initialize and START transition immediately (loading phase)
+          initGOLCells(golTransition.width, golTransition.height);
+          golTransition.generation = 0;
+          golTransition.active = true;
+          console.log(`🎬 Transition: Started ${TRANSITION_TYPE} (loading phase)`, screen.width, "x", screen.height);
+        }
+      } catch (e) {
+        // Buffer may be detached if pixels were transferred - skip transition
+        console.log("🎬 Transition: Could not capture pixels (buffer detached), skipping");
+        golTransition.overlayPixels = null;
+      }
+    }
+    
+    // Note: transition state is now set above when starting
+    
     // 🧹 Clear screen buffer when loading a new piece to prevent stale pixels
     // This fixes the blank screen issue when backspacing from kidlisp to prompt
     graph.clear();
@@ -9099,32 +9312,6 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
-  // Navigate to a new piece (device.html slideshow uses this for instant transitions)
-  if (type === "navigate") {
-    const target = content?.to;
-    console.log("🧭 Navigate received:", target, "jump available:", !!$commonApi?.jump, "loading:", loading, "leaving:", leaving);
-    if (target && $commonApi?.jump) {
-      $commonApi.jump(target);
-    } else {
-      console.warn("🧭 Navigate failed: target=", target, "$commonApi=", !!$commonApi, "jump=", !!$commonApi?.jump);
-    }
-    return;
-  }
-
-  // Warm the kidlisp code cache with pre-fetched sources from parent
-  if (type === "warm-kidlisp-cache") {
-    const codes = content?.codes;
-    if (codes) {
-      let count = 0;
-      for (const [codeId, source] of Object.entries(codes)) {
-        saveCodeToAllCaches(codeId, source);
-        count++;
-      }
-      console.log(`🔥 Warmed kidlisp cache with ${count} codes`);
-    }
-    return;
-  }
-
   // Runs once on boot.
   if (type === "init-from-bios") {
     debug = content.debug;
@@ -9138,11 +9325,8 @@ async function makeFrame({ data: { type, content } }) {
     }
     
     // Store noauth flag for iframe embedding (kidlisp.com)
-    // In noauth mode, mark session as started immediately so piece loading
-    // doesn't wait for the session:started message (resilience when session server is down)
     if (content.noauth) {
       globalThis.NOAUTH_MODE = true;
-      sessionStarted = true;
     }
 
     USER = content.user;
@@ -10913,15 +11097,11 @@ async function makeFrame({ data: { type, content } }) {
         primaryPointer &&
         (primaryPointer.delta?.x !== 0 || primaryPointer.delta?.y !== 0)
       ) {
-        // Skip sending fairy points in KidLisp pieces.
-        const isKidlisp = detectKidLispPiece({ currentPath, currentHUDTxt, currentText }) ||
-          (currentPath && currentPath.endsWith('.lisp'));
-        if (!isKidlisp) {
-          udp?.send("fairy:point", {
-            x: primaryPointer.x / screen.width,
-            y: primaryPointer.y / screen.height,
-          });
-        }
+        //socket?.send("ambient-pen:point", {
+        udp?.send("fairy:point", {
+          x: primaryPointer.x / screen.width,
+          y: primaryPointer.y / screen.height,
+        });
       }
     }
 
@@ -11196,67 +11376,6 @@ async function makeFrame({ data: { type, content } }) {
           } else {
             console.warn("🌊 Unsupported direction.");
           }
-        },
-
-        // Renders an "AUDIO ENGINE OFF" badge when the audio context is
-        // suspended.  Returns { visible, x, y, width, height } so callers
-        // can react to its layout.
-        audioEngineBadge: function paintAudioEngineBadge(
-          { ink, screen },
-          speaker,
-          x,
-          y,
-          options = {},
-        ) {
-          const waveforms = speaker?.waveforms?.left;
-          const amp = speaker?.amplitudes?.left;
-          const ready =
-            waveforms &&
-            typeof waveforms.length === "number" &&
-            waveforms.length > 0 &&
-            typeof amp === "number" &&
-            Number.isFinite(amp);
-
-          if (ready) return { visible: false, x: 0, y: 0, width: 0, height: 0 };
-
-          const maxWidth =
-            options.maxWidth != null ? options.maxWidth : screen.width - 20;
-          const padding = 4;
-          const badgeHeight = options.height || 12;
-          const align = options.align || "center"; // "center" | "left" | "right"
-
-          // Responsive text choices
-          const texts = ["AUDIO ENGINE OFF", "ENGINE OFF", "OFF"];
-          let chosen = texts[0];
-          for (const t of texts) {
-            // Approximate glyph width for MatrixChunky8 is 6px per char + 1px gap
-            const tw = t.length * 7;
-            if (tw + padding * 2 <= maxWidth) {
-              chosen = t;
-              break;
-            }
-          }
-          const textWidth = chosen.length * 7;
-          const totalWidth = textWidth + padding * 2;
-
-          let bx = x;
-          if (align === "center") {
-            bx = x != null ? x : Math.floor((screen.width - totalWidth) / 2);
-          } else if (align === "right") {
-            bx = (x != null ? x : screen.width) - totalWidth;
-          }
-
-          ink(180, 0, 0, 240).box(bx, y, totalWidth, badgeHeight);
-          ink(255, 255, 0).write(
-            chosen,
-            { x: bx + padding, y: y + 3 },
-            undefined,
-            undefined,
-            false,
-            "MatrixChunky8",
-          );
-
-          return { visible: true, x: bx, y, width: totalWidth, height: badgeHeight };
         },
       },
     };
@@ -12503,6 +12622,60 @@ async function makeFrame({ data: { type, content } }) {
             // Increment piece frame counter only when we actually paint
             pieceFrameCount++;
             
+            // 🎬 Piece Transition: Also capture noise16 frame as fallback (for initial page load)
+            if (paint === defaults.paint && $api.screen?.pixels) {
+              // Capture the noise16 state in case no piece was running before (initial load)
+              golTransition.overlayPixels = new Uint8ClampedArray($api.screen.pixels);
+              golTransition.width = $api.screen.width;
+              golTransition.height = $api.screen.height;
+            }
+            
+            // 🎬 Piece Transition: When first piece paint happens, switch to reveal phase
+            // Skip for KidLisp pieces - they have their own rendering that conflicts
+            const isKidLispPiece = currentPath && (
+              lisp.isKidlispSource(currentPath) || 
+              currentPath === "(...)" || 
+              currentPath.includes("$") ||
+              currentPath.endsWith('.lisp')
+            );
+            
+            // Skip transitions entirely if TRANSITION_TYPE is "none"
+            if (TRANSITION_TYPE !== "none" && pieceFrameCount === 1 && paint !== defaults.paint && golTransition.overlayPixels && $api.screen?.pixels && !isKidLispPiece) {
+              const screenW = $api.screen.width;
+              const screenH = $api.screen.height;
+              const overlayW = golTransition.width;
+              const overlayH = golTransition.height;
+              
+              // If dimensions differ, scale the overlay to match the new screen
+              if (screenW !== overlayW || screenH !== overlayH) {
+                console.log(`🎬 Transition: Scaling overlay from ${overlayW}x${overlayH} to ${screenW}x${screenH}`);
+                golTransition.overlayPixels = scaleOverlayPixels(
+                  golTransition.overlayPixels, 
+                  overlayW, overlayH, 
+                  screenW, screenH
+                );
+                golTransition.width = screenW;
+                golTransition.height = screenH;
+                // Re-initialize with new dimensions if needed
+                if (golTransition.active) {
+                  initGOLCells(screenW, screenH);
+                }
+              }
+              
+              // If transition was already started during load, switch to reveal phase
+              // Otherwise start it now (fallback for cases where capture didn't happen)
+              if (golTransition.active) {
+                transitionPieceLoaded(); // Switch from loading to reveal phase
+              } else {
+                // Fallback: start transition now if it wasn't started during load
+                initGOLCells(golTransition.width, golTransition.height);
+                golTransition.generation = 0;
+                golTransition.active = true;
+                golTransition.phase = "revealing"; // Skip loading, go straight to reveal
+                console.log(`🎬 Transition: Started ${TRANSITION_TYPE} (direct reveal)`, golTransition.width, "x", golTransition.height);
+              }
+            }
+            
             // Log first piece paint
             if (pieceFrameCount === 1) {
               diskTimings.firstPaint = Math.round(performance.now() - diskTimingStart);
@@ -12546,6 +12719,10 @@ async function makeFrame({ data: { type, content } }) {
         noPaint =
           paintOut === false || (paintOut !== undefined && paintOut !== true);
         
+        // 🧬 GOL Transition: Force pixels to be sent while transition is active
+        if (golTransition.active) {
+          noPaint = false; // Override - GOL modified pixels, must send them
+        }
 
         if (system === "video") console.log('📝 DISK: paintOut =', paintOut, '→ noPaint =', noPaint);
 
@@ -12649,6 +12826,38 @@ async function makeFrame({ data: { type, content } }) {
         layer(0);
 
         painting.paint(true);
+        
+        // 🎬 Piece Transition: Step and apply overlay AFTER painting.paint() executes
+        // This ensures the overlay is composited on TOP of the piece's rendered frame
+        if (golTransition.active && screen?.pixels) {
+          // Check dimensions still match
+          if (screen.width !== golTransition.width || screen.height !== golTransition.height) {
+            console.warn("🎬 Transition: Screen dimensions changed! Aborting.");
+            golTransition.active = false;
+            golTransition.overlayPixels = null;
+            golTransition.blockData = null;
+            golTransition.dripOffsets = null;
+            golTransition.dripSpeeds = null;
+            golTransition.dripDirections = null;
+          } else {
+            // Step the transition
+            const stillActive = golStep(screen.pixels);
+            
+            // Apply overlay on top of piece's paint
+            applyGOLOverlay(screen.pixels);
+            
+            // End transition when complete
+            if (!stillActive) {
+              console.log(`🎬 Transition: ${TRANSITION_TYPE} complete!`);
+              golTransition.active = false;
+              golTransition.overlayPixels = null;
+              golTransition.blockData = null;
+              golTransition.dripOffsets = null;
+              golTransition.dripSpeeds = null;
+              golTransition.dripDirections = null;
+            }
+          }
+        }
         
         painted = true;
         if (system === "video") console.log('🟢 DISK: painted set to TRUE, paintCount:', paintCount);
@@ -13427,25 +13636,6 @@ async function makeFrame({ data: { type, content } }) {
                 }
               }
               
-              // Fade zone overlay: blend toward next piece color at end of each segment
-              if (merry.fadeDuration > 0 && merry.pipeline.length > 1) {
-                const fadeZonePixels = Math.max(2, Math.floor(pieceWidth * merry.fadeDuration / piece.duration));
-                const pixelOffset = x - xOffset;
-                if (pixelOffset >= pieceWidth - fadeZonePixels) {
-                  const t = (pixelOffset - (pieceWidth - fadeZonePixels)) / Math.max(1, fadeZonePixels - 1);
-                  const nextIdx = (index + 1) % merry.pipeline.length;
-                  const nc = pieceColors[nextIdx % pieceColors.length];
-                  const maxCh = Math.max(1, color.r, color.g, color.b);
-                  const bright = Math.max(baseR, baseG, baseB) / maxCh;
-                  const nR = Math.floor(nc.r * bright);
-                  const nG = Math.floor(nc.g * bright);
-                  const nB = Math.floor(nc.b * bright);
-                  baseR = Math.min(255, Math.floor(baseR * (1 - t) + nR * t));
-                  baseG = Math.min(255, Math.floor(baseG * (1 - t) + nG * t));
-                  baseB = Math.min(255, Math.floor(baseB * (1 - t) + nB * t));
-                }
-              }
-
               // Apply transition flash boost to current piece
               if (isCurrent && flashIntensity > 0) {
                 const boost = 1 + flashIntensity * 0.8; // Up to 80% brighter
@@ -13453,7 +13643,7 @@ async function makeFrame({ data: { type, content } }) {
                 baseG = Math.min(255, Math.floor(baseG * boost));
                 baseB = Math.min(255, Math.floor(baseB * boost));
               }
-
+              
               $.ink(baseR, baseG, baseB, alpha).box(x, 0, 1, 1);
             }
             
@@ -13787,13 +13977,13 @@ async function makeFrame({ data: { type, content } }) {
       sendData.TwoD = { code: twoDCommands };
 
       // Attach a label buffer if necessary.
-      // Hide label when QR is in fullscreen mode or in device mode (device.html has its own overlay)
-      if (label && !hudAnimationState.qrFullscreen && !DEVICE_MODE) {
+      // Hide label when QR is in fullscreen mode
+      if (label && !hudAnimationState.qrFullscreen) {
   const finalX = currentHUDOffset.x + hudAnimationState.slideOffset.x - currentHUDLeftPad;
         // Move label up by 4px when QR is present for tighter fit
         const qrYOffset = currentHUDQR ? -4 : 0;
         const finalY = currentHUDOffset.y + hudAnimationState.slideOffset.y + qrYOffset;
-
+        
         sendData.label = {
           x: finalX,
           y: finalY,
@@ -13886,7 +14076,7 @@ async function makeFrame({ data: { type, content } }) {
             sigil = "*";
           } else if (sourceCode.startsWith("$")) {
             // For $code format, the sourceCode IS the cached code (without $)
-            cachedCode = sourceCode.substring(1).split(":")[0]; // Remove the $ prefix and any :fps colon params
+            cachedCode = sourceCode.substring(1); // Remove the $ prefix
             // console.log("🔑 [QR Debug] Using $code format, cachedCode:", cachedCode);
           } else {
             // For regular KidLisp source, check if it has been cached
@@ -14967,8 +15157,8 @@ async function handle(retryCount = 0) {
       const newHandle = "@" + storedHandle;
       if (HANDLE === newHandle) return;
       HANDLE = "@" + storedHandle;
-      if (typeof window !== 'undefined') window.acHANDLE = HANDLE; // Expose for UDP identity
-      if (typeof window !== 'undefined' && window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
+      window.acHANDLE = HANDLE; // Expose for UDP identity
+      if (window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
       send({ type: "handle", content: HANDLE });
       store["handle:received"] = true;
       if (bootHandle) store["handle"] = bootHandle; // Cache boot-fetched handle
