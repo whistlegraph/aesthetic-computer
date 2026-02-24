@@ -7051,8 +7051,6 @@ function putback(x, y, scale = 1) {
 }
 
 // KidPix-style shear function
-// shearX: horizontal shear amount (positive = right lean, negative = left lean)
-// Simple shear by moving entire rows/columns
 // shearX: horizontal shear factor (positive = right lean, negative = left lean)
 // shearY: vertical shear factor (positive = down lean, negative = up lean)
 function shear(shearX = 0, shearY = 0) {
@@ -7068,6 +7066,21 @@ function shear(shearX = 0, shearY = 0) {
   shearAccumulatorX = 0;
   shearAccumulatorY = 0;
 
+  // 🚀 TRY GPU SHEAR FIRST
+  if (gpuSpinEnabled && gpuSpinAvailable && gpuSpinModule?.gpuShear && pixels && width && height) {
+    const mask = activeMask ? {
+      x: activeMask.x + panTranslation.x,
+      y: activeMask.y + panTranslation.y,
+      width: activeMask.width,
+      height: activeMask.height
+    } : null;
+
+    const success = gpuSpinModule.gpuShear(pixels, width, height, finalShearX, finalShearY, mask);
+    if (success) return;
+    // Fall through to CPU if GPU failed
+  }
+
+  // 🐢 CPU FALLBACK
   // Work area bounds
   let minX = 0,
     maxX = width,
@@ -7098,8 +7111,7 @@ function shear(shearX = 0, shearY = 0) {
   }
 
   const tempPixels = new Uint8ClampedArray(pixels);
-  const centerY = workingHeight / 2;
-  const centerX = workingWidth / 2; // Horizontal shear: each row shifts more based on distance from center
+  // Horizontal shear: each row shifts more based on distance from center
   if (finalShearX !== 0) {
     for (let y = 0; y < workingHeight; y++) {
       const distFromCenter = y - workingHeight / 2;
