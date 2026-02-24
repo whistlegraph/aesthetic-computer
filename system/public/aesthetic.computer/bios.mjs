@@ -13089,6 +13089,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    if (type === "open-devtools") {
+      window.ac?.openDevTools();
+      return;
+    }
+
     if (type === "preload-ready") {
       window.preloaded = true;
       return;

@@ -66,7 +66,7 @@ import { CamDoll } from "./cam-doll.mjs";
 import { TextInput, Typeface } from "../lib/type.mjs";
 
 import * as lisp from "./kidlisp.mjs";
-import { isKidlispSource, fetchCachedCode, fetchKidlispMetadata, getCachedCode, initPersistentCache, getCachedCodeMultiLevel, enableKidlispConsole, enableKidlispTrace, disableKidlispTrace, clearExecutionTrace, postExecutionTrace } from "./kidlisp.mjs"; // Add lisp evaluator.
+import { isKidlispSource, fetchCachedCode, fetchKidlispMetadata, getCachedCode, initPersistentCache, getCachedCodeMultiLevel, saveCodeToAllCaches, enableKidlispConsole, enableKidlispTrace, disableKidlispTrace, clearExecutionTrace, postExecutionTrace } from "./kidlisp.mjs"; // Add lisp evaluator.
 
 import { qrcode as qr, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
 import { microtype, MatrixChunky8 } from "../disks/common/fonts.mjs";
@@ -924,7 +924,9 @@ const defaults = {
     cursor("native");
   }, // aka Setup
   sim: () => false, // A framerate independent of rendering.
-  paint: ({ noise16Aesthetic, noise16Sotce, slug, wipe, ink, screen, net }) => {
+  paint: ({ noise16Aesthetic, noise16Sotce, slug, wipe, ink, write, screen, net }) => {
+    // In PACK mode (exported bundles), skip noise16 — just show black
+    if (typeof window !== "undefined" && window.acPACK_MODE) { wipe("black"); return; }
     // TODO: Make this a boot choice via the index.html file?
     if (!projectionMode) {
       if (slug?.indexOf("wipppps") > -1) {
@@ -933,6 +935,14 @@ const defaults = {
         noise16Sotce();
       } else {
         noise16Aesthetic();
+        if (net.motd) {
+          ink(255, 255, 255, 200).write(
+            net.motd,
+            { center: "x", y: Math.floor(screen.height / 2) },
+            undefined,
+            screen.width - 18,
+          );
+        }
         if (net.loadFailureText) {
           ink("white").write(
             net.loadFailureText,
@@ -1995,22 +2005,33 @@ const imageCache = {
     // Save to IndexedDB for persistence across refreshes
     if (this.store && imageBitmap) {
       try {
-        // Convert ImageBitmap to ImageData for storage
-        // Use OffscreenCanvas in Worker context, regular canvas in main thread
-        const canvas = typeof OffscreenCanvas !== 'undefined' 
-          ? new OffscreenCanvas(imageBitmap.width, imageBitmap.height)
-          : document.createElement('canvas');
-        canvas.width = imageBitmap.width;
-        canvas.height = imageBitmap.height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(imageBitmap, 0, 0);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        
-        // Store the ImageData along with metadata
+        let pixelData, imgWidth, imgHeight;
+
+        if (imageBitmap.pixels) {
+          // Already a pixel buffer { width, height, pixels }
+          imgWidth = imageBitmap.width;
+          imgHeight = imageBitmap.height;
+          pixelData = imageBitmap.pixels;
+        } else {
+          // ImageBitmap — convert to pixel data via canvas drawImage
+          const canvas = typeof OffscreenCanvas !== 'undefined'
+            ? new OffscreenCanvas(imageBitmap.width, imageBitmap.height)
+            : document.createElement('canvas');
+          canvas.width = imageBitmap.width;
+          canvas.height = imageBitmap.height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(imageBitmap, 0, 0);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          imgWidth = imageData.width;
+          imgHeight = imageData.height;
+          pixelData = imageData.data;
+        }
+
+        // Store the pixel data along with metadata
         this.store[`image-cache:${url}`] = {
-          width: imageData.width,
-          height: imageData.height,
-          data: Array.from(imageData.data), // Convert Uint8ClampedArray to regular array for storage
+          width: imgWidth,
+          height: imgHeight,
+          data: Array.from(pixelData),
           cached: Date.now(),
           version: 1
         };
@@ -2114,9 +2135,13 @@ let udp = {
     receive: ({ type, content }) => {
       // console.log("🩰 Received `piece` message from UDP:", type, content);
 
-      // 🧚 Ambient cursor (fairies) support.
+      // 🧚 Ambient cursor (fairies) support. Disabled for KidLisp pieces.
       if (type === "fairy:point" /*&& socket?.id !== id*/ && visible) {
-        fairies.push({ x: content.x, y: content.y });
+        const isKidlisp = detectKidLispPiece({ currentPath, currentHUDTxt, currentText }) ||
+          (currentPath && currentPath.endsWith('.lisp'));
+        if (!isKidlisp) {
+          fairies.push({ x: content.x, y: content.y });
+        }
         return;
       }
 
@@ -2723,7 +2748,7 @@ const $commonApi = {
   },
 
   jump: function jump(to, ahistorical = false, alias = false) {
-    // let url;
+    console.log("🧭 jump() called:", to, "SOLO_MODE:", SOLO_MODE, "leaving:", leaving, "loading:", loading);
 
     if (SOLO_MODE) {
       console.log("🔒 Jump blocked: solo mode active");
@@ -2758,6 +2783,30 @@ const $commonApi = {
     } else {
       leaving = true;
       graph.unmask(); // Clear any active mask when leaving a piece
+    }
+
+    // Preserve resolution parameters across jumps (device mode, TV mode, etc.)
+    // This ensures HUD visibility and other display settings persist when navigating
+    if (DEVICE_MODE || TV_MODE || SOLO_MODE || HIGHLIGHT_MODE || PERF_MODE || AUTO_SCALE_MODE) {
+      const params = [];
+      if (DEVICE_MODE) params.push("device=true");
+      if (TV_MODE) params.push("tv=true");
+      if (SOLO_MODE) params.push("solo=true");
+      if (HIGHLIGHT_MODE) {
+        if (HIGHLIGHT_COLOR && HIGHLIGHT_COLOR !== "64,64,64") {
+          params.push(`highlight=${encodeURIComponent(HIGHLIGHT_COLOR)}`);
+        } else {
+          params.push("highlight=true");
+        }
+      }
+      if (PERF_MODE) params.push("perf=true");
+      if (AUTO_SCALE_MODE) params.push("autoScale=true");
+
+      if (params.length > 0) {
+        const separator = to.includes("?") ? "&" : "?";
+        to = to + separator + params.join("&");
+        console.log("🧭 Preserving resolution params:", to);
+      }
     }
 
     function loadLine() {
@@ -3585,6 +3634,12 @@ const $commonApi = {
         ty,
       ) => {
         system.nopaint.needsPresent = false;
+
+        // Guard: system.painting must exist for present to work
+        if (!system.painting) {
+          console.warn("🖼️ present: system.painting is undefined, skipping");
+          return;
+        }
 
         const x = tx || system.nopaint.translation.x;
         const y = ty || system.nopaint.translation.y;
@@ -4486,8 +4541,8 @@ async function processMessage(msg) {
     // 👰‍♀️ Update the user handle if it changed.
     const newHandle = msg.split(":").pop();
     HANDLE = "@" + newHandle;
-    window.acHANDLE = HANDLE; // Expose for UDP identity
-    if (window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
+    if (typeof window !== 'undefined') window.acHANDLE = HANDLE; // Expose for UDP identity
+    if (typeof window !== 'undefined' && window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
     send({ type: "handle", content: HANDLE });
     store["handle:received"] = true;
     store["handle"] = newHandle;
@@ -6154,6 +6209,42 @@ const $paintApiUnwrapped = {
   noise16Aesthetic: graph.noise16Aesthetic,
   noise16Sotce: graph.noise16Sotce,
   noiseTinted: graph.noiseTinted,
+  // 🎨 Alpha-blended paste for crossfade compositing
+  pasteWithAlpha: function pasteWithAlpha(source, x, y, alpha) {
+    if (!source || !source.pixels || alpha <= 0) return;
+    const dst = $activePaintApi.screen;
+    if (!dst || !dst.pixels) return;
+    const srcPixels = source.pixels;
+    const dstPixels = dst.pixels;
+    const sw = source.width, sh = source.height;
+    const dw = dst.width, dh = dst.height;
+    if (alpha >= 255) {
+      $activePaintApi.paste(source, x, y);
+      return;
+    }
+    const alphaFactor = alpha / 255.0;
+    for (let sy = 0; sy < sh; sy++) {
+      const dy = sy + y;
+      if (dy < 0 || dy >= dh) continue;
+      for (let sx = 0; sx < sw; sx++) {
+        const dx = sx + x;
+        if (dx < 0 || dx >= dw) continue;
+        const si = (sy * sw + sx) * 4;
+        const di = (dy * dw + dx) * 4;
+        let srcA = srcPixels[si + 3];
+        if (srcA === 0 && (srcPixels[si] || srcPixels[si + 1] || srcPixels[si + 2])) {
+          srcA = 255; // Promote opaque RGB with zero alpha
+        }
+        if (srcA === 0) continue;
+        const ea = (srcA * alphaFactor + 1) | 0;
+        const inv = 256 - ea;
+        dstPixels[di]     = (ea * srcPixels[si]     + inv * dstPixels[di])     >> 8;
+        dstPixels[di + 1] = (ea * srcPixels[si + 1] + inv * dstPixels[di + 1]) >> 8;
+        dstPixels[di + 2] = (ea * srcPixels[si + 2] + inv * dstPixels[di + 2]) >> 8;
+        dstPixels[di + 3] = Math.min(255, dstPixels[di + 3] + ea);
+      }
+    }
+  },
   // 🎯 Simplified KidLisp integration using global singleton instance
   kidlisp: function kidlisp(x = 0, y = 0, width, height, source, options = {}) {
     // Initialize global instance if needed
@@ -6243,12 +6334,32 @@ const $paintApiUnwrapped = {
       
       // Create persistent painting key with accumulation support
       let regionKey;
+      // Build a dimension-independent content key for finding previous paintings after resize
+      let contentKey;
       if (accumulate && accumulateKey) {
         regionKey = `${x},${y},${width},${height}:ACCUMULATE:${accumulateKey}`;
+        contentKey = `ACCUMULATE:auto_${x}_${y}_${firstWord}`;
       } else {
         regionKey = `${x},${y},${width},${height}:${resolvedSource}`;
+        contentKey = resolvedSource;
       }
-      
+
+      // 🔄 RESIZE RESILIENCE: If no cached painting at current dimensions,
+      // look for a previous painting with the same source at different dimensions.
+      // This preserves animation continuity when the screen resizes.
+      let resizedPreviousPainting = null;
+      let resizedPreviousKey = null;
+      if (!globalKidLispInstance.persistentPaintings.has(regionKey)) {
+        for (const [key, val] of globalKidLispInstance.persistentPaintings) {
+          // Match keys that share the same content suffix but differ in dimensions
+          if (key !== regionKey && key.endsWith(`:${contentKey}`)) {
+            resizedPreviousPainting = val;
+            resizedPreviousKey = key;
+            break;
+          }
+        }
+      }
+
       // Check if the code contains frame-dependent randomization commands
       const hasFrameDependentCommands = /\(\s*ink\s*\)|\(\s*color\s*\)|\(\s*rand\s*\)/.test(resolvedSource);
       
@@ -6273,14 +6384,19 @@ const $paintApiUnwrapped = {
         // console.log(`🎨 Creating fresh painting for key: ${regionKey.slice(0, 50)}... (${reason})`);
         
         // For animations, start with previous frame if available (unless wiping)
-        const previousPainting = !shouldReset && globalKidLispInstance.persistentPaintings.has(regionKey) 
-          ? globalKidLispInstance.persistentPaintings.get(regionKey) 
-          : null;
-        
+        // Also check for resized previous painting from a different dimension
+        const previousPainting = !shouldReset && globalKidLispInstance.persistentPaintings.has(regionKey)
+          ? globalKidLispInstance.persistentPaintings.get(regionKey)
+          : (!shouldReset ? resizedPreviousPainting : null);
+
+        // Clean up the old dimension key if we found a resized previous
+        if (resizedPreviousKey && resizedPreviousPainting) {
+          globalKidLispInstance.persistentPaintings.delete(resizedPreviousKey);
+        }
+
         painting = $activePaintApi.painting(width, height, (api) => {
-          // For animations, paste previous frame first to maintain transformations
+          // Paste previous frame to maintain animation continuity (including across resizes)
           if (previousPainting && needsFreshExecution && !shouldReset) {
-            // console.log(`🎨 Pasting previous frame for animation continuity`);
             api.paste(previousPainting);
           }
           
@@ -7279,9 +7395,9 @@ async function load(
       let sourceToRun;
       let fetchStartTime = performance.now(); // Initialize timing at the start
       
-      // 💾 Check if this is a cached kidlisp code (starts with $ and has content after it)
+      // 💾 Check if this is a cached kidlisp code (starts with $ followed by a cache ID)
       if (slug && slug.startsWith("$") && slug.length > 1) {
-        const cacheId = slug.slice(1); // Remove $ prefix
+        const cacheId = slug.slice(1).split(":")[0]; // Remove $ prefix and any :fps colon params
         
         // Clear author/hits immediately to prevent stale data showing during load
         currentHUDAuthor = null;
@@ -7672,7 +7788,7 @@ async function load(
   const moduleCheckTime = performance.now();
   // console.log(`⏰ Module check at ${moduleCheckTime}ms, module loaded: ${loadedModule !== undefined}`);
   
-  if (loadedModule === undefined) {
+  if (loadedModule == null) {
     loading = false;
     leaving = false;
     return false;
@@ -8618,10 +8734,11 @@ async function load(
 
     // 📚 nopaint system
     if (
-      module.system?.startsWith("nopaint") ||
+      !Array.isArray(module) &&
+      (module.system?.startsWith("nopaint") ||
       typeof module?.brush === "function" ||
       typeof module?.lift === "function" ||
-      typeof module?.filter === "function"
+      typeof module?.filter === "function")
     ) {
       // If there is no painting is in ram, then grab it from the local store,
       // or generate one.
@@ -9316,6 +9433,32 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // Navigate to a new piece (device.html slideshow uses this for instant transitions)
+  if (type === "navigate") {
+    const target = content?.to;
+    console.log("🧭 Navigate received:", target, "jump available:", !!$commonApi?.jump, "loading:", loading, "leaving:", leaving);
+    if (target && $commonApi?.jump) {
+      $commonApi.jump(target);
+    } else {
+      console.warn("🧭 Navigate failed: target=", target, "$commonApi=", !!$commonApi, "jump=", !!$commonApi?.jump);
+    }
+    return;
+  }
+
+  // Warm the kidlisp code cache with pre-fetched sources from parent
+  if (type === "warm-kidlisp-cache") {
+    const codes = content?.codes;
+    if (codes) {
+      let count = 0;
+      for (const [codeId, source] of Object.entries(codes)) {
+        saveCodeToAllCaches(codeId, source);
+        count++;
+      }
+      console.log(`🔥 Warmed kidlisp cache with ${count} codes`);
+    }
+    return;
+  }
+
   // Runs once on boot.
   if (type === "init-from-bios") {
     debug = content.debug;
@@ -9329,8 +9472,11 @@ async function makeFrame({ data: { type, content } }) {
     }
     
     // Store noauth flag for iframe embedding (kidlisp.com)
+    // In noauth mode, mark session as started immediately so piece loading
+    // doesn't wait for the session:started message (resilience when session server is down)
     if (content.noauth) {
       globalThis.NOAUTH_MODE = true;
+      sessionStarted = true;
     }
 
     USER = content.user;
@@ -11101,11 +11247,15 @@ async function makeFrame({ data: { type, content } }) {
         primaryPointer &&
         (primaryPointer.delta?.x !== 0 || primaryPointer.delta?.y !== 0)
       ) {
-        //socket?.send("ambient-pen:point", {
-        udp?.send("fairy:point", {
-          x: primaryPointer.x / screen.width,
-          y: primaryPointer.y / screen.height,
-        });
+        // Skip sending fairy points in KidLisp pieces.
+        const isKidlisp = detectKidLispPiece({ currentPath, currentHUDTxt, currentText }) ||
+          (currentPath && currentPath.endsWith('.lisp'));
+        if (!isKidlisp) {
+          udp?.send("fairy:point", {
+            x: primaryPointer.x / screen.width,
+            y: primaryPointer.y / screen.height,
+          });
+        }
       }
     }
 
@@ -11380,6 +11530,67 @@ async function makeFrame({ data: { type, content } }) {
           } else {
             console.warn("🌊 Unsupported direction.");
           }
+        },
+
+        // Renders an "AUDIO ENGINE OFF" badge when the audio context is
+        // suspended.  Returns { visible, x, y, width, height } so callers
+        // can react to its layout.
+        audioEngineBadge: function paintAudioEngineBadge(
+          { ink, screen },
+          speaker,
+          x,
+          y,
+          options = {},
+        ) {
+          const waveforms = speaker?.waveforms?.left;
+          const amp = speaker?.amplitudes?.left;
+          const ready =
+            waveforms &&
+            typeof waveforms.length === "number" &&
+            waveforms.length > 0 &&
+            typeof amp === "number" &&
+            Number.isFinite(amp);
+
+          if (ready) return { visible: false, x: 0, y: 0, width: 0, height: 0 };
+
+          const maxWidth =
+            options.maxWidth != null ? options.maxWidth : screen.width - 20;
+          const padding = 4;
+          const badgeHeight = options.height || 12;
+          const align = options.align || "center"; // "center" | "left" | "right"
+
+          // Responsive text choices
+          const texts = ["AUDIO ENGINE OFF", "ENGINE OFF", "OFF"];
+          let chosen = texts[0];
+          for (const t of texts) {
+            // Approximate glyph width for MatrixChunky8 is 6px per char + 1px gap
+            const tw = t.length * 7;
+            if (tw + padding * 2 <= maxWidth) {
+              chosen = t;
+              break;
+            }
+          }
+          const textWidth = chosen.length * 7;
+          const totalWidth = textWidth + padding * 2;
+
+          let bx = x;
+          if (align === "center") {
+            bx = x != null ? x : Math.floor((screen.width - totalWidth) / 2);
+          } else if (align === "right") {
+            bx = (x != null ? x : screen.width) - totalWidth;
+          }
+
+          ink(180, 0, 0, 240).box(bx, y, totalWidth, badgeHeight);
+          ink(255, 255, 0).write(
+            chosen,
+            { x: bx + padding, y: y + 3 },
+            undefined,
+            undefined,
+            false,
+            "MatrixChunky8",
+          );
+
+          return { visible: true, x: bx, y, width: totalWidth, height: badgeHeight };
         },
       },
     };
@@ -13627,6 +13838,25 @@ async function makeFrame({ data: { type, content } }) {
                 }
               }
               
+              // Fade zone overlay: blend toward next piece color at end of each segment
+              if (merry.fadeDuration > 0 && merry.pipeline.length > 1) {
+                const fadeZonePixels = Math.max(2, Math.floor(pieceWidth * merry.fadeDuration / piece.duration));
+                const pixelOffset = x - xOffset;
+                if (pixelOffset >= pieceWidth - fadeZonePixels) {
+                  const t = (pixelOffset - (pieceWidth - fadeZonePixels)) / Math.max(1, fadeZonePixels - 1);
+                  const nextIdx = (index + 1) % merry.pipeline.length;
+                  const nc = pieceColors[nextIdx % pieceColors.length];
+                  const maxCh = Math.max(1, color.r, color.g, color.b);
+                  const bright = Math.max(baseR, baseG, baseB) / maxCh;
+                  const nR = Math.floor(nc.r * bright);
+                  const nG = Math.floor(nc.g * bright);
+                  const nB = Math.floor(nc.b * bright);
+                  baseR = Math.min(255, Math.floor(baseR * (1 - t) + nR * t));
+                  baseG = Math.min(255, Math.floor(baseG * (1 - t) + nG * t));
+                  baseB = Math.min(255, Math.floor(baseB * (1 - t) + nB * t));
+                }
+              }
+
               // Apply transition flash boost to current piece
               if (isCurrent && flashIntensity > 0) {
                 const boost = 1 + flashIntensity * 0.8; // Up to 80% brighter
@@ -13968,8 +14198,8 @@ async function makeFrame({ data: { type, content } }) {
       sendData.TwoD = { code: twoDCommands };
 
       // Attach a label buffer if necessary.
-      // Hide label when QR is in fullscreen mode
-      if (label && !hudAnimationState.qrFullscreen) {
+      // Hide label when QR is in fullscreen mode or in device mode (device.html has its own overlay)
+      if (label && !hudAnimationState.qrFullscreen && !DEVICE_MODE) {
   const finalX = currentHUDOffset.x + hudAnimationState.slideOffset.x - currentHUDLeftPad;
         // Move label up by 4px when QR is present for tighter fit
         const qrYOffset = currentHUDQR ? -4 : 0;
@@ -14067,7 +14297,7 @@ async function makeFrame({ data: { type, content } }) {
             sigil = "*";
           } else if (sourceCode.startsWith("$")) {
             // For $code format, the sourceCode IS the cached code (without $)
-            cachedCode = sourceCode.substring(1); // Remove the $ prefix
+            cachedCode = sourceCode.substring(1).split(":")[0]; // Remove the $ prefix and any :fps colon params
             // console.log("🔑 [QR Debug] Using $code format, cachedCode:", cachedCode);
           } else {
             // For regular KidLisp source, check if it has been cached
@@ -15099,8 +15329,8 @@ async function makeFrame({ data: { type, content } }) {
       const cachedHandle = store["handle"];
       if (cachedHandle && !HANDLE) {
         HANDLE = "@" + cachedHandle;
-        window.acHANDLE = HANDLE;
-        if (window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
+        if (typeof window !== 'undefined') window.acHANDLE = HANDLE;
+        if (typeof window !== 'undefined' && window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
         send({ type: "handle", content: HANDLE });
         console.log(`🔐 Recovered cached handle: ${HANDLE}`);
       }

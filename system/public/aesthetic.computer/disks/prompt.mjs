@@ -1468,6 +1468,12 @@ async function halt($, text) {
     return `${siteBase}${normalized}`;
   };
 
+  // 🖥️ Open Electron DevTools (docked at bottom, JS console).
+  if (text.trim() === "~") {
+    send({ type: "open-devtools" });
+    return true;
+  }
+
   // 🕸️ Custom URL routing.
   if (slug.startsWith("/")) {
     jump(`${siteBase}${slug}`);
@@ -2594,8 +2600,9 @@ async function halt($, text) {
 
     try {
       // Use streaming endpoint for progress updates
+      // Hit the oven directly to avoid Netlify proxy timeout (26s limit + SSE buffering)
       const bundleParam = isKidlisp ? `code=$${code}` : `piece=${code}`;
-      const response = await fetch(`/api/bundle-html?${bundleParam}&format=stream`);
+      const response = await fetch(`https://oven.aesthetic.computer/bundle-html?${bundleParam}&format=stream`);
       if (!response.ok) {
         throw new Error(`Bundle API returned ${response.status}`);
       }
