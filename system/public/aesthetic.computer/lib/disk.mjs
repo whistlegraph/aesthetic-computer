@@ -665,6 +665,11 @@ let debug = false; // This can be overwritten on boot.
 let nopaintPerf = false; // Performance panel for nopaint system debugging (disabled by default)
 let visible = true; // Is aesthetic.computer visibly rendering or not?
 let pieceBackground = false; // Does the current piece want background sim ticks?
+// True screen buffer state — set on create/resize, never touched by page() sub-buffer calls.
+// Used to restore screen after brushes call page(system.painting) and corrupt screen.pixels.
+let _trueScreenPixels = null;
+let _trueScreenWidth = 0;
+let _trueScreenHeight = 0;
 
 // 🎯 Global KidLisp Instance - Single source of truth for all KidLisp operations
 let globalKidLispInstance = null;
@@ -12496,6 +12501,11 @@ async function makeFrame({ data: { type, content } }) {
 
         screen[hasScreen ? "resized" : "created"] = true; // Screen change type.
 
+        // Track the true screen pixel buffer so we can restore it if page() corrupts it.
+        _trueScreenPixels = screen.pixels;
+        _trueScreenWidth = screen.width;
+        _trueScreenHeight = screen.height;
+
         // 🎨 Broadcast screen resize to other tabs
         if (hasScreen && $commonApi.broadcastPaintingUpdate) {
           $commonApi.broadcastPaintingUpdate("resized", {
@@ -12938,6 +12948,15 @@ async function makeFrame({ data: { type, content } }) {
 
         // Upper layer.
         const { page, layer, ink, needsPaint, pieceCount } = $api;
+
+        // Restore screen if page(sub-buffer) calls during paint left it corrupted.
+        // Brushes like smear call page(system.painting) which mutates screen.pixels/width/height.
+        // page(screen) at the end of those brushes can't restore because screen is already corrupted.
+        if (_trueScreenPixels && screen.pixels !== _trueScreenPixels) {
+          screen.pixels = _trueScreenPixels;
+          screen.width = _trueScreenWidth;
+          screen.height = _trueScreenHeight;
+        }
 
         page($api.screen); // Make sure we're on the right bufer.
 

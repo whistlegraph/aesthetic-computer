@@ -6171,6 +6171,32 @@ class KidLisp {
 
         drawCircle();
       },
+      oval: (api, args = []) => {
+        // Oval/ellipse: (oval x y rx ry) or bare (oval) for random
+        if (args.length === 0) args = [undefined, undefined, undefined, undefined];
+        const processedOvalArgs = args.map((arg, index) => {
+          if (arg !== undefined) return arg;
+          const w = api.screen?.width || 256, h = api.screen?.height || 256;
+          switch (index) {
+            case 0: return Math.floor(this.seededRandom() * w);
+            case 1: return Math.floor(this.seededRandom() * h);
+            case 2: return Math.floor(this.seededRandom() * (w / 8)) + 5;
+            case 3: return Math.floor(this.seededRandom() * (h / 8)) + 5;
+            default: return Math.floor(this.seededRandom() * 256);
+          }
+        });
+        const [ox, oy, orx, ory] = processedOvalArgs;
+        const mode = processedOvalArgs[4];
+        const filled = (mode === undefined) ? this.fillMode : (mode !== "outline");
+        if (!this.inkStateSet) {
+          api.ink?.(
+            Math.floor(this.seededRandom() * 256),
+            Math.floor(this.seededRandom() * 256),
+            Math.floor(this.seededRandom() * 256),
+          );
+        }
+        api.oval(ox, oy, orx, ory, filled);
+      },
       point: (api, args = []) => {
         // Point drawing at x, y with current ink
         // Usage: (point x y) or bare (point) for random position
@@ -6263,6 +6289,7 @@ class KidLisp {
       flood: (api, args = []) => {
         // Flood fill at coordinates with optional color
         // Usage: (flood x y) or (flood x y color)
+        if (args.length === 0) args = [undefined, undefined];
         if (args.length >= 2) {
           // Handle undefined (?) values with contextual logic for random coordinates
           let x = args[0];
@@ -6320,8 +6347,33 @@ class KidLisp {
         }
       },
       shape: (api, args = []) => {
-        // Handle shape arguments - can be flat array of coordinates or array of pairs
-        if (args.length === 0) return;
+        // Handle shape arguments - can be flat array of coordinates or array of pairs.
+        // (shape)    → random 3–6 vertex polygon
+        // (shape n)  → random n-vertex polygon
+        // (shape x1 y1 x2 y2 ...) → explicit polygon (any number of vertices)
+        if (args.length === 0 || (args.length === 1 && typeof args[0] === 'number')) {
+          const n = (args.length === 1 ? Math.max(3, Math.floor(args[0])) :
+            3 + Math.floor(this.seededRandom() * 4)); // 3–6 vertices
+          const w = api.screen?.width || 256, h = api.screen?.height || 256;
+          // Generate random points then sort by angle from centroid — no crossing edges.
+          const pts = [];
+          for (let i = 0; i < n; i++) {
+            pts.push([Math.floor(this.seededRandom() * w), Math.floor(this.seededRandom() * h)]);
+          }
+          const cx = pts.reduce((s, p) => s + p[0], 0) / n;
+          const cy = pts.reduce((s, p) => s + p[1], 0) / n;
+          pts.sort((a, b) => Math.atan2(a[1] - cy, a[0] - cx) - Math.atan2(b[1] - cy, b[0] - cx));
+          args = pts.flat();
+          if (!this.inkStateSet) {
+            api.ink?.(
+              Math.floor(this.seededRandom() * 256),
+              Math.floor(this.seededRandom() * 256),
+              Math.floor(this.seededRandom() * 256),
+            );
+          }
+          api.shape({ points: args, filled: this.fillMode !== false, thickness: 1 });
+          return;
+        }
 
         // 🚀 FAST PATH: For performance mode with simple numeric triangles
         if (this.performanceMode?.enabled && args.length === 6 &&
