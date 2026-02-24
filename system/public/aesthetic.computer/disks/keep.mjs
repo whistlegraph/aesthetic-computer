@@ -2847,7 +2847,7 @@ function paint($) {
       if (isItemError) stripeColor = [70, 30, 35];
       else if (isActive) stripeColor = phase.stripe.map(c => c + 15);
       else stripeColor = phase.stripe;
-      ink(stripeColor[0], stripeColor[1], stripeColor[2], isDone ? 60 : 100).box(0, y, w, stripeH);
+      ink(stripeColor[0], stripeColor[1], stripeColor[2], isDone ? ($.dark ? 60 : 120) : 100).box(0, y, w, stripeH);
 
       // Progress bar for active items
       if (isActive && item.startedAt && item.duration) {
@@ -2865,7 +2865,7 @@ function paint($) {
     if (isPending) labelColor = pal.textMuted;
     else if (isItemError) labelColor = [255, 120, 120];
     else if (isActive) labelColor = phase.label;
-    else labelColor = phase.label.map(c => floor(c * 0.7));
+    else labelColor = $.dark ? phase.label.map(c => floor(c * 0.7)) : phase.label;
 
     ink(...labelColor).write(item.label, { x: margin, y: y + 2 }, undefined, undefined, false, "MatrixChunky8");
 
@@ -2885,7 +2885,7 @@ function paint($) {
       const maxLen = floor((w - 20) / 4);
       const truncated = item.detail.length > maxLen ? item.detail.slice(0, maxLen - 2) + ".." : item.detail;
       // Theme-aware background strip for better readability
-      const detailBg = $.dark ? [0, 0, 0, 220] : [50, 50, 40, 220];
+      const detailBg = $.dark ? [0, 0, 0, 220] : [255, 255, 250, 220];
       ink(detailBg[0], detailBg[1], detailBg[2], detailBg[3]).box(margin - 2, y + 10, truncated.length * 4 + 4, 10);
       ink(...detailColor).write(truncated, { x: margin, y: y + 11 }, undefined, undefined, false, "MatrixChunky8");
     }
