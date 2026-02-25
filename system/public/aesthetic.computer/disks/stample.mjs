@@ -558,17 +558,7 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
     );
   }
 
-  // Paint bitmap preview first (base layer) at half opacity.
-  if (hasBitmap) {
-    const halfAlpha = { ...bitmapPreview, pixels: new Uint8ClampedArray(bitmapPreview.pixels) };
-    for (let i = 3; i < halfAlpha.pixels.length; i += 4) halfAlpha.pixels[i] = halfAlpha.pixels[i] >> 1;
-    api.paste(halfAlpha, layout.stripX, layout.stripY, {
-      width: layout.stripW,
-      height: layout.stripAreaH,
-    });
-  }
-
-  // Waveform on top of bitmap preview.
+  // Waveform background.
   const waveformData = sampleData;
   const waveformColor = hasBitmap ? [255, 100, 0, 28] : [0, 0, 255, 24];
   if (waveformData) {
@@ -585,10 +575,10 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
     );
   }
 
-  // Strip buttons: semi-transparent so bitmap preview shows through.
+  // Strip buttons.
   btns.forEach((btn, index) => {
     btn.paint(() => {
-      ink(btn.down ? "white" : "cyan", btn.down ? 80 : 60).box(btn.box);
+      ink(btn.down ? "white" : "cyan", btn.down ? 120 : 80).box(btn.box);
       ink("black").box(btn.box, "out"); // Outline in black.
 
       ink("black").write(
@@ -599,16 +589,7 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
     });
   });
 
-  // Scrubber line on top.
-  if (hasBitmap && bitmapProgress > 0) {
-    const totalPixels = bitmapPreview.width * bitmapPreview.height;
-    const currentPixel = floor(bitmapProgress * totalPixels);
-    const scrubY = floor(currentPixel / bitmapPreview.width);
-    const mappedY = layout.stripY + (scrubY / bitmapPreview.height) * layout.stripAreaH;
-    ink("yellow", 200).line(layout.stripX, mappedY, layout.stripX + layout.stripW, mappedY);
-  }
-
-  // Playback needles on top.
+  // Playback needles.
   btns.forEach((btn, index) => {
     const options = sounds[index]?.options;
     if (options && progressions[index] !== undefined) {
@@ -627,6 +608,25 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
       ink("orange").line(0, y, btn.box.x + btn.box.w, y);
     }
   });
+
+  // Bitmap preview last (half opacity overlay) so everything shows through.
+  if (hasBitmap) {
+    const halfAlpha = { ...bitmapPreview, pixels: new Uint8ClampedArray(bitmapPreview.pixels) };
+    for (let i = 3; i < halfAlpha.pixels.length; i += 4) halfAlpha.pixels[i] = halfAlpha.pixels[i] >> 1;
+    api.paste(halfAlpha, layout.stripX, layout.stripY, {
+      width: layout.stripW,
+      height: layout.stripAreaH,
+    });
+
+    // Scrubber line on top of preview.
+    if (bitmapProgress > 0) {
+      const totalPixels = bitmapPreview.width * bitmapPreview.height;
+      const currentPixel = floor(bitmapProgress * totalPixels);
+      const scrubY = floor(currentPixel / bitmapPreview.width);
+      const mappedY = layout.stripY + (scrubY / bitmapPreview.height) * layout.stripAreaH;
+      ink("yellow", 200).line(layout.stripX, mappedY, layout.stripX + layout.stripW, mappedY);
+    }
+  }
 
   // Only show record button if NOT in KidLisp mode.
   if (!kidlispActive) {
