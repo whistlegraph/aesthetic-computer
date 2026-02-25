@@ -1259,12 +1259,23 @@ async function openAcPaneWindowInternal(options = {}) {
     focusedWindowId = windowId;
   });
   
-  // Register global shortcut Cmd+B (Mac) / Ctrl+B (Windows/Linux) to toggle flip
-  const flipShortcut = process.platform === 'darwin' ? 'CommandOrControl+B' : 'Ctrl+B';
-  globalShortcut.register(flipShortcut, () => {
-    // Send toggle to the flip view window
-    if (win && !win.isDestroyed()) {
-      win.webContents.send('toggle-flip');
+  // Register Cmd+F to flip ALL windows, Cmd+B to flip focused window only
+  const flipAllShortcut = process.platform === 'darwin' ? 'CommandOrControl+F' : 'Ctrl+F';
+  const flipOneShortcut = process.platform === 'darwin' ? 'CommandOrControl+B' : 'Ctrl+B';
+  globalShortcut.register(flipAllShortcut, () => {
+    for (const entry of windows.values()) {
+      const w = entry.window || entry;
+      if (w && !w.isDestroyed()) {
+        w.webContents.send('toggle-flip');
+      }
+    }
+  });
+  globalShortcut.register(flipOneShortcut, () => {
+    if (focusedWindowId && windows.has(focusedWindowId)) {
+      const w = windows.get(focusedWindowId).window;
+      if (w && !w.isDestroyed()) {
+        w.webContents.send('toggle-flip');
+      }
     }
   });
   
@@ -1273,11 +1284,15 @@ async function openAcPaneWindowInternal(options = {}) {
     if (focusedWindowId === windowId) {
       focusedWindowId = null;
     }
-    globalShortcut.unregister(flipShortcut);
-    globalShortcut.unregister('CommandOrControl+Plus');
-    globalShortcut.unregister('CommandOrControl+=');
-    globalShortcut.unregister('CommandOrControl+-');
-    globalShortcut.unregister('CommandOrControl+0');
+    // Only unregister global shortcuts when the last window closes
+    if (windows.size === 0) {
+      globalShortcut.unregister(flipAllShortcut);
+      globalShortcut.unregister(flipOneShortcut);
+      globalShortcut.unregister('CommandOrControl+Plus');
+      globalShortcut.unregister('CommandOrControl+=');
+      globalShortcut.unregister('CommandOrControl+-');
+      globalShortcut.unregister('CommandOrControl+0');
+    }
     if (ptyProcessFor3D) {
       ptyProcessFor3D.kill();
       ptyProcessFor3D = null;

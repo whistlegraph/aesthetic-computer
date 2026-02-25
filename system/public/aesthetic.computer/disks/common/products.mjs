@@ -1,7 +1,24 @@
 // Products, 2025.11.03
 // Corner product system for displaying various products (books, records, etc.) in the prompt
 
+import { MatrixChunky8 } from "./fonts.mjs";
+
 const { abs, max, min, sin, cos, floor } = Math;
+const MATRIX_CHUNKY_DEFAULT_ADVANCE = 4;
+const matrixChunkyAdvances = MatrixChunky8?.advances || {};
+
+function getMatrixChunkyAdvance(char) {
+  if (!char) return MATRIX_CHUNKY_DEFAULT_ADVANCE;
+  return matrixChunkyAdvances[char] ?? MATRIX_CHUNKY_DEFAULT_ADVANCE;
+}
+
+function getMatrixChunkyTextWidth(text = "") {
+  let width = 0;
+  for (const char of text) {
+    width += getMatrixChunkyAdvance(char);
+  }
+  return width;
+}
 
 // GPU-resize a source image (ImageBitmap / HTMLImageElement) to a target size,
 // returning a plain { width, height, pixels } buffer compatible with $.paste().
@@ -625,8 +642,7 @@ class Product {
     const buyDriftX = floor(sin(this.rotation * 0.07 + 1.5) * 3);
     const buyDriftY = floor(cos(this.rotation * 0.06 + 2.0) * 2);
     const buyText = this.soldOut ? "SOLD" : "BUY";
-    const buyCharWidth = 4;
-    const buyTextW = buyText.length * buyCharWidth;
+    const buyTextW = getMatrixChunkyTextWidth(buyText);
     const buyBaseX = rightEdge - buyTextW - 8; // Base position at right edge
     const buyX = buyBaseX + buyDriftX; // With its own sway
     const buyY = bookY + bookH - 4 + buyDriftY; // Same base Y as price but own sway
@@ -680,8 +696,9 @@ class Product {
       [255, 0, 0], [255, 100, 100], [200, 0, 0], [255, 50, 50], [255, 150, 150]
     ];
     const charColors = this.soldOut ? buyColorsRed : buyColorsGreen;
+    let charX = buyX + buyPaddingLeft;
     for (let i = 0; i < buyText.length; i++) {
-      const charX = buyX + buyPaddingLeft + i * buyCharWidth;
+      const char = buyText[i];
       const charY = buyY + buyPaddingTop;
       const colorPhase = (this.rotation * 0.1 + i * 0.5) % (charColors.length);
       const colorIndex = floor(colorPhase);
@@ -694,7 +711,8 @@ class Product {
         floor(charColors[colorIndex][2] * (1 - mix) + charColors[nextColorIndex][2] * mix)
       ];
       
-      $.ink(...charColor).write(buyText[i], { x: charX, y: charY }, undefined, undefined, false, 'MatrixChunky8');
+      $.ink(...charColor).write(char, { x: charX, y: charY }, undefined, undefined, false, "MatrixChunky8");
+      charX += getMatrixChunkyAdvance(char);
     }
     
     // Return bounds for progress bar positioning (now returns BUY button bounds)
@@ -1006,8 +1024,7 @@ class Product {
     const buyDriftX = floor(sin(this.rotation * 0.07 + 1.5) * 3);
     const buyDriftY = floor(cos(this.rotation * 0.06 + 2.0) * 2);
     const buyText = this.soldOut ? 'SOLD' : 'BUY';
-    const buyCharWidth = 4; // MatrixChunky8 char width
-    const buyW = buyText.length * buyCharWidth;
+    const buyW = getMatrixChunkyTextWidth(buyText);
     const buyH = 8;
     const buyPaddingLeft = 5; // Left padding (1 less pixel)
     const buyPaddingRight = 3; // Right padding (3 less pixels)
@@ -1063,8 +1080,9 @@ class Product {
       [255, 0, 0], [255, 100, 100], [200, 0, 0], [255, 50, 50], [255, 150, 150]
     ];
     const charColors = this.soldOut ? buyColorsRed : buyColorsGreen;
+    let charX = buyX + buyPaddingLeft;
     for (let i = 0; i < buyText.length; i++) {
-      const charX = buyX + buyPaddingLeft + i * buyCharWidth;
+      const char = buyText[i];
       const charY = buyY + buyPaddingTop;
       const colorPhase = (this.rotation * 0.1 + i * 0.5) % (charColors.length); // Faster blinking
       const colorIndex = floor(colorPhase);
@@ -1077,7 +1095,8 @@ class Product {
         floor(charColors[colorIndex][2] * (1 - mix) + charColors[nextColorIndex][2] * mix)
       ];
       
-      $.ink(...charColor).write(buyText[i], { x: charX, y: charY }, undefined, undefined, false, 'MatrixChunky8');
+      $.ink(...charColor).write(char, { x: charX, y: charY }, undefined, undefined, false, "MatrixChunky8");
+      charX += getMatrixChunkyAdvance(char);
     }
     
     // Draw music notes shooting off when playing (using Unifont for musical symbols)
@@ -1255,12 +1274,7 @@ class Product {
 
   // Helper: Calculate price text width
   calculatePriceWidth(priceText) {
-    // MatrixChunky8: most chars are 4px, space is 2px
-    let width = 0;
-    for (let i = 0; i < priceText.length; i++) {
-      width += priceText[i] === ' ' ? 2 : 4;
-    }
-    return width;
+    return getMatrixChunkyTextWidth(priceText);
   }
 
   // Helper: Check for UI overlaps
