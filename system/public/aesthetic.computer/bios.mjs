@@ -19955,6 +19955,35 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       for (let i = 0; i < files.length; i++) {
         await processDroppedFile(files[i]);
       }
+    } else {
+      // No files — check for dropped text content.
+      const text = e.dataTransfer.getData("text/plain")?.trim();
+      if (text) {
+        console.log("💧 Dropped text:", text.substring(0, 80));
+        if (isKidlispSource(text)) {
+          // KidLisp source code
+          send({
+            type: "dropped:piece",
+            content: { name: "dropped", source: text, isKidLisp: true },
+          });
+        } else if (
+          text.includes("function paint") ||
+          text.includes("function boot") ||
+          text.includes("function act") ||
+          text.includes("function sim") ||
+          text.includes("export {") ||
+          text.includes("export default")
+        ) {
+          // JavaScript piece source code
+          send({
+            type: "dropped:piece",
+            content: { name: "dropped", source: text },
+          });
+        } else {
+          // Treat as a prompt command
+          send({ type: "dropped:text", content: { text } });
+        }
+      }
     }
   });
 
