@@ -23,6 +23,9 @@
     "build:mac": "electron-builder --mac --universal",
     "build:win": "electron-builder --win --x64",
     "build:linux": "electron-builder --linux",
+    "setup:host:mac-signing": "bash scripts/setup-host-mac-signing.sh",
+    "build:host:mac": "bash scripts/build-publish-host-mac.sh --skip-publish",
+    "release:host:mac": "bash scripts/build-publish-host-mac.sh",
     "publish:mac": "electron-builder --mac --universal --publish always",
     "release": "electron-builder --mac --universal --publish always"
   },

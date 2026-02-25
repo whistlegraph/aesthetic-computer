@@ -168,7 +168,7 @@ export const MatrixChunky8 = {
     'L': 4,
     'M': 6,
     'N': 5,
-    'O': 5,
+    'O': 6, // Extra breathing room after O (e.g. "OL" in SOLD)
     'P': 4,
     'Q': 5,
     'R': 4,
