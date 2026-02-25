@@ -6,7 +6,7 @@
 // Feature Flags
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Staging v5 RC flag - uses mainnet staging contract with v5 features
+// v5 Release Candidate flag - uses mainnet v5 RC contract (v6 will be production)
 export const KEEPS_STAGING = true;
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -16,7 +16,7 @@ export const KEEPS_STAGING = true;
 export const NETWORKS = {
   mainnet: {
     name: "mainnet",
-    displayName: KEEPS_STAGING ? "Mainnet (Staging V5 RC)" : "Mainnet",
+    displayName: KEEPS_STAGING ? "Mainnet (V5 RC)" : "Mainnet",
     contract: "KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido",
     rpc: "https://mainnet.ecadinfra.com",
     tzktApi: "https://api.tzkt.io",
