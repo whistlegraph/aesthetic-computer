@@ -18833,16 +18833,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // Downloads both cached files via `data` and network stored files for
   // users and guests.
   async function receivedDownload({ filename, data, modifiers }) {
-    console.log("💾 📥 receivedDownload called!");
-    console.log("💾 📥 - filename:", filename);
-    console.log("💾 📥 - data type:", typeof data);
-    console.log("💾 📥 - data instanceof Blob:", data instanceof Blob);
-    if (data instanceof Blob) {
-      console.log("💾 📥 - blob size:", data.size);
-      console.log("💾 📥 - blob type:", data.type);
-    }
-    console.log("💾 📥 - modifiers:", modifiers);
-    
     console.log("💾 Downloading:", filename);
     // if (data) console.log("Data:", typeof data);
     // if (modifiers.sharing === true) presharingFile = true;
@@ -18851,7 +18841,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     let MIME = "application/octet-stream"; // Default content type.
     const ext = extension(filename);
 
-    if (ext === "glb") {
+    // Handle binary-encoded strings (latin1 bytes passed as string for reliable worker transfer)
+    if (modifiers?.encoding === "binary" && typeof data === "string") {
+      const bytes = new Uint8Array(data.length);
+      for (let i = 0; i < data.length; i++) bytes[i] = data.charCodeAt(i);
+      object = URL.createObjectURL(new Blob([bytes], { type: modifiers.type || MIME }));
+    } else if (ext === "glb") {
       MIME = "model/gltf+binary";
       object = URL.createObjectURL(new Blob([data], { type: MIME }));
     } else if (ext === "json" || ext === "gltf") {
