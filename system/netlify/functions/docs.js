@@ -1425,11 +1425,43 @@ export async function handler(event, context) {
         ],
         done: true,
       },
+      bundle: {
+        sig: "bundle <piece>",
+        desc: "Download a piece as a self-contained HTML file.",
+        params: [
+          { name: "piece", type: "string", required: true, desc: "Piece name or $code" }
+        ],
+        done: true,
+      },
       m4d: {
         sig: "m4d <piece>",
         desc: "Download a piece as an offline Max for Live device (.amxd).",
         params: [
           { name: "piece", type: "string", required: true, desc: "Piece name or $code" }
+        ],
+        done: true,
+      },
+      "4d": {
+        sig: "4d <piece>",
+        desc: "Download a piece as an offline Max for Live device (.amxd).",
+        params: [
+          { name: "piece", type: "string", required: true, desc: "Piece name or $code" }
+        ],
+        done: true,
+      },
+      m4do: {
+        sig: "m4do <piece>",
+        desc: "Download a piece as an online Max for Live device (.amxd) that streams from aesthetic.computer.",
+        params: [
+          { name: "piece", type: "string", required: true, desc: "Piece name" }
+        ],
+        done: true,
+      },
+      "4do": {
+        sig: "4do <piece>",
+        desc: "Download a piece as an online Max for Live device (.amxd) that streams from aesthetic.computer.",
+        params: [
+          { name: "piece", type: "string", required: true, desc: "Piece name" }
         ],
         done: true,
       },
