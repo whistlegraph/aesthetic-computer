@@ -558,11 +558,17 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
     );
   }
 
-  // Use bitmap sample data for waveform if loaded, otherwise use regular sample.
+  // Paint bitmap preview first (base layer).
+  if (hasBitmap) {
+    api.paste(bitmapPreview, layout.stripX, layout.stripY, {
+      width: layout.stripW,
+      height: layout.stripAreaH,
+    });
+  }
+
+  // Waveform on top of bitmap preview.
   const waveformData = sampleData;
   const waveformColor = hasBitmap ? [255, 100, 0, 28] : [0, 0, 255, 24];
-
-  // Background waveform (in strip button area)
   if (waveformData) {
     sound.paint.waveform(
       api,
@@ -575,14 +581,6 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
       waveformColor,
       { direction: "bottom-to-top" },
     );
-  }
-
-  // Paint bitmap preview behind buttons.
-  if (hasBitmap) {
-    api.paste(bitmapPreview, layout.stripX, layout.stripY, {
-      width: layout.stripW,
-      height: layout.stripAreaH,
-    });
   }
 
   // Strip buttons: semi-transparent so bitmap preview shows through.
@@ -599,7 +597,7 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
     });
   });
 
-  // Draw scrubber line over mapped board.
+  // Scrubber line on top.
   if (hasBitmap && bitmapProgress > 0) {
     const totalPixels = bitmapPreview.width * bitmapPreview.height;
     const currentPixel = floor(bitmapProgress * totalPixels);
@@ -608,7 +606,7 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
     ink("yellow", 200).line(layout.stripX, mappedY, layout.stripX + layout.stripW, mappedY);
   }
 
-  // Render playback needles on top of everything in the strip area.
+  // Playback needles on top.
   btns.forEach((btn, index) => {
     const options = sounds[index]?.options;
     if (options && progressions[index] !== undefined) {
