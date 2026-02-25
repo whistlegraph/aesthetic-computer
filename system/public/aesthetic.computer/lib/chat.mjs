@@ -26,10 +26,20 @@ export class Chat {
       onlineHandles: [], // Realtime list of online user handles (all connected)
       hereHandles: [],   // Users actually viewing the chat piece right now
       messages: [],
+      hearts: new Map(), // Map<messageId, { count, heartedByMe }>
       // receiver: // A custom receiver that can be defined in a piece.
       //              like `chat` to get the events.
       disconnect, // A custom disconnection that triggers below.
       connecting: true, // Start in connecting state, set to false when connected
+    };
+    // sendHeart is on system so pieces can call client.sendHeart(id, token)
+    this.system.sendHeart = (id, token) => {
+      if (!id || !token) return;
+      const existing = this.system.hearts.get(id) || { count: 0, heartedByMe: false };
+      const heartedByMe = !existing.heartedByMe;
+      const count = existing.count + (heartedByMe ? 1 : -1);
+      this.system.hearts.set(id, { count: Math.max(0, count), heartedByMe });
+      this.system.server.send("chat:heart", { for: id, token });
     };
     this.#debug = debug;
   }
@@ -93,6 +103,18 @@ export class Chat {
           this.system.onlineHandles = content?.handles || [];
           this.system.messages.length = 0;
           this.system.messages.push(...content.messages);
+          // Seed heart counts from initial payload
+          this.system.hearts.clear();
+          const hc = content?.heartCounts || {};
+          for (const [id, count] of Object.entries(hc)) {
+            this.system.hearts.set(id, { count, heartedByMe: false });
+          }
+          // Also seed counts from message objects (loaded via REST)
+          for (const msg of content.messages) {
+            if (msg.id && msg.hearts > 0 && !this.system.hearts.has(msg.id)) {
+              this.system.hearts.set(msg.id, { count: msg.hearts, heartedByMe: false });
+            }
+          }
           if (logs.chat) {
             console.log(
               `💬 %c${content.message}`,
@@ -137,6 +159,17 @@ export class Chat {
             delete msg.redactedText;
             extra.layoutChanged = true;
           }
+        }
+
+        if (type === "message:hearts") {
+          const heartsData = JSON.parse(content);
+          if (logs.chat) console.log("💬 Hearts update:", heartsData);
+          const existing = this.system.hearts.get(heartsData.for) || { heartedByMe: false };
+          this.system.hearts.set(heartsData.for, {
+            count: heartsData.count,
+            heartedByMe: existing.heartedByMe,
+          });
+          extra.layoutChanged = true;
         }
 
         // Auto parse handle updates.

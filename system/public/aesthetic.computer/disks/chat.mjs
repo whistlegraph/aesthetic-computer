@@ -1063,6 +1063,17 @@ function paint(
       ink(tsColor, fadeAlpha).write(ago, { x: timestampX, y: timestampY }, undefined, undefined, false, "MatrixChunky8");
     }
 
+    // ♥ Heart count — rendered right after the timestamp if > 0
+    if (message.id) {
+      const heartData = client.hearts?.get(message.id);
+      const heartCount = heartData?.count || 0;
+      if (heartCount > 0) {
+        const heartStr = `♥${heartCount}`;
+        const heartX = timestampX + timestampWidth + 4;
+        ink(255, 100, 130, fadeAlpha).write(heartStr, { x: heartX, y: timestampY }, undefined, undefined, false, "MatrixChunky8");
+      }
+    }
+
     lastAgo = ago;
 
     let nameColor = message.from === "log" ? "cyan" : "pink";
@@ -2075,16 +2086,22 @@ function paint(
     
     // Buttons
     const showDelete = deleteAllowed && messageCopyModal.isOwn && messageCopyModal.id;
-    const btnW = 50;
+    const btnW = 44;
     const btnH = 14;
     const btnY = modalY + modalH - btnH - 8;
-    const btnGap = 8;
-    const btnCount = showDelete ? 3 : 2;
+    const btnGap = 6;
+    const btnCount = showDelete ? 4 : 3;
     const totalBtnW = btnW * btnCount + btnGap * (btnCount - 1);
     const btnStartX = modalX + Math.floor((modalW - totalBtnW) / 2);
 
+    // Heart button state
+    const heartData = client.hearts?.get(messageCopyModal.id) || { count: 0, heartedByMe: false };
+    const alreadyHearted = heartData.heartedByMe;
+
     // Store button positions for hit detection
     let nextX = btnStartX;
+    messageCopyModal.heartBtn = { x: nextX, y: btnY, w: btnW, h: btnH };
+    nextX += btnW + btnGap;
     messageCopyModal.copyBtn = { x: nextX, y: btnY, w: btnW, h: btnH };
     nextX += btnW + btnGap;
     if (showDelete) {
@@ -2095,12 +2112,20 @@ function paint(
     }
     messageCopyModal.closeBtn = { x: nextX, y: btnY, w: btnW, h: btnH };
 
+    // Heart button - pink theme (all messages)
+    const heartHover = messageCopyModal.hoverHeart;
+    const heartBtnX = messageCopyModal.heartBtn.x;
+    const heartLabel = alreadyHearted ? "♥" : "<3";
+    ink(heartHover || alreadyHearted ? [130, 40, 70] : [90, 30, 50]).box(heartBtnX, btnY, btnW, btnH);
+    ink(heartHover || alreadyHearted ? [220, 80, 120] : [160, 60, 90]).box(heartBtnX, btnY, btnW, btnH, "outline");
+    ink(heartHover || alreadyHearted ? [255, 180, 210] : [230, 130, 160]).write(heartLabel, { x: heartBtnX + (alreadyHearted ? 15 : 11), y: btnY + 3 }, undefined, undefined, false, "MatrixChunky8");
+
     // Copy button - cyan theme
     const copyHover = messageCopyModal.hoverCopy;
     const copyX = messageCopyModal.copyBtn.x;
     ink(copyHover ? [40, 100, 130] : [30, 70, 90]).box(copyX, btnY, btnW, btnH);
     ink(copyHover ? [80, 180, 220] : [60, 130, 160]).box(copyX, btnY, btnW, btnH, "outline");
-    ink(copyHover ? [180, 240, 255] : [150, 210, 230]).write("copy", { x: copyX + 10, y: btnY + 3 }, undefined, undefined, false, "MatrixChunky8");
+    ink(copyHover ? [180, 240, 255] : [150, 210, 230]).write("copy", { x: copyX + 8, y: btnY + 3 }, undefined, undefined, false, "MatrixChunky8");
 
     // Delete button - red theme (only for own messages)
     if (showDelete) {
@@ -2108,7 +2133,7 @@ function paint(
       const delX = messageCopyModal.deleteBtn.x;
       ink(delHover ? [130, 40, 40] : [90, 30, 30]).box(delX, btnY, btnW, btnH);
       ink(delHover ? [220, 80, 80] : [160, 60, 60]).box(delX, btnY, btnW, btnH, "outline");
-      ink(delHover ? [255, 180, 180] : [230, 150, 150]).write("delete", { x: delX + 5, y: btnY + 3 }, undefined, undefined, false, "MatrixChunky8");
+      ink(delHover ? [255, 180, 180] : [230, 150, 150]).write("del", { x: delX + 9, y: btnY + 3 }, undefined, undefined, false, "MatrixChunky8");
     }
 
     // Close button - gray theme
@@ -2116,7 +2141,7 @@ function paint(
     const closeX = messageCopyModal.closeBtn.x;
     ink(closeHover ? [80, 75, 90] : [55, 50, 65]).box(closeX, btnY, btnW, btnH);
     ink(closeHover ? [120, 110, 140] : [90, 80, 110]).box(closeX, btnY, btnW, btnH, "outline");
-    ink(closeHover ? [200, 200, 210] : [170, 170, 180]).write("close", { x: closeX + 7, y: btnY + 3 }, undefined, undefined, false, "MatrixChunky8");
+    ink(closeHover ? [200, 200, 210] : [170, 170, 180]).write("close", { x: closeX + 5, y: btnY + 3 }, undefined, undefined, false, "MatrixChunky8");
     
     needsPaint();
   }
@@ -2300,11 +2325,15 @@ function act(
   
   // Message copy modal intercepts all events
   if (messageCopyModal) {
-    const { copyBtn, deleteBtn, closeBtn, message: msgText } = messageCopyModal;
+    const { heartBtn, copyBtn, deleteBtn, closeBtn, message: msgText } = messageCopyModal;
 
     // Handle hover states
     if (e.is("move") || e.is("draw")) {
       if (copyBtn && closeBtn) {
+        if (heartBtn) {
+          messageCopyModal.hoverHeart = pen.x >= heartBtn.x && pen.x < heartBtn.x + heartBtn.w &&
+                                        pen.y >= heartBtn.y && pen.y < heartBtn.y + heartBtn.h;
+        }
         messageCopyModal.hoverCopy = pen.x >= copyBtn.x && pen.x < copyBtn.x + copyBtn.w &&
                                       pen.y >= copyBtn.y && pen.y < copyBtn.y + copyBtn.h;
         messageCopyModal.hoverClose = pen.x >= closeBtn.x && pen.x < closeBtn.x + closeBtn.w &&
@@ -2319,6 +2348,9 @@ function act(
     // Handle clicks
     if (e.is("lift") || e.is("touch")) {
       if (copyBtn && closeBtn) {
+        const clickedHeart = heartBtn &&
+                             pen.x >= heartBtn.x && pen.x < heartBtn.x + heartBtn.w &&
+                             pen.y >= heartBtn.y && pen.y < heartBtn.y + heartBtn.h;
         const clickedCopy = pen.x >= copyBtn.x && pen.x < copyBtn.x + copyBtn.w &&
                             pen.y >= copyBtn.y && pen.y < copyBtn.y + copyBtn.h;
         const clickedClose = pen.x >= closeBtn.x && pen.x < closeBtn.x + closeBtn.w &&
@@ -2327,7 +2359,11 @@ function act(
                               pen.x >= deleteBtn.x && pen.x < deleteBtn.x + deleteBtn.w &&
                               pen.y >= deleteBtn.y && pen.y < deleteBtn.y + deleteBtn.h;
 
-        if (clickedCopy) {
+        if (clickedHeart) {
+          beep();
+          client.sendHeart(messageCopyModal.id, token);
+          messageCopyModal = null;
+        } else if (clickedCopy) {
           beep();
           // Use the direct clipboard API in bios
           send({ type: "copy", content: msgText });

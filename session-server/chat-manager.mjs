@@ -9,6 +9,7 @@ import https from "https";
 
 import { filter } from "./filter.mjs";
 import { redact, unredact } from "./redact.mjs";
+import { ensureIndexes as ensureHeartsIndexes, toggleHeart, countHearts } from "./hearts.mjs";
 
 import { MongoClient, ObjectId } from "mongodb";
 import { getMessaging } from "firebase-admin/messaging";
@@ -86,6 +87,9 @@ export class ChatManager {
         this.db = this.mongoClient.db(this.mongoDbName);
         console.log("💬 MongoDB connected!");
         
+        // Ensure hearts indexes exist
+        await ensureHeartsIndexes(this.db);
+
         // Load messages for each instance
         for (const [host, instance] of Object.entries(this.instances)) {
           await this.loadMessages(instance);
@@ -209,7 +213,7 @@ export class ChatManager {
   }
 
   // Handle a new WebSocket connection
-  handleConnection(ws, req) {
+  async handleConnection(ws, req) {
     const host = req.headers.host;
     const instance = this.getInstance(host);
     
@@ -271,6 +275,13 @@ export class ChatManager {
       }, id));
     });
 
+    // Load heart counts for current message window
+    let heartCounts = {};
+    if (this.db) {
+      const messageIds = instance.messages.filter((m) => m.id).map((m) => m.id);
+      heartCounts = await countHearts(this.db, instance.config.name, messageIds);
+    }
+
     // Send welcome message
     ws.send(
       this.pack(
@@ -280,6 +291,7 @@ export class ChatManager {
           chatters: Object.keys(instance.connections).length,
           handles: this.getOnlineHandles(instance),
           messages: instance.messages,
+          heartCounts,
           id,
         },
         id,
@@ -316,6 +328,8 @@ export class ChatManager {
       await this.handleChatMessage(instance, ws, id, msg);
     } else if (msg.type === "chat:delete") {
       await this.handleDeleteMessage(instance, ws, id, msg);
+    } else if (msg.type === "chat:heart") {
+      await this.handleChatHeart(instance, ws, id, msg);
     }
   }
 
@@ -515,6 +529,41 @@ export class ChatManager {
 
     // Broadcast deletion to all clients
     this.broadcast(instance, this.pack("message:delete", { id: messageId }));
+  }
+
+  async handleChatHeart(instance, ws, id, msg) {
+    const { for: forId, token } = msg.content || {};
+    if (!forId || !token) return;
+
+    // Reuse cached auth or re-authorize
+    let authorized;
+    if (instance.authorizedConnections[id]?.token === token) {
+      authorized = instance.authorizedConnections[id].user;
+    } else {
+      authorized = await this.authorize(instance, token);
+      if (authorized) {
+        instance.authorizedConnections[id] = { token, user: authorized };
+      }
+    }
+
+    if (!authorized) {
+      ws.send(this.pack("unauthorized", { message: "Please login." }, id));
+      return;
+    }
+
+    if (!this.db) return;
+
+    try {
+      const { hearted, count } = await toggleHeart(this.db, {
+        user: authorized.sub,
+        type: instance.config.name,
+        for: forId,
+      });
+      console.log(`💬 [${instance.config.name}] Heart ${hearted ? "+" : "-"} on ${forId} → ${count}`);
+      this.broadcast(instance, this.pack("message:hearts", { for: forId, count }));
+    } catch (err) {
+      console.error("💬 Heart error:", err);
+    }
   }
 
   async authorize(instance, token) {

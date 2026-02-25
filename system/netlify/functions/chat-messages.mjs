@@ -71,10 +71,30 @@ export async function handler(event, context) {
           }
         }
 
+        // Join heart counts from the shared hearts collection
+        const messageIds = messages.map((m) => m._id.toString());
+        const heartCounts = await database.db
+          .collection("hearts")
+          .aggregate([
+            {
+              $match: {
+                type: `chat-${instance}`,
+                for: { $in: messageIds },
+              },
+            },
+            { $group: { _id: "$for", count: { $sum: 1 } } },
+          ])
+          .toArray();
+        const heartMap = Object.fromEntries(
+          heartCounts.map((h) => [h._id, h.count]),
+        );
+
         const messagesWithHandles = messages.map((msg) => ({
+          id: msg._id.toString(),
           from: (msg.user && handleMap.get(msg.user)) || "anon",
           text: msg.text,
           when: msg.when,
+          hearts: heartMap[msg._id.toString()] ?? 0,
         }));
 
         await database.disconnect();
