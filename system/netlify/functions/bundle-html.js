@@ -736,7 +736,7 @@ const M4L_HEADER_INSTRUMENT = Buffer.from(
 );
 
 // Generate a Max for Live instrument patcher with an embedded offline HTML bundle
-function generateM4DPatcher(pieceName, dataUri, width = 400, height = 200) {
+function generateM4DPatcher(pieceName, html, width = 400, height = 200) {
   const density = 1.5;
   return {
     patcher: {
@@ -765,7 +765,29 @@ function generateM4DPatcher(pieceName, dataUri, width = 400, height = 200) {
             presentation: 1,
             presentation_rect: [0.0, 0.0, width + 1, height + 1],
             rendermode: 1,
-            url: dataUri
+            url: ""
+          }
+        },
+        {
+          box: {
+            id: "obj-loadbang",
+            maxclass: "newobj",
+            numinlets: 1,
+            numoutlets: 1,
+            outlettype: ["bang"],
+            patching_rect: [10.0, 10.0, 58.0, 22.0],
+            text: "loadbang"
+          }
+        },
+        {
+          box: {
+            id: "obj-loadhtml",
+            maxclass: "message",
+            numinlets: 2,
+            numoutlets: 1,
+            outlettype: [""],
+            patching_rect: [10.0, 30.0, 400.0, 22.0],
+            text: `loadhtml ${html}`
           }
         },
         {
@@ -887,6 +909,8 @@ function generateM4DPatcher(pieceName, dataUri, width = 400, height = 200) {
         }
       ],
       lines: [
+        { patchline: { destination: ["obj-loadhtml", 0], source: ["obj-loadbang", 0] } },
+        { patchline: { destination: ["obj-jweb", 0], source: ["obj-loadhtml", 0] } },
         { patchline: { destination: ["obj-plugout", 0], source: ["obj-jweb", 0] } },
         { patchline: { destination: ["obj-plugout", 1], source: ["obj-jweb", 1] } },
         { patchline: { destination: ["obj-print", 0], source: ["obj-thisdevice", 0] } },
@@ -933,12 +957,8 @@ async function createM4DBundle(pieceName, isJSPiece, onProgress = () => {}, dens
 
   onProgress({ stage: 'generate', message: 'Embedding bundle in M4L device...' });
 
-  // Encode the full HTML as a data: URI for jweb~
-  const htmlBase64 = Buffer.from(bundleResult.html).toString('base64');
-  const dataUri = `data:text/html;base64,${htmlBase64}`;
-
-  // Generate the instrument patcher with the embedded bundle
-  const patcher = generateM4DPatcher(pieceName, dataUri);
+  // Pass the raw HTML for jweb~ loadhtml message
+  const patcher = generateM4DPatcher(pieceName, bundleResult.html);
 
   onProgress({ stage: 'compress', message: 'Packing .amxd binary...' });
 
