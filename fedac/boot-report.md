@@ -1,212 +1,129 @@
-# FedAC Kiosk USB — Boot Architecture Report
+# FedAC Kiosk USB — Boot Report
 
-## Current Boot Chain
+**Date:** 2025-02-24
+**USB:** 14.5G (toss piece, EROFS lzma, Fedora 43 live)
+
+---
+
+## Current Status: Black Screen in Firefox
+
+Firefox boots and runs (F10 opens bookmarks, cursor visible), but **all page content is black** — including a plain HTML diagnostic page.
+
+### Root Cause: `firefox.cfg` Color Override
+
+```js
+// These two lines together = black text on black background
+defaultPref("browser.display.background_color", "#000000");
+defaultPref("browser.display.document_color_use", 2);
+// document_color_use=2 means "ALWAYS override page colors with user colors"
+// We set background to black but never set foreground → defaults to black
+// Result: ALL page content invisible (black on black)
+```
+
+Browser chrome (bookmarks, toolbar) still renders because it uses its own color scheme — only web page content is affected by `document_color_use`.
+
+### Fix
+
+Remove `document_color_use = 2` (let pages use their own CSS colors). Keep the black background for flash prevention but don't override page foreground colors.
+
+### If Still Black After Fix
+
+Escalation path:
+1. Add `LIBGL_ALWAYS_SOFTWARE=1` to kiosk-session.sh (force software GL rendering)
+2. Add `gfx.webrender.force-disabled=true` to firefox.cfg (disable WebRender)
+3. Simplify firefox.cfg to absolute minimum (rule out autoconfig parsing errors)
+4. Enable SSH on kiosk for remote debugging via port 9222
+
+---
+
+## Boot Chain (All Working)
 
 ```
-BIOS/UEFI POST (~1-3s)
-  └─ GRUB (timeout=0, instant)
-       └─ Kernel decompresses, KMS/DRM init (~2s) ← BLACK #1
-            └─ initrd (dracut + dmsquash-live)
-                 ├─ Plymouth PALS spinner starts ← first visible frame
-                 └─ mounts EROFS via overlayfs, pivots to real root
-                      └─ systemd (real root)
-                           ├─ livesys.service → livesys-gnome (schema compile, cleanup)
-                           ├─ kiosk-piece-server.service (python HTTP server on :8080)
-                           └─ multi-user.target
-                                └─ getty@tty1 (autologin liveuser)
-                                     └─ .bash_profile → kiosk-session.sh
-                                          ├─ wait for :8080 (up to 30s)
-                                          └─ mutter --wayland --no-x11 -- firefox --kiosk
-                                               ├─ mutter compositor bg visible ← FLASH #1 (teal/gray)
-                                               └─ Firefox starts kiosk mode
-                                                    ├─ tab bar visible briefly ← FLASH #2
-                                                    └─ page loads from :8080
-                                                         └─ piece renders ✓
+UEFI POST
+└─ GRUB (timeout=0, no Plymouth)
+   └─ Kernel 6.17.1-300.fc43.x86_64 (loglevel=7)
+      └─ initrd (dracut + dmsquash-live)
+         └─ mounts EROFS (lzma, 2.1GB) via overlayfs
+            └─ systemd → multi-user.target
+               └─ getty@tty1 autologin → liveuser
+                  └─ .bash_profile → kiosk-session.sh
+                     └─ cage (Wayland kiosk compositor) ✅
+                        └─ Firefox --fullscreen ✅
+                           └─ file:///...piece.html → BLACK ❌
 ```
 
 ---
 
-## Known Issues
+## USB Layout
 
-### 1. BLACK before Plymouth
-**Cause**: Kernel boot + early initrd runs entirely before Plymouth initializes.
-`loglevel=1` suppresses kernel text but VT is still blank. Plymouth's `ShowDelay=0`
-starts it as soon as possible in the initrd, but KMS init takes 1-2s first.
+```
+sda1 (400MB FAT32 "BOOT")
+├── EFI/BOOT/grub.cfg
+└── loader/{linux, initrd}
 
-**Fix (hard)**: Write raw pixels to `/dev/fb0` from a dracut pre-udev hook.
-The kernel framebuffer (via DRM/KMS emulation) is available even in text mode.
-A hook can fill the screen black + optionally draw the PALS logo before Plymouth
-even starts. Requires modifying/rebuilding `pals-initrd.img`.
+sda2 (ext4 "FEDAC-LIVE")
+├── LiveOS/squashfs.img  (2.1GB EROFS lzma)
+└── logs/                (persistent, empty — log services not firing)
+```
 
-**Fix (easy, done)**: `vt.handoff=7` ensures Plymouth gets clean VT handoff.
-`rd.plymouth=1` starts Plymouth in initrd stage, not after pivot.
+## Key EROFS Files
 
----
+| Path | Purpose |
+|------|---------|
+| `/usr/local/bin/kiosk-session.sh` | cage + Firefox launch |
+| `/usr/local/share/kiosk/piece.html` | toss bundle (599KB) |
+| `/usr/local/share/kiosk/diag.html` | diagnostic page |
+| `/usr/lib64/firefox/distribution/policies.json` | Firefox admin policies |
+| `/usr/lib64/firefox/firefox.cfg` | Firefox autoconfig prefs |
+| `/usr/lib64/firefox/defaults/pref/autoconfig.js` | Loads firefox.cfg |
+| `/etc/systemd/system/getty@tty1.service.d/autologin.conf` | liveuser autologin |
+| `/home/liveuser/.bash_profile` | Runs kiosk-session.sh on tty1 |
+| `/usr/bin/cage` | Wayland kiosk compositor |
 
-### 2. COMPOSITOR FLASH (teal/gray before Firefox)
-**Cause**: `mutter --wayland --no-x11` shows its default compositor background
-(a gray/teal gradient) for 500ms–2s while Firefox is starting up and rendering
-its first frame. Not GDM — GDM is masked. This IS mutter.
-
-**Fix (easy)**: Write zeros to `/dev/fb0` in `kiosk-session.sh` before launching
-mutter. The framebuffer stays black through compositor init until Firefox paints.
+## Current kiosk-session.sh
 
 ```bash
-dd if=/dev/zero of=/dev/fb0 bs=4M 2>/dev/null || true
-```
-
-**Fix (better)**: Replace mutter with **cage** — a Wayland compositor built for
-kiosks. No background, no shell, just the app. Starts in ~50ms.
-`cage -- firefox --kiosk http://127.0.0.1:8080`
-
-**Fix (alternative)**: Use **sway** with a black background and `exec firefox`.
-sway is a full wlroots compositor — cleaner startup than mutter for single-app use.
-
----
-
-### 3. FIREFOX TAB BAR FLASH
-**Cause**: Firefox renders one frame with the full browser chrome visible before
-`--kiosk` flag suppresses it. Also affects the white flash on first paint.
-
-**Fix**: Pre-create a Firefox profile (`~liveuser/.mozilla/firefox/kiosk/`) with:
-- `chrome/userChrome.css` — hides `#TabsToolbar`, `#nav-bar` at CSS level
-  (takes effect before first paint, no flash)
-- `user.js` — sets `browser.display.background_color=#000000`, disables telemetry
-- Pass `--profile /home/liveuser/.mozilla/firefox/kiosk` to Firefox
-
----
-
-### 4. CONNECTION REFUSED (127.0.0.1:8080)
-**Cause**: `kiosk-piece-server.service` is a systemd service in `multi-user.target`.
-Getty autologin fires at roughly the same time. Race condition: sometimes
-`kiosk-session.sh` starts before the Python server is listening.
-
-**Fix**: Start the piece server inline in `kiosk-session.sh` instead of relying
-on the systemd service. The 30s wait loop then handles the ~100ms startup time.
-
-```bash
-python3 /usr/local/bin/kiosk-piece-server.py &
+#!/bin/bash
+export XDG_SESSION_TYPE=wayland
+export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+export MOZ_ENABLE_WAYLAND=1
+exec > /tmp/kiosk.log 2>&1
+exec cage -- \
+  firefox --fullscreen --no-remote \
+  --remote-debugging-port=9222 \
+  --profile /home/liveuser/.mozilla/firefox/kiosk \
+  file:///usr/local/share/kiosk/piece.html
 ```
 
 ---
 
-## Alternative Compositors
+## Resolved Issues
 
-| Compositor | In Fedora 43 repos | Kiosk suitability | Notes |
-|---|---|---|---|
-| **mutter** | ✓ (installed) | Medium | GNOME-native, heavy, shows gray bg |
-| **cage** | ✗ (not in repos) | **Best** | Purpose-built kiosk, no bg, 50ms start |
-| **sway** | unclear | Good | wlroots, black bg config, active |
-| **labwc** | unclear | Good | Lightweight wlroots openbox-style |
-| **weston** | ✗ (not installed) | Medium | Reference compositor, kiosk plugin |
-| **gnome-kiosk** | check repos | Good | Simplified gnome-shell for kiosk |
-
-### Recommended: Build `cage` as a static binary
-```
-cage v0.2.0 (github.com/nicowillis/cage)
-Dependencies: wlroots, wayland, pixman — can be musl-statically linked
-Size: ~200KB static binary
-Drop into rootfs at /usr/local/bin/cage
-```
-
-Alternatively, `dnf install cage` if it lands in Fedora 44.
-
----
-
-## Faster Boot Strategies
-
-### Already applied
-- `loglevel=1` — suppresses kernel messages
-- `mitigations=off` — disables CPU security mitigations (~200ms saved)
-- `vt.handoff=7` — clean VT handoff to Plymouth
-- 15 services masked (abrt, avahi, cups, ModemManager, sssd, etc.)
-- GDM eliminated (was starting gnome-shell greeter)
-
-### Not yet applied
-- **`rd.udev.log-level=3`** — reduce udev logging noise
-- **`systemd.show_status=0`** — suppress status messages
-- **Disable SELinux**: `selinux=0` in kernel cmdline — saves ~300ms relabeling
-- **Disable NetworkManager**: `rd.neednet=0` — we don't need network
-- **Plymouth `--show-splash` immediately** — already ShowDelay=0
-- **initrd framebuffer hook** — show PALS logo/black during BLACK #1
-- **`zstd` EROFS compression** instead of `lzma` — 3x faster decompression at ~10% larger size
-
-### Boot time breakdown (estimated)
-```
-BIOS:         1-3s  (hardware dependent, can't improve)
-GRUB:         ~0s   (timeout=0)
-Kernel+initrd: 3-5s (can improve with zstd EROFS, rd.neednet=0)
-systemd:       2-4s (can improve by masking more services)
-mutter+FF:     2-4s (can improve with cage + fb0 paint)
-Page load:    <1s   (localhost, already fast)
-───────────────────
-Total:        8-17s (currently), target: 6-10s
-```
+| Issue | Cause | Fix |
+|-------|-------|-----|
+| Boot shuts down | GRUB `gfxmode=auto` + `terminal_output gfxterm` | Switched to `terminal_output console` |
+| Plymouth holds VT | Masked `plymouth-quit.service` | Unmasked + drop-in with `--retain-splash` |
+| HTTPServer crash | `__new__` bypassed `BaseServer.__init__` | `PreBoundHTTPServer` subclass |
+| Firefox loads wrong URL | policies.json hardcoded `http://127.0.0.1:8080` | Changed to `file:///` |
+| PALS logo missing | Watermark in rootfs Plymouth, but initrd shows Fedora logo | Needs initrd rebuild (deferred) |
+| Log services empty | kiosk-log-dump at shutdown.target — may not fire on crash | Needs early debug service |
 
 ---
 
 ## Roadmap
 
-### ✅ Done (this build)
-- [x] GDM eliminated — getty autologin replaces display manager entirely
-- [x] 15 slow services masked (abrt, avahi, cups, ModemManager, sssd, thermald...)
-- [x] Inline piece server in `kiosk-session.sh` — fixes connection race
-- [x] `/dev/fb0` painted black before mutter — eliminates compositor flash
-- [x] Firefox kiosk profile with `userChrome.css` — eliminates tab bar flash
-- [x] `selinux=0 rd.neednet=0 systemd.show_status=0` in GRUB cmdline
-- [x] `loglevel=1 mitigations=off vt.handoff=7` kernel flags
+### Immediate
+- [ ] Fix `document_color_use` black-on-black issue
+- [ ] Verify piece.html renders in Firefox on kiosk
+- [ ] Enable SSH on kiosk for remote debugging
 
-### 🔜 Short Term (next USB build)
-- [x] **lz4hc EROFS compression** — switched from `-zlzma` to `-zlz4hc`.
-  ~25% larger image (2.0GB → 2.5GB) but 3× faster decompression.
-- [ ] **Black GRUB background image** — NOTE: with `timeout=0` GRUB never renders
-  the menu/background (boots instantly before gfxterm draws). Only useful if
-  timeout ≥ 1. Skipping for now.
-- [x] **`rd.udev.log-level=3`** in GRUB cmdline — quieter udev init
-- [ ] **Disable more systemd units** — audit `systemctl list-units` on a booted
-  live system to find any remaining slow services
-- [ ] **Pre-warm Firefox profile** — run Firefox headless once in the rootfs build
-  step to generate pre-compiled startup cache files (`startupCache/`, `*shelljit*`)
+### Short Term
+- [ ] Re-enable Plymouth with PALS logo
+- [ ] Pre-warm Firefox profile (startup cache)
+- [ ] Fix log dump services (early boot + shutdown)
+- [ ] Switch EROFS to zstd compression (faster decompression)
 
-### 🔧 Medium Term (requires new tooling)
-- [x] **`cage` compositor** — installed via `dnf install cage` (available in Fedora 43).
-  Zero background, no shell, 50ms start. Replaces mutter entirely.
-  ```bash
-  exec cage -- firefox --kiosk --no-remote http://127.0.0.1:8080
-  ```
-- [ ] **`gnome-kiosk` compositor** — simplified GNOME shell for kiosk. Check if
-  available: `dnf info gnome-kiosk`. Handles blank background and single-app
-  session natively.
-- [x] **Piece server as socket-activated unit** — systemd socket activation via
-  `kiosk-piece-server.socket`. Port 8080 bound before server process starts.
-  Python server updated to accept `LISTEN_FDS` socket from systemd.
-
-### 🌟 Long Term (deeper surgery)
-- [ ] **initrd framebuffer hook** — attempted: appended cpio to `pals-initrd.img`
-  caused "invalid magic at start of compressed archive" kernel error → reverted to
-  clean `live-initrd`. Needs correct newc cpio format + alignment investigation.
-  `kiosk-session.sh` `dd` handles post-Plymouth fb0 blackout as fallback.
-- [ ] **initrd framebuffer PALS logo** — extend the fb0 hook to blit the actual
-  PALS logo (pre-converted PNG→raw BGRA) to center of screen instead of solid black. Options:
-  - Solid PALS purple fill (trivial — write 4-byte pattern via Python)
-  - Full PALS logo (pre-convert PNG to raw BGRA, embed in initrd, blit to center)
-  ```bash
-  # /usr/lib/dracut/hooks/pre-udev/00-kiosk-fb.sh
-  python3 -c "
-  import struct
-  with open('/dev/fb0','wb') as f:
-      # read resolution from /sys/class/graphics/fb0/virtual_size
-      sz = open('/sys/class/graphics/fb0/virtual_size').read().strip().split('x')
-      px = struct.pack('BBBB',0,0,0,255)  # BGRA black
-      f.write(px * int(sz[0]) * int(sz[1]))
-  " 2>/dev/null || true
-  ```
-- [ ] **Custom Plymouth plugin** that transitions to a solid-color fill before
-  handing off to the compositor, so there's no color change at all.
-- [ ] **Remove Plymouth entirely** (`rd.plymouth=0`, no splash) — go straight
-  from kernel to kiosk. Saves ~500ms. Black screen the whole way, then piece.
-  Clean aesthetic if the boot is fast enough (target: under 8s total).
-- [ ] **Custom minimal initrd** — instead of full dracut, a hand-crafted initrd
-  with only dmsquash-live + what's needed. Saves 1-2s of initrd processing.
-- [ ] **Piece server in Rust** — replace Python HTTP server with a ~1MB static
-  Rust binary. Starts in <10ms vs ~200ms for Python. Also handles larger pieces.
+### Long Term
+- [ ] initrd framebuffer hook (PALS logo before Plymouth)
+- [ ] Custom minimal initrd (strip unused dracut modules)
+- [ ] Piece server in Rust (replace Python, <10ms startup)

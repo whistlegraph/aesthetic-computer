@@ -53,7 +53,7 @@ You are playing a character who tries to help me find the command I'm searching 
   'download', 'encode', 'ff', 'ff1', 'freaky-flowers', 'gargoyle', 'handle',
   'happy-hands-assembler', 'hha', 'liar', 'line', 'login',
   'logout', 'm2w2', 'melody', 'metronome', 'microphone',
-  'no!', 'no', 'oval', 'done', 'paint', 'paste', 'handprint',
+  'no!', 'no', 'os', 'oval', 'done', 'paint', 'paste', 'handprint',
   'plot', 'profile', 'prompt', 'pull', 'rect',
   'girlfriend', 'boyfriend', 'mom', 'dad', 'husband', 'wife', 'kid', 'brother', 'sister', 'scawy-snake', 'scream', 'sfx', 'shape', 'sign', 'sing', 'smear',
   'song', 'sparkle', 'right', 'left', 'flip', 'flop',
@@ -2818,6 +2818,123 @@ async function halt($, text) {
 
     notice(`Downloaded AC ${displayName} (online).amxd`, ["lime"]);
     flashColor = [0, 255, 0];
+    makeFlash($);
+    return true;
+  } else if (text.startsWith("os ")) {
+    // Build a bootable FedAC OS image for any piece (~3GB download)
+    const pieceRef = params[0];
+    if (!pieceRef) {
+      notice("Usage: os piece or os $code", ["red"]);
+      flashColor = [255, 0, 0];
+      makeFlash($);
+      return true;
+    }
+
+    const isKidlisp = pieceRef.startsWith("$");
+    const code = isKidlisp ? pieceRef.slice(1) : pieceRef;
+    const displayName = isKidlisp ? `$${code}` : code;
+
+    // Use pack progress overlay for OS build steps
+    const osTimeline = [
+      { id: 'manifest', label: 'Fetch Manifest', status: 'pending', message: null, time: null },
+      { id: 'base', label: 'Prepare Base Image', status: 'pending', message: null, time: null },
+      { id: 'bundle', label: 'Bundle Piece', status: 'pending', message: null, time: null },
+      { id: 'assemble', label: 'Assemble Image', status: 'pending', message: null, time: null },
+      { id: 'inject', label: 'Inject Piece', status: 'pending', message: null, time: null },
+      { id: 'complete', label: 'Done!', status: 'pending', message: null, time: null },
+    ];
+    advancePackStep(osTimeline, 'manifest', `Building OS for ${displayName}...`);
+    packProgress = { timeline: osTimeline, startTime: performance.now(), code: `OS ${displayName}` };
+    needsPaint();
+
+    try {
+      const bundleParam = isKidlisp ? `code=$${code}` : `piece=${code}`;
+      const response = await fetch(`https://oven.aesthetic.computer/os?${bundleParam}&format=stream`);
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+        throw new Error(err.error || `OS API returned ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let result = null;
+      let currentEventType = null;
+      let serverError = null;
+
+      const parseSSELines = (lines) => {
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            currentEventType = line.slice(7);
+          } else if (line.startsWith('data: ') && currentEventType) {
+            if (currentEventType === 'error') {
+              try {
+                const data = JSON.parse(line.slice(6));
+                serverError = data.error || "Unknown server error";
+              } catch (e) {
+                serverError = line.slice(6);
+              }
+              currentEventType = null;
+              continue;
+            }
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (currentEventType === 'progress') {
+                if (data.stage) {
+                  advancePackStep(packProgress.timeline, data.stage, data.message);
+                }
+                needsPaint();
+              } else if (currentEventType === 'complete') {
+                result = data;
+                advancePackStep(packProgress.timeline, 'complete', 'Done!');
+                finalizePackTimeline(packProgress.timeline);
+                needsPaint();
+              }
+            } catch (parseErr) {
+              console.warn("OS SSE parse error:", parseErr);
+            }
+            currentEventType = null;
+          }
+        }
+      };
+
+      const OS_TIMEOUT = 300_000; // 5 min for large image assembly
+      const timeoutId = setTimeout(() => reader.cancel(), OS_TIMEOUT);
+
+      try {
+        while (true) {
+          const { done: streamDone, value } = await reader.read();
+          if (streamDone) {
+            buffer += decoder.decode();
+            break;
+          }
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          parseSSELines(lines);
+          if (serverError) break;
+        }
+      } finally {
+        clearTimeout(timeoutId);
+      }
+
+      if (buffer.trim()) parseSSELines(buffer.split('\n'));
+      if (serverError) throw new Error(serverError);
+      if (!result) throw new Error("No result received from OS build API");
+
+      // Open the direct download URL in a new tab
+      const downloadUrl = `https://oven.aesthetic.computer/os?${bundleParam}`;
+      jump("out:" + downloadUrl);
+
+      notice(`OS image ready for ${displayName} — downloading ~3GB`, ["lime"]);
+      flashColor = [0, 255, 0];
+    } catch (err) {
+      console.error("OS build error:", err);
+      notice("OS build failed: " + err.message, ["red"]);
+      flashColor = [255, 0, 0];
+    }
+
+    packProgress = null;
     makeFlash($);
     return true;
   } else if (text === "wallet" || text.startsWith("wallet ")) {
