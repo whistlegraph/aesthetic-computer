@@ -652,6 +652,7 @@ function paint(
     timestampHover: "yellow",
     deleted: [180, 140, 140], // Foreground-visible color for [deleted] text
     deletedName: "pink", // Username color on deleted messages
+    heart: [255, 80, 130], // Vivid pink on dark blue/purple background
   };
   
   // Merge custom theme with defaults
@@ -1063,14 +1064,19 @@ function paint(
       ink(tsColor, fadeAlpha).write(ago, { x: timestampX, y: timestampY }, undefined, undefined, false, "MatrixChunky8");
     }
 
-    // ♥ Heart count — rendered right after the timestamp if > 0
+    // ♥ Hearts — repeated symbols for 1-9, heart+number for 10+, always opaque
     if (message.id) {
       const heartData = client.hearts?.get(message.id);
       const heartCount = heartData?.count || 0;
       if (heartCount > 0) {
-        const heartStr = `♥${heartCount}`;
+        const heartStr = heartCount >= 10 ? `♥${heartCount}` : "♥".repeat(heartCount);
         const heartX = timestampX + timestampWidth + 4;
-        ink(255, 100, 130, fadeAlpha).write(heartStr, { x: heartX, y: timestampY }, undefined, undefined, false, "MatrixChunky8");
+        const heartColor = theme.heart;
+        if (Array.isArray(heartColor)) {
+          ink(...heartColor).write(heartStr, { x: heartX, y: timestampY }, undefined, undefined, false, "MatrixChunky8");
+        } else {
+          ink(heartColor).write(heartStr, { x: heartX, y: timestampY }, undefined, undefined, false, "MatrixChunky8");
+        }
       }
     }
 
