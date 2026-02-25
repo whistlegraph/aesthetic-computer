@@ -2820,11 +2820,11 @@ async function halt($, text) {
     flashColor = [0, 255, 0];
     makeFlash($);
     return true;
-  } else if (text.startsWith("os ")) {
-    // Build a bootable FedAC OS image for any piece (~3GB download)
+  } else if (text === "os" || text.startsWith("os ")) {
+    // Build a bootable FedAC OS ISO for any piece (~3GB download)
     // SSE progress overlay (like pack), then trigger download without extra tab.
-    const pieceRef = params[0];
-    if (!pieceRef) {
+    const pieceRef = (params[0] || "").trim();
+    if (!pieceRef || pieceRef === "?" || pieceRef.toLowerCase() === "help") {
       notice("Usage: os piece or os $code", ["red"]);
       flashColor = [255, 0, 0];
       makeFlash($);
@@ -2833,19 +2833,27 @@ async function halt($, text) {
 
     const isKidlisp = pieceRef.startsWith("$");
     const code = isKidlisp ? pieceRef.slice(1) : pieceRef;
+    if (!code) {
+      notice("Usage: os piece or os $code", ["red"]);
+      flashColor = [255, 0, 0];
+      makeFlash($);
+      return true;
+    }
     const displayName = isKidlisp ? `$${code}` : code;
-    const bundleParam = isKidlisp ? `code=$${code}` : `piece=${code}`;
+    const bundleParam = isKidlisp
+      ? `code=${encodeURIComponent(`$${code}`)}`
+      : `piece=${encodeURIComponent(code)}`;
 
     // OS-specific timeline steps
     const osTimeline = [
       { id: 'manifest', label: 'Fetch Manifest', status: 'pending', message: null, time: null },
       { id: 'base', label: 'Prepare Base Image', status: 'pending', message: null, time: null },
       { id: 'bundle', label: 'Bundle Piece', status: 'pending', message: null, time: null },
-      { id: 'assemble', label: 'Assemble Image', status: 'pending', message: null, time: null },
+      { id: 'assemble', label: 'Assemble ISO', status: 'pending', message: null, time: null },
       { id: 'inject', label: 'Inject Piece', status: 'pending', message: null, time: null },
       { id: 'complete', label: 'Done!', status: 'pending', message: null, time: null },
     ];
-    advancePackStep(osTimeline, 'manifest', `Building OS for ${displayName}...`);
+    advancePackStep(osTimeline, 'manifest', `Building OS ISO for ${displayName}...`);
     packProgress = { timeline: osTimeline, startTime: performance.now(), code: `OS ${displayName}` };
     needsPaint();
 
@@ -2913,7 +2921,7 @@ async function halt($, text) {
       const downloadUrl = `https://oven.aesthetic.computer/os?${bundleParam}`;
       send({ type: "web", content: { url: downloadUrl, blank: false } });
 
-      notice(`OS image ready for ${displayName} — downloading ~3GB`, ["lime"]);
+      notice(`OS ISO ready for ${displayName} — downloading ~3GB`, ["lime"]);
       flashColor = [0, 255, 0];
     } catch (err) {
       console.error("OS build error:", err);

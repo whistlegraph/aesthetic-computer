@@ -339,6 +339,9 @@ user_pref("browser.tabs.drawInTitlebar", false);
 user_pref("browser.tabs.inTitlebar", 0);
 user_pref("browser.startup.homepage", "__KIOSK_PIECE_URL__");
 user_pref("browser.startup.page", 1);
+user_pref("accessibility.typeaheadfind", false);
+user_pref("accessibility.typeaheadfind.manual", false);
+user_pref("accessibility.typeaheadfind.linksonly", false);
 USERJSEOF
 
 cat > "$PROFILE/chrome/userChrome.css" << 'CHROMEEOF'
@@ -373,10 +376,9 @@ fi
 mkdir -p "$XDG_RUNTIME_DIR"
 if command -v pipewire >/dev/null 2>&1; then
   pipewire &
-  sleep 0.3
+  sleep 0.1
   command -v wireplumber >/dev/null 2>&1 && wireplumber &
   command -v pipewire-pulse >/dev/null 2>&1 && pipewire-pulse &
-  sleep 0.2
 fi
 
 if command -v cage >/dev/null 2>&1; then
@@ -648,6 +650,9 @@ defaultPref("toolkit.telemetry.reportingpolicy.firstRun", false);
 defaultPref("browser.newtabpage.enabled", false);
 defaultPref("browser.aboutwelcome.enabled", false);
 defaultPref("toolkit.legacyUserProfileCustomizations.stylesheets", true);
+defaultPref("accessibility.typeaheadfind", false);
+defaultPref("accessibility.typeaheadfind.manual", false);
+defaultPref("accessibility.typeaheadfind.linksonly", false);
 // Allow Web Audio API autoplay (kiosk — no user gesture needed)
 defaultPref("media.autoplay.default", 0);
 defaultPref("media.autoplay.blocking_policy", 0);
@@ -684,7 +689,7 @@ echo -e "  ${GREEN}All kiosk config injected${NC}"
 echo -e "${CYAN}[4/6] Building EROFS image...${NC}"
 
 EROFS_PATH="$WORK_DIR/squashfs.img"
-mkfs.erofs -zlzma -C65536 "$EROFS_PATH" "$ROOTFS_DIR/"
+mkfs.erofs -zzstd -C65536 "$EROFS_PATH" "$ROOTFS_DIR/"
 EROFS_SIZE=$(stat -c%s "$EROFS_PATH")
 echo -e "  ${GREEN}EROFS built: $(numfmt --to=iec $EROFS_SIZE)${NC}"
 
