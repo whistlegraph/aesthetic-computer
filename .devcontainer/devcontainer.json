@@ -190,7 +190,8 @@
         "Anthropic.claude-code",
         "ms-python.python",
         "ms-toolsai.jupyter",
-        "openai.chatgpt"
+        "openai.chatgpt",
+        "sukumo28.wav-preview"
       ]
     }
   },

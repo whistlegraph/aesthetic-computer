@@ -2227,7 +2227,7 @@ app.get(['/pack-status', '/bundle-status'], (req, res) => {
 });
 
 // ===== OS IMAGE BUILDER =====
-// Assembles bootable FedAC OS images with a piece injected into the FEDAC-PIECE partition.
+// Assembles bootable FedAC OS artifacts with a piece injected into the FEDAC-PIECE partition.
 // Requires: pre-baked base image on CDN + e2fsprogs (debugfs) on server.
 
 app.get('/os', async (req, res) => {
@@ -2245,7 +2245,7 @@ app.get('/os', async (req, res) => {
     });
   }
 
-  addServerLog('info', '💿', `OS build started: ${target}`);
+  addServerLog('info', '💿', `OS ISO build started: ${target}`);
 
   // SSE streaming progress mode (for UI)
   if (format === 'stream') {
@@ -2266,9 +2266,11 @@ app.get('/os', async (req, res) => {
       const result = await streamOSImage(null, target, isJSPiece, density, (p) => sendEvent('progress', p));
       const downloadParam = isJSPiece ? `piece=${encodeURIComponent(target)}` : `code=${encodeURIComponent(target)}`;
       sendEvent('complete', {
-        message: 'OS image ready',
+        message: 'OS ISO ready',
         downloadUrl: `/os?${downloadParam}&density=${density}`,
         elapsed: result.elapsed,
+        filename: result.filename,
+        timings: result.timings,
       });
     } catch (err) {
       console.error('[os] SSE build failed:', err);
@@ -2282,7 +2284,7 @@ app.get('/os', async (req, res) => {
     const result = await streamOSImage(res, target, isJSPiece, density, (p) => {
       console.log(`[os] ${p.stage}: ${p.message}`);
     });
-    addServerLog('success', '💿', `OS build complete: ${target} (${Math.round(result.elapsed / 1000)}s)`);
+    addServerLog('success', '💿', `OS ISO build complete: ${target} (${Math.round(result.elapsed / 1000)}s)`);
   } catch (err) {
     console.error('[os] Build failed:', err);
     addServerLog('error', '❌', `OS build failed: ${err.message}`);
