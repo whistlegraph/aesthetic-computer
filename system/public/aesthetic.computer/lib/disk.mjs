@@ -9236,10 +9236,7 @@ async function load(
     hideLabel = searchParams.has("nolabel");
   }
   
-  // Also hide label by default in OBJKT mode (like nolabel)
-  if (getPackMode()) {
-    hideLabel = true;
-  }    currentColon = colon;
+    currentColon = colon;
     currentParams = params;
     currentHash = hash;
     // sound = null;
