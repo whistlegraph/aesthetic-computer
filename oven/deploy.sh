@@ -80,13 +80,22 @@ echo "✅ fedac sync complete in ${FEDAC_SYNC_TIME}ms"
 echo ""
 if [ -f "$VAULT_OS_KEY" ]; then
   echo "🔐 Syncing OS build admin key from vault..."
-  ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "root@$OVEN_HOST" "mkdir -p $REMOTE_DIR/secrets && chmod 700 $REMOTE_DIR/secrets"
+  ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "root@$OVEN_HOST" "
+mkdir -p $REMOTE_DIR/secrets
+chmod 700 $REMOTE_DIR/secrets
+if id -u oven >/dev/null 2>&1; then
+  chown oven:oven $REMOTE_DIR/secrets
+fi
+"
   rsync -avz --progress \
     -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=no" \
     "$VAULT_OS_KEY" \
     "root@$OVEN_HOST:$REMOTE_DIR/secrets/os-build-admin-key.txt"
   ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "root@$OVEN_HOST" "
 chmod 600 $REMOTE_DIR/secrets/os-build-admin-key.txt
+if id -u oven >/dev/null 2>&1; then
+  chown oven:oven $REMOTE_DIR/secrets/os-build-admin-key.txt
+fi
 if grep -q '^OS_BUILD_ADMIN_KEY_FILE=' $REMOTE_DIR/.env 2>/dev/null; then
   sed -i 's|^OS_BUILD_ADMIN_KEY_FILE=.*|OS_BUILD_ADMIN_KEY_FILE=$REMOTE_DIR/secrets/os-build-admin-key.txt|' $REMOTE_DIR/.env
 else
