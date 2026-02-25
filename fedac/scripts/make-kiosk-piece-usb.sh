@@ -280,18 +280,43 @@ else
   SQUASH_IMG="$ISO_MOUNT/LiveOS/squashfs.img"
   [ -f "$SQUASH_IMG" ] || { echo -e "${RED}No LiveOS/squashfs.img in ISO${NC}"; exit 1; }
 
-  # Mount the EROFS/squashfs image
+  # Mount LiveOS image when possible; otherwise extract directly.
   ROOTFS_MOUNT=$(mktemp -d /tmp/fedac-rootfs-mount-XXXX)
-  mount -o loop,ro "$SQUASH_IMG" "$ROOTFS_MOUNT"
-
-  # Copy rootfs to work dir
-  echo -e "  Copying rootfs (this takes a while)..."
   mkdir -p "$ROOTFS_DIR"
-  cp -a "$ROOTFS_MOUNT"/* "$ROOTFS_DIR"/
+  if mount -o loop,ro "$SQUASH_IMG" "$ROOTFS_MOUNT" 2>/tmp/fedac-rootfs-mount.err; then
+    # Copy rootfs to work dir
+    echo -e "  Copying rootfs (this takes a while)..."
+    cp -a "$ROOTFS_MOUNT"/* "$ROOTFS_DIR"/
 
-  umount "$ROOTFS_MOUNT"
-  rmdir "$ROOTFS_MOUNT"
-  ROOTFS_MOUNT=""
+    umount "$ROOTFS_MOUNT"
+    rmdir "$ROOTFS_MOUNT"
+    ROOTFS_MOUNT=""
+  else
+    MOUNT_ERR="$(cat /tmp/fedac-rootfs-mount.err 2>/dev/null || true)"
+    rm -f /tmp/fedac-rootfs-mount.err
+    echo -e "  ${YELLOW}Mounting LiveOS image failed (${MOUNT_ERR})${NC}"
+    echo -e "  ${CYAN}Falling back to direct extraction...${NC}"
+    rmdir "$ROOTFS_MOUNT" 2>/dev/null || true
+    ROOTFS_MOUNT=""
+
+    IMG_INFO="$(file -b "$SQUASH_IMG" 2>/dev/null || true)"
+    if echo "$IMG_INFO" | grep -qi "erofs"; then
+      command -v fsck.erofs >/dev/null 2>&1 || {
+        echo -e "${RED}Error: fsck.erofs not found for EROFS extraction${NC}"
+        exit 1
+      }
+      fsck.erofs --extract="$ROOTFS_DIR" --force --overwrite "$SQUASH_IMG" >/tmp/fedac-erofs-extract.log 2>&1
+      tail -n 20 /tmp/fedac-erofs-extract.log || true
+      rm -f /tmp/fedac-erofs-extract.log
+    else
+      command -v unsquashfs >/dev/null 2>&1 || {
+        echo -e "${RED}Error: unsquashfs not found for squashfs extraction${NC}"
+        exit 1
+      }
+      unsquashfs -f -d "$ROOTFS_DIR" "$SQUASH_IMG"
+    fi
+  fi
+
   umount "$ISO_MOUNT"
   rmdir "$ISO_MOUNT"
   ISO_MOUNT=""
