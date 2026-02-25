@@ -51,6 +51,10 @@ const BITMAP_BTN_HEIGHT = 18;
 const BITMAP_BTN_GAP = 4;
 const BARS_MIN_X = 54;
 
+// Bitmap Zone (pixel buffer display zone above record button)
+const BITMAP_ZONE_HEIGHT = 72;
+const COMPACT_BITMAP_ZONE_HEIGHT = 48;
+
 // Strip Button Constraints
 const MIN_STRIP_WIDTH = 40;
 const MIN_STRIP_HEIGHT = 20;
@@ -74,8 +78,15 @@ function getLayoutMetrics(screen, { hasBitmap = false, patCount = 1 } = {}) {
   // Calculate zone heights
   const topBar = isCompact ? COMPACT_TOP_BAR : TOP_BAR_HEIGHT;
   const bottomBar = isCompact ? COMPACT_BOTTOM_BAR : BOTTOM_BAR_HEIGHT;
-  const availableHeight = max(0, screen.height - topBar - bottomBar);
-  
+
+  // Bitmap zone: full-width pixel buffer sits above the record button.
+  // Only allocates space when a bitmap is loaded.
+  const bitmapZoneH = hasBitmap
+    ? (isCompact ? COMPACT_BITMAP_ZONE_HEIGHT : BITMAP_ZONE_HEIGHT)
+    : 0;
+
+  const availableHeight = max(0, screen.height - topBar - bottomBar - bitmapZoneH);
+
   // Calculate strip button dimensions
   const stripAreaW = max(MIN_STRIP_WIDTH, screen.width);
   const stripAreaH = availableHeight;
@@ -83,12 +94,17 @@ function getLayoutMetrics(screen, { hasBitmap = false, patCount = 1 } = {}) {
   const stripH = max(MIN_STRIP_HEIGHT, floor(stripAreaH / safePatCount));
   const stripX = 0;
   const stripY = topBar;
-  
+
   // Record button is always a full-width bottom strip.
   const recordBtnW = screen.width;
   const recordBtnH = bottomBar;
   const recordBtnX = 0;
   const recordBtnY = screen.height - bottomBar;
+
+  // Bitmap zone: sits between strips and record button, full width.
+  const bitmapZoneX = 0;
+  const bitmapZoneY = recordBtnY - bitmapZoneH;
+  const bitmapZoneW = screen.width;
   
   // Pats button in top-right corner
   const patsBtnW = 24;
@@ -128,7 +144,13 @@ function getLayoutMetrics(screen, { hasBitmap = false, patCount = 1 } = {}) {
     stripH,
     stripAreaH,
     
-    // Bitmap controls
+    // Bitmap zone (pixel buffer display above record button)
+    bitmapZoneX,
+    bitmapZoneY,
+    bitmapZoneW,
+    bitmapZoneH,
+
+    // Bitmap controls (top bar buttons)
     hasBitmap,
     bitmapLoopBtnX,
     bitmapPaintBtnX,
@@ -394,6 +416,8 @@ async function boot({
           sampleLength: storedBitmap.sampleLength,
           sampleRate: storedBitmap.sampleRate,
         };
+        layoutCache = { key: null, metrics: null }; // Invalidate so strips shrink for bitmap zone
+        genPats({ screen, ui });
         layoutBitmapUI(screen);
       }
     }
@@ -580,29 +604,17 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
     });
   });
 
-  // Bitmap preview middle layer (half opacity) so waveform/needles can sit above it.
-  if (hasBitmap) {
-    const halfAlpha = { ...bitmapPreview, pixels: new Uint8ClampedArray(bitmapPreview.pixels) };
-    for (let i = 3; i < halfAlpha.pixels.length; i += 4) halfAlpha.pixels[i] = halfAlpha.pixels[i] >> 1;
-    api.paste(halfAlpha, layout.stripX, layout.stripY, {
-      width: layout.stripW,
-      height: layout.stripAreaH,
-    });
-  }
-
-  // Waveform overlay on top of strips + bitmap.
-  const waveformData = sampleData;
-  const waveformColor = hasBitmap ? [255, 110, 0, 44] : [0, 0, 255, 30];
-  if (waveformData?.length) {
+  // Waveform overlay on strips — only shown when no bitmap is loaded.
+  if (!hasBitmap && sampleData?.length) {
     sound.paint.waveform(
       api,
-      num.arrMax(waveformData),
-      waveformData.length > 256 ? num.arrCompress(waveformData, 256) : waveformData,
+      num.arrMax(sampleData),
+      sampleData.length > 256 ? num.arrCompress(sampleData, 256) : sampleData,
       layout.stripX,
       layout.stripY,
       layout.stripW,
       layout.stripAreaH,
-      waveformColor,
+      [0, 0, 255, 30],
       { direction: "bottom-to-top" },
     );
   }
@@ -627,31 +639,59 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
     }
   });
 
-  // Scrubber lines on top of preview and waveform.
-  if (hasBitmap && bitmapProgress > 0) {
-    const totalPixels = bitmapPreview.width * bitmapPreview.height;
-    const currentPixel = floor(bitmapProgress * totalPixels);
-    const scrubY = floor(currentPixel / bitmapPreview.width);
-    const mappedProgress = scrubY / max(1, bitmapPreview.height - 1);
-    const segmentCount = Math.max(1, Math.min(maxPats, btns.length || pats || 1));
+  // Bitmap zone: full-width pixel buffer stretched above the record button.
+  if (hasBitmap && layout.bitmapZoneH > 0) {
+    // Dark background
+    ink(0).box(layout.bitmapZoneX, layout.bitmapZoneY, layout.bitmapZoneW, layout.bitmapZoneH);
 
-    if (segmentCount > 1) {
-      const segmentProgress = (mappedProgress * segmentCount) % 1;
-      for (let i = 0; i < segmentCount; i += 1) {
-        const box = btns[i]?.box;
-        const segmentX = box?.x ?? layout.stripX;
-        const segmentY = box?.y ?? layout.stripY + layout.stripH * i;
-        const segmentW = box?.w ?? layout.stripW;
-        const segmentH = box?.h ?? layout.stripH;
-        const minY = segmentY + 1;
-        const maxY = segmentY + segmentH - 2;
-        let y = floor(segmentY + segmentProgress * segmentH);
-        y = Math.max(minY, Math.min(maxY, y));
-        ink("yellow", 220).line(segmentX + 1, y, segmentX + segmentW - 1, y);
-      }
-    } else {
-      const mappedY = layout.stripY + mappedProgress * layout.stripAreaH;
-      ink("yellow", 220).line(layout.stripX + 1, mappedY, layout.stripX + layout.stripW - 1, mappedY);
+    // Stretch bitmap to fill the zone
+    api.paste(bitmapPreview, layout.bitmapZoneX, layout.bitmapZoneY, {
+      width: layout.bitmapZoneW,
+      height: layout.bitmapZoneH,
+    });
+
+    // Waveform overlay in bitmap zone
+    if (sampleData?.length) {
+      sound.paint.waveform(
+        api,
+        num.arrMax(sampleData),
+        sampleData.length > 256 ? num.arrCompress(sampleData, 256) : sampleData,
+        layout.bitmapZoneX,
+        layout.bitmapZoneY,
+        layout.bitmapZoneW,
+        layout.bitmapZoneH,
+        [255, 110, 0, 80],
+        { direction: "bottom-to-top" },
+      );
+    }
+
+    // Playback scrubber line in bitmap zone
+    if (bitmapProgress > 0) {
+      const scrubY = layout.bitmapZoneY + floor(bitmapProgress * layout.bitmapZoneH);
+      const clampedY = Math.max(
+        layout.bitmapZoneY + 1,
+        Math.min(layout.bitmapZoneY + layout.bitmapZoneH - 2, scrubY),
+      );
+      ink("yellow", 220).line(
+        layout.bitmapZoneX + 1,
+        clampedY,
+        layout.bitmapZoneX + layout.bitmapZoneW - 1,
+        clampedY,
+      );
+    }
+
+    // Hz readout in bitmap zone
+    if (bitmapPlaybackHz > 0.001) {
+      const hzText = bitmapPlaybackHz >= 1
+        ? `${bitmapPlaybackHz.toFixed(1)} Hz`
+        : `${(bitmapPlaybackHz * 1000).toFixed(0)} mHz`;
+      ink("black", 140).box(
+        layout.bitmapZoneX + 4,
+        layout.bitmapZoneY + 2,
+        text.width(hzText) + 4,
+        text.height(hzText) + 2,
+      );
+      ink("cyan", 220).write(hzText, layout.bitmapZoneX + 6, layout.bitmapZoneY + 4);
     }
   }
 
@@ -740,14 +780,6 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
       layout.topBar - 2,
       [255, 0, 0, 255],
     );
-  }
-
-  if (bitmapPlaybackHz > 0.001 && hasBitmap) {
-    const hzText = bitmapPlaybackHz >= 1
-      ? `${bitmapPlaybackHz.toFixed(1)} Hz`
-      : `${(bitmapPlaybackHz * 1000).toFixed(0)} mHz`;
-    ink("black", 140).box(layout.stripX + 4, layout.stripY + 2, text.width(hzText) + 4, text.height(hzText) + 2);
-    ink("cyan", 220).write(hzText, layout.stripX + 6, layout.stripY + 4);
   }
 
   if (pens()) {
@@ -934,6 +966,8 @@ function act({ event: e, sound, pens, screen, ui, notice, beep, store, jump, sys
             sampleLength: encoded.sampleLength,
             sampleRate: sound.sampleRate,
           };
+          layoutCache = { key: null, metrics: null }; // Invalidate so strips shrink for bitmap zone
+          genPats({ screen, ui });
           layoutBitmapUI(screen);
           if (store) {
             store["stample:bitmap"] = {
