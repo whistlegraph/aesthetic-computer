@@ -577,9 +577,18 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
     );
   }
 
+  // Paint bitmap preview behind buttons.
+  if (hasBitmap) {
+    api.paste(bitmapPreview, layout.stripX, layout.stripY, {
+      width: layout.stripW,
+      height: layout.stripAreaH,
+    });
+  }
+
+  // Strip buttons: semi-transparent so bitmap preview shows through.
   btns.forEach((btn, index) => {
     btn.paint(() => {
-      ink(btn.down ? "white" : "cyan", btn.down ? 120 : 130).box(btn.box);
+      ink(btn.down ? "white" : "cyan", btn.down ? 80 : 60).box(btn.box);
       ink("black").box(btn.box, "out"); // Outline in black.
 
       ink("black").write(
@@ -590,21 +599,13 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
     });
   });
 
-  // Paint bitmap preview ON TOP of buttons so it stays visible while playing.
-  if (hasBitmap) {
-    api.paste(bitmapPreview, layout.stripX, layout.stripY, {
-      width: layout.stripW,
-      height: layout.stripAreaH,
-    });
-
-    // Draw scrubber line over mapped board.
-    if (bitmapProgress > 0) {
-      const totalPixels = bitmapPreview.width * bitmapPreview.height;
-      const currentPixel = floor(bitmapProgress * totalPixels);
-      const scrubY = floor(currentPixel / bitmapPreview.width);
-      const mappedY = layout.stripY + (scrubY / bitmapPreview.height) * layout.stripAreaH;
-      ink("yellow", 200).line(layout.stripX, mappedY, layout.stripX + layout.stripW, mappedY);
-    }
+  // Draw scrubber line over mapped board.
+  if (hasBitmap && bitmapProgress > 0) {
+    const totalPixels = bitmapPreview.width * bitmapPreview.height;
+    const currentPixel = floor(bitmapProgress * totalPixels);
+    const scrubY = floor(currentPixel / bitmapPreview.width);
+    const mappedY = layout.stripY + (scrubY / bitmapPreview.height) * layout.stripAreaH;
+    ink("yellow", 200).line(layout.stripX, mappedY, layout.stripX + layout.stripW, mappedY);
   }
 
   // Render playback needles on top of everything in the strip area.
