@@ -2741,6 +2741,74 @@ async function halt($, text) {
     packProgress = null;
     makeFlash($);
     return true;
+  } else if (text.startsWith("m4do ") || text.startsWith("4do ")) {
+    // Generate an online Max for Live device (.amxd) that loads the live URL
+    const pieceRef = params[0];
+    if (!pieceRef) {
+      notice("Usage: m4do piece", ["red"]);
+      flashColor = [255, 0, 0];
+      makeFlash($);
+      return true;
+    }
+
+    const displayName = pieceRef;
+    const liveUrl = `https://aesthetic.computer/${pieceRef}`;
+    const width = 400, height = 200;
+
+    // Build a minimal M4L patcher with jweb~ pointing to the live URL
+    const patcher = {
+      patcher: {
+        fileversion: 1,
+        appversion: { major: 9, minor: 0, revision: 7, architecture: "x64", modernui: 1 },
+        classnamespace: "box",
+        rect: [134, 174, 800, 600],
+        openrect: [0, 0, width, height],
+        openinpresentation: 1,
+        gridsize: [15, 15],
+        enablehscroll: 0, enablevscroll: 0,
+        devicewidth: width,
+        description: `Aesthetic Computer ${displayName} (online)`,
+        boxes: [
+          { box: { disablefind: 0, id: "obj-jweb", latency: 0, maxclass: "jweb~", numinlets: 1, numoutlets: 3, outlettype: ["signal","signal",""], patching_rect: [10,50,width,height], presentation: 1, presentation_rect: [0,0,width+1,height+1], rendermode: 1, url: liveUrl } },
+          { box: { id: "obj-plugout", maxclass: "newobj", numinlets: 2, numoutlets: 0, patching_rect: [10,280,75,22], text: "plugout~ 1 2" } },
+          { box: { id: "obj-thisdevice", maxclass: "newobj", numinlets: 1, numoutlets: 3, outlettype: ["bang","int","int"], patching_rect: [350,50,85,22], text: "live.thisdevice" } },
+          { box: { id: "obj-print", maxclass: "newobj", numinlets: 1, numoutlets: 0, patching_rect: [350,80,150,22], text: `print [AC-${displayName.toUpperCase()}]` } },
+          { box: { id: "obj-route", maxclass: "newobj", numinlets: 1, numoutlets: 2, outlettype: ["",""], patching_rect: [350,140,60,22], text: "route ready" } },
+          { box: { id: "obj-activate", maxclass: "message", numinlets: 2, numoutlets: 1, outlettype: [""], patching_rect: [350,170,60,22], text: "activate 1" } },
+        ],
+        lines: [
+          { patchline: { destination: ["obj-plugout",0], source: ["obj-jweb",0] } },
+          { patchline: { destination: ["obj-plugout",1], source: ["obj-jweb",1] } },
+          { patchline: { destination: ["obj-print",0], source: ["obj-thisdevice",0] } },
+          { patchline: { destination: ["obj-route",0], source: ["obj-jweb",2] } },
+          { patchline: { destination: ["obj-activate",0], source: ["obj-route",0] } },
+          { patchline: { destination: ["obj-jweb",0], source: ["obj-activate",0] } },
+        ],
+        dependency_cache: [], latency: 0, is_mpe: 0,
+        external_mpe_tuning_enabled: 0, minimum_live_version: "",
+        minimum_max_version: "", platform_compatibility: 0, autosave: 0,
+      },
+    };
+
+    // Pack into .amxd binary (header + length + JSON)
+    const M4L_HEADER = "ampf\x04\x00\x00\x00iiiimeta\x04\x00\x00\x00\x00\x00\x00\x00ptch";
+    const jsonStr = JSON.stringify(patcher);
+    const jsonBytes = new TextEncoder().encode(jsonStr);
+    const headerBytes = new Uint8Array([...M4L_HEADER].map(c => c.charCodeAt(0)));
+    const lenBuf = new Uint8Array(4);
+    new DataView(lenBuf.buffer).setUint32(0, jsonBytes.length, true); // little-endian
+    const binary = new Uint8Array(headerBytes.length + 4 + jsonBytes.length);
+    binary.set(headerBytes, 0);
+    binary.set(lenBuf, headerBytes.length);
+    binary.set(jsonBytes, headerBytes.length + 4);
+
+    const blob = new Blob([binary], { type: "application/octet-stream" });
+    download(`AC ${displayName} (online).amxd`, blob);
+
+    notice(`Downloaded AC ${displayName} (online).amxd`, ["lime"]);
+    flashColor = [0, 255, 0];
+    makeFlash($);
+    return true;
   } else if (text === "wallet" || text.startsWith("wallet ")) {
     // Tezos wallet: connect, view, disconnect
     const subcommand = params[0]?.toLowerCase();
