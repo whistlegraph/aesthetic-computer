@@ -4951,6 +4951,10 @@ function printLine(
                          fontMetadata?.name === "MatrixChunky8";
 
   const getGlyphForChar = (char) => {
+    // Whitespace has no glyph — advance width handles spacing.
+    // Never fall back to "?" for spaces.
+    if (char.trim() === "") return null;
+
     let primaryGlyph = null;
     let primaryQuestion = null;
     let fallbackGlyph = null;

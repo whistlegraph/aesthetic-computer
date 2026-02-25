@@ -440,8 +440,9 @@ class Typeface {
               return cached;
             }
 
-            // Skip non-string or empty chars
-            if (typeof char !== "string" || char.length === 0) return null;
+            // Skip non-string, empty, or whitespace chars (spaces use
+            // advance width only — no glyph data needed).
+            if (typeof char !== "string" || char.length === 0 || char.trim() === "") return null;
 
             // Already failed or loading
             if (failedGlyphs.has(char)) return null;
@@ -817,8 +818,9 @@ class Typeface {
             return this.getEmojiFallback(char, target);
           }
 
-          // Skip invalid characters (but allow "?" to load normally)
-          if (typeof char !== "string" || char.length === 0) {
+          // Skip invalid or whitespace characters (spaces use advance
+          // width only — no glyph fetch needed).
+          if (typeof char !== "string" || char.length === 0 || char.trim() === "") {
             return null;
           }
 
