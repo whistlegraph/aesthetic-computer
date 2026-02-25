@@ -297,11 +297,7 @@ if [ ! -x "$ROOTFS_DIR/usr/bin/cage" ] && command -v dnf >/dev/null 2>&1; then
   dnf -y --installroot="$ROOTFS_DIR" --releasever="$FEDORA_VERSION" install cage >/dev/null 2>&1 || true
 fi
 
-# Ensure actkbd is available to map hardware volume keys to system volume.
-if [ ! -x "$ROOTFS_DIR/usr/sbin/actkbd" ] && [ ! -x "$ROOTFS_DIR/usr/bin/actkbd" ] && command -v dnf >/dev/null 2>&1; then
-  echo -e "  Installing actkbd into rootfs (volume keys)..."
-  dnf -y --installroot="$ROOTFS_DIR" --releasever="$FEDORA_VERSION" install actkbd >/dev/null 2>&1 || true
-fi
+# Volume key daemon is pure Python — no external packages needed.
 
 # 3b. Kiosk session script
 cat > "$ROOTFS_DIR/usr/local/bin/kiosk-session.sh" << 'SESSEOF'
@@ -387,104 +383,139 @@ fi
 chroot "$ROOTFS_DIR" /usr/sbin/usermod -s /bin/bash liveuser >/dev/null 2>&1 || true
 chroot "$ROOTFS_DIR" /usr/bin/passwd -d liveuser >/dev/null 2>&1 || true
 
-# 3d. Hardware volume key handling (VolumeUp/Down/Mute) via actkbd.
-cat > "$ROOTFS_DIR/usr/local/bin/kiosk-volume-key" << 'VOLKEYEOF'
-#!/bin/bash
-set -euo pipefail
+# 3d. Hardware volume key daemon — pure Python, reads raw Linux input events.
+# No actkbd or external packages needed. Runs as root, talks to liveuser's PipeWire.
+cat > "$ROOTFS_DIR/usr/local/bin/kiosk-volume-keyd" << 'VKDEOF'
+#!/usr/bin/python3
+"""FedAC kiosk volume key daemon.
 
-ACTION="${1:-}"
-USER_NAME="liveuser"
-USER_UID="$(id -u "$USER_NAME" 2>/dev/null || echo 1000)"
-RUNTIME_DIR="/run/user/${USER_UID}"
-BUS_ADDR="unix:path=${RUNTIME_DIR}/bus"
+Reads raw input_event structs from all keyboard /dev/input/event* devices,
+intercepts KEY_MUTE (113), KEY_VOLUMEDOWN (114), KEY_VOLUMEUP (115),
+and adjusts the PipeWire/PulseAudio/ALSA volume for liveuser.
 
-run_user_cmd() {
-  if command -v runuser >/dev/null 2>&1; then
-    runuser -u "$USER_NAME" -- "$@"
-  else
-    "$@"
-  fi
-}
+Zero external dependencies — stdlib only.
+"""
+import glob, os, select, struct, subprocess, sys
 
-with_user_audio_env() {
-  run_user_cmd env \
-    XDG_RUNTIME_DIR="$RUNTIME_DIR" \
-    DBUS_SESSION_BUS_ADDRESS="$BUS_ADDR" \
-    "$@"
-}
+# Linux input_event: struct timeval (16 bytes on 64-bit), __u16 type, __u16 code, __s32 value
+EVENT_SIZE = struct.calcsize("llHHi")
+EV_KEY = 0x01
+KEY_DOWN = 1  # value=1 is key press
 
-case "$ACTION" in
-  up)
-    if command -v wpctl >/dev/null 2>&1; then
-      with_user_audio_env wpctl set-volume -l 1.5 @DEFAULT_AUDIO_SINK@ 5%+ || true
-    elif command -v pactl >/dev/null 2>&1; then
-      with_user_audio_env pactl set-sink-volume @DEFAULT_SINK@ +5% || true
-    elif command -v amixer >/dev/null 2>&1; then
-      amixer -q set Master 5%+ unmute || true
-    fi
-    ;;
-  down)
-    if command -v wpctl >/dev/null 2>&1; then
-      with_user_audio_env wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%- || true
-    elif command -v pactl >/dev/null 2>&1; then
-      with_user_audio_env pactl set-sink-volume @DEFAULT_SINK@ -5% || true
-    elif command -v amixer >/dev/null 2>&1; then
-      amixer -q set Master 5%- unmute || true
-    fi
-    ;;
-  mute)
-    if command -v wpctl >/dev/null 2>&1; then
-      with_user_audio_env wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle || true
-    elif command -v pactl >/dev/null 2>&1; then
-      with_user_audio_env pactl set-sink-mute @DEFAULT_SINK@ toggle || true
-    elif command -v amixer >/dev/null 2>&1; then
-      amixer -q set Master toggle || true
-    fi
-    ;;
-  *)
-    exit 0
-    ;;
-esac
-VOLKEYEOF
-chmod +x "$ROOTFS_DIR/usr/local/bin/kiosk-volume-key"
+KEY_MUTE = 113
+KEY_VOLUMEDOWN = 114
+KEY_VOLUMEUP = 115
 
-cat > "$ROOTFS_DIR/etc/actkbd.conf" << 'ACTKBDEOF'
-# Format: <keycode>:<event_type>:<attributes>:<command>
-# Fedora/Kernel media key codes:
-# 113 = KEY_MUTE, 114 = KEY_VOLUMEDOWN, 115 = KEY_VOLUMEUP
-113:key:exec:/usr/local/bin/kiosk-volume-key mute
-114:key:exec:/usr/local/bin/kiosk-volume-key down
-115:key:exec:/usr/local/bin/kiosk-volume-key up
-ACTKBDEOF
+USER = "liveuser"
+UID = None
+RUNTIME_DIR = None
 
-# Create actkbd systemd service if the package didn't ship one.
-if [ ! -f "$ROOTFS_DIR/usr/lib/systemd/system/actkbd.service" ] && [ ! -f "$ROOTFS_DIR/etc/systemd/system/actkbd.service" ]; then
-  ACTKBD_BIN=""
-  [ -x "$ROOTFS_DIR/usr/bin/actkbd" ] && ACTKBD_BIN="/usr/bin/actkbd"
-  [ -x "$ROOTFS_DIR/usr/sbin/actkbd" ] && ACTKBD_BIN="/usr/sbin/actkbd"
-  if [ -n "$ACTKBD_BIN" ]; then
-    cat > "$ROOTFS_DIR/etc/systemd/system/actkbd.service" << SVCEOF
+def find_uid():
+    global UID, RUNTIME_DIR
+    try:
+        import pwd
+        UID = pwd.getpwnam(USER).pw_uid
+    except (KeyError, ImportError):
+        UID = 1000
+    RUNTIME_DIR = f"/run/user/{UID}"
+
+def run_as_user(cmd):
+    """Run a command as liveuser with their audio env."""
+    env = os.environ.copy()
+    env["XDG_RUNTIME_DIR"] = RUNTIME_DIR
+    env["DBUS_SESSION_BUS_ADDRESS"] = f"unix:path={RUNTIME_DIR}/bus"
+    try:
+        subprocess.run(
+            ["runuser", "-u", USER, "--"] + cmd,
+            env=env, timeout=5,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+    except Exception:
+        pass
+
+def vol_up():
+    run_as_user(["wpctl", "set-volume", "-l", "1.5", "@DEFAULT_AUDIO_SINK@", "5%+"])
+
+def vol_down():
+    run_as_user(["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", "5%-"])
+
+def vol_mute():
+    run_as_user(["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"])
+
+ACTIONS = {KEY_MUTE: vol_mute, KEY_VOLUMEDOWN: vol_down, KEY_VOLUMEUP: vol_up}
+
+def is_keyboard(evdev_path):
+    """Check if device has EV_KEY capability (bit 1 in capabilities/ev)."""
+    sysfs = f"/sys/class/input/{os.path.basename(evdev_path)}/device/capabilities/ev"
+    try:
+        caps = int(open(sysfs).read().strip(), 16)
+        return bool(caps & (1 << EV_KEY))
+    except Exception:
+        return False
+
+def main():
+    find_uid()
+    # Open all keyboard-capable input devices
+    fds = {}
+    for path in sorted(glob.glob("/dev/input/event*")):
+        if is_keyboard(path):
+            try:
+                fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK)
+                fds[fd] = path
+            except OSError:
+                pass
+
+    if not fds:
+        print("kiosk-volume-keyd: no keyboard devices found", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"kiosk-volume-keyd: monitoring {len(fds)} device(s)", file=sys.stderr)
+
+    poll = select.poll()
+    for fd in fds:
+        poll.register(fd, select.POLLIN)
+
+    while True:
+        try:
+            events = poll.poll(5000)
+        except (KeyboardInterrupt, SystemExit):
+            break
+        for fd, mask in events:
+            if mask & select.POLLIN:
+                try:
+                    data = os.read(fd, EVENT_SIZE * 16)
+                except OSError:
+                    continue
+                for off in range(0, len(data) - EVENT_SIZE + 1, EVENT_SIZE):
+                    _sec, _usec, ev_type, code, value = struct.unpack_from("llHHi", data, off)
+                    if ev_type == EV_KEY and value == KEY_DOWN and code in ACTIONS:
+                        ACTIONS[code]()
+
+    for fd in fds:
+        os.close(fd)
+
+if __name__ == "__main__":
+    main()
+VKDEOF
+chmod +x "$ROOTFS_DIR/usr/local/bin/kiosk-volume-keyd"
+
+# Systemd service for the volume key daemon
+cat > "$ROOTFS_DIR/etc/systemd/system/kiosk-volume-keyd.service" << 'SVCEOF'
 [Unit]
-Description=actkbd - keyboard shortcut daemon
+Description=FedAC kiosk volume key daemon
 After=systemd-udevd.service
 
 [Service]
-Type=forking
-ExecStart=${ACTKBD_BIN} -D -q -c /etc/actkbd.conf
+Type=simple
+ExecStart=/usr/local/bin/kiosk-volume-keyd
 Restart=on-failure
+RestartSec=2
 
 [Install]
 WantedBy=multi-user.target
 SVCEOF
-  fi
-fi
-
-if [ -f "$ROOTFS_DIR/usr/lib/systemd/system/actkbd.service" ] || [ -f "$ROOTFS_DIR/etc/systemd/system/actkbd.service" ]; then
-  chroot "$ROOTFS_DIR" /usr/bin/systemctl enable actkbd.service >/dev/null 2>&1 || true
-  echo -e "  ${GREEN}Volume keys mapped (actkbd)${NC}"
-else
-  echo -e "  ${YELLOW}actkbd binary not found; volume key mapping skipped${NC}"
-fi
+chroot "$ROOTFS_DIR" /usr/bin/systemctl enable kiosk-volume-keyd.service >/dev/null 2>&1 || true
+echo -e "  ${GREEN}Volume keys mapped (kiosk-volume-keyd)${NC}"
 
 mkdir -p "$ROOTFS_DIR/home/liveuser"
 cat > "$ROOTFS_DIR/home/liveuser/.bash_profile" << 'BPROFEOF'
