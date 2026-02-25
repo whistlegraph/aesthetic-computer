@@ -9931,6 +9931,12 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // Run dropped text as a prompt command (navigation / piece name).
+  if (type === "dropped:text") {
+    $commonApi.jump(content.text);
+    return;
+  }
+
   if (type === "dropped:bitmap") {
     if (currentPath === "aesthetic.computer/disks/prompt") {
       $commonApi.system.nopaint.replace(
