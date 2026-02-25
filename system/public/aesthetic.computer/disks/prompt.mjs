@@ -2557,7 +2557,7 @@ async function halt($, text) {
 
     makeFlash($);
     return true;
-  } else if (text.startsWith("html ") || text.startsWith("pack ")) {
+  } else if (text.startsWith("html ") || text.startsWith("pack ") || text.startsWith("bundle ")) {
     // Generate a self-contained HTML pack for a piece (KidLisp $code or .mjs piece)
     const pieceCode = params[0];
     if (!pieceCode) {
@@ -2693,7 +2693,7 @@ async function halt($, text) {
 
     makeFlash($);
     return true;
-  } else if (text.startsWith("m4d ")) {
+  } else if (text.startsWith("m4d ") || text.startsWith("4d ")) {
     // Generate an offline Max for Live device (.amxd) for any piece
     const pieceRef = params[0];
     if (!pieceRef) {
