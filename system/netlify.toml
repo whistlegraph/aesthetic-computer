@@ -1483,6 +1483,10 @@ from = "/api/bundle-html"
 to = "https://oven.aesthetic.computer/bundle-html"
 status = 200
 [[redirects]]
+from = "/api/os"
+to = "https://oven.aesthetic.computer/os"
+status = 200
+[[redirects]]
 from = "/api/pack-telemetry"
 to = "/.netlify/functions/bundle-telemetry"
 status = 200

@@ -13,6 +13,7 @@ import { healthHandler, bakeHandler, statusHandler, bakeCompleteHandler, bakeSta
 import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, getAllProgress, getConcurrencyStatus, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus, getFrozenPieces, clearFrozenPiece, getLatestOGImageUrl, regenerateOGImagesBackground, generateKidlispBackdrop, getLatestBackdropUrl, APP_SCREENSHOT_PRESETS, generateNotepatOGImage, getLatestNotepatOGUrl } from './grabber.mjs';
 import archiver from 'archiver';
 import { createBundle, createJSPieceBundle, createM4DBundle, generateDeviceHTML, prewarmCache, getCacheStatus, setSkipMinification } from './bundler.mjs';
+import { streamOSImage, getOSBuildStatus, invalidateManifest } from './os-builder.mjs';
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -2223,6 +2224,82 @@ app.post(['/pack-prewarm', '/bundle-prewarm'], async (req, res) => {
 // Cache status
 app.get(['/pack-status', '/bundle-status'], (req, res) => {
   res.json(getCacheStatus());
+});
+
+// ===== OS IMAGE BUILDER =====
+// Assembles bootable FedAC OS images with a piece injected into the FEDAC-PIECE partition.
+// Requires: pre-baked base image on CDN + e2fsprogs (debugfs) on server.
+
+app.get('/os', async (req, res) => {
+  const code = req.query.code;
+  const piece = req.query.piece;
+  const format = req.query.format || 'download';
+  const density = parseInt(req.query.density) || 8;
+
+  const isJSPiece = !!piece;
+  const target = piece || code;
+  if (!target) {
+    return res.status(400).json({
+      error: "Missing 'code' or 'piece' parameter.",
+      usage: { kidlisp: "/os?code=39j", javascript: "/os?piece=notepat" },
+    });
+  }
+
+  addServerLog('info', '💿', `OS build started: ${target}`);
+
+  // SSE streaming progress mode (for UI)
+  if (format === 'stream') {
+    res.set({
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+    res.flushHeaders();
+
+    const sendEvent = (type, data) => {
+      res.write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`);
+      if (typeof res.flush === 'function') res.flush();
+    };
+
+    try {
+      const result = await streamOSImage(null, target, isJSPiece, density, (p) => sendEvent('progress', p));
+      const downloadParam = isJSPiece ? `piece=${encodeURIComponent(target)}` : `code=${encodeURIComponent(target)}`;
+      sendEvent('complete', {
+        message: 'OS image ready',
+        downloadUrl: `/os?${downloadParam}&density=${density}`,
+        elapsed: result.elapsed,
+      });
+    } catch (err) {
+      console.error('[os] SSE build failed:', err);
+      sendEvent('error', { error: err.message });
+    }
+    return res.end();
+  }
+
+  // Direct download mode
+  try {
+    const result = await streamOSImage(res, target, isJSPiece, density, (p) => {
+      console.log(`[os] ${p.stage}: ${p.message}`);
+    });
+    addServerLog('success', '💿', `OS build complete: ${target} (${Math.round(result.elapsed / 1000)}s)`);
+  } catch (err) {
+    console.error('[os] Build failed:', err);
+    addServerLog('error', '❌', `OS build failed: ${err.message}`);
+    if (!res.headersSent) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+});
+
+app.get('/os-status', (req, res) => {
+  res.json(getOSBuildStatus());
+});
+
+app.post('/os-invalidate', (req, res) => {
+  invalidateManifest();
+  addServerLog('info', '💿', 'OS base image manifest cache invalidated');
+  res.json({ ok: true, message: 'Manifest cache invalidated — next build will re-fetch.' });
 });
 
 // 404 handler
