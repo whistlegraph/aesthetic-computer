@@ -1058,26 +1058,29 @@ function paint(
     const messageIndex = client.messages.length - 1 - i;
     const fadeAlpha = Math.max(25, 200 - (messageIndex * 25)); // Min 25, decrease by 25 per message (more dramatic fade)
     
-    if (Array.isArray(tsColor)) {
-      ink(...tsColor, fadeAlpha).write(ago, { x: timestampX, y: timestampY }, undefined, undefined, false, "MatrixChunky8");
-    } else {
-      ink(tsColor, fadeAlpha).write(ago, { x: timestampX, y: timestampY }, undefined, undefined, false, "MatrixChunky8");
-    }
-
-    // ♥ Hearts — repeated symbols for 1-9, heart+number for 10+, always opaque
+    // ♥ Hearts first — repeated symbols for 1-9, heart+number for 10+, always opaque
+    let heartOffsetX = 0;
     if (message.id) {
       const heartData = client.hearts?.get(message.id);
       const heartCount = heartData?.count || 0;
       if (heartCount > 0) {
         const heartStr = heartCount >= 10 ? `♥${heartCount}` : "♥".repeat(heartCount);
-        const heartX = timestampX + timestampWidth + 4;
         const heartColor = theme.heart;
         if (Array.isArray(heartColor)) {
-          ink(...heartColor).write(heartStr, { x: heartX, y: timestampY }, undefined, undefined, false, "MatrixChunky8");
+          ink(...heartColor).write(heartStr, { x: timestampX, y: timestampY }, undefined, undefined, false, "MatrixChunky8");
         } else {
-          ink(heartColor).write(heartStr, { x: heartX, y: timestampY }, undefined, undefined, false, "MatrixChunky8");
+          ink(heartColor).write(heartStr, { x: timestampX, y: timestampY }, undefined, undefined, false, "MatrixChunky8");
         }
+        heartOffsetX = text.width(heartStr, "MatrixChunky8") + 4;
       }
+    }
+
+    // Timestamp after hearts
+    const tsX = timestampX + heartOffsetX;
+    if (Array.isArray(tsColor)) {
+      ink(...tsColor, fadeAlpha).write(ago, { x: tsX, y: timestampY }, undefined, undefined, false, "MatrixChunky8");
+    } else {
+      ink(tsColor, fadeAlpha).write(ago, { x: tsX, y: timestampY }, undefined, undefined, false, "MatrixChunky8");
     }
 
     lastAgo = ago;
@@ -4223,23 +4226,21 @@ function timeAgo(timestamp) {
   const past = new Date(timestamp);
   const seconds = floor((now - past) / 1000);
 
+  if (seconds < 60) return "now";
   const units = [
-    { name: "year", seconds: 31536000 },
-    { name: "month", seconds: 2592000 },
-    { name: "week", seconds: 604800 },
-    { name: "day", seconds: 86400 },
-    { name: "hour", seconds: 3600 },
-    { name: "minute", seconds: 60 },
-    { name: "second", seconds: 1 },
+    { abbr: "y", seconds: 31536000 },
+    { abbr: "mo", seconds: 2592000 },
+    { abbr: "w", seconds: 604800 },
+    { abbr: "d", seconds: 86400 },
+    { abbr: "h", seconds: 3600 },
+    { abbr: "m", seconds: 60 },
   ];
 
   for (const unit of units) {
     const count = floor(seconds / unit.seconds);
-    if (count >= 1) {
-      return `${count} ${unit.name}${count > 1 ? "s" : ""} ago`;
-    }
+    if (count >= 1) return `${count}${unit.abbr}`;
   }
-  return "just now";
+  return "now";
 }
 
 // Build a mapping of word positions in the text.box output to their positions in the original message
