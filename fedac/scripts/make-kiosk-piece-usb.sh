@@ -338,6 +338,17 @@ cat > "$PROFILE/chrome/userChrome.css" << 'CHROMEEOF'
 }
 CHROMEEOF
 
+# Start PipeWire audio stack (cage doesn't launch a full desktop session).
+# PipeWire needs XDG_RUNTIME_DIR which we set above.
+mkdir -p "$XDG_RUNTIME_DIR"
+if command -v pipewire >/dev/null 2>&1; then
+  pipewire &
+  sleep 0.3
+  command -v wireplumber >/dev/null 2>&1 && wireplumber &
+  command -v pipewire-pulse >/dev/null 2>&1 && pipewire-pulse &
+  sleep 0.2
+fi
+
 if command -v cage >/dev/null 2>&1; then
   TTY_DEV="$(tty 2>/dev/null || true)"
   [ -n "$TTY_DEV" ] && printf '\033[2J\033[3J\033[H\033[?25l' >"$TTY_DEV" 2>/dev/null || true
@@ -438,18 +449,41 @@ VOLKEYEOF
 chmod +x "$ROOTFS_DIR/usr/local/bin/kiosk-volume-key"
 
 cat > "$ROOTFS_DIR/etc/actkbd.conf" << 'ACTKBDEOF'
+# Format: <keycode>:<event_type>:<attributes>:<command>
 # Fedora/Kernel media key codes:
 # 113 = KEY_MUTE, 114 = KEY_VOLUMEDOWN, 115 = KEY_VOLUMEUP
-113 /usr/local/bin/kiosk-volume-key mute
-114 /usr/local/bin/kiosk-volume-key down
-115 /usr/local/bin/kiosk-volume-key up
+113:key:exec:/usr/local/bin/kiosk-volume-key mute
+114:key:exec:/usr/local/bin/kiosk-volume-key down
+115:key:exec:/usr/local/bin/kiosk-volume-key up
 ACTKBDEOF
+
+# Create actkbd systemd service if the package didn't ship one.
+if [ ! -f "$ROOTFS_DIR/usr/lib/systemd/system/actkbd.service" ] && [ ! -f "$ROOTFS_DIR/etc/systemd/system/actkbd.service" ]; then
+  ACTKBD_BIN=""
+  [ -x "$ROOTFS_DIR/usr/bin/actkbd" ] && ACTKBD_BIN="/usr/bin/actkbd"
+  [ -x "$ROOTFS_DIR/usr/sbin/actkbd" ] && ACTKBD_BIN="/usr/sbin/actkbd"
+  if [ -n "$ACTKBD_BIN" ]; then
+    cat > "$ROOTFS_DIR/etc/systemd/system/actkbd.service" << SVCEOF
+[Unit]
+Description=actkbd - keyboard shortcut daemon
+After=systemd-udevd.service
+
+[Service]
+Type=forking
+ExecStart=${ACTKBD_BIN} -D -q -c /etc/actkbd.conf
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+SVCEOF
+  fi
+fi
 
 if [ -f "$ROOTFS_DIR/usr/lib/systemd/system/actkbd.service" ] || [ -f "$ROOTFS_DIR/etc/systemd/system/actkbd.service" ]; then
   chroot "$ROOTFS_DIR" /usr/bin/systemctl enable actkbd.service >/dev/null 2>&1 || true
   echo -e "  ${GREEN}Volume keys mapped (actkbd)${NC}"
 else
-  echo -e "  ${YELLOW}actkbd service not found; volume key mapping skipped${NC}"
+  echo -e "  ${YELLOW}actkbd binary not found; volume key mapping skipped${NC}"
 fi
 
 mkdir -p "$ROOTFS_DIR/home/liveuser"
@@ -549,6 +583,10 @@ defaultPref("toolkit.telemetry.reportingpolicy.firstRun", false);
 defaultPref("browser.newtabpage.enabled", false);
 defaultPref("browser.aboutwelcome.enabled", false);
 defaultPref("toolkit.legacyUserProfileCustomizations.stylesheets", true);
+// Allow Web Audio API autoplay (kiosk — no user gesture needed)
+defaultPref("media.autoplay.default", 0);
+defaultPref("media.autoplay.blocking_policy", 0);
+defaultPref("media.autoplay.allow-extension-background-pages", true);
 CFGEOF
 sed -i "s|__KIOSK_PIECE_URL__|$KIOSK_PIECE_URL|g" "$ROOTFS_DIR/usr/lib64/firefox/firefox.cfg"
 echo -e "  ${GREEN}Firefox policies installed${NC}"
