@@ -311,8 +311,10 @@ async function boot({
       }
       bitmapLoading = false;
     } else {
-      const parsedPats = parseInt(decodedParam);
-      if (!Number.isNaN(parsedPats)) pats = parsedPats;
+      const parsedPats = parseInt(decodedParam, 10);
+      if (!Number.isNaN(parsedPats)) {
+        pats = Math.max(1, Math.min(maxPats, parsedPats));
+      }
     }
   }
   
@@ -395,6 +397,12 @@ async function boot({
         layoutBitmapUI(screen);
       }
     }
+  }
+
+  // Ensure we always have waveform data when a bitmap preview is present.
+  if ((!sampleData || sampleData.length < 1) && bitmapPreview?.pixels?.length && bitmapMeta) {
+    const decodedFallback = decodeBitmapToSample(bitmapPreview, bitmapMeta);
+    if (decodedFallback?.length) sampleData = decodedFallback;
   }
 
   // Only fetch sample data if we have a valid sampleId
@@ -558,23 +566,6 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
     );
   }
 
-  // Waveform background.
-  const waveformData = sampleData;
-  const waveformColor = hasBitmap ? [255, 100, 0, 28] : [0, 0, 255, 24];
-  if (waveformData) {
-    sound.paint.waveform(
-      api,
-      num.arrMax(waveformData),
-      num.arrCompress(waveformData, 256), // 🔴 TODO: This could be made much faster.
-      layout.stripX,
-      layout.stripY,
-      layout.stripW,
-      layout.stripAreaH,
-      waveformColor,
-      { direction: "bottom-to-top" },
-    );
-  }
-
   // Strip buttons.
   btns.forEach((btn, index) => {
     btn.paint(() => {
@@ -588,6 +579,33 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
       );
     });
   });
+
+  // Bitmap preview middle layer (half opacity) so waveform/needles can sit above it.
+  if (hasBitmap) {
+    const halfAlpha = { ...bitmapPreview, pixels: new Uint8ClampedArray(bitmapPreview.pixels) };
+    for (let i = 3; i < halfAlpha.pixels.length; i += 4) halfAlpha.pixels[i] = halfAlpha.pixels[i] >> 1;
+    api.paste(halfAlpha, layout.stripX, layout.stripY, {
+      width: layout.stripW,
+      height: layout.stripAreaH,
+    });
+  }
+
+  // Waveform overlay on top of strips + bitmap.
+  const waveformData = sampleData;
+  const waveformColor = hasBitmap ? [255, 110, 0, 44] : [0, 0, 255, 30];
+  if (waveformData?.length) {
+    sound.paint.waveform(
+      api,
+      num.arrMax(waveformData),
+      waveformData.length > 256 ? num.arrCompress(waveformData, 256) : waveformData,
+      layout.stripX,
+      layout.stripY,
+      layout.stripW,
+      layout.stripAreaH,
+      waveformColor,
+      { direction: "bottom-to-top" },
+    );
+  }
 
   // Playback needles.
   btns.forEach((btn, index) => {
@@ -609,36 +627,31 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
     }
   });
 
-  // Bitmap preview last (half opacity overlay) so everything shows through.
-  if (hasBitmap) {
-    const halfAlpha = { ...bitmapPreview, pixels: new Uint8ClampedArray(bitmapPreview.pixels) };
-    for (let i = 3; i < halfAlpha.pixels.length; i += 4) halfAlpha.pixels[i] = halfAlpha.pixels[i] >> 1;
-    api.paste(halfAlpha, layout.stripX, layout.stripY, {
-      width: layout.stripW,
-      height: layout.stripAreaH,
-    });
+  // Scrubber lines on top of preview and waveform.
+  if (hasBitmap && bitmapProgress > 0) {
+    const totalPixels = bitmapPreview.width * bitmapPreview.height;
+    const currentPixel = floor(bitmapProgress * totalPixels);
+    const scrubY = floor(currentPixel / bitmapPreview.width);
+    const mappedProgress = scrubY / max(1, bitmapPreview.height - 1);
+    const segmentCount = Math.max(1, Math.min(maxPats, btns.length || pats || 1));
 
-    // Scrubber line on top of preview.
-    if (bitmapProgress > 0) {
-      const totalPixels = bitmapPreview.width * bitmapPreview.height;
-      const currentPixel = floor(bitmapProgress * totalPixels);
-      const scrubY = floor(currentPixel / bitmapPreview.width);
-      const mappedProgress = scrubY / max(1, bitmapPreview.height - 1);
-
-      // Draw one scrubber per segment so each pat strip previews phase locally.
-      if (btns.length > 1) {
-        const segmentProgress = (mappedProgress * btns.length) % 1;
-        btns.forEach((btn) => {
-          let y = btn.box.y + segmentProgress * btn.box.h;
-          const minY = btn.box.y + 1;
-          const maxY = btn.box.y + btn.box.h - 2;
-          y = Math.max(minY, Math.min(maxY, y));
-          ink("yellow", 200).line(layout.stripX, y, layout.stripX + layout.stripW, y);
-        });
-      } else {
-        const mappedY = layout.stripY + mappedProgress * layout.stripAreaH;
-        ink("yellow", 200).line(layout.stripX, mappedY, layout.stripX + layout.stripW, mappedY);
+    if (segmentCount > 1) {
+      const segmentProgress = (mappedProgress * segmentCount) % 1;
+      for (let i = 0; i < segmentCount; i += 1) {
+        const box = btns[i]?.box;
+        const segmentX = box?.x ?? layout.stripX;
+        const segmentY = box?.y ?? layout.stripY + layout.stripH * i;
+        const segmentW = box?.w ?? layout.stripW;
+        const segmentH = box?.h ?? layout.stripH;
+        const minY = segmentY + 1;
+        const maxY = segmentY + segmentH - 2;
+        let y = floor(segmentY + segmentProgress * segmentH);
+        y = Math.max(minY, Math.min(maxY, y));
+        ink("yellow", 220).line(segmentX + 1, y, segmentX + segmentW - 1, y);
       }
+    } else {
+      const mappedY = layout.stripY + mappedProgress * layout.stripAreaH;
+      ink("yellow", 220).line(layout.stripX + 1, mappedY, layout.stripX + layout.stripW - 1, mappedY);
     }
   }
 
