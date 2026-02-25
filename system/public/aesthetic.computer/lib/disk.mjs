@@ -8276,14 +8276,8 @@ async function load(
   };
   // 💾 Uploading + Downloading
   // Add download event to trigger a file download from the main thread.
-  $commonApi.download = async (filename, data, modifiers) => {
-    // Convert Blob to ArrayBuffer for reliable worker→main transfer
-    if (data instanceof Blob) {
-      const buffer = await data.arrayBuffer();
-      send({ type: "download", content: { filename, data: buffer, modifiers } }, [buffer]);
-    } else {
-      send({ type: "download", content: { filename, data, modifiers } });
-    }
+  $commonApi.download = (filename, data, modifiers) => {
+    send({ type: "download", content: { filename, data, modifiers } });
   };
 
   // * Preload *

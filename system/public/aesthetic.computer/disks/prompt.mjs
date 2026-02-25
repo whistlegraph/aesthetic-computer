@@ -2726,9 +2726,15 @@ async function halt($, text) {
       finalizePackTimeline(packProgress.timeline);
       needsPaint();
 
-      // Download the binary .amxd file via the disk download API (worker-safe)
-      const blob = await response.blob();
-      download(`AC ${displayName} (offline).amxd`, blob);
+      // Convert binary to latin1 string for reliable worker→main postMessage transfer
+      const buffer = await response.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      let binaryStr = '';
+      const chunk = 8192;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binaryStr += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+      }
+      download(`AC ${displayName} (offline).amxd`, binaryStr, { encoding: "binary" });
 
       notice(`Downloaded AC ${displayName} (offline).amxd`, ["lime"]);
       flashColor = [0, 255, 0];
@@ -2802,8 +2808,13 @@ async function halt($, text) {
     binary.set(lenBuf, headerBytes.length);
     binary.set(jsonBytes, headerBytes.length + 4);
 
-    const blob = new Blob([binary], { type: "application/octet-stream" });
-    download(`AC ${displayName} (online).amxd`, blob);
+    // Convert binary to latin1 string for reliable worker→main postMessage transfer
+    let binaryStr = '';
+    const chunk = 8192;
+    for (let i = 0; i < binary.length; i += chunk) {
+      binaryStr += String.fromCharCode.apply(null, binary.subarray(i, i + chunk));
+    }
+    download(`AC ${displayName} (online).amxd`, binaryStr, { encoding: "binary" });
 
     notice(`Downloaded AC ${displayName} (online).amxd`, ["lime"]);
     flashColor = [0, 255, 0];
