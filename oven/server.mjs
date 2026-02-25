@@ -14,6 +14,7 @@ import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGen
 import archiver from 'archiver';
 import { createBundle, createJSPieceBundle, createM4DBundle, generateDeviceHTML, prewarmCache, getCacheStatus, setSkipMinification } from './bundler.mjs';
 import { streamOSImage, getOSBuildStatus, invalidateManifest } from './os-builder.mjs';
+import { startOSBaseBuild, getOSBaseBuild, getOSBaseBuildsSummary, cancelOSBaseBuild } from './os-base-build.mjs';
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -59,6 +60,56 @@ export { addServerLog };
 
 // Log server startup
 addServerLog('info', '🔥', 'Oven server starting...');
+
+// OS base-build admin key auth
+// Accepts either OS_BUILD_ADMIN_KEY directly in env, or OS_BUILD_ADMIN_KEY_FILE.
+let cachedOSBuildAdminKey = null;
+let cachedOSBuildAdminMtimeMs = null;
+
+function getConfiguredOSBuildAdminKey() {
+  const envKey = (process.env.OS_BUILD_ADMIN_KEY || '').trim();
+  if (envKey) return envKey;
+
+  const keyFile = (process.env.OS_BUILD_ADMIN_KEY_FILE || '').trim();
+  if (!keyFile) return '';
+
+  try {
+    const stat = fs.statSync(keyFile);
+    if (cachedOSBuildAdminKey && cachedOSBuildAdminMtimeMs === stat.mtimeMs) {
+      return cachedOSBuildAdminKey;
+    }
+    const nextKey = fs.readFileSync(keyFile, 'utf8').trim();
+    cachedOSBuildAdminKey = nextKey;
+    cachedOSBuildAdminMtimeMs = stat.mtimeMs;
+    return nextKey;
+  } catch {
+    return '';
+  }
+}
+
+function getOSBuildRequestKey(req) {
+  const headerKey = (req.get('x-oven-os-key') || '').trim();
+  if (headerKey) return headerKey;
+  const auth = (req.get('authorization') || '').trim();
+  if (auth.startsWith('Bearer ')) return auth.slice(7).trim();
+  return '';
+}
+
+function requireOSBuildAdmin(req, res, next) {
+  const expectedKey = getConfiguredOSBuildAdminKey();
+  if (!expectedKey) {
+    return res.status(503).json({
+      error: 'OS build admin key not configured. Set OS_BUILD_ADMIN_KEY or OS_BUILD_ADMIN_KEY_FILE.',
+    });
+  }
+
+  const providedKey = getOSBuildRequestKey(req);
+  if (!providedKey || providedKey !== expectedKey) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  return next();
+}
 
 // ===== SHARED PROGRESS UI COMPONENTS =====
 // Shared CSS for progress indicators across all oven dashboards
@@ -760,6 +811,35 @@ app.get('/tools', (req, res) => {
     .links { display: flex; flex-direction: column; gap: 4px; margin-left: 10px; }
     .links a { padding: 2px 0; }
     .desc { color: var(--text-dim); font-size: 0.85em; margin-left: 8px; }
+    .panel {
+      margin: 8px 0 0 10px;
+      padding: 8px;
+      border: 1px solid var(--border);
+      max-width: 920px;
+      border-radius: 4px;
+      background: rgba(0,0,0,0.02);
+    }
+    .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 6px; }
+    input, button {
+      font: inherit;
+      font-size: 0.9em;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      padding: 4px 6px;
+      border-radius: 3px;
+    }
+    input { min-width: 160px; }
+    button { cursor: pointer; }
+    button:hover { border-color: var(--accent); color: var(--accent); }
+    pre {
+      border: 1px solid var(--border);
+      padding: 8px;
+      overflow: auto;
+      max-height: 240px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
     hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
   </style>
 </head>
@@ -802,6 +882,109 @@ app.get('/tools', (req, res) => {
     <div><a href="/health">/health</a><span class="desc">Health check</span></div>
     <div><a href="/status">/status</a><span class="desc">Server status + recent bakes</span></div>
   </div>
+
+  <h2>OS Base Builds</h2>
+  <div class="links">
+    <div><a href="/os-base-build">/os-base-build</a><span class="desc">Background FedOS base-image jobs</span></div>
+  </div>
+  <div class="panel">
+    <div class="row">
+      <input id="os-admin-key" type="password" placeholder="admin key (x-oven-os-key)">
+      <input id="os-image-size" type="number" min="2" max="32" value="4" style="width:90px">
+      <button id="os-start-btn" type="button">Start Base Build</button>
+      <button id="os-refresh-btn" type="button">Refresh</button>
+    </div>
+    <div id="os-job-meta" class="desc">Loading base-build status...</div>
+    <pre id="os-job-log">No active base-image job</pre>
+  </div>
+
+  <script>
+    const osMetaEl = document.getElementById('os-job-meta');
+    const osLogEl = document.getElementById('os-job-log');
+    const osKeyEl = document.getElementById('os-admin-key');
+    const osSizeEl = document.getElementById('os-image-size');
+    const osStartBtn = document.getElementById('os-start-btn');
+    const osRefreshBtn = document.getElementById('os-refresh-btn');
+    let osPollTimer = null;
+
+    function esc(str) {
+      return String(str || '').replace(/[&<>"']/g, function (ch) {
+        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch];
+      });
+    }
+
+    async function fetchJSON(url, opts) {
+      const res = await fetch(url, opts || {});
+      const text = await res.text();
+      let data = {};
+      try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
+      if (!res.ok) {
+        throw new Error((data && data.error) || ('HTTP ' + res.status));
+      }
+      return data;
+    }
+
+    function jobLabel(job) {
+      if (!job) return 'none';
+      const pct = Number.isFinite(job.percent) ? (' ' + job.percent + '%') : '';
+      return job.id + ' | ' + job.status + pct + ' | ' + (job.stage || '--');
+    }
+
+    async function refreshOSBaseBuild() {
+      try {
+        const summary = await fetchJSON('/os-base-build');
+        const active = summary.active || null;
+        const recent = Array.isArray(summary.recent) ? summary.recent : [];
+        if (active) {
+          osMetaEl.innerHTML = 'Active: <strong>' + esc(jobLabel(active)) + '</strong>';
+          const detail = await fetchJSON('/os-base-build/' + encodeURIComponent(active.id) + '?logs=1&tail=100');
+          const lines = Array.isArray(detail.logs) ? detail.logs : [];
+          osLogEl.textContent = lines.map(function (l) {
+            return '[' + (l.ts || '') + '][' + (l.stream || 'out') + '] ' + (l.line || '');
+          }).join('\n') || 'No logs yet';
+          return;
+        }
+
+        const latest = recent.length > 0 ? recent[0] : null;
+        osMetaEl.innerHTML = 'Active: none' + (latest ? ' | Latest: <strong>' + esc(jobLabel(latest)) + '</strong>' : '');
+        osLogEl.textContent = latest
+          ? ((latest.message || '(no message)') + '\n\nUse /os-base-build/' + latest.id + '?logs=1&tail=200 for full logs.')
+          : 'No base-image jobs yet';
+      } catch (error) {
+        osMetaEl.textContent = 'Status error: ' + error.message;
+      }
+    }
+
+    async function startOSBaseBuild() {
+      const key = osKeyEl.value.trim();
+      const imageSizeGB = Math.max(2, parseInt(osSizeEl.value || '4', 10) || 4);
+      osStartBtn.disabled = true;
+      try {
+        const data = await fetchJSON('/os-base-build', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-oven-os-key': key,
+          },
+          body: JSON.stringify({ imageSizeGB, publish: true }),
+        });
+        osMetaEl.textContent = 'Started base build job ' + data.id;
+      } catch (error) {
+        osMetaEl.textContent = 'Start failed: ' + error.message;
+      } finally {
+        osStartBtn.disabled = false;
+        refreshOSBaseBuild();
+      }
+    }
+
+    osStartBtn.addEventListener('click', startOSBaseBuild);
+    osRefreshBtn.addEventListener('click', refreshOSBaseBuild);
+    refreshOSBaseBuild();
+    osPollTimer = setInterval(refreshOSBaseBuild, 3000);
+    window.addEventListener('beforeunload', function () {
+      if (osPollTimer) clearInterval(osPollTimer);
+    });
+  </script>
 </body>
 </html>`);
 });
@@ -823,7 +1006,8 @@ app.get('/status', async (req, res) => {
       active: getActiveGrabs(),
       recent: getRecentGrabs(),
       ipfsThumbs: getAllLatestIPFSUploads()
-    }
+    },
+    osBaseBuilds: getOSBaseBuildsSummary(),
   });
 });
 
@@ -986,6 +1170,7 @@ app.get('/grab-status', (req, res) => {
     progress: getCurrentProgress(),
     grabProgress: getAllProgress(),
     concurrency: getConcurrencyStatus(),
+    osBaseBuilds: getOSBaseBuildsSummary(),
   });
 });
 
@@ -2298,6 +2483,133 @@ app.get('/os-status', (req, res) => {
   res.json(getOSBuildStatus());
 });
 
+// Background base image jobs (build + upload) for FedOS pipeline.
+app.get('/os-base-build', (req, res) => {
+  res.json(getOSBaseBuildsSummary());
+});
+
+app.get('/os-base-build/:jobId', (req, res) => {
+  const tail = Math.max(0, Math.min(2000, parseInt(req.query.tail, 10) || 200));
+  const includeLogs = req.query.logs === '1' || req.query.logs === 'true';
+  const job = getOSBaseBuild(req.params.jobId, { includeLogs, tail });
+  if (!job) return res.status(404).json({ error: 'Job not found' });
+  return res.json(job);
+});
+
+app.get('/os-base-build/:jobId/stream', (req, res) => {
+  const jobId = req.params.jobId;
+  const initial = getOSBaseBuild(jobId, { includeLogs: true, tail: 500 });
+  if (!initial) return res.status(404).json({ error: 'Job not found' });
+
+  res.set({
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+  res.flushHeaders();
+
+  let sentLogs = 0;
+  const sendEvent = (type, data) => {
+    res.write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`);
+    if (typeof res.flush === 'function') res.flush();
+  };
+
+  const sendSnapshot = () => {
+    const job = getOSBaseBuild(jobId, { includeLogs: true, tail: 2000 });
+    if (!job) {
+      sendEvent('error', { error: 'Job not found' });
+      return false;
+    }
+
+    const logs = Array.isArray(job.logs) ? job.logs : [];
+    if (logs.length > sentLogs) {
+      sendEvent('logs', { logs: logs.slice(sentLogs) });
+      sentLogs = logs.length;
+    }
+    sendEvent('status', {
+      id: job.id,
+      status: job.status,
+      stage: job.stage,
+      message: job.message,
+      percent: job.percent,
+      updatedAt: job.updatedAt,
+      finishedAt: job.finishedAt,
+      error: job.error,
+      upload: job.upload,
+    });
+    if (job.status === 'success' || job.status === 'failed' || job.status === 'cancelled') {
+      sendEvent('complete', {
+        status: job.status,
+        error: job.error,
+        upload: job.upload,
+      });
+      return false;
+    }
+    return true;
+  };
+
+  sendEvent('status', {
+    id: initial.id,
+    status: initial.status,
+    stage: initial.stage,
+    message: initial.message,
+    percent: initial.percent,
+    updatedAt: initial.updatedAt,
+  });
+  if (Array.isArray(initial.logs) && initial.logs.length > 0) {
+    sendEvent('logs', { logs: initial.logs });
+    sentLogs = initial.logs.length;
+  }
+
+  const timer = setInterval(() => {
+    if (!sendSnapshot()) {
+      clearInterval(timer);
+      res.end();
+    }
+  }, 1000);
+
+  req.on('close', () => {
+    clearInterval(timer);
+  });
+});
+
+app.post('/os-base-build', requireOSBuildAdmin, async (req, res) => {
+  const imageSizeGB = Math.max(2, Math.min(32, parseInt(req.body?.imageSizeGB, 10) || 4));
+  const publish = req.body?.publish !== false;
+
+  try {
+    const job = await startOSBaseBuild(
+      { imageSizeGB, publish },
+      {
+        onStart: (j) => addServerLog('info', '💿', `OS base build started: ${j.id} (${imageSizeGB}GiB)`),
+        onUploadComplete: (j) => {
+          addServerLog('success', '☁️', `OS base upload complete: ${j.upload.imageKey}`);
+          invalidateManifest();
+          addServerLog('info', '💿', 'OS manifest cache invalidated after base upload');
+        },
+        onSuccess: (j) => addServerLog('success', '💿', `OS base build complete: ${j.id}`),
+        onError: (j) => addServerLog('error', '❌', `OS base build failed: ${j.id} (${j.error})`),
+      },
+    );
+    return res.status(202).json(job);
+  } catch (error) {
+    if (error.code === 'OS_BASE_BUSY') {
+      return res.status(409).json({ error: error.message, activeJobId: error.activeJobId });
+    }
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/os-base-build/:jobId/cancel', requireOSBuildAdmin, (req, res) => {
+  const result = cancelOSBaseBuild(req.params.jobId);
+  if (!result.ok) {
+    return res.status(400).json(result);
+  }
+  addServerLog('info', '🛑', `OS base build cancel requested: ${req.params.jobId}`);
+  return res.json(result);
+});
+
 app.post('/os-invalidate', (req, res) => {
   invalidateManifest();
   addServerLog('info', '💿', 'OS base image manifest cache invalidated');
@@ -2377,6 +2689,7 @@ setNotifyCallback(() => {
         },
         grabProgress: getAllProgress(),
         concurrency: getConcurrencyStatus(),
+        osBaseBuilds: getOSBaseBuildsSummary(),
       }));
     }
   });
@@ -2410,6 +2723,7 @@ wss.on('connection', async (ws) => {
     },
     grabProgress: getAllProgress(),
     concurrency: getConcurrencyStatus(),
+    osBaseBuilds: getOSBaseBuildsSummary(),
     frozen: getFrozenPieces(),
     recentLogs: activityLogBuffer.slice(0, 50) // Send last 50 log entries
   }));
@@ -2432,6 +2746,7 @@ wss.on('connection', async (ws) => {
         },
         grabProgress: getAllProgress(),
         concurrency: getConcurrencyStatus(),
+        osBaseBuilds: getOSBaseBuildsSummary(),
         frozen: getFrozenPieces()
       }));
     }
