@@ -1,16 +1,36 @@
 #!/bin/bash
-# FedAC Kiosk Session — cage as Wayland compositor + Firefox
-# No GNOME Shell, no GDM, no desktop. Cage: zero background flash.
+# FedAC Kiosk Session — prefer cage (black background, no window animations).
+# NOTE: The authoritative version is generated inline by make-kiosk-piece-usb.sh.
+# This file is a reference copy.
+set -euo pipefail
 export XDG_SESSION_TYPE=wayland
 export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+export MOZ_ENABLE_WAYLAND=1
+export MOZ_DBUS_REMOTE=0
+export NO_AT_BRIDGE=1
+export CLUTTER_DISABLE_ANIMATIONS=1
+PROFILE="/home/liveuser/.mozilla/firefox/kiosk"
 
 exec > /tmp/kiosk.log 2>&1
 
-# cage: purpose-built kiosk compositor, no background, no shell, 50ms start
-# --remote-debugging-port=9222 allows SSH-tunnel console access for debugging
-# Load bundle directly from disk — no HTTP server needed
-exec cage -- \
-  firefox --fullscreen --no-remote \
-  --remote-debugging-port=9222 \
-  --profile /home/liveuser/.mozilla/firefox/kiosk \
+# Start PipeWire audio stack (cage doesn't launch a full desktop session).
+mkdir -p "$XDG_RUNTIME_DIR"
+if command -v pipewire >/dev/null 2>&1; then
+  pipewire &
+  sleep 0.3
+  command -v wireplumber >/dev/null 2>&1 && wireplumber &
+  command -v pipewire-pulse >/dev/null 2>&1 && pipewire-pulse &
+  sleep 0.2
+fi
+
+if command -v cage >/dev/null 2>&1; then
+  TTY_DEV="$(tty 2>/dev/null || true)"
+  [ -n "$TTY_DEV" ] && printf '\033[2J\033[3J\033[H\033[?25l' >"$TTY_DEV" 2>/dev/null || true
+  exec cage -- firefox --kiosk --no-remote --new-instance \
+    --profile "$PROFILE" --private-window \
+    file:///usr/local/share/kiosk/piece.html
+fi
+
+exec mutter --wayland --no-x11 --sm-disable -- firefox --kiosk --no-remote \
+  --new-instance --profile "$PROFILE" --private-window \
   file:///usr/local/share/kiosk/piece.html
