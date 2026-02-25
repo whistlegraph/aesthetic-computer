@@ -13393,6 +13393,20 @@ async function makeFrame({ data: { type, content } }) {
             fontIdentifier,
           );
 
+          const wrappedLines = Array.isArray(naturalBounds?.lines)
+            ? naturalBounds.lines.map((line) => {
+                if (typeof line === "string") return line;
+                return line?.join?.(" ") || "";
+              })
+            : visibleLines;
+          const wrappedLineWidths = wrappedLines.map((line) =>
+            measureLineWidth((line || "").replace(/\s+$/, ""), typeface),
+          );
+          const wrappedLineStep = blockHeight + 1;
+          const wrappedLastLineIndex = Math.max(0, wrappedLines.length - 1);
+          const wrappedLastLineWidth = wrappedLineWidths[wrappedLastLineIndex] || 0;
+          const wrappedLastLineY = wrappedLastLineIndex * wrappedLineStep;
+
           if (fontIdentifier === "MatrixChunky8") {
             for (const line of visibleLines) {
               for (let i = 0; i < line.length; i++) {
@@ -13411,6 +13425,10 @@ async function makeFrame({ data: { type, content } }) {
             textBoxWidth: naturalBounds?.box?.width ?? 0,
             textBoxHeight: naturalBounds?.box?.height ?? 0,
             naturalBounds,
+            wrappedLines,
+            wrappedLineWidths,
+            wrappedLastLineWidth,
+            wrappedLastLineY,
           };
         };
 
@@ -13454,11 +13472,13 @@ async function makeFrame({ data: { type, content } }) {
         const textBoxWidth = selectedLayout?.textBoxWidth ?? 0;
         const textBoxHeight = selectedLayout?.textBoxHeight ?? 0;
         const longestVisibleLineWidth = selectedLayout?.longestLineWidth ?? 0;
-  const wrappedLineCount = textBounds?.lines?.length ?? visibleLineCount;
-  const measuredTextHeight = textBoxHeight || (wrappedLineCount * hudBlockHeight);
-  currentHUDTextBoxWidth = textBounds?.box?.width || 0;
-  currentHUDTextBoxHeight = textBounds?.box?.height || 0;
-  currentHUDTextHeight = measuredTextHeight;
+        const wrappedLineCount = textBounds?.lines?.length ?? visibleLineCount;
+        const measuredTextHeight = textBoxHeight || (wrappedLineCount * hudBlockHeight);
+        currentHUDTextBoxWidth = textBounds?.box?.width || 0;
+        currentHUDTextBoxHeight = textBounds?.box?.height || 0;
+        currentHUDTextHeight = measuredTextHeight;
+        const wrappedLastLineWidth = selectedLayout?.wrappedLastLineWidth ?? 0;
+        const wrappedLastLineY = selectedLayout?.wrappedLastLineY ?? 0;
 
         // 🔤 Font Loading Check: If MatrixChunky8 was selected but not loaded, skip rendering HUD
         // This prevents pop-in where font_1 renders briefly before MatrixChunky8 glyphs load
@@ -13780,17 +13800,20 @@ async function makeFrame({ data: { type, content } }) {
               const scrubMagnitude = Math.abs(currentHUDScrub);
               const editThreshold = Math.max(currentHUDEditWidth || 0, getHudEditScrubThreshold());
               const editProgress = Math.min(1, scrubMagnitude / editThreshold);
-              const textWidth = Math.max(
+              const lastLineWidth = Math.max(
                 1,
-                currentHUDTextBoxWidth || (stripColorCodes(text || "").length * hudBlockWidth),
+                wrappedLastLineWidth ||
+                  currentHUDTextBoxWidth ||
+                  (stripColorCodes(text || "").length * hudBlockWidth),
               );
               const caretWidth = Math.max(2, Math.round(hudBlockWidth * 0.9));
               const caretHeight = Math.max(hudBlockHeight, 6);
               const caretX = Math.min(
-                Math.max(hudTextX + textWidth + 2, 0),
+                Math.max(hudTextX + lastLineWidth + 2, 0),
                 Math.max(bufferW - caretWidth - 2, 0),
               );
-              const caretY = Math.max(0, hudTextY);
+              const unclampedCaretY = Math.max(0, hudTextY + wrappedLastLineY);
+              const caretY = Math.min(unclampedCaretY, Math.max(bufferH - caretHeight - 1, 0));
               const fillWidth = Math.max(1, Math.round(caretWidth * editProgress));
               const editColor = editProgress >= 1 ? [255, 170, 210] : [255, 107, 157];
 

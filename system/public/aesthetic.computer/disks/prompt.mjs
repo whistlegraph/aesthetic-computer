@@ -7457,6 +7457,9 @@ function act({
       system.prompt.input.text = "";
       send({ type: "keyboard:unlock" });
       send({ type: "keyboard:open" }); // Necessary for desktop.
+    } else {
+      // Keep mobile keyboard routing enabled when prompt already has focus.
+      send({ type: "keyboard:unlock" });
     }
   }
 
@@ -7839,6 +7842,7 @@ function act({
   // Rollover keyboard locking.
   // TODO: ^ Move the below events, above to rollover events.
   if (
+    !system.prompt.input.canType &&
     e.is("draw") &&
     ((login?.btn.disabled === false && login?.btn.box.contains(e)) ||
       (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
@@ -7994,12 +7998,19 @@ function act({
   }
 
   // ⌨️ Keyboard (Skip startup sound if a key is pressed or text is pasted.)
+  if (e.is("keyboard:open")) {
+    // Defensive unlock: avoid stale lock state that can block mobile key entry.
+    send({ type: "keyboard:unlock" });
+  }
   if (e.is("keyboard:open") && firstActivation && e.method !== "pointer") {
     firstActivation = false;
     // console.log("⌨️ First keyboard activation completed!");
   }
 
   // 🎹 Track keyboard key presses for musical sound pitch/pan
+  if (system.prompt.input.canType && e.name?.indexOf("keyboard:down:") === 0) {
+    send({ type: "keyboard:unlock" });
+  }
   if (e.name?.indexOf("keyboard:down:") === 0 && e.key?.length === 1) {
     lastPressedKey = e.key.toLowerCase();
   }
