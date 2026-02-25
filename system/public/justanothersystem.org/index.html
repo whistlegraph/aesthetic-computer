@@ -150,10 +150,10 @@
       width: 100%;
     }
 
-    .painting-images {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
+    .painting-image-stack {
+      position: relative;
+      overflow: hidden;
+      background: #111;
     }
     
     .painting-info {
@@ -562,6 +562,51 @@
       height: auto;
     }
 
+    .painting-overlay-slideshow {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .painting-overlay-slideshow .overlay-slide {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+      opacity: 0;
+      transition: opacity 1.4s ease-in-out;
+      transform-origin: center center;
+      mix-blend-mode: soft-light;
+      filter: saturate(1.04) contrast(1.04);
+    }
+
+    .painting-overlay-slideshow .overlay-slide.active {
+      opacity: 0.45;
+    }
+
+    @keyframes overlay-kb-a {
+      0% { transform: scale(1.02) translate(-1.2%, -0.8%); }
+      100% { transform: scale(1.14) translate(1.0%, 0.9%); }
+    }
+
+    @keyframes overlay-kb-b {
+      0% { transform: scale(1.12) translate(1.0%, -0.6%); }
+      100% { transform: scale(1.02) translate(-1.3%, 0.8%); }
+    }
+
+    @keyframes overlay-kb-c {
+      0% { transform: scale(1.05) translate(0.4%, 1.0%); }
+      100% { transform: scale(1.13) translate(-0.8%, -1.0%); }
+    }
+
+    @keyframes overlay-kb-d {
+      0% { transform: scale(1.10) translate(-0.9%, 0.7%); }
+      100% { transform: scale(1.03) translate(1.2%, -0.7%); }
+    }
+
     /* Gallery image indicators - subtle for single column */
     .painting-image-count {
       display: inline;
@@ -709,6 +754,7 @@
     let tagsByCategory = {}; // Tags grouped by category
     let selectedTagIds = []; // Currently selected tag IDs in form
     let pendingImages = []; // { file?, url, uploading?, localPreview? }
+    let overlaySlideshowTimers = [];
     
     // ====== DOM Elements ======
     const gallery = document.getElementById('gallery');
@@ -1033,6 +1079,9 @@
     }
     
     function renderGallery() {
+      overlaySlideshowTimers.forEach(timer => clearInterval(timer));
+      overlaySlideshowTimers = [];
+
       if (paintings.length === 0) {
         gallery.innerHTML = '<div class="empty-state">No paintings yet</div>';
         return;
@@ -1041,20 +1090,27 @@
       gallery.innerHTML = paintings.map(p => {
         // Support both old imageUrl and new images array
         const images = p.images || (p.imageUrl ? [p.imageUrl] : []);
+        const primaryImage = images[0] || '';
+        const secondaryImages = images.slice(1);
         const imageCount = images.length;
         const dimStr = typeof p.dimensions === 'object' ? formatDimensions(p.dimensions) : (p.dimensions || '');
         // Display tags or fall back to legacy medium field
         const tagsDisplay = p.tags && p.tags.length > 0 ? getTagNames(p.tags) : (p.medium || '');
-        const imageStack = images.map((src, index) => `
-          <div class="painting-image-container" data-id="${p._id}" data-src="${src}" data-image-index="${index}">
-            <canvas></canvas>
-          </div>
-        `).join('');
+        const overlayMarkup = secondaryImages.length > 0
+          ? `
+            <div class="painting-overlay-slideshow" data-id="${p._id}">
+              ${secondaryImages.map((src, i) => `<img src="${src}" alt="${p.title} detail ${i + 2}" class="overlay-slide ${i === 0 ? 'active' : ''}" loading="lazy">`).join('')}
+            </div>
+          `
+          : '';
         
         return `
           <div class="painting" data-id="${p._id}">
-            <div class="painting-images">
-              ${imageStack}
+            <div class="painting-image-stack">
+              <div class="painting-image-container" data-id="${p._id}" data-src="${primaryImage}">
+                <canvas></canvas>
+              </div>
+              ${overlayMarkup}
             </div>
             <div class="painting-info">
               <div class="painting-title">${p.title}${p.sold ? ' <span style="color:var(--red)">(sold)</span>' : ''}</div>
@@ -1073,6 +1129,41 @@
       
       // Setup in-place zoom for each image
       setupImageZoom();
+      setupOverlaySlideshows();
+    }
+
+    function setupOverlaySlideshows() {
+      const kbAnims = ['overlay-kb-a', 'overlay-kb-b', 'overlay-kb-c', 'overlay-kb-d'];
+      const slideMs = 6500;
+
+      document.querySelectorAll('.painting-overlay-slideshow').forEach(slideshow => {
+        const slides = Array.from(slideshow.querySelectorAll('.overlay-slide'));
+        if (slides.length === 0) return;
+
+        let current = 0;
+
+        const applyAnimation = (slide, step) => {
+          const anim = kbAnims[step % kbAnims.length];
+          slide.style.animation = 'none';
+          slide.offsetHeight; // restart animation timeline
+          slide.style.animation = `${anim} ${slideMs + 1000}ms ease-in-out both`;
+        };
+
+        applyAnimation(slides[0], 0);
+
+        if (slides.length === 1) return;
+
+        const timer = setInterval(() => {
+          const prev = current;
+          current = (current + 1) % slides.length;
+
+          slides[prev].classList.remove('active');
+          slides[current].classList.add('active');
+          applyAnimation(slides[current], current);
+        }, slideMs);
+
+        overlaySlideshowTimers.push(timer);
+      });
     }
     
     // ====== Canvas Image Display with Hold-to-Zoom ======
