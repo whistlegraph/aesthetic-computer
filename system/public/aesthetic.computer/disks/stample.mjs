@@ -558,9 +558,11 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
     );
   }
 
-  // Paint bitmap preview first (base layer).
+  // Paint bitmap preview first (base layer) at half opacity.
   if (hasBitmap) {
-    api.paste(bitmapPreview, layout.stripX, layout.stripY, {
+    const halfAlpha = { ...bitmapPreview, pixels: new Uint8ClampedArray(bitmapPreview.pixels) };
+    for (let i = 3; i < halfAlpha.pixels.length; i += 4) halfAlpha.pixels[i] = halfAlpha.pixels[i] >> 1;
+    api.paste(halfAlpha, layout.stripX, layout.stripY, {
       width: layout.stripW,
       height: layout.stripAreaH,
     });
