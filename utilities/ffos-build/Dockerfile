@@ -12,6 +12,12 @@ RUN pacman --disable-sandbox -Syu --noconfirm \
   rust \
   curl \
   openssl \
+  erofs-utils \
+  dracut \
+  parted \
+  e2fsprogs \
+  dosfstools \
+  multipath-tools \
   && pacman --disable-sandbox -Scc --noconfirm
 
 # mkarchiso requires root for chroot mount operations
