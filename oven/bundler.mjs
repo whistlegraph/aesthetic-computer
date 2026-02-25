@@ -811,7 +811,7 @@ const M4L_HEADER_INSTRUMENT = Buffer.from(
   "ampf\x04\x00\x00\x00iiiimeta\x04\x00\x00\x00\x00\x00\x00\x00ptch", "binary"
 );
 
-function generateM4DPatcher(pieceName, dataUri, width = 400, height = 200) {
+function generateM4DPatcher(pieceName, html, width = 400, height = 200) {
   return {
     patcher: {
       fileversion: 1,
@@ -825,7 +825,9 @@ function generateM4DPatcher(pieceName, dataUri, width = 400, height = 200) {
       devicewidth: width,
       description: `Aesthetic Computer ${pieceName} (offline)`,
       boxes: [
-        { box: { disablefind: 0, id: "obj-jweb", latency: 0, maxclass: "jweb~", numinlets: 1, numoutlets: 3, outlettype: ["signal","signal",""], patching_rect: [10,50,width,height], presentation: 1, presentation_rect: [0,0,width+1,height+1], rendermode: 1, url: dataUri } },
+        { box: { disablefind: 0, id: "obj-jweb", latency: 0, maxclass: "jweb~", numinlets: 1, numoutlets: 3, outlettype: ["signal","signal",""], patching_rect: [10,50,width,height], presentation: 1, presentation_rect: [0,0,width+1,height+1], rendermode: 1, url: "" } },
+        { box: { id: "obj-loadbang", maxclass: "newobj", numinlets: 1, numoutlets: 1, outlettype: ["bang"], patching_rect: [10,10,58,22], text: "loadbang" } },
+        { box: { id: "obj-loadhtml", maxclass: "message", numinlets: 2, numoutlets: 1, outlettype: [""], patching_rect: [10,30,400,22], text: `loadhtml ${html}` } },
         { box: { id: "obj-plugout", maxclass: "newobj", numinlets: 2, numoutlets: 0, patching_rect: [10,280,75,22], text: "plugout~ 1 2" } },
         { box: { id: "obj-thisdevice", maxclass: "newobj", numinlets: 1, numoutlets: 3, outlettype: ["bang","int","int"], patching_rect: [350,50,85,22], text: "live.thisdevice" } },
         { box: { id: "obj-print", maxclass: "newobj", numinlets: 1, numoutlets: 0, patching_rect: [350,80,150,22], text: `print [AC-${pieceName.toUpperCase()}]` } },
@@ -839,6 +841,8 @@ function generateM4DPatcher(pieceName, dataUri, width = 400, height = 200) {
         { box: { id: "obj-prepend-warn", maxclass: "newobj", numinlets: 1, numoutlets: 1, outlettype: [""], patching_rect: [600,170,60,22], text: "prepend warn" } },
       ],
       lines: [
+        { patchline: { destination: ["obj-loadhtml",0], source: ["obj-loadbang",0] } },
+        { patchline: { destination: ["obj-jweb",0], source: ["obj-loadhtml",0] } },
         { patchline: { destination: ["obj-plugout",0], source: ["obj-jweb",0] } },
         { patchline: { destination: ["obj-plugout",1], source: ["obj-jweb",1] } },
         { patchline: { destination: ["obj-print",0], source: ["obj-thisdevice",0] } },
@@ -877,8 +881,7 @@ export async function createM4DBundle(pieceName, isJSPiece, onProgress = () => {
 
   onProgress({ stage: "generate", message: "Embedding bundle in M4L device..." });
 
-  const dataUri = `data:text/html;base64,${Buffer.from(bundleResult.html).toString("base64")}`;
-  const patcher = generateM4DPatcher(pieceName, dataUri);
+  const patcher = generateM4DPatcher(pieceName, bundleResult.html);
 
   onProgress({ stage: "compress", message: "Packing .amxd binary..." });
 
