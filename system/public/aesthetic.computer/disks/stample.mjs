@@ -548,22 +548,8 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
   // ─────────────────────────────────────────────────────────────────────────
   wipe(0, 0, 255);
 
-  // Paint bitmap directly into board area so strips can stay layered and non-overlapping.
-  if (hasBitmap) {
-    api.paste(bitmapPreview, layout.stripX, layout.stripY, {
-      width: layout.stripW,
-      height: layout.stripAreaH,
-    });
-
-    // Draw scrubber line over mapped board.
-    if (bitmapProgress > 0) {
-      const totalPixels = bitmapPreview.width * bitmapPreview.height;
-      const currentPixel = floor(bitmapProgress * totalPixels);
-      const scrubY = floor(currentPixel / bitmapPreview.width);
-      const mappedY = layout.stripY + (scrubY / bitmapPreview.height) * layout.stripAreaH;
-      ink("yellow", 200).line(layout.stripX, mappedY, layout.stripX + layout.stripW, mappedY);
-    }
-  } else if (bitmapLoading) {
+  // Loading state for bitmap.
+  if (!hasBitmap && bitmapLoading) {
     ink("black", 120).box(layout.stripX, layout.stripY, layout.stripW, layout.stripAreaH);
     ink("white", 170).write(
       "loading",
@@ -575,7 +561,7 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
   // Use bitmap sample data for waveform if loaded, otherwise use regular sample.
   const waveformData = sampleData;
   const waveformColor = hasBitmap ? [255, 100, 0, 28] : [0, 0, 255, 24];
-  
+
   // Background waveform (in strip button area)
   if (waveformData) {
     sound.paint.waveform(
@@ -590,39 +576,11 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
       { direction: "bottom-to-top" },
     );
   }
-  
+
   btns.forEach((btn, index) => {
     btn.paint(() => {
-      ink(btn.down ? "white" : "cyan", btn.down ? 220 : 130).box(btn.box);
+      ink(btn.down ? "white" : "cyan", btn.down ? 120 : 130).box(btn.box);
       ink("black").box(btn.box, "out"); // Outline in black.
-
-      let options = sounds[index]?.options;
-
-      // Debug: Log needle state periodically
-      if (index === 0 && Math.random() < 0.02) {
-        console.log(`🟠 NEEDLE[${index}]: prog=${progressions[index]}, options=${JSON.stringify(options)}, sound=${!!sounds[index]}`);
-      }
-
-      // Render playback needle within this button's box (old working logic)
-      if (options && progressions[index] !== undefined) {
-        let y;
-        const progress = progressions[index];
-        const speed = options.speed ?? 1;
-        const to = options.to ?? 1;
-        // Check direction based on speed
-        if (speed > 0 || !speed) {
-          // Forward playback: needle moves from bottom to top of button
-          y = btn.box.y + (1 - progress) * btn.box.h;
-        } else {
-          // Reverse playback: adjust for backwards movement
-          y = btn.box.y + (1 - to * progress) * btn.box.h;
-        }
-        // Keep the needle inside the visible box
-        const minY = btn.box.y + 1;
-        const maxY = btn.box.y + btn.box.h - 2;
-        y = Math.max(minY, Math.min(maxY, y));
-        ink("orange").line(0, y, btn.box.x + btn.box.w, y);
-      }
 
       ink("black").write(
         sfxToKey[btns.length - 1 - index],
@@ -630,6 +588,43 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
         btn.box.y + 4,
       );
     });
+  });
+
+  // Paint bitmap preview ON TOP of buttons so it stays visible while playing.
+  if (hasBitmap) {
+    api.paste(bitmapPreview, layout.stripX, layout.stripY, {
+      width: layout.stripW,
+      height: layout.stripAreaH,
+    });
+
+    // Draw scrubber line over mapped board.
+    if (bitmapProgress > 0) {
+      const totalPixels = bitmapPreview.width * bitmapPreview.height;
+      const currentPixel = floor(bitmapProgress * totalPixels);
+      const scrubY = floor(currentPixel / bitmapPreview.width);
+      const mappedY = layout.stripY + (scrubY / bitmapPreview.height) * layout.stripAreaH;
+      ink("yellow", 200).line(layout.stripX, mappedY, layout.stripX + layout.stripW, mappedY);
+    }
+  }
+
+  // Render playback needles on top of everything in the strip area.
+  btns.forEach((btn, index) => {
+    const options = sounds[index]?.options;
+    if (options && progressions[index] !== undefined) {
+      let y;
+      const progress = progressions[index];
+      const speed = options.speed ?? 1;
+      const to = options.to ?? 1;
+      if (speed > 0 || !speed) {
+        y = btn.box.y + (1 - progress) * btn.box.h;
+      } else {
+        y = btn.box.y + (1 - to * progress) * btn.box.h;
+      }
+      const minY = btn.box.y + 1;
+      const maxY = btn.box.y + btn.box.h - 2;
+      y = Math.max(minY, Math.min(maxY, y));
+      ink("orange").line(0, y, btn.box.x + btn.box.w, y);
+    }
   });
 
   // Only show record button if NOT in KidLisp mode.
