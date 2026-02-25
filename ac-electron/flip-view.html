@@ -5,7 +5,7 @@
   <script>if(new URLSearchParams(location.search).get('wm')==='paper')document.documentElement.classList.add('paperwm')</script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AC Pane</title>
-
+  <link rel="stylesheet" href="../node_modules/@xterm/xterm/css/xterm.css">
   <style>
     /* Theme color variables - changes based on system light/dark mode */
     :root {
@@ -124,14 +124,14 @@
       border: none;
     }
     
-    /* Back face - dark gray backdrop, ghost ON TOP when not flipped */
+    /* Back face - terminal - ghost ON TOP when not flipped */
     .card-back {
       z-index: 3;
       transform: rotateY(180deg);
       opacity: 0.15;
       filter: blur(2px);
       pointer-events: none;
-      background: #222;
+      background: var(--ac-back-bg);
     }
     
     /* Midflip class - back becomes active */
@@ -142,6 +142,14 @@
       pointer-events: auto;
     }
     
+    #terminal-container {
+      width: 100%;
+      height: 100%;
+      padding: 12px;
+    }
+    
+    .xterm { height: 100%; }
+    .xterm-viewport { padding-top: 0 !important; }
     
     /* Flip tabs - attached to card edges, swap appearance on flip */
     .flip-tab {
@@ -150,18 +158,13 @@
       width: 26px;
       top: 50%;
       height: 80px;
-      cursor: grab;
+      cursor: pointer;
       transform: translateY(-50%);
       /* Don't set app-region here - we need click events on the parent */
     }
 
     .flip-tab:hover {
-      cursor: grab;
-    }
-
-    body.tab-dragging .flip-tab,
-    body.tab-dragging .flip-tab * {
-      cursor: grabbing !important;
+      cursor: pointer;
     }
 
     /* Tab front face - visible when not flipped */
@@ -172,7 +175,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      cursor: inherit;
+      cursor: pointer;
     }
     
     .flip-tab .tab-front::after {
@@ -204,7 +207,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      cursor: inherit;
+      cursor: pointer;
     }
 
     .flip-tab .tab-back::after {
@@ -257,36 +260,34 @@
       border-radius: 0 6px 6px 0;
     }
 
-    /* Volume control - hangs under frame on front side */
+    /* Volume control - integrated into top-right corner of frame */
     .volume-control {
       position: absolute;
-      left: 50%;
-      top: 100%;
-      transform: translateX(-50%);
+      right: 0;
+      top: -26px;
       z-index: 240;
-      height: 24px;
+      height: 26px;
       display: flex;
       flex-direction: row;
       align-items: center;
-      justify-content: center;
-      padding: 4px 10px;
-      border-radius: 0 0 10px 10px;
+      gap: 6px;
+      padding: 4px 12px 4px 10px;
+      border-radius: 10px 10px 0 0;
       background: var(--ac-border-solid);
       border: 1px solid var(--ac-border);
-      border-top: none;
-      box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
-      transition: opacity 0.12s ease;
+      border-bottom: none;
+      box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.2);
     }
 
     body.midflip .volume-control {
-      opacity: 0;
-      pointer-events: none;
+      background: var(--ac-tab-back);
+      border-color: var(--ac-border-solid);
     }
 
     #volume-slider {
       -webkit-appearance: none;
       appearance: none;
-      width: 110px;
+      width: 72px;
       height: 4px;
       background: var(--ac-border-solid);
       border-radius: 2px;
@@ -326,6 +327,66 @@
       box-shadow: 0 0 8px var(--ac-accent-glow);
     }
 
+    /* Backend controls - appears on backend side (counter-rotated to fix mirroring) */
+    .backend-controls {
+      position: absolute;
+      z-index: 100;
+      bottom: -32px;
+      left: 50%;
+      transform: translateX(-50%) rotateY(180deg);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.1s ease;
+      display: flex;
+      gap: 4px;
+    }
+
+    body.midflip .backend-controls {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .backend-controls button {
+      font-size: 16px;
+      font-weight: 700;
+      padding: 4px 16px 6px 16px;
+      border-radius: 0 0 6px 6px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .backend-controls button.start-btn {
+      background: var(--ac-border-hover);
+      color: var(--ac-text);
+    }
+
+    .backend-controls button.start-btn:hover {
+      background: var(--ac-border-active);
+      box-shadow: 0 2px 12px var(--ac-accent-glow);
+    }
+
+    .backend-controls button.start-btn:disabled {
+      background: var(--ac-border);
+      color: var(--ac-text-muted);
+      cursor: not-allowed;
+    }
+
+    .backend-controls button.stop-btn {
+      background: var(--ac-accent);
+      color: var(--ac-text);
+    }
+
+    .backend-controls button.stop-btn:hover {
+      background: var(--ac-border-active);
+      box-shadow: 0 2px 12px var(--ac-accent-glow);
+    }
+
+    .backend-controls button.stop-btn:disabled {
+      background: var(--ac-border);
+      color: var(--ac-text-muted);
+      cursor: not-allowed;
+    }
 
 
     /* Resize handles on the card border edge */
@@ -397,6 +458,156 @@
       display: none;
     }
     
+    /* Backend welcome screen */
+    .backend-welcome {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, #0a0a18 0%, #12081f 50%, #0a0a18 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      z-index: 10;
+      color: #fff;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    
+    .backend-welcome.hidden {
+      display: none;
+    }
+    
+    .backend-welcome h1 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #f0f;
+      text-shadow: 0 0 20px rgba(255, 0, 255, 0.5);
+    }
+    
+    .backend-welcome .subtitle {
+      font-size: 11px;
+      color: #888;
+      margin-bottom: 24px;
+    }
+    
+    .backend-welcome .hint-text {
+      font-size: 10px;
+      color: #666;
+      margin-top: 16px;
+      padding: 8px 16px;
+      background: rgba(136, 68, 255, 0.1);
+      border-radius: 4px;
+    }
+    
+    .backend-welcome .info-section {
+      width: 100%;
+      max-width: 400px;
+      margin-bottom: 20px;
+    }
+    
+    .backend-welcome .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 6px;
+      margin-bottom: 6px;
+      font-size: 11px;
+    }
+    
+    .backend-welcome .info-label {
+      color: #666;
+    }
+    
+    .backend-welcome .info-value {
+      color: #aaa;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 10px;
+    }
+    
+    .backend-welcome .info-value.success {
+      color: #0f0;
+    }
+    
+    .backend-welcome .info-value.warning {
+      color: #ff9500;
+    }
+    
+    .backend-welcome .info-value.error {
+      color: #f55;
+    }
+    
+    .backend-welcome .info-value.loading {
+      color: #888;
+    }
+    
+    .backend-welcome .info-value.loading::after {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 4px;
+      margin-left: 6px;
+      background: #888;
+      border-radius: 50%;
+      animation: pulse 1s ease-in-out infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 0.3; transform: scale(0.8); }
+      50% { opacity: 1; transform: scale(1.2); }
+    }
+    
+    .backend-welcome .start-button {
+      background: linear-gradient(180deg, #8844ff 0%, #6622dd 100%);
+      color: #fff;
+      border: none;
+      padding: 12px 32px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 16px rgba(136, 68, 255, 0.4);
+      margin-top: 8px;
+    }
+    
+    .backend-welcome .start-button:hover {
+      background: linear-gradient(180deg, #9955ff 0%, #7733ee 100%);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(136, 68, 255, 0.5);
+    }
+    
+    .backend-welcome .start-button:active {
+      transform: translateY(0);
+    }
+    
+    .backend-welcome .start-button:disabled {
+      background: #333;
+      color: #666;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+    
+    .backend-welcome .start-button.secondary {
+      background: linear-gradient(180deg, #333 0%, #222 100%);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+      margin-top: 8px;
+      padding: 10px 24px;
+      font-size: 12px;
+    }
+    
+    .backend-welcome .start-button.secondary:hover {
+      background: linear-gradient(180deg, #444 0%, #333 100%);
+    }
+    
+    .backend-welcome .button-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
     
     .resize-overlay.active {
       display: block;
@@ -434,6 +645,7 @@
     html.paperwm .flip-tab,
     html.paperwm .mode-tags,
     html.paperwm .volume-control,
+    html.paperwm .backend-controls,
     html.paperwm .resize-handle,
     html.paperwm .resize-overlay {
       display: none !important;
@@ -483,6 +695,11 @@
         <input id="volume-slider" type="range" min="0" max="1" step="0.01" value="0.25" />
       </div>
       
+      <!-- Shutdown button - visible on backend side -->
+      <div class="backend-controls">
+        <button id="start-container-btn" class="start-btn">▶</button>
+        <button id="stop-container-btn" class="stop-btn">⏹</button>
+      </div>
       
       <!-- Front face: AC Webview -->
       <div class="card-face card-front">
@@ -490,13 +707,46 @@
       </div>
     
     <!-- Back face: Terminal -->
-    <div class="card-face card-back"></div>
+    <div class="card-face card-back">
+      <!-- Welcome screen before terminal starts -->
+      <div class="backend-welcome" id="backend-welcome">
+        <h1>⚡ AC Pane</h1>
+        <div class="subtitle">Development Environment</div>
+        
+        <div class="info-section">
+          <div class="info-row">
+            <span class="info-label">📁 Repository</span>
+            <span class="info-value loading" id="info-repo">checking</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">👤 Git User</span>
+            <span class="info-value loading" id="info-git-user">checking</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">🐳 Docker</span>
+            <span class="info-value loading" id="info-docker">checking</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">📦 Container</span>
+            <span class="info-value loading" id="info-container">checking</span>
+          </div>
+        </div>
+        
+        <div class="hint-text">Use the START button below to launch the devcontainer</div>
+      </div>
+      
+      <div id="terminal-container"></div>
+    </div>
   </div>
   </div> <!-- close flip-perspective -->
 
   <script>
     const isPaperWM = document.documentElement.classList.contains('paperwm');
     const { ipcRenderer } = require('electron');
+    // Only load terminal deps if we have a back face
+    const Terminal = isPaperWM ? null : require('@xterm/xterm').Terminal;
+    const FitAddon = isPaperWM ? null : require('@xterm/addon-fit').FitAddon;
+    const WebglAddon = isPaperWM ? null : require('@xterm/addon-webgl').WebglAddon;
     
     const flipCard = document.querySelector('.flip-card');
     const webviewEl = document.getElementById('front-webview');
@@ -508,11 +758,6 @@
 
     const DEFAULT_MASTER_VOLUME = 0.25;
     const VOLUME_STORAGE_KEY = 'ac-master-volume';
-    const FLIP_ANIMATION_MS = 700;
-    const FLIP_DUCK_FACTOR = 0.35; // Dip 65% while the back pane is active
-    const FLIP_VOLUME_FADE_MS = FLIP_ANIMATION_MS;
-    let appliedMasterVolume = DEFAULT_MASTER_VOLUME;
-    let volumeFadeRaf = null;
     
     function clampVolume(value) {
       const numeric = Number(value);
@@ -524,15 +769,6 @@
       const clamped = clampVolume(value);
       volumeSlider.value = clamped.toString();
       return clamped;
-    }
-
-    function getBaseMasterVolume() {
-      return clampVolume(volumeSlider.value);
-    }
-
-    function getEffectiveMasterVolume(baseVolume = getBaseMasterVolume()) {
-      const attenuation = showingTerminal ? FLIP_DUCK_FACTOR : 1;
-      return clampVolume(baseVolume * attenuation);
     }
 
     function sendMasterVolume(value) {
@@ -565,64 +801,14 @@
       return true;
     }
 
-    function applyMasterVolume(value) {
-      const clamped = clampVolume(value);
-      appliedMasterVolume = clamped;
+    function syncMasterVolume() {
+      const clamped = clampVolume(volumeSlider.value);
+      sessionStorage.setItem(VOLUME_STORAGE_KEY, String(clamped));
       if (!webviewReady) {
         pendingMasterVolume = clamped;
-        return false;
-      }
-      return sendMasterVolume(clamped);
-    }
-
-    function fadeMasterVolumeTo(value, durationMs = FLIP_VOLUME_FADE_MS) {
-      const target = clampVolume(value);
-
-      if (volumeFadeRaf !== null) {
-        cancelAnimationFrame(volumeFadeRaf);
-        volumeFadeRaf = null;
-      }
-
-      if (!webviewReady || durationMs <= 0) {
-        applyMasterVolume(target);
         return;
       }
-
-      const startValue = appliedMasterVolume;
-      const delta = target - startValue;
-      if (Math.abs(delta) < 0.001) {
-        applyMasterVolume(target);
-        return;
-      }
-
-      const startTime = performance.now();
-      const step = (now) => {
-        const t = Math.min(1, (now - startTime) / durationMs);
-        const eased = t < 0.5
-          ? 2 * t * t
-          : 1 - Math.pow(-2 * t + 2, 2) / 2;
-        applyMasterVolume(startValue + (delta * eased));
-
-        if (t < 1) {
-          volumeFadeRaf = requestAnimationFrame(step);
-          return;
-        }
-        volumeFadeRaf = null;
-        applyMasterVolume(target);
-      };
-
-      volumeFadeRaf = requestAnimationFrame(step);
-    }
-
-    function syncMasterVolume({ animate = false, durationMs = FLIP_VOLUME_FADE_MS } = {}) {
-      const baseVolume = getBaseMasterVolume();
-      sessionStorage.setItem(VOLUME_STORAGE_KEY, String(baseVolume));
-      const effectiveVolume = getEffectiveMasterVolume(baseVolume);
-      if (animate) {
-        fadeMasterVolumeTo(effectiveVolume, durationMs);
-        return;
-      }
-      applyMasterVolume(effectiveVolume);
+      sendMasterVolume(clamped);
     }
 
     // Initialize per-window volume
@@ -633,7 +819,6 @@
       updateVolumeUI(DEFAULT_MASTER_VOLUME);
       sessionStorage.setItem(VOLUME_STORAGE_KEY, String(DEFAULT_MASTER_VOLUME));
     }
-    appliedMasterVolume = getEffectiveMasterVolume();
     syncMasterVolume();
     
     
@@ -671,8 +856,7 @@
       console.log('[volume] dom-ready - syncing volume')
       webviewReady = true;
       if (pendingMasterVolume !== null) {
-        appliedMasterVolume = clampVolume(pendingMasterVolume);
-        sendMasterVolume(appliedMasterVolume);
+        sendMasterVolume(pendingMasterVolume);
       }
       syncMasterVolume();
       // Retry after AC has had time to boot
@@ -790,6 +974,78 @@
       syncMasterVolume();
     });
     
+    // Container control button handlers
+    const startContainerBtn = document.getElementById('start-container-btn');
+    const stopContainerBtn = document.getElementById('stop-container-btn');
+    const welcomeScreen = document.getElementById('backend-welcome');
+    
+    async function updateContainerButtons() {
+      const isRunning = await ipcRenderer.invoke('check-container');
+      startContainerBtn.disabled = isRunning;
+      stopContainerBtn.disabled = !isRunning;
+    }
+    
+    // Show a big centered message in the terminal
+    function showTerminalMessage(message, color = '\x1b[35m') {
+      term.clear();
+      const rows = term.rows;
+      const cols = term.cols;
+      const midRow = Math.floor(rows / 2);
+      const padding = Math.floor((cols - message.length) / 2);
+      
+      // Move to middle and print centered message
+      for (let i = 0; i < midRow - 1; i++) {
+        term.writeln('');
+      }
+      term.writeln(color + ' '.repeat(Math.max(0, padding)) + message + '\x1b[0m');
+    }
+    
+    startContainerBtn.addEventListener('click', async () => {
+      console.log('[flip] Start devcontainer requested');
+      startContainerBtn.disabled = true;
+      startContainerBtn.textContent = '⏳';
+      
+      // Clear terminal and show starting message immediately
+      welcomeScreen.classList.add('hidden');
+      fitTerminal();
+      showTerminalMessage('▶ STARTING...', '\x1b[35m\x1b[1m');
+      
+      try {
+        await ipcRenderer.invoke('start-flip-devcontainer');
+        startContainerBtn.textContent = '▶';
+        await updateContainerButtons();
+      } catch (err) {
+        console.error('[flip] Failed to start devcontainer:', err);
+        showTerminalMessage('✗ START FAILED', '\x1b[31m\x1b[1m');
+        startContainerBtn.textContent = '▶';
+        startContainerBtn.disabled = false;
+      }
+    });
+    
+    stopContainerBtn.addEventListener('click', async () => {
+      console.log('[flip] Stop container requested (aggressive)');
+      stopContainerBtn.disabled = true;
+      stopContainerBtn.textContent = '⏳';
+      
+      // Show stopping message immediately
+      showTerminalMessage('⏹ STOPPING...', '\x1b[35m\x1b[1m');
+      
+      try {
+        await ipcRenderer.invoke('stop-container-aggressive');
+        showTerminalMessage('⏹ STOPPED', '\x1b[90m');
+        stopContainerBtn.textContent = '⏹';
+        await updateContainerButtons();
+      } catch (err) {
+        console.error('[flip] Failed to stop container:', err);
+        showTerminalMessage('✗ STOP FAILED', '\x1b[31m\x1b[1m');
+        stopContainerBtn.textContent = '⏹';
+        stopContainerBtn.disabled = false;
+      }
+    });
+    
+    // Update button states periodically
+    updateContainerButtons();
+    setInterval(updateContainerButtons, 5000);
     
     // Listen for global flip shortcut from main process
     ipcRenderer.on('toggle-flip', () => {
@@ -806,22 +1062,288 @@
     
     // ========== Zoom Handling ==========
     let frontZoom = 1.0;
-
+    let terminalFontSize = 10;
+    
     ipcRenderer.on('zoom-in', () => {
-      frontZoom = Math.min(frontZoom + 0.1, 3.0);
-      webviewEl.setZoomFactor(frontZoom);
-    });
-
-    ipcRenderer.on('zoom-out', () => {
-      frontZoom = Math.max(frontZoom - 0.1, 0.3);
-      webviewEl.setZoomFactor(frontZoom);
-    });
-
-    ipcRenderer.on('zoom-reset', () => {
-      frontZoom = 1.0;
-      webviewEl.setZoomFactor(frontZoom);
+      if (showingTerminal) {
+        // Zoom terminal by increasing font size
+        terminalFontSize = Math.min(terminalFontSize + 2, 32);
+        term.options.fontSize = terminalFontSize;
+        fitTerminal();
+        console.log('[flip] Terminal font size:', terminalFontSize);
+      } else {
+        // Zoom webview
+        frontZoom = Math.min(frontZoom + 0.1, 3.0);
+        webviewEl.setZoomFactor(frontZoom);
+        console.log('[flip] Webview zoom:', frontZoom);
+      }
     });
     
+    ipcRenderer.on('zoom-out', () => {
+      if (showingTerminal) {
+        // Zoom terminal by decreasing font size
+        terminalFontSize = Math.max(terminalFontSize - 2, 6);
+        term.options.fontSize = terminalFontSize;
+        fitTerminal();
+        console.log('[flip] Terminal font size:', terminalFontSize);
+      } else {
+        // Zoom webview
+        frontZoom = Math.max(frontZoom - 0.1, 0.3);
+        webviewEl.setZoomFactor(frontZoom);
+        console.log('[flip] Webview zoom:', frontZoom);
+      }
+    });
+    
+    ipcRenderer.on('zoom-reset', () => {
+      if (showingTerminal) {
+        terminalFontSize = 10;
+        term.options.fontSize = terminalFontSize;
+        fitTerminal();
+        console.log('[flip] Terminal font size reset to:', terminalFontSize);
+      } else {
+        frontZoom = 1.0;
+        webviewEl.setZoomFactor(frontZoom);
+        console.log('[flip] Webview zoom reset to:', frontZoom);
+      }
+    });
+    
+    // ========== Terminal Setup ==========
+    if (isPaperWM) {
+      // PaperWM: no terminal, no back face — just the webview
+      var term = null, fitTerminal = () => {}, fitAddon = null;
+    }
+    const terminalContainer = !isPaperWM ? document.getElementById('terminal-container') : null;
+    
+    if (!isPaperWM) {
+    // Theme definitions for terminal
+    const darkTermTheme = {
+      background: '#0a0a12',
+      foreground: '#eee',
+      cursor: '#f0f',
+      cursorAccent: '#0a0a12',
+      selectionBackground: 'rgba(255, 0, 255, 0.3)',
+      black: '#1a1a2e',
+      red: '#ff5555',
+      green: '#50fa7b',
+      yellow: '#f1fa8c',
+      blue: '#6272a4',
+      magenta: '#ff79c6',
+      cyan: '#8be9fd',
+      white: '#f8f8f2',
+    };
+    
+    const lightTermTheme = {
+      background: '#f5f0c0',
+      foreground: '#281e5a',
+      cursor: '#387adf',
+      cursorAccent: '#f5f0c0',
+      selectionBackground: 'rgba(56, 122, 223, 0.3)',
+      black: '#281e5a',
+      red: '#cc0000',
+      green: '#006400',
+      yellow: '#996600',
+      blue: '#387adf',
+      magenta: '#8844ff',
+      cyan: '#0077aa',
+      white: '#fcf7c5',
+    };
+    
+    // Detect current color scheme
+    function isDarkMode() {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    
+    const term = new Terminal({
+      cursorBlink: true,
+      cursorStyle: 'block',
+      fontSize: 10,
+      fontFamily: "'Menlo', 'DejaVu Sans Mono', 'Consolas', 'Liberation Mono', monospace",
+      theme: isDarkMode() ? darkTermTheme : lightTermTheme,
+      allowTransparency: true,
+      scrollback: 5000,
+      fastScrollModifier: 'alt',
+      fastScrollSensitivity: 5,
+      drawBoldTextInBrightColors: true,
+    });
+    
+    // Listen for color scheme changes
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+      console.log('[flip] Color scheme changed to:', e.matches ? 'dark' : 'light');
+      term.options.theme = e.matches ? darkTermTheme : lightTermTheme;
+    });
+    
+    const fitAddon = new FitAddon();
+    term.loadAddon(fitAddon);
+    term.open(terminalContainer);
+    
+    // Load WebGL2 renderer for better performance
+    try {
+      const webglAddon = new WebglAddon();
+      webglAddon.onContextLoss(() => {
+        console.warn('[flip] WebGL context lost, disposing addon');
+        webglAddon.dispose();
+      });
+      term.loadAddon(webglAddon);
+      console.log('[flip] WebGL2 renderer loaded successfully');
+    } catch (e) {
+      console.warn('[flip] WebGL2 renderer failed to load, using canvas fallback:', e.message);
+    }
+    
+    // Fit terminal to container and send initial size to PTY
+    function fitTerminal() {
+      fitAddon.fit();
+      console.log('[flip] Terminal fit:', term.cols, 'x', term.rows);
+      ipcRenderer.send('flip-pty-resize', term.cols, term.rows);
+    }
+    
+    // Initial fit - wait for layout to stabilize, then fit multiple times
+    function initialFit() {
+      // Force container dimensions to be calculated
+      terminalContainer.style.display = 'block';
+      terminalContainer.offsetHeight; // Force reflow
+      
+      fitTerminal();
+    }
+    
+    // Wait for window to fully load and layout to settle
+    if (document.readyState === 'complete') {
+      setTimeout(initialFit, 50);
+      setTimeout(fitTerminal, 200);
+      setTimeout(fitTerminal, 500);
+    } else {
+      window.addEventListener('load', () => {
+        setTimeout(initialFit, 50);
+        setTimeout(fitTerminal, 200);
+        setTimeout(fitTerminal, 500);
+      });
+    }
+    
+    // Also fit when the flip card becomes visible (showing backend)
+    const flipObserver = new MutationObserver(() => {
+      if (showingTerminal) {
+        requestAnimationFrame(() => {
+          fitTerminal();
+        });
+      }
+    });
+    flipObserver.observe(flipCard, { attributes: true, attributeFilter: ['style'] });
+    
+    // Resize handling
+    const resizeObserver = new ResizeObserver(() => {
+      fitTerminal();
+    });
+    resizeObserver.observe(terminalContainer);
+    
+    // PTY communication
+    ipcRenderer.on('flip-pty-data', (event, data) => {
+      term.write(data);
+    });
+    
+    // Respond to size requests from main process
+    ipcRenderer.on('request-terminal-size', () => {
+      // Force a fit and send current dimensions
+      fitAddon.fit();
+      ipcRenderer.send('flip-pty-resize', term.cols, term.rows);
+    });
+    
+    term.onData((data) => {
+      ipcRenderer.send('flip-pty-input', data);
+    });
+    
+    // ========== Welcome Screen Logic ==========
+    const infoRepo = document.getElementById('info-repo');
+    const infoGitUser = document.getElementById('info-git-user');
+    const infoDocker = document.getElementById('info-docker');
+    const infoContainer = document.getElementById('info-container');
+    
+    let systemInfo = {
+      repoPath: null,
+      gitUser: null,
+      dockerAvailable: false,
+      containerExists: false
+    };
+    
+    async function gatherSystemInfo() {
+      // Get repo path
+      try {
+        const repo = await ipcRenderer.invoke('get-repo-path');
+        if (repo) {
+          systemInfo.repoPath = repo.path;
+          infoRepo.textContent = repo.name;
+          infoRepo.classList.remove('loading');
+          infoRepo.classList.add('success');
+        } else {
+          infoRepo.textContent = 'Not found';
+          infoRepo.classList.remove('loading');
+          infoRepo.classList.add('warning');
+        }
+      } catch (e) {
+        infoRepo.textContent = 'Error';
+        infoRepo.classList.remove('loading');
+        infoRepo.classList.add('error');
+      }
+      
+      // Get git user
+      try {
+        const gitUser = await ipcRenderer.invoke('get-git-user');
+        if (gitUser && gitUser.name) {
+          systemInfo.gitUser = gitUser;
+          infoGitUser.textContent = gitUser.name;
+          infoGitUser.classList.remove('loading');
+          infoGitUser.classList.add('success');
+        } else {
+          infoGitUser.textContent = 'Not configured';
+          infoGitUser.classList.remove('loading');
+          infoGitUser.classList.add('warning');
+        }
+      } catch (e) {
+        infoGitUser.textContent = 'Error';
+        infoGitUser.classList.remove('loading');
+        infoGitUser.classList.add('error');
+      }
+      
+      // Check Docker
+      try {
+        const dockerOk = await ipcRenderer.invoke('check-docker');
+        systemInfo.dockerAvailable = dockerOk;
+        if (dockerOk) {
+          infoDocker.textContent = 'Running';
+          infoDocker.classList.remove('loading');
+          infoDocker.classList.add('success');
+        } else {
+          infoDocker.textContent = 'Not running';
+          infoDocker.classList.remove('loading');
+          infoDocker.classList.add('warning');
+        }
+      } catch (e) {
+        infoDocker.textContent = 'Error';
+        infoDocker.classList.remove('loading');
+        infoDocker.classList.add('error');
+      }
+      
+      // Check container exists
+      try {
+        const containerOk = await ipcRenderer.invoke('check-container-exists');
+        systemInfo.containerExists = containerOk;
+        if (containerOk) {
+          infoContainer.textContent = 'Ready';
+          infoContainer.classList.remove('loading');
+          infoContainer.classList.add('success');
+        } else {
+          infoContainer.textContent = 'Not found';
+          infoContainer.classList.remove('loading');
+          infoContainer.classList.add('warning');
+        }
+      } catch (e) {
+        infoContainer.textContent = 'Error';
+        infoContainer.classList.remove('loading');
+        infoContainer.classList.add('error');
+      }
+    }
+    
+    // Start gathering info immediately
+    gatherSystemInfo();
+    } // end if (!isPaperWM)
 
     // ========== Toggle Logic ==========
     let rotationAngle = 0; // Track cumulative rotation
@@ -856,10 +1378,6 @@
       // Determine which side will be showing after flip completes
       const normalized = ((rotationAngle % 360) + 360) % 360;
       const willShowTerminal = (normalized > 90 && normalized < 270);
-      const targetFlipVolume = clampVolume(getBaseMasterVolume() * (willShowTerminal ? FLIP_DUCK_FACTOR : 1));
-
-      // Fade ducking/unducking across the same duration as the flip animation.
-      fadeMasterVolumeTo(targetFlipVolume, FLIP_ANIMATION_MS);
       
       // Swap translucency when card is edge-on (90°)
       // With cubic-bezier(0.4, 0, 0.2, 1) over 700ms, 90° is reached around 260ms
@@ -873,61 +1391,48 @@
       // Remove spinner cursor when swivel completes
       swivelingTimeout = setTimeout(() => {
         document.body.classList.remove('swiveling');
-      }, FLIP_ANIMATION_MS);
+      }, 700);
       
-      console.log('[flip] Will show', willShowTerminal ? 'back' : 'front', 'rotation:', rotationAngle, 'normalized:', normalized);
+      console.log('[flip] Will show', willShowTerminal ? 'terminal' : 'webview', 'rotation:', rotationAngle, 'normalized:', normalized);
+      
+      // After flip completes, fit terminal and focus if showing terminal
+      if (willShowTerminal && term) {
+        setTimeout(() => {
+          fitTerminal();
+          term.focus();
+        }, 700);
+      }
     }
     
-    // Flip tabs - drag to move window, click to flip
+    // Flip tabs - click to flip, native drag to move window (PaperWM/Wayland compatible)
+    // Inner elements have -webkit-app-region: drag for native window dragging
     console.log('[flip] Found flip tabs:', flipTabs.length);
     flipTabs.forEach(tab => {
+      // Use mousedown/mouseup to detect clicks (click event doesn't fire with app-region children)
+      let mouseDownTime = 0;
+      let mouseDownPos = { x: 0, y: 0 };
+
       tab.addEventListener('mousedown', (e) => {
-        if (e.button !== 0) return;
-        e.preventDefault();
-        e.stopPropagation();
+        mouseDownTime = Date.now();
+        mouseDownPos = { x: e.clientX, y: e.clientY };
+      });
 
-        const mouseDownTime = Date.now();
-        const startClient = { x: e.clientX, y: e.clientY };
-        const startScreen = { x: e.screenX, y: e.screenY };
-        const startWindow = { x: window.screenX, y: window.screenY };
-        let hasDragged = false;
+      tab.addEventListener('mouseup', (e) => {
+        const timeDiff = Date.now() - mouseDownTime;
+        const moveDiff = Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y);
 
-        document.body.classList.add('tab-dragging');
+        // If mouse was down for less than 300ms and didn't move much, treat as click
+        if (timeDiff < 300 && moveDiff < 10) {
+          e.preventDefault();
+          e.stopPropagation();
 
-        const onMouseMove = (moveEvent) => {
-          const dx = moveEvent.screenX - startScreen.x;
-          const dy = moveEvent.screenY - startScreen.y;
-          if (!hasDragged && Math.hypot(dx, dy) >= 4) {
-            hasDragged = true;
-          }
-          if (hasDragged) {
-            ipcRenderer.send('move-window', {
-              x: startWindow.x + dx,
-              y: startWindow.y + dy,
-            });
-          }
-        };
+          // Base direction on SCREEN position, not tab class
+          const windowCenter = window.innerWidth / 2;
+          const direction = (e.clientX > windowCenter) ? 'right' : 'left';
 
-        const onMouseUp = (upEvent) => {
-          document.body.classList.remove('tab-dragging');
-          document.removeEventListener('mousemove', onMouseMove);
-          document.removeEventListener('mouseup', onMouseUp);
-
-          if (hasDragged) return;
-
-          const timeDiff = Date.now() - mouseDownTime;
-          const moveDiff = Math.hypot(upEvent.clientX - startClient.x, upEvent.clientY - startClient.y);
-          if (timeDiff < 300 && moveDiff < 10) {
-            // Base direction on SCREEN position, not tab class
-            const windowCenter = window.innerWidth / 2;
-            const direction = (upEvent.clientX > windowCenter) ? 'right' : 'left';
-            console.log('[flip] Flip tab clicked at x:', upEvent.clientX, 'center:', windowCenter, 'direction:', direction);
-            toggle(direction);
-          }
-        };
-
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
+          console.log('[flip] Flip tab clicked at x:', e.clientX, 'center:', windowCenter, 'direction:', direction);
+          toggle(direction);
+        }
       });
     });
     
@@ -1038,6 +1543,11 @@
       setTimeout(() => document.addEventListener('click', closeMenu), 0);
     }
     
+    // Window resize
+    window.addEventListener('resize', () => {
+      fitAddon.fit();
+      ipcRenderer.send('flip-pty-resize', term.cols, term.rows);
+    });
     
     // ========== Custom Resize Handles ==========
     const resizeOverlay = document.getElementById('resize-overlay');

@@ -82,6 +82,30 @@ npm run build:mac
 Creates:
 - `Aesthetic Computer-{version}-universal.dmg` (Apple Silicon + Intel)
 
+### Signed macOS Build + Silo Publish from Devcontainer
+Run the host-driven flow (build/sign on your Mac GUI session, then upload/register via silo):
+
+```bash
+cd /workspaces/aesthetic-computer/ac-electron
+# One-time: export Developer ID cert to vault for non-interactive signing
+npm run setup:host:mac-signing
+
+# Build + publish
+npm run release:host:mac
+```
+
+Useful flags:
+```bash
+# Build/sign only
+bash scripts/build-publish-host-mac.sh --skip-publish
+
+# Include release notes
+bash scripts/build-publish-host-mac.sh --notes "UI cleanup"
+
+# Validate publish payload without uploading
+bash scripts/build-publish-host-mac.sh --dry-run-publish
+```
+
 ## Publishing to GitHub Releases
 
 ### Automatic (via GitHub Actions)

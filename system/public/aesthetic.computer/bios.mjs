@@ -1821,7 +1821,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             freezeFrameRemovalTimeout = null;
           }
           // Capture freeze frame before reframing to prevent black flicker
-          if (imageData && imageData.data && imageData.data.buffer && imageData.data.buffer.byteLength > 0) {
+          // Skip during tape playback — the freeze frame would cover the video
+          // underlay with stale opaque content, causing a black screen.
+          if (!underlayFrame && imageData && imageData.data && imageData.data.buffer && imageData.data.buffer.byteLength > 0) {
             freezeFrame = true;
             freezeFrameGlaze = glaze.on;
             
@@ -17353,6 +17355,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             if (dimensionMismatchCount === 1 || dimensionMismatchCount % 10 === 0) {
               console.log('⏸️ REFRAME: Dimension mismatch #' + dimensionMismatchCount + '. Canvas:', ctx.canvas.width, 'x', ctx.canvas.height, '| ImageData:', imageData?.width, 'x', imageData?.height);
             }
+            // Clear canvas to transparent so the video underlay shows through
+            // instead of stale opaque pixels from before the video piece loaded.
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
             skipImmediateOverlays = true; // Don't paint overlays
             // Keep requesting paint so we get fresh data with correct dimensions
             setTimeout(() => send({ type: "needs-paint" }), 0);
