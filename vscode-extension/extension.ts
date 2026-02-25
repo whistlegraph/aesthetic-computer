@@ -9,8 +9,7 @@
 import * as vscode from "vscode";
 import { Buffer } from "buffer";
 
-// Import the generated process tree JS and AST tree JS (built from views/)
-import { PROCESS_TREE_JS, AST_TREE_JS } from "./generated-views";
+// (generated-views import removed — welcome panel now loads dev.html via iframe only)
 
 // 🌈 KidLisp Syntax Highlighting
 // Embedded copy of shared/kidlisp-syntax.mjs for bundling
@@ -950,178 +949,78 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     return (kind === 1 || kind === 4) ? 'light' : 'dark';
   }
 
-  function getWelcomePanelHtml(webview: vscode.Webview, devMode: boolean = false): string {
+  // Welcome panel is dev-mode only — always loads dev.html via iframe from localhost:5555.
+  // Shows a loading state while the views dev server (npm run views:dev) is starting up.
+  function getWelcomePanelHtml(webview: vscode.Webview): string {
     const theme = getVSCodeThemeKind();
-    
-    // Color schemes from color-schemes.js (embedded for production)
-    const darkColors = {
-      bg: '#181318', bgAlt: '#141214', fg: '#ffffffcc', fgBright: '#ffffff', fgMuted: '#555555',
-      accent: '#a87090', accentBright: '#ff69b4', statusOnline: '#0f0', labelInfo: '#aaa'
-    };
-    const lightColors = {
-      bg: '#fcf7c5', bgAlt: '#f5f0c0', fg: '#281e5a', fgBright: '#281e5a', fgMuted: '#806060',
-      accent: '#387adf', accentBright: '#006400', statusOnline: '#006400', labelInfo: '#806060'
-    };
-    const c = theme === 'light' ? lightColors : darkColors;
-    
-    // In dev mode, we show embedded content first, then switch to iframe when dev server is available
-    // This ensures the 3D view loads immediately even during devcontainer boot
-    const csp = devMode
-      ? `default-src 'none'; frame-src http://localhost:5555; style-src 'unsafe-inline'; img-src ${webview.cspSource} https: data:; script-src 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; connect-src ws://127.0.0.1:7890 wss://localhost:8889;`
-      : `default-src 'none'; style-src 'unsafe-inline'; img-src ${webview.cspSource} https: data:; script-src 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; connect-src ws://127.0.0.1:7890 wss://localhost:8889;`;
-    
-    // Dev mode indicator badge
-    const devBadge = devMode ? `
-    <div class="dev-badge" id="dev-badge">
-      <span class="dev-icon">🔧</span>
-      <span class="dev-text">DEV</span>
-      <span class="dev-status" id="dev-status">embedded</span>
-    </div>` : '';
-    
-    const devBadgeStyles = devMode ? `
-    .dev-badge {
-      position: fixed;
-      bottom: 16px;
-      left: 16px;
-      z-index: 200;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 10px;
-      background: ${theme === 'light' ? 'rgba(40, 30, 90, 0.9)' : 'rgba(168, 112, 144, 0.9)'};
-      color: ${theme === 'light' ? '#fcf7c5' : '#fff'};
-      border-radius: 4px;
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-      pointer-events: none;
-    }
-    .dev-badge .dev-icon { font-size: 12px; }
-    .dev-badge .dev-status {
-      color: ${theme === 'light' ? '#a0d0a0' : '#90e090'};
-      font-weight: normal;
-    }
-    .dev-badge.live-reload .dev-status { color: #70ff70; }
-    #dev-frame {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      border: none;
-      z-index: 300;
-    }
-    #dev-frame.active { display: block; }
-    #embedded-content { display: block; }
-    #embedded-content.hidden { display: none; }
-    ` : '';
-    
-    const devScript = devMode ? `
-    // Dev mode: switch to iframe when dev server becomes available
-    (function() {
-      const devFrame = document.getElementById('dev-frame');
-      const embeddedContent = document.getElementById('embedded-content');
-      const devBadge = document.getElementById('dev-badge');
-      const devStatus = document.getElementById('dev-status');
-      const theme = '${theme}';
-      
-      function switchToLiveReload() {
-        console.log('🔧 Switching to live reload mode');
-        devFrame.src = '${WELCOME_DEV_URL}?theme=' + theme;
-        devFrame.classList.add('active');
-        embeddedContent.classList.add('hidden');
-        devBadge.classList.add('live-reload');
-        devStatus.textContent = 'live reload';
-      }
-      
-      // Listen for message from extension that dev server is available
-      window.addEventListener('message', (event) => {
-        const message = event.data;
-        if (message.command === 'devServerAvailable' && !devFrame.classList.contains('active')) {
-          switchToLiveReload();
-        } else if (message.command === 'astUpdate') {
-          // Forward AST updates to iframe if active, or handle locally
-          if (devFrame.classList.contains('active')) {
-            devFrame.contentWindow?.postMessage(message, '*');
-          } else if (window.ASTTreeViz) {
-            console.log('🌳 AST update received:', message.files?.length, 'files');
-            window.ASTTreeViz.updateASTVisualization(message.files);
-          }
-        }
-      });
-    })();
-    ` : '';
-    
+    const c = theme === 'light'
+      ? { bg: '#fcf7c5', fg: '#281e5a', fgMuted: '#806060', accent: '#387adf' }
+      : { bg: '#181318', fg: '#ffffff', fgMuted: '#555555', accent: '#a87090' };
+
+    const csp = `default-src 'none'; frame-src http://localhost:5555; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src ws://127.0.0.1:7890 wss://localhost:8889;`;
+
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="${csp}">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: ${c.bg}; color: ${c.fgBright}; font-family: monospace; overflow: hidden; height: 100vh; }
-    body[data-theme="dark"] { background: #181318; color: #fff; }
-    body[data-theme="light"] { background: #fcf7c5; color: #281e5a; }
-    #canvas { position: absolute; top: 0; left: 0; }
-    .hud { position: absolute; z-index: 100; pointer-events: none; }
-    .title { top: 16px; left: 16px; font-size: 14px; display: flex; align-items: center; gap: 8px; }
-    .title .dot { color: ${c.accentBright}; }
-    .status-dot { width: 6px; height: 6px; border-radius: 50%; background: ${c.accent}; }
-    .status-dot.online { background: ${c.statusOnline}; }
-    .stats { top: 16px; right: 16px; text-align: right; font-size: 12px; color: ${c.fgMuted}; }
-    .stats .val { color: ${c.fgBright}; }
-    .mem { bottom: 16px; right: 16px; font-size: 12px; color: ${c.fgMuted}; }
-    .center { top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; font-size: 12px; color: ${c.fgMuted}; }
-    .center .count { font-size: 28px; color: ${c.fgBright}; margin-bottom: 4px; }
-    .label-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 50; overflow: hidden; }
-    .proc-label { position: absolute; text-align: center; transform: translate(-50%, -100%); white-space: nowrap; text-shadow: 0 0 3px ${c.bg}, 0 0 6px ${c.bg}; pointer-events: none; }
-    .proc-label .icon { font-size: 18px; display: block; line-height: 1; }
-    .proc-label .name { font-size: 10px; margin-top: 2px; font-weight: bold; letter-spacing: 0.3px; }
-    .proc-label .info { font-size: 8px; color: ${c.labelInfo}; margin-top: 1px; }
-    ${devBadgeStyles}
+    body { background: ${c.bg}; color: ${c.fg}; font-family: monospace; overflow: hidden; height: 100vh; }
+    #dev-frame { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; border: none; z-index: 10; }
+    #dev-frame.active { display: block; }
+    #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+    .dot { font-size: 28px; color: ${c.accent}; animation: pulse 2s ease-in-out infinite; }
+    .msg { font-size: 13px; }
+    .cmd { font-size: 11px; color: ${c.fgMuted}; }
+    @keyframes pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
   </style>
 </head>
 <body data-theme="${theme}">
-  ${devMode ? '<iframe id="dev-frame"></iframe>' : ''}
-  <div id="embedded-content">
-    <canvas id="canvas"></canvas>
-    <div class="hud title"><div class="status-dot" id="status-dot"></div><span>Aesthetic<span class="dot">.</span>Computer Architecture</span></div>
-    <div class="hud stats"><div><span class="val" id="uptime">—</span></div><div><span class="val" id="cpus">—</span> cpus</div></div>
-    <div class="hud center"><div class="count" id="process-count">0</div><div>processes</div></div>
-    <div class="hud mem"><span id="mem-text">— / —</span> MB</div>
-    <div id="labels" class="label-container"></div>
+  <iframe id="dev-frame"></iframe>
+  <div id="loading">
+    <div class="dot">✦</div>
+    <div class="msg">Waiting for dev server…</div>
+    <div class="cmd">npm run views:dev</div>
   </div>
-  ${devBadge}
-  <script>${PROCESS_TREE_JS}</script>
-  <script>${AST_TREE_JS}</script>
   <script>
-    // Listen for AST updates from extension (production mode)
     (function() {
-      const vscode = typeof acquireVsCodeApi === 'function' ? acquireVsCodeApi() : null;
-      window.vscodeApi = vscode;
-      ${devMode ? '' : `
+      const frame = document.getElementById('dev-frame');
+      const loading = document.getElementById('loading');
+      const theme = '${theme}';
       window.addEventListener('message', (event) => {
-        const message = event.data;
-        if (message.command === 'astUpdate' && window.ASTTreeViz) {
-          console.log('🌳 AST update received:', message.files?.length, 'files');
-          window.ASTTreeViz.updateASTVisualization(message.files);
+        const msg = event.data;
+        if (msg.command === 'devServerAvailable' && !frame.classList.contains('active')) {
+          frame.src = 'http://localhost:5555/dev.html?theme=' + theme;
+          frame.classList.add('active');
+          loading.style.display = 'none';
+        } else if (msg.command === 'reload' && frame.classList.contains('active')) {
+          frame.src = frame.src;
+        } else if (msg.command === 'astUpdate' && frame.classList.contains('active')) {
+          frame.contentWindow?.postMessage(msg, '*');
         }
       });
-      `}
-      console.log('🔌 AST message handler ready');
     })();
   </script>
-  ${devMode ? `<script>${devScript}</script>` : ''}
 </body>
 </html>`;
   }
 
-  // ✨ Welcome Panel (Three.js 3D Architecture)
+  // ✨ Welcome Panel — dev mode only (loads dev.html via iframe from localhost:5555)
   function showWelcomePanel() {
+    if (!local) {
+      vscode.window.showInformationMessage(
+        'The welcome panel requires local dev mode.',
+        'Enable Local Mode'
+      ).then(choice => {
+        if (choice === 'Enable Local Mode') {
+          vscode.commands.executeCommand('aestheticComputer.localServer');
+        }
+      });
+      return;
+    }
+
     if (welcomePanel) {
       welcomePanel.reveal(vscode.ViewColumn.One);
       return;
@@ -1201,13 +1100,8 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       stopWelcomeDevServerCheck();
     });
 
-    // Generate welcome panel HTML using shared process-tree.js (uses `local` flag for dev mode)
-    welcomePanel.webview.html = getWelcomePanelHtml(welcomePanel.webview, local);
-    
-    // In dev mode, start checking for the dev server and switch to live reload when available
-    if (local) {
-      startWelcomeDevServerCheck();
-    }
+    welcomePanel.webview.html = getWelcomePanelHtml(welcomePanel.webview);
+    startWelcomeDevServerCheck();
     
     // Send initial AST data after panel is created
     setTimeout(() => {
@@ -1228,38 +1122,33 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   // Refresh welcome panel (called when local mode is toggled or theme changes)
   function refreshWelcomePanel() {
     if (welcomePanel) {
-      // Regenerate the HTML with the new local mode state
-      welcomePanel.webview.html = getWelcomePanelHtml(welcomePanel.webview, local);
-      
-      // Start or stop dev server checking based on local mode
-      if (local) {
-        welcomeDevServerAvailable = false; // Reset until we confirm
-        startWelcomeDevServerCheck();
-      } else {
+      if (!local) {
+        // Panel is dev-mode only — close it if local mode is turned off
+        welcomePanel.dispose();
         stopWelcomeDevServerCheck();
         welcomeDevServerAvailable = false;
+        return;
       }
+      welcomePanel.webview.html = getWelcomePanelHtml(welcomePanel.webview);
+      welcomeDevServerAvailable = false;
+      startWelcomeDevServerCheck();
     }
   }
 
-  // Live reload: send message to welcome panel to reload iframe (for dev mode)
+  // Live reload: tell welcome panel to reload its iframe (fires when views/ files change)
   function triggerWelcomeReload() {
-    if (welcomePanel && local) {
+    if (welcomePanel) {
       welcomePanel.webview.postMessage({ command: 'reload' });
     }
   }
 
-  // Watch for file changes in views directory when in local/dev mode
+  // Watch for file changes in views directory (hot reload for the dev server content)
   const viewsWatcher = vscode.workspace.createFileSystemWatcher(
     new vscode.RelativePattern(context.extensionUri, 'views/**/*.{js,html,css}')
   );
-  
-  viewsWatcher.onDidChange(() => {
-    if (local) triggerWelcomeReload();
-  });
-  viewsWatcher.onDidCreate(() => {
-    if (local) triggerWelcomeReload();
-  });
+
+  viewsWatcher.onDidChange(() => { triggerWelcomeReload(); });
+  viewsWatcher.onDidCreate(() => { triggerWelcomeReload(); });
   
   context.subscriptions.push(viewsWatcher);
 
