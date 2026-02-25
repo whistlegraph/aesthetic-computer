@@ -276,7 +276,8 @@
       line-height: 1.7;
       font-size: 13px;
       color: var(--text-secondary);
-      max-width: 920px;
+      max-width: 720px;
+      margin: 0 auto;
     }
 
     .keeps-tab-content.active {
@@ -1234,13 +1235,13 @@
 
     <!-- TAB: Docs (versioned) -->
     <div class="keeps-tab-content" id="tab-docs">
-      <div style="padding: 24px; max-width: 900px; margin: 0 auto;">
+      <div style="padding: 24px 0;">
         <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 20px;">
           <h2 style="margin: 0; color: var(--text-primary); font-size: 24px; font-weight: 600;">
             Keeps FA2 Contract
           </h2>
           <select class="keeps-version-select" id="version-select">
-            <option value="v5" selected>v5 (Production)</option>
+            <option value="v5" selected>v5 (RC)</option>
             <option value="v4">v4 (Staging)</option>
             <option value="v3">v3 (Dev Only)</option>
             <option value="v2">v2 (Legacy)</option>
@@ -1251,13 +1252,25 @@
         <div class="keeps-version-docs active" id="docs-v5">
 
           <div style="margin-bottom: 24px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
-            <div style="margin-bottom: 8px; color: var(--text-secondary); font-size: 13px; font-weight: 500;">Contract Address</div>
-            <div style="font-family: 'Courier New', monospace; color: var(--text-tertiary); font-size: 14px; word-break: break-all;">
-              Deploying to <strong style="color: var(--ac-purple);">keeps.tez</strong> &mdash; address TBD
+            <div style="margin-bottom: 8px; color: var(--text-secondary); font-size: 13px; font-weight: 500;">Contract Address (Mainnet RC)</div>
+            <div style="font-family: 'Courier New', monospace; color: var(--ac-purple); font-size: 14px; word-break: break-all;">
+              KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido
             </div>
             <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
-              <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/keeps_fa2_v5.py" target="_blank"
+              <a href="https://tzkt.io/KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido" target="_blank"
                  style="padding: 6px 12px; background: var(--ac-purple); color: white; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
+                TzKT Explorer
+              </a>
+              <a href="https://objkt.com/collection/KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido" target="_blank"
+                 style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
+                objkt.com
+              </a>
+              <a href="https://tzkt.io/KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido/operations" target="_blank"
+                 style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
+                Operations
+              </a>
+              <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/keeps_fa2_v5.py" target="_blank"
+                 style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
                 Source Code
               </a>
             </div>
@@ -1472,7 +1485,15 @@
             <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
               <a href="https://tzkt.io/KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W" target="_blank"
                  style="padding: 6px 12px; background: var(--ac-purple); color: white; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
-                View on TzKT
+                TzKT Explorer
+              </a>
+              <a href="https://objkt.com/collection/KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W" target="_blank"
+                 style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
+                objkt.com
+              </a>
+              <a href="https://tzkt.io/KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W/operations" target="_blank"
+                 style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
+                Operations
               </a>
               <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/keeps_fa2_v4.py" target="_blank"
                  style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
@@ -1568,7 +1589,15 @@
             <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
               <a href="https://tzkt.io/KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM" target="_blank"
                  style="padding: 6px 12px; background: var(--ac-purple); color: white; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
-                View on TzKT
+                TzKT Explorer
+              </a>
+              <a href="https://objkt.com/collection/KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM" target="_blank"
+                 style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
+                objkt.com
+              </a>
+              <a href="https://tzkt.io/KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM/operations" target="_blank"
+                 style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
+                Operations
               </a>
               <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/keeps_fa2_v2.py" target="_blank"
                  style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
