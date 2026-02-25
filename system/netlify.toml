@@ -883,6 +883,7 @@ from = "https://www.wipppps.world"
 to = "https://wipppps.world"
 status = 301
 force = true
+
 [[redirects]]
 from = "https://www.sundarakarma.com"
 to = "https://aesthetic.computer/sundarakarma.com"
