@@ -149,6 +149,12 @@
       margin: 0 auto;
       width: 100%;
     }
+
+    .painting-images {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
     
     .painting-info {
       padding: 1rem 0;
@@ -1035,16 +1041,20 @@
       gallery.innerHTML = paintings.map(p => {
         // Support both old imageUrl and new images array
         const images = p.images || (p.imageUrl ? [p.imageUrl] : []);
-        const primaryImage = images[0] || '';
         const imageCount = images.length;
         const dimStr = typeof p.dimensions === 'object' ? formatDimensions(p.dimensions) : (p.dimensions || '');
         // Display tags or fall back to legacy medium field
         const tagsDisplay = p.tags && p.tags.length > 0 ? getTagNames(p.tags) : (p.medium || '');
+        const imageStack = images.map((src, index) => `
+          <div class="painting-image-container" data-id="${p._id}" data-src="${src}" data-image-index="${index}">
+            <canvas></canvas>
+          </div>
+        `).join('');
         
         return `
           <div class="painting" data-id="${p._id}">
-            <div class="painting-image-container" data-id="${p._id}" data-src="${primaryImage}">
-              <canvas></canvas>
+            <div class="painting-images">
+              ${imageStack}
             </div>
             <div class="painting-info">
               <div class="painting-title">${p.title}${p.sold ? ' <span style="color:var(--red)">(sold)</span>' : ''}</div>
@@ -1229,6 +1239,7 @@
     async function openModal(painting = null) {
       modalTitle.textContent = painting ? 'Edit Painting' : 'Add Painting';
       paintingForm.reset();
+      document.getElementById('paintingId').value = '';
       pendingImages = [];
       selectedTagIds = [];
       
@@ -1258,6 +1269,7 @@
         const images = painting.images || (painting.imageUrl ? [painting.imageUrl] : []);
         pendingImages = images.map(url => ({ url, localPreview: url }));
       } else {
+        document.getElementById('paintingId').value = '';
         document.getElementById('year').value = new Date().getFullYear();
       }
       
@@ -1270,6 +1282,7 @@
     
     function closeModal() {
       modalOverlay.classList.remove('visible');
+      document.getElementById('paintingId').value = '';
       pendingImages = [];
     }
     
@@ -1370,8 +1383,11 @@
           };
         }
         
+        const rawId = document.getElementById('paintingId').value.trim();
+        const isEditMode = modalTitle.textContent === 'Edit Painting';
+        
         const paintingData = {
-          id: document.getElementById('paintingId').value || undefined,
+          id: isEditMode && rawId ? rawId : undefined,
           title: document.getElementById('title').value,
           year: parseInt(document.getElementById('year').value) || new Date().getFullYear(),
           tags: selectedTagIds,
