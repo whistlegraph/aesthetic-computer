@@ -623,8 +623,22 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
       const totalPixels = bitmapPreview.width * bitmapPreview.height;
       const currentPixel = floor(bitmapProgress * totalPixels);
       const scrubY = floor(currentPixel / bitmapPreview.width);
-      const mappedY = layout.stripY + (scrubY / bitmapPreview.height) * layout.stripAreaH;
-      ink("yellow", 200).line(layout.stripX, mappedY, layout.stripX + layout.stripW, mappedY);
+      const mappedProgress = scrubY / max(1, bitmapPreview.height - 1);
+
+      // Draw one scrubber per segment so each pat strip previews phase locally.
+      if (btns.length > 1) {
+        const segmentProgress = (mappedProgress * btns.length) % 1;
+        btns.forEach((btn) => {
+          let y = btn.box.y + segmentProgress * btn.box.h;
+          const minY = btn.box.y + 1;
+          const maxY = btn.box.y + btn.box.h - 2;
+          y = Math.max(minY, Math.min(maxY, y));
+          ink("yellow", 200).line(layout.stripX, y, layout.stripX + layout.stripW, y);
+        });
+      } else {
+        const mappedY = layout.stripY + mappedProgress * layout.stripAreaH;
+        ink("yellow", 200).line(layout.stripX, mappedY, layout.stripX + layout.stripW, mappedY);
+      }
     }
   }
 
@@ -1130,4 +1144,3 @@ function layoutBitmapUI(screen) {
     }
   }
 }
-
