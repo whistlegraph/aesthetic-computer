@@ -462,28 +462,17 @@
     <div class="hero">
       <div class="hero-slideshow" id="heroSlideshow">
         <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--05.jpg" alt="Jeffrey Alan Scudder" class="active">
-        <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--40.jpg" alt="Jeffrey Alan Scudder">
+        <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--12.jpg" alt="Jeffrey Alan Scudder">
         <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--20.jpg" alt="Jeffrey Alan Scudder">
-        <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--02.jpg" alt="Jeffrey Alan Scudder">
-        <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--45.jpg" alt="Jeffrey Alan Scudder">
-        <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--50.jpg" alt="Jeffrey Alan Scudder">
+        <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--28.jpg" alt="Jeffrey Alan Scudder">
+        <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--35.jpg" alt="Jeffrey Alan Scudder">
+        <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--42.jpg" alt="Jeffrey Alan Scudder">
+        <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--48.jpg" alt="Jeffrey Alan Scudder">
         <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--55.jpg" alt="Jeffrey Alan Scudder">
       </div>
       <h1>Jeffrey Alan Scudder</h1>
       <div class="tagline">Painter &middot; b. 1989, Assonet, MA</div>
     </div>
-
-    <section>
-      <h2>Selected Works</h2>
-      <ul>
-        <li><span class="year">2026&ndash;</span> <a href="https://justanothersystem.org">Stretched Paintings</a>, ongoing</li>
-        <li><span class="year">2023</span> <a href="https://wild.xyz/jeffrey-scudder/hell-world">hell_ world</a>, Wild.xyz</li>
-        <li><span class="year">2022</span> <a href="https://rhizome.org/events/the-longest-whistlegraph/">The Longest Whistlegraph Ever (so far)</a>, New Museum / Rhizome</li>
-        <li><span class="year">2022</span> <a href="https://feralfile.com/exhibitions/ten-whistlegraphs-thv">Ten Whistlegraphs</a>, Feral File</li>
-        <li><span class="year">2018</span> <a href="https://johannesvogt.nyc/jeffrey-scudder-and-julia-yerger-radical-digital-paintings/">Radical Digital Painting</a> (w/ Julia Yerger), Johannes Vogt Gallery</li>
-        <li><span class="year">2014</span> <a href="https://nopaint.art">No Paint</a></li>
-      </ul>
-    </section>
 
     <section>
       <h2>Bio</h2>
@@ -503,12 +492,31 @@
 
   <script>
     (function () {
-      const kbAnims = ['kb-zoom-in', 'kb-zoom-out', 'kb-pan-right', 'kb-pan-left', 'kb-zoom-center'];
+      // Reuse give.aesthetic.computer headshot focal data so faces stay centered.
+      const headshotsData = {
+        'jeffery-av--05.jpg': { focal: [50, 35], pois: [{ t: 'f', box: [30, 15, 40, 40] }], aspect: 0.667, src: 'headshots' },
+        'jeffery-av--12.jpg': { focal: [50, 35], pois: [{ t: 'f', box: [30, 15, 40, 40] }], aspect: 0.667, src: 'headshots' },
+        'jeffery-av--20.jpg': { focal: [50, 35], pois: [{ t: 'f', box: [30, 15, 40, 40] }], aspect: 0.667, src: 'headshots' },
+        'jeffery-av--28.jpg': { focal: [50, 35], pois: [{ t: 'f', box: [30, 15, 40, 40] }], aspect: 0.667, src: 'headshots' },
+        'jeffery-av--35.jpg': { focal: [50, 35], pois: [{ t: 'f', box: [30, 15, 40, 40] }], aspect: 0.667, src: 'headshots' },
+        'jeffery-av--42.jpg': { focal: [50, 35], pois: [{ t: 'f', box: [30, 15, 40, 40] }], aspect: 0.667, src: 'headshots' },
+        'jeffery-av--48.jpg': { focal: [50, 35], pois: [{ t: 'f', box: [30, 15, 40, 40] }], aspect: 0.667, src: 'headshots' },
+        'jeffery-av--55.jpg': { focal: [50, 35], pois: [{ t: 'f', box: [30, 15, 40, 40] }], aspect: 0.667, src: 'headshots' },
+      };
+      const defaultFocal = [50, 35];
+      const kbAnims = ['kb-zoom-center', 'kb-zoom-in', 'kb-zoom-out'];
       const duration = 6000; // ms per slide
       const fadeDuration = 1500; // ms (matches CSS transition)
       const slideshow = document.getElementById('heroSlideshow');
       const slides = Array.from(slideshow.querySelectorAll('img'));
       let current = 0;
+
+      slides.forEach((img) => {
+        const filename = img.src.split('/').pop() || '';
+        const data = headshotsData[filename];
+        const focal = Array.isArray(data?.focal) ? data.focal : defaultFocal;
+        img.style.objectPosition = `${focal[0]}% ${focal[1]}%`;
+      });
 
       function applyKenBurns(img, animName) {
         img.style.animation = 'none';
