@@ -20,6 +20,7 @@
 #   --iso <path>      Use local ISO instead of downloading
 #   --image <path>    Build a bootable disk image file (.img)
 #   --image-size <g>  Image size in GiB (default: 16)
+#   --base-image      Build base image without a specific piece (placeholder only)
 #   --density <n>     Default pack/runtime density query value (default: 8)
 #   --work-base <dir> Directory for large temp work files (default: /tmp)
 #   --no-eject        Don't eject when done
@@ -98,6 +99,7 @@ IMAGE_SIZE_GB="16"
 WORK_BASE="/tmp"
 DO_EJECT=true
 SKIP_CONFIRM=false
+BASE_IMAGE_MODE=false
 PACK_DENSITY="$PACK_DENSITY_DEFAULT"
 
 while [ $# -gt 0 ]; do
@@ -108,6 +110,7 @@ while [ $# -gt 0 ]; do
     --image-size) IMAGE_SIZE_GB="$2"; shift 2 ;;
     --density) PACK_DENSITY="$2"; shift 2 ;;
     --work-base) WORK_BASE="$2"; shift 2 ;;
+    --base-image) BASE_IMAGE_MODE=true; shift ;;
     --no-eject) DO_EJECT=false; shift ;;
     --yes) SKIP_CONFIRM=true; shift ;;
     --help|-h) usage ;;
@@ -116,7 +119,11 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-[ -n "$PIECE_CODE" ] || { echo -e "${RED}Error: No piece code specified${NC}"; usage; }
+if [ "$BASE_IMAGE_MODE" = true ]; then
+  [ -n "$PIECE_CODE" ] || PIECE_CODE="__base__"
+else
+  [ -n "$PIECE_CODE" ] || { echo -e "${RED}Error: No piece code specified${NC}"; usage; }
+fi
 [ -n "$DEVICE" ] || [ -n "$IMAGE_PATH" ] || {
   echo -e "${RED}Error: Specify a USB device and/or --image path${NC}"
   usage
@@ -182,43 +189,55 @@ echo ""
 # ══════════════════════════════════════════
 # Step 1: Fetch piece bundle from oven
 # ══════════════════════════════════════════
-echo -e "${CYAN}[1/6] Fetching piece bundle: ${PIECE_CODE}...${NC}"
-
 BUNDLE_PATH="$WORK_DIR/piece.html"
-HTTP_CODE="000"
-USED_ENDPOINT=""
-USED_MODE=""
 
-if [[ "$PIECE_CODE" == \$* ]]; then
-  BUNDLE_MODES=(code piece)
+if [ "$BASE_IMAGE_MODE" = true ]; then
+  echo -e "${CYAN}[1/6] Base image mode — generating placeholder piece...${NC}"
+  cat > "$BUNDLE_PATH" << 'PLACEHOLDER_EOF'
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>FedAC Base</title></head>
+<body style="background:#000;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:monospace">
+<p>No piece loaded. Build with aesthetic.computer/os</p>
+</body></html>
+PLACEHOLDER_EOF
+  echo -e "  ${GREEN}Placeholder piece.html generated${NC}"
 else
-  BUNDLE_MODES=(piece code)
-fi
+  echo -e "${CYAN}[1/6] Fetching piece bundle: ${PIECE_CODE}...${NC}"
 
-for endpoint in "$OVEN_PACK_URL" "$OVEN_BUNDLE_URL"; do
-  for mode in "${BUNDLE_MODES[@]}"; do
-    BUNDLE_URL="${endpoint}?${mode}=${PIECE_CODE}&nocompress=1&density=${PACK_DENSITY}"
-    echo -e "  URL: $BUNDLE_URL"
-    HTTP_CODE="$(curl -s -o "$BUNDLE_PATH" -w "%{http_code}" "$BUNDLE_URL" || echo "000")"
-    if [ "$HTTP_CODE" = "200" ]; then
-      USED_ENDPOINT="$endpoint"
-      USED_MODE="$mode"
-      break 2
-    fi
-    echo -e "  ${YELLOW}${mode} via ${endpoint##*/} failed (HTTP ${HTTP_CODE})${NC}"
+  HTTP_CODE="000"
+  USED_ENDPOINT=""
+  USED_MODE=""
+
+  if [[ "$PIECE_CODE" == \$* ]]; then
+    BUNDLE_MODES=(code piece)
+  else
+    BUNDLE_MODES=(piece code)
+  fi
+
+  for endpoint in "$OVEN_PACK_URL" "$OVEN_BUNDLE_URL"; do
+    for mode in "${BUNDLE_MODES[@]}"; do
+      BUNDLE_URL="${endpoint}?${mode}=${PIECE_CODE}&nocompress=1&density=${PACK_DENSITY}"
+      echo -e "  URL: $BUNDLE_URL"
+      HTTP_CODE="$(curl -s -o "$BUNDLE_PATH" -w "%{http_code}" "$BUNDLE_URL" || echo "000")"
+      if [ "$HTTP_CODE" = "200" ]; then
+        USED_ENDPOINT="$endpoint"
+        USED_MODE="$mode"
+        break 2
+      fi
+      echo -e "  ${YELLOW}${mode} via ${endpoint##*/} failed (HTTP ${HTTP_CODE})${NC}"
+    done
   done
-done
 
-if [ "$HTTP_CODE" != "200" ]; then
-  echo -e "${RED}Failed to fetch bundle (HTTP $HTTP_CODE)${NC}"
-  echo "  Tried pack-html and bundle-html with code/piece modes."
-  echo "  Check that '$PIECE_CODE' is a valid piece code/piece slug."
-  exit 1
+  if [ "$HTTP_CODE" != "200" ]; then
+    echo -e "${RED}Failed to fetch bundle (HTTP $HTTP_CODE)${NC}"
+    echo "  Tried pack-html and bundle-html with code/piece modes."
+    echo "  Check that '$PIECE_CODE' is a valid piece code/piece slug."
+    exit 1
+  fi
+
+  BUNDLE_SIZE=$(stat -c%s "$BUNDLE_PATH")
+  echo -e "  ${GREEN}Bundle fetched: $(numfmt --to=iec $BUNDLE_SIZE)${NC}"
+  echo -e "  ${GREEN}Source: ${USED_ENDPOINT##*/} (${USED_MODE}), density=${PACK_DENSITY}${NC}"
 fi
-
-BUNDLE_SIZE=$(stat -c%s "$BUNDLE_PATH")
-echo -e "  ${GREEN}Bundle fetched: $(numfmt --to=iec $BUNDLE_SIZE)${NC}"
-echo -e "  ${GREEN}Source: ${USED_ENDPOINT##*/} (${USED_MODE}), density=${PACK_DENSITY}${NC}"
 
 # Quick sanity check — bundle should contain HTML
 if ! head -1 "$BUNDLE_PATH" | grep -qi "<!DOCTYPE\|<html"; then
@@ -333,6 +352,16 @@ cat > "$PROFILE/chrome/userChrome.css" << 'CHROMEEOF'
   max-height: 0 !important;
 }
 CHROMEEOF
+
+# Check for piece on FEDAC-PIECE partition (overlay for base images)
+PIECE_PART=$(blkid -L FEDAC-PIECE 2>/dev/null || true)
+if [ -n "$PIECE_PART" ]; then
+  mkdir -p /mnt/piece
+  mount -o ro "$PIECE_PART" /mnt/piece 2>/dev/null || true
+  if [ -f /mnt/piece/piece.html ]; then
+    ln -sf /mnt/piece/piece.html /usr/local/share/kiosk/piece.html
+  fi
+fi
 
 # Paint PALS logo to framebuffer (visible during PipeWire/cage startup)
 if [ -x /usr/local/bin/pals-fb-splash ]; then
@@ -868,13 +897,21 @@ build_target() {
     umount "$part" 2>/dev/null || true
   done
 
-  # Wipe and partition: 400MB FAT32 EFI + rest ext4
+  # Wipe and partition: 400MB FAT32 EFI + main ext4 + 20MB FEDAC-PIECE
   echo -e "  Creating partition table on ${label}..."
   wipefs -a "$target" >/dev/null 2>&1
+  # Compute LIVE partition end to avoid negative offsets (which confuse
+  # parted on some versions / loop devices).
+  local dev_bytes
+  dev_bytes=$(blockdev --getsize64 "$target" 2>/dev/null || stat -c%s "$target" 2>/dev/null)
+  local dev_mib=$((dev_bytes / 1048576))
+  local live_end=$((dev_mib - 20))  # leave 20 MiB for PIECE partition
+
   parted -s "$target" mklabel gpt
   parted -s "$target" mkpart '"EFI"' fat32 1MiB 401MiB
   parted -s "$target" set 1 esp on
-  parted -s "$target" mkpart '"LIVE"' ext4 401MiB 100%
+  parted -s "$target" mkpart '"LIVE"' ext4 401MiB "${live_end}MiB"
+  parted -s "$target" mkpart '"PIECE"' ext4 "${live_end}MiB" 100%
 
   sleep 2
   partprobe "$target" 2>/dev/null || true
@@ -883,13 +920,26 @@ build_target() {
   # Detect partition names
   local p1="${target}1"
   local p2="${target}2"
+  local p3="${target}3"
   [ -b "$p1" ] || p1="${target}p1"
   [ -b "$p2" ] || p2="${target}p2"
+  [ -b "$p3" ] || p3="${target}p3"
 
   # Format
   mkfs.vfat -F 32 -n BOOT "$p1" >/dev/null
   mkfs.ext4 -L FEDAC-LIVE -q "$p2"
-  echo -e "  ${GREEN}${label}: partitions created${NC}"
+  mkfs.ext4 -L FEDAC-PIECE -q "$p3"
+  echo -e "  ${GREEN}${label}: partitions created (EFI + LIVE + PIECE)${NC}"
+
+  # Write piece.html to FEDAC-PIECE partition
+  local PIECE_MOUNT
+  PIECE_MOUNT=$(mktemp -d /tmp/fedac-piece-XXXX)
+  mount "$p3" "$PIECE_MOUNT"
+  cp "$BUNDLE_PATH" "$PIECE_MOUNT/piece.html"
+  sync
+  umount "$PIECE_MOUNT"
+  rmdir "$PIECE_MOUNT"
+  echo -e "  ${GREEN}${label}: piece.html written to FEDAC-PIECE${NC}"
 
   # Flash EROFS
   LIVE_MOUNT=$(mktemp -d /tmp/fedac-live-XXXX)
@@ -987,6 +1037,36 @@ fi
 echo -e "${CYAN}[6/6] Finalizing...${NC}"
 sync
 
+# Generate manifest for base images (used by oven /os endpoint)
+if [ "$BASE_IMAGE_MODE" = true ] && [ -n "$IMAGE_PATH" ] && [ -f "$IMAGE_PATH" ]; then
+  MANIFEST_PATH="${IMAGE_PATH%.img}-manifest.json"
+  IMG_SIZE=$(stat -c%s "$IMAGE_PATH")
+  IMG_SHA256=$(sha256sum "$IMAGE_PATH" | awk '{print $1}')
+  # Get FEDAC-PIECE partition offset from the loop device or image
+  PIECE_OFFSET=$(python3 -c "
+import subprocess, json, re
+out = subprocess.check_output(['fdisk', '-l', '$IMAGE_PATH'], text=True)
+for line in out.splitlines():
+    if 'PIECE' in line or line.strip().endswith('Linux filesystem') and '3' in line.split()[0]:
+        # Sector-based offset: start_sector * 512
+        parts = line.split()
+        print(int(parts[1]) * 512)
+        break
+" 2>/dev/null || echo "0")
+  PIECE_SIZE=$((20 * 1024 * 1024))
+  cat > "$MANIFEST_PATH" << MANIFEST_EOF
+{
+  "version": "$(date +%Y-%m-%d)",
+  "fedora": "${FEDORA_RELEASE}",
+  "piecePartitionOffset": ${PIECE_OFFSET},
+  "piecePartitionSize": ${PIECE_SIZE},
+  "totalSize": ${IMG_SIZE},
+  "sha256": "${IMG_SHA256}"
+}
+MANIFEST_EOF
+  echo -e "  ${GREEN}Manifest written: ${MANIFEST_PATH}${NC}"
+fi
+
 if [ "$DO_EJECT" = true ] && [ -n "$DEVICE" ]; then
   eject "$DEVICE" 2>/dev/null || true
   echo -e "  ${GREEN}Ejected${NC}"
@@ -1010,6 +1090,14 @@ echo ""
 if [ -n "$IMAGE_PATH" ]; then
   echo -e "Image:"
   echo -e "  ${CYAN}${IMAGE_PATH}${NC}"
+  if [ "$BASE_IMAGE_MODE" = true ]; then
+    echo -e "Manifest:"
+    echo -e "  ${CYAN}${MANIFEST_PATH}${NC}"
+    echo ""
+    echo -e "Upload to DO Spaces for oven /os endpoint:"
+    echo -e "  ${YELLOW}aws s3 cp ${IMAGE_PATH} s3://assets-aesthetic-computer/os/fedac-base-latest.img --endpoint-url https://sfo3.digitaloceanspaces.com --acl public-read${NC}"
+    echo -e "  ${YELLOW}aws s3 cp ${MANIFEST_PATH} s3://assets-aesthetic-computer/os/fedac-base-manifest.json --endpoint-url https://sfo3.digitaloceanspaces.com --acl public-read${NC}"
+  fi
 fi
 if [ -n "$DEVICE" ]; then
   echo -e "USB:"
