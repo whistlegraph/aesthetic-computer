@@ -19004,6 +19004,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     } else if (data instanceof Blob) {
       // Generic binary blob (e.g. .amxd or other unknown types)
       object = URL.createObjectURL(data);
+    } else if (data instanceof ArrayBuffer || ArrayBuffer.isView(data)) {
+      // Binary data sent as ArrayBuffer (e.g. from worker postMessage)
+      object = URL.createObjectURL(new Blob([data], { type: MIME }));
+    } else if (data) {
+      // Last resort: wrap whatever data we have in a blob
+      object = URL.createObjectURL(new Blob([data], { type: MIME }));
     }
 
     // Fetch download url from `/presigned-download-url?for=${filename}` if we
