@@ -75,10 +75,12 @@ export class Keyboard {
       // Skip sending most keyboard events from here if we are using text input
       // which generates a synthetic keyboard event back
       //  in `bios` under `Keyboard`
+      const mediaKey = isMediaKey(e.key);
       if (
         document.activeElement === this.input &&
         // Remaps "Unidentified" to "Backspace" below, avoiding `Enter` code.
         //(MetaBrowser && e.which !== 13) &&
+        !mediaKey &&
         e.key !== "Unidentified" &&
         e.key !== "Escape" &&
         e.key !== "Delete" &&
@@ -146,4 +148,9 @@ function parseKey(key) {
   let parsedKey = key.toLowerCase();
   if (parsedKey === " ") parsedKey = "space";
   return parsedKey;
+}
+
+function isMediaKey(key) {
+  if (!key) return false;
+  return key.startsWith("Media") || key.startsWith("AudioVolume");
 }
