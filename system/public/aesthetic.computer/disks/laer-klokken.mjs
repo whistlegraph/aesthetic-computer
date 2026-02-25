@@ -50,6 +50,7 @@ function paint($) {
       kidlispHover: [255, 240, 120], // Bright golden yellow on hover
       timestamp: [220, 180, 150], // Much brighter/lighter brown for timestamps
       timestampHover: [255, 240, 120], // Bright golden yellow on hover
+      heart: [255, 220, 240], // Light pink — pops on warm rust background
     }
   });
 }
