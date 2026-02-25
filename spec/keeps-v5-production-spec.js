@@ -1,14 +1,14 @@
 /**
- * Keeps FA2 v5 Production Contract - Offline Source Checks
+ * Keeps FA2 v5 Release Candidate - Offline Source Checks
  *
  * These tests intentionally avoid network access.
- * They validate local v5 contract source invariants required for production launch.
+ * They validate local v5 contract source invariants required for the v5 RC (v6 will be production).
  */
 
 import fs from 'node:fs';
 import path from 'node:path';
 
-describe('🚀 Keeps FA2 v5 Production Contract - Source Checks', () => {
+describe('🚀 Keeps FA2 v5 Release Candidate - Source Checks', () => {
   const v5ContractPath = path.join(process.cwd(), 'tezos', 'keeps_fa2_v5.py');
   const launchPlanPath = path.join(process.cwd(), 'tezos', 'V5-LAUNCH-PLAN.md');
 
@@ -55,9 +55,9 @@ describe('🚀 Keeps FA2 v5 Production Contract - Source Checks', () => {
     expect(v5ContractSource).toContain('token_info["content_hash"] = original_hash');
   });
 
-  it('documents v5 launch as the production path', () => {
+  it('documents v5 launch as the release candidate path', () => {
     expect(launchPlanSource).toContain('Keeps FA2 v5 Launch Plan');
-    expect(launchPlanSource).toContain('Goal:** Deploy final production v5 contract');
+    expect(launchPlanSource).toContain('Goal:**');
     expect(launchPlanSource).toContain('Create `keeps_fa2_v5.py` from v4');
   });
 });

@@ -1264,9 +1264,9 @@
           </div>
 
           <p style="margin-bottom: 24px; color: var(--text-secondary); line-height: 1.6;">
-            The Keeps FA2 v5 contract is the final production release. It preserves all v4 features
+            The Keeps FA2 v5 contract is the release candidate. It preserves all v4 features
             and adds a 2.5 XTZ default minting fee, immutable content_hash protection during metadata edits,
-            and improved error messages.
+            and improved error messages. V6 will be the production release.
           </p>
 
           <div style="margin-bottom: 32px;">
@@ -1638,7 +1638,7 @@
         <div style="padding: 16px; margin-top: 24px; background: var(--bg-secondary); border-radius: 8px; border-left: 4px solid var(--ac-purple);">
           <h4 style="margin: 0 0 8px; color: var(--text-primary); font-size: 16px; font-weight: 600;">Version History</h4>
           <ul style="margin: 8px 0; padding-left: 20px; color: var(--text-secondary); line-height: 1.8;">
-            <li><strong>v5.0</strong> - Default 2.5 XTZ fee, immutable content_hash during edits, improved error messages</li>
+            <li><strong>v5.0 RC</strong> - Default 2.5 XTZ fee, immutable content_hash during edits, improved error messages</li>
             <li><strong>v4.0</strong> - Added royalty support, emergency pause/unpause, admin_transfer</li>
             <li><strong>v3.0</strong> - Added editable metadata (owner/creator), creator tracking</li>
             <li><strong>v2.0</strong> - Content hash deduplication, metadata locking, fee system</li>
@@ -1706,8 +1706,7 @@
   <!-- FOOTER -->
   <footer class="keeps-footer">
     <a href="https://kidlisp.com">kidlisp.com</a> &middot;
-    <a href="https://aesthetic.computer" target="_blank">Aesthetic<span class="ac-dot">.</span>Computer</a> &middot;
-    Permanent code storage &mdash; a castle full of keeps.
+    <a href="https://aesthetic.computer" target="_blank">Aesthetic<span class="ac-dot">.</span>Computer</a>
   </footer>
 
   <script>
@@ -1994,18 +1993,37 @@
     });
 
     // Tab switching
+    function switchTab(tabName) {
+      const tabBtn = document.querySelector(`.keeps-tab[data-tab="${tabName}"]`);
+      if (!tabBtn) return;
+      document.querySelectorAll('.keeps-tab').forEach(t => t.classList.remove('active'));
+      tabBtn.classList.add('active');
+      document.querySelectorAll('.keeps-tab-content').forEach(content => content.classList.remove('active'));
+      document.getElementById(`tab-${tabName}`).classList.add('active');
+    }
+
     document.querySelectorAll('.keeps-tab').forEach(tab => {
       tab.addEventListener('click', () => {
         const tabName = tab.dataset.tab;
-
-        // Update active tab button
-        document.querySelectorAll('.keeps-tab').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-
-        // Update active tab content
-        document.querySelectorAll('.keeps-tab-content').forEach(content => content.classList.remove('active'));
-        document.getElementById(`tab-${tabName}`).classList.add('active');
+        switchTab(tabName);
+        const path = tabName === 'index' ? '/' : `/${tabName}`;
+        history.pushState({ tab: tabName }, '', path);
       });
+    });
+
+    // Route from URL path on load (e.g. /about, /docs)
+    const pathTab = location.pathname.replace(/^\/+/, '').split('/')[0];
+    if (pathTab && ['about', 'docs'].includes(pathTab)) {
+      switchTab(pathTab);
+    }
+
+    // Handle browser back/forward
+    window.addEventListener('popstate', (e) => {
+      if (e.state && e.state.tab) {
+        switchTab(e.state.tab);
+      } else {
+        switchTab('index');
+      }
     });
 
     // Version dropdown switching (inside Docs tab)

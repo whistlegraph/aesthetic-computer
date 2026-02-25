@@ -1143,6 +1143,11 @@ to = "/kidlisp.com/keeps.html"
 status = 200
 force = true
 [[redirects]]
+from = "https://keeps.kidlisp.com/api/*"
+to = "/api/:splat"
+status = 200
+force = true
+[[redirects]]
 from = "https://keeps.kidlisp.com/*"
 to = "/kidlisp.com/keeps.html"
 status = 200
