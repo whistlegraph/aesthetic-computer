@@ -13,6 +13,11 @@ PROFILE="/home/liveuser/.mozilla/firefox/kiosk"
 
 exec > /tmp/kiosk.log 2>&1
 
+# Paint PALS logo to framebuffer (visible during PipeWire/cage startup)
+if [ -x /usr/local/bin/pals-fb-splash ]; then
+  /usr/local/bin/pals-fb-splash 2>/dev/null || true
+fi
+
 # Start PipeWire audio stack (cage doesn't launch a full desktop session).
 mkdir -p "$XDG_RUNTIME_DIR"
 if command -v pipewire >/dev/null 2>&1; then

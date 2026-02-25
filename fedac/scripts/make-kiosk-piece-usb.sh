@@ -334,6 +334,11 @@ cat > "$PROFILE/chrome/userChrome.css" << 'CHROMEEOF'
 }
 CHROMEEOF
 
+# Paint PALS logo to framebuffer (visible during PipeWire/cage startup)
+if [ -x /usr/local/bin/pals-fb-splash ]; then
+  /usr/local/bin/pals-fb-splash 2>/dev/null || true
+fi
+
 # Start PipeWire audio stack (cage doesn't launch a full desktop session).
 # PipeWire needs XDG_RUNTIME_DIR which we set above.
 mkdir -p "$XDG_RUNTIME_DIR"
@@ -654,8 +659,189 @@ mkfs.erofs -zlzma -C65536 "$EROFS_PATH" "$ROOTFS_DIR/"
 EROFS_SIZE=$(stat -c%s "$EROFS_PATH")
 echo -e "  ${GREEN}EROFS built: $(numfmt --to=iec $EROFS_SIZE)${NC}"
 
-# Build initrd with PALS Plymouth theme
-echo -e "  Building initrd with PALS Plymouth..."
+# ── Framebuffer splash: paint PALS logo to /dev/fb0 ──────────────────
+# Pre-convert PALS PNG → raw BGRA for fast framebuffer blitting.
+# This is used both in the initrd (pre-Plymouth) and in kiosk-session.sh.
+PALS_FB_DIR="$ROOTFS_DIR/usr/local/share/pals-fb"
+mkdir -p "$PALS_FB_DIR"
+
+if [ -f "$REPO_ROOT/fedac/plymouth/pals.png" ]; then
+  python3 - "$REPO_ROOT/fedac/plymouth/pals.png" "$PALS_FB_DIR/logo.bgra" << 'PYEOF'
+import struct, sys, zlib
+
+def read_png(path):
+    """Minimal PNG reader → RGBA pixels. No PIL needed."""
+    with open(path, 'rb') as f:
+        sig = f.read(8)
+        assert sig == b'\x89PNG\r\n\x1a\n', "Not a PNG"
+        chunks = {}
+        idat = b''
+        while True:
+            hdr = f.read(8)
+            if len(hdr) < 8: break
+            length = struct.unpack('>I', hdr[:4])[0]
+            ctype = hdr[4:8]
+            data = f.read(length)
+            f.read(4)  # crc
+            if ctype == b'IHDR':
+                w, h, bd, ct = struct.unpack('>IIBB', data[:10])
+                chunks['IHDR'] = (w, h, bd, ct)
+            elif ctype == b'IDAT':
+                idat += data
+            elif ctype == b'IEND':
+                break
+    w, h, bd, ct = chunks['IHDR']
+    raw = zlib.decompress(idat)
+    # ct=6 is RGBA, ct=2 is RGB
+    bpp = 4 if ct == 6 else 3
+    stride = 1 + w * bpp  # filter byte + pixel data
+    pixels = bytearray(w * h * 4)
+    prev_row = bytearray(w * bpp)
+    for y in range(h):
+        off = y * stride
+        filt = raw[off]
+        row = bytearray(raw[off+1:off+1+w*bpp])
+        if filt == 1:  # Sub
+            for i in range(bpp, len(row)): row[i] = (row[i] + row[i-bpp]) & 0xFF
+        elif filt == 2:  # Up
+            for i in range(len(row)): row[i] = (row[i] + prev_row[i]) & 0xFF
+        elif filt == 3:  # Average
+            for i in range(len(row)):
+                a = row[i-bpp] if i >= bpp else 0
+                row[i] = (row[i] + (a + prev_row[i]) // 2) & 0xFF
+        elif filt == 4:  # Paeth
+            for i in range(len(row)):
+                a = row[i-bpp] if i >= bpp else 0
+                b = prev_row[i]
+                c = prev_row[i-bpp] if i >= bpp else 0
+                p = a + b - c
+                pa, pb, pc = abs(p-a), abs(p-b), abs(p-c)
+                pr = a if pa <= pb and pa <= pc else (b if pb <= pc else c)
+                row[i] = (row[i] + pr) & 0xFF
+        for x in range(w):
+            si = x * bpp
+            r, g, b_val = row[si], row[si+1], row[si+2]
+            a = row[si+3] if bpp == 4 else 255
+            di = (y * w + x) * 4
+            pixels[di:di+4] = bytes([r, g, b_val, a])
+        prev_row = row
+    return w, h, bytes(pixels)
+
+src, dst = sys.argv[1], sys.argv[2]
+w, h, rgba = read_png(src)
+# Convert RGBA → BGRA for Linux framebuffer
+bgra = bytearray(len(rgba))
+for i in range(0, len(rgba), 4):
+    bgra[i]   = rgba[i+2]  # B
+    bgra[i+1] = rgba[i+1]  # G
+    bgra[i+2] = rgba[i]    # R
+    bgra[i+3] = rgba[i+3]  # A
+with open(dst, 'wb') as f:
+    f.write(struct.pack('<II', w, h))  # 8-byte header: width, height (LE)
+    f.write(bgra)
+print(f"Converted {w}x{h} PNG → BGRA ({len(bgra)+8} bytes)")
+PYEOF
+fi
+
+# Framebuffer splash script (used in initrd hook AND kiosk-session.sh)
+cat > "$ROOTFS_DIR/usr/local/bin/pals-fb-splash" << 'FBEOF'
+#!/usr/bin/python3
+"""Paint PALS logo centered on dark purple to /dev/fb0."""
+import os, struct, sys
+
+LOGO_PATH = "/usr/local/share/pals-fb/logo.bgra"
+BG_COLOR = (0x2e, 0x0a, 0x1a, 0xFF)  # BGRA for #1a0a2e
+
+def main():
+    if not os.path.exists("/dev/fb0"):
+        return
+    try:
+        sz = open("/sys/class/graphics/fb0/virtual_size").read().strip().split(",")
+        sw, sh = int(sz[0]), int(sz[1])
+    except Exception:
+        return
+    bpp_bits = 32
+    try:
+        bpp_bits = int(open("/sys/class/graphics/fb0/bits_per_pixel").read().strip())
+    except Exception:
+        pass
+    if bpp_bits != 32:
+        return
+    stride = sw * 4
+
+    # Fill screen with dark purple
+    row = bytes(BG_COLOR) * sw
+    with open("/dev/fb0", "wb") as fb:
+        for _ in range(sh):
+            fb.write(row)
+
+    # Blit PALS logo centered
+    if not os.path.exists(LOGO_PATH):
+        return
+    with open(LOGO_PATH, "rb") as f:
+        lw, lh = struct.unpack("<II", f.read(8))
+        logo_data = f.read()
+
+    ox = max(0, (sw - lw) // 2)
+    oy = max(0, (sh - lh) // 2)
+
+    with open("/dev/fb0", "r+b") as fb:
+        for y in range(lh):
+            if oy + y >= sh:
+                break
+            fb.seek((oy + y) * stride + ox * 4)
+            src_off = y * lw * 4
+            row_data = logo_data[src_off:src_off + lw * 4]
+            # Alpha-blend each pixel over background
+            blended = bytearray(len(row_data))
+            for x in range(lw):
+                if ox + x >= sw:
+                    break
+                pi = x * 4
+                b, g, r, a = row_data[pi], row_data[pi+1], row_data[pi+2], row_data[pi+3]
+                if a == 255:
+                    blended[pi:pi+4] = bytes([b, g, r, 255])
+                elif a == 0:
+                    blended[pi:pi+4] = bytes(BG_COLOR)
+                else:
+                    inv = 255 - a
+                    blended[pi]   = (b * a + BG_COLOR[0] * inv + 127) // 255
+                    blended[pi+1] = (g * a + BG_COLOR[1] * inv + 127) // 255
+                    blended[pi+2] = (r * a + BG_COLOR[2] * inv + 127) // 255
+                    blended[pi+3] = 255
+            fb.write(blended[:min(lw, sw - ox) * 4])
+
+if __name__ == "__main__":
+    main()
+FBEOF
+chmod +x "$ROOTFS_DIR/usr/local/bin/pals-fb-splash"
+
+# Create dracut module for early fb splash (runs before Plymouth)
+DRACUT_MOD="$ROOTFS_DIR/usr/lib/dracut/modules.d/00pals-fb"
+mkdir -p "$DRACUT_MOD"
+cat > "$DRACUT_MOD/module-setup.sh" << 'DRACEOF'
+#!/bin/bash
+check() { return 0; }
+depends() { return 0; }
+install() {
+    inst_simple /usr/local/bin/pals-fb-splash
+    inst_simple /usr/local/share/pals-fb/logo.bgra
+    inst_hook pre-trigger 00 "$moddir/pals-fb-hook.sh"
+}
+DRACEOF
+cat > "$DRACUT_MOD/pals-fb-hook.sh" << 'HOOKEOF'
+#!/bin/sh
+# Paint PALS logo to framebuffer before Plymouth starts.
+# Runs in initrd with minimal environment.
+if [ -x /usr/local/bin/pals-fb-splash ] && [ -e /dev/fb0 ]; then
+    /usr/local/bin/pals-fb-splash 2>/dev/null &
+fi
+HOOKEOF
+chmod +x "$DRACUT_MOD/module-setup.sh" "$DRACUT_MOD/pals-fb-hook.sh"
+echo -e "  ${GREEN}Framebuffer splash installed (initrd + runtime)${NC}"
+
+# Build initrd with PALS Plymouth theme + fb splash
+echo -e "  Building initrd with PALS Plymouth + fb splash..."
 KVER=$(ls "$ROOTFS_DIR/lib/modules/" | head -1)
 
 mount --bind /proc "$ROOTFS_DIR/proc"
@@ -663,7 +849,7 @@ mount --bind /sys "$ROOTFS_DIR/sys"
 mount --bind /dev "$ROOTFS_DIR/dev"
 
 chroot "$ROOTFS_DIR" dracut --force --no-hostonly \
-  --add "dmsquash-live plymouth" \
+  --add "dmsquash-live plymouth pals-fb" \
   /tmp/live-initrd.img "$KVER" 2>/dev/null || true
 
 cp "$ROOTFS_DIR/tmp/live-initrd.img" "$WORK_DIR/initrd"
@@ -671,7 +857,7 @@ cp "$ROOTFS_DIR/boot/vmlinuz-$KVER" "$WORK_DIR/linux"
 rm -f "$ROOTFS_DIR/tmp/live-initrd.img"
 
 umount "$ROOTFS_DIR/proc" "$ROOTFS_DIR/sys" "$ROOTFS_DIR/dev"
-echo -e "  ${GREEN}Initrd built with PALS theme${NC}"
+echo -e "  ${GREEN}Initrd built with PALS theme + fb splash${NC}"
 
 build_target() {
   local target="$1"
