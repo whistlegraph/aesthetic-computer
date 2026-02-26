@@ -1084,7 +1084,15 @@ function generateHTMLBundle(opts) {
     window.acPACK_DATE = "${packDate}";
     window.acPACK_GIT = "${gitVersion}";
     window.acKIDLISP_SOURCE = ${JSON.stringify(mainSource)};
-    ${density ? `window.acPACK_DENSITY = ${density};` : "// No density override"}
+    ${density ? `window.acPACK_DENSITY = ${density};` : `// Smart density: match device.html logic for keep bundles
+    (function() {
+      var sw = window.screen.width * (window.devicePixelRatio || 1);
+      var sh = window.screen.height * (window.devicePixelRatio || 1);
+      var maxDim = Math.max(sw, sh);
+      if (maxDim >= 3840) { window.acPACK_DENSITY = 8; }
+      else if (Math.abs(sw - sh) < 100 && maxDim >= 1000 && maxDim <= 1200) { window.acPACK_DENSITY = 4; }
+      else { window.acPACK_DENSITY = 3; }
+    })();`}
     window.acPACK_COLOPHON = {
       piece: { name: '${PIECE_NAME_NO_DOLLAR}', sourceCode: ${JSON.stringify(mainSource)}, isKidLisp: true },
       build: { author: '${authorHandle}', packTime: ${packTime}, gitCommit: '${gitVersion}', gitIsDirty: false, fileCount: ${Object.keys(files).length}, filename: '${filename}' }
