@@ -86,7 +86,7 @@ export const handler = stream(async (event) => {
       let metadata;
       if (body.ext === "png") {
         type = "paintings";
-      } else if (body.ext === "mjs" || body.ext === "lisp") {
+      } else if (body.ext === "mjs" || body.ext === "lisp" || body.ext === "lua") {
         type = "pieces";
       } else if (body.ext === "zip") {
         type = "tapes";

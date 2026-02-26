@@ -18018,6 +18018,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (ext === "mjs") MIME = "application/javascript";
     if (ext === "lisp") MIME = "text/x-lisp";
+    if (ext === "lua") MIME = "text/x-lua";
 
     if (ext === "obj") MIME = "application/object";
     if (ext === "glb") MIME = "model/gltf-binary";
@@ -18111,6 +18112,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   else if (ext === "zip") mimeType = "application/zip";
   else if (ext === "mjs") mimeType = "application/javascript; charset=utf-8";
   else if (ext === "lisp") mimeType = "text/x-lisp; charset=utf-8";
+  else if (ext === "lua") mimeType = "text/x-lua; charset=utf-8";
   else if (ext === "mp4") mimeType = "video/mp4";
   else if (ext === "json") mimeType = "application/json";
   else if (ext === "gltf") mimeType = "model/gltf+json";

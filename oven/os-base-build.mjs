@@ -394,12 +394,19 @@ async function runBuildJob(job, options = {}, hooks = {}) {
   }
 
   try {
-  job.command = `bash ${args.join(" ")}`;
+  // The build script requires root. The oven user has a sudoers rule:
+  //   oven ALL=(root) NOPASSWD: /usr/bin/bash /opt/oven/fedac/scripts/make-kiosk-piece-usb.sh *
+  // So we spawn via sudo when not already root.
+  const needsSudo = process.getuid?.() !== 0;
+  const spawnCmd = needsSudo ? "sudo" : "bash";
+  const spawnArgs = needsSudo ? ["/usr/bin/bash", ...args] : args;
+
+  job.command = `${needsSudo ? "sudo " : ""}bash ${args.join(" ")}`;
   job.status = "running";
   job.startedAt = nowISO();
   setStage(job, "starting", "Starting base image build...", 1);
 
-  const proc = spawn("bash", args, {
+  const proc = spawn(spawnCmd, spawnArgs, {
     cwd,
     env: {
       ...process.env,

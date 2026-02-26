@@ -2924,9 +2924,9 @@ async function halt($, text) {
       if (serverError) throw new Error(serverError);
       if (!result) throw new Error("No result received from OS build API");
 
-      // Trigger download without opening a new tab.
-      // Content-Disposition: attachment makes the browser download in-place.
-      const downloadUrl = `https://oven.aesthetic.computer/os?${bundleParam}`;
+      // Use CDN URL from SSE result when available (much faster download).
+      // Falls back to oven direct URL which also sets Content-Disposition: attachment.
+      const downloadUrl = result.downloadUrl || `https://oven.aesthetic.computer/os?${bundleParam}`;
       send({ type: "web", content: { url: downloadUrl, blank: false } });
 
       notice(`OS ISO ready for ${displayName} — downloading ~3GB`, ["lime"]);

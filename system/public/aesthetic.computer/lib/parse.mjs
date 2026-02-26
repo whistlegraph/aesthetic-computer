@@ -114,18 +114,18 @@ function parse(text, location = self?.location) {
   // console.log("🐛 parse() called with text:", text);
   let path, host, params, search, hash;
 
-  // Extract remote path from text if it begins with https and ends with `.mjs`.
+  // Extract remote path from text if it begins with https and ends with a known source extension.
   let externalPath;
   if (
     text.startsWith("https") &&
-    (text.endsWith(".mjs") || text.endsWith(".lisp"))
+    (text.endsWith(".mjs") || text.endsWith(".lisp") || text.endsWith(".lua"))
   ) {
     const url = new URL(text);
     location = { hostname: url.hostname, port: url.port };
     externalPath = url.pathname.split("/").slice(0, -1).join("/").slice(1);
     text = text
       .split("https://")[1]
-      .split(/\.mjs|\.lisp/)[0]
+      .split(/\.mjs|\.lisp|\.lua/)[0]
       .split("/")
       .pop();
   }

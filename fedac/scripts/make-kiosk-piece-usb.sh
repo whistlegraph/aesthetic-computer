@@ -444,6 +444,16 @@ fi
 chroot "$ROOTFS_DIR" /usr/sbin/usermod -s /bin/bash liveuser >/dev/null 2>&1 || true
 chroot "$ROOTFS_DIR" /usr/bin/passwd -d liveuser >/dev/null 2>&1 || true
 
+# Ensure PAM allows passwordless autologin for liveuser.
+# Fedora 43 pam_unix.so rejects empty-password accounts unless "nullok" is present.
+# Add nullok to system-auth and password-auth if missing.
+for pamfile in "$ROOTFS_DIR/etc/pam.d/system-auth" "$ROOTFS_DIR/etc/pam.d/password-auth"; do
+  if [ -f "$pamfile" ]; then
+    sed -i '/pam_unix\.so/ { /nullok/! s/pam_unix\.so/pam_unix.so nullok/ }' "$pamfile"
+  fi
+done
+echo -e "  ${GREEN}PAM nullok configured for passwordless autologin${NC}"
+
 # 3d. Hardware volume key daemon — pure Python, reads raw Linux input events.
 # No actkbd or external packages needed. Runs as root, talks to liveuser's PipeWire.
 cat > "$ROOTFS_DIR/usr/local/bin/kiosk-volume-keyd" << 'VKDEOF'

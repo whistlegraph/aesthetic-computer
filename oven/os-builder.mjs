@@ -3,14 +3,18 @@
 // Downloads a pre-baked base image from CDN, injects a piece bundle into
 // the FEDAC-PIECE ext4 partition via debugfs, and streams the result.
 //
+// After building, uploads the finished ISO to DO Spaces CDN so repeat
+// downloads are served at CDN speed (~100+ MB/s) instead of droplet speed.
+//
 // Requires: e2fsprogs (debugfs) installed on the server.
 
 import { promises as fs } from "fs";
 import fsSync from "fs";
 import path from "path";
 import { execSync } from "child_process";
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { createBundle, createJSPieceBundle } from "./bundler.mjs";
+import { S3Client, PutObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 
 // ─── Configuration ──────────────────────────────────────────────────
 
@@ -22,6 +26,77 @@ const BASE_IMAGE_URL =
 const MANIFEST_URL =
   process.env.FEDAC_MANIFEST_URL ||
   "https://assets-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/os/fedac-base-manifest.json";
+
+// ─── CDN Cache (DO Spaces) ──────────────────────────────────────────
+// After building an ISO, upload it to Spaces so repeat downloads bypass
+// the droplet entirely and go through the CDN edge network.
+
+const SPACES_REGION = process.env.OS_SPACES_REGION || "us-east-1";
+const SPACES_ENDPOINT =
+  process.env.OS_SPACES_ENDPOINT ||
+  process.env.ART_SPACES_ENDPOINT ||
+  "https://sfo3.digitaloceanspaces.com";
+const SPACES_BUCKET = process.env.OS_SPACES_BUCKET || "assets-aesthetic-computer";
+const SPACES_CDN_BASE = (
+  process.env.OS_SPACES_CDN_BASE ||
+  "https://assets-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com"
+).replace(/\/+$/, "");
+const SPACES_PREFIX = "os/builds";
+
+function getSpacesClient() {
+  const accessKeyId = process.env.OS_SPACES_KEY || process.env.ART_SPACES_KEY;
+  const secretAccessKey = process.env.OS_SPACES_SECRET || process.env.ART_SPACES_SECRET;
+  if (!accessKeyId || !secretAccessKey) return null;
+  return new S3Client({
+    region: SPACES_REGION,
+    endpoint: SPACES_ENDPOINT,
+    credentials: { accessKeyId, secretAccessKey },
+  });
+}
+
+function buildCDNKey(target, density, bundleHash, baseVersion) {
+  // e.g. os/builds/notepat-d8-ab12cd34-v2025-02-26.img
+  const safe = String(target).replace(/[^a-zA-Z0-9_-]/g, "_");
+  return `${SPACES_PREFIX}/${safe}-d${density}-${bundleHash}-v${baseVersion}.img`;
+}
+
+function buildCDNUrl(key) {
+  return `${SPACES_CDN_BASE}/${key}`;
+}
+
+// Check if a cached ISO already exists on CDN.
+async function checkCDNCache(key) {
+  const client = getSpacesClient();
+  if (!client) return false;
+  try {
+    await client.send(new HeadObjectCommand({ Bucket: SPACES_BUCKET, Key: key }));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Upload a built ISO to CDN for fast repeat downloads.
+async function uploadToCDN(imagePath, key, target) {
+  const client = getSpacesClient();
+  if (!client) return null;
+  await client.send(
+    new PutObjectCommand({
+      Bucket: SPACES_BUCKET,
+      Key: key,
+      Body: fsSync.createReadStream(imagePath),
+      ContentType: "application/octet-stream",
+      ContentDisposition: `attachment; filename="${target}-os.iso"`,
+      ACL: "public-read",
+      CacheControl: "public, max-age=86400", // 24h — rebuild invalidates via new hash
+    }),
+  );
+  return buildCDNUrl(key);
+}
+
+function hashContent(content) {
+  return createHash("sha256").update(content).digest("hex").slice(0, 8);
+}
 
 // Concurrency limit — each build copies ~3GB, so cap parallel builds.
 const MAX_CONCURRENT_BUILDS = 2;
@@ -638,7 +713,7 @@ export async function streamOSImage(res, target, isJSPiece, density, onProgress)
   const tempPartPath = path.join(TEMP_DIR, `fedac-part-${buildId}.img`);
 
   try {
-    // 1. Ensure base image is cached.
+    // 1. Ensure base image is cached + fetch manifest for version tag.
     const baseStart = Date.now();
     const { basePath, manifest } = await ensureBaseImage(onProgress);
     timing.base = Date.now() - baseStart;
@@ -662,7 +737,50 @@ export async function streamOSImage(res, target, isJSPiece, density, onProgress)
       message: `Bundle ready: ${bundleResult.sizeKB}KB (${formatSeconds(timing.bundle)})`,
     });
 
-    // 3. Copy base image to temp.
+    // 2b. Compute bundle hash + CDN key for caching.
+    const bundleHash = hashContent(pieceHtml);
+    const baseVersion = manifest.version || "unknown";
+    const cdnKey = buildCDNKey(target, density, bundleHash, baseVersion);
+
+    // 3. Check CDN cache — skip the entire build if an identical ISO exists.
+    const cacheStart = Date.now();
+    onProgress?.({ stage: "assemble", message: "Checking CDN cache..." });
+    const cdnHit = await checkCDNCache(cdnKey);
+    timing.cacheCheck = Date.now() - cacheStart;
+
+    if (cdnHit) {
+      const cdnUrl = buildCDNUrl(cdnKey);
+      const elapsed = Date.now() - startTime;
+      timing.total = elapsed;
+      onProgress?.({
+        stage: "done",
+        message: `CDN cache hit — redirecting (${formatSeconds(elapsed)})`,
+        cdnUrl,
+        cached: true,
+        timings: timing,
+      });
+
+      recentBuilds.unshift({
+        buildId,
+        target,
+        isJSPiece,
+        density,
+        elapsed,
+        timings: timing,
+        cached: true,
+        cdnUrl,
+        time: new Date().toISOString(),
+      });
+      if (recentBuilds.length > MAX_RECENT) recentBuilds.pop();
+
+      // Redirect to CDN for download (fast edge delivery).
+      if (res) {
+        res.redirect(302, cdnUrl);
+      }
+      return { buildId, elapsed, timings: timing, cdnUrl, cached: true, filename: `${target}-os.iso` };
+    }
+
+    // 4. Copy base image to temp.
     const copyStart = Date.now();
     onProgress?.({ stage: "assemble", message: "Copying base image..." });
     const copyMode = copyBaseImageFast(basePath, tempImagePath);
@@ -671,7 +789,7 @@ export async function streamOSImage(res, target, isJSPiece, density, onProgress)
     }
     timing.copy = Date.now() - copyStart;
 
-    // 4. Extract FEDAC-PIECE partition.
+    // 5. Extract FEDAC-PIECE partition.
     const extractStart = Date.now();
     onProgress?.({
       stage: "assemble",
@@ -680,7 +798,7 @@ export async function streamOSImage(res, target, isJSPiece, density, onProgress)
     extractPartition(tempImagePath, manifest, tempPartPath);
     timing.extract = Date.now() - extractStart;
 
-    // 5. Inject piece-app.html and shell piece.html via debugfs.
+    // 6. Inject piece-app.html and shell piece.html via debugfs.
     const injectStart = Date.now();
     onProgress?.({ stage: "inject", message: "Injecting FedOS shell and piece files..." });
     injectFilesIntoPartition(tempPartPath, {
@@ -689,27 +807,39 @@ export async function streamOSImage(res, target, isJSPiece, density, onProgress)
     });
     timing.inject = Date.now() - injectStart;
 
-    // 6. Write modified partition back.
+    // 7. Write modified partition back.
     const writeStart = Date.now();
     onProgress?.({ stage: "inject", message: "Writing partition back to base image..." });
     writePartitionBack(tempImagePath, manifest, tempPartPath);
     timing.writeBack = Date.now() - writeStart;
 
-    // 7. Stream to client (if res provided).
+    // 8. Upload to CDN in background (don't block the download).
+    const uploadPromise = uploadToCDN(tempImagePath, cdnKey, target)
+      .then((url) => {
+        if (url) console.log(`[os] CDN upload complete: ${url}`);
+        return url;
+      })
+      .catch((err) => {
+        console.error(`[os] CDN upload failed (non-fatal): ${err.message}`);
+        return null;
+      });
+
+    // 9. Stream to client (if res provided).
+    let cdnUrl = null;
     if (res) {
       const streamStart = Date.now();
-      const stat = await fs.stat(tempImagePath);
+      const fileStat = await fs.stat(tempImagePath);
       const filename = `${target}-os.iso`;
       res.set({
         "Content-Type": "application/octet-stream",
         "Content-Disposition": `attachment; filename="${filename}"`,
-        "Content-Length": stat.size,
+        "Content-Length": fileStat.size,
         "Cache-Control": "no-cache",
       });
 
       onProgress?.({
         stage: "stream",
-        message: `Streaming ${Math.round(stat.size / 1024 / 1024)}MB ISO...`,
+        message: `Streaming ${Math.round(fileStat.size / 1024 / 1024)}MB ISO...`,
       });
 
       const readStream = fsSync.createReadStream(tempImagePath);
@@ -725,11 +855,15 @@ export async function streamOSImage(res, target, isJSPiece, density, onProgress)
       timing.stream = Date.now() - streamStart;
     }
 
+    // Wait for CDN upload before cleaning up temp file.
+    cdnUrl = await uploadPromise;
+
     const elapsed = Date.now() - startTime;
     timing.total = elapsed;
     onProgress?.({
       stage: "done",
-      message: `OS ISO ready in ${formatSeconds(elapsed)} (copy ${formatSeconds(timing.copy)}, inject ${formatSeconds(timing.inject)})`,
+      message: `OS ISO ready in ${formatSeconds(elapsed)} (copy ${formatSeconds(timing.copy)}, inject ${formatSeconds(timing.inject)})${cdnUrl ? " — cached to CDN" : ""}`,
+      cdnUrl,
       timings: timing,
     });
 
@@ -740,6 +874,7 @@ export async function streamOSImage(res, target, isJSPiece, density, onProgress)
       density,
       elapsed,
       timings: timing,
+      cdnUrl,
       time: new Date().toISOString(),
     });
     if (recentBuilds.length > MAX_RECENT) recentBuilds.pop();
@@ -748,6 +883,7 @@ export async function streamOSImage(res, target, isJSPiece, density, onProgress)
       buildId,
       elapsed,
       timings: timing,
+      cdnUrl,
       filename: `${target}-os.iso`,
     };
   } finally {
