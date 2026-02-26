@@ -128,13 +128,15 @@ let cachedManifest = null;
 
 async function fetchManifest(onProgress) {
   if (cachedManifest) return cachedManifest;
-  onProgress?.({ stage: "manifest", message: "Fetching base image manifest..." });
+  onProgress?.({ stage: "manifest", message: "Fetching base image manifest...", step: 1, totalSteps: 9 });
   const res = await fetch(MANIFEST_URL);
   if (!res.ok) throw new Error(`Manifest fetch failed: ${res.status}`);
   cachedManifest = await res.json();
   onProgress?.({
     stage: "manifest",
     message: `Base image v${cachedManifest.version}, Fedora ${cachedManifest.fedora}`,
+    step: 1,
+    totalSteps: 9,
   });
   return cachedManifest;
 }
@@ -155,7 +157,7 @@ async function ensureBaseImage(onProgress) {
   try {
     const stat = await fs.stat(basePath);
     if (stat.size === manifest.totalSize) {
-      onProgress?.({ stage: "base", message: "Base image cached and ready" });
+      onProgress?.({ stage: "base", message: "Base image cached and ready", step: 1, totalSteps: 9 });
       return { basePath, manifest };
     }
   } catch {
@@ -163,7 +165,7 @@ async function ensureBaseImage(onProgress) {
   }
 
   // Download base image.
-  onProgress?.({ stage: "base", message: "Downloading base image from CDN..." });
+  onProgress?.({ stage: "base", message: "Downloading base image from CDN...", step: 1, totalSteps: 9 });
   const res = await fetch(BASE_IMAGE_URL);
   if (!res.ok) throw new Error(`Base image download failed: ${res.status}`);
 
@@ -726,15 +728,17 @@ export async function streamOSImage(res, target, isJSPiece, density, onProgress)
 
     // 2. Build piece bundle.
     const bundleStart = Date.now();
-    onProgress?.({ stage: "bundle", message: `Bundling ${target}...` });
+    onProgress?.({ stage: "bundle", message: `Bundling ${target}...`, step: 2, totalSteps: 9 });
     const bundleResult = isJSPiece
-      ? await createJSPieceBundle(target, (p) => onProgress?.({ stage: "bundle", message: p.message }), true, density)
-      : await createBundle(target, (p) => onProgress?.({ stage: "bundle", message: p.message }), true, density);
+      ? await createJSPieceBundle(target, (p) => onProgress?.({ stage: "bundle", message: p.message, step: 2, totalSteps: 9 }), true, density)
+      : await createBundle(target, (p) => onProgress?.({ stage: "bundle", message: p.message, step: 2, totalSteps: 9 }), true, density);
     const pieceHtml = bundleResult.html;
     timing.bundle = Date.now() - bundleStart;
     onProgress?.({
       stage: "bundle",
       message: `Bundle ready: ${bundleResult.sizeKB}KB (${formatSeconds(timing.bundle)})`,
+      step: 2,
+      totalSteps: 9,
     });
 
     // 2b. Compute bundle hash + CDN key for caching.
@@ -744,7 +748,7 @@ export async function streamOSImage(res, target, isJSPiece, density, onProgress)
 
     // 3. Check CDN cache — skip the entire build if an identical ISO exists.
     const cacheStart = Date.now();
-    onProgress?.({ stage: "assemble", message: "Checking CDN cache..." });
+    onProgress?.({ stage: "cache-check", message: "Checking CDN cache...", step: 3, totalSteps: 9 });
     const cdnHit = await checkCDNCache(cdnKey);
     timing.cacheCheck = Date.now() - cacheStart;
 
@@ -758,6 +762,8 @@ export async function streamOSImage(res, target, isJSPiece, density, onProgress)
         cdnUrl,
         cached: true,
         timings: timing,
+        step: 9,
+        totalSteps: 9,
       });
 
       recentBuilds.unshift({
@@ -782,45 +788,71 @@ export async function streamOSImage(res, target, isJSPiece, density, onProgress)
 
     // 4. Copy base image to temp.
     const copyStart = Date.now();
-    onProgress?.({ stage: "assemble", message: "Copying base image..." });
+    onProgress?.({ stage: "copy", message: "Copying base image to workspace...", step: 4, totalSteps: 9 });
     const copyMode = copyBaseImageFast(basePath, tempImagePath);
     if (copyMode === "regular") {
       await fs.copyFile(basePath, tempImagePath);
     }
     timing.copy = Date.now() - copyStart;
+    onProgress?.({
+      stage: "copy",
+      message: `Base image copied (${formatSeconds(timing.copy)}, ${copyMode})`,
+      step: 4,
+      totalSteps: 9,
+    });
 
     // 5. Extract FEDAC-PIECE partition.
     const extractStart = Date.now();
-    onProgress?.({
-      stage: "assemble",
-      message: `Base copy ready (${formatSeconds(timing.copy)}, ${copyMode}) - extracting piece partition...`,
-    });
+    onProgress?.({ stage: "extract", message: "Extracting piece partition from image...", step: 5, totalSteps: 9 });
     extractPartition(tempImagePath, manifest, tempPartPath);
     timing.extract = Date.now() - extractStart;
+    onProgress?.({
+      stage: "extract",
+      message: `Partition extracted (${formatSeconds(timing.extract)})`,
+      step: 5,
+      totalSteps: 9,
+    });
 
     // 6. Inject piece-app.html and shell piece.html via debugfs.
     const injectStart = Date.now();
-    onProgress?.({ stage: "inject", message: "Injecting FedOS shell and piece files..." });
+    onProgress?.({ stage: "inject", message: "Writing piece-app.html into partition via debugfs...", step: 6, totalSteps: 9 });
     injectFilesIntoPartition(tempPartPath, {
       "piece-app.html": pieceHtml,
       "piece.html": buildFedOSShellHTML(target),
     });
     timing.inject = Date.now() - injectStart;
+    onProgress?.({
+      stage: "inject",
+      message: `Piece files injected (${formatSeconds(timing.inject)})`,
+      step: 6,
+      totalSteps: 9,
+    });
 
-    // 7. Write modified partition back.
+    // 7. Write modified partition back into the image.
     const writeStart = Date.now();
-    onProgress?.({ stage: "inject", message: "Writing partition back to base image..." });
+    onProgress?.({ stage: "write-back", message: "Writing modified partition back to image...", step: 7, totalSteps: 9 });
     writePartitionBack(tempImagePath, manifest, tempPartPath);
     timing.writeBack = Date.now() - writeStart;
+    onProgress?.({
+      stage: "write-back",
+      message: `Partition written back (${formatSeconds(timing.writeBack)})`,
+      step: 7,
+      totalSteps: 9,
+    });
 
-    // 8. Upload to CDN in background (don't block the download).
+    // 8. Upload to CDN (concurrent with streaming to client).
+    onProgress?.({ stage: "upload", message: "Uploading ISO to CDN for caching...", step: 8, totalSteps: 9 });
     const uploadPromise = uploadToCDN(tempImagePath, cdnKey, target)
       .then((url) => {
-        if (url) console.log(`[os] CDN upload complete: ${url}`);
+        if (url) {
+          console.log(`[os] CDN upload complete: ${url}`);
+          onProgress?.({ stage: "upload", message: "ISO cached to CDN", step: 8, totalSteps: 9 });
+        }
         return url;
       })
       .catch((err) => {
         console.error(`[os] CDN upload failed (non-fatal): ${err.message}`);
+        onProgress?.({ stage: "upload", message: `CDN upload skipped: ${err.message}`, step: 8, totalSteps: 9 });
         return null;
       });
 
@@ -837,10 +869,8 @@ export async function streamOSImage(res, target, isJSPiece, density, onProgress)
         "Cache-Control": "no-cache",
       });
 
-      onProgress?.({
-        stage: "stream",
-        message: `Streaming ${Math.round(fileStat.size / 1024 / 1024)}MB ISO...`,
-      });
+      const sizeMB = Math.round(fileStat.size / 1024 / 1024);
+      onProgress?.({ stage: "stream", message: `Streaming ${sizeMB}MB ISO to client...`, step: 9, totalSteps: 9 });
 
       const readStream = fsSync.createReadStream(tempImagePath);
       await new Promise((resolve, reject) => {
@@ -862,9 +892,11 @@ export async function streamOSImage(res, target, isJSPiece, density, onProgress)
     timing.total = elapsed;
     onProgress?.({
       stage: "done",
-      message: `OS ISO ready in ${formatSeconds(elapsed)} (copy ${formatSeconds(timing.copy)}, inject ${formatSeconds(timing.inject)})${cdnUrl ? " — cached to CDN" : ""}`,
+      message: `OS ISO ready in ${formatSeconds(elapsed)} (copy ${formatSeconds(timing.copy)}, extract ${formatSeconds(timing.extract)}, inject ${formatSeconds(timing.inject)}, write-back ${formatSeconds(timing.writeBack)})${cdnUrl ? " — cached to CDN" : ""}`,
       cdnUrl,
       timings: timing,
+      step: 9,
+      totalSteps: 9,
     });
 
     recentBuilds.unshift({
