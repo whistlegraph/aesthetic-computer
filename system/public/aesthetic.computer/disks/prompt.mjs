@@ -1508,6 +1508,12 @@ async function halt($, text) {
     // 📰 Jump to News site
     jump(`https://news.aesthetic.computer`);
     return true;
+  } else if (slug === "nela") {
+    // 🏙️ Jump to NELA Computer Club
+    const nelaUrl = "https://nelacomputer.club";
+    if (openExternalFromIframe(nelaUrl)) return true;
+    jump(`out:${nelaUrl}`);
+    return true;
   } else if (slug === "desktop" || slug === "app" || slug === "electron") {
     // 💻 Jump to Desktop app download page
     jump("desktop");

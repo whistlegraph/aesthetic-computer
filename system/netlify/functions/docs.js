@@ -2177,6 +2177,11 @@ end</code></pre>
         desc: "Aesthetic.computer news.",
         done: true,
       },
+      nela: {
+        sig: "nela",
+        desc: "Open NELA Computer Club.",
+        done: true,
+      },
       selfie: {
         sig: "selfie",
         desc: "Open the front camera.",
