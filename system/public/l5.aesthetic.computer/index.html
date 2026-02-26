@@ -361,10 +361,10 @@
         <code>/docs/l5:checklist</code> source so parity reporting stays synchronized.
       </p>
       <div class="actions">
-        <a class="btn" href="/docs/l5:overview">Open L5 Docs</a>
-        <a class="btn" href="/docs/l5:checklist">Checklist</a>
-        <a class="btn" href="/prompt">Open Prompt</a>
-        <a class="btn" href="/docs/l5:examples">More Examples</a>
+        <a class="btn" href="https://aesthetic.computer/docs/l5:overview">Open L5 Docs</a>
+        <a class="btn" href="https://aesthetic.computer/docs/l5:checklist">Checklist</a>
+        <a class="btn" href="https://aesthetic.computer/prompt">Open Prompt</a>
+        <a class="btn" href="https://aesthetic.computer/docs/l5:examples">More Examples</a>
       </div>
     </section>
 
@@ -680,7 +680,9 @@
         }
 
         const keys = Object.keys(l5).sort((a, b) => a.localeCompare(b));
-        links.innerHTML = keys.map((key) => `<a href=\"/docs/l5:${key}\">${escapeHtml(key)}</a>`).join("");
+        links.innerHTML = keys
+          .map((key) => `<a href=\"${AC_ORIGIN}/docs/l5:${key}\">${escapeHtml(key)}</a>`)
+          .join("");
 
         statusDate.textContent = "status source: /docs/l5:checklist";
       } catch (err) {
@@ -693,7 +695,7 @@
     function initLogoFallback() {
       const img = document.getElementById("brand-logo");
       img.addEventListener("error", () => {
-        img.src = "/l5.aesthetic.computer/l5-logo-blob.png";
+        img.src = "https://aesthetic.computer/l5.aesthetic.computer/l5-logo-blob.png";
       }, { once: true });
     }
 
