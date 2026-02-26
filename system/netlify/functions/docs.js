@@ -16,6 +16,7 @@
 
 import { respond } from "../../backend/http.mjs";
 import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.computer/lib/helpers.mjs";
+import { getCommandDescription } from "../../public/aesthetic.computer/lib/prompt-commands.mjs";
 const dev = process.env.CONTEXT === "dev";
 const { keys } = Object;
 
@@ -4282,6 +4283,46 @@ end</code></pre>
       },
     },
   };
+
+  const titleFromSlug = (slug = "") =>
+    String(slug)
+      .replaceAll("-", " ")
+      .replaceAll("_", " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const fillCommandDocs = (collection, kind) => {
+    keys(collection || {}).forEach((name) => {
+      const entry = collection[name];
+      if (!entry) return;
+
+      if (!String(entry.sig || "").trim()) {
+        entry.sig = name;
+      }
+
+      if (!String(entry.desc || "").trim()) {
+        const shared = getCommandDescription(name);
+        if (shared) {
+          entry.desc = shared;
+          return;
+        }
+
+        const pretty = titleFromSlug(name);
+        if (kind === "piece") {
+          entry.desc = pretty
+            ? `Open the ${pretty} piece.`
+            : "Open this piece.";
+        } else {
+          entry.desc = pretty
+            ? `Run the ${pretty} prompt command.`
+            : "Run this prompt command.";
+        }
+      }
+    });
+  };
+
+  fillCommandDocs(docs.prompts, "prompt");
+  fillCommandDocs(docs.pieces, "piece");
 
   const page = html` <html>
     <head>
