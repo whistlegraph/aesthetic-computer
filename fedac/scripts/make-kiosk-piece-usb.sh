@@ -446,7 +446,15 @@ chroot "$ROOTFS_DIR" /usr/bin/passwd -d liveuser >/dev/null 2>&1 || true
 
 # Ensure PAM allows passwordless autologin for liveuser.
 # Fedora 43 pam_unix.so rejects empty-password accounts unless "nullok" is present.
-# Add nullok to system-auth and password-auth if missing.
+# Use authselect (Fedora's PAM manager) so the change survives boot-time regeneration,
+# then also patch the files directly as a belt-and-suspenders fallback.
+if chroot "$ROOTFS_DIR" /usr/bin/authselect current >/dev/null 2>&1; then
+  # Get current profile and add with-nullok feature
+  CURRENT_PROFILE=$(chroot "$ROOTFS_DIR" /usr/bin/authselect current -r 2>/dev/null || echo "sssd")
+  chroot "$ROOTFS_DIR" /usr/bin/authselect select "$CURRENT_PROFILE" with-nullok --force >/dev/null 2>&1 || true
+  echo -e "  ${GREEN}authselect: enabled with-nullok on profile $CURRENT_PROFILE${NC}"
+fi
+# Belt-and-suspenders: also patch the files directly in case authselect isn't available.
 for pamfile in "$ROOTFS_DIR/etc/pam.d/system-auth" "$ROOTFS_DIR/etc/pam.d/password-auth"; do
   if [ -f "$pamfile" ]; then
     sed -i '/pam_unix\.so/ { /nullok/! s/pam_unix\.so/pam_unix.so nullok/ }' "$pamfile"
