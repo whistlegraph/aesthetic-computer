@@ -952,6 +952,21 @@ to = "/l5.aesthetic.computer/index.html"
 status = 200
 force = true
 [[redirects]]
+from = "https://l5.aesthetic.computer/docs.json"
+to = "/docs.json"
+status = 200
+force = true
+[[redirects]]
+from = "https://l5.aesthetic.computer/docs/*"
+to = "/docs/:splat"
+status = 200
+force = true
+[[redirects]]
+from = "https://l5.aesthetic.computer/l5.aesthetic.computer/*"
+to = "/l5.aesthetic.computer/:splat"
+status = 200
+force = true
+[[redirects]]
 from = "https://l5.aesthetic.computer/*"
 to = "/l5.aesthetic.computer/index.html"
 status = 200
