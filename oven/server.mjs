@@ -2450,12 +2450,15 @@ app.get('/os', async (req, res) => {
     try {
       const result = await streamOSImage(null, target, isJSPiece, density, (p) => sendEvent('progress', p));
       const downloadParam = isJSPiece ? `piece=${encodeURIComponent(target)}` : `code=${encodeURIComponent(target)}`;
+      // Prefer CDN URL for fast download; fall back to oven direct.
+      const downloadUrl = result.cdnUrl || `/os?${downloadParam}&density=${density}`;
       sendEvent('complete', {
-        message: 'OS ISO ready',
-        downloadUrl: `/os?${downloadParam}&density=${density}`,
+        message: result.cached ? 'OS ISO ready (CDN cached)' : 'OS ISO ready',
+        downloadUrl,
         elapsed: result.elapsed,
         filename: result.filename,
         timings: result.timings,
+        cached: result.cached || false,
       });
     } catch (err) {
       console.error('[os] SSE build failed:', err);

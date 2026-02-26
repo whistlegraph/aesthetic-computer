@@ -8,6 +8,10 @@ node_modules/
 *.log
 npm-debug.log*
 
+# Ignore secrets / keys (use vault)
+os-build-admin-key.txt
+secrets/
+
 # Ignore temp files
 .DS_Store
 *.tmp

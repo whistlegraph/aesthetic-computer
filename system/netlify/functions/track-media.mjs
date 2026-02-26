@@ -58,7 +58,7 @@ export async function handler(event, context) {
     let type, metadata;
     if (body.ext === "png") {
       type = "paintings";
-    } else if (body.ext === "mjs") {
+    } else if (body.ext === "mjs" || body.ext === "lisp" || body.ext === "lua") {
       type = "pieces";
     } else if (body.ext === "zip") {
       type = "tapes";
