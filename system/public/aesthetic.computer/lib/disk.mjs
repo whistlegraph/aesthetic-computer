@@ -67,6 +67,7 @@ import { TextInput, Typeface } from "../lib/type.mjs";
 
 import * as lisp from "./kidlisp.mjs";
 import { isKidlispSource, fetchCachedCode, fetchKidlispMetadata, getCachedCode, initPersistentCache, getCachedCodeMultiLevel, saveCodeToAllCaches, enableKidlispConsole, enableKidlispTrace, disableKidlispTrace, clearExecutionTrace, postExecutionTrace } from "./kidlisp.mjs"; // Add lisp evaluator.
+import * as l5 from "./l5.mjs";
 
 import { qrcode as qr, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
 import { microtype, MatrixChunky8 } from "../disks/common/fonts.mjs";
@@ -2866,7 +2867,7 @@ const $commonApi = {
       }
       
       try {
-        // Try .mjs first, then .lisp
+        // Try .mjs first, then .lua, then .lisp
         const mjsUrl = `${baseUrl}/aesthetic.computer/disks/${piece}.mjs?v=${Date.now()}`;
         let response = await fetch(mjsUrl, { cache: 'no-store' });
         
@@ -2874,6 +2875,17 @@ const $commonApi = {
           const code = await response.text();
           pieceCodeCache.set(piece, { code, type: 'mjs' });
           console.log(`🎄 Preloaded mjs: ${piece}`);
+          return;
+        }
+        
+        // Try .lua
+        const luaUrl = `${baseUrl}/aesthetic.computer/disks/${piece}.lua?v=${Date.now()}`;
+        response = await fetch(luaUrl, { cache: 'no-store' });
+        
+        if (response.ok) {
+          const code = await response.text();
+          pieceCodeCache.set(piece, { code, type: 'lua' });
+          console.log(`🎄 Preloaded lua: ${piece}`);
           return;
         }
         
@@ -7235,6 +7247,7 @@ async function load(
   ) {
     parsed.source = store["publishable-piece"].source;
     parsed.name = store["publishable-piece"].slug;
+    parsed.ext = store["publishable-piece"].ext;
   }
 
   // 🕸️ Loading over the network from a parsed path object with no source code.
@@ -7291,7 +7304,7 @@ async function load(
     //                                 Note: This fixes a preview bug on teia.art. 2022.04.07.03.00    if (path === "") path = ROOT_PIECE; // Set bare path to what "/" maps to.
     // if (path === firstPiece && params.length === 0) params = firstParams;
 
-    // Check if the path already has a .lisp extension and use it directly, otherwise default to .mjs
+    // Check if the path already has a language extension and use it directly, otherwise default to .mjs
     // Handle sandboxed environments where location.protocol might be "null:"
     // For aesthetic.computer pieces, determine the correct server
     const { protocol, hostname } = getSafeUrlParts();
@@ -7336,7 +7349,7 @@ async function load(
     
     // if (debug) console.log("🔍 Debug path resolution:", { originalPath: path, resolvedPath, hostname, baseUrl });
     
-    if (path.endsWith('.lisp')) {
+    if (path.endsWith('.lisp') || path.endsWith('.lua')) {
       if (getPackMode()) {
         // In OBJKT mode, use absolute path from iframe origin
         fullUrl = "/" + resolvedPath + "?v=" + Date.now();
@@ -7517,7 +7530,11 @@ async function load(
           diskTimings.fetchComplete = Math.round(fetchEndTime - diskTimingStart);
           // Silent: fetch completed
           if (response.status === 404 || response.status === 403) {
-            const extension = path.endsWith('.lisp') ? '.lisp' : '.mjs';
+            const extension = path.endsWith('.lisp')
+              ? '.lisp'
+              : path.endsWith('.lua')
+                ? '.lua'
+                : '.mjs';
             // Handle sandboxed environments for anon URL construction
             const { protocol } = getSafeUrlParts();
             const anonUrl =
@@ -7636,6 +7653,53 @@ async function load(
           if (logs.loading)
             console.log("💌 Publishable:", store["publishable-piece"]);
         }
+      } else if (
+        parsed?.ext === "lua" ||
+        (path && path.endsWith(".lua")) ||
+        (fullUrl && fullUrl.includes(".lua")) ||
+        (sourceToRun.trim().startsWith("--") &&
+          /(?:^|\n)\s*function\s+(setup|draw)\s*\(/.test(sourceToRun))
+      ) {
+        sourceCode = sourceToRun;
+        originalCode = sourceCode;
+        pieceMetadata = {
+          code: slug || "l5",
+          trustLevel: "l5",
+          anonymous: true,
+        };
+
+        const compileStartTime = performance.now();
+        const fetchElapsed = Math.round(compileStartTime - fetchStartTime);
+        send({
+          type: "boot-log",
+          content: `compiling lua (fetch: ${fetchElapsed}ms)`
+        });
+
+        loadedModule = await l5.module(sourceToRun);
+
+        const compileEndTime = performance.now();
+        const compileElapsed = Math.round(compileEndTime - compileStartTime);
+        diskTimings.compileComplete = Math.round(compileEndTime - diskTimingStart);
+
+        send({
+          type: "boot-log",
+          content: `lua compiled (${compileElapsed}ms)`
+        });
+
+        send({
+          type: "boot-file",
+          content: { filename: path, source: sourceCode.slice(0, 8000) }
+        });
+
+        if (devReload) {
+          store["publishable-piece"] = {
+            slug,
+            source: sourceToRun,
+            ext: "lua",
+          };
+          if (logs.loading)
+            console.log("💌 Publishable:", store["publishable-piece"]);
+        }
       } else {
         if (devReload) {
           store["publishable-piece"] = { slug, source: sourceToRun };
@@ -7722,56 +7786,90 @@ async function load(
     // console.log(`⏰ Module load error caught at ${moduleLoadErrorTime}ms`);
     console.log("🟡 Error loading mjs module:", err);
     
-    // Determine if this was a fetch failure (404/403) vs a module import/compile error
-    // Only try .lisp fallback if:
-    // 1. We weren't already trying to load a .lisp file
-    // 2. The error suggests the file wasn't found (not a JS syntax/import error)
+    // Determine if this was a fetch failure (404/403) vs a module import/compile error.
+    // Only try language fallbacks if this was a missing .mjs path.
     const isFetchError = err.message === "404" || err.message === "403";
     const isModuleImportError = err.toString().includes("Failed to fetch dynamically imported module") ||
                                 err.toString().includes("Unexpected token") ||
                                 err.toString().includes("SyntaxError") ||
                                 err.toString().includes("Cannot use import");
     
-    // If the .mjs file was fetched but failed to import (JS error), don't try .lisp
-    if (fullUrl && !fullUrl.includes('.lisp') && isFetchError && !isModuleImportError) {
+    // If the .mjs file was fetched but failed to import (JS error), don't try fallbacks.
+    if (fullUrl && !fullUrl.includes('.lisp') && !fullUrl.includes('.lua') && isFetchError && !isModuleImportError) {
       try {
-        fullUrl = fullUrl.replace(".mjs", ".lisp");
-        let response;
-        if (logs.loading) console.log("📥 Loading lisp from url:", fullUrl);
-        response = await fetch(fullUrl, { cache: 'no-store' });
-        console.log("🤖 Response:", response);
+        const fallbackExts = [".lua", ".lisp"];
+        let loadedFromFallback = false;
+        let fallbackError = null;
 
-      if (response.status === 404 || response.status === 403) {
-        // Handle sandboxed environments for anon URL construction
-        const { protocol } = getSafeUrlParts();
-        const anonUrl =
-          protocol +
-          "//" +
-          "art.aesthetic.computer" +
-          "/" +
-          path.split("/").pop() +
-          ".lisp" +
-          "#" +
-          Date.now();
-        console.log("🧑‍🤝‍🧑 Attempting to load piece from anon url:", anonUrl);
-        response = await fetch(anonUrl, { cache: 'no-store' });
+        for (const fallbackExt of fallbackExts) {
+          let fallbackUrl = fullUrl.replace(".mjs", fallbackExt);
+          if (logs.loading) {
+            console.log(`📥 Loading ${fallbackExt.slice(1)} from url:`, fallbackUrl);
+          }
 
-        console.log("🚏 Response:", response);
+          let response = await fetch(fallbackUrl, { cache: 'no-store' });
 
-        if (response.status === 404 || response.status === 403)
-          throw new Error(response.status);
-      }
-      sourceCode = await response.text();
-      // console.log("📓 Source:", sourceCode);
-      originalCode = sourceCode;
-      loadedModule = lisp.module(sourceCode, true); // This is loading a .lisp file
-      
-      if (devReload) {
-        store["publishable-piece"] = { slug, source: sourceCode, ext: "lisp" };
-        // console.log("💌 Publishable:", store["publishable-piece"]);
-      }
+          if (response.status === 404 || response.status === 403) {
+            // Handle sandboxed environments for anon URL construction
+            const { protocol } = getSafeUrlParts();
+            const anonUrl =
+              protocol +
+              "//" +
+              "art.aesthetic.computer" +
+              "/" +
+              path.split("/").pop() +
+              fallbackExt +
+              "#" +
+              Date.now();
+            if (logs.loading) {
+              console.log("🧑‍🤝‍🧑 Attempting to load piece from anon url:", anonUrl);
+            }
+            response = await fetch(anonUrl, { cache: 'no-store' });
+
+            if (response.status === 404 || response.status === 403) {
+              fallbackError = new Error(response.status);
+              continue;
+            }
+          }
+
+          sourceCode = await response.text();
+          originalCode = sourceCode;
+
+          if (fallbackExt === ".lua") {
+            pieceMetadata = {
+              code: slug || "l5",
+              trustLevel: "l5",
+              anonymous: true,
+            };
+            loadedModule = await l5.module(sourceCode);
+            if (devReload) {
+              store["publishable-piece"] = { slug, source: sourceCode, ext: "lua" };
+            }
+          } else {
+            pieceMetadata = {
+              code: slug || "kidlisp",
+              trustLevel: "kidlisp",
+              anonymous: true
+            };
+            loadedModule = lisp.module(sourceCode, true);
+            if (devReload) {
+              store["publishable-piece"] = { slug, source: sourceCode, ext: "lisp" };
+            }
+          }
+
+          loadedFromFallback = true;
+          break;
+        }
+
+        if (!loadedFromFallback) {
+          throw fallbackError || new Error("404");
+        }
+
+        if (devReload && logs.loading) {
+          console.log("💌 Publishable:", store["publishable-piece"]);
+        }
       } catch (err) {
-        // 🧨 Continue with current module if one has already loaded.
+        // Continue with current module if one has already loaded.
         console.error(
           `😡 "${path}" load failure:`,
           err,
@@ -7792,7 +7890,7 @@ async function load(
       }
     } else {
       // Module import/compile error - the .mjs file exists but has errors
-      // Don't try .lisp fallback, just show the error
+      // Don't try language fallbacks, just show the error
       if (isModuleImportError) {
         console.error(
           `😡 "${path}" module import failed (JS error in the piece):`,
@@ -10734,7 +10832,7 @@ async function makeFrame({ data: { type, content } }) {
       const ext = filename.split(".").pop();
       
       // Only track paintings and pieces in database
-      if (ext === "png" || ext === "mjs") {
+      if (ext === "png" || ext === "mjs" || ext === "lisp" || ext === "lua") {
         try {
           // Call track-media POST to create database record with short code
           const trackResponse = await $commonApi.net.userRequest("POST", "/api/track-media", {

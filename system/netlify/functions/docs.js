@@ -59,38 +59,38 @@ export async function handler(event, context) {
     },
     {
       area: "Lua source detection (.lua) in loader",
-      status: "planned",
-      notes: "disk parse/load path currently supports .mjs and .lisp.",
+      status: "done",
+      notes: "disk + parse support .lua, including .mjs -> .lua -> .lisp fallback.",
     },
     {
       area: "Lua runtime adapter (Wasmoon)",
-      status: "planned",
-      notes: "No l5 runtime module is wired yet.",
+      status: "done",
+      notes: "Wasmoon runtime is vendored and wired through lib/l5.mjs.",
     },
     {
       area: "L5 lifecycle bridge (setup/draw/events)",
-      status: "planned",
-      notes: "Depends on runtime adapter + event mapping.",
+      status: "in-progress",
+      notes: "setup/draw + key/mouse callbacks are mapped; advanced callbacks remain.",
     },
     {
       area: "Core graphics API parity",
-      status: "planned",
-      notes: "Requires shape/color state adapter on top of AC draw calls.",
+      status: "in-progress",
+      notes: "background/fill/stroke/line/rect/circle/ellipse/text/triangle/quad mapped.",
     },
     {
       area: "Input globals (mouse/key/frame)",
-      status: "planned",
-      notes: "Needs frame-synced global injection.",
+      status: "in-progress",
+      notes: "mouse/key/frame globals are injected each frame; parity is still incomplete.",
     },
     {
       area: "Publish .lua pieces",
-      status: "planned",
-      notes: "Current media tracking accepts mjs/lisp extensions.",
+      status: "done",
+      notes: "Upload + media tracking now accept lua extension.",
     },
     {
       area: "Trust/restricted API posture for Lua",
-      status: "planned",
-      notes: "Runtime trust level policy must be decided before launch.",
+      status: "done",
+      notes: "Lua pieces use trustLevel=l5 and run through restricted API policy.",
     },
   ];
 
@@ -134,10 +134,10 @@ export async function handler(event, context) {
         </tr>
       </thead>
       <tbody>
-        <tr><td><code>setup()</code></td><td><code>boot($)</code></td><td>${l5StatusBadge("planned")}</td></tr>
-        <tr><td><code>draw()</code></td><td><code>paint($)</code></td><td>${l5StatusBadge("planned")}</td></tr>
-        <tr><td><code>keyPressed()</code></td><td><code>act($)</code> keyboard events</td><td>${l5StatusBadge("planned")}</td></tr>
-        <tr><td><code>mousePressed()</code></td><td><code>act($)</code> pen/touch events</td><td>${l5StatusBadge("planned")}</td></tr>
+        <tr><td><code>setup()</code></td><td><code>boot($)</code></td><td>${l5StatusBadge("done")}</td></tr>
+        <tr><td><code>draw()</code></td><td><code>paint($)</code></td><td>${l5StatusBadge("done")}</td></tr>
+        <tr><td><code>keyPressed()</code></td><td><code>act($)</code> keyboard events</td><td>${l5StatusBadge("done")}</td></tr>
+        <tr><td><code>mousePressed()</code></td><td><code>act($)</code> pen/touch events</td><td>${l5StatusBadge("done")}</td></tr>
       </tbody>
     </table>
   `.trim();
@@ -152,10 +152,10 @@ export async function handler(event, context) {
         </tr>
       </thead>
       <tbody>
-        <tr><td><code>background()</code></td><td><code>$.wipe()</code></td><td>${l5StatusBadge("planned")}</td></tr>
-        <tr><td><code>fill()</code>/<code>stroke()</code></td><td>state + <code>$.ink()</code></td><td>${l5StatusBadge("planned")}</td></tr>
-        <tr><td><code>line()</code>/<code>point()</code></td><td><code>$.line()</code>/<code>$.plot()</code></td><td>${l5StatusBadge("planned")}</td></tr>
-        <tr><td><code>rect()</code>/<code>circle()</code>/<code>ellipse()</code></td><td><code>$.box()</code>/<code>$.circle()</code>/<code>$.oval()</code></td><td>${l5StatusBadge("planned")}</td></tr>
+        <tr><td><code>background()</code></td><td><code>$.wipe()</code></td><td>${l5StatusBadge("done")}</td></tr>
+        <tr><td><code>fill()</code>/<code>stroke()</code></td><td>state + <code>$.ink()</code></td><td>${l5StatusBadge("done")}</td></tr>
+        <tr><td><code>line()</code>/<code>point()</code></td><td><code>$.line()</code>/<code>$.plot()</code></td><td>${l5StatusBadge("done")}</td></tr>
+        <tr><td><code>rect()</code>/<code>circle()</code>/<code>ellipse()</code></td><td><code>$.box()</code>/<code>$.circle()</code>/<code>$.oval()</code></td><td>${l5StatusBadge("done")}</td></tr>
         <tr><td><code>beginShape()</code>…</td><td><code>$.shape()</code>/<code>$.poly()</code></td><td>${l5StatusBadge("planned")}</td></tr>
       </tbody>
     </table>
@@ -171,10 +171,10 @@ export async function handler(event, context) {
         </tr>
       </thead>
       <tbody>
-        <tr><td><code>mouseX</code>/<code>mouseY</code></td><td><code>$.pen.x</code>/<code>$.pen.y</code></td><td>${l5StatusBadge("planned")}</td></tr>
-        <tr><td><code>mouseIsPressed</code></td><td><code>$.pen.drawing</code></td><td>${l5StatusBadge("planned")}</td></tr>
-        <tr><td><code>width</code>/<code>height</code></td><td><code>$.screen.width</code>/<code>$.screen.height</code></td><td>${l5StatusBadge("planned")}</td></tr>
-        <tr><td><code>frameCount</code></td><td>runtime counter</td><td>${l5StatusBadge("planned")}</td></tr>
+        <tr><td><code>mouseX</code>/<code>mouseY</code></td><td><code>$.pen.x</code>/<code>$.pen.y</code></td><td>${l5StatusBadge("done")}</td></tr>
+        <tr><td><code>mouseIsPressed</code></td><td><code>$.pen.drawing</code></td><td>${l5StatusBadge("done")}</td></tr>
+        <tr><td><code>width</code>/<code>height</code></td><td><code>$.screen.width</code>/<code>$.screen.height</code></td><td>${l5StatusBadge("done")}</td></tr>
+        <tr><td><code>frameCount</code></td><td>runtime counter</td><td>${l5StatusBadge("done")}</td></tr>
       </tbody>
     </table>
   `.trim();
@@ -189,7 +189,7 @@ export async function handler(event, context) {
   `.trim();
 
   const l5ExamplesBody = `
-    <p>Use these as starter snippets. Runtime wiring is still in progress.</p>
+    <p>Use these as starter snippets. Runtime wiring exists; API coverage is still partial.</p>
     <div class="doc-examples">
       <article class="doc-example">
         <h3>Pulse Circle</h3>
