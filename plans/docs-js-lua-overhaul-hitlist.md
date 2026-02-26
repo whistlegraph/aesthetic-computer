@@ -53,9 +53,15 @@ Ship a docs system that:
 - System docs pass started and expanded:
   - `reload`, `store.*`, `signal`, `sideload`, `meta`, `upload`, `encode`, `authorize`,
   - `hud.*`, `bgm.*`, `darkMode`, `gpu.*`, and additional runtime state fields.
+- Number docs pass completed:
+  - `num.*` math/color helpers, `num.p2.*`, `geo.*`, timing helpers (`delay`, `blink`),
+  - and glMatrix bridge surfaces (`vec2/vec3/vec4/mat3/mat4/quat`).
+- Help docs pass completed:
+  - `choose`, `flip`, `repeat`, `every`, `any`, `anyIndex`, `anyKey`, `each`, `shuffleInPlace`,
+  - `gizmo.Hourglass`, `gizmo.EllipsisTicker`.
 - Updated quick baseline marker in `docs.js`:
-  - `done: false` -> 433
-  - `done: true` -> 160
+  - `done: false` -> 350
+  - `done: true` -> 244
 
 ## Success Criteria (Program-Level)
 - Landing docs page has explicit top-level visual split:
@@ -144,7 +150,7 @@ Acceptance:
 ### P1: Fill Missing MJS Docs (Highest-Use First)
 - [ ] Build a prioritized function coverage queue by runtime usage frequency and beginner value.
 - [x] Fill `Graphics` core first: `line`, `point`, `box`, `wipe`, `ink`, `circle`, `oval`, `poly`, `shape`.
-- [ ] Fill `Interaction`, `System`, and `Network` essentials next (in progress).
+- [x] Fill `Interaction`, `System`, and `Network` essentials next.
 - [ ] Replace empty signatures/descriptions with concrete behavior and examples.
 
 Acceptance milestones:
