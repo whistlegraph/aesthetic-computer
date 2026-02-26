@@ -18,9 +18,14 @@ Ship a docs system that:
 - Landing navigation mixes many categories and only lightly distinguishes L5.
 - KidLisp docs already exist on `learn.kidlisp.com` and should be treated as a first-class upstream source.
 - Function pages use a simple template (`sig`, `desc`, optional `body`) with many placeholders.
-- Baseline marker in `docs.js` (quick regex count):
+- Historical baseline marker when this hitlist started:
   - `done: false` -> 527
   - `done: true` -> 63
+- Current snapshot from `/docs.json` (2026-02-26):
+  - API entries: `310 total` / `307 done` / `3 in-progress` / `0 planned`
+  - L5 entries: `50 total` / `47 done` / `3 in-progress`
+  - Prompt entries: `129 total` / `32 done` / `97 planned`
+  - Piece entries: `186 total` / `23 done` / `163 planned`
 - L5 section exists but is still checklist-forward and not yet parity-complete.
 
 ## Progress Update (2026-02-26)
@@ -28,6 +33,7 @@ Ship a docs system that:
   - `MJS / AC Piece API`
   - `L5 / Lua API`
   - `KidLisp / Language API`
+- `/docs` lane cards now have family-specific color treatment for faster visual separation.
 - New route entries shipped:
   - `/docs/mjs:overview`
   - `/docs/kidlisp:overview`
@@ -45,6 +51,13 @@ Ship a docs system that:
   - `line`, `point`, `box`, `wipe`, `ink`, `circle`,
   - `paste`, `stamp`, `pixel`, `plot`, `flood`,
   - `oval`, `poly`, `shape`, `resolution`, `write`.
+- Structure docs pass completed:
+  - `boot`, `paint`, `act`, `sim`, `beat`, `leave`, `meta`, `preview`, `icon`,
+  - `brush`, `filter`, `curtain`, `background`, `api`, `DEBUG`.
+- Sound docs pass completed:
+  - `sound.time`, `sound.bpm`, `sound.freq`, `sound.microphone`, `sound.speaker`,
+  - `sound.play`, `sound.synth`, `sound.bubble`, `sound.kill`.
+- L5 function-level docs expanded from checklist-only to 50 entries, including core graphics, state globals, loop controls, and math helpers.
 - Interaction docs pass completed:
   - `pen`, `pens`, `pen3d`, `event`.
 - Network docs pass completed:
@@ -59,9 +72,13 @@ Ship a docs system that:
 - Help docs pass completed:
   - `choose`, `flip`, `repeat`, `every`, `any`, `anyIndex`, `anyKey`, `each`, `shuffleInPlace`,
   - `gizmo.Hourglass`, `gizmo.EllipsisTicker`.
-- Updated quick baseline marker in `docs.js`:
-  - `done: false` -> 350
-  - `done: true` -> 244
+- Prompt + piece docs now auto-fill missing descriptions from shared command registry:
+  - source: `system/public/aesthetic.computer/lib/prompt-commands.mjs`
+  - remaining empty prompt descriptions: `0`
+  - remaining empty piece descriptions: `0`
+- Doc iframe preview routing improved:
+  - `/docs/pieces:*` now embeds `https://aesthetic.computer/<piece>`
+  - `/docs/prompts:*` now embeds `https://aesthetic.computer/prompt~<command>`
 
 ## Success Criteria (Program-Level)
 - Landing docs page has explicit top-level visual split:
@@ -151,7 +168,7 @@ Acceptance:
 - [ ] Build a prioritized function coverage queue by runtime usage frequency and beginner value.
 - [x] Fill `Graphics` core first: `line`, `point`, `box`, `wipe`, `ink`, `circle`, `oval`, `poly`, `shape`.
 - [x] Fill `Interaction`, `System`, and `Network` essentials next.
-- [ ] Replace empty signatures/descriptions with concrete behavior and examples.
+- [x] Replace empty signatures/descriptions with concrete behavior and examples (API lanes).
 
 Acceptance milestones:
 - Milestone A: 100 high-traffic MJS functions complete.
@@ -159,7 +176,7 @@ Acceptance milestones:
 - Milestone C: remaining stubs triaged as `planned` or `deprecated` with explicit rationale.
 
 ### P1: L5 Documentation Maturity
-- [ ] Expand L5 function-level entries beyond checklist pages.
+- [x] Expand L5 function-level entries beyond checklist pages.
 - [ ] Add explicit parity tables against AC implementations for each L5 API area.
 - [ ] Mark unsupported APIs with alternatives and roadmap status.
 
@@ -216,9 +233,12 @@ Acceptance:
 ## First Sprint Slice (Concrete)
 - [x] Implement visual split on `/docs` landing (`MJS` vs `L5`).
 - [x] Extend split to include `KidLisp` as third top-level lane.
+- [x] Add stronger family-level visual style separation on lane cards.
 - [x] Ship new function-page template with structured sections.
 - [x] Ship iframe example support for at least 12 core graphics functions.
 - [x] Fill complete docs for those 12 functions (MJS).
+- [x] Expand L5 docs from checklist-first to function-level references.
+- [x] Remove empty prompt/piece descriptions using shared registry + generated fallback text.
 - [ ] Draft and validate unified schema + KidLisp adapter interface in code.
 
 ## Risks
