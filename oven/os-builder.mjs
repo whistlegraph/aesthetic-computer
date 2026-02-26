@@ -152,16 +152,19 @@ async function ensureBaseImage(onProgress) {
   await fs.mkdir(CACHE_DIR, { recursive: true });
   const manifest = await fetchManifest(onProgress);
   const basePath = path.join(CACHE_DIR, "fedac-base.img");
+  const hashPath = `${basePath}.sha256`;
 
-  // Check if cached image matches manifest size.
+  // Check if cached image matches manifest size AND sha256 hash.
   try {
     const stat = await fs.stat(basePath);
-    if (stat.size === manifest.totalSize) {
+    const cachedHash = (await fs.readFile(hashPath, "utf-8")).trim();
+    if (stat.size === manifest.totalSize && cachedHash === manifest.sha256) {
       onProgress?.({ stage: "base", message: "Base image cached and ready", step: 1, totalSteps: 9 });
       return { basePath, manifest };
     }
+    onProgress?.({ stage: "base", message: "Base image outdated (hash mismatch), re-downloading...", step: 1, totalSteps: 9 });
   } catch {
-    // File doesn't exist.
+    // File or hash sidecar doesn't exist — need to download.
   }
 
   // Download base image.
@@ -193,6 +196,8 @@ async function ensureBaseImage(onProgress) {
   });
 
   await fs.rename(tmpPath, basePath);
+  // Write sha256 sidecar so future cache checks validate the hash, not just size.
+  if (manifest.sha256) await fs.writeFile(hashPath, manifest.sha256 + "\n");
   onProgress?.({ stage: "base", message: "Base image downloaded and cached" });
   return { basePath, manifest };
 }
