@@ -275,6 +275,7 @@ async function uploadArtifacts(job) {
       Key: imageKey,
       Body: fsSync.createReadStream(job.output.imagePath),
       ContentType: "application/octet-stream",
+      ACL: "public-read",
       CacheControl: "no-cache",
     }),
   );
@@ -287,6 +288,7 @@ async function uploadArtifacts(job) {
       Key: manifestKey,
       Body: manifestBuffer,
       ContentType: "application/json",
+      ACL: "public-read",
       CacheControl: "no-cache",
     }),
   );
