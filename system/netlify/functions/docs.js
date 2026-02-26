@@ -4477,6 +4477,18 @@ end</code></pre>
           border-radius: 8px;
           padding: 10px 11px 11px 11px;
         }
+        .lane-card.lane-mjs {
+          border-color: rgba(124, 212, 255, 0.45);
+          background: linear-gradient(180deg, rgba(26, 60, 86, 0.2), rgba(26, 60, 86, 0.05));
+        }
+        .lane-card.lane-l5 {
+          border-color: rgba(245, 213, 66, 0.5);
+          background: linear-gradient(180deg, rgba(90, 75, 0, 0.22), rgba(90, 75, 0, 0.08));
+        }
+        .lane-card.lane-kidlisp {
+          border-color: rgba(102, 230, 187, 0.45);
+          background: linear-gradient(180deg, rgba(16, 74, 56, 0.2), rgba(16, 74, 56, 0.06));
+        }
         .lane-head {
           display: flex;
           align-items: center;
@@ -4486,6 +4498,15 @@ end</code></pre>
         }
         .lane-title {
           font-size: 1.1em;
+        }
+        .lane-mjs .lane-title {
+          color: #9bddff;
+        }
+        .lane-l5 .lane-title {
+          color: #ffe37a;
+        }
+        .lane-kidlisp .lane-title {
+          color: #9ff2d4;
         }
         .lane-count {
           font-size: 0.92em;
@@ -4653,6 +4674,27 @@ end</code></pre>
           .doc-preview-links a,
           .doc-preview-links button {
             border-color: rgba(0, 0, 0, 0.2);
+          }
+          .lane-card.lane-mjs {
+            background: linear-gradient(180deg, rgba(206, 237, 255, 0.8), rgba(238, 248, 255, 0.7));
+            border-color: rgba(49, 133, 173, 0.55);
+          }
+          .lane-card.lane-l5 {
+            background: linear-gradient(180deg, rgba(255, 247, 185, 0.85), rgba(255, 252, 220, 0.7));
+            border-color: rgba(179, 149, 37, 0.55);
+          }
+          .lane-card.lane-kidlisp {
+            background: linear-gradient(180deg, rgba(204, 245, 230, 0.8), rgba(233, 252, 245, 0.7));
+            border-color: rgba(41, 141, 102, 0.5);
+          }
+          .lane-mjs .lane-title {
+            color: rgb(20, 90, 128);
+          }
+          .lane-l5 .lane-title {
+            color: rgb(130, 102, 0);
+          }
+          .lane-kidlisp .lane-title {
+            color: rgb(24, 112, 76);
           }
           a.prompt, a.prompt:visited {
             color: rgb(64, 56, 74);
@@ -4994,7 +5036,7 @@ end</code></pre>
     </h1>
     <div class="code-doc-welcome">
       <div class="lane-grid">
-        <article class="lane-card">
+        <article class="lane-card lane-mjs">
           <div class="lane-head">
             <div class="lane-title">MJS / AC Piece API</div>
             <div class="lane-count">${laneCountLabel(["mjs", "structure", "graphics", "interaction", "sound", "number", "network", "help", "system"])}</div>
@@ -5026,7 +5068,7 @@ end</code></pre>
           </div>
         </article>
 
-        <article class="lane-card">
+        <article class="lane-card lane-l5">
           <div class="lane-head">
             <div class="lane-title">L5 / Lua API</div>
             <div class="lane-count">${laneCountLabel(["l5"])}</div>
@@ -5045,7 +5087,7 @@ end</code></pre>
           </div>
         </article>
 
-        <article class="lane-card">
+        <article class="lane-card lane-kidlisp">
           <div class="lane-head">
             <div class="lane-title">KidLisp / Language API</div>
             <div class="lane-count">${laneCountLabel(["kidlisp"])}</div>
