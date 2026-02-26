@@ -17,6 +17,7 @@
     }
 
     :root {
+      color-scheme: light dark;
       --bg: #ffffff;
       --ink: #111111;
       --ink-soft: #2b2b2b;
@@ -24,12 +25,38 @@
       --gold-soft: #ffee57;
       --line: #111111;
       --panel: rgba(255, 255, 255, 0.95);
+      --control-bg: #ffffff;
+      --head-bg: #ffee57;
       --code-bg: #000000;
       --code-ink: #ffd700;
+      --dot-a: rgba(255, 215, 0, 0.32);
+      --dot-b: rgba(255, 215, 0, 0.16);
       --ok: #127a3f;
       --warn: #8b5a00;
       --todo: #5a5a5a;
       --danger: #8f1f1f;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0a0a0a;
+        --ink: #f4f4f4;
+        --ink-soft: #c8c8c8;
+        --gold: #f6d648;
+        --gold-soft: #685b1b;
+        --line: #f6d648;
+        --panel: rgba(14, 14, 14, 0.92);
+        --control-bg: #121212;
+        --head-bg: #2a250a;
+        --code-bg: #020202;
+        --code-ink: #f6d648;
+        --dot-a: rgba(246, 214, 72, 0.18);
+        --dot-b: rgba(246, 214, 72, 0.09);
+        --ok: #62d08e;
+        --warn: #ffd26e;
+        --todo: #bcbcbc;
+        --danger: #ff9f9f;
+      }
     }
 
     * {
@@ -43,8 +70,8 @@
       color: var(--ink);
       min-height: 100vh;
       background:
-        radial-gradient(circle at 40% 40%, rgba(255, 215, 0, 0.32) 11%, transparent 12%),
-        radial-gradient(circle at 60% 60%, rgba(255, 215, 0, 0.16) 11%, transparent 12%),
+        radial-gradient(circle at 40% 40%, var(--dot-a) 11%, transparent 12%),
+        radial-gradient(circle at 60% 60%, var(--dot-b) 11%, transparent 12%),
         var(--bg);
       background-size: 6em 6em;
       cursor: url("https://aesthetic.computer/aesthetic.computer/cursors/precise.svg") 12 12, auto;
@@ -63,7 +90,6 @@
       border: 2px solid var(--line);
       border-radius: 14px;
       background: var(--panel);
-      backdrop-filter: blur(2px);
       padding: 14px;
       box-shadow: 0 3px 0 rgba(0, 0, 0, 0.12);
     }
@@ -128,7 +154,7 @@
 
     .status-chip {
       border: 2px solid var(--line);
-      background: #ffffff;
+      background: var(--control-bg);
       border-radius: 999px;
       padding: 5px 10px;
       font-size: 11px;
@@ -153,7 +179,7 @@
       border-radius: 999px;
       padding: 7px 12px;
       font-size: 12px;
-      background: #fff;
+      background: var(--control-bg);
       font: inherit;
     }
 
@@ -190,7 +216,7 @@
       font-size: 11px;
       margin-right: 4px;
       white-space: nowrap;
-      background: #fff;
+      background: var(--control-bg);
     }
 
     .status-done { color: var(--ok); }
@@ -210,10 +236,10 @@
       border: 1px solid var(--line);
       padding: 7px;
       line-height: 1.45;
-      background: #fff;
+      background: var(--control-bg);
     }
 
-    .checklist-host th { background: var(--gold-soft); }
+    .checklist-host th { background: var(--head-bg); }
 
     .checklist-host p {
       margin: 0 0 8px;
@@ -232,7 +258,7 @@
       border: 2px solid var(--line);
       border-radius: 10px;
       overflow: hidden;
-      background: #fff;
+      background: var(--control-bg);
       min-height: 440px;
       display: flex;
       flex-direction: column;
@@ -242,7 +268,7 @@
     .preview-head {
       padding: 8px 10px;
       border-bottom: 2px solid var(--line);
-      background: var(--gold-soft);
+      background: var(--head-bg);
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
@@ -297,7 +323,7 @@
       padding: 7px 10px;
       font-size: 12px;
       color: var(--ink-soft);
-      background: #fff;
+      background: var(--control-bg);
     }
 
     .runtime-status.ok {
@@ -326,6 +352,9 @@
     }
 
     .doc-links a:hover { background: #fff; }
+    @media (prefers-color-scheme: dark) {
+      .doc-links a:hover { background: var(--control-bg); }
+    }
 
     @media (max-width: 980px) {
       .playground {
@@ -351,31 +380,32 @@
           </div>
           <div>
             <h1>L5 on AC</h1>
-            <div class="muted">yellow / black / white study variant</div>
+            <div class="muted">try page</div>
           </div>
         </div>
-        <div class="status-chip" id="status-date">status: loading</div>
+        <div class="status-chip" id="status-date">status: ...</div>
       </div>
       <p class="sub">
-        Processing-style Lua for Aesthetic Computer. Docs status and this page are backed by the same
-        <code>/docs/l5:checklist</code> source so parity reporting stays synchronized.
+        Processing-style Lua playground for Aesthetic Computer.
+        Uses the same <code>/docs/l5:checklist</code> source as docs.
       </p>
       <div class="actions">
-        <a class="btn" href="https://aesthetic.computer/docs/l5:overview">Open L5 Docs</a>
+        <a class="btn" href="https://aesthetic.computer/docs/l5:overview">Docs</a>
         <a class="btn" href="https://aesthetic.computer/docs/l5:checklist">Checklist</a>
-        <a class="btn" href="https://aesthetic.computer/prompt">Open Prompt</a>
-        <a class="btn" href="https://aesthetic.computer/docs/l5:examples">More Examples</a>
+        <a class="btn" href="https://aesthetic.computer/prompt">Prompt</a>
+        <a class="btn" href="https://aesthetic.computer/docs/l5:examples">Examples</a>
       </div>
     </section>
 
     <section class="panel">
-      <h2>Live Playground</h2>
+      <h2>Playground</h2>
       <div class="playground">
         <div class="editor-shell">
           <div class="editor-head">
-            <div class="editor-title">Lua Editor</div>
+            <div class="editor-title">Editor</div>
             <div class="controls">
               <select id="example-select" aria-label="Choose example"></select>
+              <a id="example-source" class="btn" href="https://l5lua.org/examples/" target="_blank" rel="noopener">Source</a>
               <button id="reset-btn" type="button">Reset</button>
               <button id="copy-btn" type="button">Copy</button>
               <button id="run-btn" class="btn-primary" type="button">Run</button>
@@ -386,8 +416,8 @@
 
         <div class="preview-shell">
           <div class="preview-head">
-            <div class="preview-title">Aesthetic Computer Runtime (iframe)</div>
-            <a class="btn" href="https://aesthetic.computer/l5-hello.lua" target="_blank" rel="noopener">Open Runtime</a>
+            <div class="preview-title">Preview</div>
+            <a class="btn" href="https://aesthetic.computer/l5-hello.lua" target="_blank" rel="noopener">Open</a>
           </div>
           <div class="preview-host">
             <iframe id="ac-frame" title="L5 runtime preview" loading="eager" allow="autoplay; clipboard-write"></iframe>
@@ -396,8 +426,7 @@
         </div>
       </div>
       <p class="muted" style="margin-top:8px;">
-        Press <code>Run</code> (or <code>Cmd/Ctrl+Enter</code>) to send Lua into the AC iframe via
-        <code>l5-reload</code>.
+        <code>Run</code> or <code>Cmd/Ctrl+Enter</code>.
       </p>
     </section>
 
@@ -409,7 +438,7 @@
     </section>
 
     <section class="panel">
-      <h2>Doc Sections</h2>
+      <h2>Docs</h2>
       <div class="doc-links" id="doc-links"></div>
     </section>
   </main>
@@ -440,6 +469,36 @@
         id: "hello",
         title: "L5 Hello",
         code: `function setup()\n  size(256, 256)\n  noStroke()\nend\n\nfunction draw()\n  background(16, 16, 24)\n\n  local pulse = 48 + math.sin(frameCount * 0.05) * 18\n  fill(255, 190, 0)\n  circle(width / 2, height / 2, pulse * 2)\n\n  fill(255, 255, 255)\n  text("L5 -> AC", 16, 22)\n\n  if mouseIsPressed then\n    fill(255, 255, 255)\n    circle(mouseX, mouseY, 10)\n  end\nend`,
+      },
+      {
+        id: "l5-shapes",
+        title: "Shape Primitives (L5)",
+        sourceUrl: "https://l5lua.org/examples/shapes-and-color-shape-primitives/",
+        code: `function setup()\n  size(720, 400)\nend\n\nfunction draw()\n  background(220)\n\n  square(20, 20, 100)\n  rect(100, 40, 200, 100)\n\n  ellipse(540, 100, 300, 100)\n  circle(560, 100, 100)\n\n  line(20, 200, 200, 350)\n  triangle(250, 350, 350, 200, 450, 350)\n  quad(500, 250, 550, 200, 700, 300, 650, 350)\n\n  noLoop()\nend`,
+      },
+      {
+        id: "l5-doodle",
+        title: "Doodle Draw (L5)",
+        sourceUrl: "https://l5lua.org/examples/doodle-draw/",
+        code: `function setup()\n  size(800, 600)\n  background(20, 24, 60)\n  strokeWeight(5)\nend\n\nfunction mouseDragged()\n  line(mouseX, mouseY, pmouseX, pmouseY)\nend\n\nfunction mousePressed()\n  stroke(random(255), random(255), random(255))\nend`,
+      },
+      {
+        id: "l5-10print",
+        title: "10 Print (L5)",
+        sourceUrl: "https://l5lua.org/examples/10print/",
+        code: `local block = 20\n\nfunction setup()\n  size(600, 600)\n  frameRate(1)\nend\n\nfunction draw()\n  background(255)\n  block = math.floor(random(10, 140))\n  if block < 8 then block = 8 end\n\n  for y = 1, height, block do\n    for x = 1, width, block do\n      if random() < 0.5 then\n        line(x, y, x + block, y + block)\n      else\n        line(x + block, y, x, y + block)\n      end\n    end\n  end\nend`,
+      },
+      {
+        id: "l5-events",
+        title: "Animation Events (L5)",
+        sourceUrl: "https://l5lua.org/examples/animation-and-variables-animation-with-events/",
+        code: `local x = 25\n\nfunction setup()\n  size(720, 400)\n  textSize(20)\n  noLoop()\nend\n\nfunction draw()\n  background(0)\n  fill((x / 3) % 255, 90, 90)\n  circle(x, height / 2, 50)\n\n  x = x + 5\n  if x > width + 25 then\n    x = -25\n  end\nend\n\nfunction mousePressed()\n  if isLooping() then\n    noLoop()\n  else\n    loop()\n  end\nend\n\nfunction keyPressed()\n  redraw()\nend`,
+      },
+      {
+        id: "l5-conditions",
+        title: "Conditions (L5)",
+        sourceUrl: "https://l5lua.org/examples/animation-and-variables-conditions/",
+        code: `local x = 200\nlocal y = 200\nlocal vx = 2\nlocal vy = 3\nlocal radius = 25\nlocal hue = 0\n\nfunction setup()\n  size(400, 400)\n  background(255)\n\n  noStroke()\n  fill(128)\n  rect(0, 0, 100, height)\n  rect(300, 0, 100, height)\n\n  strokeWeight(4)\nend\n\nfunction draw()\n  stroke(hue, 80, 200)\n\n  if x >= 100 and x <= 300 then\n    fill(0)\n  else\n    fill(255)\n  end\n\n  circle(x, y, radius * 2)\n\n  if mouseIsPressed then\n    x = x + vx\n    y = y + vy\n    hue = (hue + 1) % 255\n  end\n\n  if x < radius or x > width - radius then\n    vx = -vx\n  end\n\n  if y < radius or y > height - radius then\n    vy = -vy\n  end\nend`,
       },
     ];
 
@@ -517,16 +576,26 @@
 
     function initExampleControls() {
       const select = document.getElementById("example-select");
+      const source = document.getElementById("example-source");
       const resetBtn = document.getElementById("reset-btn");
       const copyBtn = document.getElementById("copy-btn");
       const runBtn = document.getElementById("run-btn");
 
-      select.innerHTML = EXAMPLES.map((item) => `<option value="${item.id}">${escapeHtml(item.title)}</option>`).join("");
+      const updateSource = (picked) => {
+        source.href = picked.sourceUrl || "https://l5lua.org/examples/";
+        source.textContent = picked.sourceUrl ? "L5 Source" : "Source";
+      };
+
+      select.innerHTML = EXAMPLES
+        .map((item) => `<option value="${item.id}">${escapeHtml(item.title)}</option>`)
+        .join("");
       select.value = state.selectedExampleId;
+      updateSource(getExampleById(state.selectedExampleId));
 
       select.addEventListener("change", () => {
         state.selectedExampleId = select.value;
         const picked = getExampleById(state.selectedExampleId);
+        updateSource(picked);
         setEditorValue(picked.code);
       });
 
@@ -590,7 +659,7 @@
       });
 
       window.require(["vs/editor/editor.main"], () => {
-        monaco.editor.defineTheme("l5-yellow-black", {
+        monaco.editor.defineTheme("l5-yellow-dark", {
           base: "vs-dark",
           inherit: true,
           rules: [
@@ -610,10 +679,35 @@
           },
         });
 
+        monaco.editor.defineTheme("l5-yellow-light", {
+          base: "vs",
+          inherit: true,
+          rules: [
+            { token: "keyword", foreground: "8b6500" },
+            { token: "identifier", foreground: "1a1a1a" },
+            { token: "comment", foreground: "6c6c6c" },
+            { token: "string", foreground: "945f00" },
+          ],
+          colors: {
+            "editor.background": "#fffdf2",
+            "editor.foreground": "#111111",
+            "editorCursor.foreground": "#111111",
+            "editor.lineHighlightBackground": "#fff6cf",
+            "editorLineNumber.foreground": "#8f8f8f",
+            "editorLineNumber.activeForeground": "#8b6500",
+            "editor.selectionBackground": "#f6d64844",
+          },
+        });
+
+        const applyEditorTheme = () => {
+          const isDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+          monaco.editor.setTheme(isDark ? "l5-yellow-dark" : "l5-yellow-light");
+        };
+
         state.editor = monaco.editor.create(container, {
           value: initial,
           language: "lua",
-          theme: "l5-yellow-black",
+          theme: "l5-yellow-dark",
           minimap: { enabled: false },
           automaticLayout: true,
           tabSize: 2,
@@ -624,6 +718,10 @@
           scrollBeyondLastLine: false,
         });
 
+        applyEditorTheme();
+        if (window.matchMedia) {
+          window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyEditorTheme);
+        }
         state.monacoReady = true;
       });
     }
