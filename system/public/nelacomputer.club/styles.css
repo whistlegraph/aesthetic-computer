@@ -1,0 +1,81 @@
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #000;
+    color: #00d080;
+    font-family: monospace;
+}
+
+a:link{
+    color: #00c4fd;
+}
+
+h3 a:link{
+    color: #006888;
+}
+
+h1, h2, h3, h4, h5, h6{
+    margin: 0;
+    padding: 0;
+    line-height: 1rem;
+    font-size: 1em;
+    font-weight: bold;
+}
+
+pre{
+    margin: 0;
+    padding: 0;
+    line-height: 1rem;
+}
+
+h2{
+    margin-top: 3em;
+
+}
+
+h3 {
+    margin-top: 2em;
+    background-color: #00d080;
+    color: #000;
+}
+
+header{
+    color: #00c4fd;
+}
+
+.container{
+    display: grid;
+    place-items: center;
+}
+
+.textRegion{
+    max-width: 540px;
+    min-width: 240px;
+    padding: 10px;
+    box-sizing: border-box;
+    font-family: monospace;
+}
+
+.meetupBox{
+    margin-top: 1em;
+    border: 1px solid #00c4fd;
+    padding: 10px;
+    color: #00c4fd;
+}
+
+.meetingTitle{
+    font-weight: bold;
+}
+
+.meetingList{
+    margin-top: 1em;
+}
+
+.meetingList li{
+    margin-bottom: 0.5em;
+}
+
+li{
+    margin-bottom: 2em;
+
+}
