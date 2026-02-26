@@ -914,6 +914,16 @@ from = "https://prompt.ac/*"
 to = "https://aesthetic.computer/:splat"
 status = 301
 force = true
+[[redirects]]
+from = "https://l5.prompt.ac"
+to = "https://l5.aesthetic.computer"
+status = 301
+force = true
+[[redirects]]
+from = "https://l5.prompt.ac/*"
+to = "https://l5.aesthetic.computer/:splat"
+status = 301
+force = true
 # sitemap.prompt.ac → sitemap.aesthetic.computer
 [[redirects]]
 from = "https://sitemap.prompt.ac"
@@ -936,6 +946,16 @@ from = "https://api.prompt.ac/*"
 to = "https://api.aesthetic.computer/:splat"
 status = 301
 force = true
+[[redirects]]
+from = "https://l5.aesthetic.computer"
+to = "/l5.aesthetic.computer/index.html"
+status = 200
+force = true
+[[redirects]]
+from = "https://l5.aesthetic.computer/*"
+to = "/l5.aesthetic.computer/index.html"
+status = 200
+force = true
 # Screenshot generation handled by oven.aesthetic.computer
 [[redirects]]
 from = "/preview/*"
@@ -957,6 +977,26 @@ force = true
 from = "/sitemap"
 to = "/sitemap.html"
 status = 200
+[[redirects]]
+from = "/l5"
+to = "/l5.aesthetic.computer/index.html"
+status = 200
+force = true
+[[redirects]]
+from = "/l5/*"
+to = "/l5.aesthetic.computer/index.html"
+status = 200
+force = true
+[[redirects]]
+from = "/L5"
+to = "/l5.aesthetic.computer/index.html"
+status = 200
+force = true
+[[redirects]]
+from = "/L5/*"
+to = "/l5.aesthetic.computer/index.html"
+status = 200
+force = true
 [[redirects]]
 from = "/support"
 to = "/support.html"
