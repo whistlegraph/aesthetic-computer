@@ -13180,6 +13180,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // Trigger a file download from a remote URL without navigating away.
+    if (type === "download-url") {
+      const a = document.createElement("a");
+      a.href = content.url;
+      a.download = content.filename || "";
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => a.remove(), 1000);
+      return;
+    }
+
     if (type === "upload") {
       // Extract recordingSlug if present in content
       const { recordingSlug, ...uploadData } = content;

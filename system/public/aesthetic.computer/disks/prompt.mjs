@@ -2852,14 +2852,18 @@ async function halt($, text) {
       ? `code=${encodeURIComponent(`$${code}`)}`
       : `piece=${encodeURIComponent(code)}`;
 
-    // OS-specific timeline steps
+    // OS-specific timeline steps (match stage names from os-builder.mjs)
     const osTimeline = [
       { id: 'manifest', label: 'Fetch Manifest', status: 'pending', message: null, time: null },
-      { id: 'base', label: 'Prepare Base Image', status: 'pending', message: null, time: null },
+      { id: 'base', label: 'Verify Base Image', status: 'pending', message: null, time: null },
       { id: 'bundle', label: 'Bundle Piece', status: 'pending', message: null, time: null },
-      { id: 'assemble', label: 'Assemble ISO', status: 'pending', message: null, time: null },
+      { id: 'cache-check', label: 'Check CDN Cache', status: 'pending', message: null, time: null },
+      { id: 'copy', label: 'Copy Base Image', status: 'pending', message: null, time: null },
+      { id: 'extract', label: 'Extract Partition', status: 'pending', message: null, time: null },
       { id: 'inject', label: 'Inject Piece', status: 'pending', message: null, time: null },
-      { id: 'complete', label: 'Done!', status: 'pending', message: null, time: null },
+      { id: 'write-back', label: 'Write Partition', status: 'pending', message: null, time: null },
+      { id: 'upload', label: 'Upload to CDN', status: 'pending', message: null, time: null },
+      { id: 'done', label: 'Done!', status: 'pending', message: null, time: null },
     ];
     advancePackStep(osTimeline, 'manifest', `Building OS ISO for ${displayName}...`);
     packProgress = { timeline: osTimeline, startTime: performance.now(), code: `OS ${displayName}` };
@@ -2897,7 +2901,7 @@ async function halt($, text) {
                 needsPaint();
               } else if (currentEventType === 'complete') {
                 result = data;
-                advancePackStep(packProgress.timeline, 'complete', 'Done!');
+                advancePackStep(packProgress.timeline, 'done', 'Done!');
                 finalizePackTimeline(packProgress.timeline);
                 needsPaint();
               }
@@ -2927,7 +2931,8 @@ async function halt($, text) {
       // Use CDN URL from SSE result when available (much faster download).
       // Falls back to oven direct URL which also sets Content-Disposition: attachment.
       const downloadUrl = result.downloadUrl || `https://oven.aesthetic.computer/os?${bundleParam}`;
-      send({ type: "web", content: { url: downloadUrl, blank: false } });
+      const isoFilename = `${displayName}-os.iso`;
+      send({ type: "download-url", content: { url: downloadUrl, filename: isoFilename } });
 
       notice(`OS ISO ready for ${displayName} — downloading ~3GB`, ["lime"]);
       flashColor = [0, 255, 0];
