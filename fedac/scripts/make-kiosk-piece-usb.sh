@@ -430,6 +430,14 @@ mkdir -p "$ROOTFS_DIR/etc/systemd/system/getty@tty1.service.d"
 ln -sf /dev/null "$ROOTFS_DIR/etc/systemd/system/gdm.service"
 ln -sf /dev/null "$ROOTFS_DIR/etc/systemd/system/display-manager.service"
 
+# Disable SELinux — the erofs live rootfs lacks correct xattr labels, causing
+# pam_unix to fail with "User not known to the underlying authentication module".
+# For an offline kiosk, SELinux provides no benefit and adds boot complexity.
+if [ -f "$ROOTFS_DIR/etc/selinux/config" ]; then
+  sed -i 's/^SELINUX=enforcing/SELINUX=disabled/' "$ROOTFS_DIR/etc/selinux/config"
+  echo -e "  ${GREEN}SELinux disabled in rootfs config${NC}"
+fi
+
 cat > "$ROOTFS_DIR/etc/systemd/system/getty@tty1.service.d/autologin.conf" << 'AGEOF'
 [Service]
 ExecStart=
@@ -1027,7 +1035,7 @@ set gfxpayload=keep
 terminal_input console
 terminal_output gfxterm
 menuentry "FedAC Kiosk" --class fedora {
-  linux /loader/linux quiet splash rhgb loglevel=0 systemd.log_level=emerg systemd.show_status=false rd.systemd.show_status=false rd.udev.log_level=3 udev.log_priority=3 rd.plymouth=1 plymouth.ignore-serial-consoles vt.handoff=7 vt.global_cursor_default=0 logo.nologo root=live:LABEL=FEDAC-LIVE rd.live.image mitigations=off
+  linux /loader/linux quiet splash rhgb loglevel=0 systemd.log_level=emerg systemd.show_status=false rd.systemd.show_status=false rd.udev.log_level=3 udev.log_priority=3 rd.plymouth=1 plymouth.ignore-serial-consoles vt.handoff=7 vt.global_cursor_default=0 logo.nologo root=live:LABEL=FEDAC-LIVE rd.live.image mitigations=off selinux=0
   initrd /loader/initrd
 }
 GRUBEOF
