@@ -384,23 +384,29 @@ end</code></pre>
       interaction: {
         pen: {
           sig: "pen: { x, y, ... }",
-          desc: "Contains active mouse + touch pointer data.",
-          done: false,
+          desc: "Current primary pointer state (mouse or touch), including coordinates and press state.",
+          returns: "object",
+          examples: ["prompt~line", "prompt~plot"],
+          done: true,
         },
         pens: {
           sig: "pens(n)",
-          desc: "Get all active pen pointers or a specific one, for multi-touch.",
-          done: false,
+          desc: "Read active pointer inputs. Without args returns all pens, with index returns one pointer.",
+          params: [{ name: "n", type: "number", required: false, desc: "Pointer index for a single pen." }],
+          returns: "array | object",
+          done: true,
         },
         pen3d: {
           sig: "pen3d",
-          desc: "A reference to the active XR pen pointer.",
-          done: false,
+          desc: "Current XR/controller pointer state when running in immersive input contexts.",
+          returns: "object | null",
+          done: true,
         },
         event: {
           sig: "event",
-          desc: "A reference to the currently running `event`.",
-          done: false,
+          desc: "The current input/system event being processed in the active callback.",
+          returns: "object",
+          done: true,
         },
       },
       // 🖌️ Graphics
@@ -940,157 +946,229 @@ end</code></pre>
         "net.signup": {
           sig: "signup()",
           desc: "Redirect a user to the signup screen.",
-          done: false,
+          returns: "void",
+          done: true,
         },
         "net.login": {
           sig: "login()",
           desc: "Redirect a user to the login screen.",
-          done: false,
+          returns: "void",
+          done: true,
         },
         "net.logout": {
           sig: "logout()",
           desc: "Log a user out and redirect them to the `prompt`.",
-          done: false,
+          returns: "void",
+          done: true,
         },
         "net.pieces": {
           sig: "pieces",
           desc: "The system path to all built-in piece code.",
-          done: false,
+          returns: "string",
+          done: true,
         },
         "net.parse": {
           sig: "parse(slug)",
           desc: "Parse a textual piece slug.",
-          done: false,
+          params: [{ name: "slug", type: "string", required: true, desc: "Piece slug or prompt-style path." }],
+          returns: "object",
+          done: true,
         },
         "net.userRequest": {
           sig: "userRequest(method, endpoint, body)",
           desc: "Make an authorized request for a logged in user.",
-          done: false,
+          params: [
+            { name: "method", type: "string", required: true, desc: "HTTP method (GET, POST, etc)." },
+            { name: "endpoint", type: "string", required: true, desc: "Relative API endpoint." },
+            { name: "body", type: "object", required: false, desc: "JSON payload for write requests." },
+          ],
+          returns: "Promise<object>",
+          done: true,
         },
         "net.udp": {
           sig: "udp(receive)",
           desc: "Loosely connect the UDP receiver.",
-          done: false,
+          params: [{ name: "receive", type: "function", required: true, desc: "Callback for incoming UDP-style messages." }],
+          returns: "void",
+          done: true,
         },
         "net.lan": {
           sig: "lan",
           desc: "A reference to the local area network IP if it is available.",
-          done: false,
+          returns: "string | null",
+          done: true,
         },
         "net.iframe": {
           sig: "iframe",
           desc: "Whether or not the system is running hosted within an `iframe`.",
-          done: false,
+          returns: "boolean",
+          done: true,
         },
         back: {
           sig: "back()",
           desc: "Go back to the previous piece or prompt if there is no history.",
-          done: false,
+          returns: "void",
+          done: true,
         },
         alias: {
           sig: "alias(name, colon, params)",
           desc: "Jump to a piece without changing the corner label or url, and ignoring the history stack.",
-          done: false,
+          params: [
+            { name: "name", type: "string", required: true, desc: "Piece slug to load." },
+            { name: "colon", type: "array", required: false, desc: "Colon params to pass through." },
+            { name: "params", type: "array", required: false, desc: "Space params to pass through." },
+          ],
+          returns: "void",
+          done: true,
         },
         load: {
           sig: "async load(parsed, fromHistory, alias, devReload, loadedCallback)",
           desc: "Load a piece after parsing a slug, with various options.",
-          done: false,
+          params: [
+            { name: "parsed", type: "object", required: true, desc: "Parsed slug payload." },
+            { name: "fromHistory", type: "boolean", required: false, desc: "Treat this load as history navigation." },
+            { name: "alias", type: "boolean", required: false, desc: "Skip URL/label rewrite when true." },
+            { name: "devReload", type: "boolean", required: false, desc: "Set dev-reload mode." },
+            { name: "loadedCallback", type: "function", required: false, desc: "Callback after load success." },
+          ],
+          returns: "Promise<void>",
+          done: true,
         },
         slug: {
           sig: "slug",
           desc: "The full piece address containing its name, colon parameters, and space separated parameters.",
-          done: false,
+          returns: "object",
+          done: true,
         },
         piece: {
           sig: "piece",
           desc: "The name of the running piece.",
-          done: false,
+          returns: "string",
+          done: true,
         },
         query: {
           sig: "query",
           desc: "An object containing the system's URL query parameters.",
-          done: false,
+          returns: "object",
+          done: true,
         },
         params: {
           sig: "params",
-          desc: "",
-          done: false,
+          desc: "Array of space-delimited piece parameters from the current slug.",
+          returns: "array",
+          done: true,
         },
         colon: {
           sig: "colon",
-          desc: "An array of colon paramaters for a piece.",
-          done: false,
+          desc: "Array of colon parameters for the active piece slug.",
+          returns: "array",
+          done: true,
         },
         preload: {
           sig: "async preload(path, parseJSON = true, progressReport, options)",
           desc: "Preload a media asset from the network.",
-          done: false,
+          params: [
+            { name: "path", type: "string", required: true, desc: "Asset URL or path." },
+            { name: "parseJSON", type: "boolean", required: false, desc: "Auto-parse JSON responses." },
+            { name: "progressReport", type: "function", required: false, desc: "Progress callback." },
+            { name: "options", type: "object", required: false, desc: "Fetch options overrides." },
+          ],
+          returns: "Promise<any>",
+          done: true,
         },
         download: {
           sig: "download(filename, data, modifiers)",
           desc: "Download a file.",
-          done: false,
+          params: [
+            { name: "filename", type: "string", required: true, desc: "Output filename." },
+            { name: "data", type: "Blob | string | object", required: true, desc: "Download payload." },
+            { name: "modifiers", type: "object", required: false, desc: "Optional mime/options." },
+          ],
+          returns: "void",
+          done: true,
         },
         dark: {
           sig: "dark",
           desc: "If the system is in dark mode.",
-          done: false,
+          returns: "boolean",
+          done: true,
         },
         jump: {
           sig: "jump(to)",
-          desc: "Gets a random integer.",
-          done: false,
+          desc: "Navigate to a piece/url or cached code id.",
+          params: [{ name: "to", type: "string", required: true, desc: "Target piece slug, URL, or code id." }],
+          returns: "void",
+          done: true,
         },
         leaving: {
           sig: "leaving()",
           desc: "Returns true if a piece is leaving / a `jump` is in process.",
-          done: false,
+          returns: "boolean",
+          done: true,
         },
         broadcast: {
           sig: "broadcast(msg)",
           desc: "Send a message to other open `aesthetic.computer` tabs.",
-          done: false,
+          params: [{ name: "msg", type: "any", required: true, desc: "Broadcast payload." }],
+          returns: "void",
+          done: true,
         },
         "net.socket": {
           sig: "socket(receive)",
           desc: "Hook into the piece's socket server with a receive callback.",
-          done: false,
+          params: [{ name: "receive", type: "function", required: true, desc: "Callback for socket events/messages." }],
+          returns: "object | void",
+          done: true,
         },
         "net.devReload": {
           sig: "devReload",
           desc: "A flag that determines if the piece code was just reloaded in development.",
-          done: false,
+          returns: "boolean",
+          done: true,
         },
         "net.web": {
           sig: "web(url, jumpOut)",
           desc: "Jump the browser to a new url.",
-          done: false,
+          params: [
+            { name: "url", type: "string", required: true, desc: "Destination URL." },
+            { name: "jumpOut", type: "boolean", required: false, desc: "Open externally when true." },
+          ],
+          returns: "void",
+          done: true,
         },
         "net.host": {
           sig: "host",
-          desc: "The current hetwork host.",
-          done: false,
+          desc: "The current network host.",
+          returns: "string",
+          done: true,
         },
         "net.rewrite": {
           sig: "rewrite(path, historical = false)",
           desc: "Rewrite a new URL / parameter path without affecting the history.",
-          done: false,
+          params: [
+            { name: "path", type: "string", required: true, desc: "New path/query to write." },
+            { name: "historical", type: "boolean", required: false, desc: "Whether to push history." },
+          ],
+          returns: "void",
+          done: true,
         },
         "net.refresh": {
           sig: "refresh()",
           desc: "Refresh the page / restart `aesthetic.computer`.",
-          done: false,
+          returns: "void",
+          done: true,
         },
         "net.waitForPreload": {
           sig: "waitForPreload()",
           desc: "Tell the system to wait until preloading is finished before painting.",
-          done: false,
+          returns: "void",
+          done: true,
         },
         "net.preloaded": {
           sig: "preloaded()",
           desc: "Tell the system that all preloading is done.",
-          done: false,
+          returns: "void",
+          done: true,
         },
       },
       number: {
@@ -1516,247 +1594,362 @@ end</code></pre>
         signal: {
           sig: "signal(content)",
           desc: "Send a message through the `signal` system, good for communicating with added DOM content.",
-          done: false,
+          params: [{ name: "content", type: "any", required: true, desc: "Signal payload." }],
+          returns: "void",
+          done: true,
         },
         sideload: {
           sig: "sideload(type)",
           desc: "Open a file chooser to load a file.",
-          done: false,
+          params: [{ name: "type", type: "string", required: false, desc: "Optional file type filter." }],
+          returns: "Promise<File | null>",
+          done: true,
         },
         user: {
           sig: "user",
           desc: "A reference to the currently logged in user.",
-          done: false,
+          returns: "object | null",
+          done: true,
         },
         vscode: {
           sig: "vscode",
           desc: "A flag that's true while running the VS Code extension.",
-          done: false,
+          returns: "boolean",
+          done: true,
         },
         meta: {
           sig: "meta(data)",
           desc: "Add meta to the common api so the data can be overridden as needed.",
-          done: false,
+          params: [{ name: "data", type: "object", required: true, desc: "Meta fields to merge into runtime state." }],
+          returns: "void",
+          done: true,
         },
         reload: {
           sig: "reload({ piece, name, source, codeChannel })",
           desc: "Reload / start a piece in various ways. Used especially in live development.",
-          done: false,
+          params: [{ name: "options", type: "object", required: true, desc: "Reload options including piece/name/source/codeChannel." }],
+          returns: "void",
+          done: true,
         },
         pieceCount: {
           sig: "pieceCount",
           desc: "Keeps track of how many pieces have been run so far in a session.",
-          done: false,
+          returns: "number",
+          done: true,
         },
         store: {
           sig: "store",
           desc: "An object for keeping data in across piece jumps.",
-          done: false,
+          returns: "object",
+          done: true,
         },
         "store.persist": {
           sig: 'store.persist(key, method = "local")',
           desc: "Save a storage key with associated data in the user's browser.",
-          done: false,
+          params: [
+            { name: "key", type: "string", required: true, desc: "Store key to persist." },
+            { name: "method", type: "string", required: false, desc: "Persistence backend (for example `local` or `local:db`)." },
+          ],
+          returns: "Promise<void>",
+          done: true,
         },
         "store.retrieve": {
           sig: 'store.retrieve(key, method = "local")',
           desc: "Load a storage key with associated data.",
-          done: false,
+          params: [
+            { name: "key", type: "string", required: true, desc: "Store key to read." },
+            { name: "method", type: "string", required: false, desc: "Persistence backend." },
+          ],
+          returns: "Promise<any>",
+          done: true,
         },
         "store.delete": {
-          sig: 'store.persist(key, method = "local")',
+          sig: 'store.delete(key, method = "local")',
           desc: "Remove a storage key and any saved data.",
-          done: false,
+          params: [
+            { name: "key", type: "string", required: true, desc: "Store key to remove." },
+            { name: "method", type: "string", required: false, desc: "Persistence backend." },
+          ],
+          returns: "Promise<boolean>",
+          done: true,
         },
         debug: {
           sig: "debug",
           desc: "Reports whether the system is in debug / development mode.",
-          done: false,
+          returns: "boolean",
+          done: true,
         },
         canShare: {
           sig: "canShare",
-          desc: "",
-          done: false,
+          desc: "Whether the current environment supports the Web Share API.",
+          returns: "boolean",
+          done: true,
         },
         handle: {
           sig: "handle()",
           desc: "Returns the user's handle, if one exists.",
-          done: false,
+          returns: "string | null",
+          done: true,
         },
         ticket: {
           sig: "ticket(name)",
           desc: "Open a ticketed paywall by its name.",
-          done: false,
+          params: [{ name: "name", type: "string", required: true, desc: "Ticket/paywall identifier." }],
+          returns: "void",
+          done: true,
         },
         mint: {
           sig: "mint(picture, progress, params)",
           desc: "Mint a picture on an external service.",
-          done: false,
+          params: [
+            { name: "picture", type: "object", required: true, desc: "Painting/pixel payload." },
+            { name: "progress", type: "function", required: false, desc: "Progress callback." },
+            { name: "params", type: "object", required: false, desc: "Mint metadata/options." },
+          ],
+          returns: "Promise<any>",
+          done: true,
         },
         print: {
           sig: "print(picture, quantity, progress)",
           desc: "Print the `pixels` that get passed in via an external service. Stickers only right now.",
-          done: false,
+          params: [
+            { name: "picture", type: "object", required: true, desc: "Painting/pixel payload." },
+            { name: "quantity", type: "number", required: false, desc: "Requested print quantity." },
+            { name: "progress", type: "function", required: false, desc: "Progress callback." },
+          ],
+          returns: "Promise<any>",
+          done: true,
         },
         zip: {
           sig: "zip(content, progress)",
           desc: "Create a zip file of the content. Auto-encodes paintings.",
-          done: false,
+          params: [
+            { name: "content", type: "object | array", required: true, desc: "Files/content to include." },
+            { name: "progress", type: "function", required: false, desc: "Progress callback." },
+          ],
+          returns: "Promise<Blob>",
+          done: true,
         },
         "motion.start": {
           sig: "start()",
           desc: "Start tracking device motion.",
-          done: false,
+          returns: "Promise<void> | void",
+          done: true,
         },
         "motion.stop": {
           sig: "stop()",
           desc: "Stop tracking device motion.",
-          done: false,
+          returns: "void",
+          done: true,
         },
         "motion.current": {
           sig: "current",
           desc: "Populated with the device motion data upon `motion.start()`.",
-          done: false,
+          returns: "object | null",
+          done: true,
         },
         speak: {
           sig: "speak(utterance, voice, mode, opts)",
           desc: "Speak an `utterance` aloud.",
-          done: false,
+          params: [
+            { name: "utterance", type: "string", required: true, desc: "Text to speak." },
+            { name: "voice", type: "string", required: false, desc: "Voice id/preset." },
+            { name: "mode", type: "string", required: false, desc: "Speech backend mode." },
+            { name: "opts", type: "object", required: false, desc: "Optional speech options." },
+          ],
+          returns: "Promise<void> | void",
+          done: true,
         },
         act: {
           sig: "act(event, data)",
           desc: "Broadcast an `act` event through the system.",
-          done: false,
+          params: [
+            { name: "event", type: "string", required: true, desc: "Event name." },
+            { name: "data", type: "any", required: false, desc: "Optional payload." },
+          ],
+          returns: "void",
+          done: true,
         },
         "get.painting().by()": {
           sig: "get.painting(code, opts).by(handle, opts)",
           desc: "Retrieve a painting from network storage.",
-          done: false,
+          returns: "Promise<object>",
+          done: true,
         },
         upload: {
           sig: "async upload(filename, data, progress, bucket)",
           desc: "Upload a media file to network storage.",
-          done: false,
+          params: [
+            { name: "filename", type: "string", required: true, desc: "Destination filename." },
+            { name: "data", type: "Blob | Uint8Array | string", required: true, desc: "File payload." },
+            { name: "progress", type: "function", required: false, desc: "Progress callback." },
+            { name: "bucket", type: "string", required: false, desc: "Target storage bucket." },
+          ],
+          returns: "Promise<object>",
+          done: true,
         },
         "code.channel": {
           sig: "channel(chan)",
-          desc: "Set the current code chnnel for live development.",
-          done: false,
+          desc: "Set the current code channel for live development.",
+          params: [{ name: "chan", type: "string", required: true, desc: "Channel name/id." }],
+          returns: "void",
+          done: true,
         },
         encode: {
           sig: "async encode(file)",
           desc: "File should be { type, data } where type is `png`, `webp`, or `jpg`, etc.",
-          done: false,
+          params: [{ name: "file", type: "object", required: true, desc: "Encoder payload {type, data, ...}." }],
+          returns: "Promise<Blob | Uint8Array>",
+          done: true,
         },
         file: {
           sig: "async file()",
           desc: "Request a file from the user.",
-          done: false,
+          returns: "Promise<File | null>",
+          done: true,
         },
         authorize: {
           sig: "async authorize()",
           desc: "Authorize a user.",
-          done: false,
+          returns: "Promise<void>",
+          done: true,
         },
         "hand.mediapipe": {
           sig: "mediapipe",
           desc: "A reference to the mediapipe hand tracking data. Enable through `video`.",
-          done: false,
+          returns: "object | null",
+          done: true,
         },
         "hud.label": {
           sig: "label(text, color, offset)",
           desc: "Override the piece corner label.",
-          done: false,
+          params: [
+            { name: "text", type: "string", required: true, desc: "Label text." },
+            { name: "color", type: "string | array", required: false, desc: "Optional label color." },
+            { name: "offset", type: "number", required: false, desc: "Optional offset/priority." },
+          ],
+          returns: "void",
+          done: true,
         },
         "hud.currentStatusColor": {
           sig: "currentStatusColor()",
           desc: "Get the current connection status label color.",
-          done: false,
+          returns: "string | array",
+          done: true,
         },
         "hud.currentLabel": {
           sig: "currentLabel()",
           desc: "Get the current label content and button.",
-          done: false,
+          returns: "object",
+          done: true,
         },
         "hud.labelBack": {
           sig: "labelBack()",
           desc: "Jump to the `prompt` with the current label applied.",
-          done: false,
+          returns: "void",
+          done: true,
         },
         send: {
           sig: "send({type, content})",
           desc: "Send a message to the bios.",
-          done: false,
+          params: [{ name: "message", type: "object", required: true, desc: "Message payload with `type` and optional `content`." }],
+          returns: "void",
+          done: true,
         },
         platform: {
           sig: "platform",
           desc: "Get the current host platform.",
-          done: false,
+          returns: "string",
+          done: true,
         },
         history: {
           sig: "history",
           desc: "An array of previously visited pieces in a session.",
-          done: false,
+          returns: "array",
+          done: true,
         },
         "bgm.set": {
           sig: "set(trackNumber, volume)",
           desc: "Start a background music track, persisting across jumps.",
-          done: false,
+          params: [
+            { name: "trackNumber", type: "number | string", required: true, desc: "Track id/index." },
+            { name: "volume", type: "number", required: false, desc: "Playback gain." },
+          ],
+          returns: "void",
+          done: true,
         },
         "bgm.stop": {
           sig: "stop()",
           desc: "Stop a background music track.",
-          done: false,
+          returns: "void",
+          done: true,
         },
         "bgm.data": {
           sig: "data",
           desc: "Gets live analysis data from the current background track.",
-          done: false,
+          returns: "object | null",
+          done: true,
         },
         "system.world": {
           sig: "system.world",
           desc: "A reference to the world system state if a piece is using it.",
-          done: false,
+          returns: "object | null",
+          done: true,
         },
         "system.nopaint": {
           sig: "system.nopaint",
-          desc: "A refrence to the `nopaint` system state that all brushes use.",
-          done: false,
+          desc: "A reference to the `nopaint` system state that all brushes use.",
+          returns: "object",
+          done: true,
         },
         flatten: {
           sig: "flatten()",
           desc: "Paint (bake) all graphics commands immediately.",
-          done: false,
+          returns: "void",
+          done: true,
         },
         connect: {
           sig: "connect()",
           desc: "Connect with external wallet software.",
-          done: false,
+          returns: "Promise<void> | void",
+          done: true,
         },
         wiggle: {
           sig: "wiggle(n, level, speed)",
           desc: "Oscillate a value over time using a sine wave.",
-          done: false,
+          params: [
+            { name: "n", type: "number", required: true, desc: "Base value." },
+            { name: "level", type: "number", required: false, desc: "Amplitude." },
+            { name: "speed", type: "number", required: false, desc: "Oscillation speed." },
+          ],
+          returns: "number",
+          done: true,
         },
         dark: {
           sig: "dark",
           desc: "Gets whether the system is in dark mode.",
-          done: false,
+          returns: "boolean",
+          done: true,
         },
         darkMode: {
           sig: "darkMode(enabled)",
           desc: "Toggle dark mode on or off with a boolean.",
-          done: false,
+          params: [{ name: "enabled", type: "boolean", required: true, desc: "Target dark mode state." }],
+          returns: "void",
+          done: true,
         },
         gpuReady: {
           sig: "gpuReady",
           desc: "Whether the system GPU is ready for rendering.",
-          done: false,
+          returns: "boolean",
+          done: true,
         },
         "gpu.message": {
           sig: "message(content)",
           desc: "Send a message to the GPU driver.",
-          done: false,
+          params: [{ name: "content", type: "object", required: true, desc: "Driver command payload." }],
+          returns: "void",
+          done: true,
         },
       },
       mjs: {
@@ -3963,6 +4156,16 @@ end</code></pre>
           border: 1px solid rgba(255, 255, 255, 0.26);
           border-radius: 6px;
         }
+        .doc-preview-links button {
+          text-decoration: none;
+          padding: 3px 6px;
+          border: 1px solid rgba(255, 255, 255, 0.26);
+          border-radius: 6px;
+          background: transparent;
+          color: inherit;
+          font: inherit;
+          cursor: pointer;
+        }
         pre {
           margin-top: 1em;
           margin-bottom: 1em;
@@ -4035,7 +4238,8 @@ end</code></pre>
           .doc-block,
           .doc-preview,
           .doc-preview-head,
-          .doc-preview-links a {
+          .doc-preview-links a,
+          .doc-preview-links button {
             border-color: rgba(0, 0, 0, 0.2);
           }
           a.prompt, a.prompt:visited {
@@ -4083,6 +4287,27 @@ end</code></pre>
         if (window.self !== window.top && titleLink.innerText === "docs") {
           title.classList.add("nolink");
         }
+        const docPreviewFrame = document.getElementById("doc-preview-frame");
+        const docPreviewBase = docPreviewFrame?.dataset?.src || docPreviewFrame?.src || "";
+        function withFreshTimestamp(url) {
+          if (!url) return "";
+          try {
+            const next = new URL(url, window.location.origin);
+            next.searchParams.set("t", Date.now());
+            return next.toString();
+          } catch (_err) {
+            const joiner = url.includes("?") ? "&" : "?";
+            return url + joiner + "t=" + Date.now();
+          }
+        }
+        window.runDocPreview = function runDocPreview() {
+          if (!docPreviewFrame) return;
+          docPreviewFrame.src = withFreshTimestamp(docPreviewFrame.src || docPreviewBase);
+        };
+        window.resetDocPreview = function resetDocPreview() {
+          if (!docPreviewFrame || !docPreviewBase) return;
+          docPreviewFrame.src = withFreshTimestamp(docPreviewBase);
+        };
         // 🌠 Live editing (while developing aesthetic locally)
         if (${dev}) {
           var socket = new WebSocket("ws://localhost:8889");
@@ -4282,6 +4507,8 @@ end</code></pre>
               <div class="doc-preview-head">Embedded AC preview</div>
               <div class="doc-preview-body">
                 <iframe
+                  id="doc-preview-frame"
+                  data-src="${previewSrc}"
                   src="${previewSrc}"
                   title="${escapeHTML(word)} preview"
                   loading="lazy"
@@ -4290,6 +4517,8 @@ end</code></pre>
               </div>
             </div>
             <div class="doc-preview-links">
+              <button type="button" onclick="runDocPreview()">Run</button>
+              <button type="button" onclick="resetDocPreview()">Reset</button>
               <a href="${previewSrc}" target="_blank" rel="noopener">Open preview</a>
               <a href="${AC_ORIGIN}/prompt" target="_blank" rel="noopener">Open prompt</a>
               <a href="${AC_ORIGIN}/docs/${category}:${word}" target="_blank" rel="noopener">Open doc</a>
