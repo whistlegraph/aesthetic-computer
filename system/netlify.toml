@@ -780,6 +780,39 @@ to = "https://justanothersystem.org/:splat"
 status = 301
 force = true
 
+# nelacomputer.club - NELA Computer Club principles page
+[[redirects]]
+from = "https://www.nelacomputer.club"
+to = "https://nelacomputer.club"
+status = 301
+force = true
+[[redirects]]
+from = "https://www.nelacomputer.club/*"
+to = "https://nelacomputer.club/:splat"
+status = 301
+force = true
+[[redirects]]
+from = "https://nelacomputer.club"
+to = "/nelacomputer.club/index.html"
+status = 200
+force = true
+[[redirects]]
+from = "https://nelacomputer.club/*"
+to = "/nelacomputer.club/:splat"
+status = 200
+force = true
+# Local dev path-based access
+[[redirects]]
+from = "/nelacomputer.club"
+to = "/nelacomputer.club/index.html"
+status = 200
+force = true
+[[redirects]]
+from = "/nelacomputer.club/*"
+to = "/nelacomputer.club/:splat"
+status = 200
+force = true
+
 [[redirects]]
 from = "https://builds.false.work/api/register-build"
 to = "/.netlify/functions/register-build"
