@@ -40,14 +40,22 @@ Ship a docs system that:
   - examples section,
   - runtime notes,
   - detail body,
-  - embedded live iframe preview with open links.
+  - embedded live iframe preview with `Run` / `Reset` controls and open links.
 - Core graphics docs filled with signatures/params/examples and preview metadata:
   - `line`, `point`, `box`, `wipe`, `ink`, `circle`,
   - `paste`, `stamp`, `pixel`, `plot`, `flood`,
   - `oval`, `poly`, `shape`, `resolution`, `write`.
+- Interaction docs pass completed:
+  - `pen`, `pens`, `pen3d`, `event`.
+- Network docs pass completed:
+  - `net.signup`, `net.login`, `net.logout`, `net.parse`, `net.userRequest`,
+  - `net.udp`, `net.socket`, `jump`, `load`, `preload`, `rewrite`, and related route/session fields.
+- System docs pass started and expanded:
+  - `reload`, `store.*`, `signal`, `sideload`, `meta`, `upload`, `encode`, `authorize`,
+  - `hud.*`, `bgm.*`, `darkMode`, `gpu.*`, and additional runtime state fields.
 - Updated quick baseline marker in `docs.js`:
-  - `done: false` -> 517
-  - `done: true` -> 76
+  - `done: false` -> 433
+  - `done: true` -> 160
 
 ## Success Criteria (Program-Level)
 - Landing docs page has explicit top-level visual split:
@@ -108,7 +116,7 @@ Acceptance:
 - [x] Build one shared docs iframe renderer component/template.
 - [ ] For MJS examples, run isolated AC preview route with provided snippet.
 - [ ] For L5 examples, run through Lua pathway (`l5-reload` compatible runner).
-- [ ] Add `Run` and `Reset` controls per function example.
+- [x] Add `Run` and `Reset` controls per function example.
 
 Acceptance:
 - Every non-deprecated function entry can show one runnable example in-page.
@@ -136,7 +144,7 @@ Acceptance:
 ### P1: Fill Missing MJS Docs (Highest-Use First)
 - [ ] Build a prioritized function coverage queue by runtime usage frequency and beginner value.
 - [x] Fill `Graphics` core first: `line`, `point`, `box`, `wipe`, `ink`, `circle`, `oval`, `poly`, `shape`.
-- [ ] Fill `Interaction`, `System`, and `Network` essentials next.
+- [ ] Fill `Interaction`, `System`, and `Network` essentials next (in progress).
 - [ ] Replace empty signatures/descriptions with concrete behavior and examples.
 
 Acceptance milestones:
