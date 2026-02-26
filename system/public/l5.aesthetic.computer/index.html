@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>L5 · Aesthetic Computer</title>
   <meta name="description" content="L5 (Processing-style Lua) compatibility board and try page for Aesthetic Computer." />
-  <link rel="icon" type="image/png" href="https://aesthetic.computer/icon/128x128/prompt.png" />
+  <link rel="icon" type="image/png" href="/l5.aesthetic.computer/l5-logo-blob.png" />
   <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css" />
   <style>
     @font-face {
@@ -17,17 +17,18 @@
     }
 
     :root {
-      --bg-0: #f8f7f2;
-      --bg-1: #fffef9;
-      --ink-0: #13110d;
-      --ink-1: #4a443a;
-      --line: #d9d4c9;
-      --accent-a: #e25b49;
-      --accent-b: #007f88;
-      --ok: #0f9d58;
-      --warn: #b26b00;
-      --todo: #6a7280;
-      --card: rgba(255, 255, 255, 0.88);
+      --bg: #ffffff;
+      --ink: #111111;
+      --ink-soft: #2b2b2b;
+      --gold: #ffd700;
+      --gold-soft: #ffee57;
+      --line: #111111;
+      --panel: rgba(255, 255, 255, 0.94);
+      --code-bg: #000000;
+      --code-ink: #ffd700;
+      --ok: #127a3f;
+      --warn: #8b5a00;
+      --todo: #5a5a5a;
     }
 
     * {
@@ -38,84 +39,131 @@
 
     body {
       font-family: "Berkeley Mono Variable", Menlo, monospace;
-      color: var(--ink-0);
+      color: var(--ink);
       min-height: 100vh;
       background:
-        radial-gradient(circle at 10% 10%, rgba(226, 91, 73, 0.08), transparent 40%),
-        radial-gradient(circle at 90% 0%, rgba(0, 127, 136, 0.08), transparent 40%),
-        linear-gradient(180deg, var(--bg-0), var(--bg-1));
+        radial-gradient(circle at 40% 40%, rgba(255, 215, 0, 0.32) 11%, transparent 12%),
+        radial-gradient(circle at 60% 60%, rgba(255, 215, 0, 0.16) 11%, transparent 12%),
+        var(--bg);
+      background-size: 6em 6em;
       cursor: url("https://aesthetic.computer/aesthetic.computer/cursors/precise.svg") 12 12, auto;
       -webkit-text-size-adjust: none;
     }
 
     .wrap {
-      max-width: 1040px;
+      max-width: 1080px;
       margin: 0 auto;
-      padding: 18px;
+      padding: 16px;
       display: grid;
-      gap: 14px;
+      gap: 12px;
     }
 
     .panel {
-      border: 1px solid var(--line);
+      border: 2px solid var(--line);
       border-radius: 14px;
-      background: var(--card);
-      backdrop-filter: blur(4px);
+      background: var(--panel);
+      backdrop-filter: blur(2px);
       padding: 14px;
+      box-shadow: 0 3px 0 rgba(0, 0, 0, 0.12);
     }
 
-    .top {
+    .hero {
+      display: grid;
+      gap: 12px;
+    }
+
+    .hero-top {
       display: flex;
       justify-content: space-between;
       gap: 12px;
-      align-items: baseline;
+      align-items: flex-start;
       flex-wrap: wrap;
+    }
+
+    .brand {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .logo-wrap {
+      width: 74px;
+      height: 74px;
+      border-radius: 10px;
+      border: 2px solid var(--line);
+      background: radial-gradient(circle at 50% 50%, var(--gold-soft), var(--gold));
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+    }
+
+    .logo-wrap img {
+      width: 62px;
+      height: auto;
+      display: block;
     }
 
     h1 {
       font-family: "YWFTProcessing-Regular", "Berkeley Mono Variable", monospace;
-      font-size: 34px;
-      letter-spacing: 0.02em;
+      font-size: 36px;
+      letter-spacing: 0.03em;
       font-weight: normal;
+      line-height: 1;
     }
 
     .sub {
-      color: var(--ink-1);
+      color: var(--ink-soft);
       font-size: 13px;
+      line-height: 1.5;
+      max-width: 80ch;
+    }
+
+    .muted {
+      color: var(--ink-soft);
+      font-size: 12px;
       line-height: 1.45;
-      max-width: 74ch;
+    }
+
+    .status-chip {
+      border: 2px solid var(--line);
+      background: #ffffff;
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 11px;
+      white-space: nowrap;
     }
 
     .actions {
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
-      margin-top: 10px;
     }
 
     .btn,
     .btn:visited {
       text-decoration: none;
-      color: var(--ink-0);
-      border: 1px solid var(--line);
+      color: var(--ink);
+      border: 2px solid var(--line);
       border-radius: 999px;
       padding: 7px 12px;
       font-size: 12px;
-      background: white;
+      background: #fff;
+      transition: background-color 110ms linear, transform 110ms linear;
     }
 
     .btn:hover {
-      border-color: var(--accent-a);
-      color: var(--accent-a);
+      background: var(--gold);
+      transform: translateY(-1px);
     }
 
     h2 {
-      font-size: 14px;
+      font-size: 13px;
       font-weight: normal;
-      margin-bottom: 8px;
-      color: var(--ink-1);
+      margin-bottom: 9px;
+      color: var(--ink-soft);
       text-transform: uppercase;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.08em;
     }
 
     .status-badge {
@@ -126,6 +174,7 @@
       font-size: 11px;
       margin-right: 4px;
       white-space: nowrap;
+      background: #fff;
     }
 
     .status-done {
@@ -153,11 +202,16 @@
       border: 1px solid var(--line);
       padding: 7px;
       line-height: 1.45;
+      background: #fff;
+    }
+
+    .checklist-host th {
+      background: var(--gold-soft);
     }
 
     .checklist-host p {
       margin: 0 0 8px;
-      color: var(--ink-1);
+      color: var(--ink-soft);
       font-size: 12px;
     }
 
@@ -168,7 +222,7 @@
     }
 
     .example {
-      border: 1px solid var(--line);
+      border: 2px solid var(--line);
       border-radius: 10px;
       overflow: hidden;
       background: #fff;
@@ -179,19 +233,19 @@
       justify-content: space-between;
       align-items: center;
       padding: 8px 10px;
-      border-bottom: 1px solid var(--line);
-      background: #faf8f2;
+      border-bottom: 2px solid var(--line);
+      background: var(--gold-soft);
       gap: 8px;
     }
 
     .example h3 {
       font-size: 12px;
       font-weight: normal;
-      color: var(--ink-1);
+      color: var(--ink);
     }
 
     .copy {
-      border: 1px solid var(--line);
+      border: 2px solid var(--line);
       border-radius: 999px;
       background: #fff;
       font: inherit;
@@ -201,8 +255,7 @@
     }
 
     .copy:hover {
-      border-color: var(--accent-b);
-      color: var(--accent-b);
+      background: var(--gold);
     }
 
     pre {
@@ -211,7 +264,8 @@
       overflow: auto;
       font-size: 12px;
       line-height: 1.45;
-      background: #fff;
+      background: var(--code-bg);
+      color: var(--code-ink);
     }
 
     code {
@@ -227,24 +281,16 @@
     .doc-links a,
     .doc-links a:visited {
       text-decoration: none;
-      color: var(--accent-b);
-      border: 1px solid rgba(0, 127, 136, 0.28);
+      color: var(--ink);
+      border: 2px solid var(--line);
       border-radius: 999px;
       padding: 5px 9px;
       font-size: 12px;
-      background: rgba(0, 127, 136, 0.06);
+      background: var(--gold);
     }
 
     .doc-links a:hover {
-      border-color: var(--accent-a);
-      color: var(--accent-a);
-      background: rgba(226, 91, 73, 0.08);
-    }
-
-    .muted {
-      color: var(--ink-1);
-      font-size: 12px;
-      line-height: 1.45;
+      background: #fff;
     }
 
     @media (max-width: 700px) {
@@ -252,22 +298,39 @@
         padding: 10px;
       }
 
+      .logo-wrap {
+        width: 62px;
+        height: 62px;
+      }
+
+      .logo-wrap img {
+        width: 50px;
+      }
+
       h1 {
-        font-size: 28px;
+        font-size: 30px;
       }
     }
   </style>
 </head>
 <body>
   <main class="wrap">
-    <section class="panel">
-      <div class="top">
-        <h1>L5 on AC</h1>
-        <div class="muted" id="status-date">status: loading</div>
+    <section class="panel hero">
+      <div class="hero-top">
+        <div class="brand">
+          <div class="logo-wrap">
+            <img src="/l5.aesthetic.computer/l5-logo-blob.png" alt="L5 logo" />
+          </div>
+          <div>
+            <h1>L5 on AC</h1>
+            <div class="muted">yellow / black / white study variant</div>
+          </div>
+        </div>
+        <div class="status-chip" id="status-date">status: loading</div>
       </div>
       <p class="sub">
         Processing-style Lua for Aesthetic Computer. This page reuses the same checklist data as
-        <code>/docs/l5:checklist</code>, so docs and launch status stay in sync.
+        <code>/docs/l5:checklist</code>, so docs and runtime status stay in sync.
       </p>
       <div class="actions">
         <a class="btn" href="/docs/l5:overview">Open L5 Docs</a>
@@ -287,7 +350,7 @@
     <section class="panel">
       <h2>Try Snippets</h2>
       <p class="muted" style="margin-bottom: 8px;">
-        Copy a starter snippet. Runtime support is still marked by the checklist above.
+        Copy a starter snippet. API coverage and parity status are tracked by the checklist above.
       </p>
       <div class="examples" id="examples"></div>
     </section>
