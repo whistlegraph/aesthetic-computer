@@ -4881,6 +4881,12 @@ end</code></pre>
     if (doc?.example?.type === "piece" && doc.example.entry) {
       return `${AC_ORIGIN}/${encodeURIComponent(doc.example.entry)}?${flags}`;
     }
+    if (category === "pieces") {
+      return `${AC_ORIGIN}/${encodeURIComponent(word)}?${flags}`;
+    }
+    if (category === "prompts") {
+      return `${AC_ORIGIN}/prompt~${encodeURIComponent(word)}?${flags}`;
+    }
     if (category === "l5") {
       return `${AC_ORIGIN}/l5-hello.lua?${flags}`;
     }
