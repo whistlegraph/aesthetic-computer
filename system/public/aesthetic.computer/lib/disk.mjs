@@ -7957,6 +7957,9 @@ async function load(
     codeId,     // The $code identifier (e.g., "inz") from kidlisp.com
     authToken,  // Auth token from kidlisp.com login
     enableTrace,  // Enable execution trace for kidlisp.com visualization
+    language,   // Optional source language (e.g., "lua")
+    ext,        // Optional source extension hint (e.g., "lua")
+    liveName,   // Optional stable live piece name
   } = {}) {
     // console.log("⚠️ Reloading:", piece, name, source);
 
@@ -7979,7 +7982,20 @@ async function load(
         reload._queueCount = 0;
       } else {
         console.log("🟡 Queueing reload until current load completes...");
-        setTimeout(() => reload({ source, codeId, createCode, authToken, enableTrace }), 100);
+        setTimeout(
+          () =>
+            reload({
+              source,
+              codeId,
+              createCode,
+              authToken,
+              enableTrace,
+              language,
+              ext,
+              liveName,
+            }),
+          100,
+        );
         return;
       }
     } else {
@@ -8013,10 +8029,29 @@ async function load(
       );
     } else if (source && !name && !piece) {
       // Live reload with new source code (e.g., from kidlisp.com editor)
-      
+      const isLuaReload = language === "lua" || ext === "lua";
+
       // Just pass the source directly without path/text
-      currentText = source;
-      currentPath = source;
+      currentText = isLuaReload ? (liveName || "l5-live") : source;
+      currentPath = isLuaReload ? (liveName || "l5-live") : source;
+
+      if (isLuaReload) {
+        $commonApi.load(
+          {
+            source,
+            name: liveName || "l5-live",
+            ext: "lua",
+            search: currentSearch,
+            colon: currentColon,
+            params: currentParams,
+            hash: currentHash,
+          },
+          true, // fromHistory - don't add to history stack
+          alias,
+          true, // devReload
+        );
+        return;
+      }
       
       // Store the $code identifier for screenshots/sharing
       if (codeId) {
@@ -8858,7 +8893,10 @@ async function load(
           codeId: pending.codeId,
           createCode: pending.createCode,
           authToken: pending.authToken,
-          enableTrace: pending.enableTrace
+          enableTrace: pending.enableTrace,
+          language: pending.language,
+          ext: pending.ext,
+          liveName: pending.liveName,
         });
       }, 50);
     }
@@ -9903,13 +9941,25 @@ async function makeFrame({ data: { type, content } }) {
         codeId: content.codeId,       // The $code identifier (e.g., "inz")
         createCode: content.createCode,
         authToken: content.authToken,  // Pass token from kidlisp.com login
-        enableTrace: content.enableTrace  // Enable execution trace for visualization
+        enableTrace: content.enableTrace,  // Enable execution trace for visualization
+        language: content.language,
+        ext: content.ext,
+        liveName: content.liveName,
       });
     } else {
       // Queue the reload request to be processed once the piece is ready
       // Always update the queue with the latest code (overwrite previous)
       log.piece.warn("Reload function not ready yet, queuing:", content.source?.substring(0, 20));
-      pendingPieceReload = { source: content.source, codeId: content.codeId, createCode: content.createCode, authToken: content.authToken, enableTrace: content.enableTrace };
+      pendingPieceReload = {
+        source: content.source,
+        codeId: content.codeId,
+        createCode: content.createCode,
+        authToken: content.authToken,
+        enableTrace: content.enableTrace,
+        language: content.language,
+        ext: content.ext,
+        liveName: content.liveName,
+      };
     }
     return;
   }

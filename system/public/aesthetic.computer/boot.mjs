@@ -1664,6 +1664,23 @@ function receive(event) {
       });
     }
     return;
+  } else if (event.data?.type === "l5-reload") {
+    // Live reload from L5 playground/editor
+    const code = event.data.code;
+    const ext = event.data.ext || "lua";
+    const liveName = event.data.liveName || "l5-live";
+    if (code) {
+      window.acSEND({
+        type: "piece-reload",
+        content: {
+          source: code,
+          language: "lua",
+          ext,
+          liveName,
+        },
+      });
+    }
+    return;
   } else if (event.data?.type === "kidlisp-slide") {
     // Slide mode update - update source but preserve state/buffers
     const code = event.data.code;
