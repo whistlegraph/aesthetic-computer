@@ -23,6 +23,32 @@ Ship a docs system that:
   - `done: true` -> 63
 - L5 section exists but is still checklist-forward and not yet parity-complete.
 
+## Progress Update (2026-02-26)
+- `/docs` landing now has three explicit lanes:
+  - `MJS / AC Piece API`
+  - `L5 / Lua API`
+  - `KidLisp / Language API`
+- New route entries shipped:
+  - `/docs/mjs:overview`
+  - `/docs/kidlisp:overview`
+  - `/docs/kidlisp:core`
+- Individual docs page template now includes:
+  - family/category/status breadcrumb,
+  - signature + summary,
+  - parameters table,
+  - returns section,
+  - examples section,
+  - runtime notes,
+  - detail body,
+  - embedded live iframe preview with open links.
+- Core graphics docs filled with signatures/params/examples and preview metadata:
+  - `line`, `point`, `box`, `wipe`, `ink`, `circle`,
+  - `paste`, `stamp`, `pixel`, `plot`, `flood`,
+  - `oval`, `poly`, `shape`, `resolution`, `write`.
+- Updated quick baseline marker in `docs.js`:
+  - `done: false` -> 517
+  - `done: true` -> 76
+
 ## Success Criteria (Program-Level)
 - Landing docs page has explicit top-level visual split:
   - `MJS / AC Piece API`
@@ -43,11 +69,11 @@ Ship a docs system that:
 ## Hitlist
 
 ### P0: Information Architecture + Visual Separation
-- [ ] Create first-class sections on landing page for `MJS API` and `L5 API` with distinct panels.
-- [ ] Add a third first-class panel for `KidLisp API` linked to integrated entries.
-- [ ] Add clear visual language split (labels, badges, section headers, status counters).
-- [ ] Keep existing route compatibility (`/docs/<category>:<word>`), add explicit split entry links.
-- [ ] Add route-level quick links:
+- [x] Create first-class sections on landing page for `MJS API` and `L5 API` with distinct panels.
+- [x] Add a third first-class panel for `KidLisp API` linked to integrated entries.
+- [x] Add clear visual language split (labels, badges, section headers, status counters).
+- [x] Keep existing route compatibility (`/docs/<category>:<word>`), add explicit split entry links.
+- [x] Add route-level quick links:
   - `/docs/mjs:overview` (new)
   - `/docs/l5:overview` (existing)
   - `/docs/kidlisp:overview` (new)
@@ -58,7 +84,7 @@ Acceptance:
 - KidLisp docs are visible as a peer API family, not a side property.
 
 ### P0: Redesign Individual Function Page Template
-- [ ] Replace current minimal doc page with a structured template containing fixed sections:
+- [x] Replace current minimal doc page with a structured template containing fixed sections:
   - signature,
   - summary,
   - parameters,
@@ -67,19 +93,19 @@ Acceptance:
   - runtime notes,
   - related functions,
   - runnable example iframe.
-- [ ] Add consistent status metadata rendering (`done`, `in-progress`, `planned`).
-- [ ] Add a slim breadcrumb line showing API family and category.
+- [x] Add consistent status metadata rendering (`done`, `in-progress`, `planned`).
+- [x] Add a slim breadcrumb line showing API family and category.
 
 Acceptance:
 - Any function page reads as a proper reference page, not a stub card.
 
 ### P0: Iframe Example System (Per Function)
-- [ ] Define a single example embed contract in docs metadata:
+- [x] Define a single example embed contract in docs metadata:
   - `example.type` (`mjs` | `l5`)
   - `example.code`
   - `example.entry` (piece or loader route)
   - `example.height`
-- [ ] Build one shared docs iframe renderer component/template.
+- [x] Build one shared docs iframe renderer component/template.
 - [ ] For MJS examples, run isolated AC preview route with provided snippet.
 - [ ] For L5 examples, run through Lua pathway (`l5-reload` compatible runner).
 - [ ] Add `Run` and `Reset` controls per function example.
@@ -109,7 +135,7 @@ Acceptance:
 
 ### P1: Fill Missing MJS Docs (Highest-Use First)
 - [ ] Build a prioritized function coverage queue by runtime usage frequency and beginner value.
-- [ ] Fill `Graphics` core first: `line`, `point`, `box`, `wipe`, `ink`, `circle`, `oval`, `poly`, `shape`.
+- [x] Fill `Graphics` core first: `line`, `point`, `box`, `wipe`, `ink`, `circle`, `oval`, `poly`, `shape`.
 - [ ] Fill `Interaction`, `System`, and `Network` essentials next.
 - [ ] Replace empty signatures/descriptions with concrete behavior and examples.
 
@@ -174,11 +200,11 @@ Acceptance:
   - next 10 functions queued.
 
 ## First Sprint Slice (Concrete)
-- [ ] Implement visual split on `/docs` landing (`MJS` vs `L5`).
-- [ ] Extend split to include `KidLisp` as third top-level lane.
-- [ ] Ship new function-page template with structured sections.
-- [ ] Ship iframe example support for at least 12 core graphics functions.
-- [ ] Fill complete docs for those 12 functions (MJS).
+- [x] Implement visual split on `/docs` landing (`MJS` vs `L5`).
+- [x] Extend split to include `KidLisp` as third top-level lane.
+- [x] Ship new function-page template with structured sections.
+- [x] Ship iframe example support for at least 12 core graphics functions.
+- [x] Fill complete docs for those 12 functions (MJS).
 - [ ] Draft and validate unified schema + KidLisp adapter interface in code.
 
 ## Risks
