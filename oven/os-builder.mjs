@@ -15,6 +15,40 @@ import { execSync } from "child_process";
 import { createHash, randomUUID } from "crypto";
 import { createBundle, createJSPieceBundle } from "./bundler.mjs";
 import { S3Client, PutObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
+import { MongoClient } from "mongodb";
+
+// ─── MongoDB (OS build history) ─────────────────────────────────────
+
+let mongoClient;
+let mongoDB;
+
+async function connectMongo() {
+  if (mongoDB) return mongoDB;
+  const uri = process.env.MONGODB_CONNECTION_STRING;
+  const dbName = process.env.MONGODB_NAME;
+  if (!uri || !dbName) return null;
+  try {
+    mongoClient = await MongoClient.connect(uri);
+    mongoDB = mongoClient.db(dbName);
+    console.log("✅ [os] Connected to MongoDB for OS build history");
+    return mongoDB;
+  } catch (err) {
+    console.error("❌ [os] MongoDB connect failed:", err.message);
+    return null;
+  }
+}
+
+connectMongo();
+
+async function logOSBuild(record) {
+  try {
+    const db = await connectMongo();
+    if (!db) return;
+    await db.collection("oven-os-builds").insertOne({ ...record, when: new Date() });
+  } catch (err) {
+    console.error("[os] Failed to log build:", err.message);
+  }
+}
 
 // ─── Configuration ──────────────────────────────────────────────────
 
@@ -784,6 +818,8 @@ export async function streamOSImage(res, target, isJSPiece, density, onProgress)
       });
       if (recentBuilds.length > MAX_RECENT) recentBuilds.pop();
 
+      logOSBuild({ buildId, target, isJSPiece, density, elapsed, timings: timing, cached: true, cdnUrl, baseVersion: manifest.version, baseSha256: manifest.sha256, success: true });
+
       // Redirect to CDN for download (fast edge delivery).
       if (res) {
         res.redirect(302, cdnUrl);
@@ -916,6 +952,8 @@ export async function streamOSImage(res, target, isJSPiece, density, onProgress)
     });
     if (recentBuilds.length > MAX_RECENT) recentBuilds.pop();
 
+    logOSBuild({ buildId, target, isJSPiece, density, elapsed, timings: timing, cached: false, cdnUrl, bundleHash, baseVersion, baseSha256: manifest.sha256, success: true });
+
     return {
       buildId,
       elapsed,
@@ -923,6 +961,10 @@ export async function streamOSImage(res, target, isJSPiece, density, onProgress)
       cdnUrl,
       filename: `${target}-os.iso`,
     };
+  } catch (err) {
+    const elapsed = Date.now() - startTime;
+    logOSBuild({ buildId, target, isJSPiece, density, elapsed, timings: timing, cached: false, success: false, error: err.message });
+    throw err;
   } finally {
     activeBuildCount--;
     try {
