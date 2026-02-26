@@ -4530,6 +4530,14 @@ end</code></pre>
           border-color: rgba(102, 230, 187, 0.45);
           background: linear-gradient(180deg, rgba(16, 74, 56, 0.2), rgba(16, 74, 56, 0.06));
         }
+        .lane-card.lane-prompts {
+          border-color: rgba(248, 168, 78, 0.45);
+          background: linear-gradient(180deg, rgba(92, 41, 10, 0.2), rgba(92, 41, 10, 0.06));
+        }
+        .lane-card.lane-pieces {
+          border-color: rgba(230, 125, 175, 0.42);
+          background: linear-gradient(180deg, rgba(78, 24, 63, 0.2), rgba(78, 24, 63, 0.06));
+        }
         .lane-head {
           display: flex;
           align-items: center;
@@ -4548,6 +4556,12 @@ end</code></pre>
         }
         .lane-kidlisp .lane-title {
           color: #9ff2d4;
+        }
+        .lane-prompts .lane-title {
+          color: #ffd29a;
+        }
+        .lane-pieces .lane-title {
+          color: #f3b3d3;
         }
         .lane-count {
           font-size: 0.92em;
@@ -4728,6 +4742,14 @@ end</code></pre>
             background: linear-gradient(180deg, rgba(204, 245, 230, 0.8), rgba(233, 252, 245, 0.7));
             border-color: rgba(41, 141, 102, 0.5);
           }
+          .lane-card.lane-prompts {
+            background: linear-gradient(180deg, rgba(255, 227, 194, 0.82), rgba(255, 244, 226, 0.72));
+            border-color: rgba(176, 108, 41, 0.5);
+          }
+          .lane-card.lane-pieces {
+            background: linear-gradient(180deg, rgba(255, 216, 236, 0.82), rgba(255, 238, 247, 0.72));
+            border-color: rgba(161, 73, 115, 0.46);
+          }
           .lane-mjs .lane-title {
             color: rgb(20, 90, 128);
           }
@@ -4736,6 +4758,12 @@ end</code></pre>
           }
           .lane-kidlisp .lane-title {
             color: rgb(24, 112, 76);
+          }
+          .lane-prompts .lane-title {
+            color: rgb(132, 76, 18);
+          }
+          .lane-pieces .lane-title {
+            color: rgb(125, 43, 83);
           }
           a.prompt, a.prompt:visited {
             color: rgb(64, 56, 74);
@@ -5030,6 +5058,37 @@ end</code></pre>
     `;
   }
 
+  function renderCollectionIndex(category, title, subtitle) {
+    const collection = docs[category] || {};
+    const count = collectionCounts(collection);
+    const links = keys(collection)
+      .filter((name) => !collection[name]?.hidden)
+      .sort()
+      .map((name) => {
+        const status = normalizeStatus(collection[name]?.done);
+        return `<a href="/docs/${category}:${name}" data-done="${collection[name]?.done}" title="${status}">${name}</a>`;
+      })
+      .join(" ");
+
+    return `
+      <h1 id="title"><a href="/docs">${escapeHTML(title)}</a></h1>
+      <div class="code-doc">
+        <div class="doc-meta">
+          <span><strong>${escapeHTML(title)}</strong></span>
+          <span>/</span>
+          <span><code>${escapeHTML(category)}</code></span>
+          <span>/</span>
+          <span class="doc-status">${statusBadge("in-progress")}</span>
+        </div>
+        <p>${escapeHTML(subtitle)}</p>
+        <p>${count.done} done · ${count.inProgress} in progress · ${count.planned} planned</p>
+        <div class="lane-section">
+          <span class="links">${links}</span>
+        </div>
+      </div>
+    `;
+  }
+
   const commands = { ...docs.prompts, ...docs.pieces };
   let commandList = "";
   // ➿ Loop through all commands and generate HTML.
@@ -5071,6 +5130,35 @@ end</code></pre>
   function laneCountLabel(categories) {
     const count = laneCounts(categories);
     return `${count.done} done · ${count.inProgress} in progress · ${count.planned} planned`;
+  }
+
+  function collectionCounts(collection) {
+    let total = 0;
+    let done = 0;
+    let inProgress = 0;
+    keys(collection || {}).forEach((word) => {
+      total++;
+      const status = normalizeStatus(collection[word]?.done);
+      if (status === "done") done++;
+      if (status === "in-progress") inProgress++;
+    });
+    const planned = total - done - inProgress;
+    return { total, done, inProgress, planned };
+  }
+
+  function collectionCountLabel(collection) {
+    const count = collectionCounts(collection);
+    return `${count.done} done · ${count.inProgress} in progress · ${count.planned} planned`;
+  }
+
+  function genCollectionLinks(collectionName, limit = 32) {
+    const collection = docs[collectionName] || {};
+    return keys(collection)
+      .filter((name) => !collection[name]?.hidden)
+      .sort()
+      .slice(0, limit)
+      .map((name) => `<a href="/docs/${collectionName}:${name}" data-done="${collection[name]?.done}">${name}</a>`)
+      .join(" ");
   }
 
   const indexContent = html`
@@ -5153,6 +5241,38 @@ end</code></pre>
             </span>
           </div>
         </article>
+
+        <article class="lane-card lane-prompts">
+          <div class="lane-head">
+            <div class="lane-title">Prompt Commands</div>
+            <div class="lane-count">${collectionCountLabel(docs.prompts)}</div>
+          </div>
+          <div class="lane-subtitle">Command docs for prompt-driven actions and workflow tools.</div>
+          <div class="links">
+            <a class="top-level" href="/docs/prompts">browse all prompt docs</a>
+            <a href="${AC_ORIGIN}/prompt">open prompt</a>
+          </div>
+          <div class="lane-section">
+            <h3>Common Commands</h3>
+            <span class="links">${genCollectionLinks("prompts", 28)}</span>
+          </div>
+        </article>
+
+        <article class="lane-card lane-pieces">
+          <div class="lane-head">
+            <div class="lane-title">Pieces</div>
+            <div class="lane-count">${collectionCountLabel(docs.pieces)}</div>
+          </div>
+          <div class="lane-subtitle">Piece-specific docs and preview entry points.</div>
+          <div class="links">
+            <a class="top-level" href="/docs/pieces">browse all piece docs</a>
+            <a href="${AC_ORIGIN}/list">open piece list</a>
+          </div>
+          <div class="lane-section">
+            <h3>Featured Piece Docs</h3>
+            <span class="links">${genCollectionLinks("pieces", 28)}</span>
+          </div>
+        </article>
       </div>
     </div>
   `.trim();
@@ -5225,6 +5345,28 @@ end</code></pre>
     // /docs/graphics:line
 
     const [category, word] = splitPath.pop().split(":");
+
+    if ((category === "prompts" || category === "pieces") && !word) {
+      const title = category === "prompts" ? "Prompt Commands" : "Pieces";
+      const subtitle =
+        category === "prompts"
+          ? "Browse all prompt command docs and open each command page."
+          : "Browse all piece docs and open live previews per piece.";
+
+      return respond(
+        200,
+        page
+          .replace("$bodyclass", " class='doc'")
+          .replace("$content", renderCollectionIndex(category, title, subtitle))
+          .replaceAll("$name", title),
+        {
+          "Content-Type": "text/html; charset=UTF-8",
+          "Cross-Origin-Embedder-Policy": "require-corp",
+          "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
+          "Cross-Origin-Resource-Policy": "cross-origin",
+        },
+      );
+    }
 
     let doc;
     if (category !== "pieces" && category !== "prompts") {
