@@ -26,6 +26,9 @@ export async function handler(event, context) {
     return respond(405, { error: "Wrong request type." });
   }
 
+  const AC_ORIGIN = "https://aesthetic.computer";
+  const LEARN_KIDLISP_ORIGIN = "https://learn.kidlisp.com";
+
   // TODO: Factor this out.
   const boxBody = `
     <code>box()</code> <em>A random box</em></li><br>
@@ -219,9 +222,67 @@ end</code></pre>
       </article>
     </div>
     <p>
-      <a href="/l5">Open the L5 try page</a> ·
-      <a href="/prompt">Open prompt</a>
+      <a href="${AC_ORIGIN}/l5">Open the L5 try page</a> ·
+      <a href="${AC_ORIGIN}/prompt">Open prompt</a>
     </p>
+  `.trim();
+
+  const mjsOverviewBody = `
+    <p>
+      This lane documents the JavaScript piece API for <code>.mjs</code> pieces on AC.
+      It is the runtime-facing reference for functions used in <code>boot/paint/act/sim/beat</code>.
+    </p>
+    <p>
+      Start with <a href="${AC_ORIGIN}/docs/structure:paint">paint()</a>,
+      then browse <a href="${AC_ORIGIN}/docs/graphics:line">graphics</a>,
+      <a href="${AC_ORIGIN}/docs/interaction:pen">interaction</a>,
+      and <a href="${AC_ORIGIN}/docs/system:reload">system</a>.
+    </p>
+  `.trim();
+
+  const kidlispOverviewBody = `
+    <p>
+      KidLisp docs are part of the unified platform docs program and currently use
+      <a href="${LEARN_KIDLISP_ORIGIN}" target="_blank" rel="noopener">learn.kidlisp.com</a>
+      as the canonical public reference.
+    </p>
+    <p>
+      Use this section for cross-links between AC platform APIs and KidLisp language APIs.
+      Long-term source convergence is tracked in <code>/plans/docs-js-lua-overhaul-hitlist.md</code>.
+    </p>
+    <p>
+      <a href="${LEARN_KIDLISP_ORIGIN}/?tab=reference" target="_blank" rel="noopener">Open full KidLisp reference</a> ·
+      <a href="${LEARN_KIDLISP_ORIGIN}/?tab=functions" target="_blank" rel="noopener">Open popularity/function view</a>
+    </p>
+  `.trim();
+
+  const kidlispCoreBody = `
+    <table>
+      <thead>
+        <tr>
+          <th>Family</th>
+          <th>Examples</th>
+          <th>Canonical source</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Drawing</td>
+          <td><code>wipe</code>, <code>ink</code>, <code>line</code>, <code>box</code>, <code>circle</code></td>
+          <td><a href="${LEARN_KIDLISP_ORIGIN}/?tab=reference" target="_blank" rel="noopener">learn.kidlisp.com reference tab</a></td>
+        </tr>
+        <tr>
+          <td>Transform</td>
+          <td><code>scroll</code>, <code>zoom</code>, <code>spin</code>, <code>blur</code>, <code>bake</code></td>
+          <td><a href="${LEARN_KIDLISP_ORIGIN}/?id=scroll" target="_blank" rel="noopener">Identifier detail pages</a></td>
+        </tr>
+        <tr>
+          <td>Control + Math</td>
+          <td><code>def</code>, <code>later</code>, <code>once</code>, <code>repeat</code>, <code>random</code></td>
+          <td><a href="${LEARN_KIDLISP_ORIGIN}/?id=def" target="_blank" rel="noopener">Learn identifiers</a></td>
+        </tr>
+      </tbody>
+    </table>
   `.trim();
 
   const docs = {
@@ -352,33 +413,72 @@ end</code></pre>
         line: {
           sig: "line(x0, y0, x1, y1) or line({x0, y0, x1, y1}) or line(p1, p2)",
           desc: "Draw a 1-pixel wide line. Can take 4 coordinates, an object with coordinates, or two points.",
+          params: [
+            { name: "x0, y0, x1, y1", type: "number", required: false, desc: "Line start and end coordinates." },
+            { name: "p1, p2", type: "point", required: false, desc: "Alternative point-object form." },
+          ],
+          returns: "void",
+          examples: ["line", "line:2", "line:5"],
+          example: { type: "piece", entry: "line", height: 288 },
           done: true,
         },
         point: {
           sig: "point(...args) or point({x, y})",
           desc: "Plot a single pixel within the panned coordinate space. Takes x,y coordinates or a point object.",
+          params: [
+            { name: "x, y", type: "number", required: false, desc: "Pixel coordinates." },
+            { name: "{x, y}", type: "object", required: false, desc: "Point-object form." },
+          ],
+          returns: "void",
+          examples: ["plot", "plot 48 48", "plot 128 128"],
+          example: { type: "piece", entry: "plot", height: 288 },
           done: true,
         },
         box: {
           sig: "box(x, y, w, h, mode)",
           desc: "Draw a box with optional modes: 'fill' (default), 'outline', 'inline'. Add '*center' to draw from center. Use ':N' for thickness.",
           body: boxBody,
+          params: [
+            { name: "x, y", type: "number", required: true, desc: "Top-left or center position (depending on mode)." },
+            { name: "w, h", type: "number", required: true, desc: "Box width and height." },
+            { name: "mode", type: "string", required: false, desc: "fill/outline/inline with optional center and thickness modifiers." },
+          ],
+          returns: "void",
+          examples: ["box", "box:outline", "box:center"],
+          example: { type: "piece", entry: "box", height: 288 },
           done: true,
         },
         wipe: {
           sig: "wipe(color)",
           desc: "Clear the screen with a solid color. Color can be a single number (0-255 for grayscale) or an array [r,g,b,a].",
+          params: [
+            { name: "color", type: "number | string | array", required: false, desc: "Fill color. Defaults to black when omitted." },
+          ],
+          returns: "void",
+          examples: ["wipe", "wipe:red", "wipe:white"],
+          example: { type: "piece", entry: "wipe", height: 288 },
           done: true,
         },
         ink: {
           sig: "ink(color)",
           desc: "Set the current drawing color. Color can be a single number (0-255 for grayscale) or an array [r,g,b,a].",
+          params: [
+            { name: "color", type: "number | string | array", required: true, desc: "Next draw color for primitives and text." },
+          ],
+          returns: "paintApi",
+          examples: ["prompt~ink", "prompt~ink:red", "prompt~ink:black"],
           done: true,
         },
 
         circle: {
           sig: "circle(x, y, radius)",
           desc: "Draw a filled circle centered at (x,y) with the specified radius using the current ink color.",
+          params: [
+            { name: "x, y", type: "number", required: true, desc: "Circle center coordinates." },
+            { name: "radius", type: "number", required: true, desc: "Circle radius in pixels." },
+          ],
+          returns: "void",
+          examples: ["prompt~circle", "prompt~circle:16", "prompt~circle:outline"],
           done: true,
         },
         layer: {
@@ -429,27 +529,60 @@ end</code></pre>
         paste: {
           sig: "paste(painting, x, y)",
           desc: "Paste a painting at the given position, anchored from the top left.",
-          done: false,
+          params: [
+            { name: "painting", type: "painting | image", required: true, desc: "Source bitmap, painting id, or URL." },
+            { name: "x, y", type: "number", required: false, desc: "Target top-left position. Defaults to 0,0." },
+            { name: "scale", type: "number", required: false, desc: "Optional scale factor." },
+          ],
+          returns: "void",
+          examples: ["paste", "paste:camera", "paste:under"],
+          example: { type: "piece", entry: "paste", height: 288 },
+          done: true,
         },
         stamp: {
-          sig: "",
-          desc: "Similar to paste but always centered.",
-          done: false,
+          sig: "stamp(painting, x, y, scale)",
+          desc: "Paste a painting centered at (x,y). Useful for sprites and markers.",
+          params: [
+            { name: "painting", type: "painting | image", required: true, desc: "Source bitmap, painting id, or URL." },
+            { name: "x, y", type: "number", required: false, desc: "Center position." },
+            { name: "scale", type: "number", required: false, desc: "Optional scale factor." },
+          ],
+          returns: "void",
+          examples: ["stamp", "stamp:camera", "stamp:under"],
+          example: { type: "piece", entry: "stamp", height: 288 },
+          done: true,
         },
         pixel: {
-          sig: "",
-          desc: "",
-          done: false,
+          sig: "pixel(x, y) -> [r, g, b, a]",
+          desc: "Read a single pixel color from the current active painting buffer.",
+          params: [
+            { name: "x, y", type: "number", required: true, desc: "Pixel coordinates." },
+          ],
+          returns: "[r, g, b, a]",
+          examples: ["prompt~pixel"],
+          done: true,
         },
         plot: {
-          sig: "",
-          desc: "",
-          done: false,
+          sig: "plot(x, y) or plot({x, y})",
+          desc: "Draw one pixel at the given position using current ink color.",
+          params: [
+            { name: "x, y", type: "number", required: false, desc: "Pixel coordinates." },
+            { name: "{x, y}", type: "object", required: false, desc: "Point-object form." },
+          ],
+          returns: "void",
+          examples: ["plot", "plot 32 32", "plot 200 120"],
+          example: { type: "piece", entry: "plot", height: 288 },
+          done: true,
         },
         flood: {
-          sig: "",
-          desc: "",
-          done: false,
+          sig: "flood(x, y)",
+          desc: "Flood-fill adjacent matching pixels at (x,y) using current ink color.",
+          params: [
+            { name: "x, y", type: "number", required: true, desc: "Seed position for the fill operation." },
+          ],
+          returns: "void",
+          examples: ["prompt~flood", "prompt~flood:blue"],
+          done: true,
         },
         lineAngle: {
           sig: "",
@@ -467,19 +600,39 @@ end</code></pre>
           done: false,
         },
         oval: {
-          sig: "",
-          desc: "",
-          done: false,
+          sig: "oval(x, y, w, h, mode)",
+          desc: "Draw an ellipse bounded by width and height dimensions.",
+          params: [
+            { name: "x, y", type: "number", required: true, desc: "Top-left or center position depending on mode." },
+            { name: "w, h", type: "number", required: true, desc: "Ellipse width and height." },
+            { name: "mode", type: "string", required: false, desc: "fill/outline variants." },
+          ],
+          returns: "void",
+          examples: ["oval", "oval:outline", "oval:center"],
+          example: { type: "piece", entry: "oval", height: 288 },
+          done: true,
         },
         poly: {
-          sig: "",
-          desc: "",
-          done: false,
+          sig: "poly(x0, y0, x1, y1, ...)",
+          desc: "Draw a polygon from point pairs in sequence.",
+          params: [
+            { name: "points", type: "number[]", required: true, desc: "Alternating x/y coordinate list." },
+          ],
+          returns: "void",
+          examples: ["prompt~poly", "prompt~poly:outline"],
+          done: true,
         },
         shape: {
-          sig: "",
-          desc: "",
-          done: false,
+          sig: "shape(points, mode)",
+          desc: "Draw a higher-level shape from point arrays/objects with optional mode controls.",
+          params: [
+            { name: "points", type: "array", required: true, desc: "Point list or packed coordinate data." },
+            { name: "mode", type: "string", required: false, desc: "fill/outline behavior." },
+          ],
+          returns: "void",
+          examples: ["shape", "shape:outline"],
+          example: { type: "piece", entry: "shape", height: 288 },
+          done: true,
         },
         grid: {
           sig: "",
@@ -553,8 +706,15 @@ end</code></pre>
         },
         resolution: {
           sig: "resolution(width, height = width, gap = 8)",
-          desc: "Adjust the display resolution.",
-          done: false,
+          desc: "Adjust display resolution and optional gap/pixel spacing.",
+          params: [
+            { name: "width", type: "number", required: true, desc: "Target render width." },
+            { name: "height", type: "number", required: false, desc: "Target render height (defaults to width)." },
+            { name: "gap", type: "number", required: false, desc: "Display gap spacing between pixels." },
+          ],
+          returns: "void",
+          examples: ["prompt~resolution:128", "prompt~resolution:64"],
+          done: true,
         },
         video: {
           sig: "",
@@ -598,8 +758,15 @@ end</code></pre>
         },
         write: {
           sig: "write(text, pos, b, bounds, wordWrap)",
-          desc: "Returns a clones pixel buffer (painting)",
-          done: false,
+          desc: "Render text into the current painting using current ink, font, and optional bounds.",
+          params: [
+            { name: "text", type: "string", required: true, desc: "Text content to draw." },
+            { name: "pos", type: "object | number", required: false, desc: "Position or anchor object." },
+            { name: "bounds", type: "object", required: false, desc: "Optional clipping/wrapping bounds." },
+          ],
+          returns: "painting | metrics",
+          examples: ["prompt~write", "prompt~word"],
+          done: true,
         },
         "text.capitalize": {
           sig: "",
@@ -1592,6 +1759,28 @@ end</code></pre>
           done: false,
         },
       },
+      mjs: {
+        overview: {
+          sig: "MJS / AC piece API overview",
+          desc: "Entry point for JavaScript piece API docs.",
+          body: mjsOverviewBody,
+          done: true,
+        },
+      },
+      kidlisp: {
+        overview: {
+          sig: "KidLisp API overview",
+          desc: "How KidLisp docs connect into the unified AC docs system.",
+          body: kidlispOverviewBody,
+          done: true,
+        },
+        core: {
+          sig: "KidLisp core map",
+          desc: "Core families and canonical source links for KidLisp APIs.",
+          body: kidlispCoreBody,
+          done: true,
+        },
+      },
       l5: {
         overview: {
           sig: "L5 (Lua) on Aesthetic Computer",
@@ -1602,9 +1791,9 @@ end</code></pre>
               Keep this page aligned with the actual runtime state.
             </p>
             <p>
-              <a href="/docs/l5:checklist">Open checklist</a> ·
-              <a href="/docs/l5:examples">Open examples</a> ·
-              <a href="/l5">Open /l5 try page</a>
+              <a href="${AC_ORIGIN}/docs/l5:checklist">Open checklist</a> ·
+              <a href="${AC_ORIGIN}/docs/l5:examples">Open examples</a> ·
+              <a href="${AC_ORIGIN}/l5">Open /l5 try page</a>
             </p>
           `.trim(),
           done: true,
@@ -3673,6 +3862,107 @@ end</code></pre>
           font-size: 65%;
           padding-bottom: 3em;
         }
+        .lane-grid {
+          display: grid;
+          gap: 14px;
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        }
+        .lane-card {
+          border: 1px solid rgba(255, 255, 255, 0.22);
+          border-radius: 8px;
+          padding: 10px 11px 11px 11px;
+        }
+        .lane-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          margin-bottom: 0.45em;
+        }
+        .lane-title {
+          font-size: 1.1em;
+        }
+        .lane-count {
+          font-size: 0.92em;
+          opacity: 0.75;
+          white-space: nowrap;
+        }
+        .lane-subtitle {
+          font-size: 0.95em;
+          opacity: 0.9;
+          margin-bottom: 0.65em;
+        }
+        .lane-section {
+          margin-top: 0.75em;
+        }
+        .lane-section h3 {
+          margin: 0 0 0.25em 0;
+          font-size: 0.95em;
+          font-weight: normal;
+          opacity: 0.85;
+        }
+        .doc-meta {
+          margin-top: 0.3em;
+          font-size: 0.92em;
+          opacity: 0.8;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        .doc-status {
+          text-transform: lowercase;
+        }
+        .doc-grid {
+          display: grid;
+          gap: 11px;
+        }
+        .doc-block {
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          border-radius: 8px;
+          padding: 0.55em 0.7em;
+        }
+        .doc-block h2 {
+          margin: 0 0 0.4em;
+          font-size: 1em;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          opacity: 0.85;
+        }
+        .doc-preview {
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          border-radius: 8px;
+          overflow: hidden;
+        }
+        .doc-preview iframe {
+          position: static !important;
+          z-index: auto !important;
+          opacity: 1 !important;
+          width: 100% !important;
+          height: 100% !important;
+          min-height: 280px;
+          border: 0;
+          display: block;
+        }
+        .doc-preview-head {
+          padding: 0.45em 0.65em;
+          font-size: 0.9em;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .doc-preview-body {
+          min-height: 280px;
+        }
+        .doc-preview-links {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 7px;
+          margin-top: 0.65em;
+        }
+        .doc-preview-links a {
+          text-decoration: none;
+          padding: 3px 6px;
+          border: 1px solid rgba(255, 255, 255, 0.26);
+          border-radius: 6px;
+        }
         pre {
           margin-top: 1em;
           margin-bottom: 1em;
@@ -3740,7 +4030,12 @@ end</code></pre>
           }
           .doc-body th,
           .doc-body td,
-          .doc-example {
+          .doc-example,
+          .lane-card,
+          .doc-block,
+          .doc-preview,
+          .doc-preview-head,
+          .doc-preview-links a {
             border-color: rgba(0, 0, 0, 0.2);
           }
           a.prompt, a.prompt:visited {
@@ -3823,6 +4118,188 @@ end</code></pre>
     </div>
   `.trim();
 
+  function escapeHTML(value) {
+    return String(value || "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+  }
+
+  function normalizeStatus(done) {
+    if (done === true || done === "done") return "done";
+    if (done === "in-progress") return "in-progress";
+    return "planned";
+  }
+
+  function statusBadge(done) {
+    const status = normalizeStatus(done);
+    return `<span class="status-badge status-${status}">${status.replace("-", " ")}</span>`;
+  }
+
+  function familyFromCategory(category) {
+    if (category === "l5") return "L5 / Lua API";
+    if (category === "kidlisp") return "KidLisp / Language API";
+    if (category === "prompts") return "Prompt Commands";
+    if (category === "pieces") return "Pieces";
+    if (category === "mjs") return "MJS / AC Piece API";
+    return "MJS / AC Piece API";
+  }
+
+  function parseSigName(sig, fallback = "") {
+    const source = String(sig || "").trim();
+    if (!source) return fallback;
+    const match = source.match(/^([A-Za-z0-9_.$]+)\s*\(/);
+    if (match?.[1]) return match[1];
+    return fallback || source;
+  }
+
+  function previewUrlForDoc(doc, category, word) {
+    const flags = `nogap=true&nolabel=true&noauth=true&popout=true&t=${Date.now()}`;
+    if (doc?.example?.url) return doc.example.url;
+    if (doc?.example?.type === "piece" && doc.example.entry) {
+      return `${AC_ORIGIN}/${encodeURIComponent(doc.example.entry)}?${flags}`;
+    }
+    if (category === "l5") {
+      return `${AC_ORIGIN}/l5-hello.lua?${flags}`;
+    }
+    if (category === "kidlisp") {
+      return `${AC_ORIGIN}/kidlisp?${flags}`;
+    }
+    if (Array.isArray(doc?.examples) && doc.examples.length) {
+      const first = String(doc.examples[0]).replace(/^prompt~/, "");
+      return `${AC_ORIGIN}/prompt~${encodeURIComponent(first)}?${flags}`;
+    }
+    const guess = parseSigName(doc?.sig, word);
+    return `${AC_ORIGIN}/prompt~${encodeURIComponent(guess)}?${flags}`;
+  }
+
+  function renderParamsSection(doc) {
+    if (!Array.isArray(doc?.params) || doc.params.length === 0) {
+      return `<p>Parameters are not fully documented yet.</p>`;
+    }
+    return `
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Required</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${doc.params
+            .map((param) => {
+              const required = param.required ? "yes" : "no";
+              const type = Array.isArray(param.values)
+                ? `${param.type || "enum"}: ${param.values.join(", ")}`
+                : (param.type || "");
+              return `
+                <tr>
+                  <td><code>${escapeHTML(param.name || "")}</code></td>
+                  <td>${escapeHTML(type)}</td>
+                  <td>${required}</td>
+                  <td>${escapeHTML(param.desc || "")}</td>
+                </tr>
+              `;
+            })
+            .join("")}
+        </tbody>
+      </table>
+    `;
+  }
+
+  function renderExamplesSection(doc, category, word) {
+    const examples = Array.isArray(doc?.examples) ? doc.examples : [];
+    if (!examples.length) {
+      return `
+        <p>No explicit examples yet.</p>
+        <p><a href="${AC_ORIGIN}/prompt">Open prompt to experiment live</a>.</p>
+      `;
+    }
+
+    return `
+      <ul>
+        ${examples
+          .map((example) => {
+            const clean = String(example).replace(/^prompt~/, "");
+            return `<li><a href="${AC_ORIGIN}/prompt~${encodeURIComponent(clean)}">${escapeHTML(clean)}</a></li>`;
+          })
+          .join("")}
+      </ul>
+      <p><a href="${AC_ORIGIN}/prompt">Open prompt</a> · <a href="${AC_ORIGIN}/docs/${category}:${word}">Permalink</a></p>
+    `;
+  }
+
+  function renderDocContent(category, word, doc) {
+    const lang = doc?.lang || (category === "l5" ? "lua" : category === "kidlisp" ? "lisp" : "javascript");
+    const previewSrc = previewUrlForDoc(doc, category, word);
+    const family = familyFromCategory(category);
+    const status = normalizeStatus(doc?.done);
+    const returns = doc?.returns || "Not specified.";
+    const notes = doc?.notes || "";
+    const desc = doc?.desc || "Description pending.";
+    const sig = doc?.sig || `${word}(...)`;
+
+    return `
+      <h1 data-done="${escapeHTML(doc?.done)}" id="title"><a href="/docs">${escapeHTML(word)}</a></h1>
+      <div class="code-doc">
+        <div class="doc-meta">
+          <span><strong>${escapeHTML(family)}</strong></span>
+          <span>/</span>
+          <span><code>${escapeHTML(category)}</code></span>
+          <span>/</span>
+          <span class="doc-status">${statusBadge(status)}</span>
+        </div>
+        <pre><code class="language-${escapeHTML(lang)}">${escapeHTML(sig)}</code></pre>
+        <p>${escapeHTML(desc)}</p>
+        <div class="doc-grid">
+          <div class="doc-block doc-body">
+            <h2>Parameters</h2>
+            ${renderParamsSection(doc)}
+          </div>
+          <div class="doc-block doc-body">
+            <h2>Returns</h2>
+            <p><code>${escapeHTML(returns)}</code></p>
+          </div>
+          <div class="doc-block doc-body">
+            <h2>Examples</h2>
+            ${renderExamplesSection(doc, category, word)}
+          </div>
+          <div class="doc-block doc-body">
+            <h2>Runtime Notes</h2>
+            ${notes ? `<p>${escapeHTML(notes)}</p>` : `<p>No additional runtime notes yet.</p>`}
+          </div>
+          <div class="doc-block doc-body">
+            <h2>Details</h2>
+            ${doc?.body || `<p>No additional details yet.</p>`}
+          </div>
+          <div class="doc-block">
+            <h2>Live Preview</h2>
+            <div class="doc-preview">
+              <div class="doc-preview-head">Embedded AC preview</div>
+              <div class="doc-preview-body">
+                <iframe
+                  src="${previewSrc}"
+                  title="${escapeHTML(word)} preview"
+                  loading="lazy"
+                  allow="autoplay; clipboard-write"
+                ></iframe>
+              </div>
+            </div>
+            <div class="doc-preview-links">
+              <a href="${previewSrc}" target="_blank" rel="noopener">Open preview</a>
+              <a href="${AC_ORIGIN}/prompt" target="_blank" rel="noopener">Open prompt</a>
+              <a href="${AC_ORIGIN}/docs/${category}:${word}" target="_blank" rel="noopener">Open doc</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   const commands = { ...docs.prompts, ...docs.pieces };
   let commandList = "";
   // ➿ Loop through all commands and generate HTML.
@@ -3845,6 +4322,27 @@ end</code></pre>
       .join(" ");
   }
 
+  function laneCounts(categories) {
+    let total = 0;
+    let done = 0;
+    let inProgress = 0;
+    categories.forEach((category) => {
+      keys(docs.api[category] || {}).forEach((word) => {
+        total++;
+        const status = normalizeStatus(docs.api[category][word]?.done);
+        if (status === "done") done++;
+        if (status === "in-progress") inProgress++;
+      });
+    });
+    const planned = total - done - inProgress;
+    return { total, done, inProgress, planned };
+  }
+
+  function laneCountLabel(categories) {
+    const count = laneCounts(categories);
+    return `${count.done} done · ${count.inProgress} in progress · ${count.planned} planned`;
+  }
+
   const indexContent = html`
     <h1 id="title">
       <a
@@ -3854,82 +4352,78 @@ end</code></pre>
       >
     </h1>
     <div class="code-doc-welcome">
-      <h2>Graphics</h2>
-      <span class="links">
-        <a
-          data-done="${docs.api.structure.paint.done}"
-          class="top-level"
-          href="/docs/structure:paint"
-          >paint</a
-        >
-        ${genLinks("graphics")}
-      </span>
-      <h2>Number</h2>
-      <span class="links">
-        <a
-          data-done="${docs.api.structure.sim.done}"
-          class="top-level"
-          href="/docs/structure:sim"
-          >sim</a
-        >
-        ${genLinks("number")}
-      </span>
-      <h2>Sound</h2>
-      <span class="links">
-        <a
-          data-done="${docs.api.structure.beat.done}"
-          class="top-level"
-          href="/docs/structure:beat"
-          >beat</a
-        >
-        ${genLinks("sound")}
-        <h2>Interaction</h2>
-        <span class="links">
-          <a
-            data-done="${docs.api.structure.act.done}"
-            class="top-level"
-            href="/docs/structure:act"
-            >act</a
-          >
-          ${genLinks("interaction")}
-        </span>
-        <h2>Network</h2>
-        <span class="links">
-          <a
-            data-done="${docs.api.structure.meta.done}"
-            class="top-level"
-            href="/docs/structure:meta"
-            >meta</a
-          >
-          <a
-            data-done="${docs.api.structure.icon.done}"
-            class="top-level"
-            href="/docs/structure:icon"
-            >icon</a
-          >
-          <a
-            data-done="${docs.api.structure.preview.done}"
-            class="top-level"
-            href="/docs/structure:preview"
-            >preview</a
-          >
-          ${genLinks("network")}
-        </span>
-      </span>
-      <h2>Help</h2>
-      <span class="links">${genLinks("help")}</span>
-      <h2>System</h2>
-      <span class="links">
-        <a
-          data-done="${docs.api.structure.boot.done}"
-          class="top-level"
-          href="/docs/structure:boot"
-          >boot</a
-        >
-        ${genLinks("system")}
-      </span>
-      <h2>L5 (Lua)</h2>
-      <span class="links">${genLinks("l5")}</span>
+      <div class="lane-grid">
+        <article class="lane-card">
+          <div class="lane-head">
+            <div class="lane-title">MJS / AC Piece API</div>
+            <div class="lane-count">${laneCountLabel(["mjs", "structure", "graphics", "interaction", "sound", "number", "network", "help", "system"])}</div>
+          </div>
+          <div class="lane-subtitle">JavaScript runtime API for AC piece authors (<code>.mjs</code>).</div>
+          <div class="links">
+            <a data-done="${docs.api.mjs.overview.done}" class="top-level" href="/docs/mjs:overview">overview</a>
+            <a data-done="${docs.api.structure.boot.done}" class="top-level" href="/docs/structure:boot">boot</a>
+            <a data-done="${docs.api.structure.paint.done}" class="top-level" href="/docs/structure:paint">paint</a>
+            <a data-done="${docs.api.structure.act.done}" class="top-level" href="/docs/structure:act">act</a>
+            <a data-done="${docs.api.structure.sim.done}" class="top-level" href="/docs/structure:sim">sim</a>
+            <a data-done="${docs.api.structure.beat.done}" class="top-level" href="/docs/structure:beat">beat</a>
+          </div>
+          <div class="lane-section">
+            <h3>Graphics</h3>
+            <span class="links">${genLinks("graphics")}</span>
+          </div>
+          <div class="lane-section">
+            <h3>Interaction</h3>
+            <span class="links">${genLinks("interaction")}</span>
+          </div>
+          <div class="lane-section">
+            <h3>Sound + Number + Network</h3>
+            <span class="links">${genLinks("sound")} ${genLinks("number")} ${genLinks("network")}</span>
+          </div>
+          <div class="lane-section">
+            <h3>Help + System</h3>
+            <span class="links">${genLinks("help")} ${genLinks("system")}</span>
+          </div>
+        </article>
+
+        <article class="lane-card">
+          <div class="lane-head">
+            <div class="lane-title">L5 / Lua API</div>
+            <div class="lane-count">${laneCountLabel(["l5"])}</div>
+          </div>
+          <div class="lane-subtitle">Processing-style Lua compatibility layer on AC.</div>
+          <div class="links">
+            <a data-done="${docs.api.l5.overview.done}" class="top-level" href="/docs/l5:overview">overview</a>
+            ${genLinks("l5")}
+          </div>
+          <div class="lane-section">
+            <h3>Runtime Surfaces</h3>
+            <span class="links">
+              <a href="${AC_ORIGIN}/l5">/l5 playground</a>
+              <a href="${AC_ORIGIN}/prompt">prompt</a>
+            </span>
+          </div>
+        </article>
+
+        <article class="lane-card">
+          <div class="lane-head">
+            <div class="lane-title">KidLisp / Language API</div>
+            <div class="lane-count">${laneCountLabel(["kidlisp"])}</div>
+          </div>
+          <div class="lane-subtitle">Canonical language reference is maintained on learn.kidlisp.com.</div>
+          <div class="links">
+            <a data-done="${docs.api.kidlisp.overview.done}" class="top-level" href="/docs/kidlisp:overview">overview</a>
+            ${genLinks("kidlisp")}
+          </div>
+          <div class="lane-section">
+            <h3>Canonical Source</h3>
+            <span class="links">
+              <a href="${LEARN_KIDLISP_ORIGIN}/?tab=reference" target="_blank" rel="noopener">reference</a>
+              <a href="${LEARN_KIDLISP_ORIGIN}/?tab=functions" target="_blank" rel="noopener">function popularity</a>
+              <a href="${LEARN_KIDLISP_ORIGIN}/?id=wipe" target="_blank" rel="noopener">identifier pages</a>
+            </span>
+          </div>
+        </article>
+      </div>
     </div>
   `.trim();
 
@@ -4023,13 +4517,8 @@ end</code></pre>
       200,
       page
         .replace("$bodyclass", " class='doc'")
-        .replace("$content", content)
-        .replaceAll("$name", word)
-        .replaceAll("$lang", doc?.lang || "javascript")
-        .replaceAll("$sig", doc?.sig)
-        .replaceAll("$desc", doc?.desc)
-        .replaceAll("$body", doc?.body || "")
-        .replaceAll("$done", doc?.done),
+        .replace("$content", renderDocContent(category, word, doc))
+        .replaceAll("$name", word),
       {
         "Content-Type": "text/html; charset=UTF-8",
         "Cross-Origin-Embedder-Policy": "require-corp",
