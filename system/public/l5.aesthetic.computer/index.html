@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>L5 · Aesthetic Computer</title>
+  <meta name="description" content="L5 (Processing-style Lua) compatibility board and try page for Aesthetic Computer." />
+  <link rel="icon" type="image/png" href="https://aesthetic.computer/icon/128x128/prompt.png" />
+  <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css" />
+  <style>
+    @font-face {
+      font-family: "YWFTProcessing-Regular";
+      src: url("https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2") format("woff2");
+      font-weight: normal;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    :root {
+      --bg-0: #f8f7f2;
+      --bg-1: #fffef9;
+      --ink-0: #13110d;
+      --ink-1: #4a443a;
+      --line: #d9d4c9;
+      --accent-a: #e25b49;
+      --accent-b: #007f88;
+      --ok: #0f9d58;
+      --warn: #b26b00;
+      --todo: #6a7280;
+      --card: rgba(255, 255, 255, 0.88);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: "Berkeley Mono Variable", Menlo, monospace;
+      color: var(--ink-0);
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 10% 10%, rgba(226, 91, 73, 0.08), transparent 40%),
+        radial-gradient(circle at 90% 0%, rgba(0, 127, 136, 0.08), transparent 40%),
+        linear-gradient(180deg, var(--bg-0), var(--bg-1));
+      cursor: url("https://aesthetic.computer/aesthetic.computer/cursors/precise.svg") 12 12, auto;
+      -webkit-text-size-adjust: none;
+    }
+
+    .wrap {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--card);
+      backdrop-filter: blur(4px);
+      padding: 14px;
+    }
+
+    .top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+      flex-wrap: wrap;
+    }
+
+    h1 {
+      font-family: "YWFTProcessing-Regular", "Berkeley Mono Variable", monospace;
+      font-size: 34px;
+      letter-spacing: 0.02em;
+      font-weight: normal;
+    }
+
+    .sub {
+      color: var(--ink-1);
+      font-size: 13px;
+      line-height: 1.45;
+      max-width: 74ch;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+
+    .btn,
+    .btn:visited {
+      text-decoration: none;
+      color: var(--ink-0);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 7px 12px;
+      font-size: 12px;
+      background: white;
+    }
+
+    .btn:hover {
+      border-color: var(--accent-a);
+      color: var(--accent-a);
+    }
+
+    h2 {
+      font-size: 14px;
+      font-weight: normal;
+      margin-bottom: 8px;
+      color: var(--ink-1);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .status-badge {
+      display: inline-block;
+      border: 1px solid currentColor;
+      border-radius: 999px;
+      padding: 1px 8px;
+      font-size: 11px;
+      margin-right: 4px;
+      white-space: nowrap;
+    }
+
+    .status-done {
+      color: var(--ok);
+    }
+
+    .status-in-progress {
+      color: var(--warn);
+    }
+
+    .status-planned {
+      color: var(--todo);
+    }
+
+    .checklist-host table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .checklist-host th,
+    .checklist-host td {
+      text-align: left;
+      vertical-align: top;
+      border: 1px solid var(--line);
+      padding: 7px;
+      line-height: 1.45;
+    }
+
+    .checklist-host p {
+      margin: 0 0 8px;
+      color: var(--ink-1);
+      font-size: 12px;
+    }
+
+    .examples {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 10px;
+    }
+
+    .example {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .example-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--line);
+      background: #faf8f2;
+      gap: 8px;
+    }
+
+    .example h3 {
+      font-size: 12px;
+      font-weight: normal;
+      color: var(--ink-1);
+    }
+
+    .copy {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      font: inherit;
+      font-size: 11px;
+      padding: 3px 8px;
+      cursor: pointer;
+    }
+
+    .copy:hover {
+      border-color: var(--accent-b);
+      color: var(--accent-b);
+    }
+
+    pre {
+      margin: 0;
+      padding: 10px;
+      overflow: auto;
+      font-size: 12px;
+      line-height: 1.45;
+      background: #fff;
+    }
+
+    code {
+      font-family: "Berkeley Mono Variable", Menlo, monospace;
+    }
+
+    .doc-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+
+    .doc-links a,
+    .doc-links a:visited {
+      text-decoration: none;
+      color: var(--accent-b);
+      border: 1px solid rgba(0, 127, 136, 0.28);
+      border-radius: 999px;
+      padding: 5px 9px;
+      font-size: 12px;
+      background: rgba(0, 127, 136, 0.06);
+    }
+
+    .doc-links a:hover {
+      border-color: var(--accent-a);
+      color: var(--accent-a);
+      background: rgba(226, 91, 73, 0.08);
+    }
+
+    .muted {
+      color: var(--ink-1);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 700px) {
+      .wrap {
+        padding: 10px;
+      }
+
+      h1 {
+        font-size: 28px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="panel">
+      <div class="top">
+        <h1>L5 on AC</h1>
+        <div class="muted" id="status-date">status: loading</div>
+      </div>
+      <p class="sub">
+        Processing-style Lua for Aesthetic Computer. This page reuses the same checklist data as
+        <code>/docs/l5:checklist</code>, so docs and launch status stay in sync.
+      </p>
+      <div class="actions">
+        <a class="btn" href="/docs/l5:overview">Open L5 Docs</a>
+        <a class="btn" href="/docs/l5:checklist">Checklist</a>
+        <a class="btn" href="/prompt">Open Prompt</a>
+        <a class="btn" href="/docs/l5:examples">More Examples</a>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Checklist</h2>
+      <div class="checklist-host" id="checklist-host">
+        <p>Loading checklist from <code>/docs.json</code>...</p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Try Snippets</h2>
+      <p class="muted" style="margin-bottom: 8px;">
+        Copy a starter snippet. Runtime support is still marked by the checklist above.
+      </p>
+      <div class="examples" id="examples"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Doc Sections</h2>
+      <div class="doc-links" id="doc-links"></div>
+    </section>
+  </main>
+
+  <script>
+    const EXAMPLES = [
+      {
+        title: "Pulse Circle",
+        code: `function setup()\n  size(256, 256)\nend\n\nfunction draw()\n  background(12, 12, 18)\n  local r = 40 + math.sin(frameCount * 0.05) * 20\n  fill(255, 120, 80)\n  circle(width / 2, height / 2, r * 2)\nend`,
+      },
+      {
+        title: "Mouse Dots",
+        code: `function setup()\n  background(255)\nend\n\nfunction draw()\n  if mouseIsPressed then\n    fill(20, 20, 20)\n    circle(mouseX, mouseY, 10)\n  end\nend`,
+      },
+      {
+        title: "Grid Drift",
+        code: `function setup()\n  size(256, 256)\nend\n\nfunction draw()\n  background(245)\n  stroke(0)\n  noFill()\n  for y = 16, height - 16, 16 do\n    for x = 16, width - 16, 16 do\n      local wobble = math.sin((x + y + frameCount) * 0.04) * 3\n      circle(x + wobble, y, 6)\n    end\n  end\nend`,
+      },
+    ];
+
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function renderExamples() {
+      const host = document.getElementById("examples");
+      host.innerHTML = EXAMPLES.map((item, i) => `
+        <article class="example">
+          <div class="example-head">
+            <h3>${escapeHtml(item.title)}</h3>
+            <button class="copy" data-i="${i}">Copy</button>
+          </div>
+          <pre><code>${escapeHtml(item.code)}</code></pre>
+        </article>
+      `).join("");
+
+      host.querySelectorAll(".copy").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const idx = Number(btn.getAttribute("data-i"));
+          try {
+            await navigator.clipboard.writeText(EXAMPLES[idx].code);
+            const old = btn.textContent;
+            btn.textContent = "Copied";
+            setTimeout(() => {
+              btn.textContent = old;
+            }, 900);
+          } catch (_err) {
+            btn.textContent = "Copy failed";
+          }
+        });
+      });
+    }
+
+    async function loadDocsBackedContent() {
+      const host = document.getElementById("checklist-host");
+      const links = document.getElementById("doc-links");
+      const statusDate = document.getElementById("status-date");
+
+      try {
+        const res = await fetch("/docs.json");
+        if (!res.ok) throw new Error(`docs fetch failed: ${res.status}`);
+        const docs = await res.json();
+        const l5 = docs?.api?.l5 || {};
+
+        if (l5.checklist?.body) {
+          host.innerHTML = l5.checklist.body;
+        } else {
+          host.innerHTML = "<p>Checklist not found in /docs.json.</p>";
+        }
+
+        const keys = Object.keys(l5).sort((a, b) => a.localeCompare(b));
+        links.innerHTML = keys
+          .map((key) => `<a href="/docs/l5:${key}">${key}</a>`)
+          .join("");
+
+        statusDate.textContent = "status source: /docs/l5:checklist";
+      } catch (err) {
+        host.innerHTML = `<p>Could not load checklist: ${escapeHtml(String(err.message || err))}</p>`;
+        links.innerHTML = "";
+        statusDate.textContent = "status: unavailable";
+      }
+    }
+
+    renderExamples();
+    loadDocsBackedContent();
+  </script>
+</body>
+</html>
