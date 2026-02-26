@@ -2424,6 +2424,14 @@ async function halt($, text) {
     send({ type: "post-to-parent", content: { type: "runPiece" } });
     makeFlash($);
     return true;
+  } else if (text === "l5docs") {
+    jump("out:/docs/l5:overview");
+    makeFlash($);
+    return true;
+  } else if (text === "l5" || text === "l5learn") {
+    jump("out:/l5");
+    makeFlash($);
+    return true;
   } else if (text === "docs") {
     if (net.iframe) {
       send({ type: "post-to-parent", content: { type: "openDocs" } });

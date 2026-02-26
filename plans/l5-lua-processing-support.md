@@ -334,3 +334,118 @@ After `.mjs` 404, try `.lua` before `.lisp`:
 6. Test error display: intentionally break Lua syntax, verify error shows on screen
 7. Test fallback: delete `.mjs`, verify `.lua` loads via the fallback chain
 8. Test hot reload: edit `.lua` file, verify changes appear
+
+---
+
+## Step 7: L5 Documentation + Showcase Rollout
+
+### Goal
+
+Ship a **graspable proof page** that shows what L5 API surface AC supports, what is partial, and what is not yet implemented.
+
+### 7.1 Extend Existing `/docs` System First (lowest-risk)
+
+Use the current docs pipeline (`docs` command → `/docs` → `docs.js`) and add an L5 section there first:
+
+- Add `docs.api.l5` in `system/netlify/functions/docs.js`
+- Add index links under a new `<h2>L5 (Lua)</h2>` section
+- Add entries like:
+  - `overview`
+  - `lifecycle`
+  - `graphics`
+  - `color`
+  - `text`
+  - `math`
+  - `input`
+  - `environment`
+  - `compatibility` (full/partial/unsupported table)
+  - `unsupported` (explicit v1 exclusions)
+
+Resulting URLs:
+
+- `/docs/l5:overview`
+- `/docs/l5:compatibility`
+- etc.
+
+### 7.2 Add a Dedicated `/l5` Landing Page (show-off page)
+
+Create a static HTML page following AC frontend conventions (single-file page, no framework):
+
+- `system/public/l5.aesthetic.computer/index.html`
+
+Page sections:
+
+1. Hero: “L5 on Aesthetic Computer”
+2. “Run now” links (sample pieces)
+3. Compatibility matrix (L5 API → AC API mapping)
+4. “What’s different from Processing/Love2D”
+5. Live code snippets (Lua examples)
+6. CTA: “open docs”, “open prompt”, “try example”
+
+Style direction:
+
+- Reuse AC fonts (`Berkeley Mono`, `YWFT Processing`) and color token pattern from frontend style guide
+- Responsive layout for desktop/mobile
+- Keep everything in one HTML file unless it exceeds practical size
+
+### 7.3 Routing
+
+Add redirects in `system/netlify.toml`:
+
+- `from = "/l5"` → `/l5.aesthetic.computer/index.html`
+- `from = "https://l5.aesthetic.computer"` → `/l5.aesthetic.computer/index.html`
+- `from = "https://l5.aesthetic.computer/*"` → `/l5.aesthetic.computer/index.html`
+
+Optional aliases:
+
+- `/L5` → `/l5` (case convenience)
+
+### 7.4 Prompt/Command Integration
+
+Add quick entry commands in `system/public/aesthetic.computer/disks/prompt.mjs`:
+
+- `l5docs` → `out:/docs/l5:overview`
+- `l5` (or `l5learn`) → `out:/l5`
+
+Keep existing `docs` command unchanged.
+
+### 7.5 Single Source of Truth for Compatibility
+
+Avoid hand-maintaining the matrix in two places.
+
+Create one source object/file (for example `system/public/aesthetic.computer/lib/l5-reference.mjs`) with:
+
+- `name`
+- `l5Sig`
+- `acEquivalent`
+- `status` (`full`, `partial`, `unsupported`)
+- `notes`
+
+Use it to render:
+
+- `/docs` L5 entries
+- `/l5` compatibility table
+
+This prevents docs drift as runtime support changes.
+
+### 7.6 Accuracy Guardrails (important)
+
+Do **not** claim “full L5 parity” in v1.
+
+Label unsupported/partial APIs clearly (e.g. `rotate`, `scale`, `bezier`, file/video APIs). The page should be a trustable status board, not marketing-only copy.
+
+---
+
+## Step 8: Verification for Docs/Showcase
+
+1. Run `npm start`
+2. Verify:
+   - `/docs` shows new “L5 (Lua)” section
+   - `/docs/l5:overview` and `/docs/l5:compatibility` render correctly
+   - `/docs.json` includes `api.l5`
+3. Verify `/l5` loads and works on desktop + mobile breakpoints
+4. Verify prompt commands:
+   - `l5docs`
+   - `l5` (or chosen alias)
+5. Confirm every compatibility claim matches real runtime behavior
+6. Run `npm test` before merge

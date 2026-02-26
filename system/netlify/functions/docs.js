@@ -45,6 +45,185 @@ export async function handler(event, context) {
     combine modes with <code>*</code> like <code>outline*center</code> or <code>inline:3*center</code> 
   `.trim();
 
+  const l5StatusBadge = (status) => {
+    if (status === "done") return `<span class="status-badge status-done">done</span>`;
+    if (status === "in-progress") return `<span class="status-badge status-in-progress">in progress</span>`;
+    return `<span class="status-badge status-planned">planned</span>`;
+  };
+
+  const l5ChecklistItems = [
+    {
+      area: "Docs checklist + /l5 try page",
+      status: "done",
+      notes: "This docs section and /l5 landing page exist.",
+    },
+    {
+      area: "Lua source detection (.lua) in loader",
+      status: "planned",
+      notes: "disk parse/load path currently supports .mjs and .lisp.",
+    },
+    {
+      area: "Lua runtime adapter (Wasmoon)",
+      status: "planned",
+      notes: "No l5 runtime module is wired yet.",
+    },
+    {
+      area: "L5 lifecycle bridge (setup/draw/events)",
+      status: "planned",
+      notes: "Depends on runtime adapter + event mapping.",
+    },
+    {
+      area: "Core graphics API parity",
+      status: "planned",
+      notes: "Requires shape/color state adapter on top of AC draw calls.",
+    },
+    {
+      area: "Input globals (mouse/key/frame)",
+      status: "planned",
+      notes: "Needs frame-synced global injection.",
+    },
+    {
+      area: "Publish .lua pieces",
+      status: "planned",
+      notes: "Current media tracking accepts mjs/lisp extensions.",
+    },
+    {
+      area: "Trust/restricted API posture for Lua",
+      status: "planned",
+      notes: "Runtime trust level policy must be decided before launch.",
+    },
+  ];
+
+  const l5ChecklistBody = `
+    <p>
+      This board tracks what is actually implemented, not intended parity.
+      Update statuses as work lands.
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>Area</th>
+          <th>Status</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${l5ChecklistItems
+          .map(
+            (item) => `
+              <tr>
+                <td>${item.area}</td>
+                <td>${l5StatusBadge(item.status)}</td>
+                <td>${item.notes}</td>
+              </tr>
+            `,
+          )
+          .join("")}
+      </tbody>
+    </table>
+    <p><strong>Status date:</strong> 2026-02-26</p>
+  `.trim();
+
+  const l5LifecycleBody = `
+    <table>
+      <thead>
+        <tr>
+          <th>L5 callback</th>
+          <th>AC bridge</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>setup()</code></td><td><code>boot($)</code></td><td>${l5StatusBadge("planned")}</td></tr>
+        <tr><td><code>draw()</code></td><td><code>paint($)</code></td><td>${l5StatusBadge("planned")}</td></tr>
+        <tr><td><code>keyPressed()</code></td><td><code>act($)</code> keyboard events</td><td>${l5StatusBadge("planned")}</td></tr>
+        <tr><td><code>mousePressed()</code></td><td><code>act($)</code> pen/touch events</td><td>${l5StatusBadge("planned")}</td></tr>
+      </tbody>
+    </table>
+  `.trim();
+
+  const l5GraphicsBody = `
+    <table>
+      <thead>
+        <tr>
+          <th>L5 API</th>
+          <th>AC target</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>background()</code></td><td><code>$.wipe()</code></td><td>${l5StatusBadge("planned")}</td></tr>
+        <tr><td><code>fill()</code>/<code>stroke()</code></td><td>state + <code>$.ink()</code></td><td>${l5StatusBadge("planned")}</td></tr>
+        <tr><td><code>line()</code>/<code>point()</code></td><td><code>$.line()</code>/<code>$.plot()</code></td><td>${l5StatusBadge("planned")}</td></tr>
+        <tr><td><code>rect()</code>/<code>circle()</code>/<code>ellipse()</code></td><td><code>$.box()</code>/<code>$.circle()</code>/<code>$.oval()</code></td><td>${l5StatusBadge("planned")}</td></tr>
+        <tr><td><code>beginShape()</code>…</td><td><code>$.shape()</code>/<code>$.poly()</code></td><td>${l5StatusBadge("planned")}</td></tr>
+      </tbody>
+    </table>
+  `.trim();
+
+  const l5InputBody = `
+    <table>
+      <thead>
+        <tr>
+          <th>L5 global</th>
+          <th>Source in AC</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>mouseX</code>/<code>mouseY</code></td><td><code>$.pen.x</code>/<code>$.pen.y</code></td><td>${l5StatusBadge("planned")}</td></tr>
+        <tr><td><code>mouseIsPressed</code></td><td><code>$.pen.drawing</code></td><td>${l5StatusBadge("planned")}</td></tr>
+        <tr><td><code>width</code>/<code>height</code></td><td><code>$.screen.width</code>/<code>$.screen.height</code></td><td>${l5StatusBadge("planned")}</td></tr>
+        <tr><td><code>frameCount</code></td><td>runtime counter</td><td>${l5StatusBadge("planned")}</td></tr>
+      </tbody>
+    </table>
+  `.trim();
+
+  const l5UnsupportedBody = `
+    <ul>
+      <li><code>rotate()</code> and <code>scale()</code> require matrix transform support.</li>
+      <li><code>bezier()</code> and curve families are not mapped in v1 scope.</li>
+      <li>File/video APIs and full Processing IO are out of scope for initial launch.</li>
+      <li>Do not claim full L5 parity until checklist items move to <em>done</em>.</li>
+    </ul>
+  `.trim();
+
+  const l5ExamplesBody = `
+    <p>Use these as starter snippets. Runtime wiring is still in progress.</p>
+    <div class="doc-examples">
+      <article class="doc-example">
+        <h3>Pulse Circle</h3>
+        <pre><code class="language-lua">function setup()
+  size(256, 256)
+end
+
+function draw()
+  background(12, 12, 18)
+  local r = 40 + math.sin(frameCount * 0.05) * 20
+  fill(255, 120, 80)
+  circle(width / 2, height / 2, r * 2)
+end</code></pre>
+      </article>
+      <article class="doc-example">
+        <h3>Mouse Dots</h3>
+        <pre><code class="language-lua">function setup()
+  background(255)
+end
+
+function draw()
+  if mouseIsPressed then
+    fill(30, 30, 30)
+    circle(mouseX, mouseY, 10)
+  end
+end</code></pre>
+      </article>
+    </div>
+    <p>
+      <a href="/l5">Open the L5 try page</a> ·
+      <a href="/prompt">Open prompt</a>
+    </p>
+  `.trim();
+
   const docs = {
     // Commands for programming inside of pieces.
     api: {
@@ -1413,6 +1592,60 @@ export async function handler(event, context) {
           done: false,
         },
       },
+      l5: {
+        overview: {
+          sig: "L5 (Lua) on Aesthetic Computer",
+          desc: "Processing-style Lua compatibility notes and rollout status.",
+          body: `
+            <p>
+              This is the implementation board for L5 support in AC.
+              Keep this page aligned with the actual runtime state.
+            </p>
+            <p>
+              <a href="/docs/l5:checklist">Open checklist</a> ·
+              <a href="/docs/l5:examples">Open examples</a> ·
+              <a href="/l5">Open /l5 try page</a>
+            </p>
+          `.trim(),
+          done: true,
+        },
+        checklist: {
+          sig: "L5 compatibility checklist (v0)",
+          desc: "Single source of truth for what is implemented right now.",
+          body: l5ChecklistBody,
+          done: false,
+        },
+        lifecycle: {
+          sig: "L5 lifecycle bridge",
+          desc: "How setup/draw/events map onto AC piece lifecycle hooks.",
+          body: l5LifecycleBody,
+          done: false,
+        },
+        graphics: {
+          sig: "L5 graphics mapping",
+          desc: "Core drawing calls and their AC equivalents.",
+          body: l5GraphicsBody,
+          done: false,
+        },
+        input: {
+          sig: "L5 input globals",
+          desc: "Frame-updated globals expected by Processing-style sketches.",
+          body: l5InputBody,
+          done: false,
+        },
+        unsupported: {
+          sig: "Known gaps / out of scope (v1)",
+          desc: "Features explicitly not shipped yet.",
+          body: l5UnsupportedBody,
+          done: true,
+        },
+        examples: {
+          sig: "L5 example snippets",
+          desc: "Starter Lua examples for the upcoming runtime.",
+          body: l5ExamplesBody,
+          done: false,
+        },
+      },
     },
     // 😱 Commands for entering into the prompt.
     prompts: {
@@ -1713,6 +1946,21 @@ export async function handler(event, context) {
         sig: "docs",
         desc: "Aesthetic Computer Documentation.",
         done: false,
+      },
+      l5docs: {
+        sig: "l5docs",
+        desc: "Open the L5 compatibility docs checklist.",
+        done: true,
+      },
+      l5: {
+        sig: "l5",
+        desc: "Open the L5 try page.",
+        done: true,
+      },
+      l5learn: {
+        sig: "l5learn",
+        desc: "Open the L5 try page.",
+        done: true,
       },
       code: {
         sig: "code [name]",
@@ -3366,6 +3614,60 @@ export async function handler(event, context) {
           font-size: 65%;
           padding-left: 1px;
         }
+        .doc-body {
+          margin-top: 1em;
+        }
+        .doc-body table {
+          border-collapse: collapse;
+          width: 100%;
+          max-width: 960px;
+          margin-top: 0.75em;
+          margin-bottom: 0.75em;
+        }
+        .doc-body th,
+        .doc-body td {
+          text-align: left;
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          padding: 0.4em 0.5em;
+          vertical-align: top;
+        }
+        .doc-body ul {
+          padding-left: 1.2em;
+          margin-top: 0.6em;
+          margin-bottom: 0.6em;
+        }
+        .doc-body h3 {
+          margin: 0.8em 0 0.4em;
+          font-size: 1em;
+          font-weight: normal;
+        }
+        .status-badge {
+          display: inline-block;
+          padding: 0.1em 0.45em;
+          border-radius: 0.35em;
+          font-size: 0.9em;
+          text-transform: lowercase;
+          border: 1px solid currentColor;
+          white-space: nowrap;
+        }
+        .status-done {
+          color: #4ade80;
+        }
+        .status-in-progress {
+          color: #fbbf24;
+        }
+        .status-planned {
+          color: #94a3b8;
+        }
+        .doc-examples {
+          display: grid;
+          gap: 0.75em;
+        }
+        .doc-example {
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          padding: 0.45em 0.6em;
+          border-radius: 0.35em;
+        }
         .code-doc-welcome {
           padding-top: 2.75em;
           font-size: 65%;
@@ -3375,12 +3677,12 @@ export async function handler(event, context) {
           margin-top: 1em;
           margin-bottom: 1em;
         }
-        pre code.hljs.language-javascript {
+        pre code.hljs {
           padding: 0.2em 0em;
           position: relative;
           overflow-x: visible;
         }
-        pre code.hljs.language-javascript:after {
+        pre code.hljs:after {
           content: "";
           height: 100%;
           top: 0;
@@ -3389,7 +3691,7 @@ export async function handler(event, context) {
           background-color: #f3f3f3;
           position: absolute;
         }
-        pre code.hljs.language-javascript:before {
+        pre code.hljs:before {
           content: "";
           height: 100%;
           top: 0;
@@ -3417,12 +3719,12 @@ export async function handler(event, context) {
           .hljs-title.function_ {
             color: rgb(225, 105, 175);
           }
-          .language-javascript.hljs {
+          .hljs {
             color: white;
           }
-          pre code.hljs.language-javascript,
-          pre code.hljs.language-javascript:after,
-          pre code.hljs.language-javascript:before {
+          pre code.hljs,
+          pre code.hljs:after,
+          pre code.hljs:before {
             background: rgb(25, 0, 25);
           }
           .links a {
@@ -3435,6 +3737,11 @@ export async function handler(event, context) {
         @media (prefers-color-scheme: light) {
           body {
             background-color: rgba(244, 235, 250);
+          }
+          .doc-body th,
+          .doc-body td,
+          .doc-example {
+            border-color: rgba(0, 0, 0, 0.2);
           }
           a.prompt, a.prompt:visited {
             color: rgb(64, 56, 74);
@@ -3510,8 +3817,9 @@ export async function handler(event, context) {
   const content = `
     <h1 data-done="$done" id="title"><a href="/docs">$name</a></h1>
     <div class="code-doc">
-      <pre><code class="language-javascript">$sig</code></pre>
+      <pre><code class="language-$lang">$sig</code></pre>
       <p>$desc</p>
+      <div class="doc-body">$body</div>
     </div>
   `.trim();
 
@@ -3620,6 +3928,8 @@ export async function handler(event, context) {
         >
         ${genLinks("system")}
       </span>
+      <h2>L5 (Lua)</h2>
+      <span class="links">${genLinks("l5")}</span>
     </div>
   `.trim();
 
@@ -3694,10 +4004,16 @@ export async function handler(event, context) {
 
     let doc;
     if (category !== "pieces" && category !== "prompts") {
-      doc = docs.api[category][word];
+      doc = docs.api[category]?.[word];
     } else if (category) {
-      doc = docs[category][word];
+      doc = docs[category]?.[word];
     } else {
+      return respond(404, "Not found. :(", {
+        "Content-Type": "text/html; charset=UTF-8",
+      });
+    }
+
+    if (!doc) {
       return respond(404, "Not found. :(", {
         "Content-Type": "text/html; charset=UTF-8",
       });
@@ -3709,8 +4025,10 @@ export async function handler(event, context) {
         .replace("$bodyclass", " class='doc'")
         .replace("$content", content)
         .replaceAll("$name", word)
+        .replaceAll("$lang", doc?.lang || "javascript")
         .replaceAll("$sig", doc?.sig)
         .replaceAll("$desc", doc?.desc)
+        .replaceAll("$body", doc?.body || "")
         .replaceAll("$done", doc?.done),
       {
         "Content-Type": "text/html; charset=UTF-8",
