@@ -13181,14 +13181,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     // Trigger a file download from a remote URL without navigating away.
-    // Uses a hidden iframe so cross-origin CDN URLs (which ignore the
-    // `download` attribute on <a>) don't cause a page navigation/blur.
+    // Opens in a new tab — the browser auto-converts to a download for
+    // binary content types (application/octet-stream) without leaving
+    // the current page.
     if (type === "download-url") {
-      const iframe = document.createElement("iframe");
-      iframe.style.display = "none";
-      iframe.src = content.url;
-      document.body.appendChild(iframe);
-      setTimeout(() => iframe.remove(), 60000);
+      window.open(content.url, "_blank");
       return;
     }
 
