@@ -309,6 +309,15 @@ fi
 PROFILEEOF
 chown -R 1000:1000 "$ROOTFS_DIR/home/kioskuser" 2>/dev/null || true
 
+# 2h. fstab — tmpfs mounts required for read-only EROFS root
+cat > "$ROOTFS_DIR/etc/fstab" << 'EOF'
+# EROFS root is read-only; writable layers via tmpfs
+tmpfs  /tmp      tmpfs  nosuid,nodev,mode=1777  0 0
+tmpfs  /run      tmpfs  nosuid,nodev,mode=0755  0 0
+tmpfs  /var/log  tmpfs  nosuid,nodev,mode=0755  0 0
+tmpfs  /var/tmp  tmpfs  nosuid,nodev,mode=1777  0 0
+EOF
+
 echo -e "  ${GREEN}Alpine rootfs configured${NC}"
 
 # ══════════════════════════════════════════
@@ -435,13 +444,19 @@ depend() {
 OPENRCEOF
 chmod +x "$ROOTFS_DIR/etc/init.d/kiosk-piece-server"
 
-# 3e. Enable OpenRC services
-for svc in devfs dmesg mdev hwdrivers seatd dbus kiosk-piece-server; do
-  chroot "$ROOTFS_DIR" /sbin/rc-update add "$svc" default 2>/dev/null || \
-    chroot "$ROOTFS_DIR" /sbin/rc-update add "$svc" boot 2>/dev/null || true
+# 3e. Enable OpenRC services in proper runlevels
+# sysinit: hardware/device setup (must run first)
+for svc in devfs dmesg mdev hwdrivers; do
+  chroot "$ROOTFS_DIR" /sbin/rc-update add "$svc" sysinit 2>/dev/null || true
 done
-# seatd is needed for cage to access DRM
-# dbus is needed for PipeWire
+# boot: filesystem and system setup
+for svc in bootmisc hostname modules localmount; do
+  chroot "$ROOTFS_DIR" /sbin/rc-update add "$svc" boot 2>/dev/null || true
+done
+# default: user services (seatd for DRM access, dbus for PipeWire)
+for svc in seatd dbus kiosk-piece-server; do
+  chroot "$ROOTFS_DIR" /sbin/rc-update add "$svc" default 2>/dev/null || true
+done
 
 # 3f. Configure seatd for kioskuser
 mkdir -p "$ROOTFS_DIR/etc/seatd"
@@ -461,6 +476,23 @@ uinput
 EOF
 
 echo -e "  ${GREEN}Kiosk config injected${NC}"
+
+# ── 3h. Add EROFS support to initramfs ──
+# Alpine's mkinitfs doesn't include erofs by default.  We need it so the
+# kernel can mount the root partition which is raw EROFS (no ext4 wrapper).
+echo -e "  Adding EROFS support to initramfs..."
+mkdir -p "$ROOTFS_DIR/etc/mkinitfs/features.d"
+echo 'kernel/fs/erofs/*' > "$ROOTFS_DIR/etc/mkinitfs/features.d/erofs.modules"
+if [ -f "$ROOTFS_DIR/etc/mkinitfs/mkinitfs.conf" ]; then
+  # Append erofs to the features list
+  sed -i '/^features=/ s/"$/ erofs"/' "$ROOTFS_DIR/etc/mkinitfs/mkinitfs.conf"
+fi
+# Regenerate initramfs with erofs module included
+KVER=$(ls "$ROOTFS_DIR/lib/modules/" 2>/dev/null | head -1)
+if [ -n "$KVER" ]; then
+  chroot "$ROOTFS_DIR" mkinitfs -o /boot/initramfs-lts "$KVER" 2>/dev/null || true
+  echo -e "  ${GREEN}Initramfs regenerated with EROFS support${NC}"
+fi
 
 # ══════════════════════════════════════════
 # Step 4: Build EROFS + prepare boot files
@@ -547,7 +579,7 @@ build_target() {
   parted -s "$target" mklabel gpt
   parted -s "$target" mkpart '"EFI"' fat32 1MiB "${efi_end}MiB"
   parted -s "$target" set 1 esp on
-  parted -s "$target" mkpart '"ROOT"' ext4 "${efi_end}MiB" "${piece_start}MiB"
+  parted -s "$target" mkpart '"ROOT"' "${efi_end}MiB" "${piece_start}MiB"
   parted -s "$target" mkpart '"PIECE"' ext4 "${piece_start}MiB" 100%
 
   sleep 2
@@ -564,7 +596,7 @@ build_target() {
 
   # Format
   mkfs.vfat -F 32 -n BOOT "$p1" >/dev/null
-  mkfs.ext4 -L ALPINE-ROOT -q "$p2"
+  # p2 (ROOT) gets raw EROFS written later — no filesystem format needed
   mkfs.ext4 -L FEDAC-PIECE -q "$p3"
   echo -e "  ${GREEN}${label}: partitions created (EFI + ROOT + PIECE)${NC}"
 
@@ -578,15 +610,9 @@ build_target() {
   PIECE_MOUNT_TMP=""
   echo -e "  ${GREEN}${label}: piece.html written to FEDAC-PIECE${NC}"
 
-  # Write EROFS rootfs to ROOT partition
-  LIVE_MOUNT=$(mktemp -d /tmp/alpine-root-XXXX)
-  mount "$p2" "$LIVE_MOUNT"
-  mkdir -p "$LIVE_MOUNT/LiveOS"
-  cp "$EROFS_PATH" "$LIVE_MOUNT/LiveOS/rootfs.erofs"
-  sync
-  umount "$LIVE_MOUNT"
-  rmdir "$LIVE_MOUNT"
-  LIVE_MOUNT=""
+  # Write EROFS rootfs directly to ROOT partition (raw — no ext4 wrapper)
+  echo -e "  Writing EROFS rootfs to ROOT partition..."
+  dd if="$EROFS_PATH" of="$p2" bs=4M conv=fsync 2>/dev/null
   echo -e "  ${GREEN}${label}: EROFS rootfs written${NC}"
 
   # Set up EFI partition
@@ -642,7 +668,7 @@ set gfxpayload=keep
 terminal_input console
 terminal_output gfxterm
 menuentry "FedOS Alpine" {
-  linux /boot/vmlinuz root=LABEL=ALPINE-ROOT rootfstype=ext4 ro quiet loglevel=0 mitigations=off
+  linux /boot/vmlinuz root=PARTLABEL=ROOT rootfstype=erofs ro quiet loglevel=0 mitigations=off
   initrd /boot/initramfs
 }
 GRUBEOF
