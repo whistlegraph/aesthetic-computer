@@ -128,6 +128,7 @@ export async function module(source) {
     strokeColor: [0, 0, 0, 255],
     strokeWeight: 1,
     textSize: 1,
+    sizeWasCalled: false,
     looping: true,
     redrawRequested: false,
     hasDrawnOnce: false,
@@ -223,6 +224,7 @@ export async function module(source) {
   }));
 
   engine.global.set("size", withApi(($, w, h) => {
+    state.sizeWasCalled = true;
     $.resolution(asNumber(w, 128), asNumber(h, asNumber(w, 128)));
   }));
 
@@ -430,6 +432,12 @@ export async function module(source) {
     activeApi = $;
     updateInputGlobals(engine, $, state);
     safeCall("setup", setup);
+    // Auto-size to screen dimensions if the user didn't call size()
+    if (!state.sizeWasCalled) {
+      const w = $.screen?.width || 128;
+      const h = $.screen?.height || 128;
+      $.resolution(w, h, 0); // density 0 = native pixel ratio
+    }
   };
 
   const runPaint = ($) => {
