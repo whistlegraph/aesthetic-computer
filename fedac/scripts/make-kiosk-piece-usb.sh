@@ -335,10 +335,30 @@ echo -e "  ${GREEN}Piece bundle installed${NC}"
 KIOSK_PIECE_URL="file:///usr/local/share/kiosk/piece.html?density=${PACK_DENSITY}"
 
 # Ensure cage is available (black, no-animation kiosk compositor).
-# If install fails (offline builds), mutter fallback is used in kiosk-session.sh.
-if [ ! -x "$ROOTFS_DIR/usr/bin/cage" ] && command -v dnf >/dev/null 2>&1; then
+# The oven runs Ubuntu (no host dnf), so use chroot + the rootfs's own dnf5.
+if [ ! -x "$ROOTFS_DIR/usr/bin/cage" ]; then
   echo -e "  Installing cage into rootfs..."
-  dnf -y --installroot="$ROOTFS_DIR" --releasever="$FEDORA_VERSION" install cage >/dev/null 2>&1 || true
+  if command -v dnf >/dev/null 2>&1; then
+    # Host has dnf (Fedora build machine)
+    dnf -y --installroot="$ROOTFS_DIR" --releasever="$FEDORA_VERSION" install cage >/dev/null 2>&1 || true
+  elif [ -x "$ROOTFS_DIR/usr/bin/dnf" ]; then
+    # Chroot into the Fedora rootfs and use its own package manager
+    mount --bind /dev "$ROOTFS_DIR/dev" 2>/dev/null || true
+    mount --bind /proc "$ROOTFS_DIR/proc" 2>/dev/null || true
+    mount --bind /sys "$ROOTFS_DIR/sys" 2>/dev/null || true
+    mount -t tmpfs tmpfs "$ROOTFS_DIR/tmp" 2>/dev/null || true
+    cp /etc/resolv.conf "$ROOTFS_DIR/etc/resolv.conf" 2>/dev/null || true
+    chroot "$ROOTFS_DIR" /usr/bin/dnf -y install cage 2>&1 | tail -5 || true
+    umount "$ROOTFS_DIR/tmp" 2>/dev/null || true
+    umount "$ROOTFS_DIR/sys" 2>/dev/null || true
+    umount "$ROOTFS_DIR/proc" 2>/dev/null || true
+    umount "$ROOTFS_DIR/dev" 2>/dev/null || true
+  fi
+  if [ -x "$ROOTFS_DIR/usr/bin/cage" ]; then
+    echo -e "  ${GREEN}cage installed${NC}"
+  else
+    echo -e "  ${YELLOW}cage not available — will fall back to mutter${NC}"
+  fi
 fi
 
 # Volume key daemon is pure Python — no external packages needed.
