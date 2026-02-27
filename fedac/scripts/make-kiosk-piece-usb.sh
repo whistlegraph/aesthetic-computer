@@ -367,7 +367,8 @@ fi
 cat > "$ROOTFS_DIR/usr/local/bin/kiosk-session.sh" << 'SESSEOF'
 #!/bin/bash
 # FedAC Kiosk Session — prefer cage (black background, no window animations).
-set -euo pipefail
+exec > /tmp/kiosk.log 2>&1
+echo "[kiosk] $(date) — kiosk-session.sh starting"
 export XDG_SESSION_TYPE=wayland
 export XDG_RUNTIME_DIR="/run/user/$(id -u)"
 export MOZ_ENABLE_WAYLAND=1
@@ -375,6 +376,8 @@ export MOZ_DBUS_REMOTE=0
 export NO_AT_BRIDGE=1
 export CLUTTER_DISABLE_ANIMATIONS=1
 PROFILE="/home/liveuser/.mozilla/firefox/kiosk"
+
+echo "[kiosk] checking binaries: cage=$(command -v cage 2>/dev/null || echo MISSING) firefox=$(command -v firefox 2>/dev/null || echo MISSING)"
 
 mkdir -p "$PROFILE/chrome"
 cat > "$PROFILE/user.js" << 'USERJSEOF'
@@ -426,14 +429,20 @@ if command -v pipewire >/dev/null 2>&1; then
   command -v pipewire-pulse >/dev/null 2>&1 && pipewire-pulse &
 fi
 
+echo "[kiosk] XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR"
+echo "[kiosk] KIOSK_PIECE_URL=__KIOSK_PIECE_URL__"
+ls -la /usr/local/share/kiosk/ 2>&1 || echo "[kiosk] /usr/local/share/kiosk/ missing"
+
 if command -v cage >/dev/null 2>&1; then
   TTY_DEV="$(tty 2>/dev/null || true)"
   [ -n "$TTY_DEV" ] && printf '\033[2J\033[3J\033[H\033[?25l' >"$TTY_DEV" 2>/dev/null || true
+  echo "[kiosk] launching: cage -- firefox --kiosk __KIOSK_PIECE_URL__"
   exec cage -- firefox --kiosk --no-remote --new-instance \
     --profile "$PROFILE" --private-window \
     __KIOSK_PIECE_URL__
 fi
 
+echo "[kiosk] cage not found, falling back to mutter"
 exec mutter --wayland --no-x11 --sm-disable -- firefox --kiosk --no-remote \
   --new-instance --profile "$PROFILE" --private-window \
   __KIOSK_PIECE_URL__
@@ -630,7 +639,7 @@ cat > "$ROOTFS_DIR/home/liveuser/.bash_profile" << 'BPROFEOF'
 TTY="$(tty 2>/dev/null || true)"
 if [ -z "${DISPLAY:-}" ] && { [ "${XDG_VTNR:-}" = "1" ] || [ "$TTY" = "/dev/tty1" ]; }; then
   [ -n "$TTY" ] && printf '\033[2J\033[3J\033[H\033[?25l' >"$TTY" 2>/dev/null || true
-  exec /usr/local/bin/kiosk-session.sh </dev/null >/dev/null 2>&1
+  exec /usr/local/bin/kiosk-session.sh </dev/null
 fi
 BPROFEOF
 chmod 644 "$ROOTFS_DIR/home/liveuser/.bash_profile"
