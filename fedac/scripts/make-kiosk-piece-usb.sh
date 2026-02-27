@@ -631,7 +631,7 @@ RestartSec=2
 [Install]
 WantedBy=multi-user.target
 SVCEOF
-chroot "$ROOTFS_DIR" /usr/bin/systemctl enable kiosk-volume-keyd.service >/dev/null 2>&1 || true
+ln -sf /etc/systemd/system/kiosk-volume-keyd.service "$ROOTFS_DIR/etc/systemd/system/multi-user.target.wants/kiosk-volume-keyd.service"
 echo -e "  ${GREEN}Volume keys mapped (kiosk-volume-keyd)${NC}"
 
 # 3e. Piece server — serves kiosk HTML files + volume API on port 8080.
@@ -639,8 +639,10 @@ cp "$OVERLAY_DIR/kiosk-piece-server.py" "$ROOTFS_DIR/usr/local/bin/kiosk-piece-s
 chmod +x "$ROOTFS_DIR/usr/local/bin/kiosk-piece-server.py"
 cp "$OVERLAY_DIR/kiosk-piece-server.service" "$ROOTFS_DIR/etc/systemd/system/kiosk-piece-server.service"
 cp "$OVERLAY_DIR/kiosk-piece-server.socket" "$ROOTFS_DIR/etc/systemd/system/kiosk-piece-server.socket"
-chroot "$ROOTFS_DIR" /usr/bin/systemctl enable kiosk-piece-server.service >/dev/null 2>&1 || true
-echo -e "  ${GREEN}Piece server installed (port 8080)${NC}"
+# Enable via symlink — systemctl enable can't work inside a chroot (no running systemd)
+mkdir -p "$ROOTFS_DIR/etc/systemd/system/multi-user.target.wants"
+ln -sf /etc/systemd/system/kiosk-piece-server.service "$ROOTFS_DIR/etc/systemd/system/multi-user.target.wants/kiosk-piece-server.service"
+echo -e "  ${GREEN}Piece server installed + enabled (port 8080)${NC}"
 
 mkdir -p "$ROOTFS_DIR/home/liveuser"
 cat > "$ROOTFS_DIR/home/liveuser/.bash_profile" << 'BPROFEOF'
