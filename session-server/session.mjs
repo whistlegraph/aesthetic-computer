@@ -651,6 +651,57 @@ fastify.get("/chat/status", async (req) => {
   return chatManager.getStatus();
 });
 
+// *** Profile Stream Event Ingest ***
+// Accepts server-to-server profile events from Netlify functions.
+fastify.post("/profile-event", async (req, reply) => {
+  try {
+    const expectedSecret = process.env.PROFILE_STREAM_SECRET || null;
+    const providedSecret = req.headers["x-profile-secret"] || null;
+    if (expectedSecret && providedSecret !== expectedSecret) {
+      reply.status(401);
+      return { ok: false, error: "Unauthorized" };
+    }
+
+    const body = req.body || {};
+    const handle = body.handle;
+    const handleKey = normalizeProfileHandle(handle);
+    if (!handleKey) {
+      reply.status(400);
+      return { ok: false, error: "Missing or invalid handle" };
+    }
+
+    if (body.event && typeof body.event === "object") {
+      emitProfileActivity(handleKey, body.event);
+    }
+
+    if (body.counts && typeof body.counts === "object") {
+      broadcastProfileStream(handleKey, "counts:update", {
+        handle: handleKey,
+        counts: body.counts,
+      });
+    }
+
+    if (body.countsDelta && typeof body.countsDelta === "object") {
+      emitProfileCountDelta(handleKey, body.countsDelta);
+    }
+
+    if (body.presence && typeof body.presence === "object") {
+      broadcastProfileStream(handleKey, "presence:update", {
+        handle: handleKey,
+        reason: body.reason || "external",
+        changed: Array.isArray(body.changed) ? body.changed : [],
+        presence: body.presence,
+      });
+    }
+
+    return { ok: true };
+  } catch (err) {
+    error("👤 profile-event ingest failed:", err);
+    reply.status(500);
+    return { ok: false, error: err.message };
+  }
+});
+
 // *** Live Reload of Pieces in Development ***
 if (dev) {
   fastify.post("/reload", async (req) => {
@@ -1447,6 +1498,43 @@ wss.on("connection", (ws, req) => {
     
     return; // Don't process as a game client
   }
+
+  // Route targeted profile stream connections
+  if (req.url?.startsWith('/profile-stream')) {
+    let requestedHandle = null;
+    try {
+      const parsedUrl = new URL(req.url, 'http://localhost');
+      requestedHandle = parsedUrl.searchParams.get('handle');
+    } catch (err) {
+      error('👤 Invalid profile-stream URL:', err);
+    }
+
+    const key = addProfileStreamClient(ws, requestedHandle);
+    if (!key) {
+      ws.send(
+        JSON.stringify({
+          type: 'profile:error',
+          data: { message: 'Missing or invalid handle query param.' },
+        }),
+      );
+      try { ws.close(); } catch (_) {}
+      return;
+    }
+
+    log('👤 Profile stream viewer connected for:', key, 'from:', req.socket.remoteAddress);
+
+    ws.on('close', () => {
+      removeProfileStreamClient(ws);
+      log('👤 Profile stream viewer disconnected for:', key);
+    });
+
+    ws.on('error', (err) => {
+      error('👤 Profile stream error:', err);
+      removeProfileStreamClient(ws);
+    });
+
+    return; // Don't process as a game client
+  }
   
   // Route chat connections to ChatManager based on host
   const host = req.headers.host;
@@ -1869,6 +1957,7 @@ wss.on("connection", (ws, req) => {
       if (msg.content.handle && (!clients[id].handle || clients[id].handle !== msg.content.handle)) {
         clients[id].handle = msg.content.handle;
         log("✅ Handle from message:", msg.content.handle, "conn:", id);
+        emitProfilePresence(msg.content.handle, "identify", ["handle"]);
       }
     }
 
@@ -1990,6 +2079,7 @@ wss.on("connection", (ws, req) => {
             if (data.handle) {
               clients[id].handle = data.handle;
               log("✅ User logged in:", data.handle, `(${userSub.substring(0, 12)}...)`, "connection:", id);
+              emitProfilePresence(data.handle, "login", ["handle", "online", "connections"]);
             } else {
               log("⚠️  User logged in (no handle in response):", userSub.substring(0, 12), "..., connection:", id);
             }
@@ -2058,6 +2148,7 @@ wss.on("connection", (ws, req) => {
       
       // Store handle and location for this client
       if (!clients[id]) clients[id] = { websocket: true };
+      const previousLocation = clients[id].location;
       
       // Extract user identity from message
       if (msg.content?.user?.sub) {
@@ -2075,10 +2166,24 @@ wss.on("connection", (ws, req) => {
         if (msg.content.slug !== "*keep-alive*") {
           clients[id].location = msg.content.slug;
           log(`📍 Location updated for ${clients[id].handle || id}: "${msg.content.slug}"`);
+          if (previousLocation !== msg.content.slug) {
+            emitProfileActivity(msg.content.handle || clients[id].handle, {
+              type: "piece",
+              when: Date.now(),
+              label: `Piece ${msg.content.slug}`,
+              ref: msg.content.slug,
+            });
+          }
         } else {
           log(`💓 Keep-alive from ${clients[id].handle || id}, location unchanged`);
         }
       }
+
+      emitProfilePresence(
+        msg.content.handle || clients[id].handle,
+        "location:broadcast",
+        ["online", "currentPiece", "connections"],
+      );
 
       // Publish to redis...
       pub
@@ -2129,22 +2234,52 @@ wss.on("connection", (ws, req) => {
         const parsed = msg.type.split(":");
         const piece = parsed[1];
         const label = parsed.pop();
+        const worldHandle = resolveProfileHandle(id, piece, msg.content?.handle);
 
         // TODO: Store client position on disconnect, based on their handle.
 
         if (label === "show") {
           // Store any existing show picture in clients list.
           worldClients[piece][id].showing = msg.content;
+          emitProfileActivity(worldHandle, {
+            type: "show",
+            when: Date.now(),
+            label: `Showing in ${piece}`,
+            piece,
+            ref: piece,
+          });
+          emitProfilePresence(worldHandle, `world:${piece}:show`, ["world", "showing"]);
         }
 
         if (label === "hide") {
           // Store any existing show picture in clients list.
           worldClients[piece][id].showing = null;
+          emitProfileActivity(worldHandle, {
+            type: "hide",
+            when: Date.now(),
+            label: `Hide in ${piece}`,
+            piece,
+            ref: piece,
+          });
+          emitProfilePresence(worldHandle, `world:${piece}:hide`, ["world", "showing"]);
         }
 
         // Intercept chats and filter them.
         if (label === "write") {
           msg.content = filter(msg.content);
+          const chatText =
+            typeof msg.content === "string" ? msg.content : msg.content?.text;
+          if (chatText) {
+            emitProfileActivity(worldHandle, {
+              type: "chat",
+              when: Date.now(),
+              label: `Chat ${piece}: ${truncateProfileText(chatText, 80)}`,
+              piece,
+              ref: piece,
+              text: chatText,
+            });
+            emitProfileCountDelta(worldHandle, { chats: 1 });
+          }
         }
 
         if (label === "join") {
@@ -2209,6 +2344,14 @@ wss.on("connection", (ws, req) => {
           others(JSON.stringify(msg)); // Alert everyone else about the join.
 
           log("🧩 Clients in piece:", piece, worldClients[piece]);
+          emitProfileActivity(worldHandle, {
+            type: "join",
+            when: Date.now(),
+            label: `Joined ${piece}`,
+            piece,
+            ref: piece,
+          });
+          emitProfilePresence(worldHandle, `world:${piece}:join`, ["world", "connections"]);
           return;
         } else if (label === "move") {
           // log("🚶‍♂️", piece, msg.content);
@@ -2254,6 +2397,7 @@ wss.on("connection", (ws, req) => {
   // More info: https://stackoverflow.com/a/49791634/8146077
   ws.on("close", () => {
     log("🚪 Someone left:", id, "Online:", wss.clients.size, "🫂");
+    const departingHandle = normalizeProfileHandle(clients?.[id]?.handle);
 
     // Remove from VSCode clients if present
     vscodeClients.delete(ws);
@@ -2392,6 +2536,15 @@ wss.on("connection", (ws, req) => {
         log(`🗑️ Cleaned up empty channel: ${codeChannel}`);
       }
     }
+
+    if (departingHandle) {
+      emitProfilePresence(departingHandle, "disconnect", ["online", "connections"]);
+      emitProfileActivity(departingHandle, {
+        type: "presence",
+        when: Date.now(),
+        label: "Disconnected",
+      });
+    }
   });
 });
 
@@ -2414,10 +2567,208 @@ function subscribers(subs, msg) {
 // *** Status WebSocket Stream ***
 // Track status dashboard clients (separate from game clients)
 const statusClients = new Set();
+// Track targeted profile subscribers by normalized handle key (`@name`)
+const profileStreamClients = new Map();
+const profileLastSeen = new Map();
 
 // *** VSCode Extension Clients ***
 // Track VSCode extension clients for direct jump message routing
 const vscodeClients = new Set();
+
+function normalizeProfileHandle(handle) {
+  if (!handle) return null;
+  const raw = `${handle}`.trim();
+  if (!raw) return null;
+  return `@${raw.replace(/^@+/, "").toLowerCase()}`;
+}
+
+function compactProfileText(value) {
+  return `${value || ""}`.replace(/\s+/g, " ").trim();
+}
+
+function truncateProfileText(value, max = 100) {
+  const text = compactProfileText(value);
+  if (text.length <= max) return text;
+  return `${text.slice(0, Math.max(0, max - 3))}...`;
+}
+
+function getProfilePresence(handleKey) {
+  if (!handleKey) return null;
+  const clientsForStatus = getClientStatus();
+  const matched = clientsForStatus.find(
+    (client) => normalizeProfileHandle(client?.handle) === handleKey,
+  );
+
+  if (!matched) {
+    return {
+      online: false,
+      currentPiece: null,
+      worldPiece: null,
+      showing: null,
+      connections: { websocket: 0, udp: 0, total: 0 },
+      pingMs: null,
+      lastSeenAt: profileLastSeen.get(handleKey) || null,
+    };
+  }
+
+  const now = Date.now();
+  profileLastSeen.set(handleKey, now);
+
+  const world = matched?.websocket?.worlds?.[0] || null;
+
+  return {
+    online: true,
+    currentPiece: matched.location || null,
+    worldPiece: world?.piece || null,
+    showing: world?.showing || null,
+    connections: matched.connectionCount || { websocket: 0, udp: 0, total: 0 },
+    pingMs: matched?.websocket?.ping || null,
+    lastSeenAt: now,
+  };
+}
+
+function sendProfileStream(ws, type, data) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  try {
+    ws.send(JSON.stringify({ type, data, timestamp: Date.now() }));
+  } catch (err) {
+    error("👤 Failed to send profile stream event:", err);
+  }
+}
+
+function broadcastProfileStream(handleKey, type, data) {
+  const subs = profileStreamClients.get(handleKey);
+  if (!subs || subs.size === 0) return;
+
+  const stale = [];
+  subs.forEach((ws) => {
+    if (ws.readyState !== WebSocket.OPEN) {
+      stale.push(ws);
+      return;
+    }
+    sendProfileStream(ws, type, data);
+  });
+
+  stale.forEach((ws) => subs.delete(ws));
+  if (subs.size === 0) profileStreamClients.delete(handleKey);
+}
+
+function addProfileStreamClient(ws, handle) {
+  const handleKey = normalizeProfileHandle(handle);
+  if (!handleKey) return null;
+
+  if (!profileStreamClients.has(handleKey)) {
+    profileStreamClients.set(handleKey, new Set());
+  }
+
+  profileStreamClients.get(handleKey).add(ws);
+  ws.profileHandleKey = handleKey;
+
+  const presence = getProfilePresence(handleKey);
+  sendProfileStream(ws, "profile:snapshot", {
+    handle: handleKey,
+    presence,
+  });
+  sendProfileStream(ws, "counts:update", {
+    handle: handleKey,
+    counts: {
+      online: presence?.online ? 1 : 0,
+      connections: presence?.connections?.total || 0,
+    },
+  });
+
+  return handleKey;
+}
+
+function removeProfileStreamClient(ws) {
+  const handleKey = ws?.profileHandleKey;
+  if (!handleKey) return;
+
+  const subs = profileStreamClients.get(handleKey);
+  if (!subs) {
+    ws.profileHandleKey = null;
+    return;
+  }
+
+  subs.delete(ws);
+  if (subs.size === 0) profileStreamClients.delete(handleKey);
+  ws.profileHandleKey = null;
+}
+
+function emitProfilePresence(handle, reason = "update", changed = []) {
+  const handleKey = normalizeProfileHandle(handle);
+  if (!handleKey) return;
+
+  const presence = getProfilePresence(handleKey);
+  broadcastProfileStream(handleKey, "presence:update", {
+    handle: handleKey,
+    reason,
+    changed,
+    presence,
+  });
+  broadcastProfileStream(handleKey, "counts:update", {
+    handle: handleKey,
+    counts: {
+      online: presence?.online ? 1 : 0,
+      connections: presence?.connections?.total || 0,
+    },
+  });
+}
+
+function emitProfileCountDelta(handle, delta = {}) {
+  const handleKey = normalizeProfileHandle(handle);
+  if (!handleKey) return;
+  if (!delta || typeof delta !== "object") return;
+
+  const cleanDelta = {};
+  for (const [key, value] of Object.entries(delta)) {
+    const amount = Number(value);
+    if (!Number.isFinite(amount) || amount === 0) continue;
+    cleanDelta[key] = amount;
+  }
+  if (Object.keys(cleanDelta).length === 0) return;
+
+  broadcastProfileStream(handleKey, "counts:delta", {
+    handle: handleKey,
+    delta: cleanDelta,
+  });
+}
+
+function emitProfileActivity(handle, event = {}) {
+  const handleKey = normalizeProfileHandle(handle);
+  if (!handleKey) return;
+
+  const label = truncateProfileText(
+    event.label || event.text || event.type || "event",
+    120,
+  );
+  if (!label) return;
+
+  broadcastProfileStream(handleKey, "activity:append", {
+    handle: handleKey,
+    event: {
+      type: event.type || "event",
+      when: event.when || Date.now(),
+      label,
+      ref: event.ref || null,
+      piece: event.piece || null,
+    },
+  });
+}
+
+function resolveProfileHandle(id, piece, fromMessage) {
+  return (
+    normalizeProfileHandle(fromMessage) ||
+    normalizeProfileHandle(clients?.[id]?.handle) ||
+    normalizeProfileHandle(worldClients?.[piece]?.[id]?.handle)
+  );
+}
+
+chatManager.setActivityEmitter((payload = {}) => {
+  const handle = payload.handle;
+  if (payload.event) emitProfileActivity(handle, payload.event);
+  if (payload.countsDelta) emitProfileCountDelta(handle, payload.countsDelta);
+});
 
 // Broadcast status updates every 2 seconds
 setInterval(() => {
@@ -2431,6 +2782,21 @@ setInterval(() => {
           error('📊 Failed to send status update:', err);
         }
       }
+    });
+  }
+}, 2000);
+
+// Broadcast targeted profile heartbeat updates every 2 seconds
+setInterval(() => {
+  if (profileStreamClients.size === 0) return;
+
+  for (const handleKey of profileStreamClients.keys()) {
+    const presence = getProfilePresence(handleKey);
+    broadcastProfileStream(handleKey, "presence:update", {
+      handle: handleKey,
+      reason: "heartbeat",
+      changed: [],
+      presence,
     });
   }
 }, 2000);
@@ -2624,6 +2990,7 @@ if (dev) {
       "../system/public/aesthetic.computer/bios.mjs",
       "../system/public/aesthetic.computer/style.css",
       "../system/public/kidlisp.com",
+      "../system/public/l5.aesthetic.computer",
       "../system/public/gift.aesthetic.computer",
       "../system/public/give.aesthetic.computer",
       "../system/public/news.aesthetic.computer",
