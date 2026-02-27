@@ -3199,7 +3199,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
 
           if (msg.type === "metronome") {
-            diskSupervisor.requestBeat?.(msg.content); // Update metronome.
+            diskSupervisor?.requestBeat?.(msg.content); // Update metronome.
             return;
           }
 
@@ -3968,7 +3968,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         let module;
         try {
           const loader = window.acModuleLoader;
-          if (isLocalhost && loader?.connected && loader.blobUrls?.has('lib/disk.mjs')) {
+          if (loader?.connected && loader.blobUrls?.has('lib/disk.mjs')) {
             const blobUrl = loader.blobUrls.get('lib/disk.mjs');
             module = await import(blobUrl);
           } else {
@@ -4049,7 +4049,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       let module;
       try {
         const loader = window.acModuleLoader;
-        if (isLocalhost && loader?.connected && loader.blobUrls?.has('lib/disk.mjs')) {
+        if (loader?.connected && loader.blobUrls?.has('lib/disk.mjs')) {
           const blobUrl = loader.blobUrls.get('lib/disk.mjs');
           module = await import(blobUrl);
         } else {
@@ -12249,7 +12249,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           // TODO: How can I get the pen data into the disk and back
           //       to Three.JS as fast as possible? 22.10.26.23.25
-          diskSupervisor.requestFrame?.(needsRender, updateTimes, now);
+          diskSupervisor?.requestFrame?.(needsRender, updateTimes, now);
 
           if (ThreeD?.status.alive === true && ThreeDBakeQueue.length > 0) {
             ThreeD.collectGarbage();
