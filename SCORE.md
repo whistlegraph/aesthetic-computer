@@ -1,12 +1,41 @@
 # Score for Aesthetic.Computer & Pals
 
-As implemented on aesthetic.computer and its [various properties](system/public/sitemap.html) of this monorepo.
-
-*And directed by [@jeffrey](https://prompt.ac/@jeffrey)*
+As implemented in this monorepo through the direction of [@jeffrey](https://prompt.ac/@jeffrey).
 
 <img width="200" src="https://assets.aesthetic.computer/aesthetic-inc/pals.png">
 
 ---
+
+## Front Door
+
+<!-- stats:start -->
+351 built-in pieces (333 JS + 18 KidLisp), ~78 API endpoints.<br>
+2796 registered handles, 265 user-published pieces, 4386 paintings, 14595 KidLisp programs, 18010 chat messages, 20 prints ordered.<br>
+*Last refreshed: Feb 27, 2026*
+<!-- stats:end -->
+
+Visit https://aesthetic.computer — press the top left of the screen or type any key to activate the prompt.
+
+Enter names of built-in pieces like `notepat`, `boyfriend`, or `list` for a scrollable index. User-published pieces live at handles like `@bash/hub`.
+
+Every piece is URL addressable (e.g. https://aesthetic.computer/notepat). Generate QR codes with `share notepat`.
+
+**Getting started:**
+1. Enter `imnew` to register
+2. Verify your email
+3. Set a @handle via `handle your-name`
+4. Enter `chat` to say hi
+
+**Recipes:** See [USER-GUIDE.md](USER-GUIDE.md) for making paintings, playing melodies, and joining the community.
+
+**Links:**
+- **GitHub**: https://github.com/whistlegraph/aesthetic-computer
+- **No Paint (predecessor)**: https://nopaint.art ([HN 2020](https://news.ycombinator.com/item?id=23546706))
+- **Notepat on HN**: https://news.ycombinator.com/item?id=41526754
+
+---
+
+## Back Door
 
 ### Architecture
 
@@ -173,21 +202,12 @@ ac-restart            # Restart AC services only
 
 ---
 
-## For Users
+## Resources
 
-Want to **use** Aesthetic Computer (not develop it)?
-
-See [USER-GUIDE.md](USER-GUIDE.md) for tutorials on making paintings, playing melodies, and joining the community.
-
----
-
-## Links
-
-- **Live Site**: https://aesthetic.computer
-- **GitHub**: https://github.com/whistlegraph/aesthetic-computer
-- **Community Chat**: Enter `chat` after registering
-- **No Paint (predecessor)**: https://nopaint.art ([HN discussion 2020](https://news.ycombinator.com/item?id=23546706))
-- **Notepat on HN**: https://news.ycombinator.com/item?id=41526754
+- [The AC Story](STORY.md) — Technical history and evolution
+- [Write a Piece](WRITE-A-PIECE.md) — Create your own AC program
+- [KidLisp Docs](kidlisp/) — Language reference
+- [User Guide](USER-GUIDE.md) — How to use AC as a player
 
 ---
 
@@ -204,19 +224,3 @@ Different agents perform from this score in different ways.
 - **AestheticAnts** — Automated AI colony that makes small, confident changes. See `ants/` for colony rules and implementation.
 - **Human contributors** — Welcome in `chat`. Read the score, pick a task, follow signal.
 - **@jeffrey (the queen)** — Writes and maintains this score.
-
----
-
-## Resources
-
-- [The AC Story](STORY.md) — Technical history and evolution
-- [Write a Piece](WRITE-A-PIECE.md) — Create your own AC program
-- [KidLisp Docs](kidlisp/) — Language reference
-- [User Guide](USER-GUIDE.md) — How to use AC as a player
-
-### Join the Community
-
-1. Visit https://aesthetic.computer
-2. Enter `imnew` to register
-3. Set a @handle via `handle your-name`
-4. Enter `chat` to say hi
