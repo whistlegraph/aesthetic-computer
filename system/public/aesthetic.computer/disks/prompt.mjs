@@ -2850,10 +2850,18 @@ async function halt($, text) {
     flashColor = [0, 255, 0];
     makeFlash($);
     return true;
-  } else if (text === "os" || text.startsWith("os ")) {
-    // Build a bootable FedAC OS ISO for any piece.
+  } else if (slugWithoutColon === "os") {
+    // Build a bootable OS ISO for any piece (Alpine default, or os:fedora).
     // In Electron on Linux: scan USB → build → download → flash → eject.
-    // In browser: build → trigger ISO download (~3GB).
+    // In browser: build → trigger ISO download.
+    const colonParts = slug.split(":");
+    const flavor = (colonParts[1] || "alpine").toLowerCase();
+    if (!["alpine", "fedora"].includes(flavor)) {
+      notice(`Unknown OS flavor: ${flavor}. Use alpine or fedora.`, ["red"]);
+      flashColor = [255, 0, 0];
+      makeFlash($);
+      return true;
+    }
     const pieceRef = (params[0] || "").trim();
     if (!pieceRef || pieceRef === "?" || pieceRef.toLowerCase() === "help") {
       notice("Usage: os piece or os $code", ["red"]);
@@ -2930,12 +2938,13 @@ async function halt($, text) {
     }
     osTimelineSteps.push({ id: 'done', label: 'Done!', status: 'pending', message: null, time: null });
 
-    advancePackStep(osTimelineSteps, 'manifest', `Building OS for ${displayName}...`);
-    packProgress = { timeline: osTimelineSteps, startTime: performance.now(), code: `OS ${displayName}` };
+    advancePackStep(osTimelineSteps, 'manifest', `Building ${flavor} OS for ${displayName}...`);
+    packProgress = { timeline: osTimelineSteps, startTime: performance.now(), code: `OS ${displayName} (${flavor})` };
+    notice(`Flavor: ${flavor}`, ["cyan"]);
     needsPaint();
 
     try {
-      const response = await fetch(`https://oven.aesthetic.computer/os?${bundleParam}&format=stream`);
+      const response = await fetch(`https://oven.aesthetic.computer/os?${bundleParam}&format=stream&density=8&flavor=${flavor}`);
       if (!response.ok) {
         const err = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
         throw new Error(err.error || `OS API returned ${response.status}`);
