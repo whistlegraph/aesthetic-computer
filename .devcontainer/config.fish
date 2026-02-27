@@ -1184,13 +1184,29 @@ function ac-emacs-crash-monitor
                     end
                 end
             else
-                # No startup lock - normal responsiveness check with load-aware timeout
+                # No startup lock - normal responsiveness check with load-aware timeout.
+                # Be gentler for a fresh daemon and require consecutive failures before kill.
                 set -l health_timeout (ac--health-check-timeout)
+                set -l required_failures 1
+                set -l daemon_age (ps -p $daemon_pid -o etimes= 2>/dev/null | string trim)
+                if test -n "$daemon_age"; and test "$daemon_age" -lt 180
+                    # Fresh daemons can be busy creating tabs/PTYs and miss one probe.
+                    set health_timeout (math "max($health_timeout, 30)")
+                    set required_failures 2
+                end
                 if not timeout $health_timeout emacsclient -e t >/dev/null 2>&1
-                    echo "["(date -Iseconds)"] ⚠️ Daemon unresponsive (PID: $daemon_pid, timeout: $health_timeout""s), forcing restart..." >> $crash_log
-                    pkill -9 -f "emacs.*daemon" 2>/dev/null
-                    # Loop will detect it's gone and restart
+                    set -g ac_unresponsive_count (math (set -q ac_unresponsive_count; and echo $ac_unresponsive_count; or echo 0) + 1)
+                    echo "["(date -Iseconds)"] ⚠️ Daemon unresponsive (PID: $daemon_pid, timeout: $health_timeout""s, sample: $ac_unresponsive_count/$required_failures)" >> $crash_log
+                    if test $ac_unresponsive_count -ge $required_failures
+                        echo "["(date -Iseconds)"] ⚠️ Daemon unresponsive threshold reached, forcing restart..." >> $crash_log
+                        pkill -9 -f "emacs.*daemon" 2>/dev/null
+                        set -g ac_unresponsive_count 0
+                        # Loop will detect it's gone and restart
+                    end
                 else
+                    if set -q ac_unresponsive_count; and test $ac_unresponsive_count -gt 0
+                        set -g ac_unresponsive_count 0
+                    end
                     # Daemon is responsive - also check CPU usage
                     set -l cpu_usage (ps -p $daemon_pid -o %cpu= 2>/dev/null | string trim | string split '.')[1]
                     if test -n "$cpu_usage"; and test "$cpu_usage" -gt 85
