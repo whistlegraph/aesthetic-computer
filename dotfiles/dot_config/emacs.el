@@ -959,6 +959,61 @@ Also updates VS Code task status bar to 'done'."
 (global-set-key (kbd "C-c C-r") 'restart-emacs)
 (global-set-key (kbd "C-c C-o") 'browse-url-at-point)
 
+;; Mail (Gmail via mbsync + mu4e)
+(defvar ac-maildir "~/.mail"
+  "Local Maildir root used by mu4e.")
+
+(defvar ac-mail-sync-command "mbsync ac-mail && mu index --quiet"
+  "Command used to sync and index mail.")
+
+(add-to-list 'load-path "/usr/share/emacs/site-lisp/mu4e")
+
+(use-package mu4e
+  :straight nil
+  :defer t
+  :commands (mu4e mu4e-compose-new)
+  :init
+  (setq mu4e-maildir ac-maildir
+        mu4e-get-mail-command ac-mail-sync-command
+        mu4e-update-interval 300
+        mu4e-change-filenames-when-moving t
+        mu4e-headers-auto-update t
+        mu4e-view-show-addresses t
+        mu4e-compose-format-flowed t
+        mu4e-sent-folder "/[Gmail]/Sent Mail"
+        mu4e-drafts-folder "/[Gmail]/Drafts"
+        mu4e-trash-folder "/[Gmail]/Trash"
+        mu4e-refile-folder "/[Gmail]/All Mail"
+        mu4e-maildir-shortcuts
+        '(("/INBOX" . ?i)
+          ("/[Gmail]/Sent Mail" . ?s)
+          ("/[Gmail]/Drafts" . ?d)
+          ("/[Gmail]/Trash" . ?t)))
+  :config
+  (setq mail-user-agent 'mu4e-user-agent
+        send-mail-function 'sendmail-send-it
+        message-send-mail-function 'message-send-mail-with-sendmail
+        sendmail-program (or (executable-find "msmtp") "/usr/sbin/msmtp")
+        message-sendmail-f-is-evil t
+        message-sendmail-extra-arguments '("--read-envelope-from" "--read-recipients")))
+
+(defun ac-mail-sync ()
+  "Run mail sync + indexing asynchronously."
+  (interactive)
+  (async-shell-command ac-mail-sync-command "mail-sync"))
+
+(defun ac-mail-open ()
+  "Open mu4e in a dedicated mail tab."
+  (interactive)
+  (if (and (fboundp 'ac--tab-exists-p) (ac--tab-exists-p "mail"))
+      (tab-bar-switch-to-tab "mail")
+    (tab-bar-new-tab)
+    (tab-rename "mail"))
+  (mu4e))
+
+(global-set-key (kbd "C-c m") 'ac-mail-open)
+(global-set-key (kbd "C-c M-m") 'ac-mail-sync)
+
 ;; Eat terminal - with performance optimizations for many terminals
 (use-package eat)
 (setq-default eat-shell "/usr/bin/fish"
