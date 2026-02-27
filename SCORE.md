@@ -10,12 +10,6 @@
 
 ---
 
-## Ant Guidance
-
-The ant-specific mindset and rules now live in [`ants/mindset-and-rules.md`](ants/mindset-and-rules.md).
-
----
-
 ## The System
 
 Aesthetic Computer (AC) is a creative coding platform designed to function like a **musical instrument**. Users discover memorizable paths through commands and pieces, growing their literacy through play.
@@ -230,6 +224,12 @@ See [USER-GUIDE.md](USER-GUIDE.md) for tutorials on making paintings, playing me
 - **Community Chat**: Enter `chat` after registering
 - **No Paint (predecessor)**: https://nopaint.art ([HN discussion 2020](https://news.ycombinator.com/item?id=23546706))
 - **Notepat on HN**: https://news.ycombinator.com/item?id=41526754
+
+---
+
+## Ant Guidance
+
+The ant-specific mindset and rules now live in [`ants/mindset-and-rules.md`](ants/mindset-and-rules.md).
 
 ---
 
