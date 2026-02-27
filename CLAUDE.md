@@ -19,9 +19,9 @@ When @jeffrey is working, **the very first prompt of each Claude Code session is
 
 ## AestheticAnts & Score.md
 
-This repository uses an automated maintenance system called "AestheticAnts" (AA). The `ants/score.md` file defines the mindset, philosophy, tasks, and rules for all agents (human and AI) working on the codebase. Read it before contributing.
+This repository uses an automated maintenance system called "AestheticAnts" (AA). The main score lives at `SCORE.md`, and ant-specific mindset/rules live in `ants/mindset-and-rules.md`. Read both before contributing.
 
-**Important:** Do not modify `ants/score.md` unless you are the queen (@jeffrey).
+**Important:** Do not modify `ants/mindset-and-rules.md` unless you are the queen (@jeffrey).
 
 ## Development Commands
 
@@ -326,4 +326,4 @@ function act({ event: e }) {
 - All coordinates are in pixels
 - Default color depth is 8-bit RGB (0-255 per channel)
 - The `wipe` function clears the screen and should be called first in `paint`
-- When making changes, consult `ants/score.md` for the project's working philosophy
+- When making changes, consult `ants/mindset-and-rules.md` for the ant operating philosophy
