@@ -817,7 +817,7 @@ STRIP_PKGS=(
   "unicode-ucd" "cldr-emoji-annotation"
   "anaconda*" "livecd-tools" "liveinst*" "mediawriter"
 )
-chroot "$ROOTFS_DIR" /usr/bin/dnf -y remove "${STRIP_PKGS[@]}" --setopt=protected_packages= 2>&1 | tail -3 || true
+chroot "$ROOTFS_DIR" /usr/bin/dnf -y remove "${STRIP_PKGS[@]}" 2>&1 | tail -5 || true
 
 # Remove non-English locales (~220MB)
 echo -e "  Stripping non-English locales..."
