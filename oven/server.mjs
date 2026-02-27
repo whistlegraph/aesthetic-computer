@@ -890,7 +890,8 @@ app.get('/tools', (req, res) => {
   <div class="panel">
     <div class="row">
       <input id="os-admin-key" type="password" placeholder="admin key (x-oven-os-key)">
-      <input id="os-image-size" type="number" min="2" max="32" value="4" style="width:90px">
+      <select id="os-flavor" style="width:100px"><option value="alpine" selected>Alpine</option><option value="fedora">Fedora</option></select>
+      <input id="os-image-size" type="number" min="1" max="32" value="1" style="width:90px">
       <button id="os-start-btn" type="button">Start Base Build</button>
       <button id="os-refresh-btn" type="button">Refresh</button>
     </div>
@@ -903,8 +904,12 @@ app.get('/tools', (req, res) => {
     const osLogEl = document.getElementById('os-job-log');
     const osKeyEl = document.getElementById('os-admin-key');
     const osSizeEl = document.getElementById('os-image-size');
+    const osFlavorEl = document.getElementById('os-flavor');
     const osStartBtn = document.getElementById('os-start-btn');
     const osRefreshBtn = document.getElementById('os-refresh-btn');
+    osFlavorEl.addEventListener('change', function() {
+      osSizeEl.value = osFlavorEl.value === 'alpine' ? '1' : '4';
+    });
     let osPollTimer = null;
 
     function esc(str) {
@@ -957,7 +962,9 @@ app.get('/tools', (req, res) => {
 
     async function startOSBaseBuild() {
       const key = osKeyEl.value.trim();
-      const imageSizeGB = Math.max(2, parseInt(osSizeEl.value || '4', 10) || 4);
+      const flavor = osFlavorEl.value || 'alpine';
+      const defaultSize = flavor === 'alpine' ? 1 : 4;
+      const imageSizeGB = Math.max(1, parseInt(osSizeEl.value || String(defaultSize), 10) || defaultSize);
       osStartBtn.disabled = true;
       try {
         const data = await fetchJSON('/os-base-build', {
@@ -966,9 +973,9 @@ app.get('/tools', (req, res) => {
             'Content-Type': 'application/json',
             'x-oven-os-key': key,
           },
-          body: JSON.stringify({ imageSizeGB, publish: true }),
+          body: JSON.stringify({ imageSizeGB, publish: true, flavor }),
         });
-        osMetaEl.textContent = 'Started base build job ' + data.id;
+        osMetaEl.textContent = 'Started ' + flavor + ' base build job ' + data.id;
       } catch (error) {
         osMetaEl.textContent = 'Start failed: ' + error.message;
       } finally {
@@ -2420,6 +2427,11 @@ app.get('/os', async (req, res) => {
   const piece = req.query.piece;
   const format = req.query.format || 'download';
   const density = parseInt(req.query.density) || 8;
+  const flavor = (req.query.flavor || 'alpine').toLowerCase();
+
+  if (!['alpine', 'fedora'].includes(flavor)) {
+    return res.status(400).json({ error: "Invalid flavor. Use 'alpine' or 'fedora'." });
+  }
 
   const isJSPiece = !!piece;
   const target = piece || code;
@@ -2430,7 +2442,7 @@ app.get('/os', async (req, res) => {
     });
   }
 
-  addServerLog('info', '💿', `OS ISO build started: ${target}`);
+  addServerLog('info', '💿', `OS ISO build started: ${target} (${flavor})`);
 
   // SSE streaming progress mode (for UI)
   if (format === 'stream') {
@@ -2448,10 +2460,10 @@ app.get('/os', async (req, res) => {
     };
 
     try {
-      const result = await streamOSImage(null, target, isJSPiece, density, (p) => sendEvent('progress', p));
+      const result = await streamOSImage(null, target, isJSPiece, density, (p) => sendEvent('progress', p), flavor);
       const downloadParam = isJSPiece ? `piece=${encodeURIComponent(target)}` : `code=${encodeURIComponent(target)}`;
       // Prefer CDN URL for fast download; fall back to oven direct.
-      const downloadUrl = result.cdnUrl || `/os?${downloadParam}&density=${density}`;
+      const downloadUrl = result.cdnUrl || `/os?${downloadParam}&density=${density}&flavor=${flavor}`;
       sendEvent('complete', {
         message: result.cached ? 'OS ISO ready (CDN cached)' : 'OS ISO ready',
         downloadUrl,
@@ -2459,6 +2471,7 @@ app.get('/os', async (req, res) => {
         filename: result.filename,
         timings: result.timings,
         cached: result.cached || false,
+        flavor,
       });
     } catch (err) {
       console.error('[os] SSE build failed:', err);
@@ -2471,8 +2484,8 @@ app.get('/os', async (req, res) => {
   try {
     const result = await streamOSImage(res, target, isJSPiece, density, (p) => {
       console.log(`[os] ${p.stage}: ${p.message}`);
-    });
-    addServerLog('success', '💿', `OS ISO build complete: ${target} (${Math.round(result.elapsed / 1000)}s)`);
+    }, flavor);
+    addServerLog('success', '💿', `OS ISO build complete: ${target}/${flavor} (${Math.round(result.elapsed / 1000)}s)`);
   } catch (err) {
     console.error('[os] Build failed:', err);
     addServerLog('error', '❌', `OS build failed: ${err.message}`);
@@ -2578,20 +2591,25 @@ app.get('/os-base-build/:jobId/stream', (req, res) => {
 });
 
 app.post('/os-base-build', requireOSBuildAdmin, async (req, res) => {
-  const imageSizeGB = Math.max(2, Math.min(32, parseInt(req.body?.imageSizeGB, 10) || 4));
+  const flavor = (req.body?.flavor || 'alpine').toLowerCase();
+  if (!['alpine', 'fedora'].includes(flavor)) {
+    return res.status(400).json({ error: "Invalid flavor. Use 'alpine' or 'fedora'." });
+  }
+  const defaultSize = flavor === 'alpine' ? 1 : 4;
+  const imageSizeGB = Math.max(1, Math.min(32, parseInt(req.body?.imageSizeGB, 10) || defaultSize));
   const publish = req.body?.publish !== false;
 
   try {
     const job = await startOSBaseBuild(
-      { imageSizeGB, publish },
+      { imageSizeGB, publish, flavor },
       {
-        onStart: (j) => addServerLog('info', '💿', `OS base build started: ${j.id} (${imageSizeGB}GiB)`),
+        onStart: (j) => addServerLog('info', '💿', `OS base build started: ${j.id} (${flavor}, ${imageSizeGB}GiB)`),
         onUploadComplete: (j) => {
           addServerLog('success', '☁️', `OS base upload complete: ${j.upload.imageKey}`);
-          invalidateManifest();
-          addServerLog('info', '💿', 'OS manifest cache invalidated after base upload');
+          invalidateManifest(flavor);
+          addServerLog('info', '💿', `OS manifest cache invalidated (${flavor}) after base upload`);
         },
-        onSuccess: (j) => addServerLog('success', '💿', `OS base build complete: ${j.id}`),
+        onSuccess: (j) => addServerLog('success', '💿', `OS base build complete: ${j.id} (${flavor})`),
         onError: (j) => addServerLog('error', '❌', `OS base build failed: ${j.id} (${j.error})`),
       },
     );
