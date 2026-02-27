@@ -14,13 +14,18 @@ const MAX_RECENT_JOBS = 20;
 const MAX_LOG_LINES = 1500;
 const STEP_COUNT = 6;
 
-const DEFAULT_BUILD_SCRIPT =
-  process.env.OS_BASE_BUILD_SCRIPT ||
-  path.resolve(process.cwd(), "fedac/scripts/make-kiosk-piece-usb.sh");
+const BUILD_SCRIPTS = {
+  fedora: process.env.OS_BASE_BUILD_SCRIPT ||
+    path.resolve(process.cwd(), "fedac/scripts/make-kiosk-piece-usb.sh"),
+  alpine: process.env.OS_ALPINE_BUILD_SCRIPT ||
+    path.resolve(process.cwd(), "fedac/scripts/make-alpine-kiosk.sh"),
+};
+const DEFAULT_BUILD_SCRIPT = BUILD_SCRIPTS.fedora;
 const DEFAULT_BUILD_CWD =
   process.env.OS_BASE_BUILD_CWD || path.resolve(process.cwd());
 const DEFAULT_WORK_BASE = process.env.OS_BASE_WORK_BASE || "/tmp";
 const DEFAULT_IMAGE_SIZE_GB = parsePositiveInt(process.env.OS_BASE_IMAGE_SIZE_GB, 4);
+const IMAGE_SIZE_DEFAULTS = { fedora: 4, alpine: 1 };
 const KEEP_LOCAL_ARTIFACTS = process.env.OS_BASE_KEEP_ARTIFACTS === "1";
 
 const SPACES_REGION = process.env.OS_SPACES_REGION || "us-east-1";
@@ -74,6 +79,7 @@ function makeSnapshot(job, options = {}) {
   const { includeLogs = false, tail = 200 } = options;
   const snapshot = {
     id: job.id,
+    flavor: job.flavor,
     status: job.status,
     stage: job.stage,
     message: job.message,
@@ -316,14 +322,17 @@ async function cleanupLocalArtifacts(job) {
 function createJob(options = {}) {
   const id = randomUUID().slice(0, 10);
   const createdAt = nowISO();
-  const imageSizeGB = parsePositiveInt(options.imageSizeGB, DEFAULT_IMAGE_SIZE_GB);
-  const imageName = options.imageName || "fedac-base-latest.img";
-  const manifestName = options.manifestName || "fedac-base-manifest.json";
+  const flavor = options.flavor || "alpine";
+  const defaultSize = IMAGE_SIZE_DEFAULTS[flavor] || DEFAULT_IMAGE_SIZE_GB;
+  const imageSizeGB = parsePositiveInt(options.imageSizeGB, defaultSize);
+  const imageName = options.imageName || `${flavor}-base-latest.img`;
+  const manifestName = options.manifestName || `${flavor}-base-manifest.json`;
   const uploadPrefix = (options.uploadPrefix || SPACES_PREFIX).replace(/^\/+|\/+$/g, "");
-  const outputBase = path.join(DEFAULT_WORK_BASE, `fedac-base-${id}`);
+  const outputBase = path.join(DEFAULT_WORK_BASE, `${flavor}-base-${id}`);
 
   return {
     id,
+    flavor,
     status: "queued",
     stage: "queued",
     message: "Queued",
@@ -370,7 +379,8 @@ function createJob(options = {}) {
 }
 
 async function runBuildJob(job, options = {}, hooks = {}) {
-  const scriptPath = options.scriptPath || DEFAULT_BUILD_SCRIPT;
+  const flavor = job.flavor || "alpine";
+  const scriptPath = options.scriptPath || BUILD_SCRIPTS[flavor] || DEFAULT_BUILD_SCRIPT;
   const cwd = options.cwd || DEFAULT_BUILD_CWD;
 
   try {
@@ -396,8 +406,9 @@ async function runBuildJob(job, options = {}, hooks = {}) {
   }
 
   try {
-  // The build script requires root. The oven user has a sudoers rule:
+  // The build script requires root. The oven user has sudoers rules:
   //   oven ALL=(root) NOPASSWD: /usr/bin/bash /opt/oven/fedac/scripts/make-kiosk-piece-usb.sh *
+  //   oven ALL=(root) NOPASSWD: /usr/bin/bash /opt/oven/fedac/scripts/make-alpine-kiosk.sh *
   // So we spawn via sudo when not already root.
   const needsSudo = process.getuid?.() !== 0;
   const spawnCmd = needsSudo ? "sudo" : "bash";

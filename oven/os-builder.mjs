@@ -54,12 +54,21 @@ async function logOSBuild(record) {
 
 const CACHE_DIR = process.env.OS_CACHE_DIR || "/opt/oven/cache";
 const TEMP_DIR = process.env.OS_TEMP_DIR || "/tmp";
-const BASE_IMAGE_URL =
-  process.env.FEDAC_BASE_IMAGE_URL ||
-  "https://assets-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/os/fedac-base-latest.img";
-const MANIFEST_URL =
-  process.env.FEDAC_MANIFEST_URL ||
-  "https://assets-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/os/fedac-base-manifest.json";
+const BASE_IMAGE_URLS = {
+  fedora: process.env.FEDAC_BASE_IMAGE_URL ||
+    "https://assets-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/os/fedac-base-latest.img",
+  alpine: process.env.ALPINE_BASE_IMAGE_URL ||
+    "https://assets-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/os/alpine-base-latest.img",
+};
+const MANIFEST_URLS = {
+  fedora: process.env.FEDAC_MANIFEST_URL ||
+    "https://assets-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/os/fedac-base-manifest.json",
+  alpine: process.env.ALPINE_MANIFEST_URL ||
+    "https://assets-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/os/alpine-base-manifest.json",
+};
+// Legacy aliases
+const BASE_IMAGE_URL = BASE_IMAGE_URLS.fedora;
+const MANIFEST_URL = MANIFEST_URLS.fedora;
 
 // ─── CDN Cache (DO Spaces) ──────────────────────────────────────────
 // After building an ISO, upload it to Spaces so repeat downloads bypass
@@ -88,10 +97,10 @@ function getSpacesClient() {
   });
 }
 
-function buildCDNKey(target, density, bundleHash, baseVersion) {
-  // e.g. os/builds/notepat-d8-ab12cd34-v2025-02-26.img
+function buildCDNKey(target, density, bundleHash, baseVersion, flavor = "alpine") {
+  // e.g. os/builds/notepat-d8-ab12cd34-v2025-02-26-alpine.img
   const safe = String(target).replace(/[^a-zA-Z0-9_-]/g, "_");
-  return `${SPACES_PREFIX}/${safe}-d${density}-${bundleHash}-v${baseVersion}.img`;
+  return `${SPACES_PREFIX}/${safe}-d${density}-${bundleHash}-v${baseVersion}-${flavor}.img`;
 }
 
 function buildCDNUrl(key) {
@@ -158,34 +167,41 @@ function copyBaseImageFast(basePath, tempImagePath) {
 
 // ─── Manifest ───────────────────────────────────────────────────────
 
-let cachedManifest = null;
+const cachedManifests = {};
 
-async function fetchManifest(onProgress) {
-  if (cachedManifest) return cachedManifest;
-  onProgress?.({ stage: "manifest", message: "Fetching base image manifest...", step: 1, totalSteps: 9 });
-  const res = await fetch(MANIFEST_URL);
-  if (!res.ok) throw new Error(`Manifest fetch failed: ${res.status}`);
-  cachedManifest = await res.json();
+async function fetchManifest(onProgress, flavor = "alpine") {
+  if (cachedManifests[flavor]) return cachedManifests[flavor];
+  const manifestUrl = MANIFEST_URLS[flavor] || MANIFEST_URLS.fedora;
+  onProgress?.({ stage: "manifest", message: `Fetching ${flavor} base image manifest...`, step: 1, totalSteps: 9 });
+  const res = await fetch(manifestUrl);
+  if (!res.ok) throw new Error(`Manifest fetch failed (${flavor}): ${res.status}`);
+  cachedManifests[flavor] = await res.json();
+  const m = cachedManifests[flavor];
+  const distroLabel = m.alpine ? `Alpine ${m.alpine}` : m.fedora ? `Fedora ${m.fedora}` : flavor;
   onProgress?.({
     stage: "manifest",
-    message: `Base image v${cachedManifest.version}, Fedora ${cachedManifest.fedora}`,
+    message: `Base image v${m.version}, ${distroLabel}`,
     step: 1,
     totalSteps: 9,
   });
-  return cachedManifest;
+  return m;
 }
 
 // Invalidate manifest cache (call after base image update).
-export function invalidateManifest() {
-  cachedManifest = null;
+export function invalidateManifest(flavor) {
+  if (flavor) {
+    delete cachedManifests[flavor];
+  } else {
+    for (const key of Object.keys(cachedManifests)) delete cachedManifests[key];
+  }
 }
 
 // ─── Base Image Cache ───────────────────────────────────────────────
 
-async function ensureBaseImage(onProgress) {
+async function ensureBaseImage(onProgress, flavor = "alpine") {
   await fs.mkdir(CACHE_DIR, { recursive: true });
-  const manifest = await fetchManifest(onProgress);
-  const basePath = path.join(CACHE_DIR, "fedac-base.img");
+  const manifest = await fetchManifest(onProgress, flavor);
+  const basePath = path.join(CACHE_DIR, `${flavor}-base.img`);
   const hashPath = `${basePath}.sha256`;
 
   // Check if cached image matches manifest size AND sha256 hash.
@@ -193,18 +209,19 @@ async function ensureBaseImage(onProgress) {
     const stat = await fs.stat(basePath);
     const cachedHash = (await fs.readFile(hashPath, "utf-8")).trim();
     if (stat.size === manifest.totalSize && cachedHash === manifest.sha256) {
-      onProgress?.({ stage: "base", message: "Base image cached and ready", step: 1, totalSteps: 9 });
+      onProgress?.({ stage: "base", message: `${flavor} base image cached and ready`, step: 1, totalSteps: 9 });
       return { basePath, manifest };
     }
-    onProgress?.({ stage: "base", message: "Base image outdated (hash mismatch), re-downloading...", step: 1, totalSteps: 9 });
+    onProgress?.({ stage: "base", message: `${flavor} base image outdated (hash mismatch), re-downloading...`, step: 1, totalSteps: 9 });
   } catch {
     // File or hash sidecar doesn't exist — need to download.
   }
 
   // Download base image.
-  onProgress?.({ stage: "base", message: "Downloading base image from CDN...", step: 1, totalSteps: 9 });
-  const res = await fetch(BASE_IMAGE_URL);
-  if (!res.ok) throw new Error(`Base image download failed: ${res.status}`);
+  const baseImageUrl = BASE_IMAGE_URLS[flavor] || BASE_IMAGE_URLS.fedora;
+  onProgress?.({ stage: "base", message: `Downloading ${flavor} base image from CDN...`, step: 1, totalSteps: 9 });
+  const res = await fetch(baseImageUrl);
+  if (!res.ok) throw new Error(`Base image download failed (${flavor}): ${res.status}`);
 
   const tmpPath = `${basePath}.downloading`;
   const writer = fsSync.createWriteStream(tmpPath);
@@ -841,7 +858,7 @@ function buildFedOSShellHTML(target) {
 
 // ─── Main Build Flow ────────────────────────────────────────────────
 
-export async function streamOSImage(res, target, isJSPiece, density, onProgress) {
+export async function streamOSImage(res, target, isJSPiece, density, onProgress, flavor = "alpine") {
   if (activeBuildCount >= MAX_CONCURRENT_BUILDS) {
     throw new Error(
       `Server busy: ${activeBuildCount}/${MAX_CONCURRENT_BUILDS} OS builds in progress. Try again shortly.`,
@@ -858,12 +875,12 @@ export async function streamOSImage(res, target, isJSPiece, density, onProgress)
   try {
     // 1. Ensure base image is cached + fetch manifest for version tag.
     const baseStart = Date.now();
-    const { basePath, manifest } = await ensureBaseImage(onProgress);
+    const { basePath, manifest } = await ensureBaseImage(onProgress, flavor);
     timing.base = Date.now() - baseStart;
 
     if (!manifest.piecePartitionOffset || manifest.piecePartitionOffset === 0) {
       throw new Error(
-        "Base image manifest missing piecePartitionOffset — rebuild base image with --base-image flag",
+        `Base image manifest missing piecePartitionOffset (${flavor}) — rebuild base image with --base-image flag`,
       );
     }
 
@@ -885,7 +902,7 @@ export async function streamOSImage(res, target, isJSPiece, density, onProgress)
     // 2b. Compute bundle hash + CDN key for caching.
     const bundleHash = hashContent(pieceHtml);
     const baseVersion = manifest.version || "unknown";
-    const cdnKey = buildCDNKey(target, density, bundleHash, baseVersion);
+    const cdnKey = buildCDNKey(target, density, bundleHash, baseVersion, flavor);
 
     // 3. Check CDN cache — skip the entire build if an identical ISO exists.
     const cacheStart = Date.now();
@@ -912,6 +929,7 @@ export async function streamOSImage(res, target, isJSPiece, density, onProgress)
         target,
         isJSPiece,
         density,
+        flavor,
         elapsed,
         timings: timing,
         cached: true,
@@ -920,7 +938,7 @@ export async function streamOSImage(res, target, isJSPiece, density, onProgress)
       });
       if (recentBuilds.length > MAX_RECENT) recentBuilds.pop();
 
-      logOSBuild({ buildId, target, isJSPiece, density, elapsed, timings: timing, cached: true, cdnUrl, baseVersion: manifest.version, baseSha256: manifest.sha256, success: true });
+      logOSBuild({ buildId, target, isJSPiece, density, flavor, elapsed, timings: timing, cached: true, cdnUrl, baseVersion: manifest.version, baseSha256: manifest.sha256, success: true });
 
       // Redirect to CDN for download (fast edge delivery).
       if (res) {
@@ -1047,6 +1065,7 @@ export async function streamOSImage(res, target, isJSPiece, density, onProgress)
       target,
       isJSPiece,
       density,
+      flavor,
       elapsed,
       timings: timing,
       cdnUrl,
@@ -1054,18 +1073,19 @@ export async function streamOSImage(res, target, isJSPiece, density, onProgress)
     });
     if (recentBuilds.length > MAX_RECENT) recentBuilds.pop();
 
-    logOSBuild({ buildId, target, isJSPiece, density, elapsed, timings: timing, cached: false, cdnUrl, bundleHash, baseVersion, baseSha256: manifest.sha256, success: true });
+    logOSBuild({ buildId, target, isJSPiece, density, flavor, elapsed, timings: timing, cached: false, cdnUrl, bundleHash, baseVersion, baseSha256: manifest.sha256, success: true });
 
     return {
       buildId,
       elapsed,
       timings: timing,
       cdnUrl,
+      flavor,
       filename: `${target}-os.iso`,
     };
   } catch (err) {
     const elapsed = Date.now() - startTime;
-    logOSBuild({ buildId, target, isJSPiece, density, elapsed, timings: timing, cached: false, success: false, error: err.message });
+    logOSBuild({ buildId, target, isJSPiece, density, flavor, elapsed, timings: timing, cached: false, success: false, error: err.message });
     throw err;
   } finally {
     activeBuildCount--;
