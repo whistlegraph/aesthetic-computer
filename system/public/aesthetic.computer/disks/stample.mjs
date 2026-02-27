@@ -590,11 +590,29 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
     );
   }
 
-  // Strip buttons.
+  // Strip buttons with inline playback needles (active state + waveform cutoff).
   btns.forEach((btn, index) => {
     btn.paint(() => {
-      ink(btn.down ? "white" : "cyan", btn.down ? 120 : 80).box(btn.box);
+      ink(btn.down ? "white" : "cyan").box(btn.box);
       ink("black").box(btn.box, "out"); // Outline in black.
+
+      // Render playback needle within this button's box.
+      const options = sounds[index]?.options;
+      if (options && progressions[index] !== undefined) {
+        let y;
+        const progress = progressions[index];
+        const speed = options.speed ?? 1;
+        const to = options.to ?? 1;
+        if (speed > 0 || !speed) {
+          y = btn.box.y + (1 - progress) * btn.box.h;
+        } else {
+          y = btn.box.y + (1 - to * progress) * btn.box.h;
+        }
+        const minY = btn.box.y + 1;
+        const maxY = btn.box.y + btn.box.h - 2;
+        y = Math.max(minY, Math.min(maxY, y));
+        ink("orange").line(0, y, btn.box.x + btn.box.w, y);
+      }
 
       ink("black").write(
         sfxToKey[btns.length - 1 - index],
@@ -604,40 +622,23 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
     });
   });
 
-  // Waveform overlay on strips — only shown when no bitmap is loaded.
-  if (!hasBitmap && sampleData?.length) {
-    sound.paint.waveform(
-      api,
-      num.arrMax(sampleData),
-      sampleData.length > 256 ? num.arrCompress(sampleData, 256) : sampleData,
-      layout.stripX,
-      layout.stripY,
-      layout.stripW,
-      layout.stripAreaH,
-      [0, 0, 255, 30],
-      { direction: "bottom-to-top" },
-    );
-  }
-
-  // Playback needles.
-  btns.forEach((btn, index) => {
-    const options = sounds[index]?.options;
-    if (options && progressions[index] !== undefined) {
-      let y;
-      const progress = progressions[index];
-      const speed = options.speed ?? 1;
-      const to = options.to ?? 1;
-      if (speed > 0 || !speed) {
-        y = btn.box.y + (1 - progress) * btn.box.h;
-      } else {
-        y = btn.box.y + (1 - to * progress) * btn.box.h;
-      }
-      const minY = btn.box.y + 1;
-      const maxY = btn.box.y + btn.box.h - 2;
-      y = Math.max(minY, Math.min(maxY, y));
-      ink("orange").line(0, y, btn.box.x + btn.box.w, y);
+  // Background waveform overlay on strips.
+  {
+    const waveformColor = hasBitmap ? [255, 100, 0, 48] : [0, 0, 255, 32];
+    if (sampleData?.length) {
+      sound.paint.waveform(
+        api,
+        num.arrMax(sampleData),
+        sampleData.length > 256 ? num.arrCompress(sampleData, 256) : sampleData,
+        layout.stripX,
+        layout.stripY,
+        layout.stripW,
+        layout.stripAreaH,
+        waveformColor,
+        { direction: "bottom-to-top" },
+      );
     }
-  });
+  }
 
   // Bitmap zone: full-width pixel buffer stretched above the record button.
   if (hasBitmap && layout.bitmapZoneH > 0) {
