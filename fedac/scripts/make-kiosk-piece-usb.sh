@@ -334,32 +334,8 @@ cp "$BUNDLE_PATH" "$ROOTFS_DIR/usr/local/share/kiosk/piece.html"
 echo -e "  ${GREEN}Piece bundle installed${NC}"
 KIOSK_PIECE_URL="file:///usr/local/share/kiosk/piece.html?density=${PACK_DENSITY}"
 
-# Ensure cage is available (black, no-animation kiosk compositor).
-# The oven runs Ubuntu (no host dnf), so use chroot + the rootfs's own dnf5.
-if [ ! -x "$ROOTFS_DIR/usr/bin/cage" ]; then
-  echo -e "  Installing cage into rootfs..."
-  if command -v dnf >/dev/null 2>&1; then
-    # Host has dnf (Fedora build machine)
-    dnf -y --installroot="$ROOTFS_DIR" --releasever="$FEDORA_VERSION" install cage >/dev/null 2>&1 || true
-  elif [ -x "$ROOTFS_DIR/usr/bin/dnf" ]; then
-    # Chroot into the Fedora rootfs and use its own package manager
-    mount --bind /dev "$ROOTFS_DIR/dev" 2>/dev/null || true
-    mount --bind /proc "$ROOTFS_DIR/proc" 2>/dev/null || true
-    mount --bind /sys "$ROOTFS_DIR/sys" 2>/dev/null || true
-    mount -t tmpfs tmpfs "$ROOTFS_DIR/tmp" 2>/dev/null || true
-    cp /etc/resolv.conf "$ROOTFS_DIR/etc/resolv.conf" 2>/dev/null || true
-    chroot "$ROOTFS_DIR" /usr/bin/dnf -y install cage 2>&1 | tail -5 || true
-    umount "$ROOTFS_DIR/tmp" 2>/dev/null || true
-    umount "$ROOTFS_DIR/sys" 2>/dev/null || true
-    umount "$ROOTFS_DIR/proc" 2>/dev/null || true
-    umount "$ROOTFS_DIR/dev" 2>/dev/null || true
-  fi
-  if [ -x "$ROOTFS_DIR/usr/bin/cage" ]; then
-    echo -e "  ${GREEN}cage installed${NC}"
-  else
-    echo -e "  ${YELLOW}cage not available — will fall back to mutter${NC}"
-  fi
-fi
+# NOTE: cage is installed AFTER the rootfs strip step (step 3i) to prevent
+# the dnf remove from accidentally pulling it out as a dependency.
 
 # Volume key daemon is pure Python — no external packages needed.
 
@@ -875,6 +851,39 @@ umount "$ROOTFS_DIR/dev" 2>/dev/null || true
 ROOTFS_AFTER=$(du -sb "$ROOTFS_DIR" 2>/dev/null | awk '{print $1}')
 SAVED=$(( (ROOTFS_BEFORE - ROOTFS_AFTER) / 1048576 ))
 echo -e "  ${GREEN}Stripped ${SAVED}MB from rootfs ($(numfmt --to=iec $ROOTFS_BEFORE) → $(numfmt --to=iec $ROOTFS_AFTER))${NC}"
+
+# ── Install cage AFTER strip (so dnf remove can't pull it out) ────────
+echo -e "  Installing cage into rootfs (post-strip)..."
+# Re-mount chroot binds for dnf
+mount --bind /dev "$ROOTFS_DIR/dev" 2>/dev/null || true
+mount --bind /proc "$ROOTFS_DIR/proc" 2>/dev/null || true
+mount --bind /sys "$ROOTFS_DIR/sys" 2>/dev/null || true
+mount -t tmpfs tmpfs "$ROOTFS_DIR/tmp" 2>/dev/null || true
+cp /etc/resolv.conf "$ROOTFS_DIR/etc/resolv.conf" 2>/dev/null || true
+
+if [ -x "$ROOTFS_DIR/usr/bin/dnf" ]; then
+  chroot "$ROOTFS_DIR" /usr/bin/dnf -y install cage 2>&1 | tail -5 || true
+elif command -v dnf >/dev/null 2>&1; then
+  dnf -y --installroot="$ROOTFS_DIR" --releasever="$FEDORA_VERSION" install cage 2>&1 | tail -5 || true
+fi
+
+umount "$ROOTFS_DIR/tmp" "$ROOTFS_DIR/sys" "$ROOTFS_DIR/proc" "$ROOTFS_DIR/dev" 2>/dev/null || true
+
+# ── Verify critical binaries survived the strip ──────────────────────
+echo -e "  Verifying critical binaries..."
+MISSING=""
+for bin in cage firefox pipewire mutter; do
+  if [ -x "$ROOTFS_DIR/usr/bin/$bin" ]; then
+    echo -e "    ${GREEN}✓ $bin${NC}"
+  else
+    echo -e "    ${RED}✗ $bin MISSING${NC}"
+    MISSING="$MISSING $bin"
+  fi
+done
+if [ -n "$MISSING" ]; then
+  echo -e "  ${RED}WARNING: Missing critical binaries:${MISSING}${NC}"
+  echo -e "  ${RED}The kiosk will likely fail to boot!${NC}"
+fi
 
 # ══════════════════════════════════════════
 # Step 4: Build EROFS + initrd
