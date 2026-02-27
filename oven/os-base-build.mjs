@@ -20,7 +20,7 @@ const DEFAULT_BUILD_SCRIPT =
 const DEFAULT_BUILD_CWD =
   process.env.OS_BASE_BUILD_CWD || path.resolve(process.cwd());
 const DEFAULT_WORK_BASE = process.env.OS_BASE_WORK_BASE || "/tmp";
-const DEFAULT_IMAGE_SIZE_GB = parsePositiveInt(process.env.OS_BASE_IMAGE_SIZE_GB, 2);
+const DEFAULT_IMAGE_SIZE_GB = parsePositiveInt(process.env.OS_BASE_IMAGE_SIZE_GB, 4);
 const KEEP_LOCAL_ARTIFACTS = process.env.OS_BASE_KEEP_ARTIFACTS === "1";
 
 const SPACES_REGION = process.env.OS_SPACES_REGION || "us-east-1";
