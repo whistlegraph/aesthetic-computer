@@ -755,12 +755,117 @@ cp "$OVERLAY_DIR/dconf-profile-user" "$ROOTFS_DIR/etc/dconf/profile/user" 2>/dev
 echo -e "  ${GREEN}All kiosk config injected${NC}"
 
 # ══════════════════════════════════════════
+# Step 3i: Strip bloat from rootfs (kiosk only needs cage + Firefox + audio)
+# ══════════════════════════════════════════
+echo -e "${CYAN}  Stripping unnecessary packages from rootfs...${NC}"
+ROOTFS_BEFORE=$(du -sb "$ROOTFS_DIR" 2>/dev/null | awk '{print $1}')
+
+# Mount /dev, /proc, /sys for chroot dnf operations
+mount --bind /dev "$ROOTFS_DIR/dev" 2>/dev/null || true
+mount --bind /proc "$ROOTFS_DIR/proc" 2>/dev/null || true
+mount --bind /sys "$ROOTFS_DIR/sys" 2>/dev/null || true
+
+# Remove large unnecessary packages via dnf (resolves dependencies cleanly)
+STRIP_PKGS=(
+  # Office suite (~300MB)
+  "libreoffice*"
+  # Java (~248MB)
+  "java-*-openjdk*"
+  # Virtualization (~110MB)
+  "qemu*" "edk2-ovmf" "gnome-boxes" "libvirt*" "podman*"
+  # LLVM (~145MB)
+  "llvm-libs"
+  # GNOME apps we don't need (~150MB+)
+  "gnome-software*" "gnome-maps" "gnome-weather" "gnome-contacts"
+  "gnome-calendar" "gnome-clocks" "gnome-connections" "gnome-characters"
+  "gnome-font-viewer" "gnome-logs" "gnome-calculator" "gnome-text-editor"
+  "gnome-tour" "gnome-photos" "gnome-music" "gnome-user-docs"
+  "simple-scan" "baobab" "totem*" "cheese" "rhythmbox" "shotwell"
+  "evince*" "yelp*" "loupe" "snapshot" "gnome-console"
+  # Crash reporter (~30MB)
+  "abrt*" "gnome-abrt"
+  # IBus input methods (~156MB) — kiosk doesn't need multilingual input
+  "ibus*"
+  # WebKit (not needed, Firefox is our browser) (~180MB)
+  "webkit2gtk*" "webkitgtk*" "javascriptcoregtk*"
+  # Container tools
+  "buildah" "skopeo" "toolbox" "containers-common*"
+  # Evolution data server (email/calendar backend)
+  "evolution*"
+  # Flatpak
+  "flatpak*"
+  # Printing
+  "cups*"
+  # Misc heavy packages
+  "unicode-ucd" "cldr-emoji-annotation"
+  "anaconda*" "livecd-tools" "liveinst*" "mediawriter"
+)
+chroot "$ROOTFS_DIR" /usr/bin/dnf -y remove "${STRIP_PKGS[@]}" --setopt=protected_packages= 2>&1 | tail -3 || true
+
+# Remove non-English locales (~220MB)
+echo -e "  Stripping non-English locales..."
+find "$ROOTFS_DIR/usr/share/locale" -mindepth 1 -maxdepth 1 -type d \
+  ! -name "en" ! -name "en_US" ! -name "en_GB" -exec rm -rf {} + 2>/dev/null || true
+
+# Remove docs, man pages, help (~250MB)
+rm -rf "$ROOTFS_DIR/usr/share/doc"
+rm -rf "$ROOTFS_DIR/usr/share/man"
+rm -rf "$ROOTFS_DIR/usr/share/help"
+rm -rf "$ROOTFS_DIR/usr/share/gtk-doc"
+rm -rf "$ROOTFS_DIR/usr/share/info"
+
+# Remove Firefox langpacks (~43MB) — kiosk is English-only
+rm -rf "$ROOTFS_DIR/usr/lib64/firefox/langpacks" 2>/dev/null || true
+chroot "$ROOTFS_DIR" /usr/bin/dnf -y remove "firefox-langpacks" 2>&1 | tail -1 || true
+
+# Remove all langpacks except English (~238MB)
+chroot "$ROOTFS_DIR" /usr/bin/dnf -y remove "glibc-all-langpacks" 2>&1 | tail -1 || true
+chroot "$ROOTFS_DIR" /usr/bin/dnf -y install "glibc-langpack-en" 2>&1 | tail -1 || true
+
+# Remove CJK fonts (~57MB) — not needed for kiosk
+rm -rf "$ROOTFS_DIR/usr/share/fonts/google-noto-serif-cjk-vf-fonts" 2>/dev/null || true
+rm -rf "$ROOTFS_DIR/usr/share/fonts/google-noto-sans-cjk-vf-fonts" 2>/dev/null || true
+
+# Trim firmware — keep only common wifi + GPU, remove exotic/unused (~300MB savings)
+FIRMWARE_KEEP="intel|iwlwifi|amd|nvidia|ath|rtl|brcm|realtek|i915|radeon|amdgpu|mediatek"
+for fw_dir in "$ROOTFS_DIR/usr/lib/firmware"/*/; do
+  fw_name=$(basename "$fw_dir")
+  if ! echo "$fw_name" | grep -qiE "$FIRMWARE_KEEP"; then
+    rm -rf "$fw_dir" 2>/dev/null || true
+  fi
+done
+# Remove large individual firmware blobs we don't need
+rm -rf "$ROOTFS_DIR/usr/lib/firmware/liquidio" 2>/dev/null || true
+rm -rf "$ROOTFS_DIR/usr/lib/firmware/netronome" 2>/dev/null || true
+rm -rf "$ROOTFS_DIR/usr/lib/firmware/mellanox" 2>/dev/null || true
+rm -rf "$ROOTFS_DIR/usr/lib/firmware/dpaa2" 2>/dev/null || true
+rm -rf "$ROOTFS_DIR/usr/lib/firmware/qcom" 2>/dev/null || true
+rm -rf "$ROOTFS_DIR/usr/lib/firmware/cnm" 2>/dev/null || true
+rm -rf "$ROOTFS_DIR/usr/lib/firmware/qed" 2>/dev/null || true
+rm -rf "$ROOTFS_DIR/usr/lib/firmware/mrvl" 2>/dev/null || true
+rm -rf "$ROOTFS_DIR/usr/lib/firmware/cxgb4" 2>/dev/null || true
+
+# Clean dnf cache inside rootfs
+chroot "$ROOTFS_DIR" /usr/bin/dnf clean all 2>/dev/null || true
+rm -rf "$ROOTFS_DIR/var/cache/dnf" 2>/dev/null || true
+rm -rf "$ROOTFS_DIR/var/log/"* 2>/dev/null || true
+
+# Unmount chroot binds
+umount "$ROOTFS_DIR/sys" 2>/dev/null || true
+umount "$ROOTFS_DIR/proc" 2>/dev/null || true
+umount "$ROOTFS_DIR/dev" 2>/dev/null || true
+
+ROOTFS_AFTER=$(du -sb "$ROOTFS_DIR" 2>/dev/null | awk '{print $1}')
+SAVED=$(( (ROOTFS_BEFORE - ROOTFS_AFTER) / 1048576 ))
+echo -e "  ${GREEN}Stripped ${SAVED}MB from rootfs ($(numfmt --to=iec $ROOTFS_BEFORE) → $(numfmt --to=iec $ROOTFS_AFTER))${NC}"
+
+# ══════════════════════════════════════════
 # Step 4: Build EROFS + initrd
 # ══════════════════════════════════════════
 echo -e "${CYAN}[4/6] Building EROFS image...${NC}"
 
 EROFS_PATH="$WORK_DIR/squashfs.img"
-mkfs.erofs -zzstd -C65536 "$EROFS_PATH" "$ROOTFS_DIR/"
+mkfs.erofs -zzstd,level=19 -C65536 "$EROFS_PATH" "$ROOTFS_DIR/"
 EROFS_SIZE=$(stat -c%s "$EROFS_PATH")
 echo -e "  ${GREEN}EROFS built: $(numfmt --to=iec $EROFS_SIZE)${NC}"
 
