@@ -651,13 +651,73 @@ fastify.get("/chat/status", async (req) => {
   return chatManager.getStatus();
 });
 
+const PROFILE_SECRET_CACHE_MS = 60 * 1000;
+let profileSecretCacheValue = null;
+let profileSecretCacheAt = 0;
+
+function pickProfileStreamSecret(record) {
+  if (!record || typeof record !== "object") return null;
+  const candidates = [
+    record.secret,
+    record.token,
+    record.profileSecret,
+    record.value,
+  ];
+  for (const raw of candidates) {
+    if (!raw) continue;
+    const value = `${raw}`.trim();
+    if (value) return value;
+  }
+  return null;
+}
+
+function profileSecretsMatch(expected, provided) {
+  if (!expected || !provided) return false;
+  const left = Buffer.from(expected);
+  const right = Buffer.from(provided);
+  if (left.length !== right.length) return false;
+  try {
+    return crypto.timingSafeEqual(left, right);
+  } catch (_) {
+    return false;
+  }
+}
+
+async function resolveProfileStreamSecret() {
+  const now = Date.now();
+  if (profileSecretCacheAt && now - profileSecretCacheAt < PROFILE_SECRET_CACHE_MS) {
+    return profileSecretCacheValue;
+  }
+
+  let resolved = null;
+  try {
+    if (chatManager?.db) {
+      const record = await chatManager.db
+        .collection("secrets")
+        .findOne({ _id: "profile-stream" });
+      resolved = pickProfileStreamSecret(record);
+    }
+  } catch (err) {
+    error("👤 Could not load profile-stream secret from MongoDB:", err?.message || err);
+  }
+
+  if (!resolved) {
+    const envSecret = `${process.env.PROFILE_STREAM_SECRET || ""}`.trim();
+    resolved = envSecret || null;
+  }
+
+  profileSecretCacheValue = resolved;
+  profileSecretCacheAt = now;
+  return profileSecretCacheValue;
+}
+
 // *** Profile Stream Event Ingest ***
 // Accepts server-to-server profile events from Netlify functions.
 fastify.post("/profile-event", async (req, reply) => {
   try {
-    const expectedSecret = process.env.PROFILE_STREAM_SECRET || null;
-    const providedSecret = req.headers["x-profile-secret"] || null;
-    if (expectedSecret && providedSecret !== expectedSecret) {
+    const expectedSecret = await resolveProfileStreamSecret();
+    const providedSecret = `${req.headers["x-profile-secret"] || ""}`.trim() || null;
+    if (expectedSecret && !profileSecretsMatch(expectedSecret, providedSecret)) {
       reply.status(401);
       return { ok: false, error: "Unauthorized" };
     }

@@ -44,6 +44,7 @@ import { initializeApp, cert } from "firebase-admin/app"; // Firebase notificati
 import { getMessaging } from "firebase-admin/messaging";
 
 import { shell } from "../../backend/shell.mjs";
+import { publishProfileEvent } from "../../backend/profile-stream.mjs";
 
 import { filter } from "../../backend/filter.mjs"; // Profanity filtering.
 // import { promises as fs } from "fs";
@@ -250,6 +251,18 @@ export async function handler(event, context) {
             user: user.sub,
             mood,
             when: new Date(),
+          });
+
+          publishProfileEvent({
+            handle,
+            event: {
+              type: "mood",
+              when: Date.now(),
+              label: `Mood: ${mood}`,
+            },
+            countsDelta: { moods: 1 },
+          }).catch((err) => {
+            shell.log("⚠️ Mood profile-event publish failed:", err?.message || err);
           });
 
           // Dual-write: Also create mood on ATProto

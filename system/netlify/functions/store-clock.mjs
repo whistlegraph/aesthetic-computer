@@ -1,9 +1,10 @@
 // Store Clock, 2026.01.02
 // Caches clock melody strings and generates pronounceable short codes for QR codes
 
-import { authorize } from "../../backend/authorization.mjs";
+import { authorize, getHandleOrEmail } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
+import { publishProfileEvent } from "../../backend/profile-stream.mjs";
 import crypto from 'crypto';
 
 // Pronounceable code generation (CVCV pattern for singability)
@@ -128,6 +129,18 @@ export async function handler(event, context) {
         console.log(`🔓 No user authorization (anonymous cache): ${error.message}`);
       }
 
+      let profileHandle = null;
+      if (user?.sub) {
+        try {
+          const handleOrEmail = await getHandleOrEmail(user.sub);
+          if (typeof handleOrEmail === "string" && handleOrEmail.startsWith("@")) {
+            profileHandle = handleOrEmail;
+          }
+        } catch (err) {
+          console.warn("⚠️  Could not resolve profile handle for clock event:", err?.message || err);
+        }
+      }
+
       const hash = crypto.createHash('sha256').update(source.trim()).digest('hex');
       console.log(`🔍 Source hash: ${hash.substring(0, 16)}...`);
       
@@ -172,6 +185,22 @@ export async function handler(event, context) {
       try {
         await collection.insertOne(doc);
         console.log(`💾 Cached new melody: ${code}`);
+
+        if (profileHandle) {
+          publishProfileEvent({
+            handle: profileHandle,
+            event: {
+              type: "clock",
+              when: Date.now(),
+              label: `Clock *${code}`,
+              ref: code,
+            },
+            countsDelta: { clocks: 1 },
+          }).catch((err) => {
+            console.warn("⚠️  clock profile-event publish failed:", err?.message || err);
+          });
+        }
+
         await database.disconnect();
         return respond(201, { code, cached: false });
 

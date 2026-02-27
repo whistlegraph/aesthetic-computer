@@ -14,6 +14,7 @@ import { respond } from "../../backend/http.mjs";
 import { generateUniqueCode } from "../../backend/generate-short-code.mjs";
 import { createMediaRecord, deleteMediaRecord, MediaTypes } from "../../backend/media-atproto.mjs";
 import { S3Client, PutObjectAclCommand } from "@aws-sdk/client-s3";
+import { publishProfileEvent } from "../../backend/profile-stream.mjs";
 
 const dev = process.env.CONTEXT === "dev";
 
@@ -51,6 +52,18 @@ export async function handler(event, context) {
       }
     } else {
       console.log(`🔓 No authorization header, treating as guest upload`);
+    }
+
+    let profileHandle = null;
+    if (user?.sub) {
+      try {
+        const handleOrEmail = await getHandleOrEmail(user.sub);
+        if (typeof handleOrEmail === "string" && handleOrEmail.startsWith("@")) {
+          profileHandle = handleOrEmail;
+        }
+      } catch (err) {
+        console.warn("⚠️  Could not resolve handle for profile stream:", err?.message || err);
+      }
     }
 
     const database = await connect();
@@ -135,6 +148,26 @@ export async function handler(event, context) {
         
         const logType = user ? "user" : "guest";
         console.log(`✅ Created ${logType} ${type.slice(0, -1)}: slug=${slug}, code=${code}`);
+
+        if (profileHandle) {
+          const mediaType =
+            type === "paintings" ? "painting" :
+            type === "pieces" ? "piece" :
+            "tape";
+          const mediaLabel = `${mediaType[0].toUpperCase()}${mediaType.slice(1)} ${slug}`;
+          publishProfileEvent({
+            handle: profileHandle,
+            event: {
+              type: mediaType,
+              when: Date.now(),
+              label: mediaLabel,
+              ref: slug,
+            },
+            countsDelta: { [type]: 1 },
+          }).catch((err) => {
+            console.warn("⚠️  track-media profile-event publish failed:", err?.message || err);
+          });
+        }
         
         const mediaId = insertResult.insertedId;
         

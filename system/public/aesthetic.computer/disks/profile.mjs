@@ -1,404 +1,269 @@
-// Profile, 2023.6.04.16.58.31
-// The default profile page for all users.
-
-/* #region 📚 README 
-#endregion */
-
-/* #region 🏁 TODO 
-  + Done
-  - [x] Add `d` and `p` shortcuts for download and process jumping.
-  - [x] Add zooming, similar to `hw`.
-  - [x] `profile` should be table to <- -> on a user's paintings 
-  - [c] Cache the bitmaps.
-  - [x] Add left and right tap buttons.
-  - [x] Loading paintings should make a beep.
-  - [x] Tap into lightbox for painting / playback.
-  - [x] Move mood.
-  - [x] Wire up arrow keys.
-  - [] Modify `api/profile` request to show a full text response
-      if json is not returned.
-  + Later
-  - ☁️ General thoughts:
-    - [] Should @handle eventually be a code piece in the system for every user?
-    - [] And then they can edit it?
-    - [] Or maybe just a custom paint function?
-    - [] What happens when you visit there now?
-  - 💡 Ideas for content:
-    - [] Most recent user painting.
-    - [] Activity log
-    - [] Consider public facing vs user facing differences.
-      - [] Like the ability to set a handle.
-    - [] Settings
-      - [] Theme
-    - [] Globally warn user if they are inauthenticated somehow.
-      - [] Or if they are offline... using tiny LEDs?
-#endregion */
+// Profile, 2026.02.27.12.40.00
+// Public user scorecard page with live presence + recent activity.
 
 const FETCHING = "Fetching";
+const REFRESH_MS = 30000;
+const RECONNECT_MS = 3000;
+const MOOD_LIMIT = 40;
+const CHAT_LIMIT = 120;
+
 let debug;
-let profile,
-  noprofile = FETCHING,
-  noprofileAction,
-  noprofileBtn;
-
-let timestampBtn, shortCodeBtn, prevBtn, nextBtn;
+let visiting;
+let profile;
+let noprofile = FETCHING;
+let noprofileAction;
+let noprofileBtn;
+let paintingsBtn;
+let refreshBtn;
 let ellipsisTicker;
-let visiting, code, painting, paintings, index, shortCode;
-const paintingMetadataCache = new Map();
-let zoomed = false;
-let zoomLevel = 1;
 
-const { max, min } = Math;
-import * as sfx from "./common/sfx.mjs";
+let loading = false;
+let refreshing = false;
+let dataError = null;
 
-// 📰 Meta
-function meta({ piece }) {
+let scorecard = makeEmptyScorecard();
+let presence = makeOfflinePresence();
+
+let statusSocket = null;
+let reconnectTimer = null;
+let refreshTimer = null;
+let disposed = false;
+
+function makeEmptyScorecard() {
   return {
-    title: `${piece} • aesthetic.computer`,
-    desc: `Welcome to ${piece}'s profile.`,
-    // TODO: ^ Replace with user's last status.
+    counts: {
+      paintings: 0,
+      pieces: 0,
+      kidlisp: 0,
+      clocks: 0,
+      tapes: 0,
+      moods: 0,
+      chats: 0,
+    },
+    recentMedia: {
+      paintings: [],
+      kidlisp: [],
+      clocks: [],
+      moods: [],
+      chats: [],
+    },
+    activity: [],
+    updatedAt: null,
   };
 }
 
-// 🥾 Boot
+function makeOfflinePresence() {
+  return {
+    online: false,
+    currentPiece: null,
+    worldPiece: null,
+    showing: null,
+    connections: 0,
+    ping: null,
+    lastSeenAt: null,
+  };
+}
+
+function meta({ piece }) {
+  return {
+    title: `${piece} - aesthetic.computer`,
+    desc: `Live activity scorecard for ${piece}.`,
+  };
+}
+
 async function boot({
   params,
   user,
   gizmo,
   handle,
-  debug,
   hud,
   net,
-  get,
   debug: d,
 }) {
-  // Mask from `profile` if we are logged in.
+  disposed = false;
   debug = d;
-  const hand = handle();
 
-  visiting = params[0] || hand;
+  const hand = normalizeHandle(handle());
+  visiting = normalizeHandle(params[0] || hand);
 
   ellipsisTicker = new gizmo.EllipsisTicker();
+
+  resetUiState();
+  clearTimersAndSocket();
+  scorecard = makeEmptyScorecard();
+  presence = makeOfflinePresence();
+  profile = null;
+  dataError = null;
 
   if (visiting) {
     hud.label(visiting);
     net.rewrite(visiting);
+    noprofile = FETCHING;
+    noprofileAction = null;
+
+    refreshProfile(true);
+    startRefreshLoop();
+    connectProfileStream();
+    return;
   }
 
-  if (visiting) {
-    if (visiting === hand) {
-      console.log("🤺 Visiting your profile:", visiting);
+  if (user) {
+    if (user.email_verified) {
+      noprofile = "Create handle.";
+      noprofileAction = "handle";
     } else {
-      console.log("🤺 Visiting the profile of...", visiting);
+      noprofile = "Check email to verify.";
+      noprofileAction = "email";
     }
   } else {
-    if (user) {
-      if (user.email_verified) {
-        noprofile = "Create handle.";
-        noprofileAction = "handle";
-      } else {
-        noprofile = "Check email to verify.";
-        noprofileAction = "email";
-      }
-    } else {
-      noprofile = "Log in or Sign up";
-      noprofileAction = "imnew";
-    }
-  }
-
-  // 🎆 Check to see if this user's profile actually exists via a server-side call.
-  fetch(`/api/profile/${visiting}`, {
-    headers: { Accept: "application/json" },
-  })
-    .then(async (response) => {
-      const data = (await response.json()).mood;
-      if (response.ok) {
-        if (debug) console.log("🙆 Profile found:", data);
-        profile = { handle: visiting, mood: data?.mood };
-        noprofile = null;
-      } else {
-        if (debug) console.warn("🙍 Profile not found:", data);
-        noprofile = "No profile found for: " + visiting;
-      }
-    })
-    .catch((error) => {
-      console.error("Error:", error);
-      noprofile = "Error retrieving profile.";
-    });
-
-  if (visiting) {
-    // Fetch all of a user's paintings...
-    fetch(`/media-collection?for=${visiting}/painting`)
-      .then((res) => res.json())
-      .then((data) => {
-        paintings = data?.files;
-        if (paintings.length > 0) {
-          index = paintings.length - 1;
-          loadPainting(get, index, visiting);
-        }
-      })
-      .catch((err) => {
-        console.warn("Could not load painting or fetch media.", err);
-      });
+    noprofile = "Log in or Sign up";
+    noprofileAction = "imnew";
   }
 }
 
-// 🎨 Paint
-function paint({ api, geo, wipe, help, ink, pen, screen, ui, text, paste }) {
+function paint({ api, wipe, help, ink, screen, ui, pen }) {
   if (!pen?.drawing) wipe(98);
   ink(127).line();
-  if (profile) ink().line().ink().line().ink().line();
-  if (profile) ink().write(profile?.mood || "no mood");
 
-  if (painting) {
-    const margin = 34;
-    const wScale = (screen.width - margin * 2) / painting.width;
-    const hScale = (screen.height - margin * 2) / painting.height;
-    let scale = Math.min(wScale, hScale, 1);
-    if (wScale >= 2 && hScale >= 2) scale = 2;
-    let x = screen.width / 2 - (painting.width * scale) / 2;
-    let y = screen.height / 2 - (painting.height * scale) / 2;
-
-    if (pen && zoomed && (scale < 1 || scale === 1)) {
-      const imgX = (pen.x - x) / scale;
-      const imgY = (pen.y - y) / scale;
-
-      // Adjust scale and position for zoom anchored at pen position
-      scale = scale >= 1 ? 1 + zoomLevel : zoomLevel;
-
-      x = pen.x - imgX * scale;
-      y = pen.y - imgY * scale;
-      ink(0, 64).box(0, 0, screen.width, screen.height);
-    }
-
-    paste(painting, x, y, { scale });
-
-    // const x = screen.width / 2 - painting.width / 2;
-    // const y = screen.height / 2 - painting.height / 2;
-    // ink(64).box(x, y, painting.width, painting.height);
-    // paste(painting, x, y);
-    // ink().box(x, y, painting.width, painting.height, "outline");
+  if (!visiting) {
+    paintNoProfileState({ api, help, ink, screen, ui });
+    return;
   }
 
-  const retrieving = noprofile === FETCHING;
-  if (!profile) {
-    let text = noprofile;
+  let y = 6;
 
-    if (!noprofileAction) {
-      if (retrieving) text += ellipsisTicker.text(help.repeat);
-      ink(255).write(text, { center: "xy" }, retrieving ? 64 : "black");
-    } else {
-      // Make button based on the action.
-      noprofileBtn ||= new ui.TextButton(text, { center: "xy", screen });
-      noprofileBtn.paint(api);
-    }
-  }
+  ink(255).write(visiting, { x: 4, y }, "black", screen.width - 8);
+  y += 10;
 
-  if (profile) {
-    ink(255).write(
-      profile.mood || "no mood",
-      { center: "x", y: 6 },
-      "black",
-      screen.width - 8,
-    );
-  }
-
-  if (profile && !painting && !paintings) {
+  if (!profile && noprofile === FETCHING) {
     ink(255).write(
       `${FETCHING}${ellipsisTicker.text(help.repeat)}`,
       { center: "xy" },
       "black",
     );
+    return;
   }
 
-  if (profile && !painting && paintings?.length === 0) {
-    ink(255).write(`No paintings completed.`, { center: "xy" }, "black");
+  if (!profile && noprofile && noprofile !== FETCHING) {
+    ink(255).write(noprofile, { center: "xy" }, "black");
+    return;
   }
 
-  if (paintings?.length > 0) {
-    ink(0).line(0, screen.height - 1, screen.width, screen.height - 1);
+  if (profile?.mood) {
+    ink(255).write(`Mood: ${profile.mood}`, { x: 4, y }, "black", screen.width - 8);
+  } else {
+    ink(127).write("Mood: -", { x: 4, y }, "black", screen.width - 8);
+  }
+  y += 12;
 
-    if (paintings.length > 1) {
-      ink("yellow").line(
-        0,
-        screen.height - 1,
-        (index / (paintings.length - 1)) * screen.width,
-        screen.height - 1,
-      );
-    }
+  const counts = scorecard.counts;
+  ink(255).write(
+    `Paint ${counts.paintings}  Piece ${counts.pieces}  Kid ${counts.kidlisp}  Clock ${counts.clocks}  Tape ${counts.tapes}`,
+    { x: 4, y },
+    "black",
+    screen.width - 8,
+  );
+  y += 10;
+  ink(255).write(
+    `Mood ${counts.moods}  Chat ${counts.chats}`,
+    { x: 4, y },
+    "black",
+    screen.width - 8,
+  );
+  y += 12;
 
-    const prevNextMarg = 32;
-    const prevNextWidth = 32;
+  ink("yellow").write("Live", { x: 4, y }, "black", screen.width - 8);
+  y += 10;
 
-    // Timestamp button (bottom-left, clickable)
-    if (code) {
-      const pos = { x: 3, y: screen.height - 13 };
-      const metricsBox = text.box(code, pos).box || {};
-      const textWidth = metricsBox.width ?? metricsBox.w ?? 0;
-      const textHeight = metricsBox.height ?? metricsBox.h ?? 12;
-      const blockWidth = 6;
-      
-      const buttonBox = new geo.Box(
-        pos.x - blockWidth,
-        pos.y,
-        textWidth + blockWidth * 2,
-        textHeight,
-      );
+  const onlineText = presence.online ? "online" : "offline";
+  const currentPiece = formatPieceLabel(presence.currentPiece) || "-";
+  const pingText = presence.ping ? ` ${presence.ping}ms` : "";
+  ink(255).write(
+    `${onlineText}  piece ${currentPiece}${pingText}`,
+    { x: 4, y },
+    "black",
+    screen.width - 8,
+  );
+  y += 10;
 
-      if (!timestampBtn) timestampBtn = new ui.Button(buttonBox);
-      timestampBtn.box = buttonBox;
-      timestampBtn.paint((btn) => {
-        ink(btn.down ? "orange" : 255).write(code, pos);
-      });
-    }
-
-    // Short code button (bottom-right, clickable)
-    if (shortCode && shortCode.trim().length > 0) {
-      const shortDisplay = `#${shortCode}`;
-      const codeMetrics = text.box(shortDisplay).box || {};
-      const codeWidth = codeMetrics.width ?? codeMetrics.w ?? 0;
-      const codeHeight = codeMetrics.height ?? codeMetrics.h ?? 12;
-      const codePos = {
-        x: screen.width - codeWidth - 3,
-        y: screen.height - 13,
-      };
-      
-      const blockWidth = 6;
-      const shortCodeBox = new geo.Box(
-        codePos.x - blockWidth,
-        codePos.y,
-        codeWidth + blockWidth * 2,
-        codeHeight,
-      );
-
-      if (!shortCodeBtn) shortCodeBtn = new ui.Button(shortCodeBox);
-      shortCodeBtn.box = shortCodeBox;
-      shortCodeBtn.paint((btn) => {
-        ink(btn.down ? "orange" : 255).write(shortDisplay, codePos);
-      });
-    } else if (code && paintings?.length > 0) {
-      // Fallback: show "pending" while waiting for metadata (non-clickable)
-      shortCodeBtn = null; // Clear button if no code
-      const fallbackDisplay = "...";
-      const codeMetrics = text.box(fallbackDisplay).box || {};
-      const codeWidth = codeMetrics.width ?? codeMetrics.w ?? 0;
-      const codePos = {
-        x: screen.width - codeWidth - 3,
-        y: screen.height - 13,
-      };
-      ink(127).write(fallbackDisplay, codePos);
-    } else {
-      shortCodeBtn = null;
-    }
-
-    // Prev & Next Buttons
-
-    if (!prevBtn) {
-      prevBtn = new ui.Button();
-      if (index === 0) prevBtn.disabled = true;
-    }
-
-    prevBtn.box = new geo.Box(
-      0,
-      prevNextMarg,
-      prevNextWidth,
-      screen.height - prevNextMarg * 2,
+  if (presence.worldPiece || presence.showing) {
+    ink(255).write(
+      `world ${presence.worldPiece || "-"}  showing ${presence.showing || "-"}`,
+      { x: 4, y },
+      "black",
+      screen.width - 8,
     );
-
-    if (!prevBtn.disabled) {
-      prevBtn.paint((btn) => {
-        ink(btn.down ? "orange" : 255).write("<", {
-          x: 6,
-          y: screen.height / 2 - 4,
-        });
-      });
-      ink(255, 255, 0, 8).box(prevBtn.box);
-    }
-
-    if (!nextBtn) {
-      nextBtn = new ui.Button();
-      if (index === paintings.length - 1) nextBtn.disabled = true;
-    }
-
-    nextBtn.box = new geo.Box(
-      screen.width - prevNextWidth,
-      prevNextMarg,
-      screen.width,
-      screen.height - prevNextMarg * 2,
-    );
-
-    if (!nextBtn.disabled) {
-      nextBtn.paint((btn) => {
-        ink(btn.down ? "orange" : 255).write(">", {
-          x: screen.width - 10,
-          y: screen.height / 2 - 4,
-        });
-      });
-      ink(255, 255, 0, 8).box(nextBtn.box);
-    }
+    y += 10;
   }
 
-  // return false;
+  if (!presence.online && presence.lastSeenAt) {
+    ink(127).write(
+      `last seen ${formatTimeAgo(presence.lastSeenAt)}`,
+      { x: 4, y },
+      "black",
+      screen.width - 8,
+    );
+    y += 10;
+  }
+
+  y += 2;
+  ink("yellow").write("Recent Activity", { x: 4, y }, "black", screen.width - 8);
+  y += 10;
+
+  if ((loading || refreshing) && scorecard.activity.length === 0) {
+    ink(255).write(
+      `${FETCHING}${ellipsisTicker.text(help.repeat)}`,
+      { x: 4, y },
+      "black",
+      screen.width - 8,
+    );
+    y += 10;
+  } else if (scorecard.activity.length === 0) {
+    const emptyText = dataError || "No activity yet.";
+    ink(127).write(emptyText, { x: 4, y }, "black", screen.width - 8);
+    y += 10;
+  } else {
+    const maxRows = Math.max(3, Math.floor((screen.height - y - 24) / 10));
+    const rows = scorecard.activity.slice(0, maxRows);
+    rows.forEach((item) => {
+      const when = item.when ? formatTimeAgo(item.when) : "recent";
+      ink(255).write(`${when}  ${item.label}`, { x: 4, y }, "black", screen.width - 8);
+      y += 10;
+    });
+  }
+
+  if (refreshing) {
+    ink(127).write(
+      `Refreshing${ellipsisTicker.text(help.repeat)}`,
+      { x: screen.width - 84, y: 2 },
+      "black",
+      82,
+    );
+  }
+
+  paintingsBtn ||= new ui.TextButton("Paintings", { x: 4, y: screen.height - 14 });
+  refreshBtn ||= new ui.TextButton("Refresh", { x: screen.width - 47, y: screen.height - 14 });
+
+  paintingsBtn.paint(api);
+  refreshBtn.paint(api);
 }
 
-// 🎪 Act
-function act({
-  event: e,
-  get,
-  send,
-  jump,
-  screen,
-  sound,
-  download,
-  user,
-  net,
-  notice,
-  store,
-}) {
-  function process() {
-    sfx.push(sound);
-    jump(`painting ${visiting}/${code}`);
+function act({ event: e, jump, store, user }) {
+  paintingsBtn?.act(e, () => {
+    if (visiting) jump(`paintings~${visiting}`);
+  });
+
+  refreshBtn?.act(e, () => {
+    refreshProfile(true);
+  });
+
+  if (e.is("keyboard:down:g") && visiting) {
+    jump(`paintings~${visiting}`);
   }
 
-  function jumpToShortCode() {
-    const trimmedCode = shortCode?.trim();
-    if (!trimmedCode || trimmedCode.length === 0) {
-      console.warn("⚠️ Cannot jump to short code: not available (shortCode:", shortCode, ")");
-      return;
-    }
-    sfx.push(sound);
-    const route = `painting~#${trimmedCode}`;
-    console.log(`🔗 Jumping to painting with short code: ${route}`);
-    jump(route);
+  if (e.is("keyboard:down:r")) {
+    refreshProfile(true);
   }
-
-  timestampBtn?.act(e, process);
-  shortCodeBtn?.act(e, jumpToShortCode);
-
-  function next() {
-    if (index === paintings.length - 1) return;
-    sfx.push(sound);
-    index = min(index + 1, paintings.length - 1);
-    loadPainting(get, index, visiting);
-    prevBtn.disabled = false;
-    nextBtn.disabled = false;
-    if (index === paintings.length - 1) nextBtn.disabled = true;
-  }
-
-  function prev() {
-    if (index === 0) return;
-    sfx.push(sound);
-    index = max(0, index - 1);
-    loadPainting(get, index, visiting);
-    prevBtn.disabled = false;
-    nextBtn.disabled = false;
-    if (index === 0) prevBtn.disabled = true;
-  }
-
-  nextBtn?.act(e, next);
-  prevBtn?.act(e, prev);
-
-  if (e.is("reframed")) noprofileBtn?.reposition({ center: "xy", screen });
 
   noprofileBtn?.act(e, {
     push: () => {
@@ -410,228 +275,593 @@ function act({
       } else if (noprofileAction === "imnew") {
         slug = "prompt";
         store["prompt:splash"] = true;
-      } else {
-        console.warn("🔴 No action specified:", noprofileAction);
       }
       if (slug) jump(slug);
     },
   });
 
-  if (e.is("keyboard:down:arrowleft")) prev();
-  if (e.is("keyboard:down:arrowright")) next();
-
-  // Zooming
-  if (
-    e.is("touch:1") &&
-    !timestampBtn?.down &&
-    !shortCodeBtn?.down &&
-    !prevBtn?.down &&
-    !nextBtn?.down &&
-    e.button === 0
-  ) {
-    zoomed = true;
-  }
-
-  if (e.is("lift:1")) zoomed = false;
-
-  if (e.is("keyboard:down:space")) {
-    zoomLevel += 1;
-    if (zoomLevel > 3) zoomLevel = 1;
-  }
-
-  if (e.is("keyboard:down:p")) process();
-
-  if (
-    painting &&
-    (e.is("keyboard:down:d") ||
-      (e.is("touch") && e.device === "mouse" && e.button === 2))
-  ) {
-    // Download a scaled version of the painting...
-    download(`painting-${visiting}-${code}.png`, painting, { scale: 6 });
-  }
-
-  // Nuke a painting using an authorized user request.
-  if (painting && e.is("keyboard:down:n") && user) {
-    console.log("💣 Nuking painting:", code, user);
-    net
-      .userRequest("PUT", "/api/track-media", { slug: code, nuke: true })
-      .then((res) => {
-        console.log(res);
-        if (res.status === 200) {
-          console.log("🖌️ Painting record updated:", res);
-          notice("NUKED :>", ["yellow", "red"]);
-        } else {
-          throw new Error(res.status);
-        }
-      })
-      .catch((err) => {
-        console.warn("🖌️ Painting record update failure:", err);
-        notice(`${err.message} ERROR :(`, ["white", "red"]);
-      });
+  if (e.is("reframed")) {
+    noprofileBtn = null;
+    paintingsBtn = null;
+    refreshBtn = null;
   }
 }
 
-// 🧮 Sim
 function sim() {
   ellipsisTicker?.sim();
 }
 
-// 🥁 Beat
-// function beat() {
-//   // Runs once per metronomic BPM.
-// }
+function leave() {
+  disposed = true;
+  clearTimersAndSocket();
+}
 
-// 👋 Leave
-// function leave() {
-//  // Runs once before the piece is unloaded.
-// }
+function paintNoProfileState({ api, help, ink, screen, ui }) {
+  const retrieving = noprofile === FETCHING;
+  const label = noprofile || "No profile.";
 
-export { boot, paint, act, sim, meta };
+  if (!noprofileAction) {
+    const text = retrieving ? `${label}${ellipsisTicker.text(help.repeat)}` : label;
+    ink(255).write(text, { center: "xy" }, retrieving ? 64 : "black");
+    return;
+  }
 
-// 📚 Library
-//   (Useful functions used throughout the piece)
+  noprofileBtn ||= new ui.TextButton(label, { center: "xy", screen });
+  noprofileBtn.paint(api);
+}
 
-// Load a painting from paintings via the index.
-let controller = null;
-async function loadPainting(get, index, from) {
-  painting = undefined; // Clear the current picture.
+async function refreshProfile(force = false) {
+  if (!visiting || disposed) return;
+  if (loading || refreshing) return;
 
-  if (controller) controller.abort(); // Abort any ongoing requests.
-  // Create a new controller for the current request.
-  controller = new AbortController();
-  const signal = controller.signal;
+  if (force) refreshing = true;
+  else loading = true;
+
+  dataError = null;
 
   try {
-    shortCode = undefined;
-    const entry = paintings[index];
-    const { slug, code: entryCode } = parsePaintingReference(entry);
-
-    if (!slug) throw new Error("Unable to parse painting reference.");
-
-    code = slug; // Maintain existing semantics where `code` represents the slug/timestamp.
-    if (entryCode) {
-      shortCode = entryCode;
-      console.log(`📌 Short code from entry: ${shortCode}`);
-    }
-
-    const got = await get.painting(slug).by(from, { signal }); // Assuming `get.painting` is based on fetch and can accept a signal
-    painting = got.img;
-
-    // After painting loads, fetch metadata to get short code
-    if (!shortCode) {
-      try {
-        const normalizedHandle = normalizeHandle(from);
-        const metadata = await fetchPaintingMetadata(slug, normalizedHandle, signal);
-        console.log(`📊 Metadata response:`, metadata);
-        if (metadata?.code) {
-          shortCode = `${metadata.code}`.replace(/^#/, "").trim();
-          console.log(`✅ Loaded painting ${slug}, short code: "${shortCode}" (length: ${shortCode.length})`);
-          // Store the code mapping globally so other parts of the system can use it
-          api.code.store(slug, normalizedHandle, shortCode);
-        } else {
-          console.log(`⚠️ Loaded painting ${slug}, no short code in database (needs migration)`);
-        }
-      } catch (metaErr) {
-        if (metaErr.name === "AbortError") throw metaErr;
-        if (debug) console.warn("Painting metadata lookup failed:", metaErr);
-      }
-    } else {
-      // If we already have the code from the entry, store it globally
-      const normalizedHandle = normalizeHandle(from);
-      api.code.store(slug, normalizedHandle, shortCode);
-    }
+    await loadIdentity();
+    if (!profile) return;
+    await loadScorecard();
   } catch (err) {
-    if (err.name === "AbortError") {
-      if (debug) console.log("❌ Request was aborted.");
-    } else {
-      console.error("Painting load failure:", err);
-    }
+    dataError = "Could not load activity.";
+    if (debug) console.warn("Profile refresh failed:", err);
   } finally {
-    controller = null;
+    loading = false;
+    refreshing = false;
   }
 }
 
-function parsePaintingReference(entry) {
-  let slug;
-  let code;
-
-  if (typeof entry === "string") {
-    slug = extractSlug(entry);
-  } else if (entry && typeof entry === "object") {
-    if (typeof entry.slug === "string") slug = entry.slug;
-    if (typeof entry.code === "string") code = entry.code;
-    if (!slug && typeof entry.url === "string") slug = extractSlug(entry.url);
-    if (!slug && typeof entry.path === "string") slug = extractSlug(entry.path);
-  }
-
-  if (slug) {
-    slug = slug.split("?")[0];
-    // If the slug already includes an extension, trim it.
-    slug = slug.replace(/\.(png|zip)$/i, "");
-    // Allow embedded codes within the slug (e.g., slug#code).
-    if (slug.includes("#")) {
-      const [slugPart, codePart] = slug.split("#");
-      slug = slugPart;
-      if (!code && codePart) code = codePart;
-    }
-  }
-
-  if (code) code = `${code}`.replace(/^#/, "");
-
-  return { slug, code };
-}
-
-function extractSlug(source) {
-  if (!source) return undefined;
-  const parts = `${source}`.split("/");
-  const last = parts.pop();
-  if (!last) return undefined;
-  const filename = last.split("?")[0];
-  return filename.replace(/\.(png|zip)$/i, "");
-}
-
-function normalizeHandle(handle) {
-  if (!handle) return undefined;
-  const trimmed = `${handle}`.trim();
-  if (!trimmed) return undefined;
-  return trimmed.replace(/^@+/, "");
-}
-
-async function fetchPaintingMetadata(slug, handle, signal) {
-  if (!slug) return null;
-
-  const normalizedHandle = handle && handle !== "anon" ? handle : undefined;
-  const cacheKey = `${normalizedHandle || ""}:${slug}`;
-  if (paintingMetadataCache.has(cacheKey)) {
-    const cached = paintingMetadataCache.get(cacheKey);
-    console.log(`📦 Cache hit for ${cacheKey}:`, cached);
-    return cached;
-  }
+async function loadIdentity() {
+  if (!visiting || disposed) return;
 
   try {
-    const params = new URLSearchParams({ slug });
-    if (normalizedHandle) params.set("handle", normalizedHandle);
-
-    const url = `/api/painting-metadata?${params}`;
-    console.log(`🌐 Fetching metadata from ${url}`);
-    const response = await fetch(url, { signal });
+    const response = await fetch(`/api/profile/${encodeURIComponent(visiting)}`, {
+      headers: { Accept: "application/json" },
+    });
 
     if (!response.ok) {
-      if (response.status === 404) {
-        console.log(`❌ 404: No metadata found for ${cacheKey}`);
-        paintingMetadataCache.set(cacheKey, null);
-        return null;
-      }
-      throw new Error(`HTTP ${response.status}`);
+      profile = null;
+      noprofile = `No profile found for: ${visiting}`;
+      return;
     }
 
     const data = await response.json();
-    console.log(`✅ Metadata fetched for ${cacheKey}:`, data);
-    paintingMetadataCache.set(cacheKey, data);
-    return data;
+    profile = {
+      handle: visiting,
+      sub: data?.sub || null,
+      mood: data?.mood?.mood || null,
+      moodWhen: data?.mood?.when || null,
+    };
+    noprofile = null;
   } catch (error) {
-    if (error.name === "AbortError") throw error;
-    console.warn("Painting metadata request failed:", error);
+    profile = null;
+    noprofile = "Error retrieving profile.";
+    if (debug) console.warn("Profile lookup failed:", error);
+  }
+}
+
+async function loadScorecard() {
+  const handle = visiting;
+  const bare = bareHandle(visiting);
+
+  const [
+    paintingRes,
+    pieceRes,
+    tapeRes,
+    kidlispRes,
+    clockRes,
+    moodRes,
+    chatSystemRes,
+    chatClockRes,
+  ] = await Promise.all([
+    fetchJson(`/media-collection?for=${encodeURIComponent(`${handle}/painting`)}`),
+    fetchJson(`/media-collection?for=${encodeURIComponent(`${handle}/piece`)}`),
+    fetchJson(`/media-collection?for=${encodeURIComponent(`${handle}/tape`)}`),
+    fetchJson(
+      `/api/store-kidlisp?recent=true&limit=30&handle=${encodeURIComponent(handle)}`,
+    ),
+    fetchJson(`/api/store-clock?recent=true&limit=120`),
+    fetchJson(`/api/mood/all?for=${encodeURIComponent(handle)}`),
+    fetchJson(`/api/chat-messages?instance=system&limit=${CHAT_LIMIT}`),
+    fetchJson(`/api/chat-messages?instance=clock&limit=${CHAT_LIMIT}`),
+  ]);
+
+  const paintingFiles = Array.isArray(paintingRes?.files) ? paintingRes.files : [];
+  const pieceFiles = Array.isArray(pieceRes?.files) ? pieceRes.files : [];
+  const tapeFiles = Array.isArray(tapeRes?.files) ? tapeRes.files : [];
+  const kidlispRecent = Array.isArray(kidlispRes?.recent) ? kidlispRes.recent : [];
+  const allClocks = Array.isArray(clockRes?.recent) ? clockRes.recent : [];
+  const clocksForHandle = allClocks.filter((item) => sameHandle(item?.handle, handle));
+  const moodsRaw = Array.isArray(moodRes?.moods) ? moodRes.moods : [];
+  const recentMoods = moodsRaw
+    .filter((item) => sameHandle(item?.handle, handle))
+    .slice(0, MOOD_LIMIT)
+    .map((item) => ({
+      mood: item?.mood || "",
+      when: toTimestamp(item?.when),
+    }));
+  if (recentMoods.length === 0 && profile?.mood) {
+    recentMoods.push({
+      mood: profile.mood,
+      when: toTimestamp(profile.moodWhen) || Date.now(),
+    });
+  }
+  const systemMessages = Array.isArray(chatSystemRes?.messages) ? chatSystemRes.messages : [];
+  const clockMessages = Array.isArray(chatClockRes?.messages) ? chatClockRes.messages : [];
+  const recentChats = [...systemMessages, ...clockMessages]
+    .filter((item) => sameHandle(item?.from, handle))
+    .map((item) => ({
+      from: item?.from || null,
+      text: item?.text || "",
+      when: toTimestamp(item?.when),
+      hearts: item?.hearts || 0,
+    }))
+    .sort((a, b) => (b.when || 0) - (a.when || 0))
+    .slice(0, CHAT_LIMIT);
+
+  const recentPaintings = paintingFiles
+    .map((url) => parsePaintingUrl(url))
+    .filter(Boolean)
+    .sort((a, b) => {
+      if (a.when && b.when) return b.when - a.when;
+      if (a.when) return -1;
+      if (b.when) return 1;
+      return 0;
+    })
+    .slice(0, 8);
+
+  await Promise.all(
+    recentPaintings.slice(0, 6).map(async (painting) => {
+      painting.code = await fetchPaintingCode(painting.slug, bare);
+    }),
+  );
+
+  const recentKidlisp = kidlispRecent.slice(0, 8).map((item) => ({
+    code: item.code,
+    when: toTimestamp(item.when),
+    hits: item.hits || 0,
+  }));
+
+  const recentClocks = clocksForHandle.slice(0, 8).map((item) => ({
+    code: item.code,
+    when: toTimestamp(item.when),
+    hits: item.hits || 0,
+  }));
+
+  const activity = [];
+
+  recentMoods.slice(0, 12).forEach((item) => {
+    if (!item?.mood) return;
+    activity.push({
+      type: "mood",
+      when: item.when,
+      label: `Mood: ${truncate(compact(item.mood), 44)}`,
+    });
+  });
+
+  recentPaintings.forEach((item) => {
+    const label = item.code
+      ? `Painting #${item.code}`
+      : `Painting ${shortSlug(item.slug)}`;
+    activity.push({
+      type: "painting",
+      when: item.when,
+      label,
+      route: `painting~${visiting}/${item.slug}`,
+    });
+  });
+
+  recentKidlisp.forEach((item) => {
+    activity.push({
+      type: "kidlisp",
+      when: item.when,
+      label: `KidLisp $${item.code}`,
+      route: `$${item.code}`,
+    });
+  });
+
+  recentClocks.forEach((item) => {
+    activity.push({
+      type: "clock",
+      when: item.when,
+      label: `Clock *${item.code}`,
+      route: `*${item.code}`,
+    });
+  });
+
+  recentChats.slice(0, 18).forEach((item) => {
+    const text = compact(item.text);
+    if (!text) return;
+    activity.push({
+      type: "chat",
+      when: item.when,
+      label: `Chat: ${truncate(text, 40)}`,
+    });
+  });
+
+  activity.sort((a, b) => {
+    const aWhen = a.when || 0;
+    const bWhen = b.when || 0;
+    return bWhen - aWhen;
+  });
+
+  scorecard = {
+    counts: {
+      paintings: paintingFiles.length,
+      pieces: pieceFiles.length,
+      kidlisp: kidlispRecent.length,
+      clocks: clocksForHandle.length,
+      tapes: tapeFiles.length,
+      moods: recentMoods.length,
+      chats: recentChats.length,
+    },
+    recentMedia: {
+      paintings: recentPaintings,
+      kidlisp: recentKidlisp,
+      clocks: recentClocks,
+      moods: recentMoods.slice(0, 10),
+      chats: recentChats.slice(0, 10),
+    },
+    activity: activity.slice(0, 20),
+    updatedAt: Date.now(),
+  };
+}
+
+function startRefreshLoop() {
+  clearInterval(refreshTimer);
+  refreshTimer = setInterval(() => {
+    if (!disposed) refreshProfile(true);
+  }, REFRESH_MS);
+}
+
+function connectProfileStream() {
+  if (!visiting || disposed) return;
+  closeStatusSocket();
+
+  const url = getProfileStreamUrl();
+  if (!url) return;
+
+  try {
+    statusSocket = new WebSocket(url);
+  } catch (err) {
+    if (debug) console.warn("Could not open profile stream:", err);
+    scheduleReconnect();
+    return;
+  }
+
+  statusSocket.addEventListener("message", (event) => {
+    if (disposed) return;
+
+    try {
+      const msg = JSON.parse(event.data);
+      if (msg?.type === "profile:snapshot" || msg?.type === "presence:update") {
+        applyPresenceSnapshot(msg?.data?.presence);
+        return;
+      }
+      if (msg?.type === "activity:append") {
+        appendActivity(msg?.data?.event);
+        return;
+      }
+      if (msg?.type === "counts:update") {
+        mergeCounts(msg?.data?.counts);
+        return;
+      }
+      if (msg?.type === "counts:delta") {
+        applyCountDelta(msg?.data?.delta);
+        return;
+      }
+      if (msg?.type === "status") {
+        const clients = Array.isArray(msg?.data?.clients) ? msg.data.clients : [];
+        applyPresence(clients);
+      }
+    } catch (err) {
+      if (debug) console.warn("Profile stream parse failure:", err);
+    }
+  });
+
+  statusSocket.addEventListener("close", () => {
+    statusSocket = null;
+    if (!disposed) scheduleReconnect();
+  });
+
+  statusSocket.addEventListener("error", () => {
+    try {
+      statusSocket?.close();
+    } catch (_) {
+      // Ignore close errors.
+    }
+  });
+}
+
+function applyPresence(clients) {
+  const matched = clients.find((client) => sameHandle(client?.handle, visiting));
+
+  if (!matched) {
+    if (presence.online) presence.lastSeenAt = Date.now();
+    presence.online = false;
+    presence.currentPiece = null;
+    presence.worldPiece = null;
+    presence.showing = null;
+    presence.connections = 0;
+    presence.ping = null;
+    return;
+  }
+
+  const world = matched?.websocket?.worlds?.[0] || null;
+
+  presence.online = true;
+  presence.currentPiece = matched.location || null;
+  presence.worldPiece = world?.piece || null;
+  presence.showing = formatShowing(world?.showing);
+  presence.connections = matched?.connectionCount?.total || 1;
+  presence.ping = matched?.websocket?.ping || null;
+  presence.lastSeenAt = Date.now();
+}
+
+function applyPresenceSnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== "object") return;
+
+  const isOnline = !!snapshot.online;
+  if (!isOnline && presence.online) {
+    presence.lastSeenAt = Date.now();
+  }
+
+  presence.online = isOnline;
+  presence.currentPiece = snapshot.currentPiece || null;
+  presence.worldPiece = snapshot.worldPiece || null;
+  presence.showing = formatShowing(snapshot.showing);
+
+  if (snapshot.connections && typeof snapshot.connections === "object") {
+    presence.connections =
+      snapshot.connections.total ||
+      snapshot.connections.websocket ||
+      snapshot.connections.udp ||
+      0;
+  } else {
+    presence.connections = snapshot.connections || 0;
+  }
+
+  presence.ping = snapshot.pingMs || snapshot.ping || null;
+  const fallbackLastSeen = isOnline ? Date.now() : presence.lastSeenAt || null;
+  presence.lastSeenAt = snapshot.lastSeenAt || fallbackLastSeen;
+}
+
+function appendActivity(event) {
+  if (!event || typeof event !== "object") return;
+  const label = compact(event.label || event.text || "");
+  if (!label) return;
+
+  const when = toTimestamp(event.when) || Date.now();
+  scorecard.activity = [{ type: event.type || "event", when, label }, ...scorecard.activity]
+    .sort((a, b) => (b.when || 0) - (a.when || 0))
+    .slice(0, 20);
+}
+
+function mergeCounts(nextCounts) {
+  if (!nextCounts || typeof nextCounts !== "object") return;
+  scorecard.counts = {
+    ...scorecard.counts,
+    ...nextCounts,
+  };
+}
+
+function applyCountDelta(delta) {
+  if (!delta || typeof delta !== "object") return;
+
+  const next = { ...scorecard.counts };
+  for (const [key, value] of Object.entries(delta)) {
+    const amount = Number(value);
+    if (!Number.isFinite(amount)) continue;
+    const previous = Number(next[key] || 0);
+    const updated = previous + amount;
+    next[key] = updated < 0 ? 0 : updated;
+  }
+
+  scorecard.counts = next;
+}
+
+function formatShowing(showing) {
+  if (!showing) return null;
+  if (typeof showing === "string") return truncate(showing, 18);
+  if (showing.slug) return truncate(showing.slug, 18);
+  if (showing.code) return `#${showing.code}`;
+  if (showing.piece) return truncate(showing.piece, 18);
+  if (showing.url) return truncate(`${showing.url}`.split("/").pop() || "", 18);
+  return null;
+}
+
+function getProfileStreamUrl() {
+  const handle = normalizeHandle(visiting);
+  if (!handle) return null;
+
+  const query = `handle=${encodeURIComponent(handle)}`;
+  if (typeof location === "undefined") {
+    return `wss://session-server.aesthetic.computer/profile-stream?${query}`;
+  }
+
+  const host = location.hostname;
+  const isLocal =
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host.endsWith(".local") ||
+    host.endsWith(".localhost");
+
+  if (isLocal) {
+    const protocol = location.protocol === "http:" ? "ws" : "wss";
+    return `${protocol}://localhost:8889/profile-stream?${query}`;
+  }
+
+  return `wss://session-server.aesthetic.computer/profile-stream?${query}`;
+}
+
+function scheduleReconnect() {
+  clearTimeout(reconnectTimer);
+  reconnectTimer = setTimeout(() => {
+    if (!disposed) connectProfileStream();
+  }, RECONNECT_MS);
+}
+
+function closeStatusSocket() {
+  if (!statusSocket) return;
+  try {
+    statusSocket.close();
+  } catch (_) {
+    // Ignore close errors.
+  }
+  statusSocket = null;
+}
+
+function clearTimersAndSocket() {
+  clearInterval(refreshTimer);
+  clearTimeout(reconnectTimer);
+  refreshTimer = null;
+  reconnectTimer = null;
+  closeStatusSocket();
+}
+
+function resetUiState() {
+  noprofileBtn = null;
+  paintingsBtn = null;
+  refreshBtn = null;
+}
+
+async function fetchJson(url) {
+  try {
+    const response = await fetch(url, {
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (err) {
+    if (debug) console.warn("Fetch failed:", url, err);
     return null;
   }
 }
+
+function parsePaintingUrl(url) {
+  if (!url) return null;
+  const clean = `${url}`.split("?")[0];
+  const parts = clean.split("/");
+  const last = parts.pop();
+  if (!last) return null;
+
+  const slug = last.replace(/\.(png|zip)$/i, "");
+  if (!slug) return null;
+
+  return {
+    slug,
+    url,
+    when: timestampFromSlug(slug),
+    code: null,
+  };
+}
+
+async function fetchPaintingCode(slug, bare) {
+  if (!slug || !bare) return null;
+
+  const params = new URLSearchParams({ slug, handle: bare });
+  const data = await fetchJson(`/api/painting-metadata?${params.toString()}`);
+  if (!data?.code) return null;
+  return `${data.code}`.replace(/^#/, "");
+}
+
+function timestampFromSlug(slug) {
+  if (!slug) return null;
+  const base = `${slug}`.split(":")[0];
+  if (!/^\d+$/.test(base)) return null;
+  const maybe = Number(base);
+  if (!Number.isFinite(maybe)) return null;
+  if (maybe < 1000000000) return null;
+  return maybe;
+}
+
+function normalizeHandle(value) {
+  if (!value) return null;
+  const text = `${value}`.trim();
+  if (!text) return null;
+  return text.startsWith("@") ? text : `@${text}`;
+}
+
+function bareHandle(value) {
+  return normalizeHandle(value)?.slice(1) || null;
+}
+
+function sameHandle(a, b) {
+  const left = normalizeHandle(a);
+  const right = normalizeHandle(b);
+  if (!left || !right) return false;
+  return left.toLowerCase() === right.toLowerCase();
+}
+
+function toTimestamp(value) {
+  if (!value) return null;
+  const ts = new Date(value).getTime();
+  if (!Number.isFinite(ts)) return null;
+  return ts;
+}
+
+function formatTimeAgo(when) {
+  const timestamp = typeof when === "number" ? when : toTimestamp(when);
+  if (!timestamp) return "recent";
+
+  const diff = Math.max(0, Date.now() - timestamp);
+  const seconds = Math.floor(diff / 1000);
+  if (seconds < 60) return `${seconds}s ago`;
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+function formatPieceLabel(slug) {
+  if (!slug) return null;
+  const normalized = `${slug}`.trim();
+  if (!normalized) return null;
+  const piece = normalized.split("~")[0];
+  return truncate(piece, 20);
+}
+
+function shortSlug(slug) {
+  if (!slug) return "-";
+  const text = `${slug}`;
+  if (text.length <= 10) return text;
+  return `${text.slice(0, 4)}...${text.slice(-4)}`;
+}
+
+function compact(value) {
+  return `${value || ""}`.replace(/\s+/g, " ").trim();
+}
+
+function truncate(value, max) {
+  const text = `${value || ""}`;
+  if (text.length <= max) return text;
+  return `${text.slice(0, max - 3)}...`;
+}
+
+export { boot, paint, act, sim, leave, meta };
