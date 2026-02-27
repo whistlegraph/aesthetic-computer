@@ -103,15 +103,7 @@
       display: flex;
       justify-content: space-between;
       gap: 12px;
-      align-items: flex-start;
-      flex-wrap: wrap;
-    }
-
-    .hero-meta {
-      display: flex;
       align-items: center;
-      justify-content: flex-end;
-      gap: 8px;
       flex-wrap: wrap;
     }
 
@@ -160,16 +152,6 @@
       line-height: 1.45;
     }
 
-    .status-chip {
-      border: 2px solid var(--line);
-      background: var(--control-bg);
-      border-radius: 999px;
-      padding: 5px 10px;
-      font-size: 11px;
-      white-space: nowrap;
-    }
-
-    .actions,
     .controls {
       display: flex;
       gap: 8px;
@@ -370,8 +352,39 @@
       }
     }
 
+    .footer-wrap {
+      max-width: 1220px;
+      margin: 0 auto;
+      padding: 0 16px 24px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .footer-section h2 { margin-bottom: 12px; }
+
+    .footer-credits {
+      text-align: center;
+      padding: 8px 0;
+    }
+
+    .footer-credits a {
+      color: var(--ink-soft);
+    }
+
+    .checklist-details {
+      margin-top: 12px;
+    }
+
+    .checklist-details summary {
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--ink-soft);
+      padding: 6px 0;
+    }
+
     @media (max-width: 700px) {
       .wrap { padding: 10px; }
+      .footer-wrap { padding: 0 10px 16px; }
       .logo-wrap { width: 62px; height: 62px; }
       .logo-wrap img { width: 50px; }
       h1 { font-size: 30px; }
@@ -391,32 +404,11 @@
             <div class="muted">try page</div>
           </div>
         </div>
-        <div class="hero-meta">
-          <a class="btn" href="https://l5lua.org/" target="_blank" rel="noopener" title="Official L5 docs by l5lua.org">Official L5 Docs</a>
-          <div class="status-chip" id="status-date">status: ...</div>
-        </div>
+        <a class="btn" href="https://l5lua.org/" target="_blank" rel="noopener" title="Official L5 docs by l5lua.org">l5lua.org</a>
       </div>
-      <p class="sub">
-        L5 is a project by the L5 community at
-        <a href="https://l5lua.org/" target="_blank" rel="noopener">l5lua.org</a>.
-        This page is an Aesthetic Computer runtime integration for the L5 library and community.
-      </p>
-      <div class="actions">
-        <a class="btn btn-primary" href="https://l5lua.org/" target="_blank" rel="noopener">Official L5 Docs</a>
-        <a class="btn" href="https://aesthetic.computer/docs/l5:overview">Docs</a>
-        <a class="btn" href="https://aesthetic.computer/docs/l5:checklist">Checklist</a>
-        <a class="btn" href="https://aesthetic.computer/prompt">Prompt</a>
-        <a class="btn" href="https://aesthetic.computer/docs/l5:examples">Examples</a>
-      </div>
-      <p class="muted" style="margin-top:8px;">
-        Official reference and examples come from
-        <a href="https://l5lua.org/" target="_blank" rel="noopener">l5lua.org</a>;
-        integration and playground runtime by Aesthetic Computer.
-      </p>
     </section>
 
     <section class="panel">
-      <h2>Playground</h2>
       <div class="playground">
         <div class="editor-shell">
           <div class="editor-head">
@@ -448,18 +440,24 @@
       </p>
     </section>
 
-    <section class="panel">
-      <h2>Checklist</h2>
-      <div class="checklist-host" id="checklist-host">
-        <p>Loading checklist from <code>https://aesthetic.computer/docs.json</code>...</p>
-      </div>
-    </section>
-
-    <section class="panel">
-      <h2>Docs</h2>
-      <div class="doc-links" id="doc-links"></div>
-    </section>
   </main>
+
+  <footer class="footer-wrap">
+    <section class="panel footer-section">
+      <h2>AC Runtime Integration</h2>
+      <div class="doc-links" id="doc-links"></div>
+      <details class="checklist-details">
+        <summary>Checklist</summary>
+        <div class="checklist-host" id="checklist-host">
+          <p>Loading checklist...</p>
+        </div>
+      </details>
+    </section>
+    <div class="footer-credits muted">
+      <a href="https://l5lua.org/" target="_blank" rel="noopener">L5</a> by the L5 community &middot;
+      Runtime integration by <a href="https://aesthetic.computer" target="_blank" rel="noopener">Aesthetic Computer</a>
+    </div>
+  </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs/loader.min.js"></script>
   <script>
@@ -770,7 +768,6 @@
     async function loadDocsBackedContent() {
       const host = document.getElementById("checklist-host");
       const links = document.getElementById("doc-links");
-      const statusDate = document.getElementById("status-date");
 
       try {
         const res = await fetch(DOCS_JSON_URL, { cache: "no-store" });
@@ -800,11 +797,9 @@
           .map((key) => `<a href=\"${AC_ORIGIN}/docs/l5:${key}\">${escapeHtml(key)}</a>`)
           .join("");
 
-        statusDate.textContent = "status source: /docs/l5:checklist";
       } catch (err) {
         host.innerHTML = `<p>Could not load checklist: ${escapeHtml(String(err.message || err))}</p>`;
         links.innerHTML = "";
-        statusDate.textContent = "status: unavailable";
       }
     }
 
