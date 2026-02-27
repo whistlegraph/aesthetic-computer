@@ -541,13 +541,6 @@ to = "/assets/type/:splat"
 status = 200
 force = true
 
-# Serve pruttipal assets locally (dub output, audio files)
-[[redirects]]
-from = "/assets/pruttipal/*"
-to = "/assets/pruttipal/:splat"
-status = 200
-force = true
-
 # Proxy assets to S3 (DigitalOcean Spaces) - avoids uploading 13GB to Netlify
 [[redirects]]
 from = "/assets/*"
