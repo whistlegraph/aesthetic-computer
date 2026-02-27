@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Try L5 on AC</title>
-  <meta name="description" content="L5 (Processing-style Lua) compatibility board and live playground for Aesthetic Computer." />
+  <meta name="description" content="L5 (Processing-style Lua) live playground and API explorer for Aesthetic Computer." />
   <link rel="icon" type="image/png" href="https://aesthetic.computer/l5.aesthetic.computer/l5-logo-blob.png" />
   <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css" />
   <style>
@@ -87,11 +87,10 @@
     }
 
     .panel {
-      border: 2px solid var(--line);
-      border-radius: 14px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
       background: var(--panel);
-      padding: 14px;
-      box-shadow: 0 3px 0 rgba(0, 0, 0, 0.12);
+      padding: 12px;
     }
 
     .hero {
@@ -118,7 +117,7 @@
       width: 74px;
       height: 74px;
       border-radius: 10px;
-      border: 2px solid var(--line);
+      border: 1px solid var(--line);
       background: radial-gradient(circle at 50% 50%, var(--gold-soft), var(--gold));
       display: grid;
       place-items: center;
@@ -165,9 +164,9 @@
     select {
       text-decoration: none;
       color: var(--ink);
-      border: 2px solid var(--line);
+      border: 1px solid var(--line);
       border-radius: 999px;
-      padding: 7px 12px;
+      padding: 6px 11px;
       font-size: 12px;
       background: var(--control-bg);
       font: inherit;
@@ -198,66 +197,65 @@
       letter-spacing: 0.08em;
     }
 
-    .status-badge {
-      display: inline-block;
-      border: 1px solid currentColor;
-      border-radius: 999px;
-      padding: 1px 8px;
-      font-size: 11px;
-      margin-right: 4px;
-      white-space: nowrap;
-      background: var(--control-bg);
-    }
-
-    .status-done { color: var(--ok); }
-    .status-in-progress { color: var(--warn); }
-    .status-planned { color: var(--todo); }
-
-    .checklist-host table {
-      width: 100%;
-      border-collapse: collapse;
+    .doc-panel {
+      border-top: 1px solid var(--line);
+      padding: 6px 10px;
       font-size: 12px;
-    }
-
-    .checklist-host th,
-    .checklist-host td {
-      text-align: left;
-      vertical-align: top;
-      border: 1px solid var(--line);
-      padding: 7px;
       line-height: 1.45;
+      color: var(--ink-soft);
       background: var(--control-bg);
+      min-height: 28px;
+      display: flex;
+      gap: 12px;
+      align-items: baseline;
+      grid-column: 1 / -1;
     }
 
-    .checklist-host th { background: var(--head-bg); }
+    .doc-panel .doc-sig {
+      color: var(--gold);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
 
-    .checklist-host p {
-      margin: 0 0 8px;
+    .doc-panel .doc-cat {
       color: var(--ink-soft);
-      font-size: 12px;
+      font-size: 11px;
+      opacity: 0.7;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .doc-panel .doc-desc {
+      color: var(--ink);
     }
 
     .playground {
       display: grid;
-      gap: 12px;
       grid-template-columns: 1fr 1fr;
-    }
-
-    .editor-shell,
-    .preview-shell {
-      border: 2px solid var(--line);
+      border: 1px solid var(--line);
       border-radius: 10px;
       overflow: hidden;
       background: var(--control-bg);
-      min-height: 340px;
+      min-height: 380px;
+    }
+
+    .editor-shell {
       display: flex;
       flex-direction: column;
+      border-right: 1px solid var(--line);
+      min-height: 0;
+    }
+
+    .preview-shell {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
     }
 
     .editor-head,
     .preview-head {
-      padding: 6px 10px;
-      border-bottom: 2px solid var(--line);
+      padding: 5px 10px;
+      border-bottom: 1px solid var(--line);
       background: var(--head-bg);
       display: flex;
       flex-wrap: wrap;
@@ -303,7 +301,7 @@
     }
 
     .runtime-status {
-      border-top: 2px solid var(--line);
+      border-top: 1px solid var(--line);
       padding: 5px 10px;
       font-size: 11px;
       color: var(--ink-soft);
@@ -318,33 +316,16 @@
       color: var(--danger);
     }
 
-    .doc-links {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 7px;
-    }
-
-    .doc-links a,
-    .doc-links a:visited {
-      text-decoration: none;
-      color: var(--ink);
-      border: 2px solid var(--line);
-      border-radius: 999px;
-      padding: 5px 9px;
-      font-size: 12px;
-      background: var(--gold);
-    }
-
-    .doc-links a:hover { background: #fff; }
-    @media (prefers-color-scheme: dark) {
-      .doc-links a:hover { background: var(--control-bg); }
-    }
 
     @media (max-width: 820px) {
       .playground {
         grid-template-columns: 1fr;
       }
-      .editor-shell { min-height: 300px; }
+      .editor-shell {
+        border-right: none;
+        border-bottom: 1px solid var(--line);
+        min-height: 300px;
+      }
       .preview-shell { min-height: 280px; }
       #editor, .editor-fallback { min-height: 240px; }
       .preview-host, .preview-host iframe { min-height: 240px; }
@@ -353,12 +334,8 @@
     .footer-wrap {
       max-width: 1220px;
       margin: 0 auto;
-      padding: 0 16px 24px;
-      display: grid;
-      gap: 12px;
+      padding: 0 16px 16px;
     }
-
-    .footer-section h2 { margin-bottom: 12px; }
 
     .footer-credits {
       text-align: center;
@@ -369,20 +346,9 @@
       color: var(--ink-soft);
     }
 
-    .checklist-details {
-      margin-top: 12px;
-    }
-
-    .checklist-details summary {
-      cursor: pointer;
-      font-size: 12px;
-      color: var(--ink-soft);
-      padding: 6px 0;
-    }
-
     @media (max-width: 700px) {
       .wrap { padding: 10px; }
-      .footer-wrap { padding: 0 10px 16px; }
+      .footer-wrap { padding: 0 10px 10px; }
       .logo-wrap { width: 62px; height: 62px; }
       .logo-wrap img { width: 50px; }
       h1 { font-size: 30px; }
@@ -405,58 +371,47 @@
       </div>
     </section>
 
-    <section class="panel">
-      <div class="playground">
-        <div class="editor-shell">
-          <div class="editor-head">
-            <div class="controls">
-              <select id="example-select" aria-label="Choose example"></select>
-              <a id="example-source" class="btn" href="https://l5lua.org/examples/" target="_blank" rel="noopener">Source</a>
-              <button id="reset-btn" type="button">Reset</button>
-              <button id="copy-btn" type="button">Copy</button>
-              <button id="run-btn" class="btn-primary" type="button">Run</button>
-            </div>
+    <section class="playground">
+      <div class="editor-shell">
+        <div class="editor-head">
+          <div class="controls">
+            <select id="example-select" aria-label="Choose example"></select>
+            <a id="example-source" class="btn" href="https://l5lua.org/examples/" target="_blank" rel="noopener">Source</a>
+            <button id="reset-btn" type="button">Reset</button>
+            <button id="copy-btn" type="button">Copy</button>
+            <button id="run-btn" class="btn-primary" type="button">Run</button>
           </div>
-          <div id="editor"></div>
         </div>
-
-        <div class="preview-shell">
-          <div class="preview-head">
-            <a class="btn" href="https://aesthetic.computer/l5-hello.lua" target="_blank" rel="noopener">Open in AC</a>
-          </div>
-          <div class="preview-host">
-            <iframe id="ac-frame" title="L5 runtime preview" loading="eager" allow="autoplay; clipboard-write"></iframe>
-          </div>
-          <div class="runtime-status" id="runtime-status">Booting AC iframe...</div>
-        </div>
+        <div id="editor"></div>
       </div>
-      <p class="muted" style="margin-top:8px;">
-        Live reload on edit. <code>Cmd/Ctrl+Enter</code> to force run. Zoom: <code>Cmd/Ctrl +/-/0</code> in editor.
-      </p>
+
+      <div class="preview-shell">
+        <div class="preview-head">
+          <a class="btn" href="https://aesthetic.computer/l5-hello.lua" target="_blank" rel="noopener">Open in AC</a>
+        </div>
+        <div class="preview-host">
+          <iframe id="ac-frame" title="L5 runtime preview" loading="eager" allow="autoplay; clipboard-write"></iframe>
+        </div>
+        <div class="runtime-status" id="runtime-status">Booting AC iframe...</div>
+      </div>
+      <div class="doc-panel" id="doc-panel">Hover over a function to see its docs.</div>
     </section>
+
+    <p class="muted" style="padding: 0 2px;">
+      Live reload on edit. <code>Cmd/Ctrl+Enter</code> to force run. Zoom: <code>Cmd/Ctrl +/-/0</code> in editor.
+    </p>
 
   </main>
 
   <footer class="footer-wrap">
-    <section class="panel footer-section">
-      <h2>AC Runtime Integration</h2>
-      <div class="doc-links" id="doc-links"></div>
-      <details class="checklist-details">
-        <summary>Checklist</summary>
-        <div class="checklist-host" id="checklist-host">
-          <p>Loading checklist...</p>
-        </div>
-      </details>
-    </section>
     <div class="footer-credits muted">
       <a href="https://l5lua.org/" target="_blank" rel="noopener">L5</a> by the L5 community &middot;
-      Runtime integration by <a href="https://aesthetic.computer" target="_blank" rel="noopener">Aesthetic Computer</a>
+      <a href="https://aesthetic.computer" target="_blank" rel="noopener">Aesthetic Computer</a>
     </div>
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs/loader.min.js"></script>
   <script>
-    const DOCS_JSON_URL = "https://aesthetic.computer/docs.json";
     const AC_ORIGIN = "https://aesthetic.computer";
     const FRAME_SRC = `${AC_ORIGIN}/l5-hello.lua?nogap=true&nolabel=true&noauth=true&popout=true&t=${Date.now()}`;
 
@@ -512,6 +467,101 @@
         code: `local x = 200\nlocal y = 200\nlocal vx = 2\nlocal vy = 3\nlocal radius = 25\nlocal hue = 0\n\nfunction setup()\n  size(400, 400)\n  background(255)\n\n  noStroke()\n  fill(128)\n  rect(0, 0, 100, height)\n  rect(300, 0, 100, height)\n\n  strokeWeight(4)\nend\n\nfunction draw()\n  stroke(hue, 80, 200)\n\n  if x >= 100 and x <= 300 then\n    fill(0)\n  else\n    fill(255)\n  end\n\n  circle(x, y, radius * 2)\n\n  if mouseIsPressed then\n    x = x + vx\n    y = y + vy\n    hue = (hue + 1) % 255\n  end\n\n  if x < radius or x > width - radius then\n    vx = -vx\n  end\n\n  if y < radius or y > height - radius then\n    vy = -vy\n  end\nend`,
       },
     ];
+
+    // L5 API reference — keyed by identifier
+    const L5_DOCS = {
+      // Lifecycle
+      setup:          { sig: "function setup()", desc: "Called once when the sketch starts. Use for initialization, size(), and initial state.", cat: "Lifecycle" },
+      draw:           { sig: "function draw()", desc: "Called every frame. Put your rendering and animation logic here.", cat: "Lifecycle" },
+      keyPressed:     { sig: "function keyPressed()", desc: "Called once when a key is pressed. Use `key` and `keyCode` globals to read which key.", cat: "Lifecycle" },
+      keyReleased:    { sig: "function keyReleased()", desc: "Called once when a key is released.", cat: "Lifecycle" },
+      mousePressed:   { sig: "function mousePressed()", desc: "Called once when the mouse button or touch is pressed.", cat: "Lifecycle" },
+      mouseReleased:  { sig: "function mouseReleased()", desc: "Called once when the mouse button or touch is released.", cat: "Lifecycle" },
+      mouseMoved:     { sig: "function mouseMoved()", desc: "Called when the mouse moves without a button pressed.", cat: "Lifecycle" },
+      mouseDragged:   { sig: "function mouseDragged()", desc: "Called when the mouse moves with a button pressed.", cat: "Lifecycle" },
+
+      // Canvas
+      size:           { sig: "size(w, h?)", desc: "Set the sketch resolution. Call in setup(). Height defaults to width if omitted.", cat: "Canvas" },
+      background:     { sig: "background(r, g?, b?, a?)", desc: "Clear the canvas with a color. Single arg = grayscale. Three args = RGB.", cat: "Graphics" },
+      clear:          { sig: "clear()", desc: "Clear the canvas to transparent black.", cat: "Graphics" },
+
+      // Color & style
+      fill:           { sig: "fill(r, g?, b?, a?)", desc: "Set the fill color for subsequent shapes. Single arg = grayscale.", cat: "Graphics" },
+      noFill:         { sig: "noFill()", desc: "Disable fill for subsequent shapes (outline only).", cat: "Graphics" },
+      stroke:         { sig: "stroke(r, g?, b?, a?)", desc: "Set the stroke (outline) color for subsequent shapes.", cat: "Graphics" },
+      noStroke:       { sig: "noStroke()", desc: "Disable stroke for subsequent shapes (fill only).", cat: "Graphics" },
+      strokeWeight:   { sig: "strokeWeight(weight)", desc: "Set the thickness of lines and shape outlines in pixels.", cat: "Graphics" },
+
+      // Shape primitives
+      point:          { sig: "point(x, y)", desc: "Draw a single pixel at (x, y).", cat: "Graphics" },
+      line:           { sig: "line(x1, y1, x2, y2)", desc: "Draw a line between two points.", cat: "Graphics" },
+      rect:           { sig: "rect(x, y, w, h)", desc: "Draw a rectangle. (x, y) is the top-left corner.", cat: "Graphics" },
+      square:         { sig: "square(x, y, size)", desc: "Draw a square. Shorthand for rect(x, y, size, size).", cat: "Graphics" },
+      circle:         { sig: "circle(x, y, diameter)", desc: "Draw a circle centered at (x, y) with the given diameter.", cat: "Graphics" },
+      ellipse:        { sig: "ellipse(x, y, w, h)", desc: "Draw an ellipse centered at (x, y).", cat: "Graphics" },
+      triangle:       { sig: "triangle(x1, y1, x2, y2, x3, y3)", desc: "Draw a triangle between three points.", cat: "Graphics" },
+      quad:           { sig: "quad(x1, y1, x2, y2, x3, y3, x4, y4)", desc: "Draw a quadrilateral between four points.", cat: "Graphics" },
+
+      // Text
+      text:           { sig: "text(value, x, y)", desc: "Draw text at (x, y). Uses the current fill color.", cat: "Text" },
+      textSize:       { sig: "textSize(size)", desc: "Set the text size scale multiplier.", cat: "Text" },
+      textWidth:      { sig: "textWidth(value) -> number", desc: "Measure the pixel width of a string at the current text size.", cat: "Text" },
+
+      // Loop control
+      frameRate:      { sig: "frameRate(fps)", desc: "Request a target frame rate (frames per second).", cat: "Loop Control" },
+      noLoop:         { sig: "noLoop()", desc: "Stop the draw loop. The sketch freezes on the last frame.", cat: "Loop Control" },
+      loop:           { sig: "loop()", desc: "Resume the draw loop after noLoop().", cat: "Loop Control" },
+      isLooping:      { sig: "isLooping() -> boolean", desc: "Returns true if the draw loop is running.", cat: "Loop Control" },
+      redraw:         { sig: "redraw()", desc: "Request a single draw() call. Useful when looping is off.", cat: "Loop Control" },
+
+      // Input globals
+      mouseX:         { sig: "mouseX", desc: "Current mouse/touch X coordinate.", cat: "Input" },
+      mouseY:         { sig: "mouseY", desc: "Current mouse/touch Y coordinate.", cat: "Input" },
+      pmouseX:        { sig: "pmouseX", desc: "Previous frame mouse X coordinate.", cat: "Input" },
+      pmouseY:        { sig: "pmouseY", desc: "Previous frame mouse Y coordinate.", cat: "Input" },
+      movedX:         { sig: "movedX", desc: "Mouse X movement delta since last frame.", cat: "Input" },
+      movedY:         { sig: "movedY", desc: "Mouse Y movement delta since last frame.", cat: "Input" },
+      mouseIsPressed: { sig: "mouseIsPressed", desc: "True while any mouse button or touch is held down.", cat: "Input" },
+      key:            { sig: "key", desc: "The value of the last key pressed (string).", cat: "Input" },
+      keyCode:        { sig: "keyCode", desc: "The numeric code of the last key pressed.", cat: "Input" },
+      keyIsPressed:   { sig: "keyIsPressed", desc: "True while any key is held down.", cat: "Input" },
+
+      // Frame & screen globals
+      frameCount:     { sig: "frameCount", desc: "Number of frames drawn since the sketch started.", cat: "Screen" },
+      width:          { sig: "width", desc: "Current sketch width in pixels.", cat: "Screen" },
+      height:         { sig: "height", desc: "Current sketch height in pixels.", cat: "Screen" },
+      deltaTime:      { sig: "deltaTime", desc: "Milliseconds elapsed since the last frame.", cat: "Screen" },
+      focused:        { sig: "focused", desc: "Always true in the AC runtime.", cat: "Screen" },
+
+      // Math
+      random:         { sig: "random(max?) or random(min, max)", desc: "Generate a random number. No args = 0..1. One arg = 0..max. Two args = min..max.", cat: "Math" },
+      map:            { sig: "map(value, inMin, inMax, outMin, outMax)", desc: "Remap a number from one range to another.", cat: "Math" },
+      dist:           { sig: "dist(x1, y1, x2, y2) -> number", desc: "Euclidean distance between two points.", cat: "Math" },
+      lerp:           { sig: "lerp(start, stop, amount) -> number", desc: "Linear interpolation between two values. amount is 0..1.", cat: "Math" },
+      constrain:      { sig: "constrain(value, min, max) -> number", desc: "Clamp a value to the range [min, max].", cat: "Math" },
+      radians:        { sig: "radians(degrees) -> number", desc: "Convert degrees to radians.", cat: "Math" },
+      degrees:        { sig: "degrees(radians) -> number", desc: "Convert radians to degrees.", cat: "Math" },
+      millis:         { sig: "millis() -> number", desc: "Milliseconds elapsed since the sketch started.", cat: "Math" },
+
+      // Constants
+      PI:             { sig: "PI = 3.14159...", desc: "The ratio of a circle's circumference to its diameter.", cat: "Constants" },
+      HALF_PI:        { sig: "HALF_PI = PI / 2", desc: "Half of PI (90 degrees in radians).", cat: "Constants" },
+      QUARTER_PI:     { sig: "QUARTER_PI = PI / 4", desc: "Quarter of PI (45 degrees in radians).", cat: "Constants" },
+      TWO_PI:         { sig: "TWO_PI = PI * 2", desc: "Two times PI (360 degrees in radians).", cat: "Constants" },
+      TAU:            { sig: "TAU = PI * 2", desc: "Alias for TWO_PI.", cat: "Constants" },
+      LEFT:           { sig: "LEFT", desc: "Alignment constant for left-aligned text.", cat: "Constants" },
+      RIGHT:          { sig: "RIGHT", desc: "Alignment constant for right-aligned text.", cat: "Constants" },
+      CENTER:         { sig: "CENTER", desc: "Alignment constant for centered text.", cat: "Constants" },
+      CORNER:         { sig: "CORNER", desc: "Shape mode: (x, y) is the top-left corner.", cat: "Constants" },
+      CLOSE:          { sig: "CLOSE", desc: "Used with beginShape/endShape to close the shape.", cat: "Constants" },
+      RGB:            { sig: "RGB", desc: "Color mode constant for red/green/blue.", cat: "Constants" },
+      HSB:            { sig: "HSB", desc: "Color mode constant for hue/saturation/brightness.", cat: "Constants" },
+      HSL:            { sig: "HSL", desc: "Color mode constant for hue/saturation/lightness.", cat: "Constants" },
+
+      // Debug
+      print:          { sig: "print(...args)", desc: "Log values to the browser console.", cat: "Debug" },
+      println:        { sig: "println(...args)", desc: "Log values to the browser console (alias for print).", cat: "Debug" },
+    };
 
     const state = {
       editor: null,
@@ -727,6 +777,11 @@
           fontSize: 13,
           lineHeight: 20,
           scrollBeyondLastLine: false,
+          lineNumbers: "on",
+          glyphMargin: false,
+          folding: false,
+          lineDecorationsWidth: 0,
+          lineNumbersMinChars: 3,
         });
 
         applyEditorTheme();
@@ -765,6 +820,63 @@
           }, 400);
         });
 
+        // Hover provider: show L5 docs on hover
+        monaco.languages.registerHoverProvider("lua", {
+          provideHover(model, position) {
+            const word = model.getWordAtPosition(position);
+            if (!word) return;
+            const doc = L5_DOCS[word.word];
+            if (!doc) return;
+            return {
+              range: new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn),
+              contents: [
+                { value: `**${doc.cat}**` },
+                { value: "```lua\n" + doc.sig + "\n```" },
+                { value: doc.desc },
+              ],
+            };
+          },
+        });
+
+        // Completion provider: suggest L5 functions while typing
+        monaco.languages.registerCompletionItemProvider("lua", {
+          provideCompletionItems() {
+            return {
+              suggestions: Object.entries(L5_DOCS).map(([name, doc]) => ({
+                label: name,
+                kind: doc.sig.includes("(")
+                  ? monaco.languages.CompletionItemKind.Function
+                  : monaco.languages.CompletionItemKind.Variable,
+                insertText: name,
+                detail: doc.sig,
+                documentation: doc.desc,
+              })),
+            };
+          },
+        });
+
+        // Doc panel: update on cursor position change
+        const docPanel = document.getElementById("doc-panel");
+        const defaultDocMsg = "Hover over a function to see its docs.";
+
+        function updateDocPanel(word) {
+          const doc = word ? L5_DOCS[word] : null;
+          if (doc) {
+            docPanel.innerHTML =
+              `<span class="doc-cat">${escapeHtml(doc.cat)}</span>` +
+              `<span class="doc-sig">${escapeHtml(doc.sig)}</span>` +
+              `<span class="doc-desc">${escapeHtml(doc.desc)}</span>`;
+          } else {
+            docPanel.textContent = defaultDocMsg;
+          }
+        }
+
+        state.editor.onDidChangeCursorPosition((e) => {
+          const model = state.editor.getModel();
+          const wordInfo = model.getWordAtPosition(e.position);
+          updateDocPanel(wordInfo?.word || null);
+        });
+
         state.monacoReady = true;
       });
     }
@@ -792,44 +904,6 @@
       frame.src = FRAME_SRC;
     }
 
-    async function loadDocsBackedContent() {
-      const host = document.getElementById("checklist-host");
-      const links = document.getElementById("doc-links");
-
-      try {
-        const res = await fetch(DOCS_JSON_URL, { cache: "no-store" });
-        const raw = await res.text();
-        let docs;
-
-        try {
-          docs = JSON.parse(raw);
-        } catch (_err) {
-          throw new Error(`Unexpected non-JSON response from docs endpoint (status ${res.status}).`);
-        }
-
-        if (!res.ok) {
-          throw new Error(`Docs fetch failed with status ${res.status}.`);
-        }
-
-        const l5 = docs?.api?.l5 || {};
-
-        if (l5.checklist?.body) {
-          host.innerHTML = l5.checklist.body;
-        } else {
-          host.innerHTML = "<p>Checklist not found in docs data.</p>";
-        }
-
-        const keys = Object.keys(l5).sort((a, b) => a.localeCompare(b));
-        links.innerHTML = keys
-          .map((key) => `<a href=\"${AC_ORIGIN}/docs/l5:${key}\">${escapeHtml(key)}</a>`)
-          .join("");
-
-      } catch (err) {
-        host.innerHTML = `<p>Could not load checklist: ${escapeHtml(String(err.message || err))}</p>`;
-        links.innerHTML = "";
-      }
-    }
-
     function initLogoFallback() {
       const img = document.getElementById("brand-logo");
       img.addEventListener("error", () => {
@@ -837,11 +911,39 @@
       }, { once: true });
     }
 
+    // Live reload via session-server WebSocket (dev mode)
+    function initLiveReload() {
+      const isDev = location.hostname === "localhost"
+        || location.hostname.endsWith(".app.github.dev");
+      if (!isDev) return;
+
+      const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+      const wsPort = 8889;
+      const wsUrl = location.hostname.endsWith(".app.github.dev")
+        ? `${protocol}//${location.hostname.replace("-8888", "-" + wsPort)}`
+        : `${protocol}//localhost:${wsPort}`;
+
+      let ws;
+      function connect() {
+        ws = new WebSocket(wsUrl);
+        ws.onmessage = (e) => {
+          try {
+            const msg = JSON.parse(e.data);
+            if (msg.type === "reload" && msg.content?.piece === "*refresh*") {
+              location.reload();
+            }
+          } catch {}
+        };
+        ws.onclose = () => setTimeout(connect, 2000);
+      }
+      connect();
+    }
+
     initLogoFallback();
     initExampleControls();
     initMonacoEditor();
     initIframeRunner();
-    loadDocsBackedContent();
+    initLiveReload();
   </script>
 </body>
 </html>
