@@ -1,11 +1,12 @@
 // Store KidLisp, 2025.01.16
 // Caches KidLisp source code and generates short URLs for QR codes
 
-import { authorize } from "../../backend/authorization.mjs";
+import { authorize, getHandleOrEmail } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 import { generateUniqueCode } from "../../backend/generate-short-code.mjs";
 import { createMediaRecord, MediaTypes } from "../../backend/media-atproto.mjs";
+import { publishProfileEvent } from "../../backend/profile-stream.mjs";
 import crypto from 'crypto';
 
 // Feature flag for Tezos integration (disabled by default until integration file exists)
@@ -147,6 +148,18 @@ export async function handler(event, context) {
         console.log(`🔓 No user authorization (anonymous cache): ${error.message}`);
       }
 
+      let profileHandle = null;
+      if (user?.sub) {
+        try {
+          const handleOrEmail = await getHandleOrEmail(user.sub);
+          if (typeof handleOrEmail === "string" && handleOrEmail.startsWith("@")) {
+            profileHandle = handleOrEmail;
+          }
+        } catch (err) {
+          console.warn("⚠️  Could not resolve profile handle for kidlisp event:", err?.message || err);
+        }
+      }
+
       const hash = crypto.createHash('sha256').update(source.trim()).digest('hex');
       console.log(`🔍 Source hash: ${hash.substring(0, 16)}...`);
       
@@ -199,6 +212,21 @@ export async function handler(event, context) {
       try {
         const insertResult = await collection.insertOne(doc);
         console.log(`💾 Cached new source: ${code}`);
+
+        if (profileHandle) {
+          publishProfileEvent({
+            handle: profileHandle,
+            event: {
+              type: "kidlisp",
+              when: Date.now(),
+              label: `KidLisp $${code}`,
+              ref: code,
+            },
+            countsDelta: { kidlisp: 1 },
+          }).catch((err) => {
+            console.warn("⚠️  kidlisp profile-event publish failed:", err?.message || err);
+          });
+        }
         
         // Sync to ATProto in background (don't wait for it)
         const kidlispId = insertResult.insertedId;

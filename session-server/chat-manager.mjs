@@ -50,6 +50,7 @@ export class ChatManager {
     this.dev = options.dev || false;
     this.filterDebug = options.filterDebug || false;
     this.loggerKey = options.loggerKey || process.env.LOGGER_KEY;
+    this.activityEmitter = options.activityEmitter || null;
     
     // MongoDB
     this.mongoClient = null;
@@ -75,6 +76,19 @@ export class ChatManager {
     }
     
     console.log("💬 ChatManager initialized with instances:", Object.keys(chatInstances).join(", "));
+  }
+
+  setActivityEmitter(emitter) {
+    this.activityEmitter = typeof emitter === "function" ? emitter : null;
+  }
+
+  emitActivity(payload) {
+    if (!this.activityEmitter) return;
+    try {
+      this.activityEmitter(payload);
+    } catch (err) {
+      console.error("💬 Activity emitter failure:", err);
+    }
   }
 
   async init() {
@@ -455,6 +469,25 @@ export class ChatManager {
         instance.messages.push(out);
         if (instance.messages.length > MAX_MESSAGES) instance.messages.shift();
         this.broadcast(instance, this.pack("message", out));
+      }
+
+      if (handle && handle.startsWith("@")) {
+        const compactText = `${filteredText || ""}`.replace(/\s+/g, " ").trim();
+        const preview =
+          compactText.length > 80 ? `${compactText.slice(0, 77)}...` : compactText;
+
+        this.emitActivity({
+          handle,
+          event: {
+            type: "chat",
+            when: when?.getTime?.() || Date.now(),
+            label: `Chat ${instance.config.name.replace("chat-", "")}: ${preview}`,
+            piece: instance.config.name,
+            ref: insertedId || null,
+            text: compactText,
+          },
+          countsDelta: { chats: 1 },
+        });
       }
 
       // Push notification (production only, non-muted, chat-system and chat-clock only)
