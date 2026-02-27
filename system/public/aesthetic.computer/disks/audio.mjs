@@ -13,11 +13,16 @@ import { createScrubber } from "./common/scrub.mjs";
 const STREAM_ID = "audio-player";
 
 // Known tracks
+const CDN = "https://assets.aesthetic.computer";
+function cdnUrl(path) { return CDN + path.replace(/^\/assets/, ""); }
+
 const KNOWN_TRACKS = {
   "jesper-per-english-nova": {
     audio: "/assets/pruttipal/laer-klokken/dub-output/jesper-per-english-nova.mp3",
     subtitles: "/assets/pruttipal/laer-klokken/dub-output/jesper-per-english.json",
     subtitlesAlt: "/assets/pruttipal/laer-klokken/dub-output/jesper-per-danish.json",
+    srt: "/assets/pruttipal/laer-klokken/dub-output/jesper-per-english.srt",
+    srtAlt: "/assets/pruttipal/laer-klokken/dub-output/jesper-per-danish.srt",
     title: "Laer Klokken — Jesper Per (English)",
     langPrimary: "EN",
     langAlt: "DA",
@@ -26,6 +31,8 @@ const KNOWN_TRACKS = {
     audio: "/assets/pruttipal/laer-klokken/jesper%20final.mp3",
     subtitles: "/assets/pruttipal/laer-klokken/dub-output/jesper-per-danish.json",
     subtitlesAlt: "/assets/pruttipal/laer-klokken/dub-output/jesper-per-english.json",
+    srt: "/assets/pruttipal/laer-klokken/dub-output/jesper-per-danish.srt",
+    srtAlt: "/assets/pruttipal/laer-klokken/dub-output/jesper-per-english.srt",
     title: "Laer Klokken — Jesper Per (Dansk)",
     langPrimary: "DA",
     langAlt: "EN",
@@ -40,6 +47,11 @@ let segmentsAlt = [];
 let activeLang = "EN";
 let altLang = null;
 let activeSegment = null;
+let dlAudio = null; // CDN download URLs
+let dlSrt = null;
+let dlSrtAlt = null;
+let dlJson = null;
+let dlJsonAlt = null;
 
 let isPlaying = false;
 let isLoading = false;
@@ -55,6 +67,9 @@ let bars = new Array(32).fill(0);
 // UI
 let playBtn = null;
 let langBtn = null;
+let srtBtn = null;
+let jsonBtn = null;
+let mp3Btn = null;
 let scrubBox = null; // {x, y, w, h} for the scrub bar hit area
 
 // Refs
@@ -74,6 +89,12 @@ function boot({ params, send, ui, screen, hud, net: { preload } }) {
     trackTitle = track.title;
     activeLang = track.langPrimary;
     altLang = track.langAlt;
+    // Download URLs (full CDN paths)
+    dlAudio = cdnUrl(track.audio);
+    dlSrt = track.srt ? cdnUrl(track.srt) : null;
+    dlSrtAlt = track.srtAlt ? cdnUrl(track.srtAlt) : null;
+    dlJson = cdnUrl(track.subtitles);
+    dlJsonAlt = track.subtitlesAlt ? cdnUrl(track.subtitlesAlt) : null;
     // Fetch subtitles via preload (works from worker context)
     preload(track.subtitles)
       .then((data) => { segments = data; })
@@ -96,6 +117,9 @@ function boot({ params, send, ui, screen, hud, net: { preload } }) {
   if (altLang) {
     langBtn = new ui.TextButton(altLang, { right: 6, top: 6, screen });
   }
+  if (dlSrt) srtBtn = new ui.TextButton("SRT", { x: 6, y: 0, screen });
+  if (dlJson) jsonBtn = new ui.TextButton("JSON", { x: 6, y: 0, screen });
+  if (dlAudio) mp3Btn = new ui.TextButton("MP3", { x: 6, y: 0, screen });
 }
 
 function paint({ wipe, ink, screen, line }) {
@@ -209,6 +233,26 @@ function paint({ wipe, ink, screen, line }) {
     const text = activeSegment.text.trim();
     const bounds = screen.width - m * 2 - 8;
     ink(255, 255, 240).write(text, { x: m + 4, y: subY }, undefined, bounds, true);
+    y += 48; // Reserve space for subtitle text
+  }
+
+  // --- Download buttons ---
+  const dlY = screen.height - 20;
+  const dlScheme = [[40, 30, 55], [80, 70, 100], [150, 130, 170]];
+  let dx = m;
+  if (srtBtn) {
+    srtBtn.reposition({ x: dx, y: dlY });
+    srtBtn.paint({ ink }, dlScheme);
+    dx += srtBtn.btn.box.w + 4;
+  }
+  if (jsonBtn) {
+    jsonBtn.reposition({ x: dx, y: dlY });
+    jsonBtn.paint({ ink }, dlScheme);
+    dx += jsonBtn.btn.box.w + 4;
+  }
+  if (mp3Btn) {
+    mp3Btn.reposition({ x: dx, y: dlY });
+    mp3Btn.paint({ ink }, dlScheme);
   }
 }
 
@@ -235,17 +279,20 @@ function act({ event: e, screen, send, jump }) {
   langBtn?.act(e, {
     push: () => {
       if (segmentsAlt.length === 0) return;
-      const tmp = segments;
-      segments = segmentsAlt;
-      segmentsAlt = tmp;
-      const tmpLang = activeLang;
-      activeLang = altLang;
-      altLang = tmpLang;
+      [segments, segmentsAlt] = [segmentsAlt, segments];
+      [activeLang, altLang] = [altLang, activeLang];
+      [dlSrt, dlSrtAlt] = [dlSrtAlt, dlSrt];
+      [dlJson, dlJsonAlt] = [dlJsonAlt, dlJson];
       langBtn.txt = altLang;
       langBtn.reposition({ right: 6, top: 6, screen });
       activeSegment = findSegment(segments, currentTime);
     },
   });
+
+  // Download buttons
+  srtBtn?.act(e, { push: () => jump("out:" + dlSrt) });
+  jsonBtn?.act(e, { push: () => jump("out:" + dlJson) });
+  mp3Btn?.act(e, { push: () => jump("out:" + dlAudio) });
 
   // Scrub bar interaction
   if (scrubBox && e.is("touch")) {
