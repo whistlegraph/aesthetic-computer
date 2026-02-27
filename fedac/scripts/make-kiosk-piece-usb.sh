@@ -367,8 +367,20 @@ fi
 cat > "$ROOTFS_DIR/usr/local/bin/kiosk-session.sh" << 'SESSEOF'
 #!/bin/bash
 # FedAC Kiosk Session — prefer cage (black background, no window animations).
-exec > /tmp/kiosk.log 2>&1
+# Write logs to persistent FEDAC-PIECE partition (readable from another machine)
+PIECE_LOG=""
+PIECE_DEV=$(blkid -L FEDAC-PIECE 2>/dev/null || true)
+if [ -n "$PIECE_DEV" ]; then
+  mkdir -p /mnt/piece
+  mount "$PIECE_DEV" /mnt/piece 2>/dev/null || true
+  if mountpoint -q /mnt/piece 2>/dev/null; then
+    PIECE_LOG="/mnt/piece/kiosk.log"
+  fi
+fi
+LOG="${PIECE_LOG:-/tmp/kiosk.log}"
+exec > "$LOG" 2>&1
 echo "[kiosk] $(date) — kiosk-session.sh starting"
+echo "[kiosk] log file: $LOG"
 export XDG_SESSION_TYPE=wayland
 export XDG_RUNTIME_DIR="/run/user/$(id -u)"
 export MOZ_ENABLE_WAYLAND=1
@@ -404,14 +416,10 @@ cat > "$PROFILE/chrome/userChrome.css" << 'CHROMEEOF'
 }
 CHROMEEOF
 
-# Check for piece on FEDAC-PIECE partition (overlay for base images)
-PIECE_PART=$(blkid -L FEDAC-PIECE 2>/dev/null || true)
-if [ -n "$PIECE_PART" ]; then
-  mkdir -p /mnt/piece
-  mount -o ro "$PIECE_PART" /mnt/piece 2>/dev/null || true
-  if [ -f /mnt/piece/piece.html ]; then
-    ln -sf /mnt/piece/piece.html /usr/local/share/kiosk/piece.html
-  fi
+# Check for piece on FEDAC-PIECE partition (already mounted rw above for logging)
+if [ -f /mnt/piece/piece.html ]; then
+  ln -sf /mnt/piece/piece.html /usr/local/share/kiosk/piece.html
+  echo "[kiosk] found piece.html on FEDAC-PIECE partition"
 fi
 
 # Paint PALS logo to framebuffer (visible during PipeWire/cage startup)
