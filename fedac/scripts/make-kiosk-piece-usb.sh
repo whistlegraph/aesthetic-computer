@@ -332,7 +332,9 @@ echo -e "${CYAN}[3/6] Injecting kiosk config...${NC}"
 mkdir -p "$ROOTFS_DIR/usr/local/share/kiosk"
 cp "$BUNDLE_PATH" "$ROOTFS_DIR/usr/local/share/kiosk/piece.html"
 echo -e "  ${GREEN}Piece bundle installed${NC}"
-KIOSK_PIECE_URL="file:///usr/local/share/kiosk/piece.html?density=${PACK_DENSITY}"
+# Use the local HTTP server (kiosk-piece-server.py on port 8080) so the shell
+# iframe can resolve piece-app.html and API endpoints (/api/volume etc.) work.
+KIOSK_PIECE_URL="http://localhost:8080/piece.html?density=${PACK_DENSITY}"
 
 # NOTE: cage is installed AFTER the rootfs strip step (step 3i) to prevent
 # the dnf remove from accidentally pulling it out as a dependency.
@@ -393,9 +395,14 @@ cat > "$PROFILE/chrome/userChrome.css" << 'CHROMEEOF'
 CHROMEEOF
 
 # Check for piece on FEDAC-PIECE partition (already mounted rw above for logging)
+# Symlink ALL html files — the oven injects piece.html (shell) + piece-app.html (bundle)
+# and the shell iframe needs piece-app.html resolvable from the same directory.
 if [ -f /mnt/piece/piece.html ]; then
-  ln -sf /mnt/piece/piece.html /usr/local/share/kiosk/piece.html
-  echo "[kiosk] found piece.html on FEDAC-PIECE partition"
+  for f in /mnt/piece/*.html; do
+    [ -f "$f" ] && ln -sf "$f" "/usr/local/share/kiosk/$(basename "$f")"
+  done
+  echo "[kiosk] linked piece files from FEDAC-PIECE partition"
+  ls -la /usr/local/share/kiosk/*.html 2>&1
 fi
 
 # Paint PALS logo to framebuffer (visible during PipeWire/cage startup)
@@ -416,6 +423,16 @@ fi
 echo "[kiosk] XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR"
 echo "[kiosk] KIOSK_PIECE_URL=__KIOSK_PIECE_URL__"
 ls -la /usr/local/share/kiosk/ 2>&1 || echo "[kiosk] /usr/local/share/kiosk/ missing"
+
+# Wait for piece server (port 8080) to be ready before launching Firefox.
+for i in $(seq 1 30); do
+  if python3 -c "import socket; s=socket.socket(); s.settimeout(0.5); s.connect(('127.0.0.1',8080)); s.close()" 2>/dev/null; then
+    echo "[kiosk] piece server ready (attempt $i)"
+    break
+  fi
+  echo "[kiosk] waiting for piece server... ($i/30)"
+  sleep 0.5
+done
 
 if command -v cage >/dev/null 2>&1; then
   TTY_DEV="$(tty 2>/dev/null || true)"
@@ -616,6 +633,14 @@ WantedBy=multi-user.target
 SVCEOF
 chroot "$ROOTFS_DIR" /usr/bin/systemctl enable kiosk-volume-keyd.service >/dev/null 2>&1 || true
 echo -e "  ${GREEN}Volume keys mapped (kiosk-volume-keyd)${NC}"
+
+# 3e. Piece server — serves kiosk HTML files + volume API on port 8080.
+cp "$OVERLAY_DIR/kiosk-piece-server.py" "$ROOTFS_DIR/usr/local/bin/kiosk-piece-server.py"
+chmod +x "$ROOTFS_DIR/usr/local/bin/kiosk-piece-server.py"
+cp "$OVERLAY_DIR/kiosk-piece-server.service" "$ROOTFS_DIR/etc/systemd/system/kiosk-piece-server.service"
+cp "$OVERLAY_DIR/kiosk-piece-server.socket" "$ROOTFS_DIR/etc/systemd/system/kiosk-piece-server.socket"
+chroot "$ROOTFS_DIR" /usr/bin/systemctl enable kiosk-piece-server.service >/dev/null 2>&1 || true
+echo -e "  ${GREEN}Piece server installed (port 8080)${NC}"
 
 mkdir -p "$ROOTFS_DIR/home/liveuser"
 cat > "$ROOTFS_DIR/home/liveuser/.bash_profile" << 'BPROFEOF'
