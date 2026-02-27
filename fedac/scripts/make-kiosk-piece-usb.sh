@@ -865,7 +865,7 @@ echo -e "  ${GREEN}Stripped ${SAVED}MB from rootfs ($(numfmt --to=iec $ROOTFS_BE
 echo -e "${CYAN}[4/6] Building EROFS image...${NC}"
 
 EROFS_PATH="$WORK_DIR/squashfs.img"
-mkfs.erofs -zzstd,level=19 -C65536 "$EROFS_PATH" "$ROOTFS_DIR/"
+mkfs.erofs -zzstd,level=3 -C65536 "$EROFS_PATH" "$ROOTFS_DIR/"
 EROFS_SIZE=$(stat -c%s "$EROFS_PATH")
 echo -e "  ${GREEN}EROFS built: $(numfmt --to=iec $EROFS_SIZE)${NC}"
 
