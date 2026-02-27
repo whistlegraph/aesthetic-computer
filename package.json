@@ -27,6 +27,7 @@
     "emacs": "cd micro; npm run emacs",
     "upgrade": "ncu -u",
     "url": "node utilities/generate-local-url.js",
+    "profile:secret:rotate": "node utilities/rotate-profile-stream-secret.mjs",
     "ac": "./aesthetic",
     "admin:udp": "ssh root@157.245.134.225",
     "admin:firebase": "xdg-open https://console.firebase.google.com/?pli=1",
