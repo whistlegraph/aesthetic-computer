@@ -12,7 +12,8 @@
 
 set -g COLONY_DIR (realpath (dirname (status filename)))
 set -g REPO_DIR (realpath "$COLONY_DIR/..")
-set -g SCORE_FILE "$COLONY_DIR/score.md"
+set -g MAIN_SCORE_FILE "$REPO_DIR/SCORE.md"
+set -g ANT_MINDSET_FILE "$COLONY_DIR/mindset-and-rules.md"
 set -g LOG_FILE "$COLONY_DIR/colony.log"
 set -g PHEROMONE_FILE "$COLONY_DIR/pheromones.log"
 set -g BRAIN "$COLONY_DIR/brain.fish"
@@ -74,12 +75,19 @@ function run_ant
         return 1
     end
 
-    # Read the score
-    if not test -f $SCORE_FILE
-        log_msg "ERROR: Score not found at $SCORE_FILE"
+    # Read the score from both sources:
+    # 1) ant-local mindset/rules, 2) main score/tasks
+    if not test -f $ANT_MINDSET_FILE
+        log_msg "ERROR: Ant mindset/rules not found at $ANT_MINDSET_FILE"
         return 1
     end
-    set -l score_content (cat $SCORE_FILE)
+    if not test -f $MAIN_SCORE_FILE
+        log_msg "ERROR: Main score not found at $MAIN_SCORE_FILE"
+        return 1
+    end
+    set -l ant_mindset_content (cat $ANT_MINDSET_FILE | string collect)
+    set -l main_score_content (cat $MAIN_SCORE_FILE | string collect)
+    set -l score_content (string join "\n\n" "$ant_mindset_content" "$main_score_content")
 
     # Read recent pheromones
     set -l recent_pheromones "(none yet)"
