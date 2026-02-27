@@ -26,10 +26,19 @@ window.acElectron = {
   
   // Check if we're in Electron
   isElectron: true,
-  
+
   // Platform info
   platform: process.platform,
+
+  // USB flash support (Linux only)
+  listBlockDevices: () => ipcRenderer.invoke('usb:list-devices'),
+  flashImage: (opts) => ipcRenderer.invoke('usb:flash-image', opts),
 };
+
+// Forward USB flash progress events from main process to window
+ipcRenderer.on('usb:flash-progress', (event, data) => {
+  window.dispatchEvent(new CustomEvent('usb:flash-progress', { detail: data }));
+});
 
 // Also listen for messages from the content and forward them
 // This catches postMessage calls from bios.mjs

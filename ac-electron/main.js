@@ -1952,6 +1952,180 @@ ipcMain.handle('stop-container-aggressive', async () => {
   }
 });
 
+// =============================================================================
+// USB Flash Handlers (Linux only)
+// =============================================================================
+
+ipcMain.handle('usb:list-devices', async () => {
+  console.log('[main] usb:list-devices called');
+  if (process.platform !== 'linux') {
+    return { success: false, error: 'USB flashing is only supported on Linux' };
+  }
+
+  try {
+    const output = await new Promise((resolve, reject) => {
+      const proc = spawn('lsblk', [
+        '-J', '-d', '-o', 'NAME,SIZE,MODEL,TRAN,RM,HOTPLUG,TYPE'
+      ], { stdio: 'pipe' });
+      let stdout = '';
+      let stderr = '';
+      proc.stdout.on('data', (d) => stdout += d.toString());
+      proc.stderr.on('data', (d) => stderr += d.toString());
+      proc.on('close', (code) => {
+        if (code === 0) resolve(stdout);
+        else reject(new Error(`lsblk exited with code ${code}: ${stderr}`));
+      });
+      proc.on('error', (err) => reject(err));
+    });
+
+    const parsed = JSON.parse(output);
+    const devices = (parsed.blockdevices || []).filter(dev =>
+      dev.type === 'disk' &&
+      (dev.tran === 'usb' || dev.rm === true || dev.rm === '1' ||
+       dev.hotplug === true || dev.hotplug === '1')
+    ).map(dev => ({
+      name: dev.name,
+      path: `/dev/${dev.name}`,
+      size: dev.size,
+      model: (dev.model || 'Unknown USB Device').trim(),
+    }));
+
+    console.log('[main] Found USB devices:', devices);
+    return { success: true, devices };
+  } catch (err) {
+    console.error('[main] usb:list-devices error:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('usb:flash-image', async (event, { url, devicePath, filename }) => {
+  console.log('[main] usb:flash-image called:', { url, devicePath, filename });
+  if (process.platform !== 'linux') {
+    return { success: false, error: 'USB flashing is only supported on Linux' };
+  }
+
+  if (!/^\/dev\/sd[a-z]$/.test(devicePath) && !/^\/dev\/nvme\d+n\d+$/.test(devicePath)) {
+    return { success: false, error: `Invalid device path: ${devicePath}` };
+  }
+
+  const sender = event.sender;
+  const tmpFile = path.join(app.getPath('temp'), filename || 'ac-os.img');
+
+  const sendProgress = (stage, percent, message) => {
+    if (!sender.isDestroyed()) {
+      sender.send('usb:flash-progress', { stage, percent, message });
+    }
+  };
+
+  try {
+    // Phase 1: Download image to temp file
+    sendProgress('download', 0, 'Starting download...');
+
+    await new Promise((resolve, reject) => {
+      const file = fs.createWriteStream(tmpFile);
+      const request = net.request(url);
+      let totalBytes = 0;
+      let receivedBytes = 0;
+
+      request.on('response', (response) => {
+        const cl = response.headers['content-length'];
+        totalBytes = parseInt(Array.isArray(cl) ? cl[0] : cl || '0', 10);
+
+        response.on('data', (chunk) => {
+          file.write(chunk);
+          receivedBytes += chunk.length;
+          if (totalBytes > 0) {
+            const pct = Math.round((receivedBytes / totalBytes) * 100);
+            sendProgress('download', pct,
+              `Downloading: ${(receivedBytes / 1e9).toFixed(1)}GB / ${(totalBytes / 1e9).toFixed(1)}GB`);
+          }
+        });
+
+        response.on('end', () => file.end(() => resolve()));
+        response.on('error', (err) => { file.destroy(); reject(err); });
+      });
+
+      request.on('error', (err) => { file.destroy(); reject(err); });
+      request.end();
+    });
+
+    sendProgress('download', 100, 'Download complete');
+
+    // Phase 2: Unmount all partitions on the device
+    sendProgress('unmount', 0, `Unmounting ${devicePath}...`);
+
+    await new Promise((resolve) => {
+      const umount = spawn('sh', ['-c', `umount ${devicePath}* 2>/dev/null`], { stdio: 'pipe' });
+      umount.on('close', () => resolve());
+      umount.on('error', () => resolve());
+    });
+
+    sendProgress('unmount', 100, 'Device unmounted');
+
+    // Phase 3: Flash with dd via pkexec (privilege escalation)
+    sendProgress('write', 0, `Writing to ${devicePath}...`);
+
+    const imageSize = fs.statSync(tmpFile).size;
+
+    await new Promise((resolve, reject) => {
+      const dd = spawn('pkexec', [
+        'dd', `if=${tmpFile}`, `of=${devicePath}`,
+        'bs=4M', 'conv=fsync', 'status=progress'
+      ], { stdio: ['pipe', 'pipe', 'pipe'] });
+
+      let lastPercent = 0;
+
+      dd.stderr.on('data', (data) => {
+        const text = data.toString();
+        const match = text.match(/(\d+)\s+bytes/);
+        if (match && imageSize > 0) {
+          const written = parseInt(match[1], 10);
+          const pct = Math.round((written / imageSize) * 100);
+          if (pct > lastPercent) {
+            lastPercent = pct;
+            sendProgress('write', pct,
+              `Writing: ${(written / 1e9).toFixed(1)}GB / ${(imageSize / 1e9).toFixed(1)}GB`);
+          }
+        }
+      });
+
+      dd.on('close', (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`dd exited with code ${code}`));
+      });
+      dd.on('error', (err) => reject(err));
+    });
+
+    sendProgress('write', 100, 'Write complete');
+
+    // Phase 4: Sync and eject
+    sendProgress('eject', 0, 'Syncing and ejecting...');
+
+    await new Promise((resolve) => {
+      const sync = spawn('sync', [], { stdio: 'pipe' });
+      sync.on('close', () => resolve());
+      sync.on('error', () => resolve());
+    });
+
+    await new Promise((resolve) => {
+      const eject = spawn('eject', [devicePath], { stdio: 'pipe' });
+      eject.on('close', () => resolve());
+      eject.on('error', () => resolve());
+    });
+
+    sendProgress('eject', 100, 'Device ejected safely');
+
+    // Cleanup temp file
+    try { fs.unlinkSync(tmpFile); } catch {}
+
+    return { success: true };
+  } catch (err) {
+    console.error('[main] usb:flash-image error:', err);
+    try { fs.unlinkSync(tmpFile); } catch {}
+    return { success: false, error: err.message };
+  }
+});
+
 ipcMain.handle('open-shell', async () => {
   console.log('[main] open-shell called');
   await openAcPaneWindow();

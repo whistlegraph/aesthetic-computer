@@ -374,6 +374,31 @@ function buildFedOSShellHTML(target) {
     .pill.offline { color: var(--danger); border-color: rgba(255, 155, 180, 0.6); }
     .pill.low { color: var(--warn); border-color: rgba(255, 208, 138, 0.6); }
     .pill.ok { color: var(--ok); border-color: rgba(133, 242, 200, 0.55); }
+    .pill.muted { color: var(--muted); border-color: rgba(169, 155, 199, 0.4); }
+    .vol-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .vol-slider-panel {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface-strong);
+      padding: 10px 14px;
+      display: none;
+      z-index: 40;
+      backdrop-filter: blur(10px);
+      min-width: 160px;
+    }
+    .vol-slider-panel.show { display: block; }
+    .vol-slider-panel input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
     .wifi-toggle {
       border: 1px solid var(--border);
       border-radius: 999px;
@@ -476,6 +501,12 @@ function buildFedOSShellHTML(target) {
     <div class="topbar" aria-live="polite">
       <div class="title">fedos - ${escapedTarget}</div>
       <div class="status-row">
+        <div class="vol-wrap">
+          <div id="status-volume" class="pill" style="cursor:pointer">VOL --</div>
+          <div id="vol-slider-panel" class="vol-slider-panel">
+            <input id="vol-slider" type="range" min="0" max="150" value="50" step="1">
+          </div>
+        </div>
         <div id="status-battery" class="pill">BAT --</div>
         <div id="status-network" class="pill">NET --</div>
         <button id="wifi-toggle" class="wifi-toggle" type="button">WIFI</button>
@@ -500,6 +531,9 @@ function buildFedOSShellHTML(target) {
     (function () {
       const batteryEl = document.getElementById("status-battery");
       const networkEl = document.getElementById("status-network");
+      const volumeEl = document.getElementById("status-volume");
+      const volPanel = document.getElementById("vol-slider-panel");
+      const volSlider = document.getElementById("vol-slider");
       const wifiToggle = document.getElementById("wifi-toggle");
       const wifiPanel = document.getElementById("wifi-panel");
       const wifiMeta = document.getElementById("wifi-meta");
@@ -518,6 +552,7 @@ function buildFedOSShellHTML(target) {
       let wifiAvailable = false;
       let selectedNetwork = null;
       let networks = [];
+      let volDragging = false;
 
       function isEditable(target) {
         if (!target) return false;
@@ -720,6 +755,71 @@ function buildFedOSShellHTML(target) {
         await updateWifiStatus();
       }
 
+      // ── Volume ──
+      function setVolume(level, muted) {
+        if (muted) {
+          volumeEl.textContent = "VOL MUTE";
+          volumeEl.classList.add("muted");
+          volumeEl.classList.remove("ok", "low");
+        } else {
+          const pct = Math.round(level * 100);
+          volumeEl.textContent = "VOL " + pct + "%";
+          volumeEl.classList.remove("muted");
+          volumeEl.classList.toggle("low", pct <= 15);
+          volumeEl.classList.toggle("ok", pct > 15);
+        }
+        if (!volDragging) volSlider.value = Math.round(level * 100);
+      }
+
+      async function fetchVolume() {
+        try {
+          const res = await fetchJSON("/api/volume", {}, 1500);
+          if (res && res.volume != null) setVolume(res.volume, res.muted);
+        } catch {
+          volumeEl.textContent = "VOL N/A";
+        }
+      }
+
+      volumeEl.addEventListener("click", () => {
+        // Toggle mute on click
+        fetch("/api/volume", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mute: "toggle" }),
+        }).then((r) => r.json()).then((d) => {
+          if (d && d.volume != null) setVolume(d.volume, d.muted);
+        }).catch(() => {});
+      });
+
+      volSlider.addEventListener("input", () => {
+        volDragging = true;
+        const vol = volSlider.value / 100;
+        volumeEl.textContent = "VOL " + volSlider.value + "%";
+      });
+
+      volSlider.addEventListener("change", () => {
+        volDragging = false;
+        const vol = (volSlider.value / 100).toFixed(2);
+        fetch("/api/volume", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ volume: vol }),
+        }).then((r) => r.json()).then((d) => {
+          if (d && d.volume != null) setVolume(d.volume, d.muted);
+        }).catch(() => {});
+      });
+
+      // Show/hide slider panel on hover or focus within the vol-wrap
+      const volWrap = volumeEl.parentElement;
+      let volHideTimer = null;
+      volWrap.addEventListener("mouseenter", () => {
+        clearTimeout(volHideTimer);
+        volPanel.classList.add("show");
+      });
+      volWrap.addEventListener("mouseleave", () => {
+        volHideTimer = setTimeout(() => volPanel.classList.remove("show"), 400);
+      });
+
       updateNetworkStatus();
       window.addEventListener("online", updateNetworkStatus);
       window.addEventListener("offline", updateNetworkStatus);
@@ -730,6 +830,8 @@ function buildFedOSShellHTML(target) {
 
       initBattery();
       initWifi();
+      fetchVolume();
+      setInterval(fetchVolume, 5000);
       setInterval(updateWifiStatus, 10000);
     })();
   </script>
