@@ -2129,6 +2129,10 @@ function redirectIfBrandedDomain() {
 let storeRetrievalResolutions = {},
   storeDeletionResolutions = {};
 
+// USB flash support (Electron only)
+let usbDeviceListResolution = null;
+let usbFlashResolution = null;
+
 // There are two instances of Socket that run in parallel...
 let socket, socketStartDelay; // Socket server for each piece.
 
@@ -3409,6 +3413,17 @@ const $commonApi = {
   get devIdentity() { return devIdentity; },
   send,
   platform,
+  // USB flash support (Electron only)
+  usb: {
+    listDevices: () => new Promise((resolve) => {
+      usbDeviceListResolution = resolve;
+      send({ type: "usb:list-devices" });
+    }),
+    flashImage: (opts) => new Promise((resolve) => {
+      usbFlashResolution = resolve;
+      send({ type: "usb:flash-image", content: opts });
+    }),
+  },
   history: [], // Populated when a disk loads and sets the former piece.
   // Trigger background music.
   // Eventually add an "@" style parameter similar to what a stamp system would have.
@@ -10663,6 +10678,36 @@ async function makeFrame({ data: { type, content } }) {
   if (type === "store:deleted") {
     storeDeletionResolutions[content.key]?.(content.data);
     delete storeDeletionResolutions[content.key];
+    return;
+  }
+
+  // USB flash support (Electron only)
+  if (type === "usb:devices-listed") {
+    if (usbDeviceListResolution) {
+      usbDeviceListResolution(content);
+      usbDeviceListResolution = null;
+    }
+    return;
+  }
+
+  if (type === "usb:flash-progress") {
+    actAlerts.push({ name: "usb:flash-progress", ...content });
+    return;
+  }
+
+  if (type === "usb:flash-complete") {
+    if (usbFlashResolution) {
+      usbFlashResolution({ success: true, ...content });
+      usbFlashResolution = null;
+    }
+    return;
+  }
+
+  if (type === "usb:flash-error") {
+    if (usbFlashResolution) {
+      usbFlashResolution({ success: false, error: content.error });
+      usbFlashResolution = null;
+    }
     return;
   }
 

@@ -5227,6 +5227,46 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // USB flash support (Electron only)
+    if (type === "usb:list-devices") {
+      const isElectron = /Electron/i.test(navigator.userAgent || "");
+      if (isElectron && window.acElectron?.listBlockDevices) {
+        window.acElectron.listBlockDevices().then((result) => {
+          send({ type: "usb:devices-listed", content: result });
+        }).catch((err) => {
+          send({ type: "usb:devices-listed", content: { success: false, error: err.message } });
+        });
+      } else {
+        send({ type: "usb:devices-listed", content: { success: false, error: "Not running in Electron" } });
+      }
+      return;
+    }
+
+    if (type === "usb:flash-image") {
+      const isElectron = /Electron/i.test(navigator.userAgent || "");
+      if (isElectron && window.acElectron?.flashImage) {
+        const progressHandler = (e) => {
+          send({ type: "usb:flash-progress", content: e.detail });
+        };
+        window.addEventListener('usb:flash-progress', progressHandler);
+
+        window.acElectron.flashImage(content).then((result) => {
+          window.removeEventListener('usb:flash-progress', progressHandler);
+          if (result.success) {
+            send({ type: "usb:flash-complete", content: result });
+          } else {
+            send({ type: "usb:flash-error", content: { error: result.error } });
+          }
+        }).catch((err) => {
+          window.removeEventListener('usb:flash-progress', progressHandler);
+          send({ type: "usb:flash-error", content: { error: err.message } });
+        });
+      } else {
+        send({ type: "usb:flash-error", content: { error: "Not running in Electron" } });
+      }
+      return;
+    }
+
     if (type === "midi:connect") {
       MIDI.initialize(); // Start 🎹 Detection.
       return;

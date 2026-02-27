@@ -121,6 +121,7 @@ let progressPercentage = 0; // 0-100
 
 // 📦 Pack progress state
 let packProgress = null; // { timeline, startTime, code } or null
+let usbTargetDevice = null; // { name, path, size, model } when flashing to USB in Electron
 
 // Structured pack timeline — each step has an id, label, and status.
 // Steps are marked done/active/skipped as SSE progress events arrive.
@@ -2850,8 +2851,9 @@ async function halt($, text) {
     makeFlash($);
     return true;
   } else if (text === "os" || text.startsWith("os ")) {
-    // Build a bootable FedAC OS ISO for any piece (~3GB download)
-    // SSE progress overlay (like pack), then trigger download without extra tab.
+    // Build a bootable FedAC OS ISO for any piece.
+    // In Electron on Linux: scan USB → build → download → flash → eject.
+    // In browser: build → trigger ISO download (~3GB).
     const pieceRef = (params[0] || "").trim();
     if (!pieceRef || pieceRef === "?" || pieceRef.toLowerCase() === "help") {
       notice("Usage: os piece or os $code", ["red"]);
@@ -2873,8 +2875,41 @@ async function halt($, text) {
       ? `code=${encodeURIComponent(`$${code}`)}`
       : `piece=${encodeURIComponent(code)}`;
 
+    // Detect Electron for direct USB flash support.
+    const isElectron = /Electron/i.test(navigator.userAgent || "");
+    usbTargetDevice = null;
+
+    // In Electron: scan for USB devices before starting the build.
+    if (isElectron) {
+      notice("Scanning for USB devices...", ["cyan"]);
+      needsPaint();
+      try {
+        const devResult = await api.usb.listDevices();
+        if (!devResult.success || !devResult.devices?.length) {
+          notice("No USB devices found — falling back to download", ["yellow"]);
+        } else {
+          const devices = devResult.devices;
+          if (devices.length === 1) {
+            usbTargetDevice = devices[0];
+            notice(`USB: ${usbTargetDevice.model || usbTargetDevice.name} (${usbTargetDevice.size})`, ["cyan"]);
+          } else {
+            // Show all devices — auto-select first one.
+            for (let i = 0; i < devices.length; i++) {
+              notice(`  ${i + 1}. ${devices[i].model || devices[i].name} (${devices[i].size}) ${devices[i].path}`, ["cyan"]);
+            }
+            usbTargetDevice = devices[0];
+            notice(`Using: ${usbTargetDevice.path}`, ["cyan"]);
+          }
+          notice(`Will flash to ${usbTargetDevice.path} after build`, ["lime"]);
+        }
+      } catch (err) {
+        notice("USB scan failed: " + err.message, ["yellow"]);
+      }
+      needsPaint();
+    }
+
     // OS-specific timeline steps (match stage names from os-builder.mjs)
-    const osTimeline = [
+    const osTimelineSteps = [
       { id: 'manifest', label: 'Fetch Manifest', status: 'pending', message: null, time: null },
       { id: 'base', label: 'Verify Base Image', status: 'pending', message: null, time: null },
       { id: 'bundle', label: 'Bundle Piece', status: 'pending', message: null, time: null },
@@ -2884,10 +2919,19 @@ async function halt($, text) {
       { id: 'inject', label: 'Inject Piece', status: 'pending', message: null, time: null },
       { id: 'write-back', label: 'Write Partition', status: 'pending', message: null, time: null },
       { id: 'upload', label: 'Upload to CDN', status: 'pending', message: null, time: null },
-      { id: 'done', label: 'Done!', status: 'pending', message: null, time: null },
     ];
-    advancePackStep(osTimeline, 'manifest', `Building OS ISO for ${displayName}...`);
-    packProgress = { timeline: osTimeline, startTime: performance.now(), code: `OS ${displayName}` };
+    // Add USB flash steps when flashing to USB.
+    if (usbTargetDevice) {
+      osTimelineSteps.push(
+        { id: 'download', label: 'Download Image', status: 'pending', message: null, time: null },
+        { id: 'write-usb', label: 'Write to USB', status: 'pending', message: null, time: null },
+        { id: 'eject', label: 'Eject USB', status: 'pending', message: null, time: null },
+      );
+    }
+    osTimelineSteps.push({ id: 'done', label: 'Done!', status: 'pending', message: null, time: null });
+
+    advancePackStep(osTimelineSteps, 'manifest', `Building OS for ${displayName}...`);
+    packProgress = { timeline: osTimelineSteps, startTime: performance.now(), code: `OS ${displayName}` };
     needsPaint();
 
     try {
@@ -2922,8 +2966,10 @@ async function halt($, text) {
                 needsPaint();
               } else if (currentEventType === 'complete') {
                 result = data;
-                advancePackStep(packProgress.timeline, 'done', 'Done!');
-                finalizePackTimeline(packProgress.timeline);
+                if (!usbTargetDevice) {
+                  advancePackStep(packProgress.timeline, 'done', 'Done!');
+                  finalizePackTimeline(packProgress.timeline);
+                }
                 needsPaint();
               }
             } catch {}
@@ -2949,20 +2995,41 @@ async function halt($, text) {
       if (serverError) throw new Error(serverError);
       if (!result) throw new Error("No result received from OS build API");
 
-      // Use CDN URL from SSE result when available (much faster download).
-      // Falls back to oven direct URL which also sets Content-Disposition: attachment.
       const downloadUrl = result.downloadUrl || `https://oven.aesthetic.computer/os?${bundleParam}`;
       const isoFilename = `${displayName}-os.iso`;
-      send({ type: "download-url", content: { url: downloadUrl, filename: isoFilename } });
 
-      notice(`OS ISO ready for ${displayName} — downloading ~3GB`, ["lime"]);
-      flashColor = [0, 255, 0];
+      if (usbTargetDevice) {
+        // Electron USB flash: download image → write to USB → eject.
+        advancePackStep(packProgress.timeline, 'download', 'Downloading image...');
+        needsPaint();
+        const flashResult = await api.usb.flashImage({
+          url: downloadUrl,
+          devicePath: usbTargetDevice.path,
+          filename: isoFilename,
+        });
+        if (flashResult.success) {
+          advancePackStep(packProgress.timeline, 'done', 'Done!');
+          finalizePackTimeline(packProgress.timeline);
+          needsPaint();
+          notice(`Flashed ${displayName} to ${usbTargetDevice.path}!`, ["lime"]);
+          notice("Remove USB safely.", ["lime"]);
+          flashColor = [0, 255, 0];
+        } else {
+          throw new Error(flashResult.error || "USB flash failed");
+        }
+      } else {
+        // Browser fallback: trigger ISO download.
+        send({ type: "download-url", content: { url: downloadUrl, filename: isoFilename } });
+        notice(`OS ISO ready for ${displayName} — downloading ~3GB`, ["lime"]);
+        flashColor = [0, 255, 0];
+      }
     } catch (err) {
       console.error("OS build error:", err);
       notice("OS build failed: " + err.message, ["red"]);
       flashColor = [255, 0, 0];
     }
 
+    usbTargetDevice = null;
     packProgress = null;
     makeFlash($);
     return true;
@@ -7788,6 +7855,19 @@ function act({
   // 🧪 Temporarily disabled to test noise16 transition
   // if (e.is("dark-mode")) glaze({ on: true });
   // if (e.is("light-mode")) glaze({ on: false });
+
+  // USB flash progress (Electron only) — update the OS timeline.
+  if (e.is("usb:flash-progress") && packProgress) {
+    const { stage, percent, message } = e;
+    if (stage === "download") {
+      advancePackStep(packProgress.timeline, 'download', message || `Downloading... ${percent || 0}%`);
+    } else if (stage === "write") {
+      advancePackStep(packProgress.timeline, 'write-usb', message || `Writing to USB... ${percent || 0}%`);
+    } else if (stage === "eject") {
+      advancePackStep(packProgress.timeline, 'eject', message || 'Ejecting...');
+    }
+    needsPaint();
+  }
 
   // Via vscode extension.
   if (e.is("aesthetic-parent:focused")) {
