@@ -1,18 +1,12 @@
 # Score for Aesthetic.Computer & Pals
 
-*Directed by [@jeffrey](https://prompt.ac/@jeffrey)*
+As implemented on aesthetic.computer and its [various properties](system/public/sitemap.html) of this monorepo.
+
+*And directed by [@jeffrey](https://prompt.ac/@jeffrey)*
 
 <img width="200" src="https://assets.aesthetic.computer/aesthetic-inc/pals.png">
 
-> Implemented on aesthetic.computer and its various properties of this monorepo.
-
-*This is the score. All agents — human and AI — perform from it.*
-
 ---
-
-## The System
-
-Aesthetic Computer (AC) is a creative coding platform designed to function like a **musical instrument**. Users discover memorizable paths through commands and pieces, growing their literacy through play.
 
 ### Architecture
 
@@ -176,36 +170,6 @@ ac-restart            # Restart AC services only
 
 **Notation:**
 - compush — commit, push
-
----
-
-## Current Tasks
-
-> **The Queen ([@jeffrey](https://prompt.ac/@jeffrey)) maintains this list. Agents pick from it.**
-
-### Opener Storage (automatic — @jeffrey's sessions)
-
-When @jeffrey is working, the first prompt of each session is stored to the `openers` MongoDB collection automatically via `ants/store-opener.mjs`. Post-commit hooks also log commit messages there. No ant action needed — this is infrastructure, not a task.
-
-### Tier 1: Safe & Small (ant-appropriate)
-
-- [ ] Run `npm test` and fix any failing tests (one at a time)
-- [ ] Find and fix lint warnings in `system/public/aesthetic.computer/disks/*.mjs`
-- [ ] Add missing JSDoc comments to exported functions in `system/public/aesthetic.computer/lib/`
-- [ ] Check `package.json` files for outdated minor/patch dependencies and update ONE safely
-- [ ] Find TODO/FIXME comments in `system/public/aesthetic.computer/lib/` and resolve simple ones
-
-### Tier 2: Slightly Braver
-
-- [ ] Add a small test for any untested utility function in `shared/`
-- [ ] Improve error messages in KidLisp interpreter for common mistakes
-- [ ] Find dead code (unused exports/functions) and remove it with confidence
-
-### Tier 3: Need Coordination
-
-- [ ] Performance improvements (profile first, discuss approach)
-- [ ] New features (propose in `chat` or GitHub issues)
-- [ ] Architectural changes (needs queen approval)
 
 ---
 
