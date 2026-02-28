@@ -544,9 +544,11 @@ find "$ROOTFS_DIR/usr/share/locale" -mindepth 1 -maxdepth 1 ! -name 'en*' -exec 
 ROOTFS_SIZE=$(du -sm "$ROOTFS_DIR" | awk '{print $1}')
 echo -e "  Rootfs size before compression: ${ROOTFS_SIZE}MB"
 
-# 4d. Build EROFS
+# 4d. Build EROFS (with a fixed UUID so the initramfs can find it via root=UUID=)
 EROFS_PATH="$WORK_DIR/rootfs.erofs"
-mkfs.erofs -zlz4hc,9 -C65536 "$EROFS_PATH" "$ROOTFS_DIR/"
+ROOT_UUID=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || python3 -c "import uuid; print(uuid.uuid4())")
+mkfs.erofs -zlz4hc,9 -C65536 -U "$ROOT_UUID" "$EROFS_PATH" "$ROOTFS_DIR/"
+echo -e "  Root UUID: ${ROOT_UUID}"
 EROFS_SIZE=$(stat -c%s "$EROFS_PATH")
 echo -e "  ${GREEN}EROFS built: $(numfmt --to=iec $EROFS_SIZE)${NC}"
 
@@ -656,7 +658,7 @@ build_target() {
   fi
 
   # GRUB config — Alpine uses direct kernel boot (no live image)
-  cat > "$EFI_MOUNT/EFI/BOOT/grub.cfg" << 'GRUBEOF'
+  cat > "$EFI_MOUNT/EFI/BOOT/grub.cfg" << GRUBEOF
 set default=0
 set timeout=0
 insmod all_video
@@ -668,7 +670,7 @@ set gfxpayload=keep
 terminal_input console
 terminal_output gfxterm
 menuentry "FedOS Alpine" {
-  linux /boot/vmlinuz root=PARTLABEL=ROOT rootfstype=erofs ro quiet loglevel=0 mitigations=off
+  linux /boot/vmlinuz root=UUID=${ROOT_UUID} rootfstype=erofs ro quiet loglevel=0 mitigations=off
   initrd /boot/initramfs
 }
 GRUBEOF
