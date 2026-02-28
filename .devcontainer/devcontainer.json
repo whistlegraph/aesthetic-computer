@@ -44,6 +44,9 @@
   // aesthetic-fish-data: Fish shell history, completions cache
   //                      Named volume so shell history persists across rebuilds
   //
+  // aesthetic-mail-data: Local Maildir cache for mu4e/mbsync (~/.mail)
+  //                      Named volume so synced mail survives rebuilds
+  //
   // aesthetic-copilot-data: Claude/Copilot CLI session data
   //                         Persists auth tokens and conversation history
   //
@@ -63,6 +66,7 @@
     "source=${localEnv:HOME}${localEnv:USERPROFILE}/.codex,target=/home/me/.codex,type=bind,consistency=cached",
     "source=aesthetic-mkcert-ca,target=/home/me/.local/share/mkcert,type=volume",
     "source=aesthetic-fish-data,target=/home/me/.local/share/fish,type=volume",
+    "source=aesthetic-mail-data,target=/home/me/.mail,type=volume",
     "source=aesthetic-copilot-data,target=/home/me/.copilot,type=volume",
     "source=/var/run/docker.sock,target=/var/run/docker-host.sock,type=bind",
     "type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock"

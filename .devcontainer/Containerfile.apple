@@ -28,6 +28,8 @@ RUN dnf update -y && \
       git gh gcc gcc-c++ clang make cmake \
       python3.11 python3.11-devel python3-pip python3-devel \
       emacs-nox fish util-linux-user util-linux-script sshpass \
+      isync maildir-utils notmuch msmtp \
+      gnupg2 pinentry \
       openssl openssl-devel awscli redis \
       dnf-plugins-core iproute nmap-ncat \
       inotify-tools wget curl tar gzip bzip2 \
