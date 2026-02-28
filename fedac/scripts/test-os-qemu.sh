@@ -122,7 +122,7 @@ QEMU_ARGS=(
   -machine q35
   -cpu qemu64
   -m "$RAM_MB"
-  -bios "$OVMF"
+  -drive "if=pflash,format=raw,readonly=on,file=$OVMF"
   -drive "file=$IMG,format=raw,if=virtio"
   -device virtio-vga
   -device virtio-net-pci,netdev=net0
