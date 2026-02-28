@@ -488,9 +488,20 @@ if [ -f "$ROOTFS_DIR/etc/mkinitfs/mkinitfs.conf" ]; then
   sed -i '/^features=/ s/"$/ erofs"/' "$ROOTFS_DIR/etc/mkinitfs/mkinitfs.conf"
 fi
 # Regenerate initramfs with erofs module included
+# mkinitfs needs /proc mounted in the chroot to work properly
 KVER=$(ls "$ROOTFS_DIR/lib/modules/" 2>/dev/null | head -1)
 if [ -n "$KVER" ]; then
-  chroot "$ROOTFS_DIR" mkinitfs -o /boot/initramfs-lts "$KVER" 2>/dev/null || true
+  mount -t proc none "$ROOTFS_DIR/proc" 2>/dev/null || true
+  mount -t sysfs none "$ROOTFS_DIR/sys" 2>/dev/null || true
+  chroot "$ROOTFS_DIR" mkinitfs -o /boot/initramfs-lts "$KVER"
+  umount "$ROOTFS_DIR/proc" 2>/dev/null || true
+  umount "$ROOTFS_DIR/sys" 2>/dev/null || true
+  # Verify erofs module is actually in the initramfs
+  if command -v lsinitramfs >/dev/null 2>&1; then
+    lsinitramfs "$ROOTFS_DIR/boot/initramfs-lts" 2>/dev/null | grep -q erofs && \
+      echo -e "  ${GREEN}Initramfs contains erofs module${NC}" || \
+      echo -e "  ${YELLOW}Warning: erofs module not found in initramfs${NC}"
+  fi
   echo -e "  ${GREEN}Initramfs regenerated with EROFS support${NC}"
 fi
 
@@ -670,7 +681,7 @@ set gfxpayload=keep
 terminal_input console
 terminal_output gfxterm
 menuentry "FedOS Alpine" {
-  linux /boot/vmlinuz root=UUID=${ROOT_UUID} rootfstype=erofs ro quiet loglevel=0 mitigations=off
+  linux /boot/vmlinuz root=UUID=${ROOT_UUID} rootfstype=erofs modules=erofs ro quiet loglevel=0 mitigations=off
   initrd /boot/initramfs
 }
 GRUBEOF
