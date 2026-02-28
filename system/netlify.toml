@@ -1000,6 +1000,11 @@ to = "/l5.aesthetic.computer/:splat"
 status = 200
 force = true
 [[redirects]]
+from = "https://l5.aesthetic.computer/aesthetic.computer/*"
+to = "/aesthetic.computer/:splat"
+status = 200
+force = true
+[[redirects]]
 from = "https://l5.aesthetic.computer/*"
 to = "/l5.aesthetic.computer/index.html"
 status = 200
@@ -1025,6 +1030,11 @@ to = "/processing.aesthetic.computer/:splat"
 status = 200
 force = true
 [[redirects]]
+from = "https://processing.aesthetic.computer/aesthetic.computer/*"
+to = "/aesthetic.computer/:splat"
+status = 200
+force = true
+[[redirects]]
 from = "https://processing.aesthetic.computer/*"
 to = "/processing.aesthetic.computer/index.html"
 status = 200
@@ -1047,6 +1057,11 @@ force = true
 [[redirects]]
 from = "https://p5.aesthetic.computer/processing.aesthetic.computer/*"
 to = "/processing.aesthetic.computer/:splat"
+status = 200
+force = true
+[[redirects]]
+from = "https://p5.aesthetic.computer/aesthetic.computer/*"
+to = "/aesthetic.computer/:splat"
 status = 200
 force = true
 [[redirects]]
