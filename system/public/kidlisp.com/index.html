@@ -1589,83 +1589,102 @@
     }
     
     /* Popped-out state - dark overlay with channel info */
-    .preview-iframe-container.popped-out {
-      position: relative;
-    }
-    
-    .preview-iframe-container.popped-out::before {
-      content: '';
+    /* PJ dropdown popover */
+    .pj-dropdown {
       position: absolute;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.85);
-      z-index: 50;
-      pointer-events: none;
-    }
-    
-    .preview-iframe-container.popped-out::after {
-      content: 'Preview in pop-out window';
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      z-index: 51;
-      color: rgba(255, 255, 255, 0.6);
+      top: 100%;
+      right: 0;
+      z-index: 200;
+      width: 200px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+      padding: 10px;
       font-family: monospace;
-      font-size: 14px;
-      pointer-events: none;
-      text-align: center;
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
     }
-    
-    .popout-overlay {
-      display: none;
-      position: absolute;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.9);
-      z-index: 100;
+    .pj-dropdown.hidden { display: none; }
+    .pj-dropdown-header {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .pj-dropdown-channel {
+      font-weight: 700;
+      color: rgb(205, 92, 155);
+      cursor: pointer;
+    }
+    .pj-dropdown-channel:hover { text-decoration: underline; }
+    .pj-dropdown-viewers {
+      color: var(--text-secondary, #888);
+      font-size: 11px;
+    }
+    .pj-dropdown-stop {
+      width: 100%;
+      padding: 5px 0;
+      background: rgba(205, 92, 155, 0.12);
+      border: 1px solid rgba(205, 92, 155, 0.4);
+      color: rgb(205, 92, 155);
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: monospace;
+      font-size: 11px;
+      transition: background 0.15s;
+    }
+    .pj-dropdown-stop:hover { background: rgba(205, 92, 155, 0.25); }
+
+    /* Jockey tab content */
+    .jockey-panel {
+      display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 16px;
-      color: white;
+      gap: 12px;
+      padding: 16px;
+      height: 100%;
       font-family: monospace;
+      font-size: 13px;
+      color: var(--text-primary);
+      text-align: center;
     }
-    
-    .preview-iframe-container.popped-out .popout-overlay {
-      display: flex;
-    }
-    
-    .popout-overlay-icon {
-      width: 48px;
-      height: 48px;
+    .jockey-channel {
+      font-size: 18px;
+      font-weight: 700;
       color: rgb(205, 92, 155);
+      cursor: pointer;
     }
-    
-    .popout-overlay-text {
-      font-size: 14px;
-      opacity: 0.8;
+    .jockey-channel:hover { text-decoration: underline; }
+    .jockey-viewers {
+      font-size: 13px;
+      color: var(--text-secondary, #888);
     }
-    
-    .popout-overlay-channel {
-      font-size: 16px;
+    .jockey-url {
+      font-size: 11px;
+      color: var(--text-secondary, #888);
+      word-break: break-all;
+      cursor: pointer;
+    }
+    .jockey-url:hover { color: rgb(205, 92, 155); }
+    .jockey-stop {
+      padding: 6px 16px;
+      background: rgba(205, 92, 155, 0.12);
+      border: 1px solid rgba(205, 92, 155, 0.4);
       color: rgb(205, 92, 155);
-      font-weight: bold;
-    }
-    
-    .popout-overlay-btn {
-      margin-top: 8px;
-      padding: 8px 16px;
-      background: rgba(205, 92, 155, 0.2);
-      border: 1px solid rgb(205, 92, 155);
-      color: white;
-      font-family: monospace;
-      font-size: 12px;
       border-radius: 4px;
       cursor: pointer;
-      transition: background 0.2s;
+      font-family: monospace;
+      font-size: 12px;
     }
-    
-    .popout-overlay-btn:hover {
-      background: rgba(205, 92, 155, 0.4);
+    .jockey-stop:hover { background: rgba(205, 92, 155, 0.25); }
+    .jockey-off {
+      color: var(--text-secondary, #888);
+      font-size: 12px;
     }
 
     /* Pixel rulers for paused state (Photoshop-style) - all 4 sides */
@@ -3878,6 +3897,7 @@
     :root.dark #history-content:not(.hidden) { background: linear-gradient(to bottom, rgba(180, 130, 90, 0.4) 0%, rgba(180, 130, 90, 0.1) 40%, transparent 100%); }
     :root.dark #keeps-content:not(.hidden) { background: linear-gradient(to bottom, rgba(150, 150, 150, 0.35) 0%, rgba(150, 150, 150, 0.1) 40%, transparent 100%); }
     :root.dark #jukebox-content:not(.hidden) { background: linear-gradient(to bottom, rgba(236, 72, 153, 0.4) 0%, rgba(236, 72, 153, 0.1) 40%, transparent 100%); }
+    :root.dark #jockey-content:not(.hidden) { background: linear-gradient(to bottom, rgba(205, 92, 155, 0.35) 0%, rgba(205, 92, 155, 0.1) 40%, transparent 100%); }
     :root.dark #reference-content:not(.hidden) { background: linear-gradient(to bottom, rgba(34, 197, 94, 0.45) 0%, rgba(34, 197, 94, 0.1) 40%, transparent 100%); }
 
     /* List Tab - Yellow (like old Top Hits) */
@@ -4838,6 +4858,7 @@
     #history-content:not(.hidden) { background: linear-gradient(to bottom, rgba(180, 130, 90, 0.4) 0%, rgba(180, 130, 90, 0.1) 40%, transparent 100%); }
     #keeps-content:not(.hidden) { background: linear-gradient(to bottom, rgba(120, 120, 120, 0.3) 0%, rgba(120, 120, 120, 0.08) 40%, transparent 100%); }
     #jukebox-content:not(.hidden) { background: linear-gradient(to bottom, rgba(236, 72, 153, 0.4) 0%, rgba(236, 72, 153, 0.1) 40%, transparent 100%); }
+    #jockey-content:not(.hidden) { background: linear-gradient(to bottom, rgba(205, 92, 155, 0.3) 0%, rgba(205, 92, 155, 0.08) 40%, transparent 100%); }
     #reference-content:not(.hidden) { background: linear-gradient(to bottom, rgba(34, 197, 94, 0.45) 0%, rgba(34, 197, 94, 0.1) 40%, transparent 100%); }
 
     #examples-content > div,
@@ -8903,17 +8924,27 @@
               -->
             </div>
           </div>
-          <button id="popout-btn" class="popout-btn" title="Broadcast to PJ window" aria-label="Broadcast to PJ window">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4.9 16.1C1 12.2 1 5.8 4.9 1.9"/>
-              <path d="M7.8 4.7a6.14 6.14 0 0 0-.8 7.5"/>
-              <circle cx="12" cy="9" r="2"/>
-              <path d="M16.2 4.7c2 2.3 2.4 5.5.8 7.5"/>
-              <path d="M19.1 1.9a12.98 12.98 0 0 1 0 14.2"/>
-              <path d="M12 11v11"/>
-              <path d="M8 22h8"/>
-            </svg>
-          </button>
+          <div style="position: relative;">
+            <button id="popout-btn" class="popout-btn" title="Start PJ broadcast" aria-label="Toggle PJ broadcast">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4.9 16.1C1 12.2 1 5.8 4.9 1.9"/>
+                <path d="M7.8 4.7a6.14 6.14 0 0 0-.8 7.5"/>
+                <circle cx="12" cy="9" r="2"/>
+                <path d="M16.2 4.7c2 2.3 2.4 5.5.8 7.5"/>
+                <path d="M19.1 1.9a12.98 12.98 0 0 1 0 14.2"/>
+                <path d="M12 11v11"/>
+                <path d="M8 22h8"/>
+              </svg>
+            </button>
+            <div class="pj-dropdown hidden" id="pj-dropdown">
+              <div class="pj-dropdown-header">
+                <span class="pj-dropdown-channel" id="pj-dropdown-channel" title="Click to copy URL">—</span>
+                <span class="pj-dropdown-viewers" id="pj-dropdown-viewers">0 viewers</span>
+              </div>
+              <canvas id="pj-dropdown-qr" width="120" height="120" style="image-rendering: pixelated; cursor: pointer;" title="Click to copy URL"></canvas>
+              <button class="pj-dropdown-stop" id="pj-dropdown-stop">Stop Broadcasting</button>
+            </div>
+          </div>
           <img id="preview-qr" src="" alt="QR Code" title="Click to enlarge" style="display: none; width: auto; image-rendering: pixelated;" />
           <div id="header-auth-buttons" class="header-auth-buttons" style="display: none;">
             <button id="header-login-btn" class="header-login-btn">Log in</button>
@@ -8992,22 +9023,7 @@
           </div>
 
           <iframe id="preview-iframe" frameborder="0"></iframe>
-          <!-- PJ overlay (shown when broadcasting to PJ window) -->
-          <div class="popout-overlay" id="popout-overlay">
-            <svg class="popout-overlay-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4.9 16.1C1 12.2 1 5.8 4.9 1.9"/>
-              <path d="M7.8 4.7a6.14 6.14 0 0 0-.8 7.5"/>
-              <circle cx="12" cy="9" r="2"/>
-              <path d="M16.2 4.7c2 2.3 2.4 5.5.8 7.5"/>
-              <path d="M19.1 1.9a12.98 12.98 0 0 1 0 14.2"/>
-              <path d="M12 11v11"/>
-              <path d="M8 22h8"/>
-            </svg>
-            <div class="popout-overlay-text">Broadcasting to PJ</div>
-            <canvas id="pj-qr-canvas" style="image-rendering: pixelated; border: 2px solid white; cursor: pointer;" title="Click to copy URL"></canvas>
-            <div class="popout-overlay-channel" id="popout-overlay-channel" style="cursor: pointer;" title="Click to copy URL"></div>
-            <button class="popout-overlay-btn" id="focus-popout-btn">Focus Window</button>
-          </div>
+          <!-- (PJ overlay removed — preview stays local, dropdown handles QR/info) -->
           <!-- Pixel rulers (shown when paused) - all 4 sides -->
           <div class="preview-rulers" id="preview-rulers">
             <!-- Corners -->
@@ -9053,6 +9069,7 @@
           <div class="tab active" data-tab="guide" id="guide-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">Learn</div>
           <div class="tab" data-tab="list" id="list-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">List</div>
           <div class="tab" data-tab="jukebox" id="jukebox-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">Music</div>
+          <div class="tab" data-tab="jockey" id="jockey-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">Jockey</div>
         </div>
         <!-- Console content (shown in mobile single-column mode) -->
         <div class="docs-content hidden" id="mobile-console-content">
@@ -9240,6 +9257,18 @@ s("ape_breaks_3").loopAt(2)</textarea>
           <!-- Status -->
           <div class="jukebox-status" id="jukebox-status"></div>
         </div><!-- /jukebox-content -->
+        <div class="docs-content hidden" id="jockey-content">
+          <div class="jockey-panel" id="jockey-panel">
+            <div class="jockey-off" id="jockey-off-msg">PJ is off. Click the antenna to start broadcasting.</div>
+            <div id="jockey-live" style="display: none; flex-direction: column; align-items: center; gap: 10px;">
+              <div class="jockey-channel" id="jockey-channel" title="Click to copy URL">—</div>
+              <canvas id="jockey-qr" width="160" height="160" style="image-rendering: pixelated; cursor: pointer; border: 2px solid rgb(205,92,155);" title="Click to copy URL"></canvas>
+              <div class="jockey-url" id="jockey-url" title="Click to copy URL"></div>
+              <div class="jockey-viewers" id="jockey-viewers">0 viewers</div>
+              <button class="jockey-stop" id="jockey-stop">Stop Broadcasting</button>
+            </div>
+          </div>
+        </div>
         <div class="docs-content hidden" id="reference-content">
           <div id="book-container"></div>
         </div>
@@ -18754,31 +18783,35 @@ s("ape_breaks_3").loopAt(2)</textarea>
     const guideContent = document.getElementById('guide-content');
     const listContent = document.getElementById('list-content');
     const jukeboxContent = document.getElementById('jukebox-content');
+    const jockeyContent = document.getElementById('jockey-content');
     const mobileConsoleContent = document.getElementById('mobile-console-content');
     const codeTab = document.getElementById('reference-tab');
     const guideTab = document.getElementById('guide-tab');
     const listTab = document.getElementById('list-tab');
     const jukeboxTab = document.getElementById('jukebox-tab');
+    const jockeyTab = document.getElementById('jockey-tab');
     const consoleTab = document.getElementById('console-tab');
     let examplesLoaded = false;
     let recentLoaded = false;
     let currentListSubtab = 'examples'; // Track which subtab is active
-    
+
     // Helper to hide all tab contents
     function hideAllTabContents() {
       referenceContent?.classList.add('hidden');
       guideContent?.classList.add('hidden');
       listContent?.classList.add('hidden');
       jukeboxContent?.classList.add('hidden');
+      jockeyContent?.classList.add('hidden');
       mobileConsoleContent?.classList.add('hidden');
     }
-    
+
     // Helper to deactivate all tabs
     function deactivateAllTabs() {
       codeTab?.classList.remove('active');
       guideTab?.classList.remove('active');
       listTab?.classList.remove('active');
       jukeboxTab?.classList.remove('active');
+      jockeyTab?.classList.remove('active');
       consoleTab?.classList.remove('active');
     }
     
@@ -18912,6 +18945,17 @@ s("ape_breaks_3").loopAt(2)</textarea>
         }
       });
       
+      jockeyTab?.addEventListener('click', function(e) {
+        e.stopPropagation();
+        e.preventDefault();
+        deactivateAllTabs();
+        hideAllTabContents();
+        jockeyTab.classList.add('active');
+        jockeyContent.classList.remove('hidden');
+        expandReferencePanelOnMobile();
+        updateJockeyPanel();
+      });
+
       // List sub-tab click handlers
       document.querySelectorAll('.list-subtab').forEach(subtab => {
         subtab.addEventListener('click', function(e) {
@@ -22351,13 +22395,11 @@ s("ape_breaks_3").loopAt(2)</textarea>
     }, 500);
 
     // ==========================================
-    // Pop-out Window Feature with Code Channel
+    // PJ Broadcasting (silent background sync)
     // ==========================================
-    
-    let popoutWindow = null;
+
     let codeChannelId = null;
-    let isVSCodePopout = false; // Track if pop-out was opened via VS Code (external browser)
-    let isBroadcasting = false; // Track if actively broadcasting (even if popup blocked)
+    let isBroadcasting = false;
     const logPj = (...args) => console.log('🧩 PJ:', ...args);
     
     // PJ WebSocket - prefers production, falls back to localhost
@@ -22383,9 +22425,22 @@ s("ape_breaks_3").loopAt(2)</textarea>
             pjWs.send(JSON.stringify({ type: 'code-channel:sub', content: pjWsPendingChannel }));
             pjWsPendingChannel = null;
           }
-          // Update display to show correct URL
-          updateCodeChannelDisplay();
-          
+          updatePjUI();
+
+          // Handle viewer count responses
+          pjWs.onmessage = (e) => {
+            try {
+              const msg = JSON.parse(e.data);
+              if (msg.type === 'code-channel:info' && msg.content) {
+                const count = msg.content.viewers || 0;
+                const ddViewers = document.getElementById('pj-dropdown-viewers');
+                const jockeyViewers = document.getElementById('jockey-viewers');
+                if (ddViewers) ddViewers.textContent = `${count} viewer${count !== 1 ? 's' : ''}`;
+                if (jockeyViewers) jockeyViewers.textContent = `${count} viewer${count !== 1 ? 's' : ''}`;
+              }
+            } catch (err) {}
+          };
+
           // Send current code to server for late joiners (if playing)
           if (codeChannelId && isPlaying && editor) {
             const code = editor.getValue().trim();
@@ -22524,77 +22579,28 @@ s("ape_breaks_3").loopAt(2)</textarea>
     
     const popoutBtn = document.getElementById('popout-btn');
     const previewIframeContainer = document.getElementById('preview-iframe-container');
-    const popoutOverlay = document.getElementById('popout-overlay');
-    const popoutOverlayChannel = document.getElementById('popout-overlay-channel');
-    const focusPopoutBtn = document.getElementById('focus-popout-btn');
-    
-    // Focus popout button handler
-    focusPopoutBtn?.addEventListener('click', () => {
-      if (popoutWindow && !popoutWindow.closed) {
-        popoutWindow.focus();
-      }
-    });
-    
-    // Generate a pronounceable PJ channel code (CVCV pattern like clock's codes)
-    // Examples: bako, milu, dena, tofi → pj.kidlisp.com/bako
+    const pjDropdown = document.getElementById('pj-dropdown');
+    let pjViewerPollInterval = null;
+
+    // Generate a pronounceable PJ channel code (CVCV pattern)
     function generateCodeChannelId() {
-      const consonants = 'bdfghjklmnprstvwz'; // 17 easy consonants
-      const vowels = 'aeiou'; // 5 vowels
+      const consonants = 'bdfghjklmnprstvwz';
+      const vowels = 'aeiou';
       const pick = (str) => str[Math.floor(Math.random() * str.length)];
-      // CVCV pattern: 4 chars, pronounceable
       return pick(consonants) + pick(vowels) + pick(consonants) + pick(vowels);
     }
-    
-    // Update the PJ overlay (shown when casting)
-    function updateCodeChannelDisplay() {
-      // Show overlay if we have an active PJ session (window open, VS Code mode, or broadcasting)
-      const hasActivePjWindow = codeChannelId && (
-        (popoutWindow && !popoutWindow.closed) || 
-        isVSCodePopout ||
-        isBroadcasting
-      );
-      
-      console.log('📺 updateCodeChannelDisplay:', {
-        codeChannelId,
-        popoutWindow: popoutWindow ? !popoutWindow.closed : null,
-        isVSCodePopout,
-        isBroadcasting,
-        hasActivePjWindow,
-        previewIframeContainer: !!previewIframeContainer
-      });
-      logPj('display', { codeChannelId, isVSCodePopout, isBroadcasting, hasActivePjWindow, pjIsProduction });
-      
-      if (hasActivePjWindow) {
-        console.log('📺 Adding popped-out class to previewIframeContainer');
-        previewIframeContainer?.classList.add('popped-out');
-        const shareUrl = getPjShareUrl();
-        if (popoutOverlayChannel && shareUrl) {
-          // Show (local) indicator if using localhost
-          popoutOverlayChannel.textContent = pjIsProduction ? shareUrl : `${shareUrl} (local)`;
-        }
-        // Draw QR code in the overlay
-        if (shareUrl) drawPjQrCode(shareUrl);
-      } else {
-        previewIframeContainer?.classList.remove('popped-out');
-      }
-    }
-    
-    // Draw QR code in the PJ overlay
-    function drawPjQrCode(url) {
+
+    // Draw QR code onto a canvas element
+    function drawPjQr(canvasId, url, size) {
       try {
-        const canvas = document.getElementById('pj-qr-canvas');
-        if (!canvas) return;
-        
+        const canvas = document.getElementById(canvasId);
+        if (!canvas || !url) return;
         const cells = window.qr(url, { errorCorrectLevel: window.ErrorCorrectLevel.L }).modules;
-        const size = 120; // Fixed size for overlay
         const cellSize = Math.floor(size / cells.length);
         const actualSize = cells.length * cellSize;
-        
         canvas.width = actualSize;
         canvas.height = actualSize;
         const ctx = canvas.getContext('2d');
-        
-        // Draw QR code
         for (let y = 0; y < cells.length; y++) {
           for (let x = 0; x < cells.length; x++) {
             ctx.fillStyle = cells[y][x] ? '#000000' : '#ffffff';
@@ -22605,12 +22611,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
         console.error('Failed to draw PJ QR code:', e);
       }
     }
-    
-    // Copy PJ URL when clicking QR or channel text
-    const pjQrCanvas = document.getElementById('pj-qr-canvas');
-    pjQrCanvas?.addEventListener('click', () => copyPjUrl());
-    popoutOverlayChannel?.addEventListener('click', () => copyPjUrl());
-    
+
     function copyPjUrl() {
       const url = getPjShareUrl();
       if (url) {
@@ -22620,6 +22621,103 @@ s("ape_breaks_3").loopAt(2)</textarea>
           showToast('Failed to copy', 'error');
         });
       }
+    }
+
+    // Start PJ broadcasting (silent background — preview stays local)
+    function startPjBroadcast() {
+      if (isBroadcasting) return;
+      if (!codeChannelId) {
+        codeChannelId = generateCodeChannelId();
+        localStorage.setItem('kidlisp-code-channel', codeChannelId);
+        logPj('generated channel', { codeChannelId });
+      }
+      isBroadcasting = true;
+      localStorage.setItem('kidlisp-pj-active', '1');
+      subscribeToCodeChannel(codeChannelId);
+      popoutBtn?.classList.add('active');
+      popoutBtn.title = 'PJ on — click for info';
+      // Send current code if playing
+      if (editor && isPlaying) {
+        const code = editor.getValue().trim();
+        if (code) broadcastCodeToChannel(code);
+      }
+      updatePjUI();
+      startViewerPolling();
+      showToast(`PJ on • ${codeChannelId}`, 'success');
+      logPj('broadcast started', { codeChannelId });
+    }
+
+    // Stop PJ broadcasting
+    function stopPjBroadcast() {
+      isBroadcasting = false;
+      codeChannelId = null;
+      localStorage.removeItem('kidlisp-code-channel');
+      localStorage.removeItem('kidlisp-pj-active');
+      popoutBtn?.classList.remove('active');
+      popoutBtn.title = 'Start PJ broadcast';
+      hidePjDropdown();
+      stopViewerPolling();
+      updatePjUI();
+      showToast('PJ off', 'info');
+      logPj('broadcast stopped');
+    }
+
+    // Update all PJ UI elements (dropdown + Jockey tab)
+    function updatePjUI() {
+      const url = getPjShareUrl();
+      // Dropdown
+      const ddChannel = document.getElementById('pj-dropdown-channel');
+      if (ddChannel) ddChannel.textContent = codeChannelId || '—';
+      if (url) {
+        drawPjQr('pj-dropdown-qr', url, 120);
+      }
+      // Jockey tab
+      updateJockeyPanel();
+    }
+
+    function updateJockeyPanel() {
+      const offMsg = document.getElementById('jockey-off-msg');
+      const liveDiv = document.getElementById('jockey-live');
+      const jockeyChannel = document.getElementById('jockey-channel');
+      const jockeyUrl = document.getElementById('jockey-url');
+      if (!offMsg || !liveDiv) return;
+      if (isBroadcasting && codeChannelId) {
+        offMsg.style.display = 'none';
+        liveDiv.style.display = 'flex';
+        if (jockeyChannel) jockeyChannel.textContent = codeChannelId;
+        const url = getPjShareUrl();
+        if (jockeyUrl && url) jockeyUrl.textContent = url;
+        drawPjQr('jockey-qr', url, 160);
+      } else {
+        offMsg.style.display = '';
+        liveDiv.style.display = 'none';
+      }
+    }
+
+    // Dropdown toggle
+    function showPjDropdown() {
+      if (!pjDropdown) return;
+      updatePjUI();
+      pjDropdown.classList.remove('hidden');
+      requestViewerCount();
+    }
+    function hidePjDropdown() {
+      pjDropdown?.classList.add('hidden');
+    }
+
+    // Viewer count polling
+    function requestViewerCount() {
+      if (!codeChannelId) return;
+      if (pjWs?.readyState === WebSocket.OPEN) {
+        pjWs.send(JSON.stringify({ type: 'code-channel:info', content: codeChannelId }));
+      }
+    }
+    function startViewerPolling() {
+      stopViewerPolling();
+      pjViewerPollInterval = setInterval(requestViewerCount, 5000);
+    }
+    function stopViewerPolling() {
+      if (pjViewerPollInterval) { clearInterval(pjViewerPollInterval); pjViewerPollInterval = null; }
     }
     
     // Subscribe to code channel via production session server (for PJ broadcasting)
@@ -22643,9 +22741,8 @@ s("ape_breaks_3").loopAt(2)</textarea>
       }
     }
     
-    // Check if there's an active PJ session (window open, VS Code mode, or broadcasting)
     function hasActivePjSession() {
-      return (popoutWindow && !popoutWindow.closed) || isVSCodePopout || isBroadcasting;
+      return isBroadcasting;
     }
     
     // Broadcast code to channel subscribers
@@ -22669,20 +22766,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
         bc.close();
       }
       
-      // Also broadcast via postMessage to the pop-out window directly (if same-origin)
-      if (hasActiveSession && popoutWindow && !popoutWindow.closed) {
-        try {
-          popoutWindow.postMessage({
-            type: 'kidlisp-code-update',
-            code: code,
-            channelId: codeChannelId
-          }, '*');
-        } catch (e) {
-          log.socket.warn('Failed to postMessage to pop-out window:', e.message);
-        }
-      }
-      
-      // ALWAYS broadcast via WebSocket to store state for late joiners
+      // Broadcast via WebSocket to store state for late joiners
       // The session server keeps track of the latest code for each channel
       if (pjWs && pjWs.readyState === WebSocket.OPEN) {
         pjWs.send(JSON.stringify({
@@ -22705,19 +22789,6 @@ s("ape_breaks_3").loopAt(2)</textarea>
     function broadcastSlideToChannel(code) {
       if (!codeChannelId || !hasActivePjSession()) return;
       logPj('broadcast slide', { codeChannelId, length: code?.length, pjIsProduction });
-      
-      // Direct postMessage to pop-out window (fastest - same origin)
-      if (popoutWindow && !popoutWindow.closed) {
-        try {
-          popoutWindow.postMessage({
-            type: 'kidlisp-slide-update',
-            code: code,
-            channelId: codeChannelId
-          }, '*');
-        } catch (e) {
-          // Ignore - cross-origin
-        }
-      }
       
       // Broadcast via BroadcastChannel for same-origin windows
       if (window.BroadcastChannel) {
@@ -22749,18 +22820,6 @@ s("ape_breaks_3").loopAt(2)</textarea>
       if (!codeChannelId || !hasActivePjSession()) return;
       logPj('broadcast pause', { codeChannelId, paused });
       
-      // Direct postMessage to pop-out window
-      if (popoutWindow && !popoutWindow.closed) {
-        try {
-          popoutWindow.postMessage({
-            type: paused ? 'kidlisp-pause' : 'kidlisp-resume',
-            channelId: codeChannelId
-          }, '*');
-        } catch (e) {
-          // Ignore - cross-origin
-        }
-      }
-      
       // Broadcast via BroadcastChannel for same-origin windows
       if (window.BroadcastChannel) {
         const bc = new BroadcastChannel(`kidlisp-channel-${codeChannelId}`);
@@ -22783,151 +22842,40 @@ s("ape_breaks_3").loopAt(2)</textarea>
       }
     }
     
-    // Open pop-out window
-    function openPopoutWindow() {
-      // Generate or reuse channel ID
-      if (!codeChannelId) {
-        codeChannelId = generateCodeChannelId();
-        localStorage.setItem('kidlisp-code-channel', codeChannelId);
-        log.socket.log(`Generated code channel: ${codeChannelId}`);
-        logPj('generated channel', { codeChannelId });
-      }
-      
-      // Subscribe to the channel
-      subscribeToCodeChannel(codeChannelId);
-      
-      // Build the PJ URL with channel in path (no code param - WebSocket syncs it)
-      const dev = window.location.hostname === 'localhost' || window.location.hostname === 'local.aesthetic.computer';
-      const pjUrl = dev 
-        ? `${window.location.origin}/kidlisp.com/pj/${codeChannelId}`
-        : `https://kidlisp.com/pj/${codeChannelId}`;
-      logPj('open popout', { pjUrl, dev, codeChannelId, isInVSCode: isInVSCode() });
-      
-      // In VS Code, we can't use window.open - open in external browser instead
-      if (isInVSCode()) {
-        openExternal(pjUrl);
-        
-        // Mark as VS Code PJ mode
-        isVSCodePopout = true;
-        
-        // Mark button as active (we won't have a window reference)
-        popoutBtn.classList.add('active');
-        popoutBtn.title = 'Casting - click to stop';
-        
-        // Update channel display
-        updateCodeChannelDisplay();
-        
-        // Show toast with channel info
-        showToast(`Casting to PJ • Channel: ${codeChannelId}`, 'success');
-        log.socket.log(`Opened PJ in external browser with channel: ${codeChannelId}`);
-        logPj('vscode popout opened', { codeChannelId, pjUrl });
-        
-        // In VS Code mode, the external browser window will receive updates via session server WebSocket
-        return;
-      }
-      
-      // Normal browser - open a new window with specific dimensions for PJing
-      const width = Math.min(800, window.screen.width * 0.6);
-      const height = Math.min(600, window.screen.height * 0.6);
-      const left = (window.screen.width - width) / 2;
-      const top = (window.screen.height - height) / 2;
-      
-      popoutWindow = window.open(
-        pjUrl,
-        `kidlisp-pj-${codeChannelId}`,
-        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=no,toolbar=no,menubar=no,location=no,status=no`
-      );
-      
-      // Mark as broadcasting regardless of popup success (user can still share URL)
-      isBroadcasting = true;
-      popoutBtn.classList.add('active');
-      logPj('broadcasting enabled', { codeChannelId, popoutBlocked: !popoutWindow });
-      
-      if (popoutWindow) {
-        popoutBtn.title = 'Broadcasting - click to focus';
-        
-        // Update channel display
-        updateCodeChannelDisplay();
-        
-        // Send current code to the pop-out window when it's ready
-        const sendInitialCode = () => {
-          if (editor && isPlaying) {
-            const code = editor.getValue().trim();
-            broadcastCodeToChannel(code);
-          }
-        };
-        
-        // Wait for window to be ready then send code
-        popoutWindow.addEventListener('load', sendInitialCode);
-        setTimeout(sendInitialCode, 500); // Fallback
-        
-        // Monitor window close
-        const checkClosed = setInterval(() => {
-          if (popoutWindow.closed) {
-            clearInterval(checkClosed);
-            popoutWindow = null;
-            isBroadcasting = false;
-            popoutBtn.classList.remove('active');
-            popoutBtn.title = 'Broadcast to PJ';
-            updateCodeChannelDisplay(); // This will remove the overlay
-            log.socket.log('Pop-out window closed');
-          }
-        }, 500);
-        
-        log.socket.log(`Opened pop-out window with channel: ${codeChannelId}`);
-        showToast(`Pop-out opened • Channel: ${codeChannelId}`, 'success');
-      } else {
-        showToast('Pop-up blocked! Please allow pop-ups for this site.', 'error');
-        logPj('popup blocked', { codeChannelId, pjUrl });
-      }
-    }
-    
-    // Focus or open pop-out window
+    // Antenna button: toggle PJ on/off + dropdown
     popoutBtn?.addEventListener('click', (e) => {
-      e.stopPropagation(); // Don't trigger platform dropdown
-      logPj('popout click', { isVSCodePopout, isBroadcasting, codeChannelId, hasWindow: !!popoutWindow });
-      
-      // VS Code mode - toggle on/off since we can't track external window
-      if (isVSCodePopout) {
-        // Close VS Code pop-out mode
-        isVSCodePopout = false;
-        isBroadcasting = false;
-        codeChannelId = null;
-        localStorage.removeItem('kidlisp-code-channel');
-        popoutBtn.classList.remove('active');
-        popoutBtn.title = 'Broadcast to PJ';
-        updateCodeChannelDisplay();
-        showToast('Broadcast channel closed', 'info');
-        logPj('vscode popout closed', { codeChannelId });
-        return;
-      }
-      
-      // If broadcasting but popup was blocked, clicking again toggles off
-      if (isBroadcasting && (!popoutWindow || popoutWindow.closed)) {
-        isBroadcasting = false;
-        codeChannelId = null;
-        localStorage.removeItem('kidlisp-code-channel');
-        popoutBtn.classList.remove('active');
-        popoutBtn.title = 'Broadcast to PJ';
-        updateCodeChannelDisplay();
-        showToast('Broadcast stopped', 'info');
-        logPj('broadcast stopped (no window)', { hadWindow: !!popoutWindow, wasClosed: popoutWindow?.closed });
-        return;
-      }
-      
-      if (popoutWindow && !popoutWindow.closed) {
-        // Window exists - focus it
-        popoutWindow.focus();
-        showToast('Focused pop-out window', 'info');
-      } else if (codeChannelId && !popoutWindow) {
-        // Channel exists but no window reference (restored after refresh)
-        // Open new window with the same channel ID
-        openPopoutWindow();
+      e.stopPropagation();
+      if (!isBroadcasting) {
+        // Turn ON
+        startPjBroadcast();
       } else {
-        // Open new window with new channel
-        openPopoutWindow();
+        // Already on — toggle dropdown
+        if (pjDropdown?.classList.contains('hidden')) {
+          showPjDropdown();
+        } else {
+          hidePjDropdown();
+        }
       }
     });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (pjDropdown && !pjDropdown.classList.contains('hidden') &&
+          !pjDropdown.contains(e.target) && e.target !== popoutBtn && !popoutBtn?.contains(e.target)) {
+        hidePjDropdown();
+      }
+    });
+
+    // Dropdown: stop button
+    document.getElementById('pj-dropdown-stop')?.addEventListener('click', () => stopPjBroadcast());
+    // Dropdown: copy URL on QR / channel click
+    document.getElementById('pj-dropdown-qr')?.addEventListener('click', () => copyPjUrl());
+    document.getElementById('pj-dropdown-channel')?.addEventListener('click', () => copyPjUrl());
+    // Jockey tab: stop button + copy handlers
+    document.getElementById('jockey-stop')?.addEventListener('click', () => stopPjBroadcast());
+    document.getElementById('jockey-qr')?.addEventListener('click', () => copyPjUrl());
+    document.getElementById('jockey-channel')?.addEventListener('click', () => copyPjUrl());
+    document.getElementById('jockey-url')?.addEventListener('click', () => copyPjUrl());
     
     // Hook into updatePreview to broadcast code changes
     const originalUpdatePreview = window.updatePreview || updatePreview;
@@ -22957,38 +22905,14 @@ s("ape_breaks_3").loopAt(2)</textarea>
       };
     })();
     
-    // Restore code channel from localStorage if window was refreshed
+    // Auto-restore PJ if it was active before refresh
     const savedChannel = localStorage.getItem('kidlisp-code-channel');
-    if (savedChannel) {
-      // Auto-restore the channel so we can keep broadcasting
+    const savedPjActive = localStorage.getItem('kidlisp-pj-active');
+    if (savedChannel && savedPjActive) {
       codeChannelId = savedChannel;
-      
-      // In VS Code, mark as VS Code pop-out mode (we can't track external windows)
-      if (isInVSCode()) {
-        isVSCodePopout = true;
-      }
-      
-      // Update button state
-      if (popoutBtn) {
-        popoutBtn.classList.add('active');
-        popoutBtn.title = isInVSCode() 
-          ? 'Pop-out channel active - click to close' 
-          : 'Pop-out channel active - click to open new window';
-      }
-      
-      // Update display (will show channel ID)
-      updateCodeChannelDisplay();
-      
-      // Connect to PJ WebSocket immediately so we can send code updates
-      connectPjWebSocket();
-      
-      log.socket.log(`Restored code channel: ${savedChannel}`);
-      logPj('restored channel', { savedChannel, isInVSCode: isInVSCode() });
-      
-      // Show subtle reconnection toast
-      setTimeout(() => {
-        showToast(`Channel reconnected: ${savedChannel}`, 'info');
-      }, 1000);
+      startPjBroadcast(); // Restores everything: subscribe, button state, UI
+      logPj('restored channel', { savedChannel });
+      setTimeout(() => showToast(`PJ restored • ${savedChannel}`, 'info'), 1000);
     }
 
     // Session server connection with connectivity feedback
