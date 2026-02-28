@@ -12780,7 +12780,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
         html = html.replace(new RegExp(`\\b(${kw})\\b`, 'g'), '<span class="hl-keyword">$1</span>');
       });
       // API calls (common ones)
-      const apiCalls = ['wipe', 'ink', 'line', 'box', 'circle', 'text', 'pan', 'zoom', 'blur', 'noise', 'frame', 'width', 'height', 'rainbow', 'wiggle', 'stamp', 'scroll', 'bake', 'spin', 'fps', 'write'];
+      const apiCalls = ['wipe', 'ink', 'line', 'box', 'circle', 'text', 'pan', 'zoom', 'blur', 'noise', 'frame', 'width', 'height', 'rainbow', 'wiggle', 'stamp', 'scroll', 'flip', 'bake', 'spin', 'fps', 'write'];
       apiCalls.forEach(api => {
         html = html.replace(new RegExp(`\\b(${api})\\b`, 'g'), '<span class="hl-api">$1</span>');
       });
@@ -14901,6 +14901,12 @@ s("ape_breaks_3").loopAt(2)</textarea>
           description: "Scroll the canvas by dx horizontally and dy vertically. With no args, picks a random direction once.",
           category: "animation",
           examples: ["(scroll)", "(scroll 1 0)", "(scroll 0 -1)"]
+        },
+        flip: {
+          signature: "(flip)",
+          description: "Flip the current image vertically (top-to-bottom).",
+          category: "animation",
+          examples: ["(flip)", "(1s... (flip))"]
         },
         spin: {
           signature: "(spin [speed])",
@@ -18810,7 +18816,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
     // Populate reference grids automatically
     const structureWords = ['(', 'def', 'repeat', 'later', 'if', 'once'];
     const drawingWords = ['wipe', 'ink', 'line', 'circle', 'box', 'point', 'write', 'paste', 'stamp', 'plot', 'tri', 'quad'];
-    const effectsWords = ['scroll', 'spin', 'blur', 'zoom', 'fade', 'wiggle', 'contrast', 'invert', 'noise', 'half', 'third', 'fourth'];
+    const effectsWords = ['scroll', 'flip', 'spin', 'blur', 'zoom', 'fade', 'wiggle', 'contrast', 'invert', 'noise', 'half', 'third', 'fourth'];
     const colorWords = ['red', 'orange', 'yellow', 'green', 'cyan', 'blue', 'purple', 'pink', 'white', 'black', 'gray', 
                         'lime', 'navy', 'magenta', 'brown', 'rainbow', 'zebra'];
     const numberWords = ['0', '1', '10', '50', '100', '255', '0.5', '1s...', '2s', 'width', 'height', 'frame'];
@@ -19400,7 +19406,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
         'wipe', 'ink', 'line', 'box', 'flood', 'circle', 'write', 'paste', 'stamp', 'point', 'poly', 'embed',
         'print', 'debug', 'random', 'sin', 'cos', 'tan', 'floor', 'ceil', 'round', 'tri', 'shape',
         'noise', 'choose', '?', '...', '..', 'overtone', 'mic', 'amplitude', 'tone', 'beep', 'melody',
-        'resolution', 'wiggle', 'scroll', 'spin', 'resetSpin', 'smoothspin', 'zoom', 'blur', 'contrast',
+        'resolution', 'wiggle', 'scroll', 'flip', 'spin', 'resetSpin', 'smoothspin', 'zoom', 'blur', 'contrast',
         'fade', 'bake', 'mask', 'unmask', 'label', 'len', 'now', 'once', 'die', 'jump', 'plot',
         'tap', 'draw', 'not', 'range', 'if', 'def', 'set', 'later', 'repeat', 'bunch', 'loop',
         'list', 'get', 'first', 'rest', 'push', 'pop', 'fill', 'outline', 'stroke', 'nofill', 'nostroke',
@@ -21805,7 +21811,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
     const BEAD_STYLES = {
       state:   { color: '#DC3C3C', symbol: '○' },   // red - wipe, ink, def
       draw:    { color: '#3C64DC', symbol: '●' },   // blue - line, box, circle, point
-      effect:  { color: '#DCB428', symbol: '◆' },   // yellow - scroll, blur, zoom
+      effect:  { color: '#DCB428', symbol: '◆' },   // yellow - scroll, flip, blur, zoom
       timing:  { color: '#B450B4', symbol: '◇' },   // purple - 1s, 0.5s, later
       branch:  { color: '#28B478', symbol: '◈' },   // green - if, ?
       loop:    { color: '#FF8C28', symbol: '⬡' },   // orange - repeat
@@ -21817,7 +21823,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
       'wipe': 'state', 'ink': 'state', 'def': 'state', 'let': 'state',
       'line': 'draw', 'box': 'draw', 'circle': 'draw', 'point': 'draw',
       'write': 'draw', 'oval': 'draw', 'tri': 'draw', 'draw': 'draw',
-      'scroll': 'effect', 'blur': 'effect', 'zoom': 'effect', 'pan': 'effect',
+      'scroll': 'effect', 'flip': 'effect', 'blur': 'effect', 'zoom': 'effect', 'pan': 'effect',
       'coat': 'effect', 'fade': 'effect', 'noise': 'effect',
       '1s': 'timing', '0.5s': 'timing', '0.3s': 'timing', '2s': 'timing',
       'later': 'timing', 'every': 'timing',
@@ -24186,10 +24192,19 @@ s("ape_breaks_3").loopAt(2)</textarea>
 
       try {
         const deviceId = document.getElementById('aux-device')?.value;
-        const constraints = { audio: deviceId ? { deviceId: { exact: deviceId } } : true };
+        const audioConstraints = {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+          latency: 0,
+        };
+        if (deviceId) audioConstraints.deviceId = { exact: deviceId };
+        const constraints = { audio: audioConstraints };
         auxStream = await navigator.mediaDevices.getUserMedia(constraints);
 
-        auxAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+        auxAudioContext = new (window.AudioContext || window.webkitAudioContext)({
+          latencyHint: 'interactive',
+        });
         auxSourceNode = auxAudioContext.createMediaStreamSource(auxStream);
         auxGainNode = auxAudioContext.createGain();
 
