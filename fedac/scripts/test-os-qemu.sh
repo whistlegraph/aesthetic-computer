@@ -64,11 +64,16 @@ command -v "$QEMU" >/dev/null 2>&1 || {
   exit 1
 }
 
-# Find UEFI firmware
+# Find UEFI firmware (code + vars)
 BREW_PREFIX="$(brew --prefix 2>/dev/null || echo /opt/homebrew)"
-OVMF="$BREW_PREFIX/share/qemu/edk2-x86_64-code.fd"
-[ -f "$OVMF" ] || {
-  echo "Error: UEFI firmware not found at $OVMF"
+OVMF_CODE="$BREW_PREFIX/share/qemu/edk2-x86_64-code.fd"
+OVMF_VARS_TEMPLATE="$BREW_PREFIX/share/qemu/edk2-i386-vars.fd"
+[ -f "$OVMF_CODE" ] || {
+  echo "Error: UEFI firmware not found at $OVMF_CODE"
+  exit 1
+}
+[ -f "$OVMF_VARS_TEMPLATE" ] || {
+  echo "Error: UEFI vars template not found at $OVMF_VARS_TEMPLATE"
   exit 1
 }
 
@@ -117,12 +122,19 @@ echo "Image: $IMG ($(echo "$IMG_SIZE" | awk '{printf "%.0fMB", $1/1048576}'))"
 echo "VM: ${RAM_MB}MB RAM, x86_64 UEFI"
 echo ""
 
+# ── Prepare writable NVRAM vars (per-image copy) ──
+OVMF_VARS="$CACHE_DIR/efivars.fd"
+if [ ! -f "$OVMF_VARS" ]; then
+  cp "$OVMF_VARS_TEMPLATE" "$OVMF_VARS"
+fi
+
 # ── Build QEMU command ──
 QEMU_ARGS=(
   -machine q35
   -cpu qemu64
   -m "$RAM_MB"
-  -drive "if=pflash,format=raw,readonly=on,file=$OVMF"
+  -drive "if=pflash,format=raw,readonly=on,file=$OVMF_CODE"
+  -drive "if=pflash,format=raw,file=$OVMF_VARS"
   -drive "file=$IMG,format=raw,if=virtio"
   -device virtio-vga
   -device virtio-net-pci,netdev=net0
