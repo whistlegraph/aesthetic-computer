@@ -4534,7 +4534,42 @@
       background: linear-gradient(to bottom, #ffcc00 0%, #cc9900 100%);
       color: #1a1a00;
     }
-    
+
+    /* Sub-tab colors - Aux (Coral/Red for live mic) */
+    .jukebox-subtab[data-subtab="aux"] {
+      background: rgba(59, 130, 246, 0.65);
+      color: #1e3a5f;
+    }
+    .jukebox-subtab[data-subtab="aux"].active {
+      background: linear-gradient(to bottom, #e85d4a 0%, #c94232 100%);
+      color: #fff;
+    }
+    [data-theme="dark"] .jukebox-subtab[data-subtab="aux"] {
+      background: rgba(59, 130, 246, 0.8);
+      color: #93c5fd;
+    }
+    [data-theme="dark"] .jukebox-subtab[data-subtab="aux"].active {
+      background: linear-gradient(to bottom, #e85d4a 0%, #b33a2a 100%);
+      color: #fff;
+    }
+
+    .aux-btn {
+      background: none;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      cursor: pointer;
+      padding: 4px 8px;
+      font-size: 14px;
+      color: var(--text-primary);
+      transition: all 0.15s;
+    }
+    .aux-btn:hover:not(:disabled) { background: rgba(232, 93, 74, 0.15); }
+    .aux-btn:disabled { opacity: 0.4; cursor: default; }
+
+    .aux-meter-fill {
+      background: linear-gradient(90deg, #e85d4a, #ff7b6b) !important;
+    }
+
     @media (hover: hover) {
       .jukebox-subtab:hover {
         filter: brightness(1.1);
@@ -9060,6 +9095,7 @@
           <div class="jukebox-subtabs">
             <div class="jukebox-subtab active" data-subtab="songs">Songs</div>
             <div class="jukebox-subtab" data-subtab="strudel">Strudel</div>
+            <div class="jukebox-subtab" data-subtab="aux">Aux</div>
           </div>
           
           <!-- Songs subcontent -->
@@ -9161,7 +9197,46 @@ s("ape_breaks_3").loopAt(2)</textarea>
               </div>
             </div>
           </div>
-          
+
+          <!-- Aux subcontent (microphone input) -->
+          <div class="jukebox-subcontent hidden" id="aux-subcontent">
+            <div class="jukebox-controls-area" style="padding: 8px 12px; gap: 8px;">
+              <!-- Compact control row: start/stop, status, gain -->
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="strudel-transport">
+                  <button class="aux-btn" id="aux-start" title="Start Mic">&#x1f3a4;</button>
+                  <button class="aux-btn" id="aux-stop" title="Stop" disabled>&#x23f9;</button>
+                </div>
+                <span id="aux-status" style="font-size: 12px; color: var(--jukebox-text-dim); flex-shrink: 0;">Ready</span>
+                <div class="jukebox-volume" style="margin-left: auto;">
+                  <span style="font-size: 12px;">Gain</span>
+                  <input type="range" id="aux-gain" min="0" max="200" value="100">
+                </div>
+              </div>
+
+              <!-- Device selector -->
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <label for="aux-device" style="font-size: 11px; color: var(--jukebox-text-dim); flex-shrink: 0;">Input:</label>
+                <select id="aux-device" style="flex: 1; font-size: 11px; padding: 3px 6px; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px;">
+                  <option value="">Default</option>
+                </select>
+              </div>
+
+              <!-- Audio Meters -->
+              <div class="jukebox-meters" style="gap: 4px;">
+                <div class="jukebox-meter-row">
+                  <span class="jukebox-meter-label">amp</span>
+                  <div class="jukebox-meter-bar"><div class="jukebox-meter-fill aux-meter-fill" id="aux-amp-meter"></div></div>
+                  <span class="jukebox-meter-value" id="aux-amp-value">0.0</span>
+                </div>
+                <div class="jukebox-meter-row">
+                  <span class="jukebox-meter-label">kick</span>
+                  <div class="jukebox-beat-indicator" id="aux-kick-indicator"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Status -->
           <div class="jukebox-status" id="jukebox-status"></div>
         </div><!-- /jukebox-content -->
@@ -23746,6 +23821,273 @@ s("ape_breaks_3").loopAt(2)</textarea>
       if (strudelKickIndicator) strudelKickIndicator.classList.remove('active');
     }
     
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 🎤 Aux - Microphone input with real-time analysis for KidLisp
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    let auxAudioContext = null;
+    let auxStream = null;
+    let auxSourceNode = null;
+    let auxAnalyser = null;
+    let auxGainNode = null;
+    let auxWorkletNode = null;
+    let auxUseWorklet = false;
+    let auxStreamInterval = null;
+    let auxRafId = null;
+    let auxActive = false;
+    let auxEnergyHistory = [];
+    const AUX_ENERGY_HISTORY_SIZE = 10;
+    const AUX_BEAT_SENSITIVITY = 1.12;
+    const AUX_BEAT_COOLDOWN = 60;
+    let auxLastBeatTime = 0;
+    let auxCurrentBeat = false;
+
+    async function populateAuxDevices() {
+      const select = document.getElementById('aux-device');
+      if (!select) return;
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const audioInputs = devices.filter(d => d.kind === 'audioinput');
+        select.innerHTML = '<option value="">Default</option>';
+        audioInputs.forEach(d => {
+          const opt = document.createElement('option');
+          opt.value = d.deviceId;
+          opt.textContent = d.label || `Mic ${select.options.length}`;
+          select.appendChild(opt);
+        });
+      } catch (e) {
+        console.warn('🎤 Aux: Could not enumerate devices:', e);
+      }
+    }
+
+    async function startAux() {
+      if (auxActive) return;
+
+      const statusEl = document.getElementById('aux-status');
+      statusEl.textContent = 'Requesting mic...';
+
+      // Stop other audio modes
+      if (jukeboxIsPlaying) stopJukebox();
+      if (strudelPlaying) stopStrudel();
+
+      try {
+        const deviceId = document.getElementById('aux-device')?.value;
+        const constraints = { audio: deviceId ? { deviceId: { exact: deviceId } } : true };
+        auxStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+        auxAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+        auxSourceNode = auxAudioContext.createMediaStreamSource(auxStream);
+        auxGainNode = auxAudioContext.createGain();
+
+        const gainSlider = document.getElementById('aux-gain');
+        if (gainSlider) auxGainNode.gain.value = gainSlider.value / 100;
+
+        // Try AudioWorklet first (runs on audio thread — ~2.7ms blocks at 48kHz)
+        auxUseWorklet = await createAudioWorklet(auxAudioContext);
+
+        if (auxUseWorklet) {
+          auxWorkletNode = new AudioWorkletNode(auxAudioContext, 'audio-analyzer');
+          auxWorkletNode.port.onmessage = (e) => {
+            const data = e.data;
+            if (data.kick) {
+              auxCurrentBeat = true;
+              auxLastBeatTime = performance.now();
+            } else if (performance.now() - auxLastBeatTime > 50) {
+              auxCurrentBeat = false;
+            }
+            const audioData = {
+              amp: data.amp, leftAmp: data.leftAmp, rightAmp: data.rightAmp,
+              beat: data.beat, kick: data.kick, bass: data.bass,
+              mid: data.bass * 0.6, treble: data.amp * 0.3,
+              highMid: data.bass * 0.4, presence: data.amp * 0.25
+            };
+            sendJukeboxAudioToPreview(audioData);
+            broadcastJukeboxAudioToPJ(audioData);
+            // Throttle UI to rAF
+            if (!auxRafId) {
+              auxRafId = requestAnimationFrame(() => {
+                document.getElementById('aux-amp-meter').style.width = `${data.amp * 100}%`;
+                document.getElementById('aux-amp-value').textContent = data.amp.toFixed(2);
+                document.getElementById('aux-kick-indicator').classList.toggle('active', auxCurrentBeat);
+                auxRafId = null;
+              });
+            }
+          };
+          // source -> gain -> worklet -> silent destination (no speaker output)
+          auxSourceNode.connect(auxGainNode);
+          auxGainNode.connect(auxWorkletNode);
+          // Connect worklet to a silent gain node to keep the graph alive
+          const silentGain = auxAudioContext.createGain();
+          silentGain.gain.value = 0;
+          auxWorkletNode.connect(silentGain);
+          silentGain.connect(auxAudioContext.destination);
+          console.log('🎤 Aux: Using AudioWorklet (sample-accurate, ~2.7ms latency)');
+        } else {
+          // Fallback: AnalyserNode + setInterval
+          auxAnalyser = auxAudioContext.createAnalyser();
+          auxAnalyser.fftSize = 256;
+          auxAnalyser.smoothingTimeConstant = 0;
+          auxSourceNode.connect(auxGainNode);
+          auxGainNode.connect(auxAnalyser);
+          // Don't connect to destination — avoids feedback
+          console.log('🎤 Aux: Using AnalyserNode fallback (setInterval)');
+        }
+
+        auxActive = true;
+        auxEnergyHistory = [];
+
+        document.getElementById('aux-start').disabled = true;
+        document.getElementById('aux-stop').disabled = false;
+        statusEl.textContent = auxUseWorklet ? '● Live (worklet)' : '● Live';
+        statusEl.style.color = '#e85d4a';
+
+        populateAuxDevices();
+
+        // Only start polling loop for the fallback path
+        if (!auxUseWorklet) startAuxAnalysisFallback();
+        console.log('🎤 Aux: Microphone started');
+      } catch (err) {
+        console.error('🎤 Aux: Failed to start:', err);
+        statusEl.textContent = err.name === 'NotAllowedError' ? 'Mic denied' : `Error: ${err.message}`;
+        statusEl.style.color = '#f87171';
+      }
+    }
+
+    function stopAux() {
+      stopAuxAnalysis();
+
+      if (auxStream) {
+        auxStream.getTracks().forEach(t => t.stop());
+        auxStream = null;
+      }
+      if (auxSourceNode) { auxSourceNode.disconnect(); auxSourceNode = null; }
+      if (auxGainNode) { auxGainNode.disconnect(); auxGainNode = null; }
+      if (auxWorkletNode) { auxWorkletNode.disconnect(); auxWorkletNode = null; }
+      if (auxAnalyser) { auxAnalyser.disconnect(); auxAnalyser = null; }
+      if (auxAudioContext) { auxAudioContext.close(); auxAudioContext = null; }
+
+      auxActive = false;
+      auxUseWorklet = false;
+      auxEnergyHistory = [];
+
+      document.getElementById('aux-start').disabled = false;
+      document.getElementById('aux-stop').disabled = true;
+      const statusEl = document.getElementById('aux-status');
+      statusEl.textContent = 'Stopped';
+      statusEl.style.color = 'var(--jukebox-text-dim)';
+      const ampMeter = document.getElementById('aux-amp-meter');
+      const ampValue = document.getElementById('aux-amp-value');
+      const kickInd = document.getElementById('aux-kick-indicator');
+      if (ampMeter) ampMeter.style.width = '0%';
+      if (ampValue) ampValue.textContent = '0.0';
+      if (kickInd) kickInd.classList.remove('active');
+
+      console.log('🎤 Aux: Microphone stopped');
+    }
+
+    // Fallback analysis for browsers without AudioWorklet support
+    function startAuxAnalysisFallback() {
+      if (auxStreamInterval) return;
+      if (!auxAnalyser) return;
+
+      const freqData = new Uint8Array(auxAnalyser.frequencyBinCount);
+      const timeData = new Uint8Array(auxAnalyser.fftSize);
+      const sampleRate = auxAudioContext.sampleRate;
+      const binFreq = sampleRate / auxAnalyser.fftSize;
+      let lastUIUpdate = 0;
+      const UI_UPDATE_INTERVAL = 33;
+
+      function getBandEnergy(minHz, maxHz) {
+        const startBin = Math.floor(minHz / binFreq);
+        const endBin = Math.min(Math.floor(maxHz / binFreq), freqData.length - 1);
+        let sum = 0;
+        for (let i = startBin; i <= endBin; i++) sum += freqData[i];
+        return (endBin > startBin) ? (sum / (endBin - startBin + 1)) / 255 : 0;
+      }
+
+      function analyze() {
+        if (!auxActive || !auxAnalyser) return;
+        auxAnalyser.getByteFrequencyData(freqData);
+        auxAnalyser.getByteTimeDomainData(timeData);
+
+        let sum = 0;
+        for (let i = 0; i < timeData.length; i++) {
+          const n = (timeData[i] - 128) / 128;
+          sum += n * n;
+        }
+        const amp = Math.min(1, Math.sqrt(sum / timeData.length) * 2);
+
+        const bass = getBandEnergy(20, 250);
+        const mid = getBandEnergy(250, 2000);
+        const treble = getBandEnergy(2000, 20000);
+        const highMid = getBandEnergy(1000, 4000);
+        const presence = getBandEnergy(2500, 5000);
+
+        const bassEnd = Math.floor(250 * auxAnalyser.fftSize / sampleRate);
+        let bassEnergy = 0;
+        for (let i = 0; i < Math.min(bassEnd, freqData.length); i++) bassEnergy += freqData[i] * freqData[i];
+        bassEnergy = Math.sqrt(bassEnergy / bassEnd) / 255;
+
+        auxEnergyHistory.push(bassEnergy);
+        if (auxEnergyHistory.length > AUX_ENERGY_HISTORY_SIZE) auxEnergyHistory.shift();
+
+        let kick = 0;
+        if (auxEnergyHistory.length >= AUX_ENERGY_HISTORY_SIZE) {
+          const avg = auxEnergyHistory.reduce((a, b) => a + b, 0) / auxEnergyHistory.length;
+          const now = performance.now();
+          if (bassEnergy > avg * AUX_BEAT_SENSITIVITY && now - auxLastBeatTime > AUX_BEAT_COOLDOWN) {
+            kick = 1;
+            auxLastBeatTime = now;
+            auxCurrentBeat = true;
+          } else if (now - auxLastBeatTime > 50) {
+            auxCurrentBeat = false;
+          }
+        }
+
+        const audioData = { amp, leftAmp: amp, rightAmp: amp, beat: kick, kick, bass, mid, treble, highMid, presence };
+        sendJukeboxAudioToPreview(audioData);
+        broadcastJukeboxAudioToPJ(audioData);
+
+        const now = performance.now();
+        if (now - lastUIUpdate > UI_UPDATE_INTERVAL) {
+          document.getElementById('aux-amp-meter').style.width = `${amp * 100}%`;
+          document.getElementById('aux-amp-value').textContent = amp.toFixed(2);
+          document.getElementById('aux-kick-indicator').classList.toggle('active', auxCurrentBeat);
+          lastUIUpdate = now;
+        }
+      }
+
+      auxStreamInterval = setInterval(analyze, 4);
+      analyze();
+    }
+
+    function stopAuxAnalysis() {
+      if (auxStreamInterval) {
+        clearInterval(auxStreamInterval);
+        auxStreamInterval = null;
+      }
+      if (auxRafId) {
+        cancelAnimationFrame(auxRafId);
+        auxRafId = null;
+      }
+      auxEnergyHistory = [];
+    }
+
+    function initAuxUI() {
+      document.getElementById('aux-start')?.addEventListener('click', startAux);
+      document.getElementById('aux-stop')?.addEventListener('click', stopAux);
+      document.getElementById('aux-gain')?.addEventListener('input', (e) => {
+        if (auxGainNode) auxGainNode.gain.value = e.target.value / 100;
+      });
+      document.getElementById('aux-device')?.addEventListener('change', () => {
+        // Restart with new device if already active
+        if (auxActive) {
+          stopAux();
+          startAux();
+        }
+      });
+    }
+
     function initStrudelUI() {
       // Jukebox subtab switching (similar to list subtabs)
       let currentJukeboxSubtab = 'songs';
@@ -23765,9 +24107,19 @@ s("ape_breaks_3").loopAt(2)</textarea>
         const subcontent = document.getElementById(`${subtab}-subcontent`);
         if (subcontent) subcontent.classList.remove('hidden');
         
-        // Stop other mode when switching
-        if (subtab === 'songs' && strudelPlaying) stopStrudel();
-        if (subtab === 'strudel' && jukeboxIsPlaying) stopJukebox();
+        // Stop other modes when switching
+        if (subtab === 'songs') {
+          if (strudelPlaying) stopStrudel();
+          if (auxActive) stopAux();
+        }
+        if (subtab === 'strudel') {
+          if (jukeboxIsPlaying) stopJukebox();
+          if (auxActive) stopAux();
+        }
+        if (subtab === 'aux') {
+          if (jukeboxIsPlaying) stopJukebox();
+          if (strudelPlaying) stopStrudel();
+        }
       }
       
       // Subtab click handlers
@@ -23815,6 +24167,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
       jukeboxInitialized = true;
       initJukebox();
       initStrudelUI();
+      initAuxUI();
     };
   </script>
   
