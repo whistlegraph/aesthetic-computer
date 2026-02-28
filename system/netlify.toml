@@ -1093,7 +1093,7 @@ force = true
 from = "/processing.aesthetic.computer/*"
 to = "/processing.aesthetic.computer/index.html"
 status = 200
-force = true
+force = false
 [[redirects]]
 from = "/p5.aesthetic.computer"
 to = "/processing.aesthetic.computer/index.html"
@@ -1118,7 +1118,7 @@ force = true
 from = "/p5.aesthetic.computer/*"
 to = "/processing.aesthetic.computer/index.html"
 status = 200
-force = true
+force = false
 # Screenshot generation handled by oven.aesthetic.computer
 [[redirects]]
 from = "/preview/*"
