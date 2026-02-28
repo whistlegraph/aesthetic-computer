@@ -1315,8 +1315,9 @@ function compileShader(gl, type, source) {
  * @returns {boolean} - True if GPU spin was used, false if fallback needed
  */
 export function gpuSpin(pixels, width, height, steps, anchorX = null, anchorY = null, mask = null) {
-  // Match CPU early exit
-  if (Math.abs(steps) < 0.5) {
+  // Fast no-op: only skip truly zero delta.
+  // Small deltas must accumulate over time to preserve smooth spin behavior.
+  if (steps === 0) {
     return true;
   }
   
