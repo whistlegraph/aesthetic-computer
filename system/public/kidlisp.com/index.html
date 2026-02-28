@@ -4590,6 +4590,63 @@
       background: linear-gradient(90deg, #e85d4a, #ff7b6b) !important;
     }
 
+    .aux-advanced-meters {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 4px 10px;
+      margin-top: 2px;
+    }
+
+    .aux-graph-wrap {
+      margin-top: 6px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background: linear-gradient(to bottom, rgba(232, 93, 74, 0.1), rgba(0, 0, 0, 0.08));
+      padding: 6px;
+    }
+
+    .aux-live-graph {
+      width: 100%;
+      height: 92px;
+      display: block;
+      border-radius: 4px;
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .aux-graph-legend {
+      margin-top: 6px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 10px;
+      font-size: 10px;
+      color: var(--jukebox-text-dim);
+    }
+
+    .aux-legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      letter-spacing: 0.02em;
+    }
+
+    .aux-legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      display: inline-block;
+      flex-shrink: 0;
+      box-shadow: 0 0 4px rgba(255, 255, 255, 0.2);
+    }
+
+    @media (max-width: 560px) {
+      .aux-advanced-meters {
+        grid-template-columns: 1fr;
+      }
+      .aux-live-graph {
+        height: 78px;
+      }
+    }
+
     @media (hover: hover) {
       .jukebox-subtab:hover {
         filter: brightness(1.1);
@@ -9244,6 +9301,68 @@ s("ape_breaks_3").loopAt(2)</textarea>
                 <div class="jukebox-meter-row">
                   <span class="jukebox-meter-label">kick</span>
                   <div class="jukebox-beat-indicator" id="aux-kick-indicator"></div>
+                </div>
+
+                <div class="aux-advanced-meters">
+                  <div class="jukebox-meter-row">
+                    <span class="jukebox-meter-label">leftAmp</span>
+                    <div class="jukebox-meter-bar"><div class="jukebox-meter-fill aux-meter-fill" id="aux-left-amp-meter"></div></div>
+                    <span class="jukebox-meter-value" id="aux-left-amp-value">0.0</span>
+                  </div>
+                  <div class="jukebox-meter-row">
+                    <span class="jukebox-meter-label">rightAmp</span>
+                    <div class="jukebox-meter-bar"><div class="jukebox-meter-fill aux-meter-fill" id="aux-right-amp-meter"></div></div>
+                    <span class="jukebox-meter-value" id="aux-right-amp-value">0.0</span>
+                  </div>
+                  <div class="jukebox-meter-row">
+                    <span class="jukebox-meter-label">beat</span>
+                    <div class="jukebox-meter-bar"><div class="jukebox-meter-fill aux-meter-fill" id="aux-beat-meter"></div></div>
+                    <span class="jukebox-meter-value" id="aux-beat-value">0</span>
+                  </div>
+                  <div class="jukebox-meter-row">
+                    <span class="jukebox-meter-label">bass</span>
+                    <div class="jukebox-meter-bar"><div class="jukebox-meter-fill aux-meter-fill" id="aux-bass-meter"></div></div>
+                    <span class="jukebox-meter-value" id="aux-bass-value">0.0</span>
+                  </div>
+                  <div class="jukebox-meter-row">
+                    <span class="jukebox-meter-label">mid</span>
+                    <div class="jukebox-meter-bar"><div class="jukebox-meter-fill aux-meter-fill" id="aux-mid-meter"></div></div>
+                    <span class="jukebox-meter-value" id="aux-mid-value">0.0</span>
+                  </div>
+                  <div class="jukebox-meter-row">
+                    <span class="jukebox-meter-label">treble</span>
+                    <div class="jukebox-meter-bar"><div class="jukebox-meter-fill aux-meter-fill" id="aux-treble-meter"></div></div>
+                    <span class="jukebox-meter-value" id="aux-treble-value">0.0</span>
+                  </div>
+                  <div class="jukebox-meter-row">
+                    <span class="jukebox-meter-label">highMid</span>
+                    <div class="jukebox-meter-bar"><div class="jukebox-meter-fill aux-meter-fill" id="aux-high-mid-meter"></div></div>
+                    <span class="jukebox-meter-value" id="aux-high-mid-value">0.0</span>
+                  </div>
+                  <div class="jukebox-meter-row">
+                    <span class="jukebox-meter-label">presence</span>
+                    <div class="jukebox-meter-bar"><div class="jukebox-meter-fill aux-meter-fill" id="aux-presence-meter"></div></div>
+                    <span class="jukebox-meter-value" id="aux-presence-value">0.0</span>
+                  </div>
+                </div>
+
+                <div class="aux-graph-wrap">
+                  <canvas
+                    id="aux-live-graph"
+                    class="aux-live-graph"
+                    width="380"
+                    height="92"
+                    aria-label="Aux live graph of amplitude and frequency bands"></canvas>
+                  <div class="aux-graph-legend">
+                    <span class="aux-legend-item"><span class="aux-legend-dot" style="background:#ff7b6b;"></span>amp</span>
+                    <span class="aux-legend-item"><span class="aux-legend-dot" style="background:#ffd166;"></span>left</span>
+                    <span class="aux-legend-item"><span class="aux-legend-dot" style="background:#f8961e;"></span>right</span>
+                    <span class="aux-legend-item"><span class="aux-legend-dot" style="background:#4cc9f0;"></span>bass</span>
+                    <span class="aux-legend-item"><span class="aux-legend-dot" style="background:#06d6a0;"></span>mid</span>
+                    <span class="aux-legend-item"><span class="aux-legend-dot" style="background:#9b5de5;"></span>treble</span>
+                    <span class="aux-legend-item"><span class="aux-legend-dot" style="background:#90be6d;"></span>highMid</span>
+                    <span class="aux-legend-item"><span class="aux-legend-dot" style="background:#f72585;"></span>presence</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -16858,14 +16977,19 @@ s("ape_breaks_3").loopAt(2)</textarea>
               // Clear the localStorage code since it's now invalid
               localStorage.removeItem('kidlisp-current-code');
             }
-            
+
+            // Immediately broadcast every keystroke to PJ (no debounce)
+            if (isBroadcasting && typeof broadcastSlideToChannel === 'function') {
+              broadcastSlideToChannel(currentCode);
+            }
+
             // Cancel any pending update
             if (debounceTimer) {
               clearTimeout(debounceTimer);
               pendingUpdate = true;
             }
-            
-            // Wait 1 second after user stops typing before updating
+
+            // Wait 1 second after user stops typing before updating local preview
             debounceTimer = setTimeout(() => {
               updatePreview();
               lastCode = currentCode;
@@ -22784,8 +22908,8 @@ s("ape_breaks_3").loopAt(2)</textarea>
     function broadcastSlideToChannel(code) {
       if (!codeChannelId || !hasActivePjSession()) return;
       logPj('broadcast slide', { codeChannelId, length: code?.length, pjIsProduction });
-      
-      // Broadcast via BroadcastChannel for same-origin windows
+
+      // 1. BroadcastChannel for same-origin windows (zero latency)
       if (window.BroadcastChannel) {
         const bc = new BroadcastChannel(`kidlisp-channel-${codeChannelId}`);
         bc.postMessage({
@@ -22796,8 +22920,18 @@ s("ape_breaks_3").loopAt(2)</textarea>
         });
         bc.close();
       }
-      
-      // Broadcast via production PJ WebSocket (cross-origin)
+
+      // 2. UDP (geckos.io) — lowest latency for cross-origin
+      if (pjUdpConnected && pjUdpChannel) {
+        pjUdpChannel.emit('slide:code', JSON.stringify({
+          codeChannel: codeChannelId,
+          code: code,
+          timestamp: Date.now()
+        }));
+        return; // Skip WebSocket if UDP is available
+      }
+
+      // 3. WebSocket fallback (cross-origin)
       if (pjWs && pjWs.readyState === WebSocket.OPEN) {
         pjWs.send(JSON.stringify({
           type: 'slide',
@@ -23861,11 +23995,167 @@ s("ape_breaks_3").loopAt(2)</textarea>
     const AUX_BEAT_COOLDOWN = 60;
     let auxLastBeatTime = 0;
     let auxCurrentBeat = false;
+    let auxLatestAudioData = null;
+    let auxLatestBeatState = false;
+
+    const AUX_GRAPH_MAX_POINTS = 180;
+    const AUX_GRAPH_SERIES = [
+      "amp",
+      "leftAmp",
+      "rightAmp",
+      "bass",
+      "mid",
+      "treble",
+      "highMid",
+      "presence",
+    ];
+    const AUX_GRAPH_COLORS = {
+      amp: "#ff7b6b",
+      leftAmp: "#ffd166",
+      rightAmp: "#f8961e",
+      bass: "#4cc9f0",
+      mid: "#06d6a0",
+      treble: "#9b5de5",
+      highMid: "#90be6d",
+      presence: "#f72585",
+    };
+    const auxGraphHistory = Object.fromEntries(
+      AUX_GRAPH_SERIES.map((key) => [key, []]),
+    );
+
+    function clamp01(value) {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return 0;
+      return Math.max(0, Math.min(1, n));
+    }
+
+    function updateAuxMeter(baseId, value, decimals = 2) {
+      const safeValue = clamp01(value);
+      const meterEl = document.getElementById(`${baseId}-meter`);
+      const valueEl = document.getElementById(`${baseId}-value`);
+      if (meterEl) meterEl.style.width = `${safeValue * 100}%`;
+      if (valueEl) valueEl.textContent = safeValue.toFixed(decimals);
+    }
+
+    function pushAuxGraphSample(audioData) {
+      for (const key of AUX_GRAPH_SERIES) {
+        const samples = auxGraphHistory[key];
+        samples.push(clamp01(audioData?.[key]));
+        if (samples.length > AUX_GRAPH_MAX_POINTS) samples.shift();
+      }
+    }
+
+    function drawAuxLiveGraph() {
+      const canvas = document.getElementById("aux-live-graph");
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const cssWidth = Math.max(1, Math.floor(rect.width || canvas.clientWidth || canvas.width));
+      const cssHeight = Math.max(1, Math.floor(rect.height || canvas.clientHeight || canvas.height));
+      const dpr = window.devicePixelRatio || 1;
+      const pixelWidth = Math.floor(cssWidth * dpr);
+      const pixelHeight = Math.floor(cssHeight * dpr);
+
+      if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+        canvas.width = pixelWidth;
+        canvas.height = pixelHeight;
+      }
+
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      ctx.fillStyle = "rgba(0, 0, 0, 0.16)";
+      ctx.fillRect(0, 0, cssWidth, cssHeight);
+
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+      ctx.lineWidth = 1;
+      for (let i = 1; i < 4; i++) {
+        const y = (cssHeight * i) / 4;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(cssWidth, y);
+        ctx.stroke();
+      }
+
+      for (const key of AUX_GRAPH_SERIES) {
+        const samples = auxGraphHistory[key];
+        if (!samples || samples.length < 2) continue;
+        const denominator = Math.max(1, AUX_GRAPH_MAX_POINTS - 1);
+        ctx.beginPath();
+        for (let i = 0; i < samples.length; i++) {
+          const x = (i / denominator) * cssWidth;
+          const y = cssHeight - samples[i] * cssHeight;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = AUX_GRAPH_COLORS[key] || "#ffffff";
+        ctx.lineWidth = key === "amp" ? 1.8 : 1.2;
+        ctx.globalAlpha = key === "amp" ? 0.95 : 0.8;
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function updateAuxDisplay(audioData = {}, beatActive = false) {
+      const normalized = {
+        amp: clamp01(audioData.amp),
+        leftAmp: clamp01(audioData.leftAmp),
+        rightAmp: clamp01(audioData.rightAmp),
+        bass: clamp01(audioData.bass),
+        mid: clamp01(audioData.mid),
+        treble: clamp01(audioData.treble),
+        highMid: clamp01(audioData.highMid),
+        presence: clamp01(audioData.presence),
+      };
+      const beatValue = beatActive ? 1 : clamp01(audioData.beat);
+      const kickActive = beatActive || clamp01(audioData.kick) > 0.5;
+
+      updateAuxMeter("aux-amp", normalized.amp);
+      updateAuxMeter("aux-left-amp", normalized.leftAmp);
+      updateAuxMeter("aux-right-amp", normalized.rightAmp);
+      updateAuxMeter("aux-beat", beatValue, 0);
+      updateAuxMeter("aux-bass", normalized.bass);
+      updateAuxMeter("aux-mid", normalized.mid);
+      updateAuxMeter("aux-treble", normalized.treble);
+      updateAuxMeter("aux-high-mid", normalized.highMid);
+      updateAuxMeter("aux-presence", normalized.presence);
+
+      const kickIndicator = document.getElementById("aux-kick-indicator");
+      if (kickIndicator) kickIndicator.classList.toggle("active", kickActive);
+
+      pushAuxGraphSample(normalized);
+      drawAuxLiveGraph();
+    }
+
+    function resetAuxDisplay() {
+      for (const key of AUX_GRAPH_SERIES) {
+        auxGraphHistory[key].length = 0;
+      }
+      updateAuxDisplay(
+        {
+          amp: 0,
+          leftAmp: 0,
+          rightAmp: 0,
+          beat: 0,
+          kick: 0,
+          bass: 0,
+          mid: 0,
+          treble: 0,
+          highMid: 0,
+          presence: 0,
+        },
+        false,
+      );
+    }
 
     async function populateAuxDevices() {
       const select = document.getElementById('aux-device');
       if (!select) return;
       try {
+        const prevValue = select.value; // Preserve current selection
         const devices = await navigator.mediaDevices.enumerateDevices();
         const audioInputs = devices.filter(d => d.kind === 'audioinput');
         select.innerHTML = '<option value="">Default</option>';
@@ -23875,6 +24165,10 @@ s("ape_breaks_3").loopAt(2)</textarea>
           opt.textContent = d.label || `Mic ${select.options.length}`;
           select.appendChild(opt);
         });
+        // Restore previous selection if it still exists
+        if (prevValue && Array.from(select.options).some(o => o.value === prevValue)) {
+          select.value = prevValue;
+        }
       } catch (e) {
         console.warn('🎤 Aux: Could not enumerate devices:', e);
       }
@@ -23923,12 +24217,12 @@ s("ape_breaks_3").loopAt(2)</textarea>
             };
             sendJukeboxAudioToPreview(audioData);
             broadcastJukeboxAudioToPJ(audioData);
+            auxLatestAudioData = audioData;
+            auxLatestBeatState = auxCurrentBeat;
             // Throttle UI to rAF
             if (!auxRafId) {
               auxRafId = requestAnimationFrame(() => {
-                document.getElementById('aux-amp-meter').style.width = `${data.amp * 100}%`;
-                document.getElementById('aux-amp-value').textContent = data.amp.toFixed(2);
-                document.getElementById('aux-kick-indicator').classList.toggle('active', auxCurrentBeat);
+                updateAuxDisplay(auxLatestAudioData || audioData, auxLatestBeatState);
                 auxRafId = null;
               });
             }
@@ -23955,6 +24249,9 @@ s("ape_breaks_3").loopAt(2)</textarea>
 
         auxActive = true;
         auxEnergyHistory = [];
+        auxLatestAudioData = null;
+        auxLatestBeatState = false;
+        resetAuxDisplay();
 
         document.getElementById('aux-start').disabled = true;
         document.getElementById('aux-stop').disabled = false;
@@ -23989,18 +24286,15 @@ s("ape_breaks_3").loopAt(2)</textarea>
       auxActive = false;
       auxUseWorklet = false;
       auxEnergyHistory = [];
+      auxLatestAudioData = null;
+      auxLatestBeatState = false;
 
       document.getElementById('aux-start').disabled = false;
       document.getElementById('aux-stop').disabled = true;
       const statusEl = document.getElementById('aux-status');
       statusEl.textContent = 'Stopped';
       statusEl.style.color = 'var(--jukebox-text-dim)';
-      const ampMeter = document.getElementById('aux-amp-meter');
-      const ampValue = document.getElementById('aux-amp-value');
-      const kickInd = document.getElementById('aux-kick-indicator');
-      if (ampMeter) ampMeter.style.width = '0%';
-      if (ampValue) ampValue.textContent = '0.0';
-      if (kickInd) kickInd.classList.remove('active');
+      resetAuxDisplay();
 
       console.log('🎤 Aux: Microphone stopped');
     }
@@ -24070,9 +24364,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
 
         const now = performance.now();
         if (now - lastUIUpdate > UI_UPDATE_INTERVAL) {
-          document.getElementById('aux-amp-meter').style.width = `${amp * 100}%`;
-          document.getElementById('aux-amp-value').textContent = amp.toFixed(2);
-          document.getElementById('aux-kick-indicator').classList.toggle('active', auxCurrentBeat);
+          updateAuxDisplay(audioData, auxCurrentBeat);
           lastUIUpdate = now;
         }
       }
@@ -24106,6 +24398,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
           startAux();
         }
       });
+      resetAuxDisplay();
     }
 
     function initStrudelUI() {
