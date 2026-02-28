@@ -956,7 +956,7 @@ const io = geckos({
   cors: {
     allowAuthorization: true,
     origin: dev ? "*" : (req) => {
-      const allowed = ["https://aesthetic.computer", "https://notepat.com"];
+      const allowed = ["https://aesthetic.computer", "https://notepat.com", "https://kidlisp.com", "https://pj.kidlisp.com"];
       const reqOrigin = req.headers?.origin;
       return allowed.includes(reqOrigin) ? reqOrigin : allowed[0];
     },
@@ -2445,6 +2445,15 @@ wss.on("connection", (ws, req) => {
         return;
       }
       
+      // 🔊 Audio data from kidlisp.com — relay only to code-channel subscribers
+      if (msg.type === "audio" && msg.content?.codeChannel) {
+        const ch = msg.content.codeChannel;
+        if (codeChannels[ch]) {
+          subscribers(codeChannels[ch], pack("audio", msg.content, id));
+        }
+        return;
+      }
+
       // 🎮 1v1 join/state messages - log and relay to everyone
       if (msg.type === "1v1:join" || msg.type === "1v1:state") {
         log(`🎮 ${msg.type}: ${msg.content?.handle || id} -> all ${wss.clients.size} clients`);
@@ -3017,6 +3026,17 @@ io.onConnection((channel) => {
         channel.room.emit("slide:code", data);
       } catch (err) {
         console.warn("slide:code broadcast error:", err);
+      }
+    }
+  });
+
+  // 🔊 Audio: real-time audio analysis data via UDP (lowest latency)
+  channel.on("udp:audio", (data) => {
+    if (channel.webrtcConnection.state === "open") {
+      try {
+        channel.room.emit("udp:audio", data);
+      } catch (err) {
+        console.warn("udp:audio broadcast error:", err);
       }
     }
   });
