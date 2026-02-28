@@ -22,7 +22,7 @@
 #   --yes             Skip confirmation prompts
 #
 # Requirements:
-#   erofs-utils (mkfs.erofs), curl, parted, e2fsprogs, dosfstools
+#   squashfs-tools (mksquashfs), curl, parted, e2fsprogs, dosfstools
 
 set -euo pipefail
 
@@ -150,8 +150,14 @@ if [ -n "$DEVICE" ]; then
   esac
 fi
 
+# Ensure squashfs-tools is installed (needed for mksquashfs)
+if ! command -v mksquashfs &>/dev/null; then
+  echo -e "  Installing squashfs-tools..."
+  apt-get install -y squashfs-tools >/dev/null 2>&1 || true
+fi
+
 # Check tools
-for tool in mkfs.erofs curl parted mkfs.vfat mkfs.ext4 losetup; do
+for tool in mksquashfs curl parted mkfs.vfat mkfs.ext4 losetup; do
   command -v "$tool" &>/dev/null || { echo -e "${RED}Error: $tool not found${NC}"; exit 1; }
 done
 
@@ -309,9 +315,9 @@ fi
 PROFILEEOF
 chown -R 1000:1000 "$ROOTFS_DIR/home/kioskuser" 2>/dev/null || true
 
-# 2h. fstab — tmpfs mounts required for read-only EROFS root
+# 2h. fstab — tmpfs mounts required for read-only SquashFS root
 cat > "$ROOTFS_DIR/etc/fstab" << 'EOF'
-# EROFS root is read-only; writable layers via tmpfs
+# SquashFS root is read-only; writable layers via tmpfs
 tmpfs  /tmp      tmpfs  nosuid,nodev,mode=1777  0 0
 tmpfs  /run      tmpfs  nosuid,nodev,mode=0755  0 0
 tmpfs  /var/log  tmpfs  nosuid,nodev,mode=0755  0 0
@@ -477,18 +483,16 @@ EOF
 
 echo -e "  ${GREEN}Kiosk config injected${NC}"
 
-# ── 3h. Add EROFS support to initramfs ──
-# Alpine's mkinitfs doesn't include erofs by default.  We need it so the
-# kernel can mount the root partition which is raw EROFS (no ext4 wrapper).
-echo -e "  Adding EROFS support to initramfs..."
-mkdir -p "$ROOTFS_DIR/etc/mkinitfs/features.d"
-echo 'kernel/fs/erofs/*' > "$ROOTFS_DIR/etc/mkinitfs/features.d/erofs.modules"
+# ── 3h. Ensure squashfs is in the initramfs ──
+# Alpine's linux-lts kernel includes squashfs built-in (CONFIG_SQUASHFS=y).
+# mkinitfs already has a squashfs feature file — just make sure it's enabled.
+echo -e "  Enabling squashfs in initramfs..."
 if [ -f "$ROOTFS_DIR/etc/mkinitfs/mkinitfs.conf" ]; then
-  # Append erofs to the features list
-  sed -i '/^features=/ s/"$/ erofs"/' "$ROOTFS_DIR/etc/mkinitfs/mkinitfs.conf"
+  if ! grep -q 'squashfs' "$ROOTFS_DIR/etc/mkinitfs/mkinitfs.conf"; then
+    sed -i '/^features=/ s/"$/ squashfs"/' "$ROOTFS_DIR/etc/mkinitfs/mkinitfs.conf"
+  fi
 fi
-# Regenerate initramfs with erofs module included
-# mkinitfs needs /proc mounted in the chroot to work properly
+# Regenerate initramfs
 KVER=$(ls "$ROOTFS_DIR/lib/modules/" 2>/dev/null | head -1)
 if [ -n "$KVER" ]; then
   mount -t proc none "$ROOTFS_DIR/proc" 2>/dev/null || true
@@ -496,21 +500,15 @@ if [ -n "$KVER" ]; then
   chroot "$ROOTFS_DIR" mkinitfs -o /boot/initramfs-lts "$KVER"
   umount "$ROOTFS_DIR/proc" 2>/dev/null || true
   umount "$ROOTFS_DIR/sys" 2>/dev/null || true
-  # Verify erofs module is actually in the initramfs
-  if command -v lsinitramfs >/dev/null 2>&1; then
-    lsinitramfs "$ROOTFS_DIR/boot/initramfs-lts" 2>/dev/null | grep -q erofs && \
-      echo -e "  ${GREEN}Initramfs contains erofs module${NC}" || \
-      echo -e "  ${YELLOW}Warning: erofs module not found in initramfs${NC}"
-  fi
-  echo -e "  ${GREEN}Initramfs regenerated with EROFS support${NC}"
+  echo -e "  ${GREEN}Initramfs regenerated${NC}"
 fi
 
 # ══════════════════════════════════════════
-# Step 4: Build EROFS + prepare boot files
+# Step 4: Build SquashFS + prepare boot files
 # ══════════════════════════════════════════
-echo -e "${CYAN}[4/6] Building EROFS image...${NC}"
+echo -e "${CYAN}[4/6] Building SquashFS image...${NC}"
 
-# 4a. Copy kernel and initramfs out before EROFS compression
+# 4a. Copy kernel and initramfs out before SquashFS compression
 KERNEL_SRC=$(ls "$ROOTFS_DIR/boot/vmlinuz-"*lts* 2>/dev/null | head -1)
 INITRD_SRC=$(ls "$ROOTFS_DIR/boot/initramfs-"*lts* 2>/dev/null | head -1)
 
@@ -555,13 +553,14 @@ find "$ROOTFS_DIR/usr/share/locale" -mindepth 1 -maxdepth 1 ! -name 'en*' -exec 
 ROOTFS_SIZE=$(du -sm "$ROOTFS_DIR" | awk '{print $1}')
 echo -e "  Rootfs size before compression: ${ROOTFS_SIZE}MB"
 
-# 4d. Build EROFS (with a fixed UUID so the initramfs can find it via root=UUID=)
-EROFS_PATH="$WORK_DIR/rootfs.erofs"
-ROOT_UUID=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || python3 -c "import uuid; print(uuid.uuid4())")
-mkfs.erofs -zlz4hc,9 -C65536 -U "$ROOT_UUID" "$EROFS_PATH" "$ROOTFS_DIR/"
-echo -e "  Root UUID: ${ROOT_UUID}"
-EROFS_SIZE=$(stat -c%s "$EROFS_PATH")
-echo -e "  ${GREEN}EROFS built: $(numfmt --to=iec $EROFS_SIZE)${NC}"
+# 4d. Build SquashFS
+# SquashFS is built into Alpine's linux-lts kernel (CONFIG_SQUASHFS=y).
+# Use LABEL= for root identification — squashfs doesn't have a UUID field,
+# so we use the partition LABEL which parted sets and nlplug-findfs can find.
+SFS_PATH="$WORK_DIR/rootfs.squashfs"
+mksquashfs "$ROOTFS_DIR/" "$SFS_PATH" -comp lz4 -Xhc -noappend -no-progress -quiet
+SFS_SIZE=$(stat -c%s "$SFS_PATH")
+echo -e "  ${GREEN}SquashFS built: $(numfmt --to=iec $SFS_SIZE)${NC}"
 
 # ══════════════════════════════════════════
 # Step 5: Build image and/or flash USB
@@ -577,7 +576,7 @@ build_target() {
     umount "$part" 2>/dev/null || true
   done
 
-  # Wipe and partition: EFI + ROOT (EROFS) + PIECE
+  # Wipe and partition: EFI + ROOT (SquashFS) + PIECE
   echo -e "  Creating partition table on ${label}..."
   wipefs -a "$target" >/dev/null 2>&1
 
@@ -609,7 +608,7 @@ build_target() {
 
   # Format
   mkfs.vfat -F 32 -n BOOT "$p1" >/dev/null
-  # p2 (ROOT) gets raw EROFS written later — no filesystem format needed
+  # p2 (ROOT) gets raw SquashFS written later — no filesystem format needed
   mkfs.ext4 -L FEDAC-PIECE -q "$p3"
   echo -e "  ${GREEN}${label}: partitions created (EFI + ROOT + PIECE)${NC}"
 
@@ -623,10 +622,10 @@ build_target() {
   PIECE_MOUNT_TMP=""
   echo -e "  ${GREEN}${label}: piece.html written to FEDAC-PIECE${NC}"
 
-  # Write EROFS rootfs directly to ROOT partition (raw — no ext4 wrapper)
-  echo -e "  Writing EROFS rootfs to ROOT partition..."
-  dd if="$EROFS_PATH" of="$p2" bs=4M conv=fsync 2>/dev/null
-  echo -e "  ${GREEN}${label}: EROFS rootfs written${NC}"
+  # Write SquashFS rootfs directly to ROOT partition (raw)
+  echo -e "  Writing SquashFS rootfs to ROOT partition..."
+  dd if="$SFS_PATH" of="$p2" bs=4M conv=fsync 2>/dev/null
+  echo -e "  ${GREEN}${label}: SquashFS rootfs written${NC}"
 
   # Set up EFI partition
   EFI_MOUNT=$(mktemp -d /tmp/alpine-efi-XXXX)
@@ -683,7 +682,7 @@ set gfxpayload=keep
 terminal_input console serial
 terminal_output gfxterm serial
 menuentry "FedOS Alpine" {
-  linux /boot/vmlinuz root=UUID=${ROOT_UUID} rootfstype=erofs modules=erofs ro quiet loglevel=3 mitigations=off console=tty0 console=ttyS0,115200
+  linux /boot/vmlinuz root=LABEL=ROOT rootfstype=squashfs ro quiet loglevel=3 mitigations=off console=tty0 console=ttyS0,115200
   initrd /boot/initramfs
 }
 GRUBEOF
