@@ -155,10 +155,6 @@ if ! command -v mksquashfs &>/dev/null; then
   echo -e "  Installing squashfs-tools..."
   apt-get install -y squashfs-tools >/dev/null 2>&1 || true
 fi
-if ! command -v sgdisk &>/dev/null; then
-  echo -e "  Installing gdisk (for sgdisk)..."
-  apt-get install -y gdisk >/dev/null 2>&1 || true
-fi
 
 # Check tools
 for tool in mksquashfs curl parted mkfs.vfat mkfs.ext4 losetup; do
@@ -605,8 +601,10 @@ build_target() {
   sleep 2
 
   # Set fixed PARTUUID on partition 2 (ROOT) so kernel cmdline can use PARTUUID=
-  sgdisk --partition-guid "2:${ROOT_PARTUUID}" "$target" >/dev/null 2>&1 || \
-    echo -e "  ${YELLOW}Warning: sgdisk not available, PARTUUID not set${NC}"
+  # sfdisk --part-uuid is part of util-linux and works on image files
+  sfdisk --part-uuid "$target" 2 "$ROOT_PARTUUID" 2>/dev/null && \
+    echo -e "  ${GREEN}ROOT PARTUUID set: ${ROOT_PARTUUID}${NC}" || \
+    echo -e "  ${YELLOW}Warning: failed to set PARTUUID${NC}"
   partprobe "$target" 2>/dev/null || true
 
   # Detect partition names
