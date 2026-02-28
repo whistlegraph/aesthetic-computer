@@ -11,6 +11,20 @@
 - Required binaries for a local Emacs mail workflow are not yet installed (`mbsync`, `mu`, `notmuch`, `msmtp`).
 - Netlify CLI on this machine can return full secret values (`npx netlify env:list --json`), including `SMTP_PASS`.
 
+## 2026-02-28 Addendum
+- Emacs mail config was added on `2026-02-26` in commit `979c14333`:
+  - `dotfiles/dot_config/emacs.el` now includes `mu4e` setup and keybindings:
+    - `C-c m` => `ac-mail-open`
+    - `C-c M-m` => `ac-mail-sync`
+- Mail + vault dependencies are now part of container builds:
+  - `.devcontainer/Dockerfile`
+  - `.devcontainer/Containerfile.apple`
+  - Added packages: `isync`, `maildir-utils`, `notmuch`, `msmtp`, `gnupg2`, `pinentry`
+- Vault now operates with GPG lock/unlock during devcontainer startup:
+  - `.devcontainer/entry.fish` runs `devault.fish` during Phase 9.
+  - `devault.fish` auto-unlocks when `.gpg` files exist, copies secrets, then re-locks.
+  - `vault-tool.fish` performs GPG encrypt/decrypt using recipient `mail@aesthetic.computer`.
+
 ## What I Verified
 
 ### 1) Mail credentials exist in vault + Netlify

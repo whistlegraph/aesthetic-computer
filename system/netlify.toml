@@ -927,6 +927,36 @@ from = "https://processing.prompt.ac/*"
 to = "https://processing.aesthetic.computer/:splat"
 status = 301
 force = true
+[[redirects]]
+from = "https://p5.prompt.ac"
+to = "https://p5.aesthetic.computer"
+status = 301
+force = true
+[[redirects]]
+from = "https://p5.prompt.ac/*"
+to = "https://p5.aesthetic.computer/:splat"
+status = 301
+force = true
+[[redirects]]
+from = "/processing.prompt.ac"
+to = "/processing.aesthetic.computer"
+status = 301
+force = true
+[[redirects]]
+from = "/processing.prompt.ac/*"
+to = "/processing.aesthetic.computer/:splat"
+status = 301
+force = true
+[[redirects]]
+from = "/p5.prompt.ac"
+to = "/p5.aesthetic.computer"
+status = 301
+force = true
+[[redirects]]
+from = "/p5.prompt.ac/*"
+to = "/p5.aesthetic.computer/:splat"
+status = 301
+force = true
 # sitemap.prompt.ac → sitemap.aesthetic.computer
 [[redirects]]
 from = "https://sitemap.prompt.ac"
@@ -999,6 +1029,81 @@ from = "https://processing.aesthetic.computer/*"
 to = "/processing.aesthetic.computer/index.html"
 status = 200
 force = true
+[[redirects]]
+from = "https://p5.aesthetic.computer"
+to = "/processing.aesthetic.computer/index.html"
+status = 200
+force = true
+[[redirects]]
+from = "https://p5.aesthetic.computer/docs.json"
+to = "/docs.json"
+status = 200
+force = true
+[[redirects]]
+from = "https://p5.aesthetic.computer/docs/*"
+to = "/docs/:splat"
+status = 200
+force = true
+[[redirects]]
+from = "https://p5.aesthetic.computer/processing.aesthetic.computer/*"
+to = "/processing.aesthetic.computer/:splat"
+status = 200
+force = true
+[[redirects]]
+from = "https://p5.aesthetic.computer/*"
+to = "/processing.aesthetic.computer/index.html"
+status = 200
+force = true
+[[redirects]]
+from = "/processing.aesthetic.computer"
+to = "/processing.aesthetic.computer/index.html"
+status = 200
+force = true
+[[redirects]]
+from = "/processing.aesthetic.computer/docs.json"
+to = "/docs.json"
+status = 200
+force = true
+[[redirects]]
+from = "/processing.aesthetic.computer/docs/*"
+to = "/docs/:splat"
+status = 200
+force = true
+[[redirects]]
+from = "/processing.aesthetic.computer/processing.aesthetic.computer/*"
+to = "/processing.aesthetic.computer/:splat"
+status = 200
+force = true
+[[redirects]]
+from = "/processing.aesthetic.computer/*"
+to = "/processing.aesthetic.computer/index.html"
+status = 200
+force = true
+[[redirects]]
+from = "/p5.aesthetic.computer"
+to = "/processing.aesthetic.computer/index.html"
+status = 200
+force = true
+[[redirects]]
+from = "/p5.aesthetic.computer/docs.json"
+to = "/docs.json"
+status = 200
+force = true
+[[redirects]]
+from = "/p5.aesthetic.computer/docs/*"
+to = "/docs/:splat"
+status = 200
+force = true
+[[redirects]]
+from = "/p5.aesthetic.computer/processing.aesthetic.computer/*"
+to = "/processing.aesthetic.computer/:splat"
+status = 200
+force = true
+[[redirects]]
+from = "/p5.aesthetic.computer/*"
+to = "/processing.aesthetic.computer/index.html"
+status = 200
+force = true
 # Screenshot generation handled by oven.aesthetic.computer
 [[redirects]]
 from = "/preview/*"
@@ -1057,6 +1162,26 @@ status = 200
 force = true
 [[redirects]]
 from = "/Processing/*"
+to = "/processing.aesthetic.computer/index.html"
+status = 200
+force = true
+[[redirects]]
+from = "/p5"
+to = "/processing.aesthetic.computer/index.html"
+status = 200
+force = true
+[[redirects]]
+from = "/p5/*"
+to = "/processing.aesthetic.computer/index.html"
+status = 200
+force = true
+[[redirects]]
+from = "/P5"
+to = "/processing.aesthetic.computer/index.html"
+status = 200
+force = true
+[[redirects]]
+from = "/P5/*"
 to = "/processing.aesthetic.computer/index.html"
 status = 200
 force = true

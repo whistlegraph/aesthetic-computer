@@ -67,7 +67,11 @@
     "feed:deploy:dev": "cd dp1-feed; ./deploy-feed.fish dev",
     "feed:test": "cd dp1-feed; npm run test:api",
     "feed:logs": "cd dp1-feed; wrangler tail --env production",
-    "electron:release": "node ac-electron/scripts/release-electron.mjs"
+    "electron:release": "node ac-electron/scripts/release-electron.mjs",
+    "vault": "fish aesthetic-computer-vault/vault-tool.fish",
+    "vault:unlock": "fish aesthetic-computer-vault/vault-tool.fish unlock",
+    "vault:lock": "fish aesthetic-computer-vault/vault-tool.fish lock",
+    "vault:status": "fish aesthetic-computer-vault/vault-tool.fish status"
   },
   "repository": {
     "type": "git",

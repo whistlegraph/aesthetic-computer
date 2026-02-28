@@ -652,6 +652,13 @@ if test -d /home/me/.copilot
     echo "✅ Fixed permissions for /home/me/.copilot (Copilot CLI config)"
 end
 
+# --- GPG agent: cache passphrase for the entire container lifetime ---
+mkdir -p /home/me/.gnupg 2>/dev/null
+chmod 700 /home/me/.gnupg
+printf "allow-loopback-pinentry\npinentry-program /usr/sbin/pinentry-curses\ndefault-cache-ttl 999999\nmax-cache-ttl 999999\n" > /home/me/.gnupg/gpg-agent.conf
+gpgconf --reload gpg-agent 2>/dev/null
+log_ok "GPG agent configured (passphrase cached for container lifetime)"
+
 if not test -d /home/me/aesthetic-computer/aesthetic-computer-code
     gh repo clone whistlegraph/aesthetic-computer-code /home/me/aesthetic-computer/aesthetic-computer-code
 else
