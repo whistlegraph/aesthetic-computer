@@ -575,6 +575,17 @@
             }
           } catch (e) {}
         });
+
+        // Listen for slide/code updates over UDP (lowest latency keystrokes)
+        udpChannel.on('slide:code', (data) => {
+          try {
+            const msg = JSON.parse(data);
+            if (msg.codeChannel === channelId && msg.code) {
+              handleEditorPing();
+              sendCodeToIframe(msg.code, true); // slide mode = no buffer reset
+            }
+          } catch (e) {}
+        });
       });
 
       udpChannel.onDisconnect(() => {
