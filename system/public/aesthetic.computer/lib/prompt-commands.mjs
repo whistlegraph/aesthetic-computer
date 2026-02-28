@@ -116,6 +116,12 @@ export const commandDescriptions = {
   // 🎓 Learning
   word: "Word of the day",
   bits: "Learn about bits",
+  l5: "Open the L5 try page",
+  l5learn: "Open the L5 try page",
+  l5docs: "Open L5 compatibility docs",
+  processing: "Open the Processing try page",
+  processinglearn: "Open the Processing try page",
+  processingdocs: "Open Processing compatibility docs",
   
   // 🔗 External
   whistlegraph: "Whistlegraph website",

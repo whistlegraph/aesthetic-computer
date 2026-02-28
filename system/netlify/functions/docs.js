@@ -228,6 +228,130 @@ end</code></pre>
     </p>
   `.trim();
 
+  const processingChecklistItems = [
+    {
+      area: "Docs checklist + /processing try page",
+      status: "done",
+      notes: "Processing lane docs and /processing route are live.",
+    },
+    {
+      area: "Shared try-page architecture reuse",
+      status: "done",
+      notes: "Processing page is configured via shared try-page client module.",
+    },
+    {
+      area: "Processing (Java) -> Lua transpile bridge",
+      status: "in-progress",
+      notes: "v0 transpiler supports callbacks, typed vars, if/while, numeric for loops, and operators.",
+    },
+    {
+      area: "Runtime parity with Processing reference",
+      status: "planned",
+      notes: "Only a subset of Processing syntax and APIs are mapped in v0.",
+    },
+  ];
+
+  const processingChecklistBody = `
+    <p>
+      This board tracks current Processing-on-AC integration scope.
+      Keep statuses synced with runtime behavior.
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>Area</th>
+          <th>Status</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${processingChecklistItems
+          .map(
+            (item) => `
+              <tr>
+                <td>${item.area}</td>
+                <td>${l5StatusBadge(item.status)}</td>
+                <td>${item.notes}</td>
+              </tr>
+            `,
+          )
+          .join("")}
+      </tbody>
+    </table>
+    <p><strong>Status date:</strong> 2026-02-28</p>
+  `.trim();
+
+  const processingLifecycleBody = `
+    <table>
+      <thead>
+        <tr>
+          <th>Processing callback</th>
+          <th>Runtime target</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>void setup()</code></td><td><code>function setup()</code> in L5 runtime</td><td>${l5StatusBadge("done")}</td></tr>
+        <tr><td><code>void draw()</code></td><td><code>function draw()</code> in L5 runtime</td><td>${l5StatusBadge("done")}</td></tr>
+        <tr><td><code>void mousePressed()</code>/<code>void keyPressed()</code></td><td>Mapped directly to L5 event callbacks</td><td>${l5StatusBadge("done")}</td></tr>
+      </tbody>
+    </table>
+  `.trim();
+
+  const processingSyntaxBody = `
+    <ul>
+      <li><code>void setup()</code>, <code>void draw()</code>, and common event callbacks are transpiled.</li>
+      <li>Typed declarations such as <code>int</code>, <code>float</code>, and <code>boolean</code> become Lua locals.</li>
+      <li><code>if/else</code>, <code>while</code>, and numeric <code>for</code> loops are translated to Lua block syntax.</li>
+      <li>Operators like <code>!=</code>, <code>&amp;&amp;</code>, and <code>||</code> are rewritten to Lua equivalents.</li>
+      <li>Math helpers like <code>sin()</code> and <code>cos()</code> map to <code>math.sin()</code> and <code>math.cos()</code>.</li>
+    </ul>
+  `.trim();
+
+  const processingUnsupportedBody = `
+    <ul>
+      <li>Class declarations, custom object types, and overloaded methods are out of scope for v0.</li>
+      <li>Complex Java generics/arrays and Processing Java-mode library imports are not supported yet.</li>
+      <li>Only syntax that can safely transpile to L5 runtime callbacks is currently targeted.</li>
+    </ul>
+  `.trim();
+
+  const processingExamplesBody = `
+    <p>Starter snippets for the Processing v0 transpile bridge.</p>
+    <div class="doc-examples">
+      <article class="doc-example">
+        <h3>Pulse Circle</h3>
+        <pre><code class="language-java">void setup() {
+  size(256, 256);
+}
+
+void draw() {
+  background(12, 12, 18);
+  float r = 40 + sin(frameCount * 0.05) * 20;
+  fill(255, 120, 80);
+  circle(width / 2, height / 2, r * 2);
+}</code></pre>
+      </article>
+      <article class="doc-example">
+        <h3>Mouse Dots</h3>
+        <pre><code class="language-java">void setup() {
+  background(255);
+}
+
+void draw() {
+  if (mouseIsPressed) {
+    fill(20, 20, 20);
+    circle(mouseX, mouseY, 10);
+  }
+}</code></pre>
+      </article>
+    </div>
+    <p>
+      <a href="${AC_ORIGIN}/processing">Open the Processing try page</a> ·
+      <a href="${AC_ORIGIN}/docs/processing:syntax">Open syntax notes</a>
+    </p>
+  `.trim();
+
   const mjsOverviewBody = `
     <p>
       This lane documents the JavaScript piece API for <code>.mjs</code> pieces on AC.
@@ -2436,6 +2560,114 @@ end</code></pre>
           done: true,
         },
       },
+      processing: {
+        overview: {
+          sig: "Processing (Java) on Aesthetic Computer",
+          desc: "Early Processing-style Java support via transpile bridge to the L5 Lua runtime.",
+          body: `
+            <p>
+              This lane tracks the Processing v0 bridge, where Java-style Processing code
+              is transpiled into Lua for AC's L5 runtime.
+            </p>
+            <p>
+              <a href="${AC_ORIGIN}/docs/processing:checklist">Open checklist</a> ·
+              <a href="${AC_ORIGIN}/docs/processing:syntax">Open syntax notes</a> ·
+              <a href="${AC_ORIGIN}/processing">Open /processing try page</a>
+            </p>
+          `.trim(),
+          done: true,
+        },
+        checklist: {
+          sig: "Processing compatibility checklist (v0)",
+          desc: "Current integration scope and readiness checkpoints.",
+          body: processingChecklistBody,
+          done: "in-progress",
+        },
+        lifecycle: {
+          sig: "Processing lifecycle bridge",
+          desc: "How setup/draw/events map from Processing Java syntax to L5 callbacks.",
+          body: processingLifecycleBody,
+          done: "in-progress",
+        },
+        syntax: {
+          sig: "Processing syntax transpile rules (v0)",
+          desc: "What Java-like syntax the bridge currently rewrites.",
+          body: processingSyntaxBody,
+          done: "in-progress",
+        },
+        unsupported: {
+          sig: "Processing v0 known gaps",
+          desc: "Features intentionally excluded in the first bridge release.",
+          body: processingUnsupportedBody,
+          done: true,
+        },
+        examples: {
+          sig: "Processing v0 examples",
+          desc: "Starter snippets for the Processing page.",
+          body: processingExamplesBody,
+          done: true,
+        },
+        setup: {
+          sig: "void setup()",
+          desc: "Called once at startup. Transpiles to `function setup()`.",
+          returns: "void",
+          done: true,
+        },
+        draw: {
+          sig: "void draw()",
+          desc: "Called every frame. Transpiles to `function draw()`.",
+          returns: "void",
+          done: true,
+        },
+        size: {
+          sig: "size(width, height)",
+          desc: "Set sketch resolution in Processing syntax.",
+          returns: "void",
+          done: true,
+        },
+        background: {
+          sig: "background(r, g, b, a?)",
+          desc: "Clear frame with a color.",
+          returns: "void",
+          done: true,
+        },
+        fill: {
+          sig: "fill(r, g, b, a?)",
+          desc: "Set fill color for subsequent shapes and text.",
+          returns: "void",
+          done: true,
+        },
+        stroke: {
+          sig: "stroke(r, g, b, a?)",
+          desc: "Set stroke color for lines/outlines.",
+          returns: "void",
+          done: true,
+        },
+        line: {
+          sig: "line(x1, y1, x2, y2)",
+          desc: "Draw a line primitive.",
+          returns: "void",
+          done: true,
+        },
+        rect: {
+          sig: "rect(x, y, width, height)",
+          desc: "Draw a rectangle primitive.",
+          returns: "void",
+          done: true,
+        },
+        circle: {
+          sig: "circle(x, y, diameter)",
+          desc: "Draw a circle primitive.",
+          returns: "void",
+          done: true,
+        },
+        mousePressed: {
+          sig: "void mousePressed()",
+          desc: "Pointer-down callback mapped to L5 event hook.",
+          returns: "void",
+          done: true,
+        },
+      },
     },
     // 😱 Commands for entering into the prompt.
     prompts: {
@@ -2756,13 +2988,18 @@ end</code></pre>
       docs: {
         sig: "docs",
         desc: "Aesthetic Computer Documentation.",
-        examples: ["docs", "l5docs", "l5"],
+        examples: ["docs", "l5docs", "processingdocs", "l5", "processing"],
         returns: "void",
         done: true,
       },
       l5docs: {
         sig: "l5docs",
         desc: "Open the L5 compatibility docs checklist.",
+        done: true,
+      },
+      processingdocs: {
+        sig: "processingdocs",
+        desc: "Open the Processing compatibility docs checklist.",
         done: true,
       },
       l5: {
@@ -2773,6 +3010,16 @@ end</code></pre>
       l5learn: {
         sig: "l5learn",
         desc: "Open the L5 try page.",
+        done: true,
+      },
+      processing: {
+        sig: "processing",
+        desc: "Open the Processing try page.",
+        done: true,
+      },
+      processinglearn: {
+        sig: "processinglearn",
+        desc: "Open the Processing try page.",
         done: true,
       },
       code: {
@@ -4578,6 +4825,10 @@ end</code></pre>
           border-color: rgba(245, 213, 66, 0.5);
           background: linear-gradient(180deg, rgba(90, 75, 0, 0.22), rgba(90, 75, 0, 0.08));
         }
+        .lane-card.lane-processing {
+          border-color: rgba(86, 220, 255, 0.5);
+          background: linear-gradient(180deg, rgba(9, 71, 92, 0.22), rgba(9, 71, 92, 0.08));
+        }
         .lane-card.lane-kidlisp {
           border-color: rgba(102, 230, 187, 0.45);
           background: linear-gradient(180deg, rgba(16, 74, 56, 0.2), rgba(16, 74, 56, 0.06));
@@ -4605,6 +4856,9 @@ end</code></pre>
         }
         .lane-l5 .lane-title {
           color: #ffe37a;
+        }
+        .lane-processing .lane-title {
+          color: #93ecff;
         }
         .lane-kidlisp .lane-title {
           color: #9ff2d4;
@@ -4790,6 +5044,10 @@ end</code></pre>
             background: linear-gradient(180deg, rgba(255, 247, 185, 0.85), rgba(255, 252, 220, 0.7));
             border-color: rgba(179, 149, 37, 0.55);
           }
+          .lane-card.lane-processing {
+            background: linear-gradient(180deg, rgba(205, 244, 255, 0.85), rgba(233, 251, 255, 0.72));
+            border-color: rgba(37, 137, 179, 0.55);
+          }
           .lane-card.lane-kidlisp {
             background: linear-gradient(180deg, rgba(204, 245, 230, 0.8), rgba(233, 252, 245, 0.7));
             border-color: rgba(41, 141, 102, 0.5);
@@ -4807,6 +5065,9 @@ end</code></pre>
           }
           .lane-l5 .lane-title {
             color: rgb(130, 102, 0);
+          }
+          .lane-processing .lane-title {
+            color: rgb(8, 101, 138);
           }
           .lane-kidlisp .lane-title {
             color: rgb(24, 112, 76);
@@ -4940,6 +5201,7 @@ end</code></pre>
 
   function familyFromCategory(category) {
     if (category === "l5") return "L5 / Lua API";
+    if (category === "processing") return "Processing / Java API";
     if (category === "kidlisp") return "KidLisp / Language API";
     if (category === "prompts") return "Prompt Commands";
     if (category === "pieces") return "Pieces";
@@ -4953,6 +5215,12 @@ end</code></pre>
     const match = source.match(/^([A-Za-z0-9_.$]+)\s*\(/);
     if (match?.[1]) return match[1];
     return fallback || source;
+  }
+
+  function playgroundUrlForCategory(category) {
+    if (category === "l5") return `${AC_ORIGIN}/l5`;
+    if (category === "processing") return `${AC_ORIGIN}/processing`;
+    return `${AC_ORIGIN}/prompt`;
   }
 
   function previewUrlForDoc(doc, category, word) {
@@ -4969,6 +5237,9 @@ end</code></pre>
     }
     if (category === "l5") {
       return `${AC_ORIGIN}/l5-hello.lua?${flags}`;
+    }
+    if (category === "processing") {
+      return `${AC_ORIGIN}/processing?t=${Date.now()}`;
     }
     if (category === "kidlisp") {
       return `${AC_ORIGIN}/kidlisp?${flags}`;
@@ -5018,11 +5289,12 @@ end</code></pre>
   }
 
   function renderExamplesSection(doc, category, word) {
+    const playgroundUrl = playgroundUrlForCategory(category);
     const examples = Array.isArray(doc?.examples) ? doc.examples : [];
     if (!examples.length) {
       return `
         <p>No explicit examples yet.</p>
-        <p><a href="${AC_ORIGIN}/prompt">Open prompt to experiment live</a>.</p>
+        <p><a href="${playgroundUrl}">Open playground to experiment live</a>.</p>
       `;
     }
 
@@ -5035,12 +5307,20 @@ end</code></pre>
           })
           .join("")}
       </ul>
-      <p><a href="${AC_ORIGIN}/prompt">Open prompt</a> · <a href="${AC_ORIGIN}/docs/${category}:${word}">Permalink</a></p>
+      <p><a href="${playgroundUrl}">Open playground</a> · <a href="${AC_ORIGIN}/docs/${category}:${word}">Permalink</a></p>
     `;
   }
 
   function renderDocContent(category, word, doc) {
-    const lang = doc?.lang || (category === "l5" ? "lua" : category === "kidlisp" ? "lisp" : "javascript");
+    const lang =
+      doc?.lang ||
+      (category === "l5"
+        ? "lua"
+        : category === "processing"
+          ? "java"
+          : category === "kidlisp"
+            ? "lisp"
+            : "javascript");
     const previewSrc = previewUrlForDoc(doc, category, word);
     const family = familyFromCategory(category);
     const status = normalizeStatus(doc?.done);
@@ -5048,6 +5328,7 @@ end</code></pre>
     const notes = doc?.notes || "";
     const desc = doc?.desc || "Description pending.";
     const sig = doc?.sig || `${word}(...)`;
+    const playgroundUrl = playgroundUrlForCategory(category);
 
     return `
       <h1 data-done="${escapeHTML(doc?.done)}" id="title"><a href="/docs">${escapeHTML(word)}</a></h1>
@@ -5101,7 +5382,7 @@ end</code></pre>
               <button type="button" onclick="runDocPreview()">Run</button>
               <button type="button" onclick="resetDocPreview()">Reset</button>
               <a href="${previewSrc}" target="_blank" rel="noopener">Open preview</a>
-              <a href="${AC_ORIGIN}/prompt" target="_blank" rel="noopener">Open prompt</a>
+              <a href="${playgroundUrl}" target="_blank" rel="noopener">Open playground</a>
               <a href="${AC_ORIGIN}/docs/${category}:${word}" target="_blank" rel="noopener">Open doc</a>
             </div>
           </div>
@@ -5270,6 +5551,25 @@ end</code></pre>
             <span class="links">
               <a href="${AC_ORIGIN}/l5">/l5 playground</a>
               <a href="${AC_ORIGIN}/prompt">prompt</a>
+            </span>
+          </div>
+        </article>
+
+        <article class="lane-card lane-processing">
+          <div class="lane-head">
+            <div class="lane-title">Processing / Java API</div>
+            <div class="lane-count">${laneCountLabel(["processing"])}</div>
+          </div>
+          <div class="lane-subtitle">Processing-style Java syntax transpiled to AC L5 runtime.</div>
+          <div class="links">
+            <a data-done="${docs.api.processing.overview.done}" class="top-level" href="/docs/processing:overview">overview</a>
+            ${genLinks("processing")}
+          </div>
+          <div class="lane-section">
+            <h3>Runtime Surfaces</h3>
+            <span class="links">
+              <a href="${AC_ORIGIN}/processing">/processing playground</a>
+              <a href="${AC_ORIGIN}/l5">/l5 runtime lane</a>
             </span>
           </div>
         </article>

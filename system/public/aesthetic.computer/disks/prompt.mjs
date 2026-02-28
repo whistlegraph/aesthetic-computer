@@ -2450,8 +2450,16 @@ async function halt($, text) {
     jump("out:/docs/l5:overview");
     makeFlash($);
     return true;
+  } else if (text === "processingdocs") {
+    jump("out:/docs/processing:overview");
+    makeFlash($);
+    return true;
   } else if (text === "l5" || text === "l5learn") {
     jump("out:/l5");
+    makeFlash($);
+    return true;
+  } else if (text === "processing" || text === "processinglearn") {
+    jump("out:/processing");
     makeFlash($);
     return true;
   } else if (text === "docs") {
