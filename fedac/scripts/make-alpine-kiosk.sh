@@ -150,10 +150,14 @@ if [ -n "$DEVICE" ]; then
   esac
 fi
 
-# Ensure squashfs-tools is installed (needed for mksquashfs)
+# Ensure required tools are installed
 if ! command -v mksquashfs &>/dev/null; then
   echo -e "  Installing squashfs-tools..."
   apt-get install -y squashfs-tools >/dev/null 2>&1 || true
+fi
+if ! command -v sgdisk &>/dev/null; then
+  echo -e "  Installing gdisk (for sgdisk)..."
+  apt-get install -y gdisk >/dev/null 2>&1 || true
 fi
 
 # Check tools
@@ -555,12 +559,14 @@ echo -e "  Rootfs size before compression: ${ROOTFS_SIZE}MB"
 
 # 4d. Build SquashFS
 # SquashFS is built into Alpine's linux-lts kernel (CONFIG_SQUASHFS=y).
-# Use LABEL= for root identification — squashfs doesn't have a UUID field,
-# so we use the partition LABEL which parted sets and nlplug-findfs can find.
+# We identify the root partition via a fixed PARTUUID set on the GPT partition
+# after creation (sgdisk --partition-guid). nlplug-findfs supports PARTUUID=.
+ROOT_PARTUUID=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || python3 -c "import uuid; print(uuid.uuid4())")
 SFS_PATH="$WORK_DIR/rootfs.squashfs"
 mksquashfs "$ROOTFS_DIR/" "$SFS_PATH" -comp lz4 -Xhc -noappend -no-progress -quiet
 SFS_SIZE=$(stat -c%s "$SFS_PATH")
 echo -e "  ${GREEN}SquashFS built: $(numfmt --to=iec $SFS_SIZE)${NC}"
+echo -e "  Root PARTUUID: ${ROOT_PARTUUID}"
 
 # ══════════════════════════════════════════
 # Step 5: Build image and/or flash USB
@@ -597,6 +603,11 @@ build_target() {
   sleep 2
   partprobe "$target" 2>/dev/null || true
   sleep 2
+
+  # Set fixed PARTUUID on partition 2 (ROOT) so kernel cmdline can use PARTUUID=
+  sgdisk --partition-guid "2:${ROOT_PARTUUID}" "$target" >/dev/null 2>&1 || \
+    echo -e "  ${YELLOW}Warning: sgdisk not available, PARTUUID not set${NC}"
+  partprobe "$target" 2>/dev/null || true
 
   # Detect partition names
   local p1="${target}1"
@@ -682,7 +693,7 @@ set gfxpayload=keep
 terminal_input console serial
 terminal_output gfxterm serial
 menuentry "FedOS Alpine" {
-  linux /boot/vmlinuz root=LABEL=ROOT rootfstype=squashfs ro quiet loglevel=3 mitigations=off console=tty0 console=ttyS0,115200
+  linux /boot/vmlinuz root=PARTUUID=${ROOT_PARTUUID} rootfstype=squashfs ro quiet loglevel=3 mitigations=off console=tty0 console=ttyS0,115200
   initrd /boot/initramfs
 }
 GRUBEOF
