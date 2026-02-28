@@ -22426,6 +22426,90 @@ s("ape_breaks_3").loopAt(2)</textarea>
       }
     }
     
+    // PJ UDP (geckos.io) - lowest latency for audio data
+    let pjUdpChannel = null;
+    let pjUdpConnected = false;
+    let pjUdpReconnectTimer = null;
+    let pjUdpAudioCounter = 0;
+    let GeckosClient = null;
+
+    async function connectPjUDP(forceLocal = false) {
+      if (pjUdpConnected || pjUdpChannel) return;
+
+      // Lazy-load geckos.io client
+      if (!GeckosClient) {
+        try {
+          const mod = await import(`${aestheticUrl}/aesthetic.computer/dep/geckos.io-client.3.0.2.min.js`);
+          GeckosClient = mod.default;
+        } catch (e) {
+          console.warn('🩰 PJ UDP: Failed to load geckos.io client:', e);
+          return;
+        }
+      }
+
+      const url = forceLocal ? 'https://localhost' : 'https://session-server.aesthetic.computer';
+      const port = forceLocal ? 8889 : 443;
+      const isLocalDev = forceLocal || url.includes('localhost');
+      logPj('UDP connecting', { url, port, forceLocal });
+
+      try {
+        const iceServers = isLocalDev
+          ? [
+              { urls: 'stun:localhost:3478' },
+              { urls: 'turn:localhost:3478', username: 'aesthetic', credential: 'computer123' },
+              { urls: 'turn:localhost:3478?transport=tcp', username: 'aesthetic', credential: 'computer123' },
+            ]
+          : [{ urls: 'stun:stun.l.google.com:19302' }];
+
+        pjUdpChannel = GeckosClient({
+          url,
+          port,
+          iceServers,
+          iceTransportPolicy: isLocalDev ? 'relay' : 'all',
+        });
+      } catch (e) {
+        console.warn('🩰 PJ UDP: Failed to create geckos channel:', e);
+        pjUdpChannel = null;
+        return;
+      }
+
+      pjUdpChannel.onConnect((error) => {
+        if (error) {
+          logPj('UDP error', { error: error.message || error, forceLocal });
+          pjUdpChannel = null;
+          if (!forceLocal) {
+            setTimeout(() => connectPjUDP(true), 500);
+          } else {
+            pjUdpReconnectTimer = setTimeout(() => connectPjUDP(forceLocal), 3000);
+          }
+          return;
+        }
+
+        pjUdpConnected = true;
+        logPj('UDP connected', { url, port });
+
+        pjUdpChannel.emit('udp:identity', JSON.stringify({
+          role: 'kidlisp-editor',
+          codeChannel: codeChannelId
+        }));
+      });
+
+      pjUdpChannel.onDisconnect(() => {
+        logPj('UDP disconnected');
+        pjUdpConnected = false;
+        pjUdpChannel = null;
+        if (codeChannelId) {
+          pjUdpReconnectTimer = setTimeout(() => connectPjUDP(forceLocal), 3000);
+        }
+      });
+    }
+
+    function disconnectPjUDP() {
+      if (pjUdpReconnectTimer) { clearTimeout(pjUdpReconnectTimer); pjUdpReconnectTimer = null; }
+      if (pjUdpChannel) { pjUdpChannel.close(); pjUdpChannel = null; }
+      pjUdpConnected = false;
+    }
+
     // Get the current PJ share URL based on connection state
     function getPjShareUrl() {
       if (!codeChannelId) return null;
@@ -22543,6 +22627,8 @@ s("ape_breaks_3").loopAt(2)</textarea>
       logPj('subscribe channel', { channelId });
       // Ensure PJ WebSocket is connected to production
       connectPjWebSocket();
+      // Also start UDP for low-latency audio
+      connectPjUDP();
       
       if (pjWs && pjWs.readyState === WebSocket.OPEN) {
         pjWs.send(JSON.stringify({
@@ -23490,6 +23576,8 @@ s("ape_breaks_3").loopAt(2)</textarea>
     
     function broadcastJukeboxAudioToPJ(audioData) {
       if (!codeChannelId) return;
+
+      // 1. BroadcastChannel (same-origin, zero-latency) — always send
       if (typeof BroadcastChannel !== 'undefined') {
         try {
           const bc = new BroadcastChannel(`kidlisp-channel-${codeChannelId}`);
@@ -23497,6 +23585,19 @@ s("ape_breaks_3").loopAt(2)</textarea>
           bc.close();
         } catch (e) {}
       }
+
+      // 2. UDP (geckos.io) — preferred for cross-origin, ~60Hz throttle from 250Hz source
+      if (pjUdpConnected && pjUdpChannel) {
+        pjUdpAudioCounter++;
+        if (pjUdpAudioCounter % 4 === 0) {
+          pjUdpChannel.emit('udp:audio', JSON.stringify({
+            codeChannel: codeChannelId, ...audioData, timestamp: Date.now()
+          }));
+        }
+        return; // Skip WebSocket when UDP is available
+      }
+
+      // 3. WebSocket fallback (when UDP unavailable)
       if (sessionWs?.readyState === WebSocket.OPEN) {
         sessionWs.send(JSON.stringify({ type: 'audio', content: { codeChannel: codeChannelId, ...audioData, timestamp: Date.now() } }));
       }

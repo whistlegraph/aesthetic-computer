@@ -256,13 +256,13 @@
     
     function updateConnectionStatus() {
       connectionStatus.classList.remove('connected', 'editor-connected', 'disconnected');
-      
+
       if (editorConnected) {
         connectionStatus.classList.add('editor-connected');
-        statusText.textContent = 'Editor linked';
-      } else if (wsConnected) {
+        statusText.textContent = udpConnected ? 'Editor linked (UDP)' : 'Editor linked';
+      } else if (wsConnected || udpConnected) {
         connectionStatus.classList.add('connected');
-        statusText.textContent = 'Server connected';
+        statusText.textContent = udpConnected ? 'Server connected (UDP)' : 'Server connected';
       } else {
         connectionStatus.classList.add('disconnected');
         statusText.textContent = 'Disconnected';
@@ -480,10 +480,12 @@
       sessionWs.onerror = () => {
         console.warn('Session server error');
         sessionWs?.close();
-        // If production failed, try localhost
+        // If production failed, try localhost; if localhost failed, retry
         if (!forceLocal) {
           console.log('Production unreachable, trying localhost...');
           setTimeout(() => connectToSessionServer(true), 500);
+        } else {
+          setTimeout(() => connectToSessionServer(forceLocal), 3000);
         }
       };
       
@@ -497,9 +499,99 @@
       };
     }
     
+    // UDP (geckos.io) connection for low-latency audio data
+    let udpChannel = null;
+    let udpConnected = false;
+    let udpReconnectTimer = null;
+    let GeckosClient = null;
+
+    async function connectToUDP(forceLocal = false) {
+      if (udpConnected || udpChannel) return;
+
+      // Lazy-load geckos.io client
+      if (!GeckosClient) {
+        try {
+          const mod = await import(`${aestheticUrl}/aesthetic.computer/dep/geckos.io-client.3.0.2.min.js`);
+          GeckosClient = mod.default;
+        } catch (e) {
+          console.warn('🩰 PJ UDP: Failed to load geckos.io client:', e);
+          return;
+        }
+      }
+
+      const url = forceLocal ? 'https://localhost' : 'https://session-server.aesthetic.computer';
+      const port = forceLocal ? 8889 : 443;
+      const isLocalDev = forceLocal || dev;
+      logPj('UDP connecting', { url, port, forceLocal });
+
+      try {
+        const iceServers = isLocalDev
+          ? [
+              { urls: 'stun:localhost:3478' },
+              { urls: 'turn:localhost:3478', username: 'aesthetic', credential: 'computer123' },
+              { urls: 'turn:localhost:3478?transport=tcp', username: 'aesthetic', credential: 'computer123' },
+            ]
+          : [{ urls: 'stun:stun.l.google.com:19302' }];
+
+        udpChannel = GeckosClient({
+          url,
+          port,
+          iceServers,
+          iceTransportPolicy: isLocalDev ? 'relay' : 'all',
+        });
+      } catch (e) {
+        console.warn('🩰 PJ UDP: Failed to create geckos channel:', e);
+        udpChannel = null;
+        return;
+      }
+
+      udpChannel.onConnect((error) => {
+        if (error) {
+          logPj('UDP error', { error: error.message || error, forceLocal });
+          udpChannel = null;
+          if (!forceLocal) {
+            setTimeout(() => connectToUDP(true), 500);
+          } else {
+            udpReconnectTimer = setTimeout(() => connectToUDP(forceLocal), 3000);
+          }
+          return;
+        }
+
+        udpConnected = true;
+        logPj('UDP connected', { url, port });
+        updateConnectionStatus();
+
+        udpChannel.emit('udp:identity', JSON.stringify({
+          role: 'pj-viewer',
+          codeChannel: channelId
+        }));
+
+        // Listen for audio data over UDP
+        udpChannel.on('udp:audio', (data) => {
+          try {
+            const audioData = JSON.parse(data);
+            if (audioData.codeChannel === channelId) {
+              sendAudioToIframe(audioData);
+            }
+          } catch (e) {}
+        });
+      });
+
+      udpChannel.onDisconnect(() => {
+        logPj('UDP disconnected');
+        udpConnected = false;
+        udpChannel = null;
+        updateConnectionStatus();
+        if (channelId) {
+          udpReconnectTimer = setTimeout(() => connectToUDP(forceLocal), 3000);
+        }
+      });
+    }
+
     // Start session server connection if we have a channel
     if (channelId) {
       connectToSessionServer();
+      connectToUDP();
     }
     
     // Listen for code updates via postMessage (from parent editor)
