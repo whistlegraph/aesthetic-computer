@@ -5672,7 +5672,7 @@ function spinSimd(steps, anchorX, anchorY, spinStart) {
     spinSkipCounter = 0;
   }
 
-  if (Math.abs(steps) < 0.5) {
+  if (steps === 0) {
     graphPerf.track('spin', 0);
     return;
   }
@@ -5905,7 +5905,7 @@ function spinBlockBased(steps, anchorX, anchorY, spinStart) {
     spinSkipCounter = 0;
   }
 
-  if (Math.abs(steps) < 0.5) {
+  if (steps === 0) {
     graphPerf.track('spin', 0);
     return;
   }
