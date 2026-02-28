@@ -3,1654 +3,339 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>justanothersystem.org — Stretched Paintings by Jeffrey Alan Scudder</title>
+  <title>justanothersystem.org — Jeffrey Alan Scudder</title>
   <meta name="author" content="Jeffrey Alan Scudder">
-  <meta name="description" content="Stretched paintings on canvas and linen by Jeffrey Alan Scudder. A painting practice.">
+  <meta name="description" content="justanothersystem.org — work by Jeffrey Alan Scudder.">
   <link rel="icon" href="https://aesthetic.computer/favicon.ico">
-  
+
   <!-- Social sharing meta tags -->
-  <meta property="og:title" content="justanothersystem.org — Stretched Paintings" />
-  <meta property="og:description" content="Stretched paintings on canvas and linen by Jeffrey Alan Scudder. A painting practice." />
+  <meta property="og:title" content="justanothersystem.org" />
+  <meta property="og:description" content="Work by Jeffrey Alan Scudder." />
   <meta property="og:url" content="https://justanothersystem.org" />
   <meta property="og:type" content="website" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="justanothersystem.org — Stretched Paintings" />
-  <meta name="twitter:description" content="Stretched paintings on canvas and linen by Jeffrey Alan Scudder. A painting practice." />
+  <meta name="twitter:title" content="justanothersystem.org" />
+  <meta name="twitter:description" content="Work by Jeffrey Alan Scudder." />
   <meta name="twitter:site" content="@whistlegraph" />
-  
-  <!-- Auth0 SPA SDK -->
-  <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
-  
+
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap');
-    
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap');
+
     :root {
-      --bg: #faf9f6;
-      --fg: #1a1a1a;
+      --bg: #000;
+      --fg: #f0f0f0;
       --dim: #666;
-      --accent: #333;
-      --border: #ddd;
-      --green: #2d8a4e;
-      --red: #c53030;
     }
-    
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #0a0a0a;
-        --fg: #f0f0f0;
-        --dim: #888;
-        --accent: #ccc;
-        --border: #333;
-        --green: #48bb78;
-        --red: #fc8181;
-      }
-    }
-    
+
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
     }
-    
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+
     body {
       font-family: 'IBM Plex Mono', monospace;
       background: var(--bg);
       color: var(--fg);
-      min-height: 100vh;
-      line-height: 1.7;
-      font-size: 14px;
     }
-    
-    .page {
-      max-width: 1000px;
-      margin: 0 auto;
+
+    /* Slideshow fills the viewport */
+    .slideshow {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+    }
+
+    .slide {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      transition: opacity 1.6s ease-in-out;
+      will-change: opacity, transform;
+    }
+
+    .slide.active {
+      opacity: 1;
+    }
+
+    .slide img {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* Ken Burns animations — 4 variations */
+    @keyframes kb-a {
+      0%   { transform: scale(1.0) translate(0%, 0%); }
+      100% { transform: scale(1.15) translate(2%, 1.5%); }
+    }
+
+    @keyframes kb-b {
+      0%   { transform: scale(1.15) translate(2%, -1%); }
+      100% { transform: scale(1.0) translate(-1%, 1%); }
+    }
+
+    @keyframes kb-c {
+      0%   { transform: scale(1.0) translate(-1.5%, 1%); }
+      100% { transform: scale(1.12) translate(1%, -1.5%); }
+    }
+
+    @keyframes kb-d {
+      0%   { transform: scale(1.12) translate(1%, 1.5%); }
+      100% { transform: scale(1.0) translate(-2%, -1%); }
+    }
+
+    .slide.kb-a img { animation: kb-a 8s ease-in-out both; }
+    .slide.kb-b img { animation: kb-b 8s ease-in-out both; }
+    .slide.kb-c img { animation: kb-c 8s ease-in-out both; }
+    .slide.kb-d img { animation: kb-d 8s ease-in-out both; }
+
+    /* Header overlay */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      pointer-events: none;
       padding: 1.5rem;
     }
-    
-    header {
+
+    .overlay a,
+    .overlay button {
+      pointer-events: auto;
+    }
+
+    .top-bar {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      margin-bottom: 2rem;
     }
-    
-    .header-left h1 {
+
+    .site-title {
       font-size: 1rem;
       font-weight: 500;
       letter-spacing: -0.01em;
-    }
-    
-    .header-left .subtitle {
-      color: var(--dim);
-      font-size: 0.85rem;
-    }
-    
-    .header-right {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-    }
-    
-    .auth-btn {
-      font-family: inherit;
-      font-size: 0.8rem;
-      padding: 0.4rem 0.8rem;
-      border: 1px solid var(--border);
-      background: transparent;
-      color: var(--fg);
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    
-    .auth-btn:hover {
-      background: var(--fg);
-      color: var(--bg);
-    }
-    
-    .user-handle {
-      font-size: 0.8rem;
-      color: var(--dim);
-    }
-    
-    /* Add button - only visible when logged in as admin */
-    .add-btn {
-      font-family: inherit;
-      font-size: 1.2rem;
-      width: 2rem;
-      height: 2rem;
-      border: 1px solid var(--border);
-      background: transparent;
-      color: var(--fg);
-      cursor: pointer;
-      transition: all 0.15s;
-      display: none;
-    }
-    
-    .add-btn:hover {
-      background: var(--green);
-      border-color: var(--green);
-      color: white;
-    }
-    
-    .add-btn.visible {
-      display: block;
+      text-shadow: 0 1px 6px rgba(0,0,0,0.7);
     }
 
-    /* Gallery - single column, full width */
-    .gallery {
-      display: flex;
-      flex-direction: column;
-      gap: 4rem;
-      margin-bottom: 4rem;
-    }
-    
-    .painting {
-      max-width: 800px;
-      margin: 0 auto;
-      width: 100%;
+    .site-title a {
+      color: var(--fg);
+      text-decoration: none;
     }
 
-    .painting-image-stack {
-      position: relative;
-      overflow: hidden;
-      background: #111;
-    }
-    
-    .painting-info {
-      padding: 1rem 0;
-    }
-    
-    .painting-title {
-      font-weight: 500;
-      margin-bottom: 0.25rem;
-    }
-    
-    .painting-details {
+    .subtitle {
       font-size: 0.85rem;
       color: var(--dim);
+      text-shadow: 0 1px 4px rgba(0,0,0,0.7);
     }
-    
-    .painting-sold {
-      position: absolute;
-      top: 0.5rem;
-      right: 0.5rem;
-      background: var(--red);
-      color: white;
-      font-size: 0.7rem;
-      padding: 0.2rem 0.5rem;
-      font-weight: 600;
-    }
-    
-    .painting-actions {
-      display: none;
-      gap: 0.5rem;
-      margin-top: 0.5rem;
-    }
-    
-    .painting-actions.visible {
-      display: flex;
-    }
-    
-    .painting-actions button {
-      font-family: inherit;
-      font-size: 0.7rem;
-      padding: 0.25rem 0.5rem;
-      border: 1px solid var(--border);
-      background: transparent;
+
+    .subtitle a {
       color: var(--dim);
-      cursor: pointer;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(255,255,255,0.15);
     }
-    
-    .painting-actions button:hover {
-      color: var(--fg);
-      border-color: var(--fg);
-    }
-    
-    .painting-actions .delete-btn:hover {
-      color: var(--red);
-      border-color: var(--red);
-    }
-    
-    /* Empty state */
-    .empty-state {
-      text-align: center;
-      padding: 4rem 2rem;
-      color: var(--dim);
-      grid-column: 1 / -1;
-    }
-    
-    /* Modal */
-    .modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.7);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-      padding: 1rem;
-    }
-    
-    .modal-overlay.visible {
-      display: flex;
-    }
-    
-    .modal {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      padding: 2rem;
-      max-width: 500px;
-      width: 100%;
-      max-height: 90vh;
-      overflow-y: auto;
-    }
-    
-    .modal h2 {
-      font-size: 1rem;
-      font-weight: 500;
-      margin-bottom: 1.5rem;
-    }
-    
-    .modal-close {
-      float: right;
-      background: none;
-      border: none;
-      font-size: 1.5rem;
-      cursor: pointer;
-      color: var(--dim);
-      line-height: 1;
-    }
-    
-    .modal-close:hover {
+
+    .subtitle a:hover {
       color: var(--fg);
     }
-    
-    .form-group {
-      margin-bottom: 1rem;
-    }
-    
-    .form-group label {
-      display: block;
-      font-size: 0.8rem;
-      color: var(--dim);
-      margin-bottom: 0.25rem;
-    }
-    
-    .form-group input,
-    .form-group textarea {
-      width: 100%;
-      font-family: inherit;
-      font-size: 0.9rem;
-      padding: 0.5rem;
-      border: 1px solid var(--border);
-      background: var(--bg);
-      color: var(--fg);
-    }
-    
-    .form-group textarea {
-      min-height: 80px;
-      resize: vertical;
-    }
-    
-    .form-group input[type="file"] {
-      padding: 0.25rem 0;
-      border: none;
-    }
-    
-    .form-group input[type="checkbox"] {
-      width: auto;
-      margin-right: 0.5rem;
-    }
-    
-    .form-row {
+
+    nav {
       display: flex;
       gap: 1rem;
-    }
-    
-    .form-row .form-group {
-      flex: 1;
-    }
-    
-    .form-row-4 {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr auto;
-      gap: 0.5rem;
-      align-items: end;
-    }
-    
-    .form-row-4 .form-group {
-      margin-bottom: 0;
-    }
-    
-    .form-row-4 select {
-      font-family: inherit;
-      font-size: 0.9rem;
-      padding: 0.5rem;
-      border: 1px solid var(--border);
-      background: var(--bg);
-      color: var(--fg);
-      height: 2.25rem;
-    }
-    
-    /* Tags - compact inline style */
-    .tags-input-wrapper {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.35rem;
-      padding: 0.4rem;
-      border: 1px solid var(--border);
-      min-height: 2.5rem;
-      align-items: center;
-      cursor: text;
-    }
-    
-    .tags-input-wrapper:focus-within {
-      border-color: var(--fg);
-    }
-    
-    .tag-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.25rem;
-      font-size: 0.75rem;
-      padding: 0.2rem 0.4rem;
-      background: var(--fg);
-      color: var(--bg);
-    }
-    
-    .tag-chip button {
-      background: none;
-      border: none;
-      color: inherit;
-      cursor: pointer;
-      font-size: 0.85rem;
-      line-height: 1;
-      opacity: 0.7;
-      padding: 0;
-    }
-    
-    .tag-chip button:hover {
-      opacity: 1;
-    }
-    
-    .tags-text-input {
-      flex: 1;
-      min-width: 80px;
-      border: none;
-      outline: none;
-      font-family: inherit;
-      font-size: 0.85rem;
-      background: transparent;
-      color: var(--fg);
-    }
-    
-    .tags-dropdown {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-top: none;
-      max-height: 150px;
-      overflow-y: auto;
-      z-index: 100;
-      display: none;
-    }
-    
-    .tags-dropdown.visible {
-      display: block;
-    }
-    
-    .tags-dropdown-item {
-      padding: 0.4rem 0.5rem;
       font-size: 0.8rem;
-      cursor: pointer;
+    }
+
+    nav a {
+      color: var(--dim);
+      text-decoration: none;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.7);
+      transition: color 0.2s;
+    }
+
+    nav a:hover {
+      color: var(--fg);
+    }
+
+    /* Bottom bar: counter + progress */
+    .bottom-bar {
       display: flex;
       justify-content: space-between;
-    }
-    
-    .tags-dropdown-item:hover,
-    .tags-dropdown-item.highlighted {
-      background: var(--fg);
-      color: var(--bg);
-    }
-    
-    .tags-dropdown-item .tag-category {
-      font-size: 0.65rem;
-      opacity: 0.6;
-    }
-    
-    .tags-dropdown-item.create-new {
-      color: var(--green);
-      font-style: italic;
-    }
-    
-    .tags-dropdown-item.create-new:hover {
-      background: var(--green);
-      color: white;
+      align-items: flex-end;
     }
 
-    .form-actions {
-      display: flex;
-      gap: 0.5rem;
-      margin-top: 1.5rem;
-    }
-    
-    .form-actions button {
-      font-family: inherit;
-      font-size: 0.85rem;
-      padding: 0.5rem 1rem;
-      border: 1px solid var(--border);
-      background: transparent;
-      color: var(--fg);
-      cursor: pointer;
-    }
-    
-    .form-actions button[type="submit"] {
-      background: var(--fg);
-      color: var(--bg);
-      border-color: var(--fg);
-    }
-    
-    .form-actions button[type="submit"]:hover {
-      opacity: 0.9;
-    }
-    
-    /* Drag and drop image upload */
-    .dropzone {
-      border: 2px dashed var(--border);
-      border-radius: 4px;
-      padding: 1.5rem;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.15s;
-      color: var(--dim);
-      font-size: 0.85rem;
-    }
-    
-    .dropzone:hover,
-    .dropzone.dragover {
-      border-color: var(--green);
-      background: rgba(45, 138, 78, 0.05);
-    }
-    
-    .dropzone input[type="file"] {
-      display: none;
-    }
-    
-    .image-previews {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      margin-top: 0.75rem;
-    }
-    
-    .image-preview-item {
-      position: relative;
-      width: 80px;
-      height: 80px;
-    }
-    
-    .image-preview-item img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      border: 1px solid var(--border);
-    }
-    
-    .image-preview-item .remove-image {
-      position: absolute;
-      top: -6px;
-      right: -6px;
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      background: var(--red);
-      color: white;
-      border: none;
-      font-size: 12px;
-      line-height: 1;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    
-    .image-preview-item .drag-handle {
-      position: absolute;
-      bottom: 2px;
-      left: 2px;
-      background: rgba(0,0,0,0.6);
-      color: white;
-      font-size: 10px;
-      padding: 2px 4px;
-      cursor: grab;
-    }
-    
-    .image-preview-item.dragging {
-      opacity: 0.5;
-    }
-    
-    .image-preview-item.uploading::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: rgba(0,0,0,0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    
-    .upload-progress {
+    .counter {
       font-size: 0.75rem;
       color: var(--dim);
-      margin-top: 0.5rem;
-    }
-    }
-    
-    /* Canvas-based image display with zoom */
-    .painting-image-container {
-      position: relative;
-      cursor: zoom-in;
-      touch-action: none;
-    }
-    
-    .painting-image-container canvas {
-      display: block;
-      width: 100%;
-      height: auto;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.7);
+      font-variant-numeric: tabular-nums;
     }
 
-    .painting-overlay-slideshow {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      overflow: hidden;
-    }
-
-    .painting-overlay-slideshow .overlay-slide {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      object-position: center;
-      opacity: 0;
-      transition: opacity 1.4s ease-in-out;
-      transform-origin: center center;
-      mix-blend-mode: soft-light;
-      filter: saturate(1.04) contrast(1.04);
-    }
-
-    .painting-overlay-slideshow .overlay-slide.active {
-      opacity: 0.45;
-    }
-
-    @keyframes overlay-kb-a {
-      0% { transform: scale(1.02) translate(-1.2%, -0.8%); }
-      100% { transform: scale(1.14) translate(1.0%, 0.9%); }
-    }
-
-    @keyframes overlay-kb-b {
-      0% { transform: scale(1.12) translate(1.0%, -0.6%); }
-      100% { transform: scale(1.02) translate(-1.3%, 0.8%); }
-    }
-
-    @keyframes overlay-kb-c {
-      0% { transform: scale(1.05) translate(0.4%, 1.0%); }
-      100% { transform: scale(1.13) translate(-0.8%, -1.0%); }
-    }
-
-    @keyframes overlay-kb-d {
-      0% { transform: scale(1.10) translate(-0.9%, 0.7%); }
-      100% { transform: scale(1.03) translate(1.2%, -0.7%); }
-    }
-
-    /* Gallery image indicators - subtle for single column */
-    .painting-image-count {
-      display: inline;
-      font-size: 0.85rem;
-      color: var(--dim);
-    }
-    
-    /* Connectivity dot (the . in justanothersystem.org) */
-    .connectivity-dot {
-      display: inline;
-      transition: color 0.3s ease;
-    }
-    
-    .connectivity-dot.disconnected { color: var(--dim); }
-    .connectivity-dot.connecting { color: #f6ad55; }
-    .connectivity-dot.waiting { color: #f6ad55; }
-    .connectivity-dot.connected { color: var(--green); }
-    .connectivity-dot.receiving { 
-      color: var(--green);
-      animation: pulse 0.4s ease;
-    }
-    
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
-    }
-    
-    .loading {
-      color: var(--dim);
-      text-align: center;
-      padding: 2rem;
+    .progress-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      height: 2px;
+      background: rgba(255,255,255,0.3);
+      transition: width linear;
+      z-index: 2;
     }
   </style>
 </head>
 <body>
-  <div class="page">
-    <header>
-      <div class="header-left">
-        <h1>justanothersystem<span class="connectivity-dot disconnected" id="connectivityDot">.</span>org</h1>
-        <p class="subtitle">stretched paintings by <a href="/bio" style="color:var(--dim);text-decoration:none;border-bottom:1px solid var(--border);">Jeffrey Alan Scudder</a></p>
+  <div class="slideshow" id="slideshow"></div>
+
+  <div class="overlay">
+    <div class="top-bar">
+      <div>
+        <h1 class="site-title"><a href="/">justanothersystem.org</a></h1>
+        <p class="subtitle"><a href="/bio">Jeffrey Alan Scudder</a></p>
       </div>
-      <div class="header-right">
-        <button class="add-btn" id="addBtn" title="Add painting">+</button>
-        <span class="user-handle" id="userHandle"></span>
-        <button class="auth-btn" id="loginBtn">log in</button>
-        <button class="auth-btn" id="logoutBtn" style="display:none">log out</button>
-      </div>
-    </header>
-    
-    <section class="gallery" id="gallery">
-      <div class="loading">Loading paintings...</div>
-    </section>
-  </div>
-  
-  <!-- Add/Edit Modal -->
-  <div class="modal-overlay" id="modalOverlay">
-    <div class="modal">
-      <button class="modal-close" id="modalClose">&times;</button>
-      <h2 id="modalTitle">Add Painting</h2>
-      <form id="paintingForm">
-        <input type="hidden" id="paintingId">
-        <div class="form-group">
-          <label for="title">Title *</label>
-          <input type="text" id="title" required>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="year">Year</label>
-            <input type="number" id="year" value="2026">
-          </div>
-        </div>
-        <div class="form-group" style="position:relative;">
-          <label>Materials</label>
-          <div class="tags-input-wrapper" id="tagsInputWrapper">
-            <span id="selectedTagsChips"></span>
-            <input type="text" class="tags-text-input" id="tagsTextInput" placeholder="Type to add tags...">
-          </div>
-          <div class="tags-dropdown" id="tagsDropdown"></div>
-        </div>
-        <div class="form-group">
-          <label>Dimensions</label>
-          <div class="form-row-4">
-            <div class="form-group">
-              <input type="number" id="dimWidth" placeholder="Width" step="0.1">
-            </div>
-            <div class="form-group">
-              <input type="number" id="dimHeight" placeholder="Height" step="0.1">
-            </div>
-            <div class="form-group">
-              <input type="number" id="dimDepth" placeholder="Depth" step="0.1">
-            </div>
-            <select id="dimUnit">
-              <option value="in">in</option>
-              <option value="cm">cm</option>
-              <option value="ft">ft</option>
-            </select>
-          </div>
-        </div>
-        <div class="form-group">
-          <label for="description">Description</label>
-          <textarea id="description"></textarea>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="price">Price</label>
-            <input type="text" id="price" placeholder="$1,200">
-          </div>
-          <div class="form-group" style="display:flex;align-items:flex-end;padding-bottom:0.5rem;">
-            <label>
-              <input type="checkbox" id="sold"> Sold
-            </label>
-          </div>
-        </div>
-        <div class="form-group">
-          <label>Images * (drag to reorder)</label>
-          <div class="dropzone" id="dropzone">
-            <input type="file" id="imageFiles" accept="image/*" multiple>
-            Drop images here or click to select
-          </div>
-          <div class="image-previews" id="imagePreviews"></div>
-          <div class="upload-progress" id="uploadProgress"></div>
-        </div>
-        <div class="form-actions">
-          <button type="button" id="cancelBtn">Cancel</button>
-          <button type="submit">Save</button>
-        </div>
-      </form>
+      <nav>
+        <a href="/bio">Bio</a>
+        <a href="/cv">CV</a>
+      </nav>
+    </div>
+    <div class="bottom-bar">
+      <span class="counter" id="counter"></span>
     </div>
   </div>
-  
+
+  <div class="progress-bar" id="progressBar"></div>
+
   <script>
-    // ====== Configuration ======
-    const isDev = window.location.hostname === 'localhost' || window.location.hostname.includes('local.');
-    const API_BASE = isDev ? 'https://localhost:8888' : 'https://aesthetic.computer';
-    const API_URL = `${API_BASE}/api/stretched-paintings`;
-    const TAGS_URL = `${API_BASE}/api/jas-tags`;
-    
-    // ====== State ======
-    let auth0Client = null;
-    let currentUser = null;
-    let userHandle = null;
-    let isAdmin = false;
-    let paintings = [];
-    let allTags = []; // All available tags
-    let tagsByCategory = {}; // Tags grouped by category
-    let selectedTagIds = []; // Currently selected tag IDs in form
-    let pendingImages = []; // { file?, url, uploading?, localPreview? }
-    let overlaySlideshowTimers = [];
-    
-    // ====== DOM Elements ======
-    const gallery = document.getElementById('gallery');
-    const addBtn = document.getElementById('addBtn');
-    const loginBtn = document.getElementById('loginBtn');
-    const logoutBtn = document.getElementById('logoutBtn');
-    const userHandleEl = document.getElementById('userHandle');
-    const modalOverlay = document.getElementById('modalOverlay');
-    const modalTitle = document.getElementById('modalTitle');
-    const modalClose = document.getElementById('modalClose');
-    const paintingForm = document.getElementById('paintingForm');
-    const cancelBtn = document.getElementById('cancelBtn');
-    const dropzone = document.getElementById('dropzone');
-    const imageFiles = document.getElementById('imageFiles');
-    const imagePreviews = document.getElementById('imagePreviews');
-    const uploadProgress = document.getElementById('uploadProgress');
-    const tagsInputWrapper = document.getElementById('tagsInputWrapper');
-    const selectedTagsChips = document.getElementById('selectedTagsChips');
-    const tagsTextInput = document.getElementById('tagsTextInput');
-    const tagsDropdown = document.getElementById('tagsDropdown');
-    let highlightedDropdownIndex = -1;
-    
-    // ====== Auth0 ======
-    async function initAuth0() {
-      try {
-        auth0Client = await auth0.createAuth0Client({
-          domain: 'aesthetic.us.auth0.com',
-          clientId: 'LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt',
-          authorizationParams: {
-            redirect_uri: window.location.origin + window.location.pathname,
-            audience: 'https://aesthetic.us.auth0.com/api/v2/'
-          },
-          cacheLocation: 'localstorage',
-          useRefreshTokens: true,
-          useRefreshTokensFallback: true
-        });
-        
-        // Handle redirect callback
-        if (window.location.search.includes('code=') || window.location.search.includes('error=')) {
-          await auth0Client.handleRedirectCallback();
-          window.history.replaceState({}, document.title, window.location.pathname);
-        }
-        
-        // Check if logged in
-        let isAuthenticated = await auth0Client.isAuthenticated();
-        
-        // Try silent auth for existing session
-        if (!isAuthenticated) {
-          try {
-            await auth0Client.getTokenSilently();
-            isAuthenticated = await auth0Client.isAuthenticated();
-          } catch (e) { /* Not logged in */ }
-        }
-        
-        if (isAuthenticated) {
-          currentUser = await auth0Client.getUser();
-          
-          // Fetch handle from AC API
-          try {
-            const res = await fetch(
-              `${API_BASE}/user?from=${encodeURIComponent(currentUser.email)}&withHandle=true`
-            );
-            if (res.ok) {
-              const data = await res.json();
-              if (data.handle) {
-                userHandle = data.handle;
-                isAdmin = userHandle === 'jeffrey';
-              }
-            }
-          } catch (e) {
-            console.warn('Could not fetch handle:', e);
-          }
-        }
-        
-        updateAuthUI();
-      } catch (e) {
-        console.error('Auth0 init error:', e);
-        updateAuthUI();
-      }
-    }
-    
-    function updateAuthUI() {
-      if (currentUser) {
-        loginBtn.style.display = 'none';
-        logoutBtn.style.display = 'block';
-        userHandleEl.textContent = userHandle ? `@${userHandle}` : currentUser.email?.split('@')[0];
-        
-        if (isAdmin) {
-          addBtn.classList.add('visible');
-          document.querySelectorAll('.painting-actions').forEach(el => el.classList.add('visible'));
-        }
-      } else {
-        loginBtn.style.display = 'block';
-        logoutBtn.style.display = 'none';
-        userHandleEl.textContent = '';
-        addBtn.classList.remove('visible');
-        document.querySelectorAll('.painting-actions').forEach(el => el.classList.remove('visible'));
-      }
-    }
-    
-    async function getAuthToken() {
-      if (!auth0Client) return null;
-      try {
-        return await auth0Client.getTokenSilently();
-      } catch (e) {
-        return null;
-      }
-    }
-    
-    // ====== API ======
-    async function loadPaintings() {
-      try {
-        const res = await fetch(API_URL);
-        const data = await res.json();
-        paintings = data.paintings || [];
-        renderGallery();
-      } catch (e) {
-        console.error('Failed to load paintings:', e);
-        gallery.innerHTML = '<div class="empty-state">Could not load paintings</div>';
-      }
-    }
-    
-    async function savePainting(paintingData) {
-      const token = await getAuthToken();
-      if (!token) throw new Error('Not authenticated');
-      
-      const isEdit = !!paintingData.id;
-      const method = isEdit ? 'PUT' : 'POST';
-      
-      const res = await fetch(API_URL, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(paintingData)
-      });
-      
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to save');
-      }
-      
-      return res.json();
-    }
-    
-    async function deletePainting(id) {
-      const token = await getAuthToken();
-      if (!token) throw new Error('Not authenticated');
-      
-      const res = await fetch(`${API_URL}?id=${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to delete');
-      }
-    }
-    
-    async function getUploadUrl(filename, contentType) {
-      const token = await getAuthToken();
-      if (!token) throw new Error('Not authenticated');
-      
-      const res = await fetch(
-        `${API_URL}?action=upload-url&filename=${encodeURIComponent(filename)}&contentType=${encodeURIComponent(contentType)}`,
-        { headers: { 'Authorization': `Bearer ${token}` } }
-      );
-      
-      if (!res.ok) throw new Error('Failed to get upload URL');
-      return res.json();
-    }
-    
-    async function uploadImage(file) {
-      const { uploadUrl, publicUrl } = await getUploadUrl(file.name, file.type);
-      
-      const res = await fetch(uploadUrl, {
-        method: 'PUT',
-        body: file,
-        headers: {
-          'Content-Type': file.type,
-          'x-amz-acl': 'public-read'
-        }
-      });
-      
-      if (!res.ok) throw new Error('Upload failed');
-      return publicUrl;
-    }
-    
-    // ====== Tags API ======
-    async function loadTags() {
-      try {
-        const res = await fetch(TAGS_URL);
-        const data = await res.json();
-        allTags = data.tags || [];
-        tagsByCategory = data.grouped || {};
-      } catch (e) {
-        console.error('Failed to load tags:', e);
-        allTags = [];
-        tagsByCategory = {};
-      }
-    }
-    
-    async function createTag(name, category = 'other') {
-      const token = await getAuthToken();
-      if (!token) throw new Error('Not authenticated');
-      
-      const res = await fetch(TAGS_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ name, category })
-      });
-      
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to create tag');
-      }
-      
-      return res.json();
-    }
-    
-    function renderSelectedTags() {
-      selectedTagsChips.innerHTML = selectedTagIds.map(id => {
-        const tag = allTags.find(t => t._id === id);
-        if (!tag) return '';
-        return `<span class="tag-chip">${tag.name}<button type="button" onclick="removeTag('${id}')">&times;</button></span>`;
-      }).join('');
-    }
-    
-    function renderTagsDropdown(filter = '') {
-      const filterLower = filter.toLowerCase().trim();
-      
-      // Filter tags not already selected, matching the filter
-      const available = allTags.filter(t => 
-        !selectedTagIds.includes(t._id) &&
-        (filterLower === '' || t.name.toLowerCase().includes(filterLower))
-      );
-      
-      // Check if exact match exists
-      const exactMatch = allTags.find(t => t.name.toLowerCase() === filterLower);
-      const showCreateOption = isAdmin && filterLower && !exactMatch;
-      
-      if (available.length === 0 && !showCreateOption) {
-        tagsDropdown.classList.remove('visible');
-        return;
-      }
-      
-      let html = available.slice(0, 8).map((t, i) => `
-        <div class="tags-dropdown-item ${i === highlightedDropdownIndex ? 'highlighted' : ''}" 
-             data-id="${t._id}" onclick="selectTag('${t._id}')">
-          <span>${t.name}</span>
-          <span class="tag-category">${t.category}</span>
-        </div>
-      `).join('');
-      
-      if (showCreateOption) {
-        const createIndex = available.slice(0, 8).length;
-        html += `
-          <div class="tags-dropdown-item create-new ${createIndex === highlightedDropdownIndex ? 'highlighted' : ''}" 
-               onclick="createAndSelectTag('${filter.trim()}')">
-            + Create "${filter.trim()}"
-          </div>
-        `;
-      }
-      
-      tagsDropdown.innerHTML = html;
-      tagsDropdown.classList.add('visible');
-    }
-    
-    window.selectTag = function(tagId) {
-      if (!selectedTagIds.includes(tagId)) {
-        selectedTagIds.push(tagId);
-        renderSelectedTags();
-      }
-      tagsTextInput.value = '';
-      tagsDropdown.classList.remove('visible');
-      highlightedDropdownIndex = -1;
-      tagsTextInput.focus();
-    };
-    
-    window.removeTag = function(tagId) {
-      selectedTagIds = selectedTagIds.filter(id => id !== tagId);
-      renderSelectedTags();
-    };
-    
-    window.createAndSelectTag = async function(name) {
-      try {
-        const { tag } = await createTag(name, 'other');
-        allTags.push(tag);
-        selectedTagIds.push(tag._id);
-        renderSelectedTags();
-        tagsTextInput.value = '';
-        tagsDropdown.classList.remove('visible');
-        highlightedDropdownIndex = -1;
-      } catch (e) {
-        alert('Failed to create tag: ' + e.message);
-      }
-    };
-    
-    // Get tag names from IDs for display
-    function getTagNames(tagIds) {
-      if (!tagIds || tagIds.length === 0) return '';
-      return tagIds.map(id => {
-        const tag = allTags.find(t => t._id === id);
-        return tag ? tag.name : '';
-      }).filter(Boolean).join(', ');
-    }
-    
-    // ====== Rendering ======
-    function formatDimensions(dim) {
-      if (!dim) return '';
-      const { width, height, depth, unit } = dim;
-      if (!width && !height) return '';
-      let str = `${width || '?'} × ${height || '?'}`;
-      if (depth) str += ` × ${depth}`;
-      str += ` ${unit || 'in'}`;
-      return str;
-    }
-    
-    function renderGallery() {
-      overlaySlideshowTimers.forEach(timer => clearInterval(timer));
-      overlaySlideshowTimers = [];
+    const ASSET_BASE = '/assets/justanothersystem/slideshow/';
+    const MANIFEST_URL = ASSET_BASE + 'manifest.json';
+    const SLIDE_DURATION = 6000; // ms per slide
+    const KB_CLASSES = ['kb-a', 'kb-b', 'kb-c', 'kb-d'];
 
-      if (paintings.length === 0) {
-        gallery.innerHTML = '<div class="empty-state">No paintings yet</div>';
-        return;
+    const slideshowEl = document.getElementById('slideshow');
+    const counterEl = document.getElementById('counter');
+    const progressBar = document.getElementById('progressBar');
+
+    let images = [];
+    let currentIndex = 0;
+    let slideTimer = null;
+    let progressTimer = null;
+
+    // Shuffle array in place (Fisher-Yates)
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
       }
-      
-      gallery.innerHTML = paintings.map(p => {
-        // Support both old imageUrl and new images array
-        const images = p.images || (p.imageUrl ? [p.imageUrl] : []);
-        const primaryImage = images[0] || '';
-        const secondaryImages = images.slice(1);
-        const imageCount = images.length;
-        const dimStr = typeof p.dimensions === 'object' ? formatDimensions(p.dimensions) : (p.dimensions || '');
-        // Display tags or fall back to legacy medium field
-        const tagsDisplay = p.tags && p.tags.length > 0 ? getTagNames(p.tags) : (p.medium || '');
-        const overlayMarkup = secondaryImages.length > 0
-          ? `
-            <div class="painting-overlay-slideshow" data-id="${p._id}">
-              ${secondaryImages.map((src, i) => `<img src="${src}" alt="${p.title} detail ${i + 2}" class="overlay-slide ${i === 0 ? 'active' : ''}" loading="lazy">`).join('')}
-            </div>
-          `
-          : '';
-        
-        return `
-          <div class="painting" data-id="${p._id}">
-            <div class="painting-image-stack">
-              <div class="painting-image-container" data-id="${p._id}" data-src="${primaryImage}">
-                <canvas></canvas>
-              </div>
-              ${overlayMarkup}
-            </div>
-            <div class="painting-info">
-              <div class="painting-title">${p.title}${p.sold ? ' <span style="color:var(--red)">(sold)</span>' : ''}</div>
-              <div class="painting-details">
-                ${p.year || ''}${tagsDisplay ? ` · ${tagsDisplay}` : ''}${dimStr ? ` · ${dimStr}` : ''}${imageCount > 1 ? ` · <span class="painting-image-count">${imageCount} images</span>` : ''}
-                ${p.price && !p.sold ? `<br>${p.price}` : ''}
-              </div>
-              <div class="painting-actions ${isAdmin ? 'visible' : ''}">
-                <button onclick="editPainting('${p._id}')">Edit</button>
-                <button class="delete-btn" onclick="confirmDelete('${p._id}')">Delete</button>
-              </div>
-            </div>
-          </div>
-        `;
-      }).join('');
-      
-      // Setup in-place zoom for each image
-      setupImageZoom();
-      setupOverlaySlideshows();
+      return arr;
     }
 
-    function setupOverlaySlideshows() {
-      const kbAnims = ['overlay-kb-a', 'overlay-kb-b', 'overlay-kb-c', 'overlay-kb-d'];
-      const slideMs = 6500;
-
-      document.querySelectorAll('.painting-overlay-slideshow').forEach(slideshow => {
-        const slides = Array.from(slideshow.querySelectorAll('.overlay-slide'));
-        if (slides.length === 0) return;
-
-        let current = 0;
-
-        const applyAnimation = (slide, step) => {
-          const anim = kbAnims[step % kbAnims.length];
-          slide.style.animation = 'none';
-          slide.offsetHeight; // restart animation timeline
-          slide.style.animation = `${anim} ${slideMs + 1000}ms ease-in-out both`;
-        };
-
-        applyAnimation(slides[0], 0);
-
-        if (slides.length === 1) return;
-
-        const timer = setInterval(() => {
-          const prev = current;
-          current = (current + 1) % slides.length;
-
-          slides[prev].classList.remove('active');
-          slides[current].classList.add('active');
-          applyAnimation(slides[current], current);
-        }, slideMs);
-
-        overlaySlideshowTimers.push(timer);
-      });
-    }
-    
-    // ====== Canvas Image Display with Hold-to-Zoom ======
-    function setupImageZoom() {
-      document.querySelectorAll('.painting-image-container').forEach(container => {
-        const canvas = container.querySelector('canvas');
-        const src = container.dataset.src;
-        if (!canvas || !src) return;
-        
-        const ctx = canvas.getContext('2d');
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        
-        let isZooming = false;
-        let zoomX = 0.5, zoomY = 0.5;
-        const ZOOM = 2.5;
-        
-        // Render the canvas (normal or zoomed)
-        const render = () => {
-          if (!img.complete || !img.naturalWidth) return;
-          
-          const dpr = window.devicePixelRatio || 1;
-          const displayW = container.clientWidth;
-          const displayH = (img.naturalHeight / img.naturalWidth) * displayW;
-          
-          canvas.width = displayW * dpr;
-          canvas.height = displayH * dpr;
-          canvas.style.width = displayW + 'px';
-          canvas.style.height = displayH + 'px';
-          
-          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'high';
-          
-          if (isZooming) {
-            // Draw zoomed portion
-            const imgW = img.naturalWidth;
-            const imgH = img.naturalHeight;
-            const viewW = imgW / ZOOM;
-            const viewH = imgH / ZOOM;
-            
-            // Center on zoom point, clamped to bounds
-            let sx = zoomX * imgW - viewW / 2;
-            let sy = zoomY * imgH - viewH / 2;
-            sx = Math.max(0, Math.min(imgW - viewW, sx));
-            sy = Math.max(0, Math.min(imgH - viewH, sy));
-            
-            ctx.drawImage(img, sx, sy, viewW, viewH, 0, 0, displayW, displayH);
-          } else {
-            // Draw full image
-            ctx.drawImage(img, 0, 0, displayW, displayH);
-          }
-        };
-        
-        img.onload = render;
-        img.src = src;
-        
-        // Handle resize
-        const resizeObserver = new ResizeObserver(() => render());
-        resizeObserver.observe(container);
-        
-        const getZoomPos = (e) => {
-          const rect = canvas.getBoundingClientRect();
-          const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-          const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-          zoomX = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-          zoomY = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
-        };
-        
-        const startZoom = (e) => {
-          e.preventDefault();
-          getZoomPos(e);
-          isZooming = true;
-          render();
-        };
-        
-        const updateZoom = (e) => {
-          if (!isZooming) return;
-          getZoomPos(e);
-          render();
-        };
-        
-        const endZoom = () => {
-          if (!isZooming) return;
-          isZooming = false;
-          render();
-        };
-        
-        // Mouse events
-        canvas.addEventListener('mousedown', startZoom);
-        canvas.addEventListener('mousemove', updateZoom);
-        canvas.addEventListener('mouseup', endZoom);
-        canvas.addEventListener('mouseleave', endZoom);
-        
-        // Touch events
-        canvas.addEventListener('touchstart', startZoom, { passive: false });
-        canvas.addEventListener('touchmove', (e) => {
-          if (isZooming && e.touches.length === 1) updateZoom(e);
-        }, { passive: true });
-        canvas.addEventListener('touchend', endZoom);
-        canvas.addEventListener('touchcancel', endZoom);
-      });
-    }
-    
-    // ====== Image Preview Management ======
-    function renderImagePreviews() {
-      imagePreviews.innerHTML = pendingImages.map((img, i) => `
-        <div class="image-preview-item ${img.uploading ? 'uploading' : ''}" data-index="${i}" draggable="true">
-          <img src="${img.localPreview || img.url}">
-          <button type="button" class="remove-image" onclick="removeImage(${i})">×</button>
-          <span class="drag-handle">☰</span>
-        </div>
-      `).join('');
-      
-      // Setup drag and drop reordering
-      setupImageReorder();
-    }
-    
-    function setupImageReorder() {
-      const items = imagePreviews.querySelectorAll('.image-preview-item');
-      items.forEach(item => {
-        item.addEventListener('dragstart', (e) => {
-          e.dataTransfer.setData('text/plain', item.dataset.index);
-          item.classList.add('dragging');
-        });
-        item.addEventListener('dragend', () => item.classList.remove('dragging'));
-        item.addEventListener('dragover', (e) => e.preventDefault());
-        item.addEventListener('drop', (e) => {
-          e.preventDefault();
-          const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
-          const toIndex = parseInt(item.dataset.index);
-          if (fromIndex !== toIndex) {
-            const [moved] = pendingImages.splice(fromIndex, 1);
-            pendingImages.splice(toIndex, 0, moved);
-            renderImagePreviews();
-          }
-        });
-      });
-    }
-    
-    function addFiles(files) {
-      Array.from(files).forEach(file => {
-        if (!file.type.startsWith('image/')) return;
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          pendingImages.push({
-            file,
-            localPreview: e.target.result,
-            uploading: false,
-            url: null
-          });
-          renderImagePreviews();
-        };
-        reader.readAsDataURL(file);
-      });
-    }
-    
-    window.removeImage = function(index) {
-      pendingImages.splice(index, 1);
-      renderImagePreviews();
-    };
-    
-    // ====== Modal ======
-    async function openModal(painting = null) {
-      modalTitle.textContent = painting ? 'Edit Painting' : 'Add Painting';
-      paintingForm.reset();
-      document.getElementById('paintingId').value = '';
-      pendingImages = [];
-      selectedTagIds = [];
-      
-      // Load/refresh tags
-      await loadTags();
-      
-      if (painting) {
-        document.getElementById('paintingId').value = painting._id;
-        document.getElementById('title').value = painting.title || '';
-        document.getElementById('year').value = painting.year || new Date().getFullYear();
-        document.getElementById('description').value = painting.description || '';
-        document.getElementById('price').value = painting.price || '';
-        document.getElementById('sold').checked = painting.sold || false;
-        
-        // Load selected tags
-        selectedTagIds = painting.tags || [];
-        
-        // Handle structured dimensions
-        if (painting.dimensions && typeof painting.dimensions === 'object') {
-          document.getElementById('dimWidth').value = painting.dimensions.width || '';
-          document.getElementById('dimHeight').value = painting.dimensions.height || '';
-          document.getElementById('dimDepth').value = painting.dimensions.depth || '';
-          document.getElementById('dimUnit').value = painting.dimensions.unit || 'in';
-        }
-        
-        // Load existing images
-        const images = painting.images || (painting.imageUrl ? [painting.imageUrl] : []);
-        pendingImages = images.map(url => ({ url, localPreview: url }));
-      } else {
-        document.getElementById('paintingId').value = '';
-        document.getElementById('year').value = new Date().getFullYear();
-      }
-      
-      renderSelectedTags();
-      renderImagePreviews();
-      modalOverlay.classList.add('visible');
-      tagsTextInput.value = '';
-      tagsDropdown.classList.remove('visible');
-    }
-    
-    function closeModal() {
-      modalOverlay.classList.remove('visible');
-      document.getElementById('paintingId').value = '';
-      pendingImages = [];
-    }
-    
-    window.editPainting = function(id) {
-      const painting = paintings.find(p => p._id === id);
-      if (painting) openModal(painting);
-    };
-    
-    window.confirmDelete = async function(id) {
-      if (!confirm('Delete this painting?')) return;
-      try {
-        await deletePainting(id);
-        await loadPaintings();
-      } catch (e) {
-        alert('Failed to delete: ' + e.message);
-      }
-    };
-    
-    // ====== Event Listeners ======
-    loginBtn.addEventListener('click', () => auth0Client?.loginWithRedirect());
-    
-    logoutBtn.addEventListener('click', () => {
-      auth0Client?.logout({ logoutParams: { returnTo: window.location.origin + window.location.pathname } });
-    });
-    
-    addBtn.addEventListener('click', () => openModal());
-    modalClose.addEventListener('click', closeModal);
-    cancelBtn.addEventListener('click', closeModal);
-    
-    modalOverlay.addEventListener('click', (e) => {
-      if (e.target === modalOverlay) closeModal();
-    });
-    
-    // Drag and drop for images
-    dropzone.addEventListener('click', () => imageFiles.click());
-    imageFiles.addEventListener('change', (e) => addFiles(e.target.files));
-    
-    dropzone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dropzone.classList.add('dragover');
-    });
-    
-    dropzone.addEventListener('dragleave', () => {
-      dropzone.classList.remove('dragover');
-    });
-    
-    dropzone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropzone.classList.remove('dragover');
-      addFiles(e.dataTransfer.files);
-    });
-    
-    paintingForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      
-      const submitBtn = e.target.querySelector('button[type="submit"]');
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Saving...';
-      
-      try {
-        // Upload any new images (ones with file but no url yet)
-        const imagesToUpload = pendingImages.filter(img => img.file && !img.url);
-        let uploaded = 0;
-        
-        for (const img of imagesToUpload) {
-          uploadProgress.textContent = `Uploading image ${++uploaded} of ${imagesToUpload.length}...`;
-          img.uploading = true;
-          renderImagePreviews();
-          
-          img.url = await uploadImage(img.file);
-          img.uploading = false;
-          img.file = null; // Clear file after upload
-          renderImagePreviews();
-        }
-        
-        uploadProgress.textContent = '';
-        
-        // Get final image URLs in order
-        const finalImages = pendingImages.map(img => img.url).filter(Boolean);
-        
-        if (finalImages.length === 0) {
-          throw new Error('At least one image is required');
-        }
-        
-        // Build structured dimensions
-        const dimWidth = parseFloat(document.getElementById('dimWidth').value);
-        const dimHeight = parseFloat(document.getElementById('dimHeight').value);
-        const dimDepth = parseFloat(document.getElementById('dimDepth').value);
-        const dimUnit = document.getElementById('dimUnit').value;
-        
-        let dimensions = null;
-        if (dimWidth || dimHeight) {
-          dimensions = {
-            width: dimWidth || null,
-            height: dimHeight || null,
-            depth: dimDepth || null,
-            unit: dimUnit
-          };
-        }
-        
-        const rawId = document.getElementById('paintingId').value.trim();
-        const isEditMode = modalTitle.textContent === 'Edit Painting';
-        
-        const paintingData = {
-          id: isEditMode && rawId ? rawId : undefined,
-          title: document.getElementById('title').value,
-          year: parseInt(document.getElementById('year').value) || new Date().getFullYear(),
-          tags: selectedTagIds,
-          dimensions,
-          description: document.getElementById('description').value,
-          price: document.getElementById('price').value,
-          sold: document.getElementById('sold').checked,
-          images: finalImages,
-        };
-        
-        await savePainting(paintingData);
-        closeModal();
-        await loadPaintings();
-        
-      } catch (e) {
-        alert('Failed to save: ' + e.message);
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Save';
-        uploadProgress.textContent = '';
-      }
-    });
-    
-    // Tags input events
-    tagsTextInput.addEventListener('input', (e) => {
-      highlightedDropdownIndex = -1;
-      renderTagsDropdown(e.target.value);
-    });
-    
-    tagsTextInput.addEventListener('focus', () => {
-      renderTagsDropdown(tagsTextInput.value);
-    });
-    
-    tagsTextInput.addEventListener('keydown', (e) => {
-      const items = tagsDropdown.querySelectorAll('.tags-dropdown-item');
-      
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        highlightedDropdownIndex = Math.min(highlightedDropdownIndex + 1, items.length - 1);
-        renderTagsDropdown(tagsTextInput.value);
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        highlightedDropdownIndex = Math.max(highlightedDropdownIndex - 1, -1);
-        renderTagsDropdown(tagsTextInput.value);
-      } else if (e.key === 'Enter') {
-        e.preventDefault();
-        if (highlightedDropdownIndex >= 0 && items[highlightedDropdownIndex]) {
-          items[highlightedDropdownIndex].click();
-        }
-      } else if (e.key === 'Escape') {
-        tagsDropdown.classList.remove('visible');
-        highlightedDropdownIndex = -1;
-      } else if (e.key === 'Backspace' && tagsTextInput.value === '' && selectedTagIds.length > 0) {
-        // Remove last tag on backspace in empty input
-        selectedTagIds.pop();
-        renderSelectedTags();
-      }
-    });
-    
-    // Close dropdown when clicking outside
-    document.addEventListener('click', (e) => {
-      if (!tagsInputWrapper.contains(e.target) && !tagsDropdown.contains(e.target)) {
-        tagsDropdown.classList.remove('visible');
-        highlightedDropdownIndex = -1;
-      }
-    });
-    
-    tagsInputWrapper.addEventListener('click', () => {
-      tagsTextInput.focus();
-    });
-    
-    // ====== WebSocket Live Reload (dev only) ======
-    let sessionWs = null;
-    let reconnectInterval = null;
-    const connectivityDot = document.getElementById('connectivityDot');
-    
-    function setConnectivityState(state) {
-      if (!connectivityDot) return;
-      connectivityDot.className = 'connectivity-dot ' + state;
-    }
-    
-    function connectToSessionServer() {
-      // Only in dev mode
-      const host = window.location.host;
-      if (host === 'justanothersystem.org') return; // Production - no live reload
-      
-      if (sessionWs && sessionWs.readyState === WebSocket.OPEN) {
-        setConnectivityState('connected');
-        return;
-      }
-      if (sessionWs && sessionWs.readyState === WebSocket.CONNECTING) {
-        setConnectivityState('connecting');
-        return;
-      }
-      
-      if (reconnectInterval) {
-        clearInterval(reconnectInterval);
-        reconnectInterval = null;
-      }
-      
-      // Determine connection URL
-      let connectionUrl = 'wss://localhost:8889';
-      if (host.includes('local.aesthetic.computer')) {
-        connectionUrl = 'wss://session.local.aesthetic.computer';
-      }
-      
-      setConnectivityState('connecting');
-      console.log('[jas] Connecting to session server:', connectionUrl);
-      
-      try {
-        sessionWs = new WebSocket(connectionUrl);
-      } catch (error) {
-        console.warn('[jas] Connection failed:', error.message);
-        setConnectivityState('disconnected');
-        scheduleReconnect();
-        return;
-      }
-      
-      sessionWs.onopen = () => {
-        console.log('[jas] Connected to session server');
-        setConnectivityState('connected');
-      };
-      
-      sessionWs.onmessage = (e) => {
-        setConnectivityState('receiving');
-        setTimeout(() => setConnectivityState('connected'), 400);
-        
-        try {
-          const msg = JSON.parse(e.data);
-          if (msg.type === 'reload') {
-            const piece = msg.content?.piece;
-            console.log('[jas] Reload message:', piece);
-            if (piece === '*refresh*' || piece === 'justanothersystem.org' || piece === 'justanothersystem') {
-              console.log('[jas] Reloading page...');
-              setTimeout(() => window.location.reload(), 150);
-            }
-          }
-        } catch (error) {
-          console.warn('[jas] Error parsing message:', error.message);
-        }
-      };
-      
-      sessionWs.onerror = () => {
-        console.warn('[jas] WebSocket error');
-        setConnectivityState('disconnected');
-      };
-      
-      sessionWs.onclose = () => {
-        console.log('[jas] Disconnected from session server');
-        setConnectivityState('disconnected');
-        sessionWs = null;
-        scheduleReconnect();
-      };
-    }
-    
-    function scheduleReconnect() {
-      if (!reconnectInterval) {
-        setConnectivityState('waiting');
-        reconnectInterval = setInterval(() => {
-          if (!sessionWs || sessionWs.readyState === WebSocket.CLOSED) {
-            connectToSessionServer();
-          }
-        }, 2000);
-      }
-    }
-    
-    // ====== Init ======
     async function init() {
-      await Promise.all([initAuth0(), loadTags()]);
-      await loadPaintings();
-      connectToSessionServer();
+      try {
+        const res = await fetch(MANIFEST_URL);
+        const data = await res.json();
+        images = shuffle([...data.images]);
+      } catch (e) {
+        console.error('Failed to load manifest:', e);
+        return;
+      }
+
+      if (images.length === 0) return;
+
+      // Create two slide elements for crossfade
+      for (let i = 0; i < 2; i++) {
+        const slide = document.createElement('div');
+        slide.className = 'slide';
+        slide.innerHTML = '<img>';
+        slideshowEl.appendChild(slide);
+      }
+
+      showSlide(0);
     }
+
+    function showSlide(index) {
+      currentIndex = index % images.length;
+      const slides = slideshowEl.querySelectorAll('.slide');
+      const activeSlot = currentIndex % 2;
+      const inactiveSlot = 1 - activeSlot;
+
+      const activeSlide = slides[activeSlot];
+      const inactiveSlide = slides[inactiveSlot];
+
+      // Load image into the active slot
+      const img = activeSlide.querySelector('img');
+      img.src = ASSET_BASE + images[currentIndex];
+
+      // Assign a Ken Burns class
+      KB_CLASSES.forEach(c => activeSlide.classList.remove(c));
+      activeSlide.classList.add(KB_CLASSES[currentIndex % KB_CLASSES.length]);
+
+      // Crossfade
+      activeSlide.classList.add('active');
+      inactiveSlide.classList.remove('active');
+
+      // Update counter
+      counterEl.textContent = `${currentIndex + 1} / ${images.length}`;
+
+      // Progress bar
+      startProgress();
+
+      // Preload next image
+      const nextIndex = (currentIndex + 1) % images.length;
+      const preload = new Image();
+      preload.src = ASSET_BASE + images[nextIndex];
+
+      // Schedule next slide
+      clearTimeout(slideTimer);
+      slideTimer = setTimeout(() => showSlide(currentIndex + 1), SLIDE_DURATION);
+    }
+
+    function startProgress() {
+      progressBar.style.transition = 'none';
+      progressBar.style.width = '0%';
+      // Force reflow
+      progressBar.offsetWidth;
+      progressBar.style.transition = `width ${SLIDE_DURATION}ms linear`;
+      progressBar.style.width = '100%';
+    }
+
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ') {
+        e.preventDefault();
+        clearTimeout(slideTimer);
+        showSlide(currentIndex + 1);
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        clearTimeout(slideTimer);
+        showSlide((currentIndex - 1 + images.length) % images.length);
+      }
+    });
+
+    // Touch swipe navigation
+    let touchStartX = 0;
+    document.addEventListener('touchstart', (e) => {
+      touchStartX = e.touches[0].clientX;
+    }, { passive: true });
+
+    document.addEventListener('touchend', (e) => {
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      if (Math.abs(dx) > 50) {
+        clearTimeout(slideTimer);
+        if (dx < 0) {
+          showSlide(currentIndex + 1);
+        } else {
+          showSlide((currentIndex - 1 + images.length) % images.length);
+        }
+      }
+    }, { passive: true });
+
     init();
   </script>
 </body>
