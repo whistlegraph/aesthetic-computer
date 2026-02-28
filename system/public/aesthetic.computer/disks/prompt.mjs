@@ -2796,7 +2796,7 @@ async function halt($, text) {
     }
 
     const displayName = pieceRef;
-    const liveUrl = `https://aesthetic.computer/${pieceRef}`;
+    const liveUrl = `https://aesthetic.computer/${pieceRef}?nogap=true&daw=true&nolabel=true`;
     const width = 400, height = 200;
 
     // Build a minimal M4L patcher with jweb~ pointing to the live URL
