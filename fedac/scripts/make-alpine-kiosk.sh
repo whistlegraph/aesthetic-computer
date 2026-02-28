@@ -503,6 +503,38 @@ if [ -n "$KVER" ]; then
   echo -e "  ${GREEN}Initramfs regenerated${NC}"
 fi
 
+# ── 3i. Inject custom /findroot into initramfs ──
+# Alpine's nlplug-findfs can't resolve PARTUUID/LABEL for raw SquashFS
+# partitions. We inject a tiny rdinit script that scans partition 2 of
+# all common disk types (sata/nvme/emmc/virtio) and mounts the squashfs.
+INITRD_FILE="$ROOTFS_DIR/boot/initramfs-lts"
+if [ -f "$INITRD_FILE" ]; then
+  INJECT_DIR=$(mktemp -d /tmp/alpine-initrd-inject-XXXX)
+  cat > "$INJECT_DIR/findroot" << 'FINDROOTEOF'
+#!/bin/sh
+mount -t proc proc /proc 2>/dev/null
+mount -t sysfs sysfs /sys 2>/dev/null
+mount -t devtmpfs dev /dev 2>/dev/null
+# Trigger device discovery
+mdev -s 2>/dev/null; sleep 1
+# Try partition 2 of all common disk types in order
+for dev in /dev/sda2 /dev/vda2 /dev/nvme0n1p2 /dev/mmcblk0p2 /dev/hda2; do
+  if [ -b "$dev" ] && mount -t squashfs -o ro "$dev" /sysroot 2>/dev/null; then
+    mount -t tmpfs -o nosuid,nodev,mode=0755 tmpfs /sysroot/run 2>/dev/null
+    mount -t tmpfs -o nosuid,nodev,mode=1777 tmpfs /sysroot/tmp 2>/dev/null
+    exec switch_root /sysroot /sbin/init
+  fi
+done
+echo "findroot: could not find squashfs root partition"
+exec /bin/sh
+FINDROOTEOF
+  chmod +x "$INJECT_DIR/findroot"
+  # Append the script to the existing initramfs cpio archive
+  (cd "$INJECT_DIR" && echo findroot | cpio -o -H newc --quiet >> "$INITRD_FILE")
+  rm -rf "$INJECT_DIR"
+  echo -e "  ${GREEN}Injected /findroot into initramfs${NC}"
+fi
+
 # ══════════════════════════════════════════
 # Step 4: Build SquashFS + prepare boot files
 # ══════════════════════════════════════════
@@ -691,7 +723,7 @@ set gfxpayload=keep
 terminal_input console serial
 terminal_output gfxterm serial
 menuentry "FedOS Alpine" {
-  linux /boot/vmlinuz root=PARTUUID=${ROOT_PARTUUID} rootfstype=squashfs ro quiet loglevel=3 mitigations=off console=tty0 console=ttyS0,115200
+  linux /boot/vmlinuz rdinit=/findroot rootfstype=squashfs ro quiet loglevel=3 mitigations=off console=tty0 console=ttyS0,115200
   initrd /boot/initramfs
 }
 GRUBEOF
