@@ -24,13 +24,21 @@ export async function handler(event, context) {
     return respond(405, { error: "Wrong request type." });
   }
 
-  const handleOrEmail = event.path.split("/").slice(-1)[0]; // Last path slug.
+  let handleOrEmail = event.path.split("/").slice(-1)[0]; // Last path slug.
 
   if (!handleOrEmail) {
     return {
       statusCode: 400,
       body: JSON.stringify({ error: "Malformed request." }),
     };
+  }
+
+  // Decode URL-encoded characters (e.g., %40 → @) so handle lookup works
+  // whether the client sends @jeffrey or %40jeffrey.
+  try {
+    handleOrEmail = decodeURIComponent(handleOrEmail);
+  } catch (_) {
+    // Leave as-is if decoding fails.
   }
 
   let database;

@@ -336,7 +336,7 @@ async function loadIdentity() {
   if (!visiting || disposed) return;
 
   try {
-    const response = await fetch(`/api/profile/${encodeURIComponent(visiting)}`, {
+    const response = await fetch(`/api/profile/${visiting}`, {
       headers: { Accept: "application/json" },
     });
 
