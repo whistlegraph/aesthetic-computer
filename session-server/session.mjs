@@ -2097,6 +2097,11 @@ wss.on("connection", (ws, req) => {
         send(stateMsg);
         log(`📥 Sent current state to late joiner on channel ${codeChannel}`);
       }
+    } else if (msg.type === "code-channel:info") {
+      // Return viewer count for a code channel
+      const ch = msg.content;
+      const count = codeChannels[ch]?.size || 0;
+      send(pack("code-channel:info", { channel: ch, viewers: count }, id));
     } else if (msg.type === "slide" && msg.content?.codeChannel) {
       // Handle slide broadcast (low-latency value updates, no state storage)
       const targetChannel = msg.content.codeChannel;
