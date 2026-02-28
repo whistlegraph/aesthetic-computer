@@ -587,14 +587,11 @@ echo -e "  Rootfs size before compression: ${ROOTFS_SIZE}MB"
 
 # 4d. Build SquashFS
 # SquashFS is built into Alpine's linux-lts kernel (CONFIG_SQUASHFS=y).
-# We identify the root partition via a fixed PARTUUID set on the GPT partition
-# after creation (sgdisk --partition-guid). nlplug-findfs supports PARTUUID=.
-ROOT_PARTUUID=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || python3 -c "import uuid; print(uuid.uuid4())")
+# Root device is found at boot by /findroot (injected into initramfs).
 SFS_PATH="$WORK_DIR/rootfs.squashfs"
 mksquashfs "$ROOTFS_DIR/" "$SFS_PATH" -comp lz4 -Xhc -noappend -no-progress -quiet
 SFS_SIZE=$(stat -c%s "$SFS_PATH")
 echo -e "  ${GREEN}SquashFS built: $(numfmt --to=iec $SFS_SIZE)${NC}"
-echo -e "  Root PARTUUID: ${ROOT_PARTUUID}"
 
 # ══════════════════════════════════════════
 # Step 5: Build image and/or flash USB
@@ -631,13 +628,6 @@ build_target() {
   sleep 2
   partprobe "$target" 2>/dev/null || true
   sleep 2
-
-  # Set fixed PARTUUID on partition 2 (ROOT) so kernel cmdline can use PARTUUID=
-  # sfdisk --part-uuid is part of util-linux and works on image files
-  sfdisk --part-uuid "$target" 2 "$ROOT_PARTUUID" 2>/dev/null && \
-    echo -e "  ${GREEN}ROOT PARTUUID set: ${ROOT_PARTUUID}${NC}" || \
-    echo -e "  ${YELLOW}Warning: failed to set PARTUUID${NC}"
-  partprobe "$target" 2>/dev/null || true
 
   # Detect partition names
   local p1="${target}1"
