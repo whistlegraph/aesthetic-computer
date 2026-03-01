@@ -23696,6 +23696,8 @@ s("ape_breaks_3").loopAt(2)</textarea>
     // Track last log time to avoid spamming console
     let lastAudioDebugLog = 0;
     function sendJukeboxAudioToPreview(audioData) {
+      // Forward audio to local popout window
+      postToPopout({ type: 'kidlisp-audio', data: audioData });
       if (iframeReady && previewIframe?.contentWindow) {
         previewIframe.contentWindow.postMessage({ type: 'kidlisp-audio', data: audioData }, aestheticUrl);
       } else {
