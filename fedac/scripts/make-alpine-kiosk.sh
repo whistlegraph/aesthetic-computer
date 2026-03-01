@@ -318,11 +318,16 @@ chown -R 1000:1000 "$ROOTFS_DIR/home/kioskuser" 2>/dev/null || true
 # 2h. fstab — tmpfs mounts required for read-only SquashFS root
 cat > "$ROOTFS_DIR/etc/fstab" << 'EOF'
 # SquashFS root is read-only; writable layers via tmpfs
-tmpfs  /tmp      tmpfs  nosuid,nodev,mode=1777  0 0
-tmpfs  /run      tmpfs  nosuid,nodev,mode=0755  0 0
-tmpfs  /var/log  tmpfs  nosuid,nodev,mode=0755  0 0
-tmpfs  /var/tmp  tmpfs  nosuid,nodev,mode=1777  0 0
+tmpfs  /tmp       tmpfs  nosuid,nodev,mode=1777  0 0
+tmpfs  /run       tmpfs  nosuid,nodev,mode=0755  0 0
+tmpfs  /var/log   tmpfs  nosuid,nodev,mode=0755  0 0
+tmpfs  /var/tmp   tmpfs  nosuid,nodev,mode=1777  0 0
+tmpfs  /var/cache tmpfs  nosuid,nodev,mode=0755  0 0
 EOF
+
+# Symlinks that Alpine expects (some scripts use /var/run instead of /run)
+ln -sf /run "$ROOTFS_DIR/var/run"
+ln -sf /run/lock "$ROOTFS_DIR/var/lock"
 
 echo -e "  ${GREEN}Alpine rootfs configured${NC}"
 
@@ -360,6 +365,29 @@ echo "[kiosk] log file: $LOG"
 export XDG_SESSION_TYPE=wayland
 export XDG_RUNTIME_DIR="/run/user/$(id -u)"
 mkdir -p "$XDG_RUNTIME_DIR"
+chmod 0700 "$XDG_RUNTIME_DIR"
+
+# seatd socket — required for Cage to get DRM/input access
+export LIBSEAT_BACKEND=seatd
+if [ -S /run/seatd.sock ]; then
+  export SEATD_SOCK=/run/seatd.sock
+fi
+
+# Wayland/DRM env for Cage
+export WLR_LIBINPUT_NO_DEVICES=1
+
+# Wait for DRM device (GPU)
+echo "[kiosk] waiting for /dev/dri/card0..."
+for i in $(seq 1 30); do
+  [ -e /dev/dri/card0 ] && break
+  sleep 0.5
+done
+if [ -e /dev/dri/card0 ]; then
+  echo "[kiosk] DRM device ready: $(ls -la /dev/dri/)"
+else
+  echo "[kiosk] WARNING: /dev/dri/card0 not found after 15s"
+  ls -la /dev/dri/ 2>&1 || echo "[kiosk] /dev/dri does not exist"
+fi
 
 # Link piece files from FEDAC-PIECE if available
 if [ -f /mnt/piece/piece.html ]; then
@@ -392,8 +420,10 @@ for i in $(seq 1 30); do
 done
 
 echo "[kiosk] launching cage + chromium"
+echo "[kiosk] LIBSEAT_BACKEND=$LIBSEAT_BACKEND SEATD_SOCK=${SEATD_SOCK:-unset}"
+echo "[kiosk] DRI devices: $(ls /dev/dri/ 2>&1)"
 # Cage launches a single Wayland app fullscreen with black background
-exec cage -- chromium-browser \
+exec cage -s -- chromium-browser \
   --no-first-run \
   --disable-translate \
   --disable-infobars \
@@ -456,21 +486,26 @@ for svc in devfs dmesg mdev hwdrivers; do
   chroot "$ROOTFS_DIR" /sbin/rc-update add "$svc" sysinit 2>/dev/null || true
 done
 # boot: filesystem and system setup
-for svc in bootmisc hostname modules localmount; do
-  chroot "$ROOTFS_DIR" /sbin/rc-update add "$svc" boot 2>/dev/null || true
+# Alpine eudev provides: udev, udev-trigger, udev-settle, udev-postmount
+for svc in bootmisc hostname modules localmount udev udev-trigger udev-settle; do
+  chroot "$ROOTFS_DIR" /sbin/rc-update add "$svc" boot 2>/dev/null || {
+    echo "  (service $svc not available, skipping)"
+  }
 done
 # default: user services (seatd for DRM access, dbus for PipeWire)
 for svc in seatd dbus kiosk-piece-server; do
   chroot "$ROOTFS_DIR" /sbin/rc-update add "$svc" default 2>/dev/null || true
 done
 
-# 3f. Configure seatd for kioskuser
-mkdir -p "$ROOTFS_DIR/etc/seatd"
-echo 'kioskuser' > "$ROOTFS_DIR/etc/seatd/seatd.conf" 2>/dev/null || true
+# 3f. Configure seatd — Alpine uses /etc/conf.d/seatd
+mkdir -p "$ROOTFS_DIR/etc/conf.d"
+cat > "$ROOTFS_DIR/etc/conf.d/seatd" << 'SEATDEOF'
+# Run seatd as root, allow "seat" group
+SEATD_ARGS="-g seat"
+SEATDEOF
 
-# 3g. Basic kernel modules config
-mkdir -p "$ROOTFS_DIR/etc/modules-load.d"
-cat > "$ROOTFS_DIR/etc/modules-load.d/kiosk.conf" << EOF
+# 3g. Kernel modules — Alpine uses /etc/modules (one module per line)
+cat > "$ROOTFS_DIR/etc/modules" << EOF
 # GPU drivers
 i915
 amdgpu
@@ -479,6 +514,8 @@ snd_hda_intel
 snd_hda_codec_hdmi
 # Input
 uinput
+# Squashfs (backup, usually built-in)
+squashfs
 EOF
 
 echo -e "  ${GREEN}Kiosk config injected${NC}"
@@ -520,8 +557,14 @@ mdev -s 2>/dev/null; sleep 1
 # Try partition 2 of all common disk types in order
 for dev in /dev/sda2 /dev/vda2 /dev/nvme0n1p2 /dev/mmcblk0p2 /dev/hda2; do
   if [ -b "$dev" ] && mount -t squashfs -o ro "$dev" /sysroot 2>/dev/null; then
+    # Mount essential tmpfs dirs before init (root is read-only)
     mount -t tmpfs -o nosuid,nodev,mode=0755 tmpfs /sysroot/run 2>/dev/null
     mount -t tmpfs -o nosuid,nodev,mode=1777 tmpfs /sysroot/tmp 2>/dev/null
+    mount -t tmpfs -o nosuid,nodev,mode=0755 tmpfs /sysroot/var/log 2>/dev/null
+    mount -t tmpfs -o nosuid,nodev,mode=1777 tmpfs /sysroot/var/tmp 2>/dev/null
+    mount -t tmpfs -o nosuid,nodev,mode=0755 tmpfs /sysroot/var/cache 2>/dev/null
+    # OpenRC needs writable /run/openrc for state tracking
+    mkdir -p /sysroot/run/openrc
     exec switch_root /sysroot /sbin/init
   fi
 done
