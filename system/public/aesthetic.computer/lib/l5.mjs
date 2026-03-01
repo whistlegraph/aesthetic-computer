@@ -1,4 +1,15 @@
-const WASM_URL = new URL("../dep/wasmoon/glue.wasm", import.meta.url).href;
+let WASM_URL;
+function getWasmUrl() {
+  if (!WASM_URL) {
+    try {
+      WASM_URL = new URL("../dep/wasmoon/glue.wasm", import.meta.url).href;
+    } catch {
+      // In pack mode (blob: URLs), import.meta.url can't resolve relative paths.
+      WASM_URL = null;
+    }
+  }
+  return WASM_URL;
+}
 
 let factoryPromise;
 let LuaFactoryCtor;
@@ -14,7 +25,7 @@ async function ensureLuaFactoryCtor() {
 async function ensureFactory() {
   if (!factoryPromise) {
     const LuaFactory = await ensureLuaFactoryCtor();
-    factoryPromise = Promise.resolve(new LuaFactory(WASM_URL));
+    factoryPromise = Promise.resolve(new LuaFactory(getWasmUrl()));
   }
   return factoryPromise;
 }

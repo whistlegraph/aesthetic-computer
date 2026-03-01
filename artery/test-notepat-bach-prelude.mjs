@@ -817,8 +817,7 @@ async function main() {
     testLog('Connected');
 
     await client.jump('notepat');
-    testLog('Navigated to notepat');
-    await sleep(2000);
+    testLog('Navigated to notepat (piece ready)');
 
     await client.activateAudio();
     testLog('Audio activated');
@@ -846,7 +845,6 @@ async function main() {
 
     await client.jump('prompt');
     testLog('Returned to prompt');
-    await sleep(500);
     client.close();
     await Artery.closePanelStandalone();
 

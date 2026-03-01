@@ -26,10 +26,14 @@ let backgroundEnabled = false; // set by bios when piece exports `background: tr
 function ensureTimerWorker() {
   if (timerWorker) return timerWorker;
   try {
-    timerWorker = new Worker(
-      new URL("./timer-worker.mjs", import.meta.url),
-      { type: "module" },
-    );
+    let workerUrl;
+    try {
+      workerUrl = new URL("./timer-worker.mjs", import.meta.url);
+    } catch {
+      // In pack mode (blob: URLs), import.meta.url can't resolve relative paths.
+      return null;
+    }
+    timerWorker = new Worker(workerUrl, { type: "module" });
     timerWorker.onmessage = onTimerWorkerTick;
   } catch (e) {
     console.warn("⏱️ Timer worker failed to start:", e);
