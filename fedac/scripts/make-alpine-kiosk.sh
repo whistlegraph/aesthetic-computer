@@ -706,14 +706,12 @@ insmod all_video
 insmod gzio
 insmod part_gpt
 insmod fat
-insmod serial
-serial --unit=0 --speed=115200
 set gfxmode=auto
 set gfxpayload=keep
-terminal_input console serial
-terminal_output gfxterm serial
+terminal_input console
+terminal_output gfxterm
 menuentry "FedOS Alpine" {
-  linux /boot/vmlinuz rdinit=/findroot rootfstype=squashfs ro quiet loglevel=3 mitigations=off console=tty0 console=ttyS0,115200
+  linux /boot/vmlinuz rdinit=/findroot rootfstype=squashfs ro quiet loglevel=0 mitigations=off
   initrd /boot/initramfs
 }
 GRUBEOF
