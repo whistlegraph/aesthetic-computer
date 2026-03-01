@@ -6240,6 +6240,7 @@ const $paintApiUnwrapped = {
   steal: graph.steal,
   putback: graph.putback,  skip: graph.skip,
   scroll: graph.scroll,
+  flip: graph.flip,
   spin: graph.spin,
   sort: graph.sort,
   zoom: graph.zoom,
@@ -6431,7 +6432,7 @@ const $paintApiUnwrapped = {
       const shouldReset = resolvedSource.includes('wipe') && !accumulate; // Don't reset in accumulation mode
       
       // Check if source contains animation-related commands that need fresh execution
-      const animationCommands = ['rainbow', 'zebra', 'time', 'random', 'noise', 'clock', 'scroll', 'zoom', 'contrast', 'fade'];
+      const animationCommands = ['rainbow', 'zebra', 'time', 'random', 'noise', 'clock', 'scroll', 'zoom', 'flip', 'contrast', 'fade'];
       const hasTimingCommands = /\d+\.?\d*s\b/.test(resolvedSource); // Detect timing like "0.15s", "1s", etc.
       const hasAnimationCommands = animationCommands.some(cmd => resolvedSource.includes(cmd));
       const isDollarCode = source && source.startsWith && source.startsWith('$'); // Dollar codes should always refresh
@@ -6545,8 +6546,8 @@ const $paintApiUnwrapped = {
           
           // Check if source contains timing expressions that need proper scheduling
           const hasTimingExpressions = /\d+\.?\d*s(\.\.\.|!)?/.test(resolvedSource);
-          // Check if source contains scroll/zoom that needs deferred execution
-          const hasScrollZoom = /\(\s*(scroll|zoom)\s/.test(resolvedSource);
+          // Check if source contains scroll/zoom/flip that needs deferred execution
+          const hasScrollZoom = /\(\s*(scroll|zoom|flip)\s/.test(resolvedSource);
           
 
           
@@ -6555,14 +6556,14 @@ const $paintApiUnwrapped = {
             // Don't force immediate execution for timing expressions
             globalKidLispInstance.embeddedLayers = null; // Still clear embedded layers
           } else if (hasScrollZoom) {
-            // console.log(`🎯 Detected scroll/zoom, allowing deferred execution`);
-            // Allow scroll/zoom to use deferred execution but clear embedded layers
-            globalKidLispInstance.inEmbedPhase = false; // Allow deferring for scroll/zoom
-            globalKidLispInstance.isNestedInstance = false; // Allow deferring for scroll/zoom
+            // console.log(`🎯 Detected scroll/zoom/flip, allowing deferred execution`);
+            // Allow scroll/zoom/flip to use deferred execution but clear embedded layers
+            globalKidLispInstance.inEmbedPhase = false; // Allow deferring for scroll/zoom/flip
+            globalKidLispInstance.isNestedInstance = false; // Allow deferring for scroll/zoom/flip
             globalKidLispInstance.embeddedLayers = null; // Clear any leftover embedded layers
           } else {
-            // console.log(`🎯 No timing/scroll/zoom detected, forcing immediate execution`);
-            // Force immediate execution mode for simplified kidlisp() calls without timing or scroll/zoom
+            // console.log(`🎯 No timing/scroll/zoom/flip detected, forcing immediate execution`);
+            // Force immediate execution mode for simplified kidlisp() calls without timing or scroll/zoom/flip
             globalKidLispInstance.inEmbedPhase = true; // Prevent deferring
             globalKidLispInstance.isNestedInstance = true; // Enable immediate execution
             globalKidLispInstance.embeddedLayers = null; // Clear any leftover embedded layers
@@ -6668,8 +6669,8 @@ const $paintApiUnwrapped = {
           
           // Check if source contains timing expressions that need proper scheduling
           const hasTimingExpressions = /\d+\.?\d*s(\.\.\.|!)?/.test(resolvedSource);
-          // Check if source contains scroll/zoom that needs deferred execution
-          const hasScrollZoom = /\(\s*(scroll|zoom)\s/.test(resolvedSource);
+          // Check if source contains scroll/zoom/flip that needs deferred execution
+          const hasScrollZoom = /\(\s*(scroll|zoom|flip)\s/.test(resolvedSource);
           
           // Only log occasionally to reduce console spam
 
@@ -6679,14 +6680,14 @@ const $paintApiUnwrapped = {
             // Don't force immediate execution for timing expressions
             globalKidLispInstance.embeddedLayers = null; // Still clear embedded layers
           } else if (hasScrollZoom) {
-            // console.log(`🎯 Detected scroll/zoom in accumulation, allowing deferred execution`);
-            // Allow scroll/zoom to use deferred execution but clear embedded layers
-            globalKidLispInstance.inEmbedPhase = false; // Allow deferring for scroll/zoom
-            globalKidLispInstance.isNestedInstance = false; // Allow deferring for scroll/zoom
+            // console.log(`🎯 Detected scroll/zoom/flip in accumulation, allowing deferred execution`);
+            // Allow scroll/zoom/flip to use deferred execution but clear embedded layers
+            globalKidLispInstance.inEmbedPhase = false; // Allow deferring for scroll/zoom/flip
+            globalKidLispInstance.isNestedInstance = false; // Allow deferring for scroll/zoom/flip
             globalKidLispInstance.embeddedLayers = null; // Clear any leftover embedded layers
           } else {
-            // console.log(`🎯 No timing/scroll/zoom in accumulation, forcing immediate execution`);
-            // Force immediate execution mode for simplified kidlisp() calls without timing or scroll/zoom
+            // console.log(`🎯 No timing/scroll/zoom/flip in accumulation, forcing immediate execution`);
+            // Force immediate execution mode for simplified kidlisp() calls without timing or scroll/zoom/flip
             globalKidLispInstance.inEmbedPhase = true; // Prevent deferring
             globalKidLispInstance.isNestedInstance = true; // Enable immediate execution
             globalKidLispInstance.embeddedLayers = null; // Clear any leftover embedded layers
