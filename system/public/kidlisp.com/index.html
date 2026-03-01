@@ -22548,23 +22548,31 @@ s("ape_breaks_3").loopAt(2)</textarea>
     let pjWs = null;
     let pjWsPendingChannel = null;
     let pjIsProduction = true; // Track if connected to production or localhost
+    let pjWsKeepAlive = null; // Keepalive interval
     const PJ_PROD_URL = 'wss://session-server.aesthetic.computer';
     const PJ_LOCAL_URL = 'wss://localhost:8889';
-    
+    const PJ_WS_KEEPALIVE_MS = 25000; // Ping every 25s to keep connection alive
+
     function connectPjWebSocket(forceLocal = false) {
       if (pjWs && pjWs.readyState === WebSocket.OPEN) return;
-      
+      // Clean up any stale connection
+      if (pjWs) { try { pjWs.close(); } catch(e) {} pjWs = null; }
+      if (pjWsKeepAlive) { clearInterval(pjWsKeepAlive); pjWsKeepAlive = null; }
+
       const url = forceLocal ? PJ_LOCAL_URL : PJ_PROD_URL;
       pjIsProduction = !forceLocal;
       logPj('connect websocket', { url, forceLocal, pjIsProduction, codeChannelId });
-      
+
       try {
         pjWs = new WebSocket(url);
         pjWs.onopen = () => {
           log.socket.log(`PJ WebSocket connected to ${pjIsProduction ? 'production' : 'localhost'}`);
-          if (pjWsPendingChannel) {
-            pjWs.send(JSON.stringify({ type: 'code-channel:sub', content: pjWsPendingChannel }));
+          // (Re)subscribe to active channel
+          const subChannel = pjWsPendingChannel || codeChannelId;
+          if (subChannel) {
+            pjWs.send(JSON.stringify({ type: 'code-channel:sub', content: subChannel }));
             pjWsPendingChannel = null;
+            logPj('subscribed on connect', { subChannel });
           }
           updatePjUI();
 
@@ -22597,12 +22605,20 @@ s("ape_breaks_3").loopAt(2)</textarea>
               log.socket.debug('Sent current code to server on reconnect');
             }
           }
+
+          // Start keepalive pings to prevent idle timeout
+          pjWsKeepAlive = setInterval(() => {
+            if (pjWs?.readyState === WebSocket.OPEN) {
+              pjWs.send(JSON.stringify({ type: 'ping' }));
+            }
+          }, PJ_WS_KEEPALIVE_MS);
         };
         pjWs.onclose = () => {
           log.socket.debug('PJ WebSocket disconnected');
           pjWs = null;
-          // Reconnect if we have an active channel
-          if (codeChannelId) setTimeout(() => connectPjWebSocket(forceLocal), 3000);
+          if (pjWsKeepAlive) { clearInterval(pjWsKeepAlive); pjWsKeepAlive = null; }
+          // Reconnect if broadcasting
+          if (isBroadcasting || codeChannelId) setTimeout(() => connectPjWebSocket(forceLocal), 2000);
         };
         pjWs.onerror = () => {
           pjWs?.close();

@@ -294,19 +294,24 @@
     
     // Session server connection - prefers production, falls back to localhost
     let sessionWs = null;
+    let wsKeepAlive = null;
     const PROD_URL = 'wss://session-server.aesthetic.computer';
     const LOCAL_URL = 'wss://localhost:8889';
-    
+    const WS_KEEPALIVE_MS = 25000; // Ping every 25s to prevent idle timeout
+
     function connectToSessionServer(forceLocal = false) {
+      // Clean up stale connection
+      if (sessionWs) { try { sessionWs.close(); } catch(e) {} sessionWs = null; }
+      if (wsKeepAlive) { clearInterval(wsKeepAlive); wsKeepAlive = null; }
+
       const url = forceLocal ? LOCAL_URL : PROD_URL;
       console.log('Connecting to session server:', url);
       logPj('connect websocket', { url, forceLocal, channelId });
-      
+
       try {
         sessionWs = new WebSocket(url);
       } catch (e) {
         console.warn('Session server connection failed:', e);
-        // If production failed, try localhost
         if (!forceLocal) {
           console.log('Trying localhost fallback...');
           setTimeout(() => connectToSessionServer(true), 500);
@@ -315,12 +320,11 @@
         }
         return;
       }
-      
+
       sessionWs.onopen = () => {
         console.log('Connected to session server:', forceLocal ? 'localhost' : 'production');
         wsConnected = true;
 
-        
         // Subscribe to code channel
         if (channelId) {
           sessionWs.send(JSON.stringify({
@@ -330,42 +334,48 @@
           console.log('Subscribed to code channel:', channelId);
           logPj('subscribed channel', { channelId, forceLocal });
         }
+
+        // Start keepalive pings to prevent idle timeout
+        wsKeepAlive = setInterval(() => {
+          if (sessionWs?.readyState === WebSocket.OPEN) {
+            sessionWs.send(JSON.stringify({ type: 'ping' }));
+          }
+        }, WS_KEEPALIVE_MS);
       };
-      
+
       sessionWs.onmessage = (e) => {
         try {
           const msg = JSON.parse(e.data);
-          
+
           // Handle ping from editor (heartbeat)
           if (msg.type === 'pj-ping') {
             handleEditorPing();
-            // Send pong back
             sessionWs.send(JSON.stringify({
               type: 'pj-pong',
               content: channelId
             }));
             return;
           }
-          
+
           // Handle audio data from jukebox
           if (msg.type === 'audio' && msg.content) {
             sendAudioToIframe(msg.content);
             return;
           }
-          
+
           // Handle slide updates (low-latency value changes)
           if (msg.type === 'slide' && msg.content?.piece) {
-            handleEditorPing(); // Slides count as editor activity
-            sendCodeToIframe(msg.content.piece, true); // true = slide mode
+            handleEditorPing();
+            sendCodeToIframe(msg.content.piece, true);
           }
-          
+
           // Handle code updates from the channel
           if (msg.type === 'code' && msg.content?.piece) {
             console.log('Received code via session server');
-            handleEditorPing(); // Code updates count as editor activity
+            handleEditorPing();
             sendCodeToIframe(msg.content.piece);
           }
-          
+
           // Handle pause/resume
           if (msg.type === 'pause') {
             console.log('Received pause via session server');
@@ -379,11 +389,10 @@
           console.warn('Error parsing session message:', err);
         }
       };
-      
+
       sessionWs.onerror = () => {
         console.warn('Session server error');
         sessionWs?.close();
-        // If production failed, try localhost; if localhost failed, retry
         if (!forceLocal) {
           console.log('Production unreachable, trying localhost...');
           setTimeout(() => connectToSessionServer(true), 500);
@@ -391,13 +400,13 @@
           setTimeout(() => connectToSessionServer(forceLocal), 3000);
         }
       };
-      
+
       sessionWs.onclose = () => {
         console.log('Session server disconnected, reconnecting...');
         sessionWs = null;
         wsConnected = false;
         editorConnected = false;
-
+        if (wsKeepAlive) { clearInterval(wsKeepAlive); wsKeepAlive = null; }
         setTimeout(() => connectToSessionServer(forceLocal), 2000);
       };
     }
