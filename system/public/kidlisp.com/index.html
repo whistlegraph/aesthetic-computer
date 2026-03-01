@@ -17065,6 +17065,8 @@ s("ape_breaks_3").loopAt(2)</textarea>
     let pendingMessages = [];
     
     function sendToIframe(message) {
+      // When popout is active, skip sending to the local preview iframe
+      if (localPreviewPausedForPopout) return;
       if (iframeReady && previewIframe?.contentWindow) {
         try {
           previewIframe.contentWindow.postMessage(message, aestheticUrl);
@@ -22721,6 +22723,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
     const pjDropdown = document.getElementById('pj-dropdown');
     let pjViewerPollInterval = null;
     let pjPopoutWindow = null; // Tracks the local popout window (postMessage only)
+    let localPreviewPausedForPopout = false; // True when local preview is paused for popout
 
     // Generate a pronounceable PJ channel code (CVCV pattern)
     function generateCodeChannelId() {
@@ -23021,13 +23024,15 @@ s("ape_breaks_3").loopAt(2)</textarea>
     });
 
     // Dropdown: popout window button
+    let pjPopoutClosePoller = null;
+
     function openPjPopout() {
-      // Close any existing popout
+      // Focus existing popout
       if (pjPopoutWindow && !pjPopoutWindow.closed) {
         pjPopoutWindow.focus();
         return;
       }
-      // Open a borderless popup loading pj.html without a channel (postMessage-only mode)
+      // Open popup loading pj.html without a channel (postMessage-only mode)
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname.includes('local.');
       const popoutUrl = isLocal
         ? `${window.location.origin}/kidlisp.com/pj/`
@@ -23042,32 +23047,63 @@ s("ape_breaks_3").loopAt(2)</textarea>
         return;
       }
       logPj('popout opened');
+
+      // Pause the local preview to save performance
+      if (isPlaying && !isPaused) {
+        sendToIframe({ type: 'kidlisp-pause' });
+        localPreviewPausedForPopout = true;
+        logPj('local preview paused for popout');
+      }
+
       // Send current code once the popout is ready
+      let initialSent = false;
       const sendInitialCode = () => {
-        if (editor && isPlaying) {
+        if (initialSent) return;
+        if (editor) {
           const code = editor.getValue().trim();
-          if (code) {
+          if (code && pjPopoutWindow && !pjPopoutWindow.closed) {
             pjPopoutWindow.postMessage({ type: 'kidlisp-code-update', code }, '*');
+            initialSent = true;
+            logPj('sent initial code to popout');
           }
         }
       };
-      // The popout iframe needs time to load; listen for a ready signal or use a delay
+      // Listen for the ready signal from popout
       window.addEventListener('message', function onReady(e) {
         if (e.source === pjPopoutWindow && e.data?.type === 'pj-popout-ready') {
           sendInitialCode();
           window.removeEventListener('message', onReady);
         }
       });
-      // Fallback: send after a delay in case the ready message is missed
-      setTimeout(sendInitialCode, 2000);
-      showToast('Popout window opened', 'success');
+      // Fallback: retry a few times in case the ready message is missed
+      setTimeout(sendInitialCode, 1500);
+      setTimeout(sendInitialCode, 3000);
+
+      // Poll for popout close to resume local preview
+      if (pjPopoutClosePoller) clearInterval(pjPopoutClosePoller);
+      pjPopoutClosePoller = setInterval(() => {
+        if (!pjPopoutWindow || pjPopoutWindow.closed) {
+          clearInterval(pjPopoutClosePoller);
+          pjPopoutClosePoller = null;
+          pjPopoutWindow = null;
+          // Resume local preview if we paused it
+          if (localPreviewPausedForPopout) {
+            localPreviewPausedForPopout = false; // Clear flag first so sendToIframe works
+            sendToIframe({ type: 'kidlisp-resume' });
+            logPj('local preview resumed (popout closed)');
+          }
+        }
+      }, 500);
+
+      showToast('Popout window opened — local preview paused', 'success');
     }
+
     document.getElementById('pj-dropdown-popout')?.addEventListener('click', () => {
       openPjPopout();
       hidePjDropdown();
     });
 
-    // Forward code/slide/pause to popout window via postMessage
+    // Forward code/slide/pause/audio to popout window via postMessage
     function postToPopout(msg) {
       if (pjPopoutWindow && !pjPopoutWindow.closed) {
         pjPopoutWindow.postMessage(msg, '*');
@@ -23698,6 +23734,8 @@ s("ape_breaks_3").loopAt(2)</textarea>
     function sendJukeboxAudioToPreview(audioData) {
       // Forward audio to local popout window
       postToPopout({ type: 'kidlisp-audio', data: audioData });
+      // Skip local iframe when popout is active (saves performance)
+      if (localPreviewPausedForPopout) return;
       if (iframeReady && previewIframe?.contentWindow) {
         previewIframe.contentWindow.postMessage({ type: 'kidlisp-audio', data: audioData }, aestheticUrl);
       } else {
