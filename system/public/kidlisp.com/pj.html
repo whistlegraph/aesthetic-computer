@@ -70,74 +70,6 @@
       color: rgba(255, 255, 255, 0.5);
     }
     
-    /* Connection status overlay */
-    #connection-status {
-      position: fixed;
-      top: 8px;
-      right: 8px;
-      z-index: 40;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 10px;
-      background: rgba(0, 0, 0, 0.7);
-      border-radius: 4px;
-      font-family: monospace;
-      font-size: 11px;
-      color: rgba(255, 255, 255, 0.8);
-      opacity: 0.8;
-      transition: opacity 0.3s, background 0.3s;
-      cursor: pointer;
-    }
-    
-    #connection-status:hover {
-      opacity: 1;
-      background: rgba(0, 0, 0, 0.85);
-    }
-    
-    #connection-status .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #888;
-      transition: background 0.3s, box-shadow 0.3s;
-    }
-    
-    #connection-status.connected .dot {
-      background: #4f4;
-      box-shadow: 0 0 6px #4f4;
-    }
-    
-    #connection-status.editor-connected .dot {
-      background: rgb(205, 92, 155);
-      box-shadow: 0 0 8px rgb(205, 92, 155);
-    }
-    
-    #connection-status.disconnected .dot {
-      background: #f44;
-      box-shadow: 0 0 6px #f44;
-    }
-    
-    #connection-status .ping-indicator {
-      width: 4px;
-      height: 4px;
-      border-radius: 50%;
-      background: transparent;
-      transition: background 0.1s;
-    }
-    
-    #connection-status .ping-indicator.flash {
-      background: rgba(255, 255, 255, 0.8);
-    }
-    
-    #connection-status .status-text {
-      color: inherit;
-    }
-    
-    #connection-status.editor-connected .status-text {
-      color: rgb(205, 92, 155);
-    }
-    
     /* Boot screen */
     #boot-screen {
       position: absolute;
@@ -173,13 +105,6 @@
     <canvas id="qr-canvas"></canvas>
     <div id="qr-url"></div>
     <div id="qr-hint">Scan to join this channel</div>
-  </div>
-  
-  <!-- Connection status overlay -->
-  <div id="connection-status" class="disconnected" title="Click to see connection details">
-    <span class="dot"></span>
-    <span class="ping-indicator"></span>
-    <span class="status-text">Connecting...</span>
   </div>
   
   <div id="boot-screen">
@@ -245,46 +170,19 @@
     let pendingCode = null;
     
     // Connection status tracking
-    const connectionStatus = document.getElementById('connection-status');
-    const statusText = connectionStatus.querySelector('.status-text');
-    const pingIndicator = connectionStatus.querySelector('.ping-indicator');
     let wsConnected = false;
     let editorConnected = false;
     let lastEditorPing = 0;
     let editorPingTimeout = null;
-    const EDITOR_PING_TIMEOUT_MS = 5000; // Consider editor disconnected after 5s without ping
-    
-    function updateConnectionStatus() {
-      connectionStatus.classList.remove('connected', 'editor-connected', 'disconnected');
+    const EDITOR_PING_TIMEOUT_MS = 5000;
 
-      if (editorConnected) {
-        connectionStatus.classList.add('editor-connected');
-        statusText.textContent = udpConnected ? 'Editor linked (UDP)' : 'Editor linked';
-      } else if (wsConnected || udpConnected) {
-        connectionStatus.classList.add('connected');
-        statusText.textContent = udpConnected ? 'Server connected (UDP)' : 'Server connected';
-      } else {
-        connectionStatus.classList.add('disconnected');
-        statusText.textContent = 'Disconnected';
-      }
-    }
-    
-    function flashPingIndicator() {
-      pingIndicator.classList.add('flash');
-      setTimeout(() => pingIndicator.classList.remove('flash'), 150);
-    }
-    
     function handleEditorPing() {
       lastEditorPing = Date.now();
       editorConnected = true;
-      flashPingIndicator();
-      updateConnectionStatus();
-      
-      // Reset timeout
+
       if (editorPingTimeout) clearTimeout(editorPingTimeout);
       editorPingTimeout = setTimeout(() => {
         editorConnected = false;
-        updateConnectionStatus();
         logPj('editor ping timeout');
       }, EDITOR_PING_TIMEOUT_MS);
     }
@@ -416,7 +314,7 @@
       sessionWs.onopen = () => {
         console.log('Connected to session server:', forceLocal ? 'localhost' : 'production');
         wsConnected = true;
-        updateConnectionStatus();
+
         
         // Subscribe to code channel
         if (channelId) {
@@ -494,7 +392,7 @@
         sessionWs = null;
         wsConnected = false;
         editorConnected = false;
-        updateConnectionStatus();
+
         setTimeout(() => connectToSessionServer(forceLocal), 2000);
       };
     }
@@ -559,7 +457,7 @@
 
         udpConnected = true;
         logPj('UDP connected', { url, port });
-        updateConnectionStatus();
+
 
         udpChannel.emit('udp:identity', JSON.stringify({
           role: 'pj-viewer',
@@ -592,7 +490,7 @@
         logPj('UDP disconnected');
         udpConnected = false;
         udpChannel = null;
-        updateConnectionStatus();
+
         if (channelId) {
           udpReconnectTimer = setTimeout(() => connectToUDP(forceLocal), 3000);
         }
