@@ -23110,6 +23110,40 @@ s("ape_breaks_3").loopAt(2)</textarea>
       }
     }
 
+    // Reconnect to an existing popout after editor refresh.
+    // The popout pings window.opener every 2s with 'pj-popout-ready'.
+    window.addEventListener('message', (e) => {
+      if (e.data?.type === 'pj-popout-ready' && !pjPopoutWindow) {
+        pjPopoutWindow = e.source;
+        logPj('reconnected to existing popout');
+        // Pause local preview and start close poller
+        if (isPlaying && !isPaused && !localPreviewPausedForPopout) {
+          sendToIframe({ type: 'kidlisp-pause' });
+          localPreviewPausedForPopout = true;
+        }
+        if (!pjPopoutClosePoller) {
+          pjPopoutClosePoller = setInterval(() => {
+            if (!pjPopoutWindow || pjPopoutWindow.closed) {
+              clearInterval(pjPopoutClosePoller);
+              pjPopoutClosePoller = null;
+              pjPopoutWindow = null;
+              if (localPreviewPausedForPopout) {
+                localPreviewPausedForPopout = false;
+                sendToIframe({ type: 'kidlisp-resume' });
+                logPj('local preview resumed (popout closed)');
+              }
+            }
+          }, 500);
+        }
+        // Send current code to the popout
+        if (editor) {
+          const code = editor.getValue().trim();
+          if (code) postToPopout({ type: 'kidlisp-code-update', code });
+        }
+        showToast('Popout reconnected', 'success');
+      }
+    });
+
     // Dropdown: stop button
     document.getElementById('pj-dropdown-stop')?.addEventListener('click', () => stopPjBroadcast());
     // Dropdown: copy URL on QR / channel click

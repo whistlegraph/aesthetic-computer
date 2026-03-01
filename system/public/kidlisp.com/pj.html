@@ -742,6 +742,14 @@
       }
     });
     
+    // Periodically ping opener so the editor can reconnect after refresh
+    if (window.opener) {
+      setInterval(() => {
+        try { window.opener.postMessage({ type: 'pj-popout-ready' }, '*'); }
+        catch (e) {} // opener may have closed
+      }, 2000);
+    }
+
     console.log('KidLisp PJ window initialized', { channel: channelId, dev });
   </script>
 </body>
