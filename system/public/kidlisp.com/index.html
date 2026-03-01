@@ -1638,6 +1638,19 @@
       transition: background 0.15s;
     }
     .pj-dropdown-stop:hover { background: rgba(205, 92, 155, 0.25); }
+    .pj-dropdown-popout {
+      width: 100%;
+      padding: 5px 0;
+      background: rgba(100, 160, 255, 0.12);
+      border: 1px solid rgba(100, 160, 255, 0.4);
+      color: rgb(100, 160, 255);
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: monospace;
+      font-size: 11px;
+      transition: background 0.15s;
+    }
+    .pj-dropdown-popout:hover { background: rgba(100, 160, 255, 0.25); }
 
     /* Jockey tab content */
     .jockey-panel {
@@ -8994,6 +9007,7 @@
                 <span class="pj-dropdown-viewers" id="pj-dropdown-viewers">0 viewers</span>
               </div>
               <canvas id="pj-dropdown-qr" width="120" height="120" style="image-rendering: pixelated; cursor: pointer;" title="Click to copy URL"></canvas>
+              <button class="pj-dropdown-popout" id="pj-dropdown-popout">Popout Window</button>
               <button class="pj-dropdown-stop" id="pj-dropdown-stop">Stop Broadcasting</button>
             </div>
           </div>
@@ -16984,8 +16998,8 @@ s("ape_breaks_3").loopAt(2)</textarea>
               localStorage.removeItem('kidlisp-current-code');
             }
 
-            // Immediately broadcast every keystroke to PJ (no debounce)
-            if (isBroadcasting && typeof broadcastSlideToChannel === 'function') {
+            // Immediately broadcast every keystroke to PJ / popout (no debounce)
+            if (typeof broadcastSlideToChannel === 'function') {
               broadcastSlideToChannel(currentCode);
             }
 
@@ -22706,6 +22720,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
     const previewIframeContainer = document.getElementById('preview-iframe-container');
     const pjDropdown = document.getElementById('pj-dropdown');
     let pjViewerPollInterval = null;
+    let pjPopoutWindow = null; // Tracks the local popout window (postMessage only)
 
     // Generate a pronounceable PJ channel code (CVCV pattern)
     function generateCodeChannelId() {
@@ -22874,6 +22889,8 @@ s("ape_breaks_3").loopAt(2)</textarea>
     // Always sends to WebSocket (for late joiner state), but only sends to local
     // BroadcastChannel/postMessage when there's an active PJ session
     function broadcastCodeToChannel(code) {
+      // Always forward to local popout window (independent of channel broadcasting)
+      postToPopout({ type: 'kidlisp-code-update', code });
       if (!codeChannelId) return;
       
       const hasActiveSession = hasActivePjSession();
@@ -22912,6 +22929,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
     
     // Broadcast slide update to channel (optimized for low latency)
     function broadcastSlideToChannel(code) {
+      postToPopout({ type: 'kidlisp-slide-update', code });
       if (!codeChannelId || !hasActivePjSession()) return;
       logPj('broadcast slide', { codeChannelId, length: code?.length, pjIsProduction });
 
@@ -22952,6 +22970,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
     
     // Broadcast pause/resume to channel subscribers
     function broadcastPauseToChannel(paused) {
+      postToPopout({ type: paused ? 'kidlisp-pause' : 'kidlisp-resume' });
       if (!codeChannelId || !hasActivePjSession()) return;
       logPj('broadcast pause', { codeChannelId, paused });
       
@@ -23001,6 +23020,59 @@ s("ape_breaks_3").loopAt(2)</textarea>
       }
     });
 
+    // Dropdown: popout window button
+    function openPjPopout() {
+      // Close any existing popout
+      if (pjPopoutWindow && !pjPopoutWindow.closed) {
+        pjPopoutWindow.focus();
+        return;
+      }
+      // Open a borderless popup loading pj.html without a channel (postMessage-only mode)
+      const popoutUrl = dev
+        ? `${window.location.origin}/kidlisp.com/pj/`
+        : `https://kidlisp.com/pj/`;
+      pjPopoutWindow = window.open(
+        popoutUrl,
+        'kidlisp-pj-popout',
+        'width=800,height=600,menubar=no,toolbar=no,location=no,status=no'
+      );
+      if (!pjPopoutWindow) {
+        showToast('Popup blocked — allow popups for this site', 'error');
+        return;
+      }
+      logPj('popout opened');
+      // Send current code once the popout is ready
+      const sendInitialCode = () => {
+        if (editor && isPlaying) {
+          const code = editor.getValue().trim();
+          if (code) {
+            pjPopoutWindow.postMessage({ type: 'kidlisp-code-update', code }, '*');
+          }
+        }
+      };
+      // The popout iframe needs time to load; listen for a ready signal or use a delay
+      window.addEventListener('message', function onReady(e) {
+        if (e.source === pjPopoutWindow && e.data?.type === 'pj-popout-ready') {
+          sendInitialCode();
+          window.removeEventListener('message', onReady);
+        }
+      });
+      // Fallback: send after a delay in case the ready message is missed
+      setTimeout(sendInitialCode, 2000);
+      showToast('Popout window opened', 'success');
+    }
+    document.getElementById('pj-dropdown-popout')?.addEventListener('click', () => {
+      openPjPopout();
+      hidePjDropdown();
+    });
+
+    // Forward code/slide/pause to popout window via postMessage
+    function postToPopout(msg) {
+      if (pjPopoutWindow && !pjPopoutWindow.closed) {
+        pjPopoutWindow.postMessage(msg, '*');
+      }
+    }
+
     // Dropdown: stop button
     document.getElementById('pj-dropdown-stop')?.addEventListener('click', () => stopPjBroadcast());
     // Dropdown: copy URL on QR / channel click
@@ -23032,10 +23104,12 @@ s("ape_breaks_3").loopAt(2)</textarea>
       const _updatePreview = updatePreview;
       updatePreview = function(shouldCreateCode) {
         _updatePreview(shouldCreateCode);
-        // Broadcast code changes to pop-out window
-        if (codeChannelId && editor) {
+        if (editor) {
           const code = editor.getValue().trim();
-          broadcastCodeToChannel(code);
+          // Forward to local popout window (always, independent of PJ channel)
+          postToPopout({ type: 'kidlisp-code-update', code });
+          // Broadcast to PJ channel subscribers
+          if (codeChannelId) broadcastCodeToChannel(code);
         }
       };
     })();

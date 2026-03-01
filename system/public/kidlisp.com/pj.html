@@ -161,7 +161,8 @@
       bootChannel.textContent = `Channel: ${channelId}`;
       document.title = `KidLisp.com · PJ · ${channelId}`;
     } else {
-      bootChannel.textContent = 'No channel specified';
+      bootChannel.textContent = window.opener ? 'Popout mode' : 'No channel specified';
+      if (window.opener) document.title = 'KidLisp.com · PJ · Popout';
     }
     logPj('init', { hostname: window.location.hostname, pathname, channelId, dev, aestheticUrl });
     
@@ -209,6 +210,10 @@
         
         // Hide boot screen
         bootScreen.classList.add('hidden');
+        // Notify opener (editor) that popout is ready for postMessage
+        if (window.opener) {
+          window.opener.postMessage({ type: 'pj-popout-ready' }, '*');
+        }
       }, 500);
     });
     
