@@ -165,6 +165,7 @@ uniform vec4 u_bounds;  // minX, minY, maxX, maxY
 uniform float u_zoomScale;
 uniform vec2 u_zoomAnchor;  // Anchor in pixel coords
 uniform vec2 u_scrollOffset;  // dx, dy
+uniform float u_flipY;
 uniform float u_contrast;
 uniform float u_brightness;
 
@@ -249,6 +250,11 @@ void main() {
     // NO TRANSFORM - just pass through
     srcX = destX;
     srcY = destY;
+  }
+
+  // Optional vertical flip inside the current bounds
+  if (u_flipY != 0.0) {
+    srcY = minY + (boundsHeight - 1 - (srcY - minY));
   }
   
   vec4 color = texelFetch(u_texture, ivec2(srcX, srcY), 0);
@@ -999,6 +1005,7 @@ function initWebGL2(width, height) {
       u_zoomScale: gl.getUniformLocation(compositeProgram, 'u_zoomScale'),
       u_zoomAnchor: gl.getUniformLocation(compositeProgram, 'u_zoomAnchor'),
       u_scrollOffset: gl.getUniformLocation(compositeProgram, 'u_scrollOffset'),
+      u_flipY: gl.getUniformLocation(compositeProgram, 'u_flipY'),
       u_contrast: gl.getUniformLocation(compositeProgram, 'u_contrast'),
       u_brightness: gl.getUniformLocation(compositeProgram, 'u_brightness'),
       u_texture: gl.getUniformLocation(compositeProgram, 'u_texture'),
@@ -1389,7 +1396,7 @@ export function gpuSpin(pixels, width, height, steps, anchorX = null, anchorY = 
  * @param {Uint8ClampedArray} pixels - Source/destination pixel buffer
  * @param {number} width - Buffer width
  * @param {number} height - Buffer height
- * @param {Object} options - { zoom, zoomAnchorX, zoomAnchorY, scrollX, scrollY, contrast, brightness, mask }
+ * @param {Object} options - { zoom, zoomAnchorX, zoomAnchorY, scrollX, scrollY, flipY, contrast, brightness, mask }
  * @returns {boolean}
  */
 export function gpuComposite(pixels, width, height, options = {}) {
@@ -1399,13 +1406,14 @@ export function gpuComposite(pixels, width, height, options = {}) {
     zoomAnchorY = 0.5,
     scrollX = 0,
     scrollY = 0,
+    flipY = false,
     contrast = 1.0,
     brightness = 0,
     mask = null
   } = options;
   
   // Early exit if no effects
-  if (zoom === 1.0 && scrollX === 0 && scrollY === 0 && contrast === 1.0 && brightness === 0) {
+  if (zoom === 1.0 && scrollX === 0 && scrollY === 0 && !flipY && contrast === 1.0 && brightness === 0) {
     return true;
   }
   
@@ -1441,6 +1449,7 @@ export function gpuComposite(pixels, width, height, options = {}) {
     gl.uniform1f(compositeUniforms.u_zoomScale, zoom);
     gl.uniform2f(compositeUniforms.u_zoomAnchor, anchorPixelX, anchorPixelY);
     gl.uniform2f(compositeUniforms.u_scrollOffset, scrollX, scrollY);
+    gl.uniform1f(compositeUniforms.u_flipY, flipY ? 1.0 : 0.0);
     gl.uniform1f(compositeUniforms.u_contrast, contrast);
     gl.uniform1f(compositeUniforms.u_brightness, brightness);
     gl.uniform1i(compositeUniforms.u_texture, 0);

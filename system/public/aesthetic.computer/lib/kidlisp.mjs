@@ -34,7 +34,7 @@ const KIDLISP_FUNCTIONS = new Set([
   // Audio
   "overtone", "mic", "amplitude", "melody", "speaker", "tone", "beep", "sound",
   // Display
-  "resolution", "scroll", "spin", "resetSpin", "smoothspin", "zoom", "blur", "contrast", "pan", "unpan",
+  "resolution", "scroll", "flip", "spin", "resetSpin", "smoothspin", "zoom", "blur", "contrast", "pan", "unpan",
   "mask", "unmask", "steal", "putback", "fill", "outline", "stroke", "nofill", "nostroke",
   // Animation
   "wiggle", "sort", "fade", "jump", "bake", "frame", "fps", "auto-density", "scale",
@@ -6684,6 +6684,35 @@ class KidLisp {
         // Execute zoom immediately
         performZoom();
       },
+      flip: (api, args = []) => {
+        // Request persistence for next frame to allow trails
+        this.preserveLayer0NextFrame = true;
+
+        const performFlip = () => {
+          if (typeof api.flip === 'function') {
+            api.flip(...args);
+          }
+        };
+
+        // 🍞 Route flip to baked buffer before the bake point
+        if (this.suppressDrawingBeforeBake) {
+          this.executePreBakeDraw(api, performFlip);
+          return;
+        }
+
+        // 🎯 When embedded layers exist, defer flip to post-composite
+        if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase && !this.isEmbeddedContext) {
+          this.postCompositeCommands.push({
+            name: 'flip',
+            func: performFlip,
+            args
+          });
+          return;
+        }
+
+        // Execute flip immediately
+        performFlip();
+      },
       suck: (api, args = []) => {
         // Request persistence for next frame to allow trails
         this.preserveLayer0NextFrame = true;
@@ -9308,7 +9337,7 @@ class KidLisp {
       }
       // SPECIAL CASE: In embedded layers, prioritize embedded API for certain functions
       else if (this.isNestedInstance && api && typeof api[head] === "function" &&
-        (head === 'scroll' || head === 'spin' || head === 'zoom' || head === 'suck' ||
+        (head === 'scroll' || head === 'flip' || head === 'spin' || head === 'zoom' || head === 'suck' ||
           head === 'contrast' || head === 'shear' || head === 'brightness' || head === 'line')) {
         result = { type: "api", value: api[head] };
       } else if (existing(this.localEnv[head])) {
@@ -11939,7 +11968,7 @@ class KidLisp {
       "print", "debug", "random", "sin", "cos", "tan", "floor", "ceil", "round",
       "noise", "choose", "?", "...", "..", "overtone", "mic", "amplitude",
       "melody", "speaker", "resolution", "lines", "wiggle", "shape", "scroll",
-      "spin", "resetSpin", "smoothspin", "sort", "zoom", "blur", "contrast", "pan", "unpan",
+      "flip", "spin", "resetSpin", "smoothspin", "sort", "zoom", "blur", "contrast", "pan", "unpan",
       "mask", "unmask", "steal", "putback", "label", "len", "now", "die",
       "tap", "draw", "not", "range", "mul", "log", "no", "yes", "fade", "jump"
     ];
@@ -11988,7 +12017,7 @@ class KidLisp {
       "print", "debug", "random", "sin", "cos", "tan", "floor", "ceil", "round",
       "noise", "choose", "?", "...", "..", "overtone", "rainbow", "mic", "amplitude",
       "melody", "speaker", "resolution", "lines", "wiggle", "shape", "scroll",
-      "spin", "resetSpin", "smoothspin", "sort", "zoom", "blur", "contrast", "pan", "unpan",
+      "flip", "spin", "resetSpin", "smoothspin", "sort", "zoom", "blur", "contrast", "pan", "unpan",
       "mask", "unmask", "steal", "putback", "label", "len", "now", "die",
       "tap", "draw", "not", "range", "mul", "log", "no", "yes", "bake", "jump"
     ];
@@ -13625,6 +13654,7 @@ class KidLisp {
     const hasDynamicContent = hasTimingExpression ||
       source.includes('frame') ||
       source.includes('scroll') ||
+      source.includes('flip') ||
       source.includes('clock') ||
       source.includes('pen') ||
       source.includes('mouse') ||
@@ -13837,6 +13867,11 @@ class KidLisp {
       zoom: (...args) => {
         if (typeof api.zoom === "function") {
           return api.zoom(...args);
+        }
+      },
+      flip: (...args) => {
+        if (typeof api.flip === "function") {
+          return api.flip(...args);
         }
       },
       blur: (...args) => {
@@ -14522,7 +14557,7 @@ function isKidlispSource(text) {
       "print", "debug", "random", "sin", "cos", "tan", "floor", "ceil", "round",
       "noise", "choose", "overtone", "rainbow", "zebra", "mic", "amplitude",
       "melody", "speaker", "resolution", "lines", "wiggle", "shape", "scroll",
-      "spin", "resetspin", "smoothspin", "sort", "zoom", "blur", "contrast", "pan", "unpan",
+      "flip", "spin", "resetspin", "smoothspin", "sort", "zoom", "blur", "contrast", "pan", "unpan",
       "mask", "unmask", "steal", "putback", "label", "len", "now", "die",
       "tap", "draw", "not", "range", "mul", "log", "no", "yes", "fade", "repeat", "jump",
       "def", "later", "frame",
@@ -14595,7 +14630,7 @@ function isKidlispSource(text) {
       "print", "debug", "random", "sin", "cos", "tan", "floor", "ceil", "round",
       "noise", "choose", "overtone", "rainbow", "zebra", "mic", "amplitude",
       "melody", "speaker", "resolution", "lines", "wiggle", "shape", "scroll",
-      "spin", "resetSpin", "smoothspin", "sort", "zoom", "blur", "contrast", "pan", "unpan",
+      "flip", "spin", "resetSpin", "smoothspin", "sort", "zoom", "blur", "contrast", "pan", "unpan",
       "mask", "unmask", "steal", "putback", "label", "len", "now", "die",
       "tap", "draw", "not", "range", "mul", "log", "no", "yes", "fade", "repeat", "jump"
     ];
