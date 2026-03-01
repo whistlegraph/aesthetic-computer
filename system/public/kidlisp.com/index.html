@@ -23028,7 +23028,8 @@ s("ape_breaks_3").loopAt(2)</textarea>
         return;
       }
       // Open a borderless popup loading pj.html without a channel (postMessage-only mode)
-      const popoutUrl = dev
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname.includes('local.');
+      const popoutUrl = isLocal
         ? `${window.location.origin}/kidlisp.com/pj/`
         : `https://kidlisp.com/pj/`;
       pjPopoutWindow = window.open(
