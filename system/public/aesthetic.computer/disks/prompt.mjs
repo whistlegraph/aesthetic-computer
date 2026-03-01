@@ -3037,7 +3037,7 @@ async function halt($, text) {
       } else {
         // Browser fallback: trigger ISO download.
         send({ type: "download-url", content: { url: downloadUrl, filename: isoFilename } });
-        notice(`OS ISO ready for ${displayName} — downloading ~3GB`, ["lime"]);
+        notice(`OS ISO ready for ${displayName} — downloading ~${flavor === "alpine" ? "1" : "3"}GB`, ["lime"]);
         flashColor = [0, 255, 0];
       }
     } catch (err) {
