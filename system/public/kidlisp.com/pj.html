@@ -523,6 +523,11 @@
         sendCodeToIframe(data.code);
       }
       
+      // Audio data from editor (amp, aux params)
+      if (data?.type === 'kidlisp-audio' && data?.data) {
+        sendAudioToIframe(data.data);
+      }
+
       // Pause/resume from editor
       if (data?.type === 'kidlisp-pause') {
         console.log('Received pause via postMessage');
