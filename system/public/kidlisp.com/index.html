@@ -17970,26 +17970,28 @@ s("ape_breaks_3").loopAt(2)</textarea>
           enableTrace: needsTrace  // Enable execution trace for visualization
         });
         logCodeOperation('run', code);
-        
+
         // Set a timeout to detect if the piece didn't respond
-        // If the iframe sends back a disk-loaded message, we'll clear this timeout
-        pendingReloadTimeout = setTimeout(() => {
-          if (reloadAttempts < MAX_RELOAD_ATTEMPTS) {
-            reloadAttempts++;
-            log.iframe.warn(`Piece not responding after 3s (attempt ${reloadAttempts}/${MAX_RELOAD_ATTEMPTS}), reloading iframe...`);
-            showToast('Reinitializing preview...', 'info');
-            reloadIframe();
-            // After iframe reloads, try sending code again
-            setTimeout(() => {
-              if (isPlaying) {
-                updatePreview(shouldCreateCode);
-              }
-            }, 2000);
-          } else {
-            log.iframe.error('Max reload attempts reached, piece may be stuck');
-            showToast('Preview not responding. Try refreshing the page.', 'error');
-          }
-        }, 3000);
+        // Skip when popout is active — local iframe is intentionally disabled
+        if (!localPreviewPausedForPopout) {
+          pendingReloadTimeout = setTimeout(() => {
+            if (reloadAttempts < MAX_RELOAD_ATTEMPTS) {
+              reloadAttempts++;
+              log.iframe.warn(`Piece not responding after 3s (attempt ${reloadAttempts}/${MAX_RELOAD_ATTEMPTS}), reloading iframe...`);
+              showToast('Reinitializing preview...', 'info');
+              reloadIframe();
+              // After iframe reloads, try sending code again
+              setTimeout(() => {
+                if (isPlaying) {
+                  updatePreview(shouldCreateCode);
+                }
+              }, 2000);
+            } else {
+              log.iframe.error('Max reload attempts reached, piece may be stuck');
+              showToast('Preview not responding. Try refreshing the page.', 'error');
+            }
+          }, 3000);
+        }
       } else {
         log.playback.debug('No code to run');
       }
