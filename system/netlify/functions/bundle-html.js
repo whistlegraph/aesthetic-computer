@@ -307,7 +307,15 @@ function rewriteImports(code, filepath) {
     const resolved = resolvePath(filepath, p);
     return '("' + resolved + '")';
   });
-  
+
+  // Rewrite new URL("relative-path", import.meta.url) patterns.
+  // In pack mode, import.meta.url is a blob: URL that can't resolve relative paths.
+  // Resolve the relative path to a VFS-absolute path so the fetch intercept can serve it.
+  code = code.replace(/new\s+URL\(\s*['"](\.\.?\/[^'"]+)['"]\s*,\s*import\.meta\.url\s*\)/g, (match, p) => {
+    const resolved = resolvePath(filepath, p);
+    return 'new URL("/' + resolved + '", location.href)';
+  });
+
   return code;
 }
 
@@ -335,9 +343,12 @@ async function minifyJS(content, relativePath) {
         drop_console: true,
         drop_debugger: true,
         unused: true,
-        passes: 3,
+        passes: 2,
         pure_getters: true,
-        unsafe: true,
+        // Avoid unsafe optimizations that can cause TDZ errors
+        // ("Cannot access variable before initialization") when
+        // terser reorders declarations across module boundaries.
+        unsafe: false,
         unsafe_math: true,
         unsafe_proto: true,
       },

@@ -351,7 +351,16 @@ class Artery {
 
   async jump(piece) {
     brightLog(`🩸 Jump: ${piece}`);
-    return await this.eval(`window.location.href = 'https://localhost:8888/${piece}'`);
+    // Use pushState + popstate to navigate without a full page reload.
+    // BIOS listens for popstate and sends a "history-load" to the worker,
+    // keeping the CDP session, panel state, and audio context alive.
+    await this.eval(`
+      window.preloaded = false;
+      window.history.pushState(null, "", "/${piece}");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    `);
+    // Wait for the piece to finish booting before returning.
+    await this.waitForPiece(piece);
   }
 
   async getCurrentPiece() {
