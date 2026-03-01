@@ -28,7 +28,7 @@ import * as vec2 from "../dep/gl-matrix/vec2.mjs";
 import * as vec3 from "../dep/gl-matrix/vec3.mjs";
 import * as vec4 from "../dep/gl-matrix/vec4.mjs";
 
-import { any, repeat, nonvalue, flip } from "./help.mjs";
+import { any, repeat, nonvalue, flip as randomFlip } from "./help.mjs";
 import { Box } from "./geo.mjs";
 import { nanoid } from "../dep/nanoid/nanoid.js";
 
@@ -5134,9 +5134,9 @@ function noise16Sotce() {
   for (let y = minY; y < maxY; y++) {
     for (let x = minX; x < maxX; x++) {
       const i = (y * width + x) * 4;
-      if (flip()) pixels[i] = byteInterval17(14 + randInt(2)); // r
-      if (flip()) pixels[i + 1] = byteInterval17(8 + randInt(2)) * 0.9; // g
-      if (flip()) pixels[i + 2] = byteInterval17(8 + randInt(2)) * 0.9; // b
+      if (randomFlip()) pixels[i] = byteInterval17(14 + randInt(2)); // r
+      if (randomFlip()) pixels[i + 1] = byteInterval17(8 + randInt(2)) * 0.9; // g
+      if (randomFlip()) pixels[i + 2] = byteInterval17(8 + randInt(2)) * 0.9; // b
       pixels[i + 3] = 255; // a
     }
   }
@@ -5322,6 +5322,70 @@ function scroll(dx = 0, dy = 0) {
         pixels.set(tempPixels.subarray(srcStart, srcStart + chunk2Bytes), destStart);
       }
     }
+  }
+}
+
+// Flip the working area vertically (top-to-bottom)
+function flip() {
+  // Determine the area to flip (mask or full screen)
+  let minX = 0,
+    minY = 0,
+    maxX = width,
+    maxY = height;
+  if (activeMask) {
+    const maskMinX = Math.floor(activeMask.x);
+    const maskMinY = Math.floor(activeMask.y);
+    const maskMaxX = Math.ceil(activeMask.x + activeMask.width);
+    const maskMaxY = Math.ceil(activeMask.y + activeMask.height);
+
+    minX = Math.max(0, Math.min(width, maskMinX));
+    maxX = Math.max(0, Math.min(width, maskMaxX));
+    minY = Math.max(0, Math.min(height, maskMinY));
+    maxY = Math.max(0, Math.min(height, maskMaxY));
+  }
+
+  const boundsWidth = maxX - minX;
+  const boundsHeight = maxY - minY;
+  if (boundsWidth <= 0 || boundsHeight <= 1) return;
+
+  // Try GPU first
+  if (gpuSpinEnabled && gpuSpinAvailable && gpuSpinModule?.gpuComposite && pixels && width && height) {
+    const mask = {
+      x: minX,
+      y: minY,
+      width: boundsWidth,
+      height: boundsHeight
+    };
+    const success = gpuSpinModule.gpuComposite(pixels, width, height, {
+      zoom: 1.0,
+      zoomAnchorX: 0.5,
+      zoomAnchorY: 0.5,
+      scrollX: 0,
+      scrollY: 0,
+      flipY: true,
+      contrast: 1.0,
+      brightness: 0,
+      mask
+    });
+    if (success) return;
+  }
+
+  // CPU fallback
+  if (pixels.buffer && pixels.buffer.detached) {
+    console.warn("🚨 Pixels buffer detached in flip, recreating from screen dimensions");
+    pixels = new Uint8ClampedArray(width * height * 4);
+    pixels.fill(0);
+  }
+
+  const tempPixels = new Uint8ClampedArray(pixels);
+
+  for (let y = 0; y < boundsHeight; y++) {
+    const srcY = maxY - 1 - y;
+    const destY = minY + y;
+    const srcRowStart = (srcY * width + minX) * 4;
+    const destRowStart = (destY * width + minX) * 4;
+    const rowBytes = boundsWidth * 4;
+    pixels.set(tempPixels.subarray(srcRowStart, srcRowStart + rowBytes), destRowStart);
   }
 }
 
@@ -8972,6 +9036,7 @@ export {
   printLine,
   blendMode,
   scroll,
+  flip,
   resetScrollState,
   spin,
   zoom,
