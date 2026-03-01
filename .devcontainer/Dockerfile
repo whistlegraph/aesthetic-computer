@@ -9,7 +9,6 @@ RUN set -eux; \
     echo 'install_weak_deps=False' >> /etc/dnf/dnf.conf; \
     echo 'tsflags=nodocs' >> /etc/dnf/dnf.conf
 
-ENV TZ=America/Los_Angeles
 ENV NODE_OPTIONS=--max_old_space_size=8192
 ENV DENO_DIR=/home/me/.cache/deno
 ENV NETLIFY_DENO_VERSION=2.4.5
@@ -23,13 +22,10 @@ ENV MANPAGER=cat
 RUN dnf clean all && rm -rf /var/cache/dnf && \
     dnf update -y --refresh --setopt=zchunk=false && \
     dnf install -y \
-      awk which tree procps-ng htop coreutils unzip jq bat ripgrep \
+      awk which tree procps-ng coreutils unzip jq bat ripgrep \
       git gh gcc gcc-c++ clang make cmake \
       python3.11 python3.11-devel python3-pip python3-devel \
       emacs-nox fish util-linux-user util-linux-script sshpass \
-      isync maildir-utils notmuch msmtp \
-      gnupg2 pinentry \
-      qemu-kvm qemu-img qemu-system-x86 qemu-user-static \
       openssl openssl-devel awscli redis \
       dnf-plugins-core lolcat toilet iproute xclip nmap-ncat \
       inotify-tools wget curl tar gzip bzip2 \
@@ -136,8 +132,8 @@ RUN set -eux; \
     tar -xzf /tmp/ngrok.tgz -C /usr/local/bin && rm /tmp/ngrok.tgz
 
 # --- Ollama (architecture-aware) ---------------------------------------------
-RUN set -eux; \
-    curl -fsSL https://ollama.com/install.sh | sh
+# RUN set -eux; \
+#     curl -fsSL https://ollama.com/install.sh | sh
 
 # --- doctl (DigitalOcean CLI, architecture-aware) ----------------------------
 RUN set -eux; \
@@ -163,12 +159,6 @@ RUN ARCH=$(uname -m) && \
     ln -s /opt/microsoft/powershell/7/pwsh /usr/local/bin/pwsh && \
     ln -s /opt/microsoft/powershell/7/pwsh /usr/local/bin/powershell && \
     rm /tmp/powershell.tar.gz
-
-# --- dbxcli (Dropbox CLI) -----------------------------------------------------
-RUN set -eux; \
-    curl -fsSL "https://github.com/dropbox/dbxcli/releases/download/v3.0.0/dbxcli-linux-amd64" \
-      -o /usr/local/bin/dbxcli && \
-    chmod +x /usr/local/bin/dbxcli
 
 # --- s3cmd (for DigitalOcean Spaces management) -------------------------------
 RUN dnf install -y --setopt=zchunk=false s3cmd && dnf clean all
@@ -239,8 +229,7 @@ RUN curl -fsSLO https://beta.quicklisp.org/quicklisp.lisp && \
          --eval '(quit)'
 
 # --- OPS (nanos) --------------------------------------------------------------
-# Allow failure - ops.city can have intermittent TLS issues
-RUN curl https://ops.city/get.sh -sSfL | bash || echo "OPS installation failed, skipping..."
+# RUN curl https://ops.city/get.sh -sSfL | bash || echo "OPS installation failed, skipping..."
 
 # --- uv (fast Python package manager for MCP servers) -------------------------
 # --- emacs-mcp-server (for VS Code Copilot <-> Emacs integration) -------------
