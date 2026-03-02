@@ -357,7 +357,8 @@ PIECE_DEV=$(blkid -L FEDAC-PIECE 2>/dev/null || true)
 if [ -n "$PIECE_DEV" ]; then
   mkdir -p /mnt/piece
   mount "$PIECE_DEV" /mnt/piece 2>/dev/null || true
-  if mountpoint -q /mnt/piece 2>/dev/null; then
+  if mountpoint -q /mnt/piece 2>/dev/null && touch /mnt/piece/.writetest 2>/dev/null; then
+    rm -f /mnt/piece/.writetest
     PIECE_LOG="/mnt/piece/kiosk.log"
   fi
 fi
@@ -741,6 +742,7 @@ build_target() {
   PIECE_MOUNT_TMP=$(mktemp -d /tmp/alpine-piece-XXXX)
   mount "$p3" "$PIECE_MOUNT_TMP"
   cp "$BUNDLE_PATH" "$PIECE_MOUNT_TMP/piece.html"
+  chmod 777 "$PIECE_MOUNT_TMP"
   sync
   umount "$PIECE_MOUNT_TMP"
   rmdir "$PIECE_MOUNT_TMP"
