@@ -1,151 +1,73 @@
-# SO SOFT — Social Software Cycle Proposal
+# Aesthetic Computer: Open Development
 
-## Proposal for DESMA 596/199: Score for Social Software
-### Jeffrey Scudder / @jeffrey / Aesthetic Computer
-
----
-
-## 1. The Score
-
-**Title:** *Aesthetic Computer as Social Instrument*
-
-**Core idea:** Develop Aesthetic Computer's existing social infrastructure into a
-legible, playable *score* — a set of rules, rituals, and interfaces that a small
-community performs together over the 10-week cycle.
-
-AC already has the bones of social software built into its runtime:
-
-- **@handles** — unique identity with per-character color customization
-- **chat** — real-time group messaging with hearts/reactions
-- **moods** — ephemeral status updates (mirrored to Bluesky via ATProto)
-- **paintings** — collaborative pixel art gallery tied to user profiles
-- **KidLisp** — a minimal Lisp dialect anyone can use to publish generative art
-- **pieces** — URL-addressable programs anyone can write and publish at `@handle/piece-name`
-- **multiplayer sessions** — WebSocket rooms that any piece can use for real-time collaboration
-- **profiles** — live scorecards showing each user's creative output across all media types
-
-What's missing is not technology — it's *choreography*. The platform has 351
-built-in pieces, ~2800 registered handles, and 16k+ chat messages, but the
-social dynamics are still largely emergent and undirected. The cycle offers a
-chance to compose deliberate social scores *on top of* the existing runtime.
-
-### Proposed Scores to Develop
-
-**Score A: "Daily Painting Circle"**
-A structured daily practice where cycle members each create and publish one
-painting per day using AC's pixel tools (`new`, `rect`, `line`, `smear`, `fill`,
-`shape`). Paintings are published via `done` and visible on each member's
-profile. The group reviews the day's paintings together in weekly meetings.
-This is a simple, repeatable ritual that teaches the platform's creative tools
-through committed practice.
-
-**Score B: "Piece Exchange"**
-Each member writes and publishes one AC piece (a small interactive program) per
-week, shared at their `@handle/piece-name`. The group plays each other's pieces
-and discusses them. Members can fork each other's work via `source @handle/piece`
-and publish remixes. This teaches the programming API through peer learning and
-creates a growing library of social artifacts.
-
-**Score C: "KidLisp Jam"**
-Weekly sessions where members collectively write KidLisp programs — AC's
-built-in Lisp dialect for generative art. KidLisp has 118 built-in functions
-and programs can be stored and shared instantly. The constraint of a minimal
-language (no external libraries, immediate visual output) creates a level
-playing field between experienced programmers and beginners.
-
-**Score D: "Chat as Performance"**
-Using AC's real-time chat as a performance medium. Structured chat sessions with
-rules — e.g., "only respond with piece names," "conversation through shared
-paintings," "one word per message." The chat system supports custom fonts,
-handle colors, and hearts, making it already suited to expressive constraint-based
-communication.
-
-### What I Would Build During the Cycle
-
-1. **A `sosoft` piece** — a dedicated AC piece (`aesthetic.computer/sosoft`) that
-   serves as the cohort's home base: a dashboard showing all members' recent
-   activity, paintings, published pieces, and moods in one view.
-
-2. **Score templates** — simple markdown + code templates that define the rules
-   for each social score, publishable as AC pieces themselves.
-
-3. **Multiplayer scoring pieces** — new pieces that use AC's session server for
-   real-time collaborative drawing, KidLisp editing, or structured turn-taking.
-
-4. **Documentation** — a "Write a Score" guide parallel to AC's existing
-   "Write a Piece" guide, teaching others to compose their own social software
-   scores on the platform.
+## A Platform Submitted for Dialogue
+### Score for Social Software — Cycle 2 Proposal
+### Jeffrey Scudder / @jeffrey / DESMA 596/199 / March 2026
 
 ---
 
-## 2. Intended Users / Audience / Community
+## The Score
 
-**Primary:** The cycle's own members (MFA and BA students in DESMA 596/199).
-The scores are designed to be performed by a small group (5–12 people) who
-commit to regular participation.
+I'm submitting Aesthetic Computer (AC) — the open-source creative computing
+platform I've been building since 2021 — as a social software project in active
+development. I'm not proposing to build a new thing for this cycle. I'm bringing
+the thing I'm already building into the room for dialogue, feedback, and critical
+exchange as I develop it alongside its community.
 
-**Secondary:** AC's existing community (~2800 registered handles). Anything
-built during the cycle would be immediately live on the public platform.
-Existing AC users could discover and join the scores organically.
+AC is a mobile-first runtime and social network where users write, publish, and
+share small interactive programs called *pieces*. It has real-time chat, @handles
+with custom colors, ephemeral status updates (moods mirrored to Bluesky via
+ATProto), a pixel painting system, a built-in Lisp dialect (KidLisp), multiplayer
+WebSocket sessions, and user profiles that track creative output. The codebase is
+open source with 4+ years of continuous development.
 
-**Tertiary:** Creative computing educators and students elsewhere. The "Write a
-Score" documentation would be a reusable framework for anyone running a creative
-computing workshop or class using AC as infrastructure.
+The score: I develop AC in the open over 10 weeks, sharing what I'm working on,
+what decisions I'm facing, and what the community is doing. The cohort engages as
+users and as critics — trying the tools, reading the design choices, and giving
+me feedback I can't get from inside the project.
 
----
+## What I'm Looking For
 
-## 3. Why This Cycle
+- What feels inviting and what feels opaque when you first encounter the platform?
+- Which social features sustain participation vs. which are technically impressive
+  but socially inert?
+- How does the "instrument" metaphor land for people who aren't already invested?
+- What would you want to do on AC that you currently can't?
+- Where does the design accidentally exclude the people it claims to welcome?
 
-Aesthetic Computer has been in development since 2021, growing from No Paint
-(2020, discussed on Hacker News) into a full runtime with 351 pieces, a Lisp
-dialect, multiplayer, chat, and a handle system. The technical infrastructure
-is mature. What it needs now is *social composition* — deliberate experiments
-in how people use this system together.
+## What the Cohort Gets
 
-Casey's framing of "scores for social software" maps directly onto how I already
-think about AC. The SCORE.md file in the repository literally uses the metaphor
-of a musical score to organize the project. AC's interface is designed to
-function like a musical instrument — users discover memorizable paths, build
-literacy through play, and eventually improvise and compose.
+- **A live codebase** — open source, documented, changing week to week
+- **The dev process** — I work with Claude Code, Cursor, VS Code, and maintain a
+  living SCORE.md; the process is as legible as the product
+- **Platform accounts** — everyone gets an @handle, can paint, chat, set moods,
+  write KidLisp, publish pieces
+- **Real community data** — 2,800 handles, 18k chat messages, 4,400 paintings,
+  16k KidLisp programs
 
-This cycle offers:
+## Why This Cycle
 
-- **A committed cohort** to test social features that need real human
-  participation to evaluate (you can't A/B test a conversation)
-- **Critical feedback** from Casey and peers on the social design, not just the
-  technical architecture
-- **A structured timeframe** (10 weeks) that creates urgency and rhythm —
-  exactly what a score needs to be performed
-- **Cross-pollination** with other participants' social software projects,
-  creating a richer discourse than working in isolation
+Casey's framing of "scores for social software" maps directly onto how I think
+about AC. The platform's SCORE.md uses the metaphor of a musical score to
+organize the project. The interface is designed like an instrument — users
+discover memorizable paths, build literacy through play, and eventually
+improvise. But I've been composing alone. This cycle is a chance to compose in
+conversation.
 
-I'm also interested in this cycle as a way to develop AC's role as
-*educational infrastructure* — something I can bring to my own teaching practice
-and share with other educators.
+The technical infrastructure is mature. The question now is about social design:
+how do the features I've built actually shape the way people relate to each other
+and to creative computing? That's best answered through dialogue with people
+thinking critically about social software.
 
----
+## Practice
 
-## 4. Practice Description
-
-I'm Jeffrey Scudder (@jeffrey), an artist, educator, and software developer.
-I direct Aesthetic Computer (https://aesthetic.computer), an open-source
-creative computing platform and social network.
-
-My practice centers on building software as a medium for art and education.
-Before AC, I created No Paint (nopaint.art, 2020), a pixel art tool that was
-discussed on Hacker News and used by a community of non-technical artists who
-learned computing through contributing to the software they loved.
-
-AC extends this into a full platform: a mobile-first runtime where anyone can
-write, publish, and share interactive programs. It includes KidLisp (a Lisp
-dialect for generative art), real-time multiplayer, a chat system, and a social
-handle system. The codebase is open source with ~78 API endpoints and has been
-in continuous development for 4+ years.
-
-I teach creative computing and have used AC as infrastructure in courses and
-workshops. My interest in "social software" comes directly from watching
-non-technical users learn computation through social participation in software
-communities — first in No Paint, now in AC.
+I'm an artist, educator, and software developer. Before AC, I created No Paint
+(2020), a pixel art tool whose community taught me how people learn computing
+through social participation. AC extends that into a full platform: anyone can
+write, publish, and share interactive programs at a URL. I teach creative
+computing and have used AC as infrastructure in courses and workshops. I'm
+bringing this not as a finished project but as an ongoing practice I want to
+develop through critical exchange.
 
 **Links:**
 - Aesthetic Computer: https://aesthetic.computer
@@ -155,13 +77,40 @@ communities — first in No Paint, now in AC.
 
 ---
 
-## Technical Stack for PDF Generation
+## Appendix A: The Network (March 2, 2026)
 
-- **Content source:** This report.md
-- **PDF generation:** Puppeteer (already in project dependencies) rendering a
-  styled HTML template to PDF
-- **Script:** `sosoft/generate-pdf.mjs` — converts the HTML to a print-quality
-  PDF with proper typography
-- **Output:** `sosoft/proposal.pdf`
+| Metric | Count |
+|--------|-------|
+| @handles | 2,798 |
+| Chat messages | 18,016 |
+| Paintings | 4,392 |
+| Moods | 2,900 |
+| KidLisp programs | 16,174 |
+| Published pieces | 265 |
+| Clocks | 333 |
+| Tapes | 102 |
+| Boot events | 93,122 |
 
-To generate: `node sosoft/generate-pdf.mjs`
+**Who makes things:** 1,067 have painted · 997 have posted moods ·
+59 have written KidLisp · 19 have published pieces
+
+## Appendix B: Technical Stack
+
+- **Frontend:** ES Modules, Canvas 2D + WebGL2, WebSocket hot-reload, 351 pieces
+- **System Server:** Netlify (~85 API endpoints, edge functions, Auth0, Stripe)
+- **Session Server:** Fastify + Geckos.io, Jamsocket containers, Redis
+- **Oven Service:** Express.js + FFmpeg, tape → MP4, screenshots
+- **Workers:** Cloudflare (feed, grab, KV, Durable Objects)
+- **Data:** MongoDB Atlas, Redis, DigitalOcean Spaces (S3 CDN), ATProto PDS
+- **Language:** KidLisp — 118 built-in functions, 12 categories
+- **Dev Tools:** Claude Code, Cursor, VS Code, esbuild, Jasmine, Vitest, Docker
+
+## Appendix C: Sitemap
+
+22 domains · ~355 disk routes · ~85 API endpoints · ~120 redirects
+
+## PDF Generation
+
+- **Source:** sosoft/proposal.html
+- **Script:** `node sosoft/generate-pdf.mjs`
+- **Output:** sosoft/proposal.pdf
