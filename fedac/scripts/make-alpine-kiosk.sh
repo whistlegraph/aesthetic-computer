@@ -542,20 +542,30 @@ fi
 
 # ── 3i. Inject custom /findroot into initramfs ──
 # Alpine's nlplug-findfs can't resolve PARTUUID/LABEL for raw SquashFS
-# partitions. We inject a tiny rdinit script that scans partition 2 of
-# all common disk types (sata/nvme/emmc/virtio) and mounts the squashfs.
+# partitions. We extract the initramfs, add a /findroot script, create a
+# /sysroot mount point, and repack as a single gzip cpio archive.
+# (Appending a separate cpio archive after gzip doesn't work reliably
+# on all kernels/hardware.)
 INITRD_FILE="$ROOTFS_DIR/boot/initramfs-lts"
 if [ -f "$INITRD_FILE" ]; then
   INJECT_DIR=$(mktemp -d /tmp/alpine-initrd-inject-XXXX)
-  cat > "$INJECT_DIR/findroot" << 'FINDROOTEOF'
+
+  # Extract existing initramfs
+  echo -e "  Extracting initramfs for injection..."
+  mkdir -p "$INJECT_DIR/root"
+  (cd "$INJECT_DIR/root" && zcat "$INITRD_FILE" | cpio -id 2>/dev/null)
+
+  # Create /sysroot mount point (Alpine uses /newroot, we need /sysroot)
+  mkdir -p "$INJECT_DIR/root/sysroot"
+
+  # Write findroot script
+  cat > "$INJECT_DIR/root/findroot" << 'FINDROOTEOF'
 #!/bin/sh
 mount -t proc proc /proc 2>/dev/null
 mount -t sysfs sysfs /sys 2>/dev/null
 mount -t devtmpfs dev /dev 2>/dev/null
 # Trigger device discovery
 mdev -s 2>/dev/null; sleep 1
-# Alpine initramfs has /newroot, not /sysroot — create our mount point
-mkdir -p /sysroot
 # Try partition 2 of all common disk types in order
 for dev in /dev/sda2 /dev/vda2 /dev/nvme0n1p2 /dev/mmcblk0p2 /dev/hda2; do
   if [ -b "$dev" ] && mount -t squashfs -o ro "$dev" /sysroot 2>/dev/null; then
@@ -573,9 +583,11 @@ done
 echo "findroot: could not find squashfs root partition"
 exec /bin/sh
 FINDROOTEOF
-  chmod +x "$INJECT_DIR/findroot"
-  # Append the script to the existing initramfs cpio archive
-  (cd "$INJECT_DIR" && echo findroot | cpio -o -H newc --quiet >> "$INITRD_FILE")
+  chmod +x "$INJECT_DIR/root/findroot"
+
+  # Repack as a single gzip cpio archive
+  echo -e "  Repacking initramfs with findroot..."
+  (cd "$INJECT_DIR/root" && find . | cpio -o -H newc --quiet | gzip -1 > "$INITRD_FILE")
   rm -rf "$INJECT_DIR"
   echo -e "  ${GREEN}Injected /findroot into initramfs${NC}"
 fi
