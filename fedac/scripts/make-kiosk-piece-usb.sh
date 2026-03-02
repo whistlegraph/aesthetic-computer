@@ -346,14 +346,10 @@ cat > "$ROOTFS_DIR/usr/local/bin/kiosk-session.sh" << 'SESSEOF'
 #!/bin/bash
 # FedAC Kiosk Session — prefer cage (black background, no window animations).
 # Write logs to persistent FEDAC-PIECE partition (readable from another machine)
+# FEDAC-PIECE is auto-mounted by systemd (mnt-piece.mount unit) — no blkid/mount needed here.
 PIECE_LOG=""
-PIECE_DEV=$(blkid -L FEDAC-PIECE 2>/dev/null || true)
-if [ -n "$PIECE_DEV" ]; then
-  mkdir -p /mnt/piece
-  mount "$PIECE_DEV" /mnt/piece 2>/dev/null || true
-  if mountpoint -q /mnt/piece 2>/dev/null; then
-    PIECE_LOG="/mnt/piece/kiosk.log"
-  fi
+if mountpoint -q /mnt/piece 2>/dev/null; then
+  PIECE_LOG="/mnt/piece/kiosk.log"
 fi
 LOG="${PIECE_LOG:-/tmp/kiosk.log}"
 exec > "$LOG" 2>&1
@@ -643,6 +639,29 @@ cp "$OVERLAY_DIR/kiosk-piece-server.socket" "$ROOTFS_DIR/etc/systemd/system/kios
 mkdir -p "$ROOTFS_DIR/etc/systemd/system/multi-user.target.wants"
 ln -sf /etc/systemd/system/kiosk-piece-server.service "$ROOTFS_DIR/etc/systemd/system/multi-user.target.wants/kiosk-piece-server.service"
 echo -e "  ${GREEN}Piece server installed + enabled (port 8080)${NC}"
+
+# 3e2. Auto-mount FEDAC-PIECE partition at boot via systemd mount unit.
+# The kiosk session runs as liveuser who can't mount — systemd mounts it as root.
+mkdir -p "$ROOTFS_DIR/mnt/piece"
+cat > "$ROOTFS_DIR/etc/systemd/system/mnt-piece.mount" << 'MOUNTEOF'
+[Unit]
+Description=Mount FEDAC-PIECE partition
+DefaultDependencies=no
+After=local-fs-pre.target
+Before=local-fs.target kiosk-piece-server.service
+
+[Mount]
+What=LABEL=FEDAC-PIECE
+Where=/mnt/piece
+Type=ext4
+Options=rw,noatime
+
+[Install]
+WantedBy=local-fs.target
+MOUNTEOF
+mkdir -p "$ROOTFS_DIR/etc/systemd/system/local-fs.target.wants"
+ln -sf /etc/systemd/system/mnt-piece.mount "$ROOTFS_DIR/etc/systemd/system/local-fs.target.wants/mnt-piece.mount"
+echo -e "  ${GREEN}FEDAC-PIECE auto-mount unit installed${NC}"
 
 mkdir -p "$ROOTFS_DIR/home/liveuser"
 cat > "$ROOTFS_DIR/home/liveuser/.bash_profile" << 'BPROFEOF'
