@@ -2863,12 +2863,19 @@ async function halt($, text) {
     // In Electron on Linux: scan USB → build → download → flash → eject.
     // In browser: build → trigger ISO download.
     const colonParts = slug.split(":");
-    const flavor = (colonParts[1] || "alpine").toLowerCase();
-    if (!["alpine", "fedora"].includes(flavor)) {
-      notice(`Unknown OS flavor: ${flavor}. Use alpine or fedora.`, ["red"]);
-      flashColor = [255, 0, 0];
-      makeFlash($);
-      return true;
+    // os:flavor or os:nocache or os:flavor:nocache
+    let flavor = "alpine";
+    let nocache = false;
+    for (let i = 1; i < colonParts.length; i++) {
+      const part = colonParts[i].toLowerCase();
+      if (part === "nocache") { nocache = true; }
+      else if (["alpine", "fedora"].includes(part)) { flavor = part; }
+      else {
+        notice(`Unknown OS option: ${part}. Use alpine, fedora, or nocache.`, ["red"]);
+        flashColor = [255, 0, 0];
+        makeFlash($);
+        return true;
+      }
     }
     const pieceRef = (params[0] || "").trim();
     if (!pieceRef || pieceRef === "?" || pieceRef.toLowerCase() === "help") {
@@ -2952,7 +2959,7 @@ async function halt($, text) {
     needsPaint();
 
     try {
-      const response = await fetch(`https://oven.aesthetic.computer/os?${bundleParam}&format=stream&density=8&flavor=${flavor}`);
+      const response = await fetch(`https://oven.aesthetic.computer/os?${bundleParam}&format=stream&density=8&flavor=${flavor}${nocache ? "&nocache=1" : ""}`);
       if (!response.ok) {
         const err = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
         throw new Error(err.error || `OS API returned ${response.status}`);
@@ -3013,7 +3020,7 @@ async function halt($, text) {
       if (!result) throw new Error("No result received from OS build API");
 
       const downloadUrl = result.downloadUrl || `https://oven.aesthetic.computer/os?${bundleParam}`;
-      const isoFilename = `${displayName}-os.iso`;
+      const isoFilename = `${displayName}-${flavor}-os.iso`;
 
       if (usbTargetDevice) {
         // Electron USB flash: download image → write to USB → eject.
@@ -5122,18 +5129,18 @@ function paint($) {
       ink(...bgColor).box(soBox, "fill");
       ink(...textColor).box(soBox, "outline");
       if (useTinyFont) {
-        ink(...textColor).write("SO", { x: soBox.x + btnPadX, y: soBox.y + btnPadY, size: 8 });
+        ink(...textColor).write("SO", { x: soBox.x + btnPadX, y: soBox.y + btnPadY }, undefined, undefined, false, "MatrixChunky8");
       } else {
-        ink(...textColor).write("SO", { x: soBox.x + btnPadX, y: soBox.y + btnPadY });
+        ink(...textColor).write("SO", { x: soBox.x + btnPadX, y: soBox.y + btnPadY, size: 1 });
       }
 
       // SOFT button
       ink(...bgColor).box(softBox, "fill");
       ink(...textColor).box(softBox, "outline");
       if (useTinyFont) {
-        ink(...textColor).write("SOFT", { x: softBox.x + btnPadX, y: softBox.y + btnPadY, size: 8 });
+        ink(...textColor).write("SOFT", { x: softBox.x + btnPadX, y: softBox.y + btnPadY }, undefined, undefined, false, "MatrixChunky8");
       } else {
-        ink(...textColor).write("SOFT", { x: softBox.x + btnPadX, y: softBox.y + btnPadY });
+        ink(...textColor).write("SOFT", { x: softBox.x + btnPadX, y: softBox.y + btnPadY, size: 1 });
       }
     }
     $.needsPaint();
