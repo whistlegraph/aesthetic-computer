@@ -308,10 +308,14 @@ EOF
 # 2g. Profile script — auto-start kiosk session on tty1
 mkdir -p "$ROOTFS_DIR/home/kioskuser"
 cat > "$ROOTFS_DIR/home/kioskuser/.profile" << 'PROFILEEOF'
-# Auto-start kiosk session on tty1 only
-if [ "$(tty)" = "/dev/tty1" ]; then
-  exec /usr/local/bin/kiosk-session.sh
-fi
+# Auto-start kiosk session on tty1 (match /dev/tty1, /dev/console, or unknown tty)
+# On some EFI hardware busybox init reports /dev/console instead of /dev/tty1
+_tty=$(tty 2>/dev/null)
+case "$_tty" in
+  /dev/tty1|/dev/console|"not a tty"|"")
+    exec /usr/local/bin/kiosk-session.sh
+    ;;
+esac
 PROFILEEOF
 chown -R 1000:1000 "$ROOTFS_DIR/home/kioskuser" 2>/dev/null || true
 
@@ -422,8 +426,24 @@ done
 echo "[kiosk] launching cage + chromium"
 echo "[kiosk] LIBSEAT_BACKEND=$LIBSEAT_BACKEND SEATD_SOCK=${SEATD_SOCK:-unset}"
 echo "[kiosk] DRI devices: $(ls /dev/dri/ 2>&1)"
+
+# Check for DRM device — if missing, show diagnostic on console instead of silent fail
+if [ ! -e /dev/dri/card0 ]; then
+  echo "[kiosk] FATAL: no DRM device (/dev/dri/card0) — cage cannot start" >&2
+  # Restore console output so user can see the error
+  exec >/dev/console 2>&1
+  echo ""
+  echo "=== KIOSK ERROR: No GPU/DRM device found ==="
+  echo "cage requires /dev/dri/card0 to run."
+  echo "Check: ls -la /dev/dri/   lspci | grep -i vga   dmesg | grep -i drm"
+  echo "Log: $LOG"
+  echo ""
+  # Drop to shell instead of silent exit/respawn loop
+  exec /bin/sh
+fi
+
 # Cage launches a single Wayland app fullscreen with black background
-exec cage -s -- chromium-browser \
+cage -s -- chromium-browser \
   --no-first-run \
   --disable-translate \
   --disable-infobars \
@@ -450,6 +470,16 @@ exec cage -s -- chromium-browser \
   --ignore-gpu-blocklist \
   --enable-features=VaapiVideoDecoder,VaapiVideoEncoder \
   "__KIOSK_PIECE_URL__"
+CAGE_EXIT=$?
+
+# If cage exits (crash or missing Wayland support), show error on console
+echo "[kiosk] cage exited with code $CAGE_EXIT"
+exec >/dev/console 2>&1
+echo ""
+echo "=== KIOSK: cage exited (code $CAGE_EXIT) ==="
+echo "Log: $LOG"
+echo "Restarting in 5s... (Ctrl+C for shell)"
+sleep 5
 SESSEOF
 
 # Replace placeholder URLs
