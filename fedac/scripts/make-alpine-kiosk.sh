@@ -554,6 +554,8 @@ mount -t sysfs sysfs /sys 2>/dev/null
 mount -t devtmpfs dev /dev 2>/dev/null
 # Trigger device discovery
 mdev -s 2>/dev/null; sleep 1
+# Alpine initramfs has /newroot, not /sysroot — create our mount point
+mkdir -p /sysroot
 # Try partition 2 of all common disk types in order
 for dev in /dev/sda2 /dev/vda2 /dev/nvme0n1p2 /dev/mmcblk0p2 /dev/hda2; do
   if [ -b "$dev" ] && mount -t squashfs -o ro "$dev" /sysroot 2>/dev/null; then
