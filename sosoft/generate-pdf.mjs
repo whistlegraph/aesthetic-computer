@@ -13,6 +13,7 @@ const outputPath = path.join(__dirname, "proposal.pdf");
 
 const browser = await puppeteer.launch({
   headless: true,
+  executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || "/usr/sbin/chromium-browser",
   args: ["--no-sandbox", "--disable-setuid-sandbox"],
 });
 
@@ -23,7 +24,7 @@ await page.pdf({
   path: outputPath,
   format: "Letter",
   printBackground: true,
-  margin: { top: "0.9in", bottom: "0.9in", left: "1in", right: "1in" },
+  margin: { top: "0.65in", bottom: "0.65in", left: "0.75in", right: "0.75in" },
 });
 
 await browser.close();
