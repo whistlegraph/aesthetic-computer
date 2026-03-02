@@ -13,7 +13,7 @@ import { healthHandler, bakeHandler, statusHandler, bakeCompleteHandler, bakeSta
 import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, getAllProgress, getConcurrencyStatus, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus, getFrozenPieces, clearFrozenPiece, getLatestOGImageUrl, regenerateOGImagesBackground, generateKidlispBackdrop, getLatestBackdropUrl, APP_SCREENSHOT_PRESETS, generateNotepatOGImage, getLatestNotepatOGUrl } from './grabber.mjs';
 import archiver from 'archiver';
 import { createBundle, createJSPieceBundle, createM4DBundle, generateDeviceHTML, prewarmCache, getCacheStatus, setSkipMinification } from './bundler.mjs';
-import { streamOSImage, getOSBuildStatus, invalidateManifest } from './os-builder.mjs';
+import { streamOSImage, getOSBuildStatus, invalidateManifest, purgeOSBuildCache } from './os-builder.mjs';
 import { startOSBaseBuild, getOSBaseBuild, getOSBaseBuildsSummary, cancelOSBaseBuild } from './os-base-build.mjs';
 
 const app = express();
@@ -2428,6 +2428,7 @@ app.get('/os', async (req, res) => {
   const format = req.query.format || 'download';
   const density = parseInt(req.query.density) || 8;
   const flavor = (req.query.flavor || 'alpine').toLowerCase();
+  const nocache = req.query.nocache === '1' || req.query.nocache === 'true';
 
   if (!['alpine', 'fedora'].includes(flavor)) {
     return res.status(400).json({ error: "Invalid flavor. Use 'alpine' or 'fedora'." });
@@ -2442,7 +2443,7 @@ app.get('/os', async (req, res) => {
     });
   }
 
-  addServerLog('info', '💿', `OS ISO build started: ${target} (${flavor})`);
+  addServerLog('info', '💿', `OS ISO build started: ${target} (${flavor})${nocache ? ' [nocache]' : ''}`);
 
   // SSE streaming progress mode (for UI)
   if (format === 'stream') {
@@ -2460,7 +2461,7 @@ app.get('/os', async (req, res) => {
     };
 
     try {
-      const result = await streamOSImage(null, target, isJSPiece, density, (p) => sendEvent('progress', p), flavor);
+      const result = await streamOSImage(null, target, isJSPiece, density, (p) => sendEvent('progress', p), flavor, { nocache });
       const downloadParam = isJSPiece ? `piece=${encodeURIComponent(target)}` : `code=${encodeURIComponent(target)}`;
       // Prefer CDN URL for fast download; fall back to oven direct.
       const downloadUrl = result.cdnUrl || `/os?${downloadParam}&density=${density}&flavor=${flavor}`;
@@ -2484,7 +2485,7 @@ app.get('/os', async (req, res) => {
   try {
     const result = await streamOSImage(res, target, isJSPiece, density, (p) => {
       console.log(`[os] ${p.stage}: ${p.message}`);
-    }, flavor);
+    }, flavor, { nocache });
     addServerLog('success', '💿', `OS ISO build complete: ${target}/${flavor} (${Math.round(result.elapsed / 1000)}s)`);
   } catch (err) {
     console.error('[os] Build failed:', err);
@@ -2604,10 +2605,14 @@ app.post('/os-base-build', requireOSBuildAdmin, async (req, res) => {
       { imageSizeGB, publish, flavor },
       {
         onStart: (j) => addServerLog('info', '💿', `OS base build started: ${j.id} (${flavor}, ${imageSizeGB}GiB)`),
-        onUploadComplete: (j) => {
+        onUploadComplete: async (j) => {
           addServerLog('success', '☁️', `OS base upload complete: ${j.upload.imageKey}`);
           invalidateManifest(flavor);
           addServerLog('info', '💿', `OS manifest cache invalidated (${flavor}) after base upload`);
+          // Purge all cached per-piece builds for this flavor — the new base image
+          // changes the image layout, so old cached builds are stale.
+          const purgeResult = await purgeOSBuildCache(flavor);
+          addServerLog('info', '🗑️', `Purged ${purgeResult.deleted} cached ${flavor} build(s) from CDN`);
         },
         onSuccess: (j) => addServerLog('success', '💿', `OS base build complete: ${j.id} (${flavor})`),
         onError: (j) => addServerLog('error', '❌', `OS base build failed: ${j.id} (${j.error})`),
@@ -2631,9 +2636,18 @@ app.post('/os-base-build/:jobId/cancel', requireOSBuildAdmin, (req, res) => {
   return res.json(result);
 });
 
-app.post('/os-invalidate', (req, res) => {
-  invalidateManifest();
-  addServerLog('info', '💿', 'OS base image manifest cache invalidated');
+app.post('/os-invalidate', async (req, res) => {
+  const purge = req.body?.purge === true;
+  const flavor = req.body?.flavor;
+  invalidateManifest(flavor);
+  addServerLog('info', '💿', `OS base image manifest cache invalidated${flavor ? ` (${flavor})` : ''}`);
+
+  if (purge) {
+    const purgeResult = await purgeOSBuildCache(flavor);
+    addServerLog('info', '🗑️', `Purged ${purgeResult.deleted} cached build(s) from CDN${flavor ? ` (${flavor})` : ''}`);
+    return res.json({ ok: true, message: 'Manifest + CDN build cache purged.', purged: purgeResult.deleted });
+  }
+
   res.json({ ok: true, message: 'Manifest cache invalidated — next build will re-fetch.' });
 });
 

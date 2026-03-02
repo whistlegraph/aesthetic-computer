@@ -14,7 +14,7 @@ import path from "path";
 import { execSync } from "child_process";
 import { createHash, randomUUID } from "crypto";
 import { createBundle, createJSPieceBundle } from "./bundler.mjs";
-import { S3Client, PutObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, HeadObjectCommand, ListObjectsV2Command, DeleteObjectsCommand } from "@aws-sdk/client-s3";
 import { MongoClient } from "mongodb";
 
 // ─── MongoDB (OS build history) ─────────────────────────────────────
@@ -120,7 +120,7 @@ async function checkCDNCache(key) {
 }
 
 // Upload a built ISO to CDN for fast repeat downloads.
-async function uploadToCDN(imagePath, key, target) {
+async function uploadToCDN(imagePath, key, target, flavor) {
   const client = getSpacesClient();
   if (!client) return null;
   await client.send(
@@ -129,12 +129,56 @@ async function uploadToCDN(imagePath, key, target) {
       Key: key,
       Body: fsSync.createReadStream(imagePath),
       ContentType: "application/octet-stream",
-      ContentDisposition: `attachment; filename="${target}-os.iso"`,
+      ContentDisposition: `attachment; filename="${target}-${flavor}-os.iso"`,
       ACL: "public-read",
       CacheControl: "public, max-age=86400", // 24h — rebuild invalidates via new hash
     }),
   );
   return buildCDNUrl(key);
+}
+
+// Purge all cached OS build images from CDN, optionally filtered by flavor.
+export async function purgeOSBuildCache(flavor) {
+  const client = getSpacesClient();
+  if (!client) return { deleted: 0, error: "S3 not configured" };
+
+  let deleted = 0;
+  let continuationToken;
+
+  try {
+    do {
+      const listCmd = new ListObjectsV2Command({
+        Bucket: SPACES_BUCKET,
+        Prefix: `${SPACES_PREFIX}/`,
+        ContinuationToken: continuationToken,
+      });
+      const listing = await client.send(listCmd);
+      continuationToken = listing.IsTruncated ? listing.NextContinuationToken : undefined;
+
+      if (!listing.Contents?.length) break;
+
+      // Filter by flavor suffix if specified (e.g. "-alpine.img" or "-fedora.img").
+      const toDelete = flavor
+        ? listing.Contents.filter((o) => o.Key.endsWith(`-${flavor}.img`))
+        : listing.Contents;
+
+      if (!toDelete.length) continue;
+
+      await client.send(
+        new DeleteObjectsCommand({
+          Bucket: SPACES_BUCKET,
+          Delete: { Objects: toDelete.map((o) => ({ Key: o.Key })) },
+        }),
+      );
+      deleted += toDelete.length;
+    } while (continuationToken);
+  } catch (err) {
+    console.error("[os] CDN purge error:", err.message);
+    return { deleted, error: err.message };
+  }
+
+  console.log(`[os] Purged ${deleted} cached OS build(s) from CDN${flavor ? ` (${flavor})` : ""}`);
+  return { deleted };
 }
 
 function hashContent(content) {
@@ -858,7 +902,7 @@ function buildFedOSShellHTML(target) {
 
 // ─── Main Build Flow ────────────────────────────────────────────────
 
-export async function streamOSImage(res, target, isJSPiece, density, onProgress, flavor = "alpine") {
+export async function streamOSImage(res, target, isJSPiece, density, onProgress, flavor = "alpine", { nocache = false } = {}) {
   if (activeBuildCount >= MAX_CONCURRENT_BUILDS) {
     throw new Error(
       `Server busy: ${activeBuildCount}/${MAX_CONCURRENT_BUILDS} OS builds in progress. Try again shortly.`,
@@ -906,8 +950,8 @@ export async function streamOSImage(res, target, isJSPiece, density, onProgress,
 
     // 3. Check CDN cache — skip the entire build if an identical ISO exists.
     const cacheStart = Date.now();
-    onProgress?.({ stage: "cache-check", message: "Checking CDN cache...", step: 3, totalSteps: 9 });
-    const cdnHit = await checkCDNCache(cdnKey);
+    onProgress?.({ stage: "cache-check", message: nocache ? "Skipping cache (nocache)..." : "Checking CDN cache...", step: 3, totalSteps: 9 });
+    const cdnHit = nocache ? false : await checkCDNCache(cdnKey);
     timing.cacheCheck = Date.now() - cacheStart;
 
     if (cdnHit) {
@@ -944,7 +988,7 @@ export async function streamOSImage(res, target, isJSPiece, density, onProgress,
       if (res) {
         res.redirect(302, cdnUrl);
       }
-      return { buildId, elapsed, timings: timing, cdnUrl, cached: true, filename: `${target}-os.iso` };
+      return { buildId, elapsed, timings: timing, cdnUrl, cached: true, filename: `${target}-${flavor}-os.iso` };
     }
 
     // 4. Copy base image to temp.
@@ -1003,7 +1047,7 @@ export async function streamOSImage(res, target, isJSPiece, density, onProgress,
 
     // 8. Upload to CDN (concurrent with streaming to client).
     onProgress?.({ stage: "upload", message: "Uploading ISO to CDN for caching...", step: 8, totalSteps: 9 });
-    const uploadPromise = uploadToCDN(tempImagePath, cdnKey, target)
+    const uploadPromise = uploadToCDN(tempImagePath, cdnKey, target, flavor)
       .then((url) => {
         if (url) {
           console.log(`[os] CDN upload complete: ${url}`);
@@ -1022,7 +1066,7 @@ export async function streamOSImage(res, target, isJSPiece, density, onProgress,
     if (res) {
       const streamStart = Date.now();
       const fileStat = await fs.stat(tempImagePath);
-      const filename = `${target}-os.iso`;
+      const filename = `${target}-${flavor}-os.iso`;
       res.set({
         "Content-Type": "application/octet-stream",
         "Content-Disposition": `attachment; filename="${filename}"`,
@@ -1081,7 +1125,7 @@ export async function streamOSImage(res, target, isJSPiece, density, onProgress,
       timings: timing,
       cdnUrl,
       flavor,
-      filename: `${target}-os.iso`,
+      filename: `${target}-${flavor}-os.iso`,
     };
   } catch (err) {
     const elapsed = Date.now() - startTime;

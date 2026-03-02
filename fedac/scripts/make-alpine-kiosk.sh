@@ -540,10 +540,11 @@ if [ -n "$KVER" ]; then
   echo -e "  ${GREEN}Initramfs regenerated${NC}"
 fi
 
-# ── 3i. Inject custom /findroot into initramfs ──
+# ── 3i. Replace /init in initramfs with our findroot script ──
 # Alpine's nlplug-findfs can't resolve PARTUUID/LABEL for raw SquashFS
-# partitions. We extract the initramfs, add a /findroot script, create a
-# /sysroot mount point, and repack as a single gzip cpio archive.
+# partitions. We extract the initramfs, rename the original /init to
+# /init.alpine as backup, and replace /init with our findroot script
+# that scans devices and mounts the squashfs root.
 # (Appending a separate cpio archive after gzip doesn't work reliably
 # on all kernels/hardware.)
 INITRD_FILE="$ROOTFS_DIR/boot/initramfs-lts"
@@ -558,8 +559,14 @@ if [ -f "$INITRD_FILE" ]; then
   # Create /sysroot mount point (Alpine uses /newroot, we need /sysroot)
   mkdir -p "$INJECT_DIR/root/sysroot"
 
-  # Write findroot script
-  cat > "$INJECT_DIR/root/findroot" << 'FINDROOTEOF'
+  # Rename original Alpine init as backup
+  if [ -f "$INJECT_DIR/root/init" ]; then
+    mv "$INJECT_DIR/root/init" "$INJECT_DIR/root/init.alpine"
+    echo -e "  Renamed original /init → /init.alpine"
+  fi
+
+  # Replace /init with our findroot script
+  cat > "$INJECT_DIR/root/init" << 'FINDROOTEOF'
 #!/bin/sh
 mount -t proc proc /proc 2>/dev/null
 mount -t sysfs sysfs /sys 2>/dev/null
@@ -583,13 +590,13 @@ done
 echo "findroot: could not find squashfs root partition"
 exec /bin/sh
 FINDROOTEOF
-  chmod +x "$INJECT_DIR/root/findroot"
+  chmod +x "$INJECT_DIR/root/init"
 
   # Repack as a single gzip cpio archive
-  echo -e "  Repacking initramfs with findroot..."
+  echo -e "  Repacking initramfs with findroot as /init..."
   (cd "$INJECT_DIR/root" && find . | cpio -o -H newc --quiet | gzip -1 > "$INITRD_FILE")
   rm -rf "$INJECT_DIR"
-  echo -e "  ${GREEN}Injected /findroot into initramfs${NC}"
+  echo -e "  ${GREEN}Replaced /init in initramfs with findroot${NC}"
 fi
 
 # ══════════════════════════════════════════
@@ -768,7 +775,7 @@ set gfxpayload=keep
 terminal_input console
 terminal_output gfxterm
 menuentry "FedOS Alpine" {
-  linux /boot/vmlinuz rdinit=/findroot rootfstype=squashfs ro quiet loglevel=0 mitigations=off
+  linux /boot/vmlinuz rdinit=/init console=tty0 ro quiet loglevel=0 mitigations=off
   initrd /boot/initramfs
 }
 GRUBEOF
