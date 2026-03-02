@@ -348,7 +348,8 @@ cat > "$ROOTFS_DIR/usr/local/bin/kiosk-session.sh" << 'SESSEOF'
 # Write logs to persistent FEDAC-PIECE partition (readable from another machine)
 # FEDAC-PIECE is auto-mounted by systemd (mnt-piece.mount unit) — no blkid/mount needed here.
 PIECE_LOG=""
-if mountpoint -q /mnt/piece 2>/dev/null; then
+if mountpoint -q /mnt/piece 2>/dev/null && touch /mnt/piece/.writetest 2>/dev/null; then
+  rm -f /mnt/piece/.writetest
   PIECE_LOG="/mnt/piece/kiosk.log"
 fi
 LOG="${PIECE_LOG:-/tmp/kiosk.log}"
@@ -1189,6 +1190,7 @@ build_target() {
   PIECE_MOUNT=$(mktemp -d /tmp/fedac-piece-XXXX)
   mount "$p3" "$PIECE_MOUNT"
   cp "$BUNDLE_PATH" "$PIECE_MOUNT/piece.html"
+  chmod 777 "$PIECE_MOUNT"
   sync
   umount "$PIECE_MOUNT"
   rmdir "$PIECE_MOUNT"
