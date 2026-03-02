@@ -3,241 +3,529 @@
 <head>
 <meta charset="UTF-8">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,600;1,400&display=swap');
+  /* === AC FONTS === */
+  @font-face {
+    font-family: 'YWFTProcessing-Regular';
+    src: url('../system/public/type/webfonts/ywft-processing-regular.woff2') format('woff2'),
+         url('../system/public/type/webfonts/ywft-processing-regular.woff') format('woff');
+    font-weight: normal; font-style: normal; font-display: swap;
+  }
+  @font-face {
+    font-family: 'YWFTProcessing-Bold';
+    src: url('../system/public/type/webfonts/ywft-processing-bold.woff2') format('woff2'),
+         url('../system/public/type/webfonts/ywft-processing-bold.woff') format('woff');
+    font-weight: normal; font-style: normal; font-display: swap;
+  }
+  @font-face {
+    font-family: 'YWFTProcessing-Light';
+    src: url('../system/public/type/webfonts/ywft-processing-light.woff2') format('woff2'),
+         url('../system/public/type/webfonts/ywft-processing-light.woff') format('woff');
+    font-weight: normal; font-style: normal; font-display: swap;
+  }
+  @font-face {
+    font-family: 'Berkeley Mono Variable';
+    src: url('../system/public/type/webfonts/BerkeleyMonoVariable-Regular.woff2') format('woff2'),
+         url('../system/public/type/webfonts/BerkeleyMonoVariable-Regular.woff') format('woff');
+    font-weight: normal; font-style: normal;
+  }
+  @font-face {
+    font-family: 'Berkeley Mono Variable';
+    src: url('../system/public/type/webfonts/BerkeleyMonoVariable-Italic.woff2') format('woff2'),
+         url('../system/public/type/webfonts/BerkeleyMonoVariable-Italic.woff') format('woff');
+    font-weight: normal; font-style: italic;
+  }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
-  @page {
-    size: letter;
-    margin: 1in 1.2in;
-  }
+  @page { size: letter; margin: 0.65in 0.75in; }
 
+  /* === BASE: clean whitepaper prose === */
   body {
-    font-family: 'IBM Plex Sans', sans-serif;
-    font-size: 11pt;
-    line-height: 1.6;
-    color: #111;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 10pt;
+    line-height: 1.65;
+    color: #1a1a1a;
   }
 
-  .header {
-    margin-bottom: 2.5em;
+  /* === AC-BRANDED ELEMENTS === */
+
+  .title-block {
+    text-align: center;
+    margin-bottom: 1.6em;
+    padding-bottom: 1em;
+    border-bottom: 2.5px solid rgb(64, 56, 74);
   }
 
-  .header h1 {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 22pt;
-    font-weight: 600;
+  .title-block h1 {
+    font-family: 'YWFTProcessing-Bold', monospace;
+    font-size: 26pt;
     letter-spacing: -0.02em;
-    line-height: 1.2;
+    line-height: 1.1;
     margin-bottom: 0.15em;
+    color: rgb(64, 56, 74);
   }
 
-  .header .subtitle {
+  .title-block .subtitle {
+    font-family: 'YWFTProcessing-Light', monospace;
     font-size: 12pt;
-    font-weight: 300;
-    color: #555;
-    margin-bottom: 1.2em;
-  }
-
-  .header .meta {
-    font-size: 9.5pt;
-    color: #777;
-    line-height: 1.7;
-  }
-
-  h2 {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 11pt;
-    font-weight: 600;
-    margin-top: 2em;
+    color: rgb(180, 72, 135);
     margin-bottom: 0.5em;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
   }
 
-  p {
-    margin-bottom: 0.75em;
-  }
-
-  ul {
-    margin: 0.4em 0 0.9em 1.2em;
-  }
-
-  li {
-    margin-bottom: 0.2em;
-  }
-
-  code {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 9.5pt;
-    background: #f0f0f0;
-    padding: 0.1em 0.3em;
-    border-radius: 2px;
-  }
-
-  .links {
-    font-size: 9.5pt;
-    color: #666;
-    margin-top: 1.5em;
+  .title-block .meta {
+    font-size: 9pt;
+    color: #777;
     line-height: 1.8;
   }
 
-  .links a {
-    color: #333;
+  .title-block .meta a {
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 8.5pt;
+    color: rgb(120, 80, 180);
     text-decoration: none;
-    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  /* @handle coloring — each char gets an AC-palette color */
+  .handle { font-family: 'Berkeley Mono Variable', monospace; font-weight: bold; white-space: nowrap; }
+  .handle .c1 { color: rgb(205, 92, 155); }
+  .handle .c2 { color: rgb(92, 205, 155); }
+  .handle .c3 { color: rgb(155, 120, 205); }
+  .handle .c4 { color: rgb(205, 155, 92); }
+  .handle .c5 { color: rgb(92, 155, 205); }
+  .handle .c6 { color: rgb(205, 92, 92); }
+  .handle .c7 { color: rgb(155, 205, 92); }
+  .handle .c8 { color: rgb(92, 120, 205); }
+
+  /* === TWO-COLUMN LAYOUT === */
+
+  .columns {
+    column-count: 2;
+    column-gap: 1.8em;
+    column-rule: 1px solid #e0e0e0;
+  }
+
+  h2 {
+    font-family: 'YWFTProcessing-Bold', monospace;
     font-size: 9pt;
+    margin-top: 1.3em;
+    margin-bottom: 0.3em;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgb(180, 72, 135);
+    break-after: avoid;
   }
 
-  hr {
+  h2:first-child { margin-top: 0; }
+
+  p {
+    margin-bottom: 0.6em;
+    text-align: justify;
+    hyphens: auto;
+  }
+
+  ul { margin: 0.3em 0 0.65em 1.1em; }
+  li { margin-bottom: 0.15em; }
+  li strong { color: rgb(64, 56, 74); }
+
+  code {
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 8.5pt;
+    background: rgba(120, 80, 180, 0.07);
+    padding: 0.08em 0.25em;
+    border-radius: 2px;
+    color: rgb(100, 60, 160);
+  }
+
+  em { font-style: italic; }
+
+  /* === SECTION DIVIDERS === */
+  .section-divider {
     border: none;
-    border-top: 1px solid #ddd;
-    margin: 1.5em 0;
+    border-top: 2px solid rgb(64, 56, 74);
+    margin: 1.2em 0 0.8em;
   }
 
-  .diagram-section {
-    page-break-before: always;
-    padding-top: 0.5em;
+  /* === APPENDIX SHARED === */
+
+  .appendix-title {
+    font-family: 'YWFTProcessing-Bold', monospace;
+    font-size: 11pt;
+    text-align: center;
+    margin-bottom: 0.15em;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgb(64, 56, 74);
+    break-after: avoid;
   }
 
-  .diagram-section h2 {
-    margin-top: 0;
+  .appendix-subtitle {
+    font-family: 'YWFTProcessing-Light', monospace;
+    font-size: 9pt;
+    text-align: center;
+    color: #999;
+    margin-bottom: 1em;
+    break-after: avoid;
   }
+
+  .appendix-header {
+    break-after: avoid;
+    break-inside: avoid;
+  }
+
+  /* === STAT GRID === */
 
   .stat-grid {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
-    gap: 0.6em;
-    margin: 0.8em 0;
+    gap: 0.45em;
+    margin: 0.6em 0;
+    break-inside: avoid;
   }
 
   .stat-box {
-    background: #f7f7f7;
-    border: 1px solid #e0e0e0;
-    padding: 0.5em 0.7em;
+    background: linear-gradient(135deg, rgba(180, 72, 135, 0.05) 0%, rgba(120, 80, 180, 0.05) 100%);
+    border: 1.5px solid rgba(180, 72, 135, 0.18);
+    border-radius: 4px;
+    padding: 0.5em 0.4em;
     text-align: center;
   }
 
   .stat-box .num {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 18pt;
-    font-weight: 600;
-    color: #111;
+    font-family: 'YWFTProcessing-Bold', monospace;
+    font-size: 19pt;
+    color: rgb(180, 72, 135);
     line-height: 1.2;
   }
 
   .stat-box .label {
-    font-size: 8pt;
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 7pt;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: #888;
-    margin-top: 0.15em;
+    color: rgb(120, 80, 180);
+    margin-top: 0.1em;
   }
 
-  .doc-sample {
-    background: #fafafa;
-    border: 1px solid #e0e0e0;
-    padding: 0.5em 0.7em;
+  .makers {
+    font-size: 8.5pt;
+    color: #666;
     margin: 0.5em 0;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 8pt;
-    line-height: 1.5;
-    color: #444;
-    white-space: pre-wrap;
+    text-align: center;
+  }
+  .makers strong { color: rgb(180, 72, 135); font-family: 'Berkeley Mono Variable', monospace; font-size: 8pt; }
+
+  /* === DIAGRAMS === */
+
+  .diagram-box {
+    background: rgba(244, 235, 250, 0.5);
+    border: 1.5px solid rgba(120, 80, 180, 0.18);
+    border-radius: 5px;
+    padding: 0.6em 0.8em;
+    margin: 0.6em 0;
+    break-inside: avoid;
   }
 
-  .doc-label {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 8pt;
-    color: #999;
+  .diagram-label {
+    font-family: 'YWFTProcessing-Bold', monospace;
+    font-size: 7pt;
+    color: rgb(120, 80, 180);
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    margin-top: 0.7em;
-    margin-bottom: 0.15em;
+    margin-bottom: 0.25em;
+    break-after: avoid;
   }
-
-  .doc-label:first-child { margin-top: 0; }
 
   .flow {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 9pt;
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 8pt;
     line-height: 2;
-    margin: 0.6em 0;
     text-align: center;
     color: #333;
   }
 
-  .flow .arrow { color: #999; }
-  .flow .node { font-weight: 600; }
-  .flow .note { color: #888; font-size: 8pt; font-weight: normal; }
+  .flow .arrow { color: rgba(180, 72, 135, 0.5); }
+  .flow .node {
+    font-family: 'YWFTProcessing-Bold', monospace;
+    color: rgb(180, 72, 135);
+    background: rgba(180, 72, 135, 0.1);
+    padding: 0.15em 0.4em;
+    border-radius: 3px;
+  }
+  .flow .note {
+    font-family: 'Berkeley Mono Variable', monospace;
+    color: rgb(120, 80, 180); font-size: 7pt;
+  }
+
+  /* === DOC SAMPLES === */
+
+  .doc-sample {
+    background: #fff;
+    border-left: 3px solid rgb(180, 72, 135);
+    padding: 0.3em 0.5em;
+    margin: 0.35em 0;
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 7pt;
+    line-height: 1.45;
+    color: #444;
+    white-space: pre-wrap;
+  }
+  .doc-sample strong { color: rgb(120, 80, 180); }
+
+  .appendix-cols {
+    column-count: 2;
+    column-gap: 1.6em;
+    margin-top: 0.4em;
+  }
+  .doc-samples { break-inside: avoid; }
+
+  /* === TECH STACK === */
+
+  .stack-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5em;
+    margin: 0.5em 0;
+  }
+
+  .stack-card {
+    background: rgba(244, 235, 250, 0.4);
+    border: 1.5px solid rgba(120, 80, 180, 0.13);
+    border-radius: 4px;
+    padding: 0.45em 0.6em;
+    break-inside: avoid;
+  }
+
+  .stack-card-title {
+    font-family: 'YWFTProcessing-Bold', monospace;
+    font-size: 7.5pt;
+    color: rgb(180, 72, 135);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.2em;
+  }
+
+  .stack-card ul {
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 7.5pt;
+    margin: 0 0 0 0.8em;
+    color: #444;
+    line-height: 1.5;
+  }
+  .stack-card li { margin-bottom: 0.05em; }
+
+  .tool-row {
+    display: flex;
+    gap: 0.4em;
+    flex-wrap: wrap;
+    margin: 0.4em 0;
+  }
+
+  .tool-chip {
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 7pt;
+    background: rgba(180, 72, 135, 0.08);
+    color: rgb(140, 50, 110);
+    padding: 0.2em 0.5em;
+    border-radius: 3px;
+    border: 1px solid rgba(180, 72, 135, 0.13);
+  }
+  .tool-chip.green {
+    background: rgba(92, 205, 155, 0.1);
+    color: rgb(30, 120, 80);
+    border-color: rgba(92, 205, 155, 0.2);
+  }
+  .tool-chip.purple {
+    background: rgba(120, 80, 180, 0.08);
+    color: rgb(90, 50, 150);
+    border-color: rgba(120, 80, 180, 0.15);
+  }
+  .tool-chip.blue {
+    background: rgba(60, 120, 200, 0.08);
+    color: rgb(40, 90, 170);
+    border-color: rgba(60, 120, 200, 0.15);
+  }
+
+  .source-box {
+    background: #faf8fc;
+    border: 1.5px solid rgba(120, 80, 180, 0.13);
+    border-radius: 5px;
+    padding: 0.5em 0.7em;
+    margin: 0.5em 0;
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 7pt;
+    line-height: 1.5;
+    color: #555;
+    break-inside: avoid;
+  }
+  .source-box strong {
+    color: rgb(120, 80, 180);
+    font-family: 'YWFTProcessing-Bold', monospace;
+    font-size: 7.5pt;
+  }
+
+  /* === SITEMAP === */
+
+  .sitemap-section {
+    break-inside: avoid;
+    margin-bottom: 0.5em;
+  }
+
+  .sitemap-header {
+    font-family: 'YWFTProcessing-Bold', monospace;
+    font-size: 7.5pt;
+    color: rgb(180, 72, 135);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.15em;
+    padding-bottom: 0.1em;
+    border-bottom: 1px solid rgba(180, 72, 135, 0.18);
+    break-after: avoid;
+  }
+
+  .sitemap-routes {
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 6.5pt;
+    color: #555;
+    line-height: 1.4;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.15em 0.6em;
+  }
+
+  .sitemap-route::before { content: "/"; color: rgba(120, 80, 180, 0.35); }
+
+  .sitemap-cols { column-count: 2; column-gap: 1.6em; }
+
+  .domain-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.35em;
+    margin: 0.4em 0;
+  }
+
+  .domain-card {
+    background: rgba(244, 235, 250, 0.4);
+    border: 1.5px solid rgba(120, 80, 180, 0.13);
+    border-radius: 4px;
+    padding: 0.35em 0.5em;
+    text-align: center;
+  }
+
+  .domain-name {
+    font-family: 'YWFTProcessing-Bold', monospace;
+    font-size: 7.5pt;
+    color: rgb(120, 80, 180);
+  }
+
+  .domain-desc {
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 6.5pt;
+    color: #999;
+    margin-top: 0.1em;
+  }
+
+  /* === FOOTER === */
+  .page-footer {
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 7pt;
+    color: #bbb;
+    text-align: center;
+    margin-top: 1.5em;
+    padding-top: 0.5em;
+    border-top: 1px solid #eee;
+  }
 </style>
 </head>
 <body>
 
-<div class="header">
-  <h1>Aesthetic Computer as Social Instrument</h1>
-  <div class="subtitle">Score for Social Software &mdash; Cycle 2 Proposal</div>
+<!-- ============ PAGE 1: PROPOSAL ============ -->
+
+<div class="title-block">
+  <h1>Aesthetic Computer: Open Development</h1>
+  <div class="subtitle">A Platform Submitted for Dialogue</div>
   <div class="meta">
-    Jeffrey Scudder &ensp;/&ensp; @jeffrey<br>
-    DESMA 596/199 &ensp;&middot;&ensp; March 2026
+    Jeffrey Scudder &ensp;/&ensp;
+    <span class="handle"><span class="c1">@</span><span class="c2">j</span><span class="c3">e</span><span class="c4">f</span><span class="c5">f</span><span class="c6">r</span><span class="c7">e</span><span class="c8">y</span></span><br>
+    Score for Social Software &mdash; Cycle 2 &ensp;&middot;&ensp; DESMA 596/199 &ensp;&middot;&ensp; March 2026<br>
+    <a href="https://aesthetic.computer">aesthetic.computer</a> &ensp;&middot;&ensp;
+    <a href="https://github.com/whistlegraph/aesthetic-computer">github</a> &ensp;&middot;&ensp;
+    <a href="https://nopaint.art">nopaint.art</a>
   </div>
 </div>
+
+<div class="columns">
 
 <h2>The Score</h2>
 
 <p>
-I want to use this cycle to develop the social choreography of Aesthetic Computer (AC) &mdash; the open-source creative computing platform I've been building since 2021. AC is a mobile-first runtime and social network where users write, publish, and share small interactive programs called <em>pieces</em>. It already has the technical infrastructure for social software: real-time chat, @handles with custom colors, ephemeral status updates (moods), a pixel painting gallery, a built-in Lisp dialect (KidLisp) for generative art, multiplayer WebSocket sessions, and user profiles that track creative output.
+I'm submitting Aesthetic Computer (AC)&thinsp;&mdash;&thinsp;the open-source creative computing platform I've been building since 2021&thinsp;&mdash;&thinsp;as a social software project in active development. I'm not proposing to build a new thing for this cycle. I'm bringing the thing I'm already building into the room for dialogue, feedback, and critical exchange as I continue to develop it alongside its community.
 </p>
 
 <p>
-What I haven't had the chance to develop is the <em>social composition</em> &mdash; deliberate structures for how people use this system together. The platform has 351 built-in pieces and ~2,800 registered handles, but the social dynamics are still largely emergent. I'd like to design and test specific social scores: structured rituals like a daily painting circle, weekly piece exchanges where members fork and remix each other's published programs, collaborative KidLisp jams, and constraint-based chat performances. I want to see what happens when a committed group performs these scores together over 10 weeks.
+AC is a mobile-first runtime and social network where users write, publish, and share small interactive programs called <em>pieces</em>. It has real-time chat, @handles with per-character color customization, ephemeral status updates (moods mirrored to Bluesky via ATProto), a pixel painting system, a built-in Lisp dialect (KidLisp), multiplayer WebSocket sessions, and user profiles that track creative output. The codebase is open source with 4+ years of continuous development.
 </p>
 
 <p>
-Concretely, I'd build new AC pieces during the cycle &mdash; a cohort dashboard, multiplayer collaborative tools, and score templates that define social rules as playable software. I'd also write a "Write a Score" guide that documents how to compose social structures on the platform, parallel to AC's existing "Write a Piece" programming guide.
+The score is simple: I develop AC in the open over 10 weeks, sharing what I'm working on, what decisions I'm facing, and what the community is doing on the platform. The cohort engages as users and as critics&thinsp;&mdash;&thinsp;trying the tools, reading the design choices, and giving me feedback I can't get from inside the project.
 </p>
 
-<h2>Audience</h2>
+<h2>What I'm Looking For</h2>
 
 <p>
-The immediate audience is this cohort. The scores I want to test need real people showing up regularly &mdash; you can't evaluate social software alone. Longer term, anything built during the cycle would be live on the public platform for AC's existing community, and the documentation would be reusable for other educators running creative computing workshops.
+I've been deep inside AC's architecture for years. I know how the systems work. What I lack is outside perspective on the social design&thinsp;&mdash;&thinsp;the questions I can't answer alone:
 </p>
+
+<ul>
+  <li>What feels inviting and what feels opaque when you first encounter the platform?</li>
+  <li>Which social features sustain participation vs. which are technically impressive but socially inert?</li>
+  <li>How does the "instrument" metaphor land for people who aren't already invested in it?</li>
+  <li>What would you want to do on AC that you currently can't?</li>
+  <li>Where does the design accidentally exclude the people it claims to welcome?</li>
+</ul>
+
+<p>
+These questions require sustained dialogue, not a single usability test. A cohort of practitioners thinking about social software from different angles is the right context for this kind of exchange.
+</p>
+
+<h2>What the Cohort Gets</h2>
+
+<ul>
+  <li><strong>A live codebase</strong>&thinsp;&mdash;&thinsp;open source, documented, actively changing week to week</li>
+  <li><strong>The dev process</strong>&thinsp;&mdash;&thinsp;I work with Claude Code, Cursor, and VS Code, and maintain a living <code>SCORE.md</code>; the process is as legible as the product</li>
+  <li><strong>Platform accounts</strong>&thinsp;&mdash;&thinsp;everyone gets an @handle, can paint, chat, set moods, write KidLisp, publish pieces</li>
+  <li><strong>Real community data</strong>&thinsp;&mdash;&thinsp;2,800 handles, 18k chat messages, 4,400 paintings, 16k KidLisp programs; the social patterns are there to observe</li>
+</ul>
 
 <h2>Why This Cycle</h2>
 
 <p>
-AC's <code>SCORE.md</code> already uses the metaphor of a musical score to organize the project &mdash; the platform's interface is designed to function like an instrument where users discover memorizable paths, build literacy through play, and eventually improvise. Casey's framing of "scores for social software" maps directly onto this. I've been building the instrument; this cycle is a chance to compose for it with peers who are thinking about similar questions from different angles.
+Casey's framing of "scores for social software" maps directly onto how I already think about AC. The platform's <code>SCORE.md</code> literally uses the metaphor of a musical score to organize the project. The interface is designed to work like an instrument&thinsp;&mdash;&thinsp;users discover memorizable paths, build literacy through play, and eventually improvise. But I've been composing alone. This cycle is a chance to compose in conversation.
 </p>
 
 <p>
-I also want the critical feedback. I've been deep in the technical architecture for years and need outside eyes on the social design &mdash; what feels inviting, what's confusing, what rituals actually sustain participation. A flat cohort of practitioners working on their own social software projects is the right context for that kind of dialogue.
+I'm at a specific inflection point. The technical infrastructure is mature. The question now is about social design: how do the features I've built actually shape the way people relate to each other and to creative computing? That's best answered through dialogue with people thinking critically about social software, not through more engineering.
 </p>
 
 <h2>Practice</h2>
 
 <p>
-I'm an artist, educator, and software developer. I build software as a medium for art and education. Before AC, I created No Paint (2020), a pixel art tool whose community of non-technical users taught me how people learn computing through social participation in software they love. AC extends that into a full platform: anyone can write, publish, and share interactive programs at a URL. The codebase is open source and has been in continuous development for 4+ years.
+I'm an artist, educator, and software developer. Before AC, I created No Paint (2020), a pixel art tool whose community of non-technical users taught me how people learn computing through social participation in software they love. AC extends that into a full platform: anyone can write, publish, and share interactive programs at a URL.
 </p>
 
 <p>
-I teach creative computing and have used AC as infrastructure in courses and workshops.
+I teach creative computing and have used AC as infrastructure in courses and workshops. My interest in social software comes from watching people learn computation through social participation&thinsp;&mdash;&thinsp;first in No Paint, now in AC. I'm bringing this not as a finished project but as an ongoing practice I want to develop through critical exchange.
 </p>
 
-<div class="links">
-  <a href="https://aesthetic.computer">aesthetic.computer</a> &ensp;&middot;&ensp;
-  <a href="https://github.com/whistlegraph/aesthetic-computer">github</a> &ensp;&middot;&ensp;
-  <a href="https://nopaint.art">nopaint.art</a> &ensp;&middot;&ensp;
-  <a href="https://news.ycombinator.com/item?id=41526754">notepat on hn</a>
 </div>
 
-<!-- NETWORK REPORT CARD -->
-<div class="diagram-section">
+<!-- ============ APPENDIX A: NETWORK DATA ============ -->
 
-<h2>Appendix: The Network</h2>
+<hr class="section-divider">
 
-<p style="font-size: 9.5pt; color: #666; margin-bottom: 0.8em;">
-  Live data from AC's MongoDB cluster as of March 2, 2026. This is the material a score composes over.
-</p>
+<div class="appendix-header">
+<div class="appendix-title">Appendix A: The Network</div>
+<div class="appendix-subtitle">Live data from AC's MongoDB cluster &mdash; March 2, 2026</div>
+</div>
 
 <div class="stat-grid">
   <div class="stat-box"><div class="num">2,798</div><div class="label">@handles</div></div>
@@ -251,60 +539,401 @@ I teach creative computing and have used AC as infrastructure in courses and wor
   <div class="stat-box"><div class="num">93,122</div><div class="label">boot events</div></div>
 </div>
 
-<p style="font-size: 9pt; color: #666; margin: 0.3em 0 0;">
-  <strong style="color:#444;">Who makes things:</strong>
-  1,067 users have painted &middot;
-  997 have posted moods &middot;
-  59 have written KidLisp &middot;
+<p class="makers">
+  <strong>Who makes things:</strong>
+  1,067 have painted &ensp;&middot;&ensp;
+  997 have posted moods &ensp;&middot;&ensp;
+  59 have written KidLisp &ensp;&middot;&ensp;
   19 have published pieces
 </p>
 
-<div class="doc-label">The instrument loop</div>
-<div class="flow">
-  <span class="node">prompt</span>
-  <span class="arrow">&ensp;&rarr;&ensp;</span>
-  type a piece name
-  <span class="arrow">&ensp;&rarr;&ensp;</span>
-  <span class="node">enter</span>
-  <span class="arrow">&ensp;&rarr;&ensp;</span>
-  play the piece
-  <span class="arrow">&ensp;&rarr;&ensp;</span>
-  <span class="node">esc</span>
-  <span class="arrow">&ensp;&rarr;&ensp;</span>
-  back to prompt
+<div class="appendix-cols">
+
+<div class="diagram-box">
+  <div class="diagram-label">The Instrument Loop</div>
+  <div class="flow">
+    <span class="node">prompt</span>
+    <span class="arrow">&ensp;&rarr;&ensp;</span>
+    type a piece name
+    <span class="arrow">&ensp;&rarr;&ensp;</span>
+    <span class="node">enter</span>
+    <span class="arrow">&ensp;&rarr;&ensp;</span>
+    play the piece
+    <span class="arrow">&ensp;&rarr;&ensp;</span>
+    <span class="node">esc</span>
+    <span class="arrow">&ensp;&rarr;&ensp;</span>
+    back to prompt
+  </div>
 </div>
 
-<div class="doc-label">How user data flows</div>
-<div class="flow">
-  <span class="node">@handle</span>
-  <span class="arrow">&ensp;&rarr;&ensp;</span>
-  paint / chat / mood / kid / publish
-  <span class="arrow">&ensp;&rarr;&ensp;</span>
-  <span class="node">MongoDB</span>
-  <span class="arrow">&ensp;&rarr;&ensp;</span>
-  profile scorecard
-  <span class="arrow">&ensp;&rarr;&ensp;</span>
-  <span class="node">public URL</span>
-  <br>
-  <span class="note">moods also mirror to Bluesky via ATProto &ensp;&middot;&ensp; paintings stored on DigitalOcean Spaces CDN</span>
+<div class="diagram-box">
+  <div class="diagram-label">User Data Flow</div>
+  <div class="flow">
+    <span class="node">@handle</span>
+    <span class="arrow">&ensp;&rarr;&ensp;</span>
+    paint / chat / mood / kid / publish
+    <span class="arrow">&ensp;&rarr;&ensp;</span>
+    <span class="node">MongoDB</span>
+    <span class="arrow">&ensp;&rarr;&ensp;</span>
+    profile
+    <span class="arrow">&ensp;&rarr;&ensp;</span>
+    <span class="node">public URL</span>
+    <br>
+    <span class="note">moods &rarr; Bluesky via ATProto &ensp;&middot;&ensp; paintings &rarr; DO Spaces CDN</span>
+  </div>
 </div>
 
-<div class="doc-label">Sample documents from MongoDB (live)</div>
+<div class="doc-samples">
+  <div class="diagram-label">Sample Documents (live)</div>
+  <div class="doc-sample"><strong>mood</strong>  { mood: "studying astronomy", when: "2026-03-02T12:32:49Z", atproto: { rkey: "3mg3b6jcj4k2x" } }</div>
+  <div class="doc-sample"><strong>painting</strong>  { code: "gfl", slug: "2026.03.02.14.14.39", when: "2026-03-02T13:14:48Z" }</div>
+  <div class="doc-sample"><strong>kidlisp</strong>  { code: "27z", source: "fade:red-blue-black-blue-red\nscroll (* 100 amp)", hits: 1 }</div>
+  <div class="doc-sample"><strong>chat</strong>  { text: "y'all gonna piss me off", when: "2026-03-02T05:26:25Z", font: "font_1" }</div>
+  <div class="doc-sample"><strong>piece</strong>  { code: "zod", slug: "zod", name: "3d-cube", extension: ".mjs", hits: 1 }</div>
+</div>
 
-<div class="doc-sample"><strong>mood</strong>  { mood: "studying astronomy", when: "2026-03-02T12:32:49Z", atproto: { rkey: "3mg3b6jcj4k2x" } }</div>
+</div>
 
-<div class="doc-sample"><strong>painting</strong>  { code: "gfl", slug: "2026.03.02.14.14.39", when: "2026-03-02T13:14:48Z", atproto: { rkey: "3mg3djpo6ck2x" } }</div>
+<!-- ============ APPENDIX B: TECHNICAL STACK ============ -->
 
-<div class="doc-sample"><strong>kidlisp</strong>  { code: "27z", source: "fade:red-blue-black-blue-red\nscroll (* 100 amp)", hits: 1, when: "2026-03-01" }</div>
+<hr class="section-divider">
 
-<div class="doc-sample"><strong>chat</strong>  { text: "y'all gonna piss me off", when: "2026-03-02T05:26:25Z", font: "font_1" }</div>
+<div class="appendix-header">
+<div class="appendix-title">Appendix B: Technical Stack</div>
+<div class="appendix-subtitle">Open source &mdash; github.com/whistlegraph/aesthetic-computer</div>
+</div>
 
-<div class="doc-sample"><strong>piece</strong>  { code: "zod", slug: "zod", name: "3d-cube", extension: ".mjs", hits: 1, when: "2026-02-12" }</div>
+<div class="stack-grid">
 
-<p style="font-size: 9pt; color: #666; margin-top: 1em;">
-  Every document ties back to an authenticated user. Every user has a profile that counts their contributions. The question for this cycle: what social structures &mdash; what <em>scores</em> &mdash; can make these numbers move together instead of in isolation?
-</p>
+  <div class="stack-card">
+    <div class="stack-card-title">Frontend Runtime</div>
+    <ul>
+      <li>ES Modules (.mjs) &mdash; no build step for pieces</li>
+      <li>Canvas 2D + WebGL2 rendering</li>
+      <li>WebSocket hot-reload module loader</li>
+      <li>Service worker for offline caching</li>
+      <li>351 built-in pieces (333 JS + 18 KidLisp)</li>
+    </ul>
+  </div>
 
+  <div class="stack-card">
+    <div class="stack-card-title">System Server (Netlify)</div>
+    <ul>
+      <li>~85 serverless API endpoints</li>
+      <li>Edge functions for media + routing</li>
+      <li>Auth0 + Firebase authentication</li>
+      <li>Stripe + PayPal payments</li>
+      <li>Auto-deploys on push to main</li>
+    </ul>
+  </div>
+
+  <div class="stack-card">
+    <div class="stack-card-title">Session Server</div>
+    <ul>
+      <li>Fastify + Geckos.io (WebSocket)</li>
+      <li>Jamsocket ephemeral containers</li>
+      <li>Real-time chat, multiplayer, rooms</li>
+      <li>Redis state synchronization</li>
+      <li>DigitalOcean droplet + pm2</li>
+    </ul>
+  </div>
+
+  <div class="stack-card">
+    <div class="stack-card-title">Oven Service</div>
+    <ul>
+      <li>Express.js + FFmpeg</li>
+      <li>Tape recordings &rarr; MP4 video</li>
+      <li>Screenshot &amp; OG image generation</li>
+      <li>Caddy reverse proxy (auto HTTPS)</li>
+      <li>DigitalOcean droplet</li>
+    </ul>
+  </div>
+
+  <div class="stack-card">
+    <div class="stack-card-title">Workers (Cloudflare)</div>
+    <ul>
+      <li>Feed server (Hono + TypeScript)</li>
+      <li>Grab worker (Browser Rendering API)</li>
+      <li>KV storage for playlists &amp; channels</li>
+      <li>Durable Objects for state</li>
+    </ul>
+  </div>
+
+  <div class="stack-card">
+    <div class="stack-card-title">Data</div>
+    <ul>
+      <li>MongoDB Atlas &mdash; all user content</li>
+      <li>Redis &mdash; session cache</li>
+      <li>DigitalOcean Spaces (S3 CDN) &mdash; media</li>
+      <li>Cloudflare KV &mdash; feed data</li>
+      <li>ATProto PDS &mdash; Bluesky bridge</li>
+    </ul>
+  </div>
+
+</div>
+
+<div class="diagram-label" style="margin-top: 0.5em;">KidLisp &mdash; Built-in Language</div>
+<div class="source-box">
+  <strong>118 built-in functions</strong> across 12 categories: math, color, shape, transform, animation, text, noise, input, logic, list, meta, system. Minimal Lisp dialect for generative art. No external libraries. Programs stored in MongoDB, shareable by 3-character code. Evaluator: <strong>lib/kidlisp.mjs</strong> (~2,400 lines).
+</div>
+
+<div class="diagram-label" style="margin-top: 0.5em;">Development Tools</div>
+<div class="tool-row">
+  <span class="tool-chip">Claude Code (Opus)</span>
+  <span class="tool-chip">Cursor</span>
+  <span class="tool-chip">VS Code</span>
+  <span class="tool-chip purple">Node.js</span>
+  <span class="tool-chip purple">esbuild</span>
+  <span class="tool-chip purple">Puppeteer</span>
+  <span class="tool-chip green">Jasmine</span>
+  <span class="tool-chip green">Vitest</span>
+  <span class="tool-chip green">Lighthouse</span>
+  <span class="tool-chip blue">Netlify CLI</span>
+  <span class="tool-chip blue">Wrangler</span>
+  <span class="tool-chip blue">Docker</span>
+  <span class="tool-chip blue">pm2</span>
+  <span class="tool-chip blue">Caddy</span>
+  <span class="tool-chip blue">systemd</span>
+</div>
+
+<div class="diagram-label" style="margin-top: 0.5em;">Source Code</div>
+<div class="source-box">
+  <strong>Repository:</strong> github.com/whistlegraph/aesthetic-computer &ensp;&middot;&ensp; Open source, continuously developed since 2021<br>
+  <strong>Core files:</strong> boot.mjs (entry) &rarr; bios.mjs (runtime) &rarr; disk.mjs (API, ~572KB) &rarr; disks/*.mjs (pieces)<br>
+  <strong>Languages:</strong> JavaScript (ES Modules), TypeScript (workers), KidLisp (generative art), HTML/CSS<br>
+  <strong>Project score:</strong> SCORE.md &mdash; a living musical score metaphor that organizes all development work<br>
+  <strong>Maintenance:</strong> AestheticAnts (AA) &mdash; colony of AI agents for automated codebase care
+</div>
+
+<!-- ============ APPENDIX C: SITEMAP ============ -->
+
+<hr class="section-divider">
+
+<div class="appendix-header">
+<div class="appendix-title">Appendix C: Sitemap</div>
+<div class="appendix-subtitle">22 domains &ensp;&middot;&ensp; ~355 disk routes &ensp;&middot;&ensp; ~85 API endpoints &ensp;&middot;&ensp; ~120 redirects</div>
+</div>
+
+<div class="domain-grid">
+  <div class="domain-card"><div class="domain-name">aesthetic.computer</div><div class="domain-desc">primary platform</div></div>
+  <div class="domain-card"><div class="domain-name">kidlisp.com</div><div class="domain-desc">lisp editor</div></div>
+  <div class="domain-card"><div class="domain-name">notepat.com</div><div class="domain-desc">music sequencer</div></div>
+  <div class="domain-card"><div class="domain-name">sotce.net</div><div class="domain-desc">art portal</div></div>
+  <div class="domain-card"><div class="domain-name">botce.ac</div><div class="domain-desc">bot interface</div></div>
+  <div class="domain-card"><div class="domain-name">wipppps.world</div><div class="domain-desc">whistlegraph</div></div>
+  <div class="domain-card"><div class="domain-name">news.*</div><div class="domain-desc">newsletter</div></div>
+  <div class="domain-card"><div class="domain-name">give.*</div><div class="domain-desc">donations</div></div>
+  <div class="domain-card"><div class="domain-name">shop.*</div><div class="domain-desc">physical goods</div></div>
+  <div class="domain-card"><div class="domain-name">help.*</div><div class="domain-desc">AI assistant</div></div>
+  <div class="domain-card"><div class="domain-name">feed.*</div><div class="domain-desc">DP1 feed</div></div>
+  <div class="domain-card"><div class="domain-name">grab.*</div><div class="domain-desc">screenshots</div></div>
+</div>
+
+<div class="sitemap-cols">
+
+<div class="sitemap-section">
+  <div class="sitemap-header">Creative Tools / Drawing &ensp;(44)</div>
+  <div class="sitemap-routes">
+    <span class="sitemap-route">paint</span>
+    <span class="sitemap-route">nopaint</span>
+    <span class="sitemap-route">line</span>
+    <span class="sitemap-route">pline</span>
+    <span class="sitemap-route">shape</span>
+    <span class="sitemap-route">oval</span>
+    <span class="sitemap-route">rect</span>
+    <span class="sitemap-route">fill</span>
+    <span class="sitemap-route">spray</span>
+    <span class="sitemap-route">smear</span>
+    <span class="sitemap-route">marker</span>
+    <span class="sitemap-route">crayon</span>
+    <span class="sitemap-route">sparkle-brush</span>
+    <span class="sitemap-route">multipen</span>
+    <span class="sitemap-route">doodle</span>
+    <span class="sitemap-route">wand</span>
+    <span class="sitemap-route">brush</span>
+    <span class="sitemap-route">crop</span>
+    <span class="sitemap-route">stamp</span>
+    <span class="sitemap-route">blur</span>
+    <span class="sitemap-route">snap</span>
+    <span class="sitemap-route">paste</span>
+    <span class="sitemap-route">make</span>
+    <span class="sitemap-route">painting</span>
+    <span class="sitemap-route">handprint</span>
+    <span class="sitemap-route">nail</span>
+    <span class="sitemap-route">colors</span>
+    <span class="sitemap-route">selfie</span>
+    <span class="sitemap-route">camera</span>
+    <span class="sitemap-route">cards</span>
+  </div>
+</div>
+
+<div class="sitemap-section">
+  <div class="sitemap-header">Music / Audio &ensp;(24)</div>
+  <div class="sitemap-routes">
+    <span class="sitemap-route">notepat</span>
+    <span class="sitemap-route">beat</span>
+    <span class="sitemap-route">tone</span>
+    <span class="sitemap-route">chord</span>
+    <span class="sitemap-route">melody</span>
+    <span class="sitemap-route">song</span>
+    <span class="sitemap-route">sing</span>
+    <span class="sitemap-route">bleep</span>
+    <span class="sitemap-route">say</span>
+    <span class="sitemap-route">whistle</span>
+    <span class="sitemap-route">metronome</span>
+    <span class="sitemap-route">microphone</span>
+    <span class="sitemap-route">uke</span>
+    <span class="sitemap-route">pedal</span>
+    <span class="sitemap-route">amp</span>
+    <span class="sitemap-route">sfx</span>
+    <span class="sitemap-route">r8dio</span>
+    <span class="sitemap-route">squaresong</span>
+    <span class="sitemap-route">rattle</span>
+    <span class="sitemap-route">visualizer</span>
+    <span class="sitemap-route">tracker</span>
+    <span class="sitemap-route">3x3</span>
+  </div>
+</div>
+
+<div class="sitemap-section">
+  <div class="sitemap-header">Games / Interactive &ensp;(25)</div>
+  <div class="sitemap-routes">
+    <span class="sitemap-route">game</span>
+    <span class="sitemap-route">1v1</span>
+    <span class="sitemap-route">brick-breaker</span>
+    <span class="sitemap-route">flap</span>
+    <span class="sitemap-route">fly</span>
+    <span class="sitemap-route">hop</span>
+    <span class="sitemap-route">scawy-snake</span>
+    <span class="sitemap-route">run&amp;gun</span>
+    <span class="sitemap-route">gostop</span>
+    <span class="sitemap-route">staka</span>
+    <span class="sitemap-route">pond</span>
+    <span class="sitemap-route">balls</span>
+    <span class="sitemap-route">bubble</span>
+    <span class="sitemap-route">rain</span>
+    <span class="sitemap-route">sno</span>
+    <span class="sitemap-route">starfield</span>
+    <span class="sitemap-route">metaballs</span>
+    <span class="sitemap-route">ant</span>
+    <span class="sitemap-route">field</span>
+    <span class="sitemap-route">toss</span>
+  </div>
+</div>
+
+<div class="sitemap-section">
+  <div class="sitemap-header">KidLisp / Programming &ensp;(15)</div>
+  <div class="sitemap-routes">
+    <span class="sitemap-route">kidlisp</span>
+    <span class="sitemap-route">keep</span>
+    <span class="sitemap-route">kept</span>
+    <span class="sitemap-route">learn</span>
+    <span class="sitemap-route">lang</span>
+    <span class="sitemap-route">decode</span>
+    <span class="sitemap-route">encode</span>
+    <span class="sitemap-route">prompt</span>
+    <span class="sitemap-route">chat</span>
+    <span class="sitemap-route">docgen</span>
+    <span class="sitemap-route">docs/*</span>
+  </div>
+</div>
+
+<div class="sitemap-section">
+  <div class="sitemap-header">Social / Community &ensp;(8)</div>
+  <div class="sitemap-routes">
+    <span class="sitemap-route">mood</span>
+    <span class="sitemap-route">moods</span>
+    <span class="sitemap-route">share</span>
+    <span class="sitemap-route">sign</span>
+    <span class="sitemap-route">signature</span>
+    <span class="sitemap-route">mail</span>
+    <span class="sitemap-route">list</span>
+    <span class="sitemap-route">insta</span>
+  </div>
+</div>
+
+<div class="sitemap-section">
+  <div class="sitemap-header">People / Characters &ensp;(16)</div>
+  <div class="sitemap-routes">
+    <span class="sitemap-route">mom</span>
+    <span class="sitemap-route">dad</span>
+    <span class="sitemap-route">brother</span>
+    <span class="sitemap-route">sister</span>
+    <span class="sitemap-route">husband</span>
+    <span class="sitemap-route">wife</span>
+    <span class="sitemap-route">boyfriend</span>
+    <span class="sitemap-route">girlfriend</span>
+    <span class="sitemap-route">kid</span>
+    <span class="sitemap-route">angel</span>
+    <span class="sitemap-route">robo</span>
+    <span class="sitemap-route">sage</span>
+    <span class="sitemap-route">tobby</span>
+    <span class="sitemap-route">valbear</span>
+    <span class="sitemap-route">gargoyle</span>
+    <span class="sitemap-route">dolls</span>
+  </div>
+</div>
+
+<div class="sitemap-section">
+  <div class="sitemap-header">Whistlegraph &ensp;(8)</div>
+  <div class="sitemap-routes">
+    <span class="sitemap-route">whistlegraph</span>
+    <span class="sitemap-route">wg</span>
+    <span class="sitemap-route">wgr</span>
+    <span class="sitemap-route">m2w2</span>
+    <span class="sitemap-route">wipppps</span>
+    <span class="sitemap-route">neo-wipppps</span>
+    <span class="sitemap-route">merry-fade</span>
+  </div>
+</div>
+
+<div class="sitemap-section">
+  <div class="sitemap-header">Media / TV &ensp;(7)</div>
+  <div class="sitemap-routes">
+    <span class="sitemap-route">tv</span>
+    <span class="sitemap-route">tapes</span>
+    <span class="sitemap-route">screen</span>
+    <span class="sitemap-route">screenshots</span>
+    <span class="sitemap-route">replay</span>
+    <span class="sitemap-route">video</span>
+  </div>
+</div>
+
+<div class="sitemap-section">
+  <div class="sitemap-header">UCLA Course &ensp;(13)</div>
+  <div class="sitemap-routes">
+    <span class="sitemap-route">ucla-1</span>
+    <span class="sitemap-route">ucla-2</span>
+    <span class="sitemap-route">ucla-3</span>
+    <span class="sitemap-route">ucla-4</span>
+    <span class="sitemap-route">ucla-5</span>
+    <span class="sitemap-route">ucla-6</span>
+    <span class="sitemap-route">ucla-7</span>
+    + keyboard, box, turtle, balls, dial, jump variants
+  </div>
+</div>
+
+<div class="sitemap-section">
+  <div class="sitemap-header">Single-Letter &amp; Numeric &ensp;(47)</div>
+  <div class="sitemap-routes">
+    <span class="sitemap-route">$</span>
+    <span class="sitemap-route">0&ndash;9</span>
+    <span class="sitemap-route">a&ndash;z</span>
+  </div>
+</div>
+
+<div class="sitemap-section">
+  <div class="sitemap-header">Dynamic Patterns</div>
+  <div class="sitemap-routes" style="flex-direction: column;">
+    <span style="font-family: 'Berkeley Mono Variable', monospace; font-size: 7pt; color: rgb(120, 80, 180);">/@:handle &rarr; user profile &ensp;&middot;&ensp; /@:handle/:piece &rarr; user piece &ensp;&middot;&ensp; /preview/* &rarr; OG images &ensp;&middot;&ensp; /session/* &rarr; multiplayer rooms</span>
+  </div>
+</div>
+
+</div>
+
+<div class="page-footer">
+  Aesthetic Computer Whitepaper &ensp;&middot;&ensp; March 2026 &ensp;&middot;&ensp;
+  <span class="handle"><span class="c1">@</span><span class="c2">j</span><span class="c3">e</span><span class="c4">f</span><span class="c5">f</span><span class="c6">r</span><span class="c7">e</span><span class="c8">y</span></span>
 </div>
 
 </body>
