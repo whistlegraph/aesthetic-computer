@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,600;1,400&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  @page {
+    size: letter;
+    margin: 1in 1.2in;
+  }
+
+  body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 11pt;
+    line-height: 1.6;
+    color: #111;
+  }
+
+  .header {
+    margin-bottom: 2.5em;
+  }
+
+  .header h1 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 22pt;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    margin-bottom: 0.15em;
+  }
+
+  .header .subtitle {
+    font-size: 12pt;
+    font-weight: 300;
+    color: #555;
+    margin-bottom: 1.2em;
+  }
+
+  .header .meta {
+    font-size: 9.5pt;
+    color: #777;
+    line-height: 1.7;
+  }
+
+  h2 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11pt;
+    font-weight: 600;
+    margin-top: 2em;
+    margin-bottom: 0.5em;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  p {
+    margin-bottom: 0.75em;
+  }
+
+  ul {
+    margin: 0.4em 0 0.9em 1.2em;
+  }
+
+  li {
+    margin-bottom: 0.2em;
+  }
+
+  code {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9.5pt;
+    background: #f0f0f0;
+    padding: 0.1em 0.3em;
+    border-radius: 2px;
+  }
+
+  .links {
+    font-size: 9.5pt;
+    color: #666;
+    margin-top: 1.5em;
+    line-height: 1.8;
+  }
+
+  .links a {
+    color: #333;
+    text-decoration: none;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9pt;
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid #ddd;
+    margin: 1.5em 0;
+  }
+
+  .diagram-section {
+    page-break-before: always;
+    padding-top: 0.5em;
+  }
+
+  .diagram-section h2 {
+    margin-top: 0;
+  }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.6em;
+    margin: 0.8em 0;
+  }
+
+  .stat-box {
+    background: #f7f7f7;
+    border: 1px solid #e0e0e0;
+    padding: 0.5em 0.7em;
+    text-align: center;
+  }
+
+  .stat-box .num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 18pt;
+    font-weight: 600;
+    color: #111;
+    line-height: 1.2;
+  }
+
+  .stat-box .label {
+    font-size: 8pt;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #888;
+    margin-top: 0.15em;
+  }
+
+  .doc-sample {
+    background: #fafafa;
+    border: 1px solid #e0e0e0;
+    padding: 0.5em 0.7em;
+    margin: 0.5em 0;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 8pt;
+    line-height: 1.5;
+    color: #444;
+    white-space: pre-wrap;
+  }
+
+  .doc-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 8pt;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: 0.7em;
+    margin-bottom: 0.15em;
+  }
+
+  .doc-label:first-child { margin-top: 0; }
+
+  .flow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9pt;
+    line-height: 2;
+    margin: 0.6em 0;
+    text-align: center;
+    color: #333;
+  }
+
+  .flow .arrow { color: #999; }
+  .flow .node { font-weight: 600; }
+  .flow .note { color: #888; font-size: 8pt; font-weight: normal; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Aesthetic Computer as Social Instrument</h1>
+  <div class="subtitle">Score for Social Software &mdash; Cycle 2 Proposal</div>
+  <div class="meta">
+    Jeffrey Scudder &ensp;/&ensp; @jeffrey<br>
+    DESMA 596/199 &ensp;&middot;&ensp; March 2026
+  </div>
+</div>
+
+<h2>The Score</h2>
+
+<p>
+I want to use this cycle to develop the social choreography of Aesthetic Computer (AC) &mdash; the open-source creative computing platform I've been building since 2021. AC is a mobile-first runtime and social network where users write, publish, and share small interactive programs called <em>pieces</em>. It already has the technical infrastructure for social software: real-time chat, @handles with custom colors, ephemeral status updates (moods), a pixel painting gallery, a built-in Lisp dialect (KidLisp) for generative art, multiplayer WebSocket sessions, and user profiles that track creative output.
+</p>
+
+<p>
+What I haven't had the chance to develop is the <em>social composition</em> &mdash; deliberate structures for how people use this system together. The platform has 351 built-in pieces and ~2,800 registered handles, but the social dynamics are still largely emergent. I'd like to design and test specific social scores: structured rituals like a daily painting circle, weekly piece exchanges where members fork and remix each other's published programs, collaborative KidLisp jams, and constraint-based chat performances. I want to see what happens when a committed group performs these scores together over 10 weeks.
+</p>
+
+<p>
+Concretely, I'd build new AC pieces during the cycle &mdash; a cohort dashboard, multiplayer collaborative tools, and score templates that define social rules as playable software. I'd also write a "Write a Score" guide that documents how to compose social structures on the platform, parallel to AC's existing "Write a Piece" programming guide.
+</p>
+
+<h2>Audience</h2>
+
+<p>
+The immediate audience is this cohort. The scores I want to test need real people showing up regularly &mdash; you can't evaluate social software alone. Longer term, anything built during the cycle would be live on the public platform for AC's existing community, and the documentation would be reusable for other educators running creative computing workshops.
+</p>
+
+<h2>Why This Cycle</h2>
+
+<p>
+AC's <code>SCORE.md</code> already uses the metaphor of a musical score to organize the project &mdash; the platform's interface is designed to function like an instrument where users discover memorizable paths, build literacy through play, and eventually improvise. Casey's framing of "scores for social software" maps directly onto this. I've been building the instrument; this cycle is a chance to compose for it with peers who are thinking about similar questions from different angles.
+</p>
+
+<p>
+I also want the critical feedback. I've been deep in the technical architecture for years and need outside eyes on the social design &mdash; what feels inviting, what's confusing, what rituals actually sustain participation. A flat cohort of practitioners working on their own social software projects is the right context for that kind of dialogue.
+</p>
+
+<h2>Practice</h2>
+
+<p>
+I'm an artist, educator, and software developer. I build software as a medium for art and education. Before AC, I created No Paint (2020), a pixel art tool whose community of non-technical users taught me how people learn computing through social participation in software they love. AC extends that into a full platform: anyone can write, publish, and share interactive programs at a URL. The codebase is open source and has been in continuous development for 4+ years.
+</p>
+
+<p>
+I teach creative computing and have used AC as infrastructure in courses and workshops.
+</p>
+
+<div class="links">
+  <a href="https://aesthetic.computer">aesthetic.computer</a> &ensp;&middot;&ensp;
+  <a href="https://github.com/whistlegraph/aesthetic-computer">github</a> &ensp;&middot;&ensp;
+  <a href="https://nopaint.art">nopaint.art</a> &ensp;&middot;&ensp;
+  <a href="https://news.ycombinator.com/item?id=41526754">notepat on hn</a>
+</div>
+
+<!-- NETWORK REPORT CARD -->
+<div class="diagram-section">
+
+<h2>Appendix: The Network</h2>
+
+<p style="font-size: 9.5pt; color: #666; margin-bottom: 0.8em;">
+  Live data from AC's MongoDB cluster as of March 2, 2026. This is the material a score composes over.
+</p>
+
+<div class="stat-grid">
+  <div class="stat-box"><div class="num">2,798</div><div class="label">@handles</div></div>
+  <div class="stat-box"><div class="num">18,016</div><div class="label">chat messages</div></div>
+  <div class="stat-box"><div class="num">4,392</div><div class="label">paintings</div></div>
+  <div class="stat-box"><div class="num">2,900</div><div class="label">moods</div></div>
+  <div class="stat-box"><div class="num">16,174</div><div class="label">kidlisp programs</div></div>
+  <div class="stat-box"><div class="num">265</div><div class="label">published pieces</div></div>
+  <div class="stat-box"><div class="num">333</div><div class="label">clocks</div></div>
+  <div class="stat-box"><div class="num">102</div><div class="label">tapes</div></div>
+  <div class="stat-box"><div class="num">93,122</div><div class="label">boot events</div></div>
+</div>
+
+<p style="font-size: 9pt; color: #666; margin: 0.3em 0 0;">
+  <strong style="color:#444;">Who makes things:</strong>
+  1,067 users have painted &middot;
+  997 have posted moods &middot;
+  59 have written KidLisp &middot;
+  19 have published pieces
+</p>
+
+<div class="doc-label">The instrument loop</div>
+<div class="flow">
+  <span class="node">prompt</span>
+  <span class="arrow">&ensp;&rarr;&ensp;</span>
+  type a piece name
+  <span class="arrow">&ensp;&rarr;&ensp;</span>
+  <span class="node">enter</span>
+  <span class="arrow">&ensp;&rarr;&ensp;</span>
+  play the piece
+  <span class="arrow">&ensp;&rarr;&ensp;</span>
+  <span class="node">esc</span>
+  <span class="arrow">&ensp;&rarr;&ensp;</span>
+  back to prompt
+</div>
+
+<div class="doc-label">How user data flows</div>
+<div class="flow">
+  <span class="node">@handle</span>
+  <span class="arrow">&ensp;&rarr;&ensp;</span>
+  paint / chat / mood / kid / publish
+  <span class="arrow">&ensp;&rarr;&ensp;</span>
+  <span class="node">MongoDB</span>
+  <span class="arrow">&ensp;&rarr;&ensp;</span>
+  profile scorecard
+  <span class="arrow">&ensp;&rarr;&ensp;</span>
+  <span class="node">public URL</span>
+  <br>
+  <span class="note">moods also mirror to Bluesky via ATProto &ensp;&middot;&ensp; paintings stored on DigitalOcean Spaces CDN</span>
+</div>
+
+<div class="doc-label">Sample documents from MongoDB (live)</div>
+
+<div class="doc-sample"><strong>mood</strong>  { mood: "studying astronomy", when: "2026-03-02T12:32:49Z", atproto: { rkey: "3mg3b6jcj4k2x" } }</div>
+
+<div class="doc-sample"><strong>painting</strong>  { code: "gfl", slug: "2026.03.02.14.14.39", when: "2026-03-02T13:14:48Z", atproto: { rkey: "3mg3djpo6ck2x" } }</div>
+
+<div class="doc-sample"><strong>kidlisp</strong>  { code: "27z", source: "fade:red-blue-black-blue-red\nscroll (* 100 amp)", hits: 1, when: "2026-03-01" }</div>
+
+<div class="doc-sample"><strong>chat</strong>  { text: "y'all gonna piss me off", when: "2026-03-02T05:26:25Z", font: "font_1" }</div>
+
+<div class="doc-sample"><strong>piece</strong>  { code: "zod", slug: "zod", name: "3d-cube", extension: ".mjs", hits: 1, when: "2026-02-12" }</div>
+
+<p style="font-size: 9pt; color: #666; margin-top: 1em;">
+  Every document ties back to an authenticated user. Every user has a profile that counts their contributions. The question for this cycle: what social structures &mdash; what <em>scores</em> &mdash; can make these numbers move together instead of in isolation?
+</p>
+
+</div>
+
+</body>
+</html>
