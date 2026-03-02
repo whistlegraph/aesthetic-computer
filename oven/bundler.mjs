@@ -429,6 +429,18 @@ function rewriteImports(code, filepath) {
       return '("' + resolved + '")';
     }
   );
+
+  // Rewrite new URL("relative-path", import.meta.url) patterns.
+  // In pack mode, import.meta.url is a blob: URL that can't resolve relative paths.
+  // Resolve the relative path to a VFS-absolute path so the fetch intercept can serve it.
+  code = code.replace(
+    /new\s+URL\(\s*['"](\.\.?\/[^'"]+)['"]\s*,\s*import\.meta\.url\s*\)/g,
+    (match, p) => {
+      const resolved = resolvePath(filepath, p);
+      return 'new URL("/' + resolved + '", location.href)';
+    }
+  );
+
   return code;
 }
 
@@ -448,13 +460,11 @@ async function minifyJS(content, relativePath) {
         dead_code: true,
         drop_debugger: true,
         unused: true,
-        passes: 3,
+        passes: 2,
         pure_getters: "strict",
-        toplevel: true,
       },
       mangle: true,
       module: true,
-      toplevel: true,
       format: { comments: false, ascii_only: false, ecma: 2020 },
     });
     return result.code || processed;
