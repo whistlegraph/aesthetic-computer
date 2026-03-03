@@ -67,6 +67,22 @@
             padding: 1em 1.5em 1.5em;
         }
 
+        /* Header row — title left, sponsor right */
+        .header-row {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 1em;
+            margin-bottom: 1.5em;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: baseline;
+            gap: 0.6em;
+            min-width: 0;
+        }
+
         /* Title — flush top-left like give/docs */
         h1 {
             font-family: 'YWFT Processing', 'Berkeley Mono Variable', monospace;
@@ -75,7 +91,8 @@
             color: var(--pink);
             cursor: pointer;
             transition: color 0.2s;
-            margin-bottom: 0.3em;
+            margin: 0;
+            white-space: nowrap;
         }
         h1:hover { color: purple; }
         h1:active { color: gray; }
@@ -83,7 +100,19 @@
         .subtitle {
             font-size: 0.8em;
             color: var(--dim);
-            margin-bottom: 1.5em;
+            white-space: nowrap;
+        }
+
+        .sponsor-badge iframe {
+            display: block;
+            border: 1px solid var(--pink);
+            border-radius: 8px;
+            box-shadow: 0 0 8px rgba(255, 107, 157, 0.25);
+            transition: box-shadow 0.2s, border-color 0.2s;
+        }
+        .sponsor-badge:hover iframe {
+            box-shadow: 0 0 14px rgba(255, 107, 157, 0.45);
+            border-color: #c44dff;
         }
 
         h2 {
@@ -361,6 +390,9 @@
         @media (max-width: 600px) {
             .container { padding: 0.8em; }
             h1 { font-size: 18px; }
+            .header-row { flex-wrap: wrap; gap: 0.5em; }
+            .header-left { gap: 0.4em; }
+            .subtitle { font-size: 0.7em; }
             .stats { grid-template-columns: 1fr 1fr; }
             .stat-value { font-size: 1.4em; }
             table { font-size: 0.78em; }
@@ -379,19 +411,21 @@
 <body>
     <div class="container">
 
-        <h1 id="title">bills</h1>
-        <div class="subtitle">aesthetic.computer — 2026-03-03</div>
+        <div class="header-row">
+            <div class="header-left">
+                <h1 id="title">bills</h1>
+                <div class="subtitle">aesthetic.computer — 2026-03-03</div>
+            </div>
+            <div class="sponsor-badge">
+                <iframe src="https://github.com/sponsors/whistlegraph/button" title="Sponsor whistlegraph" height="32" width="114" style="border: 0;"></iframe>
+            </div>
+        </div>
 
         <!-- Give bumper -->
         <a class="give-bumper" href="https://give.aesthetic.computer">
             give.aesthetic.computer
             <span class="give-sub">help keep the servers running</span>
         </a>
-
-        <!-- GitHub Sponsors -->
-        <div style="text-align: center; margin-bottom: 1.5em;">
-            <iframe src="https://github.com/sponsors/whistlegraph/button" title="Sponsor whistlegraph" height="32" width="114" style="border: 0; border-radius: 6px;"></iframe>
-        </div>
 
         <!-- Alerts -->
         <div class="alerts">

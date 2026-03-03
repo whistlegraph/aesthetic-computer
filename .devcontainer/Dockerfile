@@ -32,6 +32,7 @@ RUN dnf clean all && rm -rf /var/cache/dnf && \
       libsodium libsodium-devel libffi libffi-devel \
       gmp gmp-devel \
       pkg-config autoconf automake libtool \
+      pinentry gnupg2 \
       ocaml opam rsync m4 patch bubblewrap \
       libX11 libxkbfile libsecret libxshmfence libXtst \
       nss atk pango cups-libs libXcomposite libXcursor \
