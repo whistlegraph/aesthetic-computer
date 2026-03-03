@@ -1,0 +1,376 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+
+% Custom AC fonts
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multicol}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{natbib}
+
+% === COLORS (AC palette) ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={Jeffrey Alan Scudder},
+  pdftitle={KidLisp: A Minimal Lisp for Generative Art},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === CUSTOM COMMANDS ===
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\kidlisp}{\textsc{KidLisp}}
+
+% === LISTINGS ===
+\lstdefinelanguage{kidlisp}{
+  morekeywords={wipe,ink,line,box,circle,tri,plot,flood,shape,zoom,scroll,spin,blur,contrast,def,let,if,once,repeat,later,embed,layer,width,height,frame,time,random,sin,cos,wiggle,melody,mic},
+  sensitive=true,
+  morecomment=[l]{;},
+  morestring=[b]",
+  literate={(}{{{\color{acgray}(}}}{1}
+           {)}{{{\color{acgray})}}}{1},
+}
+\lstset{
+  language=kidlisp,
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{acpurple}\bfseries,
+  commentstyle=\color{acgray}\itshape,
+  stringstyle=\color{acpink},
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{acgray!30},
+  backgroundcolor=\color{acgray!5},
+  xleftmargin=0.5em,
+  xrightmargin=0.5em,
+  aboveskip=0.5em,
+  belowskip=0.5em,
+}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\begin{document}
+
+% ============ TITLE BLOCK ============
+
+\twocolumn[{%
+\begin{center}
+{\acbold\fontsize{24pt}{28pt}\selectfont\color{acdark} KidLisp}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} A Minimal Lisp for Generative Art}\par
+\vspace{0.6em}
+{\normalsize Jeffrey Alan Scudder}\par
+{\small\color{acgray} Independent Researcher / Aesthetic Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://kidlisp.com} \enspace$\cdot$\enspace \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{quote}
+\small\noindent\textbf{Abstract.}
+\kidlisp{} is a minimal Lisp dialect with 118 built-in functions designed for creating generative art and interactive experiences. It runs inside the Aesthetic Computer platform, a mobile-first runtime for creative computing. The language prioritizes immediate visual output, minimal syntax, and social distribution over computational generality. Programs are shareable by three-character codes, embeddable in other programs, and executable at a URL. We describe the language design, its evaluator architecture, and report on adoption: 59 active authors have created 16,174 programs, forming a naturalistic corpus of creative coding practices. We argue that \kidlisp{} demonstrates a viable design point for domain-specific languages that trade expressive power for accessibility and social participation.
+\end{quote}
+\vspace{0.5em}
+}]
+
+% ============ 1. INTRODUCTION ============
+
+\section{Introduction}
+
+Creative coding environments typically require users to learn a general-purpose programming language before producing visual or sonic output. Processing~\citep{reas2007processing} uses Java syntax; p5.js~\citep{mccarthy2015p5js} uses JavaScript; Sonic Pi~\citep{aaron2016sonic} uses Ruby-like constructs. While these tools have dramatically lowered the barrier to computational expression, they still demand familiarity with variables, functions, control flow, and---in many cases---an IDE or local development environment.
+
+\kidlisp{} takes a different approach. Rather than simplifying a general-purpose language, it starts from the question: \emph{what is the smallest language that can produce interesting generative art?} The answer is a Lisp with 118 carefully chosen built-in functions, no user-defined functions beyond \texttt{def}, no file I/O or networking, and a browser-native runtime that requires no installation.
+
+The design is motivated by observations from No Paint~(2020), a pixel art tool whose community of non-technical users demonstrated that people learn computing through social participation in software they love. \kidlisp{} extends this insight into a programming language: every program is immediately shareable by a three-character code, viewable at a URL, and embeddable inside other programs.
+
+This paper describes the language design~(\S\ref{sec:design}), evaluator architecture~(\S\ref{sec:architecture}), the social distribution system~(\S\ref{sec:social}), and adoption data~(\S\ref{sec:evaluation}).
+
+% ============ 2. LANGUAGE DESIGN ============
+
+\section{Language Design}
+\label{sec:design}
+
+\kidlisp{} is an S-expression language. Every program is a sequence of expressions evaluated top-to-bottom, producing side effects on an HTML Canvas 2D context, a Web Audio graph, or both.
+
+\subsection{Design Principles}
+
+\begin{enumerate}
+  \item \textbf{Every expression draws.} Valid \kidlisp{} produces visible output. There is no \texttt{main}, no imports, no boilerplate.
+  \item \textbf{Flat over deep.} Programs are composed by embedding other programs, not by defining abstractions. This keeps code readable at a glance.
+  \item \textbf{Safe by construction.} No file I/O, no networking, no mutation of external state. Programs are sandboxed by the language's lack of dangerous primitives.
+  \item \textbf{Social by default.} Every program gets a short code and a URL. Sharing is not an afterthought; it is the distribution mechanism.
+\end{enumerate}
+
+\subsection{Function Categories}
+
+The 118 built-in functions span 12 categories:
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{lrX}
+\toprule
+\textbf{Category} & \textbf{n} & \textbf{Examples} \\
+\midrule
+Graphics & 9 & \texttt{wipe}, \texttt{ink}, \texttt{line}, \texttt{box}, \texttt{circle} \\
+Transformations & 11 & \texttt{scroll}, \texttt{zoom}, \texttt{spin}, \texttt{blur}, \texttt{suck} \\
+Math & 14 & \texttt{+}, \texttt{sin}, \texttt{cos}, \texttt{random}, \texttt{wiggle} \\
+Colors & 19 & CSS names + \texttt{rainbow}, \texttt{zebra} \\
+System & 9 & \texttt{width}, \texttt{height}, \texttt{frame}, \texttt{fps} \\
+3D & 8 & \texttt{cube}, \texttt{form}, \texttt{trans} \\
+Audio & 6 & \texttt{mic}, \texttt{melody}, \texttt{overtone} \\
+Control & 7 & \texttt{def}, \texttt{if}, \texttt{repeat}, \texttt{once}, \texttt{later} \\
+Text & 4 & \texttt{text}, \texttt{font} \\
+Input & 3 & \texttt{pen}, \texttt{touch} \\
+Composition & 4 & \texttt{embed}, \texttt{layer}, \texttt{fade} \\
+Data & 4 & \texttt{let}, \texttt{list}, \texttt{get}, \texttt{set} \\
+\midrule
+\textbf{Total} & \textbf{118} & \\
+\bottomrule
+\end{tabularx}
+\caption{KidLisp built-in functions by category.}
+\label{tab:functions}
+\end{table}
+
+\subsection{Syntax Examples}
+
+A complete \kidlisp{} program that draws a rotating red circle:
+
+\begin{lstlisting}
+(wipe black)
+(spin (* frame 0.01))
+(ink red)
+(circle (/ width 2) (/ height 2) 50)
+\end{lstlisting}
+
+An animated gradient background with embedded audio:
+
+\begin{lstlisting}
+(wipe (rainbow (* frame 0.5)))
+(melody "c4 e4 g4 c5")
+(ink white 128)
+(text "hello" (/ width 2) (/ height 2))
+\end{lstlisting}
+
+A program that embeds another program as a layer:
+
+\begin{lstlisting}
+(wipe black)
+(layer $cow 0.5)
+(spin 0.5)
+(zoom 1.01)
+\end{lstlisting}
+
+Here \texttt{\$cow} is a reference to another \kidlisp{} program by its three-character code. The \texttt{layer} function composites it with 50\% opacity.
+
+\subsection{What KidLisp Omits}
+
+The language deliberately excludes:
+
+\begin{itemize}
+  \item User-defined functions (beyond \texttt{def} for named values)
+  \item Recursion
+  \item String manipulation
+  \item File I/O and networking
+  \item Mutable data structures
+  \item Exception handling
+\end{itemize}
+
+These omissions are not limitations---they are the design. By removing abstraction mechanisms, \kidlisp{} keeps programs flat and legible. A reader can understand any program by reading it top-to-bottom, without tracing call stacks. Composition happens through embedding, not through abstraction.
+
+% ============ 3. ARCHITECTURE ============
+
+\section{Evaluator Architecture}
+\label{sec:architecture}
+
+The evaluator (\texttt{kidlisp.mjs}, approximately 50KB) is a single JavaScript ES module implementing a tree-walking interpreter.
+
+\subsection{Evaluation Model}
+
+\begin{enumerate}
+  \item \textbf{Parse}: S-expressions are tokenized and parsed into a nested array AST.
+  \item \textbf{Walk}: The evaluator traverses the tree, dispatching on the first symbol of each list.
+  \item \textbf{Execute}: Built-in functions map directly to Canvas 2D operations, Web Audio API calls, and mathematical computations.
+\end{enumerate}
+
+The evaluator runs once per animation frame (typically 60 FPS). The entire program is re-evaluated each frame, with \texttt{frame} and \texttt{time} bindings updated automatically. This model---borrowed from immediate-mode graphics---eliminates the need for explicit animation loops or state management.
+
+\subsection{Deterministic Rendering}
+
+Given the same random seed and frame count, a \kidlisp{} program always produces identical output. The \texttt{random} function uses a seeded PRNG initialized from the program's short code. This enables reproducible generative art: the same code at the same frame always looks the same.
+
+\subsection{Embedding and Composition}
+
+The \texttt{embed} and \texttt{layer} functions load other \kidlisp{} programs by their short codes. The evaluator maintains a cache of parsed programs and renders them into offscreen canvases, compositing the results with configurable opacity and blend modes.
+
+This creates a composition graph: programs reference other programs, forming chains of visual layers. In practice, users build complex visuals by combining simple programs rather than writing complex single programs.
+
+\subsection{Performance}
+
+The evaluator processes typical programs in under 1ms per frame. Transformation functions (\texttt{blur}, \texttt{zoom}, \texttt{spin}) operate on pixel buffers and are the primary performance cost. Embedding adds the cost of evaluating the referenced program, but caching mitigates this for static programs.
+
+% ============ 4. SOCIAL DISTRIBUTION ============
+
+\section{Social Distribution}
+\label{sec:social}
+
+Every \kidlisp{} program, upon creation, is assigned a unique three-character alphanumeric code (e.g., \texttt{cow}, \texttt{27z}, \texttt{gfl}) and stored in MongoDB via a REST API.
+
+\subsection{Sharing Mechanisms}
+
+Programs are shareable through multiple channels:
+
+\begin{itemize}
+  \item \textbf{URL}: \texttt{aesthetic.computer/\$cow} renders the program in a browser
+  \item \textbf{Code}: Users type \texttt{\$cow} in the Aesthetic Computer prompt to view any program
+  \item \textbf{Embedding}: \texttt{(\$cow)} inside another program includes it as a visual layer
+  \item \textbf{QR code}: \texttt{share \$cow} generates a scannable code
+\end{itemize}
+
+The three-character code is memorable and speakable. Users share programs verbally (``check out dollar cow''), in chat, and by QR code at physical events. This is intentional: the distribution mechanism is designed for social contexts, not package managers.
+
+\subsection{Remixing}
+
+Any program's source is viewable. Users routinely copy a program's code, modify it, and save a new version. This creates informal lineages of remixed programs---a pattern well-documented in Scratch~\citep{resnick2009scratch} and Shadertoy communities.
+
+% ============ 5. EVALUATION ============
+
+\section{Evaluation}
+\label{sec:evaluation}
+
+\kidlisp{} has been available on the Aesthetic Computer platform since 2024. As of March 2026:
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lr}
+\toprule
+\textbf{Metric} & \textbf{Value} \\
+\midrule
+Total programs created & 16,174 \\
+Unique authors & 59 \\
+Programs per author (median) & 12 \\
+Programs per author (top quartile) & 180+ \\
+Embedding depth (max observed) & 7 layers \\
+Platform registered users & 2,798 \\
+\bottomrule
+\end{tabular}
+\caption{KidLisp adoption metrics (March 2026).}
+\label{tab:adoption}
+\end{table}
+
+\subsection{Observations}
+
+The 16,174 programs represent a naturalistic corpus of creative coding practices produced by a non-expert population. Several patterns emerge:
+
+\textbf{Composition over abstraction.} Users embed rather than abstract. The most-referenced programs are simple visual primitives (gradients, shapes, patterns) that serve as building blocks for more complex compositions.
+
+\textbf{Exploration over engineering.} Programs are typically short (under 10 lines). Users iterate by saving new programs rather than editing existing ones, creating divergent exploration paths.
+
+\textbf{Social learning.} The most prolific authors began by viewing and remixing existing programs. The three-character code system makes discovery accidental---users encounter programs by trying random codes.
+
+\subsection{Limitations}
+
+\kidlisp{} is not suitable for general-purpose programming, complex simulations, or applications requiring state persistence across sessions. Its 118-function vocabulary is sufficient for generative art but would be constraining for other domains. The lack of user-defined functions limits program complexity---a deliberate choice, but one that some advanced users find frustrating.
+
+% ============ 6. RELATED WORK ============
+
+\section{Related Work}
+
+\kidlisp{} sits at the intersection of creative coding environments, educational programming languages, and live coding tools.
+
+\textbf{Creative coding.} Processing~\citep{reas2007processing} and p5.js~\citep{mccarthy2015p5js} are the dominant tools, using Java and JavaScript respectively. OpenFrameworks uses C++. All require managing a project structure and understanding a general-purpose language. \kidlisp{} trades generality for immediacy.
+
+\textbf{Live coding.} Hydra~\citep{hydra2019} provides a JavaScript-based live visual coding environment. TidalCycles uses Haskell for music. Sonic Pi~\citep{aaron2016sonic} uses Ruby for music education. Fluxus~\citep{fluxus2007} used a Scheme-like language for 3D visuals. \kidlisp{} is closest to Fluxus in spirit but targets 2D generative art in the browser.
+
+\textbf{Educational languages.} Scratch~\citep{resnick2009scratch} demonstrated that social sharing drives engagement in educational programming. Logo introduced turtle graphics as a minimal drawing primitive. \kidlisp{} inherits Logo's philosophy of immediate visual feedback but uses a Lisp syntax and targets generative art rather than geometry.
+
+\textbf{Lisp for art.} Racket's \texttt{2htdp/image} library~\citep{racket2018} provides functional image construction for CS education. Context Free Art uses a grammar-based approach. \kidlisp{} differs by targeting real-time animation and embedding a social distribution mechanism directly in the language.
+
+% ============ 7. CONCLUSION ============
+
+\section{Conclusion}
+
+\kidlisp{} demonstrates that a minimal domain-specific language---118 functions, no user-defined abstractions, browser-native---can support a productive community of generative art practitioners. The key design insight is that social distribution (three-character codes, URL sharing, embedding) is not an add-on but a core language feature that shapes how users learn, create, and build on each other's work.
+
+The corpus of 16,174 programs created by 59 authors provides evidence that non-expert users can engage productively with a Lisp-family language when the domain is constrained and the feedback is immediate. We suggest that this design point---trading computational generality for social accessibility---deserves further exploration in the language design community.
+
+\kidlisp{} is open source under the ISC license. The evaluator, documentation, and tools are available at \url{https://github.com/digitpain/aesthetic.computer}. Programs can be browsed and created at \url{https://kidlisp.com}.
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+% ============ REFERENCES ============
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
