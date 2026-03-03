@@ -964,7 +964,7 @@ export const handler = stream(async (event, context) => {
         creators: creatorsArray,
         royalties,  // v4: Add royalty configuration
         rights: "© All rights reserved",
-        mintingTool: "https://aesthetic.computer",
+        mintingTool: "https://kidlisp.com",
         formats: [{
           uri: artifactUri,
           mimeType: "text/html",
