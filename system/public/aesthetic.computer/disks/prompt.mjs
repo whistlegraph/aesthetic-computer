@@ -7145,103 +7145,133 @@ function paint($) {
         const faceX = Math.floor(symbolX + shakeX);
         const faceY = Math.floor(symbolY + shakeY);
 
-        // Draw custom face at 2x scale (manually scaled coordinates)
-        // Helper to draw a 2x scaled box
+        // Draw filled, illustrative kid face at 2x scale
         const s = 2; // scale factor
         const box2x = (x, y, w, h) => $.box(faceX + x * s, faceY + y * s, w * s, h * s);
 
-        // Face outline (circle approximation - rounded square)
-        ink(...faceColor, faceAlpha);
-        // Top edge
+        // --- Skin fill (warm peach) ---
+        const skinColor = [255, 205, 168];
+        ink(...skinColor, 235);
+        box2x(4, 1, 8, 1);
+        box2x(2, 2, 12, 2);
+        box2x(1, 4, 14, 8);
+        box2x(2, 12, 12, 2);
+        box2x(4, 14, 8, 1);
+
+        // --- Hair (dark brown, messy tufts) ---
+        const hairDark = emotionPhase === 0 ? [80, 25, 15] : [65, 40, 25];
+        const hairLight = emotionPhase === 0 ? [110, 40, 20] : [90, 60, 35];
+        ink(...hairDark, 245);
         box2x(4, 0, 8, 1);
-        // Upper sides
+        box2x(2, 1, 12, 1);
+        box2x(1, 2, 2, 1); box2x(13, 2, 2, 1);
+        // Tufts sticking up
+        ink(...hairLight, 230);
+        box2x(3, -1, 2, 1);
+        box2x(7, -1, 3, 1);
+        box2x(12, -1, 2, 1);
+
+        // --- Emotion-colored outline ---
+        ink(...faceColor, faceAlpha);
+        box2x(4, 0, 8, 1);
         box2x(2, 1, 2, 1); box2x(12, 1, 2, 1);
-        // Side edges
         box2x(1, 2, 1, 2); box2x(14, 2, 1, 2);
         box2x(0, 4, 1, 8); box2x(15, 4, 1, 8);
         box2x(1, 12, 1, 2); box2x(14, 12, 1, 2);
-        // Lower sides
         box2x(2, 14, 2, 1); box2x(12, 14, 2, 1);
-        // Bottom edge
         box2x(4, 15, 8, 1);
 
-        // Draw eyes and expression based on emotion phase
+        // --- Rosy cheeks ---
+        ink(255, 130, 130, emotionPhase === 0 ? 160 : 110);
+        box2x(2, 8, 2, 2);
+        box2x(12, 8, 2, 2);
+
+        // --- Eyes and expression per emotion ---
         if (emotionPhase === 0) {
-          // ANGRY FACE 😡 - angry eyebrows, gritted teeth
-          // Angry eyebrows (angled down toward center)
-          box2x(3, 4, 2, 1);  // Left eyebrow outer
-          box2x(5, 5, 1, 1);  // Left eyebrow inner (lower)
-          box2x(11, 4, 2, 1); // Right eyebrow outer
-          box2x(10, 5, 1, 1); // Right eyebrow inner (lower)
-          // Eyes (smaller, squinting)
-          box2x(4, 6, 2, 1);  // Left eye
-          box2x(10, 6, 2, 1); // Right eye
-          // Gritted teeth / angry mouth
-          box2x(5, 11, 6, 1);  // Top teeth line
-          box2x(5, 12, 1, 1); box2x(7, 12, 1, 1); box2x(9, 12, 1, 1); // Gaps
-          box2x(5, 13, 6, 1);  // Bottom teeth line
+          // ANGRY FACE - white sclera, dark pupils, V-brows, gritted teeth
+          ink(255, 255, 255, 230);
+          box2x(3, 5, 4, 2); box2x(9, 5, 4, 2);
+          ink(30, 10, 10, 255);
+          box2x(5, 5, 2, 2); box2x(9, 5, 2, 2);
+          // V-shaped angry eyebrows
+          ink(...faceColor, 255);
+          box2x(2, 3, 2, 1); box2x(4, 4, 2, 1);
+          box2x(12, 3, 2, 1); box2x(10, 4, 2, 1);
+          // Gritted teeth with dark mouth
+          ink(60, 10, 10, 220);
+          box2x(5, 11, 6, 3);
+          ink(255, 255, 255, 230);
+          box2x(5, 11, 6, 1); box2x(5, 13, 6, 1);
+          ink(60, 10, 10, 220);
+          box2x(6, 11, 1, 1); box2x(8, 11, 1, 1); box2x(10, 11, 1, 1);
+          box2x(6, 13, 1, 1); box2x(8, 13, 1, 1); box2x(10, 13, 1, 1);
         } else if (emotionPhase === 1) {
-          // SAD FACE 😢 - regular eyes, frown
-          // Eyes (2x2 pixels each)
-          box2x(4, 5, 2, 2);  // Left eye
-          box2x(10, 5, 2, 2); // Right eye
-          // Sad frown (curved down)
-          box2x(4, 11, 1, 1);   // Left corner up
-          box2x(5, 12, 1, 1);   // Left slope
-          box2x(6, 13, 4, 1);   // Bottom of frown
-          box2x(10, 12, 1, 1);  // Right slope
-          box2x(11, 11, 1, 1);  // Right corner up
+          // SAD FACE - big eyes looking down, worried brows, frown
+          ink(255, 255, 255, 240);
+          box2x(3, 5, 4, 3); box2x(9, 5, 4, 3);
+          ink(40, 25, 25, 255);
+          box2x(4, 6, 2, 2); box2x(10, 6, 2, 2);
+          // Eye shine
+          ink(255, 255, 255, 200);
+          box2x(3, 5, 1, 1); box2x(9, 5, 1, 1);
+          // Worried eyebrows (angled up toward center)
+          ink(...faceColor, 220);
+          box2x(2, 4, 1, 1); box2x(3, 3, 2, 1); box2x(5, 4, 1, 1);
+          box2x(13, 4, 1, 1); box2x(11, 3, 2, 1); box2x(10, 4, 1, 1);
+          // Sad frown
+          ink(170, 90, 90, 210);
+          box2x(5, 12, 1, 1); box2x(6, 13, 4, 1); box2x(10, 12, 1, 1);
         } else {
-          // CRYING FACE 😭 - closed eyes (lines), tears falling to bottom, wailing mouth
-          // Closed/squinting eyes (horizontal lines)
-          box2x(3, 5, 3, 1);  // Left eye closed
-          box2x(10, 5, 3, 1); // Right eye closed
+          // CRYING FACE - squinted watery eyes, tear tracks, wailing mouth
+          // Squinted eyes (skin covers top half, watery blue showing)
+          ink(255, 255, 255, 200);
+          box2x(3, 5, 4, 2); box2x(9, 5, 4, 2);
+          ink(...skinColor, 240);
+          box2x(3, 5, 4, 1); box2x(9, 5, 4, 1);
+          ink(80, 180, 255, 230);
+          box2x(4, 6, 2, 1); box2x(10, 6, 2, 1);
+          // Sad eyebrows
+          ink(...faceColor, 200);
+          box2x(2, 3, 1, 1); box2x(3, 2, 3, 1);
+          box2x(13, 3, 1, 1); box2x(10, 2, 3, 1);
+          // Tear tracks on cheeks
+          ink(100, 190, 255, 100);
+          box2x(4, 7, 1, 3); box2x(11, 7, 1, 3);
 
-          // Multiple tear drops falling to bottom of screen
-          // Tears spawn from the face but drift independently (use symbolX/Y not faceX/Y)
-          const tearSpawnY = symbolY + 14; // Start below eyes (base position, no shake)
+          // Falling tear drops
+          const tearSpawnY = symbolY + 14;
           const tearColors = [
-            [80, 180, 255],  // Light blue
-            [100, 200, 255], // Cyan
-            [120, 220, 255], // Brighter cyan
+            [80, 180, 255],
+            [100, 200, 255],
+            [120, 220, 255],
           ];
-
-          // Draw multiple tears at different phases - they fall on their own paths
           for (let t = 0; t < 6; t++) {
-            const tearPhase = (motdFrame * 0.15 + t * 1.2) % 8; // Staggered timing
-            const tearProgress = tearPhase / 8; // 0-1
+            const tearPhase = (motdFrame * 0.15 + t * 1.2) % 8;
+            const tearProgress = tearPhase / 8;
             const tearY = tearSpawnY + tearProgress * (screen.height - tearSpawnY + 10);
-
-            // Tears drift independently with their own sine wave (based on their index, not face shake)
-            const tearDriftX = Math.sin(tearPhase * 0.8 + t * 2.1) * (3 + tearProgress * 8); // Wider drift as they fall
-            const tearDriftY = Math.cos(tearPhase * 0.5 + t) * 2; // Slight vertical wobble
-
-            // Left tears - spawn from left eye area (base position)
+            const tearDriftX = Math.sin(tearPhase * 0.8 + t * 2.1) * (3 + tearProgress * 8);
+            const tearDriftY = Math.cos(tearPhase * 0.5 + t) * 2;
             const leftTearBaseX = symbolX + 8 + (t % 2) * 4;
             const leftTearX = leftTearBaseX + tearDriftX;
-            // Right tears - spawn from right eye area (base position)
             const rightTearBaseX = symbolX + 22 - (t % 2) * 4;
-            const rightTearX = rightTearBaseX - tearDriftX; // Mirror the drift
-
+            const rightTearX = rightTearBaseX - tearDriftX;
             const tearColor = tearColors[t % tearColors.length];
-            const tearAlpha = Math.floor((1 - tearProgress * 0.5) * 200); // Fade slightly
-            const tearSize = t % 2 === 0 ? 3 : 2; // Vary sizes
-
+            const tearAlpha = Math.floor((1 - tearProgress * 0.5) * 200);
+            const tearSize = t % 2 === 0 ? 3 : 2;
             if (tearY < screen.height) {
               ink(...tearColor, tearAlpha);
-              // Teardrop shape (stretched vertically)
               $.box(Math.floor(leftTearX), Math.floor(tearY + tearDriftY), tearSize, tearSize + 1);
               $.box(Math.floor(rightTearX), Math.floor(tearY + tearDriftY), tearSize, tearSize + 1);
             }
           }
 
-          // Reset to face color for mouth
-          ink(...faceColor, faceAlpha);
-          // Wailing open mouth (big oval)
-          box2x(5, 10, 6, 1);   // Top of mouth
-          box2x(4, 11, 1, 3);   // Left side
-          box2x(11, 11, 1, 3);  // Right side
-          box2x(5, 14, 6, 1);   // Bottom of mouth
+          // Wailing open mouth with teeth
+          ink(60, 15, 15, 220);
+          box2x(5, 10, 6, 5);
+          ink(220, 100, 100, 180);
+          box2x(6, 13, 4, 1);
+          ink(255, 255, 255, 220);
+          box2x(6, 10, 4, 1);
         }
 
         // Sparks flying off the head (color matches emotion)
@@ -7300,9 +7330,9 @@ function paint($) {
         const moodWords = ["GRRR!", "sigh...", "HELP!"];
         const moodWord = moodWords[emotionPhase] || "HELP!";
         const numWordsPerSide = 3;
-        // Fixed screen position - independent of head movement
-        const wordOriginX = screen.width / 2;
-        const wordOriginY = Math.min(screen.height * 0.22, 50);
+        // Sourced from the face position (words emerge from the kid)
+        const wordOriginX = faceX + scaledSize / 2;
+        const wordOriginY = faceY + scaledSize / 2;
 
         // Mood-based color palettes
         const moodLeftColors = [
