@@ -406,6 +406,90 @@
       }
     }
 
+    .keeps-endpoint-name.v6 {
+      color: #4ade80;
+    }
+
+    .keeps-endpoint-name.v6::after {
+      content: " v6";
+      color: #4ade80;
+      font-size: 10px;
+      font-weight: 500;
+      margin-left: 6px;
+    }
+
+    /* v6 Launch Steps */
+    .v6-launch-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .v6-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 16px;
+      border-left: 2px solid var(--border-color);
+      position: relative;
+    }
+
+    .v6-step.done {
+      border-left-color: #4a9c5d;
+    }
+
+    .v6-step.pending {
+      border-left-color: var(--border-color);
+    }
+
+    .v6-step-icon {
+      flex-shrink: 0;
+      width: 22px;
+      height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      border-radius: 50%;
+    }
+
+    .v6-step.done .v6-step-icon {
+      color: #4a9c5d;
+    }
+
+    .v6-step.pending .v6-step-icon {
+      color: var(--text-tertiary);
+    }
+
+    .v6-step-content {
+      flex: 1;
+    }
+
+    .v6-step-title {
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+    }
+
+    .v6-step.done .v6-step-title {
+      color: var(--text-tertiary);
+    }
+
+    .v6-step-desc {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      line-height: 1.5;
+    }
+
+    .v6-step-desc code {
+      background: var(--code-bg);
+      color: var(--code-text);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 11px;
+    }
+
     .keeps-version-docs { display: none; }
     .keeps-version-docs.active { display: block; }
 
@@ -1214,6 +1298,7 @@
   <div class="keeps-tabs-container">
     <div class="keeps-tabs">
       <button class="keeps-tab active" data-tab="index">Index</button>
+      <button class="keeps-tab" data-tab="v6">v6 Launch</button>
       <button class="keeps-tab" data-tab="docs">Docs</button>
       <button class="keeps-tab" data-tab="about">About</button>
     </div>
@@ -1233,6 +1318,199 @@
       </div>
     </div>
 
+    <!-- TAB: v6 Launch -->
+    <div class="keeps-tab-content" id="tab-v6">
+      <div style="padding: 24px 0;">
+        <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 20px; flex-wrap: wrap;">
+          <h2 style="margin: 0; color: var(--text-primary); font-size: 24px; font-weight: 600;">
+            v6 Production Launch
+          </h2>
+          <span style="padding: 4px 12px; background: rgba(255, 193, 7, 0.15); border: 1px solid rgba(255, 193, 7, 0.4); border-radius: 12px; font-size: 12px; color: #d4a017; font-weight: 600;">
+            PRE-LAUNCH
+          </span>
+        </div>
+
+        <!-- Contract Identity -->
+        <div style="margin-bottom: 24px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
+          <div style="margin-bottom: 8px; color: var(--text-secondary); font-size: 13px; font-weight: 500;">Contract Identity</div>
+          <div style="display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; font-size: 13px; color: var(--text-secondary);">
+            <span style="color: var(--text-tertiary);">Name</span>
+            <span style="font-weight: 600; color: var(--ac-purple);">KidLisp</span>
+            <span style="color: var(--text-tertiary);">Description</span>
+            <span><a href="https://keeps.kidlisp.com">https://keeps.kidlisp.com</a></span>
+            <span style="color: var(--text-tertiary);">Homepage</span>
+            <span><a href="https://kidlisp.com">https://kidlisp.com</a></span>
+            <span style="color: var(--text-tertiary);">Version</span>
+            <span>6.0.0</span>
+            <span style="color: var(--text-tertiary);">Interfaces</span>
+            <span>TZIP-012, TZIP-016, TZIP-021</span>
+            <span style="color: var(--text-tertiary);">Admin Wallet</span>
+            <span style="font-family: 'Courier New', monospace; font-size: 12px;">keeps.tez (tz1Lc2...un2dC)</span>
+            <span style="color: var(--text-tertiary);">Default Fee</span>
+            <span>2.5 XTZ</span>
+            <span style="color: var(--text-tertiary);">Royalty</span>
+            <span>10% (1000 bps)</span>
+            <span style="color: var(--text-tertiary);">Minting Tool</span>
+            <span><a href="https://kidlisp.com">https://kidlisp.com</a></span>
+          </div>
+          <div style="margin-top: 12px;">
+            <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/keeps_fa2_v6.py" target="_blank"
+               style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
+              Source Code
+            </a>
+          </div>
+        </div>
+
+        <!-- Token Attribute Preview -->
+        <div style="margin-bottom: 24px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
+          <div style="margin-bottom: 12px; color: var(--text-secondary); font-size: 13px; font-weight: 500;">Token Attributes (v6 Format)</div>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <span style="padding: 4px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-subtle); border-radius: 4px; font-size: 12px;">
+              <span style="color: var(--text-tertiary);">Category:</span> <span style="color: var(--text-primary);">Generative</span>
+            </span>
+            <span style="padding: 4px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-subtle); border-radius: 4px; font-size: 12px;">
+              <span style="color: var(--text-tertiary);">Length:</span> <span style="color: var(--text-primary);">142</span>
+            </span>
+            <span style="padding: 4px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-subtle); border-radius: 4px; font-size: 12px;">
+              <span style="color: var(--text-tertiary);">Packed on:</span> <span style="color: var(--text-primary);">2026-03-02</span>
+            </span>
+            <span style="padding: 4px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-subtle); border-radius: 4px; font-size: 12px;">
+              <span style="color: var(--text-tertiary);">Handle:</span> <span style="color: var(--text-primary);">@jeffrey</span>
+            </span>
+            <span style="padding: 4px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-subtle); border-radius: 4px; font-size: 12px;">
+              <span style="color: var(--text-tertiary);">User:</span> <span style="color: var(--text-primary);">ac25namuc</span>
+            </span>
+            <span style="padding: 4px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-subtle); border-radius: 4px; font-size: 12px;">
+              <span style="color: var(--text-tertiary);">Dependencies:</span> <span style="color: var(--text-primary);">0</span>
+            </span>
+          </div>
+          <div style="margin-top: 8px; font-size: 11px; color: var(--text-tertiary);">
+            Changes from v5 RC: "User Code" &rarr; "User", "Packed" &rarr; "Packed on", removed "Analyzer Version"
+          </div>
+        </div>
+
+        <!-- Launch Steps -->
+        <h3 style="margin: 0 0 16px; color: var(--text-primary); font-size: 18px; font-weight: 600; border-bottom: 2px solid var(--ac-purple); padding-bottom: 8px;">
+          Launch Checklist
+        </h3>
+
+        <div class="v6-launch-steps">
+          <div class="v6-step done">
+            <span class="v6-step-icon">&#x2714;</span>
+            <div class="v6-step-content">
+              <div class="v6-step-title">Contract Source Written</div>
+              <div class="v6-step-desc">keeps_fa2_v6.py &mdash; identical logic to v5, updated docstrings and metadata references</div>
+            </div>
+          </div>
+
+          <div class="v6-step done">
+            <span class="v6-step-icon">&#x2714;</span>
+            <div class="v6-step-content">
+              <div class="v6-step-title">Deploy Script Created</div>
+              <div class="v6-step-desc">deploy-v6.mjs &mdash; supports --dry-run and --wallet flags, embeds contract metadata at deploy time</div>
+            </div>
+          </div>
+
+          <div class="v6-step done">
+            <span class="v6-step-icon">&#x2714;</span>
+            <div class="v6-step-content">
+              <div class="v6-step-title">Token Attributes Cleaned</div>
+              <div class="v6-step-desc">Renamed User Code &rarr; User, Packed &rarr; Packed on, removed Analyzer Version, mintingTool set to kidlisp.com</div>
+            </div>
+          </div>
+
+          <div class="v6-step done">
+            <span class="v6-step-icon">&#x2714;</span>
+            <div class="v6-step-content">
+              <div class="v6-step-title">User Code Routing Fixed</div>
+              <div class="v6-step-desc">Permahandle codes (ac25namuc) now redirect to @handle instead of 404</div>
+            </div>
+          </div>
+
+          <div class="v6-step done">
+            <span class="v6-step-icon">&#x2714;</span>
+            <div class="v6-step-content">
+              <div class="v6-step-title">Wallet Funding</div>
+              <div class="v6-step-desc">keeps.tez funded with ~8 XTZ, staging with ~3.8 XTZ for deployment and testing</div>
+            </div>
+          </div>
+
+          <div class="v6-step done">
+            <span class="v6-step-icon">&#x2714;</span>
+            <div class="v6-step-content">
+              <div class="v6-step-title">v5 RC Security Audit</div>
+              <div class="v6-step-desc">63 tests passed (0 failures) &mdash; admin auth, fee enforcement, content hash dedup, pause system, royalties all verified against live v5 RC contract</div>
+            </div>
+          </div>
+
+          <div class="v6-step pending">
+            <span class="v6-step-icon">&#x25CB;</span>
+            <div class="v6-step-content">
+              <div class="v6-step-title">v6 Security Audit</div>
+              <div class="v6-step-desc">Run full test suite against freshly deployed v6 contract: admin-only entrypoints, fee bypass attempts, content hash collision, pause enforcement, royalty limits, transfer auth, metadata lock permanence</div>
+            </div>
+          </div>
+
+          <div class="v6-step pending">
+            <span class="v6-step-icon">&#x25CB;</span>
+            <div class="v6-step-content">
+              <div class="v6-step-title">Deploy to Mainnet</div>
+              <div class="v6-step-desc">Run <code>node tezos/deploy-v6.mjs --wallet=kidlisp</code> to originate the production contract on keeps.tez</div>
+            </div>
+          </div>
+
+          <div class="v6-step pending">
+            <span class="v6-step-icon">&#x25CB;</span>
+            <div class="v6-step-content">
+              <div class="v6-step-title">Update Contract Addresses</div>
+              <div class="v6-step-desc">Set new KT1 address in constants.mjs, set KEEPS_STAGING = false, update all 8 codebase references</div>
+            </div>
+          </div>
+
+          <div class="v6-step pending">
+            <span class="v6-step-icon">&#x25CB;</span>
+            <div class="v6-step-content">
+              <div class="v6-step-title">End-to-End Mint Test</div>
+              <div class="v6-step-desc">Mint a real KidLisp piece through the full pipeline: kidlisp.com &rarr; keep &rarr; IPFS &rarr; contract &rarr; verify on objkt.com</div>
+            </div>
+          </div>
+
+          <div class="v6-step pending">
+            <span class="v6-step-icon">&#x25CB;</span>
+            <div class="v6-step-content">
+              <div class="v6-step-title">objkt.com Verification</div>
+              <div class="v6-step-desc">Confirm collection appears correctly on objkt.com with name "KidLisp", verify token metadata, thumbnail, and royalty display</div>
+            </div>
+          </div>
+
+          <div class="v6-step pending">
+            <span class="v6-step-icon">&#x25CB;</span>
+            <div class="v6-step-content">
+              <div class="v6-step-title">Public Launch</div>
+              <div class="v6-step-desc">Enable client-side minting via Beacon wallet, announce on kidlisp.com</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Wallet Balances -->
+        <h3 style="margin: 24px 0 16px; color: var(--text-primary); font-size: 18px; font-weight: 600; border-bottom: 2px solid var(--ac-purple); padding-bottom: 8px;">
+          Wallet Status
+        </h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div style="padding: 12px; background: var(--bg-secondary); border-radius: 6px; border: 1px solid var(--border-color);">
+            <div style="font-size: 11px; color: var(--text-tertiary); margin-bottom: 4px;">keeps.tez (deployer)</div>
+            <div style="font-size: 16px; font-weight: 600; color: var(--text-primary);">~8 XTZ</div>
+            <div style="font-size: 10px; color: var(--text-tertiary); font-family: 'Courier New', monospace; margin-top: 2px;">tz1Lc2...un2dC</div>
+          </div>
+          <div style="padding: 12px; background: var(--bg-secondary); border-radius: 6px; border: 1px solid var(--border-color);">
+            <div style="font-size: 11px; color: var(--text-tertiary); margin-bottom: 4px;">staging</div>
+            <div style="font-size: 16px; font-weight: 600; color: var(--text-primary);">~3.8 XTZ</div>
+            <div style="font-size: 10px; color: var(--text-tertiary); font-family: 'Courier New', monospace; margin-top: 2px;">tz1dfo...e4Gzt</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- TAB: Docs (versioned) -->
     <div class="keeps-tab-content" id="tab-docs">
       <div style="padding: 24px 0;">
@@ -1241,15 +1519,72 @@
             Keeps FA2 Contract
           </h2>
           <select class="keeps-version-select" id="version-select">
-            <option value="v5" selected>v5 (RC)</option>
+            <option value="v6" selected>v6 (Production)</option>
+            <option value="v5">v5 (RC)</option>
             <option value="v4">v4 (Staging)</option>
             <option value="v3">v3 (Dev Only)</option>
             <option value="v2">v2 (Legacy)</option>
           </select>
         </div>
 
+        <!-- ═══════════════════════════════════════ V6 ═══════════════════════════════════════ -->
+        <div class="keeps-version-docs active" id="docs-v6">
+
+          <div style="margin-bottom: 24px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
+            <div style="margin-bottom: 8px; color: var(--text-secondary); font-size: 13px; font-weight: 500;">Contract Address (Mainnet Production)</div>
+            <div style="font-family: 'Courier New', monospace; color: var(--text-tertiary); font-size: 14px; font-style: italic;">
+              Pending deployment...
+            </div>
+            <div style="margin-top: 8px; color: var(--text-tertiary); font-size: 12px;">Admin: keeps.tez (tz1Lc2...un2dC)</div>
+            <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
+              <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/keeps_fa2_v6.py" target="_blank"
+                 style="padding: 6px 12px; background: var(--ac-purple); color: white; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
+                Source Code
+              </a>
+              <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/deploy-v6.mjs" target="_blank"
+                 style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
+                Deploy Script
+              </a>
+            </div>
+          </div>
+
+          <p style="margin-bottom: 24px; color: var(--text-secondary); line-height: 1.6;">
+            The Keeps FA2 v6 is the production release deployed on keeps.tez. Contract name: <strong>KidLisp</strong>.
+            Identical smart contract logic to v5 RC. Changes are in metadata and token attributes:
+            mintingTool set to kidlisp.com, "User Code" renamed to "User", "Packed" renamed to "Packed on",
+            "Analyzer Version" removed.
+          </p>
+
+          <div style="margin-bottom: 32px;">
+            <h3 style="margin: 0 0 16px; color: var(--text-primary); font-size: 18px; font-weight: 600; border-bottom: 2px solid var(--ac-purple); padding-bottom: 8px;">
+              v6 Changes from v5
+            </h3>
+
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name v6">Contract Metadata</div>
+              <div class="keeps-endpoint-desc">Name: "KidLisp" &bull; Description: "https://keeps.kidlisp.com" &bull; Homepage: "https://kidlisp.com"</div>
+            </div>
+
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name v6">Token Attributes</div>
+              <div class="keeps-endpoint-desc">"User Code" &rarr; "User" &bull; "Packed" &rarr; "Packed on" &bull; "Analyzer Version" removed</div>
+            </div>
+
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name v6">Minting Tool</div>
+              <div class="keeps-endpoint-desc">mintingTool updated to https://kidlisp.com (was https://aesthetic.computer)</div>
+            </div>
+          </div>
+
+          <p style="color: var(--text-tertiary); font-size: 13px;">
+            All v5 endpoints and features preserved: keep, edit_metadata, lock_metadata, set_contract_metadata,
+            lock_contract_metadata, set_keep_fee, withdraw_fees, burn_keep, pause, unpause, set_default_royalty, admin_transfer.
+            Plus FA2 standard: transfer, update_operators, balance_of, mint, burn, set_administrator.
+          </p>
+        </div>
+
         <!-- ═══════════════════════════════════════ V5 ═══════════════════════════════════════ -->
-        <div class="keeps-version-docs active" id="docs-v5">
+        <div class="keeps-version-docs" id="docs-v5">
 
           <div style="margin-bottom: 24px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
             <div style="margin-bottom: 8px; color: var(--text-secondary); font-size: 13px; font-weight: 500;">Contract Address (Mainnet RC)</div>
@@ -1667,6 +2002,7 @@
         <div style="padding: 16px; margin-top: 24px; background: var(--bg-secondary); border-radius: 8px; border-left: 4px solid var(--ac-purple);">
           <h4 style="margin: 0 0 8px; color: var(--text-primary); font-size: 16px; font-weight: 600;">Version History</h4>
           <ul style="margin: 8px 0; padding-left: 20px; color: var(--text-secondary); line-height: 1.8;">
+            <li><strong>v6.0</strong> - Production release on keeps.tez. Contract name "KidLisp", cleaned token attributes, mintingTool set to kidlisp.com</li>
             <li><strong>v5.0 RC</strong> - Default 2.5 XTZ fee, immutable content_hash during edits, improved error messages</li>
             <li><strong>v4.0</strong> - Added royalty support, emergency pause/unpause, admin_transfer</li>
             <li><strong>v3.0</strong> - Added editable metadata (owner/creator), creator tracking</li>
@@ -2042,7 +2378,7 @@
 
     // Route from URL path on load (e.g. /about, /docs)
     const pathTab = location.pathname.replace(/^\/+/, '').split('/')[0];
-    if (pathTab && ['about', 'docs'].includes(pathTab)) {
+    if (pathTab && ['about', 'docs', 'v6'].includes(pathTab)) {
       switchTab(pathTab);
     }
 
