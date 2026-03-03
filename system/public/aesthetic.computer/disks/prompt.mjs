@@ -5842,18 +5842,17 @@ function paint($) {
       const marqueeOffset = (motdFrame * marqueeSpeed) % (marqueeText.length * marqueeCharW + marqueeCharW * 3);
       const marqueeY = unitickerY;
       const marqueeX = Math.floor(-marqueeOffset);
-      // Background bar
+      // Blinking phase: whole ticker blinks on/off with bg
+      const blinkPhase = Math.floor(Date.now() / 400) % 2; // Toggle every 400ms
       const tickerPad = 5;
-      ink(0, 0, 0, 140).box(0, marqueeY - tickerPad, screen.width, 8 + tickerPad * 2);
-      // Marquee text with animated colors
-      let coloredMarquee = "";
-      const marqueeColors = ["red", "255,200,50", "cyan", "255,100,200", "lime", "255,150,50"];
-      for (let i = 0; i < marqueeFullText.length; i++) {
-        const ci = Math.floor((i + motdFrame * 0.2) % marqueeColors.length);
-        coloredMarquee += `\\${marqueeColors[ci]}\\${marqueeFullText[i]}`;
-      }
+      // Blinking background bar
+      const bgAlpha = blinkPhase === 0 ? 200 : 120;
+      const bgColor = blinkPhase === 0 ? [180, 20, 20] : [20, 20, 20];
+      ink(...bgColor, bgAlpha).box(0, marqueeY - tickerPad, screen.width, 8 + tickerPad * 2);
+      // Solid legible text (single color, blinking between white and yellow)
+      const textColor = blinkPhase === 0 ? "255,255,255" : "255,240,100";
       ink(255, 255, 255).write(
-        coloredMarquee,
+        `\\${textColor}\\${marqueeFullText}`,
         { x: marqueeX, y: marqueeY, noFunding: true },
         undefined,
         undefined,
@@ -7093,12 +7092,12 @@ function paint($) {
     const month = new Date().getMonth(); // 0-indexed: 0=Jan, 11=Dec
     const isWinter = month === 11 || month === 0 || month === 1; // Dec, Jan, Feb
     if ((showFundingEffects || isWinter) && screen.height >= 120) {
-      // Face dimensions (will be scaled 2x)
+      // Face dimensions (scaled 3x for larger illustrative face)
       const faceSize = 16;
-      const scaledSize = faceSize * 2;
+      const scaledSize = faceSize * 3;
       let symbolX = Math.floor((screen.width - scaledSize) / 2);
-      // MOTD is at screen.height/2 - 48, so put symbol above that
-      let symbolY = Math.floor(screen.height / 2 - 90); // a bit higher above CRITICAL SERVICES
+      // Lower on screen - closer to center
+      let symbolY = Math.floor(screen.height / 2 - 60);
 
       // Cycle through emotions every 3 seconds: 0=angry, 1=sad, 2=crying
       const emotionPhase = Math.floor(Date.now() / 3000) % 3;
@@ -7145,8 +7144,8 @@ function paint($) {
         const faceX = Math.floor(symbolX + shakeX);
         const faceY = Math.floor(symbolY + shakeY);
 
-        // Draw filled, illustrative kid face at 2x scale
-        const s = 2; // scale factor
+        // Draw filled, illustrative kid face at 3x scale
+        const s = 3; // scale factor
         const box2x = (x, y, w, h) => $.box(faceX + x * s, faceY + y * s, w * s, h * s);
 
         // --- Skin fill (warm peach) ---
@@ -7384,10 +7383,23 @@ function paint($) {
 
             const shakeX = Math.sin(motdFrame * 0.2 + w) * moodShake;
             const shakeY = Math.cos(motdFrame * 0.25 + w) * moodShake;
+            const wx = Math.floor(wordX + shakeX);
+            const wy = Math.floor(wordY + shakeY);
 
+            // Shadow passes for clarity
+            const shadowAlpha = Math.min(alpha, 180);
+            ink(0, 0, 0).write(
+              `\\0,0,0,${shadowAlpha}\\${moodWord}`,
+              { x: wx + 2, y: wy + 2, size: wordScale }
+            );
+            ink(0, 0, 0).write(
+              `\\0,0,0,${Math.floor(shadowAlpha * 0.6)}\\${moodWord}`,
+              { x: wx + 1, y: wy + 1, size: wordScale }
+            );
+            // Main colored word
             ink(255, 255, 255).write(
               coloredWord,
-              { x: Math.floor(wordX + shakeX), y: Math.floor(wordY + shakeY), size: wordScale }
+              { x: wx, y: wy, size: wordScale }
             );
           }
         }
@@ -7421,10 +7433,23 @@ function paint($) {
 
             const shakeX = Math.sin(motdFrame * 0.22 + w) * moodShake;
             const shakeY = Math.cos(motdFrame * 0.27 + w) * moodShake;
+            const wx = Math.floor(wordX + shakeX);
+            const wy = Math.floor(wordY + shakeY);
 
+            // Shadow passes for clarity
+            const shadowAlpha = Math.min(alpha, 180);
+            ink(0, 0, 0).write(
+              `\\0,0,0,${shadowAlpha}\\${moodWord}`,
+              { x: wx + 2, y: wy + 2, size: wordScale }
+            );
+            ink(0, 0, 0).write(
+              `\\0,0,0,${Math.floor(shadowAlpha * 0.6)}\\${moodWord}`,
+              { x: wx + 1, y: wy + 1, size: wordScale }
+            );
+            // Main colored word
             ink(255, 255, 255).write(
               coloredWord,
-              { x: Math.floor(wordX + shakeX), y: Math.floor(wordY + shakeY), size: wordScale }
+              { x: wx, y: wy, size: wordScale }
             );
           }
         }
