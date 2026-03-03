@@ -56,13 +56,13 @@ const CACHE_DIR = process.env.OS_CACHE_DIR || "/opt/oven/cache";
 const TEMP_DIR = process.env.OS_TEMP_DIR || "/tmp";
 const BASE_IMAGE_URLS = {
   fedora: process.env.FEDAC_BASE_IMAGE_URL ||
-    "https://assets-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/os/fedac-base-latest.img",
+    "https://assets-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/os/fedora-base-latest.img",
   alpine: process.env.ALPINE_BASE_IMAGE_URL ||
     "https://assets-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/os/alpine-base-latest.img",
 };
 const MANIFEST_URLS = {
   fedora: process.env.FEDAC_MANIFEST_URL ||
-    "https://assets-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/os/fedac-base-manifest.json",
+    "https://assets-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/os/fedora-base-manifest.json",
   alpine: process.env.ALPINE_MANIFEST_URL ||
     "https://assets-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/os/alpine-base-manifest.json",
 };
