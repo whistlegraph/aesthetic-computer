@@ -218,27 +218,24 @@ if (!SMTP_CONFIG.auth.pass) {
   process.exit(1);
 }
 
-const EMAIL_SUBJECT = 'help aesthetic.computer stay online 💾';
+const EMAIL_SUBJECT = 'aesthetic.computer servers suspended — we need your help 💾';
 
 function getEmailText(recipientEmail) {
   const unsubUrl = getUnsubscribeUrl(recipientEmail);
-  return `hi!
+  return `hi — this is jas from aesthetic.computer.
 
-you signed up for aesthetic.computer and i really appreciate that.
+our servers were just suspended by DigitalOcean. chat, user media, and multiplayer are all offline right now.
 
-aesthetic computer needs your help to keep running.
+we need about $400 to bring everything back online.
 
-if you can, please visit: https://give.aesthetic.computer
+if you can help, even $5 makes a difference:
 
-you can give with:
-  card (USD or DKK)
-  Tezos (XTZ)
-  Ethereum (ETH)
-  Bitcoin (BTC)
+  give.aesthetic.computer
+  github.com/sponsors/whistlegraph
 
-you can also add a personal note, or subscribe monthly to become an ongoing supporter.
+you can give by card, PayPal, or crypto. you can also subscribe monthly to help keep us running long-term.
 
-every bit helps. thank you for being part of this!
+thank you for being part of aesthetic computer. i hope to have everything back up soon.
 
 — jas
 
@@ -248,23 +245,22 @@ Unsubscribe: ${unsubUrl}`;
 
 function getEmailHtml(recipientEmail) {
   const unsubUrl = getUnsubscribeUrl(recipientEmail);
-  return `<p>hi!</p>
+  return `<p>hi — this is jas from aesthetic.computer.</p>
 
-<p>you signed up for aesthetic.computer and i really appreciate that.</p>
+<p>our servers were just suspended by DigitalOcean. <strong>chat, user media, and multiplayer are all offline</strong> right now.</p>
 
-<p>aesthetic computer needs your help to keep running.</p>
+<p>we need about <strong>$400</strong> to bring everything back online.</p>
 
-<p>if you can, please visit: <a href="https://give.aesthetic.computer">give.aesthetic.computer</a></p>
+<p>if you can help, even $5 makes a difference:</p>
 
-<p>you can give with:<br>
-&nbsp;&nbsp;💳 card (USD or DKK)<br>
-&nbsp;&nbsp;🔮 Tezos (XTZ)<br>
-&nbsp;&nbsp;💎 Ethereum (ETH)<br>
-&nbsp;&nbsp;🟠 Bitcoin (BTC)</p>
+<p>
+&nbsp;&nbsp;💛 <a href="https://give.aesthetic.computer">give.aesthetic.computer</a><br>
+&nbsp;&nbsp;💜 <a href="https://github.com/sponsors/whistlegraph">github.com/sponsors/whistlegraph</a>
+</p>
 
-<p>you can also add a personal note, or subscribe monthly to become an ongoing supporter.</p>
+<p>you can give by card, PayPal, or crypto. you can also subscribe monthly to help keep us running long-term.</p>
 
-<p>every bit helps. thank you for being part of this!</p>
+<p>thank you for being part of aesthetic computer. i hope to have everything back up soon.</p>
 
 <p>— jas</p>
 
