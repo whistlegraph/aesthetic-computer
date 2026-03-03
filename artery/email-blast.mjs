@@ -26,8 +26,9 @@ import { createHmac, timingSafeEqual } from 'crypto';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Load env from at/.env (has Auth0 M2M creds)
+// Load env from at/.env (has Auth0 M2M creds) and at/deploy.env (has SMTP creds)
 config({ path: join(__dirname, '../at/.env') });
+config({ path: join(__dirname, '../at/deploy.env') });
 
 // HMAC token generation for unsubscribe links
 function generateUnsubscribeToken(email) {
@@ -218,26 +219,20 @@ if (!SMTP_CONFIG.auth.pass) {
   process.exit(1);
 }
 
-const EMAIL_SUBJECT = 'aesthetic.computer servers suspended — we need your help 💾';
+const EMAIL_SUBJECT = '💾 Save us...';
 
 function getEmailText(recipientEmail) {
   const unsubUrl = getUnsubscribeUrl(recipientEmail);
-  return `hi — this is jas from aesthetic.computer.
-
-our servers were just suspended by DigitalOcean. chat, user media, and multiplayer are all offline right now.
-
-we need about $400 to bring everything back online.
-
-if you can help, even $5 makes a difference:
+  return `Aesthetic.Computer's servers were suspended. We need ~$400 to come back online.
 
   give.aesthetic.computer
   github.com/sponsors/whistlegraph
 
-you can give by card, PayPal, or crypto. you can also subscribe monthly to help keep us running long-term.
+Even though chat communities, assets and user media archive, and database are offline — you can still use notepat.com, kidlisp.com, and explore pieces that don't require backend connectivity, thanks to our distributed hosting design.
 
-thank you for being part of aesthetic computer. i hope to have everything back up soon.
+Even $5 helps. Thank you.
 
-— jas
+— @jeffrey
 
 ---
 Unsubscribe: ${unsubUrl}`;
@@ -245,29 +240,21 @@ Unsubscribe: ${unsubUrl}`;
 
 function getEmailHtml(recipientEmail) {
   const unsubUrl = getUnsubscribeUrl(recipientEmail);
-  return `<p>hi — this is jas from aesthetic.computer.</p>
-
-<p>our servers were just suspended by DigitalOcean. <strong>chat, user media, and multiplayer are all offline</strong> right now.</p>
-
-<p>we need about <strong>$400</strong> to bring everything back online.</p>
-
-<p>if you can help, even $5 makes a difference:</p>
+  return `<p>Aesthetic.Computer's servers were suspended. We need ~$400 to come back online.</p>
 
 <p>
-&nbsp;&nbsp;💛 <a href="https://give.aesthetic.computer">give.aesthetic.computer</a><br>
-&nbsp;&nbsp;💜 <a href="https://github.com/sponsors/whistlegraph">github.com/sponsors/whistlegraph</a>
+<a href="https://give.aesthetic.computer">give.aesthetic.computer</a><br>
+<a href="https://github.com/sponsors/whistlegraph">github.com/sponsors/whistlegraph</a>
 </p>
 
-<p>you can give by card, PayPal, or crypto. you can also subscribe monthly to help keep us running long-term.</p>
+<p>Even though chat communities, assets and user media archive, and database are offline — you can still use <a href="https://notepat.com">notepat.com</a>, <a href="https://kidlisp.com">kidlisp.com</a>, and explore pieces that don't require backend connectivity, thanks to our distributed hosting design.</p>
 
-<p>thank you for being part of aesthetic computer. i hope to have everything back up soon.</p>
+<p>Even $5 helps. Thank you.</p>
 
-<p>— jas</p>
+<p>— @jeffrey</p>
 
-<hr style="border: none; border-top: 1px solid #444; margin: 24px 0;">
-<p style="font-size: 12px; color: #888;">
-  <a href="${unsubUrl}" style="color: #888;">Unsubscribe</a> from aesthetic.computer emails
-</p>`;
+<hr>
+<p><a href="${unsubUrl}">Unsubscribe</a> from Aesthetic.Computer emails</p>`;
 }
 
 // Get Auth0 access token
