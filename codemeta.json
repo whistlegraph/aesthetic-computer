@@ -1,0 +1,34 @@
+{
+  "@context": "https://doi.org/10.5063/schema/codemeta-2.0",
+  "@type": "SoftwareSourceCode",
+  "name": "Aesthetic Computer",
+  "description": "A mobile-first runtime and social network for creative computing. Designed as a musical instrument-like interface where users discover memorizable paths through commands and published pieces (interactive programs). Supports JavaScript (.mjs) and KidLisp (.lisp) pieces.",
+  "codeRepository": "https://github.com/digitpain/aesthetic.computer",
+  "issueTracker": "https://github.com/digitpain/aesthetic.computer/issues",
+  "url": "https://aesthetic.computer",
+  "license": "https://spdx.org/licenses/ISC",
+  "version": "1.0.0",
+  "author": [
+    {
+      "@type": "Person",
+      "givenName": "Jeffrey Alan",
+      "familyName": "Scudder",
+      "@id": "https://orcid.org/0009-0007-4460-4913"
+    }
+  ],
+  "programmingLanguage": [
+    "JavaScript",
+    "KidLisp"
+  ],
+  "runtimePlatform": "Node.js",
+  "operatingSystem": "Cross-platform",
+  "keywords": [
+    "creative-computing",
+    "interactive-art",
+    "generative-art",
+    "kidlisp",
+    "live-coding",
+    "social-network",
+    "runtime"
+  ]
+}
