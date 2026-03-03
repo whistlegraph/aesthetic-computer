@@ -94,6 +94,7 @@ function makeSnapshot(job, options = {}) {
     pid: job.pid,
     step: job.step,
     command: job.command,
+    workBase: job.workBase,
     output: { ...job.output },
     metrics: { ...job.metrics },
     upload: { ...job.upload },
@@ -328,7 +329,8 @@ function createJob(options = {}) {
   const imageName = options.imageName || `${flavor}-base-latest.img`;
   const manifestName = options.manifestName || `${flavor}-base-manifest.json`;
   const uploadPrefix = (options.uploadPrefix || SPACES_PREFIX).replace(/^\/+|\/+$/g, "");
-  const outputBase = path.join(DEFAULT_WORK_BASE, `${flavor}-base-${id}`);
+  const workBase = options.workBase || DEFAULT_WORK_BASE;
+  const outputBase = path.join(workBase, `${flavor}-base-${id}`);
 
   return {
     id,
@@ -344,6 +346,7 @@ function createJob(options = {}) {
     finishedAt: null,
     pid: null,
     command: null,
+    workBase,
     workDir: null,
     output: {
       imagePath: `${outputBase}.img`,
@@ -382,6 +385,7 @@ async function runBuildJob(job, options = {}, hooks = {}) {
   const flavor = job.flavor || "alpine";
   const scriptPath = options.scriptPath || BUILD_SCRIPTS[flavor] || DEFAULT_BUILD_SCRIPT;
   const cwd = options.cwd || DEFAULT_BUILD_CWD;
+  const workBase = options.workBase || job.workBase || DEFAULT_WORK_BASE;
 
   try {
     await fs.access(scriptPath, fsSync.constants.R_OK);
@@ -401,8 +405,8 @@ async function runBuildJob(job, options = {}, hooks = {}) {
     "--no-eject",
   ];
 
-  if (options.workBase || DEFAULT_WORK_BASE) {
-    args.push("--work-base", options.workBase || DEFAULT_WORK_BASE);
+  if (workBase) {
+    args.push("--work-base", workBase);
   }
 
   try {
