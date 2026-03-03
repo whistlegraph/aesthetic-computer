@@ -931,10 +931,9 @@ export const handler = stream(async (event, context) => {
       const attributes = [
         ...analysis.traits,
         ...(packDate ? [{ name: "Packed on", value: packDate }] : []),
-        ...(authorHandle && authorHandle !== "@anon" ? [{ name: "Author Handle", value: `@${authorHandle.replace(/^@/, "")}` }] : []),
-        ...(userCode ? [{ name: "Author Code", value: userCode }] : []),
+        ...(authorHandle && authorHandle !== "@anon" ? [{ name: "Handle", value: `@${authorHandle.replace(/^@/, "")}` }] : []),
+        ...(userCode ? [{ name: "User", value: userCode }] : []),
         ...(depCount > 0 ? [{ name: "Dependencies", value: String(depCount) }] : []),
-        { name: "Analyzer Version", value: ANALYZER_VERSION },
       ];
 
       // Creator identity for metadata
