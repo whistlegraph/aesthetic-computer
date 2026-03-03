@@ -14,11 +14,15 @@ import {
   getAllTokens
 } from './helpers/tzkt-helper.mjs';
 
-const RUN_KEEPS_V4_NETWORK_TESTS = process.env.RUN_KEEPS_V4_NETWORK_TESTS === 'true';
-const describeIfNetworkEnabled = RUN_KEEPS_V4_NETWORK_TESTS ? describe : xdescribe;
+const RUN_KEEPS_NETWORK_TESTS =
+  process.env.RUN_KEEPS_NETWORK_TESTS === 'true' ||
+  process.env.RUN_KEEPS_V4_NETWORK_TESTS === 'true';
+const describeIfNetworkEnabled = RUN_KEEPS_NETWORK_TESTS ? describe : xdescribe;
 
-if (!RUN_KEEPS_V4_NETWORK_TESTS) {
-  console.log('⏭️  Skipping v4 network security tests (set RUN_KEEPS_V4_NETWORK_TESTS=true to enable)');
+if (!RUN_KEEPS_NETWORK_TESTS) {
+  console.log(
+    '⏭️  Skipping keeps network security tests (set RUN_KEEPS_NETWORK_TESTS=true to enable)'
+  );
 }
 
 describeIfNetworkEnabled("🔒 Keeps FA2 v4 Contract - Security Tests", () => {
@@ -27,6 +31,8 @@ describeIfNetworkEnabled("🔒 Keeps FA2 v4 Contract - Security Tests", () => {
 
   beforeAll(() => {
     console.log('\n🔒 Starting Keeps v4 security test suite...\n');
+    console.log(`🎯 Target contract: ${CONTRACTS.mainnet}`);
+    console.log(`🎯 Expected admin: ${EXPECTED_STORAGE.mainnet.administrator}`);
   });
 
   afterAll(() => {

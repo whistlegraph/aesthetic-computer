@@ -15,25 +15,48 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Contract addresses
+function envBool(value, fallback = false) {
+  if (value === undefined) return fallback;
+  return String(value).toLowerCase() === 'true';
+}
+
+function envNat(value, fallback) {
+  if (value === undefined || value === '') return fallback;
+  const parsed = Number.parseInt(String(value), 10);
+  return Number.isNaN(parsed) ? fallback : parsed;
+}
+
+const MAINNET_CONTRACT_DEFAULT = 'KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido'; // v5 RC
+const MAINNET_ADMIN_DEFAULT = 'tz1dfoQDuxjwSgxdqJnisyKUxDHweade4Gzt';
+const MAINNET_RPC_DEFAULT = 'https://mainnet.api.tez.ie';
+const GHOSTNET_RPC_DEFAULT = 'https://rpc.ghostnet.teztnets.com';
+
+// Contract addresses (override for v6 audits with env vars)
 export const CONTRACTS = {
-  mainnet: 'KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido', // v5 RC
+  mainnet:
+    process.env.KEEPS_AUDIT_CONTRACT ||
+    process.env.KEEPS_CONTRACT ||
+    process.env.TEZOS_KEEPS_CONTRACT ||
+    MAINNET_CONTRACT_DEFAULT,
   mainnet_v4: 'KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W', // v4 staging (legacy)
-  ghostnet: null // To be deployed for testing
+  ghostnet: process.env.KEEPS_GHOSTNET_CONTRACT || null // To be deployed for testing
 };
 
-// RPC endpoints
+// RPC endpoints (override per network if needed)
 export const RPCS = {
-  mainnet: 'https://mainnet.api.tez.ie',
-  ghostnet: 'https://rpc.ghostnet.teztnets.com'
+  mainnet: process.env.KEEPS_MAINNET_RPC || MAINNET_RPC_DEFAULT,
+  ghostnet: process.env.KEEPS_GHOSTNET_RPC || GHOSTNET_RPC_DEFAULT
 };
 
-// Expected storage values
+// Expected storage values (override for deployed v6 contract checks)
 export const EXPECTED_STORAGE = {
   mainnet: {
-    administrator: 'tz1dfoQDuxjwSgxdqJnisyKUxDHweade4Gzt',
-    default_royalty_bps: 1000, // 10%
-    paused: false
+    administrator:
+      process.env.KEEPS_EXPECTED_ADMIN ||
+      process.env.KEEPS_ADMIN ||
+      MAINNET_ADMIN_DEFAULT,
+    default_royalty_bps: envNat(process.env.KEEPS_EXPECTED_ROYALTY_BPS, 1000), // 10%
+    paused: envBool(process.env.KEEPS_EXPECTED_PAUSED, false)
   }
 };
 
