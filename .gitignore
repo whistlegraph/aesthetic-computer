@@ -157,8 +157,8 @@ gcp-firebase-service-key.json
 .aider*
 
 # GitHub workflows directory - track workflows for CI/CD
-# Other .github content can be local-only
-.github
+# Ignore .github contents except workflows and FUNDING.yml
+.github/*
 !.github/workflows/
 !.github/FUNDING.yml
 
