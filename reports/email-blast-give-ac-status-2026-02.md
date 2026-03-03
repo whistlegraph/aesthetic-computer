@@ -1,125 +1,88 @@
 # Email Blast Status Report: give.aesthetic.computer
 
-**Date:** February 12, 2026
+**Date:** March 3, 2026 (updated)
 **Original Plan:** January 5, 2026
-**Status:** Built but NOT yet sent
+**Status:** Copy updated, test emails sent, ready to send blast
 
 ---
 
 ## Summary
 
-~5 weeks ago (Jan 5), an urgent plan was created to email all Auth0 users asking
-them to support Aesthetic Computer via https://give.aesthetic.computer. The tool
-was fully built and user data was fetched, but **the blast was never actually
-sent**. No sent log or failed log exists.
+Email blast tool was built Jan 5, 2026. On March 3, 2026 the email copy was
+updated for the DigitalOcean server suspension emergency (~$400 needed) and
+multiple test emails were successfully sent to me@jas.life.
 
 ---
 
-## What's Been Done
+## March 3, 2026 Progress
 
-### 1. User Data (COMPLETE)
-- **18,187 Auth0 users** fetched and cached locally
-- **5,373 verified** email addresses (~30%)
-- **12,814 unverified** (~70%)
-- Cache file: `aesthetic-computer-vault/user-reports/email-blast-users.json`
-- Last fetched: January 5, 2026
-- Data includes: user_id, email, email_verified, created_at
+### Done today
+- [x] Updated email subject to "💾 Save us..."
+- [x] Updated email body — brief, plain text, references DO suspension + $400
+- [x] Changed sender identity from "jas" to "@jeffrey"
+- [x] Added "still working" section: notepat.com, kidlisp.com, offline-capable pieces
+- [x] Specified what's down: chat communities, assets and user media archive, database
+- [x] Added GitHub Sponsors link alongside give.aesthetic.computer
+- [x] Stripped all HTML styling — plain text look
+- [x] Fixed SMTP credential loading (added at/deploy.env to dotenv config)
+- [x] Sent 5 test emails successfully to me@jas.life
+- [x] Added unsubscribe system (done in Feb update)
 
-### 2. Email Blast Tool (COMPLETE)
-- **File:** `artery/email-blast.mjs` (766 lines, fully functional)
-- Commands:
-  - `--fetch` / `--fetch-all` — pull users from Auth0
-  - `--list` — show cached users
-  - `--export` — export to CSV
-  - `--preview` — preview email content
-  - `--test EMAIL` — send a test email
-  - `--send` — send to all users (with confirmation)
-  - `--send --resume` — resume interrupted blast
-  - `--send --verified-only` — only verified emails
-- Features:
-  - Rate limiting (1 email/sec, 10s pause every 50, 5min pause every 400)
-  - Resume from interruption via sent log
-  - Muted user exclusion (pulls from MongoDB mutes collections)
-  - Handle mapping via MongoDB `@handles` collection
-  - Checkpoint saving during fetch
-
-### 3. Email Content (COMPLETE)
-- **From:** `mail@aesthetic.computer`
-- **Subject:** "help aesthetic.computer stay online"
-- **Body:** Short, personal ask from "jas" directing to give.aesthetic.computer
-- Both plain text and HTML versions
-- Mentions payment methods: card (USD/DKK), Tezos, Ethereum, Bitcoin
-- Mentions monthly subscription option
-
-### 4. Give Page (COMPLETE)
-- **Live at:** https://give.aesthetic.computer
-- Files: `system/public/give.aesthetic.computer/` (index.html, thanks.html, favicon.svg)
-- Stripe integration for one-time and recurring donations
-- Multiple currencies (USD, DKK)
-- PayPal alternative
-- Donor notes via Stripe custom fields
-- Subscription management portal (`/give-portal`)
-- API endpoints: `give.js`, `gives.mjs`, `give-portal.js`, `give-image.mjs`
-
-### 5. Infrastructure (COMPLETE)
-- SMTP via Gmail (`smtp.gmail.com:465`, app password in `at/deploy.env`)
-- Auth0 M2M API credentials in `at/.env`
-- MongoDB connection for handles + mutes
-- nodemailer installed
+### Still TODO
+- [ ] Re-fetch Auth0 users (`--fetch-all`) — data is from Jan 5
+- [ ] Set UNSUBSCRIBE_SECRET in env for valid unsubscribe links
+- [ ] Send blast to verified users (`--send`)
+- [ ] Monitor sent/failed logs
+- [ ] Emacs mail tab integration for managing blast from editor
 
 ---
 
-## What Has NOT Been Done
+## Current Email Content
 
-| Task | Status |
-|------|--------|
-| Send test email to yourself | **NOT DONE** (no logs exist) |
-| Send blast to verified users | **NOT DONE** |
-| Send blast to all users | **NOT DONE** |
-| CSV export | **NOT DONE** (no CSV file found) |
-| Review/update email copy (it's been 5 weeks) | **NOT DONE** |
+**Subject:** 💾 Save us...
 
----
+**Body (plain text):**
+```
+Aesthetic.Computer's servers were suspended. We need ~$400 to come back online.
 
-## Key Considerations Before Sending
+  give.aesthetic.computer
+  github.com/sponsors/whistlegraph
 
-### 1. Stale User Data
-- User cache is **5+ weeks old** (Jan 5). New signups since then won't be included.
-- Consider re-fetching with `--fetch-all` (bulk export for 16k+ users).
+Even though chat communities, assets and user media archive, and database
+are offline — you can still use notepat.com, kidlisp.com, and explore pieces
+that don't require backend connectivity, thanks to our distributed hosting design.
 
-### 2. Gmail Sending Limits
-- Gmail app passwords allow ~500 emails/day.
-- **18,187 users = ~36 days** to reach everyone at max rate.
-- **5,373 verified = ~11 days** if verified-only.
-- Consider: Is Gmail SMTP the right tool for this volume? A transactional email
-  service (SendGrid, Postmark, AWS SES) would be faster and more deliverable.
+Even $5 helps. Thank you.
 
-### 3. Email Content Freshness
-- The copy says "this month's server bills" — still accurate?
-- May want to update the tone since it's no longer a Jan 5 emergency.
-
-### 4. Unsubscribe / CAN-SPAM
-- No unsubscribe link in the current email template.
-- Sending to 18k users without an unsubscribe mechanism could trigger spam
-  complaints and get `mail@aesthetic.computer` blacklisted.
-- **Recommendation:** Add an unsubscribe link before sending.
-
-### 5. Verified vs. All
-- Sending to unverified emails (70% of list) risks high bounce rates.
-- High bounce rates can damage sender reputation.
-- **Recommendation:** Start with `--send --verified-only` (5,373 users).
+— @jeffrey
+```
 
 ---
 
-## Recommended Next Steps
+## What's Been Built
 
-1. **Update email copy** — refresh the message for February 2026
-2. **Add unsubscribe mechanism** — even a simple "reply STOP" or link
-3. **Send test email** — `node artery/email-blast.mjs --test me@jas.life`
-4. **Re-fetch users** — `node artery/email-blast.mjs --fetch-all` (get new signups)
-5. **Send to verified only first** — `node artery/email-blast.mjs --send --verified-only`
-6. **Monitor** — watch `scratch/email-blast-sent.log` and `scratch/email-blast-failed.log`
-7. **Consider a proper email service** for better deliverability at scale
+### Email Blast Tool
+- **File:** `artery/email-blast.mjs`
+- **Commands:** `--preview`, `--test EMAIL`, `--send`, `--send --resume`, `--fetch-all`
+- **Rate limiting:** 1 email/sec, 10s pause every 50, 5min pause every 400
+- **Gmail limit:** ~500 emails/day → 5.3k verified users = ~11 days
+- **Resume:** Supports `--resume` for multi-day sends
+
+### User Data
+- **18,187 Auth0 users** (5,373 verified, 12,814 unverified)
+- Cache: `aesthetic-computer-vault/user-reports/email-blast-users.json`
+- Last fetched: January 5, 2026 (needs refresh)
+
+### Unsubscribe System
+- HMAC-token unsubscribe links in every email
+- `List-Unsubscribe` header for Gmail native unsub button
+- Netlify function: `system/netlify/functions/unsubscribe.mjs`
+- MongoDB collection: `email-blast-unsubscribes`
+
+### Give Infrastructure
+- **give.aesthetic.computer** — Stripe + PayPal donations (live)
+- **GitHub Sponsors** — github.com/sponsors/whistlegraph (live)
+- **Emergency site mode** — blinking ticker, crying kid face, GIVE button (live)
 
 ---
 
@@ -128,15 +91,11 @@ sent**. No sent log or failed log exists.
 | File | Purpose |
 |------|---------|
 | `artery/email-blast.mjs` | Main blast tool |
-| `plans/EMAIL-BLAST-GIVE-AC.md` | Original plan (Jan 5) |
-| `aesthetic-computer-vault/user-reports/email-blast-users.json` | 18k cached users |
-| `system/public/give.aesthetic.computer/index.html` | Give donation page |
-| `system/netlify/functions/give.js` | Stripe checkout sessions |
-| `system/netlify/functions/gives.mjs` | Recent donations API |
-| `system/netlify/functions/give-portal.js` | Subscription management |
-| `system/public/aesthetic.computer/lib/give-button.mjs` | Animated GIVE button UI |
-| `reports/monetization-stack-2026-02.md` | Full monetization analysis |
+| `system/netlify/functions/unsubscribe.mjs` | Unsubscribe endpoint |
+| `plans/EMAIL-BLAST-GIVE-AC.md` | Plan + quick start guide |
+| `reports/funding-action-plan-2026-03-03.md` | Full funding action plan |
+| `reports/monetization-stack-2026-02.md` | Monetization analysis |
 
 ---
 
-*Report generated February 12, 2026*
+*Updated March 3, 2026*

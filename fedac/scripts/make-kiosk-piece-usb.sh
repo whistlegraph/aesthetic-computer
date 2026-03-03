@@ -19,6 +19,7 @@
 #   --rootfs <dir>    Use existing extracted rootfs (skip ISO download + extract)
 #   --iso <path>      Use local ISO instead of downloading
 #   --bundle <path>   Use local HTML bundle instead of fetching from oven
+#   --rebuild-bundle  Rebuild local bundle with in-repo bundler before use
 #   --image <path>    Build a bootable disk image file (.img)
 #   --image-size <g>  Image size in GiB (default: 16)
 #   --base-image      Build base image without a specific piece (placeholder only)
@@ -72,6 +73,7 @@ usage() {
   echo "  --rootfs <dir>  Use existing extracted rootfs directory"
   echo "  --iso <path>    Use existing ISO instead of downloading"
   echo "  --bundle <path> Use local HTML bundle (skip oven fetch)"
+  echo "  --rebuild-bundle Rebuild local bundle with in-repo bundler before use"
   echo "  --density <n>   Default pack/runtime density query value (default: 8)"
   echo "  --no-eject      Don't eject the USB when done"
   echo "  --yes           Skip confirmation prompts"
@@ -104,12 +106,14 @@ DO_EJECT=true
 SKIP_CONFIRM=false
 BASE_IMAGE_MODE=false
 PACK_DENSITY="$PACK_DENSITY_DEFAULT"
+REBUILD_BUNDLE=false
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --rootfs) ROOTFS_DIR="$2"; shift 2 ;;
     --iso) ISO_PATH="$2"; shift 2 ;;
     --bundle) LOCAL_BUNDLE_PATH="$2"; shift 2 ;;
+    --rebuild-bundle) REBUILD_BUNDLE=true; shift ;;
     --image) IMAGE_PATH="$2"; shift 2 ;;
     --image-size) IMAGE_SIZE_GB="$2"; shift 2 ;;
     --density) PACK_DENSITY="$2"; shift 2 ;;
@@ -194,6 +198,25 @@ WORK_DIR=$(mktemp -d "$WORK_BASE/fedac-kiosk-XXXX")
 echo -e "Work dir: $WORK_DIR"
 echo ""
 
+# Build bundle with local in-repo bundler (fallback when oven is unreachable).
+build_local_bundle() {
+  local piece_code="$1"
+  local output_path="$2"
+  local bundler_script="$FEDAC_DIR/scripts/build-local-piece-bundle.mjs"
+
+  if ! command -v node >/dev/null 2>&1; then
+    echo -e "${RED}Error: node is required for local bundle rebuild${NC}"
+    return 1
+  fi
+  if [ ! -f "$bundler_script" ]; then
+    echo -e "${RED}Error: local bundler script not found: $bundler_script${NC}"
+    return 1
+  fi
+
+  echo -e "  ${YELLOW}Building bundle locally (oven unavailable or rebuild requested)...${NC}"
+  node "$bundler_script" "$piece_code" --out "$output_path" --density "$PACK_DENSITY" --nocompress
+}
+
 # ══════════════════════════════════════════
 # Step 1: Fetch piece bundle from oven
 # ══════════════════════════════════════════
@@ -209,7 +232,12 @@ if [ "$BASE_IMAGE_MODE" = true ]; then
 PLACEHOLDER_EOF
   echo -e "  ${GREEN}Placeholder piece.html generated${NC}"
 elif [ -n "$LOCAL_BUNDLE_PATH" ]; then
-  echo -e "${CYAN}[1/6] Using local bundle: ${LOCAL_BUNDLE_PATH}${NC}"
+  if [ "$REBUILD_BUNDLE" = true ]; then
+    echo -e "${CYAN}[1/6] Rebuilding local bundle: ${LOCAL_BUNDLE_PATH}${NC}"
+    build_local_bundle "$PIECE_CODE" "$LOCAL_BUNDLE_PATH"
+  else
+    echo -e "${CYAN}[1/6] Using local bundle: ${LOCAL_BUNDLE_PATH}${NC}"
+  fi
   cp "$LOCAL_BUNDLE_PATH" "$BUNDLE_PATH"
   BUNDLE_SIZE=$(stat -c%s "$BUNDLE_PATH")
   echo -e "  ${GREEN}Local bundle copied: $(numfmt --to=iec $BUNDLE_SIZE)${NC}"
@@ -242,15 +270,21 @@ else
   done
 
   if [ "$HTTP_CODE" != "200" ]; then
-    echo -e "${RED}Failed to fetch bundle (HTTP $HTTP_CODE)${NC}"
+    echo -e "${YELLOW}Failed to fetch bundle from oven (HTTP $HTTP_CODE)${NC}"
     echo "  Tried pack-html and bundle-html with code/piece modes."
-    echo "  Check that '$PIECE_CODE' is a valid piece code/piece slug."
-    exit 1
+    echo "  Falling back to local in-repo bundler."
+    if ! build_local_bundle "$PIECE_CODE" "$BUNDLE_PATH"; then
+      echo -e "${RED}Local bundle fallback failed.${NC}"
+      echo "  Check that '$PIECE_CODE' is valid and Node dependencies are installed."
+      exit 1
+    fi
+    BUNDLE_SIZE=$(stat -c%s "$BUNDLE_PATH")
+    echo -e "  ${GREEN}Local bundle built: $(numfmt --to=iec $BUNDLE_SIZE)${NC}"
+  else
+    BUNDLE_SIZE=$(stat -c%s "$BUNDLE_PATH")
+    echo -e "  ${GREEN}Bundle fetched: $(numfmt --to=iec $BUNDLE_SIZE)${NC}"
+    echo -e "  ${GREEN}Source: ${USED_ENDPOINT##*/} (${USED_MODE}), density=${PACK_DENSITY}${NC}"
   fi
-
-  BUNDLE_SIZE=$(stat -c%s "$BUNDLE_PATH")
-  echo -e "  ${GREEN}Bundle fetched: $(numfmt --to=iec $BUNDLE_SIZE)${NC}"
-  echo -e "  ${GREEN}Source: ${USED_ENDPOINT##*/} (${USED_MODE}), density=${PACK_DENSITY}${NC}"
 fi
 
 # Quick sanity check — bundle should contain HTML
@@ -350,7 +384,8 @@ echo -e "  ${GREEN}Piece bundle installed${NC}"
 # is late/crashed). The injected shell uses absolute localhost API URLs when
 # running from file://.
 # Keep HUD + corner label visible while still running full-bleed kiosk rendering.
-KIOSK_PIECE_URL="file:///usr/local/share/kiosk/piece.html?density=${PACK_DENSITY}&nogap=true&device=true&noauth=true"
+# NOTE: do not set device=true here — device mode intentionally suppresses AC HUD labels.
+KIOSK_PIECE_URL="file:///usr/local/share/kiosk/piece.html?density=${PACK_DENSITY}&nogap=true&noauth=true"
 
 # NOTE: Wayland compositor runtime is installed AFTER the rootfs strip step
 # (step 3i) so package removals cannot accidentally remove launcher deps.
