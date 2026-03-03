@@ -349,8 +349,8 @@ echo -e "  ${GREEN}Piece bundle installed${NC}"
 # Prefer file:// for boot reliability (Firefox still opens even if local server
 # is late/crashed). The injected shell uses absolute localhost API URLs when
 # running from file://.
-# Force full-bleed AC rendering in kiosk mode (no desktop frame/gutters).
-KIOSK_PIECE_URL="file:///usr/local/share/kiosk/piece.html?density=${PACK_DENSITY}&nogap=true&nolabel=true&desktop=true&device=true&solo=true&noauth=true"
+# Keep HUD + corner label visible while still running full-bleed kiosk rendering.
+KIOSK_PIECE_URL="file:///usr/local/share/kiosk/piece.html?density=${PACK_DENSITY}&nogap=true&device=true&noauth=true"
 
 # NOTE: Wayland compositor runtime is installed AFTER the rootfs strip step
 # (step 3i) so package removals cannot accidentally remove launcher deps.
