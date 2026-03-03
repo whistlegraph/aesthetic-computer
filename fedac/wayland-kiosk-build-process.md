@@ -25,10 +25,25 @@ The kiosk launcher is Wayland-first:
 
 The kiosk URL keeps the AC HUD/corner label enabled:
 
-- `?density=<n>&nogap=true&device=true&noauth=true`
+- `?density=<n>&nogap=true&noauth=true`
 
 Important: do not force `desktop=true`, `nolabel=true`, or `solo=true` if the
 prompt HUD/corner label should remain visible.
+Also avoid `device=true` here: device mode intentionally suppresses AC HUD
+corner labels.
+
+## 2.5) Local bundle rebuild (when oven is down)
+
+If `oven.aesthetic.computer` is unreachable, rebuild the local piece bundle
+from this repo:
+
+```bash
+cd /home/me/aesthetic-computer
+node fedac/scripts/build-local-piece-bundle.mjs notepat \
+  --out /home/me/aesthetic-computer/fedac/out/notepat-local-piece.html \
+  --density 8 \
+  --nocompress
+```
 
 ## 3) Build command (image only)
 
@@ -36,6 +51,7 @@ prompt HUD/corner label should remain visible.
 cd /home/me/aesthetic-computer
 sudo bash fedac/scripts/make-kiosk-piece-usb.sh notepat \
   --bundle /home/me/aesthetic-computer/fedac/out/notepat-local-piece.html \
+  --rebuild-bundle \
   --image /home/me/aesthetic-computer/fedac/out/notepat-fedora-wayland-fix7.img \
   --image-size 6 \
   --work-base /home/me/fedac-work \

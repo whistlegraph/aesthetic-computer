@@ -1009,10 +1009,93 @@ Also updates VS Code task status bar to 'done'."
       (tab-bar-switch-to-tab "mail")
     (tab-bar-new-tab)
     (tab-rename "mail"))
-  (mu4e))
+  (condition-case nil
+      (mu4e)
+    (error
+     (message "mu4e not available — opening mail tab with blast tools only")
+     (ac-mail-blast-preview))))
 
 (global-set-key (kbd "C-c m") 'ac-mail-open)
 (global-set-key (kbd "C-c M-m") 'ac-mail-sync)
+
+;; Email Blast integration (artery/email-blast.mjs)
+(defvar ac-mail-blast-script
+  (expand-file-name "artery/email-blast.mjs" ac--directory-path)
+  "Path to the email blast script.")
+
+(defun ac-mail-blast-preview ()
+  "Preview the email blast content in a buffer."
+  (interactive)
+  (let ((default-directory ac--directory-path)
+        (buf (get-buffer-create "*ac-mail-blast*")))
+    (with-current-buffer buf
+      (read-only-mode -1)
+      (erase-buffer)
+      (insert "── Aesthetic.Computer Email Blast ──\n\n")
+      (insert "Commands (run with C-c M-b <key>):\n")
+      (insert "  p  Preview email content\n")
+      (insert "  t  Send test email (me@jas.life)\n")
+      (insert "  s  Send blast (verified users)\n")
+      (insert "  r  Resume interrupted blast\n")
+      (insert "  l  List cached users\n\n")
+      (insert "─────────────────────────────────────\n\n"))
+    (switch-to-buffer buf)
+    (shell-command
+     (format "node %s --preview" (shell-quote-argument ac-mail-blast-script))
+     buf)
+    (with-current-buffer buf (read-only-mode 1))))
+
+(defun ac-mail-blast-test ()
+  "Send a test email to me@jas.life."
+  (interactive)
+  (let ((default-directory ac--directory-path))
+    (async-shell-command
+     (format "node %s --test me@jas.life"
+             (shell-quote-argument ac-mail-blast-script))
+     "*ac-mail-blast-test*")))
+
+(defun ac-mail-blast-send ()
+  "Send email blast to verified users (with confirmation)."
+  (interactive)
+  (when (yes-or-no-p "Send email blast to all verified users? ")
+    (let ((default-directory ac--directory-path))
+      (ac--ensure-mail-tab)
+      (eat-exec (current-buffer) "blast"
+                "node" nil
+                (list ac-mail-blast-script "--send")))))
+
+(defun ac-mail-blast-resume ()
+  "Resume an interrupted email blast."
+  (interactive)
+  (let ((default-directory ac--directory-path))
+    (ac--ensure-mail-tab)
+    (eat-exec (current-buffer) "blast"
+              "node" nil
+              (list ac-mail-blast-script "--send" "--resume"))))
+
+(defun ac-mail-blast-list ()
+  "List cached email blast users."
+  (interactive)
+  (let ((default-directory ac--directory-path))
+    (async-shell-command
+     (format "node %s --list" (shell-quote-argument ac-mail-blast-script))
+     "*ac-mail-blast-list*")))
+
+(defun ac--ensure-mail-tab ()
+  "Switch to or create the mail tab."
+  (if (and (fboundp 'ac--tab-exists-p) (ac--tab-exists-p "mail"))
+      (tab-bar-switch-to-tab "mail")
+    (tab-bar-new-tab)
+    (tab-rename "mail")))
+
+;; Mail blast keybindings under C-c M-b prefix
+(define-prefix-command 'ac-mail-blast-map)
+(global-set-key (kbd "C-c M-b") 'ac-mail-blast-map)
+(define-key ac-mail-blast-map (kbd "p") 'ac-mail-blast-preview)
+(define-key ac-mail-blast-map (kbd "t") 'ac-mail-blast-test)
+(define-key ac-mail-blast-map (kbd "s") 'ac-mail-blast-send)
+(define-key ac-mail-blast-map (kbd "r") 'ac-mail-blast-resume)
+(define-key ac-mail-blast-map (kbd "l") 'ac-mail-blast-list)
 
 ;; Eat terminal - with performance optimizations for many terminals
 (use-package eat)
