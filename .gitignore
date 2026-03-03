@@ -160,6 +160,7 @@ gcp-firebase-service-key.json
 # Other .github content can be local-only
 .github
 !.github/workflows/
+!.github/FUNDING.yml
 
 __pycache__/
 

@@ -10456,6 +10456,10 @@
     }
 
     function renderShopMaintenance(container, detail = '') {
+      if (SERVER_SUSPENDED) {
+        renderSuspended(container, 'card');
+        return;
+      }
       container.innerHTML = `
         <div style="display:flex;align-items:center;justify-content:center;height:100%;min-height:300px;">
           <div style="text-align:center;color:#888;">
@@ -10763,6 +10767,15 @@
         
       } catch (e) {
         console.warn('Could not load stats:', e);
+        if (SERVER_SUSPENDED) {
+          // Show offline indicator on stat values
+          document.querySelectorAll('.stat-value').forEach(el => {
+            if (el.textContent === '—' || el.textContent === '...') {
+              el.textContent = '—';
+              el.style.opacity = '0.4';
+            }
+          });
+        }
       }
     }
     
@@ -11005,8 +11018,12 @@
         }
       } catch (e) {
         console.error('Gives load error:', e);
-        const errorTexts = { en: 'Unable to load gives', da: 'Kunne ikke indlæse gaver', de: 'Konnte Gaben nicht laden', es: 'No se pudieron cargar las donaciones', zh: '无法加载捐赠' };
-        ticker.innerHTML = `<div class="gives-ticker-empty">${errorTexts[currentLang] || errorTexts.en}</div>`;
+        if (SERVER_SUSPENDED) {
+          renderSuspended(ticker, 'inline');
+        } else {
+          const errorTexts = { en: 'Unable to load gives', da: 'Kunne ikke indlæse gaver', de: 'Konnte Gaben nicht laden', es: 'No se pudieron cargar las donaciones', zh: '无法加载捐赠' };
+          ticker.innerHTML = `<div class="gives-ticker-empty">${errorTexts[currentLang] || errorTexts.en}</div>`;
+        }
       }
     }
     
@@ -11299,9 +11316,36 @@
     const apiBase = window.location.hostname === 'localhost' || window.location.hostname.includes('local.')
       ? '' // Use relative URLs in dev
       : 'https://aesthetic.computer';
-    
+
     // Oven URL for webp generation (always use production oven)
     const OVEN_URL = 'https://oven.aesthetic.computer';
+
+    // Server suspension state — shown when DO services are down
+    const SERVER_SUSPENDED = true; // Set to false when DO is restored
+    const suspendedMessages = {
+      en: { offline: 'Servers offline — DigitalOcean suspended', help: 'Your support helps bring them back', give: 'give.aesthetic.computer' },
+      da: { offline: 'Servere offline — DigitalOcean suspenderet', help: 'Din støtte hjælper med at bringe dem tilbage', give: 'give.aesthetic.computer' },
+      de: { offline: 'Server offline — DigitalOcean gesperrt', help: 'Ihre Unterstützung hilft sie zurückzubringen', give: 'give.aesthetic.computer' },
+      es: { offline: 'Servidores sin conexión — DigitalOcean suspendido', help: 'Tu apoyo ayuda a restaurarlos', give: 'give.aesthetic.computer' },
+      zh: { offline: '服务器离线 — DigitalOcean 已暂停', help: '您的支持有助于恢复服务', give: 'give.aesthetic.computer' },
+    };
+    function renderSuspended(container, style = 'card') {
+      const msg = suspendedMessages[currentLang] || suspendedMessages.en;
+      if (style === 'card') {
+        container.innerHTML = `
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;min-height:200px;gap:0.6em;text-align:center;padding:1.5em;">
+            <div style="font-size:32px;line-height:1;opacity:0.6;">⚡</div>
+            <div style="color:var(--pink,#ff6b9d);font-size:13px;font-weight:bold;">${msg.offline}</div>
+            <div style="color:#888;font-size:12px;">${msg.help}</div>
+            <a href="https://give.aesthetic.computer" style="color:#ff6b9d;font-size:12px;margin-top:0.3em;">${msg.give} →</a>
+          </div>`;
+      } else if (style === 'inline') {
+        container.innerHTML = `
+          <div style="color:#888;font-size:12px;padding:0.8em;">
+            <span style="color:var(--pink,#ff6b9d);">⚡ ${msg.offline}</span> — <a href="https://give.aesthetic.computer" style="color:#ff6b9d;">${msg.give}</a>
+          </div>`;
+      }
+    }
 
     // KidLisp count from dedicated endpoint
     async function loadKidlispCount() {
@@ -11358,14 +11402,22 @@
         }
         
         if (!tvTapes.length) {
-          container.innerHTML = '<div class="tv-no-signal">No signal</div>';
+          if (SERVER_SUSPENDED) {
+            renderSuspended(container, 'card');
+          } else {
+            container.innerHTML = '<div class="tv-no-signal">No signal</div>';
+          }
           return;
         }
-        
+
         playTVVideo(0);
       } catch (e) {
         console.error('TV load error:', e);
-        container.innerHTML = '<div class="tv-no-signal">No signal</div>';
+        if (SERVER_SUSPENDED) {
+          renderSuspended(container, 'card');
+        } else {
+          container.innerHTML = '<div class="tv-no-signal">No signal</div>';
+        }
       }
     }
     
@@ -12000,8 +12052,12 @@
         
       } catch (e) {
         console.error('Chat load error:', e);
-        const loadErrorTexts = { en: 'Could not load', da: 'Kunne ikke indlæse', de: 'Konnte nicht laden', es: 'No se pudo cargar', zh: '无法加载' };
-        container.innerHTML = `<div class="chat-msg"><div class="chat-text" style="color: var(--dim);">${loadErrorTexts[currentLang] || loadErrorTexts.en}</div></div>`;
+        if (SERVER_SUSPENDED) {
+          renderSuspended(container, 'card');
+        } else {
+          const loadErrorTexts = { en: 'Could not load', da: 'Kunne ikke indlæse', de: 'Konnte nicht laden', es: 'No se pudo cargar', zh: '无法加载' };
+          container.innerHTML = `<div class="chat-msg"><div class="chat-text" style="color: var(--dim);">${loadErrorTexts[currentLang] || loadErrorTexts.en}</div></div>`;
+        }
         panelSync.markReady('chat'); // Still mark ready on error
       }
     }
@@ -13029,8 +13085,12 @@
         
       } catch (e) {
         console.error('KidLisp carousel load error:', e);
-        const loadErrorTexts = { en: 'Could not load', da: 'Kunne ikke indlæse', de: 'Konnte nicht laden', es: 'No se pudo cargar', zh: '无法加载' };
-        carousel.innerHTML = `<div style="text-align: center; color: #555; padding: 2em;">${loadErrorTexts[currentLang] || loadErrorTexts.en}</div>`;
+        if (SERVER_SUSPENDED) {
+          renderSuspended(carousel, 'card');
+        } else {
+          const loadErrorTexts = { en: 'Could not load', da: 'Kunne ikke indlæse', de: 'Konnte nicht laden', es: 'No se pudo cargar', zh: '无法加载' };
+          carousel.innerHTML = `<div style="text-align: center; color: #555; padding: 2em;">${loadErrorTexts[currentLang] || loadErrorTexts.en}</div>`;
+        }
         panelSync.markReady('kidlisp'); // Still mark ready on error
       }
     }
