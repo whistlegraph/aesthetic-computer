@@ -2599,12 +2599,14 @@ app.post('/os-base-build', requireOSBuildAdmin, async (req, res) => {
   const defaultSize = flavor === 'alpine' ? 1 : 4;
   const imageSizeGB = Math.max(1, Math.min(32, parseInt(req.body?.imageSizeGB, 10) || defaultSize));
   const publish = req.body?.publish !== false;
+  const requestedWorkBase = typeof req.body?.workBase === 'string' ? req.body.workBase.trim() : '';
+  const workBase = requestedWorkBase || undefined;
 
   try {
     const job = await startOSBaseBuild(
-      { imageSizeGB, publish, flavor },
+      { imageSizeGB, publish, flavor, workBase },
       {
-        onStart: (j) => addServerLog('info', '💿', `OS base build started: ${j.id} (${flavor}, ${imageSizeGB}GiB)`),
+        onStart: (j) => addServerLog('info', '💿', `OS base build started: ${j.id} (${flavor}, ${imageSizeGB}GiB${workBase ? `, workBase=${workBase}` : ''})`),
         onUploadComplete: async (j) => {
           addServerLog('success', '☁️', `OS base upload complete: ${j.upload.imageKey}`);
           invalidateManifest(flavor);

@@ -3557,6 +3557,12 @@ void draw() {
         desc: "Learn to talk backwards.",
         done: false,
       },
+      bills: {
+        sig: "bills",
+        desc: "Service & billing dashboard.",
+        url: "https://bills.aesthetic.computer",
+        done: true,
+      },
       balls: {
         sig: "balls",
         desc: "",

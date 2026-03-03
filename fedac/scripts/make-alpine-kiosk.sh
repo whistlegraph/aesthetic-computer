@@ -873,17 +873,34 @@ if [ "$BASE_IMAGE_MODE" = true ] && [ -n "$IMAGE_PATH" ] && [ -f "$IMAGE_PATH" ]
   MANIFEST_PATH="${IMAGE_PATH%.img}-manifest.json"
   IMG_SIZE=$(stat -c%s "$IMAGE_PATH")
   IMG_SHA256=$(sha256sum "$IMAGE_PATH" | awk '{print $1}')
-  # Get FEDAC-PIECE partition offset
-  PIECE_OFFSET=$(python3 -c "
-import subprocess, json, re
-out = subprocess.check_output(['fdisk', '-l', '$IMAGE_PATH'], text=True)
-for line in out.splitlines():
-    if 'PIECE' in line or line.strip().endswith('Linux filesystem') and '3' in line.split()[0]:
-        parts = line.split()
-        print(int(parts[1]) * 512)
-        break
-" 2>/dev/null || echo "0")
-  PIECE_SIZE=$((20 * 1024 * 1024))
+  # Get FEDAC-PIECE partition offset/size from GPT table (robust, no fdisk guessing).
+  PIECE_META=$(python3 -c "
+import subprocess
+out = subprocess.check_output(['parted', '-s', '-m', '$IMAGE_PATH', 'unit', 'B', 'print'], text=True)
+part3 = None
+for raw in out.splitlines():
+    line = raw.strip()
+    if not line or not line[0].isdigit() or ':' not in line:
+        continue
+    cols = line.split(':')
+    if len(cols) < 4:
+        continue
+    num = cols[0]
+    start = int(cols[1].rstrip('B'))
+    size = int(cols[3].rstrip('B'))
+    name = cols[5].rstrip(';').strip().upper() if len(cols) > 5 else ''
+    if name == 'PIECE':
+        print(f'{start}:{size}')
+        raise SystemExit(0)
+    if num == '3':
+        part3 = (start, size)
+if part3:
+    print(f'{part3[0]}:{part3[1]}')
+" 2>/dev/null || true)
+  PIECE_OFFSET=${PIECE_META%%:*}
+  PIECE_SIZE=${PIECE_META##*:}
+  [ -n "${PIECE_OFFSET:-}" ] || PIECE_OFFSET="0"
+  [ -n "${PIECE_SIZE:-}" ] || PIECE_SIZE=$((20 * 1024 * 1024))
   cat > "$MANIFEST_PATH" << MANIFEST_EOF
 {
   "version": "$(date +%Y-%m-%d)",

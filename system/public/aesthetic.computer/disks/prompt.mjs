@@ -5825,6 +5825,41 @@ function paint($) {
     const unitickerY = loginY + 44; // Position below login
     let contentTickerY = unitickerY; // Y position of content ticker (declared here for tooltip access)
 
+    // 📢 Emergency fundraising marquee (replaces uniticker in critical funding mode)
+    if (isCriticalFunding && showLoginCurtain) {
+      $.layer(1); // Render behind the flashing border (which paints later on layer 1)
+      const marqueeEN = "DigitalOcean suspended our servers -- Chat, user media, and multiplayer are offline -- We need $400 to bring them back! -- Enter 'give' or tap GIVE above --";
+      const marqueeDA = "DigitalOcean suspenderede vores servere -- Chat, brugermedier og multiplayer er offline -- Vi mangler $400 for at bringe dem tilbage! -- Skriv 'give' eller tryk GIVE --";
+      const marqueeLangPhase = Math.floor(Date.now() / 12000) % 2;
+      const marqueeText = marqueeLangPhase === 0 ? marqueeEN : marqueeDA;
+      const marqueeFullText = " ~ " + marqueeText + " ~ " + marqueeText + " ~ ";
+      const marqueeCharW = 4; // MatrixChunky8 char width
+      const marqueeSpeed = 0.6;
+      const marqueeOffset = (motdFrame * marqueeSpeed) % (marqueeText.length * marqueeCharW + marqueeCharW * 3);
+      const marqueeY = unitickerY;
+      const marqueeX = Math.floor(-marqueeOffset);
+      // Background bar
+      const tickerPad = 5;
+      ink(0, 0, 0, 140).box(0, marqueeY - tickerPad, screen.width, 8 + tickerPad * 2);
+      // Marquee text with animated colors
+      let coloredMarquee = "";
+      const marqueeColors = ["red", "255,200,50", "cyan", "255,100,200", "lime", "255,150,50"];
+      for (let i = 0; i < marqueeFullText.length; i++) {
+        const ci = Math.floor((i + motdFrame * 0.2) % marqueeColors.length);
+        coloredMarquee += `\\${marqueeColors[ci]}\\${marqueeFullText[i]}`;
+      }
+      ink(255, 255, 255).write(
+        coloredMarquee,
+        { x: marqueeX, y: marqueeY, noFunding: true },
+        undefined,
+        undefined,
+        false,
+        "MatrixChunky8",
+      );
+      $.needsPaint();
+      $.layer(2); // Restore layer for rest of paint
+    }
+
     // Build combined uniticker items from all sources
     // Types: 'chat' (blue), 'clock' (orange), 'kidlisp' ($), 'painting' (#), 'tape' (!)
     const hasChatMessages = $.chat?.messages && $.chat.messages.length > 0;
@@ -6797,8 +6832,9 @@ function paint($) {
     }
 
     // MOTD (Mood of the Day) - show above login/signup buttons with animation
-    // In CRITICAL funding mode, always show regardless of screen height
-    if (isCriticalFunding || (motd && screen.height >= 180)) {
+    // Disabled in critical funding mode (marquee replaces it in uniticker area)
+    /*
+    if (motd && !isCriticalFunding && screen.height >= 180) {
       motdBylineHandleBox = null;
       // Subtle sway (up and down)
       const swayY = Math.sin(motdFrame * 0.05) * 2; // 2 pixel sway range
@@ -7044,11 +7080,9 @@ function paint($) {
         $.needsPaint();
       }
     }
-    // Reset motd handle hover state when MOTD not displayed
-    if (!isCriticalFunding && (!motd || screen.height < 180)) {
-      motdBylineHandleBox = null;
-      motdBylineHandleHover = false;
-    }
+    */
+    motdBylineHandleBox = null;
+    motdBylineHandleHover = false;
 
     // 😡😢😭 Emotional face stamp - cycles through angry, sad, crying
     // Show during funding effects (yikes/critical) or in winter (Dec, Jan, Feb)
@@ -7401,41 +7435,6 @@ function paint($) {
         });
       }
     }
-  }
-
-  // 📢 Emergency fundraising marquee above login buttons (critical funding mode)
-  if (isCriticalFunding && showLoginCurtain) {
-    const marqueeEN = "DigitalOcean suspended our servers -- Chat, user media, and multiplayer are offline -- We need your help to bring them back! -- Enter 'give' or click GIVE above --";
-    const marqueeDA = "DigitalOcean suspenderede vores servere -- Chat, brugermedier og multiplayer er offline -- Vi har brug for din hjaelp! -- Skriv 'give' eller klik GIVE --";
-    const marqueeLangPhase = Math.floor(Date.now() / 12000) % 2;
-    const marqueeText = marqueeLangPhase === 0 ? marqueeEN : marqueeDA;
-    const marqueeFullText = " ~ " + marqueeText + " ~ " + marqueeText + " ~ ";
-    const marqueeCharW = 6; // approximate char width in default font
-    const marqueeTextWidth = marqueeFullText.length * marqueeCharW;
-    // Scroll speed: pixels per frame (time-based for smoothness)
-    const marqueeSpeed = 0.8;
-    const marqueeOffset = (motdFrame * marqueeSpeed) % (marqueeText.length * marqueeCharW + marqueeCharW * 3);
-    // Position above the login buttons
-    const marqueeY = Math.floor(screen.height / 2 - 22);
-    // Clip to screen width
-    const marqueeX = Math.floor(-marqueeOffset);
-    // Background bar
-    ink(0, 0, 0, 180).box(0, marqueeY - 2, screen.width, 12);
-    // Marquee text with animated colors
-    let coloredMarquee = "";
-    const marqueeColors = ["red", "255,200,50", "cyan", "255,100,200", "lime", "255,150,50"];
-    for (let i = 0; i < marqueeFullText.length; i++) {
-      const ci = Math.floor((i + motdFrame * 0.2) % marqueeColors.length);
-      coloredMarquee += `\\${marqueeColors[ci]}\\${marqueeFullText[i]}`;
-    }
-    ink(255, 255, 255).write(
-      coloredMarquee,
-      { x: marqueeX, y: marqueeY },
-      undefined,
-      undefined,
-      false,
-    );
-    $.needsPaint();
   }
 
   // Paint UI Buttons

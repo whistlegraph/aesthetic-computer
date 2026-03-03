@@ -306,6 +306,39 @@ function copyBaseImageFast(basePath, tempImagePath) {
   }
 }
 
+function detectPiecePartitionFromImage(imagePath) {
+  // Parse GPT table directly from the image so builds keep working even if a
+  // stale/incorrect manifest offset was published.
+  const cmd = `parted -s -m "${imagePath}" unit B print`;
+  const output = execSync(cmd, { encoding: "utf8" });
+  const lines = output.split("\n").map((line) => line.trim()).filter(Boolean);
+
+  let fallbackPart3 = null;
+  for (const line of lines) {
+    // Format: "<num>:<start>B:<end>B:<size>B:<fs>:<name>:<flags>"
+    if (!/^[0-9]+:/.test(line)) continue;
+    const parts = line.split(":");
+    if (parts.length < 4) continue;
+    const num = parts[0];
+    const start = parseInt((parts[1] || "").replace(/B/g, ""), 10);
+    const size = parseInt((parts[3] || "").replace(/B/g, ""), 10);
+    if (!Number.isFinite(start) || !Number.isFinite(size) || size <= 0) continue;
+
+    const name = (parts[5] || "").replace(/;$/, "").trim();
+    const isPieceByName = name.toUpperCase() === "PIECE";
+    const isPart3 = num === "3";
+
+    if (isPieceByName) {
+      return { piecePartitionOffset: start, piecePartitionSize: size };
+    }
+    if (isPart3) {
+      fallbackPart3 = { piecePartitionOffset: start, piecePartitionSize: size };
+    }
+  }
+
+  return fallbackPart3;
+}
+
 // ─── Manifest ───────────────────────────────────────────────────────
 
 const cachedManifests = {};
@@ -1023,9 +1056,30 @@ export async function streamOSImage(res, target, isJSPiece, density, onProgress,
     const { basePath, manifest } = await ensureBaseImage(onProgress, flavor);
     timing.base = Date.now() - baseStart;
 
-    if (!manifest.piecePartitionOffset || manifest.piecePartitionOffset === 0) {
+    let resolvedManifest = { ...manifest };
+    try {
+      const detected = detectPiecePartitionFromImage(basePath);
+      if (detected?.piecePartitionOffset > 0 && detected?.piecePartitionSize > 0) {
+        const mismatch =
+          detected.piecePartitionOffset !== manifest.piecePartitionOffset ||
+          detected.piecePartitionSize !== manifest.piecePartitionSize;
+        if (mismatch) {
+          console.warn(
+            `[os] Manifest partition mismatch (${flavor}):` +
+            ` manifest=${manifest.piecePartitionOffset}/${manifest.piecePartitionSize}` +
+            ` detected=${detected.piecePartitionOffset}/${detected.piecePartitionSize}.` +
+            ` Using detected values.`,
+          );
+        }
+        resolvedManifest = { ...manifest, ...detected };
+      }
+    } catch (err) {
+      console.warn(`[os] Failed to detect partition table from image: ${err.message}`);
+    }
+
+    if (!resolvedManifest.piecePartitionOffset || resolvedManifest.piecePartitionOffset <= 0) {
       throw new Error(
-        `Base image manifest missing piecePartitionOffset (${flavor}) — rebuild base image with --base-image flag`,
+        `Base image missing valid piecePartitionOffset (${flavor}) — rebuild base image with --base-image flag`,
       );
     }
 
@@ -1110,7 +1164,7 @@ export async function streamOSImage(res, target, isJSPiece, density, onProgress,
     // 5. Extract FEDAC-PIECE partition.
     const extractStart = Date.now();
     onProgress?.({ stage: "extract", message: "Extracting piece partition from image...", step: 5, totalSteps: 9 });
-    extractPartition(tempImagePath, manifest, tempPartPath);
+    extractPartition(tempImagePath, resolvedManifest, tempPartPath);
     timing.extract = Date.now() - extractStart;
     onProgress?.({
       stage: "extract",
@@ -1137,7 +1191,7 @@ export async function streamOSImage(res, target, isJSPiece, density, onProgress,
     // 7. Write modified partition back into the image.
     const writeStart = Date.now();
     onProgress?.({ stage: "write-back", message: "Writing modified partition back to image...", step: 7, totalSteps: 9 });
-    writePartitionBack(tempImagePath, manifest, tempPartPath);
+    writePartitionBack(tempImagePath, resolvedManifest, tempPartPath);
     timing.writeBack = Date.now() - writeStart;
     onProgress?.({
       stage: "write-back",
