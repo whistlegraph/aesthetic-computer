@@ -192,6 +192,19 @@ let soSoftConfigChangeTime = 0; // When to change config
 let soSoftLastTinyFont = false; // Track if we're using tiny font to recreate buttons on size change
 let giveBtnParticles = [];
 
+// 💸 FUNDING SEVERITY: Controls funding mode features
+// "critical" = full lockdown (chat offline, all alerts)
+// "yikes" = chat works, GIVE button shows, but no $ replacement
+// "off" = normal operation
+export const FUNDING_SEVERITY = "critical";
+
+// Legacy export for backwards compatibility
+export const FUNDING_MODE = FUNDING_SEVERITY === "critical";
+
+// Helper flags
+const showFundingEffects = FUNDING_SEVERITY !== "off"; // GIVE button, face (no longer includes $ replacement)
+const isCriticalFunding = FUNDING_SEVERITY === "critical"; // Full lockdown mode
+
 // 🎰 Top-right slot cycling: rotates through "give", "ad", and "products" on a timer
 // In critical funding mode, always show GIVE
 const TOP_RIGHT_BTN_CHOICES = isCriticalFunding ? ["give"] : ["give", "ad", "products"];
@@ -229,19 +242,6 @@ let unitickerAutoSelectedItem = null; // Auto-selected item when idle
 let unitickerAutoSelectedX = 0; // X position of auto-selected item
 let unitickerAutoSelectedWidth = 0; // Width of auto-selected item
 const UNITICKER_IDLE_THRESHOLD = 120; // 2 seconds at 60fps before auto-selecting
-
-// 💸 FUNDING SEVERITY: Controls funding mode features
-// "critical" = full lockdown (chat offline, all alerts)
-// "yikes" = chat works, GIVE button shows, but no $ replacement
-// "off" = normal operation
-export const FUNDING_SEVERITY = "critical";
-
-// Legacy export for backwards compatibility
-export const FUNDING_MODE = FUNDING_SEVERITY === "critical";
-
-// Helper flags
-const showFundingEffects = FUNDING_SEVERITY !== "off"; // GIVE button, face (no longer includes $ replacement)
-const isCriticalFunding = FUNDING_SEVERITY === "critical"; // Full lockdown mode
 
 // Set global flags for disk.mjs
 if (typeof globalThis !== "undefined") {
