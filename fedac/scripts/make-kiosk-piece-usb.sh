@@ -230,7 +230,8 @@ else
     for mode in "${BUNDLE_MODES[@]}"; do
       BUNDLE_URL="${endpoint}?${mode}=${PIECE_CODE}&nocompress=1&density=${PACK_DENSITY}"
       echo -e "  URL: $BUNDLE_URL"
-      HTTP_CODE="$(curl -s -o "$BUNDLE_PATH" -w "%{http_code}" "$BUNDLE_URL" || echo "000")"
+      HTTP_CODE="$(curl -s --connect-timeout 8 --max-time 25 --retry 1 --retry-delay 1 \
+        -o "$BUNDLE_PATH" -w "%{http_code}" "$BUNDLE_URL" || echo "000")"
       if [ "$HTTP_CODE" = "200" ]; then
         USED_ENDPOINT="$endpoint"
         USED_MODE="$mode"
@@ -348,17 +349,18 @@ echo -e "  ${GREEN}Piece bundle installed${NC}"
 # Prefer file:// for boot reliability (Firefox still opens even if local server
 # is late/crashed). The injected shell uses absolute localhost API URLs when
 # running from file://.
-KIOSK_PIECE_URL="file:///usr/local/share/kiosk/piece.html?density=${PACK_DENSITY}"
+# Force full-bleed AC rendering in kiosk mode (no desktop frame/gutters).
+KIOSK_PIECE_URL="file:///usr/local/share/kiosk/piece.html?density=${PACK_DENSITY}&nogap=true&nolabel=true&desktop=true&device=true&solo=true&noauth=true"
 
-# NOTE: cage is installed AFTER the rootfs strip step (step 3i) to prevent
-# the dnf remove from accidentally pulling it out as a dependency.
+# NOTE: Wayland compositor runtime is installed AFTER the rootfs strip step
+# (step 3i) so package removals cannot accidentally remove launcher deps.
 
 # Volume key daemon is pure Python — no external packages needed.
 
 # 3b. Kiosk session script
 cat > "$ROOTFS_DIR/usr/local/bin/kiosk-session.sh" << 'SESSEOF'
 #!/bin/bash
-# FedAC Kiosk Session — prefer cage (black background, no window animations).
+# FedAC Kiosk Session - Wayland primary (Weston), Cage fallback.
 # Write logs to persistent FEDAC-PIECE partition (readable from another machine)
 # FEDAC-PIECE is auto-mounted by systemd (mnt-piece.mount unit) — no blkid/mount needed here.
 PIECE_LOG=""
@@ -380,13 +382,24 @@ export XDG_SESSION_TYPE=wayland
 export XDG_RUNTIME_DIR="/run/user/$(id -u)"
 export MOZ_ENABLE_WAYLAND=1
 export MOZ_WEBRENDER=0
+export MOZ_X11_EGL=0
+export GDK_BACKEND=wayland
 export LIBGL_ALWAYS_SOFTWARE=1
+export MESA_LOADER_DRIVER_OVERRIDE=llvmpipe
 export MOZ_DBUS_REMOTE=0
 export NO_AT_BRIDGE=1
 export CLUTTER_DISABLE_ANIMATIONS=1
+export WLR_RENDERER=pixman
+export WLR_NO_HARDWARE_CURSORS=1
 PROFILE="/home/liveuser/.mozilla/firefox/kiosk"
+WESTON_BIN="$(command -v weston 2>/dev/null || true)"
+CAGE_BIN="$(command -v cage 2>/dev/null || true)"
+WAYLAND_LOG="${LOG%.log}-wayland.log"
+FIREFOX_LOG="${LOG%.log}-firefox.log"
 
-echo "[kiosk] checking binaries: cage=$(command -v cage 2>/dev/null || echo MISSING) firefox=$(command -v firefox 2>/dev/null || echo MISSING)"
+echo "[kiosk] checking binaries: weston=${WESTON_BIN:-MISSING} cage=${CAGE_BIN:-MISSING} firefox=$(command -v firefox 2>/dev/null || echo MISSING)"
+echo "[kiosk] wayland log: $WAYLAND_LOG"
+echo "[kiosk] firefox log: $FIREFOX_LOG"
 
 mkdir -p "$PROFILE/chrome"
 cat > "$PROFILE/user.js" << 'USERJSEOF'
@@ -396,9 +409,14 @@ user_pref("browser.tabs.drawInTitlebar", false);
 user_pref("browser.tabs.inTitlebar", 0);
 user_pref("browser.startup.homepage", "__KIOSK_PIECE_URL__");
 user_pref("browser.startup.page", 1);
+user_pref("browser.fullscreen.autohide", false);
+user_pref("full-screen-api.warning.timeout", 0);
+user_pref("full-screen-api.transition.timeout", 0);
 user_pref("media.autoplay.default", 0);
 user_pref("media.autoplay.blocking_policy", 0);
 user_pref("media.autoplay.block-webaudio", false);
+user_pref("layers.acceleration.disabled", true);
+user_pref("gfx.webrender.force-disabled", true);
 user_pref("accessibility.typeaheadfind", false);
 user_pref("accessibility.typeaheadfind.manual", false);
 user_pref("accessibility.typeaheadfind.linksonly", false);
@@ -436,19 +454,22 @@ else
   echo "[kiosk] WARNING: /mnt/piece/piece.html missing — using bundled rootfs fallback"
 fi
 
-# Paint PALS logo to framebuffer (visible during PipeWire/cage startup)
+# Paint PALS logo to framebuffer (visible during compositor startup)
 if [ -x /usr/local/bin/pals-fb-splash ]; then
   /usr/local/bin/pals-fb-splash 2>/dev/null || true
 fi
 
-# Start PipeWire audio stack (cage doesn't launch a full desktop session).
-# PipeWire needs XDG_RUNTIME_DIR which we set above.
+# Ensure user audio stack is available.
 mkdir -p "$XDG_RUNTIME_DIR"
-if command -v pipewire >/dev/null 2>&1; then
-  pipewire &
-  sleep 0.1
-  command -v wireplumber >/dev/null 2>&1 && wireplumber &
-  command -v pipewire-pulse >/dev/null 2>&1 && pipewire-pulse &
+if command -v systemctl >/dev/null 2>&1; then
+  systemctl --user start pipewire.service pipewire-pulse.service wireplumber.service >/dev/null 2>&1 || true
+fi
+if [ ! -S "$XDG_RUNTIME_DIR/pulse/native" ] && command -v pipewire >/dev/null 2>&1; then
+  echo "[kiosk] pulse socket missing; starting pipewire fallback daemons"
+  pipewire >> "$LOG" 2>&1 &
+  sleep 0.2
+  command -v wireplumber >/dev/null 2>&1 && wireplumber >> "$LOG" 2>&1 &
+  command -v pipewire-pulse >/dev/null 2>&1 && pipewire-pulse >> "$LOG" 2>&1 &
 fi
 
 echo "[kiosk] XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR"
@@ -472,50 +493,78 @@ if ! python3 -c "import socket; s=socket.socket(); s.settimeout(0.5); s.connect(
   sleep 1
 fi
 
-if command -v cage >/dev/null 2>&1; then
-  for i in $(seq 1 5); do
-    echo "[kiosk] launching firefox in cage (software rendering) attempt ${i}/5"
-    cage -- firefox --kiosk --no-remote --new-instance \
-      --profile "$PROFILE" --private-window \
-      __KIOSK_PIECE_URL__
-    CODE=$?
-    echo "[kiosk] cage/firefox exited (code=$CODE)"
-    sleep 1
-  done
-fi
-
-if command -v mutter >/dev/null 2>&1; then
-  for i in $(seq 1 5); do
-    echo "[kiosk] launching firefox in mutter fallback attempt ${i}/5"
-    mutter --wayland --no-x11 --sm-disable -- firefox --kiosk --no-remote \
-      --new-instance --profile "$PROFILE" --private-window \
-      __KIOSK_PIECE_URL__
-    CODE=$?
-    echo "[kiosk] mutter/firefox exited (code=$CODE)"
-    sleep 1
-  done
-fi
-
-if command -v xinit >/dev/null 2>&1 && command -v Xorg >/dev/null 2>&1; then
-  cat > /tmp/fedac-firefox-kiosk.sh << 'X11EOF'
+# Build the Firefox launch wrapper once and run it inside a Wayland compositor.
+cat > /tmp/fedac-firefox-kiosk.sh << 'WLEOF'
 #!/bin/sh
-xset s off -dpms s noblank >/dev/null 2>&1 || true
 exec firefox --kiosk --no-remote --new-instance \
-  --profile "__PROFILE__" --private-window \
+  --profile "__PROFILE__" \
   "__KIOSK_PIECE_URL__"
-X11EOF
-  sed -i "s|__PROFILE__|$PROFILE|g" /tmp/fedac-firefox-kiosk.sh
-  chmod +x /tmp/fedac-firefox-kiosk.sh
+WLEOF
+sed -i "s|__PROFILE__|$PROFILE|g" /tmp/fedac-firefox-kiosk.sh
+chmod +x /tmp/fedac-firefox-kiosk.sh
+
+WESTON_SHELL=""
+for cand in \
+  /usr/lib64/libweston-*/kiosk-shell.so \
+  /usr/lib/libweston-*/kiosk-shell.so \
+  /usr/lib64/libweston-*/fullscreen-shell.so \
+  /usr/lib/libweston-*/fullscreen-shell.so
+do
+  [ -f "$cand" ] && WESTON_SHELL="$cand" && break
+done
+echo "[kiosk] weston shell: ${WESTON_SHELL:-default}"
+
+launch_with_weston() {
+  local socket="fedac-wayland"
+  local args=(--backend=drm --socket="$socket" --idle-time=0)
+  [ -n "$WESTON_SHELL" ] && args+=(--shell="$WESTON_SHELL")
+
+  rm -f "$XDG_RUNTIME_DIR/$socket"
+  "$WESTON_BIN" "${args[@]}" >> "$WAYLAND_LOG" 2>&1 &
+  local weston_pid="$!"
+
+  for i in $(seq 1 60); do
+    [ -S "$XDG_RUNTIME_DIR/$socket" ] && break
+    sleep 0.1
+  done
+  if [ ! -S "$XDG_RUNTIME_DIR/$socket" ]; then
+    echo "[kiosk] weston socket did not appear"
+    kill "$weston_pid" >/dev/null 2>&1 || true
+    wait "$weston_pid" >/dev/null 2>&1 || true
+    return 1
+  fi
+
+  WAYLAND_DISPLAY="$socket" /tmp/fedac-firefox-kiosk.sh >> "$FIREFOX_LOG" 2>&1
+  local code="$?"
+  kill "$weston_pid" >/dev/null 2>&1 || true
+  wait "$weston_pid" >/dev/null 2>&1 || true
+  return "$code"
+}
+
+launch_with_cage() {
+  "$CAGE_BIN" /tmp/fedac-firefox-kiosk.sh >> "$WAYLAND_LOG" 2>&1
+}
+
+if [ -n "$WESTON_BIN" ] || [ -n "$CAGE_BIN" ]; then
   while true; do
-    echo "[kiosk] launching firefox in X11 fallback (xinit + Xorg)"
-    xinit /tmp/fedac-firefox-kiosk.sh -- /usr/bin/Xorg :0 vt1 -nolisten tcp -s 0 -dpms
-    CODE=$?
-    echo "[kiosk] xinit/Xorg exited (code=$CODE); restarting in 2s"
+    if [ -n "$WESTON_BIN" ]; then
+      echo "[kiosk] launching firefox in Wayland mode (weston)"
+      launch_with_weston
+      CODE="$?"
+      echo "[kiosk] weston/firefox exited (code=$CODE); restarting in 2s"
+    else
+      echo "[kiosk] launching firefox in Wayland mode (cage)"
+      launch_with_cage
+      CODE="$?"
+      echo "[kiosk] cage/firefox exited (code=$CODE); restarting in 2s"
+    fi
+    tail -n 40 "$FIREFOX_LOG" 2>/dev/null || true
+    tail -n 40 "$WAYLAND_LOG" 2>/dev/null || true
     sleep 2
   done
 fi
 
-echo "[kiosk] FATAL: no working launcher (cage/mutter/xinit)"
+echo "[kiosk] FATAL: no working launcher (weston/cage)"
 echo "[kiosk] staying on tty for debug; log=$LOG"
 while true; do sleep 60; done
 SESSEOF
@@ -907,7 +956,7 @@ cp "$OVERLAY_DIR/dconf-profile-user" "$ROOTFS_DIR/etc/dconf/profile/user" 2>/dev
 echo -e "  ${GREEN}All kiosk config injected${NC}"
 
 # ══════════════════════════════════════════
-# Step 3i: Strip bloat from rootfs (kiosk only needs cage + Firefox + audio)
+# Step 3i: Strip bloat from rootfs (kiosk only needs browser + Wayland + audio)
 # ══════════════════════════════════════════
 echo -e "${CYAN}  Stripping unnecessary packages from rootfs...${NC}"
 ROOTFS_BEFORE=$(du -sb "$ROOTFS_DIR" 2>/dev/null | awk '{print $1}')
@@ -1011,37 +1060,68 @@ ROOTFS_AFTER=$(du -sb "$ROOTFS_DIR" 2>/dev/null | awk '{print $1}')
 SAVED=$(( (ROOTFS_BEFORE - ROOTFS_AFTER) / 1048576 ))
 echo -e "  ${GREEN}Stripped ${SAVED}MB from rootfs ($(numfmt --to=iec $ROOTFS_BEFORE) → $(numfmt --to=iec $ROOTFS_AFTER))${NC}"
 
-# ── Install cage AFTER strip (so dnf remove can't pull it out) ────────
-echo -e "  Installing cage into rootfs (post-strip)..."
+# ── Install Wayland runtime required by kiosk-session.sh ───────────────
+echo -e "  Installing Wayland runtime into rootfs (post-strip)..."
 # Re-mount chroot binds for dnf
 mount --bind /dev "$ROOTFS_DIR/dev" 2>/dev/null || true
 mount --bind /proc "$ROOTFS_DIR/proc" 2>/dev/null || true
 mount --bind /sys "$ROOTFS_DIR/sys" 2>/dev/null || true
 mount -t tmpfs tmpfs "$ROOTFS_DIR/tmp" 2>/dev/null || true
 cp /etc/resolv.conf "$ROOTFS_DIR/etc/resolv.conf" 2>/dev/null || true
+if ! grep -q '^nameserver ' "$ROOTFS_DIR/etc/resolv.conf" 2>/dev/null; then
+  cat > "$ROOTFS_DIR/etc/resolv.conf" << 'RSVEOF'
+nameserver 1.1.1.1
+nameserver 8.8.8.8
+RSVEOF
+elif grep -q '127\.0\.0\.53' "$ROOTFS_DIR/etc/resolv.conf" 2>/dev/null; then
+  grep -q '^nameserver 1.1.1.1$' "$ROOTFS_DIR/etc/resolv.conf" 2>/dev/null || echo "nameserver 1.1.1.1" >> "$ROOTFS_DIR/etc/resolv.conf"
+  grep -q '^nameserver 8.8.8.8$' "$ROOTFS_DIR/etc/resolv.conf" 2>/dev/null || echo "nameserver 8.8.8.8" >> "$ROOTFS_DIR/etc/resolv.conf"
+fi
 
+DNF_INSTALL_FAILED=false
 if [ -x "$ROOTFS_DIR/usr/bin/dnf" ]; then
-  chroot "$ROOTFS_DIR" /usr/bin/dnf -y install cage 2>&1 | tail -5 || true
+  if ! chroot "$ROOTFS_DIR" /usr/bin/dnf -y install \
+    weston cage; then
+    DNF_INSTALL_FAILED=true
+  fi
 elif command -v dnf >/dev/null 2>&1; then
-  dnf -y --installroot="$ROOTFS_DIR" --releasever="$FEDORA_VERSION" install cage 2>&1 | tail -5 || true
+  if ! dnf -y --installroot="$ROOTFS_DIR" --releasever="$FEDORA_VERSION" install \
+    weston cage; then
+    DNF_INSTALL_FAILED=true
+  fi
+else
+  DNF_INSTALL_FAILED=true
 fi
 
 umount "$ROOTFS_DIR/tmp" "$ROOTFS_DIR/sys" "$ROOTFS_DIR/proc" "$ROOTFS_DIR/dev" 2>/dev/null || true
+if [ "$DNF_INSTALL_FAILED" = true ]; then
+  echo -e "  ${RED}ERROR: Failed to install Wayland runtime into rootfs${NC}"
+  echo -e "  ${RED}Check network/DNS on the build machine, then re-run.${NC}"
+  exit 1
+fi
 
 # ── Verify critical binaries survived the strip ──────────────────────
 echo -e "  Verifying critical binaries..."
 MISSING=""
-for bin in cage firefox pipewire mutter xinit Xorg; do
-  if [ -x "$ROOTFS_DIR/usr/bin/$bin" ]; then
+for bin in firefox pipewire weston; do
+  OK=false
+  [ -x "$ROOTFS_DIR/usr/bin/$bin" ] && OK=true
+  if [ "$OK" = true ]; then
     echo -e "    ${GREEN}✓ $bin${NC}"
   else
     echo -e "    ${RED}✗ $bin MISSING${NC}"
     MISSING="$MISSING $bin"
   fi
 done
+if [ -x "$ROOTFS_DIR/usr/bin/cage" ]; then
+  echo -e "    ${GREEN}✓ cage${NC}"
+else
+  echo -e "    ${YELLOW}• cage missing (weston-only fallback)${NC}"
+fi
 if [ -n "$MISSING" ]; then
-  echo -e "  ${RED}WARNING: Missing critical binaries:${MISSING}${NC}"
-  echo -e "  ${RED}The kiosk will likely fail to boot!${NC}"
+  echo -e "  ${RED}ERROR: Missing critical binaries:${MISSING}${NC}"
+  echo -e "  ${RED}Aborting build to avoid flashing a non-booting kiosk image.${NC}"
+  exit 1
 fi
 
 # ══════════════════════════════════════════
