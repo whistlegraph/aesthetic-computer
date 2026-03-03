@@ -922,10 +922,8 @@ export const handler = stream(async (event, context) => {
       // Description is the raw KidLisp source code (newlines preserved)
       const description = piece.source || "A KidLisp piece preserved on Tezos";
 
-      // Build tags
-      const tags = [`$${pieceName}`, "KidLisp", "Aesthetic.Computer"];
-      if (authorHandle) tags.push(`@${authorHandle.replace(/^@/, "")}`);
-      if (userCode) tags.push(userCode);
+      // v6 metadata policy: single canonical tag only
+      const tags = ["KidLisp"];
 
       // Build attributes: Length first, then Packed on, then author info
       const attributes = [

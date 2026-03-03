@@ -272,8 +272,8 @@ export const handler = stream(async (event) => {
       // Build metadata
       const tokenName = `$${pieceName}`;
       const description = pieceDoc.source || `A KidLisp piece preserved on Tezos`;
-      const tags = [`$${pieceName}`, "KidLisp", "Aesthetic.Computer"];
-      if (authorHandle && authorHandle !== "@anon") tags.push(authorHandle);
+      // v6 metadata policy: single canonical tag only
+      const tags = ["KidLisp"];
 
       // Build attributes (matches keep-mint.mjs field names)
       const attributes = [
