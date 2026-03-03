@@ -8,7 +8,7 @@
 
 import { authorize, handleFor, hasAdmin } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
-import { analyzeKidLisp } from "../../backend/kidlisp-analyzer.mjs";
+import { analyzeKidLisp, ANALYZER_VERSION } from "../../backend/kidlisp-analyzer.mjs";
 import { stream } from "@netlify/functions";
 import { TezosToolkit, MichelsonMap } from "@taquito/taquito";
 import { InMemorySigner } from "@taquito/signer";
@@ -280,6 +280,7 @@ export const handler = stream(async (event) => {
         ...analysis.traits,
         { name: "Updated", value: new Date().toISOString().split('T')[0] },
         ...(authorHandle && authorHandle !== "@anon" ? [{ name: "Handle", value: authorHandle }] : []),
+        { name: "Analyzer Version", value: ANALYZER_VERSION },
       ];
 
       await send("progress", { stage: "metadata", message: "✓ Metadata ready" });
