@@ -1,7 +1,6 @@
 [Unit]
 Description=FedAC Kiosk Piece Server
 After=local-fs.target
-DefaultDependencies=no
 
 [Service]
 Type=simple
