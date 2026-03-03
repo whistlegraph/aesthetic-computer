@@ -424,6 +424,13 @@ for i in $(seq 1 30); do
   sleep 0.5
 done
 
+# Fallback: if OpenRC service isn't running, start piece server ourselves
+if ! python3 -c "import socket; s=socket.socket(); s.settimeout(0.5); s.connect(('127.0.0.1',8080)); s.close()" 2>/dev/null; then
+  echo "[kiosk] piece server not ready after 15s — starting fallback"
+  python3 /usr/local/bin/kiosk-piece-server.py &
+  sleep 1
+fi
+
 echo "[kiosk] launching cage + chromium"
 echo "[kiosk] LIBSEAT_BACKEND=$LIBSEAT_BACKEND SEATD_SOCK=${SEATD_SOCK:-unset}"
 echo "[kiosk] DRI devices: $(ls /dev/dri/ 2>&1)"
