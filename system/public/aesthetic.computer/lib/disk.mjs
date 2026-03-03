@@ -7198,6 +7198,21 @@ const gameboy = {
   isPlaying: false     // Whether emulator is running
 };
 
+// Resolve a user code (e.g. "ac25namuc") to a handle via the permahandle API.
+// Returns the handle string (e.g. "jeffrey") or null if not a user code / not found.
+async function resolveUserCode(slug) {
+  if (!slug || slug.length !== 9 || !slug.startsWith("ac")) return null;
+  if (!/^ac[0-9]{2}[a-z]{5}$/.test(slug)) return null;
+  try {
+    const res = await fetch(`/api/permahandle/${slug}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.handle || null;
+  } catch {
+    return null;
+  }
+}
+
 // 2. ✔ Loading the disk.
 let originalHost;
 let firstLoad = true;
@@ -7898,7 +7913,13 @@ async function load(
 
         // Only return a 404 if the error type is correct.
         if (firstLoad && (err.message === "404" || err.message === "403")) {
-          $commonApi.jump(`404~${slug}`);
+          // Check if slug is a user code (e.g. "ac25namuc") and redirect to their profile.
+          const handle = await resolveUserCode(slug);
+          if (handle) {
+            $commonApi.jump(`@${handle}`);
+          } else {
+            $commonApi.jump(`404~${slug}`);
+          }
         } else {
           $commonApi.notice(":(", ["red", "yellow"]);
         }
@@ -7926,7 +7947,13 @@ async function load(
 
       // Only return a 404 if the error type is correct.
       if (firstLoad && (err.message === "404" || err.message === "403")) {
-        $commonApi.jump(`404~${slug}`);
+        // Check if slug is a user code (e.g. "ac25namuc") and redirect to their profile.
+        const handle = await resolveUserCode(slug);
+        if (handle) {
+          $commonApi.jump(`@${handle}`);
+        } else {
+          $commonApi.jump(`404~${slug}`);
+        }
       } else {
         $commonApi.notice(":(", ["red", "yellow"]);
       }
