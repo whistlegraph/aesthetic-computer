@@ -193,8 +193,9 @@ let soSoftLastTinyFont = false; // Track if we're using tiny font to recreate bu
 let giveBtnParticles = [];
 
 // 🎰 Top-right slot cycling: rotates through "give", "ad", and "products" on a timer
-const TOP_RIGHT_BTN_CHOICES = ["give", "ad", "products"];
-let topRightBtnChoiceIndex = Math.floor(Math.random() * TOP_RIGHT_BTN_CHOICES.length);
+// In critical funding mode, always show GIVE
+const TOP_RIGHT_BTN_CHOICES = isCriticalFunding ? ["give"] : ["give", "ad", "products"];
+let topRightBtnChoiceIndex = isCriticalFunding ? 0 : Math.floor(Math.random() * TOP_RIGHT_BTN_CHOICES.length);
 let topRightBtnChoice = TOP_RIGHT_BTN_CHOICES[topRightBtnChoiceIndex];
 const TOP_RIGHT_CYCLE_MS = 9000; // 9 seconds
 let topRightLastCycleTime = 0;
@@ -233,7 +234,7 @@ const UNITICKER_IDLE_THRESHOLD = 120; // 2 seconds at 60fps before auto-selectin
 // "critical" = full lockdown (chat offline, all alerts)
 // "yikes" = chat works, GIVE button shows, but no $ replacement
 // "off" = normal operation
-export const FUNDING_SEVERITY = "off";
+export const FUNDING_SEVERITY = "critical";
 
 // Legacy export for backwards compatibility
 export const FUNDING_MODE = FUNDING_SEVERITY === "critical";
@@ -251,19 +252,19 @@ if (typeof globalThis !== "undefined") {
 // Colorful funding messages for each ticker (using \\color\\ codes for rendering)
 // Uses ASCII-only characters compatible with font_1 (MatrixChunky8 loads from assets which has CORS issues)
 // English messages
-const FUNDING_MESSAGE_CHAT_EN = "*** \\pink\\'chat'\\cyan\\, media storage, and multiplayer are offline due to server bill hardship -- Enter 'give' to help support AC in the New Year! ***";
-const FUNDING_MESSAGE_CLOCK_EN = "*** \\orange\\'laer-klokken'\\255,200,100\\ and other services are offline due to server bill hardship -- Enter 'give' to help support AC in the New Year! ***";
+const FUNDING_MESSAGE_CHAT_EN = "*** \\pink\\'chat'\\cyan\\, media storage, and multiplayer are offline -- DigitalOcean suspended our servers -- Enter 'give' to help bring them back! ***";
+const FUNDING_MESSAGE_CLOCK_EN = "*** \\orange\\'laer-klokken'\\255,200,100\\ and other services are offline -- DigitalOcean suspended our servers -- Enter 'give' to help bring them back! ***";
 // Danish messages
-const FUNDING_MESSAGE_CHAT_DA = "*** \\pink\\'chat'\\cyan\\, medielagring og multiplayer er offline pga. serverregning -- Skriv 'give' for at stoette AC i det nye aar! ***";
-const FUNDING_MESSAGE_CLOCK_DA = "*** \\orange\\'laer-klokken'\\255,200,100\\ og andre tjenester er offline pga. serverregning -- Skriv 'give' for at stoette AC i det nye aar! ***";
+const FUNDING_MESSAGE_CHAT_DA = "*** \\pink\\'chat'\\cyan\\, medielagring og multiplayer er offline -- DigitalOcean suspenderede vores servere -- Skriv 'give' for at hjaelpe! ***";
+const FUNDING_MESSAGE_CLOCK_DA = "*** \\orange\\'laer-klokken'\\255,200,100\\ og andre tjenester er offline -- DigitalOcean suspenderede vores servere -- Skriv 'give' for at hjaelpe! ***";
 // Alternate between English and Danish every 10 seconds
 const getLangPhase = () => Math.floor(Date.now() / 10000) % 2;
 const FUNDING_MESSAGE_CHAT = getLangPhase() === 0 ? FUNDING_MESSAGE_CHAT_EN : FUNDING_MESSAGE_CHAT_DA;
 const FUNDING_MESSAGE_CLOCK = getLangPhase() === 0 ? FUNDING_MESSAGE_CLOCK_EN : FUNDING_MESSAGE_CLOCK_DA;
 
 // Recovery mode ticker messages (when severity is "yikes" - chat back online but still need support)
-const RECOVERY_TICKER_EN = "Happy New Year ~ Enter 'give' to help AC '26 stay online and healthy!";
-const RECOVERY_TICKER_DA = "Godt Nytar ~ Skriv 'give' for at stoette AC i 2026!";
+const RECOVERY_TICKER_EN = "DigitalOcean suspended our servers ~ Chat, user media, and multiplayer are offline ~ Enter 'give' to help bring them back!";
+const RECOVERY_TICKER_DA = "DigitalOcean suspenderede vores servere ~ Chat, brugermedier og multiplayer er offline ~ Skriv 'give' for at hjaelpe!";
 export const getRecoveryTicker = () => getLangPhase() === 0 ? RECOVERY_TICKER_EN : RECOVERY_TICKER_DA;
 export const showFundingEffectsFlag = showFundingEffects; // Export for chat.mjs
 
@@ -6795,12 +6796,9 @@ function paint($) {
       versionCommit = null;
     }
 
-    // 🚫 DEPRECATED: MOTD (Mood of the Day) - now shown in boot canvas2d initializer instead
-    // The boot loader shows MOTDs faster with potential redis caching
-    /*
     // MOTD (Mood of the Day) - show above login/signup buttons with animation
     // In CRITICAL funding mode, always show regardless of screen height
-    if (motd && (isCriticalFunding || screen.height >= 180)) {
+    if (isCriticalFunding || (motd && screen.height >= 180)) {
       motdBylineHandleBox = null;
       // Subtle sway (up and down)
       const swayY = Math.sin(motdFrame * 0.05) * 2; // 2 pixel sway range
@@ -6820,10 +6818,10 @@ function paint($) {
 
       if (isCriticalFunding && isSmallScreen) {
         // 3-line layout for small screens
-        const line1EN = "CRITICAL MEDIA";
-        const line1DA = "KRITISKE";
-        const line2EN = "SERVICES OFFLINE";
-        const line2DA = "MEDIETJENESTER OFFLINE";
+        const line1EN = "SERVERS SUSPENDED";
+        const line1DA = "SERVERE SUSPENDERET";
+        const line2EN = "BY DIGITALOCEAN";
+        const line2DA = "AF DIGITALOCEAN";
         const line3EN = "ENTER 'give' TO HELP";
         const line3DA = "SKRIV 'give' FOR HJAELP";
 
@@ -6859,8 +6857,8 @@ function paint($) {
         const motdY = screen.height / 2 - 48 + swayY;
 
         displayMotd = langPhase === 0
-          ? "CRITICAL MEDIA SERVICES OFFLINE"
-          : "KRITISKE MEDIETJENESTER OFFLINE";
+          ? "SERVERS SUSPENDED BY DIGITALOCEAN"
+          : "SERVERE SUSPENDERET AF DIGITALOCEAN";
 
       const motdElements = parseMessageElements(displayMotd);
       const hasLinks = motdElements.length > 0;
@@ -7046,15 +7044,14 @@ function paint($) {
         $.needsPaint();
       }
     }
-    */ // End of deprecated MOTD section
-    // Reset motd handle hover state since MOTD is deprecated
-    motdBylineHandleBox = null;
-    motdBylineHandleHover = false;
+    // Reset motd handle hover state when MOTD not displayed
+    if (!isCriticalFunding && (!motd || screen.height < 180)) {
+      motdBylineHandleBox = null;
+      motdBylineHandleHover = false;
+    }
 
-    // 🎭 MASTHEAD DECORATIONS (commented out)
     // 😡😢😭 Emotional face stamp - cycles through angry, sad, crying
     // Show during funding effects (yikes/critical) or in winter (Dec, Jan, Feb)
-    /*
     const month = new Date().getMonth(); // 0-indexed: 0=Jan, 11=Dec
     const isWinter = month === 11 || month === 0 || month === 1; // Dec, Jan, Feb
     if ((showFundingEffects || isWinter) && screen.height >= 120) {
@@ -7365,7 +7362,6 @@ function paint($) {
         }
       }
     }
-    */
   }
 
   // 🎹 Non-default theme unfocused visual cues (serious / neo)
@@ -7405,6 +7401,41 @@ function paint($) {
         });
       }
     }
+  }
+
+  // 📢 Emergency fundraising marquee above login buttons (critical funding mode)
+  if (isCriticalFunding && showLoginCurtain) {
+    const marqueeEN = "DigitalOcean suspended our servers -- Chat, user media, and multiplayer are offline -- We need your help to bring them back! -- Enter 'give' or click GIVE above --";
+    const marqueeDA = "DigitalOcean suspenderede vores servere -- Chat, brugermedier og multiplayer er offline -- Vi har brug for din hjaelp! -- Skriv 'give' eller klik GIVE --";
+    const marqueeLangPhase = Math.floor(Date.now() / 12000) % 2;
+    const marqueeText = marqueeLangPhase === 0 ? marqueeEN : marqueeDA;
+    const marqueeFullText = " ~ " + marqueeText + " ~ " + marqueeText + " ~ ";
+    const marqueeCharW = 6; // approximate char width in default font
+    const marqueeTextWidth = marqueeFullText.length * marqueeCharW;
+    // Scroll speed: pixels per frame (time-based for smoothness)
+    const marqueeSpeed = 0.8;
+    const marqueeOffset = (motdFrame * marqueeSpeed) % (marqueeText.length * marqueeCharW + marqueeCharW * 3);
+    // Position above the login buttons
+    const marqueeY = Math.floor(screen.height / 2 - 22);
+    // Clip to screen width
+    const marqueeX = Math.floor(-marqueeOffset);
+    // Background bar
+    ink(0, 0, 0, 180).box(0, marqueeY - 2, screen.width, 12);
+    // Marquee text with animated colors
+    let coloredMarquee = "";
+    const marqueeColors = ["red", "255,200,50", "cyan", "255,100,200", "lime", "255,150,50"];
+    for (let i = 0; i < marqueeFullText.length; i++) {
+      const ci = Math.floor((i + motdFrame * 0.2) % marqueeColors.length);
+      coloredMarquee += `\\${marqueeColors[ci]}\\${marqueeFullText[i]}`;
+    }
+    ink(255, 255, 255).write(
+      coloredMarquee,
+      { x: marqueeX, y: marqueeY },
+      undefined,
+      undefined,
+      false,
+    );
+    $.needsPaint();
   }
 
   // Paint UI Buttons

@@ -1239,14 +1239,14 @@ async function fun(event, context) {
           // Force with ?give=true or ?abtest=give, disable with ?give=false
           var giveForced=params.get('give')==='true'||params.get('abtest')==='give';
           var giveDisabled=params.get('give')==='false';
-          var giveVariant=!isKidlisp&&!isDeviceMode&&!giveDisabled&&(giveForced||false);
-          if(giveVariant)console.log('[BOOT] 🎁 A/B Test: GIVE variant active - showing donation CTA');
-          var giveUrl='give.aesthetic.computer';var giveMsg='HELP AC THRIVE';
+          var giveVariant=!isKidlisp&&!isDeviceMode&&!giveDisabled&&(giveForced||true);
+          if(giveVariant)console.log('[BOOT] 🎁 GIVE mode active - DigitalOcean emergency fundraising');
+          var giveUrl='give.aesthetic.computer';var giveMsg='SERVERS SUSPENDED - HELP AC';
           var giveFlyBys=[],giveLastSpawn=0,GIVE_SPAWN_INTERVAL=2500;
           // HIGH CONTRAST black bg with bright red/white/yellow - very clear and alarming
           var GIVE_COLORS=['#ff0000','#ffffff','#ffff00','#ff0000','#ffffff','#ffff00'];
           var GIVE_BG_COLOR='#000000';
-          function spawnGiveFlyBy(S){var dir=Math.random()>0.5?1:-1;var startX=dir>0?-W*0.4:W*1.4;var yPos=H*0.2+Math.random()*H*0.35;var speed=(0.8+Math.random()*1.2)*S*dir;var text=Math.random()>0.4?giveUrl:'GIVE';var scale=1.5+Math.random()*1.5;giveFlyBys.push({x:startX,y:yPos,text:text,speed:speed,rot:0,scale:scale,col:GIVE_COLORS[Math.floor(Math.random()*GIVE_COLORS.length)],life:1,trail:[]});}
+          function spawnGiveFlyBy(S){var dir=Math.random()>0.5?1:-1;var startX=dir>0?-W*0.4:W*1.4;var yPos=H*0.2+Math.random()*H*0.35;var speed=(0.8+Math.random()*1.2)*S*dir;var texts=['GIVE','give.aesthetic.computer','SERVERS DOWN','HELP AC'];var text=texts[Math.floor(Math.random()*texts.length)];var scale=1.5+Math.random()*1.5;giveFlyBys.push({x:startX,y:yPos,text:text,speed:speed,rot:0,scale:scale,col:GIVE_COLORS[Math.floor(Math.random()*GIVE_COLORS.length)],life:1,trail:[]});}
           // GIVE mode fake "source code" with $$ and GIVE
           var giveCodeLines=['// GIVE GIVE GIVE','$$$$ GIVE $$$$','function GIVE() {','  return $$$;','}','// $$ SUPPORT $$','GIVE.now();','$$$ GIVE $$$','const $ = GIVE;','// aesthetic.computer','GIVE GIVE GIVE','$$.support();','await GIVE();','// HELP US GROW','$$$$$$$$$$','GIVE(); GIVE();','$ $ $ $ $ $ $','// THANK YOU','GIVE.aesthetic','$$ GIVE $$ GIVE'];
           var uH=null,hST=0,run=true,f=0,netAct=0,shCan=document.createElement('canvas'),shCtx=shCan.getContext('2d'),shF=0;
