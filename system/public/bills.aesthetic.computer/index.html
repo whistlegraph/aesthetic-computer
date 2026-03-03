@@ -133,38 +133,22 @@
             margin-bottom: 0.5em;
         }
 
-        /* Give bumper */
+        /* Give link */
         .give-bumper {
-            display: block;
-            text-align: center;
-            padding: 1.2em 1.5em;
-            background: linear-gradient(135deg, var(--pink), #c44dff);
-            color: white;
+            display: inline-block;
+            padding: 0.5em 1em;
+            border: 1px solid var(--pink);
+            color: var(--pink);
             text-decoration: none;
-            font-family: 'YWFT Processing', monospace;
-            font-size: 20px;
-            font-weight: normal;
-            letter-spacing: 0.02em;
-            margin-bottom: 1.5em;
-            transition: transform 0.15s, box-shadow 0.15s;
-            box-shadow: var(--shadow-soft);
-            cursor: pointer;
-            user-select: none;
+            font-size: 13px;
+            transition: background 0.2s, color 0.2s;
         }
         .give-bumper:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(255,107,157,0.3);
-            text-decoration: none;
+            background: var(--pink);
             color: white;
+            text-decoration: none;
         }
-        .give-bumper:active { transform: translateY(0); }
-        .give-bumper .give-sub {
-            display: block;
-            font-family: 'Berkeley Mono Variable', monospace;
-            font-size: 0.55em;
-            opacity: 0.85;
-            margin-top: 0.3em;
-        }
+        .give-bumper .give-sub { display: none; }
 
         /* Alerts */
         .alerts { margin-bottom: 1.5em; }
@@ -399,7 +383,6 @@
             td, th { padding: 0.25em 0.35em; }
             .service-map { grid-template-columns: repeat(3, 1fr); }
             .hide-mobile { display: none; }
-            .give-bumper { font-size: 17px; padding: 1em; }
         }
 
         @media (max-width: 380px) {
@@ -421,11 +404,10 @@
             </div>
         </div>
 
-        <!-- Give bumper -->
-        <a class="give-bumper" href="https://give.aesthetic.computer">
-            give.aesthetic.computer
-            <span class="give-sub">help keep the servers running</span>
-        </a>
+        <!-- Give link -->
+        <div style="text-align: center; margin-bottom: 1.5em;">
+            <a class="give-bumper" href="https://give.aesthetic.computer">give.aesthetic.computer</a>
+        </div>
 
         <!-- Alerts -->
         <div class="alerts">
@@ -653,12 +635,6 @@
                 </ol>
             </div>
         </details>
-
-        <!-- Bottom give bumper -->
-        <a class="give-bumper" href="https://give.aesthetic.computer" style="margin-top: 2em;">
-            give.aesthetic.computer
-            <span class="give-sub">support aesthetic computer</span>
-        </a>
 
         <div class="footer">
             <span>2026-03-03</span>
