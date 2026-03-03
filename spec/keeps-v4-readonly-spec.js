@@ -15,11 +15,15 @@ import {
   getBigMapKeys
 } from './helpers/tzkt-helper.mjs';
 
-const RUN_KEEPS_V4_NETWORK_TESTS = process.env.RUN_KEEPS_V4_NETWORK_TESTS === 'true';
-const describeIfNetworkEnabled = RUN_KEEPS_V4_NETWORK_TESTS ? describe : xdescribe;
+const RUN_KEEPS_NETWORK_TESTS =
+  process.env.RUN_KEEPS_NETWORK_TESTS === 'true' ||
+  process.env.RUN_KEEPS_V4_NETWORK_TESTS === 'true';
+const describeIfNetworkEnabled = RUN_KEEPS_NETWORK_TESTS ? describe : xdescribe;
 
-if (!RUN_KEEPS_V4_NETWORK_TESTS) {
-  console.log('⏭️  Skipping v4 network read-only tests (set RUN_KEEPS_V4_NETWORK_TESTS=true to enable)');
+if (!RUN_KEEPS_NETWORK_TESTS) {
+  console.log(
+    '⏭️  Skipping keeps network read-only tests (set RUN_KEEPS_NETWORK_TESTS=true to enable)'
+  );
 }
 
 describeIfNetworkEnabled("🔐 Keeps FA2 v4 Contract - Read-Only Tests", () => {
@@ -28,6 +32,8 @@ describeIfNetworkEnabled("🔐 Keeps FA2 v4 Contract - Read-Only Tests", () => {
 
   beforeAll(async () => {
     console.log('\n🧪 Starting Keeps v4 read-only test suite...\n');
+    console.log(`🎯 Target contract: ${CONTRACTS.mainnet}`);
+    console.log(`🎯 Expected admin: ${EXPECTED_STORAGE.mainnet.administrator}`);
     ({ contract, address } = await getContract(network, false));
   });
 
