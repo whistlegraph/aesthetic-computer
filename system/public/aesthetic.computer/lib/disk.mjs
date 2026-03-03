@@ -9382,10 +9382,11 @@ async function load(
     cachedClockCode = null;
     
   // Parse search parameters properly to check for nolabel
-  hideLabel = false;
+  // Also hide label in pack mode (standalone bundles have no URL params)
+  hideLabel = (typeof window !== "undefined" && window.acPACK_MODE) || false;
   if (parsed.search) {
     const searchParams = new URLSearchParams(parsed.search);
-    hideLabel = searchParams.has("nolabel");
+    if (searchParams.has("nolabel")) hideLabel = true;
   }
   
     currentColon = colon;
