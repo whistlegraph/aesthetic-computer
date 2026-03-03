@@ -16,7 +16,6 @@
             font-display: swap;
         }
 
-        /* Dark (default) */
         :root {
             --bg: #1a1a2e;
             --text: #e8e8e8;
@@ -31,7 +30,6 @@
             --shadow-soft: 0 2px 8px rgba(0,0,0,0.15);
         }
 
-        /* Light */
         body.light-mode {
             --bg: #f5f5f5;
             --text: #1a1a2e;
@@ -66,17 +64,10 @@
         .container {
             max-width: 720px;
             margin: 0 auto;
-            padding: 1.5em;
+            padding: 1em 1.5em 1.5em;
         }
 
-        /* Header */
-        header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 2em;
-        }
-
+        /* Title — flush top-left like give/docs */
         h1 {
             font-family: 'YWFT Processing', 'Berkeley Mono Variable', monospace;
             font-size: 22px;
@@ -84,17 +75,19 @@
             color: var(--pink);
             cursor: pointer;
             transition: color 0.2s;
+            margin-bottom: 0.3em;
         }
         h1:hover { color: purple; }
         h1:active { color: gray; }
 
         .subtitle {
-            font-size: 0.85em;
+            font-size: 0.8em;
             color: var(--dim);
+            margin-bottom: 1.5em;
         }
 
         h2 {
-            font-size: 1.2em;
+            font-size: 1.1em;
             font-weight: normal;
             color: var(--text);
             margin-top: 2em;
@@ -102,13 +95,46 @@
         }
 
         h3 {
-            font-size: 0.85em;
+            font-size: 0.8em;
             font-weight: normal;
             color: var(--dim);
             text-transform: uppercase;
             letter-spacing: 0.06em;
             margin-top: 1.5em;
             margin-bottom: 0.5em;
+        }
+
+        /* Give bumper */
+        .give-bumper {
+            display: block;
+            text-align: center;
+            padding: 1.2em 1.5em;
+            background: linear-gradient(135deg, var(--pink), #c44dff);
+            color: white;
+            text-decoration: none;
+            font-family: 'YWFT Processing', monospace;
+            font-size: 20px;
+            font-weight: normal;
+            letter-spacing: 0.02em;
+            margin-bottom: 1.5em;
+            transition: transform 0.15s, box-shadow 0.15s;
+            box-shadow: var(--shadow-soft);
+            cursor: pointer;
+            user-select: none;
+        }
+        .give-bumper:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255,107,157,0.3);
+            text-decoration: none;
+            color: white;
+        }
+        .give-bumper:active { transform: translateY(0); }
+        .give-bumper .give-sub {
+            display: block;
+            font-family: 'Berkeley Mono Variable', monospace;
+            font-size: 0.55em;
+            opacity: 0.85;
+            margin-top: 0.3em;
         }
 
         /* Alerts */
@@ -118,26 +144,26 @@
             display: flex;
             align-items: flex-start;
             gap: 0.6em;
-            padding: 0.8em 1em;
+            padding: 0.7em 0.9em;
             background: var(--box-bg);
             border-left: 3px solid var(--red);
-            margin-bottom: 0.5em;
+            margin-bottom: 0.4em;
             animation: slideIn 0.3s ease;
         }
         .alert-warn { border-left-color: var(--gold); }
 
         .alert-dot {
-            width: 8px;
-            height: 8px;
+            width: 7px;
+            height: 7px;
             border-radius: 50%;
-            margin-top: 0.35em;
+            margin-top: 0.4em;
             flex-shrink: 0;
             animation: pulse 2s ease-in-out infinite;
         }
         .alert-dot.red { background: var(--red); }
         .alert-dot.gold { background: var(--gold); }
 
-        .alert-text { font-size: 0.85em; line-height: 1.5; }
+        .alert-text { font-size: 0.8em; line-height: 1.5; }
         .alert-text strong { color: var(--pink); }
 
         /* Stats grid */
@@ -149,17 +175,17 @@
         }
 
         .stat-box {
-            padding: 1em;
+            padding: 0.8em;
             background: var(--box-bg);
             border: 1px solid var(--box-border);
         }
 
         .stat-label {
-            font-size: 0.75em;
+            font-size: 0.7em;
             color: var(--dim);
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            margin-bottom: 0.3em;
+            margin-bottom: 0.2em;
         }
 
         .stat-value {
@@ -168,17 +194,35 @@
             font-variant-numeric: tabular-nums;
         }
 
+        /* SVG Timeline */
+        .timeline-wrap {
+            margin-bottom: 1.5em;
+            background: var(--box-bg);
+            border: 1px solid var(--box-border);
+            padding: 1em 1em 0.5em;
+        }
+
+        .timeline-wrap h3 {
+            margin-top: 0;
+            margin-bottom: 0.6em;
+        }
+
+        .timeline-svg {
+            width: 100%;
+            display: block;
+        }
+
         /* Tables */
         table {
             width: 100%;
             border-collapse: collapse;
             margin-bottom: 1em;
-            font-size: 0.85em;
+            font-size: 0.82em;
         }
 
         th {
             text-align: left;
-            padding: 0.5em 0.6em;
+            padding: 0.45em 0.5em;
             border-bottom: 1px solid var(--box-border);
             color: var(--dim);
             font-weight: normal;
@@ -188,7 +232,7 @@
         }
 
         td {
-            padding: 0.4em 0.6em;
+            padding: 0.35em 0.5em;
             border-bottom: 1px solid var(--box-border);
             vertical-align: top;
         }
@@ -210,7 +254,6 @@
         .pill-green { color: var(--green); border-color: var(--green); background: rgba(107,203,119,0.08); }
         .pill-cyan { color: var(--cyan); border-color: var(--cyan); background: rgba(78,205,196,0.08); }
 
-        /* Light mode pill adjustments */
         body.light-mode .pill-red { background: rgba(220,38,38,0.06); }
         body.light-mode .pill-gold { background: rgba(217,119,6,0.06); }
         body.light-mode .pill-green { background: rgba(5,150,105,0.06); }
@@ -218,15 +261,40 @@
 
         .money { font-variant-numeric: tabular-nums; }
 
+        /* Service map (visual) */
+        .service-map {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(95px, 1fr));
+            gap: 0.4em;
+            margin-bottom: 1.5em;
+        }
+
+        .svc {
+            padding: 0.5em;
+            background: var(--box-bg);
+            border: 1px solid var(--box-border);
+            text-align: center;
+            font-size: 0.72em;
+            transition: border-color 0.2s;
+        }
+        .svc:hover { border-color: var(--pink); }
+
+        .svc-name { font-size: 1.1em; margin-bottom: 0.15em; }
+        .svc-cost { color: var(--dim); }
+        .svc.down { border-color: var(--red); opacity: 0.6; }
+        .svc.down .svc-name { text-decoration: line-through; color: var(--red); }
+        .svc.ok { border-color: var(--green); }
+        .svc.warn { border-color: var(--gold); }
+        .svc.free { border-color: var(--cyan); opacity: 0.7; }
+
         /* Cards */
         .card {
             background: var(--box-bg);
             border: 1px solid var(--box-border);
-            padding: 1em;
-            margin-bottom: 0.8em;
+            padding: 0.8em;
+            margin-bottom: 0.6em;
         }
-
-        .card p { font-size: 0.85em; line-height: 1.8; }
+        .card p { font-size: 0.82em; line-height: 1.8; }
         .card p strong { color: var(--pink); }
 
         /* Collapsible */
@@ -234,25 +302,24 @@
 
         summary {
             cursor: pointer;
-            padding: 0.6em 0.8em;
+            padding: 0.5em 0.7em;
             background: var(--box-bg);
             border: 1px solid var(--box-border);
-            font-size: 0.85em;
+            font-size: 0.82em;
             user-select: none;
         }
         summary:hover { border-color: var(--pink); }
         details[open] summary { border-bottom: none; }
 
         .detail-body {
-            padding: 0.8em;
+            padding: 0.7em;
             background: var(--box-bg);
             border: 1px solid var(--box-border);
             border-top: none;
         }
-
         .detail-body ol {
             padding-left: 1.2em;
-            font-size: 0.85em;
+            font-size: 0.82em;
             line-height: 2;
         }
 
@@ -266,36 +333,6 @@
             padding: 0.1em 0.35em;
             font-size: 0.9em;
         }
-
-        /* Service map (visual) */
-        .service-map {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-            gap: 0.5em;
-            margin-bottom: 1.5em;
-        }
-
-        .svc {
-            padding: 0.6em;
-            background: var(--box-bg);
-            border: 1px solid var(--box-border);
-            text-align: center;
-            font-size: 0.75em;
-            transition: border-color 0.2s;
-        }
-        .svc:hover { border-color: var(--pink); }
-
-        .svc-name {
-            font-size: 1.1em;
-            margin-bottom: 0.2em;
-        }
-
-        .svc-cost { color: var(--dim); }
-        .svc.down { border-color: var(--red); opacity: 0.6; }
-        .svc.down .svc-name { text-decoration: line-through; color: var(--red); }
-        .svc.ok { border-color: var(--green); }
-        .svc.warn { border-color: var(--gold); }
-        .svc.free { border-color: var(--cyan); opacity: 0.7; }
 
         /* Footer */
         .footer {
@@ -322,17 +359,15 @@
 
         /* Mobile */
         @media (max-width: 600px) {
-            .container { padding: 1em; }
-            header { flex-direction: column; align-items: flex-start; gap: 0.25em; }
+            .container { padding: 0.8em; }
             h1 { font-size: 18px; }
             .stats { grid-template-columns: 1fr 1fr; }
             .stat-value { font-size: 1.4em; }
-            table { font-size: 0.8em; }
-            td, th { padding: 0.3em 0.4em; }
+            table { font-size: 0.78em; }
+            td, th { padding: 0.25em 0.35em; }
             .service-map { grid-template-columns: repeat(3, 1fr); }
-            .alert { flex-direction: row; align-items: flex-start; }
-            /* Hide less-critical table columns on mobile */
             .hide-mobile { display: none; }
+            .give-bumper { font-size: 17px; padding: 1em; }
         }
 
         @media (max-width: 380px) {
@@ -344,16 +379,20 @@
 <body>
     <div class="container">
 
-        <header>
-            <h1 id="title">bills</h1>
-            <span class="subtitle">service &amp; billing audit — 2026-03-03</span>
-        </header>
+        <h1 id="title">bills</h1>
+        <div class="subtitle">aesthetic.computer — 2026-03-03</div>
+
+        <!-- Give bumper -->
+        <a class="give-bumper" href="https://give.aesthetic.computer">
+            give.aesthetic.computer
+            <span class="give-sub">help keep the servers running</span>
+        </a>
 
         <!-- Alerts -->
         <div class="alerts">
             <div class="alert">
                 <div class="alert-dot red"></div>
-                <div class="alert-text"><strong>DigitalOcean suspended</strong> — $412.34 overdue. 6 droplets, Spaces, Redis all off.</div>
+                <div class="alert-text"><strong>DigitalOcean suspended</strong> — $412.34 overdue. All services off.</div>
             </div>
             <div class="alert">
                 <div class="alert-dot red"></div>
@@ -361,7 +400,7 @@
             </div>
             <div class="alert">
                 <div class="alert-dot red"></div>
-                <div class="alert-text"><strong>MongoDB down</strong> — Atlas suspended, migrated to DO silo — also suspended.</div>
+                <div class="alert-text"><strong>MongoDB down</strong> — migrated to DO silo — also suspended.</div>
             </div>
             <div class="alert alert-warn">
                 <div class="alert-dot gold"></div>
@@ -387,6 +426,12 @@
                 <div class="stat-label">minimum</div>
                 <div class="stat-value" style="color: var(--cyan);">~$44</div>
             </div>
+        </div>
+
+        <!-- SVG Cost Timeline -->
+        <div class="timeline-wrap">
+            <h3>monthly cost trend</h3>
+            <svg class="timeline-svg" id="timeline" viewBox="0 0 680 200" preserveAspectRatio="xMidYMid meet"></svg>
         </div>
 
         <!-- Service Map (visual) -->
@@ -469,24 +514,6 @@
         </table>
 
         <details>
-            <summary>monthly cost trend</summary>
-            <div class="detail-body">
-                <table>
-                    <thead><tr><th>month</th><th>amount</th><th>notes</th></tr></thead>
-                    <tbody>
-                        <tr><td>Mar 2026</td><td class="money">$11.14</td><td>2 days (suspended)</td></tr>
-                        <tr><td>Feb 2026</td><td class="money">$132.36</td><td>Oven upgraded mid-month</td></tr>
-                        <tr><td>Jan 2026</td><td class="money">$110.40</td><td></td></tr>
-                        <tr><td>Dec 2025</td><td class="money">$182.40</td><td></td></tr>
-                        <tr><td>Nov 2025</td><td class="money">$154.74</td><td>Costs started climbing</td></tr>
-                        <tr><td>Oct 2025</td><td class="money">$71.30</td><td></td></tr>
-                        <tr><td>Sep 2025</td><td class="money">$62.40</td><td>Baseline (~$62/mo for 2+ years)</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </details>
-
-        <details>
             <summary>spaces buckets (feb bandwidth)</summary>
             <div class="detail-body">
                 <table>
@@ -501,7 +528,7 @@
                         <tr><td>pix.nopaint.art</td><td>0.02 GiB</td></tr>
                     </tbody>
                 </table>
-                <p style="color: var(--dim); font-size: 0.75em; margin-top: 0.5em;">All within 1TB — no overage.</p>
+                <p style="color: var(--dim); font-size: 0.72em; margin-top: 0.5em;">All within 1TB — no overage.</p>
             </div>
         </details>
 
@@ -588,9 +615,15 @@
             </div>
         </details>
 
+        <!-- Bottom give bumper -->
+        <a class="give-bumper" href="https://give.aesthetic.computer" style="margin-top: 2em;">
+            give.aesthetic.computer
+            <span class="give-sub">support aesthetic computer</span>
+        </a>
+
         <div class="footer">
-            <span>generated by claude code — 2026-03-03</span>
-            <span><a href="https://aesthetic.computer/sitemap.html">sitemap</a> · <a href="https://aesthetic.computer/docs.json">docs.json</a> · <a href="https://aesthetic.computer/list">list</a></span>
+            <span>2026-03-03</span>
+            <span><a href="https://sitemap.aesthetic.computer">sitemap</a> · <a href="https://aesthetic.computer/docs">docs</a> · <a href="https://aesthetic.computer/list">list</a></span>
         </div>
 
     </div>
@@ -614,6 +647,122 @@
         document.getElementById('title').onclick = () => {
             location.href = 'https://aesthetic.computer';
         };
+
+        // SVG Cost Timeline
+        (function() {
+            const data = [
+                { month: 'Sep 25', cost: 62.40 },
+                { month: 'Oct 25', cost: 71.30 },
+                { month: 'Nov 25', cost: 154.74 },
+                { month: 'Dec 25', cost: 182.40 },
+                { month: 'Jan 26', cost: 110.40 },
+                { month: 'Feb 26', cost: 132.36 },
+                { month: 'Mar 26', cost: 11.14, partial: true },
+            ];
+
+            const svg = document.getElementById('timeline');
+            const ns = 'http://www.w3.org/2000/svg';
+            const W = 680, H = 200;
+            const pad = { top: 20, right: 20, bottom: 35, left: 55 };
+            const chartW = W - pad.left - pad.right;
+            const chartH = H - pad.top - pad.bottom;
+            const maxCost = Math.max(...data.map(d => d.cost)) * 1.15;
+
+            const style = getComputedStyle(document.documentElement);
+            const pink = style.getPropertyValue('--pink').trim() || '#ff6b9d';
+            const dim = style.getPropertyValue('--dim').trim() || '#888';
+            const red = style.getPropertyValue('--red').trim() || '#ef4444';
+            const boxBorder = style.getPropertyValue('--box-border').trim() || 'rgba(255,255,255,0.1)';
+            const text = style.getPropertyValue('--text').trim() || '#e8e8e8';
+
+            function el(tag, attrs) {
+                const e = document.createElementNS(ns, tag);
+                for (const [k, v] of Object.entries(attrs || {})) e.setAttribute(k, v);
+                return e;
+            }
+
+            function x(i) { return pad.left + (i / (data.length - 1)) * chartW; }
+            function y(v) { return pad.top + chartH - (v / maxCost) * chartH; }
+
+            // Grid lines
+            const gridSteps = [50, 100, 150, 200];
+            for (const v of gridSteps) {
+                if (v > maxCost) continue;
+                const yy = y(v);
+                svg.appendChild(el('line', { x1: pad.left, y1: yy, x2: W - pad.right, y2: yy, stroke: boxBorder, 'stroke-width': 0.5 }));
+                const label = el('text', { x: pad.left - 8, y: yy + 3, fill: dim, 'font-size': '9', 'text-anchor': 'end', 'font-family': "'Berkeley Mono Variable', monospace" });
+                label.textContent = '$' + v;
+                svg.appendChild(label);
+            }
+
+            // Area fill
+            let areaPath = `M ${x(0)} ${y(0)}`;
+            for (let i = 0; i < data.length; i++) areaPath += ` L ${x(i)} ${y(data[i].cost)}`;
+            areaPath += ` L ${x(data.length - 1)} ${y(0)} Z`;
+
+            const defs = el('defs');
+            const grad = el('linearGradient', { id: 'areaGrad', x1: '0', y1: '0', x2: '0', y2: '1' });
+            const stop1 = el('stop', { offset: '0%', 'stop-color': pink, 'stop-opacity': '0.25' });
+            const stop2 = el('stop', { offset: '100%', 'stop-color': pink, 'stop-opacity': '0.02' });
+            grad.appendChild(stop1);
+            grad.appendChild(stop2);
+            defs.appendChild(grad);
+            svg.appendChild(defs);
+
+            svg.appendChild(el('path', { d: areaPath, fill: 'url(#areaGrad)' }));
+
+            // Line
+            let linePath = `M ${x(0)} ${y(data[0].cost)}`;
+            for (let i = 1; i < data.length; i++) linePath += ` L ${x(i)} ${y(data[i].cost)}`;
+            svg.appendChild(el('path', { d: linePath, fill: 'none', stroke: pink, 'stroke-width': 2, 'stroke-linejoin': 'round' }));
+
+            // Data points and labels
+            for (let i = 0; i < data.length; i++) {
+                const cx = x(i), cy = y(data[i].cost);
+
+                // Dot
+                const dotColor = data[i].partial ? red : pink;
+                svg.appendChild(el('circle', { cx, cy, r: 4, fill: dotColor, stroke: 'var(--bg)', 'stroke-width': 2 }));
+
+                // Cost label above dot
+                const costLabel = el('text', {
+                    x: cx, y: cy - 10,
+                    fill: data[i].partial ? red : text,
+                    'font-size': '10',
+                    'text-anchor': 'middle',
+                    'font-family': "'Berkeley Mono Variable', monospace"
+                });
+                costLabel.textContent = '$' + data[i].cost.toFixed(0);
+                svg.appendChild(costLabel);
+
+                // Month label below axis
+                const monthLabel = el('text', {
+                    x: cx, y: H - 8,
+                    fill: dim,
+                    'font-size': '9',
+                    'text-anchor': 'middle',
+                    'font-family': "'Berkeley Mono Variable', monospace"
+                });
+                monthLabel.textContent = data[i].month;
+                svg.appendChild(monthLabel);
+            }
+
+            // Baseline annotation
+            const baseY = y(62);
+            svg.appendChild(el('line', {
+                x1: pad.left, y1: baseY, x2: W - pad.right, y2: baseY,
+                stroke: dim, 'stroke-width': 0.8, 'stroke-dasharray': '4,3'
+            }));
+            const baseLabel = el('text', {
+                x: W - pad.right + 2, y: baseY + 3,
+                fill: dim,
+                'font-size': '8',
+                'text-anchor': 'start',
+                'font-family': "'Berkeley Mono Variable', monospace"
+            });
+            baseLabel.textContent = 'baseline';
+            svg.appendChild(baseLabel);
+        })();
     </script>
 </body>
 </html>
