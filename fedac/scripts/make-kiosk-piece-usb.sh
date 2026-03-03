@@ -332,9 +332,10 @@ echo -e "${CYAN}[3/6] Injecting kiosk config...${NC}"
 mkdir -p "$ROOTFS_DIR/usr/local/share/kiosk"
 cp "$BUNDLE_PATH" "$ROOTFS_DIR/usr/local/share/kiosk/piece.html"
 echo -e "  ${GREEN}Piece bundle installed${NC}"
-# Use the local HTTP server (kiosk-piece-server.py on port 8080) so the shell
-# iframe can resolve piece-app.html and API endpoints (/api/volume etc.) work.
-KIOSK_PIECE_URL="http://localhost:8080/piece.html?density=${PACK_DENSITY}"
+# Prefer file:// for boot reliability (Firefox still opens even if local server
+# is late/crashed). The injected shell uses absolute localhost API URLs when
+# running from file://.
+KIOSK_PIECE_URL="file:///usr/local/share/kiosk/piece.html?density=${PACK_DENSITY}"
 
 # NOTE: cage is installed AFTER the rootfs strip step (step 3i) to prevent
 # the dnf remove from accidentally pulling it out as a dependency.
