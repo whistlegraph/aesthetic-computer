@@ -52,8 +52,11 @@ async function logOSBuild(record) {
 
 // ─── Configuration ──────────────────────────────────────────────────
 
-const CACHE_DIR = process.env.OS_CACHE_DIR || "/opt/oven/cache";
 const TEMP_DIR = process.env.OS_TEMP_DIR || "/tmp";
+const CONFIGURED_CACHE_DIR = (process.env.OS_CACHE_DIR || "").trim();
+const DEFAULT_CACHE_DIR = "/opt/oven/cache";
+const FALLBACK_CACHE_DIR = path.join(TEMP_DIR, "oven-cache");
+const WORKDIR_CACHE_DIR = path.join(process.cwd(), ".cache", "oven-os");
 const BASE_IMAGE_URLS = {
   fedora: process.env.FEDAC_BASE_IMAGE_URL ||
     "https://assets-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/os/fedora-base-latest.img",
@@ -69,6 +72,100 @@ const MANIFEST_URLS = {
 // Legacy aliases
 const BASE_IMAGE_URL = BASE_IMAGE_URLS.fedora;
 const MANIFEST_URL = MANIFEST_URLS.fedora;
+
+let resolvedCacheDir = null;
+let resolvingCacheDirPromise = null;
+
+function getCacheDirCandidates() {
+  return [...new Set([
+    CONFIGURED_CACHE_DIR || DEFAULT_CACHE_DIR,
+    DEFAULT_CACHE_DIR,
+    FALLBACK_CACHE_DIR,
+    WORKDIR_CACHE_DIR,
+  ])];
+}
+
+async function resolveCacheDir() {
+  if (resolvedCacheDir) return resolvedCacheDir;
+  if (resolvingCacheDirPromise) return resolvingCacheDirPromise;
+
+  resolvingCacheDirPromise = (async () => {
+    const candidates = getCacheDirCandidates();
+    const errors = [];
+    const preferred = CONFIGURED_CACHE_DIR || DEFAULT_CACHE_DIR;
+
+    for (const dir of candidates) {
+      const probePath = path.join(dir, `.cache-probe-${process.pid}-${Date.now()}`);
+      try {
+        await fs.mkdir(dir, { recursive: true });
+        await fs.writeFile(probePath, "ok");
+        await fs.unlink(probePath);
+        resolvedCacheDir = dir;
+        if (dir !== preferred) {
+          console.warn(`[os] Cache fallback active: ${preferred} is not writable. Using ${dir}`);
+        }
+        return dir;
+      } catch (err) {
+        errors.push(`${dir} (${err.code || err.message})`);
+      }
+    }
+
+    throw new Error(
+      `No writable OS cache directory. Tried: ${errors.join(", ")}`,
+    );
+  })();
+
+  try {
+    return await resolvingCacheDirPromise;
+  } finally {
+    resolvingCacheDirPromise = null;
+  }
+}
+
+function buildLocalCacheFilenamePattern(flavor) {
+  if (flavor) {
+    const safeFlavor = String(flavor).replace(/[^a-z0-9_-]/gi, "");
+    return new RegExp(`^${safeFlavor}-base\\.img(?:\\.sha256|\\.downloading)?$`, "i");
+  }
+  return /^[a-z0-9_-]+-base\.img(?:\.sha256|\.downloading)?$/i;
+}
+
+export async function clearOSBuildLocalCache(flavor) {
+  const cacheDirs = [...new Set([
+    resolvedCacheDir,
+    ...getCacheDirCandidates(),
+  ].filter(Boolean))];
+  const filenamePattern = buildLocalCacheFilenamePattern(flavor);
+
+  let deleted = 0;
+  const errors = [];
+  for (const cacheDir of cacheDirs) {
+    let entries = [];
+    try {
+      entries = await fs.readdir(cacheDir);
+    } catch (err) {
+      if (err.code === "ENOENT") continue;
+      errors.push(`${cacheDir}: ${err.code || err.message}`);
+      continue;
+    }
+
+    for (const entry of entries) {
+      if (!filenamePattern.test(entry)) continue;
+      try {
+        await fs.unlink(path.join(cacheDir, entry));
+        deleted++;
+      } catch (err) {
+        errors.push(`${cacheDir}/${entry}: ${err.code || err.message}`);
+      }
+    }
+  }
+
+  if (errors.length) {
+    console.warn("[os] Local cache clear warnings:", errors.join("; "));
+  }
+
+  return { deleted, dirs: cacheDirs, errors };
+}
 
 // ─── CDN Cache (DO Spaces) ──────────────────────────────────────────
 // After building an ISO, upload it to Spaces so repeat downloads bypass
@@ -243,9 +340,10 @@ export function invalidateManifest(flavor) {
 // ─── Base Image Cache ───────────────────────────────────────────────
 
 async function ensureBaseImage(onProgress, flavor = "alpine") {
-  await fs.mkdir(CACHE_DIR, { recursive: true });
+  const cacheDir = await resolveCacheDir();
+  await fs.mkdir(cacheDir, { recursive: true });
   const manifest = await fetchManifest(onProgress, flavor);
-  const basePath = path.join(CACHE_DIR, `${flavor}-base.img`);
+  const basePath = path.join(cacheDir, `${flavor}-base.img`);
   const hashPath = `${basePath}.sha256`;
 
   // Check if cached image matches manifest size AND sha256 hash.
@@ -1153,6 +1251,7 @@ export function getOSBuildStatus() {
     activeBuildCount,
     maxConcurrent: MAX_CONCURRENT_BUILDS,
     recentBuilds: recentBuilds.slice(0, 10),
+    cacheDir: resolvedCacheDir || (CONFIGURED_CACHE_DIR || DEFAULT_CACHE_DIR),
     baseImageUrl: BASE_IMAGE_URL,
     manifestUrl: MANIFEST_URL,
   };
