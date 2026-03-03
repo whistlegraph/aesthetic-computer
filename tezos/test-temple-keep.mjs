@@ -86,7 +86,7 @@ async function main() {
     rights: stringToBytes(""),
     shouldPreferSymbol: stringToBytes("false"),
     symbol: stringToBytes(`$${cleanCode}`),
-    tags: stringToBytes(`["kidlisp", "aesthetic-computer"]`),
+    tags: stringToBytes(`["KidLisp"]`),
     thumbnailUri: stringToBytes(`https://aesthetic.computer/$${cleanCode}/thumbnail`)
   };
   

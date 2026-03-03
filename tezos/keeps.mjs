@@ -894,16 +894,8 @@ async function mintToken(piece, options = {}) {
   // Description is ONLY the KidLisp source code (clean and simple)
   const description = sourceCode || `A KidLisp piece preserved on Tezos`;
   
-  // Build tags (include userCode if available)
-  const tags = [
-    `$${pieceName}`,           // The code itself as a tag
-    'KidLisp',                 // Capitalized
-    'Aesthetic.Computer',      // Capitalized with dot
-    'interactive',
-  ];
-  if (userCode) {
-    tags.push(userCode);       // Add permanent user code as tag
-  }
+  // v6 metadata policy: single canonical tag only
+  const tags = ['KidLisp'];
   
   // Generate and upload thumbnail to IPFS if requested
   let thumbnailUri = `https://grab.aesthetic.computer/preview/400x400/$${pieceName}.png`; // HTTP fallback
@@ -1110,16 +1102,8 @@ async function updateMetadata(tokenId, piece, options = {}) {
   // Description is ONLY the KidLisp source code (clean and simple)
   const description = sourceCode || `A KidLisp piece preserved on Tezos`;
   
-  // Build tags
-  const tags = [
-    `$${pieceName}`,
-    'KidLisp',
-    'Aesthetic.Computer',
-    'interactive',
-  ];
-  if (userCode) {
-    tags.push(userCode);
-  }
+  // v6 metadata policy: single canonical tag only
+  const tags = ['KidLisp'];
   
   // Build improved attributes
   const attributes = [
