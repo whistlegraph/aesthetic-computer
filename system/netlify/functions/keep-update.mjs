@@ -275,9 +275,12 @@ export const handler = stream(async (event) => {
       // v6 metadata policy: single canonical tag only
       const tags = ["KidLisp"];
 
+      // Keep traits but drop optional high-level category for cleaner metadata.
+      const traits = analysis.traits.filter((trait) => trait?.name !== "Category");
+
       // Build attributes (matches keep-mint.mjs field names)
       const attributes = [
-        ...analysis.traits,
+        ...traits,
         { name: "Updated", value: new Date().toISOString().split('T')[0] },
         ...(authorHandle && authorHandle !== "@anon" ? [{ name: "Handle", value: authorHandle }] : []),
         { name: "Analyzer Version", value: ANALYZER_VERSION },

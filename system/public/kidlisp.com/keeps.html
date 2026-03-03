@@ -1356,7 +1356,7 @@
             <span><a href="https://kidlisp.com">https://kidlisp.com</a></span>
           </div>
           <div style="margin-top: 12px;">
-            <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/keeps_fa2_v6.py" target="_blank"
+            <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/keeps_fa2_v5.py" target="_blank"
                style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
               Source Code
             </a>
@@ -1368,9 +1368,6 @@
           <div style="margin-bottom: 12px; color: var(--text-secondary); font-size: 13px; font-weight: 500;">Token Attributes (v6 Format)</div>
           <div style="display: flex; flex-wrap: wrap; gap: 8px;">
             <span style="padding: 4px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-subtle); border-radius: 4px; font-size: 12px;">
-              <span style="color: var(--text-tertiary);">Category:</span> <span style="color: var(--text-primary);">Generative</span>
-            </span>
-            <span style="padding: 4px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-subtle); border-radius: 4px; font-size: 12px;">
               <span style="color: var(--text-tertiary);">Length:</span> <span style="color: var(--text-primary);">142</span>
             </span>
             <span style="padding: 4px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-subtle); border-radius: 4px; font-size: 12px;">
@@ -1381,9 +1378,6 @@
             </span>
             <span style="padding: 4px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-subtle); border-radius: 4px; font-size: 12px;">
               <span style="color: var(--text-tertiary);">User:</span> <span style="color: var(--text-primary);">ac25namuc</span>
-            </span>
-            <span style="padding: 4px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-subtle); border-radius: 4px; font-size: 12px;">
-              <span style="color: var(--text-tertiary);">Dependencies:</span> <span style="color: var(--text-primary);">0</span>
             </span>
           </div>
           <div style="margin-top: 8px; font-size: 11px; color: var(--text-tertiary);">
@@ -1401,7 +1395,7 @@
             <span class="v6-step-icon">&#x2714;</span>
             <div class="v6-step-content">
               <div class="v6-step-title">Contract Source Written</div>
-              <div class="v6-step-desc">keeps_fa2_v6.py &mdash; identical logic to v5, updated docstrings and metadata references</div>
+              <div class="v6-step-desc">keeps_fa2_v5.py &mdash; current contract source in repo, used as v6 launch baseline</div>
             </div>
           </div>
 
@@ -1409,7 +1403,7 @@
             <span class="v6-step-icon">&#x2714;</span>
             <div class="v6-step-content">
               <div class="v6-step-title">Deploy Script Created</div>
-              <div class="v6-step-desc">deploy-v6.mjs &mdash; supports --dry-run and --wallet flags, embeds contract metadata at deploy time</div>
+              <div class="v6-step-desc">keeps.mjs deploy command &mdash; supports --wallet flag and network selection for contract origination</div>
             </div>
           </div>
 
@@ -1457,7 +1451,7 @@
             <span class="v6-step-icon">&#x25CB;</span>
             <div class="v6-step-content">
               <div class="v6-step-title">Deploy to Mainnet</div>
-              <div class="v6-step-desc">Run <code>node tezos/deploy-v6.mjs --wallet=kidlisp</code> to originate the production contract on keeps.tez</div>
+              <div class="v6-step-desc">Run <code>node tezos/keeps.mjs deploy mainnet --wallet=kidlisp</code> to originate the production contract on keeps.tez</div>
             </div>
           </div>
 
@@ -1539,11 +1533,11 @@
             </div>
             <div style="margin-top: 8px; color: var(--text-tertiary); font-size: 12px;">Admin: keeps.tez (tz1Lc2...un2dC)</div>
             <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
-              <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/keeps_fa2_v6.py" target="_blank"
+              <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/keeps_fa2_v5.py" target="_blank"
                  style="padding: 6px 12px; background: var(--ac-purple); color: white; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
                 Source Code
               </a>
-              <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/deploy-v6.mjs" target="_blank"
+              <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/keeps.mjs" target="_blank"
                  style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
                 Deploy Script
               </a>
