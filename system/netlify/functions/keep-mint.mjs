@@ -925,13 +925,15 @@ export const handler = stream(async (event, context) => {
       // v6 metadata policy: single canonical tag only
       const tags = ["KidLisp"];
 
+      // Keep traits but drop optional high-level category for cleaner metadata.
+      const traits = analysis.traits.filter((trait) => trait?.name !== "Category");
+
       // Build attributes: Length first, then Packed on, then author info
       const attributes = [
-        ...analysis.traits,
+        ...traits,
         ...(packDate ? [{ name: "Packed on", value: packDate }] : []),
         ...(authorHandle && authorHandle !== "@anon" ? [{ name: "Author Handle", value: `@${authorHandle.replace(/^@/, "")}` }] : []),
         ...(userCode ? [{ name: "Author Code", value: userCode }] : []),
-        ...(depCount > 0 ? [{ name: "Dependencies", value: String(depCount) }] : []),
         { name: "Analyzer Version", value: ANALYZER_VERSION },
       ];
 
