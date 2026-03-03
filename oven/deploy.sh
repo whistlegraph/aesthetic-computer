@@ -129,6 +129,22 @@ FONT_SYNC_TIME=$((END_FONT_SYNC - END_SECRET_SYNC))
 echo ""
 echo "✅ Font glyph sync complete in ${FONT_SYNC_TIME}ms"
 
+# Ensure OS cache path is writable by the oven service user.
+echo ""
+echo "🧹 Ensuring OS cache directory + permissions..."
+ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "root@$OVEN_HOST" "
+mkdir -p $REMOTE_DIR/cache
+if id -u oven >/dev/null 2>&1; then
+  chown -R oven:oven $REMOTE_DIR
+fi
+if grep -q '^OS_CACHE_DIR=' $REMOTE_DIR/.env 2>/dev/null; then
+  sed -i 's|^OS_CACHE_DIR=.*|OS_CACHE_DIR=$REMOTE_DIR/cache|' $REMOTE_DIR/.env
+else
+  echo 'OS_CACHE_DIR=$REMOTE_DIR/cache' >> $REMOTE_DIR/.env
+fi
+"
+echo "✅ OS cache path ready: $REMOTE_DIR/cache"
+
 # Restart unless --no-restart flag
 if [ "$1" != "--no-restart" ]; then
   echo ""

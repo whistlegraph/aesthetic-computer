@@ -13,7 +13,7 @@ import { healthHandler, bakeHandler, statusHandler, bakeCompleteHandler, bakeSta
 import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, getAllProgress, getConcurrencyStatus, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus, getFrozenPieces, clearFrozenPiece, getLatestOGImageUrl, regenerateOGImagesBackground, generateKidlispBackdrop, getLatestBackdropUrl, APP_SCREENSHOT_PRESETS, generateNotepatOGImage, getLatestNotepatOGUrl } from './grabber.mjs';
 import archiver from 'archiver';
 import { createBundle, createJSPieceBundle, createM4DBundle, generateDeviceHTML, prewarmCache, getCacheStatus, setSkipMinification } from './bundler.mjs';
-import { streamOSImage, getOSBuildStatus, invalidateManifest, purgeOSBuildCache } from './os-builder.mjs';
+import { streamOSImage, getOSBuildStatus, invalidateManifest, purgeOSBuildCache, clearOSBuildLocalCache } from './os-builder.mjs';
 import { startOSBaseBuild, getOSBaseBuild, getOSBaseBuildsSummary, cancelOSBaseBuild } from './os-base-build.mjs';
 
 const app = express();
@@ -2638,14 +2638,38 @@ app.post('/os-base-build/:jobId/cancel', requireOSBuildAdmin, (req, res) => {
 
 app.post('/os-invalidate', async (req, res) => {
   const purge = req.body?.purge === true;
+  const clearLocal = req.body?.local === true || req.body?.clearLocal === true;
   const flavor = req.body?.flavor;
   invalidateManifest(flavor);
   addServerLog('info', '💿', `OS base image manifest cache invalidated${flavor ? ` (${flavor})` : ''}`);
 
+  let localResult = null;
+  if (clearLocal) {
+    localResult = await clearOSBuildLocalCache(flavor);
+    addServerLog('info', '🧹', `Cleared ${localResult.deleted} local base-image cache file(s)${flavor ? ` (${flavor})` : ''}`);
+  }
+
   if (purge) {
     const purgeResult = await purgeOSBuildCache(flavor);
     addServerLog('info', '🗑️', `Purged ${purgeResult.deleted} cached build(s) from CDN${flavor ? ` (${flavor})` : ''}`);
-    return res.json({ ok: true, message: 'Manifest + CDN build cache purged.', purged: purgeResult.deleted });
+    return res.json({
+      ok: true,
+      message: clearLocal
+        ? 'Manifest invalidated, local base cache cleared, and CDN build cache purged.'
+        : 'Manifest + CDN build cache purged.',
+      purged: purgeResult.deleted,
+      localCleared: localResult?.deleted || 0,
+      localDirs: localResult?.dirs || [],
+    });
+  }
+
+  if (clearLocal) {
+    return res.json({
+      ok: true,
+      message: 'Manifest invalidated and local base-image cache cleared.',
+      localCleared: localResult.deleted,
+      localDirs: localResult.dirs,
+    });
   }
 
   res.json({ ok: true, message: 'Manifest cache invalidated — next build will re-fetch.' });
