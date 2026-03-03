@@ -784,8 +784,22 @@ export const handler = stream(async (event, context) => {
       // ═══════════════════════════════════════════════════════════════════
       if (!useCachedMedia) {
         await send("progress", { stage: "thumbnail", message: `Awaiting ${thumbW}x${thumbH}@2x WebP...` });
-        
-        const thumbResult = await thumbnailPromise;
+
+        // Send heartbeat messages to keep the SSE connection alive while
+        // the oven generates the thumbnail (can take 20-45s).
+        const heartbeat = setInterval(async () => {
+          try {
+            const elapsed = ((Date.now() - processStartTime) / 1000).toFixed(0);
+            await send("progress", { stage: "thumbnail", message: `Still baking… (${elapsed}s)` });
+          } catch {}
+        }, 10000);
+
+        let thumbResult;
+        try {
+          thumbResult = await thumbnailPromise;
+        } finally {
+          clearInterval(heartbeat);
+        }
         
         if (!thumbResult?.ipfsUri) {
           const errorMsg = thumbResult?.error || "unknown error";
