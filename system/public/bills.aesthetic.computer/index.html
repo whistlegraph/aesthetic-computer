@@ -1,516 +1,619 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Bills — Aesthetic Computer</title>
-  <meta name="robots" content="noindex, nofollow">
-  <style>
-    :root {
-      --bg: #0d0d0d;
-      --fg: #e0e0e0;
-      --dim: #888;
-      --accent: #ff4444;
-      --ok: #44cc66;
-      --warn: #ffaa22;
-      --blue: #4488ff;
-      --border: #2a2a2a;
-      --card: #151515;
-      --font: "Berkeley Mono", "SF Mono", "Fira Code", "Consolas", monospace;
-    }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      background: var(--bg);
-      color: var(--fg);
-      font-family: var(--font);
-      font-size: 14px;
-      line-height: 1.6;
-      padding: 2rem;
-      max-width: 960px;
-      margin: 0 auto;
-    }
-    h1 {
-      font-size: 1.4rem;
-      margin-bottom: 0.25rem;
-      letter-spacing: -0.02em;
-    }
-    h2 {
-      font-size: 1.1rem;
-      margin-top: 2.5rem;
-      margin-bottom: 1rem;
-      padding-bottom: 0.4rem;
-      border-bottom: 1px solid var(--border);
-      color: var(--fg);
-    }
-    h3 {
-      font-size: 0.95rem;
-      margin-top: 1.5rem;
-      margin-bottom: 0.5rem;
-      color: var(--dim);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    .subtitle {
-      color: var(--dim);
-      font-size: 0.85rem;
-      margin-bottom: 2rem;
-    }
-    .alert {
-      border: 1px solid var(--accent);
-      background: rgba(255, 68, 68, 0.08);
-      padding: 1rem 1.25rem;
-      border-radius: 6px;
-      margin-bottom: 1.5rem;
-    }
-    .alert-warn {
-      border-color: var(--warn);
-      background: rgba(255, 170, 34, 0.08);
-    }
-    .alert strong { color: var(--accent); }
-    .alert-warn strong { color: var(--warn); }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 1.5rem;
-      font-size: 0.85rem;
-    }
-    th {
-      text-align: left;
-      padding: 0.5rem 0.75rem;
-      border-bottom: 2px solid var(--border);
-      color: var(--dim);
-      font-weight: 600;
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    td {
-      padding: 0.4rem 0.75rem;
-      border-bottom: 1px solid var(--border);
-      vertical-align: top;
-    }
-    tr:last-child td { border-bottom: none; }
-    tr:hover td { background: rgba(255, 255, 255, 0.02); }
-    .status {
-      display: inline-block;
-      padding: 0.15rem 0.5rem;
-      border-radius: 3px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-    .status-suspended {
-      background: rgba(255, 68, 68, 0.15);
-      color: var(--accent);
-      border: 1px solid rgba(255, 68, 68, 0.3);
-    }
-    .status-past-due {
-      background: rgba(255, 170, 34, 0.15);
-      color: var(--warn);
-      border: 1px solid rgba(255, 170, 34, 0.3);
-    }
-    .status-active {
-      background: rgba(68, 204, 102, 0.12);
-      color: var(--ok);
-      border: 1px solid rgba(68, 204, 102, 0.25);
-    }
-    .status-free {
-      background: rgba(68, 136, 255, 0.12);
-      color: var(--blue);
-      border: 1px solid rgba(68, 136, 255, 0.25);
-    }
-    .money { font-variant-numeric: tabular-nums; }
-    .money-big {
-      font-size: 1.8rem;
-      font-weight: 700;
-      color: var(--accent);
-    }
-    .money-warn { color: var(--warn); }
-    .money-ok { color: var(--ok); }
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 1.25rem;
-      margin-bottom: 1rem;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1rem;
-      margin-bottom: 1.5rem;
-    }
-    .stat-label {
-      font-size: 0.75rem;
-      color: var(--dim);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 0.25rem;
-    }
-    .stat-value {
-      font-size: 1.2rem;
-      font-weight: 600;
-    }
-    details {
-      margin-bottom: 1rem;
-    }
-    summary {
-      cursor: pointer;
-      padding: 0.75rem 1rem;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      font-weight: 600;
-      user-select: none;
-    }
-    summary:hover { border-color: #444; }
-    details[open] summary { border-radius: 6px 6px 0 0; border-bottom: none; }
-    details .detail-body {
-      padding: 1rem;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-top: none;
-      border-radius: 0 0 6px 6px;
-    }
-    .footer {
-      margin-top: 3rem;
-      padding-top: 1rem;
-      border-top: 1px solid var(--border);
-      color: var(--dim);
-      font-size: 0.75rem;
-    }
-    a { color: var(--blue); text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    code {
-      background: rgba(255, 255, 255, 0.06);
-      padding: 0.15rem 0.4rem;
-      border-radius: 3px;
-      font-size: 0.85em;
-    }
-    @media (max-width: 600px) {
-      body { padding: 1rem; font-size: 13px; }
-      h1 { font-size: 1.2rem; }
-      .grid { grid-template-columns: 1fr 1fr; }
-      table { font-size: 0.8rem; }
-      td, th { padding: 0.3rem 0.5rem; }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>bills · Aesthetic Computer</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png" />
+    <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+    <link rel="preload" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2" as="font" type="font/woff2" crossorigin="anonymous">
+    <style>
+        @font-face {
+            font-family: 'YWFT Processing';
+            src: url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2') format('woff2');
+            font-weight: normal;
+            font-display: swap;
+        }
+
+        /* Dark (default) */
+        :root {
+            --bg: #1a1a2e;
+            --text: #e8e8e8;
+            --dim: #888;
+            --pink: #ff6b9d;
+            --cyan: #4ecdc4;
+            --green: #6bcb77;
+            --gold: #ffd93d;
+            --red: #ef4444;
+            --box-bg: rgba(255,255,255,0.03);
+            --box-border: rgba(255,255,255,0.1);
+            --shadow-soft: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        /* Light */
+        body.light-mode {
+            --bg: #f5f5f5;
+            --text: #1a1a2e;
+            --dim: #666;
+            --pink: rgb(205, 92, 155);
+            --cyan: #0891b2;
+            --green: #059669;
+            --gold: #d97706;
+            --red: #dc2626;
+            --box-bg: rgba(0,0,0,0.03);
+            --box-border: rgba(0,0,0,0.12);
+            --shadow-soft: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        ::-webkit-scrollbar { display: none; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Berkeley Mono Variable', 'Menlo', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            -webkit-text-size-adjust: none;
+            user-select: none;
+            -webkit-user-select: none;
+            cursor: url('https://aesthetic.computer/aesthetic.computer/cursors/precise.svg') 12 12, auto;
+        }
+
+        a, code, .prose, td, p { user-select: text; -webkit-user-select: text; }
+
+        .container {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 1.5em;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 2em;
+        }
+
+        h1 {
+            font-family: 'YWFT Processing', 'Berkeley Mono Variable', monospace;
+            font-size: 22px;
+            font-weight: normal;
+            color: var(--pink);
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        h1:hover { color: purple; }
+        h1:active { color: gray; }
+
+        .subtitle {
+            font-size: 0.85em;
+            color: var(--dim);
+        }
+
+        h2 {
+            font-size: 1.2em;
+            font-weight: normal;
+            color: var(--text);
+            margin-top: 2em;
+            margin-bottom: 0.8em;
+        }
+
+        h3 {
+            font-size: 0.85em;
+            font-weight: normal;
+            color: var(--dim);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        /* Alerts */
+        .alerts { margin-bottom: 1.5em; }
+
+        .alert {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.6em;
+            padding: 0.8em 1em;
+            background: var(--box-bg);
+            border-left: 3px solid var(--red);
+            margin-bottom: 0.5em;
+            animation: slideIn 0.3s ease;
+        }
+        .alert-warn { border-left-color: var(--gold); }
+
+        .alert-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-top: 0.35em;
+            flex-shrink: 0;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        .alert-dot.red { background: var(--red); }
+        .alert-dot.gold { background: var(--gold); }
+
+        .alert-text { font-size: 0.85em; line-height: 1.5; }
+        .alert-text strong { color: var(--pink); }
+
+        /* Stats grid */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 0.8em;
+            margin-bottom: 1.5em;
+        }
+
+        .stat-box {
+            padding: 1em;
+            background: var(--box-bg);
+            border: 1px solid var(--box-border);
+        }
+
+        .stat-label {
+            font-size: 0.75em;
+            color: var(--dim);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.3em;
+        }
+
+        .stat-value {
+            font-size: 1.8em;
+            font-weight: normal;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1em;
+            font-size: 0.85em;
+        }
+
+        th {
+            text-align: left;
+            padding: 0.5em 0.6em;
+            border-bottom: 1px solid var(--box-border);
+            color: var(--dim);
+            font-weight: normal;
+            font-size: 0.8em;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        td {
+            padding: 0.4em 0.6em;
+            border-bottom: 1px solid var(--box-border);
+            vertical-align: top;
+        }
+
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: var(--box-bg); }
+
+        /* Status pills */
+        .pill {
+            display: inline-block;
+            padding: 0.1em 0.4em;
+            font-size: 0.75em;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            border: 1px solid;
+        }
+        .pill-red { color: var(--red); border-color: var(--red); background: rgba(239,68,68,0.08); }
+        .pill-gold { color: var(--gold); border-color: var(--gold); background: rgba(255,217,61,0.08); }
+        .pill-green { color: var(--green); border-color: var(--green); background: rgba(107,203,119,0.08); }
+        .pill-cyan { color: var(--cyan); border-color: var(--cyan); background: rgba(78,205,196,0.08); }
+
+        /* Light mode pill adjustments */
+        body.light-mode .pill-red { background: rgba(220,38,38,0.06); }
+        body.light-mode .pill-gold { background: rgba(217,119,6,0.06); }
+        body.light-mode .pill-green { background: rgba(5,150,105,0.06); }
+        body.light-mode .pill-cyan { background: rgba(8,145,178,0.06); }
+
+        .money { font-variant-numeric: tabular-nums; }
+
+        /* Cards */
+        .card {
+            background: var(--box-bg);
+            border: 1px solid var(--box-border);
+            padding: 1em;
+            margin-bottom: 0.8em;
+        }
+
+        .card p { font-size: 0.85em; line-height: 1.8; }
+        .card p strong { color: var(--pink); }
+
+        /* Collapsible */
+        details { margin-bottom: 0.5em; }
+
+        summary {
+            cursor: pointer;
+            padding: 0.6em 0.8em;
+            background: var(--box-bg);
+            border: 1px solid var(--box-border);
+            font-size: 0.85em;
+            user-select: none;
+        }
+        summary:hover { border-color: var(--pink); }
+        details[open] summary { border-bottom: none; }
+
+        .detail-body {
+            padding: 0.8em;
+            background: var(--box-bg);
+            border: 1px solid var(--box-border);
+            border-top: none;
+        }
+
+        .detail-body ol {
+            padding-left: 1.2em;
+            font-size: 0.85em;
+            line-height: 2;
+        }
+
+        /* Links */
+        a { color: var(--pink); text-decoration: none; }
+        a:hover { color: purple; text-decoration: underline; }
+
+        code {
+            background: var(--box-bg);
+            border: 1px solid var(--box-border);
+            padding: 0.1em 0.35em;
+            font-size: 0.9em;
+        }
+
+        /* Service map (visual) */
+        .service-map {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 0.5em;
+            margin-bottom: 1.5em;
+        }
+
+        .svc {
+            padding: 0.6em;
+            background: var(--box-bg);
+            border: 1px solid var(--box-border);
+            text-align: center;
+            font-size: 0.75em;
+            transition: border-color 0.2s;
+        }
+        .svc:hover { border-color: var(--pink); }
+
+        .svc-name {
+            font-size: 1.1em;
+            margin-bottom: 0.2em;
+        }
+
+        .svc-cost { color: var(--dim); }
+        .svc.down { border-color: var(--red); opacity: 0.6; }
+        .svc.down .svc-name { text-decoration: line-through; color: var(--red); }
+        .svc.ok { border-color: var(--green); }
+        .svc.warn { border-color: var(--gold); }
+        .svc.free { border-color: var(--cyan); opacity: 0.7; }
+
+        /* Footer */
+        .footer {
+            margin-top: 2em;
+            padding-top: 1em;
+            border-top: 1px solid var(--box-border);
+            color: var(--dim);
+            font-size: 0.7em;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.5em;
+        }
+
+        /* Animations */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* Mobile */
+        @media (max-width: 600px) {
+            .container { padding: 1em; }
+            header { flex-direction: column; align-items: flex-start; gap: 0.25em; }
+            h1 { font-size: 18px; }
+            .stats { grid-template-columns: 1fr 1fr; }
+            .stat-value { font-size: 1.4em; }
+            table { font-size: 0.8em; }
+            td, th { padding: 0.3em 0.4em; }
+            .service-map { grid-template-columns: repeat(3, 1fr); }
+            .alert { flex-direction: row; align-items: flex-start; }
+            /* Hide less-critical table columns on mobile */
+            .hide-mobile { display: none; }
+        }
+
+        @media (max-width: 380px) {
+            .stats { grid-template-columns: 1fr; }
+            .service-map { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
 </head>
 <body>
+    <div class="container">
 
-<h1>Aesthetic Computer — Bills</h1>
-<p class="subtitle">Service &amp; billing audit — 2026-03-03 — me@jas.life</p>
+        <header>
+            <h1 id="title">bills</h1>
+            <span class="subtitle">service &amp; billing audit — 2026-03-03</span>
+        </header>
 
-<!-- ALERTS -->
-<div class="alert">
-  <strong>DigitalOcean SUSPENDED</strong> — Account locked. <span class="money money-big">$412.34</span> overdue. All 6 droplets, Spaces, and Redis are off.
-</div>
-<div class="alert">
-  <strong>GitHub OVERDUE</strong> — ~$500 unpaid from prior months (Codespaces/Copilot). Check <a href="https://github.com/organizations/justanothersystem/billing/history" style="color: var(--fg);">billing history</a>.
-</div>
-<div class="alert">
-  <strong>MongoDB DOWN</strong> — Atlas was suspended, migrated to DO silo — which is also now suspended. All DB features broken.
-</div>
-<div class="alert alert-warn">
-  <strong>Netlify PAST DUE</strong> — 25 days until aesthetic.computer is disabled. Fix payment method.
-</div>
+        <!-- Alerts -->
+        <div class="alerts">
+            <div class="alert">
+                <div class="alert-dot red"></div>
+                <div class="alert-text"><strong>DigitalOcean suspended</strong> — $412.34 overdue. 6 droplets, Spaces, Redis all off.</div>
+            </div>
+            <div class="alert">
+                <div class="alert-dot red"></div>
+                <div class="alert-text"><strong>GitHub overdue</strong> — ~$500 unpaid. <a href="https://github.com/organizations/justanothersystem/billing/history">billing history</a></div>
+            </div>
+            <div class="alert">
+                <div class="alert-dot red"></div>
+                <div class="alert-text"><strong>MongoDB down</strong> — Atlas suspended, migrated to DO silo — also suspended.</div>
+            </div>
+            <div class="alert alert-warn">
+                <div class="alert-dot gold"></div>
+                <div class="alert-text"><strong>Netlify past due</strong> — 25 days until aesthetic.computer is disabled.</div>
+            </div>
+        </div>
 
-<!-- TOTALS -->
-<div class="grid">
-  <div class="card">
-    <div class="stat-label">Total Overdue</div>
-    <div class="stat-value money" style="color: var(--accent);">~$912</div>
-  </div>
-  <div class="card">
-    <div class="stat-label">Monthly Recurring</div>
-    <div class="stat-value money" style="color: var(--warn);">~$151/mo</div>
-  </div>
-  <div class="card">
-    <div class="stat-label">Possible Savings</div>
-    <div class="stat-value money" style="color: var(--ok);">$107/mo</div>
-  </div>
-  <div class="card">
-    <div class="stat-label">Minimum Viable</div>
-    <div class="stat-value money" style="color: var(--blue);">~$44/mo</div>
-  </div>
-</div>
+        <!-- Totals -->
+        <div class="stats">
+            <div class="stat-box">
+                <div class="stat-label">overdue</div>
+                <div class="stat-value" style="color: var(--red);">~$912</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">monthly</div>
+                <div class="stat-value" style="color: var(--gold);">~$151</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">can save</div>
+                <div class="stat-value" style="color: var(--green);">$107</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">minimum</div>
+                <div class="stat-value" style="color: var(--cyan);">~$44</div>
+            </div>
+        </div>
 
-<!-- SERVICE OVERVIEW -->
-<h2>All Services</h2>
-<table>
-  <thead>
-    <tr><th>Status</th><th>Service</th><th>Monthly</th><th>Notes</th></tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><span class="status status-suspended">Suspended</span></td>
-      <td>DigitalOcean</td>
-      <td class="money">~$132</td>
-      <td>$412.34 overdue — account locked</td>
-    </tr>
-    <tr>
-      <td><span class="status status-past-due">Past Due</span></td>
-      <td>Netlify</td>
-      <td class="money">$19</td>
-      <td>Pro plan — 25 days until disabled</td>
-    </tr>
-    <tr>
-      <td><span class="status status-free">Free</span></td>
-      <td>Cloudflare</td>
-      <td class="money">$0</td>
-      <td>8 zones, 2 Workers — all free tier</td>
-    </tr>
-    <tr>
-      <td><span class="status status-suspended">Overdue</span></td>
-      <td>GitHub</td>
-      <td class="money">~$500</td>
-      <td>Prior months unpaid (Codespaces/Copilot)</td>
-    </tr>
-    <tr>
-      <td><span class="status status-suspended">Down</span></td>
-      <td>MongoDB</td>
-      <td class="money">$0</td>
-      <td>Was Atlas (suspended) — migrated to DO silo (also down)</td>
-    </tr>
-    <tr>
-      <td><span class="status status-active">Active</span></td>
-      <td>Firebase / GCP</td>
-      <td class="money">$0–50</td>
-      <td>Free auth + unknown Nanos VM cost</td>
-    </tr>
-    <tr>
-      <td><span class="status status-free">Free</span></td>
-      <td>Auth0</td>
-      <td class="money">$0</td>
-      <td>Free tier (7K active users)</td>
-    </tr>
-    <tr>
-      <td><span class="status status-active">Active</span></td>
-      <td>Stripe</td>
-      <td class="money">Per-txn</td>
-      <td>2.9% + $0.30 per charge</td>
-    </tr>
-    <tr>
-      <td><span class="status status-active">Active</span></td>
-      <td>PayPal</td>
-      <td class="money">Per-txn</td>
-      <td>~2.2% + $0.30 per charge</td>
-    </tr>
-    <tr>
-      <td><span class="status status-active">Active</span></td>
-      <td>Anthropic</td>
-      <td class="money">Usage</td>
-      <td>Claude Code API — check console</td>
-    </tr>
-    <tr>
-      <td><span class="status status-free">Free</span></td>
-      <td>Jamsocket</td>
-      <td class="money">$0</td>
-      <td>Session server orchestration</td>
-    </tr>
-    <tr>
-      <td><span class="status status-active">Active</span></td>
-      <td>Domains (8)</td>
-      <td class="money">~$8</td>
-      <td>~$100/yr across registrars</td>
-    </tr>
-  </tbody>
-</table>
+        <!-- Service Map (visual) -->
+        <h2>service map</h2>
+        <div class="service-map">
+            <div class="svc down"><div class="svc-name">oven</div><div class="svc-cost">$48/mo</div></div>
+            <div class="svc down"><div class="svc-name">silo</div><div class="svc-cost">$24/mo</div></div>
+            <div class="svc down"><div class="svc-name">help</div><div class="svc-cost">$24/mo</div></div>
+            <div class="svc down"><div class="svc-name">session</div><div class="svc-cost">$7/mo</div></div>
+            <div class="svc down"><div class="svc-name">at/pds</div><div class="svc-cost">$6/mo</div></div>
+            <div class="svc down"><div class="svc-name">legacy</div><div class="svc-cost">$12/mo</div></div>
+            <div class="svc down"><div class="svc-name">redis</div><div class="svc-cost">$15/mo</div></div>
+            <div class="svc down"><div class="svc-name">spaces</div><div class="svc-cost">$5/mo</div></div>
+            <div class="svc warn"><div class="svc-name">netlify</div><div class="svc-cost">$19/mo</div></div>
+            <div class="svc free"><div class="svc-name">cloudflare</div><div class="svc-cost">free</div></div>
+            <div class="svc free"><div class="svc-name">auth0</div><div class="svc-cost">free</div></div>
+            <div class="svc free"><div class="svc-name">firebase</div><div class="svc-cost">free</div></div>
+            <div class="svc ok"><div class="svc-name">stripe</div><div class="svc-cost">per-txn</div></div>
+            <div class="svc ok"><div class="svc-name">anthropic</div><div class="svc-cost">usage</div></div>
+            <div class="svc free"><div class="svc-name">github</div><div class="svc-cost">free*</div></div>
+            <div class="svc free"><div class="svc-name">jamsocket</div><div class="svc-cost">free</div></div>
+        </div>
 
-<!-- DIGITALOCEAN DETAIL -->
-<h2>DigitalOcean — $412.34 Overdue</h2>
+        <!-- All Services -->
+        <h2>all services</h2>
+        <table>
+            <thead><tr><th>status</th><th>service</th><th>monthly</th><th class="hide-mobile">notes</th></tr></thead>
+            <tbody>
+                <tr><td><span class="pill pill-red">suspended</span></td><td>DigitalOcean</td><td class="money">~$132</td><td class="hide-mobile">$412.34 overdue — account locked</td></tr>
+                <tr><td><span class="pill pill-gold">past due</span></td><td>Netlify</td><td class="money">$19</td><td class="hide-mobile">Pro plan — 25 days until disabled</td></tr>
+                <tr><td><span class="pill pill-red">overdue</span></td><td>GitHub</td><td class="money">~$500</td><td class="hide-mobile">Prior months (Codespaces/Copilot)</td></tr>
+                <tr><td><span class="pill pill-red">down</span></td><td>MongoDB</td><td class="money">$0</td><td class="hide-mobile">Atlas → DO silo (both down)</td></tr>
+                <tr><td><span class="pill pill-cyan">free</span></td><td>Cloudflare</td><td class="money">$0</td><td class="hide-mobile">8 zones, 2 Workers</td></tr>
+                <tr><td><span class="pill pill-green">active</span></td><td>Firebase / GCP</td><td class="money">$0–50</td><td class="hide-mobile">Free auth + Nanos VMs (unknown)</td></tr>
+                <tr><td><span class="pill pill-cyan">free</span></td><td>Auth0</td><td class="money">$0</td><td class="hide-mobile">Free tier (7K users)</td></tr>
+                <tr><td><span class="pill pill-green">active</span></td><td>Stripe</td><td class="money">Per-txn</td><td class="hide-mobile">2.9% + $0.30</td></tr>
+                <tr><td><span class="pill pill-green">active</span></td><td>PayPal</td><td class="money">Per-txn</td><td class="hide-mobile">~2.2% + $0.30</td></tr>
+                <tr><td><span class="pill pill-green">active</span></td><td>Anthropic</td><td class="money">Usage</td><td class="hide-mobile">Claude Code API</td></tr>
+                <tr><td><span class="pill pill-cyan">free</span></td><td>Jamsocket</td><td class="money">$0</td><td class="hide-mobile">Session orchestration</td></tr>
+                <tr><td><span class="pill pill-green">active</span></td><td>Domains (8)</td><td class="money">~$8</td><td class="hide-mobile">~$100/yr across registrars</td></tr>
+            </tbody>
+        </table>
 
-<div class="grid">
-  <div class="card">
-    <div class="stat-label">Account Balance</div>
-    <div class="stat-value money" style="color: var(--accent);">$401.20</div>
-  </div>
-  <div class="card">
-    <div class="stat-label">March MTD (2 days)</div>
-    <div class="stat-value money" style="color: var(--warn);">$11.14</div>
-  </div>
-</div>
+        <!-- DigitalOcean -->
+        <h2>digitalocean — $412.34 overdue</h2>
 
-<h3>Droplets (all off)</h3>
-<table>
-  <thead>
-    <tr><th>Name</th><th>IP</th><th>Size</th><th>Region</th><th>Monthly</th><th>Purpose</th></tr>
-  </thead>
-  <tbody>
-    <tr><td><strong>oven</strong></td><td><code>137.184.237.166</code></td><td>s-4vcpu-8gb</td><td>sfo3</td><td class="money">~$48</td><td>Screenshots, MP4, bundling, OS builds</td></tr>
-    <tr><td><strong>help</strong></td><td><code>146.190.150.173</code></td><td>s-2vcpu-4gb</td><td>sfo3</td><td class="money">~$24</td><td>Help/documentation service</td></tr>
-    <tr><td><strong>silo</strong></td><td><code>64.23.151.169</code></td><td>s-2vcpu-4gb</td><td>sfo3</td><td class="money">~$24</td><td>MongoDB, dashboard, monitoring</td></tr>
-    <tr><td><strong>legacy-2016</strong></td><td><code>162.243.163.221</code></td><td>1GB</td><td>nyc1</td><td class="money">~$12</td><td>Historical archive (Ubuntu 16.04)</td></tr>
-    <tr><td><strong>session-server</strong></td><td><code>157.245.134.225</code></td><td>s-1vcpu-1gb</td><td>nyc1</td><td class="money">~$7</td><td>WebSocket multiplayer, chat</td></tr>
-    <tr><td><strong>at (PDS)</strong></td><td><code>165.227.120.137</code></td><td>s-1vcpu-1gb</td><td>nyc3</td><td class="money">~$6</td><td>Bluesky PDS</td></tr>
-  </tbody>
-</table>
+        <div class="stats" style="margin-bottom: 1em;">
+            <div class="stat-box">
+                <div class="stat-label">account balance</div>
+                <div class="stat-value" style="color: var(--red);">$401.20</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">march mtd</div>
+                <div class="stat-value" style="color: var(--gold);">$11.14</div>
+            </div>
+        </div>
 
-<h3>Other Resources</h3>
-<table>
-  <thead>
-    <tr><th>Resource</th><th>Detail</th><th>Monthly</th></tr>
-  </thead>
-  <tbody>
-    <tr><td>Managed Redis (Valkey)</td><td>1GB / 1 vCPU — sfo3</td><td class="money">$15</td></tr>
-    <tr><td>Block Volume</td><td>150GB — nyc1 (attached to legacy-2016)</td><td class="money">$15</td></tr>
-    <tr><td>Spaces Subscription</td><td>250GB storage + 1TB bandwidth (7 buckets)</td><td class="money">$5</td></tr>
-    <tr><td>Backup (legacy-2016)</td><td>Weekly</td><td class="money">$2.40</td></tr>
-    <tr><td>App Platform (2 apps)</td><td>king-prawn-app, digitpain-com</td><td class="money">$0</td></tr>
-  </tbody>
-</table>
+        <h3>droplets (all off)</h3>
+        <table>
+            <thead><tr><th>name</th><th>ip</th><th class="hide-mobile">size</th><th>$/mo</th><th class="hide-mobile">purpose</th></tr></thead>
+            <tbody>
+                <tr><td>oven</td><td><code>137.184.237.166</code></td><td class="hide-mobile">s-4vcpu-8gb</td><td class="money">~$48</td><td class="hide-mobile">Screenshots, MP4, bundling</td></tr>
+                <tr><td>help</td><td><code>146.190.150.173</code></td><td class="hide-mobile">s-2vcpu-4gb</td><td class="money">~$24</td><td class="hide-mobile">Help/docs service</td></tr>
+                <tr><td>silo</td><td><code>64.23.151.169</code></td><td class="hide-mobile">s-2vcpu-4gb</td><td class="money">~$24</td><td class="hide-mobile">MongoDB, dashboard</td></tr>
+                <tr><td>legacy-2016</td><td><code>162.243.163.221</code></td><td class="hide-mobile">1GB</td><td class="money">~$12</td><td class="hide-mobile">Archive (Ubuntu 16.04)</td></tr>
+                <tr><td>session</td><td><code>157.245.134.225</code></td><td class="hide-mobile">s-1vcpu-1gb</td><td class="money">~$7</td><td class="hide-mobile">WebSocket, chat</td></tr>
+                <tr><td>at/pds</td><td><code>165.227.120.137</code></td><td class="hide-mobile">s-1vcpu-1gb</td><td class="money">~$6</td><td class="hide-mobile">Bluesky PDS</td></tr>
+            </tbody>
+        </table>
 
-<h3>Monthly Cost Trend</h3>
-<table>
-  <thead>
-    <tr><th>Month</th><th>Amount</th><th>Notes</th></tr>
-  </thead>
-  <tbody>
-    <tr><td>Mar 2026</td><td class="money">$11.14</td><td>2 days (suspended)</td></tr>
-    <tr><td>Feb 2026</td><td class="money">$132.36</td><td>Oven upgraded mid-month</td></tr>
-    <tr><td>Jan 2026</td><td class="money">$110.40</td><td></td></tr>
-    <tr><td>Dec 2025</td><td class="money">$182.40</td><td></td></tr>
-    <tr><td>Nov 2025</td><td class="money">$154.74</td><td>Costs started climbing</td></tr>
-    <tr><td>Oct 2025</td><td class="money">$71.30</td><td></td></tr>
-    <tr><td>Sep 2025</td><td class="money">$62.40</td><td>Baseline (~$62/mo for 2+ years)</td></tr>
-  </tbody>
-</table>
+        <h3>other resources</h3>
+        <table>
+            <thead><tr><th>resource</th><th>detail</th><th>$/mo</th></tr></thead>
+            <tbody>
+                <tr><td>Managed Redis</td><td>1GB / 1vCPU — sfo3</td><td class="money">$15</td></tr>
+                <tr><td>Block Volume</td><td>150GB — nyc1</td><td class="money">$15</td></tr>
+                <tr><td>Spaces</td><td>250GB + 1TB bw (7 buckets)</td><td class="money">$5</td></tr>
+                <tr><td>Backup</td><td>legacy-2016 weekly</td><td class="money">$2.40</td></tr>
+            </tbody>
+        </table>
 
-<details>
-  <summary>Spaces Buckets (bandwidth — Feb 2026)</summary>
-  <div class="detail-body">
-    <table>
-      <thead><tr><th>Bucket</th><th>Region</th><th>Bandwidth</th></tr></thead>
-      <tbody>
-        <tr><td>assets-aesthetic-computer</td><td>sfo3</td><td>267 GiB</td></tr>
-        <tr><td>at-blobs-aesthetic-computer</td><td>sfo3</td><td>30 GiB</td></tr>
-        <tr><td>art-aesthetic-computer</td><td>sfo3</td><td>7 GiB</td></tr>
-        <tr><td>user-aesthetic-computer</td><td>sfo3</td><td>4.5 GiB</td></tr>
-        <tr><td>pals-aesthetic-computer</td><td>sfo3</td><td>2.7 GiB</td></tr>
-        <tr><td>wand-aesthetic-computer</td><td>sfo3</td><td>0.1 GiB</td></tr>
-        <tr><td>pix.nopaint.art</td><td>sfo3</td><td>0.02 GiB</td></tr>
-      </tbody>
-    </table>
-    <p style="color: var(--dim); font-size: 0.8rem; margin-top: 0.5rem;">All within 1TB allowance — no overage.</p>
-  </div>
-</details>
+        <details>
+            <summary>monthly cost trend</summary>
+            <div class="detail-body">
+                <table>
+                    <thead><tr><th>month</th><th>amount</th><th>notes</th></tr></thead>
+                    <tbody>
+                        <tr><td>Mar 2026</td><td class="money">$11.14</td><td>2 days (suspended)</td></tr>
+                        <tr><td>Feb 2026</td><td class="money">$132.36</td><td>Oven upgraded mid-month</td></tr>
+                        <tr><td>Jan 2026</td><td class="money">$110.40</td><td></td></tr>
+                        <tr><td>Dec 2025</td><td class="money">$182.40</td><td></td></tr>
+                        <tr><td>Nov 2025</td><td class="money">$154.74</td><td>Costs started climbing</td></tr>
+                        <tr><td>Oct 2025</td><td class="money">$71.30</td><td></td></tr>
+                        <tr><td>Sep 2025</td><td class="money">$62.40</td><td>Baseline (~$62/mo for 2+ years)</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </details>
 
-<!-- NETLIFY -->
-<h2>Netlify — Past Due</h2>
-<div class="card">
-  <div class="grid" style="margin-bottom: 0;">
-    <div>
-      <div class="stat-label">Plan</div>
-      <div class="stat-value">Pro</div>
+        <details>
+            <summary>spaces buckets (feb bandwidth)</summary>
+            <div class="detail-body">
+                <table>
+                    <thead><tr><th>bucket</th><th>bandwidth</th></tr></thead>
+                    <tbody>
+                        <tr><td>assets-aesthetic-computer</td><td>267 GiB</td></tr>
+                        <tr><td>at-blobs-aesthetic-computer</td><td>30 GiB</td></tr>
+                        <tr><td>art-aesthetic-computer</td><td>7 GiB</td></tr>
+                        <tr><td>user-aesthetic-computer</td><td>4.5 GiB</td></tr>
+                        <tr><td>pals-aesthetic-computer</td><td>2.7 GiB</td></tr>
+                        <tr><td>wand-aesthetic-computer</td><td>0.1 GiB</td></tr>
+                        <tr><td>pix.nopaint.art</td><td>0.02 GiB</td></tr>
+                    </tbody>
+                </table>
+                <p style="color: var(--dim); font-size: 0.75em; margin-top: 0.5em;">All within 1TB — no overage.</p>
+            </div>
+        </details>
+
+        <!-- Netlify -->
+        <h2>netlify — past due</h2>
+        <div class="stats">
+            <div class="stat-box"><div class="stat-label">plan</div><div class="stat-value" style="font-size: 1.2em;">Pro</div></div>
+            <div class="stat-box"><div class="stat-label">monthly</div><div class="stat-value" style="color: var(--gold);">$19</div></div>
+            <div class="stat-box"><div class="stat-label">days left</div><div class="stat-value" style="color: var(--red);">25</div></div>
+            <div class="stat-box"><div class="stat-label">period</div><div class="stat-value" style="font-size: 0.85em;">Feb 27 – Mar 27</div></div>
+        </div>
+
+        <!-- Cloudflare -->
+        <h2>cloudflare domains</h2>
+        <table>
+            <thead><tr><th>domain</th><th>registrar</th><th>plan</th></tr></thead>
+            <tbody>
+                <tr><td><a href="https://aesthetic.computer">aesthetic.computer</a></td><td>Tucows</td><td><span class="pill pill-cyan">free</span></td></tr>
+                <tr><td><a href="https://kidlisp.com">kidlisp.com</a></td><td>Key-Systems</td><td><span class="pill pill-cyan">free</span></td></tr>
+                <tr><td><a href="https://notepat.com">notepat.com</a></td><td>Key-Systems</td><td><span class="pill pill-cyan">free</span></td></tr>
+                <tr><td><a href="https://sotce.net">sotce.net</a></td><td>1API</td><td><span class="pill pill-cyan">free</span></td></tr>
+                <tr><td>prompt.ac</td><td>1API</td><td><span class="pill pill-cyan">free</span></td></tr>
+                <tr><td><a href="https://jas.life">jas.life</a></td><td>1API</td><td><span class="pill pill-cyan">free</span></td></tr>
+                <tr><td>justanothersystem.org</td><td>1API</td><td><span class="pill pill-cyan">free</span></td></tr>
+                <tr><td>false.work</td><td>GoDaddy</td><td><span class="pill pill-cyan">free</span></td></tr>
+            </tbody>
+        </table>
+
+        <!-- Cost Reduction -->
+        <h2>cost reduction</h2>
+        <table>
+            <thead><tr><th>action</th><th>saves</th><th class="hide-mobile">risk</th></tr></thead>
+            <tbody>
+                <tr><td>Kill legacy-2016 + 150GB vol</td><td class="money" style="color: var(--green);">$27</td><td class="hide-mobile">Back up first</td></tr>
+                <tr><td>Downgrade oven → s-2vcpu-2gb</td><td class="money" style="color: var(--green);">$36</td><td class="hide-mobile">May slow OS builds</td></tr>
+                <tr><td>Downgrade help → s-1vcpu-1gb</td><td class="money" style="color: var(--green);">$18</td><td class="hide-mobile">Depends on load</td></tr>
+                <tr><td>Redis → Upstash free</td><td class="money" style="color: var(--green);">$15</td><td class="hide-mobile">Test compatibility</td></tr>
+                <tr><td>Evaluate AT/PDS droplet</td><td class="money" style="color: var(--green);">$6</td><td class="hide-mobile">Bluesky integration</td></tr>
+                <tr><td>Consolidate domains</td><td class="money" style="color: var(--green);">$5–10</td><td class="hide-mobile">Lose unused TLDs</td></tr>
+                <tr style="color: var(--green);"><td>total possible</td><td class="money">~$107</td><td class="hide-mobile">~$151 → ~$44/mo</td></tr>
+            </tbody>
+        </table>
+
+        <!-- Actions -->
+        <h2>priority actions</h2>
+
+        <h3>urgent</h3>
+        <div class="card">
+            <p><strong>1.</strong> Fix Netlify payment — site dies in 25 days</p>
+            <p><strong>2.</strong> Pay DigitalOcean $412.34 — DB is here too</p>
+            <p><strong>3.</strong> Pay GitHub ~$500 — <a href="https://github.com/organizations/justanothersystem/billing/history">billing history</a></p>
+        </div>
+
+        <h3>check soon</h3>
+        <div class="card">
+            <p><strong>4.</strong> GCP/Nanos billing — <a href="https://console.cloud.google.com">console.cloud.google.com</a></p>
+            <p><strong>5.</strong> Domain renewal dates — check 8 domains</p>
+            <p><strong>6.</strong> Anthropic spend — <a href="https://console.anthropic.com">console.anthropic.com</a></p>
+        </div>
+
+        <h3>recovery</h3>
+        <details>
+            <summary>option A: pay and restore DO</summary>
+            <div class="detail-body">
+                <ol>
+                    <li>Pay $412.34 via DO dashboard</li>
+                    <li>Power on all droplets manually</li>
+                    <li>Verify services start, test endpoints</li>
+                    <li>Trim unnecessary resources</li>
+                </ol>
+            </div>
+        </details>
+        <details>
+            <summary>option B: migrate away from DO</summary>
+            <div class="detail-body">
+                <ol>
+                    <li>Contact DO support for temporary Spaces access</li>
+                    <li>Move Oven to Hetzner/Vultr (~$8/mo)</li>
+                    <li>Move Session Server or lean into Jamsocket</li>
+                    <li>Redis → Upstash or Railway</li>
+                    <li>Spaces → Cloudflare R2 (free egress)</li>
+                    <li>Update DNS, env vars, deploy scripts</li>
+                </ol>
+            </div>
+        </details>
+
+        <div class="footer">
+            <span>generated by claude code — 2026-03-03</span>
+            <span><a href="https://aesthetic.computer/sitemap.html">sitemap</a> · <a href="https://aesthetic.computer/docs.json">docs.json</a> · <a href="https://aesthetic.computer/list">list</a></span>
+        </div>
+
     </div>
-    <div>
-      <div class="stat-label">Monthly</div>
-      <div class="stat-value money" style="color: var(--warn);">$19</div>
-    </div>
-    <div>
-      <div class="stat-label">Days Until Disabled</div>
-      <div class="stat-value" style="color: var(--accent);">25</div>
-    </div>
-    <div>
-      <div class="stat-label">Period</div>
-      <div class="stat-value" style="font-size: 0.85rem;">Feb 27 – Mar 27</div>
-    </div>
-  </div>
-</div>
-<table>
-  <thead><tr><th>Resource</th><th>Included</th></tr></thead>
-  <tbody>
-    <tr><td>Bandwidth</td><td>1 TB</td></tr>
-    <tr><td>Build minutes</td><td>25,000</td></tr>
-    <tr><td>Concurrent builds</td><td>3</td></tr>
-    <tr><td>Serverless functions</td><td>125,000 invocations</td></tr>
-    <tr><td>Edge functions</td><td>2,000,000 invocations</td></tr>
-    <tr><td>Collaborators</td><td>2 (1 used)</td></tr>
-  </tbody>
-</table>
 
-<!-- CLOUDFLARE -->
-<h2>Cloudflare — Free</h2>
-<table>
-  <thead><tr><th>Domain</th><th>Registrar</th><th>Plan</th></tr></thead>
-  <tbody>
-    <tr><td>aesthetic.computer</td><td>Tucows</td><td><span class="status status-free">Free</span></td></tr>
-    <tr><td>kidlisp.com</td><td>Key-Systems</td><td><span class="status status-free">Free</span></td></tr>
-    <tr><td>notepat.com</td><td>Key-Systems</td><td><span class="status status-free">Free</span></td></tr>
-    <tr><td>sotce.net</td><td>1API GmbH</td><td><span class="status status-free">Free</span></td></tr>
-    <tr><td>prompt.ac</td><td>1API GmbH</td><td><span class="status status-free">Free</span></td></tr>
-    <tr><td>jas.life</td><td>1API GmbH</td><td><span class="status status-free">Free</span></td></tr>
-    <tr><td>justanothersystem.org</td><td>1API GmbH</td><td><span class="status status-free">Free</span></td></tr>
-    <tr><td>false.work</td><td>GoDaddy</td><td><span class="status status-free">Free</span></td></tr>
-  </tbody>
-</table>
+    <script>
+        // Theme: follow system preference
+        function applySystemTheme() {
+            if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+                document.body.classList.add('light-mode');
+                document.body.classList.remove('dark-mode');
+            } else {
+                document.body.classList.remove('light-mode');
+                document.body.classList.add('dark-mode');
+            }
+        }
+        applySystemTheme();
+        window.matchMedia('(prefers-color-scheme: light)')
+            .addEventListener('change', applySystemTheme);
 
-<!-- COST REDUCTION -->
-<h2>Cost Reduction Opportunities</h2>
-<table>
-  <thead><tr><th>Action</th><th>Saves/mo</th><th>Risk</th></tr></thead>
-  <tbody>
-    <tr><td>Kill legacy-2016 + 150GB volume</td><td class="money" style="color: var(--ok);">$27</td><td>Back up archive first</td></tr>
-    <tr><td>Downgrade oven to s-2vcpu-2gb</td><td class="money" style="color: var(--ok);">$36</td><td>May slow OS builds</td></tr>
-    <tr><td>Downgrade help to s-1vcpu-1gb</td><td class="money" style="color: var(--ok);">$18</td><td>Depends on load</td></tr>
-    <tr><td>Switch Redis to Upstash free</td><td class="money" style="color: var(--ok);">$15</td><td>Test compatibility</td></tr>
-    <tr><td>Evaluate AT/PDS droplet</td><td class="money" style="color: var(--ok);">$6</td><td>Bluesky integration</td></tr>
-    <tr><td>Consolidate domains</td><td class="money" style="color: var(--ok);">$5–10</td><td>Lose unused TLDs</td></tr>
-    <tr style="font-weight: 700;">
-      <td>Total possible</td>
-      <td class="money" style="color: var(--ok);">~$107</td>
-      <td>Brings ~$151 → ~$44/mo</td>
-    </tr>
-  </tbody>
-</table>
-
-<!-- PRIORITY ACTIONS -->
-<h2>Priority Actions</h2>
-
-<h3>Urgent (this week)</h3>
-<div class="card">
-  <p><strong style="color: var(--accent);">1.</strong> Fix Netlify payment — site goes down in 25 days</p>
-  <p><strong style="color: var(--accent);">2.</strong> Pay DigitalOcean $412.34 — or plan migration (DB is on here too)</p>
-  <p><strong style="color: var(--accent);">3.</strong> Pay GitHub ~$500 — <a href="https://github.com/organizations/justanothersystem/billing/history">billing history</a></p>
-</div>
-
-<h3>Check soon</h3>
-<div class="card">
-  <p><strong style="color: var(--warn);">3.</strong> GCP/Nanos billing — log into console.cloud.google.com</p>
-  <p><strong style="color: var(--warn);">4.</strong> Domain renewal dates — check all 8 domains</p>
-  <p><strong style="color: var(--warn);">5.</strong> Anthropic API spend — check console.anthropic.com</p>
-</div>
-
-<h3>Recovery paths</h3>
-<details>
-  <summary>Option A: Pay and restore DigitalOcean</summary>
-  <div class="detail-body">
-    <ol style="padding-left: 1.2rem; line-height: 2;">
-      <li>Pay $412.34 via DO dashboard</li>
-      <li>Power on all droplets manually</li>
-      <li>Verify services start and test endpoints</li>
-      <li>Trim unnecessary resources immediately</li>
-    </ol>
-  </div>
-</details>
-<details>
-  <summary>Option B: Migrate away from DigitalOcean</summary>
-  <div class="detail-body">
-    <ol style="padding-left: 1.2rem; line-height: 2;">
-      <li>Contact DO support for temporary Spaces access</li>
-      <li>Move Oven to Hetzner/Vultr (~$8/mo equivalent)</li>
-      <li>Move Session Server or lean into Jamsocket</li>
-      <li>Switch Redis to Upstash or Railway</li>
-      <li>Migrate Spaces to Cloudflare R2 (free egress)</li>
-      <li>Update all DNS, env vars, and deploy scripts</li>
-    </ol>
-  </div>
-</details>
-
-<div class="footer">
-  Generated by Claude Code — 2026-03-03 — data sourced live from DigitalOcean API, Netlify API, Cloudflare API, and GitHub CLI
-</div>
-
+        // h1 navigates to aesthetic.computer
+        document.getElementById('title').onclick = () => {
+            location.href = 'https://aesthetic.computer';
+        };
+    </script>
 </body>
 </html>
