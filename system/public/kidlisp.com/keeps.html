@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- KidLisp.com Keeps - A permanent index of all evaluated KidLisp $codes -->
+<!-- KidLisp.com Keeps - Index of KidLisp $codes cached via store-kidlisp -->
 <!-- URL: keeps.kidlisp.com -->
 <html lang="en">
 <head>
@@ -10,7 +10,7 @@
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://keeps.kidlisp.com" />
   <meta property="og:title" content="keeps.kidlisp.com" />
-  <meta property="og:description" content="A permanent index of every evaluated KidLisp program, each assigned a unique $code by the Aesthetic Computer database." />
+  <meta property="og:description" content="A living index of KidLisp $codes cached through Aesthetic.Computer, with links to edit, run, bundle, and keep on Tezos." />
   <meta property="og:image" content="https://oven.aesthetic.computer/kidlisp-og.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
@@ -18,7 +18,7 @@
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="keeps.kidlisp.com" />
-  <meta name="twitter:description" content="A permanent index of every evaluated KidLisp program." />
+  <meta name="twitter:description" content="A living index of KidLisp $codes from the Aesthetic.Computer cache." />
   <meta name="twitter:image" content="https://oven.aesthetic.computer/kidlisp-og.png" />
 
   <link rel="icon" type="image/gif" href="https://assets.aesthetic.computer/kidlisp-favicon.gif" />
@@ -2017,33 +2017,33 @@
     <!-- TAB: About -->
     <div class="keeps-tab-content" id="tab-about">
       <p>
-        Every KidLisp program evaluated on <a href="https://aesthetic.computer" target="_blank">Aesthetic<span class="ac-dot">.</span>Computer</a>
-        is assigned a permanent <code>$code</code> &mdash; a short, unique identifier stored forever in the
-        <a href="https://aesthetic.computer" target="_blank">Aesthetic<span class="ac-dot">.</span>Computer</a> database.
-        This page is a living index of every <code>$code</code> ever created &mdash; a castle full of keeps.
+        When KidLisp source is cached through <code>/api/store-kidlisp</code>,
+        it gets a short identifier: <code>$code</code>. This page is a living index of
+        the <code>$code</code> entries currently in that cache &mdash; a castle full of keeps.
       </p>
       <h3>What is a $code?</h3>
       <p>
-        When you write and run KidLisp on
-        <a href="https://kidlisp.com">kidlisp.com</a> or <a href="https://aesthetic.computer" target="_blank">Aesthetic<span class="ac-dot">.</span>Computer</a>,
-        the source is hashed and stored. If it&rsquo;s new, a unique short code like <code>$39j</code> is generated.
-        Identical source always resolves to the same <code>$code</code>.
+        <code>/api/store-kidlisp</code> normalizes source with <code>trim()</code>, hashes it (SHA-256),
+        and deduplicates by that hash. If the hash already exists, it returns the existing code.
+        If it&rsquo;s new, it generates a short code like <code>$39j</code>. Identical trimmed source resolves
+        to the same <code>$code</code>.
       </p>
       <h3>Keeping as HTML</h3>
       <p>
-        Any <code>$code</code> can be bundled into a self-contained HTML file
-        via the <code>/api/bundle-html</code> endpoint. This creates a standalone artifact that runs independently,
-        perfect for archiving or embedding.
+        Any <code>$code</code> can be packed as a standalone HTML artifact via
+        <code>/api/bundle-html?code=&lt;code&gt;</code>. That endpoint is proxied to the oven bundler and returns
+        a single-file export suitable for archiving, sharing, or embedding.
       </p>
       <h3>Keeping on Tezos</h3>
       <p>
-        KidLisp programs can be minted as on-chain NFTs on the
-        Tezos blockchain, making them permanently decentralized. Kept pieces are marked with a green badge below.
+        You can mint a KidLisp piece as a KEEP NFT on Tezos (KidLisp FA2 v6 / keeps.tez).
+        Minting is deduplicated by <code>content_hash</code>, so a piece that is already kept cannot be
+        minted again unless its token is burned. Kept entries are marked with a green badge.
       </p>
       <h3>Links</h3>
       <p>
-        Visit any code at <code>kidlisp.com/$code</code> to edit,
-        or <code>aesthetic.computer/$code</code> to run fullscreen.
+        Open <code>kidlisp.com/$code</code> to edit, <code>aesthetic.computer/$code</code> to run,
+        or <code>aesthetic.computer/keep~$code</code> to open the keep flow.
       </p>
     </div>
 
