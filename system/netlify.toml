@@ -903,6 +903,11 @@ to = "https://aesthetic.computer/api/logo/:splat"
 status = 200
 force = true
 [[redirects]]
+from = "https://prompt.ac/ejjk1z"
+to = "https://duckweedtri.prompt.ac"
+status = 301
+force = true
+[[redirects]]
 from = "https://prompt.ac/*"
 to = "https://aesthetic.computer/:splat"
 status = 301
