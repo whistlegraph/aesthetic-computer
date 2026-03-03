@@ -711,7 +711,7 @@ ${RESET}
     isBooleanAmount: true,
     shouldPreferSymbol: false,
     date: now,
-    tags: ["kidlisp", "aesthetic-computer"],
+    tags: ["KidLisp"],
     attributes: [],
     formats: [
       {

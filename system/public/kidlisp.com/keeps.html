@@ -1350,6 +1350,8 @@
             <span>2.5 XTZ</span>
             <span style="color: var(--text-tertiary);">Royalty</span>
             <span>10% (1000 bps)</span>
+            <span style="color: var(--text-tertiary);">Metadata Tags</span>
+            <span>["KidLisp"]</span>
             <span style="color: var(--text-tertiary);">Minting Tool</span>
             <span><a href="https://kidlisp.com">https://kidlisp.com</a></span>
           </div>
@@ -1385,7 +1387,7 @@
             </span>
           </div>
           <div style="margin-top: 8px; font-size: 11px; color: var(--text-tertiary);">
-            Changes from v5 RC: "User Code" &rarr; "User", "Packed" &rarr; "Packed on", removed "Analyzer Version"
+            Changes from v5 RC: "User Code" &rarr; "User", "Packed" &rarr; "Packed on", removed "Analyzer Version", tags locked to ["KidLisp"]
           </div>
         </div>
 
@@ -1415,7 +1417,7 @@
             <span class="v6-step-icon">&#x2714;</span>
             <div class="v6-step-content">
               <div class="v6-step-title">Token Attributes Cleaned</div>
-              <div class="v6-step-desc">Renamed User Code &rarr; User, Packed &rarr; Packed on, removed Analyzer Version, mintingTool set to kidlisp.com</div>
+              <div class="v6-step-desc">Renamed User Code &rarr; User, Packed &rarr; Packed on, removed Analyzer Version, mintingTool set to kidlisp.com, tags set to ["KidLisp"] only</div>
             </div>
           </div>
 
@@ -1574,6 +1576,11 @@
               <div class="keeps-endpoint-name v6">Minting Tool</div>
               <div class="keeps-endpoint-desc">mintingTool updated to https://kidlisp.com (was https://aesthetic.computer)</div>
             </div>
+
+            <div class="keeps-endpoint">
+              <div class="keeps-endpoint-name v6">Metadata Tags</div>
+              <div class="keeps-endpoint-desc">tags array standardized to ["KidLisp"] only</div>
+            </div>
           </div>
 
           <p style="color: var(--text-tertiary); font-size: 13px;">
@@ -1672,7 +1679,7 @@
                 <strong>Params:</strong> name, description, artifactUri, displayUri, thumbnailUri, decimals, symbol, isBooleanAmount, shouldPreferSymbol, formats, tags, attributes, creators, royalties, rights, content_type, content_hash, metadata_uri (all bytes), owner (address)
               </div>
               <div class="keeps-endpoint-desc" style="margin-top: 4px; font-style: italic;">
-                Enforces unique content_hash &bull; Non-admin must mint to self &bull; Default fee: 2.5 XTZ
+                Enforces unique content_hash &bull; Non-admin must mint to self &bull; Default fee: 2.5 XTZ &bull; v6 tags policy: ["KidLisp"] only
               </div>
             </div>
 
