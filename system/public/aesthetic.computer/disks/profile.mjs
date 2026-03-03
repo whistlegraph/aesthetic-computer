@@ -7,6 +7,8 @@ const RECONNECT_MS = 3000;
 const MOOD_LIMIT = 40;
 const CHAT_LIMIT = 120;
 
+const { max, floor } = Math;
+
 let debug;
 let visiting;
 let profile;
@@ -123,18 +125,19 @@ async function boot({
 
 function paint({ api, wipe, help, ink, screen, ui, pen }) {
   if (!pen?.drawing) wipe(98);
-  ink(127).line();
 
   if (!visiting) {
     paintNoProfileState({ api, help, ink, screen, ui });
     return;
   }
 
-  let y = 6;
+  // Reserve vertical space so content never overlaps the HUD corner label.
+  const HUD_H = 22;
+  const M = 4;
+  const BTN_H = 16;
+  const isLandscape = screen.width > screen.height && screen.width >= 200;
 
-  ink(255).write(visiting, { x: 4, y }, "black", screen.width - 8);
-  y += 10;
-
+  // Loading / error states (centered, no layout needed)
   if (!profile && noprofile === FETCHING) {
     ink(255).write(
       `${FETCHING}${ellipsisTicker.text(help.repeat)}`,
@@ -149,103 +152,38 @@ function paint({ api, wipe, help, ink, screen, ui, pen }) {
     return;
   }
 
-  if (profile?.mood) {
-    ink(255).write(`Mood: ${profile.mood}`, { x: 4, y }, "black", screen.width - 8);
+  // Thin divider below HUD area
+  ink(50).line(0, HUD_H - 2, screen.width, HUD_H - 2);
+
+  const maxY = screen.height - BTN_H - 2;
+
+  if (isLandscape) {
+    paintLandscapeLayout({ help, ink, screen, HUD_H, M, maxY });
   } else {
-    ink(127).write("Mood: -", { x: 4, y }, "black", screen.width - 8);
-  }
-  y += 12;
-
-  const counts = scorecard.counts;
-  ink(255).write(
-    `Paint ${counts.paintings}  Piece ${counts.pieces}  Kid ${counts.kidlisp}  Clock ${counts.clocks}  Tape ${counts.tapes}`,
-    { x: 4, y },
-    "black",
-    screen.width - 8,
-  );
-  y += 10;
-  ink(255).write(
-    `Mood ${counts.moods}  Chat ${counts.chats}`,
-    { x: 4, y },
-    "black",
-    screen.width - 8,
-  );
-  y += 12;
-
-  ink("yellow").write("Live", { x: 4, y }, "black", screen.width - 8);
-  y += 10;
-
-  const onlineText = presence.online ? "online" : "offline";
-  const currentPiece = formatPieceLabel(presence.currentPiece) || "-";
-  const pingText = presence.ping ? ` ${presence.ping}ms` : "";
-  ink(255).write(
-    `${onlineText}  piece ${currentPiece}${pingText}`,
-    { x: 4, y },
-    "black",
-    screen.width - 8,
-  );
-  y += 10;
-
-  if (presence.worldPiece || presence.showing) {
-    ink(255).write(
-      `world ${presence.worldPiece || "-"}  showing ${presence.showing || "-"}`,
-      { x: 4, y },
-      "black",
-      screen.width - 8,
-    );
-    y += 10;
+    paintPortraitLayout({ help, ink, screen, HUD_H, M, maxY });
   }
 
-  if (!presence.online && presence.lastSeenAt) {
-    ink(127).write(
-      `last seen ${formatTimeAgo(presence.lastSeenAt)}`,
-      { x: 4, y },
-      "black",
-      screen.width - 8,
-    );
-    y += 10;
-  }
-
-  y += 2;
-  ink("yellow").write("Recent Activity", { x: 4, y }, "black", screen.width - 8);
-  y += 10;
-
-  if ((loading || refreshing) && scorecard.activity.length === 0) {
-    ink(255).write(
-      `${FETCHING}${ellipsisTicker.text(help.repeat)}`,
-      { x: 4, y },
-      "black",
-      screen.width - 8,
-    );
-    y += 10;
-  } else if (scorecard.activity.length === 0) {
-    const emptyText = dataError || "No activity yet.";
-    ink(127).write(emptyText, { x: 4, y }, "black", screen.width - 8);
-    y += 10;
-  } else {
-    const maxRows = Math.max(3, Math.floor((screen.height - y - 24) / 10));
-    const rows = scorecard.activity.slice(0, maxRows);
-    rows.forEach((item) => {
-      const when = item.when ? formatTimeAgo(item.when) : "recent";
-      ink(255).write(`${when}  ${item.label}`, { x: 4, y }, "black", screen.width - 8);
-      y += 10;
-    });
-  }
-
-  if (refreshing) {
-    ink(127).write(
-      `Refreshing${ellipsisTicker.text(help.repeat)}`,
-      { x: screen.width - 84, y: 2 },
-      "black",
-      82,
-    );
-  }
-
-  paintingsBtn ||= new ui.TextButton("Paintings", { x: 4, y: screen.height - 14 });
-  refreshBtn ||= new ui.TextButton("Refresh", { x: screen.width - 47, y: screen.height - 14 });
-
+  // Bottom action buttons
+  paintingsBtn ||= new ui.TextButton("Paintings", {
+    x: M,
+    y: screen.height - BTN_H + 1,
+  });
+  refreshBtn ||= new ui.TextButton("Refresh", {
+    x: screen.width - 47,
+    y: screen.height - BTN_H + 1,
+  });
   paintingsBtn.paint(api);
   refreshBtn.paint(api);
+
+  // Refreshing indicator (below HUD, right-aligned)
+  if (refreshing) {
+    ink(100).write(
+      `Refreshing${ellipsisTicker.text(help.repeat)}`,
+      { x: screen.width - 84, y: HUD_H },
+      "black",
+      80,
+    );
+  }
 }
 
 function act({ event: e, jump, store, user }) {
@@ -308,6 +246,194 @@ function paintNoProfileState({ api, help, ink, screen, ui }) {
 
   noprofileBtn ||= new ui.TextButton(label, { center: "xy", screen });
   noprofileBtn.paint(api);
+}
+
+// --- Responsive layout helpers ---
+
+function paintPortraitLayout({ help, ink, screen, HUD_H, M, maxY }) {
+  let y = HUD_H;
+  const w = screen.width - M * 2;
+  const useCompactStats = screen.height < 250;
+
+  // Mood
+  if (profile?.mood) {
+    ink(220).write(profile.mood, { x: M, y }, "black", w);
+  } else {
+    ink(80).write("no mood", { x: M, y }, "black", w);
+  }
+  y += 12;
+
+  // Presence
+  y = paintPresenceBlock(ink, y, M, w);
+
+  // Stats (skip on very small screens)
+  if (screen.height >= 180) {
+    ink(50).line(M, y, screen.width - M, y);
+    y += 4;
+    y = paintStatsBlock(ink, y, M, w, useCompactStats);
+  }
+
+  // Divider before activity
+  ink(50).line(M, y, screen.width - M, y);
+  y += 4;
+
+  paintActivityBlock(help, ink, y, maxY, M, w);
+}
+
+function paintLandscapeLayout({ help, ink, screen, HUD_H, M, maxY }) {
+  const midX = floor(screen.width / 2);
+  const leftW = midX - M * 2;
+  const rightX = midX + M;
+  const rightW = screen.width - midX - M * 2;
+
+  // Vertical divider
+  ink(50).line(midX - 1, HUD_H, midX - 1, maxY);
+
+  // Left column: mood + presence + stats
+  let y = HUD_H;
+
+  if (profile?.mood) {
+    ink(220).write(profile.mood, { x: M, y }, "black", leftW);
+  } else {
+    ink(80).write("no mood", { x: M, y }, "black", leftW);
+  }
+  y += 12;
+
+  y = paintPresenceBlock(ink, y, M, leftW);
+  ink(50).line(M, y, midX - M, y);
+  y += 4;
+  paintStatsBlock(ink, y, M, leftW, false);
+
+  // Right column: activity
+  paintActivityBlock(help, ink, HUD_H, maxY, rightX, rightW);
+}
+
+function paintPresenceBlock(ink, y, x, w) {
+  const on = presence.online;
+
+  // Colored status indicator dot
+  ink(on ? 80 : 70, on ? 220 : 70, on ? 80 : 70).box(x, y + 2, 5, 5);
+
+  const status = on ? "online" : "offline";
+  const piece = formatPieceLabel(presence.currentPiece) || "-";
+  const ping = presence.ping ? ` ${presence.ping}ms` : "";
+  ink(on ? 255 : 120).write(
+    `${status}  ${piece}${ping}`,
+    { x: x + 8, y },
+    "black",
+    w - 8,
+  );
+  y += 10;
+
+  if (presence.worldPiece || presence.showing) {
+    ink(160).write(
+      `world ${presence.worldPiece || "-"}  showing ${presence.showing || "-"}`,
+      { x: x + 8, y },
+      "black",
+      w - 8,
+    );
+    y += 10;
+  }
+
+  if (!on && presence.lastSeenAt) {
+    ink(90).write(
+      `seen ${formatTimeAgo(presence.lastSeenAt)}`,
+      { x: x + 8, y },
+      "black",
+      w - 8,
+    );
+    y += 10;
+  }
+
+  y += 2;
+  return y;
+}
+
+function paintStatsBlock(ink, y, x, w, compact) {
+  const c = scorecard.counts;
+
+  if (compact) {
+    ink(255).write(
+      `P${c.paintings} Pc${c.pieces} K${c.kidlisp} Cl${c.clocks} T${c.tapes}`,
+      { x, y },
+      "black",
+      w,
+    );
+    y += 10;
+    ink(255).write(`M${c.moods} Ch${c.chats}`, { x, y }, "black", w);
+    y += 12;
+    return y;
+  }
+
+  ink("yellow").write("Stats", { x, y }, "black", w);
+  y += 10;
+
+  const rows = [
+    { label: "Paint", val: c.paintings, r: 100, g: 200, b: 255 },
+    { label: "Piece", val: c.pieces, r: 255, g: 180, b: 80 },
+    { label: "Kid", val: c.kidlisp, r: 120, g: 255, b: 120 },
+    { label: "Clock", val: c.clocks, r: 255, g: 200, b: 80 },
+    { label: "Tape", val: c.tapes, r: 200, g: 140, b: 255 },
+    { label: "Mood", val: c.moods, r: 255, g: 140, b: 180 },
+    { label: "Chat", val: c.chats, r: 200, g: 200, b: 200 },
+  ];
+
+  const hi = max(1, ...rows.map((s) => s.val));
+  const labelEnd = x + 60;
+  const barMax = max(8, w - 64);
+
+  rows.forEach((s) => {
+    ink(255).write(`${s.label} ${s.val}`, { x, y }, "black", 58);
+    if (s.val > 0) {
+      const barW = max(1, floor((s.val / hi) * barMax));
+      ink(s.r, s.g, s.b).box(labelEnd, y + 2, barW, 5);
+    }
+    y += 9;
+  });
+
+  y += 2;
+  return y;
+}
+
+const ACTIVITY_COLORS = {
+  mood: { r: 180, g: 120, b: 255 },
+  painting: { r: 100, g: 200, b: 255 },
+  kidlisp: { r: 120, g: 255, b: 120 },
+  clock: { r: 255, g: 200, b: 80 },
+  chat: { r: 200, g: 200, b: 200 },
+};
+
+function paintActivityBlock(help, ink, y, maxY, x, w) {
+  ink("yellow").write("Recent Activity", { x, y }, "black", w);
+  y += 10;
+
+  if ((loading || refreshing) && scorecard.activity.length === 0) {
+    ink(200).write(
+      `${FETCHING}${ellipsisTicker.text(help.repeat)}`,
+      { x, y },
+      "black",
+      w,
+    );
+    return;
+  }
+
+  if (scorecard.activity.length === 0) {
+    ink(80).write(dataError || "No activity yet.", { x, y }, "black", w);
+    return;
+  }
+
+  const lineH = 10;
+  const maxRows = max(3, floor((maxY - y) / lineH));
+  const rows = scorecard.activity.slice(0, maxRows);
+
+  rows.forEach((item) => {
+    if (y + lineH > maxY) return;
+    const c = ACTIVITY_COLORS[item.type] || { r: 180, g: 180, b: 180 };
+    ink(c.r, c.g, c.b).box(x, y + 3, 3, 3);
+    const when = item.when ? formatTimeAgo(item.when) : "recent";
+    ink(200).write(`${when}  ${item.label}`, { x: x + 6, y }, "black", w - 6);
+    y += lineH;
+  });
 }
 
 async function refreshProfile(force = false) {
