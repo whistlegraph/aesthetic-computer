@@ -212,6 +212,88 @@
       display: none !important;
     }
 
+    /* Stage mode: single-pane performance layout (preview + editor overlay) */
+    body.stage-mode:not(.device-mode) #center-square,
+    body.stage-mode:not(.device-mode) #bottom-row,
+    body.stage-mode:not(.device-mode) #mobile-checkerboard,
+    body.stage-mode:not(.device-mode) .gutter {
+      display: none !important;
+    }
+
+    body.stage-mode:not(.device-mode) #main-split {
+      display: flex !important;
+      flex-direction: column !important;
+      width: 100% !important;
+      height: 100% !important;
+      overflow: hidden !important;
+    }
+
+    body.stage-mode:not(.device-mode) #top-row {
+      position: relative !important;
+      width: 100% !important;
+      height: 100% !important;
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
+      display: block !important;
+    }
+
+    body.stage-mode:not(.device-mode) #preview-panel {
+      position: absolute !important;
+      inset: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      border: none !important;
+      z-index: 1 !important;
+      display: flex !important;
+      flex-direction: column !important;
+      flex: none !important;
+    }
+
+    body.stage-mode:not(.device-mode) #editor-panel {
+      position: absolute !important;
+      top: 12px !important;
+      left: 12px !important;
+      bottom: 12px !important;
+      width: min(640px, 46vw) !important;
+      min-width: 320px;
+      z-index: 25 !important;
+      border-radius: 12px;
+      border: 1px solid rgba(40, 40, 40, 0.25);
+      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.35);
+      overflow: hidden;
+      backdrop-filter: blur(4px);
+      background: rgba(255, 252, 222, 0.88);
+    }
+
+    [data-theme="dark"] body.stage-mode:not(.device-mode) #editor-panel {
+      background: rgba(32, 29, 26, 0.88);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    body.stage-mode:not(.device-mode) #editor-panel .editor-header {
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    [data-theme="dark"] body.stage-mode:not(.device-mode) #editor-panel .editor-header {
+      background: rgba(20, 20, 24, 0.76);
+    }
+
+    body.stage-mode:not(.device-mode) #kidlisp-editor {
+      padding-left: 8px;
+    }
+
+    @media (max-width: 768px) {
+      body.stage-mode:not(.device-mode) #editor-panel {
+        top: 8px !important;
+        left: 8px !important;
+        right: 8px !important;
+        bottom: auto !important;
+        width: auto !important;
+        min-width: 0 !important;
+        height: 52vh !important;
+      }
+    }
+
     ::-webkit-scrollbar {
       display: none;
     }
@@ -11242,6 +11324,94 @@ s("ape_breaks_3").loopAt(2)</textarea>
     
     // Track current layout mode to avoid unnecessary DOM restructuring
     let currentLayoutMode = null; // 'mobile', 'desktop-centered', 'desktop-standard'
+
+    // Global UI mode (persisted): studio | stage
+    const UI_MODE_STORAGE_KEY = 'kidlisp-ui-mode';
+    let currentUiMode = localStorage.getItem(UI_MODE_STORAGE_KEY) === 'stage' ? 'stage' : 'studio';
+
+    function isStageMode() {
+      return currentUiMode === 'stage';
+    }
+
+    function syncUiModeClass() {
+      if (!document.body) return;
+      document.body.classList.toggle('stage-mode', isStageMode());
+    }
+
+    function ensureStageLayoutStructure() {
+      const mainSplit = document.getElementById('main-split');
+      if (!mainSplit) return;
+
+      const centerSquare = document.getElementById('center-square');
+      const editorPanel = document.getElementById('editor-panel');
+      const previewPanel = document.getElementById('preview-panel');
+      const referencePanel = document.getElementById('reference-panel');
+      const consolePanel = document.getElementById('console-panel');
+      let topRow = document.getElementById('top-row');
+      let bottomRow = document.getElementById('bottom-row');
+
+      if (!editorPanel || !previewPanel) return;
+
+      if (!topRow) {
+        topRow = document.createElement('div');
+        topRow.id = 'top-row';
+        topRow.className = 'top-row';
+      }
+
+      if (!bottomRow) {
+        bottomRow = document.createElement('div');
+        bottomRow.id = 'bottom-row';
+        bottomRow.className = 'bottom-row';
+      }
+
+      if (centerSquare && mainSplit.firstChild !== centerSquare) {
+        mainSplit.insertBefore(centerSquare, mainSplit.firstChild);
+      }
+
+      if (topRow.parentElement !== mainSplit) {
+        mainSplit.appendChild(topRow);
+      }
+      if (bottomRow.parentElement !== mainSplit) {
+        mainSplit.appendChild(bottomRow);
+      }
+
+      if (editorPanel.parentElement !== topRow) {
+        topRow.appendChild(editorPanel);
+      }
+      if (previewPanel.parentElement !== topRow) {
+        topRow.appendChild(previewPanel);
+      }
+      if (referencePanel && referencePanel.parentElement !== bottomRow) {
+        bottomRow.appendChild(referencePanel);
+      }
+      if (consolePanel && consolePanel.parentElement !== bottomRow) {
+        bottomRow.appendChild(consolePanel);
+      }
+    }
+
+    function setUiMode(mode) {
+      const normalized = mode === 'stage' ? 'stage' : 'studio';
+      const changed = currentUiMode !== normalized;
+      currentUiMode = normalized;
+      localStorage.setItem(UI_MODE_STORAGE_KEY, normalized);
+      syncUiModeClass();
+
+      if (changed && typeof initSplits === 'function') {
+        initSplits();
+      }
+
+      if (typeof updatePreferencesModalContent === 'function') {
+        updatePreferencesModalContent();
+      }
+      if (typeof window.updatePlayButtonState === 'function') {
+        window.updatePlayButtonState();
+      }
+    }
+
+    window.getUiMode = () => currentUiMode;
+    window.isStageMode = isStageMode;
+    window.setUiMode = setUiMode;
+    syncUiModeClass();
     
     function initSplits() {
       // Destroy existing splits
@@ -11256,6 +11426,35 @@ s("ape_breaks_3").loopAt(2)</textarea>
       const previewPanel = document.getElementById('preview-panel');
       const consolePanel = document.getElementById('console-panel');
       const referencePanel = document.getElementById('reference-panel');
+
+      // Stage mode bypasses split layout and uses single-pane overlay composition.
+      if (isStageMode() && !document.body.classList.contains('device-mode')) {
+        currentLayoutMode = 'stage';
+        mobileHeadersInitialized = false;
+        ensureStageLayoutStructure();
+
+        [editorPanel, previewPanel, consolePanel, referencePanel].forEach(panel => {
+          if (!panel) return;
+          panel.style.height = '';
+          panel.style.minHeight = '';
+          panel.style.flex = '';
+        });
+
+        if (mainSplit) {
+          mainSplit.style.display = '';
+          mainSplit.style.flexDirection = '';
+        }
+
+        requestAnimationFrame(() => {
+          if (typeof editor !== 'undefined' && editor && editor.layout) {
+            editor.layout();
+          }
+          if (typeof updateCenterSquarePosition === 'function') {
+            updateCenterSquarePosition();
+          }
+        });
+        return;
+      }
       
       // Recreate row elements if they were destroyed (e.g., switching from mobile to desktop)
       if (!topRow && !isMobile) {
@@ -13492,6 +13691,24 @@ s("ape_breaks_3").loopAt(2)</textarea>
         </div>
       `;
       content.appendChild(themeSection);
+
+      // Workspace section
+      const workspaceSection = document.createElement('div');
+      workspaceSection.className = 'preferences-section';
+      workspaceSection.innerHTML = `
+        <span class="preferences-label">Workspace</span>
+        <div class="preferences-options" id="pref-workspace-options">
+          <button class="preferences-option" data-ui-mode="studio">
+            <span class="option-icon">🧪</span>
+            <span class="option-text">Studio</span>
+          </button>
+          <button class="preferences-option" data-ui-mode="stage">
+            <span class="option-icon">🎬</span>
+            <span class="option-text">Stage</span>
+          </button>
+        </div>
+      `;
+      content.appendChild(workspaceSection);
       
       // Language section
       const langSection = document.createElement('div');
@@ -13558,6 +13775,18 @@ s("ape_breaks_3").loopAt(2)</textarea>
           }
         });
       });
+
+      // Workspace options
+      const workspaceOptions = preferencesModal.querySelectorAll('#pref-workspace-options .preferences-option');
+      workspaceOptions.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const mode = btn.getAttribute('data-ui-mode');
+          if (mode && typeof window.setUiMode === 'function') {
+            window.setUiMode(mode);
+            updatePreferencesModalContent();
+          }
+        });
+      });
       
       // Language options
       const langOptions = preferencesModal.querySelectorAll('#pref-lang-options .lang-option-btn');
@@ -13589,6 +13818,14 @@ s("ape_breaks_3").loopAt(2)</textarea>
         } else if (!isSystemTheme && theme === currentVisualTheme) {
           btn.classList.add('active');
         }
+      });
+
+      // Update workspace selection
+      const workspaceOptions = preferencesModal.querySelectorAll('#pref-workspace-options .preferences-option');
+      const activeUiMode = typeof window.getUiMode === 'function' ? window.getUiMode() : 'studio';
+      workspaceOptions.forEach(btn => {
+        const mode = btn.getAttribute('data-ui-mode');
+        btn.classList.toggle('active', mode === activeUiMode);
       });
       
       // Update language selection
@@ -19037,6 +19274,10 @@ s("ape_breaks_3").loopAt(2)</textarea>
       });
       
       guideTab.addEventListener('click', function(e) {
+        if (typeof window.isStageMode === 'function' && window.isStageMode()) {
+          e.preventDefault();
+          return;
+        }
         e.stopPropagation();
         e.preventDefault();
         log.tabs.debug('Guide tab');
@@ -19112,6 +19353,10 @@ s("ape_breaks_3").loopAt(2)</textarea>
       // Console tab click handler (mobile only - console is merged into reference panel)
       if (consoleTab && mobileConsoleContent) {
         consoleTab.addEventListener('click', function(e) {
+          if (typeof window.isStageMode === 'function' && window.isStageMode()) {
+            e.preventDefault();
+            return;
+          }
           log.tabs.debug('Console tab (mobile)');
           e.stopPropagation();
           e.preventDefault();
@@ -19268,7 +19513,15 @@ s("ape_breaks_3").loopAt(2)</textarea>
       
       // Set initial tab based on viewport: Console for mobile, Learn (Guide) for desktop
       const isMobileView = window.innerWidth <= 768;
-      if (isMobileView && consoleTab && mobileConsoleContent) {
+      if (typeof window.isStageMode === 'function' && window.isStageMode()) {
+        deactivateAllTabs();
+        hideAllTabContents();
+        if (listTab && listContent) {
+          listTab.classList.add('active');
+          listContent.classList.remove('hidden');
+          showListSubtab(currentListSubtab);
+        }
+      } else if (isMobileView && consoleTab && mobileConsoleContent) {
         deactivateAllTabs();
         hideAllTabContents();
         consoleTab.classList.add('active');
