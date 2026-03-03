@@ -173,6 +173,77 @@
   }
   .divider::before, .divider::after { content: " ---- "; }
   .hidden { display: none !important; }
+  .live-meta {
+    font-size: 0.82em;
+    line-height: 1.6;
+    padding: 0.4em 0.75em 0.15em;
+  }
+  .live-grid {
+    padding: 0.3em 0.75em 0.65em;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(16em, 1fr));
+    gap: 0.2em 0.75em;
+  }
+  .live-service {
+    display: flex;
+    align-items: center;
+    gap: 0.45em;
+    font-size: 0.8em;
+    min-height: 1.5em;
+    padding: 2px 0;
+  }
+  .live-service-name {
+    font-weight: bold;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 13em;
+  }
+  .live-service-state {
+    opacity: 0.6;
+    font-size: 0.83em;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .live-service-cost {
+    margin-left: auto;
+    opacity: 0.5;
+    font-size: 0.88em;
+    font-variant-numeric: tabular-nums;
+  }
+  .live-source {
+    font-size: 0.72em;
+    opacity: 0.45;
+    padding: 0 0.75em 0.7em;
+  }
+  .live-error {
+    font-size: 0.82em;
+    padding: 0.2em 0 0.4em;
+    opacity: 0.75;
+  }
+  .service-light {
+    width: 0.66em;
+    height: 0.66em;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .service-light-green {
+    background: rgb(92, 205, 155);
+    box-shadow: 0 0 0 1px rgba(92, 205, 155, 0.25), 0 0 0.35em rgba(92, 205, 155, 0.6);
+  }
+  .service-light-yellow {
+    background: rgb(205, 155, 92);
+    box-shadow: 0 0 0 1px rgba(205, 155, 92, 0.25), 0 0 0.35em rgba(205, 155, 92, 0.45);
+  }
+  .service-light-red {
+    background: rgb(230, 102, 102);
+    box-shadow: 0 0 0 1px rgba(230, 102, 102, 0.25), 0 0 0.35em rgba(230, 102, 102, 0.55);
+  }
+  .service-light-unknown {
+    background: rgba(200, 200, 200, 0.55);
+    box-shadow: 0 0 0 1px rgba(200, 200, 200, 0.2);
+  }
 
   /* Dark mode (default for docs style) */
   @media (prefers-color-scheme: dark) {
@@ -273,6 +344,8 @@
     .routes { grid-template-columns: 1fr; }
     .redirect-row { grid-template-columns: 1fr; gap: 0.1em; }
     .stats { flex-direction: column; }
+    .live-grid { grid-template-columns: 1fr; }
+    .live-service-name { max-width: none; }
   }
 </style>
 </head>
@@ -291,6 +364,24 @@
 </div>
 
 <input type="text" id="search" placeholder="Filter routes..." autofocus>
+</div>
+
+<!-- live bills status -->
+<div class="card">
+<details open>
+<summary>
+  <img class="card-thumb" src="/icon/128x128/prompt.png" loading="lazy" onerror="this.style.display='none'" alt="">
+  <span class="tag tag-infra">Live</span>
+  <span class="section-title">Service Lights (from bills)</span>
+  <span class="section-count" id="live-poll-status">polling every 30s</span>
+</summary>
+<div class="section-desc">Green = online, yellow = at risk, red = offline. Snapshot is parsed from bills.aesthetic.computer and refreshed automatically.</div>
+<div class="live-meta"><strong id="live-status-summary">Loading bills snapshot...</strong></div>
+<div class="live-grid" id="live-service-grid">
+  <div class="live-service">Loading live service statuses...</div>
+</div>
+<div class="live-source" id="live-source-meta">Source: bills.aesthetic.computer</div>
+</details>
 </div>
 
 <!-- aesthetic.computer -->
@@ -1383,20 +1474,247 @@
 
 <script>
 const search = document.getElementById("search");
-search.addEventListener("input", () => {
+const SEARCHABLE_SELECTOR = ".route, .redirect-row, .dynamic-pattern, .live-service";
+
+function applySearchFilter() {
   const q = search.value.toLowerCase().trim();
-  document.querySelectorAll(".route, .redirect-row, .dynamic-pattern").forEach(el => {
-    const text = el.textContent.toLowerCase();
+  document.querySelectorAll(SEARCHABLE_SELECTOR).forEach(el => {
+    const searchText = el.getAttribute("data-search-text") || el.textContent;
+    const text = searchText.toLowerCase();
     el.classList.toggle("hidden", q && !text.includes(q));
   });
   document.querySelectorAll("details").forEach(det => {
-    const visible = det.querySelectorAll(".route:not(.hidden), .redirect-row:not(.hidden), .dynamic-pattern:not(.hidden)");
+    const visible = det.querySelectorAll(".route:not(.hidden), .redirect-row:not(.hidden), .dynamic-pattern:not(.hidden), .live-service:not(.hidden)");
     det.closest(".card").classList.toggle("hidden", q && visible.length === 0);
     if (q && visible.length > 0) det.open = true;
   });
   const divider = document.querySelector(".divider");
   if (divider) divider.classList.toggle("hidden", !!q);
-});
+}
+
+search.addEventListener("input", applySearchFilter);
+
+const livePollStatus = document.getElementById("live-poll-status");
+const liveStatusSummary = document.getElementById("live-status-summary");
+const liveServiceGrid = document.getElementById("live-service-grid");
+const liveSourceMeta = document.getElementById("live-source-meta");
+
+const LIVE_POLL_MS = 30000;
+const STATUS_PRIORITY = { red: 0, yellow: 1, green: 2, unknown: 3 };
+const STATUS_LABEL = { red: "offline", yellow: "at risk", green: "online", unknown: "unknown" };
+const BILLS_FETCH_URLS = ["https://bills.aesthetic.computer/index.html", "/bills.aesthetic.computer/index.html"];
+
+let liveLastSummaryText = "";
+let livePollInFlight = false;
+
+function escapeHtml(text) {
+  return String(text || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function normalizeSpace(text) {
+  return (text || "").replace(/\s+/g, " ").trim();
+}
+
+function mapServiceClassToState(serviceNode) {
+  if (serviceNode.classList.contains("down")) return "red";
+  if (serviceNode.classList.contains("warn")) return "yellow";
+  if (serviceNode.classList.contains("ok") || serviceNode.classList.contains("free")) return "green";
+  return "unknown";
+}
+
+function classifyStatusText(statusText) {
+  const status = (statusText || "").toLowerCase();
+  if (!status) return "unknown";
+  if (status.includes("suspend") || status.includes("overdue") || status.includes("down") || status.includes("off") || status.includes("locked")) return "red";
+  if (status.includes("past due") || status.includes("warn") || status.includes("degrad") || status.includes("risk")) return "yellow";
+  if (status.includes("active") || status.includes("free") || status.includes("ok") || status.includes("online") || status.includes("up")) return "green";
+  return "unknown";
+}
+
+function formatTimeUTC(date) {
+  return date.toISOString().slice(11, 19) + " UTC";
+}
+
+function formatDateUTC(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function parseBillsSnapshot(html) {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+
+  const subtitle = normalizeSpace(doc.querySelector(".subtitle")?.textContent);
+  const snapshotDate = subtitle.split("—").pop()?.trim() || "";
+
+  const alertTexts = Array.from(doc.querySelectorAll(".alerts .alert .alert-text"))
+    .map(node => normalizeSpace(node.textContent))
+    .filter(Boolean);
+
+  const topStats = {};
+  const topStatsContainer = doc.querySelector(".stats");
+  if (topStatsContainer) {
+    Array.from(topStatsContainer.querySelectorAll(".stat-box")).forEach(box => {
+      const label = normalizeSpace(box.querySelector(".stat-label")?.textContent).toLowerCase();
+      const value = normalizeSpace(box.querySelector(".stat-value")?.textContent);
+      if (label && value) topStats[label] = value;
+    });
+  }
+
+  const servicesByName = new Map();
+
+  Array.from(doc.querySelectorAll(".service-map .svc")).forEach(serviceNode => {
+    const name = normalizeSpace(serviceNode.querySelector(".svc-name")?.textContent);
+    if (!name) return;
+    const cost = normalizeSpace(serviceNode.querySelector(".svc-cost")?.textContent);
+    const state = mapServiceClassToState(serviceNode);
+    servicesByName.set(name.toLowerCase(), {
+      name,
+      cost,
+      state,
+      statusLabel: STATUS_LABEL[state] || STATUS_LABEL.unknown,
+    });
+  });
+
+  const allServicesHeading = Array.from(doc.querySelectorAll("h2"))
+    .find(node => normalizeSpace(node.textContent).toLowerCase() === "all services");
+  const allServicesTable = allServicesHeading?.nextElementSibling?.tagName === "TABLE"
+    ? allServicesHeading.nextElementSibling
+    : null;
+
+  if (allServicesTable) {
+    Array.from(allServicesTable.querySelectorAll("tbody tr")).forEach(row => {
+      const cells = row.querySelectorAll("td");
+      if (cells.length < 2) return;
+      const statusText = normalizeSpace(cells[0].textContent);
+      const name = normalizeSpace(cells[1].textContent);
+      if (!name) return;
+      const key = name.toLowerCase();
+      if (servicesByName.has(key)) return;
+      const cost = normalizeSpace(cells[2]?.textContent);
+      const state = classifyStatusText(statusText);
+      servicesByName.set(key, {
+        name,
+        cost,
+        state,
+        statusLabel: statusText || STATUS_LABEL[state] || STATUS_LABEL.unknown,
+      });
+    });
+  }
+
+  const services = Array.from(servicesByName.values());
+  if (services.length === 0) {
+    throw new Error("bills snapshot missing service rows");
+  }
+
+  return {
+    snapshotDate,
+    alerts: alertTexts,
+    topStats,
+    services,
+  };
+}
+
+function renderLiveSnapshot(snapshot) {
+  const updatedAt = new Date();
+  const counts = { green: 0, yellow: 0, red: 0, unknown: 0 };
+  snapshot.services.forEach(service => {
+    counts[service.state] = (counts[service.state] || 0) + 1;
+  });
+
+  const summaryParts = [
+    `${counts.green || 0} on`,
+    `${counts.yellow || 0} at risk`,
+    `${counts.red || 0} off`,
+  ];
+  if (snapshot.topStats.overdue) summaryParts.push(`overdue ${snapshot.topStats.overdue}`);
+  if (snapshot.topStats.monthly) summaryParts.push(`monthly ${snapshot.topStats.monthly}`);
+  const summaryText = summaryParts.join(" · ");
+
+  liveStatusSummary.textContent = summaryText;
+  liveLastSummaryText = summaryText;
+  livePollStatus.textContent = `updated ${formatTimeUTC(updatedAt)}`;
+
+  const sortedServices = [...snapshot.services].sort((a, b) => {
+    const scoreA = STATUS_PRIORITY[a.state] ?? STATUS_PRIORITY.unknown;
+    const scoreB = STATUS_PRIORITY[b.state] ?? STATUS_PRIORITY.unknown;
+    if (scoreA !== scoreB) return scoreA - scoreB;
+    return a.name.localeCompare(b.name);
+  });
+
+  liveServiceGrid.innerHTML = sortedServices.map(service => {
+    const stateClass = `service-light-${service.state}`;
+    const stateLabel = normalizeSpace(service.statusLabel || STATUS_LABEL[service.state] || STATUS_LABEL.unknown);
+    const searchText = normalizeSpace(`${service.name} ${stateLabel} ${service.cost}`.toLowerCase());
+    const costHtml = service.cost ? `<span class="live-service-cost">${escapeHtml(service.cost)}</span>` : "";
+    return `<div class="live-service" data-search-text="${escapeHtml(searchText)}">
+      <span class="service-light ${stateClass}" title="${escapeHtml(stateLabel)}"></span>
+      <span class="live-service-name">${escapeHtml(service.name)}</span>
+      <span class="live-service-state">${escapeHtml(stateLabel)}</span>
+      ${costHtml}
+    </div>`;
+  }).join("");
+
+  const alertText = snapshot.alerts[0] ? ` · ${snapshot.alerts[0]}` : "";
+  const snapshotDate = snapshot.snapshotDate || formatDateUTC(updatedAt);
+  liveSourceMeta.textContent = `Source: bills.aesthetic.computer · Snapshot ${snapshotDate} · Updated ${formatTimeUTC(updatedAt)}${alertText}`;
+
+  applySearchFilter();
+}
+
+function renderLivePollError(error) {
+  const failedAt = new Date();
+  livePollStatus.textContent = `poll error ${formatTimeUTC(failedAt)}`;
+  if (liveLastSummaryText) {
+    liveStatusSummary.textContent = `${liveLastSummaryText} · stale`;
+  } else {
+    liveStatusSummary.textContent = "Unable to load bills snapshot.";
+    liveServiceGrid.innerHTML = `<div class="live-error">Live service polling is unavailable right now.</div>`;
+  }
+  liveSourceMeta.textContent = `Source: bills.aesthetic.computer · Poll failed at ${formatTimeUTC(failedAt)} (${error.message || "unknown error"})`;
+}
+
+async function fetchBillsHTML() {
+  let lastError = null;
+  for (const url of BILLS_FETCH_URLS) {
+    const abortController = new AbortController();
+    const timeout = setTimeout(() => abortController.abort(), 8000);
+    try {
+      const response = await fetch(url, {
+        cache: "no-store",
+        signal: abortController.signal,
+      });
+      if (!response.ok) throw new Error(`${response.status} ${response.statusText}`.trim());
+      return await response.text();
+    } catch (error) {
+      lastError = error;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+  throw lastError || new Error("fetch failed");
+}
+
+async function refreshLiveStatus() {
+  if (livePollInFlight) return;
+  livePollInFlight = true;
+  try {
+    const billsHTML = await fetchBillsHTML();
+    const snapshot = parseBillsSnapshot(billsHTML);
+    renderLiveSnapshot(snapshot);
+  } catch (error) {
+    console.warn("Sitemap live status poll failed:", error);
+    renderLivePollError(error);
+  } finally {
+    livePollInFlight = false;
+  }
+}
+
+refreshLiveStatus();
+setInterval(refreshLiveStatus, LIVE_POLL_MS);
 </script>
 </body>
 </html>
