@@ -945,7 +945,7 @@ async function mintToken(piece, options = {}) {
     minter: authorHandle || credentials.address,
     creators: creatorsArray,
     rights: '© All rights reserved',
-    mintingTool: 'https://aesthetic.computer',
+    mintingTool: 'https://kidlisp.com',
     formats: [{
       uri: artifactUri,
       mimeType: 'text/html',
@@ -1190,7 +1190,7 @@ async function updateMetadata(tokenId, piece, options = {}) {
     minter: authorHandle || credentials.address,
     creators: creatorsArray,
     rights: '© All rights reserved',
-    mintingTool: 'https://aesthetic.computer',
+    mintingTool: 'https://kidlisp.com',
     formats: [{
       uri: artifactUri,
       mimeType: 'text/html',
@@ -1453,7 +1453,7 @@ async function redactToken(tokenId, options = {}) {
     minter: '@aesthetic',
     creators: creatorsArray,
     rights: '© All rights reserved',
-    mintingTool: 'https://aesthetic.computer',
+    mintingTool: 'https://kidlisp.com',
     formats: [{
       uri: artifactUri,
       mimeType: 'text/html',

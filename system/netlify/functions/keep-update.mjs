@@ -377,7 +377,7 @@ export const handler = stream(async (event) => {
         creators: creatorsArray, // Wallet address for on-chain attribution
         royalties,  // v4: Preserve royalty on metadata update
         rights: "© All rights reserved",
-        mintingTool: "https://aesthetic.computer",
+        mintingTool: "https://kidlisp.com",
         formats: [{
           uri: artifactUri,
           mimeType: "text/html",
