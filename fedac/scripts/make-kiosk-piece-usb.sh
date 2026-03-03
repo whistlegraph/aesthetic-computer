@@ -18,6 +18,7 @@
 # Options:
 #   --rootfs <dir>    Use existing extracted rootfs (skip ISO download + extract)
 #   --iso <path>      Use local ISO instead of downloading
+#   --bundle <path>   Use local HTML bundle instead of fetching from oven
 #   --image <path>    Build a bootable disk image file (.img)
 #   --image-size <g>  Image size in GiB (default: 16)
 #   --base-image      Build base image without a specific piece (placeholder only)
@@ -70,6 +71,7 @@ usage() {
   echo "Options:"
   echo "  --rootfs <dir>  Use existing extracted rootfs directory"
   echo "  --iso <path>    Use existing ISO instead of downloading"
+  echo "  --bundle <path> Use local HTML bundle (skip oven fetch)"
   echo "  --density <n>   Default pack/runtime density query value (default: 8)"
   echo "  --no-eject      Don't eject the USB when done"
   echo "  --yes           Skip confirmation prompts"
@@ -94,6 +96,7 @@ PIECE_CODE=""
 DEVICE=""
 ROOTFS_DIR=""
 ISO_PATH=""
+LOCAL_BUNDLE_PATH=""
 IMAGE_PATH=""
 IMAGE_SIZE_GB="16"
 WORK_BASE="/tmp"
@@ -106,6 +109,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --rootfs) ROOTFS_DIR="$2"; shift 2 ;;
     --iso) ISO_PATH="$2"; shift 2 ;;
+    --bundle) LOCAL_BUNDLE_PATH="$2"; shift 2 ;;
     --image) IMAGE_PATH="$2"; shift 2 ;;
     --image-size) IMAGE_SIZE_GB="$2"; shift 2 ;;
     --density) PACK_DENSITY="$2"; shift 2 ;;
@@ -131,6 +135,10 @@ fi
 [ -z "$DEVICE" ] || [ -b "$DEVICE" ] || { echo -e "${RED}Error: $DEVICE is not a block device${NC}"; exit 1; }
 [ -z "$IMAGE_PATH" ] || [[ "$IMAGE_SIZE_GB" =~ ^[0-9]+$ ]] || {
   echo -e "${RED}Error: --image-size must be an integer GiB value${NC}"
+  exit 1
+}
+[ -z "$LOCAL_BUNDLE_PATH" ] || [ -f "$LOCAL_BUNDLE_PATH" ] || {
+  echo -e "${RED}Error: --bundle '$LOCAL_BUNDLE_PATH' not found${NC}"
   exit 1
 }
 [[ "$PACK_DENSITY" =~ ^[1-9][0-9]*$ ]] || {
@@ -200,6 +208,11 @@ if [ "$BASE_IMAGE_MODE" = true ]; then
 </body></html>
 PLACEHOLDER_EOF
   echo -e "  ${GREEN}Placeholder piece.html generated${NC}"
+elif [ -n "$LOCAL_BUNDLE_PATH" ]; then
+  echo -e "${CYAN}[1/6] Using local bundle: ${LOCAL_BUNDLE_PATH}${NC}"
+  cp "$LOCAL_BUNDLE_PATH" "$BUNDLE_PATH"
+  BUNDLE_SIZE=$(stat -c%s "$BUNDLE_PATH")
+  echo -e "  ${GREEN}Local bundle copied: $(numfmt --to=iec $BUNDLE_SIZE)${NC}"
 else
   echo -e "${CYAN}[1/6] Fetching piece bundle: ${PIECE_CODE}...${NC}"
 
@@ -354,12 +367,20 @@ if mountpoint -q /mnt/piece 2>/dev/null && touch /mnt/piece/.writetest 2>/dev/nu
   PIECE_LOG="/mnt/piece/kiosk.log"
 fi
 LOG="${PIECE_LOG:-/tmp/kiosk.log}"
-exec > "$LOG" 2>&1
+TTY_DEV="$(tty 2>/dev/null || true)"
+[ -n "$TTY_DEV" ] || TTY_DEV="/dev/tty1"
+if [ -w "$TTY_DEV" ]; then
+  exec > >(tee -a "$LOG" "$TTY_DEV") 2>&1
+else
+  exec > "$LOG" 2>&1
+fi
 echo "[kiosk] $(date) — kiosk-session.sh starting"
 echo "[kiosk] log file: $LOG"
 export XDG_SESSION_TYPE=wayland
 export XDG_RUNTIME_DIR="/run/user/$(id -u)"
 export MOZ_ENABLE_WAYLAND=1
+export MOZ_WEBRENDER=0
+export LIBGL_ALWAYS_SOFTWARE=1
 export MOZ_DBUS_REMOTE=0
 export NO_AT_BRIDGE=1
 export CLUTTER_DISABLE_ANIMATIONS=1
@@ -375,6 +396,9 @@ user_pref("browser.tabs.drawInTitlebar", false);
 user_pref("browser.tabs.inTitlebar", 0);
 user_pref("browser.startup.homepage", "__KIOSK_PIECE_URL__");
 user_pref("browser.startup.page", 1);
+user_pref("media.autoplay.default", 0);
+user_pref("media.autoplay.blocking_policy", 0);
+user_pref("media.autoplay.block-webaudio", false);
 user_pref("accessibility.typeaheadfind", false);
 user_pref("accessibility.typeaheadfind.manual", false);
 user_pref("accessibility.typeaheadfind.linksonly", false);
@@ -392,8 +416,15 @@ cat > "$PROFILE/chrome/userChrome.css" << 'CHROMEEOF'
 }
 CHROMEEOF
 
-# Check for piece on FEDAC-PIECE partition (already mounted rw above for logging)
-# Symlink ALL html files — the oven injects piece.html (shell) + piece-app.html (bundle)
+# Wait briefly for mounted piece files (mount can be late on some hardware).
+for i in $(seq 1 20); do
+  [ -f /mnt/piece/piece.html ] && break
+  [ "$i" = "1" ] && echo "[kiosk] waiting for /mnt/piece/piece.html..."
+  sleep 0.5
+done
+
+# Check for piece on FEDAC-PIECE partition (already mounted rw above for logging).
+# Symlink ALL html files — the oven injects piece.html (shell) + piece-app.html (bundle),
 # and the shell iframe needs piece-app.html resolvable from the same directory.
 if [ -f /mnt/piece/piece.html ]; then
   for f in /mnt/piece/*.html; do
@@ -401,6 +432,8 @@ if [ -f /mnt/piece/piece.html ]; then
   done
   echo "[kiosk] linked piece files from FEDAC-PIECE partition"
   ls -la /usr/local/share/kiosk/*.html 2>&1
+else
+  echo "[kiosk] WARNING: /mnt/piece/piece.html missing — using bundled rootfs fallback"
 fi
 
 # Paint PALS logo to framebuffer (visible during PipeWire/cage startup)
@@ -440,22 +473,89 @@ if ! python3 -c "import socket; s=socket.socket(); s.settimeout(0.5); s.connect(
 fi
 
 if command -v cage >/dev/null 2>&1; then
-  TTY_DEV="$(tty 2>/dev/null || true)"
-  [ -n "$TTY_DEV" ] && printf '\033[2J\033[3J\033[H\033[?25l' >"$TTY_DEV" 2>/dev/null || true
-  echo "[kiosk] launching: cage -- firefox --kiosk __KIOSK_PIECE_URL__"
-  exec cage -- firefox --kiosk --no-remote --new-instance \
-    --profile "$PROFILE" --private-window \
-    __KIOSK_PIECE_URL__
+  for i in $(seq 1 5); do
+    echo "[kiosk] launching firefox in cage (software rendering) attempt ${i}/5"
+    cage -- firefox --kiosk --no-remote --new-instance \
+      --profile "$PROFILE" --private-window \
+      __KIOSK_PIECE_URL__
+    CODE=$?
+    echo "[kiosk] cage/firefox exited (code=$CODE)"
+    sleep 1
+  done
 fi
 
-echo "[kiosk] cage not found, falling back to mutter"
-exec mutter --wayland --no-x11 --sm-disable -- firefox --kiosk --no-remote \
-  --new-instance --profile "$PROFILE" --private-window \
-  __KIOSK_PIECE_URL__
+if command -v mutter >/dev/null 2>&1; then
+  for i in $(seq 1 5); do
+    echo "[kiosk] launching firefox in mutter fallback attempt ${i}/5"
+    mutter --wayland --no-x11 --sm-disable -- firefox --kiosk --no-remote \
+      --new-instance --profile "$PROFILE" --private-window \
+      __KIOSK_PIECE_URL__
+    CODE=$?
+    echo "[kiosk] mutter/firefox exited (code=$CODE)"
+    sleep 1
+  done
+fi
+
+if command -v xinit >/dev/null 2>&1 && command -v Xorg >/dev/null 2>&1; then
+  cat > /tmp/fedac-firefox-kiosk.sh << 'X11EOF'
+#!/bin/sh
+xset s off -dpms s noblank >/dev/null 2>&1 || true
+exec firefox --kiosk --no-remote --new-instance \
+  --profile "__PROFILE__" --private-window \
+  "__KIOSK_PIECE_URL__"
+X11EOF
+  sed -i "s|__PROFILE__|$PROFILE|g" /tmp/fedac-firefox-kiosk.sh
+  chmod +x /tmp/fedac-firefox-kiosk.sh
+  while true; do
+    echo "[kiosk] launching firefox in X11 fallback (xinit + Xorg)"
+    xinit /tmp/fedac-firefox-kiosk.sh -- /usr/bin/Xorg :0 vt1 -nolisten tcp -s 0 -dpms
+    CODE=$?
+    echo "[kiosk] xinit/Xorg exited (code=$CODE); restarting in 2s"
+    sleep 2
+  done
+fi
+
+echo "[kiosk] FATAL: no working launcher (cage/mutter/xinit)"
+echo "[kiosk] staying on tty for debug; log=$LOG"
+while true; do sleep 60; done
 SESSEOF
 sed -i "s|__KIOSK_PIECE_URL__|$KIOSK_PIECE_URL|g" "$ROOTFS_DIR/usr/local/bin/kiosk-session.sh"
 chmod +x "$ROOTFS_DIR/usr/local/bin/kiosk-session.sh"
 echo -e "  ${GREEN}Kiosk session script installed${NC}"
+
+# Root preflight: mount FEDAC-PIECE and link any injected html files before
+# tty1 autologin starts Firefox.
+cat > "$ROOTFS_DIR/usr/local/bin/fedac-piece-sync.sh" << 'PIECESYNCEOF'
+#!/bin/bash
+set -euo pipefail
+LOG="/tmp/fedac-piece-sync.log"
+log() { echo "[piece-sync] $(date '+%Y-%m-%d %H:%M:%S') $*" >> "$LOG"; }
+
+mkdir -p /mnt/piece /usr/local/share/kiosk
+
+if ! mountpoint -q /mnt/piece 2>/dev/null; then
+  if mount /dev/disk/by-label/FEDAC-PIECE /mnt/piece 2>/dev/null || mount -L FEDAC-PIECE /mnt/piece 2>/dev/null; then
+    log "mounted FEDAC-PIECE"
+  else
+    log "mount failed"
+  fi
+fi
+
+if [ -f /mnt/piece/piece.html ]; then
+  linked=0
+  shopt -s nullglob
+  for f in /mnt/piece/*.html; do
+    ln -sf "$f" "/usr/local/share/kiosk/$(basename "$f")"
+    linked=$((linked + 1))
+  done
+  shopt -u nullglob
+  log "linked ${linked} html file(s)"
+else
+  log "piece.html missing on /mnt/piece"
+fi
+PIECESYNCEOF
+chmod +x "$ROOTFS_DIR/usr/local/bin/fedac-piece-sync.sh"
+echo -e "  ${GREEN}Piece sync preflight installed${NC}"
 
 # 3c. Disable GDM and force tty1 autologin -> kiosk-session.sh
 # This path is resilient on Fedora live images even when graphical.target isn't reached.
@@ -475,6 +575,7 @@ fi
 
 cat > "$ROOTFS_DIR/etc/systemd/system/getty@tty1.service.d/autologin.conf" << 'AGEOF'
 [Service]
+ExecStartPre=-/usr/local/bin/fedac-piece-sync.sh
 ExecStart=
 ExecStart=-/sbin/agetty --noissue --nonewline --autologin liveuser --noclear %I $TERM
 Type=idle
@@ -655,15 +756,15 @@ mkdir -p "$ROOTFS_DIR/mnt/piece"
 cat > "$ROOTFS_DIR/etc/systemd/system/mnt-piece.mount" << 'MOUNTEOF'
 [Unit]
 Description=Mount FEDAC-PIECE partition
-DefaultDependencies=no
-After=local-fs-pre.target
+After=systemd-udev-settle.service local-fs-pre.target
+Wants=systemd-udev-settle.service
 Before=local-fs.target kiosk-piece-server.service
 
 [Mount]
-What=LABEL=FEDAC-PIECE
+What=/dev/disk/by-label/FEDAC-PIECE
 Where=/mnt/piece
 Type=ext4
-Options=rw,noatime
+Options=rw,noatime,nofail,x-systemd.device-timeout=30s
 
 [Install]
 WantedBy=local-fs.target
@@ -677,8 +778,8 @@ cat > "$ROOTFS_DIR/home/liveuser/.bash_profile" << 'BPROFEOF'
 #!/bin/bash
 TTY="$(tty 2>/dev/null || true)"
 if [ -z "${DISPLAY:-}" ] && { [ "${XDG_VTNR:-}" = "1" ] || [ "$TTY" = "/dev/tty1" ]; }; then
-  [ -n "$TTY" ] && printf '\033[2J\033[3J\033[H\033[?25l' >"$TTY" 2>/dev/null || true
-  exec /usr/local/bin/kiosk-session.sh </dev/null
+  [ -n "$TTY" ] && echo "[fedac] starting kiosk session on $TTY" >"$TTY" 2>/dev/null || true
+  exec /usr/local/bin/kiosk-session.sh
 fi
 BPROFEOF
 chmod 644 "$ROOTFS_DIR/home/liveuser/.bash_profile"
@@ -772,6 +873,9 @@ defaultPref("toolkit.legacyUserProfileCustomizations.stylesheets", true);
 defaultPref("accessibility.typeaheadfind", false);
 defaultPref("accessibility.typeaheadfind.manual", false);
 defaultPref("accessibility.typeaheadfind.linksonly", false);
+defaultPref("gfx.webrender.force-disabled", true);
+defaultPref("gfx.webrender.software", false);
+defaultPref("layers.acceleration.disabled", true);
 // Allow Web Audio API autoplay (kiosk — no user gesture needed)
 defaultPref("media.autoplay.default", 0);
 defaultPref("media.autoplay.blocking_policy", 0);
@@ -927,7 +1031,7 @@ umount "$ROOTFS_DIR/tmp" "$ROOTFS_DIR/sys" "$ROOTFS_DIR/proc" "$ROOTFS_DIR/dev" 
 # ── Verify critical binaries survived the strip ──────────────────────
 echo -e "  Verifying critical binaries..."
 MISSING=""
-for bin in cage firefox pipewire mutter; do
+for bin in cage firefox pipewire mutter xinit Xorg; do
   if [ -x "$ROOTFS_DIR/usr/bin/$bin" ]; then
     echo -e "    ${GREEN}✓ $bin${NC}"
   else
@@ -1242,7 +1346,7 @@ set gfxpayload=keep
 terminal_input console
 terminal_output gfxterm
 menuentry "FedAC Kiosk" --class fedora {
-  linux /loader/linux quiet splash rhgb loglevel=0 systemd.log_level=emerg systemd.show_status=false rd.systemd.show_status=false rd.udev.log_level=3 udev.log_priority=3 rd.plymouth=1 plymouth.ignore-serial-consoles vt.handoff=7 vt.global_cursor_default=0 logo.nologo root=live:LABEL=FEDAC-LIVE rd.live.image mitigations=off selinux=0
+  linux /loader/linux loglevel=4 systemd.log_level=info systemd.show_status=1 rd.systemd.show_status=1 rd.udev.log_level=3 udev.log_priority=3 rd.plymouth=0 plymouth.enable=0 vt.global_cursor_default=0 logo.nologo root=live:LABEL=FEDAC-LIVE rd.live.image mitigations=off selinux=0
   initrd /loader/initrd
 }
 GRUBEOF
@@ -1305,18 +1409,34 @@ if [ "$BASE_IMAGE_MODE" = true ] && [ -n "$IMAGE_PATH" ] && [ -f "$IMAGE_PATH" ]
   MANIFEST_PATH="${IMAGE_PATH%.img}-manifest.json"
   IMG_SIZE=$(stat -c%s "$IMAGE_PATH")
   IMG_SHA256=$(sha256sum "$IMAGE_PATH" | awk '{print $1}')
-  # Get FEDAC-PIECE partition offset from the loop device or image
-  PIECE_OFFSET=$(python3 -c "
-import subprocess, json, re
-out = subprocess.check_output(['fdisk', '-l', '$IMAGE_PATH'], text=True)
-for line in out.splitlines():
-    if 'PIECE' in line or line.strip().endswith('Linux filesystem') and '3' in line.split()[0]:
-        # Sector-based offset: start_sector * 512
-        parts = line.split()
-        print(int(parts[1]) * 512)
-        break
-" 2>/dev/null || echo "0")
-  PIECE_SIZE=$((20 * 1024 * 1024))
+  # Get FEDAC-PIECE partition offset/size from GPT table (robust, no fdisk guessing).
+  PIECE_META=$(python3 -c "
+import subprocess
+out = subprocess.check_output(['parted', '-s', '-m', '$IMAGE_PATH', 'unit', 'B', 'print'], text=True)
+part3 = None
+for raw in out.splitlines():
+    line = raw.strip()
+    if not line or not line[0].isdigit() or ':' not in line:
+        continue
+    cols = line.split(':')
+    if len(cols) < 4:
+        continue
+    num = cols[0]
+    start = int(cols[1].rstrip('B'))
+    size = int(cols[3].rstrip('B'))
+    name = cols[5].rstrip(';').strip().upper() if len(cols) > 5 else ''
+    if name == 'PIECE':
+        print(f'{start}:{size}')
+        raise SystemExit(0)
+    if num == '3':
+        part3 = (start, size)
+if part3:
+    print(f'{part3[0]}:{part3[1]}')
+" 2>/dev/null || true)
+  PIECE_OFFSET=${PIECE_META%%:*}
+  PIECE_SIZE=${PIECE_META##*:}
+  [ -n "${PIECE_OFFSET:-}" ] || PIECE_OFFSET="0"
+  [ -n "${PIECE_SIZE:-}" ] || PIECE_SIZE=$((20 * 1024 * 1024))
   cat > "$MANIFEST_PATH" << MANIFEST_EOF
 {
   "version": "$(date +%Y-%m-%d)",

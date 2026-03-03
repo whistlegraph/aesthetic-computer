@@ -1065,6 +1065,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   let audioContextResuming = false; // Flag to track when AudioContext resume is in progress
   let audioContextResumeTimestamps = {}; // Store resume timestamps separately
+  let lastAudioResumeAttemptAt = 0; // Debounce repeated resume() calls from duplicate touch/pointer gestures
+  const AUDIO_RESUME_DEBOUNCE_MS = 250;
+  const AUDIO_RESUME_STUCK_MS = 1500;
   let dawAudioResumed = false; // Track if we've already auto-resumed AudioContext for DAW mode
   let tapeSyncPosition = null; // Position to sync tape audio to (0-1), set by video piece
   let currentTapePosition = 0; // Current tape playback position (0-1), updated by main loop
@@ -2672,6 +2675,56 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     backgroundMusicEl.src = "";
   }
 
+  function resumeAudioContext(reason = "unspecified", { force = false, onResumed } = {}) {
+    if (!audioContext) return;
+    if (audioContext.state === "running") {
+      onResumed?.();
+      return;
+    }
+
+    const now = performance.now();
+    if (!force && now - lastAudioResumeAttemptAt < AUDIO_RESUME_DEBOUNCE_MS) return;
+    if (audioContextResuming) return;
+
+    audioContextResuming = true;
+    lastAudioResumeAttemptAt = now;
+    const resumeStartTime = now;
+    let finished = false;
+
+    const release = () => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(stuckTimer);
+      audioContextResuming = false;
+    };
+
+    const stuckTimer = setTimeout(() => {
+      if (finished) return;
+      console.warn(
+        `🎵 AudioContext resume timeout after ${AUDIO_RESUME_STUCK_MS}ms (${reason})`,
+      );
+      release();
+    }, AUDIO_RESUME_STUCK_MS);
+
+    audioContext
+      .resume()
+      .then(() => {
+        const resumeEndTime = performance.now();
+        window.audioContextResumeTimestamps.requestedAt = resumeStartTime;
+        window.audioContextResumeTimestamps.completedAt = resumeEndTime;
+        onResumed?.();
+      })
+      .catch((error) => {
+        console.warn(
+          `🎵 AudioContext resume failed (${reason}):`,
+          error?.message || error,
+        );
+      })
+      .finally(() => {
+        release();
+      });
+  }
+
   function startSound() {
     if (audioStarting) return;
     if (audioContext && audioContext.state !== "closed" && !window.__acForceStartSound) {
@@ -2731,7 +2784,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Resume immediately to capture the user gesture window.
     // On iOS Safari, AudioContext may start "suspended" even during a gesture —
     // calling resume() synchronously here ensures we don't lose the gesture.
-    audioContext.resume().catch(() => {});
+    resumeAudioContext("startSound-initial", { force: true });
 
     // 🎵 AUDIO CONTEXT LOGGING - Track timing characteristics
     // console.log(`🎵 AUDIO_CONTEXT_CREATED: sampleRate=${audioContext.sampleRate}, state=${audioContext.state}, baseLatency=${audioContext.baseLatency?.toFixed(6) || 'N/A'}s, outputLatency=${audioContext.outputLatency?.toFixed(6) || 'N/A'}s`);
@@ -3440,11 +3493,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             console.log("Background music play failed (user gesture required):", error.message);
           });
         }
-        if (!skip && ["suspended", "interrupted"].includes(audioContext.state)) {
-          audioContext.resume().catch(error => {
-            // AudioContext resume failed, probably due to browser policy  
-            console.log("AudioContext resume failed (user gesture required):", error.message);
-          });
+        if (
+          !skip &&
+          audioContext &&
+          ["suspended", "interrupted"].includes(audioContext.state)
+        ) {
+          resumeAudioContext("gesture-enableAudioPlayback");
         }
       } catch (error) {
         console.log("Audio playback initialization failed:", error.message);
@@ -5275,26 +5329,34 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Handle audio context resume request from video piece
     if (type === "audio-context:resume-request") {
       if (!window.acPACK_MODE) console.log("🎵 BIOS received audio context resume request:", content);
-      if (audioContext && audioContext.state === "suspended") {
+      if (
+        audioContext &&
+        ["suspended", "interrupted"].includes(audioContext.state)
+      ) {
         if (!window.acPACK_MODE) console.log("🎵 BIOS resuming audio context from user gesture");
-        const resumeStartTime = performance.now();
-        audioContext.resume().then(() => {
-          const resumeEndTime = performance.now();
-          window.audioContextResumeTimestamps.requestedAt = resumeStartTime;
-          window.audioContextResumeTimestamps.completedAt = resumeEndTime;
-          if (!window.acPACK_MODE) console.log("🎵 BIOS audio context resumed, new state:", audioContext.state);
-          
-          // Notify video piece of successful resume
-          if (!window.acPACK_MODE) console.log("🎵 BIOS sending updated AudioContext state after resume:", { state: audioContext.state, hasAudio: true });
-          send({ 
-            type: "tape:audio-context-state", 
-            content: { 
-              state: audioContext.state,
-              hasAudio: true
-            } 
-          });
-        }).catch(error => {
-          console.warn("🎵 BIOS audio context resume failed:", error.message);
+        resumeAudioContext("video-resume-request", {
+          force: true,
+          onResumed: () => {
+            if (!audioContext) return;
+            if (!window.acPACK_MODE)
+              console.log(
+                "🎵 BIOS audio context resumed, new state:",
+                audioContext.state,
+              );
+            // Notify video piece of successful resume
+            if (!window.acPACK_MODE)
+              console.log(
+                "🎵 BIOS sending updated AudioContext state after resume:",
+                { state: audioContext.state, hasAudio: true },
+              );
+            send({
+              type: "tape:audio-context-state",
+              content: {
+                state: audioContext.state,
+                hasAudio: true,
+              },
+            });
+          },
         });
       } else if (audioContext) {
         if (!window.acPACK_MODE) console.log("🎵 BIOS audio context already running:", audioContext.state);

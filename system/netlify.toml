@@ -2176,6 +2176,18 @@ from = "/dollhouse"
 to = "/dollhouse/index.html"
 status = 200
 force = true
+# bills.aesthetic.computer subdomain
+[[redirects]]
+from = "https://bills.aesthetic.computer"
+to = "/bills.aesthetic.computer/index.html"
+status = 200
+force = true
+[[redirects]]
+from = "https://bills.aesthetic.computer/*"
+to = "/bills.aesthetic.computer/:splat"
+status = 200
+force = true
+
 [[redirects]]
 from = "/*"
 to = "/.netlify/functions/index"
