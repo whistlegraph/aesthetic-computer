@@ -701,10 +701,13 @@ function buildFedOSShellHTML(target) {
       const wifiConnect = document.getElementById("wifi-connect");
 
       const suppressedKeys = new Set(["?", "/", "'"]);
+      // When launched from file:// (Fedora kiosk fallback), use the local API server.
+      const API_BASE = window.location.protocol === "file:" ? "http://127.0.0.1:8080" : "";
+      const apiUrl = (pathname) => API_BASE + pathname;
       const wifiApi = {
-        status: "/api/status",
-        networks: "/api/networks",
-        connect: "/api/connect",
+        status: apiUrl("/api/status"),
+        networks: apiUrl("/api/networks"),
+        connect: apiUrl("/api/connect"),
       };
 
       let batteryManager = null;
@@ -932,7 +935,7 @@ function buildFedOSShellHTML(target) {
 
       async function fetchVolume() {
         try {
-          const res = await fetchJSON("/api/volume", {}, 1500);
+          const res = await fetchJSON(apiUrl("/api/volume"), {}, 1500);
           if (res && res.volume != null) setVolume(res.volume, res.muted);
         } catch {
           volumeEl.textContent = "VOL N/A";
@@ -941,7 +944,7 @@ function buildFedOSShellHTML(target) {
 
       volumeEl.addEventListener("click", () => {
         // Toggle mute on click
-        fetch("/api/volume", {
+        fetch(apiUrl("/api/volume"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ mute: "toggle" }),
@@ -959,7 +962,7 @@ function buildFedOSShellHTML(target) {
       volSlider.addEventListener("change", () => {
         volDragging = false;
         const vol = (volSlider.value / 100).toFixed(2);
-        fetch("/api/volume", {
+        fetch(apiUrl("/api/volume"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ volume: vol }),
