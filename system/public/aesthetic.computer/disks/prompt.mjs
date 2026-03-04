@@ -182,36 +182,8 @@ let login, // A login button in the center of the display.
   profile, // A profile page button.
   profileAction,
   walletBtn, // Tezos wallet button (shown when connected)
-  giveBtn, // GIVE button (top-right slot)
   commitBtn, // Commit hash button (navigates to commits piece)
   kidlispBtn; // KidLisp.com button (shown when in KidLisp mode)
-let soBtn, softBtn; // SO SOFT ad buttons
-let soSoftBlinkPhase = 0; // Blink animation counter for SO SOFT
-let soSoftConfigIndex = 0; // Which configuration to use
-let soSoftConfigChangeTime = 0; // When to change config
-let soSoftLastTinyFont = false; // Track if we're using tiny font to recreate buttons on size change
-let giveBtnParticles = [];
-
-// 💸 FUNDING SEVERITY: Controls funding mode features
-// "critical" = full lockdown (chat offline, all alerts)
-// "yikes" = chat works, GIVE button shows, but no $ replacement
-// "off" = normal operation
-export const FUNDING_SEVERITY = "off";
-
-// Legacy export for backwards compatibility
-export const FUNDING_MODE = FUNDING_SEVERITY === "critical";
-
-// Helper flags
-const showFundingEffects = FUNDING_SEVERITY !== "off"; // GIVE button, face (no longer includes $ replacement)
-const isCriticalFunding = FUNDING_SEVERITY === "critical"; // Full lockdown mode
-
-// 🎰 Top-right slot cycling: rotates through "give", "ad", and "products" on a timer
-// In critical funding mode, always show GIVE
-const TOP_RIGHT_BTN_CHOICES = isCriticalFunding ? ["give"] : ["give", "ad", "products"];
-let topRightBtnChoiceIndex = isCriticalFunding ? 0 : Math.floor(Math.random() * TOP_RIGHT_BTN_CHOICES.length);
-let topRightBtnChoice = TOP_RIGHT_BTN_CHOICES[topRightBtnChoiceIndex];
-const TOP_RIGHT_CYCLE_MS = 9000; // 9 seconds
-let topRightLastCycleTime = 0;
 
 let clearBtn; // 🧹 "Blank" button (fixed top-right, appears at 32+ chars)
 let clearBtnConfirming = false; // Two-tap confirmation state
@@ -243,32 +215,7 @@ let unitickerAutoSelectedX = 0; // X position of auto-selected item
 let unitickerAutoSelectedWidth = 0; // Width of auto-selected item
 const UNITICKER_IDLE_THRESHOLD = 120; // 2 seconds at 60fps before auto-selecting
 
-// Set global flags for disk.mjs
-if (typeof globalThis !== "undefined") {
-  globalThis.AC_FUNDING_MODE = false; // $ replacement disabled - only GIVE button and boot screen active
-  globalThis.AC_CHAT_DISABLED = isCriticalFunding; // Only block chat in critical mode
-}
-
-// Colorful funding messages for each ticker (using \\color\\ codes for rendering)
-// Uses ASCII-only characters compatible with font_1 (MatrixChunky8 loads from assets which has CORS issues)
-// English messages
-const FUNDING_MESSAGE_CHAT_EN = "*** \\pink\\'chat'\\cyan\\, media storage, and multiplayer are offline -- DigitalOcean suspended our servers -- Enter 'give' to help bring them back! ***";
-const FUNDING_MESSAGE_CLOCK_EN = "*** \\orange\\'laer-klokken'\\255,200,100\\ and other services are offline -- DigitalOcean suspended our servers -- Enter 'give' to help bring them back! ***";
-// Danish messages
-const FUNDING_MESSAGE_CHAT_DA = "*** \\pink\\'chat'\\cyan\\, medielagring og multiplayer er offline -- DigitalOcean suspenderede vores servere -- Skriv 'give' for at hjaelpe! ***";
-const FUNDING_MESSAGE_CLOCK_DA = "*** \\orange\\'laer-klokken'\\255,200,100\\ og andre tjenester er offline -- DigitalOcean suspenderede vores servere -- Skriv 'give' for at hjaelpe! ***";
-// Alternate between English and Danish every 10 seconds
-const getLangPhase = () => Math.floor(Date.now() / 10000) % 2;
-const FUNDING_MESSAGE_CHAT = getLangPhase() === 0 ? FUNDING_MESSAGE_CHAT_EN : FUNDING_MESSAGE_CHAT_DA;
-const FUNDING_MESSAGE_CLOCK = getLangPhase() === 0 ? FUNDING_MESSAGE_CLOCK_EN : FUNDING_MESSAGE_CLOCK_DA;
-
-// Recovery mode ticker messages (when severity is "yikes" - chat back online but still need support)
-const RECOVERY_TICKER_EN = "DigitalOcean suspended our servers ~ Chat, user media, and multiplayer are offline ~ Enter 'give' to help bring them back!";
-const RECOVERY_TICKER_DA = "DigitalOcean suspenderede vores servere ~ Chat, brugermedier og multiplayer er offline ~ Skriv 'give' for at hjaelpe!";
-export const getRecoveryTicker = () => getLangPhase() === 0 ? RECOVERY_TICKER_EN : RECOVERY_TICKER_DA;
-export const showFundingEffectsFlag = showFundingEffects; // Export for chat.mjs
-
-const tinyTickers = !isCriticalFunding; // Use MatrixChunky8 font for tighter, smaller tickers (disabled in critical funding mode - assets CORS)
+const tinyTickers = true; // Use MatrixChunky8 font for tighter, smaller tickers
 let contentItems = []; // Store fetched content: {type: 'kidlisp'|'painting'|'tape', code: string, source?: string}
 let currentTooltipItem = null; // Current item being shown in tooltip (auto-cycles)
 let tooltipTimer = 0; // Timer for switching between items
@@ -4863,302 +4810,13 @@ function paint($) {
   // Calculate MOTD offset (do this before book rendering so it's always available)
   let motdXOffset = 0;
 
-  // 🎰 Top-right corner slot: cycles between GIVE, SO SOFT ad, and products
-  // GIVE button
-  if (topRightBtnChoice === "give" && showLoginCurtain) {
-    const now = Date.now();
-    const t = performance.now() / 1000;
-    const emotionPhase = Math.floor(now / 3000) % 3;
-    const isGiveUpMode = emotionPhase === 0;
-    const punctuation = Math.floor(now / 150) % 2 === 0 ? "?" : "!";
-
-    let giveBtnText;
-    if (isGiveUpMode) {
-      giveBtnText = "GIVE UP" + punctuation;
-    } else {
-      const currencies = ["U$D", "TEZ", "DKK", "ETH", "BTC"];
-      const currencyIndex = Math.floor(now / 3000) % currencies.length;
-      giveBtnText = "GIVE " + currencies[currencyIndex];
-    }
-
-    const btnPaddingTop = 8;
-    const btnPaddingRight = 10;
-    const btnWidth = 56;
-    const giveBtnY = btnPaddingTop;
-    const giveBtnX = screen.width - btnWidth - btnPaddingRight;
-
-    if (!giveBtn) {
-      giveBtn = new $.ui.TextButton(giveBtnText, { x: giveBtnX, y: giveBtnY });
-    } else {
-      giveBtn.reposition({ x: giveBtnX, y: giveBtnY }, giveBtnText);
-    }
-
-    const hue = (t * 80) % 360;
-    const pulse = Math.sin(t * 5) * 0.5 + 0.5;
-
-    const hslToRgb = (h, s, l) => {
-      h /= 360; s /= 100; l /= 100;
-      let r, g, b;
-      if (s === 0) { r = g = b = l; }
-      else {
-        const hue2rgb = (p, q, t) => {
-          if (t < 0) t += 1; if (t > 1) t -= 1;
-          if (t < 1/6) return p + (q - p) * 6 * t;
-          if (t < 1/2) return q;
-          if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-          return p;
-        };
-        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-        const p = 2 * l - q;
-        r = hue2rgb(p, q, h + 1/3);
-        g = hue2rgb(p, q, h);
-        b = hue2rgb(p, q, h - 1/3);
-      }
-      return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
-    };
-
-    const fillColor = hslToRgb(hue, 100, 50 + pulse * 10);
-    const btnBox = giveBtn?.btn?.box;
-
-    if (btnBox) {
-      const isDown = giveBtn.btn.down;
-      const isHover = giveBtn.btn.over && !isDown;
-
-      if (isGiveUpMode) {
-        const blinkPhase = Math.floor(performance.now() / 50) % 3;
-        const blinkColors = [[255, 0, 0], [255, 255, 255], [0, 0, 0]];
-        const bgColor = blinkColors[blinkPhase];
-        const textColor = blinkColors[(blinkPhase + 1) % 3];
-        const outlineColor = blinkColors[(blinkPhase + 2) % 3];
-        const punctColors = { "?": [0, 255, 255], "!": [255, 255, 0] };
-
-        ink(...bgColor).box(btnBox, "fill");
-        ink(...outlineColor).box(btnBox, "outline");
-
-        const chars = giveBtnText.split('');
-        const charWidth = 6;
-        const textStartX = btnBox.x + 4;
-        const textY = btnBox.y + 4;
-        chars.forEach((char, i) => {
-          const shakeX = (Math.random() - 0.5) * 3;
-          const shakeY = (Math.random() - 0.5) * 3;
-          const charColor = punctColors[char] || textColor;
-          ink(...charColor).write(char, { x: Math.round(textStartX + i * charWidth + shakeX), y: Math.round(textY + shakeY) });
-        });
-      } else {
-        let bgColor;
-        if (isDown) bgColor = [255, 220, 0];
-        else if (isHover) {
-          const hoverPulse = Math.sin(t * 10) * 0.5 + 0.5;
-          bgColor = hslToRgb((hue * 2) % 360, 100, 65 + hoverPulse * 15);
-        } else bgColor = fillColor;
-
-        ink(...bgColor).box(btnBox, "fill");
-        if (isDown) ink(0, 0, 0).box(btnBox, "outline");
-        else ink(255, 255, 255).box(btnBox, "outline");
-
-        const chars = giveBtnText.split('');
-        const charWidth = 6;
-        const textStartX = btnBox.x + 4;
-        const textY = btnBox.y + 4;
-        chars.forEach((char, i) => {
-          let letterColor, shakeX = 0, shakeY = 0;
-          if (isDown) { letterColor = [0, 0, 0]; }
-          else {
-            const letterHue = (hue + i * 90) % 360;
-            letterColor = isHover ? hslToRgb(letterHue, 100, 90) : hslToRgb(letterHue, 100, 75);
-            const shakeAmount = isHover ? 2 : 1;
-            const shakeSpeed = isHover ? 30 : 20;
-            shakeX = Math.sin(t * shakeSpeed + i * 2) * shakeAmount;
-            shakeY = Math.cos(t * (shakeSpeed + 5) + i * 3) * shakeAmount;
-          }
-          ink(...letterColor).write(char, { x: Math.round(textStartX + i * charWidth + shakeX), y: Math.round(textY + shakeY) });
-        });
-
-        // Sparkle particles
-        const spawnChance = isHover ? 0.7 : 0.4;
-        if (Math.random() < spawnChance && btnBox) {
-          const sparkleColor = hslToRgb((hue + Math.random() * 60 - 30) % 360, 100, 70);
-          const edge = Math.floor(Math.random() * 4);
-          let px, py, vx, vy;
-          if (edge === 0) { px = btnBox.x + Math.random() * btnBox.w; py = btnBox.y; vx = (Math.random() - 0.5) * 2; vy = -Math.random() * 2 - 1; }
-          else if (edge === 1) { px = btnBox.x + btnBox.w; py = btnBox.y + Math.random() * btnBox.h; vx = Math.random() * 2 + 1; vy = (Math.random() - 0.5) * 2; }
-          else if (edge === 2) { px = btnBox.x + Math.random() * btnBox.w; py = btnBox.y + btnBox.h; vx = (Math.random() - 0.5) * 2; vy = Math.random() * 2 + 1; }
-          else { px = btnBox.x; py = btnBox.y + Math.random() * btnBox.h; vx = -Math.random() * 2 - 1; vy = (Math.random() - 0.5) * 2; }
-          giveBtnParticles.push({ x: px, y: py, vx, vy, life: 1.0, color: sparkleColor, size: Math.random() < 0.3 ? 2 : 1 });
-        }
-      }
-    }
-
-    giveBtnParticles = giveBtnParticles.filter(p => {
-      p.x += p.vx; p.y += p.vy; p.vx *= 0.96; p.vy *= 0.96; p.life -= 0.03;
-      if (p.life > 0) { const alpha = Math.floor(p.life * 255); ink(...p.color, alpha).box(Math.round(p.x), Math.round(p.y), p.size, p.size); }
-      return p.life > 0;
-    });
-  } else {
-    giveBtn = null;
-    giveBtnParticles = [];
-  }
-
-  // 🎨 SO SOFT AD - Two buttons with wavy line connector
-  if (topRightBtnChoice === "ad" && showLoginCurtain) {
-    const now = Date.now();
-    const t = performance.now() / 1000;
-
-    soSoftBlinkPhase = Math.floor(t * 2) % 2;
-    const isWhiteOnBlack = soSoftBlinkPhase === 0;
-
-    if (now - soSoftConfigChangeTime > 5000) {
-      soSoftConfigIndex = (soSoftConfigIndex + 1) % 4;
-      soSoftConfigChangeTime = now;
-    }
-
-    const useTinyFont = screen.width < 256 || screen.height < 200;
-    const charWidth = useTinyFont ? 4 : 6;
-    const charHeight = useTinyFont ? 7 : 12;
-    const btnPadX = 2;
-    const btnPadY = 2;
-    const btnPaddingRight = useTinyFont ? 4 : 6;
-    const spacingScale = useTinyFont ? 0.6 : 1;
-    const boxHeight = charHeight + btnPadY * 2;
-    const boxWidth = (text) => text.length * charWidth + btnPadX * 2;
-    const minSpacing = 8;
-
-    let soConfig, softConfig, lineConfig, lineStyle;
-
-    if (soSoftConfigIndex === 0) {
-      const btnSpacing = Math.max(minSpacing, Math.floor(10 * spacingScale));
-      const baseY = useTinyFont ? 3 : 6;
-      softConfig = { x: screen.width - boxWidth("SOFT") - btnPaddingRight, y: baseY };
-      soConfig = { x: softConfig.x - boxWidth("SO") - btnSpacing, y: baseY };
-      lineConfig = "horizontal"; lineStyle = "wavy";
-    } else if (soSoftConfigIndex === 1) {
-      const baseX = screen.width - boxWidth("SOFT") - btnPaddingRight;
-      const vertSpacing = Math.max(minSpacing, Math.floor(8 * spacingScale));
-      const baseY = useTinyFont ? 3 : 6;
-      soConfig = { x: baseX, y: baseY };
-      softConfig = { x: baseX, y: soConfig.y + boxHeight + vertSpacing };
-      lineConfig = "vertical"; lineStyle = "elbow";
-    } else if (soSoftConfigIndex === 2) {
-      const diagSpacing = Math.max(minSpacing * 3, Math.floor(30 * spacingScale));
-      const vertOffset = Math.max(minSpacing * 2, Math.floor(16 * spacingScale));
-      const baseY = useTinyFont ? 3 : 6;
-      soConfig = { x: screen.width - boxWidth("SO") - btnPaddingRight - diagSpacing, y: baseY };
-      softConfig = { x: screen.width - boxWidth("SOFT") - btnPaddingRight, y: baseY + vertOffset };
-      lineConfig = "diagonal"; lineStyle = "bezier";
-    } else {
-      const btnSpacing = Math.max(minSpacing * 2, Math.floor(20 * spacingScale));
-      const baseY = useTinyFont ? 6 : 12;
-      softConfig = { x: screen.width - boxWidth("SOFT") - btnPaddingRight, y: baseY };
-      soConfig = { x: softConfig.x - boxWidth("SO") - btnSpacing, y: baseY };
-      lineConfig = "wide-horizontal"; lineStyle = "wavy";
-    }
-
-    const oscillationAmount = useTinyFont ? 1.5 : 2;
-    soConfig.y += Math.sin(t * 1.2) * oscillationAmount;
-    softConfig.y += Math.sin(t * 1.4 + 1) * oscillationAmount;
-    soConfig.x += Math.cos(t * 0.9) * oscillationAmount;
-    softConfig.x += Math.cos(t * 1.1 + 0.5) * oscillationAmount;
-
-    const screenMargin = 2;
-    soConfig.x = Math.max(screenMargin, Math.min(soConfig.x, screen.width - boxWidth("SO") - screenMargin));
-    soConfig.y = Math.max(screenMargin, Math.min(soConfig.y, screen.height - boxHeight - screenMargin));
-    softConfig.x = Math.max(screenMargin, Math.min(softConfig.x, screen.width - boxWidth("SOFT") - screenMargin));
-    softConfig.y = Math.max(screenMargin, Math.min(softConfig.y, screen.height - boxHeight - screenMargin));
-
-    if (useTinyFont !== soSoftLastTinyFont) {
-      soBtn = null; softBtn = null; soSoftLastTinyFont = useTinyFont;
-    }
-
-    if (!soBtn) {
-      soBtn = useTinyFont
-        ? new $.ui.TextButtonSmall("SO", soConfig)
-        : new $.ui.TextButton("SO", soConfig, undefined, btnPadX);
-    } else { soBtn.reposition(soConfig, "SO"); }
-
-    if (!softBtn) {
-      softBtn = useTinyFont
-        ? new $.ui.TextButtonSmall("SOFT", softConfig)
-        : new $.ui.TextButton("SOFT", softConfig, undefined, btnPadX);
-    } else { softBtn.reposition(softConfig, "SOFT"); }
-
-    const soBox = soBtn?.btn?.box;
-    const softBox = softBtn?.btn?.box;
-
-    if (soBox && softBox) {
-      const bgColor = isWhiteOnBlack ? [255, 255, 255] : [0, 0, 0];
-      const textColor = isWhiteOnBlack ? [0, 0, 0] : [255, 255, 255];
-      const lineColor = isWhiteOnBlack ? [255, 255, 255] : [0, 0, 0];
-
-      const lineStartX = soBox.x + soBox.w;
-      const lineStartY = soBox.y + soBox.h / 2;
-      const lineEndX = softBox.x;
-      const lineEndY = softBox.y + softBox.h / 2;
-
-      if (lineStyle === "wavy") {
-        const waveAmplitude = lineConfig === "wide-horizontal" ? 3 : 2;
-        const numSegments = 20;
-        const lineY = (lineStartY + lineEndY) / 2;
-        for (let i = 0; i < numSegments; i++) {
-          const progress = i / numSegments;
-          const x1 = lineStartX + progress * (lineEndX - lineStartX);
-          const x2 = lineStartX + ((i + 1) / numSegments) * (lineEndX - lineStartX);
-          const y1 = lineY + Math.sin(progress * Math.PI * 3 + t * 2) * waveAmplitude;
-          const y2 = lineY + Math.sin(((i + 1) / numSegments) * Math.PI * 3 + t * 2) * waveAmplitude;
-          ink(...lineColor).line(x1, y1, x2, y2);
-        }
-      } else if (lineStyle === "bezier") {
-        const numSegments = 20;
-        const bezierOffset = Math.sin(t * 1.5) * 5;
-        const cp1X = lineStartX + (lineEndX - lineStartX) * 0.3;
-        const cp1Y = lineStartY + bezierOffset;
-        const cp2X = lineStartX + (lineEndX - lineStartX) * 0.7;
-        const cp2Y = lineEndY - bezierOffset;
-        for (let i = 0; i < numSegments; i++) {
-          const t1 = i / numSegments;
-          const t2 = (i + 1) / numSegments;
-          const x1 = Math.pow(1-t1, 3) * lineStartX + 3 * Math.pow(1-t1, 2) * t1 * cp1X + 3 * (1-t1) * Math.pow(t1, 2) * cp2X + Math.pow(t1, 3) * lineEndX;
-          const y1 = Math.pow(1-t1, 3) * lineStartY + 3 * Math.pow(1-t1, 2) * t1 * cp1Y + 3 * (1-t1) * Math.pow(t1, 2) * cp2Y + Math.pow(t1, 3) * lineEndY;
-          const x2 = Math.pow(1-t2, 3) * lineStartX + 3 * Math.pow(1-t2, 2) * t2 * cp1X + 3 * (1-t2) * Math.pow(t2, 2) * cp2X + Math.pow(t2, 3) * lineEndX;
-          const y2 = Math.pow(1-t2, 3) * lineStartY + 3 * Math.pow(1-t2, 2) * t2 * cp1Y + 3 * (1-t2) * Math.pow(t2, 2) * cp2Y + Math.pow(t2, 3) * lineEndY;
-          ink(...lineColor).line(x1, y1, x2, y2);
-        }
-      } else if (lineStyle === "elbow") {
-        const midY = (lineStartY + lineEndY) / 2;
-        ink(...lineColor).line(lineStartX, lineStartY, lineStartX, midY);
-        ink(...lineColor).line(lineStartX, midY, lineEndX, midY);
-        ink(...lineColor).line(lineEndX, midY, lineEndX, lineEndY);
-      }
-
-      // SO button
-      ink(...bgColor).box(soBox, "fill");
-      ink(...textColor).box(soBox, "outline");
-      if (useTinyFont) {
-        ink(...textColor).write("SO", { x: soBox.x + btnPadX, y: soBox.y + btnPadY }, undefined, undefined, false, "MatrixChunky8");
-      } else {
-        ink(...textColor).write("SO", { x: soBox.x + btnPadX, y: soBox.y + btnPadY, size: 1 });
-      }
-
-      // SOFT button
-      ink(...bgColor).box(softBox, "fill");
-      ink(...textColor).box(softBox, "outline");
-      if (useTinyFont) {
-        ink(...textColor).write("SOFT", { x: softBox.x + btnPadX, y: softBox.y + btnPadY }, undefined, undefined, false, "MatrixChunky8");
-      } else {
-        ink(...textColor).write("SOFT", { x: softBox.x + btnPadX, y: softBox.y + btnPadY, size: 1 });
-      }
-    }
-    $.needsPaint();
-  } else {
-    soBtn = null; softBtn = null;
-  }
-
-  // 📦 Paint SHOP products in top-right corner (active when slot shows "products")
-  if (topRightBtnChoice === "products") {
+  // 📦 Paint SHOP products in top-right corner
+  {
     const promptHasContent = $.system.prompt.input.text && $.system.prompt.input.text.length > 0;
     const shouldShow = showLoginCurtain && !$.system.prompt.input.canType && !promptHasContent;
     products.paint({ ...$, login, signup }, $.screen, shouldShow);
   }
+
   // 🟢 KidLisp mode border effect (full window border with scrolling dots)
   // Only show when prompt is focused (canType is true)
   const isKidlispMode = $.system?.prompt?.actualKidlisp;
@@ -5322,109 +4980,12 @@ function paint($) {
   }
 
   // 🎰 Polychrome border effect pointing to top-left corner (on login curtain)
-  // In CRITICAL funding mode: Red/yellow warning stripes around ALL edges
   if (showLoginCurtain) {
     const activeProduct = products.getActiveProduct();
     const rotation = activeProduct ? activeProduct.rotation : 0;
 
-    if (isCriticalFunding) {
-      // 🚨 CRITICAL FUNDING: Animated glittering border with primary colors + BLINK
-      const stripeWidth = 3; // Slightly narrower stripes
-      const borderThickness = 2; // 2px border for visibility
-      const t = performance.now() / 1000;
-
-      // Blink effect - border blinks on/off rapidly
-      const blinkPhase = Math.floor(t * 4) % 2; // Blink 4 times per second
-      if (blinkPhase === 0) {
-        // Skip drawing border during "off" phase
-      } else {
-
-      // Primary colors - pure RGB (fully saturated)
-      const alertColors = [
-        [255, 0, 0],     // Pure red
-        [255, 255, 0],   // Pure yellow
-        [0, 255, 0],     // Pure green (occasional)
-      ];
-
-      // Animate stripes scrolling much faster!
-      const stripeOffset = Math.floor(rotation * 4) % (stripeWidth * 2);
-
-      // Glitter effect - random white sparkles
-      const glitterChance = 0.08; // 8% chance per pixel to sparkle
-      const glitterSeed = Math.floor(t * 10); // Changes 10x per second for sparkle effect
-
-      // Top border - diagonal stripes moving right
-      for (let x = -stripeWidth * 2; x < screen.width + stripeWidth * 2; x++) {
-        for (let y = 0; y < borderThickness; y++) {
-          if (x >= 0 && x < screen.width) {
-            const diagonalPos = x + y + stripeOffset;
-            const stripeIndex = Math.floor(diagonalPos / stripeWidth) % 2;
-            // Use red/yellow primarily, occasional green
-            const colorIdx = ((x + glitterSeed) % 20 === 0) ? 2 : stripeIndex;
-            let color = alertColors[colorIdx];
-            // Sparkle effect - random white flashes
-            const sparkleHash = ((x * 7 + y * 13 + glitterSeed) % 100) / 100;
-            if (sparkleHash < glitterChance) {
-              color = [255, 255, 255]; // White sparkle
-            }
-            ink(...color).box(x, y, 1, 1);
-          }
-        }
-      }
-
-      // Bottom border - diagonal stripes moving left
-      for (let x = -stripeWidth * 2; x < screen.width + stripeWidth * 2; x++) {
-        for (let y = 0; y < borderThickness; y++) {
-          if (x >= 0 && x < screen.width) {
-            const diagonalPos = x - y - stripeOffset;
-            const stripeIndex = Math.floor(diagonalPos / stripeWidth) % 2;
-            const colorIdx = ((x + glitterSeed + 10) % 20 === 0) ? 2 : (stripeIndex + 1) % 2;
-            let color = alertColors[colorIdx];
-            const sparkleHash = ((x * 11 + y * 17 + glitterSeed) % 100) / 100;
-            if (sparkleHash < glitterChance) {
-              color = [255, 255, 255];
-            }
-            ink(...color).box(x, screen.height - borderThickness + y, 1, 1);
-          }
-        }
-      }
-
-      // Left border - diagonal stripes moving down
-      for (let y = -stripeWidth * 2; y < screen.height + stripeWidth * 2; y++) {
-        for (let x = 0; x < borderThickness; x++) {
-          if (y >= 0 && y < screen.height) {
-            const diagonalPos = y + x + stripeOffset;
-            const stripeIndex = Math.floor(diagonalPos / stripeWidth) % 2;
-            const colorIdx = ((y + glitterSeed + 5) % 20 === 0) ? 2 : stripeIndex;
-            let color = alertColors[colorIdx];
-            const sparkleHash = ((x * 19 + y * 23 + glitterSeed) % 100) / 100;
-            if (sparkleHash < glitterChance) {
-              color = [255, 255, 255];
-            }
-            ink(...color).box(x, y, 1, 1);
-          }
-        }
-      }
-
-      // Right border - diagonal stripes moving up
-      for (let y = -stripeWidth * 2; y < screen.height + stripeWidth * 2; y++) {
-        for (let x = 0; x < borderThickness; x++) {
-          if (y >= 0 && y < screen.height) {
-            const diagonalPos = y - x - stripeOffset;
-            const stripeIndex = Math.floor(diagonalPos / stripeWidth) % 2;
-            const colorIdx = ((y + glitterSeed + 15) % 20 === 0) ? 2 : (stripeIndex + 1) % 2;
-            let color = alertColors[colorIdx];
-            const sparkleHash = ((x * 29 + y * 31 + glitterSeed) % 100) / 100;
-            if (sparkleHash < glitterChance) {
-              color = [255, 255, 255];
-            }
-            ink(...color).box(screen.width - borderThickness + x, y, 1, 1);
-          }
-        }
-      }
-      } // End blink "on" phase
-    } else {
-      // Normal mode: pink/purple/green gradient border
+    {
+      // Pink/purple/green gradient border
       // Cycle through pink, purple, green phases
       const colorPhase = (rotation * 0.08) % 3;
       let primaryColor, secondaryColor, tertiaryColor;
@@ -5829,40 +5390,6 @@ function paint($) {
     const unitickerY = loginY + 44; // Position below login
     let contentTickerY = unitickerY; // Y position of content ticker (declared here for tooltip access)
 
-    // 📢 Emergency fundraising marquee (replaces uniticker in critical funding mode)
-    if (isCriticalFunding && showLoginCurtain) {
-      $.layer(1); // Render behind the flashing border (which paints later on layer 1)
-      const marqueeEN = "DigitalOcean suspended our servers -- Chat, user media, and multiplayer are offline -- We need $400 to bring them back! -- Enter 'give' or tap GIVE above --";
-      const marqueeDA = "DigitalOcean suspenderede vores servere -- Chat, brugermedier og multiplayer er offline -- Vi mangler $400 for at bringe dem tilbage! -- Skriv 'give' eller tryk GIVE --";
-      const marqueeLangPhase = Math.floor(Date.now() / 12000) % 2;
-      const marqueeText = marqueeLangPhase === 0 ? marqueeEN : marqueeDA;
-      const marqueeFullText = " ~ " + marqueeText + " ~ " + marqueeText + " ~ ";
-      const marqueeCharW = 4; // MatrixChunky8 char width
-      const marqueeSpeed = 0.6;
-      const marqueeOffset = (motdFrame * marqueeSpeed) % (marqueeText.length * marqueeCharW + marqueeCharW * 3);
-      const marqueeY = unitickerY;
-      const marqueeX = Math.floor(-marqueeOffset);
-      // Blinking phase: whole ticker blinks on/off with bg
-      const blinkPhase = Math.floor(Date.now() / 400) % 2; // Toggle every 400ms
-      const tickerPad = 5;
-      // Blinking background bar
-      const bgAlpha = blinkPhase === 0 ? 200 : 120;
-      const bgColor = blinkPhase === 0 ? [180, 20, 20] : [20, 20, 20];
-      ink(...bgColor, bgAlpha).box(0, marqueeY - tickerPad, screen.width, 8 + tickerPad * 2);
-      // Solid legible text (single color, blinking between white and yellow)
-      const textColor = blinkPhase === 0 ? "255,255,255" : "255,240,100";
-      ink(255, 255, 255).write(
-        `\\${textColor}\\${marqueeFullText}`,
-        { x: marqueeX, y: marqueeY, noFunding: true },
-        undefined,
-        undefined,
-        false,
-        "MatrixChunky8",
-      );
-      $.needsPaint();
-      $.layer(2); // Restore layer for rest of paint
-    }
-
     // Build combined uniticker items from all sources
     // Types: 'chat' (blue), 'clock' (orange), 'kidlisp' ($), 'painting' (#), 'tape' (!)
     const hasChatMessages = $.chat?.messages && $.chat.messages.length > 0;
@@ -5878,7 +5405,7 @@ function paint($) {
     const moodItems = [];
 
     // Collect chat messages (blue) - code: 'chat'
-    if (!isCriticalFunding && hasChatMessages) {
+    if (hasChatMessages) {
       const numMessages = Math.min(6, $.chat.messages.length);
       const recentMessages = $.chat.messages.slice(-numMessages);
       recentMessages.forEach(msg => {
@@ -5894,7 +5421,7 @@ function paint($) {
     }
 
     // Collect clock messages (orange) - code: 'laer-klokken'
-    if (!isCriticalFunding && hasClockMessages) {
+    if (hasClockMessages) {
       const numClockMessages = Math.min(4, clockChatMessages.length);
       const recentClockMessages = clockChatMessages.slice(-numClockMessages);
       recentClockMessages.forEach(msg => {
@@ -7087,11 +6614,10 @@ function paint($) {
     motdBylineHandleBox = null;
     motdBylineHandleHover = false;
 
-    // 😡😢😭 Emotional face stamp - cycles through angry, sad, crying
-    // Show during funding effects (yikes/critical) or in winter (Dec, Jan, Feb)
+    // 😡😢😭 Emotional face stamp - cycles through angry, sad, crying (winter only)
     const month = new Date().getMonth(); // 0-indexed: 0=Jan, 11=Dec
     const isWinter = month === 11 || month === 0 || month === 1; // Dec, Jan, Feb
-    if ((showFundingEffects || isWinter) && screen.height >= 120) {
+    if (isWinter && screen.height >= 120) {
       // Face dimensions (scaled 3x for larger illustrative face)
       const faceSize = 16;
       const scaledSize = faceSize * 3;
@@ -7857,8 +7383,8 @@ function sim($) {
     }
   }
 
-  // 📦 Update product animations (active when top-right slot shows "products")
-  if (topRightBtnChoice === "products") {
+  // 📦 Update product animations
+  {
     const showLoginCurtainSim =
       (!login?.btn.disabled && !profile) ||
       (!login && !profile?.btn.disabled);
@@ -7871,15 +7397,6 @@ function sim($) {
         $.needsPaint();
       }
     }
-  }
-
-  // 🎰 Cycle top-right slot (give → ad → products) on a timer
-  if (topRightLastCycleTime === 0) topRightLastCycleTime = performance.now();
-  if (performance.now() - topRightLastCycleTime >= TOP_RIGHT_CYCLE_MS) {
-    topRightLastCycleTime = performance.now();
-    topRightBtnChoiceIndex = (topRightBtnChoiceIndex + 1) % TOP_RIGHT_BTN_CHOICES.length;
-    topRightBtnChoice = TOP_RIGHT_BTN_CHOICES[topRightBtnChoiceIndex];
-    $.needsPaint();
   }
 
   if ($.store["handle:received"]) {
@@ -8079,58 +7596,8 @@ function act({
 
   // End of button processing
 
-  // 🎨 SO SOFT studio ad buttons - link to sosoft.arts.ucla.edu
-  const soSoftUrl = "https://sosoft.arts.ucla.edu";
-
-  if (soBtn && !soBtn.disabled) {
-    soBtn.act(e, {
-      down: () => downSound(),
-      push: () => {
-        pushSound();
-        if (net.iframe) {
-          send({ type: "post-to-parent", content: { type: "openExternal", url: soSoftUrl } });
-        } else {
-          jump(soSoftUrl);
-        }
-      },
-      cancel: () => cancelSound(),
-    });
-  }
-
-  if (softBtn && !softBtn.disabled) {
-    softBtn.act(e, {
-      down: () => downSound(),
-      push: () => {
-        pushSound();
-        if (net.iframe) {
-          send({ type: "post-to-parent", content: { type: "openExternal", url: soSoftUrl } });
-        } else {
-          jump(soSoftUrl);
-        }
-      },
-      cancel: () => cancelSound(),
-    });
-  }
-
-  // 💰 GIVE button - navigate to give.aesthetic.computer
-  if (giveBtn && !giveBtn.btn.disabled) {
-    giveBtn.btn.act(e, {
-      down: () => downSound(),
-      push: () => {
-        pushSound();
-        const giveUrl = "https://give.aesthetic.computer";
-        if (net.iframe) {
-          send({ type: "post-to-parent", content: { type: "openExternal", url: giveUrl } });
-        } else {
-          jump(giveUrl);
-        }
-      },
-      cancel: () => cancelSound(),
-    });
-  }
-
-  // 📦 Product button interaction (active when top-right slot shows "products")
-  if (topRightBtnChoice === "products") {
+  // 📦 Product button interaction
+  {
     const showLoginCurtainAct =
       (!login?.btn.disabled && !profile) ||
       (!login && !profile?.btn.disabled);
@@ -8446,9 +7913,6 @@ function act({
       (commitBtn?.btn.disabled === false && commitBtn?.btn.box.contains(e)) ||
       (kidlispBtn?.btn.disabled === false && kidlispBtn?.btn.box.contains(e)) ||
       (clearBtn?.disabled === false && clearBtn?.box.contains(e)) ||
-      (giveBtn?.btn.disabled === false && giveBtn?.btn.box.contains(e)) ||
-      (soBtn?.btn?.disabled === false && soBtn?.btn?.box.contains(e)) ||
-      (softBtn?.btn?.disabled === false && softBtn?.btn?.box.contains(e)) ||
       (products.getShopBoxButton()?.disabled === false && products.getShopBoxButton()?.box.contains(e)) ||
       (unitickerButton?.disabled === false && unitickerButton?.box.contains(e)) ||
       (chatTickerButton?.disabled === false && chatTickerButton?.box.contains(e)) ||
@@ -9083,20 +8547,9 @@ async function makeMotd({ system, needsPaint, handle, user, net, api, notice }) 
   motdCandidates = [];
   motdCandidateIndex = 0;
   lastMotdCycleTime = 0;
-  // Use funding mode message or default (alternate EN/DA every 3 seconds)
-  if (isCriticalFunding) {
-    const langPhase = Math.floor(Date.now() / 3000) % 2;
-    motd = langPhase === 0 ? "CRITICAL MEDIA SERVICES OFFLINE" : "KRITISKE MEDIETJENESTER OFFLINE";
-    motdByHandle = null;
-    net.motd = motd;
-  } else {
-    motd = "aesthetic.computer";
-    net.motd = motd;
-  }
+  motd = "aesthetic.computer";
+  net.motd = motd;
   motdController = new AbortController();
-
-  // Skip fetching mood in critical funding mode - use the hardcoded message
-  if (isCriticalFunding) return;
 
   try {
     const res = await fetch("/api/mood/moods-of-the-day?list=1", {

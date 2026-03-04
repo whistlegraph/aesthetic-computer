@@ -93,16 +93,15 @@ const ESSENTIAL_FILES = [
 
 const SKIP_FILES = [
   "dep/wasmboy/", // GameBoy emulator (~424 KB) — only needed if piece uses GB features
-  "disks/prompt.mjs", // 377 KB — stubbed below (only FUNDING_MODE/FUNDING_SEVERITY needed)
+  "disks/prompt.mjs", // 377 KB — stubbed below (not needed in PACK mode)
   "disks/chat.mjs",   // 184 KB — stubbed below (chat UI, not functional in PACK_MODE)
 ];
 
 // Lightweight stubs injected into VFS to satisfy static import chains
 // without bundling the full 560+ KB of source.
-// lib/chat.mjs imports { FUNDING_MODE } from "../disks/prompt.mjs"
 // lib/disk.mjs dynamically imports "../disks/chat.mjs" (dead code: chatEnabled = false)
 const VFS_STUBS = {
-  "disks/prompt.mjs": `export const FUNDING_SEVERITY="off";export const FUNDING_MODE=false;`,
+  "disks/prompt.mjs": ``,
   "disks/chat.mjs": `export const CHAT_FONTS={};export function boot(){}export function paint(){}export function act(){}export function sim(){}export function receive(){}`,
 };
 

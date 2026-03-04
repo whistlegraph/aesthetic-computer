@@ -35,7 +35,6 @@ const { max, floor, ceil } = Math;
 import { isKidlispSource, tokenize, KidLisp } from "../lib/kidlisp.mjs";
 import { parseMessageElements as parseMessageElementsShared } from "../lib/chat-highlighting.mjs";
 import { getCommandDescription, isPromptOnlyCommand } from "../lib/prompt-commands.mjs";
-import { FUNDING_MODE } from "./prompt.mjs";
 import { createHandleAutocomplete } from "../lib/autocomplete.mjs";
 import { iOS } from "../lib/platform.mjs";
 
@@ -693,79 +692,9 @@ function paint(
   }
 
   if (client.connecting) {
-    if (FUNDING_MODE) {
-      // Detect if this is laer-klokken (clock chat) or main chat
-      const isClockChat = piece === "laer-klokken";
-      
-      // Danish for laer-klokken, English for main chat
-      const offlineMsg = isClockChat ? [
-        "Forbinder" + (ellipsisTicker?.text(help.repeat) || "..."),
-        "",
-        "Chats er offline pga.",
-        "en stor serverregning.",
-        "",
-        "Skriv 'give' for at stoette AC",
-        "og vi er tilbage snart!",
-      ] : [
-        "Connecting" + (ellipsisTicker?.text(help.repeat) || "..."),
-        "",
-        "Chats are offline due to",
-        "a large end-of-year server bill.",
-        "",
-        "Enter 'give' to help support AC",
-        "and services will return ASAP!",
-      ];
-      
-      const lineHeight = 12;
-      const totalLines = offlineMsg.length;
-      const halfBlock = Math.floor((totalLines * lineHeight) / 2);
-      const shakeFrame = help?.repeat ?? 0;
-      
-      // Debug logging - log immediately then throttle
-      if (!globalThis._chatFundingDebugLogged) {
-        globalThis._chatFundingDebugLogged = true;
-        console.log("📝 Chat funding message debug:", {
-          screenHeight: screen.height,
-          screenWidth: screen.width,
-          totalLines,
-          lineHeight,
-          halfBlock,
-          centerY: Math.floor(screen.height / 2),
-          helpRepeat: help?.repeat,
-          shakeFrame
-        });
-      }
-      
-      for (let i = 0; i < offlineMsg.length; i++) {
-        const line = offlineMsg[i];
-        // High contrast colors that cycle
-        let color = [200, 200, 200]; // Default fallback
-        if (i === 0) {
-          const titleColors = [[255, 100, 150], [255, 150, 100], [255, 200, 100]];
-          color = titleColors[Math.floor(shakeFrame * 0.15) % titleColors.length] || color;
-        } else if (i === 5) {
-          const giveColors = [[100, 255, 100], [150, 255, 50], [200, 255, 100]];
-          color = giveColors[Math.floor(shakeFrame * 0.2) % giveColors.length] || color;
-        } else if (line !== "") {
-          const textColors = [[255, 220, 150], [200, 220, 255], [255, 200, 200]];
-          color = textColors[(i + Math.floor(shakeFrame * 0.1)) % textColors.length] || color;
-        } else {
-          color = [100, 100, 100];
-        }
-        
-        // Calculate Y: center of screen minus half the block, plus line offset
-        const centerY = Math.floor(screen.height / 2);
-        const startY = centerY - halfBlock;
-        const finalY = startY + (i * lineHeight);
-        
-        ink(color[0], color[1], color[2]).write(line, { center: "x", y: finalY }, undefined, undefined, false, typefaceName);
-      }
-    } else {
-      // Normal connecting message
-      ink("pink").write("Connecting" + ellipsisTicker?.text(help.repeat), {
-        center: "xy",
-      }, undefined, undefined, false, typefaceName);
-    }
+    ink("pink").write("Connecting" + ellipsisTicker?.text(help.repeat), {
+      center: "xy",
+    }, undefined, undefined, false, typefaceName);
     return;
   }
 
