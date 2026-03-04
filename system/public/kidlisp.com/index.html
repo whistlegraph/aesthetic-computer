@@ -280,7 +280,18 @@
     }
 
     body.stage-mode:not(.device-mode) #kidlisp-editor {
-      padding-left: 0;
+      padding: 0 !important;
+    }
+
+    /* Flush Monaco text to top-left edge in stage mode */
+    body.stage-mode:not(.device-mode) .monaco-editor .lines-content {
+      padding-left: 0 !important;
+    }
+    body.stage-mode:not(.device-mode) .monaco-editor .view-lines {
+      padding-top: 0 !important;
+    }
+    body.stage-mode:not(.device-mode) .monaco-editor .monaco-scrollable-element {
+      left: 0 !important;
     }
 
     /* Make Monaco editor background transparent in stage mode */
