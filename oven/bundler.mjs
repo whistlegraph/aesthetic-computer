@@ -647,7 +647,7 @@ async function getCoreBundle(onProgress = () => {}, forceRefresh = false) {
 
 // ─── KidLisp bundle ─────────────────────────────────────────────────
 
-export async function createBundle(pieceName, onProgress = () => {}, nocompress = false, density = null, brotli = false, noboxart = false) {
+export async function createBundle(pieceName, onProgress = () => {}, nocompress = false, density = null, brotli = false, noboxart = false, keeplabel = false) {
   const PIECE_NAME_NO_DOLLAR = pieceName.replace(/^\$/, "");
   const PIECE_NAME = "$" + PIECE_NAME_NO_DOLLAR;
 
@@ -711,7 +711,7 @@ export async function createBundle(pieceName, onProgress = () => {}, nocompress 
   const htmlContent = generateHTMLBundle({
     PIECE_NAME, PIECE_NAME_NO_DOLLAR, mainSource, kidlispSources,
     files, paintingData, authorHandle, packDate, packTime,
-    gitVersion: GIT_COMMIT, filename, density, bgColor, bdfGlyphs, boxArtPNG,
+    gitVersion: GIT_COMMIT, filename, density, bgColor, bdfGlyphs, boxArtPNG, keeplabel,
   });
 
   const method = nocompress ? "none" : brotli ? "brotli" : "gzip";
@@ -739,7 +739,7 @@ export async function createBundle(pieceName, onProgress = () => {}, nocompress 
 
 // ─── JS piece bundle ────────────────────────────────────────────────
 
-export async function createJSPieceBundle(pieceName, onProgress = () => {}, nocompress = false, density = null, brotli = false, noboxart = false) {
+export async function createJSPieceBundle(pieceName, onProgress = () => {}, nocompress = false, density = null, brotli = false, noboxart = false, keeplabel = false) {
   const acDir = AC_SOURCE_DIR;
   onProgress({ stage: "init", message: `Bundling ${pieceName}...` });
 
@@ -791,7 +791,7 @@ export async function createJSPieceBundle(pieceName, onProgress = () => {}, noco
 
   const boxArtPNG = noboxart ? null : await generateBoxArtPNG(pieceName, null, null).catch(() => null);
 
-  const htmlContent = generateJSPieceHTMLBundle({ pieceName, files, packDate, packTime, gitVersion: GIT_COMMIT, bdfGlyphs, boxArtPNG });
+  const htmlContent = generateJSPieceHTMLBundle({ pieceName, files, packDate, packTime, gitVersion: GIT_COMMIT, bdfGlyphs, boxArtPNG, keeplabel });
   const filename = `${pieceName}-${bundleTimestamp}.html`;
 
   const method = nocompress ? "none" : brotli ? "brotli" : "gzip";
@@ -1058,7 +1058,7 @@ async function generateBoxArtPNG(pieceName, authorHandle, bgColor) {
 function generateHTMLBundle(opts) {
   const {
     PIECE_NAME, PIECE_NAME_NO_DOLLAR, mainSource, kidlispSources,
-    files, paintingData, authorHandle, packDate, packTime, gitVersion, filename, density, bgColor, bdfGlyphs, boxArtPNG,
+    files, paintingData, authorHandle, packDate, packTime, gitVersion, filename, density, bgColor, bdfGlyphs, boxArtPNG, keeplabel,
   } = opts;
 
   const bgRule = bgColor ? `background: ${bgColor}; ` : "";
@@ -1086,6 +1086,7 @@ function generateHTMLBundle(opts) {
     // is in the DOM BEFORE any <script type="module"> executes.
     var _ba = document.getElementById('ac-box-art'); if (_ba) _ba.style.display = 'none';
     window.acPACK_MODE = true;
+    ${keeplabel ? `window.acKEEP_LABEL = true;` : ""}
     window.KIDLISP_SUPPRESS_SNAPSHOT_LOGS = true;
     window.__acKidlispConsoleEnabled = false;
     window.acKEEP_MODE = true;
@@ -1280,7 +1281,7 @@ function generateHTMLBundle(opts) {
 }
 
 function generateJSPieceHTMLBundle(opts) {
-  const { pieceName, files, packDate, packTime, gitVersion, bdfGlyphs, boxArtPNG } = opts;
+  const { pieceName, files, packDate, packTime, gitVersion, bdfGlyphs, boxArtPNG, keeplabel } = opts;
 
   const boxArtImg = boxArtPNG
     ? `<img id="ac-box-art" src="data:image/png;base64,${boxArtPNG}" alt="${pieceName}">`
@@ -1306,6 +1307,7 @@ function generateJSPieceHTMLBundle(opts) {
     // is in the DOM BEFORE any <script type="module"> executes.
     var _ba = document.getElementById('ac-box-art'); if (_ba) _ba.style.display = 'none';
     window.acPACK_MODE = true;
+    ${keeplabel ? `window.acKEEP_LABEL = true;` : ""}
     window.KIDLISP_SUPPRESS_SNAPSHOT_LOGS = true;
     window.__acKidlispConsoleEnabled = false;
     window.acSTARTING_PIECE = "${pieceName}";

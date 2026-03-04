@@ -46,6 +46,39 @@ def run_wpctl(args, capture=False):
     except Exception:
         return "" if capture else False
 
+def get_battery():
+    """Read battery status from /sys/class/power_supply/."""
+    result = {"present": False}
+    ps_dir = "/sys/class/power_supply"
+    if not os.path.isdir(ps_dir):
+        return result
+    for name in os.listdir(ps_dir):
+        ptype_path = os.path.join(ps_dir, name, "type")
+        if not os.path.isfile(ptype_path):
+            continue
+        try:
+            ptype = open(ptype_path).read().strip()
+        except Exception:
+            continue
+        if ptype != "Battery":
+            continue
+        result["present"] = True
+        result["name"] = name
+        cap_path = os.path.join(ps_dir, name, "capacity")
+        if os.path.isfile(cap_path):
+            try:
+                result["percent"] = int(open(cap_path).read().strip())
+            except ValueError:
+                pass
+        status_path = os.path.join(ps_dir, name, "status")
+        if os.path.isfile(status_path):
+            try:
+                result["status"] = open(status_path).read().strip()
+            except Exception:
+                pass
+        break  # Use first battery found
+    return result
+
 def get_volume():
     """Get current volume level (0.0-1.0+) and mute state."""
     output = run_wpctl(["get-volume", "@DEFAULT_AUDIO_SINK@"], capture=True)
@@ -83,14 +116,23 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_json(get_volume())
             return
 
+        # API: GET /api/battery
+        if path == "/api/battery":
+            self.send_json(get_battery())
+            return
+
         # API: GET /api/status (system info)
         if path == "/api/status":
-            self.send_json({"ok": True, "volume": get_volume()})
+            self.send_json({"ok": True, "volume": get_volume(), "battery": get_battery()})
             return
 
         # Static file serving from KIOSK_DIR
         if path == "/" or path == "":
-            path = "/piece.html"
+            # Prefer kiosk shell (iframe wrapper + HUD) over raw piece bundle
+            if os.path.isfile(os.path.join(KIOSK_DIR, "kiosk-shell.html")):
+                path = "/kiosk-shell.html"
+            else:
+                path = "/piece.html"
 
         # Security: prevent directory traversal
         safe = os.path.normpath(path.lstrip("/"))
