@@ -55,6 +55,7 @@ FALSE_POSITIVE_ALLOWLIST=(
   "Styles"                 # UI label, triggers PASSWORD_HARDCODE via case-insensitive "s****s"
   "STYLES"                 # Same as above
   "styles"                 # Same as above
+  "Second pass"            # Code comment in chat.mjs
   "class="                 # HTML class attributes
   "className="             # React className
 )

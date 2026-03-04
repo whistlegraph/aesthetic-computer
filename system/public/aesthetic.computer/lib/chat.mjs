@@ -5,8 +5,6 @@
 import { Socket } from "./socket.mjs";
 import { logs } from "./logs.mjs";
 import { redact, unredact } from "./redact.mjs";
-import { FUNDING_MODE } from "../disks/prompt.mjs";
-
 /* #region 🏁 TODO
   + Done
   - [x] Fix chatter count number. 
@@ -49,12 +47,6 @@ export class Chat {
   // Instance options are `system` for AC users and `sotce` for Sotce Net
   // as of 24.11.02.00.31
   connect(instanceName) {
-    // 💸 FUNDING MODE: Never connect to chat servers, just show ransom message
-    if (FUNDING_MODE) {
-      console.log("💬 Chat connection skipped - FUNDING_MODE active");
-      return;
-    }
-    
     instanceName = "chat-" + instanceName;
     if (validInstances.indexOf(instanceName) === -1) {
       console.warn(
