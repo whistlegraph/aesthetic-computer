@@ -242,45 +242,45 @@ elif [ -n "$LOCAL_BUNDLE_PATH" ]; then
   BUNDLE_SIZE=$(stat -c%s "$BUNDLE_PATH")
   echo -e "  ${GREEN}Local bundle copied: $(numfmt --to=iec $BUNDLE_SIZE)${NC}"
 else
-  echo -e "${CYAN}[1/6] Fetching piece bundle: ${PIECE_CODE}...${NC}"
-
-  HTTP_CODE="000"
-  USED_ENDPOINT=""
-  USED_MODE=""
-
-  if [[ "$PIECE_CODE" == \$* ]]; then
-    BUNDLE_MODES=(code piece)
-  else
-    BUNDLE_MODES=(piece code)
-  fi
-
-  for endpoint in "$OVEN_PACK_URL" "$OVEN_BUNDLE_URL"; do
-    for mode in "${BUNDLE_MODES[@]}"; do
-      BUNDLE_URL="${endpoint}?${mode}=${PIECE_CODE}&nocompress=1&density=${PACK_DENSITY}&keeplabel=1"
-      echo -e "  URL: $BUNDLE_URL"
-      HTTP_CODE="$(curl -s --connect-timeout 8 --max-time 25 --retry 1 --retry-delay 1 \
-        -o "$BUNDLE_PATH" -w "%{http_code}" "$BUNDLE_URL" || echo "000")"
-      if [ "$HTTP_CODE" = "200" ]; then
-        USED_ENDPOINT="$endpoint"
-        USED_MODE="$mode"
-        break 2
-      fi
-      echo -e "  ${YELLOW}${mode} via ${endpoint##*/} failed (HTTP ${HTTP_CODE})${NC}"
-    done
-  done
-
-  if [ "$HTTP_CODE" != "200" ]; then
-    echo -e "${YELLOW}Failed to fetch bundle from oven (HTTP $HTTP_CODE)${NC}"
-    echo "  Tried pack-html and bundle-html with code/piece modes."
-    echo "  Falling back to local in-repo bundler."
-    if ! build_local_bundle "$PIECE_CODE" "$BUNDLE_PATH"; then
-      echo -e "${RED}Local bundle fallback failed.${NC}"
-      echo "  Check that '$PIECE_CODE' is valid and Node dependencies are installed."
-      exit 1
-    fi
+  # Always use local bundler first (ensures keeplabel and latest code).
+  # Falls back to oven only if local build fails (e.g., no node available).
+  echo -e "${CYAN}[1/6] Building piece bundle locally: ${PIECE_CODE}...${NC}"
+  if build_local_bundle "$PIECE_CODE" "$BUNDLE_PATH"; then
     BUNDLE_SIZE=$(stat -c%s "$BUNDLE_PATH")
     echo -e "  ${GREEN}Local bundle built: $(numfmt --to=iec $BUNDLE_SIZE)${NC}"
   else
+    echo -e "${YELLOW}Local bundle build failed — falling back to oven...${NC}"
+
+    HTTP_CODE="000"
+    USED_ENDPOINT=""
+    USED_MODE=""
+
+    if [[ "$PIECE_CODE" == \$* ]]; then
+      BUNDLE_MODES=(code piece)
+    else
+      BUNDLE_MODES=(piece code)
+    fi
+
+    for endpoint in "$OVEN_PACK_URL" "$OVEN_BUNDLE_URL"; do
+      for mode in "${BUNDLE_MODES[@]}"; do
+        BUNDLE_URL="${endpoint}?${mode}=${PIECE_CODE}&nocompress=1&density=${PACK_DENSITY}&keeplabel=1"
+        echo -e "  URL: $BUNDLE_URL"
+        HTTP_CODE="$(curl -s --connect-timeout 8 --max-time 25 --retry 1 --retry-delay 1 \
+          -o "$BUNDLE_PATH" -w "%{http_code}" "$BUNDLE_URL" || echo "000")"
+        if [ "$HTTP_CODE" = "200" ]; then
+          USED_ENDPOINT="$endpoint"
+          USED_MODE="$mode"
+          break 2
+        fi
+        echo -e "  ${YELLOW}${mode} via ${endpoint##*/} failed (HTTP ${HTTP_CODE})${NC}"
+      done
+    done
+
+    if [ "$HTTP_CODE" != "200" ]; then
+      echo -e "${RED}Failed to build bundle locally and from oven.${NC}"
+      echo "  Check that '$PIECE_CODE' is valid and Node/oven are available."
+      exit 1
+    fi
     BUNDLE_SIZE=$(stat -c%s "$BUNDLE_PATH")
     echo -e "  ${GREEN}Bundle fetched: $(numfmt --to=iec $BUNDLE_SIZE)${NC}"
     echo -e "  ${GREEN}Source: ${USED_ENDPOINT##*/} (${USED_MODE}), density=${PACK_DENSITY}${NC}"
@@ -462,6 +462,9 @@ user_pref("gfx.webrender.force-disabled", true);
 user_pref("accessibility.typeaheadfind", false);
 user_pref("accessibility.typeaheadfind.manual", false);
 user_pref("accessibility.typeaheadfind.linksonly", false);
+user_pref("permissions.default.desktop-notification", 2);
+user_pref("dom.webnotifications.enabled", false);
+user_pref("dom.push.enabled", false);
 USERJSEOF
 
 cat > "$PROFILE/chrome/userChrome.css" << 'CHROMEEOF'
@@ -518,13 +521,13 @@ echo "[kiosk] XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR"
 echo "[kiosk] KIOSK_PIECE_URL=__KIOSK_PIECE_URL__"
 ls -la /usr/local/share/kiosk/ 2>&1 || echo "[kiosk] /usr/local/share/kiosk/ missing"
 
-# Wait for piece server (port 8080) to be ready before launching Firefox.
+# Wait for piece server (port 8080) — with socket activation this should be instant.
 for i in $(seq 1 30); do
   if python3 -c "import socket; s=socket.socket(); s.settimeout(0.5); s.connect(('127.0.0.1',8080)); s.close()" 2>/dev/null; then
-    echo "[kiosk] piece server ready (attempt $i)"
+    echo "[kiosk] piece server ready"
     break
   fi
-  echo "[kiosk] waiting for piece server... ($i/30)"
+  [ "$i" -ge 5 ] && echo "[kiosk] waiting for piece server... ($i/30)"
   sleep 0.5
 done
 
@@ -652,9 +655,11 @@ echo -e "  ${GREEN}Piece sync preflight installed${NC}"
 # This path is resilient on Fedora live images even when graphical.target isn't reached.
 mkdir -p "$ROOTFS_DIR/etc/systemd/system/getty@tty1.service.d"
 
-# Mask GDM so it never starts
+# Mask GDM so it never starts and switch to multi-user (no graphical desktop)
 ln -sf /dev/null "$ROOTFS_DIR/etc/systemd/system/gdm.service"
 ln -sf /dev/null "$ROOTFS_DIR/etc/systemd/system/display-manager.service"
+# Force multi-user.target as default — prevents GNOME desktop flash on boot
+ln -sf /usr/lib/systemd/system/multi-user.target "$ROOTFS_DIR/etc/systemd/system/default.target"
 
 # Disable SELinux — the erofs live rootfs lacks correct xattr labels, causing
 # pam_unix to fail with "User not known to the underlying authentication module".
@@ -836,10 +841,14 @@ cp "$OVERLAY_DIR/kiosk-piece-server.py" "$ROOTFS_DIR/usr/local/bin/kiosk-piece-s
 chmod +x "$ROOTFS_DIR/usr/local/bin/kiosk-piece-server.py"
 cp "$OVERLAY_DIR/kiosk-piece-server.service" "$ROOTFS_DIR/etc/systemd/system/kiosk-piece-server.service"
 cp "$OVERLAY_DIR/kiosk-piece-server.socket" "$ROOTFS_DIR/etc/systemd/system/kiosk-piece-server.socket"
-# Enable via symlink — systemctl enable can't work inside a chroot (no running systemd)
+# Enable socket activation — systemd binds port 8080 immediately at boot,
+# then starts the service on first connection (eliminates "waiting for piece server" delay).
+mkdir -p "$ROOTFS_DIR/etc/systemd/system/sockets.target.wants"
+ln -sf /etc/systemd/system/kiosk-piece-server.socket "$ROOTFS_DIR/etc/systemd/system/sockets.target.wants/kiosk-piece-server.socket"
+# Also keep direct service enable as fallback (service starts on its own too)
 mkdir -p "$ROOTFS_DIR/etc/systemd/system/multi-user.target.wants"
 ln -sf /etc/systemd/system/kiosk-piece-server.service "$ROOTFS_DIR/etc/systemd/system/multi-user.target.wants/kiosk-piece-server.service"
-echo -e "  ${GREEN}Piece server installed + enabled (port 8080)${NC}"
+echo -e "  ${GREEN}Piece server installed + socket-activated (port 8080)${NC}"
 
 # 3e2. Auto-mount FEDAC-PIECE partition at boot via systemd mount unit.
 # The kiosk session runs as liveuser who can't mount — systemd mounts it as root.
@@ -933,7 +942,32 @@ cat > "$ROOTFS_DIR/usr/lib64/firefox/distribution/policies.json" << 'FPEOF'
     "DisablePocket": true,
     "DisplayBookmarksToolbar": "never",
     "DisplayMenuBar": "never",
-    "SearchBar": "none"
+    "SearchBar": "none",
+    "Permissions": {
+      "Notifications": {
+        "BlockNewRequests": true
+      },
+      "Location": {
+        "BlockNewRequests": true
+      },
+      "Camera": {
+        "BlockNewRequests": true
+      },
+      "Microphone": {
+        "BlockNewRequests": true
+      },
+      "Autoplay": {
+        "Default": "allow-audio-video"
+      }
+    },
+    "PopupBlocking": {
+      "Default": true
+    },
+    "FirefoxSuggest": {
+      "WebSuggestions": false,
+      "SponsoredSuggestions": false,
+      "ImproveSuggest": false
+    }
   }
 }
 FPEOF
@@ -971,6 +1005,17 @@ defaultPref("layers.acceleration.disabled", true);
 defaultPref("media.autoplay.default", 0);
 defaultPref("media.autoplay.blocking_policy", 0);
 defaultPref("media.autoplay.allow-extension-background-pages", true);
+// Suppress all permission prompts and notification bars
+defaultPref("permissions.default.desktop-notification", 2);
+defaultPref("permissions.default.geo", 2);
+defaultPref("permissions.default.camera", 2);
+defaultPref("permissions.default.microphone", 2);
+defaultPref("dom.webnotifications.enabled", false);
+defaultPref("dom.push.enabled", false);
+defaultPref("browser.urlbar.suggest.searches", false);
+defaultPref("security.insecure_connection_text.enabled", false);
+defaultPref("security.insecure_connection_text.pbmode.enabled", false);
+defaultPref("browser.contentblocking.introCount", 99);
 CFGEOF
 sed -i "s|__KIOSK_PIECE_URL__|$KIOSK_PIECE_URL|g" "$ROOTFS_DIR/usr/lib64/firefox/firefox.cfg"
 echo -e "  ${GREEN}Firefox policies installed${NC}"
