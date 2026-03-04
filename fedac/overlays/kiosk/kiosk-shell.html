@@ -16,10 +16,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000}
   display:flex;flex-direction:column;align-items:flex-end;
   gap:2px;padding:6px 8px;
   pointer-events:none;
-  opacity:0;transition:opacity 0.3s ease;
-}
-#hud.visible{opacity:1}
-#hud.pinned{opacity:1}
 
 /* Volume controls row */
 .hud-row{
@@ -83,31 +79,6 @@ const volUp = document.getElementById('vol-up');
 const batRow = document.getElementById('bat-row');
 const batIcon = document.getElementById('bat-icon');
 const batLabel = document.getElementById('bat-label');
-
-let hideTimer = null;
-let pinned = false;
-
-function showHUD(ms) {
-  hud.classList.add('visible');
-  clearTimeout(hideTimer);
-  if (!pinned && ms) {
-    hideTimer = setTimeout(() => hud.classList.remove('visible'), ms);
-  }
-}
-
-// Show on mouse move near bottom-right corner
-document.addEventListener('mousemove', (e) => {
-  const inZone = e.clientX > window.innerWidth - 200 && e.clientY > window.innerHeight - 100;
-  if (inZone) {
-    showHUD(0); // show indefinitely while in zone
-    pinned = true;
-    hud.classList.add('pinned');
-  } else if (pinned) {
-    pinned = false;
-    hud.classList.remove('pinned');
-    showHUD(2000);
-  }
-});
 
 // Volume API helpers
 async function setVolume(val) {
@@ -181,9 +152,6 @@ async function pollStatus() {
 
 setInterval(pollStatus, 3000);
 pollStatus();
-// Show HUD briefly on initial load and on any key press
-showHUD(5000);
-document.addEventListener('keydown', () => showHUD(3000));
 </script>
 </body>
 </html>
