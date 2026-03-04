@@ -303,11 +303,6 @@
       border: none !important;
     }
 
-    /* Harsh text shadow on all editor text in stage mode for readability */
-    body.stage-mode:not(.device-mode) .monaco-editor .view-lines span {
-      text-shadow: 0 0 4px rgba(0, 0, 0, 0.9), 1px 1px 0 rgba(0, 0, 0, 0.7), -1px -1px 0 rgba(0, 0, 0, 0.3) !important;
-    }
-
     /* Remove current line highlight background in stage mode */
     body.stage-mode:not(.device-mode) .monaco-editor .current-line,
     body.stage-mode:not(.device-mode) .monaco-editor .view-overlays .current-line {
@@ -16106,6 +16101,20 @@ s("ape_breaks_3").loopAt(2)</textarea>
         }
       });
       
+      // Toggle Stage Mode from context menu
+      editor.addAction({
+        id: 'kidlisp-toggle-stage',
+        label: window.isStageMode() ? '🎭 Exit Stage Mode' : '🎭 Stage Mode',
+        contextMenuGroupId: 'navigation',
+        contextMenuOrder: 3,
+        run: function() {
+          const next = window.isStageMode() ? 'studio' : 'stage';
+          window.setUiMode(next);
+          // Update label for next toggle
+          this._label = window.isStageMode() ? '🎭 Exit Stage Mode' : '🎭 Stage Mode';
+        }
+      });
+
       // ==================== END KIDLISP DOCUMENTATION CONTEXT MENU ====================
       
       // Log editor initialization
