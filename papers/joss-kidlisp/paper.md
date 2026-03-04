@@ -1,5 +1,5 @@
 ---
-title: 'KidLisp: A Minimal Lisp for Generative Art on a Social Platform'
+title: "KidLisp '26: A Minimal Lisp for Generative Art on a Social Platform"
 tags:
   - JavaScript
   - Lisp
