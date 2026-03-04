@@ -1007,6 +1007,17 @@ for target in graphical.target; do
 done
 echo -e "  ${GREEN}Unnecessary services + graphical.target masked${NC}"
 
+# Blacklist iwlwifi — ThinkPad BIOS has WGDS but no WRDS ACPI table,
+# causing iwlwifi to crash on boot. Kiosk is offline so WiFi isn't needed.
+mkdir -p "$ROOTFS_DIR/etc/modprobe.d"
+cat > "$ROOTFS_DIR/etc/modprobe.d/fedac-blacklist.conf" << 'BLEOF'
+# FedAC kiosk: disable WiFi (iwlwifi crashes on WGDS without WRDS)
+blacklist iwlwifi
+blacklist iwlmvm
+blacklist iwldvm
+BLEOF
+echo -e "  ${GREEN}iwlwifi blacklisted (offline kiosk, avoids WRDS/WGDS crash)${NC}"
+
 # 3f. Firefox policies (no default tabs, no welcome)
 mkdir -p "$ROOTFS_DIR/usr/lib64/firefox/distribution"
 cat > "$ROOTFS_DIR/usr/lib64/firefox/distribution/policies.json" << 'FPEOF'
