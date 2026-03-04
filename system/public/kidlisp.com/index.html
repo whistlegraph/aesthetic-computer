@@ -302,6 +302,12 @@
       background: transparent !important;
     }
 
+    /* Thin outline on editor text for readability over animation */
+    body.stage-mode:not(.device-mode) .monaco-editor .view-lines span {
+      -webkit-text-stroke: 0.5px rgba(0, 0, 0, 0.4);
+      paint-order: stroke fill;
+    }
+
     /* Hide line numbers in stage mode */
     body.stage-mode:not(.device-mode) .monaco-editor .margin {
       display: none !important;
