@@ -305,6 +305,23 @@
       border: none !important;
     }
 
+    /* Hide live-running/paused/stopped green/yellow/purple outlines in stage mode */
+    body.stage-mode:not(.device-mode) .editor-panel.live-running::before,
+    body.stage-mode:not(.device-mode) .editor-panel.live-paused::before,
+    body.stage-mode:not(.device-mode) .editor-panel.live-stopped::before,
+    body.stage-mode:not(.device-mode) #kidlisp-editor.live-running::before,
+    body.stage-mode:not(.device-mode) #kidlisp-editor.live-paused::before,
+    body.stage-mode:not(.device-mode) #kidlisp-editor.live-stopped::before {
+      display: none !important;
+    }
+
+    /* Hide playback controls in stage mode */
+    body.stage-mode:not(.device-mode) #playback-controls,
+    body.stage-mode:not(.device-mode) #mini-playback-controls,
+    body.stage-mode:not(.device-mode) #ai-assist-bar {
+      display: none !important;
+    }
+
     @media (max-width: 768px) {
       body.stage-mode:not(.device-mode) #editor-panel {
         top: 0 !important;
