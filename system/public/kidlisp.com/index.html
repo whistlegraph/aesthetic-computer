@@ -16101,19 +16101,28 @@ s("ape_breaks_3").loopAt(2)</textarea>
         }
       });
       
-      // Toggle Stage Mode from context menu
+      // Toggle Stage Mode from context menu (two actions with preconditions)
       editor.addAction({
-        id: 'kidlisp-toggle-stage',
-        label: window.isStageMode() ? '🎭 Exit Stage Mode' : '🎭 Stage Mode',
+        id: 'kidlisp-enter-stage',
+        label: '🎭 Enter Stage Mode',
         contextMenuGroupId: 'navigation',
         contextMenuOrder: 3,
-        run: function() {
-          const next = window.isStageMode() ? 'studio' : 'stage';
-          window.setUiMode(next);
-          // Update label for next toggle
-          this._label = window.isStageMode() ? '🎭 Exit Stage Mode' : '🎭 Stage Mode';
-        }
+        precondition: 'kidlisp.studioMode',
+        run: function() { window.setUiMode('stage'); updateStageContext(); }
       });
+      editor.addAction({
+        id: 'kidlisp-exit-stage',
+        label: '🎭 Exit Stage Mode',
+        contextMenuGroupId: 'navigation',
+        contextMenuOrder: 3,
+        precondition: 'kidlisp.stageMode',
+        run: function() { window.setUiMode('studio'); updateStageContext(); }
+      });
+      function updateStageContext() {
+        editor.createContextKey('kidlisp.stageMode', window.isStageMode());
+        editor.createContextKey('kidlisp.studioMode', !window.isStageMode());
+      }
+      updateStageContext();
 
       // ==================== END KIDLISP DOCUMENTATION CONTEXT MENU ====================
       
