@@ -1,5 +1,5 @@
 ---
-title: 'KidLisp: A Minimal Lisp for Generative Art'
+title: 'KidLisp: A Minimal Lisp for Generative Art on a Social Platform'
 tags:
   - JavaScript
   - Lisp
@@ -16,60 +16,166 @@ affiliations:
     ror: null
 date: 3 March 2026
 bibliography: paper.bib
+header-includes:
+  - |
+    ```{=latex}
+    \usepackage{listings}
+    \definecolor{klfn}{RGB}{0,136,170}
+    \definecolor{klform}{RGB}{119,51,170}
+    \definecolor{klrepeat}{RGB}{170,0,170}
+    \definecolor{klnum}{RGB}{204,0,102}
+    \definecolor{klstr}{RGB}{170,120,0}
+    \definecolor{klcmt}{RGB}{102,102,102}
+    \definecolor{klmath}{RGB}{0,136,0}
+    \definecolor{klvar}{RGB}{204,102,0}
+    \definecolor{klembed}{RGB}{0,136,0}
+    \definecolor{klgray}{RGB}{119,119,119}
+    \newcommand{\kn}[1]{\textcolor{klnum}{#1}}
+    \newcommand{\kt}[1]{\textcolor{klstr}{#1}}
+    \newcommand{\kv}[1]{\textcolor{klvar}{#1}}
+    \newcommand{\ke}[1]{\textcolor{klembed}{\textbf{#1}}}
+    \newcommand{\km}[1]{\textcolor{klmath}{#1}}
+    \lstdefinelanguage{kidlisp}{
+      morekeywords=[1]{wipe,ink,line,box,circle,tri,plot,flood,shape,zoom,scroll,spin,blur,contrast,embed,layer,width,height,frame,time,wiggle,melody,mic,suck,sort,form,trans,cube,move,scale,hop,overtone,resolution,write,text,type,stamp,paste,point,poly,noise,fade},
+      morekeywords=[2]{def,let,if,cond,once,later,lambda,do},
+      morekeywords=[3]{repeat},
+      morekeywords=[4]{random,sin,cos,tan,floor,ceil,round,abs,sqrt,min,max},
+      sensitive=true,
+      morecomment=[l]{;},
+      morestring=[b]",
+      escapeinside={|}{|},
+    }
+    \lstset{
+      language=kidlisp,
+      basicstyle=\ttfamily\small,
+      keywordstyle=[1]\color{klfn}\bfseries,
+      keywordstyle=[2]\color{klform}\bfseries,
+      keywordstyle=[3]\color{klrepeat}\bfseries,
+      keywordstyle=[4]\color{klmath},
+      commentstyle=\color{klcmt}\itshape,
+      stringstyle=\color{klstr},
+      breaklines=true,
+      frame=single,
+      rulecolor=\color{klgray!30},
+      backgroundcolor=\color{klgray!5},
+      xleftmargin=0.5em,
+      xrightmargin=0.5em,
+      aboveskip=0.5em,
+      belowskip=0.5em,
+    }
+    ```
 ---
 
 # Summary
 
-KidLisp is a minimal Lisp dialect with 118 built-in functions designed for creating generative art and interactive experiences. It runs inside the Aesthetic Computer platform, a mobile-first runtime and social network for creative computing. KidLisp programs are shareable by short three-character codes and executable at a URL, enabling a social layer of creative expression built on a functional programming foundation.
-
-The language provides primitives across 12 categories --- drawing, color, transformation, math, animation, text, audio, input, system, flow control, data structures, and composition --- while maintaining a minimal syntax accessible to non-programmers. Programs are written as S-expressions and evaluated in real-time within a browser-based canvas environment.
+KidLisp is a minimal Lisp dialect designed for generative art and interactive audio-visual experiences. It runs inside Aesthetic Computer (AC), a browser-based creative computing platform. KidLisp programs are stored in MongoDB, assigned short alphanumeric codes (e.g., `$cow`, `$27z`), and instantly executable at a URL. A 15,000-line tree-walking evaluator provides 118 built-in functions spanning drawing, color, transformation, math, animation, audio, and input --- with no file I/O, networking, or general string manipulation --- making it safe to run arbitrary user-submitted code in the browser.
 
 # Statement of need
 
-Creative coding environments typically require users to learn a general-purpose programming language (JavaScript, Python, Java) before they can produce visual or sonic output. This creates a high barrier for artists, musicians, educators, and young learners who want to explore computational expression without first mastering software engineering concepts.
+Creative coding environments like Processing [@reas2007processing], p5.js [@mccarthy2015p5js], and Sonic Pi [@aaron2016sonic] have significantly lowered the barrier to computational expression. However, they still require familiarity with general-purpose language syntax (Java, JavaScript, Ruby) and operate as standalone tools without built-in social distribution.
 
-Existing creative coding languages like Processing, p5.js, and Sonic Pi have lowered this barrier significantly, but they remain syntactically complex for beginners and do not embed natively in a social platform. KidLisp addresses this gap by providing:
+KidLisp targets the remaining gap: users who want to produce visual and sonic output with zero boilerplate, share it instantly, and build on each other's work. A complete animated program can be a single line:
 
-- **Minimal syntax**: S-expressions with no required boilerplate, imports, or class definitions
-- **Immediate visual output**: Every valid expression produces visible results on a canvas
-- **Social distribution**: Programs are stored in a database and shareable by short codes (e.g., `$cow`, `$27z`)
-- **Embeddable composition**: Programs can embed other programs, enabling collaborative layering
+```{=latex}
+\begin{lstlisting}
+(ink |\kt{rainbow}|) (repeat |\kn{100}| |\kv{i}| (circle (wiggle width) (wiggle height) |\kn{10}|))
+\end{lstlisting}
+```
 
-KidLisp is used by 59 active authors who have collectively created over 16,174 programs on the Aesthetic Computer platform, demonstrating adoption outside of traditional programming communities.
+Programs are shareable by pasting a short code into the AC prompt or visiting a URL. Embedding other programs is a first-class operation --- `($cow)` renders the program stored under code `cow` as a composable layer. As of March 2026, 59 authors have created over 16,000 programs on the platform.
 
 # State of the field
 
-KidLisp occupies a specific niche among creative coding tools. Processing [@reas2007processing] and p5.js [@mccarthy2015p5js] provide comprehensive creative coding environments but use Java and JavaScript syntax respectively. Sonic Pi [@aaron2016sonic] uses Ruby-like syntax focused on music. Hydra [@hydra2019] provides a similar live-coding canvas for visuals but uses JavaScript method chaining rather than Lisp syntax.
+Among creative coding tools, Hydra [@hydra2019] is closest in spirit --- browser-native, live-coded visuals --- but uses JavaScript method chaining and lacks persistent storage or social features. Racket's `2htdp/image` library [@racket2018] uses S-expressions for educational graphics but targets computer science pedagogy, not generative art. Fluxus [@fluxus2007] used Scheme for live-coded 3D visuals but is no longer maintained.
 
-Among Lisp-family languages, Racket [@racket2018] offers the `2htdp/image` library for educational graphics, but targets a computer science pedagogy audience rather than generative art practitioners. Fluxus [@fluxus2007] used a Scheme-like language for live-coded 3D visuals but is no longer maintained.
+KidLisp combines Lisp syntax with a browser-native canvas runtime, persistent social storage, and a deliberately constrained function set chosen for generative art safety: no arbitrary code execution, no system access, no imports.
 
-KidLisp differentiates itself through the combination of Lisp syntax, a browser-native runtime with no installation, social sharing by short codes, and a design philosophy that prioritizes immediate visual feedback over computational generality. Its 118 functions are chosen specifically for generative art workflows --- the language has no file I/O, no networking, no string manipulation beyond display --- making it safe to run untrusted user programs in the browser.
+# Architecture
 
-# Software design
+## Evaluator
 
-KidLisp's evaluator (`kidlisp.mjs`, approximately 50KB) is implemented as a single JavaScript ES module. The evaluation model is straightforward: parse S-expressions into a tree, walk the tree, and execute built-in functions that map directly to HTML Canvas 2D operations, Web Audio API calls, and mathematical computations.
+The evaluator (`kidlisp.mjs`) parses S-expressions into an AST and walks it, dispatching to built-in functions that map to HTML Canvas 2D, Web Audio API, and WebGL operations. Key design decisions:
 
-Key design decisions:
+- **Flat programs**: No user-defined functions beyond `def`/`let`. Abstraction is achieved by embedding other programs rather than defining procedures.
+- **Deterministic rendering**: Given the same random seed and frame count, output is identical --- enabling reproducible generative art.
+- **Timing syntax**: Temporal operators schedule expressions without explicit loops: `2.5s (wipe red)` executes after 2.5 seconds; `1s... (spin 5)` repeats every second; `3s! (write "Done")` fires exactly once at 3 seconds.
+- **Chaos mode**: Invalid or random input triggers artistic visual output rather than error messages. A confidence-scored detector examines word recognition rate, special character ratio, and parenthesis balance to decide whether input is code or chaos.
 
-- **No user-defined functions or variables beyond `let`**: This keeps programs flat and readable, encouraging composition through embedding rather than abstraction.
-- **Deterministic rendering**: Given the same random seed and frame count, a KidLisp program always produces the same output, enabling reproducible generative art.
-- **Embedding via `embed` and `layer`**: Programs reference other programs by their short codes, creating a composition graph. The `layer` function supports opacity and blend modes between embedded programs.
-- **Animation via `frame` and `time`**: Built-in bindings provide the current frame count and elapsed time, enabling animation without explicit loop constructs.
+## Storage
 
-The storage backend (`store-kidlisp.mjs`) provides a REST API for creating, retrieving, and listing programs. Each program is assigned a unique three-character alphanumeric code and stored in MongoDB.
+Each program is stored as a MongoDB document in the `kidlisp` collection:
 
-# Research impact statement
+```javascript
+{
+  code: "cow",                     // nanoid, unique
+  source: "(wipe blue)\n(ink yellow)\n(circle width/2 height/2 50)",
+  hash: "a3f2...",                 // SHA-256 of source, unique (deduplication)
+  when: ISODate("2025-06-15"),
+  lastAccessed: ISODate("2026-03-01"),
+  hits: 342,                       // usage counter
+  user: "auth0|abc123",            // optional creator ID
+  kept: { tokenId, network, ... } // optional NFT mint record
+}
+```
 
-KidLisp has been used as pedagogical infrastructure in creative computing courses and workshops. Its corpus of 16,174 user-created programs represents a dataset of creative coding practices that could support research in computational creativity, programming language usability, and creative computing education.
+The storage API (`store-kidlisp.mjs`) provides five query modes over a single REST endpoint:
 
-The platform's social features --- embedding, remixing, and sharing by short code --- provide a naturalistic setting for studying how non-expert programmers learn and build on each other's work, a research area of growing interest in computing education [@resnick2009scratch].
+1. **POST** --- store a program, deduplicate by SHA-256 hash, generate a short code via `nanoid`, and optionally sync to ATProto (Bluesky).
+2. **GET `?code=xyz`** --- retrieve a single program with user handle resolved via `$lookup` on the `@handles` collection.
+3. **GET `?codes=a,b,c`** --- batch retrieval (up to 50 codes per request) for embedded layer resolution.
+4. **GET `?recent=true`** --- paginated feed sorted by creation time or hit count, with optional `handle` filter for per-user feeds.
+5. **GET `?stats=functions`** --- function usage analytics across the entire corpus, returning weighted counts by piece popularity.
+
+Short codes are generated by a source-aware algorithm: the system first attempts to derive a meaningful code from the program's content (e.g., extracting dominant function names or color keywords), falling back to random `nanoid` generation if all inferred codes are taken.
+
+## Media pipeline
+
+The oven service (`oven.aesthetic.computer`) converts recorded sessions into shareable media. When a user records a KidLisp session, the session server uploads a ZIP of PNG frames and optional WAV audio. The oven:
+
+1. Extracts frames and reads `timing.json` for per-frame durations
+2. Generates a thumbnail (middle frame, 3x nearest-neighbor upscale, fitted to 512x512)
+3. Encodes to H.264/AAC MP4 via FFmpeg with nearest-neighbor upscaling to preserve pixel art aesthetics
+4. Uploads to DigitalOcean Spaces CDN (`art-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com`)
+5. Stores bake metadata in the `oven-bakes` MongoDB collection and notifies subscribers via WebSocket
+
+The oven also generates Open Graph preview images for social sharing. iOS crawlers require direct image serving (they won't follow 301 redirects), so the oven caches generated PNGs and serves them at stable URLs like `/kidlisp-og.png`.
+
+## Performance
+
+The evaluator implements multi-level caching (RAM → IndexedDB → network) for embedded program resolution, buffer pooling (up to 8 reusable buffers per resolution), and an auto-density system that scales pixel density between 0.5x and 4x to maintain 30--55 FPS on varying hardware.
+
+## IDE
+
+The KidLisp IDE at `kidlisp.com` provides a Monaco-based editor with custom syntax highlighting, a live preview iframe running the AC runtime, a console panel, and playback controls. A "slide mode" allows dragging numeric literals to adjust values in real time. The editor supports a stage mode for performance contexts that hides all chrome and overlays the editor directly on the canvas.
+
+# Example: Composition through embedding
+
+A key feature is the composition graph. The program below embeds two other user-created programs as layers:
+
+```{=latex}
+\begin{lstlisting}
+(wipe |\kt{black}|)
+(ink |\kt{rainbow}| |\kn{64}|)
+(repeat |\kn{200}| |\kv{i}| (circle (wiggle width) (wiggle height) (wiggle |\kn{20}|)))
+(|\ke{\$27z}|)
+(|\ke{\$cow}|)
+\end{lstlisting}
+```
+
+`$27z` and `$cow` are resolved from MongoDB at runtime, rendered into offscreen buffers, and composited onto the canvas. This enables collaborative layering --- users build on each other's work without copying source code.
+
+# Research applications
+
+The corpus of 16,000+ programs with hit counters, timestamps, and author attribution constitutes a dataset for studying creative coding practices. The `?stats=functions` API endpoint already provides function usage analytics weighted by program popularity, enabling quantitative analysis of which primitives users gravitate toward. The embedding graph (which programs reference which others) offers a social network of creative influence amenable to graph analysis.
+
+The platform's chaos mode --- which produces deterministic visual output from arbitrary text input --- represents an unusual approach to error handling in creative environments that may interest programming language researchers.
 
 # AI usage disclosure
 
-The KidLisp evaluator was primarily written by the author. Claude (Anthropic) was used as a development assistant for debugging, test writing, and documentation during development. This paper was drafted with AI assistance.
+The KidLisp evaluator was primarily written by the author. Claude (Anthropic) was used as a development assistant for debugging, test writing, and documentation. This paper was drafted with AI assistance.
 
 # Acknowledgements
 
-KidLisp is part of the Aesthetic Computer platform. Thanks to the AC community for creating 16,174+ programs and providing feedback on language design.
+Thanks to the 59 KidLisp authors on Aesthetic Computer for creating the corpus and providing feedback on language design.
 
 # References
