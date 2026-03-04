@@ -251,42 +251,46 @@
 
     body.stage-mode:not(.device-mode) #editor-panel {
       position: absolute !important;
-      top: 12px !important;
-      left: 12px !important;
-      bottom: 12px !important;
+      top: 0 !important;
+      left: 0 !important;
+      bottom: 0 !important;
       width: min(640px, 46vw) !important;
       min-width: 320px;
       z-index: 25 !important;
-      border-radius: 12px;
-      border: 1px solid rgba(40, 40, 40, 0.25);
-      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.35);
+      border-radius: 0;
+      border: none;
+      box-shadow: none;
       overflow: hidden;
-      backdrop-filter: blur(4px);
-      background: rgba(255, 252, 222, 0.88);
+      backdrop-filter: none;
+      background: transparent !important;
     }
 
     [data-theme="dark"] body.stage-mode:not(.device-mode) #editor-panel {
-      background: rgba(32, 29, 26, 0.88);
-      border-color: rgba(255, 255, 255, 0.15);
+      background: transparent !important;
+      border-color: transparent;
     }
 
     body.stage-mode:not(.device-mode) #editor-panel .editor-header {
-      background: rgba(255, 255, 255, 0.72);
-    }
-
-    [data-theme="dark"] body.stage-mode:not(.device-mode) #editor-panel .editor-header {
-      background: rgba(20, 20, 24, 0.76);
+      display: none !important;
     }
 
     body.stage-mode:not(.device-mode) #kidlisp-editor {
-      padding-left: 8px;
+      padding-left: 0;
+    }
+
+    /* Make Monaco editor background transparent in stage mode */
+    body.stage-mode:not(.device-mode) .monaco-editor,
+    body.stage-mode:not(.device-mode) .monaco-editor .overflow-guard,
+    body.stage-mode:not(.device-mode) .monaco-editor .monaco-editor-background,
+    body.stage-mode:not(.device-mode) .monaco-editor .margin {
+      background: transparent !important;
     }
 
     @media (max-width: 768px) {
       body.stage-mode:not(.device-mode) #editor-panel {
-        top: 8px !important;
-        left: 8px !important;
-        right: 8px !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
         bottom: auto !important;
         width: auto !important;
         min-width: 0 !important;
