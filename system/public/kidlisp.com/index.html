@@ -17305,13 +17305,14 @@ s("ape_breaks_3").loopAt(2)</textarea>
               pendingUpdate = true;
             }
 
-            // Wait 1 second after user stops typing before updating local preview
+            // Shorter debounce in stage mode for immediate feedback
+            const delay = (window.isStageMode && window.isStageMode()) ? 150 : 1000;
             debounceTimer = setTimeout(() => {
               updatePreview();
               lastCode = currentCode;
               pendingUpdate = false;
               debounceTimer = null;
-            }, 1000);
+            }, delay);
           }
         });
       }
