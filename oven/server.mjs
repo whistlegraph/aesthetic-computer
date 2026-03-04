@@ -2324,6 +2324,7 @@ app.get(['/pack-html', '/bundle-html'], async (req, res) => {
   const brotli = req.query.brotli === '1' || req.query.brotli === 'true';
   const inline = req.query.inline === '1' || req.query.inline === 'true';
   const noboxart = req.query.noboxart === '1' || req.query.noboxart === 'true';
+  const keeplabel = req.query.keeplabel === '1' || req.query.keeplabel === 'true';
   const density = parseInt(req.query.density) || null;
   const mode = req.query.mode;
 
@@ -2368,8 +2369,8 @@ app.get(['/pack-html', '/bundle-html'], async (req, res) => {
     try {
       const onProgress = (p) => sendEvent('progress', p);
       const { html, filename, sizeKB } = isJSPiece
-        ? await createJSPieceBundle(bundleTarget, onProgress, nocompress, density, brotli, noboxart)
-        : await createBundle(bundleTarget, onProgress, nocompress, density, brotli, noboxart);
+        ? await createJSPieceBundle(bundleTarget, onProgress, nocompress, density, brotli, noboxart, keeplabel)
+        : await createBundle(bundleTarget, onProgress, nocompress, density, brotli, noboxart, keeplabel);
       sendEvent('complete', { filename, content: Buffer.from(html).toString('base64'), sizeKB });
     } catch (error) {
       console.error('Bundle failed:', error);
@@ -2383,8 +2384,8 @@ app.get(['/pack-html', '/bundle-html'], async (req, res) => {
     const progressLog = [];
     const onProgress = (p) => { progressLog.push(p.message); console.log(`[bundler] ${p.stage}: ${p.message}`); };
     const result = isJSPiece
-      ? await createJSPieceBundle(bundleTarget, onProgress, nocompress, density, brotli, noboxart)
-      : await createBundle(bundleTarget, onProgress, nocompress, density, brotli, noboxart);
+      ? await createJSPieceBundle(bundleTarget, onProgress, nocompress, density, brotli, noboxart, keeplabel)
+      : await createBundle(bundleTarget, onProgress, nocompress, density, brotli, noboxart, keeplabel);
     const { html, filename, sizeKB, mainSource, authorHandle, userCode, packDate, depCount } = result;
 
     if (format === 'json' || format === 'base64') {

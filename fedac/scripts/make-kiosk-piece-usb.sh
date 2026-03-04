@@ -214,7 +214,7 @@ build_local_bundle() {
   fi
 
   echo -e "  ${YELLOW}Building bundle locally (oven unavailable or rebuild requested)...${NC}"
-  node "$bundler_script" "$piece_code" --out "$output_path" --density "$PACK_DENSITY" --nocompress
+  node "$bundler_script" "$piece_code" --out "$output_path" --density "$PACK_DENSITY" --nocompress --keeplabel
 }
 
 # ══════════════════════════════════════════
@@ -256,7 +256,7 @@ else
 
   for endpoint in "$OVEN_PACK_URL" "$OVEN_BUNDLE_URL"; do
     for mode in "${BUNDLE_MODES[@]}"; do
-      BUNDLE_URL="${endpoint}?${mode}=${PIECE_CODE}&nocompress=1&density=${PACK_DENSITY}"
+      BUNDLE_URL="${endpoint}?${mode}=${PIECE_CODE}&nocompress=1&density=${PACK_DENSITY}&keeplabel=1"
       echo -e "  URL: $BUNDLE_URL"
       HTTP_CODE="$(curl -s --connect-timeout 8 --max-time 25 --retry 1 --retry-delay 1 \
         -o "$BUNDLE_PATH" -w "%{http_code}" "$BUNDLE_URL" || echo "000")"
@@ -380,12 +380,19 @@ echo -e "${CYAN}[3/6] Injecting kiosk config...${NC}"
 mkdir -p "$ROOTFS_DIR/usr/local/share/kiosk"
 cp "$BUNDLE_PATH" "$ROOTFS_DIR/usr/local/share/kiosk/piece.html"
 echo -e "  ${GREEN}Piece bundle installed${NC}"
-# Prefer file:// for boot reliability (Firefox still opens even if local server
-# is late/crashed). The injected shell uses absolute localhost API URLs when
-# running from file://.
-# Keep HUD + corner label visible while still running full-bleed kiosk rendering.
-# NOTE: do not set device=true here — device mode intentionally suppresses AC HUD labels.
-KIOSK_PIECE_URL="file:///usr/local/share/kiosk/piece.html?density=${PACK_DENSITY}&nogap=true&noauth=true"
+
+# Install kiosk shell wrapper (HUD overlay for volume/battery)
+SHELL_HTML="$FEDAC_DIR/overlays/kiosk/kiosk-shell.html"
+if [ -f "$SHELL_HTML" ]; then
+  cp "$SHELL_HTML" "$ROOTFS_DIR/usr/local/share/kiosk/kiosk-shell.html"
+  sed -i "s|__DENSITY__|${PACK_DENSITY}|g" "$ROOTFS_DIR/usr/local/share/kiosk/kiosk-shell.html"
+  echo -e "  ${GREEN}Kiosk shell (HUD overlay) installed${NC}"
+fi
+
+# Use piece server (localhost:8080) so the shell wrapper can access system APIs.
+# The piece server serves kiosk-shell.html at / which iframes piece.html.
+# kiosk-session.sh waits for the piece server before launching Firefox.
+KIOSK_PIECE_URL="http://localhost:8080/"
 
 # NOTE: Wayland compositor runtime is installed AFTER the rootfs strip step
 # (step 3i) so package removals cannot accidentally remove launcher deps.
@@ -1417,6 +1424,8 @@ build_target() {
   PIECE_MOUNT=$(mktemp -d /tmp/fedac-piece-XXXX)
   mount "$p3" "$PIECE_MOUNT"
   cp "$BUNDLE_PATH" "$PIECE_MOUNT/piece.html"
+  [ -f "$FEDAC_DIR/overlays/kiosk/kiosk-shell.html" ] && \
+    sed "s|__DENSITY__|${PACK_DENSITY}|g" "$FEDAC_DIR/overlays/kiosk/kiosk-shell.html" > "$PIECE_MOUNT/kiosk-shell.html"
   chmod 777 "$PIECE_MOUNT"
   sync
   umount "$PIECE_MOUNT"

@@ -9410,7 +9410,7 @@ async function load(
     
   // Parse search parameters properly to check for nolabel
   // Also hide label in pack mode (standalone bundles have no URL params)
-  hideLabel = (typeof window !== "undefined" && window.acPACK_MODE) || false;
+  hideLabel = (typeof window !== "undefined" && window.acPACK_MODE && !window.acKEEP_LABEL) || false;
   if (parsed.search) {
     const searchParams = new URLSearchParams(parsed.search);
     if (searchParams.has("nolabel")) hideLabel = true;

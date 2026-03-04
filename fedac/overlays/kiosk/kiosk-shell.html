@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>FedAC Kiosk</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#000}
+#piece-frame{position:fixed;inset:0;width:100%;height:100%;border:none;z-index:0}
+#hud{
+  position:fixed;bottom:8px;right:8px;z-index:9999;
+  font-family:monospace;font-size:13px;color:#fff;
+  background:rgba(0,0,0,0.45);border-radius:6px;
+  padding:4px 10px;display:flex;gap:12px;align-items:center;
+  pointer-events:none;user-select:none;
+  opacity:0;transition:opacity 0.4s ease;
+}
+#hud.visible{opacity:1}
+#hud .icon{font-size:15px}
+#hud .val{min-width:2.2em;text-align:right}
+</style>
+</head>
+<body>
+<iframe id="piece-frame" src="piece.html?density=__DENSITY__&nogap=true&noauth=true" allow="autoplay"></iframe>
+<div id="hud">
+  <span id="vol-section"><span class="icon" id="vol-icon">&#x1f50a;</span> <span class="val" id="vol-val">--</span></span>
+  <span id="bat-section" style="display:none"><span class="icon" id="bat-icon">&#x1f50b;</span> <span class="val" id="bat-val">--</span></span>
+</div>
+<script>
+const hud = document.getElementById('hud');
+const volIcon = document.getElementById('vol-icon');
+const volVal = document.getElementById('vol-val');
+const batSection = document.getElementById('bat-section');
+const batIcon = document.getElementById('bat-icon');
+const batVal = document.getElementById('bat-val');
+let hideTimer = null;
+let lastVol = null, lastBat = null;
+
+function showHUD(ms) {
+  hud.classList.add('visible');
+  clearTimeout(hideTimer);
+  hideTimer = setTimeout(() => hud.classList.remove('visible'), ms || 4000);
+}
+
+async function pollStatus() {
+  try {
+    const resp = await fetch('/api/status');
+    const data = await resp.json();
+    // Volume
+    const v = data.volume;
+    const pct = Math.round((v?.volume ?? 0.5) * 100);
+    const volStr = v?.muted ? 'MUTE' : pct + '%';
+    volIcon.textContent = v?.muted ? '\u{1f507}' : pct > 60 ? '\u{1f50a}' : pct > 20 ? '\u{1f509}' : '\u{1f508}';
+    volVal.textContent = volStr;
+    // Battery
+    const b = data.battery;
+    if (b?.present) {
+      batSection.style.display = '';
+      const bp = b.percent ?? 0;
+      batIcon.textContent = b.status === 'Charging' ? '\u26a1' : bp > 20 ? '\u{1f50b}' : '\u{1faab}';
+      batVal.textContent = bp + '%';
+    } else {
+      batSection.style.display = 'none';
+    }
+    // Show HUD briefly if volume or battery changed
+    const newVol = volStr;
+    const newBat = b?.percent;
+    if (newVol !== lastVol || newBat !== lastBat) showHUD(4000);
+    lastVol = newVol;
+    lastBat = newBat;
+  } catch (e) { /* server not ready yet */ }
+}
+
+setInterval(pollStatus, 5000);
+pollStatus().then(() => showHUD(6000));
+document.addEventListener('keydown', () => showHUD(3000));
+</script>
+</body>
+</html>

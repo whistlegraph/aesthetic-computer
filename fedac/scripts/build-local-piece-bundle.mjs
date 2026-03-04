@@ -20,6 +20,7 @@ function usage(exitCode = 1) {
   console.log("  --density <n>     Bundle density hint (default: 8)");
   console.log("  --nocompress      Disable self-extracting compression wrapper");
   console.log("  --noboxart        Disable generated box art image");
+  console.log("  --keeplabel       Keep HUD label visible in pack mode");
   process.exit(exitCode);
 }
 
@@ -32,6 +33,7 @@ let outPath = "";
 let density = 8;
 let nocompress = false;
 let noboxart = false;
+let keeplabel = false;
 
 for (let i = 0; i < args.length; i += 1) {
   const arg = args[i];
@@ -43,6 +45,8 @@ for (let i = 0; i < args.length; i += 1) {
     nocompress = true;
   } else if (arg === "--noboxart") {
     noboxart = true;
+  } else if (arg === "--keeplabel") {
+    keeplabel = true;
   } else if (!target) {
     target = arg;
   } else {
@@ -77,8 +81,8 @@ const onProgress = (progress) => {
 };
 
 const result = isKidLisp
-  ? await createBundle(target, onProgress, nocompress, density, false, noboxart)
-  : await createJSPieceBundle(pieceSlug, onProgress, nocompress, density, false, noboxart);
+  ? await createBundle(target, onProgress, nocompress, density, false, noboxart, keeplabel)
+  : await createJSPieceBundle(pieceSlug, onProgress, nocompress, density, false, noboxart, keeplabel);
 
 await fs.mkdir(path.dirname(outPath), { recursive: true });
 await fs.writeFile(outPath, result.html, "utf8");
