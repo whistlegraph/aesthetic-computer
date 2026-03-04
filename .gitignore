@@ -341,3 +341,13 @@ silo/use-staging-wallet.mjs
 
 # Fedac build output (disk images, local bundles)
 fedac/out/
+
+# External project artifacts (not part of AC repo)
+surface-architecture.html
+
+# LaTeX build artifacts
+papers/**/*.aux
+papers/**/*.bbl
+papers/**/*.blg
+papers/**/*.log
+papers/**/*.out

@@ -166,7 +166,8 @@ await createTryPage({
     urlForExample: (example, fallback) => example.sourceUrl || fallback,
   },
   languageLabel: "Lua",
-  helperText: "Live reload on edit. Cmd/Ctrl+Enter to force run. Zoom: Cmd/Ctrl +/-/0 in editor.",
+  helperText:
+    "Live reload on edit. Cmd/Ctrl+Enter runs, Cmd/Ctrl+S copies a share link. Zoom: Cmd/Ctrl +/-/0 in editor.",
   defaultDocMessage: "Hover over a function to see its docs.",
   fontFacesCss: `
     @font-face {
