@@ -1621,7 +1621,7 @@ set gfxpayload=keep
 terminal_input console
 terminal_output gfxterm
 menuentry "FedAC Kiosk" --class fedora {
-  linux /loader/linux loglevel=4 systemd.log_level=info systemd.show_status=1 rd.systemd.show_status=1 rd.udev.log_level=3 udev.log_priority=3 rd.plymouth=0 plymouth.enable=0 vt.global_cursor_default=0 logo.nologo root=live:LABEL=FEDAC-LIVE rd.live.image mitigations=off selinux=0
+  linux /loader/linux loglevel=4 systemd.log_level=info systemd.show_status=1 rd.systemd.show_status=1 rd.udev.log_level=3 udev.log_priority=3 rd.plymouth=0 plymouth.enable=0 vt.global_cursor_default=0 logo.nologo root=live:LABEL=FEDAC-LIVE rd.live.image mitigations=off selinux=0 modprobe.blacklist=iwlwifi,iwlmvm,iwldvm
   initrd /loader/initrd
 }
 GRUBEOF
