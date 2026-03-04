@@ -1239,8 +1239,8 @@ async function fun(event, context) {
           // Force with ?give=true or ?abtest=give, disable with ?give=false
           var giveForced=params.get('give')==='true'||params.get('abtest')==='give';
           var giveDisabled=params.get('give')==='false';
-          var giveVariant=!isKidlisp&&!isDeviceMode&&!giveDisabled&&(giveForced||true);
-          if(giveVariant)console.log('[BOOT] 🎁 GIVE mode active - DigitalOcean emergency fundraising');
+          var giveVariant=!isKidlisp&&!isDeviceMode&&!giveDisabled&&giveForced;
+          if(giveVariant)console.log('[BOOT] 🎁 GIVE mode active');
           var giveUrl='give.aesthetic.computer';var giveMsg='SERVERS SUSPENDED - HELP AC';
           var giveFlyBys=[],giveLastSpawn=0,GIVE_SPAWN_INTERVAL=2500;
           // HIGH CONTRAST black bg with bright red/white/yellow - very clear and alarming
