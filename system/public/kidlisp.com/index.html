@@ -298,6 +298,15 @@
       border: none !important;
     }
 
+    /* Harsh text shadow on all editor text in stage mode for readability */
+    body.stage-mode:not(.device-mode) .monaco-editor .view-lines span {
+      text-shadow: 0 0 4px rgba(0, 0, 0, 0.9), 1px 1px 0 rgba(0, 0, 0, 0.7), -1px -1px 0 rgba(0, 0, 0, 0.3) !important;
+    }
+
+    body.stage-mode:not(.device-mode) .monaco-editor .line-numbers {
+      text-shadow: 0 0 4px rgba(0, 0, 0, 0.9), 1px 1px 0 rgba(0, 0, 0, 0.7) !important;
+    }
+
     /* Remove current line highlight background in stage mode */
     body.stage-mode:not(.device-mode) .monaco-editor .current-line,
     body.stage-mode:not(.device-mode) .monaco-editor .view-overlays .current-line {
