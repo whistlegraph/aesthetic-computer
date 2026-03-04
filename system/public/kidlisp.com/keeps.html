@@ -461,6 +461,19 @@
       color: var(--text-tertiary);
     }
 
+    .v6-step.in-progress {
+      border-left-color: #d4a017;
+      background: rgba(255, 193, 7, 0.06);
+    }
+
+    .v6-step.in-progress .v6-step-icon {
+      color: #d4a017;
+    }
+
+    .v6-step.in-progress .v6-step-title {
+      color: #d4a017;
+    }
+
     .v6-step-content {
       flex: 1;
     }
@@ -488,6 +501,183 @@
       padding: 1px 5px;
       border-radius: 3px;
       font-size: 11px;
+    }
+
+    .v6-roadmap-status {
+      margin-bottom: 24px;
+      padding: 16px;
+      background: linear-gradient(135deg, rgba(205, 92, 155, 0.14), rgba(78, 205, 196, 0.09));
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+    }
+
+    .v6-roadmap-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .v6-roadmap-kicker {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      letter-spacing: 0.2px;
+      margin-bottom: 2px;
+    }
+
+    .v6-roadmap-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .v6-roadmap-metric {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 999px;
+      padding: 4px 10px;
+      white-space: nowrap;
+    }
+
+    .v6-roadmap-track {
+      width: 100%;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.08);
+      overflow: hidden;
+    }
+
+    .v6-roadmap-fill {
+      height: 100%;
+      width: 0;
+      background: linear-gradient(90deg, #4a9c5d, #4ECDC4);
+      transition: width 0.25s ease;
+    }
+
+    .v6-roadmap-next {
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .v6-metadata-sim {
+      margin-bottom: 24px;
+      padding: 16px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+    }
+
+    .v6-metadata-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .v6-metadata-title {
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .v6-metadata-subtitle {
+      margin-top: 2px;
+      color: var(--text-tertiary);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .v6-sim-btn {
+      padding: 6px 10px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    .v6-sim-btn:hover {
+      border-color: var(--ac-purple);
+      color: var(--ac-purple);
+    }
+
+    .v6-sim-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .v6-sim-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+
+    .v6-sim-field input {
+      width: 100%;
+      padding: 7px 8px;
+      font-size: 12px;
+      color: var(--text-primary);
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      outline: none;
+      font-family: var(--font-mono);
+    }
+
+    .v6-sim-field select {
+      width: 100%;
+      padding: 7px 8px;
+      font-size: 12px;
+      color: var(--text-primary);
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      outline: none;
+      font-family: var(--font-mono);
+    }
+
+    .v6-sim-field input:focus {
+      border-color: var(--ac-purple);
+    }
+
+    .v6-sim-field select:focus {
+      border-color: var(--ac-purple);
+    }
+
+    .v6-sim-endpoint {
+      margin-bottom: 8px;
+      font-size: 11px;
+      color: var(--text-tertiary);
+      word-break: break-all;
+    }
+
+    .v6-sim-output {
+      margin: 0;
+      padding: 12px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      color: var(--text-secondary);
+      font-family: 'Berkeley Mono Variable', var(--font-mono);
+      font-size: 11px;
+      line-height: 1.45;
+      max-height: 360px;
+      overflow: auto;
+      white-space: pre;
     }
 
     .keeps-version-docs { display: none; }
@@ -1325,7 +1515,7 @@
           <h2 style="margin: 0; color: var(--text-primary); font-size: 24px; font-weight: 600;">
             v6 Production Launch
           </h2>
-          <span style="padding: 4px 12px; background: rgba(255, 193, 7, 0.15); border: 1px solid rgba(255, 193, 7, 0.4); border-radius: 12px; font-size: 12px; color: #d4a017; font-weight: 600;">
+          <span id="v6-launch-badge" style="padding: 4px 12px; background: rgba(255, 193, 7, 0.15); border: 1px solid rgba(255, 193, 7, 0.4); border-radius: 12px; font-size: 12px; color: #d4a017; font-weight: 600;">
             PRE-LAUNCH
           </span>
         </div>
@@ -1385,6 +1575,75 @@
           </div>
         </div>
 
+        <!-- Token Metadata Simulation -->
+        <div class="v6-metadata-sim">
+          <div class="v6-metadata-head">
+            <div>
+              <div class="v6-metadata-title">Token Metadata Simulation</div>
+              <div class="v6-metadata-subtitle">Select a TzKT endpoint shape and preview simulated decoded metadata or raw token_info bytes.</div>
+            </div>
+            <button type="button" class="v6-sim-btn" id="v6-sim-randomize">Randomize Sample</button>
+          </div>
+          <div class="v6-sim-grid">
+            <label class="v6-sim-field">
+              <span>Token ID</span>
+              <input id="v6-sim-token-id" type="number" min="0" step="1" value="12" />
+            </label>
+            <label class="v6-sim-field">
+              <span>Response Shape</span>
+              <select id="v6-sim-shape">
+                <option value="tokens">/v1/tokens</option>
+                <option value="bigmap">/bigmaps/token_metadata/keys/:id</option>
+              </select>
+            </label>
+            <label class="v6-sim-field">
+              <span>$code</span>
+              <input id="v6-sim-code" type="text" value="ac25namuc" />
+            </label>
+            <label class="v6-sim-field">
+              <span>Contract</span>
+              <input id="v6-sim-contract" type="text" value="KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido" />
+            </label>
+            <label class="v6-sim-field">
+              <span>Handle</span>
+              <input id="v6-sim-handle" type="text" value="@jeffrey" />
+            </label>
+            <label class="v6-sim-field">
+              <span>Creator Wallet</span>
+              <input id="v6-sim-creator" type="text" value="tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC" />
+            </label>
+            <label class="v6-sim-field">
+              <span>User</span>
+              <input id="v6-sim-user" type="text" value="ac25namuc" />
+            </label>
+            <label class="v6-sim-field">
+              <span>Packed on</span>
+              <input id="v6-sim-packed-on" type="date" value="2026-03-04" />
+            </label>
+            <label class="v6-sim-field">
+              <span>Length</span>
+              <input id="v6-sim-length" type="number" min="1" step="1" value="142" />
+            </label>
+          </div>
+          <div class="v6-sim-endpoint" id="v6-sim-endpoint"></div>
+          <pre class="v6-sim-output" id="v6-sim-output" aria-live="polite"></pre>
+        </div>
+
+        <!-- Roadmap Snapshot -->
+        <div class="v6-roadmap-status">
+          <div class="v6-roadmap-head">
+            <div>
+              <div class="v6-roadmap-kicker" id="v6-roadmap-kicker">Roadmap Snapshot</div>
+              <div class="v6-roadmap-title">v6 Launch Execution</div>
+            </div>
+            <div class="v6-roadmap-metric" id="v6-roadmap-metric">0/0 complete</div>
+          </div>
+          <div class="v6-roadmap-track">
+            <div class="v6-roadmap-fill" id="v6-roadmap-fill"></div>
+          </div>
+          <div class="v6-roadmap-next" id="v6-roadmap-next">Current focus: &mdash;</div>
+        </div>
+
         <!-- Launch Steps -->
         <h3 style="margin: 0 0 16px; color: var(--text-primary); font-size: 18px; font-weight: 600; border-bottom: 2px solid var(--ac-purple); padding-bottom: 8px;">
           Launch Checklist
@@ -1427,7 +1686,7 @@
             <span class="v6-step-icon">&#x2714;</span>
             <div class="v6-step-content">
               <div class="v6-step-title">Wallet Funding</div>
-              <div class="v6-step-desc">keeps.tez funded with ~8 XTZ, staging with ~3.8 XTZ for deployment and testing</div>
+              <div class="v6-step-desc">Initial deployment funding prepared. Final launch funding top-up tracked in Wallet Status below.</div>
             </div>
           </div>
 
@@ -1439,11 +1698,11 @@
             </div>
           </div>
 
-          <div class="v6-step pending">
-            <span class="v6-step-icon">&#x25CB;</span>
+          <div class="v6-step in-progress">
+            <span class="v6-step-icon">&#x25D4;</span>
             <div class="v6-step-content">
               <div class="v6-step-title">v6 Security Audit</div>
-              <div class="v6-step-desc">Run full test suite against freshly deployed v6 contract: admin-only entrypoints, fee bypass attempts, content hash collision, pause enforcement, royalty limits, transfer auth, metadata lock permanence</div>
+              <div class="v6-step-desc">Current focus: run full test suite against freshly deployed v6 contract (admin controls, fee bypass attempts, content hash collision, pause behavior, royalty limits, transfer auth, metadata lock permanence).</div>
             </div>
           </div>
 
@@ -2519,6 +2778,303 @@
       return `${years}y ago`;
     }
 
+    function normalizeCode(value) {
+      const cleaned = (value || '')
+        .trim()
+        .replace(/^\$+/, '')
+        .replace(/[^A-Za-z0-9_-]/g, '');
+      return cleaned || 'demo';
+    }
+
+    function normalizeHandle(value) {
+      const cleaned = (value || '').trim().replace(/\s+/g, '');
+      if (!cleaned) return '@anon';
+      return cleaned.startsWith('@') ? cleaned : `@${cleaned}`;
+    }
+
+    function normalizeTezosAddress(value) {
+      const cleaned = (value || '').trim();
+      return /^tz[1-3][1-9A-HJ-NP-Za-km-z]{33}$/.test(cleaned)
+        ? cleaned
+        : 'tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC';
+    }
+
+    function normalizeContractAddress(value) {
+      const cleaned = (value || '').trim();
+      return /^KT1[1-9A-HJ-NP-Za-km-z]{33}$/.test(cleaned)
+        ? cleaned
+        : 'KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido';
+    }
+
+    function fnv1aHex(input) {
+      let hash = 0x811c9dc5;
+      for (let i = 0; i < input.length; i++) {
+        hash ^= input.charCodeAt(i);
+        hash = Math.imul(hash, 0x01000193);
+      }
+      return (hash >>> 0).toString(16).padStart(8, '0');
+    }
+
+    function makeContentHash(seed) {
+      const parts = ['a', 'b', 'c', 'd'].map(salt => fnv1aHex(`${seed}:${salt}`));
+      return [...parts, ...parts.slice().reverse()].join('');
+    }
+
+    function formatDateForInput(date) {
+      return new Date(date).toISOString().slice(0, 10);
+    }
+
+    function utf8ToHex(value) {
+      return Array.from(new TextEncoder().encode(String(value)))
+        .map(byte => byte.toString(16).padStart(2, '0'))
+        .join('');
+    }
+
+    function buildV6MetadataSample(state) {
+      const code = normalizeCode(state.code);
+      const handle = normalizeHandle(state.handle);
+      const user = normalizeCode(state.user);
+      const creator = normalizeTezosAddress(state.creator);
+      const contract = normalizeContractAddress(state.contract);
+      const packedOn = state.packedOn || formatDateForInput(Date.now());
+      const length = Math.max(1, Number(state.length) || 1);
+      const tokenId = Math.max(0, Number(state.tokenId) || 0);
+      const seed = `${contract}:${tokenId}:${code}:${handle}:${user}:${creator}:${packedOn}:${length}`;
+      const cidBase = `bafybeiv6sim${makeContentHash(seed).slice(0, 40)}`;
+      const metadataCid = `bafybeiv6meta${makeContentHash(`${seed}:meta`).slice(0, 39)}`;
+      const artifactUri = `ipfs://${cidBase}/$${code}.html`;
+      const displayUri = artifactUri;
+      const thumbnailUri = `ipfs://${cidBase}/$${code}.webp`;
+      const metadataUri = `ipfs://${metadataCid}/$${code}-metadata.json`;
+      const hashHex = fnv1aHex(seed);
+      const hashInt = parseInt(hashHex, 16);
+      const firstLevel = 12080000 + (hashInt % 8000);
+      const tokenRowId = 2400000000000000 + (hashInt % 9000000000000);
+      const bigmapEntryId = 69000000 + (hashInt % 1000000);
+      const packedDate = new Date(`${packedOn}T12:00:00.000Z`);
+      const firstTime = Number.isNaN(packedDate.getTime()) ? new Date().toISOString() : packedDate.toISOString();
+      const tokenIdStr = String(tokenId);
+      const contentHash = code;
+
+      const metadata = {
+        name: `$${code}`,
+        description: `KidLisp keep by ${handle}`,
+        artifactUri,
+        displayUri,
+        thumbnailUri,
+        decimals: '0',
+        symbol: 'KEEP',
+        isBooleanAmount: true,
+        shouldPreferSymbol: false,
+        minter: handle,
+        creators: [creator],
+        royalties: {
+          decimals: 4,
+          shares: {
+            [creator]: '1000'
+          }
+        },
+        rights: 'No Rights Reserved',
+        mintingTool: 'https://kidlisp.com',
+        formats: [
+          {
+            uri: artifactUri,
+            mimeType: 'text/html',
+            dimensions: {
+              value: 'responsive',
+              unit: 'viewport'
+            }
+          }
+        ],
+        tags: ['KidLisp'],
+        attributes: [
+          { name: 'Length', value: String(length) },
+          { name: 'Packed on', value: packedOn },
+          { name: 'Handle', value: handle },
+          { name: 'User', value: user }
+        ]
+      };
+
+      const tokenInfoBytes = {
+        name: utf8ToHex(metadata.name),
+        symbol: utf8ToHex(metadata.symbol),
+        description: utf8ToHex(metadata.description),
+        artifactUri: utf8ToHex(artifactUri),
+        displayUri: utf8ToHex(displayUri),
+        thumbnailUri: utf8ToHex(thumbnailUri),
+        decimals: utf8ToHex(metadata.decimals),
+        creators: utf8ToHex(JSON.stringify(metadata.creators)),
+        royalties: utf8ToHex(JSON.stringify(metadata.royalties)),
+        content_hash: utf8ToHex(contentHash),
+        '': utf8ToHex(metadataUri)
+      };
+
+      return {
+        endpoints: {
+          tokens: `/v1/tokens?contract=${contract}&tokenId=${tokenIdStr}`,
+          bigmap: `/v1/contracts/${contract}/bigmaps/token_metadata/keys/${tokenIdStr}`
+        },
+        responses: {
+          tokens: [
+            {
+              id: tokenRowId,
+              contract: {
+                address: contract
+              },
+              tokenId: tokenIdStr,
+              standard: 'fa2',
+              totalMinted: '1',
+              totalBurned: '0',
+              totalSupply: '1',
+              transfersCount: 1,
+              holdersCount: 1,
+              balancesCount: 1,
+              firstLevel,
+              firstTime,
+              lastLevel: firstLevel,
+              lastTime: firstTime,
+              firstMinter: {
+                alias: handle.slice(1),
+                address: creator
+              },
+              metadata
+            }
+          ],
+          bigmap: {
+            id: bigmapEntryId,
+            active: true,
+            hash: `expr${makeContentHash(`${seed}:expr`).slice(0, 50)}`,
+            key: tokenIdStr,
+            value: {
+              token_id: tokenIdStr,
+              token_info: tokenInfoBytes
+            },
+            firstLevel,
+            lastLevel: firstLevel,
+            updates: 1
+          }
+        }
+      };
+    }
+
+    function renderV6MetadataSample() {
+      const output = document.getElementById('v6-sim-output');
+      if (!output) return;
+      const endpointEl = document.getElementById('v6-sim-endpoint');
+      const shape = document.getElementById('v6-sim-shape')?.value || 'tokens';
+      const sample = buildV6MetadataSample({
+        tokenId: document.getElementById('v6-sim-token-id')?.value,
+        code: document.getElementById('v6-sim-code')?.value,
+        contract: document.getElementById('v6-sim-contract')?.value,
+        handle: document.getElementById('v6-sim-handle')?.value,
+        creator: document.getElementById('v6-sim-creator')?.value,
+        user: document.getElementById('v6-sim-user')?.value,
+        packedOn: document.getElementById('v6-sim-packed-on')?.value,
+        length: document.getElementById('v6-sim-length')?.value
+      });
+
+      if (shape === 'bigmap') {
+        if (endpointEl) endpointEl.textContent = `Endpoint: ${sample.endpoints.bigmap}`;
+        output.textContent = JSON.stringify(sample.responses.bigmap, null, 2);
+        return;
+      }
+
+      if (endpointEl) endpointEl.textContent = `Endpoint: ${sample.endpoints.tokens}`;
+      output.textContent = JSON.stringify(sample.responses.tokens, null, 2);
+    }
+
+    function randomizeV6MetadataSample() {
+      const examples = [
+        { code: 'ac25namuc', handle: '@jeffrey', user: 'ac25namuc', length: 142, creator: 'tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC' },
+        { code: 'notepat', handle: '@bash', user: 'bash77', length: 88, creator: 'tz1dfoQDuxjwSgxdqJnisyKUxDHweade4Gzt' },
+        { code: 'cow', handle: '@ac', user: 'cow12', length: 57, creator: 'tz1gkf8EexComFBJvjtT1zdsisdah791KwBE' },
+        { code: 'boyfriend', handle: '@pals', user: 'pals33', length: 191, creator: 'tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb' }
+      ];
+      const sample = examples[Math.floor(Math.random() * examples.length)];
+      const dayOffset = Math.floor(Math.random() * 45);
+      const date = new Date();
+      date.setDate(date.getDate() - dayOffset);
+      const tokenId = Math.floor(Math.random() * 250);
+
+      const fields = {
+        'v6-sim-token-id': tokenId,
+        'v6-sim-code': sample.code,
+        'v6-sim-contract': 'KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido',
+        'v6-sim-handle': sample.handle,
+        'v6-sim-creator': sample.creator,
+        'v6-sim-user': sample.user,
+        'v6-sim-packed-on': formatDateForInput(date),
+        'v6-sim-length': sample.length
+      };
+
+      Object.entries(fields).forEach(([id, value]) => {
+        const input = document.getElementById(id);
+        if (input) input.value = value;
+      });
+      renderV6MetadataSample();
+    }
+
+    function initV6MetadataSimulation() {
+      const output = document.getElementById('v6-sim-output');
+      if (!output) return;
+
+      ['v6-sim-token-id', 'v6-sim-shape', 'v6-sim-code', 'v6-sim-contract', 'v6-sim-handle', 'v6-sim-creator', 'v6-sim-user', 'v6-sim-packed-on', 'v6-sim-length']
+        .forEach(id => {
+          const input = document.getElementById(id);
+          if (!input) return;
+          input.addEventListener('input', renderV6MetadataSample);
+          input.addEventListener('change', renderV6MetadataSample);
+        });
+
+      const randomize = document.getElementById('v6-sim-randomize');
+      if (randomize) randomize.addEventListener('click', randomizeV6MetadataSample);
+
+      renderV6MetadataSample();
+    }
+
+    function updateV6RoadmapStatus() {
+      const steps = Array.from(document.querySelectorAll('#tab-v6 .v6-launch-steps .v6-step'));
+      if (!steps.length) return;
+
+      const doneCount = steps.filter(step => step.classList.contains('done')).length;
+      const inProgressCount = steps.filter(step => step.classList.contains('in-progress')).length;
+      const totalCount = steps.length;
+      const completionPercent = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
+
+      const metric = document.getElementById('v6-roadmap-metric');
+      if (metric) {
+        metric.textContent = `${doneCount}/${totalCount} complete • ${inProgressCount} in progress`;
+      }
+
+      const launchBadge = document.getElementById('v6-launch-badge');
+      if (launchBadge) {
+        launchBadge.textContent = `PRE-LAUNCH • ${doneCount}/${totalCount} DONE`;
+      }
+
+      const fill = document.getElementById('v6-roadmap-fill');
+      if (fill) {
+        fill.style.width = `${completionPercent}%`;
+      }
+
+      const activeStep = steps.find(step => step.classList.contains('in-progress'))
+        || steps.find(step => step.classList.contains('pending'));
+      const activeTitle = activeStep?.querySelector('.v6-step-title')?.textContent?.trim() || 'All checklist items complete';
+      const next = document.getElementById('v6-roadmap-next');
+      if (next) {
+        next.textContent = `Current focus: ${activeTitle}`;
+      }
+
+      const kicker = document.getElementById('v6-roadmap-kicker');
+      if (kicker) {
+        const updated = new Intl.DateTimeFormat('en-US', {
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric'
+        }).format(new Date());
+        kicker.textContent = `Roadmap Snapshot • Updated ${updated}`;
+      }
+    }
+
     // =========================================
     // INIT
     // =========================================
@@ -2566,6 +3122,8 @@
       }
     }
 
+    initV6MetadataSimulation();
+    updateV6RoadmapStatus();
     init();
   </script>
 </body>
