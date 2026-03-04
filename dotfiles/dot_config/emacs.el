@@ -1018,6 +1018,9 @@ Also updates VS Code task status bar to 'done'."
 (global-set-key (kbd "C-c m") 'ac-mail-open)
 (global-set-key (kbd "C-c M-m") 'ac-mail-sync)
 
+;; Main project directory (must be defined before any expand-file-name usage)
+(defvar ac--directory-path "~/aesthetic-computer")
+
 ;; Email Blast integration (artery/email-blast.mjs)
 (defvar ac-mail-blast-script
   (expand-file-name "artery/email-blast.mjs" ac--directory-path)
@@ -1407,7 +1410,6 @@ Optional TARGET-TAB specifies which tab to land on (default: artery)."
             (setq-local scroll-conservatively 101)))
 
 ;; Main backend function
-(defvar ac--directory-path "~/aesthetic-computer")
 (defvar ac--emoji-for-command
   '(("artery" . "🩸") ("status" . "📡") ("url" . "⚡") 
     ("tunnel" . "🚇") ("agent" . "⚡") ("stripe-print" . "💳")
