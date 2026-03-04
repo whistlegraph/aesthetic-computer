@@ -274,6 +274,11 @@
       display: none !important;
     }
 
+    /* Hide preview panel title bar (Aesthetic.Computer / platform selector) */
+    body.stage-mode:not(.device-mode) #preview-panel .docs-header {
+      display: none !important;
+    }
+
     body.stage-mode:not(.device-mode) #kidlisp-editor {
       padding-left: 0;
     }
@@ -284,6 +289,20 @@
     body.stage-mode:not(.device-mode) .monaco-editor .monaco-editor-background,
     body.stage-mode:not(.device-mode) .monaco-editor .margin {
       background: transparent !important;
+    }
+
+    /* Remove Monaco focus outline/border in stage mode */
+    body.stage-mode:not(.device-mode) .monaco-editor .focused .selected-text,
+    body.stage-mode:not(.device-mode) .monaco-editor.focused {
+      outline: none !important;
+      border: none !important;
+    }
+
+    /* Remove current line highlight background in stage mode */
+    body.stage-mode:not(.device-mode) .monaco-editor .current-line,
+    body.stage-mode:not(.device-mode) .monaco-editor .view-overlays .current-line {
+      background: transparent !important;
+      border: none !important;
     }
 
     @media (max-width: 768px) {
