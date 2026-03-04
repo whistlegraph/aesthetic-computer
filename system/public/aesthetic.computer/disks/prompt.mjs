@@ -196,7 +196,7 @@ let giveBtnParticles = [];
 // "critical" = full lockdown (chat offline, all alerts)
 // "yikes" = chat works, GIVE button shows, but no $ replacement
 // "off" = normal operation
-export const FUNDING_SEVERITY = "critical";
+export const FUNDING_SEVERITY = "off";
 
 // Legacy export for backwards compatibility
 export const FUNDING_MODE = FUNDING_SEVERITY === "critical";
