@@ -305,27 +305,47 @@ body {
 
 @media (max-width: 820px) {
   .try-playground {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    min-height: min(74vh, 560px);
   }
 
   .try-editor-shell {
-    border-right: none;
-    border-bottom: 1px solid var(--try-line);
-    min-height: 300px;
+    border-right: 1px solid var(--try-line);
+    border-bottom: none;
+    min-height: 0;
   }
 
   .try-preview-shell {
-    min-height: 280px;
+    min-height: 0;
+  }
+
+  .try-editor-head,
+  .try-preview-head {
+    padding: 4px 8px;
+  }
+
+  .try-controls {
+    gap: 6px;
+  }
+
+  .try-btn,
+  .try-btn:visited,
+  .try-controls button,
+  .try-controls select {
+    padding: 5px 9px;
+    font-size: 11px;
   }
 
   #try-editor,
-  .try-editor-fallback {
-    min-height: 240px;
-  }
-
+  .try-editor-fallback,
   .try-preview-host,
   .try-preview-host iframe {
-    min-height: 240px;
+    min-height: min(62vh, 460px);
+  }
+
+  .try-doc-panel {
+    flex-wrap: wrap;
+    gap: 8px;
   }
 }
 
@@ -349,5 +369,13 @@ body {
 
   .try-heading {
     font-size: 30px;
+  }
+
+  .try-btn,
+  .try-btn:visited,
+  .try-controls button,
+  .try-controls select {
+    padding: 4px 8px;
+    font-size: 10px;
   }
 }

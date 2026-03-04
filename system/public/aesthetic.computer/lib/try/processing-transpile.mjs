@@ -18,6 +18,8 @@ function convertParams(paramList) {
 
 function normalizeExpression(expr) {
   return String(expr || "")
+    .replace(/!==/g, "~=")
+    .replace(/===/g, "==")
     .replace(/!=/g, "~=")
     .replace(/&&/g, " and ")
     .replace(/\|\|/g, " or ")
@@ -26,6 +28,7 @@ function normalizeExpression(expr) {
 
 function rewriteMathCalls(line) {
   return line
+    .replace(/\bMath\./g, "math.")
     .replace(/\bsin\s*\(/g, "math.sin(")
     .replace(/\bcos\s*\(/g, "math.cos(")
     .replace(/\btan\s*\(/g, "math.tan(")
@@ -35,12 +38,13 @@ function rewriteMathCalls(line) {
     .replace(/\bceil\s*\(/g, "math.ceil(")
     .replace(/\bpow\s*\(/g, "math.pow(")
     .replace(/\bmin\s*\(/g, "math.min(")
-    .replace(/\bmax\s*\(/g, "math.max(");
+    .replace(/\bmax\s*\(/g, "math.max(")
+    .replace(/\bmath\.math\./g, "math.");
 }
 
 function rewriteForLoop(line) {
   const match = line.match(
-    /^(\s*)for\s*\(\s*(?:(?:int|float|double|long)\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([^;]+?)\s*;\s*\2\s*(<=|<|>=|>)\s*([^;]+?)\s*;\s*\2\s*(\+\+|--|\+=\s*[^;]+|-=\s*[^;]+)\s*\)\s*\{?\s*$/,
+    /^(\s*)for\s*\(\s*(?:(?:int|float|double|long|let|const|var)\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([^;]+?)\s*;\s*\2\s*(<=|<|>=|>)\s*([^;]+?)\s*;\s*\2\s*(\+\+|--|\+=\s*[^;]+|-=\s*[^;]+)\s*\)\s*\{?\s*$/,
   );
 
   if (!match) return null;
@@ -98,7 +102,12 @@ export function transpileProcessingToLua(source) {
       );
 
       line = line.replace(
-        /^(\s*)(?:final\s+)?(?:float|double|int|long|boolean|String|char)\s+([A-Za-z_][A-Za-z0-9_]*)\s*(=\s*.+)?;\s*$/,
+        /^(\s*)function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*\{?\s*$/,
+        (_all, indent, name, params) => `${indent}function ${name}(${convertParams(params)}) {`,
+      );
+
+      line = line.replace(
+        /^(\s*)(?:(?:final\s+)?(?:float|double|int|long|boolean|String|char)|(?:let|const|var))\s+([A-Za-z_][A-Za-z0-9_]*)\s*(=\s*.+)?;\s*$/,
         (_all, indent, name, assign) => `${indent}local ${name}${assign ? ` ${assign.trim()}` : ""}`,
       );
 
@@ -118,11 +127,13 @@ export function transpileProcessingToLua(source) {
       );
 
       line = line.replace(/^(\s*)else\s*\{?\s*$/, "$1else {");
+      line = line.replace(/\bcreateCanvas\s*\(/g, "size(");
       line = line.replace(/\bprintln\s*\(/g, "print(");
       line = rewriteAugmentedAssignments(line);
       line = rewriteMathCalls(line);
       line = line.replace(/;\s*$/g, "");
       line = line.replace(/\btrue\b/g, "true").replace(/\bfalse\b/g, "false");
+      line = line.replace(/!==/g, "~=").replace(/===/g, "==");
       line = line.replace(/!=/g, "~=");
       line = line.replace(/&&/g, " and ").replace(/\|\|/g, " or ");
       line = line.replace(/!\s*(?=[A-Za-z_(])/g, "not ");
@@ -140,9 +151,32 @@ export function transpileProcessingToLua(source) {
     .trim();
 }
 
+function looksLikeLuaSource(source) {
+  const text = String(source || "");
+  if (!text.trim()) return false;
+
+  const hasProcessingOrJsSyntax =
+    /^\s*(?:public\s+|private\s+|protected\s+|static\s+)*(?:void|float|double|int|long|boolean|String|char)\b/m.test(
+      text,
+    ) ||
+    /^\s*(?:let|const|var)\s+[A-Za-z_][A-Za-z0-9_]*\b/m.test(text) ||
+    /^\s*function\s+[A-Za-z_][A-Za-z0-9_]*\s*\([^)]*\)\s*\{/m.test(text) ||
+    /\bcreateCanvas\s*\(/.test(text) ||
+    /\bif\s*\([^)]*\)\s*\{/.test(text) ||
+    /\bfor\s*\([^;]+;[^;]+;[^)]+\)\s*\{/.test(text);
+
+  if (hasProcessingOrJsSyntax) return false;
+
+  const hasLuaFunction = /\bfunction\s+[A-Za-z_][A-Za-z0-9_]*\s*\([^)]*\)/.test(text);
+  const hasLuaBlock = /\bend\b/.test(text);
+  const hasLuaLocal = /^\s*local\s+[A-Za-z_][A-Za-z0-9_]*\b/m.test(text);
+
+  return (hasLuaFunction && hasLuaBlock) || hasLuaLocal;
+}
+
 export function compileProcessingSourceForRuntime(source) {
   const text = String(source || "");
-  if (/^\s*function\s+[A-Za-z_][A-Za-z0-9_]*\s*\(/m.test(text)) {
+  if (looksLikeLuaSource(text)) {
     return text;
   }
   return transpileProcessingToLua(text);

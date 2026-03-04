@@ -165,6 +165,59 @@ function withFreshTimestamp(urlString) {
   }
 }
 
+function encodeTextToBase64Url(value) {
+  const bytes = new TextEncoder().encode(String(value ?? ""));
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+  }
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function decodeTextFromBase64Url(value) {
+  if (!value) return "";
+  try {
+    const normalized = String(value).replace(/-/g, "+").replace(/_/g, "/");
+    const padding =
+      normalized.length % 4 === 0 ? "" : "=".repeat(4 - (normalized.length % 4));
+    const binary = atob(normalized + padding);
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    return new TextDecoder().decode(bytes);
+  } catch {
+    return null;
+  }
+}
+
+function parseTryHashState() {
+  const rawHash = window.location.hash.startsWith("#")
+    ? window.location.hash.slice(1)
+    : window.location.hash;
+  const params = new URLSearchParams(rawHash);
+  const encodedCode = params.get("code");
+  const code = encodedCode ? decodeTextFromBase64Url(encodedCode) : null;
+
+  return {
+    exampleId: params.get("example") || "",
+    code,
+    invalidCode: Boolean(encodedCode && code === null),
+  };
+}
+
+function buildTryShareUrl(exampleId, code) {
+  const params = new URLSearchParams();
+  if (exampleId) {
+    params.set("example", exampleId);
+  }
+  if (code && code.trim()) {
+    params.set("code", encodeTextToBase64Url(code));
+  }
+  const hash = params.toString();
+  const href = `${window.location.pathname}${window.location.search}${hash ? `#${hash}` : ""}`;
+  window.history.replaceState(null, "", href);
+  return `${window.location.origin}${href}`;
+}
+
 function onColorSchemeChange(callback) {
   if (!window.matchMedia) return;
   const media = window.matchMedia("(prefers-color-scheme: dark)");
@@ -276,6 +329,7 @@ function renderLayout(config) {
               <a id="try-example-source" class="try-btn" href="#" target="_blank" rel="noopener">Source</a>
               <button id="try-reset-btn" type="button">Reset</button>
               <button id="try-copy-btn" type="button">Copy</button>
+              <button id="try-share-btn" type="button">Share</button>
               <button id="try-run-btn" class="try-btn-primary" type="button">Run</button>
             </div>
           </div>
@@ -341,10 +395,59 @@ export async function createTryPage(config) {
     mountId: config.mountId || "try-page-root",
     defaultDocMessage: config.defaultDocMessage || "Hover over a function to see its docs.",
     onLogoError: config.onLogoError,
+    storage: {
+      key: config.storage?.key || `${window.location.host}${window.location.pathname}`,
+      useHashCode: config.storage?.useHashCode !== false,
+      useLocalDraft: config.storage?.useLocalDraft !== false,
+    },
   };
 
   if (!settings.examples.length) {
     settings.examples.push({ id: "default", title: "Example", code: "" });
+  }
+
+  const queryExampleId = new URLSearchParams(window.location.search).get("example") || "";
+  const hashState = settings.storage.useHashCode
+    ? parseTryHashState()
+    : { exampleId: "", code: null, invalidCode: false };
+  const requestedExampleId = hashState.exampleId || queryExampleId;
+  const hasRequestedExample = settings.examples.some((item) => item.id === requestedExampleId);
+  const initialExampleId = hasRequestedExample ? requestedExampleId : settings.examples[0].id;
+  const initialExample =
+    settings.examples.find((item) => item.id === initialExampleId) || settings.examples[0];
+
+  const draftKey = `ac:try:draft:${settings.storage.key}`;
+  const loadDraft = () => {
+    if (!settings.storage.useLocalDraft) return "";
+    try {
+      return localStorage.getItem(draftKey) || "";
+    } catch {
+      return "";
+    }
+  };
+  const saveDraft = (code) => {
+    if (!settings.storage.useLocalDraft) return;
+    try {
+      localStorage.setItem(draftKey, code);
+    } catch {
+      // ignore storage errors
+    }
+  };
+
+  let initialCode = initialExample.code;
+  let initialStatusMessage = "";
+  if (typeof hashState.code === "string") {
+    initialCode = hashState.code;
+    initialStatusMessage = "Loaded code from share link.";
+  } else {
+    const draft = loadDraft();
+    if (draft.trim()) {
+      initialCode = draft;
+      initialStatusMessage = "Loaded local draft.";
+    }
+  }
+  if (hashState.invalidCode) {
+    initialStatusMessage = "Share link code was invalid. Loaded example/local draft.";
   }
 
   document.title = config.page?.title || settings.brand?.heading || "Try on AC";
@@ -374,8 +477,11 @@ export async function createTryPage(config) {
     fallbackEditor: null,
     iframeReady: false,
     pendingCode: null,
-    selectedExampleId: settings.examples[0].id,
+    selectedExampleId: initialExample.id,
+    initialCode,
   };
+
+  let draftSaveTimer = null;
 
   const runtimeStatus = document.getElementById("try-runtime-status");
   const docPanel = document.getElementById("try-doc-panel");
@@ -420,6 +526,38 @@ export async function createTryPage(config) {
     }
   }
 
+  function queueDraftSave(code) {
+    clearTimeout(draftSaveTimer);
+    draftSaveTimer = setTimeout(() => {
+      saveDraft(code);
+    }, 140);
+  }
+
+  async function copyTextWithFlash(button, text, successLabel = "Copied") {
+    const previousLabel = button.textContent;
+    await navigator.clipboard.writeText(text);
+    button.textContent = successLabel;
+    setTimeout(() => {
+      button.textContent = previousLabel;
+    }, 900);
+  }
+
+  async function copyShareLink(button) {
+    const code = getEditorValue();
+    if (!code || !code.trim()) {
+      setRuntimeStatus("Cannot share empty source.", "error");
+      return;
+    }
+
+    const shareUrl = buildTryShareUrl(state.selectedExampleId, code);
+    try {
+      await copyTextWithFlash(button, shareUrl, "Link Copied");
+      setRuntimeStatus("Share URL copied to clipboard.", "ok");
+    } catch {
+      setRuntimeStatus("Share URL ready in address bar. Clipboard write failed.", "error");
+    }
+  }
+
   function sendToIframe(code) {
     const frame = document.getElementById("try-frame");
     if (!frame.contentWindow) {
@@ -427,13 +565,20 @@ export async function createTryPage(config) {
       return;
     }
 
-    const message =
-      typeof settings.runtime.buildReloadMessage === "function"
-        ? settings.runtime.buildReloadMessage(code)
-        : {
-            type: "ac:try:reload",
-            source: code,
-          };
+    let message;
+    try {
+      message =
+        typeof settings.runtime.buildReloadMessage === "function"
+          ? settings.runtime.buildReloadMessage(code)
+          : {
+              type: "ac:try:reload",
+              source: code,
+            };
+    } catch (error) {
+      const detail = error?.message || String(error);
+      setRuntimeStatus(`Compile error: ${detail}`, "error");
+      return;
+    }
 
     const targetOrigin = settings.runtime.targetOrigin || frameOrigin;
     frame.contentWindow.postMessage(message, targetOrigin);
@@ -460,6 +605,7 @@ export async function createTryPage(config) {
     const source = document.getElementById("try-example-source");
     const resetBtn = document.getElementById("try-reset-btn");
     const copyBtn = document.getElementById("try-copy-btn");
+    const shareBtn = document.getElementById("try-share-btn");
     const runBtn = document.getElementById("try-run-btn");
 
     const updateSource = (picked) => {
@@ -479,25 +625,26 @@ export async function createTryPage(config) {
       const picked = getExampleById(state.selectedExampleId);
       updateSource(picked);
       setEditorValue(picked.code);
+      queueDraftSave(picked.code);
     });
 
     resetBtn.addEventListener("click", () => {
       const picked = getExampleById(state.selectedExampleId);
       setEditorValue(picked.code);
+      queueDraftSave(picked.code);
       setRuntimeStatus(`Reset to ${picked.title}.`, "");
     });
 
     copyBtn.addEventListener("click", async () => {
       try {
-        await navigator.clipboard.writeText(getEditorValue());
-        const old = copyBtn.textContent;
-        copyBtn.textContent = "Copied";
-        setTimeout(() => {
-          copyBtn.textContent = old;
-        }, 900);
+        await copyTextWithFlash(copyBtn, getEditorValue(), "Copied");
       } catch {
         setRuntimeStatus("Clipboard write failed.", "error");
       }
+    });
+
+    shareBtn.addEventListener("click", async () => {
+      await copyShareLink(shareBtn);
     });
 
     runBtn.addEventListener("click", () => {
@@ -508,6 +655,11 @@ export async function createTryPage(config) {
       if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
         event.preventDefault();
         queueOrRun(getEditorValue());
+        return;
+      }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        copyShareLink(shareBtn);
       }
     });
   }
@@ -532,11 +684,19 @@ export async function createTryPage(config) {
     textarea.value = initial;
     container.replaceWith(textarea);
     state.fallbackEditor = textarea;
+    let liveTimer = null;
+    textarea.addEventListener("input", () => {
+      queueDraftSave(textarea.value);
+      clearTimeout(liveTimer);
+      liveTimer = setTimeout(() => {
+        queueOrRun(textarea.value);
+      }, settings.monaco.liveDebounceMs || 400);
+    });
     setRuntimeStatus("Monaco unavailable. Using fallback editor.", "error");
   }
 
   async function initMonacoEditor() {
-    const initial = getExampleById(state.selectedExampleId).code;
+    const initial = state.initialCode;
     const loaderUrl = settings.monaco.loaderUrl || DEFAULT_MONACO_LOADER;
     const baseUrl = settings.monaco.baseUrl || DEFAULT_MONACO_BASE;
 
@@ -645,6 +805,7 @@ export async function createTryPage(config) {
 
     let liveTimer = null;
     state.editor.onDidChangeModelContent(() => {
+      queueDraftSave(state.editor.getValue());
       clearTimeout(liveTimer);
       liveTimer = setTimeout(() => {
         queueOrRun(state.editor.getValue());
@@ -754,6 +915,9 @@ export async function createTryPage(config) {
   }
 
   initExampleControls();
+  if (initialStatusMessage) {
+    setRuntimeStatus(initialStatusMessage, "");
+  }
   initIframeRunner();
   await initMonacoEditor();
   initLiveReload();
