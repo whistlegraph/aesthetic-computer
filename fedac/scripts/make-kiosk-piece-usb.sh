@@ -462,20 +462,98 @@ user_pref("gfx.webrender.force-disabled", true);
 user_pref("accessibility.typeaheadfind", false);
 user_pref("accessibility.typeaheadfind.manual", false);
 user_pref("accessibility.typeaheadfind.linksonly", false);
+// Block notification prompts, allow everything else (kiosk = trust all)
 user_pref("permissions.default.desktop-notification", 2);
+user_pref("permissions.default.geo", 1);
+user_pref("permissions.default.camera", 1);
+user_pref("permissions.default.microphone", 1);
+user_pref("permissions.default.xr", 1);
 user_pref("dom.webnotifications.enabled", false);
 user_pref("dom.push.enabled", false);
+user_pref("dom.push.connection.enabled", false);
+// MIDI: allow without prompting (including SysEx)
+user_pref("midi.prompt_on_sysex_access", false);
+user_pref("midi.testing", true);
+user_pref("dom.webmidi.enabled", true);
+// Suppress ALL info bars, notification bars, and popup prompts
+user_pref("browser.uitour.enabled", false);
+user_pref("browser.discovery.enabled", false);
+user_pref("extensions.getAddons.showPane", false);
+user_pref("browser.protections_panel.infoMessage.seen", true);
+user_pref("browser.contentblocking.introCount", 99);
+user_pref("browser.newtabpage.activity-stream.asrouter.userprefs.cfr.addons", false);
+user_pref("browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features", false);
+user_pref("security.insecure_connection_text.enabled", false);
+user_pref("security.insecure_connection_text.pbmode.enabled", false);
+user_pref("security.insecure_field_warning.contextual.enabled", false);
+// Pre-grant permissions for localhost so no prompt appears
+user_pref("permissions.manager.defaultsUrl", "");
 USERJSEOF
 
+# Pre-populate permissions.sqlite — grant all permissions for localhost:8080
+# This prevents ANY permission popups from appearing on first load.
+python3 -c "
+import sqlite3, os
+db = '$PROFILE/permissions.sqlite'
+conn = sqlite3.connect(db)
+c = conn.cursor()
+c.execute('CREATE TABLE IF NOT EXISTS moz_perms (id INTEGER PRIMARY KEY, origin TEXT, type TEXT, permission INTEGER, expireType INTEGER, expireTime INTEGER, modificationTime INTEGER)')
+# permission=1=ALLOW, 2=DENY; for kiosk we deny notifications, allow autoplay
+perms = [
+    ('http://localhost:8080', 'desktop-notification', 2, 0, 0),
+    ('http://localhost:8080', 'autoplay-media', 1, 0, 0),
+    ('http://localhost:8080', 'geo', 1, 0, 0),
+    ('http://localhost:8080', 'camera', 1, 0, 0),
+    ('http://localhost:8080', 'microphone', 1, 0, 0),
+    ('http://localhost:8080', 'midi', 1, 0, 0),
+    ('http://localhost:8080', 'midi-sysex', 1, 0, 0),
+    ('http://localhost:8080', 'popup', 1, 0, 0),
+    ('http://localhost:8080', 'persistent-storage', 1, 0, 0),
+]
+import time
+ts = int(time.time() * 1000)
+for origin, ptype, perm, exp_type, exp_time in perms:
+    c.execute('INSERT INTO moz_perms (origin, type, permission, expireType, expireTime, modificationTime) VALUES (?, ?, ?, ?, ?, ?)',
+              (origin, ptype, perm, exp_type, exp_time, ts))
+conn.commit()
+conn.close()
+"
+echo "[kiosk] pre-populated permissions.sqlite for localhost:8080"
+
 cat > "$PROFILE/chrome/userChrome.css" << 'CHROMEEOF'
+/* FedAC Kiosk: hide ALL browser chrome, toolbars, and notification bars */
 #TabsToolbar,
 #titlebar,
 #toolbar-menubar,
 #nav-bar,
-#PersonalToolbar {
+#PersonalToolbar,
+#navigator-toolbox {
   visibility: collapse !important;
   min-height: 0 !important;
   max-height: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+}
+/* Kill all notification/info bars — the thin line at top */
+notification, .notificationbox-stack,
+#notification-popup-box,
+.notification-anchor-icon,
+#PopupAutoComplete,
+.popup-notification-panel,
+#appMenu-notification-popup,
+#identity-popup,
+#tracking-protection-icon-container,
+hbox.infobar,
+.infobar,
+notification[value] {
+  display: none !important;
+  height: 0 !important;
+  max-height: 0 !important;
+  opacity: 0 !important;
+}
+/* Ensure no top border/line from the browser frame */
+#main-window, #browser {
+  border-top: none !important;
 }
 CHROMEEOF
 
@@ -917,10 +995,17 @@ for svc in \
   thermald tuned \
   rsyslog \
   mdmonitor mcelog smartd atd \
-  NetworkManager-wait-online; do
+  NetworkManager-wait-online \
+  gnome-session gnome-shell gnome-session-manager \
+  gnome-initial-setup gnome-initial-setup-first-login \
+  gnome-software-service; do
   ln -sf /dev/null "$ROOTFS_DIR/etc/systemd/system/${svc}.service" 2>/dev/null || true
 done
-echo -e "  ${GREEN}Unnecessary services masked${NC}"
+# Also mask any graphical session targets that could pull in a desktop
+for target in graphical.target; do
+  ln -sf /dev/null "$ROOTFS_DIR/etc/systemd/system/${target}" 2>/dev/null || true
+done
+echo -e "  ${GREEN}Unnecessary services + graphical.target masked${NC}"
 
 # 3f. Firefox policies (no default tabs, no welcome)
 mkdir -p "$ROOTFS_DIR/usr/lib64/firefox/distribution"
@@ -945,19 +1030,25 @@ cat > "$ROOTFS_DIR/usr/lib64/firefox/distribution/policies.json" << 'FPEOF'
     "SearchBar": "none",
     "Permissions": {
       "Notifications": {
-        "BlockNewRequests": true
+        "BlockNewRequests": true,
+        "Locked": true
       },
       "Location": {
-        "BlockNewRequests": true
+        "Allow": ["http://localhost:8080"],
+        "BlockNewRequests": false
       },
       "Camera": {
-        "BlockNewRequests": true
+        "Allow": ["http://localhost:8080"],
+        "BlockNewRequests": false
       },
       "Microphone": {
-        "BlockNewRequests": true
+        "Allow": ["http://localhost:8080"],
+        "BlockNewRequests": false
       },
       "Autoplay": {
-        "Default": "allow-audio-video"
+        "Default": "allow-audio-video",
+        "Allow": ["http://localhost:8080"],
+        "Locked": true
       }
     },
     "PopupBlocking": {
@@ -1005,13 +1096,17 @@ defaultPref("layers.acceleration.disabled", true);
 defaultPref("media.autoplay.default", 0);
 defaultPref("media.autoplay.blocking_policy", 0);
 defaultPref("media.autoplay.allow-extension-background-pages", true);
-// Suppress all permission prompts and notification bars
+// Suppress notification prompts, allow hardware access (kiosk = trust all)
 defaultPref("permissions.default.desktop-notification", 2);
-defaultPref("permissions.default.geo", 2);
-defaultPref("permissions.default.camera", 2);
-defaultPref("permissions.default.microphone", 2);
+defaultPref("permissions.default.geo", 1);
+defaultPref("permissions.default.camera", 1);
+defaultPref("permissions.default.microphone", 1);
 defaultPref("dom.webnotifications.enabled", false);
 defaultPref("dom.push.enabled", false);
+// MIDI: allow without prompting (including SysEx)
+defaultPref("midi.prompt_on_sysex_access", false);
+defaultPref("midi.testing", true);
+defaultPref("dom.webmidi.enabled", true);
 defaultPref("browser.urlbar.suggest.searches", false);
 defaultPref("security.insecure_connection_text.enabled", false);
 defaultPref("security.insecure_connection_text.pbmode.enabled", false);
