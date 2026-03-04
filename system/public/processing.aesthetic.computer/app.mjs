@@ -5,116 +5,158 @@ const AC_ORIGIN = "https://aesthetic.computer";
 
 const EXAMPLES = [
   {
-    id: "p5-basic",
-    title: "p5 Style Starter",
-    code: `let t = 0;
+    id: "linear-motion",
+    title: "Linear Motion",
+    sourceUrl: "https://processing.org/examples/linear.html",
+    code: `/**
+ * Linear Motion.
+ *
+ * Changing a variable to create a moving line.
+ * When the line moves off the edge of the window,
+ * the variable is set to 0, which places the line
+ * back at the bottom of the screen.
+ */
 
-function setup() {
-  createCanvas(256, 256);
-  noStroke();
-}
+float a;
 
-function draw() {
-  background(18, 18, 28);
-  let d = 74 + Math.sin(t) * 24;
-  fill(250, 184, 58);
-  ellipse(width / 2, height / 2, d, d);
-  t += 0.05;
-}`,
-  },
-  {
-    id: "pulse",
-    title: "Pulse Circle",
-    code: `void setup() {
-  size(256, 256);
+void setup() {
+  size(640, 360);
+  stroke(255);
+  a = height / 2;
 }
 
 void draw() {
-  background(12, 12, 18);
-  float r = 40 + sin(frameCount * 0.05) * 20;
-  fill(255, 120, 80);
-  circle(width / 2, height / 2, r * 2);
-}`,
-  },
-  {
-    id: "mouse",
-    title: "Mouse Dots",
-    code: `void setup() {
-  background(255);
-}
-
-void draw() {
-  if (mouseIsPressed) {
-    fill(20, 20, 20);
-    circle(mouseX, mouseY, 10);
+  background(51);
+  line(0, a, width, a);
+  a = a - 0.5;
+  if (a < 0) {
+    a = height;
   }
 }`,
   },
   {
-    id: "grid",
-    title: "Grid Drift",
-    code: `void setup() {
-  size(256, 256);
+    id: "sine",
+    title: "Sine",
+    sourceUrl: "https://processing.org/examples/sine.html",
+    code: `/**
+ * Sine.
+ *
+ * Smoothly scaling size with the sin() function.
+ */
+
+float diameter;
+float angle = 0;
+
+void setup() {
+  size(640, 360);
+  diameter = height - 10;
+  noStroke();
+  fill(255, 204, 0);
 }
 
 void draw() {
-  background(245);
-  stroke(0);
-  noFill();
+  background(0);
 
-  for (int y = 16; y <= height - 16; y += 16) {
-    for (int x = 16; x <= width - 16; x += 16) {
-      float wobble = sin((x + y + frameCount) * 0.04) * 3;
-      circle(x + wobble, y, 6);
+  float d1 = 10 + (sin(angle) * diameter / 2) + diameter / 2;
+  float d2 = 10 + (sin(angle + PI / 2) * diameter / 2) + diameter / 2;
+  float d3 = 10 + (sin(angle + PI) * diameter / 2) + diameter / 2;
+
+  ellipse(0, height / 2, d1, d1);
+  ellipse(width / 2, height / 2, d2, d2);
+  ellipse(width, height / 2, d3, d3);
+
+  angle += 0.02;
+}`,
+  },
+  {
+    id: "distance-2d",
+    title: "Distance 2D",
+    sourceUrl: "https://processing.org/examples/distance2d.html",
+    code: `/**
+ * Distance 2D.
+ *
+ * Move the mouse across the image to obscure and reveal the matrix.
+ * Measures the distance from the mouse to each square and sets the
+ * size proportionally.
+ */
+
+float max_distance;
+
+void setup() {
+  size(640, 360);
+  noStroke();
+  max_distance = dist(0, 0, width, height);
+}
+
+void draw() {
+  background(0);
+
+  for (int i = 0; i <= width; i += 20) {
+    for (int j = 0; j <= height; j += 20) {
+      float size = dist(mouseX, mouseY, i, j);
+      size = size / max_distance * 66;
+      ellipse(i, j, size, size);
     }
   }
 }`,
   },
   {
-    id: "events",
-    title: "Event Hooks",
-    code: `float x = 24;
+    id: "conditionals-1",
+    title: "Conditionals 1",
+    sourceUrl: "https://processing.org/examples/conditionals1.html",
+    code: `/**
+ * Conditionals 1.
+ *
+ * Conditions are like questions.
+ * They allow a program to decide to take one action if
+ * the answer to a question is "true" or to do another action
+ * if the answer to the question is "false."
+ */
 
 void setup() {
-  size(320, 180);
+  size(640, 360);
 }
 
 void draw() {
-  background(15, 15, 20);
-  fill(245, 220, 72);
-  circle(x, height / 2, 26);
+  background(0);
 
-  x += 2;
-  if (x > width + 24) {
-    x = -24;
+  for (int i = 10; i < width; i += 10) {
+    if ((i % 20) == 0) {
+      stroke(255);
+      line(i, 80, i, height / 2);
+    } else {
+      stroke(153);
+      line(i, 20, i, 180);
+    }
   }
-}
 
-void mousePressed() {
-  x = mouseX;
-}
-
-void keyPressed() {
-  x = 24;
+  noLoop();
 }`,
   },
   {
-    id: "l5-parity",
-    title: "Processing Shape Primitives",
-    sourceUrl: "https://processing.org/examples/shapeprimitives.html",
-    code: `void setup() {
-  size(360, 220);
+    id: "random",
+    title: "Random",
+    sourceUrl: "https://processing.org/examples/random.html",
+    code: `/**
+ * Random.
+ *
+ * Random numbers create the basis of this image.
+ * Each time the program is loaded the result is different.
+ */
+
+void setup() {
+  size(640, 360);
+  background(0);
+  strokeWeight(20);
+  frameRate(2);
 }
 
 void draw() {
-  background(220);
-  square(18, 18, 60);
-  rect(96, 26, 110, 58);
-  ellipse(268, 70, 120, 62);
-  line(24, 145, 155, 198);
-  triangle(180, 198, 228, 138, 282, 198);
-  quad(296, 154, 320, 128, 352, 160, 336, 198);
-  noLoop();
+  for (int i = 0; i < width; i++) {
+    float r = random(255);
+    stroke(r);
+    line(i, 0, i, height);
+  }
 }`,
   },
 ];
@@ -215,7 +257,7 @@ await createTryPage({
   },
   languageLabel: "Processing v0",
   helperText:
-    "Writes Processing-style Java (and p5-style function/createCanvas) then transpiles to Lua for the AC L5 runtime. Cmd/Ctrl+Enter runs, Cmd/Ctrl+S copies a share link.",
+    "Canonical Processing examples from processing.org, transpiled to Lua for the AC L5 runtime. p5-style function/createCanvas syntax also works. Cmd/Ctrl+Enter runs, Cmd/Ctrl+S copies a share link.",
   defaultDocMessage: "Hover over a Processing symbol to see v0 docs and runtime notes.",
   fontFacesCss: `
     @font-face {
