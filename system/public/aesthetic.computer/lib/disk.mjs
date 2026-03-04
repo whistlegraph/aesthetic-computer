@@ -5236,9 +5236,8 @@ const $paintApi = {
       bounds,
       wordWrap = true,
       customTypeface = null,
-      rotation = 0,
-      noFunding = false;
-    
+      rotation = 0;
+
     if (text === undefined || text === null || text === "" || !tf)
       return $activePaintApi; // Fail silently if no text.
 
@@ -5246,71 +5245,7 @@ const $paintApi = {
       typeof text === "object" && text !== null
         ? JSON.stringify(text)
         : text.toString();
-    
-    // Check for noFunding option early (before funding mode processing)
-    // Support both object-style pos.noFunding and options.noFunding
-    if (typeof arguments[1] === "number") {
-      noFunding = arguments[3]?.noFunding ?? false;
-    } else {
-      noFunding = arguments[1]?.noFunding ?? false;
-    }
-    
-    // 💵 FUNDING MODE: Randomly replace S/s with green $ for financial vibes
-    // For shadows: replace character but don't add color codes (shadow uses shadow color)
-    // Skip if noFunding option is set
-    if (typeof globalThis !== "undefined" && globalThis.AC_FUNDING_MODE && !noFunding) {
-      // Use a seeded random based on text position to keep it stable per frame
-      // but change over time (every ~500ms)
-      const timeSlot = Math.floor(Date.now() / 500);
-      // Track if we're inside a color code to restore it after $
-      let result = '';
-      let currentColor = null;
-      let i = 0;
-      while (i < text.length) {
-        // Check for color code start
-        if (text[i] === '\\' && i + 1 < text.length) {
-          // Find the end of the color code
-          const endSlash = text.indexOf('\\', i + 1);
-          if (endSlash !== -1) {
-            currentColor = text.substring(i + 1, endSlash);
-            result += text.substring(i, endSlash + 1);
-            i = endSlash + 1;
-            continue;
-          }
-        }
-        
-        const char = text[i];
-        if (char === 'S' || char === 's') {
-          // Use a pseudo-random based on char position and time
-          const hash = ((i * 17 + timeSlot * 31) % 100) / 100;
-          if (hash < 0.25) {
-            if (_isRenderingShadow) {
-              // For shadows: just replace the character, no color codes
-              result += '$';
-            } else {
-              // Pick a random green shade based on position
-              const greens = ['lime', 'green', '0,200,0', '100,255,100', '50,220,50'];
-              const greenIndex = (i * 7 + timeSlot * 13) % greens.length;
-              const greenColor = greens[greenIndex];
-              // Replace with green $ and restore original color after
-              result += '\\' + greenColor + '\\$';
-              // Restore previous color, or reset to default if no color was set
-              if (currentColor) {
-                result += '\\' + currentColor + '\\';
-              } else {
-                result += '\\reset\\';
-              }
-            }
-            i++;
-            continue;
-          }
-        }
-        result += char;
-        i++;
-      }
-      text = result;
-    }
-    
+
     // Assume: text, x, y, options, wordWrap, customTypeface
     if (typeof arguments[1] === "number") {
       pos = { x: arguments[1], y: arguments[2] };
@@ -9814,9 +9749,6 @@ async function makeFrame({ data: { type, content } }) {
       console.log("💬 Chat disabled, just grabbing screenshots. 😃");
     } else if (getPackMode()) {
       // Skip chat connection in PACK mode - offline bundle
-    } else if (globalThis.AC_CHAT_DISABLED) {
-      // Skip chat connection in CRITICAL funding mode only
-      console.log("💬 Chat disabled - critical funding mode active");
     } else {
       chatClient.connect("system"); // Connect to `system` chat.
     }
