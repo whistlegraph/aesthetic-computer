@@ -5,6 +5,24 @@ const AC_ORIGIN = "https://aesthetic.computer";
 
 const EXAMPLES = [
   {
+    id: "p5-basic",
+    title: "p5 Style Starter",
+    code: `let t = 0;
+
+function setup() {
+  createCanvas(256, 256);
+  noStroke();
+}
+
+function draw() {
+  background(18, 18, 28);
+  let d = 74 + Math.sin(t) * 24;
+  fill(250, 184, 58);
+  ellipse(width / 2, height / 2, d, d);
+  t += 0.05;
+}`,
+  },
+  {
     id: "pulse",
     title: "Pulse Circle",
     code: `void setup() {
@@ -115,6 +133,11 @@ const PROCESSING_DOCS = {
   mouseDragged: { sig: "void mouseDragged()", desc: "Runs while pointer is down and moving.", cat: "Lifecycle" },
   mouseMoved: { sig: "void mouseMoved()", desc: "Runs when pointer moves without pressing.", cat: "Lifecycle" },
   size: { sig: "size(width, height)", desc: "Set the sketch resolution.", cat: "Canvas" },
+  createCanvas: {
+    sig: "createCanvas(width, height)",
+    desc: "p5.js alias for size(width, height) in Processing v0 mode.",
+    cat: "Canvas",
+  },
   background: { sig: "background(r, g, b, a?)", desc: "Clear the canvas with a color.", cat: "Graphics" },
   fill: { sig: "fill(r, g, b, a?)", desc: "Set fill color for shapes and text.", cat: "Graphics" },
   noFill: { sig: "noFill()", desc: "Disable shape fill.", cat: "Graphics" },
@@ -191,7 +214,8 @@ await createTryPage({
     urlForExample: (example, fallback) => example.sourceUrl || fallback,
   },
   languageLabel: "Processing v0",
-  helperText: "Writes Processing-style Java and transpiles to Lua for the AC L5 runtime. Cmd/Ctrl+Enter to force run.",
+  helperText:
+    "Writes Processing-style Java (and p5-style function/createCanvas) then transpiles to Lua for the AC L5 runtime. Cmd/Ctrl+Enter runs, Cmd/Ctrl+S copies a share link.",
   defaultDocMessage: "Hover over a Processing symbol to see v0 docs and runtime notes.",
   fontFacesCss: `
     @font-face {
