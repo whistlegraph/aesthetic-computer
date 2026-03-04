@@ -397,7 +397,7 @@
         <div class="header-row">
             <div class="header-left">
                 <h1 id="title">bills</h1>
-                <div class="subtitle">aesthetic.computer — 2026-03-03</div>
+                <div class="subtitle">aesthetic.computer — updated 2026-03-03</div>
             </div>
             <div class="sponsor-badge">
                 <iframe src="https://github.com/sponsors/whistlegraph/button" title="Sponsor whistlegraph" height="32" width="114" style="border: 0;"></iframe>
@@ -411,17 +411,13 @@
 
         <!-- Alerts -->
         <div class="alerts">
-            <div class="alert">
-                <div class="alert-dot red"></div>
-                <div class="alert-text"><strong>DigitalOcean suspended</strong> — $412.34 overdue. All services off.</div>
+            <div class="alert" style="border-left-color: var(--green);">
+                <div class="alert-dot" style="background: var(--green);"></div>
+                <div class="alert-text"><strong>DigitalOcean restored</strong> — paid and all droplets back online. Thanks Casey!</div>
             </div>
             <div class="alert">
                 <div class="alert-dot red"></div>
                 <div class="alert-text"><strong>GitHub overdue</strong> — ~$500 unpaid. <a href="https://github.com/organizations/justanothersystem/billing/history">billing history</a></div>
-            </div>
-            <div class="alert">
-                <div class="alert-dot red"></div>
-                <div class="alert-text"><strong>MongoDB down</strong> — migrated to DO silo — also suspended.</div>
             </div>
             <div class="alert alert-warn">
                 <div class="alert-dot gold"></div>
@@ -433,7 +429,7 @@
         <div class="stats">
             <div class="stat-box">
                 <div class="stat-label">overdue</div>
-                <div class="stat-value" style="color: var(--red);">~$912</div>
+                <div class="stat-value" style="color: var(--red);">~$500</div>
             </div>
             <div class="stat-box">
                 <div class="stat-label">monthly</div>
@@ -458,14 +454,14 @@
         <!-- Service Map (visual) -->
         <h2>service map</h2>
         <div class="service-map">
-            <div class="svc down"><div class="svc-name">oven</div><div class="svc-cost">$48/mo</div></div>
-            <div class="svc down"><div class="svc-name">silo</div><div class="svc-cost">$24/mo</div></div>
-            <div class="svc down"><div class="svc-name">help</div><div class="svc-cost">$24/mo</div></div>
-            <div class="svc down"><div class="svc-name">session</div><div class="svc-cost">$7/mo</div></div>
-            <div class="svc down"><div class="svc-name">at/pds</div><div class="svc-cost">$6/mo</div></div>
-            <div class="svc down"><div class="svc-name">legacy</div><div class="svc-cost">$12/mo</div></div>
-            <div class="svc down"><div class="svc-name">redis</div><div class="svc-cost">$15/mo</div></div>
-            <div class="svc down"><div class="svc-name">spaces</div><div class="svc-cost">$5/mo</div></div>
+            <div class="svc ok"><div class="svc-name">oven</div><div class="svc-cost">$48/mo</div></div>
+            <div class="svc ok"><div class="svc-name">silo</div><div class="svc-cost">$24/mo</div></div>
+            <div class="svc ok"><div class="svc-name">help</div><div class="svc-cost">$24/mo</div></div>
+            <div class="svc ok"><div class="svc-name">session</div><div class="svc-cost">$7/mo</div></div>
+            <div class="svc ok"><div class="svc-name">at/pds</div><div class="svc-cost">$6/mo</div></div>
+            <div class="svc ok"><div class="svc-name">legacy</div><div class="svc-cost">$12/mo</div></div>
+            <div class="svc ok"><div class="svc-name">redis</div><div class="svc-cost">$15/mo</div></div>
+            <div class="svc ok"><div class="svc-name">spaces</div><div class="svc-cost">$5/mo</div></div>
             <div class="svc warn"><div class="svc-name">netlify</div><div class="svc-cost">$19/mo</div></div>
             <div class="svc free"><div class="svc-name">cloudflare</div><div class="svc-cost">free</div></div>
             <div class="svc free"><div class="svc-name">auth0</div><div class="svc-cost">free</div></div>
@@ -481,10 +477,10 @@
         <table>
             <thead><tr><th>status</th><th>service</th><th>monthly</th><th class="hide-mobile">notes</th></tr></thead>
             <tbody>
-                <tr><td><span class="pill pill-red">suspended</span></td><td>DigitalOcean</td><td class="money">~$132</td><td class="hide-mobile">$412.34 overdue — account locked</td></tr>
+                <tr><td><span class="pill pill-green">active</span></td><td>DigitalOcean</td><td class="money">~$132</td><td class="hide-mobile">Paid — all droplets restored</td></tr>
                 <tr><td><span class="pill pill-gold">past due</span></td><td>Netlify</td><td class="money">$19</td><td class="hide-mobile">Pro plan — 25 days until disabled</td></tr>
                 <tr><td><span class="pill pill-red">overdue</span></td><td>GitHub</td><td class="money">~$500</td><td class="hide-mobile">Prior months (Codespaces/Copilot)</td></tr>
-                <tr><td><span class="pill pill-red">down</span></td><td>MongoDB</td><td class="money">$0</td><td class="hide-mobile">Atlas → DO silo (both down)</td></tr>
+                <tr><td><span class="pill pill-green">active</span></td><td>MongoDB</td><td class="money">$0</td><td class="hide-mobile">Atlas → DO silo — restored</td></tr>
                 <tr><td><span class="pill pill-cyan">free</span></td><td>Cloudflare</td><td class="money">$0</td><td class="hide-mobile">8 zones, 2 Workers</td></tr>
                 <tr><td><span class="pill pill-green">active</span></td><td>Firebase / GCP</td><td class="money">$0–50</td><td class="hide-mobile">Free auth + Nanos VMs (unknown)</td></tr>
                 <tr><td><span class="pill pill-cyan">free</span></td><td>Auth0</td><td class="money">$0</td><td class="hide-mobile">Free tier (7K users)</td></tr>
@@ -497,20 +493,20 @@
         </table>
 
         <!-- DigitalOcean -->
-        <h2>digitalocean — $412.34 overdue</h2>
+        <h2>digitalocean — paid</h2>
 
         <div class="stats" style="margin-bottom: 1em;">
             <div class="stat-box">
-                <div class="stat-label">account balance</div>
-                <div class="stat-value" style="color: var(--red);">$401.20</div>
+                <div class="stat-label">status</div>
+                <div class="stat-value" style="color: var(--green);">active</div>
             </div>
             <div class="stat-box">
-                <div class="stat-label">march mtd</div>
-                <div class="stat-value" style="color: var(--gold);">$11.14</div>
+                <div class="stat-label">monthly</div>
+                <div class="stat-value" style="color: var(--gold);">~$132</div>
             </div>
         </div>
 
-        <h3>droplets (all off)</h3>
+        <h3>droplets (all active)</h3>
         <table>
             <thead><tr><th>name</th><th>ip</th><th class="hide-mobile">size</th><th>$/mo</th><th class="hide-mobile">purpose</th></tr></thead>
             <tbody>
@@ -599,7 +595,7 @@
         <h3>urgent</h3>
         <div class="card">
             <p><strong>1.</strong> Fix Netlify payment — site dies in 25 days</p>
-            <p><strong>2.</strong> Pay DigitalOcean $412.34 — DB is here too</p>
+            <p><strong>2.</strong> <s>Pay DigitalOcean $412.34</s> — DONE</p>
             <p><strong>3.</strong> Pay GitHub ~$500 — <a href="https://github.com/organizations/justanothersystem/billing/history">billing history</a></p>
         </div>
 
