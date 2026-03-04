@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>papers · Aesthetic Computer</title>
+    <meta name="description" content="Academic papers on Aesthetic Computer and KidLisp.">
+    <link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png" />
+    <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+    <link rel="preload" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2" as="font" type="font/woff2" crossorigin="anonymous">
+    <style>
+        @font-face {
+            font-family: 'YWFT Processing';
+            src: url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2') format('woff2');
+            font-weight: normal;
+            font-display: swap;
+        }
+
+        :root {
+            --bg: #1a1a2e;
+            --text: #e8e8e8;
+            --dim: #888;
+            --pink: #ff6b9d;
+            --cyan: #4ecdc4;
+            --purple: #b48cff;
+            --box-bg: rgba(255,255,255,0.03);
+            --box-border: rgba(255,255,255,0.1);
+        }
+
+        body.light-mode {
+            --bg: #f5f5f5;
+            --text: #1a1a2e;
+            --dim: #666;
+            --pink: rgb(205, 92, 155);
+            --cyan: #0891b2;
+            --purple: #7c3aed;
+            --box-bg: rgba(0,0,0,0.03);
+            --box-border: rgba(0,0,0,0.12);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        ::-webkit-scrollbar { display: none; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Berkeley Mono Variable', 'Menlo', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            -webkit-text-size-adjust: none;
+            cursor: url('https://aesthetic.computer/aesthetic.computer/cursors/precise.svg') 12 12, auto;
+        }
+
+        .container {
+            max-width: 640px;
+            margin: 0 auto;
+            padding: 2em 1.5em 3em;
+        }
+
+        .header {
+            margin-bottom: 2em;
+        }
+
+        h1 {
+            font-family: 'YWFT Processing', monospace;
+            font-size: 1.8em;
+            font-weight: normal;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.3em;
+        }
+
+        h1 .dot { color: var(--pink); }
+
+        .subtitle {
+            color: var(--dim);
+            font-size: 0.85em;
+        }
+
+        .author {
+            color: var(--dim);
+            font-size: 0.8em;
+            margin-top: 0.5em;
+        }
+
+        .author a { color: var(--cyan); text-decoration: none; }
+        .author a:hover { text-decoration: underline; }
+
+        .paper-group {
+            margin-bottom: 2em;
+        }
+
+        .paper-group h2 {
+            font-size: 1em;
+            font-weight: 600;
+            color: var(--pink);
+            margin-bottom: 0.8em;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .paper {
+            background: var(--box-bg);
+            border: 1px solid var(--box-border);
+            border-radius: 6px;
+            padding: 1em 1.2em;
+            margin-bottom: 0.6em;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1em;
+        }
+
+        .paper-info {
+            flex: 1;
+        }
+
+        .paper-title {
+            font-weight: 600;
+            margin-bottom: 0.2em;
+        }
+
+        .paper-meta {
+            color: var(--dim);
+            font-size: 0.8em;
+        }
+
+        .paper-links {
+            display: flex;
+            gap: 0.6em;
+            flex-shrink: 0;
+        }
+
+        .paper-links a {
+            color: var(--cyan);
+            text-decoration: none;
+            font-size: 0.85em;
+            padding: 0.3em 0.6em;
+            border: 1px solid var(--box-border);
+            border-radius: 4px;
+            transition: border-color 0.15s;
+        }
+
+        .paper-links a:hover {
+            border-color: var(--cyan);
+        }
+
+        .footer {
+            margin-top: 3em;
+            padding-top: 1em;
+            border-top: 1px solid var(--box-border);
+            color: var(--dim);
+            font-size: 0.75em;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .footer a { color: var(--purple); text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
+
+        .theme-toggle {
+            cursor: pointer;
+            background: none;
+            border: 1px solid var(--box-border);
+            color: var(--dim);
+            font-family: inherit;
+            font-size: 0.75em;
+            padding: 0.3em 0.6em;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Aesthetic<span class="dot">.</span>Computer Papers</h1>
+            <div class="subtitle">Academic papers on the AC platform and KidLisp language.</div>
+            <div class="author">Jeffrey Alan Scudder &mdash; <a href="https://orcid.org/0009-0007-4460-4913">ORCID 0009-0007-4460-4913</a></div>
+        </div>
+
+        <div class="paper-group">
+            <h2>Aesthetic Computer '26</h2>
+            <div class="paper">
+                <div class="paper-info">
+                    <div class="paper-title">A Mobile-First Runtime for Creative Computing</div>
+                    <div class="paper-meta">arXiv preprint &middot; 5 pages &middot; March 2026</div>
+                </div>
+                <div class="paper-links">
+                    <a href="/aesthetic-computer-26-arxiv.pdf">PDF</a>
+                </div>
+            </div>
+            <div class="paper">
+                <div class="paper-info">
+                    <div class="paper-title">JOSS Summary</div>
+                    <div class="paper-meta">Journal of Open Source Software &middot; 2 pages &middot; March 2026</div>
+                </div>
+                <div class="paper-links">
+                    <a href="/aesthetic-computer-26-joss.pdf">PDF</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="paper-group">
+            <h2>KidLisp '26</h2>
+            <div class="paper">
+                <div class="paper-info">
+                    <div class="paper-title">A Minimal Lisp for Generative Art on a Social Platform</div>
+                    <div class="paper-meta">arXiv preprint &middot; 6 pages &middot; March 2026</div>
+                </div>
+                <div class="paper-links">
+                    <a href="/kidlisp-26-arxiv.pdf">PDF</a>
+                </div>
+            </div>
+            <div class="paper">
+                <div class="paper-info">
+                    <div class="paper-title">JOSS Summary</div>
+                    <div class="paper-meta">Journal of Open Source Software &middot; 3 pages &middot; March 2026</div>
+                </div>
+                <div class="paper-links">
+                    <a href="/kidlisp-26-joss.pdf">PDF</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <span><a href="https://aesthetic.computer">aesthetic.computer</a> &middot; <a href="https://github.com/digitpain/aesthetic.computer">source</a></span>
+            <button class="theme-toggle" onclick="document.body.classList.toggle('light-mode')">theme</button>
+        </div>
+    </div>
+</body>
+</html>

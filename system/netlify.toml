@@ -2187,6 +2187,28 @@ from = "https://bills.aesthetic.computer/*"
 to = "/bills.aesthetic.computer/:splat"
 status = 200
 force = true
+# papers.aesthetic.computer subdomain
+[[redirects]]
+from = "https://papers.aesthetic.computer"
+to = "/papers.aesthetic.computer/index.html"
+status = 200
+force = true
+[[redirects]]
+from = "https://papers.aesthetic.computer/*"
+to = "/papers.aesthetic.computer/:splat"
+status = 200
+force = true
+# papers.prompt.ac → papers.aesthetic.computer
+[[redirects]]
+from = "https://papers.prompt.ac"
+to = "https://papers.aesthetic.computer"
+status = 301
+force = true
+[[redirects]]
+from = "https://papers.prompt.ac/*"
+to = "https://papers.aesthetic.computer/:splat"
+status = 301
+force = true
 
 [[redirects]]
 from = "/*"
