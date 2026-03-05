@@ -106,12 +106,8 @@ The `publish` command uploads a piece under the user's `@handle`. The `source` c
 
 The platform's 2,801 registered users, 16,244 KidLisp programs, 4,404 paintings, and 18,020 chat messages constitute a dataset for studying creative computing practices in a mobile-first, social context. The prompt-as-instrument interaction model offers a case study in alternative programming interfaces.
 
-# AI usage disclosure
+# Assemblage
 
-The AC runtime was primarily written by the author. Claude (Anthropic) was used as a development assistant for debugging, test writing, and documentation. This paper was drafted with AI assistance.
-
-# Acknowledgements
-
-Thanks to the AC community for creating the corpus and providing feedback, and to the 14 contributors to the open-source repository.
+Written and produced by Jeffrey Alan Scudder. Tools used in the making of Aesthetic Computer and this paper include: JavaScript, Node.js, Vim, various LLMs (Claude, GPT, Gemini, etc.), fish shell, Git, Firefox, and a lot of coffee. Thanks to the AC community for creating the corpus and providing feedback, and to the 14 contributors to the open-source repository.
 
 # References
