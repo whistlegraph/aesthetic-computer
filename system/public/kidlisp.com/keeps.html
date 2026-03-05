@@ -28,6 +28,9 @@
   <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 
+  <!-- Auth0 SPA SDK -->
+  <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
+
   <style>
     /* ========================================
        FONTS
@@ -165,7 +168,6 @@
       font-size: 12px;
       color: var(--text-tertiary);
       white-space: nowrap;
-      margin-left: auto;
     }
 
     /* ========================================
@@ -1305,6 +1307,212 @@
     .keeps-modal-info span { display: block; margin-bottom: 2px; }
 
     /* ========================================
+       AUTH UI
+       ======================================== */
+    .keeps-auth {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+    }
+
+    .keeps-auth-btn {
+      padding: 5px 12px;
+      background: var(--ac-purple);
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      cursor: pointer;
+      transition: filter 0.15s;
+    }
+    .keeps-auth-btn:hover { filter: brightness(1.15); }
+
+    .keeps-auth-btn.logout {
+      background: var(--bg-secondary);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-color);
+    }
+    .keeps-auth-btn.logout:hover { border-color: var(--ac-purple); color: var(--ac-purple); }
+
+    .keeps-auth-handle {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ac-purple);
+    }
+
+    /* ========================================
+       MINT MODAL
+       ======================================== */
+    .keeps-mint-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 20000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .keeps-mint-overlay.open {
+      display: flex;
+      animation: modalFadeIn 0.2s ease-out forwards;
+    }
+
+    .keeps-mint-modal {
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      max-width: 520px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+      animation: modalScaleIn 0.25s ease-out;
+    }
+
+    .mint-header {
+      padding: 16px 20px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .mint-header-title {
+      font-family: var(--font-mono);
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--ac-purple);
+    }
+
+    .mint-body {
+      padding: 20px;
+    }
+
+    .mint-piece-info {
+      margin-bottom: 16px;
+      padding: 12px;
+      background: var(--bg-secondary);
+      border-radius: 8px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .mint-piece-info strong { color: var(--text-primary); }
+
+    .mint-timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      margin-bottom: 16px;
+    }
+
+    .mint-step {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-left: 2px solid var(--border-color);
+      font-size: 12px;
+      color: var(--text-tertiary);
+      transition: all 0.2s;
+    }
+
+    .mint-step-icon {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      border-radius: 50%;
+    }
+
+    .mint-step.pending .mint-step-icon::after { content: '\25CB'; }
+    .mint-step.active { border-left-color: #d4a017; color: var(--text-primary); background: rgba(255, 193, 7, 0.06); }
+    .mint-step.active .mint-step-icon { color: #d4a017; }
+    .mint-step.active .mint-step-icon::after { content: '\25B6'; }
+    .mint-step.done { border-left-color: #4a9c5d; color: var(--text-secondary); }
+    .mint-step.done .mint-step-icon { color: #4a9c5d; }
+    .mint-step.done .mint-step-icon::after { content: '\2713'; }
+    .mint-step.error { border-left-color: #d9534f; color: #d9534f; background: rgba(217, 83, 79, 0.06); }
+    .mint-step.error .mint-step-icon::after { content: '\2717'; }
+
+    .mint-step-label { flex: 1; }
+    .mint-step-detail { font-size: 11px; color: var(--text-tertiary); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .mint-actions {
+      display: flex;
+      gap: 8px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .mint-action-btn {
+      flex: 1;
+      padding: 10px 16px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: center;
+    }
+
+    .mint-action-btn.primary {
+      background: #4a9c5d;
+      color: white;
+      border-color: #4a9c5d;
+    }
+    .mint-action-btn.primary:hover { filter: brightness(1.1); }
+    .mint-action-btn.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .mint-action-btn.cancel {
+      background: var(--bg-secondary);
+      color: var(--text-secondary);
+    }
+    .mint-action-btn.cancel:hover { border-color: var(--ac-purple); color: var(--ac-purple); }
+
+    .mint-result {
+      margin-top: 16px;
+      padding: 12px;
+      background: rgba(74, 156, 93, 0.1);
+      border: 1px solid rgba(74, 156, 93, 0.3);
+      border-radius: 8px;
+      font-size: 12px;
+      color: #4a9c5d;
+    }
+    .mint-result a { color: #4a9c5d; text-decoration: underline; }
+
+    .mint-error-msg {
+      margin-top: 16px;
+      padding: 12px;
+      background: rgba(217, 83, 79, 0.1);
+      border: 1px solid rgba(217, 83, 79, 0.3);
+      border-radius: 8px;
+      font-size: 12px;
+      color: #d9534f;
+    }
+
+    /* Keep button in card */
+    .keeps-card-btn.keep-btn {
+      background: rgba(74, 156, 93, 0.1);
+      border-color: rgba(74, 156, 93, 0.3);
+      color: #4a9c5d;
+      font-weight: 600;
+    }
+    .keeps-card-btn.keep-btn:hover {
+      background: rgba(74, 156, 93, 0.2);
+      border-color: #4a9c5d;
+      color: #4a9c5d;
+    }
+
+    /* ========================================
        FOOTER
        ======================================== */
     .keeps-footer {
@@ -1351,6 +1559,12 @@
         <span class="keeps-subdomain">keeps</span><span class="com-part">.</span><span class="baby-k">K</span><span class="baby-i">i</span><span class="baby-d">d</span><span class="baby-l">L</span><span class="baby-i2">i</span><span class="baby-s">s</span><span class="baby-p">p</span><span class="com-part">.com</span>
       </a>
       <span class="keeps-count" id="keeps-count"></span>
+      <!-- Auth UI -->
+      <div class="keeps-auth" id="keeps-auth">
+        <button class="keeps-auth-btn" id="keeps-login-btn" style="display:none;" onclick="keepsLogin()">Log In</button>
+        <span class="keeps-auth-handle" id="keeps-auth-handle" style="display:none;"></span>
+        <button class="keeps-auth-btn logout" id="keeps-logout-btn" style="display:none;" onclick="keepsLogout()">Log Out</button>
+      </div>
     </div>
     <div class="keeps-castle-wrap">
       <!-- Floating $codes -->
@@ -2388,6 +2602,25 @@
     </div>
   </div>
 
+  <!-- MINT MODAL -->
+  <div class="keeps-mint-overlay" id="mint-overlay">
+    <div class="keeps-mint-modal">
+      <div class="mint-header">
+        <span class="mint-header-title" id="mint-title">Keep $code</span>
+        <button class="keeps-modal-close" onclick="closeMintModal()">&times;</button>
+      </div>
+      <div class="mint-body">
+        <div class="mint-piece-info" id="mint-piece-info"></div>
+        <div class="mint-timeline" id="mint-timeline"></div>
+        <div id="mint-result-area"></div>
+        <div class="mint-actions" id="mint-actions" style="display:none;">
+          <button class="mint-action-btn cancel" onclick="cancelMint()">Cancel</button>
+          <button class="mint-action-btn primary" id="mint-confirm-btn" onclick="confirmMint()" disabled>Confirm &amp; Sign</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- FOOTER -->
   <footer class="keeps-footer">
     <a href="https://kidlisp.com">kidlisp.com</a> &middot;
@@ -2405,6 +2638,23 @@
     const API_BASE = isDev ? 'http://localhost:8888' : (isKidlispDomain ? '' : 'https://aesthetic.computer');
     const AC_BASE = isDev ? 'http://localhost:8888' : 'https://aesthetic.computer';
     const KL_BASE = isDev ? 'http://localhost:8888/kidlisp.com' : 'https://kidlisp.com';
+
+    // Auth state
+    let acAuth0Client = null;
+    let acUser = null;
+    let acToken = null;
+    let acHandle = null;
+
+    // Mint state
+    let mintAbortController = null;
+    let mintPreparedData = null;
+    let mintCurrentPiece = null;
+    let mintWalletAddress = null;
+
+    // Tezos constants
+    const KEEPS_CONTRACT = 'KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido';
+    const TEZOS_NETWORK = 'mainnet';
+    const TEZOS_RPC = 'https://mainnet.ecadinfra.com';
 
     let allCodes = [];
     let filteredCodes = [];
@@ -2487,7 +2737,7 @@
           <button class="keeps-card-btn preview-btn" data-code="${entry.code}" title="Preview">&#x25B6; Preview</button>
           <a class="keeps-card-btn" href="${KL_BASE}/$${entry.code}" title="Open in editor">&#x270E; Edit</a>
           <a class="keeps-card-btn html-btn" href="${AC_BASE}/api/bundle-html?code=${entry.code}" target="_blank" title="Download as standalone HTML">&#x1F4E6; HTML</a>
-          ${isKept ? `<span class="keeps-card-btn kept-badge" title="Kept on Tezos (Token #${entry.kept.tokenId || '?'})">&#x2714; Kept</span>` : ''}
+          ${isKept ? `<span class="keeps-card-btn kept-badge" title="Kept on Tezos (Token #${entry.kept.tokenId || '?'})">&#x2714; Kept</span>` : (acUser && entry.user === acUser.sub ? `<button class="keeps-card-btn keep-btn" data-code="${entry.code}" title="Keep on Tezos">&#x26D3; Keep</button>` : '')}
           ${timeStr ? `<span style="margin-left: auto; font-size: 10px; color: var(--text-tertiary);">${timeStr}</span>` : ''}
         </div>`;
 
@@ -2516,6 +2766,15 @@
 
       // Preview button handler
       card.querySelector('.preview-btn').addEventListener('click', () => openModal(entry));
+
+      // Keep button handler
+      const keepBtn = card.querySelector('.keep-btn');
+      if (keepBtn) {
+        keepBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openMintModal(entry);
+        });
+      }
 
       return card;
     }
@@ -2630,11 +2889,22 @@
 
       if (entry.kept) {
         actionsHTML += `<span class="keeps-modal-action-btn tezos-btn" style="cursor: default;">&#x2714; Kept on Tezos (Token #${entry.kept.tokenId || '?'})</span>`;
+      } else if (acUser && entry.user === acUser.sub) {
+        actionsHTML += `<button class="keeps-modal-action-btn tezos-btn" data-mint-code="${entry.code}">&#x26D3; Keep on Tezos</button>`;
       } else {
         actionsHTML += `<a class="keeps-modal-action-btn tezos-btn" href="${AC_BASE}/keep~$${entry.code}" target="_blank" title="Keep this code on Tezos">&#x26D3; Keep on Tezos</a>`;
       }
 
       modalActions.innerHTML = actionsHTML;
+
+      // Bind mint button in modal if present
+      const modalMintBtn = modalActions.querySelector('[data-mint-code]');
+      if (modalMintBtn) {
+        modalMintBtn.addEventListener('click', () => {
+          closeModal();
+          openMintModal(entry);
+        });
+      }
 
       // Info
       let infoHTML = `<span><strong>Author:</strong> ${escapeHtml(handle)}</span>`;
@@ -3073,6 +3343,390 @@
     }
 
     // =========================================
+    // AUTH0 AUTHENTICATION
+    // =========================================
+    async function initAuth0() {
+      try {
+        if (!window.auth0) return;
+        const isKeepsDomain = window.location.hostname === 'keeps.kidlisp.com';
+        const redirectUri = isKeepsDomain ? window.location.origin + '/' : window.location.origin + window.location.pathname;
+        acAuth0Client = await window.auth0.createAuth0Client({
+          domain: 'aesthetic.us.auth0.com',
+          clientId: 'LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt',
+          authorizationParams: { redirect_uri: redirectUri, audience: 'https://aesthetic.us.auth0.com/api/v2/' },
+          cacheLocation: 'localstorage',
+          useRefreshTokens: true,
+          useRefreshTokensFallback: true
+        });
+        // Handle redirect callback
+        if (window.location.search.includes('code=') || window.location.search.includes('error=')) {
+          try { await acAuth0Client.handleRedirectCallback(); window.history.replaceState({}, document.title, window.location.pathname); } catch (e) { /* callback error */ }
+        }
+        let isAuthenticated = await acAuth0Client.isAuthenticated();
+        if (!isAuthenticated) {
+          try { await acAuth0Client.getTokenSilently(); isAuthenticated = await acAuth0Client.isAuthenticated(); } catch (e) { /* silent auth failed */ }
+        }
+        if (isAuthenticated) {
+          acUser = await acAuth0Client.getUser();
+          acToken = await acAuth0Client.getTokenSilently();
+          try {
+            const userRes = await fetch(`${AC_BASE}/user?from=${encodeURIComponent(acUser.email)}&withHandle=true`);
+            const userData = await userRes.json();
+            if (userData.handle) acHandle = userData.handle;
+          } catch (e) { /* could not fetch handle */ }
+        }
+        updateAuthUI();
+      } catch (e) {
+        console.error('Auth0 init error:', e);
+        updateAuthUI();
+      }
+    }
+
+    function updateAuthUI() {
+      const loginBtn = document.getElementById('keeps-login-btn');
+      const logoutBtn = document.getElementById('keeps-logout-btn');
+      const handleEl = document.getElementById('keeps-auth-handle');
+      if (acUser) {
+        loginBtn.style.display = 'none';
+        const displayName = acHandle ? `@${acHandle}` : acUser.email?.split('@')[0] || 'User';
+        handleEl.textContent = displayName;
+        handleEl.style.display = 'inline';
+        logoutBtn.style.display = 'inline';
+      } else {
+        loginBtn.style.display = 'inline';
+        handleEl.style.display = 'none';
+        logoutBtn.style.display = 'none';
+      }
+    }
+
+    async function keepsLogin() {
+      if (!acAuth0Client) await initAuth0();
+      if (!acAuth0Client) return;
+      await acAuth0Client.loginWithRedirect({ authorizationParams: { prompt: 'login' } });
+    }
+
+    async function keepsLogout() {
+      if (!acAuth0Client) return;
+      acUser = null; acToken = null; acHandle = null;
+      const isKeepsDomain = window.location.hostname === 'keeps.kidlisp.com';
+      const returnTo = isKeepsDomain ? window.location.origin + '/' : window.location.origin + window.location.pathname;
+      await acAuth0Client.logout({ logoutParams: { returnTo } });
+    }
+
+    // =========================================
+    // TEZOS WALLET (Beacon SDK via CDN)
+    // =========================================
+    let beaconClient = null;
+
+    async function loadBeaconSDK() {
+      if (window.beacon) return;
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/@airgap/beacon-sdk@4.0.12/dist/walletbeacon.min.js';
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+    }
+
+    async function initTezosWallet() {
+      if (beaconClient) return;
+      await loadBeaconSDK();
+      beaconClient = new window.beacon.DAppClient({
+        name: 'KidLisp Keeps',
+        preferredNetwork: TEZOS_NETWORK,
+      });
+      // Check existing connection
+      const activeAccount = await beaconClient.getActiveAccount();
+      if (activeAccount) {
+        mintWalletAddress = activeAccount.address;
+      }
+    }
+
+    async function connectWallet() {
+      await initTezosWallet();
+      if (mintWalletAddress) return mintWalletAddress;
+      const perms = await beaconClient.requestPermissions({
+        network: { type: TEZOS_NETWORK },
+      });
+      mintWalletAddress = perms.address;
+      return mintWalletAddress;
+    }
+
+    // =========================================
+    // MINT FLOW
+    // =========================================
+    const MINT_STEPS = [
+      { id: 'wallet', label: 'Connect Wallet' },
+      { id: 'validate', label: 'Validate Piece' },
+      { id: 'analyze', label: 'Analyze Source' },
+      { id: 'thumbnail', label: 'Bake Thumbnail' },
+      { id: 'bundle', label: 'Pack HTML Bundle' },
+      { id: 'ipfs', label: 'Pin to IPFS' },
+      { id: 'metadata', label: 'Build Metadata' },
+      { id: 'review', label: 'Review & Pay' },
+      { id: 'sign', label: 'Sign Transaction' },
+      { id: 'complete', label: 'Keep Complete!' },
+    ];
+
+    let mintStepStates = {};
+
+    function renderTimeline() {
+      const container = document.getElementById('mint-timeline');
+      container.innerHTML = MINT_STEPS.map(step => {
+        const state = mintStepStates[step.id] || { status: 'pending', detail: '' };
+        return `<div class="mint-step ${state.status}" id="mint-step-${step.id}">
+          <span class="mint-step-icon"></span>
+          <span class="mint-step-label">${step.label}</span>
+          <span class="mint-step-detail">${state.detail || ''}</span>
+        </div>`;
+      }).join('');
+    }
+
+    function setMintStep(id, status, detail) {
+      mintStepStates[id] = { status, detail: detail || '' };
+      const el = document.getElementById(`mint-step-${id}`);
+      if (el) {
+        el.className = `mint-step ${status}`;
+        const detailEl = el.querySelector('.mint-step-detail');
+        if (detailEl && detail) detailEl.textContent = detail;
+      }
+    }
+
+    function openMintModal(entry) {
+      mintCurrentPiece = entry.code;
+      mintPreparedData = null;
+      mintStepStates = {};
+
+      document.getElementById('mint-title').textContent = `Keep $${entry.code}`;
+      document.getElementById('mint-piece-info').innerHTML = `
+        <strong>$${escapeHtml(entry.code)}</strong> by ${escapeHtml(entry.handle || 'anon')}<br>
+        <span style="font-size:11px; color:var(--text-tertiary);">This will mint your KidLisp piece as an NFT on Tezos (2.5 XTZ fee)</span>`;
+      document.getElementById('mint-result-area').innerHTML = '';
+      document.getElementById('mint-actions').style.display = 'none';
+      document.getElementById('mint-confirm-btn').disabled = true;
+
+      renderTimeline();
+      document.getElementById('mint-overlay').classList.add('open');
+
+      // Start the mint flow
+      startMintFlow(entry.code);
+    }
+
+    function closeMintModal() {
+      document.getElementById('mint-overlay').classList.remove('open');
+      if (mintAbortController) {
+        mintAbortController.abort();
+        mintAbortController = null;
+      }
+    }
+
+    function cancelMint() {
+      closeMintModal();
+    }
+
+    async function startMintFlow(piece) {
+      mintAbortController = new AbortController();
+
+      try {
+        // Step 1: Connect wallet
+        setMintStep('wallet', 'active', 'Connecting...');
+        const address = await connectWallet();
+        if (!address) {
+          setMintStep('wallet', 'error', 'Connection cancelled');
+          return;
+        }
+        setMintStep('wallet', 'done', address.slice(0, 8) + '...' + address.slice(-4));
+
+        // Step 2-7: Server preparation via SSE
+        setMintStep('validate', 'active', 'Validating...');
+
+        // Refresh token
+        if (acAuth0Client) {
+          try { acToken = await acAuth0Client.getTokenSilently(); } catch (e) { /* token refresh failed */ }
+        }
+
+        const response = await fetch(`${API_BASE}/api/keep-mint`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(acToken ? { 'Authorization': `Bearer ${acToken}` } : {}),
+          },
+          body: JSON.stringify({
+            piece: '$' + piece,
+            walletAddress: address,
+            network: TEZOS_NETWORK,
+          }),
+          signal: mintAbortController.signal,
+        });
+
+        if (!response.ok) {
+          const text = await response.text();
+          let errorMsg = `Server error ${response.status}`;
+          try { const j = JSON.parse(text); errorMsg = j.error || errorMsg; } catch (e) {}
+          setMintStep('validate', 'error', errorMsg);
+          showMintError(errorMsg);
+          return;
+        }
+
+        // Parse SSE stream
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let currentEventType = null;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const chunks = buffer.split('\n\n');
+          buffer = chunks.pop() || '';
+
+          for (const chunk of chunks) {
+            if (!chunk.trim()) continue;
+            const lines = chunk.split('\n');
+            let eventType = null, eventData = null;
+
+            for (const line of lines) {
+              if (line.startsWith('event: ')) eventType = line.slice(7).trim();
+              else if (line.startsWith('data: ')) {
+                try { eventData = JSON.parse(line.slice(6)); } catch (e) {}
+              }
+            }
+
+            if (!eventType) continue;
+
+            if (eventType === 'progress' && eventData) {
+              const stage = eventData.stage;
+              const message = eventData.message || '';
+              if (stage) setMintStep(stage, 'active', message);
+              // Mark previous stages done
+              const stageIndex = MINT_STEPS.findIndex(s => s.id === stage);
+              for (let i = 0; i < stageIndex; i++) {
+                const prevId = MINT_STEPS[i].id;
+                if (prevId !== 'wallet' && mintStepStates[prevId]?.status !== 'done') {
+                  setMintStep(prevId, 'done', mintStepStates[prevId]?.detail || '');
+                }
+              }
+            } else if (eventType === 'prepared' && eventData) {
+              mintPreparedData = eventData;
+              // Mark all prep steps done
+              ['validate', 'analyze', 'thumbnail', 'bundle', 'ipfs', 'metadata'].forEach(id => {
+                if (mintStepStates[id]?.status !== 'done') setMintStep(id, 'done', mintStepStates[id]?.detail || '');
+              });
+              setMintStep('review', 'active', `${eventData.mintFee || 2.5} XTZ`);
+              // Show confirm button
+              document.getElementById('mint-actions').style.display = 'flex';
+              document.getElementById('mint-confirm-btn').disabled = false;
+            } else if (eventType === 'error' && eventData) {
+              const errMsg = eventData.error || 'Minting failed';
+              const stage = eventData.stage || 'validate';
+              setMintStep(stage, 'error', errMsg);
+              showMintError(errMsg);
+              return;
+            } else if (eventType === 'already_minted' && eventData) {
+              setMintStep('validate', 'done', `Already minted as #${eventData.tokenId}`);
+              showMintResult(`Already kept as Token #${eventData.tokenId}`, eventData.objktUrl);
+              return;
+            }
+          }
+        }
+
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+        console.error('Mint flow error:', err);
+        showMintError(err.message || 'Unexpected error');
+      }
+    }
+
+    async function confirmMint() {
+      if (!mintPreparedData || !mintWalletAddress) return;
+
+      const confirmBtn = document.getElementById('mint-confirm-btn');
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Signing...';
+
+      try {
+        setMintStep('review', 'done', 'Approved');
+        setMintStep('sign', 'active', 'Check your wallet...');
+
+        // Build contract call via Beacon SDK requestOperation
+        const mintFeeMutez = String(Math.floor((mintPreparedData.mintFee || 2.5) * 1_000_000));
+        const contractAddress = mintPreparedData.contractAddress || KEEPS_CONTRACT;
+
+        const response = await beaconClient.requestOperation({
+          operationDetails: [{
+            kind: 'transaction',
+            destination: contractAddress,
+            amount: mintFeeMutez,
+            parameters: mintPreparedData.michelsonParams,
+          }]
+        });
+
+        const txHash = response.transactionHash;
+        setMintStep('sign', 'done', txHash.slice(0, 8) + '...');
+        setMintStep('complete', 'done', 'NFT minted!');
+
+        // Confirm to backend
+        try {
+          if (acAuth0Client) {
+            acToken = await acAuth0Client.getTokenSilently();
+          }
+          await fetch(`${API_BASE}/api/keep-confirm`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(acToken ? { 'Authorization': `Bearer ${acToken}` } : {}),
+            },
+            body: JSON.stringify({
+              piece: mintCurrentPiece,
+              txHash,
+              walletAddress: mintWalletAddress,
+              network: TEZOS_NETWORK,
+              contractAddress: mintPreparedData.contractAddress || KEEPS_CONTRACT,
+              artifactUri: mintPreparedData.artifactUri,
+              thumbnailUri: mintPreparedData.thumbnailUri,
+              metadataUri: mintPreparedData.metadataUri,
+              tokenId: mintPreparedData.tokenId,
+            }),
+          });
+        } catch (e) {
+          console.warn('keep-confirm failed (non-critical):', e);
+        }
+
+        const objktUrl = `https://objkt.com/asset/${mintPreparedData.contractAddress || KEEPS_CONTRACT}/${mintPreparedData.tokenId || ''}`;
+        showMintResult(`Successfully kept $${mintCurrentPiece}!`, objktUrl, txHash);
+
+        // Hide action buttons
+        document.getElementById('mint-actions').style.display = 'none';
+
+      } catch (err) {
+        if (err.message?.includes('aborted') || err.message?.includes('denied')) {
+          setMintStep('sign', 'error', 'Transaction rejected');
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = 'Confirm & Sign';
+        } else {
+          setMintStep('sign', 'error', err.message || 'Signing failed');
+          showMintError(err.message || 'Transaction failed');
+        }
+      }
+    }
+
+    function showMintResult(message, objktUrl, txHash) {
+      const area = document.getElementById('mint-result-area');
+      let html = `<div class="mint-result">${escapeHtml(message)}`;
+      if (objktUrl) html += `<br><a href="${objktUrl}" target="_blank">View on objkt.com</a>`;
+      if (txHash) html += ` &middot; <a href="https://tzkt.io/${txHash}" target="_blank">View TX</a>`;
+      html += '</div>';
+      area.innerHTML = html;
+    }
+
+    function showMintError(message) {
+      const area = document.getElementById('mint-result-area');
+      area.innerHTML = `<div class="mint-error-msg">${escapeHtml(message)}</div>`;
+    }
+
+    // =========================================
     // INIT
     // =========================================
     async function init() {
@@ -3121,6 +3775,12 @@
 
     initV6LaunchSimulation();
     updateV6RoadmapStatus();
+
+    // Init auth first, then load data (auth informs card rendering)
+    initAuth0().then(() => {
+      // Re-render grid after auth resolves to show Keep buttons for owned pieces
+      if (acUser && allCodes.length > 0) renderGrid();
+    });
     init();
   </script>
 </body>
