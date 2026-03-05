@@ -665,6 +665,72 @@
       word-break: break-all;
     }
 
+    .v6-sim-textarea {
+      width: 100%;
+      min-height: 100px;
+      padding: 9px 10px;
+      font-size: 12px;
+      color: var(--text-primary);
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      outline: none;
+      font-family: var(--font-mono);
+      resize: vertical;
+      line-height: 1.4;
+    }
+
+    .v6-sim-textarea:focus {
+      border-color: var(--ac-purple);
+    }
+
+    .v6-sim-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+
+    .v6-sim-status {
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+
+    .v6-sim-status.running {
+      color: #d4a017;
+    }
+
+    .v6-sim-status.ok {
+      color: #4a9c5d;
+    }
+
+    .v6-sim-status.error {
+      color: #d9534f;
+    }
+
+    .v6-sim-panels {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 10px;
+    }
+
+    .v6-sim-events {
+      margin: 0;
+      padding: 12px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      color: var(--text-secondary);
+      font-family: 'Berkeley Mono Variable', var(--font-mono);
+      font-size: 11px;
+      line-height: 1.45;
+      max-height: 360px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
     .v6-sim-output {
       margin: 0;
       padding: 12px;
@@ -1579,54 +1645,48 @@
         <div class="v6-metadata-sim">
           <div class="v6-metadata-head">
             <div>
-              <div class="v6-metadata-title">Token Metadata Simulation</div>
-              <div class="v6-metadata-subtitle">Select a TzKT endpoint shape and preview simulated decoded metadata or raw token_info bytes.</div>
+              <div class="v6-metadata-title">v6 Launch Simulator (Live Endpoint)</div>
+              <div class="v6-metadata-subtitle">Runs <code>/api/keep-mint</code> with <code>mode: "simulate"</code> to dry-run analysis, metadata assembly, and contract call scaffolding without minting.</div>
             </div>
-            <button type="button" class="v6-sim-btn" id="v6-sim-randomize">Randomize Sample</button>
+            <button type="button" class="v6-sim-btn" id="v6-sim-randomize">Load Example</button>
           </div>
           <div class="v6-sim-grid">
             <label class="v6-sim-field">
-              <span>Token ID</span>
-              <input id="v6-sim-token-id" type="number" min="0" step="1" value="12" />
+              <span>$piece</span>
+              <input id="v6-sim-piece" type="text" value="ac25namuc" />
             </label>
             <label class="v6-sim-field">
-              <span>Response Shape</span>
-              <select id="v6-sim-shape">
-                <option value="tokens">/v1/tokens</option>
-                <option value="bigmap">/bigmaps/token_metadata/keys/:id</option>
-              </select>
-            </label>
-            <label class="v6-sim-field">
-              <span>$code</span>
-              <input id="v6-sim-code" type="text" value="ac25namuc" />
-            </label>
-            <label class="v6-sim-field">
-              <span>Contract</span>
-              <input id="v6-sim-contract" type="text" value="KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido" />
+              <span>Wallet Address</span>
+              <input id="v6-sim-wallet" type="text" value="tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC" />
             </label>
             <label class="v6-sim-field">
               <span>Handle</span>
               <input id="v6-sim-handle" type="text" value="@jeffrey" />
             </label>
             <label class="v6-sim-field">
-              <span>Creator Wallet</span>
-              <input id="v6-sim-creator" type="text" value="tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC" />
-            </label>
-            <label class="v6-sim-field">
-              <span>User</span>
-              <input id="v6-sim-user" type="text" value="ac25namuc" />
-            </label>
-            <label class="v6-sim-field">
               <span>Packed on</span>
               <input id="v6-sim-packed-on" type="date" value="2026-03-04" />
             </label>
+          </div>
+          <label class="v6-sim-field" style="margin-bottom: 12px;">
+            <span>Source (optional; leave empty to load from kidlisp cache or fallback scaffold)</span>
+            <textarea id="v6-sim-source" class="v6-sim-textarea" spellcheck="false"></textarea>
+          </label>
+          <div class="v6-sim-actions">
+            <button type="button" class="v6-sim-btn" id="v6-sim-run">Run Simulator</button>
+            <span class="v6-sim-status" id="v6-sim-status">Idle</span>
+          </div>
+          <div class="v6-sim-endpoint" id="v6-sim-endpoint">Endpoint: /api/keep-mint (mode=simulate)</div>
+          <div class="v6-sim-panels">
             <label class="v6-sim-field">
-              <span>Length</span>
-              <input id="v6-sim-length" type="number" min="1" step="1" value="142" />
+              <span>Event Stream</span>
+              <pre class="v6-sim-events" id="v6-sim-events" aria-live="polite"></pre>
+            </label>
+            <label class="v6-sim-field">
+              <span>Simulator Output</span>
+              <pre class="v6-sim-output" id="v6-sim-output" aria-live="polite"></pre>
             </label>
           </div>
-          <div class="v6-sim-endpoint" id="v6-sim-endpoint"></div>
-          <pre class="v6-sim-output" id="v6-sim-output" aria-live="polite"></pre>
         </div>
 
         <!-- Roadmap Snapshot -->
@@ -2778,258 +2838,195 @@
       return `${years}y ago`;
     }
 
-    function normalizeCode(value) {
-      const cleaned = (value || '')
-        .trim()
-        .replace(/^\$+/, '')
-        .replace(/[^A-Za-z0-9_-]/g, '');
-      return cleaned || 'demo';
-    }
-
-    function normalizeHandle(value) {
-      const cleaned = (value || '').trim().replace(/\s+/g, '');
-      if (!cleaned) return '@anon';
-      return cleaned.startsWith('@') ? cleaned : `@${cleaned}`;
-    }
-
-    function normalizeTezosAddress(value) {
-      const cleaned = (value || '').trim();
-      return /^tz[1-3][1-9A-HJ-NP-Za-km-z]{33}$/.test(cleaned)
-        ? cleaned
-        : 'tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC';
-    }
-
-    function normalizeContractAddress(value) {
-      const cleaned = (value || '').trim();
-      return /^KT1[1-9A-HJ-NP-Za-km-z]{33}$/.test(cleaned)
-        ? cleaned
-        : 'KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido';
-    }
-
-    function fnv1aHex(input) {
-      let hash = 0x811c9dc5;
-      for (let i = 0; i < input.length; i++) {
-        hash ^= input.charCodeAt(i);
-        hash = Math.imul(hash, 0x01000193);
-      }
-      return (hash >>> 0).toString(16).padStart(8, '0');
-    }
-
-    function makeContentHash(seed) {
-      const parts = ['a', 'b', 'c', 'd'].map(salt => fnv1aHex(`${seed}:${salt}`));
-      return [...parts, ...parts.slice().reverse()].join('');
-    }
-
     function formatDateForInput(date) {
       return new Date(date).toISOString().slice(0, 10);
     }
 
-    function utf8ToHex(value) {
-      return Array.from(new TextEncoder().encode(String(value)))
-        .map(byte => byte.toString(16).padStart(2, '0'))
-        .join('');
+    function appendV6SimEvent(message) {
+      const log = document.getElementById('v6-sim-events');
+      if (!log) return;
+      const stamp = new Date().toLocaleTimeString('en-US', { hour12: false });
+      log.textContent += `[${stamp}] ${message}\n`;
+      log.scrollTop = log.scrollHeight;
     }
 
-    function buildV6MetadataSample(state) {
-      const code = normalizeCode(state.code);
-      const handle = normalizeHandle(state.handle);
-      const user = normalizeCode(state.user);
-      const creator = normalizeTezosAddress(state.creator);
-      const contract = normalizeContractAddress(state.contract);
-      const packedOn = state.packedOn || formatDateForInput(Date.now());
-      const length = Math.max(1, Number(state.length) || 1);
-      const tokenId = Math.max(0, Number(state.tokenId) || 0);
-      const seed = `${contract}:${tokenId}:${code}:${handle}:${user}:${creator}:${packedOn}:${length}`;
-      const cidBase = `bafybeiv6sim${makeContentHash(seed).slice(0, 40)}`;
-      const metadataCid = `bafybeiv6meta${makeContentHash(`${seed}:meta`).slice(0, 39)}`;
-      const artifactUri = `ipfs://${cidBase}/$${code}.html`;
-      const displayUri = artifactUri;
-      const thumbnailUri = `ipfs://${cidBase}/$${code}.webp`;
-      const metadataUri = `ipfs://${metadataCid}/$${code}-metadata.json`;
-      const hashHex = fnv1aHex(seed);
-      const hashInt = parseInt(hashHex, 16);
-      const firstLevel = 12080000 + (hashInt % 8000);
-      const tokenRowId = 2400000000000000 + (hashInt % 9000000000000);
-      const bigmapEntryId = 69000000 + (hashInt % 1000000);
-      const packedDate = new Date(`${packedOn}T12:00:00.000Z`);
-      const firstTime = Number.isNaN(packedDate.getTime()) ? new Date().toISOString() : packedDate.toISOString();
-      const tokenIdStr = String(tokenId);
-      const contentHash = code;
-
-      const metadata = {
-        name: `$${code}`,
-        description: `KidLisp keep by ${handle}`,
-        artifactUri,
-        displayUri,
-        thumbnailUri,
-        decimals: '0',
-        symbol: 'KEEP',
-        isBooleanAmount: true,
-        shouldPreferSymbol: false,
-        minter: handle,
-        creators: [creator],
-        royalties: {
-          decimals: 4,
-          shares: {
-            [creator]: '1000'
-          }
-        },
-        rights: 'No Rights Reserved',
-        mintingTool: 'https://kidlisp.com',
-        formats: [
-          {
-            uri: artifactUri,
-            mimeType: 'text/html',
-            dimensions: {
-              value: 'responsive',
-              unit: 'viewport'
-            }
-          }
-        ],
-        tags: ['KidLisp'],
-        attributes: [
-          { name: 'Length', value: String(length) },
-          { name: 'Packed on', value: packedOn },
-          { name: 'Handle', value: handle },
-          { name: 'User', value: user }
-        ]
-      };
-
-      const tokenInfoBytes = {
-        name: utf8ToHex(metadata.name),
-        symbol: utf8ToHex(metadata.symbol),
-        description: utf8ToHex(metadata.description),
-        artifactUri: utf8ToHex(artifactUri),
-        displayUri: utf8ToHex(displayUri),
-        thumbnailUri: utf8ToHex(thumbnailUri),
-        decimals: utf8ToHex(metadata.decimals),
-        creators: utf8ToHex(JSON.stringify(metadata.creators)),
-        royalties: utf8ToHex(JSON.stringify(metadata.royalties)),
-        content_hash: utf8ToHex(contentHash),
-        '': utf8ToHex(metadataUri)
-      };
-
-      return {
-        endpoints: {
-          tokens: `/v1/tokens?contract=${contract}&tokenId=${tokenIdStr}`,
-          bigmap: `/v1/contracts/${contract}/bigmaps/token_metadata/keys/${tokenIdStr}`
-        },
-        responses: {
-          tokens: [
-            {
-              id: tokenRowId,
-              contract: {
-                address: contract
-              },
-              tokenId: tokenIdStr,
-              standard: 'fa2',
-              totalMinted: '1',
-              totalBurned: '0',
-              totalSupply: '1',
-              transfersCount: 1,
-              holdersCount: 1,
-              balancesCount: 1,
-              firstLevel,
-              firstTime,
-              lastLevel: firstLevel,
-              lastTime: firstTime,
-              firstMinter: {
-                alias: handle.slice(1),
-                address: creator
-              },
-              metadata
-            }
-          ],
-          bigmap: {
-            id: bigmapEntryId,
-            active: true,
-            hash: `expr${makeContentHash(`${seed}:expr`).slice(0, 50)}`,
-            key: tokenIdStr,
-            value: {
-              token_id: tokenIdStr,
-              token_info: tokenInfoBytes
-            },
-            firstLevel,
-            lastLevel: firstLevel,
-            updates: 1
-          }
-        }
-      };
+    function setV6SimStatus(message, tone = 'idle') {
+      const status = document.getElementById('v6-sim-status');
+      if (!status) return;
+      status.textContent = message;
+      status.classList.remove('running', 'ok', 'error');
+      if (tone !== 'idle') status.classList.add(tone);
     }
 
-    function renderV6MetadataSample() {
+    let v6SimController = null;
+
+    async function runV6EndpointSimulation() {
+      const runBtn = document.getElementById('v6-sim-run');
       const output = document.getElementById('v6-sim-output');
-      if (!output) return;
-      const endpointEl = document.getElementById('v6-sim-endpoint');
-      const shape = document.getElementById('v6-sim-shape')?.value || 'tokens';
-      const sample = buildV6MetadataSample({
-        tokenId: document.getElementById('v6-sim-token-id')?.value,
-        code: document.getElementById('v6-sim-code')?.value,
-        contract: document.getElementById('v6-sim-contract')?.value,
-        handle: document.getElementById('v6-sim-handle')?.value,
-        creator: document.getElementById('v6-sim-creator')?.value,
-        user: document.getElementById('v6-sim-user')?.value,
-        packedOn: document.getElementById('v6-sim-packed-on')?.value,
-        length: document.getElementById('v6-sim-length')?.value
-      });
+      const log = document.getElementById('v6-sim-events');
+      const endpoint = document.getElementById('v6-sim-endpoint');
+      if (!runBtn || !output || !log) return;
 
-      if (shape === 'bigmap') {
-        if (endpointEl) endpointEl.textContent = `Endpoint: ${sample.endpoints.bigmap}`;
-        output.textContent = JSON.stringify(sample.responses.bigmap, null, 2);
-        return;
+      const pieceInput = document.getElementById('v6-sim-piece');
+      const walletInput = document.getElementById('v6-sim-wallet');
+      const handleInput = document.getElementById('v6-sim-handle');
+      const packedOnInput = document.getElementById('v6-sim-packed-on');
+      const sourceInput = document.getElementById('v6-sim-source');
+
+      const piece = (pieceInput?.value || '').replace(/^\$+/, '').trim() || 'sim-v6';
+      const walletAddress = (walletInput?.value || '').trim();
+      const handle = (handleInput?.value || '').trim();
+      const packedOn = (packedOnInput?.value || '').trim();
+      const source = sourceInput?.value || '';
+
+      if (v6SimController) {
+        v6SimController.abort();
       }
+      v6SimController = new AbortController();
 
-      if (endpointEl) endpointEl.textContent = `Endpoint: ${sample.endpoints.tokens}`;
-      output.textContent = JSON.stringify(sample.responses.tokens, null, 2);
-    }
+      output.textContent = '';
+      log.textContent = '';
+      runBtn.disabled = true;
+      setV6SimStatus('Running simulator...', 'running');
+      if (endpoint) endpoint.textContent = `Endpoint: ${(API_BASE || '') + '/api/keep-mint'} (mode=simulate)`;
 
-    function randomizeV6MetadataSample() {
-      const examples = [
-        { code: 'ac25namuc', handle: '@jeffrey', user: 'ac25namuc', length: 142, creator: 'tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC' },
-        { code: 'notepat', handle: '@bash', user: 'bash77', length: 88, creator: 'tz1dfoQDuxjwSgxdqJnisyKUxDHweade4Gzt' },
-        { code: 'cow', handle: '@ac', user: 'cow12', length: 57, creator: 'tz1gkf8EexComFBJvjtT1zdsisdah791KwBE' },
-        { code: 'boyfriend', handle: '@pals', user: 'pals33', length: 191, creator: 'tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb' }
-      ];
-      const sample = examples[Math.floor(Math.random() * examples.length)];
-      const dayOffset = Math.floor(Math.random() * 45);
-      const date = new Date();
-      date.setDate(date.getDate() - dayOffset);
-      const tokenId = Math.floor(Math.random() * 250);
-
-      const fields = {
-        'v6-sim-token-id': tokenId,
-        'v6-sim-code': sample.code,
-        'v6-sim-contract': 'KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido',
-        'v6-sim-handle': sample.handle,
-        'v6-sim-creator': sample.creator,
-        'v6-sim-user': sample.user,
-        'v6-sim-packed-on': formatDateForInput(date),
-        'v6-sim-length': sample.length
+      const payload = {
+        mode: 'simulate',
+        piece,
+        walletAddress,
+        handle,
+        packedOn,
       };
+      if (source.trim()) payload.source = source;
 
-      Object.entries(fields).forEach(([id, value]) => {
-        const input = document.getElementById(id);
-        if (input) input.value = value;
-      });
-      renderV6MetadataSample();
-    }
+      appendV6SimEvent(`POST /api/keep-mint mode=simulate piece=$${piece}`);
 
-    function initV6MetadataSimulation() {
-      const output = document.getElementById('v6-sim-output');
-      if (!output) return;
-
-      ['v6-sim-token-id', 'v6-sim-shape', 'v6-sim-code', 'v6-sim-contract', 'v6-sim-handle', 'v6-sim-creator', 'v6-sim-user', 'v6-sim-packed-on', 'v6-sim-length']
-        .forEach(id => {
-          const input = document.getElementById(id);
-          if (!input) return;
-          input.addEventListener('input', renderV6MetadataSample);
-          input.addEventListener('change', renderV6MetadataSample);
+      try {
+        const response = await fetch(`${API_BASE}/api/keep-mint`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: v6SimController.signal,
         });
 
-      const randomize = document.getElementById('v6-sim-randomize');
-      if (randomize) randomize.addEventListener('click', randomizeV6MetadataSample);
+        if (!response.ok || !response.body) {
+          throw new Error(`Simulator request failed (${response.status})`);
+        }
 
-      renderV6MetadataSample();
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let currentEventType = null;
+        let sawFinalPayload = false;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const rawLine of lines) {
+            const line = rawLine.replace(/\r$/, '');
+            if (!line) continue;
+
+            if (line.startsWith('event:')) {
+              currentEventType = line.slice(6).trim();
+              continue;
+            }
+
+            if (line.startsWith('data:')) {
+              const rawData = line.slice(5).trim();
+              let eventData = rawData;
+              try {
+                eventData = JSON.parse(rawData);
+              } catch {}
+
+              const eventType = currentEventType || 'message';
+              currentEventType = null;
+
+              if (eventType === 'progress') {
+                const stage = eventData?.stage ? `[${eventData.stage}] ` : '';
+                const message = eventData?.message || '(no message)';
+                appendV6SimEvent(`${stage}${message}`);
+              } else if (eventType === 'simulated' || eventType === 'prepared' || eventType === 'complete') {
+                sawFinalPayload = true;
+                appendV6SimEvent(`${eventType}: payload received`);
+                output.textContent = JSON.stringify(eventData, null, 2);
+                setV6SimStatus('Simulation complete', 'ok');
+              } else if (eventType === 'error') {
+                const errMsg = eventData?.error || 'Unknown simulator error';
+                appendV6SimEvent(`ERROR: ${errMsg}`);
+                output.textContent = JSON.stringify(eventData, null, 2);
+                setV6SimStatus('Simulation failed', 'error');
+              } else {
+                appendV6SimEvent(`${eventType}: ${typeof eventData === 'string' ? eventData : JSON.stringify(eventData)}`);
+              }
+            }
+          }
+        }
+
+        if (!sawFinalPayload) {
+          setV6SimStatus('Simulation stream ended without final payload', 'error');
+        }
+      } catch (err) {
+        const message = err?.name === 'AbortError' ? 'Simulation cancelled' : (err?.message || 'Simulation failed');
+        appendV6SimEvent(`ERROR: ${message}`);
+        setV6SimStatus(message, 'error');
+      } finally {
+        runBtn.disabled = false;
+      }
+    }
+
+    function randomizeV6SimulationInput() {
+      const examples = [
+        {
+          piece: 'ac25namuc',
+          handle: '@jeffrey',
+          wallet: 'tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC',
+          source: 'black\nink rainbow 127\nrepeat 100 point\nzoom 1.05\nspin 1\nscroll 20',
+        },
+        {
+          piece: 'notepat',
+          handle: '@bash',
+          wallet: 'tz1dfoQDuxjwSgxdqJnisyKUxDHweade4Gzt',
+          source: '(wipe)\n(color 36 204 167)\n(write "notepat")\n(line 0 0 127 127)',
+        },
+        {
+          piece: 'cow',
+          handle: '@ac',
+          wallet: 'tz1gkf8EexComFBJvjtT1zdsisdah791KwBE',
+          source: '(wipe)\n(write "cow")\n(circle 64 64 22)\n(box 16 16 96 96)',
+        },
+      ];
+
+      const sample = examples[Math.floor(Math.random() * examples.length)];
+      const pieceInput = document.getElementById('v6-sim-piece');
+      const walletInput = document.getElementById('v6-sim-wallet');
+      const handleInput = document.getElementById('v6-sim-handle');
+      const packedOnInput = document.getElementById('v6-sim-packed-on');
+      const sourceInput = document.getElementById('v6-sim-source');
+
+      if (pieceInput) pieceInput.value = sample.piece;
+      if (walletInput) walletInput.value = sample.wallet;
+      if (handleInput) handleInput.value = sample.handle;
+      if (packedOnInput) packedOnInput.value = formatDateForInput(Date.now());
+      if (sourceInput) sourceInput.value = sample.source;
+      setV6SimStatus('Example loaded', 'idle');
+    }
+
+    function initV6LaunchSimulation() {
+      const runBtn = document.getElementById('v6-sim-run');
+      const randomizeBtn = document.getElementById('v6-sim-randomize');
+      if (!runBtn) return;
+
+      const packedOnInput = document.getElementById('v6-sim-packed-on');
+      if (packedOnInput && !packedOnInput.value) {
+        packedOnInput.value = formatDateForInput(Date.now());
+      }
+
+      runBtn.addEventListener('click', runV6EndpointSimulation);
+      if (randomizeBtn) randomizeBtn.addEventListener('click', randomizeV6SimulationInput);
     }
 
     function updateV6RoadmapStatus() {
@@ -3122,7 +3119,7 @@
       }
     }
 
-    initV6MetadataSimulation();
+    initV6LaunchSimulation();
     updateV6RoadmapStatus();
     init();
   </script>

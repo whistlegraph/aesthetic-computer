@@ -15,7 +15,7 @@
 
 import { authorize, handleFor, hasAdmin } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
-import { analyzeKidLisp } from "../../backend/kidlisp-analyzer.mjs";
+import { analyzeKidLisp, ANALYZER_VERSION } from "../../backend/kidlisp-analyzer.mjs";
 import { stream } from "@netlify/functions";
 import { TezosToolkit } from "@taquito/taquito";
 import { InMemorySigner } from "@taquito/signer";
@@ -159,6 +159,10 @@ function hashSource(source) {
     hash = hash & hash; // Convert to 32bit integer
   }
   return hash.toString(16);
+}
+
+function isTezosAddress(value) {
+  return typeof value === "string" && /^tz[1-3][1-9A-HJ-NP-Za-km-z]{33}$/.test(value.trim());
 }
 
 // Check if cached IPFS media is valid (source hasn't changed)
@@ -359,14 +363,237 @@ export const handler = stream(async (event, context) => {
         return; // finally will close
       }
 
-      const pieceName = body.piece?.replace(/^\$/, "");
+      let pieceName = body.piece?.replace(/^\$/, "").trim();
       const mode = body.mode || "prepare"; // "prepare" (default) or "mint" (server-side)
       const regenerate = body.regenerate === true; // Force regenerate IPFS media
       const walletAddress = body.walletAddress; // For on-chain owner verification
+
+      // Simulator mode can run without a real piece, useful for v6 launch dry-runs.
+      if (!pieceName && mode === "simulate") {
+        pieceName = "sim-v6";
+      }
       
       if (!pieceName) {
         await send("error", { error: "Missing 'piece' in request body" });
         return; // finally will close
+      }
+
+      // ═══════════════════════════════════════════════════════════════════
+      // SIMULATOR MODE: Build metadata + contract call scaffold without minting
+      // ═══════════════════════════════════════════════════════════════════
+      if (mode === "simulate") {
+        let database = null;
+        try {
+          const providedSource = typeof body.source === "string" ? body.source.trim() : "";
+          const normalizedHandleRaw = typeof body.handle === "string" ? body.handle.trim() : "";
+          const authorHandle = normalizedHandleRaw
+            ? (normalizedHandleRaw.startsWith("@") ? normalizedHandleRaw : `@${normalizedHandleRaw}`)
+            : "@simulator";
+
+          const walletValid = isTezosAddress(walletAddress);
+          const creatorWalletAddress = walletValid
+            ? walletAddress.trim()
+            : "tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC";
+
+          const packDate = typeof body.packedOn === "string" && body.packedOn.trim()
+            ? body.packedOn.trim()
+            : new Date().toISOString().slice(0, 10);
+
+          await send("progress", { stage: "validate", message: `Simulator mode for $${pieceName}` });
+
+          let source = providedSource;
+          let sourceOrigin = providedSource ? "request" : "fallback";
+          let dbPieceMeta = null;
+
+          if (!source) {
+            database = await connect();
+            const collection = database.db.collection("kidlisp");
+            const piece = await collection.findOne({ code: pieceName });
+            if (piece?.source) {
+              source = piece.source;
+              sourceOrigin = "database";
+              dbPieceMeta = {
+                authorSub: piece.user || null,
+                createdAt: piece.createdAt || piece.when || null,
+              };
+              await send("progress", { stage: "validate", message: `Loaded source for $${pieceName} from kidlisp cache` });
+            }
+          }
+
+          if (!source) {
+            source = `(wipe)\n(color 255 105 180)\n(write "$${pieceName}")\n(circle 64 64 28)\n`;
+            await send("progress", { stage: "validate", message: "No source found; using built-in simulator fallback source" });
+          }
+
+          await send("progress", { stage: "validate", message: "Validation passed ✓" });
+          await send("progress", {
+            stage: "details",
+            piece: pieceName,
+            source,
+            author: authorHandle,
+            sourceLength: source.length,
+            sourceOrigin,
+          });
+
+          await send("progress", { stage: "analyze", message: "Analyzing source code..." });
+          const analysis = analyzeKidLisp(source);
+          await send("progress", { stage: "analyze", message: `${analysis.chars || source.length} chars ✓` });
+
+          await send("progress", { stage: "bundle", message: "Simulating bundle scaffold..." });
+          const sourceHash = hashSource(source);
+          const sourceHashSafe = sourceHash.replace(/-/g, "x");
+          const cidSeed = Buffer.from(`${pieceName}:${sourceHashSafe}`, "utf8").toString("hex").slice(0, 40).padEnd(40, "0");
+          const artifactCid = `bafybeisim${cidSeed}`;
+          const thumbCid = `bafybeisimthumb${cidSeed.slice(0, 35)}`;
+          const metaCid = `bafybeisimmeta${cidSeed.slice(0, 36)}`;
+          const artifactUri = `ipfs://${artifactCid}/$${pieceName}.html`;
+          const thumbnailUri = `ipfs://${thumbCid}/$${pieceName}.webp`;
+          const metadataUri = `ipfs://${metaCid}/$${pieceName}-metadata.json`;
+
+          await send("progress", { stage: "bundle", message: `Scaffolded ${Math.max(1, Math.round(source.length / 1024))}KB bundle` });
+          await send("progress", { stage: "ipfs", message: "Simulator mode: skipping Pinata writes" });
+          await send("progress", { stage: "thumbnail", message: "Simulator mode: skipping oven render" });
+          await send("progress", { stage: "metadata", message: "Building metadata payload..." });
+
+          const tokenName = `$${pieceName}`;
+          const description = source || "A KidLisp piece preserved on Tezos";
+          const tags = ["KidLisp"];
+          const traits = (analysis?.traits || []).filter((trait) => trait?.name !== "Category");
+          const userCode = pieceName;
+
+          const attributes = [
+            ...traits,
+            ...(packDate ? [{ name: "Packed on", value: packDate }] : []),
+            ...(authorHandle && authorHandle !== "@anon" ? [{ name: "Author Handle", value: `@${authorHandle.replace(/^@/, "")}` }] : []),
+            ...(userCode ? [{ name: "Author Code", value: userCode }] : []),
+            { name: "Analyzer Version", value: ANALYZER_VERSION },
+          ];
+
+          const creatorsArray = [creatorWalletAddress];
+          const royalties = {
+            decimals: 4,
+            shares: {
+              [creatorWalletAddress]: "1000",
+            },
+          };
+
+          const metadataJson = {
+            name: tokenName,
+            description,
+            artifactUri,
+            displayUri: artifactUri,
+            thumbnailUri,
+            decimals: 0,
+            symbol: pieceName,
+            isBooleanAmount: true,
+            shouldPreferSymbol: false,
+            minter: `@${(authorHandle || "anon").replace(/^@/, "")}`,
+            creators: creatorsArray,
+            royalties,
+            rights: "© All rights reserved",
+            mintingTool: "https://kidlisp.com",
+            formats: [{
+              uri: artifactUri,
+              mimeType: "text/html",
+              dimensions: { value: "responsive", unit: "viewport" },
+            }],
+            tags,
+            attributes,
+          };
+
+          const onChainMetadata = {
+            name: stringToBytes(tokenName),
+            symbol: stringToBytes(pieceName),
+            description: stringToBytes(source || ""),
+            artifactUri: stringToBytes(artifactUri),
+            displayUri: stringToBytes(artifactUri),
+            thumbnailUri: stringToBytes(thumbnailUri),
+            decimals: stringToBytes("0"),
+            creators: stringToBytes(JSON.stringify(creatorsArray)),
+            royalties: stringToBytes(JSON.stringify(royalties)),
+            content_hash: stringToBytes(pieceName),
+            metadata_uri: stringToBytes(metadataUri),
+          };
+
+          await send("progress", { stage: "metadata", message: "Metadata payload ready ✓" });
+          await send("progress", { stage: "contract", message: "Building contract call scaffold..." });
+
+          let michelsonParams = null;
+          let keepFeeXtz = null;
+          let scaffoldError = null;
+          let contractCallPreview = null;
+
+          try {
+            const tezos = new TezosToolkit(RPC_URL);
+            const contract = await tezos.contract.at(CONTRACT_ADDRESS);
+            const storage = await contract.storage();
+            const keepFeeMutez = storage.keep_fee?.toNumber?.() ?? 0;
+            keepFeeXtz = keepFeeMutez / 1_000_000;
+
+            const transferParams = contract.methodsObject.keep({
+              name: onChainMetadata.name,
+              symbol: onChainMetadata.symbol,
+              description: onChainMetadata.description,
+              artifactUri: onChainMetadata.artifactUri,
+              displayUri: onChainMetadata.displayUri,
+              thumbnailUri: onChainMetadata.thumbnailUri,
+              decimals: onChainMetadata.decimals,
+              creators: onChainMetadata.creators,
+              royalties: onChainMetadata.royalties,
+              content_hash: onChainMetadata.content_hash,
+              metadata_uri: onChainMetadata.metadata_uri,
+              owner: creatorWalletAddress,
+            }).toTransferParams();
+
+            michelsonParams = transferParams.parameter || null;
+            contractCallPreview = {
+              destination: transferParams.to || CONTRACT_ADDRESS,
+              amountMutez: transferParams.amount?.toString?.() || String(transferParams.amount ?? 0),
+              entrypoint: transferParams.parameter?.entrypoint || "keep",
+            };
+
+            await send("progress", { stage: "contract", message: `Scaffold ready • keep_fee=${keepFeeXtz} XTZ` });
+          } catch (err) {
+            scaffoldError = err?.message || "Failed to build contract scaffold";
+            await send("progress", { stage: "contract", message: `Scaffold warning: ${scaffoldError}` });
+          }
+
+          await send("progress", { stage: "ready", message: "Simulation complete ✓" });
+          await send("simulated", {
+            success: true,
+            mode: "simulate",
+            piece: pieceName,
+            contractAddress: CONTRACT_ADDRESS,
+            network: NETWORK,
+            rpcUrl: RPC_URL,
+            mintFee: keepFeeXtz,
+            entrypoint: "keep",
+            artifactUri,
+            thumbnailUri,
+            metadataUri,
+            packDate,
+            metadataJson,
+            onChainMetadata,
+            michelsonParams,
+            contractCallPreview,
+            simulation: {
+              sourceOrigin,
+              sourceLength: source.length,
+              sourceHash,
+              walletFallbackUsed: !walletValid,
+              scaffoldOk: !!michelsonParams,
+              scaffoldError,
+              dbPieceMeta,
+            },
+          });
+          return;
+        } finally {
+          if (database) {
+            try {
+              await database.disconnect();
+            } catch {}
+          }
+        }
       }
 
       // ═══════════════════════════════════════════════════════════════════
