@@ -6,7 +6,7 @@
 <link rel="icon" href="/icon/128x128/prompt.png" type="image/png">
 <title>aesthetic.computer is home to &middot; Aesthetic Computer</title>
 <meta property="og:title" content="aesthetic.computer is home to">
-<meta property="og:description" content="22 domains &amp; microsites, ~355 disk routes, ~85 API endpoints, and more across the Aesthetic Computer network.">
+<meta property="og:description" content="30 domains &amp; subdomains, ~355 disk routes, ~85 API endpoints, and more across the Aesthetic Computer network.">
 <meta property="og:image" content="https://aesthetic.computer/preview/1200x630/prompt.png">
 <meta property="og:url" content="https://sitemap.aesthetic.computer">
 <meta property="og:type" content="website">
@@ -19,15 +19,16 @@
   }
   body {
     margin: 0;
-    font-size: 22px;
+    font-size: 15px;
     font-family: monospace;
     -webkit-text-size-adjust: none;
     overflow-x: hidden;
+    line-height: 1.45;
   }
   h1 {
     font-weight: normal;
-    font-size: 22px;
-    margin: 0 0 0.5em;
+    font-size: 15px;
+    margin: 0 0 0.35em;
   }
   h1 a, h1 a:visited {
     color: inherit;
@@ -37,90 +38,89 @@
   #pals {
     position: fixed;
     bottom: 5px;
-    right: 16px;
+    right: 12px;
     user-select: none;
     z-index: 10;
   }
   section.main {
-    margin: 12px 16px 12px 16px;
-    font-size: 65%;
+    margin: 8px 12px;
   }
   .stats {
     display: flex;
-    gap: 0.75em;
+    gap: 0.5em;
     flex-wrap: wrap;
-    margin-bottom: 1.25em;
+    margin-bottom: 0.75em;
+    font-size: 0.85em;
   }
   .stat {
-    padding: 0.4em 0.6em;
+    padding: 0.25em 0.5em;
     border-radius: 3px;
-    font-size: 0.9em;
   }
-  .stat strong { font-size: 1.15em; }
+  .stat strong { font-size: 1.1em; }
   #search {
     border: 1px solid;
-    padding: 0.4em 0.6em;
+    padding: 0.3em 0.5em;
     font-family: inherit;
     font-size: 1em;
     width: 100%;
-    max-width: 24em;
+    max-width: 22em;
     border-radius: 3px;
-    margin-bottom: 1.5em;
+    margin-bottom: 0.75em;
     outline: none;
     cursor: inherit;
   }
   #search::placeholder { opacity: 0.4; }
   .card {
-    border-radius: 4px;
-    margin-bottom: 1.25em;
+    border-radius: 3px;
+    margin-bottom: 0.4em;
     overflow: hidden;
   }
   details > summary {
-    padding: 0.6em 0.75em;
+    padding: 0.35em 0.6em;
     cursor: inherit;
     user-select: none;
     display: flex;
     align-items: center;
-    gap: 0.5em;
+    gap: 0.4em;
     list-style: none;
-    font-size: 1.05em;
+    font-size: 0.9em;
   }
   details > summary::-webkit-details-marker { display: none; }
   details > summary::before {
     content: "\25b6";
-    font-size: 0.55em;
+    font-size: 0.5em;
     transition: transform 0.2s;
     opacity: 0.4;
   }
   details[open] > summary::before { transform: rotate(90deg); }
   .tag {
-    font-size: 0.6em;
-    padding: 1px 5px;
+    font-size: 0.55em;
+    padding: 1px 4px;
     border-radius: 2px;
     font-weight: bold;
     text-transform: uppercase;
     letter-spacing: 0.03em;
   }
-  .section-title { font-weight: bold; }
-  .section-count { opacity: 0.35; font-size: 0.8em; margin-left: auto; }
+  .section-title { font-weight: bold; font-size: 0.95em; }
+  .section-count { opacity: 0.35; font-size: 0.75em; margin-left: auto; }
   .section-desc {
-    font-size: 0.85em;
+    font-size: 0.78em;
     opacity: 0.6;
-    padding: 0.4em 0.75em 0.5em;
-    line-height: 1.6;
+    padding: 0.2em 0.6em 0.4em;
+    line-height: 1.5;
   }
   .routes {
-    padding: 0.5em 0.75em;
+    padding: 0.3em 0.6em;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(14em, 1fr));
-    gap: 0.15em 0.75em;
-    max-height: 38em;
+    grid-template-columns: repeat(auto-fill, minmax(13em, 1fr));
+    gap: 0.1em 0.6em;
+    max-height: 32em;
     overflow-y: auto;
   }
   .routes.single-col { grid-template-columns: 1fr; }
   .route {
-    font-size: 0.85em;
-    padding: 2px 0;
+    font-size: 0.78em;
+    padding: 1px 0;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -128,133 +128,90 @@
   .route::before { content: "/"; opacity: 0.3; }
   .route.full-url::before { content: ""; }
   .route-group-label {
-    font-size: 0.75em;
-    padding: 0.6em 0.75em 0.15em;
+    font-size: 0.68em;
+    padding: 0.4em 0.6em 0.1em;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     font-weight: bold;
     grid-column: 1 / -1;
   }
   .redirect-row {
-    font-size: 0.82em;
-    padding: 3px 0;
+    font-size: 0.76em;
+    padding: 2px 0;
     display: grid;
     grid-template-columns: 1fr auto 1fr auto;
-    gap: 0.4em;
+    gap: 0.3em;
     align-items: center;
   }
   .redirect-from { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .redirect-arrow { opacity: 0.3; }
   .redirect-to { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .redirect-status {
-    font-size: 0.7em;
-    padding: 1px 4px;
+    font-size: 0.65em;
+    padding: 1px 3px;
     border-radius: 2px;
     font-weight: bold;
   }
   .dynamic-pattern {
-    font-size: 0.82em;
-    padding: 3px 0;
+    font-size: 0.76em;
+    padding: 2px 0;
     font-style: italic;
   }
   .dynamic-pattern::before { content: "\2731 "; }
   .note {
-    font-size: 0.75em;
+    font-size: 0.7em;
     opacity: 0.35;
-    padding: 0.4em 0.75em;
+    padding: 0.3em 0.6em;
   }
-  .divider {
-    text-align: center;
-    opacity: 0.3;
-    font-size: 0.8em;
-    text-transform: uppercase;
-    letter-spacing: 0.15em;
-    padding: 1.5em 0 0.5em;
-  }
-  .divider::before, .divider::after { content: " ---- "; }
   .hidden { display: none !important; }
-  .live-meta {
-    font-size: 0.82em;
-    line-height: 1.6;
-    padding: 0.4em 0.75em 0.15em;
-  }
-  .live-grid {
-    padding: 0.3em 0.75em 0.65em;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(16em, 1fr));
-    gap: 0.2em 0.75em;
-  }
-  .live-service {
-    display: flex;
-    align-items: center;
-    gap: 0.45em;
-    font-size: 0.8em;
-    min-height: 1.5em;
-    padding: 2px 0;
-  }
-  .live-service-name {
-    font-weight: bold;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 13em;
-  }
-  .live-service-state {
-    opacity: 0.6;
-    font-size: 0.83em;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-  .live-service-cost {
-    margin-left: auto;
-    opacity: 0.5;
-    font-size: 0.88em;
-    font-variant-numeric: tabular-nums;
-  }
-  .live-source {
-    font-size: 0.72em;
-    opacity: 0.45;
-    padding: 0 0.75em 0.7em;
-  }
-  .live-error {
-    font-size: 0.82em;
-    padding: 0.2em 0 0.4em;
-    opacity: 0.75;
-  }
+
+  /* Status lights inline */
   .service-light {
-    width: 0.66em;
-    height: 0.66em;
+    width: 0.55em;
+    height: 0.55em;
     border-radius: 50%;
     flex-shrink: 0;
+    display: inline-block;
   }
   .service-light-green {
     background: rgb(92, 205, 155);
-    box-shadow: 0 0 0 1px rgba(92, 205, 155, 0.25), 0 0 0.35em rgba(92, 205, 155, 0.6);
+    box-shadow: 0 0 0 1px rgba(92, 205, 155, 0.25), 0 0 0.3em rgba(92, 205, 155, 0.5);
   }
   .service-light-yellow {
     background: rgb(205, 155, 92);
-    box-shadow: 0 0 0 1px rgba(205, 155, 92, 0.25), 0 0 0.35em rgba(205, 155, 92, 0.45);
+    box-shadow: 0 0 0 1px rgba(205, 155, 92, 0.25), 0 0 0.3em rgba(205, 155, 92, 0.4);
   }
   .service-light-red {
     background: rgb(230, 102, 102);
-    box-shadow: 0 0 0 1px rgba(230, 102, 102, 0.25), 0 0 0.35em rgba(230, 102, 102, 0.55);
+    box-shadow: 0 0 0 1px rgba(230, 102, 102, 0.25), 0 0 0.3em rgba(230, 102, 102, 0.5);
   }
   .service-light-unknown {
-    background: rgba(200, 200, 200, 0.55);
-    box-shadow: 0 0 0 1px rgba(200, 200, 200, 0.2);
+    background: rgba(200, 200, 200, 0.4);
+    box-shadow: 0 0 0 1px rgba(200, 200, 200, 0.15);
+  }
+  .live-status-bar {
+    font-size: 0.7em;
+    opacity: 0.5;
+    padding: 0.5em 0 0.25em;
   }
 
-  /* Dark mode (default for docs style) */
+  .card-thumb {
+    width: 24px;
+    height: 24px;
+    border-radius: 3px;
+    object-fit: cover;
+    flex-shrink: 0;
+    display: block;
+  }
+
+  /* Dark mode */
   @media (prefers-color-scheme: dark) {
     body {
       background-color: rgb(64, 56, 74);
       color: rgba(255, 255, 255, 0.85);
     }
     h1 a:hover { color: rgb(205, 92, 155); }
-    .stat {
-      background: rgba(255,255,255,0.06);
-    }
+    .stat { background: rgba(255,255,255,0.06); }
     .stat strong { color: rgb(92, 205, 155); }
     #search {
       background: rgba(255,255,255,0.06);
@@ -268,13 +225,11 @@
     }
     details > summary:hover { background: rgba(255,255,255,0.04); }
     .tag-primary { background: rgb(205, 92, 155); color: #fff; }
-    .tag-microsite { background: rgb(92, 205, 155); color: rgb(20, 40, 30); }
-    .tag-subdomain { background: rgb(155, 120, 205); color: #fff; }
+    .tag-subdomain { background: rgb(92, 205, 155); color: rgb(20, 40, 30); }
     .tag-redirect { background: rgb(205, 155, 92); color: rgb(40, 30, 20); }
     .tag-api { background: rgb(92, 155, 205); color: rgb(20, 30, 40); }
     .tag-external { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.7); }
     .tag-infra { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.7); }
-
     .route-group-label { color: rgb(92, 205, 155); }
     .redirect-to { color: rgb(92, 205, 155); }
     .dynamic-pattern { color: rgb(155, 120, 205); }
@@ -283,6 +238,7 @@
     .status-301 { background: rgba(205, 155, 92, 0.2); color: rgb(205, 155, 92); }
     .status-302 { background: rgba(155, 120, 205, 0.2); color: rgb(155, 120, 205); }
     a, a:visited { color: rgb(205, 92, 155); }
+    .card-thumb { background: rgba(255,255,255,0.06); }
   }
 
   /* Light mode */
@@ -292,9 +248,7 @@
       color: rgb(64, 56, 74);
     }
     h1 a:hover { color: rgb(205, 92, 155); }
-    .stat {
-      background: rgba(64, 56, 74, 0.06);
-    }
+    .stat { background: rgba(64, 56, 74, 0.06); }
     .stat strong { color: rgb(30, 120, 80); }
     #search {
       background: rgba(64, 56, 74, 0.04);
@@ -308,13 +262,11 @@
     }
     details > summary:hover { background: rgba(64, 56, 74, 0.04); }
     .tag-primary { background: rgb(180, 72, 135); color: #fff; }
-    .tag-microsite { background: rgb(30, 140, 90); color: #fff; }
-    .tag-subdomain { background: rgb(120, 80, 180); color: #fff; }
+    .tag-subdomain { background: rgb(30, 140, 90); color: #fff; }
     .tag-redirect { background: rgb(180, 130, 60); color: #fff; }
     .tag-api { background: rgb(60, 120, 180); color: #fff; }
     .tag-external { background: rgba(64, 56, 74, 0.15); color: rgb(64, 56, 74); }
     .tag-infra { background: rgba(64, 56, 74, 0.15); color: rgb(64, 56, 74); }
-
     .route-group-label { color: rgb(30, 140, 90); }
     .redirect-to { color: rgb(30, 140, 90); }
     .dynamic-pattern { color: rgb(120, 80, 180); }
@@ -323,20 +275,6 @@
     .status-301 { background: rgba(180, 130, 60, 0.15); color: rgb(140, 100, 40); }
     .status-302 { background: rgba(120, 80, 180, 0.15); color: rgb(100, 60, 160); }
     a, a:visited { color: rgb(180, 72, 135); }
-  }
-
-  .card-thumb {
-    width: 36px;
-    height: 36px;
-    border-radius: 4px;
-    object-fit: cover;
-    flex-shrink: 0;
-    display: block;
-  }
-  @media (prefers-color-scheme: dark) {
-    .card-thumb { background: rgba(255,255,255,0.06); }
-  }
-  @media (prefers-color-scheme: light) {
     .card-thumb { background: rgba(64,56,74,0.06); }
   }
 
@@ -344,8 +282,6 @@
     .routes { grid-template-columns: 1fr; }
     .redirect-row { grid-template-columns: 1fr; gap: 0.1em; }
     .stats { flex-direction: column; }
-    .live-grid { grid-template-columns: 1fr; }
-    .live-service-name { max-width: none; }
   }
 </style>
 </head>
@@ -354,9 +290,9 @@
 <section class="main">
 <h1><span id="title"><a href="/sitemap">aesthetic.computer is home to</a></span></h1>
 
-<div style="padding-top: 0.5em;">
+<div>
 <div class="stats">
-  <div class="stat">Domains &amp; Microsites: <strong>22</strong></div>
+  <div class="stat">Domains &amp; Subdomains: <strong>30</strong></div>
   <div class="stat">Disk Routes: <strong>~355</strong></div>
   <div class="stat">API Endpoints: <strong>~85</strong></div>
   <div class="stat">Functions: <strong>~106</strong></div>
@@ -364,24 +300,7 @@
 </div>
 
 <input type="text" id="search" placeholder="Filter routes..." autofocus>
-</div>
-
-<!-- live bills status -->
-<div class="card">
-<details open>
-<summary>
-  <img class="card-thumb" src="/icon/128x128/prompt.png" loading="lazy" onerror="this.style.display='none'" alt="">
-  <span class="tag tag-infra">Live</span>
-  <span class="section-title">Service Lights (from bills)</span>
-  <span class="section-count" id="live-poll-status">polling every 30s</span>
-</summary>
-<div class="section-desc">Green = online, yellow = at risk, red = offline. Snapshot is parsed from bills.aesthetic.computer and refreshed automatically.</div>
-<div class="live-meta"><strong id="live-status-summary">Loading bills snapshot...</strong></div>
-<div class="live-grid" id="live-service-grid">
-  <div class="live-service">Loading live service statuses...</div>
-</div>
-<div class="live-source" id="live-source-meta">Source: bills.aesthetic.computer</div>
-</details>
+<div class="live-status-bar" id="live-status-bar">Loading service statuses...</div>
 </div>
 
 <!-- aesthetic.computer -->
@@ -389,6 +308,7 @@
 <details>
 <summary>
   <img class="card-thumb" src="/icon/128x128/prompt.png" loading="lazy" onerror="this.style.display='none'" alt="">
+  <span class="service-light service-light-unknown" data-service="Netlify"></span>
   <span class="tag tag-primary">Primary</span>
   <span class="section-title">aesthetic.computer</span>
   <span class="section-count">~355 disk routes</span>
@@ -873,6 +793,7 @@
 <details>
 <summary>
   <img class="card-thumb" src="/icon/128x128/prompt.png" loading="lazy" onerror="this.style.display='none'" alt="">
+  <span class="service-light service-light-unknown" data-service="Netlify"></span>
   <span class="tag tag-subdomain">Subdomain</span>
   <span class="section-title">news.aesthetic.computer</span>
   <span class="section-count">Newsletter</span>
@@ -894,6 +815,7 @@
 <details>
 <summary>
   <img class="card-thumb" src="/icon/128x128/prompt.png" loading="lazy" onerror="this.style.display='none'" alt="">
+  <span class="service-light service-light-unknown" data-service="Netlify"></span>
   <span class="tag tag-subdomain">Subdomain</span>
   <span class="section-title">give.aesthetic.computer</span>
   <span class="section-count">Donations</span>
@@ -917,6 +839,7 @@
 <details>
 <summary>
   <img class="card-thumb" src="https://icons.duckduckgo.com/ip3/shop.aesthetic.computer.ico" loading="lazy" onerror="this.style.display='none'" alt="">
+  <span class="service-light service-light-unknown" data-service="Shopify"></span>
   <span class="tag tag-external">External</span>
   <span class="section-title">shop.aesthetic.computer</span>
   <span class="section-count">~30 product shortcuts</span>
@@ -974,7 +897,8 @@
 <details>
 <summary>
   <img class="card-thumb" src="/icon/128x128/prompt.png" loading="lazy" onerror="this.style.display='none'" alt="">
-  <span class="tag tag-microsite">Microsite</span>
+  <span class="service-light service-light-unknown" data-service="Netlify"></span>
+  <span class="tag tag-subdomain">Subdomain</span>
   <span class="section-title">gift.aesthetic.computer</span>
   <span class="section-count">1 page</span>
 </summary>
@@ -990,7 +914,8 @@
 <details>
 <summary>
   <img class="card-thumb" src="/icon/128x128/prompt.png" loading="lazy" onerror="this.style.display='none'" alt="">
-  <span class="tag tag-microsite">Microsite</span>
+  <span class="service-light service-light-unknown" data-service="Netlify"></span>
+  <span class="tag tag-subdomain">Subdomain</span>
   <span class="section-title">pals.aesthetic.computer</span>
   <span class="section-count">Logo proxy</span>
 </summary>
@@ -1001,11 +926,101 @@
 </details>
 </div>
 
+<!-- bills.aesthetic.computer -->
+<div class="card">
+<details>
+<summary>
+  <img class="card-thumb" src="/icon/128x128/prompt.png" loading="lazy" onerror="this.style.display='none'" alt="">
+  <span class="service-light service-light-unknown" data-service="Netlify"></span>
+  <span class="tag tag-subdomain">Subdomain</span>
+  <span class="section-title">bills.aesthetic.computer</span>
+  <span class="section-count">Dashboard</span>
+</summary>
+<div class="section-desc">Financial status dashboard for AC infrastructure. Tracks ~$151/month across 16 services, shows overdue payments, cost trends, DigitalOcean droplet breakdown, and priority action items.</div>
+<div class="routes single-col">
+  <div class="route full-url">bills.aesthetic.computer/ &mdash; Billing dashboard</div>
+</div>
+</details>
+</div>
+
+<!-- papers.aesthetic.computer -->
+<div class="card">
+<details>
+<summary>
+  <img class="card-thumb" src="/icon/128x128/prompt.png" loading="lazy" onerror="this.style.display='none'" alt="">
+  <span class="service-light service-light-unknown" data-service="Netlify"></span>
+  <span class="tag tag-subdomain">Subdomain</span>
+  <span class="section-title">papers.aesthetic.computer</span>
+  <span class="section-count">Research</span>
+</summary>
+<div class="section-desc">Academic papers portal. Four publications (arXiv preprints + JOSS summaries) on Aesthetic Computer and KidLisp by Jeffrey Alan Scudder, March 2026. Dark/light theme toggle.</div>
+<div class="routes single-col">
+  <div class="route full-url">papers.aesthetic.computer/ &mdash; Papers index with PDF downloads</div>
+</div>
+</details>
+</div>
+
+<!-- l5.aesthetic.computer -->
+<div class="card">
+<details>
+<summary>
+  <img class="card-thumb" src="/icon/128x128/prompt.png" loading="lazy" onerror="this.style.display='none'" alt="">
+  <span class="service-light service-light-unknown" data-service="Netlify"></span>
+  <span class="tag tag-subdomain">Subdomain</span>
+  <span class="section-title">l5.aesthetic.computer</span>
+  <span class="section-count">Learning</span>
+</summary>
+<div class="section-desc">Live playground and API explorer for L5, a Processing-style Lua language on Aesthetic Computer. JS-driven SPA with docs endpoint.</div>
+<div class="routes single-col">
+  <div class="route full-url">l5.aesthetic.computer/ &mdash; Try L5 on AC (SPA)</div>
+  <div class="route full-url">l5.aesthetic.computer/docs.json &mdash; API docs</div>
+  <div class="route full-url">l5.aesthetic.computer/docs/* &mdash; Doc pages</div>
+</div>
+</details>
+</div>
+
+<!-- processing.aesthetic.computer -->
+<div class="card">
+<details>
+<summary>
+  <img class="card-thumb" src="/icon/128x128/prompt.png" loading="lazy" onerror="this.style.display='none'" alt="">
+  <span class="service-light service-light-unknown" data-service="Netlify"></span>
+  <span class="tag tag-subdomain">Subdomain</span>
+  <span class="section-title">processing.aesthetic.computer</span>
+  <span class="section-count">Learning</span>
+</summary>
+<div class="section-desc">Processing-style Java playground that transpiles to the L5 Lua runtime on Aesthetic Computer. JS-driven SPA.</div>
+<div class="routes single-col">
+  <div class="route full-url">processing.aesthetic.computer/ &mdash; Try Processing on AC (SPA)</div>
+  <div class="route full-url">processing.aesthetic.computer/docs.json &mdash; API docs</div>
+  <div class="route full-url">processing.aesthetic.computer/docs/* &mdash; Doc pages</div>
+</div>
+</details>
+</div>
+
+<!-- p5.aesthetic.computer -->
+<div class="card">
+<details>
+<summary>
+  <img class="card-thumb" src="/icon/128x128/prompt.png" loading="lazy" onerror="this.style.display='none'" alt="">
+  <span class="service-light service-light-unknown" data-service="Netlify"></span>
+  <span class="tag tag-subdomain">Subdomain</span>
+  <span class="section-title">p5.aesthetic.computer</span>
+  <span class="section-count">Learning</span>
+</summary>
+<div class="section-desc">Alias for processing.aesthetic.computer. Same Processing-to-L5 playground, served under a p5-branded subdomain.</div>
+<div class="routes single-col">
+  <div class="route full-url">p5.aesthetic.computer/* &rarr; processing.aesthetic.computer (200 proxy)</div>
+</div>
+</details>
+</div>
+
 <!-- oven.aesthetic.computer -->
 <div class="card">
 <details>
 <summary>
   <img class="card-thumb" src="/icon/128x128/prompt.png" loading="lazy" onerror="this.style.display='none'" alt="">
+  <span class="service-light service-light-unknown" data-service="Oven"></span>
   <span class="tag tag-api">Infra</span>
   <span class="section-title">oven.aesthetic.computer</span>
   <span class="section-count">Internal service</span>
@@ -1024,6 +1039,7 @@
 <details>
 <summary>
   <img class="card-thumb" src="/icon/128x128/prompt.png" loading="lazy" onerror="this.style.display='none'" alt="">
+  <span class="service-light service-light-unknown" data-service="AT Proto PDS"></span>
   <span class="tag tag-api">Infra</span>
   <span class="section-title">at.aesthetic.computer</span>
   <span class="section-count">AT Protocol PDS</span>
@@ -1043,6 +1059,7 @@
 <details>
 <summary>
   <img class="card-thumb" src="/icon/128x128/prompt.png" loading="lazy" onerror="this.style.display='none'" alt="">
+  <span class="service-light service-light-unknown" data-service="Cloudflare Workers"></span>
   <span class="tag tag-api">Edge</span>
   <span class="section-title">feed.aesthetic.computer</span>
   <span class="section-count">DP1 Feed Worker</span>
@@ -1061,6 +1078,7 @@
 <details>
 <summary>
   <img class="card-thumb" src="/icon/128x128/prompt.png" loading="lazy" onerror="this.style.display='none'" alt="">
+  <span class="service-light service-light-unknown" data-service="Cloudflare Workers"></span>
   <span class="tag tag-api">Edge</span>
   <span class="section-title">grab.aesthetic.computer</span>
   <span class="section-count">Screenshot Worker</span>
@@ -1077,6 +1095,7 @@
 <details>
 <summary>
   <img class="card-thumb" src="/icon/128x128/prompt.png" loading="lazy" onerror="this.style.display='none'" alt="">
+  <span class="service-light service-light-unknown" data-service="Silo"></span>
   <span class="tag tag-api">Infra</span>
   <span class="section-title">silo.aesthetic.computer</span>
   <span class="section-count">Data dashboard</span>
@@ -1093,6 +1112,7 @@
 <details>
 <summary>
   <img class="card-thumb" src="/icon/128x128/prompt.png" loading="lazy" onerror="this.style.display='none'" alt="">
+  <span class="service-light service-light-unknown" data-service="Help"></span>
   <span class="tag tag-api">Infra</span>
   <span class="section-title">help.aesthetic.computer</span>
   <span class="section-count">AI assistant</span>
@@ -1237,9 +1257,10 @@
 <details>
 <summary>
   <img class="card-thumb" src="/icon/128x128/kidlisp.png" loading="lazy" onerror="this.style.display='none'" alt="">
-  <span class="tag tag-microsite">Microsite</span>
+  <span class="service-light service-light-unknown" data-service="Netlify"></span>
+  <span class="tag tag-subdomain">Subdomain</span>
   <span class="section-title">kidlisp.com</span>
-  <span class="section-count">6 pages + 3 subdomains</span>
+  <span class="section-count">6 pages + 5 subdomains</span>
 </summary>
 <div class="section-desc">A Lisp-based creative programming language built on Aesthetic Computer. Write code, save &ldquo;keeps&rdquo; (minted artifacts), pair with physical FF1 devices, and browse a top-100 playlist.</div>
 <div class="routes single-col">
@@ -1249,6 +1270,21 @@
   <div class="route full-url">kidlisp.com/pj/* &mdash; Piece Jockey mode</div>
   <div class="route full-url">kidlisp.com/api/* &rarr; proxied to aesthetic.computer/api/*</div>
   <div class="route full-url">kidlisp.com/api/ff1/* &rarr; FF1 device API</div>
+</div>
+<div class="route-group-label">keeps.kidlisp.com (Mint &amp; Index)</div>
+<div class="routes single-col">
+  <div class="route full-url">keeps.kidlisp.com/ &mdash; Living index of all $codes + Tezos NFT minting (Auth0 + Beacon wallet)</div>
+  <div class="route full-url">keeps.kidlisp.com/api/* &rarr; proxied to aesthetic.computer/api/*</div>
+</div>
+<div class="route-group-label">learn.kidlisp.com (Reference &amp; Analytics)</div>
+<div class="routes single-col">
+  <div class="route full-url">learn.kidlisp.com/ &mdash; 118-function reference, usage analytics, and top-hits community browser</div>
+  <div class="route full-url">learn.kidlisp.com/api/* &rarr; proxied to aesthetic.computer/api/*</div>
+</div>
+<div class="route-group-label">calm.kidlisp.com (Ambient Display)</div>
+<div class="routes single-col">
+  <div class="route full-url">calm.kidlisp.com/ &mdash; Auto-shuffle calm playlist with 50s crossfade, 24fps, no UI &mdash; for screens &amp; installations</div>
+  <div class="route full-url">calm.kidlisp.com/js/* &mdash; Static JS assets</div>
 </div>
 <div class="route-group-label">pj.kidlisp.com (Piece Jockey)</div>
 <div class="routes single-col">
@@ -1269,7 +1305,6 @@
   <div class="route full-url">top.kidlisp.com/js/* &mdash; Static JS assets</div>
   <div class="route full-url">top.kidlisp.com/* &mdash; Catch-all to device.html</div>
 </div>
-<div class="note">Planned: learn.kidlisp.com (pending DNS setup)</div>
 </details>
 </div>
 
@@ -1278,7 +1313,8 @@
 <details>
 <summary>
   <img class="card-thumb" src="https://icons.duckduckgo.com/ip3/sotce.net.ico" loading="lazy" onerror="this.style.display='none'" alt="">
-  <span class="tag tag-microsite">Microsite</span>
+  <span class="service-light service-light-unknown" data-service="Netlify"></span>
+  <span class="tag tag-subdomain">Subdomain</span>
   <span class="section-title">sotce.net</span>
   <span class="section-count">Dynamic SSR</span>
 </summary>
@@ -1301,7 +1337,8 @@
 <details>
 <summary>
   <img class="card-thumb" src="https://icons.duckduckgo.com/ip3/justanothersystem.org.ico" loading="lazy" onerror="this.style.display='none'" alt="">
-  <span class="tag tag-microsite">Microsite</span>
+  <span class="service-light service-light-unknown" data-service="Netlify"></span>
+  <span class="tag tag-subdomain">Subdomain</span>
   <span class="section-title">justanothersystem.org</span>
   <span class="section-count">Gallery + API</span>
 </summary>
@@ -1323,7 +1360,8 @@
 <details>
 <summary>
   <img class="card-thumb" src="/icon/128x128/prompt.png" loading="lazy" onerror="this.style.display='none'" alt="">
-  <span class="tag tag-microsite">Microsite</span>
+  <span class="service-light service-light-unknown" data-service="Netlify"></span>
+  <span class="tag tag-subdomain">Subdomain</span>
   <span class="section-title">jas.life</span>
   <span class="section-count">Portfolio</span>
 </summary>
@@ -1341,7 +1379,8 @@
 <details>
 <summary>
   <img class="card-thumb" src="/icon/128x128/prompt.png" loading="lazy" onerror="this.style.display='none'" alt="">
-  <span class="tag tag-microsite">Microsite</span>
+  <span class="service-light service-light-unknown" data-service="Netlify"></span>
+  <span class="tag tag-subdomain">Subdomain</span>
   <span class="section-title">false.work</span>
   <span class="section-count">Studio + builds</span>
 </summary>
@@ -1368,7 +1407,8 @@
 <details>
 <summary>
   <img class="card-thumb" src="/icon/128x128/notepat.png" loading="lazy" onerror="this.style.display='none'" alt="">
-  <span class="tag tag-microsite">Microsite</span>
+  <span class="service-light service-light-unknown" data-service="Netlify"></span>
+  <span class="tag tag-subdomain">Subdomain</span>
   <span class="section-title">notepat.com</span>
   <span class="section-count">Proxied</span>
 </summary>
@@ -1385,7 +1425,8 @@
 <details>
 <summary>
   <img class="card-thumb" src="https://icons.duckduckgo.com/ip3/sundarakarma.com.ico" loading="lazy" onerror="this.style.display='none'" alt="">
-  <span class="tag tag-microsite">Microsite</span>
+  <span class="service-light service-light-unknown" data-service="Netlify"></span>
+  <span class="tag tag-subdomain">Subdomain</span>
   <span class="section-title">sundarakarma.com</span>
   <span class="section-count">Band site</span>
 </summary>
@@ -1402,7 +1443,8 @@
 <details>
 <summary>
   <img class="card-thumb" src="/icon/128x128/wipppps.png" loading="lazy" onerror="this.style.display='none'" alt="">
-  <span class="tag tag-microsite">Microsite</span>
+  <span class="service-light service-light-unknown" data-service="Netlify"></span>
+  <span class="tag tag-subdomain">Subdomain</span>
   <span class="section-title">wipppps.world</span>
   <span class="section-count">Proxied</span>
 </summary>
@@ -1418,7 +1460,8 @@
 <details>
 <summary>
   <img class="card-thumb" src="/icon/128x128/aesthetic-direct.png" loading="lazy" onerror="this.style.display='none'" alt="">
-  <span class="tag tag-microsite">Microsite</span>
+  <span class="service-light service-light-unknown" data-service="Netlify"></span>
+  <span class="tag tag-subdomain">Subdomain</span>
   <span class="section-title">aesthetic.direct</span>
   <span class="section-count">1 page</span>
 </summary>
@@ -1434,6 +1477,7 @@
 <details>
 <summary>
   <img class="card-thumb" src="/icon/128x128/prompt.png" loading="lazy" onerror="this.style.display='none'" alt="">
+  <span class="service-light service-light-unknown" data-service="jas.life Legacy"></span>
   <span class="tag tag-infra">Legacy</span>
   <span class="section-title">*.jas.life &mdash; Pre-AC Archive (2014&ndash;2016)</span>
   <span class="section-count">14 sites</span>
@@ -1470,11 +1514,11 @@
 
 </section>
 
-<img id="pals" width="64" src="https://aesthetic.computer/purple-pals.svg">
+<img id="pals" width="48" src="https://aesthetic.computer/purple-pals.svg">
 
 <script>
 const search = document.getElementById("search");
-const SEARCHABLE_SELECTOR = ".route, .redirect-row, .dynamic-pattern, .live-service";
+const SEARCHABLE_SELECTOR = ".route, .redirect-row, .dynamic-pattern";
 
 function applySearchFilter() {
   const q = search.value.toLowerCase().trim();
@@ -1484,37 +1528,17 @@ function applySearchFilter() {
     el.classList.toggle("hidden", q && !text.includes(q));
   });
   document.querySelectorAll("details").forEach(det => {
-    const visible = det.querySelectorAll(".route:not(.hidden), .redirect-row:not(.hidden), .dynamic-pattern:not(.hidden), .live-service:not(.hidden)");
+    const visible = det.querySelectorAll(".route:not(.hidden), .redirect-row:not(.hidden), .dynamic-pattern:not(.hidden)");
     det.closest(".card").classList.toggle("hidden", q && visible.length === 0);
     if (q && visible.length > 0) det.open = true;
   });
-  const divider = document.querySelector(".divider");
-  if (divider) divider.classList.toggle("hidden", !!q);
 }
 
 search.addEventListener("input", applySearchFilter);
 
-const livePollStatus = document.getElementById("live-poll-status");
-const liveStatusSummary = document.getElementById("live-status-summary");
-const liveServiceGrid = document.getElementById("live-service-grid");
-const liveSourceMeta = document.getElementById("live-source-meta");
-
-const LIVE_POLL_MS = 30000;
+// Service status lights — fetched from bills.aesthetic.computer and baked into each card
 const STATUS_PRIORITY = { red: 0, yellow: 1, green: 2, unknown: 3 };
-const STATUS_LABEL = { red: "offline", yellow: "at risk", green: "online", unknown: "unknown" };
 const BILLS_FETCH_URLS = ["https://bills.aesthetic.computer/index.html", "/bills.aesthetic.computer/index.html"];
-
-let liveLastSummaryText = "";
-let livePollInFlight = false;
-
-function escapeHtml(text) {
-  return String(text || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
 
 function normalizeSpace(text) {
   return (text || "").replace(/\s+/g, " ").trim();
@@ -1540,19 +1564,11 @@ function formatTimeUTC(date) {
   return date.toISOString().slice(11, 19) + " UTC";
 }
 
-function formatDateUTC(date) {
-  return date.toISOString().slice(0, 10);
-}
-
 function parseBillsSnapshot(html) {
   const doc = new DOMParser().parseFromString(html, "text/html");
 
   const subtitle = normalizeSpace(doc.querySelector(".subtitle")?.textContent);
   const snapshotDate = subtitle.split("—").pop()?.trim() || "";
-
-  const alertTexts = Array.from(doc.querySelectorAll(".alerts .alert .alert-text"))
-    .map(node => normalizeSpace(node.textContent))
-    .filter(Boolean);
 
   const topStats = {};
   const topStatsContainer = doc.querySelector(".stats");
@@ -1569,14 +1585,8 @@ function parseBillsSnapshot(html) {
   Array.from(doc.querySelectorAll(".service-map .svc")).forEach(serviceNode => {
     const name = normalizeSpace(serviceNode.querySelector(".svc-name")?.textContent);
     if (!name) return;
-    const cost = normalizeSpace(serviceNode.querySelector(".svc-cost")?.textContent);
     const state = mapServiceClassToState(serviceNode);
-    servicesByName.set(name.toLowerCase(), {
-      name,
-      cost,
-      state,
-      statusLabel: STATUS_LABEL[state] || STATUS_LABEL.unknown,
-    });
+    servicesByName.set(name.toLowerCase(), { name, state });
   });
 
   const allServicesHeading = Array.from(doc.querySelectorAll("h2"))
@@ -1594,87 +1604,30 @@ function parseBillsSnapshot(html) {
       if (!name) return;
       const key = name.toLowerCase();
       if (servicesByName.has(key)) return;
-      const cost = normalizeSpace(cells[2]?.textContent);
       const state = classifyStatusText(statusText);
-      servicesByName.set(key, {
-        name,
-        cost,
-        state,
-        statusLabel: statusText || STATUS_LABEL[state] || STATUS_LABEL.unknown,
-      });
+      servicesByName.set(key, { name, state });
     });
   }
 
-  const services = Array.from(servicesByName.values());
-  if (services.length === 0) {
-    throw new Error("bills snapshot missing service rows");
-  }
-
-  return {
-    snapshotDate,
-    alerts: alertTexts,
-    topStats,
-    services,
-  };
+  return { snapshotDate, topStats, services: servicesByName };
 }
 
-function renderLiveSnapshot(snapshot) {
-  const updatedAt = new Date();
-  const counts = { green: 0, yellow: 0, red: 0, unknown: 0 };
-  snapshot.services.forEach(service => {
-    counts[service.state] = (counts[service.state] || 0) + 1;
+function applyStatusLights(serviceMap) {
+  // Map service names from bills to data-service attributes on lights
+  document.querySelectorAll(".service-light[data-service]").forEach(light => {
+    const key = light.getAttribute("data-service").toLowerCase();
+    // Try exact match first, then fuzzy
+    let match = serviceMap.get(key);
+    if (!match) {
+      for (const [k, v] of serviceMap) {
+        if (k.includes(key) || key.includes(k)) { match = v; break; }
+      }
+    }
+    if (match) {
+      light.className = `service-light service-light-${match.state}`;
+      light.title = `${match.name}: ${match.state}`;
+    }
   });
-
-  const summaryParts = [
-    `${counts.green || 0} on`,
-    `${counts.yellow || 0} at risk`,
-    `${counts.red || 0} off`,
-  ];
-  if (snapshot.topStats.overdue) summaryParts.push(`overdue ${snapshot.topStats.overdue}`);
-  if (snapshot.topStats.monthly) summaryParts.push(`monthly ${snapshot.topStats.monthly}`);
-  const summaryText = summaryParts.join(" · ");
-
-  liveStatusSummary.textContent = summaryText;
-  liveLastSummaryText = summaryText;
-  livePollStatus.textContent = `updated ${formatTimeUTC(updatedAt)}`;
-
-  const sortedServices = [...snapshot.services].sort((a, b) => {
-    const scoreA = STATUS_PRIORITY[a.state] ?? STATUS_PRIORITY.unknown;
-    const scoreB = STATUS_PRIORITY[b.state] ?? STATUS_PRIORITY.unknown;
-    if (scoreA !== scoreB) return scoreA - scoreB;
-    return a.name.localeCompare(b.name);
-  });
-
-  liveServiceGrid.innerHTML = sortedServices.map(service => {
-    const stateClass = `service-light-${service.state}`;
-    const stateLabel = normalizeSpace(service.statusLabel || STATUS_LABEL[service.state] || STATUS_LABEL.unknown);
-    const searchText = normalizeSpace(`${service.name} ${stateLabel} ${service.cost}`.toLowerCase());
-    const costHtml = service.cost ? `<span class="live-service-cost">${escapeHtml(service.cost)}</span>` : "";
-    return `<div class="live-service" data-search-text="${escapeHtml(searchText)}">
-      <span class="service-light ${stateClass}" title="${escapeHtml(stateLabel)}"></span>
-      <span class="live-service-name">${escapeHtml(service.name)}</span>
-      <span class="live-service-state">${escapeHtml(stateLabel)}</span>
-      ${costHtml}
-    </div>`;
-  }).join("");
-
-  const alertText = snapshot.alerts[0] ? ` · ${snapshot.alerts[0]}` : "";
-  const snapshotDate = snapshot.snapshotDate || formatDateUTC(updatedAt);
-  liveSourceMeta.textContent = `Source: bills.aesthetic.computer · Snapshot ${snapshotDate} · Updated ${formatTimeUTC(updatedAt)}${alertText}`;
-
-  applySearchFilter();
-}
-
-function renderLivePollError(error) {
-  const failedAt = new Date();
-  livePollStatus.textContent = `poll error ${formatTimeUTC(failedAt)}`;
-  if (liveLastSummaryText) {
-    liveStatusSummary.textContent = `${liveLastSummaryText} · stale`;
-  } else {
-    liveStatusSummary.textContent = "Unable to load bills snapshot.";
-    liveServiceGrid.innerHTML = `<div class="live-error">Live service polling is unavailable right now.</div>`;
-  }
-  liveSourceMeta.textContent = `Source: bills.aesthetic.computer · Poll failed at ${formatTimeUTC(failedAt)} (${error.message || "unknown error"})`;
 }
 
 async function fetchBillsHTML() {
@@ -1683,11 +1636,8 @@ async function fetchBillsHTML() {
     const abortController = new AbortController();
     const timeout = setTimeout(() => abortController.abort(), 8000);
     try {
-      const response = await fetch(url, {
-        cache: "no-store",
-        signal: abortController.signal,
-      });
-      if (!response.ok) throw new Error(`${response.status} ${response.statusText}`.trim());
+      const response = await fetch(url, { cache: "no-store", signal: abortController.signal });
+      if (!response.ok) throw new Error(`${response.status}`);
       return await response.text();
     } catch (error) {
       lastError = error;
@@ -1698,23 +1648,23 @@ async function fetchBillsHTML() {
   throw lastError || new Error("fetch failed");
 }
 
+const statusBar = document.getElementById("live-status-bar");
+
 async function refreshLiveStatus() {
-  if (livePollInFlight) return;
-  livePollInFlight = true;
   try {
     const billsHTML = await fetchBillsHTML();
     const snapshot = parseBillsSnapshot(billsHTML);
-    renderLiveSnapshot(snapshot);
+    applyStatusLights(snapshot.services);
+    const counts = { green: 0, yellow: 0, red: 0, unknown: 0 };
+    for (const [, svc] of snapshot.services) counts[svc.state] = (counts[svc.state] || 0) + 1;
+    statusBar.textContent = `${counts.green} on · ${counts.yellow} at risk · ${counts.red} off · updated ${formatTimeUTC(new Date())}`;
   } catch (error) {
-    console.warn("Sitemap live status poll failed:", error);
-    renderLivePollError(error);
-  } finally {
-    livePollInFlight = false;
+    statusBar.textContent = `Status poll failed · ${formatTimeUTC(new Date())}`;
   }
 }
 
 refreshLiveStatus();
-setInterval(refreshLiveStatus, LIVE_POLL_MS);
+setInterval(refreshLiveStatus, 30000);
 </script>
 </body>
 </html>
