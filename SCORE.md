@@ -15,8 +15,8 @@ As implemented in this monorepo through the direction of [@jeffrey](https://prom
 ## Front Door
 
 <!-- stats:start -->
-354 built-in pieces (336 JS + 18 KidLisp), ~78 API endpoints.<br>
-2802 registered handles, 265 user-published pieces, 4404 paintings, 16349 KidLisp programs, 18021 chat messages, 20 prints ordered.<br>
+355 built-in pieces (337 JS + 18 KidLisp), ~78 API endpoints.<br>
+2802 registered handles, 265 user-published pieces, 4405 paintings, 16349 KidLisp programs, 18021 chat messages, 20 prints ordered.<br>
 *Last refreshed: Mar 4, 2026*
 <!-- stats:end -->
 
