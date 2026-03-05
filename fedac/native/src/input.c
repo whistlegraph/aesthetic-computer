@@ -56,6 +56,12 @@ const char *input_key_name(int code) {
         case KEY_F7: return "f7"; case KEY_F8: return "f8";
         case KEY_F9: return "f9"; case KEY_F10: return "f10";
         case KEY_F11: return "f11"; case KEY_F12: return "f12";
+        case KEY_MUTE: return "audiomute";
+        case KEY_VOLUMEDOWN: return "audiovolumedown";
+        case KEY_VOLUMEUP: return "audiovolumeup";
+        case KEY_POWER: return "power";
+        case KEY_BRIGHTNESSDOWN: return "brightnessdown";
+        case KEY_BRIGHTNESSUP: return "brightnessup";
         default: return NULL;
     }
 }
@@ -100,7 +106,10 @@ ACInput *input_init(int screen_w, int screen_h) {
 }
 
 void input_poll(ACInput *input) {
+    if (!input) return;
     input->event_count = 0;
+    input->delta_x = 0;
+    input->delta_y = 0;
 
     struct input_event ev;
     for (int d = 0; d < input->count; d++) {
@@ -137,8 +146,8 @@ void input_poll(ACInput *input) {
                 }
             } else if (ev.type == EV_REL) {
                 // Relative mouse movement
-                if (ev.code == REL_X) input->pointer_x += ev.value;
-                if (ev.code == REL_Y) input->pointer_y += ev.value;
+                if (ev.code == REL_X) { input->pointer_x += ev.value; input->delta_x += ev.value; }
+                if (ev.code == REL_Y) { input->pointer_y += ev.value; input->delta_y += ev.value; }
                 // Clamp
                 if (input->pointer_x < 0) input->pointer_x = 0;
                 if (input->pointer_y < 0) input->pointer_y = 0;

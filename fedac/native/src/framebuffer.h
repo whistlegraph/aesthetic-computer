@@ -14,6 +14,7 @@ ACFramebuffer *fb_create(int width, int height);
 void fb_destroy(ACFramebuffer *fb);
 void fb_clear(ACFramebuffer *fb, uint32_t color);
 void fb_copy_to(ACFramebuffer *src, uint32_t *dst, int dst_stride);
+void fb_copy_scaled(ACFramebuffer *src, uint32_t *dst, int dst_w, int dst_h, int dst_stride, int scale);
 
 // Direct pixel access with bounds checking
 static inline void fb_put_pixel(ACFramebuffer *fb, int x, int y, uint32_t color) {

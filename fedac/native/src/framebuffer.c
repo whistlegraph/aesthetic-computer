@@ -41,3 +41,17 @@ void fb_copy_to(ACFramebuffer *src, uint32_t *dst, int dst_stride) {
                (size_t)src->width * sizeof(uint32_t));
     }
 }
+
+void fb_copy_scaled(ACFramebuffer *src, uint32_t *dst, int dst_w, int dst_h, int dst_stride, int scale) {
+    for (int dy = 0; dy < dst_h; dy++) {
+        int sy = dy / scale;
+        if (sy >= src->height) sy = src->height - 1;
+        uint32_t *src_row = src->pixels + sy * src->stride;
+        uint32_t *dst_row = dst + dy * dst_stride;
+        for (int dx = 0; dx < dst_w; dx++) {
+            int sx = dx / scale;
+            if (sx >= src->width) sx = src->width - 1;
+            dst_row[dx] = src_row[sx];
+        }
+    }
+}
