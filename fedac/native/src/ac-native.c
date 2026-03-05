@@ -78,16 +78,34 @@ static void mount_minimal_fs(void) {
 }
 
 // Try to mount boot USB for log writing (non-blocking, best-effort)
+static char log_dev[32] = "";
 static void try_mount_log(void) {
     mkdir("/mnt", 0755);
+    // Wait for USB block devices to appear (up to 5s after EFI handoff)
+    fprintf(stderr, "[ac-native] Waiting for USB block devices...\n");
+    for (int w = 0; w < 250; w++) {
+        if (access("/dev/sda1", F_OK) == 0 || access("/dev/sdb1", F_OK) == 0) break;
+        usleep(20000);
+    }
+    fprintf(stderr, "[ac-native] sda1=%s sdb1=%s\n",
+            access("/dev/sda1", F_OK) == 0 ? "yes" : "no",
+            access("/dev/sdb1", F_OK) == 0 ? "yes" : "no");
     const char *devs[] = {"/dev/sda1", "/dev/sdb1", "/dev/sdc1", NULL};
     for (int i = 0; devs[i]; i++) {
         if (access(devs[i], F_OK) != 0) continue;
-        if (mount(devs[i], "/mnt", "vfat", 0, "rw") == 0) {
+        if (mount(devs[i], "/mnt", "vfat", 0, NULL) == 0) {
             logfile = fopen("/mnt/ac-native.log", "w");
-            return;
+            if (logfile) {
+                strncpy(log_dev, devs[i], sizeof(log_dev) - 1);
+                fprintf(stderr, "[ac-native] Log: %s -> /mnt/ac-native.log\n", devs[i]);
+                return;
+            }
+            umount("/mnt");
         }
+        fprintf(stderr, "[ac-native] Log mount failed: %s\n", devs[i]);
     }
+    // Fallback: log to tmpfs (won't survive reboot but stderr goes to console)
+    fprintf(stderr, "[ac-native] No USB log mount available\n");
 }
 
 static void frame_sync_60fps(struct timespec *next) {
@@ -211,12 +229,15 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "[ac-native] No backlight found\n");
     }
 
+    // Try to mount USB for logging (starts waiting for USB enumeration)
+    if (getpid() == 1) try_mount_log();
+
     // Init audio (show splash frame 1 while it works)
     if (!headless) draw_splash(&graph, screen, display, 1);
     ACAudio *audio = audio_init();
 
-    // Try to mount USB for logging (background, best-effort)
-    if (getpid() == 1) try_mount_log();
+    // Retry log mount if first attempt failed (USB may have appeared during audio init)
+    if (getpid() == 1 && !logfile) try_mount_log();
 
     // Init JS
     if (!headless) draw_splash(&graph, screen, display, 2);
@@ -296,15 +317,23 @@ int main(int argc, char *argv[]) {
             int power_pressed = 0;
             for (int i = 0; i < input->event_count; i++) {
                 if (input->events[i].type == AC_EVENT_KEYBOARD_DOWN) {
-                    if (strcmp(input->events[i].key_name, "audiovolumeup") == 0)
+                    // Volume: KEY_VOLUMEUP/DOWN/MUTE or F1/F2/F3 as fallback
+                    if (strcmp(input->events[i].key_name, "audiovolumeup") == 0 ||
+                        strcmp(input->events[i].key_name, "f3") == 0)
                         audio_volume_adjust(audio, 1);
-                    else if (strcmp(input->events[i].key_name, "audiovolumedown") == 0)
+                    else if (strcmp(input->events[i].key_name, "audiovolumedown") == 0 ||
+                             strcmp(input->events[i].key_name, "f2") == 0)
                         audio_volume_adjust(audio, -1);
-                    else if (strcmp(input->events[i].key_name, "audiomute") == 0)
+                    else if (strcmp(input->events[i].key_name, "audiomute") == 0 ||
+                             strcmp(input->events[i].key_name, "f1") == 0)
                         audio_volume_adjust(audio, 0);
+                    // Brightness: KEY_BRIGHTNESS or F5/F6 as fallback
                     else if ((strcmp(input->events[i].key_name, "brightnessup") == 0 ||
-                              strcmp(input->events[i].key_name, "brightnessdown") == 0) && bl_path[0]) {
-                        int up = (input->events[i].key_name[10] == 'u');
+                              strcmp(input->events[i].key_name, "brightnessdown") == 0 ||
+                              strcmp(input->events[i].key_name, "f6") == 0 ||
+                              strcmp(input->events[i].key_name, "f5") == 0) && bl_path[0]) {
+                        int up = (strcmp(input->events[i].key_name, "brightnessup") == 0 ||
+                                  strcmp(input->events[i].key_name, "f6") == 0);
                         char tmp[160];
                         snprintf(tmp, sizeof(tmp), "%s/brightness", bl_path);
                         FILE *f = fopen(tmp, "r");
