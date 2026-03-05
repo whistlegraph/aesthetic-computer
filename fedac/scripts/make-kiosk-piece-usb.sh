@@ -1599,7 +1599,12 @@ build_target() {
   mount "$p1" "$EFI_MOUNT"
 
   mkdir -p "$EFI_MOUNT/EFI/BOOT"
-  if [ -f "$ROOTFS_DIR/boot/efi/EFI/fedora/grubx64.efi" ]; then
+  # Use shimx64.efi as BOOTX64.EFI for Secure Boot support
+  if [ -f "$ROOTFS_DIR/boot/efi/EFI/fedora/shimx64.efi" ]; then
+    cp "$ROOTFS_DIR/boot/efi/EFI/fedora/shimx64.efi" "$EFI_MOUNT/EFI/BOOT/BOOTX64.EFI"
+    # GRUB must sit alongside the shim so it can chain-load it
+    cp "$ROOTFS_DIR/boot/efi/EFI/fedora/grubx64.efi" "$EFI_MOUNT/EFI/BOOT/grubx64.efi"
+  elif [ -f "$ROOTFS_DIR/boot/efi/EFI/fedora/grubx64.efi" ]; then
     cp "$ROOTFS_DIR/boot/efi/EFI/fedora/grubx64.efi" "$EFI_MOUNT/EFI/BOOT/BOOTX64.EFI"
   elif [ -f "$ROOTFS_DIR/usr/lib/grub/x86_64-efi/monolithic/grubx64.efi" ]; then
     cp "$ROOTFS_DIR/usr/lib/grub/x86_64-efi/monolithic/grubx64.efi" "$EFI_MOUNT/EFI/BOOT/BOOTX64.EFI"
