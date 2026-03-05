@@ -1,0 +1,2 @@
+#!/bin/sh
+exec /ac-native /piece.mjs
