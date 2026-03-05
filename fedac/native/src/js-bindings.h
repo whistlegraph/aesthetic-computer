@@ -5,6 +5,7 @@
 #include "graph.h"
 #include "input.h"
 #include "font.h"
+#include "audio.h"
 
 typedef struct {
     JSRuntime *rt;
@@ -16,16 +17,18 @@ typedef struct {
     JSValue act_fn;
     JSValue sim_fn;
     JSValue leave_fn;
+    JSValue beat_fn;
 
     // State
     ACGraph *graph;
     ACInput *input;
+    ACAudio *audio;
     int paint_count;
     int sim_count;
 } ACRuntime;
 
 // Initialize QuickJS and register all AC API bindings
-ACRuntime *js_init(ACGraph *graph, ACInput *input);
+ACRuntime *js_init(ACGraph *graph, ACInput *input, ACAudio *audio);
 
 // Load and prepare a piece module
 int js_load_piece(ACRuntime *rt, const char *path);
@@ -35,6 +38,7 @@ void js_call_boot(ACRuntime *rt);
 void js_call_paint(ACRuntime *rt);
 void js_call_act(ACRuntime *rt);
 void js_call_sim(ACRuntime *rt);
+void js_call_beat(ACRuntime *rt);
 void js_call_leave(ACRuntime *rt);
 
 // Cleanup

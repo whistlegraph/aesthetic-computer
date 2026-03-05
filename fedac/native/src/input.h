@@ -30,6 +30,7 @@ typedef struct {
     int count;
     int pointer_x, pointer_y;
     int pointer_down;
+    int delta_x, delta_y;  // Per-frame pointer delta
 
     // Event queue for current frame
     ACEvent events[MAX_EVENTS_PER_FRAME];

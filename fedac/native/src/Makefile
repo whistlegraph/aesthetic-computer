@@ -79,8 +79,7 @@ $(QJSDIR)/quickjs.h:
 	}
 
 clean:
-	rm -f $(BUILDDIR)/*.o $(BUILDDIR)/qjs-*.o $(TARGET) $(BUILDDIR)/qjs.tar.xz
-	rm -rf $(BUILDDIR)/quickjs $(BUILDDIR)/quickjs-*
+	rm -rf $(BUILDDIR)
 
 # Run test piece locally (needs DRM access or QEMU)
 test: $(TARGET)

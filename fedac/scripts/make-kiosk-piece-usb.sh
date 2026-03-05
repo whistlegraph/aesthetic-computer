@@ -761,6 +761,10 @@ if ! chroot "$ROOTFS_DIR" /usr/bin/getent passwd liveuser >/dev/null 2>&1; then
 fi
 chroot "$ROOTFS_DIR" /usr/sbin/usermod -s /bin/bash liveuser >/dev/null 2>&1 || true
 chroot "$ROOTFS_DIR" /usr/bin/passwd -d liveuser >/dev/null 2>&1 || true
+# Unlock root account so emergency shell is accessible for debugging.
+# passwd -d sets empty password, but sulogin needs the shadow entry unlocked too.
+chroot "$ROOTFS_DIR" /usr/bin/passwd -d root >/dev/null 2>&1 || true
+sed -i 's|^root:[^:]*:|root::|' "$ROOTFS_DIR/etc/shadow"
 
 # Ensure PAM allows passwordless autologin for liveuser.
 # Fedora 43 pam_unix.so rejects empty-password accounts unless "nullok" is present.
@@ -1318,14 +1322,19 @@ if [ -n "$MISSING" ]; then
 fi
 
 # ══════════════════════════════════════════
-# Step 4: Build EROFS + initrd
+# Step 4: Build SquashFS + initrd
 # ══════════════════════════════════════════
-echo -e "${CYAN}[4/6] Building EROFS image...${NC}"
+echo -e "${CYAN}[4/6] Building SquashFS image...${NC}"
 
 EROFS_PATH="$WORK_DIR/squashfs.img"
-mkfs.erofs -zzstd,level=3 -C65536 "$EROFS_PATH" "$ROOTFS_DIR/"
+if command -v mksquashfs >/dev/null 2>&1; then
+  mksquashfs "$ROOTFS_DIR/" "$EROFS_PATH" -comp zstd -Xcompression-level 3 -noappend
+else
+  echo -e "${RED}Error: mksquashfs not found. Install squashfs-tools.${NC}"
+  exit 1
+fi
 EROFS_SIZE=$(stat -c%s "$EROFS_PATH")
-echo -e "  ${GREEN}EROFS built: $(numfmt --to=iec $EROFS_SIZE)${NC}"
+echo -e "  ${GREEN}SquashFS built: $(numfmt --to=iec $EROFS_SIZE)${NC}"
 
 # ── Framebuffer splash: paint PALS logo to /dev/fb0 ──────────────────
 # Pre-convert PALS PNG → raw BGRA for fast framebuffer blitting.
@@ -1618,15 +1627,8 @@ build_target() {
 set default=0
 set timeout=0
 insmod all_video
-insmod gzio
-insmod part_gpt
-insmod fat
-set gfxmode=auto
-set gfxpayload=keep
-terminal_input console
-terminal_output gfxterm
-menuentry "FedAC Kiosk" --class fedora {
-  linux /loader/linux loglevel=4 systemd.log_level=info systemd.show_status=1 rd.systemd.show_status=1 rd.udev.log_level=3 udev.log_priority=3 rd.plymouth=0 plymouth.enable=0 vt.global_cursor_default=0 logo.nologo root=live:LABEL=FEDAC-LIVE rd.live.image mitigations=off selinux=0 modprobe.blacklist=iwlwifi,iwlmvm,iwldvm
+menuentry "FedAC Kiosk" {
+  linux /loader/linux quiet root=live:LABEL=FEDAC-LIVE rd.live.image rd.live.overlay.nouserconfirmprompt selinux=0
   initrd /loader/initrd
 }
 GRUBEOF
