@@ -16914,7 +16914,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (!o || !o.img) {
         // During reframes, if overlay data is missing but we have a cached version, use it
         // EXCEPT for tapeProgressBar, merryProgressBar, durationProgressBar, durationTimecode, qrOverlay and bumperOverlay which should never use cached versions
-        if (content.reframe && window.framePersistentOverlayCache[name] && name !== "tapeProgressBar" && name !== "merryProgressBar" && name !== "durationProgressBar" && name !== "durationTimecode" && name !== "qrOverlay" && name !== "qrCornerLabel" && name !== "qrFullscreenLabel" && name !== "authorOverlay" && name !== "bumperOverlay") {
+        if (content.reframe && window.framePersistentOverlayCache[name] && name !== "tapeProgressBar" && name !== "merryProgressBar" && name !== "demoplayCard" && name !== "durationProgressBar" && name !== "durationTimecode" && name !== "qrOverlay" && name !== "qrCornerLabel" && name !== "qrFullscreenLabel" && name !== "authorOverlay" && name !== "bumperOverlay") {
           paintOverlays[name] = window.framePersistentOverlayCache[name];
           return;
         }
@@ -16950,6 +16950,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         currentKey += `_${performance.now()}`; // Force unique key every time
       }
       
+      // For demoplay card, completely disable ALL caching (opacity changes every frame)
+      if (name === "demoplayCard") {
+        overlayCache.lastKey = null;
+        delete window.framePersistentOverlayCache[name];
+        currentKey += `_${performance.now()}`;
+      }
+
       // For merry progress bar, completely disable ALL caching to ensure every frame is painted
       if (name === "merryProgressBar") {
         overlayCache.lastKey = null; // Force regeneration every frame
@@ -16997,6 +17004,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (
         name !== "tapeProgressBar" &&
         name !== "merryProgressBar" &&
+        name !== "demoplayCard" &&
         name !== "durationProgressBar" &&
         name !== "durationTimecode" &&
         name !== "qrOverlay" &&
@@ -17124,7 +17132,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Don't cache QR overlay painters to allow animation
       // Don't cache tapeProgressBar, merryProgressBar or durationProgressBar painters either - force regeneration every frame
       // Don't cache authorOverlay or bumperOverlay as they change per piece
-      if (isHudOverlay && name !== "qrOverlay" && name !== "qrCornerLabel" && name !== "qrFullscreenLabel" && name !== "authorOverlay" && name !== "bumperOverlay" && name !== "tapeProgressBar" && name !== "merryProgressBar" && name !== "durationProgressBar") {
+      if (isHudOverlay && name !== "qrOverlay" && name !== "qrCornerLabel" && name !== "qrFullscreenLabel" && name !== "authorOverlay" && name !== "bumperOverlay" && name !== "tapeProgressBar" && name !== "merryProgressBar" && name !== "demoplayCard" && name !== "durationProgressBar") {
         window.framePersistentOverlayCache[name] = paintOverlays[name];
       }
     }
@@ -17190,6 +17198,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     buildOverlay("qrFullscreenLabel", content.qrFullscreenLabel);
     buildOverlay("authorOverlay", content.authorOverlay); // 👤 Author attribution for KidLisp pieces
     buildOverlay("merryProgressBar", content.merryProgressBar); // 🎄 Merry pipeline progress bar
+    buildOverlay("demoplayCard", content.demoplayCard); // 🎬 Demoplay text card overlay
     buildOverlay("tapeProgressBar", content.tapeProgressBar);
     buildOverlay("durationProgressBar", content.durationProgressBar);
     buildOverlay("durationTimecode", content.durationTimecode);
@@ -17628,6 +17637,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           if (paintOverlays["merryProgressBar"]) {
             paintOverlays["merryProgressBar"]();
           }
+        }
+
+        // 🎬 Demoplay text card overlay
+        if (content.demoplayCard) {
+          if (paintOverlays["demoplayCard"]) {
+            paintOverlays["demoplayCard"]();
+          } else {
+            buildOverlay("demoplayCard", content.demoplayCard);
+            if (paintOverlays["demoplayCard"]) {
+              paintOverlays["demoplayCard"]();
+            }
+          }
+        } else {
+          delete paintOverlays["demoplayCard"];
         }
 
         // 🎄⏰ Merry UTC debug overlay (top-right) - DISABLED

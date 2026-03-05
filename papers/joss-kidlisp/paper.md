@@ -170,12 +170,8 @@ The corpus of 16,000+ programs with hit counters, timestamps, and author attribu
 
 The platform's chaos mode --- which produces deterministic visual output from arbitrary text input --- represents an unusual approach to error handling in creative environments that may interest programming language researchers.
 
-# AI usage disclosure
+# Assemblage
 
-The KidLisp evaluator was primarily written by the author. Claude (Anthropic) was used as a development assistant for debugging, test writing, and documentation. This paper was drafted with AI assistance.
-
-# Acknowledgements
-
-Thanks to the 59 KidLisp authors on Aesthetic Computer for creating the corpus and providing feedback on language design.
+Written and produced by Jeffrey Alan Scudder. Tools used in the making of KidLisp and this paper include: JavaScript, Node.js, Vim, various LLMs (Claude, GPT, Gemini, etc.), fish shell, Git, Firefox, and a lot of coffee. Thanks to the 59 KidLisp authors on Aesthetic Computer for creating the corpus and providing feedback on language design.
 
 # References

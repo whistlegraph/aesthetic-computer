@@ -11387,6 +11387,12 @@ async function makeFrame({ data: { type, content } }) {
             
             return; // Don't proceed with navigation
           }
+          // 🎬 Stop demoplay on Escape
+          if (data.key === "Escape" && typeof $commonApi.system.stopDemoplay === "function") {
+            leaving = false;
+            $commonApi.system.stopDemoplay();
+            return;
+          }
           // Stop merry pipeline for both Escape and Backspace
           let merryOriginalCommand = null;
           if (data.key === "Escape" || data.key === "Backspace") {
@@ -12638,6 +12644,12 @@ async function makeFrame({ data: { type, content } }) {
         //}
       // }
 
+      // 🎬 Inject demoplay synthetic keyboard events
+      if ($commonApi.system.demoplay?.syntheticKeyboard?.length) {
+        const synth = $commonApi.system.demoplay.syntheticKeyboard.splice(0);
+        content.keyboard = [...(content.keyboard || []), ...synth];
+      }
+
       // Ingest all keyboard input events by running act for each event.
       content.keyboard?.forEach((data) => {
         Object.assign(data, {
@@ -12732,6 +12744,13 @@ async function makeFrame({ data: { type, content } }) {
           console.warn("️ ✒ Act failure...", e);
         }
       });
+      // 🎬 Forward actAlerts to demoplay conductor for wait-for actions
+      if ($commonApi.system.demoplay?.eventCallback) {
+        actAlerts.forEach((action) => {
+          const name = typeof action === "string" ? action : action.name;
+          if (name) $commonApi.system.demoplay.eventCallback(name);
+        });
+      }
       //if (actAlerts.length > 0) console.log(actAlerts, booted);
       actAlerts.length = 0; // Clear act alerts.
     }
@@ -14294,6 +14313,55 @@ async function makeFrame({ data: { type, content } }) {
         }
       }
 
+      // 🎬 Demoplay text card overlay
+      if ($commonApi.system.demoplay?.card) {
+        const card = $commonApi.system.demoplay.card;
+        const elapsed = Date.now() - card.startTime;
+        const totalDur = card.duration;
+        const fadeIn = card.fadeIn || 500;
+        const fadeOut = card.fadeOut || 500;
+
+        // Calculate opacity with fade in/out
+        let opacity = 1;
+        if (elapsed < fadeIn) {
+          opacity = elapsed / fadeIn;
+        } else if (elapsed > totalDur - fadeOut) {
+          opacity = Math.max(0, (totalDur - elapsed) / fadeOut);
+        }
+        card.opacity = opacity;
+
+        const sw = screen.width;
+        const sh = screen.height;
+        const cardPainting = $api.painting(sw, sh, ($) => {
+          $.unmask();
+          // Semi-transparent background
+          $.ink(0, 0, 0, Math.floor(opacity * 180));
+          $.box(0, 0, sw, sh);
+          // White text, centered
+          $.ink(255, 255, 255, Math.floor(opacity * 255));
+          const lines = card.text.split("\n");
+          const lineHeight = 10;
+          const startY = Math.floor((sh - lines.length * lineHeight) / 2);
+          lines.forEach((line, i) => {
+            $.write(line, { center: "x", y: startY + i * lineHeight });
+          });
+        });
+
+        if (cardPainting?.pixels?.length > 0) {
+          sendData.demoplayCard = {
+            x: 0,
+            y: 0,
+            img: {
+              width: cardPainting.width,
+              height: cardPainting.height,
+              pixels: cardPainting.pixels,
+            },
+          };
+        }
+      } else if (sendData.demoplayCard) {
+        delete sendData.demoplayCard;
+      }
+
       // Tack on the tape progress bar pixel buffer if necessary.
       if (!$api.rec.cleanMode && ($api.rec.tapeProgress || ($api.rec.recording && $api.rec.tapeTimerDuration))) {
         const progress = $api.rec.tapeProgress || 0;
@@ -15591,6 +15659,12 @@ async function makeFrame({ data: { type, content } }) {
         // 🎄 Create a copy for transfer to avoid detaching the merry progress bar buffer
         const merryPixelsCopy = new Uint8ClampedArray(sendData.merryProgressBar.img.pixels);
         transferredObjects.push(merryPixelsCopy.buffer);
+      }
+
+      if (sendData.demoplayCard) {
+        // 🎬 Create a copy for transfer to avoid detaching the demoplay card buffer
+        const demoplayPixelsCopy = new Uint8ClampedArray(sendData.demoplayCard.img.pixels);
+        transferredObjects.push(demoplayPixelsCopy.buffer);
       }
 
       if (sendData.lanBadge) {
