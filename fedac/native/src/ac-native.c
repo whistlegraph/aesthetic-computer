@@ -261,9 +261,11 @@ int main(int argc, char *argv[]) {
                      (boot_end.tv_nsec - boot_start.tv_nsec) / 1000000.0;
     ac_log("[ac-native] Booted in %.1fms\n", boot_ms);
 
-    // Close log before main loop
-    if (logfile) { fclose(logfile); logfile = NULL; }
-    sync();
+    // Log audio and backlight status
+    ac_log("[ac-native] Audio: %s\n", audio && audio->pcm ? "OK" : "NO PCM");
+    ac_log("[ac-native] Backlight: %s (max=%d)\n", bl_path[0] ? bl_path : "none", bl_max);
+    ac_log("[ac-native] Input devices: %d\n", input ? input->count : 0);
+    if (logfile) { fflush(logfile); }
 
     // Call boot()
     js_call_boot(rt);
@@ -280,6 +282,16 @@ int main(int argc, char *argv[]) {
 
         while (running) {
             input_poll(input);
+            // Log key events to USB
+            for (int i = 0; i < input->event_count; i++) {
+                if (logfile && (input->events[i].type == AC_EVENT_KEYBOARD_DOWN ||
+                                input->events[i].type == AC_EVENT_KEYBOARD_UP)) {
+                    ac_log("[key] %s code=%d name=%s\n",
+                           input->events[i].type == AC_EVENT_KEYBOARD_DOWN ? "DOWN" : "UP",
+                           input->events[i].key_code,
+                           input->events[i].key_name);
+                }
+            }
             // Hardware keys
             int power_pressed = 0;
             for (int i = 0; i < input->event_count; i++) {
@@ -363,6 +375,12 @@ int main(int argc, char *argv[]) {
     }
 
     // Cleanup
+    ac_log("[ac-native] Shutting down\n");
+    if (logfile) { fclose(logfile); logfile = NULL; }
+    sync();
+    // Unmount USB log
+    umount("/mnt");
+
     js_call_leave(rt);
     js_destroy(rt);
     audio_destroy(audio);
