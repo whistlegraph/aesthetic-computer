@@ -80,21 +80,15 @@
 
   .title-block .meta a {
     font-family: 'Berkeley Mono Variable', monospace;
-    font-size: 8.5pt;
+    font-size: 8pt;
     color: rgb(120, 80, 180);
     text-decoration: none;
   }
 
-  /* @handle coloring — each char gets an AC-palette color */
+  /* @handle coloring — pink and purple */
   .handle { font-family: 'Berkeley Mono Variable', monospace; font-weight: bold; white-space: nowrap; }
-  .handle .c1 { color: rgb(205, 92, 155); }
-  .handle .c2 { color: rgb(92, 205, 155); }
-  .handle .c3 { color: rgb(155, 120, 205); }
-  .handle .c4 { color: rgb(205, 155, 92); }
-  .handle .c5 { color: rgb(92, 155, 205); }
-  .handle .c6 { color: rgb(205, 92, 92); }
-  .handle .c7 { color: rgb(155, 205, 92); }
-  .handle .c8 { color: rgb(92, 120, 205); }
+  .handle .at { color: rgb(120, 80, 180); }
+  .handle .name { color: rgb(180, 72, 135); }
 
   /* === TWO-COLUMN LAYOUT === */
 
@@ -106,11 +100,11 @@
 
   h2 {
     font-family: 'YWFTProcessing-Bold', monospace;
-    font-size: 9pt;
+    font-size: 12pt;
     margin-top: 1.3em;
-    margin-bottom: 0.3em;
+    margin-bottom: 0.35em;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.04em;
     color: rgb(180, 72, 135);
     break-after: avoid;
   }
@@ -149,11 +143,11 @@
 
   .appendix-title {
     font-family: 'YWFTProcessing-Bold', monospace;
-    font-size: 11pt;
+    font-size: 14pt;
     text-align: center;
     margin-bottom: 0.15em;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.04em;
     color: rgb(64, 56, 74);
     break-after: avoid;
   }
@@ -186,13 +180,13 @@
     background: linear-gradient(135deg, rgba(180, 72, 135, 0.05) 0%, rgba(120, 80, 180, 0.05) 100%);
     border: 1.5px solid rgba(180, 72, 135, 0.18);
     border-radius: 4px;
-    padding: 0.5em 0.4em;
+    padding: 0.35em 0.4em;
     text-align: center;
   }
 
   .stat-box .num {
     font-family: 'YWFTProcessing-Bold', monospace;
-    font-size: 19pt;
+    font-size: 15pt;
     color: rgb(180, 72, 135);
     line-height: 1.2;
   }
@@ -207,7 +201,7 @@
   }
 
   .makers {
-    font-size: 8.5pt;
+    font-size: 8pt;
     color: #666;
     margin: 0.5em 0;
     text-align: center;
@@ -227,7 +221,7 @@
 
   .diagram-label {
     font-family: 'YWFTProcessing-Bold', monospace;
-    font-size: 7pt;
+    font-size: 8pt;
     color: rgb(120, 80, 180);
     text-transform: uppercase;
     letter-spacing: 0.08em;
@@ -237,8 +231,8 @@
 
   .flow {
     font-family: 'Berkeley Mono Variable', monospace;
-    font-size: 8pt;
-    line-height: 2;
+    font-size: 7pt;
+    line-height: 1.7;
     text-align: center;
     color: #333;
   }
@@ -291,13 +285,14 @@
     background: rgba(244, 235, 250, 0.4);
     border: 1.5px solid rgba(120, 80, 180, 0.13);
     border-radius: 4px;
-    padding: 0.45em 0.6em;
+    padding: 0.4em 0.55em;
     break-inside: avoid;
+    overflow: hidden;
   }
 
   .stack-card-title {
     font-family: 'YWFTProcessing-Bold', monospace;
-    font-size: 7.5pt;
+    font-size: 8pt;
     color: rgb(180, 72, 135);
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -306,12 +301,12 @@
 
   .stack-card ul {
     font-family: 'Berkeley Mono Variable', monospace;
-    font-size: 7.5pt;
-    margin: 0 0 0 0.8em;
+    font-size: 7pt;
+    margin: 0.1em 0 0 0.8em;
     color: #444;
-    line-height: 1.5;
+    line-height: 1.6;
   }
-  .stack-card li { margin-bottom: 0.05em; }
+  .stack-card li { margin-bottom: 0.12em; }
 
   .tool-row {
     display: flex;
@@ -360,7 +355,7 @@
   .source-box strong {
     color: rgb(120, 80, 180);
     font-family: 'YWFTProcessing-Bold', monospace;
-    font-size: 7.5pt;
+    font-size: 8pt;
   }
 
   /* === SITEMAP === */
@@ -372,7 +367,7 @@
 
   .sitemap-header {
     font-family: 'YWFTProcessing-Bold', monospace;
-    font-size: 7.5pt;
+    font-size: 8pt;
     color: rgb(180, 72, 135);
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -394,7 +389,7 @@
 
   .sitemap-route::before { content: "/"; color: rgba(120, 80, 180, 0.35); }
 
-  .sitemap-cols { column-count: 2; column-gap: 1.6em; }
+  .sitemap-cols { column-count: 3; column-gap: 1.2em; }
 
   .domain-grid {
     display: grid;
@@ -407,21 +402,58 @@
     background: rgba(244, 235, 250, 0.4);
     border: 1.5px solid rgba(120, 80, 180, 0.13);
     border-radius: 4px;
-    padding: 0.35em 0.5em;
+    padding: 0.3em 0.4em;
     text-align: center;
+    overflow: hidden;
   }
 
   .domain-name {
     font-family: 'YWFTProcessing-Bold', monospace;
-    font-size: 7.5pt;
+    font-size: 8pt;
     color: rgb(120, 80, 180);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
+  .domain-grid-sm .domain-name { font-size: 7pt; }
 
   .domain-desc {
     font-family: 'Berkeley Mono Variable', monospace;
-    font-size: 6.5pt;
+    font-size: 7pt;
     color: #999;
     margin-top: 0.1em;
+  }
+
+  /* === PIECE CATALOG === */
+  .piece-catalog {
+    column-count: 3;
+    column-gap: 1em;
+    font-size: 6.5pt;
+    line-height: 1.35;
+  }
+  .piece-cat {
+    break-inside: avoid;
+    margin-bottom: 0.4em;
+  }
+  .piece-cat-header {
+    font-family: 'YWFTProcessing-Bold', monospace;
+    font-size: 8pt;
+    color: rgb(180, 72, 135);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.1em;
+    padding-bottom: 0.05em;
+    border-bottom: 1px solid rgba(180, 72, 135, 0.18);
+    break-after: avoid;
+  }
+  .pe {
+    margin-bottom: 0.06em;
+    color: #444;
+  }
+  .pe b {
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-weight: normal;
+    color: rgb(120, 80, 180);
   }
 
   /* === FOOTER === */
@@ -441,79 +473,70 @@
 <!-- ============ PAGE 1: PROPOSAL ============ -->
 
 <div class="title-block">
-  <h1>Aesthetic Computer: Open Development</h1>
-  <div class="subtitle">A Platform Submitted for Dialogue</div>
+  <h1>Aesthetic<span style="color: rgb(180, 72, 135);">.</span>Computer</h1>
+  <div class="subtitle">Proposal for Social Software Cycle 2</div>
   <div class="meta">
     Jeffrey Scudder &ensp;/&ensp;
-    <span class="handle"><span class="c1">@</span><span class="c2">j</span><span class="c3">e</span><span class="c4">f</span><span class="c5">f</span><span class="c6">r</span><span class="c7">e</span><span class="c8">y</span></span><br>
+    <span class="handle"><span class="at">@</span><span class="name">jeffrey</span></span><br>
     Score for Social Software &mdash; Cycle 2 &ensp;&middot;&ensp; DESMA 596/199 &ensp;&middot;&ensp; March 2026<br>
-    <a href="https://aesthetic.computer">aesthetic.computer</a> &ensp;&middot;&ensp;
-    <a href="https://github.com/whistlegraph/aesthetic-computer">github</a> &ensp;&middot;&ensp;
-    <a href="https://nopaint.art">nopaint.art</a>
+    https://aesthetic.computer &ensp;&middot;&ensp;
+    https://github.com/whistlegraph/aesthetic-computer &ensp;&middot;&ensp;
+    https://nopaint.art
   </div>
 </div>
 
 <div class="columns">
 
-<h2>The Score</h2>
+<h2>What AC Is</h2>
 
 <p>
-I'm submitting Aesthetic Computer (AC)&thinsp;&mdash;&thinsp;the open-source creative computing platform I've been building since 2021&thinsp;&mdash;&thinsp;as a social software project in active development. I'm not proposing to build a new thing for this cycle. I'm bringing the thing I'm already building into the room for dialogue, feedback, and critical exchange as I continue to develop it alongside its community.
+Aesthetic Computer is an open-source, mobile-first runtime and social network for creative computing. Users write, publish, and share small interactive programs called <em>pieces</em> at URLs like <code>aesthetic.computer/paint</code> or <code>@handle/piece-name</code>. The platform has @handles, real-time chat, pixel painting, ephemeral status updates (moods), ATProto integration (identity and Bluesky bridging), a built-in Lisp dialect (KidLisp), multiplayer WebSocket sessions, and user profiles. It has been in continuous open-source development since 2021.
 </p>
 
-<p>
-AC is a mobile-first runtime and social network where users write, publish, and share small interactive programs called <em>pieces</em>. It has real-time chat, @handles with per-character color customization, ephemeral status updates (moods mirrored to Bluesky via ATProto), a pixel painting system, a built-in Lisp dialect (KidLisp), multiplayer WebSocket sessions, and user profiles that track creative output. The codebase is open source with 4+ years of continuous development.
-</p>
+<h2>What I Need</h2>
 
 <p>
-The score is simple: I develop AC in the open over 10 weeks, sharing what I'm working on, what decisions I'm facing, and what the community is doing on the platform. The cohort engages as users and as critics&thinsp;&mdash;&thinsp;trying the tools, reading the design choices, and giving me feedback I can't get from inside the project.
-</p>
-
-<h2>What I'm Looking For</h2>
-
-<p>
-I've been deep inside AC's architecture for years. I know how the systems work. What I lack is outside perspective on the social design&thinsp;&mdash;&thinsp;the questions I can't answer alone:
+I need outside perspective on AC's social design. I've built the technical infrastructure but I can't evaluate the social dynamics from inside the project. Specifically:
 </p>
 
 <ul>
-  <li>What feels inviting and what feels opaque when you first encounter the platform?</li>
-  <li>Which social features sustain participation vs. which are technically impressive but socially inert?</li>
-  <li>How does the "instrument" metaphor land for people who aren't already invested in it?</li>
+  <li>What feels opaque when you first encounter the platform?</li>
+  <li>Which social features sustain participation vs. which are socially inert?</li>
+  <li>How does the "instrument" metaphor read to someone encountering it fresh?</li>
   <li>What would you want to do on AC that you currently can't?</li>
-  <li>Where does the design accidentally exclude the people it claims to welcome?</li>
+  <li>Where does the design exclude people it should welcome?</li>
 </ul>
 
 <p>
-These questions require sustained dialogue, not a single usability test. A cohort of practitioners thinking about social software from different angles is the right context for this kind of exchange.
+These questions need sustained dialogue, not a usability test. I want to develop AC in the open over 10 weeks&thinsp;&mdash;&thinsp;sharing what I'm working on, what decisions I'm facing, what the community is doing&thinsp;&mdash;&thinsp;and get feedback from the cohort as users and critics.
 </p>
 
-<h2>What the Cohort Gets</h2>
+<h2>What AC Has</h2>
 
 <ul>
-  <li><strong>A live codebase</strong>&thinsp;&mdash;&thinsp;open source, documented, actively changing week to week</li>
-  <li><strong>The dev process</strong>&thinsp;&mdash;&thinsp;I work with Claude Code, Cursor, and VS Code, and maintain a living <code>SCORE.md</code>; the process is as legible as the product</li>
-  <li><strong>Platform accounts</strong>&thinsp;&mdash;&thinsp;everyone gets an @handle, can paint, chat, set moods, write KidLisp, publish pieces</li>
-  <li><strong>Real community data</strong>&thinsp;&mdash;&thinsp;2,800 handles, 18k chat messages, 4,400 paintings, 16k KidLisp programs; the social patterns are there to observe</li>
+  <li><strong>2,798 @handles</strong>&thinsp;&mdash;&thinsp;per-character color customization, profile scorecards</li>
+  <li><strong>18,016 chat messages</strong>&thinsp;&mdash;&thinsp;real-time group messaging with hearts and custom fonts</li>
+  <li><strong>4,392 paintings</strong>&thinsp;&mdash;&thinsp;pixel art published via built-in drawing tools</li>
+  <li><strong>16,174 KidLisp programs</strong>&thinsp;&mdash;&thinsp;a 118-function Lisp dialect for generative art</li>
+  <li><strong>265 published pieces</strong>&thinsp;&mdash;&thinsp;user-written interactive programs at public URLs</li>
+  <li><strong>351 built-in pieces</strong>&thinsp;&mdash;&thinsp;drawing, music, games, programming, social tools</li>
+  <li><strong>22 domains</strong>&thinsp;&mdash;&thinsp;aesthetic.computer, kidlisp.com, notepat.com, and more</li>
 </ul>
+
+<p>
+Everyone in the cohort gets an @handle and full access to the platform, the codebase, and the development process.
+</p>
 
 <h2>Why This Cycle</h2>
 
 <p>
-Casey's framing of "scores for social software" maps directly onto how I already think about AC. The platform's <code>SCORE.md</code> literally uses the metaphor of a musical score to organize the project. The interface is designed to work like an instrument&thinsp;&mdash;&thinsp;users discover memorizable paths, build literacy through play, and eventually improvise. But I've been composing alone. This cycle is a chance to compose in conversation.
-</p>
-
-<p>
-I'm at a specific inflection point. The technical infrastructure is mature. The question now is about social design: how do the features I've built actually shape the way people relate to each other and to creative computing? That's best answered through dialogue with people thinking critically about social software, not through more engineering.
+AC's <code>SCORE.md</code> already uses a musical score metaphor to organize the project. The interface works like an instrument&thinsp;&mdash;&thinsp;users discover memorizable paths and build literacy through play. The technical infrastructure is mature. The open question is social design: how do these features shape the way people relate to each other? That needs dialogue with people thinking critically about social software.
 </p>
 
 <h2>Practice</h2>
 
 <p>
-I'm an artist, educator, and software developer. Before AC, I created No Paint (2020), a pixel art tool whose community of non-technical users taught me how people learn computing through social participation in software they love. AC extends that into a full platform: anyone can write, publish, and share interactive programs at a URL.
-</p>
-
-<p>
-I teach creative computing and have used AC as infrastructure in courses and workshops. My interest in social software comes from watching people learn computation through social participation&thinsp;&mdash;&thinsp;first in No Paint, now in AC. I'm bringing this not as a finished project but as an ongoing practice I want to develop through critical exchange.
+I'm Jeffrey Scudder, an artist, educator, and software developer. Before AC I made No Paint (2020), a pixel art tool where non-technical users learned computing through social participation. AC extends that into a full platform. I teach creative computing and have used AC in courses and workshops. I develop across multiple machines (Windows, macOS, Fedora Linux) using a shared Docker devcontainer with Emacs, VS Code, Claude Code, and Fish shell.
 </p>
 
 </div>
@@ -523,7 +546,7 @@ I teach creative computing and have used AC as infrastructure in courses and wor
 <hr class="section-divider">
 
 <div class="appendix-header">
-<div class="appendix-title">Appendix A: The Network</div>
+<div class="appendix-title">The Network</div>
 <div class="appendix-subtitle">Live data from AC's MongoDB cluster &mdash; March 2, 2026</div>
 </div>
 
@@ -579,7 +602,7 @@ I teach creative computing and have used AC as infrastructure in courses and wor
     <span class="arrow">&ensp;&rarr;&ensp;</span>
     <span class="node">public URL</span>
     <br>
-    <span class="note">moods &rarr; Bluesky via ATProto &ensp;&middot;&ensp; paintings &rarr; DO Spaces CDN</span>
+    <span class="note">ATProto PDS &rarr; Bluesky (identity + moods) &ensp;&middot;&ensp; paintings &rarr; DO Spaces CDN</span>
   </div>
 </div>
 
@@ -594,346 +617,388 @@ I teach creative computing and have used AC as infrastructure in courses and wor
 
 </div>
 
-<!-- ============ APPENDIX B: TECHNICAL STACK ============ -->
+<!-- ============ APPENDIX B: ARCHITECTURE & SITEMAP ============ -->
 
-<hr class="section-divider">
-
-<div class="appendix-header">
-<div class="appendix-title">Appendix B: Technical Stack</div>
-<div class="appendix-subtitle">Open source &mdash; github.com/whistlegraph/aesthetic-computer</div>
+<div class="appendix-header" style="margin-top: 1.2em;">
+<div class="appendix-title">Architecture &amp; Sitemap</div>
+<div class="appendix-subtitle">22 domains &ensp;&middot;&ensp; ~355 disk routes &ensp;&middot;&ensp; ~85 API endpoints &ensp;&middot;&ensp; open source since 2021</div>
 </div>
 
-<div class="stack-grid">
+<!-- SERVICES: each domain mapped to its tech -->
+<div class="stack-grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 0.4em; margin-bottom: 0.6em;">
 
   <div class="stack-card">
-    <div class="stack-card-title">Frontend Runtime</div>
+    <div class="stack-card-title">aesthetic.computer</div>
     <ul>
-      <li>ES Modules (.mjs) &mdash; no build step for pieces</li>
-      <li>Canvas 2D + WebGL2 rendering</li>
-      <li>WebSocket hot-reload module loader</li>
-      <li>Service worker for offline caching</li>
-      <li>351 built-in pieces (333 JS + 18 KidLisp)</li>
+      <li>Netlify &mdash; ~85 API endpoints, edge functions</li>
+      <li>Canvas 2D + WebGL2 frontend</li>
+      <li>ES Modules, WebSocket hot-reload</li>
+      <li>Auth0, Firebase, Stripe</li>
+      <li>351 built-in pieces</li>
     </ul>
   </div>
 
   <div class="stack-card">
-    <div class="stack-card-title">System Server (Netlify)</div>
-    <ul>
-      <li>~85 serverless API endpoints</li>
-      <li>Edge functions for media + routing</li>
-      <li>Auth0 + Firebase authentication</li>
-      <li>Stripe + PayPal payments</li>
-      <li>Auto-deploys on push to main</li>
-    </ul>
-  </div>
-
-  <div class="stack-card">
-    <div class="stack-card-title">Session Server</div>
+    <div class="stack-card-title">session server</div>
     <ul>
       <li>Fastify + Geckos.io (WebSocket)</li>
       <li>Jamsocket ephemeral containers</li>
-      <li>Real-time chat, multiplayer, rooms</li>
-      <li>Redis state synchronization</li>
-      <li>DigitalOcean droplet + pm2</li>
+      <li>Redis state sync</li>
+      <li>Chat, multiplayer, rooms</li>
+      <li>DigitalOcean + pm2</li>
     </ul>
   </div>
 
   <div class="stack-card">
-    <div class="stack-card-title">Oven Service</div>
+    <div class="stack-card-title">oven.aesthetic.computer</div>
     <ul>
       <li>Express.js + FFmpeg</li>
-      <li>Tape recordings &rarr; MP4 video</li>
-      <li>Screenshot &amp; OG image generation</li>
-      <li>Caddy reverse proxy (auto HTTPS)</li>
+      <li>Tape &rarr; MP4, screenshots</li>
+      <li>OG image generation</li>
+      <li>Caddy (auto HTTPS)</li>
       <li>DigitalOcean droplet</li>
     </ul>
   </div>
 
   <div class="stack-card">
-    <div class="stack-card-title">Workers (Cloudflare)</div>
+    <div class="stack-card-title">feed.* / grab.*</div>
     <ul>
-      <li>Feed server (Hono + TypeScript)</li>
-      <li>Grab worker (Browser Rendering API)</li>
-      <li>KV storage for playlists &amp; channels</li>
-      <li>Durable Objects for state</li>
+      <li>Cloudflare Workers</li>
+      <li>Hono + TypeScript (feed)</li>
+      <li>Browser Rendering API (grab)</li>
+      <li>KV, Durable Objects</li>
     </ul>
   </div>
 
   <div class="stack-card">
-    <div class="stack-card-title">Data</div>
+    <div class="stack-card-title">data layer</div>
     <ul>
-      <li>MongoDB Atlas &mdash; all user content</li>
+      <li>MongoDB Atlas &mdash; user content</li>
       <li>Redis &mdash; session cache</li>
-      <li>DigitalOcean Spaces (S3 CDN) &mdash; media</li>
-      <li>Cloudflare KV &mdash; feed data</li>
-      <li>ATProto PDS &mdash; Bluesky bridge</li>
+      <li>DO Spaces (S3 CDN) &mdash; media</li>
+      <li>ATProto PDS &mdash; identity + Bluesky</li>
+    </ul>
+  </div>
+
+  <div class="stack-card">
+    <div class="stack-card-title">kidlisp.com</div>
+    <ul>
+      <li>118 built-in functions, 12 categories</li>
+      <li>Evaluator: lib/kidlisp.mjs</li>
+      <li>Programs stored in MongoDB</li>
+      <li>Shareable by 3-char code</li>
     </ul>
   </div>
 
 </div>
 
-<div class="diagram-label" style="margin-top: 0.5em;">KidLisp &mdash; Built-in Language</div>
-<div class="source-box">
-  <strong>118 built-in functions</strong> across 12 categories: math, color, shape, transform, animation, text, noise, input, logic, list, meta, system. Minimal Lisp dialect for generative art. No external libraries. Programs stored in MongoDB, shareable by 3-character code. Evaluator: <strong>lib/kidlisp.mjs</strong> (~2,400 lines).
+<!-- Source + tools + domains compact -->
+<div class="source-box" style="margin-bottom: 0.5em;">
+  <strong>Source:</strong> github.com/whistlegraph/aesthetic-computer &ensp;&middot;&ensp;
+  boot.mjs &rarr; bios.mjs &rarr; disk.mjs (~572KB API) &rarr; disks/*.mjs<br>
+  <strong>Languages:</strong> JavaScript (ES Modules), TypeScript (workers), KidLisp, HTML/CSS<br>
+  <strong>Dev:</strong> Docker devcontainer across Windows / macOS / Fedora &ensp;&middot;&ensp; Emacs (Evil mode) + VS Code + Claude Code &ensp;&middot;&ensp; Fish shell &ensp;&middot;&ensp; esbuild, Jasmine, Vitest, Wrangler, pm2<br>
+  <strong>22 domains:</strong> notepat.com, kidlisp.com, sotce.net, botce.ac, wipppps.world + subdomains (feed, grab, help, oven, etc.)
 </div>
 
-<div class="diagram-label" style="margin-top: 0.5em;">Development Tools</div>
-<div class="tool-row">
-  <span class="tool-chip">Claude Code (Opus)</span>
-  <span class="tool-chip">Cursor</span>
-  <span class="tool-chip">VS Code</span>
-  <span class="tool-chip purple">Node.js</span>
-  <span class="tool-chip purple">esbuild</span>
-  <span class="tool-chip purple">Puppeteer</span>
-  <span class="tool-chip green">Jasmine</span>
-  <span class="tool-chip green">Vitest</span>
-  <span class="tool-chip green">Lighthouse</span>
-  <span class="tool-chip blue">Netlify CLI</span>
-  <span class="tool-chip blue">Wrangler</span>
-  <span class="tool-chip blue">Docker</span>
-  <span class="tool-chip blue">pm2</span>
-  <span class="tool-chip blue">Caddy</span>
-  <span class="tool-chip blue">systemd</span>
+<!-- PIECE CATALOG with descriptions -->
+<div class="diagram-label" style="margin-top: 0.3em; margin-bottom: 0.3em; font-size: 8pt;">362 Pieces &mdash; type a name at the prompt to play</div>
+<div class="piece-catalog">
+
+<div class="piece-cat">
+<div class="piece-cat-header">Drawing &amp; Painting</div>
+<div class="pe"><b>paint</b> AI-powered auto-painting from text</div>
+<div class="pe"><b>nopaint</b> paint or reject, then publish</div>
+<div class="pe"><b>line</b> simple line brush</div>
+<div class="pe"><b>pline</b> perfect 1px line algorithm</div>
+<div class="pe"><b>shape</b> filled freehand shapes</div>
+<div class="pe"><b>oval</b> draw ovals and circles</div>
+<div class="pe"><b>box</b> rectangles with modes + thickness</div>
+<div class="pe"><b>fill</b> flood fill with a color</div>
+<div class="pe"><b>spray</b> stylus-based spray painting</div>
+<div class="pe"><b>smear</b> smear brush (co-designed by Rapter)</div>
+<div class="pe"><b>marker</b> brush interpolation tool</div>
+<div class="pe"><b>crayon</b> draw with a crayon</div>
+<div class="pe"><b>sparkle-brush</b> sparkle emitter</div>
+<div class="pe"><b>bits</b> confetti/speckle brush</div>
+<div class="pe"><b>multipen</b> multi-touch tracked cursors</div>
+<div class="pe"><b>doodle</b> build up and replay points</div>
+<div class="pe"><b>wand</b> generative art viewer</div>
+<div class="pe"><b>blur</b> blur pixels with a radius</div>
+<div class="pe"><b>crop</b> crop or extend painting</div>
+<div class="pe"><b>stamp</b> import painting as stamp</div>
+<div class="pe"><b>pull</b> copy + move pixels</div>
+<div class="pe"><b>snap</b> camera still to painting</div>
+<div class="pe"><b>camera</b> paste stills to painting</div>
+<div class="pe"><b>paste</b> load external image</div>
+<div class="pe"><b>handprint</b> stamp your hand</div>
+<div class="pe"><b>selfie</b> decorated photo (w/ Molly Soda)</div>
+<div class="pe"><b>painting</b> view any painting by number</div>
+<div class="pe"><b>paintings</b> user portfolio page</div>
+<div class="pe"><b>colors</b> scrollable CSS color list</div>
+<div class="pe"><b>nail</b> multiplayer thumbnailing</div>
+<div class="pe"><b>wipe</b> clear painting with a color</div>
+<div class="pe"><b>icon</b> add vector glyphs (Molly Soda)</div>
+<div class="pe"><b>colplay</b> painting as tonal keyboard</div>
+<div class="pe"><b>make</b> KidLisp from text prompts</div>
+<div class="pe"><b>vary</b> AI-vary an existing image</div>
 </div>
 
-<div class="diagram-label" style="margin-top: 0.5em;">Source Code</div>
-<div class="source-box">
-  <strong>Repository:</strong> github.com/whistlegraph/aesthetic-computer &ensp;&middot;&ensp; Open source, continuously developed since 2021<br>
-  <strong>Core files:</strong> boot.mjs (entry) &rarr; bios.mjs (runtime) &rarr; disk.mjs (API, ~572KB) &rarr; disks/*.mjs (pieces)<br>
-  <strong>Languages:</strong> JavaScript (ES Modules), TypeScript (workers), KidLisp (generative art), HTML/CSS<br>
-  <strong>Project score:</strong> SCORE.md &mdash; a living musical score metaphor that organizes all development work<br>
-  <strong>Maintenance:</strong> AestheticAnts (AA) &mdash; colony of AI agents for automated codebase care
+<div class="piece-cat">
+<div class="piece-cat-header">Music &amp; Audio</div>
+<div class="pe"><b>notepat</b> tap pads to play notes</div>
+<div class="pe"><b>beat</b> rhythmic percussion</div>
+<div class="pe"><b>tone</b> single frequency + wave type</div>
+<div class="pe"><b>chord</b> play a musical chord</div>
+<div class="pe"><b>melody</b> plays back a tracker score</div>
+<div class="pe"><b>song</b> melody + lyrics sing-along</div>
+<div class="pe"><b>sing</b> character responds with notes</div>
+<div class="pe"><b>bleep</b> colored box tone maker</div>
+<div class="pe"><b>say</b> text-to-speech</div>
+<div class="pe"><b>whistle</b> mic input &rarr; sine wave melody</div>
+<div class="pe"><b>metronome</b> visual metronome</div>
+<div class="pe"><b>microphone</b> audio + video monitor</div>
+<div class="pe"><b>uke</b> live ukulele pitch detector</div>
+<div class="pe"><b>pedal</b> audio effect pedal for Ableton</div>
+<div class="pe"><b>amp</b> microphone amplifier</div>
+<div class="pe"><b>tracker</b> 12-tone composer</div>
+<div class="pe"><b>3x3</b> ortholinear pad instrument</div>
+<div class="pe"><b>rattle</b> accelerometer shaker</div>
+<div class="pe"><b>squaresong</b> a song as a program</div>
+<div class="pe"><b>dync</b> percussive pad instrument</div>
+<div class="pe"><b>slip</b> single voice instrument</div>
+<div class="pe"><b>clock</b> clock with melody + live keyboard</div>
+<div class="pe"><b>clocks</b> browse saved clock melodies</div>
+<div class="pe"><b>stick</b> render clock melody to WAV</div>
+<div class="pe"><b>amby</b> tonal radial music generator</div>
+<div class="pe"><b>autopat</b> notepat autoplay jukebox</div>
+<div class="pe"><b>stample</b> spread a sample across pats</div>
+<div class="pe"><b>sfx</b> sound effects player</div>
+<div class="pe"><b>bgm</b> background music + visualizer</div>
+<div class="pe"><b>r8dio</b> Danish talk radio stream</div>
+<div class="pe"><b>kpbj</b> KPBJ.FM community radio</div>
+<div class="pe"><b>audio</b> longform player + subtitles</div>
+<div class="pe"><b>butterflies</b> multi-touch bitmap instrument</div>
+<div class="pe"><b>seashells</b> bytebeat algorithmic synthesis</div>
+<div class="pe"><b>shh</b> noise drones</div>
+<div class="pe"><b>notepat-tv</b> remote notepat pictures</div>
 </div>
 
-<!-- ============ APPENDIX C: SITEMAP ============ -->
-
-<hr class="section-divider">
-
-<div class="appendix-header">
-<div class="appendix-title">Appendix C: Sitemap</div>
-<div class="appendix-subtitle">22 domains &ensp;&middot;&ensp; ~355 disk routes &ensp;&middot;&ensp; ~85 API endpoints &ensp;&middot;&ensp; ~120 redirects</div>
+<div class="piece-cat">
+<div class="piece-cat-header">Games &amp; Interactive</div>
+<div class="pe"><b>1v1</b> multiplayer Quake-like 3D shooter</div>
+<div class="pe"><b>brick-breaker</b> brick breakout game</div>
+<div class="pe"><b>scawy-snake</b> snake game with color growth</div>
+<div class="pe"><b>run&amp;gun</b> 2D side-scrolling shooter</div>
+<div class="pe"><b>hop</b> first-person shooter</div>
+<div class="pe"><b>sno</b> snowball game (ida, mxsage, jeffrey)</div>
+<div class="pe"><b>words</b> Word Munchers-style game</div>
+<div class="pe"><b>gostop</b> body movement regulation game</div>
+<div class="pe"><b>staka</b> stack colors with your hand</div>
+<div class="pe"><b>flap</b> animated flapping sequence</div>
+<div class="pe"><b>fly</b> bounce around in 3D</div>
+<div class="pe"><b>field</b> open 3D walking space</div>
+<div class="pe"><b>pond</b> chat in ripples</div>
+<div class="pe"><b>bubble</b> floating bubbles (mxsage + jeffrey)</div>
+<div class="pe"><b>balls</b> balls bouncing on lines</div>
+<div class="pe"><b>rain</b> rain falling (drawn by Aspen)</div>
+<div class="pe"><b>toss</b> two oscillators at once</div>
+<div class="pe"><b>starfield</b> classic starfield effect</div>
+<div class="pe"><b>metaballs</b> blob rendering</div>
+<div class="pe"><b>ant</b> colony simulation + pheromones</div>
+<div class="pe"><b>fps</b> basic first-person environment</div>
+<div class="pe"><b>game</b> basic game template</div>
+<div class="pe"><b>horizon</b> side-scrolling world</div>
+<div class="pe"><b>i</b> walk as the letter "i"</div>
+<div class="pe"><b>paintball</b> paint on a 3D ball</div>
+<div class="pe"><b>cards</b> playing card (tap to flip)</div>
+<div class="pe"><b>tremory</b> temporal memory trainer</div>
 </div>
 
-<div class="domain-grid">
-  <div class="domain-card"><div class="domain-name">aesthetic.computer</div><div class="domain-desc">primary platform</div></div>
-  <div class="domain-card"><div class="domain-name">kidlisp.com</div><div class="domain-desc">lisp editor</div></div>
-  <div class="domain-card"><div class="domain-name">notepat.com</div><div class="domain-desc">music sequencer</div></div>
-  <div class="domain-card"><div class="domain-name">sotce.net</div><div class="domain-desc">art portal</div></div>
-  <div class="domain-card"><div class="domain-name">botce.ac</div><div class="domain-desc">bot interface</div></div>
-  <div class="domain-card"><div class="domain-name">wipppps.world</div><div class="domain-desc">whistlegraph</div></div>
-  <div class="domain-card"><div class="domain-name">news.*</div><div class="domain-desc">newsletter</div></div>
-  <div class="domain-card"><div class="domain-name">give.*</div><div class="domain-desc">donations</div></div>
-  <div class="domain-card"><div class="domain-name">shop.*</div><div class="domain-desc">physical goods</div></div>
-  <div class="domain-card"><div class="domain-name">help.*</div><div class="domain-desc">AI assistant</div></div>
-  <div class="domain-card"><div class="domain-name">feed.*</div><div class="domain-desc">DP1 feed</div></div>
-  <div class="domain-card"><div class="domain-name">grab.*</div><div class="domain-desc">screenshots</div></div>
+<div class="piece-cat">
+<div class="piece-cat-header">Social &amp; Community</div>
+<div class="pe"><b>mood</b> choose a mood + build image</div>
+<div class="pe"><b>moods</b> live feed of all moods</div>
+<div class="pe"><b>chat</b> multiplayer messaging</div>
+<div class="pe"><b>share</b> QR code link sharing</div>
+<div class="pe"><b>sign</b> IRL message, upside down</div>
+<div class="pe"><b>signature</b> timestamped painting stamp</div>
+<div class="pe"><b>mail</b> email preferences + blast history</div>
+<div class="pe"><b>list</b> comprehensive piece directory</div>
+<div class="pe"><b>handle</b> customize @handle colors</div>
+<div class="pe"><b>handles</b> directory of all handles</div>
+<div class="pe"><b>get-handle</b> claim your @handle</div>
+<div class="pe"><b>profile</b> public user scorecard</div>
+<div class="pe"><b>ptt</b> push-to-talk voice chat</div>
+<div class="pe"><b>handtime</b> hand-based messaging</div>
+<div class="pe"><b>insta</b> browse Instagram profiles</div>
+<div class="pe"><b>play</b> dramaturgical messaging game</div>
 </div>
 
-<div class="sitemap-cols">
-
-<div class="sitemap-section">
-  <div class="sitemap-header">Creative Tools / Drawing &ensp;(44)</div>
-  <div class="sitemap-routes">
-    <span class="sitemap-route">paint</span>
-    <span class="sitemap-route">nopaint</span>
-    <span class="sitemap-route">line</span>
-    <span class="sitemap-route">pline</span>
-    <span class="sitemap-route">shape</span>
-    <span class="sitemap-route">oval</span>
-    <span class="sitemap-route">rect</span>
-    <span class="sitemap-route">fill</span>
-    <span class="sitemap-route">spray</span>
-    <span class="sitemap-route">smear</span>
-    <span class="sitemap-route">marker</span>
-    <span class="sitemap-route">crayon</span>
-    <span class="sitemap-route">sparkle-brush</span>
-    <span class="sitemap-route">multipen</span>
-    <span class="sitemap-route">doodle</span>
-    <span class="sitemap-route">wand</span>
-    <span class="sitemap-route">brush</span>
-    <span class="sitemap-route">crop</span>
-    <span class="sitemap-route">stamp</span>
-    <span class="sitemap-route">blur</span>
-    <span class="sitemap-route">snap</span>
-    <span class="sitemap-route">paste</span>
-    <span class="sitemap-route">make</span>
-    <span class="sitemap-route">painting</span>
-    <span class="sitemap-route">handprint</span>
-    <span class="sitemap-route">nail</span>
-    <span class="sitemap-route">colors</span>
-    <span class="sitemap-route">selfie</span>
-    <span class="sitemap-route">camera</span>
-    <span class="sitemap-route">cards</span>
-  </div>
+<div class="piece-cat">
+<div class="piece-cat-header">Characters</div>
+<div class="pe"><b>mom</b> doting mother</div>
+<div class="pe"><b>dad</b> handyman disguised as father</div>
+<div class="pe"><b>brother</b> younger brother</div>
+<div class="pe"><b>sister</b> know-it-all sister</div>
+<div class="pe"><b>husband</b> forgetful husband</div>
+<div class="pe"><b>wife</b> nagging wife</div>
+<div class="pe"><b>boyfriend</b> avoidant boyfriend</div>
+<div class="pe"><b>girlfriend</b> GF with savior complex</div>
+<div class="pe"><b>kid</b> software kid</div>
+<div class="pe"><b>angel</b> guardian angel (Judeo-Christian)</div>
+<div class="pe"><b>liar</b> compulsive liar</div>
+<div class="pe"><b>sage</b> walker demo (mxsage + jeffrey)</div>
+<div class="pe"><b>tobby</b> type characters in time</div>
+<div class="pe"><b>valbear</b> valentine bear card maker</div>
+<div class="pe"><b>gargoyle</b> character (@georgica)</div>
+<div class="pe"><b>dolls</b> 2D cartoon videos with mic</div>
+<div class="pe"><b>robo</b> robot drawing automation</div>
+<div class="pe"><b>botce</b> paywalled AI chatbot</div>
 </div>
 
-<div class="sitemap-section">
-  <div class="sitemap-header">Music / Audio &ensp;(24)</div>
-  <div class="sitemap-routes">
-    <span class="sitemap-route">notepat</span>
-    <span class="sitemap-route">beat</span>
-    <span class="sitemap-route">tone</span>
-    <span class="sitemap-route">chord</span>
-    <span class="sitemap-route">melody</span>
-    <span class="sitemap-route">song</span>
-    <span class="sitemap-route">sing</span>
-    <span class="sitemap-route">bleep</span>
-    <span class="sitemap-route">say</span>
-    <span class="sitemap-route">whistle</span>
-    <span class="sitemap-route">metronome</span>
-    <span class="sitemap-route">microphone</span>
-    <span class="sitemap-route">uke</span>
-    <span class="sitemap-route">pedal</span>
-    <span class="sitemap-route">amp</span>
-    <span class="sitemap-route">sfx</span>
-    <span class="sitemap-route">r8dio</span>
-    <span class="sitemap-route">squaresong</span>
-    <span class="sitemap-route">rattle</span>
-    <span class="sitemap-route">visualizer</span>
-    <span class="sitemap-route">tracker</span>
-    <span class="sitemap-route">3x3</span>
-  </div>
+<div class="piece-cat">
+<div class="piece-cat-header">KidLisp &amp; Programming</div>
+<div class="pe"><b>kidlisp</b> default KidLisp piece</div>
+<div class="pe"><b>keep</b> preserve KidLisp as Tezos KEEP</div>
+<div class="pe"><b>kept</b> view KEEP mint result</div>
+<div class="pe"><b>prompt</b> LLM-backed "access-everything" console</div>
+<div class="pe"><b>learn</b> chatbot tutorial</div>
+<div class="pe"><b>lang</b> interface language chooser</div>
+<div class="pe"><b>decode</b> tokens &rarr; poems</div>
+<div class="pe"><b>encode</b> poems &rarr; tokens</div>
+<div class="pe"><b>docgen</b> generate piece API docs</div>
+<div class="pe"><b>$</b> live KidLisp code preview feed</div>
+<div class="pe"><b>pack</b> offline HTML for KidLisp piece</div>
+<div class="pe"><b>code</b> graphical KidLisp editor (.lisp)</div>
+<div class="pe"><b>chart</b> make a piece from a diagram</div>
 </div>
 
-<div class="sitemap-section">
-  <div class="sitemap-header">Games / Interactive &ensp;(25)</div>
-  <div class="sitemap-routes">
-    <span class="sitemap-route">game</span>
-    <span class="sitemap-route">1v1</span>
-    <span class="sitemap-route">brick-breaker</span>
-    <span class="sitemap-route">flap</span>
-    <span class="sitemap-route">fly</span>
-    <span class="sitemap-route">hop</span>
-    <span class="sitemap-route">scawy-snake</span>
-    <span class="sitemap-route">run&amp;gun</span>
-    <span class="sitemap-route">gostop</span>
-    <span class="sitemap-route">staka</span>
-    <span class="sitemap-route">pond</span>
-    <span class="sitemap-route">balls</span>
-    <span class="sitemap-route">bubble</span>
-    <span class="sitemap-route">rain</span>
-    <span class="sitemap-route">sno</span>
-    <span class="sitemap-route">starfield</span>
-    <span class="sitemap-route">metaballs</span>
-    <span class="sitemap-route">ant</span>
-    <span class="sitemap-route">field</span>
-    <span class="sitemap-route">toss</span>
-  </div>
+<div class="piece-cat">
+<div class="piece-cat-header">Sequencing &amp; Routing</div>
+<div class="pe"><b>merry</b> URL-able piece sequencer with timing</div>
+<div class="pe"><b>merryo</b> looping merry (plays forever)</div>
+<div class="pe"><b>mo</b> quick looping merry shorthand</div>
+<div class="pe"><b>merry-fade</b> crossfade between KidLisp $codes</div>
+<div class="pe"><b>pip</b> piece-in-piece, run multiple at once</div>
+<div class="pe"><b>split</b> two AC instances side by side</div>
+<div class="pe"><b>m4d</b> generate Max for Live device (prompt cmd)</div>
 </div>
 
-<div class="sitemap-section">
-  <div class="sitemap-header">KidLisp / Programming &ensp;(15)</div>
-  <div class="sitemap-routes">
-    <span class="sitemap-route">kidlisp</span>
-    <span class="sitemap-route">keep</span>
-    <span class="sitemap-route">kept</span>
-    <span class="sitemap-route">learn</span>
-    <span class="sitemap-route">lang</span>
-    <span class="sitemap-route">decode</span>
-    <span class="sitemap-route">encode</span>
-    <span class="sitemap-route">prompt</span>
-    <span class="sitemap-route">chat</span>
-    <span class="sitemap-route">docgen</span>
-    <span class="sitemap-route">docs/*</span>
-  </div>
+<div class="piece-cat">
+<div class="piece-cat-header">Whistlegraph &amp; Media</div>
+<div class="pe"><b>whistlegraph</b> 2D recording tool</div>
+<div class="pe"><b>wg</b> Feral File card player</div>
+<div class="pe"><b>wgr</b> whistlegraph recorder</div>
+<div class="pe"><b>wipppps</b> audio-reactive fractals</div>
+<div class="pe"><b>neo-wipppps</b> wipppps music visualizations</div>
+<div class="pe"><b>m2w2</b> Music 2 Whistlegraph 2 instrumentals</div>
+<div class="pe"><b>stage</b> performance tool</div>
+<div class="pe"><b>tv</b> vertical tape feed ("For You")</div>
+<div class="pe"><b>tapes</b> browse recent tapes</div>
+<div class="pe"><b>replay</b> view any tape recording</div>
+<div class="pe"><b>video</b> playback + export video</div>
+<div class="pe"><b>cap</b> camera video recorder</div>
+<div class="pe"><b>screen</b> mirror system display</div>
+<div class="pe"><b>desk</b> webcam/Elmo selector</div>
+<div class="pe"><b>screenshots</b> browse dev screenshots</div>
 </div>
 
-<div class="sitemap-section">
-  <div class="sitemap-header">Social / Community &ensp;(8)</div>
-  <div class="sitemap-routes">
-    <span class="sitemap-route">mood</span>
-    <span class="sitemap-route">moods</span>
-    <span class="sitemap-route">share</span>
-    <span class="sitemap-route">sign</span>
-    <span class="sitemap-route">signature</span>
-    <span class="sitemap-route">mail</span>
-    <span class="sitemap-route">list</span>
-    <span class="sitemap-route">insta</span>
-  </div>
+<div class="piece-cat">
+<div class="piece-cat-header">Visualization &amp; Art</div>
+<div class="pe"><b>halley</b> Halley's method fractal</div>
+<div class="pe"><b>morpho</b> pixel sorting morphogenesis lab</div>
+<div class="pe"><b>noise</b> noise on every pixel</div>
+<div class="pe"><b>rainbow-x</b> centered rainbow X</div>
+<div class="pe"><b>neural-garden</b> GPT learns drawing gestures</div>
+<div class="pe"><b>a-star</b> A* pathfinding demo</div>
+<div class="pe"><b>zzzwap</b> dynamic pathfinding for wipppps</div>
+<div class="pe"><b>spline</b> interactive line with curves</div>
+<div class="pe"><b>digitpain0&ndash;3</b> animated DIGITPAIN series</div>
+<div class="pe"><b>hell_-world</b> random hell_ painting viewer</div>
+<div class="pe"><b>freaky-flowers</b> random Freaky Flower token</div>
+<div class="pe"><b>commits</b> live GitHub commit visualization</div>
+<div class="pe"><b>visualizer</b> color history decay effect</div>
+<div class="pe"><b>lmn-flower</b> pull a petal</div>
+<div class="pe"><b>lmn-petal</b> touch an interactive petal</div>
+<div class="pe"><b>opinion</b> essays on computing &amp; creativity</div>
+<div class="pe"><b>weather</b> Weather Channel + smooth jazz</div>
 </div>
 
-<div class="sitemap-section">
-  <div class="sitemap-header">People / Characters &ensp;(16)</div>
-  <div class="sitemap-routes">
-    <span class="sitemap-route">mom</span>
-    <span class="sitemap-route">dad</span>
-    <span class="sitemap-route">brother</span>
-    <span class="sitemap-route">sister</span>
-    <span class="sitemap-route">husband</span>
-    <span class="sitemap-route">wife</span>
-    <span class="sitemap-route">boyfriend</span>
-    <span class="sitemap-route">girlfriend</span>
-    <span class="sitemap-route">kid</span>
-    <span class="sitemap-route">angel</span>
-    <span class="sitemap-route">robo</span>
-    <span class="sitemap-route">sage</span>
-    <span class="sitemap-route">tobby</span>
-    <span class="sitemap-route">valbear</span>
-    <span class="sitemap-route">gargoyle</span>
-    <span class="sitemap-route">dolls</span>
-  </div>
+<div class="piece-cat">
+<div class="piece-cat-header">System &amp; Utility</div>
+<div class="pe"><b>about</b> AC Q&amp;A chatbot</div>
+<div class="pe"><b>demo</b> what is aesthetic.computer?</div>
+<div class="pe"><b>deck</b> slide deck explainer</div>
+<div class="pe"><b>description</b> read about any command</div>
+<div class="pe"><b>desktop</b> download Electron desktop app</div>
+<div class="pe"><b>mobile</b> download iOS/Android app</div>
+<div class="pe"><b>os</b> bootable FedAC OS image</div>
+<div class="pe"><b>theme</b> prompt theme chooser</div>
+<div class="pe"><b>token</b> display auth token (3 taps)</div>
+<div class="pe"><b>wallet</b> animated Tezos wallet display</div>
+<div class="pe"><b>connect-wallet</b> wallet connection page</div>
+<div class="pe"><b>download</b> screenshottable download screen</div>
+<div class="pe"><b>ads</b> advertise on AC</div>
+<div class="pe"><b>mug</b> ceramic mug with your painting</div>
+<div class="pe"><b>mugs</b> browse recent mugs</div>
+<div class="pe"><b>boots</b> boot telemetry viewer</div>
+<div class="pe"><b>booted-by</b> who booted AC</div>
+<div class="pe"><b>404</b> error page</div>
+<div class="pe"><b>delete-erase-and-forget-me</b> delete account</div>
 </div>
 
-<div class="sitemap-section">
-  <div class="sitemap-header">Whistlegraph &ensp;(8)</div>
-  <div class="sitemap-routes">
-    <span class="sitemap-route">whistlegraph</span>
-    <span class="sitemap-route">wg</span>
-    <span class="sitemap-route">wgr</span>
-    <span class="sitemap-route">m2w2</span>
-    <span class="sitemap-route">wipppps</span>
-    <span class="sitemap-route">neo-wipppps</span>
-    <span class="sitemap-route">merry-fade</span>
-  </div>
+<div class="piece-cat">
+<div class="piece-cat-header">Translation</div>
+<div class="pe"><b>english</b> / <b>en</b> translate to English</div>
+<div class="pe"><b>danish</b> / <b>da</b> translate to Danish</div>
+<div class="pe"><b>spanish</b> / <b>es</b> translate to Spanish</div>
 </div>
 
-<div class="sitemap-section">
-  <div class="sitemap-header">Media / TV &ensp;(7)</div>
-  <div class="sitemap-routes">
-    <span class="sitemap-route">tv</span>
-    <span class="sitemap-route">tapes</span>
-    <span class="sitemap-route">screen</span>
-    <span class="sitemap-route">screenshots</span>
-    <span class="sitemap-route">replay</span>
-    <span class="sitemap-route">video</span>
-  </div>
+<div class="piece-cat">
+<div class="piece-cat-header">External &amp; Hardware</div>
+<div class="pe"><b>ableton</b> Max for Live device browser</div>
+<div class="pe"><b>aframe</b> A-Frame VR drawing (WebXR)</div>
+<div class="pe"><b>gameboy</b> GameBoy emulator</div>
+<div class="pe"><b>gamepad</b> gamepad connectivity test</div>
+<div class="pe"><b>ff1</b> send art to FF1 Art Computer</div>
+<div class="pe"><b>ordfish</b> virtual fish viewer</div>
+<div class="pe"><b>ordsy</b> B&amp;W ordsy picture palette</div>
+<div class="pe"><b>snappidaggs</b> Goodiepal archive browser</div>
+<div class="pe"><b>prutti</b> Lessons NOT Learnt (Goodiepal)</div>
+<div class="pe"><b>triquilt</b> half-square triangle quilt tool</div>
+<div class="pe"><b>hueber</b> psychedelic Uber</div>
 </div>
 
-<div class="sitemap-section">
-  <div class="sitemap-header">UCLA Course &ensp;(13)</div>
-  <div class="sitemap-routes">
-    <span class="sitemap-route">ucla-1</span>
-    <span class="sitemap-route">ucla-2</span>
-    <span class="sitemap-route">ucla-3</span>
-    <span class="sitemap-route">ucla-4</span>
-    <span class="sitemap-route">ucla-5</span>
-    <span class="sitemap-route">ucla-6</span>
-    <span class="sitemap-route">ucla-7</span>
-    + keyboard, box, turtle, balls, dial, jump variants
-  </div>
+<div class="piece-cat">
+<div class="piece-cat-header">Education &amp; Workshop</div>
+<div class="pe"><b>ucla-1</b> &ndash; <b>ucla-7</b> UCLA workshop lessons</div>
+<div class="pe">+ <b>-keyboard</b> <b>-box</b> <b>-turtle</b> <b>-balls</b> <b>-dial</b> <b>-jump</b> variants</div>
+<div class="pe"><b>baktok</b> learn to talk backwards</div>
+<div class="pe"><b>laer-klokken</b> learn the clock</div>
+<div class="pe"><b>alphapoet</b> alphabetical nonsense poet</div>
 </div>
 
-<div class="sitemap-section">
-  <div class="sitemap-header">Single-Letter &amp; Numeric &ensp;(47)</div>
-  <div class="sitemap-routes">
-    <span class="sitemap-route">$</span>
-    <span class="sitemap-route">0&ndash;9</span>
-    <span class="sitemap-route">a&ndash;z</span>
-  </div>
+<div class="piece-cat">
+<div class="piece-cat-header">ABC123 Series (36)</div>
+<div class="pe"><b>a</b>&ndash;<b>z</b> interactive letters with musical notes</div>
+<div class="pe"><b>0</b>&ndash;<b>9</b> interactive numbers with sounds</div>
 </div>
 
-<div class="sitemap-section">
-  <div class="sitemap-header">Dynamic Patterns</div>
-  <div class="sitemap-routes" style="flex-direction: column;">
-    <span style="font-family: 'Berkeley Mono Variable', monospace; font-size: 7pt; color: rgb(120, 80, 180);">/@:handle &rarr; user profile &ensp;&middot;&ensp; /@:handle/:piece &rarr; user piece &ensp;&middot;&ensp; /preview/* &rarr; OG images &ensp;&middot;&ensp; /session/* &rarr; multiplayer rooms</span>
-  </div>
+<div class="piece-cat">
+<div class="piece-cat-header">Dynamic Patterns</div>
+<div class="pe"><b>/@handle</b> &rarr; user profile</div>
+<div class="pe"><b>/@handle/piece</b> &rarr; user-published piece</div>
+<div class="pe"><b>/preview/*</b> &rarr; OG images</div>
+<div class="pe"><b>/session/*</b> &rarr; multiplayer rooms</div>
 </div>
 
 </div>
 
 <div class="page-footer">
-  Aesthetic Computer Whitepaper &ensp;&middot;&ensp; March 2026 &ensp;&middot;&ensp;
-  <span class="handle"><span class="c1">@</span><span class="c2">j</span><span class="c3">e</span><span class="c4">f</span><span class="c5">f</span><span class="c6">r</span><span class="c7">e</span><span class="c8">y</span></span>
+  Aesthetic<span style="color: rgb(180, 72, 135);">.</span>Computer Research Template 1.0 &ensp;&middot;&ensp;
+  <span class="handle"><span class="at">@</span><span class="name">jeffrey</span></span> &ensp;&middot;&ensp;
+  github.com/whistlegraph/aesthetic-computer
 </div>
 
 </body>
