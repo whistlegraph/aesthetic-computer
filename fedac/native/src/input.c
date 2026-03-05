@@ -62,6 +62,11 @@ const char *input_key_name(int code) {
         case KEY_POWER: return "power";
         case KEY_BRIGHTNESSDOWN: return "brightnessdown";
         case KEY_BRIGHTNESSUP: return "brightnessup";
+        case KEY_MICMUTE: return "micmute";
+        case KEY_SWITCHVIDEOMODE: return "switchvideo";
+        case KEY_WLAN: return "wlan";
+        case KEY_MEDIA: return "media";
+        case KEY_KBDILLUMTOGGLE: return "kbdlight";
         default: return NULL;
     }
 }
