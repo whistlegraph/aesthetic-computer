@@ -342,6 +342,9 @@ silo/use-staging-wallet.mjs
 # Fedac build output (disk images, local bundles)
 fedac/out/
 
+# Fedac native build artifacts (kernel sources, object files, images)
+fedac/native/build/
+
 # External project artifacts (not part of AC repo)
 surface-architecture.html
 
