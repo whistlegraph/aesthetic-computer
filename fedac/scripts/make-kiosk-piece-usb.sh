@@ -1536,7 +1536,7 @@ build_target() {
     umount "$part" 2>/dev/null || true
   done
 
-  # Wipe and partition: 400MB FAT32 EFI + main ext4 + 20MB FEDAC-PIECE
+  # Wipe and partition: 512MB FAT32 EFI + main ext4 + 20MB FEDAC-PIECE
   echo -e "  Creating partition table on ${label}..."
   wipefs -a "$target" >/dev/null 2>&1
   # Compute LIVE partition end to avoid negative offsets (which confuse
@@ -1547,9 +1547,9 @@ build_target() {
   local live_end=$((dev_mib - 20))  # leave 20 MiB for PIECE partition
 
   parted -s "$target" mklabel gpt
-  parted -s "$target" mkpart '"EFI"' fat32 1MiB 401MiB
+  parted -s "$target" mkpart '"EFI"' fat32 1MiB 513MiB
   parted -s "$target" set 1 esp on
-  parted -s "$target" mkpart '"LIVE"' ext4 401MiB "${live_end}MiB"
+  parted -s "$target" mkpart '"LIVE"' ext4 513MiB "${live_end}MiB"
   parted -s "$target" mkpart '"PIECE"' ext4 "${live_end}MiB" 100%
 
   sleep 2
