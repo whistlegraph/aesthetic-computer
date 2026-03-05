@@ -136,13 +136,16 @@ void input_poll(ACInput *input) {
                 // Keyboard
                 else if (ev.code < BTN_MISC) {
                     const char *name = input_key_name(ev.code);
+                    ae->type = ev.value ? AC_EVENT_KEYBOARD_DOWN : AC_EVENT_KEYBOARD_UP;
+                    ae->key_code = ev.code;
+                    ae->repeat = (ev.value == 2);
                     if (name) {
-                        ae->type = ev.value ? AC_EVENT_KEYBOARD_DOWN : AC_EVENT_KEYBOARD_UP;
-                        ae->key_code = ev.code;
-                        ae->repeat = (ev.value == 2);
                         strncpy(ae->key_name, name, sizeof(ae->key_name) - 1);
-                        input->event_count++;
+                    } else {
+                        // Unknown key — store code as name for debug
+                        snprintf(ae->key_name, sizeof(ae->key_name), "?%d", ev.code);
                     }
+                    input->event_count++;
                 }
             } else if (ev.type == EV_REL) {
                 // Relative mouse movement
