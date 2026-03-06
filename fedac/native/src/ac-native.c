@@ -330,14 +330,30 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
                    drm_front_stride(display), 3);
 
     // 60 frames = 1 second. W must be held the entire time to install.
+    // Any OTHER key press skips the animation immediately.
     // Write directly to front buffer (no page flip = no modeset overhead)
-    for (int f = 0; f < 60; f++) {
+    int skip_anim = 0;
+    for (int f = 0; f < 60 && !skip_anim; f++) {
         double t = (double)f / 60.0;
 
         // Check if W is held — must be continuous (reset if released)
         int w_now = check_key_held_fds(KEY_W, key_fds, key_fd_count);
         if (w_now) w_held_frames++;
         else w_held_frames = 0;
+
+        // Check if any OTHER key is pressed — skip animation
+        // Always drain events to prevent stale buffer, but only skip on non-W keys
+        if (f > 5) {
+            struct input_event ev;
+            for (int ki = 0; ki < key_fd_count; ki++) {
+                while (read(key_fds[ki], &ev, sizeof(ev)) == sizeof(ev)) {
+                    if (ev.type == EV_KEY && ev.value == 1 &&
+                        ev.code != KEY_W && ev.code != KEY_RESERVED) {
+                        skip_anim = 1;
+                    }
+                }
+            }
+        }
 
         // Fade from black to target bg (complete in first 0.3s)
         double fade_t = t * 3.33;
