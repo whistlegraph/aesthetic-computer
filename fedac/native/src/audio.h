@@ -6,7 +6,7 @@
 
 #define AUDIO_SAMPLE_RATE 192000
 #define AUDIO_CHANNELS 2
-#define AUDIO_PERIOD_SIZE 128   // ~0.67ms at 192kHz — sub-millisecond latency
+#define AUDIO_PERIOD_SIZE 192   // ~1ms at 192kHz — minimal latency
 #define AUDIO_MAX_VOICES 32
 #define AUDIO_WAVEFORM_SIZE 512
 

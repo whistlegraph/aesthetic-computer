@@ -159,8 +159,8 @@ static JSValue js_write(JSContext *ctx, JSValueConst this_val, int argc, JSValue
         }
     }
 
-    // Check for font option: "matrix", "font_1"/"6x10", default is 8x8
-    int font_id = FONT_8X8;
+    // Check for font option: "matrix", "font_1"/"6x10", default is font_1 (6x10)
+    int font_id = FONT_6X10;
     if (argc >= 2 && JS_IsObject(argv[1])) {
         JSValue font_v = JS_GetPropertyStr(ctx, argv[1], "font");
         if (JS_IsString(font_v)) {
@@ -174,7 +174,7 @@ static JSValue js_write(JSContext *ctx, JSValueConst this_val, int argc, JSValue
         }
         JS_FreeValue(ctx, font_v);
 
-        // Re-check center with correct font metrics for non-default fonts
+        // Re-check center with correct font metrics for non-8x8 fonts
         if (font_id != FONT_8X8) {
             JSValue center2 = JS_GetPropertyStr(ctx, argv[1], "center");
             if (JS_IsString(center2)) {
@@ -1024,6 +1024,7 @@ static JSValue build_wifi_obj(JSContext *ctx, ACWifi *wifi) {
         JS_SetPropertyStr(ctx, obj, "connected", JS_NewBool(ctx, wifi->state == WIFI_STATE_CONNECTED));
         JS_SetPropertyStr(ctx, obj, "ssid", JS_NewString(ctx, wifi->connected_ssid));
         JS_SetPropertyStr(ctx, obj, "ip", JS_NewString(ctx, wifi->ip_address));
+        JS_SetPropertyStr(ctx, obj, "iface", JS_NewString(ctx, wifi->iface));
 
         // Networks array
         JSValue networks = JS_NewArray(ctx);

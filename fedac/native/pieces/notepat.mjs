@@ -64,7 +64,8 @@ let wifiPanelOpen = false;
 let wifiSelectedIdx = -1;
 let wifiPassword = "";
 let wifiPasswordMode = false;  // true = capturing keyboard for password
-let wifiScanRequested = false;
+// Touch-note state (for clickable grid buttons)
+let touchNotes = {};  // pointer id -> { key, note, octave }
 
 // Chromatic note order per octave
 const CHROMATIC = ["c","c#","d","d#","e","f","f#","g","g#","a","a#","b"];
@@ -119,6 +120,29 @@ function noteToFreq(note, oct) {
 }
 
 function noteColor(n) { return NOTE_COLORS[n] || [80, 80, 80]; }
+
+// Hit-test a touch point against the note grid
+function hitTestGrid(x, y, gi) {
+  const grids = [
+    { grid: LEFT_GRID, startX: gi.leftX, octOffset: 0 },
+    { grid: RIGHT_GRID, startX: gi.rightX, octOffset: 0 },
+  ];
+  for (const { grid, startX, octOffset } of grids) {
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 4; c++) {
+        const bx = startX + c * (gi.btnW + gi.gap);
+        const by = gi.gridTop + r * (gi.btnH + gi.gap);
+        if (x >= bx && x < bx + gi.btnW && y >= by && y < by + gi.btnH) {
+          const noteName = grid[r][c];
+          const key = NOTE_TO_KEY[noteName];
+          const [letter, off] = parseNote(noteName);
+          return { key, letter, octave: octave + off + octOffset };
+        }
+      }
+    }
+  }
+  return null;
+}
 
 function boot({ wipe }) { wipe(255); }
 
@@ -223,13 +247,13 @@ function act({ event: e, sound, wifi }) {
     const x = e.pointer?.x ?? e.x ?? 0;
     const w = globalThis.__screenW || 320;
     const h = globalThis.__screenH || 200;
+    const pid = e.pointer?.id ?? 0;
 
-    // WiFi antenna icon: top-right corner (last 20px of status bar)
-    if (y < 12 && x > w - 22) {
+    // WiFi antenna icon: top-right corner (within status bar)
+    if (y < 16 && x > w - 22) {
       wifiPanelOpen = !wifiPanelOpen;
-      if (wifiPanelOpen && !wifiScanRequested && wifi) {
-        wifi.scan();
-        wifiScanRequested = true;
+      if (wifiPanelOpen && wifi) {
+        wifi.scan();  // Always rescan when opening
       }
       return;
     }
@@ -240,7 +264,7 @@ function act({ event: e, sound, wifi }) {
       if (x >= panelX && x < panelX + panelW && y >= panelY && y < panelY + panelH) {
         const nets = wifi?.networks || [];
         const rowH = 12;
-        const listY = panelY + 14; // after title
+        const listY = panelY + 14;
         const clickedRow = Math.floor((y - listY) / rowH);
         if (clickedRow >= 0 && clickedRow < nets.length) {
           wifiSelectedIdx = clickedRow;
@@ -248,38 +272,66 @@ function act({ event: e, sound, wifi }) {
             wifiPassword = "";
             wifiPasswordMode = true;
           } else {
-            // Open network — connect directly
             wifi?.connect(nets[clickedRow].ssid, "");
             wifiPanelOpen = false;
           }
         }
         return;
       }
-      // Click outside panel — close it
       wifiPanelOpen = false;
       wifiPasswordMode = false;
       return;
     }
 
-    // Echo slider zone
-    if (y < 20 || echoDragging) {
+    // Echo slider zone (below status bar, y < 22)
+    if (y < 22) {
       echoDragging = true;
       echoMix = Math.max(0, Math.min(1, x / w));
       sound?.room?.setMix?.(echoMix);
+      return;
+    }
+
+    // Grid button tap — check if touch lands on a note button
+    const gridInfo = globalThis.__gridInfo;
+    if (gridInfo) {
+      const hitNote = hitTestGrid(x, y, gridInfo);
+      if (hitNote && !sounds[hitNote.key]) {
+        const freq = noteToFreq(hitNote.letter, hitNote.octave);
+        const semitones = (hitNote.octave - 4) * 12 + CHROMATIC.indexOf(hitNote.letter);
+        const pan = Math.max(-0.8, Math.min(0.8, (semitones - 12) / 15));
+        const synth = sound.synth({
+          type: wave, tone: freq, duration: Infinity,
+          volume: 0.5, attack: 0.005, decay: 0.1, pan,
+        });
+        sounds[hitNote.key] = { synth, note: hitNote.letter, octave: hitNote.octave };
+        trail[hitNote.key] = { note: hitNote.letter, octave: hitNote.octave, brightness: 1.0 };
+        touchNotes[pid] = { key: hitNote.key };
+        return;
+      }
     }
   }
   if (e.is("draw")) {
     const y = e.pointer?.y ?? e.y ?? 0;
     const x = e.pointer?.x ?? e.x ?? 0;
     const w = globalThis.__screenW || 320;
-    if (y < 20 || echoDragging) {
-      echoDragging = true;
+    if (echoDragging) {
       echoMix = Math.max(0, Math.min(1, x / w));
       sound?.room?.setMix?.(echoMix);
     }
   }
   if (e.is("lift")) {
-    echoDragging = false;
+    const pid = e.pointer?.id ?? 0;
+    if (echoDragging) echoDragging = false;
+    // Release touch-triggered note
+    if (touchNotes[pid]) {
+      const key = touchNotes[pid].key;
+      if (sounds[key]) {
+        const s = sounds[key].synth || sounds[key];
+        sound.kill(s, 0.08);
+        delete sounds[key];
+      }
+      delete touchNotes[pid];
+    }
   }
 }
 
@@ -288,7 +340,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   const activeCount = Object.keys(sounds).length;
   const w = screen.width;
   const h = screen.height;
-  const CH = 8; // char width at size 1
+  const CH = 6; // char width at size 1 (font_1 = 6x10)
   globalThis.__screenW = w; // expose for act()
   globalThis.__screenH = h;
 
@@ -329,16 +381,18 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   else { tR = 20; tG = 15; tB = 65; }                              // night: deep indigo
 
   const f = Math.floor; // shorthand
+  // Full saturation tint
   const BG = dark
-    ? [f(12 + tR / 2), f(12 + tG / 2), f(14 + tB / 2)]
-    : [f(Math.min(255, 240 + tR / 6)), f(Math.min(255, 240 + tG / 6)), f(Math.min(255, 240 + tB / 6))];
+    ? [f(10 + tR), f(10 + tG), f(12 + tB)]
+    : [f(Math.min(255, 230 + tR / 3)), f(Math.min(255, 230 + tG / 3)), f(Math.min(255, 230 + tB / 3))];
   const FG = dark ? 220 : 0;
   const FG_DIM = dark ? 140 : 100;
   const FG_MUTED = dark ? 80 : 170;
+  // Pink-tinted status bar
   const BAR_BG = dark
-    ? [f(30 + tR / 4), f(30 + tG / 4), f(33 + tB / 4)]
-    : [f(Math.min(255, 242 + tR / 8)), f(Math.min(255, 242 + tG / 8)), f(Math.min(255, 242 + tB / 8))];
-  const BAR_BORDER = dark ? [f(50 + tR / 3), f(50 + tG / 3), f(53 + tB / 3)] : [200, 200, 200];
+    ? [f(45 + tR / 3), f(25 + tG / 6), f(35 + tB / 4)]
+    : [255, f(230 + tG / 8), f(235 + tB / 6)];
+  const BAR_BORDER = dark ? [f(70 + tR / 3), f(40 + tG / 4), f(55 + tB / 3)] : [230, 190, 200];
   const PAD_NORMAL = dark
     ? [f(35 + tR / 3), f(35 + tG / 3), f(38 + tB / 3)]
     : [f(Math.min(255, 242 + tR / 8)), f(Math.min(255, 242 + tG / 8)), f(Math.min(255, 242 + tB / 8))];
@@ -361,18 +415,18 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     }
     const n = activeKeys.length;
     if (dark) {
-      // Dark: blend toward deep note color
+      // Dark: full saturation blend toward note color
       bgTarget = [
-        Math.floor(20 + (r / n) * 0.2),
-        Math.floor(20 + (g / n) * 0.2),
-        Math.floor(25 + (b / n) * 0.2),
+        Math.floor(15 + (r / n) * 0.5),
+        Math.floor(15 + (g / n) * 0.5),
+        Math.floor(18 + (b / n) * 0.5),
       ];
     } else {
-      // Light: blend toward pastel note color
+      // Light: stronger note color blend
       bgTarget = [
-        Math.floor(255 - (255 - r / n) * 0.35),
-        Math.floor(255 - (255 - g / n) * 0.35),
-        Math.floor(255 - (255 - b / n) * 0.35),
+        Math.floor(255 - (255 - r / n) * 0.6),
+        Math.floor(255 - (255 - g / n) * 0.6),
+        Math.floor(255 - (255 - b / n) * 0.6),
       ];
     }
   } else {
@@ -398,23 +452,26 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   }
 
   // === STATUS BAR ===
-  const topBarH = 10;
-  const barY = 1;
+  const topBarH = 14;
+  const barY = 2;
 
   ink(BAR_BG[0], BAR_BG[1], BAR_BG[2]);
   box(0, 0, w, topBarH, true);
   ink(BAR_BORDER[0], BAR_BORDER[1], BAR_BORDER[2]);
   line(0, topBarH - 1, w, topBarH - 1);
 
-  // Left: title (matrix font) + status
+  // Left: "notepat" in matrix font, ".com" in pink/accent color
   ink(FG, FG, FG, 200);
   write("notepat", { x: 2, y: barY, size: 1, font: "matrix" });
+  const dotComX = 2 + 7 * 8; // 7 chars * 8px matrix width
+  ink(dark ? 200 : 180, dark ? 100 : 60, dark ? 140 : 120);
+  write(".com", { x: dotComX, y: barY, size: 1, font: "matrix" });
   const statusStr = activeCount > 0
     ? activeCount + " note" + (activeCount > 1 ? "s" : "")
     : "";
   if (statusStr) {
     ink(FG_DIM, FG_DIM, FG_DIM);
-    write(statusStr, { x: 60, y: barY, size: 1 });
+    write(statusStr, { x: dotComX + 4 * 8 + 4, y: barY, size: 1 });
   }
 
   // Center: wave / octave / mode / sample rate
@@ -431,7 +488,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
 
   // WiFi antenna icon (clickable)
   {
-    const ax = w - 12, ay = 1;
+    const ax = w - 12, ay = 3;
     const wifiConnected = wifi?.connected;
     const wifiState = wifi?.state ?? 0;
     // Draw antenna: three arcs + base dot
@@ -523,22 +580,25 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   }
 
   // === SPLIT GRID: 4x3 left (bottom-left) + 4x3 right (bottom-right) ===
-  const gap = 2;
+  const gap = 0;  // marginless — buttons touch for rollover clicking
   const cols = 4, rows = 3;
-  const margin = 4; // tight to edges
+  const margin = 2; // minimal edge margin
 
   // Small buttons: ~30% of screen height, anchored to bottom corners
   const maxGridH = Math.floor(h * 0.30);
-  const btnH = Math.floor((maxGridH - (rows - 1) * gap) / rows);
-  const maxBtnW = Math.floor((w / 2 - margin * 2 - (cols - 1) * gap) / cols);
+  const btnH = Math.floor(maxGridH / rows);
+  const maxBtnW = Math.floor((w / 2 - margin * 2) / cols);
   const btnW = Math.min(maxBtnW, btnH * 2);
 
-  const gridW = cols * (btnW + gap) - gap;
-  const gridH = rows * (btnH + gap) - gap;
+  const gridW = cols * btnW;
+  const gridH = rows * btnH;
   const gridTop = h - gridH - margin - 8; // anchor near bottom, leave room for echo bar
 
   const leftX = margin;
   const rightX = w - gridW - margin;
+
+  // Expose grid layout for touch hit-testing in act()
+  globalThis.__gridInfo = { leftX, rightX, gridTop, btnW, btnH, gap };
 
   function drawGrid(grid, startX, octOffset) {
     for (let r = 0; r < rows; r++) {
@@ -657,13 +717,14 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     ink(dark ? 60 : 200, dark ? 60 : 200, dark ? 70 : 210);
     box(panelX, panelY, panelW, panelH, "outline");
 
-    // Title
+    // Title + interface name
     ink(FG, FG, FG);
     write("WiFi", { x: panelX + 3, y: panelY + 2, size: 1, font: "font_1" });
 
-    // Status
+    // Status + interface info
     ink(FG_DIM, FG_DIM, FG_DIM);
-    write(wifi.status || "", { x: panelX + 30, y: panelY + 2, size: 1, font: "font_1" });
+    const wifiStatusStr = (wifi.status || "?") + (wifi.iface ? " [" + wifi.iface + "]" : "");
+    write(wifiStatusStr, { x: panelX + 28, y: panelY + 2, size: 1, font: "font_1" });
 
     // Network list
     const nets = wifi.networks || [];

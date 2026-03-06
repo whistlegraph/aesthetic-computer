@@ -23,58 +23,95 @@ static int file_exists(const char *path) {
     return stat(path, &st) == 0;
 }
 
+// Detect the first wireless interface name
+static int detect_iface(char *out, int out_len) {
+    // Method 1: iw dev
+    FILE *fp = popen("iw dev 2>/dev/null | grep Interface | head -1 | awk '{print $2}'", "r");
+    if (fp) {
+        char buf[32] = "";
+        if (fgets(buf, sizeof(buf), fp)) {
+            buf[strcspn(buf, "\n")] = 0;
+            if (buf[0]) {
+                snprintf(out, out_len, "%s", buf);
+                pclose(fp);
+                return 1;
+            }
+        }
+        pclose(fp);
+    }
+    // Method 2: scan /sys/class/net/*/wireless
+    fp = popen("ls -d /sys/class/net/*/wireless 2>/dev/null | head -1", "r");
+    if (fp) {
+        char buf[128] = "";
+        if (fgets(buf, sizeof(buf), fp)) {
+            buf[strcspn(buf, "\n")] = 0;
+            // Extract interface name from /sys/class/net/IFACE/wireless
+            char *start = strstr(buf, "/net/");
+            if (start) {
+                start += 5;
+                char *end = strchr(start, '/');
+                if (end) {
+                    *end = 0;
+                    snprintf(out, out_len, "%s", start);
+                    pclose(fp);
+                    return 1;
+                }
+            }
+        }
+        pclose(fp);
+    }
+    return 0;
+}
+
 ACWifi *wifi_init(void) {
     ACWifi *wifi = calloc(1, sizeof(ACWifi));
     if (!wifi) return NULL;
 
     wifi->state = WIFI_STATE_OFF;
     snprintf(wifi->status_msg, sizeof(wifi->status_msg), "initializing...");
+    wifi->iface[0] = 0;
 
-    // Check if iw and wpa_supplicant exist
+    // Check if iw exists
     if (!file_exists("/usr/sbin/iw") && !file_exists("/sbin/iw")) {
         snprintf(wifi->status_msg, sizeof(wifi->status_msg), "iw not found");
         ac_log("[wifi] iw binary not found");
         return wifi;
     }
 
-    // Bring up the wireless interface
-    run_cmd("ip link set " WIFI_IFACE " up 2>/dev/null");
+    // Detect wireless interface
+    if (!detect_iface(wifi->iface, sizeof(wifi->iface))) {
+        // Try wlan0 as fallback
+        snprintf(wifi->iface, sizeof(wifi->iface), "wlan0");
+    }
+    ac_log("[wifi] Using interface: %s", wifi->iface);
 
-    // Check if interface exists
-    char check[128];
-    snprintf(check, sizeof(check), "ip link show %s >/dev/null 2>&1", WIFI_IFACE);
-    if (system(check) != 0) {
-        // Try to find any wireless interface
-        FILE *fp = popen("iw dev 2>/dev/null | grep Interface | head -1 | awk '{print $2}'", "r");
-        if (fp) {
-            char iface[32] = "";
-            if (fgets(iface, sizeof(iface), fp)) {
-                iface[strcspn(iface, "\n")] = 0;
-                if (iface[0]) {
-                    ac_log("[wifi] Using interface: %s (not wlan0)", iface);
-                    // We'll use wlan0 as default but log the actual
-                }
-            }
-            pclose(fp);
-        }
+    // Bring up the interface
+    char cmd[128];
+    snprintf(cmd, sizeof(cmd), "ip link set %s up 2>/dev/null", wifi->iface);
+    run_cmd(cmd);
+
+    // Verify interface exists
+    snprintf(cmd, sizeof(cmd), "ip link show %s >/dev/null 2>&1", wifi->iface);
+    if (system(cmd) != 0) {
         snprintf(wifi->status_msg, sizeof(wifi->status_msg), "no wifi interface");
-        ac_log("[wifi] No wireless interface found");
+        ac_log("[wifi] Interface %s not found", wifi->iface);
         return wifi;
     }
 
     snprintf(wifi->status_msg, sizeof(wifi->status_msg), "ready");
-    ac_log("[wifi] Interface %s is up", WIFI_IFACE);
+    ac_log("[wifi] Interface %s is up", wifi->iface);
     return wifi;
 }
 
 void wifi_scan(ACWifi *wifi) {
-    if (!wifi) return;
+    if (!wifi || !wifi->iface[0]) return;
     wifi->state = WIFI_STATE_SCANNING;
     wifi->network_count = 0;
     snprintf(wifi->status_msg, sizeof(wifi->status_msg), "scanning...");
 
-    // Run scan in background (writes to temp file)
-    run_cmd("iw dev " WIFI_IFACE " scan 2>/dev/null > /tmp/wifi_scan.txt &");
+    char cmd[256];
+    snprintf(cmd, sizeof(cmd), "iw dev %s scan 2>/dev/null > /tmp/wifi_scan.txt &", wifi->iface);
+    run_cmd(cmd);
 }
 
 int wifi_scan_poll(ACWifi *wifi) {
@@ -158,7 +195,7 @@ int wifi_scan_poll(ACWifi *wifi) {
 }
 
 void wifi_connect(ACWifi *wifi, const char *ssid, const char *password) {
-    if (!wifi || !ssid) return;
+    if (!wifi || !ssid || !wifi->iface[0]) return;
 
     wifi->state = WIFI_STATE_CONNECTING;
     snprintf(wifi->status_msg, sizeof(wifi->status_msg), "connecting...");
@@ -205,9 +242,8 @@ void wifi_connect(ACWifi *wifi, const char *ssid, const char *password) {
     // Start wpa_supplicant
     pid_t pid = fork();
     if (pid == 0) {
-        // Child: run wpa_supplicant
         execl("/usr/sbin/wpa_supplicant", "wpa_supplicant",
-              "-i", WIFI_IFACE, "-c", "/tmp/wpa.conf",
+              "-i", wifi->iface, "-c", "/tmp/wpa.conf",
               "-B", "-P", "/tmp/wpa.pid", NULL);
         _exit(1);
     }
@@ -223,7 +259,7 @@ int wifi_connect_poll(ACWifi *wifi) {
     // Check wpa_supplicant status
     char cmd[256];
     snprintf(cmd, sizeof(cmd),
-             "wpa_cli -i %s status 2>/dev/null | grep wpa_state", WIFI_IFACE);
+             "wpa_cli -i %s status 2>/dev/null | grep wpa_state", wifi->iface);
     FILE *fp = popen(cmd, "r");
     if (!fp) return 0;
 
@@ -243,7 +279,7 @@ int wifi_connect_poll(ACWifi *wifi) {
                       "-1",  // try once
                       "-pf", "/tmp/dhclient.pid",
                       "-lf", "/tmp/dhclient.leases",
-                      WIFI_IFACE, NULL);
+                      wifi->iface, NULL);
                 _exit(1);
             }
             wifi->dhcp_pid = pid;
@@ -252,7 +288,7 @@ int wifi_connect_poll(ACWifi *wifi) {
         // Check if we have an IP
         snprintf(cmd, sizeof(cmd),
                  "ip addr show %s 2>/dev/null | grep 'inet ' | awk '{print $2}' | cut -d/ -f1",
-                 WIFI_IFACE);
+                 wifi->iface);
         fp = popen(cmd, "r");
         if (fp) {
             char ip[32] = "";
@@ -286,7 +322,6 @@ int wifi_connect_poll(ACWifi *wifi) {
             }
         }
     } else if (strstr(line, "DISCONNECTED") || strstr(line, "INTERFACE_DISABLED")) {
-        // Still waiting or failed
         static int connect_ticks = 0;
         connect_ticks++;
         if (connect_ticks > 600) { // ~10 seconds at 60fps
@@ -306,7 +341,10 @@ void wifi_disconnect(ACWifi *wifi) {
 
     run_cmd("killall wpa_supplicant 2>/dev/null");
     run_cmd("killall dhclient 2>/dev/null");
-    run_cmd("ip addr flush dev " WIFI_IFACE " 2>/dev/null");
+
+    char cmd[128];
+    snprintf(cmd, sizeof(cmd), "ip addr flush dev %s 2>/dev/null", wifi->iface);
+    run_cmd(cmd);
 
     if (wifi->wpa_pid > 0) {
         kill(wifi->wpa_pid, SIGTERM);

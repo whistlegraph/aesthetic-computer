@@ -194,7 +194,7 @@ static void setup_noise_filter(ACVoice *v, double sample_rate) {
 
 #define ROOM_DELAY_SAMPLES (int)(0.12 * AUDIO_SAMPLE_RATE) // 120ms
 #define ROOM_SIZE (ROOM_DELAY_SAMPLES * 3)
-#define ROOM_FEEDBACK 0.55
+#define ROOM_FEEDBACK 0.45
 #define ROOM_MIX 0.35
 
 // Soft clamp (tanh-like) to prevent harsh digital clipping
@@ -203,6 +203,9 @@ static inline double soft_clip(double x) {
     if (x < -1.0) return -1.0 + 1.0 / (1.0 - (x + 1.0) * 3.0);
     return x;
 }
+
+// Compressor state (per-channel peak follower)
+static double comp_env = 0.0;  // envelope follower level
 
 static void *audio_thread_fn(void *arg) {
     ACAudio *audio = (ACAudio *)arg;
@@ -272,13 +275,26 @@ static void *audio_thread_fn(void *arg) {
                 int tap2 = (audio->room_pos - room_delay * 2 + rs) % rs;
                 int tap3 = (audio->room_pos - room_delay * 3 + rs) % rs;
 
-                float wet_l = (audio->room_buf_l[tap1] + audio->room_buf_l[tap2] * 0.7f
-                               + audio->room_buf_l[tap3] * 0.5f) * ROOM_FEEDBACK;
-                float wet_r = (audio->room_buf_r[tap1] + audio->room_buf_r[tap2] * 0.7f
-                               + audio->room_buf_r[tap3] * 0.5f) * ROOM_FEEDBACK;
+                float wet_l = audio->room_buf_l[tap1] + audio->room_buf_l[tap2] * 0.7f
+                               + audio->room_buf_l[tap3] * 0.5f;
+                float wet_r = audio->room_buf_r[tap1] + audio->room_buf_r[tap2] * 0.7f
+                               + audio->room_buf_r[tap3] * 0.5f;
 
-                audio->room_buf_l[audio->room_pos] = (float)mix_l + wet_l * ROOM_FEEDBACK;
-                audio->room_buf_r[audio->room_pos] = (float)mix_r + wet_r * ROOM_FEEDBACK;
+                // Write to delay buffer with feedback (clamped + damped to ensure decay)
+                float fb_l = (float)mix_l + wet_l * ROOM_FEEDBACK;
+                float fb_r = (float)mix_r + wet_r * ROOM_FEEDBACK;
+                if (fb_l > 2.0f) fb_l = 2.0f; else if (fb_l < -2.0f) fb_l = -2.0f;
+                if (fb_r > 2.0f) fb_r = 2.0f; else if (fb_r < -2.0f) fb_r = -2.0f;
+                // Damping: multiply by 0.9997 per sample to ensure tail dies
+                // At 192kHz this gives ~3 second full decay from -60dB
+                fb_l *= 0.9997f;
+                fb_r *= 0.9997f;
+                audio->room_buf_l[audio->room_pos] = fb_l;
+                audio->room_buf_r[audio->room_pos] = fb_r;
+
+                // Scale wet signal for mix
+                wet_l *= ROOM_FEEDBACK;
+                wet_r *= ROOM_FEEDBACK;
                 audio->room_pos = (audio->room_pos + 1) % rs;
 
                 float rmix = audio->room_mix;
@@ -298,6 +314,26 @@ static void *audio_thread_fn(void *arg) {
                 }
                 mix_l = audio->glitch_hold_l;
                 mix_r = audio->glitch_hold_r;
+            }
+
+            // Compressor: peak-following gain reduction (threshold 0.7, ratio ~4:1)
+            {
+                double peak = fabs(mix_l);
+                double pr = fabs(mix_r);
+                if (pr > peak) peak = pr;
+                // Attack: fast (0.5ms), Release: medium (50ms)
+                double att_coeff = 1.0 - exp(-1.0 / (0.0005 * rate));
+                double rel_coeff = 1.0 - exp(-1.0 / (0.05 * rate));
+                if (peak > comp_env)
+                    comp_env += att_coeff * (peak - comp_env);
+                else
+                    comp_env += rel_coeff * (peak - comp_env);
+                if (comp_env > 0.7) {
+                    double gain = 0.7 + (comp_env - 0.7) * 0.25; // ~4:1 ratio above threshold
+                    double reduction = gain / comp_env;
+                    mix_l *= reduction;
+                    mix_r *= reduction;
+                }
             }
 
             // Soft clip and convert to int16
@@ -447,7 +483,7 @@ ACAudio *audio_init(void) {
     snd_pcm_uframes_t period = AUDIO_PERIOD_SIZE;
     snd_pcm_hw_params_set_period_size_near(pcm, params, &period, 0);
 
-    snd_pcm_uframes_t buffer_size = AUDIO_PERIOD_SIZE * 4;
+    snd_pcm_uframes_t buffer_size = AUDIO_PERIOD_SIZE * 3;  // 3 periods (~3ms total at 192kHz)
     snd_pcm_hw_params_set_buffer_size_near(pcm, params, &buffer_size);
 
     err = snd_pcm_hw_params(pcm, params);
