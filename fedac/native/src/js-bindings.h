@@ -7,6 +7,7 @@
 #include "font.h"
 #include "audio.h"
 #include "wifi.h"
+#include "tts.h"
 
 typedef struct {
     JSRuntime *rt;
@@ -25,12 +26,13 @@ typedef struct {
     ACInput *input;
     ACAudio *audio;
     ACWifi *wifi;
+    ACTts *tts;
     int paint_count;
     int sim_count;
 } ACRuntime;
 
 // Initialize QuickJS and register all AC API bindings
-ACRuntime *js_init(ACGraph *graph, ACInput *input, ACAudio *audio, ACWifi *wifi);
+ACRuntime *js_init(ACGraph *graph, ACInput *input, ACAudio *audio, ACWifi *wifi, ACTts *tts);
 
 // Load and prepare a piece module
 int js_load_piece(ACRuntime *rt, const char *path);

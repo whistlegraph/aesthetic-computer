@@ -493,6 +493,17 @@ static JSValue js_glitch_toggle(JSContext *ctx, JSValueConst this_val, int argc,
     return JS_UNDEFINED;
 }
 
+// sound.speak(text)
+static JSValue js_speak(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 1 || !current_rt->tts) return JS_UNDEFINED;
+    const char *text = JS_ToCString(ctx, argv[0]);
+    if (!text) return JS_UNDEFINED;
+    tts_speak(current_rt->tts, text);
+    JS_FreeCString(ctx, text);
+    return JS_UNDEFINED;
+}
+
 // ============================================================
 // Event System
 // ============================================================
@@ -763,7 +774,7 @@ static const char *js_init_code =
     "};\n"
     ;
 
-ACRuntime *js_init(ACGraph *graph, ACInput *input, ACAudio *audio, ACWifi *wifi) {
+ACRuntime *js_init(ACGraph *graph, ACInput *input, ACAudio *audio, ACWifi *wifi, ACTts *tts) {
     ACRuntime *rt = calloc(1, sizeof(ACRuntime));
     if (!rt) return NULL;
 
@@ -771,6 +782,7 @@ ACRuntime *js_init(ACGraph *graph, ACInput *input, ACAudio *audio, ACWifi *wifi)
     rt->input = input;
     rt->audio = audio;
     rt->wifi = wifi;
+    rt->tts = tts;
     rt->boot_fn = JS_UNDEFINED;
     rt->paint_fn = JS_UNDEFINED;
     rt->act_fn = JS_UNDEFINED;
@@ -950,6 +962,9 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
     JS_SetPropertyStr(ctx, glitch, "get", JS_NewCFunction(ctx, js_noop, "get", 0));
     JS_SetPropertyStr(ctx, sound, "glitch", glitch);
 
+    // TTS
+    JS_SetPropertyStr(ctx, sound, "speak", JS_NewCFunction(ctx, js_speak, "speak", 1));
+
     // sound.paint (visualization helpers)
     JSValue sound_paint = JS_NewObject(ctx);
     JS_SetPropertyStr(ctx, sound_paint, "bars", JS_NewCFunction(ctx, js_noop, "bars", 10));
@@ -1109,6 +1124,33 @@ static JSValue build_system_obj(JSContext *ctx) {
     }
 
     JS_SetPropertyStr(ctx, sys, "battery", battery);
+
+    // Backlight brightness — scan /sys/class/backlight/
+    int bl_cur = -1, bl_max = -1;
+    {
+        DIR *bldir = opendir("/sys/class/backlight");
+        if (bldir) {
+            struct dirent *ent;
+            while ((ent = readdir(bldir))) {
+                if (ent->d_name[0] == '.') continue;
+                char tmp[160];
+                snprintf(tmp, sizeof(tmp), "/sys/class/backlight/%s/max_brightness", ent->d_name);
+                if (read_sysfs(tmp, buf, sizeof(buf)) > 0) {
+                    bl_max = atoi(buf);
+                    snprintf(tmp, sizeof(tmp), "/sys/class/backlight/%s/brightness", ent->d_name);
+                    if (read_sysfs(tmp, buf, sizeof(buf)) > 0) bl_cur = atoi(buf);
+                    break;
+                }
+            }
+            closedir(bldir);
+        }
+    }
+    if (bl_max > 0 && bl_cur >= 0) {
+        JS_SetPropertyStr(ctx, sys, "brightness", JS_NewInt32(ctx, (bl_cur * 100) / bl_max));
+    } else {
+        JS_SetPropertyStr(ctx, sys, "brightness", JS_NewInt32(ctx, -1));
+    }
+
     return sys;
 }
 

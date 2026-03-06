@@ -9,6 +9,7 @@
 #include <time.h>
 #include <dirent.h>
 #include <unistd.h>
+#include <sched.h>
 #include <alsa/asoundlib.h>
 
 // Forward declarations
@@ -194,7 +195,7 @@ static void setup_noise_filter(ACVoice *v, double sample_rate) {
 
 #define ROOM_DELAY_SAMPLES (int)(0.12 * AUDIO_SAMPLE_RATE) // 120ms
 #define ROOM_SIZE (ROOM_DELAY_SAMPLES * 3)
-#define ROOM_FEEDBACK 0.45
+#define ROOM_FEEDBACK 0.3
 #define ROOM_MIX 0.35
 
 // Soft clamp (tanh-like) to prevent harsh digital clipping
@@ -213,6 +214,11 @@ static void *audio_thread_fn(void *arg) {
     const double rate = (double)(audio->actual_rate ? audio->actual_rate : AUDIO_SAMPLE_RATE);
     const double dt = 1.0 / rate;
     double mix_divisor = 1.0; // Smooth auto-mix (matches speaker.mjs)
+
+    // Set real-time priority to prevent audio glitches from background tasks
+    struct sched_param sp = { .sched_priority = 50 };
+    if (pthread_setschedparam(pthread_self(), SCHED_FIFO, &sp) != 0)
+        fprintf(stderr, "[audio] Warning: couldn't set RT priority\n");
 
     while (audio->running) {
         memset(buffer, 0, sizeof(buffer));
@@ -267,42 +273,57 @@ static void *audio_thread_fn(void *arg) {
             mix_l /= mix_divisor;
             mix_r /= mix_divisor;
 
+            // Mix in TTS audio (mono → both channels)
+            if (audio->tts_buf && audio->tts_read_pos != audio->tts_write_pos) {
+                float tts_sample = audio->tts_buf[audio->tts_read_pos] * audio->tts_volume;
+                mix_l += tts_sample;
+                mix_r += tts_sample;
+                audio->tts_read_pos = (audio->tts_read_pos + 1) % audio->tts_buf_size;
+            }
+
             // Room (reverb) effect — tap delays based on actual sample rate
             if (audio->room_enabled && audio->room_buf_l) {
-                int room_delay = (int)(0.12 * rate); // 120ms in samples
-                int rs = audio->room_size;
-                int tap1 = (audio->room_pos - room_delay + rs) % rs;
-                int tap2 = (audio->room_pos - room_delay * 2 + rs) % rs;
-                int tap3 = (audio->room_pos - room_delay * 3 + rs) % rs;
-
-                float wet_l = audio->room_buf_l[tap1] + audio->room_buf_l[tap2] * 0.7f
-                               + audio->room_buf_l[tap3] * 0.5f;
-                float wet_r = audio->room_buf_r[tap1] + audio->room_buf_r[tap2] * 0.7f
-                               + audio->room_buf_r[tap3] * 0.5f;
-
-                // Write to delay buffer with feedback (clamped + damped to ensure decay)
-                float fb_l = (float)mix_l + wet_l * ROOM_FEEDBACK;
-                float fb_r = (float)mix_r + wet_r * ROOM_FEEDBACK;
-                if (fb_l > 2.0f) fb_l = 2.0f; else if (fb_l < -2.0f) fb_l = -2.0f;
-                if (fb_r > 2.0f) fb_r = 2.0f; else if (fb_r < -2.0f) fb_r = -2.0f;
-                // Damping: multiply per sample to ensure tail dies
-                // 0.9995 at 192kHz: each 120ms tap round decays by ~e^(-11.5) ≈ 0.00001
-                fb_l *= 0.9995f;
-                fb_r *= 0.9995f;
-                // Noise gate: zero out sub-audible residue to prevent forever-hum
-                if (fb_l > -0.00001f && fb_l < 0.00001f) fb_l = 0.0f;
-                if (fb_r > -0.00001f && fb_r < 0.00001f) fb_r = 0.0f;
-                audio->room_buf_l[audio->room_pos] = fb_l;
-                audio->room_buf_r[audio->room_pos] = fb_r;
-
-                // Scale wet signal for mix
-                wet_l *= ROOM_FEEDBACK;
-                wet_r *= ROOM_FEEDBACK;
-                audio->room_pos = (audio->room_pos + 1) % rs;
-
                 float rmix = audio->room_mix;
-                mix_l = mix_l * (1.0 - rmix) + wet_l * rmix;
-                mix_r = mix_r * (1.0 - rmix) + wet_r * rmix;
+                int rs = audio->room_size;
+
+                // At 0% mix, skip all reverb processing (no buffer feed, no output)
+                if (rmix > 0.001f) {
+                    int room_delay = (int)(0.12 * rate); // 120ms in samples
+                    int tap1 = (audio->room_pos - room_delay + rs) % rs;
+                    int tap2 = (audio->room_pos - room_delay * 2 + rs) % rs;
+                    int tap3 = (audio->room_pos - room_delay * 3 + rs) % rs;
+
+                    // Weighted sum of taps, normalized
+                    float wet_l = (audio->room_buf_l[tap1] * 0.5f
+                                 + audio->room_buf_l[tap2] * 0.3f
+                                 + audio->room_buf_l[tap3] * 0.2f);
+                    float wet_r = (audio->room_buf_r[tap1] * 0.5f
+                                 + audio->room_buf_r[tap2] * 0.3f
+                                 + audio->room_buf_r[tap3] * 0.2f);
+
+                    // Feed buffer: dry input + attenuated wet feedback
+                    float fb_l = (float)mix_l + wet_l * ROOM_FEEDBACK;
+                    float fb_r = (float)mix_r + wet_r * ROOM_FEEDBACK;
+                    // Damping — ensures reverb tail always decays
+                    fb_l *= 0.995f;
+                    fb_r *= 0.995f;
+                    if (fb_l > 2.0f) fb_l = 2.0f; else if (fb_l < -2.0f) fb_l = -2.0f;
+                    if (fb_r > 2.0f) fb_r = 2.0f; else if (fb_r < -2.0f) fb_r = -2.0f;
+                    // Noise gate: zero out sub-audible residue
+                    if (fb_l > -0.0001f && fb_l < 0.0001f) fb_l = 0.0f;
+                    if (fb_r > -0.0001f && fb_r < 0.0001f) fb_r = 0.0f;
+                    audio->room_buf_l[audio->room_pos] = fb_l;
+                    audio->room_buf_r[audio->room_pos] = fb_r;
+
+                    // Mix wet into output
+                    mix_l = mix_l * (1.0 - rmix) + wet_l * rmix;
+                    mix_r = mix_r * (1.0 - rmix) + wet_r * rmix;
+                } else {
+                    // Mix is ~0%: just clear the current buffer position (drain residue)
+                    audio->room_buf_l[audio->room_pos] = 0.0f;
+                    audio->room_buf_r[audio->room_pos] = 0.0f;
+                }
+                audio->room_pos = (audio->room_pos + 1) % rs;
             }
 
             // Glitch (sample-hold + bitcrush)
@@ -402,6 +423,13 @@ ACAudio *audio_init(void) {
     audio->room_enabled = 1; // Always on, mix controls wet amount
     audio->room_buf_l = calloc(ROOM_SIZE, sizeof(float));
     audio->room_buf_r = calloc(ROOM_SIZE, sizeof(float));
+
+    // TTS PCM ring buffer (5 seconds at output rate)
+    audio->tts_buf_size = AUDIO_SAMPLE_RATE * 5;
+    audio->tts_buf = calloc(audio->tts_buf_size, sizeof(float));
+    audio->tts_read_pos = 0;
+    audio->tts_write_pos = 0;
+    audio->tts_volume = 1.0f;
 
     // Wait for sound card to appear (i915 GPU init can delay HDA probe)
     fprintf(stderr, "[audio] Waiting for sound card...\n");
@@ -802,19 +830,30 @@ void audio_volume_adjust(ACAudio *audio, int delta) {
 
 void audio_boot_beep(ACAudio *audio) {
     if (!audio || !audio->pcm) return;
-    // Short high-pitched ping — "I'm alive!"
-    audio_synth(audio, WAVE_SINE, 880.0, 0.08, 0.3, 0.001, 0.06, 0.0);
+    // Short high-pitched ping at full volume — "I'm alive!"
+    audio_synth(audio, WAVE_SINE, 880.0, 0.10, 0.8, 0.001, 0.07, 0.0);
 }
 
 void audio_ready_melody(ACAudio *audio) {
     if (!audio || !audio->pcm) return;
-    // Quick ascending 3-note toot: C5 → E5 → G5 (major triad)
-    // Each note is short with slight overlap for a pleasant chime
-    audio_synth(audio, WAVE_TRIANGLE, 523.25, 0.12, 0.25, 0.003, 0.08, -0.2);  // C5
+    // Quick ascending 3-note toot: C5 → E5 → G5 (major triad) at full volume
+    audio_synth(audio, WAVE_TRIANGLE, 523.25, 0.15, 0.7, 0.003, 0.10, -0.2);  // C5
     usleep(60000); // 60ms gap
-    audio_synth(audio, WAVE_TRIANGLE, 659.25, 0.12, 0.25, 0.003, 0.08,  0.0);  // E5
+    audio_synth(audio, WAVE_TRIANGLE, 659.25, 0.15, 0.7, 0.003, 0.10,  0.0);  // E5
     usleep(60000);
-    audio_synth(audio, WAVE_TRIANGLE, 783.99, 0.18, 0.30, 0.003, 0.12,  0.2);  // G5
+    audio_synth(audio, WAVE_TRIANGLE, 783.99, 0.20, 0.8, 0.003, 0.14,  0.2);  // G5
+}
+
+void audio_shutdown_sound(ACAudio *audio) {
+    if (!audio || !audio->pcm) return;
+    // Descending 3-note chime: G5 → E5 → C5 at full volume
+    audio_synth(audio, WAVE_TRIANGLE, 783.99, 0.15, 0.7, 0.003, 0.10,  0.2);  // G5
+    usleep(60000);
+    audio_synth(audio, WAVE_TRIANGLE, 659.25, 0.15, 0.7, 0.003, 0.10,  0.0);  // E5
+    usleep(60000);
+    audio_synth(audio, WAVE_TRIANGLE, 523.25, 0.20, 0.8, 0.003, 0.14, -0.2);  // C5
+    // Wait for notes to finish playing before shutdown
+    usleep(250000);
 }
 
 void audio_destroy(ACAudio *audio) {
@@ -826,6 +865,7 @@ void audio_destroy(ACAudio *audio) {
     }
     free(audio->room_buf_l);
     free(audio->room_buf_r);
+    free(audio->tts_buf);
     pthread_mutex_destroy(&audio->lock);
     free(audio);
 }

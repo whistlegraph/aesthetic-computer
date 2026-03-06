@@ -85,6 +85,13 @@ typedef struct {
     int system_volume;
     int card_index;  // ALSA card number (0 or 1)
     unsigned int actual_rate;  // Negotiated ALSA sample rate (may differ from requested)
+
+    // TTS PCM buffer (resampled to output rate, mono → stereo in mix)
+    float *tts_buf;             // ring buffer of mono float samples at output rate
+    volatile int tts_write_pos; // producer (tts thread) writes here
+    volatile int tts_read_pos;  // consumer (audio thread) reads here
+    int tts_buf_size;           // ring buffer size
+    float tts_volume;           // 0.0-1.0
 } ACAudio;
 
 // Initialize ALSA audio engine (returns NULL if no audio device)
@@ -121,6 +128,9 @@ void audio_boot_beep(ACAudio *audio);
 
 // Play a ready melody (when piece is loaded and ready to play)
 void audio_ready_melody(ACAudio *audio);
+
+// Play a shutdown sound (before cleanup)
+void audio_shutdown_sound(ACAudio *audio);
 
 // Cleanup
 void audio_destroy(ACAudio *audio);
