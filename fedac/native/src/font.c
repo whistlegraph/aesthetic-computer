@@ -1,4 +1,5 @@
 #include "font.h"
+#include "font-matrix-chunky8.h"
 #include <string.h>
 
 // Classic 8x8 bitmap font (CP437 style, ASCII 32-126)
@@ -191,4 +192,51 @@ int font_measure(const char *text, int scale) {
     for (const char *p = text; *p && *p != '\n'; p++)
         len++;
     return len * FONT_CHAR_W * scale;
+}
+
+// MatrixChunky8 BDF font rendering (variable-width, 8px tall)
+int font_draw_matrix(ACGraph *g, const char *text, int x, int y, int scale) {
+    if (!text) return x;
+    if (scale < 1) scale = 1;
+
+    int start_x = x;
+    for (const char *p = text; *p; p++) {
+        unsigned char ch = (unsigned char)*p;
+        if (ch == '\n') {
+            x = start_x;
+            y += matrix_chunky8_ascent * scale;
+            continue;
+        }
+        if (ch < 32 || ch > 126) ch = '?';
+        const BDFGlyph *gl = &matrix_chunky8_glyphs[ch - 32];
+
+        // Render glyph: yoff is distance from baseline to bottom of glyph
+        int gy = y + (matrix_chunky8_ascent - gl->yoff - gl->height) * scale;
+        int gx = x + gl->xoff * scale;
+
+        for (int row = 0; row < gl->height && row < MATRIX_CHUNKY8_MAX_H; row++) {
+            uint8_t bits = gl->rows[row];
+            for (int col = 0; col < gl->width; col++) {
+                if (bits & (0x80 >> col)) {
+                    for (int sy = 0; sy < scale; sy++)
+                        for (int sx = 0; sx < scale; sx++)
+                            graph_plot(g, gx + col * scale + sx, gy + row * scale + sy);
+                }
+            }
+        }
+        x += gl->dwidth * scale;
+    }
+    return x;
+}
+
+int font_measure_matrix(const char *text, int scale) {
+    if (!text) return 0;
+    if (scale < 1) scale = 1;
+    int w = 0;
+    for (const char *p = text; *p && *p != '\n'; p++) {
+        unsigned char ch = (unsigned char)*p;
+        if (ch < 32 || ch > 126) ch = '?';
+        w += matrix_chunky8_glyphs[ch - 32].dwidth;
+    }
+    return w * scale;
 }
