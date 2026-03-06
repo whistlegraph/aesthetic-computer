@@ -6,7 +6,7 @@
 
 #define WIFI_MAX_NETWORKS 32
 #define WIFI_SSID_MAX 33      // 32 chars + null
-#define WIFI_IFACE "wlan0"
+#define WIFI_IFACE_MAX 32
 
 typedef enum {
     WIFI_STATE_OFF = 0,
@@ -32,6 +32,7 @@ typedef struct {
     char ip_address[16];      // "192.168.1.X"
     int signal_strength;      // current signal dBm
     char status_msg[64];      // human-readable status
+    char iface[WIFI_IFACE_MAX]; // detected wireless interface name
     pid_t wpa_pid;            // wpa_supplicant process
     pid_t dhcp_pid;           // dhclient process
 } ACWifi;
