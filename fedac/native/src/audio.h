@@ -4,9 +4,9 @@
 #include <stdint.h>
 #include <pthread.h>
 
-#define AUDIO_SAMPLE_RATE 48000
+#define AUDIO_SAMPLE_RATE 192000
 #define AUDIO_CHANNELS 2
-#define AUDIO_PERIOD_SIZE 256
+#define AUDIO_PERIOD_SIZE 128   // ~0.67ms at 192kHz — sub-millisecond latency
 #define AUDIO_MAX_VOICES 32
 #define AUDIO_WAVEFORM_SIZE 512
 
@@ -84,6 +84,7 @@ typedef struct {
     // System mixer volume (0-100 percent)
     int system_volume;
     int card_index;  // ALSA card number (0 or 1)
+    unsigned int actual_rate;  // Negotiated ALSA sample rate (may differ from requested)
 } ACAudio;
 
 // Initialize ALSA audio engine (returns NULL if no audio device)

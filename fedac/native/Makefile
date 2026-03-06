@@ -34,6 +34,7 @@ SRCS := $(SRCDIR)/ac-native.c \
         $(SRCDIR)/color.c \
         $(SRCDIR)/input.c \
         $(SRCDIR)/audio.c \
+        $(SRCDIR)/wifi.c \
         $(SRCDIR)/js-bindings.c
 
 OBJS := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/%.o,$(SRCS))

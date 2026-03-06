@@ -16,13 +16,37 @@ let metronomeBeatCount = 0;
 let metronomeFlash = 0;
 let metronomeVisualPhase = 0;
 
-// Echo (room) mix — controlled by trackpad Y
+// Echo (room) mix — controlled by mouse slider under status bar
 let echoMix = 0;
-let trackpadActivity = 0;
+let echoDragging = false;
 
-// Dark mode: auto based on time (7pm-7am)
+// Dark mode: auto based on LA time (7pm-7am)
+// UEFI clock is UTC; LA is UTC-7 (PDT) or UTC-8 (PST)
+// DST: second Sunday of March 2am → first Sunday of November 2am
+function getLAOffset() {
+  const now = new Date();
+  const y = now.getUTCFullYear(), m = now.getUTCMonth();
+  if (m > 2 && m < 10) return 7; // Apr-Oct: always PDT
+  if (m < 2 || m > 10) return 8; // Jan-Feb, Dec: always PST
+  // March (m=2): DST starts second Sunday at 2am UTC-8 (10am UTC)
+  if (m === 2) {
+    const d1 = new Date(Date.UTC(y, 2, 1)).getUTCDay(); // day-of-week of Mar 1
+    const secondSun = 8 + (7 - d1) % 7; // date of second Sunday
+    const dstStart = Date.UTC(y, 2, secondSun, 10); // 2am PST = 10am UTC
+    return now.getTime() >= dstStart ? 7 : 8;
+  }
+  // November (m=10): DST ends first Sunday at 2am UTC-7 (9am UTC)
+  const d1 = new Date(Date.UTC(y, 10, 1)).getUTCDay();
+  const firstSun = 1 + (7 - d1) % 7;
+  const dstEnd = Date.UTC(y, 10, firstSun, 9); // 2am PDT = 9am UTC
+  return now.getTime() < dstEnd ? 7 : 8;
+}
+function getLAHour() {
+  const now = new Date();
+  return (now.getUTCHours() - getLAOffset() + 24) % 24;
+}
 function isDark() {
-  const h = new Date().getHours();
+  const h = getLAHour();
   return h >= 19 || h < 7;
 }
 let dark = isDark();
@@ -34,6 +58,13 @@ let bgTarget = dark ? [20, 20, 25] : [255, 255, 255];
 // Debug: last key pressed
 let lastKey = "";
 let lastKeyTimer = 0;
+
+// WiFi UI state
+let wifiPanelOpen = false;
+let wifiSelectedIdx = -1;
+let wifiPassword = "";
+let wifiPasswordMode = false;  // true = capturing keyboard for password
+let wifiScanRequested = false;
 
 // Chromatic note order per octave
 const CHROMATIC = ["c","c#","d","d#","e","f","f#","g","g#","a","a#","b"];
@@ -91,7 +122,27 @@ function noteColor(n) { return NOTE_COLORS[n] || [80, 80, 80]; }
 
 function boot({ wipe }) { wipe(255); }
 
-function act({ event: e, sound }) {
+function act({ event: e, sound, wifi }) {
+  // WiFi password input mode — capture keyboard
+  if (wifiPasswordMode && e.is("keyboard:down")) {
+    const key = e.key;
+    if (key === "Escape") { wifiPasswordMode = false; wifiPassword = ""; return; }
+    if (key === "Enter" || key === "Return") {
+      if (wifi && wifiSelectedIdx >= 0) {
+        const nets = wifi.networks || [];
+        if (nets[wifiSelectedIdx]) {
+          wifi.connect(nets[wifiSelectedIdx].ssid, wifiPassword);
+        }
+      }
+      wifiPasswordMode = false;
+      wifiPanelOpen = false;
+      return;
+    }
+    if (key === "Backspace") { wifiPassword = wifiPassword.slice(0, -1); return; }
+    if (key.length === 1) { wifiPassword += key; return; }
+    return;
+  }
+
   if (e.is("keyboard:down")) {
     const key = e.key?.toLowerCase();
     if (!key) return;
@@ -165,24 +216,81 @@ function act({ event: e, sound }) {
       delete sounds[key];
     }
   }
+
+  // Touch interactions
+  if (e.is("touch")) {
+    const y = e.pointer?.y ?? e.y ?? 0;
+    const x = e.pointer?.x ?? e.x ?? 0;
+    const w = globalThis.__screenW || 320;
+    const h = globalThis.__screenH || 200;
+
+    // WiFi antenna icon: top-right corner (last 20px of status bar)
+    if (y < 12 && x > w - 22) {
+      wifiPanelOpen = !wifiPanelOpen;
+      if (wifiPanelOpen && !wifiScanRequested && wifi) {
+        wifi.scan();
+        wifiScanRequested = true;
+      }
+      return;
+    }
+
+    // WiFi panel clicks
+    if (wifiPanelOpen) {
+      const panelX = w - 140, panelY = 12, panelW = 138, panelH = 120;
+      if (x >= panelX && x < panelX + panelW && y >= panelY && y < panelY + panelH) {
+        const nets = wifi?.networks || [];
+        const rowH = 12;
+        const listY = panelY + 14; // after title
+        const clickedRow = Math.floor((y - listY) / rowH);
+        if (clickedRow >= 0 && clickedRow < nets.length) {
+          wifiSelectedIdx = clickedRow;
+          if (nets[clickedRow].encrypted) {
+            wifiPassword = "";
+            wifiPasswordMode = true;
+          } else {
+            // Open network — connect directly
+            wifi?.connect(nets[clickedRow].ssid, "");
+            wifiPanelOpen = false;
+          }
+        }
+        return;
+      }
+      // Click outside panel — close it
+      wifiPanelOpen = false;
+      wifiPasswordMode = false;
+      return;
+    }
+
+    // Echo slider zone
+    if (y < 20 || echoDragging) {
+      echoDragging = true;
+      echoMix = Math.max(0, Math.min(1, x / w));
+      sound?.room?.setMix?.(echoMix);
+    }
+  }
+  if (e.is("draw")) {
+    const y = e.pointer?.y ?? e.y ?? 0;
+    const x = e.pointer?.x ?? e.x ?? 0;
+    const w = globalThis.__screenW || 320;
+    if (y < 20 || echoDragging) {
+      echoDragging = true;
+      echoMix = Math.max(0, Math.min(1, x / w));
+      sound?.room?.setMix?.(echoMix);
+    }
+  }
+  if (e.is("lift")) {
+    echoDragging = false;
+  }
 }
 
-function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, pressures }) {
+function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, pressures, wifi }) {
   frame++;
   const activeCount = Object.keys(sounds).length;
   const w = screen.width;
   const h = screen.height;
   const CH = 8; // char width at size 1
-
-  // Trackpad Y controls echo mix
-  if (trackpad && (trackpad.dy !== 0 || trackpad.dx !== 0)) {
-    if (trackpad.dy !== 0) {
-      echoMix = Math.max(0, Math.min(1, echoMix - trackpad.dy * 0.003));
-      sound?.room?.setMix?.(echoMix);
-    }
-    trackpadActivity = Math.min(1, trackpadActivity + 0.3);
-  }
-  if (trackpadActivity > 0) trackpadActivity *= 0.93;
+  globalThis.__screenW = w; // expose for act()
+  globalThis.__screenH = h;
 
   // Metronome tick
   if (metronomeEnabled && metronomeBPM > 0) {
@@ -209,15 +317,35 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
 
   // Re-check dark mode every ~10 seconds
   if (frame % 600 === 0) dark = isDark();
-  const BG = dark ? [20, 20, 25] : [255, 255, 255];
+
+  // Hour-based accent tint (subtle color shift through the day)
+  const laH = getLAHour();
+  // Map hour to hue: dawn=warm orange, midday=cool blue, sunset=pink, night=deep blue
+  let tR, tG, tB;
+  if (laH >= 5 && laH < 9) { tR = 80; tG = 40; tB = 10; }       // dawn: warm amber
+  else if (laH >= 9 && laH < 14) { tR = 10; tG = 35; tB = 70; }  // midday: cool blue
+  else if (laH >= 14 && laH < 18) { tR = 25; tG = 60; tB = 20; } // afternoon: green
+  else if (laH >= 18 && laH < 21) { tR = 70; tG = 15; tB = 55; } // sunset: magenta
+  else { tR = 20; tG = 15; tB = 65; }                              // night: deep indigo
+
+  const f = Math.floor; // shorthand
+  const BG = dark
+    ? [f(12 + tR / 2), f(12 + tG / 2), f(14 + tB / 2)]
+    : [f(Math.min(255, 240 + tR / 6)), f(Math.min(255, 240 + tG / 6)), f(Math.min(255, 240 + tB / 6))];
   const FG = dark ? 220 : 0;
   const FG_DIM = dark ? 140 : 100;
   const FG_MUTED = dark ? 80 : 170;
-  const BAR_BG = dark ? [35, 35, 40] : [245, 245, 245];
-  const BAR_BORDER = dark ? [55, 55, 60] : [200, 200, 200];
-  const PAD_NORMAL = dark ? [40, 40, 45] : [245, 245, 245];
-  const PAD_SHARP = dark ? [30, 30, 35] : [215, 215, 220];
-  const PAD_OUTLINE = dark ? [60, 60, 65] : [210, 210, 210];
+  const BAR_BG = dark
+    ? [f(30 + tR / 4), f(30 + tG / 4), f(33 + tB / 4)]
+    : [f(Math.min(255, 242 + tR / 8)), f(Math.min(255, 242 + tG / 8)), f(Math.min(255, 242 + tB / 8))];
+  const BAR_BORDER = dark ? [f(50 + tR / 3), f(50 + tG / 3), f(53 + tB / 3)] : [200, 200, 200];
+  const PAD_NORMAL = dark
+    ? [f(35 + tR / 3), f(35 + tG / 3), f(38 + tB / 3)]
+    : [f(Math.min(255, 242 + tR / 8)), f(Math.min(255, 242 + tG / 8)), f(Math.min(255, 242 + tB / 8))];
+  const PAD_SHARP = dark
+    ? [f(25 + tR / 4), f(25 + tG / 4), f(28 + tB / 4)]
+    : [f(Math.min(255, 212 + tR / 8)), f(Math.min(255, 212 + tG / 8)), f(Math.min(255, 215 + tB / 8))];
+  const PAD_OUTLINE = dark ? [55 + f(tR / 4), 55 + f(tG / 4), 60 + f(tB / 4)] : [210, 210, 210];
 
   // Compute background color from active notes
   const activeKeys = Object.keys(sounds);
@@ -269,96 +397,148 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     box(w - fw, 0, fw, h, true);
   }
 
-  // === TOP BAR (row 1: title left, battery right) ===
-  const row1Y = 1;
-  const row2Y = 10;
-  const topBarH = 19;
+  // === STATUS BAR ===
+  const topBarH = 10;
+  const barY = 1;
 
   ink(BAR_BG[0], BAR_BG[1], BAR_BG[2]);
   box(0, 0, w, topBarH, true);
   ink(BAR_BORDER[0], BAR_BORDER[1], BAR_BORDER[2]);
   line(0, topBarH - 1, w, topBarH - 1);
 
-  // Row 1 left: title
+  // Left: title (matrix font) + status
   ink(FG, FG, FG, 200);
-  write("notepat", { x: 2, y: row1Y, size: 1 });
+  write("notepat", { x: 2, y: barY, size: 1, font: "matrix" });
+  const statusStr = activeCount > 0
+    ? activeCount + " note" + (activeCount > 1 ? "s" : "")
+    : "";
+  if (statusStr) {
+    ink(FG_DIM, FG_DIM, FG_DIM);
+    write(statusStr, { x: 60, y: barY, size: 1 });
+  }
 
-  // Row 1 right: battery
+  // Center: wave / octave / mode / sample rate
+  const metroInfo = metronomeEnabled ? " " + metronomeBPM + "bpm" : "";
+  const sRate = sound?.speaker?.sampleRate;
+  const khzStr = sRate ? " " + Math.round(sRate / 1000) + "kHz" : "";
+  const centerStr = wave + " o:" + octave + (quickMode ? " QK" : "") + metroInfo + khzStr;
+  ink(FG_DIM, FG_DIM, FG_DIM);
+  const centerX = Math.floor((w - centerStr.length * CH) / 2);
+  write(centerStr, { x: centerX, y: barY, size: 1 });
+
+  // Right section: wifi | battery | time | vol
+  let rx = w - 2; // right edge cursor (builds right to left)
+
+  // WiFi antenna icon (clickable)
+  {
+    const ax = w - 12, ay = 1;
+    const wifiConnected = wifi?.connected;
+    const wifiState = wifi?.state ?? 0;
+    // Draw antenna: three arcs + base dot
+    if (wifiConnected) ink(80, 200, 80); // green when connected
+    else if (wifiState >= 2) ink(200, 200, 80); // yellow when scanning/connecting
+    else ink(dark ? 80 : 160, dark ? 80 : 160, dark ? 90 : 170); // gray
+    // Simple antenna icon: vertical line + signal bars
+    line(ax + 5, ay + 1, ax + 5, ay + 7); // vertical
+    line(ax + 3, ay + 5, ax + 5, ay + 3); // left arm
+    line(ax + 7, ay + 5, ax + 5, ay + 3); // right arm
+    if (wifiConnected || wifiState >= 2) {
+      box(ax + 1, ay + 2, 2, 1, true); // left bar
+      box(ax + 8, ay + 2, 2, 1, true); // right bar
+    }
+    rx -= 14;
+  }
+
+  // Battery icon + percentage
   const bat = system?.battery;
   const batPct = bat?.percent ?? -1;
   if (batPct >= 0) {
-    // Battery icon
-    const batW = 14, batH = 7;
-    const batX = w - batW - 6, batY = row1Y;
-    ink(dark ? 100 : 140, dark ? 100 : 140, dark ? 100 : 140);
-    box(batX, batY, batW, batH, "outline");
-    box(batX + batW, batY + 2, 2, 3, true);
+    const batW = 12, batH = 6;
+    rx -= batW + 2;
+    const batX = rx;
+    ink(dark ? 90 : 150, dark ? 90 : 150, dark ? 90 : 150);
+    box(batX, barY, batW, batH, "outline");
+    box(batX + batW, barY + 2, 2, 2, true);
     const fillW = Math.max(0, Math.floor(batPct * (batW - 2) / 100));
     if (batPct <= 20) ink(220, 30, 30);
     else if (batPct <= 50) ink(200, 160, 0);
     else ink(50, 160, 50);
-    if (fillW > 0) box(batX + 1, batY + 1, fillW, batH - 2, true);
-
-    // Percentage left of icon
+    if (fillW > 0) box(batX + 1, barY + 1, fillW, batH - 2, true);
     const pctStr = batPct + "%";
+    rx -= pctStr.length * CH + 2;
     ink(FG_DIM, FG_DIM, FG_DIM);
-    write(pctStr, { x: batX - pctStr.length * CH - 3, y: row1Y, size: 1 });
+    write(pctStr, { x: rx, y: barY, size: 1 });
+    rx -= 4; // separator space
   }
 
-  // Row 2 left: status
-  const statusStr = activeCount > 0
-    ? activeCount + " note" + (activeCount > 1 ? "s" : "")
-    : "ready";
-  ink(activeCount > 0 ? FG : FG_MUTED, activeCount > 0 ? FG : FG_MUTED, activeCount > 0 ? FG : FG_MUTED);
-  write(statusStr, { x: 2, y: row2Y, size: 1 });
+  // Time (LA)
+  {
+    const now = new Date();
+    const laMs = now.getTime() - getLAOffset() * 3600000;
+    const laDate = new Date(laMs);
+    const hh = laDate.getUTCHours();
+    const mm = laDate.getUTCMinutes();
+    const ss = laDate.getUTCSeconds();
+    const ampm = hh >= 12 ? "p" : "a";
+    const h12 = hh % 12 || 12;
+    const timeStr = h12 + ":" + (mm < 10 ? "0" : "") + mm + ":" + (ss < 10 ? "0" : "") + ss + ampm;
+    rx -= timeStr.length * CH;
+    ink(FG_DIM, FG_DIM, FG_DIM);
+    write(timeStr, { x: rx, y: barY, size: 1 });
+    rx -= 4;
+  }
 
-  // Row 2 right: wave, octave, mode, bpm
-  const metroInfo = metronomeEnabled ? " " + metronomeBPM + "bpm" : "";
-  const info = wave + " o:" + octave + (quickMode ? " QK" : "") + metroInfo;
-  ink(FG_DIM, FG_DIM, FG_DIM);
-  write(info, { x: w - info.length * CH - 2, y: row2Y, size: 1 });
-
-  // Volume bar (row 2, centered-right area, between status and info)
+  // Volume bar
   const sysVol = sound?.speaker?.systemVolume ?? 100;
-  const volBarW = 24, volBarH = 3;
-  const infoStartX = w - info.length * CH - 2;
-  const statusEndX = 2 + statusStr.length * CH;
-  const volBarX = Math.floor((statusEndX + infoStartX) / 2 - volBarW / 2);
-  ink(dark ? 50 : 220, dark ? 50 : 220, dark ? 55 : 225); box(volBarX, row2Y + 2, volBarW, volBarH, true);
-  const fillV = Math.floor(sysVol * volBarW / 100);
-  if (fillV > 0) { ink(dark ? 160 : 80, dark ? 160 : 80, dark ? 160 : 80); box(volBarX, row2Y + 2, fillV, volBarH, true); }
+  {
+    const volW = 20, volH = 3;
+    rx -= volW;
+    ink(dark ? 45 : 220, dark ? 45 : 220, dark ? 50 : 225);
+    box(rx, barY + 2, volW, volH, true);
+    const fillV = Math.floor(sysVol * volW / 100);
+    if (fillV > 0) { ink(dark ? 150 : 80, dark ? 150 : 80, dark ? 150 : 80); box(rx, barY + 2, fillV, volH, true); }
+    rx -= 2;
+    // "vol" label
+    ink(FG_MUTED, FG_MUTED, FG_MUTED);
+    rx -= 3 * CH;
+    write("vol", { x: rx, y: barY, size: 1 });
+  }
 
-  // Waveform (overlaid on top bar when playing)
+  // Waveform (between center info and right section, overlaid when playing)
   const wf = sound?.speaker?.waveforms?.left;
   if (wf && activeCount > 0) {
-    const wfX = 2 + 8 * CH, wfEnd = infoStartX - 4;
+    const wfX = centerX + centerStr.length * CH + 4;
+    const wfEnd = rx - 4;
     const wfW = wfEnd - wfX;
     if (wfW > 20) {
-      ink(120, 120, 120, 100);
-      for (let i = 1; i < 80; i++) {
-        const x0 = wfX + Math.floor((i - 1) * wfW / 80);
-        const x1 = wfX + Math.floor(i * wfW / 80);
-        const y0 = Math.round(row1Y + 3 - (wf[i - 1] || 0) * 3);
-        const y1 = Math.round(row1Y + 3 - (wf[i] || 0) * 3);
+      ink(dark ? 80 : 140, dark ? 80 : 140, dark ? 80 : 140, 120);
+      for (let i = 1; i < 60; i++) {
+        const x0 = wfX + Math.floor((i - 1) * wfW / 60);
+        const x1 = wfX + Math.floor(i * wfW / 60);
+        const y0 = Math.round(barY + 3 - (wf[i - 1] || 0) * 3);
+        const y1 = Math.round(barY + 3 - (wf[i] || 0) * 3);
         line(x0, y0, x1, y1);
       }
     }
   }
 
-  // === SPLIT GRID: 4x3 left + 4x3 right ===
-  const gridTop = topBarH + 2;
-  const gridBottom = h - 8; // leave room for echo bar
-  const gridH = gridBottom - gridTop;
-  const gap = 1;
-  const centerGap = 6;
+  // === SPLIT GRID: 4x3 left (bottom-left) + 4x3 right (bottom-right) ===
+  const gap = 2;
   const cols = 4, rows = 3;
+  const margin = 4; // tight to edges
 
-  const availW = (w - centerGap - 4) / 2;
-  const btnW = Math.floor((availW - (cols - 1) * gap) / cols);
-  const btnH = Math.floor((gridH - (rows - 1) * gap) / rows);
+  // Small buttons: ~30% of screen height, anchored to bottom corners
+  const maxGridH = Math.floor(h * 0.30);
+  const btnH = Math.floor((maxGridH - (rows - 1) * gap) / rows);
+  const maxBtnW = Math.floor((w / 2 - margin * 2 - (cols - 1) * gap) / cols);
+  const btnW = Math.min(maxBtnW, btnH * 2);
 
-  const leftX = Math.floor((w / 2 - centerGap / 2) - cols * (btnW + gap) + gap);
-  const rightX = Math.floor(w / 2 + centerGap / 2);
+  const gridW = cols * (btnW + gap) - gap;
+  const gridH = rows * (btnH + gap) - gap;
+  const gridTop = h - gridH - margin - 8; // anchor near bottom, leave room for echo bar
+
+  const leftX = margin;
+  const rightX = w - gridW - margin;
 
   function drawGrid(grid, startX, octOffset) {
     for (let r = 0; r < rows; r++) {
@@ -393,23 +573,38 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
           box(x, y, btnW, btnH, true);
           ink(dark ? 200 : 40, dark ? 200 : 40, dark ? 200 : 40);
         } else {
-          ink(sharp ? PAD_SHARP[0] : PAD_NORMAL[0],
-              sharp ? PAD_SHARP[1] : PAD_NORMAL[1],
-              sharp ? PAD_SHARP[2] : PAD_NORMAL[2]);
+          // Idle: saturated note color
+          if (dark) {
+            ink(Math.floor(nc[0] * 0.35) + 20,
+                Math.floor(nc[1] * 0.35) + 20,
+                Math.floor(nc[2] * 0.35) + 22);
+          } else {
+            ink(Math.floor(255 - (255 - nc[0]) * 0.3),
+                Math.floor(255 - (255 - nc[1]) * 0.3),
+                Math.floor(255 - (255 - nc[2]) * 0.3));
+          }
           box(x, y, btnW, btnH, true);
-          ink(PAD_OUTLINE[0], PAD_OUTLINE[1], PAD_OUTLINE[2]);
+          if (dark) {
+            ink(Math.floor(nc[0] * 0.5) + 30,
+                Math.floor(nc[1] * 0.5) + 30,
+                Math.floor(nc[2] * 0.5) + 33);
+          } else {
+            ink(Math.floor(255 - (255 - nc[0]) * 0.45),
+                Math.floor(255 - (255 - nc[1]) * 0.45),
+                Math.floor(255 - (255 - nc[2]) * 0.45));
+          }
           box(x, y, btnW, btnH, "outline");
-          const fg = dark ? (sharp ? 100 : 180) : (sharp ? 140 : 60);
+          const fg = dark ? (sharp ? 120 : 190) : (sharp ? 100 : 50);
           ink(fg, fg, fg);
         }
 
         const label = key ? key.toUpperCase() : "";
-        write(label, { x: x + 2, y: y + 2, size: 1 });
+        write(label, { x: x + 2, y: y + 2, size: 1, font: "font_1" });
 
-        if (btnH > 16) {
+        if (btnH > 12) {
           if (isActive) ink(255, 255, 255, 180);
           else { const sl = dark ? (sharp ? 80 : 120) : (sharp ? 160 : 110); ink(sl, sl, sl); }
-          write(letter + noteOctave, { x: x + 2, y: y + btnH - 10, size: 1 });
+          write(letter + noteOctave, { x: x + 2, y: y + btnH - 12, size: 1, font: "font_1" });
         }
 
         // Pressure bar — fills from bottom of pad proportional to analog pressure
@@ -428,22 +623,105 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   drawGrid(LEFT_GRID, leftX, 0);
   drawGrid(RIGHT_GRID, rightX, 0);
 
-  // Echo mix bar (bottom)
+  // Echo slider (under status bar)
   {
-    const barH = 3;
-    const barY = h - barH - 1;
-    ink(dark ? 35 : 230, dark ? 35 : 230, dark ? 40 : 235);
-    box(0, barY, w, barH, true);
+    const sliderY = topBarH;
+    const sliderH = 6;
+    ink(dark ? 25 : 235, dark ? 25 : 235, dark ? 28 : 238);
+    box(0, sliderY, w, sliderH, true);
     const fillW = Math.floor(echoMix * w);
     if (fillW > 0) {
-      const pulse = trackpadActivity > 0.05 ? Math.floor(trackpadActivity * 40) : 0;
-      ink(80 + pulse, 120 + pulse, 220, 200);
-      box(0, barY, fillW, barH, true);
+      ink(80, 120, 220, echoDragging ? 240 : 180);
+      box(0, sliderY, fillW, sliderH, true);
     }
-    if (echoMix > 0.01) {
-      ink(80, 80, 140, 160);
-      const echoStr = "echo:" + Math.round(echoMix * 100) + "%";
-      write(echoStr, { x: w - echoStr.length * CH - 2, y: barY - 9, size: 1 });
+    // Handle knob
+    if (echoMix > 0.005 || echoDragging) {
+      const knobX = Math.max(1, Math.min(w - 3, Math.floor(echoMix * w)));
+      ink(140, 180, 255, 220);
+      box(knobX - 1, sliderY, 3, sliderH, true);
+    }
+    // Label
+    ink(dark ? 70 : 170, dark ? 70 : 170, dark ? 80 : 180);
+    const echoStr = "echo " + Math.round(echoMix * 100) + "%";
+    write(echoStr, { x: 2, y: sliderY - 1, size: 1, font: "font_1" });
+  }
+
+  // WiFi panel overlay
+  if (wifiPanelOpen && wifi) {
+    const panelW = 138, panelH = 120;
+    const panelX = w - panelW - 2, panelY = 12;
+
+    // Background
+    ink(dark ? 30 : 245, dark ? 30 : 245, dark ? 35 : 248, 240);
+    box(panelX, panelY, panelW, panelH, true);
+    ink(dark ? 60 : 200, dark ? 60 : 200, dark ? 70 : 210);
+    box(panelX, panelY, panelW, panelH, "outline");
+
+    // Title
+    ink(FG, FG, FG);
+    write("WiFi", { x: panelX + 3, y: panelY + 2, size: 1, font: "font_1" });
+
+    // Status
+    ink(FG_DIM, FG_DIM, FG_DIM);
+    write(wifi.status || "", { x: panelX + 30, y: panelY + 2, size: 1, font: "font_1" });
+
+    // Network list
+    const nets = wifi.networks || [];
+    const rowH = 12;
+    const listY = panelY + 14;
+    const maxRows = Math.min(nets.length, Math.floor((panelH - 16) / rowH));
+
+    for (let i = 0; i < maxRows; i++) {
+      const net = nets[i];
+      const ry = listY + i * rowH;
+
+      // Highlight selected
+      if (i === wifiSelectedIdx) {
+        ink(dark ? 50 : 220, dark ? 60 : 225, dark ? 80 : 240);
+        box(panelX + 1, ry, panelW - 2, rowH, true);
+      }
+
+      // Signal bars (1-4 based on dBm)
+      const bars = net.signal > -50 ? 4 : net.signal > -60 ? 3 : net.signal > -70 ? 2 : 1;
+      for (let b = 0; b < 4; b++) {
+        if (b < bars) ink(80, 200, 80);
+        else ink(dark ? 40 : 220, dark ? 40 : 220, dark ? 45 : 225);
+        box(panelX + 3 + b * 3, ry + 8 - (b + 1) * 2, 2, (b + 1) * 2, true);
+      }
+
+      // SSID name
+      ink(FG, FG, FG);
+      const ssidDisplay = net.ssid.length > 14 ? net.ssid.slice(0, 13) + "~" : net.ssid;
+      write(ssidDisplay, { x: panelX + 16, y: ry + 1, size: 1, font: "font_1" });
+
+      // Lock icon for encrypted
+      if (net.encrypted) {
+        ink(FG_MUTED, FG_MUTED, FG_MUTED);
+        write("*", { x: panelW + panelX - 10, y: ry + 1, size: 1, font: "font_1" });
+      }
+    }
+
+    // Password input (if in password mode)
+    if (wifiPasswordMode) {
+      const py = panelY + panelH - 14;
+      ink(dark ? 20 : 250, dark ? 20 : 250, dark ? 25 : 255);
+      box(panelX + 2, py, panelW - 4, 12, true);
+      ink(dark ? 70 : 180, dark ? 70 : 180, dark ? 80 : 190);
+      box(panelX + 2, py, panelW - 4, 12, "outline");
+      ink(FG, FG, FG);
+      const display = wifiPassword.length > 0 ? "*".repeat(wifiPassword.length) + "_" : "password_";
+      write(display, { x: panelX + 4, y: py + 1, size: 1, font: "font_1" });
+    }
+
+    // Connected IP
+    if (wifi.connected && wifi.ip) {
+      ink(80, 200, 80);
+      write(wifi.ip, { x: panelX + 3, y: panelY + panelH - 12, size: 1, font: "font_1" });
+    }
+
+    // Rescan timer
+    if (frame % 300 === 0 && wifiPanelOpen) {
+      wifi.scan();
     }
   }
 

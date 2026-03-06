@@ -6,6 +6,9 @@
 #include <math.h>
 #include <dirent.h>
 
+// Defined in ac-native.c — logs to USB mount
+extern void ac_log(const char *fmt, ...);
+
 // Thread-local reference to current runtime (for C callbacks from JS)
 static __thread ACRuntime *current_rt = NULL;
 
@@ -156,7 +159,48 @@ static JSValue js_write(JSContext *ctx, JSValueConst this_val, int argc, JSValue
         }
     }
 
-    font_draw(current_rt->graph, text, x, y, scale);
+    // Check for font option: "matrix", "font_1"/"6x10", default is 8x8
+    int font_id = FONT_8X8;
+    if (argc >= 2 && JS_IsObject(argv[1])) {
+        JSValue font_v = JS_GetPropertyStr(ctx, argv[1], "font");
+        if (JS_IsString(font_v)) {
+            const char *fname = JS_ToCString(ctx, font_v);
+            if (fname) {
+                if (strcmp(fname, "matrix") == 0) font_id = FONT_MATRIX;
+                else if (strcmp(fname, "font_1") == 0 || strcmp(fname, "6x10") == 0)
+                    font_id = FONT_6X10;
+                JS_FreeCString(ctx, fname);
+            }
+        }
+        JS_FreeValue(ctx, font_v);
+
+        // Re-check center with correct font metrics for non-default fonts
+        if (font_id != FONT_8X8) {
+            JSValue center2 = JS_GetPropertyStr(ctx, argv[1], "center");
+            if (JS_IsString(center2)) {
+                const char *cv = JS_ToCString(ctx, center2);
+                if (cv) {
+                    int tw = (font_id == FONT_MATRIX)
+                        ? font_measure_matrix(text, scale)
+                        : font_measure_6x10(text, scale);
+                    int th = (font_id == FONT_MATRIX)
+                        ? 8 * scale  // MatrixChunky8 ascent
+                        : FONT_6X10_CHAR_H * scale;
+                    if (strchr(cv, 'x')) x = (current_rt->graph->fb->width - tw) / 2;
+                    if (strchr(cv, 'y')) y = (current_rt->graph->fb->height - th) / 2;
+                    JS_FreeCString(ctx, cv);
+                }
+            }
+            JS_FreeValue(ctx, center2);
+        }
+    }
+
+    if (font_id == FONT_MATRIX)
+        font_draw_matrix(current_rt->graph, text, x, y, scale);
+    else if (font_id == FONT_6X10)
+        font_draw_6x10(current_rt->graph, text, x, y, scale);
+    else
+        font_draw(current_rt->graph, text, x, y, scale);
     JS_FreeCString(ctx, text);
     return JS_UNDEFINED;
 }
@@ -337,6 +381,8 @@ static JSValue js_synth(JSContext *ctx, JSValueConst this_val, int argc, JSValue
     uint64_t id = audio_synth(audio, wt, freq, duration, volume, attack, decay, pan);
     fprintf(stderr, "[synth] type=%d freq=%.1f vol=%.2f dur=%.1f id=%lu\n",
             wt, freq, volume, duration, (unsigned long)id);
+    ac_log("[synth] type=%d freq=%.1f vol=%.2f dur=%.1f id=%lu\n",
+           wt, freq, volume, duration, (unsigned long)id);
 
     // Return sound object with kill(), update(), startedAt
     JSValue snd = JS_NewObject(ctx);
@@ -717,13 +763,14 @@ static const char *js_init_code =
     "};\n"
     ;
 
-ACRuntime *js_init(ACGraph *graph, ACInput *input, ACAudio *audio) {
+ACRuntime *js_init(ACGraph *graph, ACInput *input, ACAudio *audio, ACWifi *wifi) {
     ACRuntime *rt = calloc(1, sizeof(ACRuntime));
     if (!rt) return NULL;
 
     rt->graph = graph;
     rt->input = input;
     rt->audio = audio;
+    rt->wifi = wifi;
     rt->boot_fn = JS_UNDEFINED;
     rt->paint_fn = JS_UNDEFINED;
     rt->act_fn = JS_UNDEFINED;
@@ -847,7 +894,8 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
     // speaker sub-object
     JSValue speaker = JS_NewObject(ctx);
     JS_SetPropertyStr(ctx, speaker, "poll", JS_NewCFunction(ctx, js_noop, "poll", 0));
-    JS_SetPropertyStr(ctx, speaker, "sampleRate", JS_NewInt32(ctx, AUDIO_SAMPLE_RATE));
+    JS_SetPropertyStr(ctx, speaker, "sampleRate",
+        JS_NewInt32(ctx, rt->audio ? (int)rt->audio->actual_rate : AUDIO_SAMPLE_RATE));
 
     // waveforms
     JSValue waveforms = JS_NewObject(ctx);
@@ -930,6 +978,71 @@ static int read_sysfs(const char *path, char *buf, int bufsize) {
     if (len > 0 && buf[len-1] == '\n') len--;
     buf[len] = 0;
     return len;
+}
+
+// ============================================================
+// WiFi JS bindings
+// ============================================================
+
+static JSValue js_wifi_scan(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    if (current_rt->wifi) wifi_scan(current_rt->wifi);
+    return JS_UNDEFINED;
+}
+
+static JSValue js_wifi_connect(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (!current_rt->wifi || argc < 1) return JS_UNDEFINED;
+    const char *ssid = JS_ToCString(ctx, argv[0]);
+    const char *pass = (argc >= 2 && JS_IsString(argv[1])) ? JS_ToCString(ctx, argv[1]) : NULL;
+    if (ssid) wifi_connect(current_rt->wifi, ssid, pass);
+    if (ssid) JS_FreeCString(ctx, ssid);
+    if (pass) JS_FreeCString(ctx, pass);
+    return JS_UNDEFINED;
+}
+
+static JSValue js_wifi_disconnect(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    if (current_rt->wifi) wifi_disconnect(current_rt->wifi);
+    return JS_UNDEFINED;
+}
+
+static JSValue build_wifi_obj(JSContext *ctx, ACWifi *wifi) {
+    JSValue obj = JS_NewObject(ctx);
+
+    JS_SetPropertyStr(ctx, obj, "scan", JS_NewCFunction(ctx, js_wifi_scan, "scan", 0));
+    JS_SetPropertyStr(ctx, obj, "connect", JS_NewCFunction(ctx, js_wifi_connect, "connect", 2));
+    JS_SetPropertyStr(ctx, obj, "disconnect", JS_NewCFunction(ctx, js_wifi_disconnect, "disconnect", 0));
+
+    if (wifi) {
+        // Poll scan/connect status
+        if (wifi->state == WIFI_STATE_SCANNING) wifi_scan_poll(wifi);
+        if (wifi->state == WIFI_STATE_CONNECTING) wifi_connect_poll(wifi);
+
+        JS_SetPropertyStr(ctx, obj, "state", JS_NewInt32(ctx, wifi->state));
+        JS_SetPropertyStr(ctx, obj, "status", JS_NewString(ctx, wifi->status_msg));
+        JS_SetPropertyStr(ctx, obj, "connected", JS_NewBool(ctx, wifi->state == WIFI_STATE_CONNECTED));
+        JS_SetPropertyStr(ctx, obj, "ssid", JS_NewString(ctx, wifi->connected_ssid));
+        JS_SetPropertyStr(ctx, obj, "ip", JS_NewString(ctx, wifi->ip_address));
+
+        // Networks array
+        JSValue networks = JS_NewArray(ctx);
+        for (int i = 0; i < wifi->network_count; i++) {
+            JSValue net = JS_NewObject(ctx);
+            JS_SetPropertyStr(ctx, net, "ssid", JS_NewString(ctx, wifi->networks[i].ssid));
+            JS_SetPropertyStr(ctx, net, "signal", JS_NewInt32(ctx, wifi->networks[i].signal));
+            JS_SetPropertyStr(ctx, net, "encrypted", JS_NewBool(ctx, wifi->networks[i].encrypted));
+            JS_SetPropertyUint32(ctx, networks, i, net);
+        }
+        JS_SetPropertyStr(ctx, obj, "networks", networks);
+    } else {
+        JS_SetPropertyStr(ctx, obj, "state", JS_NewInt32(ctx, WIFI_STATE_OFF));
+        JS_SetPropertyStr(ctx, obj, "status", JS_NewString(ctx, "no wifi"));
+        JS_SetPropertyStr(ctx, obj, "connected", JS_FALSE);
+        JS_SetPropertyStr(ctx, obj, "networks", JS_NewArray(ctx));
+    }
+
+    return obj;
 }
 
 static JSValue build_system_obj(JSContext *ctx) {
@@ -1035,6 +1148,9 @@ static JSValue build_api(JSContext *ctx, ACRuntime *rt, const char *phase) {
 
     // System (battery, etc)
     JS_SetPropertyStr(ctx, api, "system", build_system_obj(ctx));
+
+    // WiFi
+    JS_SetPropertyStr(ctx, api, "wifi", build_wifi_obj(ctx, rt->wifi));
 
     // Trackpad delta (per-frame relative movement)
     if (rt->input) {
@@ -1371,7 +1487,12 @@ void js_call_act(ACRuntime *rt) {
         if (JS_IsException(result)) {
             JSValue exc = JS_GetException(rt->ctx);
             const char *str = JS_ToCString(rt->ctx, exc);
-            fprintf(stderr, "[js] act() error: %s\n", str);
+            JSValue stack = JS_GetPropertyStr(rt->ctx, exc, "stack");
+            const char *stack_str = JS_ToCString(rt->ctx, stack);
+            fprintf(stderr, "[js] act() error: %s\n%s\n", str, stack_str ? stack_str : "");
+            ac_log("[js] act() error: %s\n%s\n", str, stack_str ? stack_str : "");
+            if (stack_str) JS_FreeCString(rt->ctx, stack_str);
+            JS_FreeValue(rt->ctx, stack);
             JS_FreeCString(rt->ctx, str);
             JS_FreeValue(rt->ctx, exc);
         }

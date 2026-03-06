@@ -10,6 +10,14 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <errno.h>
+#include <time.h>
+#include <math.h>
+
+static double monotonic_sec(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec + ts.tv_nsec * 1e-9;
+}
 
 const char *input_key_name(int code) {
     switch (code) {
@@ -252,10 +260,10 @@ static void hidraw_process_nuphy(ACInput *input, unsigned char *buf, int len) {
         }
     }
 
-    // Activation threshold: ignore very light touches (noise/accidental)
-    // raw_pressure ~1600 = full press, threshold ~80 = ~5%
-    #define ANALOG_ACTIVATE_THRESHOLD 80
-    #define ANALOG_DEACTIVATE_THRESHOLD 40  // Lower than activate (hysteresis)
+    // Activation threshold: low to capture light touches
+    // raw_pressure ~1600 = full press
+    #define ANALOG_ACTIVATE_THRESHOLD 30   // ~1.9% — very light touch triggers
+    #define ANALOG_DEACTIVATE_THRESHOLD 10 // ~0.6% — hysteresis band
 
     if (raw_pressure >= ANALOG_ACTIVATE_THRESHOLD && slot < 0) {
         // New key press above threshold — find empty slot
@@ -306,6 +314,7 @@ ACInput *input_init(int screen_w, int screen_h) {
 
     input->screen_w = screen_w;
     input->screen_h = screen_h;
+    input->last_poll_time = monotonic_sec();
 
     // Scan /dev/input/ for event devices
     DIR *dir = opendir("/dev/input");
@@ -503,33 +512,37 @@ void input_poll(ACInput *input) {
         }
     }
 
-    // Per-frame analog key processing: apply averaged pressure + smooth release fade
+    // Time-based analog key processing (frame-rate independent)
+    double now = monotonic_sec();
+    double dt = now - input->last_poll_time;
+    if (dt <= 0.0) dt = 0.001;
+    if (dt > 0.1) dt = 0.1;
+    input->last_poll_time = now;
+
+    // Linear slide: full 0→1 range in SLIDE_TIME seconds (no ramps, just raw data + linear interp)
+    #define SLIDE_TIME 0.020  // 20ms
+
     for (int i = 0; i < MAX_ANALOG_KEYS; i++) {
         if (!input->analog_keys[i].active) continue;
 
-        // Apply accumulated HID reports as averaged pressure via asymmetric EMA
+        // Use latest raw sensor average as target
         if (input->analog_keys[i].raw_count > 0) {
             float avg = input->analog_keys[i].raw_accum / input->analog_keys[i].raw_count;
-            input->analog_keys[i].target = avg; // Update target from latest reports
+            input->analog_keys[i].target = avg;
             input->analog_keys[i].raw_accum = 0;
             input->analog_keys[i].raw_count = 0;
         }
-        // Always drive pressure toward target (NuPhy stops sending when stable)
-        if (!input->analog_keys[i].releasing) {
-            float prev = input->analog_keys[i].pressure;
-            float tgt = input->analog_keys[i].target;
-            float alpha = (tgt > prev) ? 0.3f : 0.15f; // Fast attack, smooth ease-off
-            input->analog_keys[i].pressure = prev + alpha * (tgt - prev);
-        }
 
-        // Fade releasing keys (NuPhy sends only one pressure=0 report)
-        if (!input->analog_keys[i].releasing) continue;
+        float tgt = input->analog_keys[i].releasing ? 0.0f : input->analog_keys[i].target;
         float prev = input->analog_keys[i].pressure;
-        if (prev > 0.005f) {
-            // Slow exponential fade: 0.92x per frame = ~50 frames (~830ms) to silence
-            input->analog_keys[i].pressure = prev * 0.92f;
-        } else {
-            // Done fading — fire key-up
+        float diff = tgt - prev;
+        float max_step = (float)(dt / SLIDE_TIME); // max distance per tick
+        if (diff > max_step) diff = max_step;
+        else if (diff < -max_step) diff = -max_step;
+        input->analog_keys[i].pressure = prev + diff;
+
+        // Release complete — fire key-up
+        if (input->analog_keys[i].releasing && input->analog_keys[i].pressure <= 0.005f) {
             input->analog_keys[i].active = 0;
             input->analog_keys[i].releasing = 0;
             input->analog_keys[i].pressure = 0;

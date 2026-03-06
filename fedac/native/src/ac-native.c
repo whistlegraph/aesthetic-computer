@@ -24,6 +24,7 @@
 #include "font.h"
 #include "input.h"
 #include "audio.h"
+#include "wifi.h"
 #include "js-bindings.h"
 
 static volatile int running = 1;
@@ -35,7 +36,7 @@ static void signal_handler(int sig) {
 }
 
 // Log to both stderr and logfile
-static void ac_log(const char *fmt, ...) {
+void ac_log(const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
     vfprintf(stderr, fmt, args);
@@ -262,6 +263,39 @@ static int check_key_held_fds(int keycode, int *fds, int nfds) {
     return 0;
 }
 
+// Get LA offset from UTC: 7 for PDT, 8 for PST
+// DST: second Sunday of March 2am PT → first Sunday of November 2am PT
+static int get_la_offset(void) {
+    time_t now = time(NULL);
+    struct tm *utc = gmtime(&now);
+    int m = utc->tm_mon, y = utc->tm_year + 1900;
+    if (m > 2 && m < 10) return 7;  // Apr-Oct: PDT
+    if (m < 2 || m > 10) return 8;  // Jan-Feb, Dec: PST
+    if (m == 2) { // March: find second Sunday
+        struct tm mar1 = {0}; mar1.tm_year = y - 1900; mar1.tm_mon = 2; mar1.tm_mday = 1;
+        mktime(&mar1);
+        int secondSun = 8 + (7 - mar1.tm_wday) % 7;
+        // DST starts at 2am PST = 10:00 UTC on that day
+        if (utc->tm_mday > secondSun) return 7;
+        if (utc->tm_mday < secondSun) return 8;
+        return (utc->tm_hour >= 10) ? 7 : 8;
+    }
+    // November: find first Sunday
+    struct tm nov1 = {0}; nov1.tm_year = y - 1900; nov1.tm_mon = 10; nov1.tm_mday = 1;
+    mktime(&nov1);
+    int firstSun = 1 + (7 - nov1.tm_wday) % 7;
+    // DST ends at 2am PDT = 9:00 UTC on that day
+    if (utc->tm_mday < firstSun) return 7;
+    if (utc->tm_mday > firstSun) return 8;
+    return (utc->tm_hour < 9) ? 7 : 8;
+}
+
+static int get_la_hour(void) {
+    time_t now = time(NULL);
+    struct tm *utc = gmtime(&now);
+    return (utc->tm_hour - get_la_offset() + 24) % 24;
+}
+
 // Draw startup fade animation (black → white with title)
 // Returns 1 if user held W to request disk install, 0 otherwise
 static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
@@ -269,6 +303,8 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
     struct timespec anim_time;
     clock_gettime(CLOCK_MONOTONIC, &anim_time);
     int w_held_frames = 0;
+    int la_hour = get_la_hour();
+    int is_dark = (la_hour >= 19 || la_hour < 7);
 
     // Open evdev fds once for key checking (avoid per-frame open/close)
     int key_fds[8];
@@ -298,25 +334,29 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
     for (int f = 0; f < 60; f++) {
         double t = (double)f / 60.0;
 
-        // Check if W is held (fast: just ioctl on pre-opened fds)
+        // Check if W is held — must be continuous (reset if released)
         int w_now = check_key_held_fds(KEY_W, key_fds, key_fd_count);
         if (w_now) w_held_frames++;
+        else w_held_frames = 0;
 
-        // Fade from black to white (complete in first 0.3s)
+        // Fade from black to target bg (complete in first 0.3s)
         double fade_t = t * 3.33;
         if (fade_t > 1.0) fade_t = 1.0;
-        int bg = (int)(255.0 * fade_t);
-        graph_wipe(graph, (ACColor){(uint8_t)bg, (uint8_t)bg, (uint8_t)bg, 255});
+        int bg_target = is_dark ? 20 : 255;
+        int bg = (int)(bg_target * fade_t);
+        graph_wipe(graph, (ACColor){(uint8_t)bg, (uint8_t)bg, (uint8_t)(bg + (is_dark ? (int)(5 * fade_t) : 0)), 255});
 
         // Title + subtitle appear with fade
         int alpha = (int)(255.0 * fade_t);
         if (alpha > 0) {
-            graph_ink(graph, (ACColor){0, 0, 0, (uint8_t)alpha});
+            int fg = is_dark ? 220 : 0;
+            graph_ink(graph, (ACColor){(uint8_t)fg, (uint8_t)fg, (uint8_t)fg, (uint8_t)alpha});
             int tw = font_measure_matrix("notepat", 3);
             font_draw_matrix(graph, "notepat", (screen->width - tw) / 2,
                              screen->height / 2 - 20, 3);
 
-            graph_ink(graph, (ACColor){120, 120, 120, (uint8_t)(alpha / 2)});
+            int sub = is_dark ? 140 : 120;
+            graph_ink(graph, (ACColor){(uint8_t)sub, (uint8_t)sub, (uint8_t)sub, (uint8_t)(alpha / 2)});
             int sw = font_measure_matrix("aesthetic.computer", 1);
             font_draw_matrix(graph, "aesthetic.computer",
                              (screen->width - sw) / 2, screen->height / 2 + 10, 1);
@@ -363,23 +403,27 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
 // Draw a status frame during boot (white bg, title + status text)
 static void draw_boot_status(ACGraph *graph, ACFramebuffer *screen,
                              ACDisplay *display, const char *status) {
-    graph_wipe(graph, (ACColor){255, 255, 255, 255});
+    int dk = (get_la_hour() >= 19 || get_la_hour() < 7);
+    uint8_t bg = dk ? 20 : 255;
+    graph_wipe(graph, (ACColor){bg, bg, (uint8_t)(bg + (dk ? 5 : 0)), 255});
 
     // Title: "notepat" in MatrixChunky8 at scale 3
-    graph_ink(graph, (ACColor){0, 0, 0, 255});
+    uint8_t fg = dk ? 220 : 0;
+    graph_ink(graph, (ACColor){fg, fg, fg, 255});
     int tw = font_measure_matrix("notepat", 3);
     font_draw_matrix(graph, "notepat", (screen->width - tw) / 2,
                      screen->height / 2 - 20, 3);
 
     // Subtitle
-    graph_ink(graph, (ACColor){120, 120, 120, 255});
+    uint8_t sub = dk ? 140 : 120;
+    graph_ink(graph, (ACColor){sub, sub, sub, 255});
     int sw = font_measure_matrix("aesthetic.computer", 1);
     font_draw_matrix(graph, "aesthetic.computer",
                      (screen->width - sw) / 2, screen->height / 2 + 10, 1);
 
     // Status text below subtitle
     if (status) {
-        graph_ink(graph, (ACColor){160, 160, 160, 255});
+        graph_ink(graph, (ACColor){(uint8_t)(dk ? 120 : 160), (uint8_t)(dk ? 120 : 160), (uint8_t)(dk ? 120 : 160), 255});
         int stw = font_measure_matrix(status, 1);
         font_draw_matrix(graph, status, (screen->width - stw) / 2,
                          screen->height / 2 + 26, 1);
@@ -493,12 +537,18 @@ int main(int argc, char *argv[]) {
     if (getpid() == 1 && want_install && logfile)
         auto_install_to_hd(&graph, screen, display);
 
+    // Init WiFi
+    if (!headless && display)
+        draw_boot_status(&graph, screen, display, "starting wifi...");
+    ACWifi *wifi = wifi_init();
+
     // Init JS
     if (!headless && display)
         draw_boot_status(&graph, screen, display, "starting javascript...");
-    ACRuntime *rt = js_init(&graph, input, audio);
+    ACRuntime *rt = js_init(&graph, input, audio, wifi);
     if (!rt) {
         fprintf(stderr, "[ac-native] FATAL: Cannot init JS\n");
+        wifi_destroy(wifi);
         audio_destroy(audio);
         fb_destroy(screen);
         if (display) drm_destroy(display);
@@ -542,6 +592,13 @@ int main(int argc, char *argv[]) {
     ac_log("[ac-native] Audio: %s\n", audio && audio->pcm ? "OK" : "NO PCM");
     ac_log("[ac-native] Backlight: %s (max=%d)\n", bl_path[0] ? bl_path : "none", bl_max);
     ac_log("[ac-native] Input devices: %d\n", input ? input->count : 0);
+    ac_log("[ac-native] NuPhy: has_analog=%d hidraw=%d\n",
+           input ? input->has_analog : -1, input ? input->hidraw_count : -1);
+    ac_log("[ac-native] JS: boot=%d paint=%d act=%d sim=%d\n",
+           JS_IsFunction(rt->ctx, rt->boot_fn),
+           JS_IsFunction(rt->ctx, rt->paint_fn),
+           JS_IsFunction(rt->ctx, rt->act_fn),
+           JS_IsFunction(rt->ctx, rt->sim_fn));
     if (logfile) { fflush(logfile); }
 
     // Call boot()
@@ -625,20 +682,24 @@ int main(int argc, char *argv[]) {
                 // Shutdown animation (~1.5 seconds)
                 struct timespec anim_time;
                 clock_gettime(CLOCK_MONOTONIC, &anim_time);
+                int sd_dark = (get_la_hour() >= 19 || get_la_hour() < 7);
+                int sd_bg = sd_dark ? 20 : 255;
 
                 for (int f = 0; f < 60; f++) { // 60 frames @ 60fps = 1s
                     double t = (double)f / 60.0;
 
                     // Fade to black with centered text
-                    int fade = (int)(255.0 * (1.0 - t));
+                    int fade = (int)(sd_bg * (1.0 - t));
                     graph_wipe(&graph, (ACColor){(uint8_t)(fade), (uint8_t)(fade), (uint8_t)(fade), 255});
 
                     if (t < 0.8) {
                         int alpha = (int)(255.0 * (1.0 - t / 0.8));
-                        graph_ink(&graph, (ACColor){0, 0, 0, (uint8_t)alpha});
+                        uint8_t fg = sd_dark ? 220 : 0;
+                        graph_ink(&graph, (ACColor){fg, fg, fg, (uint8_t)alpha});
                         int tw = font_measure_matrix("notepat", 3);
                         font_draw_matrix(&graph, "notepat", (screen->width - tw) / 2, screen->height / 2 - 20, 3);
-                        graph_ink(&graph, (ACColor){120, 120, 120, (uint8_t)(alpha / 2)});
+                        uint8_t sub = sd_dark ? 140 : 120;
+                        graph_ink(&graph, (ACColor){sub, sub, sub, (uint8_t)(alpha / 2)});
                         int sw = font_measure_matrix("aesthetic.computer", 1);
                         font_draw_matrix(&graph, "aesthetic.computer", (screen->width - sw) / 2, screen->height / 2 + 10, 1);
                     }
@@ -665,6 +726,28 @@ int main(int argc, char *argv[]) {
             if (audio_beat_check(audio)) js_call_beat(rt);
             js_call_sim(rt);
             js_call_paint(rt);
+
+            // Software cursor (AC precise cursor: teal crosshair + shadow + white center)
+            if (input && (input->pointer_x || input->pointer_y)) {
+                int cx = input->pointer_x, cy = input->pointer_y;
+                // Shadow (black, offset +1,+1)
+                graph_ink(&graph, (ACColor){0, 0, 0, 180});
+                graph_line(&graph, cx+1, cy-9, cx+1, cy-4);  // top
+                graph_line(&graph, cx+1, cy+6, cx+1, cy+11); // bottom
+                graph_line(&graph, cx-9, cy+1, cx-4, cy+1);  // left
+                graph_line(&graph, cx+6, cy+1, cx+11, cy+1); // right
+                graph_plot(&graph, cx+1, cy+1); // center shadow
+                // Teal crosshair
+                graph_ink(&graph, (ACColor){0, 255, 255, 255});
+                graph_line(&graph, cx, cy-10, cx, cy-5);  // top
+                graph_line(&graph, cx, cy+5, cx, cy+10);  // bottom
+                graph_line(&graph, cx-10, cy, cx-5, cy);  // left
+                graph_line(&graph, cx+5, cy, cx+10, cy);  // right
+                // White center dot
+                graph_ink(&graph, (ACColor){255, 255, 255, 255});
+                graph_plot(&graph, cx, cy);
+            }
+
             fb_copy_scaled(screen, drm_back_buffer(display),
                            display->width, display->height,
                            drm_back_stride(display), 3);
@@ -682,6 +765,7 @@ int main(int argc, char *argv[]) {
 
     js_call_leave(rt);
     js_destroy(rt);
+    wifi_destroy(wifi);
     audio_destroy(audio);
     if (input) input_destroy(input);
     fb_destroy(screen);

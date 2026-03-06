@@ -34,11 +34,11 @@ typedef struct {
 #define MAX_ANALOG_KEYS 128
 typedef struct {
     int active;          // Is this key currently pressed via analog?
-    int releasing;       // Set when raw_pressure==0, fade out over frames
+    int releasing;       // Set when raw_pressure==0, release decay active
     float pressure;      // Current smoothed pressure 0.0-1.0
     float target;        // Last raw pressure target (NuPhy stops sending when stable)
-    float raw_accum;     // Accumulated raw pressure this frame (for averaging)
-    int raw_count;       // Number of HID reports this frame
+    float raw_accum;     // Accumulated raw pressure this poll (for averaging)
+    int raw_count;       // Number of HID reports this poll cycle
     int key_code;        // Linux keycode equivalent
 } ACAnalogKey;
 
@@ -57,7 +57,8 @@ typedef struct {
     // Per-key analog pressure tracking
     ACAnalogKey analog_keys[MAX_ANALOG_KEYS];
     int has_analog;  // Set if an analog keyboard is detected
-    int hotplug_counter;  // Frames since last hidraw scan
+    int hotplug_counter;  // Polls since last hidraw scan
+    double last_poll_time; // Monotonic time of last poll (seconds)
     int evdev_rescan_done;   // Set after late evdev rescan
     int evdev_rescan_counter; // Frame counter for late rescan
 
