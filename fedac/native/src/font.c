@@ -1,5 +1,6 @@
 #include "font.h"
 #include "font-matrix-chunky8.h"
+#include "font-6x10.h"
 #include <string.h>
 
 // Classic 8x8 bitmap font (CP437 style, ASCII 32-126)
@@ -239,4 +240,45 @@ int font_measure_matrix(const char *text, int scale) {
         w += matrix_chunky8_glyphs[ch - 32].dwidth;
     }
     return w * scale;
+}
+
+// 6x10 fixed-width BDF font rendering
+int font_draw_6x10(ACGraph *g, const char *text, int x, int y, int scale) {
+    if (!text) return x;
+    if (scale < 1) scale = 1;
+
+    int start_x = x;
+    for (const char *p = text; *p; p++) {
+        unsigned char ch = (unsigned char)*p;
+        if (ch == '\n') {
+            x = start_x;
+            y += FONT_6X10_H * scale;
+            continue;
+        }
+        if (ch < 32 || ch > 126) ch = '?';
+        int idx = ch - 32;
+        const uint8_t *glyph = font_6x10_data[idx];
+
+        for (int row = 0; row < FONT_6X10_H; row++) {
+            uint8_t bits = glyph[row];
+            for (int col = 0; col < FONT_6X10_W; col++) {
+                if (bits & (0x80 >> col)) {
+                    for (int sy = 0; sy < scale; sy++)
+                        for (int sx = 0; sx < scale; sx++)
+                            graph_plot(g, x + col * scale + sx, y + row * scale + sy);
+                }
+            }
+        }
+        x += FONT_6X10_W * scale;
+    }
+    return x;
+}
+
+int font_measure_6x10(const char *text, int scale) {
+    if (!text) return 0;
+    if (scale < 1) scale = 1;
+    int len = 0;
+    for (const char *p = text; *p && *p != '\n'; p++)
+        len++;
+    return len * FONT_6X10_W * scale;
 }

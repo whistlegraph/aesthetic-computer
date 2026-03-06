@@ -91,7 +91,7 @@ static inline uint32_t xorshift32(uint32_t *state) {
     return x;
 }
 
-static inline double generate_sample(ACVoice *v) {
+static inline double generate_sample(ACVoice *v, double sample_rate) {
     double s;
     switch (v->type) {
     case WAVE_SINE:
@@ -127,7 +127,7 @@ static inline double generate_sample(ACVoice *v) {
     }
 
     // Advance phase
-    v->phase += v->frequency / (double)AUDIO_SAMPLE_RATE;
+    v->phase += v->frequency / sample_rate;
     if (v->phase >= 1.0) v->phase -= 1.0;
 
     return s;
@@ -164,13 +164,13 @@ static inline double compute_fade(ACVoice *v) {
 }
 
 // Setup biquad LPF coefficients for noise voice
-static void setup_noise_filter(ACVoice *v) {
+static void setup_noise_filter(ACVoice *v, double sample_rate) {
     double cutoff = v->frequency;
     if (cutoff < 20.0) cutoff = 20.0;
-    if (cutoff > AUDIO_SAMPLE_RATE / 2.0) cutoff = AUDIO_SAMPLE_RATE / 2.0;
+    if (cutoff > sample_rate / 2.0) cutoff = sample_rate / 2.0;
 
     double Q = 1.0;
-    double w0 = 2.0 * M_PI * cutoff / AUDIO_SAMPLE_RATE;
+    double w0 = 2.0 * M_PI * cutoff / sample_rate;
     double alpha = sin(w0) / (2.0 * Q);
 
     double b0 = (1.0 - cos(w0)) / 2.0;
@@ -207,7 +207,8 @@ static inline double soft_clip(double x) {
 static void *audio_thread_fn(void *arg) {
     ACAudio *audio = (ACAudio *)arg;
     int16_t buffer[AUDIO_PERIOD_SIZE * AUDIO_CHANNELS];
-    const double dt = 1.0 / AUDIO_SAMPLE_RATE;
+    const double rate = (double)(audio->actual_rate ? audio->actual_rate : AUDIO_SAMPLE_RATE);
+    const double dt = 1.0 / rate;
     double mix_divisor = 1.0; // Smooth auto-mix (matches speaker.mjs)
 
     while (audio->running) {
@@ -223,7 +224,7 @@ static void *audio_thread_fn(void *arg) {
                 ACVoice *voice = &audio->voices[v];
                 if (voice->state == VOICE_INACTIVE) continue;
 
-                double s = generate_sample(voice);
+                double s = generate_sample(voice, rate);
                 double env = compute_envelope(voice);
                 double fade = compute_fade(voice);
                 double amp = s * env * fade * voice->volume;
@@ -263,11 +264,13 @@ static void *audio_thread_fn(void *arg) {
             mix_l /= mix_divisor;
             mix_r /= mix_divisor;
 
-            // Room (reverb) effect
+            // Room (reverb) effect — tap delays based on actual sample rate
             if (audio->room_enabled && audio->room_buf_l) {
-                int tap1 = (audio->room_pos - ROOM_DELAY_SAMPLES + ROOM_SIZE) % ROOM_SIZE;
-                int tap2 = (audio->room_pos - ROOM_DELAY_SAMPLES * 2 + ROOM_SIZE) % ROOM_SIZE;
-                int tap3 = (audio->room_pos - ROOM_DELAY_SAMPLES * 3 + ROOM_SIZE) % ROOM_SIZE;
+                int room_delay = (int)(0.12 * rate); // 120ms in samples
+                int rs = audio->room_size;
+                int tap1 = (audio->room_pos - room_delay + rs) % rs;
+                int tap2 = (audio->room_pos - room_delay * 2 + rs) % rs;
+                int tap3 = (audio->room_pos - room_delay * 3 + rs) % rs;
 
                 float wet_l = (audio->room_buf_l[tap1] + audio->room_buf_l[tap2] * 0.7f
                                + audio->room_buf_l[tap3] * 0.5f) * ROOM_FEEDBACK;
@@ -276,7 +279,7 @@ static void *audio_thread_fn(void *arg) {
 
                 audio->room_buf_l[audio->room_pos] = (float)mix_l + wet_l * ROOM_FEEDBACK;
                 audio->room_buf_r[audio->room_pos] = (float)mix_r + wet_r * ROOM_FEEDBACK;
-                audio->room_pos = (audio->room_pos + 1) % ROOM_SIZE;
+                audio->room_pos = (audio->room_pos + 1) % rs;
 
                 float rmix = audio->room_mix;
                 mix_l = mix_l * (1.0 - rmix) + wet_l * rmix;
@@ -328,7 +331,7 @@ static void *audio_thread_fn(void *arg) {
         pthread_mutex_unlock(&audio->lock);
 
         audio->total_frames += AUDIO_PERIOD_SIZE;
-        audio->time = (double)audio->total_frames / AUDIO_SAMPLE_RATE;
+        audio->time = (double)audio->total_frames / rate;
 
         // Write to ALSA
         snd_pcm_t *pcm = (snd_pcm_t *)audio->pcm;
@@ -350,7 +353,8 @@ ACAudio *audio_init(void) {
     if (!audio) return NULL;
 
     audio->bpm = 120.0;
-    audio->glitch_rate = AUDIO_SAMPLE_RATE / 1600; // 1600 Hz default
+    audio->actual_rate = AUDIO_SAMPLE_RATE; // default, overwritten after ALSA negotiation
+    audio->glitch_rate = AUDIO_SAMPLE_RATE / 1600;
     pthread_mutex_init(&audio->lock, NULL);
 
     // Allocate reverb buffers
@@ -456,9 +460,26 @@ ACAudio *audio_init(void) {
 
     snd_pcm_prepare(pcm);
     audio->pcm = pcm;
+    audio->actual_rate = rate;
 
-    fprintf(stderr, "[audio] ALSA: %uHz, period=%lu, buffer=%lu\n",
-            rate, (unsigned long)period, (unsigned long)buffer_size);
+    // Update glitch rate for actual sample rate
+    audio->glitch_rate = rate / 1600;
+
+    // Reallocate room buffers for actual rate
+    int actual_room_size = (int)(0.12 * rate) * 3;
+    if (actual_room_size != audio->room_size) {
+        free(audio->room_buf_l); free(audio->room_buf_r);
+        audio->room_size = actual_room_size;
+        audio->room_buf_l = calloc(actual_room_size, sizeof(float));
+        audio->room_buf_r = calloc(actual_room_size, sizeof(float));
+        audio->room_pos = 0;
+    }
+
+    fprintf(stderr, "[audio] ALSA: requested %dHz, got %uHz, period=%lu, buffer=%lu (%.1fms latency)\n",
+            AUDIO_SAMPLE_RATE, rate, (unsigned long)period, (unsigned long)buffer_size,
+            (double)period / rate * 1000.0);
+    if (rate != AUDIO_SAMPLE_RATE)
+        fprintf(stderr, "[audio] WARNING: got %uHz instead of %dHz\n", rate, AUDIO_SAMPLE_RATE);
 
     // Unmute ALL outputs (HDA Intel codecs have many controls that can mute)
     char mixer_card[16];
@@ -574,7 +595,7 @@ uint64_t audio_synth(ACAudio *audio, WaveType type, double freq,
 
     if (type == WAVE_NOISE) {
         v->noise_seed = (uint32_t)(audio->next_id * 2654435761u);
-        setup_noise_filter(v);
+        setup_noise_filter(v, (double)(audio->actual_rate ? audio->actual_rate : AUDIO_SAMPLE_RATE));
     }
 
     pthread_mutex_unlock(&audio->lock);
