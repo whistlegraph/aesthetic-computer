@@ -283,9 +283,9 @@ void wifi_scan(ACWifi *wifi) {
     unlink("/tmp/wifi_scan_err.txt");
     unlink("/tmp/wifi_scan_rc");
 
-    // Run scan in background shell at low priority — writes return code when done
+    // Run scan in background shell — writes return code when done
     snprintf(cmd, sizeof(cmd),
-             "sh -c 'nice -n 19 iw dev %s scan > /tmp/wifi_scan.txt 2>/tmp/wifi_scan_err.txt;"
+             "sh -c 'iw dev %s scan > /tmp/wifi_scan.txt 2>/tmp/wifi_scan_err.txt;"
              " echo $? > /tmp/wifi_scan_rc' &",
              wifi->iface);
     run_cmd(cmd);
