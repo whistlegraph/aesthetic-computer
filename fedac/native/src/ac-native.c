@@ -117,9 +117,9 @@ static void frame_sync_60fps(struct timespec *next) {
     clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, next, NULL);
 }
 
-// Draw startup animation (fade from black, mirror of shutdown)
-static void draw_startup_animation(ACGraph *graph, ACFramebuffer *screen,
-                                   ACDisplay *display) {
+// Draw startup fade animation (black → white with title)
+static void draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
+                              ACDisplay *display) {
     struct timespec anim_time;
     clock_gettime(CLOCK_MONOTONIC, &anim_time);
 
@@ -130,21 +130,28 @@ static void draw_startup_animation(ACGraph *graph, ACFramebuffer *screen,
                    drm_back_stride(display), 3);
     drm_flip(display);
 
-    for (int f = 0; f < 90; f++) { // 90 frames @ 60fps = 1.5s
-        double t = (double)f / 90.0;
+    for (int f = 0; f < 60; f++) { // 60 frames @ 60fps = 1s
+        double t = (double)f / 60.0;
 
-        // Fade from black to white (inverse of shutdown)
+        // Fade from black to white
         int bg = (int)(255.0 * t);
         graph_wipe(graph, (ACColor){(uint8_t)bg, (uint8_t)bg, (uint8_t)bg, 255});
 
         if (t > 0.2) {
-            double text_t = (t - 0.2) / 0.8; // 0..1 over the last 80%
+            double text_t = (t - 0.2) / 0.8;
             int alpha = (int)(255.0 * (text_t < 1.0 ? text_t : 1.0));
+
+            // Title: "notepat" in MatrixChunky8 at scale 3
             graph_ink(graph, (ACColor){0, 0, 0, (uint8_t)alpha});
-            int tw = 7 * 8 * 2;
-            font_draw(graph, "notepat", (screen->width - tw) / 2, screen->height / 2 - 16, 2);
-            graph_ink(graph, (ACColor){100, 100, 100, (uint8_t)(alpha / 2)});
-            font_draw(graph, "aesthetic.computer", (screen->width - 18 * 8) / 2, screen->height / 2 + 8, 1);
+            int tw = font_measure_matrix("notepat", 3);
+            font_draw_matrix(graph, "notepat", (screen->width - tw) / 2,
+                             screen->height / 2 - 20, 3);
+
+            // Subtitle: "aesthetic.computer" in MatrixChunky8 at scale 1
+            graph_ink(graph, (ACColor){120, 120, 120, (uint8_t)(alpha / 2)});
+            int sw = font_measure_matrix("aesthetic.computer", 1);
+            font_draw_matrix(graph, "aesthetic.computer",
+                             (screen->width - sw) / 2, screen->height / 2 + 10, 1);
         }
 
         fb_copy_scaled(screen, drm_back_buffer(display),
@@ -153,6 +160,37 @@ static void draw_startup_animation(ACGraph *graph, ACFramebuffer *screen,
         drm_flip(display);
         frame_sync_60fps(&anim_time);
     }
+}
+
+// Draw a status frame during boot (white bg, title + status text)
+static void draw_boot_status(ACGraph *graph, ACFramebuffer *screen,
+                             ACDisplay *display, const char *status) {
+    graph_wipe(graph, (ACColor){255, 255, 255, 255});
+
+    // Title: "notepat" in MatrixChunky8 at scale 3
+    graph_ink(graph, (ACColor){0, 0, 0, 255});
+    int tw = font_measure_matrix("notepat", 3);
+    font_draw_matrix(graph, "notepat", (screen->width - tw) / 2,
+                     screen->height / 2 - 20, 3);
+
+    // Subtitle
+    graph_ink(graph, (ACColor){120, 120, 120, 255});
+    int sw = font_measure_matrix("aesthetic.computer", 1);
+    font_draw_matrix(graph, "aesthetic.computer",
+                     (screen->width - sw) / 2, screen->height / 2 + 10, 1);
+
+    // Status text below subtitle
+    if (status) {
+        graph_ink(graph, (ACColor){160, 160, 160, 255});
+        int stw = font_measure_matrix(status, 1);
+        font_draw_matrix(graph, status, (screen->width - stw) / 2,
+                         screen->height / 2 + 26, 1);
+    }
+
+    fb_copy_scaled(screen, drm_back_buffer(display),
+                   display->width, display->height,
+                   drm_back_stride(display), 3);
+    drm_flip(display);
 }
 
 int main(int argc, char *argv[]) {
@@ -202,9 +240,10 @@ int main(int argc, char *argv[]) {
     graph_init(&graph, screen);
     font_init();
 
-    // Startup animation (fade from black — hides kernel text)
+    // Startup fade animation (black → white, hides kernel text)
     if (!headless) {
-        draw_startup_animation(&graph, screen, display);
+        draw_startup_fade(&graph, screen, display);
+        draw_boot_status(&graph, screen, display, "starting input...");
     }
 
     // Init input
@@ -243,12 +282,16 @@ int main(int argc, char *argv[]) {
     if (getpid() == 1) try_mount_log();
 
     // Init audio
+    if (!headless && display)
+        draw_boot_status(&graph, screen, display, "starting audio...");
     ACAudio *audio = audio_init();
 
     // Retry log mount if first attempt failed (USB may have appeared during audio init)
     if (getpid() == 1 && !logfile) try_mount_log();
 
     // Init JS
+    if (!headless && display)
+        draw_boot_status(&graph, screen, display, "starting javascript...");
     ACRuntime *rt = js_init(&graph, input, audio);
     if (!rt) {
         fprintf(stderr, "[ac-native] FATAL: Cannot init JS\n");
@@ -259,6 +302,8 @@ int main(int argc, char *argv[]) {
     }
 
     // Load piece
+    if (!headless && display)
+        draw_boot_status(&graph, screen, display, "loading piece...");
     if (js_load_piece(rt, piece_path) < 0) {
         fprintf(stderr, "[ac-native] FATAL: Cannot load %s\n", piece_path);
         if (!headless) {
@@ -364,20 +409,21 @@ int main(int argc, char *argv[]) {
                 struct timespec anim_time;
                 clock_gettime(CLOCK_MONOTONIC, &anim_time);
 
-                for (int f = 0; f < 90; f++) { // 90 frames @ 60fps = 1.5s
-                    double t = (double)f / 90.0;
+                for (int f = 0; f < 60; f++) { // 60 frames @ 60fps = 1s
+                    double t = (double)f / 60.0;
 
-                    // Fade to black with centered "goodbye" text
+                    // Fade to black with centered text
                     int fade = (int)(255.0 * (1.0 - t));
                     graph_wipe(&graph, (ACColor){(uint8_t)(fade), (uint8_t)(fade), (uint8_t)(fade), 255});
 
                     if (t < 0.8) {
                         int alpha = (int)(255.0 * (1.0 - t / 0.8));
                         graph_ink(&graph, (ACColor){0, 0, 0, (uint8_t)alpha});
-                        int tw = 7 * 8 * 2;
-                        font_draw(&graph, "notepat", (screen->width - tw) / 2, screen->height / 2 - 16, 2);
-                        graph_ink(&graph, (ACColor){100, 100, 100, (uint8_t)(alpha / 2)});
-                        font_draw(&graph, "aesthetic.computer", (screen->width - 18 * 8) / 2, screen->height / 2 + 8, 1);
+                        int tw = font_measure_matrix("notepat", 3);
+                        font_draw_matrix(&graph, "notepat", (screen->width - tw) / 2, screen->height / 2 - 20, 3);
+                        graph_ink(&graph, (ACColor){120, 120, 120, (uint8_t)(alpha / 2)});
+                        int sw = font_measure_matrix("aesthetic.computer", 1);
+                        font_draw_matrix(&graph, "aesthetic.computer", (screen->width - sw) / 2, screen->height / 2 + 10, 1);
                     }
 
                     fb_copy_scaled(screen, drm_back_buffer(display),
