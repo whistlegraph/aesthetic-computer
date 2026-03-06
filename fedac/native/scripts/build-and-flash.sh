@@ -144,6 +144,67 @@ else
     warn "No /usr/share/alsa found — audio may not work"
 fi
 
+# Copy WiFi components (wpa_supplicant, dhclient, iw, ip, firmware)
+WIFI_BINS=( /usr/sbin/wpa_supplicant /usr/sbin/wpa_cli /usr/sbin/dhclient /usr/sbin/iw /sbin/ip )
+WIFI_COPIED=0
+for bin in "${WIFI_BINS[@]}"; do
+    if [ -f "$bin" ]; then
+        mkdir -p "${INITRAMFS_DIR}/$(dirname "$bin")"
+        cp "$bin" "${INITRAMFS_DIR}${bin}"
+        chmod +x "${INITRAMFS_DIR}${bin}"
+        WIFI_COPIED=$((WIFI_COPIED + 1))
+        # Copy their shared libraries too
+        for lib in $(ldd "$bin" 2>/dev/null | grep -oP '/\S+'); do
+            [ -f "$lib" ] && cp -n "$lib" "${INITRAMFS_DIR}/lib64/" 2>/dev/null || true
+        done
+    fi
+done
+if [ "${WIFI_COPIED}" -gt 0 ]; then
+    log "WiFi binaries: ${WIFI_COPIED} copied"
+
+    # Copy Intel WiFi firmware (AX200 = cc-a0, also grab QuZ for AX201)
+    mkdir -p "${INITRAMFS_DIR}/lib/firmware"
+    for fw in /lib/firmware/iwlwifi-cc-a0-*.ucode*; do
+        [ -f "$fw" ] && { xz -dk "$fw" -c > "${INITRAMFS_DIR}/lib/firmware/$(basename "${fw%.xz}")" 2>/dev/null || cp "$fw" "${INITRAMFS_DIR}/lib/firmware/"; }
+    done
+    for fw in /lib/firmware/iwlwifi-QuZ-a0-*.ucode*; do
+        [ -f "$fw" ] && { xz -dk "$fw" -c > "${INITRAMFS_DIR}/lib/firmware/$(basename "${fw%.xz}")" 2>/dev/null || cp "$fw" "${INITRAMFS_DIR}/lib/firmware/"; }
+    done
+    FW_SIZE=$(du -sh "${INITRAMFS_DIR}/lib/firmware" 2>/dev/null | cut -f1)
+    log "WiFi firmware: ${FW_SIZE:-0}"
+
+    # Create /var/run for wpa_supplicant
+    mkdir -p "${INITRAMFS_DIR}/var/run/wpa_supplicant"
+
+    # Need /bin/sh for system() calls — use busybox or link to bash if available
+    mkdir -p "${INITRAMFS_DIR}/bin"
+    if command -v busybox &>/dev/null; then
+        cp "$(command -v busybox)" "${INITRAMFS_DIR}/bin/busybox"
+        ln -sf busybox "${INITRAMFS_DIR}/bin/sh"
+        for lib in $(ldd "$(command -v busybox)" 2>/dev/null | grep -oP '/\S+'); do
+            [ -f "$lib" ] && cp -n "$lib" "${INITRAMFS_DIR}/lib64/" 2>/dev/null || true
+        done
+    elif [ -f /bin/bash ]; then
+        cp /bin/bash "${INITRAMFS_DIR}/bin/sh"
+        for lib in $(ldd /bin/bash 2>/dev/null | grep -oP '/\S+'); do
+            [ -f "$lib" ] && cp -n "$lib" "${INITRAMFS_DIR}/lib64/" 2>/dev/null || true
+        done
+    fi
+
+    # Need basic utilities for shell commands (grep, awk, pgrep, killall, etc.)
+    for util in grep awk sed pgrep killall cat; do
+        UTIL_PATH="$(command -v "$util" 2>/dev/null || true)"
+        if [ -n "$UTIL_PATH" ] && [ -f "$UTIL_PATH" ]; then
+            cp "$UTIL_PATH" "${INITRAMFS_DIR}/bin/"
+            for lib in $(ldd "$UTIL_PATH" 2>/dev/null | grep -oP '/\S+'); do
+                [ -f "$lib" ] && cp -n "$lib" "${INITRAMFS_DIR}/lib64/" 2>/dev/null || true
+            done
+        fi
+    done
+else
+    warn "No WiFi binaries found — WiFi will not work"
+fi
+
 # Init: symlink to ac-native (no /bin/sh in initramfs)
 ln -sf /ac-native "${INITRAMFS_DIR}/init"
 
