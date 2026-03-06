@@ -503,6 +503,8 @@ int main(int argc, char *argv[]) {
     // Mount filesystems if PID 1
     if (getpid() == 1) {
         mount_minimal_fs();
+        // Ensure PATH includes all standard binary directories
+        setenv("PATH", "/bin:/sbin:/usr/bin:/usr/sbin", 1);
     }
 
     signal(SIGINT, signal_handler);

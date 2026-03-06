@@ -85,6 +85,40 @@ ACWifi *wifi_init(void) {
     }
     ac_log("[wifi] iw binary found\n");
 
+    // Log available kernel wireless info for debugging
+    {
+        FILE *dbg;
+        dbg = popen("ls /sys/class/net/ 2>/dev/null", "r");
+        if (dbg) {
+            char buf[256] = "";
+            if (fgets(buf, sizeof(buf), dbg)) {
+                buf[strcspn(buf, "\n")] = 0;
+                ac_log("[wifi] net interfaces at start: %s\n", buf);
+            }
+            pclose(dbg);
+        }
+        // Check if iwlwifi firmware exists
+        dbg = popen("ls /lib/firmware/iwlwifi-*.ucode 2>/dev/null | head -3", "r");
+        if (dbg) {
+            char buf[256] = "";
+            while (fgets(buf, sizeof(buf), dbg)) {
+                buf[strcspn(buf, "\n")] = 0;
+                ac_log("[wifi] firmware: %s\n", buf);
+            }
+            pclose(dbg);
+        }
+        // Check dmesg for wireless driver messages
+        dbg = popen("dmesg 2>/dev/null | grep -i -E 'iwl|wlan|wifi|80211' | tail -5", "r");
+        if (dbg) {
+            char buf[256] = "";
+            while (fgets(buf, sizeof(buf), dbg)) {
+                buf[strcspn(buf, "\n")] = 0;
+                ac_log("[wifi] dmesg: %s\n", buf);
+            }
+            pclose(dbg);
+        }
+    }
+
     // Wait for wireless interface to appear (up to 3 seconds)
     // On bare metal PID 1, firmware loading can delay interface creation
     int found = 0;
