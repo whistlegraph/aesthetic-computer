@@ -557,16 +557,28 @@ int main(int argc, char *argv[]) {
         struct timespec frame_time;
         clock_gettime(CLOCK_MONOTONIC, &frame_time);
 
+        int main_frame = 0;
         while (running) {
             input_poll(input);
+            main_frame++;
+            // Log input state periodically (every 5 sec)
+            if (logfile && main_frame % 300 == 1) {
+                int analog_active = 0;
+                for (int k = 0; k < MAX_ANALOG_KEYS; k++)
+                    if (input->analog_keys[k].active) analog_active++;
+                ac_log("[input] frame=%d events=%d has_analog=%d hidraw=%d analog_active=%d evdev=%d\n",
+                       main_frame, input->event_count, input->has_analog,
+                       input->hidraw_count, analog_active, input->count);
+            }
             // Log key events to USB
             for (int i = 0; i < input->event_count; i++) {
                 if (logfile && (input->events[i].type == AC_EVENT_KEYBOARD_DOWN ||
                                 input->events[i].type == AC_EVENT_KEYBOARD_UP)) {
-                    ac_log("[key] %s code=%d name=%s\n",
+                    ac_log("[key] %s code=%d name=%s pressure=%.3f\n",
                            input->events[i].type == AC_EVENT_KEYBOARD_DOWN ? "DOWN" : "UP",
                            input->events[i].key_code,
-                           input->events[i].key_name);
+                           input->events[i].key_name,
+                           input->events[i].pressure);
                 }
             }
             // Hardware keys
