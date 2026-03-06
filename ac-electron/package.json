@@ -135,7 +135,7 @@
     },
     "publish": {
       "provider": "generic",
-      "url": "https://assets.aesthetic.computer/desktop"
+      "url": "https://releases.aesthetic.computer/desktop"
     }
   },
   "keywords": [

@@ -1270,9 +1270,9 @@ app.post("/api/insta/logout", async (req, res) => {
 });
 
 // --- Desktop Release Distribution ---
-const DESKTOP_BUCKET = "assets-aesthetic-computer";
+const DESKTOP_BUCKET = "releases-aesthetic-computer";
 const DESKTOP_PREFIX = "desktop/";
-const DESKTOP_BASE_URL = "https://assets.aesthetic.computer/desktop";
+const DESKTOP_BASE_URL = "https://releases.aesthetic.computer/desktop";
 
 async function ensureReleasesCollection() {
   if (!db) return;

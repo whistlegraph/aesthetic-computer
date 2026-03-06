@@ -32,9 +32,9 @@ if (fs.existsSync(siloEnvPath)) {
 const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
 const version = pkg.version;
 
-const BUCKET = "assets-aesthetic-computer";
+const BUCKET = "releases-aesthetic-computer";
 const PREFIX = "desktop/";
-const BASE_URL = "https://assets.aesthetic.computer/desktop";
+const BASE_URL = "https://releases.aesthetic.computer/desktop";
 const SILO_URL = process.env.SILO_URL || "https://silo.aesthetic.computer";
 const PUBLISH_SECRET = process.env.PUBLISH_SECRET || "";
 
