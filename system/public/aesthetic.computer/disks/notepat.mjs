@@ -13,7 +13,147 @@ import {
   loadPaintingAsAudio,
 } from "../lib/pixel-sample.mjs";
 
-/* 📝 Notes 
+// 🎹 NuPhy Air60 HE — WebHID analog pressure support
+// Sends activation commands then reads 0xA0 analog reports with per-key pressure.
+const NUPHY_VID = 0x19f5;
+const NUPHY_PID = 0xfee0;
+const NUPHY_PRESSURE_MAX = 1600; // ~0x0640 at full press
+
+// HID scancode → DOM key name (lowercase for letter keys)
+const HID_TO_KEY = {
+  0x04: "a", 0x05: "b", 0x06: "c", 0x07: "d", 0x08: "e", 0x09: "f",
+  0x0A: "g", 0x0B: "h", 0x0C: "i", 0x0D: "j", 0x0E: "k", 0x0F: "l",
+  0x10: "m", 0x11: "n", 0x12: "o", 0x13: "p", 0x14: "q", 0x15: "r",
+  0x16: "s", 0x17: "t", 0x18: "u", 0x19: "v", 0x1A: "w", 0x1B: "x",
+  0x1C: "y", 0x1D: "z",
+  0x1E: "1", 0x1F: "2", 0x20: "3", 0x21: "4", 0x22: "5",
+  0x23: "6", 0x24: "7", 0x25: "8", 0x26: "9", 0x27: "0",
+  0x28: "Enter", 0x29: "Escape", 0x2A: "Backspace", 0x2B: "Tab",
+  0x2C: " ", 0x2D: "-", 0x2E: "=",
+  0x2F: "[", 0x30: "]", 0x31: "\\",
+  0x33: ";", 0x34: "'", 0x35: "`", 0x36: ",", 0x37: ".", 0x38: "/",
+  0x39: "CapsLock",
+  0x3A: "F1", 0x3B: "F2", 0x3C: "F3", 0x3D: "F4", 0x3E: "F5", 0x3F: "F6",
+  0x40: "F7", 0x41: "F8", 0x42: "F9", 0x43: "F10", 0x44: "F11", 0x45: "F12",
+  0x4F: "ArrowRight", 0x50: "ArrowLeft", 0x51: "ArrowDown", 0x52: "ArrowUp",
+  0x4A: "Home", 0x4B: "PageUp", 0x4C: "Delete", 0x4D: "End", 0x4E: "PageDown",
+};
+// NuPhy modifier bitmask scancodes
+const HID_MOD_TO_KEY = {
+  0x100: "Control", 0x200: "Shift", 0x400: "Alt", 0x800: "Meta",
+  0x1000: "Control", 0x2000: "Shift", 0x4000: "Alt", 0x8000: "Meta",
+};
+
+let nuphyConnected = false;
+let nuphyActiveKeys = new Map(); // scancode → { key, pressure }
+
+async function nuphyConnect(showPicker = false) {
+  if (typeof navigator === "undefined" || !navigator.hid) return false;
+  try {
+    let devices;
+    if (showPicker) {
+      devices = await navigator.hid.requestDevice({
+        filters: [{ vendorId: NUPHY_VID, productId: NUPHY_PID }],
+      });
+    } else {
+      devices = (await navigator.hid.getDevices()).filter(
+        (d) => d.vendorId === NUPHY_VID && d.productId === NUPHY_PID,
+      );
+    }
+    if (!devices.length) return false;
+
+    let rawDev = null, outId = 0;
+    for (const d of devices) {
+      if (!d.opened) await d.open();
+      d.addEventListener("inputreport", nuphyOnInput);
+      for (const c of d.collections) {
+        const outs = (c.outputReports || []).map((r) => r.reportId);
+        if (outs.length > 0 && !rawDev) { rawDev = d; outId = outs[0]; }
+      }
+    }
+    // Also open any other matching devices not in the picker result
+    if (showPicker) {
+      for (const d of await navigator.hid.getDevices()) {
+        if (d.vendorId !== NUPHY_VID || d.productId !== NUPHY_PID) continue;
+        if (devices.includes(d)) continue;
+        if (!d.opened) await d.open();
+        d.addEventListener("inputreport", nuphyOnInput);
+        if (!rawDev) for (const c of d.collections) {
+          const outs = (c.outputReports || []).map((r) => r.reportId);
+          if (outs.length > 0) { rawDev = d; outId = outs[0]; }
+        }
+      }
+    }
+    // Send activation commands
+    if (rawDev) {
+      for (const cmd of [0xA8, 0xA0]) {
+        const p = new Uint8Array(64);
+        p[0] = 0x55; p[1] = cmd;
+        try { await rawDev.sendReport(outId, p); } catch (e) { /* ignore */ }
+      }
+    }
+    nuphyConnected = true;
+    console.log("🎹 NuPhy Air60 HE analog connected!");
+    return true;
+  } catch (e) {
+    console.warn("NuPhy WebHID:", e);
+    return false;
+  }
+}
+
+// Live volume update for active sounds from NuPhy pressure
+let nuphySoundContext = null; // Set in boot() to access sound.synth etc.
+
+function nuphyOnInput(ev) {
+  const d = new Uint8Array(ev.data.buffer);
+  if (d[0] !== 0xA0 || d.length < 10) return;
+  if (d[1] === 0xF0) return; // config report
+
+  const scancode = (d[2] << 8) | d[3];
+  const rawPressure = (d[4] << 8) | d[5];
+  const direction = d[9]; // 0x01 = pressing, 0xFF = releasing
+
+  const key = HID_TO_KEY[scancode] || HID_MOD_TO_KEY[scancode];
+  if (!key) return;
+
+  const pressure = Math.min(rawPressure / NUPHY_PRESSURE_MAX, 1.0);
+  const velocity = Math.round(pressure * 127) || 1;
+  const wasActive = nuphyActiveKeys.has(scancode);
+
+  if (rawPressure > 0 && direction === 0x01) {
+    if (!wasActive) {
+      nuphyActiveKeys.set(scancode, { key, pressure });
+      // Dispatch synthetic keydown with velocity from initial pressure
+      const evt = new KeyboardEvent("keydown", {
+        key, code: key, bubbles: true, cancelable: true,
+      });
+      evt.velocity = velocity;
+      window.dispatchEvent(evt);
+    } else {
+      // Update pressure — continuously adjust volume of active sound
+      nuphyActiveKeys.get(scancode).pressure = pressure;
+      // Find the active sound for this key and update its volume
+      const lk = key.toLowerCase();
+      const soundEntry = sounds[lk];
+      if (soundEntry?.sound?.update) {
+        const vol = pressure * 0.7; // Linear: full press = 0.7
+        soundEntry.sound.update({ volume: vol });
+      }
+      // Update trail brightness
+      if (trail[lk]) trail[lk].brightness = pressure;
+    }
+  } else if (rawPressure === 0 || direction === 0xFF) {
+    if (wasActive) {
+      nuphyActiveKeys.delete(scancode);
+      const evt = new KeyboardEvent("keyup", {
+        key, code: key, bubbles: true, cancelable: true,
+      });
+      window.dispatchEvent(evt);
+    }
+  }
+}
+
+/* 📝 Notes
    - [] Make `slide` work with `composite`.
         (This may require some refactoring)
    - [] Add recordable samples / custom samples... per key?
@@ -1159,6 +1299,11 @@ async function boot({
   if (dawMode) {
     console.log("🎹 Notepat: DAW mode enabled", dawAutoDetected ? "(auto-detected)" : "(from query)");
   }
+
+  // 🎹 NuPhy Air60 HE — auto-connect if previously paired (no user gesture needed)
+  nuphyConnect(false).then((ok) => {
+    if (ok) console.log("🎹 NuPhy auto-connected from saved pairing");
+  });
 
   // 🕒 Store clock reference for UTC-synced metronome
   metronomeClockRef = clock;

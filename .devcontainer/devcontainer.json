@@ -196,7 +196,8 @@
         "ms-toolsai.jupyter",
         "openai.chatgpt",
         "sukumo28.wav-preview",
-        "shd101wyy.markdown-preview-enhanced"
+        "shd101wyy.markdown-preview-enhanced",
+        "anthropic.claude-code"
       ]
     }
   },
