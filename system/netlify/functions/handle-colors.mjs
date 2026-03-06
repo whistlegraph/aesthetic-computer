@@ -1,7 +1,7 @@
 // handle-colors, 2026.02.13.02.35
 // API endpoint for saving and retrieving per-character handle colors.
 
-import { authorize } from "../../backend/authorization.mjs";
+import { authorize, findSisterSub } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 import { shell } from "../../backend/shell.mjs";
@@ -102,7 +102,17 @@ export async function handler(event, context) {
       if (tenant === "sotce") sub = "sotce-" + user.sub;
 
       // Find the user's handle document
-      const existingUser = await handles.findOne({ _id: sub });
+      let primarySub = sub;
+      let existingUser = await handles.findOne({ _id: sub });
+
+      // If not found, check sister sub (e.g., user has multiple auth providers)
+      if (!existingUser) {
+        const sisterSub = await findSisterSub(sub, { prefixed: true });
+        if (sisterSub) {
+          existingUser = await handles.findOne({ _id: sisterSub });
+          if (existingUser) primarySub = sisterSub;
+        }
+      }
 
       if (!existingUser) {
         await database.disconnect();
@@ -118,7 +128,7 @@ export async function handler(event, context) {
       }
 
       // Update the colors
-      await handles.updateOne({ _id: sub }, { $set: { colors } });
+      await handles.updateOne({ _id: primarySub }, { $set: { colors } });
 
       await database.disconnect();
 
