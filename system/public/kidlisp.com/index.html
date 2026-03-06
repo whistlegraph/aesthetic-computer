@@ -302,9 +302,9 @@
       background: transparent !important;
     }
 
-    /* Thin outline on editor text for readability over animation */
+    /* Thin white outline on editor text for readability over animation */
     body.stage-mode:not(.device-mode) .monaco-editor .view-lines span {
-      -webkit-text-stroke: 0.5px rgba(0, 0, 0, 0.4);
+      -webkit-text-stroke: 0.5px rgba(255, 255, 255, 0.6);
       paint-order: stroke fill;
     }
 
@@ -11462,6 +11462,11 @@ s("ape_breaks_3").loopAt(2)</textarea>
         initSplits();
       }
 
+      // Larger font in stage mode for readability over animation
+      if (window.editor) {
+        window.editor.updateOptions({ fontSize: normalized === 'stage' ? 24 : 16 });
+      }
+
       if (typeof updatePreferencesModalContent === 'function') {
         updatePreferencesModalContent();
       }
@@ -15038,7 +15043,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
         theme: initialTheme,
         minimap: { enabled: false },
         scrollBeyondLastLine: false,
-        fontSize: 16,
+        fontSize: window.isStageMode?.() ? 24 : 16,
         lineNumbers: 'on',
         glyphMargin: false,
         folding: false,
@@ -16577,6 +16582,71 @@ s("ape_breaks_3").loopAt(2)</textarea>
         if (clearButton && clearButton.style.display !== 'none') {
           clearButton.click();
         }
+      });
+
+      // Increment/decrement number at cursor with Ctrl+] / Ctrl+[
+      function adjustNumberAtCursor(delta) {
+        const position = editor.getPosition();
+        const model = editor.getModel();
+        const lineContent = model.getLineContent(position.lineNumber);
+        const col = position.column - 1; // 0-based
+
+        // Find number under or adjacent to cursor
+        const numRegex = /-?\d+\.?\d*/g;
+        let match;
+        let bestMatch = null;
+        while ((match = numRegex.exec(lineContent)) !== null) {
+          const start = match.index;
+          const end = start + match[0].length;
+          // Cursor is inside or immediately adjacent to the number
+          if (col >= start && col <= end) {
+            bestMatch = match;
+            break;
+          }
+        }
+        if (!bestMatch) return;
+
+        const original = bestMatch[0];
+        const startCol = bestMatch.index + 1; // 1-based
+        const endCol = startCol + original.length;
+        const dotIndex = original.indexOf('.');
+
+        let newValue;
+        if (dotIndex === -1) {
+          // Integer: adjust by 1
+          newValue = String(parseInt(original, 10) + delta);
+        } else {
+          // Float: adjust by its smallest decimal place
+          const decimals = original.length - dotIndex - 1;
+          const step = Math.pow(10, -decimals);
+          const result = parseFloat(original) + delta * step;
+          newValue = result.toFixed(decimals);
+        }
+
+        const range = new monaco.Range(
+          position.lineNumber, startCol,
+          position.lineNumber, endCol
+        );
+        editor.executeEdits('adjust-number', [{
+          range,
+          text: newValue,
+          forceMoveMarkers: true
+        }]);
+
+        // Keep cursor within the new number
+        const newCol = Math.min(
+          startCol + newValue.length,
+          startCol + Math.max(0, col - bestMatch.index)
+        );
+        editor.setPosition({ lineNumber: position.lineNumber, column: newCol });
+      }
+
+      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.BracketRight, () => {
+        adjustNumberAtCursor(1);
+      });
+
+      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.BracketLeft, () => {
+        adjustNumberAtCursor(-1);
       });
 
       // Clear button handler
