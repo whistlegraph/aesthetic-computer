@@ -1760,8 +1760,8 @@ if [ -n "$IMAGE_PATH" ]; then
     echo -e "  ${CYAN}${MANIFEST_PATH}${NC}"
     echo ""
     echo -e "Upload to DO Spaces for oven /os endpoint:"
-    echo -e "  ${YELLOW}aws s3 cp ${IMAGE_PATH} s3://assets-aesthetic-computer/os/fedac-base-latest.img --endpoint-url https://sfo3.digitaloceanspaces.com --acl public-read${NC}"
-    echo -e "  ${YELLOW}aws s3 cp ${MANIFEST_PATH} s3://assets-aesthetic-computer/os/fedac-base-manifest.json --endpoint-url https://sfo3.digitaloceanspaces.com --acl public-read${NC}"
+    echo -e "  ${YELLOW}aws s3 cp ${IMAGE_PATH} s3://releases-aesthetic-computer/os/fedac-base-latest.img --endpoint-url https://sfo3.digitaloceanspaces.com --acl public-read${NC}"
+    echo -e "  ${YELLOW}aws s3 cp ${MANIFEST_PATH} s3://releases-aesthetic-computer/os/fedac-base-manifest.json --endpoint-url https://sfo3.digitaloceanspaces.com --acl public-read${NC}"
   fi
 fi
 if [ -n "$DEVICE" ]; then
