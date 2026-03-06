@@ -117,32 +117,42 @@ static void frame_sync_60fps(struct timespec *next) {
     clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, next, NULL);
 }
 
-// Draw a quick splash frame while subsystems initialize
-static void draw_splash(ACGraph *graph, ACFramebuffer *screen,
-                        ACDisplay *display, int frame) {
-    graph_wipe(graph, (ACColor){50, 50, 255, 255});
+// Draw startup animation (fade from black, mirror of shutdown)
+static void draw_startup_animation(ACGraph *graph, ACFramebuffer *screen,
+                                   ACDisplay *display) {
+    struct timespec anim_time;
+    clock_gettime(CLOCK_MONOTONIC, &anim_time);
 
-    // Animated dots
-    const char *dots[] = {"", ".", "..", "..."};
-    char splash[64];
-    snprintf(splash, sizeof(splash), "notepat%s", dots[frame % 4]);
-
-    // Center the text
-    int textW = (int)strlen(splash) * 8 * 2; // size=2
-    int x = (screen->width - textW) / 2;
-    int y = screen->height / 2 - 8;
-
-    graph_ink(graph, (ACColor){255, 255, 255, 255});
-    font_draw(graph, splash, x, y, 2);
-
-    // Small subtitle
-    graph_ink(graph, (ACColor){150, 150, 255, 255});
-    font_draw(graph, "aesthetic.computer", screen->width / 2 - 72, y + 24, 1);
-
+    // Start with a black frame immediately (hides any kernel text)
+    graph_wipe(graph, (ACColor){0, 0, 0, 255});
     fb_copy_scaled(screen, drm_back_buffer(display),
                    display->width, display->height,
                    drm_back_stride(display), 3);
     drm_flip(display);
+
+    for (int f = 0; f < 90; f++) { // 90 frames @ 60fps = 1.5s
+        double t = (double)f / 90.0;
+
+        // Fade from black to white (inverse of shutdown)
+        int bg = (int)(255.0 * t);
+        graph_wipe(graph, (ACColor){(uint8_t)bg, (uint8_t)bg, (uint8_t)bg, 255});
+
+        if (t > 0.2) {
+            double text_t = (t - 0.2) / 0.8; // 0..1 over the last 80%
+            int alpha = (int)(255.0 * (text_t < 1.0 ? text_t : 1.0));
+            graph_ink(graph, (ACColor){0, 0, 0, (uint8_t)alpha});
+            int tw = 7 * 8 * 2;
+            font_draw(graph, "notepat", (screen->width - tw) / 2, screen->height / 2 - 16, 2);
+            graph_ink(graph, (ACColor){100, 100, 100, (uint8_t)(alpha / 2)});
+            font_draw(graph, "aesthetic.computer", (screen->width - 18 * 8) / 2, screen->height / 2 + 8, 1);
+        }
+
+        fb_copy_scaled(screen, drm_back_buffer(display),
+                       display->width, display->height,
+                       drm_back_stride(display), 3);
+        drm_flip(display);
+        frame_sync_60fps(&anim_time);
+    }
 }
 
 int main(int argc, char *argv[]) {
@@ -192,9 +202,9 @@ int main(int argc, char *argv[]) {
     graph_init(&graph, screen);
     font_init();
 
-    // Show splash immediately
+    // Startup animation (fade from black — hides kernel text)
     if (!headless) {
-        draw_splash(&graph, screen, display, 0);
+        draw_startup_animation(&graph, screen, display);
     }
 
     // Init input
@@ -232,15 +242,13 @@ int main(int argc, char *argv[]) {
     // Try to mount USB for logging (starts waiting for USB enumeration)
     if (getpid() == 1) try_mount_log();
 
-    // Init audio (show splash frame 1 while it works)
-    if (!headless) draw_splash(&graph, screen, display, 1);
+    // Init audio
     ACAudio *audio = audio_init();
 
     // Retry log mount if first attempt failed (USB may have appeared during audio init)
     if (getpid() == 1 && !logfile) try_mount_log();
 
     // Init JS
-    if (!headless) draw_splash(&graph, screen, display, 2);
     ACRuntime *rt = js_init(&graph, input, audio);
     if (!rt) {
         fprintf(stderr, "[ac-native] FATAL: Cannot init JS\n");
@@ -251,7 +259,6 @@ int main(int argc, char *argv[]) {
     }
 
     // Load piece
-    if (!headless) draw_splash(&graph, screen, display, 3);
     if (js_load_piece(rt, piece_path) < 0) {
         fprintf(stderr, "[ac-native] FATAL: Cannot load %s\n", piece_path);
         if (!headless) {
@@ -370,7 +377,7 @@ int main(int argc, char *argv[]) {
                         int tw = 7 * 8 * 2;
                         font_draw(&graph, "notepat", (screen->width - tw) / 2, screen->height / 2 - 16, 2);
                         graph_ink(&graph, (ACColor){100, 100, 100, (uint8_t)(alpha / 2)});
-                        font_draw(&graph, "shutting down...", (screen->width - 15 * 8) / 2, screen->height / 2 + 8, 1);
+                        font_draw(&graph, "aesthetic.computer", (screen->width - 18 * 8) / 2, screen->height / 2 + 8, 1);
                     }
 
                     fb_copy_scaled(screen, drm_back_buffer(display),
