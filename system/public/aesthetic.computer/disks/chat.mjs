@@ -941,6 +941,23 @@ function paint(
         }
       }
       
+      // Render shadow pass for lines with color codes (dynamic per-color shadows)
+      if (colorCodedLine !== line) {
+        const shadowLine = colorCodedLine.replace(
+          /\\(\d+),(\d+),(\d+)(?:,\d+)?\\/g,
+          (_, r, g, b) => `\\${Math.floor(r * 0.25)},${Math.floor(g * 0.25)},${Math.floor(b * 0.25)}\\`
+        );
+        const mt = Array.isArray(theme.messageText) ? theme.messageText : [200, 200, 200];
+        ink(Math.floor(mt[0] * 0.25), Math.floor(mt[1] * 0.25), Math.floor(mt[2] * 0.25)).write(
+          shadowLine,
+          { x: x + 1, y: lineY + 1 },
+          false,
+          undefined,
+          false,
+          msgTypefaceName
+        );
+      }
+
       // Render this line with color codes
       // Note: For unifont, we don't want a background box per character
       ink(theme.messageText).write(
