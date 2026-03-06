@@ -83,6 +83,7 @@ typedef struct {
 
     // System mixer volume (0-100 percent)
     int system_volume;
+    int card_index;  // ALSA card number (0 or 1)
 } ACAudio;
 
 // Initialize ALSA audio engine (returns NULL if no audio device)

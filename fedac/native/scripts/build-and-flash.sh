@@ -123,21 +123,29 @@ else
     exit 1
 fi
 
-# Copy shared libs for ALSA (if dynamic build — skip for static)
+# Copy shared libs (if dynamic build)
 if file "${BUILD_DIR}/ac-native" | grep -q "dynamically linked"; then
     log "Copying shared libraries for dynamic binary..."
-    mkdir -p "${INITRAMFS_DIR}/lib"
+    mkdir -p "${INITRAMFS_DIR}/lib64"
     for lib in $(ldd "${BUILD_DIR}/ac-native" | grep -oP '/\S+'); do
-        [ -f "$lib" ] && cp "$lib" "${INITRAMFS_DIR}/lib/"
+        [ -f "$lib" ] && cp "$lib" "${INITRAMFS_DIR}/lib64/"
     done
+    # Symlink /lib -> /lib64 (some lookups use /lib)
+    ln -sf lib64 "${INITRAMFS_DIR}/lib"
 fi
 
-# Init script
-cat > "${INITRAMFS_DIR}/init" << 'INIT_EOF'
-#!/bin/sh
-exec /ac-native /piece.mjs
-INIT_EOF
-chmod +x "${INITRAMFS_DIR}/init"
+# Copy ALSA config files (required for snd_pcm_open to resolve device names)
+if [ -d "/usr/share/alsa" ]; then
+    log "Copying ALSA config files..."
+    mkdir -p "${INITRAMFS_DIR}/usr/share/alsa"
+    cp -r /usr/share/alsa/* "${INITRAMFS_DIR}/usr/share/alsa/"
+    log "ALSA config: $(du -sh "${INITRAMFS_DIR}/usr/share/alsa" | cut -f1)"
+else
+    warn "No /usr/share/alsa found — audio may not work"
+fi
+
+# Init: symlink to ac-native (no /bin/sh in initramfs)
+ln -sf /ac-native "${INITRAMFS_DIR}/init"
 
 # Create cpio + lz4
 INITRAMFS_CPIO="${BUILD_DIR}/initramfs.cpio"
