@@ -283,8 +283,8 @@ function act({ event: e, sound, wifi }) {
       return;
     }
 
-    // Echo slider zone (below status bar, y < 22)
-    if (y < 22) {
+    // Echo slider zone (below settings row, y 26-36)
+    if (y >= 26 && y < 36) {
       echoDragging = true;
       echoMix = Math.max(0, Math.min(1, x / w));
       sound?.room?.setMix?.(echoMix);
@@ -474,14 +474,8 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     write(statusStr, { x: dotComX + 4 * 8 + 4, y: barY, size: 1 });
   }
 
-  // Center: wave / octave / mode / sample rate
-  const metroInfo = metronomeEnabled ? " " + metronomeBPM + "bpm" : "";
-  const sRate = sound?.speaker?.sampleRate;
-  const khzStr = sRate ? " " + Math.round(sRate / 1000) + "kHz" : "";
-  const centerStr = wave + " o:" + octave + (quickMode ? " QK" : "") + metroInfo + khzStr;
-  ink(FG_DIM, FG_DIM, FG_DIM);
-  const centerX = Math.floor((w - centerStr.length * CH) / 2);
-  write(centerStr, { x: centerX, y: barY, size: 1 });
+  // Center status bar: note count is enough, settings go below
+  const centerX = Math.floor(w / 2);
 
   // Right section: wifi | battery | time | vol
   let rx = w - 2; // right edge cursor (builds right to left)
@@ -555,16 +549,31 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     const fillV = Math.floor(sysVol * volW / 100);
     if (fillV > 0) { ink(dark ? 150 : 80, dark ? 150 : 80, dark ? 150 : 80); box(rx, barY + 2, fillV, volH, true); }
     rx -= 2;
-    // "vol" label
     ink(FG_MUTED, FG_MUTED, FG_MUTED);
     rx -= 3 * CH;
     write("vol", { x: rx, y: barY, size: 1 });
   }
 
-  // Waveform (between center info and right section, overlaid when playing)
+  // Brightness bar
+  const sysBrt = system?.brightness ?? -1;
+  if (sysBrt >= 0) {
+    rx -= 4;
+    const brtW = 16, brtH = 3;
+    rx -= brtW;
+    ink(dark ? 45 : 220, dark ? 45 : 220, dark ? 50 : 225);
+    box(rx, barY + 2, brtW, brtH, true);
+    const fillB = Math.floor(sysBrt * brtW / 100);
+    if (fillB > 0) { ink(dark ? 180 : 60, dark ? 160 : 60, dark ? 80 : 30); box(rx, barY + 2, fillB, brtH, true); }
+    rx -= 2;
+    ink(FG_MUTED, FG_MUTED, FG_MUTED);
+    rx -= 3 * CH;
+    write("brt", { x: rx, y: barY, size: 1 });
+  }
+
+  // Waveform (between title and right section, overlaid when playing)
   const wf = sound?.speaker?.waveforms?.left;
   if (wf && activeCount > 0) {
-    const wfX = centerX + centerStr.length * CH + 4;
+    const wfX = dotComX + 4 * 8 + 4 + (statusStr ? (statusStr.length * CH + 4) : 0);
     const wfEnd = rx - 4;
     const wfW = wfEnd - wfX;
     if (wfW > 20) {
@@ -683,10 +692,39 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   drawGrid(LEFT_GRID, leftX, 0);
   drawGrid(RIGHT_GRID, rightX, 0);
 
-  // Echo slider (under status bar)
+  // === SETTINGS ROW + ACTIVE NOTE (under status bar) ===
+  const settingsY = topBarH + 1;
   {
-    const sliderY = topBarH;
-    const sliderH = 6;
+    // Settings: wave type, octave, quick, kHz — in matrix chunky font
+    const metroInfo = metronomeEnabled ? " " + metronomeBPM + "bpm" : "";
+    const sRate = sound?.speaker?.sampleRate;
+    const khzStr = sRate ? " " + Math.round(sRate / 1000) + "kHz" : "";
+    const settingsStr = wave + " o:" + octave + (quickMode ? " QK" : "") + metroInfo + khzStr;
+    ink(FG_MUTED, FG_MUTED, FG_MUTED);
+    write(settingsStr, { x: 2, y: settingsY, size: 1, font: "matrix" });
+
+    // Active note name — red, matrix chunky, right side of settings row
+    if (activeKeys.length > 0) {
+      // Show all active note names
+      let noteNames = [];
+      for (const key of activeKeys) {
+        const noteName = KEY_TO_NOTE[key];
+        if (noteName) {
+          const [letter, off] = parseNote(noteName);
+          noteNames.push(letter + (octave + off));
+        }
+      }
+      const noteStr = noteNames.join(" ");
+      const noteX = w - noteStr.length * 8 - 2;
+      ink(255, 60, 60);
+      write(noteStr, { x: noteX, y: settingsY, size: 1, font: "matrix" });
+    }
+  }
+
+  // Echo slider (below settings row, taller)
+  {
+    const sliderY = settingsY + 11;
+    const sliderH = 10;
     ink(dark ? 25 : 235, dark ? 25 : 235, dark ? 28 : 238);
     box(0, sliderY, w, sliderH, true);
     const fillW = Math.floor(echoMix * w);
@@ -700,10 +738,10 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       ink(140, 180, 255, 220);
       box(knobX - 1, sliderY, 3, sliderH, true);
     }
-    // Label
-    ink(dark ? 70 : 170, dark ? 70 : 170, dark ? 80 : 180);
+    // Label centered vertically in slider
+    ink(dark ? 90 : 160, dark ? 90 : 160, dark ? 100 : 170);
     const echoStr = "echo " + Math.round(echoMix * 100) + "%";
-    write(echoStr, { x: 2, y: sliderY - 1, size: 1, font: "font_1" });
+    write(echoStr, { x: 2, y: sliderY + 1, size: 1, font: "font_1" });
   }
 
   // WiFi panel overlay
@@ -786,10 +824,10 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     }
   }
 
-  // Debug: show last key pressed (temporary, remove once keys work)
+  // Last key pressed indicator (bottom corner, fading)
   if (lastKeyTimer > 0 && lastKey) {
-    ink(255, 0, 0, Math.min(200, lastKeyTimer * 4));
-    write("key:" + lastKey, { x: 2, y: h - 10, size: 1 });
+    ink(FG_MUTED, FG_MUTED, FG_MUTED, Math.min(150, lastKeyTimer * 3));
+    write(lastKey, { x: 2, y: h - 10, size: 1 });
   }
 
   // Fade trails

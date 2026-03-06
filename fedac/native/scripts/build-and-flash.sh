@@ -162,16 +162,36 @@ done
 if [ "${WIFI_COPIED}" -gt 0 ]; then
     log "WiFi binaries: ${WIFI_COPIED} copied"
 
-    # Copy Intel WiFi firmware (AX200 = cc-a0, also grab QuZ for AX201)
+    # Copy Intel WiFi firmware (only latest version per card to save space)
+    # 9260 = 9260-th-b0-jf-b0, AX200 = cc-a0, AX201 = QuZ-a0-hr-b0 / QuZ-a0-jf-b0
     mkdir -p "${INITRAMFS_DIR}/lib/firmware"
-    for fw in /lib/firmware/iwlwifi-cc-a0-*.ucode*; do
-        [ -f "$fw" ] && { xz -dk "$fw" -c > "${INITRAMFS_DIR}/lib/firmware/$(basename "${fw%.xz}")" 2>/dev/null || cp "$fw" "${INITRAMFS_DIR}/lib/firmware/"; }
+    # Regulatory database (required for WiFi scanning)
+    for rdb in regulatory.db regulatory.db.p7s; do
+        [ -f "/lib/firmware/$rdb" ] && cp "/lib/firmware/$rdb" "${INITRAMFS_DIR}/lib/firmware/"
     done
-    for fw in /lib/firmware/iwlwifi-QuZ-a0-*.ucode*; do
-        [ -f "$fw" ] && { xz -dk "$fw" -c > "${INITRAMFS_DIR}/lib/firmware/$(basename "${fw%.xz}")" 2>/dev/null || cp "$fw" "${INITRAMFS_DIR}/lib/firmware/"; }
+    for pattern in "iwlwifi-9260-th-b0-jf-b0-*" "iwlwifi-cc-a0-*" "iwlwifi-QuZ-a0-hr-b0-*" "iwlwifi-QuZ-a0-jf-b0-*"; do
+        # Get the latest (highest version number) firmware file
+        fw=$(ls -v /lib/firmware/${pattern}.ucode* 2>/dev/null | tail -1)
+        if [ -n "$fw" ] && [ -f "$fw" ]; then
+            dest="${INITRAMFS_DIR}/lib/firmware/$(basename "${fw%.xz}")"
+            xz -dk "$fw" -c > "$dest" 2>/dev/null || cp "$fw" "$dest"
+            log "  firmware: $(basename "$dest") ($(du -sh "$dest" | cut -f1))"
+        fi
     done
     FW_SIZE=$(du -sh "${INITRAMFS_DIR}/lib/firmware" 2>/dev/null | cut -f1)
     log "WiFi firmware: ${FW_SIZE:-0}"
+
+    # Copy flite TTS libraries (minimal: core + kal voice)
+    for flib in libflite.so.2.2 libflite_cmulex.so.2.2 libflite_usenglish.so.2.2 libflite_cmu_us_kal.so.2.2; do
+        src="/usr/lib64/${flib}"
+        if [ -f "$src" ]; then
+            cp "$src" "${INITRAMFS_DIR}/lib64/"
+            # Create soname symlinks
+            ln -sf "$flib" "${INITRAMFS_DIR}/lib64/$(echo $flib | sed 's/\.so\..*/\.so/')" 2>/dev/null || true
+        fi
+    done
+    FLITE_SIZE=$(du -sh "${INITRAMFS_DIR}/lib64/libflite"* 2>/dev/null | tail -1 | cut -f1)
+    log "Flite TTS: ${FLITE_SIZE:-not found}"
 
     # Create /var/run for wpa_supplicant
     mkdir -p "${INITRAMFS_DIR}/var/run/wpa_supplicant"

@@ -25,6 +25,7 @@
 #include "input.h"
 #include "audio.h"
 #include "wifi.h"
+#include "tts.h"
 #include "js-bindings.h"
 
 static volatile int running = 1;
@@ -37,16 +38,17 @@ static void signal_handler(int sig) {
 
 // Log to both stderr and logfile
 void ac_log(const char *fmt, ...) {
-    va_list args;
+    va_list args, args2;
     va_start(args, fmt);
+    va_copy(args2, args);
     vfprintf(stderr, fmt, args);
     va_end(args);
     if (logfile) {
-        va_start(args, fmt);
-        vfprintf(logfile, fmt, args);
-        va_end(args);
+        vfprintf(logfile, fmt, args2);
         fflush(logfile);
+        fsync(fileno(logfile));
     }
+    va_end(args2);
 }
 
 // Mount minimal filesystems (PID 1 only)
@@ -99,6 +101,10 @@ static void try_mount_log(void) {
         if (mount(devs[i], "/mnt", "vfat", 0, NULL) == 0) {
             logfile = fopen("/mnt/ac-native.log", "w");
             if (logfile) {
+                // Immediate test write to verify logging works
+                fprintf(logfile, "[ac-native] Log opened on %s\n", devs[i]);
+                fflush(logfile);
+                fsync(fileno(logfile));
                 strncpy(log_dev, devs[i], sizeof(log_dev) - 1);
                 fprintf(stderr, "[ac-native] Log: %s -> /mnt/ac-native.log\n", devs[i]);
                 return;
@@ -387,10 +393,12 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
         double t = (double)f / 60.0;
 
         // Drain all key events — detect W press or other-key skip
-        if (f > 3) {  // skip first few frames (stale events)
+        {
             struct input_event ev;
             for (int ki = 0; ki < key_fd_count; ki++) {
                 while (read(key_fds[ki], &ev, sizeof(ev)) == sizeof(ev)) {
+                    // First 10 frames: drain stale events silently
+                    if (f < 10) continue;
                     if (ev.type == EV_KEY && ev.value == 1) {
                         if (ev.code == KEY_W) {
                             w_pressed = 1;
@@ -555,7 +563,7 @@ int main(int argc, char *argv[]) {
 
     // Init input
     if (!headless) {
-        input = input_init(display->width, display->height);
+        input = input_init(display->width, display->height, 3);
     }
 
     // Find backlight path (scan /sys/class/backlight/ for any device)
@@ -594,6 +602,14 @@ int main(int argc, char *argv[]) {
     ACAudio *audio = audio_init();
     audio_boot_beep(audio); // Early beep: "I'm alive!"
 
+    // Init TTS (warmup with empty string to preload voice data)
+    ACTts *tts = tts_init(audio);
+    if (tts) {
+        tts_speak(tts, ".");  // Warmup: load voice data into memory
+        tts_wait(tts);        // Wait for warmup to complete
+        tts_speak(tts, "aesthetic dot computer");
+    }
+
     // Retry log mount if first attempt failed (USB may have appeared during audio init)
     if (getpid() == 1 && !logfile) try_mount_log();
 
@@ -604,12 +620,23 @@ int main(int argc, char *argv[]) {
     // Init WiFi
     if (!headless && display)
         draw_boot_status(&graph, screen, display, "starting wifi...");
+    if (tts) { tts_wait(tts); tts_speak(tts, "checking wifi"); }
     ACWifi *wifi = wifi_init();
+    if (wifi && wifi->state == WIFI_STATE_CONNECTED && tts) {
+        tts_wait(tts);
+        tts_speak(tts, "wifi connected");
+    } else if (wifi && tts) {
+        tts_wait(tts);
+        tts_speak(tts, "wifi scanning");
+    } else if (tts) {
+        tts_wait(tts);
+        tts_speak(tts, "no wifi hardware");
+    }
 
     // Init JS
     if (!headless && display)
         draw_boot_status(&graph, screen, display, "starting javascript...");
-    ACRuntime *rt = js_init(&graph, input, audio, wifi);
+    ACRuntime *rt = js_init(&graph, input, audio, wifi, tts);
     if (!rt) {
         fprintf(stderr, "[ac-native] FATAL: Cannot init JS\n");
         wifi_destroy(wifi);
@@ -665,7 +692,8 @@ int main(int argc, char *argv[]) {
            JS_IsFunction(rt->ctx, rt->sim_fn));
     if (logfile) { fflush(logfile); }
 
-    // Ready melody: piece loaded, about to start!
+    // Ready melody + speech: piece loaded, about to start!
+    if (tts) { tts_wait(tts); tts_speak(tts, "notepat ready"); tts_wait(tts); }
     audio_ready_melody(audio);
 
     // Call boot()
@@ -796,7 +824,7 @@ int main(int argc, char *argv[]) {
 
             // Software cursor (AC precise cursor: teal crosshair + shadow + white center)
             if (input && (input->pointer_x || input->pointer_y)) {
-                int cx = input->pointer_x, cy = input->pointer_y;
+                int cx = input->pointer_x / 3, cy = input->pointer_y / 3;
                 // Shadow (black, offset +1,+1)
                 graph_ink(&graph, (ACColor){0, 0, 0, 180});
                 graph_line(&graph, cx+1, cy-9, cx+1, cy-4);  // top
@@ -833,6 +861,9 @@ int main(int argc, char *argv[]) {
     js_call_leave(rt);
     js_destroy(rt);
     wifi_destroy(wifi);
+    if (tts) { tts_speak(tts, "goodbye"); tts_wait(tts); }
+    audio_shutdown_sound(audio);
+    tts_destroy(tts);
     audio_destroy(audio);
     if (input) input_destroy(input);
     fb_destroy(screen);
