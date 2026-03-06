@@ -285,10 +285,13 @@ static void *audio_thread_fn(void *arg) {
                 float fb_r = (float)mix_r + wet_r * ROOM_FEEDBACK;
                 if (fb_l > 2.0f) fb_l = 2.0f; else if (fb_l < -2.0f) fb_l = -2.0f;
                 if (fb_r > 2.0f) fb_r = 2.0f; else if (fb_r < -2.0f) fb_r = -2.0f;
-                // Damping: multiply by 0.9997 per sample to ensure tail dies
-                // At 192kHz this gives ~3 second full decay from -60dB
-                fb_l *= 0.9997f;
-                fb_r *= 0.9997f;
+                // Damping: multiply per sample to ensure tail dies
+                // 0.9995 at 192kHz: each 120ms tap round decays by ~e^(-11.5) ≈ 0.00001
+                fb_l *= 0.9995f;
+                fb_r *= 0.9995f;
+                // Noise gate: zero out sub-audible residue to prevent forever-hum
+                if (fb_l > -0.00001f && fb_l < 0.00001f) fb_l = 0.0f;
+                if (fb_r > -0.00001f && fb_r < 0.00001f) fb_r = 0.0f;
                 audio->room_buf_l[audio->room_pos] = fb_l;
                 audio->room_buf_r[audio->room_pos] = fb_r;
 
