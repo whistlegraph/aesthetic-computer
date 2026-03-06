@@ -43,15 +43,37 @@ void fb_copy_to(ACFramebuffer *src, uint32_t *dst, int dst_stride) {
 }
 
 void fb_copy_scaled(ACFramebuffer *src, uint32_t *dst, int dst_w, int dst_h, int dst_stride, int scale) {
-    for (int dy = 0; dy < dst_h; dy++) {
-        int sy = dy / scale;
-        if (sy >= src->height) sy = src->height - 1;
+    // Fast path: expand each source pixel to scale×scale block
+    // Avoids per-pixel division, uses memcpy for row duplication
+    int src_h = src->height;
+    int src_w = src->width;
+    int max_dy = dst_h < src_h * scale ? dst_h : src_h * scale;
+    int max_dx = dst_w < src_w * scale ? dst_w : src_w * scale;
+
+    for (int sy = 0; sy < src_h && sy * scale < dst_h; sy++) {
         uint32_t *src_row = src->pixels + sy * src->stride;
-        uint32_t *dst_row = dst + dy * dst_stride;
-        for (int dx = 0; dx < dst_w; dx++) {
-            int sx = dx / scale;
-            if (sx >= src->width) sx = src->width - 1;
-            dst_row[dx] = src_row[sx];
+        uint32_t *dst_row = dst + sy * scale * dst_stride;
+
+        // Expand source row: each pixel repeated 'scale' times
+        int dx = 0;
+        for (int sx = 0; sx < src_w && dx < max_dx; sx++) {
+            uint32_t p = src_row[sx];
+            for (int r = 0; r < scale && dx < max_dx; r++)
+                dst_row[dx++] = p;
         }
+        // Fill remaining dst width with last pixel or black
+        for (; dx < dst_w; dx++)
+            dst_row[dx] = dx > 0 ? dst_row[dx - 1] : 0;
+
+        // Duplicate this row (scale-1) more times
+        for (int r = 1; r < scale && (sy * scale + r) < dst_h; r++) {
+            memcpy(dst + (sy * scale + r) * dst_stride, dst_row, (size_t)dst_w * sizeof(uint32_t));
+        }
+    }
+    // Fill any remaining rows at bottom
+    if (max_dy < dst_h && max_dy > 0) {
+        uint32_t *last_row = dst + (max_dy - 1) * dst_stride;
+        for (int dy = max_dy; dy < dst_h; dy++)
+            memcpy(dst + dy * dst_stride, last_row, (size_t)dst_w * sizeof(uint32_t));
     }
 }
