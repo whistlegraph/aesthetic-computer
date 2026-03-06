@@ -63,7 +63,8 @@ let lastKeyTimer = 0;
 let wifiPanelOpen = false;
 let wifiSelectedIdx = -1;
 let wifiPassword = "";
-let wifiPasswordMode = false;  // true = capturing keyboard for password
+let wifiPasswordMode = false;  // true = fullscreen password entry
+let wifiCursorBlink = 0;       // cursor blink counter
 // Touch-note state (for clickable grid buttons)
 let touchNotes = {};  // pointer id -> { key, note, octave }
 
@@ -147,10 +148,10 @@ function hitTestGrid(x, y, gi) {
 function boot({ wipe }) { wipe(255); }
 
 function act({ event: e, sound, wifi }) {
-  // WiFi password input mode — capture keyboard
+  // WiFi password input mode — fullscreen, capture all keyboard
   if (wifiPasswordMode && e.is("keyboard:down")) {
     const key = e.key;
-    if (key === "Escape") { wifiPasswordMode = false; wifiPassword = ""; return; }
+    if (key === "Escape") { wifiPasswordMode = false; wifiPassword = ""; wifiSelectedIdx = -1; return; }
     if (key === "Enter" || key === "Return") {
       if (wifi && wifiSelectedIdx >= 0) {
         const nets = wifi.networks || [];
@@ -160,10 +161,16 @@ function act({ event: e, sound, wifi }) {
       }
       wifiPasswordMode = false;
       wifiPanelOpen = false;
+      wifiSelectedIdx = -1;
       return;
     }
     if (key === "Backspace") { wifiPassword = wifiPassword.slice(0, -1); return; }
     if (key.length === 1) { wifiPassword += key; return; }
+    return;
+  }
+
+  // WiFi password mode — block touch from reaching note grid
+  if (wifiPasswordMode && (e.is("touch") || e.is("draw") || e.is("lift"))) {
     return;
   }
 
@@ -259,7 +266,7 @@ function act({ event: e, sound, wifi }) {
     }
 
     // WiFi panel clicks
-    if (wifiPanelOpen) {
+    if (wifiPanelOpen && !wifiPasswordMode) {
       const panelX = w - 140, panelY = 12, panelW = 138, panelH = 120;
       if (x >= panelX && x < panelX + panelW && y >= panelY && y < panelY + panelH) {
         const nets = wifi?.networks || [];
@@ -270,7 +277,7 @@ function act({ event: e, sound, wifi }) {
           wifiSelectedIdx = clickedRow;
           if (nets[clickedRow].encrypted) {
             wifiPassword = "";
-            wifiPasswordMode = true;
+            wifiPasswordMode = true;  // Goes fullscreen
           } else {
             wifi?.connect(nets[clickedRow].ssid, "");
             wifiPanelOpen = false;
@@ -279,7 +286,6 @@ function act({ event: e, sound, wifi }) {
         return;
       }
       wifiPanelOpen = false;
-      wifiPasswordMode = false;
       return;
     }
 
@@ -744,8 +750,57 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     write(echoStr, { x: 2, y: sliderY + 1, size: 1, font: "font_1" });
   }
 
-  // WiFi panel overlay
-  if (wifiPanelOpen && wifi) {
+  // WiFi fullscreen password entry
+  if (wifiPasswordMode && wifi) {
+    wifiCursorBlink++;
+    const nets = wifi.networks || [];
+    const net = nets[wifiSelectedIdx];
+    const ssid = net ? net.ssid : "?";
+
+    // Fullscreen dark overlay
+    ink(dark ? 10 : 240, dark ? 10 : 240, dark ? 15 : 245, 250);
+    box(0, 0, w, h, true);
+
+    // Title: network name in matrix chunky (centered estimate: ~9px per char at scale 2)
+    ink(FG, FG, FG);
+    const titleX = Math.max(10, (w - ssid.length * 18) / 2);
+    write(ssid, { x: titleX, y: h / 2 - 50, size: 2, font: "matrix" });
+
+    // "enter password" label
+    ink(FG_DIM, FG_DIM, FG_DIM);
+    write("enter password:", { x: 20, y: h / 2 - 20, size: 1, font: "font_1" });
+
+    // Password field — visible text with blinking cursor
+    const cursor = (wifiCursorBlink % 60) < 35 ? "|" : "";
+    const pwDisplay = wifiPassword + cursor;
+    ink(FG, FG, FG);
+
+    // Background box for password field
+    ink(dark ? 25 : 235, dark ? 25 : 235, dark ? 30 : 240);
+    box(18, h / 2 - 6, w - 36, 18, true);
+    ink(dark ? 70 : 180, dark ? 70 : 180, dark ? 80 : 190);
+    box(18, h / 2 - 6, w - 36, 18, "outline");
+
+    // Password text (visible!)
+    ink(FG, FG, FG);
+    write(pwDisplay, { x: 22, y: h / 2 - 2, size: 1, font: "font_1" });
+
+    // Instructions
+    ink(FG_MUTED, FG_MUTED, FG_MUTED);
+    write("Enter: connect    Esc: cancel", { x: 20, y: h / 2 + 22, size: 1, font: "font_1" });
+
+    // Show connection status if connecting
+    if (wifi.state === 3) { // WIFI_STATE_CONNECTING
+      ink(200, 200, 80);
+      write("connecting...", { x: 20, y: h / 2 + 40, size: 1, font: "font_1" });
+    } else if (wifi.state === 5) { // WIFI_STATE_FAILED
+      ink(220, 80, 80);
+      write("failed: " + (wifi.status || "?"), { x: 20, y: h / 2 + 40, size: 1, font: "font_1" });
+    }
+  }
+
+  // WiFi panel overlay (network list dropdown)
+  else if (wifiPanelOpen && wifi) {
     const panelW = 138, panelH = 120;
     const panelX = w - panelW - 2, panelY = 12;
 
@@ -798,18 +853,6 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         ink(FG_MUTED, FG_MUTED, FG_MUTED);
         write("*", { x: panelW + panelX - 10, y: ry + 1, size: 1, font: "font_1" });
       }
-    }
-
-    // Password input (if in password mode)
-    if (wifiPasswordMode) {
-      const py = panelY + panelH - 14;
-      ink(dark ? 20 : 250, dark ? 20 : 250, dark ? 25 : 255);
-      box(panelX + 2, py, panelW - 4, 12, true);
-      ink(dark ? 70 : 180, dark ? 70 : 180, dark ? 80 : 190);
-      box(panelX + 2, py, panelW - 4, 12, "outline");
-      ink(FG, FG, FG);
-      const display = wifiPassword.length > 0 ? "*".repeat(wifiPassword.length) + "_" : "password_";
-      write(display, { x: panelX + 4, y: py + 1, size: 1, font: "font_1" });
     }
 
     // Connected IP

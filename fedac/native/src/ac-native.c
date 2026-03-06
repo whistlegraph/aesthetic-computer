@@ -356,7 +356,7 @@ static int draw_install_confirm(ACGraph *graph, ACFramebuffer *screen,
 // Draw startup fade animation (black → white with title)
 // Returns 1 if user pressed W and confirmed install, 0 otherwise
 static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
-                              ACDisplay *display) {
+                              ACDisplay *display, ACTts *tts) {
     struct timespec anim_time;
     clock_gettime(CLOCK_MONOTONIC, &anim_time);
     int la_hour = get_la_hour();
@@ -373,10 +373,14 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
             char path[64];
             snprintf(path, sizeof(path), "/dev/input/%s", ent->d_name);
             int fd = open(path, O_RDONLY | O_NONBLOCK);
-            if (fd >= 0) key_fds[key_fd_count++] = fd;
+            if (fd >= 0) {
+                key_fds[key_fd_count++] = fd;
+                fprintf(stderr, "[boot-anim] opened %s (fd %d)\n", path, fd);
+            }
         }
         closedir(dir);
     }
+    fprintf(stderr, "[boot-anim] %d event devices\n", key_fd_count);
 
     // Start with a black frame immediately (hides any kernel text)
     graph_wipe(graph, (ACColor){0, 0, 0, 255});
@@ -384,22 +388,27 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
                    display->width, display->height,
                    drm_front_stride(display), 3);
 
-    // 60 frames = 1 second animation.
+    // 180 frames = 3 second animation.
     // W press → halt and show y/n confirmation
     // Any other key → skip animation and start playing
+    int total_frames = 180;
     int skip_anim = 0;
     int w_pressed = 0;
-    for (int f = 0; f < 60 && !skip_anim && !w_pressed; f++) {
-        double t = (double)f / 60.0;
+    for (int f = 0; f < total_frames && !skip_anim && !w_pressed; f++) {
+        double t = (double)f / (double)total_frames;
 
         // Drain all key events — detect W press or other-key skip
         {
             struct input_event ev;
             for (int ki = 0; ki < key_fd_count; ki++) {
                 while (read(key_fds[ki], &ev, sizeof(ev)) == sizeof(ev)) {
-                    // First 10 frames: drain stale events silently
-                    if (f < 10) continue;
                     if (ev.type == EV_KEY && ev.value == 1) {
+                        // First 15 frames: drain stale events silently
+                        if (f < 15) {
+                            fprintf(stderr, "[boot-anim] drained stale key %d at f=%d\n", ev.code, f);
+                            continue;
+                        }
+                        fprintf(stderr, "[boot-anim] key %d at f=%d\n", ev.code, f);
                         if (ev.code == KEY_W) {
                             w_pressed = 1;
                         } else if (ev.code != KEY_RESERVED) {
@@ -410,6 +419,10 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
             }
         }
 
+        // TTS speech timed to visual appearance
+        if (f == 10 && tts) tts_speak(tts, "notepat");
+        if (f == 70 && tts) tts_speak(tts, "aesthetic dot computer");
+
         // Fade from black to target bg (complete in first 0.3s)
         double fade_t = t * 3.33;
         if (fade_t > 1.0) fade_t = 1.0;
@@ -417,7 +430,7 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
         int bg = (int)(bg_target * fade_t);
         graph_wipe(graph, (ACColor){(uint8_t)bg, (uint8_t)bg, (uint8_t)(bg + (is_dark ? (int)(5 * fade_t) : 0)), 255});
 
-        // Title + subtitle appear with fade
+        // Title appears with initial fade
         int alpha = (int)(255.0 * fade_t);
         if (alpha > 0) {
             int fg = is_dark ? 220 : 0;
@@ -425,9 +438,15 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
             int tw = font_measure_matrix("notepat", 3);
             font_draw_matrix(graph, "notepat", (screen->width - tw) / 2,
                              screen->height / 2 - 20, 3);
+        }
 
+        // Subtitle appears after frame 60 (1 second in), synced with TTS
+        if (f > 60) {
+            double sub_t = (double)(f - 60) / 30.0; // fade in over 0.5s
+            if (sub_t > 1.0) sub_t = 1.0;
             int sub = is_dark ? 140 : 120;
-            graph_ink(graph, (ACColor){(uint8_t)sub, (uint8_t)sub, (uint8_t)sub, (uint8_t)(alpha / 2)});
+            int sub_alpha = (int)(180.0 * sub_t);
+            graph_ink(graph, (ACColor){(uint8_t)sub, (uint8_t)sub, (uint8_t)sub, (uint8_t)sub_alpha});
             int sw = font_measure_matrix("aesthetic.computer", 1);
             font_draw_matrix(graph, "aesthetic.computer",
                              (screen->width - sw) / 2, screen->height / 2 + 10, 1);
@@ -553,11 +572,17 @@ int main(int argc, char *argv[]) {
     graph_init(&graph, screen);
     font_init();
 
+    // Init audio + TTS early (needed for boot animation speech)
+    ACAudio *audio = audio_init();
+    audio_boot_beep(audio);
+    ACTts *tts = tts_init(audio);
+
     // Startup fade animation (black → white, hides kernel text)
+    // TTS speaks "notepat" and "aesthetic.computer" in sync with visuals
     // Returns 1 if user held W to request disk install
     int want_install = 0;
     if (!headless) {
-        want_install = draw_startup_fade(&graph, screen, display);
+        want_install = draw_startup_fade(&graph, screen, display, tts);
         draw_boot_status(&graph, screen, display, "starting input...");
     }
 
@@ -593,25 +618,8 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "[ac-native] No backlight found\n");
     }
 
-    // Try to mount USB for logging (starts waiting for USB enumeration)
+    // Try to mount USB for logging
     if (getpid() == 1) try_mount_log();
-
-    // Init audio
-    if (!headless && display)
-        draw_boot_status(&graph, screen, display, "starting audio...");
-    ACAudio *audio = audio_init();
-    audio_boot_beep(audio); // Early beep: "I'm alive!"
-
-    // Init TTS (warmup with empty string to preload voice data)
-    ACTts *tts = tts_init(audio);
-    if (tts) {
-        tts_speak(tts, ".");  // Warmup: load voice data into memory
-        tts_wait(tts);        // Wait for warmup to complete
-        tts_speak(tts, "aesthetic dot computer");
-    }
-
-    // Retry log mount if first attempt failed (USB may have appeared during audio init)
-    if (getpid() == 1 && !logfile) try_mount_log();
 
     // Install kernel to internal drive (only if user held W during boot)
     if (getpid() == 1 && want_install && logfile)
@@ -620,17 +628,14 @@ int main(int argc, char *argv[]) {
     // Init WiFi
     if (!headless && display)
         draw_boot_status(&graph, screen, display, "starting wifi...");
-    if (tts) { tts_wait(tts); tts_speak(tts, "checking wifi"); }
     ACWifi *wifi = wifi_init();
-    if (wifi && wifi->state == WIFI_STATE_CONNECTED && tts) {
-        tts_wait(tts);
-        tts_speak(tts, "wifi connected");
-    } else if (wifi && tts) {
-        tts_wait(tts);
-        tts_speak(tts, "wifi scanning");
-    } else if (tts) {
-        tts_wait(tts);
-        tts_speak(tts, "no wifi hardware");
+    if (tts) {
+        if (wifi && wifi->state == WIFI_STATE_CONNECTED)
+            tts_speak(tts, "wifi connected");
+        else if (wifi && wifi->iface[0])
+            tts_speak(tts, "wifi ready");
+        else
+            tts_speak(tts, "no wifi");
     }
 
     // Init JS
@@ -692,9 +697,10 @@ int main(int argc, char *argv[]) {
            JS_IsFunction(rt->ctx, rt->sim_fn));
     if (logfile) { fflush(logfile); }
 
-    // Ready melody + speech: piece loaded, about to start!
-    if (tts) { tts_wait(tts); tts_speak(tts, "notepat ready"); tts_wait(tts); }
+    // Ready: wait for any pending speech, then melody
+    if (tts) tts_wait(tts);
     audio_ready_melody(audio);
+    usleep(400000); // Let melody ring out before playing
 
     // Call boot()
     js_call_boot(rt);
@@ -863,6 +869,7 @@ int main(int argc, char *argv[]) {
     wifi_destroy(wifi);
     if (tts) { tts_speak(tts, "goodbye"); tts_wait(tts); }
     audio_shutdown_sound(audio);
+    usleep(500000); // Let shutdown chime ring out
     tts_destroy(tts);
     audio_destroy(audio);
     if (input) input_destroy(input);
