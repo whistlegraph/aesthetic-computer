@@ -5,13 +5,15 @@
 // Redirects to prompt where the os command runs inline with SSE
 // progress UI. Direct URL visitors get bounced to prompt~os piece~!autorun.
 
-function boot({ params, jump }) {
+function boot({ params, jump, colon }) {
   const target = params[0];
   if (!target) {
     jump("prompt");
     return;
   }
-  jump("prompt~os " + target + "~!autorun");
+  // Pass colon options through (e.g. os:native notepat → prompt~os:native notepat~!autorun)
+  const colonSuffix = colon?.length > 0 ? ":" + colon.join(":") : "";
+  jump("prompt~os" + colonSuffix + " " + target + "~!autorun");
 }
 
 export const desc = "Download a bootable OS image for any piece.";

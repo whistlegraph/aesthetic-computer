@@ -797,6 +797,23 @@ void audio_volume_adjust(ACAudio *audio, int delta) {
     audio->system_volume = muted ? 0 : read_system_volume_card(audio->card_index);
 }
 
+void audio_boot_beep(ACAudio *audio) {
+    if (!audio || !audio->pcm) return;
+    // Short high-pitched ping — "I'm alive!"
+    audio_synth(audio, WAVE_SINE, 880.0, 0.08, 0.3, 0.001, 0.06, 0.0);
+}
+
+void audio_ready_melody(ACAudio *audio) {
+    if (!audio || !audio->pcm) return;
+    // Quick ascending 3-note toot: C5 → E5 → G5 (major triad)
+    // Each note is short with slight overlap for a pleasant chime
+    audio_synth(audio, WAVE_TRIANGLE, 523.25, 0.12, 0.25, 0.003, 0.08, -0.2);  // C5
+    usleep(60000); // 60ms gap
+    audio_synth(audio, WAVE_TRIANGLE, 659.25, 0.12, 0.25, 0.003, 0.08,  0.0);  // E5
+    usleep(60000);
+    audio_synth(audio, WAVE_TRIANGLE, 783.99, 0.18, 0.30, 0.003, 0.12,  0.2);  // G5
+}
+
 void audio_destroy(ACAudio *audio) {
     if (!audio) return;
     audio->running = 0;
