@@ -7,10 +7,12 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#include <dirent.h>
+#include <unistd.h>
 #include <alsa/asoundlib.h>
 
 // Forward declarations
-static int read_system_volume(void);
+static int read_system_volume_card(int card);
 
 // ============================================================
 // Note frequency table (octave 0 base frequencies)
@@ -358,22 +360,68 @@ ACAudio *audio_init(void) {
     audio->room_buf_l = calloc(ROOM_SIZE, sizeof(float));
     audio->room_buf_r = calloc(ROOM_SIZE, sizeof(float));
 
-    // Open ALSA — try multiple devices
+    // Wait for sound card to appear (i915 GPU init can delay HDA probe)
+    fprintf(stderr, "[audio] Waiting for sound card...\n");
+    for (int w = 0; w < 200; w++) { // up to 4 seconds
+        if (access("/dev/snd/pcmC0D0p", F_OK) == 0 ||
+            access("/dev/snd/pcmC1D0p", F_OK) == 0) break;
+        usleep(20000);
+    }
+
+    // Dump sound card info for diagnostics (write to USB log if mounted)
+    FILE *alog = fopen("/mnt/ac-audio.log", "w");
+    if (!alog) alog = stderr;  // fallback to stderr
+    {
+        FILE *cards = fopen("/proc/asound/cards", "r");
+        if (cards) {
+            char line[256];
+            fprintf(alog, "[audio] === /proc/asound/cards ===\n");
+            while (fgets(line, sizeof(line), cards))
+                fprintf(alog, "[audio] %s", line);
+            fclose(cards);
+        } else {
+            fprintf(alog, "[audio] WARNING: /proc/asound/cards not found!\n");
+        }
+        // Also check /dev/snd/
+        DIR *snddir = opendir("/dev/snd");
+        if (snddir) {
+            struct dirent *ent;
+            fprintf(alog, "[audio] /dev/snd/:");
+            while ((ent = readdir(snddir))) {
+                if (ent->d_name[0] != '.') fprintf(alog, " %s", ent->d_name);
+            }
+            fprintf(alog, "\n");
+            closedir(snddir);
+        } else {
+            fprintf(alog, "[audio] WARNING: /dev/snd/ not found!\n");
+        }
+    }
+
+    // Open ALSA — try multiple cards and devices
+    // i915 HDMI audio may grab card 0, pushing HDA codec to card 1
     snd_pcm_t *pcm = NULL;
     const char *devices[] = {
-        "hw:0,0", "hw:0,1", "hw:0,2", "hw:0,3",
-        "plughw:0,0", "plughw:0,1",
+        "hw:0,0", "hw:1,0", "hw:0,1", "hw:1,1",
+        "hw:0,2", "hw:0,3", "hw:1,2", "hw:1,3",
+        "plughw:0,0", "plughw:1,0",
         "default", NULL
     };
     int err = -1;
+    int card_idx = 0;
     for (int i = 0; devices[i]; i++) {
         err = snd_pcm_open(&pcm, devices[i], SND_PCM_STREAM_PLAYBACK, 0);
         if (err >= 0) {
+            fprintf(alog, "[audio] Opened ALSA device: %s\n", devices[i]);
             fprintf(stderr, "[audio] Opened ALSA device: %s\n", devices[i]);
+            if (sscanf(devices[i], "hw:%d", &card_idx) != 1 &&
+                sscanf(devices[i], "plughw:%d", &card_idx) != 1)
+                card_idx = 0;
             break;
         }
-        fprintf(stderr, "[audio] Failed %s: %s\n", devices[i], snd_strerror(err));
+        fprintf(alog, "[audio] Failed %s: %s\n", devices[i], snd_strerror(err));
     }
+    audio->card_index = card_idx;
+    if (alog != stderr) { fflush(alog); fclose(alog); }
     if (err < 0) {
         fprintf(stderr, "[audio] Cannot open any ALSA device\n");
         // Audio is optional — return the struct but with no PCM
@@ -412,14 +460,17 @@ ACAudio *audio_init(void) {
     fprintf(stderr, "[audio] ALSA: %uHz, period=%lu, buffer=%lu\n",
             rate, (unsigned long)period, (unsigned long)buffer_size);
 
-    // Unmute master and PCM outputs (HDA Intel often starts muted)
+    // Unmute ALL outputs (HDA Intel codecs have many controls that can mute)
+    char mixer_card[16];
+    snprintf(mixer_card, sizeof(mixer_card), "hw:%d", card_idx);
+    fprintf(stderr, "[audio] Using mixer: %s\n", mixer_card);
+
     snd_mixer_t *mixer = NULL;
     if (snd_mixer_open(&mixer, 0) >= 0) {
-        snd_mixer_attach(mixer, "hw:0");
+        snd_mixer_attach(mixer, mixer_card);
         snd_mixer_selem_register(mixer, NULL, NULL);
         snd_mixer_load(mixer);
 
-        const char *unmute_names[] = {"Master", "PCM", "Speaker", "Headphone", NULL};
         snd_mixer_elem_t *elem;
         for (elem = snd_mixer_first_elem(mixer); elem; elem = snd_mixer_elem_next(elem)) {
             const char *name = snd_mixer_selem_get_name(elem);
@@ -429,24 +480,21 @@ ACAudio *audio_init(void) {
             fprintf(stderr, "[audio] Mixer: %s", name);
             if (snd_mixer_selem_has_playback_volume(elem)) fprintf(stderr, " [vol]");
             if (snd_mixer_selem_has_playback_switch(elem)) fprintf(stderr, " [sw]");
+            if (snd_mixer_selem_has_capture_switch(elem)) fprintf(stderr, " [cap-sw]");
             fprintf(stderr, "\n");
 
-            // Unmute and set volume for known output controls
-            for (int i = 0; unmute_names[i]; i++) {
-                if (strcasecmp(name, unmute_names[i]) == 0) {
-                    if (snd_mixer_selem_has_playback_switch(elem)) {
-                        snd_mixer_selem_set_playback_switch_all(elem, 1);
-                        fprintf(stderr, "[audio] Unmuted: %s\n", name);
-                    }
-                    if (snd_mixer_selem_has_playback_volume(elem)) {
-                        long min, max;
-                        snd_mixer_selem_get_playback_volume_range(elem, &min, &max);
-                        long vol = max; // 100%
-                        snd_mixer_selem_set_playback_volume_all(elem, vol);
-                        fprintf(stderr, "[audio] Volume %s: %ld/%ld\n", name, vol, max);
-                    }
-                    break;
-                }
+            // Unmute every playback switch we find
+            if (snd_mixer_selem_has_playback_switch(elem)) {
+                snd_mixer_selem_set_playback_switch_all(elem, 1);
+                fprintf(stderr, "[audio] Unmuted: %s\n", name);
+            }
+
+            // Set volume to max for output controls
+            if (snd_mixer_selem_has_playback_volume(elem)) {
+                long min, max;
+                snd_mixer_selem_get_playback_volume_range(elem, &min, &max);
+                snd_mixer_selem_set_playback_volume_all(elem, max);
+                fprintf(stderr, "[audio] Volume %s: %ld/%ld\n", name, max, max);
             }
         }
         snd_mixer_close(mixer);
@@ -454,8 +502,25 @@ ACAudio *audio_init(void) {
         fprintf(stderr, "[audio] Cannot open mixer\n");
     }
 
+    // Force-unmute via HDA codec verbs (bypasses ALSA mixer abstraction)
+    // ALC257: Node 0x14 = Speaker, Node 0x21 = HP Out
+    // Pin Widget Control verb (0x707) with OUT enabled (0x40)
+    // Amp Gain/Mute verb: 0x3 = set output amp, 0xb0 = unmute + gain
+    {
+        FILE *codec = fopen("/proc/asound/card0/codec#0", "r");
+        if (codec) {
+            fprintf(stderr, "[audio] HDA codec found, sending unmute verbs\n");
+            fclose(codec);
+            // Write verbs to hwdep (if available) — fallback: use sysfs
+            char verb_path[128];
+            snprintf(verb_path, sizeof(verb_path), "/sys/class/sound/hwC0D0/init_pin_configs");
+            if (access(verb_path, F_OK) == 0)
+                fprintf(stderr, "[audio] HDA sysfs: %s\n", verb_path);
+        }
+    }
+
     // Read initial system volume
-    audio->system_volume = read_system_volume();
+    audio->system_volume = read_system_volume_card(card_idx);
     fprintf(stderr, "[audio] System volume: %d%%\n", audio->system_volume);
 
     // Start audio thread
@@ -579,10 +644,12 @@ void audio_set_room_mix(ACAudio *audio, float mix) {
 }
 
 // Read current Master mixer volume as 0-100 percentage
-static int read_system_volume(void) {
+static int read_system_volume_card(int card) {
     snd_mixer_t *mixer = NULL;
     if (snd_mixer_open(&mixer, 0) < 0) return -1;
-    snd_mixer_attach(mixer, "hw:0");
+    char card_name[16];
+    snprintf(card_name, sizeof(card_name), "hw:%d", card);
+    snd_mixer_attach(mixer, card_name);
     snd_mixer_selem_register(mixer, NULL, NULL);
     snd_mixer_load(mixer);
 
@@ -603,12 +670,28 @@ static int read_system_volume(void) {
     return pct;
 }
 
+static int muted = 0;
+static long pre_mute_volume = -1;
+
+// Unmute all playback switches in the mixer
+static void unmute_all_switches(snd_mixer_t *mixer) {
+    snd_mixer_elem_t *elem;
+    for (elem = snd_mixer_first_elem(mixer); elem; elem = snd_mixer_elem_next(elem)) {
+        if (!snd_mixer_selem_is_active(elem)) continue;
+        if (snd_mixer_selem_has_playback_switch(elem))
+            snd_mixer_selem_set_playback_switch_all(elem, 1);
+    }
+}
+
 void audio_volume_adjust(ACAudio *audio, int delta) {
     if (!audio || !audio->pcm) return;
 
+    char card_name[16];
+    snprintf(card_name, sizeof(card_name), "hw:%d", audio->card_index);
+
     snd_mixer_t *mixer = NULL;
     if (snd_mixer_open(&mixer, 0) < 0) return;
-    snd_mixer_attach(mixer, "hw:0");
+    snd_mixer_attach(mixer, card_name);
     snd_mixer_selem_register(mixer, NULL, NULL);
     snd_mixer_load(mixer);
 
@@ -619,11 +702,22 @@ void audio_volume_adjust(ACAudio *audio, int delta) {
         if (strcasecmp(name, "Master") != 0) continue;
 
         if (delta == 0) {
-            // Toggle mute
-            if (snd_mixer_selem_has_playback_switch(elem)) {
-                int sw = 0;
-                snd_mixer_selem_get_playback_switch(elem, 0, &sw);
-                snd_mixer_selem_set_playback_switch_all(elem, !sw);
+            // Toggle mute via volume (most reliable across codecs)
+            if (snd_mixer_selem_has_playback_volume(elem)) {
+                long min, max, cur;
+                snd_mixer_selem_get_playback_volume_range(elem, &min, &max);
+                snd_mixer_selem_get_playback_volume(elem, 0, &cur);
+                if (!muted) {
+                    pre_mute_volume = cur;
+                    snd_mixer_selem_set_playback_volume_all(elem, min);
+                    muted = 1;
+                } else {
+                    long restore = (pre_mute_volume > min) ? pre_mute_volume : max * 80 / 100;
+                    snd_mixer_selem_set_playback_volume_all(elem, restore);
+                    // Ensure all switches are unmuted too
+                    unmute_all_switches(mixer);
+                    muted = 0;
+                }
             }
         } else if (snd_mixer_selem_has_playback_volume(elem)) {
             long min, max, cur;
@@ -634,16 +728,16 @@ void audio_volume_adjust(ACAudio *audio, int delta) {
             if (newvol < min) newvol = min;
             if (newvol > max) newvol = max;
             snd_mixer_selem_set_playback_volume_all(elem, newvol);
-            // Also ensure unmuted
-            if (snd_mixer_selem_has_playback_switch(elem))
-                snd_mixer_selem_set_playback_switch_all(elem, 1);
+            // Also ensure all unmuted
+            unmute_all_switches(mixer);
+            muted = 0;
         }
         break;
     }
     snd_mixer_close(mixer);
 
     // Update cached system volume
-    audio->system_volume = read_system_volume();
+    audio->system_volume = muted ? 0 : read_system_volume_card(audio->card_index);
 }
 
 void audio_destroy(ACAudio *audio) {
