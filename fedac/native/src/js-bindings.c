@@ -244,6 +244,35 @@ static WaveType parse_wave_type(const char *type) {
     return WAVE_SINE;
 }
 
+// synthObj.update({volume, tone, pan}) — method on synth return object
+static JSValue js_synth_obj_update(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    ACAudio *audio = current_rt->audio;
+    if (!audio || argc < 1 || !JS_IsObject(argv[0])) return JS_UNDEFINED;
+
+    // Get id from 'this' object
+    JSValue id_v = JS_GetPropertyStr(ctx, this_val, "id");
+    double id_d = 0;
+    if (JS_IsNumber(id_v)) JS_ToFloat64(ctx, &id_d, id_v);
+    JS_FreeValue(ctx, id_v);
+    uint64_t id = (uint64_t)id_d;
+    if (id == 0) return JS_UNDEFINED;
+
+    double freq = -1, vol = -1, pan = -3;
+    JSValue v;
+    v = JS_GetPropertyStr(ctx, argv[0], "tone");
+    if (JS_IsNumber(v)) JS_ToFloat64(ctx, &freq, v);
+    JS_FreeValue(ctx, v);
+    v = JS_GetPropertyStr(ctx, argv[0], "volume");
+    if (JS_IsNumber(v)) JS_ToFloat64(ctx, &vol, v);
+    JS_FreeValue(ctx, v);
+    v = JS_GetPropertyStr(ctx, argv[0], "pan");
+    if (JS_IsNumber(v)) JS_ToFloat64(ctx, &pan, v);
+    JS_FreeValue(ctx, v);
+
+    audio_update(audio, id, freq, vol, pan);
+    return JS_UNDEFINED;
+}
+
 // sound.synth({type, tone, duration, volume, attack, decay, pan})
 static JSValue js_synth(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
@@ -306,16 +335,17 @@ static JSValue js_synth(JSContext *ctx, JSValueConst this_val, int argc, JSValue
 
     // Create voice
     uint64_t id = audio_synth(audio, wt, freq, duration, volume, attack, decay, pan);
+    fprintf(stderr, "[synth] type=%d freq=%.1f vol=%.2f dur=%.1f id=%lu\n",
+            wt, freq, volume, duration, (unsigned long)id);
 
     // Return sound object with kill(), update(), startedAt
     JSValue snd = JS_NewObject(ctx);
     JS_SetPropertyStr(ctx, snd, "id", JS_NewFloat64(ctx, (double)id));
     JS_SetPropertyStr(ctx, snd, "startedAt", JS_NewFloat64(ctx, audio->time));
 
-    // kill(fade) method — capture id in closure via property
-    // We'll use a helper that reads 'id' from 'this'
+    // kill(fade) and update({volume,tone,pan}) methods
     JS_SetPropertyStr(ctx, snd, "kill", JS_NewCFunction(ctx, (JSCFunction *)js_noop, "kill", 1));
-    JS_SetPropertyStr(ctx, snd, "update", JS_NewCFunction(ctx, (JSCFunction *)js_noop, "update", 1));
+    JS_SetPropertyStr(ctx, snd, "update", JS_NewCFunction(ctx, js_synth_obj_update, "update", 1));
 
     return snd;
 }
@@ -475,7 +505,11 @@ static JSValue make_event_object(JSContext *ctx, ACEvent *ev) {
     JS_SetPropertyStr(ctx, obj, "repeat", JS_NewBool(ctx, ev->repeat));
     JS_SetPropertyStr(ctx, obj, "key", JS_NewString(ctx, ev->key_name));
     JS_SetPropertyStr(ctx, obj, "code", JS_NewString(ctx, ev->key_name));
-    JS_SetPropertyStr(ctx, obj, "velocity", JS_NewInt32(ctx, 127));
+    // Velocity: 0-127 from analog pressure (0.0-1.0), default 127 for digital keys
+    int velocity = ev->pressure > 0.001f ? (int)(ev->pressure * 127.0f) : 127;
+    if (velocity < 1 && ev->type == AC_EVENT_KEYBOARD_DOWN) velocity = 1;
+    JS_SetPropertyStr(ctx, obj, "velocity", JS_NewInt32(ctx, velocity));
+    JS_SetPropertyStr(ctx, obj, "pressure", JS_NewFloat64(ctx, (double)ev->pressure));
     JS_SetPropertyStr(ctx, obj, "name", JS_NewString(ctx, ev->key_name));
 
     // pointer sub-object
@@ -1008,6 +1042,21 @@ static JSValue build_api(JSContext *ctx, ACRuntime *rt, const char *phase) {
         JS_SetPropertyStr(ctx, trackpad, "dx", JS_NewInt32(ctx, rt->input->delta_x));
         JS_SetPropertyStr(ctx, trackpad, "dy", JS_NewInt32(ctx, rt->input->delta_y));
         JS_SetPropertyStr(ctx, api, "trackpad", trackpad);
+
+        // Analog key pressures — object mapping key names to 0.0-1.0 pressure
+        if (rt->input->has_analog) {
+            JSValue pressures = JS_NewObject(ctx);
+            for (int i = 0; i < MAX_ANALOG_KEYS; i++) {
+                if (rt->input->analog_keys[i].active) {
+                    const char *name = input_key_name(rt->input->analog_keys[i].key_code);
+                    if (name) {
+                        JS_SetPropertyStr(ctx, pressures, name,
+                            JS_NewFloat64(ctx, (double)rt->input->analog_keys[i].pressure));
+                    }
+                }
+            }
+            JS_SetPropertyStr(ctx, api, "pressures", pressures);
+        }
     }
 
     // params, colon, query

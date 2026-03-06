@@ -15,6 +15,8 @@
 #include <sys/stat.h>
 #include <sys/reboot.h>
 #include <linux/reboot.h>
+#include <linux/input.h>
+#include <sys/ioctl.h>
 
 #include "drm-display.h"
 #include "framebuffer.h"
@@ -81,9 +83,9 @@ static void mount_minimal_fs(void) {
 static char log_dev[32] = "";
 static void try_mount_log(void) {
     mkdir("/mnt", 0755);
-    // Wait for USB block devices to appear (up to 5s after EFI handoff)
+    // Wait for USB block devices to appear (up to 2s after EFI handoff)
     fprintf(stderr, "[ac-native] Waiting for USB block devices...\n");
-    for (int w = 0; w < 250; w++) {
+    for (int w = 0; w < 100; w++) {
         if (access("/dev/sda1", F_OK) == 0 || access("/dev/sdb1", F_OK) == 0) break;
         usleep(20000);
     }
@@ -108,6 +110,136 @@ static void try_mount_log(void) {
     fprintf(stderr, "[ac-native] No USB log mount available\n");
 }
 
+// Forward declarations
+static void draw_boot_status(ACGraph *graph, ACFramebuffer *screen,
+                             ACDisplay *display, const char *status);
+
+// Check if a block device is removable (USB = 1, internal = 0)
+static int is_removable(const char *blkname) {
+    char path[128];
+    snprintf(path, sizeof(path), "/sys/block/%s/removable", blkname);
+    FILE *f = fopen(path, "r");
+    if (!f) return -1; // unknown
+    int val = 0;
+    if (fscanf(f, "%d", &val) != 1) val = -1;
+    fclose(f);
+    return val;
+}
+
+// Copy a file from src to dst path, returns bytes copied or -1 on error
+static long copy_file(const char *src, const char *dst) {
+    FILE *in = fopen(src, "rb");
+    if (!in) return -1;
+    FILE *out = fopen(dst, "wb");
+    if (!out) { fclose(in); return -1; }
+    char buf[65536];
+    long total = 0;
+    size_t n;
+    while ((n = fread(buf, 1, sizeof(buf), in)) > 0) {
+        if (fwrite(buf, 1, n, out) != n) { total = -1; break; }
+        total += n;
+    }
+    fclose(out);
+    fclose(in);
+    return total;
+}
+
+// Auto-install kernel to internal drive's EFI System Partition
+static void auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
+                                ACDisplay *display) {
+    const char *kernel_src = "/mnt/EFI/BOOT/BOOTX64.EFI";
+
+    // Check if kernel exists on USB
+    if (access(kernel_src, F_OK) != 0) {
+        fprintf(stderr, "[ac-native] No kernel on USB, skipping HD install\n");
+        return;
+    }
+
+    if (display)
+        draw_boot_status(graph, screen, display, "installing to disk...");
+
+    mkdir("/tmp/hd", 0755);
+
+    // Determine which block device the USB log is on (skip it)
+    // log_dev is like "/dev/sda1" → parent is "sda"
+    char usb_blk[16] = "";
+    if (log_dev[0]) {
+        const char *p = log_dev + 5; // skip "/dev/"
+        int len = 0;
+        while (p[len] && (p[len] < '0' || p[len] > '9')) len++;
+        // For nvme: "nvme0n1p1" → parent "nvme0n1"
+        // For sd: "sda1" → parent "sda"
+        if (len > 0) {
+            if (len > (int)sizeof(usb_blk) - 1) len = sizeof(usb_blk) - 1;
+            memcpy(usb_blk, p, len);
+            usb_blk[len] = '\0';
+        }
+    }
+
+    // Scan for internal (non-removable) block devices with partitions
+    // Try NVMe first (always internal), then SATA/USB
+    const char *part_candidates[] = {
+        "nvme0n1", "nvme1n1",     // NVMe SSDs
+        "sda", "sdb", "sdc",     // SATA/USB
+        NULL
+    };
+
+    int installed = 0;
+    for (int i = 0; part_candidates[i] && !installed; i++) {
+        const char *blk = part_candidates[i];
+
+        // Skip the USB boot device
+        if (usb_blk[0] && strcmp(blk, usb_blk) == 0) continue;
+
+        // For sd* devices, skip if removable
+        if (blk[0] == 's' && blk[1] == 'd') {
+            int rem = is_removable(blk);
+            if (rem == 1) continue; // removable = USB
+        }
+
+        // Try partitions 1-4
+        for (int p = 1; p <= 4 && !installed; p++) {
+            char devpath[32];
+            if (blk[0] == 'n') // NVMe: nvme0n1p1
+                snprintf(devpath, sizeof(devpath), "/dev/%sp%d", blk, p);
+            else // SATA: sda1
+                snprintf(devpath, sizeof(devpath), "/dev/%s%d", blk, p);
+
+            if (access(devpath, F_OK) != 0) continue;
+
+            // Try mounting as FAT (ESP is always FAT32)
+            if (mount(devpath, "/tmp/hd", "vfat", 0, NULL) != 0) continue;
+
+            // Create EFI boot directories
+            mkdir("/tmp/hd/EFI", 0755);
+            mkdir("/tmp/hd/EFI/BOOT", 0755);
+
+            // Copy kernel as fallback boot entry
+            long sz = copy_file(kernel_src, "/tmp/hd/EFI/BOOT/BOOTX64.EFI");
+            if (sz > 0) {
+                // Also overwrite Windows Boot Manager path (ThinkPad BIOS often
+                // boots this first regardless of boot order)
+                mkdir("/tmp/hd/EFI/Microsoft", 0755);
+                mkdir("/tmp/hd/EFI/Microsoft/Boot", 0755);
+                copy_file(kernel_src, "/tmp/hd/EFI/Microsoft/Boot/bootmgfw.efi");
+
+                sync();
+                installed = 1;
+                fprintf(stderr, "[ac-native] Installed %ld bytes to %s\n", sz, devpath);
+            }
+
+            umount("/tmp/hd");
+        }
+    }
+
+    if (installed && display) {
+        draw_boot_status(graph, screen, display, "installed to disk!");
+        usleep(800000);
+    } else if (!installed) {
+        fprintf(stderr, "[ac-native] No suitable HD partition found for install\n");
+    }
+}
+
 static void frame_sync_60fps(struct timespec *next) {
     next->tv_nsec += 16666667;
     if (next->tv_nsec >= 1000000000) {
@@ -117,49 +249,115 @@ static void frame_sync_60fps(struct timespec *next) {
     clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, next, NULL);
 }
 
+// Check if a specific key is currently held using pre-opened fds (fast path)
+static int check_key_held_fds(int keycode, int *fds, int nfds) {
+    for (int i = 0; i < nfds; i++) {
+        unsigned long bits[(KEY_MAX + 7) / 8 / sizeof(unsigned long) + 1] = {0};
+        if (ioctl(fds[i], EVIOCGKEY(sizeof(bits)), bits) >= 0) {
+            if (bits[keycode / (sizeof(unsigned long) * 8)] &
+                (1UL << (keycode % (sizeof(unsigned long) * 8))))
+                return 1;
+        }
+    }
+    return 0;
+}
+
 // Draw startup fade animation (black → white with title)
-static void draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
+// Returns 1 if user held W to request disk install, 0 otherwise
+static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
                               ACDisplay *display) {
     struct timespec anim_time;
     clock_gettime(CLOCK_MONOTONIC, &anim_time);
+    int w_held_frames = 0;
+
+    // Open evdev fds once for key checking (avoid per-frame open/close)
+    int key_fds[8];
+    int key_fd_count = 0;
+    DIR *dir = opendir("/dev/input");
+    if (dir) {
+        struct dirent *ent;
+        while ((ent = readdir(dir)) && key_fd_count < 8) {
+            if (strncmp(ent->d_name, "event", 5) != 0) continue;
+            char path[64];
+            snprintf(path, sizeof(path), "/dev/input/%s", ent->d_name);
+            int fd = open(path, O_RDONLY | O_NONBLOCK);
+            if (fd >= 0) key_fds[key_fd_count++] = fd;
+        }
+        closedir(dir);
+    }
 
     // Start with a black frame immediately (hides any kernel text)
+    // Write directly to front buffer — no flip needed, instant display
     graph_wipe(graph, (ACColor){0, 0, 0, 255});
-    fb_copy_scaled(screen, drm_back_buffer(display),
+    fb_copy_scaled(screen, drm_front_buffer(display),
                    display->width, display->height,
-                   drm_back_stride(display), 3);
-    drm_flip(display);
+                   drm_front_stride(display), 3);
 
-    for (int f = 0; f < 60; f++) { // 60 frames @ 60fps = 1s
+    // 60 frames = 1 second. W must be held the entire time to install.
+    // Write directly to front buffer (no page flip = no modeset overhead)
+    for (int f = 0; f < 60; f++) {
         double t = (double)f / 60.0;
 
-        // Fade from black to white
-        int bg = (int)(255.0 * t);
+        // Check if W is held (fast: just ioctl on pre-opened fds)
+        int w_now = check_key_held_fds(KEY_W, key_fds, key_fd_count);
+        if (w_now) w_held_frames++;
+
+        // Fade from black to white (complete in first 0.3s)
+        double fade_t = t * 3.33;
+        if (fade_t > 1.0) fade_t = 1.0;
+        int bg = (int)(255.0 * fade_t);
         graph_wipe(graph, (ACColor){(uint8_t)bg, (uint8_t)bg, (uint8_t)bg, 255});
 
-        if (t > 0.2) {
-            double text_t = (t - 0.2) / 0.8;
-            int alpha = (int)(255.0 * (text_t < 1.0 ? text_t : 1.0));
-
-            // Title: "notepat" in MatrixChunky8 at scale 3
+        // Title + subtitle appear with fade
+        int alpha = (int)(255.0 * fade_t);
+        if (alpha > 0) {
             graph_ink(graph, (ACColor){0, 0, 0, (uint8_t)alpha});
             int tw = font_measure_matrix("notepat", 3);
             font_draw_matrix(graph, "notepat", (screen->width - tw) / 2,
                              screen->height / 2 - 20, 3);
 
-            // Subtitle: "aesthetic.computer" in MatrixChunky8 at scale 1
             graph_ink(graph, (ACColor){120, 120, 120, (uint8_t)(alpha / 2)});
             int sw = font_measure_matrix("aesthetic.computer", 1);
             font_draw_matrix(graph, "aesthetic.computer",
                              (screen->width - sw) / 2, screen->height / 2 + 10, 1);
         }
 
-        fb_copy_scaled(screen, drm_back_buffer(display),
+        // Bottom: shrinking time bar (shows remaining window to hold W)
+        int bar_full = screen->width - 40;
+        int bar_remaining = (int)((1.0 - t) * bar_full);
+        if (bar_remaining > 0) {
+            graph_ink(graph, (ACColor){200, 200, 200, (uint8_t)(80 * (1.0 - t))});
+            graph_box(graph, 20, screen->height - 6, bar_remaining, 3, 1);
+        }
+
+        // If W is being held, show install progress overlay
+        if (w_held_frames > 3) {
+            double progress = (double)w_held_frames / 60.0;
+            int fill_w = (int)(progress * bar_full);
+            if (fill_w > bar_full) fill_w = bar_full;
+            graph_ink(graph, (ACColor){60, 140, 255, 220});
+            graph_box(graph, 20, screen->height - 6, fill_w, 3, 1);
+
+            graph_ink(graph, (ACColor){60, 140, 255, 200});
+            int iw = font_measure_matrix("W: install to disk", 1);
+            font_draw_matrix(graph, "W: install to disk",
+                             (screen->width - iw) / 2, screen->height - 18, 1);
+        }
+
+        // Write directly to front buffer — immediately visible, no flip
+        fb_copy_scaled(screen, drm_front_buffer(display),
                        display->width, display->height,
-                       drm_back_stride(display), 3);
-        drm_flip(display);
+                       drm_front_stride(display), 3);
         frame_sync_60fps(&anim_time);
+
+        // If W held for full second, trigger install
+        if (w_held_frames >= 60) {
+            for (int i = 0; i < key_fd_count; i++) close(key_fds[i]);
+            return 1;
+        }
     }
+    for (int i = 0; i < key_fd_count; i++) close(key_fds[i]);
+    return 0;
 }
 
 // Draw a status frame during boot (white bg, title + status text)
@@ -205,12 +403,12 @@ int main(int argc, char *argv[]) {
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
 
-    // Determine piece path
+    // Determine piece path (ignore kernel cmdline args passed to init)
     const char *piece_path = "/piece.mjs";
     int headless = 0;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--headless") == 0) headless = 1;
-        else piece_path = argv[i];
+        else if (argv[i][0] == '/' || argv[i][0] == '.') piece_path = argv[i];
     }
 
     ACDisplay *display = NULL;
@@ -241,8 +439,10 @@ int main(int argc, char *argv[]) {
     font_init();
 
     // Startup fade animation (black → white, hides kernel text)
+    // Returns 1 if user held W to request disk install
+    int want_install = 0;
     if (!headless) {
-        draw_startup_fade(&graph, screen, display);
+        want_install = draw_startup_fade(&graph, screen, display);
         draw_boot_status(&graph, screen, display, "starting input...");
     }
 
@@ -288,6 +488,10 @@ int main(int argc, char *argv[]) {
 
     // Retry log mount if first attempt failed (USB may have appeared during audio init)
     if (getpid() == 1 && !logfile) try_mount_log();
+
+    // Install kernel to internal drive (only if user held W during boot)
+    if (getpid() == 1 && want_install && logfile)
+        auto_install_to_hd(&graph, screen, display);
 
     // Init JS
     if (!headless && display)
@@ -399,7 +603,8 @@ int main(int argc, char *argv[]) {
                         f = fopen(tmp, "w");
                         if (f) { fprintf(f, "%d", cur); fclose(f); }
                     }
-                    else if (strcmp(input->events[i].key_name, "power") == 0)
+                    else if (strcmp(input->events[i].key_name, "power") == 0 ||
+                             input->events[i].key_code == KEY_POWER)
                         power_pressed = 1;
                 }
             }

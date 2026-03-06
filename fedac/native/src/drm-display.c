@@ -202,13 +202,31 @@ ACDisplay *drm_init(void) {
         return fbdev_init();
     }
 
+    // Prefer internal panel (eDP/LVDS) over external (HDMI/DP) to avoid slow EDID probes
     drmModeConnector *conn = NULL;
+    // First pass: look for internal panel
     for (int i = 0; i < res->count_connectors; i++) {
-        conn = drmModeGetConnector(d->fd, res->connectors[i]);
-        if (conn && conn->connection == DRM_MODE_CONNECTED && conn->count_modes > 0)
+        drmModeConnector *c = drmModeGetConnector(d->fd, res->connectors[i]);
+        if (!c) continue;
+        if (c->connection == DRM_MODE_CONNECTED && c->count_modes > 0 &&
+            (c->connector_type == DRM_MODE_CONNECTOR_eDP ||
+             c->connector_type == DRM_MODE_CONNECTOR_LVDS ||
+             c->connector_type == DRM_MODE_CONNECTOR_DSI)) {
+            conn = c;
+            fprintf(stderr, "[drm] Using internal panel (type %d)\n", c->connector_type);
             break;
-        if (conn) drmModeFreeConnector(conn);
-        conn = NULL;
+        }
+        drmModeFreeConnector(c);
+    }
+    // Second pass: any connected display
+    if (!conn) {
+        for (int i = 0; i < res->count_connectors; i++) {
+            conn = drmModeGetConnector(d->fd, res->connectors[i]);
+            if (conn && conn->connection == DRM_MODE_CONNECTED && conn->count_modes > 0)
+                break;
+            if (conn) drmModeFreeConnector(conn);
+            conn = NULL;
+        }
     }
 
     if (!conn) {
@@ -305,8 +323,12 @@ void drm_flip(ACDisplay *d) {
         return;
     }
     int back = 1 - d->front;
-    drmModeSetCrtc(d->fd, d->crtc_id, d->buffers[back].fb_id, 0, 0,
-                   &d->connector_id, 1, &d->mode);
+    // Use page flip (fast) instead of full SetCrtc (slow modeset)
+    if (drmModePageFlip(d->fd, d->crtc_id, d->buffers[back].fb_id, 0, NULL) < 0) {
+        // Fallback to SetCrtc if page flip not supported
+        drmModeSetCrtc(d->fd, d->crtc_id, d->buffers[back].fb_id, 0, 0,
+                       &d->connector_id, 1, &d->mode);
+    }
     d->front = back;
 }
 
@@ -322,6 +344,16 @@ int drm_back_stride(ACDisplay *d) {
         return d->width;
     }
     return (int)(d->buffers[1 - d->front].pitch / sizeof(uint32_t));
+}
+
+uint32_t *drm_front_buffer(ACDisplay *d) {
+    if (d->is_fbdev) return d->fbdev_map;
+    return d->buffers[d->front].map;
+}
+
+int drm_front_stride(ACDisplay *d) {
+    if (d->is_fbdev) return d->fbdev_stride;
+    return (int)(d->buffers[d->front].pitch / sizeof(uint32_t));
 }
 
 void drm_destroy(ACDisplay *d) {

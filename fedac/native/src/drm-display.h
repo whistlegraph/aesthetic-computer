@@ -44,6 +44,10 @@ void drm_flip(ACDisplay *d);
 uint32_t *drm_back_buffer(ACDisplay *d);
 int drm_back_stride(ACDisplay *d);
 
+// Get pointer to the front buffer (currently displayed — writes are immediate)
+uint32_t *drm_front_buffer(ACDisplay *d);
+int drm_front_stride(ACDisplay *d);
+
 // Cleanup
 void drm_destroy(ACDisplay *d);
 

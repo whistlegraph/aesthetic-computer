@@ -20,6 +20,17 @@ let metronomeVisualPhase = 0;
 let echoMix = 0;
 let trackpadActivity = 0;
 
+// Dark mode: auto based on time (7pm-7am)
+function isDark() {
+  const h = new Date().getHours();
+  return h >= 19 || h < 7;
+}
+let dark = isDark();
+
+// Background color — average of active notes, lerped
+let bgColor = dark ? [20, 20, 25] : [255, 255, 255];
+let bgTarget = dark ? [20, 20, 25] : [255, 255, 255];
+
 // Debug: last key pressed
 let lastKey = "";
 let lastKeyTimer = 0;
@@ -131,13 +142,17 @@ function act({ event: e, sound }) {
       const semitones = (noteOctave - 4) * 12 + CHROMATIC.indexOf(letter);
       const pan = Math.max(-0.8, Math.min(0.8, (semitones - 12) / 15));
 
-      sounds[key] = sound.synth({
+      // Start at current pressure (or full for digital keys)
+      const velocity = e.pressure > 0 ? e.pressure : 1.0;
+      const vol = 0.15 + velocity * 0.55;
+      const synth = sound.synth({
         type: wave, tone: freq,
         duration: Infinity,
-        volume: 0.6, attack: quickMode ? 0.002 : 0.005,
+        volume: vol, attack: quickMode ? 0.002 : 0.005,
         decay: 0.1, pan: pan,
       });
-      trail[key] = { note: letter, octave: noteOctave, brightness: 1.0 };
+      sounds[key] = { synth, note: letter, octave: noteOctave };
+      trail[key] = { note: letter, octave: noteOctave, brightness: velocity };
     }
   }
 
@@ -145,13 +160,14 @@ function act({ event: e, sound }) {
     const key = e.key?.toLowerCase();
     if (!key) return;
     if (sounds[key]) {
-      sound.kill(sounds[key], quickMode ? 0.02 : 0.08);
+      const s = sounds[key].synth || sounds[key];
+      sound.kill(s, quickMode ? 0.02 : 0.08);
       delete sounds[key];
     }
   }
 }
 
-function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad }) {
+function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, pressures }) {
   frame++;
   const activeCount = Object.keys(sounds).length;
   const w = screen.width;
@@ -191,7 +207,55 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad })
   // Decay debug timer
   if (lastKeyTimer > 0) lastKeyTimer--;
 
-  wipe(255);
+  // Re-check dark mode every ~10 seconds
+  if (frame % 600 === 0) dark = isDark();
+  const BG = dark ? [20, 20, 25] : [255, 255, 255];
+  const FG = dark ? 220 : 0;
+  const FG_DIM = dark ? 140 : 100;
+  const FG_MUTED = dark ? 80 : 170;
+  const BAR_BG = dark ? [35, 35, 40] : [245, 245, 245];
+  const BAR_BORDER = dark ? [55, 55, 60] : [200, 200, 200];
+  const PAD_NORMAL = dark ? [40, 40, 45] : [245, 245, 245];
+  const PAD_SHARP = dark ? [30, 30, 35] : [215, 215, 220];
+  const PAD_OUTLINE = dark ? [60, 60, 65] : [210, 210, 210];
+
+  // Compute background color from active notes
+  const activeKeys = Object.keys(sounds);
+  if (activeKeys.length > 0) {
+    let r = 0, g = 0, b = 0;
+    for (const key of activeKeys) {
+      const noteName = KEY_TO_NOTE[key];
+      if (noteName) {
+        const [letter] = parseNote(noteName);
+        const nc = noteColor(letter);
+        r += nc[0]; g += nc[1]; b += nc[2];
+      }
+    }
+    const n = activeKeys.length;
+    if (dark) {
+      // Dark: blend toward deep note color
+      bgTarget = [
+        Math.floor(20 + (r / n) * 0.2),
+        Math.floor(20 + (g / n) * 0.2),
+        Math.floor(25 + (b / n) * 0.2),
+      ];
+    } else {
+      // Light: blend toward pastel note color
+      bgTarget = [
+        Math.floor(255 - (255 - r / n) * 0.35),
+        Math.floor(255 - (255 - g / n) * 0.35),
+        Math.floor(255 - (255 - b / n) * 0.35),
+      ];
+    }
+  } else {
+    bgTarget = BG;
+  }
+  // Lerp toward target
+  bgColor[0] += (bgTarget[0] - bgColor[0]) * 0.15;
+  bgColor[1] += (bgTarget[1] - bgColor[1]) * 0.15;
+  bgColor[2] += (bgTarget[2] - bgColor[2]) * 0.15;
+
+  wipe(Math.round(bgColor[0]), Math.round(bgColor[1]), Math.round(bgColor[2]));
 
   // Metronome flash border
   if (metronomeFlash > 0 && metronomeEnabled) {
@@ -210,13 +274,13 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad })
   const row2Y = 10;
   const topBarH = 19;
 
-  ink(245, 245, 245);
+  ink(BAR_BG[0], BAR_BG[1], BAR_BG[2]);
   box(0, 0, w, topBarH, true);
-  ink(200, 200, 200);
+  ink(BAR_BORDER[0], BAR_BORDER[1], BAR_BORDER[2]);
   line(0, topBarH - 1, w, topBarH - 1);
 
   // Row 1 left: title
-  ink(0, 0, 0, 200);
+  ink(FG, FG, FG, 200);
   write("notepat", { x: 2, y: row1Y, size: 1 });
 
   // Row 1 right: battery
@@ -226,7 +290,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad })
     // Battery icon
     const batW = 14, batH = 7;
     const batX = w - batW - 6, batY = row1Y;
-    ink(140, 140, 140);
+    ink(dark ? 100 : 140, dark ? 100 : 140, dark ? 100 : 140);
     box(batX, batY, batW, batH, "outline");
     box(batX + batW, batY + 2, 2, 3, true);
     const fillW = Math.max(0, Math.floor(batPct * (batW - 2) / 100));
@@ -237,7 +301,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad })
 
     // Percentage left of icon
     const pctStr = batPct + "%";
-    ink(100, 100, 100);
+    ink(FG_DIM, FG_DIM, FG_DIM);
     write(pctStr, { x: batX - pctStr.length * CH - 3, y: row1Y, size: 1 });
   }
 
@@ -245,13 +309,13 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad })
   const statusStr = activeCount > 0
     ? activeCount + " note" + (activeCount > 1 ? "s" : "")
     : "ready";
-  ink(activeCount > 0 ? 0 : 170, activeCount > 0 ? 0 : 170, activeCount > 0 ? 0 : 170);
+  ink(activeCount > 0 ? FG : FG_MUTED, activeCount > 0 ? FG : FG_MUTED, activeCount > 0 ? FG : FG_MUTED);
   write(statusStr, { x: 2, y: row2Y, size: 1 });
 
   // Row 2 right: wave, octave, mode, bpm
   const metroInfo = metronomeEnabled ? " " + metronomeBPM + "bpm" : "";
   const info = wave + " o:" + octave + (quickMode ? " QK" : "") + metroInfo;
-  ink(100, 100, 100);
+  ink(FG_DIM, FG_DIM, FG_DIM);
   write(info, { x: w - info.length * CH - 2, y: row2Y, size: 1 });
 
   // Volume bar (row 2, centered-right area, between status and info)
@@ -260,9 +324,9 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad })
   const infoStartX = w - info.length * CH - 2;
   const statusEndX = 2 + statusStr.length * CH;
   const volBarX = Math.floor((statusEndX + infoStartX) / 2 - volBarW / 2);
-  ink(220, 220, 225); box(volBarX, row2Y + 2, volBarW, volBarH, true);
+  ink(dark ? 50 : 220, dark ? 50 : 220, dark ? 55 : 225); box(volBarX, row2Y + 2, volBarW, volBarH, true);
   const fillV = Math.floor(sysVol * volBarW / 100);
-  if (fillV > 0) { ink(80, 80, 80); box(volBarX, row2Y + 2, fillV, volBarH, true); }
+  if (fillV > 0) { ink(dark ? 160 : 80, dark ? 160 : 80, dark ? 160 : 80); box(volBarX, row2Y + 2, fillV, volBarH, true); }
 
   // Waveform (overlaid on top bar when playing)
   const wf = sound?.speaker?.waveforms?.left;
@@ -317,17 +381,26 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad })
           ink(255, 255, 255);
         } else if (trailInfo && trailInfo.brightness > 0.05) {
           const b = trailInfo.brightness;
-          ink(Math.floor(255 - (255 - nc[0]) * b * 0.4),
-              Math.floor(255 - (255 - nc[1]) * b * 0.4),
-              Math.floor(255 - (255 - nc[2]) * b * 0.4));
+          if (dark) {
+            ink(Math.floor(nc[0] * b * 0.4),
+                Math.floor(nc[1] * b * 0.4),
+                Math.floor(nc[2] * b * 0.4));
+          } else {
+            ink(Math.floor(255 - (255 - nc[0]) * b * 0.4),
+                Math.floor(255 - (255 - nc[1]) * b * 0.4),
+                Math.floor(255 - (255 - nc[2]) * b * 0.4));
+          }
           box(x, y, btnW, btnH, true);
-          ink(40, 40, 40);
+          ink(dark ? 200 : 40, dark ? 200 : 40, dark ? 200 : 40);
         } else {
-          if (sharp) ink(215, 215, 220); else ink(245, 245, 245);
+          ink(sharp ? PAD_SHARP[0] : PAD_NORMAL[0],
+              sharp ? PAD_SHARP[1] : PAD_NORMAL[1],
+              sharp ? PAD_SHARP[2] : PAD_NORMAL[2]);
           box(x, y, btnW, btnH, true);
-          ink(210, 210, 210);
+          ink(PAD_OUTLINE[0], PAD_OUTLINE[1], PAD_OUTLINE[2]);
           box(x, y, btnW, btnH, "outline");
-          ink(sharp ? 140 : 60, sharp ? 140 : 60, sharp ? 140 : 60);
+          const fg = dark ? (sharp ? 100 : 180) : (sharp ? 140 : 60);
+          ink(fg, fg, fg);
         }
 
         const label = key ? key.toUpperCase() : "";
@@ -335,8 +408,18 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad })
 
         if (btnH > 16) {
           if (isActive) ink(255, 255, 255, 180);
-          else ink(sharp ? 160 : 110, sharp ? 160 : 110, sharp ? 160 : 110);
+          else { const sl = dark ? (sharp ? 80 : 120) : (sharp ? 160 : 110); ink(sl, sl, sl); }
           write(letter + noteOctave, { x: x + 2, y: y + btnH - 10, size: 1 });
+        }
+
+        // Pressure bar — fills from bottom of pad proportional to analog pressure
+        if (isActive && pressures && key && pressures[key] !== undefined) {
+          const p = pressures[key];
+          const barH = Math.floor(p * (btnH - 2));
+          if (barH > 0) {
+            ink(255, 255, 255, 120);
+            box(x + 1, y + btnH - 1 - barH, btnW - 2, barH, true);
+          }
         }
       }
     }
@@ -349,7 +432,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad })
   {
     const barH = 3;
     const barY = h - barH - 1;
-    ink(230, 230, 235);
+    ink(dark ? 35 : 230, dark ? 35 : 230, dark ? 40 : 235);
     box(0, barY, w, barH, true);
     const fillW = Math.floor(echoMix * w);
     if (fillW > 0) {
@@ -379,5 +462,20 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad })
   });
 }
 
-export { boot, act, paint };
+function sim({ pressures, sound }) {
+  // Continuously update synth volumes from analog key pressure
+  if (!pressures) return;
+  for (const key of Object.keys(sounds)) {
+    const entry = sounds[key];
+    if (!entry?.synth) continue;
+    const p = pressures[key]; // 0.0-1.0 analog pressure, undefined if not analog
+    if (p !== undefined) {
+      const vol = p * 0.7; // Linear: 0 pressure = silence, full press = 0.7
+      entry.synth.update({ volume: vol });
+      if (trail[key]) trail[key].brightness = p;
+    }
+  }
+}
+
+export { boot, act, paint, sim };
 
