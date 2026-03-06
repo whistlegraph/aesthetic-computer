@@ -59,15 +59,15 @@ const FALLBACK_CACHE_DIR = path.join(TEMP_DIR, "oven-cache");
 const WORKDIR_CACHE_DIR = path.join(process.cwd(), ".cache", "oven-os");
 const BASE_IMAGE_URLS = {
   fedora: process.env.FEDAC_BASE_IMAGE_URL ||
-    "https://assets-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/os/fedora-base-latest.img",
+    "https://releases.aesthetic.computer/os/fedora-base-latest.img",
   alpine: process.env.ALPINE_BASE_IMAGE_URL ||
-    "https://assets-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/os/alpine-base-latest.img",
+    "https://releases.aesthetic.computer/os/alpine-base-latest.img",
 };
 const MANIFEST_URLS = {
   fedora: process.env.FEDAC_MANIFEST_URL ||
-    "https://assets-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/os/fedora-base-manifest.json",
+    "https://releases.aesthetic.computer/os/fedora-base-manifest.json",
   alpine: process.env.ALPINE_MANIFEST_URL ||
-    "https://assets-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/os/alpine-base-manifest.json",
+    "https://releases.aesthetic.computer/os/alpine-base-manifest.json",
 };
 // Legacy aliases
 const BASE_IMAGE_URL = BASE_IMAGE_URLS.fedora;
@@ -176,10 +176,10 @@ const SPACES_ENDPOINT =
   process.env.OS_SPACES_ENDPOINT ||
   process.env.ART_SPACES_ENDPOINT ||
   "https://sfo3.digitaloceanspaces.com";
-const SPACES_BUCKET = process.env.OS_SPACES_BUCKET || "assets-aesthetic-computer";
+const SPACES_BUCKET = process.env.OS_SPACES_BUCKET || "releases-aesthetic-computer";
 const SPACES_CDN_BASE = (
   process.env.OS_SPACES_CDN_BASE ||
-  "https://assets-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com"
+  "https://releases.aesthetic.computer"
 ).replace(/\/+$/, "");
 const SPACES_PREFIX = "os/builds";
 

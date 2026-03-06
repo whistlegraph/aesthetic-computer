@@ -33,10 +33,10 @@ const SPACES_ENDPOINT =
   process.env.OS_SPACES_ENDPOINT ||
   process.env.ART_SPACES_ENDPOINT ||
   "https://sfo3.digitaloceanspaces.com";
-const SPACES_BUCKET = process.env.OS_SPACES_BUCKET || "assets-aesthetic-computer";
+const SPACES_BUCKET = process.env.OS_SPACES_BUCKET || "releases-aesthetic-computer";
 const SPACES_CDN_BASE = (
   process.env.OS_SPACES_CDN_BASE ||
-  "https://assets-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com"
+  "https://releases.aesthetic.computer"
 ).replace(/\/+$/, "");
 const SPACES_PREFIX = (process.env.OS_SPACES_PREFIX || "os").replace(/^\/+|\/+$/g, "");
 
