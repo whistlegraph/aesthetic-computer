@@ -352,11 +352,25 @@ ACInput *input_init(int screen_w, int screen_h) {
     return input;
 }
 
+static int input_debug_frames = 0;
+
 void input_poll(ACInput *input) {
     if (!input) return;
     input->event_count = 0;
     input->delta_x = 0;
     input->delta_y = 0;
+
+    // Debug: log analog state every 5 seconds
+    input_debug_frames++;
+    if (input_debug_frames % 300 == 0 && input->has_analog) {
+        int active = 0, releasing = 0;
+        for (int i = 0; i < MAX_ANALOG_KEYS; i++) {
+            if (input->analog_keys[i].active) active++;
+            if (input->analog_keys[i].releasing) releasing++;
+        }
+        fprintf(stderr, "[input] analog: %d active, %d releasing, has_analog=%d, hidraw=%d, evdev=%d\n",
+                active, releasing, input->has_analog, input->hidraw_count, input->count);
+    }
 
     struct input_event ev;
     for (int d = 0; d < input->count; d++) {
@@ -383,28 +397,9 @@ void input_poll(ACInput *input) {
                 }
                 // Keyboard
                 else if (ev.code < BTN_MISC) {
-                    // For NuPhy evdev: only allow media/Fn keys through (skip typing keys)
-                    if (input->fd_is_analog[d] && input->has_analog) {
-                        // Pass through: volume, mute, brightness, power, media keys
-                        if (ev.code != KEY_MUTE && ev.code != KEY_VOLUMEDOWN &&
-                            ev.code != KEY_VOLUMEUP && ev.code != KEY_BRIGHTNESSDOWN &&
-                            ev.code != KEY_BRIGHTNESSUP && ev.code != KEY_POWER &&
-                            ev.code != KEY_MICMUTE && ev.code != KEY_MEDIA &&
-                            ev.code != KEY_KBDILLUMTOGGLE && ev.code != KEY_WLAN &&
-                            ev.code != KEY_SWITCHVIDEOMODE && ev.code != KEY_FN)
-                            continue; // Skip regular typing keys from NuPhy evdev
-                    }
-                    // If analog keyboard is connected, skip events for keys held there
-                    if (input->has_analog) {
-                        int skip = 0;
-                        for (int k = 0; k < MAX_ANALOG_KEYS; k++) {
-                            if (input->analog_keys[k].active &&
-                                input->analog_keys[k].key_code == (int)ev.code) {
-                                skip = 1; break;
-                            }
-                        }
-                        if (skip) continue;
-                    }
+                    // Skip duplicate evdev events from NuPhy (handled via hidraw analog)
+                    if (input->fd_is_analog[d] && input->has_analog)
+                        continue;
                     const char *name = input_key_name(ev.code);
                     ae->type = ev.value ? AC_EVENT_KEYBOARD_DOWN : AC_EVENT_KEYBOARD_UP;
                     ae->key_code = ev.code;
