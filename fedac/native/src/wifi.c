@@ -71,46 +71,132 @@ ACWifi *wifi_init(void) {
     snprintf(wifi->status_msg, sizeof(wifi->status_msg), "initializing...");
     wifi->iface[0] = 0;
 
-    // Check if iw exists
-    if (!file_exists("/usr/sbin/iw") && !file_exists("/sbin/iw")) {
+    // Check if iw exists (try PATH lookup too)
+    int has_iw = file_exists("/usr/sbin/iw") || file_exists("/sbin/iw") ||
+                 file_exists("/usr/bin/iw") || file_exists("/bin/iw");
+    if (!has_iw) {
+        // Try `which iw` as last resort
+        has_iw = (system("which iw >/dev/null 2>&1") == 0);
+    }
+    if (!has_iw) {
         snprintf(wifi->status_msg, sizeof(wifi->status_msg), "iw not found");
-        ac_log("[wifi] iw binary not found");
+        ac_log("[wifi] iw binary not found\n");
         return wifi;
     }
+    ac_log("[wifi] iw binary found\n");
 
-    // Detect wireless interface
-    if (!detect_iface(wifi->iface, sizeof(wifi->iface))) {
-        // Try wlan0 as fallback
-        snprintf(wifi->iface, sizeof(wifi->iface), "wlan0");
+    // Wait for wireless interface to appear (up to 3 seconds)
+    // On bare metal PID 1, firmware loading can delay interface creation
+    int found = 0;
+    for (int attempt = 0; attempt < 30; attempt++) {
+        if (detect_iface(wifi->iface, sizeof(wifi->iface))) {
+            found = 1;
+            break;
+        }
+        ac_log("[wifi] Waiting for wireless interface (attempt %d/30)...\n", attempt + 1);
+        usleep(100000); // 100ms
     }
-    ac_log("[wifi] Using interface: %s", wifi->iface);
+
+    if (!found) {
+        // Log what interfaces we CAN see for debugging
+        ac_log("[wifi] No wireless interface detected. Listing /sys/class/net:\n");
+        FILE *fp = popen("ls /sys/class/net/ 2>/dev/null", "r");
+        if (fp) {
+            char buf[256] = "";
+            if (fgets(buf, sizeof(buf), fp)) {
+                buf[strcspn(buf, "\n")] = 0;
+                ac_log("[wifi]   interfaces: %s\n", buf);
+            }
+            pclose(fp);
+        }
+        // Also check if any wireless dirs exist
+        fp = popen("ls -d /sys/class/net/*/wireless 2>&1", "r");
+        if (fp) {
+            char buf[256] = "";
+            if (fgets(buf, sizeof(buf), fp)) {
+                buf[strcspn(buf, "\n")] = 0;
+                ac_log("[wifi]   wireless: %s\n", buf);
+            }
+            pclose(fp);
+        }
+        // Check rfkill
+        fp = popen("cat /sys/class/rfkill/*/type 2>/dev/null", "r");
+        if (fp) {
+            char buf[256] = "";
+            while (fgets(buf, sizeof(buf), fp)) {
+                buf[strcspn(buf, "\n")] = 0;
+                ac_log("[wifi]   rfkill type: %s\n", buf);
+            }
+            pclose(fp);
+        }
+
+        snprintf(wifi->status_msg, sizeof(wifi->status_msg), "no wifi hw");
+        ac_log("[wifi] No wireless interface found after 3s\n");
+        return wifi;
+    }
+    ac_log("[wifi] Detected interface: %s\n", wifi->iface);
+
+    // Check for rfkill soft-block and unblock if needed
+    {
+        char cmd[256];
+        snprintf(cmd, sizeof(cmd),
+                 "cat /sys/class/net/%s/phy80211/rfkill*/soft 2>/dev/null | head -1",
+                 wifi->iface);
+        FILE *fp = popen(cmd, "r");
+        if (fp) {
+            char buf[8] = "";
+            if (fgets(buf, sizeof(buf), fp) && buf[0] == '1') {
+                ac_log("[wifi] Soft-blocked, unblocking...\n");
+                run_cmd("rfkill unblock wifi 2>/dev/null");
+                usleep(200000);
+            }
+            pclose(fp);
+        }
+    }
 
     // Bring up the interface
     char cmd[128];
     snprintf(cmd, sizeof(cmd), "ip link set %s up 2>/dev/null", wifi->iface);
     run_cmd(cmd);
 
-    // Verify interface exists
-    snprintf(cmd, sizeof(cmd), "ip link show %s >/dev/null 2>&1", wifi->iface);
-    if (system(cmd) != 0) {
-        snprintf(wifi->status_msg, sizeof(wifi->status_msg), "no wifi interface");
-        ac_log("[wifi] Interface %s not found", wifi->iface);
-        return wifi;
+    // Verify interface exists and is up
+    snprintf(cmd, sizeof(cmd), "ip link show %s 2>/dev/null", wifi->iface);
+    FILE *fp = popen(cmd, "r");
+    if (fp) {
+        char buf[256] = "";
+        if (fgets(buf, sizeof(buf), fp)) {
+            buf[strcspn(buf, "\n")] = 0;
+            ac_log("[wifi] link status: %s\n", buf);
+        }
+        pclose(fp);
     }
 
     snprintf(wifi->status_msg, sizeof(wifi->status_msg), "ready");
-    ac_log("[wifi] Interface %s is up", wifi->iface);
+    ac_log("[wifi] Interface %s is up\n", wifi->iface);
     return wifi;
 }
 
 void wifi_scan(ACWifi *wifi) {
     if (!wifi || !wifi->iface[0]) return;
+
+    // Don't restart scan if already scanning
+    if (wifi->state == WIFI_STATE_SCANNING) return;
+
     wifi->state = WIFI_STATE_SCANNING;
     wifi->network_count = 0;
     snprintf(wifi->status_msg, sizeof(wifi->status_msg), "scanning...");
 
+    // Make sure interface is up before scanning
     char cmd[256];
-    snprintf(cmd, sizeof(cmd), "iw dev %s scan 2>/dev/null > /tmp/wifi_scan.txt &", wifi->iface);
+    snprintf(cmd, sizeof(cmd), "ip link set %s up 2>/dev/null", wifi->iface);
+    run_cmd(cmd);
+
+    // Remove stale scan file
+    unlink("/tmp/wifi_scan.txt");
+
+    snprintf(cmd, sizeof(cmd),
+             "iw dev %s scan 2>/tmp/wifi_scan_err.txt > /tmp/wifi_scan.txt &",
+             wifi->iface);
     run_cmd(cmd);
 }
 
@@ -126,8 +212,22 @@ int wifi_scan_poll(ACWifi *wifi) {
     // Parse scan results
     FILE *fp = fopen("/tmp/wifi_scan.txt", "r");
     if (!fp) {
+        // Check error output for diagnostics
+        FILE *err = fopen("/tmp/wifi_scan_err.txt", "r");
+        if (err) {
+            char errbuf[128] = "";
+            if (fgets(errbuf, sizeof(errbuf), err)) {
+                errbuf[strcspn(errbuf, "\n")] = 0;
+                ac_log("[wifi] scan error: %s\n", errbuf);
+                // Show truncated error in UI
+                if (strlen(errbuf) > 30) errbuf[30] = 0;
+                snprintf(wifi->status_msg, sizeof(wifi->status_msg), "err: %s", errbuf);
+            }
+            fclose(err);
+        } else {
+            snprintf(wifi->status_msg, sizeof(wifi->status_msg), "scan failed");
+        }
         wifi->state = WIFI_STATE_SCAN_DONE;
-        snprintf(wifi->status_msg, sizeof(wifi->status_msg), "scan failed");
         return 1;
     }
 

@@ -296,13 +296,63 @@ static int get_la_hour(void) {
     return (utc->tm_hour - get_la_offset() + 24) % 24;
 }
 
+// Draw y/n install confirmation screen
+// Returns 1 if user confirms with Y, 0 if N/Escape
+static int draw_install_confirm(ACGraph *graph, ACFramebuffer *screen,
+                                 ACDisplay *display, int *fds, int nfds) {
+    int is_dark = (get_la_hour() >= 19 || get_la_hour() < 7);
+    struct timespec anim_time;
+    clock_gettime(CLOCK_MONOTONIC, &anim_time);
+
+    for (;;) {
+        uint8_t bg = is_dark ? 20 : 255;
+        graph_wipe(graph, (ACColor){bg, bg, (uint8_t)(bg + (is_dark ? 5 : 0)), 255});
+
+        uint8_t fg = is_dark ? 220 : 0;
+        graph_ink(graph, (ACColor){fg, fg, fg, 255});
+
+        int tw = font_measure_matrix("install to disk?", 2);
+        font_draw_matrix(graph, "install to disk?",
+                         (screen->width - tw) / 2, screen->height / 2 - 24, 2);
+
+        // Warning text
+        graph_ink(graph, (ACColor){220, 80, 80, 255});
+        const char *warn = "this will overwrite EFI boot!";
+        int ww = font_measure_matrix(warn, 1);
+        font_draw_matrix(graph, warn, (screen->width - ww) / 2,
+                         screen->height / 2 + 2, 1);
+
+        // Y/N prompt
+        graph_ink(graph, (ACColor){60, 200, 60, 255});
+        const char *yn = "Y = yes    N = no";
+        int yw = font_measure_matrix(yn, 1);
+        font_draw_matrix(graph, yn, (screen->width - yw) / 2,
+                         screen->height / 2 + 20, 1);
+
+        fb_copy_scaled(screen, drm_front_buffer(display),
+                       display->width, display->height,
+                       drm_front_stride(display), 3);
+        frame_sync_60fps(&anim_time);
+
+        // Read key events
+        struct input_event ev;
+        for (int ki = 0; ki < nfds; ki++) {
+            while (read(fds[ki], &ev, sizeof(ev)) == sizeof(ev)) {
+                if (ev.type == EV_KEY && ev.value == 1) {
+                    if (ev.code == KEY_Y) return 1;
+                    if (ev.code == KEY_N || ev.code == KEY_ESC) return 0;
+                }
+            }
+        }
+    }
+}
+
 // Draw startup fade animation (black → white with title)
-// Returns 1 if user held W to request disk install, 0 otherwise
+// Returns 1 if user pressed W and confirmed install, 0 otherwise
 static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
                               ACDisplay *display) {
     struct timespec anim_time;
     clock_gettime(CLOCK_MONOTONIC, &anim_time);
-    int w_held_frames = 0;
     int la_hour = get_la_hour();
     int is_dark = (la_hour >= 19 || la_hour < 7);
 
@@ -323,33 +373,30 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
     }
 
     // Start with a black frame immediately (hides any kernel text)
-    // Write directly to front buffer — no flip needed, instant display
     graph_wipe(graph, (ACColor){0, 0, 0, 255});
     fb_copy_scaled(screen, drm_front_buffer(display),
                    display->width, display->height,
                    drm_front_stride(display), 3);
 
-    // 60 frames = 1 second. W must be held the entire time to install.
-    // Any OTHER key press skips the animation immediately.
-    // Write directly to front buffer (no page flip = no modeset overhead)
+    // 60 frames = 1 second animation.
+    // W press → halt and show y/n confirmation
+    // Any other key → skip animation and start playing
     int skip_anim = 0;
-    for (int f = 0; f < 60 && !skip_anim; f++) {
+    int w_pressed = 0;
+    for (int f = 0; f < 60 && !skip_anim && !w_pressed; f++) {
         double t = (double)f / 60.0;
 
-        // Check if W is held — must be continuous (reset if released)
-        int w_now = check_key_held_fds(KEY_W, key_fds, key_fd_count);
-        if (w_now) w_held_frames++;
-        else w_held_frames = 0;
-
-        // Check if any OTHER key is pressed — skip animation
-        // Always drain events to prevent stale buffer, but only skip on non-W keys
-        if (f > 5) {
+        // Drain all key events — detect W press or other-key skip
+        if (f > 3) {  // skip first few frames (stale events)
             struct input_event ev;
             for (int ki = 0; ki < key_fd_count; ki++) {
                 while (read(key_fds[ki], &ev, sizeof(ev)) == sizeof(ev)) {
-                    if (ev.type == EV_KEY && ev.value == 1 &&
-                        ev.code != KEY_W && ev.code != KEY_RESERVED) {
-                        skip_anim = 1;
+                    if (ev.type == EV_KEY && ev.value == 1) {
+                        if (ev.code == KEY_W) {
+                            w_pressed = 1;
+                        } else if (ev.code != KEY_RESERVED) {
+                            skip_anim = 1;
+                        }
                     }
                 }
             }
@@ -378,7 +425,7 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
                              (screen->width - sw) / 2, screen->height / 2 + 10, 1);
         }
 
-        // Bottom: shrinking time bar (shows remaining window to hold W)
+        // Bottom: shrinking time bar + W hint
         int bar_full = screen->width - 40;
         int bar_remaining = (int)((1.0 - t) * bar_full);
         if (bar_remaining > 0) {
@@ -386,34 +433,32 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
             graph_box(graph, 20, screen->height - 6, bar_remaining, 3, 1);
         }
 
-        // If W is being held, show install progress overlay
-        if (w_held_frames > 3) {
-            double progress = (double)w_held_frames / 60.0;
-            int fill_w = (int)(progress * bar_full);
-            if (fill_w > bar_full) fill_w = bar_full;
-            graph_ink(graph, (ACColor){60, 140, 255, 220});
-            graph_box(graph, 20, screen->height - 6, fill_w, 3, 1);
-
-            graph_ink(graph, (ACColor){60, 140, 255, 200});
-            int iw = font_measure_matrix("W: install to disk", 1);
-            font_draw_matrix(graph, "W: install to disk",
-                             (screen->width - iw) / 2, screen->height - 18, 1);
+        // Show W hint after initial fade
+        if (alpha > 100) {
+            graph_ink(graph, (ACColor){(uint8_t)(is_dark ? 80 : 160),
+                                       (uint8_t)(is_dark ? 80 : 160),
+                                       (uint8_t)(is_dark ? 90 : 170),
+                                       (uint8_t)(alpha / 3)});
+            const char *hint = "W: install to disk";
+            int hw = font_measure_matrix(hint, 1);
+            font_draw_matrix(graph, hint,
+                             (screen->width - hw) / 2, screen->height - 18, 1);
         }
 
-        // Write directly to front buffer — immediately visible, no flip
         fb_copy_scaled(screen, drm_front_buffer(display),
                        display->width, display->height,
                        drm_front_stride(display), 3);
         frame_sync_60fps(&anim_time);
-
-        // If W held for full second, trigger install
-        if (w_held_frames >= 60) {
-            for (int i = 0; i < key_fd_count; i++) close(key_fds[i]);
-            return 1;
-        }
     }
+
+    // If W was pressed, show y/n confirmation
+    int result = 0;
+    if (w_pressed) {
+        result = draw_install_confirm(graph, screen, display, key_fds, key_fd_count);
+    }
+
     for (int i = 0; i < key_fd_count; i++) close(key_fds[i]);
-    return 0;
+    return result;
 }
 
 // Draw a status frame during boot (white bg, title + status text)
@@ -545,6 +590,7 @@ int main(int argc, char *argv[]) {
     if (!headless && display)
         draw_boot_status(&graph, screen, display, "starting audio...");
     ACAudio *audio = audio_init();
+    audio_boot_beep(audio); // Early beep: "I'm alive!"
 
     // Retry log mount if first attempt failed (USB may have appeared during audio init)
     if (getpid() == 1 && !logfile) try_mount_log();
@@ -616,6 +662,9 @@ int main(int argc, char *argv[]) {
            JS_IsFunction(rt->ctx, rt->act_fn),
            JS_IsFunction(rt->ctx, rt->sim_fn));
     if (logfile) { fflush(logfile); }
+
+    // Ready melody: piece loaded, about to start!
+    audio_ready_melody(audio);
 
     // Call boot()
     js_call_boot(rt);

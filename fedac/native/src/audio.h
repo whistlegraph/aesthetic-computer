@@ -116,6 +116,12 @@ void audio_set_room_mix(ACAudio *audio, float mix);
 // Adjust system volume: delta is -5 to +5 (percentage points), 0 = toggle mute
 void audio_volume_adjust(ACAudio *audio, int delta);
 
+// Play a short boot beep (immediately after audio init)
+void audio_boot_beep(ACAudio *audio);
+
+// Play a ready melody (when piece is loaded and ready to play)
+void audio_ready_melody(ACAudio *audio);
+
 // Cleanup
 void audio_destroy(ACAudio *audio);
 

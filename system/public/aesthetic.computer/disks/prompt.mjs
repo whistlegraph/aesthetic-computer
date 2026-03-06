@@ -2821,9 +2821,9 @@ async function halt($, text) {
     for (let i = 1; i < colonParts.length; i++) {
       const part = colonParts[i].toLowerCase();
       if (part === "nocache") { nocache = true; }
-      else if (["alpine", "fedora"].includes(part)) { flavor = part; }
+      else if (["alpine", "fedora", "native"].includes(part)) { flavor = part; }
       else {
-        notice(`Unknown OS option: ${part}. Use alpine, fedora, or nocache.`, ["red"]);
+        notice(`Unknown OS option: ${part}. Use alpine, fedora, native, or nocache.`, ["red"]);
         flashColor = [255, 0, 0];
         makeFlash($);
         return true;
