@@ -95,7 +95,7 @@ elif [ "$REBOOT" = true ]; then
 
 elif [ "$BASE_MODE" = true ]; then
   # Download the base image from CDN
-  CDN_URL="https://assets-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/os/${FLAVOR}-base-latest.img"
+  CDN_URL="https://releases.aesthetic.computer/os/${FLAVOR}-base-latest.img"
   IMG="$CACHE_DIR/${FLAVOR}-base.img"
   echo "Downloading ${FLAVOR} base image..."
   echo "  URL: $CDN_URL"
