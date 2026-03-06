@@ -6,6 +6,7 @@
 #include <signal.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 #include <errno.h>
 
 // Defined in ac-native.c
@@ -107,13 +108,62 @@ ACWifi *wifi_init(void) {
             }
             pclose(dbg);
         }
-        // Check dmesg for wireless driver messages
-        dbg = popen("dmesg 2>/dev/null | grep -i -E 'iwl|wlan|wifi|80211' | tail -5", "r");
+        // Read kernel log directly from /dev/kmsg (non-blocking)
+        {
+            int kmsg_fd = open("/dev/kmsg", O_RDONLY | O_NONBLOCK);
+            if (kmsg_fd >= 0) {
+                // Seek to start of ring buffer
+                lseek(kmsg_fd, 0, SEEK_SET);
+                char kbuf[512];
+                int kmsg_count = 0;
+                ssize_t rr;
+                int matched = 0;
+                while ((rr = read(kmsg_fd, kbuf, sizeof(kbuf) - 1)) > 0 && kmsg_count < 2000) {
+                    kbuf[rr] = 0;
+                    // Log lines containing wireless/PCI/firmware keywords
+                    if (strcasestr(kbuf, "iwl") || strcasestr(kbuf, "wifi") ||
+                        strcasestr(kbuf, "wlan") || strcasestr(kbuf, "80211") ||
+                        strcasestr(kbuf, "firmware") ||
+                        (strcasestr(kbuf, "pci") && kmsg_count < 100)) {
+                        // Extract message part after the header (prefix;timestamp;...)
+                        char *msg = strchr(kbuf, ';');
+                        if (msg) msg = strchr(msg + 1, ';');
+                        if (msg) msg = strchr(msg + 1, ';');
+                        if (msg) msg++;
+                        else msg = kbuf;
+                        msg[strcspn(msg, "\n")] = 0;
+                        ac_log("[wifi] kmsg: %s\n", msg);
+                        matched++;
+                    }
+                    kmsg_count++;
+                }
+                ac_log("[wifi] kmsg: %d total messages, %d matched\n", kmsg_count, matched);
+                if (kmsg_count == 0) ac_log("[wifi] kmsg: no messages read\n");
+                close(kmsg_fd);
+            } else {
+                ac_log("[wifi] Cannot open /dev/kmsg: %s\n", strerror(errno));
+            }
+        }
+        // List ALL PCI devices (one per line)
+        dbg = popen("ls -1 /sys/bus/pci/devices/ 2>/dev/null", "r");
+        if (dbg) {
+            char buf[256] = "";
+            int got = 0;
+            while (fgets(buf, sizeof(buf), dbg)) {
+                buf[strcspn(buf, "\n")] = 0;
+                ac_log("[wifi] PCI device: %s\n", buf);
+                got++;
+            }
+            pclose(dbg);
+            if (!got) ac_log("[wifi] PCI: no devices found\n");
+        }
+        // Show vendor:device for each PCI device
+        dbg = popen("for d in /sys/bus/pci/devices/*; do echo \"$(basename $d) $(cat $d/vendor 2>/dev/null):$(cat $d/device 2>/dev/null)\"; done 2>/dev/null", "r");
         if (dbg) {
             char buf[256] = "";
             while (fgets(buf, sizeof(buf), dbg)) {
                 buf[strcspn(buf, "\n")] = 0;
-                ac_log("[wifi] dmesg: %s\n", buf);
+                ac_log("[wifi] PCI id: %s\n", buf);
             }
             pclose(dbg);
         }
@@ -225,11 +275,18 @@ void wifi_scan(ACWifi *wifi) {
     snprintf(cmd, sizeof(cmd), "ip link set %s up 2>/dev/null", wifi->iface);
     run_cmd(cmd);
 
-    // Remove stale scan file
-    unlink("/tmp/wifi_scan.txt");
+    // Set regulatory domain (US) if not already set
+    run_cmd("iw reg set US 2>/dev/null");
 
+    // Remove stale scan files
+    unlink("/tmp/wifi_scan.txt");
+    unlink("/tmp/wifi_scan_err.txt");
+    unlink("/tmp/wifi_scan_rc");
+
+    // Run scan in background shell at low priority — writes return code when done
     snprintf(cmd, sizeof(cmd),
-             "iw dev %s scan 2>/tmp/wifi_scan_err.txt > /tmp/wifi_scan.txt &",
+             "sh -c 'nice -n 19 iw dev %s scan > /tmp/wifi_scan.txt 2>/tmp/wifi_scan_err.txt;"
+             " echo $? > /tmp/wifi_scan_rc' &",
              wifi->iface);
     run_cmd(cmd);
 }
@@ -237,11 +294,29 @@ void wifi_scan(ACWifi *wifi) {
 int wifi_scan_poll(ACWifi *wifi) {
     if (!wifi || wifi->state != WIFI_STATE_SCANNING) return 0;
 
-    // Check if scan file exists and iw scan process is done
-    if (!file_exists("/tmp/wifi_scan.txt")) return 0;
+    // Check if scan is done by looking for return code file
+    if (!file_exists("/tmp/wifi_scan_rc")) return 0;
 
-    // Check if iw is still running
-    if (system("pgrep -x iw >/dev/null 2>&1") == 0) return 0;
+    // Log the return code and any errors
+    {
+        FILE *rc = fopen("/tmp/wifi_scan_rc", "r");
+        if (rc) {
+            int code = -1;
+            fscanf(rc, "%d", &code);
+            fclose(rc);
+            unlink("/tmp/wifi_scan_rc");
+            if (code != 0) ac_log("[wifi] scan returned code %d\n", code);
+        }
+        FILE *err = fopen("/tmp/wifi_scan_err.txt", "r");
+        if (err) {
+            char errbuf[256] = "";
+            while (fgets(errbuf, sizeof(errbuf), err)) {
+                errbuf[strcspn(errbuf, "\n")] = 0;
+                if (errbuf[0]) ac_log("[wifi] scan stderr: %s\n", errbuf);
+            }
+            fclose(err);
+        }
+    }
 
     // Parse scan results
     FILE *fp = fopen("/tmp/wifi_scan.txt", "r");

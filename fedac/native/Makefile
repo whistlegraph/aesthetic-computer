@@ -21,9 +21,10 @@ DRM_CFLAGS := $(shell pkg-config --cflags libdrm 2>/dev/null || echo "-I/usr/inc
 DRM_LIBS   := $(shell pkg-config --libs libdrm 2>/dev/null || echo "-ldrm")
 ALSA_CFLAGS := $(shell pkg-config --cflags alsa 2>/dev/null)
 ALSA_LIBS   := $(shell pkg-config --libs alsa 2>/dev/null || echo "-lasound")
+FLITE_LIBS  := -lflite -lflite_cmulex -lflite_usenglish -lflite_cmu_us_kal
 
 CFLAGS  += $(DRM_CFLAGS) $(ALSA_CFLAGS)
-LDFLAGS += $(DRM_LIBS) $(ALSA_LIBS)
+LDFLAGS += $(DRM_LIBS) $(ALSA_LIBS) $(FLITE_LIBS)
 
 # Source files
 SRCS := $(SRCDIR)/ac-native.c \
@@ -35,6 +36,7 @@ SRCS := $(SRCDIR)/ac-native.c \
         $(SRCDIR)/input.c \
         $(SRCDIR)/audio.c \
         $(SRCDIR)/wifi.c \
+        $(SRCDIR)/tts.c \
         $(SRCDIR)/js-bindings.c
 
 OBJS := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/%.o,$(SRCS))

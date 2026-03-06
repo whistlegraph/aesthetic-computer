@@ -68,9 +68,10 @@ typedef struct {
 
     // Screen dimensions for touch scaling
     int screen_w, screen_h;
+    int scale;  // Display-to-piece scale factor (e.g. 3)
 } ACInput;
 
-ACInput *input_init(int screen_w, int screen_h);
+ACInput *input_init(int screen_w, int screen_h, int scale);
 void input_poll(ACInput *input);
 void input_destroy(ACInput *input);
 

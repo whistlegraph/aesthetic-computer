@@ -308,12 +308,13 @@ static void hidraw_process_nuphy(ACInput *input, unsigned char *buf, int len) {
     }
 }
 
-ACInput *input_init(int screen_w, int screen_h) {
+ACInput *input_init(int screen_w, int screen_h, int scale) {
     ACInput *input = calloc(1, sizeof(ACInput));
     if (!input) return NULL;
 
     input->screen_w = screen_w;
     input->screen_h = screen_h;
+    input->scale = scale > 0 ? scale : 1;
     input->last_poll_time = monotonic_sec();
 
     // Scan /dev/input/ for event devices
@@ -400,8 +401,8 @@ void input_poll(ACInput *input) {
                         ae->type = AC_EVENT_LIFT;
                         input->pointer_down = 0;
                     }
-                    ae->x = input->pointer_x;
-                    ae->y = input->pointer_y;
+                    ae->x = input->pointer_x / input->scale;
+                    ae->y = input->pointer_y / input->scale;
                     input->event_count++;
                 }
                 // Keyboard
@@ -425,7 +426,7 @@ void input_poll(ACInput *input) {
                 // Relative mouse movement
                 if (ev.code == REL_X) { input->pointer_x += ev.value; input->delta_x += ev.value; }
                 if (ev.code == REL_Y) { input->pointer_y += ev.value; input->delta_y += ev.value; }
-                // Clamp
+                // Clamp to display bounds
                 if (input->pointer_x < 0) input->pointer_x = 0;
                 if (input->pointer_y < 0) input->pointer_y = 0;
                 if (input->pointer_x >= input->screen_w) input->pointer_x = input->screen_w - 1;
@@ -433,18 +434,21 @@ void input_poll(ACInput *input) {
 
                 if (input->pointer_down) {
                     ae->type = AC_EVENT_DRAW;
-                    ae->x = input->pointer_x;
-                    ae->y = input->pointer_y;
+                    ae->x = input->pointer_x / input->scale;
+                    ae->y = input->pointer_y / input->scale;
                     input->event_count++;
                 }
             } else if (ev.type == EV_ABS) {
-                // Absolute touch/tablet
+                // Absolute touch/tablet — clamp and store in display coords
                 if (ev.code == ABS_X || ev.code == ABS_MT_POSITION_X) {
-                    // Scale to screen (TODO: get abs info for proper scaling)
                     input->pointer_x = ev.value;
+                    if (input->pointer_x >= input->screen_w) input->pointer_x = input->screen_w - 1;
+                    if (input->pointer_x < 0) input->pointer_x = 0;
                 }
                 if (ev.code == ABS_Y || ev.code == ABS_MT_POSITION_Y) {
                     input->pointer_y = ev.value;
+                    if (input->pointer_y >= input->screen_h) input->pointer_y = input->screen_h - 1;
+                    if (input->pointer_y < 0) input->pointer_y = 0;
                 }
             }
         }
