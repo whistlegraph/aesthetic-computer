@@ -183,6 +183,15 @@ The development environment uses Emacs with named terminal buffers. Use Emacs MC
 - `ac-login` — Login to AC
 - `ac-token` — Manage auth tokens
 
+#### Host Access (Docker)
+When running inside a Docker container on Jeffrey's MacBook (or any local Docker host), SSH to the host machine via:
+```fish
+ssh jas@host.docker.internal
+```
+- "SSH into my macbook" or "SSH into my host" means: connect to `host.docker.internal` from within the container
+- `ac-host` lists all machines from `vault/machines.json` and can SSH to them
+- The host machine resolves via `host.docker.internal` — do NOT use the LAN IP from machines.json when running in Docker
+
 #### Other Tools
 - `ac-host` — List machines, SSH connection info
 - `ac-cdp-tunnel` — CDP tunnel
