@@ -10,7 +10,6 @@
       --sheet-h: 8.5in;
       --ink: #151515;
       --paper: #f5f5f3;
-      --card: rgba(255, 255, 255, 0.56);
       --rule: rgba(0, 0, 0, 0.22);
       --sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
       --serif: Georgia, "Times New Roman", serif;
@@ -53,13 +52,6 @@
       position: relative;
       padding: 0.18in;
       overflow: hidden;
-    }
-
-    .outside-left {
-      padding: 0.16in;
-      display: grid;
-      grid-template-rows: auto auto auto auto 1fr;
-      gap: 0.06in;
     }
 
     .outside-right {
@@ -107,100 +99,46 @@
       color: rgba(20, 20, 20, 0.8);
     }
 
-    .panel-title {
-      text-align: center;
-      margin: 0;
-      font-size: 0.32in;
-      line-height: 1;
-    }
-
-    .panel-sub {
-      text-align: center;
-      margin: 0.02in 0 0.01in;
-      font-style: italic;
-      font-size: 0.125in;
-      color: rgba(0, 0, 0, 0.62);
-    }
-
-    .panel-rule {
-      height: 1px;
-      background: rgba(0, 0, 0, 0.45);
-      margin: 0;
-    }
-
-    .bio-list,
-    .mini-bio-list {
+    .inside-right {
+      padding: 0.14in 0.22in;
       display: grid;
+      align-content: center;
+      justify-items: center;
+      text-align: center;
       gap: 0.04in;
     }
 
-    .bio-list {
-      grid-template-columns: 1fr 1fr;
-      align-content: stretch;
-      gap: 0.05in;
-      height: 100%;
-      grid-auto-rows: 1fr;
-      margin-top: 0.035in;
-    }
-
-    .back-credits {
+    .intro-block {
+      max-width: 92%;
       display: grid;
-      gap: 0.085in;
-      text-align: center;
-      padding: 0.02in 0.03in;
-      margin-bottom: 0.12in;
+      gap: 0.045in;
+      justify-items: center;
     }
 
-    .credit-block {
-      margin: 0;
+    .body-head {
+      margin: 0.02in 0 0;
+      font-size: 0.38in;
+      line-height: 1;
     }
 
-    .credit-block.performed,
-    .credit-block.thanks {
-      max-width: 78%;
-      margin-inline: auto;
-    }
-
-    .credit-title {
-      margin: 0;
-      font-family: var(--sans);
-      font-size: 0.124in;
-      letter-spacing: 0.02em;
-      text-transform: uppercase;
-      font-weight: 700;
-    }
-
-    .credit-copy {
-      margin: 0.014in 0 0;
-      font-size: 0.116in;
-      line-height: 1.24;
-    }
-
-    .bio-row {
-      padding: 0.03in 0.035in;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-    }
-
-    .bio-name {
-      margin: 0;
-      font-size: 0.132in;
-      line-height: 1.1;
-      font-weight: 700;
-    }
-
-    .bio-copy {
-      margin: 0.016in 0 0;
-      font-size: 0.11in;
-      line-height: 1.22;
+    .body-copy {
+      margin: 0.01in 0 0;
+      font-size: 0.152in;
+      line-height: 1.28;
     }
 
     .inside-left {
-      padding: 0.16in;
+      padding: 0.14in;
       display: grid;
-      grid-template-rows: repeat(5, 1fr);
-      gap: 0.03in;
+      grid-template-columns: 1.52in 1fr;
+      gap: 0.08in;
+      align-content: center;
+    }
+
+    .strip-column {
+      display: grid;
+      grid-template-rows: repeat(5, 1.52in);
+      gap: 0.04in;
     }
 
     .strip {
@@ -208,6 +146,8 @@
       overflow: hidden;
       background-size: cover;
       background-position: center;
+      width: 1.52in;
+      height: 1.52in;
     }
 
     .strip::before {
@@ -226,72 +166,128 @@
     }
 
     .strip-num {
-      top: 0.08in;
-      left: 0.09in;
-      font-size: 0.55in;
+      top: 0.06in;
+      left: 0.07in;
+      font-size: 0.46in;
       font-weight: 700;
       line-height: 1;
     }
 
     .strip-label {
-      left: 0.1in;
-      bottom: 0.08in;
-      right: 0.1in;
-      font-size: 0.17in;
+      left: 0.08in;
+      bottom: 0.06in;
+      right: 0.08in;
+      font-size: 0.14in;
       line-height: 1.06;
       font-weight: 700;
     }
 
-    .inside-right {
-      padding: 0.28in;
+    .strip-copy-column {
       display: grid;
-      place-items: center;
-      align-content: center;
-      text-align: center;
-      gap: 0.08in;
+      grid-template-rows: 1fr;
+      align-content: start;
+      padding-top: 0;
     }
 
-    .body-head {
+    .flap-bios {
+      column-count: 2;
+      column-gap: 0.04in;
+      height: 100%;
+    }
+
+    .bio-row {
+      break-inside: avoid;
+      margin: 0 0 0.032in;
+      padding: 0.007in 0.009in;
+    }
+
+    .bio-name {
       margin: 0;
-      font-size: 0.42in;
-      line-height: 1;
-    }
-
-    .body-copy {
-      margin: 0.02in 0 0;
-      font-size: 0.165in;
-      line-height: 1.32;
-    }
-
-    .info-block {
-      background: rgba(255, 255, 255, 0.56);
-      padding: 0.02in 0.022in;
-    }
-
-    .info-title {
-      margin: 0;
-      font-size: 0.085in;
-      line-height: 1;
+      font-size: 0.122in;
+      line-height: 1.1;
       font-weight: 700;
     }
 
-    .info-copy {
-      margin: 0.015in 0 0;
-      font-size: 0.062in;
-      line-height: 1.16;
+    .bio-copy {
+      margin: 0.012in 0 0;
+      font-size: 0.1in;
+      line-height: 1.24;
     }
 
-    .more-bios {
+    .outside-left {
+      padding: 0.16in;
       display: grid;
-      gap: 0.024in;
-      align-content: start;
+      grid-template-rows: auto 1fr auto;
+      gap: 0.03in;
     }
 
-    .intro-block {
-      max-width: 92%;
+    .outside-spacer {
+      min-height: 0;
+    }
+
+    .outside-bio-list {
+      column-count: 3;
+      column-gap: 0.04in;
+      margin-top: 0;
+    }
+
+    .outside-bio-list .bio-row {
+      margin: 0 0 0.02in;
+      padding: 0.007in 0.01in;
+    }
+
+    .outside-bio-list .bio-name {
+      font-size: 0.116in;
+    }
+
+    .outside-bio-list .bio-copy {
+      font-size: 0.094in;
+      line-height: 1.22;
+      margin-top: 0.009in;
+    }
+
+    .panel-title {
+      text-align: center;
+      margin: 0;
+      font-size: 0.32in;
+      line-height: 1;
+    }
+
+    .panel-rule {
+      height: 1px;
+      background: rgba(0, 0, 0, 0.45);
+      margin: 0;
+    }
+
+    .outside-credits {
+      border-top: 1px solid rgba(0, 0, 0, 0.35);
+      padding-top: 0.045in;
       display: grid;
-      gap: 0.08in;
+      gap: 0.03in;
       justify-items: center;
+      text-align: center;
+    }
+
+    .outside-credit-item {
+      margin: 0;
+      text-align: center;
+      max-width: 95%;
+    }
+
+    .outside-credit-title {
+      margin: 0;
+      font-family: var(--sans);
+      font-size: 0.118in;
+      line-height: 1.05;
+      letter-spacing: 0.01em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .outside-credit-copy {
+      margin: 0.01in 0 0;
+      font-size: 0.098in;
+      line-height: 1.2;
     }
 
     @page {
@@ -309,9 +305,9 @@
   <section class="sheet">
     <article class="panel inside-right">
       <div class="intro-block">
-        <h2 class="body-head">Dis-order</h2>
-        <p class="body-copy">Dis-order is a performance, communal ritual, and a family drama that asks what forces move through us when we enact an ancient spring rite, and what is left unspoken when we gather around the table.</p>
-        <p class="body-copy">Staged a la Judy Chicago's <em>The Dinner Party</em>, the piece references the Passover seder, Greek mythology, and Pina Bausch's <em>Rite of Spring</em> to examine the performance of ritual and the rigidity of roles and stories within families, communities, and institutions.</p>
+        <h2 class="body-head">Dis-Order</h2>
+        <p class="body-copy">Dis-Order is a performance, communal ritual, and a family drama that asks what forces move through us when we enact an ancient spring rite, and what is left unspoken when we gather around the table.</p>
+        <p class="body-copy">Staged à la Judy Chicago’s <em>The Dinner Party</em>, the piece references the Passover seder, Greek mythology, and Pina Bausch’s <em>Rite of Spring</em> to examine the performance of ritual and the rigidity of roles and stories within families, communities, and institutions.</p>
       </div>
     </article>
 
@@ -327,49 +323,96 @@
 
   <section class="sheet">
     <article class="panel inside-left">
-      <div class="strip" style="background-image:url('images-v2/i-candles.jpg')"><div class="strip-num">I.</div><div class="strip-label">begin with fire</div></div>
-      <div class="strip" style="background-image:url('images-v2/ii-donkey.jpg')"><div class="strip-num">II.</div><div class="strip-label">wicked child bacchanal</div></div>
-      <div class="strip" style="background-image:url('images-v2/iii-egg.jpg')"><div class="strip-num">III.</div><div class="strip-label">total darkness</div></div>
-      <div class="strip" style="background-image:url('images-v2/iv-pastoral.jpg')"><div class="strip-num">IV.</div><div class="strip-label">lovers' pastoral</div></div>
-      <div class="strip" style="background-image:url('images-v2/v-daughter.jpg')"><div class="strip-num">V.</div><div class="strip-label">death of the first born</div></div>
+      <div class="strip-column">
+        <div class="strip" style="background-image:url('images-v2/i-candles.jpg')"><div class="strip-num">I.</div><div class="strip-label">begin with fire</div></div>
+        <div class="strip" style="background-image:url('images-v2/ii-donkey.jpg')"><div class="strip-num">II.</div><div class="strip-label">wicked child bacchanal</div></div>
+        <div class="strip" style="background-image:url('images-v2/iii-egg.jpg')"><div class="strip-num">III.</div><div class="strip-label">total darkness</div></div>
+        <div class="strip" style="background-image:url('images-v2/iv-pastoral.jpg')"><div class="strip-num">IV.</div><div class="strip-label">lovers' pastoral</div></div>
+        <div class="strip" style="background-image:url('images-v2/v-daughter.jpg')"><div class="strip-num">V.</div><div class="strip-label">death of the first born</div></div>
+      </div>
+      <div class="strip-copy-column">
+        <div class="flap-bios">
+          <div class="bio-row">
+            <p class="bio-name">Mamie Green</p>
+            <p class="bio-copy">is a choreographer and the director of VOLTA, an interdisciplinary performance project that fuses physicality, theatricality, and multidisciplinary approaches to performance. Named in Fjord Review’s “Best of Dance 2023” and Bachtrack’s “Young Choreographers to Watch,” Green's work has been presented across the US, Europe, and the UK at the MAXXI National Museum, Jeffrey Deitch, Ace Hotel Brooklyn, MAK Center at the Schindler House, New Hollywood Theater, and Skirball Cultural Center with upcoming presentations at the Guggenheim Museum in Bilbao Spain and the Foster Theater in Portland, Oregon in 2026. Green holds a BFA from Mason Gross School of the Arts.</p>
+          </div>
+          <div class="bio-row">
+            <p class="bio-name">Ryley Polak</p>
+            <p class="bio-copy">is a dancer and teacher based in Los Angeles, California where he received his BFA in commercial dance from Hussian College. Ryley was signed by the Movement Talent Agency which represents him as both a Dancer and Educator. Throughout his professional career he has worked on sets of commercials, movies, music videos, and TV shows such as A24's "Dick's: The Musical",  "VROOM" SuperBowl commercial, and Anna Margo's "Bad Friend" music video. Ryley has been a performer with Mike Tyus, Jaclyn Royal, Mandy Moore, and many others and has performed internationally with Royal Flux and Volta Collective in Italy, Canada, London, Cyprus, and more.</p>
+          </div>
+          <div class="bio-row">
+            <p class="bio-name">Roxanne Steinberg</p>
+            <p class="bio-copy">is a dancer and choreographer. She founded Body Weather in Los Angeles in 1988 based on the Japanese paradigm for training. Her solos have been presented at the REDCAT, Dance Conversations at the Flea, NY, the Basilica in Hudson NY, Zebulon LA and in Flower of the Season, the dance series she co-directs at the Electric Lodge. She has led workshops at Cal Arts, UCLA and choreographed works for Cal State LA and Body Vox in Portland.</p>
+          </div>
+          <div class="bio-row">
+            <p class="bio-name">Freak Nature Puppets</p>
+            <p class="bio-copy">is an artist collective from Los Angeles, CA. Their work channels dreamlike narratives through giant puppetry, leading to unexpected and playful conclusions. Freak Nature’s theatrical work is inspired by the avant-garde progressive puppetry of Bread and Puppet Theater, the oddball physical theater of Mummenshanz, and the anarchist children's entertainment of Pee-Wee Herman. Freak Nature’s past collaborators &amp; co-presenters include Dead &amp; Company, the Bob Baker Marionette Theater, Eric Andre, KCRW, Poncili Creación, David Zwirner Gallery, and Childish Gambino.</p>
+          </div>
+          <div class="bio-row">
+            <p class="bio-name">Patrick Shiroishi</p>
+            <p class="bio-copy">is a Japanese-American multi-instrumentalist, composer &amp; poet based in Los Angeles. Over the last decade he has established himself as one of the premier improvising musicians in the city, playing solo &amp; in numerous collaborative projects. He has presented work &amp; performed at the Museum of Contemporary Art, the Metropolitan Museum of Art, the Broad Museum, The Getty, commissioned by the LA Philharmonic &amp; has toured around the world in various solo &amp; band configurations including The Armed &amp; contemporary classical ensemble Wild Up.</p>
+          </div>
+          <div class="bio-row">
+            <p class="bio-name">Anaya Gonzalez</p>
+            <p class="bio-copy">is a dancer that enjoys promoting emotional experiences for others through movement and is deeply determined in the pursuit of crafting and cultivating art. They have studied at the University of North Carolina School of the Arts, studying ballet &amp; the following contemporary techniques: Limón, Cunningham, Alexander, floorwork and has performed pieces by Darrel Moultrie, Rena Butler, Jose Limon, and Trey McIntyre. During her professional career she was recently a full time BODYTRAFFIC company dancer performing works by Micaela Taylor, Matthew Neenan, Juel D. Lane, and Trey Mcintyre.</p>
+          </div>
+        </div>
+      </div>
     </article>
 
     <div class="fold"></div>
 
     <article class="panel outside-left">
-      <h2 class="panel-title">Dis-Order</h2>
-      <div class="panel-rule"></div>
-
-      <div class="back-credits">
-        <div class="credit-block performed">
-          <p class="credit-title">Performed by</p>
-          <p class="credit-copy">Sophie Becker, Tim Allen, Roxanne Steinberg, Ryley Polak, Anaya Gonzales, Nico Fife, and Abby Sage.</p>
+      <div class="outside-bio-list">
+        <div class="bio-row">
+          <p class="bio-name">Dylan Fujioka</p>
+          <p class="bio-copy">is a Japanese American multi-instrumentalist &amp; composer born and raised in Los Angeles, CA. He is most known for his drumming/recording &amp; performances in bands across multiple genres and collaborations. He also composes for film and television. His multicultural upbringing has directly shaped and influenced his style and sound.</p>
         </div>
-        <div class="credit-block">
-          <p class="credit-title">Creative Team</p>
-          <p class="credit-copy">Choreographed and directed by Mamie Green. Concept by Mamie Green and Rebecca Schultz. Puppets by Freak Nature Puppets and Abby Sage. Original live score by Patrick Shiroishi and Dylan Fujioka. Script by Rebecca Schultz. Set design by Ari Salka. Dramaturgy by Livia Reiner.</p>
+        <div class="bio-row">
+          <p class="bio-name">Sophie Becker</p>
+          <p class="bio-copy">is a New York–based ventriloquist and actor working at the intersection of ventriloquism, theater, and experimental comedy. With a cast of recurring characters, including her dummy, Ronnie, Sophie has performed at MoMA PS1, De Studio (Belgium), the Marriott Marquis in Times Square, the Rockaway Film Festival, Jean’s Lafayette, Art Omi, and NADA Miami, among others.</p>
         </div>
-        <div class="credit-block thanks">
-          <p class="credit-title">Thanks</p>
-          <p class="credit-copy">Skirball Cultural Center, Community Engagement Grants, Oracle Egg BROILER Residency, and Reboot.</p>
+        <div class="bio-row">
+          <p class="bio-name">Tim Griffin Allan</p>
+          <p class="bio-copy">is a New York based actor thrilled to be here and briefly escaping the frigid East Coast winter. He has recently performed in plays at Pioneer Works, Abrons Arts Center, and Studio 17. On screen, he has appeared in films and television shows for A24, HBO, MUBI, and CBS. Allan is also a member of a rival puppet troupe PussyPaws Puppetry, though he agreed to a temporary puppet truce, hiding the felt knives in order to collaborate with Freak Nature, Mamie Green, and this dangerously talented cast.</p>
+        </div>
+        <div class="bio-row">
+          <p class="bio-name">Rebecca Schultz</p>
+          <p class="bio-copy">writes fiction and criticism.  Her work has appeared in the Los Angeles Review of Books, BOMB, Full-Stop, and the Santa Monica Review, where it was nominated for a Pushcart Prize.  She teaches fiction and poetry at UC Irvine.</p>
+        </div>
+        <div class="bio-row">
+          <p class="bio-name">Ari Salka</p>
+          <p class="bio-copy">is a Los Angeles-based artist whose practice spans painting, drawing, and poetry. He received a BFA from SAIC (2016) and an MFA in Painting from UCLA (2019). Salka was awarded the Yale Norfolk Summer School of Art’s Ellen Battell Stoeckel Fellowship in Norfolk, CT (2015). Salka has lectured as a visiting artist at UCLA, Chapman University, and Bennington College. Salka’s work is in the permanent collections of the John M. Flaxman Library, LACA, UCLA Arts Library, and the ROSA KWIR Archive. His artist book is currently available for purchase at MOCA, and he looks forward to an upcoming solo museum exhibition at XELA Art in 2027.</p>
+        </div>
+        <div class="bio-row">
+          <p class="bio-name">Abby Sage</p>
+          <p class="bio-copy">is a singer, songwriter, and multidisciplinary artist whose work blends storytelling with a cinematic sense of atmosphere. Known for her haunting vocals and emotionally vivid songwriting, Sage’s music explores themes of vulnerability, transformation, and memory, often drawing listeners into deeply personal yet expansive sonic worlds. Beyond music, Sage’s creative practice extends into visual and performance art. She builds and designs handcrafted puppets, using them as expressive characters that blur the boundaries between object, performer, and storyteller. Her puppetry explores movement, symbolism, and the emotional language of gesture.</p>
+        </div>
+        <div class="bio-row">
+          <p class="bio-name">Nico Fife</p>
+          <p class="bio-copy">is an actor, writer, puppeteer, director, and strong mover from Long Beach, California. Nico received a BA in Theater from USC, and is currently an Associate Company Member at The Actors’ Gang Theater Company in Culver City. Nico is an active practitioner and teacher of Viewpoints, especially working with youth and with formerly incarcerated artists. Nico has recently performed in Children of The Winter Kingdom (Crow, Emperor Weasel, Ensemble) with The Actors’ Gang, in Clown Pit Revolution (Sasha Faguette), and various comedy shows throughout the city. Thank you to Mamie, to Sater &amp; Freak Nature Puppets, and to the entire cast and crew for having me on this journey!</p>
+        </div>
+        <div class="bio-row">
+          <p class="bio-name">The Skirball Cultural Center</p>
+          <p class="bio-copy">is a place of meeting guided by the Jewish tradition of welcoming the stranger and inspired by the American democratic ideals of freedom and equality. We welcome people of all communities and generations to participate in cultural experiences that celebrate discovery and hope, foster human connections, and call upon us to help build a more just society.</p>
         </div>
       </div>
 
-      <div class="bio-list">
-        <div class="bio-row"><p class="bio-name">Mamie Green</p><p class="bio-copy">Choreographer and director of VOLTA. Her work has been presented across the US and Europe, with 2026 presentations at Guggenheim Bilbao and Foster Theater.</p></div>
-        <div class="bio-row"><p class="bio-name">Freak Nature Puppets</p><p class="bio-copy">Los Angeles artist collective making dreamlike giant puppetry. Collaborators include Dead &amp; Company, Bob Baker Marionette Theater, KCRW, and Childish Gambino.</p></div>
-        <div class="bio-row"><p class="bio-name">Rebecca Schultz</p><p class="bio-copy">Writer of fiction and criticism published in Los Angeles Review of Books, BOMB, Full-Stop, and Santa Monica Review. She teaches at UC Irvine.</p></div>
-        <div class="bio-row"><p class="bio-name">Patrick Shiroishi</p><p class="bio-copy">Japanese-American multi-instrumentalist, composer, and poet based in Los Angeles. He has performed at MOCA, The Met, The Getty, and internationally.</p></div>
-        <div class="bio-row"><p class="bio-name">Dylan Fujioka</p><p class="bio-copy">Los Angeles-born multi-instrumentalist and composer known for drumming, recording, cross-genre collaborations, and film and television composition work.</p></div>
-        <div class="bio-row"><p class="bio-name">Sophie Becker</p><p class="bio-copy">New York ventriloquist and actor working across theater and experimental comedy, with performances at MoMA PS1, NADA Miami, and Rockaway Film Festival.</p></div>
-        <div class="bio-row"><p class="bio-name">Ari Salka</p><p class="bio-copy">Los Angeles artist working in painting, drawing, and poetry. MFA UCLA. Work held in multiple permanent collections; solo museum exhibition upcoming in 2027.</p></div>
-        <div class="bio-row"><p class="bio-name">Roxanne Steinberg</p><p class="bio-copy">Dancer and choreographer who founded Body Weather Los Angeles in 1988. Her work has appeared at REDCAT, Electric Lodge, and venues in New York and Portland.</p></div>
-        <div class="bio-row"><p class="bio-name">Ryley Polak</p><p class="bio-copy">Los Angeles-based dancer and educator. Credits include A24's <em>Dick's: The Musical</em>, commercial work, and international performance with Royal Flux and VOLTA.</p></div>
-        <div class="bio-row"><p class="bio-name">Anaya Gonzalez</p><p class="bio-copy">Dancer focused on emotionally driven movement. Trained at UNCSA and performed with BODYTRAFFIC in works by leading contemporary choreographers.</p></div>
-        <div class="bio-row"><p class="bio-name">Nico Fife</p><p class="bio-copy">Actor, writer, puppeteer, and director from Long Beach. Associate Company Member at The Actors' Gang and an active practitioner and teacher of Viewpoints.</p></div>
-        <div class="bio-row"><p class="bio-name">Tim Griffin Allan</p><p class="bio-copy">New York actor appearing on stage and screen, including projects with A24, HBO, MUBI, and CBS; also a member of puppet troupe PussyPaws Puppetry.</p></div>
-        <div class="bio-row"><p class="bio-name">Abby Sage</p><p class="bio-copy">Singer-songwriter and multidisciplinary artist. Alongside music, she designs handcrafted puppets that blend storytelling, symbolism, and expressive movement.</p></div>
-        <div class="bio-row"><p class="bio-name">Skirball Cultural Center</p><p class="bio-copy">A place of meeting guided by Jewish tradition and democratic ideals, welcoming all communities into cultural experiences centered on connection and social care.</p></div>
+      <div class="outside-spacer"></div>
+
+      <div class="outside-credits">
+        <div class="outside-credit-item">
+          <p class="outside-credit-title">Performed by</p>
+          <p class="outside-credit-copy">Sophie Becker, Tim Allen, Roxanne Steinberg, Ryley Polak, Anaya Gonzales, Nico Fife, and Abby Sage.</p>
+        </div>
+        <div class="outside-credit-item">
+          <p class="outside-credit-title">Creative Team</p>
+          <p class="outside-credit-copy">Choreographed and directed by Mamie Green. Concept by Mamie Green and Rebecca Schultz. Puppets by Freak Nature Puppets and Abby Sage. Original live score by Patrick Shiroishi and Dylan Fujioka. Script by Rebecca Schultz. Set design by Ari Salka. Dramaturgy by Livia Reiner.</p>
+        </div>
+        <div class="outside-credit-item">
+          <p class="outside-credit-title">Thanks</p>
+          <p class="outside-credit-copy">Thank you to the Skirball Cultural Center, Community Engagement Grants, Oracle Egg BROILER Residency, and Reboot for supporting this project.</p>
+        </div>
       </div>
     </article>
   </section>
