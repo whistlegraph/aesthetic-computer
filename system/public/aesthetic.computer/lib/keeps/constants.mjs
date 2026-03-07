@@ -106,30 +106,36 @@ export function getRpc(network = DEFAULT_NETWORK) {
  * Build objkt.com URL for a token
  * @param {number} tokenId - Token ID
  * @param {string} network - "mainnet" or "ghostnet"
+ * @param {string|null} contract - Optional KT1 override
  * @returns {string} Full objkt URL
  */
-export function getObjktUrl(tokenId, network = DEFAULT_NETWORK) {
+export function getObjktUrl(tokenId, network = DEFAULT_NETWORK, contract = null) {
   const net = getNetwork(network);
-  return `${net.objkt}/asset/${net.contract}/${tokenId}`;
+  const contractAddress = contract || net.contract;
+  return `${net.objkt}/asset/${contractAddress}/${tokenId}`;
 }
 
 /**
  * Build TzKT explorer URL for a token
  * @param {number} tokenId - Token ID
  * @param {string} network - "mainnet" or "ghostnet"
+ * @param {string|null} contract - Optional KT1 override
  * @returns {string} Full TzKT URL
  */
-export function getTzktTokenUrl(tokenId, network = DEFAULT_NETWORK) {
+export function getTzktTokenUrl(tokenId, network = DEFAULT_NETWORK, contract = null) {
   const net = getNetwork(network);
-  return `${net.explorer}/${net.contract}/tokens/${tokenId}`;
+  const contractAddress = contract || net.contract;
+  return `${net.explorer}/${contractAddress}/tokens/${tokenId}`;
 }
 
 /**
  * Build TzKT explorer URL for the contract
  * @param {string} network - "mainnet" or "ghostnet"
+ * @param {string|null} contract - Optional KT1 override
  * @returns {string} Full TzKT contract URL
  */
-export function getTzktContractUrl(network = DEFAULT_NETWORK) {
+export function getTzktContractUrl(network = DEFAULT_NETWORK, contract = null) {
   const net = getNetwork(network);
-  return `${net.explorer}/${net.contract}`;
+  const contractAddress = contract || net.contract;
+  return `${net.explorer}/${contractAddress}`;
 }
