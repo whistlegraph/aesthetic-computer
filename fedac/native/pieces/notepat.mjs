@@ -49,10 +49,10 @@ function isDark() {
   const h = getLAHour();
   return h >= 19 || h < 7;
 }
-let dark = isDark();
+let dark = true; // always dark
 
 // Background color — average of active notes, lerped
-let bgColor = dark ? [20, 20, 25] : [255, 255, 255];
+let bgColor = [0, 0, 0];
 let bgTarget = dark ? [20, 20, 25] : [255, 255, 255];
 
 // Debug: last key pressed
@@ -105,13 +105,13 @@ const RIGHT_GRID = [
 ];
 
 const NOTE_COLORS = {
-  c: [220, 30, 30], "c#": [60, 60, 60],
-  d: [220, 130, 0], "d#": [60, 60, 60],
-  e: [200, 180, 0],
-  f: [30, 160, 30], "f#": [60, 60, 60],
-  g: [30, 90, 220], "g#": [60, 60, 60],
-  a: [110, 30, 180], "a#": [60, 60, 60],
-  b: [160, 50, 220],
+  c: [255, 30, 30], "c#": [255, 80, 0],
+  d: [255, 150, 0], "d#": [200, 200, 0],
+  e: [230, 220, 0],
+  f: [30, 200, 30], "f#": [0, 200, 180],
+  g: [30, 100, 255], "g#": [80, 50, 255],
+  a: [140, 30, 220], "a#": [200, 30, 150],
+  b: [200, 50, 255],
 };
 
 function noteToFreq(note, oct) {
@@ -145,7 +145,7 @@ function hitTestGrid(x, y, gi) {
   return null;
 }
 
-function boot({ wipe }) { wipe(255); }
+function boot({ wipe }) { wipe(0); }
 
 function act({ event: e, sound, wifi }) {
   // WiFi password input mode — fullscreen, capture all keyboard
@@ -374,40 +374,19 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   if (lastKeyTimer > 0) lastKeyTimer--;
 
   // Re-check dark mode every ~10 seconds
-  if (frame % 600 === 0) dark = isDark();
+  // dark mode is always on
 
-  // Hour-based accent tint (subtle color shift through the day)
-  const laH = getLAHour();
-  // Map hour to hue: dawn=warm orange, midday=cool blue, sunset=pink, night=deep blue
-  let tR, tG, tB;
-  if (laH >= 5 && laH < 9) { tR = 80; tG = 40; tB = 10; }       // dawn: warm amber
-  else if (laH >= 9 && laH < 14) { tR = 10; tG = 35; tB = 70; }  // midday: cool blue
-  else if (laH >= 14 && laH < 18) { tR = 25; tG = 60; tB = 20; } // afternoon: green
-  else if (laH >= 18 && laH < 21) { tR = 70; tG = 15; tB = 55; } // sunset: magenta
-  else { tR = 20; tG = 15; tB = 65; }                              // night: deep indigo
+  // Clean dark theme — no time-of-day tinting
+  const FG = 220;
+  const FG_DIM = 140;
+  const FG_MUTED = 80;
+  const BAR_BG = [35, 20, 30];
+  const BAR_BORDER = [55, 35, 45];
+  const PAD_NORMAL = [28, 28, 30];
+  const PAD_SHARP = [18, 18, 20];
+  const PAD_OUTLINE = [50, 50, 55];
 
-  const f = Math.floor; // shorthand
-  // Full saturation tint
-  const BG = dark
-    ? [f(10 + tR), f(10 + tG), f(12 + tB)]
-    : [f(Math.min(255, 230 + tR / 3)), f(Math.min(255, 230 + tG / 3)), f(Math.min(255, 230 + tB / 3))];
-  const FG = dark ? 220 : 0;
-  const FG_DIM = dark ? 140 : 100;
-  const FG_MUTED = dark ? 80 : 170;
-  // Pink-tinted status bar
-  const BAR_BG = dark
-    ? [f(45 + tR / 3), f(25 + tG / 6), f(35 + tB / 4)]
-    : [255, f(230 + tG / 8), f(235 + tB / 6)];
-  const BAR_BORDER = dark ? [f(70 + tR / 3), f(40 + tG / 4), f(55 + tB / 3)] : [230, 190, 200];
-  const PAD_NORMAL = dark
-    ? [f(35 + tR / 3), f(35 + tG / 3), f(38 + tB / 3)]
-    : [f(Math.min(255, 242 + tR / 8)), f(Math.min(255, 242 + tG / 8)), f(Math.min(255, 242 + tB / 8))];
-  const PAD_SHARP = dark
-    ? [f(25 + tR / 4), f(25 + tG / 4), f(28 + tB / 4)]
-    : [f(Math.min(255, 212 + tR / 8)), f(Math.min(255, 212 + tG / 8)), f(Math.min(255, 215 + tB / 8))];
-  const PAD_OUTLINE = dark ? [55 + f(tR / 4), 55 + f(tG / 4), 60 + f(tB / 4)] : [210, 210, 210];
-
-  // Compute background color from active notes
+  // Compute background color from active notes — full color flash
   const activeKeys = Object.keys(sounds);
   if (activeKeys.length > 0) {
     let r = 0, g = 0, b = 0;
@@ -420,28 +399,26 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       }
     }
     const n = activeKeys.length;
-    if (dark) {
-      // Dark: full saturation blend toward note color
-      bgTarget = [
-        Math.floor(15 + (r / n) * 0.5),
-        Math.floor(15 + (g / n) * 0.5),
-        Math.floor(18 + (b / n) * 0.5),
-      ];
-    } else {
-      // Light: stronger note color blend
-      bgTarget = [
-        Math.floor(255 - (255 - r / n) * 0.6),
-        Math.floor(255 - (255 - g / n) * 0.6),
-        Math.floor(255 - (255 - b / n) * 0.6),
-      ];
-    }
+    // Saturate: boost toward max channel, clamp to 255
+    const avg = [r / n, g / n, b / n];
+    const mx = Math.max(avg[0], avg[1], avg[2], 1);
+    const sat = 255 / mx; // scale so brightest channel hits 255
+    bgTarget = [
+      Math.min(255, Math.floor(avg[0] * sat)),
+      Math.min(255, Math.floor(avg[1] * sat)),
+      Math.min(255, Math.floor(avg[2] * sat)),
+    ];
+    // Snap on instantly (blink)
+    bgColor[0] = bgTarget[0];
+    bgColor[1] = bgTarget[1];
+    bgColor[2] = bgTarget[2];
   } else {
-    bgTarget = BG;
+    bgTarget = [0, 0, 0];
+    // Fade to black smoothly
+    bgColor[0] += (bgTarget[0] - bgColor[0]) * 0.25;
+    bgColor[1] += (bgTarget[1] - bgColor[1]) * 0.25;
+    bgColor[2] += (bgTarget[2] - bgColor[2]) * 0.25;
   }
-  // Lerp toward target
-  bgColor[0] += (bgTarget[0] - bgColor[0]) * 0.15;
-  bgColor[1] += (bgTarget[1] - bgColor[1]) * 0.15;
-  bgColor[2] += (bgTarget[2] - bgColor[2]) * 0.15;
 
   wipe(Math.round(bgColor[0]), Math.round(bgColor[1]), Math.round(bgColor[2]));
 

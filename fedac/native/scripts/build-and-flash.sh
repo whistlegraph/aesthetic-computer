@@ -171,7 +171,7 @@ if [ "${WIFI_COPIED}" -gt 0 ]; then
     done
     for pattern in "iwlwifi-9260-th-b0-jf-b0-*" "iwlwifi-cc-a0-*" "iwlwifi-QuZ-a0-hr-b0-*" "iwlwifi-QuZ-a0-jf-b0-*"; do
         # Get the latest (highest version number) firmware file
-        fw=$(ls -v /lib/firmware/${pattern}.ucode* 2>/dev/null | tail -1)
+        fw=$(ls -v /lib/firmware/${pattern}.ucode* 2>/dev/null | tail -1 || true)
         if [ -n "$fw" ] && [ -f "$fw" ]; then
             dest="${INITRAMFS_DIR}/lib/firmware/$(basename "${fw%.xz}")"
             xz -dk "$fw" -c > "$dest" 2>/dev/null || cp "$fw" "$dest"
