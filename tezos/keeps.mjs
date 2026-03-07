@@ -17,6 +17,7 @@
 import { TezosToolkit, MichelsonMap } from '@taquito/taquito';
 import { InMemorySigner } from '@taquito/signer';
 import { Parser } from '@taquito/michel-codec';
+import { MongoClient } from 'mongodb';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -24,6 +25,7 @@ import crypto from 'crypto';
 import readline from 'readline';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const KEEPS_SECRET_ID = process.env.KEEPS_SECRET_ID || 'tezos-kidlisp';
 
 // ============================================================================
 // Configuration
@@ -149,6 +151,79 @@ function resolveContractProfile(rawProfile = 'v6') {
     throw new Error(`❌ Unknown contract profile: ${rawProfile}. Use one of: ${supported}`);
   }
   return profile;
+}
+
+function getMongoSecretsConfig() {
+  return {
+    connectionString: process.env.MONGODB_CONNECTION_STRING,
+    dbName: process.env.MONGODB_NAME,
+  };
+}
+
+async function syncActiveKeepsSecret({ network = 'mainnet', contractAddress, profile }) {
+  const { connectionString, dbName } = getMongoSecretsConfig();
+  if (!connectionString || !dbName) {
+    console.log('   ⚠️  Mongo secrets sync skipped (set MONGODB_CONNECTION_STRING + MONGODB_NAME to enable).');
+    return { synced: false, reason: 'missing-mongo-env' };
+  }
+
+  const client = new MongoClient(connectionString, {
+    serverSelectionTimeoutMS: 10000,
+    connectTimeoutMS: 10000,
+  });
+
+  try {
+    await client.connect();
+    const secrets = client.db(dbName).collection('secrets');
+    const now = new Date().toISOString();
+
+    const update = await secrets.updateOne(
+      { _id: KEEPS_SECRET_ID },
+      {
+        $set: {
+          [`keepsContract.${network}`]: contractAddress,
+          currentKeepsContract: contractAddress,
+          currentKeepsNetwork: network,
+          currentKeepsProfile: profile.key,
+          currentKeepsVersion: profile.metadata?.version || null,
+          currentKeepsUpdatedAt: now,
+        },
+      }
+    );
+
+    if (!update.matchedCount) {
+      console.log(`   ⚠️  Mongo secrets sync skipped (no secrets.${KEEPS_SECRET_ID} document found).`);
+      return { synced: false, reason: 'secret-not-found' };
+    }
+
+    console.log(`   🗄️  Synced secrets.${KEEPS_SECRET_ID} -> ${contractAddress} (${profile.key} on ${network})`);
+    return { synced: true };
+  } catch (error) {
+    console.log(`   ⚠️  Mongo secrets sync failed: ${error.message}`);
+    return { synced: false, reason: 'sync-error', error: error.message };
+  } finally {
+    await client.close().catch(() => {});
+  }
+}
+
+async function syncCurrentContractToSecrets(network = 'mainnet', options = {}) {
+  const profile = resolveContractProfile(options.contractProfile || options.profile || 'v6');
+  const addressPath = getContractAddressPath(network);
+  if (!fs.existsSync(addressPath)) {
+    throw new Error(`❌ No saved contract address for ${network} at ${addressPath}`);
+  }
+
+  const contractAddress = fs.readFileSync(addressPath, 'utf8').trim();
+  if (!isKt1Address(contractAddress)) {
+    throw new Error(`❌ Invalid contract address in ${addressPath}: ${contractAddress}`);
+  }
+
+  console.log(`\n🗄️ Syncing secrets from ${addressPath}`);
+  console.log(`   Contract: ${contractAddress}`);
+  console.log(`   Profile:  ${profile.key}`);
+  console.log(`   Network:  ${network}`);
+
+  return syncActiveKeepsSecret({ network, contractAddress, profile });
 }
 
 // ============================================================================
@@ -342,6 +417,9 @@ async function deployContract(network = 'mainnet', options = {}) {
     const addressPath = getContractAddressPath(network);
     fs.writeFileSync(addressPath, contractAddress);
     console.log(`   💾 Saved address to: ${addressPath}\n`);
+
+    await syncActiveKeepsSecret({ network, contractAddress, profile });
+    console.log('');
 
     return { address: contractAddress, hash: originationOp.hash, profile: profile.key };
 
@@ -2542,6 +2620,10 @@ async function main() {
       case 'deploy':
         await deployContract(getNetwork(1), { contractProfile });
         break;
+
+      case 'sync-secrets':
+        await syncCurrentContractToSecrets(getNetwork(1), { contractProfile });
+        break;
         
       case 'status':
         await getContractStatus(getNetwork(1));
@@ -2793,6 +2875,7 @@ Usage: node keeps.mjs <command> [options]
 
 Commands:
   deploy [network]              Deploy contract (default profile: v6)
+  sync-secrets [network]        Sync active contract/profile to Mongo secrets
   status [network]              Show contract status
   balance [network]             Check wallet balance
   upload <piece>                Upload bundle to IPFS
@@ -2836,6 +2919,7 @@ Flags:
 
 Examples:
   node keeps.mjs deploy mainnet --wallet=kidlisp --contract=v6
+  node keeps.mjs sync-secrets mainnet --contract=v6
   node keeps.mjs deploy mainnet --wallet=staging --contract=v5rc
   node keeps.mjs deploy ghostnet --wallet=aesthetic --contract=v4
   node keeps.mjs balance
@@ -2885,6 +2969,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
 export {
   createTezosClient,
   deployContract,
+  syncCurrentContractToSecrets,
   getContractStatus,
   getBalance,
   uploadToIPFS,

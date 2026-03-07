@@ -255,8 +255,51 @@ let pal = scheme.dark;
 let PHASE_COLORS = PHASE_COLORS_DARK;
 
 // Get config from shared constants
-const NETWORK = DEFAULT_NETWORK;
-const KEEPS_CONTRACT = getNetwork(NETWORK).contract;
+let NETWORK = DEFAULT_NETWORK;
+let ACTIVE_KEEPS_CONTRACT = getNetwork(NETWORK).contract;
+let ACTIVE_KEEPS_PROFILE = KEEPS_STAGING ? "v5rc" : "v6";
+let keepsStagingMode = KEEPS_STAGING;
+
+function isStagingProfile(profile) {
+  const p = String(profile || "").toLowerCase();
+  return p.includes("staging") || p.includes("rc") || p.includes("beta");
+}
+
+function getTzktContractUrl(network = NETWORK, contractAddress = ACTIVE_KEEPS_CONTRACT) {
+  const base = network === "mainnet" ? "https://tzkt.io" : `https://${network}.tzkt.io`;
+  return `${base}/${contractAddress}`;
+}
+
+function getObjktCollectionUrl(network = NETWORK, contractAddress = ACTIVE_KEEPS_CONTRACT) {
+  const base = network === "mainnet" ? "https://objkt.com" : `https://${network}.objkt.com`;
+  return `${base}/collection/${contractAddress}`;
+}
+
+async function loadKeepsRuntimeConfig() {
+  try {
+    const response = await fetch("/api/keeps-config");
+    if (!response.ok) return;
+
+    const config = await response.json();
+    const nextNetwork = typeof config.network === "string" ? config.network.trim().toLowerCase() : "";
+    const nextContract = typeof config.contractAddress === "string" ? config.contractAddress.trim() : "";
+    const nextProfile = typeof config.profile === "string" ? config.profile.trim().toLowerCase() : "";
+
+    if (nextNetwork) NETWORK = nextNetwork;
+    if (nextContract) ACTIVE_KEEPS_CONTRACT = nextContract;
+    if (nextProfile) ACTIVE_KEEPS_PROFILE = nextProfile;
+    keepsStagingMode = isStagingProfile(ACTIVE_KEEPS_PROFILE);
+
+    console.log("🪙 KEEP: Runtime config loaded", {
+      network: NETWORK,
+      contract: ACTIVE_KEEPS_CONTRACT,
+      profile: ACTIVE_KEEPS_PROFILE,
+      source: config.source || "unknown",
+    });
+  } catch (error) {
+    console.warn("🪙 KEEP: Could not load runtime keeps config, using fallback constants:", error?.message || error);
+  }
+}
 
 // 👻 Pac-Man Ghost Sprite (14x14, classic arcade bitmap)
 const GHOST_SPRITE = [
@@ -555,6 +598,9 @@ async function fetchPieceInfo() {
   loadingPieceInfo = false;
   _needsPaint?.();
 
+  // Load active keeps config before reading on-chain state.
+  await loadKeepsRuntimeConfig();
+
   // Now check if already minted
   checkIfAlreadyMinted();
 }
@@ -644,7 +690,7 @@ async function checkIfAlreadyMinted() {
   _needsPaint?.();
 
   try {
-    const result = await checkIfMinted(piece, NETWORK);
+    const result = await checkIfMinted(piece, NETWORK, ACTIVE_KEEPS_CONTRACT);
 
     if (result) {
       console.log("🪙 KEEP: Already minted as token #" + result.tokenId);
@@ -670,7 +716,7 @@ async function checkIfAlreadyMinted() {
 // Fetch existing token info from TzKT
 async function fetchExistingTokenInfo(existingTokenId) {
   try {
-    const tokenInfo = await fetchTokenInfo(existingTokenId, NETWORK);
+    const tokenInfo = await fetchTokenInfo(existingTokenId, NETWORK, ACTIVE_KEEPS_CONTRACT);
 
     alreadyMinted = {
       tokenId: existingTokenId,
@@ -712,8 +758,8 @@ async function fetchExistingTokenInfo(existingTokenId) {
       owner: null,
       name: `$${piece}`,
       network: NETWORK,
-      objktUrl: getObjktUrl(existingTokenId, NETWORK),
-      tzktUrl: getTzktTokenUrl(existingTokenId, NETWORK),
+      objktUrl: getObjktUrl(existingTokenId, NETWORK, ACTIVE_KEEPS_CONTRACT),
+      tzktUrl: getTzktTokenUrl(existingTokenId, NETWORK, ACTIVE_KEEPS_CONTRACT),
     };
     loadingExisting = false;
     _needsPaint?.();
@@ -1141,8 +1187,8 @@ function syntaxHighlightKidlisp(source) {
 async function runProcess(forceRegenerate = false, retryAttempt = 0) {
   const retryLabel = retryAttempt > 0 ? ` (retry ${retryAttempt})` : "";
   console.log("🪙 KEEP: Starting mint process for $" + piece + (forceRegenerate ? " (force regenerate)" : "") + retryLabel);
-  console.log("🪙 KEEP: Network:", NETWORK, "Contract:", KEEPS_CONTRACT);
-  console.log("🪙 KEEP: Staging mode:", KEEPS_STAGING);
+  console.log("🪙 KEEP: Network:", NETWORK, "Contract:", ACTIVE_KEEPS_CONTRACT);
+  console.log("🪙 KEEP: Staging mode:", keepsStagingMode);
 
   // === STEP 1: Connect Wallet ===
   // Reset timer when process actually starts (not counting initial checks)
@@ -1474,8 +1520,9 @@ async function signAndMint() {
   setStep("sign", "active", "Check your wallet...");
 
   try {
+    const contractAddress = preparedData.contractAddress || ACTIVE_KEEPS_CONTRACT;
     txHash = await _api.tezos.call(
-      preparedData.contractAddress,
+      contractAddress,
       preparedData.entrypoint,
       preparedData.michelsonParams.value,
       preparedData.mintFee
@@ -1491,7 +1538,7 @@ async function signAndMint() {
     for (let attempt = 0; attempt < 5 && !tokenId; attempt++) {
       await new Promise(r => setTimeout(r, 3000));
       try {
-        tokenId = await findTokenByName(tokenName, mintNetwork, preparedData.contractAddress);
+        tokenId = await findTokenByName(tokenName, mintNetwork, contractAddress);
         if (tokenId) {
           console.log(`🪙 KEEP: Found token #${tokenId} for ${tokenName} on attempt ${attempt + 1}`);
         }
@@ -1520,7 +1567,7 @@ async function signAndMint() {
           txHash,
           walletAddress,
           network: preparedData.network,
-          contractAddress: preparedData.contractAddress,
+          contractAddress,
           artifactUri: preparedData.artifactUri,
           thumbnailUri: preparedData.thumbnailUri,
           metadataUri: preparedData.metadataUri,
@@ -1757,9 +1804,10 @@ function paint($) {
 
     // Header with network/staging badge
     const baseNetLabel = (alreadyMinted.network || NETWORK).toUpperCase();
-    const netLabel = KEEPS_STAGING ? "STAGING V5 RC" : baseNetLabel;
+    const profileLabel = (ACTIVE_KEEPS_PROFILE || "staging").toUpperCase();
+    const netLabel = keepsStagingMode ? `STAGING ${profileLabel}` : baseNetLabel;
     const isMainnet = baseNetLabel === "MAINNET";
-    const netColor = KEEPS_STAGING ? [255, 180, 100] : (isMainnet ? [100, 220, 100] : [220, 180, 100]);
+    const netColor = keepsStagingMode ? [255, 180, 100] : (isMainnet ? [100, 220, 100] : [220, 180, 100]);
 
     ink(255, 220, 100).write("KEPT", { x: w/2, y, center: "x" }, undefined, undefined, false, "MatrixChunky8");
     y += 10;
@@ -2113,7 +2161,7 @@ function paint($) {
 
     // Contract button - bottom right corner
     const contractScheme = pal.btnContract;
-    const shortContract = KEEPS_CONTRACT.slice(0, 8) + "..";
+    const shortContract = ACTIVE_KEEPS_CONTRACT.slice(0, 8) + "..";
     const contractSize = mc8ButtonSize(shortContract);
     contractBtn.btn.box.x = w - margin - contractSize.w;
     contractBtn.btn.box.y = h - contractSize.h - 4;
@@ -2222,7 +2270,7 @@ function paint($) {
     const showDate = !compact && !tightSpace;
     const showProse = !compact && !tightSpace;
     const showNetwork = !tiny && !severeSpace;
-    const showContract = KEEPS_STAGING ? true : (!tiny && !tightSpace); // Always show contract in staging mode
+    const showContract = keepsStagingMode ? true : (!tiny && !tightSpace); // Always show contract in staging mode
     
     // Preview thumbnail size - responsive to layout mode and space constraints
     const previewThumbSize = useHorizontalLayout 
@@ -2340,9 +2388,9 @@ function paint($) {
         cy += confirmSize.h + tinyGap;
 
         // Contract button showing version and address (clickable)
-        if (cy + 12 < h && KEEPS_STAGING) {
-          const contractShort = KEEPS_CONTRACT.slice(0, 10) + "..";
-          const contractLabel = `v5rc: ${contractShort}`;
+        if (cy + 12 < h && keepsStagingMode) {
+          const contractShort = ACTIVE_KEEPS_CONTRACT.slice(0, 10) + "..";
+          const contractLabel = `${ACTIVE_KEEPS_PROFILE}: ${contractShort}`;
           const contractScheme = pal.btnContract;
           const contractSize = mc8ButtonSize(contractLabel);
           const contractX = floor(cx - contractSize.w / 2);
@@ -2552,9 +2600,10 @@ function paint($) {
 
       // Network badge
       if (showNetwork) {
-        const netLabel = KEEPS_STAGING ? "STAGING V5 RC" : NETWORK.toUpperCase();
+        const profileLabel = (ACTIVE_KEEPS_PROFILE || "staging").toUpperCase();
+        const netLabel = keepsStagingMode ? `STAGING ${profileLabel}` : NETWORK.toUpperCase();
         const isMainnet = NETWORK === "mainnet";
-        const netColor = KEEPS_STAGING ? [255, 180, 100] : (isMainnet ? [100, 220, 100] : [220, 180, 100]);
+        const netColor = keepsStagingMode ? [255, 180, 100] : (isMainnet ? [100, 220, 100] : [220, 180, 100]);
         ink(netColor[0], netColor[1], netColor[2], 200).write(netLabel, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
         cy += 10 + vGap;
       }
@@ -2562,8 +2611,8 @@ function paint($) {
       // Contract button (clickable link to TzKT)
       if (showContract) {
         const contractScheme = pal.btnContract;
-        const contractShort = KEEPS_CONTRACT.slice(0, 10) + "..";
-        const contractLabel = KEEPS_STAGING ? `v5rc: ${contractShort}` : contractShort;
+        const contractShort = ACTIVE_KEEPS_CONTRACT.slice(0, 10) + "..";
+        const contractLabel = keepsStagingMode ? `${ACTIVE_KEEPS_PROFILE}: ${contractShort}` : contractShort;
         const contractSize = mc8ButtonSize(contractLabel);
         const contractX = floor((w - contractSize.w) / 2);
         contractBtn.btn.box.x = contractX;
@@ -3069,11 +3118,11 @@ function paint($) {
       y += tollH + 2;
 
       // "to keep on mainnet staging" with clickable staging button showing contract version and address
-      if (KEEPS_STAGING) {
+      if (keepsStagingMode) {
         const netName = preparedData.network || NETWORK || "mainnet";
         const prefix = "to keep on " + netName + " ";
-        const contractShort = KEEPS_CONTRACT.slice(0, 10) + "..";
-        const stagingLabel = `v5rc: ${contractShort}`;
+        const contractShort = ACTIVE_KEEPS_CONTRACT.slice(0, 10) + "..";
+        const stagingLabel = `${ACTIVE_KEEPS_PROFILE}: ${contractShort}`;
         // MatrixChunky8 is ~4px per char
         const prefixW = prefix.length * 4;
         const stagingW = stagingLabel.length * 4 + 8; // padding
@@ -3108,7 +3157,8 @@ function paint($) {
   const reviewStep = timeline.find(t => t.id === "review");
   if (reviewStep?.status === "active" && preparedData) {
     const baseNet = (preparedData.network || "mainnet").toUpperCase();
-    const netLabel = KEEPS_STAGING && baseNet === "MAINNET" ? "MAINNET (STAGING V5 RC)" : baseNet;
+    const profileLabel = (ACTIVE_KEEPS_PROFILE || "staging").toUpperCase();
+    const netLabel = keepsStagingMode && baseNet === "MAINNET" ? `MAINNET (STAGING ${profileLabel})` : baseNet;
     const isGhostnet = baseNet === "GHOSTNET";
     const ghostW = isGhostnet ? 16 : 0; // Space for ghost icon
     const netW = netLabel.length * 4 + 8 + ghostW;
@@ -3186,7 +3236,7 @@ function act({ event: e, screen }) {
     }});
 
     // Contract button - link to TzKT
-    const tzktContractUrl = `https://${NETWORK}.tzkt.io/${KEEPS_CONTRACT}`;
+    const tzktContractUrl = getTzktContractUrl(NETWORK, ACTIVE_KEEPS_CONTRACT);
     contractBtn.btn.act(e, { ...hoverCb, push: () => openUrl(tzktContractUrl) });
 
     // Login button - trigger auth0 login (show when piece has author but user not logged in)
@@ -3322,13 +3372,16 @@ function act({ event: e, screen }) {
     }
 
     // Network button links to contract collection on objkt
-    const contractAddress = preparedData.contractAddress || KEEPS_CONTRACT;
-    const networkPrefix = preparedData.network === "mainnet" ? "" : "ghostnet.";
-    networkBtn.btn.act(e, { ...hoverCb, push: () => openUrl(`https://${networkPrefix}objkt.com/collection/${contractAddress}`) });
+    const contractAddress = preparedData.contractAddress || ACTIVE_KEEPS_CONTRACT;
+    const collectionNetwork = preparedData.network || NETWORK;
+    networkBtn.btn.act(e, {
+      ...hoverCb,
+      push: () => openUrl(getObjktCollectionUrl(collectionNetwork, contractAddress)),
+    });
 
     // Staging contract link
-    if (KEEPS_STAGING && btn.staging) {
-      const tzktStagingUrl = `https://${NETWORK}.tzkt.io/${KEEPS_CONTRACT}`;
+    if (keepsStagingMode && btn.staging) {
+      const tzktStagingUrl = getTzktContractUrl(NETWORK, ACTIVE_KEEPS_CONTRACT);
       // Proper button handler with hitbox checking and hover support
       if (e.is("move")) {
         const containsNow = btn.staging.box.x <= e.x && e.x < btn.staging.box.x + btn.staging.box.w &&
@@ -3374,10 +3427,12 @@ function act({ event: e, screen }) {
   if (completeStep?.status === "done") {
     // Main button - view on objkt.com
     btn.btn.act(e, { ...hoverCb, push: () => {
-      const networkPrefix = preparedData?.network === "mainnet" ? "" : "ghostnet.";
+      const mintedNetwork = preparedData?.network || NETWORK;
+      const mintedContract = preparedData?.contractAddress || ACTIVE_KEEPS_CONTRACT;
+      const objktBase = mintedNetwork === "mainnet" ? "https://objkt.com" : `https://${mintedNetwork}.objkt.com`;
       const url = tokenId
-        ? `https://${networkPrefix}objkt.com/tokens/${preparedData.contractAddress}/${tokenId}`
-        : `https://${networkPrefix}objkt.com/collections/${preparedData.contractAddress}`;
+        ? `${objktBase}/tokens/${mintedContract}/${tokenId}`
+        : `${objktBase}/collections/${mintedContract}`;
       openUrl(url);
     }});
 
@@ -3417,7 +3472,7 @@ function act({ event: e, screen }) {
       btn.btn.act(e, { ...hoverCb, push: () => openUrl(alreadyMinted.objktUrl) });
       walletBtn.btn.act(e, { ...hoverCb, push: () => _jump("wallet") });
 
-      const tzktContractUrl = `https://${NETWORK}.tzkt.io/${KEEPS_CONTRACT}`;
+      const tzktContractUrl = getTzktContractUrl(NETWORK, ACTIVE_KEEPS_CONTRACT);
       contractBtn.btn.act(e, { ...hoverCb, push: () => openUrl(tzktContractUrl) });
 
       if (updateChainResult?.opHash) {

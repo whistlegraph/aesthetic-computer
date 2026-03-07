@@ -16,6 +16,7 @@ describe('🚀 Keeps v6 Launch Prep - Source Checks', () => {
   const kidlispKeepPath = path.join(process.cwd(), 'system', 'netlify', 'functions', 'kidlisp-keep.mjs');
   const keepsCliPath = path.join(process.cwd(), 'tezos', 'keeps.mjs');
   const compilePath = path.join(process.cwd(), 'tezos', 'compile.fish');
+  const netlifyTomlPath = path.join(process.cwd(), 'system', 'netlify.toml');
   const v6ContractPath = path.join(process.cwd(), 'tezos', 'kidlisp_keeps_fa2_v6.py');
   const v6CompiledTzPath = path.join(process.cwd(), 'tezos', 'KeepsFA2v6', 'step_002_cont_0_contract.tz');
 
@@ -25,6 +26,7 @@ describe('🚀 Keeps v6 Launch Prep - Source Checks', () => {
   let kidlispKeepSource;
   let keepsCliSource;
   let compileSource;
+  let netlifyTomlSource;
   let v6ContractSource;
   let v6CompiledTzSource;
 
@@ -35,11 +37,13 @@ describe('🚀 Keeps v6 Launch Prep - Source Checks', () => {
     kidlispKeepSource = fs.readFileSync(kidlispKeepPath, 'utf8');
     keepsCliSource = fs.readFileSync(keepsCliPath, 'utf8');
     compileSource = fs.readFileSync(compilePath, 'utf8');
+    netlifyTomlSource = fs.readFileSync(netlifyTomlPath, 'utf8');
     v6ContractSource = fs.readFileSync(v6ContractPath, 'utf8');
     v6CompiledTzSource = fs.readFileSync(v6CompiledTzPath, 'utf8');
   });
 
   const entrypointBlock = (signature) => v6ContractSource.split(signature)[1]?.split('@sp.entrypoint')[0] || '';
+  const netlifyFunctionBlock = (name) => netlifyTomlSource.split(`[functions.${name}]`)[1]?.split('[functions.')[0] || '';
 
   it('enforces KidLisp-only tags in mint/update pipelines', () => {
     expect(keepMintSource).toContain('const tags = ["KidLisp"]');
@@ -215,5 +219,19 @@ describe('🚀 Keeps v6 Launch Prep - Source Checks', () => {
     expect(keepUpdateSource).not.toContain('TEZOS_KEEPS_CONTRACT');
     expect(keepUpdateConfirmSource).not.toContain('TEZOS_KEEPS_CONTRACT');
     expect(kidlispKeepSource).not.toContain('TEZOS_KEEPS_CONTRACT');
+  });
+
+  it('keeps Netlify keep functions decoupled from TEZOS_KEEPS_CONTRACT env var', () => {
+    expect(netlifyTomlSource).toContain('[functions.keeps-config]');
+
+    const keepMintBlock = netlifyFunctionBlock('keep-mint');
+    const keepUpdateBlock = netlifyFunctionBlock('keep-update');
+    const keepUpdateConfirmBlock = netlifyFunctionBlock('keep-update-confirm');
+    const kidlispKeepBlock = netlifyFunctionBlock('kidlisp-keep');
+
+    expect(keepMintBlock).not.toContain('TEZOS_KEEPS_CONTRACT');
+    expect(keepUpdateBlock).not.toContain('TEZOS_KEEPS_CONTRACT');
+    expect(keepUpdateConfirmBlock).not.toContain('TEZOS_KEEPS_CONTRACT');
+    expect(kidlispKeepBlock).not.toContain('TEZOS_KEEPS_CONTRACT');
   });
 });

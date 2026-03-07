@@ -33,14 +33,16 @@ export function stringToBytes(str) {
  * Check if a piece has already been minted by looking up content_hash bigmap
  * @param {string} piece - Piece name (without $ prefix)
  * @param {string} network - "mainnet" or "ghostnet"
+ * @param {string|null} contract - Optional KT1 override
  * @returns {Promise<{tokenId: number}|null>} Token ID if minted, null if not
  */
-export async function checkIfMinted(piece, network = DEFAULT_NETWORK) {
+export async function checkIfMinted(piece, network = DEFAULT_NETWORK, contract = null) {
   const config = getNetwork(network);
   const api = getTzktApi(network);
+  const contractAddress = contract || config.contract;
   const keyBytes = stringToBytes(piece);
   
-  const url = `${api}/v1/contracts/${config.contract}/bigmaps/content_hashes/keys/${keyBytes}`;
+  const url = `${api}/v1/contracts/${contractAddress}/bigmaps/content_hashes/keys/${keyBytes}`;
   
   try {
     const response = await fetch(url);
@@ -61,15 +63,17 @@ export async function checkIfMinted(piece, network = DEFAULT_NETWORK) {
  * Fetch token metadata from TzKT
  * @param {number} tokenId - Token ID to fetch
  * @param {string} network - "mainnet" or "ghostnet"
+ * @param {string|null} contract - Optional KT1 override
  * @returns {Promise<object>} Token info with metadata, owner, URLs
  */
-export async function fetchTokenInfo(tokenId, network = DEFAULT_NETWORK) {
+export async function fetchTokenInfo(tokenId, network = DEFAULT_NETWORK, contract = null) {
   const config = getNetwork(network);
   const api = getTzktApi(network);
+  const contractAddress = contract || config.contract;
   
   try {
     // Get token metadata
-    const metaUrl = `${api}/v1/tokens?contract=${config.contract}&tokenId=${tokenId}`;
+    const metaUrl = `${api}/v1/tokens?contract=${contractAddress}&tokenId=${tokenId}`;
     const metaRes = await fetch(metaUrl);
     
     let tokenData = {};
@@ -81,7 +85,7 @@ export async function fetchTokenInfo(tokenId, network = DEFAULT_NETWORK) {
     }
     
     // Get owner from ledger
-    const owner = await fetchLedgerOwner(tokenId, network);
+    const owner = await fetchLedgerOwner(tokenId, network, contractAddress);
     
     // Parse metadata
     const meta = tokenData.metadata || {};
@@ -97,16 +101,16 @@ export async function fetchTokenInfo(tokenId, network = DEFAULT_NETWORK) {
       attributes: meta.attributes || [],
       mintedAt: tokenData.firstTime || tokenData.lastTime,
       network,
-      objktUrl: getObjktUrl(tokenId, network),
-      tzktUrl: getTzktTokenUrl(tokenId, network),
+      objktUrl: getObjktUrl(tokenId, network, contractAddress),
+      tzktUrl: getTzktTokenUrl(tokenId, network, contractAddress),
     };
   } catch (e) {
     console.error("🔒 TzKT: Error fetching token info:", e);
     return {
       tokenId,
       network,
-      objktUrl: getObjktUrl(tokenId, network),
-      tzktUrl: getTzktTokenUrl(tokenId, network),
+      objktUrl: getObjktUrl(tokenId, network, contractAddress),
+      tzktUrl: getTzktTokenUrl(tokenId, network, contractAddress),
     };
   }
 }
@@ -115,13 +119,15 @@ export async function fetchTokenInfo(tokenId, network = DEFAULT_NETWORK) {
  * Fetch token owner from ledger bigmap
  * @param {number} tokenId - Token ID to check
  * @param {string} network - "mainnet" or "ghostnet"
+ * @param {string|null} contract - Optional KT1 override
  * @returns {Promise<string|null>} Owner address or null
  */
-export async function fetchLedgerOwner(tokenId, network = DEFAULT_NETWORK) {
+export async function fetchLedgerOwner(tokenId, network = DEFAULT_NETWORK, contract = null) {
   const config = getNetwork(network);
   const api = getTzktApi(network);
+  const contractAddress = contract || config.contract;
   
-  const ledgerUrl = `${api}/v1/contracts/${config.contract}/bigmaps/ledger/keys/${tokenId}`;
+  const ledgerUrl = `${api}/v1/contracts/${contractAddress}/bigmaps/ledger/keys/${tokenId}`;
   
   try {
     const ledgerRes = await fetch(ledgerUrl);

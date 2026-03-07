@@ -1928,7 +1928,7 @@
             <span class="v6-step-icon">&#x2714;</span>
             <div class="v6-step-content">
               <div class="v6-step-title">Contract Source Written</div>
-              <div class="v6-step-desc">keeps_fa2_v5.py &mdash; current contract source in repo, used as v6 launch baseline</div>
+              <div class="v6-step-desc">kidlisp_keeps_fa2_v6.py &mdash; current keeps contract source in repo</div>
             </div>
           </div>
 
@@ -1967,8 +1967,8 @@
           <div class="v6-step done">
             <span class="v6-step-icon">&#x2714;</span>
             <div class="v6-step-content">
-              <div class="v6-step-title">v5 RC Security Audit</div>
-              <div class="v6-step-desc">63 tests passed (0 failures) &mdash; admin auth, fee enforcement, content hash dedup, pause system, royalties all verified against live v5 RC contract</div>
+              <div class="v6-step-title">Launch-Prep Sanity Tests</div>
+              <div class="v6-step-desc">Endpoint/auth/metadata/royalty invariants verified for v6 launch prep, including FA2-compatible disabled mint/burn bypass paths.</div>
             </div>
           </div>
 
@@ -1992,7 +1992,7 @@
             <span class="v6-step-icon">&#x25CB;</span>
             <div class="v6-step-content">
               <div class="v6-step-title">Update Contract Addresses</div>
-              <div class="v6-step-desc">Set new KT1 address in constants.mjs, set KEEPS_STAGING = false, update all 8 codebase references</div>
+              <div class="v6-step-desc">Set active KT1/profile in Mongo <code>secrets.tezos-kidlisp</code>; keep flows and docs now resolve from runtime config.</div>
             </div>
           </div>
 
@@ -2061,12 +2061,24 @@
 
           <div style="margin-bottom: 24px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
             <div style="margin-bottom: 8px; color: var(--text-secondary); font-size: 13px; font-weight: 500;">Contract Address (Mainnet Production)</div>
-            <div style="font-family: 'Courier New', monospace; color: var(--text-tertiary); font-size: 14px; font-style: italic;">
-              Pending deployment...
+            <div id="v6-active-contract-address" style="font-family: 'Courier New', monospace; color: var(--ac-purple); font-size: 14px; word-break: break-all;">
+              Loading...
             </div>
-            <div style="margin-top: 8px; color: var(--text-tertiary); font-size: 12px;">Admin: keeps.tez (tz1Lc2...un2dC)</div>
+            <div id="v6-active-contract-meta" style="margin-top: 8px; color: var(--text-tertiary); font-size: 12px;">Loading active contract metadata...</div>
             <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
-              <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/keeps_fa2_v5.py" target="_blank"
+              <a id="v6-active-contract-tzkt" href="https://tzkt.io" target="_blank"
+                 style="padding: 6px 12px; background: var(--ac-purple); color: white; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
+                TzKT Explorer
+              </a>
+              <a id="v6-active-contract-objkt" href="https://objkt.com" target="_blank"
+                 style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
+                objkt.com
+              </a>
+              <a id="v6-active-contract-ops" href="https://tzkt.io" target="_blank"
+                 style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
+                Operations
+              </a>
+              <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/kidlisp_keeps_fa2_v6.py" target="_blank"
                  style="padding: 6px 12px; background: var(--ac-purple); color: white; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
                 Source Code
               </a>
@@ -2651,10 +2663,88 @@
     let mintCurrentPiece = null;
     let mintWalletAddress = null;
 
-    // Tezos constants
-    const KEEPS_CONTRACT = 'KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido';
-    const TEZOS_NETWORK = 'mainnet';
-    const TEZOS_RPC = 'https://mainnet.ecadinfra.com';
+    // Active keeps config (resolved from Mongo-backed API)
+    let keepsConfig = {
+      contractAddress: null,
+      network: 'mainnet',
+      profile: 'v6',
+      version: '6.0.0',
+      rpcUrl: 'https://mainnet.ecadinfra.com',
+      source: 'fallback',
+    };
+
+    function rpcForNetwork(network) {
+      return network === 'mainnet' ? 'https://mainnet.ecadinfra.com' : 'https://ghostnet.ecadinfra.com';
+    }
+
+    function getTezosNetwork() {
+      return keepsConfig.network || 'mainnet';
+    }
+
+    function getKeepsContractAddress() {
+      return keepsConfig.contractAddress || null;
+    }
+
+    function getObjktBase(network = getTezosNetwork()) {
+      return network === 'mainnet' ? 'https://objkt.com' : `https://${network}.objkt.com`;
+    }
+
+    function renderActiveKeepsConfig() {
+      const network = getTezosNetwork();
+      const contract = getKeepsContractAddress();
+
+      const addressEl = document.getElementById('v6-active-contract-address');
+      const metaEl = document.getElementById('v6-active-contract-meta');
+      const tzktLink = document.getElementById('v6-active-contract-tzkt');
+      const objktLink = document.getElementById('v6-active-contract-objkt');
+      const opsLink = document.getElementById('v6-active-contract-ops');
+
+      if (addressEl) {
+        addressEl.textContent = contract || 'Unavailable';
+      }
+
+      if (metaEl) {
+        const profile = (keepsConfig.profile || 'unknown').toUpperCase();
+        const version = keepsConfig.version || 'unknown';
+        metaEl.textContent = `Profile: ${profile} · Version: ${version} · Network: ${network} · Source: ${keepsConfig.source || 'unknown'}`;
+      }
+
+      if (contract) {
+        const tzktBase = network === 'mainnet' ? 'https://tzkt.io' : `https://${network}.tzkt.io`;
+        const objktBase = getObjktBase(network);
+        if (tzktLink) tzktLink.href = `${tzktBase}/${contract}`;
+        if (objktLink) objktLink.href = `${objktBase}/collection/${contract}`;
+        if (opsLink) opsLink.href = `${tzktBase}/${contract}/operations`;
+      }
+    }
+
+    async function loadKeepsConfig() {
+      try {
+        const response = await fetch(`${API_BASE}/api/keeps-config`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+
+        if (typeof data.contractAddress === 'string' && data.contractAddress.trim()) {
+          keepsConfig.contractAddress = data.contractAddress.trim();
+        }
+        if (typeof data.network === 'string' && data.network.trim()) {
+          keepsConfig.network = data.network.trim().toLowerCase();
+        }
+        if (typeof data.profile === 'string' && data.profile.trim()) {
+          keepsConfig.profile = data.profile.trim();
+        }
+        if (typeof data.version === 'string' && data.version.trim()) {
+          keepsConfig.version = data.version.trim();
+        }
+        keepsConfig.rpcUrl = data.rpcUrl || rpcForNetwork(getTezosNetwork());
+        keepsConfig.source = data.source || keepsConfig.source;
+      } catch (error) {
+        console.warn('Failed to load keeps config, using fallback defaults:', error.message);
+        keepsConfig.rpcUrl = rpcForNetwork(getTezosNetwork());
+      } finally {
+        renderActiveKeepsConfig();
+      }
+    }
 
     let allCodes = [];
     let filteredCodes = [];
@@ -3434,7 +3524,7 @@
       await loadBeaconSDK();
       beaconClient = new window.beacon.DAppClient({
         name: 'KidLisp Keeps',
-        preferredNetwork: TEZOS_NETWORK,
+        preferredNetwork: getTezosNetwork(),
       });
       // Check existing connection
       const activeAccount = await beaconClient.getActiveAccount();
@@ -3447,7 +3537,7 @@
       await initTezosWallet();
       if (mintWalletAddress) return mintWalletAddress;
       const perms = await beaconClient.requestPermissions({
-        network: { type: TEZOS_NETWORK },
+        network: { type: getTezosNetwork() },
       });
       mintWalletAddress = perms.address;
       return mintWalletAddress;
@@ -3555,7 +3645,7 @@
           body: JSON.stringify({
             piece: '$' + piece,
             walletAddress: address,
-            network: TEZOS_NETWORK,
+            network: getTezosNetwork(),
           }),
           signal: mintAbortController.signal,
         });
@@ -3652,7 +3742,10 @@
 
         // Build contract call via Beacon SDK requestOperation
         const mintFeeMutez = String(Math.floor((mintPreparedData.mintFee || 2.5) * 1_000_000));
-        const contractAddress = mintPreparedData.contractAddress || KEEPS_CONTRACT;
+        const contractAddress = mintPreparedData.contractAddress || getKeepsContractAddress();
+        if (!contractAddress) {
+          throw new Error('Missing active keeps contract address');
+        }
 
         const response = await beaconClient.requestOperation({
           operationDetails: [{
@@ -3682,8 +3775,8 @@
               piece: mintCurrentPiece,
               txHash,
               walletAddress: mintWalletAddress,
-              network: TEZOS_NETWORK,
-              contractAddress: mintPreparedData.contractAddress || KEEPS_CONTRACT,
+              network: mintPreparedData.network || getTezosNetwork(),
+              contractAddress,
               artifactUri: mintPreparedData.artifactUri,
               thumbnailUri: mintPreparedData.thumbnailUri,
               metadataUri: mintPreparedData.metadataUri,
@@ -3694,7 +3787,8 @@
           console.warn('keep-confirm failed (non-critical):', e);
         }
 
-        const objktUrl = `https://objkt.com/asset/${mintPreparedData.contractAddress || KEEPS_CONTRACT}/${mintPreparedData.tokenId || ''}`;
+        const mintNetwork = mintPreparedData.network || getTezosNetwork();
+        const objktUrl = `${getObjktBase(mintNetwork)}/asset/${contractAddress}/${mintPreparedData.tokenId || ''}`;
         showMintResult(`Successfully kept $${mintCurrentPiece}!`, objktUrl, txHash);
 
         // Hide action buttons
@@ -3733,6 +3827,8 @@
       loading.style.display = 'flex';
       grid.innerHTML = '';
       grid.appendChild(loading);
+
+      await loadKeepsConfig();
 
       const codes = await fetchAllCodes();
       loading.style.display = 'none';
