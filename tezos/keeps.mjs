@@ -6,7 +6,7 @@
  * the Aesthetic Computer "Keeps" FA2 contract on Tezos.
  * 
  * Usage:
- *   node keeps.mjs deploy              - Deploy contract to Ghostnet
+ *   node keeps.mjs deploy [network]    - Deploy contract (supports --contract profile)
  *   node keeps.mjs keep <piece>        - Keep (preserve) a KidLisp piece
  *   node keeps.mjs status              - Check contract status
  *   node keeps.mjs balance             - Check wallet balance
@@ -55,12 +55,19 @@ const CONFIG = {
   
   // Contract paths
   paths: {
-    // SmartPy v4 contract (PRODUCTION: royalties, pause, admin transfer)
-    contract: path.join(__dirname, 'KeepsFA2v4/step_002_cont_0_contract.tz'),
-    storage: path.join(__dirname, 'KeepsFA2v4/step_002_cont_0_storage.tz'),
-    // Legacy v3 contract path
+    // Compiled contract artifacts by generation
+    compiled: {
+      v6: path.join(__dirname, 'KeepsFA2v6/step_002_cont_0_contract.tz'),
+      v2: path.join(__dirname, 'KeepsFA2v2/step_002_cont_0_contract.tz'),
+      v3: path.join(__dirname, 'KeepsFA2v3/step_002_cont_0_contract.tz'),
+      v4: path.join(__dirname, 'KeepsFA2v4/step_002_cont_0_contract.tz'),
+      v5: path.join(__dirname, 'KeepsFA2v5/step_002_cont_0_contract.tz'),
+    },
+    // Backward-compatible defaults
+    contract: path.join(__dirname, 'KeepsFA2v6/step_002_cont_0_contract.tz'),
+    storage: path.join(__dirname, 'KeepsFA2v6/step_002_cont_0_storage.tz'),
+    // Legacy direct paths
     v3Contract: path.join(__dirname, 'KeepsFA2v3/step_002_cont_0_contract.tz'),
-    // Legacy v2 contract path
     v2Contract: path.join(__dirname, 'KeepsFA2v2/step_002_cont_0_contract.tz'),
     // Legacy contract path
     legacyContract: path.join(__dirname, 'michelson-lib/keeps-fa2-complete.tz'),
@@ -74,6 +81,75 @@ const CONFIG = {
     vault: path.join(__dirname, '../aesthetic-computer-vault')
   }
 };
+
+const CONTRACT_PROFILES = {
+  v6: {
+    key: 'v6',
+    label: 'KidLisp v6 production',
+    artifactKey: 'v6',
+    metadata: {
+      name: 'KidLisp',
+      version: '6.0.0',
+      description: 'https://keeps.kidlisp.com',
+      homepage: 'https://kidlisp.com',
+      interfaces: ['TZIP-012', 'TZIP-016', 'TZIP-021'],
+      authors: ['aesthetic.computer'],
+      imageUri: 'https://oven.aesthetic.computer/keeps/latest',
+    },
+    keepFeeMutez: 2_500_000,
+    defaultRoyaltyBps: 1000,
+    paused: false,
+  },
+  v5rc: {
+    key: 'v5rc',
+    label: 'KidLisp v5 release candidate',
+    artifactKey: 'v5',
+    metadata: {
+      name: 'KidLisp Keeps RC',
+      version: '5.0.0-rc',
+      description: 'https://keeps.kidlisp.com/rc',
+      homepage: 'https://kidlisp.com',
+      interfaces: ['TZIP-012', 'TZIP-016', 'TZIP-021'],
+      authors: ['aesthetic.computer'],
+      imageUri: 'https://oven.aesthetic.computer/keeps/latest',
+    },
+    keepFeeMutez: 2_500_000,
+    defaultRoyaltyBps: 1000,
+    paused: false,
+  },
+  v4: {
+    key: 'v4',
+    label: 'Keeps v4 legacy',
+    artifactKey: 'v4',
+    metadata: {
+      name: 'KidLisp Keeps Beta',
+      version: '4.0.0',
+      interfaces: ['TZIP-012', 'TZIP-016', 'TZIP-021'],
+      authors: ['aesthetic.computer'],
+      homepage: 'https://aesthetic.computer',
+      imageUri: 'https://oven.aesthetic.computer/keeps/latest',
+    },
+    keepFeeMutez: 0,
+    defaultRoyaltyBps: 1000,
+    paused: false,
+  },
+};
+
+function resolveContractProfile(rawProfile = 'v6') {
+  const normalized = String(rawProfile || 'v6').trim().toLowerCase();
+  const aliasMap = {
+    rc: 'v5rc',
+    v5: 'v5rc',
+    production: 'v6',
+  };
+  const key = aliasMap[normalized] || normalized;
+  const profile = CONTRACT_PROFILES[key];
+  if (!profile) {
+    const supported = Object.keys(CONTRACT_PROFILES).join(', ');
+    throw new Error(`❌ Unknown contract profile: ${rawProfile}. Use one of: ${supported}`);
+  }
+  return profile;
+}
 
 // ============================================================================
 // Credential Loading
@@ -139,6 +215,14 @@ function getContractAddressPath(network = 'mainnet') {
   return CONFIG.paths.contractAddress;
 }
 
+function isKt1Address(value) {
+  return typeof value === 'string' && /^KT1[1-9A-HJ-NP-Za-km-z]{33}$/.test(value.trim());
+}
+
+function tzktApiBase(network = 'mainnet') {
+  return network === 'mainnet' ? 'https://api.tzkt.io' : `https://api.${network}.tzkt.io`;
+}
+
 // ============================================================================
 // Tezos Client Setup
 // ============================================================================
@@ -165,114 +249,108 @@ async function createTezosClient(network = 'mainnet') {
 // Contract Deployment
 // ============================================================================
 
-async function deployContract(network = 'mainnet') {
+async function deployContract(network = 'mainnet', options = {}) {
+  const profile = resolveContractProfile(options.contractProfile || options.profile || 'v6');
+  const contractPath = CONFIG.paths.compiled[profile.artifactKey] || CONFIG.paths.contract;
+  const feeXTZ = (profile.keepFeeMutez / 1_000_000).toFixed(6);
+  const pausedMichelson = profile.paused ? 'True' : 'False';
+
   console.log('\n╔══════════════════════════════════════════════════════════════╗');
-  console.log('║  🚀 Deploying Keeps FA2 v4 Contract (PRODUCTION)             ║');
-  console.log('║  (Royalties + Pause + Admin Transfer)                       ║');
+  console.log(`║  🚀 Deploying ${profile.label.padEnd(48)}║`);
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
-  
+
   const { tezos, credentials, config } = await createTezosClient(network);
-  
+
   console.log(`📡 Network: ${config.name}`);
   console.log(`📍 RPC: ${config.rpc}`);
-  console.log(`👤 Administrator: ${credentials.address}\n`);
-  
+  console.log(`👤 Administrator: ${credentials.address}`);
+  console.log(`🧱 Profile: ${profile.key}\n`);
+
   // Check balance
   console.log('💰 Checking balance...');
   const balance = await tezos.tz.getBalance(credentials.address);
   const balanceXTZ = balance.toNumber() / 1_000_000;
   console.log(`   Balance: ${balanceXTZ.toFixed(2)} XTZ`);
-  
+
   if (balanceXTZ < 1) {
     throw new Error('❌ Insufficient balance. Need at least 1 XTZ for deployment.');
   }
-  
+
   // Load contract code (SmartPy compiled Michelson)
   console.log('\n📄 Loading contract...');
-  if (!fs.existsSync(CONFIG.paths.contract)) {
-    throw new Error(`❌ Contract file not found: ${CONFIG.paths.contract}\n   Run: cd tezos && ./compile.fish`);
+  if (!fs.existsSync(contractPath)) {
+    throw new Error(`❌ Contract file not found: ${contractPath}\n   Compile the selected artifact before deploy.`);
   }
-  
-  const contractSource = fs.readFileSync(CONFIG.paths.contract, 'utf8');
-  console.log('   ✓ Contract loaded: KeepsFA2v4 (Production: royalties, pause, admin transfer)');
-  
+
+  const contractSource = fs.readFileSync(contractPath, 'utf8');
+  console.log(`   ✓ Contract loaded: ${path.relative(__dirname, contractPath)}`);
+
   // Parse the contract using michel-codec
   const parser = new Parser();
   const parsedContract = parser.parseScript(contractSource);
-  
-  // Create initial storage
-  // Storage structure from SmartPy FA2 v4:
-  // Layout: ("administrator", ("content_hashes", ("contract_metadata_locked", ("default_royalty_bps",
-  //   ("keep_fee", ("ledger", ("metadata", ("metadata_locked", ("next_token_id",
-  //   ("operators", ("paused", ("token_creators", "token_metadata"))))))))))))
+
   console.log('\n💾 Creating initial storage...');
 
-  // Build contract metadata (TZIP-16)
-  const contractMetadataJson = JSON.stringify({
-    name: "KidLisp Keeps Beta",
-    version: "4.0.0",
-    interfaces: ["TZIP-012", "TZIP-016", "TZIP-021"],
-    authors: ["aesthetic.computer"],
-    homepage: "https://aesthetic.computer",
-    imageUri: "https://oven.aesthetic.computer/keeps/latest"
-  });
+  const contractMetadataJson = JSON.stringify(profile.metadata);
   const contractMetadataBytes = stringToBytes(contractMetadataJson);
-  const tezosStoragePointer = stringToBytes("tezos-storage:content");
+  const tezosStoragePointer = stringToBytes('tezos-storage:content');
 
-  // Initial storage Michelson - v4 format with royalties and pause
-  // Format: (Pair admin (Pair {} (Pair False (Pair 1000 (Pair 0 (Pair {} (Pair metadata (Pair {} (Pair 0 (Pair {} (Pair False (Pair {} {}))))))))))))
-  const initialStorageMichelson = `(Pair "${credentials.address}" (Pair {} (Pair False (Pair 1000 (Pair 0 (Pair {} (Pair {Elt "" 0x${tezosStoragePointer}; Elt "content" 0x${contractMetadataBytes}} (Pair {} (Pair 0 (Pair {} (Pair False (Pair {} {}))))))))))))`;
-
+  // Storage layout:
+  // (administrator, (content_hashes, (contract_metadata_locked, (default_royalty_bps,
+  // (keep_fee, (ledger, (metadata, (metadata_locked, (next_token_id,
+  // (operators, (paused, (token_creators, token_metadata))))))))))))
+  const initialStorageMichelson = `(Pair "${credentials.address}" (Pair {} (Pair False (Pair ${profile.defaultRoyaltyBps} (Pair ${profile.keepFeeMutez} (Pair {} (Pair {Elt "" 0x${tezosStoragePointer}; Elt "content" 0x${contractMetadataBytes}} (Pair {} (Pair 0 (Pair {} (Pair ${pausedMichelson} (Pair {} {}))))))))))))`;
   const parsedStorage = parser.parseMichelineExpression(initialStorageMichelson);
 
-  console.log(`   ✓ Administrator: ${credentials.address}`);
-  console.log('   ✓ Initial token ID: 0');
-  console.log('   ✓ Keep fee: 0 mutez (free)');
-  console.log('   ✓ Default royalty: 10% (1000 basis points)');
-  console.log('   ✓ Paused: false');
-  console.log('   ✓ Contract metadata: TZIP-16 compliant');
-  console.log('   ✓ Collection image: https://oven.aesthetic.computer/keeps/latest');
-  console.log('   ✓ Content hash uniqueness: enabled');
-  console.log('   ✓ Token creators tracking: enabled (v4)');
-  
-  // Deploy
+  console.log(`   ✓ Name: ${profile.metadata.name}`);
+  console.log(`   ✓ Version: ${profile.metadata.version}`);
+  if (profile.metadata.description) {
+    console.log(`   ✓ Description: ${profile.metadata.description}`);
+  }
+  console.log(`   ✓ Homepage: ${profile.metadata.homepage}`);
+  console.log(`   ✓ Initial token ID: 0`);
+  console.log(`   ✓ Keep fee: ${profile.keepFeeMutez} mutez (${feeXTZ} XTZ)`);
+  console.log(`   ✓ Default royalty: ${profile.defaultRoyaltyBps} bps`);
+  console.log(`   ✓ Paused: ${profile.paused}`);
+
   console.log('\n📤 Deploying contract...');
   console.log('   (This may take 1-2 minutes...)\n');
-  
+
   try {
     const originationOp = await tezos.contract.originate({
       code: parsedContract,
       init: parsedStorage
     });
-    
+
     console.log(`   ⏳ Operation hash: ${originationOp.hash}`);
     console.log('   ⏳ Waiting for confirmation...');
-    
+
     await originationOp.confirmation(1);
-    
+
     const contractAddress = originationOp.contractAddress;
-    
+
     console.log('\n╔══════════════════════════════════════════════════════════════╗');
     console.log('║  ✅ Contract Deployed Successfully!                          ║');
     console.log('╚══════════════════════════════════════════════════════════════╝\n');
-    
+
     console.log(`   📍 Contract Address: ${contractAddress}`);
     console.log(`   🔗 Explorer: ${config.explorer}/${contractAddress}`);
+    console.log(`   🖼️  Objkt: https://${network === 'mainnet' ? '' : 'ghostnet.'}objkt.com/collection/${contractAddress}`);
     console.log(`   📝 Operation: ${config.explorer}/${originationOp.hash}\n`);
-    
+
     // Save contract address (network-specific file)
     const addressPath = getContractAddressPath(network);
     fs.writeFileSync(addressPath, contractAddress);
     console.log(`   💾 Saved address to: ${addressPath}\n`);
-    
-    return { address: contractAddress, hash: originationOp.hash };
-    
+
+    return { address: contractAddress, hash: originationOp.hash, profile: profile.key };
+
   } catch (error) {
     console.error('\n❌ Deployment failed!');
     console.error(`   Error: ${error.message}`);
     if (error.message.includes('bad_stack')) {
       console.error('\n   💡 This usually means storage format mismatch.');
-      console.error('   Check that the storage matches the contract type.');
+      console.error('   Check that the storage matches the selected contract artifact.');
     }
     throw error;
   }
@@ -531,7 +609,7 @@ async function fetchBundleFromNetlify(piece, contentType) {
     console.log(`   ✓ Author: ${data.authorHandle}`);
   }
   if (data.userCode) {
-    console.log(`   ✓ User Code: ${data.userCode}`);
+    console.log(`   ✓ User: ${data.userCode}`);
   }
   if (data.depCount > 0) {
     console.log(`   ✓ Dependencies: ${data.depCount}`);
@@ -948,9 +1026,9 @@ async function mintToken(piece, options = {}) {
       { name: 'Language', value: 'KidLisp' },
       { name: 'Code', value: `$${pieceName}` },
       ...(authorDisplayName ? [{ name: 'Author', value: authorDisplayName }] : []),
-      ...(userCode ? [{ name: 'User Code', value: userCode }] : []),
+      ...(userCode ? [{ name: 'User', value: userCode }] : []),
       ...(sourceCode ? [{ name: 'Lines of Code', value: String(sourceCode.split('\n').length) }] : []),
-      ...(packDate ? [{ name: 'Packed', value: packDate }] : []),
+      ...(packDate ? [{ name: 'Packed on', value: packDate }] : []),
       { name: 'Interactive', value: 'Yes' },
       { name: 'Platform', value: 'Aesthetic Computer' },
     ]
@@ -1109,9 +1187,9 @@ async function updateMetadata(tokenId, piece, options = {}) {
     { name: 'Language', value: 'KidLisp' },
     { name: 'Code', value: `$${pieceName}` },
     ...(authorDisplayName ? [{ name: 'Author', value: authorDisplayName }] : []),
-    ...(userCode ? [{ name: 'User Code', value: userCode }] : []),
+    ...(userCode ? [{ name: 'User', value: userCode }] : []),
     ...(sourceCode ? [{ name: 'Lines of Code', value: String(sourceCode.split('\n').length) }] : []),
-    ...(packDate ? [{ name: 'Packed', value: packDate }] : []),
+    ...(packDate ? [{ name: 'Packed on', value: packDate }] : []),
     { name: 'Interactive', value: 'Yes' },
     { name: 'Platform', value: 'Aesthetic Computer' },
   ];
@@ -2144,6 +2222,287 @@ async function adminTransfer(tokenId, fromAddress, toAddress, options = {}) {
   console.log(`📊 ${config.explorer}/${contractAddress}/tokens/${tokenId}\n`);
 }
 
+async function discoverContractsByManager(managerAddress, network = 'mainnet') {
+  const apiBase = tzktApiBase(network);
+  const url = `${apiBase}/v1/accounts/${managerAddress}/contracts?limit=200&sort.desc=creationLevel`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to load contracts for ${managerAddress}: ${response.status}`);
+  }
+  const contracts = await response.json();
+  return contracts
+    .map((entry) => entry?.address)
+    .filter((address) => isKt1Address(address));
+}
+
+function decodeContractMetadataBytes(contentBytes) {
+  if (!contentBytes) return null;
+
+  const raw = typeof contentBytes === 'string'
+    ? contentBytes
+    : (typeof contentBytes?.toString === 'function' ? contentBytes.toString() : '');
+  const normalized = raw.startsWith('0x') ? raw.slice(2) : raw;
+  if (!normalized) return null;
+
+  try {
+    return JSON.parse(Buffer.from(normalized, 'hex').toString('utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function buildDeprecatedCollectionMetadata(existing = {}, options = {}) {
+  const replacementContract = options.replacementContract;
+  const nowIso = new Date().toISOString();
+  const nowDate = nowIso.slice(0, 10);
+  const priorDescription = typeof existing.description === 'string' ? existing.description.trim() : '';
+  const replacementText = replacementContract
+    ? `Replacement contract: ${replacementContract}`
+    : 'Replacement contract: not set';
+  const notice = options.notice || `Deprecated staging contract as of ${nowDate}. ${replacementText}`;
+
+  const deprecatedName = typeof existing.name === 'string' && existing.name.trim()
+    ? (existing.name.includes('[DEPRECATED]') ? existing.name : `${existing.name} [DEPRECATED]`)
+    : 'KidLisp Keeps [DEPRECATED]';
+
+  return {
+    ...existing,
+    name: deprecatedName,
+    description: [priorDescription, notice].filter(Boolean).join('\n\n'),
+    deprecated: true,
+    deprecatedAt: nowIso,
+    deprecatedReplacement: replacementContract || null,
+    status: 'deprecated-staging',
+  };
+}
+
+async function fetchActiveTokenIds(contractAddress, network = 'mainnet') {
+  const apiBase = tzktApiBase(network);
+  const limit = 1000;
+  let offset = 0;
+  const tokenIds = [];
+
+  while (true) {
+    const url = `${apiBase}/v1/contracts/${contractAddress}/bigmaps/token_metadata/keys?active=true&select=key&limit=${limit}&offset=${offset}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch token list for ${contractAddress}: ${response.status}`);
+    }
+
+    const keys = await response.json();
+    if (!Array.isArray(keys) || keys.length === 0) break;
+
+    for (const key of keys) {
+      const tokenId = Number(key);
+      if (Number.isInteger(tokenId) && tokenId >= 0) {
+        tokenIds.push(tokenId);
+      }
+    }
+
+    if (keys.length < limit) break;
+    offset += keys.length;
+  }
+
+  return [...new Set(tokenIds)].sort((a, b) => a - b);
+}
+
+async function deprecateStagingContracts(options = {}) {
+  const network = options.network || 'mainnet';
+  const apply = options.apply === true;
+  const providedAddresses = Array.isArray(options.addresses)
+    ? options.addresses.filter((address) => isKt1Address(address))
+    : [];
+  const replacementContract = isKt1Address(options.replacementContract)
+    ? options.replacementContract
+    : null;
+  const burnLimitRaw = Number(options.burnLimit);
+  const burnLimit = Number.isFinite(burnLimitRaw) && burnLimitRaw > 0
+    ? Math.floor(burnLimitRaw)
+    : Number.POSITIVE_INFINITY;
+
+  const { tezos, credentials, config } = await createTezosClient(network);
+
+  let contractAddresses = providedAddresses;
+  if (contractAddresses.length === 0) {
+    contractAddresses = await discoverContractsByManager(credentials.address, network);
+  }
+
+  if (contractAddresses.length === 0) {
+    throw new Error(`No contracts found for ${credentials.address} on ${network}`);
+  }
+
+  console.log('\n╔══════════════════════════════════════════════════════════════╗');
+  console.log('║  🧹 Deprecating Staging Contracts                            ║');
+  console.log('╚══════════════════════════════════════════════════════════════╝\n');
+
+  console.log(`📡 Network: ${config.name}`);
+  console.log(`👤 Wallet: ${credentials.address}`);
+  console.log(`📦 Contracts: ${contractAddresses.length}`);
+  if (!apply) {
+    console.log('⚠️  DRY RUN (no transactions will be sent). Use --yes to apply.\n');
+  } else {
+    console.log('⚠️  APPLY MODE (transactions will be sent).\n');
+  }
+
+  const summary = [];
+
+  for (const contractAddress of contractAddresses) {
+    const row = {
+      contractAddress,
+      paused: null,
+      metadataLocked: null,
+      activeTokenCount: 0,
+      burned: 0,
+      operations: [],
+      skipped: false,
+      errors: [],
+    };
+
+    summary.push(row);
+    console.log(`\n──────────────────────────────────────────────────────────────`);
+    console.log(`📍 ${contractAddress}`);
+    console.log(`🔗 ${config.explorer}/${contractAddress}`);
+
+    try {
+      const contract = await tezos.contract.at(contractAddress);
+      const storage = await contract.storage();
+
+      const looksLikeKeeps = storage
+        && storage.metadata
+        && storage.token_metadata
+        && storage.keep_fee !== undefined
+        && storage.default_royalty_bps !== undefined;
+
+      if (!looksLikeKeeps) {
+        row.skipped = true;
+        console.log('   ⏭️  Skipping (does not match Keeps storage shape)');
+        continue;
+      }
+
+      row.paused = storage.paused === true;
+      row.metadataLocked = storage.contract_metadata_locked === true;
+      const nextTokenId = Number(storage.next_token_id?.toNumber?.() ?? storage.next_token_id ?? 0);
+      const tokenIds = await fetchActiveTokenIds(contractAddress, network);
+      row.activeTokenCount = tokenIds.length;
+
+      console.log(`   • Paused: ${row.paused}`);
+      console.log(`   • Metadata locked: ${row.metadataLocked}`);
+      console.log(`   • Next token id: ${nextTokenId}`);
+      console.log(`   • Active tokens: ${row.activeTokenCount}`);
+
+      if (!apply) {
+        continue;
+      }
+
+      if (!row.metadataLocked) {
+        try {
+          const existingContent = await storage.metadata.get('content');
+          const existingMetadata = decodeContractMetadataBytes(existingContent) || {};
+          const deprecatedMetadata = buildDeprecatedCollectionMetadata(existingMetadata, {
+            replacementContract,
+          });
+          const metadataBytes = stringToBytes(JSON.stringify(deprecatedMetadata));
+          const metadataOp = await contract.methods.set_contract_metadata([
+            { key: 'content', value: `0x${metadataBytes}` },
+          ]).send();
+          console.log(`   ⏳ Deprecation metadata op: ${metadataOp.hash}`);
+          await metadataOp.confirmation(1);
+          row.operations.push({ step: 'set_contract_metadata', hash: metadataOp.hash });
+          console.log('   ✅ Collection metadata marked deprecated');
+        } catch (error) {
+          row.errors.push(`set_contract_metadata: ${error.message}`);
+          console.log(`   ⚠️  Could not set deprecation metadata: ${error.message}`);
+        }
+      } else {
+        console.log('   ℹ️  Metadata already locked; cannot write deprecation notice');
+      }
+
+      if (!row.paused) {
+        try {
+          const pauseOp = await contract.methodsObject.pause().send();
+          console.log(`   ⏳ Pause op: ${pauseOp.hash}`);
+          await pauseOp.confirmation(1);
+          row.operations.push({ step: 'pause', hash: pauseOp.hash });
+          row.paused = true;
+          console.log('   ✅ Contract paused');
+        } catch (error) {
+          row.errors.push(`pause: ${error.message}`);
+          console.log(`   ⚠️  Could not pause: ${error.message}`);
+        }
+      } else {
+        console.log('   ℹ️  Already paused');
+      }
+
+      const burnQueue = Number.isFinite(burnLimit)
+        ? tokenIds.slice(0, burnLimit)
+        : tokenIds;
+
+      if (burnQueue.length > 0) {
+        console.log(`   🔥 Burning ${burnQueue.length} token(s)...`);
+      }
+
+      for (const tokenId of burnQueue) {
+        try {
+          const burnOp = await contract.methods.burn_keep(tokenId).send();
+          console.log(`      ⏳ burn #${tokenId}: ${burnOp.hash}`);
+          await burnOp.confirmation(1);
+          row.operations.push({ step: 'burn_keep', tokenId, hash: burnOp.hash });
+          row.burned += 1;
+        } catch (error) {
+          row.errors.push(`burn_keep(${tokenId}): ${error.message}`);
+          console.log(`      ⚠️  burn #${tokenId} failed: ${error.message}`);
+        }
+      }
+
+      if (!row.metadataLocked) {
+        try {
+          const lockOp = await contract.methods.lock_contract_metadata().send();
+          console.log(`   ⏳ Lock metadata op: ${lockOp.hash}`);
+          await lockOp.confirmation(1);
+          row.operations.push({ step: 'lock_contract_metadata', hash: lockOp.hash });
+          row.metadataLocked = true;
+          console.log('   ✅ Collection metadata locked');
+        } catch (error) {
+          row.errors.push(`lock_contract_metadata: ${error.message}`);
+          console.log(`   ⚠️  Could not lock metadata: ${error.message}`);
+        }
+      } else {
+        console.log('   ℹ️  Metadata already locked');
+      }
+    } catch (error) {
+      row.errors.push(error.message);
+      console.log(`   ❌ Contract processing failed: ${error.message}`);
+    }
+  }
+
+  console.log('\n══════════════════════════════════════════════════════════════');
+  console.log('📋 Staging Deprecation Summary');
+  for (const row of summary) {
+    console.log(`   ${row.contractAddress}`);
+    if (row.skipped) {
+      console.log('      - skipped');
+      continue;
+    }
+    console.log(`      - paused: ${row.paused}`);
+    console.log(`      - metadataLocked: ${row.metadataLocked}`);
+    console.log(`      - activeTokens(before): ${row.activeTokenCount}`);
+    console.log(`      - burned: ${row.burned}`);
+    console.log(`      - ops: ${row.operations.length}`);
+    if (row.errors.length > 0) {
+      console.log(`      - errors: ${row.errors.length}`);
+      row.errors.forEach((message) => console.log(`        • ${message}`));
+    }
+  }
+  console.log('');
+
+  return {
+    network,
+    wallet: credentials.address,
+    apply,
+    contracts: summary,
+  };
+}
+
 // ============================================================================
 // CLI Interface
 // ============================================================================
@@ -2155,6 +2514,8 @@ async function main() {
   const flags = rawArgs.filter(a => a.startsWith('--'));
   const args = rawArgs.filter(a => !a.startsWith('--'));
   const command = args[0];
+  const contractFlag = flags.find(f => f.startsWith('--contract=') || f.startsWith('--profile='));
+  const contractProfile = contractFlag ? contractFlag.split('=').slice(1).join('=').trim() : 'v6';
   
   // Parse --wallet flag
   const walletFlag = flags.find(f => f.startsWith('--wallet='));
@@ -2179,7 +2540,7 @@ async function main() {
   try {
     switch (command) {
       case 'deploy':
-        await deployContract(getNetwork(1));
+        await deployContract(getNetwork(1), { contractProfile });
         break;
         
       case 'status':
@@ -2286,6 +2647,27 @@ async function main() {
       case 'lock-collection':
         await lockCollectionMetadata({ network: getNetwork(1) });
         break;
+
+      case 'deprecate-staging': {
+        const addressesFlag = flags.find(f => f.startsWith('--addresses='));
+        const addresses = addressesFlag
+          ? addressesFlag.split('=').slice(1).join('=').split(',').map(v => v.trim()).filter(Boolean)
+          : [];
+        const replacementFlag = flags.find(f => f.startsWith('--replacement='));
+        const replacementContract = replacementFlag ? replacementFlag.split('=').slice(1).join('=').trim() : null;
+        const burnLimitFlag = flags.find(f => f.startsWith('--burn-limit='));
+        const burnLimit = burnLimitFlag ? Number.parseInt(burnLimitFlag.split('=')[1], 10) : undefined;
+        const apply = flags.includes('--yes') || flags.includes('--apply');
+
+        await deprecateStagingContracts({
+          network: getNetwork(1),
+          addresses,
+          replacementContract,
+          burnLimit,
+          apply,
+        });
+        break;
+      }
       
       case 'fee':
         // Show current keep fee
@@ -2410,7 +2792,7 @@ async function main() {
 Usage: node keeps.mjs <command> [options]
 
 Commands:
-  deploy [network]              Deploy contract (default: mainnet)
+  deploy [network]              Deploy contract (default profile: v6)
   status [network]              Show contract status
   balance [network]             Check wallet balance
   upload <piece>                Upload bundle to IPFS
@@ -2421,6 +2803,7 @@ Commands:
   redact <token_id>             Censor token (replace with redacted content)
   set-collection-media          Set collection icon/description
   lock-collection               Permanently lock collection metadata
+  deprecate-staging [network]   Pause + deprecate + burn staging contracts
   fee [network]                 Show current keep fee
   set-fee <tez> [network]       Set keep fee (admin only)
   set-admin <address>           Change contract administrator (admin only)
@@ -2437,17 +2820,24 @@ v4 Commands (Royalties, Pause, Admin Transfer):
 
 Networks:
   mainnet                       Tezos mainnet (default)
-  mainnet                       Tezos mainnet
+  ghostnet                      Tezos ghostnet (testnet)
 
 Flags:
+  --contract=<profile>          Deploy profile: v6 | v5rc | v4
   --thumbnail                   Generate animated WebP thumbnail via Oven
                                and upload to IPFS (requires Oven service)
   --to=<address>                Recipient wallet address (default: server wallet)
   --image=<uri>                 Collection image URI (IPFS or URL)
   --description=<text>          Collection description
+  --addresses=<KT1,KT1,...>     Explicit contract list for deprecate-staging
+  --replacement=<KT1...>        Replacement contract for deprecation notice
+  --burn-limit=<n>              Limit number of burns per contract
+  --yes / --apply               Send live transactions for destructive commands
 
 Examples:
-  node keeps.mjs deploy
+  node keeps.mjs deploy mainnet --wallet=kidlisp --contract=v6
+  node keeps.mjs deploy mainnet --wallet=staging --contract=v5rc
+  node keeps.mjs deploy ghostnet --wallet=aesthetic --contract=v4
   node keeps.mjs balance
   node keeps.mjs mint wand --thumbnail      # With IPFS thumbnail
   node keeps.mjs mint wand --to=tz1abc...   # Mint to specific wallet
@@ -2473,6 +2863,8 @@ v4 Examples:
   node keeps.mjs set-collection-media --image=https://oven.aesthetic.computer/keeps/latest
   node keeps.mjs set-collection-media --image=ipfs://QmXxx --description="KidLisp art"
   node keeps.mjs lock-collection            # Lock collection metadata forever
+  node keeps.mjs deprecate-staging --wallet=staging                     # Dry run
+  node keeps.mjs deprecate-staging --wallet=staging --yes --replacement=KT1...
 
 Environment:
   OVEN_URL                      Oven service URL (default: https://oven.aesthetic.computer)
@@ -2507,6 +2899,7 @@ export {
   setKeepFee,
   setAdministrator,
   withdrawFees,
+  deprecateStagingContracts,
   detectContentType,
   loadCredentials,
   CONFIG

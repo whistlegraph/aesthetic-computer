@@ -9,11 +9,12 @@ import { authorize, handleFor, hasAdmin } from "../../backend/authorization.mjs"
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 import { analyzeKidLisp, ANALYZER_VERSION } from "../../backend/kidlisp-analyzer.mjs";
+import { getKeepsContractAddress, LEGACY_KEEPS_CONTRACT } from "../../backend/tezos-keeps-contract.mjs";
 
 const dev = process.env.CONTEXT === "dev";
 
 // Configuration
-const CONTRACT_ADDRESS = process.env.TEZOS_KEEPS_CONTRACT || "KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido";
+let CONTRACT_ADDRESS = LEGACY_KEEPS_CONTRACT;
 const NETWORK = process.env.TEZOS_NETWORK || "mainnet";
 
 // Convert string to hex bytes (for Tezos)
@@ -62,6 +63,11 @@ async function handleGet(event) {
   
   try {
     const database = await connect();
+    CONTRACT_ADDRESS = await getKeepsContractAddress({
+      db: database.db,
+      network: NETWORK,
+      fallback: LEGACY_KEEPS_CONTRACT,
+    });
     const collection = database.db.collection("kidlisp-codes");
     
     // Get piece from database
@@ -174,6 +180,11 @@ async function handlePost(event) {
   
   try {
     const database = await connect();
+    CONTRACT_ADDRESS = await getKeepsContractAddress({
+      db: database.db,
+      network: NETWORK,
+      fallback: LEGACY_KEEPS_CONTRACT,
+    });
     const collection = database.db.collection("kidlisp-codes");
     
     // Get piece from database
