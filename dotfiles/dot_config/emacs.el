@@ -13,8 +13,8 @@
   "Name of the boot progress buffer.")
 (defvar ac--boot-step-count 0
   "Current step number in boot sequence.")
-(defvar ac--boot-total-steps 12
-  "Total expected steps: artery, fishy, + 8 tabs + cdp + finalize.")
+(defvar ac--boot-total-steps 13
+  "Total expected steps: artery, fishy, + 9 tabs + cdp + finalize.")
 (defvar ac--boot-start-time nil
   "Time when boot started.")
 
@@ -79,6 +79,7 @@
     ("web 2/2"     . "🌐 Web servers (2/2)")
     ("tests"       . "🧪 Test runners")
     ("llm"         . "🤖 LLM interface")
+    ("mail"        . "📬 Mail sync")
     ("top"         . "📊 System monitor")
     ("fishy"       . "🐟 Fish shell")
     ("cdp"         . "🔗 CDP tunnel")
@@ -1417,7 +1418,7 @@ Optional TARGET-TAB specifies which tab to land on (default: artery)."
     ("chat-clock" . "⏰") ("site" . "🌐") ("session" . "📋")
     ("redis" . "🔴") ("bookmarks" . "🔖") ("kidlisp" . "🧪")
     ("oven" . "🔥") ("silo" . "🏗️") ("media" . "📦") ("llm" . "🤖") ("top" . "📊")
-    ("crash-diary" . "💥") ("views" . "🖼️") ("boot" . "🚀")))
+    ("mail" . "📬") ("crash-diary" . "💥") ("views" . "🖼️") ("boot" . "🚀")))
 
 (defun ac--tab-exists-p (tab-name)
   "Check if a tab with TAB-NAME already exists."
@@ -1605,6 +1606,7 @@ Skips creation if tab already exists."
                        ("web 2/2"  ("redis" "bookmarks" "oven" "silo" "media" "views"))
                        ("tests"    ("kidlisp"))
                        ("llm"      ("llm"))
+                       ("mail"     ("mail"))
                        ("top"      ("top")))))
       (dolist (tab-spec tab-specs)
         (let ((tab-name (car tab-spec))

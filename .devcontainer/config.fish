@@ -1180,6 +1180,8 @@ function ac-emacs-crash-monitor
                     set -l health_timeout (ac--health-check-timeout)
                     if not timeout $health_timeout emacsclient -e t >/dev/null 2>&1
                         echo "["(date -Iseconds)"] ⚠️ Daemon unresponsive (PID: $daemon_pid, timeout: $health_timeout""s), forcing restart..." >> $crash_log
+                        pkill -9 emacsclient 2>/dev/null
+                        sleep 0.2
                         pkill -9 -f "emacs.*daemon" 2>/dev/null
                     end
                 end
@@ -1199,6 +1201,10 @@ function ac-emacs-crash-monitor
                     echo "["(date -Iseconds)"] ⚠️ Daemon unresponsive (PID: $daemon_pid, timeout: $health_timeout""s, sample: $ac_unresponsive_count/$required_failures)" >> $crash_log
                     if test $ac_unresponsive_count -ge $required_failures
                         echo "["(date -Iseconds)"] ⚠️ Daemon unresponsive threshold reached, forcing restart..." >> $crash_log
+                        # Kill stale emacsclient processes BEFORE killing daemon
+                        # so they don't linger as frozen terminals
+                        pkill -9 emacsclient 2>/dev/null
+                        sleep 0.2
                         pkill -9 -f "emacs.*daemon" 2>/dev/null
                         set -g ac_unresponsive_count 0
                         # Loop will detect it's gone and restart
@@ -1213,6 +1219,8 @@ function ac-emacs-crash-monitor
                         set -g ac_high_cpu_count (math (set -q ac_high_cpu_count; and echo $ac_high_cpu_count; or echo 0) + 1)
                         if test $ac_high_cpu_count -ge 3
                             echo "["(date -Iseconds)"] ⚠️ Sustained high CPU ($cpu_usage%) for 3 checks, forcing restart..." >> $crash_log
+                            pkill -9 emacsclient 2>/dev/null
+                            sleep 0.2
                             pkill -9 -f "emacs.*daemon" 2>/dev/null
                             set -g ac_high_cpu_count 0
                         else
@@ -2423,6 +2431,128 @@ alias acw 'cd ~/aesthetic-computer/system; npm run watch'
 alias ac-llm 'clear; ac; claude'
 alias ac-llm-continue 'clear; ac; claude --continue'
 alias ac-llm-resume 'clear; ac; claude --resume'
+
+# Mail sync (mbsync + mu index for mu4e)
+function ac-mail
+    clear
+    set -l deploy_env /workspaces/aesthetic-computer/at/deploy.env
+    set -l mbsyncrc ~/.mbsyncrc
+    set -l msmtprc ~/.msmtprc
+    set -l authinfo ~/.authinfo
+    set -l maildir ~/.mail
+
+    # Check for required binaries
+    if not command -q mbsync
+        echo "📬 Mail tools not installed. Installing..."
+        sudo dnf install -y isync maildir-utils msmtp 2>/dev/null
+        if not command -q mbsync
+            echo "❌ Failed to install mail tools (isync/maildir-utils/msmtp)"
+            echo "   Waiting... (press Ctrl+C to exit)"
+            sleep infinity
+            return 1
+        end
+    end
+
+    # Load credentials from deploy.env
+    if not test -f $deploy_env
+        echo "❌ Missing $deploy_env (no SMTP credentials)"
+        echo "   Waiting... (press Ctrl+C to exit)"
+        sleep infinity
+        return 1
+    end
+
+    set -l smtp_user (grep '^SMTP_USER=' $deploy_env | head -1 | sed 's/^SMTP_USER=//')
+    set -l smtp_pass (grep '^SMTP_PASS=' $deploy_env | head -1 | sed 's/^SMTP_PASS=//')
+
+    if test -z "$smtp_user" -o -z "$smtp_pass"
+        echo "❌ SMTP_USER or SMTP_PASS not found in $deploy_env"
+        sleep infinity
+        return 1
+    end
+
+    # Generate ~/.mbsyncrc if missing
+    if not test -f $mbsyncrc
+        echo "📝 Generating $mbsyncrc..."
+        echo "IMAPAccount ac-mail
+Host imap.gmail.com
+User $smtp_user
+Pass $smtp_pass
+SSLType IMAPS
+
+IMAPStore ac-mail-remote
+Account ac-mail
+
+MaildirStore ac-mail-local
+SubFolders Verbatim
+Path $maildir/
+Inbox $maildir/INBOX
+
+Channel ac-mail
+Far :ac-mail-remote:
+Near :ac-mail-local:
+Patterns * ![Gmail]/Spam
+Create Both
+Expunge Both
+SyncState *" > $mbsyncrc
+        chmod 600 $mbsyncrc
+    end
+
+    # Generate ~/.msmtprc if missing
+    if not test -f $msmtprc
+        echo "📝 Generating $msmtprc..."
+        echo "defaults
+auth           on
+tls            on
+tls_trust_file /etc/ssl/certs/ca-certificates.crt
+logfile        ~/.msmtp.log
+
+account        ac-mail
+host           smtp.gmail.com
+port           587
+from           $smtp_user
+user           $smtp_user
+password       $smtp_pass
+
+account default : ac-mail" > $msmtprc
+        chmod 600 $msmtprc
+    end
+
+    # Generate ~/.authinfo if missing (for mu4e compose)
+    if not test -f $authinfo
+        echo "📝 Generating $authinfo..."
+        echo "machine smtp.gmail.com login $smtp_user password $smtp_pass port 587" > $authinfo
+        chmod 600 $authinfo
+    end
+
+    # Create maildir
+    mkdir -p $maildir
+
+    # Initialize mu database if needed
+    if not test -d "$maildir/.mu" -o -d "$HOME/.cache/mu"
+        echo "📬 Initializing mu database..."
+        mu init --maildir=$maildir --my-address=$smtp_user 2>/dev/null
+    end
+
+    echo "📬 mail@aesthetic.computer — sync loop"
+    echo "─────────────────────────────────────"
+    echo ""
+
+    # Initial sync
+    echo "🔄 Initial sync..."
+    mbsync ac-mail 2>&1
+    mu index --quiet 2>/dev/null
+    echo "✅ Sync complete. "(date '+%H:%M:%S')
+    echo ""
+
+    # Periodic sync loop (every 5 minutes, matching mu4e-update-interval)
+    while true
+        sleep 300
+        echo "🔄 Syncing... "(date '+%H:%M:%S')
+        mbsync ac-mail 2>&1
+        mu index --quiet 2>/dev/null
+        echo "✅ Done. "(date '+%H:%M:%S')
+    end
+end
 
 # Process viewer (htop for monitoring system resources)
 alias ac-top 'clear; htop'
