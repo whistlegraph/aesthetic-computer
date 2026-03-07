@@ -6,7 +6,84 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <sys/select.h>
 #include <linux/fb.h>
+
+#ifdef USE_SDL
+// ============================================================
+// SDL2 GPU-accelerated display (uses KMSDRM backend on bare metal)
+// ============================================================
+
+static ACDisplay *sdl_init(void) {
+    // Set KMSDRM hints for bare metal (no X11/Wayland)
+    if (getpid() == 1) {
+        setenv("SDL_VIDEODRIVER", "kmsdrm", 0);
+    }
+
+    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+        fprintf(stderr, "[sdl] SDL_Init failed: %s\n", SDL_GetError());
+        return NULL;
+    }
+
+    // Get display mode to know the resolution
+    SDL_DisplayMode dm;
+    if (SDL_GetDesktopDisplayMode(0, &dm) < 0) {
+        fprintf(stderr, "[sdl] GetDesktopDisplayMode failed: %s\n", SDL_GetError());
+        SDL_Quit();
+        return NULL;
+    }
+
+    SDL_Window *win = SDL_CreateWindow("ac-native",
+        SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+        dm.w, dm.h,
+        SDL_WINDOW_FULLSCREEN_DESKTOP | SDL_WINDOW_SHOWN);
+    if (!win) {
+        fprintf(stderr, "[sdl] CreateWindow failed: %s\n", SDL_GetError());
+        SDL_Quit();
+        return NULL;
+    }
+
+    SDL_ShowCursor(SDL_DISABLE);
+
+    SDL_Renderer *ren = SDL_CreateRenderer(win, -1,
+        SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    if (!ren) {
+        fprintf(stderr, "[sdl] CreateRenderer (accel) failed: %s, trying software\n", SDL_GetError());
+        ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_SOFTWARE);
+    }
+    if (!ren) {
+        fprintf(stderr, "[sdl] CreateRenderer failed: %s\n", SDL_GetError());
+        SDL_DestroyWindow(win);
+        SDL_Quit();
+        return NULL;
+    }
+
+    // Log renderer info
+    SDL_RendererInfo info;
+    SDL_GetRendererInfo(ren, &info);
+    fprintf(stderr, "[sdl] Renderer: %s (flags: 0x%x)\n", info.name, info.flags);
+    if (info.flags & SDL_RENDERER_ACCELERATED)
+        fprintf(stderr, "[sdl] GPU-accelerated rendering active\n");
+
+    // Set nearest-neighbor scaling for pixel-art look
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
+
+    ACDisplay *d = calloc(1, sizeof(ACDisplay));
+    d->fd = -1;
+    d->is_sdl = 1;
+    d->width = dm.w;
+    d->height = dm.h;
+    d->sdl_window = win;
+    d->sdl_renderer = ren;
+    // Texture created lazily in display_present (needs framebuffer dimensions)
+    d->sdl_texture = NULL;
+    d->sdl_tex_w = 0;
+    d->sdl_tex_h = 0;
+
+    fprintf(stderr, "[sdl] Ready (%dx%d)\n", d->width, d->height);
+    return d;
+}
+#endif /* USE_SDL */
 
 // ============================================================
 // fbdev fallback — uses /dev/fb0 (EFI framebuffer via efifb)
@@ -176,6 +253,12 @@ static int create_dumb_buffer(ACDisplay *d, int idx) {
 }
 
 ACDisplay *drm_init(void) {
+#ifdef USE_SDL
+    ACDisplay *sdl = sdl_init();
+    if (sdl) return sdl;
+    fprintf(stderr, "[drm] SDL2 failed, falling back to DRM dumb buffers\n");
+#endif
+
     ACDisplay *d = calloc(1, sizeof(ACDisplay));
     if (!d) return NULL;
 
@@ -323,8 +406,22 @@ void drm_flip(ACDisplay *d) {
         return;
     }
     int back = 1 - d->front;
-    // Use page flip (fast) instead of full SetCrtc (slow modeset)
-    if (drmModePageFlip(d->fd, d->crtc_id, d->buffers[back].fb_id, 0, NULL) < 0) {
+    // Page flip synchronized to vblank (prevents tearing)
+    if (drmModePageFlip(d->fd, d->crtc_id, d->buffers[back].fb_id,
+                        DRM_MODE_PAGE_FLIP_EVENT, d) == 0) {
+        // Wait for the flip event (blocks until vblank)
+        fd_set fds;
+        FD_ZERO(&fds);
+        FD_SET(d->fd, &fds);
+        struct timeval tv = { .tv_sec = 0, .tv_usec = 50000 }; // 50ms timeout
+        if (select(d->fd + 1, &fds, NULL, NULL, &tv) > 0) {
+            drmEventContext ev = {
+                .version = 2,
+                .page_flip_handler = NULL, // we just need to consume the event
+            };
+            drmHandleEvent(d->fd, &ev);
+        }
+    } else {
         // Fallback to SetCrtc if page flip not supported
         drmModeSetCrtc(d->fd, d->crtc_id, d->buffers[back].fb_id, 0, 0,
                        &d->connector_id, 1, &d->mode);
@@ -356,8 +453,51 @@ int drm_front_stride(ACDisplay *d) {
     return (int)(d->buffers[d->front].pitch / sizeof(uint32_t));
 }
 
+void display_present(ACDisplay *d, ACFramebuffer *screen, int scale) {
+    if (!d || !screen) return;
+
+#ifdef USE_SDL
+    if (d->is_sdl) {
+        // Create/recreate texture if framebuffer size changed
+        if (!d->sdl_texture || d->sdl_tex_w != screen->width || d->sdl_tex_h != screen->height) {
+            if (d->sdl_texture) SDL_DestroyTexture(d->sdl_texture);
+            d->sdl_texture = SDL_CreateTexture(d->sdl_renderer,
+                SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
+                screen->width, screen->height);
+            d->sdl_tex_w = screen->width;
+            d->sdl_tex_h = screen->height;
+            fprintf(stderr, "[sdl] Created texture %dx%d\n", screen->width, screen->height);
+        }
+        // Upload pixels to GPU texture
+        SDL_UpdateTexture(d->sdl_texture, NULL,
+                          screen->pixels, screen->stride * (int)sizeof(uint32_t));
+        // GPU-accelerated scale to fullscreen
+        SDL_RenderClear(d->sdl_renderer);
+        SDL_RenderCopy(d->sdl_renderer, d->sdl_texture, NULL, NULL);
+        SDL_RenderPresent(d->sdl_renderer);
+        return;
+    }
+#endif
+    (void)scale;
+    // CPU fallback: scale to back buffer and flip
+    fb_copy_scaled(screen, drm_back_buffer(d),
+                   d->width, d->height, drm_back_stride(d), scale);
+    drm_flip(d);
+}
+
 void drm_destroy(ACDisplay *d) {
     if (!d) return;
+
+#ifdef USE_SDL
+    if (d->is_sdl) {
+        if (d->sdl_texture) SDL_DestroyTexture(d->sdl_texture);
+        if (d->sdl_renderer) SDL_DestroyRenderer(d->sdl_renderer);
+        if (d->sdl_window) SDL_DestroyWindow(d->sdl_window);
+        SDL_Quit();
+        free(d);
+        return;
+    }
+#endif
 
     if (d->is_fbdev) {
         // Restore console text mode

@@ -31,7 +31,8 @@ KERNEL_DIR="${NATIVE_DIR}/kernel"
 FLASH_DEV=""
 SKIP_KERNEL=0
 SKIP_BINARY=0
-PIECE_PATH="${NATIVE_DIR}/build/initramfs-root/piece.mjs"
+USE_SDL=0
+PIECE_PATH="${NATIVE_DIR}/pieces/notepat.mjs"
 KERNEL_VERSION="${KERNEL_VERSION:-6.14.2}"
 
 while [ $# -gt 0 ]; do
@@ -39,9 +40,10 @@ while [ $# -gt 0 ]; do
         --flash)       FLASH_DEV="$2"; shift 2 ;;
         --skip-kernel) SKIP_KERNEL=1; shift ;;
         --skip-binary) SKIP_BINARY=1; shift ;;
+        --sdl)         USE_SDL=1; shift ;;
         --piece)       PIECE_PATH="$2"; shift 2 ;;
         --help|-h)
-            echo "Usage: $0 [--flash /dev/sdX] [--skip-kernel] [--skip-binary] [--piece path.mjs]"
+            echo "Usage: $0 [--flash /dev/sdX] [--skip-kernel] [--skip-binary] [--sdl] [--piece path.mjs]"
             exit 0 ;;
         *) err "Unknown option: $1"; exit 1 ;;
     esac
@@ -84,8 +86,14 @@ if [ "${SKIP_BINARY}" -eq 0 ]; then
         if command -v musl-gcc &>/dev/null; then CC_USE=musl-gcc
         else CC_USE=gcc; fi
     fi
-    make STATIC=1 CC="${CC_USE}"
-    log "Binary: $(wc -c < "${BUILD_DIR}/ac-native") bytes"
+    if [ "${USE_SDL}" -eq 1 ]; then
+        # SDL2/Mesa require dynamic linking (dlopen)
+        make CC="${CC_USE}" USE_SDL=1
+        log "Binary (SDL2): $(wc -c < "${BUILD_DIR}/ac-native") bytes"
+    else
+        make STATIC=1 CC="${CC_USE}"
+        log "Binary: $(wc -c < "${BUILD_DIR}/ac-native") bytes"
+    fi
 else
     log "Skipping binary build"
 fi
@@ -132,6 +140,49 @@ if file "${BUILD_DIR}/ac-native" | grep -q "dynamically linked"; then
     done
     # Symlink /lib -> /lib64 (some lookups use /lib)
     ln -sf lib64 "${INITRAMFS_DIR}/lib"
+fi
+
+# Copy SDL2 + Mesa GPU libraries (if --sdl)
+if [ "${USE_SDL}" -eq 1 ]; then
+    log "Bundling SDL2 + Mesa GPU stack..."
+    mkdir -p "${INITRAMFS_DIR}/lib64/dri"
+
+    # SDL2-compat + SDL3 (Fedora uses sdl2-compat over SDL3)
+    for lib in libSDL2-2.0.so.0 libSDL3.so.0; do
+        src=$(readlink -f "/usr/lib64/${lib}" 2>/dev/null)
+        [ -f "$src" ] && cp "$src" "${INITRAMFS_DIR}/lib64/" && ln -sf "$(basename "$src")" "${INITRAMFS_DIR}/lib64/${lib}"
+    done
+
+    # EGL + GLES + GBM (dlopen'd by SDL3 KMSDRM backend)
+    for lib in libEGL.so.1 libEGL_mesa.so.0 libGLESv2.so.2 libgbm.so.1 libGL.so.1 libGLX_mesa.so.0 libGLdispatch.so.0 libglapi.so.0; do
+        src=$(readlink -f "/usr/lib64/${lib}" 2>/dev/null)
+        [ -f "$src" ] && cp -n "$src" "${INITRAMFS_DIR}/lib64/" 2>/dev/null && ln -sf "$(basename "$src")" "${INITRAMFS_DIR}/lib64/${lib}" 2>/dev/null
+    done
+
+    # Mesa gallium (monolithic driver — contains iris/i915/swrast)
+    GALLIUM=$(ls /usr/lib64/libgallium-*.so 2>/dev/null | head -1)
+    [ -f "$GALLIUM" ] && cp "$GALLIUM" "${INITRAMFS_DIR}/lib64/"
+
+    # DRI driver stubs (Mesa loads these, which then load libgallium)
+    for drv in iris_dri.so i915_dri.so kms_swrast_dri.so swrast_dri.so libdril_dri.so; do
+        src="/usr/lib64/dri/${drv}"
+        if [ -L "$src" ]; then
+            # Copy as symlink
+            tgt=$(readlink "$src")
+            ln -sf "$tgt" "${INITRAMFS_DIR}/lib64/dri/${drv}"
+        elif [ -f "$src" ]; then
+            cp "$src" "${INITRAMFS_DIR}/lib64/dri/"
+        fi
+    done
+
+    # libexpat (needed by Mesa DRI loader)
+    for lib in libexpat.so.1; do
+        src=$(readlink -f "/usr/lib64/${lib}" 2>/dev/null)
+        [ -f "$src" ] && cp -n "$src" "${INITRAMFS_DIR}/lib64/" 2>/dev/null && ln -sf "$(basename "$src")" "${INITRAMFS_DIR}/lib64/${lib}" 2>/dev/null
+    done
+
+    GPU_SIZE=$(du -sh "${INITRAMFS_DIR}/lib64/libgallium"* "${INITRAMFS_DIR}/lib64/libSDL"* "${INITRAMFS_DIR}/lib64/libEGL"* "${INITRAMFS_DIR}/lib64/dri/" 2>/dev/null | tail -1 | cut -f1)
+    log "SDL2 + Mesa GPU stack bundled (gallium: $(du -sh "${GALLIUM}" 2>/dev/null | cut -f1))"
 fi
 
 # Copy ALSA config files (required for snd_pcm_open to resolve device names)
@@ -181,8 +232,8 @@ if [ "${WIFI_COPIED}" -gt 0 ]; then
     FW_SIZE=$(du -sh "${INITRAMFS_DIR}/lib/firmware" 2>/dev/null | cut -f1)
     log "WiFi firmware: ${FW_SIZE:-0}"
 
-    # Copy flite TTS libraries (minimal: core + kal voice)
-    for flib in libflite.so.2.2 libflite_cmulex.so.2.2 libflite_usenglish.so.2.2 libflite_cmu_us_kal.so.2.2; do
+    # Copy flite TTS libraries (core + slt female + kal male voices)
+    for flib in libflite.so.2.2 libflite_cmulex.so.2.2 libflite_usenglish.so.2.2 libflite_cmu_us_slt.so.2.2 libflite_cmu_us_kal.so.2.2; do
         src="/usr/lib64/${flib}"
         if [ -f "$src" ]; then
             cp "$src" "${INITRAMFS_DIR}/lib64/"

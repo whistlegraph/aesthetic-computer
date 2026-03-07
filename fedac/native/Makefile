@@ -21,10 +21,18 @@ DRM_CFLAGS := $(shell pkg-config --cflags libdrm 2>/dev/null || echo "-I/usr/inc
 DRM_LIBS   := $(shell pkg-config --libs libdrm 2>/dev/null || echo "-ldrm")
 ALSA_CFLAGS := $(shell pkg-config --cflags alsa 2>/dev/null)
 ALSA_LIBS   := $(shell pkg-config --libs alsa 2>/dev/null || echo "-lasound")
-FLITE_LIBS  := -lflite -lflite_cmulex -lflite_usenglish -lflite_cmu_us_kal
+FLITE_LIBS  := -lflite -lflite_cmulex -lflite_usenglish -lflite_cmu_us_slt -lflite_cmu_us_kal
 
 CFLAGS  += $(DRM_CFLAGS) $(ALSA_CFLAGS)
 LDFLAGS += $(DRM_LIBS) $(ALSA_LIBS) $(FLITE_LIBS)
+
+# SDL2 GPU-accelerated display (optional: make USE_SDL=1)
+ifdef USE_SDL
+  SDL_CFLAGS := $(shell pkg-config --cflags sdl2 2>/dev/null)
+  SDL_LIBS   := $(shell pkg-config --libs sdl2 2>/dev/null || echo "-lSDL2")
+  CFLAGS  += -DUSE_SDL $(SDL_CFLAGS)
+  LDFLAGS += $(SDL_LIBS)
+endif
 
 # Source files
 SRCS := $(SRCDIR)/ac-native.c \
