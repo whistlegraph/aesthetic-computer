@@ -11,23 +11,26 @@
 #include <pthread.h>
 #include <flite/flite.h>
 
-// Forward-declare the voice registration (avoids needing flite internal headers)
-cst_voice *register_cmu_us_kal(void);
+// Forward-declare the voice registrations
+cst_voice *register_cmu_us_slt(void);  // female
+cst_voice *register_cmu_us_kal(void);  // male
 
 #define TTS_QUEUE_SIZE 16
 #define TTS_MAX_TEXT 256
 
 struct ACTts {
     ACAudio *audio;
-    cst_voice *voice;
+    cst_voice *voice;       // default (female)
+    cst_voice *voice_male;  // male voice
     pthread_t thread;
     pthread_mutex_t lock;
     pthread_cond_t cond;
     volatile int running;
     volatile int speaking;
 
-    // Simple text queue
+    // Simple text queue (with per-entry voice selection)
     char queue[TTS_QUEUE_SIZE][TTS_MAX_TEXT];
+    int queue_voice[TTS_QUEUE_SIZE]; // 0 = default/female, 1 = male
     int queue_head;
     int queue_tail;
     int queue_count;
@@ -47,17 +50,21 @@ static void *tts_thread_fn(void *arg) {
             break;
         }
 
-        // Dequeue text
+        // Dequeue text + voice selection
         char text[TTS_MAX_TEXT];
         strncpy(text, tts->queue[tts->queue_head], TTS_MAX_TEXT - 1);
         text[TTS_MAX_TEXT - 1] = 0;
+        int use_male = tts->queue_voice[tts->queue_head];
         tts->queue_head = (tts->queue_head + 1) % TTS_QUEUE_SIZE;
         tts->queue_count--;
         tts->speaking = 1;
         pthread_mutex_unlock(&tts->lock);
 
+        // Select voice
+        cst_voice *v = (use_male && tts->voice_male) ? tts->voice_male : tts->voice;
+
         // Synthesize to wave buffer
-        cst_wave *wave = flite_text_to_wave(text, tts->voice);
+        cst_wave *wave = flite_text_to_wave(text, v);
         if (!wave) {
             tts->speaking = 0;
             continue;
@@ -108,18 +115,24 @@ ACTts *tts_init(ACAudio *audio) {
     if (!audio) return NULL;
 
     flite_init();
-    cst_voice *voice = register_cmu_us_kal();
+    cst_voice *voice = register_cmu_us_slt();
     if (!voice) {
-        fprintf(stderr, "[tts] Failed to register voice\n");
+        fprintf(stderr, "[tts] Failed to register female voice\n");
         return NULL;
     }
+    feat_set_float(voice->features, "duration_stretch", 0.9);
 
-    // Set voice parameters for a crisp computer voice
-    feat_set_float(voice->features, "duration_stretch", 0.9);  // slightly faster
+    cst_voice *voice_male = register_cmu_us_kal();
+    if (voice_male) {
+        feat_set_float(voice_male->features, "duration_stretch", 0.9);
+    } else {
+        fprintf(stderr, "[tts] Male voice not available, using female only\n");
+    }
 
     ACTts *tts = calloc(1, sizeof(ACTts));
     tts->audio = audio;
     tts->voice = voice;
+    tts->voice_male = voice_male;
     tts->running = 1;
     tts->speaking = 0;
     tts->queue_head = 0;
@@ -134,12 +147,17 @@ ACTts *tts_init(ACAudio *audio) {
 }
 
 void tts_speak(ACTts *tts, const char *text) {
+    tts_speak_voice(tts, text, 0);
+}
+
+void tts_speak_voice(ACTts *tts, const char *text, int male) {
     if (!tts || !text || !text[0]) return;
 
     pthread_mutex_lock(&tts->lock);
     if (tts->queue_count < TTS_QUEUE_SIZE) {
         strncpy(tts->queue[tts->queue_tail], text, TTS_MAX_TEXT - 1);
         tts->queue[tts->queue_tail][TTS_MAX_TEXT - 1] = 0;
+        tts->queue_voice[tts->queue_tail] = male;
         tts->queue_tail = (tts->queue_tail + 1) % TTS_QUEUE_SIZE;
         tts->queue_count++;
         pthread_cond_signal(&tts->cond);

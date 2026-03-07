@@ -4,6 +4,11 @@
 #include <stdint.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
+#include "framebuffer.h"
+
+#ifdef USE_SDL
+#include <SDL2/SDL.h>
+#endif
 
 typedef struct {
     int fd;                     // DRM or fbdev device fd
@@ -32,12 +37,25 @@ typedef struct {
     uint32_t fbdev_size;        // fbdev map size
     int fbdev_stride;           // fbdev line length in pixels
     int fbdev_swap_rb;          // 1 if need to swap R and B channels (BGR format)
+
+    // SDL2 GPU-accelerated display
+#ifdef USE_SDL
+    int is_sdl;                 // 1 if using SDL2 backend
+    SDL_Window *sdl_window;
+    SDL_Renderer *sdl_renderer;
+    SDL_Texture *sdl_texture;
+    int sdl_tex_w, sdl_tex_h;  // texture dimensions (matches small framebuffer)
+#endif
 } ACDisplay;
 
-// Initialize DRM display, returns NULL on failure
+// Initialize display (tries SDL2 GPU first if available, then DRM, then fbdev)
 ACDisplay *drm_init(void);
 
-// Flip to the back buffer (makes it visible)
+// Present the small framebuffer scaled up to the display
+// This is the primary display function — handles GPU texture upload or CPU scaling
+void display_present(ACDisplay *d, ACFramebuffer *screen, int scale);
+
+// Flip to the back buffer (makes it visible) — used by non-SDL paths
 void drm_flip(ACDisplay *d);
 
 // Get pointer to the back buffer (the one to draw into)
