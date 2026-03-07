@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dis-Order Pamphlet v4 Bifold</title>
+  <style>
+    :root {
+      --sheet-w: 11in;
+      --sheet-h: 8.5in;
+      --ink: #151515;
+      --paper: #f5f5f3;
+      --card: rgba(255, 255, 255, 0.56);
+      --rule: rgba(0, 0, 0, 0.22);
+      --sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      --serif: Georgia, "Times New Roman", serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #ddd;
+      color: var(--ink);
+      font-family: var(--serif);
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .sheet {
+      width: var(--sheet-w);
+      height: var(--sheet-h);
+      margin: 0 auto;
+      background: var(--paper);
+      display: grid;
+      grid-template-columns: 1fr 1px 1fr;
+      overflow: hidden;
+      page-break-after: always;
+      break-after: page;
+    }
+
+    .sheet:last-of-type {
+      page-break-after: auto;
+      break-after: auto;
+    }
+
+    .fold {
+      background: var(--rule);
+      height: 100%;
+    }
+
+    .panel {
+      position: relative;
+      padding: 0.18in;
+      overflow: hidden;
+    }
+
+    .outside-left {
+      padding: 0.16in;
+      display: grid;
+      grid-template-rows: auto auto auto auto 1fr;
+      gap: 0.06in;
+    }
+
+    .outside-right {
+      padding: 0;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      isolation: isolate;
+    }
+
+    .outside-right::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: url("images-v2/cover.jpg");
+      background-size: cover;
+      background-position: center;
+      opacity: 0.28;
+      z-index: 0;
+    }
+
+    .cover-center {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      padding: 0.4in;
+    }
+
+    .cover-title {
+      font-family: var(--serif);
+      font-size: 1.05in;
+      line-height: 0.95;
+      margin: 0;
+      font-weight: 700;
+      color: #111;
+      text-shadow:
+        -2px -1px 0 rgba(0, 221, 255, 0.6),
+        2px 1px 0 rgba(255, 0, 158, 0.56);
+    }
+
+    .cover-sub {
+      margin-top: 0.12in;
+      font-size: 0.18in;
+      line-height: 1.08;
+      color: rgba(20, 20, 20, 0.8);
+    }
+
+    .panel-title {
+      text-align: center;
+      margin: 0;
+      font-size: 0.32in;
+      line-height: 1;
+    }
+
+    .panel-sub {
+      text-align: center;
+      margin: 0.02in 0 0.01in;
+      font-style: italic;
+      font-size: 0.125in;
+      color: rgba(0, 0, 0, 0.62);
+    }
+
+    .panel-rule {
+      height: 1px;
+      background: rgba(0, 0, 0, 0.45);
+      margin: 0;
+    }
+
+    .bio-list,
+    .mini-bio-list {
+      display: grid;
+      gap: 0.04in;
+    }
+
+    .bio-list {
+      grid-template-columns: 1fr 1fr;
+      align-content: stretch;
+      gap: 0.05in;
+      height: 100%;
+      grid-auto-rows: 1fr;
+      margin-top: 0.035in;
+    }
+
+    .back-credits {
+      display: grid;
+      gap: 0.085in;
+      text-align: center;
+      padding: 0.02in 0.03in;
+      margin-bottom: 0.12in;
+    }
+
+    .credit-block {
+      margin: 0;
+    }
+
+    .credit-block.performed,
+    .credit-block.thanks {
+      max-width: 78%;
+      margin-inline: auto;
+    }
+
+    .credit-title {
+      margin: 0;
+      font-family: var(--sans);
+      font-size: 0.124in;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .credit-copy {
+      margin: 0.014in 0 0;
+      font-size: 0.116in;
+      line-height: 1.24;
+    }
+
+    .bio-row {
+      padding: 0.03in 0.035in;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .bio-name {
+      margin: 0;
+      font-size: 0.132in;
+      line-height: 1.1;
+      font-weight: 700;
+    }
+
+    .bio-copy {
+      margin: 0.016in 0 0;
+      font-size: 0.11in;
+      line-height: 1.22;
+    }
+
+    .inside-left {
+      padding: 0.16in;
+      display: grid;
+      grid-template-rows: repeat(5, 1fr);
+      gap: 0.03in;
+    }
+
+    .strip {
+      position: relative;
+      overflow: hidden;
+      background-size: cover;
+      background-position: center;
+    }
+
+    .strip::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.22);
+    }
+
+    .strip-num,
+    .strip-label {
+      position: absolute;
+      z-index: 1;
+      color: #fff;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    }
+
+    .strip-num {
+      top: 0.08in;
+      left: 0.09in;
+      font-size: 0.55in;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .strip-label {
+      left: 0.1in;
+      bottom: 0.08in;
+      right: 0.1in;
+      font-size: 0.17in;
+      line-height: 1.06;
+      font-weight: 700;
+    }
+
+    .inside-right {
+      padding: 0.28in;
+      display: grid;
+      place-items: center;
+      align-content: center;
+      text-align: center;
+      gap: 0.08in;
+    }
+
+    .body-head {
+      margin: 0;
+      font-size: 0.42in;
+      line-height: 1;
+    }
+
+    .body-copy {
+      margin: 0.02in 0 0;
+      font-size: 0.165in;
+      line-height: 1.32;
+    }
+
+    .info-block {
+      background: rgba(255, 255, 255, 0.56);
+      padding: 0.02in 0.022in;
+    }
+
+    .info-title {
+      margin: 0;
+      font-size: 0.085in;
+      line-height: 1;
+      font-weight: 700;
+    }
+
+    .info-copy {
+      margin: 0.015in 0 0;
+      font-size: 0.062in;
+      line-height: 1.16;
+    }
+
+    .more-bios {
+      display: grid;
+      gap: 0.024in;
+      align-content: start;
+    }
+
+    .intro-block {
+      max-width: 92%;
+      display: grid;
+      gap: 0.08in;
+      justify-items: center;
+    }
+
+    @page {
+      size: 11in 8.5in;
+      margin: 0;
+    }
+
+    @media print {
+      html, body { background: transparent; }
+      .sheet { margin: 0; }
+    }
+  </style>
+</head>
+<body>
+  <section class="sheet">
+    <article class="panel inside-right">
+      <div class="intro-block">
+        <h2 class="body-head">Dis-order</h2>
+        <p class="body-copy">Dis-order is a performance, communal ritual, and a family drama that asks what forces move through us when we enact an ancient spring rite, and what is left unspoken when we gather around the table.</p>
+        <p class="body-copy">Staged a la Judy Chicago's <em>The Dinner Party</em>, the piece references the Passover seder, Greek mythology, and Pina Bausch's <em>Rite of Spring</em> to examine the performance of ritual and the rigidity of roles and stories within families, communities, and institutions.</p>
+      </div>
+    </article>
+
+    <div class="fold"></div>
+
+    <article class="panel outside-right">
+      <div class="cover-center">
+        <h1 class="cover-title">Dis-Order</h1>
+        <p class="cover-sub">welcome,<br />we've been waiting for you</p>
+      </div>
+    </article>
+  </section>
+
+  <section class="sheet">
+    <article class="panel inside-left">
+      <div class="strip" style="background-image:url('images-v2/i-candles.jpg')"><div class="strip-num">I.</div><div class="strip-label">begin with fire</div></div>
+      <div class="strip" style="background-image:url('images-v2/ii-donkey.jpg')"><div class="strip-num">II.</div><div class="strip-label">wicked child bacchanal</div></div>
+      <div class="strip" style="background-image:url('images-v2/iii-egg.jpg')"><div class="strip-num">III.</div><div class="strip-label">total darkness</div></div>
+      <div class="strip" style="background-image:url('images-v2/iv-pastoral.jpg')"><div class="strip-num">IV.</div><div class="strip-label">lovers' pastoral</div></div>
+      <div class="strip" style="background-image:url('images-v2/v-daughter.jpg')"><div class="strip-num">V.</div><div class="strip-label">death of the first born</div></div>
+    </article>
+
+    <div class="fold"></div>
+
+    <article class="panel outside-left">
+      <h2 class="panel-title">Dis-Order</h2>
+      <div class="panel-rule"></div>
+
+      <div class="back-credits">
+        <div class="credit-block performed">
+          <p class="credit-title">Performed by</p>
+          <p class="credit-copy">Sophie Becker, Tim Allen, Roxanne Steinberg, Ryley Polak, Anaya Gonzales, Nico Fife, and Abby Sage.</p>
+        </div>
+        <div class="credit-block">
+          <p class="credit-title">Creative Team</p>
+          <p class="credit-copy">Choreographed and directed by Mamie Green. Concept by Mamie Green and Rebecca Schultz. Puppets by Freak Nature Puppets and Abby Sage. Original live score by Patrick Shiroishi and Dylan Fujioka. Script by Rebecca Schultz. Set design by Ari Salka. Dramaturgy by Livia Reiner.</p>
+        </div>
+        <div class="credit-block thanks">
+          <p class="credit-title">Thanks</p>
+          <p class="credit-copy">Skirball Cultural Center, Community Engagement Grants, Oracle Egg BROILER Residency, and Reboot.</p>
+        </div>
+      </div>
+
+      <div class="bio-list">
+        <div class="bio-row"><p class="bio-name">Mamie Green</p><p class="bio-copy">Choreographer and director of VOLTA. Her work has been presented across the US and Europe, with 2026 presentations at Guggenheim Bilbao and Foster Theater.</p></div>
+        <div class="bio-row"><p class="bio-name">Freak Nature Puppets</p><p class="bio-copy">Los Angeles artist collective making dreamlike giant puppetry. Collaborators include Dead &amp; Company, Bob Baker Marionette Theater, KCRW, and Childish Gambino.</p></div>
+        <div class="bio-row"><p class="bio-name">Rebecca Schultz</p><p class="bio-copy">Writer of fiction and criticism published in Los Angeles Review of Books, BOMB, Full-Stop, and Santa Monica Review. She teaches at UC Irvine.</p></div>
+        <div class="bio-row"><p class="bio-name">Patrick Shiroishi</p><p class="bio-copy">Japanese-American multi-instrumentalist, composer, and poet based in Los Angeles. He has performed at MOCA, The Met, The Getty, and internationally.</p></div>
+        <div class="bio-row"><p class="bio-name">Dylan Fujioka</p><p class="bio-copy">Los Angeles-born multi-instrumentalist and composer known for drumming, recording, cross-genre collaborations, and film and television composition work.</p></div>
+        <div class="bio-row"><p class="bio-name">Sophie Becker</p><p class="bio-copy">New York ventriloquist and actor working across theater and experimental comedy, with performances at MoMA PS1, NADA Miami, and Rockaway Film Festival.</p></div>
+        <div class="bio-row"><p class="bio-name">Ari Salka</p><p class="bio-copy">Los Angeles artist working in painting, drawing, and poetry. MFA UCLA. Work held in multiple permanent collections; solo museum exhibition upcoming in 2027.</p></div>
+        <div class="bio-row"><p class="bio-name">Roxanne Steinberg</p><p class="bio-copy">Dancer and choreographer who founded Body Weather Los Angeles in 1988. Her work has appeared at REDCAT, Electric Lodge, and venues in New York and Portland.</p></div>
+        <div class="bio-row"><p class="bio-name">Ryley Polak</p><p class="bio-copy">Los Angeles-based dancer and educator. Credits include A24's <em>Dick's: The Musical</em>, commercial work, and international performance with Royal Flux and VOLTA.</p></div>
+        <div class="bio-row"><p class="bio-name">Anaya Gonzalez</p><p class="bio-copy">Dancer focused on emotionally driven movement. Trained at UNCSA and performed with BODYTRAFFIC in works by leading contemporary choreographers.</p></div>
+        <div class="bio-row"><p class="bio-name">Nico Fife</p><p class="bio-copy">Actor, writer, puppeteer, and director from Long Beach. Associate Company Member at The Actors' Gang and an active practitioner and teacher of Viewpoints.</p></div>
+        <div class="bio-row"><p class="bio-name">Tim Griffin Allan</p><p class="bio-copy">New York actor appearing on stage and screen, including projects with A24, HBO, MUBI, and CBS; also a member of puppet troupe PussyPaws Puppetry.</p></div>
+        <div class="bio-row"><p class="bio-name">Abby Sage</p><p class="bio-copy">Singer-songwriter and multidisciplinary artist. Alongside music, she designs handcrafted puppets that blend storytelling, symbolism, and expressive movement.</p></div>
+        <div class="bio-row"><p class="bio-name">Skirball Cultural Center</p><p class="bio-copy">A place of meeting guided by Jewish tradition and democratic ideals, welcoming all communities into cultural experiences centered on connection and social care.</p></div>
+      </div>
+    </article>
+  </section>
+</body>
+</html>
