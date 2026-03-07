@@ -890,7 +890,7 @@ app.get('/tools', (req, res) => {
   <div class="panel">
     <div class="row">
       <input id="os-admin-key" type="password" placeholder="admin key (x-oven-os-key)">
-      <select id="os-flavor" style="width:100px"><option value="alpine" selected>Alpine</option><option value="fedora">Fedora</option></select>
+      <select id="os-flavor" style="width:100px"><option value="alpine" selected>Alpine</option><option value="fedora">Fedora</option><option value="native">Native</option></select>
       <input id="os-image-size" type="number" min="1" max="32" value="1" style="width:90px">
       <button id="os-start-btn" type="button">Start Base Build</button>
       <button id="os-refresh-btn" type="button">Refresh</button>
@@ -2431,8 +2431,26 @@ app.get('/os', async (req, res) => {
   const flavor = (req.query.flavor || 'alpine').toLowerCase();
   const nocache = req.query.nocache === '1' || req.query.nocache === 'true';
 
-  if (!['alpine', 'fedora'].includes(flavor)) {
-    return res.status(400).json({ error: "Invalid flavor. Use 'alpine' or 'fedora'." });
+  if (!['alpine', 'fedora', 'native'].includes(flavor)) {
+    return res.status(400).json({ error: "Invalid flavor. Use 'alpine', 'fedora', or 'native'." });
+  }
+
+  // Native flavor: pre-built bare-metal kernel images on CDN (no dynamic assembly)
+  if (flavor === 'native') {
+    const nativePiece = piece || code || 'notepat';
+    const cdnUrl = `https://releases.aesthetic.computer/os/native-${nativePiece}-latest.img.gz`;
+    const filename = `${nativePiece}-native.img.gz`;
+    addServerLog('info', '💿', `OS native redirect: ${nativePiece}`);
+
+    if (format === 'stream') {
+      res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'X-Accel-Buffering': 'no' });
+      res.flushHeaders();
+      const sendEvent = (type, data) => { res.write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`); if (typeof res.flush === 'function') res.flush(); };
+      sendEvent('progress', { stage: 'native', message: 'Native image ready on CDN', percent: 100 });
+      sendEvent('complete', { message: 'Native OS image ready', downloadUrl: cdnUrl, filename, cached: true, flavor: 'native', elapsed: 0 });
+      return res.end();
+    }
+    return res.redirect(cdnUrl);
   }
 
   const isJSPiece = !!piece;
