@@ -41,8 +41,6 @@ def keeps_module():
     class KidLispKeepsFA2v6(
         main.Admin,
         main.Nft,
-        main.MintNft,
-        main.BurnNft,
         main.OnchainviewBalanceOf,
     ):
         """
@@ -59,10 +57,6 @@ def keeps_module():
         def __init__(self, admin_address, contract_metadata, ledger, token_metadata):
             # Initialize on-chain balance view
             main.OnchainviewBalanceOf.__init__(self)
-
-            # Initialize the NFT-specific entrypoints
-            main.BurnNft.__init__(self)
-            main.MintNft.__init__(self)
 
             # Initialize the NFT base class
             main.Nft.__init__(self, contract_metadata, ledger, token_metadata)
@@ -188,6 +182,41 @@ def keeps_module():
 
             # Increment token counter
             self.data.next_token_id = token_id + 1
+
+        @sp.entrypoint
+        def mint(self, batch):
+            """
+            Disable generic FA2 mint path.
+            Keeps must be minted through `keep` so fee/dedup rules always apply.
+            """
+            sp.cast(
+                batch,
+                sp.list[
+                    sp.record(
+                        to_=sp.address,
+                        metadata=sp.map[sp.string, sp.bytes],
+                    ).layout(("to_", "metadata"))
+                ],
+            )
+            assert False, "MINT_DISABLED_USE_KEEP"
+
+        @sp.entrypoint
+        def burn(self, batch):
+            """
+            Disable generic FA2 burn path.
+            Keeps must be burned through `burn_keep` so all indexes are cleaned.
+            """
+            sp.cast(
+                batch,
+                sp.list[
+                    sp.record(
+                        from_=sp.address,
+                        token_id=sp.nat,
+                        amount=sp.nat,
+                    ).layout(("from_", ("token_id", "amount")))
+                ],
+            )
+            assert False, "BURN_DISABLED_USE_BURN_KEEP"
 
         @sp.entrypoint
         def edit_metadata(self, params):
