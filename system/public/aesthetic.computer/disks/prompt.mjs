@@ -2884,7 +2884,9 @@ async function halt($, text) {
     }
 
     // OS-specific timeline steps (match stage names from os-builder.mjs)
-    const osTimelineSteps = [
+    const osTimelineSteps = flavor === 'native' ? [
+      { id: 'native', label: 'Fetch Image', status: 'pending', message: null, time: null },
+    ] : [
       { id: 'manifest', label: 'Fetch Manifest', status: 'pending', message: null, time: null },
       { id: 'base', label: 'Verify Base Image', status: 'pending', message: null, time: null },
       { id: 'bundle', label: 'Bundle Piece', status: 'pending', message: null, time: null },
@@ -2972,7 +2974,7 @@ async function halt($, text) {
       if (!result) throw new Error("No result received from OS build API");
 
       const downloadUrl = result.downloadUrl || `https://oven.aesthetic.computer/os?${bundleParam}`;
-      const isoFilename = `${displayName}-${flavor}-os.iso`;
+      const isoFilename = result.filename || `${displayName}-${flavor}-os.${flavor === 'native' ? 'img.gz' : 'iso'}`;
 
       if (usbTargetDevice) {
         // Electron USB flash: download image → write to USB → eject.
@@ -2996,7 +2998,8 @@ async function halt($, text) {
       } else {
         // Browser fallback: trigger ISO download.
         send({ type: "download-url", content: { url: downloadUrl, filename: isoFilename } });
-        notice(`OS ISO ready for ${displayName} — downloading ~${flavor === "alpine" ? "1" : "3"}GB`, ["lime"]);
+        const sizeHint = flavor === "native" ? "27MB" : flavor === "alpine" ? "~1GB" : "~3GB";
+        notice(`OS ${flavor === "native" ? "image" : "ISO"} ready for ${displayName} — downloading ${sizeHint}`, ["lime"]);
         flashColor = [0, 255, 0];
       }
     } catch (err) {
