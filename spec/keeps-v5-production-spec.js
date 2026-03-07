@@ -55,6 +55,12 @@ describe('🚀 Keeps FA2 v5 Release Candidate - Source Checks', () => {
     expect(v5ContractSource).toContain('token_info["content_hash"] = original_hash');
   });
 
+  it('preserves royalties as immutable during edit_metadata', () => {
+    // edit_metadata must keep the original royalties bytes after update
+    expect(v5ContractSource).toContain('original_royalties = existing_info.get("royalties"');
+    expect(v5ContractSource).toContain('token_info["royalties"] = original_royalties');
+  });
+
   it('documents v5 launch as the release candidate path', () => {
     expect(launchPlanSource).toContain('Keeps FA2 v5 Launch Plan');
     expect(launchPlanSource).toContain('Goal:**');

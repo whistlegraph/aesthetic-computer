@@ -7,9 +7,10 @@
 import { authorize, hasAdmin } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
+import { getKeepsContractAddress, LEGACY_KEEPS_CONTRACT } from "../../backend/tezos-keeps-contract.mjs";
 
-// Configuration - Mainnet v5 RC contract by default
-const CONTRACT_ADDRESS = process.env.TEZOS_KEEPS_CONTRACT || "KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido";
+// Configuration
+const NETWORK = process.env.TEZOS_NETWORK || "mainnet";
 
 export async function handler(event, context) {
   if (event.httpMethod === "OPTIONS") {
@@ -55,7 +56,12 @@ export async function handler(event, context) {
 
     // Clean piece name (remove $ prefix if present)
     const cleanPiece = piece.replace(/^\$/, "");
-    const effectiveContract = contractAddress || CONTRACT_ADDRESS;
+    const defaultContract = await getKeepsContractAddress({
+      db: database.db,
+      network: NETWORK,
+      fallback: LEGACY_KEEPS_CONTRACT,
+    });
+    const effectiveContract = contractAddress || defaultContract;
 
     // Find the kidlisp record
     const collection = database.db.collection("kidlisp");
