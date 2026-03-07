@@ -429,7 +429,7 @@ ACAudio *audio_init(void) {
     audio->tts_buf = calloc(audio->tts_buf_size, sizeof(float));
     audio->tts_read_pos = 0;
     audio->tts_write_pos = 0;
-    audio->tts_volume = 1.0f;
+    audio->tts_volume = 2.5f;  // Boost flite output (naturally quiet)
 
     // Wait for sound card to appear (i915 GPU init can delay HDA probe)
     fprintf(stderr, "[audio] Waiting for sound card...\n");

@@ -8,6 +8,7 @@
 #include <string.h>
 #include <signal.h>
 #include <time.h>
+#include <math.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <dirent.h>
@@ -230,6 +231,10 @@ static void auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                 mkdir("/tmp/hd/EFI/Microsoft/Boot", 0755);
                 copy_file(kernel_src, "/tmp/hd/EFI/Microsoft/Boot/bootmgfw.efi");
 
+                // Write install marker so next boot knows it's installed
+                FILE *marker = fopen("/tmp/hd/EFI/BOOT/ac-installed", "w");
+                if (marker) { fputs("1\n", marker); fclose(marker); }
+
                 sync();
                 installed = 1;
                 fprintf(stderr, "[ac-native] Installed %ld bytes to %s\n", sz, devpath);
@@ -305,10 +310,13 @@ static int get_la_hour(void) {
 // Draw y/n install confirmation screen
 // Returns 1 if user confirms with Y, 0 if N/Escape
 static int draw_install_confirm(ACGraph *graph, ACFramebuffer *screen,
-                                 ACDisplay *display, int *fds, int nfds) {
-    int is_dark = (get_la_hour() >= 19 || get_la_hour() < 7);
+                                 ACDisplay *display, int *fds, int nfds,
+                                 ACTts *tts) {
+    int is_dark = 1; // always dark
     struct timespec anim_time;
     clock_gettime(CLOCK_MONOTONIC, &anim_time);
+
+    if (tts) tts_speak(tts, "install to disk? press Y for yes, N for no");
 
     for (;;) {
         uint8_t bg = is_dark ? 20 : 255;
@@ -353,6 +361,34 @@ static int draw_install_confirm(ACGraph *graph, ACFramebuffer *screen,
     }
 }
 
+// Check if we booted from an installed (non-removable) disk
+// by looking for ac-installed marker on an internal ESP
+static int is_installed_on_hd(void) {
+    if (getpid() != 1) return 0; // not bare metal
+    mkdir("/tmp/chk", 0755);
+    const char *parts[] = {
+        "/dev/nvme0n1p1", "/dev/nvme0n1p2",
+        "/dev/sda1", "/dev/sdb1", NULL
+    };
+    for (int i = 0; parts[i]; i++) {
+        // Skip removable devices
+        char blk[16] = "";
+        const char *p = parts[i] + 5; // after /dev/
+        int len = 0;
+        while (p[len] && (p[len] < '0' || p[len] > '9')) len++;
+        if (len > 0 && len < (int)sizeof(blk)) {
+            memcpy(blk, p, len);
+            blk[len] = 0;
+            if (is_removable(blk) == 1) continue; // skip USB
+        }
+        if (mount(parts[i], "/tmp/chk", "vfat", MS_RDONLY, NULL) != 0) continue;
+        int found = access("/tmp/chk/EFI/BOOT/ac-installed", F_OK) == 0;
+        umount("/tmp/chk");
+        if (found) return 1;
+    }
+    return 0;
+}
+
 // Draw startup fade animation (black → white with title)
 // Returns 1 if user pressed W and confirmed install, 0 otherwise
 static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
@@ -360,7 +396,9 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
     struct timespec anim_time;
     clock_gettime(CLOCK_MONOTONIC, &anim_time);
     int la_hour = get_la_hour();
-    int is_dark = (la_hour >= 19 || la_hour < 7);
+    int is_dark = 1; // always dark boot screen
+    (void)la_hour;
+    int show_install = !is_installed_on_hd();
 
     // Open evdev fds once for key checking (avoid per-frame open/close)
     int key_fds[8];
@@ -409,7 +447,7 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
                             continue;
                         }
                         fprintf(stderr, "[boot-anim] key %d at f=%d\n", ev.code, f);
-                        if (ev.code == KEY_W) {
+                        if (ev.code == KEY_W && show_install) {
                             w_pressed = 1;
                         } else if (ev.code != KEY_RESERVED) {
                             skip_anim = 1;
@@ -422,6 +460,7 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
         // TTS speech timed to visual appearance
         if (f == 10 && tts) tts_speak(tts, "notepat");
         if (f == 70 && tts) tts_speak(tts, "aesthetic dot computer");
+        if (f == 130 && tts && show_install) tts_speak(tts, "press W to install to disk");
 
         // Fade from black to target bg (complete in first 0.3s)
         double fade_t = t * 3.33;
@@ -460,8 +499,8 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
             graph_box(graph, 20, screen->height - 6, bar_remaining, 3, 1);
         }
 
-        // Show W hint after initial fade
-        if (alpha > 100) {
+        // Show W hint after initial fade (only when booting from USB)
+        if (alpha > 100 && show_install) {
             graph_ink(graph, (ACColor){(uint8_t)(is_dark ? 80 : 160),
                                        (uint8_t)(is_dark ? 80 : 160),
                                        (uint8_t)(is_dark ? 90 : 170),
@@ -481,46 +520,81 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
     // If W was pressed, show y/n confirmation
     int result = 0;
     if (w_pressed) {
-        result = draw_install_confirm(graph, screen, display, key_fds, key_fd_count);
+        result = draw_install_confirm(graph, screen, display, key_fds, key_fd_count, tts);
     }
 
     for (int i = 0; i < key_fd_count; i++) close(key_fds[i]);
     return result;
 }
 
-// Draw a status frame during boot (white bg, title + status text)
+// Draw a status frame during boot (white bg, bouncy title + status text)
+// Renders multiple frames with a bounce animation
 static void draw_boot_status(ACGraph *graph, ACFramebuffer *screen,
                              ACDisplay *display, const char *status) {
-    int dk = (get_la_hour() >= 19 || get_la_hour() < 7);
-    uint8_t bg = dk ? 20 : 255;
-    graph_wipe(graph, (ACColor){bg, bg, (uint8_t)(bg + (dk ? 5 : 0)), 255});
+    static int boot_frame = 0;
+    int dk = 1; // always dark
 
-    // Title: "notepat" in MatrixChunky8 at scale 3
-    uint8_t fg = dk ? 220 : 0;
-    graph_ink(graph, (ACColor){fg, fg, fg, 255});
-    int tw = font_measure_matrix("notepat", 3);
-    font_draw_matrix(graph, "notepat", (screen->width - tw) / 2,
-                     screen->height / 2 - 20, 3);
+    struct timespec anim_time;
+    clock_gettime(CLOCK_MONOTONIC, &anim_time);
 
-    // Subtitle
-    uint8_t sub = dk ? 140 : 120;
-    graph_ink(graph, (ACColor){sub, sub, sub, 255});
-    int sw = font_measure_matrix("aesthetic.computer", 1);
-    font_draw_matrix(graph, "aesthetic.computer",
-                     (screen->width - sw) / 2, screen->height / 2 + 10, 1);
+    // Animate for 20 frames (~333ms) per status change
+    for (int af = 0; af < 20; af++) {
+        boot_frame++;
+        uint8_t bg = dk ? 20 : 255;
+        graph_wipe(graph, (ACColor){bg, bg, (uint8_t)(bg + (dk ? 5 : 0)), 255});
 
-    // Status text below subtitle
-    if (status) {
-        graph_ink(graph, (ACColor){(uint8_t)(dk ? 120 : 160), (uint8_t)(dk ? 120 : 160), (uint8_t)(dk ? 120 : 160), 255});
-        int stw = font_measure_matrix(status, 1);
-        font_draw_matrix(graph, status, (screen->width - stw) / 2,
-                         screen->height / 2 + 26, 1);
+        // Bounce: title oscillates with a decaying sine
+        double bounce_t = (double)af / 20.0;
+        int bounce_y = (int)(6.0 * sin(bounce_t * 3.14159 * 2) * (1.0 - bounce_t));
+
+        // Title: "notepat" with bounce
+        uint8_t fg = dk ? 220 : 0;
+        graph_ink(graph, (ACColor){fg, fg, fg, 255});
+        int tw = font_measure_matrix("notepat", 3);
+        font_draw_matrix(graph, "notepat", (screen->width - tw) / 2,
+                         screen->height / 2 - 20 + bounce_y, 3);
+
+        // Subtitle (slight counter-bounce)
+        uint8_t sub = dk ? 140 : 120;
+        graph_ink(graph, (ACColor){sub, sub, sub, 255});
+        int sw = font_measure_matrix("aesthetic.computer", 1);
+        font_draw_matrix(graph, "aesthetic.computer",
+                         (screen->width - sw) / 2,
+                         screen->height / 2 + 10 - bounce_y / 3, 1);
+
+        // Status text — slides in from right
+        if (status) {
+            int slide = (int)((1.0 - bounce_t) * 40);
+            if (slide < 0) slide = 0;
+            uint8_t sc = dk ? 120 : 160;
+            graph_ink(graph, (ACColor){sc, sc, sc, (uint8_t)(255 * bounce_t)});
+            int stw = font_measure_matrix(status, 1);
+            font_draw_matrix(graph, status,
+                             (screen->width - stw) / 2 + slide,
+                             screen->height / 2 + 26, 1);
+        }
+
+        // Spinning dot indicator (rotates each boot_frame)
+        {
+            int cx = screen->width / 2;
+            int cy = screen->height / 2 + 42;
+            double angle = boot_frame * 0.15;
+            for (int d = 0; d < 4; d++) {
+                double a = angle + d * 1.5708; // 90° apart
+                int dx = (int)(6.0 * cos(a));
+                int dy = (int)(3.0 * sin(a));
+                uint8_t bright = (d == 0) ? (dk ? 200 : 40) : (dk ? 80 : 180);
+                graph_ink(graph, (ACColor){bright, bright, bright, 255});
+                graph_box(graph, cx + dx - 1, cy + dy - 1, 2, 2, 1);
+            }
+        }
+
+        fb_copy_scaled(screen, drm_back_buffer(display),
+                       display->width, display->height,
+                       drm_back_stride(display), 3);
+        drm_flip(display);
+        frame_sync_60fps(&anim_time);
     }
-
-    fb_copy_scaled(screen, drm_back_buffer(display),
-                   display->width, display->height,
-                   drm_back_stride(display), 3);
-    drm_flip(display);
 }
 
 int main(int argc, char *argv[]) {
@@ -584,6 +658,7 @@ int main(int argc, char *argv[]) {
     if (!headless) {
         want_install = draw_startup_fade(&graph, screen, display, tts);
         draw_boot_status(&graph, screen, display, "starting input...");
+        if (tts) tts_speak(tts, "starting input");
     }
 
     // Init input
@@ -628,19 +703,13 @@ int main(int argc, char *argv[]) {
     // Init WiFi
     if (!headless && display)
         draw_boot_status(&graph, screen, display, "starting wifi...");
+    if (tts) tts_speak(tts, "starting wifi");
     ACWifi *wifi = wifi_init();
-    if (tts) {
-        if (wifi && wifi->state == WIFI_STATE_CONNECTED)
-            tts_speak(tts, "wifi connected");
-        else if (wifi && wifi->iface[0])
-            tts_speak(tts, "wifi ready");
-        else
-            tts_speak(tts, "no wifi");
-    }
 
     // Init JS
     if (!headless && display)
-        draw_boot_status(&graph, screen, display, "starting javascript...");
+        draw_boot_status(&graph, screen, display, "loading piece...");
+    if (tts) tts_speak(tts, "loading piece");
     ACRuntime *rt = js_init(&graph, input, audio, wifi, tts);
     if (!rt) {
         fprintf(stderr, "[ac-native] FATAL: Cannot init JS\n");
@@ -652,8 +721,6 @@ int main(int argc, char *argv[]) {
     }
 
     // Load piece
-    if (!headless && display)
-        draw_boot_status(&graph, screen, display, "loading piece...");
     if (js_load_piece(rt, piece_path) < 0) {
         fprintf(stderr, "[ac-native] FATAL: Cannot load %s\n", piece_path);
         if (!headless) {
@@ -697,8 +764,11 @@ int main(int argc, char *argv[]) {
            JS_IsFunction(rt->ctx, rt->sim_fn));
     if (logfile) { fflush(logfile); }
 
-    // Ready: wait for any pending speech, then melody
-    if (tts) tts_wait(tts);
+    // Ready: wait for speech to finish + ring buffer to drain, then melody
+    if (tts) {
+        tts_wait(tts);
+        usleep(300000); // Let TTS ring buffer drain
+    }
     audio_ready_melody(audio);
     usleep(400000); // Let melody ring out before playing
 
@@ -783,8 +853,8 @@ int main(int argc, char *argv[]) {
                 // Shutdown animation (~1.5 seconds)
                 struct timespec anim_time;
                 clock_gettime(CLOCK_MONOTONIC, &anim_time);
-                int sd_dark = (get_la_hour() >= 19 || get_la_hour() < 7);
-                int sd_bg = sd_dark ? 20 : 255;
+                int sd_dark = 1; // always dark
+                int sd_bg = 20;
 
                 for (int f = 0; f < 60; f++) { // 60 frames @ 60fps = 1s
                     double t = (double)f / 60.0;
@@ -867,9 +937,13 @@ int main(int argc, char *argv[]) {
     js_call_leave(rt);
     js_destroy(rt);
     wifi_destroy(wifi);
-    if (tts) { tts_speak(tts, "goodbye"); tts_wait(tts); }
+    if (tts) {
+        tts_speak(tts, "goodbye");
+        tts_wait(tts);
+        usleep(300000); // Let TTS ring buffer drain before chime
+    }
     audio_shutdown_sound(audio);
-    usleep(500000); // Let shutdown chime ring out
+    usleep(600000); // Let shutdown chime ring out
     tts_destroy(tts);
     audio_destroy(audio);
     if (input) input_destroy(input);
