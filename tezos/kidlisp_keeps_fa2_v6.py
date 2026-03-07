@@ -195,9 +195,7 @@ def keeps_module():
             Update metadata for an existing token.
 
             Authorization:
-            - Admin (contract administrator)
-            - Token owner (current holder)
-            - Original creator (preserves objkt.com attribution)
+            - Token owner only (current holder)
 
             Respects pause flag (cannot edit when paused).
             content_hash and royalties are immutable — always preserved
@@ -213,12 +211,10 @@ def keeps_module():
 
             assert self.data.token_metadata.contains(params.token_id), "FA2_TOKEN_UNDEFINED"
 
-            # Check authorization: admin, owner, or original creator
-            is_admin = self.is_administrator_()
+            # Check authorization: owner only
             is_owner = self.data.ledger.get(params.token_id, default=sp.address("tz1burnburnburnburnburnburnburjAYjjX")) == sp.sender
-            is_creator = self.data.token_creators.get(params.token_id, default=sp.address("tz1burnburnburnburnburnburnburjAYjjX")) == sp.sender
 
-            assert is_admin or is_owner or is_creator, "NOT_AUTHORIZED"
+            assert is_owner, "NOT_TOKEN_OWNER"
 
             # Check if locked
             is_locked = self.data.metadata_locked.get(params.token_id, default=False)
@@ -296,12 +292,16 @@ def keeps_module():
             """
             Burn a token and remove its content_hash.
             This allows re-minting the same piece name.
-            Admin only.
+            Owner only.
             """
             sp.cast(token_id, sp.nat)
 
-            assert self.is_administrator_(), "FA2_NOT_ADMIN"
             assert self.data.token_metadata.contains(token_id), "FA2_TOKEN_UNDEFINED"
+            current_owner = self.data.ledger.get(
+                token_id,
+                default=sp.address("tz1burnburnburnburnburnburnburjAYjjX")
+            )
+            assert current_owner == sp.sender, "NOT_TOKEN_OWNER"
 
             # Get content_hash before burning
             token_info = self.data.token_metadata[token_id].token_info
