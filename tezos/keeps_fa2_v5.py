@@ -199,7 +199,8 @@ def keeps_module():
             - Original creator (preserves objkt.com attribution)
 
             Respects pause flag (cannot edit when paused).
-            content_hash is immutable — always preserved from original mint.
+            content_hash and royalties are immutable — always preserved
+            from original mint.
             """
             sp.cast(params, sp.record(
                 token_id=sp.nat,
@@ -222,9 +223,10 @@ def keeps_module():
             is_locked = self.data.metadata_locked.get(params.token_id, default=False)
             assert not is_locked, "METADATA_LOCKED"
 
-            # Preserve immutable content_hash from original metadata
+            # Preserve immutable content_hash + royalties from original metadata
             existing_info = self.data.token_metadata[params.token_id].token_info
             original_hash = existing_info.get("content_hash", default=sp.bytes("0x"))
+            original_royalties = existing_info.get("royalties", default=sp.bytes("0x"))
 
             # Update metadata
             self.data.token_metadata[params.token_id] = sp.record(
@@ -232,8 +234,9 @@ def keeps_module():
                 token_info=params.token_info
             )
 
-            # Re-inject content_hash (immutable — cannot be changed or removed via edit)
+            # Re-inject immutable fields (cannot be changed or removed via edit)
             self.data.token_metadata[params.token_id].token_info["content_hash"] = original_hash
+            self.data.token_metadata[params.token_id].token_info["royalties"] = original_royalties
 
         @sp.entrypoint
         def lock_metadata(self, token_id):

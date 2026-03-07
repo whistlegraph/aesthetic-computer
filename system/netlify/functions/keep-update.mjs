@@ -8,7 +8,8 @@
 
 import { authorize, handleFor, hasAdmin } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
-import { analyzeKidLisp, ANALYZER_VERSION } from "../../backend/kidlisp-analyzer.mjs";
+import { analyzeKidLisp } from "../../backend/kidlisp-analyzer.mjs";
+import { getKeepsContractAddress, LEGACY_KEEPS_CONTRACT } from "../../backend/tezos-keeps-contract.mjs";
 import { stream } from "@netlify/functions";
 import { TezosToolkit, MichelsonMap } from "@taquito/taquito";
 import { InMemorySigner } from "@taquito/signer";
@@ -20,8 +21,8 @@ if (dev) {
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 }
 
-// Configuration - Mainnet v5 RC contract by default
-const CONTRACT_ADDRESS = process.env.TEZOS_KEEPS_CONTRACT || "KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido";
+// Configuration
+let CONTRACT_ADDRESS = LEGACY_KEEPS_CONTRACT;
 const NETWORK = process.env.TEZOS_NETWORK || "mainnet";
 const TZKT_API = NETWORK === "mainnet" ? "https://api.tzkt.io/v1" : `https://api.${NETWORK}.tzkt.io/v1`;
 const RPC_URL = NETWORK === "mainnet" 
@@ -31,6 +32,36 @@ const RPC_URL = NETWORK === "mainnet"
 // Helper to convert string to bytes (for Tezos metadata)
 function stringToBytes(str) {
   return Buffer.from(str, 'utf8').toString('hex');
+}
+
+function normalizeRoyaltyBps(value, fallback = 1000) {
+  const raw = value?.toNumber?.() ?? value;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(0, Math.min(2500, Math.trunc(parsed)));
+}
+
+function buildRoyalties(creatorAddress, royaltyBps) {
+  return {
+    decimals: 4,
+    shares: {
+      [creatorAddress]: String(royaltyBps),
+    },
+  };
+}
+
+function parseRoyaltiesFromHex(hexValue) {
+  if (!hexValue || typeof hexValue !== "string") return null;
+  try {
+    const json = Buffer.from(hexValue, "hex").toString("utf8");
+    const parsed = JSON.parse(json);
+    if (!parsed || typeof parsed !== "object" || typeof parsed.shares !== "object" || Array.isArray(parsed.shares)) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
 }
 
 // SSE format helper
@@ -170,6 +201,11 @@ export const handler = stream(async (event) => {
 
       // Get piece data from database first
       database = await connect();
+      CONTRACT_ADDRESS = await getKeepsContractAddress({
+        db: database.db,
+        network: NETWORK,
+        fallback: LEGACY_KEEPS_CONTRACT,
+      });
       const collection = database.db.collection("kidlisp");
       const pieceDoc = await collection.findOne({ code: pieceName });
 
@@ -283,7 +319,7 @@ export const handler = stream(async (event) => {
         ...traits,
         { name: "Updated", value: new Date().toISOString().split('T')[0] },
         ...(authorHandle && authorHandle !== "@anon" ? [{ name: "Handle", value: authorHandle }] : []),
-        { name: "Analyzer Version", value: ANALYZER_VERSION },
+        ...(pieceName ? [{ name: "User", value: pieceName }] : []),
       ];
 
       await send("progress", { stage: "metadata", message: "✓ Metadata ready" });
@@ -325,6 +361,7 @@ export const handler = stream(async (event) => {
       // Otherwise objkt won't resolve artist attribution correctly
       // Try contract-specific first, then legacy flat field
       let metadataUri = contractData.metadataUri || pieceDoc.tezos?.metadataUri;
+      let preservedRoyalties = null;
       
       // If metadataUri not in DB, fetch from on-chain token_metadata bigmap
       // This preserves the original "" key and prevents breaking objkt attribution
@@ -340,6 +377,11 @@ export const handler = stream(async (event) => {
               // Decode hex to get the original IPFS URI
               metadataUri = Buffer.from(emptyKeyHex, 'hex').toString('utf8');
               console.log(`🪙 KEEP-UPDATE: Found metadataUri from on-chain: ${metadataUri}`);
+            }
+            const royaltiesHex = bigmapData?.value?.token_info?.royalties;
+            preservedRoyalties = parseRoyaltiesFromHex(royaltiesHex);
+            if (preservedRoyalties) {
+              console.log(`🪙 KEEP-UPDATE: Preserving existing token royalties from on-chain metadata`);
             }
           }
         } catch (e) {
@@ -358,13 +400,20 @@ export const handler = stream(async (event) => {
       // Build complete off-chain metadata JSON (TZIP-21 compliant)
       const creatorsArray = [originalMinter];
 
-      // v4: Preserve 10% royalty to original creator
-      const royalties = {
-        decimals: 4,
-        shares: {
-          [originalMinter]: "1000"  // 10% = 1000/10000 basis points
+      let defaultRoyaltyBps = 1000;
+      if (!preservedRoyalties) {
+        try {
+          const readTezos = new TezosToolkit(RPC_URL);
+          const readContract = await readTezos.contract.at(CONTRACT_ADDRESS);
+          const readStorage = await readContract.storage();
+          defaultRoyaltyBps = normalizeRoyaltyBps(readStorage.default_royalty_bps, 1000);
+        } catch (royaltyErr) {
+          console.warn(`🪙 KEEP-UPDATE: Unable to read default_royalty_bps, using 1000 bps (${royaltyErr?.message || "unknown error"})`);
         }
-      };
+      }
+
+      // Preserve token royalties when available; otherwise fallback to current contract default.
+      const royalties = preservedRoyalties || buildRoyalties(originalMinter, defaultRoyaltyBps);
 
       const metadataJson = {
         name: tokenName,
@@ -378,7 +427,7 @@ export const handler = stream(async (event) => {
         shouldPreferSymbol: false,
         minter: authorHandle, // Display handle for UI (objkt shows this)
         creators: creatorsArray, // Wallet address for on-chain attribution
-        royalties,  // v4: Preserve royalty on metadata update
+        royalties,  // Preserve royalty on metadata update
         rights: "© All rights reserved",
         mintingTool: "https://kidlisp.com",
         formats: [{
@@ -425,7 +474,7 @@ export const handler = stream(async (event) => {
       tokenInfo.set("tags", stringToBytes(JSON.stringify(tags)));
       tokenInfo.set("attributes", stringToBytes(JSON.stringify(attributes)));
       tokenInfo.set("creators", stringToBytes(JSON.stringify(creatorsArray)));
-      tokenInfo.set("royalties", stringToBytes(JSON.stringify(royalties)));  // v4: Preserve royalty
+      tokenInfo.set("royalties", stringToBytes(JSON.stringify(royalties)));  // Preserve royalty
       tokenInfo.set("rights", stringToBytes("© All rights reserved"));
       tokenInfo.set("content_type", stringToBytes("KidLisp"));
       tokenInfo.set("content_hash", stringToBytes(pieceName));

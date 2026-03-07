@@ -15,7 +15,8 @@
 
 import { authorize, handleFor, hasAdmin } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
-import { analyzeKidLisp, ANALYZER_VERSION } from "../../backend/kidlisp-analyzer.mjs";
+import { analyzeKidLisp } from "../../backend/kidlisp-analyzer.mjs";
+import { getKeepsContractAddress, LEGACY_KEEPS_CONTRACT } from "../../backend/tezos-keeps-contract.mjs";
 import { stream } from "@netlify/functions";
 import { TezosToolkit } from "@taquito/taquito";
 import { InMemorySigner } from "@taquito/signer";
@@ -27,8 +28,8 @@ if (dev) {
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 }
 
-// Configuration - Mainnet v5 RC staging contract
-const CONTRACT_ADDRESS = process.env.TEZOS_KEEPS_CONTRACT || "KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido";
+// Configuration
+let CONTRACT_ADDRESS = LEGACY_KEEPS_CONTRACT;
 const NETWORK = process.env.TEZOS_NETWORK || "mainnet";
 const OVEN_URL = process.env.OVEN_URL || "https://oven.aesthetic.computer";
 const OVEN_FALLBACK_URL = "https://oven.aesthetic.computer"; // Always available fallback
@@ -106,6 +107,23 @@ async function getTezosCredentials() {
 // Convert string to hex bytes (for Tezos)
 function stringToBytes(str) {
   return Buffer.from(str, "utf8").toString("hex");
+}
+
+function normalizeRoyaltyBps(value, fallback = 1000) {
+  const raw = value?.toNumber?.() ?? value;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return fallback;
+  const bounded = Math.max(0, Math.min(2500, Math.trunc(parsed)));
+  return bounded;
+}
+
+function buildRoyalties(creatorAddress, royaltyBps) {
+  return {
+    decimals: 4,
+    shares: {
+      [creatorAddress]: String(royaltyBps),
+    },
+  };
 }
 
 // Get the appropriate TzKT API base URL
@@ -397,6 +415,11 @@ export const handler = stream(async (event, context) => {
         return; // finally will close
       }
 
+      CONTRACT_ADDRESS = await getKeepsContractAddress({
+        network: NETWORK,
+        fallback: LEGACY_KEEPS_CONTRACT,
+      });
+
       // ═══════════════════════════════════════════════════════════════════
       // SIMULATOR MODE: Build metadata + contract call scaffold without minting
       // ═══════════════════════════════════════════════════════════════════
@@ -483,18 +506,22 @@ export const handler = stream(async (event, context) => {
           const attributes = [
             ...traits,
             ...(packDate ? [{ name: "Packed on", value: packDate }] : []),
-            ...(authorHandle && authorHandle !== "@anon" ? [{ name: "Author Handle", value: `@${authorHandle.replace(/^@/, "")}` }] : []),
-            ...(userCode ? [{ name: "Author Code", value: userCode }] : []),
-            { name: "Analyzer Version", value: ANALYZER_VERSION },
+            ...(authorHandle && authorHandle !== "@anon" ? [{ name: "Handle", value: `@${authorHandle.replace(/^@/, "")}` }] : []),
+            ...(userCode ? [{ name: "User", value: userCode }] : []),
           ];
 
+          let royaltyBps = 1000;
+          try {
+            const tezos = new TezosToolkit(RPC_URL);
+            const contract = await tezos.contract.at(CONTRACT_ADDRESS);
+            const storage = await contract.storage();
+            royaltyBps = normalizeRoyaltyBps(storage.default_royalty_bps, 1000);
+          } catch (royaltyErr) {
+            console.warn(`🪙 KEEP: Unable to read default_royalty_bps, using 1000 bps (${royaltyErr?.message || "unknown error"})`);
+          }
+
           const creatorsArray = [creatorWalletAddress];
-          const royalties = {
-            decimals: 4,
-            shares: {
-              [creatorWalletAddress]: "1000",
-            },
-          };
+          const royalties = buildRoyalties(creatorWalletAddress, royaltyBps);
 
           const metadataJson = {
             name: tokenName,
@@ -1205,9 +1232,8 @@ export const handler = stream(async (event, context) => {
       const attributes = [
         ...traits,
         ...(packDate ? [{ name: "Packed on", value: packDate }] : []),
-        ...(authorHandle && authorHandle !== "@anon" ? [{ name: "Author Handle", value: `@${authorHandle.replace(/^@/, "")}` }] : []),
-        ...(userCode ? [{ name: "Author Code", value: userCode }] : []),
-        { name: "Analyzer Version", value: ANALYZER_VERSION },
+        ...(authorHandle && authorHandle !== "@anon" ? [{ name: "Handle", value: `@${authorHandle.replace(/^@/, "")}` }] : []),
+        ...(userCode ? [{ name: "User", value: userCode }] : []),
       ];
 
       // Creator identity for metadata
@@ -1215,13 +1241,18 @@ export const handler = stream(async (event, context) => {
       // creators array contains just the wallet address for on-chain attribution
       const creatorsArray = [creatorWalletAddress];
       
-      // v4: 10% royalty to creator on secondary sales
-      const royalties = {
-        decimals: 4,
-        shares: {
-          [creatorWalletAddress]: "1000"  // 10% = 1000/10000 basis points
-        }
-      };
+      let royaltyBps = 1000;
+      try {
+        const readTezos = new TezosToolkit(RPC_URL);
+        const readContract = await readTezos.contract.at(CONTRACT_ADDRESS);
+        const readStorage = await readContract.storage();
+        royaltyBps = normalizeRoyaltyBps(readStorage.default_royalty_bps, 1000);
+      } catch (royaltyErr) {
+        console.warn(`🪙 KEEP: Unable to read default_royalty_bps, using 1000 bps (${royaltyErr?.message || "unknown error"})`);
+      }
+
+      // Royalty is driven by on-chain default_royalty_bps at mint time.
+      const royalties = buildRoyalties(creatorWalletAddress, royaltyBps);
 
       const metadataJson = {
         name: tokenName,

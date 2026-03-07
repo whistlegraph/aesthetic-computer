@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * deploy-staging.mjs - Deploy a staging contract to mainnet
+ * deploy-staging.mjs - Deploy a staging Keeps contract to mainnet
  * 
  * Uses the staging wallet (not kidlisp/keeps.tez) for testing
- * Contract name is randomized to be unsearchable
+ * Uses v5 bytecode (same logic used by v6 launch profile).
  */
 
 import { TezosToolkit } from '@taquito/taquito';
@@ -20,7 +20,7 @@ console.log('\n╔════════════════════�
 console.log('║  🚀 Deploying Mainnet STAGING Keeps Contract                  ║');
 console.log('╚══════════════════════════════════════════════════════════════╝\n');
 console.log('Contract name:', obscureName);
-console.log('(Obscured for staging - unsearchable)\n');
+console.log('(Staging metadata name is obscured by default)\n');
 
 // Staging wallet credentials - MUST be set via environment variable
 // Never commit private keys to the repository!
@@ -66,8 +66,8 @@ async function deploy() {
   }
   
   // Load contract
-  const contractSource = fs.readFileSync('./KeepsFA2v2/step_002_cont_0_contract.tz', 'utf8');
-  console.log('📄 Contract loaded: KeepsFA2v2');
+  const contractSource = fs.readFileSync('./KeepsFA2v5/step_002_cont_0_contract.tz', 'utf8');
+  console.log('📄 Contract loaded: KeepsFA2v5');
   
   const parser = new Parser();
   const parsedContract = parser.parseScript(contractSource);
@@ -75,14 +75,18 @@ async function deploy() {
   // Build obscure metadata (no mention of 'keeps' or 'aesthetic')
   const contractMetadataJson = JSON.stringify({
     name: obscureName,
-    version: '2.0.0-staging',
-    interfaces: ['TZIP-012', 'TZIP-016', 'TZIP-021']
+    version: '5.0.0-rc',
+    description: 'https://keeps.kidlisp.com/rc',
+    homepage: 'https://kidlisp.com',
+    interfaces: ['TZIP-012', 'TZIP-016', 'TZIP-021'],
+    authors: ['aesthetic.computer'],
+    imageUri: 'https://oven.aesthetic.computer/keeps/latest',
   });
   const contractMetadataBytes = stringToBytes(contractMetadataJson);
   const tezosStoragePointer = stringToBytes('tezos-storage:content');
   
-  // Initial storage
-  const initialStorageMichelson = `(Pair "${stagingAddress}" (Pair {} (Pair False (Pair {} (Pair {Elt "" 0x${tezosStoragePointer}; Elt "content" 0x${contractMetadataBytes}} (Pair {} (Pair 0 (Pair {} {}))))))))`;
+  // Initial storage (v5/v6 layout, fee enabled)
+  const initialStorageMichelson = `(Pair "${stagingAddress}" (Pair {} (Pair False (Pair 1000 (Pair 2500000 (Pair {} (Pair {Elt "" 0x${tezosStoragePointer}; Elt "content" 0x${contractMetadataBytes}} (Pair {} (Pair 0 (Pair {} (Pair False (Pair {} {}))))))))))))`;
   
   const parsedStorage = parser.parseMichelineExpression(initialStorageMichelson);
   
