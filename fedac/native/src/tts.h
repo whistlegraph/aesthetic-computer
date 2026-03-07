@@ -11,6 +11,9 @@ ACTts *tts_init(ACAudio *audio);
 // Speak text asynchronously (queued, mixed into audio thread)
 void tts_speak(ACTts *tts, const char *text);
 
+// Speak with voice selection (male=0 for female/default, male=1 for male)
+void tts_speak_voice(ACTts *tts, const char *text, int male);
+
 // Check if currently speaking
 int tts_is_speaking(ACTts *tts);
 

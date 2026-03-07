@@ -343,9 +343,7 @@ static int draw_install_confirm(ACGraph *graph, ACFramebuffer *screen,
         font_draw_matrix(graph, yn, (screen->width - yw) / 2,
                          screen->height / 2 + 20, 1);
 
-        fb_copy_scaled(screen, drm_front_buffer(display),
-                       display->width, display->height,
-                       drm_front_stride(display), 3);
+        display_present(display, screen, 3);
         frame_sync_60fps(&anim_time);
 
         // Read key events
@@ -363,6 +361,32 @@ static int draw_install_confirm(ACGraph *graph, ACFramebuffer *screen,
 
 // Check if we booted from an installed (non-removable) disk
 // by looking for ac-installed marker on an internal ESP
+// Extract parent block device name from a partition path
+// "nvme0n1p1" → "nvme0n1", "sda1" → "sda"
+static void get_parent_block(const char *part, char *out, int out_sz) {
+    out[0] = 0;
+    int len = (int)strlen(part);
+    if (len >= out_sz) return;
+    // NVMe: strip trailing "pN" (e.g. nvme0n1p1 → nvme0n1)
+    if (strncmp(part, "nvme", 4) == 0) {
+        // Find last 'p' followed by digits
+        for (int i = len - 1; i > 4; i--) {
+            if (part[i - 1] == 'p' && part[i] >= '0' && part[i] <= '9') {
+                memcpy(out, part, i - 1);
+                out[i - 1] = 0;
+                return;
+            }
+        }
+    }
+    // SATA/USB: strip trailing digits (e.g. sda1 → sda)
+    int i = len;
+    while (i > 0 && part[i - 1] >= '0' && part[i - 1] <= '9') i--;
+    if (i > 0 && i < out_sz) {
+        memcpy(out, part, i);
+        out[i] = 0;
+    }
+}
+
 static int is_installed_on_hd(void) {
     if (getpid() != 1) return 0; // not bare metal
     mkdir("/tmp/chk", 0755);
@@ -371,16 +395,10 @@ static int is_installed_on_hd(void) {
         "/dev/sda1", "/dev/sdb1", NULL
     };
     for (int i = 0; parts[i]; i++) {
-        // Skip removable devices
-        char blk[16] = "";
-        const char *p = parts[i] + 5; // after /dev/
-        int len = 0;
-        while (p[len] && (p[len] < '0' || p[len] > '9')) len++;
-        if (len > 0 && len < (int)sizeof(blk)) {
-            memcpy(blk, p, len);
-            blk[len] = 0;
-            if (is_removable(blk) == 1) continue; // skip USB
-        }
+        // Extract parent block device and skip removable (USB) drives
+        char blk[32] = "";
+        get_parent_block(parts[i] + 5, blk, sizeof(blk));
+        if (blk[0] && is_removable(blk) == 1) continue;
         if (mount(parts[i], "/tmp/chk", "vfat", MS_RDONLY, NULL) != 0) continue;
         int found = access("/tmp/chk/EFI/BOOT/ac-installed", F_OK) == 0;
         umount("/tmp/chk");
@@ -395,10 +413,8 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
                               ACDisplay *display, ACTts *tts) {
     struct timespec anim_time;
     clock_gettime(CLOCK_MONOTONIC, &anim_time);
-    int la_hour = get_la_hour();
-    int is_dark = 1; // always dark boot screen
-    (void)la_hour;
-    int show_install = !is_installed_on_hd();
+    // Show install option only when not already installed to internal disk
+    int show_install = (getpid() == 1) && !is_installed_on_hd();
 
     // Open evdev fds once for key checking (avoid per-frame open/close)
     int key_fds[8];
@@ -422,14 +438,12 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
 
     // Start with a black frame immediately (hides any kernel text)
     graph_wipe(graph, (ACColor){0, 0, 0, 255});
-    fb_copy_scaled(screen, drm_front_buffer(display),
-                   display->width, display->height,
-                   drm_front_stride(display), 3);
+    display_present(display, screen, 3);
 
     // 180 frames = 3 second animation.
     // W press → halt and show y/n confirmation
     // Any other key → skip animation and start playing
-    int total_frames = 180;
+    int total_frames = 300; // 5 seconds — room for TTS greeting
     int skip_anim = 0;
     int w_pressed = 0;
     for (int f = 0; f < total_frames && !skip_anim && !w_pressed; f++) {
@@ -457,35 +471,34 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
             }
         }
 
-        // TTS speech timed to visual appearance
-        if (f == 10 && tts) tts_speak(tts, "notepat");
-        if (f == 70 && tts) tts_speak(tts, "aesthetic dot computer");
-        if (f == 130 && tts && show_install) tts_speak(tts, "press W to install to disk");
+        // TTS speech — spaced out to avoid overlap
+        if (f == 10 && tts) tts_speak(tts, "hello jeffrey, welcome to notepat");
+        if (f == 140 && tts) tts_speak_voice(tts, "aesthetic dot computer", 1);
+        // W hint is visual only — no TTS
 
-        // Fade from black to target bg (complete in first 0.3s)
+        // Fade from black to purple/red bg (complete in first 0.3s)
         double fade_t = t * 3.33;
         if (fade_t > 1.0) fade_t = 1.0;
-        int bg_target = is_dark ? 20 : 255;
-        int bg = (int)(bg_target * fade_t);
-        graph_wipe(graph, (ACColor){(uint8_t)bg, (uint8_t)bg, (uint8_t)(bg + (is_dark ? (int)(5 * fade_t) : 0)), 255});
+        int bg_r = (int)(45 * fade_t);  // deep purple-red
+        int bg_g = (int)(8 * fade_t);
+        int bg_b = (int)(30 * fade_t);
+        graph_wipe(graph, (ACColor){(uint8_t)bg_r, (uint8_t)bg_g, (uint8_t)bg_b, 255});
 
-        // Title appears with initial fade
+        // Title appears with initial fade (warm white on purple/red)
         int alpha = (int)(255.0 * fade_t);
         if (alpha > 0) {
-            int fg = is_dark ? 220 : 0;
-            graph_ink(graph, (ACColor){(uint8_t)fg, (uint8_t)fg, (uint8_t)fg, (uint8_t)alpha});
+            graph_ink(graph, (ACColor){240, 220, 230, (uint8_t)alpha});
             int tw = font_measure_matrix("notepat", 3);
             font_draw_matrix(graph, "notepat", (screen->width - tw) / 2,
                              screen->height / 2 - 20, 3);
         }
 
-        // Subtitle appears after frame 60 (1 second in), synced with TTS
-        if (f > 60) {
-            double sub_t = (double)(f - 60) / 30.0; // fade in over 0.5s
+        // Subtitle appears after frame 130, synced with male TTS at 140
+        if (f > 130) {
+            double sub_t = (double)(f - 130) / 30.0; // fade in over 0.5s
             if (sub_t > 1.0) sub_t = 1.0;
-            int sub = is_dark ? 140 : 120;
             int sub_alpha = (int)(180.0 * sub_t);
-            graph_ink(graph, (ACColor){(uint8_t)sub, (uint8_t)sub, (uint8_t)sub, (uint8_t)sub_alpha});
+            graph_ink(graph, (ACColor){180, 140, 160, (uint8_t)sub_alpha});
             int sw = font_measure_matrix("aesthetic.computer", 1);
             font_draw_matrix(graph, "aesthetic.computer",
                              (screen->width - sw) / 2, screen->height / 2 + 10, 1);
@@ -495,25 +508,20 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
         int bar_full = screen->width - 40;
         int bar_remaining = (int)((1.0 - t) * bar_full);
         if (bar_remaining > 0) {
-            graph_ink(graph, (ACColor){200, 200, 200, (uint8_t)(80 * (1.0 - t))});
+            graph_ink(graph, (ACColor){200, 150, 180, (uint8_t)(80 * (1.0 - t))});
             graph_box(graph, 20, screen->height - 6, bar_remaining, 3, 1);
         }
 
-        // Show W hint after initial fade (only when booting from USB)
+        // Show W hint after initial fade
         if (alpha > 100 && show_install) {
-            graph_ink(graph, (ACColor){(uint8_t)(is_dark ? 80 : 160),
-                                       (uint8_t)(is_dark ? 80 : 160),
-                                       (uint8_t)(is_dark ? 90 : 170),
-                                       (uint8_t)(alpha / 3)});
+            graph_ink(graph, (ACColor){140, 100, 120, (uint8_t)(alpha / 3)});
             const char *hint = "W: install to disk";
             int hw = font_measure_matrix(hint, 1);
             font_draw_matrix(graph, hint,
                              (screen->width - hw) / 2, screen->height - 18, 1);
         }
 
-        fb_copy_scaled(screen, drm_front_buffer(display),
-                       display->width, display->height,
-                       drm_front_stride(display), 3);
+        display_present(display, screen, 3);
         frame_sync_60fps(&anim_time);
     }
 
@@ -589,10 +597,7 @@ static void draw_boot_status(ACGraph *graph, ACFramebuffer *screen,
             }
         }
 
-        fb_copy_scaled(screen, drm_back_buffer(display),
-                       display->width, display->height,
-                       drm_back_stride(display), 3);
-        drm_flip(display);
+        display_present(display, screen, 3);
         frame_sync_60fps(&anim_time);
     }
 }
@@ -707,9 +712,6 @@ int main(int argc, char *argv[]) {
     ACWifi *wifi = wifi_init();
 
     // Init JS
-    if (!headless && display)
-        draw_boot_status(&graph, screen, display, "loading piece...");
-    if (tts) tts_speak(tts, "loading piece");
     ACRuntime *rt = js_init(&graph, input, audio, wifi, tts);
     if (!rt) {
         fprintf(stderr, "[ac-native] FATAL: Cannot init JS\n");
@@ -729,10 +731,7 @@ int main(int argc, char *argv[]) {
             char msg[256];
             snprintf(msg, sizeof(msg), "Cannot load: %s", piece_path);
             font_draw(&graph, msg, 20, 20, 2);
-            fb_copy_scaled(screen, drm_back_buffer(display),
-                           display->width, display->height,
-                           drm_back_stride(display), 3);
-            drm_flip(display);
+            display_present(display, screen, 3);
             sleep(10);
         }
         js_destroy(rt);
@@ -875,19 +874,13 @@ int main(int argc, char *argv[]) {
                         font_draw_matrix(&graph, "aesthetic.computer", (screen->width - sw) / 2, screen->height / 2 + 10, 1);
                     }
 
-                    fb_copy_scaled(screen, drm_back_buffer(display),
-                                   display->width, display->height,
-                                   drm_back_stride(display), 3);
-                    drm_flip(display);
+                    display_present(display, screen, 3);
                     frame_sync_60fps(&anim_time);
                 }
 
                 // Final black frame
                 graph_wipe(&graph, (ACColor){0, 0, 0, 255});
-                fb_copy_scaled(screen, drm_back_buffer(display),
-                               display->width, display->height,
-                               drm_back_stride(display), 3);
-                drm_flip(display);
+                display_present(display, screen, 3);
 
                 running = 0;
                 break;
@@ -919,10 +912,7 @@ int main(int argc, char *argv[]) {
                 graph_plot(&graph, cx, cy);
             }
 
-            fb_copy_scaled(screen, drm_back_buffer(display),
-                           display->width, display->height,
-                           drm_back_stride(display), 3);
-            drm_flip(display);
+            display_present(display, screen, 3);
             frame_sync_60fps(&frame_time);
         }
     }
@@ -938,7 +928,7 @@ int main(int argc, char *argv[]) {
     js_destroy(rt);
     wifi_destroy(wifi);
     if (tts) {
-        tts_speak(tts, "goodbye");
+        tts_speak(tts, "goodbye jeffrey!");
         tts_wait(tts);
         usleep(300000); // Let TTS ring buffer drain before chime
     }

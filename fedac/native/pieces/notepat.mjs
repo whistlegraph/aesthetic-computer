@@ -16,9 +16,15 @@ let metronomeBeatCount = 0;
 let metronomeFlash = 0;
 let metronomeVisualPhase = 0;
 
-// Echo (room) mix — controlled by mouse slider under status bar
+// Echo (room) mix — controlled by trackpad X / slider
 let echoMix = 0;
 let echoDragging = false;
+
+// Pitch shift — controlled by trackpad Y / slider
+let pitchShift = 0; // -1 to +1, 0 = no shift
+
+// Trackpad FX control (\ toggles on/off)
+let trackpadFX = false;
 
 // Dark mode: auto based on LA time (7pm-7am)
 // UEFI clock is UTC; LA is UTC-7 (PDT) or UTC-8 (PST)
@@ -205,6 +211,10 @@ function act({ event: e, sound, wifi }) {
       waveIndex = (waveIndex + 1) % wavetypes.length;
       wave = wavetypes[waveIndex]; return;
     }
+    if (key === "\\") {
+      trackpadFX = !trackpadFX;
+      return;
+    }
     if (key === "-") {
       metronomeBPM = Math.max(20, metronomeBPM - 5);
       metronomeBeatCount = Math.floor(Date.now() / (60000 / metronomeBPM));
@@ -227,13 +237,14 @@ function act({ event: e, sound, wifi }) {
       // Start at current pressure (or full for digital keys)
       const velocity = e.pressure > 0 ? e.pressure : 1.0;
       const vol = 0.15 + velocity * 0.55;
+      const playFreq = freq * Math.pow(2, pitchShift);
       const synth = sound.synth({
-        type: wave, tone: freq,
+        type: wave, tone: playFreq,
         duration: Infinity,
         volume: vol, attack: quickMode ? 0.002 : 0.005,
         decay: 0.1, pan: pan,
       });
-      sounds[key] = { synth, note: letter, octave: noteOctave };
+      sounds[key] = { synth, note: letter, octave: noteOctave, baseFreq: freq };
       trail[key] = { note: letter, octave: noteOctave, brightness: velocity };
     }
   }
@@ -289,11 +300,21 @@ function act({ event: e, sound, wifi }) {
       return;
     }
 
-    // Echo slider zone (below settings row, y 26-36)
-    if (y >= 26 && y < 36) {
+    // Echo slider zone (below settings row, y 26-38)
+    if (y >= 26 && y < 38) {
       echoDragging = true;
       echoMix = Math.max(0, Math.min(1, x / w));
       sound?.room?.setMix?.(echoMix);
+      return;
+    }
+    // Pitch slider zone (below echo slider, y 38-50)
+    if (y >= 38 && y < 50) {
+      pitchShift = Math.max(-1, Math.min(1, (x / w) * 2 - 1)); // map 0-w to -1..+1
+      const factor = Math.pow(2, pitchShift);
+      for (const k of Object.keys(sounds)) {
+        const s = sounds[k];
+        if (s && s.synth && s.baseFreq) s.synth.update({ tone: s.baseFreq * factor });
+      }
       return;
     }
 
@@ -305,11 +326,12 @@ function act({ event: e, sound, wifi }) {
         const freq = noteToFreq(hitNote.letter, hitNote.octave);
         const semitones = (hitNote.octave - 4) * 12 + CHROMATIC.indexOf(hitNote.letter);
         const pan = Math.max(-0.8, Math.min(0.8, (semitones - 12) / 15));
+        const playFreq = freq * Math.pow(2, pitchShift);
         const synth = sound.synth({
-          type: wave, tone: freq, duration: Infinity,
+          type: wave, tone: playFreq, duration: Infinity,
           volume: 0.5, attack: 0.005, decay: 0.1, pan,
         });
-        sounds[hitNote.key] = { synth, note: hitNote.letter, octave: hitNote.octave };
+        sounds[hitNote.key] = { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq };
         trail[hitNote.key] = { note: hitNote.letter, octave: hitNote.octave, brightness: 1.0 };
         touchNotes[pid] = { key: hitNote.key };
         return;
@@ -349,6 +371,25 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   const CH = 6; // char width at size 1 (font_1 = 6x10)
   globalThis.__screenW = w; // expose for act()
   globalThis.__screenH = h;
+
+  // Trackpad FX: X = echo, Y = pitch shift (when enabled via \)
+  if (trackpadFX && trackpad) {
+    if (trackpad.dx !== 0) {
+      echoMix = Math.max(0, Math.min(1, echoMix + (trackpad.dx * 3) / w));
+      sound?.room?.setMix?.(echoMix);
+    }
+    if (trackpad.dy !== 0) {
+      pitchShift = Math.max(-1, Math.min(1, pitchShift + (trackpad.dy * 3) / h));
+      // Apply pitch shift to all active voices
+      const factor = Math.pow(2, pitchShift); // ±1 octave
+      for (const key of Object.keys(sounds)) {
+        const s = sounds[key];
+        if (s && s.synth && s.baseFreq) {
+          s.synth.update({ tone: s.baseFreq * factor });
+        }
+      }
+    }
+  }
 
   // Metronome tick
   if (metronomeEnabled && metronomeBPM > 0) {
@@ -443,12 +484,11 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   ink(BAR_BORDER[0], BAR_BORDER[1], BAR_BORDER[2]);
   line(0, topBarH - 1, w, topBarH - 1);
 
-  // Left: "notepat" in matrix font, ".com" in pink/accent color
+  // Left: "notepat.com" — notepat in fg, .com in accent
   ink(FG, FG, FG, 200);
   write("notepat", { x: 2, y: barY, size: 1, font: "matrix" });
-  const dotComX = 2 + 7 * 8; // 7 chars * 8px matrix width
   ink(dark ? 200 : 180, dark ? 100 : 60, dark ? 140 : 120);
-  write(".com", { x: dotComX, y: barY, size: 1, font: "matrix" });
+  write(".com", { x: 2 + 7 * 4, y: barY, size: 1, font: "matrix" });
   const statusStr = activeCount > 0
     ? activeCount + " note" + (activeCount > 1 ? "s" : "")
     : "";
@@ -704,27 +744,59 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     }
   }
 
-  // Echo slider (below settings row, taller)
+  // Echo slider (below settings row)
   {
     const sliderY = settingsY + 11;
-    const sliderH = 10;
+    const sliderH = 12;
     ink(dark ? 25 : 235, dark ? 25 : 235, dark ? 28 : 238);
     box(0, sliderY, w, sliderH, true);
     const fillW = Math.floor(echoMix * w);
     if (fillW > 0) {
-      ink(80, 120, 220, echoDragging ? 240 : 180);
+      ink(80, 120, 220, trackpadFX ? 240 : 180);
       box(0, sliderY, fillW, sliderH, true);
     }
-    // Handle knob
-    if (echoMix > 0.005 || echoDragging) {
+    if (echoMix > 0.005) {
       const knobX = Math.max(1, Math.min(w - 3, Math.floor(echoMix * w)));
       ink(140, 180, 255, 220);
       box(knobX - 1, sliderY, 3, sliderH, true);
     }
-    // Label centered vertically in slider
     ink(dark ? 90 : 160, dark ? 90 : 160, dark ? 100 : 170);
     const echoStr = "echo " + Math.round(echoMix * 100) + "%";
     write(echoStr, { x: 2, y: sliderY + 1, size: 1, font: "font_1" });
+    // Trackpad FX indicator
+    if (trackpadFX) {
+      ink(120, 220, 120);
+      write("\\", { x: w - 8, y: sliderY + 1, size: 1, font: "font_1" });
+    }
+  }
+
+  // Pitch shift slider (below echo slider)
+  {
+    const sliderY = settingsY + 23;
+    const sliderH = 12;
+    ink(dark ? 25 : 235, dark ? 25 : 235, dark ? 28 : 238);
+    box(0, sliderY, w, sliderH, true);
+    // Center line (pitch = 0)
+    const centerX = Math.floor(w / 2);
+    ink(dark ? 40 : 220, dark ? 40 : 220, dark ? 45 : 225);
+    box(centerX, sliderY, 1, sliderH, true);
+    // Fill from center
+    const pitchX = Math.floor((pitchShift + 1) / 2 * w);
+    if (Math.abs(pitchShift) > 0.005) {
+      ink(200, 100, 160, trackpadFX ? 240 : 180);
+      const fx = Math.min(centerX, pitchX);
+      const fw = Math.abs(pitchX - centerX);
+      box(fx, sliderY, fw, sliderH, true);
+    }
+    // Knob
+    if (Math.abs(pitchShift) > 0.005) {
+      ink(255, 140, 180, 220);
+      box(Math.max(1, Math.min(w - 3, pitchX)) - 1, sliderY, 3, sliderH, true);
+    }
+    ink(dark ? 90 : 160, dark ? 90 : 160, dark ? 100 : 170);
+    const cents = Math.round(pitchShift * 1200); // ±1200 cents = ±1 octave
+    const pitchStr = "pitch " + (cents >= 0 ? "+" : "") + cents + "c";
+    write(pitchStr, { x: 2, y: sliderY + 1, size: 1, font: "font_1" });
   }
 
   // WiFi fullscreen password entry
