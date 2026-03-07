@@ -264,7 +264,7 @@ included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 # Mint KidLisp pieces as NFTs on Tezos (streaming SSE)
 included_files = ["backend/**/*.mjs"]
 external_node_modules = ["mongodb", "mongodb-connection-string-url", "bn.js", "@taquito/taquito", "@taquito/signer", "@taquito/rpc", "@taquito/http-utils", "@taquito/utils", "@taquito/michelson-encoder", "@taquito/local-forging", "@taquito/michel-codec", "@taquito/core"]
-included_env_vars = ["CONTEXT", "TEZOS_KEEPS_CONTRACT", "TEZOS_NETWORK", "TEZOS_KIDLISP_KEY", "PINATA_API_KEY", "PINATA_API_SECRET", "OVEN_URL", "USE_IPFS_GATEWAY_URLS", "IPFS_GATEWAY", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "ADMIN_SUB"]
+included_env_vars = ["CONTEXT", "TEZOS_NETWORK", "TEZOS_KIDLISP_KEY", "PINATA_API_KEY", "PINATA_API_SECRET", "OVEN_URL", "USE_IPFS_GATEWAY_URLS", "IPFS_GATEWAY", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "ADMIN_SUB"]
 
 [functions.boot-log]
 # Store boot telemetry in MongoDB
@@ -282,7 +282,7 @@ included_env_vars = ["CONTEXT", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "AU
 # Update on-chain metadata for already-minted Keeps
 included_files = ["backend/**/*.mjs"]
 external_node_modules = ["mongodb", "mongodb-connection-string-url", "bn.js", "@taquito/taquito", "@taquito/signer", "@taquito/rpc", "@taquito/http-utils", "@taquito/utils", "@taquito/michelson-encoder", "@taquito/local-forging", "@taquito/michel-codec", "@taquito/core"]
-included_env_vars = ["CONTEXT", "TEZOS_KEEPS_CONTRACT", "TEZOS_NETWORK", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "ADMIN_SUB"]
+included_env_vars = ["CONTEXT", "TEZOS_NETWORK", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "ADMIN_SUB"]
 
 [functions.run]
 included_env_vars = ["NETLIFY_DEV", "REDIS_CONNECTION_STRING"]
@@ -384,7 +384,12 @@ included_env_vars = []
 [functions.kidlisp-keep]
 external_node_modules = ["mongodb", "mongodb-connection-string-url"]
 included_files = ["backend/**/*.mjs"]
-included_env_vars = ["CONTEXT", "TEZOS_KEEPS_CONTRACT", "TEZOS_NETWORK", "OVEN_URL", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "ADMIN_SUB"]
+included_env_vars = ["CONTEXT", "TEZOS_NETWORK", "OVEN_URL", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "ADMIN_SUB"]
+
+[functions.keeps-config]
+external_node_modules = ["mongodb", "mongodb-connection-string-url"]
+included_files = ["backend/**/*.mjs"]
+included_env_vars = ["CONTEXT", "TEZOS_NETWORK", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 
 [functions.test-tv-hits]
 external_node_modules = ["mongodb", "mongodb-connection-string-url"]
@@ -412,7 +417,9 @@ external_node_modules = ["stripe"]
 included_env_vars = ["CONTEXT", "STRIPE_API_PRIV_KEY"]
 
 [functions.keep-update-confirm]
-included_env_vars = ["TEZOS_KEEPS_CONTRACT"]
+external_node_modules = ["mongodb", "mongodb-connection-string-url"]
+included_files = ["backend/**/*.mjs"]
+included_env_vars = ["CONTEXT", "TEZOS_NETWORK", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "ADMIN_SUB"]
 
 [functions.kidlisp-count]
 included_env_vars = []

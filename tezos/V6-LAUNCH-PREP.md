@@ -30,22 +30,34 @@ Notes:
 
 ## 4. Cutover Files
 
-After deploy, set the new KT1 in:
+After deploy, keep the active contract in Mongo `secrets` as source of truth:
 
 - `tezos/contract-address-mainnet.txt`
-- `system/public/aesthetic.computer/lib/keeps/constants.mjs`
-  - `KEEPS_STAGING = false`
-  - `NETWORKS.mainnet.contract = <new KT1>`
 - Mongo `secrets` document `_id: "tezos-kidlisp"`:
   - preferred: `keepsContract.mainnet = <new KT1>`
-  - optional: `keepsContract.ghostnet = <ghostnet KT1>`
+  - profile metadata: `currentKeepsProfile`, `currentKeepsVersion`, `currentKeepsNetwork`
 
-Example update:
+Deploy now auto-syncs this when `MONGODB_CONNECTION_STRING` + `MONGODB_NAME` are set.
+Manual sync command:
+
+```bash
+node tezos/keeps.mjs sync-secrets mainnet --wallet=kidlisp --contract=v6
+```
+
+Direct Mongo update example:
 
 ```javascript
 db.secrets.updateOne(
   { _id: "tezos-kidlisp" },
-  { $set: { "keepsContract.mainnet": "<new KT1>" } }
+  {
+    $set: {
+      "keepsContract.mainnet": "<new KT1>",
+      currentKeepsContract: "<new KT1>",
+      currentKeepsProfile: "v6",
+      currentKeepsVersion: "6.0.0",
+      currentKeepsNetwork: "mainnet",
+    },
+  }
 );
 ```
 
