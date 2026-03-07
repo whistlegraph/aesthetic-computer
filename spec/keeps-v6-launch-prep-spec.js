@@ -83,6 +83,21 @@ describe('🚀 Keeps v6 Launch Prep - Source Checks', () => {
     expect(v6ContractSource).toContain('token_info["royalties"] = original_royalties');
   });
 
+  it('restricts v6 edit_metadata to token owner only', () => {
+    const editBlock = v6ContractSource.split('def edit_metadata(self, params):')[1]?.split('@sp.entrypoint')[0] || '';
+    expect(editBlock).toContain('is_owner = self.data.ledger.get(params.token_id');
+    expect(editBlock).toContain('assert is_owner, "NOT_TOKEN_OWNER"');
+    expect(editBlock).not.toContain('is_admin = self.is_administrator_()');
+    expect(editBlock).not.toContain('is_creator = self.data.token_creators.get(params.token_id');
+    expect(editBlock).not.toContain('NOT_AUTHORIZED');
+  });
+
+  it('restricts v6 burn_keep to token owner (not admin)', () => {
+    const burnBlock = v6ContractSource.split('def burn_keep(self, token_id):')[1]?.split('# =====================================================================')[0] || '';
+    expect(burnBlock).toContain('assert current_owner == sp.sender, "NOT_TOKEN_OWNER"');
+    expect(burnBlock).not.toContain('FA2_NOT_ADMIN');
+  });
+
   it('uses contract default_royalty_bps in mint pipeline and preserves royalties on update', () => {
     expect(keepMintSource).toContain('storage.default_royalty_bps');
     expect(keepMintSource).toContain('const royalties = buildRoyalties(');
