@@ -39,6 +39,7 @@ RUN dnf clean all && rm -rf /var/cache/dnf && \
       xorg-x11-server-Xvfb psmisc lsof chromium \
       sbcl zeromq-devel redhat-rpm-config \
       poppler-utils \
+      isync maildir-utils msmtp \
             caddy \
         && dnf clean all && rm -rf /var/cache/dnf
 
