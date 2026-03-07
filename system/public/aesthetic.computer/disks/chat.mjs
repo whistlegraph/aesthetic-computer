@@ -624,33 +624,33 @@ function paint(
   const defaultTheme = {
     background: [100, 100, 145],
     lines: [90, 200, 150, 48],
-    scrollbar: "pink",
-    messageText: [255, 255, 255], // Changed from "white" to explicit RGB
+    scrollbar: [255, 192, 203],
+    messageText: [255, 255, 255],
     messageBox: [255, 32], // white with alpha for hover
-    log: "cyan", // System log messages (hi @newuser, etc)
-    logHover: "yellow",
-    handle: "pink",
-    handleHover: "yellow",
-    url: "cyan",
-    urlHover: "yellow",
-    prompt: "lime",
-    promptContent: "cyan",
-    promptHover: "yellow",
-    promptContentHover: "yellow",
-    painting: "orange",
-    paintingHover: "yellow",
-    kidlisp: "magenta",
-    kidlispHover: "yellow",
+    log: [0, 255, 255], // System log messages (hi @newuser, etc)
+    logHover: [255, 255, 0],
+    handle: [255, 192, 203],
+    handleHover: [255, 255, 0],
+    url: [0, 255, 255],
+    urlHover: [255, 255, 0],
+    prompt: [0, 255, 0],
+    promptContent: [0, 255, 255],
+    promptHover: [255, 255, 0],
+    promptContentHover: [255, 255, 0],
+    painting: [255, 165, 0],
+    paintingHover: [255, 255, 0],
+    kidlisp: [255, 0, 255],
+    kidlispHover: [255, 255, 0],
     clock: [255, 200, 50], // Gold/yellow for *clock links
-    clockHover: "yellow",
+    clockHover: [255, 255, 0],
     r8dio: [255, 0, 255], // Magenta for r8dio radio links
-    r8dioHover: "yellow",
+    r8dioHover: [255, 255, 0],
     youtube: [255, 80, 80], // Red for YouTube links
     youtubeHover: [255, 50, 50],
     timestamp: [100 / 1.3, 100 / 1.3, 145 / 1.3],
-    timestampHover: "yellow",
+    timestampHover: [255, 255, 0],
     deleted: [180, 140, 140], // Foreground-visible color for [deleted] text
-    deletedName: "pink", // Username color on deleted messages
+    deletedName: [255, 192, 203], // Username color on deleted messages
     heart: [255, 80, 130], // Vivid pink on dark blue/purple background
   };
   
@@ -941,8 +941,8 @@ function paint(
         }
       }
       
-      // Render shadow pass for lines with color codes (dynamic per-color shadows)
-      if (colorCodedLine !== line) {
+      // Render shadow pass for all lines (darken color codes + base text)
+      {
         const shadowLine = colorCodedLine.replace(
           /\\(\d+),(\d+),(\d+)(?:,\d+)?\\/g,
           (_, r, g, b) => `\\${Math.floor(r * 0.25)},${Math.floor(g * 0.25)},${Math.floor(b * 0.25)}\\`
