@@ -36,6 +36,16 @@ const RPC_URL = NETWORK === "mainnet"
   ? "https://mainnet.ecadinfra.com"
   : "https://ghostnet.ecadinfra.com";
 
+function envInt(name, fallback) {
+  const parsed = Number.parseInt(process.env[name] || "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+// Keep this function under provider execution ceilings so SSE can emit terminal events.
+const KEEP_MINT_MAX_PREP_MS = envInt("KEEP_MINT_MAX_PREP_MS", dev ? 55000 : 24000);
+const KEEP_MINT_STREAM_GUARD_MS = envInt("KEEP_MINT_STREAM_GUARD_MS", 1500);
+const KEEP_MINT_THUMBNAIL_TIMEOUT_MS = envInt("KEEP_MINT_THUMBNAIL_TIMEOUT_MS", dev ? 45000 : 18000);
+
 // IPFS Gateway configuration
 // When USE_GATEWAY_URLS is true, metadata will use full HTTPS URLs instead of ipfs:// URIs
 // This ensures compatibility with platforms that use slow/unreliable public gateways
@@ -180,7 +190,7 @@ function isCachedMediaValid(piece) {
 }
 
 // Upload file to IPFS via Pinata (with optional progress callback for SSE updates)
-async function uploadToIPFS(content, filename, mimeType = "text/html", onProgress = null) {
+async function uploadToIPFS(content, filename, mimeType = "text/html", onProgress = null, timeoutMs = 60000) {
   const { apiKey, apiSecret } = await getPinataCredentials();
   
   const formData = new FormData();
@@ -192,7 +202,8 @@ async function uploadToIPFS(content, filename, mimeType = "text/html", onProgres
 
   // Add timeout to prevent hanging on slow Pinata responses
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+  const safeTimeoutMs = Math.max(3000, timeoutMs);
+  const timeout = setTimeout(() => controller.abort(), safeTimeoutMs);
   
   const sizeKB = Math.round(content.length / 1024);
   console.log(`🪙 KEEP: Uploading ${filename} to IPFS (${sizeKB}KB)...`);
@@ -227,7 +238,7 @@ async function uploadToIPFS(content, filename, mimeType = "text/html", onProgres
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     console.error(`🪙 KEEP: IPFS upload failed after ${elapsed}s:`, err.message);
     if (err.name === "AbortError") {
-      throw new Error(`IPFS upload timed out after 60s. Pinata may be slow. Please try again.`);
+      throw new Error(`IPFS upload timed out after ${Math.round(safeTimeoutMs / 1000)}s. Pinata may be slow. Please try again.`);
     }
     throw err;
   }
@@ -249,12 +260,13 @@ async function uploadToIPFS(content, filename, mimeType = "text/html", onProgres
 }
 
 // Upload JSON metadata to IPFS
-async function uploadJsonToIPFS(data, name) {
+async function uploadJsonToIPFS(data, name, timeoutMs = 30000) {
   const { apiKey, apiSecret } = await getPinataCredentials();
   
   // Add timeout to prevent hanging on slow Pinata responses
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+  const safeTimeoutMs = Math.max(3000, timeoutMs);
+  const timeout = setTimeout(() => controller.abort(), safeTimeoutMs);
   
   console.log(`🪙 KEEP: Uploading metadata ${name} to IPFS...`);
   const startTime = Date.now();
@@ -279,7 +291,7 @@ async function uploadJsonToIPFS(data, name) {
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     console.error(`🪙 KEEP: Metadata upload failed after ${elapsed}s:`, err.message);
     if (err.name === "AbortError") {
-      throw new Error(`Metadata upload timed out after 30s. Pinata may be slow. Please try again.`);
+      throw new Error(`Metadata upload timed out after ${Math.round(safeTimeoutMs / 1000)}s. Pinata may be slow. Please try again.`);
     }
     throw err;
   }
@@ -336,6 +348,13 @@ export const handler = stream(async (event, context) => {
   let streamClosed = false;
   const processStartTime = Date.now();
   const stageTimes = {};
+
+  const getRemainingPrepMs = () => KEEP_MINT_MAX_PREP_MS - (Date.now() - processStartTime);
+  const getStageBudgetMs = (maxMs) => {
+    const remaining = getRemainingPrepMs() - KEEP_MINT_STREAM_GUARD_MS;
+    if (remaining <= 0) return 0;
+    return Math.max(0, Math.min(maxMs, remaining));
+  };
   
   const logStage = (stage, message) => {
     const elapsed = ((Date.now() - processStartTime) / 1000).toFixed(1);
@@ -796,11 +815,16 @@ export const handler = stream(async (event, context) => {
       const thumbW = 256;
       const thumbH = 256;
 
-      // Thumbnail generation timeout - must complete within this time
-      const THUMBNAIL_TIMEOUT_MS = 45000; // 45 seconds (allows 30s piece load + 15s capture/encode/upload)
+      // Thumbnail generation timeout (kept under stream execution budget in production)
+      const THUMBNAIL_TIMEOUT_MS = KEEP_MINT_THUMBNAIL_TIMEOUT_MS;
 
       if (!useCachedMedia) {
-        logStage('thumbnail', `Starting ${thumbW * 2}x${thumbH * 2} WebP generation`);
+        const initialThumbBudgetMs = getStageBudgetMs(THUMBNAIL_TIMEOUT_MS);
+        if (initialThumbBudgetMs < 2500) {
+          throw new Error("Preparation time budget exhausted before thumbnail bake started");
+        }
+
+        logStage('thumbnail', `Starting ${thumbW * 2}x${thumbH * 2} WebP generation (budget ${Math.ceil(initialThumbBudgetMs / 1000)}s)`);
         await send("progress", { stage: "thumbnail", message: `Baking ${thumbW * 2}x${thumbH * 2} WebP...` });
 
         // Helper to try oven thumbnail generation with timeout
@@ -843,10 +867,14 @@ export const handler = stream(async (event, context) => {
         }
       };
 
-      // Try local oven first, then fallback to production - with overall timeout
+      // Try local oven first, then fallback to production.
       const thumbnailGenerationPromise = !useCachedMedia ? (async () => {
         try {
-          const result = await tryOvenThumbnail(OVEN_URL, THUMBNAIL_TIMEOUT_MS);
+          const firstAttemptBudgetMs = getStageBudgetMs(THUMBNAIL_TIMEOUT_MS);
+          if (firstAttemptBudgetMs < 2500) {
+            throw new Error("Not enough time left to start thumbnail bake");
+          }
+          const result = await tryOvenThumbnail(OVEN_URL, firstAttemptBudgetMs);
           console.log(`🪙 KEEP: Oven response:`, JSON.stringify(result));
           if (!result?.ipfsUri && result?.error) {
             throw new Error(result.error);
@@ -857,7 +885,11 @@ export const handler = stream(async (event, context) => {
           if (OVEN_URL !== OVEN_FALLBACK_URL) {
             console.log(`🪙 KEEP: Trying fallback oven: ${OVEN_FALLBACK_URL}`);
             try {
-              const fallbackResult = await tryOvenThumbnail(OVEN_FALLBACK_URL, THUMBNAIL_TIMEOUT_MS);
+              const fallbackBudgetMs = getStageBudgetMs(THUMBNAIL_TIMEOUT_MS);
+              if (fallbackBudgetMs < 2500) {
+                throw new Error("Not enough time left for fallback oven attempt");
+              }
+              const fallbackResult = await tryOvenThumbnail(OVEN_FALLBACK_URL, fallbackBudgetMs);
               console.log(`🪙 KEEP: Fallback oven response:`, JSON.stringify(fallbackResult));
               if (!fallbackResult?.ipfsUri && fallbackResult?.error) {
                 throw new Error(fallbackResult.error);
@@ -871,14 +903,7 @@ export const handler = stream(async (event, context) => {
           return { error: localErr.message };
         }
       })() : Promise.resolve({ ipfsUri: thumbnailUri });
-
-      // Wrap with timeout promise to ensure we don't hang indefinitely
-      thumbnailPromise = Promise.race([
-        thumbnailGenerationPromise,
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error(`Thumbnail generation timed out after ${THUMBNAIL_TIMEOUT_MS/1000}s`)), THUMBNAIL_TIMEOUT_MS)
-        )
-      ]);
+      thumbnailPromise = thumbnailGenerationPromise;
       }
 
       // ═══════════════════════════════════════════════════════════════════
@@ -907,9 +932,14 @@ export const handler = stream(async (event, context) => {
           : `https://oven.aesthetic.computer/bundle-html?code=${pieceName}&format=json&noboxart=1`;
         
         // Add timeout to prevent function from hanging if bundle-html is slow
-        // Bundle generation can take 15-30s on cold starts due to SWC minification
+        // Bundle generation can take 15-30s on cold starts due to SWC minification.
+        // Bound by remaining stream budget so we can still emit a terminal SSE event.
+        const bundleBudgetMs = getStageBudgetMs(40000);
+        if (bundleBudgetMs < 2500) {
+          throw new Error("Preparation time budget exhausted before bundle generation");
+        }
         const bundleController = new AbortController();
-        const bundleTimeout = setTimeout(() => bundleController.abort(), 40000); // 40 second timeout
+        const bundleTimeout = setTimeout(() => bundleController.abort(), bundleBudgetMs);
         
         console.log(`🪙 KEEP: Fetching bundle from ${bundleUrl}...`);
         await send("progress", { stage: "bundle", message: "Requesting bundle from API..." });
@@ -924,7 +954,7 @@ export const handler = stream(async (event, context) => {
           console.error(`🪙 KEEP: Bundle fetch failed after ${elapsed}s:`, fetchErr.message);
           await send("progress", { stage: "bundle", message: `Fetch error after ${elapsed}s: ${fetchErr.message}` });
           if (fetchErr.name === "AbortError") {
-            throw new Error("Bundle generation timed out (>40s). The server may be cold-starting. Please try again in a moment.");
+            throw new Error(`Bundle generation timed out after ${Math.round(bundleBudgetMs / 1000)}s. The server may be cold-starting. Please try again in a moment.`);
           }
           throw fetchErr;
         }
@@ -978,6 +1008,10 @@ export const handler = stream(async (event, context) => {
       if (!useCachedMedia) {
         logStage('ipfs', `Uploading bundle to Pinata (${Math.round(bundleHtml.length / 1024)}KB)`);
         await send("progress", { stage: "ipfs", message: "Connecting to Pinata..." });
+        const ipfsBudgetMs = getStageBudgetMs(60000);
+        if (ipfsBudgetMs < 2500) {
+          throw new Error("Preparation time budget exhausted before IPFS upload");
+        }
         
         const ipfsStartTime = Date.now();
         console.log(`🪙 KEEP: Starting IPFS bundle upload...`);
@@ -991,7 +1025,8 @@ export const handler = stream(async (event, context) => {
           bundleHtml, 
           bundleFilename,
           "text/html",
-          onIPFSProgress
+          onIPFSProgress,
+          ipfsBudgetMs
         );
         
         const ipfsElapsed = ((Date.now() - ipfsStartTime) / 1000).toFixed(1);
@@ -1010,10 +1045,14 @@ export const handler = stream(async (event, context) => {
       // STAGE 6: AWAIT THUMBNAIL (skip if cached)
       // ═══════════════════════════════════════════════════════════════════
       if (!useCachedMedia) {
+        const thumbnailAwaitBudgetMs = getStageBudgetMs(THUMBNAIL_TIMEOUT_MS);
+        if (thumbnailAwaitBudgetMs < 2500) {
+          throw new Error("Preparation time budget exhausted while waiting for thumbnail");
+        }
         await send("progress", { stage: "thumbnail", message: `Awaiting ${thumbW}x${thumbH}@2x WebP...` });
 
         // Send heartbeat messages to keep the SSE connection alive while
-        // the oven generates the thumbnail (can take 20-45s).
+        // the oven generates the thumbnail.
         const heartbeat = setInterval(async () => {
           try {
             const elapsed = ((Date.now() - processStartTime) / 1000).toFixed(0);
@@ -1023,7 +1062,14 @@ export const handler = stream(async (event, context) => {
 
         let thumbResult;
         try {
-          thumbResult = await thumbnailPromise;
+          thumbResult = await Promise.race([
+            thumbnailPromise,
+            new Promise((_, reject) => {
+              setTimeout(() => {
+                reject(new Error(`Thumbnail generation timed out after ${Math.round(thumbnailAwaitBudgetMs / 1000)}s`));
+              }, thumbnailAwaitBudgetMs);
+            }),
+          ]);
         } finally {
           clearInterval(heartbeat);
         }
@@ -1201,9 +1247,15 @@ export const handler = stream(async (event, context) => {
         attributes,
       };
 
+      const metadataBudgetMs = getStageBudgetMs(30000);
+      if (metadataBudgetMs < 2500) {
+        throw new Error("Preparation time budget exhausted before metadata upload");
+      }
+
       metadataUri = await uploadJsonToIPFS(
         metadataJson,
-        `$${pieceName}-metadata.json`
+        `$${pieceName}-metadata.json`,
+        metadataBudgetMs
       );
       
       await send("progress", { stage: "metadata", message: "Metadata uploaded ✓" });

@@ -1410,7 +1410,8 @@ async function runProcess(forceRegenerate = false, retryAttempt = 0) {
       const lastStage = lastEventData?.stage || lastEventType || "unknown";
       const tail = lastEventData?.message ? ` (last: ${lastEventData.message})` : "";
       const hadServerError = lastEventType === "error";
-      if (!mintCancelled && !hadServerError) {
+      const stalledOnThumbnail = lastStage === "thumbnail";
+      if (!mintCancelled && !hadServerError && !stalledOnThumbnail) {
         // First retry should reuse any just-cached media from the previous attempt.
         if (!forceRegenerate && retryAttempt === 0) {
           setStep("validate", "active", `Retrying without regenerate… (${lastStage})`);
@@ -1424,7 +1425,8 @@ async function runProcess(forceRegenerate = false, retryAttempt = 0) {
           return await runProcess(true, retryAttempt + 1);
         }
       }
-      setStep("validate", "error", `Server did not return prepared data (${lastStage})${tail}`);
+      const thumbnailHint = stalledOnThumbnail ? " (thumbnail bake timed out before prepare completed)" : "";
+      setStep("validate", "error", `Server did not return prepared data (${lastStage})${tail}${thumbnailHint}`);
     }
 
   } catch (e) {
