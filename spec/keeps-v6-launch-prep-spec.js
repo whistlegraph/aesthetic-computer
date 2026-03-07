@@ -17,6 +17,7 @@ describe('🚀 Keeps v6 Launch Prep - Source Checks', () => {
   const keepsCliPath = path.join(process.cwd(), 'tezos', 'keeps.mjs');
   const compilePath = path.join(process.cwd(), 'tezos', 'compile.fish');
   const v6ContractPath = path.join(process.cwd(), 'tezos', 'kidlisp_keeps_fa2_v6.py');
+  const v6CompiledTzPath = path.join(process.cwd(), 'tezos', 'KeepsFA2v6', 'step_002_cont_0_contract.tz');
 
   let keepMintSource;
   let keepUpdateSource;
@@ -25,6 +26,7 @@ describe('🚀 Keeps v6 Launch Prep - Source Checks', () => {
   let keepsCliSource;
   let compileSource;
   let v6ContractSource;
+  let v6CompiledTzSource;
 
   beforeAll(() => {
     keepMintSource = fs.readFileSync(keepMintPath, 'utf8');
@@ -34,7 +36,10 @@ describe('🚀 Keeps v6 Launch Prep - Source Checks', () => {
     keepsCliSource = fs.readFileSync(keepsCliPath, 'utf8');
     compileSource = fs.readFileSync(compilePath, 'utf8');
     v6ContractSource = fs.readFileSync(v6ContractPath, 'utf8');
+    v6CompiledTzSource = fs.readFileSync(v6CompiledTzPath, 'utf8');
   });
+
+  const entrypointBlock = (signature) => v6ContractSource.split(signature)[1]?.split('@sp.entrypoint')[0] || '';
 
   it('enforces KidLisp-only tags in mint/update pipelines', () => {
     expect(keepMintSource).toContain('const tags = ["KidLisp"]');
@@ -78,6 +83,78 @@ describe('🚀 Keeps v6 Launch Prep - Source Checks', () => {
     expect(compileSource).toContain('set output_dir KeepsFA2v6');
   });
 
+  it('exposes expected v6 custom contract entrypoints in source and artifact', () => {
+    const expectedDefs = [
+      'def keep(self, params):',
+      'def edit_metadata(self, params):',
+      'def lock_metadata(self, token_id):',
+      'def set_contract_metadata(self, params):',
+      'def lock_contract_metadata(self):',
+      'def set_keep_fee(self, new_fee):',
+      'def withdraw_fees(self, destination):',
+      'def burn_keep(self, token_id):',
+      'def pause(self):',
+      'def unpause(self):',
+      'def set_default_royalty(self, bps):',
+      'def admin_transfer(self, params):'
+    ];
+
+    expectedDefs.forEach((signature) => expect(v6ContractSource).toContain(signature));
+
+    const expectedEntrypoints = [
+      '%keep',
+      '%edit_metadata',
+      '%lock_metadata',
+      '%set_contract_metadata',
+      '%lock_contract_metadata',
+      '%set_keep_fee',
+      '%withdraw_fees',
+      '%burn_keep',
+      '%pause',
+      '%unpause',
+      '%set_default_royalty',
+      '%admin_transfer'
+    ];
+
+    expectedEntrypoints.forEach((entrypoint) => expect(v6CompiledTzSource).toContain(entrypoint));
+
+    const expectedInheritedEntrypoints = [
+      '%transfer',
+      '%balance_of',
+      '%update_operators',
+      '%set_administrator'
+    ];
+
+    expectedInheritedEntrypoints.forEach((entrypoint) => expect(v6CompiledTzSource).toContain(entrypoint));
+  });
+
+  it('keeps strict guards on keep mint entrypoint', () => {
+    const keepBlock = entrypointBlock('def keep(self, params):');
+    expect(keepBlock).toContain('assert not self.data.paused, "MINTING_PAUSED"');
+    expect(keepBlock).toContain('if not is_admin:');
+    expect(keepBlock).toContain('assert sp.amount >= self.data.keep_fee, "INSUFFICIENT_FEE"');
+    expect(keepBlock).toContain('assert params.owner == sp.sender, "MUST_MINT_TO_SELF"');
+    expect(keepBlock).toContain('assert not self.data.content_hashes.contains(params.content_hash), "DUPLICATE_CONTENT_HASH"');
+  });
+
+  it('keeps FA2 mint/burn compatibility while disabling bypass paths in v6', () => {
+    const mintBlock = entrypointBlock('def mint(self, batch):');
+    const burnBlock = entrypointBlock('def burn(self, batch):');
+    expect(mintBlock).toContain('assert False, "MINT_DISABLED_USE_KEEP"');
+    expect(burnBlock).toContain('assert False, "BURN_DISABLED_USE_BURN_KEEP"');
+    expect(v6CompiledTzSource).toContain('%mint');
+    expect(v6CompiledTzSource).toContain('%burn');
+    expect(v6CompiledTzSource).toContain('MINT_DISABLED_USE_KEEP');
+    expect(v6CompiledTzSource).toContain('BURN_DISABLED_USE_BURN_KEEP');
+  });
+
+  it('keeps lock_metadata scoped to admin or token owner', () => {
+    const lockBlock = entrypointBlock('def lock_metadata(self, token_id):');
+    expect(lockBlock).toContain('is_admin = self.is_administrator_()');
+    expect(lockBlock).toContain('is_owner = self.data.ledger.get(token_id');
+    expect(lockBlock).toContain('assert is_admin or is_owner, "NOT_AUTHORIZED"');
+  });
+
   it('keeps royalties immutable in v6 contract edit_metadata', () => {
     expect(v6ContractSource).toContain('original_royalties = existing_info.get("royalties"');
     expect(v6ContractSource).toContain('token_info["royalties"] = original_royalties');
@@ -93,9 +170,32 @@ describe('🚀 Keeps v6 Launch Prep - Source Checks', () => {
   });
 
   it('restricts v6 burn_keep to token owner (not admin)', () => {
-    const burnBlock = v6ContractSource.split('def burn_keep(self, token_id):')[1]?.split('# =====================================================================')[0] || '';
+    const burnBlock = entrypointBlock('def burn_keep(self, token_id):');
     expect(burnBlock).toContain('assert current_owner == sp.sender, "NOT_TOKEN_OWNER"');
     expect(burnBlock).not.toContain('FA2_NOT_ADMIN');
+  });
+
+  it('keeps admin-only controls on governance endpoints', () => {
+    const adminOnlySigs = [
+      'def set_contract_metadata(self, params):',
+      'def lock_contract_metadata(self):',
+      'def set_keep_fee(self, new_fee):',
+      'def withdraw_fees(self, destination):',
+      'def pause(self):',
+      'def unpause(self):',
+      'def set_default_royalty(self, bps):',
+      'def admin_transfer(self, params):'
+    ];
+
+    adminOnlySigs.forEach((signature) => {
+      const block = entrypointBlock(signature);
+      expect(block).toContain('assert self.is_administrator_(), "FA2_NOT_ADMIN"');
+    });
+  });
+
+  it('keeps default royalty bounded to 25% max', () => {
+    const royaltyBlock = entrypointBlock('def set_default_royalty(self, bps):');
+    expect(royaltyBlock).toContain('assert bps <= 2500, "MAX_ROYALTY_25_PERCENT"');
   });
 
   it('uses contract default_royalty_bps in mint pipeline and preserves royalties on update', () => {
