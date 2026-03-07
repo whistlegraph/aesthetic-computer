@@ -1,21 +1,34 @@
 # Dis-Order Pamphlet Image Placement Notes
 
-## Source 1: Pamphlet copy placeholders (`pamphlet-copy.txt`)
+## v3 Images (from Rebecca/Ari — March 2026)
 
-Left inside flap image prompts:
+New section images provided by Ari, stored in `system/public/assets/gigs/disorder-program/images-v3/`:
 
-1. `I. begin with fire`
-   - Note: `image of two taper candles with flames--Ari has a great image of these`
-2. `II. wicked child bacchanal`
-   - Note: `image of donkey--from Ari's work and/or puppet drawings`
-3. `III. total darkness`
-   - Note: `image of baby/egg--can pull from Ari's work and/or puppet drawings`
-4. `IV. lovers' pastoral`
-   - Note: `image of two big puppet heads from drawings and/or of flowers (Ari has a flower image)`
-5. `V. death of the first born`
-   - Note: `image of daughter--either from Ari's paintings or from the puppet drawings: in the puppet drawings, the daughter is the one with the big hands and the small silhouette of a person directly facing her`
+1. `I. begin with fire` → `system/public/assets/gigs/disorder-program/images-v3/i-begin-with-fire.png` (candles painting)
+2. `II. wicked child bacchanal` → `system/public/assets/gigs/disorder-program/images-v3/ii-wicked-child.png` (wine glasses)
+3. `III. total darkness` → `system/public/assets/gigs/disorder-program/images-v3/iii-total-darkness.png` (baby/egg + darkness)
+4. `IV. lovers' pastoral` → `system/public/assets/gigs/disorder-program/images-v3/iv-lovers-pastoral.png` (heads + flowers)
+5. `V. death of the first born` → `system/public/assets/gigs/disorder-program/images-v3/v-death-of-first-born.png` (daughter)
 
-## Source 2: Parsed PDF notes (`system/public/assets/gigs/disorder-program/photos for fia.pdf`)
+Source files: `system/public/assets/gigs/disorder-program/1.beginwithfire.png` etc.
+
+## Puppet Line Drawings for Cover
+
+Source: `system/public/assets/gigs/disorder-program/Untitled design 3.png`
+- Ari's puppet sketches, played with on Canva for cover use
+- Auto-split into 13 individual assets in `system/public/assets/gigs/disorder-program/images-v3/puppets/puppet-1.png` through `puppet-13.png`
+- Key figures:
+  - `puppet-4.png` (800x1412) — tall donkey/horse puppet, full body
+  - `puppet-7.png` (1149x1284) — figure with large head + hand/claw
+  - `puppet-8.png` (1479x2322) — largest composite: donkey puppet + smaller figure + cat/bear puppet
+  - `puppet-13.png` (1102x829) — figure with hands up + small puppet silhouette
+  - `puppet-9.png` (1156x836) — two figures with hands
+  - `puppet-10.png` (661x816) — single hand puppet figure
+- Smaller fragments: puppet-1, 3, 5, 6, 11, 12 (detail sketches, hands, small heads)
+
+Cover concept: white line drawings on dark purple (#2a1438) background, square/rectangular at center
+
+## Source 1 (historical): Parsed PDF notes (`system/public/assets/gigs/disorder-program/photos for fia.pdf`)
 
 Commands used:
 
@@ -29,33 +42,12 @@ Extracted images directory:
 - `system/public/assets/gigs/disorder-program/photos-for-fia-extracted/`
 - Files: `page-000.jpg` through `page-018.jpg` (19 extracted images)
 
-Parsed page notes from the PDF text layer:
+## Additional puppet images
 
-- Page 1: `Could work as a person or a candle`
-- Page 2: `Could work more as abstract for an area of the program for text overlay` and `Could work as parsley a tree`
-- Page 3: `cups`
-- Page 4: `Puppet head option`
-- Page 5: `Candles`
-- Page 6: `Abstract`
-- Page 9: `Om thinking this is great for the cover its basically disorder overall (with background deleted as an idea)`
-- Page 12: `Egg`
-- Page 13: `Daughter`
-- Page 14: `Donkey 1`
-- Page 15: `Donkey 1`
-- Page 16: `Egg`
-- Page 17: `Candles`
-- Page 18: `Puppet option`
+4 puppet reference photos in `system/public/assets/gigs/disorder-program/`:
+- `puppet image 1.jpeg` through `puppet image 4.jpeg`
+- `oracle egg flyer.png`
 
-## Provisional mapping: copy slot -> candidate image pages
+## Print note
 
-- `Front cover`: PDF page 9 (`cover` note)
-- `I. begin with fire`: PDF pages 5 or 17 (`Candles`), optionally page 1 (`person or a candle`)
-- `II. wicked child bacchanal`: PDF pages 14 or 15 (`Donkey 1`)
-- `III. total darkness`: PDF pages 12 or 16 (`Egg`)
-- `IV. lovers' pastoral`: PDF page 4 or 18 (`Puppet head option` / `Puppet option`), or flower image from Ari's other set
-- `V. death of the first born`: PDF page 13 (`Daughter`)
-
-Secondary/background candidates:
-
-- Abstract texture or text-overlay background: PDF pages 2 and 6
-- Additional motif options: PDF page 3 (`cups`) and page 2 (`parsley a tree`)
+Skirball can print on 11x17 paper if switching to trifold format.
