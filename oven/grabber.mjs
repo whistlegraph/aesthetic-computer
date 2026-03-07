@@ -1657,6 +1657,10 @@ const BLACKLISTED_PIECES = [
   /sundarakarma/i,
 ];
 
+// Keep support for small icons/previews (wallet, prompt list, etc.).
+const MIN_GRAB_DIMENSION = 32;
+const MAX_GRAB_DIMENSION = 1000;
+
 /**
  * Check if a piece name is blacklisted (external domain or invalid)
  */
@@ -2164,8 +2168,8 @@ export async function grabHandler(req, res) {
   }
   
   // Validate dimensions
-  if (width < 100 || width > 1000 || height < 100 || height > 1000) {
-    return res.status(400).json({ error: 'Dimensions must be between 100 and 1000' });
+  if (width < MIN_GRAB_DIMENSION || width > MAX_GRAB_DIMENSION || height < MIN_GRAB_DIMENSION || height > MAX_GRAB_DIMENSION) {
+    return res.status(400).json({ error: `Dimensions must be between ${MIN_GRAB_DIMENSION} and ${MAX_GRAB_DIMENSION}` });
   }
   
   try {
@@ -2265,8 +2269,8 @@ export async function grabGetHandler(req, res) {
   const w = parseInt(width) || 512;
   const h = parseInt(height) || 512;
   
-  if (w < 100 || w > 1000 || h < 100 || h > 1000) {
-    return res.status(400).json({ error: 'Dimensions must be between 100 and 1000' });
+  if (w < MIN_GRAB_DIMENSION || w > MAX_GRAB_DIMENSION || h < MIN_GRAB_DIMENSION || h > MAX_GRAB_DIMENSION) {
+    return res.status(400).json({ error: `Dimensions must be between ${MIN_GRAB_DIMENSION} and ${MAX_GRAB_DIMENSION}` });
   }
   
   // Calculate captureKey to check for in-progress grabs
