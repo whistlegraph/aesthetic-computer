@@ -1780,6 +1780,10 @@ from = "/api/keep-update"
 to = "/.netlify/functions/keep-update"
 status = 200
 [[redirects]]
+from = "/api/keeps-config"
+to = "/.netlify/functions/keeps-config"
+status = 200
+[[redirects]]
 from = "/api/delete-erase-and-forget-me"
 to = "/.netlify/functions/delete-erase-and-forget-me"
 status = 200
