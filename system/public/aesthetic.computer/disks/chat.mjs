@@ -135,19 +135,17 @@ function getFontTimestampGap(fontId) {
 
 function stripInlineColorCodes(s) {
   // Removes inline color markup of the form: \color\text\reset\
-  // where color/reset are any strings between backslashes.
+  // Single-pass O(n) scanner.
   if (!s || typeof s !== "string") return "";
-  let out = "";
-  for (let i = 0; i < s.length; i++) {
-    const ch = s[i];
-    if (ch !== "\\") {
-      out += ch;
-      continue;
+  let out = "", i = 0;
+  while (i < s.length) {
+    if (s[i] === "\\") {
+      i++; // skip opening backslash
+      while (i < s.length && s[i] !== "\\") i++; // skip color spec
+      i++; // skip closing backslash
+    } else {
+      out += s[i++];
     }
-    // Skip until the next backslash (end of spec)
-    const next = s.indexOf("\\", i + 1);
-    if (next === -1) break;
-    i = next;
   }
   return out;
 }
@@ -799,13 +797,17 @@ function paint(
     }
 
     // Render each line of the message separately for proper multi-line display
-    // Parse elements once for this message
-    const parsedElements = parseMessageElements(message.fullMessage);
+    // Use cached parsed elements (computed during layout)
+    const parsedElements = message._parsedElements || parseMessageElements(message.fullMessage);
     const hoveredElements = layout.hoveredElements || new Set();
-    
+
+    // Build hover key for color line caching (changes when hover state changes)
+    let hoverKey = "";
+    for (const h of hoveredElements) hoverKey += h.start + ":" + h.end + ",";
+
     let charPos = 0; // Track position in the full message
     let lastLineRenderedWidthForThisMessage = 0; // Track actual rendered width of last line for THIS message
-    
+
     // First pass: draw background box for entire kidlisp code block
     const hasKidlisp = parsedElements.some(el => el.type === "kidlisp-token");
     if (hasKidlisp) {
@@ -842,152 +844,172 @@ function paint(
     
     // Second pass: render text with syntax colors
     charPos = 0;
-    for (let lineIdx = 0; lineIdx < tb.lines.length; lineIdx++) {
-      const line = tb.lines[lineIdx];
-      const lineY = y + lineIdx * msgRowHeight;
-      const lineStart = charPos;
-      const lineEnd = charPos + line.length;
-      
-      // Build color-coded version of this line
-      let colorCodedLine = line;
-      
-      // Find elements that overlap with this line and apply colors (in reverse order)
-      const lineElements = parsedElements
-        .filter(el => el.start < lineEnd && el.end > lineStart)
-        .sort((a, b) => b.start - a.start);
-      
-      for (const element of lineElements) {
-        // Calculate element's position within this line
-        const elemStartInLine = Math.max(0, element.start - lineStart);
-        const elemEndInLine = Math.min(line.length, element.end - lineStart);
-        
-        if (elemStartInLine < elemEndInLine) {
-          const elementText = line.substring(elemStartInLine, elemEndInLine);
-          
-          // Check if hovered
-          const isHovered = Array.from(hoveredElements).some(hoveredEl => 
-            hoveredEl.start === element.start && 
-            hoveredEl.end === element.end && 
-            hoveredEl.type === element.type
-          );
-          
-          // Get color based on type and hover state
-          let color;
-          let customColorCodedText = null; // For per-character handle colors
+    // Cache color-coded + shadow lines per message (invalidated by hover state)
+    const needsRebuild = !message._colorLineCache || message._colorLineHoverKey !== hoverKey;
+    if (needsRebuild) {
+      const cachedLines = [];
+      let tempCharPos = charPos;
+      const mt = Array.isArray(theme.messageText) ? theme.messageText : [200, 200, 200];
+      const shadowInk = [Math.floor(mt[0] * 0.25), Math.floor(mt[1] * 0.25), Math.floor(mt[2] * 0.25)];
 
-          if (element.type === "kidlisp-token") {
-            // Use yellow on hover, otherwise use the token's specific syntax color
-            color = isHovered ? theme.kidlispHover : element.color;
-          } else if (element.type === "handle") {
-            if (isHovered) {
-              color = theme.handleHover;
-            } else {
-              // Check for custom per-character colors
-              const cleanHandle = elementText.startsWith("@") ? elementText.slice(1) : elementText;
-              const customColors = handleColorsCache.get(cleanHandle);
+      for (let lineIdx = 0; lineIdx < tb.lines.length; lineIdx++) {
+        const line = tb.lines[lineIdx];
+        const lineStart = tempCharPos;
+        const lineEnd = tempCharPos + line.length;
 
-              if (customColors && customColors.length === elementText.length) {
-                // Build per-character color codes
-                const textColorStr = Array.isArray(theme.messageText) ? theme.messageText.join(',') : theme.messageText;
-                let perCharText = "";
-                for (let i = 0; i < elementText.length; i++) {
-                  const char = elementText[i];
-                  const col = customColors[i];
-                  perCharText += `\\${col.r},${col.g},${col.b}\\${char}\\${textColorStr}\\`;
-                }
-                customColorCodedText = perCharText;
+        // Build color-coded version of this line
+        let colorCodedLine = line;
+
+        // Find elements that overlap with this line and apply colors (in reverse order)
+        const lineElements = parsedElements
+          .filter(el => el.start < lineEnd && el.end > lineStart)
+          .sort((a, b) => b.start - a.start);
+
+        for (const element of lineElements) {
+          const elemStartInLine = Math.max(0, element.start - lineStart);
+          const elemEndInLine = Math.min(line.length, element.end - lineStart);
+
+          if (elemStartInLine < elemEndInLine) {
+            const elementText = line.substring(elemStartInLine, elemEndInLine);
+
+            // Check if hovered
+            const isHovered = Array.from(hoveredElements).some(hoveredEl =>
+              hoveredEl.start === element.start &&
+              hoveredEl.end === element.end &&
+              hoveredEl.type === element.type
+            );
+
+            // Get color based on type and hover state
+            let color;
+            let customColorCodedText = null;
+
+            if (element.type === "kidlisp-token") {
+              color = isHovered ? theme.kidlispHover : element.color;
+            } else if (element.type === "handle") {
+              if (isHovered) {
+                color = theme.handleHover;
               } else {
-                color = theme.handle;
+                const cleanHandle = elementText.startsWith("@") ? elementText.slice(1) : elementText;
+                const customColors = handleColorsCache.get(cleanHandle);
+                if (customColors && customColors.length === elementText.length) {
+                  const textColorStr = Array.isArray(theme.messageText) ? theme.messageText.join(',') : theme.messageText;
+                  let perCharText = "";
+                  for (let ci = 0; ci < elementText.length; ci++) {
+                    const char = elementText[ci];
+                    const col = customColors[ci];
+                    perCharText += `\\${col.r},${col.g},${col.b}\\${char}\\${textColorStr}\\`;
+                  }
+                  customColorCodedText = perCharText;
+                } else {
+                  color = theme.handle;
+                }
               }
+            } else if (element.type === "url") {
+              color = isHovered ? theme.urlHover : theme.url;
+            } else if (element.type === "prompt") {
+              color = isHovered ? theme.promptHover : theme.prompt;
+            } else if (element.type === "prompt-content") {
+              color = isHovered ? theme.promptContentHover : theme.promptContent;
+            } else if (element.type === "painting") {
+              color = isHovered ? theme.paintingHover : theme.painting;
+            } else if (element.type === "kidlisp") {
+              color = isHovered ? theme.kidlispHover : theme.kidlisp;
+            } else if (element.type === "clock") {
+              color = isHovered ? theme.clockHover : theme.clock;
+            } else if (element.type === "r8dio") {
+              color = isHovered ? theme.r8dioHover : theme.r8dio;
+            } else if (element.type === "log") {
+              color = isHovered ? theme.logHover : theme.log;
+            } else if (element.type === "youtube") {
+              color = isHovered ? theme.youtubeHover : theme.youtube;
             }
-          } else if (element.type === "url") {
-            color = isHovered ? theme.urlHover : theme.url;
-          } else if (element.type === "prompt") {
-            color = isHovered ? theme.promptHover : theme.prompt;
-          } else if (element.type === "prompt-content") {
-            color = isHovered ? theme.promptContentHover : theme.promptContent;
-          } else if (element.type === "painting") {
-            color = isHovered ? theme.paintingHover : theme.painting;
-          } else if (element.type === "kidlisp") {
-            color = isHovered ? theme.kidlispHover : theme.kidlisp;
-          } else if (element.type === "clock") {
-            color = isHovered ? theme.clockHover : theme.clock;
-          } else if (element.type === "r8dio") {
-            color = isHovered ? theme.r8dioHover : theme.r8dio;
-          } else if (element.type === "log") {
-            color = isHovered ? theme.logHover : theme.log;
-          } else if (element.type === "youtube") {
-            color = isHovered ? theme.youtubeHover : theme.youtube;
-          }
 
-          // Apply color coding
-          if (customColorCodedText) {
-            // Use custom per-character colors for handles
-            colorCodedLine =
-              colorCodedLine.substring(0, elemStartInLine) +
-              customColorCodedText +
-              colorCodedLine.substring(elemEndInLine);
-          } else if (color) {
-            // Use single color for element
-            const colorStr = Array.isArray(color) ? color.join(',') : color;
-            const textColorStr = Array.isArray(theme.messageText) ? theme.messageText.join(',') : theme.messageText;
-            const colorCodedText = `\\${colorStr}\\${elementText}\\${textColorStr}\\`;
-
-            colorCodedLine =
-              colorCodedLine.substring(0, elemStartInLine) +
-              colorCodedText +
-              colorCodedLine.substring(elemEndInLine);
+            if (customColorCodedText) {
+              colorCodedLine =
+                colorCodedLine.substring(0, elemStartInLine) +
+                customColorCodedText +
+                colorCodedLine.substring(elemEndInLine);
+            } else if (color) {
+              const colorStr = Array.isArray(color) ? color.join(',') : color;
+              const textColorStr = Array.isArray(theme.messageText) ? theme.messageText.join(',') : theme.messageText;
+              const colorCodedText = `\\${colorStr}\\${elementText}\\${textColorStr}\\`;
+              colorCodedLine =
+                colorCodedLine.substring(0, elemStartInLine) +
+                colorCodedText +
+                colorCodedLine.substring(elemEndInLine);
+            }
           }
         }
-      }
-      
-      // Render shadow pass for all lines (darken color codes + base text)
-      {
+
+        // Pre-compute shadow line
         const shadowLine = colorCodedLine.replace(
           /\\(\d+),(\d+),(\d+)(?:,\d+)?\\/g,
           (_, r, g, b) => `\\${Math.floor(r * 0.25)},${Math.floor(g * 0.25)},${Math.floor(b * 0.25)}\\`
         );
-        const mt = Array.isArray(theme.messageText) ? theme.messageText : [200, 200, 200];
-        ink(Math.floor(mt[0] * 0.25), Math.floor(mt[1] * 0.25), Math.floor(mt[2] * 0.25)).write(
-          shadowLine,
-          { x: x + 1, y: lineY + 1 },
-          false,
-          undefined,
-          false,
-          msgTypefaceName
-        );
+
+        cachedLines.push({ colorCodedLine, shadowLine });
+        tempCharPos += line.length;
       }
 
-      // Render this line with color codes
-      // Note: For unifont, we don't want a background box per character
-      ink(theme.messageText).write(
-        colorCodedLine,
-        { x, y: lineY },
-        false, // bg - no background
-        undefined, // bounds - no width limit (line is already wrapped)
-        false, // wordWrap - off since line is pre-wrapped
-        msgTypefaceName // typeface - use per-message font
-      );
-      
-      // Track width of last line (visual width, ignoring inline color codes)
-      if (lineIdx === tb.lines.length - 1) {
-        lastLineRenderedWidthForThisMessage = text.width(
-          stripInlineColorCodes(colorCodedLine),
-          msgTypefaceName
-        );
-      }
-      
-      charPos += line.length; // Don't add +1 - text.box wraps without adding spaces
+      // Cache last line width
+      const lastCoded = cachedLines[cachedLines.length - 1]?.colorCodedLine || "";
+      const lastLineWidth = text.width(stripInlineColorCodes(lastCoded), msgTypefaceName);
+
+      message._colorLineCache = cachedLines;
+      message._colorLineHoverKey = hoverKey;
+      message._cachedLastLineWidth = lastLineWidth;
+      message._colorLineShadowInk = shadowInk;
     }
 
-    const ago = timeAgo(message.when);
+    // Render from cache
+    const mt = message._colorLineShadowInk;
+    for (let lineIdx = 0; lineIdx < tb.lines.length; lineIdx++) {
+      const lineY = y + lineIdx * msgRowHeight;
+      const cached = message._colorLineCache[lineIdx];
+
+      // Shadow pass
+      ink(mt[0], mt[1], mt[2]).write(
+        cached.shadowLine,
+        { x: x + 1, y: lineY + 1 },
+        false,
+        undefined,
+        false,
+        msgTypefaceName
+      );
+
+      // Main text pass
+      ink(theme.messageText).write(
+        cached.colorCodedLine,
+        { x, y: lineY },
+        false,
+        undefined,
+        false,
+        msgTypefaceName
+      );
+
+      charPos += tb.lines[lineIdx].length;
+    }
+    lastLineRenderedWidthForThisMessage = message._cachedLastLineWidth;
+
+    // Throttle timeAgo to 1s intervals per message
+    const now = Date.now();
+    if (!message._agoCache || now - message._agoCacheTime > 1000) {
+      message._agoCache = timeAgo(message.when);
+      message._agoCacheTime = now;
+    }
+    const ago = message._agoCache;
     let overTimestamp = false;
 
     // Show all timestamps (not just unique ones), with fading for older messages
     const tsColor = layout.timestamp.over ? theme.timestampHover : theme.timestamp;
     
     // Use MatrixChunky8 for compact timestamps tacked onto the end of messages
-    const timestampWidth = text.width(ago, "MatrixChunky8");
+    // Cache timestamp width (only changes when ago text changes, throttled to 1s)
+    if (message._cachedAgoText !== ago) {
+      message._cachedTimestampWidth = text.width(ago, "MatrixChunky8");
+      message._cachedAgoText = ago;
+    }
+    const timestampWidth = message._cachedTimestampWidth;
     const timestampGap = getFontTimestampGap(msgFontId);
     
     // Position timestamp right after the last *visually rendered* line of the message
@@ -1017,7 +1039,12 @@ function paint(
         } else {
           ink(heartColor).write(heartStr, { x: timestampX, y: timestampY }, undefined, undefined, false, "MatrixChunky8");
         }
-        heartOffsetX = text.width(heartStr, "MatrixChunky8") + 4;
+        // Cache heart width (only changes when heart count changes)
+        if (message._cachedHeartStr !== heartStr) {
+          message._cachedHeartWidth = text.width(heartStr, "MatrixChunky8") + 4;
+          message._cachedHeartStr = heartStr;
+        }
+        heartOffsetX = message._cachedHeartWidth;
       }
     }
 
@@ -2551,7 +2578,7 @@ function act(
           if (message.deleted) break;
 
           // Check for hover on interactive elements
-          const parsedElements = parseMessageElements(message.fullMessage);
+          const parsedElements = message._parsedElements || parseMessageElements(message.fullMessage);
           const relativeX = e.x - message.layout.x;
           const relativeY = e.y - message.layout.y;
 
@@ -2705,8 +2732,8 @@ function act(
           // Track if any interactive element was clicked
           let clickedInteractiveElement = false;
 
-          // Parse the original message to find interactive elements
-          const parsedElements = parseMessageElements(message.fullMessage);
+          // Use cached parsed elements
+          const parsedElements = message._parsedElements || parseMessageElements(message.fullMessage);
           
           // Calculate click position relative to message
           const relativeX = e.x - message.layout.x;
@@ -3094,7 +3121,7 @@ function act(
           if (message.deleted) break;
 
           // Check for hover on interactive elements
-          const parsedElements = parseMessageElements(message.fullMessage);
+          const parsedElements = message._parsedElements || parseMessageElements(message.fullMessage);
           const relativeX = e.x - message.layout.x;
           const relativeY = e.y - message.layout.y;
 
@@ -3974,29 +4001,31 @@ function computeMessagesHeight({ text, screen, typeface }, chat, defaultTypeface
     );
     message.tb = tb;
     message.fullMessage = fullMessage;
+    // Cache parsed elements on the message object (reused in paint + layout + act)
+    message._parsedElements = parseMessageElements(fullMessage);
     // Add height for all lines in the message
     // Each line is msgRowHeight tall (per-message font height)
     // Plus add lineGap between lines within the message and after the message
     height += tb.lines.length * msgRowHeight + lineGap;
-    
+
     // 🎨 Add space for painting previews (if any)
-    const paintingElements = parseMessageElements(fullMessage).filter(el => el.type === "painting");
+    const paintingElements = message._parsedElements.filter(el => el.type === "painting");
     if (paintingElements.length > 0) {
       // 4px gap above + 64px image + 4px padding + 2px gap below = 74px
       const previewHeight = 74;
       height += previewHeight;
     }
-    
+
     // 📺 Add space for YouTube previews (if any)
-    const youtubeElements = parseMessageElements(fullMessage).filter(el => el.type === "youtube");
+    const youtubeElements = message._parsedElements.filter(el => el.type === "youtube");
     if (youtubeElements.length > 0) {
       // 4px gap above + 64px image + 4px padding + 2px gap below = 74px
       const previewHeight = 74;
       height += previewHeight;
     }
-    
+
     // 🔗 Add space for OG link previews (non-YouTube URLs with images)
-    const urlElements = parseMessageElements(fullMessage).filter(el => el.type === "url" && !el.sensitive);
+    const urlElements = message._parsedElements.filter(el => el.type === "url" && !el.sensitive);
     // Only add space for URLs that have loaded OG data with images
     const urlsWithPreviews = urlElements.filter(el => {
       const cached = ogPreviewCache.get(el.text) || (globalOgPreviewCache && globalOgPreviewCache.get(el.text));
@@ -4022,11 +4051,13 @@ function computeMessagesLayout({ screen, text, typeface }, chat, defaultTypeface
   const lastMsgRowHeight = lastMsg ? (lastMsg.computedRowHeight ?? systemDefaultRowHeight) : systemDefaultRowHeight;
   let y = screen.height - lastMsgRowHeight - bottomMargin + scroll;
 
-  // Delete all layouts.
+  // Delete all layouts and invalidate color line caches.
   for (let i = chat.messages.length - 1; i >= 0; i--) {
     const msg = chat.messages[i];
     msg.lastLayout = msg.layout;
     delete msg.layout;
+    delete msg._colorLineCache;
+    delete msg._colorLineHoverKey;
   }
 
   for (let i = chat.messages.length - 1; i >= 0; i--) {
@@ -4039,8 +4070,8 @@ function computeMessagesLayout({ screen, text, typeface }, chat, defaultTypeface
     const msgFontId = msg.computedFontId || "font_1";
     const msgTimestampGap = getFontTimestampGap(msgFontId);
     
-    // Parse elements first to know if we have painting previews
-    const parsedElements = parseMessageElements(msg.fullMessage);
+    // Use cached parsed elements from computeMessagesHeight
+    const parsedElements = msg._parsedElements || parseMessageElements(msg.fullMessage);
     const paintingElements = parsedElements.filter(el => el.type === "painting");
     const paintingCodes = paintingElements.map(el => el.text.replace(/^#/, ''));
     
@@ -4331,7 +4362,7 @@ function isClickInsideElement(clickX, clickY, elementPositions, text, typefaceNa
 // Generate a color-coded message with dynamic hover states
 function generateDynamicColorMessage(message, theme) {
   let colorCodedMessage = message.fullMessage;
-  const parsedElements = parseMessageElements(message.fullMessage);
+  const parsedElements = message._parsedElements || parseMessageElements(message.fullMessage);
   const hoveredElements = message.layout.hoveredElements || new Set();
   
   // Sort elements by start position (reverse order for safe replacement)
