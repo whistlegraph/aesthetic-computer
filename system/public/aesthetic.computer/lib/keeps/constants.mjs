@@ -6,7 +6,7 @@
 // Feature Flags
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Legacy staging flag (v6 is now the default production profile).
+// Legacy staging flag (runtime contract/profile now comes from /api/keeps-config).
 export const KEEPS_STAGING = false;
 
 // ═══════════════════════════════════════════════════════════════════════════════
