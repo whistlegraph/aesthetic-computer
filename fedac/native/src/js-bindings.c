@@ -1075,6 +1075,53 @@ static JSValue js_hdmi_fill(JSContext *ctx, JSValueConst this_val, int argc, JSV
     return JS_UNDEFINED;
 }
 
+// system.readFile(path) — read a file from disk, returns string or null
+static JSValue js_read_file(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 1) return JS_NULL;
+    const char *path = JS_ToCString(ctx, argv[0]);
+    if (!path) return JS_NULL;
+    FILE *fp = fopen(path, "r");
+    if (!fp) { JS_FreeCString(ctx, path); return JS_NULL; }
+    fseek(fp, 0, SEEK_END);
+    long sz = ftell(fp);
+    rewind(fp);
+    if (sz <= 0 || sz > 65536) { fclose(fp); JS_FreeCString(ctx, path); return JS_NULL; }
+    char *buf = malloc(sz + 1);
+    if (!buf) { fclose(fp); JS_FreeCString(ctx, path); return JS_NULL; }
+    sz = (long)fread(buf, 1, sz, fp);
+    buf[sz] = 0;
+    fclose(fp);
+    JS_FreeCString(ctx, path);
+    JSValue result = JS_NewString(ctx, buf);
+    free(buf);
+    return result;
+}
+
+// system.writeFile(path, data) — write a string to disk, returns true/false
+static JSValue js_write_file(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 2) return JS_FALSE;
+    const char *path = JS_ToCString(ctx, argv[0]);
+    const char *data = JS_ToCString(ctx, argv[1]);
+    if (!path || !data) {
+        if (path) JS_FreeCString(ctx, path);
+        if (data) JS_FreeCString(ctx, data);
+        return JS_FALSE;
+    }
+    FILE *fp = fopen(path, "w");
+    int ok = 0;
+    if (fp) {
+        fputs(data, fp);
+        fclose(fp);
+        sync(); // flush to USB
+        ok = 1;
+    }
+    JS_FreeCString(ctx, path);
+    JS_FreeCString(ctx, data);
+    return JS_NewBool(ctx, ok);
+}
+
 // system.fetch(url) — async HTTP GET via curl, result polled via system.fetchResult
 static JSValue js_fetch(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
@@ -1188,6 +1235,10 @@ static JSValue build_system_obj(JSContext *ctx) {
     int has_hdmi = (current_rt && current_rt->hdmi && current_rt->hdmi->active);
     JS_SetPropertyStr(ctx, sys, "hasHdmi", JS_NewBool(ctx, has_hdmi));
     JS_SetPropertyStr(ctx, sys, "hdmi", JS_NewCFunction(ctx, js_hdmi_fill, "hdmi", 3));
+
+    // File I/O — system.readFile(path) / system.writeFile(path, data)
+    JS_SetPropertyStr(ctx, sys, "readFile",  JS_NewCFunction(ctx, js_read_file,  "readFile",  1));
+    JS_SetPropertyStr(ctx, sys, "writeFile", JS_NewCFunction(ctx, js_write_file, "writeFile", 2));
 
     // Async HTTP fetch — system.fetch(url) / system.fetchResult
     JS_SetPropertyStr(ctx, sys, "fetch", JS_NewCFunction(ctx, js_fetch, "fetch", 1));
