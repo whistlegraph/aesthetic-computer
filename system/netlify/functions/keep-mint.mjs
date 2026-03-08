@@ -45,7 +45,7 @@ function envInt(name, fallback) {
 // Keep this function under provider execution ceilings so SSE can emit terminal events.
 const KEEP_MINT_MAX_PREP_MS = envInt("KEEP_MINT_MAX_PREP_MS", dev ? 55000 : 24000);
 const KEEP_MINT_STREAM_GUARD_MS = envInt("KEEP_MINT_STREAM_GUARD_MS", 1500);
-const KEEP_MINT_THUMBNAIL_TIMEOUT_MS = envInt("KEEP_MINT_THUMBNAIL_TIMEOUT_MS", dev ? 45000 : 18000);
+const KEEP_MINT_THUMBNAIL_TIMEOUT_MS = envInt("KEEP_MINT_THUMBNAIL_TIMEOUT_MS", dev ? 45000 : 22000);
 
 // IPFS Gateway configuration
 // When USE_GATEWAY_URLS is true, metadata will use full HTTPS URLs instead of ipfs:// URIs
@@ -1100,6 +1100,7 @@ export const handler = stream(async (event, context) => {
         }, 10000);
 
         let thumbResult;
+        let thumbnailWaitError = null;
         try {
           thumbResult = await Promise.race([
             thumbnailPromise,
@@ -1109,24 +1110,40 @@ export const handler = stream(async (event, context) => {
               }, thumbnailAwaitBudgetMs);
             }),
           ]);
+        } catch (thumbErr) {
+          thumbnailWaitError = thumbErr;
         } finally {
           clearInterval(heartbeat);
         }
-        
+
         if (!thumbResult?.ipfsUri) {
-          const errorMsg = thumbResult?.error || "unknown error";
-          console.error(`🪙 KEEP: Thumbnail failed:`, errorMsg);
-          throw new Error(`Thumbnail generation failed - ${errorMsg}`);
+          const fallbackThumbnailUri = isRebake
+            ? (piece?.ipfsMedia?.thumbnailUri || mintStatus?.thumbnailUri || null)
+            : null;
+
+          if (fallbackThumbnailUri) {
+            thumbnailUri = fallbackThumbnailUri;
+            const fallbackReason = thumbnailWaitError?.message || thumbResult?.error || "unknown";
+            console.warn(`🪙 KEEP: Thumbnail bake fallback for rebake: ${fallbackReason}`);
+            await send("progress", {
+              stage: "thumbnail",
+              message: "Bake timeout, reusing previous thumbnail",
+            });
+          } else {
+            const errorMsg = thumbnailWaitError?.message || thumbResult?.error || "unknown error";
+            console.error(`🪙 KEEP: Thumbnail failed:`, errorMsg);
+            throw new Error(`Thumbnail generation failed - ${errorMsg}`);
+          }
+        } else {
+          thumbnailUri = thumbResult.ipfsUri;
+          const thumbHash = thumbnailUri.replace("ipfs://", "");
+
+          await send("progress", {
+            stage: "thumbnail",
+            message: `Baked ${thumbHash.slice(0, 12)}..`
+          });
         }
-        
-        thumbnailUri = thumbResult.ipfsUri;
-        const thumbHash = thumbnailUri.replace("ipfs://", "");
-        
-        await send("progress", { 
-          stage: "thumbnail", 
-          message: `Baked ${thumbHash.slice(0, 12)}..`
-        });
-        
+
         // Cache the IPFS media in MongoDB for future use
         // First, preserve old media in history for cleanup tracking
         const updateOps = { 
