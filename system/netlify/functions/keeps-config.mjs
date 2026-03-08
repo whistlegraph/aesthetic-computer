@@ -3,6 +3,7 @@ import { respond } from "../../backend/http.mjs";
 import { getKeepsContractAddress, LEGACY_KEEPS_CONTRACT } from "../../backend/tezos-keeps-contract.mjs";
 
 const VERSION_BY_PROFILE = {
+  v8: "8.0.0",
   v7: "7.0.0",
   v6: "6.0.0",
   v5: "5.0.0",
@@ -37,7 +38,7 @@ function resolveProfile(secretDoc, network) {
     pickString(secretDoc?.contractProfile, network) ||
     pickString(secretDoc?.keeps?.profile, network);
 
-  return raw ? raw.toLowerCase() : "v6";
+  return raw ? raw.toLowerCase() : "v8";
 }
 
 function resolveVersion(secretDoc, profile, network) {
@@ -67,8 +68,8 @@ function fallbackPayload(network = "mainnet", reason = "fallback") {
   return {
     contractAddress: LEGACY_KEEPS_CONTRACT,
     network,
-    profile: "v6",
-    version: VERSION_BY_PROFILE.v6,
+    profile: "legacy",
+    version: null,
     rpcUrl: rpcForNetwork(network),
     tzktExplorer: tzktForNetwork(network),
     objktBase: objktForNetwork(network),

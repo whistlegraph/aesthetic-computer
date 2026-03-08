@@ -16,7 +16,7 @@
 
 import { TezosToolkit, MichelsonMap } from '@taquito/taquito';
 import { InMemorySigner } from '@taquito/signer';
-import { Parser } from '@taquito/michel-codec';
+import { Parser, packDataBytes } from '@taquito/michel-codec';
 import { MongoClient } from 'mongodb';
 import fs from 'fs';
 import path from 'path';
@@ -26,6 +26,7 @@ import readline from 'readline';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const KEEPS_SECRET_ID = process.env.KEEPS_SECRET_ID || 'tezos-kidlisp';
+const KEEP_PERMIT_TTL_MS = Number.parseInt(process.env.KEEP_PERMIT_TTL_MS || '1200000', 10); // 20 minutes
 
 // ============================================================================
 // Configuration
@@ -59,6 +60,7 @@ const CONFIG = {
   paths: {
     // Compiled contract artifacts by generation
     compiled: {
+      v8: path.join(__dirname, 'KeepsFA2v8/step_002_cont_0_contract.tz'),
       v7: path.join(__dirname, 'KeepsFA2v7/step_002_cont_0_contract.tz'),
       v6: path.join(__dirname, 'KeepsFA2v6/step_002_cont_0_contract.tz'),
       v2: path.join(__dirname, 'KeepsFA2v2/step_002_cont_0_contract.tz'),
@@ -67,8 +69,8 @@ const CONFIG = {
       v5: path.join(__dirname, 'KeepsFA2v5/step_002_cont_0_contract.tz'),
     },
     // Backward-compatible defaults
-    contract: path.join(__dirname, 'KeepsFA2v7/step_002_cont_0_contract.tz'),
-    storage: path.join(__dirname, 'KeepsFA2v7/step_002_cont_0_storage.tz'),
+    contract: path.join(__dirname, 'KeepsFA2v8/step_002_cont_0_contract.tz'),
+    storage: path.join(__dirname, 'KeepsFA2v8/step_002_cont_0_storage.tz'),
     // Legacy direct paths
     v3Contract: path.join(__dirname, 'KeepsFA2v3/step_002_cont_0_contract.tz'),
     v2Contract: path.join(__dirname, 'KeepsFA2v2/step_002_cont_0_contract.tz'),
@@ -86,6 +88,23 @@ const CONFIG = {
 };
 
 const CONTRACT_PROFILES = {
+  v8: {
+    key: 'v8',
+    label: 'KidLisp v8 signed-permit production',
+    artifactKey: 'v8',
+    metadata: {
+      name: 'KidLisp',
+      version: '8.0.0',
+      description: 'https://keeps.kidlisp.com/contracts',
+      homepage: 'https://kidlisp.com',
+      interfaces: ['TZIP-012', 'TZIP-016', 'TZIP-021'],
+      authors: ['aesthetic.computer'],
+      imageUri: 'https://oven.aesthetic.computer/keeps/latest',
+    },
+    keepFeeMutez: 2_500_000,
+    defaultRoyaltyBps: 1000,
+    paused: false,
+  },
   v7: {
     key: 'v7',
     label: 'KidLisp v7 final production',
@@ -155,12 +174,12 @@ const CONTRACT_PROFILES = {
   },
 };
 
-function resolveContractProfile(rawProfile = 'v7') {
-  const normalized = String(rawProfile || 'v7').trim().toLowerCase();
+function resolveContractProfile(rawProfile = 'v8') {
+  const normalized = String(rawProfile || 'v8').trim().toLowerCase();
   const aliasMap = {
     rc: 'v5rc',
     v5: 'v5rc',
-    production: 'v7',
+    production: 'v8',
   };
   const key = aliasMap[normalized] || normalized;
   const profile = CONTRACT_PROFILES[key];
@@ -225,7 +244,7 @@ async function syncActiveKeepsSecret({ network = 'mainnet', contractAddress, pro
 }
 
 async function syncCurrentContractToSecrets(network = 'mainnet', options = {}) {
-  const profile = resolveContractProfile(options.contractProfile || options.profile || 'v7');
+  const profile = resolveContractProfile(options.contractProfile || options.profile || 'v8');
   const addressPath = getContractAddressPath(network);
   if (!fs.existsSync(addressPath)) {
     throw new Error(`❌ No saved contract address for ${network} at ${addressPath}`);
@@ -343,7 +362,7 @@ async function createTezosClient(network = 'mainnet') {
 // ============================================================================
 
 async function deployContract(network = 'mainnet', options = {}) {
-  const profile = resolveContractProfile(options.contractProfile || options.profile || 'v7');
+  const profile = resolveContractProfile(options.contractProfile || options.profile || 'v8');
   const contractPath = CONFIG.paths.compiled[profile.artifactKey] || CONFIG.paths.contract;
   const feeXTZ = (profile.keepFeeMutez / 1_000_000).toFixed(6);
   const pausedMichelson = profile.paused ? 'True' : 'False';
@@ -928,6 +947,61 @@ function stringToBytes(str) {
   return Buffer.from(str, 'utf8').toString('hex');
 }
 
+const KEEP_PERMIT_PAYLOAD_TYPE = {
+  prim: 'pair',
+  args: [
+    { prim: 'address', annots: ['%contract'] },
+    {
+      prim: 'pair',
+      args: [
+        { prim: 'address', annots: ['%owner'] },
+        {
+          prim: 'pair',
+          args: [
+            { prim: 'bytes', annots: ['%content_hash'] },
+            { prim: 'timestamp', annots: ['%permit_deadline'] },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+async function buildKeepPermit({ signer, contractAddress, owner, contentHashBytes, deadlineIso = null }) {
+  if (!contractAddress || !owner || !contentHashBytes) {
+    throw new Error('Missing keep permit fields (contractAddress, owner, contentHashBytes)');
+  }
+
+  const permitDeadline = deadlineIso || new Date(Date.now() + KEEP_PERMIT_TTL_MS).toISOString();
+  const payloadData = {
+    prim: 'Pair',
+    args: [
+      { string: contractAddress },
+      {
+        prim: 'Pair',
+        args: [
+          { string: owner },
+          {
+            prim: 'Pair',
+            args: [
+              { bytes: contentHashBytes },
+              { string: permitDeadline },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  const packed = packDataBytes(payloadData, KEEP_PERMIT_PAYLOAD_TYPE).bytes;
+  const signature = await signer.sign(packed);
+
+  return {
+    permit_deadline: permitDeadline,
+    keep_permit: signature.prefixSig,
+  };
+}
+
 async function mintToken(piece, options = {}) {
   const { network = 'mainnet', generateThumbnail: shouldGenerateThumbnail = false, recipient = null, skipConfirm = false } = options;
   
@@ -1068,7 +1142,7 @@ async function mintToken(piece, options = {}) {
   // Description is ONLY the KidLisp source code (clean and simple)
   const description = sourceCode || `A KidLisp piece preserved on Tezos`;
   
-  // v6/v7 metadata policy: single canonical tag only
+  // v8 metadata policy: single canonical tag only
   const tags = ['KidLisp'];
   
   // Generate and upload thumbnail to IPFS if requested
@@ -1166,6 +1240,13 @@ async function mintToken(piece, options = {}) {
   console.log('\n📤 Preserving on Tezos blockchain...');
   
   try {
+    const keepPermit = await buildKeepPermit({
+      signer: tezos.signer,
+      contractAddress,
+      owner: ownerAddress,
+      contentHashBytes: onChainMetadata.content_hash,
+    });
+
     const op = await contract.methodsObject.keep({
       artifactUri: onChainMetadata.artifactUri,
       attributes: onChainMetadata.attributes,
@@ -1184,7 +1265,9 @@ async function mintToken(piece, options = {}) {
       shouldPreferSymbol: onChainMetadata.shouldPreferSymbol,
       symbol: onChainMetadata.symbol,
       tags: onChainMetadata.tags,
-      thumbnailUri: onChainMetadata.thumbnailUri
+      thumbnailUri: onChainMetadata.thumbnailUri,
+      permit_deadline: keepPermit.permit_deadline,
+      keep_permit: keepPermit.keep_permit,
     }).send();
     
     console.log(`   ⏳ Operation hash: ${op.hash}`);
@@ -1275,7 +1358,7 @@ async function updateMetadata(tokenId, piece, options = {}) {
   // Description is ONLY the KidLisp source code (clean and simple)
   const description = sourceCode || `A KidLisp piece preserved on Tezos`;
   
-  // v6/v7 metadata policy: single canonical tag only
+  // v8 metadata policy: single canonical tag only
   const tags = ['KidLisp'];
   
   // Build improved attributes
@@ -2611,7 +2694,7 @@ async function main() {
   const args = rawArgs.filter(a => !a.startsWith('--'));
   const command = args[0];
   const contractFlag = flags.find(f => f.startsWith('--contract=') || f.startsWith('--profile='));
-  const contractProfile = contractFlag ? contractFlag.split('=').slice(1).join('=').trim() : 'v7';
+  const contractProfile = contractFlag ? contractFlag.split('=').slice(1).join('=').trim() : 'v8';
   
   // Parse --wallet flag
   const walletFlag = flags.find(f => f.startsWith('--wallet='));
@@ -2892,7 +2975,7 @@ async function main() {
 Usage: node keeps.mjs <command> [options]
 
 Commands:
-  deploy [network]              Deploy contract (default profile: v7)
+  deploy [network]              Deploy contract (default profile: v8)
   sync-secrets [network]        Sync active contract/profile to Mongo secrets
   status [network]              Show contract status
   balance [network]             Check wallet balance
@@ -2924,7 +3007,7 @@ Networks:
   ghostnet                      Tezos ghostnet (testnet)
 
 Flags:
-  --contract=<profile>          Deploy profile: v7 | v6 | v5rc | v4
+  --contract=<profile>          Deploy profile: v8 | v7 | v6 | v5rc | v4
   --thumbnail                   Generate animated WebP thumbnail via Oven
                                and upload to IPFS (requires Oven service)
   --to=<address>                Recipient wallet address (default: server wallet)
@@ -2936,8 +3019,9 @@ Flags:
   --yes / --apply               Send live transactions for destructive commands
 
 Examples:
+  node keeps.mjs deploy mainnet --wallet=kidlisp --contract=v8
+  node keeps.mjs sync-secrets mainnet --contract=v8
   node keeps.mjs deploy mainnet --wallet=kidlisp --contract=v7
-  node keeps.mjs sync-secrets mainnet --contract=v7
   node keeps.mjs deploy mainnet --wallet=kidlisp --contract=v6
   node keeps.mjs deploy mainnet --wallet=staging --contract=v5rc
   node keeps.mjs deploy ghostnet --wallet=aesthetic --contract=v4
