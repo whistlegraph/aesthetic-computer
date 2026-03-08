@@ -44,8 +44,11 @@ function envInt(name, fallback) {
 
 // Keep this function under provider execution ceilings so SSE can emit terminal events.
 const KEEP_MINT_MAX_PREP_MS = envInt("KEEP_MINT_MAX_PREP_MS", dev ? 55000 : 24000);
+const KEEP_MINT_PROVIDER_CEILING_MS = envInt("KEEP_MINT_PROVIDER_CEILING_MS", dev ? 55000 : 24000);
+const KEEP_MINT_EFFECTIVE_PREP_MS = Math.min(KEEP_MINT_MAX_PREP_MS, KEEP_MINT_PROVIDER_CEILING_MS);
 const KEEP_MINT_STREAM_GUARD_MS = envInt("KEEP_MINT_STREAM_GUARD_MS", 1500);
 const KEEP_MINT_THUMBNAIL_TIMEOUT_MS = envInt("KEEP_MINT_THUMBNAIL_TIMEOUT_MS", dev ? 45000 : 22000);
+const KEEP_MINT_FORCE_FRESH_THUMBNAIL_AWAIT_MS = envInt("KEEP_MINT_FORCE_FRESH_THUMBNAIL_AWAIT_MS", dev ? 25000 : 9000);
 
 // IPFS Gateway configuration
 // When USE_GATEWAY_URLS is true, metadata will use full HTTPS URLs instead of ipfs:// URIs
@@ -367,7 +370,7 @@ export const handler = stream(async (event, context) => {
   const processStartTime = Date.now();
   const stageTimes = {};
 
-  const getRemainingPrepMs = () => KEEP_MINT_MAX_PREP_MS - (Date.now() - processStartTime);
+  const getRemainingPrepMs = () => KEEP_MINT_EFFECTIVE_PREP_MS - (Date.now() - processStartTime);
   const getStageBudgetMs = (maxMs) => {
     const remaining = getRemainingPrepMs() - KEEP_MINT_STREAM_GUARD_MS;
     if (remaining <= 0) return 0;
@@ -1091,7 +1094,10 @@ export const handler = stream(async (event, context) => {
       // STAGE 6: AWAIT THUMBNAIL (skip if cached)
       // ═══════════════════════════════════════════════════════════════════
       if (!useCachedMedia) {
-        const thumbnailAwaitBudgetMs = getStageBudgetMs(THUMBNAIL_TIMEOUT_MS);
+        let thumbnailAwaitBudgetMs = getStageBudgetMs(THUMBNAIL_TIMEOUT_MS);
+        if (forceFreshMedia) {
+          thumbnailAwaitBudgetMs = Math.min(thumbnailAwaitBudgetMs, KEEP_MINT_FORCE_FRESH_THUMBNAIL_AWAIT_MS);
+        }
         const preexistingThumbnailUri = piece?.ipfsMedia?.thumbnailUri || mintStatus?.thumbnailUri || null;
         if (thumbnailAwaitBudgetMs < 2500) {
           if (forceFreshMedia && preexistingThumbnailUri) {
@@ -1105,7 +1111,10 @@ export const handler = stream(async (event, context) => {
             throw new Error("Preparation time budget exhausted while waiting for thumbnail");
           }
         } else {
-        await send("progress", { stage: "thumbnail", message: `Awaiting ${thumbW}x${thumbH}@2x WebP...` });
+        await send("progress", {
+          stage: "thumbnail",
+          message: `Awaiting ${thumbW}x${thumbH}@2x WebP... (${Math.round(thumbnailAwaitBudgetMs / 1000)}s budget)`
+        });
 
         // Send heartbeat messages to keep the SSE connection alive while
         // the oven generates the thumbnail.
