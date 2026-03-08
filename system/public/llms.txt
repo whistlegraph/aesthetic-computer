@@ -64,6 +64,7 @@ To use Aesthetic Computer via a browser:
 - [7](https://aesthetic.computer/7) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/7.mjs)): 7.mjs - The number 7
 - [8](https://aesthetic.computer/8) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/8.mjs)): 8.mjs - The number 8
 - [9](https://aesthetic.computer/9) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/9.mjs)): 9.mjs - The number 9
+- [_test-hook](https://aesthetic.computer/_test-hook) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/_test-hook.mjs)): _test-hook, 2026.3.02
 - [a-star](https://aesthetic.computer/a-star) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/a-star.mjs)): A* Pathfinding Algorithm Demonstration, 2025.7.12
 - [a](https://aesthetic.computer/a) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/a.mjs)): a.mjs - The letter A
 - [ableton](https://aesthetic.computer/ableton) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/ableton.mjs)): Ableton - AC Max for Live Plugin Manager, 2026.02.12
@@ -77,6 +78,7 @@ To use Aesthetic Computer via a browser:
 - [angel](https://aesthetic.computer/angel) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/angel.mjs)): Angel, 
 - [ant](https://aesthetic.computer/ant) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/ant.mjs)): Ant, 2026.2.10
 - [api](https://aesthetic.computer/api) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/api.mjs)): TODO: How to best publish the API for myself?
+- [audio](https://aesthetic.computer/audio) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/audio.mjs)): Audio, 2025.2.21
 - [autopat](https://aesthetic.computer/autopat) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/autopat.mjs)): Autopat — autoplay Notepat with a simple track.
 - [b](https://aesthetic.computer/b) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/b.mjs)): b.mjs - The letter B
 - [baktok](https://aesthetic.computer/baktok) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/baktok.mjs)): BakTok, 2024.5.27.21.02.43
@@ -102,7 +104,7 @@ To use Aesthetic Computer via a browser:
 - [brick-breaker](https://aesthetic.computer/brick-breaker) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/brick-breaker.mjs)): Bb, 2023.5.31.21.48.45
 - [brother](https://aesthetic.computer/brother) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/brother.mjs)): Brother,
 - [bubble](https://aesthetic.computer/bubble) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/bubble.mjs)): 🧋 Bubble 2022.02.04.17.46 [Sage: @mxsage + Jeffrey]
-- [bundle](https://aesthetic.computer/bundle) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/bundle.mjs)): bundle, 2026.02.13
+- [butterflies](https://aesthetic.computer/butterflies) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/butterflies.mjs)): butterflies
 - [c](https://aesthetic.computer/c) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/c.mjs)): c.mjs - The letter C
 - [camera](https://aesthetic.computer/camera) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/camera.mjs)): Camera, 2022.6.19.11.16
 - [cap](https://aesthetic.computer/cap) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/cap.mjs)): Cap, 2026.01.28
@@ -129,6 +131,7 @@ To use Aesthetic Computer via a browser:
 - [decode](https://aesthetic.computer/decode) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/decode.mjs)): Decode, 23.06.14.11.29
 - [delete-erase-and-forget-me](https://aesthetic.computer/delete-erase-and-forget-me) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/delete-erase-and-forget-me.mjs)): Delete-erase-and-forget-me, 2023.12.15.13.08.49.336
 - [demo](https://aesthetic.computer/demo) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/demo.mjs)): Demo, 2023.10.15.14.55.00.575
+- [demoplay](https://aesthetic.computer/demoplay) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/demoplay.mjs)): demoplay, 2026.3.04.17.00
 - [description](https://aesthetic.computer/description) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/description.mjs)): About, 23.05.13.16.17
 - [desk](https://aesthetic.computer/desk) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/desk.mjs)): Desk, 2025.9.30
 - [desktop](https://aesthetic.computer/desktop) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/desktop.mjs)): Desktop, 2024.12.27 → 2026.01.12
@@ -171,6 +174,7 @@ To use Aesthetic Computer via a browser:
 - [gradient-test](https://aesthetic.computer/gradient-test) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/gradient-test.mjs)): Gradient Test, 2025.08.03
 - [graphics](https://aesthetic.computer/graphics) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/graphics.mjs)): Graphics, 2024.5.05.18.57.43.452
 - [h](https://aesthetic.computer/h) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/h.mjs)): h.mjs - The letter H
+- [halley](https://aesthetic.computer/halley) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/halley.mjs)): Halley, 2026.3.02
 - [handle](https://aesthetic.computer/handle) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/handle.mjs)): Handle, 2026.02.13.09.00
 - [handles](https://aesthetic.computer/handles) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/handles.mjs)): handles, 2025.2.3
 - [handprint](https://aesthetic.computer/handprint) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/handprint.mjs)): Handprint, 2023.7.06.15.18.20
@@ -189,8 +193,10 @@ To use Aesthetic Computer via a browser:
 - [insta](https://aesthetic.computer/insta) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/insta.mjs)): Insta, 2026.02.18
 - [j](https://aesthetic.computer/j) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/j.mjs)): j.mjs - The letter J
 - [k](https://aesthetic.computer/k) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/k.mjs)): k.mjs - The letter K
+- [kaos-pad-template](https://aesthetic.computer/kaos-pad-template) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/kaos-pad-template.mjs)): kaos-pad-template
 - [keep](https://aesthetic.computer/keep) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/keep.mjs)): keep, 2024.12.15
 - [kept](https://aesthetic.computer/kept) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/kept.mjs)): Kept, 2024.12.15
+- [kerncheck](https://aesthetic.computer/kerncheck) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/kerncheck.mjs)): Kerncheck, 2026.02.20
 - [keys](https://aesthetic.computer/keys) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/keys.mjs)): Keys, 2024.4.24.01.32.25.401
 - [kid](https://aesthetic.computer/kid) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/kid.mjs)): Kid,
 - [kidlisp-gb-test](https://aesthetic.computer/kidlisp-gb-test) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/kidlisp-gb-test.mjs)): kidlisp-gb-test.mjs
@@ -200,7 +206,7 @@ To use Aesthetic Computer via a browser:
 - [kpbj](https://aesthetic.computer/kpbj) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/kpbj.mjs)): kpbj, 2026.02.01
 - [l](https://aesthetic.computer/l) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/l.mjs)): l.mjs - The letter L
 - [laer-klokken](https://aesthetic.computer/laer-klokken) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/laer-klokken.mjs)): Laer-klokken, 2025.5.08.16.31.51.182
-- [lang](https://aesthetic.computer/lang) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/lang.mjs)): Lang, 2022.6.2.1.55
+- [lang](https://aesthetic.computer/lang) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/lang.mjs)): 🌍 Lang — Interface language chooser
 - [learn](https://aesthetic.computer/learn) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/learn.mjs))
 - [liar](https://aesthetic.computer/liar) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/liar.mjs)): Liar, 23.05.31.14.47
 - [line](https://aesthetic.computer/line) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/line.mjs)): Line, 25.09.30
@@ -226,6 +232,7 @@ To use Aesthetic Computer via a browser:
 - [mom](https://aesthetic.computer/mom) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/mom.mjs)): Mom,
 - [mood](https://aesthetic.computer/mood) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/mood.mjs)): Mood, 23.01.13.14.18
 - [moods](https://aesthetic.computer/moods) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/moods.mjs)): Moods, 2023.9.28.01.40.14.735
+- [morpho](https://aesthetic.computer/morpho) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/morpho.mjs)): Morpho, 2026.3.02
 - [mug](https://aesthetic.computer/mug) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/mug.mjs)): mug, 24.12.20
 - [mugs](https://aesthetic.computer/mugs) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/mugs.mjs)): mugs, 24.12.21 (Redesigned 2026.1.06)
 - [multipen](https://aesthetic.computer/multipen) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/multipen.mjs)): Multipen, 22.09.04.16.18
@@ -247,11 +254,14 @@ To use Aesthetic Computer via a browser:
 - [opinion](https://aesthetic.computer/opinion) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/opinion.mjs)): Opinion, 2026.02.17
 - [ordfish](https://aesthetic.computer/ordfish) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/ordfish.mjs)): 🐟 Ordfish, 23.05.06.13.15
 - [ordsy](https://aesthetic.computer/ordsy) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/ordsy.mjs)): Ordsy, 23.02.17.18.54
+- [os](https://aesthetic.computer/os) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/os.mjs)): os, 2025.02.24
 - [oval](https://aesthetic.computer/oval) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/oval.mjs)): Oval, 23.02.13.01.24
 - [p](https://aesthetic.computer/p) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/p.mjs)): p.mjs - The letter P
+- [pack](https://aesthetic.computer/pack) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/pack.mjs)): pack, 2026.02.13
 - [paint](https://aesthetic.computer/paint) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/paint.mjs)): Paint, 23.05.15.00.01
 - [paintball](https://aesthetic.computer/paintball) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/paintball.mjs)): Paintball, 25.06.04.01.16 
 - [painting](https://aesthetic.computer/painting) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/painting.mjs)): Painting, 2023.8.17.18.58.39
+- [paintings](https://aesthetic.computer/paintings) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/paintings.mjs)): Paintings, 2026.02.27.12.25.00
 - [paste](https://aesthetic.computer/paste) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/paste.mjs)): Paste, 23.05.07.13.38
 - [pedal](https://aesthetic.computer/pedal) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/pedal.mjs)): Pedal, 2026.2.05
 - [perf](https://aesthetic.computer/perf) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/perf.mjs)): Perf, 2022.01.27.02.16
@@ -262,7 +272,7 @@ To use Aesthetic Computer via a browser:
 - [plot](https://aesthetic.computer/plot) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/plot.mjs)): Plot, 2021.12.05.13.27
 - [pond](https://aesthetic.computer/pond) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/pond.mjs)): Pond, 2023.9.30.18.17.59.613
 - [pressure](https://aesthetic.computer/pressure) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/pressure.mjs)): Pressure, 2025.3.22.05.21.57.973
-- [profile](https://aesthetic.computer/profile) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/profile.mjs)): Profile, 2023.6.04.16.58.31
+- [profile](https://aesthetic.computer/profile) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/profile.mjs)): Profile, 2026.02.27.12.40.00
 - [prompt](https://aesthetic.computer/prompt) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/prompt.mjs)): Prompt, 2023.5.26.21.38.35
 - [prutti](https://aesthetic.computer/prutti) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/prutti.mjs)): Prutti, 2023.11.09.16.36.06.537
 - [ptt](https://aesthetic.computer/ptt) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/ptt.mjs)): PTT, 2023.12.17.16.19.47.977
@@ -325,6 +335,7 @@ To use Aesthetic Computer via a browser:
 - [tapes](https://aesthetic.computer/tapes) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/tapes.mjs)): tapes, 2026.2.1
 - [test](https://aesthetic.computer/test) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/test.mjs)): ap (Autopilot), 22.10.13.01.27
 - [textfence](https://aesthetic.computer/textfence) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/textfence.mjs)): Textfence, 2023.8.09.14.21.22
+- [theme](https://aesthetic.computer/theme) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/theme.mjs)): 🎨 Theme — Prompt theme chooser
 - [throb](https://aesthetic.computer/throb) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/throb.mjs)): Miles, 2024.2.20.14.18.14.523
 - [tobby](https://aesthetic.computer/tobby) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/tobby.mjs)): Tobby, 2025.5.16.01.20.14.002
 - [token](https://aesthetic.computer/token) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/token.mjs)): Token, 2026.02.12.08.38
@@ -399,4 +410,4 @@ To use Aesthetic Computer via a browser:
 
 - [API Documentation](https://aesthetic.computer/api-docs): Internal API reference
 
-_Generated 2026-02-19T20:20:39Z — 344 pieces (326 JavaScript, 18 KidLisp)_
+_Generated 2026-03-08T16:33:29Z — 355 pieces (337 JavaScript, 18 KidLisp)_

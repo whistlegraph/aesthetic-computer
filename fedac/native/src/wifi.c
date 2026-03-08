@@ -448,12 +448,20 @@ void wifi_connect(ACWifi *wifi, const char *ssid, const char *password) {
     mkdir("/var/run", 0755);
     mkdir("/var/run/wpa_supplicant", 0755);
 
-    // Start wpa_supplicant
+    // Start wpa_supplicant (try /bin/ symlink first, then common distro paths)
     pid_t pid = fork();
     if (pid == 0) {
-        execl("/usr/sbin/wpa_supplicant", "wpa_supplicant",
-              "-i", wifi->iface, "-c", "/tmp/wpa.conf",
-              "-B", "-P", "/tmp/wpa.pid", NULL);
+        const char *wpa_paths[] = {
+            "/bin/wpa_supplicant", "/usr/bin/wpa_supplicant",
+            "/usr/sbin/wpa_supplicant", "/sbin/wpa_supplicant", NULL
+        };
+        for (int i = 0; wpa_paths[i]; i++) {
+            if (file_exists(wpa_paths[i])) {
+                execl(wpa_paths[i], "wpa_supplicant",
+                      "-i", wifi->iface, "-c", "/tmp/wpa.conf",
+                      "-B", "-P", "/tmp/wpa.pid", NULL);
+            }
+        }
         _exit(1);
     }
     wifi->wpa_pid = pid;
@@ -487,12 +495,25 @@ int wifi_connect_poll(ACWifi *wifi) {
                 // Redirect stderr to log file for debugging
                 int fd = open("/tmp/dhclient.log", O_WRONLY|O_CREAT|O_TRUNC, 0644);
                 if (fd >= 0) { dup2(fd, 2); close(fd); }
-                execl("/usr/sbin/dhclient", "dhclient",
-                      "-v",   // verbose stderr
-                      "-sf", "/sbin/dhclient-script",
-                      "-pf", "/tmp/dhclient.pid",
-                      "-lf", "/tmp/dhclient.leases",
-                      wifi->iface, NULL);
+                const char *dhc_paths[] = {
+                    "/bin/dhclient", "/usr/bin/dhclient",
+                    "/usr/sbin/dhclient", "/sbin/dhclient", NULL
+                };
+                const char *dhc_script[] = {
+                    "/sbin/dhclient-script", "/bin/dhclient-script", NULL
+                };
+                const char *script = "/sbin/dhclient-script";
+                for (int i = 0; dhc_script[i]; i++)
+                    if (file_exists(dhc_script[i])) { script = dhc_script[i]; break; }
+                for (int i = 0; dhc_paths[i]; i++) {
+                    if (file_exists(dhc_paths[i])) {
+                        execl(dhc_paths[i], "dhclient",
+                              "-v", "-sf", script,
+                              "-pf", "/tmp/dhclient.pid",
+                              "-lf", "/tmp/dhclient.leases",
+                              wifi->iface, NULL);
+                    }
+                }
                 _exit(1);
             }
             wifi->dhcp_pid = pid;
@@ -513,6 +534,19 @@ int wifi_connect_poll(ACWifi *wifi) {
                     snprintf(wifi->status_msg, sizeof(wifi->status_msg),
                              "%s", wifi->ip_address);
                     ac_log("[wifi] Connected! IP: %s", wifi->ip_address);
+                    // Ensure resolv.conf has public DNS fallbacks — dhclient-script
+                    // may not write it if the DHCP server omits DNS (e.g. iPhone hotspot)
+                    {
+                        mkdir("/etc", 0755);
+                        FILE *rf = fopen("/etc/resolv.conf", "a");
+                        if (rf) {
+                            fseek(rf, 0, SEEK_END);
+                            if (ftell(rf) == 0)
+                                fprintf(rf, "nameserver 8.8.8.8\nnameserver 1.1.1.1\n");
+                            fclose(rf);
+                            ac_log("[wifi] resolv.conf ready");
+                        }
+                    }
                     pclose(fp);
                     return 1;
                 }

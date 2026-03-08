@@ -24,7 +24,7 @@ let echoDragging = false;
 let pitchShift = 0; // -1 to +1, 0 = no shift
 
 // Trackpad FX control (\ toggles on/off)
-let trackpadFX = true;
+let trackpadFX = false;
 
 // Dark mode: auto based on LA time (7pm-7am)
 // UEFI clock is UTC; LA is UTC-7 (PDT) or UTC-8 (PST)
@@ -81,14 +81,18 @@ let shiftHeld = false;
 
 // AC chat: latest message fetched after WiFi connects
 let acMsg = null;            // { from, text } once loaded
-let acMsgFetched = false;    // true once fetch triggered
 let wifiWasConnected = false;
 
 // Auto-connect: try "aesthetic.computer" hotspot when not connected
 const AC_SSID = "aesthetic.computer";
 const AC_PASS = "aesthetic.computer";
+// Fallback networks to try if AC hotspot isn't available (cycled in order)
+const FALLBACK_WIFI = [
+  { ssid: "ATT2AWTpcr", pass: "t84q%7%g2h8u" },
+];
 let autoConnectFrame = 0;    // counts frames; try every ~5s (300 frames)
 let autoConnectBlink = 0;    // blink counter for antenna icon while polling
+let autoConnectTry = 0;      // increments each attempt; beep on 1st/2nd/3rd
 
 // Saved WiFi credentials — persisted to /mnt/wifi_creds.json (USB EFI partition)
 const CREDS_PATH = "/mnt/wifi_creds.json";
@@ -102,6 +106,8 @@ const SHIFT_MAP = {
 let wifiCursorBlink = 0;       // cursor blink counter
 // Touch-note state (for clickable grid buttons)
 let touchNotes = {};  // pointer id -> { key, note, octave }
+// Hover / cursor position (updated from touch + draw events)
+let hoverX = -1, hoverY = -1;
 
 // Chromatic note order per octave
 const CHROMATIC = ["c","c#","d","d#","e","f","f#","g","g#","a","a#","b"];
@@ -271,6 +277,7 @@ function act({ event: e, sound, wifi }) {
         duration: 0.06, volume: 0.2,
         attack: 0.002, decay: 0.05, pan: 0,
       });
+      sound?.speak(trackpadFX ? "fx on" : "fx off");
       return;
     }
     if (key === "-") {
@@ -324,6 +331,7 @@ function act({ event: e, sound, wifi }) {
     const w = globalThis.__screenW || 320;
     const h = globalThis.__screenH || 200;
     const pid = e.pointer?.id ?? 0;
+    hoverX = x; hoverY = y;
 
     // "os" button: top bar, after "notepat.com" (~x 42-54)
     if (y < 16 && x >= 42 && x <= 58) {
@@ -405,9 +413,37 @@ function act({ event: e, sound, wifi }) {
     const y = e.pointer?.y ?? e.y ?? 0;
     const x = e.pointer?.x ?? e.x ?? 0;
     const w = globalThis.__screenW || 320;
+    const pid = e.pointer?.id ?? 0;
+    hoverX = x; hoverY = y;
     if (echoDragging) {
       echoMix = Math.max(0, Math.min(1, x / w));
       sound?.room?.setMix?.(echoMix);
+    }
+    // Grid rollover: dragging across note buttons triggers the new one
+    const gridInfo = globalThis.__gridInfo;
+    if (gridInfo && touchNotes[pid] !== undefined) {
+      const hitNote = hitTestGrid(x, y, gridInfo);
+      if (hitNote && hitNote.key && hitNote.key !== touchNotes[pid]?.key) {
+        // Release current note
+        const oldKey = touchNotes[pid].key;
+        if (sounds[oldKey]) {
+          sound.kill(sounds[oldKey].synth || sounds[oldKey], 0.02);
+          delete sounds[oldKey];
+        }
+        // Trigger new note
+        if (!sounds[hitNote.key]) {
+          const freq = noteToFreq(hitNote.letter, hitNote.octave);
+          const semitones = (hitNote.octave - 4) * 12 + CHROMATIC.indexOf(hitNote.letter);
+          const pan = Math.max(-0.8, Math.min(0.8, (semitones - 12) / 15));
+          const synth = sound.synth({
+            type: wave, tone: freq * Math.pow(2, pitchShift),
+            duration: Infinity, volume: 0.5, attack: 0.005, decay: 0.1, pan,
+          });
+          sounds[hitNote.key] = { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq };
+          trail[hitNote.key] = { note: hitNote.letter, octave: hitNote.octave, brightness: 1.0 };
+          touchNotes[pid] = { key: hitNote.key };
+        }
+      }
     }
   }
   if (e.is("lift")) {
@@ -555,7 +591,11 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   write(".com", { x: dotComX, y: barY, size: 1, font: "matrix" });
   // "os" button — clickable, shows download URL
   const osX = dotComX + 4 * 4 + 6;
-  ink(dark ? 80 : 140, dark ? 160 : 100, dark ? 80 : 140);
+  const osHovered = hoverX >= osX - 2 && hoverX <= osX + 14 && hoverY < topBarH;
+  if (osHovered) { ink(255, 255, 255, 30); box(osX - 2, 0, 18, topBarH, true); }
+  ink(dark ? (osHovered ? 120 : 80) : (osHovered ? 200 : 140),
+      dark ? (osHovered ? 210 : 160) : (osHovered ? 150 : 100),
+      dark ? (osHovered ? 120 : 80) : (osHovered ? 200 : 140));
   write("os", { x: osX, y: barY, size: 1, font: "matrix" });
   const statusStr = activeCount > 0
     ? activeCount + " note" + (activeCount > 1 ? "s" : "")
@@ -580,6 +620,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   if (wifi?.connected && !wifiWasConnected) {
     sound?.synth({ type: "sine", tone: 880, duration: 0.08, volume: 0.3, attack: 0.01, decay: 0.06 });
     sound?.speak("connected");
+    autoConnectTry = 0;  // reset so future disconnects beep again
     system.ws?.connect("wss://chat-system.aesthetic.computer/");
     // Persist credentials to USB EFI partition
     if (system?.writeFile && savedCreds.length > 0) {
@@ -613,11 +654,17 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   const notConnecting = wifi && !wifi.connected &&
     wifi.state !== 3 /* CONNECTING */ && wifi.state !== 4 /* CONNECTED */;
   if (notConnecting && autoConnectFrame % 300 === 0) {
-    // Build candidate list: AC hotspot first, then any other saved creds
+    // Build candidate list: AC hotspot first, then fallbacks, then user-saved creds
     const acCred = { ssid: AC_SSID, pass: AC_PASS };
-    const others = savedCreds.filter((c) => c.ssid !== AC_SSID);
-    const candidates = [acCred, ...others];
+    const others = savedCreds.filter((c) => c.ssid !== AC_SSID && !FALLBACK_WIFI.find((f) => f.ssid === c.ssid));
+    const candidates = [acCred, ...FALLBACK_WIFI, ...others];
     const cred = candidates[Math.floor(autoConnectFrame / 300) % candidates.length];
+    autoConnectTry++;
+    // Soft beep on 1st, 2nd, 3rd attempt so the user knows it's trying
+    if (autoConnectTry <= 3) {
+      sound?.synth({ type: "sine", tone: 440 + (autoConnectTry - 1) * 110,
+                     duration: 0.06, volume: 0.15, attack: 0.01, decay: 0.05 });
+    }
     wifi.connect(cred.ssid, cred.pass);
   }
 
@@ -630,9 +677,11 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     const wifiConnected = wifi?.connected;
     const wifiState = wifi?.state ?? 0;
     const autoPollBlink = autoConnectBlink < 30; // on half the time
+    const wifiHovered = hoverX > w - 22 && hoverY < topBarH;
+    if (wifiHovered) { ink(255, 255, 255, 30); box(w - 22, 0, 22, topBarH, true); }
     // Draw antenna icon with appropriate color
     if (wifiConnected) {
-      ink(80, 200, 80); // solid green when connected
+      ink(wifiHovered ? 120 : 80, 200, wifiHovered ? 120 : 80); // solid green when connected
     } else if (wifiState === 3 /* CONNECTING */) {
       ink(200, 200, 80); // yellow while connecting
     } else if (wifiState === 1 || wifiState === 2 /* SCANNING */) {
@@ -776,6 +825,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
 
         const x = startX + c * (btnW + gap);
         const y = gridTop + r * (btnH + gap);
+        const isHovered = hoverX >= x && hoverX < x + btnW && hoverY >= y && hoverY < y + btnH;
 
         if (isActive) {
           ink(nc[0], nc[1], nc[2]);
@@ -816,6 +866,10 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
                 Math.floor(255 - (255 - nc[2]) * 0.45));
           }
           box(x, y, btnW, btnH, "outline");
+          if (isHovered) {
+            ink(255, 255, 255, 30);
+            box(x, y, btnW, btnH, true);
+          }
           const fg = dark ? (sharp ? 120 : 190) : (sharp ? 100 : 50);
           ink(fg, fg, fg);
         }
@@ -878,7 +932,10 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   {
     const sliderY = settingsY + 11;
     const sliderH = 12;
-    ink(dark ? 25 : 235, dark ? 25 : 235, dark ? 28 : 238);
+    const echoHovered = hoverY >= sliderY && hoverY < sliderY + sliderH;
+    ink(dark ? (echoHovered ? 40 : 25) : (echoHovered ? 220 : 235),
+        dark ? (echoHovered ? 40 : 25) : (echoHovered ? 220 : 235),
+        dark ? (echoHovered ? 45 : 28) : (echoHovered ? 225 : 238));
     box(0, sliderY, w, sliderH, true);
     const fillW = Math.floor(echoMix * w);
     if (fillW > 0) {
@@ -904,7 +961,10 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   {
     const sliderY = settingsY + 23;
     const sliderH = 12;
-    ink(dark ? 25 : 235, dark ? 25 : 235, dark ? 28 : 238);
+    const pitchHovered = hoverY >= sliderY && hoverY < sliderY + sliderH;
+    ink(dark ? (pitchHovered ? 40 : 25) : (pitchHovered ? 220 : 235),
+        dark ? (pitchHovered ? 40 : 25) : (pitchHovered ? 220 : 235),
+        dark ? (pitchHovered ? 45 : 28) : (pitchHovered ? 225 : 238));
     box(0, sliderY, w, sliderH, true);
     // Center line (pitch = 0)
     const centerX = Math.floor(w / 2);
@@ -1037,9 +1097,12 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         ink(FG_DIM, FG_DIM, FG_DIM);
         const preview = (acMsg.from + ": " + acMsg.text).slice(0, 52);
         write(preview, { x: 20, y: h - 16, size: 1, font: "font_1" });
-      } else if (acMsgFetched) {
+      } else if (system.ws?.connecting) {
         ink(FG_MUTED, FG_MUTED, FG_MUTED);
-        write("loading...", { x: 20, y: h - 16, size: 1, font: "font_1" });
+        write("connecting to chat...", { x: 20, y: h - 16, size: 1, font: "font_1" });
+      } else if (system.ws?.connected) {
+        ink(FG_MUTED, FG_MUTED, FG_MUTED);
+        write("loading chat...", { x: 20, y: h - 16, size: 1, font: "font_1" });
       }
     }
 
@@ -1051,6 +1114,13 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     if (frame % 300 === 0 && wifiPanelOpen) {
       wifi.scan();
     }
+  }
+
+  // Passive chat message (main screen, bottom center — hidden by WiFi overlays)
+  if (!wifiPanelOpen && !wifiPasswordMode && acMsg && wifi?.connected) {
+    ink(FG_DIM, FG_DIM, FG_DIM, 180);
+    const preview = (acMsg.from + ": " + acMsg.text).slice(0, 52);
+    write(preview, { x: 4, y: h - 10, size: 1, font: "font_1" });
   }
 
   // Last key pressed indicator (bottom corner, fading)
