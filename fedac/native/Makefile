@@ -12,10 +12,15 @@ BUILD_TS := $(shell date -u '+%Y-%m-%dT%H:%M')
 CFLAGS   := -O2 -Wall -Wextra -std=gnu11 -I$(QJSDIR) -DAC_GIT_HASH=\"$(GIT_HASH)\" -DAC_BUILD_TS=\"$(BUILD_TS)\"
 LDFLAGS  := -lm -lpthread -lasound
 
-# For static build (production/initramfs):
-#   make STATIC=1 CC=musl-gcc
+# Static build: only when musl-gcc is available (musl has bundled static libc)
+# On Fedora/standard gcc, dynamic linking is used and .so files are bundled in initramfs
 ifdef STATIC
-  LDFLAGS += -static
+  ifeq ($(shell command -v musl-gcc 2>/dev/null),)
+    # musl-gcc not available — skip -static (dynamic linking, bundle .so in initramfs)
+    STATIC :=
+  else
+    LDFLAGS += -static
+  endif
 endif
 
 # DRM headers — use pkg-config if available
