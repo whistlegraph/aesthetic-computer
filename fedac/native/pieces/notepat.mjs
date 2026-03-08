@@ -493,7 +493,8 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   ink(FG, FG, FG, 200);
   write("notepat", { x: 2, y: barY, size: 1, font: "matrix" });
   ink(dark ? 200 : 180, dark ? 100 : 60, dark ? 140 : 120);
-  write(".com", { x: 2 + 7 * 4, y: barY, size: 1, font: "matrix" });
+  const dotComX = 2 + 7 * 4; // x position of ".com" (7 matrix chars * ~4px each)
+  write(".com", { x: dotComX, y: barY, size: 1, font: "matrix" });
   const statusStr = activeCount > 0
     ? activeCount + " note" + (activeCount > 1 ? "s" : "")
     : "";
