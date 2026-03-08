@@ -837,6 +837,7 @@ export const handler = stream(async (event, context) => {
       // STAGE 2: START THUMBNAIL IN PARALLEL (skip if cached)
       // ═══════════════════════════════════════════════════════════════════
       let thumbnailPromise = null;
+      const forceFreshMedia = Boolean(regenerate);
 
       // Fixed 256x256 thumbnail for consistent display across platforms
       const thumbW = 256;
@@ -874,9 +875,13 @@ export const handler = stream(async (event, context) => {
               fps: 10,
               playbackFps: 20,
               quality: 70,
-              // Source-aware cache key lets oven reuse only when source + constraints match.
-              cacheKey: `src-${pieceSourceHash}`,
-              skipCache: false,
+              source: "keep",
+              keepId: isRebake ? mintStatus.tokenId : null,
+              // Rebake requests must bypass stale oven caches.
+              cacheKey: forceFreshMedia
+                ? `rebake-${pieceSourceHash}-${Date.now()}`
+                : `src-${pieceSourceHash}`,
+              skipCache: forceFreshMedia,
               pinataKey: pinataCredentials.apiKey,
               pinataSecret: pinataCredentials.apiSecret,
             }),
@@ -954,9 +959,12 @@ export const handler = stream(async (event, context) => {
         logStage('bundle', 'Generating HTML bundle');
         await send("progress", { stage: "bundle", message: "Packing HTML bundle..." });
         
-        const bundleUrl = dev
+        let bundleUrl = dev
           ? `https://localhost:8888/api/bundle-html?code=${pieceName}&format=json&noboxart=1`
           : `https://oven.aesthetic.computer/bundle-html?code=${pieceName}&format=json&noboxart=1`;
+        if (forceFreshMedia) {
+          bundleUrl += `&rebake=1&nocache=1&sourceHash=${encodeURIComponent(pieceSourceHash)}&ts=${Date.now()}`;
+        }
         
         // Add timeout to prevent function from hanging if bundle-html is slow
         // Bundle generation can take 15-30s on cold starts due to SWC minification.
@@ -974,7 +982,11 @@ export const handler = stream(async (event, context) => {
 
         let bundleResponse;
         try {
-          bundleResponse = await fetch(bundleUrl, { signal: bundleController.signal });
+          bundleResponse = await fetch(bundleUrl, {
+            signal: bundleController.signal,
+            cache: "no-store",
+            headers: forceFreshMedia ? { "Cache-Control": "no-cache" } : undefined,
+          });
         } catch (fetchErr) {
           clearTimeout(bundleTimeout);
           const elapsed = ((Date.now() - bundleStartTime) / 1000).toFixed(1);

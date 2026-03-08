@@ -10,12 +10,14 @@
 
 import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
 import {
-  KEEPS_STAGING, DEFAULT_NETWORK, getNetwork, getContract,
-  getTzktApi, getObjktUrl, getTzktContractUrl,
+  DEFAULT_NETWORK, getNetwork, getContract,
+  getTzktApi, getObjktUrl,
 } from "../lib/keeps/constants.mjs";
 
-const KEEPS_NETWORK = DEFAULT_NETWORK;
-const KEEPS_CONTRACT = getContract(KEEPS_NETWORK);
+let activeKeepsNetwork = DEFAULT_NETWORK;
+let activeKeepsContract = getContract(activeKeepsNetwork);
+let activeKeepsProfile = "v6";
+let activeKeepsObjktBase = getNetwork(activeKeepsNetwork).objkt;
 
 // State
 let walletState = null;
@@ -129,6 +131,49 @@ const TEZ_Y_ADJUST = -2;
 const SECTION_PAD = 6;
 const SECTION_MARGIN = 8;
 const SECTION_GAP = 8;
+
+function getActiveKeepsNetwork(preferred = null) {
+  if (preferred === "mainnet" || preferred === "ghostnet") return preferred;
+  if (activeKeepsNetwork === "mainnet" || activeKeepsNetwork === "ghostnet") return activeKeepsNetwork;
+  return DEFAULT_NETWORK;
+}
+
+function getActiveKeepsContract() {
+  return activeKeepsContract || getContract(getActiveKeepsNetwork());
+}
+
+function getActiveObjktBase(network = null) {
+  const keepsNetwork = getActiveKeepsNetwork(network);
+  return activeKeepsObjktBase || getNetwork(keepsNetwork).objkt;
+}
+
+async function loadKeepsRuntimeConfig() {
+  try {
+    const res = await fetch("/api/keeps-config");
+    if (!res.ok) return;
+    const cfg = await res.json();
+
+    const keepsNetwork = cfg?.network === "ghostnet" ? "ghostnet" : "mainnet";
+    const contractAddress = typeof cfg?.contractAddress === "string" ? cfg.contractAddress.trim() : "";
+
+    activeKeepsNetwork = keepsNetwork;
+    if (/^KT1[1-9A-HJ-NP-Za-km-z]{33}$/.test(contractAddress)) {
+      activeKeepsContract = contractAddress;
+    }
+
+    if (typeof cfg?.profile === "string" && cfg.profile.trim()) {
+      activeKeepsProfile = cfg.profile.trim().toLowerCase();
+    }
+
+    if (typeof cfg?.objktBase === "string" && cfg.objktBase.trim()) {
+      activeKeepsObjktBase = cfg.objktBase.trim().replace(/\/+$/, "");
+    } else {
+      activeKeepsObjktBase = getNetwork(keepsNetwork).objkt;
+    }
+  } catch (e) {
+    // Keep static fallback when runtime config is unavailable.
+  }
+}
 
 // Relative time helper (e.g., "2h ago", "3d ago")
 function relativeTime(date) {
@@ -395,6 +440,8 @@ async function boot({ wallet, wipe, hud, ui, screen, user, handle, net }) {
   wallet.sync();
   walletState = wallet.get();
 
+  await loadKeepsRuntimeConfig();
+
   // Log wallet state on entering wallet piece
   if (walletState?.connected) {
     const addr = walletState.address;
@@ -402,13 +449,21 @@ async function boot({ wallet, wipe, hud, ui, screen, user, handle, net }) {
     const domain = walletState.domain;
     const displayName = domain || shortAddr;
     const bal = walletState.balance != null ? `ꜩ${walletState.balance.toFixed(2)}` : "";
-    const net = KEEPS_STAGING ? "staging" : (walletState.network || KEEPS_NETWORK);
-    console.log(`💼 ${displayName} ${bal} [${net}]`);
+    const keepsNetwork = getActiveKeepsNetwork(walletState.network);
+    const profile = (activeKeepsProfile || "v6").toUpperCase();
+    console.log(`💼 ${displayName} ${bal} [${keepsNetwork}/${profile}]`);
   }
 
   // Get logged-in user sub and handle
   userSub = user?.sub || null;
   userHandle = typeof handle === "function" ? handle() : user?.handle || null;
+
+  if (walletState?.connected && walletState.address) {
+    fetchOwnedKeeps(walletState.address, walletState.network);
+  }
+  if (userSub) {
+    fetchUserKidlisps(userSub);
+  }
 
   connectError = null;
   connecting = false;
@@ -536,15 +591,17 @@ async function fetchOwnedKeeps(address, network = "mainnet") {
   if (!address) return;
 
   try {
-    const apiBase = getTzktApi(network);
+    const keepsNetwork = getActiveKeepsNetwork(network);
+    const contractAddress = getActiveKeepsContract();
+    const apiBase = getTzktApi(keepsNetwork);
     // Query tokens owned by this address on the Keeps contract (include balance=0 for burned)
-    const res = await fetch(`${apiBase}/v1/tokens/balances?account=${address}&token.contract=${KEEPS_CONTRACT}`);
+    const res = await fetch(`${apiBase}/v1/tokens/balances?account=${address}&token.contract=${contractAddress}`);
     if (res.ok) {
       const data = await res.json();
       // Silently loaded keeps tokens
 
       // Also fetch all tokens on the contract to get mint dates
-      const tokensRes = await fetch(`${apiBase}/v1/tokens?contract=${KEEPS_CONTRACT}&limit=100`);
+      const tokensRes = await fetch(`${apiBase}/v1/tokens?contract=${contractAddress}&limit=100`);
       const allTokens = tokensRes.ok ? await tokensRes.json() : [];
       const tokenMintDates = {};
       for (const t of allTokens) {
@@ -552,7 +609,7 @@ async function fetchOwnedKeeps(address, network = "mainnet") {
       }
 
       // Fetch burn transactions for this address on this contract
-      const burnRes = await fetch(`${apiBase}/v1/tokens/transfers?from=${address}&token.contract=${KEEPS_CONTRACT}&limit=100`);
+      const burnRes = await fetch(`${apiBase}/v1/tokens/transfers?from=${address}&token.contract=${contractAddress}&limit=100`);
       const burnTransfers = burnRes.ok ? await burnRes.json() : [];
       const burnInfo = {}; // tokenId -> { burnedBy, burnedAt }
       for (const tx of burnTransfers) {
@@ -584,8 +641,8 @@ async function fetchOwnedKeeps(address, network = "mainnet") {
           burnedAt: burned ? burn.burnedAt : null,
           mintedAt: mintedAt ? new Date(mintedAt) : null,
           lastActivity: burned ? burn.burnedAt : (mintedAt ? new Date(mintedAt) : null),
-          contract: KEEPS_CONTRACT,
-          objktUrl: getObjktUrl(tokenId, network),
+          contract: contractAddress,
+          objktUrl: getObjktUrl(tokenId, keepsNetwork, contractAddress),
           thumbnailUri: meta.thumbnailUri || meta.displayUri || meta.artifactUri || null,
           artifactUri: meta.artifactUri || null,
         };
@@ -604,6 +661,7 @@ async function fetchUserKidlisps(userSub) {
   // Loading pieces...
 
   try {
+    const contractAddress = getActiveKeepsContract();
     // Fetch recent KidLisp pieces and filter by user
     const res = await fetch(`/api/store-kidlisp?recent=true&limit=200`);
     if (res.ok) {
@@ -618,7 +676,7 @@ async function fetchUserKidlisps(userSub) {
         .slice(0, 20) // Show more pieces
         .map(p => {
           // Only mark as "kept" if it's on the current contract
-          const isOnCurrentContract = p.kept?.contractAddress === KEEPS_CONTRACT;
+          const isOnCurrentContract = p.kept?.contractAddress === contractAddress;
           return {
             code: p.code,
             source: p.source || '',
@@ -902,6 +960,9 @@ function paint($) {
       y += 16;
     } else if (userKidlisps.length > 0 || ownedKeeps.length > 0) {
       // Build unified keeps list: authored keeps + collected (owned but not authored)
+      const keepsNetwork = getActiveKeepsNetwork(walletState?.network);
+      const keepsContract = getActiveKeepsContract();
+      const keepsObjktBase = getActiveObjktBase(keepsNetwork);
       const isKeptByUser = p =>
         p.kept &&
         (p.kept.keptBy === userSub ||
@@ -925,7 +986,7 @@ function paint($) {
           mintedAt: owned?.mintedAt || (p.kept?.mintedAt ? new Date(p.kept.mintedAt) : null),
           lastActivity: owned?.lastActivity || owned?.mintedAt || (p.kept?.mintedAt ? new Date(p.kept.mintedAt) : null),
           balance: owned?.balance || 0,
-          objktUrl: owned?.objktUrl || (tid ? getObjktUrl(tid, KEEPS_NETWORK) : `${getNetwork(KEEPS_NETWORK).objkt}/collection/${KEEPS_CONTRACT}`),
+          objktUrl: owned?.objktUrl || (tid ? getObjktUrl(tid, keepsNetwork, keepsContract) : `${keepsObjktBase}/collection/${keepsContract}`),
           authored: true,
           source: p.source || '',
           hits: p.hits || 0,
@@ -985,21 +1046,19 @@ function paint($) {
         const headerY = y + innerPad;
 
         // Header
-        ink(...colors.positive).write(KEEPS_STAGING ? "YOUR KIDLISP KEEPS on" : "YOUR KIDLISP KEEPS", { x: innerX, y: headerY });
+        ink(...colors.positive).write("YOUR KIDLISP KEEPS on", { x: innerX, y: headerY });
 
-        // Staging button
-        if (KEEPS_STAGING) {
-          const stagingX = innerX + 132; // After "YOUR KIDLISP KEEPS on "
-          if (!stagingLinkBtn) {
-            stagingLinkBtn = new ui.TextButtonSmall("STAGING V5 RC", { x: stagingX, y: headerY - 1 });
-          } else {
-            stagingLinkBtn.reposition({ x: stagingX, y: headerY - 1 });
-          }
-          stagingLinkBtn.paint({ ink, box, write },
-            [[80, 60, 0], [140, 100, 0], [255, 200, 100], [80, 60, 0]],
-            [[100, 80, 0], [180, 140, 0], [255, 255, 200], [100, 80, 0]]
-          );
+        const contractTag = `${(activeKeepsProfile || "v6").toUpperCase()} ${keepsNetwork.toUpperCase()}`;
+        const stagingX = innerX + 132;
+        if (!stagingLinkBtn) {
+          stagingLinkBtn = new ui.TextButtonSmall(contractTag, { x: stagingX, y: headerY - 1 });
+        } else {
+          stagingLinkBtn.reposition({ x: stagingX, y: headerY - 1 }, contractTag);
         }
+        stagingLinkBtn.paint({ ink, box, write },
+          [[80, 60, 0], [140, 100, 0], [255, 200, 100], [80, 60, 0]],
+          [[100, 80, 0], [180, 140, 0], [255, 255, 200], [100, 80, 0]]
+        );
 
         const keepsStartY = headerY + headerH;
         const activeOwnedIds = new Set();
@@ -1300,7 +1359,7 @@ function act({ event: e, wallet, jump, screen, net }) {
         connecting = true;
         connectError = null;
         try {
-          await wallet.connect({ network: KEEPS_NETWORK });
+          await wallet.connect({ network: getActiveKeepsNetwork() });
         } catch (err) {
           connectError = err.message || "Connection failed";
           connecting = false;
@@ -1340,11 +1399,12 @@ function act({ event: e, wallet, jump, screen, net }) {
       });
     }
 
-    // Handle staging contract link click
-    if (KEEPS_STAGING && stagingLinkBtn) {
+    // Handle active contract collection link click
+    if (stagingLinkBtn) {
       stagingLinkBtn.btn.act(e, {
         push: () => {
-          const objktUrl = `${getNetwork(KEEPS_NETWORK).objkt}/collection/${KEEPS_CONTRACT}`;
+          const keepsNetwork = getActiveKeepsNetwork(walletState?.network);
+          const objktUrl = `${getActiveObjktBase(keepsNetwork)}/collection/${getActiveKeepsContract()}`;
           net.web(objktUrl, true);
         }
       });
@@ -1354,7 +1414,8 @@ function act({ event: e, wallet, jump, screen, net }) {
     for (const [tokenId, btn] of Object.entries(ownedKeepBtns)) {
       btn.btn.act(e, {
         push: () => {
-          net.web(getObjktUrl(tokenId, KEEPS_NETWORK), true);
+          const keepsNetwork = getActiveKeepsNetwork(walletState?.network);
+          net.web(getObjktUrl(tokenId, keepsNetwork, getActiveKeepsContract()), true);
         }
       });
     }
