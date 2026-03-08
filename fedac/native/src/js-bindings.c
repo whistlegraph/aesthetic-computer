@@ -1,4 +1,5 @@
 #include "js-bindings.h"
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1129,41 +1130,22 @@ static JSValue js_write_file(JSContext *ctx, JSValueConst this_val, int argc, JS
 
 static JSValue js_ws_connect(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
-    if (argc < 1 || !current_rt) return JS_FALSE;
+    if (argc < 1 || !current_rt) return JS_UNDEFINED;
     const char *url = JS_ToCString(ctx, argv[0]);
-    if (!url) return JS_FALSE;
-
-    // Parse wss://host/path
-    const char *host_start = url;
-    if (strncmp(url, "wss://", 6) == 0) host_start = url + 6;
-    else if (strncmp(url, "ws://", 5) == 0) host_start = url + 5;
-
-    char host[256] = {0};
-    const char *slash = strchr(host_start, '/');
-    const char *path = "/";
-    if (slash) {
-        int hlen = (int)(slash - host_start);
-        if (hlen >= (int)sizeof(host)) hlen = sizeof(host) - 1;
-        memcpy(host, host_start, hlen);
-        path = slash;
-    } else {
-        strncpy(host, host_start, sizeof(host) - 1);
-    }
-
-    if (!current_rt->ws) current_rt->ws = ws_create();
-    int rc = ws_connect(current_rt->ws, host, path);
+    if (!url) return JS_UNDEFINED;
+    ws_connect(current_rt->ws, url);  // non-blocking: signals background thread
     JS_FreeCString(ctx, url);
-    return JS_NewBool(ctx, rc == 0);
+    return JS_UNDEFINED;
 }
 
 static JSValue js_ws_send(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
-    if (argc < 1 || !current_rt || !current_rt->ws) return JS_FALSE;
+    if (argc < 1 || !current_rt || !current_rt->ws) return JS_UNDEFINED;
     const char *text = JS_ToCString(ctx, argv[0]);
-    if (!text) return JS_FALSE;
-    int rc = ws_send(current_rt->ws, text);
+    if (!text) return JS_UNDEFINED;
+    ws_send(current_rt->ws, text);
     JS_FreeCString(ctx, text);
-    return JS_NewBool(ctx, rc == 0);
+    return JS_UNDEFINED;
 }
 
 static JSValue js_ws_close(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -1178,21 +1160,32 @@ static JSValue build_ws_obj(JSContext *ctx) {
     JS_SetPropertyStr(ctx, ws_obj, "send",    JS_NewCFunction(ctx, js_ws_send,    "send",    1));
     JS_SetPropertyStr(ctx, ws_obj, "close",   JS_NewCFunction(ctx, js_ws_close,   "close",   0));
 
-    if (current_rt && current_rt->ws) {
-        ACWs *ws = current_rt->ws;
-        ws_poll(ws);
-        JS_SetPropertyStr(ctx, ws_obj, "connected", JS_NewBool(ctx, ws->connected));
+    ACWs *ws = current_rt ? current_rt->ws : NULL;
+    if (ws) {
+        // Poll drains the message queue; snapshot count and connected before unlock
+        pthread_mutex_lock(&ws->mu);
+        int count = ws->msg_count;
+        ws->msg_count = 0;
+        int connected = ws->connected;
+        int connecting = ws->connecting;
+        // Copy messages out under lock
+        char msgs[WS_MAX_MESSAGES][WS_MAX_MSG_LEN];
+        if (count > WS_MAX_MESSAGES) count = WS_MAX_MESSAGES;
+        for (int i = 0; i < count; i++)
+            memcpy(msgs[i], ws->messages[i], WS_MAX_MSG_LEN);
+        pthread_mutex_unlock(&ws->mu);
 
-        // messages array — consumed each frame
+        JS_SetPropertyStr(ctx, ws_obj, "connected",  JS_NewBool(ctx, connected));
+        JS_SetPropertyStr(ctx, ws_obj, "connecting", JS_NewBool(ctx, connecting));
+
         JSValue arr = JS_NewArray(ctx);
-        for (int i = 0; i < ws->msg_count; i++) {
-            JS_SetPropertyUint32(ctx, arr, (uint32_t)i,
-                                 JS_NewString(ctx, ws->messages[i]));
-        }
+        for (int i = 0; i < count; i++)
+            JS_SetPropertyUint32(ctx, arr, (uint32_t)i, JS_NewString(ctx, msgs[i]));
         JS_SetPropertyStr(ctx, ws_obj, "messages", arr);
     } else {
-        JS_SetPropertyStr(ctx, ws_obj, "connected", JS_FALSE);
-        JS_SetPropertyStr(ctx, ws_obj, "messages",  JS_NewArray(ctx));
+        JS_SetPropertyStr(ctx, ws_obj, "connected",  JS_FALSE);
+        JS_SetPropertyStr(ctx, ws_obj, "connecting", JS_FALSE);
+        JS_SetPropertyStr(ctx, ws_obj, "messages",   JS_NewArray(ctx));
     }
     return ws_obj;
 }
