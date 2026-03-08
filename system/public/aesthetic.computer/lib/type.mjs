@@ -280,9 +280,19 @@ class Typeface {
       }
       
       // 1. Ignore any keys with a "glyph" prefix because these are settings.
-      const glyphsToLoad = entries(this.data).filter(
-        ([g, loc]) => !g.startsWith("glyph") && typeof loc === "string" && loc !== "false" && loc.length > 0,
-      );
+      const fontMetadataKeys = new Set([
+        "glyphHeight",
+        "glyphWidth",
+        "proportional",
+        "bdfFallback",
+        "bdfFont",
+        "advances",
+        "baseline",
+      ]);
+      const glyphsToLoad = entries(this.data).filter(([g, loc]) => {
+        if (fontMetadataKeys.has(g)) return false;
+        return !g.startsWith("glyph") && typeof loc === "string" && loc !== "false" && loc.length > 0;
+      });
       
       // Filter out already-cached glyphs
       const glyphsNeedingFetch = glyphsToLoad.filter(([glyph]) => !this.glyphs[glyph]);

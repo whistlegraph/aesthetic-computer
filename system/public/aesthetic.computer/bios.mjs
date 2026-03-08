@@ -3464,7 +3464,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           speakerProcessor.connect(sfxStreamGain); // Connect to the mediaStream.
           speakerProcessor.connect(speakerGain);
         }
-        console.log("🔊 Speaker processor connected to audio graph!");
+        if (!(typeof window !== "undefined" && window.acPACK_MODE)) {
+          console.log("🔊 Speaker processor connected to audio graph!");
+        }
 
         applyMasterVolume(masterVolume);
 
