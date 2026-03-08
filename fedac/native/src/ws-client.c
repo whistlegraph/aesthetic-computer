@@ -1,7 +1,8 @@
 #include "ws-client.h"
-#include "ac-native.h"   // ac_log()
 
 #include <stdio.h>
+#include <stdarg.h>
+extern void ac_log(const char *fmt, ...);
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
