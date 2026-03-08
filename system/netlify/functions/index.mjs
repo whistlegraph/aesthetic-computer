@@ -2019,11 +2019,15 @@ async function fun(event, context) {
   const _path = event.path === "/" ? "🏠" : event.path.slice(0, 20);
   console.log(`✨ ${_path} ${meta?.title || "~"} ${_ms}ms`);
 
-  // 📊 Track piece hit (fire-and-forget, don't block response)
-  // Skip hit tracking in dev mode
+  // 📊 Track piece hit (awaited with timeout so Netlify doesn't kill it)
   if (!dev && statusCode === 200 && parsed?.text && !previewOrIcon) {
     const pieceType = parsed.path?.startsWith("@") ? "user" : "system";
-    trackPieceHit(parsed.text, pieceType).catch(() => {});
+    try {
+      await Promise.race([
+        trackPieceHit(parsed.text, pieceType),
+        new Promise((r) => setTimeout(r, 2000)),
+      ]);
+    } catch (e) { /* silent */ }
   }
 
   return {

@@ -45,7 +45,7 @@
   urlcolor=acpurple,
   citecolor=acpurple,
   pdfauthor={Jeffrey Alan Scudder},
-  pdftitle={notepat.com: Entry Point and Tendrils in Aesthetic Computer},
+  pdftitle={notepat: From Keyboard Toy to System Front Door},
 }
 
 % === SECTION FORMATTING ===
@@ -87,9 +87,9 @@
 
 \twocolumn[{%
 \begin{center}
-{\acbold\fontsize{24pt}{28pt}\selectfont\color{acdark} notepat.com}\par
+{\acbold\fontsize{24pt}{28pt}\selectfont\color{acdark} notepat{\color{acpurple}.}{\color{acpink}com}}\par
 \vspace{0.2em}
-{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Entry Point, Musical Instrument, and Systemic Tendrils in \ac{} (2024--2026)}\par
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} From Keyboard Toy to System Front Door}\par
 \vspace{0.6em}
 {\normalsize Jeffrey Alan Scudder}\par
 {\small\color{acgray} Independent Researcher}\par
@@ -103,151 +103,161 @@
 
 \begin{quote}
 \small\noindent\textbf{Abstract.}
-This paper studies \texttt{notepat} as a concrete entry point into \ac{}: a browser-native, mobile-first runtime for creative computing~\citep{scudder2026ac}. Rather than treating \texttt{notepat} as an isolated music toy, we analyze its ``tendrils'' into routing, documentation, testing, companion pieces, deployment, and cultural positioning. We combine repository analysis with production telemetry snapshots and dated platform metrics. As of March 7, 2026, \ac{} reports 355 built-in pieces, 2,808 registered handles, and 16,364 KidLisp programs. Within the codebase, \texttt{notepat} appears in 159 files and anchors a substantial runtime surface (7,903 lines in its primary disk). In piece-hit telemetry, \texttt{notepat} ranks among the highest tracked built-ins, but current analytics are dominated by anonymous and mixed-key traffic, requiring careful interpretation. The main result is methodological: single pieces can function as strategic ``front doors'' for larger creative systems when their technical and social tendrils are designed intentionally.
+\texttt{notepat} began in June 2024 as a 200-line chromatic keyboard sketch inside \ac{}~\citep{scudder2026ac}. Over 401 commits and 20 months it grew to 7{,}903 lines in the browser and 987 lines on bare metal, accumulating five waveform types, room reverb, analog pressure sensitivity, a bare-metal Linux port that boots as PID~1, a branded domain (\texttt{notepat.com}), a dedicated test harness, and four derivative pieces. This paper traces that growth: what \texttt{notepat} started as, what features it gained, what infrastructure it pulled into existence, and how a single piece came to function as the strategic front door of a larger creative computing system. We frame this trajectory as a \emph{political economy of a piece}---the feedback loops between a piece's features, the platform decisions it motivates, and the resources it attracts.
 \end{quote}
 \vspace{0.5em}
 }]
 
 \section{Introduction}
 
-Creative coding systems are often evaluated as platforms in aggregate (language features, editor design, community size). This paper takes a narrower lens: the impact of one piece, \texttt{notepat}, inside a larger runtime.
+Creative coding platforms are typically evaluated at the system level: language design, editor affordances, community size~\citep{reas2007processing,mccarthy2015p5js,resnick2009scratch}. This paper takes a different approach. We study one piece---\texttt{notepat}---inside \ac{}, and ask how a single interactive program can reshape the platform that hosts it.
 
-\texttt{notepat} is a melodic keyboard instrument in \ac{}, first stamped in-repo as \texttt{Notepat, 2024.6.26.23.17.58.736}. It is directly addressable both as \texttt{aesthetic.computer/notepat} and as the branded domain \texttt{notepat.com}. This dual identity makes it an ideal case for studying entry-point design: a short, memorable URL that opens into a deeper ecosystem.
+\texttt{notepat} is a melodic keyboard instrument. It is directly addressable as \texttt{aesthetic.computer/notepat} and through the branded domain \texttt{notepat.com}. As of March 2026, it is the most complex piece in the system, the boot piece on bare-metal hardware, and the primary subject of performance testing infrastructure. None of this was planned at the outset. The instrument grew, and the platform grew around it.
 
-We ask: \emph{What has been the impact of \texttt{notepat} so far (through March 7, 2026)?}
+\section{Origins (June--July 2024)}
 
-\section{Methods}
-\label{sec:methods}
+The first commit appears on June~27, 2024, under the name \texttt{notepad}---a typo that was later reinterpreted as a portmanteau of ``note'' and ``pad.'' The initial version was a minimal keyboard sampler: QWERTY keys mapped to chromatic notes, a single sine waveform, no UI beyond colored rectangles for active keys.
 
-We use three data sources:
+Within five days the piece had gained:
+\begin{itemize}
+  \item Synth fade-out (25ms linear decay to prevent clicks),
+  \item Documentation references in the project index,
+  \item The corrected name \texttt{notepat}.
+\end{itemize}
+
+At this stage the piece was roughly 200 lines. It used the standard \ac{} piece lifecycle (\texttt{boot}, \texttt{paint}, \texttt{act}) and the platform's built-in \texttt{sound.synth} API.
+
+\section{Feature Growth}
+
+\subsection{Audio engine (2024--2025)}
+
+The synthesis surface expanded across several axes:
+
+\begin{itemize}
+  \item \textbf{Waveforms}: sine $\rightarrow$ triangle, sawtooth, square, noise (selectable via keyboard shortcut or parameter).
+  \item \textbf{Room reverb}: Three-tap delay line (120\,ms intervals), 0.55 feedback coefficient, wet/dry mix controllable via trackpad X-axis slider.
+  \item \textbf{Pitch shift}: Continuous $\pm$1 octave via trackpad Y-axis, with per-sample smoothing on bare metal (exponential filter, $\alpha \approx 0.0003$ at 192\,kHz).
+  \item \textbf{Octave control}: 9 octaves (1--9), navigable via arrow keys.
+  \item \textbf{Quick mode}: Fast attack/decay toggle for staccato playing.
+  \item \textbf{Metronome}: Tempo-synced beat indicator (20--300 BPM), visual flash on downbeats.
+\end{itemize}
+
+\subsection{Input and hardware (2024--2026)}
+
+\texttt{notepat} drove three hardware integration efforts:
 
 \begin{enumerate}
-  \item \textbf{Repository introspection}: static analysis over the monorepo (file references, line counts, integration points).
-  \item \textbf{Runtime and deployment code paths}: Netlify function routing, metadata handling, and piece lifecycle code.
-  \item \textbf{Telemetry snapshot}: MongoDB collections \texttt{piece-hits} and \texttt{piece-user-hits}, queried on March 7, 2026.
+  \item \textbf{NuPhy Air60 HE analog keyboard}: WebHID protocol reverse-engineered from USB captures. 64-byte activation commands, 16-bit pressure reports per key. Velocity-weighted synthesis. Required \texttt{CONFIG\_HIDRAW=y} in the bare-metal kernel.
+  \item \textbf{Touchpad as expression controller}: X-axis controls reverb wet mix, Y-axis controls pitch shift. These mappings were designed specifically for \texttt{notepat}'s playing style.
+  \item \textbf{HDMI secondary display}: Solid-color output driven by blended note colors. Added to \texttt{ac-native} in March 2026, motivated by \texttt{notepat}'s live performance use case.
 \end{enumerate}
 
-All reported dates are absolute. The telemetry findings are explicitly bounded to current instrumentation behavior (Section~\ref{sec:limits}).
+\subsection{Visual design}
 
-\section{\texttt{notepat.com} as Entry Point}
-
-\subsection{Minimal addressability}
-
-\ac{} exposes pieces as URL-addressable surfaces~\citep{scudder2026ac}. For \texttt{notepat}, host-based rewrite logic maps \texttt{notepat.com} to the \texttt{notepat} slug in the primary index function. The piece also carries dedicated Open Graph handling and a branded HUD superscript (\texttt{.com}) in its runtime.
-
-This is a strong entry-point pattern:
-\begin{itemize}
-  \item one memorable noun (\texttt{notepat}),
-  \item one direct domain (\texttt{notepat.com}),
-  \item one immediate playable instrument.
-\end{itemize}
-
-\subsection{Low-friction launch semantics}
-
-The command signature exposed in docs is compact (\texttt{notepat[:wave][:octave] [melody...]}). This supports progressive depth: users can start with no arguments, then discover timbre, octave, and melody forms.
-
-\section{Tendrils}
-
-The core claim of this paper is that \texttt{notepat}'s impact comes from tendrils into adjacent systems, not from its standalone interaction loop alone.
-
-\subsection{Code tendrils}
+The interface evolved from plain colored rectangles to a layered system:
 
 \begin{itemize}
-  \item \textbf{Core surface}: \texttt{notepat.mjs} is 7,903 lines.
-  \item \textbf{Derivatives}: \texttt{autopat.mjs} reuses \texttt{notepat} through exported configurators (\texttt{configureAutopat}).
-  \item \textbf{Adjacencies}: shared notation and color helpers are reused by other music pieces (\texttt{clock}, \texttt{toss}, and related modules).
-  \item \textbf{Repository centrality}: 159 files mention ``notepat'' in the monorepo snapshot.
+  \item 24-pad split grid (4$\times$3 left octave + 4$\times$3 right octave),
+  \item Status bar: clock (LA time with DST), waveform, octave, sample rate, volume, battery, WiFi antenna icon,
+  \item Mini piano keyboard visualization (24 keys with octave shading and black-key dots),
+  \item HUD label in MatrixChunky8 font with \texttt{.com} superscript branding,
+  \item Background tint reactive to time of day (dawn/midday/afternoon/sunset/night),
+  \item Note color system: each semitone mapped to a hue (C=red through B=violet), active notes blend into background.
 \end{itemize}
 
-\subsection{Infrastructure tendrils}
+\subsection{Network and system integration}
 
 \begin{itemize}
-  \item Branded host routing in the index function (\texttt{notepat.com} $\rightarrow$ \texttt{notepat} slug).
-  \item Dedicated social preview image logic for \texttt{notepat}.
-  \item API redirects for piece analytics endpoints (\texttt{/api/piece-hit}, \texttt{/api/piece-fans}).
+  \item WiFi UI: fullscreen network scanner with signal-strength bars, SSID picker, password entry mode---built into the piece itself for bare-metal use where no OS UI exists.
+  \item Dark mode: automatic switch at 7\,pm/7\,am LA time, with matching DST calculation in both C and JavaScript.
+  \item Projector and recital modes for performance contexts.
 \end{itemize}
 
-\subsection{Testing tendrils}
+\section{The Bare-Metal Port}
 
-Notepat-specific testing is unusually broad for a single piece. We identify 14 related scripts across \texttt{artery/}, \texttt{.vscode/tests/}, and \texttt{tests/}, including quick tests, stability tests, latency tests, composition generators, and notation conversion tests.
+In late 2024, \texttt{notepat} was ported to \texttt{ac-native}: a custom Linux runtime that boots from USB as PID~1 with no operating system. The bare-metal version (987 lines) runs on QuickJS, renders via DRM/KMS dumb buffers with 3$\times$ nearest-neighbor CPU upscale, and synthesizes audio through direct ALSA \texttt{hw:} access at 192\,kHz.
 
-\subsection{Discourse tendrils}
+This port was not incidental. The entire \texttt{ac-native} project---custom kernel configuration, initramfs build pipeline, ALSA audio engine with 32-voice polyphony, evdev input handling, WiFi management via \texttt{wpa\_supplicant}---was built primarily to run \texttt{notepat} on physical hardware. The piece justified the platform.
 
-\texttt{notepat} is repeatedly used as a canonical example in public-facing project text (score/docs/papers), where it functions as a pedagogical anchor for explaining the broader instrument model of \ac{}.
+The boot sequence itself reflects this: after kernel init, \texttt{ac-native} displays a rainbow-animated title, then loads \texttt{notepat.mjs} as the default piece. The instrument is playable within $\sim$2 seconds of power-on.
 
-\section{Impact So Far (Through March 7, 2026)}
+\section{Derivatives and Reuse}
 
-\subsection{Platform context}
+Four artifacts derive directly from \texttt{notepat}:
 
-Project-level metrics (from the repository scorecard, refreshed March 7, 2026) report:
+\begin{enumerate}
+  \item \textbf{\texttt{autopat.mjs}} (214 lines): Autoplay wrapper with a built-in jukebox (Twinkle, Bach excerpt, scales). Imports and delegates to \texttt{notepat}'s core lifecycle functions.
+  \item \textbf{\texttt{notepat-tv.mjs}} (55 lines): UDP-driven remote visualizer for art installations. Receives note data and drives turtle graphics on a projected surface.
+  \item \textbf{\texttt{notepat-convert.mjs}} (103 lines): Notation translation library. Converts single-letter keyboard shortcuts to extended melody syntax. Reused by \texttt{clock}, \texttt{stample}, and other music pieces.
+  \item \textbf{Bare-metal \texttt{notepat.mjs}} (987 lines): Standalone reimplementation for the QuickJS runtime, sharing keyboard mappings and UI conventions but adapted for direct hardware access.
+\end{enumerate}
+
+\section{Infrastructure Pulled into Existence}
+
+\subsection{Routing and branding}
+
+The domain \texttt{notepat.com} is rewritten at the edge to the \texttt{notepat} slug in the primary index function. This required dedicated host-matching logic, custom Open Graph metadata, and a branded HUD element visible during play. The piece is the only one in the system with its own domain.
+
+\subsection{Testing infrastructure}
+
+\texttt{notepat} has disproportionate testing investment relative to other pieces:
+
 \begin{itemize}
-  \item 355 built-in pieces (337 JS + 18 KidLisp),
-  \item 2,808 registered handles,
-  \item 16,364 KidLisp programs,
-  \item 18,032 chat messages.
+  \item \textbf{Latency harness} (\texttt{artery/test-notepat-latency.mjs}): Measures keyboard-to-sound latency via Chrome DevTools Protocol. Reports mean, median, p95, p99. Current measurement: 417\,ms (target: $<$30\,ms).
+  \item \textbf{Stability harness} (\texttt{artery/test-notepat-stability.mjs}): 5-minute fuzz test at configurable intensity (2--20 notes/sec). Monitors heap growth, sound dictionary size, latency degradation. Latest result: 3{,}229 notes, $-$14\% heap, 0 warnings.
+  \item 14 total test scripts across \texttt{artery/}, \texttt{tests/}, and \texttt{.vscode/tests/}.
 \end{itemize}
 
-These do not isolate \texttt{notepat}, but they define the scale of the system in which it operates.
+No other piece in the system has dedicated performance testing.
 
-\subsection{Piece-hit telemetry snapshot}
+\subsection{Piece-hit analytics}
 
-Table~\ref{tab:impact} summarizes the current snapshot.
+The piece-hit tracking system (\texttt{/api/piece-hit}) was built in late December 2025. It records page loads server-side to MongoDB, distinguishing system and user pieces. In the initial telemetry window (2025-12-31 through 2026-01-02), \texttt{notepat} recorded 27 hits and ranked 4th among 44 tracked built-ins. The system tracks hits only in production (disabled in dev mode) and fires anonymously without auth headers. Current instrumentation limitations---no typed namespaces, no authenticated attribution, no long-horizon retention---mean that the full picture of \texttt{notepat} usage since 2024 is not captured.
+
+\section{Political Economy of a Piece}
+
+The trajectory of \texttt{notepat} illustrates feedback loops between a piece and its host platform:
+
+\begin{enumerate}
+  \item \textbf{Feature pressure $\rightarrow$ platform capability}: \texttt{notepat} needed room reverb, so the audio engine gained delay lines. It needed analog pressure, so \texttt{ac-native} gained HID raw support. It needed a secondary display, so HDMI output was added to the DRM backend.
+  \item \textbf{Branding pressure $\rightarrow$ routing decisions}: The desire for a memorable URL led to \texttt{notepat.com}, which required edge-function host rewriting and custom social previews.
+  \item \textbf{Quality pressure $\rightarrow$ testing investment}: A 417\,ms latency regression in \texttt{notepat} motivated the construction of a general-purpose piece-testing harness (artery), which now benefits all pieces.
+  \item \textbf{Hardware pressure $\rightarrow$ entire runtime}: The ambition to run \texttt{notepat} on dedicated hardware justified building \texttt{ac-native}: custom kernel, initramfs, ALSA engine, DRM display, WiFi stack---thousands of lines of C.
+\end{enumerate}
+
+This is not unique to \texttt{notepat}. Any sufficiently invested-in piece will exert similar pressures. But \texttt{notepat}'s trajectory is unusually legible because it is well-documented and its 401-commit history is public.
+
+\section{Current Scale}
+
+Table~\ref{tab:scale} summarizes \texttt{notepat}'s footprint as of March 8, 2026.
 
 \begin{table}[h]
 \small
 \centering
 \begin{tabularx}{\columnwidth}{l r}
 \toprule
-\textbf{Metric (as of 2026-03-07)} & \textbf{Value} \\
+\textbf{Metric} & \textbf{Value} \\
 \midrule
-\texttt{piece-hits} keys (all types) & 3,190 \\
-Built-in piece files in repo & 337 \\
-Built-ins with tracked hits & 44 \\
-\texttt{notepat} first tracked hit & 2025-12-31 \\
-\texttt{notepat} last tracked hit & 2026-01-02 \\
-\texttt{notepat} total tracked hits & 27 \\
-\texttt{notepat} rank among tracked built-ins & 4 \\
+Commits (browser version) & 401 \\
+Browser LOC & 7{,}903 \\
+Bare-metal LOC & 987 \\
+Derivative pieces & 4 \\
+Total ecosystem LOC & 9{,}262 \\
+Waveform types & 5 \\
+Dedicated test scripts & 14 \\
 Files mentioning ``notepat'' in repo & 159 \\
-Primary \texttt{notepat} disk LOC & 7,903 \\
+Age (first commit) & June 27, 2024 \\
 \bottomrule
 \end{tabularx}
-\caption{Observed \texttt{notepat} impact indicators in code and telemetry.}
-\label{tab:impact}
+\caption{notepat scale indicators (March 8, 2026).}
+\label{tab:scale}
 \end{table}
-
-In the same telemetry slice, a small number of built-ins dominate built-in traffic (\texttt{prompt}, \texttt{wipppps}, \texttt{laer-klokken}, then \texttt{notepat}). Relative to tracked built-ins, \texttt{notepat} appears materially active.
-
-\section{Interpretation}
-
-The central finding is not that \texttt{notepat} has the highest raw traffic. It does not. The finding is that \texttt{notepat} exhibits \emph{multi-axis impact}:
-
-\begin{enumerate}
-  \item \textbf{Gateway impact}: memorable URL and immediate interaction.
-  \item \textbf{Architectural impact}: shared notation, audio, and UI conventions adopted by adjacent pieces.
-  \item \textbf{Operational impact}: dedicated domain routing and preview logic.
-  \item \textbf{Methodological impact}: disproportionate testing and performance instrumentation for one piece.
-\end{enumerate}
-
-This profile is consistent with ``front door'' software objects: they need not dominate absolute usage to shape system identity and contributor workflows.
-
-\section{Limitations}
-\label{sec:limits}
-
-Telemetry interpretation has hard constraints in the current implementation:
-
-\begin{itemize}
-  \item Piece hits are posted from page loads without auth headers, so per-user attribution is effectively anonymous in the observed dataset.
-  \item Keys in \texttt{piece-hits} include mixed namespaces (built-ins, \texttt{\$codes}, handle-like keys, path-like strings such as \texttt{api/...}).
-  \item Current hit data for this pipeline begins late (first observed \texttt{notepat} hit: 2025-12-31), so it does not measure full lifetime usage since 2024.
-\end{itemize}
-
-Therefore, this paper treats telemetry as \emph{current instrumentation output}, not as complete historical audience measurement.
 
 \section{Conclusion}
 
-Through March 7, 2026, \texttt{notepat} demonstrates how a single piece can operate as a strategic entry point into a broader creative runtime. Its impact is most visible in tendrils: code reuse, routing decisions, testing investment, and narrative centrality across project documentation.
+\texttt{notepat} demonstrates that a single piece can function as the strategic center of gravity for a creative computing platform. Its growth from a 200-line keyboard sketch to a 9{,}000-line ecosystem with its own domain, hardware runtime, and test infrastructure was not planned---it emerged from sustained use and the feedback loops described above.
 
-For future work, the key requirement is cleaner piece analytics (typed namespaces, authenticated optional user attribution, and long-horizon retention) so that entry-point effects can be quantified with higher confidence.
+The methodological lesson is that studying platforms at the piece level reveals dynamics invisible at the system level: which features get built and why, which pieces attract disproportionate investment, and how branding and hardware decisions follow from interaction design rather than preceding it.
 
 \bibliographystyle{plainnat}
 \bibliography{references}
