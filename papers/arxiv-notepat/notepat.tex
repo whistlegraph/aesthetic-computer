@@ -1,0 +1,255 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+
+% === COLORS ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={Jeffrey Alan Scudder},
+  pdftitle={notepat.com: Entry Point and Tendrils in Aesthetic Computer},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic Computer}}
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+{\acbold\fontsize{24pt}{28pt}\selectfont\color{acdark} notepat.com}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Entry Point, Musical Instrument, and Systemic Tendrils in \ac{} (2024--2026)}\par
+\vspace{0.6em}
+{\normalsize Jeffrey Alan Scudder}\par
+{\small\color{acgray} Independent Researcher}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://notepat.com} \enspace$\cdot$\enspace \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{quote}
+\small\noindent\textbf{Abstract.}
+This paper studies \texttt{notepat} as a concrete entry point into \ac{}: a browser-native, mobile-first runtime for creative computing~\citep{scudder2026ac}. Rather than treating \texttt{notepat} as an isolated music toy, we analyze its ``tendrils'' into routing, documentation, testing, companion pieces, deployment, and cultural positioning. We combine repository analysis with production telemetry snapshots and dated platform metrics. As of March 7, 2026, \ac{} reports 355 built-in pieces, 2,808 registered handles, and 16,364 KidLisp programs. Within the codebase, \texttt{notepat} appears in 159 files and anchors a substantial runtime surface (7,903 lines in its primary disk). In piece-hit telemetry, \texttt{notepat} ranks among the highest tracked built-ins, but current analytics are dominated by anonymous and mixed-key traffic, requiring careful interpretation. The main result is methodological: single pieces can function as strategic ``front doors'' for larger creative systems when their technical and social tendrils are designed intentionally.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Introduction}
+
+Creative coding systems are often evaluated as platforms in aggregate (language features, editor design, community size). This paper takes a narrower lens: the impact of one piece, \texttt{notepat}, inside a larger runtime.
+
+\texttt{notepat} is a melodic keyboard instrument in \ac{}, first stamped in-repo as \texttt{Notepat, 2024.6.26.23.17.58.736}. It is directly addressable both as \texttt{aesthetic.computer/notepat} and as the branded domain \texttt{notepat.com}. This dual identity makes it an ideal case for studying entry-point design: a short, memorable URL that opens into a deeper ecosystem.
+
+We ask: \emph{What has been the impact of \texttt{notepat} so far (through March 7, 2026)?}
+
+\section{Methods}
+\label{sec:methods}
+
+We use three data sources:
+
+\begin{enumerate}
+  \item \textbf{Repository introspection}: static analysis over the monorepo (file references, line counts, integration points).
+  \item \textbf{Runtime and deployment code paths}: Netlify function routing, metadata handling, and piece lifecycle code.
+  \item \textbf{Telemetry snapshot}: MongoDB collections \texttt{piece-hits} and \texttt{piece-user-hits}, queried on March 7, 2026.
+\end{enumerate}
+
+All reported dates are absolute. The telemetry findings are explicitly bounded to current instrumentation behavior (Section~\ref{sec:limits}).
+
+\section{\texttt{notepat.com} as Entry Point}
+
+\subsection{Minimal addressability}
+
+\ac{} exposes pieces as URL-addressable surfaces~\citep{scudder2026ac}. For \texttt{notepat}, host-based rewrite logic maps \texttt{notepat.com} to the \texttt{notepat} slug in the primary index function. The piece also carries dedicated Open Graph handling and a branded HUD superscript (\texttt{.com}) in its runtime.
+
+This is a strong entry-point pattern:
+\begin{itemize}
+  \item one memorable noun (\texttt{notepat}),
+  \item one direct domain (\texttt{notepat.com}),
+  \item one immediate playable instrument.
+\end{itemize}
+
+\subsection{Low-friction launch semantics}
+
+The command signature exposed in docs is compact (\texttt{notepat[:wave][:octave] [melody...]}). This supports progressive depth: users can start with no arguments, then discover timbre, octave, and melody forms.
+
+\section{Tendrils}
+
+The core claim of this paper is that \texttt{notepat}'s impact comes from tendrils into adjacent systems, not from its standalone interaction loop alone.
+
+\subsection{Code tendrils}
+
+\begin{itemize}
+  \item \textbf{Core surface}: \texttt{notepat.mjs} is 7,903 lines.
+  \item \textbf{Derivatives}: \texttt{autopat.mjs} reuses \texttt{notepat} through exported configurators (\texttt{configureAutopat}).
+  \item \textbf{Adjacencies}: shared notation and color helpers are reused by other music pieces (\texttt{clock}, \texttt{toss}, and related modules).
+  \item \textbf{Repository centrality}: 159 files mention ``notepat'' in the monorepo snapshot.
+\end{itemize}
+
+\subsection{Infrastructure tendrils}
+
+\begin{itemize}
+  \item Branded host routing in the index function (\texttt{notepat.com} $\rightarrow$ \texttt{notepat} slug).
+  \item Dedicated social preview image logic for \texttt{notepat}.
+  \item API redirects for piece analytics endpoints (\texttt{/api/piece-hit}, \texttt{/api/piece-fans}).
+\end{itemize}
+
+\subsection{Testing tendrils}
+
+Notepat-specific testing is unusually broad for a single piece. We identify 14 related scripts across \texttt{artery/}, \texttt{.vscode/tests/}, and \texttt{tests/}, including quick tests, stability tests, latency tests, composition generators, and notation conversion tests.
+
+\subsection{Discourse tendrils}
+
+\texttt{notepat} is repeatedly used as a canonical example in public-facing project text (score/docs/papers), where it functions as a pedagogical anchor for explaining the broader instrument model of \ac{}.
+
+\section{Impact So Far (Through March 7, 2026)}
+
+\subsection{Platform context}
+
+Project-level metrics (from the repository scorecard, refreshed March 7, 2026) report:
+\begin{itemize}
+  \item 355 built-in pieces (337 JS + 18 KidLisp),
+  \item 2,808 registered handles,
+  \item 16,364 KidLisp programs,
+  \item 18,032 chat messages.
+\end{itemize}
+
+These do not isolate \texttt{notepat}, but they define the scale of the system in which it operates.
+
+\subsection{Piece-hit telemetry snapshot}
+
+Table~\ref{tab:impact} summarizes the current snapshot.
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{l r}
+\toprule
+\textbf{Metric (as of 2026-03-07)} & \textbf{Value} \\
+\midrule
+\texttt{piece-hits} keys (all types) & 3,190 \\
+Built-in piece files in repo & 337 \\
+Built-ins with tracked hits & 44 \\
+\texttt{notepat} first tracked hit & 2025-12-31 \\
+\texttt{notepat} last tracked hit & 2026-01-02 \\
+\texttt{notepat} total tracked hits & 27 \\
+\texttt{notepat} rank among tracked built-ins & 4 \\
+Files mentioning ``notepat'' in repo & 159 \\
+Primary \texttt{notepat} disk LOC & 7,903 \\
+\bottomrule
+\end{tabularx}
+\caption{Observed \texttt{notepat} impact indicators in code and telemetry.}
+\label{tab:impact}
+\end{table}
+
+In the same telemetry slice, a small number of built-ins dominate built-in traffic (\texttt{prompt}, \texttt{wipppps}, \texttt{laer-klokken}, then \texttt{notepat}). Relative to tracked built-ins, \texttt{notepat} appears materially active.
+
+\section{Interpretation}
+
+The central finding is not that \texttt{notepat} has the highest raw traffic. It does not. The finding is that \texttt{notepat} exhibits \emph{multi-axis impact}:
+
+\begin{enumerate}
+  \item \textbf{Gateway impact}: memorable URL and immediate interaction.
+  \item \textbf{Architectural impact}: shared notation, audio, and UI conventions adopted by adjacent pieces.
+  \item \textbf{Operational impact}: dedicated domain routing and preview logic.
+  \item \textbf{Methodological impact}: disproportionate testing and performance instrumentation for one piece.
+\end{enumerate}
+
+This profile is consistent with ``front door'' software objects: they need not dominate absolute usage to shape system identity and contributor workflows.
+
+\section{Limitations}
+\label{sec:limits}
+
+Telemetry interpretation has hard constraints in the current implementation:
+
+\begin{itemize}
+  \item Piece hits are posted from page loads without auth headers, so per-user attribution is effectively anonymous in the observed dataset.
+  \item Keys in \texttt{piece-hits} include mixed namespaces (built-ins, \texttt{\$codes}, handle-like keys, path-like strings such as \texttt{api/...}).
+  \item Current hit data for this pipeline begins late (first observed \texttt{notepat} hit: 2025-12-31), so it does not measure full lifetime usage since 2024.
+\end{itemize}
+
+Therefore, this paper treats telemetry as \emph{current instrumentation output}, not as complete historical audience measurement.
+
+\section{Conclusion}
+
+Through March 7, 2026, \texttt{notepat} demonstrates how a single piece can operate as a strategic entry point into a broader creative runtime. Its impact is most visible in tendrils: code reuse, routing decisions, testing investment, and narrative centrality across project documentation.
+
+For future work, the key requirement is cleaner piece analytics (typed namespaces, authenticated optional user attribution, and long-horizon retention) so that entry-point effects can be quantified with higher confidence.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
