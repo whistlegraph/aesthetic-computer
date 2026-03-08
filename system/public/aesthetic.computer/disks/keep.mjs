@@ -870,8 +870,14 @@ async function loadKidlispSource() {
         console.log("🪙 KEEP: Cached media:", cachedMedia);
       }
 
-      // Check for pending rebake (bundle regenerated but not updated on chain)
-      if (data.pendingRebake) {
+      // Check for pending rebake (bundle regenerated but not updated on chain).
+      // Ignore stale pending entries when they refer to a different contract era.
+      const keptContract = data.kept?.contractAddress || null;
+      const pendingMatchesActiveContract = Boolean(
+        alreadyMinted &&
+        (!keptContract || keptContract === ACTIVE_KEEPS_CONTRACT)
+      );
+      if (data.pendingRebake && pendingMatchesActiveContract) {
         pendingRebake = data.pendingRebake;
         console.log("🪙 KEEP: Found pending rebake:", pendingRebake);
         // Auto-populate rebakeResult so Update Chain button appears
@@ -886,6 +892,10 @@ async function loadKidlispSource() {
             thumbnailUri: alreadyMinted.thumbnailUri,
           };
         }
+      } else if (data.pendingRebake) {
+        console.log("🪙 KEEP: Ignoring stale pending rebake for non-active contract");
+        pendingRebake = null;
+        rebakeResult = null;
       }
       _needsPaint?.();
     }
