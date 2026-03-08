@@ -196,7 +196,15 @@ else
 fi
 
 # Copy WiFi components (wpa_supplicant, dhclient, iw, ip, firmware)
-WIFI_BINS=( /usr/sbin/wpa_supplicant /usr/sbin/wpa_cli /usr/sbin/dhclient /usr/sbin/iw /sbin/ip )
+# Resolve actual binary paths (location varies by distro: /usr/sbin vs /usr/bin)
+resolve_bin() { command -v "$1" 2>/dev/null || true; }
+WIFI_BINS=(
+    "$(resolve_bin wpa_supplicant)"
+    "$(resolve_bin wpa_cli)"
+    "$(resolve_bin dhclient)"
+    "$(resolve_bin iw)"
+    "$(resolve_bin ip)"
+)
 WIFI_COPIED=0
 for bin in "${WIFI_BINS[@]}"; do
     if [ -f "$bin" ]; then
@@ -241,7 +249,7 @@ if [ "${WIFI_COPIED}" -gt 0 ]; then
             ln -sf "$flib" "${INITRAMFS_DIR}/lib64/$(echo $flib | sed 's/\.so\..*/\.so/')" 2>/dev/null || true
         fi
     done
-    FLITE_SIZE=$(du -sh "${INITRAMFS_DIR}/lib64/libflite"* 2>/dev/null | tail -1 | cut -f1)
+    FLITE_SIZE=$(du -sh "${INITRAMFS_DIR}/lib64/libflite"* 2>/dev/null | tail -1 | cut -f1 || true)
     log "Flite TTS: ${FLITE_SIZE:-not found}"
 
     # Create /var/run for wpa_supplicant
@@ -258,13 +266,17 @@ case "$reason" in
         ip addr flush dev "$interface" 2>/dev/null
         ip addr add "$new_ip_address/$new_subnet_mask" dev "$interface" 2>/dev/null
         [ -n "$new_routers" ] && ip route add default via "$new_routers" dev "$interface" 2>/dev/null
-        [ -n "$new_domain_name_servers" ] && {
-            mkdir -p /etc
-            printf 'nameserver %s\n' $new_domain_name_servers > /etc/resolv.conf
-        }
+        mkdir -p /etc
+        {
+            # Use DHCP-provided DNS if available, always add public fallbacks
+            [ -n "$new_domain_name_servers" ] && printf 'nameserver %s\n' $new_domain_name_servers
+            printf 'nameserver 8.8.8.8\nnameserver 1.1.1.1\n'
+        } > /etc/resolv.conf
+        echo "[dhclient] BOUND $interface ip=$new_ip_address dns=$new_domain_name_servers" >> /tmp/dhclient.log
         ;;
     EXPIRE|FAIL|RELEASE|STOP)
         ip addr flush dev "$interface" 2>/dev/null
+        echo "[dhclient] $reason $interface" >> /tmp/dhclient.log
         ;;
 esac
 exit 0
