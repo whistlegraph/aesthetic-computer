@@ -877,16 +877,19 @@ int main(int argc, char *argv[]) {
                 if (input->events[i].type == AC_EVENT_KEYBOARD_DOWN) {
                     // Volume: KEY_VOLUMEUP/DOWN/MUTE or F1/F2/F3 as fallback
                     if (strcmp(input->events[i].key_name, "audiovolumeup") == 0 ||
-                        strcmp(input->events[i].key_name, "f3") == 0)
+                        strcmp(input->events[i].key_name, "f3") == 0) {
                         audio_volume_adjust(audio, 1);
-                    else if (strcmp(input->events[i].key_name, "audiovolumedown") == 0 ||
-                             strcmp(input->events[i].key_name, "f2") == 0)
+                        audio_synth(audio, WAVE_SINE, 1200.0, 0.04, 0.15, 0.001, 0.03, 0.0);
+                    } else if (strcmp(input->events[i].key_name, "audiovolumedown") == 0 ||
+                             strcmp(input->events[i].key_name, "f2") == 0) {
                         audio_volume_adjust(audio, -1);
-                    else if (strcmp(input->events[i].key_name, "audiomute") == 0 ||
-                             strcmp(input->events[i].key_name, "f1") == 0)
+                        audio_synth(audio, WAVE_SINE, 800.0, 0.04, 0.15, 0.001, 0.03, 0.0);
+                    } else if (strcmp(input->events[i].key_name, "audiomute") == 0 ||
+                             strcmp(input->events[i].key_name, "f1") == 0) {
                         audio_volume_adjust(audio, 0);
+                        audio_synth(audio, WAVE_SINE, 440.0, 0.08, 0.15, 0.001, 0.07, 0.0);
                     // Brightness: KEY_BRIGHTNESS or F5/F6 as fallback
-                    else if ((strcmp(input->events[i].key_name, "brightnessup") == 0 ||
+                    } else if ((strcmp(input->events[i].key_name, "brightnessup") == 0 ||
                               strcmp(input->events[i].key_name, "brightnessdown") == 0 ||
                               strcmp(input->events[i].key_name, "f6") == 0 ||
                               strcmp(input->events[i].key_name, "f5") == 0) && bl_path[0]) {
@@ -904,6 +907,9 @@ int main(int argc, char *argv[]) {
                         if (cur > bl_max) cur = bl_max;
                         f = fopen(tmp, "w");
                         if (f) { fprintf(f, "%d", cur); fclose(f); }
+                        // Click sound: higher = brighter, lower = dimmer
+                        audio_synth(audio, WAVE_SINE, up ? 1000.0 : 600.0,
+                                    0.04, 0.12, 0.001, 0.03, 0.0);
                     }
                     else if (strcmp(input->events[i].key_name, "power") == 0 ||
                              input->events[i].key_code == KEY_POWER)

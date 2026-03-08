@@ -654,14 +654,19 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     ink(220, 80, 80);
     write("chat?", { x: chatX, y: barY, size: 1, font: "matrix" });
     chatX += 5 * 4 + 2;
-  } else if (acMsg) {
+  } else if (wsStatus === "connected" || acMsg) {
     // Truncate to fit bar width minus right elements (wifi+bat+time+vol ~120px)
     const maxChatChars = Math.floor((w - chatX - 130) / 4);
-    if (maxChatChars > 6) {
+    if (acMsg && maxChatChars > 6) {
       const preview = (acMsg.from + ": " + acMsg.text).slice(0, maxChatChars);
       ink(dark ? 140 : 100, dark ? 180 : 130, dark ? 140 : 100);
       write(preview, { x: chatX, y: barY, size: 1, font: "matrix" });
       chatX += preview.length * 4 + 2;
+    } else if (!acMsg) {
+      // Connected but no message yet — show dim "chat" indicator
+      ink(dark ? 60 : 180, dark ? 100 : 190, dark ? 60 : 180);
+      write("chat", { x: chatX, y: barY, size: 1, font: "matrix" });
+      chatX += 4 * 4 + 2;
     }
   }
   // Metronome indicator (pendulum) in status bar — shown when enabled
@@ -764,18 +769,24 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     for (const raw of wsMsgs) {
       try {
         const msg = JSON.parse(raw);
+        // content may be a string (needs parsing) or already an object
+        const parseContent = (c) => (typeof c === "string" ? JSON.parse(c) : c);
         if (msg.type === "connected") {
-          const content = JSON.parse(msg.content);
-          const last = (content.messages || []).slice(-1)[0];
+          const content = parseContent(msg.content);
+          const last = (content?.messages || []).slice(-1)[0];
           if (last?.from && last?.text) {
             acMsg = { from: last.from, text: last.text };
           }
         } else if (msg.type === "message") {
-          const m = JSON.parse(msg.content);
+          const m = parseContent(msg.content);
           if (m?.from && m?.text) {
             acMsg = { from: m.from, text: m.text };
             if (!chatMuted) sound?.speak(m.from + ": " + m.text);
           }
+        } else if (msg.from && msg.text) {
+          // Flat format fallback
+          acMsg = { from: msg.from, text: msg.text };
+          if (!chatMuted) sound?.speak(msg.from + ": " + msg.text);
         }
       } catch (_) {}
     }
@@ -840,7 +851,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   const batPct = bat?.percent ?? -1;
   // TTS when battery percent changes
   if (batPct >= 0 && batPct !== lastBatPercent) {
-    if (lastBatPercent >= 0) sound?.speak(`${batPct} percent`);
+    if (lastBatPercent >= 0) sound?.speak(`battery at ${batPct} percent`);
     lastBatPercent = batPct;
   }
   if (batPct >= 0) {
