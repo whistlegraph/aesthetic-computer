@@ -328,6 +328,17 @@ export function headers(isDarkMode) {
         "color: #6c757d; font-size: 10px;",
         "color: #4ecdc4; font-size: 10px; text-decoration: underline;"
       );
+
+      if (piece.isKidLisp) {
+        const kidlispUrl = `https://kidlisp.com/$${piece.name}`;
+        console.log(
+          `%cView this piece in %cKidLisp%c at %c${kidlispUrl}`,
+          "color: #6c757d; font-size: 10px;",
+          "color: #28a745; font-weight: bold; font-size: 10px;",
+          "color: #6c757d; font-size: 10px;",
+          "color: #28a745; font-size: 10px; text-decoration: underline;"
+        );
+      }
       
       console.log(
         `%cLearn %cKidLisp%c at %chttps://kidlisp.com`,
