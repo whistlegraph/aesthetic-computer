@@ -80,6 +80,16 @@ let acMsg = null;            // { from, text } once loaded
 let acMsgFetched = false;    // true once fetch triggered
 let wifiWasConnected = false;
 
+// Auto-connect: try "aesthetic.computer" hotspot when not connected
+const AC_SSID = "aesthetic.computer";
+const AC_PASS = "aesthetic.computer";
+let autoConnectFrame = 0;    // counts frames; try every ~5s (300 frames)
+let autoConnectBlink = 0;    // blink counter for antenna icon while polling
+
+// Saved WiFi credentials — persisted to /mnt/wifi_creds.json (USB EFI partition)
+const CREDS_PATH = "/mnt/wifi_creds.json";
+let savedCreds = [];         // [{ssid, pass}, ...] loaded at boot
+
 // US-QWERTY shift map for bare-metal text input (no OS layout handling)
 const SHIFT_MAP = {
   "1":"!","2":"@","3":"#","4":"$","5":"%","6":"^","7":"&","8":"*","9":"(","0":")",
@@ -166,7 +176,16 @@ function hitTestGrid(x, y, gi) {
   return null;
 }
 
-function boot({ wipe }) { wipe(0); }
+function boot({ wipe, system }) {
+  wipe(0);
+  // Load saved credentials from USB EFI partition
+  if (system?.readFile) {
+    try {
+      const raw = system.readFile(CREDS_PATH);
+      if (raw) savedCreds = JSON.parse(raw);
+    } catch (_) {}
+  }
+}
 
 function act({ event: e, sound, wifi }) {
   soundAPI = sound;
@@ -182,8 +201,13 @@ function act({ event: e, sound, wifi }) {
     if (key === "enter") {
       if (wifi && wifiSelectedIdx >= 0) {
         const nets = wifi.networks || [];
-        if (nets[wifiSelectedIdx]) {
-          wifi.connect(nets[wifiSelectedIdx].ssid, wifiPassword);
+        const net = nets[wifiSelectedIdx];
+        if (net) {
+          wifi.connect(net.ssid, wifiPassword);
+          // Save credentials persistently (skip duplicates)
+          const already = savedCreds.find((c) => c.ssid === net.ssid);
+          if (!already) savedCreds.push({ ssid: net.ssid, pass: wifiPassword });
+          else already.pass = wifiPassword;
         }
       }
       wifiPasswordMode = false;
@@ -318,7 +342,11 @@ function act({ event: e, sound, wifi }) {
           wifiPassword = "";
           wifiPasswordMode = true;
         } else {
-          wifi?.connect(nets[clickedRow].ssid, "");
+          const openNet = nets[clickedRow];
+          wifi?.connect(openNet.ssid, "");
+          // Save open network credential entry
+          if (!savedCreds.find((c) => c.ssid === openNet.ssid))
+            savedCreds.push({ ssid: openNet.ssid, pass: "" });
           wifiPanelOpen = false;
         }
       }
@@ -526,12 +554,35 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   // Center status bar: note count is enough, settings go below
   const centerX = Math.floor(w / 2);
 
-  // Fetch latest AC chat message on WiFi connect, parse when ready
-  if (wifi?.connected && !wifiWasConnected && !acMsgFetched) {
-    system.fetch("https://aesthetic.computer/.netlify/functions/chat-messages?instance=system&limit=1");
-    acMsgFetched = true;
+  // TTS + fetch on WiFi connect transition
+  if (wifi?.connected && !wifiWasConnected) {
+    sound?.synth({ type: "sine", tone: 880, duration: 0.08, volume: 0.3, attack: 0.01, decay: 0.06 });
+    sound?.speak("connected");
+    if (!acMsgFetched) {
+      system.fetch("https://aesthetic.computer/.netlify/functions/chat-messages?instance=system&limit=1");
+      acMsgFetched = true;
+    }
+    // Persist credentials to USB EFI partition
+    if (system?.writeFile && savedCreds.length > 0) {
+      system.writeFile(CREDS_PATH, JSON.stringify(savedCreds));
+    }
   }
   wifiWasConnected = !!wifi?.connected;
+
+  // Auto-connect to aesthetic.computer hotspot when not connected
+  autoConnectFrame++;
+  autoConnectBlink = (autoConnectBlink + 1) % 60;
+  const notConnecting = wifi && !wifi.connected &&
+    wifi.state !== 3 /* CONNECTING */ && wifi.state !== 4 /* CONNECTED */;
+  if (notConnecting && autoConnectFrame % 300 === 0) {
+    // Try saved credentials first, then fall back to AC hotspot
+    const nextCred = savedCreds[autoConnectFrame % (savedCreds.length || 1)];
+    if (nextCred && nextCred.ssid !== AC_SSID) {
+      wifi.connect(nextCred.ssid, nextCred.pass);
+    } else {
+      wifi.connect(AC_SSID, AC_PASS);
+    }
+  }
   if (system.fetchResult && !acMsg) {
     try {
       const data = JSON.parse(system.fetchResult);
@@ -548,15 +599,24 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     const ax = w - 12, ay = 3;
     const wifiConnected = wifi?.connected;
     const wifiState = wifi?.state ?? 0;
-    // Draw antenna: three arcs + base dot
-    if (wifiConnected) ink(80, 200, 80); // green when connected
-    else if (wifiState >= 2) ink(200, 200, 80); // yellow when scanning/connecting
-    else ink(dark ? 80 : 160, dark ? 80 : 160, dark ? 90 : 170); // gray
-    // Simple antenna icon: vertical line + signal bars
+    const autoPollBlink = autoConnectBlink < 30; // on half the time
+    // Draw antenna icon with appropriate color
+    if (wifiConnected) {
+      ink(80, 200, 80); // solid green when connected
+    } else if (wifiState === 3 /* CONNECTING */) {
+      ink(200, 200, 80); // yellow while connecting
+    } else if (wifiState === 1 || wifiState === 2 /* SCANNING */) {
+      ink(200, 200, 80); // yellow while scanning
+    } else {
+      // idle: blink to show auto-polling in progress
+      const b = autoPollBlink ? (dark ? 140 : 200) : (dark ? 50 : 90);
+      ink(b, b, dark ? b + 10 : b + 30);
+    }
+    // Simple antenna icon: vertical line + arms
     line(ax + 5, ay + 1, ax + 5, ay + 7); // vertical
     line(ax + 3, ay + 5, ax + 5, ay + 3); // left arm
     line(ax + 7, ay + 5, ax + 5, ay + 3); // right arm
-    if (wifiConnected || wifiState >= 2) {
+    if (wifiConnected || wifiState >= 1) {
       box(ax + 1, ay + 2, 2, 1, true); // left bar
       box(ax + 8, ay + 2, 2, 1, true); // right bar
     }
