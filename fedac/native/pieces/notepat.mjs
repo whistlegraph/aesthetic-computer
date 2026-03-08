@@ -575,13 +575,12 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   const notConnecting = wifi && !wifi.connected &&
     wifi.state !== 3 /* CONNECTING */ && wifi.state !== 4 /* CONNECTED */;
   if (notConnecting && autoConnectFrame % 300 === 0) {
-    // Try saved credentials first, then fall back to AC hotspot
-    const nextCred = savedCreds[autoConnectFrame % (savedCreds.length || 1)];
-    if (nextCred && nextCred.ssid !== AC_SSID) {
-      wifi.connect(nextCred.ssid, nextCred.pass);
-    } else {
-      wifi.connect(AC_SSID, AC_PASS);
-    }
+    // Build candidate list: AC hotspot first, then any other saved creds
+    const acCred = { ssid: AC_SSID, pass: AC_PASS };
+    const others = savedCreds.filter((c) => c.ssid !== AC_SSID);
+    const candidates = [acCred, ...others];
+    const cred = candidates[Math.floor(autoConnectFrame / 300) % candidates.length];
+    wifi.connect(cred.ssid, cred.pass);
   }
   if (system.fetchResult && !acMsg) {
     try {
