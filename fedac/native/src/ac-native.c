@@ -506,14 +506,46 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
         int bg_b = (int)(30 * fade_t);
         graph_wipe(graph, (ACColor){(uint8_t)bg_r, (uint8_t)bg_g, (uint8_t)bg_b, 255});
 
-        // Title appears with initial fade (warm white on purple/red)
+        // Title — rainbow animated letters
         int alpha = (int)(255.0 * fade_t);
         if (alpha > 0) {
-            graph_ink(graph, (ACColor){240, 220, 230, (uint8_t)alpha});
-            int tw = font_measure_matrix("notepat", 3);
-            font_draw_matrix(graph, "notepat", (screen->width - tw) / 2,
-                             screen->height / 2 - 20, 3);
+            const char *title = "notepat";
+            int tw = font_measure_matrix(title, 3);
+            int tx = (screen->width - tw) / 2;
+            int ty = screen->height / 2 - 20;
+            for (int ci = 0; title[ci]; ci++) {
+                double hue = fmod((double)ci / 7.0 * 360.0 + f * 2.0, 360.0);
+                double h6 = hue / 60.0;
+                int hi = (int)h6 % 6;
+                double fr = h6 - (int)h6;
+                double sv = 0.7, vv = 1.0;
+                double p = vv*(1.0-sv), q = vv*(1.0-sv*fr), tt = vv*(1.0-sv*(1.0-fr));
+                double cr, cg, cb;
+                switch (hi) {
+                    case 0: cr=vv; cg=tt; cb=p; break;
+                    case 1: cr=q; cg=vv; cb=p; break;
+                    case 2: cr=p; cg=vv; cb=tt; break;
+                    case 3: cr=p; cg=q; cb=vv; break;
+                    case 4: cr=tt; cg=p; cb=vv; break;
+                    default: cr=vv; cg=p; cb=q; break;
+                }
+                graph_ink(graph, (ACColor){(uint8_t)(cr*255), (uint8_t)(cg*255),
+                                           (uint8_t)(cb*255), (uint8_t)alpha});
+                char ch[2] = { title[ci], 0 };
+                tx = font_draw_matrix(graph, ch, tx, ty, 3);
+            }
         }
+
+        // Version info top-right
+#ifdef AC_GIT_HASH
+        if (alpha > 50) {
+            char ver[64];
+            snprintf(ver, sizeof(ver), "%s %s", AC_GIT_HASH, AC_BUILD_TS);
+            graph_ink(graph, (ACColor){100, 70, 90, (uint8_t)(alpha / 4)});
+            int vw = font_measure_matrix(ver, 1);
+            font_draw_matrix(graph, ver, screen->width - vw - 4, 4, 1);
+        }
+#endif
 
         // Subtitle appears after frame 130, synced with male TTS at 140
         if (f > 130) {
@@ -734,6 +766,13 @@ int main(int argc, char *argv[]) {
     if (tts) tts_speak(tts, "starting wifi");
     ACWifi *wifi = wifi_init();
 
+    // Init secondary HDMI display (if connected)
+    ACSecondaryDisplay *hdmi = NULL;
+    if (display && !display->is_fbdev) {
+        hdmi = drm_init_secondary(display);
+        if (hdmi) ac_log("[ac-native] HDMI secondary: %dx%d\n", hdmi->width, hdmi->height);
+    }
+
     // Init JS
     ACRuntime *rt = js_init(&graph, input, audio, wifi, tts);
     if (!rt) {
@@ -744,6 +783,7 @@ int main(int argc, char *argv[]) {
         if (display) drm_destroy(display);
         return 1;
     }
+    rt->hdmi = hdmi;
 
     // Load piece
     if (js_load_piece(rt, piece_path) < 0) {
@@ -960,6 +1000,7 @@ int main(int argc, char *argv[]) {
     tts_destroy(tts);
     audio_destroy(audio);
     if (input) input_destroy(input);
+    if (hdmi) drm_secondary_destroy(hdmi);
     fb_destroy(screen);
     if (display) drm_destroy(display);
 

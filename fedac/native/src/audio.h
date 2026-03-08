@@ -28,7 +28,8 @@ typedef struct {
     VoiceState state;
     WaveType type;
     double phase;           // 0.0-1.0 phase accumulator
-    double frequency;       // Hz
+    double frequency;       // Hz (smoothed toward target)
+    double target_frequency; // Hz (set by update, smoothed per sample)
     double volume;          // 0.0-1.0
     double pan;             // -1.0 to 1.0
     double attack;          // seconds
@@ -74,7 +75,8 @@ typedef struct {
     float *room_buf_l, *room_buf_r;
     int room_pos;
     int room_size;
-    float room_mix;  // 0.0 to 1.0 wet mix (controllable from JS)
+    float room_mix;         // 0.0 to 1.0 wet mix (smoothed toward target)
+    float target_room_mix;  // target wet mix (set by JS, smoothed per sample)
 
     int glitch_enabled;
     float glitch_hold_l, glitch_hold_r;

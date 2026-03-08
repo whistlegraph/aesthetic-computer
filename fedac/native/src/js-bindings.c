@@ -1061,6 +1061,19 @@ static JSValue build_wifi_obj(JSContext *ctx, ACWifi *wifi) {
     return obj;
 }
 
+// system.hdmi(r, g, b) — fill secondary display with solid color
+static JSValue js_hdmi_fill(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (!current_rt || !current_rt->hdmi || !current_rt->hdmi->active) return JS_UNDEFINED;
+    if (argc < 3) return JS_UNDEFINED;
+    int r, g, b;
+    JS_ToInt32(ctx, &r, argv[0]);
+    JS_ToInt32(ctx, &g, argv[1]);
+    JS_ToInt32(ctx, &b, argv[2]);
+    drm_secondary_fill(current_rt->hdmi, (uint8_t)r, (uint8_t)g, (uint8_t)b);
+    return JS_UNDEFINED;
+}
+
 static JSValue build_system_obj(JSContext *ctx) {
     JSValue sys = JS_NewObject(ctx);
 
@@ -1150,6 +1163,11 @@ static JSValue build_system_obj(JSContext *ctx) {
     } else {
         JS_SetPropertyStr(ctx, sys, "brightness", JS_NewInt32(ctx, -1));
     }
+
+    // HDMI secondary display
+    int has_hdmi = (current_rt && current_rt->hdmi && current_rt->hdmi->active);
+    JS_SetPropertyStr(ctx, sys, "hasHdmi", JS_NewBool(ctx, has_hdmi));
+    JS_SetPropertyStr(ctx, sys, "hdmi", JS_NewCFunction(ctx, js_hdmi_fill, "hdmi", 3));
 
     return sys;
 }
