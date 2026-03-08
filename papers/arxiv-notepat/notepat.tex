@@ -31,12 +31,23 @@
 \usepackage{ragged2e}
 \usepackage{microtype}
 \usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
 
 % === COLORS ===
 \definecolor{acpink}{RGB}{180,72,135}
 \definecolor{acpurple}{RGB}{120,80,180}
 \definecolor{acdark}{RGB}{64,56,74}
 \definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
 
 % === HYPERREF ===
 \hypersetup{
@@ -45,7 +56,7 @@
   urlcolor=acpurple,
   citecolor=acpurple,
   pdfauthor={Jeffrey Alan Scudder},
-  pdftitle={notepat: From Keyboard Toy to System Front Door},
+  pdftitle={notepat.com: From Keyboard Toy to System Front Door},
 }
 
 % === SECTION FORMATTING ===
@@ -67,6 +78,7 @@
 \pagestyle{fancy}
 \fancyhf{}
 \renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{draftcolor}\textit{Working Draft --- not for citation}}
 \fancyfoot[C]{\footnotesize\thepage}
 
 % === LIST SETTINGS ===
@@ -92,7 +104,7 @@
 {\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} From Keyboard Toy to System Front Door}\par
 \vspace{0.6em}
 {\normalsize Jeffrey Alan Scudder}\par
-{\small\color{acgray} Independent Researcher}\par
+{\small\color{acgray} Aesthetic Inc.}\par
 {\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
 \vspace{0.3em}
 {\small\color{acpurple} \url{https://notepat.com} \enspace$\cdot$\enspace \url{https://aesthetic.computer}}\par
@@ -101,18 +113,23 @@
 \vspace{0.5em}
 \end{center}
 
+\begin{center}
+{\small\color{draftcolor}\textbf{[ working draft --- not for citation ]}}
+\end{center}
+\vspace{0.3em}
+
 \begin{quote}
 \small\noindent\textbf{Abstract.}
-\texttt{notepat} began in June 2024 as a 200-line chromatic keyboard sketch inside \ac{}~\citep{scudder2026ac}. Over 401 commits and 20 months it grew to 7{,}903 lines in the browser and 987 lines on bare metal, accumulating five waveform types, room reverb, analog pressure sensitivity, a bare-metal Linux port that boots as PID~1, a branded domain (\texttt{notepat.com}), a dedicated test harness, and four derivative pieces. This paper traces that growth: what \texttt{notepat} started as, what features it gained, what infrastructure it pulled into existence, and how a single piece came to function as the strategic front door of a larger creative computing system. We frame this trajectory as a \emph{political economy of a piece}---the feedback loops between a piece's features, the platform decisions it motivates, and the resources it attracts.
+\texttt{notepat} began in June 2024 as a 200-line chromatic keyboard sketch inside \ac{}~\citep{scudder2026ac}. Over 401 commits and 20 months it grew to 7{,}903 lines in the browser and 987 lines on bare metal, accumulating five waveform types, room reverb, analog pressure sensitivity, a bare-metal Linux port that boots as PID~1, a branded domain (\texttt{notepat.com}), a dedicated test harness, and four derivative pieces. This paper traces that growth: what \texttt{notepat} started as, what features it gained, what infrastructure it pulled into existence, and how a single piece came to function as the strategic front door of a larger creative computing system. We frame this trajectory as a \emph{political economy of a piece}---the feedback loops between a piece's growing capabilities, the platform decisions it motivates, and the resources it attracts over time.
 \end{quote}
 \vspace{0.5em}
 }]
 
 \section{Introduction}
 
-Creative coding platforms are typically evaluated at the system level: language design, editor affordances, community size~\citep{reas2007processing,mccarthy2015p5js,resnick2009scratch}. This paper takes a different approach. We study one piece---\texttt{notepat}---inside \ac{}, and ask how a single interactive program can reshape the platform that hosts it.
+Creative coding platforms are typically evaluated at the system level: language design, editor affordances, community size~\citep{reas2007processing,mccarthy2015p5js,resnick2009scratch}. Even within digital musical instrument research, the unit of analysis is usually the instrument class or interaction paradigm rather than the evolution of a single artifact over years~\citep{magnusson2010designing,marquez2018dmi}. This paper takes a narrower and longer lens: one piece---\texttt{notepat}---inside \ac{}, studied across 20 months of active development.
 
-\texttt{notepat} is a melodic keyboard instrument. It is directly addressable as \texttt{aesthetic.computer/notepat} and through the branded domain \texttt{notepat.com}. As of March 2026, it is the most complex piece in the system, the boot piece on bare-metal hardware, and the primary subject of performance testing infrastructure. None of this was planned at the outset. The instrument grew, and the platform grew around it.
+\texttt{notepat} is a melodic keyboard instrument. It is directly addressable as \texttt{aesthetic.computer/notepat} and through the branded domain \texttt{notepat.com}. As of March 2026, it is the most complex piece in the system, the default boot piece on bare-metal hardware, and the primary subject of performance testing infrastructure. None of this was planned at the outset. The instrument grew, and the platform grew around it.
 
 \section{Origins (June--July 2024)}
 
@@ -120,36 +137,36 @@ The first commit appears on June~27, 2024, under the name \texttt{notepad}---a t
 
 Within five days the piece had gained:
 \begin{itemize}
-  \item Synth fade-out (25ms linear decay to prevent clicks),
+  \item Synth fade-out (25\,ms linear decay to prevent clicks),
   \item Documentation references in the project index,
   \item The corrected name \texttt{notepat}.
 \end{itemize}
 
-At this stage the piece was roughly 200 lines. It used the standard \ac{} piece lifecycle (\texttt{boot}, \texttt{paint}, \texttt{act}) and the platform's built-in \texttt{sound.synth} API.
+At this stage the piece was roughly 200 lines. It used the standard \ac{} piece lifecycle (\texttt{boot}, \texttt{paint}, \texttt{act}) and the platform's built-in \texttt{sound.synth} API. The design was deliberately simple: one memorable noun, one immediate playable instrument, no configuration required. This early minimalism is consistent with what \citet{magnusson2010designing} describes as productive constraint---a bounded search space that focuses both player and developer.
 
 \section{Feature Growth}
 
 \subsection{Audio engine (2024--2025)}
 
-The synthesis surface expanded across several axes:
+The synthesis surface expanded across several axes driven directly by playing needs. This is the dynamic \citet{mcpherson2020idiomatic} describe in computer music languages: tools acquire ``idiomatic patterns'' that reflect and reinforce the aesthetic preferences of their primary users.
 
 \begin{itemize}
   \item \textbf{Waveforms}: sine $\rightarrow$ triangle, sawtooth, square, noise (selectable via keyboard shortcut or parameter).
-  \item \textbf{Room reverb}: Three-tap delay line (120\,ms intervals), 0.55 feedback coefficient, wet/dry mix controllable via trackpad X-axis slider.
-  \item \textbf{Pitch shift}: Continuous $\pm$1 octave via trackpad Y-axis, with per-sample smoothing on bare metal (exponential filter, $\alpha \approx 0.0003$ at 192\,kHz).
+  \item \textbf{Room reverb}: three-tap delay line (120\,ms intervals), 0.55 feedback coefficient, wet/dry mix controllable via trackpad X-axis slider. Per-sample smoothing on bare metal ($\alpha \approx 5 \times 10^{-5}$ at 192\,kHz) eliminates zipper noise.
+  \item \textbf{Pitch shift}: continuous $\pm$1 octave via trackpad Y-axis, with per-sample exponential smoothing ($\alpha \approx 3 \times 10^{-4}$ at 192\,kHz).
   \item \textbf{Octave control}: 9 octaves (1--9), navigable via arrow keys.
-  \item \textbf{Quick mode}: Fast attack/decay toggle for staccato playing.
-  \item \textbf{Metronome}: Tempo-synced beat indicator (20--300 BPM), visual flash on downbeats.
+  \item \textbf{Quick mode}: fast attack/decay toggle for staccato playing.
+  \item \textbf{Metronome}: tempo-synced beat indicator (20--300 BPM), visual flash on downbeats.
 \end{itemize}
 
 \subsection{Input and hardware (2024--2026)}
 
-\texttt{notepat} drove three hardware integration efforts:
+Three hardware integration efforts were driven by \texttt{notepat}'s expressivity requirements. Digital musical instruments are described by \citet{tahiroglu2020probes} as ``probes'' that change how we think about the computational and physical substrate they run on. \texttt{notepat} probed in exactly this way:
 
 \begin{enumerate}
-  \item \textbf{NuPhy Air60 HE analog keyboard}: WebHID protocol reverse-engineered from USB captures. 64-byte activation commands, 16-bit pressure reports per key. Velocity-weighted synthesis. Required \texttt{CONFIG\_HIDRAW=y} in the bare-metal kernel.
-  \item \textbf{Touchpad as expression controller}: X-axis controls reverb wet mix, Y-axis controls pitch shift. These mappings were designed specifically for \texttt{notepat}'s playing style.
-  \item \textbf{HDMI secondary display}: Solid-color output driven by blended note colors. Added to \texttt{ac-native} in March 2026, motivated by \texttt{notepat}'s live performance use case.
+  \item \textbf{NuPhy Air60 HE analog keyboard}: WebHID protocol reverse-engineered from USB captures. Sixty-four-byte activation commands; 16-bit pressure reports per key; velocity-weighted synthesis. Required \texttt{CONFIG\_HIDRAW=y} in the bare-metal kernel.
+  \item \textbf{Touchpad as expression controller}: X-axis controls reverb wet mix, Y-axis controls pitch shift. These mappings were designed for \texttt{notepat}'s playing style and have not been generalized.
+  \item \textbf{HDMI secondary display}: solid-color output driven by blended note colors during performance. Added to \texttt{ac-native} in March 2026, motivated by live use.
 \end{enumerate}
 
 \subsection{Visual design}
@@ -159,16 +176,16 @@ The interface evolved from plain colored rectangles to a layered system:
 \begin{itemize}
   \item 24-pad split grid (4$\times$3 left octave + 4$\times$3 right octave),
   \item Status bar: clock (LA time with DST), waveform, octave, sample rate, volume, battery, WiFi antenna icon,
-  \item Mini piano keyboard visualization (24 keys with octave shading and black-key dots),
+  \item Mini piano keyboard visualization with octave shading and black-key dot notation,
   \item HUD label in MatrixChunky8 font with \texttt{.com} superscript branding,
   \item Background tint reactive to time of day (dawn/midday/afternoon/sunset/night),
-  \item Note color system: each semitone mapped to a hue (C=red through B=violet), active notes blend into background.
+  \item Note color system: each semitone mapped to a hue (C~=~red through B~=~violet), active notes blend into background.
 \end{itemize}
 
 \subsection{Network and system integration}
 
 \begin{itemize}
-  \item WiFi UI: fullscreen network scanner with signal-strength bars, SSID picker, password entry mode---built into the piece itself for bare-metal use where no OS UI exists.
+  \item WiFi UI: fullscreen network scanner with signal-strength bars, SSID picker, password entry---built into the piece itself for bare-metal contexts where no OS UI exists.
   \item Dark mode: automatic switch at 7\,pm/7\,am LA time, with matching DST calculation in both C and JavaScript.
   \item Projector and recital modes for performance contexts.
 \end{itemize}
@@ -177,55 +194,59 @@ The interface evolved from plain colored rectangles to a layered system:
 
 In late 2024, \texttt{notepat} was ported to \texttt{ac-native}: a custom Linux runtime that boots from USB as PID~1 with no operating system. The bare-metal version (987 lines) runs on QuickJS, renders via DRM/KMS dumb buffers with 3$\times$ nearest-neighbor CPU upscale, and synthesizes audio through direct ALSA \texttt{hw:} access at 192\,kHz.
 
-This port was not incidental. The entire \texttt{ac-native} project---custom kernel configuration, initramfs build pipeline, ALSA audio engine with 32-voice polyphony, evdev input handling, WiFi management via \texttt{wpa\_supplicant}---was built primarily to run \texttt{notepat} on physical hardware. The piece justified the platform.
+Embedding a real-time audio synthesizer into a bare-metal Linux environment is an active area of research. \citet{turchet2021elk} describe Elk Audio OS---a Linux-based OS using Xenomai real-time kernel extensions for sub-millisecond audio latency on embedded hardware---as the state of the art in this space. The \texttt{ac-native} approach differs: rather than a general-purpose embedded audio OS, it is a single-piece runtime with no RTOS layer, relying instead on large ALSA period buffers (128 samples at 192\,kHz) and a software-only synthesis engine with 32-voice polyphony.
 
-The boot sequence itself reflects this: after kernel init, \texttt{ac-native} displays a rainbow-animated title, then loads \texttt{notepat.mjs} as the default piece. The instrument is playable within $\sim$2 seconds of power-on.
+This port was not incidental. The entire \texttt{ac-native} project---custom kernel configuration, initramfs build pipeline, ALSA audio engine, evdev input handling, WiFi management via \texttt{wpa\_supplicant}, DRM/KMS display---was built primarily to run \texttt{notepat} on physical hardware as a dedicated instrument. The piece justified the platform.
+
+The boot sequence reflects this commitment: after kernel init, \texttt{ac-native} displays a rainbow-animated title, then loads \texttt{notepat.mjs} as the default piece. The instrument is playable within approximately 2 seconds of power-on.
 
 \section{Derivatives and Reuse}
 
 Four artifacts derive directly from \texttt{notepat}:
 
 \begin{enumerate}
-  \item \textbf{\texttt{autopat.mjs}} (214 lines): Autoplay wrapper with a built-in jukebox (Twinkle, Bach excerpt, scales). Imports and delegates to \texttt{notepat}'s core lifecycle functions.
+  \item \textbf{\texttt{autopat.mjs}} (214 lines): autoplay wrapper with a built-in jukebox (Twinkle, Bach excerpt, scales). Imports and delegates to \texttt{notepat}'s core lifecycle functions.
   \item \textbf{\texttt{notepat-tv.mjs}} (55 lines): UDP-driven remote visualizer for art installations. Receives note data and drives turtle graphics on a projected surface.
-  \item \textbf{\texttt{notepat-convert.mjs}} (103 lines): Notation translation library. Converts single-letter keyboard shortcuts to extended melody syntax. Reused by \texttt{clock}, \texttt{stample}, and other music pieces.
-  \item \textbf{Bare-metal \texttt{notepat.mjs}} (987 lines): Standalone reimplementation for the QuickJS runtime, sharing keyboard mappings and UI conventions but adapted for direct hardware access.
+  \item \textbf{\texttt{notepat-convert.mjs}} (103 lines): notation translation library; converts single-letter keyboard shortcuts to extended melody syntax. Reused by \texttt{clock}, \texttt{stample}, and other music pieces.
+  \item \textbf{Bare-metal \texttt{notepat.mjs}} (987 lines): standalone reimplementation for QuickJS, sharing keyboard mappings and UI conventions but adapted for direct hardware access.
 \end{enumerate}
 
 \section{Infrastructure Pulled into Existence}
 
 \subsection{Routing and branding}
 
-The domain \texttt{notepat.com} is rewritten at the edge to the \texttt{notepat} slug in the primary index function. This required dedicated host-matching logic, custom Open Graph metadata, and a branded HUD element visible during play. The piece is the only one in the system with its own domain.
+The domain \texttt{notepat.com} is rewritten at the edge to the \texttt{notepat} slug in the primary index function. This required dedicated host-matching logic, custom Open Graph metadata, and a branded HUD element visible during play. \texttt{notepat} is the only piece in the system with its own domain. The \texttt{.com} superscript visible in the instrument's HUD encodes this dual identity into the performance surface itself.
 
 \subsection{Testing infrastructure}
 
 \texttt{notepat} has disproportionate testing investment relative to other pieces:
 
 \begin{itemize}
-  \item \textbf{Latency harness} (\texttt{artery/test-notepat-latency.mjs}): Measures keyboard-to-sound latency via Chrome DevTools Protocol. Reports mean, median, p95, p99. Current measurement: 417\,ms (target: $<$30\,ms).
-  \item \textbf{Stability harness} (\texttt{artery/test-notepat-stability.mjs}): 5-minute fuzz test at configurable intensity (2--20 notes/sec). Monitors heap growth, sound dictionary size, latency degradation. Latest result: 3{,}229 notes, $-$14\% heap, 0 warnings.
+  \item \textbf{Latency harness} (\texttt{artery/test-notepat-latency.mjs}): measures keyboard-to-sound latency via Chrome DevTools Protocol; reports mean, median, p95, p99. Current measurement: 417\,ms (target: $<$30\,ms).
+  \item \textbf{Stability harness} (\texttt{artery/test-notepat-stability.mjs}): 5-minute fuzz test at configurable intensity (2--20 notes/sec); monitors heap growth, sound dictionary size, latency degradation. Latest result: 3{,}229 notes, $-$14\% heap, 0 warnings.
   \item 14 total test scripts across \texttt{artery/}, \texttt{tests/}, and \texttt{.vscode/tests/}.
 \end{itemize}
 
-No other piece in the system has dedicated performance testing.
+The latency gap (417\,ms vs.\  30\,ms target) represents an open research problem. It is consistent with known browser audio scheduling constraints and the cost of Web Audio API event dispatch from JavaScript. This gap does not arise in the bare-metal version, where ALSA \texttt{hw:} access at 192\,kHz and direct evdev polling yield sub-10\,ms onset latency.
 
 \subsection{Piece-hit analytics}
 
-The piece-hit tracking system (\texttt{/api/piece-hit}) was built in late December 2025. It records page loads server-side to MongoDB, distinguishing system and user pieces. In the initial telemetry window (2025-12-31 through 2026-01-02), \texttt{notepat} recorded 27 hits and ranked 4th among 44 tracked built-ins. The system tracks hits only in production (disabled in dev mode) and fires anonymously without auth headers. Current instrumentation limitations---no typed namespaces, no authenticated attribution, no long-horizon retention---mean that the full picture of \texttt{notepat} usage since 2024 is not captured.
+The piece-hit tracking system (\texttt{/api/piece-hit}) was built in December 2025. It records page loads server-side to MongoDB, distinguishing system and user pieces. In the initial telemetry window (2025-12-31 through 2026-01-02), \texttt{notepat} recorded 27 hits and ranked 4th among 44 tracked built-ins. Current instrumentation limitations---no typed namespaces, no authenticated attribution, fire-and-forget POST calls that were being killed by the Netlify Functions runtime before completion---mean that the full picture of \texttt{notepat} usage since 2024 is not captured. The fire-and-forget bug was identified and patched in March 2026.
 
 \section{Political Economy of a Piece}
 
-The trajectory of \texttt{notepat} illustrates feedback loops between a piece and its host platform:
+Kurzweil's ``law of accelerating returns'' describes how technological systems accumulate capability at an accelerating rate as each advance enables the next~\citep{kurzweil2005singularity}. At the scale of a single creative piece, a similar dynamic is visible. \texttt{notepat}'s trajectory illustrates feedback loops between a piece and its host platform that \citet{nieborg2018platformization} describe at the level of cultural industries: platform affordances shape production, and production demands reshape platforms.
 
 \begin{enumerate}
   \item \textbf{Feature pressure $\rightarrow$ platform capability}: \texttt{notepat} needed room reverb, so the audio engine gained delay lines. It needed analog pressure, so \texttt{ac-native} gained HID raw support. It needed a secondary display, so HDMI output was added to the DRM backend.
-  \item \textbf{Branding pressure $\rightarrow$ routing decisions}: The desire for a memorable URL led to \texttt{notepat.com}, which required edge-function host rewriting and custom social previews.
-  \item \textbf{Quality pressure $\rightarrow$ testing investment}: A 417\,ms latency regression in \texttt{notepat} motivated the construction of a general-purpose piece-testing harness (artery), which now benefits all pieces.
-  \item \textbf{Hardware pressure $\rightarrow$ entire runtime}: The ambition to run \texttt{notepat} on dedicated hardware justified building \texttt{ac-native}: custom kernel, initramfs, ALSA engine, DRM display, WiFi stack---thousands of lines of C.
+  \item \textbf{Branding pressure $\rightarrow$ routing decisions}: the desire for a memorable URL led to \texttt{notepat.com}, which required edge-function host rewriting and custom social previews.
+  \item \textbf{Quality pressure $\rightarrow$ testing investment}: a latency regression in \texttt{notepat} motivated the construction of a general-purpose piece-testing harness (artery), which now benefits all pieces.
+  \item \textbf{Hardware pressure $\rightarrow$ entire runtime}: the ambition to run \texttt{notepat} on dedicated hardware justified building \texttt{ac-native}: custom kernel, initramfs, ALSA engine, DRM display, WiFi stack---thousands of lines of C.
 \end{enumerate}
 
-This is not unique to \texttt{notepat}. Any sufficiently invested-in piece will exert similar pressures. But \texttt{notepat}'s trajectory is unusually legible because it is well-documented and its 401-commit history is public.
+\citet{born2015music} observe that music technology investment is never neutral---it reflects and reinforces the aesthetic priorities, social positions, and resources of those who build and fund it. The \texttt{notepat} trajectory makes this visible at the scale of an individual developer and a single open-source instrument: sustained personal investment in one piece materially shapes what is technically possible for every other piece in the system.
+
+Live coding communities have developed an explicit vocabulary for this kind of relationship between practice and tool~\citep{blackwell2022livecoding}: the instrument and the instrumentalist co-evolve. \texttt{notepat}'s 401 commits are one record of that co-evolution in a non-live-coding context---a persistent instrument that accumulated capability through use rather than through upfront design.
 
 \section{Current Scale}
 
@@ -257,7 +278,7 @@ Age (first commit) & June 27, 2024 \\
 
 \texttt{notepat} demonstrates that a single piece can function as the strategic center of gravity for a creative computing platform. Its growth from a 200-line keyboard sketch to a 9{,}000-line ecosystem with its own domain, hardware runtime, and test infrastructure was not planned---it emerged from sustained use and the feedback loops described above.
 
-The methodological lesson is that studying platforms at the piece level reveals dynamics invisible at the system level: which features get built and why, which pieces attract disproportionate investment, and how branding and hardware decisions follow from interaction design rather than preceding it.
+The methodological contribution is a unit of analysis: the \emph{piece trajectory}. Studying a single piece across its full commit history---what features it gained, what infrastructure it pulled into existence, what derivatives it spawned---reveals platform dynamics invisible at the system level. Digital musical instrument research has examined DMI longevity as a problem of adoption~\citep{marquez2018dmi} and DMIs as probes of computational substrate~\citep{tahiroglu2020probes}. The piece trajectory combines both perspectives with a political economy lens: instruments accumulate capability, and that accumulation has material consequences for the systems that host them.
 
 \bibliographystyle{plainnat}
 \bibliography{references}
