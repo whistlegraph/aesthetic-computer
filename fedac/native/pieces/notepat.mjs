@@ -160,9 +160,9 @@ function act({ event: e, sound, wifi }) {
   soundAPI = sound;
   // WiFi password input mode — fullscreen, capture all keyboard
   if (wifiPasswordMode && e.is("keyboard:down")) {
-    const key = e.key;
-    if (key === "Escape") { wifiPasswordMode = false; wifiPassword = ""; wifiSelectedIdx = -1; return; }
-    if (key === "Enter" || key === "Return") {
+    const key = e.key?.toLowerCase();
+    if (key === "escape") { wifiPasswordMode = false; wifiPassword = ""; wifiSelectedIdx = -1; return; }
+    if (key === "enter") {
       if (wifi && wifiSelectedIdx >= 0) {
         const nets = wifi.networks || [];
         if (nets[wifiSelectedIdx]) {
@@ -174,7 +174,7 @@ function act({ event: e, sound, wifi }) {
       wifiSelectedIdx = -1;
       return;
     }
-    if (key === "Backspace") { wifiPassword = wifiPassword.slice(0, -1); return; }
+    if (key === "backspace") { wifiPassword = wifiPassword.slice(0, -1); return; }
     if (key.length === 1) { wifiPassword += key; return; }
     return;
   }
