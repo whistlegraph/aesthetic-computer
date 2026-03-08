@@ -554,20 +554,36 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   // Center status bar: note count is enough, settings go below
   const centerX = Math.floor(w / 2);
 
-  // TTS + fetch on WiFi connect transition
+  // TTS + WebSocket connect on WiFi connect transition
   if (wifi?.connected && !wifiWasConnected) {
     sound?.synth({ type: "sine", tone: 880, duration: 0.08, volume: 0.3, attack: 0.01, decay: 0.06 });
     sound?.speak("connected");
-    if (!acMsgFetched) {
-      system.fetch("https://aesthetic.computer/.netlify/functions/chat-messages?instance=system&limit=1");
-      acMsgFetched = true;
-    }
+    system.ws?.connect("wss://chat-system.aesthetic.computer/");
     // Persist credentials to USB EFI partition
     if (system?.writeFile && savedCreds.length > 0) {
       system.writeFile(CREDS_PATH, JSON.stringify(savedCreds));
     }
   }
   wifiWasConnected = !!wifi?.connected;
+
+  // Process incoming WebSocket chat messages (real-time)
+  const wsMsgs = system.ws?.messages;
+  if (wsMsgs?.length) {
+    for (const raw of wsMsgs) {
+      try {
+        const msg = JSON.parse(raw);
+        if (msg.type === "connected") {
+          // Initial backlog — grab most recent message
+          const content = JSON.parse(msg.content);
+          const last = (content.messages || []).slice(-1)[0];
+          if (last?.from && last?.text) acMsg = { from: last.from, text: last.text };
+        } else if (msg.type === "message") {
+          const m = JSON.parse(msg.content);
+          if (m?.from && m?.text) acMsg = { from: m.from, text: m.text };
+        }
+      } catch (_) {}
+    }
+  }
 
   // Auto-connect to aesthetic.computer hotspot when not connected
   autoConnectFrame++;
@@ -581,13 +597,6 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     const candidates = [acCred, ...others];
     const cred = candidates[Math.floor(autoConnectFrame / 300) % candidates.length];
     wifi.connect(cred.ssid, cred.pass);
-  }
-  if (system.fetchResult && !acMsg) {
-    try {
-      const data = JSON.parse(system.fetchResult);
-      const m = data.messages?.[0];
-      if (m) acMsg = { from: m.from || "?", text: m.text || "" };
-    } catch (_) {}
   }
 
   // Right section: wifi | battery | time | vol
