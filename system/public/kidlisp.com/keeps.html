@@ -1768,13 +1768,12 @@
   <div class="keeps-tabs-container">
     <div class="keeps-tabs">
       <button class="keeps-tab active" data-tab="index">Index</button>
-      <button class="keeps-tab" data-tab="v6">Contracts</button>
-      <button class="keeps-tab" data-tab="about">About</button>
+      <button class="keeps-tab" data-tab="v6">Contracts + Docs</button>
     </div>
 
     <!-- TAB: Index (default view - search + grid) -->
     <div class="keeps-tab-content active" id="tab-index">
-      <div class="keeps-search-bar">
+      <div class="keeps-search-bar" id="index-search-bar">
         <input type="text" class="keeps-search-input" id="search-input"
                placeholder="Search $codes, source code, or @handles..." autocomplete="off" spellcheck="false" />
         <button class="keeps-filter-btn" id="filter-kept" title="Show only pieces kept on Tezos">Kept on Tezos</button>
@@ -1782,7 +1781,7 @@
       <div class="keeps-grid" id="keeps-grid">
         <div class="keeps-loading" id="keeps-loading">
           <div class="spinner"></div>
-          <span>Loading all $codes...</span>
+          <span>Loading your keeps index...</span>
         </div>
       </div>
     </div>
@@ -2466,40 +2465,20 @@
             <li><strong>v1.0</strong> - Basic FA2 implementation</li>
           </ul>
         </div>
-      </div>
-    </div>
 
-    <!-- TAB: About -->
-    <div class="keeps-tab-content" id="tab-about">
-      <p>
-        When KidLisp source is cached through <code>/api/store-kidlisp</code>,
-        it gets a short identifier: <code>$code</code>. This page is a living index of
-        the <code>$code</code> entries currently in that cache &mdash; a castle full of keeps.
-      </p>
-      <h3>What is a $code?</h3>
-      <p>
-        <code>/api/store-kidlisp</code> normalizes source with <code>trim()</code>, hashes it (SHA-256),
-        and deduplicates by that hash. If the hash already exists, it returns the existing code.
-        If it&rsquo;s new, it generates a short code like <code>$39j</code>. Identical trimmed source resolves
-        to the same <code>$code</code>.
-      </p>
-      <h3>Keeping as HTML</h3>
-      <p>
-        Any <code>$code</code> can be packed as a standalone HTML artifact via
-        <code>/api/bundle-html?code=&lt;code&gt;</code>. That endpoint is proxied to the oven bundler and returns
-        a single-file export suitable for archiving, sharing, or embedding.
-      </p>
-      <h3>Keeping on Tezos</h3>
-      <p>
-        You can mint a KidLisp piece as a KEEP NFT on Tezos (KidLisp FA2 v8 on keeps.tez runtime target).
-        Minting is deduplicated by <code>content_hash</code>, so a piece that is already kept cannot be
-        minted again unless its token is burned. Kept entries are marked with a green badge.
-      </p>
-      <h3>Links</h3>
-      <p>
-        Open <code>kidlisp.com/$code</code> to edit, <code>aesthetic.computer/$code</code> to run,
-        or <code>aesthetic.computer/keep~$code</code> to open the keep flow.
-      </p>
+        <div style="padding: 16px; margin-top: 24px; background: var(--bg-secondary); border-radius: 8px; border-left: 4px solid #4ECDC4;">
+          <h4 style="margin: 0 0 8px; color: var(--text-primary); font-size: 16px; font-weight: 600;">About This Index</h4>
+          <p style="margin: 0 0 10px;">
+            This index only shows pieces you own plus pieces that are already kept on the current active production contract.
+          </p>
+          <p style="margin: 0 0 10px;">
+            Code identities come from <code>/api/store-kidlisp</code>, which deduplicates by trimmed source hash and returns a stable <code>$code</code>.
+          </p>
+          <p style="margin: 0;">
+            Open <code>kidlisp.com/$code</code> to edit, <code>aesthetic.computer/$code</code> to run, and <code>/api/bundle-html?code=&lt;code&gt;</code> for a standalone archive bundle.
+          </p>
+        </div>
+      </div>
     </div>
 
   </div>
@@ -2670,6 +2649,7 @@
     const grid = document.getElementById('keeps-grid');
     const loading = document.getElementById('keeps-loading');
     const countEl = document.getElementById('keeps-count');
+    const indexSearchBar = document.getElementById('index-search-bar');
     const searchInput = document.getElementById('search-input');
     const filterKeptBtn = document.getElementById('filter-kept');
     const modalOverlay = document.getElementById('modal-overlay');
@@ -2696,18 +2676,80 @@
       }
     }
 
+    function hasRegisteredHandle() {
+      return !!(acUser && acHandle && String(acHandle).trim());
+    }
+
+    function normalizeAddress(address) {
+      return typeof address === 'string' ? address.trim().toLowerCase() : '';
+    }
+
+    function isKeptOnActiveContract(entry) {
+      const kept = entry?.kept;
+      if (!kept || !kept.contractAddress) return false;
+
+      const activeContract = getKeepsContractAddress();
+      if (!activeContract) return false;
+
+      const sameContract = normalizeAddress(kept.contractAddress) === normalizeAddress(activeContract);
+      if (!sameContract) return false;
+
+      const entryNetwork = (kept.network || '').trim().toLowerCase();
+      const activeNetwork = (getTezosNetwork() || '').trim().toLowerCase();
+      return !entryNetwork || !activeNetwork || entryNetwork === activeNetwork;
+    }
+
+    function scopeIndexEntries(entries) {
+      const userSub = acUser?.sub;
+      return (entries || []).filter(entry => {
+        const isMine = !!userSub && entry.user === userSub;
+        return isMine || isKeptOnActiveContract(entry);
+      });
+    }
+
+    function setIndexSearchVisible(visible) {
+      if (!indexSearchBar) return;
+      indexSearchBar.style.display = visible ? 'flex' : 'none';
+    }
+
+    function renderIndexGate(reason = 'login') {
+      setIndexSearchVisible(false);
+      allCodes = [];
+      filteredCodes = [];
+      countEl.textContent = '';
+
+      const isHandleGate = reason === 'handle';
+      const title = isHandleGate
+        ? 'Set a @handle to unlock your keeps index.'
+        : 'Log in to view your keeps index.';
+      const detail = isHandleGate
+        ? 'This index only loads after your account has a handle.'
+        : 'Your keeps index is private to signed-in accounts with handles.';
+      const action = isHandleGate
+        ? `<a class="retry-btn" href="${KL_BASE}" target="_blank" rel="noopener">Open kidlisp.com</a>`
+        : '<button class="retry-btn" onclick="keepsLogin()">Log In</button>';
+
+      grid.innerHTML = `
+        <div class="keeps-error" style="grid-column: 1 / -1;">
+          <div class="error-icon">${isHandleGate ? '&#x270E;' : '&#x1F512;'}</div>
+          <div class="error-msg">${title}</div>
+          <div class="error-msg" style="font-size:12px;">${detail}</div>
+          ${action}
+        </div>`;
+    }
+
     // =========================================
     // RENDER (paginated — renders PAGE_SIZE cards at a time)
     // =========================================
     function createCard(entry) {
-      const card = document.createElement('div');
-      card.className = 'keeps-card' + (entry.kept ? ' kept' : '');
-
       const when = entry.when ? new Date(entry.when) : null;
       const timeStr = when ? formatRelativeTime(when) : '';
       const handle = entry.handle || 'anon';
       const hits = entry.hits || 0;
-      const isKept = !!entry.kept;
+      const isKept = isKeptOnActiveContract(entry);
+      const keptInfo = isKept ? entry.kept : null;
+      const card = document.createElement('div');
+      card.className = 'keeps-card' + (isKept ? ' kept' : '');
 
       // Build syntax-highlighted source with colored line numbers
       const sourceLines = (entry.source || '').split('\n');
@@ -2738,7 +2780,7 @@
           <button class="keeps-card-btn preview-btn" data-code="${entry.code}" title="Preview">&#x25B6; Preview</button>
           <a class="keeps-card-btn" href="${KL_BASE}/$${entry.code}" title="Open in editor">&#x270E; Edit</a>
           <a class="keeps-card-btn html-btn" href="${AC_BASE}/api/bundle-html?code=${entry.code}" target="_blank" title="Download as standalone HTML">&#x1F4E6; HTML</a>
-          ${isKept ? `<span class="keeps-card-btn kept-badge" title="Kept on Tezos (Token #${entry.kept.tokenId || '?'})">&#x2714; Kept</span>` : (acUser && entry.user === acUser.sub ? `<button class="keeps-card-btn keep-btn" data-code="${entry.code}" title="Keep on Tezos">&#x26D3; Keep</button>` : '')}
+          ${isKept ? `<span class="keeps-card-btn kept-badge" title="Kept on Tezos (Token #${keptInfo.tokenId || '?'})">&#x2714; Kept</span>` : (acUser && entry.user === acUser.sub ? `<button class="keeps-card-btn keep-btn" data-code="${entry.code}" title="Keep on Tezos">&#x26D3; Keep</button>` : '')}
           ${timeStr ? `<span style="margin-left: auto; font-size: 10px; color: var(--text-tertiary);">${timeStr}</span>` : ''}
         </div>`;
 
@@ -2786,19 +2828,21 @@
       renderedCount = 0;
 
       if (filteredCodes.length === 0) {
+        const emptyMessage = allCodes.length === 0
+          ? 'No visible pieces yet. Publish or keep a piece to populate your index.'
+          : 'No matches for your search.';
         grid.innerHTML = `
           <div class="keeps-error" style="grid-column: 1 / -1;">
             <div class="error-icon">&#x1F50D;</div>
-            <div class="error-msg">${allCodes.length === 0 ? 'No $codes found.' : 'No matches for your search.'}</div>
-            ${allCodes.length === 0 ? '<button class="retry-btn" onclick="init()">Retry</button>' : ''}
+            <div class="error-msg">${emptyMessage}</div>
           </div>`;
-        countEl.textContent = `0 of ${allCodes.length.toLocaleString()} $codes`;
+        countEl.textContent = `0 of ${allCodes.length.toLocaleString()} visible entries`;
         return;
       }
 
       // Render first batch
       renderMoreCards();
-      countEl.textContent = `${filteredCodes.length.toLocaleString()} of ${allCodes.length.toLocaleString()} $codes`;
+      countEl.textContent = `${filteredCodes.length.toLocaleString()} of ${allCodes.length.toLocaleString()} visible entries`;
     }
 
     function renderMoreCards() {
@@ -2847,7 +2891,7 @@
       const q = searchQuery.toLowerCase().trim();
       filteredCodes = allCodes.filter(entry => {
         // Kept filter
-        if (showOnlyKept && !entry.kept) return false;
+        if (showOnlyKept && !isKeptOnActiveContract(entry)) return false;
 
         // Search filter
         if (q) {
@@ -2883,13 +2927,15 @@
       const handle = entry.handle || 'anon';
       const hits = entry.hits || 0;
       const when = entry.when ? new Date(entry.when) : null;
+      const isKept = isKeptOnActiveContract(entry);
+      const keptInfo = isKept ? entry.kept : null;
 
       let actionsHTML = `
         <a class="keeps-modal-action-btn edit-btn" href="${KL_BASE}/$${entry.code}" title="Open in KidLisp.com editor">&#x270E; Edit in KidLisp.com</a>
         <a class="keeps-modal-action-btn html-btn" href="${AC_BASE}/api/bundle-html?code=${entry.code}" target="_blank" title="Bundle as standalone HTML">&#x1F4E6; Download HTML Bundle</a>`;
 
-      if (entry.kept) {
-        actionsHTML += `<span class="keeps-modal-action-btn tezos-btn" style="cursor: default;">&#x2714; Kept on Tezos (Token #${entry.kept.tokenId || '?'})</span>`;
+      if (isKept) {
+        actionsHTML += `<span class="keeps-modal-action-btn tezos-btn" style="cursor: default;">&#x2714; Kept on Tezos (Token #${keptInfo.tokenId || '?'})</span>`;
       } else if (acUser && entry.user === acUser.sub) {
         actionsHTML += `<button class="keeps-modal-action-btn tezos-btn" data-mint-code="${entry.code}">&#x26D3; Keep on Tezos</button>`;
       } else {
@@ -2911,9 +2957,9 @@
       let infoHTML = `<span><strong>Author:</strong> ${escapeHtml(handle)}</span>`;
       infoHTML += `<span><strong>Views:</strong> ${hits.toLocaleString()}</span>`;
       if (when) infoHTML += `<span><strong>Created:</strong> ${when.toLocaleDateString()} ${when.toLocaleTimeString()}</span>`;
-      if (entry.kept) {
-        infoHTML += `<span><strong>Network:</strong> ${entry.kept.network || 'mainnet'}</span>`;
-        if (entry.kept.contractAddress) infoHTML += `<span><strong>Contract:</strong> ${entry.kept.contractAddress}</span>`;
+      if (isKept) {
+        infoHTML += `<span><strong>Network:</strong> ${keptInfo.network || 'mainnet'}</span>`;
+        if (keptInfo.contractAddress) infoHTML += `<span><strong>Contract:</strong> ${keptInfo.contractAddress}</span>`;
       }
       modalInfo.innerHTML = infoHTML;
 
@@ -2964,23 +3010,23 @@
         switchTab(tabName);
         const path = tabName === 'index'
           ? '/'
-          : (tabName === 'v6' ? '/contracts' : `/${tabName}`);
+          : '/contracts';
         history.pushState({ tab: tabName }, '', path);
       });
     });
 
-    // Route from URL path on load (e.g. /about, /contracts, /versions)
+    // Route from URL path on load (e.g. /contracts, /versions, /about)
     const pathTabRaw = location.pathname.replace(/^\/+/, '').split('/')[0];
-    const pathAliases = { contracts: 'v6', versions: 'v6', docs: 'v6' };
+    const pathAliases = { contracts: 'v6', versions: 'v6', docs: 'v6', about: 'v6' };
     const pathTab = pathAliases[pathTabRaw] || pathTabRaw;
-    if (pathTab && ['about', 'v6'].includes(pathTab)) {
+    if (pathTab && ['v6'].includes(pathTab)) {
       switchTab(pathTab);
     }
 
     // Handle browser back/forward
     window.addEventListener('popstate', (e) => {
       if (e.state && e.state.tab) {
-        switchTab(e.state.tab);
+        switchTab(e.state.tab === 'about' ? 'v6' : e.state.tab);
       } else {
         switchTab('index');
       }
@@ -3345,7 +3391,7 @@
           try {
             const userRes = await fetch(`${AC_BASE}/user?from=${encodeURIComponent(acUser.email)}&withHandle=true`);
             const userData = await userRes.json();
-            if (userData.handle) acHandle = userData.handle;
+            if (userData.handle) acHandle = String(userData.handle).replace(/^@+/, '').trim();
           } catch (e) { /* could not fetch handle */ }
         }
         updateAuthUI();
@@ -3359,10 +3405,14 @@
       const loginBtn = document.getElementById('keeps-login-btn');
       const logoutBtn = document.getElementById('keeps-logout-btn');
       const handleEl = document.getElementById('keeps-auth-handle');
-      if (acUser) {
+      if (acUser && hasRegisteredHandle()) {
         loginBtn.style.display = 'none';
-        const displayName = acHandle ? `@${acHandle}` : acUser.email?.split('@')[0] || 'User';
-        handleEl.textContent = displayName;
+        handleEl.textContent = `@${acHandle}`;
+        handleEl.style.display = 'inline';
+        logoutBtn.style.display = 'inline';
+      } else if (acUser) {
+        loginBtn.style.display = 'none';
+        handleEl.textContent = 'Handle required';
         handleEl.style.display = 'inline';
         logoutBtn.style.display = 'inline';
       } else {
@@ -3683,11 +3733,24 @@
     // INIT
     // =========================================
     async function init() {
+      setIndexSearchVisible(false);
       loading.style.display = 'flex';
       grid.innerHTML = '';
       grid.appendChild(loading);
 
       await loadKeepsConfig();
+
+      if (!acUser) {
+        renderIndexGate('login');
+        return;
+      }
+
+      if (!hasRegisteredHandle()) {
+        renderIndexGate('handle');
+        return;
+      }
+
+      setIndexSearchVisible(true);
 
       const codes = await fetchAllCodes();
       loading.style.display = 'none';
@@ -3702,15 +3765,16 @@
         return;
       }
 
-      allCodes = codes;
-      filteredCodes = codes;
-      countEl.textContent = `${codes.length.toLocaleString()} $codes`;
+      const scopedCodes = scopeIndexEntries(codes);
+      allCodes = scopedCodes;
+      filteredCodes = scopedCodes;
+      countEl.textContent = `${scopedCodes.length.toLocaleString()} visible entries`;
       renderGrid();
 
-      // Populate floating castle $codes with real ones
+      // Populate floating castle $codes with visible index entries
       const floaters = document.querySelectorAll('.keeps-code-float');
-      if (codes.length >= floaters.length) {
-        const shuffled = [...codes].sort(() => Math.random() - 0.5);
+      if (scopedCodes.length >= floaters.length) {
+        const shuffled = [...scopedCodes].sort(() => Math.random() - 0.5);
         floaters.forEach((el, i) => { el.textContent = '$' + shuffled[i].code; });
       }
 
@@ -3731,12 +3795,13 @@
     initV6LaunchSimulation();
     updateV6RoadmapStatus();
 
-    // Init auth first, then load data (auth informs card rendering)
-    initAuth0().then(() => {
-      // Re-render grid after auth resolves to show Keep buttons for owned pieces
-      if (acUser && allCodes.length > 0) renderGrid();
-    });
-    init();
+    // Auth gates the index: do not load entries until user is authenticated + has handle.
+    async function bootstrapKeepsPage() {
+      await initAuth0();
+      await init();
+    }
+
+    bootstrapKeepsPage();
   </script>
 </body>
 </html>
