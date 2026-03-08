@@ -1769,7 +1769,6 @@
     <div class="keeps-tabs">
       <button class="keeps-tab active" data-tab="index">Index</button>
       <button class="keeps-tab" data-tab="v6">Contracts</button>
-      <button class="keeps-tab" data-tab="docs">Versions</button>
       <button class="keeps-tab" data-tab="about">About</button>
     </div>
 
@@ -1939,10 +1938,7 @@
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- TAB: Docs (versioned) -->
-    <div class="keeps-tab-content" id="tab-docs">
       <div style="padding: 24px 0;">
         <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 20px;">
           <h2 style="margin: 0; color: var(--text-primary); font-size: 24px; font-weight: 600;">
@@ -2954,16 +2950,18 @@
       tab.addEventListener('click', () => {
         const tabName = tab.dataset.tab;
         switchTab(tabName);
-        const path = tabName === 'index' ? '/' : `/${tabName}`;
+        const path = tabName === 'index'
+          ? '/'
+          : (tabName === 'v6' ? '/contracts' : `/${tabName}`);
         history.pushState({ tab: tabName }, '', path);
       });
     });
 
-    // Route from URL path on load (e.g. /about, /docs, /contracts, /versions)
+    // Route from URL path on load (e.g. /about, /contracts, /versions)
     const pathTabRaw = location.pathname.replace(/^\/+/, '').split('/')[0];
-    const pathAliases = { contracts: 'v6', versions: 'docs' };
+    const pathAliases = { contracts: 'v6', versions: 'v6', docs: 'v6' };
     const pathTab = pathAliases[pathTabRaw] || pathTabRaw;
-    if (pathTab && ['about', 'docs', 'v6'].includes(pathTab)) {
+    if (pathTab && ['about', 'v6'].includes(pathTab)) {
       switchTab(pathTab);
     }
 
@@ -2976,7 +2974,7 @@
       }
     });
 
-    // Version dropdown switching (inside Docs tab)
+    // Version dropdown switching (inside Contracts tab)
     const versionSelect = document.getElementById('version-select');
     if (versionSelect) {
       versionSelect.addEventListener('change', () => {
