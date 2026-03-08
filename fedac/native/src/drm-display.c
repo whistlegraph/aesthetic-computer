@@ -485,6 +485,154 @@ void display_present(ACDisplay *d, ACFramebuffer *screen, int scale) {
     drm_flip(d);
 }
 
+// ============================================================
+// Secondary HDMI display — solid color fill
+// ============================================================
+
+ACSecondaryDisplay *drm_init_secondary(ACDisplay *primary) {
+    if (!primary || primary->is_fbdev || primary->fd < 0) return NULL;
+#ifdef USE_SDL
+    if (primary->is_sdl) return NULL;
+#endif
+
+    drmModeRes *res = drmModeGetResources(primary->fd);
+    if (!res) return NULL;
+
+    drmModeConnector *conn = NULL;
+    for (int i = 0; i < res->count_connectors; i++) {
+        drmModeConnector *c = drmModeGetConnector(primary->fd, res->connectors[i]);
+        if (!c) continue;
+        if (c->connector_id == primary->connector_id) { drmModeFreeConnector(c); continue; }
+        if (c->connection == DRM_MODE_CONNECTED && c->count_modes > 0 &&
+            (c->connector_type == DRM_MODE_CONNECTOR_HDMIA ||
+             c->connector_type == DRM_MODE_CONNECTOR_HDMIB ||
+             c->connector_type == DRM_MODE_CONNECTOR_DisplayPort)) {
+            conn = c;
+            break;
+        }
+        drmModeFreeConnector(c);
+    }
+    drmModeFreeResources(res);
+
+    if (!conn) {
+        fprintf(stderr, "[drm-secondary] No HDMI/DP display found\n");
+        return NULL;
+    }
+
+    ACSecondaryDisplay *s = calloc(1, sizeof(ACSecondaryDisplay));
+    s->fd = primary->fd;
+    s->connector_id = conn->connector_id;
+    s->mode = conn->modes[0];
+    s->width = s->mode.hdisplay;
+    s->height = s->mode.vdisplay;
+    fprintf(stderr, "[drm-secondary] HDMI: %dx%d @ %dHz\n",
+            s->width, s->height, s->mode.vrefresh);
+
+    drmModeEncoder *enc = NULL;
+    if (conn->encoder_id) enc = drmModeGetEncoder(primary->fd, conn->encoder_id);
+    if (!enc) {
+        for (int i = 0; i < conn->count_encoders; i++) {
+            enc = drmModeGetEncoder(primary->fd, conn->encoders[i]);
+            if (enc && enc->crtc_id != primary->crtc_id) break;
+            if (enc) { drmModeFreeEncoder(enc); enc = NULL; }
+        }
+    }
+    drmModeFreeConnector(conn);
+
+    if (!enc) { fprintf(stderr, "[drm-secondary] No encoder\n"); free(s); return NULL; }
+
+    s->crtc_id = enc->crtc_id;
+    if (!s->crtc_id) {
+        drmModeRes *r2 = drmModeGetResources(primary->fd);
+        if (r2) {
+            for (int i = 0; i < r2->count_crtcs; i++) {
+                if (r2->crtcs[i] != primary->crtc_id && (enc->possible_crtcs & (1 << i))) {
+                    s->crtc_id = r2->crtcs[i];
+                    break;
+                }
+            }
+            drmModeFreeResources(r2);
+        }
+    }
+    drmModeFreeEncoder(enc);
+
+    if (!s->crtc_id) { fprintf(stderr, "[drm-secondary] No free CRTC\n"); free(s); return NULL; }
+
+    s->saved_crtc = drmModeGetCrtc(primary->fd, s->crtc_id);
+
+    struct drm_mode_create_dumb create = { .width = s->width, .height = s->height, .bpp = 32 };
+    if (drmIoctl(s->fd, DRM_IOCTL_MODE_CREATE_DUMB, &create) < 0) {
+        fprintf(stderr, "[drm-secondary] Create dumb buffer failed\n"); free(s); return NULL;
+    }
+    s->buf.handle = create.handle;
+    s->buf.pitch = create.pitch;
+    s->buf.size = create.size;
+
+    if (drmModeAddFB(s->fd, s->width, s->height, 24, 32,
+                     s->buf.pitch, s->buf.handle, &s->buf.fb_id) < 0) {
+        fprintf(stderr, "[drm-secondary] AddFB failed\n");
+        struct drm_mode_destroy_dumb destroy = { .handle = s->buf.handle };
+        drmIoctl(s->fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy);
+        free(s); return NULL;
+    }
+
+    struct drm_mode_map_dumb map_req = { .handle = s->buf.handle };
+    if (drmIoctl(s->fd, DRM_IOCTL_MODE_MAP_DUMB, &map_req) < 0) {
+        fprintf(stderr, "[drm-secondary] Map failed\n");
+        drmModeRmFB(s->fd, s->buf.fb_id);
+        struct drm_mode_destroy_dumb destroy = { .handle = s->buf.handle };
+        drmIoctl(s->fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy);
+        free(s); return NULL;
+    }
+    s->buf.map = mmap(0, s->buf.size, PROT_READ | PROT_WRITE, MAP_SHARED, s->fd, map_req.offset);
+    if (s->buf.map == MAP_FAILED) {
+        fprintf(stderr, "[drm-secondary] mmap failed\n");
+        drmModeRmFB(s->fd, s->buf.fb_id);
+        struct drm_mode_destroy_dumb destroy = { .handle = s->buf.handle };
+        drmIoctl(s->fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy);
+        free(s); return NULL;
+    }
+
+    if (drmModeSetCrtc(s->fd, s->crtc_id, s->buf.fb_id, 0, 0,
+                       &s->connector_id, 1, &s->mode) < 0) {
+        fprintf(stderr, "[drm-secondary] SetCrtc failed\n");
+        munmap(s->buf.map, s->buf.size);
+        drmModeRmFB(s->fd, s->buf.fb_id);
+        struct drm_mode_destroy_dumb destroy = { .handle = s->buf.handle };
+        drmIoctl(s->fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy);
+        free(s); return NULL;
+    }
+
+    s->active = 1;
+    fprintf(stderr, "[drm-secondary] HDMI output active\n");
+    return s;
+}
+
+void drm_secondary_fill(ACSecondaryDisplay *s, uint8_t r, uint8_t g, uint8_t b) {
+    if (!s || !s->active || !s->buf.map) return;
+    uint32_t pixel = (uint32_t)r << 16 | (uint32_t)g << 8 | (uint32_t)b;
+    uint32_t *p = s->buf.map;
+    int total = s->width * s->height;
+    for (int i = 0; i < total; i++) p[i] = pixel;
+}
+
+void drm_secondary_destroy(ACSecondaryDisplay *s) {
+    if (!s) return;
+    if (s->saved_crtc) {
+        drmModeSetCrtc(s->fd, s->saved_crtc->crtc_id, s->saved_crtc->buffer_id,
+                       s->saved_crtc->x, s->saved_crtc->y,
+                       &s->connector_id, 1, &s->saved_crtc->mode);
+        drmModeFreeCrtc(s->saved_crtc);
+    }
+    if (s->buf.map && s->buf.map != MAP_FAILED) munmap(s->buf.map, s->buf.size);
+    if (s->buf.fb_id) drmModeRmFB(s->fd, s->buf.fb_id);
+    if (s->buf.handle) {
+        struct drm_mode_destroy_dumb destroy = { .handle = s->buf.handle };
+        drmIoctl(s->fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy);
+    }
+    free(s);
+}
+
 void drm_destroy(ACDisplay *d) {
     if (!d) return;
 

@@ -8,6 +8,7 @@
 #include "audio.h"
 #include "wifi.h"
 #include "tts.h"
+#include "drm-display.h"
 
 typedef struct {
     JSRuntime *rt;
@@ -27,6 +28,7 @@ typedef struct {
     ACAudio *audio;
     ACWifi *wifi;
     ACTts *tts;
+    ACSecondaryDisplay *hdmi;
     int paint_count;
     int sim_count;
 } ACRuntime;

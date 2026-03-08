@@ -192,6 +192,7 @@ function act({ event: e, sound, wifi }) {
     lastKey = key;
     lastKeyTimer = 120; // show for 2 seconds
 
+    if (key === "escape" && wifiPanelOpen) { wifiPanelOpen = false; return; }
     if (key === "shift") { quickMode = !quickMode; return; }
     if (key === "tab") {
       waveIndex = (waveIndex + 1) % wavetypes.length;
@@ -285,27 +286,22 @@ function act({ event: e, sound, wifi }) {
       return;
     }
 
-    // WiFi panel clicks
+    // WiFi fullscreen network list clicks
     if (wifiPanelOpen && !wifiPasswordMode) {
-      const panelX = w - 140, panelY = 12, panelW = 138, panelH = 120;
-      if (x >= panelX && x < panelX + panelW && y >= panelY && y < panelY + panelH) {
-        const nets = wifi?.networks || [];
-        const rowH = 12;
-        const listY = panelY + 14;
-        const clickedRow = Math.floor((y - listY) / rowH);
-        if (clickedRow >= 0 && clickedRow < nets.length) {
-          wifiSelectedIdx = clickedRow;
-          if (nets[clickedRow].encrypted) {
-            wifiPassword = "";
-            wifiPasswordMode = true;  // Goes fullscreen
-          } else {
-            wifi?.connect(nets[clickedRow].ssid, "");
-            wifiPanelOpen = false;
-          }
+      const nets = wifi?.networks || [];
+      const rowH = 16;
+      const listY = 44;
+      const clickedRow = Math.floor((y - listY) / rowH);
+      if (clickedRow >= 0 && clickedRow < nets.length) {
+        wifiSelectedIdx = clickedRow;
+        if (nets[clickedRow].encrypted) {
+          wifiPassword = "";
+          wifiPasswordMode = true;
+        } else {
+          wifi?.connect(nets[clickedRow].ssid, "");
+          wifiPanelOpen = false;
         }
-        return;
       }
-      wifiPanelOpen = false;
       return;
     }
 
@@ -388,7 +384,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       sound?.room?.setMix?.(echoMix);
     }
     if (trackpad.dy !== 0) {
-      pitchShift = Math.max(-1, Math.min(1, pitchShift + (trackpad.dy * 3) / h));
+      pitchShift = Math.max(-1, Math.min(1, pitchShift - trackpad.dy / h));
       // Apply pitch shift to all active voices
       const factor = Math.pow(2, pitchShift); // ±1 octave
       for (const key of Object.keys(sounds)) {
@@ -857,31 +853,26 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     }
   }
 
-  // WiFi panel overlay (network list dropdown)
+  // WiFi fullscreen network chooser
   else if (wifiPanelOpen && wifi) {
-    const panelW = 138, panelH = 120;
-    const panelX = w - panelW - 2, panelY = 12;
+    // Fullscreen dark overlay
+    ink(dark ? 10 : 240, dark ? 10 : 240, dark ? 15 : 245, 250);
+    box(0, 0, w, h, true);
 
-    // Background
-    ink(dark ? 30 : 245, dark ? 30 : 245, dark ? 35 : 248, 240);
-    box(panelX, panelY, panelW, panelH, true);
-    ink(dark ? 60 : 200, dark ? 60 : 200, dark ? 70 : 210);
-    box(panelX, panelY, panelW, panelH, "outline");
-
-    // Title + interface name
+    // Title
     ink(FG, FG, FG);
-    write("WiFi", { x: panelX + 3, y: panelY + 2, size: 1, font: "font_1" });
+    write("WiFi Networks", { x: 20, y: 12, size: 2, font: "matrix" });
 
     // Status + interface info
     ink(FG_DIM, FG_DIM, FG_DIM);
-    const wifiStatusStr = (wifi.status || "?") + (wifi.iface ? " [" + wifi.iface + "]" : "");
-    write(wifiStatusStr, { x: panelX + 28, y: panelY + 2, size: 1, font: "font_1" });
+    const wifiStatusStr = (wifi.status || "scanning...") + (wifi.iface ? " [" + wifi.iface + "]" : "");
+    write(wifiStatusStr, { x: 20, y: 30, size: 1, font: "font_1" });
 
-    // Network list
+    // Network list (fullscreen, generous row height)
     const nets = wifi.networks || [];
-    const rowH = 12;
-    const listY = panelY + 14;
-    const maxRows = Math.min(nets.length, Math.floor((panelH - 16) / rowH));
+    const rowH = 16;
+    const listY = 44;
+    const maxRows = Math.min(nets.length, Math.floor((h - listY - 20) / rowH));
 
     for (let i = 0; i < maxRows; i++) {
       const net = nets[i];
@@ -889,35 +880,39 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
 
       // Highlight selected
       if (i === wifiSelectedIdx) {
-        ink(dark ? 50 : 220, dark ? 60 : 225, dark ? 80 : 240);
-        box(panelX + 1, ry, panelW - 2, rowH, true);
+        ink(dark ? 40 : 220, dark ? 50 : 225, dark ? 70 : 240);
+        box(10, ry, w - 20, rowH, true);
       }
 
-      // Signal bars (1-4 based on dBm)
+      // Signal bars
       const bars = net.signal > -50 ? 4 : net.signal > -60 ? 3 : net.signal > -70 ? 2 : 1;
       for (let b = 0; b < 4; b++) {
         if (b < bars) ink(80, 200, 80);
         else ink(dark ? 40 : 220, dark ? 40 : 220, dark ? 45 : 225);
-        box(panelX + 3 + b * 3, ry + 8 - (b + 1) * 2, 2, (b + 1) * 2, true);
+        box(16 + b * 4, ry + 10 - (b + 1) * 2, 3, (b + 1) * 2, true);
       }
 
       // SSID name
       ink(FG, FG, FG);
-      const ssidDisplay = net.ssid.length > 14 ? net.ssid.slice(0, 13) + "~" : net.ssid;
-      write(ssidDisplay, { x: panelX + 16, y: ry + 1, size: 1, font: "font_1" });
+      const ssidDisplay = net.ssid.length > 28 ? net.ssid.slice(0, 27) + "~" : net.ssid;
+      write(ssidDisplay, { x: 36, y: ry + 2, size: 1, font: "font_1" });
 
       // Lock icon for encrypted
       if (net.encrypted) {
         ink(FG_MUTED, FG_MUTED, FG_MUTED);
-        write("*", { x: panelW + panelX - 10, y: ry + 1, size: 1, font: "font_1" });
+        write("*", { x: w - 20, y: ry + 2, size: 1, font: "font_1" });
       }
     }
 
-    // Connected IP
+    // Connected IP at bottom
     if (wifi.connected && wifi.ip) {
       ink(80, 200, 80);
-      write(wifi.ip, { x: panelX + 3, y: panelY + panelH - 12, size: 1, font: "font_1" });
+      write("connected: " + wifi.ip, { x: 20, y: h - 16, size: 1, font: "font_1" });
     }
+
+    // Instructions
+    ink(FG_MUTED, FG_MUTED, FG_MUTED);
+    write("Esc: close", { x: w - 60, y: h - 16, size: 1, font: "font_1" });
 
     // Rescan timer
     if (frame % 300 === 0 && wifiPanelOpen) {
@@ -938,6 +933,25 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       if (trail[key].brightness < 0.02) delete trail[key];
     }
   });
+
+  // HDMI output: blend active note colors → solid fill on secondary display
+  if (system.hasHdmi) {
+    const activeKeys = Object.keys(sounds);
+    if (activeKeys.length > 0) {
+      let tr = 0, tg = 0, tb = 0;
+      for (const k of activeKeys) {
+        const s = sounds[k];
+        if (s && s.note) {
+          const c = noteColor(s.note);
+          tr += c[0]; tg += c[1]; tb += c[2];
+        }
+      }
+      const n = activeKeys.length;
+      system.hdmi(Math.round(tr / n), Math.round(tg / n), Math.round(tb / n));
+    } else {
+      system.hdmi(0, 0, 0);
+    }
+  }
 }
 
 function sim({ pressures, sound }) {

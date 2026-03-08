@@ -127,6 +127,11 @@ static inline double generate_sample(ACVoice *v, double sample_rate) {
         s = 0.0;
     }
 
+    // Smooth frequency toward target (uses precomputed alpha from caller)
+    if (v->target_frequency > 0 && v->frequency != v->target_frequency) {
+        v->frequency += (v->target_frequency - v->frequency) * 0.0003; // ~5ms at 192kHz
+    }
+
     // Advance phase
     v->phase += v->frequency / sample_rate;
     if (v->phase >= 1.0) v->phase -= 1.0;
@@ -279,6 +284,11 @@ static void *audio_thread_fn(void *arg) {
                 mix_l += tts_sample;
                 mix_r += tts_sample;
                 audio->tts_read_pos = (audio->tts_read_pos + 1) % audio->tts_buf_size;
+            }
+
+            // Smooth room_mix toward target (~10ms at 192kHz)
+            if (audio->room_mix != audio->target_room_mix) {
+                audio->room_mix += (audio->target_room_mix - audio->room_mix) * 0.00005f;
             }
 
             // Room (reverb) effect — tap delays based on actual sample rate
@@ -652,6 +662,7 @@ uint64_t audio_synth(ACAudio *audio, WaveType type, double freq,
     v->type = type;
     v->phase = 0.0;
     v->frequency = freq;
+    v->target_frequency = freq;
     v->volume = volume;
     v->pan = pan;
     v->attack = attack > 0 ? attack : 0.005;
@@ -689,7 +700,7 @@ void audio_update(ACAudio *audio, uint64_t id, double freq,
     pthread_mutex_lock(&audio->lock);
     for (int i = 0; i < AUDIO_MAX_VOICES; i++) {
         if (audio->voices[i].id == id && audio->voices[i].state != VOICE_INACTIVE) {
-            if (freq > 0) audio->voices[i].frequency = freq;
+            if (freq > 0) audio->voices[i].target_frequency = freq;
             if (volume >= 0) audio->voices[i].volume = volume;
             if (pan > -2.0) audio->voices[i].pan = pan;
             break;
@@ -728,7 +739,7 @@ void audio_set_room_mix(ACAudio *audio, float mix) {
     if (!audio) return;
     if (mix < 0.0f) mix = 0.0f;
     if (mix > 1.0f) mix = 1.0f;
-    audio->room_mix = mix;
+    audio->target_room_mix = mix;
 }
 
 // Read current Master mixer volume as 0-100 percentage
