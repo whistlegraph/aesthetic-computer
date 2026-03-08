@@ -524,8 +524,11 @@ int wifi_connect_poll(ACWifi *wifi) {
                 if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
                     wifi->state = WIFI_STATE_FAILED;
                     snprintf(wifi->status_msg, sizeof(wifi->status_msg), "DHCP failed");
-                    ac_log("[wifi] DHCP failed");
+                    ac_log("[wifi] DHCP failed (exit %d)", WEXITSTATUS(status));
                     return 1;
+                }
+                if (WIFSIGNALED(status)) {
+                    ac_log("[wifi] dhclient killed by signal %d", WTERMSIG(status));
                 }
                 wifi->dhcp_pid = 0;
             }

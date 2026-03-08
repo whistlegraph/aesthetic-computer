@@ -247,6 +247,31 @@ if [ "${WIFI_COPIED}" -gt 0 ]; then
     # Create /var/run for wpa_supplicant
     mkdir -p "${INITRAMFS_DIR}/var/run/wpa_supplicant"
 
+    # Minimal dhclient-script: configure interface after DHCP lease obtained
+    # dhclient requires this at /sbin/dhclient-script (or via -sf flag)
+    mkdir -p "${INITRAMFS_DIR}/sbin"
+    cat > "${INITRAMFS_DIR}/sbin/dhclient-script" << 'DHCLIENT_SCRIPT'
+#!/bin/sh
+# Minimal dhclient hook for ac-native bare metal
+case "$reason" in
+    BOUND|RENEW|REBIND|REBOOT)
+        ip addr flush dev "$interface" 2>/dev/null
+        ip addr add "$new_ip_address/$new_subnet_mask" dev "$interface" 2>/dev/null
+        [ -n "$new_routers" ] && ip route add default via "$new_routers" dev "$interface" 2>/dev/null
+        [ -n "$new_domain_name_servers" ] && {
+            mkdir -p /etc
+            printf 'nameserver %s\n' $new_domain_name_servers > /etc/resolv.conf
+        }
+        ;;
+    EXPIRE|FAIL|RELEASE|STOP)
+        ip addr flush dev "$interface" 2>/dev/null
+        ;;
+esac
+exit 0
+DHCLIENT_SCRIPT
+    chmod +x "${INITRAMFS_DIR}/sbin/dhclient-script"
+    log "dhclient-script: installed"
+
     # Need /bin/sh for system() calls — use busybox or link to bash if available
     mkdir -p "${INITRAMFS_DIR}/bin"
     if command -v busybox &>/dev/null; then
