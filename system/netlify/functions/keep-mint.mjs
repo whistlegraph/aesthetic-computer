@@ -1092,9 +1092,19 @@ export const handler = stream(async (event, context) => {
       // ═══════════════════════════════════════════════════════════════════
       if (!useCachedMedia) {
         const thumbnailAwaitBudgetMs = getStageBudgetMs(THUMBNAIL_TIMEOUT_MS);
+        const preexistingThumbnailUri = piece?.ipfsMedia?.thumbnailUri || mintStatus?.thumbnailUri || null;
         if (thumbnailAwaitBudgetMs < 2500) {
-          throw new Error("Preparation time budget exhausted while waiting for thumbnail");
-        }
+          if (forceFreshMedia && preexistingThumbnailUri) {
+            thumbnailUri = preexistingThumbnailUri;
+            console.warn("🪙 KEEP: Low prep budget before thumbnail wait; reusing previous thumbnail");
+            await send("progress", {
+              stage: "thumbnail",
+              message: "Low time budget, reusing previous thumbnail",
+            });
+          } else {
+            throw new Error("Preparation time budget exhausted while waiting for thumbnail");
+          }
+        } else {
         await send("progress", { stage: "thumbnail", message: `Awaiting ${thumbW}x${thumbH}@2x WebP...` });
 
         // Send heartbeat messages to keep the SSE connection alive while
@@ -1124,14 +1134,14 @@ export const handler = stream(async (event, context) => {
         }
 
         if (!thumbResult?.ipfsUri) {
-          const fallbackThumbnailUri = isRebake
-            ? (piece?.ipfsMedia?.thumbnailUri || mintStatus?.thumbnailUri || null)
+          const fallbackThumbnailUri = forceFreshMedia
+            ? preexistingThumbnailUri
             : null;
 
           if (fallbackThumbnailUri) {
             thumbnailUri = fallbackThumbnailUri;
             const fallbackReason = thumbnailWaitError?.message || thumbResult?.error || "unknown";
-            console.warn(`🪙 KEEP: Thumbnail bake fallback for rebake: ${fallbackReason}`);
+            console.warn(`🪙 KEEP: Thumbnail bake fallback for regenerate path: ${fallbackReason}`);
             await send("progress", {
               stage: "thumbnail",
               message: "Bake timeout, reusing previous thumbnail",
@@ -1149,6 +1159,7 @@ export const handler = stream(async (event, context) => {
             stage: "thumbnail",
             message: `Baked ${thumbHash.slice(0, 12)}..`
           });
+        }
         }
 
         // Cache the IPFS media in MongoDB for future use
