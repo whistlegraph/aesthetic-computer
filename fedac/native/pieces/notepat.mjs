@@ -75,6 +75,11 @@ let wifiPassword = "";
 let wifiPasswordMode = false;  // true = fullscreen password entry
 let shiftHeld = false;
 
+// AC chat: latest message fetched after WiFi connects
+let acMsg = null;            // { from, text } once loaded
+let acMsgFetched = false;    // true once fetch triggered
+let wifiWasConnected = false;
+
 // US-QWERTY shift map for bare-metal text input (no OS layout handling)
 const SHIFT_MAP = {
   "1":"!","2":"@","3":"#","4":"$","5":"%","6":"^","7":"&","8":"*","9":"(","0":")",
@@ -521,6 +526,20 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   // Center status bar: note count is enough, settings go below
   const centerX = Math.floor(w / 2);
 
+  // Fetch latest AC chat message on WiFi connect, parse when ready
+  if (wifi?.connected && !wifiWasConnected && !acMsgFetched) {
+    system.fetch("https://aesthetic.computer/.netlify/functions/chat-messages?instance=system&limit=1");
+    acMsgFetched = true;
+  }
+  wifiWasConnected = !!wifi?.connected;
+  if (system.fetchResult && !acMsg) {
+    try {
+      const data = JSON.parse(system.fetchResult);
+      const m = data.messages?.[0];
+      if (m) acMsg = { from: m.from || "?", text: m.text || "" };
+    } catch (_) {}
+  }
+
   // Right section: wifi | battery | time | vol
   let rx = w - 2; // right edge cursor (builds right to left)
 
@@ -920,15 +939,23 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       }
     }
 
-    // Connected IP at bottom
+    // Connected IP + latest AC message at bottom
     if (wifi.connected && wifi.ip) {
       ink(80, 200, 80);
-      write("connected: " + wifi.ip, { x: 20, y: h - 16, size: 1, font: "font_1" });
+      write("connected: " + wifi.ip, { x: 20, y: h - 26, size: 1, font: "font_1" });
+      if (acMsg) {
+        ink(FG_DIM, FG_DIM, FG_DIM);
+        const preview = (acMsg.from + ": " + acMsg.text).slice(0, 52);
+        write(preview, { x: 20, y: h - 16, size: 1, font: "font_1" });
+      } else if (acMsgFetched) {
+        ink(FG_MUTED, FG_MUTED, FG_MUTED);
+        write("loading...", { x: 20, y: h - 16, size: 1, font: "font_1" });
+      }
     }
 
     // Instructions
     ink(FG_MUTED, FG_MUTED, FG_MUTED);
-    write("Esc: close", { x: w - 60, y: h - 16, size: 1, font: "font_1" });
+    write("Esc: close", { x: w - 60, y: h - 26, size: 1, font: "font_1" });
 
     // Rescan timer
     if (frame % 300 === 0 && wifiPanelOpen) {
