@@ -1,8 +1,16 @@
-# Keeps v6 Launch Prep
+# Keeps v6 Launch Prep (Archived)
 
 Date: 2026-03-07
+Updated: 2026-03-08
 
-This runbook is for the final production cutover to the Keeps v6 profile.
+This runbook was used for the v6 production cutover.
+
+## Status
+
+- v6 contract is live on mainnet.
+- Keeps flow is running against the Mongo-backed active contract config.
+- First production keep minted on v6 (token `#0`, `$roz`).
+- Next release track moved to v7 (see `tezos/V7-LAUNCH-PLAN.md`).
 
 ## 1. Preflight
 

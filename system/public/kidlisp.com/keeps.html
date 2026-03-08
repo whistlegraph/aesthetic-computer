@@ -1768,7 +1768,7 @@
   <div class="keeps-tabs-container">
     <div class="keeps-tabs">
       <button class="keeps-tab active" data-tab="index">Index</button>
-      <button class="keeps-tab" data-tab="v6">v6 Launch</button>
+      <button class="keeps-tab" data-tab="v6">Launch</button>
       <button class="keeps-tab" data-tab="docs">Docs</button>
       <button class="keeps-tab" data-tab="about">About</button>
     </div>
@@ -1788,15 +1788,15 @@
       </div>
     </div>
 
-    <!-- TAB: v6 Launch -->
+    <!-- TAB: Launch Timeline -->
     <div class="keeps-tab-content" id="tab-v6">
       <div style="padding: 24px 0;">
         <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 20px; flex-wrap: wrap;">
           <h2 style="margin: 0; color: var(--text-primary); font-size: 24px; font-weight: 600;">
-            v6 Production Launch
+            Keeps Launch Timeline
           </h2>
           <span id="v6-launch-badge" style="padding: 4px 12px; background: rgba(255, 193, 7, 0.15); border: 1px solid rgba(255, 193, 7, 0.4); border-radius: 12px; font-size: 12px; color: #d4a017; font-weight: 600;">
-            PRE-LAUNCH
+            V6 LIVE • V7 IN PROGRESS
           </span>
         </div>
 
@@ -1810,8 +1810,10 @@
             <span><a href="https://keeps.kidlisp.com">https://keeps.kidlisp.com</a></span>
             <span style="color: var(--text-tertiary);">Homepage</span>
             <span><a href="https://kidlisp.com">https://kidlisp.com</a></span>
-            <span style="color: var(--text-tertiary);">Version</span>
-            <span>6.0.0</span>
+            <span style="color: var(--text-tertiary);">Active Version</span>
+            <span>6.0.0 (live)</span>
+            <span style="color: var(--text-tertiary);">Next Version</span>
+            <span>7.0.0 (final production target)</span>
             <span style="color: var(--text-tertiary);">Interfaces</span>
             <span>TZIP-012, TZIP-016, TZIP-021</span>
             <span style="color: var(--text-tertiary);">Admin Wallet</span>
@@ -1821,37 +1823,54 @@
             <span style="color: var(--text-tertiary);">Royalty</span>
             <span>10% (1000 bps)</span>
             <span style="color: var(--text-tertiary);">Metadata Tags</span>
-            <span>["KidLisp"]</span>
+            <span>["KidLisp"] (v6/v7)</span>
             <span style="color: var(--text-tertiary);">Minting Tool</span>
             <span><a href="https://kidlisp.com">https://kidlisp.com</a></span>
           </div>
           <div style="margin-top: 12px;">
-            <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/keeps_fa2_v5.py" target="_blank"
+            <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/kidlisp_keeps_fa2_v6.py" target="_blank"
                style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
-              Source Code
+              v6 Source Code
+            </a>
+            <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/kidlisp_keeps_fa2_v7.py" target="_blank"
+               style="padding: 6px 12px; background: var(--ac-purple); color: white; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500; margin-left: 8px;">
+              v7 Source Draft
             </a>
           </div>
         </div>
 
         <!-- Token Attribute Preview -->
         <div style="margin-bottom: 24px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
-          <div style="margin-bottom: 12px; color: var(--text-secondary); font-size: 13px; font-weight: 500;">Token Attributes (v6 Format)</div>
+          <div style="margin-bottom: 12px; color: var(--text-secondary); font-size: 13px; font-weight: 500;">Token Attributes (Current Format)</div>
           <div style="display: flex; flex-wrap: wrap; gap: 8px;">
             <span style="padding: 4px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-subtle); border-radius: 4px; font-size: 12px;">
-              <span style="color: var(--text-tertiary);">Length:</span> <span style="color: var(--text-primary);">142</span>
-            </span>
-            <span style="padding: 4px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-subtle); border-radius: 4px; font-size: 12px;">
-              <span style="color: var(--text-tertiary);">Packed on:</span> <span style="color: var(--text-primary);">2026-03-02</span>
-            </span>
-            <span style="padding: 4px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-subtle); border-radius: 4px; font-size: 12px;">
-              <span style="color: var(--text-tertiary);">Handle:</span> <span style="color: var(--text-primary);">@jeffrey</span>
-            </span>
-            <span style="padding: 4px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-subtle); border-radius: 4px; font-size: 12px;">
-              <span style="color: var(--text-tertiary);">User:</span> <span style="color: var(--text-primary);">ac25namuc</span>
+              <span style="color: var(--text-tertiary);">Characters:</span> <span style="color: var(--text-primary);">142</span>
             </span>
           </div>
           <div style="margin-top: 8px; font-size: 11px; color: var(--text-tertiary);">
-            Changes from v5 RC: "User Code" &rarr; "User", "Packed" &rarr; "Packed on", removed "Analyzer Version", tags locked to ["KidLisp"]
+            Metadata now uses a single trait for marketplace clarity: <code>Characters</code>. Tags remain locked to ["KidLisp"].
+          </div>
+        </div>
+
+        <div style="margin-bottom: 24px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
+          <div style="margin-bottom: 12px; color: var(--text-secondary); font-size: 13px; font-weight: 600;">KidLisp Keeps Bill of Artist &amp; Collector Rights</div>
+          <div style="display: grid; grid-template-columns: 1fr; gap: 10px; font-size: 13px; color: var(--text-secondary); line-height: 1.5;">
+            <div>
+              <strong style="color: var(--text-primary);">Artist Rights</strong><br>
+              Original creator attribution is tracked on-chain. In v7, creators can refresh presentation metadata after transfer for maintenance and rebakes.
+            </div>
+            <div>
+              <strong style="color: var(--text-primary);">Collector Rights</strong><br>
+              Core identity and economics remain immutable: <code>content_hash</code> and <code>royalties</code> cannot be changed via metadata edits.
+            </div>
+            <div>
+              <strong style="color: var(--text-primary);">Owner Rights</strong><br>
+              Current token owner keeps full metadata edit authority and can permanently lock token metadata with <code>lock_metadata</code>.
+            </div>
+            <div>
+              <strong style="color: var(--text-primary);">Protocol Governance</strong><br>
+              Admin controls stay limited to safety/governance operations (pause, fee, admin transfer, contract metadata governance).
+            </div>
           </div>
         </div>
 
@@ -1878,7 +1897,7 @@
               <input id="v6-sim-handle" type="text" value="@jeffrey" />
             </label>
             <label class="v6-sim-field">
-              <span>Packed on</span>
+              <span>Pack date (bundle)</span>
               <input id="v6-sim-packed-on" type="date" value="2026-03-04" />
             </label>
           </div>
@@ -1944,7 +1963,7 @@
             <span class="v6-step-icon">&#x2714;</span>
             <div class="v6-step-content">
               <div class="v6-step-title">Token Attributes Cleaned</div>
-              <div class="v6-step-desc">Renamed User Code &rarr; User, Packed &rarr; Packed on, removed Analyzer Version, mintingTool set to kidlisp.com, tags set to ["KidLisp"] only</div>
+              <div class="v6-step-desc">Token attributes simplified to a single <code>Characters</code> field; mintingTool set to kidlisp.com, tags set to ["KidLisp"] only</div>
             </div>
           </div>
 
@@ -2092,8 +2111,8 @@
           <p style="margin-bottom: 24px; color: var(--text-secondary); line-height: 1.6;">
             The Keeps FA2 v6 is the production release deployed on keeps.tez. Contract name: <strong>KidLisp</strong>.
             Identical smart contract logic to v5 RC. Changes are in metadata and token attributes:
-            mintingTool set to kidlisp.com, "User Code" renamed to "User", "Packed" renamed to "Packed on",
-            "Analyzer Version" removed.
+            mintingTool set to kidlisp.com and token attributes standardized to a single
+            <code>Characters</code> field.
           </p>
 
           <div style="margin-bottom: 32px;">
@@ -2108,7 +2127,7 @@
 
             <div class="keeps-endpoint">
               <div class="keeps-endpoint-name v6">Token Attributes</div>
-              <div class="keeps-endpoint-desc">"User Code" &rarr; "User" &bull; "Packed" &rarr; "Packed on" &bull; "Analyzer Version" removed</div>
+              <div class="keeps-endpoint-desc">Single trait only: <code>Characters</code> (source character count)</div>
             </div>
 
             <div class="keeps-endpoint">

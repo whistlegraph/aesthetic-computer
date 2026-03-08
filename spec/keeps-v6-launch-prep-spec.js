@@ -50,11 +50,13 @@ describe('🚀 Keeps v6 Launch Prep - Source Checks', () => {
     expect(keepUpdateSource).toContain('const tags = ["KidLisp"]');
   });
 
-  it('uses v6 attribute naming and removes analyzer metadata fields', () => {
-    expect(keepMintSource).toContain('{ name: "Handle", value:');
-    expect(keepMintSource).toContain('{ name: "User", value:');
-    expect(keepMintSource).toContain('{ name: "Packed on", value:');
+  it('uses single Characters attribute in mint/update metadata payloads', () => {
+    expect(keepMintSource).toContain('{ name: "Characters", value:');
+    expect(keepUpdateSource).toContain('{ name: "Characters", value:');
 
+    expect(keepMintSource).not.toContain('{ name: "Handle", value:');
+    expect(keepMintSource).not.toContain('{ name: "User", value:');
+    expect(keepMintSource).not.toContain('{ name: "Packed on", value:');
     expect(keepMintSource).not.toContain('Analyzer Version');
     expect(keepMintSource).not.toContain('Author Handle');
     expect(keepMintSource).not.toContain('Author Code');
