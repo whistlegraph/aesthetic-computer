@@ -161,6 +161,7 @@ function act({ event: e, sound, wifi }) {
   // WiFi password input mode — fullscreen, capture all keyboard
   if (wifiPasswordMode && e.is("keyboard:down")) {
     const key = e.key?.toLowerCase();
+    lastKey = key; lastKeyTimer = 180; // debug: show raw key name on screen
     if (key === "escape") { wifiPasswordMode = false; wifiPassword = ""; wifiSelectedIdx = -1; return; }
     if (key === "enter") {
       if (wifi && wifiSelectedIdx >= 0) {
