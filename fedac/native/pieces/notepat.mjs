@@ -73,6 +73,13 @@ let wifiPanelOpen = false;
 let wifiSelectedIdx = -1;
 let wifiPassword = "";
 let wifiPasswordMode = false;  // true = fullscreen password entry
+let shiftHeld = false;
+
+// US-QWERTY shift map for bare-metal text input (no OS layout handling)
+const SHIFT_MAP = {
+  "1":"!","2":"@","3":"#","4":"$","5":"%","6":"^","7":"&","8":"*","9":"(","0":")",
+  "-":"_","=":"+","[":"{","]":"}",";":":","'":'"',",":"<",".":">","/":"?","\\":"|","`":"~",
+};
 let wifiCursorBlink = 0;       // cursor blink counter
 // Touch-note state (for clickable grid buttons)
 let touchNotes = {};  // pointer id -> { key, note, octave }
@@ -158,6 +165,10 @@ function boot({ wipe }) { wipe(0); }
 
 function act({ event: e, sound, wifi }) {
   soundAPI = sound;
+  // Track shift state before any other handling
+  if (e.is("keyboard:down") && e.key?.toLowerCase() === "shift") shiftHeld = true;
+  if (e.is("keyboard:up") && e.key?.toLowerCase() === "shift") shiftHeld = false;
+
   // WiFi password input mode — fullscreen, capture all keyboard
   if (wifiPasswordMode && e.is("keyboard:down")) {
     const key = e.key?.toLowerCase();
@@ -176,7 +187,10 @@ function act({ event: e, sound, wifi }) {
       return;
     }
     if (key === "backspace") { wifiPassword = wifiPassword.slice(0, -1); return; }
-    if (key.length === 1) { wifiPassword += key; return; }
+    if (key.length === 1) {
+      wifiPassword += shiftHeld ? (SHIFT_MAP[key] ?? key.toUpperCase()) : key;
+      return;
+    }
     return;
   }
 
