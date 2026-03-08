@@ -1,0 +1,255 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={Jeffrey Alan Scudder},
+  pdftitle={Pieces Not Programs},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{draftcolor}\textit{Working Draft --- not for citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic Computer}}
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=2.2em]{pals}\par\vspace{0.4em}
+{\acbold\fontsize{24pt}{28pt}\selectfont\color{acdark} Pieces Not Programs}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} The Piece as a Unit of Creative Cognition in \ac{}}\par
+\vspace{0.6em}
+{\normalsize Jeffrey Alan Scudder}\par
+{\small\color{acgray} Aesthetic Inc.}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{draftcolor}\textbf{[ working draft --- not for citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Abstract.}
+\ac{} calls its interactive programs \emph{pieces}---not sketches, patches, scripts, or apps. This paper argues that the choice of word is not cosmetic. It imports a framework from music and visual art in which a creative work is an \emph{authored, performable, iterable artifact} rather than a specification for a machine. We trace the genealogy of the piece as a computational unit, comparing it to the Processing sketch, the Max/MSP patch, the Unix process, the Smalltalk image, and the Jupyter notebook. We then examine what AC pieces actually are: single-file URL-addressable programs with a lifecycle (\texttt{boot}, \texttt{paint}, \texttt{act}, \texttt{sim}, \texttt{leave}) that mirrors the perception-action cycle of embodied agents~\citep{varela1991embodied}. We argue that naming and designing around the piece concept---rather than the program concept---produces qualitatively different relationships between authors, platforms, and audiences: one in which software is practiced, not just deployed.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Introduction}
+
+When Turing defined computation in 1936, he called the basic object a ``computable number'' produced by a ``machine''~\citep{turing1936computable}. The word \emph{program}---from the Greek \emph{programma}, a public notice or written announcement---entered computing as a natural extension of this bureaucratic framing: a program is a set of instructions, a plan to be executed. Programs are correct or incorrect. They compile or they don't. They are deployed, not performed.
+
+The history of creative computing has been, in part, a slow erosion of this framing. The Processing sketch~\citep{reas2007processing} replaced the program with something disposable and exploratory. The Max/MSP patch~\citep{puckette1988patcher} replaced the source file with a living dataflow graph. Scratch~\citep{resnick2009scratch} replaced the instruction sequence with snapping blocks. Each renaming was also a redesign: the affordances of the new unit carried new assumptions about who makes things, how long they take, and what counts as done.
+
+\ac{} calls its programs \emph{pieces}~\citep{scudder2026ac}. This paper examines why that matters.
+
+\section{Genealogy of Creative Units}
+
+\subsection{The musical piece}
+
+In music, a \emph{piece} is a complete, authored work that exists in at least two forms: the score (symbolic specification) and the performance (instantiation). These are not identical---performances differ, scores are interpreted, and pieces accumulate variants over time. A piece is never exhausted by any single performance. It is also socially situated: pieces have names, authors, premieres, and canons. They are taught, analyzed, covered, and forgotten.
+
+This duality---spec and performance, text and enactment---is absent from the program concept. A program is typically identified with its source (or binary). Its ``performance'' is incidental; what matters is whether the output is correct.
+
+\subsection{The Processing sketch}
+
+The Processing sketch~\citep{reas2007processing} imported the artistic register deliberately. The word \emph{sketch} signals incompleteness, exploration, and iteration. Sketches are not deployed; they are shared, built upon, or abandoned. The Processing environment reinforced this with an IDE organized around writing, running, and exporting---a cycle closer to drawing than engineering.
+
+The sketch model had limits: sketches are local files, not URLs. They are not socially distributed by the platform. Their lifecycle ends at the window close.
+
+\subsection{The Max/MSP patch}
+
+Max's \emph{patch}~\citep{puckette1988patcher,puckette1996pure} is a dataflow graph rather than a control-flow sequence. Patches are constructed spatially, through connection rather than inscription. They are inherently performative: a Max patch is not meaningful until it is running, and its behavior is defined by the live data flowing through it. This makes patches closer to instruments than to programs---they are played, not executed.
+
+Patches are also ephemeral in a specific way: closing a patch and reopening it returns the same structure, but the performance state is gone. The patch is the score; the running instance is the performance.
+
+\subsection{The Unix process}
+
+The Unix \emph{process} is a different concept: not the source code or the binary, but the running instance---a program in execution, with its own address space, file descriptors, and PID. The process is the performance, not the score. Unix philosophy (one tool, one job, composition via pipes) treats processes as combinable primitives rather than authored works. The process has no author in the artistic sense; it has an owner in the administrative sense.
+
+The Unix model is powerful and enduring, but it points in the opposite direction from the piece concept: toward correctness, composability, and system administration rather than authorship, iteration, and expression.
+
+\subsection{The Smalltalk image and Jupyter notebook}
+
+Alan Kay's Smalltalk~\citep{kay1977personal} proposed a different unit: the \emph{image}---a persistent, living snapshot of all objects and their state. The image is not a file to be compiled; it is a world to be inhabited. Objects are sent messages; the environment responds. This is closer to the piece concept than to the program concept, but it has not transferred to mainstream creative coding because it resists the file-as-unit paradigm of modern operating systems.
+
+The Jupyter notebook occupies an interesting middle position: it is a document (narrative) and a process (executable cells) simultaneously. Notebooks are closer to essays than to programs, but their unit is the cell, not the whole.
+
+\section{What AC Pieces Are}
+
+An \ac{} piece is a single \texttt{.mjs} or \texttt{.lisp} file exporting lifecycle functions:
+
+\begin{itemize}
+  \item \texttt{boot} --- initialization, runs once on load,
+  \item \texttt{paint} --- rendering, runs every frame,
+  \item \texttt{act} --- event handling (input, network, time),
+  \item \texttt{sim} --- simulation logic, runs every frame,
+  \item \texttt{leave} --- cleanup on exit.
+\end{itemize}
+
+This lifecycle is not arbitrary. It maps onto the perception-action cycle described by enactive cognitive science~\citep{varela1991embodied}: an agent perceives its environment (\texttt{act}), updates its internal state (\texttt{sim}), and produces an output (\texttt{paint}). The piece is not a specification for a computation; it is a description of an ongoing cognitive process.
+
+\subsection{URL addressability}
+
+Every piece is addressable by URL: \texttt{aesthetic.computer/piece-name}. This makes pieces memorizable paths rather than files. The URL namespace is the piece namespace. Users discover pieces the way they discover musical works---by name, by reference, by navigating a collection. This is what distinguishes AC from IDEs and sandboxes: the piece is social before it is technical.
+
+\subsection{The immediate-mode rendering model}
+
+\ac{} uses immediate-mode graphics: \texttt{paint} is called every frame, and the screen is rebuilt from scratch. There is no retained scene graph, no persistent DOM, no object model. This is cognitively significant: the piece is a pure function of time and state, not an accumulated structure. The programmer thinks in terms of \emph{what to draw now}, not \emph{what to change}. This aligns with how musicians think during performance---not ``what note am I holding'' but ``what do I play next.''
+
+\subsection{Authorship and iteration}
+
+Pieces have authors. They are published by name, attributed, and fork-able via the \texttt{source} command. When a user issues \texttt{source piece-name}, they receive a copy of the piece's source and become a new author. This is the musical concept of covering: taking an existing work and making it yours.
+
+The iteration cycle---write, publish, play, observe, revise---is closer to musical composition or visual art practice than to software deployment. \citet{mcpherson2020idiomatic} document how computer music languages shape aesthetic outcomes through the idioms they make easy; the piece lifecycle shapes what gets made by making iterative, performative development the path of least resistance.
+
+\section{The Piece as Cognitive Extension}
+
+Clark and Chalmers argue that cognitive processes can extend into external tools when those tools are reliably used, available, and endorsed~\citep{clark1998extended}. A notebook used for thinking is part of the cognitive system; the content in the notebook is as much ``in the mind'' as a remembered fact.
+
+A piece, played regularly, becomes a cognitive extension in exactly this sense. \texttt{notepat}~\citep{scudder2026notepat} is not just a tool Jeffrey uses to make sounds; it is a prosthetic for musical thinking. The 401 commits to \texttt{notepat} are not bug fixes to a utility---they are refinements to a cognitive organ. The piece and its author co-evolve.
+
+This is what \citet{magnusson2010designing} describes as the epistemic dimension of musical instruments: instruments are ``epistemic tools'' that shape what their players can think and express. Digital instruments differ from acoustic ones in that they are software---and software can be modified by its user. When the tool is a piece and its author is also its player, the boundary between instrument and composition dissolves.
+
+\subsection{The named path as mnemonic}
+
+Norman's affordance concept~\citep{norman1988design} describes how objects signal their possible uses. A URL-addressable piece affords memorization and return: the name \texttt{notepat} is not just an identifier but a mnemonic, a path back to a practice. The AC namespace is a mnemonic landscape. Users who know \texttt{wrl}, \texttt{grid}, \texttt{clock}, \texttt{prompt} have internalized a map of possible experiences. This is how musical canons work: the names of pieces are handles for practices, not just labels for files.
+
+\section{Pieces vs.\ Programs: A Comparison}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{l X X}
+\toprule
+ & \textbf{Program} & \textbf{Piece} \\
+\midrule
+Unit of evaluation & Correctness & Expression \\
+Primary lifecycle & Compile, run, exit & Boot, play, leave \\
+Authorship & Owner (user/root) & Artist \\
+Social unit & Executable binary & Named URL \\
+Iteration mode & Debug, redeploy & Revise, republish \\
+Relationship to time & Terminates & Ongoing \\
+Forking metaphor & Fork (git) & Cover (music) \\
+Done when & Tests pass & Never (only abandoned) \\
+\bottomrule
+\end{tabularx}
+\caption{Program vs.\ piece as creative units.}
+\label{tab:comparison}
+\end{table}
+
+\section{Implications for Platform Design}
+
+The piece concept has concrete design consequences for \ac{}:
+
+\begin{enumerate}
+  \item \textbf{One file, one piece.} No project structure, no build system, no dependencies outside the platform API. The piece is self-contained because a musical piece is self-contained.
+  \item \textbf{The prompt as instrument.} The AC command prompt is the interface through which pieces are navigated, played, and published. It is designed to be memorized, like a keyboard layout---not configured, like a GUI.
+  \item \textbf{Publishing as performance.} Issuing \texttt{publish} is an act of authorship, not deployment. The piece enters the namespace immediately and is playable by anyone with the URL.
+  \item \textbf{The browser as concert hall.} The web browser~\citep{wyse2013viability} is the performance space. It is already present on every device; it is already social. Pieces play in the browser not because it is technically optimal but because it is the most accessible performance venue that exists.
+  \item \textbf{Live coding as rehearsal.} The module loader hot-reloads pieces on save. This is not a developer convenience---it is the equivalent of practicing at tempo: the author plays the piece as it changes, not after.
+\end{enumerate}
+
+\section{Conclusion}
+
+Calling interactive programs \emph{pieces} is a design claim: it asserts that the right framework for thinking about creative software is not the engineering framework (correctness, deployment, maintenance) but the artistic one (authorship, iteration, performance, practice). The Processing sketch made a similar claim in 2001. Max's patch made it in 1988. AC's piece makes it again, in a browser, with a URL namespace, in 2024.
+
+Each reframing carries different affordances. The piece concept in AC foregrounds: memorizable URLs over installable apps, immediate-mode rendering over retained scene graphs, lifecycle functions over event listeners, and covering over forking. These are not just naming choices---they are constraints that, as \citet{magnusson2010designing} argues, enable by delimiting.
+
+The deeper claim is that software designed around the piece concept treats \emph{practice} as the fundamental relationship between a user and a program. Not installation, not configuration, not deployment---practice. The piece is something you return to, refine, and perform. It extends your cognition~\citep{clark1998extended} precisely because it is stable enough to be learned and flexible enough to grow.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
