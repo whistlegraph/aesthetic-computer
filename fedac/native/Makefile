@@ -7,7 +7,9 @@ QJSDIR   := $(BUILDDIR)/quickjs
 
 # Use musl for static linking if available, else gcc
 CC       ?= gcc
-CFLAGS   := -O2 -Wall -Wextra -std=gnu11 -I$(QJSDIR)
+GIT_HASH := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILD_TS := $(shell date -u '+%Y-%m-%dT%H:%M')
+CFLAGS   := -O2 -Wall -Wextra -std=gnu11 -I$(QJSDIR) -DAC_GIT_HASH=\"$(GIT_HASH)\" -DAC_BUILD_TS=\"$(BUILD_TS)\"
 LDFLAGS  := -lm -lpthread -lasound
 
 # For static build (production/initramfs):
@@ -63,7 +65,10 @@ $(TARGET): $(OBJS) $(QJS_OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS)
 	@echo "Built: $@ ($(shell wc -c < $@ | tr -d ' ') bytes)"
 
-$(BUILDDIR)/%.o: $(SRCDIR)/%.c | $(BUILDDIR)
+# All .c files depend on all project headers (simple but correct)
+HEADERS := $(wildcard $(SRCDIR)/*.h)
+
+$(BUILDDIR)/%.o: $(SRCDIR)/%.c $(HEADERS) | $(BUILDDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(BUILDDIR)/qjs-%.o: $(QJSDIR)/%.c | $(BUILDDIR)

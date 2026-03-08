@@ -66,6 +66,30 @@ int drm_back_stride(ACDisplay *d);
 uint32_t *drm_front_buffer(ACDisplay *d);
 int drm_front_stride(ACDisplay *d);
 
+// Secondary display (HDMI out) — solid color only
+typedef struct {
+    int active;
+    int fd;
+    uint32_t connector_id;
+    uint32_t crtc_id;
+    drmModeModeInfo mode;
+    int width, height;
+    struct {
+        uint32_t handle, fb_id, pitch, size;
+        uint32_t *map;
+    } buf;
+    drmModeCrtc *saved_crtc;
+} ACSecondaryDisplay;
+
+// Initialize secondary HDMI display (call after drm_init, returns NULL if no HDMI)
+ACSecondaryDisplay *drm_init_secondary(ACDisplay *primary);
+
+// Fill secondary display with solid color
+void drm_secondary_fill(ACSecondaryDisplay *s, uint8_t r, uint8_t g, uint8_t b);
+
+// Cleanup secondary display
+void drm_secondary_destroy(ACSecondaryDisplay *s);
+
 // Cleanup
 void drm_destroy(ACDisplay *d);
 
