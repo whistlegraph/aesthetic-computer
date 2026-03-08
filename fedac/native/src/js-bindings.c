@@ -1074,6 +1074,25 @@ static JSValue js_hdmi_fill(JSContext *ctx, JSValueConst this_val, int argc, JSV
     return JS_UNDEFINED;
 }
 
+// system.fetch(url) — async HTTP GET via curl, result polled via system.fetchResult
+static JSValue js_fetch(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (!current_rt || argc < 1) return JS_UNDEFINED;
+    const char *url = JS_ToCString(ctx, argv[0]);
+    if (!url) return JS_UNDEFINED;
+    unlink("/tmp/ac_fetch.json");
+    unlink("/tmp/ac_fetch_rc");
+    char cmd[2048];
+    snprintf(cmd, sizeof(cmd),
+        "sh -c 'curl -sf --max-time 8 --output /tmp/ac_fetch.json \"%s\" 2>/dev/null;"
+        " echo $? > /tmp/ac_fetch_rc' &", url);
+    system(cmd);
+    current_rt->fetch_pending = 1;
+    current_rt->fetch_result[0] = 0;
+    JS_FreeCString(ctx, url);
+    return JS_UNDEFINED;
+}
+
 static JSValue build_system_obj(JSContext *ctx) {
     JSValue sys = JS_NewObject(ctx);
 
@@ -1168,6 +1187,35 @@ static JSValue build_system_obj(JSContext *ctx) {
     int has_hdmi = (current_rt && current_rt->hdmi && current_rt->hdmi->active);
     JS_SetPropertyStr(ctx, sys, "hasHdmi", JS_NewBool(ctx, has_hdmi));
     JS_SetPropertyStr(ctx, sys, "hdmi", JS_NewCFunction(ctx, js_hdmi_fill, "hdmi", 3));
+
+    // Async HTTP fetch — system.fetch(url) / system.fetchResult
+    JS_SetPropertyStr(ctx, sys, "fetch", JS_NewCFunction(ctx, js_fetch, "fetch", 1));
+    if (current_rt && current_rt->fetch_pending) {
+        FILE *rc = fopen("/tmp/ac_fetch_rc", "r");
+        if (rc) {
+            int code = -1;
+            fscanf(rc, "%d", &code);
+            fclose(rc);
+            unlink("/tmp/ac_fetch_rc");
+            if (code == 0) {
+                FILE *fp = fopen("/tmp/ac_fetch.json", "r");
+                if (fp) {
+                    int n = (int)fread(current_rt->fetch_result,
+                                       1, sizeof(current_rt->fetch_result) - 1, fp);
+                    fclose(fp);
+                    current_rt->fetch_result[n] = 0;
+                    unlink("/tmp/ac_fetch.json");
+                }
+            }
+            current_rt->fetch_pending = 0;
+        }
+    }
+    if (current_rt && current_rt->fetch_result[0]) {
+        JS_SetPropertyStr(ctx, sys, "fetchResult",
+                          JS_NewString(ctx, current_rt->fetch_result));
+    } else {
+        JS_SetPropertyStr(ctx, sys, "fetchResult", JS_NULL);
+    }
 
     return sys;
 }

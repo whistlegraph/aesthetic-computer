@@ -31,6 +31,9 @@ typedef struct {
     ACSecondaryDisplay *hdmi;
     int paint_count;
     int sim_count;
+    // Async HTTP fetch state (curl in background)
+    int fetch_pending;           // 1 = waiting for curl
+    char fetch_result[8192];     // JSON response when done, empty otherwise
 } ACRuntime;
 
 // Initialize QuickJS and register all AC API bindings
