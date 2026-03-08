@@ -3117,6 +3117,38 @@
       return new Date(date).toISOString().slice(0, 10);
     }
 
+    let keepsStreamModulePromise = null;
+
+    async function getKeepsStreamModule() {
+      if (!keepsStreamModulePromise) {
+        keepsStreamModulePromise = (async () => {
+          const candidates = [
+            '/aesthetic.computer/lib/keeps-stream.mjs',
+            '../aesthetic.computer/lib/keeps-stream.mjs',
+            `${AC_BASE}/aesthetic.computer/lib/keeps-stream.mjs`,
+          ];
+
+          let lastError = null;
+          for (const specifier of candidates) {
+            try {
+              return await import(specifier);
+            } catch (err) {
+              lastError = err;
+            }
+          }
+
+          throw lastError || new Error('Unable to load keeps stream module');
+        })();
+      }
+
+      try {
+        return await keepsStreamModulePromise;
+      } catch (err) {
+        keepsStreamModulePromise = null;
+        throw err;
+      }
+    }
+
     function appendV6SimEvent(message) {
       const log = document.getElementById('v6-sim-events');
       if (!log) return;
@@ -3177,69 +3209,41 @@
       appendV6SimEvent(`POST /api/keep-mint mode=simulate piece=$${piece}`);
 
       try {
-        const response = await fetch(`${API_BASE}/api/keep-mint`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-          signal: v6SimController.signal,
-        });
-
-        if (!response.ok || !response.body) {
-          throw new Error(`Simulator request failed (${response.status})`);
-        }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-        let currentEventType = null;
+        const { postKeepMintStream } = await getKeepsStreamModule();
         let sawFinalPayload = false;
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
-
-          for (const rawLine of lines) {
-            const line = rawLine.replace(/\r$/, '');
-            if (!line) continue;
-
-            if (line.startsWith('event:')) {
-              currentEventType = line.slice(6).trim();
-              continue;
+        await postKeepMintStream({
+          apiBase: API_BASE,
+          payload,
+          signal: v6SimController.signal,
+          onEvent: async ({ type, data }) => {
+            if (type === 'progress') {
+              const stage = data?.stage ? `[${data.stage}] ` : '';
+              const message = data?.message || '(no message)';
+              appendV6SimEvent(`${stage}${message}`);
+              return true;
             }
 
-            if (line.startsWith('data:')) {
-              const rawData = line.slice(5).trim();
-              let eventData = rawData;
-              try {
-                eventData = JSON.parse(rawData);
-              } catch {}
-
-              const eventType = currentEventType || 'message';
-              currentEventType = null;
-
-              if (eventType === 'progress') {
-                const stage = eventData?.stage ? `[${eventData.stage}] ` : '';
-                const message = eventData?.message || '(no message)';
-                appendV6SimEvent(`${stage}${message}`);
-              } else if (eventType === 'simulated' || eventType === 'prepared' || eventType === 'complete') {
-                sawFinalPayload = true;
-                appendV6SimEvent(`${eventType}: payload received`);
-                output.textContent = JSON.stringify(eventData, null, 2);
-                setV6SimStatus('Simulation complete', 'ok');
-              } else if (eventType === 'error') {
-                const errMsg = eventData?.error || 'Unknown simulator error';
-                appendV6SimEvent(`ERROR: ${errMsg}`);
-                output.textContent = JSON.stringify(eventData, null, 2);
-                setV6SimStatus('Simulation failed', 'error');
-              } else {
-                appendV6SimEvent(`${eventType}: ${typeof eventData === 'string' ? eventData : JSON.stringify(eventData)}`);
-              }
+            if (type === 'simulated' || type === 'prepared' || type === 'complete') {
+              sawFinalPayload = true;
+              appendV6SimEvent(`${type}: payload received`);
+              output.textContent = JSON.stringify(data, null, 2);
+              setV6SimStatus('Simulation complete', 'ok');
+              return true;
             }
-          }
-        }
+
+            if (type === 'error') {
+              const errMsg = data?.error || 'Unknown simulator error';
+              appendV6SimEvent(`ERROR: ${errMsg}`);
+              output.textContent = JSON.stringify(data, null, 2);
+              setV6SimStatus('Simulation failed', 'error');
+              return false;
+            }
+
+            appendV6SimEvent(`${type}: ${typeof data === 'string' ? data : JSON.stringify(data)}`);
+            return true;
+          },
+        });
 
         if (!sawFinalPayload) {
           setV6SimStatus('Simulation stream ended without final payload', 'error');
@@ -3518,59 +3522,20 @@
           try { acToken = await acAuth0Client.getTokenSilently(); } catch (e) { /* token refresh failed */ }
         }
 
-        const response = await fetch(`${API_BASE}/api/keep-mint`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(acToken ? { 'Authorization': `Bearer ${acToken}` } : {}),
-          },
-          body: JSON.stringify({
+        const { postKeepMintStream } = await getKeepsStreamModule();
+        await postKeepMintStream({
+          apiBase: API_BASE,
+          token: acToken || null,
+          payload: {
             piece: '$' + piece,
             walletAddress: address,
             network: getTezosNetwork(),
-          }),
+          },
           signal: mintAbortController.signal,
-        });
-
-        if (!response.ok) {
-          const text = await response.text();
-          let errorMsg = `Server error ${response.status}`;
-          try { const j = JSON.parse(text); errorMsg = j.error || errorMsg; } catch (e) {}
-          setMintStep('validate', 'error', errorMsg);
-          showMintError(errorMsg);
-          return;
-        }
-
-        // Parse SSE stream
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-        let currentEventType = null;
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const chunks = buffer.split('\n\n');
-          buffer = chunks.pop() || '';
-
-          for (const chunk of chunks) {
-            if (!chunk.trim()) continue;
-            const lines = chunk.split('\n');
-            let eventType = null, eventData = null;
-
-            for (const line of lines) {
-              if (line.startsWith('event: ')) eventType = line.slice(7).trim();
-              else if (line.startsWith('data: ')) {
-                try { eventData = JSON.parse(line.slice(6)); } catch (e) {}
-              }
-            }
-
-            if (!eventType) continue;
-
-            if (eventType === 'progress' && eventData) {
-              const stage = eventData.stage;
-              const message = eventData.message || '';
+          onEvent: async ({ type, data }) => {
+            if (type === 'progress' && data) {
+              const stage = data.stage;
+              const message = data.message || '';
               if (stage) setMintStep(stage, 'active', message);
               // Mark previous stages done
               const stageIndex = MINT_STEPS.findIndex(s => s.id === stage);
@@ -3580,34 +3545,46 @@
                   setMintStep(prevId, 'done', mintStepStates[prevId]?.detail || '');
                 }
               }
-            } else if (eventType === 'prepared' && eventData) {
-              mintPreparedData = eventData;
+              return true;
+            }
+
+            if (type === 'prepared' && data) {
+              mintPreparedData = data;
               // Mark all prep steps done
               ['validate', 'analyze', 'thumbnail', 'bundle', 'ipfs', 'metadata'].forEach(id => {
                 if (mintStepStates[id]?.status !== 'done') setMintStep(id, 'done', mintStepStates[id]?.detail || '');
               });
-              setMintStep('review', 'active', `${eventData.mintFee || 2.5} XTZ`);
+              setMintStep('review', 'active', `${data.mintFee || 2.5} XTZ`);
               // Show confirm button
               document.getElementById('mint-actions').style.display = 'flex';
               document.getElementById('mint-confirm-btn').disabled = false;
-            } else if (eventType === 'error' && eventData) {
-              const errMsg = eventData.error || 'Minting failed';
-              const stage = eventData.stage || 'validate';
+              return true;
+            }
+
+            if (type === 'error' && data) {
+              const errMsg = data.error || 'Minting failed';
+              const stage = data.stage || 'validate';
               setMintStep(stage, 'error', errMsg);
               showMintError(errMsg);
-              return;
-            } else if (eventType === 'already_minted' && eventData) {
-              setMintStep('validate', 'done', `Already minted as #${eventData.tokenId}`);
-              showMintResult(`Already kept as Token #${eventData.tokenId}`, eventData.objktUrl);
-              return;
+              return false;
             }
-          }
-        }
+
+            if (type === 'already_minted' && data) {
+              setMintStep('validate', 'done', `Already minted as #${data.tokenId}`);
+              showMintResult(`Already kept as Token #${data.tokenId}`, data.objktUrl);
+              return false;
+            }
+
+            return true;
+          },
+        });
 
       } catch (err) {
         if (err.name === 'AbortError') return;
         console.error('Mint flow error:', err);
-        showMintError(err.message || 'Unexpected error');
+        const message = err.message || 'Unexpected error';
+        setMintStep('validate', 'error', message);
+        showMintError(message);
       }
     }
 
