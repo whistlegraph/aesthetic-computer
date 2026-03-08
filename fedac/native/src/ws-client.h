@@ -1,39 +1,60 @@
 #pragma once
 
 // Minimal TLS WebSocket client for ac-native bare metal
-// Uses OpenSSL for TLS; non-blocking recv; text frames only.
+// Connect + recv run in a background pthread; main thread only polls.
+
+#include <pthread.h>
 
 #define WS_MAX_MESSAGES  16
 #define WS_MAX_MSG_LEN   4096
 
 typedef struct {
-    int fd;
-    void *ctx;   // SSL_CTX*
-    void *ssl;   // SSL*
-    int connected;
-    int error;   // set on fatal error, cleared on reconnect
+    // --- background thread ---
+    pthread_t thread;
+    int       thread_running;
 
-    // Inbound message queue (filled by ws_poll, consumed by JS each frame)
-    char messages[WS_MAX_MESSAGES][WS_MAX_MSG_LEN];
-    int  msg_count;
+    // pending connect request (written by main, read by thread)
+    char  pending_host[256];
+    char  pending_path[256];
+    int   pending_connect;   // 1 = thread should connect
 
-    // Partial frame reassembly buffer
+    // connection state (written by thread, read by main)
+    int   connected;         // 1 = WS handshake complete
+    int   connecting;        // 1 = currently in progress
+    int   error;             // 1 = last connect failed
+
+    // outgoing send queue (written by main, drained by thread)
+    char  send_buf[4096];
+    int   send_pending;      // 1 = send_buf has data to send
+
+    // inbound message queue (written by thread, consumed by main each frame)
+    char  messages[WS_MAX_MESSAGES][WS_MAX_MSG_LEN];
+    int   msg_count;         // written by thread
+    int   msg_read;          // read index advanced by main
+
+    pthread_mutex_t mu;
+
+    // thread-private (only touched by background thread)
+    int   fd;
+    void *ssl_ctx;
+    void *ssl;
     unsigned char frame_buf[65536];
-    int frame_len;
+    int   frame_len;
 } ACWs;
 
 ACWs *ws_create(void);
 void  ws_destroy(ACWs *ws);
 
-// Connect to wss://host/path  (port 443)
-int   ws_connect(ACWs *ws, const char *host, const char *path);
+// Non-blocking: schedules a connect on the background thread
+void  ws_connect(ACWs *ws, const char *url);
 
-// Send a UTF-8 text frame (returns 0 on success)
-int   ws_send(ACWs *ws, const char *text);
+// Non-blocking send (queues one message; thread drains it)
+void  ws_send(ACWs *ws, const char *text);
 
-// Poll for incoming frames; fills ws->messages[0..msg_count-1]
-// Call every frame while connected.
-void  ws_poll(ACWs *ws);
+// Call each frame from main thread.
+// Swaps the inbound message buffer; returns number of new messages.
+// Messages are in ws->messages[0..return_value-1].
+int   ws_poll(ACWs *ws);
 
-// Close cleanly
+// Close and reset (non-blocking; signals thread to stop)
 void  ws_close(ACWs *ws);
