@@ -17,6 +17,7 @@ import {
   fetchTokenInfo,
   findTokenByName,
 } from "../lib/keeps/tzkt-client.mjs";
+import { postKeepMintStream } from "../lib/keeps-stream.mjs";
 
 const { min, max, floor, sin, cos, PI, abs } = Math;
 
@@ -1245,27 +1246,6 @@ async function runProcess(forceRegenerate = false, retryAttempt = 0) {
   try {
     // Await the token that was fetching in parallel
     const token = await tokenPromise;
-    const response = await fetch("/api/keep-mint", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { "Authorization": `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({
-        piece,
-        walletAddress,
-        network: NETWORK,
-        screenWidth,
-        screenHeight,
-        regenerate: forceRegenerate,
-      }),
-      signal, // Enable cancellation
-    });
-
-    if (!response.ok) {
-      setStep("validate", "error", `Server error ${response.status}`);
-      return;
-    }
 
     // Process events with staggered delays so user sees each step
     const delay = (ms) => new Promise(r => setTimeout(r, ms));
@@ -1397,70 +1377,24 @@ async function runProcess(forceRegenerate = false, retryAttempt = 0) {
       }
     };
 
-    if (response.body?.getReader) {
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
+    const streamSummary = await postKeepMintStream({
+      payload: {
+        piece,
+        walletAddress,
+        network: NETWORK,
+        screenWidth,
+        screenHeight,
+        regenerate: forceRegenerate,
+      },
+      token,
+      signal,
+      onEvent: async ({ type, data }) => {
+        await handleEvent(type, data);
+        return type !== "error";
+      },
+    });
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const chunks = buffer.split("\n\n");
-        buffer = chunks.pop() || "";
-
-        for (const chunk of chunks) {
-          const lines = chunk.split("\n");
-          let eventType = null;
-          let eventData = null;
-          for (const line of lines) {
-            if (line.startsWith("event: ")) eventType = line.slice(7);
-            else if (line.startsWith("data: ")) {
-              try { eventData = JSON.parse(line.slice(6)); } catch {}
-            }
-          }
-          if (eventType) {
-            await handleEvent(eventType, eventData);
-            if (eventType === "error") return;
-          }
-        }
-      }
-
-      if (buffer.trim()) {
-        const lines = buffer.split("\n");
-        let eventType = null;
-        let eventData = null;
-        for (const line of lines) {
-          if (line.startsWith("event: ")) eventType = line.slice(7);
-          else if (line.startsWith("data: ")) {
-            try { eventData = JSON.parse(line.slice(6)); } catch {}
-          }
-        }
-        if (eventType) {
-          await handleEvent(eventType, eventData);
-          if (eventType === "error") return;
-        }
-      }
-    } else {
-      const text = await response.text();
-      const events = text.split("\n\n").filter(e => e.trim());
-      for (const event of events) {
-        const lines = event.split("\n");
-        let eventType = null, eventData = null;
-
-        for (const line of lines) {
-          if (line.startsWith("event: ")) eventType = line.slice(7);
-          else if (line.startsWith("data: ")) {
-            try { eventData = JSON.parse(line.slice(6)); } catch {}
-          }
-        }
-
-        if (eventType) {
-          await handleEvent(eventType, eventData);
-          if (eventType === "error") return;
-        }
-      }
-    }
+    if (streamSummary.stoppedByHandler) return;
 
     if (!preparedData) {
       const lastStage = lastEventData?.stage || lastEventType || "unknown";
