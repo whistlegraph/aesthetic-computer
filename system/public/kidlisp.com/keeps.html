@@ -2715,7 +2715,8 @@
       const sourceTextHtml = highlightKidLisp(entry.source || '');
 
       // WebP preview image URL
-      const webpUrl = `https://oven.aesthetic.computer/grab/webp/280/210/$${entry.code}?duration=2000&fps=8&quality=70&density=1&nowait=true`;
+      // Use source=keep so oven gives these requests priority in the grab queue.
+      const webpUrl = `https://oven.aesthetic.computer/grab/webp/280/210/$${entry.code}?duration=1800&fps=8&quality=70&density=1&nowait=true&source=keep`;
 
       card.innerHTML = `
         <div class="keeps-card-header">
@@ -3403,6 +3404,9 @@
       beaconClient = new window.beacon.DAppClient({
         name: 'KidLisp Keeps',
         preferredNetwork: getTezosNetwork(),
+        // Avoid Beacon's default pairing alert iframe (Solid debug warnings + sandbox warning noise).
+        // Wallet extension flow still works via requestPermissions.
+        disableDefaultEvents: true,
       });
       // Check existing connection
       const activeAccount = await beaconClient.getActiveAccount();
