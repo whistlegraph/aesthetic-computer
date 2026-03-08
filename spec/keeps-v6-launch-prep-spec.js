@@ -211,6 +211,8 @@ describe('🚀 Keeps v6 Launch Prep - Source Checks', () => {
 
   it('keeps regenerate path resilient when thumbnail bake exceeds prep budget', () => {
     expect(keepMintSource).toContain('const forceFreshMedia = Boolean(regenerate);');
+    expect(keepMintSource).toContain('KEEP_MINT_EFFECTIVE_PREP_MS');
+    expect(keepMintSource).toContain('KEEP_MINT_FORCE_FRESH_THUMBNAIL_AWAIT_MS');
     expect(keepMintSource).toContain('Low time budget, reusing previous thumbnail');
     expect(keepMintSource).toContain('Bake timeout, reusing previous thumbnail');
   });
