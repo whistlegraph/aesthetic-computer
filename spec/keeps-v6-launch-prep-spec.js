@@ -209,6 +209,12 @@ describe('🚀 Keeps v6 Launch Prep - Source Checks', () => {
     expect(keepUpdateSource).toContain('preservedRoyalties || buildRoyalties(');
   });
 
+  it('keeps regenerate path resilient when thumbnail bake exceeds prep budget', () => {
+    expect(keepMintSource).toContain('const forceFreshMedia = Boolean(regenerate);');
+    expect(keepMintSource).toContain('Low time budget, reusing previous thumbnail');
+    expect(keepMintSource).toContain('Bake timeout, reusing previous thumbnail');
+  });
+
   it('resolves keeps contract address from Mongo secrets (not Netlify env var)', () => {
     expect(keepMintSource).toContain('getKeepsContractAddress');
     expect(keepUpdateSource).toContain('getKeepsContractAddress');
