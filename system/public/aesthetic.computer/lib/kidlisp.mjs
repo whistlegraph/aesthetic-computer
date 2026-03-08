@@ -7397,6 +7397,9 @@ class KidLisp {
       fps: (api, args) => {
         // 🔒 If fps was forced via colon param (e.g., $noc:24), ignore (fps N) calls
         if (this.forcedFps !== null) return this.forcedFps;
+        const isPackMode =
+          (typeof window !== "undefined" && window.acPACK_MODE) ||
+          (typeof globalThis !== "undefined" && globalThis.acPACK_MODE);
         if (args.length > 0) {
           const parsed = parseFloat(args[0]);
           if (!isNaN(parsed)) {
@@ -7422,10 +7425,12 @@ class KidLisp {
                 if (window.currentRecordingOptions) {
                   window.currentRecordingOptions.kidlispFps = targetFps;
                   window.currentRecordingOptions.kidlispFpsTimeline = window.kidlispFpsTimeline;
-                  console.log(`🎬 Updated recording options with KidLisp FPS: ${targetFps} at ${timestamp.toFixed(2)}ms`);
+                  if (!isPackMode) {
+                    console.log(`🎬 Updated recording options with KidLisp FPS: ${targetFps} at ${timestamp.toFixed(2)}ms`);
+                  }
                 }
               }
-              if (this._lastLoggedFps !== targetFps) {
+              if (this._lastLoggedFps !== targetFps && !isPackMode) {
                 console.log(`🎬 KidLisp FPS set to: ${targetFps} at ${(typeof window !== 'undefined' ? performance.now() : 0).toFixed(2)}ms`);
                 this._lastLoggedFps = targetFps;
               }
@@ -7453,10 +7458,12 @@ class KidLisp {
               if (window.currentRecordingOptions) {
                 window.currentRecordingOptions.kidlispFps = null;
                 window.currentRecordingOptions.kidlispFpsTimeline = window.kidlispFpsTimeline;
-                console.log(`🎬 Reset recording KidLisp FPS override at ${timestamp.toFixed(2)}ms`);
+                if (!isPackMode) {
+                  console.log(`🎬 Reset recording KidLisp FPS override at ${timestamp.toFixed(2)}ms`);
+                }
               }
             }
-            if (this._lastLoggedFps !== null) {
+            if (this._lastLoggedFps !== null && !isPackMode) {
               console.log(`🎬 KidLisp FPS reset to default at ${(typeof window !== 'undefined' ? performance.now() : 0).toFixed(2)}ms`);
               this._lastLoggedFps = null;
             }
