@@ -67,7 +67,7 @@ int drm_back_stride(ACDisplay *d);
 uint32_t *drm_front_buffer(ACDisplay *d);
 int drm_front_stride(ACDisplay *d);
 
-// Secondary display (HDMI out) — double-buffered waveform display
+// Secondary display (HDMI out) — double-buffered, low-res internal render
 typedef struct {
     int active;
     int fd;
@@ -81,6 +81,7 @@ typedef struct {
     } bufs[2];              // Double buffers (back/front)
     int buf_front;          // Which buffer is currently displayed
     drmModeCrtc *saved_crtc;
+    ACFramebuffer *small_fb; // 1/8-scale internal render target (fast)
 } ACSecondaryDisplay;
 
 // Initialize secondary HDMI display (call after drm_init, returns NULL if no HDMI)

@@ -613,8 +613,18 @@ ACSecondaryDisplay *drm_init_secondary(ACDisplay *primary) {
         free(s); return NULL;
     }
 
+    // Small internal render target (1/8 native res for fast CPU rendering)
+    int sw = (s->width  + 7) / 8;
+    int sh = (s->height + 7) / 8;
+    s->small_fb = fb_create(sw, sh);
+    if (!s->small_fb) {
+        fprintf(stderr, "[drm-secondary] fb_create small failed\n");
+        // non-fatal — will fall back to full-res if NULL
+    }
+
     s->active = 1;
-    fprintf(stderr, "[drm-secondary] HDMI output active (double-buffered)\n");
+    fprintf(stderr, "[drm-secondary] HDMI output active %dx%d (small %dx%d)\n",
+            s->width, s->height, sw, sh);
     return s;
 }
 
@@ -641,55 +651,56 @@ int drm_secondary_is_connected(ACDisplay *primary) {
 void drm_secondary_present_waveform(ACSecondaryDisplay *s, ACGraph *g,
                                      float *waveform, int wf_size, int wf_pos) {
     if (!s || !s->active || !g) return;
-    int back = 1 - s->buf_front;
-    int stride = (int)(s->bufs[back].pitch / sizeof(uint32_t));
 
-    // Point a temporary framebuffer at the HDMI back buffer
-    ACFramebuffer hdmi_fb = {
-        .pixels = s->bufs[back].map,
-        .width  = s->width,
-        .height = s->height,
-        .stride = stride,
-    };
+    // Use small_fb as the render target (1/8 native res — fast)
+    ACFramebuffer *render_fb = s->small_fb;
+    if (!render_fb) return; // nothing to render into
 
-    // Save graph's original target and switch to HDMI buffer
+    int rw = render_fb->width;
+    int rh = render_fb->height;
+
+    // Save graph's original target and switch to small buffer
     ACFramebuffer *orig_target = g->fb;
-    graph_page(g, &hdmi_fb);
+    graph_page(g, render_fb);
 
     // Dark background
     graph_wipe(g, (ACColor){8, 8, 16, 255});
 
-    // Draw waveform (120 segments spanning full screen)
+    // Draw waveform at small-buffer dimensions
     if (waveform) {
         int N = 120;
         graph_ink(g, (ACColor){40, 140, 200, 220});
         int prev_x = 0;
-        int prev_y = s->height / 2;
+        int prev_y = rh / 2;
         for (int i = 0; i < N; i++) {
             int idx = (wf_pos + wf_size - N + i) % wf_size;
             float sample = waveform[idx];
-            int x = (int)((float)i / (float)(N - 1) * (s->width - 1));
-            int y = s->height / 2 - (int)(sample * s->height * 0.42f);
+            int x = (int)((float)i / (float)(N - 1) * (rw - 1));
+            int y = rh / 2 - (int)(sample * rh * 0.42f);
             if (i > 0) graph_line(g, prev_x, prev_y, x, y);
             prev_x = x;
             prev_y = y;
         }
     }
 
-    // Resolution text top-left, scale 2
+    // Resolution text (shows native res) at small scale
     char res_str[32];
     snprintf(res_str, sizeof(res_str), "%dx%d", s->width, s->height);
     graph_ink(g, (ACColor){160, 160, 180, 255});
-    font_draw(g, res_str, 8, 8, 2);
+    font_draw(g, res_str, 2, 2, 1);
 
     // Restore original render target
     graph_page(g, orig_target);
 
-    // Async page flip (non-blocking — avoids waiting for HDMI vblank event)
+    // Scale small_fb up to HDMI back buffer
+    int back = 1 - s->buf_front;
+    int dst_stride = (int)(s->bufs[back].pitch / sizeof(uint32_t));
+    fb_copy_scaled(render_fb, s->bufs[back].map, s->width, s->height, dst_stride, 8);
+
+    // Async page flip
     int ret = drmModePageFlip(s->fd, s->crtc_id, s->bufs[back].fb_id,
                                DRM_MODE_PAGE_FLIP_ASYNC, NULL);
     if (ret != 0) {
-        // Fallback: SetCrtc (no vsync, but at least we double-buffered so no partial writes)
         drmModeSetCrtc(s->fd, s->crtc_id, s->bufs[back].fb_id, 0, 0,
                        &s->connector_id, 1, &s->mode);
     }
@@ -716,6 +727,7 @@ void drm_secondary_destroy(ACSecondaryDisplay *s) {
                        &s->connector_id, 1, &s->saved_crtc->mode);
         drmModeFreeCrtc(s->saved_crtc);
     }
+    if (s->small_fb) fb_destroy(s->small_fb);
     for (int b = 0; b < 2; b++) {
         if (s->bufs[b].map && s->bufs[b].map != MAP_FAILED)
             munmap(s->bufs[b].map, s->bufs[b].size);
