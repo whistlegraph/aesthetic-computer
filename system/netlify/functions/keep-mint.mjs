@@ -20,6 +20,7 @@ import { getKeepsContractAddress, LEGACY_KEEPS_CONTRACT } from "../../backend/te
 import { stream } from "@netlify/functions";
 import { TezosToolkit } from "@taquito/taquito";
 import { InMemorySigner } from "@taquito/signer";
+import { packDataBytes } from "@taquito/michel-codec";
 
 const dev = process.env.CONTEXT === "dev";
 
@@ -49,6 +50,7 @@ const KEEP_MINT_EFFECTIVE_PREP_MS = Math.min(KEEP_MINT_MAX_PREP_MS, KEEP_MINT_PR
 const KEEP_MINT_STREAM_GUARD_MS = envInt("KEEP_MINT_STREAM_GUARD_MS", 1500);
 const KEEP_MINT_THUMBNAIL_TIMEOUT_MS = envInt("KEEP_MINT_THUMBNAIL_TIMEOUT_MS", dev ? 45000 : 22000);
 const KEEP_MINT_FORCE_FRESH_THUMBNAIL_AWAIT_MS = envInt("KEEP_MINT_FORCE_FRESH_THUMBNAIL_AWAIT_MS", dev ? 25000 : 9000);
+const KEEP_MINT_PERMIT_TTL_MS = envInt("KEEP_MINT_PERMIT_TTL_MS", 1_200_000); // 20 minutes
 
 // IPFS Gateway configuration
 // When USE_GATEWAY_URLS is true, metadata will use full HTTPS URLs instead of ipfs:// URIs
@@ -67,6 +69,26 @@ function formatIpfsUri(hash) {
 // Cache credentials in memory for warm function invocations
 let cachedPinataCredentials = null;
 let cachedTezosCredentials = null;
+
+const KEEP_PERMIT_PAYLOAD_TYPE = {
+  prim: "pair",
+  args: [
+    { prim: "address", annots: ["%contract"] },
+    {
+      prim: "pair",
+      args: [
+        { prim: "address", annots: ["%owner"] },
+        {
+          prim: "pair",
+          args: [
+            { prim: "bytes", annots: ["%content_hash"] },
+            { prim: "timestamp", annots: ["%permit_deadline"] },
+          ],
+        },
+      ],
+    },
+  ],
+};
 
 async function getPinataCredentials() {
   if (cachedPinataCredentials) return cachedPinataCredentials;
@@ -110,6 +132,48 @@ async function getTezosCredentials() {
 // Convert string to hex bytes (for Tezos)
 function stringToBytes(str) {
   return Buffer.from(str, "utf8").toString("hex");
+}
+
+async function buildKeepPermit({
+  privateKey,
+  contractAddress,
+  ownerAddress,
+  contentHashBytes,
+  permitDeadline = null,
+}) {
+  if (!privateKey || !contractAddress || !ownerAddress || !contentHashBytes) {
+    throw new Error("Missing required keep permit fields");
+  }
+
+  const deadlineIso = permitDeadline || new Date(Date.now() + KEEP_MINT_PERMIT_TTL_MS).toISOString();
+  const payloadData = {
+    prim: "Pair",
+    args: [
+      { string: contractAddress },
+      {
+        prim: "Pair",
+        args: [
+          { string: ownerAddress },
+          {
+            prim: "Pair",
+            args: [
+              { bytes: contentHashBytes },
+              { string: deadlineIso },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  const packed = packDataBytes(payloadData, KEEP_PERMIT_PAYLOAD_TYPE).bytes;
+  const signer = new InMemorySigner(privateKey);
+  const signature = await signer.sign(packed);
+
+  return {
+    permit_deadline: deadlineIso,
+    keep_permit: signature.prefixSig,
+  };
 }
 
 function normalizeRoyaltyBps(value, fallback = 1000) {
@@ -408,9 +472,9 @@ export const handler = stream(async (event, context) => {
       const regenerate = body.regenerate === true; // Force regenerate IPFS media
       const walletAddress = body.walletAddress; // For on-chain owner verification
 
-      // Simulator mode can run without a real piece, useful for v6 launch dry-runs.
+      // Simulator mode can run without a real piece, useful for launch dry-runs.
       if (!pieceName && mode === "simulate") {
-        pieceName = "sim-v6";
+        pieceName = "sim-v8";
       }
       
       if (!pieceName) {
@@ -565,8 +629,26 @@ export const handler = stream(async (event, context) => {
           let keepFeeXtz = null;
           let scaffoldError = null;
           let contractCallPreview = null;
+          let keepPermit = null;
+          let keepPermitError = null;
 
           try {
+            try {
+              const tezosCredentials = await getTezosCredentials();
+              // Simulation never emits a production-usable permit. We sign an
+              // intentionally mismatched payload so clients can still scaffold
+              // Michelson params without exposing valid authorization.
+              const simulationOnlyHash = `${onChainMetadata.content_hash}00`;
+              keepPermit = await buildKeepPermit({
+                privateKey: tezosCredentials.privateKey,
+                contractAddress: CONTRACT_ADDRESS,
+                ownerAddress: creatorWalletAddress,
+                contentHashBytes: simulationOnlyHash,
+              });
+            } catch (permitErr) {
+              keepPermitError = permitErr?.message || "Keep permit unavailable";
+            }
+
             const tezos = new TezosToolkit(RPC_URL);
             const contract = await tezos.contract.at(CONTRACT_ADDRESS);
             const storage = await contract.storage();
@@ -586,6 +668,7 @@ export const handler = stream(async (event, context) => {
               content_hash: onChainMetadata.content_hash,
               metadata_uri: onChainMetadata.metadata_uri,
               owner: creatorWalletAddress,
+              ...(keepPermit || {}),
             }).toTransferParams();
 
             michelsonParams = transferParams.parameter || null;
@@ -626,8 +709,12 @@ export const handler = stream(async (event, context) => {
               walletFallbackUsed: !walletValid,
               scaffoldOk: !!michelsonParams,
               scaffoldError,
+              keepPermitSigned: !!keepPermit,
+              keepPermitError,
+              keepPermitUsableOnChain: false,
               dbPieceMeta,
             },
+            keepPermit,
           });
           return;
         } finally {
@@ -1272,7 +1359,7 @@ export const handler = stream(async (event, context) => {
       // Description is the raw KidLisp source code (newlines preserved)
       const description = piece.source || "A KidLisp piece preserved on Tezos";
 
-      // v6 metadata policy: single canonical tag only
+      // v8 metadata policy: single canonical tag only
       const tags = ["KidLisp"];
 
       const attributes = [
@@ -1376,6 +1463,13 @@ export const handler = stream(async (event, context) => {
         
         // Use the wallet address validated earlier
         const ownerAddress = creatorWalletAddress;
+        const tezosCredentials = await getTezosCredentials();
+        const keepPermit = await buildKeepPermit({
+          privateKey: tezosCredentials.privateKey,
+          contractAddress: CONTRACT_ADDRESS,
+          ownerAddress,
+          contentHashBytes: onChainMetadata.content_hash,
+        });
         
         const transferParams = contract.methodsObject.keep({
           name: onChainMetadata.name,
@@ -1390,6 +1484,8 @@ export const handler = stream(async (event, context) => {
           content_hash: onChainMetadata.content_hash,
           metadata_uri: onChainMetadata.metadata_uri,
           owner: ownerAddress,
+          permit_deadline: keepPermit.permit_deadline,
+          keep_permit: keepPermit.keep_permit,
         }).toTransferParams();
         
         await send("prepared", {
@@ -1406,6 +1502,7 @@ export const handler = stream(async (event, context) => {
           metadataUri,
           packDate, // Bundle pack date (for display after rebake)
           rpcUrl: RPC_URL,
+          keepPermitDeadline: keepPermit.permit_deadline,
           usedCachedMedia: useCachedMedia, // Tell client if we reused IPFS pins
           cacheGeneratedAt: useCachedMedia ? piece.ipfsMedia?.createdAt : null, // When cache was generated
         });
@@ -1424,6 +1521,12 @@ export const handler = stream(async (event, context) => {
 
       // Use destination address from profile (already fetched) or fall back to admin
       const destinationAddress = creatorWalletAddress || adminAddress;
+      const keepPermit = await buildKeepPermit({
+        privateKey: tezosCredentials.privateKey,
+        contractAddress: CONTRACT_ADDRESS,
+        ownerAddress: destinationAddress,
+        contentHashBytes: onChainMetadata.content_hash,
+      });
       
       if (destinationAddress !== adminAddress) {
         await send("progress", { 
@@ -1452,6 +1555,8 @@ export const handler = stream(async (event, context) => {
         content_hash: onChainMetadata.content_hash,
         metadata_uri: onChainMetadata.metadata_uri,
         owner: destinationAddress,
+        permit_deadline: keepPermit.permit_deadline,
+        keep_permit: keepPermit.keep_permit,
       }).send();
 
       await send("progress", { stage: "mint", message: `Tx submitted: ${op.hash.slice(0, 12)}...` });

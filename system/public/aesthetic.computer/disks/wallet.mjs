@@ -16,7 +16,7 @@ import {
 
 let activeKeepsNetwork = DEFAULT_NETWORK;
 let activeKeepsContract = getContract(activeKeepsNetwork);
-let activeKeepsProfile = "v6";
+let activeKeepsProfile = "v8";
 let activeKeepsObjktBase = getNetwork(activeKeepsNetwork).objkt;
 
 // State
@@ -450,7 +450,7 @@ async function boot({ wallet, wipe, hud, ui, screen, user, handle, net }) {
     const displayName = domain || shortAddr;
     const bal = walletState.balance != null ? `ꜩ${walletState.balance.toFixed(2)}` : "";
     const keepsNetwork = getActiveKeepsNetwork(walletState.network);
-    const profile = (activeKeepsProfile || "v6").toUpperCase();
+    const profile = (activeKeepsProfile || "v8").toUpperCase();
     console.log(`💼 ${displayName} ${bal} [${keepsNetwork}/${profile}]`);
   }
 
@@ -1048,7 +1048,7 @@ function paint($) {
         // Header
         ink(...colors.positive).write("YOUR KIDLISP KEEPS on", { x: innerX, y: headerY });
 
-        const contractTag = `${(activeKeepsProfile || "v6").toUpperCase()} ${keepsNetwork.toUpperCase()}`;
+        const contractTag = `${(activeKeepsProfile || "v8").toUpperCase()} ${keepsNetwork.toUpperCase()}`;
         const stagingX = innerX + 132;
         if (!stagingLinkBtn) {
           stagingLinkBtn = new ui.TextButtonSmall(contractTag, { x: stagingX, y: headerY - 1 });

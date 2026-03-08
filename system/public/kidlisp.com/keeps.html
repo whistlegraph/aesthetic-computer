@@ -413,7 +413,7 @@
     }
 
     .keeps-endpoint-name.v6::after {
-      content: " v6";
+      content: " v8";
       color: #4ade80;
       font-size: 10px;
       font-weight: 500;
@@ -1795,7 +1795,7 @@
             Keeps Contracts
           </h2>
           <span id="v6-launch-badge" style="padding: 4px 12px; background: rgba(255, 193, 7, 0.15); border: 1px solid rgba(255, 193, 7, 0.4); border-radius: 12px; font-size: 12px; color: #d4a017; font-weight: 600;">
-            V7 LIVE • V6 DEPRECATED
+            V7 PAUSED • V8 READY
           </span>
         </div>
 
@@ -1810,9 +1810,9 @@
             <span style="color: var(--text-tertiary);">Homepage</span>
             <span><a href="https://kidlisp.com">https://kidlisp.com</a></span>
             <span style="color: var(--text-tertiary);">Active Version</span>
-            <span>7.0.0 (live)</span>
+            <span>8.0.0 (launch candidate)</span>
             <span style="color: var(--text-tertiary);">Previous Version</span>
-            <span>6.0.0 (deprecated)</span>
+            <span>7.0.0 (paused for authorization hardening)</span>
             <span style="color: var(--text-tertiary);">Interfaces</span>
             <span>TZIP-012, TZIP-016, TZIP-021</span>
             <span style="color: var(--text-tertiary);">Admin Wallet</span>
@@ -1822,18 +1822,22 @@
             <span style="color: var(--text-tertiary);">Royalty</span>
             <span>10% (1000 bps)</span>
             <span style="color: var(--text-tertiary);">Metadata Tags</span>
-            <span>["KidLisp"] (v6/v7)</span>
+            <span>["KidLisp"] (v8 policy)</span>
             <span style="color: var(--text-tertiary);">Minting Tool</span>
             <span><a href="https://kidlisp.com">https://kidlisp.com</a></span>
           </div>
           <div style="margin-top: 12px;">
+            <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/kidlisp_keeps_fa2_v8.py" target="_blank"
+               style="padding: 6px 12px; background: var(--ac-purple); color: white; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
+              v8 Source (Current)
+            </a>
             <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/kidlisp_keeps_fa2_v6.py" target="_blank"
                style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
               v6 Source (Deprecated)
             </a>
             <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/kidlisp_keeps_fa2_v7.py" target="_blank"
-               style="padding: 6px 12px; background: var(--ac-purple); color: white; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500; margin-left: 8px;">
-              v7 Source (Live)
+               style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500; margin-left: 8px;">
+              v7 Source (Paused)
             </a>
           </div>
         </div>
@@ -1856,7 +1860,7 @@
           <div style="display: grid; grid-template-columns: 1fr; gap: 10px; font-size: 13px; color: var(--text-secondary); line-height: 1.5;">
             <div>
               <strong style="color: var(--text-primary);">Artist Rights</strong><br>
-              Original creator attribution is tracked on-chain. In v7, creators can refresh presentation metadata after transfer for maintenance and rebakes.
+              Original creator attribution is tracked on-chain. In v8, minting is gated by a signed keep permit bound to wallet + piece + deadline.
             </div>
             <div>
               <strong style="color: var(--text-primary);">Collector Rights</strong><br>
@@ -1868,7 +1872,7 @@
             </div>
             <div>
               <strong style="color: var(--text-primary);">Protocol Governance</strong><br>
-              Admin controls stay limited to safety/governance operations (pause, fee, admin transfer, contract metadata governance).
+              Admin controls stay limited to safety/governance operations (pause, fee, admin transfer, contract metadata governance). v7 remains paused after a namespace-permission review.
             </div>
           </div>
         </div>
@@ -1942,10 +1946,10 @@
       <div style="padding: 24px 0;">
         <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 20px;">
           <h2 style="margin: 0; color: var(--text-primary); font-size: 24px; font-weight: 600;">
-            Contract Versions
+            Contracts &amp; Versions
           </h2>
           <select class="keeps-version-select" id="version-select">
-            <option value="v6" selected>Active (Runtime)</option>
+            <option value="v6" selected>Active (Runtime v8)</option>
             <option value="v5">v5 (Legacy RC)</option>
             <option value="v4">v4 (Deprecated Staging)</option>
             <option value="v3">v3 (Dev Only)</option>
@@ -1975,9 +1979,13 @@
                  style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
                 Operations
               </a>
-              <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/kidlisp_keeps_fa2_v7.py" target="_blank"
+              <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/kidlisp_keeps_fa2_v8.py" target="_blank"
                  style="padding: 6px 12px; background: var(--ac-purple); color: white; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
-                v7 Source Code
+                v8 Source Code
+              </a>
+              <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/kidlisp_keeps_fa2_v7.py" target="_blank"
+                 style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
+                v7 Source (Paused)
               </a>
               <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/kidlisp_keeps_fa2_v6.py" target="_blank"
                  style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
@@ -1992,12 +2000,12 @@
 
           <p style="margin-bottom: 24px; color: var(--text-secondary); line-height: 1.6;">
             This section tracks the live contract selected by runtime config (<code>/api/keeps-config</code>).
-            As of now, production is <strong>v7.0.0</strong> and v6 is deprecated/paused.
+            As of now (March 8, 2026), <strong>v7 is paused</strong> and <strong>v8.0.0</strong> is the signed-permit launch candidate for keeps.tez.
           </p>
 
           <div style="margin-bottom: 32px;">
             <h3 style="margin: 0 0 16px; color: var(--text-primary); font-size: 18px; font-weight: 600; border-bottom: 2px solid var(--ac-purple); padding-bottom: 8px;">
-              Runtime Contract Policy (v7)
+              Runtime Contract Policy (v8)
             </h3>
 
             <div class="keeps-endpoint">
@@ -2022,9 +2030,10 @@
           </div>
 
           <p style="color: var(--text-tertiary); font-size: 13px;">
-            v7 keeps FA2 compatibility while enforcing Keep-specific flows:
+            v8 keeps FA2 compatibility while enforcing Keep-specific flows:
             generic <code>mint</code>/<code>burn</code> are disabled, <code>burn_keep</code> is owner-only,
-            and <code>edit_metadata</code> supports owner full-edit plus creator refresh mode.
+            <code>edit_metadata</code> supports owner full-edit plus creator refresh mode,
+            and <code>keep</code> now requires a signed permit (<code>keep_permit</code> + <code>permit_deadline</code>).
           </p>
         </div>
 
@@ -2059,7 +2068,7 @@
           <p style="margin-bottom: 24px; color: var(--text-secondary); line-height: 1.6;">
             The Keeps FA2 v5 contract is the release candidate. It preserves all v4 features
             and adds a 2.5 XTZ default minting fee, immutable content_hash protection during metadata edits,
-            and improved error messages. V6 will be the production release.
+            and improved error messages. It has since been superseded by v6/v7 and now v8.
           </p>
 
           <div style="margin-bottom: 32px;">
@@ -2117,7 +2126,7 @@
                 <strong>Params:</strong> name, description, artifactUri, displayUri, thumbnailUri, decimals, symbol, isBooleanAmount, shouldPreferSymbol, formats, tags, attributes, creators, royalties, rights, content_type, content_hash, metadata_uri (all bytes), owner (address)
               </div>
               <div class="keeps-endpoint-desc" style="margin-top: 4px; font-style: italic;">
-                Enforces unique content_hash &bull; Non-admin must mint to self &bull; Default fee: 2.5 XTZ &bull; v6 tags policy: ["KidLisp"] only
+                Enforces unique content_hash &bull; Non-admin must mint to self &bull; Default fee: 2.5 XTZ &bull; v8 tags policy: ["KidLisp"] only
               </div>
             </div>
 
@@ -2447,6 +2456,8 @@
         <div style="padding: 16px; margin-top: 24px; background: var(--bg-secondary); border-radius: 8px; border-left: 4px solid var(--ac-purple);">
           <h4 style="margin: 0 0 8px; color: var(--text-primary); font-size: 16px; font-weight: 600;">Version History</h4>
           <ul style="margin: 8px 0; padding-left: 20px; color: var(--text-secondary); line-height: 1.8;">
+            <li><strong>v8.0</strong> - Signed keep permits bound to owner + content_hash + deadline to harden namespace/auth flows.</li>
+            <li><strong>v7.0</strong> - Creator-refresh metadata model. Paused after authorization model review.</li>
             <li><strong>v6.0</strong> - Production release on keeps.tez. Contract name "KidLisp", cleaned token attributes, mintingTool set to kidlisp.com</li>
             <li><strong>v5.0 RC</strong> - Default 2.5 XTZ fee, immutable content_hash during edits, improved error messages</li>
             <li><strong>v4.0</strong> - Added royalty support, emergency pause/unpause, admin_transfer</li>
@@ -2480,7 +2491,7 @@
       </p>
       <h3>Keeping on Tezos</h3>
       <p>
-        You can mint a KidLisp piece as a KEEP NFT on Tezos (KidLisp FA2 v7 on keeps.tez).
+        You can mint a KidLisp piece as a KEEP NFT on Tezos (KidLisp FA2 v8 on keeps.tez runtime target).
         Minting is deduplicated by <code>content_hash</code>, so a piece that is already kept cannot be
         minted again unless its token is burned. Kept entries are marked with a green badge.
       </p>
@@ -2566,8 +2577,8 @@
     let keepsConfig = {
       contractAddress: null,
       network: 'mainnet',
-      profile: 'v7',
-      version: '7.0.0',
+      profile: 'v8',
+      version: '8.0.0',
       rpcUrl: 'https://mainnet.ecadinfra.com',
       source: 'fallback',
     };
@@ -3136,7 +3147,7 @@
       const packedOnInput = document.getElementById('v6-sim-packed-on');
       const sourceInput = document.getElementById('v6-sim-source');
 
-      const piece = (pieceInput?.value || '').replace(/^\$+/, '').trim() || 'sim-v6';
+      const piece = (pieceInput?.value || '').replace(/^\$+/, '').trim() || 'sim-v8';
       const walletAddress = (walletInput?.value || '').trim();
       const handle = (handleInput?.value || '').trim();
       const packedOn = (packedOnInput?.value || '').trim();
@@ -3295,7 +3306,7 @@
     function updateV6RoadmapStatus() {
       const launchBadge = document.getElementById('v6-launch-badge');
       if (launchBadge) {
-        launchBadge.textContent = 'V7 LIVE • V6 DEPRECATED';
+        launchBadge.textContent = 'V7 PAUSED • V8 READY';
       }
     }
 
