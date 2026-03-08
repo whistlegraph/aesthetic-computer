@@ -484,8 +484,12 @@ int wifi_connect_poll(ACWifi *wifi) {
 
             pid_t pid = fork();
             if (pid == 0) {
+                // Redirect stderr to log file for debugging
+                int fd = open("/tmp/dhclient.log", O_WRONLY|O_CREAT|O_TRUNC, 0644);
+                if (fd >= 0) { dup2(fd, 2); close(fd); }
                 execl("/usr/sbin/dhclient", "dhclient",
-                      "-1",  // try once
+                      "-v",   // verbose stderr
+                      "-sf", "/sbin/dhclient-script",
                       "-pf", "/tmp/dhclient.pid",
                       "-lf", "/tmp/dhclient.leases",
                       wifi->iface, NULL);
@@ -522,10 +526,18 @@ int wifi_connect_poll(ACWifi *wifi) {
             pid_t r = waitpid(wifi->dhcp_pid, &status, WNOHANG);
             if (r > 0) {
                 if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
-                    wifi->state = WIFI_STATE_FAILED;
-                    snprintf(wifi->status_msg, sizeof(wifi->status_msg), "DHCP failed");
-                    ac_log("[wifi] DHCP failed (exit %d)", WEXITSTATUS(status));
-                    return 1;
+                    ac_log("[wifi] dhclient exit %d — dumping /tmp/dhclient.log:",
+                           WEXITSTATUS(status));
+                    FILE *dlog = fopen("/tmp/dhclient.log", "r");
+                    if (dlog) {
+                        char dline[256];
+                        while (fgets(dline, sizeof(dline), dlog))
+                            ac_log("[dhclient] %s", dline);
+                        fclose(dlog);
+                    }
+                    // Don't fail permanently — WPA is still up, retry DHCP next poll
+                    wifi->dhcp_pid = 0;
+                    return 0;
                 }
                 if (WIFSIGNALED(status)) {
                     ac_log("[wifi] dhclient killed by signal %d", WTERMSIG(status));
