@@ -42,6 +42,9 @@ ifdef USE_SDL
 endif
 
 # Source files
+SSL_LIBS := $(shell pkg-config --libs openssl 2>/dev/null || echo "-lssl -lcrypto")
+LDFLAGS  += $(SSL_LIBS)
+
 SRCS := $(SRCDIR)/ac-native.c \
         $(SRCDIR)/drm-display.c \
         $(SRCDIR)/framebuffer.c \
@@ -52,6 +55,7 @@ SRCS := $(SRCDIR)/ac-native.c \
         $(SRCDIR)/audio.c \
         $(SRCDIR)/wifi.c \
         $(SRCDIR)/tts.c \
+        $(SRCDIR)/ws-client.c \
         $(SRCDIR)/js-bindings.c
 
 OBJS := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/%.o,$(SRCS))

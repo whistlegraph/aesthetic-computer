@@ -784,6 +784,7 @@ ACRuntime *js_init(ACGraph *graph, ACInput *input, ACAudio *audio, ACWifi *wifi,
     rt->audio = audio;
     rt->wifi = wifi;
     rt->tts = tts;
+    rt->ws = ws_create();
     rt->boot_fn = JS_UNDEFINED;
     rt->paint_fn = JS_UNDEFINED;
     rt->act_fn = JS_UNDEFINED;
@@ -1122,6 +1123,80 @@ static JSValue js_write_file(JSContext *ctx, JSValueConst this_val, int argc, JS
     return JS_NewBool(ctx, ok);
 }
 
+// ---------------------------------------------------------------------------
+// system.ws — WebSocket client
+// ---------------------------------------------------------------------------
+
+static JSValue js_ws_connect(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 1 || !current_rt) return JS_FALSE;
+    const char *url = JS_ToCString(ctx, argv[0]);
+    if (!url) return JS_FALSE;
+
+    // Parse wss://host/path
+    const char *host_start = url;
+    if (strncmp(url, "wss://", 6) == 0) host_start = url + 6;
+    else if (strncmp(url, "ws://", 5) == 0) host_start = url + 5;
+
+    char host[256] = {0};
+    const char *slash = strchr(host_start, '/');
+    const char *path = "/";
+    if (slash) {
+        int hlen = (int)(slash - host_start);
+        if (hlen >= (int)sizeof(host)) hlen = sizeof(host) - 1;
+        memcpy(host, host_start, hlen);
+        path = slash;
+    } else {
+        strncpy(host, host_start, sizeof(host) - 1);
+    }
+
+    if (!current_rt->ws) current_rt->ws = ws_create();
+    int rc = ws_connect(current_rt->ws, host, path);
+    JS_FreeCString(ctx, url);
+    return JS_NewBool(ctx, rc == 0);
+}
+
+static JSValue js_ws_send(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 1 || !current_rt || !current_rt->ws) return JS_FALSE;
+    const char *text = JS_ToCString(ctx, argv[0]);
+    if (!text) return JS_FALSE;
+    int rc = ws_send(current_rt->ws, text);
+    JS_FreeCString(ctx, text);
+    return JS_NewBool(ctx, rc == 0);
+}
+
+static JSValue js_ws_close(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    if (current_rt && current_rt->ws) ws_close(current_rt->ws);
+    return JS_UNDEFINED;
+}
+
+static JSValue build_ws_obj(JSContext *ctx) {
+    JSValue ws_obj = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, ws_obj, "connect", JS_NewCFunction(ctx, js_ws_connect, "connect", 1));
+    JS_SetPropertyStr(ctx, ws_obj, "send",    JS_NewCFunction(ctx, js_ws_send,    "send",    1));
+    JS_SetPropertyStr(ctx, ws_obj, "close",   JS_NewCFunction(ctx, js_ws_close,   "close",   0));
+
+    if (current_rt && current_rt->ws) {
+        ACWs *ws = current_rt->ws;
+        ws_poll(ws);
+        JS_SetPropertyStr(ctx, ws_obj, "connected", JS_NewBool(ctx, ws->connected));
+
+        // messages array — consumed each frame
+        JSValue arr = JS_NewArray(ctx);
+        for (int i = 0; i < ws->msg_count; i++) {
+            JS_SetPropertyUint32(ctx, arr, (uint32_t)i,
+                                 JS_NewString(ctx, ws->messages[i]));
+        }
+        JS_SetPropertyStr(ctx, ws_obj, "messages", arr);
+    } else {
+        JS_SetPropertyStr(ctx, ws_obj, "connected", JS_FALSE);
+        JS_SetPropertyStr(ctx, ws_obj, "messages",  JS_NewArray(ctx));
+    }
+    return ws_obj;
+}
+
 // system.fetch(url) — async HTTP GET via curl, result polled via system.fetchResult
 static JSValue js_fetch(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
@@ -1235,6 +1310,9 @@ static JSValue build_system_obj(JSContext *ctx) {
     int has_hdmi = (current_rt && current_rt->hdmi && current_rt->hdmi->active);
     JS_SetPropertyStr(ctx, sys, "hasHdmi", JS_NewBool(ctx, has_hdmi));
     JS_SetPropertyStr(ctx, sys, "hdmi", JS_NewCFunction(ctx, js_hdmi_fill, "hdmi", 3));
+
+    // WebSocket client — system.ws
+    JS_SetPropertyStr(ctx, sys, "ws", build_ws_obj(ctx));
 
     // File I/O — system.readFile(path) / system.writeFile(path, data)
     JS_SetPropertyStr(ctx, sys, "readFile",  JS_NewCFunction(ctx, js_read_file,  "readFile",  1));
@@ -1718,6 +1796,7 @@ void js_destroy(ACRuntime *rt) {
     JS_FreeValue(rt->ctx, rt->sim_fn);
     JS_FreeValue(rt->ctx, rt->leave_fn);
     JS_FreeValue(rt->ctx, rt->beat_fn);
+    ws_destroy(rt->ws);
     JS_FreeContext(rt->ctx);
     JS_FreeRuntime(rt->rt);
     free(rt);
