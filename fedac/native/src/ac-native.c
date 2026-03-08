@@ -976,6 +976,32 @@ int main(int argc, char *argv[]) {
             }
 
             display_present(display, screen, 3);
+
+            // HDMI: render waveform every frame
+            if (hdmi && audio) {
+                drm_secondary_present_waveform(hdmi, &graph,
+                    audio->waveform_left, AUDIO_WAVEFORM_SIZE, audio->waveform_pos);
+            }
+
+            // HDMI hotplug detection every ~180 frames (~3s)
+            if (main_frame % 180 == 0 && display && !display->is_fbdev) {
+                int hdmi_connected = drm_secondary_is_connected(display);
+                if (hdmi_connected && !hdmi) {
+                    hdmi = drm_init_secondary(display);
+                    rt->hdmi = hdmi;
+                    if (hdmi) {
+                        ac_log("[ac-native] HDMI plugged in: %dx%d\n", hdmi->width, hdmi->height);
+                        if (tts) tts_speak(tts, "h d m i on");
+                    }
+                } else if (!hdmi_connected && hdmi) {
+                    ac_log("[ac-native] HDMI unplugged\n");
+                    if (tts) tts_speak(tts, "h d m i off");
+                    drm_secondary_destroy(hdmi);
+                    hdmi = NULL;
+                    rt->hdmi = NULL;
+                }
+            }
+
             frame_sync_60fps(&frame_time);
         }
     }

@@ -5,6 +5,7 @@
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 #include "framebuffer.h"
+#include "graph.h"
 
 #ifdef USE_SDL
 #include <SDL2/SDL.h>
@@ -66,7 +67,7 @@ int drm_back_stride(ACDisplay *d);
 uint32_t *drm_front_buffer(ACDisplay *d);
 int drm_front_stride(ACDisplay *d);
 
-// Secondary display (HDMI out) — solid color only
+// Secondary display (HDMI out) — double-buffered waveform display
 typedef struct {
     int active;
     int fd;
@@ -77,14 +78,22 @@ typedef struct {
     struct {
         uint32_t handle, fb_id, pitch, size;
         uint32_t *map;
-    } buf;
+    } bufs[2];              // Double buffers (back/front)
+    int buf_front;          // Which buffer is currently displayed
     drmModeCrtc *saved_crtc;
 } ACSecondaryDisplay;
 
 // Initialize secondary HDMI display (call after drm_init, returns NULL if no HDMI)
 ACSecondaryDisplay *drm_init_secondary(ACDisplay *primary);
 
-// Fill secondary display with solid color
+// Check if an HDMI/DP connector (other than primary) is connected
+int drm_secondary_is_connected(ACDisplay *primary);
+
+// Render waveform + resolution text to HDMI back buffer and flip
+void drm_secondary_present_waveform(ACSecondaryDisplay *s, ACGraph *g,
+                                     float *waveform, int wf_size, int wf_pos);
+
+// Fill secondary display with solid color (legacy)
 void drm_secondary_fill(ACSecondaryDisplay *s, uint8_t r, uint8_t g, uint8_t b);
 
 // Cleanup secondary display
