@@ -5,6 +5,7 @@
 #include <time.h>
 #include <math.h>
 #include <dirent.h>
+#include <unistd.h>
 
 // Defined in ac-native.c — logs to USB mount
 extern void ac_log(const char *fmt, ...);
