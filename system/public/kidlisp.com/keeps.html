@@ -1768,8 +1768,8 @@
   <div class="keeps-tabs-container">
     <div class="keeps-tabs">
       <button class="keeps-tab active" data-tab="index">Index</button>
-      <button class="keeps-tab" data-tab="v6">Launch</button>
-      <button class="keeps-tab" data-tab="docs">Docs</button>
+      <button class="keeps-tab" data-tab="v6">Contracts</button>
+      <button class="keeps-tab" data-tab="docs">Versions</button>
       <button class="keeps-tab" data-tab="about">About</button>
     </div>
 
@@ -1788,15 +1788,15 @@
       </div>
     </div>
 
-    <!-- TAB: Launch Timeline -->
+    <!-- TAB: Contracts -->
     <div class="keeps-tab-content" id="tab-v6">
       <div style="padding: 24px 0;">
         <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 20px; flex-wrap: wrap;">
           <h2 style="margin: 0; color: var(--text-primary); font-size: 24px; font-weight: 600;">
-            Keeps Launch Timeline
+            Keeps Contracts
           </h2>
           <span id="v6-launch-badge" style="padding: 4px 12px; background: rgba(255, 193, 7, 0.15); border: 1px solid rgba(255, 193, 7, 0.4); border-radius: 12px; font-size: 12px; color: #d4a017; font-weight: 600;">
-            V6 LIVE • V7 IN PROGRESS
+            V7 LIVE • V6 DEPRECATED
           </span>
         </div>
 
@@ -1811,9 +1811,9 @@
             <span style="color: var(--text-tertiary);">Homepage</span>
             <span><a href="https://kidlisp.com">https://kidlisp.com</a></span>
             <span style="color: var(--text-tertiary);">Active Version</span>
-            <span>6.0.0 (live)</span>
-            <span style="color: var(--text-tertiary);">Next Version</span>
-            <span>7.0.0 (final production target)</span>
+            <span>7.0.0 (live)</span>
+            <span style="color: var(--text-tertiary);">Previous Version</span>
+            <span>6.0.0 (deprecated)</span>
             <span style="color: var(--text-tertiary);">Interfaces</span>
             <span>TZIP-012, TZIP-016, TZIP-021</span>
             <span style="color: var(--text-tertiary);">Admin Wallet</span>
@@ -1830,11 +1830,11 @@
           <div style="margin-top: 12px;">
             <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/kidlisp_keeps_fa2_v6.py" target="_blank"
                style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
-              v6 Source Code
+              v6 Source (Deprecated)
             </a>
             <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/kidlisp_keeps_fa2_v7.py" target="_blank"
                style="padding: 6px 12px; background: var(--ac-purple); color: white; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500; margin-left: 8px;">
-              v7 Source Draft
+              v7 Source (Live)
             </a>
           </div>
         </div>
@@ -1878,7 +1878,7 @@
         <div class="v6-metadata-sim">
           <div class="v6-metadata-head">
             <div>
-              <div class="v6-metadata-title">v6 Launch Simulator (Live Endpoint)</div>
+              <div class="v6-metadata-title">Keep Pipeline Simulator (Live Endpoint)</div>
               <div class="v6-metadata-subtitle">Runs <code>/api/keep-mint</code> with <code>mode: "simulate"</code> to dry-run analysis, metadata assembly, and contract call scaffolding without minting.</div>
             </div>
             <button type="button" class="v6-sim-btn" id="v6-sim-randomize">Load Example</button>
@@ -1922,124 +1922,6 @@
           </div>
         </div>
 
-        <!-- Roadmap Snapshot -->
-        <div class="v6-roadmap-status">
-          <div class="v6-roadmap-head">
-            <div>
-              <div class="v6-roadmap-kicker" id="v6-roadmap-kicker">Roadmap Snapshot</div>
-              <div class="v6-roadmap-title">v6 Launch Execution</div>
-            </div>
-            <div class="v6-roadmap-metric" id="v6-roadmap-metric">0/0 complete</div>
-          </div>
-          <div class="v6-roadmap-track">
-            <div class="v6-roadmap-fill" id="v6-roadmap-fill"></div>
-          </div>
-          <div class="v6-roadmap-next" id="v6-roadmap-next">Current focus: &mdash;</div>
-        </div>
-
-        <!-- Launch Steps -->
-        <h3 style="margin: 0 0 16px; color: var(--text-primary); font-size: 18px; font-weight: 600; border-bottom: 2px solid var(--ac-purple); padding-bottom: 8px;">
-          Launch Checklist
-        </h3>
-
-        <div class="v6-launch-steps">
-          <div class="v6-step done">
-            <span class="v6-step-icon">&#x2714;</span>
-            <div class="v6-step-content">
-              <div class="v6-step-title">Contract Source Written</div>
-              <div class="v6-step-desc">kidlisp_keeps_fa2_v6.py &mdash; current keeps contract source in repo</div>
-            </div>
-          </div>
-
-          <div class="v6-step done">
-            <span class="v6-step-icon">&#x2714;</span>
-            <div class="v6-step-content">
-              <div class="v6-step-title">Deploy Script Created</div>
-              <div class="v6-step-desc">keeps.mjs deploy command &mdash; supports --wallet flag and network selection for contract origination</div>
-            </div>
-          </div>
-
-          <div class="v6-step done">
-            <span class="v6-step-icon">&#x2714;</span>
-            <div class="v6-step-content">
-              <div class="v6-step-title">Token Attributes Cleaned</div>
-              <div class="v6-step-desc">Token attributes simplified to a single <code>Characters</code> field; mintingTool set to kidlisp.com, tags set to ["KidLisp"] only</div>
-            </div>
-          </div>
-
-          <div class="v6-step done">
-            <span class="v6-step-icon">&#x2714;</span>
-            <div class="v6-step-content">
-              <div class="v6-step-title">User Code Routing Fixed</div>
-              <div class="v6-step-desc">Permahandle codes (ac25namuc) now redirect to @handle instead of 404</div>
-            </div>
-          </div>
-
-          <div class="v6-step done">
-            <span class="v6-step-icon">&#x2714;</span>
-            <div class="v6-step-content">
-              <div class="v6-step-title">Wallet Funding</div>
-              <div class="v6-step-desc">Initial deployment funding prepared. Final launch funding top-up tracked in Wallet Status below.</div>
-            </div>
-          </div>
-
-          <div class="v6-step done">
-            <span class="v6-step-icon">&#x2714;</span>
-            <div class="v6-step-content">
-              <div class="v6-step-title">Launch-Prep Sanity Tests</div>
-              <div class="v6-step-desc">Endpoint/auth/metadata/royalty invariants verified for v6 launch prep, including FA2-compatible disabled mint/burn bypass paths.</div>
-            </div>
-          </div>
-
-          <div class="v6-step in-progress">
-            <span class="v6-step-icon">&#x25D4;</span>
-            <div class="v6-step-content">
-              <div class="v6-step-title">v6 Security Audit</div>
-              <div class="v6-step-desc">Current focus: run full test suite against freshly deployed v6 contract (admin controls, fee bypass attempts, content hash collision, pause behavior, royalty limits, transfer auth, metadata lock permanence).</div>
-            </div>
-          </div>
-
-          <div class="v6-step pending">
-            <span class="v6-step-icon">&#x25CB;</span>
-            <div class="v6-step-content">
-              <div class="v6-step-title">Deploy to Mainnet</div>
-              <div class="v6-step-desc">Run <code>node tezos/keeps.mjs deploy mainnet --wallet=kidlisp</code> to originate the production contract on keeps.tez</div>
-            </div>
-          </div>
-
-          <div class="v6-step pending">
-            <span class="v6-step-icon">&#x25CB;</span>
-            <div class="v6-step-content">
-              <div class="v6-step-title">Update Contract Addresses</div>
-              <div class="v6-step-desc">Set active KT1/profile in Mongo <code>secrets.tezos-kidlisp</code>; keep flows and docs now resolve from runtime config.</div>
-            </div>
-          </div>
-
-          <div class="v6-step pending">
-            <span class="v6-step-icon">&#x25CB;</span>
-            <div class="v6-step-content">
-              <div class="v6-step-title">End-to-End Mint Test</div>
-              <div class="v6-step-desc">Mint a real KidLisp piece through the full pipeline: kidlisp.com &rarr; keep &rarr; IPFS &rarr; contract &rarr; verify on objkt.com</div>
-            </div>
-          </div>
-
-          <div class="v6-step pending">
-            <span class="v6-step-icon">&#x25CB;</span>
-            <div class="v6-step-content">
-              <div class="v6-step-title">objkt.com Verification</div>
-              <div class="v6-step-desc">Confirm collection appears correctly on objkt.com with name "KidLisp", verify token metadata, thumbnail, and royalty display</div>
-            </div>
-          </div>
-
-          <div class="v6-step pending">
-            <span class="v6-step-icon">&#x25CB;</span>
-            <div class="v6-step-content">
-              <div class="v6-step-title">Public Launch</div>
-              <div class="v6-step-desc">Enable client-side minting via Beacon wallet, announce on kidlisp.com</div>
-            </div>
-          </div>
-        </div>
-
         <!-- Wallet Balances -->
         <h3 style="margin: 24px 0 16px; color: var(--text-primary); font-size: 18px; font-weight: 600; border-bottom: 2px solid var(--ac-purple); padding-bottom: 8px;">
           Wallet Status
@@ -2047,12 +1929,12 @@
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
           <div style="padding: 12px; background: var(--bg-secondary); border-radius: 6px; border: 1px solid var(--border-color);">
             <div style="font-size: 11px; color: var(--text-tertiary); margin-bottom: 4px;">keeps.tez (deployer)</div>
-            <div style="font-size: 16px; font-weight: 600; color: var(--text-primary);">~8 XTZ</div>
+            <div style="font-size: 16px; font-weight: 600; color: var(--text-primary);">~4.7 XTZ</div>
             <div style="font-size: 10px; color: var(--text-tertiary); font-family: 'Courier New', monospace; margin-top: 2px;">tz1Lc2...un2dC</div>
           </div>
           <div style="padding: 12px; background: var(--bg-secondary); border-radius: 6px; border: 1px solid var(--border-color);">
             <div style="font-size: 11px; color: var(--text-tertiary); margin-bottom: 4px;">staging</div>
-            <div style="font-size: 16px; font-weight: 600; color: var(--text-primary);">~3.8 XTZ</div>
+            <div style="font-size: 16px; font-weight: 600; color: var(--text-primary);">~0.53 XTZ</div>
             <div style="font-size: 10px; color: var(--text-tertiary); font-family: 'Courier New', monospace; margin-top: 2px;">tz1dfo...e4Gzt</div>
           </div>
         </div>
@@ -2064,12 +1946,12 @@
       <div style="padding: 24px 0;">
         <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 20px;">
           <h2 style="margin: 0; color: var(--text-primary); font-size: 24px; font-weight: 600;">
-            Keeps FA2 Contract
+            Contract Versions
           </h2>
           <select class="keeps-version-select" id="version-select">
-            <option value="v6" selected>v6 (Production)</option>
-            <option value="v5">v5 (RC)</option>
-            <option value="v4">v4 (Staging)</option>
+            <option value="v6" selected>Active (Runtime)</option>
+            <option value="v5">v5 (Legacy RC)</option>
+            <option value="v4">v4 (Deprecated Staging)</option>
             <option value="v3">v3 (Dev Only)</option>
             <option value="v2">v2 (Legacy)</option>
           </select>
@@ -2079,7 +1961,7 @@
         <div class="keeps-version-docs active" id="docs-v6">
 
           <div style="margin-bottom: 24px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
-            <div style="margin-bottom: 8px; color: var(--text-secondary); font-size: 13px; font-weight: 500;">Contract Address (Mainnet Production)</div>
+            <div style="margin-bottom: 8px; color: var(--text-secondary); font-size: 13px; font-weight: 500;">Active Contract Address (Runtime / Mongo Secrets)</div>
             <div id="v6-active-contract-address" style="font-family: 'Courier New', monospace; color: var(--ac-purple); font-size: 14px; word-break: break-all;">
               Loading...
             </div>
@@ -2097,9 +1979,13 @@
                  style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
                 Operations
               </a>
-              <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/kidlisp_keeps_fa2_v6.py" target="_blank"
+              <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/kidlisp_keeps_fa2_v7.py" target="_blank"
                  style="padding: 6px 12px; background: var(--ac-purple); color: white; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
-                Source Code
+                v7 Source Code
+              </a>
+              <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/kidlisp_keeps_fa2_v6.py" target="_blank"
+                 style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
+                v6 Source (Deprecated)
               </a>
               <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/keeps.mjs" target="_blank"
                  style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
@@ -2109,15 +1995,13 @@
           </div>
 
           <p style="margin-bottom: 24px; color: var(--text-secondary); line-height: 1.6;">
-            The Keeps FA2 v6 is the production release deployed on keeps.tez. Contract name: <strong>KidLisp</strong>.
-            Identical smart contract logic to v5 RC. Changes are in metadata and token attributes:
-            mintingTool set to kidlisp.com and token attributes standardized to a single
-            <code>Characters</code> field.
+            This section tracks the live contract selected by runtime config (<code>/api/keeps-config</code>).
+            As of now, production is <strong>v7.0.0</strong> and v6 is deprecated/paused.
           </p>
 
           <div style="margin-bottom: 32px;">
             <h3 style="margin: 0 0 16px; color: var(--text-primary); font-size: 18px; font-weight: 600; border-bottom: 2px solid var(--ac-purple); padding-bottom: 8px;">
-              v6 Changes from v5
+              Runtime Contract Policy (v7)
             </h3>
 
             <div class="keeps-endpoint">
@@ -2142,9 +2026,9 @@
           </div>
 
           <p style="color: var(--text-tertiary); font-size: 13px;">
-            All v5 endpoints and features preserved: keep, edit_metadata, lock_metadata, set_contract_metadata,
-            lock_contract_metadata, set_keep_fee, withdraw_fees, burn_keep, pause, unpause, set_default_royalty, admin_transfer.
-            Plus FA2 standard: transfer, update_operators, balance_of, mint, burn, set_administrator.
+            v7 keeps FA2 compatibility while enforcing Keep-specific flows:
+            generic <code>mint</code>/<code>burn</code> are disabled, <code>burn_keep</code> is owner-only,
+            and <code>edit_metadata</code> supports owner full-edit plus creator refresh mode.
           </p>
         </div>
 
@@ -2600,7 +2484,7 @@
       </p>
       <h3>Keeping on Tezos</h3>
       <p>
-        You can mint a KidLisp piece as a KEEP NFT on Tezos (KidLisp FA2 v6 / keeps.tez).
+        You can mint a KidLisp piece as a KEEP NFT on Tezos (KidLisp FA2 v7 on keeps.tez).
         Minting is deduplicated by <code>content_hash</code>, so a piece that is already kept cannot be
         minted again unless its token is burned. Kept entries are marked with a green badge.
       </p>
@@ -2686,8 +2570,8 @@
     let keepsConfig = {
       contractAddress: null,
       network: 'mainnet',
-      profile: 'v6',
-      version: '6.0.0',
+      profile: 'v7',
+      version: '7.0.0',
       rpcUrl: 'https://mainnet.ecadinfra.com',
       source: 'fallback',
     };
@@ -3075,8 +2959,10 @@
       });
     });
 
-    // Route from URL path on load (e.g. /about, /docs)
-    const pathTab = location.pathname.replace(/^\/+/, '').split('/')[0];
+    // Route from URL path on load (e.g. /about, /docs, /contracts, /versions)
+    const pathTabRaw = location.pathname.replace(/^\/+/, '').split('/')[0];
+    const pathAliases = { contracts: 'v6', versions: 'docs' };
+    const pathTab = pathAliases[pathTabRaw] || pathTabRaw;
     if (pathTab && ['about', 'docs', 'v6'].includes(pathTab)) {
       switchTab(pathTab);
     }
@@ -3409,45 +3295,9 @@
     }
 
     function updateV6RoadmapStatus() {
-      const steps = Array.from(document.querySelectorAll('#tab-v6 .v6-launch-steps .v6-step'));
-      if (!steps.length) return;
-
-      const doneCount = steps.filter(step => step.classList.contains('done')).length;
-      const inProgressCount = steps.filter(step => step.classList.contains('in-progress')).length;
-      const totalCount = steps.length;
-      const completionPercent = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
-
-      const metric = document.getElementById('v6-roadmap-metric');
-      if (metric) {
-        metric.textContent = `${doneCount}/${totalCount} complete • ${inProgressCount} in progress`;
-      }
-
       const launchBadge = document.getElementById('v6-launch-badge');
       if (launchBadge) {
-        launchBadge.textContent = `PRE-LAUNCH • ${doneCount}/${totalCount} DONE`;
-      }
-
-      const fill = document.getElementById('v6-roadmap-fill');
-      if (fill) {
-        fill.style.width = `${completionPercent}%`;
-      }
-
-      const activeStep = steps.find(step => step.classList.contains('in-progress'))
-        || steps.find(step => step.classList.contains('pending'));
-      const activeTitle = activeStep?.querySelector('.v6-step-title')?.textContent?.trim() || 'All checklist items complete';
-      const next = document.getElementById('v6-roadmap-next');
-      if (next) {
-        next.textContent = `Current focus: ${activeTitle}`;
-      }
-
-      const kicker = document.getElementById('v6-roadmap-kicker');
-      if (kicker) {
-        const updated = new Intl.DateTimeFormat('en-US', {
-          month: 'long',
-          day: 'numeric',
-          year: 'numeric'
-        }).format(new Date());
-        kicker.textContent = `Roadmap Snapshot • Updated ${updated}`;
+        launchBadge.textContent = 'V7 LIVE • V6 DEPRECATED';
       }
     }
 
