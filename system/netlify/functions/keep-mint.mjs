@@ -842,6 +842,10 @@ export const handler = stream(async (event, context) => {
       // Fixed 256x256 thumbnail for consistent display across platforms
       const thumbW = 256;
       const thumbH = 256;
+      // Rebake can use a shorter thumbnail capture profile for faster turnaround.
+      const thumbDurationMs = forceFreshMedia ? 6000 : 8000;
+      const thumbCaptureFps = forceFreshMedia ? 8 : 10;
+      const thumbPlaybackFps = forceFreshMedia ? 16 : 20;
 
       // Thumbnail generation timeout (kept under stream execution budget in production)
       const THUMBNAIL_TIMEOUT_MS = KEEP_MINT_THUMBNAIL_TIMEOUT_MS;
@@ -871,9 +875,9 @@ export const handler = stream(async (event, context) => {
               width: thumbW,
               height: thumbH,
               density: 2,
-              duration: 8000,
-              fps: 10,
-              playbackFps: 20,
+              duration: thumbDurationMs,
+              fps: thumbCaptureFps,
+              playbackFps: thumbPlaybackFps,
               quality: 70,
               source: "keep",
               keepId: isRebake ? mintStatus.tokenId : null,
@@ -941,14 +945,17 @@ export const handler = stream(async (event, context) => {
       // ═══════════════════════════════════════════════════════════════════
       // STAGE 3: ANALYZE SOURCE
       // ═══════════════════════════════════════════════════════════════════
-      await send("progress", { stage: "analyze", message: "Analyzing source code..." });
-      
-      const analysis = analyzeKidLisp(piece.source);
-
-      await send("progress", {
-        stage: "analyze",
-        message: `${analysis.chars} chars ✓`
-      });
+      let analysis = null;
+      if (isRebake) {
+        await send("progress", { stage: "analyze", message: "Skipping analysis for rebake" });
+      } else {
+        await send("progress", { stage: "analyze", message: "Analyzing source code..." });
+        analysis = analyzeKidLisp(piece.source);
+        await send("progress", {
+          stage: "analyze",
+          message: `${analysis.chars} chars ✓`
+        });
+      }
 
       // ═══════════════════════════════════════════════════════════════════
       // STAGE 4: GENERATE BUNDLE (skip if cached)
