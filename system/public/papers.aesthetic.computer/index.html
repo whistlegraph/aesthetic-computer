@@ -62,16 +62,12 @@
             line-height: 1.6;
             -webkit-text-size-adjust: none;
             cursor: url('https://aesthetic.computer/aesthetic.computer/cursors/precise.svg') 12 12, auto;
-        }
-
-        .container {
-            max-width: 640px;
-            margin: 0 auto;
-            padding: 2em 1.5em 3em;
+            padding: 2em;
+            min-height: 100vh;
         }
 
         .header {
-            margin-bottom: 2em;
+            margin-bottom: 2.5em;
         }
 
         h1 {
@@ -83,6 +79,17 @@
         }
 
         h1 .dot { color: var(--pink); }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 0.4em;
+        }
+
+        .pals-logo {
+            width: 24px;
+            height: 24px;
+        }
 
         .subtitle {
             color: var(--dim);
@@ -98,8 +105,14 @@
         .author a { color: var(--cyan); text-decoration: none; }
         .author a:hover { text-decoration: underline; }
 
+        .papers {
+            columns: 2 480px;
+            column-gap: 2em;
+        }
+
         .paper-group {
             margin-bottom: 2em;
+            break-inside: avoid;
         }
 
         .paper-group h2 {
@@ -123,9 +136,7 @@
             gap: 1em;
         }
 
-        .paper-info {
-            flex: 1;
-        }
+        .paper-info { flex: 1; }
 
         .paper-title {
             font-weight: 600;
@@ -153,9 +164,7 @@
             transition: border-color 0.15s;
         }
 
-        .paper-links a:hover {
-            border-color: var(--cyan);
-        }
+        .paper-links a:hover { border-color: var(--cyan); }
 
         .footer {
             margin-top: 3em;
@@ -181,32 +190,19 @@
             padding: 0.3em 0.6em;
             border-radius: 4px;
         }
-
-        .pals-logo {
-            width: 24px;
-            height: 24px;
-            vertical-align: middle;
-            margin-right: 0.4em;
-        }
-
-        .header-title {
-            display: flex;
-            align-items: center;
-            gap: 0.4em;
-        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <div class="header-title">
-                <img src="https://aesthetic.computer/purple-pals.svg" alt="AC" class="pals-logo">
-                <h1>Aesthetic<span class="dot">.</span>Computer Papers</h1>
-            </div>
-            <div class="subtitle">Academic papers on the AC platform and KidLisp language.</div>
-            <div class="author">Jeffrey Alan Scudder &mdash; <a href="https://orcid.org/0009-0007-4460-4913">ORCID 0009-0007-4460-4913</a></div>
+    <div class="header">
+        <div class="header-title">
+            <img src="https://aesthetic.computer/purple-pals.svg" alt="AC" class="pals-logo">
+            <h1>Aesthetic<span class="dot">.</span>Computer Papers</h1>
         </div>
+        <div class="subtitle">Academic papers on the AC platform and KidLisp language.</div>
+        <div class="author">Jeffrey Alan Scudder &mdash; <a href="https://orcid.org/0009-0007-4460-4913">ORCID 0009-0007-4460-4913</a></div>
+    </div>
 
+    <div class="papers">
         <div class="paper-group">
             <h2>Aesthetic Computer '26</h2>
             <div class="paper">
@@ -233,7 +229,7 @@
             <h2>notepat<span style="color:var(--purple)">.</span><span style="color:var(--pink)">com</span> '26</h2>
             <div class="paper">
                 <div class="paper-info">
-                    <div class="paper-title">A Piece as Entry Point into Aesthetic Computer</div>
+                    <div class="paper-title">From Keyboard Toy to System Front Door</div>
                     <div class="paper-meta">arXiv preprint &middot; 3 pages &middot; March 2026</div>
                 </div>
                 <div class="paper-links">
@@ -263,12 +259,13 @@
                 </div>
             </div>
         </div>
-
-        <div class="footer">
-            <span><a href="https://aesthetic.computer">aesthetic.computer</a> &middot; <a href="https://github.com/digitpain/aesthetic.computer">source</a></span>
-            <button class="theme-toggle" onclick="toggleTheme()">theme</button>
-        </div>
     </div>
+
+    <div class="footer">
+        <span><a href="https://aesthetic.computer">aesthetic.computer</a> &middot; <a href="https://github.com/digitpain/aesthetic.computer">source</a></span>
+        <button class="theme-toggle" onclick="toggleTheme()">theme</button>
+    </div>
+
     <script>
         function toggleTheme() {
             const root = document.documentElement;
@@ -281,7 +278,6 @@
                 root.classList.remove('dark-mode');
                 root.classList.add('light-mode');
             } else {
-                // Auto mode — toggle to opposite of system preference
                 const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
                 root.classList.add(prefersDark ? 'light-mode' : 'dark-mode');
             }
