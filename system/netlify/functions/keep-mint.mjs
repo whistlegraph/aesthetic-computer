@@ -495,6 +495,8 @@ export const handler = stream(async (event, context) => {
         try {
           const providedSource = typeof body.source === "string" ? body.source.trim() : "";
           const normalizedHandleRaw = typeof body.handle === "string" ? body.handle.trim() : "";
+          const providedUserCodeRaw = typeof body.userCode === "string" ? body.userCode.trim() : "";
+          const simulatorUserCode = providedUserCodeRaw || null;
           const authorHandle = normalizedHandleRaw
             ? (normalizedHandleRaw.startsWith("@") ? normalizedHandleRaw : `@${normalizedHandleRaw}`)
             : "@simulator";
@@ -590,6 +592,7 @@ export const handler = stream(async (event, context) => {
             artifactUri,
             displayUri: artifactUri,
             thumbnailUri,
+            ...(simulatorUserCode ? { permauser: simulatorUserCode } : {}),
             decimals: 0,
             symbol: pieceName,
             isBooleanAmount: true,
@@ -1113,7 +1116,7 @@ export const handler = stream(async (event, context) => {
         bundleHtml = Buffer.from(bundleData.content, "base64").toString("utf8");
         bundleFilename = bundleData.filename || `$${pieceName}.lisp.html`;
         authorHandle = bundleData.authorHandle || `@${userHandle}`;
-        userCode = bundleData.userCode;
+        userCode = bundleData.userCode || userDoc?.code || null;
         packDate = bundleData.packDate;
         depCount = bundleData.depCount || 0;
 
@@ -1124,7 +1127,7 @@ export const handler = stream(async (event, context) => {
       } else {
         // Use cached values
         authorHandle = piece.ipfsMedia.authorHandle || `@${userHandle}`;
-        userCode = piece.ipfsMedia.userCode;
+        userCode = piece.ipfsMedia.userCode || userDoc?.code || null;
         packDate = piece.ipfsMedia.packDate;
         depCount = piece.ipfsMedia.depCount || 0;
         // Show cache date
@@ -1390,6 +1393,7 @@ export const handler = stream(async (event, context) => {
         artifactUri,
         displayUri: artifactUri,
         thumbnailUri,
+        ...(userCode ? { permauser: userCode } : {}),
         decimals: 0,
         symbol: pieceName,
         isBooleanAmount: true,

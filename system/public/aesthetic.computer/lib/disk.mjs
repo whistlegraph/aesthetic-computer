@@ -7567,7 +7567,10 @@ async function load(
           anonymous: true
         };
 
-        if (!(typeof window !== "undefined" && window.acPACK_MODE)) {
+        const isPackMode =
+          (typeof window !== "undefined" && window.acPACK_MODE) ||
+          (typeof globalThis !== "undefined" && globalThis.acPACK_MODE);
+        if (!isPackMode) {
           log.lisp.log("Initializing KidLisp piece...");
         }
 
@@ -7597,7 +7600,7 @@ async function load(
         const compileElapsed = Math.round(compileEndTime - compileStartTime);
         diskTimings.compileComplete = Math.round(compileEndTime - diskTimingStart);
         // Silent: KidLisp compiled
-        if (!(typeof window !== "undefined" && window.acPACK_MODE)) {
+        if (!isPackMode) {
           log.lisp.success(`KidLisp module loaded (${compileElapsed}ms)`);
         }
         
@@ -13244,7 +13247,10 @@ async function makeFrame({ data: { type, content } }) {
               if (typeof window !== "undefined") {
                 window.acPieceReady = true;
                 window.acPieceReadyTime = Date.now();
-                if (!(typeof window !== "undefined" && window.acPACK_MODE)) {
+                const isPackMode =
+                  (typeof window !== "undefined" && window.acPACK_MODE) ||
+                  (typeof globalThis !== "undefined" && globalThis.acPACK_MODE);
+                if (!isPackMode) {
                   console.log("🟢 acPieceReady = true (first paint complete)");
                 }
               }
