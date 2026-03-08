@@ -134,6 +134,19 @@
             justify-content: space-between;
             align-items: center;
             gap: 1em;
+            text-decoration: none;
+            color: inherit;
+            transition: border-color 0.15s, background 0.15s;
+        }
+
+        .paper:hover {
+            border-color: var(--cyan);
+            background: rgba(78,205,196,0.06);
+        }
+
+        .paper:active {
+            background: rgba(78,205,196,0.14);
+            border-color: var(--cyan);
         }
 
         .paper-info { flex: 1; }
@@ -148,23 +161,11 @@
             font-size: 0.8em;
         }
 
-        .paper-links {
-            display: flex;
-            gap: 0.6em;
+        .paper-label {
+            color: var(--cyan);
+            font-size: 0.85em;
             flex-shrink: 0;
         }
-
-        .paper-links a {
-            color: var(--cyan);
-            text-decoration: none;
-            font-size: 0.85em;
-            padding: 0.3em 0.6em;
-            border: 1px solid var(--box-border);
-            border-radius: 4px;
-            transition: border-color 0.15s;
-        }
-
-        .paper-links a:hover { border-color: var(--cyan); }
 
         .footer {
             margin-top: 3em;
@@ -205,59 +206,49 @@
     <div class="papers">
         <div class="paper-group">
             <h2>Aesthetic Computer '26</h2>
-            <div class="paper">
+            <a class="paper" href="/aesthetic-computer-26-arxiv.pdf">
                 <div class="paper-info">
                     <div class="paper-title">A Mobile-First Runtime for Creative Computing</div>
                     <div class="paper-meta">arXiv preprint &middot; 5 pages &middot; March 2026</div>
                 </div>
-                <div class="paper-links">
-                    <a href="/aesthetic-computer-26-arxiv.pdf">PDF</a>
-                </div>
-            </div>
-            <div class="paper">
+                <span class="paper-label">PDF</span>
+            </a>
+            <a class="paper" href="/aesthetic-computer-26-joss.pdf">
                 <div class="paper-info">
                     <div class="paper-title">JOSS Summary</div>
                     <div class="paper-meta">Journal of Open Source Software &middot; 2 pages &middot; March 2026</div>
                 </div>
-                <div class="paper-links">
-                    <a href="/aesthetic-computer-26-joss.pdf">PDF</a>
-                </div>
-            </div>
+                <span class="paper-label">PDF</span>
+            </a>
         </div>
 
         <div class="paper-group">
             <h2>notepat<span style="color:var(--purple)">.</span><span style="color:var(--pink)">com</span> '26</h2>
-            <div class="paper">
+            <a class="paper" href="/notepat-26-arxiv.pdf">
                 <div class="paper-info">
                     <div class="paper-title">From Keyboard Toy to System Front Door</div>
                     <div class="paper-meta">arXiv preprint &middot; 3 pages &middot; March 2026</div>
                 </div>
-                <div class="paper-links">
-                    <a href="/notepat-26-arxiv.pdf">PDF</a>
-                </div>
-            </div>
+                <span class="paper-label">PDF</span>
+            </a>
         </div>
 
         <div class="paper-group">
             <h2>KidLisp '26</h2>
-            <div class="paper">
+            <a class="paper" href="/kidlisp-26-arxiv.pdf">
                 <div class="paper-info">
                     <div class="paper-title">A Minimal Lisp for Generative Art on a Social Platform</div>
                     <div class="paper-meta">arXiv preprint &middot; 6 pages &middot; March 2026</div>
                 </div>
-                <div class="paper-links">
-                    <a href="/kidlisp-26-arxiv.pdf">PDF</a>
-                </div>
-            </div>
-            <div class="paper">
+                <span class="paper-label">PDF</span>
+            </a>
+            <a class="paper" href="/kidlisp-26-joss.pdf">
                 <div class="paper-info">
                     <div class="paper-title">JOSS Summary</div>
                     <div class="paper-meta">Journal of Open Source Software &middot; 3 pages &middot; March 2026</div>
                 </div>
-                <div class="paper-links">
-                    <a href="/kidlisp-26-joss.pdf">PDF</a>
-                </div>
-            </div>
+                <span class="paper-label">PDF</span>
+            </a>
         </div>
     </div>
 
