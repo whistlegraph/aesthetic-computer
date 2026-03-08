@@ -398,12 +398,21 @@ static int is_installed_on_hd(void) {
         // Extract parent block device and skip removable (USB) drives
         char blk[32] = "";
         get_parent_block(parts[i] + 5, blk, sizeof(blk));
-        if (blk[0] && is_removable(blk) == 1) continue;
-        if (mount(parts[i], "/tmp/chk", "vfat", MS_RDONLY, NULL) != 0) continue;
+        fprintf(stderr, "[install-check] %s → parent=%s\n", parts[i], blk);
+        if (blk[0] && is_removable(blk) == 1) {
+            fprintf(stderr, "[install-check]   → removable, skipping\n");
+            continue;
+        }
+        if (mount(parts[i], "/tmp/chk", "vfat", MS_RDONLY, NULL) != 0) {
+            fprintf(stderr, "[install-check]   → mount failed\n");
+            continue;
+        }
         int found = access("/tmp/chk/EFI/BOOT/ac-installed", F_OK) == 0;
         umount("/tmp/chk");
+        fprintf(stderr, "[install-check]   → mounted, ac-installed=%s\n", found ? "YES" : "no");
         if (found) return 1;
     }
+    fprintf(stderr, "[install-check] not installed on HD\n");
     return 0;
 }
 
@@ -413,8 +422,20 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
                               ACDisplay *display, ACTts *tts) {
     struct timespec anim_time;
     clock_gettime(CLOCK_MONOTONIC, &anim_time);
-    // Show install option only when not already installed to internal disk
-    int show_install = (getpid() == 1) && !is_installed_on_hd();
+    // Show install option whenever booting from USB (even if already installed —
+    // user may want to update). Detect USB by checking if boot device is removable.
+    int show_install = 0;
+    if (getpid() == 1 && log_dev[0]) {
+        char boot_blk[32] = "";
+        get_parent_block(log_dev + 5, boot_blk, sizeof(boot_blk));
+        show_install = (boot_blk[0] && is_removable(boot_blk) == 1) ? 1 : 0;
+        fprintf(stderr, "[boot-anim] boot_dev=%s parent=%s removable=%d show_install=%d\n",
+                log_dev, boot_blk, is_removable(boot_blk), show_install);
+    } else if (getpid() == 1) {
+        // No log_dev — fallback: show if not installed
+        show_install = !is_installed_on_hd();
+        fprintf(stderr, "[boot-anim] no log_dev, show_install=%d (fallback)\n", show_install);
+    }
 
     // Open evdev fds once for key checking (avoid per-frame open/close)
     int key_fds[8];
@@ -455,9 +476,10 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
             for (int ki = 0; ki < key_fd_count; ki++) {
                 while (read(key_fds[ki], &ev, sizeof(ev)) == sizeof(ev)) {
                     if (ev.type == EV_KEY && ev.value == 1) {
-                        // First 15 frames: drain stale events silently
-                        if (f < 15) {
-                            fprintf(stderr, "[boot-anim] drained stale key %d at f=%d\n", ev.code, f);
+                        // First 60 frames (1 second): ignore all keys
+                        // Ensures W hint is visible before accepting input
+                        if (f < 60) {
+                            fprintf(stderr, "[boot-anim] drained key %d at f=%d (hold period)\n", ev.code, f);
                             continue;
                         }
                         fprintf(stderr, "[boot-anim] key %d at f=%d\n", ev.code, f);
@@ -515,7 +537,8 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
         // Show W hint after initial fade
         if (alpha > 100 && show_install) {
             graph_ink(graph, (ACColor){140, 100, 120, (uint8_t)(alpha / 3)});
-            const char *hint = "W: install to disk";
+            const char *hint = is_installed_on_hd()
+                ? "W: update disk install" : "W: install to disk";
             int hw = font_measure_matrix(hint, 1);
             font_draw_matrix(graph, hint,
                              (screen->width - hw) / 2, screen->height - 18, 1);
@@ -651,6 +674,9 @@ int main(int argc, char *argv[]) {
     graph_init(&graph, screen);
     font_init();
 
+    // Mount USB log early so boot animation can detect USB boot
+    if (getpid() == 1) try_mount_log();
+
     // Init audio + TTS early (needed for boot animation speech)
     ACAudio *audio = audio_init();
     audio_boot_beep(audio);
@@ -697,9 +723,6 @@ int main(int argc, char *argv[]) {
         else
             fprintf(stderr, "[ac-native] No backlight found\n");
     }
-
-    // Try to mount USB for logging
-    if (getpid() == 1) try_mount_log();
 
     // Install kernel to internal drive (only if user held W during boot)
     if (getpid() == 1 && want_install && logfile)

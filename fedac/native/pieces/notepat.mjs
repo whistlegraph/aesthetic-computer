@@ -24,7 +24,7 @@ let echoDragging = false;
 let pitchShift = 0; // -1 to +1, 0 = no shift
 
 // Trackpad FX control (\ toggles on/off)
-let trackpadFX = false;
+let trackpadFX = true;
 
 // Dark mode: auto based on LA time (7pm-7am)
 // UEFI clock is UTC; LA is UTC-7 (PDT) or UTC-8 (PST)
@@ -60,6 +60,9 @@ let dark = true; // always dark
 // Background color — average of active notes, lerped
 let bgColor = [0, 0, 0];
 let bgTarget = dark ? [20, 20, 25] : [255, 255, 255];
+
+// Cached sound API ref (for leave)
+let soundAPI = null;
 
 // Debug: last key pressed
 let lastKey = "";
@@ -154,6 +157,7 @@ function hitTestGrid(x, y, gi) {
 function boot({ wipe }) { wipe(0); }
 
 function act({ event: e, sound, wifi }) {
+  soundAPI = sound;
   // WiFi password input mode — fullscreen, capture all keyboard
   if (wifiPasswordMode && e.is("keyboard:down")) {
     const key = e.key;
@@ -213,6 +217,11 @@ function act({ event: e, sound, wifi }) {
     }
     if (key === "\\") {
       trackpadFX = !trackpadFX;
+      sound.synth({
+        type: "sine", tone: trackpadFX ? 880 : 440,
+        duration: 0.06, volume: 0.2,
+        attack: 0.002, decay: 0.05, pan: 0,
+      });
       return;
     }
     if (key === "-") {
@@ -946,5 +955,19 @@ function sim({ pressures, sound }) {
   }
 }
 
-export { boot, act, paint, sim };
+function leave() {
+  // Reset all FX before shutdown
+  echoMix = 0;
+  pitchShift = 0;
+  trackpadFX = false;
+  soundAPI?.room?.setMix?.(0);
+  // Stop all playing sounds
+  for (const key of Object.keys(sounds)) {
+    const s = sounds[key];
+    if (s && s.synth) s.synth.stop?.();
+  }
+  sounds = {};
+}
+
+export { boot, act, paint, sim, leave };
 
