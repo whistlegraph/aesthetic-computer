@@ -6,7 +6,7 @@
 // Optimized flow:
 // 1. Validate auth/ownership/not-minted
 // 2. START thumbnail generation in parallel (oven)
-// 3. Analyze source for traits
+// 3. Analyze source for character count
 // 4. Generate bundle (bundle-html)
 // 5. Upload bundle to IPFS
 // 6. AWAIT thumbnail
@@ -503,14 +503,8 @@ export const handler = stream(async (event, context) => {
           const tokenName = `$${pieceName}`;
           const description = source || "A KidLisp piece preserved on Tezos";
           const tags = ["KidLisp"];
-          const traits = (analysis?.traits || []).filter((trait) => trait?.name !== "Category");
-          const userCode = pieceName;
-
           const attributes = [
-            ...traits,
-            ...(packDate ? [{ name: "Packed on", value: packDate }] : []),
-            ...(authorHandle && authorHandle !== "@anon" ? [{ name: "Handle", value: `@${authorHandle.replace(/^@/, "")}` }] : []),
-            ...(userCode ? [{ name: "User", value: userCode }] : []),
+            { name: "Characters", value: String(analysis?.chars || source.length) },
           ];
 
           let royaltyBps = 1000;
@@ -1281,15 +1275,8 @@ export const handler = stream(async (event, context) => {
       // v6 metadata policy: single canonical tag only
       const tags = ["KidLisp"];
 
-      // Keep traits but drop optional high-level category for cleaner metadata.
-      const traits = analysis.traits.filter((trait) => trait?.name !== "Category");
-
-      // Build attributes: Length first, then Packed on, then author info
       const attributes = [
-        ...traits,
-        ...(packDate ? [{ name: "Packed on", value: packDate }] : []),
-        ...(authorHandle && authorHandle !== "@anon" ? [{ name: "Handle", value: `@${authorHandle.replace(/^@/, "")}` }] : []),
-        ...(userCode ? [{ name: "User", value: userCode }] : []),
+        { name: "Characters", value: String(analysis?.chars || (piece.source || "").length) },
       ];
 
       // Creator identity for metadata

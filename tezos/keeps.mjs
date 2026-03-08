@@ -59,6 +59,7 @@ const CONFIG = {
   paths: {
     // Compiled contract artifacts by generation
     compiled: {
+      v7: path.join(__dirname, 'KeepsFA2v7/step_002_cont_0_contract.tz'),
       v6: path.join(__dirname, 'KeepsFA2v6/step_002_cont_0_contract.tz'),
       v2: path.join(__dirname, 'KeepsFA2v2/step_002_cont_0_contract.tz'),
       v3: path.join(__dirname, 'KeepsFA2v3/step_002_cont_0_contract.tz'),
@@ -66,8 +67,8 @@ const CONFIG = {
       v5: path.join(__dirname, 'KeepsFA2v5/step_002_cont_0_contract.tz'),
     },
     // Backward-compatible defaults
-    contract: path.join(__dirname, 'KeepsFA2v6/step_002_cont_0_contract.tz'),
-    storage: path.join(__dirname, 'KeepsFA2v6/step_002_cont_0_storage.tz'),
+    contract: path.join(__dirname, 'KeepsFA2v7/step_002_cont_0_contract.tz'),
+    storage: path.join(__dirname, 'KeepsFA2v7/step_002_cont_0_storage.tz'),
     // Legacy direct paths
     v3Contract: path.join(__dirname, 'KeepsFA2v3/step_002_cont_0_contract.tz'),
     v2Contract: path.join(__dirname, 'KeepsFA2v2/step_002_cont_0_contract.tz'),
@@ -85,9 +86,26 @@ const CONFIG = {
 };
 
 const CONTRACT_PROFILES = {
+  v7: {
+    key: 'v7',
+    label: 'KidLisp v7 final production',
+    artifactKey: 'v7',
+    metadata: {
+      name: 'KidLisp',
+      version: '7.0.0',
+      description: 'https://keeps.kidlisp.com',
+      homepage: 'https://kidlisp.com',
+      interfaces: ['TZIP-012', 'TZIP-016', 'TZIP-021'],
+      authors: ['aesthetic.computer'],
+      imageUri: 'https://oven.aesthetic.computer/keeps/latest',
+    },
+    keepFeeMutez: 2_500_000,
+    defaultRoyaltyBps: 1000,
+    paused: false,
+  },
   v6: {
     key: 'v6',
-    label: 'KidLisp v6 production',
+    label: 'KidLisp v6 production (legacy)',
     artifactKey: 'v6',
     metadata: {
       name: 'KidLisp',
@@ -137,12 +155,12 @@ const CONTRACT_PROFILES = {
   },
 };
 
-function resolveContractProfile(rawProfile = 'v6') {
-  const normalized = String(rawProfile || 'v6').trim().toLowerCase();
+function resolveContractProfile(rawProfile = 'v7') {
+  const normalized = String(rawProfile || 'v7').trim().toLowerCase();
   const aliasMap = {
     rc: 'v5rc',
     v5: 'v5rc',
-    production: 'v6',
+    production: 'v7',
   };
   const key = aliasMap[normalized] || normalized;
   const profile = CONTRACT_PROFILES[key];
@@ -207,7 +225,7 @@ async function syncActiveKeepsSecret({ network = 'mainnet', contractAddress, pro
 }
 
 async function syncCurrentContractToSecrets(network = 'mainnet', options = {}) {
-  const profile = resolveContractProfile(options.contractProfile || options.profile || 'v6');
+  const profile = resolveContractProfile(options.contractProfile || options.profile || 'v7');
   const addressPath = getContractAddressPath(network);
   if (!fs.existsSync(addressPath)) {
     throw new Error(`❌ No saved contract address for ${network} at ${addressPath}`);
@@ -325,7 +343,7 @@ async function createTezosClient(network = 'mainnet') {
 // ============================================================================
 
 async function deployContract(network = 'mainnet', options = {}) {
-  const profile = resolveContractProfile(options.contractProfile || options.profile || 'v6');
+  const profile = resolveContractProfile(options.contractProfile || options.profile || 'v7');
   const contractPath = CONFIG.paths.compiled[profile.artifactKey] || CONFIG.paths.contract;
   const feeXTZ = (profile.keepFeeMutez / 1_000_000).toFixed(6);
   const pausedMichelson = profile.paused ? 'True' : 'False';
@@ -1050,7 +1068,7 @@ async function mintToken(piece, options = {}) {
   // Description is ONLY the KidLisp source code (clean and simple)
   const description = sourceCode || `A KidLisp piece preserved on Tezos`;
   
-  // v6 metadata policy: single canonical tag only
+  // v6/v7 metadata policy: single canonical tag only
   const tags = ['KidLisp'];
   
   // Generate and upload thumbnail to IPFS if requested
@@ -1257,7 +1275,7 @@ async function updateMetadata(tokenId, piece, options = {}) {
   // Description is ONLY the KidLisp source code (clean and simple)
   const description = sourceCode || `A KidLisp piece preserved on Tezos`;
   
-  // v6 metadata policy: single canonical tag only
+  // v6/v7 metadata policy: single canonical tag only
   const tags = ['KidLisp'];
   
   // Build improved attributes
@@ -2593,7 +2611,7 @@ async function main() {
   const args = rawArgs.filter(a => !a.startsWith('--'));
   const command = args[0];
   const contractFlag = flags.find(f => f.startsWith('--contract=') || f.startsWith('--profile='));
-  const contractProfile = contractFlag ? contractFlag.split('=').slice(1).join('=').trim() : 'v6';
+  const contractProfile = contractFlag ? contractFlag.split('=').slice(1).join('=').trim() : 'v7';
   
   // Parse --wallet flag
   const walletFlag = flags.find(f => f.startsWith('--wallet='));
@@ -2874,7 +2892,7 @@ async function main() {
 Usage: node keeps.mjs <command> [options]
 
 Commands:
-  deploy [network]              Deploy contract (default profile: v6)
+  deploy [network]              Deploy contract (default profile: v7)
   sync-secrets [network]        Sync active contract/profile to Mongo secrets
   status [network]              Show contract status
   balance [network]             Check wallet balance
@@ -2906,7 +2924,7 @@ Networks:
   ghostnet                      Tezos ghostnet (testnet)
 
 Flags:
-  --contract=<profile>          Deploy profile: v6 | v5rc | v4
+  --contract=<profile>          Deploy profile: v7 | v6 | v5rc | v4
   --thumbnail                   Generate animated WebP thumbnail via Oven
                                and upload to IPFS (requires Oven service)
   --to=<address>                Recipient wallet address (default: server wallet)
@@ -2918,8 +2936,9 @@ Flags:
   --yes / --apply               Send live transactions for destructive commands
 
 Examples:
+  node keeps.mjs deploy mainnet --wallet=kidlisp --contract=v7
+  node keeps.mjs sync-secrets mainnet --contract=v7
   node keeps.mjs deploy mainnet --wallet=kidlisp --contract=v6
-  node keeps.mjs sync-secrets mainnet --contract=v6
   node keeps.mjs deploy mainnet --wallet=staging --contract=v5rc
   node keeps.mjs deploy ghostnet --wallet=aesthetic --contract=v4
   node keeps.mjs balance

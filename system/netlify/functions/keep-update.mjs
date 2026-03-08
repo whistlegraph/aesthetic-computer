@@ -292,9 +292,9 @@ export const handler = stream(async (event) => {
       await send("progress", { stage: "load", message: "✓ Piece loaded" });
       await send("progress", { stage: "analyze", message: "Analyzing source..." });
 
-      // Analyze source for traits (same as keep-mint.mjs)
+      // Analyze source for metadata fields (same as keep-mint.mjs)
       const analysis = analyzeKidLisp(pieceDoc.source);
-      await send("progress", { stage: "analyze", message: `✓ ${analysis.traits.length} traits detected` });
+      await send("progress", { stage: "analyze", message: `✓ ${analysis.chars || 0} characters analyzed` });
       
       await send("progress", { stage: "metadata", message: "Building metadata..." });
 
@@ -311,15 +311,8 @@ export const handler = stream(async (event) => {
       // v6 metadata policy: single canonical tag only
       const tags = ["KidLisp"];
 
-      // Keep traits but drop optional high-level category for cleaner metadata.
-      const traits = analysis.traits.filter((trait) => trait?.name !== "Category");
-
-      // Build attributes (matches keep-mint.mjs field names)
       const attributes = [
-        ...traits,
-        { name: "Updated", value: new Date().toISOString().split('T')[0] },
-        ...(authorHandle && authorHandle !== "@anon" ? [{ name: "Handle", value: authorHandle }] : []),
-        ...(pieceName ? [{ name: "User", value: pieceName }] : []),
+        { name: "Characters", value: String(analysis?.chars || (pieceDoc.source || "").length) },
       ];
 
       await send("progress", { stage: "metadata", message: "✓ Metadata ready" });

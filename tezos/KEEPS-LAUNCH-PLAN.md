@@ -1,37 +1,41 @@
 # Keeps Launch Plan 🔮
 
-**Status:** 🟢 Mainnet Staging (Soft Launch Testing)  
-**Last Updated:** January 20, 2026
+**Status:** 🟡 v6 Live, Rolling to v7  
+**Last Updated:** March 8, 2026
 
-## Contract Status
+## Current Timeline
 
-| Network | Contract | Version | Status | Admin | Tokens | Purpose |
-|---------|----------|---------|--------|-------|--------|---------|
-| Ghostnet | `KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K` | v2 | Active | kidlisp | 15 | Development/Testing |
-| **Mainnet** | `KT1JEVyKjsMLts63e4CNaMUywWTPgeQ41Smi` | **v3** | **Staging** | staging | 1 | Soft launch |
+| Date | Milestone | Status |
+|------|-----------|--------|
+| 2026-03-07 | v6 launch prep complete | ✅ Done |
+| 2026-03-08 | v6 deployed on mainnet (`KT1J15kADMuRWh9kJZzosBeRBYPjYr7RvhoN`) | ✅ Done |
+| 2026-03-08 | First production keep minted (`$roz`, token #0) | ✅ Done |
+| 2026-03-08 | v7 source + artifacts prepared | ✅ Done |
+| Next | v7 staging validation (transfer + creator refresh + lock) | 🔄 In Progress |
+| Next | v7 mainnet deployment from `keeps.tez` | ⏳ Pending |
 
-**Legacy (v2):** `KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM` (archived, do not use for new mints)
+## Active Contracts
+
+| Network | Contract | Version | Status | Admin |
+|---------|----------|---------|--------|-------|
+| **Mainnet** | `KT1J15kADMuRWh9kJZzosBeRBYPjYr7RvhoN` | **v6** | **Live** | `keeps.tez` |
+| Ghostnet | `KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K` | v3 lineage | Dev/Test | `keeps.tez` |
 
 ## Wallet Architecture
 
 | Wallet | Address | Domain | Role |
 |--------|---------|--------|------|
-| **staging** | `tz1dfoQDuxjwSgxdqJnisyKUxDHweade4Gzt` | — | Mainnet staging admin |
-| kidlisp | `tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC` | keeps.tez | Future production admin |
-| aesthetic | `tz1gkf8EexComFBJvjtT1zdsisdah791KwBE` | aesthetic.tez | Test wallet / creator attribution testing |
+| **kidlisp** | `tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC` | keeps.tez | Production deploy/admin wallet |
+| staging | `tz1dfoQDuxjwSgxdqJnisyKUxDHweade4Gzt` | — | Staging and migration housekeeping |
+| aesthetic | `tz1gkf8EexComFBJvjtT1zdsisdah791KwBE` | aesthetic.tez | Creator-flow verification |
 
-## Launch Strategy
+## v7 Direction
 
-**Current Phase: Mainnet Staging**
-- v3 contract deployed with `token_creators` tracking
-- Staging wallet as admin for testing
-- 1 token minted so far (`$roz`)
-- ✅ Creator-based edit_metadata flow verified working
-
-**Future: Production Launch**
-- Option A: Continue using staging contract (KT1JEV...) — v3 already deployed
-- Option B: Deploy fresh contract with kidlisp wallet as admin
-- Key: Users must sign mints from their own wallet for proper attribution
+- Keep FA2 entrypoints and storage compatibility.
+- Add creator-safe post-transfer refresh in `edit_metadata`.
+- Preserve immutable guarantees for `content_hash` and `royalties`.
+- Keep Mongo `secrets` as the single source of truth for active profile/address.
+- Detailed runbook: `tezos/V7-LAUNCH-PLAN.md`
 
 ---
 

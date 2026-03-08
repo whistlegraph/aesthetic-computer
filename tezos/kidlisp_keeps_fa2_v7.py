@@ -1,30 +1,20 @@
 """
-KidLisp Keeps FA2 v6 - Aesthetic Computer NFT Contract (FINAL PRODUCTION)
+KidLisp Keeps FA2 v7 - Aesthetic Computer NFT Contract (FINAL PRODUCTION)
 
-This contract is the v6 production release with revenue enabled.
+This contract is the v7 production release with creator refresh rights.
 
-v6 CHANGES from v5:
-- Royalties immutable after keep (edit_metadata preserves royalties)
+v7 CHANGES from v6:
+- edit_metadata split policy:
+  - owner: full metadata edits
+  - original creator (after transfer): refresh-only metadata updates
+- immutable fields always preserved: content_hash + royalties
+- mint stores both "" and metadata_uri pointers for metadata compatibility
 
-v5 features (preserved):
-- Default fee: 2.5 XTZ (revenue enabled by default)
-- Immutable content_hash: edit_metadata preserves content_hash (prevents orphaned bigmap entries)
-- Improved error messages with context
-
-v4 features (preserved):
-- 10% Royalty Support: Automatic royalties on secondary sales (objkt.com compatible)
-- Emergency Pause: Admin can halt minting in emergencies
-- Admin Transfer: Customer service tool for edge cases
-
-v3 features (preserved):
-- edit_metadata: Token owner can edit
-- token_creators: Tracks original creator for each token
-- Pre-encoded metadata bytes (TzKT/objkt compatible)
-- Fee system with withdraw capability
-- Burn and re-mint functionality
-
-Key feature: Metadata bytes stored directly WITHOUT sp.pack(),
-ensuring compatibility with TzKT, objkt, and other Tezos indexers.
+v6 features (preserved):
+- default fee: 2.5 XTZ (revenue enabled by default)
+- owner-only burn_keep
+- default royalty support
+- emergency pause/unpause and admin transfer
 """
 
 import smartpy as sp
@@ -38,20 +28,18 @@ def keeps_module():
     import main
 
     # Order of inheritance: [Admin], [<policy>], <base class>, [<other mixins>].
-    class KidLispKeepsFA2v6(
+    class KidLispKeepsFA2v7(
         main.Admin,
         main.Nft,
         main.OnchainviewBalanceOf,
     ):
         """
-        FA2 NFT contract for KidLisp Keeps (v6 - FINAL PRODUCTION).
+        FA2 NFT contract for KidLisp Keeps (v7 - FINAL PRODUCTION).
 
-        v6 changes from v5:
-        - Royalties immutable during metadata edits
-
-        v5 features: default fee 2.5 XTZ, immutable content_hash
-        v4 features: royalties, emergency pause, admin transfer
-        v3 features: attribution tracking + creator bigmap support
+        v7 changes from v6:
+        - owner keeps full edit_metadata control
+        - original creator can run refresh-only metadata updates after transfer
+        - content_hash + royalties remain immutable
         """
 
         def __init__(self, admin_address, contract_metadata, ledger, token_metadata):
@@ -88,14 +76,14 @@ def keeps_module():
             self.data.contract_metadata_locked = False
 
             # Mint fee configuration (admin-adjustable)
-            # v5/v6: Default fee set to 2.5 XTZ for revenue activation
+            # v5/v6/v7: Default fee set to 2.5 XTZ for revenue activation
             self.data.keep_fee = sp.mutez(2500000)
 
             # v4: Emergency pause flag
             # When true, minting and metadata edits are disabled
             self.data.paused = False
 
-            # v4: Default royalty configuration
+            # v4+: Default royalty configuration
             # Basis points: 1000 = 10%, 2500 = 25% (max)
             # Applied to all new mints unless overridden
             self.data.default_royalty_bps = 1000  # 10% default
@@ -159,6 +147,7 @@ def keeps_module():
                 "creators": params.creators,
                 "royalties": params.royalties,
                 "content_hash": params.content_hash,
+                "metadata_uri": params.metadata_uri,
                 "": params.metadata_uri
             }, sp.map[sp.string, sp.bytes])
 
@@ -224,7 +213,8 @@ def keeps_module():
             Update metadata for an existing token.
 
             Authorization:
-            - Token owner only (current holder)
+            - Current token owner: full metadata edit
+            - Original creator: refresh-only update path
 
             Respects pause flag (cannot edit when paused).
             content_hash and royalties are immutable — always preserved
@@ -240,10 +230,11 @@ def keeps_module():
 
             assert self.data.token_metadata.contains(params.token_id), "FA2_TOKEN_UNDEFINED"
 
-            # Check authorization: owner only
+            # Check authorization: owner or original creator
             is_owner = self.data.ledger.get(params.token_id, default=sp.address("tz1burnburnburnburnburnburnburjAYjjX")) == sp.sender
+            is_creator = self.data.token_creators.get(params.token_id, default=sp.address("tz1burnburnburnburnburnburnburjAYjjX")) == sp.sender
 
-            assert is_owner, "NOT_TOKEN_OWNER"
+            assert is_owner or is_creator, "NOT_AUTHORIZED"
 
             # Check if locked
             is_locked = self.data.metadata_locked.get(params.token_id, default=False)
@@ -254,11 +245,44 @@ def keeps_module():
             original_hash = existing_info.get("content_hash", default=sp.bytes("0x"))
             original_royalties = existing_info.get("royalties", default=sp.bytes("0x"))
 
-            # Update metadata
-            self.data.token_metadata[params.token_id] = sp.record(
-                token_id=params.token_id,
-                token_info=params.token_info
-            )
+            # Owner can apply full metadata updates.
+            if is_owner:
+                self.data.token_metadata[params.token_id] = sp.record(
+                    token_id=params.token_id,
+                    token_info=params.token_info
+                )
+            else:
+                # Original creator refresh path:
+                # only URI/presentation fields can change after transfer.
+                refreshed_info = existing_info
+                mutable_refresh_fields = [
+                    "",
+                    "metadata_uri",
+                    "artifactUri",
+                    "displayUri",
+                    "thumbnailUri",
+                    "formats",
+                    "tags",
+                    "attributes",
+                    "rights",
+                    "content_type",
+                    "isBooleanAmount",
+                    "shouldPreferSymbol",
+                ]
+                for field in mutable_refresh_fields:
+                    if params.token_info.contains(field):
+                        refreshed_info[field] = params.token_info[field]
+
+                # Keep ""/metadata_uri aligned when either key is provided.
+                if params.token_info.contains("metadata_uri"):
+                    refreshed_info[""] = params.token_info["metadata_uri"]
+                if params.token_info.contains(""):
+                    refreshed_info["metadata_uri"] = params.token_info[""]
+
+                self.data.token_metadata[params.token_id] = sp.record(
+                    token_id=params.token_id,
+                    token_info=refreshed_info
+                )
 
             # Re-inject immutable fields (cannot be changed or removed via edit)
             self.data.token_metadata[params.token_id].token_info["content_hash"] = original_hash
@@ -428,9 +452,9 @@ def _total_supply(fa2_contract, args):
 
 @sp.add_test()
 def test():
-    """Minimal test to compile v6 contract."""
-    scenario = sp.test_scenario("KeepsFA2v6")
-    scenario.h1("KidLisp Keeps FA2 v6 - Final Production Contract")
+    """Minimal test to compile v7 contract."""
+    scenario = sp.test_scenario("KeepsFA2v7")
+    scenario.h1("KidLisp Keeps FA2 v7 - Final Production Contract")
 
     # Define test account
     admin = sp.test_account("Admin")
@@ -440,7 +464,7 @@ def test():
     token_metadata = []
 
     # Deploy contract
-    contract = keeps_module.KidLispKeepsFA2v6(
+    contract = keeps_module.KidLispKeepsFA2v7(
         admin.address,
         sp.big_map(),
         ledger,
@@ -449,7 +473,6 @@ def test():
 
     scenario += contract
 
-    scenario.p("v6: royalties immutable after keep")
-    scenario.p("v5: Default fee = 2.5 XTZ, revenue enabled")
-    scenario.p("v4 features: royalties, pause, admin transfer")
-    scenario.p("v3 features: creator tracking")
+    scenario.p("v7: owner full edit + creator refresh-only metadata updates")
+    scenario.p("v6: owner-only burn_keep + royalties immutable after keep")
+    scenario.p("v5: default fee = 2.5 XTZ, revenue enabled")
