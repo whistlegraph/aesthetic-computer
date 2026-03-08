@@ -68,6 +68,10 @@ let soundAPI = null;
 let lastKey = "";
 let lastKeyTimer = 0;
 
+// OS image download URL (shown on "os" button tap)
+const OS_URL = "releases.aesthetic.computer/os/native-notepat-latest.img.gz";
+let osUrlVisible = false;
+
 // WiFi UI state
 let wifiPanelOpen = false;
 let wifiSelectedIdx = -1;
@@ -321,6 +325,12 @@ function act({ event: e, sound, wifi }) {
     const h = globalThis.__screenH || 200;
     const pid = e.pointer?.id ?? 0;
 
+    // "os" button: top bar, after "notepat.com" (~x 42-54)
+    if (y < 16 && x >= 42 && x <= 58) {
+      osUrlVisible = !osUrlVisible;
+      return;
+    }
+
     // WiFi antenna icon: top-right corner (within status bar)
     if (y < 16 && x > w - 22) {
       wifiPanelOpen = !wifiPanelOpen;
@@ -543,12 +553,24 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   ink(dark ? 200 : 180, dark ? 100 : 60, dark ? 140 : 120);
   const dotComX = 2 + 7 * 4; // x position of ".com" (7 matrix chars * ~4px each)
   write(".com", { x: dotComX, y: barY, size: 1, font: "matrix" });
+  // "os" button — clickable, shows download URL
+  const osX = dotComX + 4 * 4 + 6;
+  ink(dark ? 80 : 140, dark ? 160 : 100, dark ? 80 : 140);
+  write("os", { x: osX, y: barY, size: 1, font: "matrix" });
   const statusStr = activeCount > 0
     ? activeCount + " note" + (activeCount > 1 ? "s" : "")
     : "";
   if (statusStr) {
     ink(FG_DIM, FG_DIM, FG_DIM);
-    write(statusStr, { x: dotComX + 4 * 8 + 4, y: barY, size: 1 });
+    write(statusStr, { x: osX + 2 * 4 + 6, y: barY, size: 1 });
+  }
+
+  // OS URL overlay (shown when "os" tapped)
+  if (osUrlVisible) {
+    ink(0, 0, 0, 210);
+    box(0, topBarH, w, 14, true);
+    ink(80, 200, 100);
+    write(OS_URL, { x: 4, y: topBarH + 3, size: 1, font: "font_1" });
   }
 
   // Center status bar: note count is enough, settings go below
