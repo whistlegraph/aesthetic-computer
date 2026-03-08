@@ -9,6 +9,7 @@
 #include "wifi.h"
 #include "tts.h"
 #include "drm-display.h"
+#include "ws-client.h"
 
 typedef struct {
     JSRuntime *rt;
@@ -29,6 +30,7 @@ typedef struct {
     ACWifi *wifi;
     ACTts *tts;
     ACSecondaryDisplay *hdmi;
+    ACWs *ws;
     int paint_count;
     int sim_count;
     // Async HTTP fetch state (curl in background)
