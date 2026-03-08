@@ -283,18 +283,19 @@ else
 fi
 
 # Bundle ac-native's own shared library dependencies (needed when built dynamically)
+# Copies each .so to its canonical path inside initramfs, preserving directory structure
 if [ -f "${BUILD_DIR}/ac-native" ]; then
-    for lib in $(ldd "${BUILD_DIR}/ac-native" 2>/dev/null | grep -oP '/\S+'); do
-        [ -f "$lib" ] && cp -n "$lib" "${INITRAMFS_DIR}/lib64/" 2>/dev/null || true
+    for lib in $(ldd "${BUILD_DIR}/ac-native" 2>/dev/null | grep -oP '/[^ ()]+\.so[^ ()]*'); do
+        [ -f "$lib" ] || continue
+        dest_dir="${INITRAMFS_DIR}$(dirname "$lib")"
+        mkdir -p "$dest_dir"
+        cp -n "$lib" "$dest_dir/" 2>/dev/null || true
+        # Also create unversioned .so symlink so dlopen() finds it
+        base="$(basename "$lib")"
+        novers="$(echo "$base" | sed 's/\.so\..*/\.so/')"
+        [ "$novers" != "$base" ] && ln -sf "$base" "$dest_dir/$novers" 2>/dev/null || true
     done
-    # Ensure ld-linux is present (dynamic linker)
-    LD_PATH="$(ldd "${BUILD_DIR}/ac-native" 2>/dev/null | grep 'ld-linux' | awk '{print $1}')"
-    if [ -n "$LD_PATH" ] && [ -f "$LD_PATH" ]; then
-        cp -n "$LD_PATH" "${INITRAMFS_DIR}/lib64/" 2>/dev/null || true
-        # Also place it at /lib64/ canonical path
-        mkdir -p "${INITRAMFS_DIR}/lib64"
-        ln -sf "/lib64/$(basename "$LD_PATH")" "${INITRAMFS_DIR}/lib64/$(basename "$LD_PATH")" 2>/dev/null || true
-    fi
+    log "Bundled $(ldd "${BUILD_DIR}/ac-native" 2>/dev/null | grep -c '\.so') shared libs"
 fi
 
 # Init: symlink to ac-native (no /bin/sh in initramfs)

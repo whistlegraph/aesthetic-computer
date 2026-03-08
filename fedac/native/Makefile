@@ -10,7 +10,7 @@ CC       ?= gcc
 GIT_HASH := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_TS := $(shell date -u '+%Y-%m-%dT%H:%M')
 CFLAGS   := -O2 -Wall -Wextra -std=gnu11 -I$(QJSDIR) -DAC_GIT_HASH=\"$(GIT_HASH)\" -DAC_BUILD_TS=\"$(BUILD_TS)\"
-LDFLAGS  := -lm -lpthread -lasound
+LDFLAGS  := -Wl,--as-needed -lm -lpthread -lasound
 
 # Static build: only when musl-gcc is available (musl has bundled static libc)
 # On Fedora/standard gcc, dynamic linking is used and .so files are bundled in initramfs
