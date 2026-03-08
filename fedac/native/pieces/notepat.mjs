@@ -11,14 +11,23 @@ const wavetypes = ["sine", "triangle", "sawtooth", "square", "noise"];
 
 // Metronome state
 let metronomeEnabled = false;
-let metronomeBPM = 180;
+let metronomeBPM = 120;
 let metronomeBeatCount = 0;
 let metronomeFlash = 0;
 let metronomeVisualPhase = 0;
+let metronomePendulumAngle = 0;  // swinging pendulum animation (-1..1)
+let metronomePendulumDir = 1;
+
+// Clock time sync
+let clockOffset = 0;       // ms offset added to Date.now() for accurate time
+let clockSynced = false;   // true once we have a server time sync
+let clockSyncFrame = 0;    // frame counter for periodic resync
+function syncedNow() { return Date.now() + clockOffset; }
 
 // Echo (room) mix — controlled by trackpad X / slider
 let echoMix = 0;
 let echoDragging = false;
+let pitchDragging = false;
 
 // Pitch shift — controlled by trackpad Y / slider
 let pitchShift = 0; // -1 to +1, 0 = no shift
@@ -81,7 +90,10 @@ let shiftHeld = false;
 
 // AC chat: latest message fetched after WiFi connects
 let acMsg = null;            // { from, text } once loaded
+let wsStatus = "";           // "connecting" | "connected" | "error" | ""
+let chatMuted = false;       // mute TTS for incoming chat messages
 let wifiWasConnected = false;
+let lastBatPercent = -1;     // for battery change TTS
 
 // Auto-connect: try "aesthetic.computer" hotspot when not connected
 const AC_SSID = "aesthetic.computer";
@@ -255,7 +267,7 @@ function act({ event: e, sound, wifi }) {
     if (key === "space") {
       metronomeEnabled = !metronomeEnabled;
       if (metronomeEnabled) {
-        metronomeBeatCount = Math.floor(Date.now() / (60000 / metronomeBPM));
+        metronomeBeatCount = Math.floor(syncedNow() / (60000 / metronomeBPM));
       }
       return;
     }
@@ -282,12 +294,12 @@ function act({ event: e, sound, wifi }) {
     }
     if (key === "-") {
       metronomeBPM = Math.max(20, metronomeBPM - 5);
-      metronomeBeatCount = Math.floor(Date.now() / (60000 / metronomeBPM));
+      metronomeBeatCount = Math.floor(syncedNow() / (60000 / metronomeBPM));
       return;
     }
     if (key === "=") {
       metronomeBPM = Math.min(300, metronomeBPM + 5);
-      metronomeBeatCount = Math.floor(Date.now() / (60000 / metronomeBPM));
+      metronomeBeatCount = Math.floor(syncedNow() / (60000 / metronomeBPM));
       return;
     }
 
@@ -339,6 +351,14 @@ function act({ event: e, sound, wifi }) {
       return;
     }
 
+    // Mute button (chat TTS toggle) — position set dynamically in paint
+    const mb = globalThis.__muteBtn;
+    if (y < 16 && mb && x >= mb.x - 1 && x <= mb.x + mb.w) {
+      chatMuted = !chatMuted;
+      sound?.synth({ type: "sine", tone: chatMuted ? 330 : 660, duration: 0.05, volume: 0.15, attack: 0.002, decay: 0.04 });
+      return;
+    }
+
     // WiFi antenna icon: top-right corner (within status bar)
     if (y < 16 && x > w - 22) {
       wifiPanelOpen = !wifiPanelOpen;
@@ -371,20 +391,34 @@ function act({ event: e, sound, wifi }) {
       return;
     }
 
-    // Echo slider zone (below settings row, y 26-38)
-    if (y >= 26 && y < 38) {
+    // Echo slider zone (y 15-26)
+    if (y >= 15 && y < 27) {
       echoDragging = true;
       echoMix = Math.max(0, Math.min(1, x / w));
       sound?.room?.setMix?.(echoMix);
       return;
     }
-    // Pitch slider zone (below echo slider, y 38-50)
-    if (y >= 38 && y < 50) {
-      pitchShift = Math.max(-1, Math.min(1, (x / w) * 2 - 1)); // map 0-w to -1..+1
+    // Pitch slider zone (y 27-38)
+    if (y >= 27 && y < 39) {
+      pitchDragging = true;
+      pitchShift = Math.max(-1, Math.min(1, (x / w) * 2 - 1));
       const factor = Math.pow(2, pitchShift);
       for (const k of Object.keys(sounds)) {
         const s = sounds[k];
         if (s && s.synth && s.baseFreq) s.synth.update({ tone: s.baseFreq * factor });
+      }
+      return;
+    }
+    // Wave type buttons (y 39-52)
+    const wb = globalThis.__waveButtons;
+    if (wb && y >= wb.y && y < wb.y + wb.h) {
+      if (x >= wb.octX) {
+        // Octave button — tap to increment
+        octave = (octave % 6) + 1;
+      } else {
+        const idx = Math.min(wavetypes.length - 1, Math.floor(x / wb.btnW));
+        waveIndex = idx;
+        wave = wavetypes[idx];
       }
       return;
     }
@@ -419,6 +453,14 @@ function act({ event: e, sound, wifi }) {
       echoMix = Math.max(0, Math.min(1, x / w));
       sound?.room?.setMix?.(echoMix);
     }
+    if (pitchDragging) {
+      pitchShift = Math.max(-1, Math.min(1, (x / w) * 2 - 1));
+      const factor = Math.pow(2, pitchShift);
+      for (const k of Object.keys(sounds)) {
+        const s = sounds[k];
+        if (s && s.synth && s.baseFreq) s.synth.update({ tone: s.baseFreq * factor });
+      }
+    }
     // Grid rollover: dragging across note buttons triggers the new one
     const gridInfo = globalThis.__gridInfo;
     if (gridInfo && touchNotes[pid] !== undefined) {
@@ -449,6 +491,7 @@ function act({ event: e, sound, wifi }) {
   if (e.is("lift")) {
     const pid = e.pointer?.id ?? 0;
     if (echoDragging) echoDragging = false;
+    if (pitchDragging) pitchDragging = false;
     // Release touch-triggered note
     if (touchNotes[pid]) {
       const key = touchNotes[pid].key;
@@ -490,11 +533,14 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     }
   }
 
-  // Metronome tick
+  // Metronome tick (clock-synced)
   if (metronomeEnabled && metronomeBPM > 0) {
-    const now = Date.now();
+    const now = syncedNow();
     const msPerBeat = 60000 / metronomeBPM;
     const beatNumber = Math.floor(now / msPerBeat);
+    // Pendulum: smooth sinusoidal swing synced to beat phase (2-beat period)
+    const beatPhase = (now % (msPerBeat * 2)) / (msPerBeat * 2);
+    metronomePendulumAngle = Math.sin(beatPhase * Math.PI * 2);
     if (beatNumber !== metronomeBeatCount) {
       metronomeBeatCount = beatNumber;
       metronomeVisualPhase = 1.0;
@@ -597,13 +643,64 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       dark ? (osHovered ? 210 : 160) : (osHovered ? 150 : 100),
       dark ? (osHovered ? 120 : 80) : (osHovered ? 200 : 140));
   write("os", { x: osX, y: barY, size: 1, font: "matrix" });
-  const statusStr = activeCount > 0
-    ? activeCount + " note" + (activeCount > 1 ? "s" : "")
-    : "";
-  if (statusStr) {
-    ink(FG_DIM, FG_DIM, FG_DIM);
-    write(statusStr, { x: osX + 2 * 4 + 6, y: barY, size: 1 });
+
+  // WS status + latest chat + mute button — right of "os"
+  let chatX = osX + 2 * 4 + 6;
+  if (wsStatus === "connecting") {
+    ink(200, 200, 80);
+    write("chat...", { x: chatX, y: barY, size: 1, font: "matrix" });
+    chatX += 7 * 4 + 2;
+  } else if (wsStatus === "error") {
+    ink(220, 80, 80);
+    write("chat?", { x: chatX, y: barY, size: 1, font: "matrix" });
+    chatX += 5 * 4 + 2;
+  } else if (acMsg) {
+    // Truncate to fit bar width minus right elements (wifi+bat+time+vol ~120px)
+    const maxChatChars = Math.floor((w - chatX - 130) / 4);
+    if (maxChatChars > 6) {
+      const preview = (acMsg.from + ": " + acMsg.text).slice(0, maxChatChars);
+      ink(dark ? 140 : 100, dark ? 180 : 130, dark ? 140 : 100);
+      write(preview, { x: chatX, y: barY, size: 1, font: "matrix" });
+      chatX += preview.length * 4 + 2;
+    }
   }
+  // Metronome indicator (pendulum) in status bar — shown when enabled
+  if (metronomeEnabled) {
+    const metX = chatX;
+    // BPM label
+    ink(dark ? 160 : 100, dark ? 160 : 100, dark ? 170 : 110);
+    const bpmLabel = metronomeBPM + "b";
+    write(bpmLabel, { x: metX, y: barY, size: 1, font: "matrix" });
+    chatX += bpmLabel.length * 4 + 3;
+    // Pendulum: pivot at top-center of a small 10px zone, swinging bob
+    const px = chatX + 5;
+    const pvY = barY + 1;
+    const armLen = 8;
+    const angle = metronomePendulumAngle * 0.45; // radians max ≈ 26°
+    const bobX = Math.round(px + Math.sin(angle) * armLen);
+    const bobY = Math.round(pvY + Math.cos(angle) * armLen);
+    // Flash on downbeat
+    const db = (metronomeBeatCount % 4) === 0;
+    const fa = Math.floor(metronomeVisualPhase * 255);
+    if (fa > 0) {
+      ink(db ? 255 : 180, db ? 100 : 180, db ? 100 : 255, fa);
+    } else {
+      ink(dark ? 120 : 150, dark ? 130 : 150, dark ? 140 : 160);
+    }
+    line(px, pvY, bobX, bobY);
+    box(bobX - 1, bobY - 1, 3, 3, true);
+    chatX += 14;
+  }
+
+  // Mute button: "M" when muted, "m" when live
+  const muteX = chatX;
+  const muteHovered = hoverX >= muteX - 1 && hoverX <= muteX + 8 && hoverY < topBarH;
+  if (muteHovered) { ink(255, 255, 255, 30); box(muteX - 1, 0, 10, topBarH, true); }
+  ink(chatMuted ? (dark ? 200 : 80) : (dark ? 80 : 180),
+      chatMuted ? (dark ? 80 : 200) : (dark ? 80 : 180),
+      chatMuted ? (dark ? 80 : 80) : (dark ? 80 : 180));
+  write(chatMuted ? "M" : "m", { x: muteX, y: barY, size: 1, font: "matrix" });
+  globalThis.__muteBtn = { x: muteX, w: 10 };
 
   // OS URL overlay (shown when "os" tapped)
   if (osUrlVisible) {
@@ -620,14 +717,46 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   if (wifi?.connected && !wifiWasConnected) {
     sound?.synth({ type: "sine", tone: 880, duration: 0.08, volume: 0.3, attack: 0.01, decay: 0.06 });
     sound?.speak("connected");
-    autoConnectTry = 0;  // reset so future disconnects beep again
+    autoConnectTry = 0;
+    wsStatus = "connecting";
     system.ws?.connect("wss://chat-system.aesthetic.computer/");
-    // Persist credentials to USB EFI partition
     if (system?.writeFile && savedCreds.length > 0) {
       system.writeFile(CREDS_PATH, JSON.stringify(savedCreds));
     }
+    // Kick off clock sync fetch
+    clockSynced = false;
+    system.fetch?.("https://aesthetic.computer/api/clock");
+    clockSyncFrame = 0;
   }
   wifiWasConnected = !!wifi?.connected;
+
+  // Poll for clock sync result
+  if (system.fetchResult) {
+    const t1 = Date.now();
+    try {
+      const serverTime = new Date(system.fetchResult).getTime();
+      if (!isNaN(serverTime)) {
+        // Simple: treat fetchResult as server time at moment of receipt
+        const newOffset = serverTime - t1;
+        clockOffset += (newOffset - clockOffset) * 0.5;
+        clockSynced = true;
+      }
+    } catch (e) { /* ignore parse errors */ }
+  }
+  // Periodic re-sync every ~10 min (at 60fps: 36000 frames)
+  clockSyncFrame++;
+  if (wifi?.connected && clockSyncFrame % 36000 === 0) {
+    system.fetch?.("https://aesthetic.computer/api/clock");
+  }
+
+  // Track WS connection status for display
+  if (system.ws?.connecting) wsStatus = "connecting";
+  else if (system.ws?.connected && wsStatus !== "connected") {
+    wsStatus = "connected";
+    sound?.speak("chat connected");
+  } else if (!system.ws?.connected && !system.ws?.connecting && wsStatus === "connecting") {
+    wsStatus = "error";
+  }
 
   // Process incoming WebSocket chat messages (real-time)
   const wsMsgs = system.ws?.messages;
@@ -636,13 +765,17 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       try {
         const msg = JSON.parse(raw);
         if (msg.type === "connected") {
-          // Initial backlog — grab most recent message
           const content = JSON.parse(msg.content);
           const last = (content.messages || []).slice(-1)[0];
-          if (last?.from && last?.text) acMsg = { from: last.from, text: last.text };
+          if (last?.from && last?.text) {
+            acMsg = { from: last.from, text: last.text };
+          }
         } else if (msg.type === "message") {
           const m = JSON.parse(msg.content);
-          if (m?.from && m?.text) acMsg = { from: m.from, text: m.text };
+          if (m?.from && m?.text) {
+            acMsg = { from: m.from, text: m.text };
+            if (!chatMuted) sound?.speak(m.from + ": " + m.text);
+          }
         }
       } catch (_) {}
     }
@@ -705,6 +838,11 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   // Battery icon + percentage
   const bat = system?.battery;
   const batPct = bat?.percent ?? -1;
+  // TTS when battery percent changes
+  if (batPct >= 0 && batPct !== lastBatPercent) {
+    if (lastBatPercent >= 0) sound?.speak(`${batPct} percent`);
+    lastBatPercent = batPct;
+  }
   if (batPct >= 0) {
     const batW = 12, batH = 6;
     rx -= batW + 2;
@@ -724,9 +862,9 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     rx -= 4; // separator space
   }
 
-  // Time (LA)
+  // Time (LA) — uses syncedNow() for accuracy; shows green dot when synced
   {
-    const now = new Date();
+    const now = new Date(syncedNow());
     const laMs = now.getTime() - getLAOffset() * 3600000;
     const laDate = new Date(laMs);
     const hh = laDate.getUTCHours();
@@ -738,6 +876,13 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     rx -= timeStr.length * CH;
     ink(FG_DIM, FG_DIM, FG_DIM);
     write(timeStr, { x: rx, y: barY, size: 1 });
+    // Green sync dot(s) after time when synced
+    if (clockSynced) {
+      ink(60, 220, 80);
+      const dotX = rx + timeStr.length * CH + 1;
+      box(dotX, barY + 3, 2, 2, true);
+      if (Math.abs(clockOffset) < 500) box(dotX + 3, barY + 3, 2, 2, true); // 2 dots = very precise
+    }
     rx -= 4;
   }
 
@@ -772,21 +917,20 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     write("brt", { x: rx, y: barY, size: 1 });
   }
 
-  // Waveform (between title and right section, overlaid when playing)
+  // Fullscreen waveform behind everything (drawn here, before grids)
   const wf = sound?.speaker?.waveforms?.left;
   if (wf && activeCount > 0) {
-    const wfX = dotComX + 4 * 8 + 4 + (statusStr ? (statusStr.length * CH + 4) : 0);
-    const wfEnd = rx - 4;
-    const wfW = wfEnd - wfX;
-    if (wfW > 20) {
-      ink(dark ? 80 : 140, dark ? 80 : 140, dark ? 80 : 140, 120);
-      for (let i = 1; i < 60; i++) {
-        const x0 = wfX + Math.floor((i - 1) * wfW / 60);
-        const x1 = wfX + Math.floor(i * wfW / 60);
-        const y0 = Math.round(barY + 3 - (wf[i - 1] || 0) * 3);
-        const y1 = Math.round(barY + 3 - (wf[i] || 0) * 3);
-        line(x0, y0, x1, y1);
-      }
+    const wfTop = topBarH;
+    const wfH = h - wfTop;
+    ink(dark ? 60 : 160, dark ? 60 : 160, dark ? 60 : 160, 60);
+    for (let i = 1; i < 120; i++) {
+      const x0 = Math.floor((i - 1) * w / 120);
+      const x1 = Math.floor(i * w / 120);
+      const mid = wfTop + Math.floor(wfH / 2);
+      const amp = Math.floor(wfH * 0.45);
+      const y0 = mid - Math.round((wf[i - 1] || 0) * amp);
+      const y1 = mid - Math.round((wf[i] || 0) * amp);
+      line(x0, y0, x1, y1);
     }
   }
 
@@ -899,38 +1043,12 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   drawGrid(LEFT_GRID, leftX, 0);
   drawGrid(RIGHT_GRID, rightX, 0);
 
-  // === SETTINGS ROW + ACTIVE NOTE (under status bar) ===
+  // === SLIDERS: echo and pitch (directly under status bar) ===
   const settingsY = topBarH + 1;
-  {
-    // Settings: wave type, octave, quick, kHz — in matrix chunky font
-    const metroInfo = metronomeEnabled ? " " + metronomeBPM + "bpm" : "";
-    const sRate = sound?.speaker?.sampleRate;
-    const khzStr = sRate ? " " + Math.round(sRate / 1000) + "kHz" : "";
-    const settingsStr = wave + " o:" + octave + (quickMode ? " QK" : "") + metroInfo + khzStr;
-    ink(FG_MUTED, FG_MUTED, FG_MUTED);
-    write(settingsStr, { x: 2, y: settingsY, size: 1, font: "matrix" });
 
-    // Active note name — red, matrix chunky, right side of settings row
-    if (activeKeys.length > 0) {
-      // Show all active note names
-      let noteNames = [];
-      for (const key of activeKeys) {
-        const noteName = KEY_TO_NOTE[key];
-        if (noteName) {
-          const [letter, off] = parseNote(noteName);
-          noteNames.push(letter + (octave + off));
-        }
-      }
-      const noteStr = noteNames.join(" ");
-      const noteX = w - noteStr.length * 8 - 2;
-      ink(255, 60, 60);
-      write(noteStr, { x: noteX, y: settingsY, size: 1, font: "matrix" });
-    }
-  }
-
-  // Echo slider (below settings row)
+  // Echo slider
   {
-    const sliderY = settingsY + 11;
+    const sliderY = settingsY;
     const sliderH = 12;
     const echoHovered = hoverY >= sliderY && hoverY < sliderY + sliderH;
     ink(dark ? (echoHovered ? 40 : 25) : (echoHovered ? 220 : 235),
@@ -949,28 +1067,25 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     }
     ink(dark ? 90 : 160, dark ? 90 : 160, dark ? 100 : 170);
     const echoStr = "echo " + Math.round(echoMix * 100) + "%";
-    write(echoStr, { x: 2, y: sliderY + 1, size: 1, font: "font_1" });
-    // Trackpad FX indicator
+    write(echoStr, { x: 2, y: sliderY + 2, size: 1, font: "font_1" });
     if (trackpadFX) {
       ink(120, 220, 120);
-      write("\\", { x: w - 8, y: sliderY + 1, size: 1, font: "font_1" });
+      write("\\", { x: w - 8, y: sliderY + 2, size: 1, font: "font_1" });
     }
   }
 
-  // Pitch shift slider (below echo slider)
+  // Pitch shift slider
   {
-    const sliderY = settingsY + 23;
+    const sliderY = settingsY + 12;
     const sliderH = 12;
     const pitchHovered = hoverY >= sliderY && hoverY < sliderY + sliderH;
     ink(dark ? (pitchHovered ? 40 : 25) : (pitchHovered ? 220 : 235),
         dark ? (pitchHovered ? 40 : 25) : (pitchHovered ? 220 : 235),
         dark ? (pitchHovered ? 45 : 28) : (pitchHovered ? 225 : 238));
     box(0, sliderY, w, sliderH, true);
-    // Center line (pitch = 0)
     const centerX = Math.floor(w / 2);
     ink(dark ? 40 : 220, dark ? 40 : 220, dark ? 45 : 225);
     box(centerX, sliderY, 1, sliderH, true);
-    // Fill from center
     const pitchX = Math.floor((pitchShift + 1) / 2 * w);
     if (Math.abs(pitchShift) > 0.005) {
       ink(200, 100, 160, trackpadFX ? 240 : 180);
@@ -978,15 +1093,83 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       const fw = Math.abs(pitchX - centerX);
       box(fx, sliderY, fw, sliderH, true);
     }
-    // Knob
     if (Math.abs(pitchShift) > 0.005) {
       ink(255, 140, 180, 220);
       box(Math.max(1, Math.min(w - 3, pitchX)) - 1, sliderY, 3, sliderH, true);
     }
     ink(dark ? 90 : 160, dark ? 90 : 160, dark ? 100 : 170);
-    const cents = Math.round(pitchShift * 1200); // ±1200 cents = ±1 octave
+    const cents = Math.round(pitchShift * 1200);
     const pitchStr = "pitch " + (cents >= 0 ? "+" : "") + cents + "c";
-    write(pitchStr, { x: 2, y: sliderY + 1, size: 1, font: "font_1" });
+    write(pitchStr, { x: 2, y: sliderY + 2, size: 1, font: "font_1" });
+  }
+
+  // === WAVE TYPE BUTTONS (below sliders, modular GUI) ===
+  {
+    const waveRowY = settingsY + 24;
+    const waveRowH = 14;
+    const waveLabels = ["sin", "tri", "saw", "sq", "ns"];
+    const octBtnW = 22;                           // octave button on right
+    const waveAreaW = w - octBtnW - 1;
+    const btnW2 = Math.floor(waveAreaW / wavetypes.length);
+
+    // Draw each wave button
+    for (let i = 0; i < wavetypes.length; i++) {
+      const bx = i * btnW2;
+      const isActive = wave === wavetypes[i];
+      const isHov = hoverX >= bx && hoverX < bx + btnW2 && hoverY >= waveRowY && hoverY < waveRowY + waveRowH;
+      if (isActive) {
+        ink(dark ? 55 : 200, dark ? 75 : 210, dark ? 110 : 230);
+        box(bx, waveRowY, btnW2, waveRowH, true);
+        ink(dark ? 200 : 30, dark ? 220 : 40, dark ? 255 : 60);
+      } else if (isHov) {
+        ink(dark ? 35 : 210, dark ? 35 : 210, dark ? 40 : 215);
+        box(bx, waveRowY, btnW2, waveRowH, true);
+        ink(dark ? 160 : 80, dark ? 160 : 80, dark ? 170 : 90);
+      } else {
+        ink(dark ? 20 : 225, dark ? 20 : 225, dark ? 25 : 230);
+        box(bx, waveRowY, btnW2, waveRowH, true);
+        ink(dark ? 100 : 140, dark ? 100 : 140, dark ? 110 : 150);
+      }
+      // Separator line between buttons
+      if (i > 0) {
+        ink(dark ? 40 : 190, dark ? 40 : 190, dark ? 45 : 195);
+        box(bx, waveRowY, 1, waveRowH, true);
+      }
+      // Label
+      const lx = bx + Math.floor((btnW2 - waveLabels[i].length * 6) / 2);
+      write(waveLabels[i], { x: lx, y: waveRowY + 3, size: 1, font: "font_1" });
+    }
+
+    // Octave button (right side)
+    const obx = w - octBtnW;
+    const octHov = hoverX >= obx && hoverY >= waveRowY && hoverY < waveRowY + waveRowH;
+    ink(dark ? (octHov ? 50 : 28) : (octHov ? 200 : 225),
+        dark ? (octHov ? 50 : 28) : (octHov ? 200 : 225),
+        dark ? (octHov ? 55 : 32) : (octHov ? 205 : 230));
+    box(obx, waveRowY, octBtnW, waveRowH, true);
+    ink(dark ? 40 : 190, dark ? 40 : 190, dark ? 45 : 195);
+    box(obx, waveRowY, 1, waveRowH, true);
+    ink(dark ? 140 : 100, dark ? 140 : 100, dark ? 150 : 110);
+    write("o:" + octave, { x: obx + 3, y: waveRowY + 3, size: 1, font: "font_1" });
+
+    // Expose hit zones for act()
+    globalThis.__waveButtons = { y: waveRowY, h: waveRowH, btnW: btnW2, octX: obx, octW: octBtnW };
+
+    // Active note name — red, below wave row on right side
+    if (activeKeys.length > 0) {
+      let noteNames = [];
+      for (const key of activeKeys) {
+        const noteName = KEY_TO_NOTE[key];
+        if (noteName) {
+          const [letter, off] = parseNote(noteName);
+          noteNames.push(letter + (octave + off));
+        }
+      }
+      const noteStr = noteNames.join(" ");
+      const noteX = w - noteStr.length * 8 - 2;
+      ink(255, 60, 60);
+      write(noteStr, { x: noteX, y: waveRowY + 3, size: 1, font: "matrix" });
+    }
   }
 
   // WiFi fullscreen password entry
@@ -1007,7 +1190,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
 
     // "enter password" label
     ink(FG_DIM, FG_DIM, FG_DIM);
-    write("enter password:", { x: 20, y: h / 2 - 20, size: 1, font: "font_1" });
+    write("enter password:", { x: 20, y: h / 2 - 24, size: 2, font: "font_1" });
 
     // Password field — visible text with blinking cursor
     const cursor = (wifiCursorBlink % 60) < 35 ? "|" : "";

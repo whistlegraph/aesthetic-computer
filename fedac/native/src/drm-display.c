@@ -1,4 +1,5 @@
 #include "drm-display.h"
+#include "font.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -560,60 +561,151 @@ ACSecondaryDisplay *drm_init_secondary(ACDisplay *primary) {
 
     s->saved_crtc = drmModeGetCrtc(primary->fd, s->crtc_id);
 
-    struct drm_mode_create_dumb create = { .width = s->width, .height = s->height, .bpp = 32 };
-    if (drmIoctl(s->fd, DRM_IOCTL_MODE_CREATE_DUMB, &create) < 0) {
-        fprintf(stderr, "[drm-secondary] Create dumb buffer failed\n"); free(s); return NULL;
-    }
-    s->buf.handle = create.handle;
-    s->buf.pitch = create.pitch;
-    s->buf.size = create.size;
+    // Allocate two dumb buffers for double-buffering
+    for (int b = 0; b < 2; b++) {
+        struct drm_mode_create_dumb create = { .width = s->width, .height = s->height, .bpp = 32 };
+        if (drmIoctl(s->fd, DRM_IOCTL_MODE_CREATE_DUMB, &create) < 0) {
+            fprintf(stderr, "[drm-secondary] Create dumb buffer %d failed\n", b); free(s); return NULL;
+        }
+        s->bufs[b].handle = create.handle;
+        s->bufs[b].pitch  = create.pitch;
+        s->bufs[b].size   = create.size;
 
-    if (drmModeAddFB(s->fd, s->width, s->height, 24, 32,
-                     s->buf.pitch, s->buf.handle, &s->buf.fb_id) < 0) {
-        fprintf(stderr, "[drm-secondary] AddFB failed\n");
-        struct drm_mode_destroy_dumb destroy = { .handle = s->buf.handle };
-        drmIoctl(s->fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy);
-        free(s); return NULL;
+        if (drmModeAddFB(s->fd, s->width, s->height, 24, 32,
+                         s->bufs[b].pitch, s->bufs[b].handle, &s->bufs[b].fb_id) < 0) {
+            fprintf(stderr, "[drm-secondary] AddFB %d failed\n", b);
+            struct drm_mode_destroy_dumb destroy = { .handle = s->bufs[b].handle };
+            drmIoctl(s->fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy);
+            free(s); return NULL;
+        }
+
+        struct drm_mode_map_dumb map_req = { .handle = s->bufs[b].handle };
+        if (drmIoctl(s->fd, DRM_IOCTL_MODE_MAP_DUMB, &map_req) < 0) {
+            fprintf(stderr, "[drm-secondary] Map %d failed\n", b);
+            drmModeRmFB(s->fd, s->bufs[b].fb_id);
+            struct drm_mode_destroy_dumb destroy = { .handle = s->bufs[b].handle };
+            drmIoctl(s->fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy);
+            free(s); return NULL;
+        }
+        s->bufs[b].map = mmap(0, s->bufs[b].size, PROT_READ | PROT_WRITE,
+                               MAP_SHARED, s->fd, map_req.offset);
+        if (s->bufs[b].map == MAP_FAILED) {
+            fprintf(stderr, "[drm-secondary] mmap %d failed\n", b);
+            drmModeRmFB(s->fd, s->bufs[b].fb_id);
+            struct drm_mode_destroy_dumb destroy = { .handle = s->bufs[b].handle };
+            drmIoctl(s->fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy);
+            free(s); return NULL;
+        }
+        // Clear to black
+        memset(s->bufs[b].map, 0, s->bufs[b].size);
     }
 
-    struct drm_mode_map_dumb map_req = { .handle = s->buf.handle };
-    if (drmIoctl(s->fd, DRM_IOCTL_MODE_MAP_DUMB, &map_req) < 0) {
-        fprintf(stderr, "[drm-secondary] Map failed\n");
-        drmModeRmFB(s->fd, s->buf.fb_id);
-        struct drm_mode_destroy_dumb destroy = { .handle = s->buf.handle };
-        drmIoctl(s->fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy);
-        free(s); return NULL;
-    }
-    s->buf.map = mmap(0, s->buf.size, PROT_READ | PROT_WRITE, MAP_SHARED, s->fd, map_req.offset);
-    if (s->buf.map == MAP_FAILED) {
-        fprintf(stderr, "[drm-secondary] mmap failed\n");
-        drmModeRmFB(s->fd, s->buf.fb_id);
-        struct drm_mode_destroy_dumb destroy = { .handle = s->buf.handle };
-        drmIoctl(s->fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy);
-        free(s); return NULL;
-    }
-
-    if (drmModeSetCrtc(s->fd, s->crtc_id, s->buf.fb_id, 0, 0,
+    s->buf_front = 0;
+    if (drmModeSetCrtc(s->fd, s->crtc_id, s->bufs[0].fb_id, 0, 0,
                        &s->connector_id, 1, &s->mode) < 0) {
         fprintf(stderr, "[drm-secondary] SetCrtc failed\n");
-        munmap(s->buf.map, s->buf.size);
-        drmModeRmFB(s->fd, s->buf.fb_id);
-        struct drm_mode_destroy_dumb destroy = { .handle = s->buf.handle };
-        drmIoctl(s->fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy);
+        for (int b = 0; b < 2; b++) {
+            munmap(s->bufs[b].map, s->bufs[b].size);
+            drmModeRmFB(s->fd, s->bufs[b].fb_id);
+            struct drm_mode_destroy_dumb destroy = { .handle = s->bufs[b].handle };
+            drmIoctl(s->fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy);
+        }
         free(s); return NULL;
     }
 
     s->active = 1;
-    fprintf(stderr, "[drm-secondary] HDMI output active\n");
+    fprintf(stderr, "[drm-secondary] HDMI output active (double-buffered)\n");
     return s;
 }
 
+int drm_secondary_is_connected(ACDisplay *primary) {
+    if (!primary || primary->is_fbdev || primary->fd < 0) return 0;
+    drmModeRes *res = drmModeGetResources(primary->fd);
+    if (!res) return 0;
+    int found = 0;
+    for (int i = 0; i < res->count_connectors && !found; i++) {
+        drmModeConnector *c = drmModeGetConnector(primary->fd, res->connectors[i]);
+        if (!c) continue;
+        if (c->connector_id != primary->connector_id &&
+            c->connection == DRM_MODE_CONNECTED && c->count_modes > 0 &&
+            (c->connector_type == DRM_MODE_CONNECTOR_HDMIA ||
+             c->connector_type == DRM_MODE_CONNECTOR_HDMIB ||
+             c->connector_type == DRM_MODE_CONNECTOR_DisplayPort))
+            found = 1;
+        drmModeFreeConnector(c);
+    }
+    drmModeFreeResources(res);
+    return found;
+}
+
+void drm_secondary_present_waveform(ACSecondaryDisplay *s, ACGraph *g,
+                                     float *waveform, int wf_size, int wf_pos) {
+    if (!s || !s->active || !g) return;
+    int back = 1 - s->buf_front;
+    int stride = (int)(s->bufs[back].pitch / sizeof(uint32_t));
+
+    // Point a temporary framebuffer at the HDMI back buffer
+    ACFramebuffer hdmi_fb = {
+        .pixels = s->bufs[back].map,
+        .width  = s->width,
+        .height = s->height,
+        .stride = stride,
+    };
+
+    // Save graph's original target and switch to HDMI buffer
+    ACFramebuffer *orig_target = g->fb;
+    graph_page(g, &hdmi_fb);
+
+    // Dark background
+    graph_wipe(g, (ACColor){8, 8, 16, 255});
+
+    // Draw waveform (120 segments spanning full screen)
+    if (waveform) {
+        int N = 120;
+        graph_ink(g, (ACColor){40, 140, 200, 220});
+        int prev_x = 0;
+        int prev_y = s->height / 2;
+        for (int i = 0; i < N; i++) {
+            int idx = (wf_pos + wf_size - N + i) % wf_size;
+            float sample = waveform[idx];
+            int x = (int)((float)i / (float)(N - 1) * (s->width - 1));
+            int y = s->height / 2 - (int)(sample * s->height * 0.42f);
+            if (i > 0) graph_line(g, prev_x, prev_y, x, y);
+            prev_x = x;
+            prev_y = y;
+        }
+    }
+
+    // Resolution text top-left, scale 2
+    char res_str[32];
+    snprintf(res_str, sizeof(res_str), "%dx%d", s->width, s->height);
+    graph_ink(g, (ACColor){160, 160, 180, 255});
+    font_draw(g, res_str, 8, 8, 2);
+
+    // Restore original render target
+    graph_page(g, orig_target);
+
+    // Async page flip (non-blocking — avoids waiting for HDMI vblank event)
+    int ret = drmModePageFlip(s->fd, s->crtc_id, s->bufs[back].fb_id,
+                               DRM_MODE_PAGE_FLIP_ASYNC, NULL);
+    if (ret != 0) {
+        // Fallback: SetCrtc (no vsync, but at least we double-buffered so no partial writes)
+        drmModeSetCrtc(s->fd, s->crtc_id, s->bufs[back].fb_id, 0, 0,
+                       &s->connector_id, 1, &s->mode);
+    }
+    s->buf_front = back;
+}
+
 void drm_secondary_fill(ACSecondaryDisplay *s, uint8_t r, uint8_t g, uint8_t b) {
-    if (!s || !s->active || !s->buf.map) return;
-    uint32_t pixel = (uint32_t)r << 16 | (uint32_t)g << 8 | (uint32_t)b;
-    uint32_t *p = s->buf.map;
+    if (!s || !s->active || !s->bufs[0].map) return;
+    uint32_t pixel = ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b;
+    int back = 1 - s->buf_front;
+    uint32_t *p = s->bufs[back].map;
     int total = s->width * s->height;
     for (int i = 0; i < total; i++) p[i] = pixel;
+    drmModeSetCrtc(s->fd, s->crtc_id, s->bufs[back].fb_id, 0, 0,
+                   &s->connector_id, 1, &s->mode);
+    s->buf_front = back;
 }
 
 void drm_secondary_destroy(ACSecondaryDisplay *s) {
@@ -624,11 +716,14 @@ void drm_secondary_destroy(ACSecondaryDisplay *s) {
                        &s->connector_id, 1, &s->saved_crtc->mode);
         drmModeFreeCrtc(s->saved_crtc);
     }
-    if (s->buf.map && s->buf.map != MAP_FAILED) munmap(s->buf.map, s->buf.size);
-    if (s->buf.fb_id) drmModeRmFB(s->fd, s->buf.fb_id);
-    if (s->buf.handle) {
-        struct drm_mode_destroy_dumb destroy = { .handle = s->buf.handle };
-        drmIoctl(s->fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy);
+    for (int b = 0; b < 2; b++) {
+        if (s->bufs[b].map && s->bufs[b].map != MAP_FAILED)
+            munmap(s->bufs[b].map, s->bufs[b].size);
+        if (s->bufs[b].fb_id) drmModeRmFB(s->fd, s->bufs[b].fb_id);
+        if (s->bufs[b].handle) {
+            struct drm_mode_destroy_dumb destroy = { .handle = s->bufs[b].handle };
+            drmIoctl(s->fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy);
+        }
     }
     free(s);
 }
