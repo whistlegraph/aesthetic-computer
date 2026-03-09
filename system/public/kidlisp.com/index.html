@@ -5118,6 +5118,8 @@
       justify-content: space-between;
       align-items: center;
       gap: 10px;
+      content-visibility: auto;
+      contain-intrinsic-size: 76px;
     }
 
     .example-meta-right {
@@ -5321,12 +5323,6 @@
       min-height: 0;
     }
 
-    .code-list-virtual-spacer {
-      width: 100%;
-      pointer-events: none;
-      flex-shrink: 0;
-    }
-    
     /* Loading state for code lists */
     .code-list-loading {
       display: flex;
@@ -19377,7 +19373,6 @@ s("ape_breaks_3").loopAt(2)</textarea>
     let examplesLoaded = false;
     let recentLoaded = false;
     let currentListSubtab = 'examples'; // Track which subtab is active
-    const virtualCodeListControllers = new Map();
     const codeListLastConfigs = new Map();
 
     // Helper to hide all tab contents
@@ -19441,7 +19436,6 @@ s("ape_breaks_3").loopAt(2)</textarea>
         if (listId === activeListId) return;
         const hiddenList = document.getElementById(listId);
         if (!hiddenList) return;
-        clearVirtualCodeList(hiddenList);
         hiddenList.innerHTML = '';
       });
 
@@ -19454,7 +19448,6 @@ s("ape_breaks_3").loopAt(2)</textarea>
           return;
         }
       }
-      requestAnimationFrame(() => refreshVirtualCodeList(activeListId));
     }
     
     // Helper to programmatically switch to History tab
@@ -20599,138 +20592,6 @@ s("ape_breaks_3").loopAt(2)</textarea>
       fetchOvenStatus().then(() => refreshVisibleOvenStatuses(listEl));
     }
 
-    function clearVirtualCodeList(listEl) {
-      if (!listEl) return;
-      const existing = virtualCodeListControllers.get(listEl.id);
-      if (!existing) return;
-      if (existing.rafId) cancelAnimationFrame(existing.rafId);
-      if (existing.onScroll) listEl.removeEventListener('scroll', existing.onScroll);
-      if (existing.onResize) window.removeEventListener('resize', existing.onResize);
-      virtualCodeListControllers.delete(listEl.id);
-    }
-
-    function refreshVirtualCodeList(listId) {
-      const controller = virtualCodeListControllers.get(listId);
-      if (controller && typeof controller.schedule === 'function') {
-        controller.schedule();
-      }
-    }
-
-    function renderVirtualizedCodeList(listEl, rowDefs, { tickerAnimation = false } = {}) {
-      clearVirtualCodeList(listEl);
-      listEl.innerHTML = '';
-      listEl.scrollTop = 0;
-
-      if (!Array.isArray(rowDefs) || rowDefs.length === 0) {
-        return;
-      }
-
-      const rows = rowDefs.map(row => ({
-        estimateHeight: Math.max(24, row.estimateHeight || 72),
-        render: row.render
-      }));
-      const rowHeights = rows.map(row => row.estimateHeight);
-
-      const topSpacer = document.createElement('div');
-      topSpacer.className = 'code-list-virtual-spacer';
-      const visibleContainer = document.createElement('div');
-      const bottomSpacer = document.createElement('div');
-      bottomSpacer.className = 'code-list-virtual-spacer';
-      listEl.appendChild(topSpacer);
-      listEl.appendChild(visibleContainer);
-      listEl.appendChild(bottomSpacer);
-
-      const state = {
-        start: -1,
-        end: -1,
-        rafId: null,
-        scheduled: false,
-      };
-
-      function sumHeights(start, end) {
-        let total = 0;
-        for (let i = start; i < end; i++) total += rowHeights[i] || 0;
-        return total;
-      }
-
-      function findIndexAtOffset(offset) {
-        if (rows.length === 0) return 0;
-        const target = Math.max(0, offset);
-        let acc = 0;
-        for (let i = 0; i < rowHeights.length; i++) {
-          acc += rowHeights[i];
-          if (acc > target) return i;
-        }
-        return rowHeights.length - 1;
-      }
-
-      function updateVisibleRows() {
-        state.scheduled = false;
-        if (!document.body.contains(listEl)) return;
-
-        const viewportHeight = Math.max(0, listEl.clientHeight || 0);
-        const scrollTop = Math.max(0, listEl.scrollTop || 0);
-        const overscan = 4;
-        const firstVisible = findIndexAtOffset(scrollTop);
-        const lastVisible = findIndexAtOffset(scrollTop + viewportHeight);
-        const start = Math.max(0, firstVisible - overscan);
-        const end = Math.min(rows.length - 1, lastVisible + overscan);
-
-        const topHeight = sumHeights(0, start);
-        const renderedHeight = sumHeights(start, end + 1);
-        const totalHeight = sumHeights(0, rowHeights.length);
-        const bottomHeight = Math.max(0, totalHeight - topHeight - renderedHeight);
-
-        topSpacer.style.height = `${topHeight}px`;
-        bottomSpacer.style.height = `${bottomHeight}px`;
-
-        if (state.start === start && state.end === end) return;
-        state.start = start;
-        state.end = end;
-        visibleContainer.innerHTML = '';
-
-        const frag = document.createDocumentFragment();
-        for (let i = start; i <= end; i++) {
-          const rowEl = rows[i].render();
-          rowEl.dataset.virtualIndex = String(i);
-          frag.appendChild(rowEl);
-        }
-        visibleContainer.appendChild(frag);
-
-        let measuredChanged = false;
-        Array.from(visibleContainer.children).forEach(child => {
-          const idx = Number(child.dataset.virtualIndex);
-          const measured = Math.ceil(child.getBoundingClientRect().height);
-          if (!Number.isNaN(idx) && measured > 0 && Math.abs((rowHeights[idx] || 0) - measured) > 1) {
-            rowHeights[idx] = measured;
-            measuredChanged = true;
-          }
-        });
-        if (measuredChanged) schedule();
-        if (tickerAnimation) requestAnimationFrame(() => processTickerAnimations(visibleContainer));
-      }
-
-      function schedule() {
-        if (state.scheduled) return;
-        state.scheduled = true;
-        state.rafId = requestAnimationFrame(updateVisibleRows);
-      }
-
-      const onScroll = () => schedule();
-      const onResize = () => schedule();
-      listEl.addEventListener('scroll', onScroll, { passive: true });
-      window.addEventListener('resize', onResize);
-
-      virtualCodeListControllers.set(listEl.id, {
-        onScroll,
-        onResize,
-        get rafId() { return state.rafId; },
-        schedule
-      });
-
-      schedule();
-    }
-    
     /**
      * Render a single code list item
      * @param {Object} item - The code item data
@@ -20954,7 +20815,6 @@ s("ape_breaks_3").loopAt(2)</textarea>
       const listEl = document.getElementById(listId);
       if (!listEl) return;
       codeListLastConfigs.set(listId, config);
-      clearVirtualCodeList(listEl);
       
       if (!items || items.length === 0) {
         listEl.innerHTML = `<div class="code-list-empty">${emptyMessage}</div>`;
@@ -20965,6 +20825,33 @@ s("ape_breaks_3").loopAt(2)</textarea>
       if (listEl.offsetParent === null) {
         listEl.innerHTML = '';
         return;
+      }
+
+      listEl.innerHTML = '';
+
+      if (listId === 'examples-list') {
+        const playOnTvCard = document.createElement('div');
+        playOnTvCard.className = 'play-on-tv-card';
+        playOnTvCard.innerHTML = `
+          <div class="play-on-tv-icon">
+            <div class="play-on-tv-stack">
+              <span class="play-on-tv-slide back"></span>
+              <span class="play-on-tv-slide mid"></span>
+              <span class="play-on-tv-slide front"></span>
+            </div>
+          </div>
+          <div class="play-on-tv-content">
+            <div class="play-on-tv-title">Play on your TV</div>
+            <div class="play-on-tv-subtitle">Watch <span class="play-on-tv-highlight">Top 100</span> as a playlist slideshow</div>
+          </div>
+          <div class="play-on-tv-arrow">→</div>
+        `;
+        playOnTvCard.addEventListener('click', () => {
+          const deviceUrl = 'https://top.kidlisp.com';
+          console.log('📺 Opening slideshow:', deviceUrl);
+          window.open(deviceUrl, '_blank');
+        });
+        listEl.appendChild(playOnTvCard);
       }
       
       // Process items with optional owner grouping
@@ -21084,77 +20971,38 @@ s("ape_breaks_3").loopAt(2)</textarea>
         });
       }
 
-      const itemRenderOptions = {
-        syntaxHighlight,
-        tickerAnimation,
-        showOwner,
-        showTimeAgo,
-        showTimestamp,
-        showHits,
-        pendingThumb,
-      };
-
-      function makeItemRow(item, rank = null) {
-        return {
-          estimateHeight: 76,
-          render: () => {
-            const el = renderCodeListItem(item, { ...itemRenderOptions, rank });
-            el.addEventListener('click', () => handleCodeItemClick(el));
-            return el;
-          }
-        };
+      function renderItem(item, rank = null) {
+        const el = renderCodeListItem(item, {
+          syntaxHighlight,
+          tickerAnimation,
+          showOwner,
+          showTimeAgo,
+          showTimestamp,
+          showHits,
+          pendingThumb,
+          rank,
+        });
+        el.addEventListener('click', () => handleCodeItemClick(el));
+        return el;
       }
 
       function renderClusterRows(clusterItems, ownerClean) {
-        const clusterRows = [{
-          estimateHeight: 36,
-          render: () => {
-            const backEl = document.createElement('div');
-            backEl.className = 'owner-back-indicator';
-            backEl.innerHTML = `<span class="back-text">← Back to all</span><span class="owner-filter">Showing ${clusterItems.length} similar from @${ownerClean}</span>`;
-            backEl.addEventListener('click', () => renderCodeList(config));
-            return backEl;
-          }
-        }];
-        clusterItems.forEach(clusterItem => clusterRows.push(makeItemRow(clusterItem)));
-        renderVirtualizedCodeList(listEl, clusterRows, { tickerAnimation });
+        listEl.innerHTML = '';
+        const backEl = document.createElement('div');
+        backEl.className = 'owner-back-indicator';
+        backEl.innerHTML = `<span class="back-text">← Back to all</span><span class="owner-filter">Showing ${clusterItems.length} similar from @${ownerClean}</span>`;
+        backEl.addEventListener('click', () => renderCodeList(config));
+        listEl.appendChild(backEl);
+        const clusterFrag = document.createDocumentFragment();
+        clusterItems.forEach(clusterItem => clusterFrag.appendChild(renderItem(clusterItem)));
+        listEl.appendChild(clusterFrag);
+        if (tickerAnimation) requestAnimationFrame(() => processTickerAnimations(listEl));
         scheduleOvenStatusRefresh(listEl, clusterItems);
       }
 
-      const rowDefs = [];
-
-      if (listId === 'examples-list') {
-        rowDefs.push({
-          estimateHeight: 78,
-          render: () => {
-            const playOnTvCard = document.createElement('div');
-            playOnTvCard.className = 'play-on-tv-card';
-            playOnTvCard.innerHTML = `
-              <div class="play-on-tv-icon">
-                <div class="play-on-tv-stack">
-                  <span class="play-on-tv-slide back"></span>
-                  <span class="play-on-tv-slide mid"></span>
-                  <span class="play-on-tv-slide front"></span>
-                </div>
-              </div>
-              <div class="play-on-tv-content">
-                <div class="play-on-tv-title">Play on your TV</div>
-                <div class="play-on-tv-subtitle">Watch <span class="play-on-tv-highlight">Top 100</span> as a playlist slideshow</div>
-              </div>
-              <div class="play-on-tv-arrow">→</div>
-            `;
-            playOnTvCard.addEventListener('click', () => {
-              const deviceUrl = 'https://top.kidlisp.com';
-              console.log('📺 Opening slideshow:', deviceUrl);
-              window.open(deviceUrl, '_blank');
-            });
-            return playOnTvCard;
-          }
-        });
-      }
-
+      const frag = document.createDocumentFragment();
       processedItems.forEach((item, index) => {
-        rowDefs.push(makeItemRow(item, listId === 'examples-list' ? index + 1 : null));
+        frag.appendChild(renderItem(item, listId === 'examples-list' ? index + 1 : null));
 
         // Add "... and X more similar" indicator after items with hidden cluster siblings
         const owner = item.owner || '_anonymous';
@@ -21166,25 +21014,21 @@ s("ape_breaks_3").loopAt(2)</textarea>
           if (!cluster.allItems.some(ci => ci.code === item.code)) continue;
           const hiddenCount = cluster.count;
           const ownerClean = owner.replace(/^@/, '');
-          rowDefs.push({
-            estimateHeight: 34,
-            render: () => {
-              const moreEl = document.createElement('div');
-              moreEl.className = 'owner-more-indicator';
-              moreEl.innerHTML = `<span class="more-count">... and ${hiddenCount} more similar from @${ownerClean}</span>`;
-              moreEl.addEventListener('click', (event) => {
-                event.stopPropagation();
-                renderClusterRows(cluster.allItems, ownerClean);
-              });
-              return moreEl;
-            }
+          const moreEl = document.createElement('div');
+          moreEl.className = 'owner-more-indicator';
+          moreEl.innerHTML = `<span class="more-count">... and ${hiddenCount} more similar from @${ownerClean}</span>`;
+          moreEl.addEventListener('click', (event) => {
+            event.stopPropagation();
+            renderClusterRows(cluster.allItems, ownerClean);
           });
+          frag.appendChild(moreEl);
           delete ownerClusters[key]; // Only show once per cluster
           break;
         }
       });
 
-      renderVirtualizedCodeList(listEl, rowDefs, { tickerAnimation });
+      listEl.appendChild(frag);
+      if (tickerAnimation) requestAnimationFrame(() => processTickerAnimations(listEl));
       scheduleOvenStatusRefresh(listEl, processedItems);
     }
     
