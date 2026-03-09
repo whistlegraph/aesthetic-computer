@@ -7,6 +7,8 @@ A comprehensive repository of all KidLisp-related documentation, organized for b
 ### 🔧 Core Documentation (`/core/`)
 Fundamental KidLisp language and architecture documentation:
 - **`language-reference.md`** - Complete language reference and API
+- **`kidlisp-decree.md`** - Latest platform-independent ABI guarantee
+- **`kidlisp-decree-26.md`** - `KidLisp Decree '26` (frozen yearly baseline)
 - **`architecture.md`** - System architecture and design principles  
 - **`getting-started.md`** - Quick start guide for new users
 
@@ -42,6 +44,7 @@ External system integrations and partnerships:
 
 ### For Humans
 - Start with `/core/getting-started.md` for an introduction
+- Read `/core/kidlisp-decree.md` for stable ABI/conformance guarantees
 - Refer to `/core/language-reference.md` for complete API documentation
 - Check `/features/` for specific functionality explanations
 - Browse `/reports/` for architectural insights and research

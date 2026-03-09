@@ -162,10 +162,10 @@ Verdict: best balance of speed and future correctness.
 
 ## Recommended Implementation Plan
 
-### Phase 0: Contract + Capability Map (1-2 days)
+### Phase 0: Decree + Capability Map (1-2 days)
 
 Deliverables:
-- Define `kidlisp host capability v1` contract (required/optional APIs).
+- Define `KidLisp Decree '26` capability baseline (required/optional APIs).
 - Add runtime capability probe in native to log supported features at boot.
 - Lock Tier-1 feature set for first native release.
 
@@ -289,4 +289,3 @@ This sequence de-risks rendering-path infrastructure before notepat integration.
 
 - The repository score text references `kidlisp/compiler.mjs`, but current runtime integration is centered in `system/public/aesthetic.computer/lib/kidlisp.mjs` + `disk.mjs`.
 - Native runtime currently uses QuickJS module loading with many API stubs, so render-path parity work is the critical enabling step.
-
