@@ -1520,6 +1520,77 @@
       color: #d9534f;
     }
 
+    .mint-artifacts {
+      margin-top: 12px;
+      padding: 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      background: var(--bg-secondary);
+    }
+
+    .mint-artifact-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+
+    .mint-artifact-title {
+      font-size: 12px;
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    .mint-artifact-preview {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      background: #000;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+    }
+
+    .mint-artifact-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      image-rendering: pixelated;
+    }
+
+    .mint-artifact-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .mint-link-btn {
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .mint-link-btn:hover {
+      border-color: var(--ac-purple);
+      color: var(--ac-purple);
+      text-decoration: none;
+    }
+
+    .mint-link-btn.rebake {
+      background: rgba(180, 120, 40, 0.12);
+      border-color: rgba(180, 120, 40, 0.4);
+      color: #b27828;
+    }
+
     /* Keep button in card */
     .keeps-card-btn.keep-btn {
       background: rgba(74, 156, 93, 0.1);
@@ -1531,6 +1602,18 @@
       background: rgba(74, 156, 93, 0.2);
       border-color: #4a9c5d;
       color: #4a9c5d;
+    }
+
+    .keeps-card-btn.rebake-btn {
+      background: rgba(180, 120, 40, 0.12);
+      border-color: rgba(180, 120, 40, 0.4);
+      color: #b27828;
+      font-weight: 600;
+    }
+    .keeps-card-btn.rebake-btn:hover {
+      background: rgba(180, 120, 40, 0.22);
+      border-color: #b27828;
+      color: #b27828;
     }
 
     /* ========================================
@@ -1938,6 +2021,7 @@
     let mintAbortController = null;
     let mintPreparedData = null;
     let mintCurrentPiece = null;
+    let mintCurrentEntry = null;
     let mintWalletAddress = null;
 
     // Active keeps config (resolved from Mongo-backed API)
@@ -2134,6 +2218,7 @@
       const hits = entry.hits || 0;
       const isKept = isKeptOnActiveContract(entry);
       const keptInfo = isKept ? entry.kept : null;
+      const canManageKeep = !!(acUser && entry.user && acUser.sub === entry.user);
       const card = document.createElement('div');
       card.className = 'keeps-card' + (isKept ? ' kept' : '');
 
@@ -2166,7 +2251,9 @@
           <button class="keeps-card-btn preview-btn" data-code="${entry.code}" title="Preview">&#x25B6; Preview</button>
           <a class="keeps-card-btn" href="${KL_BASE}/$${entry.code}" title="Open in editor">&#x270E; Edit</a>
           <a class="keeps-card-btn html-btn" href="${AC_BASE}/api/bundle-html?code=${entry.code}" target="_blank" title="Download as standalone HTML">&#x1F4E6; HTML</a>
-          ${isKept ? `<span class="keeps-card-btn kept-badge" title="Kept on Tezos (Token #${keptInfo.tokenId || '?'})">&#x2714; Kept</span>` : (acUser && entry.user === acUser.sub ? `<button class="keeps-card-btn keep-btn" data-code="${entry.code}" title="Keep on Tezos">&#x26D3; Keep</button>` : '')}
+          ${isKept
+            ? `<span class="keeps-card-btn kept-badge" title="Kept on Tezos (Token #${keptInfo.tokenId || '?'})">&#x2714; Kept</span>${canManageKeep ? `<button class="keeps-card-btn rebake-btn" data-rebake-code="${entry.code}" title="Regenerate HTML + thumbnail">&#x267B; Rebake</button>` : ''}`
+            : (canManageKeep ? `<button class="keeps-card-btn keep-btn" data-code="${entry.code}" title="Keep on Tezos">&#x26D3; Keep</button>` : '')}
           ${timeStr ? `<span style="margin-left: auto; font-size: 10px; color: var(--text-tertiary);">${timeStr}</span>` : ''}
         </div>`;
 
@@ -2202,6 +2289,14 @@
         keepBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           openMintModal(entry);
+        });
+      }
+
+      const rebakeBtn = card.querySelector('.rebake-btn');
+      if (rebakeBtn) {
+        rebakeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openMintModal(entry, { rebake: true });
         });
       }
 
@@ -2315,6 +2410,7 @@
       const when = entry.when ? new Date(entry.when) : null;
       const isKept = isKeptOnActiveContract(entry);
       const keptInfo = isKept ? entry.kept : null;
+      const canManageKeep = !!(acUser && entry.user && acUser.sub === entry.user);
 
       let actionsHTML = `
         <a class="keeps-modal-action-btn edit-btn" href="${KL_BASE}/$${entry.code}" title="Open in KidLisp.com editor">&#x270E; Edit in KidLisp.com</a>
@@ -2322,6 +2418,9 @@
 
       if (isKept) {
         actionsHTML += `<span class="keeps-modal-action-btn tezos-btn" style="cursor: default;">&#x2714; Kept on Tezos (Token #${keptInfo.tokenId || '?'})</span>`;
+        if (canManageKeep) {
+          actionsHTML += `<button class="keeps-modal-action-btn html-btn" data-rebake-code="${entry.code}" title="Regenerate HTML + thumbnail">&#x267B; Rebake Media</button>`;
+        }
       } else if (acUser && entry.user === acUser.sub) {
         actionsHTML += `<button class="keeps-modal-action-btn tezos-btn" data-mint-code="${entry.code}">&#x26D3; Keep on Tezos</button>`;
       } else {
@@ -2336,6 +2435,14 @@
         modalMintBtn.addEventListener('click', () => {
           closeModal();
           openMintModal(entry);
+        });
+      }
+
+      const modalRebakeBtn = modalActions.querySelector('[data-rebake-code]');
+      if (modalRebakeBtn) {
+        modalRebakeBtn.addEventListener('click', () => {
+          closeModal();
+          openMintModal(entry, { rebake: true });
         });
       }
 
@@ -2548,6 +2655,75 @@
 
     function formatDateForInput(date) {
       return new Date(date).toISOString().slice(0, 10);
+    }
+
+    function ipfsToHttp(uri) {
+      if (!uri || typeof uri !== 'string') return null;
+      const value = uri.trim();
+      if (!value) return null;
+      if (value.startsWith('ipfs://')) {
+        return `https://ipfs.aesthetic.computer/ipfs/${value.slice(7)}`;
+      }
+      return value;
+    }
+
+    function ovenPreviewUrlForPiece(piece, size = 320) {
+      const cleanPiece = String(piece || '').replace(/^\$+/, '').trim();
+      if (!cleanPiece) return '';
+      return `https://oven.aesthetic.computer/grab/webp/${size}/${size}/$${cleanPiece}?duration=2200&fps=8&quality=80&density=2&nowait=true&source=keep`;
+    }
+
+    function renderMintArtifactPanel({
+      title = 'Artifact Preview',
+      piece = mintCurrentPiece,
+      artifactUri = null,
+      thumbnailUri = null,
+      metadataUri = null,
+      packDate = null,
+      objktUrl = null,
+      showRebakeButton = false,
+    } = {}) {
+      const area = document.getElementById('mint-result-area');
+      if (!area) return;
+
+      const thumbUrl = ipfsToHttp(thumbnailUri) || ovenPreviewUrlForPiece(piece, 320);
+      const htmlUrl = ipfsToHttp(artifactUri);
+      const metaUrl = ipfsToHttp(metadataUri);
+      const packedLabel = packDate ? new Date(packDate).toLocaleDateString() : null;
+
+      let links = '';
+      if (htmlUrl) links += `<a class="mint-link-btn" href="${htmlUrl}" target="_blank" rel="noopener">HTML</a>`;
+      if (thumbUrl) links += `<a class="mint-link-btn" href="${thumbUrl}" target="_blank" rel="noopener">THUMB</a>`;
+      if (metaUrl) links += `<a class="mint-link-btn" href="${metaUrl}" target="_blank" rel="noopener">META</a>`;
+      if (objktUrl) links += `<a class="mint-link-btn" href="${objktUrl}" target="_blank" rel="noopener">OBJKT</a>`;
+      if (showRebakeButton) {
+        links += `<button class="mint-link-btn rebake" type="button" id="mint-inline-rebake">REBAKE</button>`;
+      }
+
+      const panelHtml = `
+        <div class="mint-artifacts">
+          <div class="mint-artifact-head">
+            <span class="mint-artifact-title">${escapeHtml(title)}</span>
+            ${packedLabel ? `<span>Packed ${escapeHtml(packedLabel)}</span>` : ''}
+          </div>
+          <div class="mint-artifact-preview">
+            <img src="${thumbUrl}" alt="Keep preview for $${escapeHtml(piece || '')}" loading="lazy" />
+          </div>
+          <div class="mint-artifact-links">${links}</div>
+        </div>
+      `;
+      const existingPanel = area.querySelector('.mint-artifacts');
+      if (existingPanel) existingPanel.remove();
+      if (area.innerHTML.trim()) {
+        area.insertAdjacentHTML('beforeend', panelHtml);
+      } else {
+        area.innerHTML = panelHtml;
+      }
+
+      const inlineRebake = document.getElementById('mint-inline-rebake');
+      if (inlineRebake && mintCurrentEntry) {
+        inlineRebake.addEventListener('click', () => openMintModal(mintCurrentEntry, { rebake: true }));
+      }
     }
 
     let keepsStreamModulePromise = null;
@@ -2916,24 +3092,35 @@
       }
     }
 
-    function openMintModal(entry) {
+    function openMintModal(entry, options = {}) {
+      const rebake = options.rebake === true;
+      if (mintAbortController) {
+        mintAbortController.abort();
+        mintAbortController = null;
+      }
       mintCurrentPiece = entry.code;
+      mintCurrentEntry = entry;
       mintPreparedData = null;
       mintStepStates = {};
 
-      document.getElementById('mint-title').textContent = `Keep $${entry.code}`;
+      document.getElementById('mint-title').textContent = rebake ? `Rebake $${entry.code}` : `Keep $${entry.code}`;
       document.getElementById('mint-piece-info').innerHTML = `
         <strong>$${escapeHtml(entry.code)}</strong> by ${escapeHtml(entry.handle || 'anon')}<br>
-        <span style="font-size:11px; color:var(--text-tertiary);">This will mint your KidLisp piece as an NFT on Tezos (2.5 XTZ fee)</span>`;
+        <span style="font-size:11px; color:var(--text-tertiary);">${
+          rebake
+            ? 'This regenerates HTML + thumbnail artifacts for your existing keep.'
+            : 'This will mint your KidLisp piece as an NFT on Tezos (2.5 XTZ fee).'
+        }</span>`;
       document.getElementById('mint-result-area').innerHTML = '';
       document.getElementById('mint-actions').style.display = 'none';
       document.getElementById('mint-confirm-btn').disabled = true;
+      document.getElementById('mint-confirm-btn').textContent = 'Confirm & Sign';
 
       renderTimeline();
       document.getElementById('mint-overlay').classList.add('open');
 
       // Start the mint flow
-      startMintFlow(entry.code);
+      startMintFlow(entry.code, { rebake });
     }
 
     function closeMintModal() {
@@ -2948,7 +3135,8 @@
       closeMintModal();
     }
 
-    async function startMintFlow(piece) {
+    async function startMintFlow(piece, options = {}) {
+      const rebake = options.rebake === true;
       mintAbortController = new AbortController();
 
       try {
@@ -2962,7 +3150,7 @@
         setMintStep('wallet', 'done', address.slice(0, 8) + '...' + address.slice(-4));
 
         // Step 2-7: Server preparation via SSE
-        setMintStep('validate', 'active', 'Validating...');
+        setMintStep('validate', 'active', rebake ? 'Validating ownership...' : 'Validating...');
 
         // Refresh token
         if (acAuth0Client) {
@@ -2977,6 +3165,7 @@
             piece: '$' + piece,
             walletAddress: address,
             network: getTezosNetwork(),
+            ...(rebake ? { mode: 'prepare', regenerate: true } : {}),
           },
           signal: mintAbortController.signal,
           onEvent: async ({ type, data }) => {
@@ -3001,16 +3190,85 @@
               ['validate', 'analyze', 'thumbnail', 'bundle', 'ipfs', 'metadata'].forEach(id => {
                 if (mintStepStates[id]?.status !== 'done') setMintStep(id, 'done', mintStepStates[id]?.detail || '');
               });
+              if (data.rebake === true) {
+                setMintStep('review', 'done', 'Regenerated');
+                setMintStep('sign', 'done', 'No signature needed');
+                setMintStep('complete', 'done', 'Rebake complete');
+                document.getElementById('mint-actions').style.display = 'none';
+                showMintResult(`Rebaked $${piece}`, data.objktUrl);
+                renderMintArtifactPanel({
+                  title: 'Rebaked Artifacts',
+                  piece,
+                  artifactUri: data.artifactUri,
+                  thumbnailUri: data.thumbnailUri,
+                  metadataUri: data.metadataUri || mintCurrentEntry?.kept?.metadataUri,
+                  packDate: data.packDate || data.createdAt,
+                  objktUrl: data.objktUrl,
+                });
+                return false;
+              }
+
               setMintStep('review', 'active', `${data.mintFee || 2.5} XTZ`);
+              renderMintArtifactPanel({
+                title: 'Prepared Artifacts',
+                piece,
+                artifactUri: data.artifactUri,
+                thumbnailUri: data.thumbnailUri,
+                metadataUri: data.metadataUri,
+                packDate: data.packDate,
+              });
               // Show confirm button
               document.getElementById('mint-actions').style.display = 'flex';
               document.getElementById('mint-confirm-btn').disabled = false;
               return true;
             }
 
+            if (type === 'ready' && data) {
+              if (data.rebake === true) {
+                mintPreparedData = { ...(mintPreparedData || {}), ...data };
+                ['validate', 'analyze', 'thumbnail', 'bundle', 'ipfs', 'metadata'].forEach(id => {
+                  if (mintStepStates[id]?.status !== 'done') setMintStep(id, 'done', mintStepStates[id]?.detail || '');
+                });
+                setMintStep('review', 'done', 'Regenerated');
+                setMintStep('sign', 'done', 'No signature needed');
+                setMintStep('complete', 'done', 'Rebake complete');
+                document.getElementById('mint-actions').style.display = 'none';
+                showMintResult(`Rebaked $${piece}`, data.objktUrl);
+                renderMintArtifactPanel({
+                  title: 'Rebaked Artifacts',
+                  piece,
+                  artifactUri: data.artifactUri,
+                  thumbnailUri: data.thumbnailUri,
+                  metadataUri: data.metadataUri || mintCurrentEntry?.kept?.metadataUri,
+                  packDate: data.packDate || data.createdAt,
+                  objktUrl: data.objktUrl,
+                });
+                return false;
+              }
+              return true;
+            }
+
             if (type === 'error' && data) {
+              if (typeof data.tokenId !== 'undefined') {
+                setMintStep('validate', 'done', `Already kept as #${data.tokenId}`);
+                setMintStep('review', 'done', 'Already minted');
+                setMintStep('sign', 'done', 'No signature needed');
+                setMintStep('complete', 'done', 'Rebake available');
+                document.getElementById('mint-actions').style.display = 'none';
+                showMintResult(`Already kept as Token #${data.tokenId}`, data.objktUrl);
+                renderMintArtifactPanel({
+                  title: 'Current Artifact Snapshot',
+                  piece,
+                  artifactUri: mintCurrentEntry?.kept?.artifactUri,
+                  thumbnailUri: data.thumbnailUri || mintCurrentEntry?.kept?.thumbnailUri,
+                  metadataUri: mintCurrentEntry?.kept?.metadataUri,
+                  objktUrl: data.objktUrl,
+                  showRebakeButton: true,
+                });
+                return false;
+              }
               const errMsg = data.error || 'Minting failed';
-              const stage = data.stage || 'validate';
+              const stage = data.stage || (rebake ? 'bundle' : 'validate');
               setMintStep(stage, 'error', errMsg);
               showMintError(errMsg);
               return false;
@@ -3096,6 +3354,15 @@
         const mintNetwork = mintPreparedData.network || getTezosNetwork();
         const objktUrl = `${getObjktBase(mintNetwork)}/asset/${contractAddress}/${mintPreparedData.tokenId || ''}`;
         showMintResult(`Successfully kept $${mintCurrentPiece}!`, objktUrl, txHash);
+        renderMintArtifactPanel({
+          title: 'Minted Artifacts',
+          piece: mintCurrentPiece,
+          artifactUri: mintPreparedData.artifactUri,
+          thumbnailUri: mintPreparedData.thumbnailUri,
+          metadataUri: mintPreparedData.metadataUri,
+          packDate: mintPreparedData.packDate,
+          objktUrl,
+        });
 
         // Hide action buttons
         document.getElementById('mint-actions').style.display = 'none';
