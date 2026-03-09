@@ -517,6 +517,18 @@
       margin-bottom: 0;
     }
 
+    .keeps-about-tech-section-label {
+      font-size: 11px;
+      font-weight: bold;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+      margin: 18px 0 8px !important;
+    }
+    .keeps-about-tech-section-label:first-child {
+      margin-top: 0 !important;
+    }
+
     .keeps-about-contract-box {
       margin: 12px 0;
       padding: 12px;
@@ -2366,14 +2378,44 @@
     <!-- LOGGED-OUT: inline About content -->
     <div id="keeps-about-inline" style="display:none; overflow-y:auto; flex:1; padding:20px 24px 32px;">
       <div class="keeps-about-simple">
-        <p class="keeps-about-lede">
-          A <strong>Keep</strong> turns your KidLisp piece into a permanent Tezos token —
-          the live HTML artifact, thumbnail, and metadata pinned to IPFS forever.
-          Sign in, open any piece from <strong>Unkept</strong>, and press <strong>Keep on Tezos</strong>.
-        </p>
-        <p>Each keep is an <strong>FA2 NFT</strong> on Tezos mainnet. Only the piece author can mint it, and each piece can only be kept once — the contract rejects duplicates by content hash.</p>
-        <p>Royalties are locked at mint: <strong>9% to you</strong>, 1% to KidLisp. They're baked into the token and honored by objkt and all FA2-compatible marketplaces.</p>
-        <p>When you keep a piece, the backend bundles the KidLisp source into a self-contained <strong>HTML artifact</strong> and renders a thumbnail. Both are pinned to IPFS via Pinata — no KidLisp servers required to view your token on objkt or any marketplace.</p>
+        <p class="keeps-about-lede">Some things are worth keeping.</p>
+        <p>KidLisp pieces are tiny living programs — a few lines of code that draw, move, and breathe. Most of them disappear. <strong>Keeps</strong> are the ones that don't.</p>
+        <p>When you keep a piece, it becomes a permanent token on the Tezos blockchain. The source, a rendered thumbnail, and the live artifact are all pinned to IPFS — yours, forever, with no servers in the way. You can share it, sell it, or just know that it exists somewhere that isn't a database that could go down.</p>
+        <p>Only you can keep your piece. No one else can mint it for you, and it can only be kept once. The royalties are locked in at mint — 9% yours on every future sale, automatically, forever.</p>
+        <p>Sign in, find a piece in <strong>Unkept</strong>, and press <strong>Keep on Tezos</strong>.</p>
+
+        <details class="keeps-about-tech">
+          <summary>Technology</summary>
+          <div class="keeps-about-tech-body">
+            <p class="keeps-about-tech-section-label">Contract &amp; Chain</p>
+            <p>Each keep is an <strong>FA2 NFT</strong> on Tezos mainnet. The active contract address is shown below. The contract rejects duplicates by content hash — <code>keep</code> will revert if a piece has already been kept. Royalties are encoded at mint (9% to author, 1% to KidLisp) and honored by objkt and all FA2-compatible marketplaces.</p>
+            <div class="keeps-about-contract-box">
+              <div class="keeps-about-contract-label">Active Contract</div>
+              <div id="v6-active-contract-address" style="font-family: 'Courier New', monospace; color: var(--ac-purple); font-size: 13px; word-break: break-all;">Loading...</div>
+              <div id="v6-active-contract-meta" style="margin-top: 6px; color: var(--text-tertiary); font-size: 12px;"></div>
+              <div class="keeps-about-links">
+                <a id="v6-active-contract-tzkt" class="keeps-about-link-btn primary" href="https://tzkt.io" target="_blank">TzKT</a>
+                <a id="v6-active-contract-objkt" class="keeps-about-link-btn" href="https://objkt.com" target="_blank">objkt</a>
+                <a id="v6-active-contract-ops" class="keeps-about-link-btn" href="https://tzkt.io" target="_blank">Operations</a>
+              </div>
+            </div>
+
+            <p class="keeps-about-tech-section-label">On-chain Guarantees</p>
+            <ul class="keeps-about-security-list">
+              <li><strong>Only you can mint.</strong> The backend issues a short-lived signed permit bound to your wallet, the content hash, and the contract address. Without a valid permit, <code>keep</code> reverts. There is no admin minting path.</li>
+              <li><strong>Only you can burn.</strong> <code>burn_keep</code> checks <code>current_owner == sender</code>. Admin cannot burn on your behalf.</li>
+              <li><strong>Content hash and royalties are immutable.</strong> <code>edit_metadata</code> always re-injects the original values from mint. Nobody can change what you made or what you earn.</li>
+              <li><strong>You can freeze your own metadata.</strong> <code>lock_metadata</code> is irreversible and owner-only. Not even admin can unset it.</li>
+              <li><strong>Pause never affects transfers.</strong> If the contract is paused, minting and metadata edits stop — but FA2 transfers remain live. Your ability to move or sell is always unaffected.</li>
+            </ul>
+
+            <p class="keeps-about-tech-section-label">Media &amp; Storage</p>
+            <p>At mint, the KidLisp source is bundled into a self-contained <strong>HTML artifact</strong> and a thumbnail is rendered via the Oven service. Both are pinned to IPFS via Pinata. The artifact and thumbnail URIs in your token metadata point directly to IPFS — no KidLisp servers are required to view your token on objkt or any other marketplace. Use <strong>Rekeep</strong> in the modal to regenerate media if your piece changes after minting.</p>
+
+            <p class="keeps-about-tech-section-label">History</p>
+            <p>Keeps launched in 2024 as part of Aesthetic Computer's push to give generative code a permanent address. The first contract versions (v1–v5) were deployed during development and testing on Tezos mainnet. The current contract (v6) is the production version, with all prior prototype tokens retired. Development continues — future versions may support other piece types beyond KidLisp <code>$codes</code>.</p>
+          </div>
+        </details>
       </div>
     </div>
 
