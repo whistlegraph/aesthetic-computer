@@ -94,6 +94,16 @@ typedef struct {
     volatile int tts_read_pos;  // consumer (audio thread) reads here
     int tts_buf_size;           // ring buffer size
     float tts_volume;           // 0.0-1.0
+
+    // HDMI audio output (secondary, low-pass filtered clone)
+    void *hdmi_pcm;             // snd_pcm_t* for HDMI audio device (NULL if not found)
+    unsigned int hdmi_rate;     // negotiated HDMI sample rate
+    int hdmi_downsample_n;      // primary_rate / hdmi_rate (round)
+    int hdmi_downsample_pos;    // counter for downsampling
+    float hdmi_lp_l, hdmi_lp_r; // LP filter state (simple 1-pole IIR)
+    int16_t hdmi_period[512*2]; // interleaved S16 staging buffer
+    int hdmi_period_pos;        // samples written so far
+    int hdmi_period_size;       // target period size in frames
 } ACAudio;
 
 // Initialize ALSA audio engine (returns NULL if no audio device)
