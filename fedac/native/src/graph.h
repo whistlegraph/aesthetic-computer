@@ -25,6 +25,9 @@ void graph_circle(ACGraph *g, int cx, int cy, int r, int filled);
 // Effects
 void graph_scroll(ACGraph *g, int dx, int dy);
 void graph_blur(ACGraph *g, int strength);
+void graph_zoom(ACGraph *g, double level);
+void graph_contrast(ACGraph *g, double level);
+void graph_spin(ACGraph *g, double angle_radians);
 
 // Off-screen buffer support
 ACFramebuffer *graph_painting(int w, int h);

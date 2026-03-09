@@ -226,6 +226,30 @@ static JSValue js_blur(JSContext *ctx, JSValueConst this_val, int argc, JSValueC
     return JS_UNDEFINED;
 }
 
+static JSValue js_zoom(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    double level = 1.0;
+    if (argc >= 1) JS_ToFloat64(ctx, &level, argv[0]);
+    graph_zoom(current_rt->graph, level);
+    return JS_UNDEFINED;
+}
+
+static JSValue js_contrast(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    double level = 1.0;
+    if (argc >= 1) JS_ToFloat64(ctx, &level, argv[0]);
+    graph_contrast(current_rt->graph, level);
+    return JS_UNDEFINED;
+}
+
+static JSValue js_spin(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    double angle = 0.0;
+    if (argc >= 1) JS_ToFloat64(ctx, &angle, argv[0]);
+    graph_spin(current_rt->graph, angle);
+    return JS_UNDEFINED;
+}
+
 // ============================================================
 // JS Native Functions — System
 // ============================================================
@@ -824,6 +848,9 @@ ACRuntime *js_init(ACGraph *graph, ACInput *input, ACAudio *audio, ACWifi *wifi,
     JS_SetPropertyStr(ctx, paint_api, "write", JS_NewCFunction(ctx, js_write, "write", 6));
     JS_SetPropertyStr(ctx, paint_api, "scroll", JS_NewCFunction(ctx, js_scroll, "scroll", 2));
     JS_SetPropertyStr(ctx, paint_api, "blur", JS_NewCFunction(ctx, js_blur, "blur", 1));
+    JS_SetPropertyStr(ctx, paint_api, "zoom", JS_NewCFunction(ctx, js_zoom, "zoom", 1));
+    JS_SetPropertyStr(ctx, paint_api, "contrast", JS_NewCFunction(ctx, js_contrast, "contrast", 1));
+    JS_SetPropertyStr(ctx, paint_api, "spin", JS_NewCFunction(ctx, js_spin, "spin", 1));
     JS_SetPropertyStr(ctx, global, "__paintApi", JS_DupValue(ctx, paint_api));
     JS_FreeValue(ctx, paint_api);
 
@@ -837,6 +864,9 @@ ACRuntime *js_init(ACGraph *graph, ACInput *input, ACAudio *audio, ACWifi *wifi,
     JS_SetPropertyStr(ctx, global, "write", JS_NewCFunction(ctx, js_write, "write", 6));
     JS_SetPropertyStr(ctx, global, "scroll", JS_NewCFunction(ctx, js_scroll, "scroll", 2));
     JS_SetPropertyStr(ctx, global, "blur", JS_NewCFunction(ctx, js_blur, "blur", 1));
+    JS_SetPropertyStr(ctx, global, "zoom", JS_NewCFunction(ctx, js_zoom, "zoom", 1));
+    JS_SetPropertyStr(ctx, global, "contrast", JS_NewCFunction(ctx, js_contrast, "contrast", 1));
+    JS_SetPropertyStr(ctx, global, "spin", JS_NewCFunction(ctx, js_spin, "spin", 1));
 
     // console.log
     JSValue console_obj = JS_NewObject(ctx);
@@ -1749,6 +1779,9 @@ static JSValue build_api(JSContext *ctx, ACRuntime *rt, const char *phase) {
     JS_SetPropertyStr(ctx, api, "write", JS_GetPropertyStr(ctx, global, "write"));
     JS_SetPropertyStr(ctx, api, "scroll", JS_GetPropertyStr(ctx, global, "scroll"));
     JS_SetPropertyStr(ctx, api, "blur", JS_GetPropertyStr(ctx, global, "blur"));
+    JS_SetPropertyStr(ctx, api, "zoom", JS_GetPropertyStr(ctx, global, "zoom"));
+    JS_SetPropertyStr(ctx, api, "contrast", JS_GetPropertyStr(ctx, global, "contrast"));
+    JS_SetPropertyStr(ctx, api, "spin", JS_GetPropertyStr(ctx, global, "spin"));
 
     // screen
     {
@@ -1850,7 +1883,6 @@ static JSValue build_api(JSContext *ctx, ACRuntime *rt, const char *phase) {
     JS_SetPropertyStr(ctx, api, "page", JS_NewCFunction(ctx, js_noop, "page", 1));
     JS_SetPropertyStr(ctx, api, "layer", JS_NewCFunction(ctx, js_noop, "layer", 1));
     JS_SetPropertyStr(ctx, api, "sharpen", JS_NewCFunction(ctx, js_noop, "sharpen", 1));
-    JS_SetPropertyStr(ctx, api, "zoom", JS_NewInt32(ctx, 1));
 
     // num
     {
@@ -1938,7 +1970,11 @@ static JSValue build_api(JSContext *ctx, ACRuntime *rt, const char *phase) {
         JS_SetPropertyStr(ctx, api_meta, "circle", JS_GetPropertyStr(ctx, api, "circle"));
         JS_SetPropertyStr(ctx, api_meta, "plot", JS_GetPropertyStr(ctx, api, "plot"));
         JS_SetPropertyStr(ctx, api_meta, "write", JS_GetPropertyStr(ctx, api, "write"));
+        JS_SetPropertyStr(ctx, api_meta, "scroll", JS_GetPropertyStr(ctx, api, "scroll"));
+        JS_SetPropertyStr(ctx, api_meta, "blur", JS_GetPropertyStr(ctx, api, "blur"));
         JS_SetPropertyStr(ctx, api_meta, "zoom", JS_GetPropertyStr(ctx, api, "zoom"));
+        JS_SetPropertyStr(ctx, api_meta, "contrast", JS_GetPropertyStr(ctx, api, "contrast"));
+        JS_SetPropertyStr(ctx, api_meta, "spin", JS_GetPropertyStr(ctx, api, "spin"));
 
         JS_SetPropertyStr(ctx, api, "api", api_meta);
     }
