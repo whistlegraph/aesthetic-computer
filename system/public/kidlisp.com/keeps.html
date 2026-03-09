@@ -1894,6 +1894,7 @@
   <div class="keeps-tabs-container">
     <div class="keeps-tabs">
       <button class="keeps-tab active" data-tab="index">Index</button>
+      <button class="keeps-tab" data-tab="kept">Kept</button>
       <button class="keeps-tab" data-tab="rules">Rules</button>
     </div>
 
@@ -1901,8 +1902,8 @@
     <div class="keeps-tab-content active" id="tab-index">
       <div class="keeps-search-bar" id="index-search-bar">
         <input type="text" class="keeps-search-input" id="search-input"
+               value="$"
                placeholder="Search $codes, source code, or @handles..." autocomplete="off" spellcheck="false" />
-        <button class="keeps-filter-btn" id="filter-kept" title="Show only pieces kept on Tezos">Kept on Tezos</button>
       </div>
       <div class="keeps-grid" id="keeps-grid">
         <div class="keeps-loading" id="keeps-loading">
@@ -1939,6 +1940,21 @@
                style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
               Operations
             </a>
+          </div>
+        </div>
+
+        <h3>Keeps Process</h3>
+        <div style="margin-bottom: 20px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
+          <ol style="margin: 0; padding-left: 18px; color: var(--text-secondary);">
+            <li style="margin-bottom: 8px;"><strong>Pick a piece</strong>: choose a KidLisp code you own from Index.</li>
+            <li style="margin-bottom: 8px;"><strong>Prepare artifacts</strong>: validate ownership, analyze source, build HTML bundle, bake WebP thumbnail, pin to IPFS, and build token metadata.</li>
+            <li style="margin-bottom: 8px;"><strong>Review before signing</strong>: verify piece, preview, metadata links, and fee in the Keep modal.</li>
+            <li style="margin-bottom: 8px;"><strong>Sign on wallet</strong>: submit the <code>keep</code> call with your wallet on the active production contract.</li>
+            <li style="margin-bottom: 8px;"><strong>Confirm + index</strong>: backend confirms transaction and records token/contract state for Keeps Index + Kept tab.</li>
+            <li style="margin-bottom: 8px;"><strong>Collector surface</strong>: token appears on chain and in marketplaces (TzKT/objkt) after indexer propagation.</li>
+          </ol>
+          <div style="margin-top: 12px; color: var(--text-tertiary); font-size: 12px; line-height: 1.6;">
+            <strong>Rekeep path:</strong> use <code>Rekeep</code> to regenerate media and metadata for an already-kept piece, then sign an update transaction.
           </div>
         </div>
 
@@ -2137,7 +2153,8 @@
     let allCodes = [];
     let filteredCodes = [];
     let showOnlyKept = false;
-    let searchQuery = '';
+    let searchQuery = '$';
+    let indexReady = false;
 
     // Pagination: render in batches to avoid freezing on large datasets
     const PAGE_SIZE = 50;
@@ -2150,7 +2167,6 @@
     const countEl = document.getElementById('keeps-count');
     const indexSearchBar = document.getElementById('index-search-bar');
     const searchInput = document.getElementById('search-input');
-    const filterKeptBtn = document.getElementById('filter-kept');
     const modalOverlay = document.getElementById('modal-overlay');
     const modalTitle = document.getElementById('modal-title');
     const modalIframe = document.getElementById('modal-iframe');
@@ -2600,30 +2616,26 @@
       }, 200);
     });
 
-    // Kept filter toggle
-    filterKeptBtn.addEventListener('click', () => {
-      showOnlyKept = !showOnlyKept;
-      filterKeptBtn.classList.toggle('active', showOnlyKept);
-      applyFilters();
-    });
-
     // Tab switching
     function switchTab(tabName) {
+      showOnlyKept = tabName === 'kept';
       const tabBtn = document.querySelector(`.keeps-tab[data-tab="${tabName}"]`);
       if (!tabBtn) return;
       document.querySelectorAll('.keeps-tab').forEach(t => t.classList.remove('active'));
       tabBtn.classList.add('active');
       document.querySelectorAll('.keeps-tab-content').forEach(content => content.classList.remove('active'));
-      document.getElementById(`tab-${tabName}`).classList.add('active');
+      const contentTabName = tabName === 'kept' ? 'index' : tabName;
+      document.getElementById(`tab-${contentTabName}`).classList.add('active');
+      if (indexReady) {
+        applyFilters();
+      }
     }
 
     document.querySelectorAll('.keeps-tab').forEach(tab => {
       tab.addEventListener('click', () => {
         const tabName = tab.dataset.tab;
         switchTab(tabName);
-        const path = tabName === 'index'
-          ? '/'
-          : '/rules';
+        const path = tabName === 'index' ? '/' : `/${tabName}`;
         history.pushState({ tab: tabName }, '', path);
       });
     });
@@ -2632,7 +2644,7 @@
     const pathTabRaw = location.pathname.replace(/^\/+/, '').split('/')[0];
     const pathAliases = { contracts: 'rules', versions: 'rules', docs: 'rules', about: 'rules' };
     const pathTab = pathAliases[pathTabRaw] || pathTabRaw;
-    if (pathTab && ['rules'].includes(pathTab)) {
+    if (pathTab && ['kept', 'rules'].includes(pathTab)) {
       switchTab(pathTab);
     }
 
@@ -2640,7 +2652,7 @@
     window.addEventListener('popstate', (e) => {
       if (e.state && e.state.tab) {
         const stateTab = pathAliases[e.state.tab] || e.state.tab;
-        switchTab(stateTab === 'rules' ? 'rules' : 'index');
+        switchTab(stateTab === 'rules' ? 'rules' : (stateTab === 'kept' ? 'kept' : 'index'));
       } else {
         switchTab('index');
       }
@@ -3617,8 +3629,7 @@
       const scopedCodes = scopeIndexEntries(codes);
       allCodes = scopedCodes;
       filteredCodes = scopedCodes;
-      countEl.textContent = `${scopedCodes.length.toLocaleString()} visible entries`;
-      renderGrid();
+      indexReady = true;
 
       // Populate floating castle $codes with visible index entries
       const floaters = document.querySelectorAll('.keeps-code-float');
@@ -3632,11 +3643,13 @@
       if (urlParams.has('q')) {
         searchInput.value = urlParams.get('q');
         searchQuery = urlParams.get('q');
-        applyFilters();
+      } else {
+        searchInput.value = '$';
+        searchQuery = '$';
       }
       if (urlParams.has('kept')) {
-        showOnlyKept = true;
-        filterKeptBtn.classList.add('active');
+        switchTab('kept');
+      } else {
         applyFilters();
       }
     }
