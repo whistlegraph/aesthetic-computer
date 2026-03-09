@@ -983,8 +983,8 @@ int main(int argc, char *argv[]) {
 
             display_present(display, screen, 3);
 
-            // HDMI: render waveform every frame
-            if (hdmi && audio) {
+            // HDMI: render waveform at ~7.5Hz (every 8 frames) — 4K dumb-buf is slow
+            if (hdmi && audio && main_frame % 8 == 0) {
                 drm_secondary_present_waveform(hdmi, &graph,
                     audio->waveform_left, AUDIO_WAVEFORM_SIZE, audio->waveform_pos);
             }
