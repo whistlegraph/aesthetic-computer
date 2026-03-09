@@ -2882,7 +2882,7 @@
       img.src = webpUrl;
       img.onerror = () => { img.style.display = 'none'; };
 
-      row.addEventListener('click', () => openModal(entry));
+      row.addEventListener('click', () => openMintModal(entry));
       return row;
     }
 
@@ -2944,23 +2944,9 @@
       };
       img.src = webpUrl;
 
-      // Click on $code or preview area → open modal
-      const codeLabel = card.querySelector('.keeps-card-code');
-      codeLabel.style.cursor = 'pointer';
-      codeLabel.addEventListener('click', (e) => { e.stopPropagation(); openModal(entry); });
-
-      const previewArea = card.querySelector('.keeps-card-preview');
-      previewArea.style.cursor = 'pointer';
-      previewArea.addEventListener('click', () => openModal(entry));
-
-      // Keep button handler
-      const keepBtn = card.querySelector('.keep-btn');
-      if (keepBtn) {
-        keepBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          openMintModal(entry);
-        });
-      }
+      // Whole card + keep button all open the mint/keep modal
+      card.style.cursor = 'pointer';
+      card.addEventListener('click', () => openMintModal(entry));
 
       return card;
     }
@@ -3937,13 +3923,18 @@
         ? `Rebake $${entry.code}`
         : (regenerate ? `Regenerate $${entry.code}` : `Keep $${entry.code}`);
       document.getElementById('mint-piece-info').innerHTML = `
-        <strong>$${escapeHtml(entry.code)}</strong> by ${escapeHtml(entry.handle || 'anon')}<br>
+        <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">
+          <strong>$${escapeHtml(entry.code)}</strong>
+          <span style="color:var(--text-tertiary);font-size:11px;">by ${escapeHtml(entry.handle || 'anon')}</span>
+          <a href="${KL_BASE}/$${escapeHtml(entry.code)}" target="_blank" rel="noopener" style="font-size:11px;color:var(--ac-purple);margin-left:auto;">Edit ↗</a>
+          <a href="${AC_BASE}/api/bundle-html?code=${escapeHtml(entry.code)}" target="_blank" rel="noopener" style="font-size:11px;color:var(--text-secondary);">HTML ↗</a>
+        </div>
         <span style="font-size:11px; color:var(--text-tertiary);">${
           rebake
             ? 'This regenerates HTML + thumbnail artifacts for your existing keep.'
             : (regenerate
               ? 'This regenerates HTML + thumbnail artifacts before minting on Tezos.'
-              : 'This will mint your KidLisp piece as an NFT on Tezos (2.5 XTZ fee).')
+              : 'Mint as an NFT on Tezos (2.5 XTZ fee).')
         }</span>`;
       document.getElementById('mint-result-area').innerHTML = '';
       document.getElementById('mint-actions').style.display = 'none';
