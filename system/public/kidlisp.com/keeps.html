@@ -3530,7 +3530,7 @@
       if (beaconClient) return;
       await loadBeaconSDK();
       beaconClient = new window.beacon.DAppClient({
-        name: 'KidLisp Keeps',
+        name: 'KidLisp',
         preferredNetwork: getTezosNetwork(),
         // Avoid Beacon's default pairing alert iframe (Solid debug warnings + sandbox warning noise).
         // Wallet extension flow still works via requestPermissions.
