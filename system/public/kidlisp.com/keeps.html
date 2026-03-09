@@ -272,7 +272,7 @@
       flex: 1 1 50%;
       min-width: 0;
       padding: 18px 12px;
-      font-family: var(--font-mono);
+      font-family: var(--font-fun);
       font-size: 20px;
       font-weight: 700;
       letter-spacing: 0.04em;
@@ -313,20 +313,14 @@
       box-shadow: inset 0 -1px 0 rgba(74, 222, 128, 0.5);
     }
 
+    .keeps-tabs.logged-out {
+      background: var(--bg-secondary);
+      border-bottom-color: var(--border-subtle);
+      pointer-events: none;
+      min-height: 14px;
+    }
     .keeps-tabs.logged-out .keeps-tab {
-      color: var(--text-tertiary) !important;
-      background: var(--bg-secondary) !important;
-      border-bottom-color: transparent !important;
-      box-shadow: none !important;
-      opacity: 0.72;
-    }
-
-    .keeps-tabs.logged-out .keeps-tab.active {
-      border-bottom-color: var(--border-color) !important;
-    }
-
-    .keeps-tabs.logged-out .keeps-tab:hover {
-      filter: none;
+      display: none !important;
     }
 
     .keeps-tab-content {
@@ -1135,7 +1129,7 @@
     }
     .keeps-sigil-menu:hover { background: rgb(30, 30, 30); box-shadow: 0 0 6px rgba(255,255,255,0.2); }
     .keeps-sigil-label {
-      font-family: var(--font-display);
+      font-family: var(--font-fun);
       font-size: 15px;
       font-weight: bold;
       color: white;
@@ -1166,7 +1160,7 @@
     .keeps-sigil-option.disabled { opacity: 0.38; cursor: default; }
     .keeps-sigil-option.active .keeps-sigil-option-char { color: #00ff41; }
     .keeps-sigil-option-char {
-      font-family: var(--font-display);
+      font-family: var(--font-fun);
       font-size: 15px;
       font-weight: bold;
       color: white;
@@ -2094,14 +2088,7 @@
         font-size: 16px;
       }
       .keeps-hero-header {
-        flex-wrap: wrap;
-        align-items: flex-start;
         padding: 6px 10px;
-      }
-      .keeps-hero-actions {
-        margin-left: 0;
-        width: 100%;
-        justify-content: flex-end;
       }
       .keeps-castle-wrap { height: 220px; }
       .keeps-castle-wrap svg { width: 200px; }
@@ -2394,7 +2381,7 @@
         </div>
       </div>
       <div class="keeps-grid" id="keeps-grid">
-        <div class="keeps-loading" id="keeps-loading">
+        <div class="keeps-loading" id="keeps-loading" style="display:none;">
           <div class="spinner"></div>
           <span>Loading your keeps index...</span>
         </div>
@@ -2858,11 +2845,7 @@
         ? `<div style="margin-top: 8px; color: var(--text-tertiary); font-size: 12px;">Run <code>handle your-name</code> on <a href="${KL_BASE}" target="_blank" rel="noopener">kidlisp.com</a>.</div>`
         : '';
 
-      grid.innerHTML = `
-        <div class="keeps-error" style="grid-column: 1 / -1;">
-          <div class="error-msg">${message}</div>
-          ${details}
-        </div>`;
+      grid.innerHTML = '';
     }
 
     // =========================================

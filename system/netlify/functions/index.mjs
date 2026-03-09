@@ -181,10 +181,29 @@ async function fun(event, context) {
   // Serve keeps.kidlisp.com locally
   if (event.path.startsWith("/keeps.kidlisp.com")) {
     try {
-      const htmlContent = await fs.readFile(
+      let htmlContent = await fs.readFile(
         path.join(process.cwd(), "public/kidlisp.com/keeps.html"),
         "utf8"
       );
+      if (dev) {
+        htmlContent = htmlContent.replace("</body>", `<script>
+(function(){
+  let ri;
+  function connect(){
+    clearInterval(ri);
+    let ws;
+    try { ws = new WebSocket("wss://localhost:8889"); } catch { return; }
+    ws.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+      if (msg.type === "reload" && msg.content?.piece === "*refresh*")
+        setTimeout(() => location.reload(), 150);
+    };
+    ws.onclose = () => { ri = setInterval(connect, 1000); };
+  }
+  connect();
+})();
+</script></body>`);
+      }
       return {
         statusCode: 200,
         headers: { "Content-Type": "text/html" },
