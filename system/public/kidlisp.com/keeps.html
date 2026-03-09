@@ -2066,8 +2066,8 @@
       }
       .keeps-castle-wrap { height: 220px; }
       .keeps-castle-wrap svg { width: 200px; }
-      .keeps-search-bar { padding: 10px 16px; flex-wrap: wrap; }
-      .keeps-sigil-select { min-width: 0; width: 100%; }
+      .keeps-search-bar { padding: 10px 16px; }
+      .keeps-sigil-select { min-width: 0; }
       .keeps-grid { padding: 12px 16px; grid-template-columns: 1fr; }
       .keeps-about-overlay { padding: 8px; align-items: center; }
       .keeps-about-panel { width: calc(100vw - 16px); border-radius: 10px; }
@@ -2816,12 +2816,14 @@
     // RENDER (paginated — renders PAGE_SIZE cards at a time)
     // =========================================
     function createRow(entry) {
-      const when = entry.when ? new Date(entry.when) : null;
-      const timeStr = when ? formatRelativeTime(when) : '';
       const handle = entry.handle || 'anon';
       const hits = entry.hits || 0;
       const activeKeepInfo = getActiveKeepRecord(entry);
       const tokenId = activeKeepInfo?.tokenId;
+      const keptAt = activeKeepInfo?.keptAt ? new Date(activeKeepInfo.keptAt) : null;
+      const createdAt = entry.when ? new Date(entry.when) : null;
+      const keptTimeStr = keptAt ? formatRelativeTime(keptAt) : '';
+      const createdTimeStr = createdAt ? formatRelativeTime(createdAt) : '';
       const webpUrl = `https://oven.aesthetic.computer/grab/webp/80/60/$${entry.code}?duration=1800&fps=8&quality=70&density=1&nowait=true&source=keep`;
 
       const row = document.createElement('div');
@@ -2832,7 +2834,8 @@
         <span class="keeps-row-handle">${escapeHtml(handle)}</span>
         <span class="keeps-row-hits">${hits.toLocaleString()} hit${hits !== 1 ? 's' : ''}</span>
         ${tokenId != null ? `<span class="keeps-row-token">Token #${tokenId}</span>` : ''}
-        ${timeStr ? `<span class="keeps-row-time">${timeStr}</span>` : ''}`;
+        ${keptTimeStr ? `<span class="keeps-row-time" title="Kept ${keptAt?.toLocaleString() || ''}">kept ${keptTimeStr}</span>` : ''}
+        ${createdTimeStr ? `<span class="keeps-row-time" title="Created ${createdAt?.toLocaleString() || ''}">made ${createdTimeStr}</span>` : ''}`;
 
       const img = row.querySelector('.keeps-row-thumb');
       img.src = webpUrl;
