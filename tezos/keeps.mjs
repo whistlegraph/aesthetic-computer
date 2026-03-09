@@ -60,6 +60,7 @@ const CONFIG = {
   paths: {
     // Compiled contract artifacts by generation
     compiled: {
+      v11: path.join(__dirname, 'KeepsFA2v11/step_002_cont_0_contract.tz'),
       v10: path.join(__dirname, 'KeepsFA2v10/step_002_cont_0_contract.tz'),
       v9: path.join(__dirname, 'KeepsFA2v9/step_002_cont_0_contract.tz'),
       v8: path.join(__dirname, 'KeepsFA2v8/step_002_cont_0_contract.tz'),
@@ -90,6 +91,24 @@ const CONFIG = {
 };
 
 const CONTRACT_PROFILES = {
+  v11: {
+    key: 'v11',
+    label: 'KidLisp v11 — user-only minting, no admin path',
+    artifactKey: 'v11',
+    metadata: {
+      name: 'KidLisp',
+      version: '11.0.0',
+      description: 'https://keeps.kidlisp.com',
+      homepage: 'https://keeps.kidlisp.com',
+      interfaces: ['TZIP-012', 'TZIP-016', 'TZIP-021'],
+      authors: ['aesthetic.computer'],
+      imageUri: 'https://oven.aesthetic.computer/keeps/latest',
+    },
+    keepFeeMutez: 2_500_000,
+    artistRoyaltyBps: 900,
+    platformRoyaltyBps: 100,
+    paused: false,
+  },
   v10: {
     key: 'v10',
     label: 'KidLisp v10 — no admin_transfer, split royalties',
@@ -216,8 +235,8 @@ function resolveContractProfile(rawProfile = 'v9') {
   const aliasMap = {
     rc: 'v5rc',
     v5: 'v5rc',
-    production: 'v10',
-    latest: 'v10',
+    production: 'v11',
+    latest: 'v11',
   };
   const key = aliasMap[normalized] || normalized;
   const profile = CONTRACT_PROFILES[key];
@@ -318,6 +337,7 @@ function loadCredentials() {
   // Load Tezos wallet credentials based on current wallet selection
   // Note: aesthetic wallet keys are stored in kidlisp/.env for convenience
   const walletPaths = {
+    keeps: { path: 'tezos/kidlisp/.env', addressKey: 'KEEPS_ADDRESS', secretKey: 'KEEPS_KEY' },
     kidlisp: { path: 'tezos/kidlisp/.env', addressKey: 'KIDLISP_ADDRESS', secretKey: 'KIDLISP_KEY' },
     aesthetic: { path: 'tezos/kidlisp/.env', addressKey: 'AESTHETIC_ADDRESS', secretKey: 'AESTHETIC_KEY' },
     staging: { path: 'tezos/staging/.env', addressKey: 'STAGING_ADDRESS', secretKey: 'STAGING_KEY' }
@@ -452,7 +472,7 @@ async function deployContract(network = 'mainnet', options = {}) {
   //            contract_metadata_locked, keep_fee, ledger, metadata,
   //            metadata_locked, next_token_id, operators, paused,
   //            platform_royalty_bps, token_creators, token_metadata, treasury_address
-  const isV10 = profile.key === 'v10';
+  const isV10 = profile.key === 'v10' || profile.key === 'v11';
   const treasuryAddress = credentials.treasuryAddress || credentials.address;
 
   let initialStorageMichelson;
@@ -1024,6 +1044,24 @@ const KEEP_PERMIT_PAYLOAD_TYPE = {
   ],
 };
 
+async function loadPermitSigner() {
+  const connectionString = process.env.MONGODB_CONNECTION_STRING;
+  const dbName = process.env.MONGODB_NAME;
+  if (!connectionString || !dbName) return null;
+  const client = new MongoClient(connectionString, { serverSelectionTimeoutMS: 8000, connectTimeoutMS: 8000 });
+  try {
+    await client.connect();
+    const secrets = await client.db(dbName).collection('secrets').findOne({ _id: KEEPS_SECRET_ID });
+    const privateKey = secrets?.keepPermitSignerPrivateKey || secrets?.keepPermitPrivateKey || secrets?.privateKey;
+    if (!privateKey) return null;
+    return new InMemorySigner(privateKey);
+  } catch {
+    return null;
+  } finally {
+    await client.close().catch(() => {});
+  }
+}
+
 async function buildKeepPermit({ signer, contractAddress, owner, contentHashBytes, deadlineIso = null }) {
   if (!contractAddress || !owner || !contentHashBytes) {
     throw new Error('Missing keep permit fields (contractAddress, owner, contentHashBytes)');
@@ -1295,33 +1333,38 @@ async function mintToken(piece, options = {}) {
   
   // Call keep entrypoint
   console.log('\n📤 Preserving on Tezos blockchain...');
-  
+
   try {
+    // Use the backend permit signer key (from MongoDB), not the wallet key
+    const permitSigner = await loadPermitSigner() || tezos.signer;
     const keepPermit = await buildKeepPermit({
-      signer: tezos.signer,
+      signer: permitSigner,
       contractAddress,
       owner: ownerAddress,
       contentHashBytes: onChainMetadata.content_hash,
     });
 
+    // Build royalties JSON (objkt standard: decimals 4, shares in bps)
+    const storage = await contract.storage();
+    const artistBps = storage.artist_royalty_bps ? storage.artist_royalty_bps.toNumber() : (storage.default_royalty_bps ? storage.default_royalty_bps.toNumber() : 1000);
+    const platformBps = storage.platform_royalty_bps ? storage.platform_royalty_bps.toNumber() : 0;
+    const treasuryAddr = storage.treasury_address || null;
+    const royaltiesObj = { decimals: 4, shares: { [ownerAddress]: String(artistBps) } };
+    if (platformBps > 0 && treasuryAddr) royaltiesObj.shares[treasuryAddr] = String(platformBps);
+    const royaltiesBytes = stringToBytes(JSON.stringify(royaltiesObj));
+
     const op = await contract.methodsObject.keep({
       artifactUri: onChainMetadata.artifactUri,
-      attributes: onChainMetadata.attributes,
       content_hash: onChainMetadata.content_hash,
-      content_type: onChainMetadata.content_type,
       creators: onChainMetadata.creators,
       decimals: onChainMetadata.decimals,
       description: onChainMetadata.description,
       displayUri: onChainMetadata.displayUri,
-      formats: onChainMetadata.formats,
-      isBooleanAmount: onChainMetadata.isBooleanAmount,
       metadata_uri: onChainMetadata.metadata_uri,
       name: onChainMetadata.name,
       owner: ownerAddress,
-      rights: onChainMetadata.rights,
-      shouldPreferSymbol: onChainMetadata.shouldPreferSymbol,
+      royalties: royaltiesBytes,
       symbol: onChainMetadata.symbol,
-      tags: onChainMetadata.tags,
       thumbnailUri: onChainMetadata.thumbnailUri,
       permit_deadline: keepPermit.permit_deadline,
       keep_permit: keepPermit.keep_permit,
@@ -2776,11 +2819,11 @@ async function main() {
   const walletFlag = flags.find(f => f.startsWith('--wallet='));
   if (walletFlag) {
     const wallet = walletFlag.split('=')[1];
-    if (['kidlisp', 'aesthetic', 'staging'].includes(wallet)) {
+    if (['keeps', 'kidlisp', 'aesthetic', 'staging'].includes(wallet)) {
       setWallet(wallet);
       console.log(`🔑 Using wallet: ${wallet}\n`);
     } else {
-      console.error(`❌ Unknown wallet: ${wallet}. Use: kidlisp, aesthetic, or staging`);
+      console.error(`❌ Unknown wallet: ${wallet}. Use: keeps, kidlisp, aesthetic, or staging`);
       process.exit(1);
     }
   }

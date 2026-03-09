@@ -481,7 +481,7 @@ export const handler = stream(async (event, context) => {
       }
 
       let pieceName = body.piece?.replace(/^\$/, "").trim();
-      const mode = body.mode || "prepare"; // "prepare" (default) or "mint" (server-side)
+      const mode = body.mode || "prepare"; // "prepare" (default) or "simulate"
       const regenerate = body.regenerate === true; // Force regenerate IPFS media
       const walletAddress = body.walletAddress; // For on-chain owner verification
 
@@ -692,7 +692,6 @@ export const handler = stream(async (event, context) => {
               royalties: onChainMetadata.royalties,
               content_hash: onChainMetadata.content_hash,
               metadata_uri: onChainMetadata.metadata_uri,
-              owner: creatorWalletAddress,
               ...(keepPermit || {}),
             }).toTransferParams();
 
@@ -884,29 +883,24 @@ export const handler = stream(async (event, context) => {
           return;
         }
         
-        if (mode === "prepare") {
-          // Client-side minting - wallet address must be provided AND match linked wallet
-          creatorWalletAddress = body.walletAddress;
-          if (!creatorWalletAddress || !creatorWalletAddress.startsWith('tz')) {
-            await database.disconnect();
-            await send("error", { error: "Valid Tezos wallet address required for minting" });
-            return;
-          }
-          
-          // ENFORCE: Minting wallet must match author's linked wallet
-          if (creatorWalletAddress !== linkedWalletAddress) {
-            await database.disconnect();
-            await send("error", { 
-              error: "Wallet mismatch",
-              details: `You must mint from your linked wallet (${linkedWalletAddress.slice(0, 8)}...${linkedWalletAddress.slice(-6)}). Connect the correct wallet and try again.`,
-              linkedWallet: linkedWalletAddress,
-              providedWallet: creatorWalletAddress
-            });
-            return;
-          }
-        } else {
-          // Server-side minting - use linked wallet address (admin testing only)
-          creatorWalletAddress = linkedWalletAddress;
+        // Wallet address must be provided AND match linked wallet
+        creatorWalletAddress = body.walletAddress;
+        if (!creatorWalletAddress || !creatorWalletAddress.startsWith('tz')) {
+          await database.disconnect();
+          await send("error", { error: "Valid Tezos wallet address required for minting" });
+          return;
+        }
+
+        // ENFORCE: Minting wallet must match author's linked wallet
+        if (creatorWalletAddress !== linkedWalletAddress) {
+          await database.disconnect();
+          await send("error", {
+            error: "Wallet mismatch",
+            details: `You must mint from your linked wallet (${linkedWalletAddress.slice(0, 8)}...${linkedWalletAddress.slice(-6)}). Connect the correct wallet and try again.`,
+            linkedWallet: linkedWalletAddress,
+            providedWallet: creatorWalletAddress
+          });
+          return;
         }
       } else {
         // Rebake mode - use linked wallet for metadata (or fallback)
@@ -1518,7 +1512,6 @@ export const handler = stream(async (event, context) => {
           royalties: onChainMetadata.royalties,
           content_hash: onChainMetadata.content_hash,
           metadata_uri: onChainMetadata.metadata_uri,
-          owner: ownerAddress,
           permit_deadline: keepPermit.permit_deadline,
           keep_permit: keepPermit.keep_permit,
         }).toTransferParams();
@@ -1543,102 +1536,6 @@ export const handler = stream(async (event, context) => {
         });
         return;
       }
-
-      // MINT MODE: Server-side minting (for testing/admin)
-      await send("progress", { stage: "mint", message: "Minting on Tezos..." });
-
-      // Get Tezos credentials from MongoDB
-      const tezosCredentials = await getTezosCredentials();
-      
-      const tezos = new TezosToolkit(RPC_URL);
-      tezos.setProvider({ signer: new InMemorySigner(tezosCredentials.privateKey) });
-      const adminAddress = await tezos.signer.publicKeyHash();
-
-      // Use destination address from profile (already fetched) or fall back to admin
-      const destinationAddress = creatorWalletAddress || adminAddress;
-      const keepPermit = await buildKeepPermit({
-        privateKey: tezosCredentials.privateKey,
-        contractAddress: CONTRACT_ADDRESS,
-        ownerAddress: destinationAddress,
-        contentHashBytes: onChainMetadata.content_hash,
-      });
-      
-      if (destinationAddress !== adminAddress) {
-        await send("progress", { 
-          stage: "mint", 
-          message: `Minting to ${destinationAddress.slice(0, 8)}...${destinationAddress.slice(-6)}` 
-        });
-      }
-
-      const contract = await tezos.contract.at(CONTRACT_ADDRESS);
-        
-        // Read the keep_fee from contract storage
-        const storage = await contract.storage();
-        const keepFeeMutez = storage.keep_fee?.toNumber?.() ?? 0;
-        const keepFeeXtz = keepFeeMutez / 1_000_000;
-      
-      const op = await contract.methodsObject.keep({
-        name: onChainMetadata.name,
-        symbol: onChainMetadata.symbol,
-        description: onChainMetadata.description,
-        artifactUri: onChainMetadata.artifactUri,
-        displayUri: onChainMetadata.displayUri,
-        thumbnailUri: onChainMetadata.thumbnailUri,
-        decimals: onChainMetadata.decimals,
-        creators: onChainMetadata.creators,
-        royalties: onChainMetadata.royalties,
-        content_hash: onChainMetadata.content_hash,
-        metadata_uri: onChainMetadata.metadata_uri,
-        owner: destinationAddress,
-        permit_deadline: keepPermit.permit_deadline,
-        keep_permit: keepPermit.keep_permit,
-      }).send();
-
-      await send("progress", { stage: "mint", message: `Tx submitted: ${op.hash.slice(0, 12)}...` });
-      
-      // Wait for confirmation
-      await op.confirmation(1);
-
-      // Get token ID from contract storage (next_token_id - 1)
-      // This is O(1) and scales to millions of tokens
-      const updatedStorage = await contract.storage();
-      const tokenId = updatedStorage.next_token_id.toNumber() - 1;
-
-      const objktUrl = `https://${NETWORK === "mainnet" ? "" : "ghostnet."}objkt.com/tokens/${CONTRACT_ADDRESS}/${tokenId}`;
-
-      // Update MongoDB to mark piece as minted
-      // Use contract-keyed storage: tezos.contracts[CONTRACT_ADDRESS]
-      const piecesCollection = database.db.collection("kidlisp");
-      await piecesCollection.updateOne(
-        { user: user.sub, code: pieceName },
-        { 
-          $set: { 
-            [`tezos.contracts.${CONTRACT_ADDRESS}`]: {
-              minted: true,
-              tokenId: tokenId,
-              txHash: op.hash,
-              network: NETWORK,
-              mintedAt: new Date(),
-              owner: destinationAddress,
-              minter: creatorWalletAddress,
-              artifactUri: artifactUri,
-              thumbnailUri: thumbnailUri,
-              metadataUri: metadataUri,
-            }
-          }
-        }
-      );
-
-      await send("complete", {
-        success: true,
-        piece: pieceName,
-        tokenId,
-        txHash: op.hash,
-        artifactUri,
-        thumbnailUri,
-        objktUrl,
-        explorerUrl: `https://${NETWORK}.tzkt.io/${op.hash}`,
-      });
 
     } catch (error) {
       console.error("Keep mint error:", error);
