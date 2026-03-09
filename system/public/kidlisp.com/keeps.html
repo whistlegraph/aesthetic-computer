@@ -2138,7 +2138,7 @@
               <button class="keeps-user-logout-btn" onclick="event.stopPropagation(); keepsLogout()">Log Out</button>
             </div>
           </div>
-          <button class="keeps-auth-btn wallet" id="keeps-wallet-btn" style="display:none;" onclick="handleWalletBtn()">&#x26D3; Wallet</button>
+          <button class="keeps-auth-btn wallet" id="keeps-wallet-btn" style="display:none;" onclick="handleWalletBtn()">ꜩ Wallet</button>
         </div>
       </div>
     </div>
@@ -2405,7 +2405,7 @@
             </p>
 
             <details class="keeps-about-tech keeps-about-tech--tezos">
-              <summary>&#x26D3; On-chain</summary>
+              <summary>ꜩ On-chain</summary>
               <div class="keeps-about-tech-body">
                 <p>Each keep is an <strong>FA2 NFT</strong> on Tezos mainnet. Only the piece author can mint it, and each piece can only be kept once — the contract rejects duplicates by content hash.</p>
                 <p>Royalties are locked at mint: <strong>9% to you</strong>, 1% to KidLisp. They're baked into the token and honored by objkt and all FA2-compatible marketplaces.</p>
@@ -2653,11 +2653,11 @@
       walletBtn.style.display = '';
       if (mintWalletAddress) {
         const short = mintWalletAddress.slice(0, 7) + '…' + mintWalletAddress.slice(-4);
-        walletBtn.textContent = '⛓ ' + short;
+        walletBtn.textContent = 'ꜩ ' + short;
         walletBtn.title = mintWalletAddress + ' — click to disconnect';
         walletBtn.classList.add('connected');
       } else {
-        walletBtn.textContent = '⛓ Wallet';
+        walletBtn.textContent = 'ꜩ Wallet';
         walletBtn.title = 'Connect Tezos wallet';
         walletBtn.classList.remove('connected');
       }
@@ -2908,7 +2908,7 @@
 
       card.innerHTML = `
         <div class="keeps-card-header">
-          <a class="keeps-card-code" href="${KL_BASE}/$${entry.code}" title="Edit in KidLisp.com">$${entry.code}</a>
+          <span class="keeps-card-code" title="Open $${entry.code}">$${entry.code}</span>
           <div class="keeps-card-meta">
             <span class="keeps-card-handle">${escapeHtml(handle)}</span>
             <span class="keeps-card-hits">${hits} hit${hits !== 1 ? 's' : ''}</span>
@@ -2922,7 +2922,7 @@
         <div class="keeps-card-actions">
           ${isActiveKept
             ? `<span class="keeps-card-btn kept-badge" title="Kept on Tezos${keptInfo?.tokenId != null ? ` · Token #${keptInfo.tokenId}` : ''}">&#x2714; Kept</span>`
-            : (canManageKeep ? `<button class="keeps-card-btn keep-btn" data-code="${entry.code}" title="Keep on Tezos">&#x26D3; Keep</button>` : '')}
+            : (canManageKeep ? `<button class="keeps-card-btn keep-btn" data-code="${entry.code}" title="Keep on Tezos">ꜩ Keep</button>` : '')}
           ${timeStr ? `<span style="margin-left: auto; font-size: 10px; color: var(--text-tertiary);">${timeStr}</span>` : ''}
         </div>`;
 
@@ -2944,7 +2944,11 @@
       };
       img.src = webpUrl;
 
-      // Click on preview area → open modal
+      // Click on $code or preview area → open modal
+      const codeLabel = card.querySelector('.keeps-card-code');
+      codeLabel.style.cursor = 'pointer';
+      codeLabel.addEventListener('click', (e) => { e.stopPropagation(); openModal(entry); });
+
       const previewArea = card.querySelector('.keeps-card-preview');
       previewArea.style.cursor = 'pointer';
       previewArea.addEventListener('click', () => openModal(entry));
@@ -3094,15 +3098,15 @@
         const tokenLabel = keptInfo?.tokenId != null ? ` (Token #${keptInfo.tokenId})` : '';
         actionsHTML += `<span class="keeps-modal-action-btn tezos-btn" style="cursor: default;">&#x2714; ${isActiveKept ? 'Kept' : 'Legacy Keep'}${tokenLabel}</span>`;
         if (canKeepOnActive) {
-          actionsHTML += `<button class="keeps-modal-action-btn tezos-btn" data-mint-code="${entry.code}">&#x26D3; Keep on Tezos</button>`;
+          actionsHTML += `<button class="keeps-modal-action-btn tezos-btn" data-mint-code="${entry.code}">ꜩ Keep on Tezos</button>`;
         }
         if (canRekeep) {
           actionsHTML += `<button class="keeps-modal-action-btn html-btn" data-rebake-code="${entry.code}" title="Regenerate HTML + thumbnail">&#x267B; Rekeep Media</button>`;
         }
       } else if (canManageKeep) {
-        actionsHTML += `<button class="keeps-modal-action-btn tezos-btn" data-mint-code="${entry.code}">&#x26D3; Keep on Tezos</button>`;
+        actionsHTML += `<button class="keeps-modal-action-btn tezos-btn" data-mint-code="${entry.code}">ꜩ Keep on Tezos</button>`;
       } else {
-        actionsHTML += `<a class="keeps-modal-action-btn tezos-btn" href="${AC_BASE}/keep~$${entry.code}" target="_blank" title="Keep this code on Tezos">&#x26D3; Keep on Tezos</a>`;
+        actionsHTML += `<a class="keeps-modal-action-btn tezos-btn" href="${AC_BASE}/keep~$${entry.code}" target="_blank" title="Keep this code on Tezos">ꜩ Keep on Tezos</a>`;
       }
 
       modalActions.innerHTML = actionsHTML;
