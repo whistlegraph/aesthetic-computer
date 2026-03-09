@@ -1957,17 +1957,17 @@
           <div class="keeps-endpoint">
             <div class="keeps-endpoint-name">v5 (Legacy RC)</div>
             <div class="keeps-endpoint-desc"><code>KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido</code></div>
-            <div class="keeps-endpoint-auth"><a href="https://tzkt.io/KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido" target="_blank">TzKT</a> · <a href="https://objkt.com/collection/KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido" target="_blank">objkt</a></div>
+            <div class="keeps-endpoint-auth"><a href="https://tzkt.io/KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido" target="_blank">TzKT</a> · <a href="https://objkt.com/collections/KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido" target="_blank">objkt</a></div>
           </div>
           <div class="keeps-endpoint">
             <div class="keeps-endpoint-name">v4 (Deprecated Staging)</div>
             <div class="keeps-endpoint-desc"><code>KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W</code></div>
-            <div class="keeps-endpoint-auth"><a href="https://tzkt.io/KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W" target="_blank">TzKT</a> · <a href="https://objkt.com/collection/KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W" target="_blank">objkt</a></div>
+            <div class="keeps-endpoint-auth"><a href="https://tzkt.io/KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W" target="_blank">TzKT</a> · <a href="https://objkt.com/collections/KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W" target="_blank">objkt</a></div>
           </div>
           <div class="keeps-endpoint">
             <div class="keeps-endpoint-name">v2 (Legacy Mainnet)</div>
             <div class="keeps-endpoint-desc"><code>KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM</code></div>
-            <div class="keeps-endpoint-auth"><a href="https://tzkt.io/KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM" target="_blank">TzKT</a> · <a href="https://objkt.com/collection/KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM" target="_blank">objkt</a></div>
+            <div class="keeps-endpoint-auth"><a href="https://tzkt.io/KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM" target="_blank">TzKT</a> · <a href="https://objkt.com/collections/KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM" target="_blank">objkt</a></div>
           </div>
         </div>
       </div>
@@ -2095,7 +2095,7 @@
         const tzktBase = network === 'mainnet' ? 'https://tzkt.io' : `https://${network}.tzkt.io`;
         const objktBase = getObjktBase(network);
         if (tzktLink) tzktLink.href = `${tzktBase}/${contract}`;
-        if (objktLink) objktLink.href = `${objktBase}/collection/${contract}`;
+        if (objktLink) objktLink.href = `${objktBase}/collections/${contract}`;
         if (opsLink) opsLink.href = `${tzktBase}/${contract}/operations`;
       }
     }
@@ -3428,7 +3428,7 @@
         }
 
         const mintNetwork = mintPreparedData.network || getTezosNetwork();
-        const objktUrl = `${getObjktBase(mintNetwork)}/asset/${contractAddress}/${mintPreparedData.tokenId || ''}`;
+        const objktUrl = `${getObjktBase(mintNetwork)}/tokens/${contractAddress}/${mintPreparedData.tokenId || ''}`;
         showMintResult(`Successfully kept $${mintCurrentPiece}!`, objktUrl, txHash);
         renderMintArtifactPanel({
           title: 'Minted Artifacts',
