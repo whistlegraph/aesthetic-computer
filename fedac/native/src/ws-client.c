@@ -225,7 +225,12 @@ static void thread_recv(ACWs *ws) {
         else if (plen == 127) { if (avail<10) break; plen=0; for(int i=0;i<8;i++) plen=(plen<<8)|buf[2+i]; hlen=10; }
         if (has_mask) hlen += 4;
         int total = hlen + (int)plen;
-        if (avail < total) break;
+        if (avail < total) {
+            // Frame not fully buffered yet — or frame_buf too small
+            if ((int)plen > (int)(sizeof(ws->frame_buf) - 10))
+                ac_log("[ws] frame too large: plen=%d buf=%d — dropping", (int)plen, (int)sizeof(ws->frame_buf));
+            break;
+        }
 
         unsigned char *payload = buf + hlen;
         if (has_mask) {
