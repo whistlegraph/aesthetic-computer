@@ -984,6 +984,8 @@ export const handler = stream(async (event, context) => {
               quality: 70,
               source: "keep",
               keepId: isRebake ? mintStatus.tokenId : null,
+              author: authorHandle || null,
+              pieceCreatedAt: dbPieceMeta?.createdAt || null,
               // Rebake requests must bypass stale oven caches.
               cacheKey: forceFreshMedia
                 ? `rebake-${pieceSourceHash}-${Date.now()}`

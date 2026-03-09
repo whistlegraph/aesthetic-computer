@@ -1913,6 +1913,8 @@ export async function grabPiece(piece, options = {}) {
     cacheKey = '', // Optional extra cache discriminator (e.g. source hash)
     source = 'manual', // 'keep', 'manual', 'api', etc.
     keepId = null, // Tezos keep token ID if source is 'keep'
+    author = null, // Author handle (e.g. "@jeffrey")
+    pieceCreatedAt = null, // When the piece was originally created
   } = options;
   
   // For captureKey: use actual output size (viewportScale=1 means exact size, otherwise density-scaled)
@@ -1963,8 +1965,10 @@ export async function grabPiece(piece, options = {}) {
     dimensions: { width: outputWidth, height: outputHeight },
     source: source || 'manual',
     keepId: keepId || null,
+    author: author || null,
+    pieceCreatedAt: pieceCreatedAt || null,
   });
-  
+
   // Use queue to serialize capture operations (avoid parallel puppeteer sessions)
   // Pass metadata for queue visibility
   return enqueueGrab(async () => {
@@ -1981,6 +1985,10 @@ export async function grabPiece(piece, options = {}) {
         percent: 0,
         framesCaptured: 0,
         framesTotal: Math.ceil((duration / 1000) * fps),
+        author: author || null,
+        pieceCreatedAt: pieceCreatedAt || null,
+        requestedAt: activeGrabs.get(grabId)?.startTime || Date.now(),
+        source: source || 'manual',
       });
       
       if (format === 'png') {
@@ -2293,8 +2301,10 @@ export async function grabAndUploadToIPFS(piece, credentials, options = {}) {
     baseUrl: options.baseUrl || 'https://aesthetic.computer',
     source,
     keepId,
+    author: options.author || null,
+    pieceCreatedAt: options.pieceCreatedAt || null,
   });
-  
+
   if (!grabResult.success) {
     return {
       success: false,
@@ -2674,6 +2684,8 @@ export async function grabIPFSHandler(req, res) {
     pinataSecret,
     source,           // Optional: 'keep', 'manual', etc.
     keepId,           // Optional: Tezos keep token ID
+    author,           // Optional: author handle (e.g. "@jeffrey")
+    pieceCreatedAt,   // Optional: when the KidLisp piece was created
   } = req.body;
   
   if (!piece) {
@@ -2708,6 +2720,8 @@ export async function grabIPFSHandler(req, res) {
       cacheKey,
       source: source || 'manual',
       keepId: keepId || null,
+      author: author || null,
+      pieceCreatedAt: pieceCreatedAt || null,
     });
     
     if (result.success) {
