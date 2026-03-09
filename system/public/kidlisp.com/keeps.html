@@ -1388,6 +1388,7 @@
       border-radius: 12px;
       max-width: 520px;
       width: 100%;
+      min-height: 420px;
       max-height: 90vh;
       overflow: hidden;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
@@ -1416,6 +1417,7 @@
       padding: 20px;
       overflow-y: auto;
       max-height: calc(90vh - 62px);
+      overscroll-behavior: contain;
     }
 
     .mint-piece-info {
@@ -1655,11 +1657,12 @@
       .keeps-modal-body { flex-direction: column; }
       .keeps-modal-sidebar { width: 100%; border-left: none; border-top: 1px solid var(--border-color); max-height: 240px; }
       .keeps-modal-preview iframe { min-height: 240px; }
-      .keeps-mint-modal { max-height: 96vh; }
+      .keeps-mint-modal { max-height: 96vh; min-height: 360px; }
       .mint-body { max-height: calc(96vh - 62px); padding: 14px; }
       .mint-step { font-size: 11px; }
       .mint-timeline { max-height: 180px; margin-bottom: 12px; }
       .mint-artifact-links { gap: 6px; }
+      .mint-artifact-preview { aspect-ratio: 4 / 3; }
     }
 
     @media (max-width: 480px) {
@@ -2189,6 +2192,16 @@
       return !entryNetwork || !activeNetwork || entryNetwork === activeNetwork;
     }
 
+    function hasAnyKeepRecord(entry) {
+      const kept = entry?.kept;
+      if (!kept) return false;
+      return kept.tokenId != null
+        || !!kept.txHash
+        || !!kept.contractAddress
+        || !!kept.artifactUri
+        || !!kept.thumbnailUri;
+    }
+
     function scopeIndexEntries(entries) {
       const userSub = acUser?.sub;
       return (entries || []).filter(entry => {
@@ -2234,12 +2247,13 @@
       const timeStr = when ? formatRelativeTime(when) : '';
       const handle = entry.handle || 'anon';
       const hits = entry.hits || 0;
-      const isKept = isKeptOnActiveContract(entry);
-      const keptInfo = isKept ? entry.kept : null;
+      const isActiveKept = isKeptOnActiveContract(entry);
+      const hasKeptRecord = hasAnyKeepRecord(entry);
+      const keptInfo = hasKeptRecord ? entry.kept : null;
       const canManageKeep = !!(acUser && entry.user && acUser.sub === entry.user);
-      const canRekeep = !!(acUser && isKept);
+      const canRekeep = !!(acUser && hasKeptRecord);
       const card = document.createElement('div');
-      card.className = 'keeps-card' + (isKept ? ' kept' : '');
+      card.className = 'keeps-card' + (isActiveKept ? ' kept' : '');
 
       // Build syntax-highlighted source with colored line numbers
       const sourceLines = (entry.source || '').split('\n');
@@ -2270,8 +2284,8 @@
           <button class="keeps-card-btn preview-btn" data-code="${entry.code}" title="Preview">&#x25B6; Preview</button>
           <a class="keeps-card-btn" href="${KL_BASE}/$${entry.code}" title="Open in editor">&#x270E; Edit</a>
           <a class="keeps-card-btn html-btn" href="${AC_BASE}/api/bundle-html?code=${entry.code}" target="_blank" title="Download as standalone HTML">&#x1F4E6; HTML</a>
-          ${isKept
-            ? `<span class="keeps-card-btn kept-badge" title="Kept on Tezos (Token #${keptInfo.tokenId || '?'})">&#x2714; Kept</span>${canRekeep ? `<button class="keeps-card-btn rebake-btn" data-rebake-code="${entry.code}" title="Regenerate HTML + thumbnail">&#x267B; Rekeep</button>` : ''}`
+          ${hasKeptRecord
+            ? `<span class="keeps-card-btn kept-badge" title="Kept on Tezos${keptInfo?.tokenId != null ? ` (Token #${keptInfo.tokenId})` : ''}">&#x2714; ${isActiveKept ? 'Kept' : 'Legacy Keep'}</span>${canRekeep ? `<button class="keeps-card-btn rebake-btn" data-rebake-code="${entry.code}" title="Regenerate HTML + thumbnail">&#x267B; Rekeep</button>` : ''}`
             : (canManageKeep ? `<button class="keeps-card-btn keep-btn" data-code="${entry.code}" title="Keep on Tezos">&#x26D3; Keep</button>` : '')}
           ${timeStr ? `<span style="margin-left: auto; font-size: 10px; color: var(--text-tertiary);">${timeStr}</span>` : ''}
         </div>`;
@@ -2315,7 +2329,7 @@
       if (rebakeBtn) {
         rebakeBtn.addEventListener('click', (e) => {
           e.stopPropagation();
-          openMintModal(entry, { rebake: true });
+          openMintModal(entry, { rebake: isActiveKept });
         });
       }
 
@@ -2427,16 +2441,18 @@
       const handle = entry.handle || 'anon';
       const hits = entry.hits || 0;
       const when = entry.when ? new Date(entry.when) : null;
-      const isKept = isKeptOnActiveContract(entry);
-      const keptInfo = isKept ? entry.kept : null;
-      const canRekeep = !!(acUser && isKept);
+      const isActiveKept = isKeptOnActiveContract(entry);
+      const hasKeptRecord = hasAnyKeepRecord(entry);
+      const keptInfo = hasKeptRecord ? entry.kept : null;
+      const canRekeep = !!(acUser && hasKeptRecord);
 
       let actionsHTML = `
         <a class="keeps-modal-action-btn edit-btn" href="${KL_BASE}/$${entry.code}" title="Open in KidLisp.com editor">&#x270E; Edit in KidLisp.com</a>
         <a class="keeps-modal-action-btn html-btn" href="${AC_BASE}/api/bundle-html?code=${entry.code}" target="_blank" title="Bundle as standalone HTML">&#x1F4E6; Download HTML Bundle</a>`;
 
-      if (isKept) {
-        actionsHTML += `<span class="keeps-modal-action-btn tezos-btn" style="cursor: default;">&#x2714; Kept on Tezos (Token #${keptInfo.tokenId || '?'})</span>`;
+      if (hasKeptRecord) {
+        const tokenLabel = keptInfo?.tokenId != null ? ` (Token #${keptInfo.tokenId})` : '';
+        actionsHTML += `<span class="keeps-modal-action-btn tezos-btn" style="cursor: default;">&#x2714; ${isActiveKept ? 'Kept' : 'Legacy Keep'}${tokenLabel}</span>`;
         if (canRekeep) {
           actionsHTML += `<button class="keeps-modal-action-btn html-btn" data-rebake-code="${entry.code}" title="Regenerate HTML + thumbnail">&#x267B; Rekeep Media</button>`;
         }
@@ -2461,7 +2477,7 @@
       if (modalRebakeBtn) {
         modalRebakeBtn.addEventListener('click', () => {
           closeModal();
-          openMintModal(entry, { rebake: true });
+          openMintModal(entry, { rebake: isActiveKept });
         });
       }
 
@@ -2469,7 +2485,7 @@
       let infoHTML = `<span><strong>Author:</strong> ${escapeHtml(handle)}</span>`;
       infoHTML += `<span><strong>Views:</strong> ${hits.toLocaleString()}</span>`;
       if (when) infoHTML += `<span><strong>Created:</strong> ${when.toLocaleDateString()} ${when.toLocaleTimeString()}</span>`;
-      if (isKept) {
+      if (hasKeptRecord) {
         infoHTML += `<span><strong>Network:</strong> ${keptInfo.network || 'mainnet'}</span>`;
         if (keptInfo.contractAddress) infoHTML += `<span><strong>Contract:</strong> ${keptInfo.contractAddress}</span>`;
       }
@@ -2753,7 +2769,7 @@
 
       const inlineRebake = document.getElementById('mint-inline-rebake');
       if (inlineRebake && mintCurrentEntry) {
-        inlineRebake.addEventListener('click', () => openMintModal(mintCurrentEntry, { rebake: true }));
+        inlineRebake.addEventListener('click', () => openMintModal(mintCurrentEntry, { rebake: isKeptOnActiveContract(mintCurrentEntry) }));
       }
     }
 
