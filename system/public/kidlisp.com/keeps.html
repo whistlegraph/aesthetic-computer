@@ -2517,6 +2517,10 @@
         <div class="mint-piece-info" id="mint-piece-info"></div>
         <div class="mint-timeline" id="mint-timeline"></div>
         <div id="mint-result-area"></div>
+        <div class="mint-actions" id="mint-actions-start" style="display:none;">
+          <button class="mint-action-btn cancel" onclick="cancelMint()">Cancel</button>
+          <button class="mint-action-btn primary" id="mint-start-btn" onclick="beginMintFlow()">Keep on Tezos ꜩ</button>
+        </div>
         <div class="mint-actions" id="mint-actions" style="display:none;">
           <button class="mint-action-btn cancel" onclick="cancelMint()">Cancel</button>
           <button class="mint-action-btn primary" id="mint-confirm-btn" onclick="confirmMint()" disabled>Confirm &amp; Sign</button>
@@ -3912,12 +3916,28 @@
       document.getElementById('mint-actions').style.display = 'none';
       document.getElementById('mint-confirm-btn').disabled = true;
       document.getElementById('mint-confirm-btn').textContent = 'Confirm & Sign';
+      document.getElementById('mint-timeline').innerHTML = '';
 
-      renderTimeline();
+      // Show start button for normal keep; auto-start for rebake/regenerate
+      const startActions = document.getElementById('mint-actions-start');
+      if (startActions) {
+        if (rebake || regenerate) {
+          startActions.style.display = 'none';
+          renderTimeline();
+          startMintFlow(entry.code, { rebake, regenerate });
+        } else {
+          startActions.style.display = 'flex';
+        }
+      }
+
       document.getElementById('mint-overlay').classList.add('open');
+    }
 
-      // Start the mint flow
-      startMintFlow(entry.code, { rebake, regenerate });
+    function beginMintFlow() {
+      const startActions = document.getElementById('mint-actions-start');
+      if (startActions) startActions.style.display = 'none';
+      renderTimeline();
+      startMintFlow(mintCurrentPiece, {});
     }
 
     function closeMintModal() {
