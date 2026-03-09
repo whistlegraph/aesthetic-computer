@@ -28,6 +28,8 @@ function syncedNow() { return Date.now() + clockOffset; }
 let echoMix = 0;
 let echoDragging = false;
 let pitchDragging = false;
+let volDragging = false;
+let brtDragging = false;
 
 // Pitch shift — controlled by trackpad Y / slider
 let pitchShift = 0; // -1 to +1, 0 = no shift
@@ -74,12 +76,30 @@ let bgTarget = dark ? [20, 20, 25] : [255, 255, 255];
 let soundAPI = null;
 
 
-// OS image download URL (shown on "os" button tap)
-const OS_URL = "releases.aesthetic.computer/os/native-notepat-latest.img.gz";
-let osUrlVisible = false;
+// OS update panel state machine
+// states: "idle" | "checking" | "up-to-date" | "available" | "downloading" | "flashing" | "rebooting"
+const OS_BASE_URL = "https://releases-aesthetic-computer.sfo3.digitaloceanspaces.com/os/";
+const OS_VMLINUZ_BYTES = 37_000_000; // ~35MB (actual size from releases.json)
+// Screen state machine — only one screen renders at a time
+// "notepat" = pads/instrument, "os" = update panel, "wifi" = network picker
+let activeScreen = "notepat";
+let osState = "idle";
+let osCurrentVersion = "";   // set from system.version on boot
+let osRemoteVersion = "";    // fetched from remote
+let osProgress = 0;          // 0.0-1.0
+let osError = "";            // error message if any
+let osFetchPending = false;  // true while waiting for version fetchResult (manual panel)
+let osCheckFrame = 0;        // frame when we started the version fetch
+
+// Auto-update: background check on WiFi connect, silent download+flash+reboot
+// states: "idle" | "checking" | "downloading" | "flashing" | "rebooting"
+let autoUpdate = {
+  state: "idle",
+  fetchPending: false,  // true = fetchResult belongs to auto-update version check
+  rebootFrame: 0,
+};
 
 // WiFi UI state
-let wifiPanelOpen = false;
 let wifiSelectedIdx = -1;
 let wifiPassword = "";
 let wifiPasswordMode = false;  // true = fullscreen password entry
@@ -87,6 +107,7 @@ let shiftHeld = false;
 
 // AC chat: latest message fetched after WiFi connects
 let acMsg = null;            // { from, text } once loaded
+let lastSpokenMsgKey = "";   // "from:text" of last TTS'd message (avoid repeats on reconnect)
 let wsStatus = "";           // "connecting" | "connected" | "error" | ""
 let wsConnectGrace = 0;      // frames to wait before declaring error (race-condition guard)
 let wsReconnectTimer = 0;   // frames until next reconnect attempt
@@ -100,10 +121,12 @@ const AC_PASS = "aesthetic.computer";
 // Fallback networks to try if AC hotspot isn't available (cycled in order)
 const FALLBACK_WIFI = [
   { ssid: "ATT2AWTpcr", pass: "t84q%7%g2h8u" },
+  { ssid: "ATTcifXGXi", pass: "=dvt%mnk8h6z" },
 ];
 let autoConnectFrame = 0;    // counts frames; try every ~5s (300 frames)
 let autoConnectBlink = 0;    // blink counter for antenna icon while polling
-let autoConnectTry = 0;      // increments each attempt; beep on 1st/2nd/3rd
+let autoConnectTry = 0;      // increments each attempt
+let connectStartFrame = 0;   // frame when current connect began (for timeout)
 
 // Saved WiFi credentials — persisted to /mnt/wifi_creds.json (USB EFI partition)
 const CREDS_PATH = "/mnt/wifi_creds.json";
@@ -218,9 +241,11 @@ function boot({ wipe, system }) {
       if (raw) savedCreds = JSON.parse(raw);
     } catch (_) {}
   }
+  // Capture current version for OS panel
+  osCurrentVersion = system?.version || "unknown";
 }
 
-function act({ event: e, sound, wifi }) {
+function act({ event: e, sound, wifi, system }) {
   soundAPI = sound;
   // Track shift state before any other handling
   if (e.is("keyboard:down") && e.key?.toLowerCase() === "shift") shiftHeld = true;
@@ -243,7 +268,7 @@ function act({ event: e, sound, wifi }) {
         }
       }
       wifiPasswordMode = false;
-      wifiPanelOpen = false;
+      activeScreen = "notepat";
       wifiSelectedIdx = -1;
       return;
     }
@@ -264,7 +289,9 @@ function act({ event: e, sound, wifi }) {
     const key = e.key?.toLowerCase();
     if (!key) return;
 
-    if (key === "escape" && wifiPanelOpen) { wifiPanelOpen = false; return; }
+    if (key === "escape" && activeScreen === "wifi") { activeScreen = "notepat"; return; }
+    if (key === "escape" && activeScreen === "os") { activeScreen = "notepat"; osState = "idle"; return; }
+    if (key === "escape" && activeScreen === "notepat") { system?.jump?.("prompt"); return; }
     if (key === "shift") { quickMode = !quickMode; return; }
     if (key === "tab") {
       waveIndex = (waveIndex + 1) % wavetypes.length;
@@ -355,11 +382,49 @@ function act({ event: e, sound, wifi }) {
     const pid = e.pointer?.id ?? 0;
     hoverX = x; hoverY = y;
 
+    // "notepat.com" label: jump to prompt piece
+    const nb = globalThis.__npBtn;
+    if (nb && y < nb.h && x >= 0 && x <= nb.w) {
+      system?.jump?.("prompt");
+      return;
+    }
+
     // "os" button: top bar — hit zone set dynamically in paint()
     const ob = globalThis.__osBtn;
     if (ob && y < ob.h && x >= ob.x && x <= ob.x + ob.w) {
-      osUrlVisible = !osUrlVisible;
+      if (activeScreen === "os") {
+        activeScreen = "notepat";
+        osState = "idle";
+      } else {
+        activeScreen = "os";
+        osState = "checking";
+        osFetchPending = false;
+        osRemoteVersion = "";
+        osError = "";
+      }
       return;
+    }
+
+    // OS panel touch handling
+    if (activeScreen === "os" && y > 14) {
+      // "update now" button tap when update available
+      if (osState === "available") {
+        const topBarH2 = 14;
+        const stateY2 = topBarH2 + 50;
+        const btnW2 = Math.min(120, w - 40);
+        const btnX2 = Math.floor((w - btnW2) / 2);
+        const btnY2 = stateY2 + 34;
+        if (y >= btnY2 && y <= btnY2 + 18 && x >= btnX2 && x <= btnX2 + btnW2) {
+          osState = "downloading";
+          osProgress = 0;
+          system?.fetchBinary?.(
+            OS_BASE_URL + "native-notepat-latest.vmlinuz",
+            "/tmp/vmlinuz.new",
+            OS_VMLINUZ_BYTES
+          );
+        }
+      }
+      return; // don't fall through to note grid
     }
 
     // Mute button (chat TTS toggle) — position set dynamically in paint
@@ -370,33 +435,72 @@ function act({ event: e, sound, wifi }) {
       return;
     }
 
+    // Volume bar drag
+    const vb = globalThis.__volBar;
+    if (y < 16 && vb && x >= vb.x && x <= vb.x + vb.w) {
+      volDragging = true;
+      const pct = Math.max(0, Math.min(1, (x - vb.barX) / vb.barW));
+      const target = Math.round(pct * 20); // 0-20 steps
+      const cur = Math.round((sound?.speaker?.systemVolume ?? 50) / 5);
+      const diff = target - cur;
+      if (diff !== 0) system?.volumeAdjust?.(diff > 0 ? 1 : -1);
+      return;
+    }
+    // Brightness bar drag
+    const bb = globalThis.__brtBar;
+    if (y < 16 && bb && x >= bb.x && x <= bb.x + bb.w) {
+      brtDragging = true;
+      const pct = Math.max(0, Math.min(1, (x - bb.barX) / bb.barW));
+      const target = Math.round(pct * 20);
+      const cur = Math.round((system?.brightness ?? 50) / 5);
+      const diff = target - cur;
+      if (diff !== 0) system?.brightnessAdjust?.(diff > 0 ? 1 : -1);
+      return;
+    }
+
     // WiFi antenna icon: top-right corner (within status bar)
     if (y < 16 && x > w - 22) {
-      wifiPanelOpen = !wifiPanelOpen;
-      if (wifiPanelOpen && wifi) {
+      activeScreen = (activeScreen === "wifi") ? "notepat" : "wifi";
+      if (activeScreen === "wifi" && wifi) {
         wifi.scan();  // Always rescan when opening
       }
       return;
     }
 
-    // WiFi fullscreen network list clicks
-    if (wifiPanelOpen && !wifiPasswordMode) {
-      const nets = wifi?.networks || [];
+    // WiFi fullscreen network list clicks (merged list)
+    if (activeScreen === "wifi" && !wifiPasswordMode) {
+      const merged = globalThis.__wifiMergedList || [];
       const rowH = 16;
       const listY = 44;
       const clickedRow = Math.floor((y - listY) / rowH);
-      if (clickedRow >= 0 && clickedRow < nets.length) {
+      if (clickedRow >= 0 && clickedRow < merged.length) {
+        const entry = merged[clickedRow];
+        if (entry.type === "separator") return; // ignore separator clicks
         wifiSelectedIdx = clickedRow;
-        if (nets[clickedRow].encrypted) {
-          wifiPassword = "";
-          wifiPasswordMode = true;
-        } else {
-          const openNet = nets[clickedRow];
-          wifi?.connect(openNet.ssid, "");
-          // Save open network credential entry
-          if (!savedCreds.find((c) => c.ssid === openNet.ssid))
-            savedCreds.push({ ssid: openNet.ssid, pass: "" });
-          wifiPanelOpen = false;
+
+        if (entry.type === "saved") {
+          // Connect directly with saved password
+          wifi?.connect(entry.ssid, entry.pass);
+          activeScreen = "notepat";
+        } else if (entry.type === "scan") {
+          const nets = wifi?.networks || [];
+          const net = nets[entry.idx];
+          // Check if we have saved creds for this scanned network
+          const savedCred = savedCreds.find((c) => c.ssid === net.ssid) ||
+            (net.ssid === AC_SSID ? { pass: AC_PASS } : null) ||
+            FALLBACK_WIFI.find((f) => f.ssid === net.ssid);
+          if (savedCred) {
+            wifi?.connect(net.ssid, savedCred.pass);
+            activeScreen = "notepat";
+          } else if (net.encrypted) {
+            wifiPassword = "";
+            wifiPasswordMode = true;
+          } else {
+            wifi?.connect(net.ssid, "");
+            if (!savedCreds.find((c) => c.ssid === net.ssid))
+              savedCreds.push({ ssid: net.ssid, pass: "" });
+            activeScreen = "notepat";
+          }
         }
       }
       return;
@@ -473,6 +577,26 @@ function act({ event: e, sound, wifi }) {
         if (s && s.synth && s.baseFreq) s.synth.update({ tone: s.baseFreq * factor });
       }
     }
+    if (volDragging) {
+      const vb = globalThis.__volBar;
+      if (vb) {
+        const pct = Math.max(0, Math.min(1, (x - vb.barX) / vb.barW));
+        const target = Math.round(pct * 20);
+        const cur = Math.round((sound?.speaker?.systemVolume ?? 50) / 5);
+        const diff = target - cur;
+        if (diff !== 0) system?.volumeAdjust?.(diff > 0 ? 1 : -1);
+      }
+    }
+    if (brtDragging) {
+      const bb = globalThis.__brtBar;
+      if (bb) {
+        const pct = Math.max(0, Math.min(1, (x - bb.barX) / bb.barW));
+        const target = Math.round(pct * 20);
+        const cur = Math.round((system?.brightness ?? 50) / 5);
+        const diff = target - cur;
+        if (diff !== 0) system?.brightnessAdjust?.(diff > 0 ? 1 : -1);
+      }
+    }
     // Grid rollover: dragging across note buttons triggers the new one
     const gridInfo = globalThis.__gridInfo;
     if (gridInfo && touchNotes[pid] !== undefined) {
@@ -504,6 +628,8 @@ function act({ event: e, sound, wifi }) {
     const pid = e.pointer?.id ?? 0;
     if (echoDragging) echoDragging = false;
     if (pitchDragging) pitchDragging = false;
+    if (volDragging) volDragging = false;
+    if (brtDragging) brtDragging = false;
     // Release touch-triggered note
     if (touchNotes[pid]) {
       const key = touchNotes[pid].key;
@@ -638,12 +764,15 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   ink(BAR_BORDER[0], BAR_BORDER[1], BAR_BORDER[2]);
   line(0, topBarH - 1, w, topBarH - 1);
 
-  // Left: "notepat.com" — notepat in fg, .com in accent
-  ink(FG, FG, FG, 200);
+  // Left: "notepat.com" — clickable, jumps to prompt piece
+  const npHovered = hoverX >= 0 && hoverX <= 46 && hoverY < topBarH;
+  if (npHovered) { ink(255, 255, 255, 20); box(0, 0, 48, topBarH, true); }
+  ink(FG, FG, FG, npHovered ? 255 : 200);
   write("notepat", { x: 2, y: barY, size: 1, font: "matrix" });
-  ink(dark ? 200 : 180, dark ? 100 : 60, dark ? 140 : 120);
-  const dotComX = 2 + 7 * 4; // x position of ".com" (7 matrix chars * ~4px each)
+  ink(dark ? 200 : 180, dark ? 100 : 60, dark ? 140 : 120, npHovered ? 255 : 200);
+  const dotComX = 2 + 7 * 4;
   write(".com", { x: dotComX, y: barY, size: 1, font: "matrix" });
+  globalThis.__npBtn = { w: 48, h: topBarH };
   // "os" button — clickable, shows download URL
   const osX = dotComX + 4 * 4 + 6;
   const osHovered = hoverX >= osX - 2 && hoverX <= osX + 14 && hoverY < topBarH;
@@ -678,6 +807,21 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     ink(dark ? 60 : 180, dark ? 100 : 190, dark ? 60 : 180);
     write("chat", { x: chatX, y: barY, size: 1, font: "matrix" });
     chatX += 4 * 4 + 2;
+  }
+  // Auto-update status in bar (subtle, only during active download/flash/reboot)
+  if (autoUpdate.state === "downloading") {
+    const pct = Math.round((osProgress || 0) * 100);
+    ink(80, 180, 100, 180);
+    write("os " + pct + "%", { x: chatX, y: barY, size: 1, font: "matrix" });
+    chatX += 8 * 4 + 2;
+  } else if (autoUpdate.state === "flashing") {
+    ink(255, 160, 60, 200);
+    write("flash", { x: chatX, y: barY, size: 1, font: "matrix" });
+    chatX += 5 * 4 + 2;
+  } else if (autoUpdate.state === "rebooting") {
+    ink(220, 100, 60, 220);
+    write("reboot", { x: chatX, y: barY, size: 1, font: "matrix" });
+    chatX += 6 * 4 + 2;
   }
   // Metronome indicator (pendulum) in status bar — shown when enabled
   if (metronomeEnabled) {
@@ -717,12 +861,93 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   write(chatMuted ? "M" : "m", { x: muteX, y: barY, size: 1, font: "matrix" });
   globalThis.__muteBtn = { x: muteX, w: 10 };
 
-  // OS URL overlay (shown when "os" tapped)
-  if (osUrlVisible) {
-    ink(0, 0, 0, 210);
-    box(0, topBarH, w, 14, true);
-    ink(80, 200, 100);
-    write(OS_URL, { x: 4, y: topBarH + 3, size: 1, font: "font_1" });
+  // OS update panel (fullscreen, like WiFi panel)
+  if (activeScreen === "os") {
+    const panelY = topBarH;
+    const panelH = h - panelY;
+    ink(dark ? 12 : 240, dark ? 16 : 235, dark ? 24 : 230, 240);
+    box(0, panelY, w, panelH, true);
+    ink(dark ? 40 : 180, dark ? 60 : 160, dark ? 80 : 140);
+    line(0, panelY, w, panelY);
+
+    const pad = 10;
+    const midY = Math.floor(panelY + panelH * 0.35);
+    const maxVerChars = Math.floor((w - pad * 2) / 6) - 10; // fit label + version
+
+    // Title — centered
+    ink(dark ? 200 : 40, dark ? 220 : 60, dark ? 200 : 80);
+    const title = "ac/native";
+    write(title, { x: pad, y: panelY + 8, size: 1, font: "matrix" });
+
+    // Connection status
+    if (!wifi?.connected) {
+      ink(200, 80, 80);
+      write("offline", { x: pad, y: panelY + 22, size: 1, font: "font_1" });
+      ink(dark ? 100 : 120, dark ? 80 : 100, dark ? 80 : 100);
+      write("connect wifi first", { x: pad, y: panelY + 34, size: 1, font: "font_1" });
+    } else {
+      // Current version
+      ink(dark ? 100 : 100, dark ? 110 : 110, dark ? 100 : 100);
+      write("current", { x: pad, y: panelY + 22, size: 1, font: "font_1" });
+      ink(dark ? 180 : 40, dark ? 180 : 40, dark ? 180 : 40);
+      const curVer = (osCurrentVersion || "unknown").slice(0, maxVerChars);
+      write(curVer, { x: pad, y: panelY + 34, size: 1, font: "font_1" });
+    }
+
+    const stateY = panelY + 50;
+    if (osState === "checking") {
+      ink(200, 200, 80);
+      write("checking...", { x: pad, y: stateY, size: 1, font: "font_1" });
+    } else if (osState === "up-to-date") {
+      ink(dark ? 100 : 100, dark ? 110 : 110, dark ? 100 : 100);
+      write("available", { x: pad, y: stateY, size: 1, font: "font_1" });
+      ink(80, 200, 120);
+      write(osRemoteVersion.slice(0, maxVerChars), { x: pad, y: stateY + 12, size: 1, font: "font_1" });
+      ink(80, 200, 120);
+      write("up to date!", { x: pad, y: stateY + 28, size: 1, font: "font_1" });
+    } else if (osState === "available") {
+      ink(dark ? 100 : 100, dark ? 110 : 110, dark ? 100 : 100);
+      write("available", { x: pad, y: stateY, size: 1, font: "font_1" });
+      ink(255, 200, 60);
+      write(osRemoteVersion.slice(0, maxVerChars), { x: pad, y: stateY + 12, size: 1, font: "font_1" });
+      // Update button — centered, proportional
+      const btnW = Math.min(120, w - pad * 4);
+      const btnX = Math.floor((w - btnW) / 2);
+      const btnY = stateY + 34;
+      ink(60, 180, 100);
+      box(btnX, btnY, btnW, 18, true);
+      ink(dark ? 220 : 240, dark ? 255 : 255, dark ? 220 : 240);
+      write("update now", { x: btnX + Math.floor((btnW - 60) / 2), y: btnY + 4, size: 1, font: "font_1" });
+    } else if (osState === "downloading") {
+      ink(dark ? 120 : 80, dark ? 140 : 100, dark ? 120 : 80);
+      write("downloading...", { x: pad, y: stateY, size: 1, font: "font_1" });
+      // Progress bar — full width with padding
+      const barX = pad, barW2 = w - pad * 2, barH2 = 8, barY2 = stateY + 16;
+      ink(dark ? 30 : 200, dark ? 40 : 190, dark ? 50 : 180);
+      box(barX, barY2, barW2, barH2, true);
+      ink(60, 180, 100);
+      box(barX, barY2, Math.round(barW2 * (osProgress || 0)), barH2, true);
+      ink(dark ? 160 : 80);
+      write(Math.round((osProgress || 0) * 100) + "%", { x: pad, y: barY2 + 12, size: 1, font: "font_1" });
+    } else if (osState === "flashing") {
+      ink(255, 160, 60);
+      write("flashing EFI...", { x: pad, y: stateY, size: 1, font: "font_1" });
+      ink(dark ? 140 : 80);
+      write("do not power off", { x: pad, y: stateY + 14, size: 1, font: "font_1" });
+    } else if (osState === "rebooting") {
+      ink(200, 100, 60);
+      write("rebooting...", { x: pad, y: stateY, size: 1, font: "font_1" });
+    } else if (osState === "error") {
+      ink(220, 80, 80);
+      const errTxt = ("error: " + osError).slice(0, Math.floor((w - pad * 2) / 6));
+      write(errTxt, { x: pad, y: stateY, size: 1, font: "font_1" });
+      ink(dark ? 120 : 80);
+      write("tap os to retry", { x: pad, y: stateY + 14, size: 1, font: "font_1" });
+    }
+
+    // Dismiss hint — bottom
+    ink(dark ? 60 : 160, dark ? 80 : 150, dark ? 60 : 140);
+    write("tap os to close", { x: pad, y: h - 12, size: 1, font: "font_1" });
   }
 
   // Center status bar: note count is enough, settings go below
@@ -740,30 +965,134 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     if (system?.writeFile && savedCreds.length > 0) {
       system.writeFile(CREDS_PATH, JSON.stringify(savedCreds));
     }
-    // Kick off clock sync fetch
+    // Kick off clock sync fetch (auto-update check takes priority — triggered separately below)
     clockSynced = false;
     system.fetch?.("https://aesthetic.computer/api/clock");
     clockSyncFrame = 0;
+    // Kick off background auto-update version check (after 5s to let things settle)
+    if (autoUpdate.state === "idle") {
+      autoUpdate.state = "checking";
+      autoUpdate.fetchPending = false; // will be set next frame when fetch slot is free
+    }
   }
   wifiWasConnected = !!wifi?.connected;
 
-  // Poll for clock sync result
+  // Start auto-update version fetch when slot is free (deferred from WiFi connect)
+  if (autoUpdate.state === "checking" && !autoUpdate.fetchPending
+      && !osFetchPending && wifi?.connected) {
+    autoUpdate.fetchPending = true;
+    system.fetch?.(OS_BASE_URL + "native-notepat-latest.version");
+  }
+
+  // Poll for fetch result — priority: manual OS panel > auto-update > clock sync
   if (system.fetchResult) {
-    const t1 = Date.now();
-    try {
-      const serverTime = new Date(system.fetchResult).getTime();
-      if (!isNaN(serverTime)) {
-        // Simple: treat fetchResult as server time at moment of receipt
-        const newOffset = serverTime - t1;
-        clockOffset += (newOffset - clockOffset) * 0.5;
-        clockSynced = true;
+    if (osFetchPending) {
+      // Manual OS panel version check
+      osFetchPending = false;
+      const ver = system.fetchResult.trim();
+      if (ver && ver.length > 0 && ver.length < 128) {
+        osRemoteVersion = ver;
+        osState = (osCurrentVersion && osRemoteVersion && osCurrentVersion !== osRemoteVersion)
+          ? "available" : "up-to-date";
+      } else {
+        osError = "version check failed";
+        osState = "error";
       }
-    } catch (e) { /* ignore parse errors */ }
+    } else if (autoUpdate.fetchPending) {
+      // Background auto-update version check
+      autoUpdate.fetchPending = false;
+      const ver = system.fetchResult.trim();
+      if (ver && ver.length > 0 && ver.length < 128 && ver !== osCurrentVersion) {
+        // Newer version available — start silent download
+        autoUpdate.state = "downloading";
+        system.fetchBinary?.(
+          OS_BASE_URL + "native-notepat-latest.vmlinuz",
+          "/tmp/vmlinuz.new",
+          OS_VMLINUZ_BYTES
+        );
+      } else {
+        autoUpdate.state = "idle"; // up to date, nothing to do
+      }
+    } else {
+      // Clock sync result
+      const t1 = Date.now();
+      try {
+        const serverTime = new Date(system.fetchResult).getTime();
+        if (!isNaN(serverTime)) {
+          const newOffset = serverTime - t1;
+          clockOffset += (newOffset - clockOffset) * 0.5;
+          clockSynced = true;
+        }
+      } catch (e) { /* ignore parse errors */ }
+    }
   }
   // Periodic re-sync every ~10 min (at 60fps: 36000 frames)
   clockSyncFrame++;
-  if (wifi?.connected && clockSyncFrame % 36000 === 0) {
+  if (wifi?.connected && clockSyncFrame % 36000 === 0 && !osFetchPending && !autoUpdate.fetchPending) {
     system.fetch?.("https://aesthetic.computer/api/clock");
+  }
+
+  // Background auto-update state machine (runs independently of OS panel)
+  if (autoUpdate.state === "downloading") {
+    osProgress = system.fetchBinaryProgress ?? osProgress;
+    if (system.fetchBinaryDone) {
+      if (system.fetchBinaryOk) {
+        autoUpdate.state = "flashing";
+        system.flashUpdate?.("/tmp/vmlinuz.new"); // auto-detects boot device
+      } else {
+        autoUpdate.state = "idle"; // failed silently, retry next WiFi connect
+      }
+    }
+  }
+  if (autoUpdate.state === "flashing") {
+    if (system.flashDone) {
+      if (system.flashOk) {
+        autoUpdate.state = "rebooting";
+        autoUpdate.rebootFrame = frame + 300; // 5s delay before reboot
+      } else {
+        autoUpdate.state = "idle"; // failed silently
+      }
+    }
+  }
+  if (autoUpdate.state === "rebooting" && frame >= autoUpdate.rebootFrame) {
+    system.reboot?.();
+  }
+
+  // OS update panel state machine (manual, only when panel open)
+  if (activeScreen === "os") {
+    if (osState === "checking" && !wifi?.connected) {
+      osState = "error";
+      osError = "no wifi connection";
+    } else if (osState === "checking" && !osFetchPending && !autoUpdate.fetchPending) {
+      osFetchPending = true;
+      system.fetch?.(OS_BASE_URL + "native-notepat-latest.version");
+    }
+    if (osState === "downloading") {
+      osProgress = system.fetchBinaryProgress ?? osProgress;
+      if (system.fetchBinaryDone) {
+        if (system.fetchBinaryOk) {
+          osState = "flashing";
+          system.flashUpdate?.("/tmp/vmlinuz.new");
+        } else {
+          osError = "download failed";
+          osState = "error";
+        }
+      }
+    }
+    if (osState === "flashing") {
+      if (system.flashDone) {
+        if (system.flashOk) {
+          osState = "rebooting";
+          globalThis.__osRebootFrame = frame + 180; // 3s at 60fps
+        } else {
+          osError = "flash failed";
+          osState = "error";
+        }
+      }
+    }
+    if (osState === "rebooting" && globalThis.__osRebootFrame && frame >= globalThis.__osRebootFrame) {
+      system.reboot?.();
+    }
   }
 
   // Track WS connection status + auto-reconnect when server drops
@@ -778,9 +1107,9 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     sound?.synth({ type: "sine", tone: 1319, duration: 0.1, volume: 0.14, attack: 0.02, decay: 0.08 });
   } else if (!system.ws?.connected && !system.ws?.connecting && wsConnectGrace === 0) {
     if (wsStatus === "connecting") wsStatus = "error";
-    // Auto-reconnect 10s after drop (server sends history then closes)
+    // Auto-reconnect 2s after drop (server sends history then closes)
     if (wifi?.connected && wsReconnectTimer === 0 && wsStatus !== "connecting") {
-      wsReconnectTimer = 600; // ~10s
+      wsReconnectTimer = 120; // ~2s
       wsStatus = "connecting";
       wsConnectGrace = 180;
       system.ws?.connect("wss://chat-system.aesthetic.computer/");
@@ -798,10 +1127,18 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         if (msg.type === "connected") {
           wsStatus = "connected"; // lock in even if server closes right after
           const content = parseContent(msg.content);
-          const last = (content?.messages || []).slice(-1)[0];
+          const msgs = content?.messages || [];
+          console.log("ws connected: " + msgs.length + " messages");
+          const last = msgs.slice(-1)[0];
+          if (last) console.log("last msg: from=" + last.from + " text=" + (last.text || "").slice(0, 40));
           if (last?.from && last?.text) {
+            const msgKey = last.from + ":" + last.text;
             acMsg = { from: last.from, text: last.text };
-            if (!chatMuted) sound?.speak(last.from + ": " + last.text);
+            // Only TTS on first connect, not on reconnects with the same last message
+            if (!chatMuted && msgKey !== lastSpokenMsgKey) {
+              lastSpokenMsgKey = msgKey;
+              sound?.speak(last.from + ": " + last.text);
+            }
           }
         } else if (msg.type === "message") {
           const m = parseContent(msg.content);
@@ -813,28 +1150,70 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
           acMsg = { from: msg.from, text: msg.text };
           if (!chatMuted) sound?.speak(msg.from + ": " + msg.text);
         }
-      } catch (_) {}
+      } catch (err) { console.log("ws parse error: " + err); }
     }
   }
 
-  // Auto-connect to aesthetic.computer hotspot when not connected
+  // Auto-connect: scan, pick strongest known network, timeout after 5s
+  // Disabled when WiFi panel is open (user is manually picking)
   autoConnectFrame++;
   autoConnectBlink = (autoConnectBlink + 1) % 60;
-  const notConnecting = wifi && !wifi.connected &&
-    wifi.state !== 3 /* CONNECTING */ && wifi.state !== 4 /* CONNECTED */;
-  if (notConnecting && autoConnectFrame % 300 === 0) {
-    // Build candidate list: AC hotspot first, then fallbacks, then user-saved creds
-    const acCred = { ssid: AC_SSID, pass: AC_PASS };
-    const others = savedCreds.filter((c) => c.ssid !== AC_SSID && !FALLBACK_WIFI.find((f) => f.ssid === c.ssid));
-    const candidates = [acCred, ...FALLBACK_WIFI, ...others];
-    const cred = candidates[Math.floor(autoConnectFrame / 300) % candidates.length];
-    autoConnectTry++;
-    // Soft beep on 1st, 2nd, 3rd attempt so the user knows it's trying
-    if (autoConnectTry <= 3) {
-      sound?.synth({ type: "sine", tone: 440 + (autoConnectTry - 1) * 110,
-                     duration: 0.06, volume: 0.15, attack: 0.01, decay: 0.05 });
+  const autoConnectEnabled = activeScreen !== "wifi";
+
+  // All known credentials
+  const knownCreds = [
+    { ssid: AC_SSID, pass: AC_PASS },
+    ...FALLBACK_WIFI,
+    ...savedCreds.filter((c) => c.ssid !== AC_SSID && !FALLBACK_WIFI.find((f) => f.ssid === c.ssid)),
+  ];
+  const knownSSIDs = new Set(knownCreds.map((c) => c.ssid));
+
+  const isConnecting = wifi && !wifi.connected &&
+    (wifi.state === 3 /* CONNECTING */ || wifi.state === 4);
+  const isIdle = wifi && !wifi.connected &&
+    wifi.state !== 3 && wifi.state !== 4;
+
+  // Timeout: if connecting for > 300 frames (~5s), disconnect and retry
+  if (autoConnectEnabled && isConnecting && frame - connectStartFrame > 300) {
+    sound?.speak("timed out");
+    sound?.synth({ type: "sine", tone: 300, duration: 0.1, volume: 0.15, attack: 0.01, decay: 0.08 });
+    wifi.disconnect?.();
+    // Small delay before next attempt
+    autoConnectFrame = -60; // will become 0 in ~1s, then scan at 0
+  }
+
+  if (autoConnectEnabled && isIdle) {
+    // Trigger scan every ~5s
+    if (autoConnectFrame % 300 === 0) {
+      wifi.scan?.();
     }
-    wifi.connect(cred.ssid, cred.pass);
+    // 150 frames (~2.5s) after scan: pick best known network
+    if (autoConnectFrame % 300 === 150) {
+      const nets = wifi.networks || [];
+      const matches = nets
+        .filter((n) => n.ssid && knownSSIDs.has(n.ssid))
+        .sort((a, b) => b.signal - a.signal); // strongest first
+
+      autoConnectTry++;
+      if (matches.length > 0) {
+        const best = matches[0];
+        const cred = knownCreds.find((c) => c.ssid === best.ssid);
+        sound?.speak("connecting " + best.ssid);
+        sound?.synth({ type: "sine", tone: 660,
+                       duration: 0.08, volume: 0.15, attack: 0.01, decay: 0.06 });
+        wifi.connect(cred.ssid, cred.pass);
+        connectStartFrame = frame;
+      } else {
+        // No known networks in scan — blind try next in rotation
+        const blindIdx = (autoConnectTry - 1) % knownCreds.length;
+        const cred = knownCreds[blindIdx];
+        sound?.speak("trying " + cred.ssid);
+        sound?.synth({ type: "sine", tone: 440 + (blindIdx % 3) * 110,
+                       duration: 0.06, volume: 0.15, attack: 0.01, decay: 0.05 });
+        wifi.connect(cred.ssid, cred.pass);
+        connectStartFrame = frame;
+      }
+    }
   }
 
   // Right section: wifi | battery | time | vol
@@ -934,6 +1313,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   {
     const volW = 20, volH = 3;
     rx -= volW;
+    const volBarX = rx;
     ink(dark ? 45 : 220, dark ? 45 : 220, dark ? 50 : 225);
     box(rx, barY + 2, volW, volH, true);
     const fillV = Math.floor(sysVol * volW / 100);
@@ -942,6 +1322,8 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     ink(FG_MUTED, FG_MUTED, FG_MUTED);
     rx -= 3 * CH;
     write("vol", { x: rx, y: barY, size: 1 });
+    // Store hit zone for mouse interaction (label + bar)
+    globalThis.__volBar = { x: rx, w: volBarX + volW - rx, barX: volBarX, barW: volW };
   }
 
   // Brightness bar
@@ -950,6 +1332,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     rx -= 4;
     const brtW = 16, brtH = 3;
     rx -= brtW;
+    const brtBarX = rx;
     ink(dark ? 45 : 220, dark ? 45 : 220, dark ? 50 : 225);
     box(rx, barY + 2, brtW, brtH, true);
     const fillB = Math.floor(sysBrt * brtW / 100);
@@ -958,22 +1341,36 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     ink(FG_MUTED, FG_MUTED, FG_MUTED);
     rx -= 3 * CH;
     write("brt", { x: rx, y: barY, size: 1 });
+    globalThis.__brtBar = { x: rx, w: brtBarX + brtW - rx, barX: brtBarX, barW: brtW };
   }
+
+  // === NOTEPAT SCREEN: pads, waveform, echo slider ===
+  if (activeScreen === "notepat") {
 
   // Fullscreen waveform behind everything (drawn here, before grids)
   const wf = sound?.speaker?.waveforms?.left;
   if (wf && activeCount > 0) {
     const wfTop = topBarH;
     const wfH = h - wfTop;
-    ink(dark ? 60 : 160, dark ? 60 : 160, dark ? 60 : 160, 60);
-    for (let i = 1; i < 120; i++) {
-      const x0 = Math.floor((i - 1) * w / 120);
-      const x1 = Math.floor(i * w / 120);
-      const mid = wfTop + Math.floor(wfH / 2);
-      const amp = Math.floor(wfH * 0.45);
-      const y0 = mid - Math.round((wf[i - 1] || 0) * amp);
-      const y1 = mid - Math.round((wf[i] || 0) * amp);
-      line(x0, y0, x1, y1);
+    const mid = wfTop + Math.floor(wfH / 2);
+    const amp = Math.floor(wfH * 0.45);
+    const N = 64;
+    const barW = Math.floor(w / N);
+    const gap = 1;
+    for (let i = 0; i < N; i++) {
+      const si = Math.floor((i / N) * (wf.length || 1));
+      const sample = wf[si] || 0;
+      const barH = Math.max(2, Math.abs(Math.round(sample * amp)));
+      const barTop = sample >= 0 ? mid - barH : mid;
+      // Sky region (empty half)
+      ink(dark ? 16 : 230, dark ? 24 : 220, dark ? 40 : 210, 25);
+      box(i * barW, wfTop, barW - gap, wfH, true);
+      // Bar
+      ink(dark ? 60 : 160, dark ? 160 : 60, dark ? 60 : 160, 55);
+      box(i * barW, barTop, barW - gap, barH, true);
+      // 1px accent cap
+      ink(dark ? 140 : 200, dark ? 200 : 100, dark ? 140 : 200, 80);
+      box(i * barW, barTop, barW - gap, 1, true);
     }
   }
 
@@ -1200,6 +1597,8 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
 
   }
 
+  } // end activeScreen === "notepat"
+
   // WiFi fullscreen password entry
   if (wifiPasswordMode && wifi) {
     wifiCursorBlink++;
@@ -1250,7 +1649,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   }
 
   // WiFi fullscreen network chooser
-  else if (wifiPanelOpen && wifi) {
+  else if (activeScreen === "wifi" && wifi) {
     // Fullscreen dark overlay
     ink(dark ? 10 : 240, dark ? 10 : 240, dark ? 15 : 245, 250);
     box(0, 0, w, h, true);
@@ -1264,18 +1663,40 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     const wifiStatusStr = (wifi.status || "scanning...") + (wifi.iface ? " [" + wifi.iface + "]" : "");
     write(wifiStatusStr, { x: 20, y: 30, size: 1, font: "font_1" });
 
-    // Network list (fullscreen, generous row height)
-    const nets = wifi.networks || [];
+    // Build merged network list: scanned first (deduplicated), then saved/preset not in scan
+    const rawNets = wifi.networks || [];
+    // Deduplicate by SSID — keep the entry with strongest signal
+    const ssidBest = new Map();
+    for (const n of rawNets) {
+      if (!n.ssid) continue;
+      const prev = ssidBest.get(n.ssid);
+      if (!prev || n.signal > prev.signal) ssidBest.set(n.ssid, n);
+    }
+    const scannedNets = [...ssidBest.values()].sort((a, b) => b.signal - a.signal);
+    const scannedSSIDs = new Set(scannedNets.map((n) => n.ssid));
+    const allSaved = [
+      { ssid: AC_SSID, pass: AC_PASS },
+      ...FALLBACK_WIFI,
+      ...savedCreds.filter((c) => c.ssid !== AC_SSID && !FALLBACK_WIFI.find((f) => f.ssid === c.ssid)),
+    ];
+    // Saved networks not currently visible in scan
+    const offlineSaved = allSaved.filter((c) => !scannedSSIDs.has(c.ssid));
+
     const rowH = 16;
     const listY = 44;
-    const maxRows = Math.min(nets.length, Math.floor((h - listY - 20) / rowH));
+    const totalRows = scannedNets.length + (offlineSaved.length > 0 ? 1 + offlineSaved.length : 0);
+    const maxRows = Math.min(totalRows, Math.floor((h - listY - 30) / rowH));
+    // Store merged list for touch handler
+    globalThis.__wifiMergedList = [];
 
-    for (let i = 0; i < maxRows; i++) {
-      const net = nets[i];
-      const ry = listY + i * rowH;
+    let row = 0;
+    // Scanned networks
+    for (let i = 0; i < scannedNets.length && row < maxRows; i++, row++) {
+      const net = scannedNets[i];
+      const ry = listY + row * rowH;
+      const isSaved = allSaved.find((c) => c.ssid === net.ssid);
 
-      // Highlight selected
-      if (i === wifiSelectedIdx) {
+      if (row === wifiSelectedIdx) {
         ink(dark ? 40 : 220, dark ? 50 : 225, dark ? 70 : 240);
         box(10, ry, w - 20, rowH, true);
       }
@@ -1288,15 +1709,62 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         box(16 + b * 4, ry + 10 - (b + 1) * 2, 3, (b + 1) * 2, true);
       }
 
-      // SSID name
-      ink(FG, FG, FG);
-      const ssidDisplay = net.ssid.length > 28 ? net.ssid.slice(0, 27) + "~" : net.ssid;
+      // SSID name (green tint if saved/known)
+      if (isSaved) ink(100, 220, 100);
+      else ink(FG, FG, FG);
+      const ssidDisplay = net.ssid.length > 26 ? net.ssid.slice(0, 25) + "~" : net.ssid;
       write(ssidDisplay, { x: 36, y: ry + 2, size: 1, font: "font_1" });
 
-      // Lock icon for encrypted
-      if (net.encrypted) {
+      // Saved badge
+      if (isSaved) {
+        ink(60, 160, 60);
+        write("saved", { x: w - 40, y: ry + 2, size: 1, font: "font_1" });
+      } else if (net.encrypted) {
         ink(FG_MUTED, FG_MUTED, FG_MUTED);
         write("*", { x: w - 20, y: ry + 2, size: 1, font: "font_1" });
+      }
+
+      globalThis.__wifiMergedList.push({ type: "scan", idx: i, ssid: net.ssid, encrypted: net.encrypted });
+    }
+
+    // Saved/preset networks section (not in scan)
+    if (offlineSaved.length > 0 && row < maxRows) {
+      const sepY = listY + row * rowH;
+      ink(FG_MUTED, FG_MUTED, FG_MUTED);
+      write("-- saved (not in range) --", { x: 20, y: sepY + 2, size: 1, font: "font_1" });
+      globalThis.__wifiMergedList.push({ type: "separator" });
+      row++;
+
+      for (let i = 0; i < offlineSaved.length && row < maxRows; i++, row++) {
+        const cred = offlineSaved[i];
+        const ry = listY + row * rowH;
+        const isPreset = cred.ssid === AC_SSID || FALLBACK_WIFI.find((f) => f.ssid === cred.ssid);
+
+        if (row === wifiSelectedIdx) {
+          ink(dark ? 35 : 225, dark ? 40 : 230, dark ? 55 : 240);
+          box(10, ry, w - 20, rowH, true);
+        }
+
+        // No signal bars — show dim placeholder
+        for (let b = 0; b < 4; b++) {
+          ink(dark ? 30 : 230, dark ? 30 : 230, dark ? 35 : 235);
+          box(16 + b * 4, ry + 10 - (b + 1) * 2, 3, (b + 1) * 2, true);
+        }
+
+        // SSID in dim color
+        ink(dark ? 120 : 160, dark ? 120 : 160, dark ? 130 : 170);
+        write(cred.ssid, { x: 36, y: ry + 2, size: 1, font: "font_1" });
+
+        // Label: "preset" or "saved"
+        if (isPreset) {
+          ink(80, 120, 160);
+          write("preset", { x: w - 44, y: ry + 2, size: 1, font: "font_1" });
+        } else {
+          ink(60, 140, 60);
+          write("saved", { x: w - 40, y: ry + 2, size: 1, font: "font_1" });
+        }
+
+        globalThis.__wifiMergedList.push({ type: "saved", ssid: cred.ssid, pass: cred.pass });
       }
     }
 
@@ -1322,17 +1790,12 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     write("Esc: close", { x: w - 60, y: h - 26, size: 1, font: "font_1" });
 
     // Rescan timer
-    if (frame % 300 === 0 && wifiPanelOpen) {
+    if (frame % 300 === 0 && activeScreen === "wifi") {
       wifi.scan();
     }
   }
 
-  // Passive chat message (main screen, bottom center — hidden by WiFi overlays)
-  if (!wifiPanelOpen && !wifiPasswordMode && acMsg && wifi?.connected) {
-    ink(FG_DIM, FG_DIM, FG_DIM, 180);
-    const preview = (acMsg.from + ": " + acMsg.text).slice(0, 52);
-    write(preview, { x: 4, y: h - 10, size: 1, font: "font_1" });
-  }
+  // Chat preview removed from bottom — shown only in status bar at top
 
 
   // Fade trails

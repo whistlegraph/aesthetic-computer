@@ -7,12 +7,14 @@
 #include <math.h>
 #include <dirent.h>
 #include <unistd.h>
+#include <sys/stat.h>
 
 // Defined in ac-native.c — logs to USB mount
 extern void ac_log(const char *fmt, ...);
 
 // Thread-local reference to current runtime (for C callbacks from JS)
 static __thread ACRuntime *current_rt = NULL;
+static __thread const char *current_phase = "boot";
 
 // ============================================================
 // JS Native Functions — Graphics
@@ -230,11 +232,19 @@ static JSValue js_blur(JSContext *ctx, JSValueConst this_val, int argc, JSValueC
 
 static JSValue js_console_log(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
-    for (int i = 0; i < argc; i++) {
+    // Build message string, then log via ac_log (writes to both stderr + log file)
+    char buf[512];
+    int pos = 0;
+    for (int i = 0; i < argc && pos < (int)sizeof(buf) - 2; i++) {
         const char *s = JS_ToCString(ctx, argv[i]);
-        if (s) { fprintf(stderr, "%s%s", i ? " " : "", s); JS_FreeCString(ctx, s); }
+        if (s) {
+            int n = snprintf(buf + pos, sizeof(buf) - pos, "%s%s", i ? " " : "", s);
+            if (n > 0) pos += n;
+            JS_FreeCString(ctx, s);
+        }
     }
-    fprintf(stderr, "\n");
+    buf[pos] = '\0';
+    ac_log("[js] %s\n", buf);
     return JS_UNDEFINED;
 }
 
@@ -1154,7 +1164,7 @@ static JSValue js_ws_close(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     return JS_UNDEFINED;
 }
 
-static JSValue build_ws_obj(JSContext *ctx) {
+static JSValue build_ws_obj(JSContext *ctx, const char *phase) {
     JSValue ws_obj = JS_NewObject(ctx);
     JS_SetPropertyStr(ctx, ws_obj, "connect", JS_NewCFunction(ctx, js_ws_connect, "connect", 1));
     JS_SetPropertyStr(ctx, ws_obj, "send",    JS_NewCFunction(ctx, js_ws_send,    "send",    1));
@@ -1162,10 +1172,13 @@ static JSValue build_ws_obj(JSContext *ctx) {
 
     ACWs *ws = current_rt ? current_rt->ws : NULL;
     if (ws) {
-        // Poll drains the message queue; snapshot count and connected before unlock
+        // Only drain messages during "paint" phase — that's where JS processes them.
+        // Other phases (act, sim) see connected/connecting but empty messages array,
+        // preventing the queue from being consumed before paint() can read it.
+        int drain = (strcmp(phase, "paint") == 0);
         pthread_mutex_lock(&ws->mu);
-        int count = ws->msg_count;
-        ws->msg_count = 0;
+        int count = drain ? ws->msg_count : 0;
+        if (drain) ws->msg_count = 0;
         int connected = ws->connected;
         int connecting = ws->connecting;
         // Copy only actual message bytes (not full 256KB buffer each) — heap alloc
@@ -1215,6 +1228,210 @@ static JSValue js_fetch(JSContext *ctx, JSValueConst this_val, int argc, JSValue
     current_rt->fetch_pending = 1;
     current_rt->fetch_result[0] = 0;
     JS_FreeCString(ctx, url);
+    return JS_UNDEFINED;
+}
+
+// system.fetchBinary(url, destPath[, expectedBytes])
+// Non-blocking: runs curl in background; poll system.fetchBinaryProgress/Done/Ok each frame.
+static JSValue js_fetch_binary(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (!current_rt || argc < 2) return JS_UNDEFINED;
+    const char *url  = JS_ToCString(ctx, argv[0]);
+    const char *dest = JS_ToCString(ctx, argv[1]);
+    if (!url || !dest) {
+        JS_FreeCString(ctx, url);
+        JS_FreeCString(ctx, dest);
+        return JS_UNDEFINED;
+    }
+    long expected = 0;
+    if (argc >= 3) {
+        double v;
+        JS_ToFloat64(ctx, &v, argv[2]);
+        expected = (long)v;
+    }
+    // Reset state
+    current_rt->fetch_binary_pending  = 1;
+    current_rt->fetch_binary_done     = 0;
+    current_rt->fetch_binary_ok       = 0;
+    current_rt->fetch_binary_progress = 0.0f;
+    current_rt->fetch_binary_expected = expected;
+    strncpy(current_rt->fetch_binary_dest, dest, sizeof(current_rt->fetch_binary_dest) - 1);
+    current_rt->fetch_binary_dest[sizeof(current_rt->fetch_binary_dest) - 1] = 0;
+    // Remove stale files
+    unlink("/tmp/ac_fb_rc");
+    unlink(dest);
+    // Start curl in background
+    char cmd[1024];
+    snprintf(cmd, sizeof(cmd),
+        "sh -c 'curl -sf -L --max-time 300 --output \"%s\" \"%s\" 2>/dev/null;"
+        " echo $? > /tmp/ac_fb_rc' &", dest, url);
+    system(cmd);
+    JS_FreeCString(ctx, url);
+    JS_FreeCString(ctx, dest);
+    return JS_UNDEFINED;
+}
+
+// Detect the EFI partition we booted from:
+// - If /sys/block/sda/removable == 1 → USB → /dev/sda1
+// - Else if /dev/nvme0n1p1 exists → NVMe internal → /dev/nvme0n1p1
+// - Fallback: /dev/sda1
+static void detect_boot_device(char *out, size_t len) {
+    char removable[8] = {0};
+    if (read_sysfs("/sys/block/sda/removable", removable, sizeof(removable)) > 0
+            && removable[0] == '1') {
+        snprintf(out, len, "/dev/sda1");
+        ac_log("[flash] boot device: USB (/dev/sda1, removable)");
+        return;
+    }
+    if (access("/dev/nvme0n1p1", F_OK) == 0) {
+        snprintf(out, len, "/dev/nvme0n1p1");
+        ac_log("[flash] boot device: NVMe (/dev/nvme0n1p1)");
+        return;
+    }
+    // Fallback — try sda1 anyway
+    snprintf(out, len, "/dev/sda1");
+    ac_log("[flash] boot device: fallback (/dev/sda1)");
+}
+
+// Flash update background thread: mount EFI, copy vmlinuz, sync, umount
+// NOTE: current_rt is __thread (thread-local); pass ACRuntime * via arg instead
+static void *flash_thread_fn(void *arg) {
+    ACRuntime *rt = (ACRuntime *)arg;
+    if (!rt) return NULL;
+
+    ac_log("[flash] starting: src=%s device=%s", rt->flash_src, rt->flash_device);
+    if (system("mkdir -p /tmp/efi") != 0) {
+        ac_log("[flash] mkdir failed");
+        rt->flash_ok = 0; rt->flash_done = 1;
+        return NULL;
+    }
+    // Unmount if already mounted
+    system("umount /tmp/efi 2>/dev/null");
+    char cmd[512];
+    snprintf(cmd, sizeof(cmd),
+        "mount \"%s\" /tmp/efi -t vfat -o rw 2>/dev/null", rt->flash_device);
+    if (system(cmd) != 0) {
+        ac_log("[flash] mount %s failed", rt->flash_device);
+        rt->flash_ok = 0; rt->flash_done = 1;
+        return NULL;
+    }
+    snprintf(cmd, sizeof(cmd),
+        "cp -f \"%s\" /tmp/efi/EFI/BOOT/BOOTX64.EFI 2>/dev/null", rt->flash_src);
+    int r = system(cmd);
+    system("sync");
+    system("umount /tmp/efi 2>/dev/null");
+    if (r != 0) {
+        ac_log("[flash] cp failed (r=%d)", r);
+        rt->flash_ok = 0; rt->flash_done = 1;
+        return NULL;
+    }
+    // Remove downloaded file to free /tmp space
+    snprintf(cmd, sizeof(cmd), "rm -f \"%s\"", rt->flash_src);
+    system(cmd);
+    ac_log("[flash] done");
+    rt->flash_ok = 1;
+    rt->flash_done = 1;
+    return NULL;
+}
+
+// system.flashUpdate(srcPath[, devicePath])
+// devicePath defaults to auto-detected boot device if omitted
+static JSValue js_flash_update(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (!current_rt || argc < 1) return JS_UNDEFINED;
+    const char *src = JS_ToCString(ctx, argv[0]);
+    if (!src) return JS_UNDEFINED;
+    current_rt->flash_pending = 1;
+    current_rt->flash_done    = 0;
+    current_rt->flash_ok      = 0;
+    strncpy(current_rt->flash_src, src, sizeof(current_rt->flash_src) - 1);
+    current_rt->flash_src[sizeof(current_rt->flash_src) - 1] = 0;
+    JS_FreeCString(ctx, src);
+    // Device: use arg[1] if provided, else auto-detect
+    if (argc >= 2 && !JS_IsUndefined(argv[1]) && !JS_IsNull(argv[1])) {
+        const char *dev = JS_ToCString(ctx, argv[1]);
+        if (dev) {
+            strncpy(current_rt->flash_device, dev, sizeof(current_rt->flash_device) - 1);
+            current_rt->flash_device[sizeof(current_rt->flash_device) - 1] = 0;
+            JS_FreeCString(ctx, dev);
+        }
+    } else {
+        detect_boot_device(current_rt->flash_device, sizeof(current_rt->flash_device));
+    }
+    // Pass runtime as arg (current_rt is thread-local, unavailable in new thread)
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    pthread_create(&current_rt->flash_thread, &attr, flash_thread_fn, current_rt);
+    pthread_attr_destroy(&attr);
+    return JS_UNDEFINED;
+}
+
+// system.reboot() — triggers system reboot
+static JSValue js_reboot(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)ctx; (void)this_val; (void)argc; (void)argv;
+    ac_log("[system] reboot requested");
+    system("reboot");
+    return JS_UNDEFINED;
+}
+
+// system.jump(pieceName) — request piece switch (handled in main loop)
+static JSValue js_jump(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (!current_rt || argc < 1) return JS_UNDEFINED;
+    const char *name = JS_ToCString(ctx, argv[0]);
+    if (!name) return JS_UNDEFINED;
+    strncpy(current_rt->jump_target, name, sizeof(current_rt->jump_target) - 1);
+    current_rt->jump_target[sizeof(current_rt->jump_target) - 1] = 0;
+    current_rt->jump_requested = 1;
+    ac_log("[system] jump requested: %s", name);
+    JS_FreeCString(ctx, name);
+    return JS_UNDEFINED;
+}
+
+// system.volumeAdjust(delta) — +1 up, -1 down, 0 mute toggle
+static JSValue js_volume_adjust(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (!current_rt || !current_rt->audio || argc < 1) return JS_UNDEFINED;
+    int delta = 0;
+    JS_ToInt32(ctx, &delta, argv[0]);
+    audio_volume_adjust(current_rt->audio, delta);
+    return JS_UNDEFINED;
+}
+
+// system.brightnessAdjust(delta) — +1 up, -1 down
+static JSValue js_brightness_adjust(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 1) return JS_UNDEFINED;
+    int delta = 0;
+    JS_ToInt32(ctx, &delta, argv[0]);
+    // Read current backlight from sysfs
+    DIR *bldir = opendir("/sys/class/backlight");
+    if (!bldir) return JS_UNDEFINED;
+    struct dirent *ent;
+    while ((ent = readdir(bldir))) {
+        if (ent->d_name[0] == '.') continue;
+        char tmp[160];
+        snprintf(tmp, sizeof(tmp), "/sys/class/backlight/%s/max_brightness", ent->d_name);
+        FILE *f = fopen(tmp, "r");
+        if (!f) continue;
+        int bl_max = 100;
+        fscanf(f, "%d", &bl_max);
+        fclose(f);
+        snprintf(tmp, sizeof(tmp), "/sys/class/backlight/%s/brightness", ent->d_name);
+        f = fopen(tmp, "r");
+        int cur = bl_max / 2;
+        if (f) { fscanf(f, "%d", &cur); fclose(f); }
+        int step = bl_max / 20; // 5%
+        if (step < 1) step = 1;
+        cur += delta * step;
+        if (cur < 1) cur = 1;
+        if (cur > bl_max) cur = bl_max;
+        f = fopen(tmp, "w");
+        if (f) { fprintf(f, "%d", cur); fclose(f); }
+        break;
+    }
+    closedir(bldir);
     return JS_UNDEFINED;
 }
 
@@ -1314,7 +1531,7 @@ static JSValue build_system_obj(JSContext *ctx) {
     JS_SetPropertyStr(ctx, sys, "hdmi", JS_NewCFunction(ctx, js_hdmi_fill, "hdmi", 3));
 
     // WebSocket client — system.ws
-    JS_SetPropertyStr(ctx, sys, "ws", build_ws_obj(ctx));
+    JS_SetPropertyStr(ctx, sys, "ws", build_ws_obj(ctx, current_phase));
 
     // File I/O — system.readFile(path) / system.writeFile(path, data)
     JS_SetPropertyStr(ctx, sys, "readFile",  JS_NewCFunction(ctx, js_read_file,  "readFile",  1));
@@ -1349,11 +1566,105 @@ static JSValue build_system_obj(JSContext *ctx) {
         JS_SetPropertyStr(ctx, sys, "fetchResult", JS_NULL);
     }
 
+    // OS update version string
+#ifdef AC_GIT_HASH
+#  ifdef AC_BUILD_TS
+    JS_SetPropertyStr(ctx, sys, "version",
+                      JS_NewString(ctx, AC_GIT_HASH "-" AC_BUILD_TS));
+#  else
+    JS_SetPropertyStr(ctx, sys, "version", JS_NewString(ctx, AC_GIT_HASH));
+#  endif
+#else
+    JS_SetPropertyStr(ctx, sys, "version", JS_NewString(ctx, "unknown"));
+#endif
+
+    // User config (handle, piece — read from /mnt/config.json at boot)
+    {
+        JSValue config = JS_NewObject(ctx);
+        if (current_rt && current_rt->handle[0])
+            JS_SetPropertyStr(ctx, config, "handle", JS_NewString(ctx, current_rt->handle));
+        if (current_rt && current_rt->piece[0])
+            JS_SetPropertyStr(ctx, config, "piece", JS_NewString(ctx, current_rt->piece));
+        JS_SetPropertyStr(ctx, sys, "config", config);
+    }
+
+    // Boot device detection (cached — detect once, not every frame)
+    {
+        static char boot_dev_cache[64] = {0};
+        if (!boot_dev_cache[0]) detect_boot_device(boot_dev_cache, sizeof(boot_dev_cache));
+        JS_SetPropertyStr(ctx, sys, "bootDevice", JS_NewString(ctx, boot_dev_cache));
+    }
+
+    // Binary fetch for OS update
+    JS_SetPropertyStr(ctx, sys, "fetchBinary",
+                      JS_NewCFunction(ctx, js_fetch_binary, "fetchBinary", 3));
+    if (current_rt) {
+        // Poll progress from file size
+        if (current_rt->fetch_binary_pending && current_rt->fetch_binary_expected > 0
+                && current_rt->fetch_binary_dest[0]) {
+            struct stat fst;
+            if (stat(current_rt->fetch_binary_dest, &fst) == 0) {
+                float p = (float)fst.st_size / (float)current_rt->fetch_binary_expected;
+                if (p > 1.0f) p = 1.0f;
+                current_rt->fetch_binary_progress = p;
+            }
+        }
+        // Check if curl finished
+        if (current_rt->fetch_binary_pending) {
+            FILE *fbrc = fopen("/tmp/ac_fb_rc", "r");
+            if (fbrc) {
+                int rc = -1;
+                fscanf(fbrc, "%d", &rc);
+                fclose(fbrc);
+                unlink("/tmp/ac_fb_rc");
+                current_rt->fetch_binary_pending  = 0;
+                current_rt->fetch_binary_done     = 1;
+                current_rt->fetch_binary_ok       = (rc == 0) ? 1 : 0;
+                current_rt->fetch_binary_progress = (rc == 0) ? 1.0f : 0.0f;
+            }
+        }
+        JS_SetPropertyStr(ctx, sys, "fetchBinaryProgress",
+                          JS_NewFloat64(ctx, (double)current_rt->fetch_binary_progress));
+        JS_SetPropertyStr(ctx, sys, "fetchBinaryDone",
+                          JS_NewBool(ctx, current_rt->fetch_binary_done));
+        JS_SetPropertyStr(ctx, sys, "fetchBinaryOk",
+                          JS_NewBool(ctx, current_rt->fetch_binary_ok));
+        // Consume done flag so JS sees it only once
+        if (current_rt->fetch_binary_done && !current_rt->fetch_binary_pending)
+            current_rt->fetch_binary_done = 0;
+    }
+
+    // Flash update
+    JS_SetPropertyStr(ctx, sys, "flashUpdate",
+                      JS_NewCFunction(ctx, js_flash_update, "flashUpdate", 1));
+    JS_SetPropertyStr(ctx, sys, "reboot",
+                      JS_NewCFunction(ctx, js_reboot, "reboot", 0));
+    if (current_rt) {
+        JS_SetPropertyStr(ctx, sys, "flashDone",
+                          JS_NewBool(ctx, current_rt->flash_done));
+        JS_SetPropertyStr(ctx, sys, "flashOk",
+                          JS_NewBool(ctx, current_rt->flash_ok));
+        // Consume done flag
+        if (current_rt->flash_done && !current_rt->flash_pending)
+            current_rt->flash_done = 0;
+    }
+
+    // Piece navigation
+    JS_SetPropertyStr(ctx, sys, "jump",
+                      JS_NewCFunction(ctx, js_jump, "jump", 1));
+
+    // Volume and brightness control from JS
+    JS_SetPropertyStr(ctx, sys, "volumeAdjust",
+                      JS_NewCFunction(ctx, js_volume_adjust, "volumeAdjust", 1));
+    JS_SetPropertyStr(ctx, sys, "brightnessAdjust",
+                      JS_NewCFunction(ctx, js_brightness_adjust, "brightnessAdjust", 1));
+
     return sys;
 }
 
 // Build the API object passed to lifecycle functions
 static JSValue build_api(JSContext *ctx, ACRuntime *rt, const char *phase) {
+    current_phase = phase;
     JSValue api = JS_NewObject(ctx);
     JSValue global = JS_GetGlobalObject(ctx);
 
@@ -1565,6 +1876,8 @@ static JSValue build_api(JSContext *ctx, ACRuntime *rt, const char *phase) {
     return api;
 }
 
+static int piece_load_counter = 0;
+
 int js_load_piece(ACRuntime *rt, const char *path) {
     JSContext *ctx = rt->ctx;
     current_rt = rt;
@@ -1601,8 +1914,12 @@ int js_load_piece(ACRuntime *rt, const char *path) {
     src = patched;
     len += shim_len;
 
+    // Use unique module name each load (QuickJS caches modules by name)
+    char mod_name[300];
+    snprintf(mod_name, sizeof(mod_name), "%s#%d", path, piece_load_counter++);
+
     // Evaluate as module
-    JSValue val = JS_Eval(ctx, src, len, path, JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
+    JSValue val = JS_Eval(ctx, src, len, mod_name, JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
     free(src);
 
     if (JS_IsException(val)) {
