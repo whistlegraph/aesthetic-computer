@@ -658,37 +658,68 @@ const OVEN_TV_HTML = `<!DOCTYPE html>
       }
     }
 
+    let heroCards = {}; // grabId → DOM element
     function renderHero(grabProgress) {
       const hero = document.getElementById('hero');
       const entries = Object.entries(grabProgress).filter(([, p]) => p.stage);
 
       if (entries.length === 0) {
-        hero.className = 'hero idle';
-        hero.innerHTML = 'Waiting for grabs...';
+        if (hero.className !== 'hero idle') {
+          hero.className = 'hero idle';
+          hero.innerHTML = 'Waiting for grabs...';
+          heroCards = {};
+        }
         return;
       }
 
       hero.className = 'hero';
-      hero.innerHTML = entries.map(([grabId, p]) => {
+
+      // Remove cards no longer in progress
+      const activeIds = new Set(entries.map(([id]) => id));
+      for (const id of Object.keys(heroCards)) {
+        if (!activeIds.has(id)) {
+          heroCards[id].remove();
+          delete heroCards[id];
+        }
+      }
+
+      // Update or create cards
+      entries.forEach(([grabId, p]) => {
         const previewSrc = p.previewFrame
           ? 'data:image/jpeg;base64,' + p.previewFrame
           : '';
-        const previewHTML = previewSrc
-          ? '<img src="' + previewSrc + '" alt="preview">'
-          : '<span class="placeholder">...</span>';
         const stageLabel = p.stage ? (p.stage.charAt(0).toUpperCase() + p.stage.slice(1)) : '';
         const detail = p.stageDetail || '';
         const pct = p.percent || 0;
 
-        return '<div class="hero-card' + (p.stage === 'capturing' ? ' capturing' : '') + '">' +
-          '<div class="preview">' + previewHTML + '</div>' +
-          '<div class="info">' +
-            '<div class="piece-name">' + esc(p.piece || grabId) + '</div>' +
-            '<div class="stage">' + esc(stageLabel + (detail ? ' — ' + detail : '')) + '</div>' +
-            '<div class="progress-bar"><div class="fill" style="width:' + pct + '%"></div></div>' +
-          '</div>' +
-        '</div>';
-      }).join('');
+        let card = heroCards[grabId];
+        if (!card) {
+          // Create new card
+          card = document.createElement('div');
+          card.className = 'hero-card' + (p.stage === 'capturing' ? ' capturing' : '');
+          card.innerHTML =
+            '<div class="preview">' + (previewSrc ? '<img src="' + previewSrc + '" alt="preview">' : '<span class="placeholder">...</span>') + '</div>' +
+            '<div class="info">' +
+              '<div class="piece-name">' + esc(p.piece || grabId) + '</div>' +
+              '<div class="stage">' + esc(stageLabel + (detail ? ' — ' + detail : '')) + '</div>' +
+              '<div class="progress-bar"><div class="fill" style="width:' + pct + '%"></div></div>' +
+            '</div>';
+          hero.appendChild(card);
+          heroCards[grabId] = card;
+        } else {
+          // Update existing card in-place (no flicker)
+          card.className = 'hero-card' + (p.stage === 'capturing' ? ' capturing' : '');
+          const img = card.querySelector('.preview img');
+          if (previewSrc && img) {
+            if (img.src !== previewSrc) img.src = previewSrc;
+          } else if (previewSrc && !img) {
+            card.querySelector('.preview').innerHTML = '<img src="' + previewSrc + '" alt="preview">';
+          }
+          card.querySelector('.piece-name').textContent = p.piece || grabId;
+          card.querySelector('.stage').textContent = stageLabel + (detail ? ' — ' + detail : '');
+          card.querySelector('.fill').style.width = pct + '%';
+        }
+      });
     }
 
     let lastQueueKey = '';
@@ -725,12 +756,19 @@ const OVEN_TV_HTML = `<!DOCTYPE html>
       }
     }
 
+    let lastHistoryKey = '';
     function renderHistory(recent) {
       const el = document.getElementById('history-items');
       if (!recent || recent.length === 0) {
-        el.innerHTML = '<span class="strip-empty" style="padding:5px 12px">No recent grabs</span>';
+        if (lastHistoryKey !== 'empty') {
+          el.innerHTML = '<span class="strip-empty" style="padding:5px 12px">No recent grabs</span>';
+          lastHistoryKey = 'empty';
+        }
         return;
       }
+      const historyKey = recent.slice(0, 30).map(g => (g.id || g.piece) + ':' + g.status).join(',');
+      if (historyKey === lastHistoryKey) return;
+      lastHistoryKey = historyKey;
       el.innerHTML = recent.slice(0, 30).map(grab => {
         const thumbImg = grab.cdnUrl
           ? '<img src="' + esc(grab.cdnUrl) + '" alt="">'
