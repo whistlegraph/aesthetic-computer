@@ -37,6 +37,7 @@ import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import dotenv from "dotenv";
+import dgram from "dgram";
 dotenv.config();
 
 // Module streaming - path to public directory
@@ -71,6 +72,10 @@ function getModuleHash(modulePath) {
 // Fairy:point throttle (for silo firehose visualization)
 const fairyThrottle = new Map(); // channelId -> last publish timestamp
 const FAIRY_THROTTLE_MS = 100; // 10Hz max per connection
+
+// Raw UDP fairy relay (for native bare-metal clients)
+const udpRelay = dgram.createSocket("udp4");
+const udpClients = new Map(); // key "ip:port" → { address, port, handle, lastSeen }
 
 // Error logging ring buffer (for dashboard display)
 const errorLog = [];
@@ -3073,11 +3078,7 @@ io.onConnection((channel) => {
 //   [1 byte type] [4 float x LE] [4 float y LE] [1 handle_len] [N handle]
 // Type 0x01 = client→server, 0x02 = server→client broadcast
 // ---------------------------------------------------------------------------
-import dgram from "dgram";
-
 const UDP_FAIRY_PORT = 10010;
-const udpRelay = dgram.createSocket("udp4");
-const udpClients = new Map(); // key "ip:port" → { address, port, handle, lastSeen }
 
 udpRelay.on("message", (msg, rinfo) => {
   if (msg.length < 10 || msg[0] !== 0x01) return;
