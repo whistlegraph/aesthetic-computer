@@ -2378,17 +2378,13 @@
     <!-- LOGGED-OUT: inline About content -->
     <div id="keeps-about-inline" style="display:none; overflow-y:auto; flex:1; padding:20px 24px 32px;">
       <div class="keeps-about-simple">
-        <p class="keeps-about-lede">Some things are worth keeping.</p>
-        <p>KidLisp pieces are tiny living programs — a few lines of code that draw, move, and breathe. Most of them disappear. <strong>Keeps</strong> are the ones that don't.</p>
-        <p>When you keep a piece, it becomes a permanent token on the Tezos blockchain. The source, a rendered thumbnail, and the live artifact are all pinned to IPFS — yours, forever, with no servers in the way. You can share it, sell it, or just know that it exists somewhere that isn't a database that could go down.</p>
-        <p>Only you can keep your piece. No one else can mint it for you, and it can only be kept once. The royalties are locked in at mint — 9% yours on every future sale, automatically, forever.</p>
-        <p>Sign in, find a piece in <strong>Unkept</strong>, and press <strong>Keep on Tezos</strong>.</p>
+        <p class="keeps-about-lede">Here you can Keep KidLisp pieces you wrote on the Tezos Blockchain.</p>
 
         <details class="keeps-about-tech">
           <summary>Technology</summary>
           <div class="keeps-about-tech-body">
             <p class="keeps-about-tech-section-label">Contract &amp; Chain</p>
-            <p>Each keep is an <strong>FA2 NFT</strong> on Tezos mainnet. The active contract address is shown below. The contract rejects duplicates by content hash — <code>keep</code> will revert if a piece has already been kept. Royalties are encoded at mint (9% to author, 1% to KidLisp) and honored by objkt and all FA2-compatible marketplaces.</p>
+            <p>Each keep is an <strong>FA2 NFT</strong> on Tezos mainnet. The contract rejects duplicates by content hash — <code>keep</code> will revert if a piece has already been kept. Royalties are encoded at mint (9% to author, 1% to KidLisp) and honored by objkt and all FA2-compatible marketplaces.</p>
             <div class="keeps-about-contract-box">
               <div class="keeps-about-contract-label">Active Contract</div>
               <div id="v6-active-contract-address" style="font-family: 'Courier New', monospace; color: var(--ac-purple); font-size: 13px; word-break: break-all;">Loading...</div>
