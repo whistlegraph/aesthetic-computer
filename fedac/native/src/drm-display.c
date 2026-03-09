@@ -666,41 +666,35 @@ void drm_secondary_present_waveform(ACSecondaryDisplay *s, ACGraph *g,
     // Dark background
     graph_wipe(g, (ACColor){8, 8, 16, 255});
 
-    // Draw waveform at small-buffer dimensions — two-tone style (bars + thick line)
+    // Draw waveform — quantized bars, two-tone top/bottom
     if (waveform) {
-        int N = rw; // one column per pixel
-        int cy = rh / 2;
+        // Use 64 bars across the width for a clean spectrum look
+        int N = 64;
+        int bar_w = rw / N;
+        if (bar_w < 1) bar_w = 1;
 
-        // Pre-compute sample positions
-        int xs[N], ys[N];
         for (int i = 0; i < N; i++) {
             int idx = (wf_pos + wf_size - N + i) % wf_size;
             float sample = waveform[idx];
-            xs[i] = i;
-            ys[i] = cy - (int)(sample * rh * 0.44f);
-        }
+            float amp = sample < 0 ? -sample : sample; // abs
+            int bar_h = (int)(amp * rh * 0.92f);
+            if (bar_h < 1) bar_h = 1;
+            if (bar_h > rh) bar_h = rh;
 
-        // Pass 1: vertical bars from center to waveform (dim, opaque fill)
-        graph_ink(g, (ACColor){30, 90, 160, 255});
-        for (int i = 0; i < N; i++) {
-            int top = ys[i] < cy ? ys[i] : cy;
-            int bot = ys[i] >= cy ? ys[i] : cy;
-            int bh = bot - top + 1;
-            if (bh < 1) bh = 1;
-            graph_box(g, xs[i], top, 1, bh, 1);
-        }
+            int x = i * bar_w;
+            int gap = bar_w > 2 ? 1 : 0; // 1px gap between bars if wide enough
 
-        // Pass 2: bright connecting line, 3px thick (draw at y-1, y, y+1)
-        for (int dy = -1; dy <= 1; dy++) {
-            graph_ink(g, dy == 0
-                ? (ACColor){100, 200, 255, 255}   // center: brightest
-                : (ACColor){60, 160, 220, 180});   // edge: dimmer
-            int prev_x = xs[0], prev_y = ys[0] + dy;
-            for (int i = 1; i < N; i++) {
-                graph_line(g, prev_x, prev_y, xs[i], ys[i] + dy);
-                prev_x = xs[i];
-                prev_y = ys[i] + dy;
-            }
+            // Top region (empty space above bar) — slightly lighter than bg
+            graph_ink(g, (ACColor){16, 24, 40, 255});
+            graph_box(g, x, 0, bar_w - gap, rh - bar_h, 1);
+
+            // Bottom bar fill — bright blue/cyan
+            graph_ink(g, (ACColor){60, 160, 240, 255});
+            graph_box(g, x, rh - bar_h, bar_w - gap, bar_h, 1);
+
+            // Top 2px of each bar: bright accent
+            graph_ink(g, (ACColor){160, 220, 255, 255});
+            graph_box(g, x, rh - bar_h, bar_w - gap, 2, 1);
         }
     }
 

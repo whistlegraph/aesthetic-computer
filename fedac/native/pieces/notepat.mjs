@@ -779,22 +779,19 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         if (msg.type === "connected") {
           const content = parseContent(msg.content);
           const last = (content?.messages || []).slice(-1)[0];
-          if (last?.handle && last?.text) {
-            acMsg = { from: last.handle, text: last.text };
-            // Read most recent message aloud on connect
-            if (!chatMuted) sound?.speak(last.handle + ": " + last.text);
+          if (last?.from && last?.text) {
+            acMsg = { from: last.from, text: last.text };
+            if (!chatMuted) sound?.speak(last.from + ": " + last.text);
           }
         } else if (msg.type === "message") {
           const m = parseContent(msg.content);
-          const handle = m?.handle || m?.from;
-          if (handle && m?.text) {
-            acMsg = { from: handle, text: m.text };
-            if (!chatMuted) sound?.speak(handle + ": " + m.text);
+          if (m?.from && m?.text) {
+            acMsg = { from: m.from, text: m.text };
+            if (!chatMuted) sound?.speak(m.from + ": " + m.text);
           }
-        } else if (msg.handle && msg.text) {
-          // Flat format fallback
-          acMsg = { from: msg.handle, text: msg.text };
-          if (!chatMuted) sound?.speak(msg.handle + ": " + msg.text);
+        } else if (msg.from && msg.text) {
+          acMsg = { from: msg.from, text: msg.text };
+          if (!chatMuted) sound?.speak(msg.from + ": " + msg.text);
         }
       } catch (_) {}
     }
