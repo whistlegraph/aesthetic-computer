@@ -73,9 +73,6 @@ let bgTarget = dark ? [20, 20, 25] : [255, 255, 255];
 // Cached sound API ref (for leave)
 let soundAPI = null;
 
-// Debug: last key pressed
-let lastKey = "";
-let lastKeyTimer = 0;
 
 // OS image download URL (shown on "os" button tap)
 const OS_URL = "releases.aesthetic.computer/os/native-notepat-latest.img.gz";
@@ -219,7 +216,6 @@ function act({ event: e, sound, wifi }) {
   // WiFi password input mode — fullscreen, capture all keyboard
   if (wifiPasswordMode && e.is("keyboard:down")) {
     const key = e.key?.toLowerCase();
-    lastKey = key; lastKeyTimer = 180; // debug: show raw key name on screen
     if (key === "escape") { wifiPasswordMode = false; wifiPassword = ""; wifiSelectedIdx = -1; return; }
     if (key === "enter") {
       if (wifi && wifiSelectedIdx >= 0) {
@@ -254,10 +250,6 @@ function act({ event: e, sound, wifi }) {
   if (e.is("keyboard:down")) {
     const key = e.key?.toLowerCase();
     if (!key) return;
-
-    // Debug: show every key
-    lastKey = key;
-    lastKeyTimer = 120; // show for 2 seconds
 
     if (key === "escape" && wifiPanelOpen) { wifiPanelOpen = false; return; }
     if (key === "shift") { quickMode = !quickMode; return; }
@@ -556,9 +548,6 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     if (metronomeVisualPhase > 0) metronomeVisualPhase = Math.max(0, metronomeVisualPhase - 0.08);
     if (metronomeFlash > 0) metronomeFlash = Math.max(0, metronomeFlash - 0.15);
   }
-
-  // Decay debug timer
-  if (lastKeyTimer > 0) lastKeyTimer--;
 
   // Re-check dark mode every ~10 seconds
   // dark mode is always on
@@ -1171,21 +1160,6 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     // Expose hit zones for act()
     globalThis.__waveButtons = { y: waveRowY, h: waveRowH, btnW: btnW2, octX: obx, octW: octBtnW };
 
-    // Active note name — red, below wave row on right side
-    if (activeKeys.length > 0) {
-      let noteNames = [];
-      for (const key of activeKeys) {
-        const noteName = KEY_TO_NOTE[key];
-        if (noteName) {
-          const [letter, off] = parseNote(noteName);
-          noteNames.push(letter + (octave + off));
-        }
-      }
-      const noteStr = noteNames.join(" ");
-      const noteX = w - noteStr.length * 8 - 2;
-      ink(255, 60, 60);
-      write(noteStr, { x: noteX, y: waveRowY + 3, size: 1, font: "matrix" });
-    }
   }
 
   // WiFi fullscreen password entry
@@ -1322,11 +1296,6 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     write(preview, { x: 4, y: h - 10, size: 1, font: "font_1" });
   }
 
-  // Last key pressed indicator (bottom corner, fading)
-  if (lastKeyTimer > 0 && lastKey) {
-    ink(FG_MUTED, FG_MUTED, FG_MUTED, Math.min(150, lastKeyTimer * 3));
-    write(lastKey, { x: 2, y: h - 10, size: 1 });
-  }
 
   // Fade trails
   Object.keys(trail).forEach((key) => {
