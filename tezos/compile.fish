@@ -3,7 +3,8 @@
 # Compile Keeps FA2 SmartPy contracts.
 #
 # Usage:
-#   ./compile.fish            # default: v8 (KeepsFA2v8)
+#   ./compile.fish            # default: v9 (KeepsFA2v9)
+#   ./compile.fish v9
 #   ./compile.fish v8
 #   ./compile.fish v7
 #   ./compile.fish v6
@@ -13,7 +14,8 @@
 #   ./compile.fish v2
 #
 # Notes:
-# - v8 is the signed-permit production contract source.
+# - v9 is the final signed-permit production contract source.
+# - v8 remains available as deprecated fallback source.
 # - v7 remains available as deprecated emergency-fallback source.
 # - v5/v5rc remain available for release-candidate compatibility.
 #
@@ -21,7 +23,7 @@
 set -l SCRIPT_DIR (dirname (status filename))
 cd $SCRIPT_DIR
 
-set -l target v8
+set -l target v9
 if test (count $argv) -gt 0
     set target (string lower -- $argv[1])
 end
@@ -31,6 +33,10 @@ set -l output_dir
 set -l label
 
 switch $target
+    case v9
+        set source_file kidlisp_keeps_fa2_v9.py
+        set output_dir KeepsFA2v9
+        set label "v9 (KidLisp Keeps final signed-permit production)"
     case v8
         set source_file kidlisp_keeps_fa2_v8.py
         set output_dir KeepsFA2v8
@@ -61,7 +67,7 @@ switch $target
         set label "v2"
     case '*'
         echo "❌ Unknown target: $target"
-        echo "   Use one of: v8, v7, v6, v5, v4, v3, v2"
+        echo "   Use one of: v9, v8, v7, v6, v5, v4, v3, v2"
         exit 1
 end
 

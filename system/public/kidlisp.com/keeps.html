@@ -1945,8 +1945,13 @@
         <h3>History</h3>
         <div style="display: grid; gap: 10px; margin-bottom: 16px;">
           <div class="keeps-endpoint">
-            <div class="keeps-endpoint-name">v7 (Paused)</div>
-            <div class="keeps-endpoint-desc">Authorization model was reviewed and paused before final release.</div>
+            <div class="keeps-endpoint-name">v8 (Paused, Deprecated)</div>
+            <div class="keeps-endpoint-desc"><code>KT1Er6iJLzWh4nghE2HJME65oC2pN28P6y3P</code></div>
+            <div class="keeps-endpoint-auth"><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/kidlisp_keeps_fa2_v8.py" target="_blank">Source</a> · <a href="https://tzkt.io/KT1Er6iJLzWh4nghE2HJME65oC2pN28P6y3P" target="_blank">TzKT</a> · <a href="https://objkt.com/collections/KT1Er6iJLzWh4nghE2HJME65oC2pN28P6y3P" target="_blank">objkt</a></div>
+          </div>
+          <div class="keeps-endpoint">
+            <div class="keeps-endpoint-name">v7 (Review Generation)</div>
+            <div class="keeps-endpoint-desc">Authorization model was reviewed before the signed-permit production rollout.</div>
             <div class="keeps-endpoint-auth"><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/kidlisp_keeps_fa2_v7.py" target="_blank">Source</a></div>
           </div>
           <div class="keeps-endpoint">
@@ -2049,8 +2054,8 @@
     let keepsConfig = {
       contractAddress: null,
       network: 'mainnet',
-      profile: 'v8',
-      version: '8.0.0',
+      profile: 'v9',
+      version: '9.0.0',
       rpcUrl: 'https://mainnet.ecadinfra.com',
       source: 'fallback',
     };
@@ -2843,7 +2848,7 @@
       const packedOnInput = document.getElementById('v6-sim-packed-on');
       const sourceInput = document.getElementById('v6-sim-source');
 
-      const piece = (pieceInput?.value || '').replace(/^\$+/, '').trim() || 'sim-v8';
+      const piece = (pieceInput?.value || '').replace(/^\$+/, '').trim() || 'sim-v9';
       const walletAddress = (walletInput?.value || '').trim();
       const handle = (handleInput?.value || '').trim();
       const packedOn = (packedOnInput?.value || '').trim();

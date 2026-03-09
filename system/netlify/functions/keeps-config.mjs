@@ -3,6 +3,7 @@ import { respond } from "../../backend/http.mjs";
 import { getKeepsContractAddress, LEGACY_KEEPS_CONTRACT } from "../../backend/tezos-keeps-contract.mjs";
 
 const VERSION_BY_PROFILE = {
+  v9: "9.0.0",
   v8: "8.0.0",
   v7: "7.0.0",
   v6: "6.0.0",
@@ -38,7 +39,7 @@ function resolveProfile(secretDoc, network) {
     pickString(secretDoc?.contractProfile, network) ||
     pickString(secretDoc?.keeps?.profile, network);
 
-  return raw ? raw.toLowerCase() : "v8";
+  return raw ? raw.toLowerCase() : "v9";
 }
 
 function resolveVersion(secretDoc, profile, network) {

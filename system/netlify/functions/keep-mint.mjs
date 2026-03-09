@@ -487,7 +487,7 @@ export const handler = stream(async (event, context) => {
 
       // Simulator mode can run without a real piece, useful for launch dry-runs.
       if (!pieceName && mode === "simulate") {
-        pieceName = "sim-v8";
+        pieceName = "sim-v9";
       }
       
       if (!pieceName) {
@@ -1375,7 +1375,7 @@ export const handler = stream(async (event, context) => {
       // Description is the raw KidLisp source code (newlines preserved)
       const description = piece.source || "A KidLisp piece preserved on Tezos";
 
-      // v8 metadata policy: single canonical tag only
+      // v9 metadata policy: single canonical tag only
       const tags = ["KidLisp"];
 
       const attributes = [
