@@ -1254,14 +1254,31 @@ static JSValue js_fetch(JSContext *ctx, JSValueConst this_val, int argc, JSValue
     unlink("/tmp/ac_fetch.json");
     unlink("/tmp/ac_fetch_rc");
     char cmd[2048];
+    ac_log("[fetch] start: %s\n", url);
     snprintf(cmd, sizeof(cmd),
-        "sh -c 'curl -sf --max-time 8 --output /tmp/ac_fetch.json \"%s\" 2>/dev/null;"
+        "sh -c 'curl -sf --max-time 8 --output /tmp/ac_fetch.json \"%s\" 2>>/tmp/ac_fetch_err;"
         " echo $? > /tmp/ac_fetch_rc' &", url);
     system(cmd);
     current_rt->fetch_pending = 1;
     current_rt->fetch_result[0] = 0;
     JS_FreeCString(ctx, url);
     return JS_TRUE;
+}
+
+// system.fetchCancel() — kill in-flight curl and free the fetch slot
+static JSValue js_fetch_cancel(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    if (!current_rt) return JS_UNDEFINED;
+    if (current_rt->fetch_pending) {
+        ac_log("[fetch] cancel: killing in-flight curl\n");
+        // Kill any background curl for ac_fetch
+        system("pkill -f 'curl.*ac_fetch' 2>/dev/null");
+        unlink("/tmp/ac_fetch.json");
+        unlink("/tmp/ac_fetch_rc");
+        current_rt->fetch_pending = 0;
+        current_rt->fetch_result[0] = 0;
+    }
+    return JS_UNDEFINED;
 }
 
 // ---------------------------------------------------------------------------
@@ -1632,8 +1649,9 @@ static JSValue build_system_obj(JSContext *ctx) {
     JS_SetPropertyStr(ctx, sys, "readFile",  JS_NewCFunction(ctx, js_read_file,  "readFile",  1));
     JS_SetPropertyStr(ctx, sys, "writeFile", JS_NewCFunction(ctx, js_write_file, "writeFile", 2));
 
-    // Async HTTP fetch — system.fetch(url) / system.fetchResult / system.fetchPending
+    // Async HTTP fetch — system.fetch(url) / system.fetchCancel() / system.fetchResult / system.fetchPending
     JS_SetPropertyStr(ctx, sys, "fetch", JS_NewCFunction(ctx, js_fetch, "fetch", 1));
+    JS_SetPropertyStr(ctx, sys, "fetchCancel", JS_NewCFunction(ctx, js_fetch_cancel, "fetchCancel", 0));
     JS_SetPropertyStr(ctx, sys, "fetchPending",
                       JS_NewBool(ctx, current_rt ? current_rt->fetch_pending : 0));
     if (current_rt && current_rt->fetch_pending) {
@@ -1643,6 +1661,7 @@ static JSValue build_system_obj(JSContext *ctx) {
             fscanf(rc, "%d", &code);
             fclose(rc);
             unlink("/tmp/ac_fetch_rc");
+            ac_log("[fetch] done: curl exit=%d\n", code);
             if (code == 0) {
                 FILE *fp = fopen("/tmp/ac_fetch.json", "r");
                 if (fp) {
