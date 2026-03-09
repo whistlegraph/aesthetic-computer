@@ -361,15 +361,15 @@ const OVEN_TV_HTML = `<!DOCTYPE html>
     .hero {
       flex: 1;
       display: flex;
-      align-items: center;
+      align-items: stretch;
       justify-content: center;
-      gap: 16px;
-      padding: 16px;
+      gap: 10px;
+      padding: 10px;
       min-height: 0;
-      overflow: hidden;
+      overflow: auto;
       flex-wrap: wrap;
     }
-    .hero.idle { color: var(--text-dim); font-size: 1.2em; }
+    .hero.idle { color: var(--text-dim); font-size: 1.2em; align-items: center; }
     .hero-card {
       background: var(--bg-card);
       border: 2px solid var(--border);
@@ -377,22 +377,22 @@ const OVEN_TV_HTML = `<!DOCTYPE html>
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 10px;
-      min-width: 160px;
+      padding: 8px;
+      min-width: 120px;
       max-width: 260px;
-      flex: 1;
+      flex: 1 1 120px;
     }
     .hero-card.capturing { border-color: var(--accent); }
     .hero-card .preview {
-      width: 120px;
-      height: 120px;
+      width: 100%;
+      aspect-ratio: 1;
       background: var(--preview-bg);
       border-radius: 3px;
       overflow: hidden;
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
     .hero-card .preview img {
       width: 100%;
@@ -422,6 +422,7 @@ const OVEN_TV_HTML = `<!DOCTYPE html>
       border-top: 1px solid var(--border);
       padding: 5px 12px;
       flex-shrink: 0;
+      overflow: hidden;
     }
     .strip-label {
       color: var(--text-muted);
@@ -433,8 +434,16 @@ const OVEN_TV_HTML = `<!DOCTYPE html>
     .strip-items {
       display: flex;
       gap: 6px;
-      overflow-x: auto;
       padding-bottom: 2px;
+      white-space: nowrap;
+    }
+    .strip-items.train {
+      animation: train-scroll 30s linear infinite;
+      width: max-content;
+    }
+    @keyframes train-scroll {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
     }
     .strip-item {
       background: var(--bg-card);
@@ -468,6 +477,7 @@ const OVEN_TV_HTML = `<!DOCTYPE html>
     .history-row .h-thumb {
       width: 44px;
       height: 44px;
+      min-width: 44px;
       border-radius: 3px;
       background: var(--bg-card);
       flex-shrink: 0;
@@ -502,6 +512,14 @@ const OVEN_TV_HTML = `<!DOCTYPE html>
     .history-row .h-status-failed { color: var(--error); }
     .history-row .h-status-other { color: var(--text-muted); }
     .history-row .h-ago { color: var(--text-dim); font-size: 0.85em; }
+
+    @keyframes card-enter {
+      from { opacity: 0; transform: translateX(-30px) scale(0.9); }
+      to { opacity: 1; transform: translateX(0) scale(1); }
+    }
+    .hero-card {
+      animation: card-enter 0.4s ease-out;
+    }
 
     .capture-bar { display: none; }
 
@@ -677,15 +695,26 @@ const OVEN_TV_HTML = `<!DOCTYPE html>
       const el = document.getElementById('queue-items');
       if (!queue || queue.length === 0) {
         el.innerHTML = '<span class="strip-empty">No items queued</span>';
+        el.classList.remove('train');
         return;
       }
-      el.innerHTML = queue.map((item, i) =>
+      const items = queue.map((item, i) =>
         '<div class="strip-item queue">' +
           '#' + (i + 1) + ' ' + esc(item.piece || '?') +
           ' <span style="color:var(--text-muted)">(' + esc(item.format || '?') + ')</span>' +
           (item.estimatedWait ? ' <span style="color:var(--text-dim)">~' + Math.ceil(item.estimatedWait / 1000) + 's</span>' : '') +
         '</div>'
       ).join('');
+      // Duplicate items for seamless looping train effect
+      if (queue.length > 4) {
+        el.innerHTML = items + items;
+        el.classList.add('train');
+        // Speed scales with queue length
+        el.style.animationDuration = Math.max(10, queue.length * 2) + 's';
+      } else {
+        el.innerHTML = items;
+        el.classList.remove('train');
+      }
     }
 
     function renderHistory(recent) {

@@ -46,7 +46,11 @@ const spacesClient = new S3Client({
 });
 const SPACES_BUCKET = process.env.ART_SPACES_BUCKET || 'art-aesthetic-computer';
 const SPACES_CDN_BASE = process.env.ART_CDN_BASE || 'https://art.aesthetic.computer';
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+// Stable cache version — bump manually when rendering pipeline changes meaningfully.
+// Do NOT tie to GIT_VERSION, which changes every deploy and invalidates all cached icons.
+const CACHE_RENDER_VERSION = 'v1';
 
 // MongoDB connection
 let mongoClient;
@@ -268,6 +272,18 @@ export function estimateWaitTime(queuePosition) {
 
 async function enqueueGrab(fn, metadata = {}) {
   return new Promise((resolve, reject) => {
+    // Deduplicate: reject if the same captureKey is already waiting in queue
+    if (metadata.captureKey) {
+      const alreadyQueued = grabQueue.some(
+        item => item.metadata?.captureKey === metadata.captureKey
+      );
+      if (alreadyQueued) {
+        console.log(`♻️  Dedup: ${metadata.piece} already queued, skipping (${metadata.captureKey})`);
+        reject(new Error(`Duplicate grab skipped: ${metadata.captureKey}`));
+        return;
+      }
+    }
+
     const queueItem = { fn, resolve, reject, metadata: { ...metadata, addedAt: Date.now() } };
 
     // Priority queue: 'keep' (NFT minting) jumps to front, others go to back
@@ -963,14 +979,14 @@ function normalizeCacheKey(cacheKey) {
 
 /**
  * Generate a unique capture key for deduplication
- * Format: {piece}_{width}x{height}_{format}_{animated}_{gitVersion}[_key]
+ * Format: {piece}_{width}x{height}_{format}_{animated}_{renderVersion}[_key]
  */
 function getCaptureKey(piece, width, height, format, animated = false, cacheKey = '') {
   const cleanPiece = piece.replace(/^\$/, ''); // Normalize piece name
   const animFlag = animated ? 'anim' : 'still';
   const normalizedKey = normalizeCacheKey(cacheKey);
   const keySuffix = normalizedKey ? `_${normalizedKey}` : '';
-  return `${cleanPiece}_${width}x${height}_${format}_${animFlag}_${GIT_VERSION}${keySuffix}`;
+  return `${cleanPiece}_${width}x${height}_${format}_${animFlag}_${CACHE_RENDER_VERSION}${keySuffix}`;
 }
 
 /**
@@ -1049,7 +1065,7 @@ async function uploadToSpaces(buffer, cacheKey, contentType = 'image/png') {
     Body: buffer,
     ContentType: contentType,
     ACL: 'public-read',
-    CacheControl: 'public, max-age=86400', // 24h browser cache
+    CacheControl: 'public, max-age=604800', // 7 day browser cache
   }));
   
   const cdnUrl = `${SPACES_CDN_BASE}/${spacesKey}`;
@@ -1091,9 +1107,8 @@ async function uploadToSpaces(buffer, cacheKey, contentType = 'image/png') {
  * @returns {{ cdnUrl: string, fromCache: boolean, buffer?: Buffer }}
  */
 export async function getCachedOrGenerate(type, piece, width, height, generateFn, ext = 'png', skipCache = false) {
-  // Include git version in cache key for automatic invalidation
-  const shortVersion = GIT_VERSION.slice(0, 8);
-  const cacheKey = `${type}/${piece}-${width}x${height}-${shortVersion}.${ext}`;
+  // Use stable render version — only changes when rendering pipeline is updated
+  const cacheKey = `${type}/${piece}-${width}x${height}-${CACHE_RENDER_VERSION}.${ext}`;
   const mimeType = ext === 'webp' ? 'image/webp' : ext === 'gif' ? 'image/gif' : 'image/png';
   
   // Check cache first (unless skipCache is true)
@@ -1206,6 +1221,30 @@ async function getBrowser() {
   return result;
 }
 
+// Blocked URL patterns for Puppeteer pages (prevent self-referential loops and noise)
+const BLOCKED_URL_PATTERNS = [
+  'oven.aesthetic.computer',   // Prevent oven requesting its own icons/grabs
+  'google-analytics.com',      // No analytics in headless captures
+  'googletagmanager.com',
+  'www.google-analytics.com',
+];
+
+/**
+ * Set up request interception on a Puppeteer page to block self-referential
+ * requests (oven requesting its own endpoints) and analytics noise.
+ */
+async function interceptSelfRequests(page) {
+  await page.setRequestInterception(true);
+  page.on('request', request => {
+    const url = request.url();
+    if (BLOCKED_URL_PATTERNS.some(pattern => url.includes(pattern))) {
+      request.abort('blockedbyclient');
+    } else {
+      request.continue();
+    }
+  });
+}
+
 /**
  * Capture frames from a KidLisp piece
  * @param {string} piece - Piece code (e.g., '$roz' or 'roz')
@@ -1242,7 +1281,8 @@ async function captureFrames(piece, options = {}) {
   
   const browser = await getBrowser();
   const page = await browser.newPage();
-  
+  await interceptSelfRequests(page);
+
   // Log page console messages for debugging
   page.on('console', msg => {
     const type = msg.type();
@@ -1256,9 +1296,11 @@ async function captureFrames(piece, options = {}) {
     console.log(`   [PAGE ERROR] ${error.message}`);
   });
   
-  // Log failed requests to identify 404s
+  // Log failed requests to identify 404s (skip intentionally blocked requests)
   page.on('requestfailed', request => {
-    console.log(`   [REQUEST FAILED] ${request.url()} - ${request.failure()?.errorText}`);
+    const url = request.url();
+    if (BLOCKED_URL_PATTERNS.some(p => url.includes(p))) return;
+    console.log(`   [REQUEST FAILED] ${url} - ${request.failure()?.errorText}`);
   });
   
   page.on('response', response => {
@@ -1789,68 +1831,67 @@ export async function grabPiece(piece, options = {}) {
         // Check if all frames are identical (frozen animation)
         const isFrozen = await areFramesIdentical(capturedFrames);
         if (isFrozen) {
-          // Still generate a preview from the first frame for the frozen panel
+          // Return the still frame as a PNG instead of failing
+          console.log(`   🥶 Frozen animation — returning still frame as PNG`);
+          result = await frameToThumbnail(capturedFrames[0], {
+            width: width * density,
+            height: height * density
+          });
+
+          // Also upload frozen preview to Spaces for the frozen panel
           let frozenPreviewUrl = null;
-          try {
-            const previewBuffer = await frameToThumbnail(capturedFrames[0], { 
-              width: width * density, 
-              height: height * density 
-            });
-            
-            // Upload frozen preview to Spaces
-            if (process.env.ART_SPACES_KEY && previewBuffer) {
+          if (process.env.ART_SPACES_KEY && result) {
+            try {
               const frozenKey = `oven/frozen/${piece.replace(/^\$/, '')}-frozen.png`;
               await spacesClient.send(new PutObjectCommand({
                 Bucket: SPACES_BUCKET,
                 Key: frozenKey,
-                Body: previewBuffer,
+                Body: result,
                 ContentType: 'image/png',
                 ACL: 'public-read',
-                CacheControl: 'public, max-age=3600', // 1 hour cache (might get fixed)
+                CacheControl: 'public, max-age=604800',
               }));
               frozenPreviewUrl = `${SPACES_CDN_BASE}/${frozenKey}`;
-              console.log(`📸 Frozen preview saved: ${frozenPreviewUrl}`);
+            } catch (previewErr) {
+              console.error('⚠️ Failed to upload frozen preview:', previewErr.message);
             }
-          } catch (previewErr) {
-            console.error('⚠️ Failed to generate frozen preview:', previewErr.message);
           }
-          
-          const frozenError = 'Animation is frozen - all captured frames are identical';
-          recordFrozenPiece(piece, frozenError, frozenPreviewUrl);
-          throw new Error(frozenError);
-        }
-        
-        // Check for uniform color content (solid color "dud" images)
-        const uniformCheck = await isUniformColorContent(capturedFrames);
-        if (uniformCheck.isUniform) {
-          // Record as frozen/dud piece
-          const dudError = `Animation is a dud - ${uniformCheck.reason}`;
-          recordFrozenPiece(piece, dudError, null);
-          throw new Error(dudError);
-        }
-        
-        activeGrabs.get(grabId).status = 'encoding';
-        
-        // Update progress: encoding stage
-        updateProgress(grabId, {
-          stage: 'encoding',
-          stageDetail: `Encoding ${format.toUpperCase()}...`,
-          percent: 85,
-        });
-        
-        if (format === 'webp') {
-          result = await framesToWebp(capturedFrames, { 
-            playbackFps, 
-            width: width * density, 
-            height: height * density,
-            quality 
-          });
+
+          recordFrozenPiece(piece, 'Frozen — still frame returned', frozenPreviewUrl);
+          // Skip encoding — result is already a still PNG
         } else {
-          result = await framesToGif(capturedFrames, { 
-            fps: playbackFps, 
-            width: width * density, 
-            height: height * density 
+          // Check for uniform color content (solid color "dud" images)
+          const uniformCheck = await isUniformColorContent(capturedFrames);
+          if (uniformCheck.isUniform) {
+            // Record as frozen/dud piece
+            const dudError = `Animation is a dud - ${uniformCheck.reason}`;
+            recordFrozenPiece(piece, dudError, null);
+            throw new Error(dudError);
+          }
+
+          activeGrabs.get(grabId).status = 'encoding';
+
+          // Update progress: encoding stage
+          updateProgress(grabId, {
+            stage: 'encoding',
+            stageDetail: `Encoding ${format.toUpperCase()}...`,
+            percent: 85,
           });
+
+          if (format === 'webp') {
+            result = await framesToWebp(capturedFrames, {
+              playbackFps,
+              width: width * density,
+              height: height * density,
+              quality
+            });
+          } else {
+            result = await framesToGif(capturedFrames, {
+              fps: playbackFps,
+              width: width * density,
+              height: height * density
+            });
+          }
         }
       }
       
@@ -1952,7 +1993,7 @@ export async function grabPiece(piece, options = {}) {
         error: error.message,
       };
     }
-  }, { piece, format }); // End of enqueueGrab, pass metadata for queue visibility
+  }, { piece, format, captureKey, source }); // End of enqueueGrab, pass metadata for queue visibility + dedup
 }
 
 /**
@@ -2783,10 +2824,11 @@ async function generateFeaturedOGImage(topPieces) {
   
   const browser = await getBrowser();
   const page = await browser.newPage();
-  
+  await interceptSelfRequests(page);
+
   try {
     await page.setViewport({ width, height, deviceScaleFactor: 1 });
-    
+
     const url = `https://aesthetic.computer/$${featured.code}?density=1&tv=true&nolabel=true&nogap=true`;
     console.log(`   Loading: ${url}`);
     
@@ -2850,7 +2892,8 @@ async function generateMosaicOGImage(topPieces) {
   
   const browser = await getBrowser();
   const page = await browser.newPage();
-  
+  await interceptSelfRequests(page);
+
   try {
     const tiles = [];
     
@@ -3186,7 +3229,8 @@ async function createKidLispBrandingWithPuppeteer(width, height, codes = []) {
 
   const browser = await getBrowser();
   const page = await browser.newPage();
-  
+  await interceptSelfRequests(page);
+
   try {
     await page.setViewport({ width, height, deviceScaleFactor: 1 });
     await page.setContent(html, { waitUntil: 'networkidle0' });
@@ -3298,7 +3342,8 @@ async function generateFilmstripOGImage(topPieces) {
   
   const browser = await getBrowser();
   const page = await browser.newPage();
-  
+  await interceptSelfRequests(page);
+
   try {
     await page.setViewport({ width: frameWidth, height: frameHeight, deviceScaleFactor: 2 });
     
@@ -3413,7 +3458,8 @@ async function generateCodeSplitOGImage(topPieces) {
   
   const browser = await getBrowser();
   const page = await browser.newPage();
-  
+  await interceptSelfRequests(page);
+
   try {
     // Capture preview
     await page.setViewport({ width: previewWidth, height: previewHeight, deviceScaleFactor: 1 });
