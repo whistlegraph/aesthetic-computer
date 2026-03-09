@@ -461,13 +461,15 @@ function act({ event: e, sound, wifi, system }) {
     // WiFi antenna icon: top-right corner (within status bar)
     if (y < 16 && x > w - 22) {
       activeScreen = (activeScreen === "wifi") ? "notepat" : "wifi";
-      if (activeScreen === "wifi" && wifi) {
-        wifi.scan();  // Always rescan when opening
+      if (activeScreen === "wifi" && wifi && !wifi.connected) {
+        wifi.scan();  // Only scan on open if not already connected
       }
+      wifiSelectedIdx = -1; // reset selection
       return;
     }
 
     // WiFi fullscreen network list clicks (merged list)
+    // First tap: select network. Second tap on same: connect.
     if (activeScreen === "wifi" && !wifiPasswordMode) {
       const merged = globalThis.__wifiMergedList || [];
       const rowH = 16;
@@ -476,16 +478,20 @@ function act({ event: e, sound, wifi, system }) {
       if (clickedRow >= 0 && clickedRow < merged.length) {
         const entry = merged[clickedRow];
         if (entry.type === "separator") return; // ignore separator clicks
-        wifiSelectedIdx = clickedRow;
 
+        // First tap — just select
+        if (wifiSelectedIdx !== clickedRow) {
+          wifiSelectedIdx = clickedRow;
+          return;
+        }
+
+        // Second tap on same row — connect
         if (entry.type === "saved") {
-          // Connect directly with saved password
           wifi?.connect(entry.ssid, entry.pass);
           activeScreen = "notepat";
         } else if (entry.type === "scan") {
           const nets = wifi?.networks || [];
           const net = nets[entry.idx];
-          // Check if we have saved creds for this scanned network
           const savedCred = savedCreds.find((c) => c.ssid === net.ssid) ||
             (net.ssid === AC_SSID ? { pass: AC_PASS } : null) ||
             FALLBACK_WIFI.find((f) => f.ssid === net.ssid);
@@ -1063,9 +1069,21 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     if (osState === "checking" && !wifi?.connected) {
       osState = "error";
       osError = "no wifi connection";
-    } else if (osState === "checking" && !osFetchPending && !autoUpdate.fetchPending) {
+    } else if (osState === "checking" && !osFetchPending) {
+      // Cancel any in-flight auto-update fetch so we can use the fetch slot
+      if (autoUpdate.fetchPending) {
+        autoUpdate.fetchPending = false;
+        autoUpdate.state = "idle";
+      }
       osFetchPending = true;
+      osCheckFrame = frame;
       system.fetch?.(OS_BASE_URL + "native-notepat-latest.version");
+    }
+    // Timeout: if checking for > 10s (600 frames), give up
+    if (osState === "checking" && osFetchPending && frame - osCheckFrame > 600) {
+      osFetchPending = false;
+      osState = "error";
+      osError = "request timed out";
     }
     if (osState === "downloading") {
       osProgress = system.fetchBinaryProgress ?? osProgress;
@@ -1100,17 +1118,20 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   if (wsReconnectTimer > 0) wsReconnectTimer--;
   if (system.ws?.connecting) { wsStatus = "connecting"; wsConnectGrace = 0; }
   else if (system.ws?.connected && wsStatus !== "connected") {
+    const wasFirstConnect = wsStatus !== "reconnecting";
     wsStatus = "connected";
     wsConnectGrace = 0;
-    // Chat connected: bright rising two-note ding
-    sound?.synth({ type: "sine", tone: 1047, duration: 0.1, volume: 0.18, attack: 0.003, decay: 0.08 });
-    sound?.synth({ type: "sine", tone: 1319, duration: 0.1, volume: 0.14, attack: 0.02, decay: 0.08 });
+    // Chat connected ding — only on first connect, not silent reconnects
+    if (wasFirstConnect) {
+      sound?.synth({ type: "sine", tone: 1047, duration: 0.1, volume: 0.18, attack: 0.003, decay: 0.08 });
+      sound?.synth({ type: "sine", tone: 1319, duration: 0.1, volume: 0.14, attack: 0.02, decay: 0.08 });
+    }
   } else if (!system.ws?.connected && !system.ws?.connecting && wsConnectGrace === 0) {
     if (wsStatus === "connecting") wsStatus = "error";
     // Auto-reconnect 2s after drop (server sends history then closes)
-    if (wifi?.connected && wsReconnectTimer === 0 && wsStatus !== "connecting") {
+    if (wifi?.connected && wsReconnectTimer === 0 && wsStatus !== "connecting" && wsStatus !== "reconnecting") {
       wsReconnectTimer = 120; // ~2s
-      wsStatus = "connecting";
+      wsStatus = "reconnecting";
       wsConnectGrace = 180;
       system.ws?.connect("wss://chat-system.aesthetic.computer/");
     }
@@ -1173,13 +1194,10 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   const isIdle = wifi && !wifi.connected &&
     wifi.state !== 3 && wifi.state !== 4;
 
-  // Timeout: if connecting for > 300 frames (~5s), disconnect and retry
+  // Timeout: if connecting for > 300 frames (~5s), disconnect and retry (silent)
   if (autoConnectEnabled && isConnecting && frame - connectStartFrame > 300) {
-    sound?.speak("timed out");
-    sound?.synth({ type: "sine", tone: 300, duration: 0.1, volume: 0.15, attack: 0.01, decay: 0.08 });
     wifi.disconnect?.();
-    // Small delay before next attempt
-    autoConnectFrame = -60; // will become 0 in ~1s, then scan at 0
+    autoConnectFrame = -60; // small delay before next attempt
   }
 
   if (autoConnectEnabled && isIdle) {
@@ -1187,7 +1205,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     if (autoConnectFrame % 300 === 0) {
       wifi.scan?.();
     }
-    // 150 frames (~2.5s) after scan: pick best known network
+    // 150 frames (~2.5s) after scan: pick strongest known network from scan results
     if (autoConnectFrame % 300 === 150) {
       const nets = wifi.networks || [];
       const matches = nets
@@ -1198,21 +1216,12 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       if (matches.length > 0) {
         const best = matches[0];
         const cred = knownCreds.find((c) => c.ssid === best.ssid);
-        sound?.speak("connecting " + best.ssid);
         sound?.synth({ type: "sine", tone: 660,
                        duration: 0.08, volume: 0.15, attack: 0.01, decay: 0.06 });
         wifi.connect(cred.ssid, cred.pass);
         connectStartFrame = frame;
-      } else {
-        // No known networks in scan — blind try next in rotation
-        const blindIdx = (autoConnectTry - 1) % knownCreds.length;
-        const cred = knownCreds[blindIdx];
-        sound?.speak("trying " + cred.ssid);
-        sound?.synth({ type: "sine", tone: 440 + (blindIdx % 3) * 110,
-                       duration: 0.06, volume: 0.15, attack: 0.01, decay: 0.05 });
-        wifi.connect(cred.ssid, cred.pass);
-        connectStartFrame = frame;
       }
+      // No known networks in scan — just wait for next scan cycle (no blind attempts)
     }
   }
 
@@ -1696,8 +1705,9 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       const ry = listY + row * rowH;
       const isSaved = allSaved.find((c) => c.ssid === net.ssid);
 
-      if (row === wifiSelectedIdx) {
-        ink(dark ? 40 : 220, dark ? 50 : 225, dark ? 70 : 240);
+      const isSelected = row === wifiSelectedIdx;
+      if (isSelected) {
+        ink(dark ? 40 : 210, dark ? 55 : 215, dark ? 80 : 230);
         box(10, ry, w - 20, rowH, true);
       }
 
@@ -1715,8 +1725,11 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       const ssidDisplay = net.ssid.length > 26 ? net.ssid.slice(0, 25) + "~" : net.ssid;
       write(ssidDisplay, { x: 36, y: ry + 2, size: 1, font: "font_1" });
 
-      // Saved badge
-      if (isSaved) {
+      // Right side: "tap to connect" if selected, else saved badge / lock icon
+      if (isSelected) {
+        ink(80, 180, 255);
+        write("connect", { x: w - 52, y: ry + 2, size: 1, font: "font_1" });
+      } else if (isSaved) {
         ink(60, 160, 60);
         write("saved", { x: w - 40, y: ry + 2, size: 1, font: "font_1" });
       } else if (net.encrypted) {
@@ -1740,7 +1753,8 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         const ry = listY + row * rowH;
         const isPreset = cred.ssid === AC_SSID || FALLBACK_WIFI.find((f) => f.ssid === cred.ssid);
 
-        if (row === wifiSelectedIdx) {
+        const isSelSaved = row === wifiSelectedIdx;
+        if (isSelSaved) {
           ink(dark ? 35 : 225, dark ? 40 : 230, dark ? 55 : 240);
           box(10, ry, w - 20, rowH, true);
         }
@@ -1755,8 +1769,11 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         ink(dark ? 120 : 160, dark ? 120 : 160, dark ? 130 : 170);
         write(cred.ssid, { x: 36, y: ry + 2, size: 1, font: "font_1" });
 
-        // Label: "preset" or "saved"
-        if (isPreset) {
+        // Right side: "connect" if selected, else label
+        if (isSelSaved) {
+          ink(80, 180, 255);
+          write("connect", { x: w - 52, y: ry + 2, size: 1, font: "font_1" });
+        } else if (isPreset) {
           ink(80, 120, 160);
           write("preset", { x: w - 44, y: ry + 2, size: 1, font: "font_1" });
         } else {
@@ -1789,8 +1806,8 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     ink(FG_MUTED, FG_MUTED, FG_MUTED);
     write("Esc: close", { x: w - 60, y: h - 26, size: 1, font: "font_1" });
 
-    // Rescan timer
-    if (frame % 300 === 0 && activeScreen === "wifi") {
+    // Rescan timer — only when not connected (avoid disrupting active connection)
+    if (frame % 600 === 0 && activeScreen === "wifi" && !wifi.connected) {
       wifi.scan();
     }
   }
