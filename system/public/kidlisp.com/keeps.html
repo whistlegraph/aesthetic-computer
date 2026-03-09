@@ -1164,8 +1164,8 @@
       flex: 1;
       padding: 16px 24px;
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 12px;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px;
       align-content: start;
       overflow-y: auto;
     }
@@ -1803,8 +1803,7 @@
       border-radius: 12px;
       max-width: 520px;
       width: 100%;
-      min-height: 420px;
-      max-height: 90vh;
+      height: min(92vh, 760px);
       overflow: hidden;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
       animation: modalScaleIn 0.25s ease-out;
@@ -1830,8 +1829,8 @@
 
     .mint-body {
       padding: 20px;
+      flex: 1;
       overflow-y: auto;
-      max-height: calc(90vh - 62px);
       overscroll-behavior: contain;
     }
 
@@ -1850,8 +1849,6 @@
       flex-direction: column;
       gap: 0;
       margin-bottom: 16px;
-      max-height: 230px;
-      overflow-y: auto;
       border: 1px solid var(--border-subtle);
       border-radius: 8px;
       background: var(--bg-tertiary);
@@ -2068,17 +2065,17 @@
       .keeps-castle-wrap svg { width: 200px; }
       .keeps-search-bar { padding: 10px 16px; }
       .keeps-sigil-select { min-width: 0; }
-      .keeps-grid { padding: 12px 16px; grid-template-columns: 1fr; }
+      .keeps-grid { padding: 12px 16px; grid-template-columns: repeat(2, 1fr); }
       .keeps-about-overlay { padding: 8px; align-items: center; }
       .keeps-about-panel { width: calc(100vw - 16px); border-radius: 10px; }
       .keeps-about-panel-body { padding: 0 14px 14px; }
       .keeps-modal-body { flex-direction: column; }
       .keeps-modal-sidebar { width: 100%; border-left: none; border-top: 1px solid var(--border-color); max-height: 240px; }
       .keeps-modal-preview iframe { min-height: 240px; }
-      .keeps-mint-modal { max-height: 96vh; min-height: 360px; }
-      .mint-body { max-height: calc(96vh - 62px); padding: 14px; }
+      .keeps-mint-modal { height: min(96vh, 760px); }
+      .mint-body { padding: 14px; }
       .mint-step { font-size: 11px; }
-      .mint-timeline { max-height: 180px; margin-bottom: 12px; }
+      .mint-timeline { margin-bottom: 12px; }
       .mint-artifact-links { gap: 6px; }
       .mint-artifact-preview { aspect-ratio: 4 / 3; }
     }
@@ -2861,11 +2858,6 @@
       const card = document.createElement('div');
       card.className = 'keeps-card' + (isActiveKept ? ' kept' : '');
 
-      // Build syntax-highlighted source with colored line numbers
-      const sourceLines = (entry.source || '').split('\n');
-      const lineNumsHtml = sourceLines.map((_, i) => `<span>${i + 1}</span>`).join('');
-      const sourceTextHtml = highlightKidLisp(entry.source || '');
-
       // WebP preview image URL
       // Use source=keep so oven gives these requests priority in the grab queue.
       const webpUrl = `https://oven.aesthetic.computer/grab/webp/280/210/$${entry.code}?duration=1800&fps=8&quality=70&density=1&nowait=true&source=keep`;
@@ -2882,9 +2874,6 @@
           <div class="preview-noise"><div class="oven-label">oven</div><div class="oven-bar"></div></div>
           <img alt="$${entry.code} preview" loading="lazy" />
           <div class="preview-overlay"></div>
-        </div>
-        <div class="keeps-card-body">
-          <div class="keeps-card-source"><div class="line-nums">${lineNumsHtml}</div><div class="source-text">${sourceTextHtml}</div></div>
         </div>
         <div class="keeps-card-actions">
           ${isActiveKept
