@@ -343,11 +343,27 @@ static void *audio_thread_fn(void *arg) {
             }
 
             // Mix in TTS audio after FX chain (bypasses reverb/glitch)
-            if (audio->tts_buf && audio->tts_read_pos != audio->tts_write_pos) {
-                float tts_sample = audio->tts_buf[audio->tts_read_pos] * audio->tts_volume;
-                mix_l += tts_sample;
-                mix_r += tts_sample;
-                audio->tts_read_pos = (audio->tts_read_pos + 1) % audio->tts_buf_size;
+            // Fade envelope prevents hard-start/stop clicks
+            {
+                int tts_has_data = audio->tts_buf &&
+                    (audio->tts_read_pos != audio->tts_write_pos);
+                // ~3ms ramp at 192kHz (1/576 per sample)
+                float ramp = 1.0f / 576.0f;
+                if (tts_has_data) {
+                    audio->tts_fade += ramp;
+                    if (audio->tts_fade > 1.0f) audio->tts_fade = 1.0f;
+                    float tts_sample = audio->tts_buf[audio->tts_read_pos]
+                        * audio->tts_volume * audio->tts_fade;
+                    mix_l += tts_sample;
+                    mix_r += tts_sample;
+                    audio->tts_read_pos = (audio->tts_read_pos + 1) % audio->tts_buf_size;
+                } else {
+                    // Fade out: keep adding the last scaled zero-ish sample
+                    if (audio->tts_fade > 0.0f) {
+                        audio->tts_fade -= ramp;
+                        if (audio->tts_fade < 0.0f) audio->tts_fade = 0.0f;
+                    }
+                }
             }
 
             // Compressor: peak-following gain reduction (threshold 0.7, ratio ~4:1)

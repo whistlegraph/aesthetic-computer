@@ -666,20 +666,41 @@ void drm_secondary_present_waveform(ACSecondaryDisplay *s, ACGraph *g,
     // Dark background
     graph_wipe(g, (ACColor){8, 8, 16, 255});
 
-    // Draw waveform at small-buffer dimensions
+    // Draw waveform at small-buffer dimensions — two-tone style (bars + thick line)
     if (waveform) {
-        int N = 120;
-        graph_ink(g, (ACColor){40, 140, 200, 220});
-        int prev_x = 0;
-        int prev_y = rh / 2;
+        int N = rw; // one column per pixel
+        int cy = rh / 2;
+
+        // Pre-compute sample positions
+        int xs[N], ys[N];
         for (int i = 0; i < N; i++) {
             int idx = (wf_pos + wf_size - N + i) % wf_size;
             float sample = waveform[idx];
-            int x = (int)((float)i / (float)(N - 1) * (rw - 1));
-            int y = rh / 2 - (int)(sample * rh * 0.42f);
-            if (i > 0) graph_line(g, prev_x, prev_y, x, y);
-            prev_x = x;
-            prev_y = y;
+            xs[i] = i;
+            ys[i] = cy - (int)(sample * rh * 0.44f);
+        }
+
+        // Pass 1: vertical bars from center to waveform (dim, opaque fill)
+        graph_ink(g, (ACColor){30, 90, 160, 255});
+        for (int i = 0; i < N; i++) {
+            int top = ys[i] < cy ? ys[i] : cy;
+            int bot = ys[i] >= cy ? ys[i] : cy;
+            int bh = bot - top + 1;
+            if (bh < 1) bh = 1;
+            graph_box(g, xs[i], top, 1, bh, 1);
+        }
+
+        // Pass 2: bright connecting line, 3px thick (draw at y-1, y, y+1)
+        for (int dy = -1; dy <= 1; dy++) {
+            graph_ink(g, dy == 0
+                ? (ACColor){100, 200, 255, 255}   // center: brightest
+                : (ACColor){60, 160, 220, 180});   // edge: dimmer
+            int prev_x = xs[0], prev_y = ys[0] + dy;
+            for (int i = 1; i < N; i++) {
+                graph_line(g, prev_x, prev_y, xs[i], ys[i] + dy);
+                prev_x = xs[i];
+                prev_y = ys[i] + dy;
+            }
         }
     }
 

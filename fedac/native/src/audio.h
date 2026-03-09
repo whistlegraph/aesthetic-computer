@@ -94,6 +94,7 @@ typedef struct {
     volatile int tts_read_pos;  // consumer (audio thread) reads here
     int tts_buf_size;           // ring buffer size
     float tts_volume;           // 0.0-1.0
+    float tts_fade;             // 0.0-1.0 per-sample envelope (prevents click on start/stop)
 
     // HDMI audio output (secondary, low-pass filtered clone)
     void *hdmi_pcm;             // snd_pcm_t* for HDMI audio device (NULL if not found)
