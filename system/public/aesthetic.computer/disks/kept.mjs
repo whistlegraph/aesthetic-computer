@@ -9,8 +9,8 @@
 
 import * as starfield from "./starfield.mjs";
 
-// Keeps contract (mainnet staging v5 RC)
-const CONTRACT = "KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido";
+// Keeps contract (mainnet v11)
+const CONTRACT = "KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB";
 const NETWORK = "mainnet";
 
 let result = null;
