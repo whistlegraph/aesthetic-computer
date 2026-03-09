@@ -1680,96 +1680,116 @@ function paint(
     false, undefined, false, selectedTypeface
   );
 
-  // Presence display - shows "here" (viewing chat) and "online" (connected anywhere)
+  // Presence display - shows "here" (actively present) and "online" (connected anywhere)
   if (!client.connecting) {
     const chatterCount = client?.chatterCount ?? 0;
     const onlineHandles = client?.onlineHandles || [];
     const hereHandles = client?.hereHandles || [];
-    
-    // Build presence text - list ALL handles instead of cycling through one
-    let presenceText;
+
     const hereCount = hereHandles.length;
     const onlineCount = onlineHandles.length;
-    
-    if (hereCount > 0) {
-      // List ALL "here" handles joined by spaces
-      const allHereHandles = hereHandles.join(" ");
-      presenceText = `${hereCount} here ${allHereHandles}`;
-      if (onlineCount > hereCount) {
-        presenceText += ` · ${onlineCount} online`;
-      }
-    } else if (onlineCount > 0) {
-      // List ALL online handles joined by spaces
-      const allOnlineHandles = onlineHandles.join(" ");
-      presenceText = `${onlineCount} online ${allOnlineHandles}`;
-    } else {
-      // Fallback to connection count
-      presenceText = chatterCount + " online";
-    }
-    
+
     // Get HUD label dimensions to position below it
     const hudLabel = hud?.currentLabel?.();
     const hudLabelBox = hudLabel?.btn?.box;
-    const hudLabelHeight = hudLabelBox?.h ?? 10;
-    
+
     // QR code size from HUD label (if present, e.g., in laer-klokken)
-    // Only use qrSize if it's from actual QR cells (not animation state fallback)
-    // QR cells length is typically 21-29 for URLs, hudAnimationState.qrSize is 80
     const rawQrSize = hudLabel?.qrSize ?? 0;
-    const qrSize = rawQrSize > 0 && rawQrSize < 50 ? rawQrSize : 0; // Filter out animation default (80)
-    const qrTotalWidth = qrSize > 0 ? qrSize + 6 : 0; // QR + 2px border + 4px gap
-    
-    // Position presence text under the HUD label, shifted right by QR width
-    // HUD label starts at x=6 (default offset)
+    const qrSize = rawQrSize > 0 && rawQrSize < 50 ? rawQrSize : 0;
+    const qrTotalWidth = qrSize > 0 ? qrSize + 6 : 0;
+
     const presenceX = 6 + qrTotalWidth;
-    const presenceY = hudLabelHeight + 4; // Just below the HUD label
-    
+    // Position so bottom of text sits just above the topMargin divider line
+    const matrixChunky8Height = 8;
+    const presenceY = topMargin - matrixChunky8Height - 2;
+
     const onlineFgColor = theme?.timestamp || 160;
     const tickerLeftEdge = screen.width - 230; // Reserve space for News/r8Dio
-    let displayPresenceText = presenceText;
-    let presenceWidth = text.width(displayPresenceText, "MatrixChunky8");
 
-    // If it would overlap the ticker area, show truncated list with ellipsis
-    if (presenceX + presenceWidth > tickerLeftEdge) {
-      // Try progressively shorter versions
-      if (hereCount > 0) {
-        // First try showing just first 3 handles
-        const limitedHandles = hereHandles.slice(0, 3).join(" ");
-        const hasMore = hereHandles.length > 3;
-        displayPresenceText = `${hereCount} here ${limitedHandles}${hasMore ? "…" : ""}`;
-        presenceWidth = text.width(displayPresenceText, "MatrixChunky8");
-        
-        // If still too wide, just show count
-        if (presenceX + presenceWidth > tickerLeftEdge) {
-          displayPresenceText = `${hereCount} here`;
-          presenceWidth = text.width(displayPresenceText, "MatrixChunky8");
-        }
-      } else if (onlineCount > 0) {
-        // First try showing just first 3 handles
-        const limitedHandles = onlineHandles.slice(0, 3).join(" ");
-        const hasMore = onlineHandles.length > 3;
-        displayPresenceText = `${onlineCount} online ${limitedHandles}${hasMore ? "…" : ""}`;
-        presenceWidth = text.width(displayPresenceText, "MatrixChunky8");
-        
-        // If still too wide, just show count
-        if (presenceX + presenceWidth > tickerLeftEdge) {
-          displayPresenceText = `${onlineCount} online`;
-          presenceWidth = text.width(displayPresenceText, "MatrixChunky8");
-        }
-      } else {
-        displayPresenceText = chatterCount + " online";
+    // Build count label
+    let countLabel;
+    if (hereCount > 0) {
+      countLabel = `${hereCount} here`;
+      if (onlineCount > hereCount) {
+        countLabel += ` · ${onlineCount} online`;
       }
+    } else if (onlineCount > 0) {
+      countLabel = `${onlineCount} online`;
+    } else {
+      countLabel = chatterCount + " online";
     }
 
-    // Final guard: if still too wide, drop to just the count
-    if (presenceX + presenceWidth > tickerLeftEdge) {
-      displayPresenceText = String(hereCount > 0 ? hereCount : (onlineCount > 0 ? onlineCount : chatterCount));
-    }
-
-    ink(onlineFgColor).write(displayPresenceText, {
+    // Render count label
+    ink(onlineFgColor).write(countLabel, {
       x: presenceX,
       top: presenceY,
     }, false, undefined, false, "MatrixChunky8");
+
+    // Render active handles to the right of the count
+    const activeHandles = hereCount > 0 ? hereHandles : onlineHandles;
+    if (activeHandles.length > 0) {
+      const countWidth = text.width(countLabel, "MatrixChunky8");
+      let handleX = presenceX + countWidth + 4;
+      const handleColor = theme?.handle || [255, 192, 203];
+
+      for (let i = 0; i < activeHandles.length; i++) {
+        const h = "@" + activeHandles[i];
+        const hWidth = text.width(h, "MatrixChunky8");
+
+        // Stop if we'd overlap the ticker area
+        if (handleX + hWidth > tickerLeftEdge) {
+          ink(onlineFgColor).write("…", {
+            x: handleX,
+            top: presenceY,
+          }, false, undefined, false, "MatrixChunky8");
+          break;
+        }
+
+        // Use handle's custom colors if cached, otherwise default pink
+        const cleanHandle = activeHandles[i];
+        const customColors = handleColorsCache.get(cleanHandle);
+        if (customColors && customColors.length > 0) {
+          let charX = handleX;
+          for (let c = 0; c < h.length && c < customColors.length; c++) {
+            const col = customColors[c];
+            ink(col.r, col.g, col.b).write(h[c], {
+              x: charX,
+              top: presenceY,
+            }, false, undefined, false, "MatrixChunky8");
+            charX += text.width(h[c], "MatrixChunky8");
+          }
+          if (h.length > customColors.length) {
+            const remaining = h.slice(customColors.length);
+            if (Array.isArray(handleColor)) {
+              ink(...handleColor).write(remaining, {
+                x: charX,
+                top: presenceY,
+              }, false, undefined, false, "MatrixChunky8");
+            } else {
+              ink(handleColor).write(remaining, {
+                x: charX,
+                top: presenceY,
+              }, false, undefined, false, "MatrixChunky8");
+            }
+          }
+        } else {
+          fetchHandleColors(cleanHandle, api).catch(() => {});
+          if (Array.isArray(handleColor)) {
+            ink(...handleColor).write(h, {
+              x: handleX,
+              top: presenceY,
+            }, false, undefined, false, "MatrixChunky8");
+          } else {
+            ink(handleColor).write(h, {
+              x: handleX,
+              top: presenceY,
+            }, false, undefined, false, "MatrixChunky8");
+          }
+        }
+
+        handleX += hWidth + 3;
+      }
+    }
   }
 
   if (input.canType && !leaving()) {
