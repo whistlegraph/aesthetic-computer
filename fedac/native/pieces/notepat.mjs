@@ -297,7 +297,8 @@ function act({ event: e, sound, wifi }) {
         duration: 0.06, volume: 0.2,
         attack: 0.002, decay: 0.05, pan: 0,
       });
-      sound?.speak(trackpadFX ? "fx on" : "fx off");
+      // FX on: bright chord; FX off: hollow low note
+      if (trackpadFX) sound?.synth({ type: "triangle", tone: 1320, duration: 0.08, volume: 0.15, attack: 0.002, decay: 0.06 });
       return;
     }
     if (key === "-") {
@@ -726,9 +727,9 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
 
   // TTS + WebSocket connect on WiFi connect transition
   if (wifi?.connected && !wifiWasConnected) {
-    sound?.synth({ type: "sine", tone: 880, duration: 0.08, volume: 0.3, attack: 0.01, decay: 0.06 });
-    const connectedSsid = wifi?.ssid || wifi?.networks?.[0]?.ssid || "";
-    sound?.speak(connectedSsid ? `connected to ${connectedSsid}` : "connected");
+    // WiFi connect chord: perfect fifth (G5 + D6)
+    sound?.synth({ type: "sine", tone: 784, duration: 0.18, volume: 0.22, attack: 0.005, decay: 0.15 });
+    sound?.synth({ type: "sine", tone: 1175, duration: 0.18, volume: 0.16, attack: 0.005, decay: 0.15 });
     autoConnectTry = 0;
     wsStatus = "connecting";
     wsConnectGrace = 180; // ~3s grace before declaring error
@@ -768,7 +769,9 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   else if (system.ws?.connected && wsStatus !== "connected") {
     wsStatus = "connected";
     wsConnectGrace = 0;
-    sound?.speak("chat connected");
+    // Chat connected: bright rising two-note ding
+    sound?.synth({ type: "sine", tone: 1047, duration: 0.1, volume: 0.18, attack: 0.003, decay: 0.08 });
+    sound?.synth({ type: "sine", tone: 1319, duration: 0.1, volume: 0.14, attack: 0.02, decay: 0.08 });
   } else if (!system.ws?.connected && !system.ws?.connecting && wsStatus === "connecting" && wsConnectGrace === 0) {
     wsStatus = "error";
   }
@@ -861,7 +864,14 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   const batPct = bat?.percent ?? -1;
   // TTS when battery percent changes
   if (batPct >= 0 && batPct !== lastBatPercent) {
-    if (lastBatPercent >= 0) sound?.speak(`battery at ${batPct} percent`);
+    if (lastBatPercent >= 0) {
+      // Battery change: low = descending minor third, high = ascending major third
+      const charging = bat?.charging;
+      const tone = charging ? 660 : (batPct < 20 ? 330 : 523);
+      const tone2 = charging ? 880 : (batPct < 20 ? 277 : 659);
+      sound?.synth({ type: "sine", tone, duration: 0.12, volume: 0.2, attack: 0.005, decay: 0.1 });
+      sound?.synth({ type: "sine", tone: tone2, duration: 0.12, volume: 0.15, attack: 0.03, decay: 0.09 });
+    }
     lastBatPercent = batPct;
   }
   if (batPct >= 0) {

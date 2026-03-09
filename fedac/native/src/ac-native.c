@@ -493,9 +493,8 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
             }
         }
 
-        // TTS speech — spaced out to avoid overlap
-        if (f == 10 && tts) tts_speak(tts, "hello jeffrey, welcome to notepat");
-        if (f == 140 && tts) tts_speak_voice(tts, "aesthetic dot computer", 1);
+        // Startup greeting — just the name
+        if (f == 10 && tts) tts_speak(tts, "hi jeffrey");
         // W hint is visual only — no TTS
 
         // Fade from black to purple/red bg (complete in first 0.3s)
@@ -721,7 +720,7 @@ int main(int argc, char *argv[]) {
     if (!headless) {
         want_install = draw_startup_fade(&graph, screen, display, tts);
         draw_boot_status(&graph, screen, display, "starting input...");
-        if (tts) tts_speak(tts, "starting input");
+        // status beep instead of TTS (boot sounds handle it)
     }
 
     // Init input
@@ -763,7 +762,7 @@ int main(int argc, char *argv[]) {
     // Init WiFi
     if (!headless && display)
         draw_boot_status(&graph, screen, display, "starting wifi...");
-    if (tts) tts_speak(tts, "starting wifi");
+    // wifi start: audio handled by boot beep sequence
     ACWifi *wifi = wifi_init();
 
     // Init secondary HDMI display (if connected)
@@ -997,11 +996,15 @@ int main(int argc, char *argv[]) {
                     rt->hdmi = hdmi;
                     if (hdmi) {
                         ac_log("[ac-native] HDMI plugged in: %dx%d\n", hdmi->width, hdmi->height);
-                        if (tts) tts_speak(tts, "h d m i on");
+                        // HDMI on: rising chord
+                        if (audio) { audio_synth(audio, WAVE_SINE, 523.25, 0.15, 0.2, 0.005, 0.12, 0.0);
+                                     audio_synth(audio, WAVE_SINE, 783.99, 0.15, 0.15, 0.02,  0.11, 0.0); }
                     }
                 } else if (!hdmi_connected && hdmi) {
                     ac_log("[ac-native] HDMI unplugged\n");
-                    if (tts) tts_speak(tts, "h d m i off");
+                    // HDMI off: descending two-tone
+                    if (audio) { audio_synth(audio, WAVE_SINE, 523.25, 0.12, 0.18, 0.005, 0.10, 0.0);
+                                 audio_synth(audio, WAVE_SINE, 392.00, 0.12, 0.14, 0.02,  0.09, 0.0); }
                     drm_secondary_destroy(hdmi);
                     hdmi = NULL;
                     rt->hdmi = NULL;
@@ -1023,7 +1026,7 @@ int main(int argc, char *argv[]) {
     js_destroy(rt);
     wifi_destroy(wifi);
     if (tts) {
-        tts_speak(tts, "goodbye jeffrey!");
+        tts_speak(tts, "bye jeffrey");
         tts_wait(tts);
         usleep(300000); // Let TTS ring buffer drain before chime
     }
