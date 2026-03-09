@@ -2378,7 +2378,7 @@
     <!-- LOGGED-OUT: inline About content -->
     <div id="keeps-about-inline" style="display:none; overflow-y:auto; flex:1; padding:20px 24px 32px;">
       <div class="keeps-about-simple">
-        <p class="keeps-about-lede">Keep the best of your KidLisp pieces in your Tezos wallet for archival storage on IPFS or trading with your pals on <a href="https://objkt.com" target="_blank" rel="noopener">objkt.com</a>.</p>
+        <p class="keeps-about-lede">Keep the best of your KidLisp pieces in your Tezos wallet for archival storage on IPFS or trading with your pals on <a href="https://objkt.com" target="_blank" rel="noopener">objkt.com</a>. Each keep costs 2.5 ꜩ (<span id="keeps-xtz-usd">...</span>).</p>
 
         <details class="keeps-about-tech">
           <summary>Technology</summary>
@@ -4280,6 +4280,19 @@
     }
 
     bootstrapKeepsPage();
+
+    // Live XTZ price for lede
+    (function() {
+      const el = document.getElementById('keeps-xtz-usd');
+      if (!el) return;
+      fetch('https://api.coingecko.com/api/v3/simple/price?ids=tezos&vs_currencies=usd')
+        .then(r => r.json())
+        .then(data => {
+          const price = data?.tezos?.usd;
+          if (price) el.textContent = '~$' + (price * 2.5).toFixed(2) + ' USD';
+        })
+        .catch(() => { el.textContent = '2.5 ꜩ'; });
+    })();
 
     // 's' ↔ '$' random swap in logo
     (function() {
