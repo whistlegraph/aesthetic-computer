@@ -161,9 +161,14 @@
       font-family: inherit;
       font-size: inherit;
       font-weight: inherit;
-      color: #00ff41;
       letter-spacing: 0;
     }
+    @keyframes keeps-hue { to { filter: hue-rotate(360deg); } }
+    .keeps-logo .kl0 { color: #00ff41; animation: keeps-hue 4s linear infinite; }
+    .keeps-logo .kl1 { color: #00ff41; animation: keeps-hue 4s linear infinite -0.8s; }
+    .keeps-logo .kl2 { color: #00ff41; animation: keeps-hue 4s linear infinite -1.6s; }
+    .keeps-logo .kl3 { color: #00ff41; animation: keeps-hue 4s linear infinite -2.4s; }
+    .keeps-logo .kl4 { color: #00ff41; animation: keeps-hue 4s linear infinite -3.2s; }
 
     /* ========================================
        CASTLE HERO
@@ -2123,7 +2128,7 @@
   <section class="keeps-hero">
     <div class="keeps-hero-header">
       <a href="/" class="keeps-logo" title="Back to KidLisp.com editor">
-        <span class="keeps-subdomain">keeps</span><span class="com-part">.</span><span class="baby-k">K</span><span class="baby-i">i</span><span class="baby-d">d</span><span class="baby-l">L</span><span class="baby-i2">i</span><span class="baby-s">s</span><span class="baby-p">p</span><span class="com-part">.com</span>
+        <span class="keeps-subdomain"><span class="kl0">k</span><span class="kl1">e</span><span class="kl2">e</span><span class="kl3">p</span><span class="kl4" id="keeps-logo-s">s</span></span><span class="com-part">.</span><span class="baby-k">K</span><span class="baby-i">i</span><span class="baby-d">d</span><span class="baby-l">L</span><span class="baby-i2">i</span><span class="baby-s">s</span><span class="baby-p">p</span><span class="com-part">.com</span>
       </a>
       <div class="keeps-hero-actions">
         <button class="keeps-about-btn" id="keeps-about-btn" type="button">About</button>
@@ -2345,6 +2350,10 @@
     <div class="keeps-tabs logged-out">
       <button class="keeps-tab active" data-tab="unkept">Unkept</button>
       <button class="keeps-tab" data-tab="kept">Kept</button>
+    </div>
+
+    <!-- LOGGED-OUT: inline About content -->
+    <div id="keeps-about-inline" style="display:none; overflow-y:auto; flex:1; padding:20px 24px 32px;">
     </div>
 
     <!-- TAB: Unkept/Kept (search + grid) -->
@@ -2837,19 +2846,32 @@
       if (container) container.style.visibility = '';
     }
 
+    function showInlineAbout() {
+      const inline = document.getElementById('keeps-about-inline');
+      const tabIndex = document.getElementById('tab-index');
+      if (!inline) return;
+      // Clone the about content from the modal panel body
+      const source = document.getElementById('tab-rules');
+      if (source && !inline.firstChild) {
+        inline.appendChild(source.cloneNode(true));
+      }
+      inline.style.display = 'block';
+      if (tabIndex) tabIndex.style.display = 'none';
+    }
+
+    function hideInlineAbout() {
+      const inline = document.getElementById('keeps-about-inline');
+      const tabIndex = document.getElementById('tab-index');
+      if (inline) inline.style.display = 'none';
+      if (tabIndex) tabIndex.style.display = '';
+    }
+
     function renderIndexGate(reason = 'login') {
       revealUI();
       setIndexSearchVisible(false);
+      showInlineAbout();
       allCodes = [];
       filteredCodes = [];
-
-      const isHandleGate = reason === 'handle';
-      const message = isHandleGate
-        ? `Set your KidLisp handle first, then your index will load here.`
-        : `Use the top-right login button to load your keeps index.`;
-      const details = isHandleGate
-        ? `<div style="margin-top: 8px; color: var(--text-tertiary); font-size: 12px;">Run <code>handle your-name</code> on <a href="${KL_BASE}" target="_blank" rel="noopener">kidlisp.com</a>.</div>`
-        : '';
 
       grid.innerHTML = '';
     }
@@ -4283,6 +4305,7 @@
       }
 
       revealUI();
+      hideInlineAbout();
       setIndexSearchVisible(true);
 
       const codes = await fetchAllCodes();
@@ -4339,6 +4362,15 @@
     }
 
     bootstrapKeepsPage();
+
+    // 's' ↔ '$' random swap in logo
+    (function() {
+      const el = document.getElementById('keeps-logo-s');
+      if (!el) return;
+      setInterval(() => {
+        if (Math.random() < 0.3) el.textContent = el.textContent === 's' ? '$' : 's';
+      }, 2000);
+    })();
   </script>
 </body>
 </html>
