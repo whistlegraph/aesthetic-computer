@@ -147,8 +147,11 @@ static int thread_connect(ACWs *ws, const char *host, const char *path) {
         goto fail;
     }
 
-    // Non-blocking recv from here on
-    fcntl(ws->fd, F_SETFL, O_NONBLOCK);
+    // Keep socket blocking but set a 50ms receive timeout so the background
+    // thread doesn't block forever — switching to O_NONBLOCK after TLS 1.3
+    // handshake confuses OpenSSL's internal state machine (SSL_ERROR_SSL).
+    struct timeval so_tv = {0, 50000};
+    setsockopt(ws->fd, SOL_SOCKET, SO_RCVTIMEO, &so_tv, sizeof(so_tv));
 
     pthread_mutex_lock(&ws->mu);
     ws->connected = 1;
@@ -192,7 +195,8 @@ static void thread_recv(ACWs *ws) {
     SSL *ssl = (SSL *)ws->ssl;
     if (!ssl) return;
 
-    // Read whatever is available
+    // Read whatever is available; on fatal error fall through to parse buffered data
+    int ssl_fatal = 0;
     while (ws->frame_len < (int)sizeof(ws->frame_buf) - 1) {
         int n = SSL_read(ssl, ws->frame_buf + ws->frame_len,
                          (int)sizeof(ws->frame_buf) - 1 - ws->frame_len);
@@ -200,13 +204,11 @@ static void thread_recv(ACWs *ws) {
         else {
             int e = SSL_get_error(ssl, n);
             if (e == SSL_ERROR_WANT_READ || e == SSL_ERROR_WANT_WRITE) break;
-            ac_log("[ws] recv error %d", e);
-            thread_close_ssl(ws);
-            pthread_mutex_lock(&ws->mu);
-            ws->connected = 0;
-            ws->error = 1;
-            pthread_mutex_unlock(&ws->mu);
-            return;
+            // SO_RCVTIMEO timeout: EAGAIN/EWOULDBLOCK via SSL_ERROR_SYSCALL — not fatal
+            if (e == SSL_ERROR_SYSCALL && (errno == EAGAIN || errno == EWOULDBLOCK || errno == 0)) break;
+            ac_log("[ws] recv error %d errno=%d (buffered %d bytes)", e, errno, ws->frame_len);
+            ssl_fatal = 1;
+            break;
         }
     }
 
@@ -233,6 +235,7 @@ static void thread_recv(ACWs *ws) {
 
         if ((op == 0x1 || op == 0x0) && fin) {
             int copy = (int)plen < WS_MAX_MSG_LEN-1 ? (int)plen : WS_MAX_MSG_LEN-1;
+            ac_log("[ws] frame op=%d plen=%d first64=%.64s", op, (int)plen, (char*)payload);
             pthread_mutex_lock(&ws->mu);
             int slot = ws->msg_count % WS_MAX_MESSAGES;
             memcpy(ws->messages[slot], payload, copy);
@@ -255,6 +258,15 @@ static void thread_recv(ACWs *ws) {
         avail -= total;
     }
     ws->frame_len = avail;
+
+    // Now close if the SSL layer had a fatal error (after processing buffered frames)
+    if (ssl_fatal) {
+        thread_close_ssl(ws);
+        pthread_mutex_lock(&ws->mu);
+        ws->connected = 0;
+        ws->error = 1;
+        pthread_mutex_unlock(&ws->mu);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -291,9 +303,12 @@ static void *ws_thread(void *arg) {
         pthread_mutex_unlock(&ws->mu);
         if (is_connected) thread_recv(ws);
 
-        // Sleep 16ms (≈60fps) to avoid spinning
-        struct timespec ts = {0, 16000000};
-        nanosleep(&ts, NULL);
+        // When not connected, sleep 16ms to avoid spinning.
+        // When connected, thread_recv() blocks up to 50ms in SSL_read (SO_RCVTIMEO).
+        if (!is_connected) {
+            struct timespec ts = {0, 16000000};
+            nanosleep(&ts, NULL);
+        }
     }
     thread_close_ssl(ws);
     return NULL;
