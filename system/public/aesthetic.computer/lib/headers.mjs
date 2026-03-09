@@ -340,21 +340,27 @@ export function headers(isDarkMode) {
         );
       }
       
-      console.log(
-        `%cLearn %cKidLisp%c at %chttps://kidlisp.com`,
-        "color: #6c757d; font-size: 10px;",
-        "color: #28a745; font-weight: bold; font-size: 10px;",
-        "color: #6c757d; font-size: 10px;",
-        "color: #28a745; font-size: 10px; text-decoration: underline;"
-      );
-      
-      console.log(
-        `%cContribute on %cGitHub%c at %chttps://github.com/whistlegraph/aesthetic-computer`,
-        "color: #6c757d; font-size: 10px;",
-        "color: #343a40; font-weight: bold; font-size: 10px;",
-        "color: #6c757d; font-size: 10px;",
-        "color: #6c757d; font-size: 10px; text-decoration: underline;"
-      );
+      const showProjectLinks =
+        (typeof window === "undefined" || window.acKEEP_MODE !== true) ||
+        window.acPACK_SHOW_PROJECT_LINKS === true;
+
+      if (showProjectLinks) {
+        console.log(
+          `%cLearn %cKidLisp%c at %chttps://kidlisp.com`,
+          "color: #6c757d; font-size: 10px;",
+          "color: #28a745; font-weight: bold; font-size: 10px;",
+          "color: #6c757d; font-size: 10px;",
+          "color: #28a745; font-size: 10px; text-decoration: underline;"
+        );
+        
+        console.log(
+          `%cContribute on %cGitHub%c at %chttps://github.com/whistlegraph/aesthetic-computer`,
+          "color: #6c757d; font-size: 10px;",
+          "color: #343a40; font-weight: bold; font-size: 10px;",
+          "color: #6c757d; font-size: 10px;",
+          "color: #6c757d; font-size: 10px; text-decoration: underline;"
+        );
+      }
     }
   }
 }

@@ -51,7 +51,9 @@ async function initGlyphCache() {
       glyphCacheInitialized = true;
       return glyphDbPromise;
     } catch (err) {
-      console.warn("🔤 Glyph cache unavailable:", err.message);
+      if (!checkPackMode()) {
+        console.warn("🔤 Glyph cache unavailable:", err.message);
+      }
       glyphCacheInitialized = true;
       return null;
     }

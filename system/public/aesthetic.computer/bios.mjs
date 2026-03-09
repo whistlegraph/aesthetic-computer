@@ -3076,13 +3076,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       (async () => {
         try {
           let workletUrl;
+          let workletSource = null;
+          let workletObjectUrl = null;
           
           if (isPackMode) {
-            // In PACK mode, load the bundled worklet from VFS via data: URI
-            // (blob:null/ URLs are blocked by audioWorklet.addModule in file:// origin)
+            // In PACK mode, load the bundled worklet from VFS.
+            // Prefer blob: URLs for CSP compatibility in sandboxed NFT iframes.
             if (window.VFS && window.VFS['lib/speaker-bundled.mjs']) {
-              const workletSource = window.VFS['lib/speaker-bundled.mjs'].content;
-              workletUrl = 'data:application/javascript;charset=utf-8,' + encodeURIComponent(workletSource);
+              workletSource = window.VFS['lib/speaker-bundled.mjs'].content;
+              const workletBlob = new Blob([workletSource], {
+                type: "application/javascript",
+              });
+              workletObjectUrl = URL.createObjectURL(workletBlob);
+              workletUrl = workletObjectUrl;
               if (debug) console.log("🎭 Using bundled speaker worklet from VFS");
             } else {
               console.warn("🎭 PACK mode: speaker-bundled.mjs not found in VFS, audio synth will not work");
@@ -3099,9 +3105,35 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           const workletLoadStart = performance.now();
           // console.log(`🎵 WORKLET_LOAD_START: Loading ${workletUrl}`);
           
-          await audioContext.audioWorklet.addModule(workletUrl);
-          
-          // (data: URIs don't need cleanup)
+          try {
+            await audioContext.audioWorklet.addModule(workletUrl);
+          } catch (addModuleError) {
+            const canFallbackToData =
+              isPackMode &&
+              typeof window !== "undefined" &&
+              window.location?.protocol === "file:" &&
+              typeof workletSource === "string";
+
+            if (!canFallbackToData) {
+              throw addModuleError;
+            }
+
+            if (workletObjectUrl) {
+              URL.revokeObjectURL(workletObjectUrl);
+              workletObjectUrl = null;
+            }
+
+            // file:// origins can reject blob: worklet URLs; only fallback there.
+            workletUrl =
+              "data:application/javascript;charset=utf-8," +
+              encodeURIComponent(workletSource);
+            await audioContext.audioWorklet.addModule(workletUrl);
+          } finally {
+            if (workletObjectUrl) {
+              URL.revokeObjectURL(workletObjectUrl);
+              workletObjectUrl = null;
+            }
+          }
         
         const workletLoadTime = performance.now() - workletLoadStart;
         // console.log(`🎵 WORKLET_LOADED: Took ${workletLoadTime.toFixed(3)}ms`);
@@ -3478,7 +3510,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         modal.classList.remove("on");
         audioStarting = false;
         } catch (workletError) {
-          console.error("🎵 BIOS: Audio worklet setup failed:", workletError);
+          if (!checkPackMode()) {
+            console.error("🎵 BIOS: Audio worklet setup failed:", workletError);
+          } else if (debug) {
+            console.warn(
+              "🎵 PACK: Audio worklet unavailable:",
+              workletError?.message || workletError,
+            );
+          }
         audioStarting = false;
         }
       })();
