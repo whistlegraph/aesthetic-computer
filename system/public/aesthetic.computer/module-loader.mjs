@@ -127,7 +127,9 @@ class ModuleLoader {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
       
       request.onerror = () => {
-        console.warn("📦 IndexedDB not available");
+        if (!(typeof window !== "undefined" && window.acPACK_MODE)) {
+          console.warn("📦 IndexedDB not available");
+        }
         resolve(null); // Don't fail - just disable caching
       };
       
