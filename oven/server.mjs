@@ -10,7 +10,7 @@ import fs from 'fs';
 import { execSync } from 'child_process';
 import { WebSocketServer } from 'ws';
 import { healthHandler, bakeHandler, statusHandler, bakeCompleteHandler, bakeStatusHandler, getActiveBakes, getIncomingBakes, getRecentBakes, subscribeToUpdates, cleanupStaleBakes } from './baker.mjs';
-import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, ensureLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, getAllProgress, getConcurrencyStatus, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus, getFrozenPieces, clearFrozenPiece, getLatestOGImageUrl, regenerateOGImagesBackground, generateKidlispBackdrop, getLatestBackdropUrl, APP_SCREENSHOT_PRESETS, generateNotepatOGImage, getLatestNotepatOGUrl } from './grabber.mjs';
+import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, ensureLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, getAllProgress, getConcurrencyStatus, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus, getFrozenPieces, clearFrozenPiece, getLatestOGImageUrl, regenerateOGImagesBackground, generateKidlispBackdrop, getLatestBackdropUrl, APP_SCREENSHOT_PRESETS, generateNotepatOGImage, getLatestNotepatOGUrl, prewarmGrabBrowser } from './grabber.mjs';
 import archiver from 'archiver';
 import { createBundle, createJSPieceBundle, createM4DBundle, generateDeviceHTML, prewarmCache, getCacheStatus, setSkipMinification } from './bundler.mjs';
 import { streamOSImage, getOSBuildStatus, invalidateManifest, purgeOSBuildCache, clearOSBuildLocalCache } from './os-builder.mjs';
@@ -361,38 +361,38 @@ const OVEN_TV_HTML = `<!DOCTYPE html>
     .hero {
       flex: 1;
       display: flex;
-      align-items: stretch;
+      align-items: center;
       justify-content: center;
-      gap: 10px;
-      padding: 10px;
+      gap: 8px;
+      padding: 8px;
       min-height: 0;
-      overflow: auto;
-      flex-wrap: wrap;
+      overflow: hidden;
     }
-    .hero.idle { color: var(--text-dim); font-size: 1.2em; align-items: center; }
+    .hero.idle { color: var(--text-dim); font-size: 1.2em; justify-content: center; }
     .hero-card {
       background: var(--bg-card);
       border: 2px solid var(--border);
       border-radius: 6px;
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
       align-items: center;
-      padding: 8px;
-      min-width: 120px;
-      max-width: 260px;
-      flex: 1 1 120px;
+      padding: 6px 8px;
+      gap: 8px;
+      min-width: 0;
+      max-width: 320px;
+      flex: 0 1 auto;
     }
     .hero-card.capturing { border-color: var(--accent); }
     .hero-card .preview {
-      width: 100%;
-      aspect-ratio: 1;
+      width: 56px;
+      height: 56px;
+      min-width: 56px;
       background: var(--preview-bg);
       border-radius: 3px;
       overflow: hidden;
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-bottom: 6px;
     }
     .hero-card .preview img {
       width: 100%;
@@ -400,13 +400,15 @@ const OVEN_TV_HTML = `<!DOCTYPE html>
       object-fit: contain;
       image-rendering: pixelated;
     }
-    .hero-card .preview .placeholder { color: var(--text-dim); font-size: 1.6em; }
-    .hero-card .info { text-align: center; width: 100%; }
-    .hero-card .piece-name { color: var(--accent); font-weight: bold; margin-bottom: 3px; font-size: 0.95em; }
-    .hero-card .stage { color: var(--text-muted); font-size: 0.85em; margin-bottom: 6px; }
+    .hero-card .preview .placeholder { color: var(--text-dim); font-size: 1.2em; }
+    .hero-card .info { text-align: left; min-width: 0; flex: 1; }
+    .hero-card .piece-name { color: var(--accent); font-weight: bold; font-size: 0.9em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hero-card .meta { color: var(--text-dim); font-size: 0.72em; margin: 1px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hero-card .meta .author { color: var(--text-secondary); }
+    .hero-card .stage { color: var(--text-muted); font-size: 0.78em; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .hero-card .progress-bar {
       width: 100%;
-      height: 4px;
+      height: 3px;
       background: var(--border);
       border-radius: 2px;
       overflow: hidden;
@@ -514,11 +516,19 @@ const OVEN_TV_HTML = `<!DOCTYPE html>
     .history-row .h-ago { color: var(--text-dim); font-size: 0.85em; }
 
     @keyframes card-enter {
-      from { opacity: 0; transform: translateX(-30px) scale(0.9); }
+      from { opacity: 0; transform: translateX(-60px) scale(0.92); }
       to { opacity: 1; transform: translateX(0) scale(1); }
     }
+    @keyframes card-exit {
+      from { opacity: 1; transform: translateX(0) scale(1); }
+      to { opacity: 0; transform: translateX(60px) scale(0.92); }
+    }
     .hero-card {
-      animation: card-enter 0.4s ease-out;
+      animation: card-enter 0.5s ease-out forwards;
+    }
+    .hero-card.exiting {
+      animation: card-exit 0.4s ease-in forwards;
+      pointer-events: none;
     }
 
     .capture-bar { display: none; }
@@ -659,29 +669,60 @@ const OVEN_TV_HTML = `<!DOCTYPE html>
     }
 
     let heroCards = {}; // grabId → DOM element
+    let exitingCards = new Set(); // grabIds currently animating out
+
+    function ago(ms) {
+      const s = Math.floor(ms / 1000);
+      if (s < 60) return s + 's ago';
+      const m = Math.floor(s / 60);
+      return m + 'm ' + (s % 60) + 's ago';
+    }
+
+    function shortDate(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      if (isNaN(d)) return '';
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return months[d.getMonth()] + ' ' + d.getDate();
+    }
+
     function renderHero(grabProgress) {
       const hero = document.getElementById('hero');
       const entries = Object.entries(grabProgress).filter(([, p]) => p.stage);
 
-      if (entries.length === 0) {
-        if (hero.className !== 'hero idle') {
+      // Animate out cards no longer in progress
+      const activeIds = new Set(entries.map(([id]) => id));
+      for (const id of Object.keys(heroCards)) {
+        if (!activeIds.has(id) && !exitingCards.has(id)) {
+          exitingCards.add(id);
+          const card = heroCards[id];
+          card.classList.add('exiting');
+          card.addEventListener('animationend', () => {
+            card.remove();
+            delete heroCards[id];
+            exitingCards.delete(id);
+            // Check if hero should go idle after last card exits
+            if (Object.keys(heroCards).length === 0 && exitingCards.size === 0) {
+              hero.className = 'hero idle';
+              hero.textContent = 'Waiting for grabs\\u2026';
+            }
+          }, { once: true });
+        }
+      }
+
+      if (entries.length === 0 && Object.keys(heroCards).length === 0 && exitingCards.size === 0) {
+        if (!hero.classList.contains('idle')) {
           hero.className = 'hero idle';
-          hero.innerHTML = 'Waiting for grabs...';
-          heroCards = {};
+          hero.textContent = 'Waiting for grabs\\u2026';
         }
         return;
       }
 
-      hero.className = 'hero';
-
-      // Remove cards no longer in progress
-      const activeIds = new Set(entries.map(([id]) => id));
-      for (const id of Object.keys(heroCards)) {
-        if (!activeIds.has(id)) {
-          heroCards[id].remove();
-          delete heroCards[id];
-        }
+      // Clear idle text when transitioning to active
+      if (hero.classList.contains('idle')) {
+        hero.innerHTML = '';
       }
+      hero.className = 'hero';
 
       // Update or create cards
       entries.forEach(([grabId, p]) => {
@@ -691,31 +732,43 @@ const OVEN_TV_HTML = `<!DOCTYPE html>
         const stageLabel = p.stage ? (p.stage.charAt(0).toUpperCase() + p.stage.slice(1)) : '';
         const detail = p.stageDetail || '';
         const pct = p.percent || 0;
+        const now = Date.now();
+        const reqAgo = p.requestedAt ? ago(now - p.requestedAt) : '';
+        const authorStr = p.author || '';
+        const createdStr = shortDate(p.pieceCreatedAt);
+        const sourceStr = p.source === 'keep' ? 'keep' : '';
+
+        let metaParts = [];
+        if (authorStr) metaParts.push('<span class="author">' + esc(authorStr) + '</span>');
+        if (sourceStr) metaParts.push(sourceStr);
+        if (createdStr) metaParts.push('created ' + createdStr);
+        if (reqAgo) metaParts.push(reqAgo);
+        const metaHtml = metaParts.join(' · ');
 
         let card = heroCards[grabId];
         if (!card) {
-          // Create new card
           card = document.createElement('div');
           card.className = 'hero-card' + (p.stage === 'capturing' ? ' capturing' : '');
           card.innerHTML =
-            '<div class="preview">' + (previewSrc ? '<img src="' + previewSrc + '" alt="preview">' : '<span class="placeholder">...</span>') + '</div>' +
+            '<div class="preview">' + (previewSrc ? '<img src="' + previewSrc + '" alt="">' : '<span class="placeholder">···</span>') + '</div>' +
             '<div class="info">' +
               '<div class="piece-name">' + esc(p.piece || grabId) + '</div>' +
+              '<div class="meta">' + metaHtml + '</div>' +
               '<div class="stage">' + esc(stageLabel + (detail ? ' — ' + detail : '')) + '</div>' +
               '<div class="progress-bar"><div class="fill" style="width:' + pct + '%"></div></div>' +
             '</div>';
           hero.appendChild(card);
           heroCards[grabId] = card;
         } else {
-          // Update existing card in-place (no flicker)
           card.className = 'hero-card' + (p.stage === 'capturing' ? ' capturing' : '');
           const img = card.querySelector('.preview img');
           if (previewSrc && img) {
             if (img.src !== previewSrc) img.src = previewSrc;
           } else if (previewSrc && !img) {
-            card.querySelector('.preview').innerHTML = '<img src="' + previewSrc + '" alt="preview">';
+            card.querySelector('.preview').innerHTML = '<img src="' + previewSrc + '" alt="">';
           }
           card.querySelector('.piece-name').textContent = p.piece || grabId;
+          card.querySelector('.meta').innerHTML = metaHtml;
           card.querySelector('.stage').textContent = stageLabel + (detail ? ' — ' + detail : '');
           card.querySelector('.fill').style.width = pct + '%';
         }
@@ -2805,6 +2858,16 @@ if (dev) {
     console.log(`🔥 Oven server running on http://localhost:${PORT}`);
     addServerLog('success', '🔥', `Oven server ready (v${GIT_VERSION.slice(0,8)})`);
     
+    // Pre-warm Puppeteer browser so first keep thumbnail bake is fast
+    setTimeout(() => {
+      addServerLog('info', '🌐', 'Pre-warming grab browser...');
+      prewarmGrabBrowser().then(() => {
+        addServerLog('success', '🌐', 'Browser pre-warm complete');
+      }).catch(err => {
+        addServerLog('error', '⚠️', `Browser pre-warm failed: ${err.message}`);
+      });
+    }, 5000); // Give server 5s to settle first
+
     // Start background OG image regeneration after a short delay
     setTimeout(() => {
       addServerLog('info', '🖼️', 'Starting background OG regeneration...');
