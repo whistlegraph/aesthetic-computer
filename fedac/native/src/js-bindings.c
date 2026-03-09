@@ -1168,19 +1168,28 @@ static JSValue build_ws_obj(JSContext *ctx) {
         ws->msg_count = 0;
         int connected = ws->connected;
         int connecting = ws->connecting;
-        // Copy messages out under lock
-        char msgs[WS_MAX_MESSAGES][WS_MAX_MSG_LEN];
+        // Copy only actual message bytes (not full 256KB buffer each) — heap alloc
         if (count > WS_MAX_MESSAGES) count = WS_MAX_MESSAGES;
-        for (int i = 0; i < count; i++)
-            memcpy(msgs[i], ws->messages[i], WS_MAX_MSG_LEN);
+        char *msgs[WS_MAX_MESSAGES];
+        int   msg_lens[WS_MAX_MESSAGES];
+        for (int i = 0; i < count; i++) {
+            int len = strnlen(ws->messages[i], WS_MAX_MSG_LEN - 1);
+            msgs[i] = malloc(len + 1);
+            if (msgs[i]) { memcpy(msgs[i], ws->messages[i], len); msgs[i][len] = 0; }
+            msg_lens[i] = len;
+        }
         pthread_mutex_unlock(&ws->mu);
 
         JS_SetPropertyStr(ctx, ws_obj, "connected",  JS_NewBool(ctx, connected));
         JS_SetPropertyStr(ctx, ws_obj, "connecting", JS_NewBool(ctx, connecting));
 
         JSValue arr = JS_NewArray(ctx);
-        for (int i = 0; i < count; i++)
-            JS_SetPropertyUint32(ctx, arr, (uint32_t)i, JS_NewString(ctx, msgs[i]));
+        for (int i = 0; i < count; i++) {
+            if (msgs[i]) {
+                JS_SetPropertyUint32(ctx, arr, (uint32_t)i, JS_NewStringLen(ctx, msgs[i], msg_lens[i]));
+                free(msgs[i]);
+            }
+        }
         JS_SetPropertyStr(ctx, ws_obj, "messages", arr);
     } else {
         JS_SetPropertyStr(ctx, ws_obj, "connected",  JS_FALSE);
