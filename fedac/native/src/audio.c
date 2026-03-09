@@ -278,14 +278,6 @@ static void *audio_thread_fn(void *arg) {
             mix_l /= mix_divisor;
             mix_r /= mix_divisor;
 
-            // Mix in TTS audio (mono → both channels)
-            if (audio->tts_buf && audio->tts_read_pos != audio->tts_write_pos) {
-                float tts_sample = audio->tts_buf[audio->tts_read_pos] * audio->tts_volume;
-                mix_l += tts_sample;
-                mix_r += tts_sample;
-                audio->tts_read_pos = (audio->tts_read_pos + 1) % audio->tts_buf_size;
-            }
-
             // Smooth room_mix toward target (~10ms at 192kHz)
             if (audio->room_mix != audio->target_room_mix) {
                 audio->room_mix += (audio->target_room_mix - audio->room_mix) * 0.00005f;
@@ -350,6 +342,14 @@ static void *audio_thread_fn(void *arg) {
                 mix_r = audio->glitch_hold_r;
             }
 
+            // Mix in TTS audio after FX chain (bypasses reverb/glitch)
+            if (audio->tts_buf && audio->tts_read_pos != audio->tts_write_pos) {
+                float tts_sample = audio->tts_buf[audio->tts_read_pos] * audio->tts_volume;
+                mix_l += tts_sample;
+                mix_r += tts_sample;
+                audio->tts_read_pos = (audio->tts_read_pos + 1) % audio->tts_buf_size;
+            }
+
             // Compressor: peak-following gain reduction (threshold 0.7, ratio ~4:1)
             {
                 double peak = fabs(mix_l);
@@ -376,6 +376,33 @@ static void *audio_thread_fn(void *arg) {
 
             buffer[i * 2] = (int16_t)(mix_l * 32000);
             buffer[i * 2 + 1] = (int16_t)(mix_r * 32000);
+
+            // HDMI audio: 1-pole low-pass filter + downsample
+            if (audio->hdmi_pcm) {
+                // LP filter (alpha ≈ 0.18 → ~3kHz cutoff at 48kHz)
+                float alpha = 0.18f;
+                audio->hdmi_lp_l = alpha * (float)mix_l + (1.0f - alpha) * audio->hdmi_lp_l;
+                audio->hdmi_lp_r = alpha * (float)mix_r + (1.0f - alpha) * audio->hdmi_lp_r;
+                // Downsample: one HDMI sample per N primary samples
+                audio->hdmi_downsample_pos++;
+                if (audio->hdmi_downsample_pos >= audio->hdmi_downsample_n) {
+                    audio->hdmi_downsample_pos = 0;
+                    int pp = audio->hdmi_period_pos;
+                    if (pp + 1 < (int)(sizeof(audio->hdmi_period) / sizeof(int16_t)) / 2) {
+                        audio->hdmi_period[pp * 2]     = (int16_t)(audio->hdmi_lp_l * 28000);
+                        audio->hdmi_period[pp * 2 + 1] = (int16_t)(audio->hdmi_lp_r * 28000);
+                        audio->hdmi_period_pos++;
+                        if (audio->hdmi_period_pos >= audio->hdmi_period_size) {
+                            snd_pcm_t *hpcm = (snd_pcm_t *)audio->hdmi_pcm;
+                            int hw = snd_pcm_writei(hpcm, audio->hdmi_period,
+                                                     audio->hdmi_period_size);
+                            if (hw == -EPIPE || hw == -ESTRPIPE)
+                                snd_pcm_recover(hpcm, hw, 1);
+                            audio->hdmi_period_pos = 0;
+                        }
+                    }
+                }
+            }
 
             // Store waveform for visualization
             int wp = audio->waveform_pos;
@@ -620,6 +647,47 @@ ACAudio *audio_init(void) {
     // Read initial system volume
     audio->system_volume = read_system_volume_card(card_idx);
     fprintf(stderr, "[audio] System volume: %d%%\n", audio->system_volume);
+
+    // Try to open HDMI audio device (non-blocking, best-effort)
+    {
+        // Intel HDA HDMI subdevices: device 3, 7, 8 on card 0 or 1
+        const char *hdmi_devs[] = {
+            "hdmi:0,0", "hdmi:0,1", "hdmi:0,2", "hdmi:0,3",
+            "hdmi:1,0", "hdmi:1,1",
+            "plughw:0,3", "plughw:0,7", "plughw:0,8",
+            "plughw:1,3", "plughw:1,7",
+            NULL
+        };
+        for (int hi = 0; hdmi_devs[hi] && !audio->hdmi_pcm; hi++) {
+            snd_pcm_t *hpcm = NULL;
+            if (snd_pcm_open(&hpcm, hdmi_devs[hi], SND_PCM_STREAM_PLAYBACK,
+                              SND_PCM_NONBLOCK) != 0) continue;
+            snd_pcm_hw_params_t *hp;
+            snd_pcm_hw_params_alloca(&hp);
+            if (snd_pcm_hw_params_any(hpcm, hp) < 0 ||
+                snd_pcm_hw_params_set_access(hpcm, hp, SND_PCM_ACCESS_RW_INTERLEAVED) < 0 ||
+                snd_pcm_hw_params_set_format(hpcm, hp, SND_PCM_FORMAT_S16_LE) < 0 ||
+                snd_pcm_hw_params_set_channels(hpcm, hp, 2) < 0) {
+                snd_pcm_close(hpcm); continue;
+            }
+            unsigned int hrate = 48000;
+            snd_pcm_hw_params_set_rate_near(hpcm, hp, &hrate, NULL);
+            snd_pcm_uframes_t hperiod = 512;
+            snd_pcm_hw_params_set_period_size_near(hpcm, hp, &hperiod, NULL);
+            if (snd_pcm_hw_params(hpcm, hp) < 0) { snd_pcm_close(hpcm); continue; }
+            snd_pcm_prepare(hpcm);
+            audio->hdmi_pcm = hpcm;
+            audio->hdmi_rate = hrate;
+            audio->hdmi_period_size = (int)hperiod;
+            // Downsample ratio: every N primary samples → 1 HDMI sample
+            audio->hdmi_downsample_n = (int)((double)rate / hrate + 0.5);
+            if (audio->hdmi_downsample_n < 1) audio->hdmi_downsample_n = 1;
+            fprintf(stderr, "[audio] HDMI audio: %s @ %uHz, downsample 1/%d\n",
+                    hdmi_devs[hi], hrate, audio->hdmi_downsample_n);
+        }
+        if (!audio->hdmi_pcm)
+            fprintf(stderr, "[audio] No HDMI audio device\n");
+    }
 
     // Start audio thread
     audio->running = 1;
@@ -874,6 +942,7 @@ void audio_destroy(ACAudio *audio) {
         pthread_join(audio->thread, NULL);
         snd_pcm_close((snd_pcm_t *)audio->pcm);
     }
+    if (audio->hdmi_pcm) snd_pcm_close((snd_pcm_t *)audio->hdmi_pcm);
     free(audio->room_buf_l);
     free(audio->room_buf_r);
     free(audio->tts_buf);

@@ -91,6 +91,7 @@ let shiftHeld = false;
 // AC chat: latest message fetched after WiFi connects
 let acMsg = null;            // { from, text } once loaded
 let wsStatus = "";           // "connecting" | "connected" | "error" | ""
+let wsConnectGrace = 0;      // frames to wait before declaring error (race-condition guard)
 let chatMuted = false;       // mute TTS for incoming chat messages
 let wifiWasConnected = false;
 let lastBatPercent = -1;     // for battery change TTS
@@ -721,9 +722,11 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   // TTS + WebSocket connect on WiFi connect transition
   if (wifi?.connected && !wifiWasConnected) {
     sound?.synth({ type: "sine", tone: 880, duration: 0.08, volume: 0.3, attack: 0.01, decay: 0.06 });
-    sound?.speak("connected");
+    const connectedSsid = wifi?.ssid || wifi?.networks?.[0]?.ssid || "";
+    sound?.speak(connectedSsid ? `connected to ${connectedSsid}` : "connected");
     autoConnectTry = 0;
     wsStatus = "connecting";
+    wsConnectGrace = 180; // ~3s grace before declaring error
     system.ws?.connect("wss://chat-system.aesthetic.computer/");
     if (system?.writeFile && savedCreds.length > 0) {
       system.writeFile(CREDS_PATH, JSON.stringify(savedCreds));
@@ -755,11 +758,13 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   }
 
   // Track WS connection status for display
-  if (system.ws?.connecting) wsStatus = "connecting";
+  if (wsConnectGrace > 0) wsConnectGrace--;
+  if (system.ws?.connecting) { wsStatus = "connecting"; wsConnectGrace = 0; }
   else if (system.ws?.connected && wsStatus !== "connected") {
     wsStatus = "connected";
+    wsConnectGrace = 0;
     sound?.speak("chat connected");
-  } else if (!system.ws?.connected && !system.ws?.connecting && wsStatus === "connecting") {
+  } else if (!system.ws?.connected && !system.ws?.connecting && wsStatus === "connecting" && wsConnectGrace === 0) {
     wsStatus = "error";
   }
 
@@ -774,19 +779,22 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         if (msg.type === "connected") {
           const content = parseContent(msg.content);
           const last = (content?.messages || []).slice(-1)[0];
-          if (last?.from && last?.text) {
-            acMsg = { from: last.from, text: last.text };
+          if (last?.handle && last?.text) {
+            acMsg = { from: last.handle, text: last.text };
+            // Read most recent message aloud on connect
+            if (!chatMuted) sound?.speak(last.handle + ": " + last.text);
           }
         } else if (msg.type === "message") {
           const m = parseContent(msg.content);
-          if (m?.from && m?.text) {
-            acMsg = { from: m.from, text: m.text };
-            if (!chatMuted) sound?.speak(m.from + ": " + m.text);
+          const handle = m?.handle || m?.from;
+          if (handle && m?.text) {
+            acMsg = { from: handle, text: m.text };
+            if (!chatMuted) sound?.speak(handle + ": " + m.text);
           }
-        } else if (msg.from && msg.text) {
+        } else if (msg.handle && msg.text) {
           // Flat format fallback
-          acMsg = { from: msg.from, text: msg.text };
-          if (!chatMuted) sound?.speak(msg.from + ": " + msg.text);
+          acMsg = { from: msg.handle, text: msg.text };
+          if (!chatMuted) sound?.speak(msg.handle + ": " + msg.text);
         }
       } catch (_) {}
     }
