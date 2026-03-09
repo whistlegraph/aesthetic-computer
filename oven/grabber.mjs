@@ -1274,7 +1274,7 @@ async function captureFrames(piece, options = {}) {
   
   // Use piece name as-is (caller decides if $ prefix is needed for KidLisp)
   // tv=true (non-interactive), nolabel=true (no HUD label), nogap=true (no border)
-  const url = `${baseUrl}/${piece}?density=${density}&tv=true&nolabel=true&nogap=true`;
+  const url = `${baseUrl}/${piece}?density=${density}&tv=true&nolabel=true&nogap=true&spoofaudio=true`;
   
   console.log(`📸 Capturing ${frames} frames from ${url} (${fps} fps, ${duration}ms)`);
   console.log(`   Size: ${width}x${height}`);
@@ -1831,23 +1831,36 @@ export async function grabPiece(piece, options = {}) {
         // Check if all frames are identical (frozen animation)
         const isFrozen = await areFramesIdentical(capturedFrames);
         if (isFrozen) {
-          // Return the still frame as a PNG instead of failing
-          console.log(`   🥶 Frozen animation — returning still frame as PNG`);
-          result = await frameToThumbnail(capturedFrames[0], {
-            width: width * density,
-            height: height * density
-          });
+          // Return the still frame in the requested format (webp/gif/png)
+          const outW = width * density;
+          const outH = height * density;
+          console.log(`   🥶 Frozen animation — returning still ${format.toUpperCase()}`);
+
+          const sharpMod = (await import('sharp')).default;
+          let pipeline = sharpMod(capturedFrames[0])
+            .resize(outW, outH, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 1 }, kernel: 'nearest' });
+
+          if (format === 'webp') {
+            pipeline = pipeline.webp({ quality });
+          } else if (format === 'gif') {
+            pipeline = pipeline.gif();
+          } else {
+            pipeline = pipeline.png();
+          }
+          result = await pipeline.toBuffer();
 
           // Also upload frozen preview to Spaces for the frozen panel
           let frozenPreviewUrl = null;
           if (process.env.ART_SPACES_KEY && result) {
             try {
-              const frozenKey = `oven/frozen/${piece.replace(/^\$/, '')}-frozen.png`;
+              const ext = format === 'webp' ? 'webp' : format === 'gif' ? 'gif' : 'png';
+              const mime = format === 'webp' ? 'image/webp' : format === 'gif' ? 'image/gif' : 'image/png';
+              const frozenKey = `oven/frozen/${piece.replace(/^\$/, '')}-frozen.${ext}`;
               await spacesClient.send(new PutObjectCommand({
                 Bucket: SPACES_BUCKET,
                 Key: frozenKey,
                 Body: result,
-                ContentType: 'image/png',
+                ContentType: mime,
                 ACL: 'public-read',
                 CacheControl: 'public, max-age=604800',
               }));
@@ -1858,7 +1871,7 @@ export async function grabPiece(piece, options = {}) {
           }
 
           recordFrozenPiece(piece, 'Frozen — still frame returned', frozenPreviewUrl);
-          // Skip encoding — result is already a still PNG
+          // Skip encoding — result is already in the right format
         } else {
           // Check for uniform color content (solid color "dud" images)
           const uniformCheck = await isUniformColorContent(capturedFrames);
@@ -2829,7 +2842,7 @@ async function generateFeaturedOGImage(topPieces) {
   try {
     await page.setViewport({ width, height, deviceScaleFactor: 1 });
 
-    const url = `https://aesthetic.computer/$${featured.code}?density=1&tv=true&nolabel=true&nogap=true`;
+    const url = `https://aesthetic.computer/$${featured.code}?density=1&tv=true&nolabel=true&nogap=true&spoofaudio=true`;
     console.log(`   Loading: ${url}`);
     
     await page.goto(url, {
@@ -2902,7 +2915,7 @@ async function generateMosaicOGImage(topPieces) {
       
       await page.setViewport({ width: Math.round(tileWidth), height: Math.round(tileHeight), deviceScaleFactor: 0.5 });
       
-      const url = `https://aesthetic.computer/$${piece.code}?density=0.5&tv=true&nolabel=true&nogap=true`;
+      const url = `https://aesthetic.computer/$${piece.code}?density=0.5&tv=true&nolabel=true&nogap=true&spoofaudio=true`;
       console.log(`   [${i + 1}/16] Loading: $${piece.code}`);
       
       await page.goto(url, {
@@ -3347,7 +3360,7 @@ async function generateFilmstripOGImage(topPieces) {
   try {
     await page.setViewport({ width: frameWidth, height: frameHeight, deviceScaleFactor: 2 });
     
-    const url = `https://aesthetic.computer/$${featured.code}?density=2&tv=true&nolabel=true&nogap=true`;
+    const url = `https://aesthetic.computer/$${featured.code}?density=2&tv=true&nolabel=true&nogap=true&spoofaudio=true`;
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForSelector('canvas', { timeout: 10000 }).catch(() => {});
     
@@ -3464,7 +3477,7 @@ async function generateCodeSplitOGImage(topPieces) {
     // Capture preview
     await page.setViewport({ width: previewWidth, height: previewHeight, deviceScaleFactor: 1 });
     
-    const url = `https://aesthetic.computer/$${featured.code}?density=1&tv=true&nolabel=true&nogap=true`;
+    const url = `https://aesthetic.computer/$${featured.code}?density=1&tv=true&nolabel=true&nogap=true&spoofaudio=true`;
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForSelector('canvas', { timeout: 10000 }).catch(() => {});
     await new Promise(r => setTimeout(r, 4000));
