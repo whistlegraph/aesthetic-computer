@@ -402,6 +402,10 @@ function act({ event: e, sound, wifi, system }) {
         osFetchPending = false;
         osRemoteVersion = "";
         osError = "";
+        // Cancel any in-flight fetch (clock sync, auto-update) so OS panel gets the slot
+        system.fetchCancel?.();
+        autoUpdate.fetchPending = false;
+        autoUpdate.state = "idle";
       }
       return;
     }

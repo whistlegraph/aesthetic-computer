@@ -507,12 +507,12 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
         }
         // W hint is visual only — no TTS
 
-        // Fade from black to purple/red bg (complete in first 0.3s)
+        // Fade from black to green bg (complete in first 0.3s)
         double fade_t = t * 3.33;
         if (fade_t > 1.0) fade_t = 1.0;
-        int bg_r = (int)(45 * fade_t);  // deep purple-red
-        int bg_g = (int)(8 * fade_t);
-        int bg_b = (int)(30 * fade_t);
+        int bg_r = (int)(10 * fade_t);  // green
+        int bg_g = (int)(50 * fade_t);
+        int bg_b = (int)(15 * fade_t);
         graph_wipe(graph, (ACColor){(uint8_t)bg_r, (uint8_t)bg_g, (uint8_t)bg_b, 255});
 
         // Title — rainbow animated letters
