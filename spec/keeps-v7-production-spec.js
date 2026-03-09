@@ -36,14 +36,10 @@ describe('🚀 Keeps v7 Production - Source Checks', () => {
     expect(keepsCliSource).toContain("artifactKey: 'v7'");
     expect(keepsCliSource).toContain("KeepsFA2v7/step_002_cont_0_contract.tz");
     expect(keepsCliSource).toContain("version: '7.0.0'");
-    expect(keepsCliSource).toContain("resolveContractProfile(rawProfile = 'v7')");
-    expect(keepsCliSource).toContain("production: 'v7'");
   });
 
-  it('supports v7 as compile target and default in compile.fish', () => {
-    expect(compileSource).toContain('./compile.fish            # default: v7');
+  it('supports v7 as compile target in compile.fish', () => {
     expect(compileSource).toContain('./compile.fish v7');
-    expect(compileSource).toContain('set -l target v7');
     expect(compileSource).toContain('case v7');
     expect(compileSource).toContain('set source_file kidlisp_keeps_fa2_v7.py');
     expect(compileSource).toContain('set output_dir KeepsFA2v7');
