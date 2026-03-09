@@ -275,8 +275,7 @@
       font-family: var(--font-fun);
       font-size: 20px;
       font-weight: 700;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
+      letter-spacing: 0.01em;
       text-align: center;
       color: var(--text-primary);
       background: var(--bg-tertiary);
@@ -1105,13 +1104,13 @@
       background: var(--bg-tertiary);
       border: 1px solid var(--border-color);
       border-radius: 6px;
-      font-family: var(--font-display);
+      font-family: var(--font-fun);
       font-size: 13px;
       color: var(--text-primary);
       outline: none;
       transition: border-color 0.15s;
     }
-    .keeps-search-input::placeholder { color: var(--text-tertiary); font-family: var(--font-display); }
+    .keeps-search-input::placeholder { color: var(--text-tertiary); font-family: var(--font-fun); }
     .keeps-search-input:focus { border-color: var(--ac-purple); }
 
     /* Custom sigil picker */
@@ -3832,6 +3831,7 @@
     // TEZOS WALLET (Beacon SDK via CDN)
     // =========================================
     let beaconClient = null;
+    let beaconInitPromise = null;
 
     async function loadBeaconSDK() {
       if (window.beacon) return;
@@ -3846,20 +3846,24 @@
 
     async function initTezosWallet() {
       if (beaconClient) return;
-      await loadBeaconSDK();
-      beaconClient = new window.beacon.DAppClient({
+      if (beaconInitPromise) return beaconInitPromise;
+      beaconInitPromise = (async () => {
+        await loadBeaconSDK();
+        beaconClient = new window.beacon.DAppClient({
         name: 'KidLisp',
         preferredNetwork: getTezosNetwork(),
         // Avoid Beacon's default pairing alert iframe (Solid debug warnings + sandbox warning noise).
         // Wallet extension flow still works via requestPermissions.
         disableDefaultEvents: true,
       });
-      // Check existing connection
-      const activeAccount = await beaconClient.getActiveAccount();
-      if (activeAccount) {
-        mintWalletAddress = activeAccount.address;
-        updateWalletBtn();
-      }
+        // Check existing connection
+        const activeAccount = await beaconClient.getActiveAccount();
+        if (activeAccount) {
+          mintWalletAddress = activeAccount.address;
+          updateWalletBtn();
+        }
+      })();
+      return beaconInitPromise;
     }
 
     async function connectWallet() {
