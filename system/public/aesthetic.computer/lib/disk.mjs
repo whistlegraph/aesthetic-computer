@@ -660,6 +660,7 @@ let HIGHLIGHT_MODE = false; // Whether HUD highlighting is enabled
 let HIGHLIGHT_COLOR = "64,64,64"; // Default highlight color (gray)
 let PERF_MODE = false; // Whether to show KidLisp performance/FPS HUD
 let AUTO_SCALE_MODE = false; // Whether to enable auto-density scaling to maintain target FPS
+let SPOOF_AUDIO_MODE = false; // Whether to generate synthetic audio data (for headless captures)
 let AUDIO_SAMPLE_RATE = 0;
 let loopPaused = false; // Whether the main loop is paused (sent from bios)
 let debug = false; // This can be overwritten on boot.
@@ -9701,6 +9702,7 @@ async function makeFrame({ data: { type, content } }) {
     
     // Parse auto-scale parameter for automatic density scaling
     AUTO_SCALE_MODE = content.resolution?.autoScale === true;
+    SPOOF_AUDIO_MODE = content.resolution?.spoofaudio === true;
 
     microphone.permission = content.microphonePermission;
 
@@ -11499,6 +11501,17 @@ async function makeFrame({ data: { type, content } }) {
       amplitude: content.audioMusicAmplitude,
       sample: content.audioMusicSampleData,
     };
+
+    // Synthetic audio for headless captures — feed KidLisp audio globals
+    if (SPOOF_AUDIO_MODE && content.audioMusicAmplitude > 0) {
+      const norm = content.audioMusicAmplitude / 255; // 0–1
+      updateKidLispAudio({
+        amp: norm * 10,
+        leftAmp: norm * 10,
+        rightAmp: norm * 10,
+        __source: "spoof",
+      });
+    }
 
     // Hand-tracking
     if (content.hand) $commonApi.hand = { mediapipe: content.hand };

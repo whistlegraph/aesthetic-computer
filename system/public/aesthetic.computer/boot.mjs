@@ -1169,6 +1169,10 @@ const solo = soloParam === true || soloParam === "true";
 const maxfpsParam = params.get("maxfps");
 const maxfps = maxfpsParam ? parseInt(maxfpsParam, 10) : null;
 
+// Check for spoofaudio parameter (synthetic audio amplitude for headless captures)
+const spoofaudioParam = params.has("spoofaudio") || location.search.includes("spoofaudio");
+const spoofaudio = spoofaudioParam === true || spoofaudioParam === "true";
+
 // Note: zoom parameter is available but not automatically applied to avoid text rendering issues
 // It's passed to the boot function for selective use
 
@@ -1189,7 +1193,7 @@ if (window.acVSCODE) {
 
 // Pass the parameters directly without stripping them
 bootLog(`booting: ${parsed?.text || 'prompt'}`);
-boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom, duration, tv, highlight, desktop, device, perf, autoScale, solo, maxfps }, debug);
+boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom, duration, tv, highlight, desktop, device, perf, autoScale, solo, maxfps, spoofaudio }, debug);
 
 // Start processing any early kidlisp messages that arrived before boot completed
 processEarlyKidlispQueue();

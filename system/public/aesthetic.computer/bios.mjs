@@ -4636,6 +4636,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           amplitude = frequencyData[i];
         }
       }
+    } else if (resolution.spoofaudio) {
+      // Synthetic audio for headless captures (oven) — slow sine wave
+      const t = performance.now() / 1000;
+      amplitude = Math.round(((Math.sin(t * Math.PI * 1.0) + 1) / 2) * 200);
     }
 
     // Transferrable objects
@@ -13386,7 +13390,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "get-amplitudes") {
-      requestSpeakerAmplitudes?.();
+      if (requestSpeakerAmplitudes) {
+        requestSpeakerAmplitudes();
+      } else if (resolution.spoofaudio) {
+        // Synthetic amplitude for headless captures (no speaker processor)
+        const t = performance.now() / 1000;
+        const left = (Math.sin(t * Math.PI * 1.0) + 1) / 2;
+        const right = (Math.sin(t * Math.PI * 1.0 + 0.5) + 1) / 2;
+        send({ type: "amplitudes", content: { left, right } });
+      }
       return;
     }
 
