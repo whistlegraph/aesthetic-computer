@@ -1363,6 +1363,30 @@ async function getBrowser() {
   return result;
 }
 
+/**
+ * Pre-warm the browser by navigating to a simple AC piece.
+ * This populates the service worker cache so subsequent piece loads are 3-5x faster.
+ * Should be called once after oven startup.
+ */
+export async function prewarmGrabBrowser() {
+  const BASE_URL = process.env.AC_BASE_URL || 'https://aesthetic.computer';
+  const warmupUrl = `${BASE_URL}/prompt`;
+  let page;
+  try {
+    const b = await getBrowser();
+    page = await b.newPage();
+    console.log(`🔥 Pre-warming browser: ${warmupUrl}`);
+    await page.goto(warmupUrl, { waitUntil: 'domcontentloaded', timeout: 20000 });
+    // Wait a moment for the service worker to install
+    await new Promise(r => setTimeout(r, 3000));
+    console.log('✅ Browser pre-warm complete');
+  } catch (e) {
+    console.warn(`⚠️  Browser pre-warm failed (non-fatal): ${e.message}`);
+  } finally {
+    if (page) await page.close().catch(() => {});
+  }
+}
+
 // Blocked URL patterns for Puppeteer pages (prevent self-referential loops and noise)
 const BLOCKED_URL_PATTERNS = [
   'oven.aesthetic.computer',   // Prevent oven requesting its own icons/grabs
@@ -1489,9 +1513,9 @@ async function captureFrames(piece, options = {}) {
     });
     
     const pieceWaitStart = Date.now();
-    // Reduce wait time from 30s to 20s - most pieces signal ready within 5-10s
-    // For keep minting, we prioritize speed over edge cases
-    const maxPieceWait = 20000; // 20 seconds max for piece to load
+    // 30s gives cold-start loads (service worker cache miss) time to finish.
+    // Warm loads typically signal ready in 2-8s.
+    const maxPieceWait = 30000; // 30 seconds max for piece to load
     let pieceReady = false;
     let lastPreviewTime = 0;
     
@@ -1510,13 +1534,13 @@ async function captureFrames(piece, options = {}) {
       
       if (!pieceReady) {
         const elapsed = Date.now() - pieceWaitStart;
-        const phase = status.bootHidden ? 'Loading piece...' : 'Booting...';
-        
+        const phase = status.bootHidden ? 'Loading piece' : 'Booting';
+
         // Stream preview every 200ms for smooth updates
         if (Date.now() - lastPreviewTime > 200) {
           await updateProgressWithPreview(grabId, page, {
             stage: 'loading',
-            stageDetail: `${phase} ${Math.round(elapsed/1000)}s`,
+            stageDetail: `${phase}... ${Math.round(elapsed/1000)}s / ${maxPieceWait/1000}s`,
             percent: Math.min(25, 5 + (elapsed / maxPieceWait) * 20),
           });
           lastPreviewTime = Date.now();
@@ -1771,13 +1795,17 @@ async function framesToWebp(frames, options = {}) {
   await fs.mkdir(workDir, { recursive: true });
   
   try {
-    // Write frames to disk
+    // Write frames to disk (flattened to black background)
     console.log(`   Writing ${frames.length} frames to temp directory...`);
     for (let i = 0; i < frames.length; i++) {
       const framePath = join(workDir, `frame-${String(i).padStart(5, '0')}.png`);
-      await fs.writeFile(framePath, frames[i]);
+      const flattened = await sharp(frames[i])
+        .flatten({ background: { r: 0, g: 0, b: 0 } })
+        .png()
+        .toBuffer();
+      await fs.writeFile(framePath, flattened);
     }
-    
+
     // Generate animated WebP using ffmpeg
     const outputPath = join(workDir, 'output.webp');
     
@@ -1957,7 +1985,7 @@ export async function grabPiece(piece, options = {}) {
       
       if (format === 'png') {
         // Single frame PNG
-        const frame = await captureFrame(piece, { width, height, density, viewportScale, baseUrl });
+        const frame = await captureFrame(piece, { width, height, density, viewportScale, baseUrl, grabId });
         if (!frame) {
           throw new Error('Failed to capture frame');
         }
@@ -2313,11 +2341,20 @@ export async function grabAndUploadToIPFS(piece, credentials, options = {}) {
     };
   }
   
-  // Upload to IPFS
+  // Upload to IPFS (re-use grabId for progress tracking so the keep-mint heartbeat can see it)
   console.log(`📤 Uploading ${format} to IPFS...`);
   const mimeType = format === 'webp' ? 'image/webp' : format === 'gif' ? 'image/gif' : 'image/png';
   const filename = `${pieceName}-thumbnail.${format}`;
-  
+  if (grabResult?.grabId) {
+    updateProgress(grabResult.grabId, {
+      piece: grabResult.piece,
+      format,
+      stage: 'uploading',
+      stageDetail: 'Pinning to IPFS...',
+      percent: 92,
+    });
+  }
+
   try {
     const ipfsUri = await uploadToIPFS(buffer, filename, credentials);
     const ipfsCid = ipfsUri.replace('ipfs://', '');
@@ -2336,7 +2373,7 @@ export async function grabAndUploadToIPFS(piece, credentials, options = {}) {
     latestIPFSUploads.set(pieceName, uploadInfo);
     latestKeepThumbnail = uploadInfo;
     
-    // Update grab in MongoDB with IPFS info
+    // Update grab in MongoDB with IPFS info and clear progress
     if (grabResult.grabId) {
       updateGrabInMongo(grabResult.grabId, { ipfsCid, ipfsUri });
       // Also update in-memory grab
@@ -2345,6 +2382,8 @@ export async function grabAndUploadToIPFS(piece, credentials, options = {}) {
         inMemoryGrab.ipfsCid = ipfsCid;
         inMemoryGrab.ipfsUri = ipfsUri;
       }
+      // Clear progress now that IPFS upload is done
+      grabProgressMap.delete(grabResult.grabId);
     }
     
     // Notify WebSocket subscribers about new IPFS upload
