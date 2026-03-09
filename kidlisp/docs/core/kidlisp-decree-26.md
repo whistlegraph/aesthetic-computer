@@ -158,3 +158,41 @@ Recommended URL layout:
 - required vs optional transformation set (`scroll`, `zoom`, `blur`, `contrast`, etc.)
 - embed semantics requirements for minimum Render conformance
 
+## 13. Reference Profiles (`'26`)
+
+This decree defines named reference profiles for practical conformance targets.
+
+### 13.1 `RBP-26` (`$roz` Baseline Profile)
+
+`RBP-26` is the minimal feature profile required to run `$roz` with decree-consistent behavior.
+
+Required heads/tokens:
+- `ink`
+- `line`
+- `circle`
+- `scroll`
+- `spin`
+- `zoom`
+- `contrast`
+- `?` (choice operator)
+- timing heads: `1s...`, `2s...`, `0.5s`
+- fade shorthand head pattern: `fade:<color>-<color>-...`
+
+Required symbols:
+- `w`, `h`
+- `w/2`, `h/2`
+
+Required color/token support used by profile:
+- `red`, `blue`, `black`, `white`
+- `rainbow`
+- `cyan`, `yellow`, `magenta`
+
+Semantics requirements:
+- `?` MUST evaluate as runtime choice across provided options.
+- `1s...` and `2s...` MUST behave as repeating timed forms.
+- `0.5s` MUST behave as a timed one-shot form (unless host explicitly declares a deviation).
+- transform/effect heads (`spin`, `zoom`, `contrast`, `scroll`) MUST apply in a stable per-frame order.
+- `w/2` and `h/2` MUST resolve from current frame dimensions.
+
+Conformance claim string:
+- `KidLisp Decree '26: RBP-26`
