@@ -1317,17 +1317,29 @@
     }
 
     .keeps-auth-btn {
-      padding: 5px 12px;
-      background: var(--ac-purple);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 10px;
+      background: rgb(30, 50, 120);
       color: white;
-      border: none;
-      border-radius: 5px;
+      border: 1px solid white;
+      border-radius: 0;
       font-family: var(--font-mono);
       font-size: 11px;
       cursor: pointer;
-      transition: filter 0.15s;
+      transition: background 0.15s;
+      text-decoration: none;
+      line-height: 1;
     }
-    .keeps-auth-btn:hover { filter: brightness(1.15); }
+    .keeps-auth-btn:hover { background: rgb(50, 70, 150); text-decoration: none; }
+
+    .keeps-auth-btn.imnew {
+      background: rgb(30, 90, 50);
+    }
+    .keeps-auth-btn.imnew:hover {
+      background: rgb(50, 120, 70);
+    }
 
     .keeps-auth-btn.logout {
       background: var(--bg-secondary);
@@ -1341,6 +1353,15 @@
       font-size: 12px;
       font-weight: 600;
       color: var(--ac-purple);
+    }
+
+    .keeps-gate-actions {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding: 8px 0;
     }
 
     /* ========================================
@@ -1562,6 +1583,7 @@
       <!-- Auth UI -->
       <div class="keeps-auth" id="keeps-auth">
         <button class="keeps-auth-btn" id="keeps-login-btn" style="display:none;" onclick="keepsLogin()">Log In</button>
+        <button class="keeps-auth-btn imnew" id="keeps-signup-btn" style="display:none;" onclick="keepsImNew()">I'm New</button>
         <span class="keeps-auth-handle" id="keeps-auth-handle" style="display:none;"></span>
         <button class="keeps-auth-btn logout" id="keeps-logout-btn" style="display:none;" onclick="keepsLogout()">Log Out</button>
       </div>
@@ -1768,7 +1790,7 @@
   <div class="keeps-tabs-container">
     <div class="keeps-tabs">
       <button class="keeps-tab active" data-tab="index">Index</button>
-      <button class="keeps-tab" data-tab="v6">Contracts + Docs</button>
+      <button class="keeps-tab" data-tab="rules">Rules</button>
     </div>
 
     <!-- TAB: Index (default view - search + grid) -->
@@ -1786,697 +1808,76 @@
       </div>
     </div>
 
-    <!-- TAB: Contracts -->
-    <div class="keeps-tab-content" id="tab-v6">
+    <!-- TAB: Rules -->
+    <div class="keeps-tab-content" id="tab-rules">
       <div style="padding: 24px 0;">
-        <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 20px; flex-wrap: wrap;">
-          <h2 style="margin: 0; color: var(--text-primary); font-size: 24px; font-weight: 600;">
-            Keeps Contracts
-          </h2>
-          <span id="v6-launch-badge" style="padding: 4px 12px; background: rgba(255, 193, 7, 0.15); border: 1px solid rgba(255, 193, 7, 0.4); border-radius: 12px; font-size: 12px; color: #d4a017; font-weight: 600;">
-            V7 PAUSED • V8 READY
-          </span>
-        </div>
+        <h2 style="margin: 0 0 16px; color: var(--text-primary); font-size: 24px; font-weight: 600;">Rules</h2>
 
-        <!-- Contract Identity -->
-        <div style="margin-bottom: 24px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
-          <div style="margin-bottom: 8px; color: var(--text-secondary); font-size: 13px; font-weight: 500;">Contract Identity</div>
-          <div style="display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; font-size: 13px; color: var(--text-secondary);">
-            <span style="color: var(--text-tertiary);">Name</span>
-            <span style="font-weight: 600; color: var(--ac-purple);">KidLisp</span>
-            <span style="color: var(--text-tertiary);">Description</span>
-            <span><a href="https://keeps.kidlisp.com">https://keeps.kidlisp.com</a></span>
-            <span style="color: var(--text-tertiary);">Homepage</span>
-            <span><a href="https://kidlisp.com">https://kidlisp.com</a></span>
-            <span style="color: var(--text-tertiary);">Active Version</span>
-            <span>8.0.0 (launch candidate)</span>
-            <span style="color: var(--text-tertiary);">Previous Version</span>
-            <span>7.0.0 (paused for authorization hardening)</span>
-            <span style="color: var(--text-tertiary);">Interfaces</span>
-            <span>TZIP-012, TZIP-016, TZIP-021</span>
-            <span style="color: var(--text-tertiary);">Admin Wallet</span>
-            <span style="font-family: 'Courier New', monospace; font-size: 12px;">keeps.tez (tz1Lc2...un2dC)</span>
-            <span style="color: var(--text-tertiary);">Default Fee</span>
-            <span>2.5 XTZ</span>
-            <span style="color: var(--text-tertiary);">Royalty</span>
-            <span>10% (1000 bps)</span>
-            <span style="color: var(--text-tertiary);">Metadata Tags</span>
-            <span>["KidLisp"] (v8 policy)</span>
-            <span style="color: var(--text-tertiary);">Minting Tool</span>
-            <span><a href="https://kidlisp.com">https://kidlisp.com</a></span>
+        <h3>Contract</h3>
+        <div style="margin-bottom: 20px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
+          <div style="margin-bottom: 8px; color: var(--text-secondary); font-size: 13px; font-weight: 600;">Active Production Contract</div>
+          <div id="v6-active-contract-address" style="font-family: 'Courier New', monospace; color: var(--ac-purple); font-size: 14px; word-break: break-all;">
+            Loading...
           </div>
-          <div style="margin-top: 12px;">
-            <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/kidlisp_keeps_fa2_v8.py" target="_blank"
+          <div id="v6-active-contract-meta" style="margin-top: 8px; color: var(--text-tertiary); font-size: 12px;">
+            Loading active contract metadata...
+          </div>
+          <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
+            <a id="v6-active-contract-tzkt" href="https://tzkt.io" target="_blank"
                style="padding: 6px 12px; background: var(--ac-purple); color: white; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
-              v8 Source (Current)
+              TzKT
             </a>
-            <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/kidlisp_keeps_fa2_v6.py" target="_blank"
+            <a id="v6-active-contract-objkt" href="https://objkt.com" target="_blank"
                style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
-              v6 Source (Deprecated)
+              objkt
             </a>
-            <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/kidlisp_keeps_fa2_v7.py" target="_blank"
-               style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500; margin-left: 8px;">
-              v7 Source (Paused)
+            <a id="v6-active-contract-ops" href="https://tzkt.io" target="_blank"
+               style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
+              Operations
             </a>
           </div>
         </div>
 
-        <!-- Token Attribute Preview -->
-        <div style="margin-bottom: 24px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
-          <div style="margin-bottom: 12px; color: var(--text-secondary); font-size: 13px; font-weight: 500;">Token Attributes (Current Format)</div>
-          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-            <span style="padding: 4px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-subtle); border-radius: 4px; font-size: 12px;">
-              <span style="color: var(--text-tertiary);">Characters:</span> <span style="color: var(--text-primary);">142</span>
-            </span>
-          </div>
-          <div style="margin-top: 8px; font-size: 11px; color: var(--text-tertiary);">
-            Metadata now uses a single trait for marketplace clarity: <code>Characters</code>. Tags remain locked to ["KidLisp"].
-          </div>
+        <div class="keeps-endpoint">
+          <div class="keeps-endpoint-name v6">Index Scope</div>
+          <div class="keeps-endpoint-desc">Index shows only your pieces and pieces already kept on the active production contract.</div>
+        </div>
+        <div class="keeps-endpoint">
+          <div class="keeps-endpoint-name v6">Keep Authorization</div>
+          <div class="keeps-endpoint-desc">Keep uses signed permits bound to owner + content hash + deadline.</div>
+        </div>
+        <div class="keeps-endpoint">
+          <div class="keeps-endpoint-name v6">Metadata Rights</div>
+          <div class="keeps-endpoint-desc">Owner can edit metadata; creator refresh mode is supported; immutable identity fields remain fixed.</div>
         </div>
 
-        <div style="margin-bottom: 24px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
-          <div style="margin-bottom: 12px; color: var(--text-secondary); font-size: 13px; font-weight: 600;">KidLisp Keeps Bill of Artist &amp; Collector Rights</div>
-          <div style="display: grid; grid-template-columns: 1fr; gap: 10px; font-size: 13px; color: var(--text-secondary); line-height: 1.5;">
-            <div>
-              <strong style="color: var(--text-primary);">Artist Rights</strong><br>
-              Original creator attribution is tracked on-chain. In v8, minting is gated by a signed keep permit bound to wallet + piece + deadline.
-            </div>
-            <div>
-              <strong style="color: var(--text-primary);">Collector Rights</strong><br>
-              Core identity and economics remain immutable: <code>content_hash</code> and <code>royalties</code> cannot be changed via metadata edits.
-            </div>
-            <div>
-              <strong style="color: var(--text-primary);">Owner Rights</strong><br>
-              Current token owner keeps full metadata edit authority and can permanently lock token metadata with <code>lock_metadata</code>.
-            </div>
-            <div>
-              <strong style="color: var(--text-primary);">Protocol Governance</strong><br>
-              Admin controls stay limited to safety/governance operations (pause, fee, admin transfer, contract metadata governance). v7 remains paused after a namespace-permission review.
-            </div>
+        <h3>History</h3>
+        <div style="display: grid; gap: 10px; margin-bottom: 16px;">
+          <div class="keeps-endpoint">
+            <div class="keeps-endpoint-name">v7 (Paused)</div>
+            <div class="keeps-endpoint-desc">Authorization model was reviewed and paused before final release.</div>
+            <div class="keeps-endpoint-auth"><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/kidlisp_keeps_fa2_v7.py" target="_blank">Source</a></div>
           </div>
-        </div>
-
-        <!-- Token Metadata Simulation -->
-        <div class="v6-metadata-sim">
-          <div class="v6-metadata-head">
-            <div>
-              <div class="v6-metadata-title">Keep Pipeline Simulator (Live Endpoint)</div>
-              <div class="v6-metadata-subtitle">Runs <code>/api/keep-mint</code> with <code>mode: "simulate"</code> to dry-run analysis, metadata assembly, and contract call scaffolding without minting.</div>
-            </div>
-            <button type="button" class="v6-sim-btn" id="v6-sim-randomize">Load Example</button>
+          <div class="keeps-endpoint">
+            <div class="keeps-endpoint-name">v6 (Deprecated)</div>
+            <div class="keeps-endpoint-desc">Last major pre-permit production cycle.</div>
+            <div class="keeps-endpoint-auth"><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/kidlisp_keeps_fa2_v6.py" target="_blank">Source</a></div>
           </div>
-          <div class="v6-sim-grid">
-            <label class="v6-sim-field">
-              <span>$piece</span>
-              <input id="v6-sim-piece" type="text" value="ac25namuc" />
-            </label>
-            <label class="v6-sim-field">
-              <span>Wallet Address</span>
-              <input id="v6-sim-wallet" type="text" value="tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC" />
-            </label>
-            <label class="v6-sim-field">
-              <span>Handle</span>
-              <input id="v6-sim-handle" type="text" value="@jeffrey" />
-            </label>
-            <label class="v6-sim-field">
-              <span>Pack date (bundle)</span>
-              <input id="v6-sim-packed-on" type="date" value="2026-03-04" />
-            </label>
+          <div class="keeps-endpoint">
+            <div class="keeps-endpoint-name">v5 (Legacy RC)</div>
+            <div class="keeps-endpoint-desc"><code>KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido</code></div>
+            <div class="keeps-endpoint-auth"><a href="https://tzkt.io/KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido" target="_blank">TzKT</a> · <a href="https://objkt.com/collection/KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido" target="_blank">objkt</a></div>
           </div>
-          <label class="v6-sim-field" style="margin-bottom: 12px;">
-            <span>Source (optional; leave empty to load from kidlisp cache or fallback scaffold)</span>
-            <textarea id="v6-sim-source" class="v6-sim-textarea" spellcheck="false"></textarea>
-          </label>
-          <div class="v6-sim-actions">
-            <button type="button" class="v6-sim-btn" id="v6-sim-run">Run Simulator</button>
-            <span class="v6-sim-status" id="v6-sim-status">Idle</span>
+          <div class="keeps-endpoint">
+            <div class="keeps-endpoint-name">v4 (Deprecated Staging)</div>
+            <div class="keeps-endpoint-desc"><code>KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W</code></div>
+            <div class="keeps-endpoint-auth"><a href="https://tzkt.io/KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W" target="_blank">TzKT</a> · <a href="https://objkt.com/collection/KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W" target="_blank">objkt</a></div>
           </div>
-          <div class="v6-sim-endpoint" id="v6-sim-endpoint">Endpoint: /api/keep-mint (mode=simulate)</div>
-          <div class="v6-sim-panels">
-            <label class="v6-sim-field">
-              <span>Event Stream</span>
-              <pre class="v6-sim-events" id="v6-sim-events" aria-live="polite"></pre>
-            </label>
-            <label class="v6-sim-field">
-              <span>Simulator Output</span>
-              <pre class="v6-sim-output" id="v6-sim-output" aria-live="polite"></pre>
-            </label>
+          <div class="keeps-endpoint">
+            <div class="keeps-endpoint-name">v2 (Legacy Mainnet)</div>
+            <div class="keeps-endpoint-desc"><code>KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM</code></div>
+            <div class="keeps-endpoint-auth"><a href="https://tzkt.io/KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM" target="_blank">TzKT</a> · <a href="https://objkt.com/collection/KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM" target="_blank">objkt</a></div>
           </div>
-        </div>
-
-        <!-- Wallet Balances -->
-        <h3 style="margin: 24px 0 16px; color: var(--text-primary); font-size: 18px; font-weight: 600; border-bottom: 2px solid var(--ac-purple); padding-bottom: 8px;">
-          Wallet Status
-        </h3>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-          <div style="padding: 12px; background: var(--bg-secondary); border-radius: 6px; border: 1px solid var(--border-color);">
-            <div style="font-size: 11px; color: var(--text-tertiary); margin-bottom: 4px;">keeps.tez (deployer)</div>
-            <div style="font-size: 16px; font-weight: 600; color: var(--text-primary);">~4.7 XTZ</div>
-            <div style="font-size: 10px; color: var(--text-tertiary); font-family: 'Courier New', monospace; margin-top: 2px;">tz1Lc2...un2dC</div>
-          </div>
-          <div style="padding: 12px; background: var(--bg-secondary); border-radius: 6px; border: 1px solid var(--border-color);">
-            <div style="font-size: 11px; color: var(--text-tertiary); margin-bottom: 4px;">staging</div>
-            <div style="font-size: 16px; font-weight: 600; color: var(--text-primary);">~0.53 XTZ</div>
-            <div style="font-size: 10px; color: var(--text-tertiary); font-family: 'Courier New', monospace; margin-top: 2px;">tz1dfo...e4Gzt</div>
-          </div>
-        </div>
-      </div>
-
-      <div style="padding: 24px 0;">
-        <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 20px;">
-          <h2 style="margin: 0; color: var(--text-primary); font-size: 24px; font-weight: 600;">
-            Contracts &amp; Versions
-          </h2>
-          <select class="keeps-version-select" id="version-select">
-            <option value="v6" selected>Active (Runtime v8)</option>
-            <option value="v5">v5 (Legacy RC)</option>
-            <option value="v4">v4 (Deprecated Staging)</option>
-            <option value="v3">v3 (Dev Only)</option>
-            <option value="v2">v2 (Legacy)</option>
-          </select>
-        </div>
-
-        <!-- ═══════════════════════════════════════ V6 ═══════════════════════════════════════ -->
-        <div class="keeps-version-docs active" id="docs-v6">
-
-          <div style="margin-bottom: 24px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
-            <div style="margin-bottom: 8px; color: var(--text-secondary); font-size: 13px; font-weight: 500;">Active Contract Address (Runtime / Mongo Secrets)</div>
-            <div id="v6-active-contract-address" style="font-family: 'Courier New', monospace; color: var(--ac-purple); font-size: 14px; word-break: break-all;">
-              Loading...
-            </div>
-            <div id="v6-active-contract-meta" style="margin-top: 8px; color: var(--text-tertiary); font-size: 12px;">Loading active contract metadata...</div>
-            <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
-              <a id="v6-active-contract-tzkt" href="https://tzkt.io" target="_blank"
-                 style="padding: 6px 12px; background: var(--ac-purple); color: white; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
-                TzKT Explorer
-              </a>
-              <a id="v6-active-contract-objkt" href="https://objkt.com" target="_blank"
-                 style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
-                objkt.com
-              </a>
-              <a id="v6-active-contract-ops" href="https://tzkt.io" target="_blank"
-                 style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
-                Operations
-              </a>
-              <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/kidlisp_keeps_fa2_v8.py" target="_blank"
-                 style="padding: 6px 12px; background: var(--ac-purple); color: white; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
-                v8 Source Code
-              </a>
-              <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/kidlisp_keeps_fa2_v7.py" target="_blank"
-                 style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
-                v7 Source (Paused)
-              </a>
-              <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/kidlisp_keeps_fa2_v6.py" target="_blank"
-                 style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
-                v6 Source (Deprecated)
-              </a>
-              <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/keeps.mjs" target="_blank"
-                 style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
-                Deploy Script
-              </a>
-            </div>
-          </div>
-
-          <p style="margin-bottom: 24px; color: var(--text-secondary); line-height: 1.6;">
-            This section tracks the live contract selected by runtime config (<code>/api/keeps-config</code>).
-            As of now (March 8, 2026), <strong>v7 is paused</strong> and <strong>v8.0.0</strong> is the signed-permit launch candidate for keeps.tez.
-          </p>
-
-          <div style="margin-bottom: 32px;">
-            <h3 style="margin: 0 0 16px; color: var(--text-primary); font-size: 18px; font-weight: 600; border-bottom: 2px solid var(--ac-purple); padding-bottom: 8px;">
-              Runtime Contract Policy (v8)
-            </h3>
-
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name v6">Contract Metadata</div>
-              <div class="keeps-endpoint-desc">Name: "KidLisp" &bull; Description: "https://keeps.kidlisp.com" &bull; Homepage: "https://kidlisp.com"</div>
-            </div>
-
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name v6">Token Attributes</div>
-              <div class="keeps-endpoint-desc">Single trait only: <code>Characters</code> (source character count)</div>
-            </div>
-
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name v6">Minting Tool</div>
-              <div class="keeps-endpoint-desc">mintingTool updated to https://kidlisp.com (was https://aesthetic.computer)</div>
-            </div>
-
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name v6">Metadata Tags</div>
-              <div class="keeps-endpoint-desc">tags array standardized to ["KidLisp"] only</div>
-            </div>
-          </div>
-
-          <p style="color: var(--text-tertiary); font-size: 13px;">
-            v8 keeps FA2 compatibility while enforcing Keep-specific flows:
-            generic <code>mint</code>/<code>burn</code> are disabled, <code>burn_keep</code> is owner-only,
-            <code>edit_metadata</code> supports owner full-edit plus creator refresh mode,
-            and <code>keep</code> now requires a signed permit (<code>keep_permit</code> + <code>permit_deadline</code>).
-          </p>
-        </div>
-
-        <!-- ═══════════════════════════════════════ V5 ═══════════════════════════════════════ -->
-        <div class="keeps-version-docs" id="docs-v5">
-
-          <div style="margin-bottom: 24px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
-            <div style="margin-bottom: 8px; color: var(--text-secondary); font-size: 13px; font-weight: 500;">Contract Address (Mainnet RC)</div>
-            <div style="font-family: 'Courier New', monospace; color: var(--ac-purple); font-size: 14px; word-break: break-all;">
-              KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido
-            </div>
-            <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
-              <a href="https://tzkt.io/KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido" target="_blank"
-                 style="padding: 6px 12px; background: var(--ac-purple); color: white; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
-                TzKT Explorer
-              </a>
-              <a href="https://objkt.com/collection/KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido" target="_blank"
-                 style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
-                objkt.com
-              </a>
-              <a href="https://tzkt.io/KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido/operations" target="_blank"
-                 style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
-                Operations
-              </a>
-              <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/keeps_fa2_v5.py" target="_blank"
-                 style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
-                Source Code
-              </a>
-            </div>
-          </div>
-
-          <p style="margin-bottom: 24px; color: var(--text-secondary); line-height: 1.6;">
-            The Keeps FA2 v5 contract is the release candidate. It preserves all v4 features
-            and adds a 2.5 XTZ default minting fee, immutable content_hash protection during metadata edits,
-            and improved error messages. It has since been superseded by v6/v7 and now v8.
-          </p>
-
-          <div style="margin-bottom: 32px;">
-            <h3 style="margin: 0 0 16px; color: var(--text-primary); font-size: 18px; font-weight: 600; border-bottom: 2px solid var(--ac-purple); padding-bottom: 8px;">
-              Custom Endpoints (12)
-            </h3>
-
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name v5">edit_metadata</div>
-              <div class="keeps-endpoint-desc">Update token metadata (if not locked). <strong>content_hash is immutable</strong> &mdash; always preserved from original mint.</div>
-              <div class="keeps-endpoint-auth">Auth: admin, current owner, or original creator</div>
-              <div class="keeps-endpoint-desc" style="margin-top: 8px;">
-                <strong>Params:</strong> token_id (nat), token_info (map[string, bytes])
-              </div>
-              <div class="keeps-endpoint-desc" style="margin-top: 4px; font-style: italic;">
-                New in v5: content_hash cannot be changed or removed via edit, preventing orphaned bigmap entries
-              </div>
-            </div>
-
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name v4">pause</div>
-              <div class="keeps-endpoint-desc">Emergency pause contract (blocks minting/editing, allows transfers)</div>
-              <div class="keeps-endpoint-auth">Auth: admin only</div>
-            </div>
-
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name v4">unpause</div>
-              <div class="keeps-endpoint-desc">Resume normal contract operations after pause</div>
-              <div class="keeps-endpoint-auth">Auth: admin only</div>
-            </div>
-
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name v4">set_default_royalty</div>
-              <div class="keeps-endpoint-desc">Set default royalty percentage for all tokens (0-25%)</div>
-              <div class="keeps-endpoint-auth">Auth: admin only</div>
-              <div class="keeps-endpoint-desc" style="margin-top: 8px;">
-                <strong>Params:</strong> bps (nat) &mdash; basis points, 1000 = 10%, max 2500
-              </div>
-            </div>
-
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name v4">admin_transfer</div>
-              <div class="keeps-endpoint-desc">Emergency transfer for recovery (validates current owner)</div>
-              <div class="keeps-endpoint-auth">Auth: admin only</div>
-              <div class="keeps-endpoint-desc" style="margin-top: 8px;">
-                <strong>Params:</strong> token_id (nat), from_ (address), to_ (address)
-              </div>
-            </div>
-
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name">keep</div>
-              <div class="keeps-endpoint-desc">Mint a new token with full TZIP-21 metadata + royalties</div>
-              <div class="keeps-endpoint-auth">Auth: admin (free) or user (with 2.5 XTZ fee)</div>
-              <div class="keeps-endpoint-desc" style="margin-top: 8px;">
-                <strong>Params:</strong> name, description, artifactUri, displayUri, thumbnailUri, decimals, symbol, isBooleanAmount, shouldPreferSymbol, formats, tags, attributes, creators, royalties, rights, content_type, content_hash, metadata_uri (all bytes), owner (address)
-              </div>
-              <div class="keeps-endpoint-desc" style="margin-top: 4px; font-style: italic;">
-                Enforces unique content_hash &bull; Non-admin must mint to self &bull; Default fee: 2.5 XTZ &bull; v8 tags policy: ["KidLisp"] only
-              </div>
-            </div>
-
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name">lock_metadata</div>
-              <div class="keeps-endpoint-desc">Permanently lock token metadata (irreversible)</div>
-              <div class="keeps-endpoint-auth">Auth: admin or current owner</div>
-              <div class="keeps-endpoint-desc" style="margin-top: 8px;">
-                <strong>Params:</strong> token_id (nat)
-              </div>
-            </div>
-
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name">set_contract_metadata</div>
-              <div class="keeps-endpoint-desc">Update contract-level metadata (name, description, etc.)</div>
-              <div class="keeps-endpoint-auth">Auth: admin only</div>
-              <div class="keeps-endpoint-desc" style="margin-top: 8px;">
-                <strong>Params:</strong> list of (key, value) pairs
-              </div>
-            </div>
-
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name">lock_contract_metadata</div>
-              <div class="keeps-endpoint-desc">Permanently lock contract metadata (irreversible)</div>
-              <div class="keeps-endpoint-auth">Auth: admin only</div>
-            </div>
-
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name">set_keep_fee</div>
-              <div class="keeps-endpoint-desc">Set minting fee in mutez (1 tez = 1,000,000 mutez)</div>
-              <div class="keeps-endpoint-auth">Auth: admin only</div>
-              <div class="keeps-endpoint-desc" style="margin-top: 8px;">
-                <strong>Params:</strong> new_fee (mutez) &mdash; Default: 2,500,000 (2.5 XTZ)
-              </div>
-            </div>
-
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name">withdraw_fees</div>
-              <div class="keeps-endpoint-desc">Withdraw collected fees to specified address (sends entire balance)</div>
-              <div class="keeps-endpoint-auth">Auth: admin only</div>
-              <div class="keeps-endpoint-desc" style="margin-top: 8px;">
-                <strong>Params:</strong> destination (address)
-              </div>
-            </div>
-
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name">burn_keep</div>
-              <div class="keeps-endpoint-desc">Permanently delete a token and free its content_hash</div>
-              <div class="keeps-endpoint-auth">Auth: admin only</div>
-              <div class="keeps-endpoint-desc" style="margin-top: 8px;">
-                <strong>Params:</strong> token_id (nat) &mdash; Cleans up all 5 storage maps
-              </div>
-            </div>
-          </div>
-
-          <div style="margin-bottom: 32px;">
-            <h3 style="margin: 0 0 16px; color: var(--text-primary); font-size: 18px; font-weight: 600; border-bottom: 2px solid var(--ac-purple); padding-bottom: 8px;">
-              FA2 Standard Endpoints (6)
-            </h3>
-
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name">transfer</div>
-              <div class="keeps-endpoint-desc">Transfer tokens between addresses (FA2 standard)</div>
-              <div class="keeps-endpoint-auth">Auth: owner or approved operator</div>
-            </div>
-
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name">update_operators</div>
-              <div class="keeps-endpoint-desc">Add or remove approved operators for your tokens</div>
-              <div class="keeps-endpoint-auth">Auth: token owner</div>
-            </div>
-
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name">balance_of</div>
-              <div class="keeps-endpoint-desc">Query token balances (callback pattern)</div>
-              <div class="keeps-endpoint-auth">Auth: public</div>
-            </div>
-
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name">mint</div>
-              <div class="keeps-endpoint-desc">Basic FA2 mint (use 'keep' instead for content deduplication)</div>
-              <div class="keeps-endpoint-auth">Auth: admin only</div>
-            </div>
-
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name">burn</div>
-              <div class="keeps-endpoint-desc">Burn your own token (owner-initiated)</div>
-              <div class="keeps-endpoint-auth">Auth: token owner</div>
-            </div>
-
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name">set_administrator</div>
-              <div class="keeps-endpoint-desc">Transfer admin role to new address</div>
-              <div class="keeps-endpoint-auth">Auth: current admin only</div>
-            </div>
-          </div>
-
-          <div style="margin-bottom: 32px;">
-            <h3 style="margin: 0 0 16px; color: var(--text-primary); font-size: 18px; font-weight: 600; border-bottom: 2px solid var(--ac-purple); padding-bottom: 8px;">
-              On-Chain Views (5)
-            </h3>
-
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name">get_balance</div>
-              <div class="keeps-endpoint-desc">Get balance for owner/token_id pair</div>
-              <div class="keeps-endpoint-auth">Auth: public (read-only) &mdash; Returns: nat (0 or 1)</div>
-            </div>
-
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name">total_supply</div>
-              <div class="keeps-endpoint-desc">Get total supply for a token_id</div>
-              <div class="keeps-endpoint-auth">Auth: public (read-only) &mdash; Returns: nat</div>
-            </div>
-
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name">is_operator</div>
-              <div class="keeps-endpoint-desc">Check if address is approved operator</div>
-              <div class="keeps-endpoint-auth">Auth: public (read-only) &mdash; Returns: bool</div>
-            </div>
-
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name">all_tokens</div>
-              <div class="keeps-endpoint-desc">Get list of all token IDs</div>
-              <div class="keeps-endpoint-auth">Auth: public (read-only) &mdash; Returns: list of nat</div>
-            </div>
-
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name">get_balance_of</div>
-              <div class="keeps-endpoint-desc">Batch balance query (view version of balance_of)</div>
-              <div class="keeps-endpoint-auth">Auth: public (read-only) &mdash; Returns: list of (owner, token_id, balance)</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ═══════════════════════════════════════ V4 ═══════════════════════════════════════ -->
-        <div class="keeps-version-docs" id="docs-v4">
-          <div class="keeps-deprecated-banner">Deprecated &mdash; v4 was a staging/testing contract. Superseded by v5.</div>
-
-          <div style="margin-bottom: 24px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
-            <div style="margin-bottom: 8px; color: var(--text-secondary); font-size: 13px; font-weight: 500;">Contract Address (Mainnet Staging)</div>
-            <div style="font-family: 'Courier New', monospace; color: var(--ac-purple); font-size: 14px; word-break: break-all;">
-              KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W
-            </div>
-            <div style="margin-top: 8px; color: var(--text-tertiary); font-size: 12px;">Admin: tz1dfo...de4Gzt (staging wallet)</div>
-            <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
-              <a href="https://tzkt.io/KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W" target="_blank"
-                 style="padding: 6px 12px; background: var(--ac-purple); color: white; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
-                TzKT Explorer
-              </a>
-              <a href="https://objkt.com/collection/KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W" target="_blank"
-                 style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
-                objkt.com
-              </a>
-              <a href="https://tzkt.io/KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W/operations" target="_blank"
-                 style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
-                Operations
-              </a>
-              <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/keeps_fa2_v4.py" target="_blank"
-                 style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
-                Source Code
-              </a>
-            </div>
-          </div>
-
-          <p style="margin-bottom: 24px; color: var(--text-secondary); line-height: 1.6;">
-            v4 added emergency controls and royalty support to the Keeps system.
-            12 custom endpoints + 6 FA2 standard + 5 on-chain views = 23 total.
-            Default fee: 0 XTZ (staging). Royalty: 10% (1000 bps).
-          </p>
-
-          <div style="margin-bottom: 32px;">
-            <h3 style="margin: 0 0 16px; color: var(--text-primary); font-size: 18px; font-weight: 600; border-bottom: 2px solid var(--ac-purple); padding-bottom: 8px;">
-              New in v4
-            </h3>
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name v4">pause / unpause</div>
-              <div class="keeps-endpoint-desc">Emergency pause &mdash; blocks minting and metadata edits but preserves FA2 transfers</div>
-              <div class="keeps-endpoint-auth">Auth: admin only</div>
-            </div>
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name v4">set_default_royalty</div>
-              <div class="keeps-endpoint-desc">Set royalty percentage for new mints (0-25% via basis points)</div>
-              <div class="keeps-endpoint-auth">Auth: admin only</div>
-            </div>
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name v4">admin_transfer</div>
-              <div class="keeps-endpoint-desc">Emergency transfer for lost-access recovery (validates current owner)</div>
-              <div class="keeps-endpoint-auth">Auth: admin only</div>
-            </div>
-          </div>
-
-          <p style="color: var(--text-tertiary); font-size: 13px;">
-            Plus all v3 endpoints: keep, edit_metadata, lock_metadata, set_contract_metadata, lock_contract_metadata, set_keep_fee, withdraw_fees, burn_keep.
-            Plus FA2 standard: transfer, update_operators, balance_of, mint, burn, set_administrator.
-          </p>
-        </div>
-
-        <!-- ═══════════════════════════════════════ V3 ═══════════════════════════════════════ -->
-        <div class="keeps-version-docs" id="docs-v3">
-          <div class="keeps-deprecated-banner">Development only &mdash; v3 was never deployed. Features merged into v4.</div>
-
-          <p style="margin-bottom: 24px; color: var(--text-secondary); line-height: 1.6;">
-            v3 expanded metadata editing to token owners and original creators (not just admin),
-            and added creator tracking via a new <code>token_creators</code> bigmap.
-            8 custom endpoints + 1 on-chain view.
-          </p>
-
-          <div style="margin-bottom: 32px;">
-            <h3 style="margin: 0 0 16px; color: var(--text-primary); font-size: 18px; font-weight: 600; border-bottom: 2px solid var(--ac-purple); padding-bottom: 8px;">
-              New in v3
-            </h3>
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name">edit_metadata (expanded auth)</div>
-              <div class="keeps-endpoint-desc">Now allows admin, token owner, <strong>or original creator</strong> to edit (preserves objkt.com attribution)</div>
-              <div class="keeps-endpoint-auth">Auth: admin, owner, or creator (was admin-only in v2)</div>
-            </div>
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name">lock_metadata (expanded auth)</div>
-              <div class="keeps-endpoint-desc">Token owner can now lock their own metadata (was admin-only in v2)</div>
-              <div class="keeps-endpoint-auth">Auth: admin or owner</div>
-            </div>
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name">token_creators bigmap</div>
-              <div class="keeps-endpoint-desc">New storage: tracks original creator address for each token</div>
-              <div class="keeps-endpoint-auth">Written during mint, read during edit_metadata auth check</div>
-            </div>
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name">get_token_creator (on-chain view)</div>
-              <div class="keeps-endpoint-desc">Query original creator address for a token_id</div>
-              <div class="keeps-endpoint-auth">Auth: public (read-only)</div>
-            </div>
-          </div>
-
-          <p style="color: var(--text-tertiary); font-size: 13px;">
-            All v2 endpoints preserved: keep, set_contract_metadata, lock_contract_metadata, set_keep_fee, withdraw_fees, burn_keep.
-          </p>
-        </div>
-
-        <!-- ═══════════════════════════════════════ V2 ═══════════════════════════════════════ -->
-        <div class="keeps-version-docs" id="docs-v2">
-          <div class="keeps-deprecated-banner">Legacy &mdash; v2 was the first mainnet contract. Superseded by v4/v5.</div>
-
-          <div style="margin-bottom: 24px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
-            <div style="margin-bottom: 8px; color: var(--text-secondary); font-size: 13px; font-weight: 500;">Contract Address (Mainnet)</div>
-            <div style="font-family: 'Courier New', monospace; color: var(--ac-purple); font-size: 14px; word-break: break-all;">
-              KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM
-            </div>
-            <div style="margin-top: 8px; color: var(--text-tertiary); font-size: 12px;">Admin: keeps.tez (tz1Lc2...un2dC)</div>
-            <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
-              <a href="https://tzkt.io/KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM" target="_blank"
-                 style="padding: 6px 12px; background: var(--ac-purple); color: white; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
-                TzKT Explorer
-              </a>
-              <a href="https://objkt.com/collection/KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM" target="_blank"
-                 style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
-                objkt.com
-              </a>
-              <a href="https://tzkt.io/KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM/operations" target="_blank"
-                 style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
-                Operations
-              </a>
-              <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/keeps_fa2_v2.py" target="_blank"
-                 style="padding: 6px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500;">
-                Source Code
-              </a>
-            </div>
-          </div>
-
-          <p style="margin-bottom: 24px; color: var(--text-secondary); line-height: 1.6;">
-            The original production Keeps contract. Introduced content hash deduplication,
-            metadata locking, fee system, and pre-encoded TZIP-21 metadata bytes.
-            8 custom endpoints. Default fee: 0 XTZ.
-          </p>
-
-          <div style="margin-bottom: 32px;">
-            <h3 style="margin: 0 0 16px; color: var(--text-primary); font-size: 18px; font-weight: 600; border-bottom: 2px solid var(--ac-purple); padding-bottom: 8px;">
-              Custom Endpoints (8)
-            </h3>
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name">keep</div>
-              <div class="keeps-endpoint-desc">Mint a new token with TZIP-21 metadata and content hash deduplication</div>
-              <div class="keeps-endpoint-auth">Auth: admin (free) or user (with fee, must mint to self)</div>
-            </div>
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name">edit_metadata</div>
-              <div class="keeps-endpoint-desc">Update token metadata (if not locked)</div>
-              <div class="keeps-endpoint-auth">Auth: admin only</div>
-            </div>
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name">lock_metadata</div>
-              <div class="keeps-endpoint-desc">Permanently lock token metadata</div>
-              <div class="keeps-endpoint-auth">Auth: admin only</div>
-            </div>
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name">set_contract_metadata</div>
-              <div class="keeps-endpoint-desc">Update contract-level metadata</div>
-              <div class="keeps-endpoint-auth">Auth: admin only</div>
-            </div>
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name">lock_contract_metadata</div>
-              <div class="keeps-endpoint-desc">Permanently lock contract metadata</div>
-              <div class="keeps-endpoint-auth">Auth: admin only</div>
-            </div>
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name">set_keep_fee</div>
-              <div class="keeps-endpoint-desc">Set minting fee in mutez</div>
-              <div class="keeps-endpoint-auth">Auth: admin only</div>
-            </div>
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name">withdraw_fees</div>
-              <div class="keeps-endpoint-desc">Withdraw collected fees</div>
-              <div class="keeps-endpoint-auth">Auth: admin only</div>
-            </div>
-            <div class="keeps-endpoint">
-              <div class="keeps-endpoint-name">burn_keep</div>
-              <div class="keeps-endpoint-desc">Burn token and free content_hash</div>
-              <div class="keeps-endpoint-auth">Auth: admin only</div>
-            </div>
-          </div>
-
-          <p style="color: var(--text-tertiary); font-size: 13px;">
-            Plus FA2 standard: transfer, update_operators, balance_of, mint, burn, set_administrator.
-          </p>
-        </div>
-
-        <!-- Version History (shared across all versions) -->
-        <div style="padding: 16px; margin-top: 24px; background: var(--bg-secondary); border-radius: 8px; border-left: 4px solid var(--ac-purple);">
-          <h4 style="margin: 0 0 8px; color: var(--text-primary); font-size: 16px; font-weight: 600;">Version History</h4>
-          <ul style="margin: 8px 0; padding-left: 20px; color: var(--text-secondary); line-height: 1.8;">
-            <li><strong>v8.0</strong> - Signed keep permits bound to owner + content_hash + deadline to harden namespace/auth flows.</li>
-            <li><strong>v7.0</strong> - Creator-refresh metadata model. Paused after authorization model review.</li>
-            <li><strong>v6.0</strong> - Production release on keeps.tez. Contract name "KidLisp", cleaned token attributes, mintingTool set to kidlisp.com</li>
-            <li><strong>v5.0 RC</strong> - Default 2.5 XTZ fee, immutable content_hash during edits, improved error messages</li>
-            <li><strong>v4.0</strong> - Added royalty support, emergency pause/unpause, admin_transfer</li>
-            <li><strong>v3.0</strong> - Added editable metadata (owner/creator), creator tracking</li>
-            <li><strong>v2.0</strong> - Content hash deduplication, metadata locking, fee system</li>
-            <li><strong>v1.0</strong> - Basic FA2 implementation</li>
-          </ul>
-        </div>
-
-        <div style="padding: 16px; margin-top: 24px; background: var(--bg-secondary); border-radius: 8px; border-left: 4px solid #4ECDC4;">
-          <h4 style="margin: 0 0 8px; color: var(--text-primary); font-size: 16px; font-weight: 600;">About This Index</h4>
-          <p style="margin: 0 0 10px;">
-            This index only shows pieces you own plus pieces that are already kept on the current active production contract.
-          </p>
-          <p style="margin: 0 0 10px;">
-            Code identities come from <code>/api/store-kidlisp</code>, which deduplicates by trimmed source hash and returns a stable <code>$code</code>.
-          </p>
-          <p style="margin: 0;">
-            Open <code>kidlisp.com/$code</code> to edit, <code>aesthetic.computer/$code</code> to run, and <code>/api/bundle-html?code=&lt;code&gt;</code> for a standalone archive bundle.
-          </p>
         </div>
       </div>
     </div>
@@ -2719,22 +2120,20 @@
       countEl.textContent = '';
 
       const isHandleGate = reason === 'handle';
-      const title = isHandleGate
-        ? 'Set a @handle to unlock your keeps index.'
-        : 'Log in to view your keeps index.';
-      const detail = isHandleGate
-        ? 'This index only loads after your account has a handle.'
-        : 'Your keeps index is private to signed-in accounts with handles.';
-      const action = isHandleGate
-        ? `<a class="retry-btn" href="${KL_BASE}" target="_blank" rel="noopener">Open kidlisp.com</a>`
-        : '<button class="retry-btn" onclick="keepsLogin()">Log In</button>';
+      const actions = isHandleGate
+        ? `
+          <div class="keeps-gate-actions">
+            <a class="keeps-auth-btn imnew" href="${KL_BASE}" target="_blank" rel="noopener">Set Handle</a>
+          </div>`
+        : `
+          <div class="keeps-gate-actions">
+            <button class="keeps-auth-btn" onclick="keepsLogin()">Log In</button>
+            <button class="keeps-auth-btn imnew" onclick="keepsImNew()">I'm New</button>
+          </div>`;
 
       grid.innerHTML = `
         <div class="keeps-error" style="grid-column: 1 / -1;">
-          <div class="error-icon">${isHandleGate ? '&#x270E;' : '&#x1F512;'}</div>
-          <div class="error-msg">${title}</div>
-          <div class="error-msg" style="font-size:12px;">${detail}</div>
-          ${action}
+          ${actions}
         </div>`;
     }
 
@@ -3010,23 +2409,24 @@
         switchTab(tabName);
         const path = tabName === 'index'
           ? '/'
-          : '/contracts';
+          : '/rules';
         history.pushState({ tab: tabName }, '', path);
       });
     });
 
-    // Route from URL path on load (e.g. /contracts, /versions, /about)
+    // Route from URL path on load (e.g. /rules, /contracts, /versions, /about)
     const pathTabRaw = location.pathname.replace(/^\/+/, '').split('/')[0];
-    const pathAliases = { contracts: 'v6', versions: 'v6', docs: 'v6', about: 'v6' };
+    const pathAliases = { contracts: 'rules', versions: 'rules', docs: 'rules', about: 'rules' };
     const pathTab = pathAliases[pathTabRaw] || pathTabRaw;
-    if (pathTab && ['v6'].includes(pathTab)) {
+    if (pathTab && ['rules'].includes(pathTab)) {
       switchTab(pathTab);
     }
 
     // Handle browser back/forward
     window.addEventListener('popstate', (e) => {
       if (e.state && e.state.tab) {
-        switchTab(e.state.tab === 'about' ? 'v6' : e.state.tab);
+        const stateTab = pathAliases[e.state.tab] || e.state.tab;
+        switchTab(stateTab === 'rules' ? 'rules' : 'index');
       } else {
         switchTab('index');
       }
@@ -3403,20 +2803,24 @@
 
     function updateAuthUI() {
       const loginBtn = document.getElementById('keeps-login-btn');
+      const signupBtn = document.getElementById('keeps-signup-btn');
       const logoutBtn = document.getElementById('keeps-logout-btn');
       const handleEl = document.getElementById('keeps-auth-handle');
       if (acUser && hasRegisteredHandle()) {
         loginBtn.style.display = 'none';
+        if (signupBtn) signupBtn.style.display = 'none';
         handleEl.textContent = `@${acHandle}`;
         handleEl.style.display = 'inline';
         logoutBtn.style.display = 'inline';
       } else if (acUser) {
         loginBtn.style.display = 'none';
+        if (signupBtn) signupBtn.style.display = 'none';
         handleEl.textContent = 'Handle required';
         handleEl.style.display = 'inline';
         logoutBtn.style.display = 'inline';
       } else {
-        loginBtn.style.display = 'inline';
+        loginBtn.style.display = 'inline-flex';
+        if (signupBtn) signupBtn.style.display = 'inline-flex';
         handleEl.style.display = 'none';
         logoutBtn.style.display = 'none';
       }
@@ -3426,6 +2830,12 @@
       if (!acAuth0Client) await initAuth0();
       if (!acAuth0Client) return;
       await acAuth0Client.loginWithRedirect({ authorizationParams: { prompt: 'login' } });
+    }
+
+    async function keepsImNew() {
+      if (!acAuth0Client) await initAuth0();
+      if (!acAuth0Client) return;
+      await acAuth0Client.loginWithRedirect({ authorizationParams: { prompt: 'login', screen_hint: 'signup' } });
     }
 
     async function keepsLogout() {
