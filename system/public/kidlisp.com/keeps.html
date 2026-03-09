@@ -2107,7 +2107,8 @@
 
     async function loadKeepsConfig() {
       try {
-        const response = await fetch(`${API_BASE}/api/keeps-config`);
+        const configUrl = `${API_BASE}/api/keeps-config?ts=${Date.now()}`;
+        const response = await fetch(configUrl, { cache: 'no-store' });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
 
@@ -2163,8 +2164,9 @@
     // =========================================
     async function fetchAllCodes(sort = 'recent') {
       try {
-        const url = `${AC_BASE}/api/store-kidlisp?recent=true&limit=100000&sort=${sort}`;
-        const res = await fetch(url);
+        const contractHint = encodeURIComponent(getKeepsContractAddress() || '');
+        const url = `${AC_BASE}/api/store-kidlisp?recent=true&limit=100000&sort=${sort}&contract=${contractHint}&ts=${Date.now()}`;
+        const res = await fetch(url, { cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         return data.recent || [];
@@ -2182,29 +2184,97 @@
       return typeof address === 'string' ? address.trim().toLowerCase() : '';
     }
 
-    function isKeptOnActiveContract(entry) {
-      const kept = entry?.kept;
-      if (!kept || !kept.contractAddress) return false;
+    function normalizeTokenId(value) {
+      if (value === null || typeof value === 'undefined' || value === '') return null;
+      const parsed = Number(value);
+      if (!Number.isInteger(parsed) || parsed < 0) return null;
+      return parsed;
+    }
 
+    function getKeepRecords(entry) {
+      const list = [];
+      if (Array.isArray(entry?.keptRecords)) {
+        list.push(...entry.keptRecords);
+      }
+      if (entry?.kept) {
+        list.push(entry.kept);
+      }
+
+      const deduped = new Map();
+      for (const item of list) {
+        if (!item) continue;
+        const tokenId = normalizeTokenId(item.tokenId);
+        if (tokenId === null) continue;
+        const network = (item.network || '').trim().toLowerCase() || 'mainnet';
+        const contractAddress = typeof item.contractAddress === 'string'
+          ? item.contractAddress.trim()
+          : '';
+        if (!contractAddress) continue;
+        const keptAt = item.keptAt || item.mintedAt || null;
+        const key = `${normalizeAddress(contractAddress)}:${network}:${tokenId}`;
+        const normalized = {
+          ...item,
+          tokenId,
+          network,
+          contractAddress,
+          keptAt,
+        };
+        if (!deduped.has(key)) {
+          deduped.set(key, normalized);
+          continue;
+        }
+        const existing = deduped.get(key);
+        const existingMs = existing?.keptAt ? new Date(existing.keptAt).getTime() : 0;
+        const normalizedMs = keptAt ? new Date(keptAt).getTime() : 0;
+        if ((Number.isFinite(normalizedMs) ? normalizedMs : 0) > (Number.isFinite(existingMs) ? existingMs : 0)) {
+          deduped.set(key, normalized);
+        }
+      }
+
+      return Array.from(deduped.values()).sort((a, b) => {
+        const aMs = a?.keptAt ? new Date(a.keptAt).getTime() : 0;
+        const bMs = b?.keptAt ? new Date(b.keptAt).getTime() : 0;
+        const safeA = Number.isFinite(aMs) ? aMs : 0;
+        const safeB = Number.isFinite(bMs) ? bMs : 0;
+        if (safeA !== safeB) return safeB - safeA;
+        return (b.tokenId || 0) - (a.tokenId || 0);
+      });
+    }
+
+    function getActiveKeepRecord(entry) {
       const activeContract = getKeepsContractAddress();
-      if (!activeContract) return false;
+      if (!activeContract) return null;
 
-      const sameContract = normalizeAddress(kept.contractAddress) === normalizeAddress(activeContract);
-      if (!sameContract) return false;
-
-      const entryNetwork = (kept.network || '').trim().toLowerCase();
       const activeNetwork = (getTezosNetwork() || '').trim().toLowerCase();
-      return !entryNetwork || !activeNetwork || entryNetwork === activeNetwork;
+      const records = getKeepRecords(entry);
+      return records.find(record => {
+        if (!record.contractAddress) return false;
+        const sameContract = normalizeAddress(record.contractAddress) === normalizeAddress(activeContract);
+        if (!sameContract) return false;
+        return !record.network || !activeNetwork || record.network === activeNetwork;
+      }) || null;
+    }
+
+    function getPrimaryKeepRecord(entry) {
+      const active = getActiveKeepRecord(entry);
+      if (active) return active;
+      const records = getKeepRecords(entry);
+      return records[0] || null;
+    }
+
+    function getLegacyKeepRecord(entry) {
+      const activeContract = normalizeAddress(getKeepsContractAddress());
+      if (!activeContract) return null;
+      const records = getKeepRecords(entry);
+      return records.find(record => normalizeAddress(record.contractAddress) !== activeContract) || null;
+    }
+
+    function isKeptOnActiveContract(entry) {
+      return !!getActiveKeepRecord(entry);
     }
 
     function hasAnyKeepRecord(entry) {
-      const kept = entry?.kept;
-      if (!kept) return false;
-      return kept.tokenId != null
-        || !!kept.txHash
-        || !!kept.contractAddress
-        || !!kept.artifactUri
-        || !!kept.thumbnailUri;
+      return !!getPrimaryKeepRecord(entry);
     }
 
     function scopeIndexEntries(entries) {
@@ -2252,11 +2322,14 @@
       const timeStr = when ? formatRelativeTime(when) : '';
       const handle = entry.handle || 'anon';
       const hits = entry.hits || 0;
-      const isActiveKept = isKeptOnActiveContract(entry);
-      const hasKeptRecord = hasAnyKeepRecord(entry);
-      const keptInfo = hasKeptRecord ? entry.kept : null;
+      const activeKeepInfo = getActiveKeepRecord(entry);
+      const legacyKeepInfo = activeKeepInfo ? null : getLegacyKeepRecord(entry);
+      const isActiveKept = !!activeKeepInfo;
+      const keptInfo = activeKeepInfo || legacyKeepInfo;
+      const hasKeptRecord = !!keptInfo;
       const canManageKeep = !!(acUser && entry.user && acUser.sub === entry.user);
       const canRekeep = !!(acUser && hasKeptRecord);
+      const canKeepOnActive = !!(canManageKeep && !isActiveKept);
       const card = document.createElement('div');
       card.className = 'keeps-card' + (isActiveKept ? ' kept' : '');
 
@@ -2290,7 +2363,7 @@
           <a class="keeps-card-btn" href="${KL_BASE}/$${entry.code}" title="Open in editor">&#x270E; Edit</a>
           <a class="keeps-card-btn html-btn" href="${AC_BASE}/api/bundle-html?code=${entry.code}" target="_blank" title="Download as standalone HTML">&#x1F4E6; HTML</a>
           ${hasKeptRecord
-            ? `<span class="keeps-card-btn kept-badge" title="Kept on Tezos${keptInfo?.tokenId != null ? ` (Token #${keptInfo.tokenId})` : ''}">&#x2714; ${isActiveKept ? 'Kept' : 'Legacy Keep'}</span>${canRekeep ? `<button class="keeps-card-btn rebake-btn" data-rebake-code="${entry.code}" title="Regenerate HTML + thumbnail">&#x267B; Rekeep</button>` : ''}`
+            ? `<span class="keeps-card-btn kept-badge" title="Kept on Tezos${keptInfo?.tokenId != null ? ` (Token #${keptInfo.tokenId})` : ''}">&#x2714; ${isActiveKept ? 'Kept' : 'Legacy Keep'}</span>${canKeepOnActive ? `<button class="keeps-card-btn keep-btn" data-code="${entry.code}" title="Keep on active contract">&#x26D3; Keep</button>` : ''}${canRekeep ? `<button class="keeps-card-btn rebake-btn" data-rebake-code="${entry.code}" title="Regenerate HTML + thumbnail">&#x267B; Rekeep</button>` : ''}`
             : (canManageKeep ? `<button class="keeps-card-btn keep-btn" data-code="${entry.code}" title="Keep on Tezos">&#x26D3; Keep</button>` : '')}
           ${timeStr ? `<span style="margin-left: auto; font-size: 10px; color: var(--text-tertiary);">${timeStr}</span>` : ''}
         </div>`;
@@ -2446,10 +2519,14 @@
       const handle = entry.handle || 'anon';
       const hits = entry.hits || 0;
       const when = entry.when ? new Date(entry.when) : null;
-      const isActiveKept = isKeptOnActiveContract(entry);
-      const hasKeptRecord = hasAnyKeepRecord(entry);
-      const keptInfo = hasKeptRecord ? entry.kept : null;
+      const activeKeepInfo = getActiveKeepRecord(entry);
+      const legacyKeepInfo = activeKeepInfo ? null : getLegacyKeepRecord(entry);
+      const isActiveKept = !!activeKeepInfo;
+      const keptInfo = activeKeepInfo || legacyKeepInfo;
+      const hasKeptRecord = !!keptInfo;
       const canRekeep = !!(acUser && hasKeptRecord);
+      const canManageKeep = !!(acUser && entry.user === acUser.sub);
+      const canKeepOnActive = !!(canManageKeep && !isActiveKept);
 
       let actionsHTML = `
         <a class="keeps-modal-action-btn edit-btn" href="${KL_BASE}/$${entry.code}" title="Open in KidLisp.com editor">&#x270E; Edit in KidLisp.com</a>
@@ -2458,10 +2535,13 @@
       if (hasKeptRecord) {
         const tokenLabel = keptInfo?.tokenId != null ? ` (Token #${keptInfo.tokenId})` : '';
         actionsHTML += `<span class="keeps-modal-action-btn tezos-btn" style="cursor: default;">&#x2714; ${isActiveKept ? 'Kept' : 'Legacy Keep'}${tokenLabel}</span>`;
+        if (canKeepOnActive) {
+          actionsHTML += `<button class="keeps-modal-action-btn tezos-btn" data-mint-code="${entry.code}">&#x26D3; Keep on Tezos</button>`;
+        }
         if (canRekeep) {
           actionsHTML += `<button class="keeps-modal-action-btn html-btn" data-rebake-code="${entry.code}" title="Regenerate HTML + thumbnail">&#x267B; Rekeep Media</button>`;
         }
-      } else if (acUser && entry.user === acUser.sub) {
+      } else if (canManageKeep) {
         actionsHTML += `<button class="keeps-modal-action-btn tezos-btn" data-mint-code="${entry.code}">&#x26D3; Keep on Tezos</button>`;
       } else {
         actionsHTML += `<a class="keeps-modal-action-btn tezos-btn" href="${AC_BASE}/keep~$${entry.code}" target="_blank" title="Keep this code on Tezos">&#x26D3; Keep on Tezos</a>`;
@@ -3405,12 +3485,14 @@
         setMintStep('sign', 'done', txHash.slice(0, 8) + '...');
         setMintStep('complete', 'done', 'NFT minted!');
 
+        let confirmedTokenId = normalizeTokenId(mintPreparedData.tokenId);
+
         // Confirm to backend
         try {
           if (acAuth0Client) {
             acToken = await acAuth0Client.getTokenSilently();
           }
-          await fetch(`${API_BASE}/api/keep-confirm`, {
+          const confirmRes = await fetch(`${API_BASE}/api/keep-confirm`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -3428,12 +3510,34 @@
               tokenId: mintPreparedData.tokenId,
             }),
           });
+          const confirmData = await confirmRes.json().catch(() => null);
+          const tokenFromConfirm = normalizeTokenId(confirmData?.tokenId);
+          if (tokenFromConfirm !== null) {
+            confirmedTokenId = tokenFromConfirm;
+          }
         } catch (e) {
           console.warn('keep-confirm failed (non-critical):', e);
         }
 
         const mintNetwork = mintPreparedData.network || getTezosNetwork();
-        const objktUrl = `${getObjktBase(mintNetwork)}/tokens/${contractAddress}/${mintPreparedData.tokenId || ''}`;
+        const objktUrl = `${getObjktBase(mintNetwork)}/tokens/${contractAddress}/${confirmedTokenId ?? ''}`;
+
+        if (mintCurrentEntry && confirmedTokenId !== null) {
+          const activeKeep = {
+            tokenId: confirmedTokenId,
+            txHash,
+            walletAddress: mintWalletAddress || null,
+            network: mintNetwork,
+            contractAddress,
+            artifactUri: mintPreparedData.artifactUri || null,
+            thumbnailUri: mintPreparedData.thumbnailUri || null,
+            metadataUri: mintPreparedData.metadataUri || null,
+            keptAt: new Date().toISOString(),
+          };
+          mintCurrentEntry.kept = activeKeep;
+          mintCurrentEntry.keptRecords = [activeKeep];
+        }
+
         showMintResult(`Successfully kept $${mintCurrentPiece}!`, objktUrl, txHash);
         renderMintArtifactPanel({
           title: 'Minted Artifacts',

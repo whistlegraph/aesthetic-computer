@@ -2,6 +2,12 @@ import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 import { getKeepsContractAddress, LEGACY_KEEPS_CONTRACT } from "../../backend/tezos-keeps-contract.mjs";
 
+const NO_CACHE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+  "Pragma": "no-cache",
+  "Expires": "0",
+};
+
 const VERSION_BY_PROFILE = {
   v9: "9.0.0",
   v8: "8.0.0",
@@ -120,10 +126,10 @@ export async function handler(event) {
       objktCollectionUrl: `${objktBase}/collections/${contractAddress}`,
       tzktContractUrl: `${tzktExplorer}/${contractAddress}`,
       source: contractAddress === LEGACY_KEEPS_CONTRACT ? "legacy-fallback" : "mongo-secrets",
-    });
+    }, NO_CACHE_HEADERS);
   } catch (error) {
     console.warn(`⚠️ KEEP-CONFIG: ${error.message}`);
-    return respond(200, fallbackPayload(requestedNetwork, "legacy-fallback-no-db"));
+    return respond(200, fallbackPayload(requestedNetwork, "legacy-fallback-no-db"), NO_CACHE_HEADERS);
   } finally {
     if (database) {
       await database.disconnect();
