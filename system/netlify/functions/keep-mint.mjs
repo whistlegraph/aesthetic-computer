@@ -1216,14 +1216,32 @@ export const handler = stream(async (event, context) => {
           message: `Awaiting ${thumbW}x${thumbH}@2x WebP... (${Math.round(thumbnailAwaitBudgetMs / 1000)}s budget)`
         });
 
-        // Send heartbeat messages to keep the SSE connection alive while
-        // the oven generates the thumbnail.
+        // Poll oven grab-status every 2s to stream real-time baking progress.
+        const pieceKey = `$${pieceName}`;
         const heartbeat = setInterval(async () => {
           try {
             const elapsed = ((Date.now() - processStartTime) / 1000).toFixed(0);
-            await send("progress", { stage: "thumbnail", message: `Still baking… (${elapsed}s)` });
+            let ovenStage = null, ovenDetail = null, percent = null, previewFrame = null;
+            try {
+              const statusRes = await fetch(`${OVEN_URL}/grab-status`, { signal: AbortSignal.timeout(1500) });
+              if (statusRes.ok) {
+                const statusData = await statusRes.json();
+                const grabs = statusData.grabProgress || {};
+                const match = Object.values(grabs).find(g => g.piece === pieceKey);
+                if (match) {
+                  ovenStage = match.stage || null;
+                  ovenDetail = match.stageDetail || null;
+                  percent = match.percent ?? null;
+                  previewFrame = match.previewFrame || null;
+                }
+              }
+            } catch { /* oven unreachable, fall back to elapsed */ }
+            const message = ovenDetail || ovenStage
+              ? `${ovenStage || 'baking'}${ovenDetail ? ': ' + ovenDetail : ''} (${elapsed}s)`
+              : `Still baking… (${elapsed}s)`;
+            await send("progress", { stage: "thumbnail", message, ovenStage, ovenDetail, percent, previewFrame });
           } catch {}
-        }, 10000);
+        }, 2000);
 
         let thumbResult;
         let thumbnailWaitError = null;
