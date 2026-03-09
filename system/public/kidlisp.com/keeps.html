@@ -1958,6 +1958,68 @@
           </div>
         </div>
 
+        <h3>How Keeps Works (Plain Language)</h3>
+        <div style="margin-bottom: 20px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color); color: var(--text-secondary);">
+          <p style="margin: 0 0 10px 0;">
+            A <strong>Keep</strong> is a KidLisp piece turned into a verifiable on-chain collectible. The mint points to permanent media on IPFS and records ownership in the active Tezos contract.
+          </p>
+          <div style="margin-bottom: 10px;">
+            <strong>Three layers work together:</strong>
+            <ol style="margin: 8px 0 0 0; padding-left: 18px;">
+              <li style="margin-bottom: 6px;"><strong>Contract layer (Tezos)</strong>: token id, owner, transfer history, and keep fee payment are finalized on-chain.</li>
+              <li style="margin-bottom: 6px;"><strong>Media layer (IPFS)</strong>: HTML artifact, thumbnail, and metadata JSON are content-addressed.</li>
+              <li><strong>Index layer (keeps.kidlisp.com)</strong>: human-readable search and status views for artists and collectors.</li>
+            </ol>
+          </div>
+          <div style="margin-bottom: 10px;">
+            <strong>What this guarantees:</strong>
+            <ul style="margin: 8px 0 0 0; padding-left: 18px;">
+              <li style="margin-bottom: 6px;">Unique mapping on this contract from KidLisp code to token id (via on-chain content hash registry).</li>
+              <li style="margin-bottom: 6px;">Clear provenance: mint transaction, first minter, creator mapping, and token history are public.</li>
+              <li>Collector ownership follows FA2 ledger state and marketplace transfers.</li>
+            </ul>
+          </div>
+          <div style="margin-bottom: 10px;">
+            <strong>What can still change:</strong>
+            <ul style="margin: 8px 0 0 0; padding-left: 18px;">
+              <li style="margin-bottom: 6px;">Token metadata may be refreshed by authorized flows until metadata is explicitly locked for that token.</li>
+              <li>UI indexing and presentation can improve without changing token ownership or transaction history.</li>
+            </ul>
+          </div>
+          <p style="margin: 0; color: var(--text-tertiary); font-size: 12px;">
+            Intent as of March 9, 2026: v9 is the long-lived canonical KidLisp Keeps contract.
+          </p>
+        </div>
+
+        <h3>Longevity + Rollover Strategy</h3>
+        <div style="margin-bottom: 20px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color); color: var(--text-secondary);">
+          <p style="margin: 0 0 10px 0;">
+            Target is <strong>no rollover</strong>. Like Bitcoin-era stability, the default plan is to keep one canonical production contract for as long as it is secure and functional.
+          </p>
+          <div style="margin-bottom: 10px;">
+            <strong>Rollover is only considered if at least one trigger occurs:</strong>
+            <ol style="margin: 8px 0 0 0; padding-left: 18px;">
+              <li style="margin-bottom: 6px;">Critical security issue in production logic.</li>
+              <li style="margin-bottom: 6px;">Protocol/runtime incompatibility that breaks normal keep, transfer, or metadata operations.</li>
+              <li style="margin-bottom: 6px;">Irreversible bug causing unsafe ownership, payout, or token integrity behavior.</li>
+              <li>Required capability cannot be added safely within existing contract constraints.</li>
+            </ol>
+          </div>
+          <div style="margin-bottom: 10px;">
+            <strong>If rollover is ever needed, process is:</strong>
+            <ol style="margin: 8px 0 0 0; padding-left: 18px;">
+              <li style="margin-bottom: 6px;">Publish a public notice and rationale before deployment.</li>
+              <li style="margin-bottom: 6px;">Keep old contract live as historical record (readable, verifiable, and linked in Rules history).</li>
+              <li style="margin-bottom: 6px;">Deploy successor contract with explicit versioning and documented differences.</li>
+              <li style="margin-bottom: 6px;">Update keeps.kidlisp.com to clearly mark Active vs Legacy contracts.</li>
+              <li>Never erase history: old tokens remain valid and traceable to their original contract.</li>
+            </ol>
+          </div>
+          <p style="margin: 0; color: var(--text-tertiary); font-size: 12px;">
+            Policy: no silent migrations, no hidden contract switches, and preserved provenance across generations.
+          </p>
+        </div>
+
         <h3>History</h3>
         <div style="display: grid; gap: 10px; margin-bottom: 16px;">
           <div class="keeps-endpoint">
