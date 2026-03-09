@@ -56,8 +56,14 @@ function act({ event: e, system }) {
 
 function execute(cmd, system) {
   if (cmd === "help") {
-    message = "type a piece name + enter (try: notepat)";
+    message = "pieces: notepat, roz ($roz)";
     messageFrame = 0;
+    return;
+  }
+  if (cmd === "roz" || cmd === "$roz") {
+    message = "~> roz";
+    messageFrame = 0;
+    system?.jump?.("roz");
     return;
   }
   if (cmd === "version" || cmd === "ver") {
@@ -126,7 +132,7 @@ function paint({ wipe, ink, box, write, screen, paintCount }) {
 
   // Hint
   ink(60, 60, 70);
-  write("esc:back", { x: W - 54, y: H - 14, size: 1, font: "6x10" });
+  write("esc:back", { x: x0, y: H - 14, size: 1, font: "6x10" });
 }
 
 function sim() {}
