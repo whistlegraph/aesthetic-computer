@@ -10,6 +10,7 @@
 #include "tts.h"
 #include "drm-display.h"
 #include "ws-client.h"
+#include "udp-client.h"
 #include <pthread.h>
 
 typedef struct {
@@ -32,6 +33,7 @@ typedef struct {
     ACTts *tts;
     ACSecondaryDisplay *hdmi;
     ACWs *ws;
+    ACUdp *udp;
     int paint_count;
     int sim_count;
     // Async HTTP fetch state (curl in background)
