@@ -368,8 +368,7 @@
     }
 
     .keeps-about-panel {
-      width: min(860px, calc(100vw - 40px));
-      max-height: min(88vh, 920px);
+      width: min(480px, calc(100vw - 40px));
       background: var(--bg-primary);
       border: 1px solid var(--border-color);
       border-radius: 12px;
@@ -434,71 +433,92 @@
     }
 
     .keeps-about-simple {
-      padding: 22px 0 8px;
+      padding: 20px 0 8px;
     }
 
     .keeps-about-lede {
       font-size: 15px;
       color: var(--text-primary);
-      margin: 0 0 16px 0;
+      margin: 0 0 12px 0;
       line-height: 1.6;
     }
 
-    .keeps-about-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
-      margin-bottom: 18px;
-    }
-
-    .keeps-about-card {
-      background: var(--bg-secondary);
+    .keeps-about-tech {
+      margin-top: 8px;
       border: 1px solid var(--border-color);
       border-radius: 8px;
-      padding: 12px 14px;
+      overflow: hidden;
     }
 
-    .keeps-about-card h3 {
-      margin: 0 0 8px 0;
-      padding: 0;
-      border: none;
-      font-size: 14px;
+    .keeps-about-tech summary {
+      padding: 10px 14px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      background: var(--bg-secondary);
+      user-select: none;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
-    .keeps-about-card ul {
-      margin: 0;
-      padding-left: 18px;
+    .keeps-about-tech summary::-webkit-details-marker { display: none; }
+
+    .keeps-about-tech summary::before {
+      content: '▶';
+      font-size: 9px;
+      opacity: 0.5;
+      transition: transform 0.15s;
     }
 
-    .keeps-about-section {
-      margin-bottom: 18px;
+    .keeps-about-tech[open] summary::before {
+      transform: rotate(90deg);
+    }
+
+    .keeps-about-tech-body {
+      padding: 14px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .keeps-about-tech-body p {
+      margin: 0 0 10px 0;
+    }
+
+    .keeps-about-tech-body p:last-child {
+      margin-bottom: 0;
     }
 
     .keeps-about-contract-box {
-      padding: 14px;
+      margin: 12px 0;
+      padding: 12px;
       background: var(--bg-secondary);
       border: 1px solid var(--border-color);
-      border-radius: 8px;
+      border-radius: 7px;
     }
 
     .keeps-about-contract-label {
-      margin-bottom: 8px;
-      color: var(--text-secondary);
-      font-size: 12px;
+      margin-bottom: 6px;
+      color: var(--text-tertiary);
+      font-size: 11px;
       font-weight: 700;
-      letter-spacing: 0.02em;
+      letter-spacing: 0.04em;
       text-transform: uppercase;
     }
 
     .keeps-about-links {
-      margin-top: 12px;
+      margin-top: 10px;
       display: flex;
-      gap: 8px;
+      gap: 6px;
       flex-wrap: wrap;
     }
 
     .keeps-about-link-btn {
-      padding: 6px 12px;
+      padding: 5px 10px;
       border-radius: 5px;
       text-decoration: none;
       font-size: 12px;
@@ -514,15 +534,28 @@
       color: #fff;
     }
 
-    .keeps-about-rules,
-    .keeps-about-legacy,
-    .keeps-about-steps {
-      margin: 0;
-      padding-left: 20px;
+    .keeps-about-note {
+      color: var(--text-tertiary);
+      font-size: 12px;
     }
 
-    .keeps-about-note {
-      margin-top: 10px;
+    .keeps-about-security-list {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    .keeps-about-security-list li {
+      margin-bottom: 10px;
+      line-height: 1.55;
+    }
+
+    .keeps-about-security-list li:last-child {
+      margin-bottom: 0;
+    }
+
+    .keeps-about-caveat {
+      display: block;
+      margin-top: 4px;
       color: var(--text-tertiary);
       font-size: 12px;
     }
@@ -1894,9 +1927,8 @@
       .keeps-sigil-select { min-width: 0; width: 100%; }
       .keeps-grid { padding: 12px 16px; grid-template-columns: 1fr; }
       .keeps-about-overlay { padding: 8px; align-items: center; }
-      .keeps-about-panel { width: calc(100vw - 16px); max-height: calc(100vh - 16px); border-radius: 10px; }
+      .keeps-about-panel { width: calc(100vw - 16px); border-radius: 10px; }
       .keeps-about-panel-body { padding: 0 14px 14px; }
-      .keeps-about-grid { grid-template-columns: 1fr; }
       .keeps-modal-body { flex-direction: column; }
       .keeps-modal-sidebar { width: 100%; border-left: none; border-top: 1px solid var(--border-color); max-height: 240px; }
       .keeps-modal-preview iframe { min-height: 240px; }
@@ -2175,88 +2207,64 @@
         <div class="keeps-tab-content" id="tab-rules">
           <div class="keeps-about-simple">
             <p class="keeps-about-lede">
-              KidLisp Keeps is the simplest path from a KidLisp piece to a Tezos token.
-              You create it, you keep it, collectors can own it.
+              KidLisp Keeps turns a KidLisp piece into a Tezos token.
+              Sign in, pick a piece from <strong>Unkept</strong>, and press <strong>Keep</strong> to mint it.
+              Use <strong>Rekeep</strong> to refresh an existing token's media.
             </p>
 
-            <div class="keeps-about-grid">
-              <section class="keeps-about-card">
-                <h3>For Artists</h3>
-                <ul>
-                  <li>Sign in and view your own pieces in <strong>Unkept</strong>.</li>
-                  <li>Use <strong>Keep</strong> to mint your piece on the active contract.</li>
-                  <li>Use <strong>Rekeep</strong> to refresh media and metadata for an existing token.</li>
-                </ul>
-              </section>
-              <section class="keeps-about-card">
-                <h3>For Collectors</h3>
-                <ul>
-                  <li>Ownership and transfers are standard FA2 on Tezos.</li>
-                  <li>Marketplaces read token metadata and media from IPFS.</li>
-                  <li>Provenance is public through contract + transaction history.</li>
-                </ul>
-              </section>
-              <section class="keeps-about-card">
-                <h3>For Tezos Users</h3>
-                <ul>
-                  <li>Keeps uses one active production contract.</li>
-                  <li>Legacy contracts stay public and verifiable.</li>
-                  <li>TzKT and objkt links are provided below.</li>
-                </ul>
-              </section>
-            </div>
-
-            <section class="keeps-about-section">
-              <h3>How A Keep Works</h3>
-              <ol class="keeps-about-steps">
-                <li>Choose a piece from <strong>Unkept</strong>.</li>
-                <li>The system validates ownership and builds artifacts (HTML, metadata, thumbnail).</li>
-                <li>You sign one wallet transaction to call <code>keep</code>.</li>
-                <li>After confirmation, the token appears on-chain and in index views.</li>
-              </ol>
-            </section>
-
-            <section class="keeps-about-section">
-              <h3>Active Contract</h3>
-              <div class="keeps-about-contract-box">
-                <div class="keeps-about-contract-label">Current Production Contract</div>
-                <div id="v6-active-contract-address" style="font-family: 'Courier New', monospace; color: var(--ac-purple); font-size: 14px; word-break: break-all;">
-                  Loading...
+            <details class="keeps-about-tech">
+              <summary>Technology</summary>
+              <div class="keeps-about-tech-body">
+                <p>Each keep is an FA2 token on Tezos. Only the piece author can mint, and each content hash can only be kept once per contract.</p>
+                <p>The HTML artifact, thumbnail, and metadata are pinned to IPFS so marketplaces like objkt can ingest them directly.</p>
+                <p>Royalties are set at mint: 9% to the artist, 1% to KidLisp as a platform fee. Both are baked into the token metadata and honored by objkt and other FA2-compatible marketplaces.</p>
+                <div class="keeps-about-contract-box">
+                  <div class="keeps-about-contract-label">Active Contract</div>
+                  <div id="v6-active-contract-address" style="font-family: 'Courier New', monospace; color: var(--ac-purple); font-size: 13px; word-break: break-all;">Loading...</div>
+                  <div id="v6-active-contract-meta" style="margin-top: 6px; color: var(--text-tertiary); font-size: 12px;"></div>
+                  <div class="keeps-about-links">
+                    <a id="v6-active-contract-tzkt" class="keeps-about-link-btn primary" href="https://tzkt.io" target="_blank">TzKT</a>
+                    <a id="v6-active-contract-objkt" class="keeps-about-link-btn" href="https://objkt.com" target="_blank">objkt</a>
+                    <a id="v6-active-contract-ops" class="keeps-about-link-btn" href="https://tzkt.io" target="_blank">Operations</a>
+                  </div>
                 </div>
-                <div id="v6-active-contract-meta" style="margin-top: 8px; color: var(--text-tertiary); font-size: 12px;">
-                  Loading active contract metadata...
-                </div>
-                <div class="keeps-about-links">
-                  <a id="v6-active-contract-tzkt" class="keeps-about-link-btn primary" href="https://tzkt.io" target="_blank">TzKT</a>
-                  <a id="v6-active-contract-objkt" class="keeps-about-link-btn" href="https://objkt.com" target="_blank">objkt</a>
-                  <a id="v6-active-contract-ops" class="keeps-about-link-btn" href="https://tzkt.io" target="_blank">Operations</a>
-                </div>
+                <p class="keeps-about-note">Legacy contracts (v8, v5, v4, v2) stay public on TzKT. New keeps use only the active contract above.</p>
               </div>
-            </section>
+            </details>
 
-            <section class="keeps-about-section">
-              <h3>Core Rules</h3>
-              <ul class="keeps-about-rules">
-                <li>Only the piece author can keep a KidLisp piece on the active contract.</li>
-                <li>Each content hash can be kept once per contract.</li>
-                <li>Token owners control transfer and burn.</li>
-                <li>Metadata can be refreshed through authorized flows until metadata is locked.</li>
-                <li>Keep fees accumulate in-contract and can be withdrawn by contract admin.</li>
-              </ul>
-            </section>
-
-            <section class="keeps-about-section">
-              <h3>Legacy Contracts</h3>
-              <ul class="keeps-about-legacy">
-                <li><strong>v8 (deprecated):</strong> <a href="https://tzkt.io/KT1Er6iJLzWh4nghE2HJME65oC2pN28P6y3P" target="_blank"><code>KT1Er6iJLzWh4nghE2HJME65oC2pN28P6y3P</code></a></li>
-                <li><strong>v5 (legacy):</strong> <a href="https://tzkt.io/KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido" target="_blank"><code>KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido</code></a></li>
-                <li><strong>v4 (legacy):</strong> <a href="https://tzkt.io/KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W" target="_blank"><code>KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W</code></a></li>
-                <li><strong>v2 (legacy):</strong> <a href="https://tzkt.io/KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM" target="_blank"><code>KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM</code></a></li>
-              </ul>
-              <p class="keeps-about-note">
-                Old contracts are retained as historical records. New keeps should use only the active contract above.
-              </p>
-            </section>
+            <details class="keeps-about-tech">
+              <summary>Security</summary>
+              <div class="keeps-about-tech-body">
+                <p>What the contract enforces on-chain — verifiable in the source linked above.</p>
+                <ul class="keeps-about-security-list">
+                  <li>
+                    <strong>Only you can burn your token.</strong>
+                    <code>burn_keep</code> asserts <code>current_owner == sender</code> and reverts with <code>NOT_TOKEN_OWNER</code> otherwise. Admin cannot burn on your behalf.
+                  </li>
+                  <li>
+                    <strong>You can permanently freeze your metadata.</strong>
+                    <code>lock_metadata</code> sets an irreversible flag — not even admin can unset it. After locking, no further edits are possible.
+                  </li>
+                  <li>
+                    <strong>Content hash and royalties are immutable.</strong>
+                    <code>edit_metadata</code> always re-injects the original <code>content_hash</code> and <code>royalties</code> from mint. They cannot be changed by anyone.
+                  </li>
+                  <li>
+                    <strong>Minting requires a signed permit.</strong>
+                    Every keep carries a backend-issued signature bound to the contract address, owner, content hash, and expiry timestamp. Without a valid permit, <code>keep</code> reverts with <code>INVALID_KEEP_PERMIT</code>.
+                  </li>
+                  <li>
+                    <strong>Pause does not affect transfers.</strong>
+                    If admin pauses the contract, minting and metadata edits stop — FA2 transfers remain live. Your ability to move or sell is unaffected.
+                  </li>
+                  <li>
+                    <strong>Known limitation (v9).</strong>
+                    This contract includes an <code>admin_transfer</code> entrypoint that is not used and will be removed in the next version. New keeps will use the updated contract. Existing v9 tokens remain valid.
+                    <span class="keeps-about-caveat">Verify the full entrypoint history on TzKT using the link above.</span>
+                  </li>
+                </ul>
+              </div>
+            </details>
           </div>
         </div>
       </div>
