@@ -11,6 +11,11 @@ import crypto from 'crypto';
 
 // Feature flag for Tezos integration (disabled by default until integration file exists)
 const TEZOS_ENABLED = process.env.TEZOS_ENABLED === 'true';
+const NO_CACHE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+  "Pragma": "no-cache",
+  "Expires": "0",
+};
 
 // Dynamically extract KidLisp function names from kidlisp.mjs
 async function getKidLispFunctionNames() {
@@ -89,6 +94,109 @@ async function ensureIndexes(collection) {
     // Ignore index creation errors (they're likely already created)
     console.warn('Index creation warning (likely already exist):', error.message);
   }
+}
+
+function normalizeTokenId(value) {
+  if (value === null || typeof value === "undefined" || value === "") return null;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) return null;
+  return parsed;
+}
+
+function normalizeAddress(value) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+function toEpochMs(value) {
+  if (!value) return 0;
+  const ms = new Date(value).getTime();
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+function normalizeKeepRecord(raw = {}, defaults = {}) {
+  const tokenId = normalizeTokenId(raw.tokenId);
+  if (tokenId === null) return null;
+  const contractAddress = raw.contractAddress || defaults.contractAddress || null;
+  if (!contractAddress) return null;
+
+  return {
+    tokenId,
+    network: raw.network || defaults.network || "mainnet",
+    txHash: raw.txHash || defaults.txHash || null,
+    contractAddress,
+    keptAt: raw.keptAt || raw.mintedAt || defaults.keptAt || null,
+    keptBy: raw.keptBy || defaults.keptBy || null,
+    walletAddress: raw.walletAddress || raw.owner || defaults.walletAddress || null,
+    artifactUri: raw.artifactUri || defaults.artifactUri || null,
+    thumbnailUri: raw.thumbnailUri || defaults.thumbnailUri || null,
+    metadataUri: raw.metadataUri || defaults.metadataUri || null,
+    source: defaults.source || "unknown",
+  };
+}
+
+function selectPrimaryKeepRecord(records = [], preferredContract = null) {
+  if (!Array.isArray(records) || records.length === 0) return null;
+  const normalizedPreferred = normalizeAddress(preferredContract);
+  if (!normalizedPreferred) return records[0];
+  const preferred = records.find((record) =>
+    normalizeAddress(record?.contractAddress) === normalizedPreferred
+  );
+  return preferred || records[0];
+}
+
+function extractKeepRecords(doc = {}) {
+  const records = [];
+
+  const push = (record) => {
+    if (!record) return;
+    records.push(record);
+  };
+
+  if (doc.kept && typeof doc.kept === "object") {
+    push(
+      normalizeKeepRecord(doc.kept, {
+        source: "kept",
+      })
+    );
+  }
+
+  if (doc.tezos?.minted) {
+    push(
+      normalizeKeepRecord(doc.tezos, {
+        source: "legacy_tezos",
+        contractAddress: doc.tezos.contractAddress || doc.tezos.contract || null,
+        keptAt: doc.tezos.mintedAt || null,
+      })
+    );
+  }
+
+  const contractRecords = doc.tezos?.contracts;
+  if (contractRecords && typeof contractRecords === "object" && !Array.isArray(contractRecords)) {
+    for (const [contractAddress, value] of Object.entries(contractRecords)) {
+      if (!value || typeof value !== "object") continue;
+      push(
+        normalizeKeepRecord(value, {
+          source: "contract_keyed",
+          contractAddress,
+        })
+      );
+    }
+  }
+
+  const deduped = new Map();
+  for (const record of records) {
+    const key = `${record.contractAddress || ""}:${record.tokenId}:${record.network || ""}`;
+    const existing = deduped.get(key);
+    if (!existing || toEpochMs(record.keptAt) > toEpochMs(existing.keptAt)) {
+      deduped.set(key, record);
+    }
+  }
+
+  return Array.from(deduped.values()).sort((a, b) => {
+    const delta = toEpochMs(b.keptAt) - toEpochMs(a.keptAt);
+    if (delta !== 0) return delta;
+    return b.tokenId - a.tokenId;
+  });
 }
 
 export async function handler(event, context) {
@@ -476,6 +584,8 @@ export async function handler(event, context) {
         });
       }
 
+      const requestedContract = event.queryStringParameters?.contract || null;
+
       // Handle recent codes feed (for $.mjs piece)
       if (recent) {
         const limit = parseInt(event.queryStringParameters?.limit) || 50;
@@ -554,23 +664,12 @@ export async function handler(event, context) {
             handle: doc.handle || null
           };
           
-          // Include kept status if the piece was minted as a KEEP NFT
-          if (doc.kept) {
-            result.kept = {
-              tokenId: doc.kept.tokenId,
-              network: doc.kept.network || "mainnet",
-              contractAddress: doc.kept.contractAddress || null,
-              keptBy: doc.kept.keptBy || null,
-              walletAddress: doc.kept.walletAddress || null,
-            };
-          }
-          
-          // Also check legacy tezos field (from server-side mints)
-          if (doc.tezos?.minted) {
-            result.kept = result.kept || {};
-            result.kept.tokenId = result.kept.tokenId || doc.tezos.tokenId;
-            result.kept.network = result.kept.network || doc.tezos.network || "mainnet";
-            result.kept.contractAddress = result.kept.contractAddress || doc.tezos.contractAddress || null;
+          const keepRecords = extractKeepRecords(doc);
+          if (keepRecords.length > 0) {
+            result.kept = selectPrimaryKeepRecord(keepRecords, requestedContract);
+            if (keepRecords.length > 1) {
+              result.keptRecords = keepRecords;
+            }
           }
           
           return result;
@@ -583,7 +682,7 @@ export async function handler(event, context) {
           recent: recentCodes,
           count: recentCodes.length,
           limit: actualLimit
-        });
+        }, NO_CACHE_HEADERS);
       }
       
       // Handle batch retrieval of multiple codes
@@ -664,25 +763,12 @@ export async function handler(event, context) {
               handle: doc.handle || null
             };
             
-            // Include kept status if the piece was minted as a KEEP NFT
-            if (doc.kept) {
-              result.kept = {
-                tokenId: doc.kept.tokenId,
-                network: doc.kept.network || "mainnet",
-                txHash: doc.kept.txHash,
-                keptAt: doc.kept.keptAt,
-                keptBy: doc.kept.keptBy || null,
-                walletAddress: doc.kept.walletAddress || null,
-              };
-            }
-            
-            // Also check legacy tezos field (from server-side mints)
-            if (doc.tezos?.minted) {
-              result.kept = result.kept || {};
-              result.kept.tokenId = result.kept.tokenId || doc.tezos.tokenId;
-              result.kept.network = result.kept.network || doc.tezos.network || "mainnet";
-              result.kept.txHash = result.kept.txHash || doc.tezos.txHash;
-              result.kept.keptAt = result.kept.keptAt || doc.tezos.mintedAt;
+            const keepRecords = extractKeepRecords(doc);
+            if (keepRecords.length > 0) {
+              result.kept = selectPrimaryKeepRecord(keepRecords, requestedContract);
+              if (keepRecords.length > 1) {
+                result.keptRecords = keepRecords;
+              }
             }
             
             results[requestedCode] = result;
@@ -707,7 +793,7 @@ export async function handler(event, context) {
             foundCodes: found,
             missingCodes: missing
           }
-        });
+        }, NO_CACHE_HEADERS);
       }
       
       // Handle single code retrieval (existing functionality)
@@ -784,30 +870,12 @@ export async function handler(event, context) {
         };
       }
       
-      // Include kept status if the piece was minted as a KEEP NFT
-      if (doc.kept) {
-        response.kept = {
-          tokenId: doc.kept.tokenId,
-          network: doc.kept.network || "mainnet",
-          txHash: doc.kept.txHash,
-          contractAddress: doc.kept.contractAddress,
-          keptAt: doc.kept.keptAt,
-          keptBy: doc.kept.keptBy || null,
-          walletAddress: doc.kept.walletAddress || null,
-        };
-      }
-      
-      // Also check legacy tezos field (from server-side mints)
-      if (doc.tezos?.minted) {
-        response.kept = response.kept || {};
-        response.kept.tokenId = response.kept.tokenId || doc.tezos.tokenId;
-        response.kept.network = response.kept.network || doc.tezos.network || "mainnet";
-        response.kept.txHash = response.kept.txHash || doc.tezos.txHash;
-        response.kept.contractAddress = response.kept.contractAddress || doc.tezos.contract;
-        response.kept.keptAt = response.kept.keptAt || doc.tezos.mintedAt;
-        // Include on-chain artifact URIs
-        response.kept.artifactUri = doc.tezos.artifactUri;
-        response.kept.thumbnailUri = doc.tezos.thumbnailUri;
+      const keepRecords = extractKeepRecords(doc);
+      if (keepRecords.length > 0) {
+        response.kept = selectPrimaryKeepRecord(keepRecords, requestedContract);
+        if (keepRecords.length > 1) {
+          response.keptRecords = keepRecords;
+        }
       }
       
       // Include pending rebake info if present (rebaked but not yet updated on chain)
@@ -819,7 +887,7 @@ export async function handler(event, context) {
         };
       }
       
-      return respond(200, response);
+      return respond(200, response, NO_CACHE_HEADERS);
     }
 
     await database.disconnect();
