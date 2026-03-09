@@ -2166,7 +2166,7 @@
               <button class="keeps-user-logout-btn" onclick="event.stopPropagation(); keepsLogout()">Log Out</button>
             </div>
           </div>
-          <button class="keeps-auth-btn wallet" id="keeps-wallet-btn" style="display:none;" onclick="handleWalletBtn()">ꜩ Wallet</button>
+          <button class="keeps-auth-btn wallet" id="keeps-wallet-btn" style="display:none;" onclick="handleWalletBtn()">ꜩ Connect</button>
         </div>
       </div>
     </div>
@@ -2653,7 +2653,7 @@
         walletBtn.title = mintWalletAddress + ' — click to disconnect';
         walletBtn.classList.add('connected');
       } else {
-        walletBtn.textContent = 'ꜩ Wallet';
+        walletBtn.textContent = 'ꜩ Connect';
         walletBtn.title = 'Connect Tezos wallet';
         walletBtn.classList.remove('connected');
       }
@@ -3788,12 +3788,9 @@
       beaconInitPromise = (async () => {
         await loadBeaconSDK();
         beaconClient = new window.beacon.DAppClient({
-        name: 'KidLisp',
-        preferredNetwork: getTezosNetwork(),
-        // Avoid Beacon's default pairing alert iframe (Solid debug warnings + sandbox warning noise).
-        // Wallet extension flow still works via requestPermissions.
-        disableDefaultEvents: true,
-      });
+          name: 'KidLisp',
+          preferredNetwork: getTezosNetwork(),
+        });
         // Check existing connection
         const activeAccount = await beaconClient.getActiveAccount();
         if (activeAccount) {
