@@ -113,6 +113,7 @@ let wsConnectGrace = 0;      // frames to wait before declaring error (race-cond
 let wsReconnectTimer = 0;   // frames until next reconnect attempt
 let chatMuted = false;       // mute TTS for incoming chat messages
 let wifiWasConnected = false;
+let wifiConnectFrame = -9999; // frame when WiFi last connected (cooldown guard)
 let lastBatPercent = -1;     // for battery change TTS
 
 // Auto-connect: try "aesthetic.computer" hotspot when not connected
@@ -959,8 +960,9 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   // Center status bar: note count is enough, settings go below
   const centerX = Math.floor(w / 2);
 
-  // TTS + WebSocket connect on WiFi connect transition
-  if (wifi?.connected && !wifiWasConnected) {
+  // TTS + WebSocket connect on WiFi connect transition (with 10s cooldown)
+  if (wifi?.connected && !wifiWasConnected && (frame - wifiConnectFrame) > 600) {
+    wifiConnectFrame = frame;
     // WiFi connect chord: perfect fifth (G5 + D6)
     sound?.synth({ type: "sine", tone: 784, duration: 0.18, volume: 0.22, attack: 0.005, decay: 0.15 });
     sound?.synth({ type: "sine", tone: 1175, duration: 0.18, volume: 0.16, attack: 0.005, decay: 0.15 });
@@ -973,10 +975,12 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     if (system?.writeFile && savedCreds.length > 0) {
       system.writeFile(CREDS_PATH, JSON.stringify(savedCreds));
     }
-    // Kick off clock sync fetch (auto-update check takes priority — triggered separately below)
+    // Kick off clock sync fetch (only if fetch slot is free)
     clockSynced = false;
-    system.fetch?.("https://aesthetic.computer/api/clock");
     clockSyncFrame = 0;
+    if (!system.fetchPending) {
+      system.fetch?.("https://aesthetic.computer/api/clock");
+    }
     // Kick off background auto-update version check (after 5s to let things settle)
     if (autoUpdate.state === "idle") {
       autoUpdate.state = "checking";
@@ -987,7 +991,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
 
   // Start auto-update version fetch when slot is free (deferred from WiFi connect)
   if (autoUpdate.state === "checking" && !autoUpdate.fetchPending
-      && !osFetchPending && wifi?.connected) {
+      && !osFetchPending && wifi?.connected && !system.fetchPending) {
     autoUpdate.fetchPending = true;
     system.fetch?.(OS_BASE_URL + "native-notepat-latest.version");
   }
@@ -1036,7 +1040,8 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   }
   // Periodic re-sync every ~10 min (at 60fps: 36000 frames)
   clockSyncFrame++;
-  if (wifi?.connected && clockSyncFrame % 36000 === 0 && !osFetchPending && !autoUpdate.fetchPending) {
+  if (wifi?.connected && clockSyncFrame % 36000 === 0
+      && !osFetchPending && !autoUpdate.fetchPending && !system.fetchPending) {
     system.fetch?.("https://aesthetic.computer/api/clock");
   }
 
@@ -1077,9 +1082,12 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         autoUpdate.fetchPending = false;
         autoUpdate.state = "idle";
       }
-      osFetchPending = true;
-      osCheckFrame = frame;
-      system.fetch?.(OS_BASE_URL + "native-notepat-latest.version");
+      // Wait for C-side fetch slot to be free before issuing
+      if (!system.fetchPending) {
+        osFetchPending = true;
+        osCheckFrame = frame;
+        system.fetch?.(OS_BASE_URL + "native-notepat-latest.version");
+      }
     }
     // Timeout: if checking for > 10s (600 frames), give up
     if (osState === "checking" && osFetchPending && frame - osCheckFrame > 600) {
@@ -1118,13 +1126,14 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   // Track WS connection status + auto-reconnect when server drops
   if (wsConnectGrace > 0) wsConnectGrace--;
   if (wsReconnectTimer > 0) wsReconnectTimer--;
-  if (system.ws?.connecting) { wsStatus = "connecting"; wsConnectGrace = 0; }
+  if (system.ws?.connecting) { /* don't overwrite wsStatus here — preserve "reconnecting" */ wsConnectGrace = 0; }
   else if (system.ws?.connected && wsStatus !== "connected") {
-    const wasFirstConnect = wsStatus !== "reconnecting";
+    const wasFirstConnect = (wsStatus !== "reconnecting" && wsStatus !== "connected");
     wsStatus = "connected";
     wsConnectGrace = 0;
-    // Chat connected ding — only on first connect, not silent reconnects
-    if (wasFirstConnect) {
+    // Chat connected ding — only on very first connect, never on reconnects
+    if (wasFirstConnect && !globalThis.__wsEverConnected) {
+      globalThis.__wsEverConnected = true;
       sound?.synth({ type: "sine", tone: 1047, duration: 0.1, volume: 0.18, attack: 0.003, decay: 0.08 });
       sound?.synth({ type: "sine", tone: 1319, duration: 0.1, volume: 0.14, attack: 0.02, decay: 0.08 });
     }
