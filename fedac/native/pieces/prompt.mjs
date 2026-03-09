@@ -8,12 +8,23 @@ let history = [];
 let historyIndex = -1;
 let message = "";
 let messageFrame = 0;
+let shiftHeld = false;
+
+const SHIFT_MAP = {
+  "1":"!", "2":"@", "3":"#", "4":"$", "5":"%",
+  "6":"^", "7":"&", "8":"*", "9":"(", "0":")",
+  "-":"_", "=":"+", "[":"{", "]":"}", "\\":"|",
+  ";":":", "'":'"', ",":"<", ".":">", "/":"?", "`":"~",
+};
 
 function boot({ system }) {
   message = "aesthetic.computer " + (system?.version || "");
 }
 
 function act({ event: e, system }) {
+  if (e.is("keyboard:down:shift")) { shiftHeld = true; return; }
+  if (e.is("keyboard:up:shift")) { shiftHeld = false; return; }
+
   if (e.is("keyboard:down")) {
     const key = e.key;
     cursorFrame = 0;
@@ -49,7 +60,11 @@ function act({ event: e, system }) {
         input = "";
       }
     } else if (key.length === 1) {
-      input += key;
+      if (shiftHeld) {
+        input += SHIFT_MAP[key] ?? key.toUpperCase();
+      } else {
+        input += key;
+      }
     }
   }
 }
