@@ -5142,6 +5142,17 @@
       flex-shrink: 0;
       width: 48px;
       height: 48px;
+      position: relative;
+      overflow: hidden;
+      border-radius: 10px;
+      background: var(--bg-tertiary);
+    }
+
+    .thumb-container > .example-thumb,
+    .thumb-container > .thumb-noise,
+    .thumb-container > .example-thumb-placeholder {
+      position: absolute;
+      inset: 0;
     }
     
     .example-thumb {
@@ -5189,7 +5200,7 @@
       50% { opacity: 0.8; }
     }
     
-    /* Animated noise/fuzz placeholder */
+    /* Static fallback square shown while thumbnail is missing/loading */
     .thumb-noise {
       width: 48px;
       height: 48px;
@@ -5200,11 +5211,19 @@
       background: #333;
       box-shadow: 0 2px 4px rgba(0,0,0,0.2), 0 4px 8px rgba(0,0,0,0.15);
     }
-    .thumb-noise canvas {
+
+    .thumb-fallback-square {
       width: 100%;
       height: 100%;
+      background-color: #444;
+      background-image:
+        linear-gradient(45deg, #444 25%, transparent 25%, transparent 75%, #444 75%, #444),
+        linear-gradient(45deg, #444 25%, transparent 25%, transparent 75%, #444 75%, #444);
+      background-size: 16px 16px;
+      background-position: 0 0, 8px 8px;
       border-radius: 10px;
     }
+
     /* Oven status indicator bar */
     .thumb-oven-status {
       position: absolute;
@@ -5226,6 +5245,28 @@
     .thumb-oven-status.cached {
       background: linear-gradient(90deg, #44ff88, #66ffaa);
     }
+    .thumb-oven-status.pending {
+      background: linear-gradient(90deg, #6b7280, #9ca3af);
+      opacity: 0.8;
+    }
+
+    .thumb-oven-label {
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      right: 3px;
+      font-size: 8px;
+      line-height: 1;
+      color: rgba(255, 255, 255, 0.95);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      pointer-events: none;
+      font-weight: 700;
+      letter-spacing: 0.1px;
+    }
+
     @keyframes oven-queue-pulse {
       0%, 100% { opacity: 0.6; }
       50% { opacity: 1; }
@@ -5278,6 +5319,12 @@
       flex: 1;
       overflow-y: auto;
       min-height: 0;
+    }
+
+    .code-list-virtual-spacer {
+      width: 100%;
+      pointer-events: none;
+      flex-shrink: 0;
     }
     
     /* Loading state for code lists */
@@ -19330,6 +19377,8 @@ s("ape_breaks_3").loopAt(2)</textarea>
     let examplesLoaded = false;
     let recentLoaded = false;
     let currentListSubtab = 'examples'; // Track which subtab is active
+    const virtualCodeListControllers = new Map();
+    const codeListLastConfigs = new Map();
 
     // Helper to hide all tab contents
     function hideAllTabContents() {
@@ -19381,6 +19430,31 @@ s("ape_breaks_3").loopAt(2)</textarea>
           keepsIframe.src = keepsIframe.dataset.src;
         }
       }
+
+      const listIdBySubtab = {
+        examples: 'examples-list',
+        recent: 'recent-list',
+        history: 'history-list'
+      };
+      const activeListId = listIdBySubtab[subtab];
+      Object.values(listIdBySubtab).forEach(listId => {
+        if (listId === activeListId) return;
+        const hiddenList = document.getElementById(listId);
+        if (!hiddenList) return;
+        clearVirtualCodeList(hiddenList);
+        hiddenList.innerHTML = '';
+      });
+
+      if (!activeListId) return;
+      const activeListEl = document.getElementById(activeListId);
+      if (activeListEl && activeListEl.children.length === 0) {
+        const cachedConfig = codeListLastConfigs.get(activeListId);
+        if (cachedConfig && Array.isArray(cachedConfig.items) && cachedConfig.items.length > 0) {
+          renderCodeList(cachedConfig);
+          return;
+        }
+      }
+      requestAnimationFrame(() => refreshVirtualCodeList(activeListId));
     }
     
     // Helper to programmatically switch to History tab
@@ -20464,73 +20538,197 @@ s("ape_breaks_3").loopAt(2)</textarea>
       return null;
     }
     
-    // Create animated noise canvas for placeholder
-    function createNoiseCanvas(width = 48, height = 48) {
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      const imageData = ctx.createImageData(width, height);
-      const data = imageData.data;
-      
-      // Generate noise
-      for (let i = 0; i < data.length; i += 4) {
-        const gray = Math.floor(Math.random() * 80) + 40; // 40-120 gray range
-        data[i] = gray;     // R
-        data[i + 1] = gray; // G
-        data[i + 2] = gray; // B
-        data[i + 3] = 255;  // A
+    function getOvenStatusLabel(ovenStatus) {
+      if (!ovenStatus) return 'WebP pending';
+      if (ovenStatus.status === 'processing') {
+        if (typeof ovenStatus.percent === 'number') return `Baking ${Math.round(ovenStatus.percent)}%`;
+        if (ovenStatus.stage) return `Baking ${ovenStatus.stage}`;
+        return 'Baking';
       }
-      ctx.putImageData(imageData, 0, 0);
-      return canvas;
+      if (ovenStatus.status === 'queued') {
+        if (ovenStatus.position) return `Queued #${ovenStatus.position}`;
+        return 'Queued';
+      }
+      if (ovenStatus.status === 'cached') return 'Cached';
+      return 'WebP pending';
     }
-    
-    // Animate noise canvas
-    function animateNoiseCanvas(canvas, interval = 150) {
-      const ctx = canvas.getContext('2d');
-      const { width, height } = canvas;
-      const imageData = ctx.createImageData(width, height);
-      const data = imageData.data;
-      
-      const animate = () => {
-        for (let i = 0; i < data.length; i += 4) {
-          const gray = Math.floor(Math.random() * 80) + 40;
-          data[i] = gray;
-          data[i + 1] = gray;
-          data[i + 2] = gray;
-          data[i + 3] = 255;
-        }
-        ctx.putImageData(imageData, 0, 0);
-      };
-      
-      const id = setInterval(animate, interval);
-      canvas._animInterval = id;
-      return id;
+
+    function applyOvenStatusToPlaceholder(wrapper, code) {
+      if (!wrapper || !code) return;
+      wrapper.querySelectorAll('.thumb-oven-status, .thumb-oven-label').forEach(el => el.remove());
+      const ovenStatus = getOvenStatusForPiece(code);
+      const statusBar = document.createElement('div');
+      statusBar.className = `thumb-oven-status ${ovenStatus?.status || 'pending'}`;
+      const statusLabel = document.createElement('div');
+      statusLabel.className = 'thumb-oven-label';
+      statusLabel.textContent = getOvenStatusLabel(ovenStatus);
+      if (ovenStatus?.position) {
+        statusBar.title = `Queue position: ${ovenStatus.position}`;
+      } else if (ovenStatus?.stage) {
+        statusBar.title = `Processing: ${ovenStatus.stage}`;
+      } else {
+        statusBar.title = 'Waiting for oven thumbnail';
+      }
+      wrapper.appendChild(statusBar);
+      wrapper.appendChild(statusLabel);
     }
-    
-    // Create placeholder element with noise and optional oven status
-    function createNoisePlaceholder(code = null) {
+
+    // Create static square fallback (cheap to render) with optional oven status.
+    function createNoisePlaceholder(code = null, { showOvenStatus = true } = {}) {
       const wrapper = document.createElement('div');
       wrapper.className = 'thumb-noise';
-      
-      const canvas = createNoiseCanvas(48, 48);
-      wrapper.appendChild(canvas);
-      animateNoiseCanvas(canvas);
-      
-      // Add oven status bar if we have status for this piece
-      const ovenStatus = getOvenStatusForPiece(code);
-      if (ovenStatus) {
-        const statusBar = document.createElement('div');
-        statusBar.className = `thumb-oven-status ${ovenStatus.status}`;
-        if (ovenStatus.position) {
-          statusBar.title = `Queue position: ${ovenStatus.position}`;
-        } else if (ovenStatus.stage) {
-          statusBar.title = `Processing: ${ovenStatus.stage}`;
-        }
-        wrapper.appendChild(statusBar);
-      }
-      
+      if (code) wrapper.dataset.pieceCode = code;
+      const square = document.createElement('div');
+      square.className = 'thumb-fallback-square';
+      wrapper.appendChild(square);
+      if (showOvenStatus && code) applyOvenStatusToPlaceholder(wrapper, code);
       return wrapper;
+    }
+
+    function refreshVisibleOvenStatuses(listEl) {
+      if (!listEl) return;
+      listEl.querySelectorAll('.thumb-noise[data-piece-code]').forEach(wrapper => {
+        const code = wrapper.dataset.pieceCode;
+        if (code) applyOvenStatusToPlaceholder(wrapper, code);
+      });
+    }
+
+    function scheduleOvenStatusRefresh(listEl, items = []) {
+      const hasCodeItems = items.some(item => item?.code);
+      if (!hasCodeItems) return;
+      fetchOvenStatus().then(() => refreshVisibleOvenStatuses(listEl));
+    }
+
+    function clearVirtualCodeList(listEl) {
+      if (!listEl) return;
+      const existing = virtualCodeListControllers.get(listEl.id);
+      if (!existing) return;
+      if (existing.rafId) cancelAnimationFrame(existing.rafId);
+      if (existing.onScroll) listEl.removeEventListener('scroll', existing.onScroll);
+      if (existing.onResize) window.removeEventListener('resize', existing.onResize);
+      virtualCodeListControllers.delete(listEl.id);
+    }
+
+    function refreshVirtualCodeList(listId) {
+      const controller = virtualCodeListControllers.get(listId);
+      if (controller && typeof controller.schedule === 'function') {
+        controller.schedule();
+      }
+    }
+
+    function renderVirtualizedCodeList(listEl, rowDefs, { tickerAnimation = false } = {}) {
+      clearVirtualCodeList(listEl);
+      listEl.innerHTML = '';
+      listEl.scrollTop = 0;
+
+      if (!Array.isArray(rowDefs) || rowDefs.length === 0) {
+        return;
+      }
+
+      const rows = rowDefs.map(row => ({
+        estimateHeight: Math.max(24, row.estimateHeight || 72),
+        render: row.render
+      }));
+      const rowHeights = rows.map(row => row.estimateHeight);
+
+      const topSpacer = document.createElement('div');
+      topSpacer.className = 'code-list-virtual-spacer';
+      const visibleContainer = document.createElement('div');
+      const bottomSpacer = document.createElement('div');
+      bottomSpacer.className = 'code-list-virtual-spacer';
+      listEl.appendChild(topSpacer);
+      listEl.appendChild(visibleContainer);
+      listEl.appendChild(bottomSpacer);
+
+      const state = {
+        start: -1,
+        end: -1,
+        rafId: null,
+        scheduled: false,
+      };
+
+      function sumHeights(start, end) {
+        let total = 0;
+        for (let i = start; i < end; i++) total += rowHeights[i] || 0;
+        return total;
+      }
+
+      function findIndexAtOffset(offset) {
+        if (rows.length === 0) return 0;
+        const target = Math.max(0, offset);
+        let acc = 0;
+        for (let i = 0; i < rowHeights.length; i++) {
+          acc += rowHeights[i];
+          if (acc > target) return i;
+        }
+        return rowHeights.length - 1;
+      }
+
+      function updateVisibleRows() {
+        state.scheduled = false;
+        if (!document.body.contains(listEl)) return;
+
+        const viewportHeight = Math.max(0, listEl.clientHeight || 0);
+        const scrollTop = Math.max(0, listEl.scrollTop || 0);
+        const overscan = 4;
+        const firstVisible = findIndexAtOffset(scrollTop);
+        const lastVisible = findIndexAtOffset(scrollTop + viewportHeight);
+        const start = Math.max(0, firstVisible - overscan);
+        const end = Math.min(rows.length - 1, lastVisible + overscan);
+
+        const topHeight = sumHeights(0, start);
+        const renderedHeight = sumHeights(start, end + 1);
+        const totalHeight = sumHeights(0, rowHeights.length);
+        const bottomHeight = Math.max(0, totalHeight - topHeight - renderedHeight);
+
+        topSpacer.style.height = `${topHeight}px`;
+        bottomSpacer.style.height = `${bottomHeight}px`;
+
+        if (state.start === start && state.end === end) return;
+        state.start = start;
+        state.end = end;
+        visibleContainer.innerHTML = '';
+
+        const frag = document.createDocumentFragment();
+        for (let i = start; i <= end; i++) {
+          const rowEl = rows[i].render();
+          rowEl.dataset.virtualIndex = String(i);
+          frag.appendChild(rowEl);
+        }
+        visibleContainer.appendChild(frag);
+
+        let measuredChanged = false;
+        Array.from(visibleContainer.children).forEach(child => {
+          const idx = Number(child.dataset.virtualIndex);
+          const measured = Math.ceil(child.getBoundingClientRect().height);
+          if (!Number.isNaN(idx) && measured > 0 && Math.abs((rowHeights[idx] || 0) - measured) > 1) {
+            rowHeights[idx] = measured;
+            measuredChanged = true;
+          }
+        });
+        if (measuredChanged) schedule();
+        if (tickerAnimation) requestAnimationFrame(() => processTickerAnimations(visibleContainer));
+      }
+
+      function schedule() {
+        if (state.scheduled) return;
+        state.scheduled = true;
+        state.rafId = requestAnimationFrame(updateVisibleRows);
+      }
+
+      const onScroll = () => schedule();
+      const onResize = () => schedule();
+      listEl.addEventListener('scroll', onScroll, { passive: true });
+      window.addEventListener('resize', onResize);
+
+      virtualCodeListControllers.set(listEl.id, {
+        onScroll,
+        onResize,
+        get rafId() { return state.rafId; },
+        schedule
+      });
+
+      schedule();
     }
     
     /**
@@ -20559,9 +20757,20 @@ s("ape_breaks_3").loopAt(2)</textarea>
       const snippet = sourceCode.slice(0, 80).replace(/\n/g, ' ');
       const truncated = snippet.length === 80;
       
-      // Apply syntax highlighting if requested
-      let displayCode = syntaxHighlight ? applySyntaxHighlighting(sourceCode) : (snippet || '(empty)');
-      if (!syntaxHighlight && truncated) displayCode += '…';
+      // Apply syntax highlighting if requested (cache on the item to avoid recompute while scrolling)
+      let displayCode = '';
+      if (syntaxHighlight) {
+        if (item._syntaxSourceCache === sourceCode && item._syntaxHighlightCache) {
+          displayCode = item._syntaxHighlightCache;
+        } else {
+          displayCode = applySyntaxHighlighting(sourceCode);
+          item._syntaxSourceCache = sourceCode;
+          item._syntaxHighlightCache = displayCode;
+        }
+      } else {
+        displayCode = snippet || '(empty)';
+        if (truncated) displayCode += '…';
+      }
       
       // Ticker animation - will be activated by JS after render if content overflows
       // Use data attribute to mark for ticker processing, don't duplicate content yet
@@ -20594,9 +20803,8 @@ s("ape_breaks_3").loopAt(2)</textarea>
         timeLine = `${month} ${day}, ${year} at ${hour12}:${minute} ${ampm}`;
       }
       
-      // Build thumbnail - use noise placeholder for missing images
+      // Build thumbnail (always render a fallback square underneath the image)
       const thumbClass = pendingThumb ? 'example-thumb-placeholder history-thumb-pending' : 'example-thumb-placeholder';
-      const checkerboardSvg = `<svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="checker" width="12" height="12" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="#666"/><rect x="6" y="6" width="6" height="6" fill="#666"/><rect x="6" width="6" height="6" fill="#444"/><rect y="6" width="6" height="6" fill="#444"/></pattern></defs><rect width="48" height="48" fill="url(#checker)" rx="10"/></svg>`;
       const itemCode = item.code || null;
       const useNoisePlaceholder = typeof createNoisePlaceholder === 'function';
       
@@ -20622,40 +20830,33 @@ s("ape_breaks_3").loopAt(2)</textarea>
       // Now populate the thumbnail container
       const thumbContainer = el.querySelector('.thumb-container');
       if (thumbContainer) {
-        const hasValidAsset = item.assetUrl && item.assetUrl.trim().length > 0;
+        const hasValidAsset = !!(item.assetUrl && item.assetUrl.trim().length > 0);
+        let fallback = null;
+
+        if (useNoisePlaceholder) {
+          fallback = createNoisePlaceholder(itemCode, { showOvenStatus: !hasValidAsset || pendingThumb });
+        } else {
+          fallback = document.createElement('div');
+          fallback.className = thumbClass;
+        }
+        thumbContainer.appendChild(fallback);
+
         if (hasValidAsset) {
-          // Has image - show img with noise fallback on error
+          // Has image - keep fallback behind it so missing/failed WebP never renders blank.
           const img = document.createElement('img');
           img.className = 'example-thumb';
           img.src = item.assetUrl;
           img.alt = '';
           img.loading = 'lazy';
+          img.decoding = 'async';
           img.onload = () => img.classList.add('loaded');
           img.onerror = () => {
-            img.style.display = 'none';
-            // Replace with noise placeholder on error
-            if (useNoisePlaceholder) {
-              const noise = createNoisePlaceholder(itemCode);
-              thumbContainer.appendChild(noise);
-            } else {
-              const fallback = document.createElement('div');
-              fallback.className = thumbClass;
-              fallback.innerHTML = checkerboardSvg;
-              thumbContainer.appendChild(fallback);
+            img.remove();
+            if (fallback && itemCode && fallback.classList.contains('thumb-noise')) {
+              applyOvenStatusToPlaceholder(fallback, itemCode);
             }
           };
           thumbContainer.appendChild(img);
-        } else {
-          // No image - show noise placeholder with oven status
-          if (useNoisePlaceholder) {
-            const noise = createNoisePlaceholder(itemCode);
-            thumbContainer.appendChild(noise);
-          } else {
-            const fallback = document.createElement('div');
-            fallback.className = thumbClass;
-            fallback.innerHTML = checkerboardSvg;
-            thumbContainer.appendChild(fallback);
-          }
         }
       }
       
@@ -20752,38 +20953,18 @@ s("ape_breaks_3").loopAt(2)</textarea>
       
       const listEl = document.getElementById(listId);
       if (!listEl) return;
+      codeListLastConfigs.set(listId, config);
+      clearVirtualCodeList(listEl);
       
       if (!items || items.length === 0) {
         listEl.innerHTML = `<div class="code-list-empty">${emptyMessage}</div>`;
         return;
       }
-      
-      listEl.innerHTML = '';
-      
-      // Add "Play on your TV" card as first item for Top Hits (examples-list)
-      if (listId === 'examples-list') {
-        const playOnTvCard = document.createElement('div');
-        playOnTvCard.className = 'play-on-tv-card';
-        playOnTvCard.innerHTML = `
-          <div class="play-on-tv-icon">
-            <div class="play-on-tv-stack">
-              <span class="play-on-tv-slide back"></span>
-              <span class="play-on-tv-slide mid"></span>
-              <span class="play-on-tv-slide front"></span>
-            </div>
-          </div>
-          <div class="play-on-tv-content">
-            <div class="play-on-tv-title">Play on your TV</div>
-            <div class="play-on-tv-subtitle">Watch <span class="play-on-tv-highlight">Top 100</span> as a playlist slideshow</div>
-          </div>
-          <div class="play-on-tv-arrow">→</div>
-        `;
-        playOnTvCard.addEventListener('click', () => {
-          const deviceUrl = 'https://top.kidlisp.com';
-          console.log('📺 Opening slideshow:', deviceUrl);
-          window.open(deviceUrl, '_blank');
-        });
-        listEl.appendChild(playOnTvCard);
+
+      // Avoid expensive syntax/image work while this list is in a hidden tab.
+      if (listEl.offsetParent === null) {
+        listEl.innerHTML = '';
+        return;
       }
       
       // Process items with optional owner grouping
@@ -20902,83 +21083,109 @@ s("ape_breaks_3").loopAt(2)</textarea>
           });
         });
       }
-      
-      processedItems.forEach((item, index) => {
-        const el = renderCodeListItem(item, {
-          syntaxHighlight,
-          tickerAnimation,
-          showOwner,
-          showTimeAgo,
-          showTimestamp,
-          showHits,
-          pendingThumb,
-          rank: listId === 'examples-list' ? index + 1 : null,
+
+      const itemRenderOptions = {
+        syntaxHighlight,
+        tickerAnimation,
+        showOwner,
+        showTimeAgo,
+        showTimestamp,
+        showHits,
+        pendingThumb,
+      };
+
+      function makeItemRow(item, rank = null) {
+        return {
+          estimateHeight: 76,
+          render: () => {
+            const el = renderCodeListItem(item, { ...itemRenderOptions, rank });
+            el.addEventListener('click', () => handleCodeItemClick(el));
+            return el;
+          }
+        };
+      }
+
+      function renderClusterRows(clusterItems, ownerClean) {
+        const clusterRows = [{
+          estimateHeight: 36,
+          render: () => {
+            const backEl = document.createElement('div');
+            backEl.className = 'owner-back-indicator';
+            backEl.innerHTML = `<span class="back-text">← Back to all</span><span class="owner-filter">Showing ${clusterItems.length} similar from @${ownerClean}</span>`;
+            backEl.addEventListener('click', () => renderCodeList(config));
+            return backEl;
+          }
+        }];
+        clusterItems.forEach(clusterItem => clusterRows.push(makeItemRow(clusterItem)));
+        renderVirtualizedCodeList(listEl, clusterRows, { tickerAnimation });
+        scheduleOvenStatusRefresh(listEl, clusterItems);
+      }
+
+      const rowDefs = [];
+
+      if (listId === 'examples-list') {
+        rowDefs.push({
+          estimateHeight: 78,
+          render: () => {
+            const playOnTvCard = document.createElement('div');
+            playOnTvCard.className = 'play-on-tv-card';
+            playOnTvCard.innerHTML = `
+              <div class="play-on-tv-icon">
+                <div class="play-on-tv-stack">
+                  <span class="play-on-tv-slide back"></span>
+                  <span class="play-on-tv-slide mid"></span>
+                  <span class="play-on-tv-slide front"></span>
+                </div>
+              </div>
+              <div class="play-on-tv-content">
+                <div class="play-on-tv-title">Play on your TV</div>
+                <div class="play-on-tv-subtitle">Watch <span class="play-on-tv-highlight">Top 100</span> as a playlist slideshow</div>
+              </div>
+              <div class="play-on-tv-arrow">→</div>
+            `;
+            playOnTvCard.addEventListener('click', () => {
+              const deviceUrl = 'https://top.kidlisp.com';
+              console.log('📺 Opening slideshow:', deviceUrl);
+              window.open(deviceUrl, '_blank');
+            });
+            return playOnTvCard;
+          }
         });
-        
-        el.addEventListener('click', () => handleCodeItemClick(el));
-        listEl.appendChild(el);
-        
+      }
+
+      processedItems.forEach((item, index) => {
+        rowDefs.push(makeItemRow(item, listId === 'examples-list' ? index + 1 : null));
+
         // Add "... and X more similar" indicator after items with hidden cluster siblings
         const owner = item.owner || '_anonymous';
         const ownerClusters = ownerHiddenCounts[owner];
-        if (ownerClusters) {
-          // Find cluster for this item
-          const clusterKey = item.code || 'cluster';
-          for (const key of Object.keys(ownerClusters)) {
-            const cluster = ownerClusters[key];
-            // Check if this item is in this cluster (by matching code)
-            if (cluster.allItems.some(ci => ci.code === item.code)) {
-              const hiddenCount = cluster.count;
-              const ownerClean = owner.replace(/^@/, '');
+        if (!ownerClusters) return;
+
+        for (const key of Object.keys(ownerClusters)) {
+          const cluster = ownerClusters[key];
+          if (!cluster.allItems.some(ci => ci.code === item.code)) continue;
+          const hiddenCount = cluster.count;
+          const ownerClean = owner.replace(/^@/, '');
+          rowDefs.push({
+            estimateHeight: 34,
+            render: () => {
               const moreEl = document.createElement('div');
               moreEl.className = 'owner-more-indicator';
               moreEl.innerHTML = `<span class="more-count">... and ${hiddenCount} more similar from @${ownerClean}</span>`;
-              moreEl.addEventListener('click', () => {
-                // Show all items from this cluster
-                const clusterItems = cluster.allItems;
-                
-                // Add "Back to all" header before re-rendering
-                listEl.innerHTML = '';
-                const backEl = document.createElement('div');
-                backEl.className = 'owner-back-indicator';
-                backEl.innerHTML = `<span class="back-text">← Back to all</span><span class="owner-filter">Showing ${clusterItems.length} similar from @${ownerClean}</span>`;
-                backEl.addEventListener('click', () => {
-                  // Re-render with original grouped view
-                  renderCodeList(config);
-                });
-                listEl.appendChild(backEl);
-                
-                // Render cluster items (no grouping)
-                clusterItems.forEach(clusterItem => {
-                  const itemEl = renderCodeListItem(clusterItem, {
-                    syntaxHighlight,
-                    tickerAnimation,
-                    showOwner,
-                    showTimeAgo,
-                    showTimestamp,
-                    showHits,
-                    pendingThumb,
-                  });
-                  itemEl.addEventListener('click', () => handleCodeItemClick(itemEl));
-                  listEl.appendChild(itemEl);
-                });
-                
-                if (tickerAnimation) {
-                  requestAnimationFrame(() => processTickerAnimations(listEl));
-                }
+              moreEl.addEventListener('click', (event) => {
+                event.stopPropagation();
+                renderClusterRows(cluster.allItems, ownerClean);
               });
-              listEl.appendChild(moreEl);
-              delete ownerClusters[key]; // Only show once per cluster
-              break;
+              return moreEl;
             }
-          }
+          });
+          delete ownerClusters[key]; // Only show once per cluster
+          break;
         }
       });
-      
-      // Process ticker animations after DOM render
-      if (tickerAnimation) {
-        requestAnimationFrame(() => processTickerAnimations(listEl));
-      }
+
+      renderVirtualizedCodeList(listEl, rowDefs, { tickerAnimation });
+      scheduleOvenStatusRefresh(listEl, processedItems);
     }
     
     /**
