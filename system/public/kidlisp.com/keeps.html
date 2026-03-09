@@ -131,6 +131,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
+      width: 100%;
       margin-bottom: 8px;
     }
 
@@ -157,17 +158,11 @@
     .keeps-logo .com-part { text-shadow: none; }
 
     .keeps-logo .keeps-subdomain {
-      font-family: var(--font-display);
-      font-size: 18px;
-      color: var(--ac-purple);
-      text-shadow: 1px 1px 0px rgba(0,0,0,0.2);
-      letter-spacing: 0.5px;
-    }
-
-    .keeps-count {
-      font-size: 12px;
-      color: var(--text-tertiary);
-      white-space: nowrap;
+      font-family: inherit;
+      font-size: inherit;
+      font-weight: inherit;
+      color: #00ff41;
+      letter-spacing: 0;
     }
 
     /* ========================================
@@ -176,11 +171,38 @@
     .keeps-hero {
       background: var(--bg-tertiary);
       border-bottom: 1px solid var(--border-subtle);
-      padding: 24px 24px 0;
+      padding: 0;
       display: flex;
       flex-direction: column;
       align-items: center;
       overflow: hidden;
+    }
+
+    .keeps-hero-actions {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .keeps-about-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 10px;
+      background: var(--bg-secondary);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 0;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+      line-height: 1;
+    }
+    .keeps-about-btn:hover {
+      border-color: var(--ac-purple);
+      color: var(--ac-purple);
     }
 
     .keeps-castle-wrap {
@@ -290,6 +312,79 @@
     #tab-index {
       max-width: none;
       padding: 0;
+    }
+
+    .keeps-about-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.52);
+      z-index: 14000;
+      display: none;
+      justify-content: flex-end;
+      align-items: flex-start;
+      padding: 14px;
+    }
+
+    .keeps-about-overlay.open {
+      display: flex;
+    }
+
+    .keeps-about-panel {
+      width: min(920px, calc(100vw - 28px));
+      max-height: calc(100vh - 28px);
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .keeps-about-panel-header {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--bg-secondary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .keeps-about-panel-title {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: 16px;
+      color: var(--text-primary);
+      letter-spacing: 0.01em;
+    }
+
+    .keeps-about-panel-close {
+      margin-left: auto;
+      width: 28px;
+      height: 28px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .keeps-about-panel-close:hover {
+      border-color: var(--ac-purple);
+      color: var(--ac-purple);
+    }
+
+    .keeps-about-panel-body {
+      overflow: auto;
+      padding: 0 24px 24px;
+    }
+
+    .keeps-about-panel-body #tab-rules {
+      display: block;
+      max-width: none;
+      padding: 0;
+      margin: 0;
     }
 
     .keeps-tab-content p {
@@ -1313,7 +1408,6 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      margin-left: auto;
     }
 
     .keeps-auth-btn {
@@ -1626,11 +1720,22 @@
        RESPONSIVE
        ======================================== */
     @media (max-width: 768px) {
-      .keeps-hero { padding: 16px 16px 0; }
+      .keeps-hero-header {
+        flex-wrap: wrap;
+        align-items: flex-start;
+      }
+      .keeps-hero-actions {
+        margin-left: 0;
+        width: 100%;
+        justify-content: flex-end;
+      }
       .keeps-castle-wrap { height: 220px; }
       .keeps-castle-wrap svg { width: 200px; }
       .keeps-search-bar { padding: 10px 16px; flex-wrap: wrap; }
       .keeps-grid { padding: 12px 16px; grid-template-columns: 1fr; }
+      .keeps-about-overlay { padding: 8px; }
+      .keeps-about-panel { width: calc(100vw - 16px); max-height: calc(100vh - 16px); }
+      .keeps-about-panel-body { padding: 0 14px 14px; }
       .keeps-modal-body { flex-direction: column; }
       .keeps-modal-sidebar { width: 100%; border-left: none; border-top: 1px solid var(--border-color); max-height: 240px; }
       .keeps-modal-preview iframe { min-height: 240px; }
@@ -1660,13 +1765,15 @@
       <a href="/" class="keeps-logo" title="Back to KidLisp.com editor">
         <span class="keeps-subdomain">keeps</span><span class="com-part">.</span><span class="baby-k">K</span><span class="baby-i">i</span><span class="baby-d">d</span><span class="baby-l">L</span><span class="baby-i2">i</span><span class="baby-s">s</span><span class="baby-p">p</span><span class="com-part">.com</span>
       </a>
-      <span class="keeps-count" id="keeps-count"></span>
-      <!-- Auth UI -->
-      <div class="keeps-auth" id="keeps-auth">
-        <button class="keeps-auth-btn" id="keeps-login-btn" style="display:none;" onclick="keepsLogin()">Log In</button>
-        <button class="keeps-auth-btn imnew" id="keeps-signup-btn" style="display:none;" onclick="keepsImNew()">I'm New</button>
-        <span class="keeps-auth-handle" id="keeps-auth-handle" style="display:none;"></span>
-        <button class="keeps-auth-btn logout" id="keeps-logout-btn" style="display:none;" onclick="keepsLogout()">Log Out</button>
+      <div class="keeps-hero-actions">
+        <button class="keeps-about-btn" id="keeps-about-btn" type="button">About</button>
+        <!-- Auth UI -->
+        <div class="keeps-auth" id="keeps-auth">
+          <button class="keeps-auth-btn" id="keeps-login-btn" style="display:none;" onclick="keepsLogin()">Log In</button>
+          <button class="keeps-auth-btn imnew" id="keeps-signup-btn" style="display:none;" onclick="keepsImNew()">I'm New</button>
+          <span class="keeps-auth-handle" id="keeps-auth-handle" style="display:none;"></span>
+          <button class="keeps-auth-btn logout" id="keeps-logout-btn" style="display:none;" onclick="keepsLogout()">Log Out</button>
+        </div>
       </div>
     </div>
     <div class="keeps-castle-wrap">
@@ -1870,12 +1977,11 @@
   <!-- TABS SYSTEM -->
   <div class="keeps-tabs-container">
     <div class="keeps-tabs">
-      <button class="keeps-tab active" data-tab="index">Index</button>
+      <button class="keeps-tab active" data-tab="unkept">Unkept</button>
       <button class="keeps-tab" data-tab="kept">Kept</button>
-      <button class="keeps-tab" data-tab="rules">About</button>
     </div>
 
-    <!-- TAB: Index (default view - search + grid) -->
+    <!-- TAB: Unkept/Kept (search + grid) -->
     <div class="keeps-tab-content active" id="tab-index">
       <div class="keeps-search-bar" id="index-search-bar">
         <input type="text" class="keeps-search-input" id="search-input"
@@ -1889,24 +1995,31 @@
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- TAB: About -->
-    <div class="keeps-tab-content" id="tab-rules">
-      <div style="padding: 24px 0;">
-        <h2 style="margin: 0 0 16px; color: var(--text-primary); font-size: 24px; font-weight: 600;">About</h2>
+  <!-- ABOUT PANEL -->
+  <div class="keeps-about-overlay" id="about-overlay">
+    <div class="keeps-about-panel" role="dialog" aria-modal="true" aria-labelledby="keeps-about-title">
+      <div class="keeps-about-panel-header">
+        <h2 class="keeps-about-panel-title" id="keeps-about-title">About KidLisp Keeps</h2>
+        <button class="keeps-about-panel-close" id="keeps-about-close" type="button" aria-label="Close About">&times;</button>
+      </div>
+      <div class="keeps-about-panel-body">
+        <div class="keeps-tab-content" id="tab-rules">
+          <div style="padding: 24px 0 8px;">
 
-        <div style="margin-bottom: 20px; padding: 16px; background: linear-gradient(180deg, rgba(78, 205, 196, 0.06), rgba(112, 214, 255, 0.04)); border-radius: 8px; border: 1px solid rgba(112, 214, 255, 0.28); border-left: 4px solid #70D6FF;">
-          <div style="margin-bottom: 10px; color: #70D6FF; font-size: 13px; font-weight: 700; letter-spacing: 0.04em;">START HERE</div>
-          <div style="font-family: var(--font-mono); font-size: 12px; line-height: 1.7; color: var(--text-secondary);">
-            <div><span style="color:#4ECDC4;">index&gt;</span> shows pieces from <strong>your own handle</strong> only.</div>
-            <div><span style="color:#FFE66D;">keep&gt;</span> mints one of your pieces to the active Tezos contract.</div>
-            <div><span style="color:#FF6B6B;">rekeep&gt;</span> regenerates media + metadata for an existing token.</div>
-            <div><span style="color:#AA96DA;">kept&gt;</span> filters to pieces you already kept on the active contract.</div>
+          <div style="margin-bottom: 20px; padding: 16px; background: linear-gradient(180deg, rgba(78, 205, 196, 0.06), rgba(112, 214, 255, 0.04)); border-radius: 8px; border: 1px solid rgba(112, 214, 255, 0.28); border-left: 4px solid #70D6FF;">
+            <div style="margin-bottom: 10px; color: #70D6FF; font-size: 13px; font-weight: 700; letter-spacing: 0.04em;">START HERE</div>
+            <div style="font-family: var(--font-mono); font-size: 12px; line-height: 1.7; color: var(--text-secondary);">
+              <div><span style="color:#4ECDC4;">unkept&gt;</span> shows your pieces that are not on the active contract yet.</div>
+              <div><span style="color:#AA96DA;">kept&gt;</span> shows your pieces already kept on the active contract.</div>
+              <div><span style="color:#FFE66D;">keep&gt;</span> mints one of your pieces to the active Tezos contract.</div>
+              <div><span style="color:#FF6B6B;">rekeep&gt;</span> regenerates media + metadata for an existing token.</div>
+            </div>
+            <div style="margin-top: 10px; color: var(--text-tertiary); font-size: 12px;">
+              Keeps is the artist-facing mint desk for KidLisp on Tezos.
+            </div>
           </div>
-          <div style="margin-top: 10px; color: var(--text-tertiary); font-size: 12px;">
-            Keeps is the artist-facing mint desk for KidLisp on Tezos.
-          </div>
-        </div>
 
         <h3>Active Contract</h3>
         <div style="margin-bottom: 20px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
@@ -1955,7 +2068,7 @@
         <h3>Keeps Process</h3>
         <div style="margin-bottom: 20px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
           <ol style="margin: 0; padding-left: 18px; color: var(--text-secondary);">
-            <li style="margin-bottom: 8px;"><strong>Pick</strong>: choose one of your pieces from Index.</li>
+            <li style="margin-bottom: 8px;"><strong>Pick</strong>: choose one of your pieces from Unkept.</li>
             <li style="margin-bottom: 8px;"><strong>Prepare</strong>: validate ownership, bake media, bundle HTML, and pin to IPFS.</li>
             <li style="margin-bottom: 8px;"><strong>Review</strong>: confirm fee + artifact links in the Keep modal.</li>
             <li style="margin-bottom: 8px;"><strong>Sign</strong>: wallet signs and sends <code>keep</code> to the active contract.</li>
@@ -2066,9 +2179,10 @@
             <div class="keeps-endpoint-auth"><a href="https://tzkt.io/KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM" target="_blank">TzKT</a> · <a href="https://objkt.com/collections/KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM" target="_blank">objkt</a></div>
           </div>
         </div>
+          </div>
+        </div>
       </div>
     </div>
-
   </div>
 
   <!-- PREVIEW MODAL -->
@@ -2221,7 +2335,7 @@
 
     let allCodes = [];
     let filteredCodes = [];
-    let showOnlyKept = false;
+    let activeTab = 'unkept';
     let searchQuery = '$';
     let indexReady = false;
 
@@ -2233,7 +2347,6 @@
     // DOM
     const grid = document.getElementById('keeps-grid');
     const loading = document.getElementById('keeps-loading');
-    const countEl = document.getElementById('keeps-count');
     const indexSearchBar = document.getElementById('index-search-bar');
     const searchInput = document.getElementById('search-input');
     const modalOverlay = document.getElementById('modal-overlay');
@@ -2243,6 +2356,9 @@
     const modalActions = document.getElementById('modal-actions');
     const modalInfo = document.getElementById('modal-info');
     const modalClose = document.getElementById('modal-close');
+    const aboutOverlay = document.getElementById('about-overlay');
+    const aboutButton = document.getElementById('keeps-about-btn');
+    const aboutCloseButton = document.getElementById('keeps-about-close');
 
     // =========================================
     // FETCH ALL CODES
@@ -2383,7 +2499,6 @@
       setIndexSearchVisible(false);
       allCodes = [];
       filteredCodes = [];
-      countEl.textContent = '';
 
       const isHandleGate = reason === 'handle';
       const message = isHandleGate
@@ -2514,13 +2629,11 @@
             <div class="error-icon">&#x1F50D;</div>
             <div class="error-msg">${emptyMessage}</div>
           </div>`;
-        countEl.textContent = `0 of ${allCodes.length.toLocaleString()} visible entries`;
         return;
       }
 
       // Render first batch
       renderMoreCards();
-      countEl.textContent = `${filteredCodes.length.toLocaleString()} of ${allCodes.length.toLocaleString()} visible entries`;
     }
 
     function renderMoreCards() {
@@ -2546,7 +2659,7 @@
         const loadMore = document.createElement('div');
         loadMore.id = 'keeps-load-more';
         loadMore.style.cssText = 'grid-column: 1 / -1; text-align: center; padding: 20px; color: var(--text-tertiary); font-size: 13px;';
-        loadMore.textContent = `Showing ${renderedCount.toLocaleString()} of ${filteredCodes.length.toLocaleString()} — scroll for more`;
+        loadMore.textContent = 'Scroll for more';
         grid.appendChild(loadMore);
 
         // Use IntersectionObserver to load more when sentinel is visible
@@ -2569,7 +2682,9 @@
       const q = searchQuery.toLowerCase().trim();
       filteredCodes = allCodes.filter(entry => {
         // Kept filter
-        if (showOnlyKept && !isKeptOnActiveContract(entry)) return false;
+        const keptOnActive = isKeptOnActiveContract(entry);
+        if (activeTab === 'kept' && !keptOnActive) return false;
+        if (activeTab === 'unkept' && keptOnActive) return false;
 
         // Search filter
         if (q) {
@@ -2686,47 +2801,100 @@
       }, 200);
     });
 
-    // Tab switching
-    function switchTab(tabName) {
-      showOnlyKept = tabName === 'kept';
-      const tabBtn = document.querySelector(`.keeps-tab[data-tab="${tabName}"]`);
-      if (!tabBtn) return;
-      document.querySelectorAll('.keeps-tab').forEach(t => t.classList.remove('active'));
-      tabBtn.classList.add('active');
+    // Tab + About routing
+    function normalizeTabName(tabName) {
+      if (tabName === 'kept') return 'kept';
+      return 'unkept';
+    }
+
+    function pathForTab(tabName) {
+      return normalizeTabName(tabName) === 'kept' ? '/kept' : '/';
+    }
+
+    function openAboutPanel({ pushState = false } = {}) {
+      if (!aboutOverlay) return;
+      aboutOverlay.classList.add('open');
+      if (pushState) {
+        history.pushState({ tab: activeTab, about: true }, '', '/about');
+      }
+    }
+
+    function closeAboutPanel({ pushState = false } = {}) {
+      if (!aboutOverlay) return;
+      const wasOpen = aboutOverlay.classList.contains('open');
+      aboutOverlay.classList.remove('open');
+      if (pushState && wasOpen) {
+        history.pushState({ tab: activeTab }, '', pathForTab(activeTab));
+      }
+    }
+
+    function switchTab(tabName, { pushState = false } = {}) {
+      const normalizedTab = normalizeTabName(tabName);
+      activeTab = normalizedTab;
+      const tabBtn = document.querySelector(`.keeps-tab[data-tab="${normalizedTab}"]`);
+      if (tabBtn) {
+        document.querySelectorAll('.keeps-tab').forEach(t => t.classList.remove('active'));
+        tabBtn.classList.add('active');
+      }
       document.querySelectorAll('.keeps-tab-content').forEach(content => content.classList.remove('active'));
-      const contentTabName = tabName === 'kept' ? 'index' : tabName;
-      document.getElementById(`tab-${contentTabName}`).classList.add('active');
+      const indexTab = document.getElementById('tab-index');
+      if (indexTab) {
+        indexTab.classList.add('active');
+      }
       if (indexReady) {
         applyFilters();
+      }
+      if (pushState) {
+        history.pushState({ tab: normalizedTab }, '', pathForTab(normalizedTab));
       }
     }
 
     document.querySelectorAll('.keeps-tab').forEach(tab => {
       tab.addEventListener('click', () => {
         const tabName = tab.dataset.tab;
-        switchTab(tabName);
-        const path = tabName === 'index'
-          ? '/'
-          : (tabName === 'rules' ? '/about' : `/${tabName}`);
-        history.pushState({ tab: tabName }, '', path);
+        closeAboutPanel();
+        switchTab(tabName, { pushState: true });
       });
     });
 
-    // Route from URL path on load (e.g. /about, /contracts, /versions)
+    if (aboutButton) {
+      aboutButton.addEventListener('click', () => {
+        openAboutPanel({ pushState: true });
+      });
+    }
+
+    if (aboutCloseButton) {
+      aboutCloseButton.addEventListener('click', () => {
+        closeAboutPanel({ pushState: true });
+      });
+    }
+
+    if (aboutOverlay) {
+      aboutOverlay.addEventListener('click', (e) => {
+        if (e.target === aboutOverlay) {
+          closeAboutPanel({ pushState: true });
+        }
+      });
+    }
+
+    // Route from URL path on load
     const pathTabRaw = location.pathname.replace(/^\/+/, '').split('/')[0];
-    const pathAliases = { about: 'rules', contracts: 'rules', versions: 'rules', docs: 'rules' };
-    const pathTab = pathAliases[pathTabRaw] || (pathTabRaw === 'kept' ? 'kept' : null);
-    if (pathTab) {
-      switchTab(pathTab);
+    const aboutPathAliases = new Set(['about', 'contracts', 'versions', 'docs', 'rules']);
+    const initialTab = pathTabRaw === 'kept' ? 'kept' : 'unkept';
+    switchTab(initialTab);
+    if (aboutPathAliases.has(pathTabRaw)) {
+      openAboutPanel();
     }
 
     // Handle browser back/forward
     window.addEventListener('popstate', (e) => {
-      if (e.state && e.state.tab) {
-        const stateTab = pathAliases[e.state.tab] || e.state.tab;
-        switchTab(stateTab === 'rules' ? 'rules' : (stateTab === 'kept' ? 'kept' : 'index'));
+      const currentPathTab = location.pathname.replace(/^\/+/, '').split('/')[0];
+      const stateTab = e.state && e.state.tab ? normalizeTabName(e.state.tab) : (currentPathTab === 'kept' ? 'kept' : 'unkept');
+      switchTab(stateTab);
+      if ((e.state && e.state.about) || aboutPathAliases.has(currentPathTab)) {
+        openAboutPanel();
       } else {
-        switchTab('index');
+        closeAboutPanel();
       }
     });
 
@@ -2746,7 +2914,14 @@
       if (e.target === modalOverlay) closeModal();
     });
     document.addEventListener('keydown', e => {
-      if (e.key === 'Escape' && modalOverlay.classList.contains('open')) closeModal();
+      if (e.key !== 'Escape') return;
+      if (modalOverlay.classList.contains('open')) {
+        closeModal();
+        return;
+      }
+      if (aboutOverlay && aboutOverlay.classList.contains('open')) {
+        closeAboutPanel({ pushState: true });
+      }
     });
 
     // =========================================

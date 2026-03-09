@@ -1,14 +1,14 @@
-# Study: Public `kidlisp` CLI (npm + Deno)
+# Study: Public `kidlisp` CLI (Bun-First + npm Distribution)
 
 **Date:** 2026-03-09  
-**Context:** Aesthetic Computer already has a strong internal command surface in `.devcontainer/config.fish`, plus public Netlify APIs (`/api/store-kidlisp`, `/api/store-clock`, `/api/store-piece`, `/api/tv`, `/api/api-docs`). This study proposes a public, pipe-friendly CLI anyone can install from npm and Deno, while keeping internal-only operations separate.
+**Context:** Aesthetic Computer already has a strong internal command surface in `.devcontainer/config.fish`, plus public Netlify APIs (`/api/store-kidlisp`, `/api/store-clock`, `/api/store-piece`, `/api/tv`, `/api/api-docs`). This study proposes a public, pipe-friendly CLI with Bun as the primary runtime, published via npm for broad compatibility.
 
 ---
 
 ## Short Answer
 
 Yes, this is very feasible, and we can do it with low risk by:
-- Building one public `kidlisp` CLI package first with clean JSON/NDJSON output.
+- Building one public `kidlisp` CLI package first with Bun-first tooling and clean JSON/NDJSON output.
 - Reusing existing API/auth patterns (`tezos/ac-login.mjs`, `system/netlify/functions/api-docs.mjs`).
 - Mapping internal fish commands into public-safe equivalents.
 - Keeping infrastructure/devcontainer-specific commands in an optional internal plugin.
@@ -29,7 +29,7 @@ Validation snapshot (2026-03-09):
 ## Product Goal
 
 Ship a public `kidlisp` CLI that can:
-- Be installed from npm and usable from Deno.
+- Be built primarily with Bun and distributed on npm for Bun/Node/Deno users.
 - Work well in pipelines (`stdout` machine-readable, `stderr` errors).
 - Publish, fetch, and inspect KidLisp, clock, and piece data via AC APIs.
 - Support "run/preview" workflows for clocks and KidLisp.
@@ -66,6 +66,15 @@ Recommended starter commands:
 - `kidlisp doctor` (token/network/env diagnostics)
 - `kidlisp examples` (small runnable snippets)
 - `kidlisp completion <bash|zsh|fish>` (shell completion scripts)
+
+## Runtime + Toolchain Strategy
+
+- Primary runtime and dev tooling: Bun.
+- Compatibility target: Node.js LTS/current for end users and CI.
+- Distribution channel: npm package `kidlisp`.
+- Portable distribution: standalone compiled binaries (no language runtime required).
+- Deno support: npm interop first (`npm:kidlisp`), optional JSR wrapper later.
+- Keep core runtime APIs portable (`fetch`, `URL`, standard streams) and avoid Bun-only behavior in user-facing paths.
 
 ---
 
@@ -172,16 +181,53 @@ Recommended output flags:
 
 ## Runtime + Distribution Plan
 
+Implementation home:
+- `kidlisp-cli/`
+- `kidlisp-cli/INSTALLER-SPEC.md`
+- `kidlisp-cli/RELEASE-SPEC.md`
+
 ### Phase 1 distribution
 - Publish npm package: `kidlisp`
 - Binary: `kidlisp`
 - Install/use:
+  - `bunx kidlisp ...`
+  - `bun add -g kidlisp`
   - `npm i -g kidlisp`
   - `npx kidlisp ...`
   - `deno run -A npm:kidlisp ...`
   - `deno install -gA -n kidlisp npm:kidlisp`
 
-### Phase 2 distribution (optional but recommended)
+### Phase 2 distribution (portable, no runtime required)
+- Publish standalone binaries compiled from Bun for:
+  - Linux x64/arm64
+  - macOS arm64/x64
+  - Windows x64
+- Attach binaries + checksums to GitHub releases.
+- Provide one-line install script for Unix-like systems.
+
+## Installer Experience (Claude-Code Style)
+
+Goal: users should install `kidlisp` from a website in one command, with no prior language runtime.
+
+Target UX:
+- macOS/Linux:
+  - `curl -fsSL https://kidlisp.com/install | sh`
+- Windows PowerShell:
+  - `irm https://kidlisp.com/install.ps1 | iex`
+
+Installer behavior:
+- Detect OS/arch and download the correct binary from releases.
+- Verify checksum before placing the binary on PATH.
+- Install to a predictable location (`~/.local/bin` or platform equivalent).
+- Print a copy-paste PATH fix if needed.
+- Support version channels (`stable`, `beta`) and pinned versions.
+
+CLI support commands:
+- `kidlisp version`
+- `kidlisp self-update`
+- `kidlisp self-update --channel beta`
+
+### Phase 3 distribution (optional but recommended)
 - Publish a thin JSR package/wrapper for best Deno UX:
   - `jsr:@aesthetic-computer/kidlisp`
 
@@ -224,8 +270,8 @@ kidlisp-cli/
 - Mark each command as `public`, `auth`, or `internal`.
 - Define stable JSON response shapes.
 
-### Phase 1: CLI Core + npm Release (3-5 days)
-- Build parser + output layer + error model.
+### Phase 1: CLI Core + Bun-First npm Release (3-5 days)
+- Build parser + output layer + error model with Bun as primary dev runtime.
 - Implement `auth`, `api`, `publish/get/recent`, `clock publish/get/recent/now`, `piece publish`, `tv`.
 - Publish `kidlisp@0.1.0`.
 
@@ -234,7 +280,12 @@ kidlisp-cli/
 - Add `pipe build-stream`.
 - Add KidLisp/clock run helpers (`--open`, URL emit, and local validation mode).
 
-### Phase 3: Deno First-Class + Hardening (2-3 days)
+### Phase 3: Portable Binary Releases (2-3 days)
+- Add Bun compile pipeline for multi-platform standalone binaries.
+- Ship checksums/signatures and install script.
+- Test binary startup + command parity vs npm package.
+
+### Phase 4: Deno First-Class + Hardening (2-3 days)
 - Add Deno install docs and smoke tests.
 - Optional JSR wrapper publish.
 - Finalize CI matrix and shell examples.
@@ -250,8 +301,10 @@ kidlisp-cli/
 - Snapshot tests for `--json` and `--ndjson`.
 
 ### CI matrix
+- Bun latest.
 - Node LTS + current.
 - Deno latest.
+- Compiled binary smoke tests on Linux/macOS/Windows.
 - Linux + macOS runners.
 
 ---
@@ -269,13 +322,19 @@ kidlisp-cli/
 ## First Milestone Definition of Done
 
 `v0.1.0` is done when:
-- A new user can install and run from npm and Deno.
+- A new user can install and run from Bun, npm/Node, and Deno.
 - These pipeline examples work:
+  - `echo "(wipe blue)" | bunx kidlisp publish --stdin --json | jq -r .code`
   - `echo "(wipe blue)" | kidlisp publish --stdin --json | jq -r .code`
   - `kidlisp recent --limit 20 --ndjson | jq -r .code`
   - `kidlisp clock publish --file melody.txt --json`
   - `kidlisp api docs --json | jq '.endpoints | length'`
 - CLI docs include copy-paste quickstart for bash/zsh/fish.
+
+`v0.2.0` is done when:
+- A user can run `kidlisp` with zero language runtime installed.
+- Release assets include platform binaries + checksums.
+- Portable binary behavior matches npm package behavior for core commands.
 
 ---
 
