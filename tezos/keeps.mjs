@@ -1818,14 +1818,29 @@ async function setCollectionMedia(options = {}) {
   
   // Build the metadata updates
   const updates = [];
-  
-  // Build new contract metadata JSON
+  const contract = await tezos.contract.at(contractAddress);
+
+  // Load existing contract metadata so partial updates don't wipe fields.
+  let existingMetadata = {};
+  try {
+    const storage = await contract.storage();
+    const existingContent = await storage.metadata.get('content');
+    const decoded = decodeContractMetadataBytes(existingContent);
+    if (decoded && typeof decoded === 'object') {
+      existingMetadata = decoded;
+    }
+  } catch (error) {
+    console.warn(`   ⚠️  Could not read existing metadata, using defaults: ${error.message}`);
+  }
+
+  // Build new contract metadata JSON (merge existing + updates)
   const currentMetadata = {
-    name: options.name || "KidLisp Keeps",
-    version: "2.0.0",
-    interfaces: ["TZIP-012", "TZIP-016", "TZIP-021"],
-    authors: ["aesthetic.computer"],
-    homepage: homepage || "https://keeps.kidlisp.com"
+    ...existingMetadata,
+    name: name || existingMetadata.name || "KidLisp Keeps",
+    version: existingMetadata.version || "2.0.0",
+    interfaces: existingMetadata.interfaces || ["TZIP-012", "TZIP-016", "TZIP-021"],
+    authors: existingMetadata.authors || ["aesthetic.computer"],
+    homepage: homepage || existingMetadata.homepage || "https://keeps.kidlisp.com"
   };
   
   if (options.name) {
@@ -1834,6 +1849,7 @@ async function setCollectionMedia(options = {}) {
   
   if (imageUri) {
     currentMetadata.imageUri = imageUri;
+    currentMetadata.thumbnailUri = imageUri;
     console.log(`   🖼️  Image URI: ${imageUri}`);
   }
   
@@ -1861,8 +1877,6 @@ async function setCollectionMedia(options = {}) {
   console.log(`\n📤 Updating contract metadata...`);
   
   try {
-    const contract = await tezos.contract.at(contractAddress);
-    
     // Format for set_contract_metadata: list of { key: string, value: bytes }
     // Bytes must be hex string prefixed with 0x for Taquito
     const params = updates.map(u => ({

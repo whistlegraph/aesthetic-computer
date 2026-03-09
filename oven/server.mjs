@@ -10,7 +10,7 @@ import fs from 'fs';
 import { execSync } from 'child_process';
 import { WebSocketServer } from 'ws';
 import { healthHandler, bakeHandler, statusHandler, bakeCompleteHandler, bakeStatusHandler, getActiveBakes, getIncomingBakes, getRecentBakes, subscribeToUpdates, cleanupStaleBakes } from './baker.mjs';
-import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, getAllProgress, getConcurrencyStatus, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus, getFrozenPieces, clearFrozenPiece, getLatestOGImageUrl, regenerateOGImagesBackground, generateKidlispBackdrop, getLatestBackdropUrl, APP_SCREENSHOT_PRESETS, generateNotepatOGImage, getLatestNotepatOGUrl } from './grabber.mjs';
+import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, ensureLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, getAllProgress, getConcurrencyStatus, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus, getFrozenPieces, clearFrozenPiece, getLatestOGImageUrl, regenerateOGImagesBackground, generateKidlispBackdrop, getLatestBackdropUrl, APP_SCREENSHOT_PRESETS, generateNotepatOGImage, getLatestNotepatOGUrl } from './grabber.mjs';
 import archiver from 'archiver';
 import { createBundle, createJSPieceBundle, createM4DBundle, generateDeviceHTML, prewarmCache, getCacheStatus, setSkipMinification } from './bundler.mjs';
 import { streamOSImage, getOSBuildStatus, invalidateManifest, purgeOSBuildCache, clearOSBuildLocalCache } from './os-builder.mjs';
@@ -1293,12 +1293,15 @@ app.delete('/api/frozen/:piece', async (req, res) => {
 
 // Live collection thumbnail endpoint - redirects to most recent kept WebP
 // Use this as the collection imageUri for a dynamic thumbnail
-app.get('/keeps/latest', (req, res) => {
-  const latest = getLatestKeepThumbnail();
+app.get('/keeps/latest', async (req, res) => {
+  let latest = getLatestKeepThumbnail();
+  if (!latest) {
+    latest = await ensureLatestKeepThumbnail();
+  }
   if (!latest) {
     return res.status(404).json({ 
       error: 'No keeps have been captured yet',
-      hint: 'Mint a keep with --thumbnail flag to populate this endpoint'
+      hint: 'No minted keep thumbnail found in oven or kidlisp records yet'
     });
   }
   
