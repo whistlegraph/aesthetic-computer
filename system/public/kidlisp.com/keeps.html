@@ -1389,9 +1389,11 @@
       max-width: 520px;
       width: 100%;
       max-height: 90vh;
-      overflow-y: auto;
+      overflow: hidden;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
       animation: modalScaleIn 0.25s ease-out;
+      display: flex;
+      flex-direction: column;
     }
 
     .mint-header {
@@ -1412,6 +1414,8 @@
 
     .mint-body {
       padding: 20px;
+      overflow-y: auto;
+      max-height: calc(90vh - 62px);
     }
 
     .mint-piece-info {
@@ -1429,13 +1433,18 @@
       flex-direction: column;
       gap: 0;
       margin-bottom: 16px;
+      max-height: 230px;
+      overflow-y: auto;
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      background: var(--bg-tertiary);
     }
 
     .mint-step {
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 8px 12px;
+      padding: 7px 10px;
       border-left: 2px solid var(--border-color);
       font-size: 12px;
       color: var(--text-tertiary);
@@ -1469,8 +1478,12 @@
     .mint-actions {
       display: flex;
       gap: 8px;
-      padding-top: 12px;
+      padding-top: 10px;
       border-top: 1px solid var(--border-subtle);
+      position: sticky;
+      bottom: 0;
+      background: var(--bg-primary);
+      z-index: 2;
     }
 
     .mint-action-btn {
@@ -1642,6 +1655,11 @@
       .keeps-modal-body { flex-direction: column; }
       .keeps-modal-sidebar { width: 100%; border-left: none; border-top: 1px solid var(--border-color); max-height: 240px; }
       .keeps-modal-preview iframe { min-height: 240px; }
+      .keeps-mint-modal { max-height: 96vh; }
+      .mint-body { max-height: calc(96vh - 62px); padding: 14px; }
+      .mint-step { font-size: 11px; }
+      .mint-timeline { max-height: 180px; margin-bottom: 12px; }
+      .mint-artifact-links { gap: 6px; }
     }
 
     @media (max-width: 480px) {
@@ -2219,6 +2237,7 @@
       const isKept = isKeptOnActiveContract(entry);
       const keptInfo = isKept ? entry.kept : null;
       const canManageKeep = !!(acUser && entry.user && acUser.sub === entry.user);
+      const canRekeep = !!(acUser && isKept);
       const card = document.createElement('div');
       card.className = 'keeps-card' + (isKept ? ' kept' : '');
 
@@ -2252,7 +2271,7 @@
           <a class="keeps-card-btn" href="${KL_BASE}/$${entry.code}" title="Open in editor">&#x270E; Edit</a>
           <a class="keeps-card-btn html-btn" href="${AC_BASE}/api/bundle-html?code=${entry.code}" target="_blank" title="Download as standalone HTML">&#x1F4E6; HTML</a>
           ${isKept
-            ? `<span class="keeps-card-btn kept-badge" title="Kept on Tezos (Token #${keptInfo.tokenId || '?'})">&#x2714; Kept</span>${canManageKeep ? `<button class="keeps-card-btn rebake-btn" data-rebake-code="${entry.code}" title="Regenerate HTML + thumbnail">&#x267B; Rebake</button>` : ''}`
+            ? `<span class="keeps-card-btn kept-badge" title="Kept on Tezos (Token #${keptInfo.tokenId || '?'})">&#x2714; Kept</span>${canRekeep ? `<button class="keeps-card-btn rebake-btn" data-rebake-code="${entry.code}" title="Regenerate HTML + thumbnail">&#x267B; Rekeep</button>` : ''}`
             : (canManageKeep ? `<button class="keeps-card-btn keep-btn" data-code="${entry.code}" title="Keep on Tezos">&#x26D3; Keep</button>` : '')}
           ${timeStr ? `<span style="margin-left: auto; font-size: 10px; color: var(--text-tertiary);">${timeStr}</span>` : ''}
         </div>`;
@@ -2410,7 +2429,7 @@
       const when = entry.when ? new Date(entry.when) : null;
       const isKept = isKeptOnActiveContract(entry);
       const keptInfo = isKept ? entry.kept : null;
-      const canManageKeep = !!(acUser && entry.user && acUser.sub === entry.user);
+      const canRekeep = !!(acUser && isKept);
 
       let actionsHTML = `
         <a class="keeps-modal-action-btn edit-btn" href="${KL_BASE}/$${entry.code}" title="Open in KidLisp.com editor">&#x270E; Edit in KidLisp.com</a>
@@ -2418,8 +2437,8 @@
 
       if (isKept) {
         actionsHTML += `<span class="keeps-modal-action-btn tezos-btn" style="cursor: default;">&#x2714; Kept on Tezos (Token #${keptInfo.tokenId || '?'})</span>`;
-        if (canManageKeep) {
-          actionsHTML += `<button class="keeps-modal-action-btn html-btn" data-rebake-code="${entry.code}" title="Regenerate HTML + thumbnail">&#x267B; Rebake Media</button>`;
+        if (canRekeep) {
+          actionsHTML += `<button class="keeps-modal-action-btn html-btn" data-rebake-code="${entry.code}" title="Regenerate HTML + thumbnail">&#x267B; Rekeep Media</button>`;
         }
       } else if (acUser && entry.user === acUser.sub) {
         actionsHTML += `<button class="keeps-modal-action-btn tezos-btn" data-mint-code="${entry.code}">&#x26D3; Keep on Tezos</button>`;
@@ -2673,6 +2692,18 @@
       return `https://oven.aesthetic.computer/grab/webp/${size}/${size}/$${cleanPiece}?duration=2200&fps=8&quality=80&density=2&nowait=true&source=keep`;
     }
 
+    function formatPackedDateLabel(value) {
+      if (!value) return null;
+      const asDate = new Date(value);
+      if (!Number.isNaN(asDate.getTime())) {
+        return asDate.toLocaleDateString();
+      }
+      if (typeof value === 'string' && value.trim()) {
+        return value.trim();
+      }
+      return null;
+    }
+
     function renderMintArtifactPanel({
       title = 'Artifact Preview',
       piece = mintCurrentPiece,
@@ -2689,7 +2720,7 @@
       const thumbUrl = ipfsToHttp(thumbnailUri) || ovenPreviewUrlForPiece(piece, 320);
       const htmlUrl = ipfsToHttp(artifactUri);
       const metaUrl = ipfsToHttp(metadataUri);
-      const packedLabel = packDate ? new Date(packDate).toLocaleDateString() : null;
+      const packedLabel = formatPackedDateLabel(packDate);
 
       let links = '';
       if (htmlUrl) links += `<a class="mint-link-btn" href="${htmlUrl}" target="_blank" rel="noopener">HTML</a>`;
@@ -2697,7 +2728,7 @@
       if (metaUrl) links += `<a class="mint-link-btn" href="${metaUrl}" target="_blank" rel="noopener">META</a>`;
       if (objktUrl) links += `<a class="mint-link-btn" href="${objktUrl}" target="_blank" rel="noopener">OBJKT</a>`;
       if (showRebakeButton) {
-        links += `<button class="mint-link-btn rebake" type="button" id="mint-inline-rebake">REBAKE</button>`;
+        links += `<button class="mint-link-btn rebake" type="button" id="mint-inline-rebake">Rekeep</button>`;
       }
 
       const panelHtml = `
@@ -3276,7 +3307,20 @@
 
             if (type === 'already_minted' && data) {
               setMintStep('validate', 'done', `Already minted as #${data.tokenId}`);
+              setMintStep('review', 'done', 'Already minted');
+              setMintStep('sign', 'done', 'No signature needed');
+              setMintStep('complete', 'done', 'Rekeep available');
+              document.getElementById('mint-actions').style.display = 'none';
               showMintResult(`Already kept as Token #${data.tokenId}`, data.objktUrl);
+              renderMintArtifactPanel({
+                title: 'Current Artifact Snapshot',
+                piece,
+                artifactUri: mintCurrentEntry?.kept?.artifactUri,
+                thumbnailUri: data.thumbnailUri || mintCurrentEntry?.kept?.thumbnailUri,
+                metadataUri: mintCurrentEntry?.kept?.metadataUri,
+                objktUrl: data.objktUrl,
+                showRebakeButton: true,
+              });
               return false;
             }
 
