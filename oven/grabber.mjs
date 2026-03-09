@@ -491,6 +491,124 @@ const frozenPieces = new Map(); // piece -> { piece, attempts, lastAttempt, firs
 // Track most recent IPFS uploads per piece (for live collection thumbnail)
 const latestIPFSUploads = new Map(); // piece -> { ipfsCid, ipfsUri, timestamp, ... }
 let latestKeepThumbnail = null; // Most recent across all pieces
+const KEEPS_SECRET_ID = process.env.KEEPS_SECRET_ID || 'tezos-kidlisp';
+const KEEP_THUMBNAIL_FALLBACK_TTL_MS = 30 * 1000;
+let latestKeepFallbackCheckedAt = 0;
+
+function extractIpfsCidFromUri(uri) {
+  if (typeof uri !== 'string') return null;
+  const trimmed = uri.trim();
+  if (!trimmed) return null;
+
+  if (trimmed.startsWith('ipfs://')) {
+    const noScheme = trimmed.slice('ipfs://'.length).replace(/^ipfs\//, '');
+    return noScheme.split(/[/?#]/)[0] || null;
+  }
+
+  const gatewayMatch = trimmed.match(/\/ipfs\/([^/?#]+)/i);
+  if (gatewayMatch?.[1]) return gatewayMatch[1];
+
+  return null;
+}
+
+async function loadLatestKeepThumbnailFromKidlisp() {
+  const database = await connectMongo();
+  if (!database) return null;
+
+  try {
+    const secrets = database.collection('secrets');
+    const kidlisp = database.collection('kidlisp');
+
+    const secretDoc = await secrets.findOne(
+      { _id: KEEPS_SECRET_ID },
+      { projection: { currentKeepsContract: 1, keepsContract: 1 } }
+    );
+    const activeContract = secretDoc?.currentKeepsContract || secretDoc?.keepsContract?.mainnet || null;
+
+    let pieceDoc = null;
+    let thumbnailUri = null;
+    let eventTime = null;
+
+    if (activeContract) {
+      const contractPath = `tezos.contracts.${activeContract}`;
+      pieceDoc = await kidlisp.find(
+        {
+          [`${contractPath}.minted`]: true,
+          [`${contractPath}.thumbnailUri`]: { $type: 'string' },
+        },
+        {
+          projection: {
+            code: 1,
+            tezos: 1,
+            when: 1,
+          },
+        }
+      ).sort({
+        [`${contractPath}.mintedAt`]: -1,
+        when: -1,
+      }).limit(1).next();
+
+      if (pieceDoc) {
+        const contractKeep = pieceDoc?.tezos?.contracts?.[activeContract];
+        thumbnailUri = contractKeep?.thumbnailUri || null;
+        eventTime = contractKeep?.mintedAt || contractKeep?.lastConfirmAt || pieceDoc?.when || null;
+      }
+    }
+
+    if (!pieceDoc) {
+      pieceDoc = await kidlisp.find(
+        { 'kept.thumbnailUri': { $type: 'string' } },
+        { projection: { code: 1, kept: 1, when: 1 } }
+      ).sort({
+        'kept.keptAt': -1,
+        when: -1,
+      }).limit(1).next();
+
+      if (pieceDoc) {
+        thumbnailUri = pieceDoc?.kept?.thumbnailUri || null;
+        eventTime = pieceDoc?.kept?.keptAt || pieceDoc?.when || null;
+      }
+    }
+
+    const ipfsCid = extractIpfsCidFromUri(thumbnailUri);
+    if (!ipfsCid || !pieceDoc?.code) return null;
+
+    const timestamp = Number.isFinite(new Date(eventTime).getTime())
+      ? new Date(eventTime).getTime()
+      : Date.now();
+    const uploadInfo = {
+      ipfsCid,
+      ipfsUri: `ipfs://${ipfsCid}`,
+      piece: pieceDoc.code,
+      format: 'webp',
+      mimeType: 'image/webp',
+      timestamp,
+      source: 'kidlisp-fallback',
+      contractAddress: activeContract || null,
+    };
+
+    latestIPFSUploads.set(pieceDoc.code, uploadInfo);
+    latestKeepThumbnail = uploadInfo;
+    console.log(`📸 Loaded latest keep thumbnail fallback: $${pieceDoc.code} (${uploadInfo.ipfsUri})`);
+    return uploadInfo;
+  } catch (error) {
+    console.error('❌ Failed to load latest keep thumbnail fallback:', error.message);
+    return null;
+  }
+}
+
+export async function ensureLatestKeepThumbnail() {
+  if (latestKeepThumbnail) return latestKeepThumbnail;
+
+  const now = Date.now();
+  if (now - latestKeepFallbackCheckedAt < KEEP_THUMBNAIL_FALLBACK_TTL_MS) {
+    return latestKeepThumbnail;
+  }
+
+  latestKeepFallbackCheckedAt = now;
+  await loadLatestKeepThumbnailFromKidlisp();
+  return latestKeepThumbnail;
+}
 
 // Stale grab timeout: grabs older than this are considered stuck and can be cleaned up
 const STALE_GRAB_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
@@ -725,6 +843,10 @@ async function loadRecentGrabs() {
       latestKeepThumbnail = mostRecent;
     }
     
+    if (!latestKeepThumbnail) {
+      await ensureLatestKeepThumbnail();
+    }
+
     console.log(`📂 Loaded ${recentGrabs.length} recent grabs from MongoDB (${latestIPFSUploads.size} with IPFS)`);
   } catch (error) {
     console.error('❌ Failed to load recent grabs:', error.message);
