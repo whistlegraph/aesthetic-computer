@@ -1111,32 +1111,74 @@
       background: var(--bg-tertiary);
       border: 1px solid var(--border-color);
       border-radius: 6px;
-      font-family: var(--font-mono);
+      font-family: var(--font-display);
       font-size: 13px;
       color: var(--text-primary);
       outline: none;
       transition: border-color 0.15s;
     }
-    .keeps-search-input::placeholder { color: var(--text-tertiary); }
+    .keeps-search-input::placeholder { color: var(--text-tertiary); font-family: var(--font-display); }
     .keeps-search-input:focus { border-color: var(--ac-purple); }
 
-    .keeps-sigil-select {
-      padding: 8px 10px;
-      min-width: 140px;
-      background: var(--bg-tertiary);
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      font-family: var(--font-mono);
-      font-size: 13px;
-      font-weight: 700;
-      color: var(--text-primary);
-      outline: none;
+    /* Custom sigil picker */
+    .keeps-sigil-menu {
+      position: relative;
+      display: flex;
+      align-items: center;
       cursor: pointer;
+      padding: 6px 10px;
+      background: black;
+      border: 2px solid white;
+      border-radius: 0;
+      flex-shrink: 0;
+      transition: all 0.15s;
     }
-    .keeps-sigil-select:focus { border-color: var(--ac-purple); }
-    .keeps-sigil-select option[disabled] {
-      color: var(--text-tertiary);
+    .keeps-sigil-menu:hover { background: rgb(30, 30, 30); box-shadow: 0 0 6px rgba(255,255,255,0.2); }
+    .keeps-sigil-label {
+      font-family: var(--font-display);
+      font-size: 15px;
+      font-weight: bold;
+      color: white;
+      line-height: 1;
     }
+    .keeps-sigil-dropdown {
+      display: none;
+      position: fixed;
+      background: black;
+      border: 2px solid white;
+      border-radius: 0;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+      min-width: 220px;
+      z-index: 99999;
+    }
+    .keeps-sigil-menu.open .keeps-sigil-dropdown { display: block; }
+    .keeps-sigil-option {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      padding: 8px 12px;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      transition: background 0.1s;
+    }
+    .keeps-sigil-option:last-child { border-bottom: none; }
+    .keeps-sigil-option:hover:not(.disabled) { background: rgb(40, 40, 40); }
+    .keeps-sigil-option.disabled { opacity: 0.38; cursor: default; }
+    .keeps-sigil-option.active .keeps-sigil-option-char { color: #00ff41; }
+    .keeps-sigil-option-char {
+      font-family: var(--font-display);
+      font-size: 15px;
+      font-weight: bold;
+      color: white;
+      flex-shrink: 0;
+      width: 14px;
+    }
+    .keeps-sigil-option-desc {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: rgba(255,255,255,0.7);
+    }
+    .keeps-sigil-option-desc em { color: rgba(255,255,255,0.4); font-style: normal; }
 
     .keeps-filter-btn {
       padding: 8px 12px;
@@ -2064,7 +2106,6 @@
       .keeps-castle-wrap { height: 220px; }
       .keeps-castle-wrap svg { width: 200px; }
       .keeps-search-bar { padding: 10px 16px; }
-      .keeps-sigil-select { min-width: 0; }
       .keeps-grid { padding: 12px 16px; grid-template-columns: repeat(2, 1fr); }
       .keeps-about-overlay { padding: 8px; align-items: center; }
       .keeps-about-panel { width: calc(100vw - 16px); border-radius: 10px; }
@@ -2323,18 +2364,33 @@
     <!-- TAB: Unkept/Kept (search + grid) -->
     <div class="keeps-tab-content active" id="tab-index">
       <div class="keeps-search-bar" id="index-search-bar">
-        <select class="keeps-sigil-select" id="sigil-select" aria-label="Sigil namespace">
-          <option value="$">$ KidLisp</option>
-          <option value="!" disabled>! tapes (soon)</option>
-          <option value="*" disabled>* clocks (soon)</option>
-          <option value="#" disabled># paintings (soon)</option>
-        </select>
+        <div class="keeps-sigil-menu" id="sigil-menu" onclick="toggleSigilMenu()">
+          <span class="keeps-sigil-label" id="sigil-label">$</span>
+          <div class="keeps-sigil-dropdown" id="sigil-dropdown">
+            <div class="keeps-sigil-option active" data-sigil="$">
+              <span class="keeps-sigil-option-char">$</span>
+              <span class="keeps-sigil-option-desc">KidLisp — generative art pieces</span>
+            </div>
+            <div class="keeps-sigil-option disabled" data-sigil="!">
+              <span class="keeps-sigil-option-char">!</span>
+              <span class="keeps-sigil-option-desc">Tapes — video loops <em>(soon)</em></span>
+            </div>
+            <div class="keeps-sigil-option disabled" data-sigil="*">
+              <span class="keeps-sigil-option-char">*</span>
+              <span class="keeps-sigil-option-desc">Clocks — live time pieces <em>(soon)</em></span>
+            </div>
+            <div class="keeps-sigil-option disabled" data-sigil="#">
+              <span class="keeps-sigil-option-char">#</span>
+              <span class="keeps-sigil-option-desc">Paintings — pixel art <em>(soon)</em></span>
+            </div>
+          </div>
+        </div>
         <input type="text" class="keeps-search-input" id="search-input"
                value=""
-               placeholder="Search codes, source code, or @handles..." autocomplete="off" spellcheck="false" />
+               placeholder="Search codes, source, or @handles..." autocomplete="off" spellcheck="false" />
         <div class="keeps-sort-btns" id="keeps-sort-btns">
-          <button class="keeps-sort-btn active" id="sort-btn-recent" onclick="setUnkeptSort('recent')">Recent</button>
-          <button class="keeps-sort-btn" id="sort-btn-hits" onclick="setUnkeptSort('hits')">Hits</button>
+          <button class="keeps-sort-btn" id="sort-btn-recent" onclick="setUnkeptSort('recent')">Recent</button>
+          <button class="keeps-sort-btn active" id="sort-btn-hits" onclick="setUnkeptSort('hits')">Hits</button>
         </div>
       </div>
       <div class="keeps-grid" id="keeps-grid">
@@ -2574,7 +2630,7 @@
     let allCodes = [];
     let filteredCodes = [];
     let activeTab = 'unkept';
-    let unkeptSort = 'recent';
+    let unkeptSort = 'hits';
     let searchQuery = '';
     let selectedSigil = '$';
     let indexReady = false;
@@ -2588,7 +2644,7 @@
     const grid = document.getElementById('keeps-grid');
     const loading = document.getElementById('keeps-loading');
     const indexSearchBar = document.getElementById('index-search-bar');
-    const sigilSelect = document.getElementById('sigil-select');
+    const sigilSelect = null; // replaced by custom sigil menu
     const searchInput = document.getElementById('search-input');
     const modalOverlay = document.getElementById('modal-overlay');
     const modalTitle = document.getElementById('modal-title');
@@ -3104,14 +3160,40 @@
     // EVENT LISTENERS
     // =========================================
 
+    // Sigil custom dropdown
+    function toggleSigilMenu() {
+      const menu = document.getElementById('sigil-menu');
+      const dropdown = document.getElementById('sigil-dropdown');
+      if (!menu || !dropdown) return;
+      const opening = !menu.classList.contains('open');
+      menu.classList.toggle('open', opening);
+      if (opening) {
+        const rect = menu.getBoundingClientRect();
+        dropdown.style.top = (rect.bottom + 2) + 'px';
+        dropdown.style.left = rect.left + 'px';
+        const close = (e) => {
+          if (!menu.contains(e.target)) {
+            menu.classList.remove('open');
+            document.removeEventListener('click', close, true);
+          }
+        };
+        setTimeout(() => document.addEventListener('click', close, true), 0);
+      }
+    }
+
+    document.getElementById('sigil-dropdown')?.addEventListener('click', (e) => {
+      const opt = e.target.closest('.keeps-sigil-option');
+      if (!opt || opt.classList.contains('disabled')) return;
+      const sigil = opt.dataset.sigil;
+      selectedSigil = sigil;
+      document.getElementById('sigil-label').textContent = sigil;
+      document.querySelectorAll('.keeps-sigil-option').forEach(o => o.classList.toggle('active', o.dataset.sigil === sigil));
+      document.getElementById('sigil-menu').classList.remove('open');
+      applyFilters();
+    });
+
     // Search
     let searchDebounce;
-    if (sigilSelect) {
-      sigilSelect.addEventListener('change', () => {
-        selectedSigil = sigilSelect.value || '$';
-        applyFilters();
-      });
-    }
 
     searchInput.addEventListener('input', () => {
       clearTimeout(searchDebounce);
@@ -4242,18 +4324,12 @@
       if (urlParams.has('q')) {
         const queryParam = urlParams.get('q') || '';
         const leading = queryParam.charAt(0);
-        if (sigilSelect && leading === '$') {
-          selectedSigil = '$';
-          sigilSelect.value = '$';
-        }
+        if (leading === '$') selectedSigil = '$';
         searchInput.value = queryParam.replace(/^[$!*#]/, '');
         searchQuery = searchInput.value;
       } else {
         searchInput.value = '';
         searchQuery = '';
-      }
-      if (sigilSelect) {
-        sigilSelect.value = selectedSigil;
       }
       if (urlParams.has('kept')) {
         switchTab('kept');
