@@ -6,7 +6,7 @@
 #include <pthread.h>
 
 #define WS_MAX_MESSAGES  16
-#define WS_MAX_MSG_LEN   4096
+#define WS_MAX_MSG_LEN   (256 * 1024)   // 256KB — chat "connected" history can be large
 
 typedef struct {
     // --- background thread ---
@@ -38,7 +38,7 @@ typedef struct {
     int   fd;
     void *ssl_ctx;
     void *ssl;
-    unsigned char frame_buf[65536];
+    unsigned char frame_buf[512 * 1024]; // 512KB — must fit largest WS frame
     int   frame_len;
 } ACWs;
 
