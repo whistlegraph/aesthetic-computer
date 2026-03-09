@@ -2365,47 +2365,9 @@
           the live HTML artifact, thumbnail, and metadata pinned to IPFS forever.
           Sign in, open any piece from <strong>Unkept</strong>, and press <strong>Keep on Tezos</strong>.
         </p>
-
-        <details class="keeps-about-tech keeps-about-tech--tezos">
-          <summary>ꜩ On-chain</summary>
-          <div class="keeps-about-tech-body">
-            <p>Each keep is an <strong>FA2 NFT</strong> on Tezos mainnet. Only the piece author can mint it, and each piece can only be kept once — the contract rejects duplicates by content hash.</p>
-            <p>Royalties are locked at mint: <strong>9% to you</strong>, 1% to KidLisp. They're baked into the token and honored by objkt and all FA2-compatible marketplaces.</p>
-            <div class="keeps-about-contract-box">
-              <div class="keeps-about-contract-label">Active Contract</div>
-              <div id="v6-active-contract-address2" style="font-family: 'Courier New', monospace; color: var(--ac-purple); font-size: 13px; word-break: break-all;">Loading...</div>
-              <div id="v6-active-contract-meta2" style="margin-top: 6px; color: var(--text-tertiary); font-size: 12px;"></div>
-              <div class="keeps-about-links">
-                <a id="v6-active-contract-tzkt2" class="keeps-about-link-btn primary" href="https://tzkt.io" target="_blank">TzKT</a>
-                <a id="v6-active-contract-objkt2" class="keeps-about-link-btn" href="https://objkt.com" target="_blank">objkt</a>
-                <a id="v6-active-contract-ops2" class="keeps-about-link-btn" href="https://tzkt.io" target="_blank">Operations</a>
-              </div>
-            </div>
-          </div>
-        </details>
-
-        <details class="keeps-about-tech keeps-about-tech--security">
-          <summary>&#x1F512; Security</summary>
-          <div class="keeps-about-tech-body">
-            <p>These properties are enforced on-chain — verifiable in the contract source above.</p>
-            <ul class="keeps-about-security-list">
-              <li><strong>Only you can mint.</strong> The backend issues a short-lived signed permit bound to your wallet address, the content hash, and the contract. Without it, <code>keep</code> reverts. There is no admin minting path.</li>
-              <li><strong>Only you can burn your token.</strong> <code>burn_keep</code> checks <code>current_owner == sender</code>. Admin cannot burn on your behalf.</li>
-              <li><strong>Content hash and royalties are immutable.</strong> <code>edit_metadata</code> always re-injects the original values from mint. Nobody can change them.</li>
-              <li><strong>You can permanently freeze your metadata.</strong> <code>lock_metadata</code> is irreversible and owner-only — not even admin can unset it.</li>
-              <li><strong>Pause never affects transfers.</strong> If the contract is paused, minting and metadata edits stop — FA2 transfers remain live. Your ability to move or sell is always unaffected.</li>
-            </ul>
-          </div>
-        </details>
-
-        <details class="keeps-about-tech keeps-about-tech--ipfs">
-          <summary>&#x2601; IPFS &amp; Media</summary>
-          <div class="keeps-about-tech-body">
-            <p>When you keep a piece, the backend bundles the KidLisp source into a self-contained <strong>HTML artifact</strong> and renders a thumbnail via the Oven service.</p>
-            <p>Both are pinned to IPFS via Pinata. The artifact URI and thumbnail URI in your token metadata point directly to IPFS — no KidLisp servers required to view your token on objkt or any marketplace.</p>
-            <p>Use <strong>Rekeep</strong> in the modal to regenerate the media if your piece's source changes after minting.</p>
-          </div>
-        </details>
+        <p>Each keep is an <strong>FA2 NFT</strong> on Tezos mainnet. Only the piece author can mint it, and each piece can only be kept once — the contract rejects duplicates by content hash.</p>
+        <p>Royalties are locked at mint: <strong>9% to you</strong>, 1% to KidLisp. They're baked into the token and honored by objkt and all FA2-compatible marketplaces.</p>
+        <p>When you keep a piece, the backend bundles the KidLisp source into a self-contained <strong>HTML artifact</strong> and renders a thumbnail. Both are pinned to IPFS via Pinata — no KidLisp servers required to view your token on objkt or any marketplace.</p>
       </div>
     </div>
 
