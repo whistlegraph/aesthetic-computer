@@ -691,13 +691,22 @@ const OVEN_TV_HTML = `<!DOCTYPE html>
       }).join('');
     }
 
+    let lastQueueKey = '';
     function renderQueue(queue) {
       const el = document.getElementById('queue-items');
       if (!queue || queue.length === 0) {
-        el.innerHTML = '<span class="strip-empty">No items queued</span>';
-        el.classList.remove('train');
+        if (lastQueueKey !== 'empty') {
+          el.innerHTML = '<span class="strip-empty">No items queued</span>';
+          el.classList.remove('train');
+          lastQueueKey = 'empty';
+        }
         return;
       }
+      // Only re-render if queue contents changed (avoids restarting CSS animation)
+      const queueKey = queue.map(q => q.piece).join(',');
+      if (queueKey === lastQueueKey) return;
+      lastQueueKey = queueKey;
+
       const items = queue.map((item, i) =>
         '<div class="strip-item queue">' +
           '#' + (i + 1) + ' ' + esc(item.piece || '?') +
@@ -709,7 +718,6 @@ const OVEN_TV_HTML = `<!DOCTYPE html>
       if (queue.length > 4) {
         el.innerHTML = items + items;
         el.classList.add('train');
-        // Speed scales with queue length
         el.style.animationDuration = Math.max(10, queue.length * 2) + 's';
       } else {
         el.innerHTML = items;

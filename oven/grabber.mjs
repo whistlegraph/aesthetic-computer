@@ -272,14 +272,14 @@ export function estimateWaitTime(queuePosition) {
 
 async function enqueueGrab(fn, metadata = {}) {
   return new Promise((resolve, reject) => {
-    // Deduplicate: reject if the same captureKey is already waiting in queue
+    // Deduplicate: silently resolve if the same captureKey is already waiting in queue
     if (metadata.captureKey) {
       const alreadyQueued = grabQueue.some(
         item => item.metadata?.captureKey === metadata.captureKey
       );
       if (alreadyQueued) {
-        console.log(`♻️  Dedup: ${metadata.piece} already queued, skipping (${metadata.captureKey})`);
-        reject(new Error(`Duplicate grab skipped: ${metadata.captureKey}`));
+        console.log(`♻️  Dedup: ${metadata.piece} already queued, skipping`);
+        resolve({ success: true, cached: true, deduplicated: true, piece: metadata.piece });
         return;
       }
     }
@@ -1283,16 +1283,19 @@ async function captureFrames(piece, options = {}) {
   const page = await browser.newPage();
   await interceptSelfRequests(page);
 
-  // Log page console messages for debugging
+  // Log page console messages for debugging (skip blocked-request noise)
   page.on('console', msg => {
     const type = msg.type();
     const text = msg.text();
+    if (text.includes('ERR_BLOCKED_BY_CLIENT')) return;
+    if (text.includes('Failed to load resource: net::ERR_')) return;
     if (type === 'error' || text.includes('KidLisp') || text.includes('$')) {
       console.log(`   [PAGE ${type}] ${text}`);
     }
   });
-  
+
   page.on('pageerror', error => {
+    if (error.message?.includes('ERR_BLOCKED_BY_CLIENT')) return;
     console.log(`   [PAGE ERROR] ${error.message}`);
   });
   
@@ -1876,34 +1879,70 @@ export async function grabPiece(piece, options = {}) {
           // Check for uniform color content (solid color "dud" images)
           const uniformCheck = await isUniformColorContent(capturedFrames);
           if (uniformCheck.isUniform) {
-            // Record as frozen/dud piece
-            const dudError = `Animation is a dud - ${uniformCheck.reason}`;
-            recordFrozenPiece(piece, dudError, null);
-            throw new Error(dudError);
-          }
+            // Return still frame in requested format (same as frozen)
+            const outW = width * density;
+            const outH = height * density;
+            console.log(`   🎨 Dud animation (${uniformCheck.reason}) — returning still ${format.toUpperCase()}`);
 
-          activeGrabs.get(grabId).status = 'encoding';
+            const sharpMod = (await import('sharp')).default;
+            let pipeline = sharpMod(capturedFrames[0])
+              .resize(outW, outH, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 1 }, kernel: 'nearest' });
 
-          // Update progress: encoding stage
-          updateProgress(grabId, {
-            stage: 'encoding',
-            stageDetail: `Encoding ${format.toUpperCase()}...`,
-            percent: 85,
-          });
+            if (format === 'webp') {
+              pipeline = pipeline.webp({ quality });
+            } else if (format === 'gif') {
+              pipeline = pipeline.gif();
+            } else {
+              pipeline = pipeline.png();
+            }
+            result = await pipeline.toBuffer();
 
-          if (format === 'webp') {
-            result = await framesToWebp(capturedFrames, {
-              playbackFps,
-              width: width * density,
-              height: height * density,
-              quality
-            });
+            // Upload dud preview to Spaces
+            let dudPreviewUrl = null;
+            if (process.env.ART_SPACES_KEY && result) {
+              try {
+                const ext = format === 'webp' ? 'webp' : format === 'gif' ? 'gif' : 'png';
+                const mime = format === 'webp' ? 'image/webp' : format === 'gif' ? 'image/gif' : 'image/png';
+                const dudKey = `oven/frozen/${piece.replace(/^\$/, '')}-dud.${ext}`;
+                await spacesClient.send(new PutObjectCommand({
+                  Bucket: SPACES_BUCKET,
+                  Key: dudKey,
+                  Body: result,
+                  ContentType: mime,
+                  ACL: 'public-read',
+                  CacheControl: 'public, max-age=604800',
+                }));
+                dudPreviewUrl = `${SPACES_CDN_BASE}/${dudKey}`;
+              } catch (previewErr) {
+                console.error('⚠️ Failed to upload dud preview:', previewErr.message);
+              }
+            }
+
+            recordFrozenPiece(piece, `Dud — ${uniformCheck.reason}, still frame returned`, dudPreviewUrl);
           } else {
-            result = await framesToGif(capturedFrames, {
-              fps: playbackFps,
-              width: width * density,
-              height: height * density
+            activeGrabs.get(grabId).status = 'encoding';
+
+            // Update progress: encoding stage
+            updateProgress(grabId, {
+              stage: 'encoding',
+              stageDetail: `Encoding ${format.toUpperCase()}...`,
+              percent: 85,
             });
+
+            if (format === 'webp') {
+              result = await framesToWebp(capturedFrames, {
+                playbackFps,
+                width: width * density,
+                height: height * density,
+                quality
+              });
+            } else {
+              result = await framesToGif(capturedFrames, {
+                fps: playbackFps,
+                width: width * density,
+                height: height * density
+              });
+            }
           }
         }
       }
