@@ -1217,6 +1217,8 @@ static JSValue build_ws_obj(JSContext *ctx, const char *phase) {
 static JSValue js_fetch(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
     if (!current_rt || argc < 1) return JS_UNDEFINED;
+    // Reject if a fetch is already in flight (single-slot)
+    if (current_rt->fetch_pending) return JS_FALSE;
     const char *url = JS_ToCString(ctx, argv[0]);
     if (!url) return JS_UNDEFINED;
     unlink("/tmp/ac_fetch.json");
@@ -1229,7 +1231,7 @@ static JSValue js_fetch(JSContext *ctx, JSValueConst this_val, int argc, JSValue
     current_rt->fetch_pending = 1;
     current_rt->fetch_result[0] = 0;
     JS_FreeCString(ctx, url);
-    return JS_UNDEFINED;
+    return JS_TRUE;
 }
 
 // ---------------------------------------------------------------------------
@@ -1600,8 +1602,10 @@ static JSValue build_system_obj(JSContext *ctx) {
     JS_SetPropertyStr(ctx, sys, "readFile",  JS_NewCFunction(ctx, js_read_file,  "readFile",  1));
     JS_SetPropertyStr(ctx, sys, "writeFile", JS_NewCFunction(ctx, js_write_file, "writeFile", 2));
 
-    // Async HTTP fetch — system.fetch(url) / system.fetchResult
+    // Async HTTP fetch — system.fetch(url) / system.fetchResult / system.fetchPending
     JS_SetPropertyStr(ctx, sys, "fetch", JS_NewCFunction(ctx, js_fetch, "fetch", 1));
+    JS_SetPropertyStr(ctx, sys, "fetchPending",
+                      JS_NewBool(ctx, current_rt ? current_rt->fetch_pending : 0));
     if (current_rt && current_rt->fetch_pending) {
         FILE *rc = fopen("/tmp/ac_fetch_rc", "r");
         if (rc) {

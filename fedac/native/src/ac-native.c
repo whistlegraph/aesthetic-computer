@@ -985,29 +985,46 @@ int main(int argc, char *argv[]) {
             }
 
             if (power_pressed) {
-                // Shutdown animation (~1.5 seconds)
+                // Shutdown animation — chaotic red/white strobe with title
                 struct timespec anim_time;
                 clock_gettime(CLOCK_MONOTONIC, &anim_time);
-                int sd_dark = 1; // always dark
-                int sd_bg = 20;
 
-                for (int f = 0; f < 60; f++) { // 60 frames @ 60fps = 1s
-                    double t = (double)f / 60.0;
+                for (int f = 0; f < 90; f++) { // 90 frames @ 60fps = 1.5s
+                    double t = (double)f / 90.0;
 
-                    // Fade to black with centered text
-                    int fade = (int)(sd_bg * (1.0 - t));
-                    graph_wipe(&graph, (ACColor){(uint8_t)(fade), (uint8_t)(fade), (uint8_t)(fade), 255});
+                    // Chaotic strobe: alternate red/white/black with randomish pattern
+                    int phase = (f * 7 + f / 3) % 6; // pseudo-random cycle
+                    uint8_t br, bg_g, bb;
+                    if (phase < 2) { br = 220; bg_g = 20; bb = 20; }       // red
+                    else if (phase < 3) { br = 255; bg_g = 255; bb = 255; } // white
+                    else if (phase < 5) { br = 180; bg_g = 0; bb = 0; }     // dark red
+                    else { br = 10; bg_g = 10; bb = 10; }                   // near black
 
-                    if (t < 0.8) {
-                        int alpha = (int)(255.0 * (1.0 - t / 0.8));
-                        uint8_t fg = sd_dark ? 220 : 0;
-                        graph_ink(&graph, (ACColor){fg, fg, fg, (uint8_t)alpha});
+                    // Fade intensity toward end
+                    double fade = 1.0 - t * t;
+                    br = (uint8_t)(br * fade);
+                    bg_g = (uint8_t)(bg_g * fade);
+                    bb = (uint8_t)(bb * fade);
+                    graph_wipe(&graph, (ACColor){br, bg_g, bb, 255});
+
+                    // Title text — jitter position, flicker between red and white
+                    if (t < 0.85) {
+                        int alpha = (int)(255.0 * (1.0 - t / 0.85));
+                        int jx = (f * 13 % 7) - 3; // -3 to +3 pixel jitter
+                        int jy = (f * 17 % 5) - 2; // -2 to +2
+                        uint8_t tr = (f % 3 == 0) ? 255 : 200;
+                        uint8_t tg = (f % 3 == 0) ? 255 : 40;
+                        uint8_t tb = (f % 3 == 0) ? 255 : 40;
+                        graph_ink(&graph, (ACColor){tr, tg, tb, (uint8_t)alpha});
                         int tw = font_measure_matrix(boot_title, 3);
-                        font_draw_matrix(&graph, boot_title, (screen->width - tw) / 2, screen->height / 2 - 20, 3);
-                        uint8_t sub = sd_dark ? 140 : 120;
-                        graph_ink(&graph, (ACColor){sub, sub, sub, (uint8_t)(alpha / 2)});
+                        font_draw_matrix(&graph, boot_title,
+                            (screen->width - tw) / 2 + jx,
+                            screen->height / 2 - 20 + jy, 3);
+                        graph_ink(&graph, (ACColor){(uint8_t)(120 * fade), 40, 40, (uint8_t)(alpha / 2)});
                         int sw = font_measure_matrix("aesthetic.computer", 1);
-                        font_draw_matrix(&graph, "aesthetic.computer", (screen->width - sw) / 2, screen->height / 2 + 10, 1);
+                        font_draw_matrix(&graph, "aesthetic.computer",
+                            (screen->width - sw) / 2 + jx / 2,
+                            screen->height / 2 + 10 + jy / 2, 1);
                     }
 
                     display_present(display, screen, 3);
