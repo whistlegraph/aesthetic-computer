@@ -197,13 +197,16 @@ function normalizeRoyaltyBps(value, fallback = 1000) {
   return bounded;
 }
 
-function buildRoyalties(creatorAddress, royaltyBps) {
-  return {
-    decimals: 4,
-    shares: {
-      [creatorAddress]: String(royaltyBps),
-    },
-  };
+// Platform royalty address — receives platform_royalty_bps share on secondary sales.
+// Must be set via env var KEEPS_PLATFORM_ROYALTY_ADDRESS.
+const PLATFORM_ROYALTY_ADDRESS = process.env.KEEPS_PLATFORM_ROYALTY_ADDRESS || null;
+
+function buildRoyalties(creatorAddress, artistBps, platformBps) {
+  const shares = { [creatorAddress]: String(artistBps) };
+  if (platformBps > 0 && PLATFORM_ROYALTY_ADDRESS) {
+    shares[PLATFORM_ROYALTY_ADDRESS] = String(platformBps);
+  }
+  return { decimals: 4, shares };
 }
 
 // Get the appropriate TzKT API base URL
@@ -586,18 +589,26 @@ export const handler = stream(async (event, context) => {
             { name: "Characters", value: String(analysis?.chars || source.length) },
           ];
 
-          let royaltyBps = 1000;
+          let artistBps = 900;
+          let platformBps = 100;
           try {
             const tezos = new TezosToolkit(RPC_URL);
             const contract = await tezos.contract.at(CONTRACT_ADDRESS);
             const storage = await contract.storage();
-            royaltyBps = normalizeRoyaltyBps(storage.default_royalty_bps, 1000);
+            if (storage.artist_royalty_bps !== undefined) {
+              artistBps = normalizeRoyaltyBps(storage.artist_royalty_bps, 900);
+              platformBps = normalizeRoyaltyBps(storage.platform_royalty_bps, 100);
+            } else {
+              // Legacy contract — split default_royalty_bps as all-artist
+              artistBps = normalizeRoyaltyBps(storage.default_royalty_bps, 1000);
+              platformBps = 0;
+            }
           } catch (royaltyErr) {
-            console.warn(`🪙 KEEP: Unable to read default_royalty_bps, using 1000 bps (${royaltyErr?.message || "unknown error"})`);
+            console.warn(`🪙 KEEP: Unable to read royalty bps, using defaults (${royaltyErr?.message || "unknown error"})`);
           }
 
           const creatorsArray = [creatorWalletAddress];
-          const royalties = buildRoyalties(creatorWalletAddress, royaltyBps);
+          const royalties = buildRoyalties(creatorWalletAddress, artistBps, platformBps);
 
           const metadataJson = {
             name: tokenName,
@@ -1387,18 +1398,26 @@ export const handler = stream(async (event, context) => {
       // creators array contains just the wallet address for on-chain attribution
       const creatorsArray = [creatorWalletAddress];
       
-      let royaltyBps = 1000;
+      let artistBps = 900;
+      let platformBps = 100;
       try {
         const readTezos = new TezosToolkit(RPC_URL);
         const readContract = await readTezos.contract.at(CONTRACT_ADDRESS);
         const readStorage = await readContract.storage();
-        royaltyBps = normalizeRoyaltyBps(readStorage.default_royalty_bps, 1000);
+        if (readStorage.artist_royalty_bps !== undefined) {
+          artistBps = normalizeRoyaltyBps(readStorage.artist_royalty_bps, 900);
+          platformBps = normalizeRoyaltyBps(readStorage.platform_royalty_bps, 100);
+        } else {
+          // Legacy contract — split default_royalty_bps as all-artist
+          artistBps = normalizeRoyaltyBps(readStorage.default_royalty_bps, 1000);
+          platformBps = 0;
+        }
       } catch (royaltyErr) {
-        console.warn(`🪙 KEEP: Unable to read default_royalty_bps, using 1000 bps (${royaltyErr?.message || "unknown error"})`);
+        console.warn(`🪙 KEEP: Unable to read royalty bps, using defaults (${royaltyErr?.message || "unknown error"})`);
       }
 
-      // Royalty is driven by on-chain default_royalty_bps at mint time.
-      const royalties = buildRoyalties(creatorWalletAddress, royaltyBps);
+      // Royalty split read from on-chain storage at mint time.
+      const royalties = buildRoyalties(creatorWalletAddress, artistBps, platformBps);
 
       const metadataJson = {
         name: tokenName,
