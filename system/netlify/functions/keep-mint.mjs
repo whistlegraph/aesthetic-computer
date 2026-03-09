@@ -136,6 +136,7 @@ async function getTezosCredentials() {
     publicKey: signerPublicKey,
     privateKey: signerPrivateKey,
     network: secrets.network,
+    treasuryAddress: secrets.treasuryAddress || null,
   };
   cachedTezosCredentialsExpiresAt = Date.now() + KEEP_MINT_SIGNER_CACHE_TTL_MS;
   
@@ -197,14 +198,10 @@ function normalizeRoyaltyBps(value, fallback = 1000) {
   return bounded;
 }
 
-// Platform royalty address — receives platform_royalty_bps share on secondary sales.
-// Must be set via env var KEEPS_PLATFORM_ROYALTY_ADDRESS.
-const PLATFORM_ROYALTY_ADDRESS = process.env.KEEPS_PLATFORM_ROYALTY_ADDRESS || null;
-
-function buildRoyalties(creatorAddress, artistBps, platformBps) {
+function buildRoyalties(creatorAddress, artistBps, platformBps, platformAddress) {
   const shares = { [creatorAddress]: String(artistBps) };
-  if (platformBps > 0 && PLATFORM_ROYALTY_ADDRESS) {
-    shares[PLATFORM_ROYALTY_ADDRESS] = String(platformBps);
+  if (platformBps > 0 && platformAddress) {
+    shares[platformAddress] = String(platformBps);
   }
   return { decimals: 4, shares };
 }
@@ -608,7 +605,8 @@ export const handler = stream(async (event, context) => {
           }
 
           const creatorsArray = [creatorWalletAddress];
-          const royalties = buildRoyalties(creatorWalletAddress, artistBps, platformBps);
+          const simCredentials = await getTezosCredentials();
+          const royalties = buildRoyalties(creatorWalletAddress, artistBps, platformBps, simCredentials.treasuryAddress);
 
           const metadataJson = {
             name: tokenName,
@@ -1417,7 +1415,8 @@ export const handler = stream(async (event, context) => {
       }
 
       // Royalty split read from on-chain storage at mint time.
-      const royalties = buildRoyalties(creatorWalletAddress, artistBps, platformBps);
+      const mintCredentials = await getTezosCredentials();
+      const royalties = buildRoyalties(creatorWalletAddress, artistBps, platformBps, mintCredentials.treasuryAddress);
 
       const metadataJson = {
         name: tokenName,
