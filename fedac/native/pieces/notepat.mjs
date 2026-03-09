@@ -968,6 +968,8 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     wsStatus = "connecting";
     wsConnectGrace = 180; // ~3s grace before declaring error
     system.ws?.connect("wss://chat-system.aesthetic.computer/");
+    // Connect raw UDP for fairy co-presence
+    system.udp?.connect("session-server.aesthetic.computer", 10010);
     if (system?.writeFile && savedCreds.length > 0) {
       system.writeFile(CREDS_PATH, JSON.stringify(savedCreds));
     }
@@ -1216,8 +1218,6 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       if (matches.length > 0) {
         const best = matches[0];
         const cred = knownCreds.find((c) => c.ssid === best.ssid);
-        sound?.synth({ type: "sine", tone: 660,
-                       duration: 0.08, volume: 0.15, attack: 0.01, decay: 0.06 });
         wifi.connect(cred.ssid, cred.pass);
         connectStartFrame = frame;
       }
@@ -1262,33 +1262,72 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   // Battery icon + percentage
   const bat = system?.battery;
   const batPct = bat?.percent ?? -1;
-  // TTS when battery percent changes
-  if (batPct >= 0 && batPct !== lastBatPercent) {
-    if (lastBatPercent >= 0) {
-      // Battery change: low = descending minor third, high = ascending major third
+  // Battery sound: 5% increments normally, every 1% below 10%
+  // Lower battery = higher pitch, louder, longer, more voices (more urgent)
+  {
+    const batThreshold = batPct <= 10 ? 1 : 5;
+    if (batPct >= 0 && lastBatPercent >= 0 && Math.abs(batPct - lastBatPercent) >= batThreshold) {
       const charging = bat?.charging;
-      const tone = charging ? 660 : (batPct < 20 ? 330 : 523);
-      const tone2 = charging ? 880 : (batPct < 20 ? 277 : 659);
-      sound?.synth({ type: "sine", tone, duration: 0.12, volume: 0.2, attack: 0.005, decay: 0.1 });
-      sound?.synth({ type: "sine", tone: tone2, duration: 0.12, volume: 0.15, attack: 0.03, decay: 0.09 });
+      if (charging) {
+        // Charging: gentle ascending major triad
+        sound?.synth({ type: "sine", tone: 523, duration: 0.15, volume: 0.12, attack: 0.01, decay: 0.12 });
+        sound?.synth({ type: "sine", tone: 659, duration: 0.15, volume: 0.10, attack: 0.03, decay: 0.12 });
+        sound?.synth({ type: "sine", tone: 784, duration: 0.15, volume: 0.08, attack: 0.05, decay: 0.10 });
+      } else {
+        // Draining: pitch rises as battery drops (100%→220Hz, 0%→1760Hz)
+        const urgency = 1 - batPct / 100; // 0 at full, 1 at empty
+        const base = 220 + urgency * 1540;
+        const vol = 0.08 + urgency * 0.32; // 0.08 at full, 0.40 at empty
+        const dur = 0.08 + urgency * 0.30; // short at full, long at empty
+        // Root + minor third + tritone (increasingly dissonant as battery drops)
+        sound?.synth({ type: "sine", tone: base, duration: dur, volume: vol, attack: 0.005, decay: dur * 0.8 });
+        sound?.synth({ type: "triangle", tone: base * 1.2, duration: dur * 0.9, volume: vol * 0.6, attack: 0.01, decay: dur * 0.7 });
+        sound?.synth({ type: "sine", tone: base * 1.414, duration: dur * 0.7, volume: vol * 0.4, attack: 0.02, decay: dur * 0.5 });
+        // Below 20%: add a 4th voice — high square pulse
+        if (batPct < 20) {
+          sound?.synth({ type: "square", tone: base * 2, duration: dur * 0.5, volume: vol * 0.25, attack: 0.001, decay: dur * 0.4 });
+        }
+        // Below 10%: add a 5th voice — sub-bass throb
+        if (batPct < 10) {
+          sound?.synth({ type: "sawtooth", tone: base * 0.5, duration: dur * 1.2, volume: vol * 0.5, attack: 0.005, decay: dur });
+        }
+        // At 5% or below: alarm cluster
+        if (batPct <= 5) {
+          sound?.synth({ type: "square", tone: base * 3, duration: 0.04, volume: 0.3, attack: 0.001, decay: 0.03 });
+          sound?.synth({ type: "sine", tone: base * 2.5, duration: 0.06, volume: 0.2, attack: 0.001, decay: 0.05 });
+        }
+      }
+      lastBatPercent = batPct;
+    } else if (batPct >= 0 && lastBatPercent < 0) {
+      lastBatPercent = batPct; // initial read, no sound
     }
-    lastBatPercent = batPct;
   }
   if (batPct >= 0) {
     const batW = 12, batH = 6;
     rx -= batW + 2;
     const batX = rx;
-    ink(dark ? 90 : 150, dark ? 90 : 150, dark ? 90 : 150);
-    box(batX, barY, batW, batH, "outline");
-    box(batX + batW, barY + 2, 2, 2, true);
-    const fillW = Math.max(0, Math.floor(batPct * (batW - 2) / 100));
-    if (batPct <= 20) ink(220, 30, 30);
-    else if (batPct <= 50) ink(200, 160, 0);
-    else ink(50, 160, 50);
-    if (fillW > 0) box(batX + 1, barY + 1, fillW, batH - 2, true);
+    // Below 10%: rapid blink (faster as battery drops). Hide icon on blink-off frames.
+    const batCritical = batPct <= 10 && !bat?.charging;
+    const blinkRate = batCritical ? Math.max(4, batPct * 2) : 0; // frames per blink cycle
+    const batVisible = !batCritical || (frame % blinkRate < blinkRate / 2);
+    if (batVisible) {
+      ink(dark ? 90 : 150, dark ? 90 : 150, dark ? 90 : 150);
+      box(batX, barY, batW, batH, "outline");
+      box(batX + batW, barY + 2, 2, 2, true);
+      const fillW = Math.max(0, Math.floor(batPct * (batW - 2) / 100));
+      if (batPct <= 10) ink(255, 0, 0);
+      else if (batPct <= 20) ink(220, 30, 30);
+      else if (batPct <= 50) ink(200, 160, 0);
+      else ink(50, 160, 50);
+      if (fillW > 0) box(batX + 1, barY + 1, fillW, batH - 2, true);
+    }
     const pctStr = batPct + "%";
     rx -= pctStr.length * CH + 2;
-    ink(FG_DIM, FG_DIM, FG_DIM);
+    if (batCritical && !batVisible) {
+      ink(255, 0, 0); // red flash on text during blink-off
+    } else {
+      ink(FG_DIM, FG_DIM, FG_DIM);
+    }
     write(pctStr, { x: rx, y: barY, size: 1 });
     rx -= 4; // separator space
   }
@@ -1361,25 +1400,25 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   if (wf && activeCount > 0) {
     const wfTop = topBarH;
     const wfH = h - wfTop;
-    const mid = wfTop + Math.floor(wfH / 2);
-    const amp = Math.floor(wfH * 0.45);
+    const wfBottom = wfTop + wfH;
+    const amp = Math.floor(wfH * 0.9);
     const N = 64;
     const barW = Math.floor(w / N);
     const gap = 1;
     for (let i = 0; i < N; i++) {
       const si = Math.floor((i / N) * (wf.length || 1));
-      const sample = wf[si] || 0;
-      const barH = Math.max(2, Math.abs(Math.round(sample * amp)));
-      const barTop = sample >= 0 ? mid - barH : mid;
-      // Sky region (empty half)
-      ink(dark ? 16 : 230, dark ? 24 : 220, dark ? 40 : 210, 25);
+      const sample = Math.abs(wf[si] || 0);
+      const barH = Math.max(2, Math.round(sample * amp));
+      const barTop = wfBottom - barH;
+      // Solid base color: full column from bottom
+      ink(dark ? 18 : 235, dark ? 22 : 225, dark ? 35 : 215, 35);
       box(i * barW, wfTop, barW - gap, wfH, true);
-      // Bar
-      ink(dark ? 60 : 160, dark ? 160 : 60, dark ? 60 : 160, 55);
+      // Active bar: rises from bottom
+      ink(dark ? 50 : 140, dark ? 120 : 50, dark ? 160 : 140, 60);
       box(i * barW, barTop, barW - gap, barH, true);
-      // 1px accent cap
-      ink(dark ? 140 : 200, dark ? 200 : 100, dark ? 140 : 200, 80);
-      box(i * barW, barTop, barW - gap, 1, true);
+      // Top cap: brighter accent
+      ink(dark ? 120 : 200, dark ? 200 : 80, dark ? 240 : 200, 90);
+      box(i * barW, barTop, barW - gap, 2, true);
     }
   }
 
@@ -1822,6 +1861,31 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       if (trail[key].brightness < 0.02) delete trail[key];
     }
   });
+
+  // 🧚 Fairy co-presence — send cursor + paint received fireflies
+  if (system.udp?.connected) {
+    // Send current cursor/touch position as fairy point (~60Hz, throttled by UDP thread)
+    if (hoverX >= 0 && hoverY >= 0) {
+      system.udp.sendFairy(hoverX / w, hoverY / h);
+    }
+    // Paint received fairies as glowing dots
+    const fairies = system.udp.fairies;
+    if (fairies && fairies.length > 0) {
+      for (let i = 0; i < fairies.length; i++) {
+        const fx = Math.round(fairies[i].x * w);
+        const fy = Math.round(fairies[i].y * h);
+        // Outer glow
+        ink(255, 200, 80, 40);
+        box(fx - 3, fy - 3, 7, 7, true);
+        // Inner bright dot
+        ink(255, 240, 120, 180);
+        box(fx - 1, fy - 1, 3, 3, true);
+        // Center pixel
+        ink(255, 255, 200);
+        box(fx, fy, 1, 1, true);
+      }
+    }
+  }
 
   // HDMI output: blend active note colors → solid fill on secondary display
   if (system.hasHdmi) {

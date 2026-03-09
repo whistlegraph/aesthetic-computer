@@ -56,6 +56,7 @@ SRCS := $(SRCDIR)/ac-native.c \
         $(SRCDIR)/wifi.c \
         $(SRCDIR)/tts.c \
         $(SRCDIR)/ws-client.c \
+        $(SRCDIR)/udp-client.c \
         $(SRCDIR)/js-bindings.c
 
 OBJS := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/%.o,$(SRCS))

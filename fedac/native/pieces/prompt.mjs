@@ -126,7 +126,7 @@ function paint({ wipe, ink, box, write, screen, paintCount }) {
 
   // Hint
   ink(60, 60, 70);
-  write("esc:back", { x: W - 52, y: H - 6, size: 1, font: "6x10" });
+  write("esc:back", { x: W - 54, y: H - 14, size: 1, font: "6x10" });
 }
 
 function sim() {}
