@@ -132,8 +132,7 @@
       align-items: center;
       gap: 8px;
       width: 100%;
-      padding: 10px 16px 0;
-      margin-bottom: 8px;
+      padding: 6px 16px;
     }
 
     .keeps-logo {
@@ -1637,12 +1636,49 @@
       background: rgb(50, 120, 70);
     }
 
-    .keeps-auth-btn.logout {
-      background: var(--bg-secondary);
-      color: var(--text-secondary);
-      border: 1px solid var(--border-color);
+    /* Handle dropdown */
+    .keeps-user-menu {
+      position: relative;
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      padding: 4px 10px;
+      background: black;
+      border: 2px solid white;
+      border-radius: 0;
+      transition: all 0.15s;
     }
-    .keeps-auth-btn.logout:hover { border-color: var(--ac-purple); color: var(--ac-purple); }
+    .keeps-user-menu:hover { background: rgb(30, 30, 30); box-shadow: 0 0 6px rgba(255,255,255,0.2); }
+    .keeps-user-handle {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: bold;
+      color: white;
+    }
+    .keeps-user-dropdown {
+      display: none;
+      position: fixed;
+      background: black;
+      border: 2px solid white;
+      border-radius: 0;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      min-width: 90px;
+      z-index: 99999;
+    }
+    .keeps-user-menu.open .keeps-user-dropdown { display: block; }
+    .keeps-user-logout-btn {
+      width: 100%;
+      padding: 7px 12px;
+      background: black;
+      border: none;
+      text-align: left;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: bold;
+      color: white;
+      cursor: pointer;
+    }
+    .keeps-user-logout-btn:hover { background: rgb(50, 50, 50); }
 
     .keeps-auth-btn.wallet {
       background: var(--bg-secondary);
@@ -1657,12 +1693,6 @@
     }
     .keeps-auth-btn.wallet.connected:hover { border-color: #cd5c9b; color: #cd5c9b; }
 
-    .keeps-auth-handle {
-      font-family: var(--font-mono);
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--ac-purple);
-    }
 
     /* ========================================
        SORT CONTROLS
@@ -2027,7 +2057,7 @@
       .keeps-hero-header {
         flex-wrap: wrap;
         align-items: flex-start;
-        padding: 6px 10px 0;
+        padding: 6px 10px;
       }
       .keeps-hero-actions {
         margin-left: 0;
@@ -2077,8 +2107,13 @@
         <div class="keeps-auth" id="keeps-auth">
           <button class="keeps-auth-btn" id="keeps-login-btn" style="display:none;" onclick="keepsLogin()">Log In</button>
           <button class="keeps-auth-btn imnew" id="keeps-signup-btn" style="display:none;" onclick="keepsImNew()">I'm New</button>
-          <span class="keeps-auth-handle" id="keeps-auth-handle" style="display:none;"></span>
-          <button class="keeps-auth-btn logout" id="keeps-logout-btn" style="display:none;" onclick="keepsLogout()">Log Out</button>
+          <!-- Handle dropdown (shown when logged in) -->
+          <div class="keeps-user-menu" id="keeps-user-menu" style="display:none;" onclick="toggleUserMenu()">
+            <span class="keeps-user-handle" id="keeps-auth-handle"></span>
+            <div class="keeps-user-dropdown" id="keeps-user-dropdown">
+              <button class="keeps-user-logout-btn" onclick="event.stopPropagation(); keepsLogout()">Log Out</button>
+            </div>
+          </div>
           <button class="keeps-auth-btn wallet" id="keeps-wallet-btn" style="display:none;" onclick="handleWalletBtn()">&#x26D3; Wallet</button>
         </div>
       </div>
@@ -3665,7 +3700,7 @@
     function updateAuthUI() {
       const loginBtn = document.getElementById('keeps-login-btn');
       const signupBtn = document.getElementById('keeps-signup-btn');
-      const logoutBtn = document.getElementById('keeps-logout-btn');
+      const userMenu = document.getElementById('keeps-user-menu');
       const handleEl = document.getElementById('keeps-auth-handle');
       const tabsEl = document.querySelector('.keeps-tabs');
       if (tabsEl) {
@@ -3675,19 +3710,38 @@
         loginBtn.style.display = 'none';
         if (signupBtn) signupBtn.style.display = 'none';
         handleEl.textContent = `@${acHandle}`;
-        handleEl.style.display = 'inline';
-        logoutBtn.style.display = 'inline';
+        userMenu.style.display = 'flex';
       } else if (acUser) {
         loginBtn.style.display = 'none';
         if (signupBtn) signupBtn.style.display = 'none';
         handleEl.textContent = 'Handle required';
-        handleEl.style.display = 'inline';
-        logoutBtn.style.display = 'inline';
+        userMenu.style.display = 'flex';
       } else {
         loginBtn.style.display = 'inline-flex';
         if (signupBtn) signupBtn.style.display = 'inline-flex';
-        handleEl.style.display = 'none';
-        logoutBtn.style.display = 'none';
+        userMenu.style.display = 'none';
+      }
+    }
+
+    function toggleUserMenu() {
+      const menu = document.getElementById('keeps-user-menu');
+      const dropdown = document.getElementById('keeps-user-dropdown');
+      if (!menu || !dropdown) return;
+      const opening = !menu.classList.contains('open');
+      menu.classList.toggle('open', opening);
+      if (opening) {
+        // Position dropdown below the menu button
+        const rect = menu.getBoundingClientRect();
+        dropdown.style.top = (rect.bottom + 2) + 'px';
+        dropdown.style.left = rect.left + 'px';
+        // Close on outside click
+        const close = (e) => {
+          if (!menu.contains(e.target)) {
+            menu.classList.remove('open');
+            document.removeEventListener('click', close, true);
+          }
+        };
+        setTimeout(() => document.addEventListener('click', close, true), 0);
       }
     }
 
