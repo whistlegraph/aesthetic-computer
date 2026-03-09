@@ -89,6 +89,7 @@ let shiftHeld = false;
 let acMsg = null;            // { from, text } once loaded
 let wsStatus = "";           // "connecting" | "connected" | "error" | ""
 let wsConnectGrace = 0;      // frames to wait before declaring error (race-condition guard)
+let wsReconnectTimer = 0;   // frames until next reconnect attempt
 let chatMuted = false;       // mute TTS for incoming chat messages
 let wifiWasConnected = false;
 let lastBatPercent = -1;     // for battery change TTS
@@ -354,8 +355,9 @@ function act({ event: e, sound, wifi }) {
     const pid = e.pointer?.id ?? 0;
     hoverX = x; hoverY = y;
 
-    // "os" button: top bar, after "notepat.com" (~x 42-54)
-    if (y < 16 && x >= 42 && x <= 58) {
+    // "os" button: top bar — hit zone set dynamically in paint()
+    const ob = globalThis.__osBtn;
+    if (ob && y < ob.h && x >= ob.x && x <= ob.x + ob.w) {
       osUrlVisible = !osUrlVisible;
       return;
     }
@@ -650,10 +652,20 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       dark ? (osHovered ? 210 : 160) : (osHovered ? 150 : 100),
       dark ? (osHovered ? 120 : 80) : (osHovered ? 200 : 140));
   write("os", { x: osX, y: barY, size: 1, font: "matrix" });
+  globalThis.__osBtn = { x: osX - 2, w: 14, h: topBarH };
 
   // WS status + latest chat + mute button — right of "os"
   let chatX = osX + 2 * 4 + 6;
-  if (wsStatus === "connecting") {
+  if (acMsg) {
+    // Always show latest message if we have one — even after server drops
+    const maxChatChars = Math.floor((w - chatX - 130) / 4);
+    if (maxChatChars > 6) {
+      const preview = (acMsg.from + ": " + acMsg.text).slice(0, maxChatChars);
+      ink(dark ? 140 : 100, dark ? 180 : 130, dark ? 140 : 100);
+      write(preview, { x: chatX, y: barY, size: 1, font: "matrix" });
+      chatX += preview.length * 4 + 2;
+    }
+  } else if (wsStatus === "connecting") {
     ink(200, 200, 80);
     write("chat...", { x: chatX, y: barY, size: 1, font: "matrix" });
     chatX += 7 * 4 + 2;
@@ -661,20 +673,11 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     ink(220, 80, 80);
     write("chat?", { x: chatX, y: barY, size: 1, font: "matrix" });
     chatX += 5 * 4 + 2;
-  } else if (wsStatus === "connected" || acMsg) {
-    // Truncate to fit bar width minus right elements (wifi+bat+time+vol ~120px)
-    const maxChatChars = Math.floor((w - chatX - 130) / 4);
-    if (acMsg && maxChatChars > 6) {
-      const preview = (acMsg.from + ": " + acMsg.text).slice(0, maxChatChars);
-      ink(dark ? 140 : 100, dark ? 180 : 130, dark ? 140 : 100);
-      write(preview, { x: chatX, y: barY, size: 1, font: "matrix" });
-      chatX += preview.length * 4 + 2;
-    } else if (!acMsg) {
-      // Connected but no message yet — show dim "chat" indicator
-      ink(dark ? 60 : 180, dark ? 100 : 190, dark ? 60 : 180);
-      write("chat", { x: chatX, y: barY, size: 1, font: "matrix" });
-      chatX += 4 * 4 + 2;
-    }
+  } else if (wsStatus === "connected") {
+    // Connected but no message yet
+    ink(dark ? 60 : 180, dark ? 100 : 190, dark ? 60 : 180);
+    write("chat", { x: chatX, y: barY, size: 1, font: "matrix" });
+    chatX += 4 * 4 + 2;
   }
   // Metronome indicator (pendulum) in status bar — shown when enabled
   if (metronomeEnabled) {
@@ -763,8 +766,9 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     system.fetch?.("https://aesthetic.computer/api/clock");
   }
 
-  // Track WS connection status for display
+  // Track WS connection status + auto-reconnect when server drops
   if (wsConnectGrace > 0) wsConnectGrace--;
+  if (wsReconnectTimer > 0) wsReconnectTimer--;
   if (system.ws?.connecting) { wsStatus = "connecting"; wsConnectGrace = 0; }
   else if (system.ws?.connected && wsStatus !== "connected") {
     wsStatus = "connected";
@@ -772,8 +776,15 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     // Chat connected: bright rising two-note ding
     sound?.synth({ type: "sine", tone: 1047, duration: 0.1, volume: 0.18, attack: 0.003, decay: 0.08 });
     sound?.synth({ type: "sine", tone: 1319, duration: 0.1, volume: 0.14, attack: 0.02, decay: 0.08 });
-  } else if (!system.ws?.connected && !system.ws?.connecting && wsStatus === "connecting" && wsConnectGrace === 0) {
-    wsStatus = "error";
+  } else if (!system.ws?.connected && !system.ws?.connecting && wsConnectGrace === 0) {
+    if (wsStatus === "connecting") wsStatus = "error";
+    // Auto-reconnect 10s after drop (server sends history then closes)
+    if (wifi?.connected && wsReconnectTimer === 0 && wsStatus !== "connecting") {
+      wsReconnectTimer = 600; // ~10s
+      wsStatus = "connecting";
+      wsConnectGrace = 180;
+      system.ws?.connect("wss://chat-system.aesthetic.computer/");
+    }
   }
 
   // Process incoming WebSocket chat messages (real-time)
@@ -785,6 +796,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         // content may be a string (needs parsing) or already an object
         const parseContent = (c) => (typeof c === "string" ? JSON.parse(c) : c);
         if (msg.type === "connected") {
+          wsStatus = "connected"; // lock in even if server closes right after
           const content = parseContent(msg.content);
           const last = (content?.messages || []).slice(-1)[0];
           if (last?.from && last?.text) {
