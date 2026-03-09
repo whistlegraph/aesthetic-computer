@@ -796,6 +796,7 @@ ACRuntime *js_init(ACGraph *graph, ACInput *input, ACAudio *audio, ACWifi *wifi,
     rt->wifi = wifi;
     rt->tts = tts;
     rt->ws = ws_create();
+    rt->udp = udp_create();
     rt->boot_fn = JS_UNDEFINED;
     rt->paint_fn = JS_UNDEFINED;
     rt->act_fn = JS_UNDEFINED;
@@ -1231,6 +1232,65 @@ static JSValue js_fetch(JSContext *ctx, JSValueConst this_val, int argc, JSValue
     return JS_UNDEFINED;
 }
 
+// ---------------------------------------------------------------------------
+// system.udp — Raw UDP fairy point co-presence
+// ---------------------------------------------------------------------------
+
+static JSValue js_udp_connect(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (!current_rt || !current_rt->udp) return JS_UNDEFINED;
+    const char *host = argc > 0 ? JS_ToCString(ctx, argv[0]) : NULL;
+    if (!host) host = "session-server.aesthetic.computer";
+    int port = UDP_FAIRY_PORT;
+    if (argc > 1) JS_ToInt32(ctx, &port, argv[1]);
+    // Set handle for identity
+    if (current_rt->handle[0]) {
+        pthread_mutex_lock(&current_rt->udp->mu);
+        strncpy(current_rt->udp->handle, current_rt->handle, 63);
+        current_rt->udp->handle[63] = 0;
+        pthread_mutex_unlock(&current_rt->udp->mu);
+    }
+    udp_connect(current_rt->udp, host, port);
+    if (argc > 0) JS_FreeCString(ctx, host);
+    return JS_UNDEFINED;
+}
+
+static JSValue js_udp_send_fairy(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (!current_rt || !current_rt->udp || argc < 2) return JS_UNDEFINED;
+    double x, y;
+    JS_ToFloat64(ctx, &x, argv[0]);
+    JS_ToFloat64(ctx, &y, argv[1]);
+    udp_send_fairy(current_rt->udp, (float)x, (float)y);
+    return JS_UNDEFINED;
+}
+
+static JSValue build_udp_obj(JSContext *ctx, const char *phase) {
+    JSValue obj = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, obj, "connect", JS_NewCFunction(ctx, js_udp_connect, "connect", 2));
+    JS_SetPropertyStr(ctx, obj, "sendFairy", JS_NewCFunction(ctx, js_udp_send_fairy, "sendFairy", 2));
+
+    ACUdp *udp = current_rt ? current_rt->udp : NULL;
+    if (udp) {
+        JS_SetPropertyStr(ctx, obj, "connected", JS_NewBool(ctx, udp->connected));
+
+        // Only deliver fairies during paint phase
+        if (strcmp(phase, "paint") == 0) {
+            UDPFairy fairies[UDP_MAX_FAIRIES];
+            int count = udp_poll_fairies(udp, fairies, UDP_MAX_FAIRIES);
+            JSValue arr = JS_NewArray(ctx);
+            for (int i = 0; i < count; i++) {
+                JSValue f = JS_NewObject(ctx);
+                JS_SetPropertyStr(ctx, f, "x", JS_NewFloat64(ctx, fairies[i].x));
+                JS_SetPropertyStr(ctx, f, "y", JS_NewFloat64(ctx, fairies[i].y));
+                JS_SetPropertyUint32(ctx, arr, i, f);
+            }
+            JS_SetPropertyStr(ctx, obj, "fairies", arr);
+        }
+    }
+    return obj;
+}
+
 // system.fetchBinary(url, destPath[, expectedBytes])
 // Non-blocking: runs curl in background; poll system.fetchBinaryProgress/Done/Ok each frame.
 static JSValue js_fetch_binary(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -1533,6 +1593,9 @@ static JSValue build_system_obj(JSContext *ctx) {
     // WebSocket client — system.ws
     JS_SetPropertyStr(ctx, sys, "ws", build_ws_obj(ctx, current_phase));
 
+    // Raw UDP fairy co-presence — system.udp
+    JS_SetPropertyStr(ctx, sys, "udp", build_udp_obj(ctx, current_phase));
+
     // File I/O — system.readFile(path) / system.writeFile(path, data)
     JS_SetPropertyStr(ctx, sys, "readFile",  JS_NewCFunction(ctx, js_read_file,  "readFile",  1));
     JS_SetPropertyStr(ctx, sys, "writeFile", JS_NewCFunction(ctx, js_write_file, "writeFile", 2));
@@ -1559,9 +1622,13 @@ static JSValue build_system_obj(JSContext *ctx) {
             current_rt->fetch_pending = 0;
         }
     }
-    if (current_rt && current_rt->fetch_result[0]) {
+    // Deliver fetch result only during paint phase (where JS consumes it)
+    // and clear after delivery (one-shot)
+    if (current_rt && current_rt->fetch_result[0]
+        && strcmp(current_phase, "paint") == 0) {
         JS_SetPropertyStr(ctx, sys, "fetchResult",
                           JS_NewString(ctx, current_rt->fetch_result));
+        current_rt->fetch_result[0] = 0;
     } else {
         JS_SetPropertyStr(ctx, sys, "fetchResult", JS_NULL);
     }
@@ -2116,6 +2183,7 @@ void js_destroy(ACRuntime *rt) {
     JS_FreeValue(rt->ctx, rt->leave_fn);
     JS_FreeValue(rt->ctx, rt->beat_fn);
     ws_destroy(rt->ws);
+    udp_destroy(rt->udp);
     JS_FreeContext(rt->ctx);
     JS_FreeRuntime(rt->rt);
     free(rt);

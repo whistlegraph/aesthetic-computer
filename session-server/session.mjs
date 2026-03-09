@@ -2991,6 +2991,24 @@ io.onConnection((channel) => {
         channel.broadcast.emit("fairy:point", data);
         // ^ emit the to all channels in the same room except the sender
 
+        // Bridge to raw UDP clients (native bare-metal)
+        try {
+          const parsed = typeof data === "string" ? JSON.parse(data) : data;
+          const x = parseFloat(parsed.x) || 0;
+          const y = parseFloat(parsed.y) || 0;
+          const handle = parsed.handle || "";
+          const hlen = Buffer.byteLength(handle, "utf8");
+          const pkt = Buffer.alloc(10 + hlen);
+          pkt[0] = 0x02; // fairy broadcast
+          pkt.writeFloatLE(x, 1);
+          pkt.writeFloatLE(y, 5);
+          pkt[9] = hlen;
+          pkt.write(handle, 10, "utf8");
+          for (const [, client] of udpClients) {
+            udpRelay.send(pkt, client.port, client.address);
+          }
+        } catch (e) { /* ignore bridge errors */ }
+
         // Publish to Redis for silo firehose visualization (throttled ~10Hz)
         const now = Date.now();
         const last = fairyThrottle.get(channel.id) || 0;
@@ -3048,6 +3066,76 @@ io.onConnection((channel) => {
 });
 
 // #endregion
+
+// ---------------------------------------------------------------------------
+// 🧚 Raw UDP fairy relay (port 10010) — for native bare-metal clients
+// Binary packet format:
+//   [1 byte type] [4 float x LE] [4 float y LE] [1 handle_len] [N handle]
+// Type 0x01 = client→server, 0x02 = server→client broadcast
+// ---------------------------------------------------------------------------
+import dgram from "dgram";
+
+const UDP_FAIRY_PORT = 10010;
+const udpRelay = dgram.createSocket("udp4");
+const udpClients = new Map(); // key "ip:port" → { address, port, handle, lastSeen }
+
+udpRelay.on("message", (msg, rinfo) => {
+  if (msg.length < 10 || msg[0] !== 0x01) return;
+
+  const key = `${rinfo.address}:${rinfo.port}`;
+  const x = msg.readFloatLE(1);
+  const y = msg.readFloatLE(5);
+  const hlen = msg[9];
+  const handle = msg.slice(10, 10 + hlen).toString("utf8");
+
+  udpClients.set(key, { address: rinfo.address, port: rinfo.port, handle, lastSeen: Date.now() });
+
+  // Build broadcast packet (type 0x02)
+  const bcast = Buffer.alloc(msg.length);
+  msg.copy(bcast);
+  bcast[0] = 0x02;
+
+  // Broadcast to all other UDP clients
+  for (const [k, client] of udpClients) {
+    if (k !== key) {
+      udpRelay.send(bcast, client.port, client.address);
+    }
+  }
+
+  // Also broadcast to Geckos.io WebRTC clients as fairy:point
+  const fairyData = JSON.stringify({ x, y, handle });
+  try {
+    // Emit to all geckos channels
+    io.room().emit("fairy:point", fairyData);
+  } catch (e) { /* ignore */ }
+
+  // Publish to Redis for silo firehose (throttled)
+  const now = Date.now();
+  const lastFairy = fairyThrottle.get(key) || 0;
+  if (now - lastFairy >= FAIRY_THROTTLE_MS) {
+    fairyThrottle.set(key, now);
+    pub.publish("fairy:point", fairyData).catch(() => {});
+  }
+});
+
+// Clean up stale UDP clients every 30s
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, client] of udpClients) {
+    if (now - client.lastSeen > 30000) udpClients.delete(key);
+  }
+}, 30000);
+
+udpRelay.bind(UDP_FAIRY_PORT, () => {
+  console.log(`🧚 Raw UDP fairy relay listening on port ${UDP_FAIRY_PORT}`);
+});
+
+// Bridge: forward Geckos fairy:point to UDP clients
+// (patched into the existing fairy:point handler above via io.room().emit)
+// When a Geckos client sends fairy:point, also relay to UDP clients:
+const origFairyHandler = true; // marker — actual bridging done in channel.on("fairy:point") below
+
+// #endregion UDP fairy relay
 
 // 🚧 File Watching in Local Development Mode
 // File watching uses: https://github.com/paulmillr/chokidar
