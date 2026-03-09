@@ -196,6 +196,18 @@ function hitTestGrid(x, y, gi) {
   return null;
 }
 
+// Play a short identifying blip in the new wave type when switching
+function playWaveSound(sound, waveType) {
+  if (!sound?.synth) return;
+  const tones = { sine: 660, triangle: 550, sawtooth: 440, square: 330, noise: 220 };
+  sound.synth({
+    type: waveType === "noise" ? "noise" : waveType,
+    tone: tones[waveType] || 440,
+    duration: 0.07, volume: 0.18,
+    attack: 0.002, decay: 0.06, pan: 0,
+  });
+}
+
 function boot({ wipe, system }) {
   wipe(0);
   // Load saved credentials from USB EFI partition
@@ -255,7 +267,8 @@ function act({ event: e, sound, wifi }) {
     if (key === "shift") { quickMode = !quickMode; return; }
     if (key === "tab") {
       waveIndex = (waveIndex + 1) % wavetypes.length;
-      wave = wavetypes[waveIndex]; return;
+      wave = wavetypes[waveIndex];
+      playWaveSound(sound, wave); return;
     }
     if (key === "space") {
       metronomeEnabled = !metronomeEnabled;
@@ -269,11 +282,13 @@ function act({ event: e, sound, wifi }) {
     if (key === "arrowdown") { octave = Math.max(1, octave - 1); return; }
     if (key === "arrowleft") {
       waveIndex = (waveIndex - 1 + wavetypes.length) % wavetypes.length;
-      wave = wavetypes[waveIndex]; return;
+      wave = wavetypes[waveIndex];
+      playWaveSound(sound, wave); return;
     }
     if (key === "arrowright") {
       waveIndex = (waveIndex + 1) % wavetypes.length;
-      wave = wavetypes[waveIndex]; return;
+      wave = wavetypes[waveIndex];
+      playWaveSound(sound, wave); return;
     }
     if (key === "\\") {
       trackpadFX = !trackpadFX;
@@ -412,6 +427,7 @@ function act({ event: e, sound, wifi }) {
         const idx = Math.min(wavetypes.length - 1, Math.floor(x / wb.btnW));
         waveIndex = idx;
         wave = wavetypes[idx];
+        playWaveSound(sound, wave);
       }
       return;
     }
