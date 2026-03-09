@@ -2137,7 +2137,6 @@
         <span class="keeps-subdomain"><span class="kl0">k</span><span class="kl1">e</span><span class="kl2">e</span><span class="kl3">p</span><span class="kl4" id="keeps-logo-s">s</span></span><span class="com-part">.</span><span class="baby-k">K</span><span class="baby-i">i</span><span class="baby-d">d</span><span class="baby-l">L</span><span class="baby-i2">i</span><span class="baby-s">s</span><span class="baby-p">p</span><span class="com-part">.com</span>
       </a>
       <div class="keeps-hero-actions">
-        <button class="keeps-about-btn" id="keeps-about-btn" type="button">About</button>
         <!-- Auth UI -->
         <div class="keeps-auth" id="keeps-auth">
           <button class="keeps-auth-btn" id="keeps-login-btn" style="display:none;" onclick="keepsLogin()">Log In</button>
@@ -2360,6 +2359,54 @@
 
     <!-- LOGGED-OUT: inline About content -->
     <div id="keeps-about-inline" style="display:none; overflow-y:auto; flex:1; padding:20px 24px 32px;">
+      <div class="keeps-about-simple">
+        <p class="keeps-about-lede">
+          A <strong>Keep</strong> turns your KidLisp piece into a permanent Tezos token —
+          the live HTML artifact, thumbnail, and metadata pinned to IPFS forever.
+          Sign in, open any piece from <strong>Unkept</strong>, and press <strong>Keep on Tezos</strong>.
+        </p>
+
+        <details class="keeps-about-tech keeps-about-tech--tezos">
+          <summary>ꜩ On-chain</summary>
+          <div class="keeps-about-tech-body">
+            <p>Each keep is an <strong>FA2 NFT</strong> on Tezos mainnet. Only the piece author can mint it, and each piece can only be kept once — the contract rejects duplicates by content hash.</p>
+            <p>Royalties are locked at mint: <strong>9% to you</strong>, 1% to KidLisp. They're baked into the token and honored by objkt and all FA2-compatible marketplaces.</p>
+            <div class="keeps-about-contract-box">
+              <div class="keeps-about-contract-label">Active Contract</div>
+              <div id="v6-active-contract-address2" style="font-family: 'Courier New', monospace; color: var(--ac-purple); font-size: 13px; word-break: break-all;">Loading...</div>
+              <div id="v6-active-contract-meta2" style="margin-top: 6px; color: var(--text-tertiary); font-size: 12px;"></div>
+              <div class="keeps-about-links">
+                <a id="v6-active-contract-tzkt2" class="keeps-about-link-btn primary" href="https://tzkt.io" target="_blank">TzKT</a>
+                <a id="v6-active-contract-objkt2" class="keeps-about-link-btn" href="https://objkt.com" target="_blank">objkt</a>
+                <a id="v6-active-contract-ops2" class="keeps-about-link-btn" href="https://tzkt.io" target="_blank">Operations</a>
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <details class="keeps-about-tech keeps-about-tech--security">
+          <summary>&#x1F512; Security</summary>
+          <div class="keeps-about-tech-body">
+            <p>These properties are enforced on-chain — verifiable in the contract source above.</p>
+            <ul class="keeps-about-security-list">
+              <li><strong>Only you can mint.</strong> The backend issues a short-lived signed permit bound to your wallet address, the content hash, and the contract. Without it, <code>keep</code> reverts. There is no admin minting path.</li>
+              <li><strong>Only you can burn your token.</strong> <code>burn_keep</code> checks <code>current_owner == sender</code>. Admin cannot burn on your behalf.</li>
+              <li><strong>Content hash and royalties are immutable.</strong> <code>edit_metadata</code> always re-injects the original values from mint. Nobody can change them.</li>
+              <li><strong>You can permanently freeze your metadata.</strong> <code>lock_metadata</code> is irreversible and owner-only — not even admin can unset it.</li>
+              <li><strong>Pause never affects transfers.</strong> If the contract is paused, minting and metadata edits stop — FA2 transfers remain live. Your ability to move or sell is always unaffected.</li>
+            </ul>
+          </div>
+        </details>
+
+        <details class="keeps-about-tech keeps-about-tech--ipfs">
+          <summary>&#x2601; IPFS &amp; Media</summary>
+          <div class="keeps-about-tech-body">
+            <p>When you keep a piece, the backend bundles the KidLisp source into a self-contained <strong>HTML artifact</strong> and renders a thumbnail via the Oven service.</p>
+            <p>Both are pinned to IPFS via Pinata. The artifact URI and thumbnail URI in your token metadata point directly to IPFS — no KidLisp servers required to view your token on objkt or any marketplace.</p>
+            <p>Use <strong>Rekeep</strong> in the modal to regenerate the media if your piece's source changes after minting.</p>
+          </div>
+        </details>
+      </div>
     </div>
 
     <!-- TAB: Unkept/Kept (search + grid) -->
@@ -2398,83 +2445,6 @@
         <div class="keeps-loading" id="keeps-loading" style="display:none;">
           <div class="spinner"></div>
           <span>Loading your keeps index...</span>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ABOUT PANEL -->
-  <div class="keeps-about-overlay" id="about-overlay">
-    <div class="keeps-about-panel" role="dialog" aria-modal="true" aria-labelledby="keeps-about-title">
-      <div class="keeps-about-panel-header">
-        <h2 class="keeps-about-panel-title" id="keeps-about-title">About KidLisp Keeps</h2>
-        <button class="keeps-about-panel-close" id="keeps-about-close" type="button" aria-label="Close About">&times;</button>
-      </div>
-      <div class="keeps-about-panel-body">
-        <div class="keeps-tab-content" id="tab-rules">
-          <div class="keeps-about-simple">
-            <p class="keeps-about-lede">
-              A <strong>Keep</strong> turns your KidLisp piece into a permanent Tezos token —
-              the live HTML artifact, thumbnail, and metadata pinned to IPFS forever.
-              Sign in, open any piece from <strong>Unkept</strong>, and press <strong>Keep on Tezos</strong>.
-            </p>
-
-            <details class="keeps-about-tech keeps-about-tech--tezos">
-              <summary>ꜩ On-chain</summary>
-              <div class="keeps-about-tech-body">
-                <p>Each keep is an <strong>FA2 NFT</strong> on Tezos mainnet. Only the piece author can mint it, and each piece can only be kept once — the contract rejects duplicates by content hash.</p>
-                <p>Royalties are locked at mint: <strong>9% to you</strong>, 1% to KidLisp. They're baked into the token and honored by objkt and all FA2-compatible marketplaces.</p>
-                <div class="keeps-about-contract-box">
-                  <div class="keeps-about-contract-label">Active Contract</div>
-                  <div id="v6-active-contract-address" style="font-family: 'Courier New', monospace; color: var(--ac-purple); font-size: 13px; word-break: break-all;">Loading...</div>
-                  <div id="v6-active-contract-meta" style="margin-top: 6px; color: var(--text-tertiary); font-size: 12px;"></div>
-                  <div class="keeps-about-links">
-                    <a id="v6-active-contract-tzkt" class="keeps-about-link-btn primary" href="https://tzkt.io" target="_blank">TzKT</a>
-                    <a id="v6-active-contract-objkt" class="keeps-about-link-btn" href="https://objkt.com" target="_blank">objkt</a>
-                    <a id="v6-active-contract-ops" class="keeps-about-link-btn" href="https://tzkt.io" target="_blank">Operations</a>
-                  </div>
-                </div>
-              </div>
-            </details>
-
-            <details class="keeps-about-tech keeps-about-tech--security">
-              <summary>&#x1F512; Security</summary>
-              <div class="keeps-about-tech-body">
-                <p>These properties are enforced on-chain — verifiable in the contract source above.</p>
-                <ul class="keeps-about-security-list">
-                  <li>
-                    <strong>Only you can mint.</strong>
-                    The backend issues a short-lived signed permit bound to your wallet address, the content hash, and the contract. Without it, <code>keep</code> reverts. There is no admin minting path.
-                  </li>
-                  <li>
-                    <strong>Only you can burn your token.</strong>
-                    <code>burn_keep</code> checks <code>current_owner == sender</code>. Admin cannot burn on your behalf.
-                  </li>
-                  <li>
-                    <strong>Content hash and royalties are immutable.</strong>
-                    <code>edit_metadata</code> always re-injects the original values from mint. Nobody can change them.
-                  </li>
-                  <li>
-                    <strong>You can permanently freeze your metadata.</strong>
-                    <code>lock_metadata</code> is irreversible and owner-only — not even admin can unset it.
-                  </li>
-                  <li>
-                    <strong>Pause never affects transfers.</strong>
-                    If the contract is paused, minting and metadata edits stop — FA2 transfers remain live. Your ability to move or sell is always unaffected.
-                  </li>
-                </ul>
-              </div>
-            </details>
-
-            <details class="keeps-about-tech keeps-about-tech--ipfs">
-              <summary>&#x2601; IPFS &amp; Media</summary>
-              <div class="keeps-about-tech-body">
-                <p>When you keep a piece, the backend bundles the KidLisp source into a self-contained <strong>HTML artifact</strong> and renders a thumbnail via the Oven service.</p>
-                <p>Both are pinned to IPFS via Pinata. The artifact URI and thumbnail URI in your token metadata point directly to IPFS — no KidLisp servers required to view your token on objkt or any marketplace.</p>
-                <p>Use <strong>Rekeep</strong> in the modal to regenerate the media if your piece's source changes after minting.</p>
-              </div>
-            </details>
-          </div>
         </div>
       </div>
     </div>
@@ -2654,9 +2624,7 @@
     const modalActions = document.getElementById('modal-actions');
     const modalInfo = document.getElementById('modal-info');
     const modalClose = document.getElementById('modal-close');
-    const aboutOverlay = document.getElementById('about-overlay');
-    const aboutButton = document.getElementById('keeps-about-btn');
-    const aboutCloseButton = document.getElementById('keeps-about-close');
+
     const walletBtn = document.getElementById('keeps-wallet-btn');
     const sortBtnsContainer = document.getElementById('keeps-sort-btns');
 
@@ -2855,13 +2823,7 @@
     function showInlineAbout() {
       const inline = document.getElementById('keeps-about-inline');
       const tabIndex = document.getElementById('tab-index');
-      if (!inline) return;
-      // Copy about content from modal panel body (clone children, not wrapper)
-      const source = document.getElementById('tab-rules');
-      if (source && !inline.firstChild) {
-        source.childNodes.forEach(child => inline.appendChild(child.cloneNode(true)));
-      }
-      inline.style.display = 'block';
+      if (inline) inline.style.display = 'block';
       if (tabIndex) tabIndex.style.display = 'none';
     }
 
@@ -3220,25 +3182,6 @@
       return normalizeTabName(tabName) === 'kept' ? '/kept' : '/';
     }
 
-    function openAboutPanel({ pushState = false } = {}) {
-      if (!aboutOverlay) return;
-      aboutOverlay.classList.add('open');
-      document.body.classList.add('keeps-about-open');
-      if (pushState) {
-        history.pushState({ tab: activeTab, about: true }, '', '/about');
-      }
-    }
-
-    function closeAboutPanel({ pushState = false } = {}) {
-      if (!aboutOverlay) return;
-      const wasOpen = aboutOverlay.classList.contains('open');
-      aboutOverlay.classList.remove('open');
-      document.body.classList.remove('keeps-about-open');
-      if (pushState && wasOpen) {
-        history.pushState({ tab: activeTab }, '', pathForTab(activeTab));
-      }
-    }
-
     function switchTab(tabName, { pushState = false } = {}) {
       const normalizedTab = normalizeTabName(tabName);
       activeTab = normalizedTab;
@@ -3263,40 +3206,14 @@
 
     document.querySelectorAll('.keeps-tab').forEach(tab => {
       tab.addEventListener('click', () => {
-        const tabName = tab.dataset.tab;
-        closeAboutPanel();
-        switchTab(tabName, { pushState: true });
+        switchTab(tab.dataset.tab, { pushState: true });
       });
     });
 
-    if (aboutButton) {
-      aboutButton.addEventListener('click', () => {
-        openAboutPanel({ pushState: true });
-      });
-    }
-
-    if (aboutCloseButton) {
-      aboutCloseButton.addEventListener('click', () => {
-        closeAboutPanel({ pushState: true });
-      });
-    }
-
-    if (aboutOverlay) {
-      aboutOverlay.addEventListener('click', (e) => {
-        if (e.target === aboutOverlay) {
-          closeAboutPanel({ pushState: true });
-        }
-      });
-    }
-
     // Route from URL path on load
     const pathTabRaw = location.pathname.replace(/^\/+/, '').split('/')[0];
-    const aboutPathAliases = new Set(['about', 'contracts', 'versions', 'docs', 'rules']);
     const initialTab = pathTabRaw === 'kept' ? 'kept' : 'unkept';
     switchTab(initialTab);
-    if (aboutPathAliases.has(pathTabRaw)) {
-      openAboutPanel();
-    }
 
     // Show wallet button immediately; check if already connected
     updateWalletBtn();
@@ -3307,11 +3224,6 @@
       const currentPathTab = location.pathname.replace(/^\/+/, '').split('/')[0];
       const stateTab = e.state && e.state.tab ? normalizeTabName(e.state.tab) : (currentPathTab === 'kept' ? 'kept' : 'unkept');
       switchTab(stateTab);
-      if ((e.state && e.state.about) || aboutPathAliases.has(currentPathTab)) {
-        openAboutPanel();
-      } else {
-        closeAboutPanel();
-      }
     });
 
     // Legacy version dropdown switching (if present in About content)
@@ -3331,13 +3243,7 @@
     });
     document.addEventListener('keydown', e => {
       if (e.key !== 'Escape') return;
-      if (modalOverlay.classList.contains('open')) {
-        closeModal();
-        return;
-      }
-      if (aboutOverlay && aboutOverlay.classList.contains('open')) {
-        closeAboutPanel({ pushState: true });
-      }
+      if (modalOverlay.classList.contains('open')) closeModal();
     });
 
     // =========================================
