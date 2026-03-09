@@ -661,6 +661,7 @@ let HIGHLIGHT_COLOR = "64,64,64"; // Default highlight color (gray)
 let PERF_MODE = false; // Whether to show KidLisp performance/FPS HUD
 let AUTO_SCALE_MODE = false; // Whether to enable auto-density scaling to maintain target FPS
 let SPOOF_AUDIO_MODE = false; // Whether to generate synthetic audio data (for headless captures)
+let NOGAP_MODE = false; // Whether gap is disabled (nogap URL param)
 let AUDIO_SAMPLE_RATE = 0;
 let loopPaused = false; // Whether the main loop is paused (sent from bios)
 let debug = false; // This can be overwritten on boot.
@@ -2806,7 +2807,7 @@ const $commonApi = {
 
     // Preserve resolution parameters across jumps (device mode, TV mode, etc.)
     // This ensures HUD visibility and other display settings persist when navigating
-    if (DEVICE_MODE || TV_MODE || SOLO_MODE || HIGHLIGHT_MODE || PERF_MODE || AUTO_SCALE_MODE) {
+    {
       const params = [];
       if (DEVICE_MODE) params.push("device=true");
       if (TV_MODE) params.push("tv=true");
@@ -2820,6 +2821,9 @@ const $commonApi = {
       }
       if (PERF_MODE) params.push("perf=true");
       if (AUTO_SCALE_MODE) params.push("autoScale=true");
+      if (hideLabel) params.push("nolabel=true");
+      if (NOGAP_MODE) params.push("nogap=true");
+      if (SPOOF_AUDIO_MODE) params.push("spoofaudio=true");
 
       if (params.length > 0) {
         const separator = to.includes("?") ? "&" : "?";
@@ -9703,6 +9707,7 @@ async function makeFrame({ data: { type, content } }) {
     // Parse auto-scale parameter for automatic density scaling
     AUTO_SCALE_MODE = content.resolution?.autoScale === true;
     SPOOF_AUDIO_MODE = content.resolution?.spoofaudio === true;
+    NOGAP_MODE = content.resolution?.gap === 0;
 
     microphone.permission = content.microphonePermission;
 
