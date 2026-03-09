@@ -957,6 +957,24 @@
     .keeps-search-input::placeholder { color: var(--text-tertiary); }
     .keeps-search-input:focus { border-color: var(--ac-purple); }
 
+    .keeps-sigil-select {
+      padding: 8px 10px;
+      min-width: 140px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-primary);
+      outline: none;
+      cursor: pointer;
+    }
+    .keeps-sigil-select:focus { border-color: var(--ac-purple); }
+    .keeps-sigil-select option[disabled] {
+      color: var(--text-tertiary);
+    }
+
     .keeps-filter-btn {
       padding: 8px 12px;
       background: var(--bg-tertiary);
@@ -1757,6 +1775,7 @@
       .keeps-castle-wrap { height: 220px; }
       .keeps-castle-wrap svg { width: 200px; }
       .keeps-search-bar { padding: 10px 16px; flex-wrap: wrap; }
+      .keeps-sigil-select { min-width: 0; width: 100%; }
       .keeps-grid { padding: 12px 16px; grid-template-columns: 1fr; }
       .keeps-about-overlay { padding: 8px; }
       .keeps-about-panel { width: calc(100vw - 16px); max-height: calc(100vh - 16px); }
@@ -2009,9 +2028,15 @@
     <!-- TAB: Unkept/Kept (search + grid) -->
     <div class="keeps-tab-content active" id="tab-index">
       <div class="keeps-search-bar" id="index-search-bar">
+        <select class="keeps-sigil-select" id="sigil-select" aria-label="Sigil namespace">
+          <option value="$">$ KidLisp</option>
+          <option value="!" disabled>! tapes (soon)</option>
+          <option value="*" disabled>* clocks (soon)</option>
+          <option value="#" disabled># paintings (soon)</option>
+        </select>
         <input type="text" class="keeps-search-input" id="search-input"
-               value="$"
-               placeholder="Search $codes, source code, or @handles..." autocomplete="off" spellcheck="false" />
+               value=""
+               placeholder="Search codes, source code, or @handles..." autocomplete="off" spellcheck="false" />
       </div>
       <div class="keeps-grid" id="keeps-grid">
         <div class="keeps-loading" id="keeps-loading">
@@ -2361,7 +2386,8 @@
     let allCodes = [];
     let filteredCodes = [];
     let activeTab = 'unkept';
-    let searchQuery = '$';
+    let searchQuery = '';
+    let selectedSigil = '$';
     let indexReady = false;
 
     // Pagination: render in batches to avoid freezing on large datasets
@@ -2373,6 +2399,7 @@
     const grid = document.getElementById('keeps-grid');
     const loading = document.getElementById('keeps-loading');
     const indexSearchBar = document.getElementById('index-search-bar');
+    const sigilSelect = document.getElementById('sigil-select');
     const searchInput = document.getElementById('search-input');
     const modalOverlay = document.getElementById('modal-overlay');
     const modalTitle = document.getElementById('modal-title');
@@ -2705,6 +2732,7 @@
     // =========================================
     function applyFilters() {
       const q = searchQuery.toLowerCase().trim();
+      const sigil = selectedSigil || '$';
       filteredCodes = allCodes.filter(entry => {
         // Kept filter
         const keptOnActive = isKeptOnActiveContract(entry);
@@ -2713,10 +2741,11 @@
 
         // Search filter
         if (q) {
-          const code = ('$' + entry.code).toLowerCase();
+          const prefixedCode = (sigil + entry.code).toLowerCase();
+          const bareCode = (entry.code || '').toLowerCase();
           const source = (entry.source || '').toLowerCase();
           const handle = (entry.handle || '').toLowerCase();
-          if (!code.includes(q) && !source.includes(q) && !handle.includes(q)) return false;
+          if (!prefixedCode.includes(q) && !bareCode.includes(q) && !source.includes(q) && !handle.includes(q)) return false;
         }
 
         return true;
@@ -2818,6 +2847,13 @@
 
     // Search
     let searchDebounce;
+    if (sigilSelect) {
+      sigilSelect.addEventListener('change', () => {
+        selectedSigil = sigilSelect.value || '$';
+        applyFilters();
+      });
+    }
+
     searchInput.addEventListener('input', () => {
       clearTimeout(searchDebounce);
       searchDebounce = setTimeout(() => {
@@ -3913,11 +3949,20 @@
       // Handle ?q= search param
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.has('q')) {
-        searchInput.value = urlParams.get('q');
-        searchQuery = urlParams.get('q');
+        const queryParam = urlParams.get('q') || '';
+        const leading = queryParam.charAt(0);
+        if (sigilSelect && leading === '$') {
+          selectedSigil = '$';
+          sigilSelect.value = '$';
+        }
+        searchInput.value = queryParam.replace(/^[$!*#]/, '');
+        searchQuery = searchInput.value;
       } else {
-        searchInput.value = '$';
-        searchQuery = '$';
+        searchInput.value = '';
+        searchQuery = '';
+      }
+      if (sigilSelect) {
+        sigilSelect.value = selectedSigil;
       }
       if (urlParams.has('kept')) {
         switchTab('kept');
