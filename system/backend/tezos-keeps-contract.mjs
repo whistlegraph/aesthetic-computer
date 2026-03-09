@@ -2,8 +2,8 @@ import { connect } from "./database.mjs";
 
 const KT1_ADDRESS_RE = /^KT1[1-9A-HJ-NP-Za-km-z]{33}$/;
 
-// Legacy fallback keeps older deployments functional if the secret is not set yet.
-export const LEGACY_KEEPS_CONTRACT = "KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido";
+// Legacy fallback — real v9 production contract (deprecated, all tokens migrated to v11).
+export const LEGACY_KEEPS_CONTRACT = "KT1HoPURtwqXy58UYfZYh4ufoaMSNcsb9pCF";
 
 function pickAddressCandidate(value, network = "mainnet") {
   if (!value) return null;
