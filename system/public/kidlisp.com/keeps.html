@@ -2035,11 +2035,19 @@
       font-weight: 600;
     }
 
+    .mint-artifact-media {
+      display: flex;
+      gap: 10px;
+      align-items: stretch;
+      margin: 10px 0 0;
+    }
+
     .mint-artifact-preview {
-      width: 100%;
+      width: 100px;
+      flex-shrink: 0;
       aspect-ratio: 1 / 1;
       background: #000;
-      border-radius: 8px;
+      border-radius: 6px;
       overflow: hidden;
       border: 1px solid var(--border-color);
     }
@@ -2049,6 +2057,22 @@
       height: 100%;
       object-fit: cover;
       image-rendering: pixelated;
+    }
+
+    .mint-artifact-iframe {
+      flex: 1;
+      min-height: 180px;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+      background: #000;
+    }
+
+    .mint-artifact-iframe iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
     }
 
     .mint-artifact-links {
@@ -2133,7 +2157,7 @@
       .mint-step { font-size: 12px; }
       .mint-timeline { margin-bottom: 12px; }
       .mint-artifact-links { gap: 6px; }
-      .mint-artifact-preview { aspect-ratio: 4 / 3; }
+      .mint-artifact-iframe { min-height: 140px; }
     }
 
     @media (max-width: 480px) {
@@ -3432,8 +3456,11 @@
             <span class="mint-artifact-title">${escapeHtml(title)}</span>
             ${packedLabel ? `<span>Packed ${escapeHtml(packedLabel)}</span>` : ''}
           </div>
-          <div class="mint-artifact-preview">
-            <img src="${thumbUrl}" alt="Keep preview for $${escapeHtml(piece || '')}" loading="lazy" />
+          <div class="mint-artifact-media">
+            <div class="mint-artifact-preview">
+              <img src="${thumbUrl}" alt="Keep preview for $${escapeHtml(piece || '')}" loading="lazy" />
+            </div>
+            ${htmlUrl ? `<div class="mint-artifact-iframe"><iframe src="${htmlUrl}" sandbox="allow-scripts" loading="lazy" title="$${escapeHtml(piece || '')} artifact"></iframe></div>` : ''}
           </div>
           <div class="mint-artifact-links">${links}</div>
         </div>
