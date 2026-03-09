@@ -60,6 +60,7 @@ const CONFIG = {
   paths: {
     // Compiled contract artifacts by generation
     compiled: {
+      v10: path.join(__dirname, 'KeepsFA2v10/step_002_cont_0_contract.tz'),
       v9: path.join(__dirname, 'KeepsFA2v9/step_002_cont_0_contract.tz'),
       v8: path.join(__dirname, 'KeepsFA2v8/step_002_cont_0_contract.tz'),
       v7: path.join(__dirname, 'KeepsFA2v7/step_002_cont_0_contract.tz'),
@@ -89,6 +90,24 @@ const CONFIG = {
 };
 
 const CONTRACT_PROFILES = {
+  v10: {
+    key: 'v10',
+    label: 'KidLisp v10 — no admin_transfer, split royalties',
+    artifactKey: 'v10',
+    metadata: {
+      name: 'KidLisp',
+      version: '10.0.0',
+      description: 'https://keeps.kidlisp.com',
+      homepage: 'https://keeps.kidlisp.com',
+      interfaces: ['TZIP-012', 'TZIP-016', 'TZIP-021'],
+      authors: ['aesthetic.computer'],
+      imageUri: 'https://oven.aesthetic.computer/keeps/latest',
+    },
+    keepFeeMutez: 2_500_000,
+    artistRoyaltyBps: 900,
+    platformRoyaltyBps: 100,
+    paused: false,
+  },
   v9: {
     key: 'v9',
     label: 'KidLisp v9 final production',
@@ -197,7 +216,8 @@ function resolveContractProfile(rawProfile = 'v9') {
   const aliasMap = {
     rc: 'v5rc',
     v5: 'v5rc',
-    production: 'v9',
+    production: 'v10',
+    latest: 'v10',
   };
   const key = aliasMap[normalized] || normalized;
   const profile = CONTRACT_PROFILES[key];
@@ -425,11 +445,25 @@ async function deployContract(network = 'mainnet', options = {}) {
   const contractMetadataBytes = stringToBytes(contractMetadataJson);
   const tezosStoragePointer = stringToBytes('tezos-storage:content');
 
-  // Storage layout:
-  // (administrator, (content_hashes, (contract_metadata_locked, (default_royalty_bps,
-  // (keep_fee, (ledger, (metadata, (metadata_locked, (next_token_id,
-  // (operators, (paused, (token_creators, token_metadata))))))))))))
-  const initialStorageMichelson = `(Pair "${credentials.address}" (Pair {} (Pair False (Pair ${profile.defaultRoyaltyBps} (Pair ${profile.keepFeeMutez} (Pair {} (Pair {Elt "" 0x${tezosStoragePointer}; Elt "content" 0x${contractMetadataBytes}} (Pair {} (Pair 0 (Pair {} (Pair ${pausedMichelson} (Pair {} {}))))))))))))`;
+  // Storage layout varies by version (SmartPy sorts fields alphabetically).
+  // v10 adds: artist_royalty_bps, platform_royalty_bps, treasury_address
+  //           removes: default_royalty_bps
+  // v10 order: administrator, artist_royalty_bps, content_hashes,
+  //            contract_metadata_locked, keep_fee, ledger, metadata,
+  //            metadata_locked, next_token_id, operators, paused,
+  //            platform_royalty_bps, token_creators, token_metadata, treasury_address
+  const isV10 = profile.key === 'v10';
+  const treasuryAddress = credentials.treasuryAddress || credentials.address;
+
+  let initialStorageMichelson;
+  if (isV10) {
+    initialStorageMichelson = `(Pair "${credentials.address}" (Pair ${profile.artistRoyaltyBps} (Pair {} (Pair False (Pair ${profile.keepFeeMutez} (Pair {} (Pair {Elt "" 0x${tezosStoragePointer}; Elt "content" 0x${contractMetadataBytes}} (Pair {} (Pair 0 (Pair {} (Pair ${pausedMichelson} (Pair ${profile.platformRoyaltyBps} (Pair {} (Pair {} "${treasuryAddress}")))))))))))))))`;
+  } else {
+    // v9 and earlier: administrator, content_hashes, contract_metadata_locked,
+    // default_royalty_bps, keep_fee, ledger, metadata, metadata_locked,
+    // next_token_id, operators, paused, token_creators, token_metadata
+    initialStorageMichelson = `(Pair "${credentials.address}" (Pair {} (Pair False (Pair ${profile.defaultRoyaltyBps} (Pair ${profile.keepFeeMutez} (Pair {} (Pair {Elt "" 0x${tezosStoragePointer}; Elt "content" 0x${contractMetadataBytes}} (Pair {} (Pair 0 (Pair {} (Pair ${pausedMichelson} (Pair {} {}))))))))))))`;
+  }
   const parsedStorage = parser.parseMichelineExpression(initialStorageMichelson);
 
   console.log(`   ✓ Name: ${profile.metadata.name}`);
@@ -440,7 +474,12 @@ async function deployContract(network = 'mainnet', options = {}) {
   console.log(`   ✓ Homepage: ${profile.metadata.homepage}`);
   console.log(`   ✓ Initial token ID: 0`);
   console.log(`   ✓ Keep fee: ${profile.keepFeeMutez} mutez (${feeXTZ} XTZ)`);
-  console.log(`   ✓ Default royalty: ${profile.defaultRoyaltyBps} bps`);
+  if (profile.artistRoyaltyBps !== undefined) {
+    console.log(`   ✓ Artist royalty: ${profile.artistRoyaltyBps} bps / Platform: ${profile.platformRoyaltyBps} bps`);
+    console.log(`   ✓ Treasury: ${treasuryAddress}`);
+  } else {
+    console.log(`   ✓ Default royalty: ${profile.defaultRoyaltyBps} bps`);
+  }
   console.log(`   ✓ Paused: ${profile.paused}`);
 
   console.log('\n📤 Deploying contract...');
@@ -3016,7 +3055,7 @@ async function main() {
 Usage: node keeps.mjs <command> [options]
 
 Commands:
-  deploy [network]              Deploy contract (default profile: v9)
+  deploy [network]              Deploy contract (default profile: v10)
   sync-secrets [network]        Sync active contract/profile to Mongo secrets
   status [network]              Show contract status
   balance [network]             Check wallet balance
@@ -3048,7 +3087,7 @@ Networks:
   ghostnet                      Tezos ghostnet (testnet)
 
 Flags:
-  --contract=<profile>          Deploy profile: v9 | v8 | v7 | v6 | v5rc | v4
+  --contract=<profile>          Deploy profile: v10 | v9 | v8 | v7 | v6 | v5rc | v4
   --thumbnail                   Generate animated WebP thumbnail via Oven
                                and upload to IPFS (requires Oven service)
   --to=<address>                Recipient wallet address (default: server wallet)
