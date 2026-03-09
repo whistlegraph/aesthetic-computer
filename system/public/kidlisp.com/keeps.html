@@ -314,6 +314,22 @@
       box-shadow: inset 0 -1px 0 rgba(74, 222, 128, 0.5);
     }
 
+    .keeps-tabs.logged-out .keeps-tab {
+      color: var(--text-tertiary) !important;
+      background: var(--bg-secondary) !important;
+      border-bottom-color: transparent !important;
+      box-shadow: none !important;
+      opacity: 0.72;
+    }
+
+    .keeps-tabs.logged-out .keeps-tab.active {
+      border-bottom-color: var(--border-color) !important;
+    }
+
+    .keeps-tabs.logged-out .keeps-tab:hover {
+      filter: none;
+    }
+
     .keeps-tab-content {
       display: none;
       padding: 20px 24px;
@@ -1908,7 +1924,7 @@
   <section class="keeps-hero">
     <div class="keeps-hero-header">
       <a href="/" class="keeps-logo" title="Back to KidLisp.com editor">
-        <span class="keeps-subdomain">$</span><span class="com-part">.</span><span class="baby-k">K</span><span class="baby-i">i</span><span class="baby-d">d</span><span class="baby-l">L</span><span class="baby-i2">i</span><span class="baby-s">s</span><span class="baby-p">p</span><span class="com-part">.com</span>
+        <span class="keeps-subdomain">keeps</span><span class="com-part">.</span><span class="baby-k">K</span><span class="baby-i">i</span><span class="baby-d">d</span><span class="baby-l">L</span><span class="baby-i2">i</span><span class="baby-s">s</span><span class="baby-p">p</span><span class="com-part">.com</span>
       </a>
       <div class="keeps-hero-actions">
         <button class="keeps-about-btn" id="keeps-about-btn" type="button">About</button>
@@ -2121,7 +2137,7 @@
 
   <!-- TABS SYSTEM -->
   <div class="keeps-tabs-container">
-    <div class="keeps-tabs">
+    <div class="keeps-tabs logged-out">
       <button class="keeps-tab active" data-tab="unkept">Unkept</button>
       <button class="keeps-tab" data-tab="kept">Kept</button>
     </div>
@@ -3442,6 +3458,10 @@
       const signupBtn = document.getElementById('keeps-signup-btn');
       const logoutBtn = document.getElementById('keeps-logout-btn');
       const handleEl = document.getElementById('keeps-auth-handle');
+      const tabsEl = document.querySelector('.keeps-tabs');
+      if (tabsEl) {
+        tabsEl.classList.toggle('logged-out', !acUser);
+      }
       if (acUser && hasRegisteredHandle()) {
         loginBtn.style.display = 'none';
         if (signupBtn) signupBtn.style.display = 'none';
