@@ -439,6 +439,32 @@ else
     log_warn "Ollama not found; skipping."
 end
 
+log_step "PHASE 4b: Cockpit web interface"
+# Start Cockpit web server (no TLS for local dev, port 9090)
+# Terminal + system overview work without systemd; service/journal features need systemd
+set -l cockpit_ws_bin ""
+for p in /usr/lib/cockpit/cockpit-ws /usr/libexec/cockpit-ws
+    if test -x $p
+        set cockpit_ws_bin $p
+        break
+    end
+end
+
+if test -n "$cockpit_ws_bin"
+    if not pgrep -f "cockpit-ws" >/dev/null
+        # Set a dev password so PAM auth works (use vault COCKPIT_PASSWORD if set)
+        set -l cockpit_pass (test -n "$COCKPIT_PASSWORD"; and echo $COCKPIT_PASSWORD; or echo "aesthetic")
+        echo "me:$cockpit_pass" | sudo chpasswd 2>/dev/null
+        sudo $cockpit_ws_bin --no-tls --port=9090 >/tmp/cockpit-ws.log 2>&1 &
+        disown
+        log_ok "Cockpit started → http://localhost:9090 (login: me / $cockpit_pass)"
+    else
+        log_ok "Cockpit already running"
+    end
+else
+    log_warn "Cockpit not installed — skipping (rebuild container to add it)"
+end
+
 log_step "PHASE 5: Environment setup"
 # Ensure the envs directory exists and is accessible (fallback if mount fails)
 if not test -d /home/me/envs

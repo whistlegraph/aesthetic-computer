@@ -131,6 +131,16 @@ else
     exit 1
 fi
 
+# Copy all pieces to /pieces/ for system.jump() navigation
+PIECES_SRC="${NATIVE_DIR}/pieces"
+if [ -d "${PIECES_SRC}" ]; then
+    mkdir -p "${INITRAMFS_DIR}/pieces"
+    for p in "${PIECES_SRC}"/*.mjs; do
+        [ -f "$p" ] && cp "$p" "${INITRAMFS_DIR}/pieces/"
+    done
+    log "Bundled pieces: $(ls "${INITRAMFS_DIR}/pieces/" | tr '\n' ' ')"
+fi
+
 # Copy shared libs (if dynamic build)
 if file "${BUILD_DIR}/ac-native" | grep -q "dynamically linked"; then
     log "Copying shared libraries for dynamic binary..."

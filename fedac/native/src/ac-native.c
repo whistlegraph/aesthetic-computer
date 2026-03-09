@@ -118,6 +118,9 @@ static void try_mount_log(void) {
     fprintf(stderr, "[ac-native] No USB log mount available\n");
 }
 
+// Boot title — defaults to "notepat", overridden by config.json handle
+static char boot_title[80] = "notepat";
+
 // Forward declarations
 static void draw_boot_status(ACGraph *graph, ACFramebuffer *screen,
                              ACDisplay *display, const char *status);
@@ -493,8 +496,15 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
             }
         }
 
-        // Startup greeting — just the name
-        if (f == 10 && tts) tts_speak(tts, "hi jeffrey");
+        // Startup greeting — use handle if available
+        if (f == 10 && tts) {
+            char greet[96];
+            if (boot_title[0] == '@')
+                snprintf(greet, sizeof(greet), "hi %s", boot_title + 1);
+            else
+                snprintf(greet, sizeof(greet), "hi");
+            tts_speak(tts, greet);
+        }
         // W hint is visual only — no TTS
 
         // Fade from black to purple/red bg (complete in first 0.3s)
@@ -508,7 +518,7 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
         // Title — rainbow animated letters
         int alpha = (int)(255.0 * fade_t);
         if (alpha > 0) {
-            const char *title = "notepat";
+            const char *title = boot_title;
             int tw = font_measure_matrix(title, 3);
             int tx = (screen->width - tw) / 2;
             int ty = screen->height / 2 - 20;
@@ -609,11 +619,11 @@ static void draw_boot_status(ACGraph *graph, ACFramebuffer *screen,
         double bounce_t = (double)af / 20.0;
         int bounce_y = (int)(6.0 * sin(bounce_t * 3.14159 * 2) * (1.0 - bounce_t));
 
-        // Title: "notepat" with bounce
+        // Title: boot_title (handle or "notepat") with bounce
         uint8_t fg = dk ? 220 : 0;
         graph_ink(graph, (ACColor){fg, fg, fg, 255});
-        int tw = font_measure_matrix("notepat", 3);
-        font_draw_matrix(graph, "notepat", (screen->width - tw) / 2,
+        int tw = font_measure_matrix(boot_title, 3);
+        font_draw_matrix(graph, boot_title, (screen->width - tw) / 2,
                          screen->height / 2 - 20 + bounce_y, 3);
 
         // Subtitle (slight counter-bounce)
@@ -708,6 +718,29 @@ int main(int argc, char *argv[]) {
     // Mount USB log early so boot animation can detect USB boot
     if (getpid() == 1) try_mount_log();
 
+    // Read handle from config.json (EFI partition now mounted at /mnt)
+    {
+        FILE *cfg = fopen("/mnt/config.json", "r");
+        if (cfg) {
+            char buf[512] = {0};
+            size_t n = fread(buf, 1, sizeof(buf) - 1, cfg);
+            buf[n] = '\0';
+            fclose(cfg);
+            char *hp = strstr(buf, "\"handle\"");
+            if (hp) {
+                char *q1 = strchr(hp + 8, '"');
+                if (q1) { char *q2 = strchr(q1 + 1, '"');
+                    if (q2 && q2 - q1 - 1 < 60) {
+                        boot_title[0] = '@';
+                        memcpy(boot_title + 1, q1 + 1, q2 - q1 - 1);
+                        boot_title[q2 - q1] = '\0';
+                    }
+                }
+            }
+            ac_log("[ac-native] Boot title: %s\n", boot_title);
+        }
+    }
+
     // Init audio + TTS early (needed for boot animation speech)
     ACAudio *audio = audio_init();
     audio_boot_beep(audio);
@@ -783,6 +816,41 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     rt->hdmi = hdmi;
+
+    // Read user config from EFI partition (/mnt/config.json)
+    {
+        FILE *cfg = fopen("/mnt/config.json", "r");
+        if (cfg) {
+            char buf[512] = {0};
+            size_t n = fread(buf, 1, sizeof(buf) - 1, cfg);
+            buf[n] = '\0';
+            fclose(cfg);
+            // Minimal JSON parsing for {"handle":"xxx","piece":"yyy"}
+            char *hp = strstr(buf, "\"handle\"");
+            if (hp) {
+                char *q1 = strchr(hp + 8, '"');
+                if (q1) { char *q2 = strchr(q1 + 1, '"');
+                    if (q2 && q2 - q1 - 1 < (int)sizeof(rt->handle)) {
+                        memcpy(rt->handle, q1 + 1, q2 - q1 - 1);
+                        rt->handle[q2 - q1 - 1] = '\0';
+                    }
+                }
+            }
+            char *pp = strstr(buf, "\"piece\"");
+            if (pp) {
+                char *q1 = strchr(pp + 7, '"');
+                if (q1) { char *q2 = strchr(q1 + 1, '"');
+                    if (q2 && q2 - q1 - 1 < (int)sizeof(rt->piece)) {
+                        memcpy(rt->piece, q1 + 1, q2 - q1 - 1);
+                        rt->piece[q2 - q1 - 1] = '\0';
+                    }
+                }
+            }
+            ac_log("[ac-native] Config: handle=%s piece=%s\n",
+                   rt->handle[0] ? rt->handle : "(none)",
+                   rt->piece[0] ? rt->piece : "(none)");
+        }
+    }
 
     // Load piece
     if (js_load_piece(rt, piece_path) < 0) {
@@ -934,8 +1002,8 @@ int main(int argc, char *argv[]) {
                         int alpha = (int)(255.0 * (1.0 - t / 0.8));
                         uint8_t fg = sd_dark ? 220 : 0;
                         graph_ink(&graph, (ACColor){fg, fg, fg, (uint8_t)alpha});
-                        int tw = font_measure_matrix("notepat", 3);
-                        font_draw_matrix(&graph, "notepat", (screen->width - tw) / 2, screen->height / 2 - 20, 3);
+                        int tw = font_measure_matrix(boot_title, 3);
+                        font_draw_matrix(&graph, boot_title, (screen->width - tw) / 2, screen->height / 2 - 20, 3);
                         uint8_t sub = sd_dark ? 140 : 120;
                         graph_ink(&graph, (ACColor){sub, sub, sub, (uint8_t)(alpha / 2)});
                         int sw = font_measure_matrix("aesthetic.computer", 1);
@@ -955,6 +1023,57 @@ int main(int argc, char *argv[]) {
             }
 
             js_call_act(rt);
+
+            // Handle piece jump requests from system.jump()
+            if (rt->jump_requested) {
+                rt->jump_requested = 0;
+                ac_log("[ac-native] Jumping to piece: %s\n", rt->jump_target);
+
+                // Call leave() on current piece
+                js_call_leave(rt);
+
+                // Free old lifecycle functions
+                JS_FreeValue(rt->ctx, rt->boot_fn);  rt->boot_fn = JS_UNDEFINED;
+                JS_FreeValue(rt->ctx, rt->paint_fn); rt->paint_fn = JS_UNDEFINED;
+                JS_FreeValue(rt->ctx, rt->act_fn);   rt->act_fn = JS_UNDEFINED;
+                JS_FreeValue(rt->ctx, rt->sim_fn);   rt->sim_fn = JS_UNDEFINED;
+                JS_FreeValue(rt->ctx, rt->leave_fn); rt->leave_fn = JS_UNDEFINED;
+                JS_FreeValue(rt->ctx, rt->beat_fn);  rt->beat_fn = JS_UNDEFINED;
+
+                // Clear globalThis lifecycle refs so new piece starts clean
+                JSValue global = JS_GetGlobalObject(rt->ctx);
+                const char *lc_names[] = {"boot","paint","act","sim","leave","beat","configureAutopat",NULL};
+                for (int i = 0; lc_names[i]; i++) {
+                    JSAtom a = JS_NewAtom(rt->ctx, lc_names[i]);
+                    JS_DeleteProperty(rt->ctx, global, a, 0);
+                    JS_FreeAtom(rt->ctx, a);
+                }
+                JS_FreeValue(rt->ctx, global);
+
+                // Reset counters
+                rt->paint_count = 0;
+                rt->sim_count = 0;
+
+                // Construct piece path: /pieces/<name>.mjs
+                char jump_path[256];
+                snprintf(jump_path, sizeof(jump_path), "/pieces/%s.mjs", rt->jump_target);
+
+                // Load new piece
+                if (js_load_piece(rt, jump_path) < 0) {
+                    ac_log("[ac-native] Failed to load %s, falling back to /piece.mjs\n", jump_path);
+                    // Fall back to default piece
+                    if (js_load_piece(rt, "/piece.mjs") < 0) {
+                        ac_log("[ac-native] FATAL: Cannot reload default piece\n");
+                        running = 0;
+                        break;
+                    }
+                }
+
+                // Clear screen and call boot() on new piece
+                graph_wipe(&graph, (ACColor){0, 0, 0, 255});
+                js_call_boot(rt);
+            }
+
             if (audio_beat_check(audio)) js_call_beat(rt);
             js_call_sim(rt);
             js_call_paint(rt);
@@ -1026,7 +1145,14 @@ int main(int argc, char *argv[]) {
     js_destroy(rt);
     wifi_destroy(wifi);
     if (tts) {
-        tts_speak(tts, "bye jeffrey");
+        {
+            char bye[96];
+            if (boot_title[0] == '@')
+                snprintf(bye, sizeof(bye), "bye %s", boot_title + 1);
+            else
+                snprintf(bye, sizeof(bye), "bye");
+            tts_speak(tts, bye);
+        }
         tts_wait(tts);
         usleep(300000); // Let TTS ring buffer drain before chime
     }

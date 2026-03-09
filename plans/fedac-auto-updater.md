@@ -121,13 +121,65 @@ Could be gated by a setting in `wifi_creds.json`: `"autoUpdate": true`.
 
 ---
 
+---
+
+## Release Registry
+
+A point-of-authority JSON registry tracks all published releases.
+
+### `releases.json` format
+
+Hosted at `releases.aesthetic.computer/os/releases.json`:
+
+```json
+{
+  "latest": "2026-03-10T14:22.f3a1b2c",
+  "releases": [
+    {
+      "version": "2026-03-10T14:22.f3a1b2c",
+      "sha256": "abc123...",
+      "size": 51380224,
+      "git_hash": "f3a1b2c",
+      "build_ts": "2026-03-10T14:22",
+      "url": "https://releases.aesthetic.computer/os/native-notepat-latest.vmlinuz"
+    }
+  ]
+}
+```
+
+- Top 50 releases kept; oldest pruned automatically
+- `latest` key always reflects most recent build
+- Device reads `native-notepat-latest.version` for quick version check (no JSON parse needed)
+- `releases.json` provides full history for admin tooling or rollback
+
+### Upload flow (`scripts/upload-release.sh`)
+
+1. Computes version string: `BUILD_TS.GIT_HASH` (e.g. `2026-03-10T14:22.f3a1b2c`)
+2. Computes SHA256 of vmlinuz
+3. Uploads to DO Spaces (AWS Sig v2 via curl):
+   - `os/native-notepat-latest.vmlinuz` (binary, public-read)
+   - `os/native-notepat-latest.version` (text, version string)
+   - `os/native-notepat-latest.sha256` (text, checksum)
+4. Fetches existing `releases.json`, prepends new entry, re-uploads
+
+### Integration with build pipeline
+
+Add to `build-and-flash.sh` after successful kernel build:
+```bash
+if [ -n "$DO_SPACES_KEY" ]; then
+  ./scripts/upload-release.sh build/vmlinuz
+fi
+```
+
+---
+
 ## Files to touch
 
 | File | Change |
 |------|--------|
+| `fedac/native/src/js-bindings.h` | Add `fetch_binary_*`, `flash_*` fields to `ACRuntime` |
 | `fedac/native/src/js-bindings.c` | `system.version`, `system.fetchBinary`, `system.flashUpdate`, `system.reboot` |
-| `fedac/native/src/ac-native.c` | wire new bindings, background thread for download |
-| `fedac/native/pieces/notepat.mjs` | OS panel UI, version check, download/flash flow |
-| `fedac/native/scripts/upload-release.sh` | new script: upload artifacts to DO Spaces |
-| `fedac/native/scripts/build-and-flash.sh` | call upload-release.sh after successful build |
-| `fedac/native/Makefile` | no changes needed |
+| `fedac/native/pieces/notepat.mjs` | OS panel UI, version check, download/flash state machine |
+| `fedac/native/scripts/upload-release.sh` | Upload vmlinuz + sha256 + version + releases.json to DO Spaces |
+| `fedac/native/scripts/build-and-flash.sh` | Call upload-release.sh after successful build |
+| `fedac/native/Makefile` | No changes needed |

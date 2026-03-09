@@ -10,6 +10,7 @@
 #include "tts.h"
 #include "drm-display.h"
 #include "ws-client.h"
+#include <pthread.h>
 
 typedef struct {
     JSRuntime *rt;
@@ -36,6 +37,30 @@ typedef struct {
     // Async HTTP fetch state (curl in background)
     int fetch_pending;           // 1 = waiting for curl
     char fetch_result[8192];     // JSON response when done, empty otherwise
+
+    // Binary fetch for OS update (curl -L -o destPath url)
+    volatile int   fetch_binary_pending;  // 1 = curl running
+    volatile float fetch_binary_progress; // 0.0-1.0 (polled from file size)
+    volatile int   fetch_binary_done;     // 1 = complete (check fetch_binary_ok)
+    volatile int   fetch_binary_ok;       // 1 = curl exited 0
+    char  fetch_binary_dest[256];         // download destination path
+    long  fetch_binary_expected;          // expected file size for progress
+
+    // Flash update (mount EFI partition, copy vmlinuz, umount)
+    volatile int   flash_pending;         // 1 = flash thread running
+    volatile int   flash_done;            // 1 = complete
+    volatile int   flash_ok;             // 1 = success
+    pthread_t flash_thread;
+    char  flash_src[256];                 // source vmlinuz path
+    char  flash_device[64];              // EFI partition device, e.g. /dev/sda1 or /dev/nvme0n1p1
+
+    // Piece navigation (system.jump)
+    volatile int jump_requested;          // 1 = JS called system.jump()
+    char jump_target[128];               // piece name, e.g. "prompt" or "notepat"
+
+    // User config (read from /mnt/config.json on EFI partition)
+    char handle[64];                     // e.g. "jeffrey" (without @)
+    char piece[64];                      // default piece name, e.g. "notepat"
 } ACRuntime;
 
 // Initialize QuickJS and register all AC API bindings

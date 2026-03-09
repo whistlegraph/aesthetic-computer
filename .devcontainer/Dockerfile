@@ -164,6 +164,10 @@ RUN ARCH=$(uname -m) && \
 # --- s3cmd (for DigitalOcean Spaces management) -------------------------------
 RUN dnf install -y --setopt=zchunk=false s3cmd && dnf clean all
 
+# --- Cockpit (web-based system management UI) --------------------------------
+# Note: service/journal features require systemd; terminal + metrics work without it
+RUN dnf install -y --setopt=zchunk=false cockpit cockpit-ws cockpit-bridge cockpit-system cockpit-networkmanager && dnf clean all
+
 # --- Jupyter bits -------------------------------------------------------------
 RUN dnf install -y --setopt=zchunk=false python3-notebook python3-nbconvert && dnf clean all
 
