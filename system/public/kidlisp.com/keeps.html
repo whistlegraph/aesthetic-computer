@@ -1644,11 +1644,109 @@
     }
     .keeps-auth-btn.logout:hover { border-color: var(--ac-purple); color: var(--ac-purple); }
 
+    .keeps-auth-btn.wallet {
+      background: var(--bg-secondary);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-color);
+      font-family: var(--font-mono);
+    }
+    .keeps-auth-btn.wallet:hover { border-color: #8658e2; color: #8658e2; }
+    .keeps-auth-btn.wallet.connected {
+      color: #8658e2;
+      border-color: rgba(134, 88, 226, 0.4);
+    }
+    .keeps-auth-btn.wallet.connected:hover { border-color: #cd5c9b; color: #cd5c9b; }
+
     .keeps-auth-handle {
       font-family: var(--font-mono);
       font-size: 12px;
       font-weight: 600;
       color: var(--ac-purple);
+    }
+
+    /* ========================================
+       SORT CONTROLS
+       ======================================== */
+    .keeps-sort-btns {
+      display: flex;
+      gap: 4px;
+      margin-left: auto;
+    }
+    .keeps-sort-btn {
+      padding: 5px 9px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .keeps-sort-btn:hover { border-color: var(--ac-purple); }
+    .keeps-sort-btn.active {
+      background: rgba(205, 92, 155, 0.15);
+      border-color: var(--ac-purple);
+      color: var(--ac-purple);
+    }
+
+    /* ========================================
+       KEPT ROW (list view for kept tab)
+       ======================================== */
+    .keeps-grid.list-view {
+      grid-template-columns: 1fr;
+      gap: 4px;
+    }
+    .keeps-row {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 12px;
+      cursor: pointer;
+      transition: border-color 0.12s;
+    }
+    .keeps-row:hover { border-color: var(--ac-purple); }
+    .keeps-row-thumb {
+      width: 40px;
+      height: 30px;
+      object-fit: cover;
+      border-radius: 3px;
+      background: var(--bg-secondary);
+      flex-shrink: 0;
+    }
+    .keeps-row-code {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-primary);
+      min-width: 80px;
+      text-decoration: none;
+    }
+    .keeps-row-code:hover { color: var(--ac-purple); }
+    .keeps-row-handle {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+    .keeps-row-token {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: #8658e2;
+      margin-left: auto;
+    }
+    .keeps-row-hits {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+    .keeps-row-time {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-tertiary);
     }
 
     /* ========================================
@@ -1981,6 +2079,7 @@
           <button class="keeps-auth-btn imnew" id="keeps-signup-btn" style="display:none;" onclick="keepsImNew()">I'm New</button>
           <span class="keeps-auth-handle" id="keeps-auth-handle" style="display:none;"></span>
           <button class="keeps-auth-btn logout" id="keeps-logout-btn" style="display:none;" onclick="keepsLogout()">Log Out</button>
+          <button class="keeps-auth-btn wallet" id="keeps-wallet-btn" style="display:none;" onclick="handleWalletBtn()">&#x26D3; Wallet</button>
         </div>
       </div>
     </div>
@@ -2201,6 +2300,10 @@
         <input type="text" class="keeps-search-input" id="search-input"
                value=""
                placeholder="Search codes, source code, or @handles..." autocomplete="off" spellcheck="false" />
+        <div class="keeps-sort-btns" id="keeps-sort-btns">
+          <button class="keeps-sort-btn active" id="sort-btn-recent" onclick="setUnkeptSort('recent')">Recent</button>
+          <button class="keeps-sort-btn" id="sort-btn-hits" onclick="setUnkeptSort('hits')">Hits</button>
+        </div>
       </div>
       <div class="keeps-grid" id="keeps-grid">
         <div class="keeps-loading" id="keeps-loading">
@@ -2439,6 +2542,7 @@
     let allCodes = [];
     let filteredCodes = [];
     let activeTab = 'unkept';
+    let unkeptSort = 'recent';
     let searchQuery = '';
     let selectedSigil = '$';
     let indexReady = false;
@@ -2464,6 +2568,59 @@
     const aboutOverlay = document.getElementById('about-overlay');
     const aboutButton = document.getElementById('keeps-about-btn');
     const aboutCloseButton = document.getElementById('keeps-about-close');
+    const walletBtn = document.getElementById('keeps-wallet-btn');
+    const sortBtnsContainer = document.getElementById('keeps-sort-btns');
+
+    // =========================================
+    // WALLET BUTTON
+    // =========================================
+    function updateWalletBtn() {
+      if (!walletBtn) return;
+      walletBtn.style.display = '';
+      if (mintWalletAddress) {
+        const short = mintWalletAddress.slice(0, 7) + '…' + mintWalletAddress.slice(-4);
+        walletBtn.textContent = '⛓ ' + short;
+        walletBtn.title = mintWalletAddress + ' — click to disconnect';
+        walletBtn.classList.add('connected');
+      } else {
+        walletBtn.textContent = '⛓ Wallet';
+        walletBtn.title = 'Connect Tezos wallet';
+        walletBtn.classList.remove('connected');
+      }
+    }
+
+    async function handleWalletBtn() {
+      if (mintWalletAddress) {
+        // Disconnect
+        if (beaconClient) await beaconClient.clearActiveAccount();
+        mintWalletAddress = null;
+        updateWalletBtn();
+      } else {
+        // Connect
+        try {
+          await connectWallet();
+          updateWalletBtn();
+        } catch (e) {
+          console.warn('Wallet connect cancelled', e);
+        }
+      }
+    }
+
+    // =========================================
+    // SORT (unkept tab)
+    // =========================================
+    function setUnkeptSort(mode) {
+      unkeptSort = mode;
+      document.getElementById('sort-btn-recent')?.classList.toggle('active', mode === 'recent');
+      document.getElementById('sort-btn-hits')?.classList.toggle('active', mode === 'hits');
+      applyFilters();
+    }
+
+    function updateSortVisibility() {
+      if (sortBtnsContainer) {
+        sortBtnsContainer.style.display = activeTab === 'unkept' ? '' : 'none';
+      }
+    }
 
     // =========================================
     // FETCH ALL CODES
@@ -2623,6 +2780,33 @@
     // =========================================
     // RENDER (paginated — renders PAGE_SIZE cards at a time)
     // =========================================
+    function createRow(entry) {
+      const when = entry.when ? new Date(entry.when) : null;
+      const timeStr = when ? formatRelativeTime(when) : '';
+      const handle = entry.handle || 'anon';
+      const hits = entry.hits || 0;
+      const activeKeepInfo = getActiveKeepRecord(entry);
+      const tokenId = activeKeepInfo?.tokenId;
+      const webpUrl = `https://oven.aesthetic.computer/grab/webp/80/60/$${entry.code}?duration=1800&fps=8&quality=70&density=1&nowait=true&source=keep`;
+
+      const row = document.createElement('div');
+      row.className = 'keeps-row';
+      row.innerHTML = `
+        <img class="keeps-row-thumb" alt="$${entry.code}" loading="lazy" />
+        <a class="keeps-row-code" href="${KL_BASE}/$${entry.code}" title="Edit in KidLisp.com" onclick="event.stopPropagation()">$${entry.code}</a>
+        <span class="keeps-row-handle">${escapeHtml(handle)}</span>
+        <span class="keeps-row-hits">${hits.toLocaleString()} hit${hits !== 1 ? 's' : ''}</span>
+        ${tokenId != null ? `<span class="keeps-row-token">Token #${tokenId}</span>` : ''}
+        ${timeStr ? `<span class="keeps-row-time">${timeStr}</span>` : ''}`;
+
+      const img = row.querySelector('.keeps-row-thumb');
+      img.src = webpUrl;
+      img.onerror = () => { img.style.display = 'none'; };
+
+      row.addEventListener('click', () => openModal(entry));
+      return row;
+    }
+
     function createCard(entry) {
       const when = entry.when ? new Date(entry.when) : null;
       const timeStr = when ? formatRelativeTime(when) : '';
@@ -2711,6 +2895,9 @@
       grid.innerHTML = '';
       renderedCount = 0;
 
+      // Switch grid layout based on tab
+      grid.classList.toggle('list-view', activeTab === 'kept');
+
       if (filteredCodes.length === 0) {
         const emptyMessage = allCodes.length === 0
           ? 'No visible pieces yet. Publish or keep a piece to populate your index.'
@@ -2735,7 +2922,7 @@
       const end = Math.min(renderedCount + PAGE_SIZE, filteredCodes.length);
 
       for (let i = renderedCount; i < end; i++) {
-        frag.appendChild(createCard(filteredCodes[i]));
+        frag.appendChild(activeTab === 'kept' ? createRow(filteredCodes[i]) : createCard(filteredCodes[i]));
       }
 
       // Remove the "load more" sentinel if it exists
@@ -2789,6 +2976,12 @@
 
         return true;
       });
+
+      // Sort unkept tab by hits if selected (default order from server is recent)
+      if (activeTab === 'unkept' && unkeptSort === 'hits') {
+        filteredCodes.sort((a, b) => (b.hits || 0) - (a.hits || 0));
+      }
+
       renderGrid();
     }
 
@@ -2943,6 +3136,7 @@
       if (indexTab) {
         indexTab.classList.add('active');
       }
+      updateSortVisibility();
       if (indexReady) {
         applyFilters();
       }
@@ -2987,6 +3181,10 @@
     if (aboutPathAliases.has(pathTabRaw)) {
       openAboutPanel();
     }
+
+    // Show wallet button immediately; check if already connected
+    updateWalletBtn();
+    initTezosWallet().then(updateWalletBtn).catch(() => {});
 
     // Handle browser back/forward
     window.addEventListener('popstate', (e) => {
@@ -3543,6 +3741,7 @@
       const activeAccount = await beaconClient.getActiveAccount();
       if (activeAccount) {
         mintWalletAddress = activeAccount.address;
+        updateWalletBtn();
       }
     }
 
@@ -3553,6 +3752,7 @@
         network: { type: getTezosNetwork() },
       });
       mintWalletAddress = perms.address;
+      updateWalletBtn();
       return mintWalletAddress;
     }
 
