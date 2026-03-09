@@ -43,13 +43,13 @@ function envInt(name, fallback) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-// Keep this function under provider execution ceilings so SSE can emit terminal events.
-const KEEP_MINT_MAX_PREP_MS = envInt("KEEP_MINT_MAX_PREP_MS", dev ? 55000 : 24000);
-const KEEP_MINT_PROVIDER_CEILING_MS = envInt("KEEP_MINT_PROVIDER_CEILING_MS", dev ? 55000 : 24000);
+// Streaming functions can run well beyond 26s; 45s gives plenty of room for cold starts.
+const KEEP_MINT_MAX_PREP_MS = envInt("KEEP_MINT_MAX_PREP_MS", 55000);
+const KEEP_MINT_PROVIDER_CEILING_MS = envInt("KEEP_MINT_PROVIDER_CEILING_MS", 55000);
 const KEEP_MINT_EFFECTIVE_PREP_MS = Math.min(KEEP_MINT_MAX_PREP_MS, KEEP_MINT_PROVIDER_CEILING_MS);
 const KEEP_MINT_STREAM_GUARD_MS = envInt("KEEP_MINT_STREAM_GUARD_MS", 1500);
-const KEEP_MINT_THUMBNAIL_TIMEOUT_MS = envInt("KEEP_MINT_THUMBNAIL_TIMEOUT_MS", dev ? 45000 : 22000);
-const KEEP_MINT_FORCE_FRESH_THUMBNAIL_AWAIT_MS = envInt("KEEP_MINT_FORCE_FRESH_THUMBNAIL_AWAIT_MS", dev ? 25000 : 9000);
+const KEEP_MINT_THUMBNAIL_TIMEOUT_MS = envInt("KEEP_MINT_THUMBNAIL_TIMEOUT_MS", 45000);
+const KEEP_MINT_FORCE_FRESH_THUMBNAIL_AWAIT_MS = envInt("KEEP_MINT_FORCE_FRESH_THUMBNAIL_AWAIT_MS", dev ? 25000 : 20000);
 const KEEP_MINT_PERMIT_TTL_MS = envInt("KEEP_MINT_PERMIT_TTL_MS", 1_200_000); // 20 minutes
 const KEEP_MINT_SIGNER_CACHE_TTL_MS = envInt("KEEP_MINT_SIGNER_CACHE_TTL_MS", 30000); // 30 seconds
 
@@ -945,10 +945,10 @@ export const handler = stream(async (event, context) => {
       // Fixed 256x256 thumbnail for consistent display across platforms
       const thumbW = 256;
       const thumbH = 256;
-      // Rebake can use a shorter thumbnail capture profile for faster turnaround.
-      const thumbDurationMs = forceFreshMedia ? 6000 : 8000;
-      const thumbCaptureFps = forceFreshMedia ? 8 : 10;
-      const thumbPlaybackFps = forceFreshMedia ? 16 : 20;
+      // Keep capture profile: short 5s clip is sufficient and bakes faster.
+      const thumbDurationMs = forceFreshMedia ? 4000 : 5000;
+      const thumbCaptureFps = 8;
+      const thumbPlaybackFps = 16;
 
       // Thumbnail generation timeout (kept under stream execution budget in production)
       const THUMBNAIL_TIMEOUT_MS = KEEP_MINT_THUMBNAIL_TIMEOUT_MS;
@@ -1152,48 +1152,39 @@ export const handler = stream(async (event, context) => {
       }
 
       // ═══════════════════════════════════════════════════════════════════
-      // STAGE 5: UPLOAD BUNDLE TO IPFS (skip if cached)
+      // STAGES 5 + 6: IPFS UPLOAD AND THUMBNAIL IN PARALLEL (skip if cached)
+      //
+      // The thumbnail has been baking since stage 2. Rather than uploading the
+      // bundle to IPFS first and then awaiting the thumbnail (sequential, which
+      // eats into the thumbnail's remaining budget), we fire both concurrently
+      // so the IPFS upload time does not count against the thumbnail wait.
       // ═══════════════════════════════════════════════════════════════════
       if (!useCachedMedia) {
-        logStage('ipfs', `Uploading bundle to Pinata (${Math.round(bundleHtml.length / 1024)}KB)`);
-        await send("progress", { stage: "ipfs", message: "Connecting to Pinata..." });
+        // --- Start IPFS upload (non-blocking) ---
         const ipfsBudgetMs = getStageBudgetMs(60000);
         if (ipfsBudgetMs < 2500) {
           throw new Error("Preparation time budget exhausted before IPFS upload");
         }
-        
+        logStage('ipfs', `Starting IPFS bundle upload in parallel (${Math.round(bundleHtml.length / 1024)}KB)`);
+        await send("progress", { stage: "ipfs", message: "Uploading to Pinata…" });
         const ipfsStartTime = Date.now();
-        console.log(`🪙 KEEP: Starting IPFS bundle upload...`);
-        
-        // Pass progress callback for periodic updates during upload
         const onIPFSProgress = async (msg) => {
           await send("progress", { stage: "ipfs", message: msg });
         };
-        
-        artifactUri = await uploadToIPFS(
-          bundleHtml, 
+        const ipfsUploadPromise = uploadToIPFS(
+          bundleHtml,
           bundleFilename,
           "text/html",
           onIPFSProgress,
           ipfsBudgetMs
-        );
-        
-        const ipfsElapsed = ((Date.now() - ipfsStartTime) / 1000).toFixed(1);
-        logStage('ipfs', `Upload complete in ${ipfsElapsed}s`);
-        
-        // Show IPFS hash with timing
-        const hash = artifactUri.replace("ipfs://", "");
-        await send("progress", { stage: "ipfs", message: `Pinned in ${ipfsElapsed}s` });
-      } else {
-        // Show cached IPFS hash (full)
-        const hash = artifactUri.replace("ipfs://", "");
-        await send("progress", { stage: "ipfs", message: `Cached ${hash}` });
-      }
+        ).then(uri => {
+          const ipfsElapsed = ((Date.now() - ipfsStartTime) / 1000).toFixed(1);
+          logStage('ipfs', `Upload complete in ${ipfsElapsed}s`);
+          send("progress", { stage: "ipfs", message: `Pinned in ${ipfsElapsed}s` }); // fire-and-forget
+          return uri;
+        });
 
-      // ═══════════════════════════════════════════════════════════════════
-      // STAGE 6: AWAIT THUMBNAIL (skip if cached)
-      // ═══════════════════════════════════════════════════════════════════
-      if (!useCachedMedia) {
+        // --- Await thumbnail concurrently with IPFS upload ---
         let thumbnailAwaitBudgetMs = getStageBudgetMs(THUMBNAIL_TIMEOUT_MS);
         if (forceFreshMedia) {
           thumbnailAwaitBudgetMs = Math.min(thumbnailAwaitBudgetMs, KEEP_MINT_FORCE_FRESH_THUMBNAIL_AWAIT_MS);
@@ -1211,82 +1202,89 @@ export const handler = stream(async (event, context) => {
             throw new Error("Preparation time budget exhausted while waiting for thumbnail");
           }
         } else {
-        await send("progress", {
-          stage: "thumbnail",
-          message: `Awaiting ${thumbW}x${thumbH}@2x WebP... (${Math.round(thumbnailAwaitBudgetMs / 1000)}s budget)`
-        });
-
-        // Poll oven grab-status every 2s to stream real-time baking progress.
-        const pieceKey = `$${pieceName}`;
-        const heartbeat = setInterval(async () => {
-          try {
-            const elapsed = ((Date.now() - processStartTime) / 1000).toFixed(0);
-            let ovenStage = null, ovenDetail = null, percent = null, previewFrame = null;
-            try {
-              const statusRes = await fetch(`${OVEN_URL}/grab-status`, { signal: AbortSignal.timeout(1500) });
-              if (statusRes.ok) {
-                const statusData = await statusRes.json();
-                const grabs = statusData.grabProgress || {};
-                const match = Object.values(grabs).find(g => g.piece === pieceKey);
-                if (match) {
-                  ovenStage = match.stage || null;
-                  ovenDetail = match.stageDetail || null;
-                  percent = match.percent ?? null;
-                  previewFrame = match.previewFrame || null;
-                }
-              }
-            } catch { /* oven unreachable, fall back to elapsed */ }
-            const message = ovenDetail || ovenStage
-              ? `${ovenStage || 'baking'}${ovenDetail ? ': ' + ovenDetail : ''} (${elapsed}s)`
-              : `Still baking… (${elapsed}s)`;
-            await send("progress", { stage: "thumbnail", message, ovenStage, ovenDetail, percent, previewFrame });
-          } catch {}
-        }, 2000);
-
-        let thumbResult;
-        let thumbnailWaitError = null;
-        try {
-          thumbResult = await Promise.race([
-            thumbnailPromise,
-            new Promise((_, reject) => {
-              setTimeout(() => {
-                reject(new Error(`Thumbnail generation timed out after ${Math.round(thumbnailAwaitBudgetMs / 1000)}s`));
-              }, thumbnailAwaitBudgetMs);
-            }),
-          ]);
-        } catch (thumbErr) {
-          thumbnailWaitError = thumbErr;
-        } finally {
-          clearInterval(heartbeat);
-        }
-
-        if (!thumbResult?.ipfsUri) {
-          const fallbackThumbnailUri = forceFreshMedia
-            ? preexistingThumbnailUri
-            : null;
-
-          if (fallbackThumbnailUri) {
-            thumbnailUri = fallbackThumbnailUri;
-            const fallbackReason = thumbnailWaitError?.message || thumbResult?.error || "unknown";
-            console.warn(`🪙 KEEP: Thumbnail bake fallback for regenerate path: ${fallbackReason}`);
-            await send("progress", {
-              stage: "thumbnail",
-              message: "Bake timeout, reusing previous thumbnail",
-            });
-          } else {
-            const errorMsg = thumbnailWaitError?.message || thumbResult?.error || "unknown error";
-            console.error(`🪙 KEEP: Thumbnail failed:`, errorMsg);
-            throw new Error(`Thumbnail generation failed - ${errorMsg}`);
-          }
-        } else {
-          thumbnailUri = thumbResult.ipfsUri;
-          const thumbHash = thumbnailUri.replace("ipfs://", "");
-
           await send("progress", {
             stage: "thumbnail",
-            message: `Baked ${thumbHash.slice(0, 12)}..`
+            message: `Awaiting ${thumbW}x${thumbH}@2x WebP… (${Math.round(thumbnailAwaitBudgetMs / 1000)}s budget)`
           });
+
+          // Poll oven grab-status every 2s to stream real-time baking progress.
+          const pieceKey = `$${pieceName}`;
+          const heartbeat = setInterval(async () => {
+            try {
+              const elapsed = ((Date.now() - processStartTime) / 1000).toFixed(0);
+              let ovenStage = null, ovenDetail = null, percent = null, previewFrame = null;
+              try {
+                const statusRes = await fetch(`${OVEN_URL}/grab-status`, { signal: AbortSignal.timeout(1500) });
+                if (statusRes.ok) {
+                  const statusData = await statusRes.json();
+                  const grabs = statusData.grabProgress || {};
+                  const match = Object.values(grabs).find(g => g.piece === pieceKey);
+                  if (match) {
+                    ovenStage = match.stage || null;
+                    ovenDetail = match.stageDetail || null;
+                    percent = match.percent ?? null;
+                    previewFrame = match.previewFrame || null;
+                  }
+                }
+              } catch { /* oven unreachable, fall back to elapsed */ }
+              const message = ovenDetail || ovenStage
+                ? `${ovenStage || 'baking'}${ovenDetail ? ': ' + ovenDetail : ''} (${elapsed}s)`
+                : `Still baking… (${elapsed}s)`;
+              await send("progress", { stage: "thumbnail", message, ovenStage, ovenDetail, percent, previewFrame });
+            } catch {}
+          }, 2000);
+
+          let thumbResult;
+          let thumbnailWaitError = null;
+          try {
+            thumbResult = await Promise.race([
+              thumbnailPromise,
+              new Promise((_, reject) => {
+                setTimeout(() => {
+                  reject(new Error(`Thumbnail generation timed out after ${Math.round(thumbnailAwaitBudgetMs / 1000)}s`));
+                }, thumbnailAwaitBudgetMs);
+              }),
+            ]);
+          } catch (thumbErr) {
+            thumbnailWaitError = thumbErr;
+          } finally {
+            clearInterval(heartbeat);
+          }
+
+          if (!thumbResult?.ipfsUri) {
+            const fallbackThumbnailUri = forceFreshMedia
+              ? preexistingThumbnailUri
+              : null;
+
+            if (fallbackThumbnailUri) {
+              thumbnailUri = fallbackThumbnailUri;
+              const fallbackReason = thumbnailWaitError?.message || thumbResult?.error || "unknown";
+              console.warn(`🪙 KEEP: Thumbnail bake fallback for regenerate path: ${fallbackReason}`);
+              await send("progress", {
+                stage: "thumbnail",
+                message: "Bake timeout, reusing previous thumbnail",
+              });
+            } else {
+              const errorMsg = thumbnailWaitError?.message || thumbResult?.error || "unknown error";
+              console.error(`🪙 KEEP: Thumbnail failed:`, errorMsg);
+              throw new Error(`Thumbnail generation failed - ${errorMsg}`);
+            }
+          } else {
+            thumbnailUri = thumbResult.ipfsUri;
+            const thumbHash = thumbnailUri.replace("ipfs://", "");
+            await send("progress", {
+              stage: "thumbnail",
+              message: `Baked ${thumbHash.slice(0, 12)}..`
+            });
+          }
         }
+
+        // Await IPFS upload (should be done by now or close to it)
+        try {
+          artifactUri = await ipfsUploadPromise;
+        } catch (ipfsErr) {
+          console.error(`🪙 KEEP: IPFS upload failed:`, ipfsErr.message);
+          throw new Error(`IPFS upload failed: ${ipfsErr.message}`);
         }
 
         // Cache the IPFS media in MongoDB for future use
