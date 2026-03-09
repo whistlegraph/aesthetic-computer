@@ -178,6 +178,24 @@ async function fun(event, context) {
     }
   }
 
+  // Serve keeps.kidlisp.com locally
+  if (event.path.startsWith("/keeps.kidlisp.com")) {
+    try {
+      const htmlContent = await fs.readFile(
+        path.join(process.cwd(), "public/kidlisp.com/keeps.html"),
+        "utf8"
+      );
+      return {
+        statusCode: 200,
+        headers: { "Content-Type": "text/html" },
+        body: htmlContent,
+      };
+    } catch (err) {
+      console.error("❌ Error serving kidlisp.com/keeps:", err);
+      return respond(500, "Error loading kidlisp.com keeps");
+    }
+  }
+
   // Serve specific kidlisp.com pages before the catch-all
   // /kidlisp.com/device* → device.html (FF1 optimized display)
   // /device.kidlisp.com/* → device.html (local dev path for device.kidlisp.com)
