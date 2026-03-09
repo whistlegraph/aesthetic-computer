@@ -109,6 +109,7 @@ let browserLaunchPromise = null;
 const grabQueue = [];
 let grabsRunning = 0;
 const MAX_CONCURRENT_GRABS = 6;
+const RESERVED_KEEP_SLOTS = 1; // Reserve 1 slot for keep (NFT mint) grabs
 
 // Per-grab progress tracking (keyed by grabId)
 const grabProgressMap = new Map();
@@ -308,7 +309,26 @@ async function enqueueGrab(fn, metadata = {}) {
 }
 
 async function processGrabQueue() {
-  while (grabsRunning < MAX_CONCURRENT_GRABS && grabQueue.length > 0) {
+  while (grabQueue.length > 0) {
+    const nextItem = grabQueue[0];
+    const isKeepGrab = nextItem.metadata?.source === 'keep';
+
+    // Keep grabs can use all slots; non-keep grabs must leave RESERVED_KEEP_SLOTS free
+    const maxForThis = isKeepGrab ? MAX_CONCURRENT_GRABS : MAX_CONCURRENT_GRABS - RESERVED_KEEP_SLOTS;
+    if (grabsRunning >= maxForThis) {
+      // If slots are full for this type, check if a keep is waiting further back
+      if (!isKeepGrab) {
+        const keepIdx = grabQueue.findIndex(item => item.metadata?.source === 'keep');
+        if (keepIdx > 0 && grabsRunning < MAX_CONCURRENT_GRABS) {
+          // Pull the keep grab forward and run it in the reserved slot
+          const keepItem = grabQueue.splice(keepIdx, 1)[0];
+          grabQueue.unshift(keepItem);
+          continue;
+        }
+      }
+      break;
+    }
+
     grabsRunning++;
     const { fn, resolve, reject, metadata } = grabQueue.shift();
 
