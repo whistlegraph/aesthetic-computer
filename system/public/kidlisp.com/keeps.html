@@ -2650,6 +2650,7 @@
     // =========================================
     function updateWalletBtn() {
       if (!walletBtn) return;
+      if (!acUser) { walletBtn.style.display = 'none'; return; }
       walletBtn.style.display = '';
       if (mintWalletAddress) {
         const short = mintWalletAddress.slice(0, 7) + '…' + mintWalletAddress.slice(-4);
@@ -3773,6 +3774,7 @@
         if (signupBtn) signupBtn.style.display = 'inline-flex';
         userMenu.style.display = 'none';
       }
+      updateWalletBtn();
     }
 
     function toggleUserMenu() {
