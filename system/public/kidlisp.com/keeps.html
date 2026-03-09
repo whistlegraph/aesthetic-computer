@@ -2342,7 +2342,7 @@
   </section>
 
   <!-- TABS SYSTEM -->
-  <div class="keeps-tabs-container">
+  <div class="keeps-tabs-container" id="keeps-tabs-container" style="visibility:hidden;">
     <div class="keeps-tabs logged-out">
       <button class="keeps-tab active" data-tab="unkept">Unkept</button>
       <button class="keeps-tab" data-tab="kept">Kept</button>
@@ -2832,7 +2832,13 @@
       indexSearchBar.style.display = visible ? 'flex' : 'none';
     }
 
+    function revealUI() {
+      const container = document.getElementById('keeps-tabs-container');
+      if (container) container.style.visibility = '';
+    }
+
     function renderIndexGate(reason = 'login') {
+      revealUI();
       setIndexSearchVisible(false);
       allCodes = [];
       filteredCodes = [];
@@ -4275,6 +4281,7 @@
         return;
       }
 
+      revealUI();
       setIndexSearchVisible(true);
 
       const codes = await fetchAllCodes();
