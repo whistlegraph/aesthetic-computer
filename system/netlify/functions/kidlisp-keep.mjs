@@ -35,7 +35,7 @@ async function checkMintStatus(pieceName) {
         return { 
           minted: true, 
           tokenId: data.value,
-          objktUrl: `https://${NETWORK === "mainnet" ? "" : "ghostnet."}objkt.com/asset/${CONTRACT_ADDRESS}/${data.value}`,
+          objktUrl: `https://${NETWORK === "mainnet" ? "" : "ghostnet."}objkt.com/tokens/${CONTRACT_ADDRESS}/${data.value}`,
         };
       }
     }

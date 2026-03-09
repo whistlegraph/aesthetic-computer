@@ -248,7 +248,7 @@ async function checkMintStatus(pieceName) {
           name,
           minter,
           thumbnailUri,
-          objktUrl: `https://${NETWORK === "mainnet" ? "" : "ghostnet."}objkt.com/asset/${CONTRACT_ADDRESS}/${tokenId}`,
+          objktUrl: `https://${NETWORK === "mainnet" ? "" : "ghostnet."}objkt.com/tokens/${CONTRACT_ADDRESS}/${tokenId}`,
         };
       }
     }
@@ -1586,7 +1586,7 @@ export const handler = stream(async (event, context) => {
       const updatedStorage = await contract.storage();
       const tokenId = updatedStorage.next_token_id.toNumber() - 1;
 
-      const objktUrl = `https://${NETWORK === "mainnet" ? "" : "ghostnet."}objkt.com/asset/${CONTRACT_ADDRESS}/${tokenId}`;
+      const objktUrl = `https://${NETWORK === "mainnet" ? "" : "ghostnet."}objkt.com/tokens/${CONTRACT_ADDRESS}/${tokenId}`;
 
       // Update MongoDB to mark piece as minted
       // Use contract-keyed storage: tezos.contracts[CONTRACT_ADDRESS]

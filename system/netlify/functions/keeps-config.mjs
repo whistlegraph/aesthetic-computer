@@ -116,7 +116,7 @@ export async function handler(event) {
       rpcUrl: rpcForNetwork(network),
       tzktExplorer,
       objktBase,
-      objktCollectionUrl: `${objktBase}/collection/${contractAddress}`,
+      objktCollectionUrl: `${objktBase}/collections/${contractAddress}`,
       tzktContractUrl: `${tzktExplorer}/${contractAddress}`,
       source: contractAddress === LEGACY_KEEPS_CONTRACT ? "legacy-fallback" : "mongo-secrets",
     });
