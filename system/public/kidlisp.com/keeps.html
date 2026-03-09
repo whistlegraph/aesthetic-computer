@@ -2729,6 +2729,7 @@
       packDate = null,
       objktUrl = null,
       showRebakeButton = false,
+      rebakeButtonLabel = 'Rekeep',
     } = {}) {
       const area = document.getElementById('mint-result-area');
       if (!area) return;
@@ -2744,7 +2745,7 @@
       if (metaUrl) links += `<a class="mint-link-btn" href="${metaUrl}" target="_blank" rel="noopener">META</a>`;
       if (objktUrl) links += `<a class="mint-link-btn" href="${objktUrl}" target="_blank" rel="noopener">OBJKT</a>`;
       if (showRebakeButton) {
-        links += `<button class="mint-link-btn rebake" type="button" id="mint-inline-rebake">Rekeep</button>`;
+        links += `<button class="mint-link-btn rebake" type="button" id="mint-inline-rebake">${escapeHtml(rebakeButtonLabel)}</button>`;
       }
 
       const panelHtml = `
@@ -2769,7 +2770,13 @@
 
       const inlineRebake = document.getElementById('mint-inline-rebake');
       if (inlineRebake && mintCurrentEntry) {
-        inlineRebake.addEventListener('click', () => openMintModal(mintCurrentEntry, { rebake: isKeptOnActiveContract(mintCurrentEntry) }));
+        inlineRebake.addEventListener('click', () => {
+          if (isKeptOnActiveContract(mintCurrentEntry)) {
+            openMintModal(mintCurrentEntry, { rebake: true });
+            return;
+          }
+          openMintModal(mintCurrentEntry, { regenerate: true });
+        });
       }
     }
 
@@ -3141,6 +3148,7 @@
 
     function openMintModal(entry, options = {}) {
       const rebake = options.rebake === true;
+      const regenerate = options.regenerate === true && !rebake;
       if (mintAbortController) {
         mintAbortController.abort();
         mintAbortController = null;
@@ -3150,13 +3158,17 @@
       mintPreparedData = null;
       mintStepStates = {};
 
-      document.getElementById('mint-title').textContent = rebake ? `Rebake $${entry.code}` : `Keep $${entry.code}`;
+      document.getElementById('mint-title').textContent = rebake
+        ? `Rebake $${entry.code}`
+        : (regenerate ? `Regenerate $${entry.code}` : `Keep $${entry.code}`);
       document.getElementById('mint-piece-info').innerHTML = `
         <strong>$${escapeHtml(entry.code)}</strong> by ${escapeHtml(entry.handle || 'anon')}<br>
         <span style="font-size:11px; color:var(--text-tertiary);">${
           rebake
             ? 'This regenerates HTML + thumbnail artifacts for your existing keep.'
-            : 'This will mint your KidLisp piece as an NFT on Tezos (2.5 XTZ fee).'
+            : (regenerate
+              ? 'This regenerates HTML + thumbnail artifacts before minting on Tezos.'
+              : 'This will mint your KidLisp piece as an NFT on Tezos (2.5 XTZ fee).')
         }</span>`;
       document.getElementById('mint-result-area').innerHTML = '';
       document.getElementById('mint-actions').style.display = 'none';
@@ -3167,7 +3179,7 @@
       document.getElementById('mint-overlay').classList.add('open');
 
       // Start the mint flow
-      startMintFlow(entry.code, { rebake });
+      startMintFlow(entry.code, { rebake, regenerate });
     }
 
     function closeMintModal() {
@@ -3184,6 +3196,7 @@
 
     async function startMintFlow(piece, options = {}) {
       const rebake = options.rebake === true;
+      const regenerate = options.regenerate === true && !rebake;
       mintAbortController = new AbortController();
 
       try {
@@ -3197,7 +3210,7 @@
         setMintStep('wallet', 'done', address.slice(0, 8) + '...' + address.slice(-4));
 
         // Step 2-7: Server preparation via SSE
-        setMintStep('validate', 'active', rebake ? 'Validating ownership...' : 'Validating...');
+        setMintStep('validate', 'active', rebake ? 'Validating ownership...' : (regenerate ? 'Regenerating media...' : 'Validating...'));
 
         // Refresh token
         if (acAuth0Client) {
@@ -3212,7 +3225,8 @@
             piece: '$' + piece,
             walletAddress: address,
             network: getTezosNetwork(),
-            ...(rebake ? { mode: 'prepare', regenerate: true } : {}),
+            ...(rebake ? { mode: 'prepare' } : {}),
+            ...((rebake || regenerate) ? { regenerate: true } : {}),
           },
           signal: mintAbortController.signal,
           onEvent: async ({ type, data }) => {
@@ -3263,6 +3277,8 @@
                 thumbnailUri: data.thumbnailUri,
                 metadataUri: data.metadataUri,
                 packDate: data.packDate,
+                showRebakeButton: true,
+                rebakeButtonLabel: 'Regenerate',
               });
               // Show confirm button
               document.getElementById('mint-actions').style.display = 'flex';
