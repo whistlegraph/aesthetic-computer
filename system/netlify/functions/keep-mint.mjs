@@ -51,6 +51,7 @@ const KEEP_MINT_STREAM_GUARD_MS = envInt("KEEP_MINT_STREAM_GUARD_MS", 1500);
 const KEEP_MINT_THUMBNAIL_TIMEOUT_MS = envInt("KEEP_MINT_THUMBNAIL_TIMEOUT_MS", dev ? 45000 : 22000);
 const KEEP_MINT_FORCE_FRESH_THUMBNAIL_AWAIT_MS = envInt("KEEP_MINT_FORCE_FRESH_THUMBNAIL_AWAIT_MS", dev ? 25000 : 9000);
 const KEEP_MINT_PERMIT_TTL_MS = envInt("KEEP_MINT_PERMIT_TTL_MS", 1_200_000); // 20 minutes
+const KEEP_MINT_SIGNER_CACHE_TTL_MS = envInt("KEEP_MINT_SIGNER_CACHE_TTL_MS", 30000); // 30 seconds
 
 // IPFS Gateway configuration
 // When USE_GATEWAY_URLS is true, metadata will use full HTTPS URLs instead of ipfs:// URIs
@@ -69,6 +70,7 @@ function formatIpfsUri(hash) {
 // Cache credentials in memory for warm function invocations
 let cachedPinataCredentials = null;
 let cachedTezosCredentials = null;
+let cachedTezosCredentialsExpiresAt = 0;
 
 const KEEP_PERMIT_PAYLOAD_TYPE = {
   prim: "pair",
@@ -110,7 +112,9 @@ async function getPinataCredentials() {
 }
 
 async function getTezosCredentials() {
-  if (cachedTezosCredentials) return cachedTezosCredentials;
+  if (cachedTezosCredentials && Date.now() < cachedTezosCredentialsExpiresAt) {
+    return cachedTezosCredentials;
+  }
   
   const { db } = await connect();
   const secrets = await db.collection("secrets").findOne({ _id: "tezos-kidlisp" });
@@ -118,13 +122,22 @@ async function getTezosCredentials() {
   if (!secrets) {
     throw new Error("Tezos KidLisp credentials not found in database");
   }
+
+  const signerPrivateKey = secrets.keepPermitSignerPrivateKey || secrets.keepPermitPrivateKey || secrets.privateKey;
+  const signerPublicKey = secrets.keepPermitSignerPublicKey || secrets.keepPermitPublicKey || secrets.publicKey;
+  const signerAddress = secrets.keepPermitSignerAddress || secrets.keepPermitAddress || secrets.address;
+
+  if (!signerPrivateKey || !signerPublicKey || !signerAddress) {
+    throw new Error("Tezos KidLisp signer credentials are incomplete in secrets.tezos-kidlisp");
+  }
   
   cachedTezosCredentials = {
-    address: secrets.address,
-    publicKey: secrets.publicKey,
-    privateKey: secrets.privateKey,
+    address: signerAddress,
+    publicKey: signerPublicKey,
+    privateKey: signerPrivateKey,
     network: secrets.network,
   };
+  cachedTezosCredentialsExpiresAt = Date.now() + KEEP_MINT_SIGNER_CACHE_TTL_MS;
   
   return cachedTezosCredentials;
 }
