@@ -450,6 +450,21 @@
       overflow: hidden;
     }
 
+    .keeps-about-tech--tezos { border-color: rgba(134, 88, 226, 0.35); }
+    .keeps-about-tech--tezos summary { color: #8658e2; background: rgba(134, 88, 226, 0.07); }
+    .keeps-about-tech--tezos summary::before { color: #8658e2; }
+    .keeps-about-tech--tezos .keeps-about-tech-body { border-top-color: rgba(134, 88, 226, 0.2); }
+
+    .keeps-about-tech--security { border-color: rgba(74, 156, 93, 0.35); }
+    .keeps-about-tech--security summary { color: #4a9c5d; background: rgba(74, 156, 93, 0.07); }
+    .keeps-about-tech--security summary::before { color: #4a9c5d; }
+    .keeps-about-tech--security .keeps-about-tech-body { border-top-color: rgba(74, 156, 93, 0.2); }
+
+    .keeps-about-tech--ipfs { border-color: rgba(59, 130, 246, 0.35); }
+    .keeps-about-tech--ipfs summary { color: #3b82f6; background: rgba(59, 130, 246, 0.07); }
+    .keeps-about-tech--ipfs summary::before { color: #3b82f6; }
+    .keeps-about-tech--ipfs .keeps-about-tech-body { border-top-color: rgba(59, 130, 246, 0.2); }
+
     .keeps-about-tech summary {
       padding: 10px 14px;
       cursor: pointer;
@@ -2207,17 +2222,16 @@
         <div class="keeps-tab-content" id="tab-rules">
           <div class="keeps-about-simple">
             <p class="keeps-about-lede">
-              KidLisp Keeps turns a KidLisp piece into a Tezos token.
-              Sign in, pick a piece from <strong>Unkept</strong>, and press <strong>Keep</strong> to mint it.
-              Use <strong>Rekeep</strong> to refresh an existing token's media.
+              A <strong>Keep</strong> turns your KidLisp piece into a permanent Tezos token —
+              the live HTML artifact, thumbnail, and metadata pinned to IPFS forever.
+              Sign in, open any piece from <strong>Unkept</strong>, and press <strong>Keep on Tezos</strong>.
             </p>
 
-            <details class="keeps-about-tech">
-              <summary>Technology</summary>
+            <details class="keeps-about-tech keeps-about-tech--tezos">
+              <summary>&#x26D3; On-chain</summary>
               <div class="keeps-about-tech-body">
-                <p>Each keep is an FA2 token on Tezos. Only the piece author can mint, and each content hash can only be kept once per contract.</p>
-                <p>The HTML artifact, thumbnail, and metadata are pinned to IPFS so marketplaces like objkt can ingest them directly.</p>
-                <p>Royalties are set at mint: 9% to the artist, 1% to KidLisp as a platform fee. Both are baked into the token metadata and honored by objkt and other FA2-compatible marketplaces.</p>
+                <p>Each keep is an <strong>FA2 NFT</strong> on Tezos mainnet. Only the piece author can mint it, and each piece can only be kept once — the contract rejects duplicates by content hash.</p>
+                <p>Royalties are locked at mint: <strong>9% to you</strong>, 1% to KidLisp. They're baked into the token and honored by objkt and all FA2-compatible marketplaces.</p>
                 <div class="keeps-about-contract-box">
                   <div class="keeps-about-contract-label">Active Contract</div>
                   <div id="v6-active-contract-address" style="font-family: 'Courier New', monospace; color: var(--ac-purple); font-size: 13px; word-break: break-all;">Loading...</div>
@@ -2228,41 +2242,44 @@
                     <a id="v6-active-contract-ops" class="keeps-about-link-btn" href="https://tzkt.io" target="_blank">Operations</a>
                   </div>
                 </div>
-                <p class="keeps-about-note">Legacy contracts (v8, v5, v4, v2) stay public on TzKT. New keeps use only the active contract above.</p>
               </div>
             </details>
 
-            <details class="keeps-about-tech">
-              <summary>Security</summary>
+            <details class="keeps-about-tech keeps-about-tech--security">
+              <summary>&#x1F512; Security</summary>
               <div class="keeps-about-tech-body">
-                <p>What the contract enforces on-chain — verifiable in the source linked above.</p>
+                <p>These properties are enforced on-chain — verifiable in the contract source above.</p>
                 <ul class="keeps-about-security-list">
                   <li>
-                    <strong>Only you can burn your token.</strong>
-                    <code>burn_keep</code> asserts <code>current_owner == sender</code> and reverts with <code>NOT_TOKEN_OWNER</code> otherwise. Admin cannot burn on your behalf.
+                    <strong>Only you can mint.</strong>
+                    The backend issues a short-lived signed permit bound to your wallet address, the content hash, and the contract. Without it, <code>keep</code> reverts. There is no admin minting path.
                   </li>
                   <li>
-                    <strong>You can permanently freeze your metadata.</strong>
-                    <code>lock_metadata</code> sets an irreversible flag — not even admin can unset it. After locking, no further edits are possible.
+                    <strong>Only you can burn your token.</strong>
+                    <code>burn_keep</code> checks <code>current_owner == sender</code>. Admin cannot burn on your behalf.
                   </li>
                   <li>
                     <strong>Content hash and royalties are immutable.</strong>
-                    <code>edit_metadata</code> always re-injects the original <code>content_hash</code> and <code>royalties</code> from mint. They cannot be changed by anyone.
+                    <code>edit_metadata</code> always re-injects the original values from mint. Nobody can change them.
                   </li>
                   <li>
-                    <strong>Minting requires a signed permit.</strong>
-                    Every keep carries a backend-issued signature bound to the contract address, owner, content hash, and expiry timestamp. Without a valid permit, <code>keep</code> reverts with <code>INVALID_KEEP_PERMIT</code>.
+                    <strong>You can permanently freeze your metadata.</strong>
+                    <code>lock_metadata</code> is irreversible and owner-only — not even admin can unset it.
                   </li>
                   <li>
-                    <strong>Pause does not affect transfers.</strong>
-                    If admin pauses the contract, minting and metadata edits stop — FA2 transfers remain live. Your ability to move or sell is unaffected.
-                  </li>
-                  <li>
-                    <strong>Known limitation (v9).</strong>
-                    This contract includes an <code>admin_transfer</code> entrypoint that is not used and will be removed in the next version. New keeps will use the updated contract. Existing v9 tokens remain valid.
-                    <span class="keeps-about-caveat">Verify the full entrypoint history on TzKT using the link above.</span>
+                    <strong>Pause never affects transfers.</strong>
+                    If the contract is paused, minting and metadata edits stop — FA2 transfers remain live. Your ability to move or sell is always unaffected.
                   </li>
                 </ul>
+              </div>
+            </details>
+
+            <details class="keeps-about-tech keeps-about-tech--ipfs">
+              <summary>&#x2601; IPFS &amp; Media</summary>
+              <div class="keeps-about-tech-body">
+                <p>When you keep a piece, the backend bundles the KidLisp source into a self-contained <strong>HTML artifact</strong> and renders a thumbnail via the Oven service.</p>
+                <p>Both are pinned to IPFS via Pinata. The artifact URI and thumbnail URI in your token metadata point directly to IPFS — no KidLisp servers required to view your token on objkt or any marketplace.</p>
+                <p>Use <strong>Rekeep</strong> in the modal to regenerate the media if your piece's source changes after minting.</p>
               </div>
             </details>
           </div>
@@ -2648,11 +2665,8 @@
           <div class="keeps-card-source"><div class="line-nums">${lineNumsHtml}</div><div class="source-text">${sourceTextHtml}</div></div>
         </div>
         <div class="keeps-card-actions">
-          <button class="keeps-card-btn preview-btn" data-code="${entry.code}" title="Preview">&#x25B6; Preview</button>
-          <a class="keeps-card-btn" href="${KL_BASE}/$${entry.code}" title="Open in editor">&#x270E; Edit</a>
-          <a class="keeps-card-btn html-btn" href="${AC_BASE}/api/bundle-html?code=${entry.code}" target="_blank" title="Download as standalone HTML">&#x1F4E6; HTML</a>
-          ${hasKeptRecord
-            ? `<span class="keeps-card-btn kept-badge" title="Kept on Tezos${keptInfo?.tokenId != null ? ` (Token #${keptInfo.tokenId})` : ''}">&#x2714; ${isActiveKept ? 'Kept' : 'Legacy Keep'}</span>${canKeepOnActive ? `<button class="keeps-card-btn keep-btn" data-code="${entry.code}" title="Keep on active contract">&#x26D3; Keep</button>` : ''}${canRekeep ? `<button class="keeps-card-btn rebake-btn" data-rebake-code="${entry.code}" title="Regenerate HTML + thumbnail">&#x267B; Rekeep</button>` : ''}`
+          ${isActiveKept
+            ? `<span class="keeps-card-btn kept-badge" title="Kept on Tezos${keptInfo?.tokenId != null ? ` · Token #${keptInfo.tokenId}` : ''}">&#x2714; Kept</span>`
             : (canManageKeep ? `<button class="keeps-card-btn keep-btn" data-code="${entry.code}" title="Keep on Tezos">&#x26D3; Keep</button>` : '')}
           ${timeStr ? `<span style="margin-left: auto; font-size: 10px; color: var(--text-tertiary);">${timeStr}</span>` : ''}
         </div>`;
@@ -2680,23 +2694,12 @@
       previewArea.style.cursor = 'pointer';
       previewArea.addEventListener('click', () => openModal(entry));
 
-      // Preview button handler
-      card.querySelector('.preview-btn').addEventListener('click', () => openModal(entry));
-
       // Keep button handler
       const keepBtn = card.querySelector('.keep-btn');
       if (keepBtn) {
         keepBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           openMintModal(entry);
-        });
-      }
-
-      const rebakeBtn = card.querySelector('.rebake-btn');
-      if (rebakeBtn) {
-        rebakeBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          openMintModal(entry, { rebake: isActiveKept });
         });
       }
 
@@ -2895,7 +2898,7 @@
       searchDebounce = setTimeout(() => {
         searchQuery = searchInput.value;
         applyFilters();
-      }, 200);
+      }, 0);
     });
 
     // Tab + About routing
