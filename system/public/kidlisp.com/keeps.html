@@ -1965,6 +1965,16 @@
       font-size: 12px;
       color: var(--text-tertiary);
     }
+    .keeps-row-owner {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-tertiary);
+    }
+    .keeps-row-owner-link {
+      color: #8658e2;
+      text-decoration: none;
+    }
+    .keeps-row-owner-link:hover { text-decoration: underline; }
 
     /* ========================================
        MINT MODAL
@@ -2520,7 +2530,7 @@
     <div class="keeps-tabs logged-out">
       <button class="keeps-tab active" data-tab="unkept">Yours</button>
       <button class="keeps-tab" data-tab="kept">Kept</button>
-      <button class="keeps-tab" data-tab="market">Market</button>
+      <button class="keeps-tab" data-tab="market">Buy</button>
     </div>
 
     <!-- LOGGED-OUT: inline About content -->
@@ -2699,6 +2709,11 @@
       rpcUrl: 'https://mainnet.ecadinfra.com',
       source: 'fallback',
     };
+    let keepsConfigPromise = null;
+    function ensureKeepsConfig() {
+      if (!keepsConfigPromise) keepsConfigPromise = loadKeepsConfig();
+      return keepsConfigPromise;
+    }
 
     function rpcForNetwork(network) {
       return network === 'mainnet' ? 'https://mainnet.ecadinfra.com' : 'https://ghostnet.ecadinfra.com';
@@ -3036,12 +3051,20 @@
 
       const row = document.createElement('div');
       row.className = 'keeps-row';
+      // Prefill owner if already fetched, otherwise show placeholder
+      const knownOwner = tokenId != null ? tokenOwners[String(tokenId)] : null;
+      const ownerLabel = knownOwner
+        ? (knownOwner.alias || knownOwner.address.slice(0, 8) + '…' + knownOwner.address.slice(-4))
+        : '…';
+      const ownerHref = knownOwner?.address ? `https://objkt.com/profile/${knownOwner.address}` : null;
+
       row.innerHTML = `
         <img class="keeps-row-thumb" alt="$${entry.code}" loading="lazy" />
         <a class="keeps-row-code" href="${KL_BASE}/$${entry.code}" title="Edit in KidLisp.com" onclick="event.stopPropagation()">$${entry.code}</a>
         <span class="keeps-row-handle">${escapeHtml(handle)}</span>
         <span class="keeps-row-hits">${hits.toLocaleString()} hit${hits !== 1 ? 's' : ''}</span>
         ${tokenId != null ? `<span class="keeps-row-token">Token #${tokenId}</span>` : ''}
+        ${tokenId != null ? `<span class="keeps-row-owner" id="row-owner-${tokenId}">${ownerHref ? `<a class="keeps-row-owner-link" href="${ownerHref}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${escapeHtml(ownerLabel)}</a>` : ownerLabel}</span>` : ''}
         ${keptTimeStr ? `<span class="keeps-row-time" title="Kept ${keptAt?.toLocaleString() || ''}">kept ${keptTimeStr}</span>` : ''}
         ${createdTimeStr ? `<span class="keeps-row-time" title="Created ${createdAt?.toLocaleString() || ''}">made ${createdTimeStr}</span>` : ''}`;
 
@@ -3140,6 +3163,11 @@
 
       // Render first batch
       renderMoreCards();
+
+      // Load current token owners for kept tab rows
+      if (activeTab === 'kept') {
+        ensureTokenOwners().then(updateRowOwners);
+      }
     }
 
     function renderMoreCards() {
@@ -3349,6 +3377,8 @@
     });
 
     // Tab + About routing
+    const isKeepsDomain = window.location.hostname === 'keeps.kidlisp.com';
+
     function normalizeTabName(tabName) {
       if (tabName === 'kept') return 'kept';
       if (tabName === 'market') return 'market';
@@ -3356,9 +3386,15 @@
     }
 
     function pathForTab(tabName) {
-      if (tabName === 'kept') return '/kept';
-      if (tabName === 'market') return '/market';
-      return '/';
+      if (isKeepsDomain) {
+        if (tabName === 'kept') return '/kept';
+        if (tabName === 'market') return '/market';
+        return '/';
+      } else {
+        if (tabName === 'kept') return '#kept';
+        if (tabName === 'market') return '#market';
+        return location.pathname;
+      }
     }
 
     function switchTab(tabName, { pushState = false } = {}) {
@@ -3371,8 +3407,15 @@
       }
       document.querySelectorAll('.keeps-tab-content').forEach(content => content.classList.remove('active'));
       if (normalizedTab === 'market') {
+        hideInlineAbout();
         const marketTab = document.getElementById('tab-market');
         if (marketTab) { marketTab.classList.add('active'); loadMarket(); }
+      } else if (normalizedTab === 'kept') {
+        hideInlineAbout();
+        const indexTab = document.getElementById('tab-index');
+        if (indexTab) indexTab.classList.add('active');
+        updateSortVisibility();
+        if (indexReady) applyFilters();
       } else {
         const indexTab = document.getElementById('tab-index');
         if (indexTab) indexTab.classList.add('active');
@@ -3380,7 +3423,12 @@
         if (indexReady) applyFilters();
       }
       if (pushState) {
-        history.pushState({ tab: normalizedTab }, '', pathForTab(normalizedTab));
+        if (isKeepsDomain) {
+          history.pushState({ tab: normalizedTab }, '', pathForTab(normalizedTab));
+        } else {
+          const hash = pathForTab(normalizedTab);
+          history.replaceState({ tab: normalizedTab }, '', hash === location.pathname ? location.pathname : hash);
+        }
       }
     }
 
@@ -3391,6 +3439,50 @@
     let marketLoaded = false;
     let marketListings = [];
 
+    // =========================================
+    // TOKEN OWNERS (for Kept tab)
+    // =========================================
+    let tokenOwners = {}; // tokenId -> { address, alias }
+    let tokenOwnersPromise = null;
+
+    async function loadTokenOwners() {
+      await ensureKeepsConfig();
+      const contract = getKeepsContractAddress();
+      if (!contract) return;
+      try {
+        const res = await fetch(`https://api.tzkt.io/v1/tokens/balances?token.contract=${contract}&balance.gt=0&limit=1000`);
+        if (!res.ok) return;
+        const balances = await res.json();
+        tokenOwners = {};
+        for (const b of balances) {
+          const tid = b.token?.tokenId;
+          if (tid != null) {
+            tokenOwners[String(tid)] = {
+              address: b.account?.address,
+              alias: b.account?.alias || null,
+            };
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to load token owners:', e.message);
+      }
+    }
+
+    function ensureTokenOwners() {
+      if (!tokenOwnersPromise) tokenOwnersPromise = loadTokenOwners();
+      return tokenOwnersPromise;
+    }
+
+    function updateRowOwners() {
+      for (const [tid, owner] of Object.entries(tokenOwners)) {
+        const span = document.getElementById(`row-owner-${tid}`);
+        if (!span || !owner.address) continue;
+        const label = owner.alias || (owner.address.slice(0, 8) + '…' + owner.address.slice(-4));
+        const objktUrl = `https://objkt.com/profile/${owner.address}`;
+        span.innerHTML = `<a class="keeps-row-owner-link" href="${objktUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${escapeHtml(label)}</a>`;
+      }
+    }
+
     function setMarketSort(sort) {
       marketSort = sort;
       document.getElementById('market-sort-price').classList.toggle('active', sort === 'price');
@@ -3399,21 +3491,25 @@
     }
 
     async function loadMarket() {
-      if (marketLoaded) { renderMarket(); return; }
+      if (marketLoaded) { console.log('[market] already loaded, rendering'); renderMarket(); return; }
+      console.log('[market] loadMarket() called');
+      await ensureKeepsConfig();
       const contract = getKeepsContractAddress();
+      console.log('[market] contract:', contract);
       if (!contract) {
-        document.getElementById('market-grid').innerHTML = '<div class="market-empty">Contract address not loaded yet.</div>';
+        document.getElementById('market-grid').innerHTML = '<div class="market-empty">Contract address not available.</div>';
         return;
       }
       document.getElementById('market-grid').innerHTML = '<div class="market-empty">Loading listings…</div>';
       try {
         const query = `query {
-          ask(where: {
+          listing(where: {
             token: { fa_contract: { _eq: "${contract}" } },
             status: { _eq: "active" }
           }, limit: 100) {
-            price
+            amount
             timestamp
+            seller_address
             token {
               token_id
               name
@@ -3422,16 +3518,21 @@
             }
           }
         }`;
+        console.log('[market] fetching objkt graphql, query:', query.trim());
         const res = await fetch('https://data.objkt.com/v3/graphql', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query }),
         });
+        console.log('[market] response status:', res.status);
         const json = await res.json();
-        marketListings = json?.data?.ask || [];
+        console.log('[market] response json:', JSON.stringify(json).slice(0, 500));
+        marketListings = json?.data?.listing || [];
+        console.log('[market] listings count:', marketListings.length);
         marketLoaded = true;
         renderMarket();
       } catch (e) {
+        console.error('[market] error:', e);
         document.getElementById('market-grid').innerHTML = `<div class="market-empty">Failed to load listings: ${escapeHtml(e.message)}</div>`;
       }
     }
@@ -3444,7 +3545,7 @@
 
       let sorted = [...marketListings];
       if (marketSort === 'price') {
-        sorted.sort((a, b) => b.price - a.price);
+        sorted.sort((a, b) => b.amount - a.amount);
       } else {
         sorted.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
       }
@@ -3454,16 +3555,17 @@
         return;
       }
 
-      grid.innerHTML = sorted.map(ask => {
-        const xtz = (ask.price / 1_000_000).toFixed(2);
-        const token = ask.token;
+      grid.innerHTML = sorted.map(listing => {
+        const xtz = (listing.amount / 1_000_000).toFixed(2);
+        const token = listing.token;
         const tokenId = token?.token_id ?? '';
         const name = token?.name || `Token #${tokenId}`;
         const code = name.startsWith('$') ? name : `#${tokenId}`;
         const thumb = token?.thumbnail_uri
           ? token.thumbnail_uri.replace('ipfs://', 'https://ipfs.io/ipfs/')
           : '';
-        const seller = token?.creators?.[0]?.holder?.alias || token?.creators?.[0]?.creator_address?.slice(0, 8) + '…' || '';
+        const creator = token?.creators?.[0];
+        const seller = creator?.holder?.alias || listing.seller_address?.slice(0, 8) + '…' || '';
         const objktUrl = `https://objkt.com/tokens/${contract}/${tokenId}`;
         return `<a class="market-card" href="${objktUrl}" target="_blank" rel="noopener">
           <div class="market-card-thumb">${thumb ? `<img src="${escapeHtml(thumb)}" loading="lazy" />` : ''}</div>
@@ -3483,21 +3585,25 @@
       });
     });
 
-    // Route from URL path on load
-    const pathTabRaw = location.pathname.replace(/^\/+/, '').split('/')[0];
-    const initialTab = pathTabRaw === 'kept' ? 'kept' : pathTabRaw === 'market' ? 'market' : 'unkept';
-    switchTab(initialTab);
+    // Route from URL path (production) or hash (dev) on load
+    function tabFromLocation() {
+      if (isKeepsDomain) {
+        const seg = location.pathname.replace(/^\/+/, '').split('/')[0];
+        return seg === 'kept' ? 'kept' : seg === 'market' ? 'market' : 'unkept';
+      } else {
+        const hash = location.hash.replace(/^#/, '');
+        return hash === 'kept' ? 'kept' : hash === 'market' ? 'market' : 'unkept';
+      }
+    }
+    switchTab(tabFromLocation());
 
     // Show wallet button immediately; check if already connected
     updateWalletBtn();
     initTezosWallet().then(updateWalletBtn).catch(() => {});
 
     // Handle browser back/forward
-    window.addEventListener('popstate', (e) => {
-      const currentPathTab = location.pathname.replace(/^\/+/, '').split('/')[0];
-      const stateTab = e.state && e.state.tab ? normalizeTabName(e.state.tab) : (currentPathTab === 'kept' ? 'kept' : 'unkept');
-      switchTab(stateTab);
-    });
+    window.addEventListener('popstate', () => { switchTab(tabFromLocation()); });
+    if (!isKeepsDomain) window.addEventListener('hashchange', () => { switchTab(tabFromLocation()); });
 
     // Legacy version dropdown switching (if present in About content)
     const versionSelect = document.getElementById('version-select');
@@ -4507,7 +4613,7 @@
       grid.innerHTML = '';
       grid.appendChild(loading);
 
-      await loadKeepsConfig();
+      await ensureKeepsConfig();
 
       if (!acUser) {
         renderIndexGate('login');
@@ -4572,6 +4678,7 @@
 
     // Auth gates the index: do not load entries until user is authenticated + has handle.
     async function bootstrapKeepsPage() {
+      ensureKeepsConfig(); // start loading immediately, don't block auth
       await initAuth0();
       await init();
     }
