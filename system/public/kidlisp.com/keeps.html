@@ -3946,6 +3946,8 @@
         mintAbortController.abort();
         mintAbortController = null;
       }
+      const ovenPreview = document.getElementById('oven-live-preview');
+      if (ovenPreview) ovenPreview.remove();
     }
 
     function cancelMint() {
@@ -3999,6 +4001,18 @@
                 if (prevId !== 'wallet' && mintStepStates[prevId]?.status !== 'done') {
                   setMintStep(prevId, 'done', mintStepStates[prevId]?.detail || '');
                 }
+              }
+              // Show live oven preview frame if available
+              if (stage === 'thumbnail' && data.previewFrame) {
+                let ovenPreview = document.getElementById('oven-live-preview');
+                if (!ovenPreview) {
+                  const timeline = document.getElementById('mint-timeline');
+                  ovenPreview = document.createElement('img');
+                  ovenPreview.id = 'oven-live-preview';
+                  ovenPreview.style.cssText = 'display:block;width:100%;max-width:240px;height:auto;border-radius:6px;margin:8px auto 0;border:1px solid var(--border-color);image-rendering:pixelated;';
+                  timeline.after(ovenPreview);
+                }
+                ovenPreview.src = `data:image/jpeg;base64,${data.previewFrame}`;
               }
               return true;
             }
