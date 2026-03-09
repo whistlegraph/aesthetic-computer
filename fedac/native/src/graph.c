@@ -1,6 +1,13 @@
 #include "graph.h"
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
+
+static inline uint8_t clamp_u8(int v) {
+    if (v < 0) return 0;
+    if (v > 255) return 255;
+    return (uint8_t)v;
+}
 
 void graph_init(ACGraph *g, ACFramebuffer *screen) {
     g->fb = screen;
@@ -150,6 +157,93 @@ void graph_blur(ACGraph *g, int strength) {
                 (((uint32_t)(r / count)) << 16) |
                 (((uint32_t)(gr / count)) << 8) |
                 (uint32_t)(b / count);
+        }
+    }
+    free(tmp);
+}
+
+void graph_zoom(ACGraph *g, double level) {
+    ACFramebuffer *fb = g->fb;
+    if (!fb || level <= 0.0 || fabs(level - 1.0) < 1e-6) return;
+
+    size_t buf_size = (size_t)fb->width * fb->height * sizeof(uint32_t);
+    uint32_t *tmp = malloc(buf_size);
+    if (!tmp) return;
+    memcpy(tmp, fb->pixels, buf_size);
+
+    const double cx = (fb->width - 1) * 0.5;
+    const double cy = (fb->height - 1) * 0.5;
+    const double inv = 1.0 / level;
+
+    for (int y = 0; y < fb->height; y++) {
+        for (int x = 0; x < fb->width; x++) {
+            const double src_xf = cx + (x - cx) * inv;
+            const double src_yf = cy + (y - cy) * inv;
+            const int sx = (int)llround(src_xf);
+            const int sy = (int)llround(src_yf);
+
+            uint32_t out = 0xFF000000;
+            if (sx >= 0 && sx < fb->width && sy >= 0 && sy < fb->height) {
+                out = tmp[sy * fb->stride + sx];
+            }
+            fb->pixels[y * fb->stride + x] = out;
+        }
+    }
+    free(tmp);
+}
+
+void graph_contrast(ACGraph *g, double level) {
+    ACFramebuffer *fb = g->fb;
+    if (!fb || fabs(level - 1.0) < 1e-6) return;
+
+    const size_t total = (size_t)fb->width * fb->height;
+    for (size_t i = 0; i < total; i++) {
+        uint32_t p = fb->pixels[i];
+        int a = (p >> 24) & 0xFF;
+        int r = (p >> 16) & 0xFF;
+        int gr = (p >> 8) & 0xFF;
+        int b = p & 0xFF;
+
+        r = (int)llround((r - 128) * level + 128);
+        gr = (int)llround((gr - 128) * level + 128);
+        b = (int)llround((b - 128) * level + 128);
+
+        fb->pixels[i] = ((uint32_t)a << 24) |
+                        ((uint32_t)clamp_u8(r) << 16) |
+                        ((uint32_t)clamp_u8(gr) << 8) |
+                        (uint32_t)clamp_u8(b);
+    }
+}
+
+void graph_spin(ACGraph *g, double angle_radians) {
+    ACFramebuffer *fb = g->fb;
+    if (!fb || fabs(angle_radians) < 1e-6) return;
+
+    size_t buf_size = (size_t)fb->width * fb->height * sizeof(uint32_t);
+    uint32_t *tmp = malloc(buf_size);
+    if (!tmp) return;
+    memcpy(tmp, fb->pixels, buf_size);
+
+    const double cx = (fb->width - 1) * 0.5;
+    const double cy = (fb->height - 1) * 0.5;
+    const double c = cos(angle_radians);
+    const double s = sin(angle_radians);
+
+    // Inverse mapping: destination -> source for hole-free rotation.
+    for (int y = 0; y < fb->height; y++) {
+        for (int x = 0; x < fb->width; x++) {
+            const double dx = x - cx;
+            const double dy = y - cy;
+            const double src_xf = cx + (dx * c + dy * s);
+            const double src_yf = cy + (-dx * s + dy * c);
+            const int sx = (int)llround(src_xf);
+            const int sy = (int)llround(src_yf);
+
+            uint32_t out = 0xFF000000;
+            if (sx >= 0 && sx < fb->width && sy >= 0 && sy < fb->height) {
+                out = tmp[sy * fb->stride + sx];
+            }
+            fb->pixels[y * fb->stride + x] = out;
         }
     }
     free(tmp);
