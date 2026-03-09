@@ -192,6 +192,12 @@ async function fetchAuthorInfo(userId) {
   return { handle: acHandle, userCode };
 }
 
+function normalizeHandle(handle) {
+  if (typeof handle !== 'string') return null;
+  const cleaned = handle.trim().replace(/^@+/, '');
+  return cleaned || null;
+}
+
 // Fetch KidLisp source from API
 async function fetchKidLispFromAPI(pieceName) {
   const cleanName = pieceName.replace('$', '');
@@ -203,7 +209,11 @@ async function fetchKidLispFromAPI(pieceName) {
     throw new Error(`Piece '$${cleanName}' not found`);
   }
   
-  return { source: data.source, userId: data.user || null };
+  return {
+    source: data.source,
+    userId: data.user || null,
+    authorHandle: normalizeHandle(data.handle),
+  };
 }
 
 // Extract KidLisp refs ($xxx)
@@ -223,6 +233,7 @@ async function getKidLispSourceWithDeps(pieceName) {
   const toProcess = [pieceName];
   const processed = new Set();
   let mainPieceUserId = null;
+  let mainPieceAuthorHandle = null;
   
   while (toProcess.length > 0) {
     const current = toProcess.shift();
@@ -231,11 +242,12 @@ async function getKidLispSourceWithDeps(pieceName) {
     if (processed.has(cleanName)) continue;
     processed.add(cleanName);
     
-    const { source, userId } = await fetchKidLispFromAPI(cleanName);
+    const { source, userId, authorHandle } = await fetchKidLispFromAPI(cleanName);
     allSources[cleanName] = source;
     
-    if (cleanName === pieceName.replace('$', '') && userId) {
-      mainPieceUserId = userId;
+    if (cleanName === pieceName.replace('$', '')) {
+      if (userId) mainPieceUserId = userId;
+      if (authorHandle) mainPieceAuthorHandle = authorHandle;
     }
     
     const refs = extractKidLispRefs(source);
@@ -248,11 +260,13 @@ async function getKidLispSourceWithDeps(pieceName) {
   }
   
   // Resolve author info (AC handle and permanent user code)
-  let authorHandle = 'anon';
+  let authorHandle = mainPieceAuthorHandle || 'anon';
   let userCode = null;
   if (mainPieceUserId) {
     const authorInfo = await fetchAuthorInfo(mainPieceUserId);
-    if (authorInfo.handle) authorHandle = authorInfo.handle;
+    if (!mainPieceAuthorHandle && authorInfo.handle) {
+      authorHandle = normalizeHandle(authorInfo.handle) || authorHandle;
+    }
     if (authorInfo.userCode) userCode = authorInfo.userCode;
   }
   
