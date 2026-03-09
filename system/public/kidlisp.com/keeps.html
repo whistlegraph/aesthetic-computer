@@ -329,6 +329,129 @@
       box-shadow: inset 0 -1px 0 rgba(74, 222, 128, 0.5);
     }
 
+    .keeps-tab[data-tab="market"] {
+      color: #f59e0b;
+      background: rgba(245, 158, 11, 0.10);
+    }
+
+    .keeps-tab.active[data-tab="market"] {
+      background: rgba(245, 158, 11, 0.22);
+      border-bottom-color: #f59e0b;
+      box-shadow: inset 0 -1px 0 rgba(245, 158, 11, 0.5);
+    }
+
+    /* Market tab content */
+    #tab-market {
+      padding: 0;
+      max-width: none;
+    }
+
+    .market-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--bg-primary);
+    }
+
+    .market-sort-label {
+      font-size: 12px;
+      color: var(--text-tertiary);
+    }
+
+    .market-sort-btn {
+      padding: 4px 10px;
+      font-size: 12px;
+      font-family: var(--font-fun);
+      border: 1px solid var(--border-color);
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      border-radius: 0;
+    }
+
+    .market-sort-btn.active {
+      background: rgba(245, 158, 11, 0.15);
+      border-color: #f59e0b;
+      color: #f59e0b;
+    }
+
+    .market-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 14px;
+      padding: 16px 20px;
+    }
+
+    .market-card {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      cursor: pointer;
+      transition: border-color 0.15s;
+      text-decoration: none;
+    }
+
+    .market-card:hover { border-color: #f59e0b; text-decoration: none; }
+
+    .market-card-thumb {
+      width: 100%;
+      aspect-ratio: 1;
+      background: #000;
+      overflow: hidden;
+    }
+
+    .market-card-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      image-rendering: pixelated;
+      display: block;
+    }
+
+    .market-card-body {
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .market-card-code {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--ac-purple);
+      font-weight: bold;
+    }
+
+    .market-card-price {
+      font-size: 14px;
+      font-weight: bold;
+      color: #f59e0b;
+    }
+
+    .market-card-seller {
+      font-size: 12px;
+      color: var(--text-tertiary);
+    }
+
+    .market-card-objkt {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      margin-top: 2px;
+    }
+
+    .market-empty {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--text-tertiary);
+      font-size: 14px;
+    }
+
     .keeps-tabs.logged-out {
       background: var(--bg-secondary);
       border-bottom-color: var(--border-subtle);
@@ -2397,6 +2520,7 @@
     <div class="keeps-tabs logged-out">
       <button class="keeps-tab active" data-tab="unkept">Yours</button>
       <button class="keeps-tab" data-tab="kept">Kept</button>
+      <button class="keeps-tab" data-tab="market">Market</button>
     </div>
 
     <!-- LOGGED-OUT: inline About content -->
@@ -2483,6 +2607,18 @@
           <span>Loading your keeps index...</span>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- TAB: Market -->
+  <div class="keeps-tab-content" id="tab-market">
+    <div class="market-controls">
+      <span class="market-sort-label">Sort:</span>
+      <button class="market-sort-btn active" id="market-sort-price" onclick="setMarketSort('price')">Top Price</button>
+      <button class="market-sort-btn" id="market-sort-recent" onclick="setMarketSort('recent')">Recently Listed</button>
+    </div>
+    <div class="market-grid" id="market-grid">
+      <div class="market-empty">Loading listings…</div>
     </div>
   </div>
 
@@ -3215,11 +3351,14 @@
     // Tab + About routing
     function normalizeTabName(tabName) {
       if (tabName === 'kept') return 'kept';
+      if (tabName === 'market') return 'market';
       return 'unkept';
     }
 
     function pathForTab(tabName) {
-      return normalizeTabName(tabName) === 'kept' ? '/kept' : '/';
+      if (tabName === 'kept') return '/kept';
+      if (tabName === 'market') return '/market';
+      return '/';
     }
 
     function switchTab(tabName, { pushState = false } = {}) {
@@ -3231,17 +3370,111 @@
         tabBtn.classList.add('active');
       }
       document.querySelectorAll('.keeps-tab-content').forEach(content => content.classList.remove('active'));
-      const indexTab = document.getElementById('tab-index');
-      if (indexTab) {
-        indexTab.classList.add('active');
-      }
-      updateSortVisibility();
-      if (indexReady) {
-        applyFilters();
+      if (normalizedTab === 'market') {
+        const marketTab = document.getElementById('tab-market');
+        if (marketTab) { marketTab.classList.add('active'); loadMarket(); }
+      } else {
+        const indexTab = document.getElementById('tab-index');
+        if (indexTab) indexTab.classList.add('active');
+        updateSortVisibility();
+        if (indexReady) applyFilters();
       }
       if (pushState) {
         history.pushState({ tab: normalizedTab }, '', pathForTab(normalizedTab));
       }
+    }
+
+    // =========================================
+    // MARKET TAB
+    // =========================================
+    let marketSort = 'price';
+    let marketLoaded = false;
+    let marketListings = [];
+
+    function setMarketSort(sort) {
+      marketSort = sort;
+      document.getElementById('market-sort-price').classList.toggle('active', sort === 'price');
+      document.getElementById('market-sort-recent').classList.toggle('active', sort === 'recent');
+      renderMarket();
+    }
+
+    async function loadMarket() {
+      if (marketLoaded) { renderMarket(); return; }
+      const contract = getKeepsContractAddress();
+      if (!contract) {
+        document.getElementById('market-grid').innerHTML = '<div class="market-empty">Contract address not loaded yet.</div>';
+        return;
+      }
+      document.getElementById('market-grid').innerHTML = '<div class="market-empty">Loading listings…</div>';
+      try {
+        const query = `query {
+          ask(where: {
+            token: { fa_contract: { _eq: "${contract}" } },
+            status: { _eq: "active" }
+          }, limit: 100) {
+            price
+            timestamp
+            token {
+              token_id
+              name
+              thumbnail_uri
+              creators { creator_address holder { alias } }
+            }
+          }
+        }`;
+        const res = await fetch('https://data.objkt.com/v3/graphql', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query }),
+        });
+        const json = await res.json();
+        marketListings = json?.data?.ask || [];
+        marketLoaded = true;
+        renderMarket();
+      } catch (e) {
+        document.getElementById('market-grid').innerHTML = `<div class="market-empty">Failed to load listings: ${escapeHtml(e.message)}</div>`;
+      }
+    }
+
+    function renderMarket() {
+      const grid = document.getElementById('market-grid');
+      if (!grid) return;
+      const contract = getKeepsContractAddress();
+      const objktBase = `https://objkt.com/collections/${contract}`;
+
+      let sorted = [...marketListings];
+      if (marketSort === 'price') {
+        sorted.sort((a, b) => b.price - a.price);
+      } else {
+        sorted.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      }
+
+      if (sorted.length === 0) {
+        grid.innerHTML = '<div class="market-empty">No active listings found on objkt.com.</div>';
+        return;
+      }
+
+      grid.innerHTML = sorted.map(ask => {
+        const xtz = (ask.price / 1_000_000).toFixed(2);
+        const token = ask.token;
+        const tokenId = token?.token_id ?? '';
+        const name = token?.name || `Token #${tokenId}`;
+        const code = name.startsWith('$') ? name : `#${tokenId}`;
+        const thumb = token?.thumbnail_uri
+          ? token.thumbnail_uri.replace('ipfs://', 'https://ipfs.io/ipfs/')
+          : '';
+        const seller = token?.creators?.[0]?.holder?.alias || token?.creators?.[0]?.creator_address?.slice(0, 8) + '…' || '';
+        const objktUrl = `https://objkt.com/tokens/${contract}/${tokenId}`;
+        return `<a class="market-card" href="${objktUrl}" target="_blank" rel="noopener">
+          <div class="market-card-thumb">${thumb ? `<img src="${escapeHtml(thumb)}" loading="lazy" />` : ''}</div>
+          <div class="market-card-body">
+            <span class="market-card-code">${escapeHtml(code)}</span>
+            <span class="market-card-price">${xtz} ꜩ</span>
+            ${seller ? `<span class="market-card-seller">by ${escapeHtml(seller)}</span>` : ''}
+            <span class="market-card-objkt">objkt.com ↗</span>
+          </div>
+        </a>`;
+      }).join('');
     }
 
     document.querySelectorAll('.keeps-tab').forEach(tab => {
@@ -3252,7 +3485,7 @@
 
     // Route from URL path on load
     const pathTabRaw = location.pathname.replace(/^\/+/, '').split('/')[0];
-    const initialTab = pathTabRaw === 'kept' ? 'kept' : 'unkept';
+    const initialTab = pathTabRaw === 'kept' ? 'kept' : pathTabRaw === 'market' ? 'market' : 'unkept';
     switchTab(initialTab);
 
     // Show wallet button immediately; check if already connected
