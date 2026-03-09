@@ -1355,15 +1355,6 @@
       color: var(--ac-purple);
     }
 
-    .keeps-gate-actions {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      flex-wrap: wrap;
-      padding: 8px 0;
-    }
-
     /* ========================================
        MINT MODAL
        ======================================== */
@@ -1632,20 +1623,6 @@
     }
 
     /* ========================================
-       FOOTER
-       ======================================== */
-    .keeps-footer {
-      background: var(--bg-secondary);
-      border-top: 1px solid var(--border-color);
-      padding: 14px 24px;
-      text-align: center;
-      font-size: 11px;
-      color: var(--text-tertiary);
-      flex-shrink: 0;
-    }
-    .keeps-footer a { color: var(--ac-purple); }
-
-    /* ========================================
        RESPONSIVE
        ======================================== */
     @media (max-width: 768px) {
@@ -1895,7 +1872,7 @@
     <div class="keeps-tabs">
       <button class="keeps-tab active" data-tab="index">Index</button>
       <button class="keeps-tab" data-tab="kept">Kept</button>
-      <button class="keeps-tab" data-tab="rules">Rules</button>
+      <button class="keeps-tab" data-tab="rules">About</button>
     </div>
 
     <!-- TAB: Index (default view - search + grid) -->
@@ -1913,12 +1890,25 @@
       </div>
     </div>
 
-    <!-- TAB: Rules -->
+    <!-- TAB: About -->
     <div class="keeps-tab-content" id="tab-rules">
       <div style="padding: 24px 0;">
-        <h2 style="margin: 0 0 16px; color: var(--text-primary); font-size: 24px; font-weight: 600;">Rules</h2>
+        <h2 style="margin: 0 0 16px; color: var(--text-primary); font-size: 24px; font-weight: 600;">About</h2>
 
-        <h3>Contract</h3>
+        <div style="margin-bottom: 20px; padding: 16px; background: linear-gradient(180deg, rgba(78, 205, 196, 0.06), rgba(112, 214, 255, 0.04)); border-radius: 8px; border: 1px solid rgba(112, 214, 255, 0.28); border-left: 4px solid #70D6FF;">
+          <div style="margin-bottom: 10px; color: #70D6FF; font-size: 13px; font-weight: 700; letter-spacing: 0.04em;">START HERE</div>
+          <div style="font-family: var(--font-mono); font-size: 12px; line-height: 1.7; color: var(--text-secondary);">
+            <div><span style="color:#4ECDC4;">index&gt;</span> shows pieces from <strong>your own handle</strong> only.</div>
+            <div><span style="color:#FFE66D;">keep&gt;</span> mints one of your pieces to the active Tezos contract.</div>
+            <div><span style="color:#FF6B6B;">rekeep&gt;</span> regenerates media + metadata for an existing token.</div>
+            <div><span style="color:#AA96DA;">kept&gt;</span> filters to pieces you already kept on the active contract.</div>
+          </div>
+          <div style="margin-top: 10px; color: var(--text-tertiary); font-size: 12px;">
+            Keeps is the artist-facing mint desk for KidLisp on Tezos.
+          </div>
+        </div>
+
+        <h3>Active Contract</h3>
         <div style="margin-bottom: 20px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
           <div style="margin-bottom: 8px; color: var(--text-secondary); font-size: 13px; font-weight: 600;">Active Production Contract</div>
           <div id="v6-active-contract-address" style="font-family: 'Courier New', monospace; color: var(--ac-purple); font-size: 14px; word-break: break-all;">
@@ -1943,22 +1933,40 @@
           </div>
         </div>
 
-        <h3>Keeps Process</h3>
+        <h3>Can This Contract Support Other Sigils?</h3>
         <div style="margin-bottom: 20px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
-          <ol style="margin: 0; padding-left: 18px; color: var(--text-secondary);">
-            <li style="margin-bottom: 8px;"><strong>Pick a piece</strong>: choose a KidLisp code you own from Index.</li>
-            <li style="margin-bottom: 8px;"><strong>Prepare artifacts</strong>: validate ownership, analyze source, build HTML bundle, bake WebP thumbnail, pin to IPFS, and build token metadata.</li>
-            <li style="margin-bottom: 8px;"><strong>Review before signing</strong>: verify piece, preview, metadata links, and fee in the Keep modal.</li>
-            <li style="margin-bottom: 8px;"><strong>Sign on wallet</strong>: submit the <code>keep</code> call with your wallet on the active production contract.</li>
-            <li style="margin-bottom: 8px;"><strong>Confirm + index</strong>: backend confirms transaction and records token/contract state for Keeps Index + Kept tab.</li>
-            <li style="margin-bottom: 8px;"><strong>Collector surface</strong>: token appears on chain and in marketplaces (TzKT/objkt) after indexer propagation.</li>
-          </ol>
-          <div style="margin-top: 12px; color: var(--text-tertiary); font-size: 12px; line-height: 1.6;">
-            <strong>Rekeep path:</strong> use <code>Rekeep</code> to regenerate media and metadata for an already-kept piece, then sign an update transaction.
+          <p style="margin: 0 0 10px 0; color: var(--text-secondary);">
+            <strong>Short answer: yes, contract-level.</strong> The current FA2 contract stores bytes fields and does not hard-code a <code>$</code>-only token namespace.
+          </p>
+          <p style="margin: 0 0 10px 0; color: var(--text-secondary);">
+            <strong>Current limitation is app-level:</strong> the keeps pipeline, validations, and index source are intentionally KidLisp-focused right now.
+          </p>
+          <div style="color: var(--text-secondary);">
+            <strong>To support <code>!tapes</code>, <code>*clocks</code>, <code>#paintings</code> on this same contract:</strong>
+            <ol style="margin: 8px 0 0 0; padding-left: 18px;">
+              <li style="margin-bottom: 6px;">Normalize piece identity as <code>sigil + id</code> in mint payloads and content-hash keys.</li>
+              <li style="margin-bottom: 6px;">Generalize ownership checks to each source domain (KidLisp, tapes, clocks, paintings).</li>
+              <li style="margin-bottom: 6px;">Add per-sigil metadata templates and media generation paths.</li>
+              <li>Expose mixed-sigil indexing/filtering in UI without losing per-handle ownership guarantees.</li>
+            </ol>
           </div>
         </div>
 
-        <h3>How Keeps Works (Plain Language)</h3>
+        <h3>Keeps Process</h3>
+        <div style="margin-bottom: 20px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
+          <ol style="margin: 0; padding-left: 18px; color: var(--text-secondary);">
+            <li style="margin-bottom: 8px;"><strong>Pick</strong>: choose one of your pieces from Index.</li>
+            <li style="margin-bottom: 8px;"><strong>Prepare</strong>: validate ownership, bake media, bundle HTML, and pin to IPFS.</li>
+            <li style="margin-bottom: 8px;"><strong>Review</strong>: confirm fee + artifact links in the Keep modal.</li>
+            <li style="margin-bottom: 8px;"><strong>Sign</strong>: wallet signs and sends <code>keep</code> to the active contract.</li>
+            <li style="margin-bottom: 8px;"><strong>Confirm</strong>: chain confirms; index updates; marketplaces ingest token metadata.</li>
+          </ol>
+          <div style="margin-top: 12px; color: var(--text-tertiary); font-size: 12px; line-height: 1.6;">
+            <strong>Rekeep path:</strong> use <code>Rekeep</code> to regenerate media + metadata for an already-kept token.
+          </div>
+        </div>
+
+        <h3>Deeper Notes</h3>
         <div style="margin-bottom: 20px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color); color: var(--text-secondary);">
           <p style="margin: 0 0 10px 0;">
             A <strong>Keep</strong> is a KidLisp piece turned into a verifiable on-chain collectible. The mint points to permanent media on IPFS and records ownership in the active Tezos contract.
@@ -2009,7 +2017,7 @@
             <strong>If rollover is ever needed, process is:</strong>
             <ol style="margin: 8px 0 0 0; padding-left: 18px;">
               <li style="margin-bottom: 6px;">Publish a public notice and rationale before deployment.</li>
-              <li style="margin-bottom: 6px;">Keep old contract live as historical record (readable, verifiable, and linked in Rules history).</li>
+              <li style="margin-bottom: 6px;">Keep old contract live as historical record (readable, verifiable, and linked in About history).</li>
               <li style="margin-bottom: 6px;">Deploy successor contract with explicit versioning and documented differences.</li>
               <li style="margin-bottom: 6px;">Update keeps.kidlisp.com to clearly mark Active vs Legacy contracts.</li>
               <li>Never erase history: old tokens remain valid and traceable to their original contract.</li>
@@ -2020,36 +2028,41 @@
           </p>
         </div>
 
-        <h3>History</h3>
+        <h3>Contract History (Git-Informed Abstracts)</h3>
         <div style="display: grid; gap: 10px; margin-bottom: 16px;">
           <div class="keeps-endpoint">
+            <div class="keeps-endpoint-name">v9 (Active Canonical Production)</div>
+            <div class="keeps-endpoint-desc">Current long-lived KidLisp Keeps contract. Signed keep-permit flow, production fee model, creator-centered metadata refresh path, and hardened launch posture after v6-v8 iteration.</div>
+            <div class="keeps-endpoint-auth"><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/kidlisp_keeps_fa2_v9.py" target="_blank">Source</a></div>
+          </div>
+          <div class="keeps-endpoint">
             <div class="keeps-endpoint-name">v8 (Paused, Deprecated)</div>
-            <div class="keeps-endpoint-desc"><code>KT1Er6iJLzWh4nghE2HJME65oC2pN28P6y3P</code></div>
+            <div class="keeps-endpoint-desc">First signed-permit production generation. Deployed and exercised on mainnet, then deprecated after authorization/pollution concerns surfaced during live use.<br><code>KT1Er6iJLzWh4nghE2HJME65oC2pN28P6y3P</code></div>
             <div class="keeps-endpoint-auth"><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/kidlisp_keeps_fa2_v8.py" target="_blank">Source</a> · <a href="https://tzkt.io/KT1Er6iJLzWh4nghE2HJME65oC2pN28P6y3P" target="_blank">TzKT</a> · <a href="https://objkt.com/collections/KT1Er6iJLzWh4nghE2HJME65oC2pN28P6y3P" target="_blank">objkt</a></div>
           </div>
           <div class="keeps-endpoint">
             <div class="keeps-endpoint-name">v7 (Review Generation)</div>
-            <div class="keeps-endpoint-desc">Authorization model was reviewed before the signed-permit production rollout.</div>
+            <div class="keeps-endpoint-desc">Security review generation used to tighten endpoint permissions, metadata edit policy, and launch readiness before signed-permit promotion.</div>
             <div class="keeps-endpoint-auth"><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/kidlisp_keeps_fa2_v7.py" target="_blank">Source</a></div>
           </div>
           <div class="keeps-endpoint">
             <div class="keeps-endpoint-name">v6 (Deprecated)</div>
-            <div class="keeps-endpoint-desc">Last major pre-permit production cycle.</div>
+            <div class="keeps-endpoint-desc">Last major pre-permit KidLisp production cycle. Established practical keep/rekeep workflows, then intentionally retired as auth constraints evolved.</div>
             <div class="keeps-endpoint-auth"><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tezos/kidlisp_keeps_fa2_v6.py" target="_blank">Source</a></div>
           </div>
           <div class="keeps-endpoint">
             <div class="keeps-endpoint-name">v5 (Legacy RC)</div>
-            <div class="keeps-endpoint-desc"><code>KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido</code></div>
+            <div class="keeps-endpoint-desc">Release-candidate bridge from earlier Keeps architecture into KidLisp-focused production hardening.<br><code>KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido</code></div>
             <div class="keeps-endpoint-auth"><a href="https://tzkt.io/KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido" target="_blank">TzKT</a> · <a href="https://objkt.com/collections/KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido" target="_blank">objkt</a></div>
           </div>
           <div class="keeps-endpoint">
             <div class="keeps-endpoint-name">v4 (Deprecated Staging)</div>
-            <div class="keeps-endpoint-desc"><code>KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W</code></div>
+            <div class="keeps-endpoint-desc">Expanded admin and metadata controls during staging; later superseded as permission model and production fee logic stabilized.<br><code>KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W</code></div>
             <div class="keeps-endpoint-auth"><a href="https://tzkt.io/KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W" target="_blank">TzKT</a> · <a href="https://objkt.com/collections/KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W" target="_blank">objkt</a></div>
           </div>
           <div class="keeps-endpoint">
             <div class="keeps-endpoint-name">v2 (Legacy Mainnet)</div>
-            <div class="keeps-endpoint-desc"><code>KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM</code></div>
+            <div class="keeps-endpoint-desc">Early mainnet Keeps generation that proved the base collectible path before KidLisp-specific contract specialization.<br><code>KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM</code></div>
             <div class="keeps-endpoint-auth"><a href="https://tzkt.io/KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM" target="_blank">TzKT</a> · <a href="https://objkt.com/collections/KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM" target="_blank">objkt</a></div>
           </div>
         </div>
@@ -2096,12 +2109,6 @@
       </div>
     </div>
   </div>
-
-  <!-- FOOTER -->
-  <footer class="keeps-footer">
-    <a href="https://kidlisp.com">kidlisp.com</a> &middot;
-    <a href="https://aesthetic.computer" target="_blank">Aesthetic<span class="ac-dot">.</span>Computer</a>
-  </footer>
 
   <script>
     // =========================================
@@ -2357,9 +2364,13 @@
 
     function scopeIndexEntries(entries) {
       const userSub = acUser?.sub;
+      const currentHandle = (acHandle || '').trim().toLowerCase();
       return (entries || []).filter(entry => {
-        const isMine = !!userSub && entry.user === userSub;
-        return isMine || isKeptOnActiveContract(entry);
+        const isMineBySub = !!userSub && entry.user === userSub;
+        if (isMineBySub) return true;
+        if (!currentHandle) return false;
+        const entryHandle = (entry?.handle || '').trim().toLowerCase();
+        return entryHandle === currentHandle;
       });
     }
 
@@ -2375,20 +2386,17 @@
       countEl.textContent = '';
 
       const isHandleGate = reason === 'handle';
-      const actions = isHandleGate
-        ? `
-          <div class="keeps-gate-actions">
-            <a class="keeps-auth-btn imnew" href="${KL_BASE}" target="_blank" rel="noopener">Set Handle</a>
-          </div>`
-        : `
-          <div class="keeps-gate-actions">
-            <button class="keeps-auth-btn" onclick="keepsLogin()">Log In</button>
-            <button class="keeps-auth-btn imnew" onclick="keepsImNew()">I'm New</button>
-          </div>`;
+      const message = isHandleGate
+        ? `Set your KidLisp handle first, then your index will load here.`
+        : `Use the top-right login button to load your keeps index.`;
+      const details = isHandleGate
+        ? `<div style="margin-top: 8px; color: var(--text-tertiary); font-size: 12px;">Run <code>handle your-name</code> on <a href="${KL_BASE}" target="_blank" rel="noopener">kidlisp.com</a>.</div>`
+        : '';
 
       grid.innerHTML = `
         <div class="keeps-error" style="grid-column: 1 / -1;">
-          ${actions}
+          <div class="error-msg">${message}</div>
+          ${details}
         </div>`;
     }
 
@@ -2697,16 +2705,18 @@
       tab.addEventListener('click', () => {
         const tabName = tab.dataset.tab;
         switchTab(tabName);
-        const path = tabName === 'index' ? '/' : `/${tabName}`;
+        const path = tabName === 'index'
+          ? '/'
+          : (tabName === 'rules' ? '/about' : `/${tabName}`);
         history.pushState({ tab: tabName }, '', path);
       });
     });
 
-    // Route from URL path on load (e.g. /rules, /contracts, /versions, /about)
+    // Route from URL path on load (e.g. /about, /contracts, /versions)
     const pathTabRaw = location.pathname.replace(/^\/+/, '').split('/')[0];
-    const pathAliases = { contracts: 'rules', versions: 'rules', docs: 'rules', about: 'rules' };
-    const pathTab = pathAliases[pathTabRaw] || pathTabRaw;
-    if (pathTab && ['kept', 'rules'].includes(pathTab)) {
+    const pathAliases = { about: 'rules', contracts: 'rules', versions: 'rules', docs: 'rules' };
+    const pathTab = pathAliases[pathTabRaw] || (pathTabRaw === 'kept' ? 'kept' : null);
+    if (pathTab) {
       switchTab(pathTab);
     }
 
@@ -2720,7 +2730,7 @@
       }
     });
 
-    // Version dropdown switching (inside Contracts tab)
+    // Legacy version dropdown switching (if present in About content)
     const versionSelect = document.getElementById('version-select');
     if (versionSelect) {
       versionSelect.addEventListener('change', () => {

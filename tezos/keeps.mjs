@@ -96,8 +96,8 @@ const CONTRACT_PROFILES = {
     metadata: {
       name: 'KidLisp',
       version: '9.0.0',
-      description: 'https://keeps.kidlisp.com/contracts',
-      homepage: 'https://kidlisp.com',
+      description: 'https://keeps.kidlisp.com',
+      homepage: 'https://keeps.kidlisp.com',
       interfaces: ['TZIP-012', 'TZIP-016', 'TZIP-021'],
       authors: ['aesthetic.computer'],
       imageUri: 'https://oven.aesthetic.computer/keeps/latest',
@@ -113,8 +113,8 @@ const CONTRACT_PROFILES = {
     metadata: {
       name: 'KidLisp',
       version: '8.0.0',
-      description: 'https://keeps.kidlisp.com/contracts',
-      homepage: 'https://kidlisp.com',
+      description: 'https://keeps.kidlisp.com',
+      homepage: 'https://keeps.kidlisp.com',
       interfaces: ['TZIP-012', 'TZIP-016', 'TZIP-021'],
       authors: ['aesthetic.computer'],
       imageUri: 'https://oven.aesthetic.computer/keeps/latest',
@@ -1794,6 +1794,7 @@ async function setCollectionMedia(options = {}) {
     network = 'mainnet',
     name,           // Collection name
     imageUri,       // Collection icon/logo (IPFS URI or URL)
+    homepage,       // Collection homepage URL
     description,    // Collection description
     raw = {}        // Raw key-value pairs to set
   } = options;
@@ -1824,7 +1825,7 @@ async function setCollectionMedia(options = {}) {
     version: "2.0.0",
     interfaces: ["TZIP-012", "TZIP-016", "TZIP-021"],
     authors: ["aesthetic.computer"],
-    homepage: "https://aesthetic.computer"
+    homepage: homepage || "https://keeps.kidlisp.com"
   };
   
   if (options.name) {
@@ -1839,6 +1840,10 @@ async function setCollectionMedia(options = {}) {
   if (description) {
     currentMetadata.description = description;
     console.log(`   📝 Description: ${description.substring(0, 80)}...`);
+  }
+
+  if (homepage) {
+    console.log(`   🏠 Homepage: ${homepage}`);
   }
   
   // Add any raw fields
@@ -2816,22 +2821,25 @@ async function main() {
       }
       
       case 'set-collection-media': {
-        // Parse --name=<text>, --image=<uri> and --description=<text> flags
+        // Parse --name=<text>, --image=<uri>, --homepage=<url> and --description=<text> flags
         const nameFlag = flags.find(f => f.startsWith('--name='));
         const imageFlag = flags.find(f => f.startsWith('--image='));
+        const homepageFlag = flags.find(f => f.startsWith('--homepage='));
         const descFlag = flags.find(f => f.startsWith('--description='));
         
         const name = nameFlag ? nameFlag.split('=').slice(1).join('=') : undefined;
         const imageUri = imageFlag ? imageFlag.split('=').slice(1).join('=') : undefined;
+        const homepage = homepageFlag ? homepageFlag.split('=').slice(1).join('=') : undefined;
         const description = descFlag ? descFlag.split('=').slice(1).join('=') : undefined;
         
-        if (!name && !imageUri && !description) {
-          console.error('Usage: node keeps.mjs set-collection-media [--name=<text>] [--image=<ipfs-uri>] [--description=<text>]');
+        if (!name && !imageUri && !homepage && !description) {
+          console.error('Usage: node keeps.mjs set-collection-media [--name=<text>] [--image=<ipfs-uri>] [--homepage=<url>] [--description=<text>]');
           console.error('');
           console.error('Examples:');
           console.error('  node keeps.mjs set-collection-media --name="KidLisp Keeps (Staging)"');
           console.error('  node keeps.mjs set-collection-media --image=ipfs://Qm...');
           console.error('  node keeps.mjs set-collection-media --image=https://oven.aesthetic.computer/keeps/latest');
+          console.error('  node keeps.mjs set-collection-media --homepage=https://keeps.kidlisp.com');
           console.error('  node keeps.mjs set-collection-media --description="KidLisp generative art collection"');
           process.exit(1);
         }
@@ -2840,6 +2848,7 @@ async function main() {
           network: getNetwork(1),
           name,
           imageUri,
+          homepage,
           description 
         });
         break;
@@ -3030,6 +3039,7 @@ Flags:
                                and upload to IPFS (requires Oven service)
   --to=<address>                Recipient wallet address (default: server wallet)
   --image=<uri>                 Collection image URI (IPFS or URL)
+  --homepage=<url>              Collection homepage URL
   --description=<text>          Collection description
   --addresses=<KT1,KT1,...>     Explicit contract list for deprecate-staging
   --replacement=<KT1...>        Replacement contract for deprecation notice
@@ -3067,6 +3077,7 @@ v4 Examples:
   
   # Collection media (use live endpoint for dynamic thumbnail)
   node keeps.mjs set-collection-media --image=https://oven.aesthetic.computer/keeps/latest
+  node keeps.mjs set-collection-media --homepage=https://keeps.kidlisp.com
   node keeps.mjs set-collection-media --image=ipfs://QmXxx --description="KidLisp art"
   node keeps.mjs lock-collection            # Lock collection metadata forever
   node keeps.mjs deprecate-staging --wallet=staging                     # Dry run
