@@ -91,7 +91,11 @@ let soundAPI = null;
 // OS update panel state machine
 // states: "idle" | "checking" | "up-to-date" | "available" | "downloading" | "flashing" | "rebooting"
 const OS_BASE_URL = "https://releases-aesthetic-computer.sfo3.digitaloceanspaces.com/os/";
+const OS_VERSION_URL = OS_BASE_URL + "native-notepat-latest.version";
+const OS_VMLINUZ_URL = OS_BASE_URL + "native-notepat-latest.vmlinuz";
 const OS_VMLINUZ_BYTES = 37_000_000; // ~35MB (actual size from releases.json)
+const OS_AUTO_CHECK_INTERVAL_FRAMES = 36_000; // 10 minutes @ 60fps
+const OS_AUTO_RETRY_FRAMES = 900;             // 15 seconds on transient network errors
 // Screen state machine — only one screen renders at a time
 // "notepat" = pads/instrument, "os" = update panel, "wifi" = network picker
 let activeScreen = "notepat";
@@ -102,6 +106,7 @@ let osProgress = 0;          // 0.0-1.0
 let osError = "";            // error message if any
 let osFetchPending = false;  // true while waiting for version fetchResult (manual panel)
 let osCheckFrame = 0;        // frame when we started the version fetch
+let osUpdatePingVersion = ""; // last version we pinged to the user
 
 // Auto-update: background check on WiFi connect, silent download+flash+reboot
 // states: "idle" | "checking" | "downloading" | "flashing" | "rebooting"
@@ -109,6 +114,9 @@ let autoUpdate = {
   state: "idle",
   fetchPending: false,  // true = fetchResult belongs to auto-update version check
   rebootFrame: 0,
+  nextCheckFrame: 0,
+  availableVersion: "",
+  lastError: "",
 };
 
 // WiFi UI state
@@ -243,6 +251,27 @@ function playWaveSound(sound, waveType) {
     duration: 0.07, volume: 0.18,
     attack: 0.002, decay: 0.06, pan: 0,
   });
+}
+
+function scheduleAutoUpdateCheck(delayFrames = 0) {
+  autoUpdate.state = "checking";
+  autoUpdate.fetchPending = false;
+  autoUpdate.nextCheckFrame = frame + Math.max(0, delayFrames | 0);
+}
+
+function notifyUpdateAvailable(sound, version) {
+  if (!version || osUpdatePingVersion === version) return;
+  osUpdatePingVersion = version;
+  sound?.synth?.({ type: "sine", tone: 988, duration: 0.08, volume: 0.16, attack: 0.002, decay: 0.06 });
+  sound?.synth?.({ type: "sine", tone: 1319, duration: 0.12, volume: 0.14, attack: 0.01, decay: 0.08 });
+  sound?.speak?.("os update available");
+}
+
+function startAutoUpdateDownload(system) {
+  autoUpdate.state = "downloading";
+  autoUpdate.lastError = "";
+  osProgress = 0;
+  system.fetchBinary?.(OS_VMLINUZ_URL, "/tmp/vmlinuz.new", OS_VMLINUZ_BYTES);
 }
 
 function boot({ wipe, system }) {
@@ -426,7 +455,7 @@ function act({ event: e, sound, wifi, system }) {
         // Cancel any in-flight fetch (clock sync, auto-update) so OS panel gets the slot
         system.fetchCancel?.();
         autoUpdate.fetchPending = false;
-        autoUpdate.state = "idle";
+        if (autoUpdate.state === "checking") autoUpdate.state = "idle";
       }
       return;
     }
@@ -444,7 +473,7 @@ function act({ event: e, sound, wifi, system }) {
           osState = "downloading";
           osProgress = 0;
           system?.fetchBinary?.(
-            OS_BASE_URL + "native-notepat-latest.vmlinuz",
+            OS_VMLINUZ_URL,
             "/tmp/vmlinuz.new",
             OS_VMLINUZ_BYTES
           );
@@ -887,6 +916,16 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     ink(80, 180, 100, 180);
     write("os " + pct + "%", { x: chatX, y: barY, size: 1, font: "matrix" });
     chatX += 8 * 4 + 2;
+  } else if (autoUpdate.availableVersion && autoUpdate.availableVersion !== osCurrentVersion) {
+    const blinkOn = (frame % 60) < 35;
+    if (blinkOn) {
+      ink(255, 210, 90, 210);
+      write("update!", { x: chatX, y: barY, size: 1, font: "matrix" });
+    } else {
+      ink(dark ? 90 : 130, dark ? 110 : 120, dark ? 80 : 110, 150);
+      write("update", { x: chatX, y: barY, size: 1, font: "matrix" });
+    }
+    chatX += 7 * 4 + 2;
   } else if (autoUpdate.state === "flashing") {
     ink(255, 160, 60, 200);
     write("flash", { x: chatX, y: barY, size: 1, font: "matrix" });
@@ -1047,31 +1086,55 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     if (!system.fetchPending) {
       system.fetch?.("https://aesthetic.computer/api/clock");
     }
-    // Kick off background auto-update version check (after 5s to let things settle)
-    if (autoUpdate.state === "idle") {
-      autoUpdate.state = "checking";
-      autoUpdate.fetchPending = false; // will be set next frame when fetch slot is free
-    }
+    // Kick off update check shortly after connect (background ping + auto-update path).
+    scheduleAutoUpdateCheck(300);
   }
   wifiWasConnected = !!wifi?.connected;
 
-  // Start auto-update version fetch when slot is free (deferred from WiFi connect)
-  if (autoUpdate.state === "checking" && !autoUpdate.fetchPending
-      && !osFetchPending && wifi?.connected && !system.fetchPending) {
+  if (!wifi?.connected && autoUpdate.state === "checking") {
+    autoUpdate.fetchPending = false;
+    autoUpdate.state = "idle";
+  }
+
+  // Background update check schedule while connected.
+  if (wifi?.connected
+      && autoUpdate.state === "checking"
+      && !autoUpdate.fetchPending
+      && !osFetchPending
+      && frame >= autoUpdate.nextCheckFrame
+      && !system.fetchPending) {
     autoUpdate.fetchPending = true;
-    system.fetch?.(OS_BASE_URL + "native-notepat-latest.version");
+    system.fetch?.(OS_VERSION_URL);
+  }
+
+  // HTTP error routing for single fetch slot.
+  if (system.fetchError) {
+    const err = (system.fetchError || "request failed").trim().slice(0, 120);
+    if (osFetchPending) {
+      osFetchPending = false;
+      osError = err;
+      osState = "error";
+    } else if (autoUpdate.fetchPending) {
+      autoUpdate.fetchPending = false;
+      autoUpdate.lastError = err;
+      autoUpdate.state = "checking";
+      autoUpdate.nextCheckFrame = frame + OS_AUTO_RETRY_FRAMES;
+    }
   }
 
   // Poll for fetch result — priority: manual OS panel > auto-update > clock sync
   if (system.fetchResult) {
+    const fetchText = system.fetchResult.trim();
     if (osFetchPending) {
       // Manual OS panel version check
       osFetchPending = false;
-      const ver = system.fetchResult.trim();
+      const ver = fetchText;
       if (ver && ver.length > 0 && ver.length < 128) {
         osRemoteVersion = ver;
+        autoUpdate.availableVersion = (ver !== osCurrentVersion) ? ver : "";
         osState = (osCurrentVersion && osRemoteVersion && osCurrentVersion !== osRemoteVersion)
           ? "available" : "up-to-date";
+        if (osState === "available") notifyUpdateAvailable(sound, ver);
       } else {
         osError = "version check failed";
         osState = "error";
@@ -1079,23 +1142,22 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     } else if (autoUpdate.fetchPending) {
       // Background auto-update version check
       autoUpdate.fetchPending = false;
-      const ver = system.fetchResult.trim();
+      const ver = fetchText;
       if (ver && ver.length > 0 && ver.length < 128 && ver !== osCurrentVersion) {
-        // Newer version available — start silent download
-        autoUpdate.state = "downloading";
-        system.fetchBinary?.(
-          OS_BASE_URL + "native-notepat-latest.vmlinuz",
-          "/tmp/vmlinuz.new",
-          OS_VMLINUZ_BYTES
-        );
+        autoUpdate.availableVersion = ver;
+        osRemoteVersion = ver;
+        notifyUpdateAvailable(sound, ver);
+        startAutoUpdateDownload(system);
       } else {
-        autoUpdate.state = "idle"; // up to date, nothing to do
+        autoUpdate.availableVersion = "";
+        autoUpdate.state = "checking";
+        autoUpdate.nextCheckFrame = frame + OS_AUTO_CHECK_INTERVAL_FRAMES;
       }
     } else {
       // Clock sync result
       const t1 = Date.now();
       try {
-        const serverTime = new Date(system.fetchResult).getTime();
+        const serverTime = new Date(fetchText).getTime();
         if (!isNaN(serverTime)) {
           const newOffset = serverTime - t1;
           clockOffset += (newOffset - clockOffset) * 0.5;
@@ -1119,7 +1181,9 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         autoUpdate.state = "flashing";
         system.flashUpdate?.("/tmp/vmlinuz.new"); // auto-detects boot device
       } else {
-        autoUpdate.state = "idle"; // failed silently, retry next WiFi connect
+        autoUpdate.lastError = "download failed";
+        autoUpdate.state = "checking";
+        autoUpdate.nextCheckFrame = frame + OS_AUTO_RETRY_FRAMES;
       }
     }
   }
@@ -1129,7 +1193,9 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         autoUpdate.state = "rebooting";
         autoUpdate.rebootFrame = frame + 300; // 5s delay before reboot
       } else {
-        autoUpdate.state = "idle"; // failed silently
+        autoUpdate.lastError = "flash failed";
+        autoUpdate.state = "checking";
+        autoUpdate.nextCheckFrame = frame + OS_AUTO_RETRY_FRAMES;
       }
     }
   }
@@ -1145,18 +1211,22 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     } else if (osState === "checking" && !osFetchPending) {
       // Cancel any in-flight auto-update fetch so we can use the fetch slot
       if (autoUpdate.fetchPending) {
+        system.fetchCancel?.();
         autoUpdate.fetchPending = false;
-        autoUpdate.state = "idle";
+        autoUpdate.state = "checking";
+        autoUpdate.nextCheckFrame = frame + OS_AUTO_RETRY_FRAMES;
       }
       // Wait for C-side fetch slot to be free before issuing
       if (!system.fetchPending) {
         osFetchPending = true;
         osCheckFrame = frame;
-        system.fetch?.(OS_BASE_URL + "native-notepat-latest.version");
+        osError = "";
+        system.fetch?.(OS_VERSION_URL);
       }
     }
     // Timeout: if checking for > 10s (600 frames), give up
     if (osState === "checking" && osFetchPending && frame - osCheckFrame > 600) {
+      system.fetchCancel?.();
       osFetchPending = false;
       osState = "error";
       osError = "request timed out";
@@ -2056,4 +2126,3 @@ function leave() {
 }
 
 export { boot, act, paint, sim, leave };
-

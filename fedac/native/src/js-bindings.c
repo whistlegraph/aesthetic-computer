@@ -1449,14 +1449,17 @@ static JSValue js_fetch(JSContext *ctx, JSValueConst this_val, int argc, JSValue
     if (!url) return JS_UNDEFINED;
     unlink("/tmp/ac_fetch.json");
     unlink("/tmp/ac_fetch_rc");
+    unlink("/tmp/ac_fetch_err");
     char cmd[2048];
     ac_log("[fetch] start: %s\n", url);
     snprintf(cmd, sizeof(cmd),
-        "sh -c 'curl -sf --max-time 8 --output /tmp/ac_fetch.json \"%s\" 2>>/tmp/ac_fetch_err;"
+        "sh -c 'curl -fsSL --retry 2 --retry-delay 1 --connect-timeout 5 --max-time 12 "
+        "--output /tmp/ac_fetch.json \"%s\" 2>/tmp/ac_fetch_err;"
         " echo $? > /tmp/ac_fetch_rc' &", url);
     system(cmd);
     current_rt->fetch_pending = 1;
     current_rt->fetch_result[0] = 0;
+    current_rt->fetch_error[0] = 0;
     JS_FreeCString(ctx, url);
     return JS_TRUE;
 }
@@ -1471,8 +1474,10 @@ static JSValue js_fetch_cancel(JSContext *ctx, JSValueConst this_val, int argc, 
         system("pkill -f 'curl.*ac_fetch' 2>/dev/null");
         unlink("/tmp/ac_fetch.json");
         unlink("/tmp/ac_fetch_rc");
+        unlink("/tmp/ac_fetch_err");
         current_rt->fetch_pending = 0;
         current_rt->fetch_result[0] = 0;
+        current_rt->fetch_error[0] = 0;
     }
     return JS_UNDEFINED;
 }
@@ -1564,11 +1569,13 @@ static JSValue js_fetch_binary(JSContext *ctx, JSValueConst this_val, int argc, 
     current_rt->fetch_binary_dest[sizeof(current_rt->fetch_binary_dest) - 1] = 0;
     // Remove stale files
     unlink("/tmp/ac_fb_rc");
+    unlink("/tmp/ac_fb_err");
     unlink(dest);
     // Start curl in background
     char cmd[1024];
     snprintf(cmd, sizeof(cmd),
-        "sh -c 'curl -sf -L --max-time 300 --output \"%s\" \"%s\" 2>/dev/null;"
+        "sh -c 'curl -fSL --retry 3 --retry-delay 1 --connect-timeout 8 --max-time 600 "
+        "--output \"%s\" \"%s\" 2>/tmp/ac_fb_err;"
         " echo $? > /tmp/ac_fb_rc' &", dest, url);
     system(cmd);
     JS_FreeCString(ctx, url);
@@ -1858,6 +1865,8 @@ static JSValue build_system_obj(JSContext *ctx) {
             fclose(rc);
             unlink("/tmp/ac_fetch_rc");
             ac_log("[fetch] done: curl exit=%d\n", code);
+            current_rt->fetch_result[0] = 0;
+            current_rt->fetch_error[0] = 0;
             if (code == 0) {
                 FILE *fp = fopen("/tmp/ac_fetch.json", "r");
                 if (fp) {
@@ -1866,6 +1875,29 @@ static JSValue build_system_obj(JSContext *ctx) {
                     fclose(fp);
                     current_rt->fetch_result[n] = 0;
                     unlink("/tmp/ac_fetch.json");
+                } else {
+                    snprintf(current_rt->fetch_error, sizeof(current_rt->fetch_error),
+                             "request failed: missing response body");
+                }
+                unlink("/tmp/ac_fetch_err");
+            } else {
+                char emsg[160] = {0};
+                FILE *ef = fopen("/tmp/ac_fetch_err", "r");
+                if (ef) {
+                    int en = (int)fread(emsg, 1, sizeof(emsg) - 1, ef);
+                    fclose(ef);
+                    emsg[en] = 0;
+                    for (int i = 0; emsg[i]; i++) {
+                        if (emsg[i] == '\n' || emsg[i] == '\r' || emsg[i] == '\t') emsg[i] = ' ';
+                    }
+                }
+                unlink("/tmp/ac_fetch_err");
+                if (emsg[0]) {
+                    snprintf(current_rt->fetch_error, sizeof(current_rt->fetch_error),
+                             "request failed (%d): %s", code, emsg);
+                } else {
+                    snprintf(current_rt->fetch_error, sizeof(current_rt->fetch_error),
+                             "request failed (%d)", code);
                 }
             }
             current_rt->fetch_pending = 0;
@@ -1880,6 +1912,15 @@ static JSValue build_system_obj(JSContext *ctx) {
         current_rt->fetch_result[0] = 0;
     } else {
         JS_SetPropertyStr(ctx, sys, "fetchResult", JS_NULL);
+    }
+    // Fetch error is also one-shot, delivered during paint.
+    if (current_rt && current_rt->fetch_error[0]
+        && strcmp(current_phase, "paint") == 0) {
+        JS_SetPropertyStr(ctx, sys, "fetchError",
+                          JS_NewString(ctx, current_rt->fetch_error));
+        current_rt->fetch_error[0] = 0;
+    } else {
+        JS_SetPropertyStr(ctx, sys, "fetchError", JS_NULL);
     }
 
     // OS update version string

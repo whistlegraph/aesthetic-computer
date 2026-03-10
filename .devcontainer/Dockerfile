@@ -23,7 +23,9 @@ RUN dnf clean all && rm -rf /var/cache/dnf && \
     dnf update -y --refresh --setopt=zchunk=false && \
     dnf install -y \
       awk which tree procps-ng coreutils unzip jq bat ripgrep \
+      cpio lz4 bc perl mtools dosfstools ca-certificates \
       git gh gcc gcc-c++ clang make cmake \
+      musl-gcc elfutils-libelf-devel \
       python3.11 python3.11-devel python3-pip python3-devel \
       emacs-nox fish util-linux-user util-linux-script sshpass \
       openssl openssl-devel awscli redis \
@@ -36,7 +38,10 @@ RUN dnf clean all && rm -rf /var/cache/dnf && \
       libX11 libxkbfile libsecret libxshmfence libXtst \
       nss atk pango cups-libs libXcomposite libXcursor \
       libXi libXdamage libXrandr alsa-lib gtk3 \
+      alsa-lib-devel libdrm-devel libpciaccess-devel \
+      flite-devel \
       xorg-x11-server-Xvfb psmisc lsof chromium \
+      wpa_supplicant dhcp-client iw iwlwifi-mvm-firmware wireless-regdb \
       sbcl zeromq-devel redhat-rpm-config \
       poppler-utils \
       isync maildir-utils msmtp \
