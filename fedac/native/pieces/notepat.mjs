@@ -7,7 +7,15 @@ let octave = 4;
 let wave = "sine";
 let waveIndex = 0;
 let quickMode = false;
-const wavetypes = ["sine", "triangle", "sawtooth", "square", "noise"];
+const wavetypes = ["sine", "triangle", "sawtooth", "square", "noise", "sample"];
+let sampleLoaded = false;  // true after a mic recording is captured
+let recording = false;     // true while holding REC
+const SAMPLE_BASE_FREQ = 261.63; // C4 — base pitch for sample playback
+
+// Effective pitch shift blended by FX mix (0% fx = no pitch shift)
+function effectivePitchShift() {
+  return pitchShift * fxMix;
+}
 
 // Metronome state
 let metronomeEnabled = false;
@@ -227,7 +235,7 @@ function hitTestGrid(x, y, gi) {
 
 // Play a short identifying blip in the new wave type when switching
 function playWaveSound(sound, waveType) {
-  if (!sound?.synth) return;
+  if (!sound?.synth || waveType === "sample") return;
   const tones = { sine: 660, triangle: 550, sawtooth: 440, square: 330, noise: 220 };
   sound.synth({
     type: waveType === "noise" ? "noise" : waveType,
@@ -356,14 +364,23 @@ function act({ event: e, sound, wifi, system }) {
       // Start at current pressure (or full for digital keys)
       const velocity = e.pressure > 0 ? e.pressure : 1.0;
       const vol = 0.15 + velocity * 0.55;
-      const playFreq = freq * Math.pow(2, pitchShift);
-      const synth = sound.synth({
-        type: wave, tone: playFreq,
-        duration: Infinity,
-        volume: vol, attack: quickMode ? 0.002 : 0.005,
-        decay: 0.1, pan: pan,
-      });
-      sounds[key] = { synth, note: letter, octave: noteOctave, baseFreq: freq };
+      const playFreq = freq * Math.pow(2, effectivePitchShift());
+
+      if (wave === "sample" && sampleLoaded) {
+        // Play recorded sample at this pitch
+        const smp = sound.sample.play({
+          tone: playFreq, base: SAMPLE_BASE_FREQ, volume: vol, pan,
+        });
+        sounds[key] = { synth: smp, note: letter, octave: noteOctave, baseFreq: freq, isSample: true };
+      } else {
+        const synth = sound.synth({
+          type: wave, tone: playFreq,
+          duration: Infinity,
+          volume: vol, attack: quickMode ? 0.002 : 0.005,
+          decay: 0.1, pan: pan,
+        });
+        sounds[key] = { synth, note: letter, octave: noteOctave, baseFreq: freq };
+      }
       trail[key] = { note: letter, octave: noteOctave, brightness: velocity };
     }
   }
@@ -539,7 +556,7 @@ function act({ event: e, sound, wifi, system }) {
     if (y >= 39 && y < 51) {
       pitchDragging = true;
       pitchShift = Math.max(-1, Math.min(1, (x / w) * 2 - 1));
-      const factor = Math.pow(2, pitchShift);
+      const factor = Math.pow(2, effectivePitchShift());
       for (const k of Object.keys(sounds)) {
         const s = sounds[k];
         if (s && s.synth && s.baseFreq) s.synth.update({ tone: s.baseFreq * factor });
@@ -550,13 +567,19 @@ function act({ event: e, sound, wifi, system }) {
     const wb = globalThis.__waveButtons;
     if (wb && y >= wb.y && y < wb.y + wb.h) {
       if (x >= wb.octX) {
-        // Octave button — tap to increment
-        octave = (octave % 6) + 1;
+        if (wave === "sample") {
+          // REC button — hold to record
+          recording = true;
+          sound?.microphone?.rec?.();
+        } else {
+          // Octave button — tap to increment
+          octave = (octave % 6) + 1;
+        }
       } else {
         const idx = Math.min(wavetypes.length - 1, Math.floor(x / wb.btnW));
         waveIndex = idx;
         wave = wavetypes[idx];
-        playWaveSound(sound, wave);
+        if (wave !== "sample") playWaveSound(sound, wave);
       }
       return;
     }
@@ -569,12 +592,20 @@ function act({ event: e, sound, wifi, system }) {
         const freq = noteToFreq(hitNote.letter, hitNote.octave);
         const semitones = (hitNote.octave - 4) * 12 + CHROMATIC.indexOf(hitNote.letter);
         const pan = Math.max(-0.8, Math.min(0.8, (semitones - 12) / 15));
-        const playFreq = freq * Math.pow(2, pitchShift);
-        const synth = sound.synth({
-          type: wave, tone: playFreq, duration: Infinity,
-          volume: 0.5, attack: 0.005, decay: 0.1, pan,
-        });
-        sounds[hitNote.key] = { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq };
+        const playFreq = freq * Math.pow(2, effectivePitchShift());
+        let synth;
+        if (wave === "sample" && sampleLoaded) {
+          synth = sound.sample.play({
+            tone: playFreq, base: SAMPLE_BASE_FREQ, volume: 0.5, pan,
+          });
+          sounds[hitNote.key] = { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq, isSample: true };
+        } else {
+          synth = sound.synth({
+            type: wave, tone: playFreq, duration: Infinity,
+            volume: 0.5, attack: 0.005, decay: 0.1, pan,
+          });
+          sounds[hitNote.key] = { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq };
+        }
         trail[hitNote.key] = { note: hitNote.letter, octave: hitNote.octave, brightness: 1.0 };
         touchNotes[pid] = { key: hitNote.key };
         return;
@@ -597,7 +628,7 @@ function act({ event: e, sound, wifi, system }) {
     }
     if (pitchDragging) {
       pitchShift = Math.max(-1, Math.min(1, (x / w) * 2 - 1));
-      const factor = Math.pow(2, pitchShift);
+      const factor = Math.pow(2, effectivePitchShift());
       for (const k of Object.keys(sounds)) {
         const s = sounds[k];
         if (s && s.synth && s.baseFreq) s.synth.update({ tone: s.baseFreq * factor });
@@ -639,11 +670,20 @@ function act({ event: e, sound, wifi, system }) {
           const freq = noteToFreq(hitNote.letter, hitNote.octave);
           const semitones = (hitNote.octave - 4) * 12 + CHROMATIC.indexOf(hitNote.letter);
           const pan = Math.max(-0.8, Math.min(0.8, (semitones - 12) / 15));
-          const synth = sound.synth({
-            type: wave, tone: freq * Math.pow(2, pitchShift),
-            duration: Infinity, volume: 0.5, attack: 0.005, decay: 0.1, pan,
-          });
-          sounds[hitNote.key] = { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq };
+          const playFreq = freq * Math.pow(2, effectivePitchShift());
+          let synth;
+          if (wave === "sample" && sampleLoaded) {
+            synth = sound.sample.play({
+              tone: playFreq, base: SAMPLE_BASE_FREQ, volume: 0.5, pan,
+            });
+            sounds[hitNote.key] = { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq, isSample: true };
+          } else {
+            synth = sound.synth({
+              type: wave, tone: playFreq,
+              duration: Infinity, volume: 0.5, attack: 0.005, decay: 0.1, pan,
+            });
+            sounds[hitNote.key] = { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq };
+          }
           trail[hitNote.key] = { note: hitNote.letter, octave: hitNote.octave, brightness: 1.0 };
           touchNotes[pid] = { key: hitNote.key };
         }
@@ -652,6 +692,12 @@ function act({ event: e, sound, wifi, system }) {
   }
   if (e.is("lift")) {
     const pid = e.pointer?.id ?? 0;
+    // Stop recording on any lift
+    if (recording) {
+      recording = false;
+      const len = sound?.microphone?.cut?.() || 0;
+      if (len > 0) sampleLoaded = true;
+    }
     if (fxDragging) fxDragging = false;
     if (echoDragging) echoDragging = false;
     if (pitchDragging) pitchDragging = false;
@@ -688,7 +734,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     if (trackpad.dy !== 0) {
       pitchShift = Math.max(-1, Math.min(1, pitchShift - trackpad.dy / h));
       // Apply pitch shift to all active voices
-      const factor = Math.pow(2, pitchShift); // ±1 octave
+      const factor = Math.pow(2, effectivePitchShift()); // ±1 octave
       for (const key of Object.keys(sounds)) {
         const s = sounds[key];
         if (s && s.synth && s.baseFreq) {
@@ -1648,7 +1694,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   {
     const waveRowY = settingsY + 36;
     const waveRowH = 14;
-    const waveLabels = ["sin", "tri", "saw", "sq", "ns"];
+    const waveLabels = ["sin", "tri", "saw", "sq", "ns", "smp"];
     const octBtnW = 22;                           // octave button on right
     const waveAreaW = w - octBtnW - 1;
     const btnW2 = Math.floor(waveAreaW / wavetypes.length);
@@ -1681,17 +1727,35 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       write(waveLabels[i], { x: lx, y: waveRowY + 3, size: 1, font: "font_1" });
     }
 
-    // Octave button (right side)
+    // Octave / REC button (right side)
     const obx = w - octBtnW;
     const octHov = hoverX >= obx && hoverY >= waveRowY && hoverY < waveRowY + waveRowH;
-    ink(dark ? (octHov ? 50 : 28) : (octHov ? 200 : 225),
-        dark ? (octHov ? 50 : 28) : (octHov ? 200 : 225),
-        dark ? (octHov ? 55 : 32) : (octHov ? 205 : 230));
-    box(obx, waveRowY, octBtnW, waveRowH, true);
-    ink(dark ? 40 : 190, dark ? 40 : 190, dark ? 45 : 195);
-    box(obx, waveRowY, 1, waveRowH, true);
-    ink(dark ? 140 : 100, dark ? 140 : 100, dark ? 150 : 110);
-    write("o:" + octave, { x: obx + 3, y: waveRowY + 3, size: 1, font: "font_1" });
+    if (wave === "sample" && recording) {
+      // Recording — red pulse
+      ink(200, 30, 30);
+      box(obx, waveRowY, octBtnW, waveRowH, true);
+      ink(255, 255, 255);
+      write("REC", { x: obx + 2, y: waveRowY + 3, size: 1, font: "font_1" });
+    } else if (wave === "sample") {
+      // REC button (idle)
+      ink(dark ? (octHov ? 80 : 50) : (octHov ? 180 : 210),
+          dark ? (octHov ? 30 : 20) : (octHov ? 180 : 210),
+          dark ? (octHov ? 30 : 20) : (octHov ? 185 : 215));
+      box(obx, waveRowY, octBtnW, waveRowH, true);
+      ink(dark ? 40 : 190, dark ? 40 : 190, dark ? 45 : 195);
+      box(obx, waveRowY, 1, waveRowH, true);
+      ink(dark ? 220 : 180, dark ? 80 : 60, dark ? 80 : 60);
+      write("REC", { x: obx + 2, y: waveRowY + 3, size: 1, font: "font_1" });
+    } else {
+      ink(dark ? (octHov ? 50 : 28) : (octHov ? 200 : 225),
+          dark ? (octHov ? 50 : 28) : (octHov ? 200 : 225),
+          dark ? (octHov ? 55 : 32) : (octHov ? 205 : 230));
+      box(obx, waveRowY, octBtnW, waveRowH, true);
+      ink(dark ? 40 : 190, dark ? 40 : 190, dark ? 45 : 195);
+      box(obx, waveRowY, 1, waveRowH, true);
+      ink(dark ? 140 : 100, dark ? 140 : 100, dark ? 150 : 110);
+      write("o:" + octave, { x: obx + 3, y: waveRowY + 3, size: 1, font: "font_1" });
+    }
 
     // Expose hit zones for act()
     globalThis.__waveButtons = { y: waveRowY, h: waveRowH, btnW: btnW2, octX: obx, octW: octBtnW };

@@ -285,6 +285,40 @@ static void *audio_thread_fn(void *arg) {
             mix_l /= mix_divisor;
             mix_r /= mix_divisor;
 
+            // Mix sample voices (pitch-shifted playback)
+            for (int v = 0; v < AUDIO_MAX_SAMPLE_VOICES; v++) {
+                SampleVoice *sv = &audio->sample_voices[v];
+                if (!sv->active) continue;
+
+                // Fade envelope (5ms attack/release at output rate)
+                double fade_speed = 1.0 / (0.005 * rate);
+                if (sv->fade < sv->fade_target) {
+                    sv->fade += fade_speed;
+                    if (sv->fade > sv->fade_target) sv->fade = sv->fade_target;
+                } else if (sv->fade > sv->fade_target) {
+                    sv->fade -= fade_speed;
+                    if (sv->fade <= 0.0) { sv->fade = 0.0; sv->active = 0; continue; }
+                }
+
+                int pos0 = (int)sv->position;
+                if (pos0 >= audio->sample_len) { sv->active = 0; continue; }
+                int pos1 = pos0 + 1;
+                if (pos1 >= audio->sample_len) pos1 = pos0;
+                double frac = sv->position - pos0;
+                double sample = audio->sample_buf[pos0] * (1.0 - frac)
+                              + audio->sample_buf[pos1] * frac;
+                sample *= sv->volume * sv->fade;
+                double l_gain = sv->pan <= 0 ? 1.0 : 1.0 - sv->pan;
+                double r_gain = sv->pan >= 0 ? 1.0 : 1.0 + sv->pan;
+                mix_l += sample * l_gain;
+                mix_r += sample * r_gain;
+
+                sv->position += sv->speed;
+                if (sv->position >= audio->sample_len) {
+                    sv->active = 0; // one-shot
+                }
+            }
+
             // Smooth room_mix toward target (~10ms at 192kHz)
             if (audio->room_mix != audio->target_room_mix) {
                 audio->room_mix += (audio->target_room_mix - audio->room_mix) * 0.00005f;
@@ -502,6 +536,13 @@ ACAudio *audio_init(void) {
     audio->target_fx_mix = 1.0f;
     audio->room_buf_l = calloc(ROOM_SIZE, sizeof(float));
     audio->room_buf_r = calloc(ROOM_SIZE, sizeof(float));
+
+    // Sample buffer (10 seconds at max 48kHz capture rate)
+    audio->sample_max_len = 48000 * AUDIO_MAX_SAMPLE_SECS;
+    audio->sample_buf = calloc(audio->sample_max_len, sizeof(float));
+    audio->sample_len = 0;
+    audio->sample_rate = 48000; // default, overwritten by actual capture rate
+    audio->sample_next_id = 1;
 
     // TTS PCM ring buffer (5 seconds at output rate)
     audio->tts_buf_size = AUDIO_SAMPLE_RATE * 5;
@@ -857,6 +898,167 @@ void audio_set_fx_mix(ACAudio *audio, float mix) {
     if (mix < 0.0f) mix = 0.0f;
     if (mix > 1.0f) mix = 1.0f;
     audio->target_fx_mix = mix;
+}
+
+// --- Microphone capture thread ---
+static void *capture_thread_func(void *arg) {
+    ACAudio *audio = (ACAudio *)arg;
+    snd_pcm_t *cap = NULL;
+
+    // Try to open capture device
+    const char *devices[] = {"hw:0,0", "hw:1,0", "hw:0,6", "hw:0,7",
+                             "plughw:0,0", "plughw:1,0", "default", NULL};
+    for (int i = 0; devices[i]; i++) {
+        if (snd_pcm_open(&cap, devices[i], SND_PCM_STREAM_CAPTURE, 0) == 0) {
+            fprintf(stderr, "[mic] Opened capture device: %s\n", devices[i]);
+            break;
+        }
+        cap = NULL;
+    }
+    if (!cap) {
+        fprintf(stderr, "[mic] No capture device found\n");
+        audio->recording = 0;
+        return NULL;
+    }
+
+    // Configure capture
+    snd_pcm_hw_params_t *hw;
+    snd_pcm_hw_params_alloca(&hw);
+    snd_pcm_hw_params_any(cap, hw);
+    snd_pcm_hw_params_set_access(cap, hw, SND_PCM_ACCESS_RW_INTERLEAVED);
+    snd_pcm_hw_params_set_format(cap, hw, SND_PCM_FORMAT_S16_LE);
+
+    // Try mono, fall back to stereo
+    unsigned int channels = 1;
+    if (snd_pcm_hw_params_set_channels(cap, hw, 1) < 0) {
+        channels = 2;
+        snd_pcm_hw_params_set_channels(cap, hw, 2);
+    }
+
+    unsigned int rate = 48000;
+    snd_pcm_hw_params_set_rate_near(cap, hw, &rate, NULL);
+
+    if (snd_pcm_hw_params(cap, hw) < 0) {
+        fprintf(stderr, "[mic] Failed to configure capture\n");
+        snd_pcm_close(cap);
+        audio->recording = 0;
+        return NULL;
+    }
+
+    audio->sample_rate = rate;
+    audio->sample_write_pos = 0;
+    fprintf(stderr, "[mic] Recording at %u Hz, %u ch\n", rate, channels);
+
+    int16_t buf[1024 * 2]; // max stereo
+    while (audio->recording && audio->sample_write_pos < audio->sample_max_len) {
+        int n = snd_pcm_readi(cap, buf, 512);
+        if (n < 0) {
+            n = snd_pcm_recover(cap, n, 0);
+            if (n < 0) break;
+            continue;
+        }
+        for (int s = 0; s < n && audio->sample_write_pos < audio->sample_max_len; s++) {
+            float sample;
+            if (channels == 1) {
+                sample = buf[s] / 32768.0f;
+            } else {
+                sample = (buf[s * 2] + buf[s * 2 + 1]) / 65536.0f; // average L+R
+            }
+            audio->sample_buf[audio->sample_write_pos++] = sample;
+        }
+    }
+
+    audio->sample_len = audio->sample_write_pos;
+    fprintf(stderr, "[mic] Recorded %d samples (%.2fs)\n",
+            audio->sample_len, (double)audio->sample_len / audio->sample_rate);
+    snd_pcm_close(cap);
+    audio->recording = 0;
+    return NULL;
+}
+
+int audio_mic_start(ACAudio *audio) {
+    if (!audio || audio->recording) return -1;
+    audio->recording = 1;
+    audio->sample_len = 0;
+    // Kill any playing sample voices
+    for (int i = 0; i < AUDIO_MAX_SAMPLE_VOICES; i++)
+        audio->sample_voices[i].active = 0;
+    if (pthread_create(&audio->capture_thread, NULL, capture_thread_func, audio) != 0) {
+        audio->recording = 0;
+        return -1;
+    }
+    pthread_detach(audio->capture_thread);
+    return 0;
+}
+
+int audio_mic_stop(ACAudio *audio) {
+    if (!audio) return 0;
+    audio->recording = 0;
+    // Thread will exit on its own, detached
+    usleep(50000); // 50ms for thread to finish last read
+    return audio->sample_len;
+}
+
+// --- Sample playback ---
+uint64_t audio_sample_play(ACAudio *audio, double freq, double base_freq,
+                           double volume, double pan) {
+    if (!audio || audio->sample_len == 0) return 0;
+    pthread_mutex_lock(&audio->lock);
+
+    // Find free slot (or steal oldest)
+    int slot = -1;
+    for (int i = 0; i < AUDIO_MAX_SAMPLE_VOICES; i++) {
+        if (!audio->sample_voices[i].active) { slot = i; break; }
+    }
+    if (slot < 0) slot = 0; // steal first
+
+    SampleVoice *sv = &audio->sample_voices[slot];
+    sv->active = 1;
+    sv->position = 0.0;
+    // Speed: pitch ratio * rate conversion (capture rate → output rate)
+    sv->speed = (freq / base_freq) * ((double)audio->sample_rate / (double)audio->actual_rate);
+    sv->volume = volume;
+    sv->pan = pan;
+    sv->fade = 0.0;
+    sv->fade_target = 1.0;
+    sv->id = audio->sample_next_id++;
+
+    pthread_mutex_unlock(&audio->lock);
+    fprintf(stderr, "[sample] play freq=%.1f base=%.1f speed=%.4f id=%lu\n",
+            freq, base_freq, sv->speed, (unsigned long)sv->id);
+    return sv->id;
+}
+
+void audio_sample_kill(ACAudio *audio, uint64_t id, double fade) {
+    if (!audio) return;
+    pthread_mutex_lock(&audio->lock);
+    for (int i = 0; i < AUDIO_MAX_SAMPLE_VOICES; i++) {
+        if (audio->sample_voices[i].active && audio->sample_voices[i].id == id) {
+            if (fade <= 0.001) {
+                audio->sample_voices[i].active = 0;
+            } else {
+                audio->sample_voices[i].fade_target = 0.0;
+            }
+            break;
+        }
+    }
+    pthread_mutex_unlock(&audio->lock);
+}
+
+void audio_sample_update(ACAudio *audio, uint64_t id, double freq,
+                         double base_freq, double volume, double pan) {
+    if (!audio) return;
+    pthread_mutex_lock(&audio->lock);
+    for (int i = 0; i < AUDIO_MAX_SAMPLE_VOICES; i++) {
+        SampleVoice *sv = &audio->sample_voices[i];
+        if (sv->active && sv->id == id) {
+            sv->speed = (freq / base_freq) * ((double)audio->sample_rate / (double)audio->actual_rate);
+            sv->volume = volume;
+            sv->pan = pan;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&audio->lock);
 }
 
 // Read current Master mixer volume as 0-100 percentage
