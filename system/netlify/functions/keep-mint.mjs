@@ -83,6 +83,18 @@ const KEEP_MINT_EXPECTED_TYPE_HASH = Number.parseInt(
   10
 );
 
+const VERSION_BY_PROFILE = {
+  v11: "11.0.0",
+  v10: "10.0.0",
+  v9: "9.0.0",
+  v8: "8.0.0",
+  v7: "7.0.0",
+  v6: "6.0.0",
+  v5: "5.0.0",
+  v5rc: "5.0.0-rc",
+  v4: "4.0.0",
+};
+
 const ADMIN_ENTRYPOINTS = new Set([
   "set_administrator",
   "set_contract_metadata",
@@ -271,6 +283,18 @@ function maybeInt(value, fallback = null) {
 
 function normalizeAddress(value) {
   return typeof value === "string" ? value.trim() : null;
+}
+
+function normalizeContractProfile(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim().toLowerCase();
+  return trimmed || null;
+}
+
+function normalizeContractVersion(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed || null;
 }
 
 function decodeHexUtf8(value) {
@@ -824,6 +848,13 @@ export const handler = stream(async (event, context) => {
         network: NETWORK,
         fallback: LEGACY_KEEPS_CONTRACT,
       });
+      const activeContractProfile =
+        normalizeContractProfile(body.contractProfile) ||
+        (String(CONTRACT_ADDRESS).trim().toLowerCase() === LEGACY_KEEPS_CONTRACT.toLowerCase() ? "legacy" : "v11");
+      const activeContractVersion =
+        normalizeContractVersion(body.contractVersion) ||
+        VERSION_BY_PROFILE[activeContractProfile] ||
+        null;
 
       // ═══════════════════════════════════════════════════════════════════
       // SIMULATOR MODE: Build metadata + contract call scaffold without minting
@@ -1047,6 +1078,8 @@ export const handler = stream(async (event, context) => {
             mode: "simulate",
             piece: pieceName,
             contractAddress: CONTRACT_ADDRESS,
+            contractProfile: activeContractProfile || null,
+            contractVersion: activeContractVersion || null,
             network: NETWORK,
             rpcUrl: RPC_URL,
             mintFee: keepFeeXtz,
@@ -1486,10 +1519,11 @@ export const handler = stream(async (event, context) => {
       if (!useCachedMedia) {
         logStage('bundle', 'Generating HTML bundle');
         await send("progress", { stage: "bundle", message: "Packing HTML bundle..." });
-        
+
+        const bundleCode = `$${pieceName}`;
         let bundleUrl = dev
-          ? `https://localhost:8888/api/bundle-html?code=${pieceName}&format=json&noboxart=1`
-          : `https://oven.aesthetic.computer/bundle-html?code=${pieceName}&format=json&noboxart=1`;
+          ? `https://localhost:8888/api/pack-html?code=${encodeURIComponent(bundleCode)}&format=json`
+          : `https://oven.aesthetic.computer/pack-html?code=${encodeURIComponent(bundleCode)}&format=json`;
         if (forceFreshMedia) {
           bundleUrl += `&rebake=1&nocache=1&sourceHash=${encodeURIComponent(pieceSourceHash)}&ts=${Date.now()}`;
         }
@@ -1753,8 +1787,14 @@ export const handler = stream(async (event, context) => {
                 pendingRebake: {
                   artifactUri,
                   thumbnailUri,
+                  metadataUri: null,
                   createdAt: new Date(),
                   sourceHash: pieceSourceHash,
+                  network: NETWORK,
+                  contractAddress: CONTRACT_ADDRESS,
+                  contractProfile: activeContractProfile || null,
+                  contractVersion: activeContractVersion || null,
+                  packDate: packDate || null,
                 }
               }
             }
@@ -1770,9 +1810,14 @@ export const handler = stream(async (event, context) => {
             tokenId: mintStatus.tokenId,
             artifactUri,
             thumbnailUri,
+            metadataUri: null,
             objktUrl: mintStatus.objktUrl,
             createdAt: rebakeCreatedAt,
             packDate,
+            network: NETWORK,
+            contractAddress: CONTRACT_ADDRESS,
+            contractProfile: activeContractProfile || null,
+            contractVersion: activeContractVersion || null,
           });
           await database.disconnect();
           return;
@@ -1793,10 +1838,15 @@ export const handler = stream(async (event, context) => {
           tokenId: mintStatus.tokenId,
           artifactUri,
           thumbnailUri,
+          metadataUri: piece.pendingRebake?.metadataUri || null,
           objktUrl: mintStatus.objktUrl,
           createdAt: piece.pendingRebake?.createdAt ? new Date(piece.pendingRebake.createdAt).toISOString() : new Date().toISOString(),
           packDate,
           fromCache: true,
+          network: NETWORK,
+          contractAddress: CONTRACT_ADDRESS,
+          contractProfile: activeContractProfile || null,
+          contractVersion: activeContractVersion || null,
         });
         await database.disconnect();
         return;
@@ -1981,6 +2031,8 @@ export const handler = stream(async (event, context) => {
           success: true,
           piece: pieceName,
           contractAddress: CONTRACT_ADDRESS,
+          contractProfile: activeContractProfile || null,
+          contractVersion: activeContractVersion || null,
           network: NETWORK,
           mintFee: keepFeeXtz, // Read from contract storage
           // Send the Michelson-encoded parameters for Beacon

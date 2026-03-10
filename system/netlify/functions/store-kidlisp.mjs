@@ -88,6 +88,18 @@ async function ensureIndexes(collection) {
       sparse: true, // Only index documents that have the kept field
       name: 'kidlisp_kept_network'
     });
+
+    // Create indexes for active contract profile/version filtering
+    await collection.createIndex({ "kept.contractVersion": 1 }, {
+      background: true,
+      sparse: true,
+      name: "kidlisp_kept_contract_version",
+    });
+    await collection.createIndex({ "kept.contractProfile": 1 }, {
+      background: true,
+      sparse: true,
+      name: "kidlisp_kept_contract_profile",
+    });
     
     console.log('📦 Kidlisp indexes ensured');
   } catch (error) {
@@ -107,6 +119,18 @@ function normalizeAddress(value) {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
+function normalizeContractProfile(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim().toLowerCase();
+  return trimmed || null;
+}
+
+function normalizeContractVersion(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed || null;
+}
+
 function toEpochMs(value) {
   if (!value) return 0;
   const ms = new Date(value).getTime();
@@ -124,6 +148,18 @@ function normalizeKeepRecord(raw = {}, defaults = {}) {
     network: raw.network || defaults.network || "mainnet",
     txHash: raw.txHash || defaults.txHash || null,
     contractAddress,
+    contractProfile: normalizeContractProfile(
+      raw.contractProfile ||
+      raw.profile ||
+      defaults.contractProfile ||
+      defaults.profile
+    ),
+    contractVersion: normalizeContractVersion(
+      raw.contractVersion ||
+      raw.version ||
+      defaults.contractVersion ||
+      defaults.version
+    ),
     keptAt: raw.keptAt || raw.mintedAt || defaults.keptAt || null,
     keptBy: raw.keptBy || defaults.keptBy || null,
     walletAddress: raw.walletAddress || raw.owner || defaults.walletAddress || null,
@@ -142,6 +178,33 @@ function selectPrimaryKeepRecord(records = [], preferredContract = null) {
     normalizeAddress(record?.contractAddress) === normalizedPreferred
   );
   return preferred || records[0];
+}
+
+function filterKeepRecords(records = [], options = {}) {
+  if (!Array.isArray(records) || records.length === 0) return [];
+
+  const normalizedContract = normalizeAddress(options.contract || null);
+  const normalizedProfile = normalizeContractProfile(options.contractProfile || null);
+  const normalizedVersion = normalizeContractVersion(options.contractVersion || null);
+
+  return records.filter((record) => {
+    const recordContract = normalizeAddress(record?.contractAddress);
+    const recordProfile = normalizeContractProfile(record?.contractProfile);
+    const recordVersion = normalizeContractVersion(record?.contractVersion);
+
+    if (normalizedContract && normalizeAddress(record?.contractAddress) !== normalizedContract) {
+      return false;
+    }
+    if (normalizedProfile) {
+      if (recordProfile && recordProfile !== normalizedProfile) return false;
+      if (!recordProfile && (!normalizedContract || recordContract !== normalizedContract)) return false;
+    }
+    if (normalizedVersion) {
+      if (recordVersion && recordVersion !== normalizedVersion) return false;
+      if (!recordVersion && (!normalizedContract || recordContract !== normalizedContract)) return false;
+    }
+    return true;
+  });
 }
 
 function extractKeepRecords(doc = {}) {
@@ -585,6 +648,8 @@ export async function handler(event, context) {
       }
 
       const requestedContract = event.queryStringParameters?.contract || null;
+      const requestedContractVersion = normalizeContractVersion(event.queryStringParameters?.contractVersion || null);
+      const requestedContractProfile = normalizeContractProfile(event.queryStringParameters?.contractProfile || null);
 
       // Handle recent codes feed (for $.mjs piece)
       if (recent) {
@@ -646,6 +711,7 @@ export async function handler(event, context) {
             user: 1,
             kept: 1,    // Include kept status
             tezos: 1,   // Include legacy tezos field
+            pendingRebake: 1,
             handle: 1   // Already computed
           }
         });
@@ -664,11 +730,34 @@ export async function handler(event, context) {
             handle: doc.handle || null
           };
           
-          const keepRecords = extractKeepRecords(doc);
+          const keepRecords = filterKeepRecords(extractKeepRecords(doc), {
+            contract: requestedContract,
+            contractProfile: requestedContractProfile,
+            contractVersion: requestedContractVersion,
+          });
           if (keepRecords.length > 0) {
             result.kept = selectPrimaryKeepRecord(keepRecords, requestedContract);
             if (keepRecords.length > 1) {
               result.keptRecords = keepRecords;
+            }
+          }
+
+          if (doc.pendingRebake && typeof doc.pendingRebake === "object") {
+            const pendingContract = normalizeAddress(doc.pendingRebake.contractAddress || "");
+            const contractMatches = !requestedContract || pendingContract === normalizeAddress(requestedContract);
+            const pendingProfile = normalizeContractProfile(doc.pendingRebake.contractProfile);
+            const pendingVersion = normalizeContractVersion(doc.pendingRebake.contractVersion);
+            const profileMatches = !requestedContractProfile ||
+              (pendingProfile
+                ? pendingProfile === requestedContractProfile
+                : contractMatches);
+            const versionMatches = !requestedContractVersion ||
+              (pendingVersion
+                ? pendingVersion === requestedContractVersion
+                : contractMatches);
+
+            if (contractMatches && profileMatches && versionMatches) {
+              result.pendingRebake = doc.pendingRebake;
             }
           }
           
@@ -763,7 +852,11 @@ export async function handler(event, context) {
               handle: doc.handle || null
             };
             
-            const keepRecords = extractKeepRecords(doc);
+            const keepRecords = filterKeepRecords(extractKeepRecords(doc), {
+              contract: requestedContract,
+              contractProfile: requestedContractProfile,
+              contractVersion: requestedContractVersion,
+            });
             if (keepRecords.length > 0) {
               result.kept = selectPrimaryKeepRecord(keepRecords, requestedContract);
               if (keepRecords.length > 1) {
@@ -870,7 +963,11 @@ export async function handler(event, context) {
         };
       }
       
-      const keepRecords = extractKeepRecords(doc);
+      const keepRecords = filterKeepRecords(extractKeepRecords(doc), {
+        contract: requestedContract,
+        contractProfile: requestedContractProfile,
+        contractVersion: requestedContractVersion,
+      });
       if (keepRecords.length > 0) {
         response.kept = selectPrimaryKeepRecord(keepRecords, requestedContract);
         if (keepRecords.length > 1) {
@@ -879,12 +976,30 @@ export async function handler(event, context) {
       }
       
       // Include pending rebake info if present (rebaked but not yet updated on chain)
-      if (doc.pendingRebake) {
-        response.pendingRebake = {
-          artifactUri: doc.pendingRebake.artifactUri,
-          thumbnailUri: doc.pendingRebake.thumbnailUri,
-          createdAt: doc.pendingRebake.createdAt,
-        };
+      if (doc.pendingRebake && typeof doc.pendingRebake === "object") {
+        const pendingContract = normalizeAddress(doc.pendingRebake.contractAddress || "");
+        const contractMatches = !requestedContract || pendingContract === normalizeAddress(requestedContract);
+        const pendingProfile = normalizeContractProfile(doc.pendingRebake.contractProfile);
+        const pendingVersion = normalizeContractVersion(doc.pendingRebake.contractVersion);
+        const profileMatches = !requestedContractProfile ||
+          (pendingProfile
+            ? pendingProfile === requestedContractProfile
+            : contractMatches);
+        const versionMatches = !requestedContractVersion ||
+          (pendingVersion
+            ? pendingVersion === requestedContractVersion
+            : contractMatches);
+        if (contractMatches && profileMatches && versionMatches) {
+          response.pendingRebake = {
+            artifactUri: doc.pendingRebake.artifactUri,
+            thumbnailUri: doc.pendingRebake.thumbnailUri,
+            metadataUri: doc.pendingRebake.metadataUri || null,
+            createdAt: doc.pendingRebake.createdAt,
+            contractAddress: doc.pendingRebake.contractAddress || null,
+            contractProfile: doc.pendingRebake.contractProfile || null,
+            contractVersion: doc.pendingRebake.contractVersion || null,
+          };
+        }
       }
       
       return respond(200, response, NO_CACHE_HEADERS);
