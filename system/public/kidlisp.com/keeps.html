@@ -2292,6 +2292,31 @@
       color: #d9534f;
     }
 
+    .mint-track-log {
+      margin-top: 10px;
+      border-top: 1px solid var(--border-subtle);
+      padding-top: 8px;
+      max-height: 120px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .mint-track-log:empty { display: none; }
+    .mint-track-entry {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-tertiary);
+      display: flex;
+      gap: 6px;
+      align-items: baseline;
+    }
+    .mint-track-entry .track-time { color: var(--text-tertiary); white-space: nowrap; }
+    .mint-track-entry .track-msg { color: var(--text-secondary); }
+    .mint-track-entry.track-done .track-msg { color: #4a9c5d; }
+    .mint-track-entry.track-error .track-msg { color: #d9534f; }
+    .mint-track-entry.track-active .track-msg { color: var(--ac-purple); }
+
     .mint-artifacts {
       margin-top: 12px;
       padding: 12px;
@@ -2826,6 +2851,7 @@
         <div class="mint-preview-frame" id="mint-preview-frame"></div>
         <div class="mint-timeline" id="mint-timeline"></div>
         <div id="mint-result-area"></div>
+        <div class="mint-track-log" id="mint-track-log"></div>
         <div class="mint-actions" id="mint-actions-start" style="display:none;">
           <button class="mint-action-btn cancel" onclick="cancelMint()">Cancel</button>
           <button class="mint-action-btn primary" id="mint-start-btn" onclick="beginMintFlow()">Keep on Tezos ꜩ</button>
@@ -4323,11 +4349,7 @@
       const inlineRebake = document.getElementById('mint-inline-rebake');
       if (inlineRebake && mintCurrentEntry) {
         inlineRebake.addEventListener('click', () => {
-          if (isKeptOnActiveContract(mintCurrentEntry)) {
-            openMintModal(mintCurrentEntry, { rebake: true });
-            return;
-          }
-          openMintModal(mintCurrentEntry, { regenerate: true });
+          rerunRegenerate();
         });
       }
     }
@@ -4849,6 +4871,7 @@
         startActions.style.display = 'flex';
       }
 
+      clearTrackLog();
       document.getElementById('mint-overlay').classList.add('open');
     }
 
@@ -4876,6 +4899,7 @@
       if (ovenPreview) ovenPreview.remove();
       mintOnChainUris = null;
       mintLatestUris = null;
+      clearTrackLog();
     }
 
     function cancelMint() {
@@ -4894,13 +4918,16 @@
 
       try {
         // Step 1: Connect wallet
+        addTrackEntry(rebake ? 'Starting regeneration...' : (regenerate ? 'Starting regeneration...' : 'Starting keep flow...'), 'active');
         setMintStep('wallet', 'active', 'Connecting...');
         const address = await connectWallet();
         if (!address) {
           setMintStep('wallet', 'error', 'Connection cancelled');
+          addTrackEntry('Wallet connection cancelled', 'error');
           return;
         }
         setMintStep('wallet', 'done', address.slice(0, 8) + '...' + address.slice(-4));
+        addTrackEntry('Wallet connected: ' + address.slice(0, 8) + '...' + address.slice(-4));
 
         // Activate heartbeat
         const hb = document.getElementById('mint-heartbeat');
@@ -5100,6 +5127,7 @@
                 setMintStep('review', 'done', 'Regenerated');
                 setMintStep('sign', 'done', 'No signature needed');
                 setMintStep('complete', 'done', 'Rebake complete');
+                addTrackEntry('Media regenerated successfully', 'done');
                 document.getElementById('mint-actions').style.display = 'none';
                 mintLatestUris = {
                   ...(mintLatestUris || {}),
@@ -5151,10 +5179,13 @@
                   metadataUri: data.metadataUri || mintLatestUris?.metadataUri,
                   packDate: data.packDate,
                   objktUrl: data.objktUrl,
+                  showRebakeButton: true,
+                  rebakeButtonLabel: 'Regenerate Again',
                   append: !!mintOnChainUris,
                 });
               } else {
                 setMintStep('review', 'active', `${data.mintFee || 2.5} XTZ`);
+                addTrackEntry('Artifacts prepared, ready for signing', 'done');
                 mintLatestUris = {
                   ...(mintLatestUris || {}),
                   ...(data.artifactUri ? { artifactUri: data.artifactUri } : {}),
@@ -5193,6 +5224,7 @@
               const hb = document.getElementById('mint-heartbeat');
               if (hb) { hb.classList.add('lost'); }
               setMintStep(failStage, 'error', job.error || 'Preparation failed');
+              addTrackEntry(job.error || 'Preparation failed', 'error');
               showMintError(job.error || 'Preparation failed', true);
               resolve();
               return;
@@ -5303,6 +5335,7 @@
           renderMintPieceInfo(mintCurrentEntry, { rebake: false, regenerate: false });
         }
 
+        addTrackEntry(`Kept $${mintCurrentPiece} on Tezos`, 'done');
         showMintResult(`Successfully kept $${mintCurrentPiece}!`, objktUrl, txHash);
         renderMintArtifactPanel({
           title: 'Kept Artifacts',
@@ -5356,6 +5389,52 @@
       mintStepStates = {};
       renderTimeline();
       startMintFlow(mintCurrentEntry.code, {});
+    }
+
+    // ── Track Record Log ───────────────────────────────────
+    function addTrackEntry(msg, status = '') {
+      const log = document.getElementById('mint-track-log');
+      if (!log) return;
+      const now = new Date();
+      const ts = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const el = document.createElement('div');
+      el.className = `mint-track-entry${status ? ` track-${status}` : ''}`;
+      el.innerHTML = `<span class="track-time">${ts}</span><span class="track-msg">${escapeHtml(msg)}</span>`;
+      log.appendChild(el);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function clearTrackLog() {
+      const log = document.getElementById('mint-track-log');
+      if (log) log.innerHTML = '';
+    }
+
+    // ── In-place Regenerate (no modal reset) ───────────────
+    async function rerunRegenerate() {
+      if (!mintCurrentEntry) return;
+      const entry = mintCurrentEntry;
+      const piece = entry.code;
+      const rebake = isKeptOnActiveContract(entry);
+
+      // Abort any in-flight job
+      if (mintAbortController) { mintAbortController.abort(); mintAbortController = null; }
+      if (mintPollTimer) { clearInterval(mintPollTimer); mintPollTimer = null; }
+
+      // Reset step states but keep the modal open with existing content
+      mintStepStates = {};
+      mintPreparedData = null;
+
+      // Hide action buttons during regeneration
+      document.getElementById('mint-actions').style.display = 'none';
+      document.getElementById('mint-actions-start').style.display = 'none';
+
+      // Show progress overlay on preview frame
+      renderTimeline();
+
+      addTrackEntry('Regenerating media...', 'active');
+
+      // Run the mint flow (which handles wallet, validation, polling)
+      await startMintFlow(piece, { rebake, regenerate: !rebake });
     }
 
     // =========================================
