@@ -19,6 +19,15 @@ bibliography: paper.bib
 header-includes:
   - |
     ```{=latex}
+    \usepackage[colorspec=0.92]{draftwatermark}
+    \definecolor{draftcolor}{RGB}{180,72,135}
+    \DraftwatermarkOptions{
+      text=WORKING DRAFT,
+      fontsize=3cm,
+      color=draftcolor!18,
+      angle=45,
+      pos={0.5\paperwidth, 0.5\paperheight}
+    }
     \usepackage{listings}
     \definecolor{klfn}{RGB}{0,136,170}
     \definecolor{klform}{RGB}{119,51,170}
