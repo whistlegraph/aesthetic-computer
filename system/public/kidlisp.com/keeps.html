@@ -1848,6 +1848,15 @@
       border-color: rgba(74, 156, 93, 0.3);
     }
     .keeps-modal-action-btn.tezos-btn:hover { background: rgba(74, 156, 93, 0.1); text-decoration: none; }
+    .keeps-modal-action-btn.upgrade-btn {
+      background: rgba(180, 120, 40, 0.12);
+      color: #b27828;
+      border-color: rgba(180, 120, 40, 0.45);
+    }
+    .keeps-modal-action-btn.upgrade-btn:hover {
+      background: rgba(180, 120, 40, 0.2);
+      text-decoration: none;
+    }
 
     .keeps-modal-info {
       padding: 10px 16px;
@@ -1856,6 +1865,25 @@
       border-top: 1px solid var(--border-subtle);
     }
     .keeps-modal-info span { display: block; margin-bottom: 2px; }
+    .keeps-modal-info .legacy-runtime-note {
+      margin-top: 6px;
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      background: var(--bg-secondary);
+      color: var(--text-secondary);
+    }
+    .keeps-modal-info .legacy-runtime-note.legacy {
+      background: rgba(217, 83, 79, 0.1);
+      border-color: rgba(217, 83, 79, 0.35);
+      color: #d9534f;
+      font-weight: 600;
+    }
+    .keeps-modal-info .legacy-runtime-note.modern {
+      background: rgba(74, 156, 93, 0.1);
+      border-color: rgba(74, 156, 93, 0.35);
+      color: #4a9c5d;
+    }
 
     /* ========================================
        AUTH UI
@@ -2125,6 +2153,21 @@
       color: var(--text-secondary);
     }
     .mint-piece-info strong { color: var(--text-primary); }
+    .mint-legacy-warning {
+      margin-top: 10px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(217, 83, 79, 0.35);
+      background: rgba(217, 83, 79, 0.1);
+      color: #d9534f;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .mint-legacy-warning.modern {
+      border-color: rgba(74, 156, 93, 0.35);
+      background: rgba(74, 156, 93, 0.1);
+      color: #4a9c5d;
+    }
 
     .mint-preview-frame {
       margin-bottom: 12px;
@@ -2890,6 +2933,13 @@
     let mintWalletAddress = null;
     let mintOnChainUris = null;
     let mintLatestUris = null;
+    let mintAutoSyncAfterRebake = false;
+
+    // Legacy runtime inspection cache for artifact bundles
+    const legacyRuntimeCache = new Map();
+    const legacyRuntimeInFlight = new Map();
+    let modalLegacyCheckNonce = 0;
+    let mintLegacyCheckNonce = 0;
 
     // Active keeps config (resolved from Mongo-backed API)
     let keepsConfig = {
@@ -3532,6 +3582,7 @@
         }
         if (canRekeep) {
           actionsHTML += `<button class="keeps-modal-action-btn html-btn" data-rebake-code="${entry.code}" title="Regenerate HTML + thumbnail">&#x267B; Rekeep Media</button>`;
+          actionsHTML += `<button class="keeps-modal-action-btn upgrade-btn" data-upgrade-code="${entry.code}" title="Rekeep and sync metadata on-chain" style="display:none;">&#x267B; Upgrade Legacy Bundle</button>`;
         }
       } else if (canManageKeep) {
         actionsHTML += `<button class="keeps-modal-action-btn tezos-btn" data-mint-code="${entry.code}">ꜩ Keep on Tezos</button>`;
@@ -3558,6 +3609,14 @@
         });
       }
 
+      const modalUpgradeBtn = modalActions.querySelector('[data-upgrade-code]');
+      if (modalUpgradeBtn) {
+        modalUpgradeBtn.addEventListener('click', () => {
+          closeModal();
+          openMintModal(entry, { rebake: true, autoSync: true });
+        });
+      }
+
       // Info
       let infoHTML = `<span><strong>Author:</strong> ${escapeHtml(handle)}</span>`;
       infoHTML += `<span><strong>Views:</strong> ${hits.toLocaleString()}</span>`;
@@ -3567,6 +3626,7 @@
         if (activeKeepInfo.contractAddress) infoHTML += `<span><strong>Contract:</strong> ${activeKeepInfo.contractAddress}</span>`;
         if (activeKeepInfo.contractProfile) infoHTML += `<span><strong>Contract Profile:</strong> ${activeKeepInfo.contractProfile}</span>`;
         if (activeKeepInfo.contractVersion) infoHTML += `<span><strong>Contract Version:</strong> ${activeKeepInfo.contractVersion}</span>`;
+        if (activeKeepInfo.artifactUri) infoHTML += `<span id="legacy-runtime-note" class="legacy-runtime-note">Checking bundle runtime...</span>`;
       } else if (nonActiveKeepInfo) {
         infoHTML += `<span><strong>Note:</strong> Legacy/non-active keep record ignored in this v11 UI.</span>`;
       }
@@ -3574,9 +3634,14 @@
 
       modalOverlay.classList.add('open');
       document.body.style.overflow = 'hidden';
+
+      if (hasKeptRecord && activeKeepInfo?.artifactUri) {
+        updateModalLegacyRuntimeStatus(entry, activeKeepInfo, canRekeep);
+      }
     }
 
     function closeModal() {
+      modalLegacyCheckNonce++;
       modalOverlay.classList.remove('open');
       modalIframe.src = 'about:blank';
       document.body.style.overflow = '';
@@ -4240,6 +4305,153 @@
       return null;
     }
 
+    function classifyBundleRuntimeSource(sourceText) {
+      const source = String(sourceText || '');
+      if (!source) return 'unknown';
+
+      const hasFixedSignature =
+        source.includes('acUseWebGLComposite=!se') ||
+        source.includes('acUseWebGLComposite=!isOpaqueOrigin') ||
+        source.includes('acUseWebGLComposite = !isOpaqueOrigin');
+
+      const hasLegacySignature =
+        source.includes('acUseWebGLComposite=!0') ||
+        source.includes('acUseWebGLComposite=true') ||
+        source.includes('acUseWebGLComposite = true');
+
+      if (hasFixedSignature) return 'modern';
+      if (hasLegacySignature) return 'legacy';
+      return 'unknown';
+    }
+
+    async function decodeGzipBase64ToText(gzipBase64) {
+      if (typeof gzipBase64 !== 'string' || !gzipBase64) return null;
+      if (typeof DecompressionStream !== 'function') return null;
+
+      const binary = atob(gzipBase64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+
+      const decompressed = new Blob([bytes], { type: 'application/gzip' })
+        .stream()
+        .pipeThrough(new DecompressionStream('gzip'));
+      return await new Response(decompressed).text();
+    }
+
+    async function inspectLegacyRuntime(artifactUri) {
+      const key = (artifactUri || '').trim();
+      if (!key) {
+        return { status: 'unknown', reason: 'missing-artifact-uri', checkedAt: Date.now() };
+      }
+
+      if (legacyRuntimeCache.has(key)) return legacyRuntimeCache.get(key);
+      if (legacyRuntimeInFlight.has(key)) return legacyRuntimeInFlight.get(key);
+
+      const inspectPromise = (async () => {
+        try {
+          const artifactUrl = ipfsToHttp(key);
+          if (!artifactUrl) {
+            return { status: 'unknown', reason: 'invalid-artifact-uri', checkedAt: Date.now() };
+          }
+
+          const response = await fetch(artifactUrl, { cache: 'no-store' });
+          if (!response.ok) {
+            return { status: 'error', reason: `http-${response.status}`, checkedAt: Date.now() };
+          }
+
+          const outerHtml = await response.text();
+          const outerStatus = classifyBundleRuntimeSource(outerHtml);
+          if (outerStatus !== 'unknown') {
+            return { status: outerStatus, reason: 'outer-signature', checkedAt: Date.now() };
+          }
+
+          const b64Match = outerHtml.match(/const\s+b64\s*=\s*['"]([^'"]+)['"]/);
+          if (!b64Match) {
+            return { status: 'unknown', reason: 'no-gzip-payload', checkedAt: Date.now() };
+          }
+
+          const innerHtml = await decodeGzipBase64ToText(b64Match[1]);
+          if (!innerHtml) {
+            return { status: 'unknown', reason: 'gzip-inspection-unavailable', checkedAt: Date.now() };
+          }
+
+          const innerStatus = classifyBundleRuntimeSource(innerHtml);
+          return { status: innerStatus, reason: 'inner-signature', checkedAt: Date.now() };
+        } catch (error) {
+          return { status: 'error', reason: error?.message || 'inspection-failed', checkedAt: Date.now() };
+        }
+      })();
+
+      legacyRuntimeInFlight.set(key, inspectPromise);
+      try {
+        const result = await inspectPromise;
+        legacyRuntimeCache.set(key, result);
+        return result;
+      } finally {
+        legacyRuntimeInFlight.delete(key);
+      }
+    }
+
+    function renderLegacyRuntimeNote(noteEl, result) {
+      if (!noteEl) return;
+      noteEl.classList.remove('legacy', 'modern');
+
+      if (!result || result.status === 'unknown') {
+        noteEl.textContent = 'Bundle runtime check unavailable.';
+        return;
+      }
+      if (result.status === 'error') {
+        noteEl.textContent = 'Bundle runtime check failed. You can still run upgrade.';
+        return;
+      }
+      if (result.status === 'legacy') {
+        noteEl.classList.add('legacy');
+        noteEl.textContent = 'Legacy bundle runtime detected (built before March 10, 2026 sandbox WebGL fix). Upgrade recommended.';
+        return;
+      }
+      noteEl.classList.add('modern');
+      noteEl.textContent = 'Bundle runtime is current (sandbox-safe WebGL fallback present).';
+    }
+
+    async function updateModalLegacyRuntimeStatus(entry, activeKeepInfo, canRekeep) {
+      const noteEl = document.getElementById('legacy-runtime-note');
+      if (!noteEl || !activeKeepInfo?.artifactUri) return;
+
+      const requestNonce = ++modalLegacyCheckNonce;
+      noteEl.textContent = 'Checking bundle runtime...';
+      noteEl.classList.remove('legacy', 'modern');
+
+      const result = await inspectLegacyRuntime(activeKeepInfo.artifactUri);
+      if (requestNonce !== modalLegacyCheckNonce) return;
+      if (!modalOverlay.classList.contains('open')) return;
+      if (modalTitle.textContent !== `$${entry.code}`) return;
+
+      renderLegacyRuntimeNote(noteEl, result);
+
+      const upgradeBtn = modalActions.querySelector('[data-upgrade-code]');
+      if (upgradeBtn && canRekeep) {
+        upgradeBtn.style.display = result.status === 'legacy' ? '' : 'none';
+      }
+    }
+
+    async function ensureMintLegacyRuntimeStatus(entry, options = {}) {
+      if (!entry) return;
+      const activeKeep = getActiveKeepRecord(entry);
+      if (!activeKeep?.artifactUri) return;
+
+      const cacheHit = legacyRuntimeCache.get((activeKeep.artifactUri || '').trim());
+      if (cacheHit) return;
+
+      const requestNonce = ++mintLegacyCheckNonce;
+      await inspectLegacyRuntime(activeKeep.artifactUri);
+      if (requestNonce !== mintLegacyCheckNonce) return;
+      if (!document.getElementById('mint-overlay')?.classList.contains('open')) return;
+      if (!mintCurrentEntry || mintCurrentEntry.code !== entry.code) return;
+      renderMintPieceInfo(entry, options);
+    }
+
     function buildMintHeaderLinkGroup(label, uris = {}, accent = false) {
       if (!uris) return '';
       const htmlUrl = ipfsToHttp(uris.artifactUri);
@@ -4261,14 +4473,20 @@
       const infoEl = document.getElementById('mint-piece-info');
       if (!infoEl) return;
       const activeKeep = getActiveKeepRecord(entry);
+      const legacyStatus = activeKeep?.artifactUri
+        ? legacyRuntimeCache.get((activeKeep.artifactUri || '').trim())
+        : null;
       const packCode = encodeURIComponent(`$${entry.code}`);
       const defaultPackUrl = `${AC_BASE}/api/pack-html?code=${packCode}`;
       const latestHtmlUrl = ipfsToHttp(mintLatestUris?.artifactUri) || defaultPackUrl;
-      const modeLabel = rebake
+      let modeLabel = rebake
         ? 'Regenerate HTML + thumbnail for your existing keep. Connect your wallet to verify ownership.'
         : (regenerate
           ? 'Regenerate HTML + thumbnail artifacts before keeping on Tezos.'
           : 'Keep on Tezos (2.5 XTZ fee).');
+      if (rebake && mintAutoSyncAfterRebake) {
+        modeLabel = 'Upgrade mode: regenerate media, then sync metadata on-chain in one flow.';
+      }
 
       const onChainGroup = buildMintHeaderLinkGroup(
         activeKeep ? `On-chain${activeKeep.tokenId != null ? ` #${activeKeep.tokenId}` : ''}` : 'On-chain',
@@ -4280,6 +4498,13 @@
         true
       );
 
+      let legacyNotice = '';
+      if (legacyStatus?.status === 'legacy') {
+        legacyNotice = `<div class="mint-legacy-warning">Legacy bundle runtime detected (before March 10, 2026 fix). This can black-screen in strict sandboxed embeds. Use Upgrade mode to rebake and sync on-chain metadata.</div>`;
+      } else if (legacyStatus?.status === 'modern' && rebake) {
+        legacyNotice = `<div class="mint-legacy-warning modern">Bundle runtime is current and includes sandbox-safe WebGL handling.</div>`;
+      }
+
       infoEl.innerHTML = `
         <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">
           <strong>$${escapeHtml(entry.code)}</strong>
@@ -4290,6 +4515,7 @@
         <span style="font-size:11px; color:var(--text-tertiary);">${modeLabel}</span>
         ${onChainGroup}
         ${latestGroup}
+        ${legacyNotice}
       `;
     }
 
@@ -4332,7 +4558,7 @@
             <div class="mint-artifact-preview">
               <img src="${thumbUrl}" alt="Keep preview for $${escapeHtml(piece || '')}" loading="lazy" />
             </div>
-            ${htmlUrl ? `<div class="mint-artifact-iframe"><iframe src="${htmlUrl}" sandbox="allow-scripts" loading="lazy" title="$${escapeHtml(piece || '')} artifact"></iframe></div>` : ''}
+            ${htmlUrl ? `<div class="mint-artifact-iframe"><iframe src="${htmlUrl}" sandbox="allow-scripts allow-same-origin" loading="lazy" title="$${escapeHtml(piece || '')} artifact"></iframe></div>` : ''}
           </div>
           <div class="mint-artifact-links">${links}</div>
         </div>
@@ -4806,6 +5032,8 @@
       if (isActiveKept && !rebake && !regenerate) {
         rebake = true;
       }
+      const autoSync = options.autoSync === true && rebake;
+      mintAutoSyncAfterRebake = autoSync;
 
       if (mintAbortController) {
         mintAbortController.abort();
@@ -4842,6 +5070,7 @@
         ? `Regenerate $${entry.code}${tokenLabel}`
         : (regenerate ? `Regenerate $${entry.code}` : `Keep $${entry.code}`);
       renderMintPieceInfo(entry, { rebake, regenerate });
+      ensureMintLegacyRuntimeStatus(entry, { rebake, regenerate });
       // Live preview iframe
       const previewFrame = document.getElementById('mint-preview-frame');
       const pieceUrl = `${AC_BASE}/$${encodeURIComponent(entry.code)}?nolabel=true&nogap=true`;
@@ -4856,12 +5085,14 @@
       // Update start button label based on mode
       const startBtn = document.getElementById('mint-start-btn');
       if (startBtn) {
-        startBtn.textContent = rebake ? 'Regenerate Media' : 'Keep on Tezos ꜩ';
+        startBtn.textContent = autoSync
+          ? 'Upgrade Legacy Bundle'
+          : (rebake ? 'Regenerate Media' : 'Keep on Tezos ꜩ');
         startBtn.onclick = () => {
           const startActions = document.getElementById('mint-actions-start');
           if (startActions) startActions.style.display = 'none';
           renderTimeline();
-          startMintFlow(mintCurrentPiece, { rebake, regenerate });
+          startMintFlow(mintCurrentPiece, { rebake, regenerate, autoSync });
         };
       }
 
@@ -4880,10 +5111,12 @@
       const startActions = document.getElementById('mint-actions-start');
       if (startActions) startActions.style.display = 'none';
       renderTimeline();
-      startMintFlow(mintCurrentPiece, {});
+      startMintFlow(mintCurrentPiece, { autoSync: mintAutoSyncAfterRebake });
     }
 
     function closeMintModal() {
+      mintLegacyCheckNonce++;
+      mintAutoSyncAfterRebake = false;
       document.getElementById('mint-overlay').classList.remove('open');
       const hb = document.getElementById('mint-heartbeat');
       if (hb) { hb.classList.remove('active', 'lost'); }
@@ -4914,6 +5147,7 @@
     async function startMintFlow(piece, options = {}) {
       const rebake = options.rebake === true;
       const regenerate = options.regenerate === true && !rebake;
+      const autoSync = options.autoSync === true && rebake;
       mintAbortController = new AbortController();
 
       try {
@@ -4992,7 +5226,7 @@
         setMintStep('validate', 'done', 'Validation passed');
 
         // Step 3: Poll keep-status until ready or failed
-        await pollJobStatus(piece, mintJobId, { rebake, regenerate });
+        await pollJobStatus(piece, mintJobId, { rebake, regenerate, autoSync });
 
       } catch (err) {
         if (err.name === 'AbortError') return;
@@ -5006,7 +5240,7 @@
       }
     }
 
-    function pollJobStatus(piece, jobId, { rebake, regenerate }) {
+    function pollJobStatus(piece, jobId, { rebake, regenerate, autoSync }) {
       return new Promise((resolve, reject) => {
         let pollCount = 0;
         const MAX_POLLS = 450; // 15 min at 2s intervals
@@ -5124,10 +5358,18 @@
               const data = job.preparedData;
 
               if (data.rebake === true) {
-                setMintStep('review', 'done', 'Regenerated');
-                setMintStep('sign', 'done', 'No signature needed');
-                setMintStep('complete', 'done', 'Rebake complete');
-                addTrackEntry('Media regenerated successfully', 'done');
+                const autoUpgrade = autoSync === true;
+                if (autoUpgrade) {
+                  setMintStep('review', 'active', 'Regenerated, preparing sync...');
+                  setMintStep('sign', 'active', 'Waiting for wallet...');
+                  setMintStep('complete', 'active', 'Syncing metadata...');
+                  addTrackEntry('Media regenerated. Preparing on-chain metadata sync...', 'active');
+                } else {
+                  setMintStep('review', 'done', 'Regenerated');
+                  setMintStep('sign', 'done', 'No signature needed');
+                  setMintStep('complete', 'done', 'Rebake complete');
+                  addTrackEntry('Media regenerated successfully', 'done');
+                }
                 document.getElementById('mint-actions').style.display = 'none';
                 mintLatestUris = {
                   ...(mintLatestUris || {}),
@@ -5153,7 +5395,7 @@
                 const freshArtifactUrl = ipfsToHttp(data.artifactUri);
                 const pf = document.getElementById('mint-preview-frame');
                 if (pf && freshArtifactUrl) {
-                  pf.innerHTML = `<iframe src="${freshArtifactUrl}" sandbox="allow-scripts" loading="lazy" title="$${escapeHtml(piece)} regenerated"></iframe>`;
+                  pf.innerHTML = `<iframe src="${freshArtifactUrl}" sandbox="allow-scripts allow-same-origin" loading="lazy" title="$${escapeHtml(piece)} regenerated"></iframe>`;
                 }
 
                 // Clear result area and show fresh artifact panel
@@ -5183,6 +5425,67 @@
                   rebakeButtonLabel: 'Regenerate Again',
                   append: !!mintOnChainUris,
                 });
+
+                if (autoUpgrade) {
+                  const activeKeepForSync = mintCurrentEntry ? getActiveKeepRecord(mintCurrentEntry) : null;
+                  const syncTokenId = normalizeTokenId(data.tokenId ?? activeKeepForSync?.tokenId);
+                  try {
+                    const syncResult = await syncRebakeMetadataOnChain({
+                      piece,
+                      tokenId: syncTokenId,
+                      artifactUri: data.artifactUri,
+                      thumbnailUri: data.thumbnailUri,
+                      metadataUri: data.metadataUri || mintLatestUris?.metadataUri || null,
+                      contractAddress: data.contractAddress || activeKeepForSync?.contractAddress || getKeepsContractAddress(),
+                      contractProfile: data.contractProfile || activeKeepForSync?.contractProfile || getKeepsContractProfile(),
+                      contractVersion: data.contractVersion || activeKeepForSync?.contractVersion || getKeepsContractVersion(),
+                      network: data.network || activeKeepForSync?.network || getTezosNetwork(),
+                    });
+
+                    applySyncResultToCurrentEntry(syncResult, syncTokenId);
+
+                    const txShort = syncResult.txHash ? syncResult.txHash.slice(0, 8) + '...' : 'Signed';
+                    setMintStep('review', 'done', 'Regenerated');
+                    setMintStep('sign', 'done', txShort);
+                    setMintStep('complete', 'done', 'Upgraded on-chain');
+                    addTrackEntry('On-chain metadata synced', 'done');
+
+                    const syncedArtifactUrl = ipfsToHttp(syncResult.artifactUri);
+                    const previewFrameEl = document.getElementById('mint-preview-frame');
+                    if (previewFrameEl && syncedArtifactUrl) {
+                      previewFrameEl.innerHTML = `<iframe src="${syncedArtifactUrl}" sandbox="allow-scripts allow-same-origin" loading="lazy" title="$${escapeHtml(piece)} upgraded"></iframe>`;
+                    }
+
+                    const syncContract = syncResult.contractAddress || data.contractAddress || getKeepsContractAddress();
+                    const syncNetwork = syncResult.network || data.network || getTezosNetwork();
+                    const syncedObjktUrl = syncTokenId != null && syncContract
+                      ? `${getObjktBase(syncNetwork)}/tokens/${syncContract}/${syncTokenId}`
+                      : data.objktUrl;
+
+                    showMintResult('Legacy bundle upgraded and synced on-chain.', syncedObjktUrl, syncResult.txHash);
+                    renderMintArtifactPanel({
+                      title: 'Synced Artifacts',
+                      piece,
+                      artifactUri: syncResult.artifactUri,
+                      thumbnailUri: syncResult.thumbnailUri,
+                      metadataUri: syncResult.metadataUri,
+                      packDate: data.packDate,
+                      objktUrl: syncedObjktUrl,
+                    });
+                  } catch (syncErr) {
+                    const syncMessage = syncErr?.message || 'On-chain sync failed';
+                    setMintStep('review', 'done', 'Regenerated');
+                    setMintStep('sign', 'error', syncMessage);
+                    addTrackEntry(`On-chain sync failed: ${syncMessage}`, 'error');
+                    const area = document.getElementById('mint-result-area');
+                    if (area) {
+                      area.insertAdjacentHTML(
+                        'beforeend',
+                        `<div class="mint-error-msg">Media regenerated, but on-chain sync failed: ${escapeHtml(syncMessage)}</div>`
+                      );
+                    }
+                  }
+                }
               } else {
                 setMintStep('review', 'active', `${data.mintFee || 2.5} XTZ`);
                 addTrackEntry('Artifacts prepared, ready for signing', 'done');
@@ -5236,6 +5539,268 @@
           }
         }, 2000);
       });
+    }
+
+    async function consumeSSEStream(response, handlers = {}) {
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('Streaming response unavailable');
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let currentEventType = null;
+
+      const processLines = async (lines) => {
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            currentEventType = line.slice(7).trim();
+            continue;
+          }
+          if (!line.startsWith('data: ') || !currentEventType) continue;
+
+          let parsed = null;
+          try {
+            parsed = JSON.parse(line.slice(6));
+          } catch {
+            parsed = { message: line.slice(6) };
+          }
+
+          const handler = handlers[currentEventType];
+          if (typeof handler === 'function') {
+            await handler(parsed);
+          }
+          currentEventType = null;
+        }
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          buffer += decoder.decode();
+          break;
+        }
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        await processLines(lines);
+      }
+
+      if (buffer.trim()) {
+        await processLines(buffer.split('\n'));
+      }
+    }
+
+    function applySyncResultToCurrentEntry(syncResult, tokenId) {
+      if (!mintCurrentEntry || !syncResult) return;
+
+      const normalizedTokenId = normalizeTokenId(tokenId ?? syncResult.tokenId);
+      const contractAddress = (syncResult.contractAddress || getKeepsContractAddress() || '').trim();
+      const normalizedContract = normalizeAddress(contractAddress);
+      const network = syncResult.network || getTezosNetwork();
+      const contractProfile = syncResult.contractProfile || getKeepsContractProfile();
+      const contractVersion = syncResult.contractVersion || getKeepsContractVersion();
+
+      const applyUris = (record) => {
+        if (!record || typeof record !== 'object') return;
+        record.artifactUri = syncResult.artifactUri || record.artifactUri || null;
+        record.thumbnailUri = syncResult.thumbnailUri || record.thumbnailUri || null;
+        record.metadataUri = syncResult.metadataUri || record.metadataUri || null;
+        record.network = network || record.network || null;
+        if (contractAddress) record.contractAddress = contractAddress;
+        if (contractProfile) record.contractProfile = contractProfile;
+        if (contractVersion) record.contractVersion = contractVersion;
+        if (normalizedTokenId !== null) record.tokenId = normalizedTokenId;
+      };
+
+      const recordMatches = (record) => {
+        if (!record || typeof record !== 'object') return false;
+        const recToken = normalizeTokenId(record.tokenId);
+        const recContract = normalizeAddress(record.contractAddress || '');
+        const tokenMatches = normalizedTokenId === null || recToken === normalizedTokenId;
+        const contractMatches = !normalizedContract || recContract === normalizedContract;
+        return tokenMatches && contractMatches;
+      };
+
+      let updated = false;
+      if (recordMatches(mintCurrentEntry.kept)) {
+        applyUris(mintCurrentEntry.kept);
+        updated = true;
+      }
+
+      if (Array.isArray(mintCurrentEntry.keptRecords)) {
+        for (const record of mintCurrentEntry.keptRecords) {
+          if (recordMatches(record)) {
+            applyUris(record);
+            updated = true;
+          }
+        }
+      }
+
+      if (!updated) {
+        const base = (mintCurrentEntry.kept && typeof mintCurrentEntry.kept === 'object')
+          ? mintCurrentEntry.kept
+          : {};
+        mintCurrentEntry.kept = {
+          ...base,
+          tokenId: normalizedTokenId ?? base.tokenId ?? null,
+          network: network || base.network || null,
+          contractAddress: contractAddress || base.contractAddress || null,
+          contractProfile: contractProfile || base.contractProfile || null,
+          contractVersion: contractVersion || base.contractVersion || null,
+          artifactUri: syncResult.artifactUri || base.artifactUri || null,
+          thumbnailUri: syncResult.thumbnailUri || base.thumbnailUri || null,
+          metadataUri: syncResult.metadataUri || base.metadataUri || null,
+        };
+      }
+
+      mintCurrentEntry.pendingRebake = null;
+      mintOnChainUris = {
+        artifactUri: syncResult.artifactUri || mintOnChainUris?.artifactUri || null,
+        thumbnailUri: syncResult.thumbnailUri || mintOnChainUris?.thumbnailUri || null,
+        metadataUri: syncResult.metadataUri || mintOnChainUris?.metadataUri || null,
+      };
+      mintLatestUris = null;
+      renderMintPieceInfo(mintCurrentEntry, { rebake: false, regenerate: false });
+    }
+
+    async function syncRebakeMetadataOnChain({
+      piece,
+      tokenId,
+      artifactUri,
+      thumbnailUri,
+      metadataUri,
+      contractAddress,
+      contractProfile,
+      contractVersion,
+      network,
+    }) {
+      const normalizedTokenId = normalizeTokenId(tokenId);
+      if (normalizedTokenId === null) {
+        throw new Error('Missing token ID for metadata sync');
+      }
+      if (!artifactUri) {
+        throw new Error('Missing artifact URI for metadata sync');
+      }
+
+      const walletAddress = mintWalletAddress || await connectWallet();
+      if (!walletAddress) {
+        throw new Error('Wallet connection cancelled');
+      }
+
+      if (acAuth0Client) {
+        try {
+          acToken = await acAuth0Client.getTokenSilently();
+        } catch {}
+      }
+
+      addTrackEntry('Preparing metadata update payload...', 'active');
+      const prepareResponse = await fetch(`${API_BASE}/api/keep-update`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(acToken ? { Authorization: `Bearer ${acToken}` } : {}),
+        },
+        body: JSON.stringify({
+          piece: '$' + piece,
+          tokenId: normalizedTokenId,
+          artifactUri,
+          thumbnailUri,
+          walletAddress,
+          mode: 'prepare',
+        }),
+      });
+
+      let prepared = null;
+      let streamError = null;
+      if (prepareResponse.body) {
+        await consumeSSEStream(prepareResponse, {
+          progress: async (eventData) => {
+            if (eventData?.message) addTrackEntry(eventData.message, 'active');
+          },
+          prepared: async (eventData) => {
+            prepared = eventData;
+          },
+          error: async (eventData) => {
+            streamError = eventData?.error || 'Metadata update preparation failed';
+          },
+        });
+      }
+
+      if (!prepareResponse.ok) {
+        const fallback = await prepareResponse.json().catch(() => null);
+        throw new Error(streamError || fallback?.error || `Metadata update prepare failed (${prepareResponse.status})`);
+      }
+
+      if (streamError) {
+        throw new Error(streamError);
+      }
+
+      if (!prepared?.michelsonParams) {
+        throw new Error('Metadata update payload was not prepared');
+      }
+
+      if (!beaconClient) {
+        await initTezosWallet();
+      }
+
+      setMintStep('sign', 'active', 'Sign metadata update...');
+      addTrackEntry('Sign metadata update in your wallet...', 'active');
+
+      const operationResult = await beaconClient.requestOperation({
+        sourceAddress: walletAddress,
+        operationDetails: [{
+          kind: 'transaction',
+          destination: prepared.contractAddress || contractAddress || getKeepsContractAddress(),
+          amount: '0',
+          parameters: prepared.michelsonParams,
+        }],
+      });
+
+      const txHash = operationResult?.transactionHash;
+      if (!txHash) {
+        throw new Error('Wallet did not return a transaction hash');
+      }
+
+      addTrackEntry(`Metadata update submitted: ${txHash.slice(0, 8)}...`, 'done');
+
+      const confirmPayload = {
+        piece: '$' + piece,
+        tokenId: normalizedTokenId,
+        txHash,
+        artifactUri: prepared.artifactUri || artifactUri,
+        thumbnailUri: prepared.thumbnailUri || thumbnailUri || artifactUri,
+        metadataUri: prepared.metadataUri || metadataUri || null,
+        contractAddress: prepared.contractAddress || contractAddress || getKeepsContractAddress(),
+        contractProfile: contractProfile || getKeepsContractProfile(),
+        contractVersion: contractVersion || getKeepsContractVersion(),
+      };
+
+      const confirmResponse = await fetch(`${API_BASE}/api/keep-update-confirm`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(acToken ? { Authorization: `Bearer ${acToken}` } : {}),
+        },
+        body: JSON.stringify(confirmPayload),
+      });
+
+      const confirmData = await confirmResponse.json().catch(() => null);
+      if (!confirmResponse.ok) {
+        throw new Error(confirmData?.error || `Metadata update confirm failed (${confirmResponse.status})`);
+      }
+
+      return {
+        txHash,
+        tokenId: normalizedTokenId,
+        network: network || getTezosNetwork(),
+        contractAddress: confirmPayload.contractAddress,
+        contractProfile: confirmData?.contractProfile || confirmPayload.contractProfile || null,
+        contractVersion: confirmData?.contractVersion || confirmPayload.contractVersion || null,
+        artifactUri: confirmData?.artifactUri || confirmPayload.artifactUri,
+        thumbnailUri: confirmData?.thumbnailUri || confirmPayload.thumbnailUri,
+        metadataUri: confirmData?.metadataUri || confirmPayload.metadataUri,
+      };
     }
 
     async function confirmMint() {
