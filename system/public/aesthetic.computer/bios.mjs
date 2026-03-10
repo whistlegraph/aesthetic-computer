@@ -69,16 +69,21 @@ const isOpaqueOrigin = (() => {
 globalThis.acIsSandboxed = isOpaqueOrigin;
 
 // Default to WebGL composite unless explicitly disabled.
+// Packed bundles (keeps, pack) set acUseWebGLComposite = false before this runs.
 // In opaque origins, keep it enabled for top-level contexts (e.g. file:// packs),
 // but disable in iframe sandboxes where it can black-screen.
 if (globalThis.acUseWebGLComposite === undefined) {
-  let inIframe = false;
-  try {
-    inIframe = window.self !== window.top;
-  } catch {
-    inIframe = true;
+  if (globalThis.acPACK_MODE) {
+    globalThis.acUseWebGLComposite = false;
+  } else {
+    let inIframe = false;
+    try {
+      inIframe = window.self !== window.top;
+    } catch {
+      inIframe = true;
+    }
+    globalThis.acUseWebGLComposite = !isOpaqueOrigin || !inIframe;
   }
-  globalThis.acUseWebGLComposite = !isOpaqueOrigin || !inIframe;
 }
 
 // Log once if we detect sandbox restrictions

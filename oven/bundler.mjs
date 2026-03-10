@@ -1159,6 +1159,7 @@ function generateHTMLBundle(opts) {
     // This MUST run in a regular <script> (not type="module") so the import map
     // is in the DOM BEFORE any <script type="module"> executes.
     window.acPACK_MODE = true;
+    window.acUseWebGLComposite = false; // Disable WebGL composite in packed bundles to prevent black screen on IPFS/sandboxed contexts
     ${keeplabel ? `window.acKEEP_LABEL = true;` : ""}
     window.KIDLISP_SUPPRESS_SNAPSHOT_LOGS = true;
     window.__acKidlispConsoleEnabled = false;
