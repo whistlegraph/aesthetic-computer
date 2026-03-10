@@ -1462,7 +1462,7 @@ export const handler = stream(async (event, context) => {
       // ═══════════════════════════════════════════════════════════════════
       // STAGE 4: GENERATE BUNDLE (skip if cached)
       // ═══════════════════════════════════════════════════════════════════
-      let bundleHtml, bundleFilename, authorHandle, userCode, packDate, depCount;
+      let bundleHtml, bundleFilename, bundleAuthorHandle, userCode, packDate, depCount;
       
       if (!useCachedMedia) {
         logStage('bundle', 'Generating HTML bundle');
@@ -1530,7 +1530,7 @@ export const handler = stream(async (event, context) => {
         console.log(`🪙 KEEP: Decoding bundle content...`);
         bundleHtml = Buffer.from(bundleData.content, "base64").toString("utf8");
         bundleFilename = bundleData.filename || `$${pieceName}.lisp.html`;
-        authorHandle = bundleData.authorHandle || `@${userHandle}`;
+        bundleAuthorHandle = bundleData.authorHandle || `@${userHandle}`;
         userCode = bundleData.userCode || userDoc?.code || null;
         packDate = bundleData.packDate;
         depCount = bundleData.depCount || 0;
@@ -1541,7 +1541,7 @@ export const handler = stream(async (event, context) => {
         await send("progress", { stage: "bundle", message: `Packed ${bundleSize}KB · ${depCount} deps` });
       } else {
         // Use cached values
-        authorHandle = piece.ipfsMedia.authorHandle || `@${userHandle}`;
+        bundleAuthorHandle = piece.ipfsMedia.authorHandle || `@${userHandle}`;
         userCode = piece.ipfsMedia.userCode || userDoc?.code || null;
         packDate = piece.ipfsMedia.packDate;
         depCount = piece.ipfsMedia.depCount || 0;
@@ -1694,7 +1694,7 @@ export const handler = stream(async (event, context) => {
               artifactUri,
               thumbnailUri,
               sourceHash: pieceSourceHash,
-              authorHandle,
+              authorHandle: bundleAuthorHandle,
               userCode,
               packDate,
               depCount,
@@ -1826,7 +1826,7 @@ export const handler = stream(async (event, context) => {
         symbol: pieceName,
         isBooleanAmount: true,
         shouldPreferSymbol: false,
-        minter: `@${(authorHandle || "anon").replace(/^@/, "")}`,
+        minter: `@${(bundleAuthorHandle || "anon").replace(/^@/, "")}`,
         creators: creatorsArray,
         royalties,  // v4: Add royalty configuration
         rights: "© All rights reserved",
