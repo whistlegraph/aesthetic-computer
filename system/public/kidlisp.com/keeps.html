@@ -4969,6 +4969,7 @@
             if (job.status === 'ready' && job.preparedData) {
               stopPolling();
               mintPreparedData = job.preparedData;
+              console.log('🔍 READY preparedData:', JSON.stringify(job.preparedData, null, 2));
 
               // Mark all prep steps done
               ['validate', 'analyze', 'thumbnail', 'bundle', 'ipfs', 'metadata'].forEach(id => {
