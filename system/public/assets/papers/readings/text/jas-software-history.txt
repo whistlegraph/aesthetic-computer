@@ -1,0 +1,169 @@
+Jeffrey Alan Scudder — Software History (Pre-Aesthetic Computer)
+
+Compiled from: CV, fact-check report, and bin-sc.jas.life legacy archive (162.243.163.221).
+
+=== MAJOR SOFTWARE WORKS ===
+
+1. thePRBAT — Polygon Replicating Bitmap Authoring Tool (2011)
+   Type: Desktop application (Flash/SWF-based)
+   Description: Early digital imaging software created during BFA at Ringling College. A bitmap authoring tool using polygon replication as its core interaction model.
+   Archive: bin-sc.jas.life/Projects/thePRBAT/
+
+2. No Paint (2014–2020)
+   Type: Web app (Rails, 2014) → iOS app (2019–2020)
+   Description: Constraint-based drawing application. Originally a Ruby on Rails web app at nopaint.org (2014), rebuilt as an iOS app released in 2019–2020. The constraint: you can only paint, never erase.
+   Archive: nopaint-org.jas.life (original Rails app preserved)
+   Live: nopaint.art (iOS)
+
+3. JeffreyPaint (2014)
+   Type: macOS desktop application (.dmg)
+   Description: A native macOS painting application with multiple builds. Created during or shortly after Linked by Air tenure.
+   Archive: bin-sc.jas.life/Projects/JeffreyPaint/ (multiple .dmg builds)
+
+4. Shrub (2014)
+   Type: iOS application
+   Description: iOS app created while working at Linked by Air design studio in NYC (2013–2014).
+
+5. Finger Quilt (2016)
+   Type: iOS application
+   Description: Quilting-inspired touch drawing tool for iOS.
+
+6. ShelbySoft (date unknown, pre-2016)
+   Type: macOS applications
+   Description: A software suite including VoiceRecorder.app and VoiceWriter.app.
+   Archive: bin-sc.jas.life/Projects/ShelbySoft/
+
+7. TDA — Teacher Directed Activity (date unknown, pre-2016)
+   Type: Web application
+   Description: Educational software project, related to teacherdirectedactivity.com domain.
+   Archive: bin-sc.jas.life/Projects/TDA/, also /var/www/teacherdirectedactivity.com/
+
+=== WEB APPLICATIONS & CREATIVE TOOLS ===
+
+8. drawings.rey.sc (c. 2013–2014)
+   Type: Ruby on Rails web application
+   Description: A web-based drawing application with 3,996 files. Drawing and sharing platform.
+   Archive: drawings-rey-sc.jas.life
+
+9. Word Web / ww.rey.sc (2014)
+   Type: Ruby on Rails web application
+   Description: A word/text web — hyperlinked text creation tool.
+   Archive: ww-rey-sc.jas.life
+
+10. bigwalt59.com (2015)
+    Type: Ruby on Rails web application
+    Description: A hypertext poem / interactive narrative, created for Global Game Jam 2015 with Lali Foster.
+    Archive: bigwalt59-com.jas.life
+
+11. allmyfriendsatonce.com (2013)
+    Type: Web application
+    Description: Web project; Jeffrey credited as programmer on CV.
+
+12. Tumpin (2017)
+    Type: Digital artwork / software
+    Description: Solo exhibition at left.gallery (online). A downloadable digital work.
+    URL: left.gallery/tumpin
+
+13. tenminutepainting.com (2017)
+    Type: Web application
+    Description: Created during Schloss Solitude / ZKM Web Residency. Ten Minute Painting was later acquired by SMK (National Gallery of Denmark).
+
+14. Meeting Mr. Kid Pix (2019)
+    Type: Interactive web experience
+    Description: Created for the Internet Archive Artist in Residence program. An homage to/exploration of Kid Pix software history.
+
+=== WEBSITES & WEB PROJECTS ===
+
+15. gordilloscudder.com (2013–2014)
+    Type: Gallery portfolio website
+    Description: Website for Gordillo–Scudder gallery, co-run with partner in Brooklyn. Curated exhibitions including "Interludes & Remnants" (2013) and "Island Girl" (2014).
+    Archive: gordilloscudder-com.jas.life
+
+16. interludes-and-remnants.net (2013)
+    Type: Exhibition website
+    Description: Web presence for the "Interludes & Remnants" exhibition at Gordilloscudder gallery.
+    Archive: interludes-and-remnants-net.jas.life
+
+17. rey.sc (c. 2012–2016)
+    Type: Personal website
+    Description: Personal site / portfolio. Subdomains hosted various projects (drawings.rey.sc, ww.rey.sc, syl.rey.sc).
+
+18. syl.rey.sc (2015–2016)
+    Type: Course syllabi archive
+    Description: Archive of course syllabi from teaching at Parsons and UCLA.
+    Archive: syl-rey-sc.jas.life
+
+19. bin.sc (2011–2016)
+    Type: File archive / personal server
+    Description: Massive (109GB) personal file archive containing projects, teaching materials, collection of creative work. The "bin" of Jeffrey's digital practice.
+    Archive: bin-sc.jas.life
+
+20. digpain.org (date unknown)
+    Type: Website
+    Description: Related to the "digitpain" handle/identity.
+
+21. maskware.net (date unknown)
+    Type: Website
+    Description: Creative web project.
+
+22. traveller.xn--q9jyb4c (date unknown)
+    Type: Website
+    Description: International domain project.
+
+23. daisychainbook.com (date unknown)
+    Type: Website
+    Description: Web project, possibly related to a publication or book.
+
+=== PROFESSIONAL WEB DEVELOPMENT ===
+
+24. Linked by Air projects (2013–2014)
+    Type: Design studio work
+    Description: Worked as designer at Linked by Air, a NYC design studio known for institutional web design (art schools, museums). Built web projects for cultural clients.
+
+25. Printed Matter — NY & LA Art Book Fair websites (2012–2013)
+    Type: Web development
+    Description: Built websites for the New York and Los Angeles Art Book Fairs for Printed Matter.
+
+26. art.yale.edu (2012)
+    Type: Web administration
+    Description: Student administrator for Yale School of Art's website (a wiki-based, collaboratively edited art school site).
+
+27. Kickstarter contract work (2016)
+    Type: Contract web development
+    Description: Contractor for Kickstarter, Brooklyn.
+
+28. GIPHY (2017)
+    Type: Curation platform work
+    Description: Technical Curator role — worked on curation tools and systems at GIPHY, NYC. Organized TIME_FRAME exhibition.
+
+=== CREATIVE CODING & EXPERIMENTS ===
+
+29. Processing projects (various, 2007–2016)
+    Type: Creative coding sketches
+    Description: Various Processing sketches and projects found in bin-sc archive. Jeffrey later participated in Processing Community Day LA (2019).
+    Archive: bin-sc.jas.life/Projects/ (Processing dump)
+
+30. ChucK programs (date unknown)
+    Type: Audio programming
+    Description: Two small programs in the ChucK audio programming language found in bin-sc archive.
+    Archive: bin-sc.jas.life/Projects/
+
+31. drawinghomework.net (2016–2017)
+    Type: Web platform
+    Description: Collaborative drawing assignment platform. Featured in group exhibition at February Gallery, Austin TX (2017).
+
+=== TIMELINE SUMMARY ===
+
+2007–2011: BFA at Ringling — Processing sketches, early creative coding
+2011: thePRBAT (Polygon Replicating Bitmap Authoring Tool)
+2012–2013: Yale MFA — art.yale.edu admin, Printed Matter web dev
+2013: allmyfriendsatonce.com, Gordilloscudder gallery + website
+2013–2014: Linked by Air — Shrub (iOS), web design projects
+2014: No Paint (Rails), JeffreyPaint (macOS), drawings.rey.sc, Word Web
+2015–2016: Parsons teaching, AIGA lectures, Finger Quilt (iOS)
+2016: Kickstarter contract, Explained Pictures lectures, drawinghomework.net
+2017: GIPHY Technical Curator, Schloss Solitude web residency, tenminutepainting.com, Tumpin (left.gallery)
+2018: RDP lecture tour (65+ performances), Make Pictures (curated at bitforms)
+2019: No Paint iOS rebuild, Meeting Mr. Kid Pix (Internet Archive AIR)
+2019–2020: Korea HCI, India HCI keynotes, Whistlegraph invention
+2021: Aesthetic Computer development begins
