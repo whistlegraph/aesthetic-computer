@@ -2873,9 +2873,24 @@
     let indexReady = false;
 
     // Pagination: render in batches to avoid freezing on large datasets
-    const PAGE_SIZE = 50;
+    const PAGE_SIZE = 20;
     let renderedCount = 0;
     let isLoadingMore = false;
+
+    // Lazy image loading — only request oven thumbnails when visible
+    const lazyImageObserver = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          const img = entry.target;
+          if (img.dataset.src) {
+            img.src = img.dataset.src;
+            delete img.dataset.src;
+          }
+          lazyImageObserver.unobserve(img);
+        }
+      }
+    }, { rootMargin: '300px' });
+    function lazyLoadImage(img) { lazyImageObserver.observe(img); }
 
     // DOM
     const grid = document.getElementById('keeps-grid');
@@ -3122,7 +3137,7 @@
       const createdAt = entry.when ? new Date(entry.when) : null;
       const keptTimeStr = keptAt ? formatRelativeTime(keptAt) : '';
       const createdTimeStr = createdAt ? formatRelativeTime(createdAt) : '';
-      const webpUrl = `https://oven.aesthetic.computer/grab/webp/80/60/$${entry.code}?duration=1800&fps=8&quality=70&density=1&nowait=true&source=keep`;
+      const webpUrl = `https://oven.aesthetic.computer/grab/webp/80/60/$${entry.code}?duration=1800&fps=8&quality=70&density=1&nowait=true&source=gallery`;
 
       const row = document.createElement('div');
       row.className = 'keeps-row';
@@ -3144,8 +3159,9 @@
         ${createdTimeStr ? `<span class="keeps-row-time" title="Created ${createdAt?.toLocaleString() || ''}">made ${createdTimeStr}</span>` : ''}`;
 
       const img = row.querySelector('.keeps-row-thumb');
-      img.src = webpUrl;
+      img.dataset.src = webpUrl;
       img.onerror = () => { img.style.display = 'none'; };
+      lazyLoadImage(img);
 
       row.addEventListener('click', () => openMintModal(entry));
       return row;
@@ -3206,7 +3222,8 @@
       img.onerror = () => {
         // Keep noise placeholder visible — image not baked yet
       };
-      img.src = webpUrl;
+      img.dataset.src = webpUrl;
+      lazyLoadImage(img);
 
       // Whole card + keep button all open the mint/keep modal
       card.style.cursor = 'pointer';
