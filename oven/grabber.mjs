@@ -337,8 +337,8 @@ async function processGrabQueue() {
 
     // Fire-and-forget async — each grab runs independently with timeout protection
     (async () => {
-      // Max grab duration: 60 seconds (enough for 20s load + 30s capture/encode + 10s buffer)
-      const GRAB_TIMEOUT_MS = 60000;
+      // Max grab duration: 90 seconds (enough for 30s load + 30s capture/encode + 30s buffer)
+      const GRAB_TIMEOUT_MS = 90000;
       const startTime = Date.now();
 
       const timeoutId = setTimeout(() => {
@@ -1392,7 +1392,7 @@ export async function prewarmGrabBrowser() {
   let klPage;
   try {
     klPage = await b.newPage();
-    const klUrl = `${BASE_URL}/$black?nolabel=true&nogap=true`;
+    const klUrl = `${BASE_URL}/black?nolabel=true&nogap=true`;
     console.log(`🔥 Pre-warming KidLisp: ${klUrl}`);
     await klPage.goto(klUrl, { waitUntil: 'domcontentloaded', timeout: 25000 });
     // Wait for kidlisp.mjs to fully parse and the piece to boot

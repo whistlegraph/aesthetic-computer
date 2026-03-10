@@ -44,16 +44,15 @@ function envInt(name, fallback) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-// Streaming functions can run well beyond 26s; 45s gives plenty of room for cold starts.
 // Netlify streaming functions can run up to 300s on Pro plans.
-// 120s gives oven plenty of time for cold-start piece loads (~30s)
-// + capture (~5s) + encode (~5s) + IPFS upload (~10s) with headroom.
-const KEEP_MINT_MAX_PREP_MS = envInt("KEEP_MINT_MAX_PREP_MS", 120000);
-const KEEP_MINT_PROVIDER_CEILING_MS = envInt("KEEP_MINT_PROVIDER_CEILING_MS", 120000);
+// 180s gives oven plenty of time for cold-start piece loads (~30-40s)
+// + capture (~5-8s) + encode (~5s) + IPFS upload (~10-60s) with headroom.
+const KEEP_MINT_MAX_PREP_MS = envInt("KEEP_MINT_MAX_PREP_MS", 180000);
+const KEEP_MINT_PROVIDER_CEILING_MS = envInt("KEEP_MINT_PROVIDER_CEILING_MS", 180000);
 const KEEP_MINT_EFFECTIVE_PREP_MS = Math.min(KEEP_MINT_MAX_PREP_MS, KEEP_MINT_PROVIDER_CEILING_MS);
 const KEEP_MINT_STREAM_GUARD_MS = envInt("KEEP_MINT_STREAM_GUARD_MS", 1500);
-const KEEP_MINT_THUMBNAIL_TIMEOUT_MS = envInt("KEEP_MINT_THUMBNAIL_TIMEOUT_MS", 100000);
-const KEEP_MINT_FORCE_FRESH_THUMBNAIL_AWAIT_MS = envInt("KEEP_MINT_FORCE_FRESH_THUMBNAIL_AWAIT_MS", dev ? 25000 : 20000);
+const KEEP_MINT_THUMBNAIL_TIMEOUT_MS = envInt("KEEP_MINT_THUMBNAIL_TIMEOUT_MS", 150000);
+const KEEP_MINT_FORCE_FRESH_THUMBNAIL_AWAIT_MS = envInt("KEEP_MINT_FORCE_FRESH_THUMBNAIL_AWAIT_MS", dev ? 30000 : 25000);
 const KEEP_MINT_PERMIT_TTL_MS = envInt("KEEP_MINT_PERMIT_TTL_MS", 1_200_000); // 20 minutes
 const KEEP_MINT_SIGNER_CACHE_TTL_MS = envInt("KEEP_MINT_SIGNER_CACHE_TTL_MS", 30000); // 30 seconds
 const KEEP_MINT_SECURITY_SCAN_LIMIT = envInt("KEEP_MINT_SECURITY_SCAN_LIMIT", 30);
@@ -776,6 +775,23 @@ export const handler = stream(async (event, context) => {
       await writer.close();
     }
   };
+
+  // Watchdog: send an error event before the provider kills the process silently.
+  // Fires 5s before the effective deadline so the client gets a meaningful error
+  // instead of seeing the SSE stream just drop.
+  const watchdogMs = KEEP_MINT_EFFECTIVE_PREP_MS - 5000;
+  const watchdogTimer = watchdogMs > 0 ? setTimeout(async () => {
+    try {
+      const elapsed = ((Date.now() - processStartTime) / 1000).toFixed(0);
+      console.error(`🪙 KEEP: Watchdog firing at ${elapsed}s — approaching provider ceiling`);
+      await send("error", {
+        error: `Minting timed out after ${elapsed}s. The oven may still be baking — try again in a moment.`,
+        stage: "timeout",
+        elapsed: Number(elapsed),
+      });
+    } catch { /* stream may already be closed */ }
+    try { await closeStream(); } catch {}
+  }, watchdogMs) : null;
 
   // Process minting
   (async () => {
@@ -2004,6 +2020,7 @@ export const handler = stream(async (event, context) => {
         // Stream may already be closed
       }
     } finally {
+      if (watchdogTimer) clearTimeout(watchdogTimer);
       await closeStream();
     }
   })();
