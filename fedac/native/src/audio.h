@@ -9,6 +9,8 @@
 #define AUDIO_PERIOD_SIZE 192   // ~1ms at 192kHz — minimal latency
 #define AUDIO_MAX_VOICES 32
 #define AUDIO_WAVEFORM_SIZE 512
+#define AUDIO_MAX_SAMPLE_VOICES 12
+#define AUDIO_MAX_SAMPLE_SECS 10
 
 typedef enum {
     VOICE_INACTIVE = 0,
@@ -45,6 +47,17 @@ typedef struct {
     double noise_x1, noise_x2, noise_y1, noise_y2;
     uint32_t noise_seed;
 } ACVoice;
+
+typedef struct {
+    int active;
+    double position;        // fractional sample index
+    double speed;           // playback rate (1.0 = original pitch)
+    double volume;
+    double pan;
+    double fade;            // 0-1 envelope
+    double fade_target;     // 0 = killing, 1 = playing
+    uint64_t id;
+} SampleVoice;
 
 typedef struct {
     void *pcm;              // snd_pcm_t* (void to avoid header dep)
@@ -100,6 +113,17 @@ typedef struct {
     float tts_volume;           // 0.0-1.0
     float tts_fade;             // 0.0-1.0 per-sample envelope (prevents click on start/stop)
 
+    // Microphone capture + sample playback
+    float *sample_buf;          // recorded sample (mono, at capture rate)
+    int sample_len;             // length in samples (0 = no sample)
+    int sample_max_len;         // buffer capacity
+    unsigned int sample_rate;   // capture sample rate (for speed calc)
+    volatile int recording;     // 1 = actively recording
+    int sample_write_pos;       // write cursor during recording
+    pthread_t capture_thread;
+    SampleVoice sample_voices[AUDIO_MAX_SAMPLE_VOICES];
+    uint64_t sample_next_id;
+
     // HDMI audio output (secondary, low-pass filtered clone)
     void *hdmi_pcm;             // snd_pcm_t* for HDMI audio device (NULL if not found)
     unsigned int hdmi_rate;     // negotiated HDMI sample rate
@@ -137,6 +161,17 @@ void audio_room_toggle(ACAudio *audio);
 void audio_glitch_toggle(ACAudio *audio);
 void audio_set_room_mix(ACAudio *audio, float mix);
 void audio_set_fx_mix(ACAudio *audio, float mix);
+
+// Microphone recording
+int audio_mic_start(ACAudio *audio);   // start capture thread, returns 0 on success
+int audio_mic_stop(ACAudio *audio);    // stop capture, returns sample length
+
+// Sample playback with pitch shifting
+uint64_t audio_sample_play(ACAudio *audio, double freq, double base_freq,
+                           double volume, double pan);
+void audio_sample_kill(ACAudio *audio, uint64_t id, double fade);
+void audio_sample_update(ACAudio *audio, uint64_t id, double freq,
+                         double base_freq, double volume, double pan);
 
 // Adjust system volume: delta is -5 to +5 (percentage points), 0 = toggle mute
 void audio_volume_adjust(ACAudio *audio, int delta);

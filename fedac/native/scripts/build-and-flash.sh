@@ -55,13 +55,47 @@ mkdir -p "${BUILD_DIR}"
 # Step 1: Check dependencies
 # ============================================================
 log "Checking dependencies..."
+
+# Auto-install required packages if missing (Fedora/dnf)
+if command -v dnf &>/dev/null; then
+    PKGS_NEEDED=""
+    # Build tools
+    command -v cpio &>/dev/null     || PKGS_NEEDED="${PKGS_NEEDED} cpio"
+    command -v lz4 &>/dev/null      || PKGS_NEEDED="${PKGS_NEEDED} lz4"
+    command -v bc &>/dev/null       || PKGS_NEEDED="${PKGS_NEEDED} bc"
+    command -v perl &>/dev/null     || PKGS_NEEDED="${PKGS_NEEDED} perl"
+    command -v make &>/dev/null     || PKGS_NEEDED="${PKGS_NEEDED} make"
+    command -v curl &>/dev/null     || PKGS_NEEDED="${PKGS_NEEDED} curl"
+    # Kernel build headers
+    [ -f /usr/include/libelf.h ]    || PKGS_NEEDED="${PKGS_NEEDED} elfutils-libelf-devel"
+    # Native binary deps
+    pkg-config --exists alsa 2>/dev/null        || PKGS_NEEDED="${PKGS_NEEDED} alsa-lib-devel"
+    pkg-config --exists libdrm 2>/dev/null      || PKGS_NEEDED="${PKGS_NEEDED} libdrm-devel"
+    [ -f /usr/include/flite/flite.h ]           || PKGS_NEEDED="${PKGS_NEEDED} flite-devel"
+    # WiFi tools + firmware
+    command -v wpa_supplicant &>/dev/null || PKGS_NEEDED="${PKGS_NEEDED} wpa_supplicant"
+    command -v dhclient &>/dev/null       || PKGS_NEEDED="${PKGS_NEEDED} dhcp-client"
+    command -v iw &>/dev/null             || PKGS_NEEDED="${PKGS_NEEDED} iw"
+    [ -d /lib/firmware ] && ls /lib/firmware/iwlwifi-cc-a0-* &>/dev/null || PKGS_NEEDED="${PKGS_NEEDED} iwlwifi-mvm-firmware"
+    [ -f /lib/firmware/regulatory.db ]    || PKGS_NEEDED="${PKGS_NEEDED} wireless-regdb"
+    # Flash tools
+    if [ -n "${FLASH_DEV}" ]; then
+        command -v mmd &>/dev/null        || PKGS_NEEDED="${PKGS_NEEDED} mtools"
+        command -v mkfs.vfat &>/dev/null  || PKGS_NEEDED="${PKGS_NEEDED} dosfstools"
+    fi
+
+    if [ -n "${PKGS_NEEDED}" ]; then
+        log "Installing missing packages:${PKGS_NEEDED}"
+        sudo dnf install -y ${PKGS_NEEDED} || err "Failed to install packages"
+    fi
+fi
+
 MISSING=""
-for cmd in cpio lz4 make curl; do
+for cmd in cpio lz4 make curl bc perl; do
     command -v "$cmd" &>/dev/null || MISSING="${MISSING} ${cmd}"
 done
 if [ -n "${MISSING}" ]; then
     err "Missing required tools:${MISSING}"
-    err "Install with: dnf install${MISSING}"
     exit 1
 fi
 if [ -n "${FLASH_DEV}" ]; then
@@ -70,7 +104,6 @@ if [ -n "${FLASH_DEV}" ]; then
     done
     if [ -n "${MISSING}" ]; then
         err "Missing flash tools:${MISSING}"
-        err "Install with: dnf install mtools dosfstools util-linux"
         exit 1
     fi
 fi
@@ -465,6 +498,13 @@ PART_EOF
     mmd -i "${PART}" ::EFI
     mmd -i "${PART}" ::EFI/BOOT
     mcopy -i "${PART}" "${VMLINUZ}" ::EFI/BOOT/BOOTX64.EFI
+
+    # Write config.json with user handle
+    CONFIG_TMP=$(mktemp)
+    echo '{"handle":"jeffrey"}' > "${CONFIG_TMP}"
+    mcopy -i "${PART}" "${CONFIG_TMP}" ::config.json
+    rm -f "${CONFIG_TMP}"
+    log "Wrote config.json (handle: jeffrey)"
 
     sync
     log "Flashed! Kernel at EFI/BOOT/BOOTX64.EFI on ${FLASH_DEV}"
