@@ -4746,10 +4746,10 @@
                 }
               }
               // Show live oven baking telemetry in the preview frame
-              if (stage === 'thumbnail') {
+              {
                 const pf = document.getElementById('mint-preview-frame');
                 if (pf) {
-                  // Replace iframe with baking telemetry on first thumbnail event
+                  // Replace iframe with baking telemetry on first progress event
                   if (!pf.querySelector('.bake-telemetry')) {
                     pf.innerHTML = `<div class="bake-telemetry">
                       <img class="bake-preview-img" alt="">
@@ -4763,10 +4763,13 @@
                   if (data.previewFrame) {
                     pf.querySelector('.bake-preview-img').src = `data:image/jpeg;base64,${data.previewFrame}`;
                   }
+                  // Map oven stages to friendly labels
+                  const stageLabels = { loading: 'Loading', capturing: 'Recording', encoding: 'Encoding', uploading: 'Uploading' };
+                  const ovenStg = data.ovenStage;
                   const pct = data.percent != null ? Math.round(data.percent) : null;
-                  const stg = data.ovenStage || 'baking';
+                  const label = stageLabels[ovenStg] || stage || 'baking';
                   const dtl = data.ovenDetail || message;
-                  pf.querySelector('.bake-stage').textContent = stg + (pct != null ? ` ${pct}%` : '');
+                  pf.querySelector('.bake-stage').textContent = label + (pct != null ? ` ${pct}%` : '');
                   pf.querySelector('.bake-detail').textContent = dtl;
                   if (pct != null) pf.querySelector('.bake-bar-fill').style.width = pct + '%';
                 }
@@ -4889,12 +4892,23 @@
           },
         });
 
+        // If we get here, the SSE stream ended. Check if we got a final result.
+        if (!mintPreparedData) {
+          // Stream ended without a prepared/error event — likely function timeout
+          const lastStage = Object.keys(mintStepStates).reverse().find(k => mintStepStates[k]?.status === 'active');
+          const failStage = lastStage || 'thumbnail';
+          setMintStep(failStage, 'error', 'Connection lost — server timed out');
+          showMintError('Server connection lost. The oven may still be baking — try again in a moment.', true);
+        }
+
       } catch (err) {
         if (err.name === 'AbortError') return;
         console.error('Mint flow error:', err);
         const message = err.message || 'Unexpected error';
-        setMintStep('validate', 'error', message);
-        showMintError(message);
+        // Find the currently active stage to mark as failed
+        const lastStage = Object.keys(mintStepStates).reverse().find(k => mintStepStates[k]?.status === 'active');
+        setMintStep(lastStage || 'validate', 'error', message);
+        showMintError(message, true);
       }
     }
 
@@ -5017,9 +5031,24 @@
       area.innerHTML = html;
     }
 
-    function showMintError(message) {
+    function showMintError(message, showRetry = false) {
       const area = document.getElementById('mint-result-area');
-      area.innerHTML = `<div class="mint-error-msg">${escapeHtml(message)}</div>`;
+      const retryHtml = showRetry && mintCurrentEntry
+        ? `<button class="mint-action-btn primary" style="margin-top:10px;width:100%;" onclick="retryMint()">Retry</button>`
+        : '';
+      area.innerHTML = `<div class="mint-error-msg">${escapeHtml(message)}</div>${retryHtml}`;
+    }
+
+    function retryMint() {
+      if (!mintCurrentEntry) return;
+      // Reset state and restart
+      if (mintAbortController) { mintAbortController.abort(); mintAbortController = null; }
+      mintPreparedData = null;
+      document.getElementById('mint-result-area').innerHTML = '';
+      document.getElementById('mint-timeline').innerHTML = '';
+      mintStepStates = {};
+      renderTimeline();
+      startMintFlow(mintCurrentEntry.code, {});
     }
 
     // =========================================
