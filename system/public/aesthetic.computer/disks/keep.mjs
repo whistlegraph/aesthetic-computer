@@ -17,7 +17,6 @@ import {
   fetchTokenInfo,
   findTokenByName,
 } from "../lib/keeps/tzkt-client.mjs";
-import { postKeepMintStream } from "../lib/keeps-stream.mjs";
 
 const { min, max, floor, sin, cos, PI, abs } = Math;
 
@@ -1202,18 +1201,12 @@ async function runProcess(forceRegenerate = false, retryAttempt = 0) {
   console.log("🪙 KEEP: Staging mode:", keepsStagingMode);
 
   // === STEP 1: Connect Wallet ===
-  // Reset timer when process actually starts (not counting initial checks)
   startTime = Date.now();
   mintCancelled = false;
-  
-  // Track timing for each stage
-  const stageTimes = {};
-  
-  // Create abort controller for cancellation
   mintAbortController = new AbortController();
   const { signal } = mintAbortController;
 
-  // Start getting auth token in parallel (don't await yet)
+  // Start getting auth token in parallel
   const tokenPromise = _net?.getToken?.();
 
   setStep("wallet", "active", "Checking wallet...");
@@ -1227,7 +1220,6 @@ async function runProcess(forceRegenerate = false, retryAttempt = 0) {
       setStep("wallet", "error", "Connection cancelled");
       return;
     }
-    // Show truncated address with network
     const shortAddr = walletAddress.slice(0, 6) + ".." + walletAddress.slice(-4);
     const netLabel = NETWORK === "mainnet" ? "Mainnet" : "Ghostnet";
     setStep("wallet", "done", `${shortAddr} on ${netLabel}`);
@@ -1236,191 +1228,196 @@ async function runProcess(forceRegenerate = false, retryAttempt = 0) {
     return;
   }
 
-  // === STEPS 2-7: Server Preparation ===
+  // === STEP 2: Create job via keep-prepare ===
   setStep("validate", "active", `Validating $${piece}...`);
 
-  // Get current screen dimensions for thumbnail aspect ratio
-  const screenWidth = _screen?.width || 128;
-  const screenHeight = _screen?.height || 128;
-
   try {
-    // Await the token that was fetching in parallel
     const token = await tokenPromise;
 
-    // Process events with staggered delays so user sees each step
-    const delay = (ms) => new Promise(r => setTimeout(r, ms));
-    const STEP_DELAY = 150; // ms between each visual step
-    let firstEvent = true;
-    let lastEventType = null;
-    let lastEventData = null;
-
-    const handleEvent = async (eventType, eventData) => {
-      lastEventType = eventType;
-      lastEventData = eventData;
-
-      if (eventType === "progress" && eventData?.stage) {
-        const { stage, message, source, author } = eventData;
-        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        console.log(`🪙 KEEP SSE [${elapsed}s]: ${stage} →`, message || '(no message)', eventData);
-        
-        // Track when each stage starts
-        if (!stageTimes[stage]) {
-          stageTimes[stage] = { start: Date.now() };
-        }
-
-        // No delay on first event - start immediately
-        if (!firstEvent) await delay(STEP_DELAY);
-        firstEvent = false;
-
-        // Check if message indicates cached/reused content
-        const isCached = message?.includes("cached") || message?.includes("Cached");
-
-        // Handle each stage - server may send in any order when using cache
-        if (stage === "validate") {
-          // Only mark done on final validation message
-          if (message?.includes("passed") || message?.includes("✓")) {
-            setStep("validate", "done", `$${piece} verified`);
-          } else if (message?.includes("Authenticated")) {
-            setStep("validate", "active", message);
-          } else {
-            setStep("validate", "active", message || "Validating...");
-          }
-        } else if (stage === "details") {
-          // Capture piece details from server
-          // Sanitize source: replace newlines with ", " for single-line ticker display
-          if (eventData.source) sourceCode = eventData.source.replace(/\n+/g, ", ").replace(/,\s*,/g, ",").trim();
-          if (eventData.author) pieceAuthor = eventData.author;
-          if (eventData.createdAt) pieceCreatedAt = eventData.createdAt;
-          if (eventData.sourceLength) pieceSourceLength = eventData.sourceLength;
-          console.log("🪙 KEEP: Piece details received", { pieceAuthor, pieceCreatedAt, pieceSourceLength });
-        } else if (stage === "analyze") {
-          // Sanitize source: replace newlines with ", " for single-line ticker display
-          if (source) sourceCode = source.replace(/\n+/g, ", ").replace(/,\s*,/g, ",").trim();
-          if (author) pieceAuthor = author;
-          // Mark done if we have complexity info or it's done
-          if (message?.includes("complexity") || message?.includes("✓")) {
-            const authorInfo = pieceAuthor ? `by @${pieceAuthor}` : "Analyzed";
-            setStep("analyze", "done", authorInfo);
-          } else {
-            setStep("analyze", "active", "Analyzing...");
-          }
-        } else if (stage === "thumbnail") {
-          const isWaiting = message?.includes("Awaiting") || message?.includes("Baking");
-          const detail = isCached ? "Cached" : message || "WebP ready";
-          setStep("thumbnail", isWaiting ? "active" : "done", detail);
-        } else if (stage === "bundle") {
-          const detail = isCached ? "Cached" : message || "HTML packed";
-          console.log(`🪙 KEEP: ✓ Bundle stage COMPLETE - ${detail}`);
-          setStep("bundle", "done", detail);
-        } else if (stage === "ipfs") {
-          // Track IPFS progress more granularly
-          if (stageTimes.ipfs) {
-            stageTimes.ipfs.lastUpdate = Date.now();
-          }
-          const detail = isCached ? "Cached" : message || "Pinned";
-          // Only mark done if message indicates completion
-          if (message?.includes("Pinned") || message?.includes("Cached") || message?.includes("ipfs://")) {
-            setStep("ipfs", "done", detail);
-            console.log(`🪙 KEEP: ✓ IPFS stage COMPLETE in ${stageTimes.ipfs ? ((Date.now() - stageTimes.ipfs.start) / 1000).toFixed(1) : '?'}s`);
-          } else {
-            console.log(`🪙 KEEP: ⏳ IPFS stage ACTIVE - ${detail}`);
-            setStep("ipfs", "active", detail);
-          }
-        } else if (stage === "metadata") {
-          // Mark done if uploaded
-          if (message?.includes("uploaded") || message?.includes("✓")) {
-            console.log(`🪙 KEEP: ✓ Metadata stage COMPLETE - message: "${message}"`);
-            setStep("metadata", "done", "FA2 ready");
-          } else {
-            console.log(`🪙 KEEP: ⏳ Metadata stage ACTIVE - message: "${message}"`);
-            setStep("metadata", "active", "Building...");
-          }
-        } else if (stage === "ready") {
-          console.log(`🪙 KEEP: 🎯 READY stage - finalizing all steps`);
-          // Mark all intermediate steps done if not already
-          for (const stepId of ["validate", "analyze", "thumbnail", "bundle", "ipfs", "metadata"]) {
-            const step = timeline.find(t => t.id === stepId);
-            if (step && step.status !== "done") {
-              console.log(`🪙 KEEP: Forcing step "${stepId}" to done (was ${step.status})`);
-              setStep(stepId, "done", step.detail || "Done");
-            }
-          }
-          await delay(STEP_DELAY);
-          console.log(`🪙 KEEP: Activating REVIEW step`);
-          setStep("review", "active", null); // Button speaks for itself
-        }
-      }
-
-      if (eventType === "prepared" && eventData) {
-        const totalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        console.log(`🪙 KEEP: Preparation complete in ${totalElapsed}s`, eventData);
-        console.log(`🪙 KEEP: Stage times:`, Object.entries(stageTimes).map(([k, v]) => 
-          `${k}: ${v.lastUpdate ? ((v.lastUpdate - v.start) / 1000).toFixed(1) : '?'}s`
-        ).join(', '));
-        preparedData = eventData;
-        await delay(STEP_DELAY);
-        // Update timeline label with actual fee from contract
-        const reviewStep = timeline.find(t => t.id === "review");
-        if (reviewStep && preparedData.mintFee) {
-          reviewStep.label = `Pay ${preparedData.mintFee} ꜩ Toll`;
-        }
-        setStep("review", "active", null); // No detail text - button speaks for itself
-        // Load thumbnail for preview during minting
-        if (preparedData.thumbnailUri) {
-          loadThumbnail(preparedData.thumbnailUri);
-        }
-      } else if (eventType === "error" && eventData) {
-        const totalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        console.error(`🪙 KEEP ERROR [${totalElapsed}s]:`, eventData.error || eventData.message);
-        const active = getActiveStep();
-        if (active) setStep(active.id, "error", eventData.error || eventData.message);
-      }
-    };
-
-    const streamSummary = await postKeepMintStream({
-      payload: {
-        piece,
+    const prepRes = await fetch("/api/keep-prepare", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        piece: `$${piece}`,
         walletAddress,
         network: NETWORK,
-        screenWidth,
-        screenHeight,
-        regenerate: forceRegenerate,
-      },
-      token,
+        ...(forceRegenerate ? { regenerate: true } : {}),
+      }),
       signal,
-      onEvent: async ({ type, data }) => {
-        await handleEvent(type, data);
-        return type !== "error";
-      },
     });
 
-    if (streamSummary.stoppedByHandler) return;
+    const prepData = await prepRes.json();
 
-    if (!preparedData) {
-      const lastStage = lastEventData?.stage || lastEventType || "unknown";
-      const tail = lastEventData?.message ? ` (last: ${lastEventData.message})` : "";
-      const hadServerError = lastEventType === "error";
-      const stalledOnThumbnail = lastStage === "thumbnail";
-      if (!mintCancelled && !hadServerError && !stalledOnThumbnail) {
-        // First retry should reuse any just-cached media from the previous attempt.
-        if (!forceRegenerate && retryAttempt === 0) {
-          setStep("validate", "active", `Retrying without regenerate… (${lastStage})`);
-          await delay(350);
-          return await runProcess(false, retryAttempt + 1);
+    if (!prepRes.ok) {
+      setStep("validate", "error", prepData.error || "Validation failed");
+      return;
+    }
+
+    // Already minted?
+    if (prepData.alreadyMinted) {
+      setStep("validate", "done", `Already kept as #${prepData.tokenId}`);
+      return;
+    }
+
+    const jobId = prepData.jobId;
+    if (prepData.resuming) {
+      console.log("🪙 KEEP: Resuming existing job:", jobId);
+    }
+
+    setStep("validate", "done", `$${piece} verified`);
+
+    // === STEP 3: Poll keep-status until ready or failed ===
+    const POLL_INTERVAL = 2000;
+    const MAX_POLLS = 450; // 15 min
+    let pollCount = 0;
+    let lastStage = null;
+
+    const pollResult = await new Promise((resolve, reject) => {
+      // Listen for abort
+      signal.addEventListener("abort", () => {
+        reject(new DOMException("Aborted", "AbortError"));
+      });
+
+      const timer = setInterval(async () => {
+        pollCount++;
+        if (pollCount > MAX_POLLS) {
+          clearInterval(timer);
+          resolve({ status: "timeout" });
+          return;
         }
-        // Only force regenerate after a cache-based retry also fails.
-        if (!forceRegenerate && retryAttempt === 1) {
-          setStep("validate", "active", `Retrying with regenerate… (${lastStage})`);
-          await delay(350);
-          return await runProcess(true, retryAttempt + 1);
+
+        try {
+          const res = await fetch(`/api/keep-status?jobId=${encodeURIComponent(jobId)}`);
+          if (!res.ok) return; // Retry next tick
+
+          const job = await res.json();
+          lastStage = job.stage;
+          const msg = job.stageMessage || job.stage;
+
+          // Update timeline from job stage
+          if (job.stage && job.stage !== "ready") {
+            // Map job stages to step states
+            const stageMap = {
+              validate: () => setStep("validate", "done", `$${piece} verified`),
+              analyze: () => {
+                if (msg.includes("chars")) {
+                  setStep("analyze", "done", msg);
+                } else {
+                  setStep("analyze", "active", "Analyzing...");
+                }
+              },
+              bundle: () => {
+                if (msg.includes("Packed")) {
+                  setStep("bundle", "done", msg);
+                } else {
+                  setStep("bundle", "active", msg || "Packing...");
+                }
+              },
+              thumbnail: () => {
+                setStep("thumbnail", "active", msg || "Baking...");
+              },
+              ipfs: () => {
+                if (msg.includes("Pinned") || msg.includes("cached") || msg.includes("Cached")) {
+                  setStep("ipfs", "done", msg);
+                } else {
+                  setStep("ipfs", "active", msg || "Uploading...");
+                }
+              },
+              metadata: () => {
+                if (msg.includes("uploaded") || msg.includes("✓")) {
+                  setStep("metadata", "done", "FA2 ready");
+                } else {
+                  setStep("metadata", "active", msg || "Building...");
+                }
+              },
+              security: () => {
+                setStep("metadata", "active", msg || "Preflight...");
+              },
+            };
+
+            // Mark previous stages done
+            const stages = ["validate", "analyze", "bundle", "thumbnail", "ipfs", "metadata"];
+            const idx = stages.indexOf(job.stage);
+            for (let i = 0; i < idx; i++) {
+              const step = timeline.find(t => t.id === stages[i]);
+              if (step && step.status !== "done") {
+                setStep(stages[i], "done", step.detail || "Done");
+              }
+            }
+
+            // Apply current stage
+            if (stageMap[job.stage]) stageMap[job.stage]();
+          }
+
+          // Load thumbnail preview when available
+          if (job.thumbnailUri && !piecePreviewBitmap && !piecePreviewLoading) {
+            loadThumbnail(job.thumbnailUri);
+          }
+
+          // READY
+          if (job.status === "ready" && job.preparedData) {
+            clearInterval(timer);
+            resolve({ status: "ready", data: job.preparedData });
+            return;
+          }
+
+          // FAILED
+          if (job.status === "failed") {
+            clearInterval(timer);
+            resolve({ status: "failed", error: job.error, stage: job.errorStage });
+            return;
+          }
+
+          _needsPaint?.();
+        } catch (pollErr) {
+          console.warn("🪙 KEEP: Poll error:", pollErr.message);
+        }
+      }, POLL_INTERVAL);
+
+      // Store timer so cancelMintPreparation can clear it
+      mintAbortController._pollTimer = timer;
+    });
+
+    // Handle poll result
+    if (pollResult.status === "ready") {
+      const data = pollResult.data;
+      const totalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(`🪙 KEEP: Preparation complete in ${totalElapsed}s`, data);
+
+      preparedData = data;
+
+      // Mark all prep steps done
+      for (const stepId of ["validate", "analyze", "thumbnail", "bundle", "ipfs", "metadata"]) {
+        const step = timeline.find(t => t.id === stepId);
+        if (step && step.status !== "done") {
+          setStep(stepId, "done", step.detail || "Done");
         }
       }
-      const thumbnailHint = stalledOnThumbnail ? " (thumbnail bake timed out before prepare completed)" : "";
-      setStep("validate", "error", `Server did not return prepared data (${lastStage})${tail}${thumbnailHint}`);
+
+      // Update review label with actual fee
+      const reviewStep = timeline.find(t => t.id === "review");
+      if (reviewStep && preparedData.mintFee) {
+        reviewStep.label = `Pay ${preparedData.mintFee} ꜩ Toll`;
+      }
+      setStep("review", "active", null);
+
+      // Load thumbnail
+      if (preparedData.thumbnailUri) {
+        loadThumbnail(preparedData.thumbnailUri);
+      }
+
+    } else if (pollResult.status === "failed") {
+      const failStage = pollResult.stage || lastStage || "validate";
+      setStep(failStage, "error", pollResult.error || "Preparation failed");
+
+    } else if (pollResult.status === "timeout") {
+      setStep(lastStage || "thumbnail", "error", "Preparation timed out");
     }
 
   } catch (e) {
-    // Handle cancellation gracefully
     if (e.name === "AbortError" || mintCancelled) {
       const active = getActiveStep();
       if (active) setStep(active.id, "error", "Cancelled");
@@ -1437,6 +1434,9 @@ async function runProcess(forceRegenerate = false, retryAttempt = 0) {
 function cancelMintPreparation() {
   if (mintAbortController) {
     mintCancelled = true;
+    if (mintAbortController._pollTimer) {
+      clearInterval(mintAbortController._pollTimer);
+    }
     mintAbortController.abort();
     mintAbortController = null;
     console.log("🪙 KEEP: User requested cancellation");
