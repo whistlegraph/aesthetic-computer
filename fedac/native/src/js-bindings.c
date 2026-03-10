@@ -454,7 +454,19 @@ static JSValue js_sound_kill(JSContext *ctx, JSValueConst this_val, int argc, JS
         JS_ToFloat64(ctx, &fade, argv[1]);
     }
 
-    audio_kill(audio, id, fade);
+    // Check if it's a sample voice
+    int is_sample = 0;
+    if (JS_IsObject(argv[0])) {
+        JSValue is_v = JS_GetPropertyStr(ctx, argv[0], "isSample");
+        is_sample = JS_ToBool(ctx, is_v);
+        JS_FreeValue(ctx, is_v);
+    }
+
+    if (is_sample) {
+        audio_sample_kill(audio, id, fade);
+    } else {
+        audio_kill(audio, id, fade);
+    }
     return JS_UNDEFINED;
 }
 
@@ -536,6 +548,98 @@ static JSValue js_set_fx_mix(JSContext *ctx, JSValueConst this_val, int argc, JS
 static JSValue js_glitch_toggle(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val; (void)argc; (void)argv;
     if (current_rt->audio) audio_glitch_toggle(current_rt->audio);
+    return JS_UNDEFINED;
+}
+
+// sound.microphone.rec() — start recording
+static JSValue js_mic_rec(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    if (!current_rt->audio) return JS_FALSE;
+    int ok = audio_mic_start(current_rt->audio);
+    return JS_NewBool(ctx, ok == 0);
+}
+
+// sound.microphone.cut() — stop recording, return sample length
+static JSValue js_mic_cut(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    if (!current_rt->audio) return JS_NewInt32(ctx, 0);
+    int len = audio_mic_stop(current_rt->audio);
+    return JS_NewInt32(ctx, len);
+}
+
+// sound.microphone.recording — check if currently recording
+static JSValue js_mic_recording(JSContext *ctx, JSValueConst this_val) {
+    if (!current_rt->audio) return JS_FALSE;
+    return JS_NewBool(ctx, current_rt->audio->recording);
+}
+
+// sound.microphone.sampleLength — length of recorded sample
+static JSValue js_mic_sample_length(JSContext *ctx, JSValueConst this_val) {
+    if (!current_rt->audio) return JS_NewInt32(ctx, 0);
+    return JS_NewInt32(ctx, current_rt->audio->sample_len);
+}
+
+// sound.microphone.sampleRate — capture rate of recorded sample
+static JSValue js_mic_sample_rate(JSContext *ctx, JSValueConst this_val) {
+    if (!current_rt->audio) return JS_NewInt32(ctx, 0);
+    return JS_NewInt32(ctx, current_rt->audio->sample_rate);
+}
+
+// sound.sample.play({tone, base, volume, pan}) — play recorded sample at pitch
+static JSValue js_sample_play(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    ACAudio *audio = current_rt->audio;
+    if (!audio || argc < 1 || !JS_IsObject(argv[0])) return JS_UNDEFINED;
+
+    JSValue opts = argv[0];
+    double freq = 261.63, base_freq = 261.63, volume = 0.7, pan = 0.0;
+    JSValue v;
+
+    v = JS_GetPropertyStr(ctx, opts, "tone");
+    if (JS_IsNumber(v)) JS_ToFloat64(ctx, &freq, v);
+    JS_FreeValue(ctx, v);
+
+    v = JS_GetPropertyStr(ctx, opts, "base");
+    if (JS_IsNumber(v)) JS_ToFloat64(ctx, &base_freq, v);
+    JS_FreeValue(ctx, v);
+
+    v = JS_GetPropertyStr(ctx, opts, "volume");
+    if (JS_IsNumber(v)) JS_ToFloat64(ctx, &volume, v);
+    JS_FreeValue(ctx, v);
+
+    v = JS_GetPropertyStr(ctx, opts, "pan");
+    if (JS_IsNumber(v)) JS_ToFloat64(ctx, &pan, v);
+    JS_FreeValue(ctx, v);
+
+    uint64_t id = audio_sample_play(audio, freq, base_freq, volume, pan);
+    if (id == 0) return JS_UNDEFINED;
+
+    // Return object with id, kill(), update()
+    JSValue snd = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, snd, "id", JS_NewFloat64(ctx, (double)id));
+    JS_SetPropertyStr(ctx, snd, "isSample", JS_TRUE);
+    return snd;
+}
+
+// sound.sample.kill(idOrObj, fade)
+static JSValue js_sample_kill(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    ACAudio *audio = current_rt->audio;
+    if (!audio || argc < 1) return JS_UNDEFINED;
+
+    double id_d = 0;
+    if (JS_IsNumber(argv[0])) {
+        JS_ToFloat64(ctx, &id_d, argv[0]);
+    } else if (JS_IsObject(argv[0])) {
+        JSValue id_v = JS_GetPropertyStr(ctx, argv[0], "id");
+        if (JS_IsNumber(id_v)) JS_ToFloat64(ctx, &id_d, id_v);
+        JS_FreeValue(ctx, id_v);
+    }
+
+    double fade = 0.02;
+    if (argc >= 2 && JS_IsNumber(argv[1])) JS_ToFloat64(ctx, &fade, argv[1]);
+
+    audio_sample_kill(audio, (uint64_t)id_d, fade);
     return JS_UNDEFINED;
 }
 
@@ -1079,6 +1183,24 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
     JS_SetPropertyStr(ctx, fx, "setMix", JS_NewCFunction(ctx, js_set_fx_mix, "setMix", 1));
     JS_SetPropertyStr(ctx, fx, "mix", JS_NewFloat64(ctx, rt->audio ? rt->audio->fx_mix : 1.0));
     JS_SetPropertyStr(ctx, sound, "fx", fx);
+
+    // microphone
+    JSValue mic = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, mic, "rec", JS_NewCFunction(ctx, js_mic_rec, "rec", 0));
+    JS_SetPropertyStr(ctx, mic, "cut", JS_NewCFunction(ctx, js_mic_cut, "cut", 0));
+    JS_SetPropertyStr(ctx, mic, "recording",
+        JS_NewBool(ctx, rt->audio ? rt->audio->recording : 0));
+    JS_SetPropertyStr(ctx, mic, "sampleLength",
+        JS_NewInt32(ctx, rt->audio ? rt->audio->sample_len : 0));
+    JS_SetPropertyStr(ctx, mic, "sampleRate",
+        JS_NewInt32(ctx, rt->audio ? (int)rt->audio->sample_rate : 0));
+    JS_SetPropertyStr(ctx, sound, "microphone", mic);
+
+    // sample playback
+    JSValue samp = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, samp, "play", JS_NewCFunction(ctx, js_sample_play, "play", 1));
+    JS_SetPropertyStr(ctx, samp, "kill", JS_NewCFunction(ctx, js_sample_kill, "kill", 2));
+    JS_SetPropertyStr(ctx, sound, "sample", samp);
 
     // TTS
     JS_SetPropertyStr(ctx, sound, "speak", JS_NewCFunction(ctx, js_speak, "speak", 1));

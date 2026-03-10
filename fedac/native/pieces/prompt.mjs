@@ -98,6 +98,8 @@ function act({ event: e, system }) {
         historyIndex = -1;
         input = "";
       }
+    } else if (key === "space") {
+      input += " ";
     } else if (key.length === 1) {
       if (shiftHeld) {
         input += SHIFT_MAP[key] ?? key.toUpperCase();
