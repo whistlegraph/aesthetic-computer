@@ -9,6 +9,8 @@ const NO_CACHE_HEADERS = {
 };
 
 const VERSION_BY_PROFILE = {
+  v11: "11.0.0",
+  v10: "10.0.0",
   v9: "9.0.0",
   v8: "8.0.0",
   v7: "7.0.0",
@@ -17,6 +19,10 @@ const VERSION_BY_PROFILE = {
   v5rc: "5.0.0-rc",
   v4: "4.0.0",
 };
+
+const DEFAULT_MAINNET_V11_CONTRACT =
+  (process.env.KEEP_MINT_EXPECTED_CONTRACT || "").trim() ||
+  "KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB";
 
 function normalizeNetwork(value) {
   const normalized = String(value || "").trim().toLowerCase();
@@ -45,7 +51,7 @@ function resolveProfile(secretDoc, network) {
     pickString(secretDoc?.contractProfile, network) ||
     pickString(secretDoc?.keeps?.profile, network);
 
-  return raw ? raw.toLowerCase() : "v9";
+  return raw ? raw.toLowerCase() : "v11";
 }
 
 function resolveVersion(secretDoc, profile, network) {
@@ -71,12 +77,20 @@ function objktForNetwork(network) {
   return network === "mainnet" ? "https://objkt.com" : `https://${network}.objkt.com`;
 }
 
+function defaultFallbackContract(network = "mainnet") {
+  if (network === "mainnet") return DEFAULT_MAINNET_V11_CONTRACT;
+  return LEGACY_KEEPS_CONTRACT;
+}
+
 function fallbackPayload(network = "mainnet", reason = "fallback") {
+  const fallbackContractAddress = defaultFallbackContract(network);
+  const fallbackProfile = fallbackContractAddress === LEGACY_KEEPS_CONTRACT ? "legacy" : "v11";
+  const fallbackVersion = VERSION_BY_PROFILE[fallbackProfile] || null;
   return {
-    contractAddress: LEGACY_KEEPS_CONTRACT,
+    contractAddress: fallbackContractAddress,
     network,
-    profile: "legacy",
-    version: null,
+    profile: fallbackProfile,
+    version: fallbackVersion,
     rpcUrl: rpcForNetwork(network),
     tzktExplorer: tzktForNetwork(network),
     objktBase: objktForNetwork(network),
@@ -107,7 +121,7 @@ export async function handler(event) {
       db,
       network,
       secretId,
-      fallback: LEGACY_KEEPS_CONTRACT,
+      fallback: defaultFallbackContract(network),
     });
 
     const profile = resolveProfile(secretDoc, network);
@@ -129,7 +143,7 @@ export async function handler(event) {
     }, NO_CACHE_HEADERS);
   } catch (error) {
     console.warn(`⚠️ KEEP-CONFIG: ${error.message}`);
-    return respond(200, fallbackPayload(requestedNetwork, "legacy-fallback-no-db"), NO_CACHE_HEADERS);
+    return respond(200, fallbackPayload(requestedNetwork, "fallback-no-db"), NO_CACHE_HEADERS);
   } finally {
     if (database) {
       await database.disconnect();

@@ -163,12 +163,21 @@ export const handler = async (event) => {
   }
 
   // ── Check for existing active job ──────────────────────────────────
+  const forceFreshJob = body.force === true || regenerate;
   const existingJob = await getJob(pieceName, walletAddress);
-  if (existingJob && existingJob.status === "preparing" && !body.force) {
+  if (existingJob && existingJob.status === "preparing" && !forceFreshJob) {
     const ageMs = Date.now() - new Date(existingJob.updatedAt).getTime();
     if (ageMs < 5 * 60 * 1000) {
       // Job still in progress — return it
       return jsonResponse(200, { resuming: true, ...formatJobForClient(existingJob) });
+    }
+  }
+  if (existingJob && forceFreshJob) {
+    // Regenerate/rebake requests must not reuse stale in-flight jobs.
+    try {
+      await database.db.collection("keep-jobs").deleteOne({ _id: existingJob._id });
+    } catch (deleteErr) {
+      console.warn("🪙 KEEP: Could not clear previous job before forced regenerate:", deleteErr.message);
     }
   }
 
