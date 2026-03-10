@@ -25,6 +25,26 @@ Current production contract: `KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB` (v11, mainne
 2. Keep storage-derived royalty and treasury reads.
 3. Keep recent-op monitoring in mint path.
 
+### A1.5. Deferred v11 Upgrade Banner (approved text, not executed)
+
+Decision on 2026-03-10:
+
+1. Keep this as a planned action only for now.
+2. Do not lock collection metadata yet.
+3. Do not send any on-chain operation yet.
+
+Planned command (exact text approved):
+
+```bash
+node tezos/keeps.mjs set-collection-media mainnet --wallet=keeps --name="KidLisp -1" --description="Keeps on this contract are one version behind. To upgrade your keep, visit https://keeps.kidlisp.com and connect."
+```
+
+Explicitly deferred until manual go-ahead:
+
+```bash
+node tezos/keeps.mjs lock-collection mainnet --wallet=keeps
+```
+
 ### A2. Incident Protocol
 
 If compromise is suspected:
@@ -51,6 +71,52 @@ v12 should include:
 3. Same creator guarantees (owner-only burn, immutable content hash + royalties).
 4. Clear emergency controls with transparent auditability.
 5. Backward-compatible metadata/provenance fields for indexers and marketplaces.
+
+## Track B.5: v12 Security Cut (Start Now)
+
+### B5.1. Security objectives
+
+1. Eliminate fixed signer risk by making permit signers rotatable on-chain.
+2. Separate powers: admin, permit manager, and treasury controls.
+3. Preserve v11 creator guarantees (owner-only burn, immutable content hash + royalties).
+4. Keep migration optional, replay-safe, and transparent.
+
+### B5.2. Proposed contract deltas from v11
+
+1. Replace single hardcoded permit signer key with signer registry:
+   - `permit_signers : big_map<key, bool>`
+   - `set_permit_signer(key, enabled)` entrypoint (admin-governed)
+2. Introduce explicit role governance:
+   - admin can change policy
+   - permit manager role can rotate signer keys
+   - treasury role can withdraw fees
+3. Add governance safety rails:
+   - optional delayed role change (`propose_role_change` + `accept_role_change`)
+   - explicit event-style metadata fields for rotation history
+4. Maintain transfer behavior parity:
+   - pause still blocks keep/edit only, never FA2 transfer
+5. Keep metadata compatibility:
+   - preserve token_info keys used by objkt/TZIP-21 indexers
+
+### B5.3. Implementation kickoff checklist
+
+1. Write v12 threat model doc (`tezos/`):
+   - key compromise scenarios
+   - signer rotation failure modes
+   - migration replay/impersonation risks
+   - initial draft: `tezos/V12-SECURITY-THREAT-MODEL.md`
+2. Baseline v11 gap analysis before coding:
+   - `reports/2026-03-10-keeps-v11-security-gap-analysis.md`
+3. Draft `kidlisp_keeps_fa2_v12.py` from v11 baseline.
+4. Add SmartPy tests for:
+   - signer rotation before/after keep
+   - unauthorized signer updates
+   - role separation permissions
+   - migration replay rejection
+5. Add migration proof tests:
+   - claim succeeds only for current v11 owner
+   - one-time claim per `(old_contract, old_token_id)`
+6. Run testnet dry run before any mainnet v12 deployment.
 
 ## Track C: Holder Upgrade Path (Optional, Not Forced)
 
@@ -134,4 +200,3 @@ The script writes a report in `reports/` and exits with non-zero when critical a
 2. No forced holder migration.
 3. No emergency action without written postmortem timeline.
 4. Preserve provenance readability across versions.
-
