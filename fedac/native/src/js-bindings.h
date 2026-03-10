@@ -39,6 +39,7 @@ typedef struct {
     // Async HTTP fetch state (curl in background)
     int fetch_pending;           // 1 = waiting for curl
     char fetch_result[8192];     // JSON response when done, empty otherwise
+    char fetch_error[256];       // one-shot fetch error string
 
     // Binary fetch for OS update (curl -L -o destPath url)
     volatile int   fetch_binary_pending;  // 1 = curl running
