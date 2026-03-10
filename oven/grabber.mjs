@@ -1370,20 +1370,41 @@ async function getBrowser() {
  */
 export async function prewarmGrabBrowser() {
   const BASE_URL = process.env.AC_BASE_URL || 'https://aesthetic.computer';
-  const warmupUrl = `${BASE_URL}/prompt`;
+  const b = await getBrowser();
+
+  // Phase 1: Load the AC runtime + service worker
   let page;
   try {
-    const b = await getBrowser();
     page = await b.newPage();
+    const warmupUrl = `${BASE_URL}/prompt`;
     console.log(`🔥 Pre-warming browser: ${warmupUrl}`);
     await page.goto(warmupUrl, { waitUntil: 'domcontentloaded', timeout: 20000 });
-    // Wait a moment for the service worker to install
     await new Promise(r => setTimeout(r, 3000));
-    console.log('✅ Browser pre-warm complete');
+    console.log('✅ Browser pre-warm (runtime) complete');
   } catch (e) {
-    console.warn(`⚠️  Browser pre-warm failed (non-fatal): ${e.message}`);
+    console.warn(`⚠️  Browser pre-warm (runtime) failed (non-fatal): ${e.message}`);
   } finally {
     if (page) await page.close().catch(() => {});
+  }
+
+  // Phase 2: Load a blank KidLisp piece to cache kidlisp.mjs (~600KB)
+  // This makes subsequent KidLisp keep grabs much faster.
+  let klPage;
+  try {
+    klPage = await b.newPage();
+    const klUrl = `${BASE_URL}/$black?nolabel=true&nogap=true`;
+    console.log(`🔥 Pre-warming KidLisp: ${klUrl}`);
+    await klPage.goto(klUrl, { waitUntil: 'domcontentloaded', timeout: 25000 });
+    // Wait for kidlisp.mjs to fully parse and the piece to boot
+    await klPage.waitForFunction(
+      () => document.querySelector('canvas'),
+      { timeout: 15000 }
+    ).catch(() => {});
+    console.log('✅ Browser pre-warm (KidLisp) complete');
+  } catch (e) {
+    console.warn(`⚠️  Browser pre-warm (KidLisp) failed (non-fatal): ${e.message}`);
+  } finally {
+    if (klPage) await klPage.close().catch(() => {});
   }
 }
 
