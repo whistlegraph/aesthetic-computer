@@ -21,6 +21,7 @@ import { stream } from "@netlify/functions";
 import { TezosToolkit } from "@taquito/taquito";
 import { InMemorySigner } from "@taquito/signer";
 import { packDataBytes } from "@taquito/michel-codec";
+import { getPkhfromPk } from "@taquito/utils";
 
 const dev = process.env.CONTEXT === "dev";
 
@@ -52,6 +53,45 @@ const KEEP_MINT_THUMBNAIL_TIMEOUT_MS = envInt("KEEP_MINT_THUMBNAIL_TIMEOUT_MS", 
 const KEEP_MINT_FORCE_FRESH_THUMBNAIL_AWAIT_MS = envInt("KEEP_MINT_FORCE_FRESH_THUMBNAIL_AWAIT_MS", dev ? 25000 : 20000);
 const KEEP_MINT_PERMIT_TTL_MS = envInt("KEEP_MINT_PERMIT_TTL_MS", 1_200_000); // 20 minutes
 const KEEP_MINT_SIGNER_CACHE_TTL_MS = envInt("KEEP_MINT_SIGNER_CACHE_TTL_MS", 30000); // 30 seconds
+const KEEP_MINT_SECURITY_SCAN_LIMIT = envInt("KEEP_MINT_SECURITY_SCAN_LIMIT", 30);
+const KEEP_MINT_MIN_EXPECTED_FEE_MUTEZ = envInt("KEEP_MINT_MIN_EXPECTED_FEE_MUTEZ", 1);
+const KEEP_MINT_BLOCK_ON_ALERT = process.env.KEEP_MINT_BLOCK_ON_ALERT === "true";
+const KEEP_MINT_STRICT_PREFLIGHT = process.env.KEEP_MINT_STRICT_PREFLIGHT !== "false";
+
+const DEFAULT_MAINNET_CONTRACT = "KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB";
+const DEFAULT_MAINNET_ADMIN = "tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC";
+const DEFAULT_MAINNET_CODE_HASH = 1692834636;
+const DEFAULT_MAINNET_TYPE_HASH = 399679480;
+
+const KEEP_MINT_EXPECTED_CONTRACT =
+  process.env.KEEP_MINT_EXPECTED_CONTRACT?.trim()
+  || (NETWORK === "mainnet" ? DEFAULT_MAINNET_CONTRACT : null);
+const KEEP_MINT_EXPECTED_ADMIN =
+  process.env.KEEP_MINT_EXPECTED_ADMIN?.trim()
+  || (NETWORK === "mainnet" ? DEFAULT_MAINNET_ADMIN : null);
+const KEEP_MINT_EXPECTED_PERMIT_SIGNER =
+  process.env.KEEP_MINT_EXPECTED_PERMIT_SIGNER?.trim()
+  || KEEP_MINT_EXPECTED_ADMIN;
+const KEEP_MINT_EXPECTED_CODE_HASH = Number.parseInt(
+  process.env.KEEP_MINT_EXPECTED_CODE_HASH || `${NETWORK === "mainnet" ? DEFAULT_MAINNET_CODE_HASH : ""}`,
+  10
+);
+const KEEP_MINT_EXPECTED_TYPE_HASH = Number.parseInt(
+  process.env.KEEP_MINT_EXPECTED_TYPE_HASH || `${NETWORK === "mainnet" ? DEFAULT_MAINNET_TYPE_HASH : ""}`,
+  10
+);
+
+const ADMIN_ENTRYPOINTS = new Set([
+  "set_administrator",
+  "set_contract_metadata",
+  "lock_contract_metadata",
+  "set_keep_fee",
+  "set_treasury",
+  "set_royalty_split",
+  "pause",
+  "unpause",
+  "withdraw_fees",
+]);
 
 // IPFS Gateway configuration
 // When USE_GATEWAY_URLS is true, metadata will use full HTTPS URLs instead of ipfs:// URIs
@@ -126,17 +166,23 @@ async function getTezosCredentials() {
   const signerPrivateKey = secrets.keepPermitSignerPrivateKey || secrets.keepPermitPrivateKey || secrets.privateKey;
   const signerPublicKey = secrets.keepPermitSignerPublicKey || secrets.keepPermitPublicKey || secrets.publicKey;
   const signerAddress = secrets.keepPermitSignerAddress || secrets.keepPermitAddress || secrets.address;
+  const derivedSignerAddress = signerPublicKey ? getPkhfromPk(signerPublicKey) : null;
 
   if (!signerPrivateKey || !signerPublicKey || !signerAddress) {
     throw new Error("Tezos KidLisp signer credentials are incomplete in secrets.tezos-kidlisp");
   }
+  if (derivedSignerAddress && derivedSignerAddress !== signerAddress) {
+    throw new Error(
+      `Tezos signer secret mismatch: public key resolves to ${derivedSignerAddress}, address is ${signerAddress}`
+    );
+  }
   
   cachedTezosCredentials = {
     address: signerAddress,
+    derivedAddress: derivedSignerAddress,
     publicKey: signerPublicKey,
     privateKey: signerPrivateKey,
     network: secrets.network,
-    treasuryAddress: secrets.treasuryAddress || null,
   };
   cachedTezosCredentialsExpiresAt = Date.now() + KEEP_MINT_SIGNER_CACHE_TTL_MS;
   
@@ -199,9 +245,14 @@ function normalizeRoyaltyBps(value, fallback = 1000) {
 }
 
 function buildRoyalties(creatorAddress, artistBps, platformBps, platformAddress) {
+  if (!isTezosAddress(creatorAddress)) {
+    throw new Error(`Invalid creator address for royalties: ${creatorAddress || "missing"}`);
+  }
   const shares = { [creatorAddress]: String(artistBps) };
   if (platformBps > 0 && platformAddress) {
     shares[platformAddress] = String(platformBps);
+  } else if (platformBps > 0) {
+    throw new Error("platform_royalty_bps is non-zero but treasury_address is missing");
   }
   return { decimals: 4, shares };
 }
@@ -209,6 +260,261 @@ function buildRoyalties(creatorAddress, artistBps, platformBps, platformAddress)
 // Get the appropriate TzKT API base URL
 function getTzktApiBase() {
   return NETWORK === "mainnet" ? "https://api.tzkt.io" : `https://api.${NETWORK}.tzkt.io`;
+}
+
+function maybeInt(value, fallback = null) {
+  const parsed = Number.parseInt(`${value ?? ""}`, 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizeAddress(value) {
+  return typeof value === "string" ? value.trim() : null;
+}
+
+function decodeHexUtf8(value) {
+  if (typeof value !== "string" || value.length === 0 || value.length % 2 !== 0) {
+    return null;
+  }
+  try {
+    return Buffer.from(value, "hex").toString("utf8");
+  } catch {
+    return null;
+  }
+}
+
+function decodeHexJsonArray(value) {
+  const decoded = decodeHexUtf8(value);
+  if (!decoded) return null;
+  try {
+    const parsed = JSON.parse(decoded);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function extractRoyaltyPolicy(storage) {
+  let artistBps = 900;
+  let platformBps = 100;
+
+  if (storage?.artist_royalty_bps !== undefined) {
+    artistBps = normalizeRoyaltyBps(storage.artist_royalty_bps, 900);
+    platformBps = normalizeRoyaltyBps(storage.platform_royalty_bps, 100);
+  } else {
+    // Legacy contract — split default_royalty_bps as all-artist.
+    artistBps = normalizeRoyaltyBps(storage?.default_royalty_bps, 1000);
+    platformBps = 0;
+  }
+
+  const treasuryAddress = normalizeAddress(storage?.treasury_address);
+  if (platformBps > 0 && !treasuryAddress) {
+    throw new Error("Contract royalty split requires treasury_address but storage value is empty");
+  }
+
+  return { artistBps, platformBps, treasuryAddress };
+}
+
+async function fetchContractIndexerSnapshot(contractAddress, timeoutMs = 8000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(`${getTzktApiBase()}/v1/contracts/${contractAddress}`, {
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      throw new Error(`TzKT contract lookup failed (${response.status})`);
+    }
+    const data = await response.json();
+    return {
+      codeHash: maybeInt(data?.codeHash, null),
+      typeHash: maybeInt(data?.typeHash, null),
+      lastActivity: maybeInt(data?.lastActivity, null),
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function fetchRecentSecurityAlerts(contractAddress, expectedAdminAddress, limit = KEEP_MINT_SECURITY_SCAN_LIMIT) {
+  const safeLimit = Math.max(1, Math.min(limit, 100));
+  const response = await fetch(
+    `${getTzktApiBase()}/v1/operations/transactions?target=${contractAddress}&status=applied&limit=${safeLimit}&sort.desc=level`
+  );
+  if (!response.ok) {
+    throw new Error(`TzKT operations lookup failed (${response.status})`);
+  }
+
+  const operations = await response.json();
+  const alerts = [];
+  for (const op of operations) {
+    const entrypoint = op?.parameter?.entrypoint || "";
+    const sender = normalizeAddress(op?.sender?.address);
+    const hash = op?.hash || null;
+    const level = maybeInt(op?.level, null);
+    const timestamp = op?.timestamp || null;
+
+    if (ADMIN_ENTRYPOINTS.has(entrypoint)) {
+      const unexpectedAdmin = expectedAdminAddress && sender !== expectedAdminAddress;
+      alerts.push({
+        severity: unexpectedAdmin ? "critical" : "warning",
+        kind: "admin_operation",
+        entrypoint,
+        sender,
+        hash,
+        level,
+        timestamp,
+        message: unexpectedAdmin
+          ? `Unexpected admin op ${entrypoint} by ${sender}`
+          : `Recent admin op ${entrypoint} by expected admin`,
+      });
+      continue;
+    }
+
+    if (entrypoint === "keep") {
+      const creators = decodeHexJsonArray(op?.parameter?.value?.creators);
+      if (!Array.isArray(creators) || !sender || !creators.includes(sender)) {
+        alerts.push({
+          severity: "critical",
+          kind: "mint_anomaly",
+          entrypoint,
+          sender,
+          hash,
+          level,
+          timestamp,
+          message: "Recent keep mint has creator/sender mismatch",
+        });
+      }
+    }
+  }
+
+  return alerts;
+}
+
+function validatePreflight({
+  contractAddress,
+  indexerSnapshot,
+  storage,
+  signerAddress,
+  signerPublicKeyAddress,
+}) {
+  const violations = [];
+
+  if (KEEP_MINT_EXPECTED_CONTRACT && contractAddress !== KEEP_MINT_EXPECTED_CONTRACT) {
+    violations.push(`Contract mismatch: expected ${KEEP_MINT_EXPECTED_CONTRACT}, got ${contractAddress}`);
+  }
+
+  const adminAddress = normalizeAddress(storage?.administrator);
+  if (KEEP_MINT_EXPECTED_ADMIN && adminAddress !== KEEP_MINT_EXPECTED_ADMIN) {
+    violations.push(`Admin mismatch: expected ${KEEP_MINT_EXPECTED_ADMIN}, got ${adminAddress || "unset"}`);
+  }
+
+  if (KEEP_MINT_EXPECTED_PERMIT_SIGNER && signerAddress !== KEEP_MINT_EXPECTED_PERMIT_SIGNER) {
+    violations.push(`Permit signer mismatch: expected ${KEEP_MINT_EXPECTED_PERMIT_SIGNER}, got ${signerAddress}`);
+  }
+
+  if (signerPublicKeyAddress && signerAddress !== signerPublicKeyAddress) {
+    violations.push(`Signer key mismatch: public key resolves to ${signerPublicKeyAddress}, credential address is ${signerAddress}`);
+  }
+
+  if (storage?.paused === true) {
+    violations.push("Contract is paused");
+  }
+
+  const keepFeeMutez = maybeInt(storage?.keep_fee?.toNumber?.() ?? storage?.keep_fee, 0) ?? 0;
+  if (keepFeeMutez < KEEP_MINT_MIN_EXPECTED_FEE_MUTEZ) {
+    violations.push(`keep_fee too low: ${keepFeeMutez} mutez`);
+  }
+
+  const wantsCodeHashCheck = Number.isFinite(KEEP_MINT_EXPECTED_CODE_HASH);
+  const wantsTypeHashCheck = Number.isFinite(KEEP_MINT_EXPECTED_TYPE_HASH);
+  if (wantsCodeHashCheck || wantsTypeHashCheck) {
+    if (!indexerSnapshot) {
+      violations.push("Missing TzKT contract snapshot for hash verification");
+    } else {
+      if (wantsCodeHashCheck && indexerSnapshot.codeHash !== KEEP_MINT_EXPECTED_CODE_HASH) {
+        violations.push(`codeHash mismatch: expected ${KEEP_MINT_EXPECTED_CODE_HASH}, got ${indexerSnapshot.codeHash}`);
+      }
+      if (wantsTypeHashCheck && indexerSnapshot.typeHash !== KEEP_MINT_EXPECTED_TYPE_HASH) {
+        violations.push(`typeHash mismatch: expected ${KEEP_MINT_EXPECTED_TYPE_HASH}, got ${indexerSnapshot.typeHash}`);
+      }
+    }
+  }
+
+  return violations;
+}
+
+async function runContractPreflight({
+  contractAddress,
+  creatorWalletAddress,
+  includeRecentAlerts = false,
+}) {
+  const tezos = new TezosToolkit(RPC_URL);
+  const contract = await tezos.contract.at(contractAddress);
+  const storage = await contract.storage();
+  const keepFeeMutez = maybeInt(storage?.keep_fee?.toNumber?.() ?? storage?.keep_fee, 0) ?? 0;
+  const keepFeeXtz = keepFeeMutez / 1_000_000;
+
+  const credentials = await getTezosCredentials();
+  const signerAddress = normalizeAddress(credentials?.address);
+  const signerPublicKeyAddress = credentials?.publicKey ? getPkhfromPk(credentials.publicKey) : null;
+
+  const royaltyPolicy = extractRoyaltyPolicy(storage);
+  const royalties = buildRoyalties(
+    creatorWalletAddress,
+    royaltyPolicy.artistBps,
+    royaltyPolicy.platformBps,
+    royaltyPolicy.treasuryAddress
+  );
+
+  let indexerSnapshot = null;
+  try {
+    indexerSnapshot = await fetchContractIndexerSnapshot(contractAddress);
+  } catch (error) {
+    // If hash checks are configured this will fail below via validatePreflight.
+    console.warn(`🪙 KEEP: Contract hash lookup warning: ${error.message}`);
+  }
+
+  const violations = validatePreflight({
+    contractAddress,
+    indexerSnapshot,
+    storage,
+    signerAddress,
+    signerPublicKeyAddress,
+  });
+
+  let alerts = [];
+  if (includeRecentAlerts) {
+    try {
+      alerts = await fetchRecentSecurityAlerts(contractAddress, KEEP_MINT_EXPECTED_ADMIN);
+    } catch (error) {
+      alerts = [{
+        severity: "warning",
+        kind: "monitoring_error",
+        message: `Could not scan recent operations: ${error.message}`,
+      }];
+    }
+  }
+
+  if (KEEP_MINT_BLOCK_ON_ALERT) {
+    const criticalAlerts = alerts.filter((alert) => alert.severity === "critical");
+    if (criticalAlerts.length > 0) {
+      violations.push(`Critical recent-operation alerts detected (${criticalAlerts.length})`);
+    }
+  }
+
+  return {
+    contract,
+    storage,
+    keepFeeMutez,
+    keepFeeXtz,
+    indexerSnapshot,
+    signerAddress,
+    signerPublicKeyAddress,
+    royaltyPolicy,
+    royalties,
+    alerts,
+    violations,
+  };
 }
 
 // Check if a piece name is already minted via TzKT
@@ -586,27 +892,33 @@ export const handler = stream(async (event, context) => {
             { name: "Characters", value: String(analysis?.chars || source.length) },
           ];
 
-          let artistBps = 900;
-          let platformBps = 100;
+          const creatorsArray = [creatorWalletAddress];
+          let preflight = null;
+          let preflightError = null;
           try {
-            const tezos = new TezosToolkit(RPC_URL);
-            const contract = await tezos.contract.at(CONTRACT_ADDRESS);
-            const storage = await contract.storage();
-            if (storage.artist_royalty_bps !== undefined) {
-              artistBps = normalizeRoyaltyBps(storage.artist_royalty_bps, 900);
-              platformBps = normalizeRoyaltyBps(storage.platform_royalty_bps, 100);
-            } else {
-              // Legacy contract — split default_royalty_bps as all-artist
-              artistBps = normalizeRoyaltyBps(storage.default_royalty_bps, 1000);
-              platformBps = 0;
-            }
-          } catch (royaltyErr) {
-            console.warn(`🪙 KEEP: Unable to read royalty bps, using defaults (${royaltyErr?.message || "unknown error"})`);
+            preflight = await runContractPreflight({
+              contractAddress: CONTRACT_ADDRESS,
+              creatorWalletAddress,
+              includeRecentAlerts: true,
+            });
+          } catch (error) {
+            preflightError = error?.message || "Contract preflight unavailable";
+            console.warn(`🪙 KEEP: Simulator preflight warning: ${preflightError}`);
           }
 
-          const creatorsArray = [creatorWalletAddress];
-          const simCredentials = await getTezosCredentials();
-          const royalties = buildRoyalties(creatorWalletAddress, artistBps, platformBps, simCredentials.treasuryAddress);
+          const fallbackTreasury = isTezosAddress(KEEP_MINT_EXPECTED_ADMIN) ? KEEP_MINT_EXPECTED_ADMIN : null;
+          const fallbackRoyaltyPolicy = {
+            artistBps: 900,
+            platformBps: fallbackTreasury ? 100 : 0,
+            treasuryAddress: fallbackTreasury,
+          };
+          const royaltyPolicy = preflight?.royaltyPolicy || fallbackRoyaltyPolicy;
+          const royalties = preflight?.royalties || buildRoyalties(
+            creatorWalletAddress,
+            royaltyPolicy.artistBps,
+            royaltyPolicy.platformBps,
+            royaltyPolicy.treasuryAddress
+          );
 
           const metadataJson = {
             name: tokenName,
@@ -674,11 +986,13 @@ export const handler = stream(async (event, context) => {
               keepPermitError = permitErr?.message || "Keep permit unavailable";
             }
 
-            const tezos = new TezosToolkit(RPC_URL);
-            const contract = await tezos.contract.at(CONTRACT_ADDRESS);
-            const storage = await contract.storage();
-            const keepFeeMutez = storage.keep_fee?.toNumber?.() ?? 0;
-            keepFeeXtz = keepFeeMutez / 1_000_000;
+            const contract = preflight?.contract || await new TezosToolkit(RPC_URL).contract.at(CONTRACT_ADDRESS);
+            keepFeeXtz = preflight?.keepFeeXtz ?? null;
+            if (keepFeeXtz == null) {
+              const storage = await contract.storage();
+              const keepFeeMutez = storage.keep_fee?.toNumber?.() ?? 0;
+              keepFeeXtz = keepFeeMutez / 1_000_000;
+            }
 
             const transferParams = contract.methodsObject.keep({
               name: onChainMetadata.name,
@@ -726,20 +1040,41 @@ export const handler = stream(async (event, context) => {
             onChainMetadata,
             michelsonParams,
             contractCallPreview,
-            simulation: {
-              sourceOrigin,
-              sourceLength: source.length,
-              sourceHash,
-              walletFallbackUsed: !walletValid,
+              simulation: {
+                sourceOrigin,
+                sourceLength: source.length,
+                sourceHash,
+                walletFallbackUsed: !walletValid,
               scaffoldOk: !!michelsonParams,
               scaffoldError,
               keepPermitSigned: !!keepPermit,
-              keepPermitError,
-              keepPermitUsableOnChain: false,
-              dbPieceMeta,
-            },
-            keepPermit,
-          });
+                keepPermitError,
+                keepPermitUsableOnChain: false,
+                dbPieceMeta,
+                preflightError,
+              },
+              security: preflight ? {
+                violations: preflight.violations,
+                alerts: preflight.alerts,
+                expected: {
+                  contract: KEEP_MINT_EXPECTED_CONTRACT,
+                  admin: KEEP_MINT_EXPECTED_ADMIN,
+                  permitSigner: KEEP_MINT_EXPECTED_PERMIT_SIGNER,
+                  codeHash: Number.isFinite(KEEP_MINT_EXPECTED_CODE_HASH) ? KEEP_MINT_EXPECTED_CODE_HASH : null,
+                  typeHash: Number.isFinite(KEEP_MINT_EXPECTED_TYPE_HASH) ? KEEP_MINT_EXPECTED_TYPE_HASH : null,
+                },
+                observed: {
+                  signer: preflight.signerAddress,
+                  signerFromPublicKey: preflight.signerPublicKeyAddress,
+                  administrator: normalizeAddress(preflight.storage?.administrator),
+                  keepFeeMutez: preflight.keepFeeMutez,
+                  keepFeeXtz: preflight.keepFeeXtz,
+                  codeHash: preflight.indexerSnapshot?.codeHash ?? null,
+                  typeHash: preflight.indexerSnapshot?.typeHash ?? null,
+                },
+              } : null,
+              keepPermit,
+            });
           return;
         } finally {
           if (database) {
@@ -870,6 +1205,7 @@ export const handler = stream(async (event, context) => {
       const userDoc = user ? await usersCollection.findOne({ _id: user.sub }) : null;
       const linkedWalletAddress = userDoc?.tezos?.address;
       let creatorWalletAddress;
+      let contractSecurity = null;
       
       // Skip wallet validation for rebake mode (not minting, just regenerating bundle)
       if (!isRebake) {
@@ -906,6 +1242,67 @@ export const handler = stream(async (event, context) => {
         // Rebake mode - use linked wallet for metadata (or fallback)
         creatorWalletAddress = linkedWalletAddress || "tz1burnburnburnburnburnburnburjAYjjX";
       }
+
+      await send("progress", { stage: "security", message: "Running contract preflight..." });
+      contractSecurity = await runContractPreflight({
+        contractAddress: CONTRACT_ADDRESS,
+        creatorWalletAddress,
+        includeRecentAlerts: true,
+      });
+
+      if (contractSecurity.violations.length > 0) {
+        if (KEEP_MINT_STRICT_PREFLIGHT && !isRebake) {
+          await database.disconnect();
+          await send("error", {
+            error: "Security preflight failed",
+            details: contractSecurity.violations,
+            security: {
+              expected: {
+                contract: KEEP_MINT_EXPECTED_CONTRACT,
+                admin: KEEP_MINT_EXPECTED_ADMIN,
+                permitSigner: KEEP_MINT_EXPECTED_PERMIT_SIGNER,
+                codeHash: Number.isFinite(KEEP_MINT_EXPECTED_CODE_HASH) ? KEEP_MINT_EXPECTED_CODE_HASH : null,
+                typeHash: Number.isFinite(KEEP_MINT_EXPECTED_TYPE_HASH) ? KEEP_MINT_EXPECTED_TYPE_HASH : null,
+              },
+              observed: {
+                contract: CONTRACT_ADDRESS,
+                administrator: normalizeAddress(contractSecurity.storage?.administrator),
+                signer: contractSecurity.signerAddress,
+                signerFromPublicKey: contractSecurity.signerPublicKeyAddress,
+                keepFeeMutez: contractSecurity.keepFeeMutez,
+                keepFeeXtz: contractSecurity.keepFeeXtz,
+                codeHash: contractSecurity.indexerSnapshot?.codeHash ?? null,
+                typeHash: contractSecurity.indexerSnapshot?.typeHash ?? null,
+              },
+              alerts: contractSecurity.alerts,
+            },
+          });
+          return;
+        }
+        await send("progress", {
+          stage: "security",
+          message: `${isRebake ? "Rebake preflight warnings" : "Preflight warnings"}: ${contractSecurity.violations.join(" | ")}`,
+        });
+      }
+
+      const criticalAlerts = contractSecurity.alerts.filter((alert) => alert.severity === "critical");
+      if (criticalAlerts.length > 0) {
+        await send("progress", {
+          stage: "security",
+          message: `Alert: ${criticalAlerts.length} critical recent contract event${criticalAlerts.length === 1 ? "" : "s"}`,
+        });
+      }
+      if (contractSecurity.alerts.length > 0) {
+        const alertSummary = contractSecurity.alerts
+          .slice(0, 3)
+          .map((alert) => alert.message)
+          .join(" | ");
+        await send("progress", { stage: "security", message: `Recent events: ${alertSummary}` });
+      }
+      await send("progress", {
+        stage: "security",
+        message: `Preflight passed • fee ${contractSecurity.keepFeeXtz} XTZ • admin ${normalizeAddress(contractSecurity.storage?.administrator)?.slice(0, 8)}...`,
+      });
       
       // Send piece details for client display
       const ownerHandle = await handleFor(piece.user);
@@ -1408,27 +1805,15 @@ export const handler = stream(async (event, context) => {
       // creators array contains just the wallet address for on-chain attribution
       const creatorsArray = [creatorWalletAddress];
       
-      let artistBps = 900;
-      let platformBps = 100;
-      try {
-        const readTezos = new TezosToolkit(RPC_URL);
-        const readContract = await readTezos.contract.at(CONTRACT_ADDRESS);
-        const readStorage = await readContract.storage();
-        if (readStorage.artist_royalty_bps !== undefined) {
-          artistBps = normalizeRoyaltyBps(readStorage.artist_royalty_bps, 900);
-          platformBps = normalizeRoyaltyBps(readStorage.platform_royalty_bps, 100);
-        } else {
-          // Legacy contract — split default_royalty_bps as all-artist
-          artistBps = normalizeRoyaltyBps(readStorage.default_royalty_bps, 1000);
-          platformBps = 0;
-        }
-      } catch (royaltyErr) {
-        console.warn(`🪙 KEEP: Unable to read royalty bps, using defaults (${royaltyErr?.message || "unknown error"})`);
+      if (!contractSecurity) {
+        throw new Error("Missing contract security snapshot before metadata stage");
       }
-
-      // Royalty split read from on-chain storage at mint time.
-      const mintCredentials = await getTezosCredentials();
-      const royalties = buildRoyalties(creatorWalletAddress, artistBps, platformBps, mintCredentials.treasuryAddress);
+      const royalties = buildRoyalties(
+        creatorWalletAddress,
+        contractSecurity.royaltyPolicy.artistBps,
+        contractSecurity.royaltyPolicy.platformBps,
+        contractSecurity.royaltyPolicy.treasuryAddress
+      );
 
       const metadataJson = {
         name: tokenName,
@@ -1497,16 +1882,55 @@ export const handler = stream(async (event, context) => {
         ).join(', '));
         
         await send("progress", { stage: "ready", message: "Ready for wallet signature..." });
-        
-        // Use Taquito to generate the Michelson parameters for the contract call
-        // This ensures proper encoding that Beacon can use
-        const tezos = new TezosToolkit(RPC_URL);
-        const contract = await tezos.contract.at(CONTRACT_ADDRESS);
-        
-        // Read the keep_fee from contract storage
-        const storage = await contract.storage();
-        const keepFeeMutez = storage.keep_fee?.toNumber?.() ?? 0;
-        const keepFeeXtz = keepFeeMutez / 1_000_000;
+
+        // Final fail-closed check immediately before producing signable params.
+        await send("progress", { stage: "security", message: "Re-validating preflight..." });
+        const finalSecurity = await runContractPreflight({
+          contractAddress: CONTRACT_ADDRESS,
+          creatorWalletAddress,
+          includeRecentAlerts: true,
+        });
+        if (finalSecurity.violations.length > 0) {
+          if (KEEP_MINT_STRICT_PREFLIGHT) {
+            await send("error", {
+              error: "Security preflight failed",
+              details: finalSecurity.violations,
+              security: {
+                expected: {
+                  contract: KEEP_MINT_EXPECTED_CONTRACT,
+                  admin: KEEP_MINT_EXPECTED_ADMIN,
+                  permitSigner: KEEP_MINT_EXPECTED_PERMIT_SIGNER,
+                  codeHash: Number.isFinite(KEEP_MINT_EXPECTED_CODE_HASH) ? KEEP_MINT_EXPECTED_CODE_HASH : null,
+                  typeHash: Number.isFinite(KEEP_MINT_EXPECTED_TYPE_HASH) ? KEEP_MINT_EXPECTED_TYPE_HASH : null,
+                },
+                observed: {
+                  contract: CONTRACT_ADDRESS,
+                  administrator: normalizeAddress(finalSecurity.storage?.administrator),
+                  signer: finalSecurity.signerAddress,
+                  signerFromPublicKey: finalSecurity.signerPublicKeyAddress,
+                  keepFeeMutez: finalSecurity.keepFeeMutez,
+                  keepFeeXtz: finalSecurity.keepFeeXtz,
+                  codeHash: finalSecurity.indexerSnapshot?.codeHash ?? null,
+                  typeHash: finalSecurity.indexerSnapshot?.typeHash ?? null,
+                },
+                alerts: finalSecurity.alerts,
+              },
+            });
+            await database.disconnect();
+            return;
+          }
+          await send("progress", {
+            stage: "security",
+            message: `Final preflight warnings: ${finalSecurity.violations.join(" | ")}`,
+          });
+        }
+
+        const contract = finalSecurity.contract;
+        const keepFeeXtz = finalSecurity.keepFeeXtz;
+        const expectedRoyaltiesBytes = stringToBytes(JSON.stringify(finalSecurity.royalties));
+        if (onChainMetadata.royalties !== expectedRoyaltiesBytes) {
+          throw new Error("Royalty payload drift detected between metadata build and final preflight");
+        }
         
         // Use the wallet address validated earlier
         const ownerAddress = creatorWalletAddress;
@@ -1551,7 +1975,21 @@ export const handler = stream(async (event, context) => {
           keepPermitDeadline: keepPermit.permit_deadline,
           usedCachedMedia: useCachedMedia, // Tell client if we reused IPFS pins
           cacheGeneratedAt: useCachedMedia ? piece.ipfsMedia?.createdAt : null, // When cache was generated
+          security: {
+            alerts: finalSecurity.alerts,
+            observed: {
+              contract: CONTRACT_ADDRESS,
+              administrator: normalizeAddress(finalSecurity.storage?.administrator),
+              signer: finalSecurity.signerAddress,
+              keepFeeMutez: finalSecurity.keepFeeMutez,
+              keepFeeXtz: finalSecurity.keepFeeXtz,
+              royalty: finalSecurity.royaltyPolicy,
+              codeHash: finalSecurity.indexerSnapshot?.codeHash ?? null,
+              typeHash: finalSecurity.indexerSnapshot?.typeHash ?? null,
+            },
+          },
         });
+        await database.disconnect();
         return;
       }
 
