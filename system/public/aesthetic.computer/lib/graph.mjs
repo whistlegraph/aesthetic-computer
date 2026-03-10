@@ -1904,6 +1904,10 @@ function getPixelChecksum(pixels, width, height, x, y, w, h) {
   return checksum;
 }
 
+// Cached contrast lookup table to avoid re-allocation per frame
+let cachedContrastLUT = null;
+let cachedContrastLevel = null;
+
 // Adjust the contrast of the pixel buffer
 // level: 1.0 = no change, >1.0 = more contrast, <1.0 = less contrast
 function contrast(level = 1.0) {
@@ -1948,27 +1952,37 @@ function contrast(level = 1.0) {
   // 💻 CPU FALLBACK
   const cpuStart = performance.now();
 
-  // 🚀 OPTIMIZATION: Pre-calculate contrast lookup table for faster pixel processing
-  const contrastLUT = new Uint8Array(256);
-  for (let i = 0; i < 256; i++) {
-    const normalized = i / 255.0;
-    const adjusted = ((normalized - 0.5) * level + 0.5) * 255.0;
-    contrastLUT[i] = Math.max(0, Math.min(255, Math.round(adjusted)));
+  // Reuse cached LUT if contrast level hasn't changed
+  if (cachedContrastLevel !== level) {
+    cachedContrastLUT = new Uint8Array(256);
+    for (let i = 0; i < 256; i++) {
+      const normalized = i / 255.0;
+      const adjusted = ((normalized - 0.5) * level + 0.5) * 255.0;
+      cachedContrastLUT[i] = Math.max(0, Math.min(255, Math.round(adjusted)));
+    }
+    cachedContrastLevel = level;
   }
+  const contrastLUT = cachedContrastLUT;
 
   // Apply contrast adjustment to each pixel using lookup table
-  for (let y = minY; y < maxY; y++) {
-    for (let x = minX; x < maxX; x++) {
-      const idx = (y * width + x) * 4;
-      
-      // Skip transparent pixels
-      if (pixels[idx + 3] === 0) continue;
-      
-      // Use lookup table for fast contrast adjustment (RGB channels only)
-      pixels[idx] = contrastLUT[pixels[idx]];     // R
-      pixels[idx + 1] = contrastLUT[pixels[idx + 1]]; // G
-      pixels[idx + 2] = contrastLUT[pixels[idx + 2]]; // B
-      // Alpha channel stays unchanged
+  if (!activeMask) {
+    // Fast path: linear scan for full-screen contrast (no per-pixel index math)
+    const len = pixels.length;
+    for (let i = 0; i < len; i += 4) {
+      if (pixels[i + 3] === 0) continue;
+      pixels[i] = contrastLUT[pixels[i]];
+      pixels[i + 1] = contrastLUT[pixels[i + 1]];
+      pixels[i + 2] = contrastLUT[pixels[i + 2]];
+    }
+  } else {
+    for (let y = minY; y < maxY; y++) {
+      for (let x = minX; x < maxX; x++) {
+        const idx = (y * width + x) * 4;
+        if (pixels[idx + 3] === 0) continue;
+        pixels[idx] = contrastLUT[pixels[idx]];
+        pixels[idx + 1] = contrastLUT[pixels[idx + 1]];
+        pixels[idx + 2] = contrastLUT[pixels[idx + 2]];
+      }
     }
   }
   
