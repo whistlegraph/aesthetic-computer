@@ -361,38 +361,35 @@ const OVEN_TV_HTML = `<!DOCTYPE html>
     .hero {
       flex: 1;
       display: flex;
-      align-items: center;
+      align-items: stretch;
       justify-content: center;
       gap: 8px;
       padding: 8px;
       min-height: 0;
       overflow: hidden;
     }
-    .hero.idle { color: var(--text-dim); font-size: 1.2em; justify-content: center; }
+    .hero.idle { color: var(--text-dim); font-size: 1.2em; align-items: center; }
     .hero-card {
       background: var(--bg-card);
       border: 2px solid var(--border);
       border-radius: 6px;
       display: flex;
-      flex-direction: row;
-      align-items: center;
-      padding: 6px 8px;
-      gap: 8px;
-      min-width: 0;
-      max-width: 320px;
-      flex: 0 1 auto;
+      flex-direction: column;
+      flex: 1 1 0;
+      min-width: 80px;
+      max-width: 200px;
+      overflow: hidden;
     }
     .hero-card.capturing { border-color: var(--accent); }
     .hero-card .preview {
-      width: 56px;
-      height: 56px;
-      min-width: 56px;
+      width: 100%;
+      aspect-ratio: 1;
       background: var(--preview-bg);
-      border-radius: 3px;
       overflow: hidden;
       display: flex;
       align-items: center;
       justify-content: center;
+      flex-shrink: 0;
     }
     .hero-card .preview img {
       width: 100%;
@@ -400,18 +397,25 @@ const OVEN_TV_HTML = `<!DOCTYPE html>
       object-fit: contain;
       image-rendering: pixelated;
     }
-    .hero-card .preview .placeholder { color: var(--text-dim); font-size: 1.2em; }
-    .hero-card .info { text-align: left; min-width: 0; flex: 1; }
-    .hero-card .piece-name { color: var(--accent); font-weight: bold; font-size: 0.9em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .hero-card .meta { color: var(--text-dim); font-size: 0.72em; margin: 1px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hero-card .preview .placeholder { color: var(--text-dim); font-size: 1.4em; }
+    .hero-card .info {
+      padding: 4px 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      min-height: 0;
+      flex: 1;
+      overflow: hidden;
+    }
+    .hero-card .piece-name { color: var(--accent); font-weight: bold; font-size: 0.85em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hero-card .meta { color: var(--text-dim); font-size: 0.65em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3; }
     .hero-card .meta .author { color: var(--text-secondary); }
-    .hero-card .stage { color: var(--text-muted); font-size: 0.78em; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hero-card .stage { color: var(--text-muted); font-size: 0.7em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3; }
     .hero-card .progress-bar {
       width: 100%;
       height: 3px;
       background: var(--border);
-      border-radius: 2px;
-      overflow: hidden;
+      flex-shrink: 0;
     }
     .hero-card .progress-bar .fill {
       height: 100%;
@@ -736,11 +740,13 @@ const OVEN_TV_HTML = `<!DOCTYPE html>
         const reqAgo = p.requestedAt ? ago(now - p.requestedAt) : '';
         const authorStr = p.author || '';
         const createdStr = shortDate(p.pieceCreatedAt);
-        const sourceStr = p.source === 'keep' ? 'keep' : '';
+        const sourceStr = p.source || '';
+        const originStr = p.requestOrigin ? p.requestOrigin.replace(/^https?:\\/\\//, '').split('/')[0] : '';
 
         let metaParts = [];
         if (authorStr) metaParts.push('<span class="author">' + esc(authorStr) + '</span>');
         if (sourceStr) metaParts.push(sourceStr);
+        if (originStr) metaParts.push(originStr);
         if (createdStr) metaParts.push('created ' + createdStr);
         if (reqAgo) metaParts.push(reqAgo);
         const metaHtml = metaParts.join(' · ');
