@@ -4923,14 +4923,39 @@
               }
             }
 
-            // Show partial results as they arrive
+            // Show live oven preview during thumbnail bake
+            if (job.stage === 'thumbnail' || job.stage === 'bundle' || job.stage === 'ipfs') {
+              const pf = document.getElementById('mint-preview-frame');
+              if (pf && !pf.querySelector('.oven-live-img') && !pf.querySelector('.job-thumbnail')) {
+                // Swap iframe for a live oven grab image that refreshes
+                const overlay = pf.querySelector('.mint-progress-overlay');
+                const ovenUrl = `https://oven.aesthetic.computer/grab/webp/480/360/$${piece}?duration=3000&fps=8&quality=75&density=2&source=keep&ts=${Date.now()}`;
+                const iframe = pf.querySelector('iframe');
+                if (iframe) iframe.remove();
+                const img = document.createElement('img');
+                img.className = 'oven-live-img';
+                img.src = ovenUrl;
+                img.style.cssText = 'width:100%;height:100%;object-fit:contain;image-rendering:pixelated;position:absolute;inset:0;';
+                if (overlay) pf.insertBefore(img, overlay);
+                else pf.appendChild(img);
+              }
+            }
+
+            // Show final IPFS thumbnail when available
             if (job.thumbnailUri) {
               const pf = document.getElementById('mint-preview-frame');
               if (pf && !pf.querySelector('.job-thumbnail')) {
-                // Replace iframe with thumbnail but keep the progress overlay
                 const overlay = pf.querySelector('.mint-progress-overlay');
-                pf.innerHTML = `<img class="job-thumbnail" src="${job.thumbnailUri.replace('ipfs://', 'https://ipfs.aesthetic.computer/ipfs/')}" style="width:100%;height:100%;object-fit:contain;image-rendering:pixelated;">`;
-                if (overlay) pf.appendChild(overlay);
+                const ovenImg = pf.querySelector('.oven-live-img');
+                if (ovenImg) ovenImg.remove();
+                const iframe = pf.querySelector('iframe');
+                if (iframe) iframe.remove();
+                const img = document.createElement('img');
+                img.className = 'job-thumbnail';
+                img.src = job.thumbnailUri.replace('ipfs://', 'https://ipfs.aesthetic.computer/ipfs/');
+                img.style.cssText = 'width:100%;height:100%;object-fit:contain;image-rendering:pixelated;';
+                if (overlay) pf.insertBefore(img, overlay);
+                else pf.appendChild(img);
               }
             }
 
