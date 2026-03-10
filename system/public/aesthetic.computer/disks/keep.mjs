@@ -1512,6 +1512,8 @@ async function signAndMint() {
           walletAddress,
           network: preparedData.network,
           contractAddress,
+          contractProfile: preparedData.contractProfile || ACTIVE_KEEPS_PROFILE || null,
+          contractVersion: preparedData.contractVersion || null,
           artifactUri: preparedData.artifactUri,
           thumbnailUri: preparedData.thumbnailUri,
           metadataUri: preparedData.metadataUri,
