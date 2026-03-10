@@ -13431,7 +13431,7 @@ async function makeFrame({ data: { type, content } }) {
         layer(0);
 
         painting.paint(true);
-        
+
         // 🎬 Piece Transition: Step and apply overlay AFTER painting.paint() executes
         // This ensures the overlay is composited on TOP of the piece's rendered frame
         if (golTransition.active && screen?.pixels) {

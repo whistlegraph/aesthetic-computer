@@ -5237,13 +5237,10 @@ function scroll(dx = 0, dy = 0) {
     maxX = width,
     maxY = height;
   if (activeMask) {
-    // Use floor for both min and max to prevent overlap when adjacent masks
-    // share a fractional boundary (e.g., mask 0 0 w/2 h + mask w/2 0 w/2 h
-    // with odd w: floor ensures no pixel belongs to two masks)
     const maskMinX = Math.floor(activeMask.x);
     const maskMinY = Math.floor(activeMask.y);
-    const maskMaxX = Math.floor(activeMask.x + activeMask.width);
-    const maskMaxY = Math.floor(activeMask.y + activeMask.height);
+    const maskMaxX = Math.ceil(activeMask.x + activeMask.width);
+    const maskMaxY = Math.ceil(activeMask.y + activeMask.height);
 
     minX = Math.max(0, Math.min(width, maskMinX));
     maxX = Math.max(0, Math.min(width, maskMaxX));
@@ -5341,8 +5338,8 @@ function flip() {
   if (activeMask) {
     const maskMinX = Math.floor(activeMask.x);
     const maskMinY = Math.floor(activeMask.y);
-    const maskMaxX = Math.floor(activeMask.x + activeMask.width);
-    const maskMaxY = Math.floor(activeMask.y + activeMask.height);
+    const maskMaxX = Math.ceil(activeMask.x + activeMask.width);
+    const maskMaxY = Math.ceil(activeMask.y + activeMask.height);
 
     minX = Math.max(0, Math.min(width, maskMinX));
     maxX = Math.max(0, Math.min(width, maskMaxX));

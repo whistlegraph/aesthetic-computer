@@ -68,9 +68,9 @@ const isOpaqueOrigin = (() => {
 // Export to globalThis so pieces can detect sandbox mode
 globalThis.acIsSandboxed = isOpaqueOrigin;
 
-// Default to WebGL composite unless explicitly disabled
+// Default to WebGL composite unless explicitly disabled or in sandboxed/pack mode
 if (globalThis.acUseWebGLComposite === undefined) {
-  globalThis.acUseWebGLComposite = true;
+  globalThis.acUseWebGLComposite = !isOpaqueOrigin;
 }
 
 // Log once if we detect sandbox restrictions
@@ -3111,7 +3111,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             const canFallbackToData =
               isPackMode &&
               typeof window !== "undefined" &&
-              window.location?.protocol === "file:" &&
               typeof workletSource === "string";
 
             if (!canFallbackToData) {
