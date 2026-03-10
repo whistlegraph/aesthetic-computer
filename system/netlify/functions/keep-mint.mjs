@@ -49,7 +49,7 @@ const KEEP_MINT_MAX_PREP_MS = envInt("KEEP_MINT_MAX_PREP_MS", 55000);
 const KEEP_MINT_PROVIDER_CEILING_MS = envInt("KEEP_MINT_PROVIDER_CEILING_MS", 55000);
 const KEEP_MINT_EFFECTIVE_PREP_MS = Math.min(KEEP_MINT_MAX_PREP_MS, KEEP_MINT_PROVIDER_CEILING_MS);
 const KEEP_MINT_STREAM_GUARD_MS = envInt("KEEP_MINT_STREAM_GUARD_MS", 1500);
-const KEEP_MINT_THUMBNAIL_TIMEOUT_MS = envInt("KEEP_MINT_THUMBNAIL_TIMEOUT_MS", 45000);
+const KEEP_MINT_THUMBNAIL_TIMEOUT_MS = envInt("KEEP_MINT_THUMBNAIL_TIMEOUT_MS", 75000);
 const KEEP_MINT_FORCE_FRESH_THUMBNAIL_AWAIT_MS = envInt("KEEP_MINT_FORCE_FRESH_THUMBNAIL_AWAIT_MS", dev ? 25000 : 20000);
 const KEEP_MINT_PERMIT_TTL_MS = envInt("KEEP_MINT_PERMIT_TTL_MS", 1_200_000); // 20 minutes
 const KEEP_MINT_SIGNER_CACHE_TTL_MS = envInt("KEEP_MINT_SIGNER_CACHE_TTL_MS", 30000); // 30 seconds
@@ -1360,7 +1360,7 @@ export const handler = stream(async (event, context) => {
         await send("progress", { stage: "thumbnail", message: `Baking ${thumbW * 2}x${thumbH * 2} WebP...` });
 
         // Helper to try oven thumbnail generation with timeout
-        const tryOvenThumbnail = async (ovenUrl, timeoutMs = 45000) => {
+        const tryOvenThumbnail = async (ovenUrl, timeoutMs = 75000) => {
         // Create abort controller for fetch timeout
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
