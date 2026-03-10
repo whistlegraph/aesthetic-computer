@@ -2246,6 +2246,11 @@ to = "/papers.aesthetic.computer/platter.html"
 status = 200
 force = true
 [[redirects]]
+from = "https://papers.aesthetic.computer/ac-repo-archaeology"
+to = "/papers.aesthetic.computer/ac-repo-archaeology.html"
+status = 200
+force = true
+[[redirects]]
 from = "https://papers.aesthetic.computer/*"
 to = "/papers.aesthetic.computer/:splat"
 status = 200
