@@ -1,5 +1,6 @@
 // prompt.mjs — Native command-line piece for fedac
 // Text input at top-left, pink block cursor, no prompt prefix.
+// Anything typed (except "notepat") is evaluated as KidLisp source.
 
 let input = "";
 let cursorVisible = true;
@@ -17,6 +18,18 @@ const SHIFT_MAP = {
   ";":":", "'":'"', ",":"<", ".":">", "/":"?", "`":"~",
 };
 
+// Built-in $code aliases
+const CODES = {
+  "$roz": `fade:red-blue-black-blue-red
+ink (? rainbow white 0) (1s... 24 64)
+line w/2 0 w/2 h
+(spin (2s... -1.125 1.125)) (zoom 1.1)
+(0.5s (contrast 1.05))
+(scroll (? -0.1 0 0.1) (? -0.1 0 0.1))
+ink (? cyan yellow magenta) 8
+circle w/2 h/2 (? 2 4 8)`,
+};
+
 function boot({ system }) {
   message = "aesthetic.computer " + (system?.version || "");
 }
@@ -31,7 +44,7 @@ function act({ event: e, system }) {
     cursorVisible = true;
 
     if (key === "enter" || key === "return") {
-      const cmd = input.trim().toLowerCase();
+      const cmd = input.trim();
       if (cmd.length > 0) {
         history.unshift(cmd);
         historyIndex = -1;
@@ -70,39 +83,51 @@ function act({ event: e, system }) {
 }
 
 function execute(cmd, system) {
-  if (cmd === "help") {
-    message = "pieces: notepat, roz ($roz)";
+  const lower = cmd.toLowerCase();
+
+  // Navigation commands
+  if (lower === "notepat" || lower === "np") {
+    message = "~> notepat";
     messageFrame = 0;
+    system?.jump?.("notepat");
     return;
   }
-  if (cmd === "roz" || cmd === "$roz") {
-    message = "~> roz";
-    messageFrame = 0;
-    system?.jump?.("roz");
-    return;
-  }
-  if (cmd === "version" || cmd === "ver") {
+  if (lower === "version" || lower === "ver") {
     message = system?.version || "unknown";
     messageFrame = 0;
     return;
   }
-  if (cmd === "reboot") {
+  if (lower === "reboot") {
     system?.reboot?.();
     return;
   }
-  if (cmd === "clear" || cmd === "cls") {
+  if (lower === "clear" || lower === "cls") {
     history = [];
     message = "";
     return;
   }
-  if (system?.jump) {
-    message = "~> " + cmd;
+  if (lower === "help") {
+    message = "type kidlisp or $roz | esc:notepat";
     messageFrame = 0;
-    system.jump(cmd);
-  } else {
-    message = "jump unavailable";
-    messageFrame = 0;
+    return;
   }
+
+  // Check for built-in $code aliases
+  if (CODES[lower]) {
+    message = "~> " + lower;
+    messageFrame = 0;
+    globalThis.__kidlispSource = CODES[lower];
+    globalThis.__kidlispLabel = lower;
+    system?.jump?.("lisp");
+    return;
+  }
+
+  // Everything else → KidLisp evaluator
+  message = "~> lisp";
+  messageFrame = 0;
+  globalThis.__kidlispSource = cmd;
+  globalThis.__kidlispLabel = cmd.length > 20 ? cmd.slice(0, 17) + "..." : cmd;
+  system?.jump?.("lisp");
 }
 
 function paint({ wipe, ink, box, write, screen, paintCount }) {

@@ -893,6 +893,64 @@ ACRuntime *js_init(ACGraph *graph, ACInput *input, ACAudio *audio, ACWifi *wifi,
     }
     JS_FreeValue(ctx, init_result);
 
+    // Browser API stubs for KidLisp evaluator compatibility
+    static const char *browser_stubs =
+        "if(typeof window==='undefined'){"
+        "  globalThis.window={"
+        "    location:{href:'',origin:'',hostname:'localhost',pathname:'/',search:'',hash:''},"
+        "    history:{pushState:function(){},replaceState:function(){}},"
+        "    matchMedia:function(){return{matches:false,addEventListener:function(){}}},"
+        "    addEventListener:function(){},"
+        "    postMessage:function(){},"
+        "    navigator:{userAgent:'ac-native'},"
+        "    document:{createElement:function(){return{style:{},getContext:function(){return{}},setAttribute:function(){}}}},"
+        "    origin:''"
+        "  };"
+        "  globalThis.document=window.document;"
+        "  globalThis.navigator=window.navigator;"
+        "  globalThis.localStorage={_s:{},getItem:function(k){return this._s[k]||null},setItem:function(k,v){this._s[k]=v},removeItem:function(k){delete this._s[k]}};"
+        "  globalThis.fetch=function(){return Promise.resolve({ok:false,json:function(){return Promise.resolve({})}})};"
+        "  globalThis.indexedDB=null;"
+        "  globalThis.requestAnimationFrame=function(cb){cb(performance.now());return 0};"
+        "  globalThis.cancelAnimationFrame=function(){};"
+        "  globalThis.Image=function(){this.src='';this.onload=null};"
+        "}";
+    JSValue stubs_result = JS_Eval(ctx, browser_stubs, strlen(browser_stubs), "<browser-stubs>", JS_EVAL_TYPE_GLOBAL);
+    if (JS_IsException(stubs_result)) {
+        JSValue exc = JS_GetException(ctx);
+        const char *str = JS_ToCString(ctx, exc);
+        fprintf(stderr, "[js] Browser stubs error: %s\n", str);
+        JS_FreeCString(ctx, str);
+        JS_FreeValue(ctx, exc);
+    }
+    JS_FreeValue(ctx, stubs_result);
+
+    // Load KidLisp evaluator bundle (IIFE → globalThis.KidLispModule)
+    FILE *kl_f = fopen("/jslib/kidlisp-bundle.js", "r");
+    if (kl_f) {
+        fseek(kl_f, 0, SEEK_END);
+        long kl_len = ftell(kl_f);
+        fseek(kl_f, 0, SEEK_SET);
+        char *kl_src = malloc(kl_len + 1);
+        fread(kl_src, 1, kl_len, kl_f);
+        kl_src[kl_len] = '\0';
+        fclose(kl_f);
+        JSValue kl_result = JS_Eval(ctx, kl_src, kl_len, "<kidlisp-bundle>", JS_EVAL_TYPE_GLOBAL);
+        free(kl_src);
+        if (JS_IsException(kl_result)) {
+            JSValue exc = JS_GetException(ctx);
+            const char *str = JS_ToCString(ctx, exc);
+            fprintf(stderr, "[js] KidLisp bundle error: %s\n", str);
+            JS_FreeCString(ctx, str);
+            JS_FreeValue(ctx, exc);
+        } else {
+            fprintf(stderr, "[js] KidLisp evaluator loaded (%ld bytes)\n", kl_len);
+        }
+        JS_FreeValue(ctx, kl_result);
+    } else {
+        fprintf(stderr, "[js] KidLisp bundle not found at /lib/kidlisp-bundle.js (optional)\n");
+    }
+
     JS_FreeValue(ctx, global);
     return rt;
 }
