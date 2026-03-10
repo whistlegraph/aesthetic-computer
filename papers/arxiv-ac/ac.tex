@@ -37,12 +37,23 @@
 \usepackage{microtype}
 \usepackage{listings}
 \usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
 
 % === COLORS (AC palette) ===
 \definecolor{acpink}{RGB}{180,72,135}
 \definecolor{acpurple}{RGB}{120,80,180}
 \definecolor{acdark}{RGB}{64,56,74}
 \definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
 
 % === KIDLISP SYNTAX COLORS ===
 \definecolor{klfn}{RGB}{0,136,170}
