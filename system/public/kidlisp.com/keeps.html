@@ -4677,8 +4677,16 @@
     }
 
     function openMintModal(entry, options = {}) {
-      const rebake = options.rebake === true;
-      const regenerate = options.regenerate === true && !rebake;
+      // Auto-detect rebake: if already kept on active contract and not explicitly keeping
+      const isActiveKept = isKeptOnActiveContract(entry);
+      let rebake = options.rebake === true;
+      let regenerate = options.regenerate === true && !rebake;
+
+      // If already kept and no explicit mode, default to rebake
+      if (isActiveKept && !rebake && !regenerate) {
+        rebake = true;
+      }
+
       if (mintAbortController) {
         mintAbortController.abort();
         mintAbortController = null;
@@ -4688,8 +4696,11 @@
       mintPreparedData = null;
       mintStepStates = {};
 
+      const activeKeep = getActiveKeepRecord(entry);
+      const tokenLabel = activeKeep?.tokenId != null ? ` #${activeKeep.tokenId}` : '';
+
       document.getElementById('mint-title').textContent = rebake
-        ? `Rebake $${entry.code}`
+        ? `Regenerate $${entry.code}${tokenLabel}`
         : (regenerate ? `Regenerate $${entry.code}` : `Keep $${entry.code}`);
       document.getElementById('mint-piece-info').innerHTML = `
         <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">
@@ -4700,9 +4711,9 @@
         </div>
         <span style="font-size:11px; color:var(--text-tertiary);">${
           rebake
-            ? 'This regenerates HTML + thumbnail artifacts for your existing keep.'
+            ? 'Regenerate HTML + thumbnail for your existing keep. Connect your wallet to verify ownership.'
             : (regenerate
-              ? 'This regenerates HTML + thumbnail artifacts before keeping on Tezos.'
+              ? 'Regenerate HTML + thumbnail artifacts before keeping on Tezos.'
               : 'Keep on Tezos (2.5 XTZ fee).')
         }</span>`;
       // Live preview iframe
@@ -4716,22 +4727,29 @@
       document.getElementById('mint-confirm-btn').textContent = 'Confirm & Sign';
       document.getElementById('mint-timeline').innerHTML = '';
 
-      // Show start button for normal keep; auto-start for rebake/regenerate
+      // Update start button label based on mode
+      const startBtn = document.getElementById('mint-start-btn');
+      if (startBtn) {
+        startBtn.textContent = rebake ? 'Regenerate Media' : 'Keep on Tezos ꜩ';
+        startBtn.onclick = () => {
+          const startActions = document.getElementById('mint-actions-start');
+          if (startActions) startActions.style.display = 'none';
+          renderTimeline();
+          startMintFlow(mintCurrentPiece, { rebake, regenerate });
+        };
+      }
+
+      // Show start button — user clicks to begin
       const startActions = document.getElementById('mint-actions-start');
       if (startActions) {
-        if (rebake || regenerate) {
-          startActions.style.display = 'none';
-          renderTimeline();
-          startMintFlow(entry.code, { rebake, regenerate });
-        } else {
-          startActions.style.display = 'flex';
-        }
+        startActions.style.display = 'flex';
       }
 
       document.getElementById('mint-overlay').classList.add('open');
     }
 
     function beginMintFlow() {
+      // Fallback — the start button's onclick is now set dynamically in openMintModal
       const startActions = document.getElementById('mint-actions-start');
       if (startActions) startActions.style.display = 'none';
       renderTimeline();
