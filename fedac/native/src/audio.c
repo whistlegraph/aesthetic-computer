@@ -219,6 +219,8 @@ static inline double soft_clip(double x) {
 
 // Compressor state (per-channel peak follower)
 static double comp_env = 0.0;  // envelope follower level
+static unsigned long xrun_count = 0;
+static unsigned long short_write_count = 0;
 
 static void *audio_thread_fn(void *arg) {
     ACAudio *audio = (ACAudio *)arg;
@@ -226,6 +228,9 @@ static void *audio_thread_fn(void *arg) {
     const double rate = (double)(audio->actual_rate ? audio->actual_rate : AUDIO_SAMPLE_RATE);
     const double dt = 1.0 / rate;
     double mix_divisor = 1.0; // Smooth auto-mix (matches speaker.mjs)
+    // Auto-mix smoothing: fast-ish attack, slower release to avoid zipper clicks.
+    const double mix_att_coeff = 1.0 - exp(-1.0 / (0.004 * rate)); // ~4ms
+    const double mix_rel_coeff = 1.0 - exp(-1.0 / (0.060 * rate)); // ~60ms
 
     // Set real-time priority to prevent audio glitches from background tasks
     struct sched_param sp = { .sched_priority = 50 };
@@ -274,13 +279,11 @@ static void *audio_thread_fn(void *arg) {
 
             // Smooth auto-mix divisor — fast attack, slow release
             double target = voice_sum > 1.0 ? voice_sum : 1.0;
-            if (mix_divisor < target) {
-                mix_divisor *= 1.02; // Ramp up fast (~0.5ms to double)
-                if (mix_divisor > target) mix_divisor = target;
-            } else if (mix_divisor > target) {
-                mix_divisor *= 0.9997; // Ramp down slowly
-                if (mix_divisor < target) mix_divisor = target;
-            }
+            if (mix_divisor < target)
+                mix_divisor += (target - mix_divisor) * mix_att_coeff;
+            else if (mix_divisor > target)
+                mix_divisor += (target - mix_divisor) * mix_rel_coeff;
+            if (mix_divisor < 1.0) mix_divisor = 1.0;
 
             mix_l /= mix_divisor;
             mix_r /= mix_divisor;
@@ -358,11 +361,9 @@ static void *audio_thread_fn(void *arg) {
                     // Damping — ensures reverb tail always decays
                     fb_l *= 0.995f;
                     fb_r *= 0.995f;
-                    if (fb_l > 2.0f) fb_l = 2.0f; else if (fb_l < -2.0f) fb_l = -2.0f;
-                    if (fb_r > 2.0f) fb_r = 2.0f; else if (fb_r < -2.0f) fb_r = -2.0f;
-                    // Noise gate: zero out sub-audible residue
-                    if (fb_l > -0.0001f && fb_l < 0.0001f) fb_l = 0.0f;
-                    if (fb_r > -0.0001f && fb_r < 0.0001f) fb_r = 0.0f;
+                    // Soft-limit feedback to avoid hard-clamp discontinuities under transients.
+                    fb_l = tanhf(fb_l * 0.65f) / 0.65f;
+                    fb_r = tanhf(fb_r * 0.65f) / 0.65f;
                     audio->room_buf_l[audio->room_pos] = fb_l;
                     audio->room_buf_r[audio->room_pos] = fb_r;
 
@@ -504,11 +505,37 @@ static void *audio_thread_fn(void *arg) {
         audio->total_frames += AUDIO_PERIOD_SIZE;
         audio->time = (double)audio->total_frames / rate;
 
-        // Write to ALSA
+        // Write to ALSA (handle short writes to avoid dropped samples/clicks)
         snd_pcm_t *pcm = (snd_pcm_t *)audio->pcm;
-        int frames = snd_pcm_writei(pcm, buffer, AUDIO_PERIOD_SIZE);
-        if (frames < 0) {
-            snd_pcm_recover(pcm, frames, 1);
+        int remaining = AUDIO_PERIOD_SIZE;
+        int offset = 0;
+        while (remaining > 0) {
+            int frames = snd_pcm_writei(pcm, buffer + offset * AUDIO_CHANNELS, remaining);
+            if (frames == -EAGAIN) continue;
+            if (frames < 0) {
+                int rec = snd_pcm_recover(pcm, frames, 1);
+                if (frames == -EPIPE || frames == -ESTRPIPE) {
+                    xrun_count++;
+                    if ((xrun_count % 32) == 1) {
+                        fprintf(stderr, "[audio] XRUN recovered x%lu\n", xrun_count);
+                    }
+                }
+                if (rec < 0) {
+                    fprintf(stderr, "[audio] ALSA write failed: %s\n", snd_strerror(rec));
+                    break;
+                }
+                continue;
+            }
+            if (frames == 0) continue;
+            if (frames < remaining) {
+                short_write_count++;
+                if ((short_write_count % 64) == 1) {
+                    fprintf(stderr, "[audio] Short write x%lu (%d/%d)\n",
+                            short_write_count, frames, remaining);
+                }
+            }
+            remaining -= frames;
+            offset += frames;
         }
     }
 
@@ -634,7 +661,7 @@ ACAudio *audio_init(void) {
     snd_pcm_uframes_t period = AUDIO_PERIOD_SIZE;
     snd_pcm_hw_params_set_period_size_near(pcm, params, &period, 0);
 
-    snd_pcm_uframes_t buffer_size = AUDIO_PERIOD_SIZE * 3;  // 3 periods (~3ms total at 192kHz)
+    snd_pcm_uframes_t buffer_size = AUDIO_PERIOD_SIZE * 6;  // 6 periods for better underrun tolerance
     snd_pcm_hw_params_set_buffer_size_near(pcm, params, &buffer_size);
 
     err = snd_pcm_hw_params(pcm, params);

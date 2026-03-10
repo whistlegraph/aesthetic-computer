@@ -31,6 +31,8 @@
 
 static volatile int running = 1;
 static FILE *logfile = NULL;
+static int is_removable(const char *blkname);
+static void get_parent_block(const char *part, char *out, int out_sz);
 
 static void signal_handler(int sig) {
     (void)sig;
@@ -96,23 +98,39 @@ static void try_mount_log(void) {
     fprintf(stderr, "[ac-native] sda1=%s sdb1=%s\n",
             access("/dev/sda1", F_OK) == 0 ? "yes" : "no",
             access("/dev/sdb1", F_OK) == 0 ? "yes" : "no");
-    const char *devs[] = {"/dev/sda1", "/dev/sdb1", "/dev/sdc1", NULL};
-    for (int i = 0; devs[i]; i++) {
-        if (access(devs[i], F_OK) != 0) continue;
-        if (mount(devs[i], "/mnt", "vfat", 0, NULL) == 0) {
-            logfile = fopen("/mnt/ac-native.log", "w");
-            if (logfile) {
-                // Immediate test write to verify logging works
-                fprintf(logfile, "[ac-native] Log opened on %s\n", devs[i]);
-                fflush(logfile);
-                fsync(fileno(logfile));
-                strncpy(log_dev, devs[i], sizeof(log_dev) - 1);
-                fprintf(stderr, "[ac-native] Log: %s -> /mnt/ac-native.log\n", devs[i]);
-                return;
+    const char *devs[] = {
+        "/dev/sda1", "/dev/sdb1", "/dev/sdc1", "/dev/sdd1",
+        "/dev/nvme0n1p1", "/dev/nvme1n1p1",
+        NULL
+    };
+
+    // Pass 0: removable media first (USB install source).
+    // Pass 1: fallback to internal ESP (ensures config.json loads on disk boots).
+    for (int pass = 0; pass < 2; pass++) {
+        for (int i = 0; devs[i]; i++) {
+            if (access(devs[i], F_OK) != 0) continue;
+
+            char blk[32] = "";
+            get_parent_block(devs[i] + 5, blk, sizeof(blk)); // skip "/dev/"
+            int rem = blk[0] ? is_removable(blk) : -1;
+            if (pass == 0 && rem != 1) continue;
+            if (pass == 1 && rem == 1) continue;
+
+            if (mount(devs[i], "/mnt", "vfat", 0, NULL) == 0) {
+                logfile = fopen("/mnt/ac-native.log", "w");
+                if (logfile) {
+                    // Immediate test write to verify logging works
+                    fprintf(logfile, "[ac-native] Log opened on %s (removable=%d)\n", devs[i], rem);
+                    fflush(logfile);
+                    fsync(fileno(logfile));
+                    strncpy(log_dev, devs[i], sizeof(log_dev) - 1);
+                    fprintf(stderr, "[ac-native] Log: %s -> /mnt/ac-native.log (removable=%d)\n", devs[i], rem);
+                    return;
+                }
+                umount("/mnt");
             }
-            umount("/mnt");
+            fprintf(stderr, "[ac-native] Log mount failed: %s\n", devs[i]);
         }
-        fprintf(stderr, "[ac-native] Log mount failed: %s\n", devs[i]);
     }
     // Fallback: log to tmpfs (won't survive reboot but stderr goes to console)
     fprintf(stderr, "[ac-native] No USB log mount available\n");
@@ -120,6 +138,140 @@ static void try_mount_log(void) {
 
 // Boot title — defaults to "notepat", overridden by config.json handle
 static char boot_title[80] = "notepat";
+static ACColor boot_title_colors[80];
+static int boot_title_colors_len = 0;
+
+static uint8_t clamp_u8(int v) {
+    if (v < 0) return 0;
+    if (v > 255) return 255;
+    return (uint8_t)v;
+}
+
+static int parse_config_string(const char *json, const char *key, char *out, int out_sz) {
+    if (!json || !key || !out || out_sz < 2) return 0;
+    const char *kp = strstr(json, key);
+    if (!kp) return 0;
+    const char *colon = strchr(kp, ':');
+    if (!colon) return 0;
+    const char *q1 = strchr(colon, '"');
+    if (!q1) return 0;
+    const char *q2 = strchr(q1 + 1, '"');
+    if (!q2) return 0;
+    int len = (int)(q2 - q1 - 1);
+    if (len <= 0 || len >= out_sz) return 0;
+    memcpy(out, q1 + 1, len);
+    out[len] = 0;
+    return 1;
+}
+
+static int parse_json_int_field(const char *start, const char *limit, const char *key, int *out) {
+    if (!start || !limit || !key || !out || start >= limit) return 0;
+    const char *kp = strstr(start, key);
+    if (!kp || kp >= limit) return 0;
+    const char *colon = strchr(kp, ':');
+    if (!colon || colon >= limit) return 0;
+    const char *p = colon + 1;
+    while (p < limit && (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r')) p++;
+    if (p >= limit) return 0;
+    char *endp = NULL;
+    long v = strtol(p, &endp, 10);
+    if (!endp || endp == p || endp > limit) return 0;
+    *out = (int)v;
+    return 1;
+}
+
+static void parse_boot_title_colors(const char *json) {
+    boot_title_colors_len = 0;
+    if (!json) return;
+
+    // Prefer explicit title_colors, fallback to handle colors from API payload.
+    const char *cp = strstr(json, "\"title_colors\"");
+    if (!cp) cp = strstr(json, "\"colors\"");
+    if (!cp) return;
+
+    const char *arr0 = strchr(cp, '[');
+    if (!arr0) return;
+    const char *arr1 = strchr(arr0 + 1, ']');
+    if (!arr1) return;
+
+    const char *p = arr0 + 1;
+    while (p < arr1 && boot_title_colors_len < (int)(sizeof(boot_title_colors) / sizeof(boot_title_colors[0]))) {
+        const char *obj0 = strchr(p, '{');
+        if (!obj0 || obj0 >= arr1) break;
+        const char *obj1 = strchr(obj0, '}');
+        if (!obj1 || obj1 > arr1) break;
+
+        int r = -1, g = -1, b = -1;
+        if (parse_json_int_field(obj0, obj1, "\"r\"", &r) &&
+            parse_json_int_field(obj0, obj1, "\"g\"", &g) &&
+            parse_json_int_field(obj0, obj1, "\"b\"", &b)) {
+            int i = boot_title_colors_len++;
+            boot_title_colors[i] = (ACColor){clamp_u8(r), clamp_u8(g), clamp_u8(b), 255};
+        }
+        p = obj1 + 1;
+    }
+}
+
+static void load_boot_visual_config(void) {
+    FILE *cfg = fopen("/mnt/config.json", "r");
+    if (!cfg) return;
+
+    char buf[4096] = {0};
+    size_t n = fread(buf, 1, sizeof(buf) - 1, cfg);
+    fclose(cfg);
+    buf[n] = '\0';
+
+    char handle[64] = {0};
+    if (parse_config_string(buf, "\"handle\"", handle, sizeof(handle))) {
+        if ((int)strlen(handle) < (int)sizeof(boot_title) - 1) {
+            boot_title[0] = '@';
+            snprintf(boot_title + 1, sizeof(boot_title) - 1, "%s", handle);
+        }
+    }
+    parse_boot_title_colors(buf);
+
+    ac_log("[ac-native] Boot title: %s (colors=%d)\n", boot_title, boot_title_colors_len);
+}
+
+static ACColor rainbow_title_color(int ci, int frame, int alpha) {
+    double hue = fmod((double)ci / 7.0 * 360.0 + frame * 2.0, 360.0);
+    double h6 = hue / 60.0;
+    int hi = (int)h6 % 6;
+    double fr = h6 - (int)h6;
+    double sv = 0.7, vv = 1.0;
+    double p = vv * (1.0 - sv), q = vv * (1.0 - sv * fr), tt = vv * (1.0 - sv * (1.0 - fr));
+    double cr, cg, cb;
+    switch (hi) {
+        case 0: cr = vv; cg = tt; cb = p; break;
+        case 1: cr = q; cg = vv; cb = p; break;
+        case 2: cr = p; cg = vv; cb = tt; break;
+        case 3: cr = p; cg = q; cb = vv; break;
+        case 4: cr = tt; cg = p; cb = vv; break;
+        default: cr = vv; cg = p; cb = q; break;
+    }
+    return (ACColor){(uint8_t)(cr * 255), (uint8_t)(cg * 255), (uint8_t)(cb * 255), clamp_u8(alpha)};
+}
+
+static ACColor title_char_color(int ci, int frame, int alpha) {
+    if (boot_title_colors_len <= 0) return rainbow_title_color(ci, frame, alpha);
+
+    int title_len = (int)strlen(boot_title);
+    int idx = ci;
+    // Accept either @handle-length palettes or handle-only palettes.
+    if (boot_title[0] == '@' && title_len > 1 && boot_title_colors_len == title_len - 1) {
+        idx = (ci > 0) ? (ci - 1) : 0;
+    }
+    if (idx < 0) idx = 0;
+    if (boot_title_colors_len > 0) idx %= boot_title_colors_len;
+    ACColor c = boot_title_colors[idx];
+
+    // Keep custom colors visible over dark boot backgrounds.
+    int pulse = (int)(18.0 * sin((double)(frame + ci * 6) * 0.08));
+    int r = (c.r * 7 + 255 * 3) / 10 + pulse;
+    int g = (c.g * 7 + 255 * 3) / 10 + pulse;
+    int b = (c.b * 7 + 255 * 3) / 10 + pulse;
+    return (ACColor){clamp_u8(r), clamp_u8(g), clamp_u8(b), clamp_u8(alpha)};
+}
 
 // Forward declarations
 static void draw_boot_status(ACGraph *graph, ACFramebuffer *screen,
@@ -156,26 +308,67 @@ static long copy_file(const char *src, const char *dst) {
 }
 
 // Auto-install kernel to internal drive's EFI System Partition
-static void auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
-                                ACDisplay *display) {
-    const char *kernel_src = "/mnt/EFI/BOOT/BOOTX64.EFI";
-
-    // Check if kernel exists on USB
-    if (access(kernel_src, F_OK) != 0) {
-        fprintf(stderr, "[ac-native] No kernel on USB, skipping HD install\n");
-        return;
-    }
+// Returns 1 on success, 0 on failure.
+static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
+                              ACDisplay *display) {
+    char source_mount[32] = "/mnt";
+    char source_dev[32] = "";
+    int source_mounted_tmp = 0;
+    char kernel_src[96] = "";
+    char config_src[64] = "";
 
     if (display)
         draw_boot_status(graph, screen, display, "installing to disk...");
 
+    // Prefer current /mnt only when it is removable and contains a kernel.
+    if (log_dev[0]) {
+        char blk[32] = "";
+        get_parent_block(log_dev + 5, blk, sizeof(blk));
+        if (blk[0] && is_removable(blk) == 1 &&
+            access("/mnt/EFI/BOOT/BOOTX64.EFI", F_OK) == 0) {
+            strncpy(source_dev, log_dev, sizeof(source_dev) - 1);
+            source_dev[sizeof(source_dev) - 1] = '\0';
+        }
+    }
+
+    // Fallback: scan removable partitions for BOOTX64.EFI
+    if (!source_dev[0]) {
+        const char *src_candidates[] = {
+            "/dev/sda1", "/dev/sdb1", "/dev/sdc1", "/dev/sdd1", NULL
+        };
+        mkdir("/tmp/src", 0755);
+        for (int i = 0; src_candidates[i]; i++) {
+            if (access(src_candidates[i], F_OK) != 0) continue;
+            char blk[32] = "";
+            get_parent_block(src_candidates[i] + 5, blk, sizeof(blk));
+            if (!blk[0] || is_removable(blk) != 1) continue;
+            if (mount(src_candidates[i], "/tmp/src", "vfat", 0, NULL) != 0) continue;
+            if (access("/tmp/src/EFI/BOOT/BOOTX64.EFI", F_OK) == 0) {
+                strncpy(source_dev, src_candidates[i], sizeof(source_dev) - 1);
+                source_dev[sizeof(source_dev) - 1] = '\0';
+                strncpy(source_mount, "/tmp/src", sizeof(source_mount) - 1);
+                source_mount[sizeof(source_mount) - 1] = '\0';
+                source_mounted_tmp = 1;
+                break;
+            }
+            umount("/tmp/src");
+        }
+    }
+
+    snprintf(kernel_src, sizeof(kernel_src), "%s/EFI/BOOT/BOOTX64.EFI", source_mount);
+    snprintf(config_src, sizeof(config_src), "%s/config.json", source_mount);
+    if (!source_dev[0] || access(kernel_src, F_OK) != 0) {
+        fprintf(stderr, "[ac-native] No removable install source with kernel found\n");
+        if (source_mounted_tmp) umount("/tmp/src");
+        return 0;
+    }
+
     mkdir("/tmp/hd", 0755);
 
-    // Determine which block device the USB log is on (skip it)
-    // log_dev is like "/dev/sda1" → parent is "sda"
+    // Determine which block device install source is on (skip it as destination)
     char usb_blk[16] = "";
-    if (log_dev[0]) {
-        const char *p = log_dev + 5; // skip "/dev/"
+    if (source_dev[0]) {
+        const char *p = source_dev + 5; // skip "/dev/"
         int len = 0;
         while (p[len] && (p[len] < '0' || p[len] > '9')) len++;
         // For nvme: "nvme0n1p1" → parent "nvme0n1"
@@ -191,7 +384,7 @@ static void auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
     // Try NVMe first (always internal), then SATA/USB
     const char *part_candidates[] = {
         "nvme0n1", "nvme1n1",     // NVMe SSDs
-        "sda", "sdb", "sdc",     // SATA/USB
+        "sda", "sdb", "sdc", "sdd", // SATA/USB
         NULL
     };
 
@@ -208,8 +401,8 @@ static void auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
             if (rem == 1) continue; // removable = USB
         }
 
-        // Try partitions 1-4
-        for (int p = 1; p <= 4 && !installed; p++) {
+        // Try partitions 1-8
+        for (int p = 1; p <= 8 && !installed; p++) {
             char devpath[32];
             if (blk[0] == 'n') // NVMe: nvme0n1p1
                 snprintf(devpath, sizeof(devpath), "/dev/%sp%d", blk, p);
@@ -234,13 +427,19 @@ static void auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                 mkdir("/tmp/hd/EFI/Microsoft/Boot", 0755);
                 copy_file(kernel_src, "/tmp/hd/EFI/Microsoft/Boot/bootmgfw.efi");
 
+                // Preserve user handle/piece config on installed disk.
+                if (access(config_src, F_OK) == 0) {
+                    copy_file(config_src, "/tmp/hd/config.json");
+                }
+
                 // Write install marker so next boot knows it's installed
                 FILE *marker = fopen("/tmp/hd/EFI/BOOT/ac-installed", "w");
                 if (marker) { fputs("1\n", marker); fclose(marker); }
 
                 sync();
                 installed = 1;
-                fprintf(stderr, "[ac-native] Installed %ld bytes to %s\n", sz, devpath);
+                fprintf(stderr, "[ac-native] Installed %ld bytes from %s to %s\n",
+                        sz, source_dev, devpath);
             }
 
             umount("/tmp/hd");
@@ -253,6 +452,8 @@ static void auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
     } else if (!installed) {
         fprintf(stderr, "[ac-native] No suitable HD partition found for install\n");
     }
+    if (source_mounted_tmp) umount("/tmp/src");
+    return installed;
 }
 
 static void frame_sync_60fps(struct timespec *next) {
@@ -310,16 +511,54 @@ static int get_la_hour(void) {
     return (utc->tm_hour - get_la_offset() + 24) % 24;
 }
 
+static void play_install_prompt_beep(ACAudio *audio) {
+    if (!audio || !audio->pcm) return;
+    audio_synth(audio, WAVE_SINE, 620.0, 0.06, 0.40, 0.001, 0.05, 0.0);
+    usleep(35000);
+    audio_synth(audio, WAVE_SINE, 760.0, 0.06, 0.40, 0.001, 0.05, 0.0);
+}
+
+static void play_install_accept_beep(ACAudio *audio) {
+    if (!audio || !audio->pcm) return;
+    audio_synth(audio, WAVE_TRIANGLE, 880.0, 0.08, 0.55, 0.001, 0.06, -0.1);
+    usleep(45000);
+    audio_synth(audio, WAVE_TRIANGLE, 1175.0, 0.10, 0.65, 0.001, 0.08, 0.1);
+}
+
+static void play_install_reject_beep(ACAudio *audio) {
+    if (!audio || !audio->pcm) return;
+    audio_synth(audio, WAVE_SAWTOOTH, 260.0, 0.08, 0.45, 0.001, 0.06, 0.0);
+    usleep(45000);
+    audio_synth(audio, WAVE_SAWTOOTH, 180.0, 0.12, 0.45, 0.001, 0.09, 0.0);
+}
+
+static void play_install_success_beep(ACAudio *audio) {
+    if (!audio || !audio->pcm) return;
+    audio_synth(audio, WAVE_TRIANGLE, 659.25, 0.12, 0.55, 0.001, 0.08, -0.2);
+    usleep(50000);
+    audio_synth(audio, WAVE_TRIANGLE, 783.99, 0.12, 0.60, 0.001, 0.08, 0.0);
+    usleep(50000);
+    audio_synth(audio, WAVE_TRIANGLE, 987.77, 0.16, 0.68, 0.001, 0.12, 0.2);
+}
+
+static void play_install_failure_beep(ACAudio *audio) {
+    if (!audio || !audio->pcm) return;
+    audio_synth(audio, WAVE_SAWTOOTH, 180.0, 0.11, 0.50, 0.001, 0.08, 0.0);
+    usleep(55000);
+    audio_synth(audio, WAVE_SAWTOOTH, 140.0, 0.15, 0.50, 0.001, 0.11, 0.0);
+}
+
 // Draw y/n install confirmation screen
 // Returns 1 if user confirms with Y, 0 if N/Escape
 static int draw_install_confirm(ACGraph *graph, ACFramebuffer *screen,
                                  ACDisplay *display, int *fds, int nfds,
-                                 ACTts *tts) {
+                                 ACTts *tts, ACAudio *audio) {
     int is_dark = 1; // always dark
     struct timespec anim_time;
     clock_gettime(CLOCK_MONOTONIC, &anim_time);
 
     if (tts) tts_speak(tts, "install to disk? press Y for yes, N for no");
+    play_install_prompt_beep(audio);
 
     for (;;) {
         uint8_t bg = is_dark ? 20 : 255;
@@ -354,12 +593,101 @@ static int draw_install_confirm(ACGraph *graph, ACFramebuffer *screen,
         for (int ki = 0; ki < nfds; ki++) {
             while (read(fds[ki], &ev, sizeof(ev)) == sizeof(ev)) {
                 if (ev.type == EV_KEY && ev.value == 1) {
-                    if (ev.code == KEY_Y) return 1;
-                    if (ev.code == KEY_N || ev.code == KEY_ESC) return 0;
+                    if (ev.code == KEY_Y) {
+                        play_install_accept_beep(audio);
+                        return 1;
+                    }
+                    if (ev.code == KEY_N || ev.code == KEY_ESC) {
+                        play_install_reject_beep(audio);
+                        return 0;
+                    }
                 }
             }
         }
     }
+}
+
+// Pause after install attempt so USB boots do not continue into the piece.
+// Returns 1 if reboot requested, 0 if user chose to continue boot (failure-only path).
+static int draw_install_reboot_prompt(ACGraph *graph, ACFramebuffer *screen,
+                                      ACDisplay *display, ACInput *input,
+                                      ACTts *tts, ACAudio *audio,
+                                      int install_ok) {
+    struct timespec anim_time;
+    clock_gettime(CLOCK_MONOTONIC, &anim_time);
+
+    if (install_ok) {
+        if (tts) tts_speak(tts, "install complete. remove USB stick. press R to reboot.");
+        play_install_success_beep(audio);
+    } else {
+        if (tts) tts_speak(tts, "install failed. press R to reboot or escape to continue.");
+        play_install_failure_beep(audio);
+    }
+
+    int blink = 0;
+    int no_input_frames = 0;
+    while (running) {
+        blink++;
+        graph_wipe(graph, (ACColor){20, 20, 25, 255});
+
+        const char *title = install_ok ? "disk install complete" : "disk install failed";
+        ACColor title_color = install_ok
+            ? (ACColor){90, 220, 120, 255}
+            : (ACColor){220, 100, 90, 255};
+        graph_ink(graph, title_color);
+        int tw = font_measure_matrix(title, 2);
+        font_draw_matrix(graph, title, (screen->width - tw) / 2, screen->height / 2 - 34, 2);
+
+        graph_ink(graph, (ACColor){220, 220, 220, 255});
+        const char *line1 = install_ok
+            ? "remove USB stick now"
+            : "check EFI target and try again";
+        int l1w = font_measure_matrix(line1, 1);
+        font_draw_matrix(graph, line1, (screen->width - l1w) / 2, screen->height / 2 + 0, 1);
+
+        graph_ink(graph, (ACColor){180, 180, 210, 255});
+        const char *line2 = "R/Enter = reboot";
+        int l2w = font_measure_matrix(line2, 1);
+        font_draw_matrix(graph, line2, (screen->width - l2w) / 2, screen->height / 2 + 16, 1);
+
+        if (!install_ok) {
+            graph_ink(graph, (ACColor){150, 150, 170, 255});
+            const char *line3 = "Esc = continue USB boot";
+            int l3w = font_measure_matrix(line3, 1);
+            font_draw_matrix(graph, line3, (screen->width - l3w) / 2, screen->height / 2 + 30, 1);
+        }
+
+        if ((blink % 60) < 36) {
+            graph_ink(graph, (ACColor){120, 120, 140, 255});
+            const char *line4 = install_ok ? "waiting for reboot..." : "waiting for key...";
+            int l4w = font_measure_matrix(line4, 1);
+            font_draw_matrix(graph, line4, (screen->width - l4w) / 2, screen->height / 2 + 48, 1);
+        }
+
+        display_present(display, screen, 3);
+        frame_sync_60fps(&anim_time);
+
+        if (!input) {
+            no_input_frames++;
+            if (no_input_frames > 900) return install_ok ? 1 : 0; // ~15s fallback
+            continue;
+        }
+        input_poll(input);
+        for (int i = 0; i < input->event_count; i++) {
+            ACEvent *ev = &input->events[i];
+            if (ev->type != AC_EVENT_KEYBOARD_DOWN) continue;
+
+            if (ev->key_code == KEY_R || ev->key_code == KEY_ENTER || ev->key_code == KEY_KPENTER) {
+                play_install_accept_beep(audio);
+                return 1;
+            }
+            if (!install_ok && (ev->key_code == KEY_ESC || ev->key_code == KEY_SPACE)) {
+                play_install_reject_beep(audio);
+                return 0;
+            }
+        }
+    }
+    return install_ok ? 1 : 0;
 }
 
 // Check if we booted from an installed (non-removable) disk
@@ -422,7 +750,7 @@ static int is_installed_on_hd(void) {
 // Draw startup fade animation (black → white with title)
 // Returns 1 if user pressed W and confirmed install, 0 otherwise
 static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
-                              ACDisplay *display, ACTts *tts) {
+                              ACDisplay *display, ACTts *tts, ACAudio *audio) {
     struct timespec anim_time;
     clock_gettime(CLOCK_MONOTONIC, &anim_time);
     // Show install option whenever booting from USB (even if already installed —
@@ -515,7 +843,7 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
         int bg_b = (int)(15 * fade_t);
         graph_wipe(graph, (ACColor){(uint8_t)bg_r, (uint8_t)bg_g, (uint8_t)bg_b, 255});
 
-        // Title — rainbow animated letters
+        // Title — per-handle palette (fallback rainbow), animated pulse
         int alpha = (int)(255.0 * fade_t);
         if (alpha > 0) {
             const char *title = boot_title;
@@ -523,36 +851,35 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
             int tx = (screen->width - tw) / 2;
             int ty = screen->height / 2 - 20;
             for (int ci = 0; title[ci]; ci++) {
-                double hue = fmod((double)ci / 7.0 * 360.0 + f * 2.0, 360.0);
-                double h6 = hue / 60.0;
-                int hi = (int)h6 % 6;
-                double fr = h6 - (int)h6;
-                double sv = 0.7, vv = 1.0;
-                double p = vv*(1.0-sv), q = vv*(1.0-sv*fr), tt = vv*(1.0-sv*(1.0-fr));
-                double cr, cg, cb;
-                switch (hi) {
-                    case 0: cr=vv; cg=tt; cb=p; break;
-                    case 1: cr=q; cg=vv; cb=p; break;
-                    case 2: cr=p; cg=vv; cb=tt; break;
-                    case 3: cr=p; cg=q; cb=vv; break;
-                    case 4: cr=tt; cg=p; cb=vv; break;
-                    default: cr=vv; cg=p; cb=q; break;
-                }
-                graph_ink(graph, (ACColor){(uint8_t)(cr*255), (uint8_t)(cg*255),
-                                           (uint8_t)(cb*255), (uint8_t)alpha});
+                ACColor cc = title_char_color(ci, f, alpha);
+                graph_ink(graph, cc);
                 char ch[2] = { title[ci], 0 };
                 tx = font_draw_matrix(graph, ch, tx, ty, 3);
             }
         }
 
-        // Version info top-right
+        // Version + build date (high-contrast panel, top-right)
 #ifdef AC_GIT_HASH
-        if (alpha > 50) {
+        if (alpha > 40) {
             char ver[64];
-            snprintf(ver, sizeof(ver), "%s %s", AC_GIT_HASH, AC_BUILD_TS);
-            graph_ink(graph, (ACColor){100, 70, 90, (uint8_t)(alpha / 4)});
-            int vw = font_measure_matrix(ver, 1);
-            font_draw_matrix(graph, ver, screen->width - vw - 4, 4, 1);
+            char bts[64];
+            snprintf(ver, sizeof(ver), "version %s", AC_GIT_HASH);
+#ifdef AC_BUILD_TS
+            snprintf(bts, sizeof(bts), "%s", AC_BUILD_TS);
+#else
+            snprintf(bts, sizeof(bts), "build unknown");
+#endif
+            int wv = font_measure_matrix(ver, 1);
+            int wt = font_measure_matrix(bts, 1);
+            int panel_w = (wv > wt ? wv : wt) + 8;
+            int panel_x = screen->width - panel_w - 3;
+            int panel_y = 3;
+            graph_ink(graph, (ACColor){0, 0, 0, (uint8_t)(alpha * 0.82)});
+            graph_box(graph, panel_x, panel_y, panel_w, 20, 1);
+            graph_ink(graph, (ACColor){255, 255, 255, (uint8_t)alpha});
+            font_draw_matrix(graph, ver, panel_x + 4, panel_y + 3, 1);
+            graph_ink(graph, (ACColor){210, 235, 220, (uint8_t)alpha});
+            font_draw_matrix(graph, bts, panel_x + 4, panel_y + 11, 1);
         }
 #endif
 
@@ -592,7 +919,7 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
     // If W was pressed, show y/n confirmation
     int result = 0;
     if (w_pressed) {
-        result = draw_install_confirm(graph, screen, display, key_fds, key_fd_count, tts);
+        result = draw_install_confirm(graph, screen, display, key_fds, key_fd_count, tts, audio);
     }
 
     for (int i = 0; i < key_fd_count; i++) close(key_fds[i]);
@@ -619,12 +946,16 @@ static void draw_boot_status(ACGraph *graph, ACFramebuffer *screen,
         double bounce_t = (double)af / 20.0;
         int bounce_y = (int)(6.0 * sin(bounce_t * 3.14159 * 2) * (1.0 - bounce_t));
 
-        // Title: boot_title (handle or "notepat") with bounce
-        uint8_t fg = dk ? 220 : 0;
-        graph_ink(graph, (ACColor){fg, fg, fg, 255});
+        // Title: boot_title with per-handle colors
         int tw = font_measure_matrix(boot_title, 3);
-        font_draw_matrix(graph, boot_title, (screen->width - tw) / 2,
-                         screen->height / 2 - 20 + bounce_y, 3);
+        int tx = (screen->width - tw) / 2;
+        int ty = screen->height / 2 - 20 + bounce_y;
+        for (int ci = 0; boot_title[ci]; ci++) {
+            ACColor cc = title_char_color(ci, boot_frame, 255);
+            graph_ink(graph, cc);
+            char ch[2] = { boot_title[ci], 0 };
+            tx = font_draw_matrix(graph, ch, tx, ty, 3);
+        }
 
         // Subtitle (slight counter-bounce)
         uint8_t sub = dk ? 140 : 120;
@@ -718,28 +1049,8 @@ int main(int argc, char *argv[]) {
     // Mount USB log early so boot animation can detect USB boot
     if (getpid() == 1) try_mount_log();
 
-    // Read handle from config.json (EFI partition now mounted at /mnt)
-    {
-        FILE *cfg = fopen("/mnt/config.json", "r");
-        if (cfg) {
-            char buf[512] = {0};
-            size_t n = fread(buf, 1, sizeof(buf) - 1, cfg);
-            buf[n] = '\0';
-            fclose(cfg);
-            char *hp = strstr(buf, "\"handle\"");
-            if (hp) {
-                char *q1 = strchr(hp + 8, '"');
-                if (q1) { char *q2 = strchr(q1 + 1, '"');
-                    if (q2 && q2 - q1 - 1 < 60) {
-                        boot_title[0] = '@';
-                        memcpy(boot_title + 1, q1 + 1, q2 - q1 - 1);
-                        boot_title[q2 - q1] = '\0';
-                    }
-                }
-            }
-            ac_log("[ac-native] Boot title: %s\n", boot_title);
-        }
-    }
+    // Read boot visuals (handle + optional per-char colors) from /mnt/config.json
+    load_boot_visual_config();
 
     // Init audio + TTS early (needed for boot animation speech)
     ACAudio *audio = audio_init();
@@ -751,8 +1062,9 @@ int main(int argc, char *argv[]) {
     // Returns 1 if user held W to request disk install
     int want_install = 0;
     if (!headless) {
-        want_install = draw_startup_fade(&graph, screen, display, tts);
-        draw_boot_status(&graph, screen, display, "starting input...");
+        want_install = draw_startup_fade(&graph, screen, display, tts, audio);
+        if (!want_install)
+            draw_boot_status(&graph, screen, display, "starting input...");
         // status beep instead of TTS (boot sounds handle it)
     }
 
@@ -789,8 +1101,27 @@ int main(int argc, char *argv[]) {
     }
 
     // Install kernel to internal drive (only if user held W during boot)
-    if (getpid() == 1 && want_install && logfile)
-        auto_install_to_hd(&graph, screen, display);
+    if (getpid() == 1 && want_install) {
+        int install_ok = auto_install_to_hd(&graph, screen, display);
+        int should_reboot = 1;
+        if (!headless && display)
+            should_reboot = draw_install_reboot_prompt(&graph, screen, display, input, tts, audio, install_ok);
+
+        // Successful install should never continue USB boot into the piece.
+        if (install_ok) should_reboot = 1;
+
+        if (should_reboot && getpid() == 1) {
+            if (tts) {
+                tts_speak(tts, "rebooting");
+                tts_wait(tts);
+                usleep(250000);
+            }
+            sync();
+            reboot(LINUX_REBOOT_CMD_RESTART);
+            // If reboot syscall fails, hold instead of continuing from USB.
+            while (running) sleep(1);
+        }
+    }
 
     // Init WiFi
     if (!headless && display)
@@ -821,31 +1152,12 @@ int main(int argc, char *argv[]) {
     {
         FILE *cfg = fopen("/mnt/config.json", "r");
         if (cfg) {
-            char buf[512] = {0};
+            char buf[4096] = {0};
             size_t n = fread(buf, 1, sizeof(buf) - 1, cfg);
             buf[n] = '\0';
             fclose(cfg);
-            // Minimal JSON parsing for {"handle":"xxx","piece":"yyy"}
-            char *hp = strstr(buf, "\"handle\"");
-            if (hp) {
-                char *q1 = strchr(hp + 8, '"');
-                if (q1) { char *q2 = strchr(q1 + 1, '"');
-                    if (q2 && q2 - q1 - 1 < (int)sizeof(rt->handle)) {
-                        memcpy(rt->handle, q1 + 1, q2 - q1 - 1);
-                        rt->handle[q2 - q1 - 1] = '\0';
-                    }
-                }
-            }
-            char *pp = strstr(buf, "\"piece\"");
-            if (pp) {
-                char *q1 = strchr(pp + 7, '"');
-                if (q1) { char *q2 = strchr(q1 + 1, '"');
-                    if (q2 && q2 - q1 - 1 < (int)sizeof(rt->piece)) {
-                        memcpy(rt->piece, q1 + 1, q2 - q1 - 1);
-                        rt->piece[q2 - q1 - 1] = '\0';
-                    }
-                }
-            }
+            parse_config_string(buf, "\"handle\"", rt->handle, sizeof(rt->handle));
+            parse_config_string(buf, "\"piece\"", rt->piece, sizeof(rt->piece));
             ac_log("[ac-native] Config: handle=%s piece=%s\n",
                    rt->handle[0] ? rt->handle : "(none)",
                    rt->piece[0] ? rt->piece : "(none)");
