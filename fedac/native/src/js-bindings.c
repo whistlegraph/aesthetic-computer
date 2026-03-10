@@ -1631,7 +1631,9 @@ static void *flash_thread_fn(void *arg) {
     ac_log("[flash] starting: src=%s device=%s", rt->flash_src, rt->flash_device);
     if (system("mkdir -p /tmp/efi") != 0) {
         ac_log("[flash] mkdir failed");
-        rt->flash_ok = 0; rt->flash_done = 1;
+        rt->flash_ok = 0;
+        rt->flash_pending = 0;
+        rt->flash_done = 1;
         return NULL;
     }
     // Unmount if already mounted
@@ -1641,7 +1643,9 @@ static void *flash_thread_fn(void *arg) {
         "mount \"%s\" /tmp/efi -t vfat -o rw 2>/dev/null", rt->flash_device);
     if (system(cmd) != 0) {
         ac_log("[flash] mount %s failed", rt->flash_device);
-        rt->flash_ok = 0; rt->flash_done = 1;
+        rt->flash_ok = 0;
+        rt->flash_pending = 0;
+        rt->flash_done = 1;
         return NULL;
     }
     snprintf(cmd, sizeof(cmd),
@@ -1651,7 +1655,9 @@ static void *flash_thread_fn(void *arg) {
     system("umount /tmp/efi 2>/dev/null");
     if (r != 0) {
         ac_log("[flash] cp failed (r=%d)", r);
-        rt->flash_ok = 0; rt->flash_done = 1;
+        rt->flash_ok = 0;
+        rt->flash_pending = 0;
+        rt->flash_done = 1;
         return NULL;
     }
     // Remove downloaded file to free /tmp space
@@ -1659,6 +1665,7 @@ static void *flash_thread_fn(void *arg) {
     system(cmd);
     ac_log("[flash] done");
     rt->flash_ok = 1;
+    rt->flash_pending = 0;
     rt->flash_done = 1;
     return NULL;
 }
@@ -1691,8 +1698,14 @@ static JSValue js_flash_update(JSContext *ctx, JSValueConst this_val, int argc, 
     pthread_attr_t attr;
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-    pthread_create(&current_rt->flash_thread, &attr, flash_thread_fn, current_rt);
+    int pr = pthread_create(&current_rt->flash_thread, &attr, flash_thread_fn, current_rt);
     pthread_attr_destroy(&attr);
+    if (pr != 0) {
+        ac_log("[flash] pthread_create failed (%d)", pr);
+        current_rt->flash_ok = 0;
+        current_rt->flash_pending = 0;
+        current_rt->flash_done = 1;
+    }
     return JS_UNDEFINED;
 }
 
@@ -2018,9 +2031,8 @@ static JSValue build_system_obj(JSContext *ctx) {
                           JS_NewBool(ctx, current_rt->fetch_binary_done));
         JS_SetPropertyStr(ctx, sys, "fetchBinaryOk",
                           JS_NewBool(ctx, current_rt->fetch_binary_ok));
-        // Consume done flag so JS sees it only once
-        if (current_rt->fetch_binary_done && !current_rt->fetch_binary_pending)
-            current_rt->fetch_binary_done = 0;
+        // Keep done latched until next fetchBinary() call resets it.
+        // Act/sim/paint run in separate calls; one-shot pulses can be lost.
     }
 
     // Flash update
@@ -2033,9 +2045,8 @@ static JSValue build_system_obj(JSContext *ctx) {
                           JS_NewBool(ctx, current_rt->flash_done));
         JS_SetPropertyStr(ctx, sys, "flashOk",
                           JS_NewBool(ctx, current_rt->flash_ok));
-        // Consume done flag
-        if (current_rt->flash_done && !current_rt->flash_pending)
-            current_rt->flash_done = 0;
+        // Keep done latched until next flashUpdate() call resets it.
+        // Prevents missing completion when act/sim executes before paint.
     }
 
     // Piece navigation
