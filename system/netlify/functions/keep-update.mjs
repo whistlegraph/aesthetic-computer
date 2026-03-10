@@ -29,6 +29,18 @@ const RPC_URL = NETWORK === "mainnet"
   ? "https://mainnet.ecadinfra.com"
   : "https://ghostnet.ecadinfra.com";
 
+const VERSION_BY_PROFILE = {
+  v11: "11.0.0",
+  v10: "10.0.0",
+  v9: "9.0.0",
+  v8: "8.0.0",
+  v7: "7.0.0",
+  v6: "6.0.0",
+  v5: "5.0.0",
+  v5rc: "5.0.0-rc",
+  v4: "4.0.0",
+};
+
 // Helper to convert string to bytes (for Tezos metadata)
 function stringToBytes(str) {
   return Buffer.from(str, 'utf8').toString('hex');
@@ -62,6 +74,48 @@ function parseRoyaltiesFromHex(hexValue) {
   } catch {
     return null;
   }
+}
+
+function normalizeAddress(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeContractProfile(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim().toLowerCase();
+  return trimmed || null;
+}
+
+function normalizeContractVersion(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed || null;
+}
+
+function pickString(value, network) {
+  if (typeof value === "string" && value.trim()) return value.trim();
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const candidate = value[network] || value.mainnet || value.current || value.default;
+  return typeof candidate === "string" && candidate.trim() ? candidate.trim() : null;
+}
+
+function resolveProfile(secretDoc, network) {
+  const raw =
+    pickString(secretDoc?.currentKeepsProfile, network) ||
+    pickString(secretDoc?.keepsProfile, network) ||
+    pickString(secretDoc?.keeps_profile, network) ||
+    pickString(secretDoc?.contractProfile, network) ||
+    pickString(secretDoc?.keeps?.profile, network);
+  return normalizeContractProfile(raw) || "v11";
+}
+
+function resolveVersion(secretDoc, profile, network) {
+  const explicit =
+    pickString(secretDoc?.currentKeepsVersion, network) ||
+    pickString(secretDoc?.keepsVersion, network) ||
+    pickString(secretDoc?.keeps_version, network) ||
+    pickString(secretDoc?.keeps?.version, network);
+  return normalizeContractVersion(explicit) || VERSION_BY_PROFILE[profile] || null;
 }
 
 // SSE format helper
@@ -180,7 +234,16 @@ export const handler = stream(async (event) => {
         return;
       }
 
-      const { piece, tokenId, artifactUri, thumbnailUri, walletAddress, mode } = body;
+      const {
+        piece,
+        tokenId,
+        artifactUri,
+        thumbnailUri,
+        walletAddress,
+        mode,
+        contractProfile: requestedContractProfile,
+        contractVersion: requestedContractVersion,
+      } = body;
 
       if (!piece || tokenId == null || !artifactUri) {
         await send("error", { error: "Missing required fields: piece, tokenId, artifactUri" });
@@ -206,6 +269,17 @@ export const handler = stream(async (event) => {
         network: NETWORK,
         fallback: LEGACY_KEEPS_CONTRACT,
       });
+      const secretDoc = await database.db.collection("secrets").findOne({ _id: "tezos-kidlisp" });
+      let contractProfile = normalizeContractProfile(requestedContractProfile) || resolveProfile(secretDoc, NETWORK);
+      let contractVersion = normalizeContractVersion(requestedContractVersion) || resolveVersion(secretDoc, contractProfile, NETWORK);
+      const isLegacyContract =
+        normalizeAddress(CONTRACT_ADDRESS).toLowerCase() === normalizeAddress(LEGACY_KEEPS_CONTRACT).toLowerCase();
+      if (isLegacyContract) {
+        contractProfile = "legacy";
+        contractVersion = normalizeContractVersion(requestedContractVersion) || VERSION_BY_PROFILE.v9 || null;
+      } else if (!contractVersion && contractProfile) {
+        contractVersion = VERSION_BY_PROFILE[contractProfile] || null;
+      }
       const collection = database.db.collection("kidlisp");
       const pieceDoc = await collection.findOne({ code: pieceName });
 
@@ -499,6 +573,8 @@ export const handler = stream(async (event) => {
               [`tezos.contracts.${CONTRACT_ADDRESS}.pendingMetadataUri`]: newMetadataUri,
               [`tezos.contracts.${CONTRACT_ADDRESS}.pendingArtifactUri`]: artifactUri,
               [`tezos.contracts.${CONTRACT_ADDRESS}.pendingThumbnailUri`]: thumbnailUri,
+              [`tezos.contracts.${CONTRACT_ADDRESS}.contractProfile`]: contractProfile || null,
+              [`tezos.contracts.${CONTRACT_ADDRESS}.contractVersion`]: contractVersion || null,
             },
           }
         );
@@ -515,6 +591,8 @@ export const handler = stream(async (event) => {
           artifactUri,
           thumbnailUri,
           metadataUri: newMetadataUri,
+          contractProfile: contractProfile || null,
+          contractVersion: contractVersion || null,
           rpcUrl: RPC_URL,
         });
         return;
@@ -554,6 +632,17 @@ export const handler = stream(async (event) => {
             [`tezos.contracts.${CONTRACT_ADDRESS}.metadataUri`]: newMetadataUri,
             [`tezos.contracts.${CONTRACT_ADDRESS}.lastUpdatedAt`]: new Date(),
             [`tezos.contracts.${CONTRACT_ADDRESS}.lastUpdateTxHash`]: op.hash,
+            [`tezos.contracts.${CONTRACT_ADDRESS}.contractProfile`]: contractProfile || null,
+            [`tezos.contracts.${CONTRACT_ADDRESS}.contractVersion`]: contractVersion || null,
+            kept: {
+              ...(pieceDoc?.kept && typeof pieceDoc.kept === "object" ? pieceDoc.kept : {}),
+              contractAddress: CONTRACT_ADDRESS,
+              contractProfile: contractProfile || null,
+              contractVersion: contractVersion || null,
+              artifactUri: artifactUri || null,
+              thumbnailUri: thumbnailUri || null,
+              metadataUri: newMetadataUri || null,
+            },
           },
           $unset: { pendingRebake: "" }
         }
@@ -572,6 +661,8 @@ export const handler = stream(async (event) => {
         artifactUri,
         thumbnailUri,
         metadataUri: newMetadataUri,
+        contractProfile: contractProfile || null,
+        contractVersion: contractVersion || null,
         explorerUrl,
       });
 
