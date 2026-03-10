@@ -1540,33 +1540,6 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   // === NOTEPAT SCREEN: pads, waveform, echo slider ===
   if (activeScreen === "notepat") {
 
-  // Fullscreen waveform behind everything (drawn here, before grids)
-  const wf = sound?.speaker?.waveforms?.left;
-  if (wf && activeCount > 0) {
-    const wfTop = topBarH;
-    const wfH = h - wfTop;
-    const wfBottom = wfTop + wfH;
-    const amp = Math.floor(wfH * 0.9);
-    const N = 64;
-    const barW = Math.floor(w / N);
-    const gap = 1;
-    for (let i = 0; i < N; i++) {
-      const si = Math.floor((i / N) * (wf.length || 1));
-      const sample = Math.abs(wf[si] || 0);
-      const barH = Math.max(2, Math.round(sample * amp));
-      const barTop = wfBottom - barH;
-      // Solid base color: full column from bottom
-      ink(dark ? 30 : 220, dark ? 10 : 200, dark ? 50 : 180, 40);
-      box(i * barW, wfTop, barW - gap, wfH, true);
-      // Active bar: rises from bottom — vivid complementary color
-      ink(dark ? 0 : 200, dark ? 200 : 40, dark ? 255 : 0, 140);
-      box(i * barW, barTop, barW - gap, barH, true);
-      // Top cap: bright contrasting accent
-      ink(dark ? 255 : 255, dark ? 60 : 0, dark ? 180 : 100, 200);
-      box(i * barW, barTop, barW - gap, 2, true);
-    }
-  }
-
   // === SPLIT GRID: 4x3 left (bottom-left) + 4x3 right (bottom-right) ===
   const gap = 0;  // marginless — buttons touch for rollover clicking
   const cols = 4, rows = 3;
@@ -1584,6 +1557,45 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
 
   const leftX = margin;
   const rightX = w - gridW - margin;
+
+  // Waveform visualizer bars only in lanes above pad grids (not full-screen).
+  const wf = sound?.speaker?.waveforms?.left;
+  if (wf && activeCount > 0) {
+    const wfTop = topBarH + 1;
+    const wfBottom = Math.max(wfTop + 6, gridTop - 2);
+    const wfH = wfBottom - wfTop;
+    if (wfH > 2) {
+      const wfBottomY = wfTop + wfH;
+      const amp = Math.floor(wfH * 0.9);
+      const barsPerSide = 24;
+      const laneW = gridW;
+      const barW = Math.max(1, Math.floor(laneW / barsPerSide));
+      const vGap = 1;
+
+      const drawLane = (x0, phase) => {
+        for (let i = 0; i < barsPerSide; i++) {
+          const t = (i / barsPerSide) * 0.5 + phase;
+          const si = Math.min((wf.length || 1) - 1, Math.floor(t * (wf.length || 1)));
+          const sample = Math.abs(wf[si] || 0);
+          const barH = Math.max(2, Math.round(sample * amp));
+          const barTop = wfBottomY - barH;
+          const bx = x0 + i * barW;
+          const bw = Math.max(1, Math.min(barW - vGap, x0 + laneW - bx));
+          if (bw <= 0 || bx >= x0 + laneW) break;
+
+          ink(dark ? 30 : 220, dark ? 10 : 200, dark ? 50 : 180, 36);
+          box(bx, wfTop, bw, wfH, true);
+          ink(dark ? 0 : 200, dark ? 200 : 40, dark ? 255 : 0, 140);
+          box(bx, barTop, bw, barH, true);
+          ink(dark ? 255 : 255, dark ? 60 : 0, dark ? 180 : 100, 200);
+          box(bx, barTop, bw, 2, true);
+        }
+      };
+
+      drawLane(leftX, 0.0);
+      drawLane(rightX, 0.5);
+    }
+  }
 
   // Expose grid layout for touch hit-testing in act()
   globalThis.__gridInfo = { leftX, rightX, gridTop, btnW, btnH, gap };
