@@ -4861,9 +4861,13 @@
                 return false;
               }
               const errMsg = data.error || 'Keep failed';
-              const stage = data.stage || (rebake ? 'bundle' : 'validate');
+              let stage = data.stage || (rebake ? 'bundle' : 'validate');
+              // If stage isn't a known mint step, fall back to the currently active step
+              if (!MINT_STEPS.find(s => s.id === stage)) {
+                stage = Object.keys(mintStepStates).reverse().find(k => mintStepStates[k]?.status === 'active') || 'validate';
+              }
               setMintStep(stage, 'error', errMsg);
-              showMintError(errMsg);
+              showMintError(errMsg, data.stage === 'timeout');
               return false;
             }
 
