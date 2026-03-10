@@ -493,7 +493,7 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
     if (!bundleRes.ok) throw new Error(`Bundle generation failed: ${bundleRes.status}`);
 
     const bundleData = await bundleRes.json();
-    bundleHtml = Buffer.from(bundleData.html, "base64").toString("utf8");
+    bundleHtml = Buffer.from(bundleData.content || bundleData.html, "base64").toString("utf8");
     bundleFilename = `$${pieceName}.html`;
     bundleAuthorHandle = bundleData.authorHandle || userHandle;
     userCode = bundleData.userCode;
