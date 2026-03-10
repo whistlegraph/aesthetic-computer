@@ -2092,6 +2092,23 @@
       color: var(--ac-purple);
     }
 
+    .mint-heartbeat {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #4a9c5d;
+      display: none;
+      margin-left: 8px;
+      flex-shrink: 0;
+      animation: heartbeatBlink 1s ease-in-out infinite;
+    }
+    .mint-heartbeat.active { display: inline-block; }
+    .mint-heartbeat.lost { background: #d9534f; animation: none; }
+    @keyframes heartbeatBlink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.2; }
+    }
+
     .mint-body {
       padding: 20px;
       flex: 1;
@@ -2806,7 +2823,7 @@
   <div class="keeps-mint-overlay" id="mint-overlay">
     <div class="keeps-mint-modal">
       <div class="mint-header">
-        <span class="mint-header-title" id="mint-title">Keep $code</span>
+        <span class="mint-header-title" id="mint-title">Keep $code</span><span class="mint-heartbeat" id="mint-heartbeat"></span>
         <button class="keeps-modal-close" onclick="closeMintModal()">&times;</button>
       </div>
       <div class="mint-body">
@@ -4688,6 +4705,8 @@
 
     function closeMintModal() {
       document.getElementById('mint-overlay').classList.remove('open');
+      const hb = document.getElementById('mint-heartbeat');
+      if (hb) { hb.classList.remove('active', 'lost'); }
       if (mintAbortController) {
         mintAbortController.abort();
         mintAbortController = null;
@@ -4725,6 +4744,10 @@
         if (acAuth0Client) {
           try { acToken = await acAuth0Client.getTokenSilently(); } catch (e) { /* token refresh failed */ }
         }
+
+        // Activate heartbeat indicator
+        const hb = document.getElementById('mint-heartbeat');
+        if (hb) { hb.classList.add('active'); hb.classList.remove('lost'); }
 
         const { postKeepMintStream } = await getKeepsStreamModule();
         await postKeepMintStream({
@@ -4905,15 +4928,23 @@
         // If we get here, the SSE stream ended. Check if we got a final result.
         if (!mintPreparedData) {
           // Stream ended without a prepared/error event — likely function timeout
+          const hb = document.getElementById('mint-heartbeat');
+          if (hb) { hb.classList.add('lost'); }
           const lastStage = Object.keys(mintStepStates).reverse().find(k => mintStepStates[k]?.status === 'active');
           const failStage = lastStage || 'thumbnail';
           setMintStep(failStage, 'error', 'Connection lost — server timed out');
           showMintError('Server connection lost. The oven may still be baking — try again in a moment.', true);
+        } else {
+          // Success — hide heartbeat
+          const hb = document.getElementById('mint-heartbeat');
+          if (hb) { hb.classList.remove('active'); }
         }
 
       } catch (err) {
         if (err.name === 'AbortError') return;
         console.error('Mint flow error:', err);
+        const hb = document.getElementById('mint-heartbeat');
+        if (hb) { hb.classList.add('lost'); }
         const message = err.message || 'Unexpected error';
         // Find the currently active stage to mark as failed
         const lastStage = Object.keys(mintStepStates).reverse().find(k => mintStepStates[k]?.status === 'active');
