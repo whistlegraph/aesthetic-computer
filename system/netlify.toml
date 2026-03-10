@@ -1387,6 +1387,16 @@ to = "/api/:splat"
 status = 200
 force = true
 [[redirects]]
+from = "https://learn.kidlisp.com/decree"
+to = "/kidlisp.com/decree.html"
+status = 200
+force = true
+[[redirects]]
+from = "https://learn.kidlisp.com/decree/26"
+to = "/kidlisp.com/decree.html"
+status = 200
+force = true
+[[redirects]]
 from = "https://learn.kidlisp.com/*"
 to = "/kidlisp.com/learn.html"
 status = 200
