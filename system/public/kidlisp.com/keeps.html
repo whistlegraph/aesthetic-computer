@@ -2193,50 +2193,46 @@
       text-overflow: ellipsis;
     }
 
-    .mint-timeline {
+    /* Progress overlay — sits inside mint-preview-frame */
+    .mint-progress-overlay {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      background: linear-gradient(transparent, rgba(0,0,0,0.9));
+      padding: 24px 14px 12px;
       display: flex;
       flex-direction: column;
-      gap: 0;
-      margin-bottom: 16px;
-      border: 1px solid var(--border-subtle);
-      border-radius: 8px;
-      background: var(--bg-tertiary);
+      gap: 6px;
+      pointer-events: none;
+      z-index: 2;
     }
-
-    .mint-step {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 7px 10px;
-      border-left: 2px solid var(--border-color);
-      font-size: 12px;
-      color: var(--text-tertiary);
-      transition: all 0.2s;
+    .mint-progress-overlay.hidden { display: none; }
+    .mint-progress-stage {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: #ccc;
+      letter-spacing: 0.3px;
     }
-
-    .mint-step-icon {
-      width: 20px;
-      height: 20px;
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-      border-radius: 50%;
+    .mint-progress-stage .step-label { color: #fff; }
+    .mint-progress-stage .step-detail { color: rgba(255,255,255,0.5); margin-left: 6px; font-size: 11px; }
+    .mint-progress-stage.error .step-label { color: #d9534f; }
+    .mint-progress-stage.done .step-label { color: #4a9c5d; }
+    .mint-progress-bar {
+      width: 100%; height: 3px;
+      background: rgba(255,255,255,0.12);
+      border-radius: 2px;
+      overflow: hidden;
     }
+    .mint-progress-bar-fill {
+      height: 100%;
+      background: var(--ac-purple);
+      transition: width 0.5s ease;
+      width: 0%;
+    }
+    .mint-progress-bar-fill.error { background: #d9534f; }
+    .mint-progress-bar-fill.done { background: #4a9c5d; }
 
-    .mint-step.pending .mint-step-icon::after { content: '\25CB'; }
-    .mint-step.active { border-left-color: #d4a017; color: var(--text-primary); background: rgba(255, 193, 7, 0.06); }
-    .mint-step.active .mint-step-icon { color: #d4a017; }
-    .mint-step.active .mint-step-icon::after { content: '\25B6'; }
-    .mint-step.done { border-left-color: #4a9c5d; color: var(--text-secondary); }
-    .mint-step.done .mint-step-icon { color: #4a9c5d; }
-    .mint-step.done .mint-step-icon::after { content: '\2713'; }
-    .mint-step.error { border-left-color: #d9534f; color: #d9534f; background: rgba(217, 83, 79, 0.06); }
-    .mint-step.error .mint-step-icon::after { content: '\2717'; }
-
-    .mint-step-label { flex: 1; }
-    .mint-step-detail { font-size: 12px; color: var(--text-tertiary); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    /* Hide old timeline (kept as hidden state tracker) */
+    .mint-timeline { display: none; }
 
     .mint-actions {
       display: flex;
@@ -2439,8 +2435,7 @@
       .keeps-modal-preview iframe { min-height: 240px; }
       .keeps-mint-modal { height: min(96vh, 760px); }
       .mint-body { padding: 14px; }
-      .mint-step { font-size: 12px; }
-      .mint-timeline { margin-bottom: 12px; }
+      .mint-progress-stage { font-size: 12px; }
       .mint-artifact-links { gap: 6px; }
       .mint-artifact-iframe { min-height: 140px; }
     }
@@ -4620,24 +4615,64 @@
     let mintStepStates = {};
 
     function renderTimeline() {
-      const container = document.getElementById('mint-timeline');
-      container.innerHTML = MINT_STEPS.map(step => {
-        const state = mintStepStates[step.id] || { status: 'pending', detail: '' };
-        return `<div class="mint-step ${state.status}" id="mint-step-${step.id}">
-          <span class="mint-step-icon"></span>
-          <span class="mint-step-label">${step.label}</span>
-          <span class="mint-step-detail">${state.detail || ''}</span>
-        </div>`;
-      }).join('');
+      // Create progress overlay inside the preview frame
+      const pf = document.getElementById('mint-preview-frame');
+      if (pf && !pf.querySelector('.mint-progress-overlay')) {
+        const overlay = document.createElement('div');
+        overlay.className = 'mint-progress-overlay';
+        overlay.id = 'mint-progress-overlay';
+        overlay.innerHTML = `
+          <div class="mint-progress-stage" id="mint-progress-stage">
+            <span class="step-label">Preparing...</span>
+            <span class="step-detail"></span>
+          </div>
+          <div class="mint-progress-bar">
+            <div class="mint-progress-bar-fill" id="mint-progress-bar-fill"></div>
+          </div>`;
+        pf.appendChild(overlay);
+      }
     }
 
     function setMintStep(id, status, detail) {
       mintStepStates[id] = { status, detail: detail || '' };
-      const el = document.getElementById(`mint-step-${id}`);
-      if (el) {
-        el.className = `mint-step ${status}`;
-        const detailEl = el.querySelector('.mint-step-detail');
-        if (detailEl && detail) detailEl.textContent = detail;
+
+      // Update progress overlay
+      const stageEl = document.getElementById('mint-progress-stage');
+      const barFill = document.getElementById('mint-progress-bar-fill');
+      const overlay = document.getElementById('mint-progress-overlay');
+      if (!stageEl || !barFill) return;
+
+      // Find step info
+      const stepIndex = MINT_STEPS.findIndex(s => s.id === id);
+      const stepInfo = MINT_STEPS[stepIndex];
+      if (!stepInfo) return;
+
+      // Calculate progress %
+      const totalSteps = MINT_STEPS.length;
+      let pct;
+      if (status === 'done') {
+        pct = Math.round(((stepIndex + 1) / totalSteps) * 100);
+      } else if (status === 'active') {
+        pct = Math.round(((stepIndex + 0.5) / totalSteps) * 100);
+      } else if (status === 'error') {
+        pct = Math.round(((stepIndex + 0.5) / totalSteps) * 100);
+      } else {
+        pct = Math.round((stepIndex / totalSteps) * 100);
+      }
+
+      // Update label
+      const label = stepInfo.label;
+      const detailText = detail ? detail : '';
+      stageEl.className = `mint-progress-stage ${status}`;
+      stageEl.innerHTML = `<span class="step-label">${label}</span>${detailText ? `<span class="step-detail">${detailText}</span>` : ''}`;
+
+      // Update bar
+      barFill.className = `mint-progress-bar-fill ${status === 'error' ? 'error' : (status === 'done' && id === 'complete' ? 'done' : '')}`;
+      barFill.style.width = `${pct}%`;
+
+      // Hide overlay when complete
+      if (overlay && id === 'complete' && status === 'done') {
+        setTimeout(() => overlay.classList.add('hidden'), 1500);
       }
     }
 
@@ -4874,7 +4909,10 @@
             if (job.thumbnailUri) {
               const pf = document.getElementById('mint-preview-frame');
               if (pf && !pf.querySelector('.job-thumbnail')) {
+                // Replace iframe with thumbnail but keep the progress overlay
+                const overlay = pf.querySelector('.mint-progress-overlay');
                 pf.innerHTML = `<img class="job-thumbnail" src="${job.thumbnailUri.replace('ipfs://', 'https://ipfs.aesthetic.computer/ipfs/')}" style="width:100%;height:100%;object-fit:contain;image-rendering:pixelated;">`;
+                if (overlay) pf.appendChild(overlay);
               }
             }
 
