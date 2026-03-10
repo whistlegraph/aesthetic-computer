@@ -3587,19 +3587,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
     
     if (newDensity === current) return;
-    
+
     // Update module-level density variable
     density = newDensity;
     window.acPACK_DENSITY = newDensity;
-    
+
+    // Manual density change overrides auto-density scaling
+    window.acAutoDensityOverride = true;
+
     // Persist to localStorage
     try {
       localStorage.setItem("ac-density", newDensity.toString());
     } catch {}
-    
+
     // Trigger reframe to apply new density
     frame();
-    
+
     console.log(`🔍 Density: ${newDensity}`);
   }
 

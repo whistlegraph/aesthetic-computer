@@ -5,9 +5,7 @@ mongodb-backup/
 ac-pill/
 
 # GPG-encrypted secrets (unpacked from vault, not for version control)
-*.env.gpg
-*.json.gpg
-*.txt.gpg
+*.gpg
 
 # SSH keys (keep in aesthetic-computer-vault only)
 oven/ssh/

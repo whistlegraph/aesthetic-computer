@@ -11494,6 +11494,22 @@ async function makeFrame({ data: { type, content } }) {
         if (data.key === "x" && data.ctrl && currentText !== "notepat" && !getPackMode()) {
           send({ type: "fullscreen-enable" });
         }
+
+        // [Ctrl + D]
+        // Toggle auto-density override — force full density even when FPS is low.
+        if (data.key === "d" && data.ctrl && globalKidLispInstance) {
+          if (globalKidLispInstance.autoDensityOverride) {
+            // Re-enable auto-density
+            globalKidLispInstance.autoDensityOverride = false;
+            if (typeof window !== 'undefined') window.acAutoDensityOverride = false;
+            globalKidLispInstance.enableAutoDensity();
+          } else {
+            // Force full density — disable auto-scaling
+            globalKidLispInstance.autoDensityOverride = true;
+            if (typeof window !== 'undefined') window.acAutoDensityOverride = true;
+            globalKidLispInstance.disableAutoDensity();
+          }
+        }
       }
     });
 

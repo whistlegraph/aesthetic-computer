@@ -349,10 +349,20 @@
     .market-controls {
       display: flex;
       align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
       gap: 8px;
       padding: 10px 20px;
       border-bottom: 1px solid var(--border-subtle);
       background: var(--bg-primary);
+    }
+
+    .market-controls-left,
+    .market-controls-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
     }
 
     .market-sort-label {
@@ -377,6 +387,36 @@
       color: #f59e0b;
     }
 
+    .market-live-badge {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      padding: 3px 7px;
+      border: 1px solid rgba(52, 211, 153, 0.45);
+      color: #34d399;
+      background: rgba(5, 46, 22, 0.35);
+    }
+
+    .market-live-badge.stale {
+      color: #f59e0b;
+      border-color: rgba(245, 158, 11, 0.45);
+      background: rgba(120, 53, 15, 0.28);
+    }
+
+    .market-live-badge.error {
+      color: #f87171;
+      border-color: rgba(248, 113, 113, 0.45);
+      background: rgba(127, 29, 29, 0.28);
+    }
+
+    .market-last-updated {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      min-width: 110px;
+      text-align: right;
+    }
+
     .market-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -397,6 +437,15 @@
     }
 
     .market-card:hover { border-color: #f59e0b; text-decoration: none; }
+
+    .market-card.sold {
+      border-color: rgba(248, 113, 113, 0.35);
+      background: rgba(127, 29, 29, 0.08);
+    }
+
+    .market-card.sold:hover {
+      border-color: #f87171;
+    }
 
     .market-card-thumb {
       width: 100%;
@@ -431,6 +480,25 @@
       font-size: 14px;
       font-weight: bold;
       color: #f59e0b;
+    }
+
+    .market-card-price.sold {
+      color: #f87171;
+    }
+
+    .market-card-status {
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .market-card-status.active {
+      color: #34d399;
+    }
+
+    .market-card-status.sold {
+      color: #f87171;
     }
 
     .market-card-seller {
@@ -2623,9 +2691,16 @@
   <!-- TAB: Market -->
   <div class="keeps-tab-content" id="tab-market">
     <div class="market-controls">
-      <span class="market-sort-label">Sort:</span>
-      <button class="market-sort-btn active" id="market-sort-price" onclick="setMarketSort('price')">Top Price</button>
-      <button class="market-sort-btn" id="market-sort-recent" onclick="setMarketSort('recent')">Recently Listed</button>
+      <div class="market-controls-left">
+        <span class="market-sort-label">Sort:</span>
+        <button class="market-sort-btn active" id="market-sort-price" onclick="setMarketSort('price')">Top Price</button>
+        <button class="market-sort-btn" id="market-sort-recent" onclick="setMarketSort('recent')">Recently Listed</button>
+      </div>
+      <div class="market-controls-right">
+        <span class="market-live-badge" id="market-live-status">LIVE</span>
+        <span class="market-last-updated" id="market-last-updated">waiting...</span>
+        <button class="market-sort-btn" id="market-refresh-btn" onclick="refreshMarketNow()">Refresh</button>
+      </div>
     </div>
     <div class="market-grid" id="market-grid">
       <div class="market-empty">Loading listings…</div>
@@ -3409,14 +3484,20 @@
       if (normalizedTab === 'market') {
         hideInlineAbout();
         const marketTab = document.getElementById('tab-market');
-        if (marketTab) { marketTab.classList.add('active'); loadMarket(); }
+        if (marketTab) {
+          marketTab.classList.add('active');
+          startMarketLiveUpdates();
+          loadMarket({ force: !marketLoaded, silent: marketLoaded });
+        }
       } else if (normalizedTab === 'kept') {
+        stopMarketLiveUpdates();
         hideInlineAbout();
         const indexTab = document.getElementById('tab-index');
         if (indexTab) indexTab.classList.add('active');
         updateSortVisibility();
         if (indexReady) applyFilters();
       } else {
+        stopMarketLiveUpdates();
         const indexTab = document.getElementById('tab-index');
         if (indexTab) indexTab.classList.add('active');
         updateSortVisibility();
@@ -3438,6 +3519,13 @@
     let marketSort = 'price';
     let marketLoaded = false;
     let marketListings = [];
+    let marketSales = [];
+    let marketFeedEvents = [];
+    let marketIsFetching = false;
+    let marketRefreshTimer = null;
+    let marketLastUpdatedAt = null;
+    const MARKET_FETCH_LIMIT = 120;
+    const MARKET_REFRESH_MS = 15000;
 
     // =========================================
     // TOKEN OWNERS (for Kept tab)
@@ -3490,50 +3578,211 @@
       renderMarket();
     }
 
-    async function loadMarket() {
-      if (marketLoaded) { console.log('[market] already loaded, rendering'); renderMarket(); return; }
-      console.log('[market] loadMarket() called');
-      await ensureKeepsConfig();
-      const contract = getKeepsContractAddress();
-      console.log('[market] contract:', contract);
-      if (!contract) {
-        document.getElementById('market-grid').innerHTML = '<div class="market-empty">Contract address not available.</div>';
+    function setMarketLiveBadge(state = 'live', text = null) {
+      const badge = document.getElementById('market-live-status');
+      if (!badge) return;
+      badge.classList.remove('stale', 'error');
+      if (state === 'stale') badge.classList.add('stale');
+      if (state === 'error') badge.classList.add('error');
+      if (text) badge.textContent = text;
+    }
+
+    function updateMarketLastUpdated(ts = null) {
+      const label = document.getElementById('market-last-updated');
+      if (!label) return;
+      if (!ts) {
+        label.textContent = 'waiting...';
         return;
       }
-      document.getElementById('market-grid').innerHTML = '<div class="market-empty">Loading listings…</div>';
+      const date = new Date(ts);
+      if (Number.isNaN(date.getTime())) {
+        label.textContent = 'updated';
+        return;
+      }
+      label.textContent = `updated ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+    }
+
+    function refreshMarketNow() {
+      loadMarket({ force: true, silent: false });
+    }
+
+    function stopMarketLiveUpdates() {
+      if (marketRefreshTimer) {
+        clearInterval(marketRefreshTimer);
+        marketRefreshTimer = null;
+      }
+    }
+
+    function startMarketLiveUpdates() {
+      if (marketRefreshTimer) return;
+      marketRefreshTimer = setInterval(() => {
+        if (activeTab !== 'market') return;
+        if (document.visibilityState === 'hidden') return;
+        loadMarket({ force: true, silent: true });
+      }, MARKET_REFRESH_MS);
+    }
+
+    function shortAddress(address) {
+      if (!address || typeof address !== 'string') return '';
+      if (address.length <= 12) return address;
+      return `${address.slice(0, 8)}...${address.slice(-4)}`;
+    }
+
+    function toMutez(value) {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    async function fetchObjktGraphQL(query, retries = 2) {
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+          const res = await fetch('https://data.objkt.com/v3/graphql', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query }),
+          });
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+          }
+          const json = await res.json();
+          if (Array.isArray(json?.errors) && json.errors.length > 0) {
+            const message = json.errors.map(err => err?.message || 'GraphQL error').join('; ');
+            throw new Error(message || 'GraphQL error');
+          }
+          return json?.data || {};
+        } catch (error) {
+          if (attempt >= retries) throw error;
+          await new Promise(resolve => setTimeout(resolve, 250 * (attempt + 1)));
+        }
+      }
+      return {};
+    }
+
+    async function loadMarket({ force = false, silent = false } = {}) {
+      if (marketLoaded && !force) {
+        renderMarket();
+        return;
+      }
+      if (marketIsFetching) return;
+
+      await ensureKeepsConfig();
+      const contract = getKeepsContractAddress();
+      const grid = document.getElementById('market-grid');
+      const refreshBtn = document.getElementById('market-refresh-btn');
+
+      if (!contract) {
+        if (grid) grid.innerHTML = '<div class="market-empty">Contract address not available.</div>';
+        setMarketLiveBadge('error', 'NO CONTRACT');
+        updateMarketLastUpdated(null);
+        return;
+      }
+
+      marketIsFetching = true;
+      if (refreshBtn) refreshBtn.disabled = true;
+      setMarketLiveBadge(marketLoaded ? 'stale' : 'live', marketLoaded ? 'SYNC' : 'LIVE');
+      if (!silent && grid && !marketLoaded) {
+        grid.innerHTML = '<div class="market-empty">Loading Objkt feed…</div>';
+      }
+
       try {
-        const query = `query {
-          listing(where: {
-            token: { fa_contract: { _eq: "${contract}" } },
-            status: { _eq: "active" }
-          }, limit: 100) {
-            amount
+        const activeQuery = `query {
+          listing_active(
+            where: { fa_contract: { _eq: "${contract}" } }
+            order_by: { timestamp: desc }
+            limit: ${MARKET_FETCH_LIMIT}
+          ) {
+            id
+            price_xtz
             timestamp
             seller_address
             token {
               token_id
               name
               thumbnail_uri
-              creators { creator_address holder { alias } }
             }
           }
         }`;
-        console.log('[market] fetching objkt graphql, query:', query.trim());
-        const res = await fetch('https://data.objkt.com/v3/graphql', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query }),
-        });
-        console.log('[market] response status:', res.status);
-        const json = await res.json();
-        console.log('[market] response json:', JSON.stringify(json).slice(0, 500));
-        marketListings = json?.data?.listing || [];
-        console.log('[market] listings count:', marketListings.length);
+
+        // Objkt feed stream for this collection (how Objkt builds live market activity).
+        const feedQuery = `query {
+          event(
+            where: {
+              fa_contract: { _eq: "${contract}" }
+              marketplace_event_type: { _in: ["list_create", "list_buy", "list_cancel"] }
+            }
+            order_by: { timestamp: desc }
+            limit: ${MARKET_FETCH_LIMIT}
+          ) {
+            timestamp
+            marketplace_event_type
+            price_xtz
+            creator_address
+            recipient_address
+            token {
+              token_id
+              name
+              thumbnail_uri
+            }
+          }
+        }`;
+
+        let activeData = {};
+        let feedData = {};
+        let activeError = null;
+        let feedError = null;
+
+        try {
+          activeData = await fetchObjktGraphQL(activeQuery);
+        } catch (error) {
+          activeError = error;
+          console.warn('[market] listing_active query failed:', error?.message || error);
+        }
+
+        try {
+          feedData = await fetchObjktGraphQL(feedQuery);
+        } catch (error) {
+          feedError = error;
+          console.warn('[market] event feed query failed:', error?.message || error);
+        }
+
+        marketListings = Array.isArray(activeData?.listing_active) ? activeData.listing_active : [];
+        marketFeedEvents = Array.isArray(feedData?.event) ? feedData.event : [];
+
+        const latestSales = [];
+        const seenSaleToken = new Set();
+        for (const ev of marketFeedEvents) {
+          if (ev?.marketplace_event_type !== 'list_buy') continue;
+          const tokenId = String(ev?.token?.token_id ?? '');
+          if (!tokenId || seenSaleToken.has(tokenId)) continue;
+          seenSaleToken.add(tokenId);
+          latestSales.push({
+            timestamp: ev?.timestamp,
+            price_xtz: ev?.price_xtz,
+            buyer_address: ev?.recipient_address,
+            seller_address: ev?.creator_address,
+            token: ev?.token || {},
+          });
+        }
+        marketSales = latestSales;
+
+        if (activeError && feedError) {
+          throw activeError;
+        }
+
         marketLoaded = true;
+        marketLastUpdatedAt = Date.now();
+        updateMarketLastUpdated(marketLastUpdatedAt);
+        setMarketLiveBadge(activeError || feedError ? 'stale' : 'live', activeError || feedError ? 'LIVE*' : 'LIVE');
         renderMarket();
       } catch (e) {
         console.error('[market] error:', e);
-        document.getElementById('market-grid').innerHTML = `<div class="market-empty">Failed to load listings: ${escapeHtml(e.message)}</div>`;
+        setMarketLiveBadge('error', 'ERROR');
+        if (!marketLoaded && grid) {
+          grid.innerHTML = `<div class="market-empty">Failed to load market data: ${escapeHtml(e.message)}</div>`;
+        }
+      } finally {
+        marketIsFetching = false;
+        if (refreshBtn) refreshBtn.disabled = false;
       }
     }
 
@@ -3541,39 +3790,80 @@
       const grid = document.getElementById('market-grid');
       if (!grid) return;
       const contract = getKeepsContractAddress();
-      const objktBase = `https://objkt.com/collections/${contract}`;
 
-      let sorted = [...marketListings];
+      const activeTokenIds = new Set(
+        marketListings
+          .map(listing => String(listing?.token?.token_id ?? ''))
+          .filter(Boolean)
+      );
+
+      const soldByToken = [];
+      const soldSeen = new Set();
+      for (const sale of marketSales) {
+        const tokenId = String(sale?.token?.token_id ?? '');
+        if (!tokenId) continue;
+        if (soldSeen.has(tokenId)) continue;
+        if (activeTokenIds.has(tokenId)) continue;
+        soldSeen.add(tokenId);
+        soldByToken.push(sale);
+      }
+
+      let sorted = [
+        ...marketListings.map(listing => ({
+          status: 'active',
+          timestamp: listing?.timestamp,
+          mutez: toMutez(listing?.price_xtz ?? listing?.amount),
+          sellerAddress: listing?.seller_address,
+          buyerAddress: null,
+          token: listing?.token || {},
+        })),
+        ...soldByToken.map(sale => ({
+          status: 'sold',
+          timestamp: sale?.timestamp,
+          mutez: toMutez(sale?.price_xtz ?? sale?.price ?? sale?.amount),
+          sellerAddress: sale?.seller_address,
+          buyerAddress: sale?.buyer_address,
+          token: sale?.token || {},
+        })),
+      ];
+
       if (marketSort === 'price') {
-        sorted.sort((a, b) => b.amount - a.amount);
+        sorted.sort((a, b) => b.mutez - a.mutez);
       } else {
         sorted.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
       }
 
       if (sorted.length === 0) {
-        grid.innerHTML = '<div class="market-empty">No active listings found on objkt.com.</div>';
+        grid.innerHTML = '<div class="market-empty">No listings or sales found on objkt.com yet.</div>';
         return;
       }
 
-      grid.innerHTML = sorted.map(listing => {
-        const xtz = (listing.amount / 1_000_000).toFixed(2);
-        const token = listing.token;
+      grid.innerHTML = sorted.map(entry => {
+        const xtz = (entry.mutez / 1_000_000).toFixed(2);
+        const token = entry.token || {};
         const tokenId = token?.token_id ?? '';
         const name = token?.name || `Token #${tokenId}`;
         const code = name.startsWith('$') ? name : `#${tokenId}`;
         const thumb = token?.thumbnail_uri
           ? token.thumbnail_uri.replace('ipfs://', 'https://ipfs.io/ipfs/')
           : '';
-        const creator = token?.creators?.[0];
-        const seller = creator?.holder?.alias || listing.seller_address?.slice(0, 8) + '…' || '';
+        const seller = shortAddress(entry.sellerAddress);
+        const buyer = shortAddress(entry.buyerAddress);
         const objktUrl = `https://objkt.com/tokens/${contract}/${tokenId}`;
-        return `<a class="market-card" href="${objktUrl}" target="_blank" rel="noopener">
+        const statusText = entry.status === 'sold' ? 'Sold' : 'For Sale';
+        const statusClass = entry.status === 'sold' ? 'sold' : 'active';
+        const sideText = entry.status === 'sold'
+          ? `sold by ${seller}${buyer ? ` to ${buyer}` : ''}`
+          : `listed by ${seller}`;
+
+        return `<a class="market-card ${entry.status === 'sold' ? 'sold' : ''}" href="${objktUrl}" target="_blank" rel="noopener">
           <div class="market-card-thumb">${thumb ? `<img src="${escapeHtml(thumb)}" loading="lazy" />` : ''}</div>
           <div class="market-card-body">
             <span class="market-card-code">${escapeHtml(code)}</span>
-            <span class="market-card-price">${xtz} ꜩ</span>
-            ${seller ? `<span class="market-card-seller">by ${escapeHtml(seller)}</span>` : ''}
-            <span class="market-card-objkt">objkt.com ↗</span>
+            <span class="market-card-status ${statusClass}">${statusText}</span>
+            <span class="market-card-price ${entry.status === 'sold' ? 'sold' : ''}">${xtz} ꜩ</span>
+            ${seller ? `<span class="market-card-seller">${escapeHtml(sideText)}</span>` : ''}
+            <span class="market-card-objkt">${entry.status === 'sold' ? 'view on objkt ↗' : 'buy on objkt ↗'}</span>
           </div>
         </a>`;
       }).join('');
@@ -3604,6 +3894,13 @@
     // Handle browser back/forward
     window.addEventListener('popstate', () => { switchTab(tabFromLocation()); });
     if (!isKeepsDomain) window.addEventListener('hashchange', () => { switchTab(tabFromLocation()); });
+    document.addEventListener('visibilitychange', () => {
+      if (activeTab !== 'market') return;
+      if (document.visibilityState === 'visible') {
+        loadMarket({ force: true, silent: true });
+      }
+    });
+    window.addEventListener('beforeunload', stopMarketLiveUpdates);
 
     // Legacy version dropdown switching (if present in About content)
     const versionSelect = document.getElementById('version-select');

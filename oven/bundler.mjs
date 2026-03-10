@@ -914,7 +914,7 @@ export async function createM4DBundle(pieceName, isJSPiece, onProgress = () => {
 // ─── Self-extracting HTML wrapper ───────────────────────────────────
 
 function generateSelfExtractingHTML(title, gzipBase64, bgColor = null, boxArtPNG = null) {
-  const bgRule = bgColor ? `background:${bgColor};` : "";
+  const bgRule = `background:${bgColor || "black"};`;
   const boxArtTag = boxArtPNG
     ? `<img id="ac-box-art" src="data:image/png;base64,${boxArtPNG}" alt="${title}" style="position:fixed;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;">`
     : "";
@@ -948,7 +948,7 @@ function generateSelfExtractingHTML(title, gzipBase64, bgColor = null, boxArtPNG
 
 function generateSelfExtractingBrotliHTML(title, brotliBase64, bgColor = null, boxArtPNG = null) {
   if (!brotliWasmGzBase64) throw new Error("Brotli WASM decoder not loaded");
-  const bgRule = bgColor ? `background:${bgColor};` : "";
+  const bgRule = `background:${bgColor || "black"};`;
   const boxArtTag = boxArtPNG
     ? `<img id="ac-box-art" src="data:image/png;base64,${boxArtPNG}" alt="${title}" style="position:fixed;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;">`
     : "";
@@ -1074,7 +1074,7 @@ function generateHTMLBundle(opts) {
     files, paintingData, authorHandle, packDate, packTime, gitVersion, filename, density, bgColor, bdfGlyphs, boxArtPNG, keeplabel,
   } = opts;
 
-  const bgRule = bgColor ? `background: ${bgColor}; ` : "";
+  const bgRule = `background: ${bgColor || "black"}; `;
   const boxArtImg = boxArtPNG
     ? `<img id="ac-box-art" src="data:image/png;base64,${boxArtPNG}" alt="${PIECE_NAME}">`
     : "";
