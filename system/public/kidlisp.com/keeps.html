@@ -4824,7 +4824,7 @@
             piece: '$' + piece,
             walletAddress: address,
             network: getTezosNetwork(),
-            ...(regenerate || rebake ? { regenerate: true } : {}),
+            ...(regenerate || rebake ? { regenerate: true, force: true } : {}),
           }),
           signal: mintAbortController.signal,
         });

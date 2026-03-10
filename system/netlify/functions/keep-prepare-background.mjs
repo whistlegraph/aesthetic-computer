@@ -476,9 +476,10 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
   let bundleHtml, bundleFilename, bundleAuthorHandle, userCode, packDate, depCount;
   if (!useCachedMedia) {
     await updateJobStage(jobId, "bundle", "Packing HTML bundle...");
+    const bundleCode = `$${pieceName}`;
     let bundleUrl = dev
-      ? `https://localhost:8888/api/bundle-html?code=${pieceName}&format=json&noboxart=1`
-      : `https://oven.aesthetic.computer/bundle-html?code=${pieceName}&format=json&noboxart=1`;
+      ? `https://localhost:8888/api/pack-html?code=${encodeURIComponent(bundleCode)}&format=json&keeplabel=1`
+      : `https://oven.aesthetic.computer/pack-html?code=${encodeURIComponent(bundleCode)}&format=json&keeplabel=1`;
     if (forceFresh) bundleUrl += `&rebake=1&nocache=1&sourceHash=${encodeURIComponent(pieceSourceHash)}&ts=${Date.now()}`;
 
     const bundleController = new AbortController();
@@ -494,7 +495,7 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
 
     const bundleData = await bundleRes.json();
     bundleHtml = Buffer.from(bundleData.content || bundleData.html, "base64").toString("utf8");
-    bundleFilename = `$${pieceName}.html`;
+    bundleFilename = bundleData.filename || `$${pieceName}.lisp.html`;
     bundleAuthorHandle = bundleData.authorHandle || userHandle;
     userCode = bundleData.userCode;
     packDate = bundleData.packDate;

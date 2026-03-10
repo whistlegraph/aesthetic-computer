@@ -1244,7 +1244,7 @@ async function runProcess(forceRegenerate = false, retryAttempt = 0) {
         piece: `$${piece}`,
         walletAddress,
         network: NETWORK,
-        ...(forceRegenerate ? { regenerate: true } : {}),
+        ...(forceRegenerate ? { regenerate: true, force: true } : {}),
       }),
       signal,
     });

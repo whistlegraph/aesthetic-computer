@@ -1486,10 +1486,11 @@ export const handler = stream(async (event, context) => {
       if (!useCachedMedia) {
         logStage('bundle', 'Generating HTML bundle');
         await send("progress", { stage: "bundle", message: "Packing HTML bundle..." });
-        
+
+        const bundleCode = `$${pieceName}`;
         let bundleUrl = dev
-          ? `https://localhost:8888/api/bundle-html?code=${pieceName}&format=json&noboxart=1`
-          : `https://oven.aesthetic.computer/bundle-html?code=${pieceName}&format=json&noboxart=1`;
+          ? `https://localhost:8888/api/pack-html?code=${encodeURIComponent(bundleCode)}&format=json&keeplabel=1`
+          : `https://oven.aesthetic.computer/pack-html?code=${encodeURIComponent(bundleCode)}&format=json&keeplabel=1`;
         if (forceFreshMedia) {
           bundleUrl += `&rebake=1&nocache=1&sourceHash=${encodeURIComponent(pieceSourceHash)}&ts=${Date.now()}`;
         }
