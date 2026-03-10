@@ -3732,13 +3732,6 @@ class KidLisp {
         // Always reset on boot to prevent carrying over system/previous ink state
         this.inkState = undefined;
         this.inkStateSet = false;
-
-        // Auto-enable adaptive density scaling for all KidLisp pieces.
-        // Reduces pixel density when FPS drops below 30 to maintain smooth interaction.
-        // Can be overridden by Ctrl+D shortcut (handled in disk.mjs).
-        if (!this.autoDensityOverride) {
-          this.enableAutoDensity();
-        }
       },
       paint: ($) => {
         // 🎯 Start performance frame tracking
@@ -12958,6 +12951,12 @@ class KidLisp {
       this.embeddedLayers[existingIndex] = embeddedLayer;
     } else {
       this.embeddedLayers.push(embeddedLayer);
+
+      // Auto-enable adaptive density when first embedded layer is created.
+      // Embedded layers are the main perf bottleneck — auto-scale to maintain 30fps.
+      if (this.embeddedLayers.length === 1 && !this.autoDensityOverride) {
+        this.enableAutoDensity();
+      }
     }
     
     this.embeddedLayerCache.set(layerKey, embeddedLayer);
@@ -13679,7 +13678,12 @@ class KidLisp {
       source.includes('key') ||
       source.includes('touch') ||
       source.includes('tap') ||
-      source.includes('random');
+      source.includes('random') ||
+      source.includes('spin') ||
+      source.includes('wiggle') ||
+      source.includes('fade') ||
+      source.includes('sort') ||
+      source.includes('noise');
 
     // console.log(`🔄 shouldLayerEvaluate: hasDynamicContent=${hasDynamicContent}, hasTimingExpression=${hasTimingExpression} for layer ${embeddedLayer.originalCacheId || embeddedLayer.id}`);
 
@@ -13843,26 +13847,30 @@ class KidLisp {
       wipe: (...args) => {
         // Cache the wipe result for embedded layers — if the same wipe args are used
         // every frame (e.g. a gradient fill), restore from snapshot instead of recomputing.
-        const argsKey = args.length > 0 ? JSON.stringify(args) : "";
-        if (!embeddedLayer._wipeCache) embeddedLayer._wipeCache = {};
-        const cache = embeddedLayer._wipeCache;
+        // Only cache wipes with actual color args (skip empty/erase wipes).
+        if (args.length > 0 && embeddedLayer.hasBeenEvaluated) {
+          const argsKey = JSON.stringify(args);
+          if (!embeddedLayer._wipeCache) embeddedLayer._wipeCache = {};
+          const cache = embeddedLayer._wipeCache;
 
-        if (cache.key === argsKey && cache.snapshot &&
-            cache.width === embeddedLayer.width && cache.height === embeddedLayer.height) {
-          // Restore from cached snapshot (fast typed-array copy)
-          embeddedLayer.buffer.pixels.set(cache.snapshot);
+          if (cache.key === argsKey && cache.snapshot &&
+              cache.width === embeddedLayer.width && cache.height === embeddedLayer.height) {
+            embeddedLayer.buffer.pixels.set(cache.snapshot);
+            return;
+          }
+
+          api.wipe(...args);
+          const px = embeddedLayer.buffer.pixels;
+          if (px && px.length > 0) {
+            cache.snapshot = new Uint8ClampedArray(px);
+            cache.key = argsKey;
+            cache.width = embeddedLayer.width;
+            cache.height = embeddedLayer.height;
+          }
           return;
         }
 
-        // First time or args changed — do the real wipe and snapshot the result
         api.wipe(...args);
-        const px = embeddedLayer.buffer.pixels;
-        if (px && px.length > 0) {
-          cache.snapshot = new Uint8ClampedArray(px);
-          cache.key = argsKey;
-          cache.width = embeddedLayer.width;
-          cache.height = embeddedLayer.height;
-        }
       },
       circle: (...args) => api.circle(...args),
       tri: (...args) => api.tri(...args),
@@ -14250,22 +14258,26 @@ class KidLisp {
           wipe: (...args) => {
             didRender = true;
             // Cache wipe result for embedded layers (avoids recomputing gradients every frame)
-            const argsKey = args.length > 0 ? JSON.stringify(args) : "";
-            if (!embeddedLayer._wipeCache) embeddedLayer._wipeCache = {};
-            const cache = embeddedLayer._wipeCache;
-            if (cache.key === argsKey && cache.snapshot &&
-                cache.width === embeddedLayer.width && cache.height === embeddedLayer.height) {
-              embeddedLayer.buffer.pixels.set(cache.snapshot);
+            if (args.length > 0 && embeddedLayer.hasBeenEvaluated) {
+              const argsKey = JSON.stringify(args);
+              if (!embeddedLayer._wipeCache) embeddedLayer._wipeCache = {};
+              const cache = embeddedLayer._wipeCache;
+              if (cache.key === argsKey && cache.snapshot &&
+                  cache.width === embeddedLayer.width && cache.height === embeddedLayer.height) {
+                embeddedLayer.buffer.pixels.set(cache.snapshot);
+                return;
+              }
+              api.wipe(...args);
+              const px = embeddedLayer.buffer.pixels;
+              if (px && px.length > 0) {
+                cache.snapshot = new Uint8ClampedArray(px);
+                cache.key = argsKey;
+                cache.width = embeddedLayer.width;
+                cache.height = embeddedLayer.height;
+              }
               return;
             }
             api.wipe(...args);
-            const px = embeddedLayer.buffer.pixels;
-            if (px && px.length > 0) {
-              cache.snapshot = new Uint8ClampedArray(px);
-              cache.key = argsKey;
-              cache.width = embeddedLayer.width;
-              cache.height = embeddedLayer.height;
-            }
           },
           circle: (...args) => {
             didRender = true;
