@@ -266,6 +266,24 @@ included_files = ["backend/**/*.mjs"]
 external_node_modules = ["mongodb", "mongodb-connection-string-url", "bn.js", "@taquito/taquito", "@taquito/signer", "@taquito/rpc", "@taquito/http-utils", "@taquito/utils", "@taquito/michelson-encoder", "@taquito/local-forging", "@taquito/michel-codec", "@taquito/core"]
 included_env_vars = ["CONTEXT", "TEZOS_NETWORK", "TEZOS_KIDLISP_KEY", "PINATA_API_KEY", "PINATA_API_SECRET", "OVEN_URL", "USE_IPFS_GATEWAY_URLS", "IPFS_GATEWAY", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "ADMIN_SUB"]
 
+[functions.keep-prepare]
+# Job-based keep preparation (validates, creates job, invokes background)
+included_files = ["backend/**/*.mjs"]
+external_node_modules = ["mongodb", "mongodb-connection-string-url"]
+included_env_vars = ["CONTEXT", "TEZOS_NETWORK", "OVEN_URL", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "ADMIN_SUB", "URL", "DEPLOY_URL"]
+
+[functions.keep-prepare-background]
+# Background pipeline for keep preparation (oven, IPFS, metadata — up to 15 min)
+included_files = ["backend/**/*.mjs"]
+external_node_modules = ["mongodb", "mongodb-connection-string-url", "bn.js", "@taquito/taquito", "@taquito/signer", "@taquito/rpc", "@taquito/http-utils", "@taquito/utils", "@taquito/michelson-encoder", "@taquito/local-forging", "@taquito/michel-codec", "@taquito/core"]
+included_env_vars = ["CONTEXT", "TEZOS_NETWORK", "TEZOS_KIDLISP_KEY", "PINATA_API_KEY", "PINATA_API_SECRET", "OVEN_URL", "USE_IPFS_GATEWAY_URLS", "IPFS_GATEWAY", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "ADMIN_SUB"]
+
+[functions.keep-status]
+# Lightweight polling endpoint for keep job progress
+included_files = ["backend/**/*.mjs"]
+external_node_modules = ["mongodb", "mongodb-connection-string-url"]
+included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
+
 [functions.boot-log]
 # Store boot telemetry in MongoDB
 included_files = ["backend/**/*.mjs"]
@@ -1780,6 +1798,14 @@ status = 200
 [[redirects]]
 from = "/api/keep-mint"
 to = "/.netlify/functions/keep-mint"
+status = 200
+[[redirects]]
+from = "/api/keep-prepare"
+to = "/.netlify/functions/keep-prepare"
+status = 200
+[[redirects]]
+from = "/api/keep-status"
+to = "/.netlify/functions/keep-status"
 status = 200
 [[redirects]]
 from = "/api/keep-confirm"
