@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<!-- KidLisp Decree — Platform-independent ABI specification for KidLisp runtimes -->
+<!-- URL: learn.kidlisp.com/decree, learn.kidlisp.com/decree/26 -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>KidLisp Decree '26</title>
+
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://learn.kidlisp.com/decree" />
+  <meta property="og:title" content="KidLisp Decree '26" />
+  <meta property="og:description" content="Platform-independent, stable ABI guarantee for KidLisp runtimes in 2026." />
+  <meta property="og:image" content="https://oven.aesthetic.computer/kidlisp-og.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <link rel="icon" type="image/gif" href="https://assets.aesthetic.computer/kidlisp-favicon.gif" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+
+  <style>
+    @font-face {
+      font-family: 'YWFTProcessing-Regular';
+      src: url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2') format('woff2'),
+           url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff') format('woff');
+      font-weight: normal; font-style: normal; font-display: swap;
+    }
+
+    :root {
+      --bg-primary: #f7f7f7;
+      --bg-secondary: #e8e8e8;
+      --bg-tertiary: white;
+      --text-primary: #111;
+      --text-secondary: #555;
+      --text-muted: #888;
+      --accent: #4a6fff;
+      --accent-dim: rgba(74, 111, 255, 0.1);
+      --border: #ddd;
+      --code-bg: #f0f0f0;
+      --font-mono: 'Berkeley Mono Variable', 'Noto Sans Mono', monospace;
+      --font-display: 'YWFTProcessing-Regular', monospace;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-primary: #111;
+        --bg-secondary: #1a1a1a;
+        --bg-tertiary: #222;
+        --text-primary: #eee;
+        --text-secondary: #aaa;
+        --text-muted: #666;
+        --border: #333;
+        --code-bg: #1a1a1a;
+      }
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--font-mono);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.7;
+      font-size: 14px;
+    }
+
+    .container {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 24px 20px 80px;
+    }
+
+    header {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    header h1 {
+      font-family: var(--font-display);
+      font-size: 28px;
+      font-weight: normal;
+      letter-spacing: -0.5px;
+    }
+    header h1 span { color: var(--text-muted); }
+    header nav { display: flex; gap: 16px; }
+    header nav a {
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 13px;
+    }
+    header nav a:hover { text-decoration: underline; }
+
+    .status {
+      display: inline-block;
+      font-size: 11px;
+      padding: 2px 10px;
+      background: var(--accent-dim);
+      color: var(--accent);
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+
+    h2 {
+      font-size: 16px;
+      font-weight: bold;
+      margin: 28px 0 8px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-primary);
+    }
+
+    h3 {
+      font-size: 14px;
+      font-weight: bold;
+      margin: 20px 0 6px;
+      color: var(--text-secondary);
+    }
+
+    p, li {
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    ul, ol {
+      padding-left: 24px;
+      margin-bottom: 12px;
+    }
+
+    li { margin-bottom: 4px; }
+
+    code {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      background: var(--code-bg);
+      padding: 2px 5px;
+      border-radius: 3px;
+    }
+
+    pre {
+      background: var(--code-bg);
+      padding: 12px 16px;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 8px 0 16px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    pre code { background: none; padding: 0; }
+
+    .section-num {
+      color: var(--text-muted);
+      font-size: 13px;
+      margin-right: 4px;
+    }
+
+    .keyword {
+      display: inline-block;
+      font-size: 12px;
+      padding: 1px 6px;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      font-family: var(--font-mono);
+      margin: 1px 2px;
+    }
+
+    .claim-string {
+      background: var(--accent-dim);
+      border-left: 3px solid var(--accent);
+      padding: 8px 14px;
+      border-radius: 0 6px 6px 0;
+      margin: 8px 0 16px;
+      font-size: 13px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 8px 0 16px;
+      font-size: 13px;
+    }
+    th, td {
+      text-align: left;
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-weight: bold;
+      color: var(--text-muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    @media (max-width: 600px) {
+      .container { padding: 16px 12px 60px; }
+      header h1 { font-size: 22px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>KidLisp Decree '26</h1>
+    <nav>
+      <a href="https://learn.kidlisp.com">Learn</a>
+      <a href="https://kidlisp.com">Editor</a>
+      <a href="https://kidlisp.com/keeps">Keeps</a>
+    </nav>
+  </header>
+
+  <span class="status">Draft</span>
+  <p style="color:var(--text-muted); font-size:12px; margin-bottom:20px;">
+    Audience: Runtime implementers, piece authors, tooling authors
+  </p>
+
+  <!-- 1. Purpose -->
+  <h2><span class="section-num">1.</span> Purpose</h2>
+  <p><code>KidLisp Decree '26</code> defines the platform-independent, stable ABI guarantee for KidLisp runtimes in 2026.</p>
+  <p>This decree is normative for:</p>
+  <ul>
+    <li>Lifecycle hooks</li>
+    <li>Host API surface</li>
+    <li>Rendering/compositing semantics</li>
+    <li>Timing and audio global semantics</li>
+    <li>Compatibility expectations</li>
+  </ul>
+
+  <!-- 2. Versioning Model -->
+  <h2><span class="section-num">2.</span> Versioning Model</h2>
+  <p>Year-based versions: <code>'26</code>, <code>'27</code>, <code>'28</code>, &hellip;</p>
+  <p><code>KidLisp Decree '26</code> is a frozen baseline once ratified. Future decrees may extend behavior, but MUST publish compatibility notes against <code>'26</code>.</p>
+  <p>Required compatibility terms:</p>
+  <ul>
+    <li><code>compatible-with-'26</code> &mdash; runtime preserves all required <code>'26</code> behaviors.</li>
+    <li><code>native-extensions</code> &mdash; runtime adds non-decree APIs without changing decree-required behavior.</li>
+    <li><code>deviation</code> &mdash; runtime intentionally diverges and MUST declare the divergence.</li>
+  </ul>
+
+  <!-- 3. Conformance Levels -->
+  <h2><span class="section-num">3.</span> Conformance Levels</h2>
+  <p>A runtime MAY claim one or more conformance levels:</p>
+
+  <h3>1. Core</h3>
+  <ul>
+    <li>Parser/evaluator semantics</li>
+    <li>Required lifecycle ABI</li>
+    <li>Required host object shape</li>
+  </ul>
+
+  <h3>2. Render</h3>
+  <ul>
+    <li>Offscreen buffer model</li>
+    <li>Page/paste semantics</li>
+    <li>Alpha compositing semantics</li>
+  </ul>
+
+  <h3>3. Audio</h3>
+  <ul>
+    <li>Audio globals (<code>amp</code>, <code>mic</code>, etc.) range and update semantics</li>
+  </ul>
+
+  <p>Minimum public claim format:</p>
+  <div class="claim-string"><code>KidLisp Decree '26: Core</code></div>
+  <div class="claim-string"><code>KidLisp Decree '26: Core + Render</code></div>
+  <div class="claim-string"><code>KidLisp Decree '26: Core + Render + Audio</code></div>
+
+  <!-- 4. Stable Lifecycle ABI -->
+  <h2><span class="section-num">4.</span> Stable Lifecycle ABI</h2>
+  <p>A conforming runtime MUST expose and invoke:</p>
+  <ul>
+    <li><code>boot(api)</code></li>
+    <li><code>act(api)</code></li>
+    <li><code>sim(api)</code></li>
+    <li><code>paint(api)</code></li>
+    <li><code>leave()</code></li>
+    <li><code>beat(api)</code> (optional if no beat clock exists; MUST be declared)</li>
+  </ul>
+  <p>Required ordering guarantee per frame:</p>
+  <ol>
+    <li><code>act</code></li>
+    <li><code>beat</code> (if supported and triggered)</li>
+    <li><code>sim</code></li>
+    <li><code>paint</code></li>
+    <li>present</li>
+  </ol>
+  <p>Runtimes MAY batch or skip frames for performance, but MUST preserve ordering of calls they do execute.</p>
+
+  <!-- 5. Host API Shape -->
+  <h2><span class="section-num">5.</span> Host API Shape (Required Keys)</h2>
+  <p>At minimum, <code>api</code> MUST provide:</p>
+  <ul>
+    <li>Drawing primitives: <span class="keyword">wipe</span> <span class="keyword">ink</span> <span class="keyword">line</span> <span class="keyword">box</span> <span class="keyword">circle</span> <span class="keyword">plot</span> <span class="keyword">write</span></li>
+    <li>Geometry/system: <code>screen.width</code>, <code>screen.height</code></li>
+    <li>Timing: <code>clock</code> and/or deterministic frame counter semantics</li>
+    <li>Buffering (Render level): <span class="keyword">painting</span> <span class="keyword">page</span> <span class="keyword">paste</span></li>
+  </ul>
+  <p>If a function is unsupported, runtime MUST:</p>
+  <ul>
+    <li>Expose capability flags indicating unsupported state, and</li>
+    <li>Fail predictably (no silent corruption).</li>
+  </ul>
+
+  <!-- 6. Rendering Semantics -->
+  <h2><span class="section-num">6.</span> Rendering Semantics (Render Level)</h2>
+  <p><code>KidLisp Decree '26</code> render model:</p>
+  <ol>
+    <li>Base layer (<code>layer0</code>)</li>
+    <li>Optional bake layers</li>
+    <li>Optional embedded layers</li>
+    <li>Composite result to display buffer</li>
+  </ol>
+  <p>Required semantics:</p>
+  <ul>
+    <li><code>painting(w,h,cb)</code> creates an isolated drawable buffer.</li>
+    <li><code>page(buffer)</code> switches active render target.</li>
+    <li><code>paste(buffer,x,y[,scale])</code> composites source onto current target.</li>
+    <li>Alpha blending behavior MUST be consistent across hosts for decree tests.</li>
+  </ul>
+  <p>Hosts MAY optimize compositor internals (GPU, SIMD, tiled), but output MUST satisfy decree conformance tolerances.</p>
+
+  <!-- 7. Timing and Audio Globals -->
+  <h2><span class="section-num">7.</span> Timing and Audio Globals</h2>
+  <p>Required timing globals:</p>
+  <ul>
+    <li><code>frame</code> &mdash; monotonic non-decreasing</li>
+    <li><code>clock</code> &mdash; wall-time access (or declared fallback behavior)</li>
+  </ul>
+  <p>Audio level (Audio conformance):</p>
+  <ul>
+    <li><code>amp</code> MUST be defined and numeric.</li>
+    <li>Recommended normalized range: <code>0..10</code>.</li>
+    <li>If no audio source exists, runtime MUST define deterministic fallback behavior.</li>
+  </ul>
+
+  <!-- 8. Capability Discovery -->
+  <h2><span class="section-num">8.</span> Capability Discovery</h2>
+  <p>A conforming runtime SHOULD expose a capability object equivalent to:</p>
+  <ul>
+    <li>Decree version</li>
+    <li>Conformance levels (<code>Core</code>/<code>Render</code>/<code>Audio</code>)</li>
+    <li>Supported optional features (e.g. <code>compositeLayers</code>, <code>mask</code>, <code>blur</code>, <code>zoom</code>, <code>embed</code>)</li>
+  </ul>
+  <p>Suggested shape:</p>
+  <pre><code>system.kidlisp.decree.version = "26"
+system.kidlisp.decree.levels = ["Core", "Render"]
+system.kidlisp.decree.features = { ... }</code></pre>
+
+  <!-- 9. Compatibility and Deprecation Rules -->
+  <h2><span class="section-num">9.</span> Compatibility and Deprecation Rules</h2>
+  <p>Within a decree year:</p>
+  <ul>
+    <li>Required ABI behaviors MUST remain stable.</li>
+    <li>Additive APIs MAY be introduced.</li>
+    <li>Breaking changes MUST NOT be introduced under the same decree version.</li>
+  </ul>
+  <p>Across decree years:</p>
+  <ul>
+    <li>New decree MUST publish: added guarantees, deprecated behaviors, removed behaviors, migration notes.</li>
+  </ul>
+
+  <!-- 10. Conformance Test Suite -->
+  <h2><span class="section-num">10.</span> Conformance Test Suite</h2>
+  <p><code>KDL-26</code> (planned) SHOULD include:</p>
+  <ul>
+    <li>Lifecycle ordering tests</li>
+    <li>Host shape tests</li>
+    <li>Render reference scenes (including layering + alpha)</li>
+    <li>Timing behavior tests</li>
+    <li>Audio global behavior tests</li>
+  </ul>
+  <p>A runtime claiming decree conformance SHOULD publish its <code>KDL-26</code> result set.</p>
+
+  <!-- 11. Publishing Map -->
+  <h2><span class="section-num">11.</span> Publishing Map</h2>
+  <table>
+    <tr><th>URL</th><th>Content</th></tr>
+    <tr><td><code>learn.kidlisp.com/decree</code></td><td>Latest stable decree (this page)</td></tr>
+    <tr><td><code>learn.kidlisp.com/decree/26</code></td><td>Frozen KidLisp Decree '26</td></tr>
+    <tr><td><code>learn.kidlisp.com/decree/changelog</code></td><td>Year-over-year compatibility notes</td></tr>
+  </table>
+
+  <!-- 12. Open Draft Items -->
+  <h2><span class="section-num">12.</span> Open Draft Items</h2>
+  <ul>
+    <li>Precise alpha blend reference equation</li>
+    <li>Exact tolerance policy for render conformance frames</li>
+    <li>Required vs optional transformation set (<code>scroll</code>, <code>zoom</code>, <code>blur</code>, <code>contrast</code>, etc.)</li>
+    <li>Embed semantics requirements for minimum Render conformance</li>
+  </ul>
+
+  <!-- 13. Reference Profiles -->
+  <h2><span class="section-num">13.</span> Reference Profiles ('26)</h2>
+  <p>This decree defines named reference profiles for practical conformance targets.</p>
+
+  <h3>13.1 &mdash; <code>RBP-26</code> (<code>$roz</code> Baseline Profile)</h3>
+  <p><code>RBP-26</code> is the minimal feature profile required to run <code>$roz</code> with decree-consistent behavior.</p>
+
+  <p>Required heads/tokens:</p>
+  <div style="margin: 6px 0 12px;">
+    <span class="keyword">ink</span>
+    <span class="keyword">line</span>
+    <span class="keyword">circle</span>
+    <span class="keyword">scroll</span>
+    <span class="keyword">spin</span>
+    <span class="keyword">zoom</span>
+    <span class="keyword">contrast</span>
+    <span class="keyword">?</span>
+    <span class="keyword">1s...</span>
+    <span class="keyword">2s...</span>
+    <span class="keyword">0.5s</span>
+    <span class="keyword">fade:&lt;color&gt;-&lt;color&gt;-...</span>
+  </div>
+
+  <p>Required symbols:</p>
+  <ul>
+    <li><code>w</code>, <code>h</code>, <code>w/2</code>, <code>h/2</code></li>
+  </ul>
+
+  <p>Required color/token support:</p>
+  <div style="margin: 6px 0 12px;">
+    <span class="keyword">red</span>
+    <span class="keyword">blue</span>
+    <span class="keyword">black</span>
+    <span class="keyword">white</span>
+    <span class="keyword">rainbow</span>
+    <span class="keyword">cyan</span>
+    <span class="keyword">yellow</span>
+    <span class="keyword">magenta</span>
+  </div>
+
+  <p>Semantics requirements:</p>
+  <ul>
+    <li><code>?</code> MUST evaluate as runtime choice across provided options.</li>
+    <li><code>1s...</code> and <code>2s...</code> MUST behave as repeating timed forms.</li>
+    <li><code>0.5s</code> MUST behave as a timed one-shot form (unless host explicitly declares a deviation).</li>
+    <li>Transform/effect heads (<code>spin</code>, <code>zoom</code>, <code>contrast</code>, <code>scroll</code>) MUST apply in a stable per-frame order.</li>
+    <li><code>w/2</code> and <code>h/2</code> MUST resolve from current frame dimensions.</li>
+  </ul>
+
+  <p>Conformance claim string:</p>
+  <div class="claim-string"><code>KidLisp Decree '26: RBP-26</code></div>
+</div>
+
+</body>
+</html>
