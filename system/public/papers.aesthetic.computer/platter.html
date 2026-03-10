@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>platter · Aesthetic Computer Research</title>
+    <meta name="description" content="Research platter: papers, plans, reports, studies, readings, and APIs for Aesthetic Computer.">
+    <link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png" />
+    <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+    <link rel="preload" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2" as="font" type="font/woff2" crossorigin="anonymous">
+    <style>
+        @font-face {
+            font-family: 'YWFT Processing';
+            src: url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2') format('woff2');
+            font-weight: normal;
+            font-display: swap;
+        }
+
+        :root {
+            --bg: #1a1a2e;
+            --text: #e8e8e8;
+            --dim: #888;
+            --pink: #cd5c9b;
+            --cyan: #4ecdc4;
+            --purple: #7850b4;
+            --gold: #d4a017;
+            --green: #4ecb71;
+            --box-bg: rgba(255,255,255,0.03);
+            --box-border: rgba(255,255,255,0.1);
+        }
+
+        @media (prefers-color-scheme: light) {
+            :root:not(.dark-mode) {
+                --bg: #f5f5f5;
+                --text: #1a1a2e;
+                --dim: #666;
+                --pink: #b4489a;
+                --cyan: #0891b2;
+                --purple: #7850b4;
+                --gold: #a07800;
+                --green: #0a8a3e;
+                --box-bg: rgba(0,0,0,0.03);
+                --box-border: rgba(0,0,0,0.12);
+            }
+        }
+
+        :root.light-mode {
+            --bg: #f5f5f5;
+            --text: #1a1a2e;
+            --dim: #666;
+            --pink: #b4489a;
+            --cyan: #0891b2;
+            --purple: #7850b4;
+            --gold: #a07800;
+            --green: #0a8a3e;
+            --box-bg: rgba(0,0,0,0.03);
+            --box-border: rgba(0,0,0,0.12);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        ::-webkit-scrollbar { display: none; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Berkeley Mono Variable', 'Menlo', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            -webkit-text-size-adjust: none;
+            cursor: url('https://aesthetic.computer/aesthetic.computer/cursors/precise.svg') 12 12, auto;
+            padding: 2em;
+            min-height: 100vh;
+        }
+
+        .header { margin-bottom: 2em; }
+
+        h1 {
+            font-family: 'YWFT Processing', monospace;
+            font-size: 2.2em;
+            font-weight: normal;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.3em;
+        }
+
+        h1 .dot { color: var(--pink); }
+        .subtitle { color: var(--dim); font-size: 0.85em; }
+
+        .stats {
+            color: var(--dim);
+            font-size: 0.8em;
+            margin-top: 0.5em;
+        }
+        .stats span { color: var(--cyan); }
+
+        .search-bar {
+            margin: 1.5em 0;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: var(--bg);
+            padding: 0.5em 0;
+        }
+
+        .search-bar input {
+            width: 100%;
+            background: var(--box-bg);
+            border: 1px solid var(--box-border);
+            color: var(--text);
+            font-family: inherit;
+            font-size: 14px;
+            padding: 0.6em 1em;
+            border-radius: 6px;
+            outline: none;
+        }
+
+        .search-bar input:focus { border-color: var(--cyan); }
+        .search-bar input::placeholder { color: var(--dim); }
+
+        .section {
+            margin-bottom: 2em;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 0.6em;
+            margin-bottom: 0.8em;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .section-header h2 {
+            font-size: 1em;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .section-header .count {
+            color: var(--dim);
+            font-size: 0.85em;
+        }
+
+        .section-header .toggle {
+            color: var(--dim);
+            font-size: 0.75em;
+            transition: transform 0.15s;
+        }
+
+        .section-header.collapsed .toggle { transform: rotate(-90deg); }
+
+        .section-header[data-color="pink"] h2 { color: var(--pink); }
+        .section-header[data-color="cyan"] h2 { color: var(--cyan); }
+        .section-header[data-color="purple"] h2 { color: var(--purple); }
+        .section-header[data-color="gold"] h2 { color: var(--gold); }
+        .section-header[data-color="green"] h2 { color: var(--green); }
+
+        .section-items { }
+        .section-items.hidden { display: none; }
+
+        .item {
+            display: block;
+            padding: 0.35em 0.8em;
+            text-decoration: none;
+            color: var(--text);
+            border-radius: 4px;
+            transition: background 0.1s;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .item:hover { background: var(--box-bg); }
+        .item .file { color: var(--dim); margin-right: 0.5em; font-size: 0.85em; }
+
+        .item-group {
+            margin-bottom: 1em;
+        }
+
+        .item-group-label {
+            color: var(--dim);
+            font-size: 0.75em;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            padding: 0.3em 0.8em;
+        }
+
+        .footer {
+            margin-top: 3em;
+            padding-top: 1em;
+            border-top: 1px solid var(--box-border);
+            color: var(--dim);
+            font-size: 0.75em;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .footer a { color: var(--purple); text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
+
+        .theme-toggle {
+            cursor: pointer;
+            background: none;
+            border: 1px solid var(--box-border);
+            color: var(--dim);
+            font-family: inherit;
+            font-size: inherit;
+            padding: 0.3em 0.6em;
+            border-radius: 4px;
+        }
+
+        .pals-logo-corner {
+            position: fixed;
+            bottom: 1.5em;
+            right: 1.5em;
+            width: 64px;
+            height: 64px;
+            opacity: 0.5;
+            transition: opacity 0.2s;
+            z-index: 100;
+        }
+        .pals-logo-corner:hover { opacity: 1; }
+
+        @media (max-width: 600px) {
+            body { padding: 1.2em; }
+            h1 { font-size: 1.6em; }
+            .pals-logo-corner { width: 48px; height: 48px; bottom: 1em; right: 1em; }
+        }
+
+        .no-results {
+            color: var(--dim);
+            padding: 2em;
+            text-align: center;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <a href="https://aesthetic.computer" class="pals-logo-corner">
+        <img src="https://aesthetic.computer/purple-pals.svg" alt="AC" style="width:100%;height:100%;">
+    </a>
+
+    <div class="header">
+        <h1>Research Platter</h1>
+        <div class="subtitle">Full knowledge base for Aesthetic Computer papers and research.</div>
+        <div class="stats">
+            <span>144</span> plans · <span>85</span> reports · <span>8</span> studies · <span>70</span> reference docs · <span>30+</span> readings · <span>6</span> papers · <span>83</span> API endpoints · <span>32+</span> MongoDB collections
+        </div>
+    </div>
+
+    <div class="search-bar">
+        <input type="text" id="search" placeholder="Search all research documents..." autofocus>
+    </div>
+
+    <div class="no-results" id="no-results">No matching documents.</div>
+
+    <div id="sections">
+
+    <!-- PAPERS -->
+    <div class="section" data-section="papers">
+        <div class="section-header" data-color="pink" onclick="toggleSection(this)">
+            <span class="toggle">&#9660;</span>
+            <h2>Papers</h2>
+            <span class="count">6 publications</span>
+        </div>
+        <div class="section-items">
+            <a class="item" href="/aesthetic-computer-26-arxiv.pdf">Aesthetic Computer '26 — A Mobile-First Runtime for Creative Computing (arXiv, 5pp)</a>
+            <a class="item" href="/aesthetic-computer-26-joss.pdf">Aesthetic Computer '26 — JOSS Summary (2pp)</a>
+            <a class="item" href="/pieces-not-programs-26-arxiv.pdf">Pieces Not Programs '26 — The Piece as a Unit of Creative Cognition (arXiv, 4pp)</a>
+            <a class="item" href="/notepat-26-arxiv.pdf">notepat.com '26 — From Keyboard Toy to System Front Door (arXiv, 3pp)</a>
+            <a class="item" href="/kidlisp-26-arxiv.pdf">KidLisp '26 — A Minimal Lisp for Generative Art on a Social Platform (arXiv, 6pp)</a>
+            <a class="item" href="/kidlisp-26-joss.pdf">KidLisp '26 — JOSS Summary (3pp)</a>
+        </div>
+    </div>
+
+    <!-- READINGS -->
+    <div class="section" data-section="readings">
+        <div class="section-header" data-color="purple" onclick="toggleSection(this)">
+            <span class="toggle">&#9660;</span>
+            <h2>Readings Library</h2>
+            <span class="count">30+ texts with full-text extracts</span>
+        </div>
+        <div class="section-items">
+            <div class="item-group">
+                <div class="item-group-label">Art Theory & Aesthetics</div>
+                <a class="item" href="https://github.com/digitpain/aesthetic.computer/blob/main/system/public/assets/papers/readings/BIBLIOGRAPHY.md"><span class="file">BIBLIOGRAPHY.md</span> Full bibliography check-in with tier rankings</a>
+                <span class="item">Susanne K. Langer — <em>Problems of Art</em> (1957) · OCR OK</span>
+                <span class="item">Rudolf Arnheim — <em>Art and Visual Perception</em> (1974) · TEXT OK</span>
+                <span class="item">Paul Klee — <em>Pedagogical Sketchbook</em> (1925) · OCR OK</span>
+                <span class="item">Wassily Kandinsky — <em>Point and Line to Plane</em> (1926) · TEXT OK</span>
+                <span class="item">Mierle Laderman Ukeles — <em>Manifesto for Maintenance Art</em> (1969) · OCR OK</span>
+                <span class="item">Ruth McEnery Stuart — <em>Gobolinks</em> (1896) · OCR ROUGH</span>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Media & Critical Theory</div>
+                <span class="item">Marshall McLuhan — "The Medium is the Message" (1964) · TEXT OK</span>
+                <span class="item">Friedrich Kittler — "There is No Software" (1995) · TEXT OK</span>
+                <span class="item">Mark Fisher — <em>Capitalist Realism</em> (2009) · TEXT OK</span>
+                <span class="item">Viktor Shklovsky — "Art as Device" (1917) · TEXT OK</span>
+                <span class="item">Theodor Adorno — "Punctuation Marks" (1958) · TEXT OK</span>
+                <span class="item">Graham Harman — "Revenge of the Surface" (~2011) · TEXT OK</span>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Making & Materiality</div>
+                <span class="item">Tim Ingold — "The Textility of Making" (2009) · TEXT OK</span>
+                <span class="item">Tim Ingold — <em>Lines: A Brief History</em> (2007) · OCR OK</span>
+                <span class="item">David Joselit — "Marking, Scoring, Storing, and Speculating" (2016) · OCR OK</span>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Computing & Language</div>
+                <span class="item">Ron Eglash — <em>African Fractals</em> (1999) · TEXT OK</span>
+                <span class="item">Friedman & Felleisen — <em>The Little Schemer</em> (1996) · TEXT OK</span>
+                <span class="item">Dr. Robert van Engelen — "Lisp in 99 lines of C" (2022) · TEXT OK</span>
+                <span class="item">Felix Roos & Alex McLean — "Strudel: live coding on the Web" (ICLC 2023) · TEXT OK</span>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">On Jeffrey's Work</div>
+                <span class="item">Merle Nunneley — article on Whistlegraphs (UCL London) · TEXT OK</span>
+                <span class="item">Asker Bryld Staun&aelig;s — "Stiegler's Concept of Idiotext" (2021) · TEXT OK</span>
+                <span class="item">Thomas Lawson — "Last Exit: Painting" (Artforum, 1981) · TEXT OK</span>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Games & Play</div>
+                <span class="item">Ben Robbins — <em>Microscope RPG</em> (2011) · TEXT OK</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- REPORTS -->
+    <div class="section" data-section="reports">
+        <div class="section-header collapsed" data-color="cyan" onclick="toggleSection(this)">
+            <span class="toggle">&#9660;</span>
+            <h2>Reports</h2>
+            <span class="count">85 documents</span>
+        </div>
+        <div class="section-items hidden" id="reports-list"></div>
+    </div>
+
+    <!-- PLANS -->
+    <div class="section" data-section="plans">
+        <div class="section-header collapsed" data-color="gold" onclick="toggleSection(this)">
+            <span class="toggle">&#9660;</span>
+            <h2>Plans</h2>
+            <span class="count">144 documents</span>
+        </div>
+        <div class="section-items hidden" id="plans-list"></div>
+    </div>
+
+    <!-- STUDIES -->
+    <div class="section" data-section="studies">
+        <div class="section-header" data-color="green" onclick="toggleSection(this)">
+            <span class="toggle">&#9660;</span>
+            <h2>Studies</h2>
+            <span class="count">8 documents</span>
+        </div>
+        <div class="section-items" id="studies-list"></div>
+    </div>
+
+    <!-- REFERENCE -->
+    <div class="section" data-section="reference">
+        <div class="section-header collapsed" data-color="purple" onclick="toggleSection(this)">
+            <span class="toggle">&#9660;</span>
+            <h2>Reference</h2>
+            <span class="count">70 documents</span>
+        </div>
+        <div class="section-items hidden" id="reference-list">
+            <div class="item-group">
+                <div class="item-group-label">Strudel / Live Coding</div>
+                <a class="item" href="https://github.com/digitpain/aesthetic.computer/tree/main/reference/strudel">reference/strudel/ — full Strudel source + ICLC paper</a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">API & Language Reference</div>
+                <a class="item" href="https://github.com/digitpain/aesthetic.computer/blob/main/reference/api/javascript-api.md">reference/api/javascript-api.md — AC JavaScript API reference</a>
+                <a class="item" href="https://github.com/digitpain/aesthetic.computer/blob/main/reference/kidlisp/language-reference.md">reference/kidlisp/language-reference.md — KidLisp language reference</a>
+                <a class="item" href="https://github.com/digitpain/aesthetic.computer/blob/main/reference/pieces/structure.md">reference/pieces/structure.md — Piece structure reference</a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">KidLisp Reports</div>
+                <a class="item" href="https://github.com/digitpain/aesthetic.computer/blob/main/kidlisp/reports/analysis-report.md">KidLisp Architecture Analysis vs TinyLisp</a>
+                <a class="item" href="https://github.com/digitpain/aesthetic.computer/blob/main/kidlisp/reports/comparison-metrics.md">TinyLisp vs KidLisp: Architecture Comparison</a>
+                <a class="item" href="https://github.com/digitpain/aesthetic.computer/blob/main/kidlisp/reports/raku-syntax-inspirations.md">Raku Syntactical Ideas for KidLisp</a>
+                <a class="item" href="https://github.com/digitpain/aesthetic.computer/blob/main/kidlisp/reports/implementation-guide.md">KidLisp Optimization Implementation Guide</a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Ableton / Music</div>
+                <a class="item" href="https://github.com/digitpain/aesthetic.computer/tree/main/reference/ableton">reference/ableton/ — Ableton integration guides</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- APIS & DATA -->
+    <div class="section" data-section="apis">
+        <div class="section-header collapsed" data-color="cyan" onclick="toggleSection(this)">
+            <span class="toggle">&#9660;</span>
+            <h2>APIs & Data Sources</h2>
+            <span class="count">83 endpoints · 32+ collections</span>
+        </div>
+        <div class="section-items hidden">
+            <div class="item-group">
+                <div class="item-group-label">Live API Endpoints</div>
+                <a class="item" href="https://aesthetic.computer/api/api-docs">api/api-docs — LLM-friendly API documentation</a>
+                <a class="item" href="https://aesthetic.computer/api/version">api/version — platform version</a>
+                <a class="item" href="https://aesthetic.computer/api/metrics">api/metrics — platform metrics</a>
+                <span class="item"><span class="file">83 total</span> Netlify serverless functions (auth, content, keeps, chat, billing, telemetry)</span>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">MongoDB Collections (key)</div>
+                <span class="item">users · @handles · pieces · kidlisp · paintings · tapes · moods</span>
+                <span class="item">chat-system · chat-sotce · chat-clock · hearts</span>
+                <span class="item">piece-hits · news-posts · products · boots · logs</span>
+                <span class="item">oven-bakes · kidlisp-codes · bundle-telemetry</span>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Services</div>
+                <span class="item">oven.aesthetic.computer — screenshot, OG preview, MP4, keeps rendering (~40 endpoints)</span>
+                <span class="item">silo.aesthetic.computer — admin dashboard, DB browser, firehose, service health</span>
+                <span class="item">session-server — WebSocket real-time (chat, multiplayer, presence)</span>
+                <span class="item">feed.aesthetic.computer — Cloudflare Worker, ATProto activity feed</span>
+                <span class="item">grab.aesthetic.computer — Cloudflare Browser Rendering screenshots</span>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">External Integrations</div>
+                <span class="item">Tezos blockchain (keeps NFT contract)</span>
+                <span class="item">ATProto / Bluesky (cross-posting, federation)</span>
+                <span class="item">DigitalOcean Spaces (CDN: art, user, at-blobs buckets)</span>
+                <span class="item">Auth0 (aesthetic.us.auth0.com, sotce.us.auth0.com)</span>
+                <span class="item">Dropbox (me@jas.life — 1.3 TiB readings, archives, tapes)</span>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Platform Stats (SCORE.md)</div>
+                <span class="item">355 built-in pieces · 2,810 handles · 265 user pieces</span>
+                <span class="item">4,425 paintings · 16,523 KidLisp programs · 18,048 chat messages</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- SELF -->
+    <div class="section" data-section="self">
+        <div class="section-header collapsed" data-color="pink" onclick="toggleSection(this)">
+            <span class="toggle">&#9660;</span>
+            <h2>Jeffrey's Documents</h2>
+            <span class="count">CV, proposals, personal statements</span>
+        </div>
+        <div class="section-items hidden">
+            <span class="item">Jeffrey Alan Scudder — Academic CV (UCLA, 2022)</span>
+            <span class="item">Jeffrey Alan Scudder — Personal Statement: Core Beliefs (UCLA, 2022)</span>
+            <span class="item">Jeffrey Alan Scudder — Portfolio (UCLA, 2022)</span>
+            <span class="item">Jeffrey Alan Scudder — AC Proposal for Social Software Cycle 2 (UCLA DESMA, 2026)</span>
+            <a class="item" href="https://github.com/digitpain/aesthetic.computer/blob/main/reports/jeffrey-alan-scudder-fact-check.md">Jeffrey Alan Scudder — Fact-Checked Report</a>
+            <a class="item" href="https://orcid.org/0009-0007-4460-4913">ORCID 0009-0007-4460-4913</a>
+        </div>
+    </div>
+
+    </div><!-- /sections -->
+
+    <div class="footer">
+        <span><a href="/">papers</a> · <a href="https://aesthetic.computer">aesthetic.computer</a> · <a href="https://github.com/digitpain/aesthetic.computer">source</a></span>
+        <button class="theme-toggle" onclick="toggleTheme()">theme</button>
+    </div>
+
+    <script>
+        // Data for dynamically populated sections
+        const reports = [
+            ["2026-01-03-dollar-code-loading-issue.md","$code Loading Issue Investigation"],
+            ["2026-01-12-websocket-module-loader.md","WebSocket Module Loader Status Report"],
+            ["2026-01-21-emacs-stack-report.md","Emacs Stack Report (Docker)"],
+            ["2026-01-31-notepat-hover-overlay-experiment.md","Notepat hover overlay experiment"],
+            ["2026-02-16-score-tone-analysis.md","On the Voice of SCORE.md"],
+            ["2026-02-17-you-are-not-just-your-brain.md","You Are Not (Just) Your Brain & AC"],
+            ["2026-02-19-what-is-happening-to-writing.md","What Is Happening to Writing? & AC"],
+            ["2026-02-21-rest-of-day.md","Rest of Day — Friday, February 20, 2026"],
+            ["2026-02-27-mail-inbox-emacs-mcp-secrets-report.md","Mail Inbox + Emacs MCP + Secrets"],
+            ["2026-03-07-macbook-xdr-display.md","MacBook Pro XDR Display Issue"],
+            ["2026-03-10-keeps-audit-mainnet.md","Keeps Contract Audit (mainnet)"],
+            ["2026-03-10-keeps-v11-security-gap-analysis.md","Keeps v11 Security Gap Analysis"],
+            ["2026-03-10-keeps-v12-and-25-year-stability-plan.md","Keeps v12 + 25-Year Stability Plan"],
+            ["README.md","Intelligence at the Edges: Master Summary"],
+            ["UX-TRACK.md","UX Track: Designing for Living Intelligence"],
+            ["ac-html-frontend-style-guide.md","AC HTML Frontend Style Guide"],
+            ["ac-piece-style-guide.md","AC Piece (Disk) Style Guide"],
+            ["account-deletion-audit.md","Account Deletion Feature Audit"],
+            ["android-app-report.md","Android App Report"],
+            ["api-security-analysis-2026-02-12.md","Security Analysis: JS Piece Execution API"],
+            ["autopat-plan.md","Autopat plan (notepat autoplay)"],
+            ["boot-performance-2026-01-28.md","Boot Performance Report"],
+            ["bop-blur-gray-issue-2026-02-05.md","$bop Gray Screen / Blur Issue"],
+            ["bumper-viewport-issue.md","Bumper Viewport Issue"],
+            ["chat-hearts.md","Chat Hearts Implementation"],
+            ["chat-paint-performance.md","Chat Paint Performance"],
+            ["clock-stample-code-feature.md","Clock Stample Code Feature"],
+            ["clock-syntax-and-sequence-advancement.md","Clock Syntax & Sequence Advancement"],
+            ["coordinate-regression-fix.md","Pen Coordinate Regression (SOLVED)"],
+            ["core-loop-visibility-analysis.md","Core Loop & Page Visibility"],
+            ["cryptocat-revival-ac-dms.md","Cryptocat Revival for AC DMs"],
+            ["email-blast-give-ac-status-2026-02.md","Email Blast Status: give.ac"],
+            ["fedac-sub-1gb-os-feasibility.md","FedAC Sub-1GB OS Feasibility"],
+            ["feed-channels.md","Feed Broadcast Plan"],
+            ["feral-file-email-reply-experiments.md","Feral File Tezos FA2 Integration"],
+            ["flusser-underdevelopment-ac.md","Flusser's Phenomenology & AC"],
+            ["funding-action-plan-2026-03-03.md","Funding Action Plan"],
+            ["gpu-rendering-pipeline-study.md","GPU Rendering Pipeline Study"],
+            ["ink-function-gradient-documentation.md","Ink Function & Gradient Docs"],
+            ["javascript-mjs-mode-feasibility.md","JS/MJS Mode for kidlisp.com"],
+            ["jeffrey-alan-scudder-fact-check.md","Jeffrey Alan Scudder Fact Check"],
+            ["jukebox-feature-analysis.md","KidLisp Jukebox Feature"],
+            ["keep-mint-loop-bug.md","Keep Mint Infinite Loop Bug"],
+            ["keep-performance.md","Keep Mint Performance"],
+            ["keeps-final-report.md","Keeps Final Report"],
+            ["kidlisp-all-chains-comparison-2026-02.md","KidLisp Multi-Chain Comparison"],
+            ["kidlisp-fa2-contract-spec.md","KidLisp FA2 Contract Spec"],
+            ["kidlisp-feral-file-architecture-analysis.md","KidLisp Feral File Architecture"],
+            ["kidlisp-hybrid-strategy-solana-tezos-2026-02.md","KidLisp Hybrid: Tezos + Solana"],
+            ["kidlisp-tezos-vs-solana-pumpfun-2026-02.md","KidLisp Revenue: Tezos vs Solana"],
+            ["kidlisp-x-ff1-art-computer-integration-proposal.md","AC KidLisp x FF1 Art Computer"],
+            ["llm-high-metaphors.md","Beyond Documentation: LLM Metaphors"],
+            ["merry-crossfade-kidlisp-compositor-study.md","Merry Crossfade Compositor Study"],
+            ["monetization-stack-2026-02.md","Monetization Report"],
+            ["mongodb-migration-2026-02.md","MongoDB Migration Report"],
+            ["network-scan-report-2026-02-27-1640-pst.md","Network Scan Report"],
+            ["neural-primitives-full-stack.md","Neural Primitives Full Stack"],
+            ["notepat-audio-latency-report.md","Notepat Audio Latency"],
+            ["notepat-stability.md","Notepat Stability Test"],
+            ["notification-system-analysis-2026.md","Notification System Analysis"],
+            ["offline-audio-rendering-clock-usb.md","Offline Audio & Clock USB Export"],
+            ["orcid-integration.md","ORCID Integration"],
+            ["parallel-kidlisp-workers-feasibility.md","Parallel KidLisp Workers"],
+            ["patch-command-admin-pr-agent.md","Patch Command Admin PR Agent"],
+            ["pen-handling-regression-analysis.md","Pen Handling Regression"],
+            ["portal-wars-report.md","Web Portals vs Open Web"],
+            ["privacy-policy-audit.md","Privacy Policy Audit"],
+            ["rendering-stack-reframe-analysis.md","Rendering Stack Reframe"],
+            ["sandbox-canvas-performance-report.md","Sandbox Canvas Performance"],
+            ["shared-array-buffer-and-embedding.md","SharedArrayBuffer & Embedding"],
+            ["sotce-canvas-garden-progress.md","Sotce Canvas Garden Progress"],
+            ["sotce-canvas-garden.md","Sotce Canvas Garden"],
+            ["spotify-dj-feasibility-report.md","Spotify DJ Feasibility"],
+            ["stample-layout-redesign.md","Stample Layout Redesign"],
+            ["stample-recording-bug.md","Stample Recording Bug"],
+            ["strudel-integration-analysis.md","Strudel Integration for Jukebox"],
+            ["tape-command-research.md","Tape Command Research"],
+            ["thinkpad-ac-kiosk-report.md","ThinkPad AC Kiosk"],
+            ["try-pages-shared-client-lib-feasibility-2026-02-27.md","Shared Try Page Client Lib"],
+            ["usb-uke-to-dj-deck-feasibility.md","USB Uke to DJ Deck"],
+            ["video-underlay-ui-diagnostics.md","Video Underlay UI Diagnostics"],
+            ["vscode-container-crash-debugging.md","VS Code Container Crash"],
+            ["websocket-module-loading.md","WebSocket Module Loading"],
+            ["webusb-dj-stick-generator.md","WebUSB DJ Stick Generator"],
+            ["yairi-model-700-guitar.md","Yairi Model 700 Guitar"],
+        ];
+
+        const plans = [
+            ["1v1-host-info-qr.md","1v1 Piece: Host Info & QR Code"],
+            ["1v1-quake-fps.md","1v1 Multiplayer Quake-like FPS"],
+            ["3d-text-rendering.md","3D Text Rendering (sign)"],
+            ["AC-ELECTRON-DEVENV-PLAN.md","AC Electron App Plan"],
+            ["KIDLISP-EDITOR-ARCHITECTURE.md","KidLisp Editor Architecture"],
+            ["KIDLISP-MULTI-PLATFORM-BOOKS.md","KidLisp Multi-Platform Books"],
+            ["KIDLISP_DEBUG_ANALYSIS.md","KidLisp Rendering Pipeline"],
+            ["KIDLISP_INTEGRATION_PLAN.md","KidLisp Integration with Painting API"],
+            ["RENDERER-BACKENDS.md","GPU Renderer Backends"],
+            ["REAL_TIME_PAINTING_SYNC.md","Real-Time Painting Sync"],
+            ["abc123-alphabet-numbers-system.md","ABC123 Alphabet & Numbers"],
+            ["apple-tv-app.md","Apple TV (tvOS) App"],
+            ["atproto-data-architecture.md","ATProto Data Architecture"],
+            ["atproto-integration-plan.md","ATProto Integration"],
+            ["atproto-pds-roadmap.md","ATProto PDS Roadmap"],
+            ["blur-implementation.md","Blur Function Implementation"],
+            ["chat-migration-to-session-server.md","Chat Migration to Session Server"],
+            ["clock-sigil-shortcodes.md","Clock Sigil Shortcodes"],
+            ["cross-tab-painting-sync.md","Cross-Tab Painting Sync"],
+            ["docs-js-lua-overhaul-hitlist.md","Docs Overhaul: MJS vs L5"],
+            ["electron-desktop-release.md","Electron Desktop Release"],
+            ["fedac-auto-updater.md","FedAC Auto-Updater"],
+            ["gpu-kidlisp-effects-acceleration.md","GPU KidLisp Effects"],
+            ["help-service.md","Help Service"],
+            ["implementation-unified-kidlisp.md","Unified KidLisp"],
+            ["keeps-redesign.md","Keeps Redesign"],
+            ["keeps-next-steps.md","Keeps Next Steps"],
+            ["kidlisp-background-persistence-feature.md","KidLisp Background Persistence"],
+            ["kidlisp-console-screenshots.md","KidLisp Console Screenshots"],
+            ["kidlisp-ecosystem-report.md","KidLisp Ecosystem Report"],
+            ["kidlisp-feral-file-architecture-analysis.md","KidLisp Feral File Architecture"],
+            ["kidlisp-latex-cards.md","KidLisp LaTeX Cards"],
+            ["kidlisp-live-parameter-editing.md","KidLisp Live Parameter Editing"],
+            ["kidlisp-m4l-integration.md","KidLisp Max for Live"],
+            ["kidlisp-make-integration.md","KidLisp Make Integration"],
+            ["kidlisp-og-preview.md","KidLisp OG Preview"],
+            ["kidlisp-singleton-refactor.md","KidLisp Singleton Refactor"],
+            ["kidlisp-slide-mode.md","KidLisp Slide Mode"],
+            ["kidlisp-visualization-tabs.md","KidLisp Visualization Tabs"],
+            ["l5-lua-processing-support.md","L5 Lua Processing Support"],
+            ["language-translation-pieces.md","Language Translation Pieces"],
+            ["lexicon-publication.md","Lexicon Publication"],
+            ["list-improvements.md","List Improvements"],
+            ["list-redesign.md","List Redesign"],
+            ["news-aesthetic-computer-hn-kidlisp-plan.md","News: AC on HN + KidLisp"],
+            ["notepat-kidlisp-background.md","Notepat KidLisp Background"],
+            ["oven-unified-capture-service.md","Oven Unified Capture"],
+            ["paypal-integration.md","PayPal Integration"],
+            ["pedal.md","Pedal"],
+            ["piece-analytics.md","Piece Analytics"],
+            ["recursive-embedded-kidlisp.md","Recursive Embedded KidLisp"],
+            ["remote-device-control.md","Remote Device Control"],
+            ["restrict-untrusted-piece-apis.md","Restrict Untrusted Piece APIs"],
+            ["robo.md","Robo"],
+            ["session-server-architecture.md","Session Server Architecture"],
+            ["solo-mode.md","Solo Mode"],
+            ["stow-file-upload-feature.md","Stow File Upload"],
+            ["tape-camera-av-feature.md","Tape Camera AV"],
+            ["tape-mp4-conversion-service.md","Tape MP4 Conversion"],
+            ["tape-player-refactor.md","Tape Player Refactor"],
+            ["tape-viewer-implementation.md","Tape Viewer Implementation"],
+            ["tv-fyp-implementation.md","TV FYP Implementation"],
+            ["tv-piece-plan.md","TV Piece Plan"],
+            ["unified-kidlisp-execution.md","Unified KidLisp Execution"],
+            ["vst-ableton-notepat-plugin.md","VST Ableton Notepat Plugin"],
+            ["webgpu-renderer-plan.md","WebGPU Renderer"],
+            ["websocket-module-loader.md","WebSocket Module Loader"],
+        ];
+
+        const studies = [
+            ["ac-cli-public-plan.md","Public kidlisp CLI (Bun + npm)"],
+            ["artery-boot-detection.md","Artery Boot Detection & Telemetry"],
+            ["fedac-fedora-boot-to-ac.md","FedAC: Fedora Boot-to-AC OS"],
+            ["kidlisp-native-os-notepat-ac-native-study.md","Native KidLisp for Notepat + AC"],
+            ["l5lua-org-style-study.md","l5lua.org Visual Style + Logo"],
+            ["oven-amp-spoofing-report.md","Oven Amp Spoofing Feature"],
+            ["roz-function-profile-for-kidlisp-decree-26.md","$roz Function Profile for KidLisp"],
+            ["seashells-neural-bytebeat-garden-study.md","Seashells x Neural Garden"],
+        ];
+
+        const GH = "https://github.com/digitpain/aesthetic.computer/blob/main/";
+
+        function renderList(el, items, dir) {
+            el.innerHTML = items.map(([file, title]) =>
+                `<a class="item" href="${GH}${dir}/${file}" data-search="${file} ${title}"><span class="file">${file.replace('.md','')}</span> ${title}</a>`
+            ).join('');
+        }
+
+        renderList(document.getElementById('reports-list'), reports, 'reports');
+        renderList(document.getElementById('plans-list'), plans, 'plans');
+        renderList(document.getElementById('studies-list'), studies, 'studies');
+
+        function toggleSection(header) {
+            header.classList.toggle('collapsed');
+            const items = header.nextElementSibling;
+            items.classList.toggle('hidden');
+        }
+
+        // Search
+        const searchInput = document.getElementById('search');
+        const noResults = document.getElementById('no-results');
+
+        searchInput.addEventListener('input', function() {
+            const q = this.value.toLowerCase().trim();
+            const sections = document.querySelectorAll('.section');
+            let anyVisible = false;
+
+            sections.forEach(section => {
+                const items = section.querySelectorAll('.item');
+                let sectionHasMatch = false;
+
+                items.forEach(item => {
+                    const text = (item.textContent + ' ' + (item.dataset.search || '')).toLowerCase();
+                    const match = !q || text.includes(q);
+                    item.style.display = match ? '' : 'none';
+                    if (match) sectionHasMatch = true;
+                });
+
+                section.style.display = sectionHasMatch ? '' : 'none';
+                if (sectionHasMatch) anyVisible = true;
+
+                // Auto-expand sections when searching
+                if (q && sectionHasMatch) {
+                    section.querySelector('.section-header').classList.remove('collapsed');
+                    section.querySelector('.section-items').classList.remove('hidden');
+                }
+            });
+
+            noResults.style.display = anyVisible ? 'none' : 'block';
+        });
+
+        function toggleTheme() {
+            const root = document.documentElement;
+            const isLight = root.classList.contains('light-mode');
+            const isDark = root.classList.contains('dark-mode');
+            if (isLight) { root.classList.remove('light-mode'); root.classList.add('dark-mode'); }
+            else if (isDark) { root.classList.remove('dark-mode'); root.classList.add('light-mode'); }
+            else {
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                root.classList.add(prefersDark ? 'light-mode' : 'dark-mode');
+            }
+        }
+    </script>
+</body>
+</html>
