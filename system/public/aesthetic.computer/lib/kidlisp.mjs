@@ -8791,14 +8791,10 @@ class KidLisp {
             }
           }
 
-          // Check if this layer actually needs re-evaluation this frame.
-          // Static pieces (no frame/scroll/timing/random) only need one evaluation.
-          const frameValue = api.frame || this.frameCount || 0;
-          const shouldExecute = this.shouldLayerEvaluate(existingLayer, frameValue);
-
-          if (!shouldExecute) {
-            return existingLayer;
-          }
+          // Always re-evaluate layers every frame.
+          // The shouldLayerEvaluate optimization was freezing layers in bundles/keeps,
+          // causing all-black output when pieces use dynamic content not in the keyword list.
+          const shouldExecute = true;
 
           // Always render nested embedded layers when called from within another embedded layer
           // This ensures nested embeds like ($pie ...) and ($febs ...) actually execute
@@ -13633,8 +13629,8 @@ class KidLisp {
             }
           }
 
-          // 🚀 DIRTY CHECK: Skip unnecessary evaluation for static content
-          const shouldEvaluate = this.shouldLayerEvaluate(embeddedLayer, frameValue);
+          // Always evaluate — dirty-check optimization was causing black frames in bundles
+          const shouldEvaluate = true;
 
           try {
             this.renderSingleLayer(api, embeddedLayer, frameValue, shouldEvaluate);
