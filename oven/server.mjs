@@ -327,7 +327,7 @@ const OVEN_TV_HTML = `<!DOCTYPE html>
 
     body {
       font-family: 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
-      font-size: 12px;
+      font-size: 15px;
       background: var(--bg);
       color: var(--text);
       height: 100vh;
@@ -346,8 +346,8 @@ const OVEN_TV_HTML = `<!DOCTYPE html>
       flex-shrink: 0;
       gap: 8px;
     }
-    .status-bar .title { color: var(--accent); font-weight: bold; font-size: 1.05em; }
-    .status-bar .stats { display: flex; gap: 12px; color: var(--text-muted); font-size: 0.9em; }
+    .status-bar .title { color: var(--accent); font-weight: bold; font-size: 1.1em; }
+    .status-bar .stats { display: flex; gap: 12px; color: var(--text-muted); font-size: 0.95em; }
     .status-bar .stats span { white-space: nowrap; }
     .status-bar .stats .active { color: var(--success); }
     .status-bar .stats .queued { color: var(--accent); }
@@ -376,16 +376,16 @@ const OVEN_TV_HTML = `<!DOCTYPE html>
       display: flex;
       flex-direction: row;
       align-items: stretch;
-      height: 80px;
-      min-width: 180px;
-      max-width: 280px;
+      height: 90px;
+      min-width: 200px;
+      max-width: 320px;
       flex-shrink: 0;
       overflow: hidden;
     }
     .hero-card.capturing { border-color: var(--accent); }
     .hero-card .preview {
-      width: 76px;
-      min-width: 76px;
+      width: 86px;
+      min-width: 86px;
       background: var(--preview-bg);
       overflow: hidden;
       display: flex;
@@ -409,10 +409,10 @@ const OVEN_TV_HTML = `<!DOCTYPE html>
       min-width: 0;
       overflow: hidden;
     }
-    .hero-card .piece-name { color: var(--accent); font-weight: bold; font-size: 0.85em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .hero-card .meta { color: var(--text-dim); font-size: 0.6em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3; }
+    .hero-card .piece-name { color: var(--accent); font-weight: bold; font-size: 0.95em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hero-card .meta { color: var(--text-dim); font-size: 0.75em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.4; }
     .hero-card .meta .author { color: var(--text-secondary); }
-    .hero-card .stage { color: var(--text-muted); font-size: 0.65em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3; }
+    .hero-card .stage { color: var(--text-muted); font-size: 0.8em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.4; }
     .hero-card .progress-bar {
       width: 100%;
       height: 3px;
@@ -460,11 +460,11 @@ const OVEN_TV_HTML = `<!DOCTYPE html>
       border-radius: 3px;
       padding: 2px 8px;
       white-space: nowrap;
-      font-size: 0.85em;
+      font-size: 0.9em;
       flex-shrink: 0;
     }
     .strip-item.queue { color: var(--accent); }
-    .strip-empty { color: var(--text-dim); font-size: 0.85em; padding: 2px 0; }
+    .strip-empty { color: var(--text-dim); font-size: 0.9em; padding: 2px 0; }
 
     .history {
       background: var(--bg-deep);
