@@ -1006,6 +1006,10 @@ int main(int argc, char *argv[]) {
         mount_minimal_fs();
         // Ensure PATH includes all standard binary directories
         setenv("PATH", "/bin:/sbin:/usr/bin:/usr/sbin", 1);
+        // Keep curl/OpenSSL trust lookup stable in initramfs.
+        setenv("SSL_CERT_FILE", "/etc/pki/tls/certs/ca-bundle.crt", 1);
+        setenv("CURL_CA_BUNDLE", "/etc/pki/tls/certs/ca-bundle.crt", 1);
+        setenv("SSL_CERT_DIR", "/etc/ssl/certs", 1);
     }
 
     signal(SIGINT, signal_handler);

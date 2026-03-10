@@ -2,6 +2,10 @@
 
 A Fedora-based OS image that boots directly into Aesthetic Computer via the Electron app. Designed for ThinkPads. Sellable on a laptop.
 
+Release/ship contract docs:
+- `fedac/SCORE.md`
+- `fedac/native/SCORE.md`
+
 ## What It Does
 
 ```
