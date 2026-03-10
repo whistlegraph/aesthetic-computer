@@ -108,7 +108,7 @@ let browserLaunchPromise = null;
 // Grab queue with concurrent worker pool
 const grabQueue = [];
 let grabsRunning = 0;
-const MAX_CONCURRENT_GRABS = 6;
+const MAX_CONCURRENT_GRABS = 8;
 const RESERVED_KEEP_SLOTS = 1; // Reserve 1 slot for keep (NFT mint) grabs
 
 // Per-grab progress tracking (keyed by grabId)
@@ -1915,6 +1915,7 @@ export async function grabPiece(piece, options = {}) {
     keepId = null, // Tezos keep token ID if source is 'keep'
     author = null, // Author handle (e.g. "@jeffrey")
     pieceCreatedAt = null, // When the piece was originally created
+    requestOrigin = null, // Referer/origin of the request
   } = options;
   
   // For captureKey: use actual output size (viewportScale=1 means exact size, otherwise density-scaled)
@@ -1967,10 +1968,11 @@ export async function grabPiece(piece, options = {}) {
     keepId: keepId || null,
     author: author || null,
     pieceCreatedAt: pieceCreatedAt || null,
+    requestOrigin: requestOrigin || null,
   });
 
   // Use queue to serialize capture operations (avoid parallel puppeteer sessions)
-  // Pass metadata for queue visibility
+  // Pass metadata for queue visibility + priority scheduling
   return enqueueGrab(async () => {
     try {
       let result;
@@ -1989,6 +1991,7 @@ export async function grabPiece(piece, options = {}) {
         pieceCreatedAt: pieceCreatedAt || null,
         requestedAt: activeGrabs.get(grabId)?.startTime || Date.now(),
         source: source || 'manual',
+        requestOrigin: requestOrigin || null,
       });
       
       if (format === 'png') {
@@ -2254,7 +2257,8 @@ export async function uploadToIPFS(buffer, filename, credentials) {
       'pinata_api_key': credentials.pinataKey,
       'pinata_secret_api_key': credentials.pinataSecret
     },
-    body: formData
+    body: formData,
+    signal: AbortSignal.timeout(90_000), // 90s timeout for IPFS pinning
   });
   
   if (!response.ok) {
@@ -2412,6 +2416,11 @@ export async function grabAndUploadToIPFS(piece, credentials, options = {}) {
     };
   } catch (error) {
     console.error(`❌ IPFS upload failed:`, error.message);
+    // Clean up progress so the card doesn't stay stuck on the dashboard
+    if (grabResult?.grabId) {
+      grabProgressMap.delete(grabResult.grabId);
+      notifySubscribers();
+    }
     return {
       success: false,
       error: error.message,
@@ -2467,8 +2476,9 @@ export async function grabHandler(req, res) {
       quality: parseInt(quality) || 80,
       skipCache: skipCache === true || skipCache === 'true',
       cacheKey,
+      requestOrigin: req.get('referer') || req.get('origin') || null,
     });
-    
+
     if (result.success) {
       // If result is cached and has CDN URL
       if (result.cached && result.cdnUrl) {
@@ -2608,8 +2618,9 @@ export async function grabGetHandler(req, res) {
       quality: parseInt(quality) || 80,
       source: source || 'manual',
       cacheKey,
+      requestOrigin: req.get('referer') || req.get('origin') || null,
     });
-    
+
     if (result.success) {
       // If cached, check for CORS proxy need
       if (result.cached && result.cdnUrl) {
@@ -2629,7 +2640,7 @@ export async function grabGetHandler(req, res) {
               const contentType = contentTypes[format] || 'image/webp';
               res.setHeader('Content-Type', contentType);
               res.setHeader('Content-Length', buffer.length);
-              res.setHeader('Cache-Control', 'public, max-age=3600');
+              res.setHeader('Cache-Control', 'public, max-age=86400');
               res.setHeader('X-Proxy', 'CDN');
               return res.send(buffer);
             }
@@ -2646,7 +2657,7 @@ export async function grabGetHandler(req, res) {
       const contentType = contentTypes[format] || 'image/webp';
       res.setHeader('Content-Type', contentType);
       res.setHeader('Content-Length', result.buffer.length);
-      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
       res.setHeader('X-Grab-Id', result.grabId);
       res.setHeader('X-Cache', 'MISS');
       res.send(result.buffer);

@@ -923,7 +923,7 @@ function generateSelfExtractingHTML(title, gzipBase64, bgColor = null, boxArtPNG
 <head>
   <meta charset="utf-8">
   <title>${title} · Aesthetic Computer</title>
-  <style>body{margin:0;${bgRule}overflow:hidden}</style>
+  <style>html,body{margin:0;padding:0;width:100%;height:100%;${bgRule}overflow:hidden}canvas{background:black}</style>
 </head>
 <body>
   ${boxArtTag}
@@ -962,7 +962,7 @@ function generateSelfExtractingBrotliHTML(title, brotliBase64, bgColor = null, b
 <head>
   <meta charset="utf-8">
   <title>${title} · Aesthetic Computer</title>
-  <style>body{margin:0;${bgRule}overflow:hidden}</style>
+  <style>html,body{margin:0;padding:0;width:100%;height:100%;${bgRule}overflow:hidden}canvas{background:black}</style>
 </head>
 <body>
   ${boxArtTag}
@@ -1086,8 +1086,8 @@ function generateHTMLBundle(opts) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>${PIECE_NAME} · Aesthetic Computer</title>
   <style>
-    body { margin: 0; padding: 0; ${bgRule}overflow: hidden; }
-    canvas { display: block; image-rendering: pixelated; }
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; ${bgRule}overflow: hidden; }
+    canvas { display: block; image-rendering: pixelated; background: black; }
     #ac-box-art { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; pointer-events: none; }
   </style>
 </head>
