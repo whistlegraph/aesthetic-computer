@@ -8,8 +8,7 @@
 
 import { authorize, handleFor, hasAdmin } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
-import { analyzeKidLisp } from "../../backend/kidlisp-analyzer.mjs";
-import { getKeepsContractAddress, LEGACY_KEEPS_CONTRACT } from "../../backend/tezos-keeps-contract.mjs";
+import { analyzeKidLisp, ANALYZER_VERSION } from "../../backend/kidlisp-analyzer.mjs";
 import { stream } from "@netlify/functions";
 import { TezosToolkit, MichelsonMap } from "@taquito/taquito";
 import { InMemorySigner } from "@taquito/signer";
@@ -21,101 +20,17 @@ if (dev) {
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 }
 
-// Configuration
-let CONTRACT_ADDRESS = LEGACY_KEEPS_CONTRACT;
+// Configuration - Mainnet v5 RC contract by default
+const CONTRACT_ADDRESS = process.env.TEZOS_KEEPS_CONTRACT || "KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido";
 const NETWORK = process.env.TEZOS_NETWORK || "mainnet";
 const TZKT_API = NETWORK === "mainnet" ? "https://api.tzkt.io/v1" : `https://api.${NETWORK}.tzkt.io/v1`;
 const RPC_URL = NETWORK === "mainnet" 
   ? "https://mainnet.ecadinfra.com"
   : "https://ghostnet.ecadinfra.com";
 
-const VERSION_BY_PROFILE = {
-  v11: "11.0.0",
-  v10: "10.0.0",
-  v9: "9.0.0",
-  v8: "8.0.0",
-  v7: "7.0.0",
-  v6: "6.0.0",
-  v5: "5.0.0",
-  v5rc: "5.0.0-rc",
-  v4: "4.0.0",
-};
-
 // Helper to convert string to bytes (for Tezos metadata)
 function stringToBytes(str) {
   return Buffer.from(str, 'utf8').toString('hex');
-}
-
-function normalizeRoyaltyBps(value, fallback = 1000) {
-  const raw = value?.toNumber?.() ?? value;
-  const parsed = Number(raw);
-  if (!Number.isFinite(parsed)) return fallback;
-  return Math.max(0, Math.min(2500, Math.trunc(parsed)));
-}
-
-function buildRoyalties(creatorAddress, royaltyBps) {
-  return {
-    decimals: 4,
-    shares: {
-      [creatorAddress]: String(royaltyBps),
-    },
-  };
-}
-
-function parseRoyaltiesFromHex(hexValue) {
-  if (!hexValue || typeof hexValue !== "string") return null;
-  try {
-    const json = Buffer.from(hexValue, "hex").toString("utf8");
-    const parsed = JSON.parse(json);
-    if (!parsed || typeof parsed !== "object" || typeof parsed.shares !== "object" || Array.isArray(parsed.shares)) {
-      return null;
-    }
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-function normalizeAddress(value) {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function normalizeContractProfile(value) {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim().toLowerCase();
-  return trimmed || null;
-}
-
-function normalizeContractVersion(value) {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed || null;
-}
-
-function pickString(value, network) {
-  if (typeof value === "string" && value.trim()) return value.trim();
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const candidate = value[network] || value.mainnet || value.current || value.default;
-  return typeof candidate === "string" && candidate.trim() ? candidate.trim() : null;
-}
-
-function resolveProfile(secretDoc, network) {
-  const raw =
-    pickString(secretDoc?.currentKeepsProfile, network) ||
-    pickString(secretDoc?.keepsProfile, network) ||
-    pickString(secretDoc?.keeps_profile, network) ||
-    pickString(secretDoc?.contractProfile, network) ||
-    pickString(secretDoc?.keeps?.profile, network);
-  return normalizeContractProfile(raw) || "v11";
-}
-
-function resolveVersion(secretDoc, profile, network) {
-  const explicit =
-    pickString(secretDoc?.currentKeepsVersion, network) ||
-    pickString(secretDoc?.keepsVersion, network) ||
-    pickString(secretDoc?.keeps_version, network) ||
-    pickString(secretDoc?.keeps?.version, network);
-  return normalizeContractVersion(explicit) || VERSION_BY_PROFILE[profile] || null;
 }
 
 // SSE format helper
@@ -234,16 +149,7 @@ export const handler = stream(async (event) => {
         return;
       }
 
-      const {
-        piece,
-        tokenId,
-        artifactUri,
-        thumbnailUri,
-        walletAddress,
-        mode,
-        contractProfile: requestedContractProfile,
-        contractVersion: requestedContractVersion,
-      } = body;
+      const { piece, tokenId, artifactUri, thumbnailUri, walletAddress, mode } = body;
 
       if (!piece || tokenId == null || !artifactUri) {
         await send("error", { error: "Missing required fields: piece, tokenId, artifactUri" });
@@ -264,22 +170,6 @@ export const handler = stream(async (event) => {
 
       // Get piece data from database first
       database = await connect();
-      CONTRACT_ADDRESS = await getKeepsContractAddress({
-        db: database.db,
-        network: NETWORK,
-        fallback: LEGACY_KEEPS_CONTRACT,
-      });
-      const secretDoc = await database.db.collection("secrets").findOne({ _id: "tezos-kidlisp" });
-      let contractProfile = normalizeContractProfile(requestedContractProfile) || resolveProfile(secretDoc, NETWORK);
-      let contractVersion = normalizeContractVersion(requestedContractVersion) || resolveVersion(secretDoc, contractProfile, NETWORK);
-      const isLegacyContract =
-        normalizeAddress(CONTRACT_ADDRESS).toLowerCase() === normalizeAddress(LEGACY_KEEPS_CONTRACT).toLowerCase();
-      if (isLegacyContract) {
-        contractProfile = "legacy";
-        contractVersion = normalizeContractVersion(requestedContractVersion) || VERSION_BY_PROFILE.v9 || null;
-      } else if (!contractVersion && contractProfile) {
-        contractVersion = VERSION_BY_PROFILE[contractProfile] || null;
-      }
       const collection = database.db.collection("kidlisp");
       const pieceDoc = await collection.findOne({ code: pieceName });
 
@@ -366,9 +256,9 @@ export const handler = stream(async (event) => {
       await send("progress", { stage: "load", message: "✓ Piece loaded" });
       await send("progress", { stage: "analyze", message: "Analyzing source..." });
 
-      // Analyze source for metadata fields (same as keep-mint.mjs)
+      // Analyze source for traits (same as keep-mint.mjs)
       const analysis = analyzeKidLisp(pieceDoc.source);
-      await send("progress", { stage: "analyze", message: `✓ ${analysis.chars || 0} characters analyzed` });
+      await send("progress", { stage: "analyze", message: `✓ ${analysis.traits.length} traits detected` });
       
       await send("progress", { stage: "metadata", message: "Building metadata..." });
 
@@ -382,11 +272,15 @@ export const handler = stream(async (event) => {
       // Build metadata
       const tokenName = `$${pieceName}`;
       const description = pieceDoc.source || `A KidLisp piece preserved on Tezos`;
-      // v6 metadata policy: single canonical tag only
-      const tags = ["KidLisp"];
+      const tags = [`$${pieceName}`, "KidLisp", "Aesthetic.Computer"];
+      if (authorHandle && authorHandle !== "@anon") tags.push(authorHandle);
 
+      // Build attributes (matches keep-mint.mjs field names)
       const attributes = [
-        { name: "Characters", value: String(analysis?.chars || (pieceDoc.source || "").length) },
+        ...analysis.traits,
+        { name: "Updated", value: new Date().toISOString().split('T')[0] },
+        ...(authorHandle && authorHandle !== "@anon" ? [{ name: "Handle", value: authorHandle }] : []),
+        { name: "Analyzer Version", value: ANALYZER_VERSION },
       ];
 
       await send("progress", { stage: "metadata", message: "✓ Metadata ready" });
@@ -428,7 +322,6 @@ export const handler = stream(async (event) => {
       // Otherwise objkt won't resolve artist attribution correctly
       // Try contract-specific first, then legacy flat field
       let metadataUri = contractData.metadataUri || pieceDoc.tezos?.metadataUri;
-      let preservedRoyalties = null;
       
       // If metadataUri not in DB, fetch from on-chain token_metadata bigmap
       // This preserves the original "" key and prevents breaking objkt attribution
@@ -444,11 +337,6 @@ export const handler = stream(async (event) => {
               // Decode hex to get the original IPFS URI
               metadataUri = Buffer.from(emptyKeyHex, 'hex').toString('utf8');
               console.log(`🪙 KEEP-UPDATE: Found metadataUri from on-chain: ${metadataUri}`);
-            }
-            const royaltiesHex = bigmapData?.value?.token_info?.royalties;
-            preservedRoyalties = parseRoyaltiesFromHex(royaltiesHex);
-            if (preservedRoyalties) {
-              console.log(`🪙 KEEP-UPDATE: Preserving existing token royalties from on-chain metadata`);
             }
           }
         } catch (e) {
@@ -467,20 +355,13 @@ export const handler = stream(async (event) => {
       // Build complete off-chain metadata JSON (TZIP-21 compliant)
       const creatorsArray = [originalMinter];
 
-      let defaultRoyaltyBps = 1000;
-      if (!preservedRoyalties) {
-        try {
-          const readTezos = new TezosToolkit(RPC_URL);
-          const readContract = await readTezos.contract.at(CONTRACT_ADDRESS);
-          const readStorage = await readContract.storage();
-          defaultRoyaltyBps = normalizeRoyaltyBps(readStorage.default_royalty_bps, 1000);
-        } catch (royaltyErr) {
-          console.warn(`🪙 KEEP-UPDATE: Unable to read default_royalty_bps, using 1000 bps (${royaltyErr?.message || "unknown error"})`);
+      // v4: Preserve 10% royalty to original creator
+      const royalties = {
+        decimals: 4,
+        shares: {
+          [originalMinter]: "1000"  // 10% = 1000/10000 basis points
         }
-      }
-
-      // Preserve token royalties when available; otherwise fallback to current contract default.
-      const royalties = preservedRoyalties || buildRoyalties(originalMinter, defaultRoyaltyBps);
+      };
 
       const metadataJson = {
         name: tokenName,
@@ -494,9 +375,9 @@ export const handler = stream(async (event) => {
         shouldPreferSymbol: false,
         minter: authorHandle, // Display handle for UI (objkt shows this)
         creators: creatorsArray, // Wallet address for on-chain attribution
-        royalties,  // Preserve royalty on metadata update
+        royalties,  // v4: Preserve royalty on metadata update
         rights: "© All rights reserved",
-        mintingTool: "https://kidlisp.com",
+        mintingTool: "https://aesthetic.computer",
         formats: [{
           uri: artifactUri,
           mimeType: "text/html",
@@ -541,7 +422,7 @@ export const handler = stream(async (event) => {
       tokenInfo.set("tags", stringToBytes(JSON.stringify(tags)));
       tokenInfo.set("attributes", stringToBytes(JSON.stringify(attributes)));
       tokenInfo.set("creators", stringToBytes(JSON.stringify(creatorsArray)));
-      tokenInfo.set("royalties", stringToBytes(JSON.stringify(royalties)));  // Preserve royalty
+      tokenInfo.set("royalties", stringToBytes(JSON.stringify(royalties)));  // v4: Preserve royalty
       tokenInfo.set("rights", stringToBytes("© All rights reserved"));
       tokenInfo.set("content_type", stringToBytes("KidLisp"));
       tokenInfo.set("content_hash", stringToBytes(pieceName));
@@ -573,8 +454,6 @@ export const handler = stream(async (event) => {
               [`tezos.contracts.${CONTRACT_ADDRESS}.pendingMetadataUri`]: newMetadataUri,
               [`tezos.contracts.${CONTRACT_ADDRESS}.pendingArtifactUri`]: artifactUri,
               [`tezos.contracts.${CONTRACT_ADDRESS}.pendingThumbnailUri`]: thumbnailUri,
-              [`tezos.contracts.${CONTRACT_ADDRESS}.contractProfile`]: contractProfile || null,
-              [`tezos.contracts.${CONTRACT_ADDRESS}.contractVersion`]: contractVersion || null,
             },
           }
         );
@@ -591,8 +470,6 @@ export const handler = stream(async (event) => {
           artifactUri,
           thumbnailUri,
           metadataUri: newMetadataUri,
-          contractProfile: contractProfile || null,
-          contractVersion: contractVersion || null,
           rpcUrl: RPC_URL,
         });
         return;
@@ -632,17 +509,6 @@ export const handler = stream(async (event) => {
             [`tezos.contracts.${CONTRACT_ADDRESS}.metadataUri`]: newMetadataUri,
             [`tezos.contracts.${CONTRACT_ADDRESS}.lastUpdatedAt`]: new Date(),
             [`tezos.contracts.${CONTRACT_ADDRESS}.lastUpdateTxHash`]: op.hash,
-            [`tezos.contracts.${CONTRACT_ADDRESS}.contractProfile`]: contractProfile || null,
-            [`tezos.contracts.${CONTRACT_ADDRESS}.contractVersion`]: contractVersion || null,
-            kept: {
-              ...(pieceDoc?.kept && typeof pieceDoc.kept === "object" ? pieceDoc.kept : {}),
-              contractAddress: CONTRACT_ADDRESS,
-              contractProfile: contractProfile || null,
-              contractVersion: contractVersion || null,
-              artifactUri: artifactUri || null,
-              thumbnailUri: thumbnailUri || null,
-              metadataUri: newMetadataUri || null,
-            },
           },
           $unset: { pendingRebake: "" }
         }
@@ -661,8 +527,6 @@ export const handler = stream(async (event) => {
         artifactUri,
         thumbnailUri,
         metadataUri: newMetadataUri,
-        contractProfile: contractProfile || null,
-        contractVersion: contractVersion || null,
         explorerUrl,
       });
 
