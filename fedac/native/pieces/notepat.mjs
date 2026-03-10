@@ -28,6 +28,10 @@ function syncedNow() { return Date.now() + clockOffset; }
 let echoMix = 0;
 let echoDragging = false;
 let pitchDragging = false;
+let fxDragging = false;
+
+// FX chain dry/wet mix (0=dry, 1=fully wet)
+let fxMix = 1;
 let volDragging = false;
 let brtDragging = false;
 
@@ -517,15 +521,22 @@ function act({ event: e, sound, wifi, system }) {
       return;
     }
 
-    // Echo slider zone (y 15-26)
+    // FX mix slider zone (y 15-26)
     if (y >= 15 && y < 27) {
+      fxDragging = true;
+      fxMix = Math.max(0, Math.min(1, x / w));
+      sound?.fx?.setMix?.(fxMix);
+      return;
+    }
+    // Echo slider zone (y 27-38)
+    if (y >= 27 && y < 39) {
       echoDragging = true;
       echoMix = Math.max(0, Math.min(1, x / w));
       sound?.room?.setMix?.(echoMix);
       return;
     }
-    // Pitch slider zone (y 27-38)
-    if (y >= 27 && y < 39) {
+    // Pitch slider zone (y 39-50)
+    if (y >= 39 && y < 51) {
       pitchDragging = true;
       pitchShift = Math.max(-1, Math.min(1, (x / w) * 2 - 1));
       const factor = Math.pow(2, pitchShift);
@@ -535,7 +546,7 @@ function act({ event: e, sound, wifi, system }) {
       }
       return;
     }
-    // Wave type buttons (y 39-52)
+    // Wave type buttons (y 51-64)
     const wb = globalThis.__waveButtons;
     if (wb && y >= wb.y && y < wb.y + wb.h) {
       if (x >= wb.octX) {
@@ -576,6 +587,10 @@ function act({ event: e, sound, wifi, system }) {
     const w = globalThis.__screenW || 320;
     const pid = e.pointer?.id ?? 0;
     hoverX = x; hoverY = y;
+    if (fxDragging) {
+      fxMix = Math.max(0, Math.min(1, x / w));
+      sound?.fx?.setMix?.(fxMix);
+    }
     if (echoDragging) {
       echoMix = Math.max(0, Math.min(1, x / w));
       sound?.room?.setMix?.(echoMix);
@@ -637,6 +652,7 @@ function act({ event: e, sound, wifi, system }) {
   }
   if (e.is("lift")) {
     const pid = e.pointer?.id ?? 0;
+    if (fxDragging) fxDragging = false;
     if (echoDragging) echoDragging = false;
     if (pitchDragging) pitchDragging = false;
     if (volDragging) volDragging = false;
@@ -1424,13 +1440,13 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       const barH = Math.max(2, Math.round(sample * amp));
       const barTop = wfBottom - barH;
       // Solid base color: full column from bottom
-      ink(dark ? 18 : 235, dark ? 22 : 225, dark ? 35 : 215, 35);
+      ink(dark ? 30 : 220, dark ? 10 : 200, dark ? 50 : 180, 40);
       box(i * barW, wfTop, barW - gap, wfH, true);
-      // Active bar: rises from bottom
-      ink(dark ? 50 : 140, dark ? 120 : 50, dark ? 160 : 140, 60);
+      // Active bar: rises from bottom — vivid complementary color
+      ink(dark ? 0 : 200, dark ? 200 : 40, dark ? 255 : 0, 140);
       box(i * barW, barTop, barW - gap, barH, true);
-      // Top cap: brighter accent
-      ink(dark ? 120 : 200, dark ? 200 : 80, dark ? 240 : 200, 90);
+      // Top cap: bright contrasting accent
+      ink(dark ? 255 : 255, dark ? 60 : 0, dark ? 180 : 100, 200);
       box(i * barW, barTop, barW - gap, 2, true);
     }
   }
@@ -1544,12 +1560,36 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   drawGrid(LEFT_GRID, leftX, 0);
   drawGrid(RIGHT_GRID, rightX, 0);
 
-  // === SLIDERS: echo and pitch (directly under status bar) ===
+  // === SLIDERS: fx mix, echo, and pitch (directly under status bar) ===
   const settingsY = topBarH + 1;
+
+  // FX mix slider (dry/wet for entire FX chain)
+  {
+    const sliderY = settingsY;
+    const sliderH = 12;
+    const fxHovered = hoverY >= sliderY && hoverY < sliderY + sliderH;
+    ink(dark ? (fxHovered ? 40 : 25) : (fxHovered ? 220 : 235),
+        dark ? (fxHovered ? 40 : 25) : (fxHovered ? 220 : 235),
+        dark ? (fxHovered ? 45 : 28) : (fxHovered ? 225 : 238));
+    box(0, sliderY, w, sliderH, true);
+    const fillW = Math.floor(fxMix * w);
+    if (fillW > 0) {
+      ink(120, 200, 80, 180);
+      box(0, sliderY, fillW, sliderH, true);
+    }
+    if (fxMix > 0.005) {
+      const knobX = Math.max(1, Math.min(w - 3, Math.floor(fxMix * w)));
+      ink(180, 255, 120, 220);
+      box(knobX - 1, sliderY, 3, sliderH, true);
+    }
+    ink(dark ? 90 : 160, dark ? 90 : 160, dark ? 100 : 170);
+    const fxStr = "fx " + Math.round(fxMix * 100) + "%";
+    write(fxStr, { x: 2, y: sliderY + 2, size: 1, font: "font_1" });
+  }
 
   // Echo slider
   {
-    const sliderY = settingsY;
+    const sliderY = settingsY + 12;
     const sliderH = 12;
     const echoHovered = hoverY >= sliderY && hoverY < sliderY + sliderH;
     ink(dark ? (echoHovered ? 40 : 25) : (echoHovered ? 220 : 235),
@@ -1577,7 +1617,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
 
   // Pitch shift slider
   {
-    const sliderY = settingsY + 12;
+    const sliderY = settingsY + 24;
     const sliderH = 12;
     const pitchHovered = hoverY >= sliderY && hoverY < sliderY + sliderH;
     ink(dark ? (pitchHovered ? 40 : 25) : (pitchHovered ? 220 : 235),
@@ -1606,7 +1646,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
 
   // === WAVE TYPE BUTTONS (below sliders, modular GUI) ===
   {
-    const waveRowY = settingsY + 24;
+    const waveRowY = settingsY + 36;
     const waveRowH = 14;
     const waveLabels = ["sin", "tri", "saw", "sq", "ns"];
     const octBtnW = 22;                           // octave button on right
@@ -1939,8 +1979,10 @@ function leave() {
   // Reset all FX before shutdown
   echoMix = 0;
   pitchShift = 0;
+  fxMix = 1;
   trackpadFX = false;
   soundAPI?.room?.setMix?.(0);
+  soundAPI?.fx?.setMix?.(1);
   // Stop all playing sounds
   for (const key of Object.keys(sounds)) {
     const s = sounds[key];

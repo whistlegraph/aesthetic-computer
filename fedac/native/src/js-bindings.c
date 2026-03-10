@@ -522,6 +522,16 @@ static JSValue js_set_room_mix(JSContext *ctx, JSValueConst this_val, int argc, 
     return JS_UNDEFINED;
 }
 
+// sound.fx.setMix(value) — dry/wet for entire FX chain
+static JSValue js_set_fx_mix(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 1 || !current_rt->audio) return JS_UNDEFINED;
+    double v;
+    JS_ToFloat64(ctx, &v, argv[0]);
+    audio_set_fx_mix(current_rt->audio, (float)v);
+    return JS_UNDEFINED;
+}
+
 // sound.glitch.toggle()
 static JSValue js_glitch_toggle(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val; (void)argc; (void)argv;
@@ -1063,6 +1073,12 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
     JS_SetPropertyStr(ctx, glitch, "set", JS_NewCFunction(ctx, js_noop, "set", 1));
     JS_SetPropertyStr(ctx, glitch, "get", JS_NewCFunction(ctx, js_noop, "get", 0));
     JS_SetPropertyStr(ctx, sound, "glitch", glitch);
+
+    // fx (dry/wet for entire FX chain)
+    JSValue fx = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, fx, "setMix", JS_NewCFunction(ctx, js_set_fx_mix, "setMix", 1));
+    JS_SetPropertyStr(ctx, fx, "mix", JS_NewFloat64(ctx, rt->audio ? rt->audio->fx_mix : 1.0));
+    JS_SetPropertyStr(ctx, sound, "fx", fx);
 
     // TTS
     JS_SetPropertyStr(ctx, sound, "speak", JS_NewCFunction(ctx, js_speak, "speak", 1));
