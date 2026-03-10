@@ -974,8 +974,8 @@ static void *capture_thread_func(void *arg) {
     snd_pcm_t *cap = NULL;
 
     // Try to open capture device
-    const char *devices[] = {"hw:0,0", "hw:1,0", "hw:0,6", "hw:0,7",
-                             "plughw:0,0", "plughw:1,0", "default", NULL};
+    const char *devices[] = {"default", "plughw:0,0", "plughw:1,0",
+                             "hw:0,0", "hw:1,0", "hw:0,6", "hw:0,7", NULL};
     for (int i = 0; devices[i]; i++) {
         if (snd_pcm_open(&cap, devices[i], SND_PCM_STREAM_CAPTURE, 0) == 0) {
             snprintf(audio->mic_device, sizeof(audio->mic_device), "%s", devices[i]);
@@ -1060,7 +1060,7 @@ static void *capture_thread_func(void *arg) {
     }
 
     audio->sample_len = audio->sample_write_pos;
-    ac_log("[mic] recorded %d samples (%.2fs) peak=%.2f device=%s\n",
+    ac_log("[mic] recorded %d samples (%.2fs) peak=%.4f device=%s\n",
            audio->sample_len,
            (double)audio->sample_len / audio->sample_rate,
            audio->mic_level, audio->mic_device);
