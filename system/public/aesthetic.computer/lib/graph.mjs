@@ -5212,25 +5212,15 @@ let pixelShearAccumY = null;
 function scroll(dx = 0, dy = 0) {
   if (dx === 0 && dy === 0) return; // No change needed
 
-  // Performance optimization: skip expensive scroll operations during startup
-  // Check if we're in early frames by looking at global frame counter
-  if (typeof globalThis !== 'undefined' && globalThis.$api?.paintCount) {
-    const frameCount = Number(globalThis.$api.paintCount);
-    if (frameCount < 10) {
-      // During startup, just accumulate the scroll values but don't apply them
-      scrollAccumulatorX += dx;
-      scrollAccumulatorY += dy;
-      return;
-    }
-  }
-
   // Accumulate fractional scroll amounts
   scrollAccumulatorX += dx;
   scrollAccumulatorY += dy;
 
   // Extract integer parts for actual scrolling
-  const integerDx = Math.floor(scrollAccumulatorX);
-  const integerDy = Math.floor(scrollAccumulatorY);
+  // Use trunc (not floor) for symmetric negative handling:
+  // floor(-0.3) = -1 (overshoots), trunc(-0.3) = 0 (correct)
+  const integerDx = Math.trunc(scrollAccumulatorX);
+  const integerDy = Math.trunc(scrollAccumulatorY);
 
   // Keep fractional remainders
   scrollAccumulatorX -= integerDx;
@@ -5247,11 +5237,13 @@ function scroll(dx = 0, dy = 0) {
     maxX = width,
     maxY = height;
   if (activeMask) {
-    // Mask coordinates are already in screen space; clamp without pan translation so wrapping lines up with other masked ops
+    // Use floor for both min and max to prevent overlap when adjacent masks
+    // share a fractional boundary (e.g., mask 0 0 w/2 h + mask w/2 0 w/2 h
+    // with odd w: floor ensures no pixel belongs to two masks)
     const maskMinX = Math.floor(activeMask.x);
     const maskMinY = Math.floor(activeMask.y);
-    const maskMaxX = Math.ceil(activeMask.x + activeMask.width);
-    const maskMaxY = Math.ceil(activeMask.y + activeMask.height);
+    const maskMaxX = Math.floor(activeMask.x + activeMask.width);
+    const maskMaxY = Math.floor(activeMask.y + activeMask.height);
 
     minX = Math.max(0, Math.min(width, maskMinX));
     maxX = Math.max(0, Math.min(width, maskMaxX));
@@ -5349,8 +5341,8 @@ function flip() {
   if (activeMask) {
     const maskMinX = Math.floor(activeMask.x);
     const maskMinY = Math.floor(activeMask.y);
-    const maskMaxX = Math.ceil(activeMask.x + activeMask.width);
-    const maskMaxY = Math.ceil(activeMask.y + activeMask.height);
+    const maskMaxX = Math.floor(activeMask.x + activeMask.width);
+    const maskMaxY = Math.floor(activeMask.y + activeMask.height);
 
     minX = Math.max(0, Math.min(width, maskMinX));
     maxX = Math.max(0, Math.min(width, maskMaxX));

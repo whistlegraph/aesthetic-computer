@@ -2606,7 +2606,7 @@
       <div class="keeps-about-simple">
         <p class="keeps-about-lede">
           Keep your KidLisp pieces permanently in your digital wallet as Tezos FA2 tokens.<br>
-          Each keep costs 2.5 ꜩ (<span id="keeps-xtz-usd">...</span>).<br>
+          Each keep costs 2.5 ꜩ (<span id="keeps-xtz-usd">~$0.91 USD</span>).<br>
           Every KidLisp piece is given a unique $code.<br>
           A KidLisp piece can only be kept by its author.<br>
           Once kept, the author can sell, trade, exhibit, or publish it on the open Tezos network.
@@ -2616,7 +2616,7 @@
           <summary>Technology</summary>
           <div class="keeps-about-tech-body">
             <p class="keeps-about-tech-section-label">Contract &amp; Chain</p>
-            <p>Each keep is an <strong>FA2 token</strong> on Tezos mainnet. The contract rejects duplicates by content hash — <code>keep</code> will revert if a piece has already been kept. Royalties are encoded at keep time (9% to author, 1% to KidLisp) and honored by objkt and all FA2-compatible marketplaces.</p>
+            <p>Each keep is an FA2 token on Tezos mainnet. The contract rejects duplicates by content hash — keep will revert if a piece has already been kept. Royalties are encoded at keep time (9% to author, 1% to KidLisp) and honored by objkt and all FA2-compatible marketplaces.</p>
             <div class="keeps-about-contract-box">
               <div class="keeps-about-contract-label">Active Contract</div>
               <div id="v6-active-contract-address" style="font-family: 'Courier New', monospace; color: var(--ac-purple); font-size: 14px; word-break: break-all;">Loading...</div>
@@ -2630,18 +2630,18 @@
 
             <p class="keeps-about-tech-section-label">On-chain Guarantees</p>
             <ul class="keeps-about-security-list">
-              <li><strong>Only you can keep.</strong> The backend issues a short-lived signed permit bound to your wallet, the content hash, and the contract address. Without a valid permit, <code>keep</code> reverts. There is no admin keep path.</li>
-              <li><strong>Only you can burn.</strong> <code>burn_keep</code> checks <code>current_owner == sender</code>. Admin cannot burn on your behalf.</li>
-              <li><strong>Content hash and royalties are immutable.</strong> <code>edit_metadata</code> always re-injects the original values from the original keep. Nobody can change what you made or what you earn.</li>
-              <li><strong>You can freeze your own metadata.</strong> <code>lock_metadata</code> is irreversible and owner-only. Not even admin can unset it.</li>
-              <li><strong>Pause never affects transfers.</strong> If the contract is paused, keeping new pieces and metadata edits stop — but FA2 transfers remain live. Your ability to move or sell is always unaffected.</li>
+              <li>Only you can keep. The backend issues a short-lived signed permit bound to your wallet, the content hash, and the contract address. Without a valid permit, keep reverts. There is no admin keep path.</li>
+              <li>Only you can burn. burn_keep checks current_owner == sender. Admin cannot burn on your behalf.</li>
+              <li>Content hash and royalties are immutable. edit_metadata always re-injects the original values from the original keep. Nobody can change what you made or what you earn.</li>
+              <li>You can freeze your own metadata. lock_metadata is irreversible and owner-only. Not even admin can unset it.</li>
+              <li>Pause never affects transfers. If the contract is paused, keeping new pieces and metadata edits stop — but FA2 transfers remain live. Your ability to move or sell is always unaffected.</li>
             </ul>
 
             <p class="keeps-about-tech-section-label">Media &amp; Storage</p>
-            <p>When kept, the KidLisp source is bundled into a self-contained <strong>HTML artifact</strong> and a thumbnail is rendered via the Oven service. Both are pinned to IPFS via Pinata. The artifact and thumbnail URIs in your token metadata point directly to IPFS — no KidLisp servers are required to view your token on objkt or any other marketplace. Use <strong>Rekeep</strong> in the modal to regenerate media if your piece changes after keeping.</p>
+            <p>When kept, the KidLisp source is bundled into a self-contained HTML artifact and a thumbnail is rendered via the Oven service. Both are pinned to IPFS via Pinata. The artifact and thumbnail URIs in your token metadata point directly to IPFS — no KidLisp servers are required to view your token on objkt or any other marketplace. Use Rekeep in the modal to regenerate media if your piece changes after keeping.</p>
 
             <p class="keeps-about-tech-section-label">Development</p>
-            <p>The contract went through multiple iterations (v1–v5) before settling on the current version (v6). Each pass refined the keep flow, permit system, and royalty encoding. Prior prototype tokens are retired. The system is designed to grow — future versions may support piece types beyond KidLisp <code>$codes</code>.</p>
+            <p>The contract went through multiple iterations (v1–v5) before settling on the current version (v11). Each pass refined the keep flow, permit system, and royalty encoding. Prior prototype tokens are retired. The system is designed to grow — future versions may support piece types beyond KidLisp $codes.</p>
           </div>
         </details>
       </div>
@@ -3167,9 +3167,8 @@
       const card = document.createElement('div');
       card.className = 'keeps-card' + (isActiveKept ? ' kept' : '');
 
-      // WebP preview image URL
-      // Use source=keep so oven gives these requests priority in the grab queue.
-      const webpUrl = `https://oven.aesthetic.computer/grab/webp/280/210/$${entry.code}?duration=1800&fps=8&quality=70&density=1&nowait=true&source=keep`;
+      // WebP preview image URL (source=gallery so real keep mints get priority)
+      const webpUrl = `https://oven.aesthetic.computer/grab/webp/280/210/$${entry.code}?duration=1800&fps=8&quality=70&density=1&nowait=true&source=gallery`;
 
       card.innerHTML = `
         <div class="keeps-card-header">
