@@ -4707,6 +4707,7 @@
       document.getElementById('mint-overlay').classList.remove('open');
       const hb = document.getElementById('mint-heartbeat');
       if (hb) { hb.classList.remove('active', 'lost'); }
+      if (mintPollTimer) { clearInterval(mintPollTimer); mintPollTimer = null; }
       if (mintAbortController) {
         mintAbortController.abort();
         mintAbortController = null;
@@ -4721,6 +4722,11 @@
     function cancelMint() {
       closeMintModal();
     }
+
+    // Job-based mint flow — uses keep-prepare + keep-status polling.
+    // Survives disconnects, page refreshes, and proxy timeouts.
+    let mintPollTimer = null;
+    let mintJobId = null;
 
     async function startMintFlow(piece, options = {}) {
       const rebake = options.rebake === true;
@@ -4737,208 +4743,70 @@
         }
         setMintStep('wallet', 'done', address.slice(0, 8) + '...' + address.slice(-4));
 
-        // Step 2-7: Server preparation via SSE
-        setMintStep('validate', 'active', rebake ? 'Validating ownership...' : (regenerate ? 'Regenerating media...' : 'Validating...'));
-
-        // Refresh token
-        if (acAuth0Client) {
-          try { acToken = await acAuth0Client.getTokenSilently(); } catch (e) { /* token refresh failed */ }
-        }
-
-        // Activate heartbeat indicator
+        // Activate heartbeat
         const hb = document.getElementById('mint-heartbeat');
         if (hb) { hb.classList.add('active'); hb.classList.remove('lost'); }
 
-        const { postKeepMintStream } = await getKeepsStreamModule();
-        await postKeepMintStream({
-          apiBase: API_BASE,
-          token: acToken || null,
-          payload: {
+        // Refresh token
+        if (acAuth0Client) {
+          try { acToken = await acAuth0Client.getTokenSilently(); } catch {}
+        }
+
+        // Step 2: Create job via keep-prepare
+        setMintStep('validate', 'active', rebake ? 'Validating ownership...' : (regenerate ? 'Regenerating...' : 'Validating...'));
+
+        const prepRes = await fetch(`${API_BASE}/api/keep-prepare`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(acToken ? { Authorization: `Bearer ${acToken}` } : {}),
+          },
+          body: JSON.stringify({
             piece: '$' + piece,
             walletAddress: address,
             network: getTezosNetwork(),
-            ...(rebake ? { mode: 'prepare' } : {}),
-            ...((rebake || regenerate) ? { regenerate: true } : {}),
-          },
+            ...(regenerate || rebake ? { regenerate: true } : {}),
+          }),
           signal: mintAbortController.signal,
-          onEvent: async ({ type, data }) => {
-            if (type === 'progress' && data) {
-              const stage = data.stage;
-              const message = data.message || '';
-              if (stage) setMintStep(stage, 'active', message);
-              // Mark previous stages done
-              const stageIndex = MINT_STEPS.findIndex(s => s.id === stage);
-              for (let i = 0; i < stageIndex; i++) {
-                const prevId = MINT_STEPS[i].id;
-                if (prevId !== 'wallet' && mintStepStates[prevId]?.status !== 'done') {
-                  setMintStep(prevId, 'done', mintStepStates[prevId]?.detail || '');
-                }
-              }
-              // Show live oven baking telemetry in the preview frame
-              {
-                const pf = document.getElementById('mint-preview-frame');
-                if (pf) {
-                  // Replace iframe with baking telemetry on first progress event
-                  if (!pf.querySelector('.bake-telemetry')) {
-                    pf.innerHTML = `<div class="bake-telemetry">
-                      <img class="bake-preview-img" alt="">
-                      <div class="bake-overlay">
-                        <div class="bake-stage"></div>
-                        <div class="bake-bar"><div class="bake-bar-fill"></div></div>
-                        <div class="bake-detail"></div>
-                      </div>
-                    </div>`;
-                  }
-                  if (data.previewFrame) {
-                    pf.querySelector('.bake-preview-img').src = `data:image/jpeg;base64,${data.previewFrame}`;
-                  }
-                  // Map oven stages to friendly labels
-                  const stageLabels = { loading: 'Loading', capturing: 'Recording', encoding: 'Encoding', uploading: 'Uploading' };
-                  const ovenStg = data.ovenStage;
-                  const pct = data.percent != null ? Math.round(data.percent) : null;
-                  const label = stageLabels[ovenStg] || stage || 'baking';
-                  const dtl = data.ovenDetail || message;
-                  pf.querySelector('.bake-stage').textContent = label + (pct != null ? ` ${pct}%` : '');
-                  pf.querySelector('.bake-detail').textContent = dtl;
-                  if (pct != null) pf.querySelector('.bake-bar-fill').style.width = pct + '%';
-                }
-              }
-              return true;
-            }
-
-            if (type === 'prepared' && data) {
-              mintPreparedData = data;
-              // Mark all prep steps done
-              ['validate', 'analyze', 'thumbnail', 'bundle', 'ipfs', 'metadata'].forEach(id => {
-                if (mintStepStates[id]?.status !== 'done') setMintStep(id, 'done', mintStepStates[id]?.detail || '');
-              });
-              if (data.rebake === true) {
-                setMintStep('review', 'done', 'Regenerated');
-                setMintStep('sign', 'done', 'No signature needed');
-                setMintStep('complete', 'done', 'Rebake complete');
-                document.getElementById('mint-actions').style.display = 'none';
-                showMintResult(`Rebaked $${piece}`, data.objktUrl);
-                renderMintArtifactPanel({
-                  title: 'Rebaked Artifacts',
-                  piece,
-                  artifactUri: data.artifactUri,
-                  thumbnailUri: data.thumbnailUri,
-                  metadataUri: data.metadataUri || mintCurrentEntry?.kept?.metadataUri,
-                  packDate: data.packDate || data.createdAt,
-                  objktUrl: data.objktUrl,
-                });
-                return false;
-              }
-
-              setMintStep('review', 'active', `${data.mintFee || 2.5} XTZ`);
-              renderMintArtifactPanel({
-                title: 'Prepared Artifacts',
-                piece,
-                artifactUri: data.artifactUri,
-                thumbnailUri: data.thumbnailUri,
-                metadataUri: data.metadataUri,
-                packDate: data.packDate,
-                showRebakeButton: true,
-                rebakeButtonLabel: 'Regenerate',
-              });
-              // Show confirm button
-              document.getElementById('mint-actions').style.display = 'flex';
-              document.getElementById('mint-confirm-btn').disabled = false;
-              return true;
-            }
-
-            if (type === 'ready' && data) {
-              if (data.rebake === true) {
-                mintPreparedData = { ...(mintPreparedData || {}), ...data };
-                ['validate', 'analyze', 'thumbnail', 'bundle', 'ipfs', 'metadata'].forEach(id => {
-                  if (mintStepStates[id]?.status !== 'done') setMintStep(id, 'done', mintStepStates[id]?.detail || '');
-                });
-                setMintStep('review', 'done', 'Regenerated');
-                setMintStep('sign', 'done', 'No signature needed');
-                setMintStep('complete', 'done', 'Rebake complete');
-                document.getElementById('mint-actions').style.display = 'none';
-                showMintResult(`Rebaked $${piece}`, data.objktUrl);
-                renderMintArtifactPanel({
-                  title: 'Rebaked Artifacts',
-                  piece,
-                  artifactUri: data.artifactUri,
-                  thumbnailUri: data.thumbnailUri,
-                  metadataUri: data.metadataUri || mintCurrentEntry?.kept?.metadataUri,
-                  packDate: data.packDate || data.createdAt,
-                  objktUrl: data.objktUrl,
-                });
-                return false;
-              }
-              return true;
-            }
-
-            if (type === 'error' && data) {
-              if (typeof data.tokenId !== 'undefined') {
-                setMintStep('validate', 'done', `Already kept as #${data.tokenId}`);
-                setMintStep('review', 'done', 'Already kept');
-                setMintStep('sign', 'done', 'No signature needed');
-                setMintStep('complete', 'done', 'Rebake available');
-                document.getElementById('mint-actions').style.display = 'none';
-                showMintResult(`Already kept as Token #${data.tokenId}`, data.objktUrl);
-                renderMintArtifactPanel({
-                  title: 'Current Artifact Snapshot',
-                  piece,
-                  artifactUri: mintCurrentEntry?.kept?.artifactUri,
-                  thumbnailUri: data.thumbnailUri || mintCurrentEntry?.kept?.thumbnailUri,
-                  metadataUri: mintCurrentEntry?.kept?.metadataUri,
-                  objktUrl: data.objktUrl,
-                  showRebakeButton: true,
-                });
-                return false;
-              }
-              const errMsg = data.error || 'Keep failed';
-              let stage = data.stage || (rebake ? 'bundle' : 'validate');
-              // If stage isn't a known mint step, fall back to the currently active step
-              if (!MINT_STEPS.find(s => s.id === stage)) {
-                stage = Object.keys(mintStepStates).reverse().find(k => mintStepStates[k]?.status === 'active') || 'validate';
-              }
-              setMintStep(stage, 'error', errMsg);
-              showMintError(errMsg, data.stage === 'timeout');
-              return false;
-            }
-
-            if (type === 'already_minted' && data) {
-              setMintStep('validate', 'done', `Already kept as #${data.tokenId}`);
-              setMintStep('review', 'done', 'Already kept');
-              setMintStep('sign', 'done', 'No signature needed');
-              setMintStep('complete', 'done', 'Rekeep available');
-              document.getElementById('mint-actions').style.display = 'none';
-              showMintResult(`Already kept as Token #${data.tokenId}`, data.objktUrl);
-              renderMintArtifactPanel({
-                title: 'Current Artifact Snapshot',
-                piece,
-                artifactUri: mintCurrentEntry?.kept?.artifactUri,
-                thumbnailUri: data.thumbnailUri || mintCurrentEntry?.kept?.thumbnailUri,
-                metadataUri: mintCurrentEntry?.kept?.metadataUri,
-                objktUrl: data.objktUrl,
-                showRebakeButton: true,
-              });
-              return false;
-            }
-
-            return true;
-          },
         });
 
-        // If we get here, the SSE stream ended. Check if we got a final result.
-        if (!mintPreparedData) {
-          // Stream ended without a prepared/error event — likely function timeout
-          const hb = document.getElementById('mint-heartbeat');
-          if (hb) { hb.classList.add('lost'); }
-          const lastStage = Object.keys(mintStepStates).reverse().find(k => mintStepStates[k]?.status === 'active');
-          const failStage = lastStage || 'thumbnail';
-          setMintStep(failStage, 'error', 'Connection lost — server timed out');
-          showMintError('Server connection lost. The oven may still be baking — try again in a moment.', true);
-        } else {
-          // Success — hide heartbeat
-          const hb = document.getElementById('mint-heartbeat');
-          if (hb) { hb.classList.remove('active'); }
+        const prepData = await prepRes.json();
+
+        if (!prepRes.ok) {
+          setMintStep('validate', 'error', prepData.error || 'Validation failed');
+          showMintError(prepData.error || 'Validation failed');
+          return;
         }
+
+        // Already minted?
+        if (prepData.alreadyMinted) {
+          setMintStep('validate', 'done', `Already kept as #${prepData.tokenId}`);
+          setMintStep('review', 'done', 'Already kept');
+          setMintStep('sign', 'done', 'No signature needed');
+          setMintStep('complete', 'done', 'Rebake available');
+          document.getElementById('mint-actions').style.display = 'none';
+          showMintResult(`Already kept as Token #${prepData.tokenId}`, prepData.objktUrl);
+          renderMintArtifactPanel({
+            title: 'Current Artifact Snapshot',
+            piece,
+            artifactUri: mintCurrentEntry?.kept?.artifactUri,
+            thumbnailUri: mintCurrentEntry?.kept?.thumbnailUri,
+            metadataUri: mintCurrentEntry?.kept?.metadataUri,
+            objktUrl: prepData.objktUrl,
+            showRebakeButton: true,
+          });
+          return;
+        }
+
+        mintJobId = prepData.jobId;
+        if (prepData.resuming) {
+          console.log('Resuming existing job:', mintJobId);
+        }
+
+        setMintStep('validate', 'done', 'Validation passed');
+
+        // Step 3: Poll keep-status until ready or failed
+        await pollJobStatus(piece, mintJobId, { rebake, regenerate });
 
       } catch (err) {
         if (err.name === 'AbortError') return;
@@ -4946,11 +4814,139 @@
         const hb = document.getElementById('mint-heartbeat');
         if (hb) { hb.classList.add('lost'); }
         const message = err.message || 'Unexpected error';
-        // Find the currently active stage to mark as failed
         const lastStage = Object.keys(mintStepStates).reverse().find(k => mintStepStates[k]?.status === 'active');
         setMintStep(lastStage || 'validate', 'error', message);
         showMintError(message, true);
       }
+    }
+
+    function pollJobStatus(piece, jobId, { rebake, regenerate }) {
+      return new Promise((resolve, reject) => {
+        let pollCount = 0;
+        const MAX_POLLS = 450; // 15 min at 2s intervals
+        let lastStage = null;
+
+        function stopPolling() {
+          if (mintPollTimer) { clearInterval(mintPollTimer); mintPollTimer = null; }
+        }
+
+        // Listen for abort
+        if (mintAbortController) {
+          mintAbortController.signal.addEventListener('abort', () => {
+            stopPolling();
+            reject(new DOMException('Aborted', 'AbortError'));
+          });
+        }
+
+        mintPollTimer = setInterval(async () => {
+          pollCount++;
+          if (pollCount > MAX_POLLS) {
+            stopPolling();
+            const hb = document.getElementById('mint-heartbeat');
+            if (hb) { hb.classList.add('lost'); }
+            setMintStep(lastStage || 'thumbnail', 'error', 'Preparation timed out');
+            showMintError('Preparation timed out. Try again.', true);
+            resolve();
+            return;
+          }
+
+          try {
+            const res = await fetch(`${API_BASE}/api/keep-status?jobId=${encodeURIComponent(jobId)}`);
+            if (!res.ok) return; // Retry on next tick
+
+            const job = await res.json();
+            lastStage = job.stage;
+
+            // Update timeline from job stage
+            if (job.stage && job.stage !== 'ready') {
+              setMintStep(job.stage, 'active', job.stageMessage || job.stage);
+              // Mark previous stages done
+              const stageIndex = MINT_STEPS.findIndex(s => s.id === job.stage);
+              for (let i = 0; i < stageIndex; i++) {
+                const prevId = MINT_STEPS[i].id;
+                if (prevId !== 'wallet' && mintStepStates[prevId]?.status !== 'done') {
+                  setMintStep(prevId, 'done', mintStepStates[prevId]?.detail || '');
+                }
+              }
+            }
+
+            // Show partial results as they arrive
+            if (job.thumbnailUri) {
+              const pf = document.getElementById('mint-preview-frame');
+              if (pf && !pf.querySelector('.job-thumbnail')) {
+                pf.innerHTML = `<img class="job-thumbnail" src="${job.thumbnailUri.replace('ipfs://', 'https://ipfs.aesthetic.computer/ipfs/')}" style="width:100%;height:100%;object-fit:contain;image-rendering:pixelated;">`;
+              }
+            }
+
+            // ── READY ────────────────────────────────────────────
+            if (job.status === 'ready' && job.preparedData) {
+              stopPolling();
+              mintPreparedData = job.preparedData;
+
+              // Mark all prep steps done
+              ['validate', 'analyze', 'thumbnail', 'bundle', 'ipfs', 'metadata'].forEach(id => {
+                if (mintStepStates[id]?.status !== 'done') setMintStep(id, 'done', mintStepStates[id]?.detail || '');
+              });
+
+              const data = job.preparedData;
+
+              if (data.rebake === true) {
+                setMintStep('review', 'done', 'Regenerated');
+                setMintStep('sign', 'done', 'No signature needed');
+                setMintStep('complete', 'done', 'Rebake complete');
+                document.getElementById('mint-actions').style.display = 'none';
+                showMintResult(`Rebaked $${piece}`, data.objktUrl);
+                renderMintArtifactPanel({
+                  title: 'Rebaked Artifacts',
+                  piece,
+                  artifactUri: data.artifactUri,
+                  thumbnailUri: data.thumbnailUri,
+                  metadataUri: data.metadataUri || mintCurrentEntry?.kept?.metadataUri,
+                  packDate: data.packDate,
+                  objktUrl: data.objktUrl,
+                });
+              } else {
+                setMintStep('review', 'active', `${data.mintFee || 2.5} XTZ`);
+                renderMintArtifactPanel({
+                  title: 'Prepared Artifacts',
+                  piece,
+                  artifactUri: data.artifactUri,
+                  thumbnailUri: data.thumbnailUri,
+                  metadataUri: data.metadataUri,
+                  packDate: data.packDate,
+                  showRebakeButton: true,
+                  rebakeButtonLabel: 'Regenerate',
+                });
+                document.getElementById('mint-actions').style.display = 'flex';
+                document.getElementById('mint-confirm-btn').disabled = false;
+              }
+
+              // Hide heartbeat on success
+              const hb = document.getElementById('mint-heartbeat');
+              if (hb) { hb.classList.remove('active'); }
+
+              resolve();
+              return;
+            }
+
+            // ── FAILED ───────────────────────────────────────────
+            if (job.status === 'failed') {
+              stopPolling();
+              const failStage = job.errorStage || job.stage || 'validate';
+              const hb = document.getElementById('mint-heartbeat');
+              if (hb) { hb.classList.add('lost'); }
+              setMintStep(failStage, 'error', job.error || 'Preparation failed');
+              showMintError(job.error || 'Preparation failed', true);
+              resolve();
+              return;
+            }
+
+          } catch (pollErr) {
+            // Network error during poll — just retry next tick
+            console.warn('Poll error:', pollErr.message);
+          }
+        }, 2000);
+      });
     }
 
     async function confirmMint() {
