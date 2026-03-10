@@ -9,7 +9,7 @@
 #   ./build-and-flash.sh --skip-kernel --flash /dev/sdb  # Rebuild binary/initramfs, reuse kernel source
 #   ./build-and-flash.sh --skip-binary --flash /dev/sdb  # Reuse binary, rebuild initramfs+kernel
 #
-# Requirements: cpio lz4 musl-gcc (or gcc) libdrm-devel alsa-lib-devel
+# Requirements: cpio lz4 jq musl-gcc (or gcc) libdrm-devel alsa-lib-devel
 #               mtools (for --flash)
 
 set -euo pipefail
@@ -34,6 +34,8 @@ SKIP_BINARY=0
 USE_SDL=0
 PIECE_PATH="${NATIVE_DIR}/pieces/notepat.mjs"
 KERNEL_VERSION="${KERNEL_VERSION:-6.14.2}"
+HANDLE="${AC_HANDLE:-jeffrey}"
+HANDLE_COLORS_API="${HANDLE_COLORS_API:-https://aesthetic.computer/.netlify/functions/handle-colors}"
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -42,8 +44,9 @@ while [ $# -gt 0 ]; do
         --skip-binary) SKIP_BINARY=1; shift ;;
         --sdl)         USE_SDL=1; shift ;;
         --piece)       PIECE_PATH="$2"; shift 2 ;;
+        --handle)      HANDLE="$2"; shift 2 ;;
         --help|-h)
-            echo "Usage: $0 [--flash /dev/sdX] [--skip-kernel] [--skip-binary] [--sdl] [--piece path.mjs]"
+            echo "Usage: $0 [--flash /dev/sdX] [--skip-kernel] [--skip-binary] [--sdl] [--piece path.mjs] [--handle your-handle]"
             exit 0 ;;
         *) err "Unknown option: $1"; exit 1 ;;
     esac
@@ -66,8 +69,10 @@ if command -v dnf &>/dev/null; then
     command -v perl &>/dev/null     || PKGS_NEEDED="${PKGS_NEEDED} perl"
     command -v make &>/dev/null     || PKGS_NEEDED="${PKGS_NEEDED} make"
     command -v curl &>/dev/null     || PKGS_NEEDED="${PKGS_NEEDED} curl"
+    command -v jq &>/dev/null       || PKGS_NEEDED="${PKGS_NEEDED} jq"
     # Kernel build headers
     [ -f /usr/include/libelf.h ]    || PKGS_NEEDED="${PKGS_NEEDED} elfutils-libelf-devel"
+    [ -f /etc/pki/tls/certs/ca-bundle.crt ] || PKGS_NEEDED="${PKGS_NEEDED} ca-certificates"
     # Native binary deps
     pkg-config --exists alsa 2>/dev/null        || PKGS_NEEDED="${PKGS_NEEDED} alsa-lib-devel"
     pkg-config --exists libdrm 2>/dev/null      || PKGS_NEEDED="${PKGS_NEEDED} libdrm-devel"
@@ -91,7 +96,7 @@ if command -v dnf &>/dev/null; then
 fi
 
 MISSING=""
-for cmd in cpio lz4 make curl bc perl; do
+for cmd in cpio lz4 make curl jq bc perl; do
     command -v "$cmd" &>/dev/null || MISSING="${MISSING} ${cmd}"
 done
 if [ -n "${MISSING}" ]; then
@@ -382,6 +387,22 @@ else
     warn "No WiFi binaries found — WiFi will not work"
 fi
 
+# Copy CA trust bundle for HTTPS curl calls (OS update/clock/version checks).
+CA_BUNDLE_SRC=""
+for p in /etc/pki/tls/certs/ca-bundle.crt /etc/ssl/certs/ca-certificates.crt; do
+    if [ -f "$p" ]; then
+        CA_BUNDLE_SRC="$p"
+        break
+    fi
+done
+if [ -n "${CA_BUNDLE_SRC}" ]; then
+    mkdir -p "${INITRAMFS_DIR}$(dirname "${CA_BUNDLE_SRC}")"
+    cp "${CA_BUNDLE_SRC}" "${INITRAMFS_DIR}${CA_BUNDLE_SRC}"
+    log "CA bundle: ${CA_BUNDLE_SRC}"
+else
+    warn "No CA bundle found — HTTPS fetches may fail"
+fi
+
 # Bundle ac-native's own shared library dependencies (needed when built dynamically)
 # Copies each .so to its canonical path inside initramfs, preserving directory structure
 if [ -f "${BUILD_DIR}/ac-native" ]; then
@@ -499,12 +520,34 @@ PART_EOF
     mmd -i "${PART}" ::EFI/BOOT
     mcopy -i "${PART}" "${VMLINUZ}" ::EFI/BOOT/BOOTX64.EFI
 
-    # Write config.json with user handle
+    # Write config.json with handle + optional per-char colors from handle-colors API
+    HANDLE_CLEAN="${HANDLE#@}"
+    [ -z "${HANDLE_CLEAN}" ] && HANDLE_CLEAN="jeffrey"
     CONFIG_TMP=$(mktemp)
-    echo '{"handle":"jeffrey"}' > "${CONFIG_TMP}"
+    COLORS_JSON=""
+    if [ -n "${HANDLE_CLEAN}" ]; then
+        HANDLE_URI="$(printf '%s' "${HANDLE_CLEAN}" | jq -sRr @uri)"
+        COLORS_RESP="$(curl -fsSL --connect-timeout 5 --max-time 12 \
+            "${HANDLE_COLORS_API}?handle=${HANDLE_URI}" 2>/dev/null || true)"
+        if [ -n "${COLORS_RESP}" ]; then
+            COLORS_JSON="$(printf '%s' "${COLORS_RESP}" | jq -c '.colors // empty' 2>/dev/null || true)"
+            [ "${COLORS_JSON}" = "null" ] && COLORS_JSON=""
+        fi
+    fi
+
+    if [ -n "${COLORS_JSON}" ] && printf '%s' "${COLORS_JSON}" | jq -e 'type == "array"' >/dev/null 2>&1; then
+        jq -cn --arg handle "${HANDLE_CLEAN}" --argjson colors "${COLORS_JSON}" \
+            '{handle:$handle, colors:$colors}' > "${CONFIG_TMP}"
+        COLOR_COUNT="$(printf '%s' "${COLORS_JSON}" | jq 'length')"
+        log "Fetched ${COLOR_COUNT} boot colors for @${HANDLE_CLEAN}"
+    else
+        jq -cn --arg handle "${HANDLE_CLEAN}" '{handle:$handle}' > "${CONFIG_TMP}"
+        warn "No handle colors for @${HANDLE_CLEAN} (using fallback rainbow title)"
+    fi
+
     mcopy -i "${PART}" "${CONFIG_TMP}" ::config.json
     rm -f "${CONFIG_TMP}"
-    log "Wrote config.json (handle: jeffrey)"
+    log "Wrote config.json (handle: ${HANDLE_CLEAN})"
 
     sync
     log "Flashed! Kernel at EFI/BOOT/BOOTX64.EFI on ${FLASH_DEV}"
