@@ -10,6 +10,32 @@ let historyIndex = -1;
 let message = "";
 let messageFrame = 0;
 let shiftHeld = false;
+let buildStamp = "";
+
+// Format build timestamp (baked at piece load time)
+{
+  const now = new Date();
+  // Convert to LA time
+  const offset = (() => {
+    const y = now.getUTCFullYear(), m = now.getUTCMonth() + 1;
+    const d = now.getUTCDate(), h = now.getUTCHours();
+    // DST: 2nd Sunday of March → 1st Sunday of November
+    const marchSun2 = 14 - new Date(y, 2, 1).getDay();
+    const novSun1 = 7 - new Date(y, 10, 1).getDay();
+    const isDST = (m > 3 && m < 11) ||
+      (m === 3 && (d > marchSun2 || (d === marchSun2 && h >= 10))) ||
+      (m === 11 && (d < novSun1 || (d === novSun1 && h < 9)));
+    return isDST ? -7 : -8;
+  })();
+  const la = new Date(now.getTime() + offset * 3600000);
+  const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  const months = ["January","February","March","April","May","June",
+                   "July","August","September","October","November","December"];
+  let hr = la.getUTCHours(), ampm = hr >= 12 ? "PM" : "AM";
+  hr = hr % 12 || 12;
+  const min = String(la.getUTCMinutes()).padStart(2, "0");
+  buildStamp = `Built: ${days[la.getUTCDay()]}, ${months[la.getUTCMonth()]} ${la.getUTCDate()}, ${hr}:${min} ${ampm}`;
+}
 
 const SHIFT_MAP = {
   "1":"!", "2":"@", "3":"#", "4":"$", "5":"%",
@@ -131,7 +157,7 @@ function execute(cmd, system) {
 }
 
 function paint({ wipe, ink, box, write, screen, paintCount }) {
-  wipe(10, 10, 14);
+  wipe(180, 160, 20);
 
   const W = screen.width;
   const H = screen.height;
@@ -170,9 +196,9 @@ function paint({ wipe, ink, box, write, screen, paintCount }) {
     write(message, { x: x0, y: H - 16, size: 1, font: "6x10" });
   }
 
-  // Hint
-  ink(60, 60, 70);
-  write("esc:back", { x: x0, y: H - 14, size: 1, font: "6x10" });
+  // Build stamp (bottom-left)
+  ink(80, 70, 10);
+  write(buildStamp, { x: x0, y: H - 14, size: 1, font: "6x10" });
 }
 
 function sim() {}
