@@ -4976,9 +4976,38 @@
                 setMintStep('sign', 'done', 'No signature needed');
                 setMintStep('complete', 'done', 'Rebake complete');
                 document.getElementById('mint-actions').style.display = 'none';
-                showMintResult(`Rebaked $${piece}`, data.objktUrl);
+
+                // Update the header HTML link to the fresh IPFS artifact
+                const headerLinks = document.getElementById('mint-piece-info');
+                if (headerLinks && data.artifactUri) {
+                  const freshUrl = ipfsToHttp(data.artifactUri);
+                  const oldLink = headerLinks.querySelector('a[href*="bundle-html"]');
+                  if (oldLink && freshUrl) {
+                    oldLink.href = freshUrl;
+                    oldLink.textContent = 'HTML (new) ↗';
+                    oldLink.style.color = 'var(--ac-purple)';
+                  }
+                }
+
+                // Update mintCurrentEntry so the card reflects new URIs
+                if (mintCurrentEntry?.kept) {
+                  if (data.artifactUri) mintCurrentEntry.kept.artifactUri = data.artifactUri;
+                  if (data.thumbnailUri) mintCurrentEntry.kept.thumbnailUri = data.thumbnailUri;
+                }
+
+                // Swap preview frame to show the fresh IPFS bundle
+                const freshArtifactUrl = ipfsToHttp(data.artifactUri);
+                const pf = document.getElementById('mint-preview-frame');
+                if (pf && freshArtifactUrl) {
+                  pf.innerHTML = `<iframe src="${freshArtifactUrl}" sandbox="allow-scripts" loading="lazy" title="$${escapeHtml(piece)} regenerated"></iframe>`;
+                }
+
+                // Clear result area and show fresh artifact panel
+                const resultArea = document.getElementById('mint-result-area');
+                if (resultArea) resultArea.innerHTML = '';
+
                 renderMintArtifactPanel({
-                  title: 'Rebaked Artifacts',
+                  title: 'Regenerated Artifacts',
                   piece,
                   artifactUri: data.artifactUri,
                   thumbnailUri: data.thumbnailUri,
