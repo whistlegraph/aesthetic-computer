@@ -361,61 +361,64 @@ const OVEN_TV_HTML = `<!DOCTYPE html>
     .hero {
       flex: 1;
       display: flex;
-      align-items: stretch;
+      align-items: center;
       justify-content: center;
-      gap: 8px;
-      padding: 8px;
+      gap: 10px;
+      padding: 10px;
       min-height: 0;
       overflow: hidden;
     }
-    .hero.idle { color: var(--text-dim); font-size: 1.2em; align-items: center; }
+    .hero.idle { color: var(--text-dim); font-size: 1.2em; }
     .hero-card {
       background: var(--bg-card);
       border: 2px solid var(--border);
       border-radius: 6px;
       display: flex;
-      flex-direction: column;
-      flex: 1 1 0;
-      min-width: 80px;
-      max-width: 200px;
+      flex-direction: row;
+      align-items: stretch;
+      height: 80px;
+      min-width: 180px;
+      max-width: 280px;
+      flex-shrink: 0;
       overflow: hidden;
     }
     .hero-card.capturing { border-color: var(--accent); }
     .hero-card .preview {
-      width: 100%;
-      aspect-ratio: 1;
+      width: 76px;
+      min-width: 76px;
       background: var(--preview-bg);
       overflow: hidden;
       display: flex;
       align-items: center;
       justify-content: center;
-      flex-shrink: 0;
     }
     .hero-card .preview img {
       width: 100%;
       height: 100%;
-      object-fit: contain;
+      object-fit: cover;
       image-rendering: pixelated;
     }
-    .hero-card .preview .placeholder { color: var(--text-dim); font-size: 1.4em; }
+    .hero-card .preview .placeholder { color: var(--text-dim); font-size: 1.2em; }
     .hero-card .info {
+      flex: 1;
       padding: 4px 6px;
       display: flex;
       flex-direction: column;
-      gap: 1px;
-      min-height: 0;
-      flex: 1;
+      justify-content: center;
+      gap: 2px;
+      min-width: 0;
       overflow: hidden;
     }
     .hero-card .piece-name { color: var(--accent); font-weight: bold; font-size: 0.85em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .hero-card .meta { color: var(--text-dim); font-size: 0.65em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3; }
+    .hero-card .meta { color: var(--text-dim); font-size: 0.6em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3; }
     .hero-card .meta .author { color: var(--text-secondary); }
-    .hero-card .stage { color: var(--text-muted); font-size: 0.7em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3; }
+    .hero-card .stage { color: var(--text-muted); font-size: 0.65em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3; }
     .hero-card .progress-bar {
       width: 100%;
       height: 3px;
       background: var(--border);
       flex-shrink: 0;
+      margin-top: auto;
     }
     .hero-card .progress-bar .fill {
       height: 100%;
@@ -520,18 +523,18 @@ const OVEN_TV_HTML = `<!DOCTYPE html>
     .history-row .h-ago { color: var(--text-dim); font-size: 0.85em; }
 
     @keyframes card-enter {
-      from { opacity: 0; transform: translateX(-60px) scale(0.92); }
+      from { opacity: 0; transform: translateX(-120px) scale(0.9); }
       to { opacity: 1; transform: translateX(0) scale(1); }
     }
     @keyframes card-exit {
       from { opacity: 1; transform: translateX(0) scale(1); }
-      to { opacity: 0; transform: translateX(60px) scale(0.92); }
+      to { opacity: 0; transform: translateX(120px) scale(0.9); }
     }
     .hero-card {
-      animation: card-enter 0.5s ease-out forwards;
+      animation: card-enter 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
     }
     .hero-card.exiting {
-      animation: card-exit 0.4s ease-in forwards;
+      animation: card-exit 0.5s cubic-bezier(0.55, 0, 1, 0.45) forwards;
       pointer-events: none;
     }
 
