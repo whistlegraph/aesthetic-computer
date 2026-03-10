@@ -14,6 +14,7 @@ import { gzipSync, gunzipSync, brotliCompressSync, constants as zlibConstants } 
 import { execSync } from "child_process";
 import { MongoClient } from "mongodb";
 import sharp from "sharp";
+import { fileURLToPath } from "url";
 
 // ─── Configuration ──────────────────────────────────────────────────
 
@@ -22,6 +23,15 @@ import sharp from "sharp";
 // In dev, override with AC_SOURCE_DIR env var.
 const AC_SOURCE_DIR = process.env.AC_SOURCE_DIR
   || path.resolve(process.cwd(), "ac-source");
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const BOX_ART_FONT_STACK = "'KidLispComic', 'Comic Relief', 'Comic Sans MS', 'Comic Sans', cursive";
+const BOX_ART_COMIC_FONT_FILE = path.join(__dirname, "fonts", "ComicRelief-Bold.ttf");
+let comicReliefBoldBase64 = "";
+try {
+  comicReliefBoldBase64 = fsSync.readFileSync(BOX_ART_COMIC_FONT_FILE).toString("base64");
+} catch {
+  // Falls back to Comic Sans stack when oven font assets are unavailable.
+}
 
 function getGitCommit() {
   if (process.env.OVEN_VERSION && process.env.OVEN_VERSION !== "unknown")
@@ -1009,56 +1019,99 @@ function escapeXml(str) {
     .replace(/'/g, "&apos;");
 }
 
-function boxArtTextColor(bgColor) {
-  if (!bgColor) return "white";
-  try {
-    const hex = bgColor.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
-    if (hex) {
-      const lum = (0.299 * parseInt(hex[1], 16) + 0.587 * parseInt(hex[2], 16) + 0.114 * parseInt(hex[3], 16)) / 255;
-      return lum > 0.55 ? "#111111" : "white";
-    }
-    const rgb = bgColor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/i);
-    if (rgb) {
-      const lum = (0.299 * +rgb[1] + 0.587 * +rgb[2] + 0.114 * +rgb[3]) / 255;
-      return lum > 0.55 ? "#111111" : "white";
-    }
-  } catch { /* ignore */ }
-  return "white";
+function boxArtAccentColor(bgColor) {
+  const palette = {
+    red: "#ff6f61",
+    green: "#46d89a",
+    blue: "#56b4ff",
+    yellow: "#ffd166",
+    orange: "#ff9f43",
+    cyan: "#44f6ff",
+    black: "#a7b4c8",
+    white: "#7b8798",
+    gray: "#7fa0b5",
+    grey: "#7fa0b5",
+    brown: "#d19a66",
+    navy: "#6aa2ff",
+    teal: "#4fe5d2",
+  };
+  const key = String(bgColor || "").toLowerCase();
+  if (key === "purple" || key === "magenta" || key === "pink" || key === "violet" || key === "indigo")
+    return "#ffb454";
+  return palette[key] || "#67e8f9";
+}
+
+function boxArtCodeColor(char, index) {
+  if (char === "$") return "#ffd166";
+  if (/\d/.test(char)) {
+    const digitPalette = ["#ffadad", "#ffd6a5", "#fdffb6", "#caffbf", "#9bf6ff", "#a0c4ff"];
+    return digitPalette[(Number(char) + index) % digitPalette.length];
+  }
+  const codePalette = ["#56e8ff", "#ffd166", "#ff8fab", "#8affc1", "#9fb6ff", "#ffb703"];
+  return codePalette[index % codePalette.length];
+}
+
+function boxArtCodeTspans(display) {
+  return Array.from(display).map((char, index) =>
+    `<tspan fill="${boxArtCodeColor(char, index)}">${escapeXml(char)}</tspan>`
+  ).join("");
 }
 
 async function generateBoxArtPNG(pieceName, authorHandle, bgColor) {
-  // AC theme: deep purple → purple gradient, hot pink accents, white type
   const W = 800, H = 1000; // portrait 4:5
-
-  const display = pieceName.startsWith("$") ? pieceName.slice(1) : pieceName;
-  const len = display.length;
-  const namePx = len <= 5 ? 136 : len <= 8 ? 110 : len <= 12 ? 86 : len <= 16 ? 66 : len <= 22 ? 50 : 38;
+  const display = String(pieceName || "").trim();
+  const len = Math.max(1, Array.from(display).length);
+  const namePx = len <= 4 ? 190 : len <= 6 ? 162 : len <= 8 ? 140 : len <= 12 ? 118 : len <= 18 ? 94 : 76;
   const author = authorHandle && authorHandle !== "unknown" ? escapeXml(authorHandle) : "";
-  const nameY = H / 2 + (author ? -namePx * 0.55 : 0);
-  const authorY = nameY + namePx * 0.65 + 52;
+  const accent = boxArtAccentColor(bgColor);
+  const codeTspans = boxArtCodeTspans(display);
+  const nameY = H / 2 + (author ? -namePx * 0.3 : 0);
+  const authorY = nameY + namePx * 0.62 + 48;
+  const fontFace = comicReliefBoldBase64
+    ? `@font-face{font-family:'KidLispComic';src:url("data:font/truetype;base64,${comicReliefBoldBase64}") format("truetype"),url("file://${BOX_ART_COMIC_FONT_FILE.replace(/\\/g, "/")}") format("truetype");font-weight:700;font-style:normal;}`
+    : "";
+  const topLine = "pack://kidlisp";
+  const bottomLine = "aesthetic.computer";
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0.4" y2="1">
-      <stop offset="0%" stop-color="#1a0635"/>
-      <stop offset="100%" stop-color="#3b0d72"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#07131f"/>
+      <stop offset="55%" stop-color="#0f2532"/>
+      <stop offset="100%" stop-color="#18313f"/>
     </linearGradient>
+    <radialGradient id="glow-a" cx="18%" cy="20%" r="65%">
+      <stop offset="0%" stop-color="${accent}" stop-opacity="0.34"/>
+      <stop offset="100%" stop-color="${accent}" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow-b" cx="86%" cy="82%" r="72%">
+      <stop offset="0%" stop-color="#ff9f43" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#ff9f43" stop-opacity="0"/>
+    </radialGradient>
   </defs>
+  <style>
+    ${fontFace}
+    .kidlisp-comic { font-family: ${BOX_ART_FONT_STACK}; font-weight: 700; }
+  </style>
   <rect width="${W}" height="${H}" fill="url(#bg)"/>
-  <rect x="0" y="88" width="${W}" height="7" fill="#ff64c8"/>
-  <rect x="0" y="${H - 95}" width="${W}" height="7" fill="#ff64c8"/>
-  <text x="${W / 2}" y="${nameY}"
-    font-family="'Courier New',Courier,monospace"
-    font-size="${namePx}" font-weight="bold"
-    fill="#ffffff" text-anchor="middle" dominant-baseline="middle">${escapeXml(display)}</text>
+  <rect width="${W}" height="${H}" fill="url(#glow-a)"/>
+  <rect width="${W}" height="${H}" fill="url(#glow-b)"/>
+  <rect x="46" y="74" width="${W - 92}" height="8" rx="4" fill="${accent}" opacity="0.86"/>
+  <rect x="46" y="${H - 82}" width="${W - 92}" height="8" rx="4" fill="#ffd166" opacity="0.78"/>
+  <text x="${W / 2}" y="${nameY + 9}" class="kidlisp-comic"
+    font-size="${namePx}" fill="rgba(0,0,0,0.45)"
+    text-anchor="middle" dominant-baseline="middle">${escapeXml(display)}</text>
+  <text x="${W / 2}" y="${nameY}" class="kidlisp-comic"
+    font-size="${namePx}" text-anchor="middle" dominant-baseline="middle">${codeTspans}</text>
   ${author ? `<text x="${W / 2}" y="${authorY}"
-    font-family="'Courier New',Courier,monospace"
-    font-size="38" fill="#ff64c8"
+    class="kidlisp-comic" font-size="42" fill="#dbeafe"
     text-anchor="middle" dominant-baseline="middle">${author}</text>` : ""}
-  <text x="${W / 2}" y="${H - 46}"
-    font-family="'Courier New',Courier,monospace"
-    font-size="22" letter-spacing="4"
-    fill="rgba(255,100,200,0.55)" text-anchor="middle" dominant-baseline="middle">aesthetic.computer</text>
+  <text x="${W / 2}" y="58" class="kidlisp-comic"
+    font-size="26" letter-spacing="2" fill="rgba(209,232,255,0.85)"
+    text-anchor="middle" dominant-baseline="middle">${topLine}</text>
+  <text x="${W / 2}" y="${H - 42}" class="kidlisp-comic"
+    font-size="24" letter-spacing="2.5" fill="rgba(231,242,255,0.78)"
+    text-anchor="middle" dominant-baseline="middle">${bottomLine}</text>
 </svg>`;
 
   const buf = await sharp(Buffer.from(svg)).png({ compressionLevel: 9 }).toBuffer();
