@@ -16,12 +16,13 @@ import { Buffer } from "buffer";
 // This provides Monaco-parity highlighting for .lisp files in VS Code
 import * as KidLispSyntax from "./kidlisp-syntax";
 
-// Dynamically import path and fs to ensure web compatibility.
-let path: any, fs: any;
+// Dynamically import path, fs, and child_process to ensure web compatibility.
+let path: any, fs: any, cp: any;
 (async () => {
   if (typeof window === "undefined") {
     path = await import("path");
     fs = await import("fs");
+    cp = await import("child_process");
   }
 })();
 
@@ -860,167 +861,236 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     ),
   );
 
-  // 🔧 Dev Mode for Welcome Panel (uses `local` flag - load from local server instead of embedded JS)
-  const WELCOME_DEV_URL = 'http://localhost:5555/dev.html';
-  let welcomeDevServerAvailable = false;
-  let welcomeDevServerCheckInterval: NodeJS.Timeout | undefined;
+  // ✦ Git Status Welcome Panel
+  // Runs `git status --porcelain` directly via child_process for maximum speed.
+  // Shows changes for both aesthetic-computer and aesthetic-computer-vault.
 
-  // Check if the Welcome dev server (localhost:5555) is available
-  async function checkWelcomeDevServer(): Promise<boolean> {
-    try {
-      const http = await import("http");
-      return new Promise((resolve) => {
-        const req = http.request(
-          {
-            hostname: "localhost",
-            port: 5555,
-            path: "/",
-            method: "HEAD",
-            timeout: 1000,
-          },
-          (res) => {
-            resolve(true);
-            res.resume();
-          }
-        );
-        req.on("error", () => resolve(false));
-        req.on("timeout", () => {
-          req.destroy();
-          resolve(false);
-        });
-        req.end();
-      });
-    } catch (e) {
-      return false;
-    }
+  interface GitRepoStatus {
+    name: string;
+    root: string;
+    branch: string;
+    files: { status: string; file: string }[];
+    error?: string;
   }
 
-  // Start polling for Welcome dev server availability
-  function startWelcomeDevServerCheck() {
-    if (welcomeDevServerCheckInterval) {
-      clearInterval(welcomeDevServerCheckInterval);
-    }
-    
-    // Check immediately
-    checkWelcomeDevServer().then((available) => {
-      const wasAvailable = welcomeDevServerAvailable;
-      welcomeDevServerAvailable = available;
-      if (available && !wasAvailable && welcomePanel) {
-        console.log("✅ Welcome dev server is now available - switching to live reload mode");
-        welcomePanel.webview.postMessage({ command: 'devServerAvailable' });
-      }
-    });
-    
-    // Then check every 2 seconds
-    welcomeDevServerCheckInterval = setInterval(async () => {
-      const wasAvailable = welcomeDevServerAvailable;
-      welcomeDevServerAvailable = await checkWelcomeDevServer();
-      
-      if (welcomeDevServerAvailable && !wasAvailable && welcomePanel) {
-        console.log("✅ Welcome dev server is now available - switching to live reload mode");
-        welcomePanel.webview.postMessage({ command: 'devServerAvailable' });
-      }
-    }, 2000);
-  }
-
-  // Stop polling for Welcome dev server
-  function stopWelcomeDevServerCheck() {
-    if (welcomeDevServerCheckInterval) {
-      clearInterval(welcomeDevServerCheckInterval);
-      welcomeDevServerCheckInterval = undefined;
-    }
-  }
-
-  // Helper function to generate Welcome Panel HTML from shared process-tree.js
-  // Helper function to detect current VS Code theme kind
-  // Priority: 1) Aesthetic theme name, 2) VS Code theme kind, 3) Falls back to dark
+  // Detect current VS Code theme kind
   function getVSCodeThemeKind(): 'dark' | 'light' {
-    // First check if user has an Aesthetic Computer theme selected
     const themeName = vscode.window.activeColorTheme.name || '';
     if (themeName.includes('Aesthetic Computer')) {
-      // Use the Aesthetic theme's light/dark setting
       if (themeName.includes('Light')) return 'light';
       if (themeName.includes('Dark')) return 'dark';
     }
-    
-    // Fall back to VS Code theme kind
     const kind = vscode.window.activeColorTheme.kind;
-    // ColorThemeKind: 1 = Light, 2 = Dark, 3 = HighContrast, 4 = HighContrastLight
     return (kind === 1 || kind === 4) ? 'light' : 'dark';
   }
 
-  // Welcome panel is dev-mode only — always loads dev.html via iframe from localhost:5555.
-  // Shows a loading state while the views dev server (npm run views:dev) is starting up.
-  function getWelcomePanelHtml(webview: vscode.Webview): string {
+  // Run a git command and return stdout (fast, ~5-15ms)
+  function gitExec(args: string, cwd: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      if (!cp) { reject(new Error('child_process not available')); return; }
+      cp.exec(`git ${args}`, { cwd, timeout: 5000, maxBuffer: 1024 * 512 }, (err: any, stdout: string) => {
+        if (err) reject(err);
+        else resolve(stdout);
+      });
+    });
+  }
+
+  // Get git status for a repo directory
+  async function getGitStatus(repoPath: string, name: string): Promise<GitRepoStatus> {
+    try {
+      const [statusOut, branchOut] = await Promise.all([
+        gitExec('status --porcelain', repoPath),
+        gitExec('rev-parse --abbrev-ref HEAD', repoPath),
+      ]);
+      const branch = branchOut.trim();
+      const files = statusOut.split('\n').filter(Boolean).map(line => ({
+        status: line.substring(0, 2).trim(),
+        file: line.substring(3),
+      }));
+      return { name, root: repoPath, branch, files };
+    } catch (e: any) {
+      return { name, root: repoPath, branch: '?', files: [], error: e.message };
+    }
+  }
+
+  // Gather status for all repos
+  async function getAllGitStatus(): Promise<GitRepoStatus[]> {
+    const repos: { name: string; root: string }[] = [];
+
+    // Find aesthetic-computer workspace root
+    const wsFolder = vscode.workspace.workspaceFolders?.[0];
+    if (wsFolder) {
+      const acRoot = wsFolder.uri.fsPath;
+      repos.push({ name: 'aesthetic-computer', root: acRoot });
+
+      // Check for vault as a subdirectory
+      const vaultPath = path?.join(acRoot, 'aesthetic-computer-vault');
+      if (vaultPath && fs) {
+        try {
+          const stat = fs.statSync(vaultPath);
+          if (stat.isDirectory()) {
+            // Verify it's a git repo (has .git)
+            const gitDir = path.join(vaultPath, '.git');
+            if (fs.existsSync(gitDir)) {
+              repos.push({ name: 'vault', root: vaultPath });
+            }
+          }
+        } catch {}
+      }
+    }
+
+    return Promise.all(repos.map(r => getGitStatus(r.root, r.name)));
+  }
+
+  // Send git status update to the welcome panel
+  let gitStatusPending = false;
+  async function sendGitStatusToPanel() {
+    if (!welcomePanel || gitStatusPending) return;
+    gitStatusPending = true;
+    try {
+      const statuses = await getAllGitStatus();
+      if (welcomePanel) {
+        welcomePanel.webview.postMessage({ command: 'gitStatus', repos: statuses });
+      }
+    } finally {
+      gitStatusPending = false;
+    }
+  }
+
+  function getWelcomePanelHtml(): string {
     const theme = getVSCodeThemeKind();
     const c = theme === 'light'
-      ? { bg: '#fcf7c5', fg: '#281e5a', fgMuted: '#806060', accent: '#387adf' }
-      : { bg: '#181318', fg: '#ffffff', fgMuted: '#555555', accent: '#a87090' };
-
-    const csp = `default-src 'none'; frame-src http://localhost:5555; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src ws://127.0.0.1:7890 wss://localhost:8889;`;
+      ? { bg: '#fcf7c5', fg: '#281e5a', fgMuted: '#907070', fgDim: '#b0a080', accent: '#387adf',
+          added: '#1a7f37', modified: '#9a6700', deleted: '#cf222e', untracked: '#6e7781',
+          fileBg: '#f6f0d0', fileBorder: '#e8e0b0', hoverBg: '#efe8c0', repoBg: '#f0e8b8', headerBg: '#e8dfa0' }
+      : { bg: '#181318', fg: '#e0d0e0', fgMuted: '#807080', fgDim: '#504050', accent: '#a87090',
+          added: '#3fb950', modified: '#d29922', deleted: '#f85149', untracked: '#606870',
+          fileBg: '#1e1820', fileBorder: '#2a2030', hoverBg: '#28202e', repoBg: '#201828', headerBg: '#1a1220' };
 
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="${csp}">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: ${c.bg}; color: ${c.fg}; font-family: monospace; overflow: hidden; height: 100vh; }
-    #dev-frame { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; border: none; z-index: 10; }
-    #dev-frame.active { display: block; }
-    #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
-    .dot { font-size: 28px; color: ${c.accent}; animation: pulse 2s ease-in-out infinite; }
-    .msg { font-size: 13px; }
-    .cmd { font-size: 11px; color: ${c.fgMuted}; }
+    body { background: ${c.bg}; color: ${c.fg}; font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace; font-size: 12px; height: 100vh; overflow: auto; padding: 0; }
+    .header { padding: 16px 20px 12px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid ${c.fileBorder}; background: ${c.headerBg}; position: sticky; top: 0; z-index: 1; }
+    .header-star { font-size: 18px; color: ${c.accent}; }
+    .header-title { font-size: 13px; font-weight: 600; letter-spacing: 0.5px; }
+    .header-branch { color: ${c.fgMuted}; font-size: 11px; margin-left: auto; }
+    .repo { margin: 0; }
+    .repo-header { padding: 10px 20px 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; color: ${c.fgMuted}; background: ${c.repoBg}; border-bottom: 1px solid ${c.fileBorder}; display: flex; align-items: center; gap: 8px; }
+    .repo-header .branch { font-weight: 400; text-transform: none; letter-spacing: 0; color: ${c.accent}; }
+    .repo-header .count { font-weight: 400; text-transform: none; letter-spacing: 0; color: ${c.fgDim}; margin-left: auto; }
+    .file-list { list-style: none; }
+    .file-item { display: flex; align-items: center; gap: 8px; padding: 4px 20px; cursor: pointer; border-bottom: 1px solid ${c.fileBorder}; transition: background 0.1s; }
+    .file-item:hover { background: ${c.hoverBg}; }
+    .status { font-weight: 700; width: 18px; text-align: center; flex-shrink: 0; font-size: 11px; }
+    .status.M { color: ${c.modified}; }
+    .status.A { color: ${c.added}; }
+    .status.D { color: ${c.deleted}; }
+    .status.R { color: ${c.modified}; }
+    .status.U { color: ${c.untracked}; }
+    .status.q { color: ${c.untracked}; }
+    .file-path { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-dir { color: ${c.fgMuted}; }
+    .file-name { color: ${c.fg}; }
+    .empty { padding: 20px; text-align: center; color: ${c.fgMuted}; font-style: italic; }
+    .error { padding: 12px 20px; color: ${c.deleted}; font-size: 11px; }
+    .loading { padding: 20px; text-align: center; color: ${c.fgMuted}; }
+    .loading .dot { display: inline-block; animation: pulse 1.5s ease-in-out infinite; color: ${c.accent}; }
     @keyframes pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
   </style>
 </head>
-<body data-theme="${theme}">
-  <iframe id="dev-frame"></iframe>
-  <div id="loading">
-    <div class="dot">✦</div>
-    <div class="msg">Waiting for dev server…</div>
-    <div class="cmd">npm run views:dev</div>
+<body>
+  <div class="header">
+    <span class="header-star">✦</span>
+    <span class="header-title">Source Changes</span>
+  </div>
+  <div id="content">
+    <div class="loading"><span class="dot">✦</span> scanning...</div>
   </div>
   <script>
     (function() {
-      const frame = document.getElementById('dev-frame');
-      const loading = document.getElementById('loading');
-      const theme = '${theme}';
-      window.addEventListener('message', (event) => {
-        const msg = event.data;
-        if (msg.command === 'devServerAvailable' && !frame.classList.contains('active')) {
-          frame.src = 'http://localhost:5555/dev.html?theme=' + theme;
-          frame.classList.add('active');
-          loading.style.display = 'none';
-        } else if (msg.command === 'reload' && frame.classList.contains('active')) {
-          frame.src = frame.src;
-        } else if (msg.command === 'astUpdate' && frame.classList.contains('active')) {
-          frame.contentWindow?.postMessage(msg, '*');
+      const vscode = acquireVsCodeApi();
+      const content = document.getElementById('content');
+
+      function statusLabel(s) {
+        if (s === '??' || s === '?') return { letter: '?', cls: 'q', title: 'Untracked' };
+        const c = s.charAt(0) === ' ' ? s.charAt(1) : s.charAt(0);
+        const map = { M: 'Modified', A: 'Added', D: 'Deleted', R: 'Renamed', C: 'Copied', U: 'Unmerged' };
+        return { letter: c, cls: c, title: map[c] || c };
+      }
+
+      function renderRepos(repos) {
+        if (!repos || repos.length === 0) {
+          content.innerHTML = '<div class="empty">No git repositories found.</div>';
+          return;
+        }
+
+        let html = '';
+        for (const repo of repos) {
+          html += '<div class="repo">';
+          html += '<div class="repo-header">';
+          html += '<span>' + repo.name + '</span>';
+          html += '<span class="branch">' + repo.branch + '</span>';
+          html += '<span class="count">' + repo.files.length + ' change' + (repo.files.length !== 1 ? 's' : '') + '</span>';
+          html += '</div>';
+
+          if (repo.error) {
+            html += '<div class="error">' + repo.error + '</div>';
+          } else if (repo.files.length === 0) {
+            html += '<div class="empty">Working tree clean</div>';
+          } else {
+            html += '<ul class="file-list">';
+            for (const f of repo.files) {
+              const s = statusLabel(f.status);
+              const lastSlash = f.file.lastIndexOf('/');
+              const dir = lastSlash >= 0 ? f.file.substring(0, lastSlash + 1) : '';
+              const name = lastSlash >= 0 ? f.file.substring(lastSlash + 1) : f.file;
+              html += '<li class="file-item" data-root="' + repo.root + '" data-file="' + f.file + '" title="' + s.title + ': ' + f.file + '">';
+              html += '<span class="status ' + s.cls + '">' + s.letter + '</span>';
+              html += '<span class="file-path"><span class="file-dir">' + dir + '</span><span class="file-name">' + name + '</span></span>';
+              html += '</li>';
+            }
+            html += '</ul>';
+          }
+          html += '</div>';
+        }
+        content.innerHTML = html;
+      }
+
+      // Handle clicks on file items — open in editor
+      content.addEventListener('click', (e) => {
+        const item = e.target.closest('.file-item');
+        if (!item) return;
+        const root = item.getAttribute('data-root');
+        const file = item.getAttribute('data-file');
+        if (root && file) {
+          vscode.postMessage({ command: 'openFile', root, file });
         }
       });
+
+      // Receive git status updates from extension
+      window.addEventListener('message', (event) => {
+        const msg = event.data;
+        if (msg.command === 'gitStatus') {
+          renderRepos(msg.repos);
+        }
+      });
+
+      // Request initial data
+      vscode.postMessage({ command: 'requestGitStatus' });
     })();
   </script>
 </body>
 </html>`;
   }
 
-  // ✨ Welcome Panel — dev mode only (loads dev.html via iframe from localhost:5555)
+  // ✨ Welcome Panel — shows git status for aesthetic-computer + vault
   function showWelcomePanel() {
-    if (!local) {
-      vscode.window.showInformationMessage(
-        'The welcome panel requires local dev mode.',
-        'Enable Local Mode'
-      ).then(choice => {
-        if (choice === 'Enable Local Mode') {
-          vscode.commands.executeCommand('aestheticComputer.localServer');
-        }
-      });
-      return;
-    }
-
     if (welcomePanel) {
       welcomePanel.reveal(vscode.ViewColumn.One);
       return;
@@ -1028,64 +1098,27 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
     welcomePanel = vscode.window.createWebviewPanel(
       "aestheticWelcome",
-      "✦ Aesthetic Computer",
+      "✦ Source Changes",
       vscode.ViewColumn.One,
-      { 
-        enableScripts: true,
-        localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, "resources")]
-      }
+      { enableScripts: true }
     );
 
-    // Handle messages from the webview
     welcomePanel.webview.onDidReceiveMessage(
       message => {
         switch (message.command) {
-          case 'openKidLisp':
-            vscode.commands.executeCommand('aestheticComputer.openKidLispWindow');
+          case 'requestGitStatus':
+            sendGitStatusToPanel();
             return;
-          case 'openPane':
-            vscode.commands.executeCommand('aestheticComputer.openWindow');
-            return;
-          case 'newPiece':
-            vscode.commands.executeCommand('workbench.action.files.newUntitledFile');
-            return;
-          case 'navigateToSource':
-            if (message.filePath) {
-              const openPath = vscode.Uri.file(message.filePath);
-              vscode.workspace.openTextDocument(openPath).then(doc => {
-                vscode.window.showTextDocument(doc).then(editor => {
-                  if (message.line !== undefined && message.column !== undefined) {
-                    const startPos = new vscode.Position(message.line - 1, message.column);
-                    const range = new vscode.Range(startPos, startPos);
-                    editor.selection = new vscode.Selection(startPos, startPos);
-                    editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
-                  }
-                });
-              });
-            } else if (message.fileName) {
-              const openPath = vscode.Uri.file(message.fileName);
-              vscode.workspace.openTextDocument(openPath).then(doc => {
-                vscode.window.showTextDocument(doc).then(editor => {
-                  if (message.line !== undefined && message.column !== undefined) {
-                    const startPos = new vscode.Position(message.line - 1, message.column);
-                    const range = new vscode.Range(startPos, startPos);
-                    editor.selection = new vscode.Selection(startPos, startPos);
-                    editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
-                  }
-                });
-              });
-            }
-            return;
-          case 'requestAST':
-            if (trackedFiles.size > 0) {
-              welcomePanel.webview.postMessage({
-                command: 'astUpdate',
-                files: Array.from(trackedFiles.values()).map(f => ({
-                  fileName: f.fileName,
-                  ast: f.ast,
-                  lastUpdate: f.lastUpdate,
-                })),
-              });
+          case 'openFile':
+            if (message.root && message.file) {
+              const filePath = path?.join(message.root, message.file);
+              if (filePath) {
+                const openPath = vscode.Uri.file(filePath);
+                vscode.workspace.openTextDocument(openPath).then(
+                  doc => vscode.window.showTextDocument(doc),
+                  () => {} // file might be deleted
+                );
+              }
             }
             return;
         }
@@ -1096,61 +1129,50 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
     welcomePanel.onDidDispose(() => {
       welcomePanel = null;
-      // Stop dev server polling when panel is closed
-      stopWelcomeDevServerCheck();
     });
 
-    welcomePanel.webview.html = getWelcomePanelHtml(welcomePanel.webview);
-    startWelcomeDevServerCheck();
-    
-    // Send initial AST data after panel is created
-    setTimeout(() => {
-      if (welcomePanel && trackedFiles.size > 0) {
-        console.log('🌳 Sending initial AST data:', trackedFiles.size, 'files');
-        welcomePanel.webview.postMessage({
-          command: 'astUpdate',
-          files: Array.from(trackedFiles.values()).map(f => ({
-            fileName: f.fileName,
-            ast: f.ast,
-            lastUpdate: f.lastUpdate,
-          })),
-        });
-      }
-    }, 500); // Give webview time to initialize
+    welcomePanel.webview.html = getWelcomePanelHtml();
+
+    // Send initial git status after a brief delay for webview to initialize
+    setTimeout(() => sendGitStatusToPanel(), 100);
   }
 
-  // Refresh welcome panel (called when local mode is toggled or theme changes)
+  // Refresh welcome panel on theme change
   function refreshWelcomePanel() {
     if (welcomePanel) {
-      if (!local) {
-        // Panel is dev-mode only — close it if local mode is turned off
-        welcomePanel.dispose();
-        stopWelcomeDevServerCheck();
-        welcomeDevServerAvailable = false;
-        return;
-      }
-      welcomePanel.webview.html = getWelcomePanelHtml(welcomePanel.webview);
-      welcomeDevServerAvailable = false;
-      startWelcomeDevServerCheck();
+      welcomePanel.webview.html = getWelcomePanelHtml();
+      setTimeout(() => sendGitStatusToPanel(), 100);
     }
   }
 
-  // Live reload: tell welcome panel to reload its iframe (fires when views/ files change)
-  function triggerWelcomeReload() {
-    if (welcomePanel) {
-      welcomePanel.webview.postMessage({ command: 'reload' });
+  // Watch for file changes in both repos to auto-refresh git status
+  function setupGitWatchers() {
+    const wsFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!wsFolder) return;
+
+    // Debounce: coalesce rapid file changes into one git status refresh
+    let refreshTimer: NodeJS.Timeout | undefined;
+    function debouncedRefresh() {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => sendGitStatusToPanel(), 300);
     }
+
+    // Watch for all file changes in the workspace (covers both repos)
+    const watcher = vscode.workspace.createFileSystemWatcher(
+      new vscode.RelativePattern(wsFolder, '**/*')
+    );
+    watcher.onDidChange(debouncedRefresh);
+    watcher.onDidCreate(debouncedRefresh);
+    watcher.onDidDelete(debouncedRefresh);
+    context.subscriptions.push(watcher);
+
+    // Also refresh when documents are saved (catches staging operations)
+    context.subscriptions.push(
+      vscode.workspace.onDidSaveTextDocument(() => debouncedRefresh())
+    );
   }
 
-  // Watch for file changes in views directory (hot reload for the dev server content)
-  const viewsWatcher = vscode.workspace.createFileSystemWatcher(
-    new vscode.RelativePattern(context.extensionUri, 'views/**/*.{js,html,css}')
-  );
-
-  viewsWatcher.onDidChange(() => { triggerWelcomeReload(); });
-  viewsWatcher.onDidCreate(() => { triggerWelcomeReload(); });
-  
-  context.subscriptions.push(viewsWatcher);
+  setupGitWatchers();
 
   // Listen for VS Code theme changes and refresh welcome panel
   context.subscriptions.push(
@@ -1165,7 +1187,6 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
   // Show welcome on startup if no editors are open
   if (vscode.window.visibleTextEditors.length === 0) {
-    // Delay slightly to let VS Code finish loading
     setTimeout(() => {
       if (vscode.window.visibleTextEditors.length === 0 && !welcomePanel) {
         showWelcomePanel();
@@ -1215,121 +1236,164 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   // Initialize user status bar
   updateUserStatusBar();
   
-  // 🎯 Task State Status Bar (file-based, emacs can modify)
-  let statusBarTask: vscode.StatusBarItem;
-  let taskFileWatcher: vscode.FileSystemWatcher | undefined;
-  const TASK_STATE_FILE = '/tmp/aesthetic-task-state.json';
-  
-  interface TaskState {
-    status: 'idle' | 'working' | 'done' | 'error';
-    label?: string;
-    progress?: number;
-    timestamp?: number;
+  // 🚀 Netlify Deploy Status Bar
+  // Polls the Netlify API to show live deploy status in the status bar.
+  // Reads NETLIFY_AUTH_TOKEN and NETLIFY_SITE_ID from environment.
+  let statusBarDeploy: vscode.StatusBarItem;
+  let deployPollInterval: NodeJS.Timeout | undefined;
+
+  interface NetlifyDeploy {
+    id: string;
+    state: string; // 'building' | 'enqueued' | 'uploading' | 'processing' | 'ready' | 'error'
+    branch: string;
+    title?: string;
+    created_at: string;
+    published_at?: string;
+    deploy_time?: number;
+    error_message?: string;
+    commit_ref?: string;
   }
-  
-  function getTaskStatusIcon(status: TaskState['status']): string {
-    switch (status) {
-      case 'idle': return '$(circle-outline)';
-      case 'working': return '$(sync~spin)';
-      case 'done': return '$(check)';
-      case 'error': return '$(error)';
-      default: return '$(circle-outline)';
+
+  function getDeployIcon(state: string): string {
+    switch (state) {
+      case 'building':
+      case 'uploading':
+      case 'processing':
+        return '$(sync~spin)';
+      case 'enqueued':
+        return '$(clock)';
+      case 'ready':
+        return '$(check)';
+      case 'error':
+        return '$(error)';
+      default:
+        return '$(cloud)';
     }
   }
-  
-  function getTaskStatusColor(status: TaskState['status']): vscode.ThemeColor | undefined {
-    switch (status) {
-      case 'working': return new vscode.ThemeColor('statusBarItem.warningBackground');
-      case 'done': return new vscode.ThemeColor('statusBarItem.prominentBackground');
-      case 'error': return new vscode.ThemeColor('statusBarItem.errorBackground');
-      default: return undefined;
+
+  function getDeployColor(state: string): vscode.ThemeColor | undefined {
+    switch (state) {
+      case 'building':
+      case 'uploading':
+      case 'processing':
+        return new vscode.ThemeColor('statusBarItem.warningBackground');
+      case 'error':
+        return new vscode.ThemeColor('statusBarItem.errorBackground');
+      default:
+        return undefined;
     }
   }
-  
-  async function updateTaskStatusBar() {
-    if (!statusBarTask) {
-      statusBarTask = vscode.window.createStatusBarItem(
-        vscode.StatusBarAlignment.Left,
-        99, // Just below goal
-      );
-      statusBarTask.command = "aestheticComputer.showTaskDetails";
-      context.subscriptions.push(statusBarTask);
-    }
+
+  async function fetchLatestDeploy(): Promise<NetlifyDeploy | null> {
+    const token = process.env.NETLIFY_AUTH_TOKEN;
+    const siteId = process.env.NETLIFY_SITE_ID;
+    if (!token || !siteId) return null;
 
     try {
-      const taskStateUri = vscode.Uri.file(TASK_STATE_FILE);
-      const content = await vscode.workspace.fs.readFile(taskStateUri);
-      const state: TaskState = JSON.parse(content.toString());
-      
-      const icon = getTaskStatusIcon(state.status);
-      const label = state.label || state.status;
-      statusBarTask.text = `${icon} ${label}`;
-      statusBarTask.backgroundColor = getTaskStatusColor(state.status);
-      statusBarTask.tooltip = `Task: ${label}\nStatus: ${state.status}\nClick for details`;
-      statusBarTask.show();
-      
-      // Flash on completion (like emacs ac-notify-done)
-      if (state.status === 'done' && state.timestamp && Date.now() - state.timestamp < 5000) {
-        flashTaskComplete();
-      }
+      const https = await import("https");
+      return new Promise((resolve) => {
+        const req = https.request({
+          hostname: 'api.netlify.com',
+          path: `/api/v1/sites/${siteId}/deploys?per_page=1`,
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${token}`, 'User-Agent': 'aesthetic-computer-vscode' },
+          timeout: 5000,
+        }, (res: any) => {
+          let data = '';
+          res.on('data', (chunk: string) => data += chunk);
+          res.on('end', () => {
+            try {
+              const deploys = JSON.parse(data);
+              resolve(Array.isArray(deploys) && deploys.length > 0 ? deploys[0] : null);
+            } catch { resolve(null); }
+          });
+        });
+        req.on('error', () => resolve(null));
+        req.on('timeout', () => { req.destroy(); resolve(null); });
+        req.end();
+      });
     } catch {
-      // No task state file or invalid - hide the status bar
-      statusBarTask.hide();
+      return null;
     }
   }
-  
-  let flashInterval: NodeJS.Timeout | undefined;
-  function flashTaskComplete() {
-    if (flashInterval) return; // Already flashing
-    
-    let flashes = 0;
-    const originalBg = statusBarTask.backgroundColor;
-    flashInterval = setInterval(() => {
-      flashes++;
-      statusBarTask.backgroundColor = flashes % 2 === 0 
-        ? new vscode.ThemeColor('statusBarItem.prominentBackground')
-        : undefined;
-      
-      if (flashes >= 6) {
-        clearInterval(flashInterval);
-        flashInterval = undefined;
-        statusBarTask.backgroundColor = originalBg;
-      }
-    }, 300);
+
+  async function updateDeployStatusBar() {
+    if (!statusBarDeploy) {
+      statusBarDeploy = vscode.window.createStatusBarItem(
+        vscode.StatusBarAlignment.Left,
+        99,
+      );
+      statusBarDeploy.command = "aestheticComputer.showDeployDetails";
+      context.subscriptions.push(statusBarDeploy);
+    }
+
+    const deploy = await fetchLatestDeploy();
+    if (!deploy) {
+      statusBarDeploy.text = '$(cloud) Netlify';
+      statusBarDeploy.tooltip = 'Could not fetch deploy status.\nCheck NETLIFY_AUTH_TOKEN and NETLIFY_SITE_ID.';
+      statusBarDeploy.backgroundColor = undefined;
+      statusBarDeploy.show();
+      return;
+    }
+
+    const icon = getDeployIcon(deploy.state);
+    const branch = deploy.branch || 'main';
+    const shortRef = deploy.commit_ref?.substring(0, 7) || '';
+    const stateLabel = deploy.state === 'ready' ? 'live' : deploy.state;
+
+    statusBarDeploy.text = `${icon} ${stateLabel}`;
+    statusBarDeploy.backgroundColor = getDeployColor(deploy.state);
+
+    const time = deploy.published_at ? new Date(deploy.published_at).toLocaleTimeString() : '';
+    const duration = deploy.deploy_time ? `${deploy.deploy_time}s` : '';
+    let tip = `Netlify: ${deploy.state}\nBranch: ${branch}`;
+    if (shortRef) tip += `\nCommit: ${shortRef}`;
+    if (time) tip += `\nPublished: ${time}`;
+    if (duration) tip += `\nBuild time: ${duration}`;
+    if (deploy.title) tip += `\n${deploy.title}`;
+    if (deploy.error_message) tip += `\nError: ${deploy.error_message}`;
+    statusBarDeploy.tooltip = tip;
+    statusBarDeploy.show();
+
+    // Poll faster when a build is in progress
+    adjustDeployPollRate(deploy.state);
   }
-  
-  // Watch the task state file for changes
-  function setupTaskFileWatcher() {
-    if (taskFileWatcher) taskFileWatcher.dispose();
-    
-    // Watch /tmp for the task state file
-    taskFileWatcher = vscode.workspace.createFileSystemWatcher(
-      new vscode.RelativePattern(vscode.Uri.file('/tmp'), 'aesthetic-task-state.json')
-    );
-    
-    taskFileWatcher.onDidChange(() => updateTaskStatusBar());
-    taskFileWatcher.onDidCreate(() => updateTaskStatusBar());
-    taskFileWatcher.onDidDelete(() => updateTaskStatusBar());
-    
-    context.subscriptions.push(taskFileWatcher);
+
+  let currentPollRate = 30000; // default: 30s
+  function adjustDeployPollRate(state: string) {
+    const isActive = ['building', 'uploading', 'processing', 'enqueued'].includes(state);
+    const newRate = isActive ? 5000 : 30000; // 5s when building, 30s when idle
+    if (newRate !== currentPollRate) {
+      currentPollRate = newRate;
+      startDeployPolling();
+    }
   }
-  
-  // Initialize task status bar
-  setupTaskFileWatcher();
-  updateTaskStatusBar();
-  
-  // Command to show task details
+
+  function startDeployPolling() {
+    if (deployPollInterval) clearInterval(deployPollInterval);
+    deployPollInterval = setInterval(() => updateDeployStatusBar(), currentPollRate);
+  }
+
+  // Initialize deploy status bar
+  updateDeployStatusBar();
+  startDeployPolling();
+
+  // Command to show deploy details / open Netlify dashboard
   context.subscriptions.push(
-    vscode.commands.registerCommand("aestheticComputer.showTaskDetails", async () => {
-      try {
-        const content = await vscode.workspace.fs.readFile(vscode.Uri.file(TASK_STATE_FILE));
-        const state: TaskState = JSON.parse(content.toString());
-        vscode.window.showInformationMessage(
-          `Task: ${state.label || 'None'}\nStatus: ${state.status}\nProgress: ${state.progress || 0}%`,
-          { modal: false }
-        );
-      } catch {
-        vscode.window.showInformationMessage('No active task');
+    vscode.commands.registerCommand("aestheticComputer.showDeployDetails", async () => {
+      const siteId = process.env.NETLIFY_SITE_ID;
+      const deploy = await fetchLatestDeploy();
+      const actions = ['Open Netlify Dashboard', 'Refresh'];
+      if (deploy) {
+        const msg = `Deploy: ${deploy.state} | Branch: ${deploy.branch} | ${deploy.title || deploy.commit_ref?.substring(0, 7) || ''}`;
+        const choice = await vscode.window.showInformationMessage(msg, ...actions);
+        if (choice === 'Open Netlify Dashboard') {
+          vscode.env.openExternal(vscode.Uri.parse(`https://app.netlify.com/sites/aesthetic-computer/deploys`));
+        } else if (choice === 'Refresh') {
+          updateDeployStatusBar();
+        }
+      } else {
+        vscode.window.showWarningMessage('Could not fetch Netlify deploy status. Check env vars.');
       }
     })
   );
