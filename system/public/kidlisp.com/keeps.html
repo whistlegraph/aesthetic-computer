@@ -2068,7 +2068,7 @@
       border-radius: 12px;
       max-width: 520px;
       width: 100%;
-      height: min(92vh, 760px);
+      height: min(95vh, 860px);
       overflow: hidden;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
       animation: modalScaleIn 0.25s ease-out;
@@ -2108,6 +2108,22 @@
       color: var(--text-secondary);
     }
     .mint-piece-info strong { color: var(--text-primary); }
+
+    .mint-preview-frame {
+      margin-bottom: 12px;
+      border-radius: 8px;
+      overflow: hidden;
+      background: black;
+      aspect-ratio: 4 / 3;
+      position: relative;
+    }
+    .mint-preview-frame iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+    }
+    .mint-preview-frame:empty { display: none; }
 
     .mint-timeline {
       display: flex;
@@ -2744,6 +2760,7 @@
       </div>
       <div class="mint-body">
         <div class="mint-piece-info" id="mint-piece-info"></div>
+        <div class="mint-preview-frame" id="mint-preview-frame"></div>
         <div class="mint-timeline" id="mint-timeline"></div>
         <div id="mint-result-area"></div>
         <div class="mint-actions" id="mint-actions-start" style="display:none;">
@@ -4572,6 +4589,11 @@
               ? 'This regenerates HTML + thumbnail artifacts before keeping on Tezos.'
               : 'Keep on Tezos (2.5 XTZ fee).')
         }</span>`;
+      // Live preview iframe
+      const previewFrame = document.getElementById('mint-preview-frame');
+      const pieceUrl = `${AC_BASE}/$${encodeURIComponent(entry.code)}?nolabel=true&nogap=true`;
+      previewFrame.innerHTML = `<iframe src="${pieceUrl}" sandbox="allow-scripts allow-same-origin" loading="lazy"></iframe>`;
+
       document.getElementById('mint-result-area').innerHTML = '';
       document.getElementById('mint-actions').style.display = 'none';
       document.getElementById('mint-confirm-btn').disabled = true;
@@ -4606,6 +4628,9 @@
         mintAbortController.abort();
         mintAbortController = null;
       }
+      // Clean up iframe to stop the piece
+      const previewFrame = document.getElementById('mint-preview-frame');
+      if (previewFrame) previewFrame.innerHTML = '';
       const ovenPreview = document.getElementById('oven-live-preview');
       if (ovenPreview) ovenPreview.remove();
     }
