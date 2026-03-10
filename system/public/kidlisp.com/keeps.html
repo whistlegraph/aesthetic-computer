@@ -3005,7 +3005,12 @@
     async function handleWalletBtn() {
       if (mintWalletAddress) {
         // Disconnect
-        if (beaconClient) await beaconClient.clearActiveAccount();
+        if (beaconClient) {
+          await beaconClient.clearActiveAccount();
+          await beaconClient.destroy().catch(() => {});
+          beaconClient = null;
+          beaconInitPromise = null;
+        }
         mintWalletAddress = null;
         updateWalletBtn();
       } else {
@@ -4532,7 +4537,7 @@
       if (window.beacon) return;
       await new Promise((resolve, reject) => {
         const script = document.createElement('script');
-        script.src = 'https://unpkg.com/@airgap/beacon-sdk@4.0.12/dist/walletbeacon.min.js';
+        script.src = 'https://unpkg.com/@airgap/beacon-sdk@4.8.1/dist/walletbeacon.min.js';
         script.onload = resolve;
         script.onerror = reject;
         document.head.appendChild(script);
@@ -4545,8 +4550,10 @@
       beaconInitPromise = (async () => {
         await loadBeaconSDK();
         beaconClient = new window.beacon.DAppClient({
-          name: 'KidLisp',
+          name: 'KidLisp Keeps',
+          iconUrl: 'https://aesthetic.computer/favicon.ico',
           preferredNetwork: getTezosNetwork(),
+          featuredWallets: ['kukai', 'temple', 'umami', 'altme'],
         });
         // Check existing connection
         const activeAccount = await beaconClient.getActiveAccount();
