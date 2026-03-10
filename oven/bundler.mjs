@@ -923,15 +923,17 @@ export async function createM4DBundle(pieceName, isJSPiece, onProgress = () => {
 
 // ─── Self-extracting HTML wrapper ───────────────────────────────────
 
-function renderNoScriptBoxArt(title, boxArtPNG, inlineStyle = "") {
+function renderBoxArt(title, boxArtPNG, inlineStyle = "") {
   if (!boxArtPNG) return "";
   const styleAttr = inlineStyle ? ` style="${inlineStyle}"` : "";
-  return `<noscript><img id="ac-box-art" src="data:image/png;base64,${boxArtPNG}" alt="${title}"${styleAttr}></noscript>`;
+  // Render the image in normal DOM (visible to macOS Finder preview / og parsers),
+  // then immediately hide it with a synchronous inline script — no flash.
+  return `<img id="ac-box-art" src="data:image/png;base64,${boxArtPNG}" alt="${title}"${styleAttr}><script>document.getElementById('ac-box-art').style.display='none'<\/script>`;
 }
 
 function generateSelfExtractingHTML(title, gzipBase64, bgColor = null, boxArtPNG = null) {
   const bgRule = `background:${bgColor || "black"};`;
-  const boxArtTag = renderNoScriptBoxArt(
+  const boxArtTag = renderBoxArt(
     title,
     boxArtPNG,
     "position:fixed;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;"
@@ -967,7 +969,7 @@ function generateSelfExtractingHTML(title, gzipBase64, bgColor = null, boxArtPNG
 function generateSelfExtractingBrotliHTML(title, brotliBase64, bgColor = null, boxArtPNG = null) {
   if (!brotliWasmGzBase64) throw new Error("Brotli WASM decoder not loaded");
   const bgRule = `background:${bgColor || "black"};`;
-  const boxArtTag = renderNoScriptBoxArt(
+  const boxArtTag = renderBoxArt(
     title,
     boxArtPNG,
     "position:fixed;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;"
@@ -1138,7 +1140,7 @@ function generateHTMLBundle(opts) {
   } = opts;
 
   const bgRule = `background: ${bgColor || "black"}; `;
-  const boxArtImg = renderNoScriptBoxArt(PIECE_NAME, boxArtPNG);
+  const boxArtImg = renderBoxArt(PIECE_NAME, boxArtPNG);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -1357,7 +1359,7 @@ function generateHTMLBundle(opts) {
 function generateJSPieceHTMLBundle(opts) {
   const { pieceName, files, packDate, packTime, gitVersion, bdfGlyphs, boxArtPNG, keeplabel } = opts;
 
-  const boxArtImg = renderNoScriptBoxArt(pieceName, boxArtPNG);
+  const boxArtImg = renderBoxArt(pieceName, boxArtPNG);
 
   return `<!DOCTYPE html>
 <html lang="en">
