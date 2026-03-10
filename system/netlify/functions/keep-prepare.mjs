@@ -16,6 +16,7 @@ import {
   upsertJob,
   formatJobForClient,
   getJob,
+  markJobFailed,
 } from "../../backend/keep-job.mjs";
 
 const dev = process.env.CONTEXT === "dev";
@@ -186,14 +187,25 @@ export const handler = async (event) => {
     creatorWalletAddress, userHandle, walletAddress,
   };
 
-  // Fire-and-forget: background function returns 202 immediately
-  fetch(`${siteUrl}/.netlify/functions/keep-prepare-background`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(bgPayload),
-  }).catch(err => {
+  // Invoke background function — must await so the request is fully sent
+  // before this handler returns (Netlify freezes the process after return).
+  let bgLaunchOk = false;
+  try {
+    const bgRes = await fetch(`${siteUrl}/.netlify/functions/keep-prepare-background`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(bgPayload),
+    });
+    // Netlify background functions return 202; anything else is a problem
+    bgLaunchOk = bgRes.status === 202 || bgRes.ok;
+    if (!bgLaunchOk) {
+      console.error(`🪙 KEEP: Background function returned ${bgRes.status}`);
+      await markJobFailed(job._id.toString(), `Background pipeline failed to launch (HTTP ${bgRes.status})`, "validate");
+    }
+  } catch (err) {
     console.error(`🪙 KEEP: Failed to invoke background function:`, err.message);
-  });
+    await markJobFailed(job._id.toString(), `Background pipeline unreachable: ${err.message}`, "validate");
+  }
 
   // ── Return immediately ─────────────────────────────────────────────
   return jsonResponse(200, formatJobForClient(job));
