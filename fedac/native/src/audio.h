@@ -120,6 +120,11 @@ typedef struct {
     unsigned int sample_rate;   // capture sample rate (for speed calc)
     volatile int recording;     // 1 = actively recording
     int sample_write_pos;       // write cursor during recording
+    volatile int mic_connected; // 1 = capture device currently open
+    volatile float mic_level;   // smoothed peak level (0.0-1.0) while recording
+    volatile int mic_last_chunk;// last captured frame count
+    char mic_device[64];        // active ALSA capture device string
+    char mic_last_error[128];   // last capture error message
     pthread_t capture_thread;
     SampleVoice sample_voices[AUDIO_MAX_SAMPLE_VOICES];
     uint64_t sample_next_id;
