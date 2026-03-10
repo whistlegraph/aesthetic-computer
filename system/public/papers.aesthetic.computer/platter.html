@@ -228,6 +228,37 @@
             .pals-logo-corner { width: 48px; height: 48px; bottom: 1em; right: 1em; }
         }
 
+        .item-links {
+            display: flex;
+            gap: 0.6em;
+            font-size: 0.8em;
+            margin-left: auto;
+            flex-shrink: 0;
+        }
+        .item-links a {
+            color: var(--dim);
+            text-decoration: none;
+            padding: 0.15em 0.4em;
+            border: 1px solid var(--box-border);
+            border-radius: 3px;
+            transition: color 0.1s, border-color 0.1s;
+        }
+        .item-links a:hover { color: var(--cyan); border-color: var(--cyan); }
+
+        .item-dual {
+            display: flex;
+            align-items: center;
+            padding: 0.35em 0.8em;
+            text-decoration: none;
+            color: var(--text);
+            border-radius: 4px;
+            transition: background 0.1s;
+            gap: 0.5em;
+        }
+        .item-dual:hover { background: var(--box-bg); }
+        .item-dual .file { color: var(--dim); font-size: 0.85em; flex-shrink: 0; }
+        .item-dual .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
         .no-results {
             color: var(--dim);
             padding: 2em;
@@ -344,46 +375,46 @@
         <div class="section-items hidden">
             <div class="item-group">
                 <div class="item-group-label">Key Interactive Pieces</div>
-                <a class="item" href="https://aesthetic.computer/notepat"><span class="file">notepat</span> Musical keyboard toy — the system front door</a>
-                <a class="item" href="https://aesthetic.computer/prompt"><span class="file">prompt</span> Command prompt — system shell / piece launcher</a>
-                <a class="item" href="https://aesthetic.computer/painting"><span class="file">painting</span> Painting tool — full canvas with brushes and layers</a>
-                <a class="item" href="https://aesthetic.computer/chat"><span class="file">chat</span> Real-time multiplayer chat</a>
-                <a class="item" href="https://aesthetic.computer/list"><span class="file">list</span> User piece browser and feed</a>
-                <a class="item" href="https://aesthetic.computer/about"><span class="file">about</span> About page</a>
-                <a class="item" href="https://aesthetic.computer/share"><span class="file">share</span> QR code sharing</a>
-                <a class="item" href="https://aesthetic.computer/publish"><span class="file">publish</span> Piece publishing flow</a>
-                <a class="item" href="https://aesthetic.computer/source"><span class="file">source</span> Template download / fork</a>
-                <a class="item" href="https://aesthetic.computer/login"><span class="file">login</span> Auth0 login flow</a>
+                <div class="item-dual"><span class="file">notepat</span> <span class="label">Musical keyboard toy — the system front door</span> <span class="item-links"><a href="https://aesthetic.computer/notepat">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/notepat.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">prompt</span> <span class="label">Command prompt — system shell / piece launcher</span> <span class="item-links"><a href="https://aesthetic.computer/prompt">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/prompt.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">painting</span> <span class="label">Painting tool — full canvas with brushes and layers</span> <span class="item-links"><a href="https://aesthetic.computer/painting">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/painting.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">chat</span> <span class="label">Real-time multiplayer chat</span> <span class="item-links"><a href="https://aesthetic.computer/chat">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/chat.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">list</span> <span class="label">User piece browser and feed</span> <span class="item-links"><a href="https://aesthetic.computer/list">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/list.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">about</span> <span class="label">About page</span> <span class="item-links"><a href="https://aesthetic.computer/about">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/about.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">share</span> <span class="label">QR code sharing</span> <span class="item-links"><a href="https://aesthetic.computer/share">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/share.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">publish</span> <span class="label">Piece publishing flow</span> <span class="item-links"><a href="https://aesthetic.computer/publish">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/publish.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">source</span> <span class="label">Template download / fork</span> <span class="item-links"><a href="https://aesthetic.computer/source">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/source.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">login</span> <span class="label">Auth0 login flow</span> <span class="item-links"><a href="https://aesthetic.computer/login">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/login.mjs">src</a></span></div>
             </div>
             <div class="item-group">
                 <div class="item-group-label">Creative Tools</div>
-                <a class="item" href="https://aesthetic.computer/bleep"><span class="file">bleep</span> Sound synthesizer</a>
-                <a class="item" href="https://aesthetic.computer/stample"><span class="file">stample</span> Audio sampling pad</a>
-                <a class="item" href="https://aesthetic.computer/beat"><span class="file">beat</span> Beat sequencer</a>
-                <a class="item" href="https://aesthetic.computer/tape"><span class="file">tape</span> Audio/video recorder</a>
-                <a class="item" href="https://aesthetic.computer/melody"><span class="file">melody</span> Melody composer</a>
-                <a class="item" href="https://aesthetic.computer/freehand"><span class="file">freehand</span> Freehand drawing tool</a>
-                <a class="item" href="https://aesthetic.computer/line"><span class="file">line</span> Line drawing</a>
-                <a class="item" href="https://aesthetic.computer/circle"><span class="file">circle</span> Circle drawing</a>
-                <a class="item" href="https://aesthetic.computer/box"><span class="file">box</span> Rectangle drawing</a>
-                <a class="item" href="https://aesthetic.computer/spray"><span class="file">spray</span> Spray paint</a>
+                <div class="item-dual"><span class="file">bleep</span> <span class="label">Sound synthesizer</span> <span class="item-links"><a href="https://aesthetic.computer/bleep">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/bleep.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">stample</span> <span class="label">Audio sampling pad</span> <span class="item-links"><a href="https://aesthetic.computer/stample">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/stample.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">beat</span> <span class="label">Beat sequencer</span> <span class="item-links"><a href="https://aesthetic.computer/beat">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/beat.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">tape</span> <span class="label">Audio/video recorder</span> <span class="item-links"><a href="https://aesthetic.computer/tape">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/tape.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">melody</span> <span class="label">Melody composer</span> <span class="item-links"><a href="https://aesthetic.computer/melody">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/melody.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">freehand</span> <span class="label">Freehand drawing tool</span> <span class="item-links"><a href="https://aesthetic.computer/freehand">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/freehand.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">line</span> <span class="label">Line drawing</span> <span class="item-links"><a href="https://aesthetic.computer/line">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/line.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">circle</span> <span class="label">Circle drawing</span> <span class="item-links"><a href="https://aesthetic.computer/circle">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/circle.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">box</span> <span class="label">Rectangle drawing</span> <span class="item-links"><a href="https://aesthetic.computer/box">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/box.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">spray</span> <span class="label">Spray paint</span> <span class="item-links"><a href="https://aesthetic.computer/spray">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/spray.mjs">src</a></span></div>
             </div>
             <div class="item-group">
                 <div class="item-group-label">Games & Toys</div>
-                <a class="item" href="https://aesthetic.computer/wand"><span class="file">wand</span> Magic wand toy</a>
-                <a class="item" href="https://aesthetic.computer/balls"><span class="file">balls</span> Bouncing balls</a>
-                <a class="item" href="https://aesthetic.computer/wg"><span class="file">wg</span> Whistlegraph</a>
-                <a class="item" href="https://aesthetic.computer/spider"><span class="file">spider</span> Spider game</a>
-                <a class="item" href="https://aesthetic.computer/1v1"><span class="file">1v1</span> Multiplayer duel</a>
-                <a class="item" href="https://aesthetic.computer/smear"><span class="file">smear</span> Paint smearing</a>
+                <div class="item-dual"><span class="file">wand</span> <span class="label">Magic wand toy</span> <span class="item-links"><a href="https://aesthetic.computer/wand">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/wand.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">balls</span> <span class="label">Bouncing balls</span> <span class="item-links"><a href="https://aesthetic.computer/balls">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/balls.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">wg</span> <span class="label">Whistlegraph</span> <span class="item-links"><a href="https://aesthetic.computer/wg">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/wg.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">spider</span> <span class="label">Spider game</span> <span class="item-links"><a href="https://aesthetic.computer/spider">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/spider.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">1v1</span> <span class="label">Multiplayer duel</span> <span class="item-links"><a href="https://aesthetic.computer/1v1">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/1v1.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">smear</span> <span class="label">Paint smearing</span> <span class="item-links"><a href="https://aesthetic.computer/smear">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/smear.mjs">src</a></span></div>
             </div>
             <div class="item-group">
                 <div class="item-group-label">KidLisp Pieces (18 .lisp files)</div>
-                <a class="item" href="https://aesthetic.computer/code"><span class="file">code.lisp</span> KidLisp editor & runner</a>
-                <a class="item" href="https://aesthetic.computer/brush"><span class="file">brush.lisp</span> Generative brush</a>
-                <a class="item" href="https://aesthetic.computer/lab"><span class="file">lab.lisp</span> KidLisp lab/playground</a>
-                <a class="item" href="https://aesthetic.computer/spinning-cube"><span class="file">spinning-cube.lisp</span> 3D spinning cube</a>
-                <a class="item" href="https://aesthetic.computer/handles"><span class="file">handles.lisp</span> Handle display</a>
+                <div class="item-dual"><span class="file">code.lisp</span> <span class="label">KidLisp editor & runner</span> <span class="item-links"><a href="https://aesthetic.computer/code">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/code.lisp">src</a></span></div>
+                <div class="item-dual"><span class="file">brush.lisp</span> <span class="label">Generative brush</span> <span class="item-links"><a href="https://aesthetic.computer/brush">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/brush.lisp">src</a></span></div>
+                <div class="item-dual"><span class="file">lab.lisp</span> <span class="label">KidLisp lab/playground</span> <span class="item-links"><a href="https://aesthetic.computer/lab">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/lab.lisp">src</a></span></div>
+                <div class="item-dual"><span class="file">spinning-cube.lisp</span> <span class="label">3D spinning cube</span> <span class="item-links"><a href="https://aesthetic.computer/spinning-cube">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/spinning-cube.lisp">src</a></span></div>
+                <div class="item-dual"><span class="file">handles.lisp</span> <span class="label">Handle display</span> <span class="item-links"><a href="https://aesthetic.computer/handles">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/handles.lisp">src</a></span></div>
                 <span class="item"><span class="file">+ 13 more</span> addition, subtraction, tests, timing, profiles...</span>
             </div>
             <div class="item-group">
@@ -442,45 +473,45 @@
         <div class="section-items">
             <div class="item-group">
                 <div class="item-group-label">Art Theory & Aesthetics</div>
-                <a class="item" href="https://github.com/digitpain/aesthetic.computer/blob/main/system/public/assets/papers/readings/BIBLIOGRAPHY.md"><span class="file">BIBLIOGRAPHY.md</span> Full bibliography check-in with tier rankings</a>
-                <span class="item">Susanne K. Langer — <em>Problems of Art</em> (1957) · OCR OK</span>
-                <span class="item">Rudolf Arnheim — <em>Art and Visual Perception</em> (1974) · TEXT OK</span>
-                <span class="item">Paul Klee — <em>Pedagogical Sketchbook</em> (1925) · OCR OK</span>
-                <span class="item">Wassily Kandinsky — <em>Point and Line to Plane</em> (1926) · TEXT OK</span>
-                <span class="item">Mierle Laderman Ukeles — <em>Manifesto for Maintenance Art</em> (1969) · OCR OK</span>
-                <span class="item">Ruth McEnery Stuart — <em>Gobolinks</em> (1896) · OCR ROUGH</span>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/assets/papers/readings/BIBLIOGRAPHY.md"><span class="file">BIBLIOGRAPHY.md</span> Full bibliography check-in with tier rankings</a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Langer_Susanne_K_Problems_of_Art_Ten_Philosophical_Lectures.txt">Susanne K. Langer — <em>Problems of Art</em> (1957) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Arnheim_Rudolf_Art_and_Visual_Perception_1974.txt">Rudolf Arnheim — <em>Art and Visual Perception</em> (1974) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Klee_Paul_Pedagogical_Sketchbook_1953.txt">Paul Klee — <em>Pedagogical Sketchbook</em> (1925) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Point%20and%20line%20to%20plane%20-%20Wassily%20Kandinsky.txt">Wassily Kandinsky — <em>Point and Line to Plane</em> (1926) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Ukeles-Manifesto-for-Maintenance-Art-1969.txt">Mierle Laderman Ukeles — <em>Manifesto for Maintenance Art</em> (1969) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Gobolinks.txt">Ruth McEnery Stuart — <em>Gobolinks</em> (1896) <span class="file">txt · rough</span></a>
             </div>
             <div class="item-group">
                 <div class="item-group-label">Media & Critical Theory</div>
-                <span class="item">Marshall McLuhan — "The Medium is the Message" (1964) · TEXT OK</span>
-                <span class="item">Friedrich Kittler — "There is No Software" (1995) · TEXT OK</span>
-                <span class="item">Mark Fisher — <em>Capitalist Realism</em> (2009) · TEXT OK</span>
-                <span class="item">Viktor Shklovsky — "Art as Device" (1917) · TEXT OK</span>
-                <span class="item">Theodor Adorno — "Punctuation Marks" (1958) · TEXT OK</span>
-                <span class="item">Graham Harman — "Revenge of the Surface" (~2011) · TEXT OK</span>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/mcluhan.mediummessage.txt">Marshall McLuhan — "The Medium is the Message" (1964) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Kittler-nosoftware.txt">Friedrich Kittler — "There is No Software" (1995) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Capitalist%20Realism_%20Is%20There%20No%20Alternat%20-%20Mark%20Fisher.txt">Mark Fisher — <em>Capitalist Realism</em> (2009) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/shklovsky.txt">Viktor Shklovsky — "Art as Device" (1917) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Adorno-Theodor-W-Punctuation-Marks.txt">Theodor Adorno — "Punctuation Marks" (1958) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/harman-1.txt">Graham Harman — "Revenge of the Surface" (~2011) <span class="file">txt</span></a>
             </div>
             <div class="item-group">
                 <div class="item-group-label">Making & Materiality</div>
-                <span class="item">Tim Ingold — "The Textility of Making" (2009) · TEXT OK</span>
-                <span class="item">Tim Ingold — <em>Lines: A Brief History</em> (2007) · OCR OK</span>
-                <span class="item">David Joselit — "Marking, Scoring, Storing, and Speculating" (2016) · OCR OK</span>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Ingold-2009-Textility-of-making.txt">Tim Ingold — "The Textility of Making" (2009) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/lines-a-brief-history.txt">Tim Ingold — <em>Lines: A Brief History</em> (2007) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Marking_Scoring_Storing_and_Speculating.txt">David Joselit — "Marking, Scoring, Storing, and Speculating" (2016) <span class="file">txt</span></a>
             </div>
             <div class="item-group">
                 <div class="item-group-label">Computing & Language</div>
-                <span class="item">Ron Eglash — <em>African Fractals</em> (1999) · TEXT OK</span>
-                <span class="item">Friedman & Felleisen — <em>The Little Schemer</em> (1996) · TEXT OK</span>
-                <span class="item">Dr. Robert van Engelen — "Lisp in 99 lines of C" (2022) · TEXT OK</span>
-                <span class="item">Felix Roos & Alex McLean — "Strudel: live coding on the Web" (ICLC 2023) · TEXT OK</span>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Eglash_Ron_African_Fractals_Modern_Computing_and_Indigenous_Design.txt">Ron Eglash — <em>African Fractals</em> (1999) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/The%20Little%20Schemer.txt">Friedman & Felleisen — <em>The Little Schemer</em> (1996) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/tinylisp-van-engelen.txt">Dr. Robert van Engelen — "Lisp in 99 lines of C" (2022) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/strudel-iclc2023.txt">Felix Roos & Alex McLean — "Strudel: live coding on the Web" (ICLC 2023) <span class="file">txt</span></a>
             </div>
             <div class="item-group">
                 <div class="item-group-label">On Jeffrey's Work</div>
-                <span class="item">Merle Nunneley — article on Whistlegraphs (UCL London) · TEXT OK</span>
-                <span class="item">Asker Bryld Staun&aelig;s — "Stiegler's Concept of Idiotext" (2021) · TEXT OK</span>
-                <span class="item">Thomas Lawson — "Last Exit: Painting" (Artforum, 1981) · TEXT OK</span>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/merle-nunneley-whistlegraphs.txt">Merle Nunneley — article on Whistlegraphs (UCL London) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/stiegler-idiotext.txt">Asker Bryld Staun&aelig;s — "Stiegler's Concept of Idiotext" (2021) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/lawson-last-exit-painting.txt">Thomas Lawson — "Last Exit: Painting" (Artforum, 1981) <span class="file">txt</span></a>
             </div>
             <div class="item-group">
                 <div class="item-group-label">Games & Play</div>
-                <span class="item">Ben Robbins — <em>Microscope RPG</em> (2011) · TEXT OK</span>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Microscope%20RPG.txt">Ben Robbins — <em>Microscope RPG</em> (2011) <span class="file">txt</span></a>
             </div>
         </div>
     </div>
@@ -525,24 +556,24 @@
         <div class="section-items hidden" id="reference-list">
             <div class="item-group">
                 <div class="item-group-label">Strudel / Live Coding</div>
-                <a class="item" href="https://github.com/digitpain/aesthetic.computer/tree/main/reference/strudel">reference/strudel/ — full Strudel source + ICLC paper</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/tree/main/reference/strudel">reference/strudel/ — full Strudel source + ICLC paper</a>
             </div>
             <div class="item-group">
                 <div class="item-group-label">API & Language Reference</div>
-                <a class="item" href="https://github.com/digitpain/aesthetic.computer/blob/main/reference/api/javascript-api.md">reference/api/javascript-api.md — AC JavaScript API reference</a>
-                <a class="item" href="https://github.com/digitpain/aesthetic.computer/blob/main/reference/kidlisp/language-reference.md">reference/kidlisp/language-reference.md — KidLisp language reference</a>
-                <a class="item" href="https://github.com/digitpain/aesthetic.computer/blob/main/reference/pieces/structure.md">reference/pieces/structure.md — Piece structure reference</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/reference/api/javascript-api.md">reference/api/javascript-api.md — AC JavaScript API reference</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/reference/kidlisp/language-reference.md">reference/kidlisp/language-reference.md — KidLisp language reference</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/reference/pieces/structure.md">reference/pieces/structure.md — Piece structure reference</a>
             </div>
             <div class="item-group">
                 <div class="item-group-label">KidLisp Reports</div>
-                <a class="item" href="https://github.com/digitpain/aesthetic.computer/blob/main/kidlisp/reports/analysis-report.md">KidLisp Architecture Analysis vs TinyLisp</a>
-                <a class="item" href="https://github.com/digitpain/aesthetic.computer/blob/main/kidlisp/reports/comparison-metrics.md">TinyLisp vs KidLisp: Architecture Comparison</a>
-                <a class="item" href="https://github.com/digitpain/aesthetic.computer/blob/main/kidlisp/reports/raku-syntax-inspirations.md">Raku Syntactical Ideas for KidLisp</a>
-                <a class="item" href="https://github.com/digitpain/aesthetic.computer/blob/main/kidlisp/reports/implementation-guide.md">KidLisp Optimization Implementation Guide</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/kidlisp/reports/analysis-report.md">KidLisp Architecture Analysis vs TinyLisp</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/kidlisp/reports/comparison-metrics.md">TinyLisp vs KidLisp: Architecture Comparison</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/kidlisp/reports/raku-syntax-inspirations.md">Raku Syntactical Ideas for KidLisp</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/kidlisp/reports/implementation-guide.md">KidLisp Optimization Implementation Guide</a>
             </div>
             <div class="item-group">
                 <div class="item-group-label">Ableton / Music</div>
-                <a class="item" href="https://github.com/digitpain/aesthetic.computer/tree/main/reference/ableton">reference/ableton/ — Ableton integration guides</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/tree/main/reference/ableton">reference/ableton/ — Ableton integration guides</a>
             </div>
         </div>
     </div>
@@ -605,7 +636,7 @@
             <span class="item">Jeffrey Alan Scudder — Personal Statement: Core Beliefs (UCLA, 2022)</span>
             <span class="item">Jeffrey Alan Scudder — Portfolio (UCLA, 2022)</span>
             <span class="item">Jeffrey Alan Scudder — AC Proposal for Social Software Cycle 2 (UCLA DESMA, 2026)</span>
-            <a class="item" href="https://github.com/digitpain/aesthetic.computer/blob/main/reports/jeffrey-alan-scudder-fact-check.md">Jeffrey Alan Scudder — Fact-Checked Report</a>
+            <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/jeffrey-alan-scudder-fact-check.md">Jeffrey Alan Scudder — Fact-Checked Report</a>
             <a class="item" href="https://orcid.org/0009-0007-4460-4913">ORCID 0009-0007-4460-4913</a>
         </div>
     </div>
@@ -613,7 +644,7 @@
     </div><!-- /sections -->
 
     <div class="footer">
-        <span><a href="/">papers</a> · <a href="https://aesthetic.computer">aesthetic.computer</a> · <a href="https://github.com/digitpain/aesthetic.computer">source</a></span>
+        <span><a href="/">papers</a> · <a href="https://aesthetic.computer">aesthetic.computer</a> · <a href="https://github.com/whistlegraph/aesthetic-computer">source</a></span>
         <button class="theme-toggle" onclick="toggleTheme()">theme</button>
     </div>
 
@@ -788,7 +819,7 @@
             ["seashells-neural-bytebeat-garden-study.md","Seashells x Neural Garden"],
         ];
 
-        const GH = "https://github.com/digitpain/aesthetic.computer/blob/main/";
+        const GH = "https://github.com/whistlegraph/aesthetic-computer/blob/main/";
 
         function renderList(el, items, dir) {
             el.innerHTML = items.map(([file, title]) =>
