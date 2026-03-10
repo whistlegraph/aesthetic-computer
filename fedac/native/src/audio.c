@@ -757,6 +757,7 @@ ACAudio *audio_init(void) {
             if (snd_mixer_selem_has_playback_volume(elem)) fprintf(stderr, " [vol]");
             if (snd_mixer_selem_has_playback_switch(elem)) fprintf(stderr, " [sw]");
             if (snd_mixer_selem_has_capture_switch(elem)) fprintf(stderr, " [cap-sw]");
+            if (snd_mixer_selem_has_capture_volume(elem)) fprintf(stderr, " [cap-vol]");
             fprintf(stderr, "\n");
 
             // Unmute every playback switch we find
@@ -771,6 +772,19 @@ ACAudio *audio_init(void) {
                 snd_mixer_selem_get_playback_volume_range(elem, &min, &max);
                 snd_mixer_selem_set_playback_volume_all(elem, max);
                 fprintf(stderr, "[audio] Volume %s: %ld/%ld\n", name, max, max);
+            }
+
+            // Ensure capture paths are enabled so mic input is not silently muted.
+            if (snd_mixer_selem_has_capture_switch(elem)) {
+                snd_mixer_selem_set_capture_switch_all(elem, 1);
+                fprintf(stderr, "[audio] Capture switch ON: %s\n", name);
+            }
+            if (snd_mixer_selem_has_capture_volume(elem)) {
+                long cmin, cmax;
+                snd_mixer_selem_get_capture_volume_range(elem, &cmin, &cmax);
+                long cset = cmin + ((cmax - cmin) * 9) / 10; // avoid clipping at absolute max
+                snd_mixer_selem_set_capture_volume_all(elem, cset);
+                fprintf(stderr, "[audio] Capture volume %s: %ld/%ld\n", name, cset, cmax);
             }
         }
         snd_mixer_close(mixer);
@@ -977,12 +991,14 @@ static void *capture_thread_func(void *arg) {
     const char *devices[] = {"default", "plughw:0,0", "plughw:1,0",
                              "hw:0,0", "hw:1,0", "hw:0,6", "hw:0,7", NULL};
     for (int i = 0; devices[i]; i++) {
-        if (snd_pcm_open(&cap, devices[i], SND_PCM_STREAM_CAPTURE, 0) == 0) {
+        int open_rc = snd_pcm_open(&cap, devices[i], SND_PCM_STREAM_CAPTURE, 0);
+        if (open_rc == 0) {
             snprintf(audio->mic_device, sizeof(audio->mic_device), "%s", devices[i]);
             audio->mic_last_error[0] = 0;
             ac_log("[mic] opened capture device: %s\n", devices[i]);
             break;
         }
+        ac_log("[mic] open failed %s: %s\n", devices[i], snd_strerror(open_rc));
         cap = NULL;
     }
     if (!cap) {
