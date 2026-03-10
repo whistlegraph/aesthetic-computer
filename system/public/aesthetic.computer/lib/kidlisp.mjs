@@ -3820,7 +3820,7 @@ class KidLisp {
           this.localEnv = this.localEnvStore[this.localEnvLevel];
 
           const mainEvalStart = performance.now();
-          
+
           // Save the ORIGINAL display buffer at the start of each frame
           // This is the buffer we need to restore to after drawing to layer0/bake buffers
           // We create a stable buffer object that won't be mutated by page() calls
@@ -3830,7 +3830,7 @@ class KidLisp {
             height: $.screen.height,
             pixels: displayPixels
           };
-          
+
           // Store for later use in compositing
           this.displayBuffer = screen;
           
@@ -4135,7 +4135,7 @@ class KidLisp {
           // Otherwise: layer0 → embedded layers → bake buffers
           
           const hasBurnedBuffer = this.burnedBuffer && this.burnedBuffer.pixels;
-          
+
           if (hasBurnedBuffer) {
             // 🚀 FAST PATH: Burn was called - single paste of pre-composited buffer
             // Check dimensions match before pasting to avoid bounds errors
@@ -4324,7 +4324,7 @@ class KidLisp {
         // This ensures the NEXT frame starts with $.screen.pixels pointing to the display buffer,
         // not to layer0 or a bake buffer!
         $.page(this.displayBuffer);
-        
+
         // 🚨 CRITICAL FIX: Manually update $.screen to point to the display buffer
         $.screen.width = this.displayBuffer.width;
         $.screen.height = this.displayBuffer.height;
