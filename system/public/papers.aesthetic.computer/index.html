@@ -72,7 +72,7 @@
 
         h1 {
             font-family: 'YWFT Processing', monospace;
-            font-size: 1.8em;
+            font-size: 2.2em;
             font-weight: normal;
             letter-spacing: -0.02em;
             margin-bottom: 0.3em;
@@ -84,11 +84,6 @@
             display: flex;
             align-items: center;
             gap: 0.4em;
-        }
-
-        .pals-logo {
-            width: 24px;
-            height: 24px;
         }
 
         .subtitle {
@@ -106,13 +101,11 @@
         .author a:hover { text-decoration: underline; }
 
         .papers {
-            columns: 2 480px;
-            column-gap: 2em;
+            max-width: 100%;
         }
 
         .paper-group {
             margin-bottom: 2em;
-            break-inside: avoid;
         }
 
         .paper-group h2 {
@@ -191,12 +184,36 @@
             padding: 0.3em 0.6em;
             border-radius: 4px;
         }
+
+        .pals-logo-corner {
+            position: fixed;
+            bottom: 1.5em;
+            right: 1.5em;
+            width: 64px;
+            height: 64px;
+            opacity: 0.5;
+            transition: opacity 0.2s;
+            z-index: 100;
+        }
+
+        .pals-logo-corner:hover {
+            opacity: 1;
+        }
+
+        @media (max-width: 600px) {
+            body { padding: 1.2em; }
+            h1 { font-size: 1.6em; }
+            .pals-logo-corner { width: 48px; height: 48px; bottom: 1em; right: 1em; }
+        }
     </style>
 </head>
 <body>
+    <a href="https://aesthetic.computer" class="pals-logo-corner">
+        <img src="https://aesthetic.computer/purple-pals.svg" alt="AC" style="width:100%;height:100%;">
+    </a>
+
     <div class="header">
         <div class="header-title">
-            <img src="https://aesthetic.computer/purple-pals.svg" alt="AC" class="pals-logo">
             <h1>Aesthetic<span class="dot">.</span>Computer Papers</h1>
         </div>
         <div class="subtitle">Academic papers on the AC platform and KidLisp language.</div>
