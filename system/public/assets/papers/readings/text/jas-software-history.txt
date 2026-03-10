@@ -1,292 +1,369 @@
-Jeffrey Alan Scudder — Software History (Pre-Aesthetic Computer)
+Jeffrey Alan Scudder — Complete Software History
 
-Compiled from: CV, fact-check report, bin-sc.jas.life legacy archive, and Dropbox archive.
+Compiled from: GitHub (whistlegraph, justanothersystem accounts), CV, fact-check
+report, bin-sc.jas.life legacy archive (162.243.163.221), and Dropbox archive.
+
+GitHub accounts: github.com/whistlegraph (50+ repos), github.com/justanothersystem (3 repos)
+
 
 === MAJOR SOFTWARE WORKS ===
 
 1. thePRBAT — Polygon Replicating Bitmap Authoring Tool (2011)
    Type: Desktop application (Flash/SWF-based)
-   Description: Early digital imaging software created during BFA at Ringling College. A bitmap authoring tool using polygon replication as its core interaction model.
+   Description: Early digital imaging software created during BFA at Ringling College.
    Archive: bin-sc.jas.life/Projects/thePRBAT/, Dropbox /thePRBAT/thePRBAT.swf
 
 2. No Paint (2014–2020)
-   Type: Web app (Rails, 2014) → WebGL prototype → iOS app (Cordova/Xcode, 2019–2020) → Vercel site
-   Description: Constraint-based drawing application. Originally a Ruby on Rails web app at nopaint.org (2014), had a WebGL prototype stage, rebuilt as an iOS app (Cordova + Xcode) released in 2019–2020. The constraint: you can only paint, never erase. Full iOS project source preserved in Dropbox.
-   Archive: nopaint-org.jas.life (original Rails app), Dropbox /Whistlegraph/No Paint/ (iOS source, nopaint.art deploy, stamps, playlists)
+   Type: Rails → JS app shim → WebGL prototype → Cordova iOS → Vercel site
+   Description: Constraint-based drawing application — "A picture-making instrument."
+   GitHub evolution:
+     - whistlegraph/nopaint.org (2016-01, JavaScript) — original nopaint.org site
+     - whistlegraph/no_paint_shim (2016-04, Java) — No Paint App Shim
+     - whistlegraph/nopaint (2018-01, HTML) — "A picture-making instrument"
+     - whistlegraph/paint-prototype (2019-07, JavaScript) — unnamed paint prototype
+     - whistlegraph/nopaint-server (2021-07) — "The backend for nopaint.art"
+   Archive: nopaint-org.jas.life (Rails), Dropbox (iOS Xcode project, nopaint.art Vercel deploy)
    Live: nopaint.art
 
 3. JeffreyPaint (2014)
-   Type: macOS desktop application (.dmg) + Unity version
-   Description: A native macOS painting application with multiple builds. Also had a Unity port (JeffreyPaint-Unity).
+   Type: JavaScript web app + Unity port + macOS .dmg builds
+   Description: "My paint program."
+   GitHub: whistlegraph/jeffreypaint (2014-11, JavaScript)
    Archive: bin-sc.jas.life/Projects/JeffreyPaint/, Dropbox Source Code/JeffreyPaint-Unity-master.zip
 
 4. Shrub (2014, revived 2017)
    Type: iOS application → 2017 web prototype
-   Description: iOS app created while working at Linked by Air design studio in NYC (2013–2014). Had a 2017 web prototype version in Software Prototypes experiments.
-   Archive: Dropbox /Archives/Project Archive/Shrub/, /Software Prototypes & Experiments 2017/shrub/
+   Description: iOS app created while working at Linked by Air (2013–2014).
+   Archive: Dropbox /Project Archive/Shrub/, /Software Prototypes 2017/shrub/
 
 5. Finger Quilt (2016)
-   Type: iOS application
+   Type: iOS application (Swift)
    Description: Quilting-inspired touch drawing tool for iOS.
-   Archive: Dropbox /Archives/Project Archive/Finger Quilt/
+   GitHub: whistlegraph/finger-quilt (2016-09, Swift)
 
 6. Traveller (2015)
    Type: Processing application → macOS .app builds
-   Description: A generative/interactive Processing sketch with multiple standalone macOS builds (Traveller.app, Traveller 2.app, Traveller 3.app). Had "full-mode, big-dot" and "half-mode" variants. Also related to traveller.xn--q9jyb4c domain. A significant standalone artwork/tool.
-   Archive: Dropbox /Archives/Project Archive/Traveller/ (source: Traveller.pde, 3 .app builds, PDFs, video recording)
+   Description: Generative/interactive Processing piece with 3 standalone macOS builds.
+   Archive: Dropbox /Project Archive/Traveller/ (Traveller.pde, 3 .app builds, video)
 
-7. Marker (2015)
-   Type: Drawing tool
-   Description: Drawing/marking software, source code preserved as "Marker (2015 edit)".
-   Archive: Dropbox Source Code/Marker (2015 edit)/
+7. Mood Engine (2015)
+   Type: C application
+   Description: "Maskware's MOOD Engine" — a native C program, part of the Maskware identity.
+   GitHub: whistlegraph/mood (2015-05, C)
 
-8. Cricket
-   Type: Creative tool
-   Description: Software project with tutorial video. Source code and video archived.
-   Archive: Dropbox Source Code/Cricket/, video: Cricket Tutorial (720p).mp4
+8. bt — "My first computer game" (2014)
+   Type: JavaScript web game
+   Description: Jeffrey's self-described first computer game.
+   GitHub: whistlegraph/bt (2014-01, JavaScript)
 
-9. ShelbySoft (date unknown, pre-2016)
-   Type: macOS applications
-   Description: A software suite including VoiceRecorder.app and VoiceWriter.app.
-   Archive: bin-sc.jas.life/Projects/ShelbySoft/
+9. Dot (2017)
+   Type: JavaScript web application
+   Description: "A dot plotting application."
+   GitHub: whistlegraph/dot (2017-06, JavaScript)
 
-10. TDA — Teacher Directed Activity (date unknown, pre-2016)
+10. Rect (2019)
+    Type: Rust application
+    Description: "Rectangle game" — Jeffrey's only known Rust project.
+    GitHub: whistlegraph/rect (2019-03, Rust)
+
+11. ShelbySoft (pre-2016)
+    Type: macOS applications
+    Description: Software suite: VoiceRecorder.app + VoiceWriter.app.
+    Archive: bin-sc.jas.life/Projects/ShelbySoft/
+
+12. TDA — Teacher Directed Activity (pre-2016)
     Type: Web application
-    Description: Educational software project, related to teacherdirectedactivity.com domain.
-    Archive: bin-sc.jas.life/Projects/TDA/, also /var/www/teacherdirectedactivity.com/
+    Description: Educational software platform.
+    Archive: bin-sc.jas.life/Projects/TDA/
+
 
 === WEB APPLICATIONS & CREATIVE TOOLS ===
 
-11. drawings.rey.sc (c. 2013–2014)
+13. drawings / drawings.rey.sc (2013–2015)
     Type: Ruby on Rails web application
-    Description: A web-based drawing application with 3,996 files. Drawing and sharing platform.
+    Description: "An archive of my drawings." Web-based drawing app with 3,996 files.
+    GitHub: whistlegraph/drawings (2015-01, Ruby)
     Archive: drawings-rey-sc.jas.life
 
-12. Word Web / ww.rey.sc (2014)
-    Type: Ruby on Rails web application
-    Description: A word/text web — hyperlinked text creation tool.
+14. Word Web / ww.rey.sc (2014)
+    Type: JavaScript web application
+    Description: "Word Web" — hyperlinked text creation tool.
+    GitHub: whistlegraph/word_web (2014-04, JavaScript)
     Archive: ww-rey-sc.jas.life
 
-13. bigwalt59.com (2015)
-    Type: Ruby on Rails web application + Processing sketch
-    Description: A hypertext poem / interactive narrative, created for Global Game Jam 2015 with Lali Foster. Had a Processing/p5 sketch version too.
-    Archive: bigwalt59-com.jas.life, Dropbox Source Code/bigwalt59-sketch-master.zip
+15. bigwalt59.com (2015)
+    Type: Rails + Processing sketch
+    Description: Hypertext poem / interactive narrative — Global Game Jam 2015 w/ Lali Foster.
+    GitHub: whistlegraph/bigwalt59 (2015-01)
+    Archive: bigwalt59-com.jas.life
 
-14. allmyfriendsatonce.com (2013)
+16. Tumpin (2017)
+    Type: JavaScript web artwork
+    Description: "Tumpin for left.gallery by JAS" — solo exhibition, downloadable digital work.
+    GitHub: whistlegraph/tumpin (2017-07, JavaScript)
+
+17. Ten Minute Painting (2017)
+    Type: JavaScript web application
+    Description: "An homage to Tan Lin's 2002 work 'Eleven Minute Painting'" — created during
+    Schloss Solitude/ZKM Web Residency. Acquired by SMK (National Gallery of Denmark).
+    GitHub: whistlegraph/ten-minute-painting (2017-07, JavaScript)
+
+18. Flower Eater (2017–2019)
+    Type: JavaScript web game + workshop tool
+    Description: "One button web game about a girl who eats flowers." Also used as "Radical
+    Pedagogy I" workshop at Processing Community Day LA 2019.
+    GitHub: whistlegraph/flower-eater.com (2017-12, JavaScript)
+    Archive: Dropbox Source Code/flower-eater.wiki.zip
+
+19. BW-Flower (2017)
+    Type: C application
+    Description: Black & white flower program — a native C creative coding piece.
+    GitHub: whistlegraph/BW-Flower (2017-03, C)
+
+20. Exploding Dinner (2014)
+    Type: JavaScript/Rails web application
+    Description: "ttt fork to rails (a text game)" — a text-based game.
+    GitHub: whistlegraph/explodingdinner (2014-04, JavaScript)
+
+21. allmyfriendsatonce.com (2013)
     Type: Web application
     Description: Web project; Jeffrey credited as programmer on CV.
 
-15. Tumpin (2017)
-    Type: Digital artwork / software
-    Description: Solo exhibition at left.gallery (online). A downloadable digital work with builds and data.
-    Archive: Dropbox /Archives/Project Archive/Tumpin for left.gallery/ (Builds, Data, Media, signed artist agreement)
-    URL: left.gallery/tumpin
-
-16. Ten Minute Painting / tenminutepainting.com (2017)
-    Type: Web application
-    Description: Created during Schloss Solitude / ZKM Web Residency. Ten Minute Painting was later acquired by SMK (National Gallery of Denmark) for the International Goodiepal Collection.
-    Archive: Dropbox /Archives/Project Archive/Ten Minute Painting/
-
-17. Meeting Mr. Kid Pix (2019)
-    Type: Interactive web experience
-    Description: Created for the Internet Archive Artist in Residence program. An homage to/exploration of Kid Pix software history.
-    Archive: Dropbox /Archives/Project Archive/Meeting Mr. Kid Pix/
-
-18. drawinghomework.net (2016–2017)
+22. drawinghomework.net (2016–2017)
     Type: Web platform
-    Description: Collaborative drawing assignment platform. Featured in group exhibition at February Gallery, Austin TX (2017).
+    Description: Collaborative drawing assignment platform.
 
-19. Flower Eater (2019)
-    Type: Workshop tool / wiki
-    Description: "Radical Pedagogy I - Flower Eater Drawing Workshop" at Processing Community Day LA 2019. Had its own wiki.
-    Archive: Dropbox Source Code/flower-eater.wiki.zip
+23. Meeting Mr. Kid Pix (2019)
+    Type: Interactive web experience
+    Description: Created for Internet Archive Artist in Residence program.
 
-20. Grid Walker
+24. Grid Walker
     Type: Sprite/tilemap game
-    Description: Game project with sprites and tilemaps.
-    Archive: Dropbox /Archives/Project Archive/Grid Walker/
+    Archive: Dropbox /Project Archive/Grid Walker/
 
-21. Thumbnailer
+25. Thumbnailer
     Type: Utility tool
-    Description: Thumbnail generation utility with multiple backup versions.
-    Archive: Dropbox /Archives/Project Archive/Thumbnailer/
+    Archive: Dropbox /Project Archive/Thumbnailer/
 
-22. cc_paint
+26. cc_paint
     Type: Paint program
-    Description: A painting application (source code archived).
     Archive: Dropbox Source Code/cc_paint.zip
 
-23. wobblepaint (PICO-8)
-    Type: PICO-8 cart
-    Description: A drawing/painting cart for the PICO-8 fantasy console.
+27. wobblepaint (PICO-8)
+    Type: PICO-8 fantasy console cart
     Archive: Dropbox /Games/Pico8 Carts/wobblepaint-6.p8.png
+
+
+=== PERFORMANCE & COLLABORATION TOOLS ===
+
+28. Peter (2017)
+    Type: JavaScript web app + Photoshop panel
+    Description: "A web app and Photoshop panel that allows audience members to upload
+    expiring images for Julia to work with." — Built for Julia Yerger RDP collaboration.
+    GitHub: justanothersystem/peter (2017-10, JavaScript)
+
+29. Border Notation (2017)
+    Type: JavaScript web application
+    Description: "Border animation notation program for GP&PLS" — notation software for
+    Goodiepal & Pals performances.
+    GitHub: whistlegraph/border-notation (2017-08, JavaScript)
+
+30. PMET Subs (2017)
+    Type: JavaScript web application
+    Description: "Subtitle program for Pro Monarkistisk Extratone by GP&PLS" — real-time
+    subtitle display for Goodiepal & Pals performance piece.
+    GitHub: whistlegraph/pmet-subs (2017-08, JavaScript)
+
+31. Shutter Rub (2018)
+    Type: JavaScript web tool
+    Description: "Fikra Design Biennal 2018: Shutter Rub Tool for Knoth & Renner."
+    GitHub: whistlegraph/fikra-18-shutter-rub (2018-09, JavaScript)
+
+32. pic.jeffreyheart89.com (2017)
+    Type: JavaScript web application
+    Description: "Digital painting delivery service." — web platform for delivering digital paintings.
+    GitHub: whistlegraph/pic.jeffreyheart89.com (2017-11, JavaScript)
+
+
+=== GOODIEPAL & PALS / WHISTLEGRAPH TOOLS ===
+
+33. The Longest Whistlegraph Ever (2022)
+    Type: JavaScript web microsite
+    Description: "A microsite made for Rhizome to show The Longest Whistlegraph Ever (so far)"
+    — commissioned performance at the New Museum.
+    GitHub: whistlegraph/the-longest-whistlegraph-ever (2022-09, JavaScript)
+
+34. Harbingers Player (2022)
+    Type: JavaScript web player
+    Description: NFT/generative art player application.
+    GitHub: whistlegraph/harbingers-player (2022-08, JavaScript)
+
+35. Spooky Treez Player (2022)
+    Type: TypeScript web player
+    Description: NFT/generative art player (TypeScript).
+    GitHub: whistlegraph/spooky-treez-player (2022-09, TypeScript)
+
 
 === 2017 SOFTWARE PROTOTYPES & EXPERIMENTS ===
 
-24. spot (2017)
-    Type: WebGL viewer / Electron app
-    Description: A geometric/image viewer using WebGL (gl-matrix.js) with an Electron desktop build. Had RISD-related image sets.
-    Archive: Dropbox /Software Prototypes & Experiments 2017/spot/
+36. spot (2017) — WebGL geometric viewer with Electron build
+37. semaphore (2017) — Web app deployed to Zeit/Vercel
+38. recorder / recorder.js (2017) — Audio/video recording tool
+39. Dr. Dot Stream Profile (2017) — Streaming/broadcast prototype
+40. WASM Tests (2017) — Early WebAssembly experiments
+41. fall (2017) — Web-based visual piece
+    Archive: All in Dropbox /Software Prototypes & Experiments 2017/
 
-25. semaphore (2017)
-    Type: Web application
-    Description: A web app deployed to Zeit/Vercel (now.json). Signal/flag themed.
-    Archive: Dropbox /Software Prototypes & Experiments 2017/semaphore/
 
-26. recorder / recorder.js (2017)
-    Type: Recording tool
-    Description: Audio/video recording tool prototype.
-    Archive: Dropbox /Software Prototypes & Experiments 2017/recorder/, recorder.js
+=== WEBSITES & WEB INFRASTRUCTURE ===
 
-27. Dr. Dot Stream Profile (2017)
-    Type: Streaming tool
-    Description: Streaming/broadcast related prototype.
-    Archive: Dropbox /Software Prototypes & Experiments 2017/Dr. Dot Stream Profile/
+42. rey.sc (2014)
+    GitHub: whistlegraph/rey (2014-01) — "rey.sc webpages"
 
-28. WASM Tests (2017)
-    Type: WebAssembly experiments
-    Description: Early experiments with WebAssembly — a precursor to AC's performance interests.
-    Archive: Dropbox /Software Prototypes & Experiments 2017/WASM Tests/
-
-29. fall (2017)
-    Type: Web application
-    Description: A web-based visual piece.
-    Archive: Dropbox /Software Prototypes & Experiments 2017/fall/
-
-=== OTHER SOURCE CODE (Dropbox Archive) ===
-
-30. block — unknown web project
-31. fe — unknown project
-32. ht — unknown (zipped)
-33. theartofbreathing — web project
-34. albenda-color-list — color list/palette tool
-35. Maskware — creative web project (maskware.net)
-36. soulseek — P2P music sharing related project
-37. clocktower-audio-player — audio player application
-38. Display & Off And Out Of Sight — unknown project
-39. ilovemyxbox — web project
-40. jdm — unknown project
-41. pan — unknown project
-42. UbuTriplex — possibly UbuWeb related triple-screen project
-43. umbrella — unknown project
-44. ttt — unknown (tic-tac-toe or other)
-45. buccellati-digital-brochure — client work (Buccellati jewelry digital brochure)
-
-=== WEBSITES & WEB PROJECTS ===
-
-46. gordilloscudder.com (2013–2014)
-    Type: Gallery portfolio website
-    Description: Website for Gordillo–Scudder gallery, co-run with partner in Brooklyn.
+43. Gordilloscudder (2014)
+    GitHub: whistlegraph/Gordilloscudder (2014-02)
     Archive: gordilloscudder-com.jas.life
 
-47. interludes-and-remnants.net (2013)
-    Type: Exhibition website
+44. Interludes and Remnants (2014)
+    GitHub: whistlegraph/interludes-and-remnants (2014-02)
     Archive: interludes-and-remnants-net.jas.life
 
-48. rey.sc (c. 2012–2016)
-    Type: Personal website
-    Description: Personal site / portfolio. Subdomains hosted various projects.
+45. jas.life (2016)
+    GitHub: whistlegraph/jas.life (2016-11, HTML) — "Homepage"
 
-49. syl.rey.sc (2015–2016)
-    Type: Course syllabi archive
-    Archive: syl-rey-sc.jas.life
+46. justanothersystem.org (2017)
+    GitHub: justanothersystem/www.justanothersystem.org (2017-10)
+    Description: Just Another System's homepage — RDP lecture tour team site.
 
-50. bin.sc (2011–2016)
-    Type: File archive / personal server (109GB)
-    Archive: bin-sc.jas.life
+47. Attn: Trap (2013)
+    Type: JavaScript web essay
+    Description: "Essay for Parallelograms, 2013" — an interactive web essay/exhibition.
+    GitHub: whistlegraph/Attn-Trap (2013-10, JavaScript)
 
-51. digpain.org — "digitpain" identity website
-52. maskware.net — creative web project (source in Dropbox)
-53. daisychainbook.com — web project
-54. justanothersystem.org — RDP lecture tour website (2017)
+48. digitpain.com (2022)
+    GitHub: whistlegraph/digitpain.com (2022-04, HTML)
+
+49. Current Condition / currentcondition.org (2014)
+    GitHub: whistlegraph/current_condition (2014-09, HTML)
+
+50. Konstanet 2016 (2016)
+    Description: "Web Component for Konstanet Group Show: Fall 2016"
+    GitHub: whistlegraph/konstanet-2016 (2016-10, HTML)
+
+51. NADA Banners (2016)
+    GitHub: whistlegraph/nada-banners (2016-07, HTML) — New Art Dealers Association work
+
+52. Lauri (2018)
+    Description: "Lauri Solin's Digital Paintings" — web gallery for Lauri Solin.
+    GitHub: whistlegraph/lauri (2018-10, JavaScript)
+
+53. bin.sc (2011–2016) — 109GB personal file archive. Archive: bin-sc.jas.life
+54. syl.rey.sc (2015–2016) — Course syllabi archive. Archive: syl-rey-sc.jas.life
+55. digpain.org — "digitpain" identity website
+56. maskware.net — Creative web project
+57. daisychainbook.com — Web project
+
 
 === PROFESSIONAL WEB DEVELOPMENT ===
 
-55. Linked by Air projects (2013–2014)
-56. Printed Matter — NY & LA Art Book Fair websites (2012–2013)
-57. art.yale.edu student administration (2012)
-58. Kickstarter contract work (2016)
-59. GIPHY Technical Curator (2017)
-60. NADA (New Art Dealers Association) + Linked by Air contract (2016)
+58. Linked by Air projects (2013–2014)
+59. Printed Matter — NY & LA Art Book Fair websites (2012–2013)
+60. art.yale.edu student administration (2012)
+61. Kickstarter contract work (2016)
+62. GIPHY — Technical Curator + giphy-upload-proxy (2017)
+    GitHub: whistlegraph/giphy-upload-proxy (2017-08) — "A proxy application for GIPHY's Upload endpoint."
+63. NADA + Linked by Air contract (2016)
+64. Quake Pebble (2014) — possibly Pebble smartwatch app
+    GitHub: whistlegraph/quake-pebble (2014-09, JavaScript)
+65. Juan Dominguez Mobile App (2014)
+    Description: "A promotional cross-platform mobile app for the California lawyer Juan Dominguez."
+    GitHub: whistlegraph/juan-dominguez-mobile-app (2014-11, JavaScript)
+66. Buccellati Digital Brochure — client work (luxury jewelry brand)
+    Archive: Dropbox Source Code/buccellati-digital-brochure-master.zip
 
-=== GENERATIVE ART & BLOCKCHAIN PROJECTS (2021–2023, overlapping with AC) ===
 
-61. DIGITPAIN (2021–2022)
-    Type: Generative art / music series
-    Description: A digital painting series with 5 iterations (digitpain0–digitpain4). Included Ableton music production, Blender line drawings, GLB 3D sculptures, demos, and social assets. The "digitpain" identity evolved into blockchain art.
-    Archive: Dropbox /Archives/DIGITPAIN/
+=== DEVELOPER TOOLS & UTILITIES ===
 
-62. hell_ world (2023)
-    Type: Generative art collection
-    Description: Released on Wild.xyz. 150+ timestamped PNG outputs from generative system.
-    Archive: Dropbox /Archives/hell_ world/, Live: wild.xyz/jeffrey-scudder/hell-world
+67. live (2016)
+    Type: Ruby utility
+    Description: "Reloads browser automatically." — a live-reload dev server tool.
+    GitHub: whistlegraph/live (2016-01, Ruby)
 
-63. ordfish
-    Type: Generative art / ordinals
-    Description: Generative art collection with 50+ webp outputs. Possibly Bitcoin ordinals related.
-    Archive: Dropbox /Archives/ordfish/
+68. cfg (2013)
+    Type: VimL dotfiles
+    Description: Early configuration/dotfiles.
+    GitHub: whistlegraph/cfg (2013-06, VimL)
 
-64. sotce world
-    Type: Generative world / website
-    Description: Related to sotce.net domain. 12 world screenshots.
-    Archive: Dropbox /Archives/sotce world/
+69. justanothersystem/tools (2017)
+    Type: Curated directory
+    Description: "A directory of web based creative tools." — a comprehensive catalog of web-based
+    drawing and painting tools (hosted on Glitch as weird-drawing-tools.glitch.me). Lists No Paint
+    and thePRBAT among dozens of other tools. Important document of Jeffrey's research into
+    drawing software landscape.
+    GitHub: justanothersystem/tools (2017-02)
 
-65. textfence
-    Type: Generative art / animation
-    Description: Video + GIF + source code project.
-    Archive: Dropbox /Archives/textfence/
+70. Netlify Functions Headless Chrome (2022)
+    Description: Headless Chrome on Netlify — precursor to the oven screenshot service.
+    GitHub: whistlegraph/netlify-functions-headless-chrome (2022-07, JavaScript)
 
-66. inscriptions
-    Type: Bitcoin inscriptions
-    Description: Ordinal inscription artwork.
-    Archive: Dropbox /Archives/inscriptions/
+71. Aesthetic Computer Code Template (2024)
+    Description: "A basic template for making an aesthetic computer piece using the `code` command."
+    GitHub: whistlegraph/aesthetic-computer-code (2024-01)
 
-67. basedballz
-    Type: Unknown (under DIGITPAIN umbrella)
-    Archive: Dropbox /Archives/DIGITPAIN/basedballz/
+
+=== SOURCE CODE ARCHIVE (Dropbox, 16 zipped repos) ===
+
+72. block, fe, ht, Maskware, soulseek, clocktower-audio-player — web/audio projects
+73. Display & Off And Out Of Sight, ilovemyxbox, jdm, pan, umbrella, ttt — creative web projects
+74. theartofbreathing, albenda-color-list — thematic web tools
+75. UbuTriplex — possibly UbuWeb related multi-screen project
+76. Marker (2015 edit) — drawing tool. Archive: Dropbox Source Code/
+
+
+=== GENERATIVE ART & BLOCKCHAIN (2021–2023, overlapping with AC) ===
+
+77. DIGITPAIN (2021–2022) — 5-iteration digital painting + music + 3D sculpture series
+78. hell_ world (2023) — Generative art on Wild.xyz, 150+ outputs
+79. ordfish — Generative art / ordinals, 50+ webp outputs
+80. sotce world — Generative world for sotce.net
+81. textfence — Generative animation (video + GIF + source)
+82. inscriptions — Bitcoin ordinal inscription artwork
+83. basedballz — Under DIGITPAIN umbrella
+
 
 === MISCELLANEOUS ===
 
-68. whistlebotv2 (2020)
-    Type: Discord bot
-    Description: Discord bot for the Whistlegraph community.
-    Archive: Dropbox /Archives/Misc. Projects (2020)/whistlebotv2/
+84. whistlebotv2 (2020) — Whistlegraph Discord bot
+85. double-pj — Multi-camera web project
+86. Explained Pictures (2016) — Lecture performance software
+87. Soft Wallpaper — Creative project
+88. Pop Sounds (2020) — Audio project
+89. false.work GameBoy — UE5 GameBoy emulation experiments
+90. Nudge — Under No Paint umbrella
+91. Agenda (2022) — "My personal agenda / diary." GitHub: whistlegraph/agenda
+92. Cricket — Creative tool with tutorial video
+93. Processing projects (2007–2016) — Creative coding sketches
+94. ChucK programs — Audio programming experiments
 
-69. Explained Pictures (2016)
-    Type: Lecture performance software
-    Description: Software/presentation system for the "Explained Pictures" lecture series at The New School/Vera List Center and Victoria Sobel's Basement.
 
-70. double-pj
-    Type: Web application
-    Description: A multi-camera web project (HTML/CSS/JS with cameras.js, controls.js).
-    Archive: Dropbox /Archives/Project Archive/double-pj/
+=== AESTHETIC COMPUTER EVOLUTION ===
 
-71. Soft Wallpaper
-    Type: Unknown creative project
-    Archive: Dropbox /Archives/Project Archive/Soft Wallpaper/
+The AC platform evolved through 4 GitHub repos:
 
-72. Pop Sounds (2020)
-    Type: Audio project
-    Archive: Dropbox /Archives/Project Archive/Pop Sounds (2020)/
+1. whistlegraph/system-ac (2021-08-10) — "My virtual computer system for loading and running disks."
+   First commits: metronome, square wave instruments, basic 3D, animated notation.
+   Started on Glitch.
 
-73. false.work GameBoy builds
-    Type: Unreal Engine 5 GameBoy test builds
-    Description: UE5-based GameBoy emulation/rendering experiments for false.work.
-    Archive: Dropbox /false.work/ (4 GameBoyTest zips with different configurations)
+2. whistlegraph/disks-ac (2021-08-10) — "A bunch of disks that are compatible with the system repo."
+   Original disks: prompt.js, doodle.js, plot.js, pull.js, stage.js, starfield.js, tracker.js,
+   whistlegraph.js, metronome-test.js
 
-74. Nudge (No Paint related)
-    Type: Unknown (under No Paint umbrella)
-    Archive: Dropbox /Whistlegraph/No Paint/Nudge/
+3. whistlegraph/2022.aesthetic.computer (2021-12-23) — "Compute aesthetically."
+   Merged system+disks into one monorepo.
 
-=== CREATIVE CODING & EXPERIMENTS ===
+4. whistlegraph/aesthetic-computer (2022-12-23) — Current repo.
+   "Copy all previous sources into the new repo" — third and final monorepo consolidation.
 
-75. Processing projects (various, 2007–2016)
-    Type: Creative coding sketches
-    Archive: bin-sc.jas.life/Projects/, Dropbox Source Code/processing dump.zip
-
-76. ChucK programs (date unknown)
-    Type: Audio programming
-    Archive: bin-sc.jas.life/Projects/
 
 === REFERENCE: Legacy Drawing Software Collection ===
 
@@ -296,17 +373,28 @@ Jeffrey collected and preserved these historical drawing programs (not his own s
 - Mario Paint (1992)
 (Dropbox /Software Binaries/Legacy Drawing Software/)
 
+
 === TIMELINE SUMMARY ===
 
 2007–2011: BFA at Ringling — Processing sketches, thePRBAT (2011)
-2012–2013: Yale MFA — art.yale.edu admin, Printed Matter web dev
-2013: allmyfriendsatonce.com, Gordilloscudder gallery + website
-2013–2014: Linked by Air — Shrub (iOS), JeffreyPaint (macOS + Unity), drawings.rey.sc, Word Web, No Paint (Rails)
-2015: Traveller (Processing → macOS), Marker, bigwalt59.com
-2016: Finger Quilt (iOS), Kickstarter contract, drawinghomework.net, Explained Pictures
-2017: GIPHY, Schloss Solitude residency, tenminutepainting.com, Tumpin, Software Prototypes (spot, semaphore, recorder, WASM Tests, fall), justanothersystem.org
-2018: RDP lecture tour (65+ performances), Make Pictures (curated at bitforms)
-2019: No Paint iOS (Cordova/Xcode), Meeting Mr. Kid Pix (Internet Archive AIR), Flower Eater workshop, wobblepaint (PICO-8)
-2020: Korea HCI, India HCI keynotes, Whistlegraph invention, whistlebotv2, Pop Sounds
-2021: Aesthetic Computer development begins, DIGITPAIN series
-2022–2023: hell_ world (Wild.xyz), ordfish, sotce world, textfence, inscriptions
+2012–2013: Yale MFA — cfg dotfiles, art.yale.edu admin, Printed Matter web dev, Attn: Trap essay
+2013: allmyfriendsatonce.com, Gordilloscudder gallery + website + interludes-and-remnants.net
+2013–2014: Linked by Air — bt (first game), rey.sc, Word Web, explodingdinner, Shrub (iOS),
+            JeffreyPaint (JS + Unity), quake-pebble, juan-dominguez-mobile-app, current_condition
+2014–2015: No Paint (Rails → nopaint.org), drawings.rey.sc, bigwalt59.com, Mood Engine (C),
+            Traveller (Processing), Marker
+2016: live (dev tool), No Paint shim (Java), Finger Quilt (Swift), nada-banners, jas.life,
+      konstanet-2016, Kickstarter, Explained Pictures, drawinghomework.net
+2017: GIPHY (+ giphy-upload-proxy), Schloss Solitude residency, Ten Minute Painting, Tumpin,
+      tools directory (weird-drawing-tools.glitch.me), justanothersystem.org, Peter (Julia collab),
+      BW-Flower (C), Dot, border-notation, pmet-subs, pic.jeffreyheart89.com,
+      Flower Eater, Software Prototypes (spot, semaphore, recorder, WASM Tests, fall)
+2018: RDP lecture tour (65+), Shutter Rub (Fikra), Lauri Solin gallery, nopaint rewrite
+2019: Rect (Rust), paint-prototype, Meeting Mr. Kid Pix (IA AIR), wobblepaint (PICO-8)
+2020: Whistlegraph invention, whistlebotv2, Pop Sounds
+2021: system-ac + disks-ac (AC begins Aug 10), nopaint-server, DIGITPAIN series,
+      2022.aesthetic.computer (Dec monorepo merge)
+2022: digitpain.com, harbingers-player, spooky-treez-player, the-longest-whistlegraph-ever,
+      netlify-functions-headless-chrome, agenda, aesthetic-computer (current repo, Dec)
+2023: hell_ world (Wild.xyz), ordfish, inscriptions, ordinals-collections
+2024: aesthetic-computer-code template
