@@ -4570,9 +4570,7 @@
     async function connectWallet() {
       await initTezosWallet();
       if (mintWalletAddress) return mintWalletAddress;
-      const perms = await beaconClient.requestPermissions({
-        network: { type: getTezosNetwork() },
-      });
+      const perms = await beaconClient.requestPermissions();
       mintWalletAddress = perms.address;
       updateWalletBtn();
       return mintWalletAddress;
