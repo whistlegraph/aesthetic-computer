@@ -10,7 +10,9 @@
  *   node keeps.mjs keep <piece>        - Keep (preserve) a KidLisp piece
  *   node keeps.mjs status              - Check contract status
  *   node keeps.mjs balance             - Check wallet balance
- *   node keeps.mjs tokens              - List all kept tokens
+ *   node keeps.mjs tokens              - List wallet tokens for active keeps contract
+ *   node keeps.mjs market              - Show Objkt market snapshot
+ *   node keeps.mjs sell <token> <xtz>  - List a token on Objkt marketplace
  *   node keeps.mjs upload <piece>      - Upload bundle to IPFS
  */
 
@@ -27,6 +29,10 @@ import readline from 'readline';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const KEEPS_SECRET_ID = process.env.KEEPS_SECRET_ID || 'tezos-kidlisp';
 const KEEP_PERMIT_TTL_MS = Number.parseInt(process.env.KEEP_PERMIT_TTL_MS || '1200000', 10); // 20 minutes
+const OBJKT_DATA_API = 'https://data.objkt.com/v3/graphql';
+const OBJKT_MARKETPLACE_FALLBACK = {
+  mainnet: 'KT1SwbTqhSKF6Pdokiu1K4Fpi17ahPPzmt1X', // objktcom marketplace v6.2
+};
 
 // ============================================================================
 // Configuration
@@ -391,6 +397,220 @@ function isKt1Address(value) {
 
 function tzktApiBase(network = 'mainnet') {
   return network === 'mainnet' ? 'https://api.tzkt.io' : `https://api.${network}.tzkt.io`;
+}
+
+async function objktGraphQL(query, variables = {}) {
+  const response = await fetch(OBJKT_DATA_API, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ query, variables }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Objkt data API returned ${response.status}`);
+  }
+
+  const payload = await response.json();
+  if (Array.isArray(payload.errors) && payload.errors.length > 0) {
+    throw new Error(`Objkt data API error: ${payload.errors[0].message || 'Unknown error'}`);
+  }
+
+  return payload.data || {};
+}
+
+function parseVersionFromLabel(label = '') {
+  const match = String(label).match(/v(\d+(?:\.\d+)*)/i);
+  if (!match) return [];
+  return match[1].split('.').map((part) => Number.parseInt(part, 10)).filter(Number.isFinite);
+}
+
+function compareVersionArrays(a = [], b = []) {
+  const maxLength = Math.max(a.length, b.length);
+  for (let i = 0; i < maxLength; i += 1) {
+    const av = a[i] ?? 0;
+    const bv = b[i] ?? 0;
+    if (av !== bv) return av - bv;
+  }
+  return 0;
+}
+
+async function resolveObjktMarketplaceContract({
+  network = 'mainnet',
+  keepsContract,
+  explicitContract = null,
+}) {
+  if (explicitContract) return explicitContract;
+
+  if (network !== 'mainnet') {
+    throw new Error(
+      `Objkt marketplace auto-discovery only supports mainnet. Pass --marketplace=<KT1...> for ${network}.`
+    );
+  }
+
+  try {
+    const existingData = await objktGraphQL(
+      `
+      query($contract:String!) {
+        listing_active(
+          where:{fa_contract:{_eq:$contract}}
+          order_by:{timestamp:desc}
+          limit:1
+        ) {
+          marketplace_contract
+          marketplace { name }
+        }
+      }
+      `,
+      { contract: keepsContract }
+    );
+
+    const existing = existingData?.listing_active?.[0];
+    if (isKt1Address(existing?.marketplace_contract)) {
+      return existing.marketplace_contract;
+    }
+  } catch {
+    // Fallback to registry lookup below.
+  }
+
+  const registryData = await objktGraphQL(`
+    query {
+      marketplace_contract(
+        where:{
+          group:{_eq:"objktcom"},
+          subgroup:{_eq:"marketplace"},
+          name:{_ilike:"objktcom marketplace v%"}
+        }
+      ) {
+        contract
+        name
+      }
+    }
+  `);
+
+  const rows = Array.isArray(registryData?.marketplace_contract)
+    ? registryData.marketplace_contract
+    : [];
+
+  const ranked = rows
+    .filter((row) => isKt1Address(row?.contract))
+    .map((row) => ({
+      ...row,
+      parsedVersion: parseVersionFromLabel(row?.name),
+    }))
+    .sort((a, b) => compareVersionArrays(b.parsedVersion, a.parsedVersion));
+
+  if (ranked.length > 0) {
+    return ranked[0].contract;
+  }
+
+  const fallback = OBJKT_MARKETPLACE_FALLBACK[network];
+  if (isKt1Address(fallback)) return fallback;
+
+  throw new Error('Could not resolve Objkt marketplace contract.');
+}
+
+function loadContractAddress(network = 'mainnet') {
+  const addressPath = getContractAddressPath(network);
+  if (!fs.existsSync(addressPath)) {
+    throw new Error(`❌ No contract deployed on ${network}. Run: node keeps.mjs deploy ${network}`);
+  }
+  return fs.readFileSync(addressPath, 'utf8').trim();
+}
+
+function parsePriceToMutez(priceInput) {
+  const asNumber = Number.parseFloat(String(priceInput));
+  if (!Number.isFinite(asNumber) || asNumber <= 0) {
+    throw new Error(`Invalid price "${priceInput}". Expected a positive XTZ value.`);
+  }
+  return Math.round(asNumber * 1_000_000);
+}
+
+function parseOptionalIsoTimestamp(value, label) {
+  if (value == null || value === '') return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error(`Invalid ${label} timestamp "${value}". Use ISO-8601 format.`);
+  }
+  return date.toISOString();
+}
+
+async function resolveTokenIdFromReference(tokenReference, { contractAddress, network = 'mainnet' }) {
+  const raw = String(tokenReference || '').trim();
+  if (!raw) {
+    throw new Error('Token reference is required (token id or piece code like $bip).');
+  }
+
+  if (/^\d+$/.test(raw)) {
+    return Number.parseInt(raw, 10);
+  }
+
+  const pieceName = raw.replace(/^\$/, '');
+  const duplicate = await checkDuplicatePiece(pieceName, contractAddress, network);
+  if (duplicate.exists) {
+    return Number.parseInt(duplicate.tokenId, 10);
+  }
+
+  throw new Error(`Could not resolve token reference "${tokenReference}" to a token id.`);
+}
+
+function normalizeShareMap(shares = {}) {
+  const normalized = {};
+  for (const [address, amount] of Object.entries(shares || {})) {
+    const nat = Number.parseInt(String(amount), 10);
+    if (nat > 0) {
+      normalized[address] = nat.toString();
+    }
+  }
+  return normalized;
+}
+
+async function fetchTokenFromTzkt(contractAddress, tokenId, network = 'mainnet') {
+  const apiBase = tzktApiBase(network);
+  const url = `${apiBase}/v1/tokens?contract=${contractAddress}&tokenId=${tokenId}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch token #${tokenId} from TzKT (${response.status})`);
+  }
+  const rows = await response.json();
+  return rows?.[0] || null;
+}
+
+async function assertWalletOwnsToken(contractAddress, tokenId, ownerAddress, network = 'mainnet') {
+  const apiBase = tzktApiBase(network);
+  const url = `${apiBase}/v1/tokens/balances?token.contract=${contractAddress}&token.tokenId=${tokenId}&account=${ownerAddress}&balance.gt=0&limit=1`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to verify ownership for token #${tokenId} (${response.status})`);
+  }
+  const rows = await response.json();
+  if (!Array.isArray(rows) || rows.length === 0) {
+    throw new Error(`Wallet ${ownerAddress} does not currently hold token #${tokenId}.`);
+  }
+}
+
+async function loadActiveListingForToken(contractAddress, tokenId, sellerAddress) {
+  const data = await objktGraphQL(
+    `
+    query($contract:String!, $tokenId:String!, $seller:String!) {
+      listing_active(
+        where:{
+          fa_contract:{_eq:$contract},
+          seller_address:{_eq:$seller},
+          token:{token_id:{_eq:$tokenId}}
+        }
+        order_by:{timestamp:desc}
+        limit:1
+      ) {
+        id
+        price_xtz
+        marketplace_contract
+        marketplace { name }
+      }
+    }
+    `,
+    { contract: contractAddress, tokenId: String(tokenId), seller: sellerAddress }
+  );
+  return data?.listing_active?.[0] || null;
 }
 
 // ============================================================================
@@ -2520,6 +2740,379 @@ async function adminTransfer(tokenId, fromAddress, toAddress, options = {}) {
   console.log(`📊 ${config.explorer}/${contractAddress}/tokens/${tokenId}\n`);
 }
 
+// ============================================================================
+// Marketplace Commands (Objkt)
+// ============================================================================
+
+async function listOwnedTokens(network = 'mainnet', options = {}) {
+  const { credentials, config } = await createTezosClient(network);
+  const contractAddress = loadContractAddress(network);
+  const limit = Number.isFinite(Number(options.limit)) ? Math.max(1, Number(options.limit)) : 200;
+
+  const apiBase = tzktApiBase(network);
+  const url = `${apiBase}/v1/tokens/balances?token.contract=${contractAddress}&account=${credentials.address}&balance.gt=0&limit=${limit}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to load owned tokens (${response.status})`);
+  }
+
+  const rows = await response.json();
+
+  console.log('\n╔══════════════════════════════════════════════════════════════╗');
+  console.log('║  🧾 Wallet Token Inventory                                   ║');
+  console.log('╚══════════════════════════════════════════════════════════════╝\n');
+
+  console.log(`📡 Network:  ${config.name}`);
+  console.log(`📍 Contract: ${contractAddress}`);
+  console.log(`👤 Wallet:   ${credentials.address}`);
+  console.log(`📦 Tokens:   ${rows.length}\n`);
+
+  if (!rows.length) {
+    console.log('   (No tokens in this wallet for current keeps contract)\n');
+    return [];
+  }
+
+  const objktBase = network === 'mainnet' ? 'https://objkt.com' : 'https://ghostnet.objkt.com';
+  const normalized = rows
+    .map((row) => ({
+      tokenId: Number.parseInt(row?.token?.tokenId ?? row?.token?.token_id, 10),
+      name: row?.token?.metadata?.name || row?.token?.metadata?.symbol || `#${row?.token?.tokenId}`,
+      balance: Number.parseInt(row?.balance ?? '0', 10),
+      lastTime: row?.lastTime || null,
+    }))
+    .filter((row) => Number.isInteger(row.tokenId))
+    .sort((a, b) => a.tokenId - b.tokenId);
+
+  for (const token of normalized) {
+    console.log(`   [${token.tokenId}] ${token.name} (balance: ${token.balance})`);
+    console.log(`       🔗 ${objktBase}/tokens/${contractAddress}/${token.tokenId}`);
+  }
+  console.log('');
+
+  return normalized;
+}
+
+async function listTokenForSale(tokenReference, priceInXTZ, options = {}) {
+  const network = options.network || 'mainnet';
+  const apply = options.apply === true;
+  const referralBonusBpsRaw = Number.parseInt(options.referralBonusBps ?? 500, 10);
+  const referralBonusBps = Number.isFinite(referralBonusBpsRaw)
+    ? Math.max(0, Math.min(10000, referralBonusBpsRaw))
+    : 500;
+  const startTime = options.startTime || null;
+  const expiryTime = options.expiryTime || null;
+  const replaceExisting = options.replaceExisting === true;
+
+  const { tezos, credentials, config } = await createTezosClient(network);
+  const contractAddress = loadContractAddress(network);
+  const tokenId = await resolveTokenIdFromReference(tokenReference, { contractAddress, network });
+  const priceMutez = parsePriceToMutez(priceInXTZ);
+  const priceXTZ = (priceMutez / 1_000_000).toFixed(6);
+
+  await assertWalletOwnsToken(contractAddress, tokenId, credentials.address, network);
+
+  const token = await fetchTokenFromTzkt(contractAddress, tokenId, network);
+  if (!token) {
+    throw new Error(`Token #${tokenId} not found on ${network}.`);
+  }
+
+  const tokenName = token?.metadata?.name || token?.metadata?.symbol || `#${tokenId}`;
+  const shares = normalizeShareMap(token?.metadata?.royalties?.shares);
+  if (Object.keys(shares).length === 0) {
+    shares[credentials.address] = '1000';
+  }
+
+  const marketplaceContract = await resolveObjktMarketplaceContract({
+    network,
+    keepsContract: contractAddress,
+    explicitContract: options.marketplaceContract || null,
+  });
+
+  const existingListing = await loadActiveListingForToken(contractAddress, tokenId, credentials.address)
+    .catch(() => null);
+
+  if (existingListing && !replaceExisting) {
+    const existingPrice = Number(existingListing.price_xtz || 0) / 1_000_000;
+    throw new Error(
+      `Token #${tokenId} already has an active listing (${existingPrice} XTZ). Use --replace to update it.`
+    );
+  }
+
+  const askPayload = {
+    token: {
+      address: contractAddress,
+      token_id: tokenId.toString(),
+    },
+    currency: {
+      tez: {},
+    },
+    amount: priceMutez.toString(),
+    editions: '1',
+    shares,
+    start_time: startTime,
+    expiry_time: expiryTime,
+    referral_bonus: referralBonusBps.toString(),
+    condition: null,
+  };
+
+  const objktBase = network === 'mainnet' ? 'https://objkt.com' : 'https://ghostnet.objkt.com';
+  const tokenUrl = `${objktBase}/tokens/${contractAddress}/${tokenId}`;
+
+  console.log('\n╔══════════════════════════════════════════════════════════════╗');
+  console.log('║  🏷️  List Token For Sale                                      ║');
+  console.log('╚══════════════════════════════════════════════════════════════╝\n');
+
+  console.log(`📡 Network:      ${config.name}`);
+  console.log(`📍 Keeps:        ${contractAddress}`);
+  console.log(`🛒 Marketplace:  ${marketplaceContract}`);
+  console.log(`🎨 Token:        [${tokenId}] ${tokenName}`);
+  console.log(`💵 Ask Price:    ${priceXTZ} XTZ (${priceMutez} mutez)`);
+  console.log(`👤 Seller:       ${credentials.address}`);
+  console.log(`🔗 View:         ${tokenUrl}`);
+  console.log(`📈 Shares:       ${JSON.stringify(shares)}`);
+  if (existingListing) {
+    console.log(
+      `♻️ Existing ask: #${existingListing.id} (${(Number(existingListing.price_xtz || 0) / 1_000_000).toFixed(6)} XTZ)`
+    );
+  }
+  console.log('');
+
+  if (!apply) {
+    console.log('⚠️  DRY RUN: no transaction sent. Add --yes to list on chain.\n');
+    return {
+      tokenId,
+      tokenName,
+      priceMutez,
+      priceXTZ: Number(priceXTZ),
+      contractAddress,
+      marketplaceContract,
+      dryRun: true,
+      replaced: Boolean(existingListing),
+    };
+  }
+
+  const tokenContract = await tezos.contract.at(contractAddress);
+  const marketContract = await tezos.contract.at(marketplaceContract);
+
+  const askMethod = marketContract.methodsObject.ask(askPayload);
+  const retractMethod = existingListing
+    ? marketContract.methods.retract_ask(Number(existingListing.id))
+    : null;
+
+  let op;
+  let mode = 'ask-only';
+
+  if (retractMethod) {
+    mode = 'retract+ask';
+    op = await tezos.contract
+      .batch()
+      .withContractCall(retractMethod)
+      .withContractCall(askMethod)
+      .send();
+  } else {
+    const addOperatorMethod = tokenContract.methods.update_operators([
+      {
+        add_operator: {
+          owner: credentials.address,
+          operator: marketplaceContract,
+          token_id: tokenId,
+        },
+      },
+    ]);
+
+    try {
+      mode = 'add_operator+ask';
+      op = await tezos.contract
+        .batch()
+        .withContractCall(addOperatorMethod)
+        .withContractCall(askMethod)
+        .send();
+    } catch (error) {
+      const message = String(error?.message || error);
+      if (/FA2_OPERATOR_ALREADY_EXISTS|operator/i.test(message)) {
+        mode = 'ask-only';
+        op = await tezos.contract
+          .batch()
+          .withContractCall(askMethod)
+          .send();
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  console.log(`   Transaction: ${op.hash}`);
+  console.log('   Waiting for confirmation...');
+  await op.confirmation(1);
+
+  console.log('\n✅ Listed successfully');
+  console.log(`   Mode: ${mode}`);
+  console.log(`   Explorer: ${config.explorer}/${op.hash}`);
+  console.log(`   Objkt:    ${tokenUrl}\n`);
+
+  return {
+    tokenId,
+    tokenName,
+    priceMutez,
+    priceXTZ: Number(priceXTZ),
+    contractAddress,
+    marketplaceContract,
+    hash: op.hash,
+    mode,
+    replaced: Boolean(existingListing),
+  };
+}
+
+async function listBatchForSale(items = [], options = {}) {
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new Error('No items to list. Use format: <token|piece>=<priceXTZ>');
+  }
+
+  const results = [];
+  for (const item of items) {
+    const [tokenReference, priceInXTZ] = item.split('=');
+    if (!tokenReference || !priceInXTZ) {
+      throw new Error(`Invalid batch item "${item}". Expected "<token|piece>=<priceXTZ>".`);
+    }
+
+    const result = await listTokenForSale(tokenReference, priceInXTZ, options);
+    results.push(result);
+  }
+
+  return results;
+}
+
+async function showMarketSnapshot(network = 'mainnet', options = {}) {
+  if (network !== 'mainnet') {
+    throw new Error('Market snapshot currently supports mainnet only.');
+  }
+
+  const contractAddress = loadContractAddress(network);
+  const listingsLimit = Number.isFinite(Number(options.listingsLimit)) ? Math.max(1, Number(options.listingsLimit)) : 20;
+  const salesLimit = Number.isFinite(Number(options.salesLimit)) ? Math.max(1, Number(options.salesLimit)) : 10;
+
+  const collectionData = await objktGraphQL(
+    `
+    query($contract:String!, $limit:Int!) {
+      fa(where:{contract:{_eq:$contract}}) {
+        contract
+        name
+        items
+        owners
+        floor_price
+        volume_24h
+        volume_total
+      }
+      listing_active(
+        where:{fa_contract:{_eq:$contract}}
+        order_by:{price_xtz:asc}
+        limit:$limit
+      ) {
+        id
+        price_xtz
+        seller_address
+        token { token_id name }
+        marketplace { name }
+        timestamp
+      }
+      offer_active(
+        where:{fa_contract:{_eq:$contract}}
+        order_by:{price_xtz:desc}
+        limit:$limit
+      ) {
+        id
+        price_xtz
+        buyer_address
+        token { token_id name }
+        marketplace { name }
+        timestamp
+      }
+    }
+    `,
+    { contract: contractAddress, limit: listingsLimit }
+  );
+
+  const salesData = await objktGraphQL(
+    `
+    query($contract:String!, $limit:Int!) {
+      listing_sale(
+        where:{token:{fa_contract:{_eq:$contract}}}
+        order_by:{timestamp:desc}
+        limit:$limit
+      ) {
+        timestamp
+        price_xtz
+        buyer_address
+        seller_address
+        token { token_id name }
+        marketplace { name }
+      }
+    }
+    `,
+    { contract: contractAddress, limit: salesLimit }
+  );
+
+  const collection = collectionData?.fa?.[0] || null;
+  const listings = Array.isArray(collectionData?.listing_active) ? collectionData.listing_active : [];
+  const offers = Array.isArray(collectionData?.offer_active) ? collectionData.offer_active : [];
+  const sales = Array.isArray(salesData?.listing_sale) ? salesData.listing_sale : [];
+
+  console.log('\n╔══════════════════════════════════════════════════════════════╗');
+  console.log('║  📈 Objkt Market Snapshot                                    ║');
+  console.log('╚══════════════════════════════════════════════════════════════╝\n');
+
+  console.log(`📍 Contract: ${contractAddress}`);
+  console.log(`🎨 Collection: ${collection?.name || 'Unknown'}`);
+  console.log(`🧱 Items: ${collection?.items ?? 'n/a'} | 👥 Owners: ${collection?.owners ?? 'n/a'}`);
+  console.log(`🏷️  Floor: ${collection?.floor_price != null ? (Number(collection.floor_price) / 1_000_000).toFixed(6) : 'n/a'} XTZ`);
+  console.log(`📊 Volume 24h: ${collection?.volume_24h != null ? (Number(collection.volume_24h) / 1_000_000).toFixed(6) : 'n/a'} XTZ`);
+  console.log(`📚 Volume total: ${collection?.volume_total != null ? (Number(collection.volume_total) / 1_000_000).toFixed(6) : 'n/a'} XTZ\n`);
+
+  console.log(`🛒 Active Listings (${listings.length}):`);
+  if (listings.length === 0) {
+    console.log('   (none)');
+  } else {
+    for (const row of listings) {
+      console.log(
+        `   [${row?.token?.token_id}] ${row?.token?.name || '#'} @ ${(Number(row?.price_xtz || 0) / 1_000_000).toFixed(6)} XTZ (${row?.seller_address})`
+      );
+    }
+  }
+  console.log('');
+
+  console.log(`🤝 Active Offers (${offers.length}):`);
+  if (offers.length === 0) {
+    console.log('   (none)');
+  } else {
+    for (const row of offers) {
+      console.log(
+        `   [${row?.token?.token_id}] ${row?.token?.name || '#'} bid ${(Number(row?.price_xtz || 0) / 1_000_000).toFixed(6)} XTZ (${row?.buyer_address})`
+      );
+    }
+  }
+  console.log('');
+
+  console.log(`💸 Recent Sales (${sales.length}):`);
+  if (sales.length === 0) {
+    console.log('   (none)');
+  } else {
+    for (const row of sales) {
+      console.log(
+        `   [${row?.token?.token_id}] ${row?.token?.name || '#'} sold ${(Number(row?.price_xtz || 0) / 1_000_000).toFixed(6)} XTZ @ ${row?.timestamp}`
+      );
+    }
+  }
+  console.log('');
+
+  return {
+    contractAddress,
+    collection,
+    listings,
+    offers,
+    sales,
+  };
+}
+
 async function discoverContractsByManager(managerAddress, network = 'mainnet') {
   const apiBase = tzktApiBase(network);
   const url = `${apiBase}/v1/accounts/${managerAddress}/contracts?limit=200&sort.desc=creationLevel`;
@@ -2852,6 +3445,87 @@ async function main() {
       case 'balance':
         await getBalance(getNetwork(1));
         break;
+
+      case 'tokens': {
+        const limitFlag = flags.find(f => f.startsWith('--limit='));
+        const limit = limitFlag ? Number.parseInt(limitFlag.split('=')[1], 10) : undefined;
+        await listOwnedTokens(getNetwork(1), { limit });
+        break;
+      }
+
+      case 'market': {
+        const listingsLimitFlag = flags.find(f => f.startsWith('--listings='));
+        const salesLimitFlag = flags.find(f => f.startsWith('--sales='));
+        const listingsLimit = listingsLimitFlag ? Number.parseInt(listingsLimitFlag.split('=')[1], 10) : undefined;
+        const salesLimit = salesLimitFlag ? Number.parseInt(salesLimitFlag.split('=')[1], 10) : undefined;
+        await showMarketSnapshot(getNetwork(1), { listingsLimit, salesLimit });
+        break;
+      }
+
+      case 'sell': {
+        if (!args[1] || !args[2]) {
+          console.error('Usage: node keeps.mjs sell <token_id|$piece> <price_xtz> [network] [--marketplace=<KT1...>] [--replace] [--yes]');
+          process.exit(1);
+        }
+
+        const marketplaceFlag = flags.find(f => f.startsWith('--marketplace='));
+        const referralFlag = flags.find(f => f.startsWith('--referral-bps='));
+        const startFlag = flags.find(f => f.startsWith('--start='));
+        const expiryFlag = flags.find(f => f.startsWith('--expiry='));
+        const marketplaceContract = marketplaceFlag ? marketplaceFlag.split('=').slice(1).join('=').trim() : null;
+        const referralBonusBps = referralFlag ? Number.parseInt(referralFlag.split('=')[1], 10) : undefined;
+        const startTime = parseOptionalIsoTimestamp(startFlag ? startFlag.split('=').slice(1).join('=') : null, 'start');
+        const expiryTime = parseOptionalIsoTimestamp(expiryFlag ? expiryFlag.split('=').slice(1).join('=') : null, 'expiry');
+
+        await listTokenForSale(args[1], args[2], {
+          network: getNetwork(3),
+          marketplaceContract,
+          referralBonusBps,
+          startTime,
+          expiryTime,
+          replaceExisting: flags.includes('--replace'),
+          apply: flags.includes('--yes') || flags.includes('--apply'),
+        });
+        break;
+      }
+
+      case 'sell:batch': {
+        const inputItems = args.slice(1);
+        if (inputItems.length === 0) {
+          console.error('Usage: node keeps.mjs sell:batch <token|piece=price_xtz> [...] [network] [--marketplace=<KT1...>] [--replace] [--yes]');
+          process.exit(1);
+        }
+
+        let network = 'mainnet';
+        if (['mainnet', 'ghostnet'].includes(inputItems[inputItems.length - 1])) {
+          network = inputItems.pop();
+        }
+
+        if (inputItems.length === 0) {
+          console.error('❌ No batch items supplied. Example: node keeps.mjs sell:batch \'$faim=5.5\' \'$tezz=5.8\' \'$bip=6\' --yes');
+          process.exit(1);
+        }
+
+        const marketplaceFlag = flags.find(f => f.startsWith('--marketplace='));
+        const referralFlag = flags.find(f => f.startsWith('--referral-bps='));
+        const startFlag = flags.find(f => f.startsWith('--start='));
+        const expiryFlag = flags.find(f => f.startsWith('--expiry='));
+        const marketplaceContract = marketplaceFlag ? marketplaceFlag.split('=').slice(1).join('=').trim() : null;
+        const referralBonusBps = referralFlag ? Number.parseInt(referralFlag.split('=')[1], 10) : undefined;
+        const startTime = parseOptionalIsoTimestamp(startFlag ? startFlag.split('=').slice(1).join('=') : null, 'start');
+        const expiryTime = parseOptionalIsoTimestamp(expiryFlag ? expiryFlag.split('=').slice(1).join('=') : null, 'expiry');
+
+        await listBatchForSale(inputItems, {
+          network,
+          marketplaceContract,
+          referralBonusBps,
+          startTime,
+          expiryTime,
+          replaceExisting: flags.includes('--replace'),
+          apply: flags.includes('--yes') || flags.includes('--apply'),
+        });
+        break;
+      }
         
       case 'upload':
         if (!args[1]) {
@@ -3102,8 +3776,12 @@ Commands:
   sync-secrets [network]        Sync active contract/profile to Mongo secrets
   status [network]              Show contract status
   balance [network]             Check wallet balance
+  tokens [network]              List tokens held by current wallet
+  market [network]              Show Objkt listings/offers/sales snapshot
   upload <piece>                Upload bundle to IPFS
   mint <piece> [network]        Mint a new keep
+  sell <token> <price> [network]  List token on Objkt (dry-run unless --yes)
+  sell:batch <ref=price>...     Batch-list multiple tokens on Objkt
   update <token_id> <piece>     Update token metadata (re-upload bundle)
   lock <token_id>               Permanently lock token metadata
   burn <token_id>               Burn token (allows re-keeping piece)
@@ -3134,6 +3812,14 @@ Flags:
   --thumbnail                   Generate animated WebP thumbnail via Oven
                                and upload to IPFS (requires Oven service)
   --to=<address>                Recipient wallet address (default: server wallet)
+  --limit=<n>                   Max rows for tokens command
+  --listings=<n>                Max rows for market listings/offers
+  --sales=<n>                   Max rows for market sales
+  --marketplace=<KT1...>        Override marketplace contract for sell
+  --replace                     Retract existing ask before listing new price
+  --referral-bps=<n>            Referral bonus bps for marketplace ask (default: 500)
+  --start=<iso8601>             Scheduled listing start time
+  --expiry=<iso8601>            Listing expiry time
   --image=<uri>                 Collection image URI (IPFS or URL)
   --homepage=<url>              Collection homepage URL
   --description=<text>          Collection description
@@ -3151,8 +3837,12 @@ Examples:
   node keeps.mjs deploy mainnet --wallet=staging --contract=v5rc
   node keeps.mjs deploy ghostnet --wallet=aesthetic --contract=v4
   node keeps.mjs balance
+  node keeps.mjs tokens --wallet=aesthetic
+  node keeps.mjs market
   node keeps.mjs mint wand --thumbnail      # With IPFS thumbnail
   node keeps.mjs mint wand --to=tz1abc...   # Mint to specific wallet
+  node keeps.mjs sell '$bip' 6 --wallet=aesthetic --yes
+  node keeps.mjs sell:batch '$faim=5.5' '$tezz=5.8' '$bip=6' --wallet=aesthetic --yes
   node keeps.mjs update 0 wand              # Re-upload bundle & update metadata
   node keeps.mjs lock 0                     # Permanently lock token 0
   node keeps.mjs burn 0                     # Burn token 0 (allows re-mint)
@@ -3201,6 +3891,10 @@ export {
   syncCurrentContractToSecrets,
   getContractStatus,
   getBalance,
+  listOwnedTokens,
+  showMarketSnapshot,
+  listTokenForSale,
+  listBatchForSale,
   uploadToIPFS,
   mintToken,
   updateMetadata,

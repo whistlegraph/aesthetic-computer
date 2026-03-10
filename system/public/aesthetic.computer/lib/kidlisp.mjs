@@ -1508,22 +1508,29 @@ class KidLisp {
     
     // Initialize current density from window if not set
     if (this.autoDensity.currentDensity === null) {
-      this.autoDensity.currentDensity = window.acPACK_DENSITY || 2;
+      this.autoDensity.currentDensity = (typeof window !== 'undefined' && window.acPACK_DENSITY) || 2;
     }
     
-    console.log(`🎯 Auto-density enabled: target ${this.autoDensity.targetFpsMin}-${this.autoDensity.targetFpsMax} FPS, density ${this.autoDensity.densityMin}-${this.autoDensity.densityMax}`);
+    // console.log(`🎯 Auto-density enabled: target ${this.autoDensity.targetFpsMin}-${this.autoDensity.targetFpsMax} FPS, density ${this.autoDensity.densityMin}-${this.autoDensity.densityMax}`);
     return this;
   }
 
   disableAutoDensity() {
     this.autoDensity.enabled = false;
-    console.log('🎯 Auto-density disabled');
+    // console.log('🎯 Auto-density disabled');
     return this;
   }
 
   checkAutoDensity(currentFps) {
+    // Respect manual density override from Ctrl+/- or Ctrl+0
+    if (typeof window !== 'undefined' && window.acAutoDensityOverride) {
+      this.autoDensityOverride = true;
+      this.autoDensity.enabled = false;
+      return;
+    }
+
     const ad = this.autoDensity;
-    
+
     // Add current FPS to history
     ad.fpsHistory.push(currentFps);
     if (ad.fpsHistory.length > ad.stabilityFrames) {
@@ -1574,7 +1581,7 @@ class KidLisp {
     newDensity = Math.max(this.autoDensity.densityMin, Math.min(this.autoDensity.densityMax, newDensity));
     
     this.autoDensity.currentDensity = newDensity;
-    window.acPACK_DENSITY = newDensity;
+    if (typeof window !== 'undefined') window.acPACK_DENSITY = newDensity;
     
     // Persist to localStorage
     try {
@@ -3725,6 +3732,13 @@ class KidLisp {
         // Always reset on boot to prevent carrying over system/previous ink state
         this.inkState = undefined;
         this.inkStateSet = false;
+
+        // Auto-enable adaptive density scaling for all KidLisp pieces.
+        // Reduces pixel density when FPS drops below 30 to maintain smooth interaction.
+        // Can be overridden by Ctrl+D shortcut (handled in disk.mjs).
+        if (!this.autoDensityOverride) {
+          this.enableAutoDensity();
+        }
       },
       paint: ($) => {
         // 🎯 Start performance frame tracking
@@ -8784,15 +8798,12 @@ class KidLisp {
             }
           }
 
-          // Check if layer's timing condition should execute this frame
-          // Parse the layer's source to find timing expressions like (3s... ) or (0.25s... )
-          // console.log(`🔍 About to check timing for ${layerKey}`);
-          // TEMPORARILY DISABLED: const shouldExecute = this.shouldLayerExecuteThisFrame(api, existingLayer);
-          const shouldExecute = true; // Always execute for now
-          // console.log(`🔍 Timing check result for ${layerKey}: ${shouldExecute}`);
+          // Check if this layer actually needs re-evaluation this frame.
+          // Static pieces (no frame/scroll/timing/random) only need one evaluation.
+          const frameValue = api.frame || this.frameCount || 0;
+          const shouldExecute = this.shouldLayerEvaluate(existingLayer, frameValue);
 
           if (!shouldExecute) {
-            // Skipped execution debug log removed for performance
             return existingLayer;
           }
 
@@ -13677,20 +13688,13 @@ class KidLisp {
       return true;
     }
 
-    // TEMPORARY WORKAROUND: Force re-evaluation for layers that might have animation
-    // Since source is sometimes empty due to caching issues, force evaluation more frequently
-    if (!hasDynamicContent && embeddedLayer.hasBeenEvaluated) {
-      // Check if we should force evaluation anyway (every 10 frames for potential animation effects)
-      const shouldForceEvaluation = (frameValue % 10 === 0);
-      // console.log(`🔄 shouldLayerEvaluate: Forcing evaluation every 10 frames: ${shouldForceEvaluation} (frame ${frameValue})`);
-      if (shouldForceEvaluation) {
-        return true;
-      }
+    // Static piece with known source — no need to re-evaluate after first render
+    if (source) {
       return false;
     }
 
-    // console.log(`🔄 shouldLayerEvaluate: Returning true (default) for layer ${embeddedLayer.originalCacheId || embeddedLayer.id}`);
-    return true; // Default to evaluating
+    // Source is empty (caching issue) — force re-evaluation once per 10 frames as safety net
+    return frameValue % 10 === 0;
   }
 
   // 🚀 OPTIMIZED: Render single layer with minimal overhead
@@ -13836,7 +13840,30 @@ class KidLisp {
       // Direct passthrough of most functions to main API
       line: (...args) => api.line(...args),
       ink: (...args) => api.ink(...args),
-      wipe: (...args) => api.wipe(...args),
+      wipe: (...args) => {
+        // Cache the wipe result for embedded layers — if the same wipe args are used
+        // every frame (e.g. a gradient fill), restore from snapshot instead of recomputing.
+        const argsKey = args.length > 0 ? JSON.stringify(args) : "";
+        if (!embeddedLayer._wipeCache) embeddedLayer._wipeCache = {};
+        const cache = embeddedLayer._wipeCache;
+
+        if (cache.key === argsKey && cache.snapshot &&
+            cache.width === embeddedLayer.width && cache.height === embeddedLayer.height) {
+          // Restore from cached snapshot (fast typed-array copy)
+          embeddedLayer.buffer.pixels.set(cache.snapshot);
+          return;
+        }
+
+        // First time or args changed — do the real wipe and snapshot the result
+        api.wipe(...args);
+        const px = embeddedLayer.buffer.pixels;
+        if (px && px.length > 0) {
+          cache.snapshot = new Uint8ClampedArray(px);
+          cache.key = argsKey;
+          cache.width = embeddedLayer.width;
+          cache.height = embeddedLayer.height;
+        }
+      },
       circle: (...args) => api.circle(...args),
       tri: (...args) => api.tri(...args),
       box: (...args) => api.box(...args),
@@ -14222,7 +14249,23 @@ class KidLisp {
           },
           wipe: (...args) => {
             didRender = true;
-            return api.wipe(...args);
+            // Cache wipe result for embedded layers (avoids recomputing gradients every frame)
+            const argsKey = args.length > 0 ? JSON.stringify(args) : "";
+            if (!embeddedLayer._wipeCache) embeddedLayer._wipeCache = {};
+            const cache = embeddedLayer._wipeCache;
+            if (cache.key === argsKey && cache.snapshot &&
+                cache.width === embeddedLayer.width && cache.height === embeddedLayer.height) {
+              embeddedLayer.buffer.pixels.set(cache.snapshot);
+              return;
+            }
+            api.wipe(...args);
+            const px = embeddedLayer.buffer.pixels;
+            if (px && px.length > 0) {
+              cache.snapshot = new Uint8ClampedArray(px);
+              cache.key = argsKey;
+              cache.width = embeddedLayer.width;
+              cache.height = embeddedLayer.height;
+            }
           },
           circle: (...args) => {
             didRender = true;
