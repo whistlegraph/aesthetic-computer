@@ -4556,6 +4556,14 @@
           iconUrl: 'https://aesthetic.computer/favicon.ico',
           preferredNetwork: getTezosNetwork(),
           featuredWallets: ['kukai', 'temple', 'umami', 'altme'],
+          enableMetrics: false,
+        });
+        // Subscribe to active account changes before getActiveAccount fires it
+        beaconClient.subscribeToEvent(window.beacon.BeaconEvent.ACTIVE_ACCOUNT_SET, (account) => {
+          if (account) {
+            mintWalletAddress = account.address;
+            updateWalletBtn();
+          }
         });
         // Check existing connection
         const activeAccount = await beaconClient.getActiveAccount();
