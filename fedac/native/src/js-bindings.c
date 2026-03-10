@@ -1469,6 +1469,7 @@ static JSValue js_fetch(JSContext *ctx, JSValueConst this_val, int argc, JSValue
     ac_log("[fetch] start: %s\n", url);
     snprintf(cmd, sizeof(cmd),
         "sh -c 'curl -fsSL --retry 2 --retry-delay 1 --connect-timeout 5 --max-time 12 "
+        "--cacert /etc/pki/tls/certs/ca-bundle.crt "
         "--output /tmp/ac_fetch.json \"%s\" 2>/tmp/ac_fetch_err;"
         " echo $? > /tmp/ac_fetch_rc' &", url);
     system(cmd);
@@ -1590,6 +1591,7 @@ static JSValue js_fetch_binary(JSContext *ctx, JSValueConst this_val, int argc, 
     char cmd[1024];
     snprintf(cmd, sizeof(cmd),
         "sh -c 'curl -fSL --retry 3 --retry-delay 1 --connect-timeout 8 --max-time 600 "
+        "--cacert /etc/pki/tls/certs/ca-bundle.crt "
         "--output \"%s\" \"%s\" 2>/tmp/ac_fb_err;"
         " echo $? > /tmp/ac_fb_rc' &", dest, url);
     system(cmd);
@@ -1907,6 +1909,7 @@ static JSValue build_system_obj(JSContext *ctx) {
                     }
                 }
                 unlink("/tmp/ac_fetch_err");
+                ac_log("[fetch] error (%d): %s\n", code, emsg[0] ? emsg : "(no stderr)");
                 if (emsg[0]) {
                     snprintf(current_rt->fetch_error, sizeof(current_rt->fetch_error),
                              "request failed (%d): %s", code, emsg);
@@ -1989,6 +1992,20 @@ static JSValue build_system_obj(JSContext *ctx) {
                 fscanf(fbrc, "%d", &rc);
                 fclose(fbrc);
                 unlink("/tmp/ac_fb_rc");
+                if (rc != 0) {
+                    char emsg[160] = {0};
+                    FILE *ef = fopen("/tmp/ac_fb_err", "r");
+                    if (ef) {
+                        int en = (int)fread(emsg, 1, sizeof(emsg) - 1, ef);
+                        fclose(ef);
+                        emsg[en] = 0;
+                        for (int i = 0; emsg[i]; i++) {
+                            if (emsg[i] == '\n' || emsg[i] == '\r' || emsg[i] == '\t') emsg[i] = ' ';
+                        }
+                    }
+                    ac_log("[fetchBinary] error (%d): %s\n", rc, emsg[0] ? emsg : "(no stderr)");
+                }
+                unlink("/tmp/ac_fb_err");
                 current_rt->fetch_binary_pending  = 0;
                 current_rt->fetch_binary_done     = 1;
                 current_rt->fetch_binary_ok       = (rc == 0) ? 1 : 0;

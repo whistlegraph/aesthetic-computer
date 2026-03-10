@@ -396,9 +396,13 @@ for p in /etc/pki/tls/certs/ca-bundle.crt /etc/ssl/certs/ca-certificates.crt; do
     fi
 done
 if [ -n "${CA_BUNDLE_SRC}" ]; then
-    mkdir -p "${INITRAMFS_DIR}$(dirname "${CA_BUNDLE_SRC}")"
-    cp "${CA_BUNDLE_SRC}" "${INITRAMFS_DIR}${CA_BUNDLE_SRC}"
-    log "CA bundle: ${CA_BUNDLE_SRC}"
+    mkdir -p "${INITRAMFS_DIR}/etc/pki/tls/certs" \
+             "${INITRAMFS_DIR}/etc/pki/tls" \
+             "${INITRAMFS_DIR}/etc/ssl/certs"
+    cp "${CA_BUNDLE_SRC}" "${INITRAMFS_DIR}/etc/pki/tls/certs/ca-bundle.crt"
+    cp "${CA_BUNDLE_SRC}" "${INITRAMFS_DIR}/etc/pki/tls/cert.pem"
+    cp "${CA_BUNDLE_SRC}" "${INITRAMFS_DIR}/etc/ssl/certs/ca-certificates.crt"
+    log "CA bundle installed: /etc/pki/tls/certs/ca-bundle.crt"
 else
     warn "No CA bundle found — HTTPS fetches may fail"
 fi

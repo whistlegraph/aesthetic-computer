@@ -607,6 +607,7 @@ ACAudio *audio_init(void) {
     audio->mic_connected = 0;
     audio->mic_level = 0.0f;
     audio->mic_last_chunk = 0;
+    audio->capture_thread_running = 0;
     snprintf(audio->mic_device, sizeof(audio->mic_device), "none");
     audio->mic_last_error[0] = 0;
     seed_default_sample(audio);
@@ -1070,8 +1071,9 @@ static void *capture_thread_func(void *arg) {
 }
 
 int audio_mic_start(ACAudio *audio) {
-    if (!audio || audio->recording) return -1;
+    if (!audio || audio->recording || audio->capture_thread_running) return -1;
     audio->recording = 1;
+    audio->capture_thread_running = 1;
     audio->sample_len = 0;
     audio->mic_level = 0.0f;
     audio->mic_last_chunk = 0;
@@ -1082,20 +1084,22 @@ int audio_mic_start(ACAudio *audio) {
         audio->sample_voices[i].active = 0;
     if (pthread_create(&audio->capture_thread, NULL, capture_thread_func, audio) != 0) {
         audio->recording = 0;
+        audio->capture_thread_running = 0;
         snprintf(audio->mic_last_error, sizeof(audio->mic_last_error),
                  "failed to create capture thread");
         ac_log("[mic] failed to create capture thread\n");
         return -1;
     }
-    pthread_detach(audio->capture_thread);
     return 0;
 }
 
 int audio_mic_stop(ACAudio *audio) {
     if (!audio) return 0;
     audio->recording = 0;
-    // Thread will exit on its own, detached
-    usleep(50000); // 50ms for thread to finish last read
+    if (audio->capture_thread_running) {
+        pthread_join(audio->capture_thread, NULL);
+        audio->capture_thread_running = 0;
+    }
     ac_log("[mic] stop requested, sample_len=%d sample_rate=%u\n",
            audio->sample_len, audio->sample_rate);
     return audio->sample_len;
@@ -1291,6 +1295,11 @@ void audio_shutdown_sound(ACAudio *audio) {
 void audio_destroy(ACAudio *audio) {
     if (!audio) return;
     audio->running = 0;
+    audio->recording = 0;
+    if (audio->capture_thread_running) {
+        pthread_join(audio->capture_thread, NULL);
+        audio->capture_thread_running = 0;
+    }
     if (audio->pcm) {
         pthread_join(audio->thread, NULL);
         snd_pcm_close((snd_pcm_t *)audio->pcm);

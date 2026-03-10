@@ -126,6 +126,7 @@ typedef struct {
     char mic_device[64];        // active ALSA capture device string
     char mic_last_error[128];   // last capture error message
     pthread_t capture_thread;
+    volatile int capture_thread_running; // 1 while capture thread owns ALSA device
     SampleVoice sample_voices[AUDIO_MAX_SAMPLE_VOICES];
     uint64_t sample_next_id;
 
