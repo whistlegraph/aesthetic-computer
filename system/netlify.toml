@@ -2241,6 +2241,11 @@ to = "/papers.aesthetic.computer/index.html"
 status = 200
 force = true
 [[redirects]]
+from = "https://papers.aesthetic.computer/platter"
+to = "/papers.aesthetic.computer/platter.html"
+status = 200
+force = true
+[[redirects]]
 from = "https://papers.aesthetic.computer/*"
 to = "/papers.aesthetic.computer/:splat"
 status = 200
