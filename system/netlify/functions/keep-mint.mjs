@@ -1626,30 +1626,30 @@ export const handler = stream(async (event, context) => {
           });
 
           // Poll oven grab-status every 2s to stream real-time baking progress.
+          // Also sends keepalive pings to prevent proxy/CDN idle disconnects.
           const pieceKey = `$${pieceName}`;
           const heartbeat = setInterval(async () => {
+            const elapsed = ((Date.now() - processStartTime) / 1000).toFixed(0);
+            let ovenStage = null, ovenDetail = null, percent = null, previewFrame = null;
             try {
-              const elapsed = ((Date.now() - processStartTime) / 1000).toFixed(0);
-              let ovenStage = null, ovenDetail = null, percent = null, previewFrame = null;
-              try {
-                const statusRes = await fetch(`${OVEN_URL}/grab-status`, { signal: AbortSignal.timeout(1500) });
-                if (statusRes.ok) {
-                  const statusData = await statusRes.json();
-                  const grabs = statusData.grabProgress || {};
-                  const match = Object.values(grabs).find(g => g.piece === pieceKey);
-                  if (match) {
-                    ovenStage = match.stage || null;
-                    ovenDetail = match.stageDetail || null;
-                    percent = match.percent ?? null;
-                    previewFrame = match.previewFrame || null;
-                  }
+              const statusRes = await fetch(`${OVEN_URL}/grab-status`, { signal: AbortSignal.timeout(1500) });
+              if (statusRes.ok) {
+                const statusData = await statusRes.json();
+                const grabs = statusData.grabProgress || {};
+                const match = Object.values(grabs).find(g => g.piece === pieceKey);
+                if (match) {
+                  ovenStage = match.stage || null;
+                  ovenDetail = match.stageDetail || null;
+                  percent = match.percent ?? null;
+                  previewFrame = match.previewFrame || null;
                 }
-              } catch { /* oven unreachable, fall back to elapsed */ }
-              const message = ovenDetail || ovenStage
-                ? `${ovenStage || 'baking'}${ovenDetail ? ': ' + ovenDetail : ''} (${elapsed}s)`
-                : `Still baking… (${elapsed}s)`;
-              await send("progress", { stage: "thumbnail", message, ovenStage, ovenDetail, percent, previewFrame });
-            } catch {}
+              }
+            } catch { /* oven unreachable, fall back to elapsed */ }
+            const message = ovenDetail || ovenStage
+              ? `${ovenStage || 'baking'}${ovenDetail ? ': ' + ovenDetail : ''} (${elapsed}s)`
+              : `Still baking… (${elapsed}s)`;
+            // Always send — keepalive even when oven is unreachable
+            try { await send("progress", { stage: "thumbnail", message, ovenStage, ovenDetail, percent, previewFrame, heartbeat: true }); } catch {}
           }, 2000);
 
           let thumbResult;
