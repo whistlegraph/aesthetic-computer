@@ -83,6 +83,10 @@ typedef struct {
     int glitch_counter;
     int glitch_rate;        // samples between holds
 
+    // FX mix: dry/wet blend for entire FX chain (reverb + glitch)
+    float fx_mix;           // 0.0 = fully dry, 1.0 = fully wet (smoothed)
+    float target_fx_mix;    // target (set by JS, smoothed per sample)
+
     // System mixer volume (0-100 percent)
     int system_volume;
     int card_index;  // ALSA card number (0 or 1)
@@ -132,6 +136,7 @@ void audio_set_bpm(ACAudio *audio, double bpm);
 void audio_room_toggle(ACAudio *audio);
 void audio_glitch_toggle(ACAudio *audio);
 void audio_set_room_mix(ACAudio *audio, float mix);
+void audio_set_fx_mix(ACAudio *audio, float mix);
 
 // Adjust system volume: delta is -5 to +5 (percentage points), 0 = toggle mute
 void audio_volume_adjust(ACAudio *audio, int delta);

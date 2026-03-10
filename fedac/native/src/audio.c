@@ -203,10 +203,17 @@ static void setup_noise_filter(ACVoice *v, double sample_rate) {
 #define ROOM_FEEDBACK 0.3
 #define ROOM_MIX 0.35
 
-// Soft clamp (tanh-like) to prevent harsh digital clipping
+// Soft clamp (tanh-style) to prevent harsh digital clipping
+// Smooth curve: starts compressing gently above 0.6, hard-limits at ~0.95
 static inline double soft_clip(double x) {
-    if (x > 1.0) return 1.0 - 1.0 / (1.0 + (x - 1.0) * 3.0);
-    if (x < -1.0) return -1.0 + 1.0 / (1.0 - (x + 1.0) * 3.0);
+    if (x > 0.6) {
+        double over = x - 0.6;
+        return 0.6 + 0.35 * (1.0 - 1.0 / (1.0 + over * 2.5));
+    }
+    if (x < -0.6) {
+        double over = -x - 0.6;
+        return -0.6 - 0.35 * (1.0 - 1.0 / (1.0 + over * 2.5));
+    }
     return x;
 }
 
@@ -265,10 +272,10 @@ static void *audio_thread_fn(void *arg) {
                 }
             }
 
-            // Smooth auto-mix divisor (matches speaker.mjs approach)
+            // Smooth auto-mix divisor — fast attack, slow release
             double target = voice_sum > 1.0 ? voice_sum : 1.0;
             if (mix_divisor < target) {
-                mix_divisor *= 1.002; // Ramp up gently
+                mix_divisor *= 1.02; // Ramp up fast (~0.5ms to double)
                 if (mix_divisor > target) mix_divisor = target;
             } else if (mix_divisor > target) {
                 mix_divisor *= 0.9997; // Ramp down slowly
@@ -282,6 +289,14 @@ static void *audio_thread_fn(void *arg) {
             if (audio->room_mix != audio->target_room_mix) {
                 audio->room_mix += (audio->target_room_mix - audio->room_mix) * 0.00005f;
             }
+
+            // Smooth fx_mix toward target
+            if (audio->fx_mix != audio->target_fx_mix) {
+                audio->fx_mix += (audio->target_fx_mix - audio->fx_mix) * 0.00005f;
+            }
+
+            // Save dry signal before FX chain
+            double dry_l = mix_l, dry_r = mix_r;
 
             // Room (reverb) effect — tap delays based on actual sample rate
             if (audio->room_enabled && audio->room_buf_l) {
@@ -342,6 +357,15 @@ static void *audio_thread_fn(void *arg) {
                 mix_r = audio->glitch_hold_r;
             }
 
+            // Blend dry/wet based on FX mix
+            {
+                float fxm = audio->fx_mix;
+                if (fxm < 0.999f) {
+                    mix_l = dry_l * (1.0 - fxm) + mix_l * fxm;
+                    mix_r = dry_r * (1.0 - fxm) + mix_r * fxm;
+                }
+            }
+
             // Mix in TTS audio after FX chain (bypasses reverb/glitch)
             // Fade envelope prevents hard-start/stop clicks
             {
@@ -366,20 +390,20 @@ static void *audio_thread_fn(void *arg) {
                 }
             }
 
-            // Compressor: peak-following gain reduction (threshold 0.7, ratio ~4:1)
+            // Compressor: peak-following gain reduction (threshold 0.4, ratio ~8:1)
             {
                 double peak = fabs(mix_l);
                 double pr = fabs(mix_r);
                 if (pr > peak) peak = pr;
-                // Attack: fast (0.5ms), Release: medium (50ms)
-                double att_coeff = 1.0 - exp(-1.0 / (0.0005 * rate));
-                double rel_coeff = 1.0 - exp(-1.0 / (0.05 * rate));
+                // Attack: very fast (0.2ms), Release: medium (40ms)
+                double att_coeff = 1.0 - exp(-1.0 / (0.0002 * rate));
+                double rel_coeff = 1.0 - exp(-1.0 / (0.04 * rate));
                 if (peak > comp_env)
                     comp_env += att_coeff * (peak - comp_env);
                 else
                     comp_env += rel_coeff * (peak - comp_env);
-                if (comp_env > 0.7) {
-                    double gain = 0.7 + (comp_env - 0.7) * 0.25; // ~4:1 ratio above threshold
+                if (comp_env > 0.4) {
+                    double gain = 0.4 + (comp_env - 0.4) * 0.125; // ~8:1 ratio above threshold
                     double reduction = gain / comp_env;
                     mix_l *= reduction;
                     mix_r *= reduction;
@@ -390,8 +414,8 @@ static void *audio_thread_fn(void *arg) {
             mix_l = soft_clip(mix_l);
             mix_r = soft_clip(mix_r);
 
-            buffer[i * 2] = (int16_t)(mix_l * 32000);
-            buffer[i * 2 + 1] = (int16_t)(mix_r * 32000);
+            buffer[i * 2] = (int16_t)(mix_l * 26000);
+            buffer[i * 2 + 1] = (int16_t)(mix_r * 26000);
 
             // HDMI audio: 1-pole low-pass filter + downsample
             if (audio->hdmi_pcm) {
@@ -474,6 +498,8 @@ ACAudio *audio_init(void) {
     audio->room_size = ROOM_SIZE;
     audio->room_mix = 0.0f;  // Start dry, trackpad Y controls
     audio->room_enabled = 1; // Always on, mix controls wet amount
+    audio->fx_mix = 1.0f;    // FX chain fully wet by default
+    audio->target_fx_mix = 1.0f;
     audio->room_buf_l = calloc(ROOM_SIZE, sizeof(float));
     audio->room_buf_r = calloc(ROOM_SIZE, sizeof(float));
 
@@ -824,6 +850,13 @@ void audio_set_room_mix(ACAudio *audio, float mix) {
     if (mix < 0.0f) mix = 0.0f;
     if (mix > 1.0f) mix = 1.0f;
     audio->target_room_mix = mix;
+}
+
+void audio_set_fx_mix(ACAudio *audio, float mix) {
+    if (!audio) return;
+    if (mix < 0.0f) mix = 0.0f;
+    if (mix > 1.0f) mix = 1.0f;
+    audio->target_fx_mix = mix;
 }
 
 // Read current Master mixer volume as 0-100 percentage
