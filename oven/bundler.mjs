@@ -923,11 +923,19 @@ export async function createM4DBundle(pieceName, isJSPiece, onProgress = () => {
 
 // ─── Self-extracting HTML wrapper ───────────────────────────────────
 
+function renderNoScriptBoxArt(title, boxArtPNG, inlineStyle = "") {
+  if (!boxArtPNG) return "";
+  const styleAttr = inlineStyle ? ` style="${inlineStyle}"` : "";
+  return `<noscript><img id="ac-box-art" src="data:image/png;base64,${boxArtPNG}" alt="${title}"${styleAttr}></noscript>`;
+}
+
 function generateSelfExtractingHTML(title, gzipBase64, bgColor = null, boxArtPNG = null) {
   const bgRule = `background:${bgColor || "black"};`;
-  const boxArtTag = boxArtPNG
-    ? `<img id="ac-box-art" src="data:image/png;base64,${boxArtPNG}" alt="${title}" style="position:fixed;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;">`
-    : "";
+  const boxArtTag = renderNoScriptBoxArt(
+    title,
+    boxArtPNG,
+    "position:fixed;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;"
+  );
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -959,9 +967,11 @@ function generateSelfExtractingHTML(title, gzipBase64, bgColor = null, boxArtPNG
 function generateSelfExtractingBrotliHTML(title, brotliBase64, bgColor = null, boxArtPNG = null) {
   if (!brotliWasmGzBase64) throw new Error("Brotli WASM decoder not loaded");
   const bgRule = `background:${bgColor || "black"};`;
-  const boxArtTag = boxArtPNG
-    ? `<img id="ac-box-art" src="data:image/png;base64,${boxArtPNG}" alt="${title}" style="position:fixed;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;">`
-    : "";
+  const boxArtTag = renderNoScriptBoxArt(
+    title,
+    boxArtPNG,
+    "position:fixed;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;"
+  );
   // The inline script:
   // 1. Decompresses the WASM decoder binary using browser's native gzip DecompressionStream
   // 2. Instantiates the brotli-dec-wasm WASM module with minimal glue
@@ -1128,9 +1138,7 @@ function generateHTMLBundle(opts) {
   } = opts;
 
   const bgRule = `background: ${bgColor || "black"}; `;
-  const boxArtImg = boxArtPNG
-    ? `<img id="ac-box-art" src="data:image/png;base64,${boxArtPNG}" alt="${PIECE_NAME}">`
-    : "";
+  const boxArtImg = renderNoScriptBoxArt(PIECE_NAME, boxArtPNG);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -1150,7 +1158,6 @@ function generateHTMLBundle(opts) {
     // Phase 1: Setup VFS, blob URLs, import map, and fetch interception.
     // This MUST run in a regular <script> (not type="module") so the import map
     // is in the DOM BEFORE any <script type="module"> executes.
-    var _ba = document.getElementById('ac-box-art'); if (_ba) _ba.style.display = 'none';
     window.acPACK_MODE = true;
     ${keeplabel ? `window.acKEEP_LABEL = true;` : ""}
     window.KIDLISP_SUPPRESS_SNAPSHOT_LOGS = true;
@@ -1349,9 +1356,7 @@ function generateHTMLBundle(opts) {
 function generateJSPieceHTMLBundle(opts) {
   const { pieceName, files, packDate, packTime, gitVersion, bdfGlyphs, boxArtPNG, keeplabel } = opts;
 
-  const boxArtImg = boxArtPNG
-    ? `<img id="ac-box-art" src="data:image/png;base64,${boxArtPNG}" alt="${pieceName}">`
-    : "";
+  const boxArtImg = renderNoScriptBoxArt(pieceName, boxArtPNG);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -1371,7 +1376,6 @@ function generateJSPieceHTMLBundle(opts) {
     // Phase 1: Setup VFS, blob URLs, import map, and fetch interception.
     // This MUST run in a regular <script> (not type="module") so the import map
     // is in the DOM BEFORE any <script type="module"> executes.
-    var _ba = document.getElementById('ac-box-art'); if (_ba) _ba.style.display = 'none';
     window.acPACK_MODE = true;
     ${keeplabel ? `window.acKEEP_LABEL = true;` : ""}
     window.KIDLISP_SUPPRESS_SNAPSHOT_LOGS = true;
