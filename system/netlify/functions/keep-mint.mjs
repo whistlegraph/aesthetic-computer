@@ -1489,8 +1489,8 @@ export const handler = stream(async (event, context) => {
 
         const bundleCode = `$${pieceName}`;
         let bundleUrl = dev
-          ? `https://localhost:8888/api/pack-html?code=${encodeURIComponent(bundleCode)}&format=json&keeplabel=1`
-          : `https://oven.aesthetic.computer/pack-html?code=${encodeURIComponent(bundleCode)}&format=json&keeplabel=1`;
+          ? `https://localhost:8888/api/pack-html?code=${encodeURIComponent(bundleCode)}&format=json`
+          : `https://oven.aesthetic.computer/pack-html?code=${encodeURIComponent(bundleCode)}&format=json`;
         if (forceFreshMedia) {
           bundleUrl += `&rebake=1&nocache=1&sourceHash=${encodeURIComponent(pieceSourceHash)}&ts=${Date.now()}`;
         }

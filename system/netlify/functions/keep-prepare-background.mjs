@@ -478,8 +478,8 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
     await updateJobStage(jobId, "bundle", "Packing HTML bundle...");
     const bundleCode = `$${pieceName}`;
     let bundleUrl = dev
-      ? `https://localhost:8888/api/pack-html?code=${encodeURIComponent(bundleCode)}&format=json&keeplabel=1`
-      : `https://oven.aesthetic.computer/pack-html?code=${encodeURIComponent(bundleCode)}&format=json&keeplabel=1`;
+      ? `https://localhost:8888/api/pack-html?code=${encodeURIComponent(bundleCode)}&format=json`
+      : `https://oven.aesthetic.computer/pack-html?code=${encodeURIComponent(bundleCode)}&format=json`;
     if (forceFresh) bundleUrl += `&rebake=1&nocache=1&sourceHash=${encodeURIComponent(pieceSourceHash)}&ts=${Date.now()}`;
 
     const bundleController = new AbortController();
