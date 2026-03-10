@@ -34,6 +34,18 @@ const RPC_URL = NETWORK === "mainnet"
   ? "https://mainnet.ecadinfra.com"
   : "https://ghostnet.ecadinfra.com";
 
+const VERSION_BY_PROFILE = {
+  v11: "11.0.0",
+  v10: "10.0.0",
+  v9: "9.0.0",
+  v8: "8.0.0",
+  v7: "7.0.0",
+  v6: "6.0.0",
+  v5: "5.0.0",
+  v5rc: "5.0.0-rc",
+  v4: "4.0.0",
+};
+
 function envInt(name, fallback) {
   const parsed = Number.parseInt(process.env[name] || "", 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -101,6 +113,44 @@ function isTezosAddress(addr) {
 
 function normalizeAddress(value) {
   return typeof value === "string" ? value.trim() : null;
+}
+
+function normalizeContractProfile(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim().toLowerCase();
+  return trimmed || null;
+}
+
+function normalizeContractVersion(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed || null;
+}
+
+function pickString(value, network) {
+  if (typeof value === "string" && value.trim()) return value.trim();
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const candidate = value[network] || value.mainnet || value.current || value.default;
+  return typeof candidate === "string" && candidate.trim() ? candidate.trim() : null;
+}
+
+function resolveProfile(secretDoc, network) {
+  const raw =
+    pickString(secretDoc?.currentKeepsProfile, network) ||
+    pickString(secretDoc?.keepsProfile, network) ||
+    pickString(secretDoc?.keeps_profile, network) ||
+    pickString(secretDoc?.contractProfile, network) ||
+    pickString(secretDoc?.keeps?.profile, network);
+  return normalizeContractProfile(raw) || "v11";
+}
+
+function resolveVersion(secretDoc, profile, network) {
+  const explicit =
+    pickString(secretDoc?.currentKeepsVersion, network) ||
+    pickString(secretDoc?.keepsVersion, network) ||
+    pickString(secretDoc?.keeps_version, network) ||
+    pickString(secretDoc?.keeps?.version, network);
+  return normalizeContractVersion(explicit) || VERSION_BY_PROFILE[profile] || null;
 }
 
 function maybeInt(value, fallback = null) {
@@ -379,6 +429,17 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
   const CONTRACT_ADDRESS = await getKeepsContractAddress({ network: NETWORK, fallback: LEGACY_KEEPS_CONTRACT });
 
   const database = await connect();
+  try {
+  const secretDoc = await database.db.collection("secrets").findOne({ _id: "tezos-kidlisp" });
+  let contractProfile = resolveProfile(secretDoc, NETWORK);
+  let contractVersion = resolveVersion(secretDoc, contractProfile, NETWORK);
+  if (normalizeAddress(CONTRACT_ADDRESS)?.toLowerCase() === LEGACY_KEEPS_CONTRACT.toLowerCase()) {
+    contractProfile = "legacy";
+    contractVersion = VERSION_BY_PROFILE.v9 || null;
+  }
+  if (!contractVersion && contractProfile) {
+    contractVersion = VERSION_BY_PROFILE[contractProfile] || null;
+  }
   const col = database.db.collection("kidlisp");
   const piece = await col.findOne({ code: pieceName });
 
@@ -575,10 +636,33 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
 
   // ── Rebake early exit ──────────────────────────────────────────────
   if (isRebake) {
+    await col.updateOne(
+      { code: pieceName },
+      {
+        $set: {
+          pendingRebake: {
+            artifactUri,
+            thumbnailUri,
+            metadataUri: null,
+            createdAt: new Date(),
+            sourceHash: pieceSourceHash,
+            network: NETWORK,
+            contractAddress: CONTRACT_ADDRESS,
+            contractProfile: contractProfile || null,
+            contractVersion: contractVersion || null,
+            packDate: packDate || null,
+          },
+        },
+      }
+    );
     const mintStatus = await checkMintStatus(pieceName, CONTRACT_ADDRESS);
     await markJobReady(jobId, {
       rebake: true, piece: pieceName, artifactUri, thumbnailUri,
       tokenId: mintStatus.tokenId, objktUrl: mintStatus.objktUrl, packDate,
+      network: NETWORK,
+      contractAddress: CONTRACT_ADDRESS,
+      contractProfile: contractProfile || null,
+      contractVersion: contractVersion || null,
     });
     log("ready", "Rebake complete");
     return;
@@ -652,6 +736,8 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
   await markJobReady(jobId, {
     success: true, piece: pieceName,
     contractAddress: CONTRACT_ADDRESS, network: NETWORK,
+    contractProfile: contractProfile || null,
+    contractVersion: contractVersion || null,
     mintFee: keepFeeXtz,
     michelsonParams: transferParams.parameter,
     entrypoint: "keep",
@@ -676,6 +762,9 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
 
   const totalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
   log("ready", `Complete in ${totalElapsed}s`);
+  } finally {
+    await database.disconnect().catch(() => {});
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

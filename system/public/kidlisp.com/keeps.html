@@ -2862,13 +2862,15 @@
     let mintCurrentPiece = null;
     let mintCurrentEntry = null;
     let mintWalletAddress = null;
+    let mintOnChainUris = null;
+    let mintLatestUris = null;
 
     // Active keeps config (resolved from Mongo-backed API)
     let keepsConfig = {
       contractAddress: null,
       network: 'mainnet',
-      profile: 'v9',
-      version: '9.0.0',
+      profile: 'v11',
+      version: '11.0.0',
       rpcUrl: 'https://mainnet.ecadinfra.com',
       source: 'fallback',
     };
@@ -2888,6 +2890,14 @@
 
     function getKeepsContractAddress() {
       return keepsConfig.contractAddress || null;
+    }
+
+    function getKeepsContractProfile() {
+      return (keepsConfig.profile || '').trim().toLowerCase() || null;
+    }
+
+    function getKeepsContractVersion() {
+      return (keepsConfig.version || '').trim() || null;
     }
 
     function getObjktBase(network = getTezosNetwork()) {
@@ -3060,7 +3070,9 @@
     async function fetchAllCodes(sort = 'recent') {
       try {
         const contractHint = encodeURIComponent(getKeepsContractAddress() || '');
-        const url = `${AC_BASE}/api/store-kidlisp?recent=true&limit=100000&sort=${sort}&contract=${contractHint}&ts=${Date.now()}`;
+        const contractVersion = encodeURIComponent(getKeepsContractVersion() || '');
+        const contractProfile = encodeURIComponent(getKeepsContractProfile() || '');
+        const url = `${AC_BASE}/api/store-kidlisp?recent=true&limit=100000&sort=${sort}&contract=${contractHint}&contractVersion=${contractVersion}&contractProfile=${contractProfile}&ts=${Date.now()}`;
         const res = await fetch(url, { cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
@@ -3077,6 +3089,18 @@
 
     function normalizeAddress(address) {
       return typeof address === 'string' ? address.trim().toLowerCase() : '';
+    }
+
+    function normalizeContractProfile(profile) {
+      if (typeof profile !== 'string') return null;
+      const trimmed = profile.trim().toLowerCase();
+      return trimmed || null;
+    }
+
+    function normalizeContractVersion(version) {
+      if (typeof version !== 'string') return null;
+      const trimmed = version.trim();
+      return trimmed || null;
     }
 
     function normalizeTokenId(value) {
@@ -3106,12 +3130,16 @@
           : '';
         if (!contractAddress) continue;
         const keptAt = item.keptAt || item.mintedAt || null;
+        const contractProfile = normalizeContractProfile(item.contractProfile || item.profile || null);
+        const contractVersion = normalizeContractVersion(item.contractVersion || item.version || null);
         const key = `${normalizeAddress(contractAddress)}:${network}:${tokenId}`;
         const normalized = {
           ...item,
           tokenId,
           network,
           contractAddress,
+          contractProfile,
+          contractVersion,
           keptAt,
         };
         if (!deduped.has(key)) {
@@ -3141,12 +3169,23 @@
       if (!activeContract) return null;
 
       const activeNetwork = (getTezosNetwork() || '').trim().toLowerCase();
+      const activeProfile = normalizeContractProfile(getKeepsContractProfile());
+      const activeVersion = normalizeContractVersion(getKeepsContractVersion());
+      const normalizedActiveContract = normalizeAddress(activeContract);
       const records = getKeepRecords(entry);
       return records.find(record => {
         if (!record.contractAddress) return false;
-        const sameContract = normalizeAddress(record.contractAddress) === normalizeAddress(activeContract);
+        const sameContract = normalizeAddress(record.contractAddress) === normalizedActiveContract;
         if (!sameContract) return false;
-        return !record.network || !activeNetwork || record.network === activeNetwork;
+        const sameNetwork = !record.network || !activeNetwork || record.network === activeNetwork;
+        if (!sameNetwork) return false;
+        if (activeProfile && record.contractProfile && normalizeContractProfile(record.contractProfile) !== activeProfile) {
+          return false;
+        }
+        if (activeVersion && record.contractVersion && normalizeContractVersion(record.contractVersion) !== activeVersion) {
+          return false;
+        }
+        return true;
       }) || null;
     }
 
@@ -3157,11 +3196,16 @@
       return records[0] || null;
     }
 
-    function getLegacyKeepRecord(entry) {
-      const activeContract = normalizeAddress(getKeepsContractAddress());
+    function getNonActiveKeepRecord(entry) {
+      const activeContract = getKeepsContractAddress();
       if (!activeContract) return null;
       const records = getKeepRecords(entry);
-      return records.find(record => normalizeAddress(record.contractAddress) !== activeContract) || null;
+      const active = getActiveKeepRecord(entry);
+      if (!active) return records[0] || null;
+      return records.find(record =>
+        normalizeAddress(record.contractAddress) !== normalizeAddress(active.contractAddress) ||
+        normalizeTokenId(record.tokenId) !== normalizeTokenId(active.tokenId)
+      ) || null;
     }
 
     function isKeptOnActiveContract(entry) {
@@ -3266,13 +3310,8 @@
       const handle = entry.handle || 'anon';
       const hits = entry.hits || 0;
       const activeKeepInfo = getActiveKeepRecord(entry);
-      const legacyKeepInfo = activeKeepInfo ? null : getLegacyKeepRecord(entry);
       const isActiveKept = !!activeKeepInfo;
-      const keptInfo = activeKeepInfo || legacyKeepInfo;
-      const hasKeptRecord = !!keptInfo;
       const canManageKeep = !!(acUser && entry.user && acUser.sub === entry.user);
-      const canRekeep = !!(acUser && hasKeptRecord);
-      const canKeepOnActive = !!(canManageKeep && !isActiveKept);
       const card = document.createElement('div');
       card.className = 'keeps-card' + (isActiveKept ? ' kept' : '');
 
@@ -3294,7 +3333,7 @@
         </div>
         <div class="keeps-card-actions">
           ${isActiveKept
-            ? `<span class="keeps-card-btn kept-badge" title="Kept on Tezos${keptInfo?.tokenId != null ? ` · Token #${keptInfo.tokenId}` : ''}">&#x2714; Kept</span>`
+            ? `<span class="keeps-card-btn kept-badge" title="Kept on Tezos${activeKeepInfo?.tokenId != null ? ` · Token #${activeKeepInfo.tokenId}` : ''}">&#x2714; Kept</span>`
             : (canManageKeep ? `<button class="keeps-card-btn keep-btn" data-code="${entry.code}" title="Keep on Tezos">ꜩ Keep</button>` : '')}
           ${timeStr ? `<span style="margin-left: auto; font-size: 12px; color: var(--text-tertiary);">${timeStr}</span>` : ''}
         </div>`;
@@ -3447,21 +3486,21 @@
       const hits = entry.hits || 0;
       const when = entry.when ? new Date(entry.when) : null;
       const activeKeepInfo = getActiveKeepRecord(entry);
-      const legacyKeepInfo = activeKeepInfo ? null : getLegacyKeepRecord(entry);
+      const nonActiveKeepInfo = activeKeepInfo ? null : getNonActiveKeepRecord(entry);
       const isActiveKept = !!activeKeepInfo;
-      const keptInfo = activeKeepInfo || legacyKeepInfo;
-      const hasKeptRecord = !!keptInfo;
-      const canRekeep = !!(acUser && hasKeptRecord);
+      const hasKeptRecord = !!activeKeepInfo;
+      const canRekeep = !!(acUser && isActiveKept);
       const canManageKeep = !!(acUser && entry.user === acUser.sub);
       const canKeepOnActive = !!(canManageKeep && !isActiveKept);
+      const packCode = encodeURIComponent(`$${entry.code}`);
 
       let actionsHTML = `
         <a class="keeps-modal-action-btn edit-btn" href="${KL_BASE}/$${entry.code}" title="Open in KidLisp.com editor">&#x270E; Edit in KidLisp.com</a>
-        <a class="keeps-modal-action-btn html-btn" href="${AC_BASE}/api/bundle-html?code=${entry.code}" target="_blank" title="Bundle as standalone HTML">&#x1F4E6; Download HTML Bundle</a>`;
+        <a class="keeps-modal-action-btn html-btn" href="${AC_BASE}/api/pack-html?code=${packCode}" target="_blank" title="Pack as standalone HTML">&#x1F4E6; Download HTML Bundle</a>`;
 
       if (hasKeptRecord) {
-        const tokenLabel = keptInfo?.tokenId != null ? ` (Token #${keptInfo.tokenId})` : '';
-        actionsHTML += `<span class="keeps-modal-action-btn tezos-btn" style="cursor: default;">&#x2714; ${isActiveKept ? 'Kept' : 'Legacy Keep'}${tokenLabel}</span>`;
+        const tokenLabel = activeKeepInfo?.tokenId != null ? ` (Token #${activeKeepInfo.tokenId})` : '';
+        actionsHTML += `<span class="keeps-modal-action-btn tezos-btn" style="cursor: default;">&#x2714; Kept${tokenLabel}</span>`;
         if (canKeepOnActive) {
           actionsHTML += `<button class="keeps-modal-action-btn tezos-btn" data-mint-code="${entry.code}">ꜩ Keep on Tezos</button>`;
         }
@@ -3498,8 +3537,12 @@
       infoHTML += `<span><strong>Views:</strong> ${hits.toLocaleString()}</span>`;
       if (when) infoHTML += `<span><strong>Created:</strong> ${when.toLocaleDateString()} ${when.toLocaleTimeString()}</span>`;
       if (hasKeptRecord) {
-        infoHTML += `<span><strong>Network:</strong> ${keptInfo.network || 'mainnet'}</span>`;
-        if (keptInfo.contractAddress) infoHTML += `<span><strong>Contract:</strong> ${keptInfo.contractAddress}</span>`;
+        infoHTML += `<span><strong>Network:</strong> ${activeKeepInfo.network || 'mainnet'}</span>`;
+        if (activeKeepInfo.contractAddress) infoHTML += `<span><strong>Contract:</strong> ${activeKeepInfo.contractAddress}</span>`;
+        if (activeKeepInfo.contractProfile) infoHTML += `<span><strong>Contract Profile:</strong> ${activeKeepInfo.contractProfile}</span>`;
+        if (activeKeepInfo.contractVersion) infoHTML += `<span><strong>Contract Version:</strong> ${activeKeepInfo.contractVersion}</span>`;
+      } else if (nonActiveKeepInfo) {
+        infoHTML += `<span><strong>Note:</strong> Legacy/non-active keep record ignored in this v11 UI.</span>`;
       }
       modalInfo.innerHTML = infoHTML;
 
@@ -4171,6 +4214,59 @@
       return null;
     }
 
+    function buildMintHeaderLinkGroup(label, uris = {}, accent = false) {
+      if (!uris) return '';
+      const htmlUrl = ipfsToHttp(uris.artifactUri);
+      const thumbUrl = ipfsToHttp(uris.thumbnailUri);
+      const metaUrl = ipfsToHttp(uris.metadataUri);
+      if (!htmlUrl && !thumbUrl && !metaUrl) return '';
+      const color = accent ? 'var(--ac-purple)' : 'var(--text-secondary)';
+      return `
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11px;">
+          <span style="color:${color};font-weight:700;">${escapeHtml(label)}:</span>
+          ${htmlUrl ? `<a href="${htmlUrl}" target="_blank" rel="noopener" style="color:${color};">HTML ↗</a>` : ''}
+          ${thumbUrl ? `<a href="${thumbUrl}" target="_blank" rel="noopener" style="color:${color};">THUMB ↗</a>` : ''}
+          ${metaUrl ? `<a href="${metaUrl}" target="_blank" rel="noopener" style="color:${color};">META ↗</a>` : ''}
+        </div>
+      `;
+    }
+
+    function renderMintPieceInfo(entry, { rebake = false, regenerate = false } = {}) {
+      const infoEl = document.getElementById('mint-piece-info');
+      if (!infoEl) return;
+      const activeKeep = getActiveKeepRecord(entry);
+      const packCode = encodeURIComponent(`$${entry.code}`);
+      const defaultPackUrl = `${AC_BASE}/api/pack-html?code=${packCode}`;
+      const latestHtmlUrl = ipfsToHttp(mintLatestUris?.artifactUri) || defaultPackUrl;
+      const modeLabel = rebake
+        ? 'Regenerate HTML + thumbnail for your existing keep. Connect your wallet to verify ownership.'
+        : (regenerate
+          ? 'Regenerate HTML + thumbnail artifacts before keeping on Tezos.'
+          : 'Keep on Tezos (2.5 XTZ fee).');
+
+      const onChainGroup = buildMintHeaderLinkGroup(
+        activeKeep ? `On-chain${activeKeep.tokenId != null ? ` #${activeKeep.tokenId}` : ''}` : 'On-chain',
+        mintOnChainUris
+      );
+      const latestGroup = buildMintHeaderLinkGroup(
+        rebake ? 'Latest Regenerated (not on-chain)' : 'Latest Prepared',
+        mintLatestUris,
+        true
+      );
+
+      infoEl.innerHTML = `
+        <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">
+          <strong>$${escapeHtml(entry.code)}</strong>
+          <span style="color:var(--text-tertiary);font-size:11px;">by ${escapeHtml(entry.handle || 'anon')}</span>
+          <a href="${KL_BASE}/$${escapeHtml(entry.code)}" target="_blank" rel="noopener" style="font-size:11px;color:var(--ac-purple);margin-left:auto;">Edit ↗</a>
+          <a href="${latestHtmlUrl}" target="_blank" rel="noopener" style="font-size:11px;color:var(--text-secondary);">HTML ↗</a>
+        </div>
+        <span style="font-size:11px; color:var(--text-tertiary);">${modeLabel}</span>
+        ${onChainGroup}
+        ${latestGroup}
+      `;
+    }
+
     function renderMintArtifactPanel({
       title = 'Artifact Preview',
       piece = mintCurrentPiece,
@@ -4181,6 +4277,7 @@
       objktUrl = null,
       showRebakeButton = false,
       rebakeButtonLabel = 'Rekeep',
+      append = false,
     } = {}) {
       const area = document.getElementById('mint-result-area');
       if (!area) return;
@@ -4214,9 +4311,10 @@
           <div class="mint-artifact-links">${links}</div>
         </div>
       `;
-      const existingPanel = area.querySelector('.mint-artifacts');
-      if (existingPanel) existingPanel.remove();
-      if (area.innerHTML.trim()) {
+      if (!append) {
+        area.querySelectorAll('.mint-artifacts').forEach(panel => panel.remove());
+      }
+      if (append || area.innerHTML.trim()) {
         area.insertAdjacentHTML('beforeend', panelHtml);
       } else {
         area.innerHTML = panelHtml;
@@ -4701,27 +4799,33 @@
       mintCurrentEntry = entry;
       mintPreparedData = null;
       mintStepStates = {};
+      mintLatestUris = null;
 
       const activeKeep = getActiveKeepRecord(entry);
       const tokenLabel = activeKeep?.tokenId != null ? ` #${activeKeep.tokenId}` : '';
+      mintOnChainUris = activeKeep
+        ? {
+            artifactUri: activeKeep.artifactUri || null,
+            thumbnailUri: activeKeep.thumbnailUri || null,
+            metadataUri: activeKeep.metadataUri || null,
+          }
+        : null;
+
+      const existingPending = entry?.pendingRebake && typeof entry.pendingRebake === 'object'
+        ? entry.pendingRebake
+        : null;
+      if (existingPending) {
+        mintLatestUris = {
+          artifactUri: existingPending.artifactUri || null,
+          thumbnailUri: existingPending.thumbnailUri || null,
+          metadataUri: existingPending.metadataUri || null,
+        };
+      }
 
       document.getElementById('mint-title').textContent = rebake
         ? `Regenerate $${entry.code}${tokenLabel}`
         : (regenerate ? `Regenerate $${entry.code}` : `Keep $${entry.code}`);
-      document.getElementById('mint-piece-info').innerHTML = `
-        <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">
-          <strong>$${escapeHtml(entry.code)}</strong>
-          <span style="color:var(--text-tertiary);font-size:11px;">by ${escapeHtml(entry.handle || 'anon')}</span>
-          <a href="${KL_BASE}/$${escapeHtml(entry.code)}" target="_blank" rel="noopener" style="font-size:11px;color:var(--ac-purple);margin-left:auto;">Edit ↗</a>
-          <a href="${AC_BASE}/api/bundle-html?code=${escapeHtml(entry.code)}" target="_blank" rel="noopener" style="font-size:11px;color:var(--text-secondary);">HTML ↗</a>
-        </div>
-        <span style="font-size:11px; color:var(--text-tertiary);">${
-          rebake
-            ? 'Regenerate HTML + thumbnail for your existing keep. Connect your wallet to verify ownership.'
-            : (regenerate
-              ? 'Regenerate HTML + thumbnail artifacts before keeping on Tezos.'
-              : 'Keep on Tezos (2.5 XTZ fee).')
-        }</span>`;
+      renderMintPieceInfo(entry, { rebake, regenerate });
       // Live preview iframe
       const previewFrame = document.getElementById('mint-preview-frame');
       const pieceUrl = `${AC_BASE}/$${encodeURIComponent(entry.code)}?nolabel=true&nogap=true`;
@@ -4776,6 +4880,8 @@
       if (previewFrame) previewFrame.innerHTML = '';
       const ovenPreview = document.getElementById('oven-live-preview');
       if (ovenPreview) ovenPreview.remove();
+      mintOnChainUris = null;
+      mintLatestUris = null;
     }
 
     function cancelMint() {
@@ -4848,9 +4954,9 @@
           renderMintArtifactPanel({
             title: 'Current Artifact Snapshot',
             piece,
-            artifactUri: mintCurrentEntry?.kept?.artifactUri,
-            thumbnailUri: mintCurrentEntry?.kept?.thumbnailUri,
-            metadataUri: mintCurrentEntry?.kept?.metadataUri,
+            artifactUri: mintOnChainUris?.artifactUri || mintCurrentEntry?.kept?.artifactUri,
+            thumbnailUri: mintOnChainUris?.thumbnailUri || mintCurrentEntry?.kept?.thumbnailUri,
+            metadataUri: mintOnChainUris?.metadataUri || mintCurrentEntry?.kept?.metadataUri,
             objktUrl: prepData.objktUrl,
             showRebakeButton: true,
           });
@@ -4915,6 +5021,24 @@
 
             const job = await res.json();
             lastStage = job.stage;
+
+            if (job.artifactUri || job.thumbnailUri || job.metadataUri) {
+              mintLatestUris = {
+                ...(mintLatestUris || {}),
+                ...(job.artifactUri ? { artifactUri: job.artifactUri } : {}),
+                ...(job.thumbnailUri ? { thumbnailUri: job.thumbnailUri } : {}),
+                ...(job.metadataUri ? { metadataUri: job.metadataUri } : {}),
+              };
+              if (mintCurrentEntry && (rebake || regenerate)) {
+                mintCurrentEntry.pendingRebake = {
+                  ...(mintCurrentEntry.pendingRebake || {}),
+                  ...(mintLatestUris || {}),
+                };
+              }
+              if (mintCurrentEntry) {
+                renderMintPieceInfo(mintCurrentEntry, { rebake, regenerate });
+              }
+            }
 
             // Update timeline from job stage
             if (job.stage && job.stage !== 'ready') {
@@ -4983,23 +5107,24 @@
                 setMintStep('sign', 'done', 'No signature needed');
                 setMintStep('complete', 'done', 'Rebake complete');
                 document.getElementById('mint-actions').style.display = 'none';
-
-                // Update the header HTML link to the fresh IPFS artifact
-                const headerLinks = document.getElementById('mint-piece-info');
-                if (headerLinks && data.artifactUri) {
-                  const freshUrl = ipfsToHttp(data.artifactUri);
-                  const oldLink = headerLinks.querySelector('a[href*="bundle-html"]');
-                  if (oldLink && freshUrl) {
-                    oldLink.href = freshUrl;
-                    oldLink.textContent = 'HTML (new) ↗';
-                    oldLink.style.color = 'var(--ac-purple)';
-                  }
-                }
-
-                // Update mintCurrentEntry so the card reflects new URIs
-                if (mintCurrentEntry?.kept) {
-                  if (data.artifactUri) mintCurrentEntry.kept.artifactUri = data.artifactUri;
-                  if (data.thumbnailUri) mintCurrentEntry.kept.thumbnailUri = data.thumbnailUri;
+                mintLatestUris = {
+                  ...(mintLatestUris || {}),
+                  ...(data.artifactUri ? { artifactUri: data.artifactUri } : {}),
+                  ...(data.thumbnailUri ? { thumbnailUri: data.thumbnailUri } : {}),
+                  ...(data.metadataUri ? { metadataUri: data.metadataUri } : {}),
+                };
+                if (mintCurrentEntry) {
+                  mintCurrentEntry.pendingRebake = {
+                    ...(mintCurrentEntry.pendingRebake || {}),
+                    ...(mintLatestUris || {}),
+                    createdAt: data.createdAt || new Date().toISOString(),
+                    packDate: data.packDate || null,
+                    network: data.network || getTezosNetwork(),
+                    contractAddress: data.contractAddress || getKeepsContractAddress(),
+                    contractProfile: data.contractProfile || getKeepsContractProfile(),
+                    contractVersion: data.contractVersion || getKeepsContractVersion(),
+                  };
+                  renderMintPieceInfo(mintCurrentEntry, { rebake, regenerate });
                 }
 
                 // Swap preview frame to show the fresh IPFS bundle
@@ -5013,17 +5138,38 @@
                 const resultArea = document.getElementById('mint-result-area');
                 if (resultArea) resultArea.innerHTML = '';
 
+                if (mintOnChainUris) {
+                  renderMintArtifactPanel({
+                    title: 'On-chain Artifacts',
+                    piece,
+                    artifactUri: mintOnChainUris.artifactUri,
+                    thumbnailUri: mintOnChainUris.thumbnailUri,
+                    metadataUri: mintOnChainUris.metadataUri,
+                    objktUrl: data.objktUrl,
+                  });
+                }
+
                 renderMintArtifactPanel({
-                  title: 'Regenerated Artifacts',
+                  title: 'Regenerated Artifacts (Not on-chain yet)',
                   piece,
                   artifactUri: data.artifactUri,
                   thumbnailUri: data.thumbnailUri,
-                  metadataUri: data.metadataUri || mintCurrentEntry?.kept?.metadataUri,
+                  metadataUri: data.metadataUri || mintLatestUris?.metadataUri,
                   packDate: data.packDate,
                   objktUrl: data.objktUrl,
+                  append: !!mintOnChainUris,
                 });
               } else {
                 setMintStep('review', 'active', `${data.mintFee || 2.5} XTZ`);
+                mintLatestUris = {
+                  ...(mintLatestUris || {}),
+                  ...(data.artifactUri ? { artifactUri: data.artifactUri } : {}),
+                  ...(data.thumbnailUri ? { thumbnailUri: data.thumbnailUri } : {}),
+                  ...(data.metadataUri ? { metadataUri: data.metadataUri } : {}),
+                };
+                if (mintCurrentEntry) {
+                  renderMintPieceInfo(mintCurrentEntry, { rebake, regenerate });
+                }
                 renderMintArtifactPanel({
                   title: 'Prepared Artifacts',
                   piece,
@@ -5117,6 +5263,8 @@
               walletAddress: mintWalletAddress,
               network: mintPreparedData.network || getTezosNetwork(),
               contractAddress,
+              contractProfile: mintPreparedData.contractProfile || getKeepsContractProfile(),
+              contractVersion: mintPreparedData.contractVersion || getKeepsContractVersion(),
               artifactUri: mintPreparedData.artifactUri,
               thumbnailUri: mintPreparedData.thumbnailUri,
               metadataUri: mintPreparedData.metadataUri,
@@ -5142,6 +5290,8 @@
             walletAddress: mintWalletAddress || null,
             network: mintNetwork,
             contractAddress,
+            contractProfile: mintPreparedData.contractProfile || getKeepsContractProfile(),
+            contractVersion: mintPreparedData.contractVersion || getKeepsContractVersion(),
             artifactUri: mintPreparedData.artifactUri || null,
             thumbnailUri: mintPreparedData.thumbnailUri || null,
             metadataUri: mintPreparedData.metadataUri || null,
@@ -5149,6 +5299,14 @@
           };
           mintCurrentEntry.kept = activeKeep;
           mintCurrentEntry.keptRecords = [activeKeep];
+          mintCurrentEntry.pendingRebake = null;
+          mintOnChainUris = {
+            artifactUri: activeKeep.artifactUri,
+            thumbnailUri: activeKeep.thumbnailUri,
+            metadataUri: activeKeep.metadataUri,
+          };
+          mintLatestUris = null;
+          renderMintPieceInfo(mintCurrentEntry, { rebake: false, regenerate: false });
         }
 
         showMintResult(`Successfully kept $${mintCurrentPiece}!`, objktUrl, txHash);
