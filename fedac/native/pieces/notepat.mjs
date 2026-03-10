@@ -8,8 +8,9 @@ let wave = "sine";
 let waveIndex = 0;
 let quickMode = false;
 const wavetypes = ["sine", "triangle", "sawtooth", "square", "noise", "sample"];
-let sampleLoaded = false;  // true after a mic recording is captured
+let sampleLoaded = false;  // true when sample buffer has data (default or recorded)
 let recording = false;     // true while holding REC
+let recPointerId = null;   // touch pointer currently holding REC button
 const SAMPLE_BASE_FREQ = 261.63; // C4 — base pitch for sample playback
 
 // Effective pitch shift blended by FX mix (0% fx = no pitch shift)
@@ -253,6 +254,35 @@ function playWaveSound(sound, waveType) {
   });
 }
 
+function stopSampleRecording(sound, reason = "stop") {
+  if (!recording) return 0;
+  recording = false;
+  recPointerId = null;
+  const len = sound?.microphone?.cut?.() || 0;
+  sampleLoaded = len > 0;
+  const mic = sound?.microphone || {};
+  const secs = (mic.sampleRate > 0 && len > 0) ? (len / mic.sampleRate).toFixed(2) : "0.00";
+  console.log(`[sample] ${reason}: len=${len} rate=${mic.sampleRate || 0} secs=${secs} err=${mic.lastError || ""}`);
+  return len;
+}
+
+function setWave(nextWave, sound) {
+  if (!nextWave || wave === nextWave) return;
+  const prev = wave;
+  if (prev === "sample" && recording) stopSampleRecording(sound, "wave-exit");
+  wave = nextWave;
+  waveIndex = wavetypes.indexOf(nextWave);
+  if (waveIndex < 0) waveIndex = 0;
+
+  if (wave === "sample") {
+    const mic = sound?.microphone || {};
+    sampleLoaded = (mic.sampleLength || 0) > 0;
+    console.log(`[sample] wave-enter: loaded=${sampleLoaded} len=${mic.sampleLength || 0} rate=${mic.sampleRate || 0} connected=${!!mic.connected} device=${mic.device || "none"} err=${mic.lastError || ""}`);
+  } else {
+    playWaveSound(sound, wave);
+  }
+}
+
 function scheduleAutoUpdateCheck(delayFrames = 0) {
   autoUpdate.state = "checking";
   autoUpdate.fetchPending = false;
@@ -274,8 +304,13 @@ function startAutoUpdateDownload(system) {
   system.fetchBinary?.(OS_VMLINUZ_URL, "/tmp/vmlinuz.new", OS_VMLINUZ_BYTES);
 }
 
-function boot({ wipe, system }) {
+function boot({ wipe, system, sound }) {
   wipe(0);
+  const mic = sound?.microphone || null;
+  if (mic && (mic.sampleLength || 0) > 0) {
+    sampleLoaded = true;
+    console.log(`[sample] boot: preloaded len=${mic.sampleLength} rate=${mic.sampleRate || 0} device=${mic.device || "none"}`);
+  }
   // Load saved credentials from USB EFI partition
   if (system?.readFile) {
     try {
@@ -336,9 +371,9 @@ function act({ event: e, sound, wifi, system }) {
     if (key === "escape" && activeScreen === "notepat") { system?.jump?.("prompt"); return; }
     if (key === "shift") { quickMode = !quickMode; return; }
     if (key === "tab") {
-      waveIndex = (waveIndex + 1) % wavetypes.length;
-      wave = wavetypes[waveIndex];
-      playWaveSound(sound, wave); return;
+      const idx = (waveIndex + 1) % wavetypes.length;
+      setWave(wavetypes[idx], sound);
+      return;
     }
     if (key === "space") {
       metronomeEnabled = !metronomeEnabled;
@@ -351,14 +386,14 @@ function act({ event: e, sound, wifi, system }) {
     if (key === "arrowup") { octave = Math.min(9, octave + 1); return; }
     if (key === "arrowdown") { octave = Math.max(1, octave - 1); return; }
     if (key === "arrowleft") {
-      waveIndex = (waveIndex - 1 + wavetypes.length) % wavetypes.length;
-      wave = wavetypes[waveIndex];
-      playWaveSound(sound, wave); return;
+      const idx = (waveIndex - 1 + wavetypes.length) % wavetypes.length;
+      setWave(wavetypes[idx], sound);
+      return;
     }
     if (key === "arrowright") {
-      waveIndex = (waveIndex + 1) % wavetypes.length;
-      wave = wavetypes[waveIndex];
-      playWaveSound(sound, wave); return;
+      const idx = (waveIndex + 1) % wavetypes.length;
+      setWave(wavetypes[idx], sound);
+      return;
     }
     if (key === "\\") {
       trackpadFX = !trackpadFX;
@@ -400,7 +435,15 @@ function act({ event: e, sound, wifi, system }) {
         const smp = sound.sample.play({
           tone: playFreq, base: SAMPLE_BASE_FREQ, volume: vol, pan,
         });
-        sounds[key] = { synth: smp, note: letter, octave: noteOctave, baseFreq: freq, isSample: true };
+        if (smp) {
+          sounds[key] = { synth: smp, note: letter, octave: noteOctave, baseFreq: freq, isSample: true };
+        } else {
+          const synth = sound.synth({
+            type: "sine", tone: playFreq, duration: Infinity,
+            volume: vol, attack: quickMode ? 0.002 : 0.005, decay: 0.1, pan,
+          });
+          sounds[key] = { synth, note: letter, octave: noteOctave, baseFreq: freq };
+        }
       } else {
         const synth = sound.synth({
           type: wave, tone: playFreq,
@@ -598,17 +641,19 @@ function act({ event: e, sound, wifi, system }) {
       if (x >= wb.octX) {
         if (wave === "sample") {
           // REC button — hold to record
-          recording = true;
-          sound?.microphone?.rec?.();
+          const ok = !!sound?.microphone?.rec?.();
+          recording = ok;
+          recPointerId = ok ? pid : null;
+          const mic = sound?.microphone || {};
+          console.log(`[mic] rec-touch: ok=${ok} connected=${!!mic.connected} device=${mic.device || "none"} err=${mic.lastError || ""}`);
+          if (!ok) sound?.synth?.({ type: "sine", tone: 220, duration: 0.08, volume: 0.16, attack: 0.002, decay: 0.06 });
         } else {
           // Octave button — tap to increment
           octave = (octave % 6) + 1;
         }
       } else {
         const idx = Math.min(wavetypes.length - 1, Math.floor(x / wb.btnW));
-        waveIndex = idx;
-        wave = wavetypes[idx];
-        if (wave !== "sample") playWaveSound(sound, wave);
+        setWave(wavetypes[idx], sound);
       }
       return;
     }
@@ -624,13 +669,23 @@ function act({ event: e, sound, wifi, system }) {
         const playFreq = freq * Math.pow(2, effectivePitchShift());
         let synth;
         if (wave === "sample" && sampleLoaded) {
-          synth = sound.sample.play({
+          const smp = sound.sample.play({
             tone: playFreq, base: SAMPLE_BASE_FREQ, volume: 0.5, pan,
           });
-          sounds[hitNote.key] = { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq, isSample: true };
+          if (smp) {
+            synth = smp;
+            sounds[hitNote.key] = { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq, isSample: true };
+          }
         } else {
           synth = sound.synth({
             type: wave, tone: playFreq, duration: Infinity,
+            volume: 0.5, attack: 0.005, decay: 0.1, pan,
+          });
+          sounds[hitNote.key] = { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq };
+        }
+        if (!sounds[hitNote.key]) {
+          synth = sound.synth({
+            type: "sine", tone: playFreq, duration: Infinity,
             volume: 0.5, attack: 0.005, decay: 0.1, pan,
           });
           sounds[hitNote.key] = { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq };
@@ -702,13 +757,23 @@ function act({ event: e, sound, wifi, system }) {
           const playFreq = freq * Math.pow(2, effectivePitchShift());
           let synth;
           if (wave === "sample" && sampleLoaded) {
-            synth = sound.sample.play({
+            const smp = sound.sample.play({
               tone: playFreq, base: SAMPLE_BASE_FREQ, volume: 0.5, pan,
             });
-            sounds[hitNote.key] = { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq, isSample: true };
+            if (smp) {
+              synth = smp;
+              sounds[hitNote.key] = { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq, isSample: true };
+            }
           } else {
             synth = sound.synth({
               type: wave, tone: playFreq,
+              duration: Infinity, volume: 0.5, attack: 0.005, decay: 0.1, pan,
+            });
+            sounds[hitNote.key] = { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq };
+          }
+          if (!sounds[hitNote.key]) {
+            synth = sound.synth({
+              type: "sine", tone: playFreq,
               duration: Infinity, volume: 0.5, attack: 0.005, decay: 0.1, pan,
             });
             sounds[hitNote.key] = { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq };
@@ -721,11 +786,9 @@ function act({ event: e, sound, wifi, system }) {
   }
   if (e.is("lift")) {
     const pid = e.pointer?.id ?? 0;
-    // Stop recording on any lift
-    if (recording) {
-      recording = false;
-      const len = sound?.microphone?.cut?.() || 0;
-      if (len > 0) sampleLoaded = true;
+    // Stop REC only when the REC-holding pointer is released.
+    if (recording && (recPointerId === null || recPointerId === pid)) {
+      stopSampleRecording(sound, "touch-lift");
     }
     if (fxDragging) fxDragging = false;
     if (echoDragging) echoDragging = false;
@@ -751,6 +814,8 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   const w = screen.width;
   const h = screen.height;
   const CH = 6; // char width at size 1 (font_1 = 6x10)
+  const mic = sound?.microphone || {};
+  sampleLoaded = (mic.sampleLength || 0) > 0;
   globalThis.__screenW = w; // expose for act()
   globalThis.__screenH = h;
 
@@ -1839,6 +1904,43 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       write("o:" + octave, { x: obx + 3, y: waveRowY + 3, size: 1, font: "font_1" });
     }
 
+    // Mic diagnostics strip in sample mode (status + live level).
+    if (wave === "sample") {
+      const infoY = waveRowY + waveRowH + 1;
+      const micConnected = !!mic.connected;
+      const level = Math.max(0, Math.min(1, mic.level || 0));
+      const len = mic.sampleLength || 0;
+      const rate = mic.sampleRate || 0;
+      const secs = (rate > 0 && len > 0) ? (len / rate).toFixed(2) : "0.00";
+      const status = recording
+        ? `mic rec ${Math.round(level * 100)}%`
+        : (micConnected ? `mic ready ${secs}s` : `mic idle ${secs}s`);
+      if (recording) ink(255, 110, 110);
+      else if (micConnected) ink(120, 220, 120);
+      else ink(dark ? 150 : 110, dark ? 150 : 110, dark ? 165 : 120);
+      write(status, { x: 2, y: infoY, size: 1, font: "font_1" });
+
+      // Device / error tail for debugging (truncated to fit).
+      const tail = mic.lastError
+        ? ("err: " + mic.lastError)
+        : ("dev: " + (mic.device || "none") + " chunk:" + (mic.lastChunk || 0));
+      const maxTail = Math.floor((w - 4) / 6);
+      ink(dark ? 95 : 150, dark ? 95 : 150, dark ? 110 : 165);
+      write(tail.slice(0, maxTail), { x: 2, y: infoY + 9, size: 1, font: "font_1" });
+
+      // Live level bar near REC button.
+      const meterW = octBtnW - 4;
+      const meterH = 3;
+      const meterX = obx + 2;
+      const meterY = infoY + 2;
+      ink(dark ? 35 : 210, dark ? 35 : 210, dark ? 40 : 215);
+      box(meterX, meterY, meterW, meterH, true);
+      if (level > 0.01) {
+        ink(255, 90, 90);
+        box(meterX, meterY, Math.max(1, Math.floor(meterW * level)), meterH, true);
+      }
+    }
+
     // Expose hit zones for act()
     globalThis.__waveButtons = { y: waveRowY, h: waveRowH, btnW: btnW2, octX: obx, octW: octBtnW };
 
@@ -2122,6 +2224,7 @@ function sim({ pressures, sound }) {
 }
 
 function leave() {
+  stopSampleRecording(soundAPI, "leave");
   // Reset all FX before shutdown
   echoMix = 0;
   pitchShift = 0;

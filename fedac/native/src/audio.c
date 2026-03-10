@@ -12,6 +12,9 @@
 #include <sched.h>
 #include <alsa/asoundlib.h>
 
+// Defined in ac-native.c — writes to USB log and stderr.
+extern void ac_log(const char *fmt, ...);
+
 // Forward declarations
 static int read_system_volume_card(int card);
 
@@ -546,6 +549,37 @@ static void *audio_thread_fn(void *arg) {
 // Public API
 // ============================================================
 
+// Seed a small default sample so sample mode is playable before first mic recording.
+// This roughly matches the "startup" one-shot feel used in web notepat.
+static void seed_default_sample(ACAudio *audio) {
+    if (!audio || !audio->sample_buf || audio->sample_max_len <= 0) return;
+
+    const unsigned int rate = 48000;
+    int len = (int)(0.55 * (double)rate); // 550ms one-shot
+    if (len > audio->sample_max_len) len = audio->sample_max_len;
+
+    double p1 = 0.0, p2 = 0.0, p3 = 0.0;
+    for (int i = 0; i < len; i++) {
+        double t = (double)i / (double)rate;
+        double env = exp(-6.0 * t) * (1.0 - exp(-35.0 * t)); // fast attack, exponential decay
+        double f0 = 240.0 + 50.0 * sin(t * 6.0);             // slight wobble
+        double f1 = f0 * 2.01;
+        double f2 = f0 * 3.02;
+        p1 += 2.0 * M_PI * f0 / (double)rate;
+        p2 += 2.0 * M_PI * f1 / (double)rate;
+        p3 += 2.0 * M_PI * f2 / (double)rate;
+
+        double s = 0.78 * sin(p1) + 0.22 * sin(p2 + 0.25) + 0.08 * sin(p3 + 0.15);
+        audio->sample_buf[i] = (float)(s * env * 0.85);
+    }
+    for (int i = len; i < audio->sample_max_len; i++) audio->sample_buf[i] = 0.0f;
+
+    audio->sample_len = len;
+    audio->sample_rate = rate;
+    ac_log("[sample] seeded default startup sample (%d frames @ %u Hz)\n",
+           audio->sample_len, audio->sample_rate);
+}
+
 ACAudio *audio_init(void) {
     ACAudio *audio = calloc(1, sizeof(ACAudio));
     if (!audio) return NULL;
@@ -570,6 +604,12 @@ ACAudio *audio_init(void) {
     audio->sample_len = 0;
     audio->sample_rate = 48000; // default, overwritten by actual capture rate
     audio->sample_next_id = 1;
+    audio->mic_connected = 0;
+    audio->mic_level = 0.0f;
+    audio->mic_last_chunk = 0;
+    snprintf(audio->mic_device, sizeof(audio->mic_device), "none");
+    audio->mic_last_error[0] = 0;
+    seed_default_sample(audio);
 
     // TTS PCM ring buffer (5 seconds at output rate)
     audio->tts_buf_size = AUDIO_SAMPLE_RATE * 5;
@@ -937,13 +977,19 @@ static void *capture_thread_func(void *arg) {
                              "plughw:0,0", "plughw:1,0", "default", NULL};
     for (int i = 0; devices[i]; i++) {
         if (snd_pcm_open(&cap, devices[i], SND_PCM_STREAM_CAPTURE, 0) == 0) {
-            fprintf(stderr, "[mic] Opened capture device: %s\n", devices[i]);
+            snprintf(audio->mic_device, sizeof(audio->mic_device), "%s", devices[i]);
+            audio->mic_last_error[0] = 0;
+            ac_log("[mic] opened capture device: %s\n", devices[i]);
             break;
         }
         cap = NULL;
     }
     if (!cap) {
-        fprintf(stderr, "[mic] No capture device found\n");
+        snprintf(audio->mic_last_error, sizeof(audio->mic_last_error),
+                 "no capture device found");
+        audio->mic_connected = 0;
+        audio->mic_level = 0.0f;
+        ac_log("[mic] no capture device found\n");
         audio->recording = 0;
         return NULL;
     }
@@ -966,7 +1012,11 @@ static void *capture_thread_func(void *arg) {
     snd_pcm_hw_params_set_rate_near(cap, hw, &rate, NULL);
 
     if (snd_pcm_hw_params(cap, hw) < 0) {
-        fprintf(stderr, "[mic] Failed to configure capture\n");
+        snprintf(audio->mic_last_error, sizeof(audio->mic_last_error),
+                 "failed to configure capture");
+        audio->mic_connected = 0;
+        audio->mic_level = 0.0f;
+        ac_log("[mic] failed to configure capture\n");
         snd_pcm_close(cap);
         audio->recording = 0;
         return NULL;
@@ -974,16 +1024,26 @@ static void *capture_thread_func(void *arg) {
 
     audio->sample_rate = rate;
     audio->sample_write_pos = 0;
-    fprintf(stderr, "[mic] Recording at %u Hz, %u ch\n", rate, channels);
+    audio->mic_connected = 1;
+    audio->mic_level = 0.0f;
+    audio->mic_last_chunk = 0;
+    ac_log("[mic] recording at %u Hz, %u ch\n", rate, channels);
 
     int16_t buf[1024 * 2]; // max stereo
     while (audio->recording && audio->sample_write_pos < audio->sample_max_len) {
         int n = snd_pcm_readi(cap, buf, 512);
         if (n < 0) {
             n = snd_pcm_recover(cap, n, 0);
-            if (n < 0) break;
+            if (n < 0) {
+                snprintf(audio->mic_last_error, sizeof(audio->mic_last_error),
+                         "capture read failed: %s", snd_strerror(n));
+                ac_log("[mic] capture read failed: %s\n", snd_strerror(n));
+                break;
+            }
             continue;
         }
+        audio->mic_last_chunk = n;
+        float peak = 0.0f;
         for (int s = 0; s < n && audio->sample_write_pos < audio->sample_max_len; s++) {
             float sample;
             if (channels == 1) {
@@ -991,14 +1051,20 @@ static void *capture_thread_func(void *arg) {
             } else {
                 sample = (buf[s * 2] + buf[s * 2 + 1]) / 65536.0f; // average L+R
             }
+            float abs_s = fabsf(sample);
+            if (abs_s > peak) peak = abs_s;
             audio->sample_buf[audio->sample_write_pos++] = sample;
         }
+        audio->mic_level = audio->mic_level * 0.85f + peak * 0.15f;
     }
 
     audio->sample_len = audio->sample_write_pos;
-    fprintf(stderr, "[mic] Recorded %d samples (%.2fs)\n",
-            audio->sample_len, (double)audio->sample_len / audio->sample_rate);
+    ac_log("[mic] recorded %d samples (%.2fs) peak=%.2f device=%s\n",
+           audio->sample_len,
+           (double)audio->sample_len / audio->sample_rate,
+           audio->mic_level, audio->mic_device);
     snd_pcm_close(cap);
+    audio->mic_connected = 0;
     audio->recording = 0;
     return NULL;
 }
@@ -1007,11 +1073,18 @@ int audio_mic_start(ACAudio *audio) {
     if (!audio || audio->recording) return -1;
     audio->recording = 1;
     audio->sample_len = 0;
+    audio->mic_level = 0.0f;
+    audio->mic_last_chunk = 0;
+    audio->mic_last_error[0] = 0;
+    ac_log("[mic] start requested\n");
     // Kill any playing sample voices
     for (int i = 0; i < AUDIO_MAX_SAMPLE_VOICES; i++)
         audio->sample_voices[i].active = 0;
     if (pthread_create(&audio->capture_thread, NULL, capture_thread_func, audio) != 0) {
         audio->recording = 0;
+        snprintf(audio->mic_last_error, sizeof(audio->mic_last_error),
+                 "failed to create capture thread");
+        ac_log("[mic] failed to create capture thread\n");
         return -1;
     }
     pthread_detach(audio->capture_thread);
@@ -1023,6 +1096,8 @@ int audio_mic_stop(ACAudio *audio) {
     audio->recording = 0;
     // Thread will exit on its own, detached
     usleep(50000); // 50ms for thread to finish last read
+    ac_log("[mic] stop requested, sample_len=%d sample_rate=%u\n",
+           audio->sample_len, audio->sample_rate);
     return audio->sample_len;
 }
 
@@ -1223,6 +1298,7 @@ void audio_destroy(ACAudio *audio) {
     if (audio->hdmi_pcm) snd_pcm_close((snd_pcm_t *)audio->hdmi_pcm);
     free(audio->room_buf_l);
     free(audio->room_buf_r);
+    free(audio->sample_buf);
     free(audio->tts_buf);
     pthread_mutex_destroy(&audio->lock);
     free(audio);

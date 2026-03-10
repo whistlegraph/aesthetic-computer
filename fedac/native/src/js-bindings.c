@@ -556,6 +556,7 @@ static JSValue js_mic_rec(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     (void)this_val; (void)argc; (void)argv;
     if (!current_rt->audio) return JS_FALSE;
     int ok = audio_mic_start(current_rt->audio);
+    ac_log("[js][mic] rec -> %s\n", ok == 0 ? "ok" : "fail");
     return JS_NewBool(ctx, ok == 0);
 }
 
@@ -564,6 +565,10 @@ static JSValue js_mic_cut(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     (void)this_val; (void)argc; (void)argv;
     if (!current_rt->audio) return JS_NewInt32(ctx, 0);
     int len = audio_mic_stop(current_rt->audio);
+    ac_log("[js][mic] cut -> len=%d rate=%u err=%s\n",
+           len,
+           current_rt->audio->sample_rate,
+           current_rt->audio->mic_last_error[0] ? current_rt->audio->mic_last_error : "(none)");
     return JS_NewInt32(ctx, len);
 }
 
@@ -1190,10 +1195,20 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
     JS_SetPropertyStr(ctx, mic, "cut", JS_NewCFunction(ctx, js_mic_cut, "cut", 0));
     JS_SetPropertyStr(ctx, mic, "recording",
         JS_NewBool(ctx, rt->audio ? rt->audio->recording : 0));
+    JS_SetPropertyStr(ctx, mic, "connected",
+        JS_NewBool(ctx, rt->audio ? rt->audio->mic_connected : 0));
     JS_SetPropertyStr(ctx, mic, "sampleLength",
         JS_NewInt32(ctx, rt->audio ? rt->audio->sample_len : 0));
     JS_SetPropertyStr(ctx, mic, "sampleRate",
         JS_NewInt32(ctx, rt->audio ? (int)rt->audio->sample_rate : 0));
+    JS_SetPropertyStr(ctx, mic, "level",
+        JS_NewFloat64(ctx, rt->audio ? rt->audio->mic_level : 0.0));
+    JS_SetPropertyStr(ctx, mic, "lastChunk",
+        JS_NewInt32(ctx, rt->audio ? rt->audio->mic_last_chunk : 0));
+    JS_SetPropertyStr(ctx, mic, "device",
+        JS_NewString(ctx, (rt->audio && rt->audio->mic_device[0]) ? rt->audio->mic_device : "none"));
+    JS_SetPropertyStr(ctx, mic, "lastError",
+        JS_NewString(ctx, (rt->audio && rt->audio->mic_last_error[0]) ? rt->audio->mic_last_error : ""));
     JS_SetPropertyStr(ctx, sound, "microphone", mic);
 
     // sample playback
