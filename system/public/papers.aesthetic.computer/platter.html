@@ -245,7 +245,7 @@
         <h1>Research Platter</h1>
         <div class="subtitle">Full knowledge base for Aesthetic Computer papers and research.</div>
         <div class="stats">
-            <span>144</span> plans · <span>85</span> reports · <span>8</span> studies · <span>70</span> reference docs · <span>30+</span> readings · <span>6</span> papers · <span>83</span> API endpoints · <span>32+</span> MongoDB collections
+            <span>337</span> pieces · <span>76</span> lib modules · <span>83</span> functions · <span>144</span> plans · <span>85</span> reports · <span>8</span> studies · <span>30+</span> readings · <span>6</span> papers
         </div>
     </div>
 
@@ -271,6 +271,164 @@
             <a class="item" href="/notepat-26-arxiv.pdf">notepat.com '26 — From Keyboard Toy to System Front Door (arXiv, 3pp)</a>
             <a class="item" href="/kidlisp-26-arxiv.pdf">KidLisp '26 — A Minimal Lisp for Generative Art on a Social Platform (arXiv, 6pp)</a>
             <a class="item" href="/kidlisp-26-joss.pdf">KidLisp '26 — JOSS Summary (3pp)</a>
+        </div>
+    </div>
+
+    <!-- RUNTIME SOURCE -->
+    <div class="section" data-section="runtime">
+        <div class="section-header" data-color="cyan" onclick="toggleSection(this)">
+            <span class="toggle">&#9660;</span>
+            <h2>Runtime Source</h2>
+            <span class="count">boot · bios · disk · 76 lib modules</span>
+        </div>
+        <div class="section-items">
+            <div class="item-group">
+                <div class="item-group-label">Core Runtime (3 entry points)</div>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/boot.mjs"><span class="file">boot.mjs</span> Entry point — loads BIOS, service worker, WebSocket module loader</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/bios.mjs"><span class="file">bios.mjs</span> Main runtime coordinator — piece lifecycle, routing, API surface</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/module-loader.mjs"><span class="file">module-loader.mjs</span> WebSocket-based dynamic module loading + hot reload</a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Core Libraries (key modules)</div>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/disk.mjs"><span class="file">lib/disk.mjs</span> Disk API — graphics, audio, input, UI (~572KB, the main piece API)</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/graph.mjs"><span class="file">lib/graph.mjs</span> Graphics primitives — wipe, ink, line, box, circle, plot, paste</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/kidlisp.mjs"><span class="file">lib/kidlisp.mjs</span> KidLisp evaluator — 118 built-in functions, 12 categories</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/pen.mjs"><span class="file">lib/pen.mjs</span> Pen/touch/mouse input handling</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/keyboard.mjs"><span class="file">lib/keyboard.mjs</span> Keyboard input + event system</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/speaker.mjs"><span class="file">lib/speaker.mjs</span> Audio output — Web Audio API, synthesis, samples</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/microphone.mjs"><span class="file">lib/microphone.mjs</span> Audio input — mic capture, analysis</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/ui.mjs"><span class="file">lib/ui.mjs</span> UI components — Button, TextInput, cursors</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/text.mjs"><span class="file">lib/text.mjs</span> Text rendering — bitmap fonts, write/type</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/store.mjs"><span class="file">lib/store.mjs</span> Persistent storage API</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/socket.mjs"><span class="file">lib/socket.mjs</span> WebSocket client for real-time features</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/parse.mjs"><span class="file">lib/parse.mjs</span> URL/command parsing — piece:param:colon routing</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/num.mjs"><span class="file">lib/num.mjs</span> Math utilities — random, lerp, clamp, dist, vec</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/geo.mjs"><span class="file">lib/geo.mjs</span> Geometry — Box, Point, Line primitives</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/help.mjs"><span class="file">lib/help.mjs</span> In-app help system</a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Rendering & GPU</div>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/gl.mjs"><span class="file">lib/gl.mjs</span> WebGL2 rendering context</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/glaze.mjs"><span class="file">lib/glaze.mjs</span> Post-processing shader pipeline</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/webgpu.mjs"><span class="file">lib/webgpu.mjs</span> WebGPU renderer</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/gpu-primitives.mjs"><span class="file">lib/gpu-primitives.mjs</span> GPU accelerated drawing primitives</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/gpu-effects.mjs"><span class="file">lib/gpu-effects.mjs</span> GPU shader effects</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/3d.mjs"><span class="file">lib/3d.mjs</span> 3D rendering support</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/2d.mjs"><span class="file">lib/2d.mjs</span> 2D canvas operations</a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Music & Audio</div>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/midi.mjs"><span class="file">lib/midi.mjs</span> Web MIDI — keyboard, controller, instrument support</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/chord-detection.mjs"><span class="file">lib/chord-detection.mjs</span> Real-time chord recognition</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/melody-parser.mjs"><span class="file">lib/melody-parser.mjs</span> Musical sequence parser</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/note-colors.mjs"><span class="file">lib/note-colors.mjs</span> Note-to-color mapping</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/radio.mjs"><span class="file">lib/radio.mjs</span> Radio streaming</a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Shared Modules (system + session)</div>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/shared/filter.mjs"><span class="file">shared/filter.mjs</span> Content filtering</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/shared/redact.mjs"><span class="file">shared/redact.mjs</span> Content redaction</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/shared/kidlisp-syntax.mjs"><span class="file">shared/kidlisp-syntax.mjs</span> KidLisp syntax highlighting</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/shared/audio-analyzer.mjs"><span class="file">shared/audio-analyzer.mjs</span> Audio analysis utilities</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- PIECES -->
+    <div class="section" data-section="pieces">
+        <div class="section-header collapsed" data-color="gold" onclick="toggleSection(this)">
+            <span class="toggle">&#9660;</span>
+            <h2>Pieces</h2>
+            <span class="count">337 .mjs + 18 .lisp</span>
+        </div>
+        <div class="section-items hidden">
+            <div class="item-group">
+                <div class="item-group-label">Key Interactive Pieces</div>
+                <a class="item" href="https://aesthetic.computer/notepat"><span class="file">notepat</span> Musical keyboard toy — the system front door</a>
+                <a class="item" href="https://aesthetic.computer/prompt"><span class="file">prompt</span> Command prompt — system shell / piece launcher</a>
+                <a class="item" href="https://aesthetic.computer/painting"><span class="file">painting</span> Painting tool — full canvas with brushes and layers</a>
+                <a class="item" href="https://aesthetic.computer/chat"><span class="file">chat</span> Real-time multiplayer chat</a>
+                <a class="item" href="https://aesthetic.computer/list"><span class="file">list</span> User piece browser and feed</a>
+                <a class="item" href="https://aesthetic.computer/about"><span class="file">about</span> About page</a>
+                <a class="item" href="https://aesthetic.computer/share"><span class="file">share</span> QR code sharing</a>
+                <a class="item" href="https://aesthetic.computer/publish"><span class="file">publish</span> Piece publishing flow</a>
+                <a class="item" href="https://aesthetic.computer/source"><span class="file">source</span> Template download / fork</a>
+                <a class="item" href="https://aesthetic.computer/login"><span class="file">login</span> Auth0 login flow</a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Creative Tools</div>
+                <a class="item" href="https://aesthetic.computer/bleep"><span class="file">bleep</span> Sound synthesizer</a>
+                <a class="item" href="https://aesthetic.computer/stample"><span class="file">stample</span> Audio sampling pad</a>
+                <a class="item" href="https://aesthetic.computer/beat"><span class="file">beat</span> Beat sequencer</a>
+                <a class="item" href="https://aesthetic.computer/tape"><span class="file">tape</span> Audio/video recorder</a>
+                <a class="item" href="https://aesthetic.computer/melody"><span class="file">melody</span> Melody composer</a>
+                <a class="item" href="https://aesthetic.computer/freehand"><span class="file">freehand</span> Freehand drawing tool</a>
+                <a class="item" href="https://aesthetic.computer/line"><span class="file">line</span> Line drawing</a>
+                <a class="item" href="https://aesthetic.computer/circle"><span class="file">circle</span> Circle drawing</a>
+                <a class="item" href="https://aesthetic.computer/box"><span class="file">box</span> Rectangle drawing</a>
+                <a class="item" href="https://aesthetic.computer/spray"><span class="file">spray</span> Spray paint</a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Games & Toys</div>
+                <a class="item" href="https://aesthetic.computer/wand"><span class="file">wand</span> Magic wand toy</a>
+                <a class="item" href="https://aesthetic.computer/balls"><span class="file">balls</span> Bouncing balls</a>
+                <a class="item" href="https://aesthetic.computer/wg"><span class="file">wg</span> Whistlegraph</a>
+                <a class="item" href="https://aesthetic.computer/spider"><span class="file">spider</span> Spider game</a>
+                <a class="item" href="https://aesthetic.computer/1v1"><span class="file">1v1</span> Multiplayer duel</a>
+                <a class="item" href="https://aesthetic.computer/smear"><span class="file">smear</span> Paint smearing</a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">KidLisp Pieces (18 .lisp files)</div>
+                <a class="item" href="https://aesthetic.computer/code"><span class="file">code.lisp</span> KidLisp editor & runner</a>
+                <a class="item" href="https://aesthetic.computer/brush"><span class="file">brush.lisp</span> Generative brush</a>
+                <a class="item" href="https://aesthetic.computer/lab"><span class="file">lab.lisp</span> KidLisp lab/playground</a>
+                <a class="item" href="https://aesthetic.computer/spinning-cube"><span class="file">spinning-cube.lisp</span> 3D spinning cube</a>
+                <a class="item" href="https://aesthetic.computer/handles"><span class="file">handles.lisp</span> Handle display</a>
+                <span class="item"><span class="file">+ 13 more</span> addition, subtraction, tests, timing, profiles...</span>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Full listing: 337 .mjs + 18 .lisp pieces</div>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/tree/main/system/public/aesthetic.computer/disks">Browse all pieces on GitHub</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- SERVERS & SERVICES -->
+    <div class="section" data-section="servers">
+        <div class="section-header collapsed" data-color="green" onclick="toggleSection(this)">
+            <span class="toggle">&#9660;</span>
+            <h2>Servers & Services</h2>
+            <span class="count">83 functions · 5 services · 7 session modules</span>
+        </div>
+        <div class="section-items hidden">
+            <div class="item-group">
+                <div class="item-group-label">Netlify Functions (83 serverless endpoints)</div>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/tree/main/system/netlify/functions"><span class="file">system/netlify/functions/</span> Auth, content, keeps, chat, billing, telemetry, KidLisp storage</a>
+                <a class="item" href="https://aesthetic.computer/api/api-docs"><span class="file">api/api-docs</span> LLM-friendly API documentation (live)</a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Oven (screenshot + rendering service)</div>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/oven/server.mjs"><span class="file">oven/server.mjs</span> Express server — OG previews, keeps rendering, MP4 conversion</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/oven/baker.mjs"><span class="file">oven/baker.mjs</span> Puppeteer screenshot pipeline</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/oven/bundler.mjs"><span class="file">oven/bundler.mjs</span> Piece bundler for offline/native</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/oven/grabber.mjs"><span class="file">oven/grabber.mjs</span> Screenshot capture</a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Session Server (real-time WebSocket)</div>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/session-server/session.mjs"><span class="file">session.mjs</span> WebSocket server — Geckos.io, chat, multiplayer, presence</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/session-server/chat-manager.mjs"><span class="file">chat-manager.mjs</span> Chat room management</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/session-server/hearts.mjs"><span class="file">hearts.mjs</span> Hearts/reactions system</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/session-server/dashboard.mjs"><span class="file">dashboard.mjs</span> Admin dashboard</a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Silo (admin dashboard + DB browser)</div>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/silo/server.mjs"><span class="file">silo/server.mjs</span> Dashboard API — MongoDB browser, health, firehose</a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Cloudflare Workers</div>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/tree/main/dp1-feed"><span class="file">dp1-feed/</span> feed.aesthetic.computer — ATProto activity feed generator</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/tree/main/grab"><span class="file">grab/</span> grab.aesthetic.computer — Browser Rendering screenshots</a>
+            </div>
         </div>
     </div>
 
