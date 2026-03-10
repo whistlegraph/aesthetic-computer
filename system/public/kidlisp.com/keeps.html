@@ -4688,13 +4688,7 @@
     async function connectWallet() {
       await initTezosWallet();
       if (mintWalletAddress) return mintWalletAddress;
-      const net = getTezosNetwork();
-      const networkType = net === 'mainnet'
-        ? window.beacon.NetworkType.MAINNET
-        : window.beacon.NetworkType.GHOSTNET;
-      const perms = await beaconClient.requestPermissions({
-        network: { type: networkType },
-      });
+      const perms = await beaconClient.requestPermissions();
       mintWalletAddress = perms.address;
       updateWalletBtn();
       return mintWalletAddress;
