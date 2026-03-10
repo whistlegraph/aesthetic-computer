@@ -289,6 +289,26 @@ function scheduleAutoUpdateCheck(delayFrames = 0) {
   autoUpdate.nextCheckFrame = frame + Math.max(0, delayFrames | 0);
 }
 
+// Version format is "<git-hash>-YYYY-MM-DDTHH:MM".
+// We only treat remote as update when its timestamp is strictly newer.
+function parseVersionStamp(version) {
+  const raw = (version || "").trim();
+  if (!raw) return { raw: "", stamp: "", ms: NaN };
+  const m = raw.match(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})$/);
+  if (!m) return { raw, stamp: "", ms: NaN };
+  const stamp = m[1];
+  const ms = Date.parse(stamp + ":00Z");
+  return { raw, stamp, ms };
+}
+
+function isRemoteVersionNewer(remoteVersion, localVersion) {
+  const remote = parseVersionStamp(remoteVersion);
+  const local = parseVersionStamp(localVersion);
+  if (!isNaN(remote.ms) && !isNaN(local.ms)) return remote.ms > local.ms;
+  if (!isNaN(remote.ms) && isNaN(local.ms)) return true;
+  return false; // conservative: unknown formats do not trigger "update available"
+}
+
 function notifyUpdateAvailable(sound, version) {
   if (!version || osUpdatePingVersion === version) return;
   osUpdatePingVersion = version;
@@ -931,6 +951,24 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   ink(BAR_BORDER[0], BAR_BORDER[1], BAR_BORDER[2]);
   line(0, topBarH - 1, w, topBarH - 1);
 
+  // Reserve space for right-side indicators so left status text never overlaps.
+  const reserveBatPct = system?.battery?.percent ?? -1;
+  const reserveSysBrt = system?.brightness ?? -1;
+  const reserveNow = new Date(syncedNow());
+  const reserveLaMs = reserveNow.getTime() - getLAOffset() * 3600000;
+  const reserveLaDate = new Date(reserveLaMs);
+  const reserveHh = reserveLaDate.getUTCHours();
+  const reserveMm = reserveLaDate.getUTCMinutes();
+  const reserveSs = reserveLaDate.getUTCSeconds();
+  const reserveAmpm = reserveHh >= 12 ? "p" : "a";
+  const reserveH12 = reserveHh % 12 || 12;
+  const reserveTime = reserveH12 + ":" + (reserveMm < 10 ? "0" : "") + reserveMm +
+    ":" + (reserveSs < 10 ? "0" : "") + reserveSs + reserveAmpm;
+  let statusRightReserve = 14 + reserveTime.length * CH + 4 + 20 + 2 + 3 * CH; // wifi + time + vol
+  if (reserveBatPct >= 0) statusRightReserve += 14 + (String(reserveBatPct).length + 1) * CH + 6;
+  if (reserveSysBrt >= 0) statusRightReserve += 4 + 16 + 2 + 3 * CH;
+  const statusRightLimit = Math.max(80, w - statusRightReserve - 8);
+
   // Left: "notepat.com" — clickable, jumps to prompt piece
   const npHovered = hoverX >= 0 && hoverX <= 46 && hoverY < topBarH;
   if (npHovered) { ink(255, 255, 255, 20); box(0, 0, 48, topBarH, true); }
@@ -940,103 +978,96 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   const dotComX = 2 + 7 * 4;
   write(".com", { x: dotComX, y: barY, size: 1, font: "matrix" });
   globalThis.__npBtn = { w: 48, h: topBarH };
-  // "os" button — clickable, shows download URL
+
+  // "os" button — clickable, compact hitbox
   const osX = dotComX + 4 * 4 + 6;
-  const osHovered = hoverX >= osX - 2 && hoverX <= osX + 14 && hoverY < topBarH;
-  if (osHovered) { ink(255, 255, 255, 30); box(osX - 2, 0, 18, topBarH, true); }
+  const osBtnW = 10;
+  const osHovered = hoverX >= osX - 1 && hoverX <= osX + osBtnW - 1 && hoverY < topBarH;
+  if (osHovered) { ink(255, 255, 255, 28); box(osX - 1, 0, osBtnW + 1, topBarH, true); }
   ink(dark ? (osHovered ? 120 : 80) : (osHovered ? 200 : 140),
       dark ? (osHovered ? 210 : 160) : (osHovered ? 150 : 100),
       dark ? (osHovered ? 120 : 80) : (osHovered ? 200 : 140));
   write("os", { x: osX, y: barY, size: 1, font: "matrix" });
-  globalThis.__osBtn = { x: osX - 2, w: 14, h: topBarH };
+  globalThis.__osBtn = { x: osX - 1, w: osBtnW, h: topBarH };
 
-  // WS status + latest chat + mute button — right of "os"
+  // WS status + latest chat + update + mute (bounded by right-side reserve)
   let chatX = osX + 2 * 4 + 6;
+  const statusWrite = (text, r, g, b, a = 255) => {
+    if (!text) return false;
+    const width = text.length * 4;
+    if (chatX + width > statusRightLimit) return false;
+    ink(r, g, b, a);
+    write(text, { x: chatX, y: barY, size: 1, font: "matrix" });
+    chatX += width + 2;
+    return true;
+  };
+
   if (acMsg) {
-    // Always show latest message if we have one — even after server drops
-    const maxChatChars = Math.floor((w - chatX - 130) / 4);
-    if (maxChatChars > 6) {
+    const maxChatChars = Math.floor((statusRightLimit - chatX) / 4);
+    if (maxChatChars > 8) {
       const preview = (acMsg.from + ": " + acMsg.text).slice(0, maxChatChars);
-      ink(dark ? 140 : 100, dark ? 180 : 130, dark ? 140 : 100);
-      write(preview, { x: chatX, y: barY, size: 1, font: "matrix" });
-      chatX += preview.length * 4 + 2;
+      statusWrite(preview, dark ? 140 : 100, dark ? 180 : 130, dark ? 140 : 100);
     }
   } else if (wsStatus === "connecting") {
-    ink(200, 200, 80);
-    write("chat...", { x: chatX, y: barY, size: 1, font: "matrix" });
-    chatX += 7 * 4 + 2;
+    statusWrite("chat...", 200, 200, 80);
   } else if (wsStatus === "error") {
-    ink(220, 80, 80);
-    write("chat?", { x: chatX, y: barY, size: 1, font: "matrix" });
-    chatX += 5 * 4 + 2;
+    statusWrite("chat?", 220, 80, 80);
   } else if (wsStatus === "connected") {
-    // Connected but no message yet
-    ink(dark ? 60 : 180, dark ? 100 : 190, dark ? 60 : 180);
-    write("chat", { x: chatX, y: barY, size: 1, font: "matrix" });
-    chatX += 4 * 4 + 2;
+    statusWrite("chat", dark ? 60 : 180, dark ? 100 : 190, dark ? 60 : 180);
   }
+
   // Auto-update status in bar (subtle, only during active download/flash/reboot)
   if (autoUpdate.state === "downloading") {
     const pct = Math.round((osProgress || 0) * 100);
-    ink(80, 180, 100, 180);
-    write("os " + pct + "%", { x: chatX, y: barY, size: 1, font: "matrix" });
-    chatX += 8 * 4 + 2;
-  } else if (autoUpdate.availableVersion && autoUpdate.availableVersion !== osCurrentVersion) {
+    statusWrite("os " + pct + "%", 80, 180, 100, 180);
+  } else if (autoUpdate.availableVersion && isRemoteVersionNewer(autoUpdate.availableVersion, osCurrentVersion)) {
     const blinkOn = (frame % 60) < 35;
-    if (blinkOn) {
-      ink(255, 210, 90, 210);
-      write("update!", { x: chatX, y: barY, size: 1, font: "matrix" });
-    } else {
-      ink(dark ? 90 : 130, dark ? 110 : 120, dark ? 80 : 110, 150);
-      write("update", { x: chatX, y: barY, size: 1, font: "matrix" });
-    }
-    chatX += 7 * 4 + 2;
+    if (blinkOn) statusWrite("update!", 255, 210, 90, 210);
+    else statusWrite("update", dark ? 90 : 130, dark ? 110 : 120, dark ? 80 : 110, 150);
   } else if (autoUpdate.state === "flashing") {
-    ink(255, 160, 60, 200);
-    write("flash", { x: chatX, y: barY, size: 1, font: "matrix" });
-    chatX += 5 * 4 + 2;
+    statusWrite("flash", 255, 160, 60, 200);
   } else if (autoUpdate.state === "rebooting") {
-    ink(220, 100, 60, 220);
-    write("reboot", { x: chatX, y: barY, size: 1, font: "matrix" });
-    chatX += 6 * 4 + 2;
+    statusWrite("reboot", 220, 100, 60, 220);
   }
+
   // Metronome indicator (pendulum) in status bar — shown when enabled
   if (metronomeEnabled) {
-    const metX = chatX;
-    // BPM label
-    ink(dark ? 160 : 100, dark ? 160 : 100, dark ? 170 : 110);
     const bpmLabel = metronomeBPM + "b";
-    write(bpmLabel, { x: metX, y: barY, size: 1, font: "matrix" });
-    chatX += bpmLabel.length * 4 + 3;
-    // Pendulum: pivot at top-center of a small 10px zone, swinging bob
-    const px = chatX + 5;
-    const pvY = barY + 1;
-    const armLen = 8;
-    const angle = metronomePendulumAngle * 0.45; // radians max ≈ 26°
-    const bobX = Math.round(px + Math.sin(angle) * armLen);
-    const bobY = Math.round(pvY + Math.cos(angle) * armLen);
-    // Flash on downbeat
-    const db = (metronomeBeatCount % 4) === 0;
-    const fa = Math.floor(metronomeVisualPhase * 255);
-    if (fa > 0) {
-      ink(db ? 255 : 180, db ? 100 : 180, db ? 100 : 255, fa);
-    } else {
-      ink(dark ? 120 : 150, dark ? 130 : 150, dark ? 140 : 160);
+    const metNeed = bpmLabel.length * 4 + 3 + 14;
+    if (chatX + metNeed <= statusRightLimit) {
+      const metX = chatX;
+      ink(dark ? 160 : 100, dark ? 160 : 100, dark ? 170 : 110);
+      write(bpmLabel, { x: metX, y: barY, size: 1, font: "matrix" });
+      chatX += bpmLabel.length * 4 + 3;
+      const px = chatX + 5;
+      const pvY = barY + 1;
+      const armLen = 8;
+      const angle = metronomePendulumAngle * 0.45;
+      const bobX = Math.round(px + Math.sin(angle) * armLen);
+      const bobY = Math.round(pvY + Math.cos(angle) * armLen);
+      const db = (metronomeBeatCount % 4) === 0;
+      const fa = Math.floor(metronomeVisualPhase * 255);
+      if (fa > 0) ink(db ? 255 : 180, db ? 100 : 180, db ? 100 : 255, fa);
+      else ink(dark ? 120 : 150, dark ? 130 : 150, dark ? 140 : 160);
+      line(px, pvY, bobX, bobY);
+      box(bobX - 1, bobY - 1, 3, 3, true);
+      chatX += 14;
     }
-    line(px, pvY, bobX, bobY);
-    box(bobX - 1, bobY - 1, 3, 3, true);
-    chatX += 14;
   }
 
   // Mute button: "M" when muted, "m" when live
-  const muteX = chatX;
-  const muteHovered = hoverX >= muteX - 1 && hoverX <= muteX + 8 && hoverY < topBarH;
-  if (muteHovered) { ink(255, 255, 255, 30); box(muteX - 1, 0, 10, topBarH, true); }
-  ink(chatMuted ? (dark ? 200 : 80) : (dark ? 80 : 180),
-      chatMuted ? (dark ? 80 : 200) : (dark ? 80 : 180),
-      chatMuted ? (dark ? 80 : 80) : (dark ? 80 : 180));
-  write(chatMuted ? "M" : "m", { x: muteX, y: barY, size: 1, font: "matrix" });
-  globalThis.__muteBtn = { x: muteX, w: 10 };
+  if (chatX + 6 <= statusRightLimit) {
+    const muteX = chatX;
+    const muteHovered = hoverX >= muteX - 1 && hoverX <= muteX + 8 && hoverY < topBarH;
+    if (muteHovered) { ink(255, 255, 255, 30); box(muteX - 1, 0, 10, topBarH, true); }
+    ink(chatMuted ? (dark ? 200 : 80) : (dark ? 80 : 180),
+        chatMuted ? (dark ? 80 : 200) : (dark ? 80 : 180),
+        chatMuted ? (dark ? 80 : 80) : (dark ? 80 : 180));
+    write(chatMuted ? "M" : "m", { x: muteX, y: barY, size: 1, font: "matrix" });
+    globalThis.__muteBtn = { x: muteX, w: 10 };
+  } else {
+    globalThis.__muteBtn = { x: -9999, w: 0 };
+  }
 
   // OS update panel (fullscreen, like WiFi panel)
   if (activeScreen === "os") {
@@ -1195,11 +1226,12 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       osFetchPending = false;
       const ver = fetchText;
       if (ver && ver.length > 0 && ver.length < 128) {
+        const newer = isRemoteVersionNewer(ver, osCurrentVersion);
         osRemoteVersion = ver;
-        autoUpdate.availableVersion = (ver !== osCurrentVersion) ? ver : "";
-        osState = (osCurrentVersion && osRemoteVersion && osCurrentVersion !== osRemoteVersion)
-          ? "available" : "up-to-date";
-        if (osState === "available") notifyUpdateAvailable(sound, ver);
+        autoUpdate.availableVersion = newer ? ver : "";
+        osState = newer ? "available" : "up-to-date";
+        console.log(`[os] manual-check local=${osCurrentVersion} remote=${ver} newer=${newer}`);
+        if (newer) notifyUpdateAvailable(sound, ver);
       } else {
         osError = "version check failed";
         osState = "error";
@@ -1208,7 +1240,9 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       // Background auto-update version check
       autoUpdate.fetchPending = false;
       const ver = fetchText;
-      if (ver && ver.length > 0 && ver.length < 128 && ver !== osCurrentVersion) {
+      const newer = isRemoteVersionNewer(ver, osCurrentVersion);
+      console.log(`[os] auto-check local=${osCurrentVersion} remote=${ver} newer=${newer}`);
+      if (ver && ver.length > 0 && ver.length < 128 && newer) {
         autoUpdate.availableVersion = ver;
         osRemoteVersion = ver;
         notifyUpdateAvailable(sound, ver);
