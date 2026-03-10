@@ -200,3 +200,39 @@ The script writes a report in `reports/` and exits with non-zero when critical a
 2. No forced holder migration.
 3. No emergency action without written postmortem timeline.
 4. Preserve provenance readability across versions.
+
+## v12 Addendum: Trustless Upgradeability + Deprecatability
+
+Date: 2026-03-10
+
+This addendum reflects the current v12 draft implementation (`tezos/kidlisp_keeps_fa2_v12.py`):
+
+1. Contract-level metadata changes are holder-governed, not admin-key controlled.
+2. New proposal lifecycle:
+   - `propose_contract_upgrade(metadata_updates, metadata_updates_hash, successor, deprecate)`
+   - `vote_contract_upgrade(proposal_id, token_ids, support)`
+   - `execute_contract_upgrade(proposal_id)`
+3. Voting model:
+   - one vote per live `token_id` per proposal
+   - denominator = `active_token_count`
+   - quorum gate: `cast_votes / active_token_count` vs `governance_quorum_bps`
+   - approval gate: `yes_votes / cast_votes` vs `governance_approval_bps`
+4. Deprecation behavior:
+   - deprecation is irreversible once an approved proposal executes
+   - `contract_state` flips `ACTIVE -> DEPRECATED`
+   - `deprecated_successor` and `deprecated_at` are stored on-chain
+   - `keep`/`register_keep_commitment` are blocked after deprecation
+   - transfer/edit/burn semantics remain available
+5. Existing creator guarantees remain:
+   - owner-only `burn_keep`
+   - immutable `content_hash` + `royalties` after metadata edits
+   - owner metadata lock unchanged
+6. Migration claim path (v11 -> v12):
+   - new `claim_from_v11(old_token_id, token_info, creator_pubkey)`
+   - verifies current ownership on source contract via `get_balance_of` view
+   - enforces one-time claim per old token id (`migration_claims`)
+   - writes provenance tags in token metadata:
+     `upgraded_from_contract`, `upgraded_from_token_id`, `migration_kind`
+7. Remaining migration hardening:
+   - current draft trusts claimant-supplied `token_info` payload
+   - if required, add merkle-proof metadata attestation for fully trustless content parity
