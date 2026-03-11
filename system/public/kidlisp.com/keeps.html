@@ -4660,10 +4660,17 @@
       if (beaconClient) return;
       if (beaconInitPromise) return beaconInitPromise;
       beaconInitPromise = (async () => {
+        // One-time clear of stale Beacon state from old app name
+        if (!localStorage.getItem('beacon:kidlisp-v2')) {
+          for (const key of Object.keys(localStorage)) {
+            if (key.startsWith('beacon:')) localStorage.removeItem(key);
+          }
+          localStorage.setItem('beacon:kidlisp-v2', '1');
+        }
         await loadBeaconSDK();
         const net = getTezosNetwork();
         beaconClient = new window.beacon.DAppClient({
-          name: 'KidLisp Keeps',
+          name: 'KidLisp',
           network: {
             type: net === 'ghostnet'
               ? window.beacon.NetworkType.GHOSTNET
