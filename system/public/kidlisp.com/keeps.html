@@ -4555,21 +4555,29 @@
       if (window.beacon) return;
       await new Promise((resolve, reject) => {
         const script = document.createElement('script');
-        script.src = 'https://unpkg.com/@airgap/beacon-sdk@4.0.12/dist/walletbeacon.min.js';
+        script.src = 'https://unpkg.com/@airgap/beacon-sdk@4.3.0/dist/walletbeacon.min.js';
         script.onload = resolve;
         script.onerror = reject;
         document.head.appendChild(script);
       });
     }
 
+    // Pre-initialize the Beacon client so it's ready before the user clicks.
+    // This prevents popup blockers from killing the Kukai tab — the trusted
+    // click context must survive all the way to requestPermissions().
     async function initTezosWallet() {
       if (beaconClient) return;
       if (beaconInitPromise) return beaconInitPromise;
       beaconInitPromise = (async () => {
         await loadBeaconSDK();
+        const net = getTezosNetwork();
         beaconClient = new window.beacon.DAppClient({
           name: 'KidLisp Keeps',
-          preferredNetwork: getTezosNetwork(),
+          network: {
+            type: net === 'ghostnet'
+              ? window.beacon.NetworkType.GHOSTNET
+              : window.beacon.NetworkType.MAINNET,
+          },
         });
         // Subscribe to active account changes before getActiveAccount fires it
         beaconClient.subscribeToEvent(window.beacon.BeaconEvent.ACTIVE_ACCOUNT_SET, (account) => {
@@ -4589,9 +4597,18 @@
     }
 
     async function connectWallet() {
+      // initTezosWallet should already be resolved (pre-loaded at page init).
+      // If not, this await is the fallback — but may cause popup blocking.
       await initTezosWallet();
       if (mintWalletAddress) return mintWalletAddress;
-      const perms = await beaconClient.requestPermissions();
+      const net = getTezosNetwork();
+      const perms = await beaconClient.requestPermissions({
+        network: {
+          type: net === 'ghostnet'
+            ? window.beacon.NetworkType.GHOSTNET
+            : window.beacon.NetworkType.MAINNET,
+        },
+      });
       mintWalletAddress = perms.address;
       updateWalletBtn();
       return mintWalletAddress;
@@ -5683,6 +5700,10 @@
       revealUI();
       hideInlineAbout();
       setIndexSearchVisible(true);
+
+      // Pre-load Beacon SDK + DAppClient so wallet connect is instant on click
+      // (avoids popup blocker killing Kukai's tab)
+      initTezosWallet().catch(e => console.warn('Beacon pre-init failed:', e));
 
       const codes = await fetchAllCodes();
       loading.style.display = 'none';
