@@ -223,9 +223,8 @@ static void load_boot_visual_config(void) {
 
     char handle[64] = {0};
     if (parse_config_string(buf, "\"handle\"", handle, sizeof(handle))) {
-        if ((int)strlen(handle) < (int)sizeof(boot_title) - 1) {
-            boot_title[0] = '@';
-            snprintf(boot_title + 1, sizeof(boot_title) - 1, "%s", handle);
+        if ((int)strlen(handle) < (int)sizeof(boot_title) - 4) {
+            snprintf(boot_title, sizeof(boot_title), "hi @%s", handle);
         }
     }
     parse_boot_title_colors(buf);
@@ -257,9 +256,14 @@ static ACColor title_char_color(int ci, int frame, int alpha) {
 
     int title_len = (int)strlen(boot_title);
     int idx = ci;
-    // Accept either @handle-length palettes or handle-only palettes.
-    if (boot_title[0] == '@' && title_len > 1 && boot_title_colors_len == title_len - 1) {
-        idx = (ci > 0) ? (ci - 1) : 0;
+    // Map palette to the handle portion of "hi @handle" (skip "hi @" = 4 chars)
+    const char *at = strchr(boot_title, '@');
+    int handle_start = at ? (int)(at - boot_title) + 1 : 0; // char after @
+    if (handle_start > 0 && ci >= handle_start && boot_title_colors_len > 0) {
+        idx = ci - handle_start;
+    } else if (ci < handle_start) {
+        // "hi " and "@" get rainbow colors
+        return rainbow_title_color(ci, frame, alpha);
     }
     if (idx < 0) idx = 0;
     if (boot_title_colors_len > 0) idx %= boot_title_colors_len;
@@ -792,6 +796,45 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
     graph_wipe(graph, (ACColor){0, 0, 0, 255});
     display_present(display, screen, 3);
 
+    // Check if this is a fresh boot of a new version
+    int is_new_version = 0;
+#ifdef AC_GIT_HASH
+#ifdef AC_BUILD_TS
+    {
+        const char *current_ver = AC_GIT_HASH "-" AC_BUILD_TS;
+        char prev_ver[128] = "";
+        FILE *vf = fopen("/mnt/booted-version", "r");
+        if (vf) {
+            if (fgets(prev_ver, sizeof(prev_ver), vf)) {
+                // Strip trailing newline
+                char *nl = strchr(prev_ver, '\n');
+                if (nl) *nl = 0;
+            }
+            fclose(vf);
+        }
+        is_new_version = (strcmp(prev_ver, current_ver) != 0);
+        ac_log("[boot] version=%s prev=%s new=%s\n", current_ver, prev_ver, is_new_version ? "YES" : "no");
+        // Write current version immediately so next boot sees it
+        vf = fopen("/mnt/booted-version", "w");
+        if (vf) {
+            fprintf(vf, "%s", current_ver);
+            fclose(vf);
+        }
+        // Append to boot history log (persists across reboots)
+        vf = fopen("/mnt/boot-history.log", "a");
+        if (vf) {
+            time_t now_t = time(NULL);
+            struct tm *tm = gmtime(&now_t);
+            char ts[32];
+            strftime(ts, sizeof(ts), "%Y-%m-%dT%H:%M:%SZ", tm);
+            fprintf(vf, "%s %s %s\n", ts, current_ver, is_new_version ? "NEW" : "same");
+            fclose(vf);
+        }
+        sync();
+    }
+#endif
+#endif
+
     // 180 frames = 3 second animation.
     // W press → halt and show y/n confirmation
     // Any other key → skip animation and start playing
@@ -827,20 +870,21 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
         // Startup greeting — use handle if available
         if (f == 10 && tts) {
             char greet[96];
-            if (boot_title[0] == '@')
-                snprintf(greet, sizeof(greet), "hi %s", boot_title + 1);
+            const char *at = strchr(boot_title, '@');
+            if (at)
+                snprintf(greet, sizeof(greet), "hi %s", at + 1);
             else
                 snprintf(greet, sizeof(greet), "hi");
             tts_speak(tts, greet);
         }
         // W hint is visual only — no TTS
 
-        // Fade from black to green bg (complete in first 0.3s)
+        // Fade from black to yellow bg (complete in first 0.3s)
         double fade_t = t * 3.33;
         if (fade_t > 1.0) fade_t = 1.0;
-        int bg_r = (int)(10 * fade_t);  // green
-        int bg_g = (int)(50 * fade_t);
-        int bg_b = (int)(15 * fade_t);
+        int bg_r = (int)(55 * fade_t);  // yellow
+        int bg_g = (int)(45 * fade_t);
+        int bg_b = (int)(8 * fade_t);
         graph_wipe(graph, (ACColor){(uint8_t)bg_r, (uint8_t)bg_g, (uint8_t)bg_b, 255});
 
         // Title — per-handle palette (fallback rainbow), animated pulse
@@ -880,6 +924,11 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
             font_draw_matrix(graph, ver, panel_x + 4, panel_y + 3, 1);
             graph_ink(graph, (ACColor){210, 235, 220, (uint8_t)alpha});
             font_draw_matrix(graph, bts, panel_x + 4, panel_y + 11, 1);
+            // "NEW" badge when first boot of this version
+            if (is_new_version) {
+                graph_ink(graph, (ACColor){80, 255, 120, (uint8_t)alpha});
+                font_draw_matrix(graph, "NEW", panel_x - font_measure_matrix("NEW", 1) - 4, panel_y + 6, 1);
+            }
         }
 #endif
 
@@ -1301,7 +1350,24 @@ int main(int argc, char *argv[]) {
             }
 
             if (power_pressed) {
-                // Shutdown animation — chaotic red/white strobe with title
+                // Say bye IMMEDIATELY (TTS + shutdown chime start before animation)
+                char bye_title[80];
+                {
+                    const char *at = strchr(boot_title, '@');
+                    if (at)
+                        snprintf(bye_title, sizeof(bye_title), "bye @%s", at + 1);
+                    else
+                        snprintf(bye_title, sizeof(bye_title), "bye");
+                    char bye_speech[96];
+                    if (at)
+                        snprintf(bye_speech, sizeof(bye_speech), "bye %s", at + 1);
+                    else
+                        snprintf(bye_speech, sizeof(bye_speech), "bye");
+                    if (tts) tts_speak(tts, bye_speech);
+                    audio_shutdown_sound(audio);
+                }
+
+                // Shutdown animation — chaotic red/white strobe with bye title
                 struct timespec anim_time;
                 clock_gettime(CLOCK_MONOTONIC, &anim_time);
 
@@ -1332,8 +1398,8 @@ int main(int argc, char *argv[]) {
                         uint8_t tg = (f % 3 == 0) ? 255 : 40;
                         uint8_t tb = (f % 3 == 0) ? 255 : 40;
                         graph_ink(&graph, (ACColor){tr, tg, tb, (uint8_t)alpha});
-                        int tw = font_measure_matrix(boot_title, 3);
-                        font_draw_matrix(&graph, boot_title,
+                        int tw = font_measure_matrix(bye_title, 3);
+                        font_draw_matrix(&graph, bye_title,
                             (screen->width - tw) / 2 + jx,
                             screen->height / 2 - 20 + jy, 3);
                         graph_ink(&graph, (ACColor){(uint8_t)(120 * fade), 40, 40, (uint8_t)(alpha / 2)});
@@ -1467,8 +1533,9 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // Cleanup
+    // Cleanup (TTS bye + shutdown chime already fired at power-press time)
     ac_log("[ac-native] Shutting down\n");
+
     if (logfile) { fclose(logfile); logfile = NULL; }
     sync();
     // Unmount USB log
@@ -1478,18 +1545,9 @@ int main(int argc, char *argv[]) {
     js_destroy(rt);
     wifi_destroy(wifi);
     if (tts) {
-        {
-            char bye[96];
-            if (boot_title[0] == '@')
-                snprintf(bye, sizeof(bye), "bye %s", boot_title + 1);
-            else
-                snprintf(bye, sizeof(bye), "bye");
-            tts_speak(tts, bye);
-        }
         tts_wait(tts);
-        usleep(300000); // Let TTS ring buffer drain before chime
+        usleep(300000); // Let TTS ring buffer drain
     }
-    audio_shutdown_sound(audio);
     usleep(600000); // Let shutdown chime ring out
     tts_destroy(tts);
     audio_destroy(audio);
