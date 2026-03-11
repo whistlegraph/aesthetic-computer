@@ -277,8 +277,13 @@ function setWave(nextWave, sound) {
   if (wave === "sample") {
     const mic = sound?.microphone || {};
     sampleLoaded = (mic.sampleLength || 0) > 0;
-    console.log(`[sample] wave-enter: loaded=${sampleLoaded} len=${mic.sampleLength || 0} rate=${mic.sampleRate || 0} connected=${!!mic.connected} device=${mic.device || "none"} err=${mic.lastError || ""}`);
+    // Open hot-mic so device stays ready — recording is instant after this.
+    // Always call open(); C side is idempotent if already hot.
+    sound?.microphone?.open?.();
+    console.log(`[sample] wave-enter: loaded=${sampleLoaded} len=${mic.sampleLength || 0} rate=${mic.sampleRate || 0} connected=${!!mic.connected} hot=${!!mic.hot} device=${mic.device || "none"} err=${mic.lastError || ""}`);
   } else {
+    // Close hot-mic when leaving sample mode to free the device
+    if (prev === "sample") sound?.microphone?.close?.();
     playWaveSound(sound, wave);
   }
 }
@@ -405,6 +410,14 @@ function act({ event: e, sound, wifi, system }) {
     if (key >= "1" && key <= "9") { octave = parseInt(key); return; }
     if (key === "arrowup") { octave = Math.min(9, octave + 1); return; }
     if (key === "arrowdown") { octave = Math.max(1, octave - 1); return; }
+    // Home key: hold to record in sample mode
+    if (key === "home" && wave === "sample" && !recording) {
+      const ok = !!sound?.microphone?.rec?.();
+      recording = ok;
+      recPointerId = null; // keyboard-driven, no pointer
+      console.log(`[mic] rec-home: ok=${ok}`);
+      return;
+    }
     if (key === "arrowleft") {
       const idx = (waveIndex - 1 + wavetypes.length) % wavetypes.length;
       setWave(wavetypes[idx], sound);
@@ -451,9 +464,9 @@ function act({ event: e, sound, wifi, system }) {
       const playFreq = freq * Math.pow(2, effectivePitchShift());
 
       if (wave === "sample" && sampleLoaded) {
-        // Play recorded sample at this pitch
+        // Play recorded sample at this pitch, looping while key is held
         const smp = sound.sample.play({
-          tone: playFreq, base: SAMPLE_BASE_FREQ, volume: vol, pan,
+          tone: playFreq, base: SAMPLE_BASE_FREQ, volume: vol, pan, loop: true,
         });
         if (smp) {
           sounds[key] = { synth: smp, note: letter, octave: noteOctave, baseFreq: freq, isSample: true };
@@ -480,6 +493,11 @@ function act({ event: e, sound, wifi, system }) {
   if (e.is("keyboard:up")) {
     const key = e.key?.toLowerCase();
     if (!key) return;
+    // Home key release: stop recording
+    if (key === "home" && recording && recPointerId === null) {
+      stopSampleRecording(sound, "home-lift");
+      return;
+    }
     if (sounds[key]) {
       const s = sounds[key].synth || sounds[key];
       sound.kill(s, quickMode ? 0.02 : 0.08);
@@ -690,7 +708,7 @@ function act({ event: e, sound, wifi, system }) {
         let synth;
         if (wave === "sample" && sampleLoaded) {
           const smp = sound.sample.play({
-            tone: playFreq, base: SAMPLE_BASE_FREQ, volume: 0.5, pan,
+            tone: playFreq, base: SAMPLE_BASE_FREQ, volume: 0.5, pan, loop: true,
           });
           if (smp) {
             synth = smp;
@@ -778,7 +796,7 @@ function act({ event: e, sound, wifi, system }) {
           let synth;
           if (wave === "sample" && sampleLoaded) {
             const smp = sound.sample.play({
-              tone: playFreq, base: SAMPLE_BASE_FREQ, volume: 0.5, pan,
+              tone: playFreq, base: SAMPLE_BASE_FREQ, volume: 0.5, pan, loop: true,
             });
             if (smp) {
               synth = smp;
@@ -1002,6 +1020,21 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     return true;
   };
 
+  // Auto-update status in bar (grouped with OS indicators)
+  if (autoUpdate.state === "downloading") {
+    const pct = Math.round((osProgress || 0) * 100);
+    statusWrite("os " + pct + "%", 80, 180, 100, 180);
+  } else if (autoUpdate.state === "flashing") {
+    statusWrite("flash", 255, 160, 60, 200);
+  } else if (autoUpdate.state === "ready") {
+    statusWrite("reboot?", 100, 220, 100, 220);
+  } else if (autoUpdate.availableVersion && isRemoteVersionNewer(autoUpdate.availableVersion, osCurrentVersion)) {
+    // "os" in normal dim + orange "!" appended
+    statusWrite("os", dark ? 90 : 130, dark ? 110 : 120, dark ? 80 : 110);
+    statusWrite("!", 255, 160, 40);
+  }
+
+  // Chat status (after OS indicators)
   if (acMsg) {
     const maxChatChars = Math.floor((statusRightLimit - chatX) / 4);
     if (maxChatChars > 8) {
@@ -1014,20 +1047,6 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     statusWrite("chat?", 220, 80, 80);
   } else if (wsStatus === "connected") {
     statusWrite("chat", dark ? 60 : 180, dark ? 100 : 190, dark ? 60 : 180);
-  }
-
-  // Auto-update status in bar (subtle, only during active download/flash/reboot)
-  if (autoUpdate.state === "downloading") {
-    const pct = Math.round((osProgress || 0) * 100);
-    statusWrite("os " + pct + "%", 80, 180, 100, 180);
-  } else if (autoUpdate.availableVersion && isRemoteVersionNewer(autoUpdate.availableVersion, osCurrentVersion)) {
-    const blinkOn = (frame % 60) < 35;
-    if (blinkOn) statusWrite("update!", 255, 210, 90, 210);
-    else statusWrite("update", dark ? 90 : 130, dark ? 110 : 120, dark ? 80 : 110, 150);
-  } else if (autoUpdate.state === "flashing") {
-    statusWrite("flash", 255, 160, 60, 200);
-  } else if (autoUpdate.state === "rebooting") {
-    statusWrite("reboot", 220, 100, 60, 220);
   }
 
   // Metronome indicator (pendulum) in status bar — shown when enabled
@@ -1246,7 +1265,8 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         autoUpdate.availableVersion = ver;
         osRemoteVersion = ver;
         notifyUpdateAvailable(sound, ver);
-        startAutoUpdateDownload(system);
+        // Don't auto-download — user must manually trigger via OS panel
+        autoUpdate.state = "idle";
       } else {
         autoUpdate.availableVersion = "";
         autoUpdate.state = "checking";
@@ -1289,17 +1309,16 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   if (autoUpdate.state === "flashing") {
     if (system.flashDone) {
       if (system.flashOk) {
-        autoUpdate.state = "rebooting";
-        autoUpdate.rebootFrame = frame + 300; // 5s delay before reboot
+        // Don't auto-reboot — just mark as ready. User must manually reboot via OS panel.
+        autoUpdate.state = "ready";
+        autoUpdate.lastError = "";
+        console.log("[os] auto-update flashed successfully, awaiting manual reboot");
       } else {
         autoUpdate.lastError = "flash failed";
         autoUpdate.state = "checking";
         autoUpdate.nextCheckFrame = frame + OS_AUTO_RETRY_FRAMES;
       }
     }
-  }
-  if (autoUpdate.state === "rebooting" && frame >= autoUpdate.rebootFrame) {
-    system.reboot?.();
   }
 
   // OS update panel state machine (manual, only when panel open)
@@ -1588,14 +1607,17 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     const h12 = hh % 12 || 12;
     const timeStr = h12 + ":" + (mm < 10 ? "0" : "") + mm + ":" + (ss < 10 ? "0" : "") + ss + ampm;
     rx -= timeStr.length * CH;
-    ink(FG_DIM, FG_DIM, FG_DIM);
-    write(timeStr, { x: rx, y: barY, size: 1 });
-    // Green sync dot(s) after time when synced
-    if (clockSynced) {
-      ink(60, 220, 80);
-      const dotX = rx + timeStr.length * CH + 1;
-      box(dotX, barY + 3, 2, 2, true);
-      if (Math.abs(clockOffset) < 500) box(dotX + 3, barY + 3, 2, 2, true); // 2 dots = very precise
+    // Draw clock with green colons when synced
+    let cx = rx;
+    for (let ci = 0; ci < timeStr.length; ci++) {
+      const ch = timeStr[ci];
+      if (ch === ":" && clockSynced) {
+        ink(60, 220, 80);
+      } else {
+        ink(FG_DIM, FG_DIM, FG_DIM);
+      }
+      write(ch, { x: cx, y: barY, size: 1 });
+      cx += CH;
     }
     rx -= 4;
   }
@@ -1972,6 +1994,21 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       if (level > 0.01) {
         ink(255, 90, 90);
         box(meterX, meterY, Math.max(1, Math.floor(meterW * level)), meterH, true);
+      }
+
+      // Live mic level bar — simple peak meter below status text
+      if (mic.hot) {
+        const lvY = infoY + 19;
+        const lvH = 6;
+        // Background
+        ink(dark ? 20 : 230, dark ? 20 : 230, dark ? 25 : 235);
+        box(0, lvY, w, lvH, true);
+        // Level bar
+        const lvl = mic.level || 0;
+        if (lvl > 0.005) {
+          ink(recording ? 255 : 100, recording ? 80 : 180, recording ? 80 : 100);
+          box(0, lvY, Math.max(1, Math.round(w * Math.min(1, lvl))), lvH, true);
+        }
       }
     }
 
