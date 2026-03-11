@@ -195,10 +195,15 @@ void audio_volume_adjust(ACAudio *audio, int delta);
 void audio_boot_beep(ACAudio *audio);
 
 // Play a ready melody (when piece is loaded and ready to play)
+void audio_prewarm(ACAudio *audio);
 void audio_ready_melody(ACAudio *audio);
 
 // Play a shutdown sound (before cleanup)
 void audio_shutdown_sound(ACAudio *audio);
+
+// Sample persistence (save/load to disk)
+int audio_sample_save(ACAudio *audio, const char *path);
+int audio_sample_load(ACAudio *audio, const char *path);
 
 // Cleanup
 void audio_destroy(ACAudio *audio);

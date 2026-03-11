@@ -1380,6 +1380,12 @@ void audio_boot_beep(ACAudio *audio) {
     audio_synth(audio, WAVE_SINE, 880.0, 0.10, 0.8, 0.001, 0.07, 0.0);
 }
 
+// Prewarm: play a near-silent note so ALSA buffers are filled and ready
+void audio_prewarm(ACAudio *audio) {
+    if (!audio || !audio->pcm) return;
+    audio_synth(audio, WAVE_SINE, 440.0, 0.05, 0.001, 0.001, 0.04, 0.0);
+}
+
 void audio_ready_melody(ACAudio *audio) {
     if (!audio || !audio->pcm) return;
     // Quick ascending 3-note toot: C5 → E5 → G5 (major triad) at full volume
@@ -1400,6 +1406,44 @@ void audio_shutdown_sound(ACAudio *audio) {
     audio_synth(audio, WAVE_TRIANGLE, 523.25, 0.20, 0.8, 0.003, 0.14, -0.2);  // C5
     // Wait for notes to finish playing before shutdown
     usleep(250000);
+}
+
+// Save sample buffer to disk as raw floats with a small header
+// Format: [uint32_t sample_rate] [uint32_t sample_len] [float * sample_len]
+int audio_sample_save(ACAudio *audio, const char *path) {
+    if (!audio || !audio->sample_buf || audio->sample_len <= 0) return -1;
+    FILE *f = fopen(path, "wb");
+    if (!f) return -1;
+    uint32_t rate = (uint32_t)audio->sample_rate;
+    uint32_t len = (uint32_t)audio->sample_len;
+    fwrite(&rate, sizeof(rate), 1, f);
+    fwrite(&len, sizeof(len), 1, f);
+    fwrite(audio->sample_buf, sizeof(float), len, f);
+    fclose(f);
+    sync();
+    return (int)len;
+}
+
+// Load sample buffer from disk
+int audio_sample_load(ACAudio *audio, const char *path) {
+    if (!audio || !audio->sample_buf) return -1;
+    FILE *f = fopen(path, "rb");
+    if (!f) return -1;
+    uint32_t rate, len;
+    if (fread(&rate, sizeof(rate), 1, f) != 1 ||
+        fread(&len, sizeof(len), 1, f) != 1) {
+        fclose(f);
+        return -1;
+    }
+    if (len > (uint32_t)audio->sample_max_len) len = (uint32_t)audio->sample_max_len;
+    if (fread(audio->sample_buf, sizeof(float), len, f) != len) {
+        fclose(f);
+        return -1;
+    }
+    fclose(f);
+    audio->sample_len = (int)len;
+    audio->sample_rate = (int)rate;
+    return (int)len;
 }
 
 void audio_destroy(ACAudio *audio) {
