@@ -58,6 +58,11 @@ circle w/2 h/2 (? 2 4 8)`,
 
 function boot({ system }) {
   message = "aesthetic.computer " + (system?.version || "");
+  // Restore input from KidLisp return (backspace/escape preserves source)
+  if (globalThis.__promptRestore) {
+    input = globalThis.__promptRestore;
+    globalThis.__promptRestore = undefined;
+  }
 }
 
 function act({ event: e, system }) {

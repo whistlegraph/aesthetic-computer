@@ -1029,8 +1029,6 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   } else if (autoUpdate.state === "ready") {
     statusWrite("reboot?", 100, 220, 100, 220);
   } else if (autoUpdate.availableVersion && isRemoteVersionNewer(autoUpdate.availableVersion, osCurrentVersion)) {
-    // "os" in normal dim + orange "!" appended
-    statusWrite("os", dark ? 90 : 130, dark ? 110 : 120, dark ? 80 : 110);
     statusWrite("!", 255, 160, 40);
   }
 
