@@ -729,7 +729,7 @@ export async function createBundle(pieceName, onProgress = () => {}, nocompress 
   const bdfGlyphs = files.__bdfGlyphs || {};
   delete files.__bdfGlyphs;
 
-  const boxArtPNG = noboxart ? null : await generateBoxArtPNG(PIECE_NAME, authorHandle, bgColor).catch(() => null);
+  const boxArtPNG = noboxart ? null : await generateBoxArtPNG(PIECE_NAME, authorHandle, bgColor, packDate).catch(() => null);
 
   const htmlContent = generateHTMLBundle({
     PIECE_NAME, PIECE_NAME_NO_DOLLAR, mainSource, kidlispSources,
@@ -812,7 +812,7 @@ export async function createJSPieceBundle(pieceName, onProgress = () => {}, noco
   const bdfGlyphs = files.__bdfGlyphs || {};
   delete files.__bdfGlyphs;
 
-  const boxArtPNG = noboxart ? null : await generateBoxArtPNG(pieceName, null, null).catch(() => null);
+  const boxArtPNG = noboxart ? null : await generateBoxArtPNG(pieceName, null, null, packDate).catch(() => null);
 
   const htmlContent = generateJSPieceHTMLBundle({ pieceName, files, packDate, packTime, gitVersion: GIT_COMMIT, bdfGlyphs, boxArtPNG, keeplabel });
   const filename = `${pieceName}-${bundleTimestamp}.html`;
@@ -1069,22 +1069,16 @@ function boxArtCodeTspans(display) {
   ).join("");
 }
 
-async function generateBoxArtPNG(pieceName, authorHandle, bgColor) {
+async function generateBoxArtPNG(pieceName, authorHandle, bgColor, packDate) {
   const W = 800, H = 1000; // portrait 4:5
   const display = String(pieceName || "").trim();
   const len = Math.max(1, Array.from(display).length);
   const namePx = len <= 4 ? 190 : len <= 6 ? 162 : len <= 8 ? 140 : len <= 12 ? 118 : len <= 18 ? 94 : 76;
-  const author = authorHandle && authorHandle !== "unknown" ? escapeXml(authorHandle) : "";
   const accent = boxArtAccentColor(bgColor);
   const codeTspans = boxArtCodeTspans(display);
-  const nameY = H / 2 + (author ? -namePx * 0.3 : 0);
-  const authorY = nameY + namePx * 0.62 + 48;
-  const fontFace = comicReliefBoldBase64
-    ? `@font-face{font-family:'KidLispComic';src:url("data:font/truetype;base64,${comicReliefBoldBase64}") format("truetype"),url("file://${BOX_ART_COMIC_FONT_FILE.replace(/\\/g, "/")}") format("truetype");font-weight:700;font-style:normal;}`
-    : "";
-  const topLine = "pack://kidlisp";
-  const bottomLine = "aesthetic.computer";
-
+  const nameY = H / 2;
+  // Comic Relief Bold is installed as a system font on the oven server.
+  // sharp/librsvg can only use system fonts, not @font-face data URIs.
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
@@ -1102,28 +1096,19 @@ async function generateBoxArtPNG(pieceName, authorHandle, bgColor) {
     </radialGradient>
   </defs>
   <style>
-    ${fontFace}
-    .kidlisp-comic { font-family: ${BOX_ART_FONT_STACK}; font-weight: 700; }
+    .kidlisp-comic { font-family: 'Comic Relief', 'Comic Sans MS', cursive; font-weight: 700; }
   </style>
   <rect width="${W}" height="${H}" fill="url(#bg)"/>
   <rect width="${W}" height="${H}" fill="url(#glow-a)"/>
   <rect width="${W}" height="${H}" fill="url(#glow-b)"/>
-  <rect x="46" y="74" width="${W - 92}" height="8" rx="4" fill="${accent}" opacity="0.86"/>
-  <rect x="46" y="${H - 82}" width="${W - 92}" height="8" rx="4" fill="#ffd166" opacity="0.78"/>
   <text x="${W / 2}" y="${nameY + 9}" class="kidlisp-comic"
     font-size="${namePx}" fill="rgba(0,0,0,0.45)"
     text-anchor="middle" dominant-baseline="middle">${escapeXml(display)}</text>
   <text x="${W / 2}" y="${nameY}" class="kidlisp-comic"
     font-size="${namePx}" text-anchor="middle" dominant-baseline="middle">${codeTspans}</text>
-  ${author ? `<text x="${W / 2}" y="${authorY}"
-    class="kidlisp-comic" font-size="42" fill="#dbeafe"
-    text-anchor="middle" dominant-baseline="middle">${author}</text>` : ""}
-  <text x="${W / 2}" y="58" class="kidlisp-comic"
-    font-size="26" letter-spacing="2" fill="rgba(209,232,255,0.85)"
-    text-anchor="middle" dominant-baseline="middle">${topLine}</text>
-  <text x="${W / 2}" y="${H - 42}" class="kidlisp-comic"
-    font-size="24" letter-spacing="2.5" fill="rgba(231,242,255,0.78)"
-    text-anchor="middle" dominant-baseline="middle">${bottomLine}</text>
+  ${packDate ? `<text x="${W / 2}" y="${H - 42}" class="kidlisp-comic"
+    font-size="24" letter-spacing="2" fill="rgba(231,242,255,0.5)"
+    text-anchor="middle" dominant-baseline="middle">${escapeXml(packDate)}</text>` : ""}
 </svg>`;
 
   const buf = await sharp(Buffer.from(svg)).png({ compressionLevel: 9 }).toBuffer();
