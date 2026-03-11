@@ -428,6 +428,31 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
 
   const CONTRACT_ADDRESS = await getKeepsContractAddress({ network: NETWORK, fallback: LEGACY_KEEPS_CONTRACT });
 
+  // ── Oven progress poller — forwards grab-status to MongoDB ─────────
+  let ovenProgressTimer = null;
+  function startOvenProgressPoller(ovenUrl, stage) {
+    if (ovenProgressTimer) clearInterval(ovenProgressTimer);
+    ovenProgressTimer = setInterval(async () => {
+      try {
+        const res = await fetch(`${ovenUrl}/grab-status`, { signal: AbortSignal.timeout(3000) });
+        if (!res.ok) return;
+        const status = await res.json();
+        const progress = status.progress;
+        if (progress?.stage && progress.piece?.includes(pieceName)) {
+          const detail = progress.stageDetail || progress.stage;
+          const frame = progress.currentFrame != null && progress.totalFrames
+            ? ` (${progress.currentFrame}/${progress.totalFrames})`
+            : "";
+          const pct = progress.percent != null ? ` ${progress.percent}%` : "";
+          await updateJobStage(jobId, stage, `${detail}${frame}${pct}`);
+        }
+      } catch {}
+    }, 2000);
+  }
+  function stopOvenProgressPoller() {
+    if (ovenProgressTimer) { clearInterval(ovenProgressTimer); ovenProgressTimer = null; }
+  }
+
   const database = await connect();
   try {
   const secretDoc = await database.db.collection("secrets").findOne({ _id: "tezos-kidlisp" });
@@ -471,31 +496,6 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
   }
 
   const pinataCredentials = await getPinataCredentials();
-
-  // ── Oven progress poller — forwards grab-status to MongoDB ─────────
-  let ovenProgressTimer = null;
-  function startOvenProgressPoller(ovenUrl, stage) {
-    if (ovenProgressTimer) clearInterval(ovenProgressTimer);
-    ovenProgressTimer = setInterval(async () => {
-      try {
-        const res = await fetch(`${ovenUrl}/grab-status`, { signal: AbortSignal.timeout(3000) });
-        if (!res.ok) return;
-        const status = await res.json();
-        const progress = status.progress;
-        if (progress?.stage && progress.piece?.includes(pieceName)) {
-          const detail = progress.stageDetail || progress.stage;
-          const frame = progress.currentFrame != null && progress.totalFrames
-            ? ` (${progress.currentFrame}/${progress.totalFrames})`
-            : "";
-          const pct = progress.percent != null ? ` ${progress.percent}%` : "";
-          await updateJobStage(jobId, stage, `${detail}${frame}${pct}`);
-        }
-      } catch {}
-    }, 2000);
-  }
-  function stopOvenProgressPoller() {
-    if (ovenProgressTimer) { clearInterval(ovenProgressTimer); ovenProgressTimer = null; }
-  }
 
   // ── Thumbnail (async) ──────────────────────────────────────────────
   let thumbnailPromise;
