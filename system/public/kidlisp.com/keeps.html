@@ -1670,25 +1670,8 @@
     }
 
     /* ========================================
-       PREVIEW MODAL
+       MODAL SHARED
        ======================================== */
-    .keeps-modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.6);
-      z-index: 10000;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      opacity: 0;
-      transition: opacity 0.2s ease-out;
-    }
-    .keeps-modal-overlay.open {
-      display: flex;
-      animation: modalFadeIn 0.2s ease-out forwards;
-    }
-
     @keyframes modalFadeIn {
       from { opacity: 0; }
       to { opacity: 1; }
@@ -1697,36 +1680,6 @@
     @keyframes modalScaleIn {
       from { transform: scale(0.92); opacity: 0; }
       to { transform: scale(1); opacity: 1; }
-    }
-
-    .keeps-modal {
-      background: var(--bg-primary);
-      border: 1px solid var(--border-color);
-      border-radius: 12px;
-      max-width: 900px;
-      width: 100%;
-      max-height: 90vh;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-      animation: modalScaleIn 0.25s ease-out;
-    }
-
-    .keeps-modal-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 14px 20px;
-      background: var(--bg-secondary);
-      border-bottom: 1px solid var(--border-color);
-    }
-
-    .keeps-modal-title {
-      font-family: var(--font-mono);
-      font-size: 16px;
-      font-weight: 700;
-      color: var(--ac-purple);
     }
 
     .keeps-modal-close {
@@ -1747,142 +1700,6 @@
       background: var(--bg-tertiary);
       border-color: var(--ac-purple);
       color: var(--ac-purple);
-    }
-
-    .keeps-modal-body {
-      display: flex;
-      flex: 1;
-      min-height: 0;
-      overflow: hidden;
-    }
-
-    .keeps-modal-preview {
-      flex: 1;
-      min-width: 0;
-      background: black;
-      position: relative;
-    }
-
-    .keeps-modal-preview iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-      min-height: 360px;
-    }
-
-    .keeps-modal-sidebar {
-      width: 300px;
-      flex-shrink: 0;
-      border-left: 1px solid var(--border-color);
-      display: flex;
-      flex-direction: column;
-      overflow-y: auto;
-    }
-
-    .keeps-modal-source {
-      padding: 16px;
-      font-family: var(--font-mono);
-      font-size: 12px;
-      line-height: 1.6;
-      color: var(--text-secondary);
-      white-space: pre-wrap;
-      word-break: break-word;
-      flex: 1;
-      overflow-y: auto;
-      background: var(--bg-tertiary);
-    }
-
-    .keeps-modal-source .line-nums span {
-      display: block;
-      opacity: 0.7;
-    }
-    .keeps-modal-source .line-nums span:nth-child(6n+1) { color: #FF6B6B; }
-    .keeps-modal-source .line-nums span:nth-child(6n+2) { color: #4ECDC4; }
-    .keeps-modal-source .line-nums span:nth-child(6n+3) { color: #FFE66D; }
-    .keeps-modal-source .line-nums span:nth-child(6n+4) { color: #A8E6CF; }
-    .keeps-modal-source .line-nums span:nth-child(6n+5) { color: #70D6FF; }
-    .keeps-modal-source .line-nums span:nth-child(6n+6) { color: #BB8FCE; }
-
-    .keeps-modal-actions {
-      padding: 12px 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      border-top: 1px solid var(--border-subtle);
-      background: var(--bg-secondary);
-    }
-
-    .keeps-modal-action-btn {
-      padding: 10px 16px;
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      font-family: var(--font-mono);
-      font-size: 12px;
-      cursor: pointer;
-      transition: all 0.15s;
-      text-align: center;
-      text-decoration: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-    }
-
-    .keeps-modal-action-btn.edit-btn {
-      background: var(--ac-purple);
-      color: white;
-      border-color: var(--ac-purple);
-    }
-    .keeps-modal-action-btn.edit-btn:hover { filter: brightness(1.1); text-decoration: none; }
-
-    .keeps-modal-action-btn.html-btn {
-      background: var(--bg-tertiary);
-      color: #3b82f6;
-      border-color: rgba(59, 130, 246, 0.3);
-    }
-    .keeps-modal-action-btn.html-btn:hover { background: rgba(59, 130, 246, 0.1); text-decoration: none; }
-
-    .keeps-modal-action-btn.tezos-btn {
-      background: var(--bg-tertiary);
-      color: #4a9c5d;
-      border-color: rgba(74, 156, 93, 0.3);
-    }
-    .keeps-modal-action-btn.tezos-btn:hover { background: rgba(74, 156, 93, 0.1); text-decoration: none; }
-    .keeps-modal-action-btn.upgrade-btn {
-      background: rgba(180, 120, 40, 0.12);
-      color: #b27828;
-      border-color: rgba(180, 120, 40, 0.45);
-    }
-    .keeps-modal-action-btn.upgrade-btn:hover {
-      background: rgba(180, 120, 40, 0.2);
-      text-decoration: none;
-    }
-
-    .keeps-modal-info {
-      padding: 10px 16px;
-      font-size: 12px;
-      color: var(--text-tertiary);
-      border-top: 1px solid var(--border-subtle);
-    }
-    .keeps-modal-info span { display: block; margin-bottom: 2px; }
-    .keeps-modal-info .legacy-runtime-note {
-      margin-top: 6px;
-      padding: 6px 8px;
-      border-radius: 6px;
-      border: 1px solid var(--border-color);
-      background: var(--bg-secondary);
-      color: var(--text-secondary);
-    }
-    .keeps-modal-info .legacy-runtime-note.legacy {
-      background: rgba(217, 83, 79, 0.1);
-      border-color: rgba(217, 83, 79, 0.35);
-      color: #d9534f;
-      font-weight: 600;
-    }
-    .keeps-modal-info .legacy-runtime-note.modern {
-      background: rgba(74, 156, 93, 0.1);
-      border-color: rgba(74, 156, 93, 0.35);
-      color: #4a9c5d;
     }
 
     /* ========================================
@@ -2498,9 +2315,6 @@
       .keeps-about-overlay { padding: 8px; align-items: center; }
       .keeps-about-panel { width: calc(100vw - 16px); border-radius: 10px; }
       .keeps-about-panel-body { padding: 0 14px 14px; }
-      .keeps-modal-body { flex-direction: column; }
-      .keeps-modal-sidebar { width: 100%; border-left: none; border-top: 1px solid var(--border-color); max-height: 240px; }
-      .keeps-modal-preview iframe { min-height: 240px; }
       .keeps-mint-modal { height: min(96vh, 760px); }
       .mint-body { padding: 14px; }
       .mint-progress-stage { font-size: 12px; }
@@ -2862,27 +2676,7 @@
     </div>
   </div>
 
-  <!-- PREVIEW MODAL -->
-  <div class="keeps-modal-overlay" id="modal-overlay">
-    <div class="keeps-modal">
-      <div class="keeps-modal-header">
-        <span class="keeps-modal-title" id="modal-title">$code</span>
-        <button class="keeps-modal-close" id="modal-close" title="Close">&times;</button>
-      </div>
-      <div class="keeps-modal-body">
-        <div class="keeps-modal-preview">
-          <iframe id="modal-iframe" sandbox="allow-scripts allow-same-origin" loading="lazy"></iframe>
-        </div>
-        <div class="keeps-modal-sidebar">
-          <div class="keeps-modal-source" id="modal-source"></div>
-          <div class="keeps-modal-actions" id="modal-actions"></div>
-          <div class="keeps-modal-info" id="modal-info"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- MINT MODAL -->
+  <!-- KEEP MODAL (unified) -->
   <div class="keeps-mint-overlay" id="mint-overlay">
     <div class="keeps-mint-modal">
       <div class="mint-header">
@@ -2938,7 +2732,6 @@
     // Legacy runtime inspection cache for artifact bundles
     const legacyRuntimeCache = new Map();
     const legacyRuntimeInFlight = new Map();
-    let modalLegacyCheckNonce = 0;
     let mintLegacyCheckNonce = 0;
 
     // Active keeps config (resolved from Mongo-backed API)
@@ -3072,13 +2865,7 @@
     const indexSearchBar = document.getElementById('index-search-bar');
     const sigilSelect = null; // replaced by custom sigil menu
     const searchInput = document.getElementById('search-input');
-    const modalOverlay = document.getElementById('modal-overlay');
-    const modalTitle = document.getElementById('modal-title');
-    const modalIframe = document.getElementById('modal-iframe');
-    const modalSource = document.getElementById('modal-source');
-    const modalActions = document.getElementById('modal-actions');
-    const modalInfo = document.getElementById('modal-info');
-    const modalClose = document.getElementById('modal-close');
+    const mintOverlay = document.getElementById('mint-overlay');
 
     const walletBtn = document.getElementById('keeps-wallet-btn');
     const sortBtnsContainer = document.getElementById('keeps-sort-btns');
@@ -3538,113 +3325,6 @@
       }
 
       renderGrid();
-    }
-
-    // =========================================
-    // MODAL
-    // =========================================
-    function openModal(entry) {
-      modalTitle.textContent = '$' + entry.code;
-
-      // Syntax-highlighted source in modal sidebar
-      const sourceLines = (entry.source || '(no source)').split('\n');
-      const lineNumsHtml = sourceLines.map((_, i) => `<span>${i + 1}</span>`).join('');
-      const sourceTextHtml = highlightKidLisp(entry.source || '(no source)');
-      modalSource.innerHTML = `<div class="line-nums" style="flex-shrink:0;width:2.4em;text-align:right;padding-right:6px;user-select:none;border-right:1px solid var(--border-subtle);margin-right:6px;">${lineNumsHtml}</div><div style="flex:1;white-space:pre-wrap;word-break:break-word;">${sourceTextHtml}</div>`;
-      modalSource.style.display = 'flex';
-
-      // Load preview iframe
-      const previewUrl = `${AC_BASE}/$${entry.code}`;
-      modalIframe.src = previewUrl;
-
-      // Build actions
-      const handle = entry.handle || 'anon';
-      const hits = entry.hits || 0;
-      const when = entry.when ? new Date(entry.when) : null;
-      const activeKeepInfo = getActiveKeepRecord(entry);
-      const nonActiveKeepInfo = activeKeepInfo ? null : getNonActiveKeepRecord(entry);
-      const isActiveKept = !!activeKeepInfo;
-      const hasKeptRecord = !!activeKeepInfo;
-      const canRekeep = !!(acUser && isActiveKept);
-      const canManageKeep = !!(acUser && entry.user === acUser.sub);
-      const canKeepOnActive = !!(canManageKeep && !isActiveKept);
-      const packCode = encodeURIComponent(`$${entry.code}`);
-
-      let actionsHTML = `
-        <a class="keeps-modal-action-btn edit-btn" href="${KL_BASE}/$${entry.code}" title="Open in KidLisp.com editor">&#x270E; Edit in KidLisp.com</a>
-        <a class="keeps-modal-action-btn html-btn" href="${AC_BASE}/api/pack-html?code=${packCode}" target="_blank" title="Pack as standalone HTML">&#x1F4E6; Download HTML Bundle</a>`;
-
-      if (hasKeptRecord) {
-        const tokenLabel = activeKeepInfo?.tokenId != null ? ` (Token #${activeKeepInfo.tokenId})` : '';
-        actionsHTML += `<span class="keeps-modal-action-btn tezos-btn" style="cursor: default;">&#x2714; Kept${tokenLabel}</span>`;
-        if (canKeepOnActive) {
-          actionsHTML += `<button class="keeps-modal-action-btn tezos-btn" data-mint-code="${entry.code}">ꜩ Keep on Tezos</button>`;
-        }
-        if (canRekeep) {
-          actionsHTML += `<button class="keeps-modal-action-btn html-btn" data-rebake-code="${entry.code}" title="Regenerate HTML + thumbnail">&#x267B; Rekeep Media</button>`;
-          actionsHTML += `<button class="keeps-modal-action-btn upgrade-btn" data-upgrade-code="${entry.code}" title="Rekeep and sync metadata on-chain" style="display:none;">&#x267B; Upgrade Legacy Bundle</button>`;
-        }
-      } else if (canManageKeep) {
-        actionsHTML += `<button class="keeps-modal-action-btn tezos-btn" data-mint-code="${entry.code}">ꜩ Keep on Tezos</button>`;
-      } else {
-        actionsHTML += `<a class="keeps-modal-action-btn tezos-btn" href="${AC_BASE}/keep~$${entry.code}" target="_blank" title="Keep this code on Tezos">ꜩ Keep on Tezos</a>`;
-      }
-
-      modalActions.innerHTML = actionsHTML;
-
-      // Bind mint button in modal if present
-      const modalMintBtn = modalActions.querySelector('[data-mint-code]');
-      if (modalMintBtn) {
-        modalMintBtn.addEventListener('click', () => {
-          closeModal();
-          openMintModal(entry);
-        });
-      }
-
-      const modalRebakeBtn = modalActions.querySelector('[data-rebake-code]');
-      if (modalRebakeBtn) {
-        modalRebakeBtn.addEventListener('click', () => {
-          closeModal();
-          openMintModal(entry, { rebake: isActiveKept });
-        });
-      }
-
-      const modalUpgradeBtn = modalActions.querySelector('[data-upgrade-code]');
-      if (modalUpgradeBtn) {
-        modalUpgradeBtn.addEventListener('click', () => {
-          closeModal();
-          openMintModal(entry, { rebake: true, autoSync: true });
-        });
-      }
-
-      // Info
-      let infoHTML = `<span><strong>Author:</strong> ${escapeHtml(handle)}</span>`;
-      infoHTML += `<span><strong>Views:</strong> ${hits.toLocaleString()}</span>`;
-      if (when) infoHTML += `<span><strong>Created:</strong> ${when.toLocaleDateString()} ${when.toLocaleTimeString()}</span>`;
-      if (hasKeptRecord) {
-        infoHTML += `<span><strong>Network:</strong> ${activeKeepInfo.network || 'mainnet'}</span>`;
-        if (activeKeepInfo.contractAddress) infoHTML += `<span><strong>Contract:</strong> ${activeKeepInfo.contractAddress}</span>`;
-        if (activeKeepInfo.contractProfile) infoHTML += `<span><strong>Contract Profile:</strong> ${activeKeepInfo.contractProfile}</span>`;
-        if (activeKeepInfo.contractVersion) infoHTML += `<span><strong>Contract Version:</strong> ${activeKeepInfo.contractVersion}</span>`;
-        if (activeKeepInfo.artifactUri) infoHTML += `<span id="legacy-runtime-note" class="legacy-runtime-note">Checking bundle runtime...</span>`;
-      } else if (nonActiveKeepInfo) {
-        infoHTML += `<span><strong>Note:</strong> Legacy/non-active keep record ignored in this v11 UI.</span>`;
-      }
-      modalInfo.innerHTML = infoHTML;
-
-      modalOverlay.classList.add('open');
-      document.body.style.overflow = 'hidden';
-
-      if (hasKeptRecord && activeKeepInfo?.artifactUri) {
-        updateModalLegacyRuntimeStatus(entry, activeKeepInfo, canRekeep);
-      }
-    }
-
-    function closeModal() {
-      modalLegacyCheckNonce++;
-      modalOverlay.classList.remove('open');
-      modalIframe.src = 'about:blank';
-      document.body.style.overflow = '';
     }
 
     // =========================================
@@ -4155,14 +3835,13 @@
       });
     }
 
-    // Modal close
-    modalClose.addEventListener('click', closeModal);
-    modalOverlay.addEventListener('click', e => {
-      if (e.target === modalOverlay) closeModal();
+    // Modal close (unified: mint overlay handles Escape + backdrop click)
+    mintOverlay.addEventListener('click', e => {
+      if (e.target === mintOverlay) closeMintModal();
     });
     document.addEventListener('keydown', e => {
       if (e.key !== 'Escape') return;
-      if (modalOverlay.classList.contains('open')) closeModal();
+      if (mintOverlay.classList.contains('open')) closeMintModal();
     });
 
     // =========================================
@@ -4413,27 +4092,6 @@
       }
       noteEl.classList.add('modern');
       noteEl.textContent = 'Bundle runtime is current (sandbox-safe WebGL fallback present).';
-    }
-
-    async function updateModalLegacyRuntimeStatus(entry, activeKeepInfo, canRekeep) {
-      const noteEl = document.getElementById('legacy-runtime-note');
-      if (!noteEl || !activeKeepInfo?.artifactUri) return;
-
-      const requestNonce = ++modalLegacyCheckNonce;
-      noteEl.textContent = 'Checking bundle runtime...';
-      noteEl.classList.remove('legacy', 'modern');
-
-      const result = await inspectLegacyRuntime(activeKeepInfo.artifactUri);
-      if (requestNonce !== modalLegacyCheckNonce) return;
-      if (!modalOverlay.classList.contains('open')) return;
-      if (modalTitle.textContent !== `$${entry.code}`) return;
-
-      renderLegacyRuntimeNote(noteEl, result);
-
-      const upgradeBtn = modalActions.querySelector('[data-upgrade-code]');
-      if (upgradeBtn && canRekeep) {
-        upgradeBtn.style.display = result.status === 'legacy' ? '' : 'none';
-      }
     }
 
     async function ensureMintLegacyRuntimeStatus(entry, options = {}) {
@@ -4897,7 +4555,7 @@
       if (window.beacon) return;
       await new Promise((resolve, reject) => {
         const script = document.createElement('script');
-        script.src = 'https://unpkg.com/@airgap/beacon-sdk@4.8.1/dist/walletbeacon.min.js';
+        script.src = 'https://unpkg.com/@airgap/beacon-sdk@4.0.12/dist/walletbeacon.min.js';
         script.onload = resolve;
         script.onerror = reject;
         document.head.appendChild(script);
@@ -4911,10 +4569,7 @@
         await loadBeaconSDK();
         beaconClient = new window.beacon.DAppClient({
           name: 'KidLisp Keeps',
-          iconUrl: 'https://aesthetic.computer/favicon.ico',
           preferredNetwork: getTezosNetwork(),
-          featuredWallets: ['kukai', 'temple', 'umami', 'altme'],
-          enableMetrics: false,
         });
         // Subscribe to active account changes before getActiveAccount fires it
         beaconClient.subscribeToEvent(window.beacon.BeaconEvent.ACTIVE_ACCOUNT_SET, (account) => {
@@ -5104,6 +4759,7 @@
 
       clearTrackLog();
       document.getElementById('mint-overlay').classList.add('open');
+      document.body.style.overflow = 'hidden';
     }
 
     function beginMintFlow() {
@@ -5118,6 +4774,7 @@
       mintLegacyCheckNonce++;
       mintAutoSyncAfterRebake = false;
       document.getElementById('mint-overlay').classList.remove('open');
+      document.body.style.overflow = '';
       const hb = document.getElementById('mint-heartbeat');
       if (hb) { hb.classList.remove('active', 'lost'); }
       if (mintPollTimer) { clearInterval(mintPollTimer); mintPollTimer = null; }
