@@ -2272,6 +2272,23 @@
       color: #b27828;
     }
 
+    .mint-link-btn.sync-onchain {
+      background: rgba(74, 156, 93, 0.12);
+      border-color: rgba(74, 156, 93, 0.4);
+      color: #4a9c5d;
+      font-weight: 600;
+    }
+
+    .mint-link-btn.sync-onchain:hover {
+      background: rgba(74, 156, 93, 0.22);
+      border-color: #4a9c5d;
+    }
+
+    .mint-link-btn.sync-onchain:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
     /* Keep button in card */
     .keeps-card-btn.keep-btn {
       background: rgba(74, 156, 93, 0.1);
@@ -4187,6 +4204,8 @@
       objktUrl = null,
       showRebakeButton = false,
       rebakeButtonLabel = 'Rekeep',
+      showSyncButton = false,
+      syncButtonData = null,
       append = false,
     } = {}) {
       const area = document.getElementById('mint-result-area');
@@ -4204,6 +4223,9 @@
       if (objktUrl) links += `<a class="mint-link-btn" href="${objktUrl}" target="_blank" rel="noopener">OBJKT</a>`;
       if (showRebakeButton) {
         links += `<button class="mint-link-btn rebake" type="button" id="mint-inline-rebake">${escapeHtml(rebakeButtonLabel)}</button>`;
+      }
+      if (showSyncButton) {
+        links += `<button class="mint-link-btn sync-onchain" type="button" id="mint-inline-sync">Sync On-chain</button>`;
       }
 
       const panelHtml = `
@@ -4234,6 +4256,61 @@
       if (inlineRebake && mintCurrentEntry) {
         inlineRebake.addEventListener('click', () => {
           rerunRegenerate();
+        });
+      }
+
+      const inlineSync = document.getElementById('mint-inline-sync');
+      if (inlineSync && syncButtonData && mintCurrentEntry) {
+        inlineSync.addEventListener('click', async () => {
+          inlineSync.disabled = true;
+          inlineSync.textContent = 'Syncing...';
+          try {
+            const syncResult = await syncRebakeMetadataOnChain(syncButtonData);
+            applySyncResultToCurrentEntry(syncResult, syncButtonData.tokenId);
+
+            const txShort = syncResult.txHash ? syncResult.txHash.slice(0, 8) + '...' : 'Signed';
+            setMintStep('sign', 'done', txShort);
+            setMintStep('complete', 'done', 'Synced on-chain');
+            addTrackEntry('On-chain metadata synced', 'done');
+
+            // Re-render with synced artifacts
+            const syncContract = syncResult.contractAddress || syncButtonData.contractAddress || getKeepsContractAddress();
+            const syncNetwork = syncResult.network || syncButtonData.network || getTezosNetwork();
+            const syncedObjktUrl = syncButtonData.tokenId != null && syncContract
+              ? `${getObjktBase(syncNetwork)}/tokens/${syncContract}/${syncButtonData.tokenId}`
+              : null;
+
+            const syncedArtifactUrl = ipfsToHttp(syncResult.artifactUri);
+            const previewFrameEl = document.getElementById('mint-preview-frame');
+            if (previewFrameEl && syncedArtifactUrl) {
+              previewFrameEl.innerHTML = `<iframe src="${syncedArtifactUrl}" sandbox="allow-scripts allow-same-origin" loading="lazy" title="$${escapeHtml(piece)} synced"></iframe>`;
+            }
+
+            showMintResult('Metadata synced on-chain.', syncedObjktUrl, syncResult.txHash);
+            renderMintArtifactPanel({
+              title: 'Synced Artifacts',
+              piece,
+              artifactUri: syncResult.artifactUri,
+              thumbnailUri: syncResult.thumbnailUri,
+              metadataUri: syncResult.metadataUri,
+              packDate: syncButtonData.packDate,
+              objktUrl: syncedObjktUrl,
+              showRebakeButton: true,
+              rebakeButtonLabel: 'Regenerate Again',
+            });
+          } catch (syncErr) {
+            inlineSync.disabled = false;
+            inlineSync.textContent = 'Sync On-chain';
+            const msg = syncErr?.message || 'On-chain sync failed';
+            setMintStep('sign', 'error', msg);
+            addTrackEntry(`On-chain sync failed: ${msg}`, 'error');
+            const area = document.getElementById('mint-result-area');
+            if (area) {
+              area.insertAdjacentHTML('beforeend',
+                `<div class="mint-error-msg">On-chain sync failed: ${escapeHtml(msg)}</div>`
+              );
+            }
+          }
         });
       }
     }
@@ -4919,6 +4996,7 @@
         let pollCount = 0;
         const MAX_POLLS = 450; // 15 min at 2s intervals
         let lastStage = null;
+        const STAGE_STUCK_THRESHOLD_MS = 5 * 60 * 1000; // 5 min with no update = stale
 
         function stopPolling() {
           if (mintPollTimer) { clearInterval(mintPollTimer); mintPollTimer = null; }
@@ -4980,6 +5058,20 @@
                   setMintStep(prevId, 'done', mintStepStates[prevId]?.detail || '');
                 }
               }
+            }
+
+            // Detect stale jobs stuck on the same stage too long
+            // (lastStage was already set to job.stage above, so use updatedAt)
+            const jobUpdatedAt = job.updatedAt ? new Date(job.updatedAt).getTime() : 0;
+            const jobAge = jobUpdatedAt ? Date.now() - jobUpdatedAt : 0;
+            if (job.status === 'preparing' && jobAge > STAGE_STUCK_THRESHOLD_MS) {
+              stopPolling();
+              const hb = document.getElementById('mint-heartbeat');
+              if (hb) { hb.classList.add('lost'); }
+              setMintStep(job.stage || 'ipfs', 'error', `Stuck at ${job.stageMessage || job.stage} — try again`);
+              showMintError(`Pipeline appears stuck at "${job.stageMessage || job.stage}". The background process may have crashed. Try again.`, true);
+              resolve();
+              return;
             }
 
             // Show live oven preview during thumbnail bake
@@ -5087,6 +5179,21 @@
                   });
                 }
 
+                const activeKeepForSync = mintCurrentEntry ? getActiveKeepRecord(mintCurrentEntry) : null;
+                const syncTokenId = normalizeTokenId(data.tokenId ?? activeKeepForSync?.tokenId);
+                const syncData = {
+                  piece,
+                  tokenId: syncTokenId,
+                  artifactUri: data.artifactUri,
+                  thumbnailUri: data.thumbnailUri,
+                  metadataUri: data.metadataUri || mintLatestUris?.metadataUri || null,
+                  contractAddress: data.contractAddress || activeKeepForSync?.contractAddress || getKeepsContractAddress(),
+                  contractProfile: data.contractProfile || activeKeepForSync?.contractProfile || getKeepsContractProfile(),
+                  contractVersion: data.contractVersion || activeKeepForSync?.contractVersion || getKeepsContractVersion(),
+                  network: data.network || activeKeepForSync?.network || getTezosNetwork(),
+                  packDate: data.packDate,
+                };
+
                 renderMintArtifactPanel({
                   title: 'Regenerated Artifacts (Not on-chain yet)',
                   piece,
@@ -5097,24 +5204,14 @@
                   objktUrl: data.objktUrl,
                   showRebakeButton: true,
                   rebakeButtonLabel: 'Regenerate Again',
+                  showSyncButton: syncTokenId != null,
+                  syncButtonData: syncData,
                   append: !!mintOnChainUris,
                 });
 
                 if (autoUpgrade) {
-                  const activeKeepForSync = mintCurrentEntry ? getActiveKeepRecord(mintCurrentEntry) : null;
-                  const syncTokenId = normalizeTokenId(data.tokenId ?? activeKeepForSync?.tokenId);
                   try {
-                    const syncResult = await syncRebakeMetadataOnChain({
-                      piece,
-                      tokenId: syncTokenId,
-                      artifactUri: data.artifactUri,
-                      thumbnailUri: data.thumbnailUri,
-                      metadataUri: data.metadataUri || mintLatestUris?.metadataUri || null,
-                      contractAddress: data.contractAddress || activeKeepForSync?.contractAddress || getKeepsContractAddress(),
-                      contractProfile: data.contractProfile || activeKeepForSync?.contractProfile || getKeepsContractProfile(),
-                      contractVersion: data.contractVersion || activeKeepForSync?.contractVersion || getKeepsContractVersion(),
-                      network: data.network || activeKeepForSync?.network || getTezosNetwork(),
-                    });
+                    const syncResult = await syncRebakeMetadataOnChain(syncData);
 
                     applySyncResultToCurrentEntry(syncResult, syncTokenId);
 
