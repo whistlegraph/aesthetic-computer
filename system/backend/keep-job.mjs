@@ -114,20 +114,17 @@ export async function getJobById(jobId) {
 }
 
 // ─── Update job stage + message ──────────────────────────────────────────────
-export async function updateJobStage(jobId, stage, message) {
+export async function updateJobStage(jobId, stage, message, { previewFrame } = {}) {
   const col = await collection();
   const { ObjectId } = await import("mongodb");
-  return col.updateOne(
-    { _id: new ObjectId(jobId) },
-    {
-      $set: {
-        stage,
-        stageMessage: message || stage,
-        progress: stagePercent(stage),
-        updatedAt: new Date(),
-      },
-    }
-  );
+  const $set = {
+    stage,
+    stageMessage: message || stage,
+    progress: stagePercent(stage),
+    updatedAt: new Date(),
+  };
+  if (previewFrame !== undefined) $set.previewFrame = previewFrame;
+  return col.updateOne({ _id: new ObjectId(jobId) }, { $set });
 }
 
 // ─── Set a partial result (e.g. artifactUri, thumbnailUri) ───────────────────
@@ -214,6 +211,8 @@ export function formatJobForClient(job) {
     artifactUri: job.artifactUri,
     thumbnailUri: job.thumbnailUri,
     metadataUri: job.metadataUri,
+    // Live preview from oven grab
+    previewFrame: job.previewFrame || null,
     // Ready state
     preparedData: job.preparedData,
     // Error state
