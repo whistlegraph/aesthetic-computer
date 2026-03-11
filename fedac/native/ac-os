@@ -146,7 +146,7 @@ case "${CMD}" in
     upload)
         upload_ota
         ;;
-    flash+upload|upload+flash)
+    flash+upload|upload+flash|bfu)
         build_binary
         build_initramfs
         build_kernel
@@ -154,7 +154,7 @@ case "${CMD}" in
         upload_ota
         ;;
     *)
-        echo "Usage: ac-os {build|flash|upload|flash+upload}"
+        echo "Usage: ac-os {build|flash|upload|flash+upload|bfu}"
         exit 1
         ;;
 esac

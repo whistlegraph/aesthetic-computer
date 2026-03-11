@@ -2037,7 +2037,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   {
     const waveRowY = settingsY + 36;
     const waveRowH = 14;
-    const waveLabels = ["sin", "tri", "saw", "sq", "ns", "smp"];
+    const waveLabels = ["sine", "tri", "saw", "square", "noise", "sample"];
     const octBtnW = 22;                           // octave button on right
     const waveAreaW = w - octBtnW - 1;
     const btnW2 = Math.floor(waveAreaW / wavetypes.length);
@@ -2063,7 +2063,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
             dark ? Math.floor(wc[1] * 0.4) + 20 : Math.floor(255 - (255 - wc[1]) * 0.3),
             dark ? Math.floor(wc[2] * 0.4) + 20 : Math.floor(255 - (255 - wc[2]) * 0.3));
         box(bx, waveRowY, btnW2, waveRowH, true);
-        ink(dark ? 220 : 30, dark ? 240 : 40, dark ? 255 : 50);
+        ink(dark ? 240 : 20, dark ? 250 : 20, dark ? 255 : 30);
       } else if (isHov) {
         ink(dark ? Math.floor(wc[0] * 0.2) + 15 : Math.floor(255 - (255 - wc[0]) * 0.15),
             dark ? Math.floor(wc[1] * 0.2) + 15 : Math.floor(255 - (255 - wc[1]) * 0.15),
@@ -2071,13 +2071,13 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         box(bx, waveRowY, btnW2, waveRowH, true);
         ink(dark ? 180 : 70, dark ? 180 : 70, dark ? 190 : 80);
       } else {
-        ink(dark ? Math.floor(wc[0] * 0.12) + 10 : Math.floor(255 - (255 - wc[0]) * 0.08),
-            dark ? Math.floor(wc[1] * 0.12) + 10 : Math.floor(255 - (255 - wc[1]) * 0.08),
-            dark ? Math.floor(wc[2] * 0.12) + 10 : Math.floor(255 - (255 - wc[2]) * 0.08));
+        ink(dark ? Math.floor(wc[0] * 0.18) + 15 : Math.floor(255 - (255 - wc[0]) * 0.12),
+            dark ? Math.floor(wc[1] * 0.18) + 15 : Math.floor(255 - (255 - wc[1]) * 0.12),
+            dark ? Math.floor(wc[2] * 0.18) + 15 : Math.floor(255 - (255 - wc[2]) * 0.12));
         box(bx, waveRowY, btnW2, waveRowH, true);
-        ink(dark ? Math.floor(wc[0] * 0.35) + 40 : Math.floor(wc[0] * 0.5) + 40,
-            dark ? Math.floor(wc[1] * 0.35) + 40 : Math.floor(wc[1] * 0.5) + 40,
-            dark ? Math.floor(wc[2] * 0.35) + 40 : Math.floor(wc[2] * 0.5) + 40);
+        ink(dark ? Math.floor(wc[0] * 0.55) + 60 : Math.floor(wc[0] * 0.7) + 50,
+            dark ? Math.floor(wc[1] * 0.55) + 60 : Math.floor(wc[1] * 0.7) + 50,
+            dark ? Math.floor(wc[2] * 0.55) + 60 : Math.floor(wc[2] * 0.7) + 50);
       }
       // Color accent strip at bottom of each button
       ink(dark ? Math.floor(wc[0] * 0.6) : wc[0],

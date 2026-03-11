@@ -95,6 +95,18 @@ function execute(cmd, system) {
     system?.jump?.("notepat");
     return;
   }
+  if (lower === "os" || lower === "update") {
+    message = "~> os";
+    messageFrame = 0;
+    system?.jump?.("os");
+    return;
+  }
+  if (lower === "net" || lower === "wifi") {
+    message = "~> wifi";
+    messageFrame = 0;
+    system?.jump?.("wifi");
+    return;
+  }
   if (lower === "version" || lower === "ver") {
     message = system?.version || "unknown";
     messageFrame = 0;
@@ -110,7 +122,7 @@ function execute(cmd, system) {
     return;
   }
   if (lower === "help") {
-    message = "type kidlisp or $roz | claude | notepat";
+    message = "kidlisp | notepat | os | net | claude";
     messageFrame = 0;
     return;
   }
