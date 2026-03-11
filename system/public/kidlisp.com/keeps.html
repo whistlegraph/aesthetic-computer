@@ -4699,14 +4699,7 @@
       // If not, this await is the fallback — but may cause popup blocking.
       await initTezosWallet();
       if (mintWalletAddress) return mintWalletAddress;
-      const net = getTezosNetwork();
-      const perms = await beaconClient.requestPermissions({
-        network: {
-          type: net === 'ghostnet'
-            ? window.beacon.NetworkType.GHOSTNET
-            : window.beacon.NetworkType.MAINNET,
-        },
-      });
+      const perms = await beaconClient.requestPermissions();
       mintWalletAddress = perms.address;
       updateWalletBtn();
       return mintWalletAddress;
