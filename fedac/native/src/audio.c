@@ -306,22 +306,55 @@ static void *audio_thread_fn(void *arg) {
                     if (sv->fade <= 0.0) { sv->fade = 0.0; sv->active = 0; continue; }
                 }
 
-                int pos0 = (int)sv->position;
-                if (pos0 >= audio->sample_len) { sv->active = 0; continue; }
-                int pos1 = pos0 + 1;
-                if (pos1 >= audio->sample_len) pos1 = pos0;
-                double frac = sv->position - pos0;
-                double sample = audio->sample_buf[pos0] * (1.0 - frac)
-                              + audio->sample_buf[pos1] * frac;
-                sample *= sv->volume * sv->fade;
-                double l_gain = sv->pan <= 0 ? 1.0 : 1.0 - sv->pan;
-                double r_gain = sv->pan >= 0 ? 1.0 : 1.0 + sv->pan;
-                mix_l += sample * l_gain;
-                mix_r += sample * r_gain;
+                // Stereo spread: micro-delay between L/R (Haas effect)
+                // Pan controls both amplitude and a small time offset
+                // giving mono samples a wide stereo image.
+                double delay_samps = sv->pan * 0.0004 * rate; // ~0.4ms max at pan=1
+                double pos_l = sv->position - (delay_samps > 0 ? delay_samps : 0);
+                double pos_r = sv->position + (delay_samps > 0 ? 0 : delay_samps);
+                if (pos_l < 0) pos_l = 0;
+                if (pos_r < 0) pos_r = 0;
+
+                // Interpolated read for L channel
+                int slen = audio->sample_len;
+                int p0l = (int)pos_l;
+                if (sv->loop) {
+                    p0l = ((p0l % slen) + slen) % slen;
+                } else if (p0l >= slen) {
+                    sv->active = 0; continue;
+                }
+                int p1l = p0l + 1; if (p1l >= slen) p1l = sv->loop ? 0 : p0l;
+                double fl = pos_l - p0l;
+                double samp_l = audio->sample_buf[p0l] * (1.0 - fl)
+                              + audio->sample_buf[p1l] * fl;
+
+                // Interpolated read for R channel
+                int p0r = (int)pos_r;
+                if (sv->loop) {
+                    p0r = ((p0r % slen) + slen) % slen;
+                } else if (p0r >= slen) {
+                    p0r = slen - 1;
+                }
+                int p1r = p0r + 1; if (p1r >= slen) p1r = sv->loop ? 0 : p0r;
+                double fr = pos_r - p0r;
+                double samp_r = audio->sample_buf[p0r] * (1.0 - fr)
+                              + audio->sample_buf[p1r] * fr;
+
+                double vol = sv->volume * sv->fade;
+                double l_gain = sv->pan <= 0 ? 1.0 : 1.0 - sv->pan * 0.6;
+                double r_gain = sv->pan >= 0 ? 1.0 : 1.0 + sv->pan * 0.6;
+                mix_l += samp_l * vol * l_gain;
+                mix_r += samp_r * vol * r_gain;
 
                 sv->position += sv->speed;
                 if (sv->position >= audio->sample_len) {
-                    sv->active = 0; // one-shot
+                    if (sv->loop) {
+                        // Wrap for seamless looping
+                        while (sv->position >= audio->sample_len)
+                            sv->position -= audio->sample_len;
+                    } else {
+                        sv->active = 0; // one-shot
+                    }
                 }
             }
 
@@ -605,9 +638,12 @@ ACAudio *audio_init(void) {
     audio->sample_rate = 48000; // default, overwritten by actual capture rate
     audio->sample_next_id = 1;
     audio->mic_connected = 0;
+    audio->mic_hot = 0;
     audio->mic_level = 0.0f;
     audio->mic_last_chunk = 0;
     audio->capture_thread_running = 0;
+    memset(audio->mic_waveform, 0, sizeof(audio->mic_waveform));
+    audio->mic_waveform_pos = 0;
     snprintf(audio->mic_device, sizeof(audio->mic_device), "none");
     audio->mic_last_error[0] = 0;
     seed_default_sample(audio);
@@ -982,7 +1018,11 @@ void audio_set_fx_mix(ACAudio *audio, float mix) {
     audio->target_fx_mix = mix;
 }
 
-// --- Microphone capture thread ---
+// --- Hot-mic capture thread ---
+// Device stays open while mic_hot is set; audio is always read to keep
+// ALSA happy and the level meter live, but only written to sample_buf
+// when recording is true.  This eliminates the device-open latency on
+// every rec press.
 static void *capture_thread_func(void *arg) {
     ACAudio *audio = (ACAudio *)arg;
     snd_pcm_t *cap = NULL;
@@ -1007,7 +1047,7 @@ static void *capture_thread_func(void *arg) {
         audio->mic_connected = 0;
         audio->mic_level = 0.0f;
         ac_log("[mic] no capture device found\n");
-        audio->recording = 0;
+        audio->mic_hot = 0;
         return NULL;
     }
 
@@ -1028,6 +1068,12 @@ static void *capture_thread_func(void *arg) {
     unsigned int rate = 48000;
     snd_pcm_hw_params_set_rate_near(cap, hw, &rate, NULL);
 
+    // Set small period + buffer for low-latency capture
+    snd_pcm_uframes_t period_frames = 128;  // ~2.7ms at 48kHz
+    snd_pcm_hw_params_set_period_size_near(cap, hw, &period_frames, NULL);
+    snd_pcm_uframes_t buffer_frames = 512;  // 4 periods
+    snd_pcm_hw_params_set_buffer_size_near(cap, hw, &buffer_frames);
+
     if (snd_pcm_hw_params(cap, hw) < 0) {
         snprintf(audio->mic_last_error, sizeof(audio->mic_last_error),
                  "failed to configure capture");
@@ -1035,20 +1081,28 @@ static void *capture_thread_func(void *arg) {
         audio->mic_level = 0.0f;
         ac_log("[mic] failed to configure capture\n");
         snd_pcm_close(cap);
-        audio->recording = 0;
+        audio->mic_hot = 0;
         return NULL;
     }
 
     audio->sample_rate = rate;
-    audio->sample_write_pos = 0;
     audio->mic_connected = 1;
     audio->mic_level = 0.0f;
     audio->mic_last_chunk = 0;
-    ac_log("[mic] recording at %u Hz, %u ch\n", rate, channels);
 
+    // Log actual negotiated parameters
+    snd_pcm_uframes_t actual_period = 0, actual_buffer = 0;
+    snd_pcm_hw_params_get_period_size(hw, &actual_period, NULL);
+    snd_pcm_hw_params_get_buffer_size(hw, &actual_buffer);
+    ac_log("[mic] hot-mic running at %u Hz, %u ch, period=%lu buf=%lu\n",
+           rate, channels, (unsigned long)actual_period, (unsigned long)actual_buffer);
+
+    int read_frames = (int)actual_period;
+    if (read_frames < 64) read_frames = 64;
+    if (read_frames > 512) read_frames = 512;
     int16_t buf[1024 * 2]; // max stereo
-    while (audio->recording && audio->sample_write_pos < audio->sample_max_len) {
-        int n = snd_pcm_readi(cap, buf, 512);
+    while (audio->mic_hot) {
+        int n = snd_pcm_readi(cap, buf, read_frames);
         if (n < 0) {
             n = snd_pcm_recover(cap, n, 0);
             if (n < 0) {
@@ -1060,46 +1114,56 @@ static void *capture_thread_func(void *arg) {
             continue;
         }
         audio->mic_last_chunk = n;
+
+        // Always compute level + fill waveform ring; only buffer when recording
         float peak = 0.0f;
-        for (int s = 0; s < n && audio->sample_write_pos < audio->sample_max_len; s++) {
+        // Downsample into waveform ring: pick evenly spaced samples from chunk
+        int wf_step = n > 8 ? n / 8 : 1; // ~8 samples per chunk into ring
+        for (int s = 0; s < n; s++) {
             float sample;
             if (channels == 1) {
                 sample = buf[s] / 32768.0f;
             } else {
-                sample = (buf[s * 2] + buf[s * 2 + 1]) / 65536.0f; // average L+R
+                sample = (buf[s * 2] + buf[s * 2 + 1]) / 65536.0f;
             }
             float abs_s = fabsf(sample);
             if (abs_s > peak) peak = abs_s;
-            audio->sample_buf[audio->sample_write_pos++] = sample;
+
+            if (audio->recording && audio->sample_write_pos < audio->sample_max_len) {
+                audio->sample_buf[audio->sample_write_pos++] = sample;
+            }
+
+            // Feed waveform ring (downsampled)
+            if (s % wf_step == 0) {
+                audio->mic_waveform[audio->mic_waveform_pos % MIC_WAVEFORM_SIZE] = sample;
+                audio->mic_waveform_pos++;
+            }
         }
-        audio->mic_level = audio->mic_level * 0.85f + peak * 0.15f;
+        audio->mic_level = peak; // raw peak, no smoothing
+
+        // Cap recording at buffer limit
+        if (audio->recording && audio->sample_write_pos >= audio->sample_max_len) {
+            audio->sample_len = audio->sample_write_pos;
+            audio->recording = 0;
+            ac_log("[mic] recording buffer full (%d samples)\n", audio->sample_len);
+        }
     }
 
-    audio->sample_len = audio->sample_write_pos;
-    ac_log("[mic] recorded %d samples (%.2fs) peak=%.4f device=%s\n",
-           audio->sample_len,
-           (double)audio->sample_len / audio->sample_rate,
-           audio->mic_level, audio->mic_device);
+    ac_log("[mic] hot-mic thread exiting, device=%s\n", audio->mic_device);
     snd_pcm_close(cap);
     audio->mic_connected = 0;
     audio->recording = 0;
     return NULL;
 }
 
-int audio_mic_start(ACAudio *audio) {
-    if (!audio || audio->recording || audio->capture_thread_running) return -1;
-    audio->recording = 1;
+int audio_mic_open(ACAudio *audio) {
+    if (!audio || audio->mic_hot || audio->capture_thread_running) return -1;
+    audio->mic_hot = 1;
     audio->capture_thread_running = 1;
-    audio->sample_len = 0;
-    audio->mic_level = 0.0f;
-    audio->mic_last_chunk = 0;
     audio->mic_last_error[0] = 0;
-    ac_log("[mic] start requested\n");
-    // Kill any playing sample voices
-    for (int i = 0; i < AUDIO_MAX_SAMPLE_VOICES; i++)
-        audio->sample_voices[i].active = 0;
+    ac_log("[mic] opening hot-mic\n");
     if (pthread_create(&audio->capture_thread, NULL, capture_thread_func, audio) != 0) {
-        audio->recording = 0;
+        audio->mic_hot = 0;
         audio->capture_thread_running = 0;
         snprintf(audio->mic_last_error, sizeof(audio->mic_last_error),
                  "failed to create capture thread");
@@ -1109,21 +1173,50 @@ int audio_mic_start(ACAudio *audio) {
     return 0;
 }
 
-int audio_mic_stop(ACAudio *audio) {
-    if (!audio) return 0;
+void audio_mic_close(ACAudio *audio) {
+    if (!audio) return;
     audio->recording = 0;
+    audio->mic_hot = 0;
     if (audio->capture_thread_running) {
         pthread_join(audio->capture_thread, NULL);
         audio->capture_thread_running = 0;
     }
-    ac_log("[mic] stop requested, sample_len=%d sample_rate=%u\n",
+    ac_log("[mic] hot-mic closed\n");
+}
+
+int audio_mic_start(ACAudio *audio) {
+    if (!audio || audio->recording) return -1;
+    // If hot-mic isn't running yet, open it first
+    if (!audio->mic_hot) {
+        int rc = audio_mic_open(audio);
+        if (rc != 0) return rc;
+    }
+    // Kill any playing sample voices
+    for (int i = 0; i < AUDIO_MAX_SAMPLE_VOICES; i++)
+        audio->sample_voices[i].active = 0;
+    // Reset write position FIRST (atomic int write), then set recording flag.
+    // The capture thread only writes when recording==1, and checks sample_write_pos,
+    // so resetting pos before setting the flag avoids any race.
+    audio->sample_len = 0;
+    audio->sample_write_pos = 0;
+    __sync_synchronize(); // memory barrier: ensure pos=0 is visible before recording=1
+    audio->recording = 1;
+    ac_log("[mic] recording started (instant)\n");
+    return 0;
+}
+
+int audio_mic_stop(ACAudio *audio) {
+    if (!audio) return 0;
+    audio->recording = 0;
+    audio->sample_len = audio->sample_write_pos;
+    ac_log("[mic] recording stopped, sample_len=%d sample_rate=%u\n",
            audio->sample_len, audio->sample_rate);
     return audio->sample_len;
 }
 
 // --- Sample playback ---
 uint64_t audio_sample_play(ACAudio *audio, double freq, double base_freq,
-                           double volume, double pan) {
+                           double volume, double pan, int loop) {
     if (!audio || audio->sample_len == 0) return 0;
     pthread_mutex_lock(&audio->lock);
 
@@ -1136,6 +1229,7 @@ uint64_t audio_sample_play(ACAudio *audio, double freq, double base_freq,
 
     SampleVoice *sv = &audio->sample_voices[slot];
     sv->active = 1;
+    sv->loop = loop;
     sv->position = 0.0;
     // Speed: pitch ratio * rate conversion (capture rate → output rate)
     sv->speed = (freq / base_freq) * ((double)audio->sample_rate / (double)audio->actual_rate);
@@ -1311,11 +1405,7 @@ void audio_shutdown_sound(ACAudio *audio) {
 void audio_destroy(ACAudio *audio) {
     if (!audio) return;
     audio->running = 0;
-    audio->recording = 0;
-    if (audio->capture_thread_running) {
-        pthread_join(audio->capture_thread, NULL);
-        audio->capture_thread_running = 0;
-    }
+    audio_mic_close(audio);
     if (audio->pcm) {
         pthread_join(audio->thread, NULL);
         snd_pcm_close((snd_pcm_t *)audio->pcm);

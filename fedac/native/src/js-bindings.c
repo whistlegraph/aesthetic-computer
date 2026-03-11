@@ -8,6 +8,10 @@
 #include <dirent.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <sys/mount.h>
+#include <sys/reboot.h>
+#include <linux/reboot.h>
+#include <errno.h>
 
 // Defined in ac-native.c — logs to USB mount
 extern void ac_log(const char *fmt, ...);
@@ -551,7 +555,25 @@ static JSValue js_glitch_toggle(JSContext *ctx, JSValueConst this_val, int argc,
     return JS_UNDEFINED;
 }
 
-// sound.microphone.rec() — start recording
+// sound.microphone.open() — open device + start hot-mic thread
+static JSValue js_mic_open(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    if (!current_rt->audio) return JS_FALSE;
+    int ok = audio_mic_open(current_rt->audio);
+    ac_log("[js][mic] open -> %s\n", ok == 0 ? "ok" : "fail");
+    return JS_NewBool(ctx, ok == 0);
+}
+
+// sound.microphone.close() — stop hot-mic thread + close device
+static JSValue js_mic_close(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    if (!current_rt->audio) return JS_UNDEFINED;
+    audio_mic_close(current_rt->audio);
+    ac_log("[js][mic] close\n");
+    return JS_UNDEFINED;
+}
+
+// sound.microphone.rec() — start buffering (instant, device already open)
 static JSValue js_mic_rec(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val; (void)argc; (void)argv;
     if (!current_rt->audio) return JS_FALSE;
@@ -560,7 +582,7 @@ static JSValue js_mic_rec(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     return JS_NewBool(ctx, ok == 0);
 }
 
-// sound.microphone.cut() — stop recording, return sample length
+// sound.microphone.cut() — stop buffering, return sample length
 static JSValue js_mic_cut(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val; (void)argc; (void)argv;
     if (!current_rt->audio) return JS_NewInt32(ctx, 0);
@@ -616,7 +638,12 @@ static JSValue js_sample_play(JSContext *ctx, JSValueConst this_val, int argc, J
     if (JS_IsNumber(v)) JS_ToFloat64(ctx, &pan, v);
     JS_FreeValue(ctx, v);
 
-    uint64_t id = audio_sample_play(audio, freq, base_freq, volume, pan);
+    int loop = 0;
+    v = JS_GetPropertyStr(ctx, opts, "loop");
+    if (JS_IsBool(v)) loop = JS_ToBool(ctx, v);
+    JS_FreeValue(ctx, v);
+
+    uint64_t id = audio_sample_play(audio, freq, base_freq, volume, pan, loop);
     if (id == 0) return JS_UNDEFINED;
 
     // Return object with id, kill(), update()
@@ -1191,12 +1218,16 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
 
     // microphone
     JSValue mic = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, mic, "open", JS_NewCFunction(ctx, js_mic_open, "open", 0));
+    JS_SetPropertyStr(ctx, mic, "close", JS_NewCFunction(ctx, js_mic_close, "close", 0));
     JS_SetPropertyStr(ctx, mic, "rec", JS_NewCFunction(ctx, js_mic_rec, "rec", 0));
     JS_SetPropertyStr(ctx, mic, "cut", JS_NewCFunction(ctx, js_mic_cut, "cut", 0));
     JS_SetPropertyStr(ctx, mic, "recording",
         JS_NewBool(ctx, rt->audio ? rt->audio->recording : 0));
     JS_SetPropertyStr(ctx, mic, "connected",
         JS_NewBool(ctx, rt->audio ? rt->audio->mic_connected : 0));
+    JS_SetPropertyStr(ctx, mic, "hot",
+        JS_NewBool(ctx, rt->audio ? rt->audio->mic_hot : 0));
     JS_SetPropertyStr(ctx, mic, "sampleLength",
         JS_NewInt32(ctx, rt->audio ? rt->audio->sample_len : 0));
     JS_SetPropertyStr(ctx, mic, "sampleRate",
@@ -1209,6 +1240,7 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
         JS_NewString(ctx, (rt->audio && rt->audio->mic_device[0]) ? rt->audio->mic_device : "none"));
     JS_SetPropertyStr(ctx, mic, "lastError",
         JS_NewString(ctx, (rt->audio && rt->audio->mic_last_error[0]) ? rt->audio->mic_last_error : ""));
+    // Mic level is already exposed as mic.level (single float, no array overhead)
     JS_SetPropertyStr(ctx, sound, "microphone", mic);
 
     // sample playback
@@ -1622,48 +1654,93 @@ static void detect_boot_device(char *out, size_t len) {
     ac_log("[flash] boot device: fallback (/dev/sda1)");
 }
 
+// Pure C file copy (no shell needed)
+static long flash_copy_file(const char *src, const char *dst) {
+    FILE *in = fopen(src, "rb");
+    if (!in) {
+        ac_log("[flash] fopen src failed: %s errno=%d (%s)", src, errno, strerror(errno));
+        return -1;
+    }
+    // Delete destination first (vfat may block overwrite of in-use file)
+    unlink(dst);
+    FILE *out = fopen(dst, "wb");
+    if (!out) {
+        ac_log("[flash] fopen dst failed: %s errno=%d (%s)", dst, errno, strerror(errno));
+        fclose(in);
+        return -1;
+    }
+    char buf[65536];
+    long total = 0;
+    size_t n;
+    while ((n = fread(buf, 1, sizeof(buf), in)) > 0) {
+        if (fwrite(buf, 1, n, out) != n) {
+            ac_log("[flash] fwrite failed at offset %ld errno=%d (%s)", total, errno, strerror(errno));
+            total = -1;
+            break;
+        }
+        total += n;
+    }
+    fclose(out);
+    fclose(in);
+    return total;
+}
+
 // Flash update background thread: mount EFI, copy vmlinuz, sync, umount
+// All operations use C syscalls — no shell commands (cp/mkdir/mount not in initramfs PATH)
 // NOTE: current_rt is __thread (thread-local); pass ACRuntime * via arg instead
 static void *flash_thread_fn(void *arg) {
     ACRuntime *rt = (ACRuntime *)arg;
     if (!rt) return NULL;
 
     ac_log("[flash] starting: src=%s device=%s", rt->flash_src, rt->flash_device);
-    if (system("mkdir -p /tmp/efi") != 0) {
-        ac_log("[flash] mkdir failed");
-        rt->flash_ok = 0;
-        rt->flash_pending = 0;
-        rt->flash_done = 1;
-        return NULL;
+
+    // The boot device is already mounted at /mnt (for logging).
+    // Try /mnt first; if the EFI directory exists there, copy directly.
+    // Otherwise fall back to mounting at /tmp/efi.
+    const char *efi_mount = NULL;
+    if (access("/mnt/EFI/BOOT", F_OK) == 0) {
+        efi_mount = "/mnt";
+        ac_log("[flash] using existing /mnt mount");
+    } else {
+        mkdir("/tmp/efi", 0755);
+        umount("/tmp/efi");
+        if (mount(rt->flash_device, "/tmp/efi", "vfat", 0, NULL) != 0) {
+            ac_log("[flash] mount %s failed (errno=%d)", rt->flash_device, errno);
+            rt->flash_ok = 0;
+            rt->flash_pending = 0;
+            rt->flash_done = 1;
+            return NULL;
+        }
+        efi_mount = "/tmp/efi";
+        ac_log("[flash] mounted %s at /tmp/efi", rt->flash_device);
     }
-    // Unmount if already mounted
-    system("umount /tmp/efi 2>/dev/null");
-    char cmd[512];
-    snprintf(cmd, sizeof(cmd),
-        "mount \"%s\" /tmp/efi -t vfat -o rw 2>/dev/null", rt->flash_device);
-    if (system(cmd) != 0) {
-        ac_log("[flash] mount %s failed", rt->flash_device);
-        rt->flash_ok = 0;
-        rt->flash_pending = 0;
-        rt->flash_done = 1;
-        return NULL;
+
+    // If splash chainloader is present, kernel lives at KERNEL.EFI; else BOOTX64.EFI
+    char dst[512];
+    char kernel_path[512];
+    snprintf(kernel_path, sizeof(kernel_path), "%s/EFI/BOOT/KERNEL.EFI", efi_mount);
+    if (access(kernel_path, F_OK) == 0) {
+        snprintf(dst, sizeof(dst), "%s", kernel_path);
+        ac_log("[flash] chainloader detected, updating KERNEL.EFI");
+    } else {
+        snprintf(dst, sizeof(dst), "%s/EFI/BOOT/BOOTX64.EFI", efi_mount);
+        ac_log("[flash] no chainloader, updating BOOTX64.EFI");
     }
-    snprintf(cmd, sizeof(cmd),
-        "cp -f \"%s\" /tmp/efi/EFI/BOOT/BOOTX64.EFI 2>/dev/null", rt->flash_src);
-    int r = system(cmd);
-    system("sync");
-    system("umount /tmp/efi 2>/dev/null");
-    if (r != 0) {
-        ac_log("[flash] cp failed (r=%d)", r);
+    long copied = flash_copy_file(rt->flash_src, dst);
+    sync();
+    if (efi_mount != NULL && strcmp(efi_mount, "/tmp/efi") == 0) {
+        umount("/tmp/efi");
+    }
+    if (copied <= 0) {
+        ac_log("[flash] copy failed (copied=%ld)", copied);
         rt->flash_ok = 0;
         rt->flash_pending = 0;
         rt->flash_done = 1;
         return NULL;
     }
     // Remove downloaded file to free /tmp space
-    snprintf(cmd, sizeof(cmd), "rm -f \"%s\"", rt->flash_src);
-    system(cmd);
-    ac_log("[flash] done");
+    unlink(rt->flash_src);
+    ac_log("[flash] done (%ld bytes written)", copied);
     rt->flash_ok = 1;
     rt->flash_pending = 0;
     rt->flash_done = 1;
@@ -1709,11 +1786,17 @@ static JSValue js_flash_update(JSContext *ctx, JSValueConst this_val, int argc, 
     return JS_UNDEFINED;
 }
 
-// system.reboot() — triggers system reboot
+// system.reboot() — triggers system reboot (direct syscall, no external binary needed)
 static JSValue js_reboot(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)ctx; (void)this_val; (void)argc; (void)argv;
-    ac_log("[system] reboot requested");
-    system("reboot");
+    ac_log("[system] reboot requested — executing syscall");
+    sync();  // flush all pending writes
+    if (getpid() == 1) {
+        reboot(LINUX_REBOOT_CMD_RESTART);
+    } else {
+        // Not PID 1 (dev/test mode) — try shell fallback
+        system("reboot");
+    }
     return JS_UNDEFINED;
 }
 

@@ -50,6 +50,7 @@ typedef struct {
 
 typedef struct {
     int active;
+    int loop;               // 1 = loop sample, 0 = one-shot
     double position;        // fractional sample index
     double speed;           // playback rate (1.0 = original pitch)
     double volume;
@@ -118,15 +119,21 @@ typedef struct {
     int sample_len;             // length in samples (0 = no sample)
     int sample_max_len;         // buffer capacity
     unsigned int sample_rate;   // capture sample rate (for speed calc)
-    volatile int recording;     // 1 = actively recording
+    volatile int recording;     // 1 = buffering mic input to sample_buf
     int sample_write_pos;       // write cursor during recording
     volatile int mic_connected; // 1 = capture device currently open
-    volatile float mic_level;   // smoothed peak level (0.0-1.0) while recording
+    volatile int mic_hot;       // 1 = hot-mic thread running (device stays open)
+    volatile float mic_level;   // raw peak level (0.0-1.0) per chunk
     volatile int mic_last_chunk;// last captured frame count
     char mic_device[64];        // active ALSA capture device string
     char mic_last_error[128];   // last capture error message
     pthread_t capture_thread;
-    volatile int capture_thread_running; // 1 while capture thread owns ALSA device
+    volatile int capture_thread_running; // 1 while capture thread is alive
+
+    // Live mic waveform ring buffer (for visualization)
+    #define MIC_WAVEFORM_SIZE 128
+    float mic_waveform[128];    // circular buffer of recent samples (downsampled)
+    volatile int mic_waveform_pos; // write position in ring
     SampleVoice sample_voices[AUDIO_MAX_SAMPLE_VOICES];
     uint64_t sample_next_id;
 
@@ -168,13 +175,15 @@ void audio_glitch_toggle(ACAudio *audio);
 void audio_set_room_mix(ACAudio *audio, float mix);
 void audio_set_fx_mix(ACAudio *audio, float mix);
 
-// Microphone recording
-int audio_mic_start(ACAudio *audio);   // start capture thread, returns 0 on success
-int audio_mic_stop(ACAudio *audio);    // stop capture, returns sample length
+// Microphone — hot-mic mode (device stays open, recording toggles buffering)
+int audio_mic_open(ACAudio *audio);    // open device + start hot-mic thread
+void audio_mic_close(ACAudio *audio);  // stop thread + close device
+int audio_mic_start(ACAudio *audio);   // begin buffering (instant, no device open)
+int audio_mic_stop(ACAudio *audio);    // stop buffering, returns sample length
 
-// Sample playback with pitch shifting
+// Sample playback with pitch shifting (loop=1 for infinite loop, 0 for one-shot)
 uint64_t audio_sample_play(ACAudio *audio, double freq, double base_freq,
-                           double volume, double pan);
+                           double volume, double pan, int loop);
 void audio_sample_kill(ACAudio *audio, uint64_t id, double fade);
 void audio_sample_update(ACAudio *audio, uint64_t id, double freq,
                          double base_freq, double volume, double pan);

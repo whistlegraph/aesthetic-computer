@@ -519,10 +519,18 @@ PART_EOF
     # Format FAT32
     mkfs.vfat -F 32 -n "AC-NATIVE" "${PART}"
 
-    # Copy kernel using mtools (no mount needed)
+    # Copy kernel + splash chainloader using mtools (no mount needed)
     mmd -i "${PART}" ::EFI
     mmd -i "${PART}" ::EFI/BOOT
-    mcopy -i "${PART}" "${VMLINUZ}" ::EFI/BOOT/BOOTX64.EFI
+    SPLASH_EFI="${NATIVE_DIR}/bootloader/splash.efi"
+    if [ -f "${SPLASH_EFI}" ]; then
+        log "Using splash chainloader (${SPLASH_EFI})"
+        mcopy -i "${PART}" "${SPLASH_EFI}" ::EFI/BOOT/BOOTX64.EFI
+        mcopy -i "${PART}" "${VMLINUZ}" ::EFI/BOOT/KERNEL.EFI
+    else
+        log "No splash chainloader found, using kernel directly"
+        mcopy -i "${PART}" "${VMLINUZ}" ::EFI/BOOT/BOOTX64.EFI
+    fi
 
     # Write config.json with handle + optional per-char colors from handle-colors API
     HANDLE_CLEAN="${HANDLE#@}"
