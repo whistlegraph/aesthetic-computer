@@ -1776,15 +1776,21 @@ static long flash_copy_file(const char *src, const char *dst) {
     return total;
 }
 
-// Byte-for-byte verification: drop page caches, re-read dst, compare against src.
+// Byte-for-byte verification: evict destination page cache, re-read from disk,
+// compare against source (which lives in tmpfs and must NOT be evicted).
 // Returns number of verified bytes, or -1 on mismatch/error.
 static long flash_verify(const char *src, const char *dst) {
-    // Drop page caches so we re-read from physical disk, not RAM
-    int drop = open("/proc/sys/vm/drop_caches", O_WRONLY);
-    if (drop >= 0) {
-        write(drop, "3\n", 2);
-        close(drop);
-        ac_log("[verify] dropped page caches");
+    // Evict ONLY the destination file's page cache using posix_fadvise.
+    // DO NOT use drop_caches — that nukes tmpfs pages and destroys the source!
+    int dst_fd = open(dst, O_RDONLY);
+    if (dst_fd >= 0) {
+        // Get file size for fadvise range
+        struct stat st;
+        if (fstat(dst_fd, &st) == 0) {
+            posix_fadvise(dst_fd, 0, st.st_size, POSIX_FADV_DONTNEED);
+            ac_log("[verify] evicted dst page cache (%ld bytes)", (long)st.st_size);
+        }
+        close(dst_fd);
     }
 
     FILE *fa = fopen(src, "rb");
@@ -1832,25 +1838,43 @@ static void *flash_thread_fn(void *arg) {
 
     ac_log("[flash] starting: src=%s device=%s", rt->flash_src, rt->flash_device);
 
-    // The boot device is already mounted at /mnt (for logging).
-    // Try /mnt first; if the EFI directory exists there, copy directly.
-    // Otherwise fall back to mounting at /tmp/efi.
+    // Mount the EFI partition.  Always mount fresh at /tmp/efi to avoid
+    // confusion with the logging mount at /mnt (which may point at the same
+    // partition but doesn't guarantee EFI/BOOT/ exists).
     const char *efi_mount = NULL;
-    if (access("/mnt/EFI/BOOT", F_OK) == 0) {
-        efi_mount = "/mnt";
-        ac_log("[flash] using existing /mnt mount");
+    int did_mount = 0;
+    mkdir("/tmp/efi", 0755);
+    umount("/tmp/efi");  // clean up any stale mount
+    if (mount(rt->flash_device, "/tmp/efi", "vfat", 0, NULL) == 0) {
+        efi_mount = "/tmp/efi";
+        did_mount = 1;
+        ac_log("[flash] mounted %s at /tmp/efi", rt->flash_device);
     } else {
-        mkdir("/tmp/efi", 0755);
-        umount("/tmp/efi");
-        if (mount(rt->flash_device, "/tmp/efi", "vfat", 0, NULL) != 0) {
-            ac_log("[flash] mount %s failed (errno=%d)", rt->flash_device, errno);
+        // Fallback: /mnt might already have this partition
+        if (access("/mnt/EFI/BOOT", F_OK) == 0) {
+            efi_mount = "/mnt";
+            ac_log("[flash] using existing /mnt mount (fresh mount failed errno=%d)", errno);
+        } else {
+            ac_log("[flash] mount %s failed (errno=%d %s) and /mnt has no EFI/BOOT",
+                   rt->flash_device, errno, strerror(errno));
+            rt->flash_phase = 4;
             rt->flash_ok = 0;
             rt->flash_pending = 0;
             rt->flash_done = 1;
             return NULL;
         }
-        efi_mount = "/tmp/efi";
-        ac_log("[flash] mounted %s at /tmp/efi", rt->flash_device);
+    }
+    // Validate EFI directory exists on the mount
+    char efi_dir[512];
+    snprintf(efi_dir, sizeof(efi_dir), "%s/EFI/BOOT", efi_mount);
+    if (access(efi_dir, F_OK) != 0) {
+        ac_log("[flash] ABORT: %s not found — wrong partition?", efi_dir);
+        if (did_mount) umount("/tmp/efi");
+        rt->flash_phase = 4;
+        rt->flash_ok = 0;
+        rt->flash_pending = 0;
+        rt->flash_done = 1;
+        return NULL;
     }
 
     // If splash chainloader is present, kernel lives at KERNEL.EFI; else BOOTX64.EFI
@@ -1865,26 +1889,50 @@ static void *flash_thread_fn(void *arg) {
         ac_log("[flash] no chainloader, updating BOOTX64.EFI");
     }
 
-    // Close the log file before writing to the same vfat partition
+    // Close the log file if writing to the same vfat partition as /mnt
     // (vfat can fail writes when another file handle is open on the same mount)
-    int same_mount = (strcmp(efi_mount, "/mnt") == 0);
+    int same_mount = !did_mount;  // /mnt fallback means same partition
     if (same_mount) {
         ac_log("[flash] pausing log for write to /mnt");
         ac_log_pause();
+    }
+
+    // Pre-flight: validate source file exists and has reasonable size
+    {
+        struct stat src_st;
+        if (stat(rt->flash_src, &src_st) != 0 || src_st.st_size < 1048576) {
+            ac_log("[flash] ABORT: source %s invalid (size=%ld, errno=%d)",
+                   rt->flash_src, (long)(src_st.st_size), errno);
+            if (same_mount) { ac_log_resume(); }
+            if (did_mount) umount("/tmp/efi");
+            rt->flash_phase = 4;
+            rt->flash_ok = 0;
+            rt->flash_pending = 0;
+            rt->flash_done = 1;
+            return NULL;
+        }
+        ac_log("[flash] source validated: %ld bytes", (long)src_st.st_size);
     }
 
     // Phase 1: Writing
     rt->flash_phase = 1;
     long copied = flash_copy_file(rt->flash_src, dst);
 
-    // Phase 2: Syncing to disk
+    // Phase 2: Syncing to disk — belt-and-suspenders for vfat
     rt->flash_phase = 2;
     int mnt_fd = open(efi_mount, O_RDONLY);
     if (mnt_fd >= 0) {
-        syncfs(mnt_fd);
+        if (syncfs(mnt_fd) != 0)
+            ac_log("[flash] syncfs failed: errno=%d (%s)", errno, strerror(errno));
         close(mnt_fd);
+    } else {
+        ac_log("[flash] WARNING: open(%s) for syncfs failed errno=%d", efi_mount, errno);
     }
     sync();
+    // vfat write-back can be slow; give the block layer time to flush
+    usleep(500000);  // 500ms
+    sync();
+    ac_log("[flash] sync complete");
 
     if (copied <= 0) {
         if (same_mount) { ac_log_resume(); }
@@ -1906,8 +1954,9 @@ static void *flash_thread_fn(void *arg) {
         ac_log("[flash] log resumed after write+verify");
     }
 
-    if (efi_mount != NULL && strcmp(efi_mount, "/tmp/efi") == 0) {
+    if (did_mount) {
         umount("/tmp/efi");
+        ac_log("[flash] unmounted /tmp/efi");
     }
 
     rt->flash_verified_bytes = verified;
@@ -1979,7 +2028,9 @@ static JSValue js_reboot(JSContext *ctx, JSValueConst this_val, int argc, JSValu
         audio_shutdown_sound(current_rt->audio);
         usleep(500000);  // 500ms for chime to play
     }
-    sync();  // flush all pending writes
+    sync();
+    usleep(500000);  // give block layer time to flush vfat
+    sync();  // second sync for safety
     if (getpid() == 1) {
         reboot(LINUX_REBOOT_CMD_RESTART);
     } else {
@@ -2418,6 +2469,44 @@ static JSValue build_system_obj(JSContext *ctx) {
         static char boot_dev_cache[64] = {0};
         if (!boot_dev_cache[0]) detect_boot_device(boot_dev_cache, sizeof(boot_dev_cache));
         JS_SetPropertyStr(ctx, sys, "bootDevice", JS_NewString(ctx, boot_dev_cache));
+    }
+
+    // Flash targets: enumerate all devices that could receive an EFI flash
+    {
+        JSValue targets = JS_NewArray(ctx);
+        int idx = 0;
+        // Check USB (/dev/sda1)
+        if (access("/dev/sda1", F_OK) == 0) {
+            char rem[8] = {0};
+            read_sysfs("/sys/block/sda/removable", rem, sizeof(rem));
+            int is_removable = (rem[0] == '1');
+            JSValue t = JS_NewObject(ctx);
+            JS_SetPropertyStr(ctx, t, "device", JS_NewString(ctx, "/dev/sda1"));
+            JS_SetPropertyStr(ctx, t, "label",
+                JS_NewString(ctx, is_removable ? "USB" : "Disk (sda)"));
+            JS_SetPropertyStr(ctx, t, "removable", JS_NewBool(ctx, is_removable));
+            JS_SetPropertyUint32(ctx, targets, idx++, t);
+        }
+        // Check NVMe (/dev/nvme0n1p1)
+        if (access("/dev/nvme0n1p1", F_OK) == 0) {
+            JSValue t = JS_NewObject(ctx);
+            JS_SetPropertyStr(ctx, t, "device", JS_NewString(ctx, "/dev/nvme0n1p1"));
+            JS_SetPropertyStr(ctx, t, "label", JS_NewString(ctx, "Internal (NVMe)"));
+            JS_SetPropertyStr(ctx, t, "removable", JS_NewBool(ctx, 0));
+            JS_SetPropertyUint32(ctx, targets, idx++, t);
+        }
+        // Check sdb1 (second USB)
+        if (access("/dev/sdb1", F_OK) == 0) {
+            char rem[8] = {0};
+            read_sysfs("/sys/block/sdb/removable", rem, sizeof(rem));
+            JSValue t = JS_NewObject(ctx);
+            JS_SetPropertyStr(ctx, t, "device", JS_NewString(ctx, "/dev/sdb1"));
+            JS_SetPropertyStr(ctx, t, "label",
+                JS_NewString(ctx, rem[0] == '1' ? "USB (sdb)" : "Disk (sdb)"));
+            JS_SetPropertyStr(ctx, t, "removable", JS_NewBool(ctx, rem[0] == '1'));
+            JS_SetPropertyUint32(ctx, targets, idx++, t);
+        }
+        JS_SetPropertyStr(ctx, sys, "flashTargets", targets);
     }
 
     // Binary fetch for OS update

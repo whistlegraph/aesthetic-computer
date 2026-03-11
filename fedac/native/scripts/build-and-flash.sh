@@ -32,7 +32,7 @@ FLASH_DEV=""
 SKIP_KERNEL=0
 SKIP_BINARY=0
 USE_SDL=0
-PIECE_PATH="${NATIVE_DIR}/pieces/notepat.mjs"
+PIECE_PATH="${NATIVE_DIR}/pieces/prompt.mjs"
 KERNEL_VERSION="${KERNEL_VERSION:-6.14.2}"
 HANDLE="${AC_HANDLE:-jeffrey}"
 HANDLE_COLORS_API="${HANDLE_COLORS_API:-https://aesthetic.computer/.netlify/functions/handle-colors}"
@@ -121,17 +121,24 @@ if [ "${SKIP_BINARY}" -eq 0 ]; then
     cd "${NATIVE_DIR}"
     CC_USE="${CC:-}"
     if [ -z "${CC_USE}" ]; then
-        if command -v musl-gcc &>/dev/null; then CC_USE=musl-gcc
-        else CC_USE=gcc; fi
+        # Use musl-gcc for static linking only if it has linux/input.h
+        if command -v musl-gcc &>/dev/null \
+           && echo '#include <linux/input.h>' | musl-gcc -E -x c - &>/dev/null; then
+            CC_USE=musl-gcc
+        else
+            CC_USE=gcc
+        fi
     fi
+    MAKE_ARGS="CC=${CC_USE}"
     if [ "${USE_SDL}" -eq 1 ]; then
-        # SDL2/Mesa require dynamic linking (dlopen)
-        make CC="${CC_USE}" USE_SDL=1
-        log "Binary (SDL2): $(wc -c < "${BUILD_DIR}/ac-native") bytes"
-    else
-        make STATIC=1 CC="${CC_USE}"
-        log "Binary: $(wc -c < "${BUILD_DIR}/ac-native") bytes"
+        MAKE_ARGS="${MAKE_ARGS} USE_SDL=1"
     fi
+    # Only request static linking when using musl-gcc (gcc needs .so files)
+    if [ "${CC_USE}" = "musl-gcc" ]; then
+        MAKE_ARGS="${MAKE_ARGS} STATIC=1"
+    fi
+    make ${MAKE_ARGS}
+    log "Binary: $(wc -c < "${BUILD_DIR}/ac-native") bytes"
 else
     log "Skipping binary build"
 fi
