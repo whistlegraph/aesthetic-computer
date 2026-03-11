@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include "js-bindings.h"
 #include <pthread.h>
 #include <stdio.h>
@@ -11,6 +12,7 @@
 #include <sys/mount.h>
 #include <sys/reboot.h>
 #include <linux/reboot.h>
+#include <fcntl.h>
 #include <errno.h>
 
 // Defined in ac-native.c — logs to USB mount
@@ -21,6 +23,7 @@ extern void ac_log_resume(void);
 // Thread-local reference to current runtime (for C callbacks from JS)
 static __thread ACRuntime *current_rt = NULL;
 static __thread const char *current_phase = "boot";
+static int config_cache_dirty = 1;  // reload /mnt/config.json when set
 
 // ============================================================
 // JS Native Functions — Graphics
@@ -1516,6 +1519,78 @@ static JSValue js_fetch(JSContext *ctx, JSValueConst this_val, int argc, JSValue
     return JS_TRUE;
 }
 
+// system.fetchPost(url, body, headersJSON) — POST request with custom headers
+// Uses the same single fetch slot as system.fetch.
+// headersJSON is a JSON string like '{"Authorization":"Bearer ...","Content-Type":"application/json"}'
+static JSValue js_fetch_post(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (!current_rt || argc < 2) return JS_UNDEFINED;
+    if (current_rt->fetch_pending) return JS_FALSE;
+    const char *url = JS_ToCString(ctx, argv[0]);
+    const char *body = JS_ToCString(ctx, argv[1]);
+    const char *headers_json = (argc >= 3) ? JS_ToCString(ctx, argv[2]) : NULL;
+    if (!url || !body) {
+        JS_FreeCString(ctx, url);
+        JS_FreeCString(ctx, body);
+        if (headers_json) JS_FreeCString(ctx, headers_json);
+        return JS_UNDEFINED;
+    }
+    unlink("/tmp/ac_fetch.json");
+    unlink("/tmp/ac_fetch_rc");
+    unlink("/tmp/ac_fetch_err");
+
+    // Write body to temp file to avoid shell escaping issues
+    FILE *bf = fopen("/tmp/ac_fetch_body.json", "w");
+    if (bf) { fputs(body, bf); fclose(bf); }
+
+    // Build header flags by parsing simple JSON {"key":"value",...}
+    // We build a file of -H flags to avoid shell escaping nightmares
+    FILE *hf = fopen("/tmp/ac_fetch_headers.txt", "w");
+    if (hf) {
+        // Always include Content-Type
+        fprintf(hf, "-H\nContent-Type: application/json\n");
+        if (headers_json) {
+            // Simple JSON parser: find "key":"value" pairs
+            const char *p = headers_json;
+            while (*p) {
+                const char *kq = strchr(p, '"');
+                if (!kq) break;
+                const char *ke = strchr(kq + 1, '"');
+                if (!ke) break;
+                const char *vq = strchr(ke + 1, '"');
+                if (!vq) break;
+                const char *ve = strchr(vq + 1, '"');
+                if (!ve) break;
+                int klen = (int)(ke - kq - 1);
+                int vlen = (int)(ve - vq - 1);
+                if (klen > 0 && klen < 256 && vlen > 0 && vlen < 2048) {
+                    fprintf(hf, "-H\n%.*s: %.*s\n", klen, kq + 1, vlen, vq + 1);
+                }
+                p = ve + 1;
+            }
+        }
+        fclose(hf);
+    }
+
+    ac_log("[fetchPost] start: %s (body %ld bytes)\n", url, (long)strlen(body));
+    char cmd[2048];
+    snprintf(cmd, sizeof(cmd),
+        "sh -c 'curl -fsSL -X POST --retry 1 --connect-timeout 10 --max-time 120 "
+        "--cacert /etc/pki/tls/certs/ca-bundle.crt "
+        "-K /tmp/ac_fetch_headers.txt "
+        "-d @/tmp/ac_fetch_body.json "
+        "--output /tmp/ac_fetch.json \"%s\" 2>/tmp/ac_fetch_err;"
+        " echo $? > /tmp/ac_fetch_rc' &", url);
+    system(cmd);
+    current_rt->fetch_pending = 1;
+    current_rt->fetch_result[0] = 0;
+    current_rt->fetch_error[0] = 0;
+    JS_FreeCString(ctx, url);
+    JS_FreeCString(ctx, body);
+    if (headers_json) JS_FreeCString(ctx, headers_json);
+    return JS_TRUE;
+}
+
 // system.fetchCancel() — kill in-flight curl and free the fetch slot
 static JSValue js_fetch_cancel(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val; (void)argc; (void)argv;
@@ -1687,9 +1762,65 @@ static long flash_copy_file(const char *src, const char *dst) {
         }
         total += n;
     }
+    // Flush stdio buffer, then fsync to force data+metadata to physical disk
+    // (critical for vfat — without this, data stays in page cache and reboot loses it)
+    if (total > 0) {
+        fflush(out);
+        if (fsync(fileno(out)) != 0) {
+            ac_log("[flash] fsync failed: errno=%d (%s)", errno, strerror(errno));
+            total = -1;
+        }
+    }
     fclose(out);
     fclose(in);
     return total;
+}
+
+// Byte-for-byte verification: drop page caches, re-read dst, compare against src.
+// Returns number of verified bytes, or -1 on mismatch/error.
+static long flash_verify(const char *src, const char *dst) {
+    // Drop page caches so we re-read from physical disk, not RAM
+    int drop = open("/proc/sys/vm/drop_caches", O_WRONLY);
+    if (drop >= 0) {
+        write(drop, "3\n", 2);
+        close(drop);
+        ac_log("[verify] dropped page caches");
+    }
+
+    FILE *fa = fopen(src, "rb");
+    FILE *fb = fopen(dst, "rb");
+    if (!fa || !fb) {
+        ac_log("[verify] fopen failed: src=%s dst=%s", fa ? "ok" : "FAIL", fb ? "ok" : "FAIL");
+        if (fa) fclose(fa);
+        if (fb) fclose(fb);
+        return -1;
+    }
+
+    char bufa[65536], bufb[65536];
+    long verified = 0;
+    size_t na, nb;
+    while ((na = fread(bufa, 1, sizeof(bufa), fa)) > 0) {
+        nb = fread(bufb, 1, sizeof(bufb), fb);
+        if (na != nb || memcmp(bufa, bufb, na) != 0) {
+            ac_log("[verify] MISMATCH at offset %ld (read %zu vs %zu)", verified, na, nb);
+            fclose(fa);
+            fclose(fb);
+            return -1;
+        }
+        verified += (long)na;
+    }
+    // Make sure dst doesn't have extra bytes
+    nb = fread(bufb, 1, 1, fb);
+    if (nb != 0) {
+        ac_log("[verify] dst has extra bytes after %ld", verified);
+        fclose(fa);
+        fclose(fb);
+        return -1;
+    }
+    fclose(fa);
+    fclose(fb);
+    ac_log("[verify] OK: %ld bytes match", verified);
+    return verified;
 }
 
 // Flash update background thread: mount EFI, copy vmlinuz, sync, umount
@@ -1742,28 +1873,57 @@ static void *flash_thread_fn(void *arg) {
         ac_log_pause();
     }
 
+    // Phase 1: Writing
+    rt->flash_phase = 1;
     long copied = flash_copy_file(rt->flash_src, dst);
+
+    // Phase 2: Syncing to disk
+    rt->flash_phase = 2;
+    int mnt_fd = open(efi_mount, O_RDONLY);
+    if (mnt_fd >= 0) {
+        syncfs(mnt_fd);
+        close(mnt_fd);
+    }
     sync();
 
-    // Reopen log file after flash write
-    if (same_mount) {
-        ac_log_resume();
-        ac_log("[flash] log resumed after write");
-    }
-
-    if (efi_mount != NULL && strcmp(efi_mount, "/tmp/efi") == 0) {
-        umount("/tmp/efi");
-    }
     if (copied <= 0) {
+        if (same_mount) { ac_log_resume(); }
         ac_log("[flash] copy failed (copied=%ld)", copied);
+        rt->flash_phase = 4;
         rt->flash_ok = 0;
         rt->flash_pending = 0;
         rt->flash_done = 1;
         return NULL;
     }
+
+    // Phase 3: Verify — read back from physical disk and compare byte-for-byte
+    rt->flash_phase = 3;
+    long verified = flash_verify(rt->flash_src, dst);
+
+    // Reopen log file after flash+verify
+    if (same_mount) {
+        ac_log_resume();
+        ac_log("[flash] log resumed after write+verify");
+    }
+
+    if (efi_mount != NULL && strcmp(efi_mount, "/tmp/efi") == 0) {
+        umount("/tmp/efi");
+    }
+
+    rt->flash_verified_bytes = verified;
+    if (verified != copied) {
+        ac_log("[flash] VERIFY FAILED: wrote %ld, verified %ld", copied, verified);
+        rt->flash_phase = 4;
+        rt->flash_ok = 0;
+        rt->flash_pending = 0;
+        rt->flash_done = 1;
+        return NULL;
+    }
+
     // Remove downloaded file to free /tmp space
     unlink(rt->flash_src);
-    ac_log("[flash] done (%ld bytes written)", copied);
+    ac_log("[flash] done: %ld bytes written, verified OK", copied);
+    rt->flash_phase = 4;
     rt->flash_ok = 1;
     rt->flash_pending = 0;
     rt->flash_done = 1;
@@ -1830,6 +1990,154 @@ static JSValue js_reboot(JSContext *ctx, JSValueConst this_val, int argc, JSValu
 }
 
 // system.jump(pieceName) — request piece switch (handled in main loop)
+// system.saveConfig(key, value) — merge a key-value pair into /mnt/config.json
+static JSValue js_save_config(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 2) return JS_FALSE;
+    const char *key = JS_ToCString(ctx, argv[0]);
+    const char *val = JS_ToCString(ctx, argv[1]);
+    if (!key || !val) {
+        JS_FreeCString(ctx, key);
+        JS_FreeCString(ctx, val);
+        return JS_FALSE;
+    }
+
+    // Read existing config
+    char buf[8192] = {0};
+    FILE *f = fopen("/mnt/config.json", "r");
+    if (f) {
+        size_t n = fread(buf, 1, sizeof(buf) - 1, f);
+        buf[n] = '\0';
+        fclose(f);
+    }
+
+    // Simple JSON merge: if key exists, replace its value; otherwise append
+    // We build a new JSON string manually since we don't have a JSON library
+    char out[8192] = {0};
+    char needle[256];
+    snprintf(needle, sizeof(needle), "\"%s\"", key);
+
+    char *existing = strstr(buf, needle);
+    if (existing && buf[0] == '{') {
+        // Key exists — find value start (after ":") and end (next , or })
+        char *colon = strchr(existing, ':');
+        if (colon) {
+            char *vstart = colon + 1;
+            while (*vstart == ' ') vstart++;
+            char *vend;
+            if (*vstart == '"') {
+                vend = strchr(vstart + 1, '"');
+                if (vend) vend++; // past closing quote
+            } else {
+                vend = vstart;
+                while (*vend && *vend != ',' && *vend != '}') vend++;
+            }
+            if (vend) {
+                int prefix_len = (int)(vstart - buf);
+                snprintf(out, sizeof(out), "%.*s\"%s\"%s",
+                         prefix_len, buf, val, vend);
+            }
+        }
+    } else if (buf[0] == '{') {
+        // Append new key before closing }
+        char *closing = strrchr(buf, '}');
+        if (closing) {
+            int prefix_len = (int)(closing - buf);
+            // Check if there's existing content (non-empty object)
+            int has_content = 0;
+            for (char *p = buf + 1; p < closing; p++) {
+                if (*p != ' ' && *p != '\n' && *p != '\r' && *p != '\t') {
+                    has_content = 1; break;
+                }
+            }
+            snprintf(out, sizeof(out), "%.*s%s\"%s\":\"%s\"}",
+                     prefix_len, buf, has_content ? "," : "", key, val);
+        }
+    } else {
+        // No valid JSON — create new
+        snprintf(out, sizeof(out), "{\"%s\":\"%s\"}", key, val);
+    }
+
+    f = fopen("/mnt/config.json", "w");
+    if (f) {
+        fputs(out[0] ? out : buf, f);
+        fflush(f);
+        fsync(fileno(f));
+        fclose(f);
+        config_cache_dirty = 1;
+        ac_log("[config] saved %s to /mnt/config.json\n", key);
+        // Update runtime config if it's a known field
+        if (current_rt && strcmp(key, "handle") == 0) {
+            strncpy(current_rt->handle, val, sizeof(current_rt->handle) - 1);
+        } else if (current_rt && strcmp(key, "piece") == 0) {
+            strncpy(current_rt->piece, val, sizeof(current_rt->piece) - 1);
+        }
+    } else {
+        ac_log("[config] ERROR: cannot write /mnt/config.json\n");
+    }
+
+    JS_FreeCString(ctx, key);
+    JS_FreeCString(ctx, val);
+    return JS_TRUE;
+}
+
+// system.startSSH() — start dropbear SSH daemon (generates host key if needed)
+static int ssh_started = 0;
+static JSValue js_start_ssh(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    if (ssh_started) return JS_NewBool(ctx, 1);
+
+    // Check if dropbear exists
+    if (access("/usr/sbin/dropbear", X_OK) != 0 && access("/bin/dropbear", X_OK) != 0) {
+        ac_log("[ssh] dropbear not found in initramfs\n");
+        return JS_NewBool(ctx, 0);
+    }
+
+    // Generate host key if needed
+    if (access("/etc/dropbear/dropbear_ed25519_host_key", F_OK) != 0) {
+        ac_log("[ssh] generating host key...\n");
+        system("mkdir -p /etc/dropbear && "
+               "dropbearkey -t ed25519 -f /etc/dropbear/dropbear_ed25519_host_key 2>/dev/null");
+    }
+
+    // Start dropbear (no password auth, only key-based or allow all for now)
+    // -R = generate keys if missing, -B = allow blank passwords (for root w/o passwd)
+    // -p 22 = listen on port 22, -F = foreground (& to background)
+    ac_log("[ssh] starting dropbear on port 22...\n");
+    system("dropbear -R -B -p 22 -P /tmp/dropbear.pid 2>/tmp/dropbear.log &");
+    ssh_started = 1;
+    ac_log("[ssh] dropbear started\n");
+    return JS_NewBool(ctx, 1);
+}
+
+// system.execNode(script) — run Node.js with a script string, async
+static JSValue js_exec_node(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (!current_rt || argc < 1) return JS_UNDEFINED;
+    if (current_rt->fetch_pending) return JS_FALSE; // reuse fetch slot for output
+
+    const char *script = JS_ToCString(ctx, argv[0]);
+    if (!script) return JS_UNDEFINED;
+
+    // Write script to temp file
+    FILE *sf = fopen("/tmp/ac_node_script.mjs", "w");
+    if (sf) { fputs(script, sf); fclose(sf); }
+
+    ac_log("[node] executing script (%ld bytes)\n", (long)strlen(script));
+    // Run node and capture output to /tmp/ac_fetch.json (reusing fetch result slot)
+    unlink("/tmp/ac_fetch.json");
+    unlink("/tmp/ac_fetch_rc");
+    unlink("/tmp/ac_fetch_err");
+    system("sh -c 'node /tmp/ac_node_script.mjs > /tmp/ac_fetch.json 2>/tmp/ac_fetch_err;"
+           " echo $? > /tmp/ac_fetch_rc' &");
+    current_rt->fetch_pending = 1;
+    current_rt->fetch_result[0] = 0;
+    current_rt->fetch_error[0] = 0;
+
+    JS_FreeCString(ctx, script);
+    return JS_TRUE;
+}
+
 static JSValue js_jump(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
     if (!current_rt || argc < 1) return JS_UNDEFINED;
@@ -1996,6 +2304,7 @@ static JSValue build_system_obj(JSContext *ctx) {
 
     // Async HTTP fetch — system.fetch(url) / system.fetchCancel() / system.fetchResult / system.fetchPending
     JS_SetPropertyStr(ctx, sys, "fetch", JS_NewCFunction(ctx, js_fetch, "fetch", 1));
+    JS_SetPropertyStr(ctx, sys, "fetchPost", JS_NewCFunction(ctx, js_fetch_post, "fetchPost", 3));
     JS_SetPropertyStr(ctx, sys, "fetchCancel", JS_NewCFunction(ctx, js_fetch_cancel, "fetchCancel", 0));
     JS_SetPropertyStr(ctx, sys, "fetchPending",
                       JS_NewBool(ctx, current_rt ? current_rt->fetch_pending : 0));
@@ -2085,6 +2394,22 @@ static JSValue build_system_obj(JSContext *ctx) {
             JS_SetPropertyStr(ctx, config, "handle", JS_NewString(ctx, current_rt->handle));
         if (current_rt && current_rt->piece[0])
             JS_SetPropertyStr(ctx, config, "piece", JS_NewString(ctx, current_rt->piece));
+        // Expose raw config JSON so pieces can read arbitrary fields
+        {
+            static char cfg_cache[8192] = {0};
+            if (config_cache_dirty) {
+                cfg_cache[0] = '\0';
+                FILE *cf = fopen("/mnt/config.json", "r");
+                if (cf) {
+                    size_t n = fread(cfg_cache, 1, sizeof(cfg_cache) - 1, cf);
+                    cfg_cache[n] = '\0';
+                    fclose(cf);
+                }
+                config_cache_dirty = 0;
+            }
+            if (cfg_cache[0])
+                JS_SetPropertyStr(ctx, config, "raw", JS_NewString(ctx, cfg_cache));
+        }
         JS_SetPropertyStr(ctx, sys, "config", config);
     }
 
@@ -2159,9 +2484,25 @@ static JSValue build_system_obj(JSContext *ctx) {
                           JS_NewBool(ctx, current_rt->flash_done));
         JS_SetPropertyStr(ctx, sys, "flashOk",
                           JS_NewBool(ctx, current_rt->flash_ok));
-        // Keep done latched until next flashUpdate() call resets it.
-        // Prevents missing completion when act/sim executes before paint.
+        // Phase: 0=idle 1=writing 2=syncing 3=verifying 4=done
+        JS_SetPropertyStr(ctx, sys, "flashPhase",
+                          JS_NewInt32(ctx, current_rt->flash_phase));
+        JS_SetPropertyStr(ctx, sys, "flashVerifiedBytes",
+                          JS_NewFloat64(ctx, (double)current_rt->flash_verified_bytes));
     }
+
+    // Config persistence
+    JS_SetPropertyStr(ctx, sys, "saveConfig",
+                      JS_NewCFunction(ctx, js_save_config, "saveConfig", 2));
+
+    // SSH daemon
+    JS_SetPropertyStr(ctx, sys, "startSSH",
+                      JS_NewCFunction(ctx, js_start_ssh, "startSSH", 0));
+    JS_SetPropertyStr(ctx, sys, "sshStarted", JS_NewBool(ctx, ssh_started));
+
+    // Node.js execution
+    JS_SetPropertyStr(ctx, sys, "execNode",
+                      JS_NewCFunction(ctx, js_exec_node, "execNode", 1));
 
     // Piece navigation
     JS_SetPropertyStr(ctx, sys, "jump",

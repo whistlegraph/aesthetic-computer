@@ -78,6 +78,10 @@ $(TARGET): $(OBJS) $(QJS_OBJS)
 # All .c files depend on all project headers (simple but correct)
 HEADERS := $(wildcard $(SRCDIR)/*.h)
 
+# Force js-bindings.o to rebuild every time so BUILD_TS is always fresh
+.PHONY: FORCE
+$(BUILDDIR)/js-bindings.o: FORCE
+
 $(BUILDDIR)/%.o: $(SRCDIR)/%.c $(HEADERS) | $(BUILDDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 

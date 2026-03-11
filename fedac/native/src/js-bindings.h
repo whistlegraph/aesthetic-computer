@@ -49,10 +49,12 @@ typedef struct {
     char  fetch_binary_dest[256];         // download destination path
     long  fetch_binary_expected;          // expected file size for progress
 
-    // Flash update (mount EFI partition, copy vmlinuz, umount)
+    // Flash update (mount EFI partition, copy vmlinuz, verify, umount)
     volatile int   flash_pending;         // 1 = flash thread running
     volatile int   flash_done;            // 1 = complete
     volatile int   flash_ok;             // 1 = success
+    volatile int   flash_phase;          // 0=idle 1=writing 2=syncing 3=verifying 4=done
+    volatile long  flash_verified_bytes; // bytes verified after readback
     pthread_t flash_thread;
     char  flash_src[256];                 // source vmlinuz path
     char  flash_device[64];              // EFI partition device, e.g. /dev/sda1 or /dev/nvme0n1p1

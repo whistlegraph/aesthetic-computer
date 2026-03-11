@@ -1062,7 +1062,9 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     const pct = Math.round((osProgress || 0) * 100);
     statusWrite("os " + pct + "%", 80, 180, 100, 180);
   } else if (autoUpdate.state === "flashing") {
-    statusWrite("flash", 255, 160, 60, 200);
+    const ap = system.flashPhase ?? 0;
+    const at = ap === 3 ? "verify" : "flash";
+    statusWrite(at, ap === 3 ? 100 : 255, ap === 3 ? 200 : 160, ap === 3 ? 255 : 60, 200);
   } else if (autoUpdate.state === "ready") {
     statusWrite("reboot?", 100, 220, 100, 220);
   } else if (autoUpdate.availableVersion && isRemoteVersionNewer(autoUpdate.availableVersion, osCurrentVersion)) {
@@ -1192,13 +1194,24 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       ink(dark ? 160 : 80);
       write(Math.round((osProgress || 0) * 100) + "%", { x: pad, y: barY2 + 12, size: 1, font: "font_1" });
     } else if (osState === "flashing") {
-      ink(255, 160, 60);
-      write("flashing EFI...", { x: pad, y: stateY, size: 1, font: "font_1" });
+      const phase = system.flashPhase ?? 0;
+      const phaseText = phase === 1 ? "writing EFI..."
+                      : phase === 2 ? "syncing to disk..."
+                      : phase === 3 ? "verifying..."
+                      : phase === 4 ? "done"
+                      : "preparing...";
+      const phaseColor = phase === 3 ? [100, 200, 255] : [255, 160, 60];
+      ink(...phaseColor);
+      write(phaseText, { x: pad, y: stateY, size: 1, font: "font_1" });
       ink(dark ? 140 : 80);
       write("do not power off", { x: pad, y: stateY + 14, size: 1, font: "font_1" });
     } else if (osState === "rebooting") {
+      const vb = system.flashVerifiedBytes ?? 0;
+      const mb = (vb / 1048576).toFixed(1);
+      ink(80, 255, 120);
+      write(`verified ${mb}MB`, { x: pad, y: stateY, size: 1, font: "font_1" });
       ink(200, 100, 60);
-      write("rebooting...", { x: pad, y: stateY, size: 1, font: "font_1" });
+      write("rebooting...", { x: pad, y: stateY + 14, size: 1, font: "font_1" });
     } else if (osState === "error") {
       ink(220, 80, 80);
       const errTxt = ("error: " + osError).slice(0, Math.floor((w - pad * 2) / 6));
@@ -1238,6 +1251,8 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     }
     // Kick off update check shortly after connect (background ping + auto-update path).
     scheduleAutoUpdateCheck(300);
+    // Start SSH daemon for remote access
+    if (!system.sshStarted) system.startSSH?.();
   }
   wifiWasConnected = !!wifi?.connected;
 
@@ -2281,7 +2296,8 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     // Connected IP + latest AC message at bottom
     if (wifi.connected && wifi.ip) {
       ink(80, 200, 80);
-      write("connected: " + wifi.ip, { x: 20, y: h - 26, size: 1, font: "font_1" });
+      const sshLabel = system.sshStarted ? "  ssh root@" + wifi.ip : "";
+      write("connected: " + wifi.ip + sshLabel, { x: 20, y: h - 26, size: 1, font: "font_1" });
       if (acMsg) {
         ink(FG_DIM, FG_DIM, FG_DIM);
         const preview = (acMsg.from + ": " + acMsg.text).slice(0, 52);

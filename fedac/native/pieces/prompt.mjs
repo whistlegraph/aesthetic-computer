@@ -140,7 +140,23 @@ function execute(cmd, system) {
     return;
   }
   if (lower === "help") {
-    message = "type kidlisp or $roz | esc:notepat";
+    message = "type kidlisp or $roz | claude | esc:notepat";
+    messageFrame = 0;
+    return;
+  }
+  if (lower === "claude" || lower === "cl") {
+    message = "~> claude";
+    messageFrame = 0;
+    system?.jump?.("claude");
+    return;
+  }
+  if (lower === "ssh") {
+    if (system?.sshStarted) {
+      message = "ssh running on port 22";
+    } else {
+      system?.startSSH?.();
+      message = "starting ssh...";
+    }
     messageFrame = 0;
     return;
   }
