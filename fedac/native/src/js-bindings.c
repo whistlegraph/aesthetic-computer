@@ -15,6 +15,8 @@
 
 // Defined in ac-native.c — logs to USB mount
 extern void ac_log(const char *fmt, ...);
+extern void ac_log_pause(void);
+extern void ac_log_resume(void);
 
 // Thread-local reference to current runtime (for C callbacks from JS)
 static __thread ACRuntime *current_rt = NULL;
@@ -591,6 +593,11 @@ static JSValue js_mic_cut(JSContext *ctx, JSValueConst this_val, int argc, JSVal
            len,
            current_rt->audio->sample_rate,
            current_rt->audio->mic_last_error[0] ? current_rt->audio->mic_last_error : "(none)");
+    // Persist sample to disk for next boot
+    if (len > 0) {
+        int saved = audio_sample_save(current_rt->audio, "/mnt/ac-sample.raw");
+        ac_log("[js][mic] sample saved to /mnt/ac-sample.raw (%d samples)\n", saved);
+    }
     return JS_NewInt32(ctx, len);
 }
 
@@ -1157,19 +1164,16 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
     JS_SetPropertyStr(ctx, speaker, "sampleRate",
         JS_NewInt32(ctx, rt->audio ? (int)rt->audio->actual_rate : AUDIO_SAMPLE_RATE));
 
-    // waveforms
+    // waveforms (32 samples, left channel only — sufficient for visualizer)
     JSValue waveforms = JS_NewObject(ctx);
     JSValue wf_left = JS_NewArray(ctx);
-    JSValue wf_right = JS_NewArray(ctx);
     if (rt->audio) {
-        for (int i = 0; i < 128; i++) {
-            int idx = (rt->audio->waveform_pos - 128 + i + AUDIO_WAVEFORM_SIZE) % AUDIO_WAVEFORM_SIZE;
+        for (int i = 0; i < 32; i++) {
+            int idx = (rt->audio->waveform_pos - 32 + i + AUDIO_WAVEFORM_SIZE) % AUDIO_WAVEFORM_SIZE;
             JS_SetPropertyUint32(ctx, wf_left, i, JS_NewFloat64(ctx, rt->audio->waveform_left[idx]));
-            JS_SetPropertyUint32(ctx, wf_right, i, JS_NewFloat64(ctx, rt->audio->waveform_right[idx]));
         }
     }
     JS_SetPropertyStr(ctx, waveforms, "left", wf_left);
-    JS_SetPropertyStr(ctx, waveforms, "right", wf_right);
     JS_SetPropertyStr(ctx, speaker, "waveforms", waveforms);
 
     // amplitudes
@@ -1607,6 +1611,7 @@ static JSValue js_fetch_binary(JSContext *ctx, JSValueConst this_val, int argc, 
         JS_ToFloat64(ctx, &v, argv[2]);
         expected = (long)v;
     }
+    ac_log("[fetchBinary] start: url=%s dest=%s expected=%ld\n", url, dest, expected);
     // Reset state
     current_rt->fetch_binary_pending  = 1;
     current_rt->fetch_binary_done     = 0;
@@ -1626,6 +1631,7 @@ static JSValue js_fetch_binary(JSContext *ctx, JSValueConst this_val, int argc, 
         "--cacert /etc/pki/tls/certs/ca-bundle.crt "
         "--output \"%s\" \"%s\" 2>/tmp/ac_fb_err;"
         " echo $? > /tmp/ac_fb_rc' &", dest, url);
+    ac_log("[fetchBinary] cmd: curl -> %s\n", dest);
     system(cmd);
     JS_FreeCString(ctx, url);
     JS_FreeCString(ctx, dest);
@@ -1661,8 +1667,9 @@ static long flash_copy_file(const char *src, const char *dst) {
         ac_log("[flash] fopen src failed: %s errno=%d (%s)", src, errno, strerror(errno));
         return -1;
     }
-    // Delete destination first (vfat may block overwrite of in-use file)
+    // Delete destination first, then sync to flush vfat metadata
     unlink(dst);
+    sync();
     FILE *out = fopen(dst, "wb");
     if (!out) {
         ac_log("[flash] fopen dst failed: %s errno=%d (%s)", dst, errno, strerror(errno));
@@ -1726,8 +1733,24 @@ static void *flash_thread_fn(void *arg) {
         snprintf(dst, sizeof(dst), "%s/EFI/BOOT/BOOTX64.EFI", efi_mount);
         ac_log("[flash] no chainloader, updating BOOTX64.EFI");
     }
+
+    // Close the log file before writing to the same vfat partition
+    // (vfat can fail writes when another file handle is open on the same mount)
+    int same_mount = (strcmp(efi_mount, "/mnt") == 0);
+    if (same_mount) {
+        ac_log("[flash] pausing log for write to /mnt");
+        ac_log_pause();
+    }
+
     long copied = flash_copy_file(rt->flash_src, dst);
     sync();
+
+    // Reopen log file after flash write
+    if (same_mount) {
+        ac_log_resume();
+        ac_log("[flash] log resumed after write");
+    }
+
     if (efi_mount != NULL && strcmp(efi_mount, "/tmp/efi") == 0) {
         umount("/tmp/efi");
     }
@@ -1751,9 +1774,10 @@ static void *flash_thread_fn(void *arg) {
 // devicePath defaults to auto-detected boot device if omitted
 static JSValue js_flash_update(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
-    if (!current_rt || argc < 1) return JS_UNDEFINED;
+    if (!current_rt || argc < 1) { ac_log("[flash] flashUpdate called with no runtime/args\n"); return JS_UNDEFINED; }
     const char *src = JS_ToCString(ctx, argv[0]);
-    if (!src) return JS_UNDEFINED;
+    if (!src) { ac_log("[flash] flashUpdate: null src arg\n"); return JS_UNDEFINED; }
+    ac_log("[flash] flashUpdate called: src=%s\n", src);
     current_rt->flash_pending = 1;
     current_rt->flash_done    = 0;
     current_rt->flash_ok      = 0;
@@ -1790,6 +1814,11 @@ static JSValue js_flash_update(JSContext *ctx, JSValueConst this_val, int argc, 
 static JSValue js_reboot(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)ctx; (void)this_val; (void)argc; (void)argv;
     ac_log("[system] reboot requested — executing syscall");
+    // Play shutdown chime and let audio drain before rebooting
+    if (current_rt && current_rt->audio) {
+        audio_shutdown_sound(current_rt->audio);
+        usleep(500000);  // 500ms for chime to play
+    }
     sync();  // flush all pending writes
     if (getpid() == 1) {
         reboot(LINUX_REBOOT_CMD_RESTART);
@@ -2106,6 +2135,8 @@ static JSValue build_system_obj(JSContext *ctx) {
                 current_rt->fetch_binary_done     = 1;
                 current_rt->fetch_binary_ok       = (rc == 0) ? 1 : 0;
                 current_rt->fetch_binary_progress = (rc == 0) ? 1.0f : 0.0f;
+                ac_log("[fetchBinary] complete: rc=%d ok=%d dest=%s\n",
+                       rc, current_rt->fetch_binary_ok, current_rt->fetch_binary_dest);
             }
         }
         JS_SetPropertyStr(ctx, sys, "fetchBinaryProgress",

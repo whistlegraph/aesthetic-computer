@@ -51,10 +51,36 @@ void graph_line(ACGraph *g, int x0, int y0, int x1, int y1) {
 
 void graph_box(ACGraph *g, int x, int y, int w, int h, int filled) {
     if (filled) {
-        // Filled rectangle
-        for (int row = y; row < y + h; row++) {
-            for (int col = x; col < x + w; col++) {
-                graph_plot(g, col, row);
+        // Clip to framebuffer bounds once
+        int x0 = x < 0 ? 0 : x;
+        int y0 = y < 0 ? 0 : y;
+        int x1 = x + w > g->fb->width ? g->fb->width : x + w;
+        int y1 = y + h > g->fb->height ? g->fb->height : y + h;
+        if (x0 >= x1 || y0 >= y1) return;
+        uint32_t color = g->ink_packed;
+        uint8_t sa = g->ink.a;
+        if (sa == 255) {
+            // Opaque fast path — memset-style
+            int span = x1 - x0;
+            for (int row = y0; row < y1; row++) {
+                uint32_t *dst = &g->fb->pixels[row * g->fb->stride + x0];
+                for (int i = 0; i < span; i++) dst[i] = color;
+            }
+        } else if (sa > 0) {
+            // Alpha blend — no per-pixel bounds check
+            uint8_t sr = (color >> 16) & 0xFF;
+            uint8_t sg_c = (color >> 8) & 0xFF;
+            uint8_t sb = color & 0xFF;
+            uint16_t inv = 255 - sa;
+            for (int row = y0; row < y1; row++) {
+                uint32_t *dst = &g->fb->pixels[row * g->fb->stride + x0];
+                for (int col = x0; col < x1; col++, dst++) {
+                    uint32_t d = *dst;
+                    uint8_t r = (sr * sa + ((d >> 16) & 0xFF) * inv) / 255;
+                    uint8_t gc = (sg_c * sa + ((d >> 8) & 0xFF) * inv) / 255;
+                    uint8_t b = (sb * sa + (d & 0xFF) * inv) / 255;
+                    *dst = (255u << 24) | ((uint32_t)r << 16) | ((uint32_t)gc << 8) | b;
+                }
             }
         }
     } else {

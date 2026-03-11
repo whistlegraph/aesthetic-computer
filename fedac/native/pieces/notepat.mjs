@@ -3,6 +3,10 @@
 let sounds = {};
 let trail = {};
 let frame = 0;
+let fpsLastTime = 0;
+let fpsDisplay = 0;
+let fpsAccum = 0;
+let fpsSamples = 0;
 let octave = 4;
 let wave = "sine";
 let waveIndex = 0;
@@ -244,7 +248,12 @@ function hitTestGrid(x, y, gi) {
 
 // Play a short identifying blip in the new wave type when switching
 function playWaveSound(sound, waveType) {
-  if (!sound?.synth || waveType === "sample") return;
+  if (!sound?.synth) return;
+  if (waveType === "sample") {
+    // Short percussive click for sample mode
+    sound.synth({ type: "noise", tone: 800, duration: 0.03, volume: 0.12, attack: 0.001, decay: 0.025, pan: 0 });
+    return;
+  }
   const tones = { sine: 660, triangle: 550, sawtooth: 440, square: 330, noise: 220 };
   sound.synth({
     type: waveType === "noise" ? "noise" : waveType,
@@ -280,6 +289,7 @@ function setWave(nextWave, sound) {
     // Open hot-mic so device stays ready — recording is instant after this.
     // Always call open(); C side is idempotent if already hot.
     sound?.microphone?.open?.();
+    playWaveSound(sound, wave);
     console.log(`[sample] wave-enter: loaded=${sampleLoaded} len=${mic.sampleLength || 0} rate=${mic.sampleRate || 0} connected=${!!mic.connected} hot=${!!mic.hot} device=${mic.device || "none"} err=${mic.lastError || ""}`);
   } else {
     // Close hot-mic when leaving sample mode to free the device
@@ -393,7 +403,16 @@ function act({ event: e, sound, wifi, system }) {
 
     if (key === "escape" && activeScreen === "wifi") { activeScreen = "notepat"; return; }
     if (key === "escape" && activeScreen === "os") { activeScreen = "notepat"; osState = "idle"; return; }
-    if (key === "escape" && activeScreen === "notepat") { system?.jump?.("prompt"); return; }
+    if (key === "escape" && activeScreen === "notepat") {
+      // Kill all active sounds before leaving
+      for (const k of Object.keys(sounds)) {
+        const s = sounds[k].synth || sounds[k];
+        sound?.kill(s, 0.05);
+      }
+      sounds = {};
+      system?.jump?.("prompt");
+      return;
+    }
     if (key === "shift") { quickMode = !quickMode; return; }
     if (key === "tab") {
       const idx = (waveIndex + 1) % wavetypes.length;
@@ -517,6 +536,11 @@ function act({ event: e, sound, wifi, system }) {
     // "notepat.com" label: jump to prompt piece
     const nb = globalThis.__npBtn;
     if (nb && y < nb.h && x >= 0 && x <= nb.w) {
+      for (const k of Object.keys(sounds)) {
+        const s = sounds[k].synth || sounds[k];
+        sound?.kill(s, 0.05);
+      }
+      sounds = {};
       system?.jump?.("prompt");
       return;
     }
@@ -551,6 +575,7 @@ function act({ event: e, sound, wifi, system }) {
         const btnX2 = Math.floor((w - btnW2) / 2);
         const btnY2 = stateY2 + 34;
         if (y >= btnY2 && y <= btnY2 + 18 && x >= btnX2 && x <= btnX2 + btnW2) {
+          console.log(`[os] manual download: ${OS_VMLINUZ_URL} -> /tmp/vmlinuz.new (${OS_VMLINUZ_BYTES} bytes)`);
           osState = "downloading";
           osProgress = 0;
           system?.fetchBinary?.(
@@ -848,6 +873,18 @@ function act({ event: e, sound, wifi, system }) {
 
 function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, pressures, wifi }) {
   frame++;
+  // FPS tracking
+  const now = performance.now();
+  if (fpsLastTime > 0) {
+    fpsAccum += now - fpsLastTime;
+    fpsSamples++;
+    if (fpsSamples >= 30) {
+      fpsDisplay = Math.round(30000 / fpsAccum);
+      fpsAccum = 0;
+      fpsSamples = 0;
+    }
+  }
+  fpsLastTime = now;
   const activeCount = Object.keys(sounds).length;
   const w = screen.width;
   const h = screen.height;
@@ -1295,9 +1332,11 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     osProgress = system.fetchBinaryProgress ?? osProgress;
     if (system.fetchBinaryDone) {
       if (system.fetchBinaryOk) {
+        console.log("[os] auto-download complete, starting flash");
         autoUpdate.state = "flashing";
         system.flashUpdate?.("/tmp/vmlinuz.new"); // auto-detects boot device
       } else {
+        console.log("[os] auto-download FAILED");
         autoUpdate.lastError = "download failed";
         autoUpdate.state = "checking";
         autoUpdate.nextCheckFrame = frame + OS_AUTO_RETRY_FRAMES;
@@ -1312,6 +1351,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         autoUpdate.lastError = "";
         console.log("[os] auto-update flashed successfully, awaiting manual reboot");
       } else {
+        console.log("[os] auto-flash FAILED");
         autoUpdate.lastError = "flash failed";
         autoUpdate.state = "checking";
         autoUpdate.nextCheckFrame = frame + OS_AUTO_RETRY_FRAMES;
@@ -1351,9 +1391,11 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       osProgress = system.fetchBinaryProgress ?? osProgress;
       if (system.fetchBinaryDone) {
         if (system.fetchBinaryOk) {
+          console.log("[os] manual download complete, starting flash");
           osState = "flashing";
           system.flashUpdate?.("/tmp/vmlinuz.new");
         } else {
+          console.log("[os] manual download FAILED");
           osError = "download failed";
           osState = "error";
         }
@@ -1362,15 +1404,18 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     if (osState === "flashing") {
       if (system.flashDone) {
         if (system.flashOk) {
+          console.log("[os] manual flash complete! ready to reboot");
           osState = "rebooting";
           globalThis.__osRebootFrame = frame + 180; // 3s at 60fps
         } else {
+          console.log("[os] manual flash FAILED");
           osError = "flash failed";
           osState = "error";
         }
       }
     }
     if (osState === "rebooting" && globalThis.__osRebootFrame && frame >= globalThis.__osRebootFrame) {
+      console.log("[os] rebooting now!");
       system.reboot?.();
     }
   }
@@ -1656,6 +1701,17 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     globalThis.__brtBar = { x: rx, w: brtBarX + brtW - rx, barX: brtBarX, barW: brtW };
   }
 
+  // FPS counter (left of brightness)
+  if (fpsDisplay > 0) {
+    rx -= 4;
+    const fpsStr = fpsDisplay + "";
+    const fpsColor = fpsDisplay >= 55 ? (dark ? 80 : 180) : (fpsDisplay >= 30 ? (dark ? 200 : 180) : 255);
+    const fpsG = fpsDisplay >= 55 ? (dark ? 180 : 180) : (fpsDisplay >= 30 ? (dark ? 160 : 120) : 60);
+    ink(fpsColor, fpsG, dark ? 80 : 80);
+    rx -= fpsStr.length * CH;
+    write(fpsStr, { x: rx, y: barY, size: 1 });
+  }
+
   // === NOTEPAT SCREEN: pads, waveform, echo slider ===
   if (activeScreen === "notepat") {
 
@@ -1753,25 +1809,28 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
           box(x, y, btnW, btnH, true);
           ink(dark ? 200 : 40, dark ? 200 : 40, dark ? 200 : 40);
         } else {
-          // Idle: saturated note color
+          // Idle: note color — sharps are darker (black keys)
+          const sharpDim = sharp ? 0.15 : 0.35;
+          const sharpDimL = sharp ? 0.08 : 0.3;
           if (dark) {
-            ink(Math.floor(nc[0] * 0.35) + 20,
-                Math.floor(nc[1] * 0.35) + 20,
-                Math.floor(nc[2] * 0.35) + 22);
+            ink(Math.floor(nc[0] * sharpDim) + (sharp ? 8 : 20),
+                Math.floor(nc[1] * sharpDim) + (sharp ? 8 : 20),
+                Math.floor(nc[2] * sharpDim) + (sharp ? 10 : 22));
           } else {
-            ink(Math.floor(255 - (255 - nc[0]) * 0.3),
-                Math.floor(255 - (255 - nc[1]) * 0.3),
-                Math.floor(255 - (255 - nc[2]) * 0.3));
+            ink(Math.floor(255 - (255 - nc[0]) * sharpDimL) - (sharp ? 60 : 0),
+                Math.floor(255 - (255 - nc[1]) * sharpDimL) - (sharp ? 60 : 0),
+                Math.floor(255 - (255 - nc[2]) * sharpDimL) - (sharp ? 60 : 0));
           }
           box(x, y, btnW, btnH, true);
+          const outDim = sharp ? 0.25 : 0.5;
           if (dark) {
-            ink(Math.floor(nc[0] * 0.5) + 30,
-                Math.floor(nc[1] * 0.5) + 30,
-                Math.floor(nc[2] * 0.5) + 33);
+            ink(Math.floor(nc[0] * outDim) + (sharp ? 15 : 30),
+                Math.floor(nc[1] * outDim) + (sharp ? 15 : 30),
+                Math.floor(nc[2] * outDim) + (sharp ? 18 : 33));
           } else {
-            ink(Math.floor(255 - (255 - nc[0]) * 0.45),
-                Math.floor(255 - (255 - nc[1]) * 0.45),
-                Math.floor(255 - (255 - nc[2]) * 0.45));
+            ink(Math.floor(255 - (255 - nc[0]) * 0.45) - (sharp ? 40 : 0),
+                Math.floor(255 - (255 - nc[1]) * 0.45) - (sharp ? 40 : 0),
+                Math.floor(255 - (255 - nc[2]) * 0.45) - (sharp ? 40 : 0));
           }
           box(x, y, btnW, btnH, "outline");
           if (isHovered) {
@@ -1808,7 +1867,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   drawGrid(RIGHT_GRID, rightX, 0);
 
   // === SLIDERS: fx mix, echo, and pitch (directly under status bar) ===
-  const settingsY = topBarH + 1;
+  const settingsY = topBarH;
 
   // FX mix slider (dry/wet for entire FX chain)
   {
@@ -1900,24 +1959,49 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     const waveAreaW = w - octBtnW - 1;
     const btnW2 = Math.floor(waveAreaW / wavetypes.length);
 
+    // Wave type colors: sin=blue, tri=green, saw=orange, sq=purple, ns=red, smp=cyan
+    const WAVE_COLORS = [
+      [60, 120, 255],  // sine — blue
+      [60, 200, 80],   // triangle — green
+      [255, 150, 40],  // sawtooth — orange
+      [160, 80, 220],  // square — purple
+      [220, 60, 60],   // noise — red
+      [40, 200, 200],  // sample — cyan
+    ];
+
     // Draw each wave button
     for (let i = 0; i < wavetypes.length; i++) {
       const bx = i * btnW2;
       const isActive = wave === wavetypes[i];
       const isHov = hoverX >= bx && hoverX < bx + btnW2 && hoverY >= waveRowY && hoverY < waveRowY + waveRowH;
+      const wc = WAVE_COLORS[i];
       if (isActive) {
-        ink(dark ? 55 : 200, dark ? 75 : 210, dark ? 110 : 230);
+        ink(dark ? Math.floor(wc[0] * 0.4) + 20 : Math.floor(255 - (255 - wc[0]) * 0.3),
+            dark ? Math.floor(wc[1] * 0.4) + 20 : Math.floor(255 - (255 - wc[1]) * 0.3),
+            dark ? Math.floor(wc[2] * 0.4) + 20 : Math.floor(255 - (255 - wc[2]) * 0.3));
         box(bx, waveRowY, btnW2, waveRowH, true);
-        ink(dark ? 200 : 30, dark ? 220 : 40, dark ? 255 : 60);
+        ink(dark ? 220 : 30, dark ? 240 : 40, dark ? 255 : 50);
       } else if (isHov) {
-        ink(dark ? 35 : 210, dark ? 35 : 210, dark ? 40 : 215);
+        ink(dark ? Math.floor(wc[0] * 0.2) + 15 : Math.floor(255 - (255 - wc[0]) * 0.15),
+            dark ? Math.floor(wc[1] * 0.2) + 15 : Math.floor(255 - (255 - wc[1]) * 0.15),
+            dark ? Math.floor(wc[2] * 0.2) + 15 : Math.floor(255 - (255 - wc[2]) * 0.15));
         box(bx, waveRowY, btnW2, waveRowH, true);
-        ink(dark ? 160 : 80, dark ? 160 : 80, dark ? 170 : 90);
+        ink(dark ? 180 : 70, dark ? 180 : 70, dark ? 190 : 80);
       } else {
-        ink(dark ? 20 : 225, dark ? 20 : 225, dark ? 25 : 230);
+        ink(dark ? Math.floor(wc[0] * 0.12) + 10 : Math.floor(255 - (255 - wc[0]) * 0.08),
+            dark ? Math.floor(wc[1] * 0.12) + 10 : Math.floor(255 - (255 - wc[1]) * 0.08),
+            dark ? Math.floor(wc[2] * 0.12) + 10 : Math.floor(255 - (255 - wc[2]) * 0.08));
         box(bx, waveRowY, btnW2, waveRowH, true);
-        ink(dark ? 100 : 140, dark ? 100 : 140, dark ? 110 : 150);
+        ink(dark ? Math.floor(wc[0] * 0.35) + 40 : Math.floor(wc[0] * 0.5) + 40,
+            dark ? Math.floor(wc[1] * 0.35) + 40 : Math.floor(wc[1] * 0.5) + 40,
+            dark ? Math.floor(wc[2] * 0.35) + 40 : Math.floor(wc[2] * 0.5) + 40);
       }
+      // Color accent strip at bottom of each button
+      ink(dark ? Math.floor(wc[0] * 0.6) : wc[0],
+          dark ? Math.floor(wc[1] * 0.6) : wc[1],
+          dark ? Math.floor(wc[2] * 0.6) : wc[2],
+          isActive ? 200 : 80);
+      box(bx, waveRowY + waveRowH - 2, btnW2, 2, true);
       // Separator line between buttons
       if (i > 0) {
         ink(dark ? 40 : 190, dark ? 40 : 190, dark ? 45 : 195);

@@ -54,6 +54,24 @@ void ac_log(const char *fmt, ...) {
     va_end(args2);
 }
 
+// Temporarily close the log file (e.g. before flash writes to same partition)
+void ac_log_pause(void) {
+    if (logfile) {
+        fflush(logfile);
+        fsync(fileno(logfile));
+        fclose(logfile);
+        logfile = NULL;
+    }
+}
+
+// Reopen the log file in append mode after a pause
+void ac_log_resume(void) {
+    if (!logfile) {
+        logfile = fopen("/mnt/ac-native.log", "a");
+        // If reopen fails, logging continues to stderr only
+    }
+}
+
 // Mount minimal filesystems (PID 1 only)
 static void mount_minimal_fs(void) {
     mkdir("/proc", 0755);
@@ -882,9 +900,9 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
         // Fade from black to yellow bg (complete in first 0.3s)
         double fade_t = t * 3.33;
         if (fade_t > 1.0) fade_t = 1.0;
-        int bg_r = (int)(55 * fade_t);  // yellow
-        int bg_g = (int)(45 * fade_t);
-        int bg_b = (int)(8 * fade_t);
+        int bg_r = (int)(40 * fade_t);
+        int bg_g = (int)(20 * fade_t);
+        int bg_b = (int)(30 * fade_t);
         graph_wipe(graph, (ACColor){(uint8_t)bg_r, (uint8_t)bg_g, (uint8_t)bg_b, 255});
 
         // Title — per-handle palette (fallback rainbow), animated pulse
@@ -1107,6 +1125,10 @@ int main(int argc, char *argv[]) {
 
     // Init audio + TTS early (needed for boot animation speech)
     ACAudio *audio = audio_init();
+    // Load persisted sample (overrides default seed if file exists)
+    if (audio && audio_sample_load(audio, "/mnt/ac-sample.raw") > 0) {
+        ac_log("[audio] loaded persisted sample (%d samples)\n", audio->sample_len);
+    }
     audio_boot_beep(audio);
     ACTts *tts = tts_init(audio);
 
@@ -1167,8 +1189,9 @@ int main(int argc, char *argv[]) {
             if (tts) {
                 tts_speak(tts, "rebooting");
                 tts_wait(tts);
-                usleep(250000);
             }
+            audio_shutdown_sound(audio);
+            usleep(600000); // let chime play out
             sync();
             reboot(LINUX_REBOOT_CMD_RESTART);
             // If reboot syscall fails, hold instead of continuing from USB.
@@ -1265,6 +1288,9 @@ int main(int argc, char *argv[]) {
     }
     audio_ready_melody(audio);
     usleep(400000); // Let melody ring out before playing
+
+    // Prewarm audio engine so first keypress has zero latency
+    audio_prewarm(audio);
 
     // Call boot()
     js_call_boot(rt);
