@@ -444,8 +444,7 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
             ? ` (${progress.currentFrame}/${progress.totalFrames})`
             : "";
           const pct = progress.percent != null ? ` ${progress.percent}%` : "";
-          const previewFrame = progress.previewFrame || null;
-          await updateJobStage(jobId, stage, `${detail}${frame}${pct}`, { previewFrame });
+          await updateJobStage(jobId, stage, `${detail}${frame}${pct}`);
         }
       } catch {}
     }, 2000);
@@ -618,7 +617,7 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
     if (thumbResult?.ipfsUri) {
       thumbnailUri = thumbResult.ipfsUri;
       await setJobResult(jobId, { thumbnailUri });
-      await updateJobStage(jobId, "thumbnail", "Thumbnail baked", { previewFrame: null });
+      await updateJobStage(jobId, "thumbnail", "Thumbnail baked");
       log("thumbnail", `Done: ${thumbnailUri}`);
     } else {
       const preexisting = piece.ipfsMedia?.thumbnailUri;
