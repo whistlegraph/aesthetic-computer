@@ -57,6 +57,7 @@ let kl = null;
 let ast = null;
 let error = null;
 let sourceLabel = "";
+let originalSource = "";
 
 function boot({ wipe, screen }) {
   wipe(0, 0, 0);
@@ -68,6 +69,7 @@ function boot({ wipe, screen }) {
 
   // Read source: prefer globalThis.__kidlispSource, fall back to ROZ_SOURCE
   const source = globalThis.__kidlispSource || ROZ_SOURCE;
+  originalSource = source;
   sourceLabel = globalThis.__kidlispLabel || (source === ROZ_SOURCE ? "$roz" : "lisp");
   // Clear global after reading
   globalThis.__kidlispSource = undefined;
@@ -88,7 +90,9 @@ function boot({ wipe, screen }) {
 }
 
 function act({ event: e, system }) {
-  if (e.is("keyboard:down:escape")) {
+  if (e.is("keyboard:down:escape") || e.is("keyboard:down:backspace")) {
+    // Return to prompt with source preserved (cursor at end)
+    globalThis.__promptRestore = originalSource;
     system?.jump?.("prompt");
   }
 }
