@@ -50,6 +50,7 @@ let brtDragging = false;
 
 // Pitch shift — controlled by trackpad Y / slider
 let pitchShift = 0; // -1 to +1, 0 = no shift
+let lastAppliedPitch = 0; // last pitch actually sent to synths (throttle)
 
 // Trackpad FX control (\ toggles on/off)
 let trackpadFX = false;
@@ -703,7 +704,10 @@ function act({ event: e, sound, wifi, system }) {
       const factor = Math.pow(2, effectivePitchShift());
       for (const k of Object.keys(sounds)) {
         const s = sounds[k];
-        if (s && s.synth && s.baseFreq) s.synth.update({ tone: s.baseFreq * factor });
+        if (s && s.synth && s.baseFreq) {
+          if (s.isSample) s.synth.update({ tone: s.baseFreq * factor, base: SAMPLE_BASE_FREQ });
+          else s.synth.update({ tone: s.baseFreq * factor });
+        }
       }
       return;
     }
@@ -787,7 +791,10 @@ function act({ event: e, sound, wifi, system }) {
       const factor = Math.pow(2, effectivePitchShift());
       for (const k of Object.keys(sounds)) {
         const s = sounds[k];
-        if (s && s.synth && s.baseFreq) s.synth.update({ tone: s.baseFreq * factor });
+        if (s && s.synth && s.baseFreq) {
+          if (s.isSample) s.synth.update({ tone: s.baseFreq * factor, base: SAMPLE_BASE_FREQ });
+          else s.synth.update({ tone: s.baseFreq * factor });
+        }
       }
     }
     if (volDragging) {
@@ -907,16 +914,25 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   if (trackpadFX && trackpad) {
     if (trackpad.dx !== 0) {
       echoMix = Math.max(0, Math.min(1, echoMix + (trackpad.dx * 3) / w));
-      sound?.room?.setMix?.(echoMix);
+      if (frame % 3 === 0) sound?.room?.setMix?.(echoMix);
     }
     if (trackpad.dy !== 0) {
       pitchShift = Math.max(-1, Math.min(1, pitchShift - trackpad.dy / h));
-      // Apply pitch shift to all active voices
-      const factor = Math.pow(2, effectivePitchShift()); // ±1 octave
+    }
+    // Apply pitch shift to active voices — throttled to every 4th frame
+    // and only when pitch actually changed
+    const ep = effectivePitchShift();
+    if (frame % 4 === 0 && Math.abs(ep - lastAppliedPitch) > 0.001) {
+      lastAppliedPitch = ep;
+      const factor = Math.pow(2, ep); // ±1 octave
       for (const key of Object.keys(sounds)) {
         const s = sounds[key];
         if (s && s.synth && s.baseFreq) {
-          s.synth.update({ tone: s.baseFreq * factor });
+          if (s.isSample) {
+            s.synth.update({ tone: s.baseFreq * factor, base: SAMPLE_BASE_FREQ });
+          } else {
+            s.synth.update({ tone: s.baseFreq * factor });
+          }
         }
       }
     }
@@ -1686,8 +1702,15 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       else if (batPct <= 50) ink(200, 160, 0);
       else ink(50, 160, 50);
       if (fillW > 0) box(batX + 1, barY + 1, fillW, batH - 2, true);
+      // Charging indicator: yellow bolt inside battery
+      if (bat?.charging) {
+        ink(255, 220, 40);
+        box(batX + 4, barY + 1, 2, 2, true);
+        box(batX + 3, barY + 3, 2, 2, true);
+        box(batX + 5, barY + 2, 1, 1, true);
+      }
     }
-    const pctStr = batPct + "%";
+    const pctStr = (bat?.charging ? "+" : "") + batPct + "%";
     rx -= pctStr.length * CH + 2;
     if (batCritical && !batVisible) {
       ink(255, 0, 0); // red flash on text during blink-off
@@ -2102,55 +2125,39 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       write("o:" + octave, { x: obx + 3, y: waveRowY + 3, size: 1, font: "font_1" });
     }
 
-    // Mic diagnostics strip in sample mode (status + live level).
+    // Mic level meter in sample mode — compact multi-segment bar next to REC.
     if (wave === "sample") {
       const infoY = waveRowY + waveRowH + 1;
-      const micConnected = !!mic.connected;
       const level = Math.max(0, Math.min(1, mic.level || 0));
       const len = mic.sampleLength || 0;
       const rate = mic.sampleRate || 0;
-      const secs = (rate > 0 && len > 0) ? (len / rate).toFixed(2) : "0.00";
-      const status = recording
-        ? `mic rec ${Math.round(level * 100)}%`
-        : (micConnected ? `mic ready ${secs}s` : `mic idle ${secs}s`);
-      if (recording) ink(255, 110, 110);
-      else if (micConnected) ink(120, 220, 120);
-      else ink(dark ? 150 : 110, dark ? 150 : 110, dark ? 165 : 120);
-      write(status, { x: 2, y: infoY, size: 1, font: "font_1" });
 
-      // Device / error tail for debugging (truncated to fit).
-      const tail = mic.lastError
-        ? ("err: " + mic.lastError)
-        : ("dev: " + (mic.device || "none") + " chunk:" + (mic.lastChunk || 0));
-      const maxTail = Math.floor((w - 4) / 6);
-      ink(dark ? 95 : 150, dark ? 95 : 150, dark ? 110 : 165);
-      write(tail.slice(0, maxTail), { x: 2, y: infoY + 9, size: 1, font: "font_1" });
-
-      // Live level bar near REC button.
-      const meterW = octBtnW - 4;
-      const meterH = 3;
-      const meterX = obx + 2;
-      const meterY = infoY + 2;
-      ink(dark ? 35 : 210, dark ? 35 : 210, dark ? 40 : 215);
-      box(meterX, meterY, meterW, meterH, true);
-      if (level > 0.01) {
-        ink(255, 90, 90);
-        box(meterX, meterY, Math.max(1, Math.floor(meterW * level)), meterH, true);
+      // Compact label: duration when loaded, nothing otherwise
+      if (len > 0 && rate > 0) {
+        ink(dark ? 120 : 100, dark ? 120 : 100, dark ? 135 : 115);
+        write((len / rate).toFixed(1) + "s", { x: 2, y: infoY + 1, size: 1, font: "font_1" });
       }
 
-      // Live mic level bar — simple peak meter below status text
-      if (mic.hot) {
-        const lvY = infoY + 19;
-        const lvH = 6;
-        // Background
-        ink(dark ? 20 : 230, dark ? 20 : 230, dark ? 25 : 235);
-        box(0, lvY, w, lvH, true);
-        // Level bar
-        const lvl = mic.level || 0;
-        if (lvl > 0.005) {
-          ink(recording ? 255 : 100, recording ? 80 : 180, recording ? 80 : 100);
-          box(0, lvY, Math.max(1, Math.round(w * Math.min(1, lvl))), lvH, true);
+      // Multi-segment level meter (spans most of the row)
+      const meterX = (len > 0 && rate > 0) ? 30 : 2;
+      const meterW = obx - meterX - 2;
+      const meterH = 7;
+      const meterY = infoY + 1;
+      const segments = 16;
+      const segW = Math.max(2, Math.floor((meterW - segments + 1) / segments));
+      const gap = 1;
+      const lit = Math.round(level * segments);
+      for (let s = 0; s < segments; s++) {
+        const sx = meterX + s * (segW + gap);
+        if (s < lit) {
+          // Green → yellow → red gradient
+          if (s < segments * 0.6) ink(60, 200, 80);
+          else if (s < segments * 0.85) ink(220, 200, 40);
+          else ink(255, 60, 60);
+        } else {
+          ink(dark ? 30 : 215, dark ? 30 : 215, dark ? 35 : 220);
         }
+        box(sx, meterY, segW, meterH, true);
       }
     }
 
