@@ -1376,8 +1376,10 @@ void audio_volume_adjust(ACAudio *audio, int delta) {
 
 void audio_boot_beep(ACAudio *audio) {
     if (!audio || !audio->pcm) return;
-    // Short high-pitched ping at full volume — "I'm alive!"
-    audio_synth(audio, WAVE_SINE, 880.0, 0.10, 0.8, 0.001, 0.07, 0.0);
+    // Two-tone "doo-dah" — distinct from old single ping (OTA test marker)
+    audio_synth(audio, WAVE_SINE, 660.0, 0.12, 0.8, 0.002, 0.08, -0.15);  // E5
+    usleep(80000);
+    audio_synth(audio, WAVE_SINE, 990.0, 0.15, 0.9, 0.002, 0.10,  0.15);  // B5
 }
 
 // Prewarm: play a near-silent note so ALSA buffers are filled and ready

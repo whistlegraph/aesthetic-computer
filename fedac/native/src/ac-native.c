@@ -831,7 +831,7 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
             fclose(vf);
         }
         is_new_version = (strcmp(prev_ver, current_ver) != 0);
-        ac_log("[boot] version=%s prev=%s new=%s\n", current_ver, prev_ver, is_new_version ? "YES" : "no");
+        ac_log("[boot] version=%s prev=%s fresh=%s\n", current_ver, prev_ver, is_new_version ? "YES" : "no");
         // Write current version immediately so next boot sees it
         vf = fopen("/mnt/booted-version", "w");
         if (vf) {
@@ -845,7 +845,7 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
             struct tm *tm = gmtime(&now_t);
             char ts[32];
             strftime(ts, sizeof(ts), "%Y-%m-%dT%H:%M:%SZ", tm);
-            fprintf(vf, "%s %s %s\n", ts, current_ver, is_new_version ? "NEW" : "same");
+            fprintf(vf, "%s %s %s\n", ts, current_ver, is_new_version ? "FRESH" : "same");
             fclose(vf);
         }
         sync();
@@ -942,10 +942,10 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
             font_draw_matrix(graph, ver, panel_x + 4, panel_y + 3, 1);
             graph_ink(graph, (ACColor){210, 235, 220, (uint8_t)alpha});
             font_draw_matrix(graph, bts, panel_x + 4, panel_y + 11, 1);
-            // "NEW" badge when first boot of this version
+            // "FRESH" badge when first boot of this version
             if (is_new_version) {
                 graph_ink(graph, (ACColor){80, 255, 120, (uint8_t)alpha});
-                font_draw_matrix(graph, "NEW", panel_x - font_measure_matrix("NEW", 1) - 4, panel_y + 6, 1);
+                font_draw_matrix(graph, "FRESH", panel_x - font_measure_matrix("FRESH", 1) - 4, panel_y + 6, 1);
             }
         }
 #endif

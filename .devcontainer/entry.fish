@@ -506,6 +506,7 @@ ensure_ssl_dev_certs
 
 log_step "PHASE 7: GitHub authentication"
 # Login to Github - use GH_TOKEN from vault if available
+set -l gh_authenticated 1
 if not gh auth status >/dev/null 2>&1
     if test -n "$GH_TOKEN"
         log_info "Authenticating to GitHub using GH_TOKEN..."
@@ -514,12 +515,13 @@ if not gh auth status >/dev/null 2>&1
             log_ok "GitHub authentication successful"
         else
             log_error "GitHub authentication failed"
-            log_error "Not logged into GitHub, exiting to shell."
-            return
+            log_warn "Continuing without GitHub auth; vault/git operations may be limited."
+            set gh_authenticated 0
         end
     else
-        log_warn "Not logged into GitHub and no GH_TOKEN available, exiting to shell."
-        return
+        log_warn "Not logged into GitHub and no GH_TOKEN available."
+        log_warn "Continuing startup without GitHub auth."
+        set gh_authenticated 0
     end
 else
     log_ok "Already authenticated to GitHub"
@@ -546,7 +548,11 @@ git config --global pull.rebase true
 git config --global commit.gpgsign false
 
 # Make sure git is setup and authorized for making commits via `gh`.
-gh auth setup-git
+if test $gh_authenticated -eq 1
+    gh auth setup-git
+else
+    log_warn "Skipping 'gh auth setup-git' because GitHub auth is unavailable."
+end
 
 # Ensure GPG signing is disabled at both global and local levels (GitHub CLI might re-enable it)
 git config --global commit.gpgsign false
@@ -676,6 +682,42 @@ if test -d /home/me/.copilot
     chmod 755 /home/me/.copilot/pkg 2>/dev/null
     sudo chmod 600 /home/me/.copilot/config.json 2>/dev/null
     echo "✅ Fixed permissions for /home/me/.copilot (Copilot CLI config)"
+end
+
+# Fix Claude/Codex config directory permissions after bind mounts are attached.
+# On Linux hosts, these mounts keep host ownership, so UID remapping is the main
+# fix; this container-side pass normalizes modes when ownership is already writable.
+for dir in /home/me/.claude /home/me/.codex
+    if test -d $dir
+        sudo chown -R me:me $dir 2>/dev/null
+        chmod 700 $dir 2>/dev/null
+        find $dir -type d -exec chmod 700 {} + 2>/dev/null
+        find $dir -type f -exec chmod 600 {} + 2>/dev/null
+        echo "✅ Fixed permissions for $dir"
+    end
+end
+
+if test -f /home/me/.claude.json
+    sudo chown me:me /home/me/.claude.json 2>/dev/null
+    chmod 600 /home/me/.claude.json 2>/dev/null
+    echo "✅ Fixed permissions for /home/me/.claude.json"
+end
+
+# Fix VS Code extension SecretStorage persistence paths.
+for dir in /home/me/.config/Code/User/globalStorage /home/me/.config/Code/User/workspaceStorage
+    if test -d $dir
+        sudo chown -R me:me $dir 2>/dev/null
+        find $dir -type d -exec chmod 700 {} + 2>/dev/null
+        find $dir -type f -exec chmod 600 {} + 2>/dev/null
+        echo "✅ Fixed permissions for $dir"
+    end
+end
+
+if test -d /home/me/.local/share/keyrings
+    sudo chown -R me:me /home/me/.local/share/keyrings 2>/dev/null
+    chmod 700 /home/me/.local/share/keyrings 2>/dev/null
+    find /home/me/.local/share/keyrings -type f -exec chmod 600 {} + 2>/dev/null
+    echo "✅ Fixed permissions for /home/me/.local/share/keyrings"
 end
 
 # --- GPG agent: cache passphrase for the entire container lifetime ---

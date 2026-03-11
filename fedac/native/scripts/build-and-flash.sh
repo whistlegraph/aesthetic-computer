@@ -387,6 +387,43 @@ else
     warn "No WiFi binaries found — WiFi will not work"
 fi
 
+# ── SSH daemon (dropbear) for remote access ──
+DROPBEAR_BIN="$(command -v dropbear 2>/dev/null || true)"
+DROPBEARKEY_BIN="$(command -v dropbearkey 2>/dev/null || true)"
+if [ -n "$DROPBEAR_BIN" ] && [ -n "$DROPBEARKEY_BIN" ]; then
+    log "Bundling dropbear SSH daemon..."
+    mkdir -p "${INITRAMFS_DIR}/usr/sbin" "${INITRAMFS_DIR}/etc/dropbear"
+    cp "$DROPBEAR_BIN" "${INITRAMFS_DIR}/usr/sbin/dropbear"
+    cp "$DROPBEARKEY_BIN" "${INITRAMFS_DIR}/usr/sbin/dropbearkey"
+    chmod +x "${INITRAMFS_DIR}/usr/sbin/dropbear" "${INITRAMFS_DIR}/usr/sbin/dropbearkey"
+    ln -sf /usr/sbin/dropbear "${INITRAMFS_DIR}/bin/dropbear" 2>/dev/null || true
+    ln -sf /usr/sbin/dropbearkey "${INITRAMFS_DIR}/bin/dropbearkey" 2>/dev/null || true
+    for lib in $(ldd "$DROPBEAR_BIN" 2>/dev/null | grep -oP '/\S+'); do
+        [ -f "$lib" ] && cp -n "$lib" "${INITRAMFS_DIR}/lib64/" 2>/dev/null || true
+    done
+    # Create passwd/group so dropbear can resolve uid 0
+    echo "root:x:0:0:root:/:/bin/sh" > "${INITRAMFS_DIR}/etc/passwd"
+    echo "root:x:0:" > "${INITRAMFS_DIR}/etc/group"
+    log "  dropbear: $(du -sh "${INITRAMFS_DIR}/usr/sbin/dropbear" | cut -f1)"
+else
+    warn "dropbear not found — SSH remote access not available"
+fi
+
+# ── Node.js for Claude Code CLI ──
+NODE_BIN="$(command -v node 2>/dev/null || true)"
+if [ -n "$NODE_BIN" ] && [ -f "$NODE_BIN" ]; then
+    log "Bundling Node.js for Claude Code CLI..."
+    cp "$NODE_BIN" "${INITRAMFS_DIR}/bin/node"
+    chmod +x "${INITRAMFS_DIR}/bin/node"
+    for lib in $(ldd "$NODE_BIN" 2>/dev/null | grep -oP '/\S+'); do
+        [ -f "$lib" ] && cp -n "$lib" "${INITRAMFS_DIR}/lib64/" 2>/dev/null || true
+    done
+    NODE_SIZE=$(du -sh "${INITRAMFS_DIR}/bin/node" | cut -f1)
+    log "  node: ${NODE_SIZE} ($(${NODE_BIN} --version))"
+else
+    warn "Node.js not found — Claude Code CLI not available"
+fi
+
 # Copy CA trust bundle for HTTPS curl calls (OS update/clock/version checks).
 CA_BUNDLE_SRC=""
 for p in /etc/pki/tls/certs/ca-bundle.crt /etc/ssl/certs/ca-certificates.crt; do

@@ -25,6 +25,14 @@
     "dockerfile": "Dockerfile"
   },
 
+  "remoteUser": "me",
+  "containerUser": "me",
+  "updateRemoteUserUID": true,
+
+  // Override default workspace mount to add SELinux :z label (required on Fedora)
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/aesthetic-computer,type=bind,consistency=cached",
+  "workspaceFolder": "/workspaces/aesthetic-computer",
+
   // ─────────────────────────────────────────────────────────────────────────────
   // VOLUME MOUNTS
   // ─────────────────────────────────────────────────────────────────────────────
@@ -56,14 +64,23 @@
   // .codex: Codex CLI session data and configuration
   //         Persists local thread history and auth/state across rebuilds
   //
+  // VS Code globalStorage/workspaceStorage: extension state and SecretStorage
+  //                                        backing databases for remote server
+  //
+  // keyrings: libsecret keyring files used by VS Code extension secrets
+  //
   // docker.sock: Host Docker socket for docker-in-docker
   //              Allows running `docker build` inside container
   //              Two mounts: one for VS Code's Docker extension, one for CLI
   "mounts": [
     "source=${localWorkspaceFolder}/.devcontainer/.emacs.d,target=/home/me/.emacs.d,type=bind,consistency=cached",
     "source=${localWorkspaceFolder}/.devcontainer/envs,target=/home/me/envs,type=bind,consistency=cached",
-    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.claude,target=/home/me/.claude,type=bind,consistency=cached",
-    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.codex,target=/home/me/.codex,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.claude,target=/home/me/.claude,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.claude.json,target=/home/me/.claude.json,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.codex,target=/home/me/.codex,type=bind,consistency=cached",
+    "source=aesthetic-vscode-globalstorage,target=/home/me/.config/Code/User/globalStorage,type=volume",
+    "source=aesthetic-vscode-workspacestorage,target=/home/me/.config/Code/User/workspaceStorage,type=volume",
+    "source=aesthetic-vscode-keyrings,target=/home/me/.local/share/keyrings,type=volume",
     "source=aesthetic-mkcert-ca,target=/home/me/.local/share/mkcert,type=volume",
     "source=aesthetic-fish-data,target=/home/me/.local/share/fish,type=volume",
     "source=aesthetic-mail-data,target=/home/me/.mail,type=volume",
@@ -230,6 +247,7 @@
     "-q",
     "--cap-add=SYS_PTRACE",
     "--security-opt=apparmor=unconfined",
+    "--security-opt", "label:disable",
     "--name", "aesthetic",
     "--hostname", "aesthetic",
     "--init",
@@ -258,7 +276,7 @@
   //     • Fish shell environment (fnm, vault secrets)
   //     • CDP tunnel for VS Code remote control
   //     • Creates .waiter file when ready (for aesthetic-launch.sh)
-  "postStartCommand": "sh .devcontainer/scripts/poststart-wrapper.sh",
+  "postStartCommand": "sh .devcontainer/scripts/poststart-wrapper.sh || (echo '[postStart] wrapper failed, using entry fallback'; if [ -r .devcontainer/entry.fish ]; then nohup fish .devcontainer/entry.fish > /tmp/entry-fallback.log 2>&1 & else nohup fish /entry.fish > /tmp/entry-fallback.log 2>&1 & fi)",
 
   // postAttachCommand: Runs when VS Code attaches to the container
   //   - Lightweight confirmation message
