@@ -4894,6 +4894,7 @@
     // Survives disconnects, page refreshes, and proxy timeouts.
     let mintPollTimer = null;
     let mintJobId = null;
+    let mintOvenPreviewTimer = null;
 
     async function startMintFlow(piece, options = {}) {
       const rebake = options.rebake === true;
@@ -5000,6 +5001,7 @@
 
         function stopPolling() {
           if (mintPollTimer) { clearInterval(mintPollTimer); mintPollTimer = null; }
+          if (mintOvenPreviewTimer) { clearInterval(mintOvenPreviewTimer); mintOvenPreviewTimer = null; }
         }
 
         // Listen for abort
@@ -5074,23 +5076,36 @@
               return;
             }
 
-            // Show live oven preview during thumbnail bake using preview frames
-            if (job.previewFrame && (job.stage === 'thumbnail' || job.stage === 'bundle')) {
-              const pf = document.getElementById('mint-preview-frame');
-              if (pf && !pf.querySelector('.job-thumbnail')) {
-                const overlay = pf.querySelector('.mint-progress-overlay');
-                let img = pf.querySelector('.oven-live-img');
-                if (!img) {
-                  const iframe = pf.querySelector('iframe');
-                  if (iframe) iframe.remove();
-                  img = document.createElement('img');
-                  img.className = 'oven-live-img';
-                  img.style.cssText = 'width:100%;height:100%;object-fit:contain;image-rendering:pixelated;position:absolute;inset:0;';
-                  if (overlay) pf.insertBefore(img, overlay);
-                  else pf.appendChild(img);
-                }
-                img.src = 'data:image/jpeg;base64,' + job.previewFrame;
-              }
+            // Show live oven preview — poll oven /grab-status directly (not via MongoDB)
+            if ((job.stage === 'thumbnail' || job.stage === 'bundle') && !mintOvenPreviewTimer) {
+              mintOvenPreviewTimer = setInterval(async () => {
+                try {
+                  const res = await fetch('https://oven.aesthetic.computer/grab-status');
+                  if (!res.ok) return;
+                  const status = await res.json();
+                  const progress = status.progress;
+                  if (!progress?.previewFrame || !progress.piece?.includes(piece)) return;
+                  const pf = document.getElementById('mint-preview-frame');
+                  if (!pf || pf.querySelector('.job-thumbnail')) return;
+                  const overlay = pf.querySelector('.mint-progress-overlay');
+                  let img = pf.querySelector('.oven-live-img');
+                  if (!img) {
+                    const iframe = pf.querySelector('iframe');
+                    if (iframe) iframe.remove();
+                    img = document.createElement('img');
+                    img.className = 'oven-live-img';
+                    img.style.cssText = 'width:100%;height:100%;object-fit:contain;image-rendering:pixelated;position:absolute;inset:0;';
+                    if (overlay) pf.insertBefore(img, overlay);
+                    else pf.appendChild(img);
+                  }
+                  img.src = 'data:image/jpeg;base64,' + progress.previewFrame;
+                } catch {}
+              }, 1500);
+            }
+            // Stop oven preview polling when bake stage is done
+            if (job.stage !== 'thumbnail' && job.stage !== 'bundle' && mintOvenPreviewTimer) {
+              clearInterval(mintOvenPreviewTimer);
+              mintOvenPreviewTimer = null;
             }
 
             // Show final IPFS thumbnail when available
