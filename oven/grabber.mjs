@@ -1504,12 +1504,18 @@ async function captureFrames(piece, options = {}) {
     // For app screenshots: viewportScale=1 captures at exact width x height
     // For legacy grabs: viewportScale=density captures at density*width x density*height
     await page.setViewport({ width, height, deviceScaleFactor: effectiveViewportScale });
-    
+
     // Navigate to piece
     console.log(`   Loading piece...`);
-    await page.goto(url, { 
+    await page.goto(url, {
       waitUntil: 'domcontentloaded',  // Changed from networkidle2 - $code pieces continue network activity
-      timeout: 30000 
+      timeout: 30000
+    });
+
+    // Black background — matches HTML bundle style, prevents white borders in thumbnails
+    await page.evaluate(() => {
+      document.documentElement.style.background = 'black';
+      document.body.style.background = 'black';
     });
     
     // Wait for canvas to be ready
