@@ -472,11 +472,37 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
 
   const pinataCredentials = await getPinataCredentials();
 
+  // ── Oven progress poller — forwards grab-status to MongoDB ─────────
+  let ovenProgressTimer = null;
+  function startOvenProgressPoller(ovenUrl, stage) {
+    if (ovenProgressTimer) clearInterval(ovenProgressTimer);
+    ovenProgressTimer = setInterval(async () => {
+      try {
+        const res = await fetch(`${ovenUrl}/grab-status`, { signal: AbortSignal.timeout(3000) });
+        if (!res.ok) return;
+        const status = await res.json();
+        const progress = status.progress;
+        if (progress?.stage && progress.piece?.includes(pieceName)) {
+          const detail = progress.stageDetail || progress.stage;
+          const frame = progress.currentFrame != null && progress.totalFrames
+            ? ` (${progress.currentFrame}/${progress.totalFrames})`
+            : "";
+          const pct = progress.percent != null ? ` ${progress.percent}%` : "";
+          await updateJobStage(jobId, stage, `${detail}${frame}${pct}`);
+        }
+      } catch {}
+    }, 2000);
+  }
+  function stopOvenProgressPoller() {
+    if (ovenProgressTimer) { clearInterval(ovenProgressTimer); ovenProgressTimer = null; }
+  }
+
   // ── Thumbnail (async) ──────────────────────────────────────────────
   let thumbnailPromise;
   if (!useCachedMedia) {
     await updateJobStage(jobId, "thumbnail", "Baking thumbnail...");
     log("thumbnail", "Starting oven grab");
+    startOvenProgressPoller(OVEN_URL, "thumbnail");
 
     thumbnailPromise = (async () => {
       const tryOven = async (ovenUrl, timeoutMs) => {
@@ -536,7 +562,7 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
   // ── Bundle ─────────────────────────────────────────────────────────
   let bundleHtml, bundleFilename, bundleAuthorHandle, userCode, packDate, depCount;
   if (!useCachedMedia) {
-    await updateJobStage(jobId, "bundle", "Packing HTML bundle...");
+    await updateJobStage(jobId, "bundle", "Connecting to oven for HTML bundle...");
     const bundleCode = `$${pieceName}`;
     let bundleUrl = dev
       ? `https://localhost:8888/api/pack-html?code=${encodeURIComponent(bundleCode)}&format=json`
@@ -547,6 +573,7 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
     const bundleTimeout = setTimeout(() => bundleController.abort(), 60000);
     log("bundle", `Fetching ${bundleUrl}`);
 
+    const bundleStart = Date.now();
     const bundleRes = await fetch(bundleUrl, {
       signal: bundleController.signal, cache: "no-store",
       headers: forceFresh ? { "Cache-Control": "no-cache" } : undefined,
@@ -554,6 +581,7 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
     clearTimeout(bundleTimeout);
     if (!bundleRes.ok) throw new Error(`Bundle generation failed: ${bundleRes.status}`);
 
+    await updateJobStage(jobId, "bundle", "Decoding HTML bundle...");
     const bundleData = await bundleRes.json();
     bundleHtml = Buffer.from(bundleData.content || bundleData.html, "base64").toString("utf8");
     bundleFilename = bundleData.filename || `$${pieceName}.lisp.html`;
@@ -563,16 +591,21 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
     depCount = bundleData.depCount || 0;
 
     const bundleKB = Math.round(bundleHtml.length / 1024);
-    await updateJobStage(jobId, "bundle", `Packed ${bundleKB}KB · ${depCount} deps`);
-    log("bundle", `${bundleKB}KB`);
+    const bundleElapsed = ((Date.now() - bundleStart) / 1000).toFixed(1);
+    await updateJobStage(jobId, "bundle", `Packed ${bundleKB}KB · ${depCount} deps · ${bundleElapsed}s`);
+    log("bundle", `${bundleKB}KB in ${bundleElapsed}s`);
   }
 
   // ── IPFS upload (parallel with thumbnail await) ────────────────────
   let ipfsUploadPromise;
   if (!useCachedMedia) {
-    await updateJobStage(jobId, "ipfs", "Uploading to IPFS...");
+    const bundleSizeKB = Math.round((bundleHtml?.length || 0) / 1024);
+    await updateJobStage(jobId, "ipfs", `Uploading ${bundleSizeKB}KB to IPFS...`);
+    log("ipfs", `Starting upload: ${bundleSizeKB}KB ${bundleFilename}`);
+    const ipfsStart = Date.now();
     ipfsUploadPromise = uploadToIPFS(bundleHtml, bundleFilename, "text/html", 90000).then(uri => {
-      log("ipfs", `Pinned: ${uri}`);
+      const elapsed = ((Date.now() - ipfsStart) / 1000).toFixed(1);
+      log("ipfs", `Pinned in ${elapsed}s: ${uri}`);
       return uri;
     });
   }
@@ -580,6 +613,7 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
   // ── Await thumbnail ────────────────────────────────────────────────
   if (!useCachedMedia) {
     const thumbResult = await thumbnailPromise;
+    stopOvenProgressPoller();
     if (thumbResult?.ipfsUri) {
       thumbnailUri = thumbResult.ipfsUri;
       await setJobResult(jobId, { thumbnailUri });
@@ -763,6 +797,7 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
   const totalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
   log("ready", `Complete in ${totalElapsed}s`);
   } finally {
+    stopOvenProgressPoller();
     await database.disconnect().catch(() => {});
   }
 }
