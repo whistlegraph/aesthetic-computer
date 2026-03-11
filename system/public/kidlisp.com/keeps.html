@@ -5074,21 +5074,22 @@
               return;
             }
 
-            // Show live oven preview during thumbnail bake
-            if (job.stage === 'thumbnail' || job.stage === 'bundle' || job.stage === 'ipfs') {
+            // Show live oven preview during thumbnail bake using preview frames
+            if (job.previewFrame && (job.stage === 'thumbnail' || job.stage === 'bundle')) {
               const pf = document.getElementById('mint-preview-frame');
-              if (pf && !pf.querySelector('.oven-live-img') && !pf.querySelector('.job-thumbnail')) {
-                // Swap iframe for a live oven grab image that refreshes
+              if (pf && !pf.querySelector('.job-thumbnail')) {
                 const overlay = pf.querySelector('.mint-progress-overlay');
-                const ovenUrl = `https://oven.aesthetic.computer/grab/webp/480/360/$${piece}?duration=3000&fps=8&quality=75&density=2&source=keep&ts=${Date.now()}`;
-                const iframe = pf.querySelector('iframe');
-                if (iframe) iframe.remove();
-                const img = document.createElement('img');
-                img.className = 'oven-live-img';
-                img.src = ovenUrl;
-                img.style.cssText = 'width:100%;height:100%;object-fit:contain;image-rendering:pixelated;position:absolute;inset:0;';
-                if (overlay) pf.insertBefore(img, overlay);
-                else pf.appendChild(img);
+                let img = pf.querySelector('.oven-live-img');
+                if (!img) {
+                  const iframe = pf.querySelector('iframe');
+                  if (iframe) iframe.remove();
+                  img = document.createElement('img');
+                  img.className = 'oven-live-img';
+                  img.style.cssText = 'width:100%;height:100%;object-fit:contain;image-rendering:pixelated;position:absolute;inset:0;';
+                  if (overlay) pf.insertBefore(img, overlay);
+                  else pf.appendChild(img);
+                }
+                img.src = 'data:image/jpeg;base64,' + job.previewFrame;
               }
             }
 
