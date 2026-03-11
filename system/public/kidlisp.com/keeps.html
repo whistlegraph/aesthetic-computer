@@ -1275,10 +1275,13 @@
     .keeps-loading .spinner {
       width: 20px;
       height: 20px;
+      flex-shrink: 0;
+      aspect-ratio: 1;
       border: 2px solid var(--border-color);
       border-top: 2px solid var(--ac-purple);
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
+      box-sizing: border-box;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -4630,11 +4633,22 @@
 
     async function loadBeaconSDK() {
       if (window.beacon) return;
+      // Beacon SDK v4.x tries Object.defineProperty(window, 'ethereum', ...)
+      // which throws if a browser extension (MetaMask etc.) already defined it
+      // as non-configurable. Patch defineProperty to silently skip that case.
+      const origDefProp = Object.defineProperty;
+      Object.defineProperty = function(obj, prop, desc) {
+        if (obj === window && prop === 'ethereum') {
+          try { return origDefProp.call(this, obj, prop, desc); }
+          catch { return obj; }
+        }
+        return origDefProp.call(this, obj, prop, desc);
+      };
       await new Promise((resolve, reject) => {
         const script = document.createElement('script');
         script.src = 'https://unpkg.com/@airgap/beacon-sdk@4.3.0/dist/walletbeacon.min.js';
-        script.onload = resolve;
-        script.onerror = reject;
+        script.onload = () => { Object.defineProperty = origDefProp; resolve(); };
+        script.onerror = (e) => { Object.defineProperty = origDefProp; reject(e); };
         document.head.appendChild(script);
       });
     }
