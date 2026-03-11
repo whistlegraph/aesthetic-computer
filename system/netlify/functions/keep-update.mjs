@@ -8,6 +8,7 @@
 
 import { authorize, handleFor, hasAdmin } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
+import { getKeepsContractAddress, LEGACY_KEEPS_CONTRACT } from "../../backend/tezos-keeps-contract.mjs";
 import { analyzeKidLisp, ANALYZER_VERSION } from "../../backend/kidlisp-analyzer.mjs";
 import { stream } from "@netlify/functions";
 import { TezosToolkit, MichelsonMap } from "@taquito/taquito";
@@ -19,9 +20,6 @@ const dev = process.env.CONTEXT === "dev";
 if (dev) {
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 }
-
-// Configuration - Mainnet v5 RC contract by default
-const CONTRACT_ADDRESS = process.env.TEZOS_KEEPS_CONTRACT || "KT1QdGZP8jzqaxXDia3U7DYEqFYhfqGRHido";
 const NETWORK = process.env.TEZOS_NETWORK || "mainnet";
 const TZKT_API = NETWORK === "mainnet" ? "https://api.tzkt.io/v1" : `https://api.${NETWORK}.tzkt.io/v1`;
 const RPC_URL = NETWORK === "mainnet" 
@@ -167,6 +165,10 @@ export const handler = stream(async (event) => {
       const pieceName = piece.replace(/^\$/, "");
 
       await send("progress", { stage: "auth", message: "Checking authorization..." });
+
+      // Resolve contract address dynamically (respects MongoDB config + env)
+      const CONTRACT_ADDRESS = await getKeepsContractAddress({ network: NETWORK, fallback: LEGACY_KEEPS_CONTRACT });
+      console.log(`🪙 KEEP-UPDATE: Using contract ${CONTRACT_ADDRESS}`);
 
       // Get piece data from database first
       database = await connect();
