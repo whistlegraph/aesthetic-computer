@@ -112,6 +112,7 @@ let osError = "";            // error message if any
 let osFetchPending = false;  // true while waiting for version fetchResult (manual panel)
 let osCheckFrame = 0;        // frame when we started the version fetch
 let osUpdatePingVersion = ""; // last version we pinged to the user
+let flashTargetIdx = 0;      // index into system.flashTargets
 
 // Auto-update: background check on WiFi connect, silent download+flash+reboot
 // states: "idle" | "checking" | "downloading" | "flashing" | "rebooting"
@@ -567,15 +568,23 @@ function act({ event: e, sound, wifi, system }) {
 
     // OS panel touch handling
     if (activeScreen === "os" && y > 14) {
-      // "update now" button tap when update available
       if (osState === "available") {
-        const topBarH2 = 14;
-        const stateY2 = topBarH2 + 50;
-        const btnW2 = Math.min(120, w - 40);
-        const btnX2 = Math.floor((w - btnW2) / 2);
-        const btnY2 = stateY2 + 34;
-        if (y >= btnY2 && y <= btnY2 + 18 && x >= btnX2 && x <= btnX2 + btnW2) {
-          console.log(`[os] manual download: ${OS_VMLINUZ_URL} -> /tmp/vmlinuz.new (${OS_VMLINUZ_BYTES} bytes)`);
+        // Cycle target button
+        const cb = globalThis.__osCycleBtn;
+        if (cb && y >= cb.y && y <= cb.y + cb.h && x >= cb.x && x <= cb.x + cb.w) {
+          const targets = system?.flashTargets || [];
+          flashTargetIdx = (flashTargetIdx + 1) % Math.max(1, targets.length);
+          sound?.synth({ type: "sine", tone: 440, duration: 0.04, volume: 0.12, attack: 0.002, decay: 0.03 });
+          return;
+        }
+        // "update now" button
+        const ub = globalThis.__osUpdateBtn;
+        if (ub && y >= ub.y && y <= ub.y + ub.h && x >= ub.x && x <= ub.x + ub.w) {
+          const targets = system?.flashTargets || [];
+          const tgt = targets[flashTargetIdx];
+          const device = tgt?.device || undefined;
+          console.log(`[os] manual download: ${OS_VMLINUZ_URL} -> /tmp/vmlinuz.new target=${device || "auto"}`);
+          globalThis.__osFlashDevice = device;
           osState = "downloading";
           osProgress = 0;
           system?.fetchBinary?.(
@@ -1174,14 +1183,42 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       write("available", { x: pad, y: stateY, size: 1, font: "font_1" });
       ink(255, 200, 60);
       write(osRemoteVersion.slice(0, maxVerChars), { x: pad, y: stateY + 12, size: 1, font: "font_1" });
+      // Flash target selector
+      const targets = system.flashTargets || [];
+      if (targets.length > 0) {
+        if (flashTargetIdx >= targets.length) flashTargetIdx = 0;
+        const tgt = targets[flashTargetIdx];
+        const tgtLabel = (tgt?.label || "?") + " (" + (tgt?.device || "?") + ")";
+        const isBoot = (tgt?.device === system.bootDevice);
+        ink(dark ? 80 : 120, dark ? 100 : 100, dark ? 120 : 80);
+        write("target:", { x: pad, y: stateY + 28, size: 1, font: "font_1" });
+        ink(isBoot ? 80 : 200, isBoot ? 200 : 200, isBoot ? 255 : 80);
+        write(tgtLabel, { x: pad + 48, y: stateY + 28, size: 1, font: "font_1" });
+        if (isBoot) {
+          ink(60, 140, 200);
+          write("(current boot)", { x: pad, y: stateY + 40, size: 1, font: "font_1" });
+        }
+        // Cycle button if multiple targets
+        if (targets.length > 1) {
+          ink(120, 120, 140);
+          const cycX = w - pad - 36;
+          box(cycX, stateY + 26, 32, 14, true);
+          ink(220, 220, 240);
+          write("next", { x: cycX + 4, y: stateY + 29, size: 1, font: "font_1" });
+          globalThis.__osCycleBtn = { x: cycX, y: stateY + 26, w: 32, h: 14 };
+        } else {
+          globalThis.__osCycleBtn = null;
+        }
+      }
       // Update button — centered, proportional
       const btnW = Math.min(120, w - pad * 4);
       const btnX = Math.floor((w - btnW) / 2);
-      const btnY = stateY + 34;
+      const btnY = stateY + (targets.length > 0 ? 56 : 34);
       ink(60, 180, 100);
       box(btnX, btnY, btnW, 18, true);
       ink(dark ? 220 : 240, dark ? 255 : 255, dark ? 220 : 240);
       write("update now", { x: btnX + Math.floor((btnW - 60) / 2), y: btnY + 4, size: 1, font: "font_1" });
+      globalThis.__osUpdateBtn = { x: btnX, y: btnY, w: btnW, h: 18 };
     } else if (osState === "downloading") {
       ink(dark ? 120 : 80, dark ? 140 : 100, dark ? 120 : 80);
       write("downloading...", { x: pad, y: stateY, size: 1, font: "font_1" });
@@ -1203,8 +1240,11 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       const phaseColor = phase === 3 ? [100, 200, 255] : [255, 160, 60];
       ink(...phaseColor);
       write(phaseText, { x: pad, y: stateY, size: 1, font: "font_1" });
+      ink(dark ? 100 : 80);
+      const flashDev = globalThis.__osFlashDevice || system.bootDevice || "?";
+      write("→ " + flashDev, { x: pad, y: stateY + 14, size: 1, font: "font_1" });
       ink(dark ? 140 : 80);
-      write("do not power off", { x: pad, y: stateY + 14, size: 1, font: "font_1" });
+      write("do not power off", { x: pad, y: stateY + 26, size: 1, font: "font_1" });
     } else if (osState === "rebooting") {
       const vb = system.flashVerifiedBytes ?? 0;
       const mb = (vb / 1048576).toFixed(1);
@@ -1406,9 +1446,14 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       osProgress = system.fetchBinaryProgress ?? osProgress;
       if (system.fetchBinaryDone) {
         if (system.fetchBinaryOk) {
-          console.log("[os] manual download complete, starting flash");
+          const dev = globalThis.__osFlashDevice;
+          console.log(`[os] manual download complete, flashing to ${dev || "auto"}`);
           osState = "flashing";
-          system.flashUpdate?.("/tmp/vmlinuz.new");
+          if (dev) {
+            system.flashUpdate?.("/tmp/vmlinuz.new", dev);
+          } else {
+            system.flashUpdate?.("/tmp/vmlinuz.new");
+          }
         } else {
           console.log("[os] manual download FAILED");
           osError = "download failed";
