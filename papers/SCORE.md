@@ -44,6 +44,63 @@ Upcoming conferences and journals to submit to.
 | [Prix Ars Electronica 2026](https://ars.electronica.art/prix/en/) | Interactive Art + | **Mar 9, 2026** 2PM CET | €10,000 prize; free entry | Sep 9–13, Linz, Austria | **GO — 5 days** |
 | [S+T+ARTS Prize 2026](https://ars.electronica.art/starts-prize/en/) | Science/Tech/Arts | **Mar 9, 2026** 2PM CET | €40,000 total prize | Sep 9–13, Linz | **GO — 5 days** |
 
+### Dated Checklist (as of Mar 11, 2026)
+
+- [ ] **Mar 11, 2026**: Confirm ICIR late-breaking/demo dates on `icir.ieee.org` and choose route (full, short, or demo).
+- [ ] **Mar 12, 2026**: Finalize ACM C&C demo concept and required assets list (video, screenshots, abstract, setup notes).
+- [ ] **Mar 13, 2026**: Draft Tier 1 BibTeX entries (Kittler, McLuhan, Langer, Little Schemer, Ingold, Ukeles, Strudel, van Engelen, Stiegler).
+- [ ] **Mar 14, 2026**: Pull adoption metrics (users, pieces, sessions, KidLisp usage) and define one shared stats block for all papers.
+- [ ] **Mar 17, 2026**: Revise `arxiv-ac/ac.tex` with new citations + adoption metrics + software-history framing.
+- [ ] **Mar 19, 2026**: Revise `arxiv-kidlisp/kidlisp.tex` with citation additions + function-table/appendix plan + usage stats.
+- [ ] **Mar 21, 2026**: Revise `arxiv-pieces/pieces.tex` and `arxiv-notepat/notepat.tex` with philosophical citations + lineage examples.
+- [ ] **Mar 24, 2026**: Revise `joss-ac/paper.md` and `joss-kidlisp/paper.md` for docs/test coverage/API-link accuracy.
+- [ ] **Apr 1, 2026**: Complete ACM C&C demo draft package and run an internal review pass.
+- [ ] **Apr 8, 2026**: Freeze ACM C&C demo materials and submit travel-support query if applicable.
+- [ ] **Apr 16, 2026**: Submit ACM C&C demos track.
+- [ ] **Apr 17, 2026**: Start ICCC short-paper draft from KidLisp paper + repo evidence.
+- [ ] **Apr 22, 2026**: Final ICCC polish and send travel-support email to `iccc26@computationalcreativity.net`.
+- [ ] **Apr 24, 2026**: Submit ICCC short paper.
+
+### Additional Opportunities Found (checked Mar 11, 2026)
+
+| Venue | Type | Deadline | Conference Date | Status |
+|-------|------|----------|-----------------|--------|
+| [ACM UIST 2026](https://uist.acm.org/2026/cfp/) | Papers | Abstract: **Mar 24, 2026**; Paper: **Mar 31, 2026** | Oct 11–14, 2026 (Busan) | **New / Urgent** |
+| [IEEE VIS 2026 (Full Papers)](https://ieeevis.org/year/2026/info/call-participation/call-for-participation/) | Papers | Abstract: **Mar 21, 2026**; Paper: **Mar 31, 2026** | Oct 2026 | **New / Urgent** |
+| [IEEE VIS 2026 (Short Papers)](https://ieeevis.org/year/2026/info/call-participation/shortpapers/) | Short Papers | **Apr 30, 2026** | Oct 2026 | **New / Strong Fit** |
+| [ACM Multimedia 2026 (Technical)](https://2026.acmmm.org/site/cfp-guidelines.html) | Full Papers | Abstract: **Mar 25, 2026**; Paper: **Apr 1, 2026** | Nov 10–14, 2026 (Rio de Janeiro) | **New / Strong Fit** |
+| [ACM Multimedia 2026 (Brave New Ideas)](https://2026.acmmm.org/site/call-bni.html) | Vision/BNI Papers | **Apr 1, 2026** | Nov 10–14, 2026 (Rio de Janeiro) | **New / Strong Fit** |
+| [ACM Multimedia 2026 (Interactive Art)](https://2026.acmmm.org/site/call-interactive-art.html) | 2-page Interactive Art Paper | **Apr 23, 2026** | Nov 10–14, 2026 (Rio de Janeiro) | **New / Strong Fit** |
+| [JOSS](https://joss.theoj.org/) | Software Paper (journal) | Rolling (no fixed deadline) | Rolling | **Anytime** |
+| [NordiCHI 2026](https://sites.uwasa.fi/nordichi2026/nordichi-2026/submit/) | HCI Papers/Critiques/Arts/Industry | Abstract + metadata: **Apr 16, 2026**; Submission: **Apr 23, 2026** | Oct 3–7, 2026 (Vaasa) | **New / HCI** |
+| [HCI International 2026 (Late Breaking Work)](https://2026.hci.international/submissions.html) | LBW Paper Proposal (800 words) | Proposal: **Mar 30, 2026**; Final: **Jun 12, 2026** | Jul 26–31, 2026 (Montreal) | **New / HCI** |
+| [European Lisp Symposium 2026](https://www.european-lisp-symposium.org/2026/index.html) | Lisp Papers / Experience Reports | **Mar 22, 2026** (extended) | May 11–12, 2026 (Kraków + online) | **New / Lisp / Urgent** |
+| [FUNARCH 2026 @ ICFP](https://icfp26.sigplan.org/home/funarch-2026) | Functional/Lisp-adjacent Workshop Papers | Submission: **Jun 1, 2026** (estimate on CFP) | Aug 2026 (with ICFP 2026) | **New / Lisp-adjacent** |
+
+### Funding + Cost Tracker (checked Mar 11, 2026)
+
+Only opportunities with filter result `Yes` or `Partial`, sorted by nearest deadline.
+
+| Opportunity | Filter Result | Nearest Deadline | Free to Submit? | Funding / Paid Upside | Cost Notes |
+|-------|------|----------|---------|--------|--------|
+| [IEEE VIS 2026 Papers](https://ieeevis.org/year/2026/info/call-participation/call-for-participation/) | **Partial** | **Mar 21, 2026** (abstract) / Mar 31 paper | **Likely yes** (no submission fee stated in CFP) | [Doctoral Colloquium funding](https://ieeevis.org/year/2026/info/call-participation/doctoral-colloquium/) may cover registration + partial travel (student-limited) | No APC requirement stated in CFP |
+| [ACM UIST 2026 Papers](https://uist.acm.org/2026/cfp/) | **Partial** | **Mar 24, 2026** (abstract) / Mar 31 paper | **Likely yes** (no submission fee stated in CFP) | [GMTA](https://sigchi.org/resources/gary-marsden-travel-awards/) for SIGCHI events | UIST CFP notes ACM 2026 APC model ($250 ACM/SIG member, $350 non-member if APC applies) |
+| [Creative Capital Open Call 2027](https://creative-capital.org/creative-capital-award/award-application/) *(non-paper grant path)* | **Yes** | **Apr 3, 2026** (3 PM ET) | **Yes** (handbook states free and open-call application) | Paid upside: grants up to $50,000 + $10,000 state prize | Grant program, not publication/APC model |
+| [ACM C&C 2026 Demos](https://cc.acm.org/2026/demos/) | **Partial** | **Apr 16, 2026** | **Likely yes** (no submission fee stated in CFP) | [GMTA](https://sigchi.org/resources/gary-marsden-travel-awards/) can cover registration/travel for eligible SIGCHI applicants | Conference registration required if accepted; ACM Open model may apply to ACM publication types |
+| [NordiCHI 2026 Research Papers](https://sites.uwasa.fi/nordichi2026/nordichi-2026/submit/submission-guidelines/) | **Partial** | **Apr 16, 2026** (abstract) / Apr 23 submission | **Likely yes** (no submission fee stated in CFP) | [GMTA](https://sigchi.org/resources/gary-marsden-travel-awards/) may apply (SIGCHI-linked conference) | Research papers / critiques are APC-eligible under ACM Open |
+
+### GMTA Checklist (Independent Researcher)
+
+- [ ] Confirm target conference is SIGCHI-sponsored (or SIGCHI-linked) and submission status is acceptance-ready.
+- [ ] Draft a 120-200 word funding-need statement: independent researcher, limited institutional support, why travel support changes outcome.
+- [ ] Draft a 120-200 word impact statement: what your demo/paper contributes to HCI/creative computing and who benefits.
+- [ ] Build a lean budget (registration, airfare, lodging, local transit, visa if needed) with lowest credible quotes/screenshots.
+- [ ] Prepare acceptance evidence (acceptance email or official decision page) and submission metadata.
+- [ ] Gather links that establish legitimacy: ORCID, GitHub repo, papers index, demo/video page.
+- [ ] Request advance reimbursement if cash-flow is a blocker (GMTA explicitly allows advances by request).
+- [ ] Submit before GMTA cycle cutoff and set a follow-up reminder 7 days before travel booking deadlines.
+- [ ] Reuse the same narrative + budget packet for UIST, C&C, and NordiCHI variants to reduce prep time.
+
 ### Deadlines Passed (Track for Next Year)
 
 | Venue | Type | Deadline | Funding | Conference Date | Status |
