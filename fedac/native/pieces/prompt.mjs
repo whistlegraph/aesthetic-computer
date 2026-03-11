@@ -31,7 +31,7 @@ circle w/2 h/2 (? 2 4 8)`,
 };
 
 function boot({ system }) {
-  message = "aesthetic.computer " + (system?.version || "");
+  message = "";
   // Restore input from KidLisp return (backspace/escape preserves source)
   if (globalThis.__promptRestore) {
     input = globalThis.__promptRestore;
@@ -59,11 +59,7 @@ function act({ event: e, system }) {
     } else if (key === "backspace") {
       input = input.slice(0, -1);
     } else if (key === "escape") {
-      if (input.length > 0) {
-        input = "";
-      } else {
-        system?.jump?.("notepat");
-      }
+      input = "";
     } else if (key === "arrowup") {
       if (history.length > 0 && historyIndex < history.length - 1) {
         historyIndex++;
@@ -114,7 +110,7 @@ function execute(cmd, system) {
     return;
   }
   if (lower === "help") {
-    message = "type kidlisp or $roz | claude | esc:notepat";
+    message = "type kidlisp or $roz | claude | notepat";
     messageFrame = 0;
     return;
   }

@@ -14,6 +14,17 @@ All of the following must be true:
 
 ## Release Procedure
 
+### Quick commands (fish shell)
+
+```bash
+ac-os build         # Build binary + initramfs + kernel
+ac-os flash         # Build + flash USB
+ac-os upload        # Upload current build as OTA release
+ac-os flash+upload  # Build + flash + upload
+```
+
+### Manual steps
+
 ```bash
 cd fedac/native
 
@@ -29,6 +40,15 @@ curl -fsSL https://releases.aesthetic.computer/os/native-notepat-latest.version
 curl -fsSL https://releases.aesthetic.computer/os/native-notepat-latest.sha256
 curl -fsSL https://releases.aesthetic.computer/os/releases.json | jq '.latest'
 ```
+
+## Credentials & Secrets
+
+- **DO Spaces (OTA upload)**: `aesthetic-computer-vault/fedac/native/upload.env.gpg`
+  - GPG-encrypted with Jeffrey's key (`77E1473C0FF13AB2`)
+  - Decrypt: `gpg --decrypt aesthetic-computer-vault/fedac/native/upload.env.gpg > /tmp/upload.env`
+  - Contains: `DO_SPACES_KEY`, `DO_SPACES_SECRET`
+- **GPG private key**: `.tmp-key-jeffrey-private.asc` (in repo root, gitignored)
+- **Handle colors API**: `https://aesthetic.computer/.netlify/functions/handle-colors` (public, no auth)
 
 ## Update Signal Expectations
 

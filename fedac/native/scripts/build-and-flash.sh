@@ -186,6 +186,30 @@ if [ -d "${PIECES_SRC}" ]; then
     log "Bundled pieces: $(ls "${INITRAMFS_DIR}/pieces/" | tr '\n' ' ')"
 fi
 
+# Bake default config.json into initramfs (handle + colors)
+# This ensures "hi @handle" shows even without USB flash path or /mnt/config.json
+HANDLE_CLEAN="${HANDLE#@}"
+[ -z "${HANDLE_CLEAN}" ] && HANDLE_CLEAN="jeffrey"
+INITRAMFS_CONFIG="${INITRAMFS_DIR}/default-config.json"
+COLORS_JSON=""
+if [ -n "${HANDLE_CLEAN}" ]; then
+    HANDLE_URI="$(printf '%s' "${HANDLE_CLEAN}" | jq -sRr @uri 2>/dev/null || echo "${HANDLE_CLEAN}")"
+    COLORS_RESP="$(curl -fsSL --connect-timeout 5 --max-time 12 \
+        "${HANDLE_COLORS_API}?handle=${HANDLE_URI}" 2>/dev/null || true)"
+    if [ -n "${COLORS_RESP}" ]; then
+        COLORS_JSON="$(printf '%s' "${COLORS_RESP}" | jq -c '.colors // empty' 2>/dev/null || true)"
+        [ "${COLORS_JSON}" = "null" ] && COLORS_JSON=""
+    fi
+fi
+if [ -n "${COLORS_JSON}" ] && printf '%s' "${COLORS_JSON}" | jq -e 'type == "array"' >/dev/null 2>&1; then
+    jq -cn --arg handle "${HANDLE_CLEAN}" --argjson colors "${COLORS_JSON}" \
+        '{handle:$handle, colors:$colors}' > "${INITRAMFS_CONFIG}"
+    log "Baked config.json (handle: ${HANDLE_CLEAN}, colors: $(printf '%s' "${COLORS_JSON}" | jq 'length'))"
+else
+    jq -cn --arg handle "${HANDLE_CLEAN}" '{handle:$handle}' > "${INITRAMFS_CONFIG}"
+    log "Baked config.json (handle: ${HANDLE_CLEAN}, no colors)"
+fi
+
 # Bundle KidLisp evaluator (IIFE build for QuickJS)
 KIDLISP_SRC="${SCRIPT_DIR}/../../../system/public/aesthetic.computer/lib/kidlisp.mjs"
 KIDLISP_BUNDLE="${INITRAMFS_DIR}/jslib/kidlisp-bundle.js"

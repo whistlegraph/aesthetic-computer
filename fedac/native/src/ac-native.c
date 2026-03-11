@@ -34,6 +34,88 @@ static FILE *logfile = NULL;
 static int is_removable(const char *blkname);
 static void get_parent_block(const char *part, char *out, int out_sz);
 
+// ── Performance logger (crash-resilient chunked files) ──
+// Writes /mnt/perf/NNNN.csv every 30s, each chunk fsync'd and closed.
+// On hard crash you lose at most 30 seconds. Keeps last 5 minutes (10 chunks).
+#define PERF_CHUNK_SECS   30
+#define PERF_CHUNK_FRAMES (60 * PERF_CHUNK_SECS)  // 1800 frames per chunk
+#define PERF_MAX_CHUNKS   10                       // 10 × 30s = 5 minutes
+#define PERF_BUF_SIZE     PERF_CHUNK_FRAMES
+
+typedef struct {
+    uint32_t frame;
+    uint16_t total_us;    // total frame time in microseconds (capped at 65535)
+    uint16_t act_us;
+    uint16_t sim_us;
+    uint16_t paint_us;
+    uint16_t present_us;
+    uint8_t  voices;      // active synth voices
+    uint8_t  events;      // input events this frame
+    uint8_t  js_heap_mb;  // QuickJS heap in MB (capped at 255)
+    uint8_t  flags;       // bit0=trackpadFX, bit1=cursor_visible
+} PerfRecord;
+
+static PerfRecord *perf_buf = NULL;
+static int perf_buf_count = 0;     // records in current chunk buffer
+static int perf_chunk_seq = 0;     // monotonic chunk sequence number
+static int perf_flush_frame = 0;   // last frame we flushed
+
+static void perf_init(void) {
+    perf_buf = calloc(PERF_BUF_SIZE, sizeof(PerfRecord));
+    if (!perf_buf) fprintf(stderr, "[perf] alloc failed\n");
+    mkdir("/mnt/perf", 0755);  // ensure directory exists
+}
+
+static void perf_record(PerfRecord *r) {
+    if (!perf_buf || perf_buf_count >= PERF_BUF_SIZE) return;
+    perf_buf[perf_buf_count++] = *r;
+}
+
+// Write current buffer as a numbered chunk file, fsync, close, then
+// delete the oldest chunk if we exceed PERF_MAX_CHUNKS.
+static void perf_flush(void) {
+    if (!perf_buf || perf_buf_count == 0) return;
+
+    char path[128];
+    snprintf(path, sizeof(path), "/mnt/perf/%04d.csv", perf_chunk_seq);
+
+    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd < 0) return;
+
+    FILE *f = fdopen(fd, "w");
+    if (!f) { close(fd); return; }
+
+    fprintf(f, "frame,total_us,act_us,sim_us,paint_us,present_us,voices,events,heap_mb,flags\n");
+    for (int i = 0; i < perf_buf_count; i++) {
+        PerfRecord *r = &perf_buf[i];
+        fprintf(f, "%u,%u,%u,%u,%u,%u,%u,%u,%u,%u\n",
+                r->frame, r->total_us, r->act_us, r->sim_us,
+                r->paint_us, r->present_us, r->voices, r->events,
+                r->js_heap_mb, r->flags);
+    }
+    fflush(f);
+    fsync(fd);
+    fclose(f);  // also closes fd
+
+    perf_buf_count = 0;
+
+    // Delete oldest chunk beyond retention window
+    int old_seq = perf_chunk_seq - PERF_MAX_CHUNKS;
+    if (old_seq >= 0) {
+        char old_path[128];
+        snprintf(old_path, sizeof(old_path), "/mnt/perf/%04d.csv", old_seq);
+        unlink(old_path);
+    }
+
+    perf_chunk_seq++;
+}
+
+static void perf_destroy(void) {
+    perf_flush();
+    free(perf_buf);
+    perf_buf = NULL;
+}
+
 static void signal_handler(int sig) {
     (void)sig;
     running = 0;
@@ -231,7 +313,9 @@ static void parse_boot_title_colors(const char *json) {
 }
 
 static void load_boot_visual_config(void) {
+    // Try USB/HD config first, fall back to initramfs-baked default
     FILE *cfg = fopen("/mnt/config.json", "r");
+    if (!cfg) cfg = fopen("/default-config.json", "r");
     if (!cfg) return;
 
     char buf[4096] = {0};
@@ -1295,6 +1379,9 @@ int main(int argc, char *argv[]) {
     // Call boot()
     js_call_boot(rt);
 
+    // Init performance logger
+    perf_init();
+
     if (headless) {
         for (int i = 0; i < 10 && running; i++) {
             js_call_sim(rt);
@@ -1447,7 +1534,11 @@ int main(int argc, char *argv[]) {
                 break;
             }
 
+            struct timespec _pf_start, _pf_act0, _pf_act1;
+            clock_gettime(CLOCK_MONOTONIC, &_pf_start);
+            clock_gettime(CLOCK_MONOTONIC, &_pf_act0);
             js_call_act(rt);
+            clock_gettime(CLOCK_MONOTONIC, &_pf_act1);
 
             // Handle piece jump requests from system.jump()
             if (rt->jump_requested) {
@@ -1499,8 +1590,12 @@ int main(int argc, char *argv[]) {
                 js_call_boot(rt);
             }
 
+            struct timespec _pf_sim0, _pf_sim1, _pf_paint0, _pf_paint1, _pf_pres0, _pf_pres1;
             if (audio_beat_check(audio)) js_call_beat(rt);
+            clock_gettime(CLOCK_MONOTONIC, &_pf_sim0);
             js_call_sim(rt);
+            clock_gettime(CLOCK_MONOTONIC, &_pf_sim1);
+            clock_gettime(CLOCK_MONOTONIC, &_pf_paint0);
             js_call_paint(rt);
 
             // Software cursor (AC precise cursor: teal crosshair + shadow + white center)
@@ -1523,8 +1618,11 @@ int main(int argc, char *argv[]) {
                 graph_ink(&graph, (ACColor){255, 255, 255, 255});
                 graph_plot(&graph, cx, cy);
             }
+            clock_gettime(CLOCK_MONOTONIC, &_pf_paint1);
 
+            clock_gettime(CLOCK_MONOTONIC, &_pf_pres0);
             display_present(display, screen, 3);
+            clock_gettime(CLOCK_MONOTONIC, &_pf_pres1);
 
             // HDMI: render waveform at ~7.5Hz (every 8 frames) — 4K dumb-buf is slow
             if (hdmi && audio && main_frame % 8 == 0) {
@@ -1555,9 +1653,46 @@ int main(int argc, char *argv[]) {
                 }
             }
 
+            // ── Record frame perf ──
+            {
+                struct timespec _pf_end;
+                clock_gettime(CLOCK_MONOTONIC, &_pf_end);
+                #define TS_US(a, b) (uint16_t)({ \
+                    long _d = ((b).tv_sec - (a).tv_sec) * 1000000L + \
+                              ((b).tv_nsec - (a).tv_nsec) / 1000L; \
+                    _d < 0 ? 0 : (_d > 65535 ? 65535 : _d); })
+                int _voices = 0;
+                if (audio) {
+                    for (int _v = 0; _v < AUDIO_MAX_VOICES; _v++)
+                        if (audio->voices[_v].state != VOICE_INACTIVE) _voices++;
+                }
+                PerfRecord pr = {
+                    .frame = (uint32_t)main_frame,
+                    .total_us = TS_US(_pf_start, _pf_end),
+                    .act_us = TS_US(_pf_act0, _pf_act1),
+                    .sim_us = TS_US(_pf_sim0, _pf_sim1),
+                    .paint_us = TS_US(_pf_paint0, _pf_paint1),
+                    .present_us = TS_US(_pf_pres0, _pf_pres1),
+                    .voices = (uint8_t)(_voices > 255 ? 255 : _voices),
+                    .events = (uint8_t)(input->event_count > 255 ? 255 : input->event_count),
+                    .js_heap_mb = 0,
+                    .flags = (uint8_t)((input->pointer_x || input->pointer_y ? 2 : 0)),
+                };
+                perf_record(&pr);
+                // Flush chunk to disk every 30 seconds (fsync'd, crash-safe)
+                if (main_frame - perf_flush_frame >= PERF_CHUNK_FRAMES) {
+                    perf_flush();
+                    perf_flush_frame = main_frame;
+                }
+                #undef TS_US
+            }
+
             frame_sync_60fps(&frame_time);
         }
     }
+
+    // Flush final perf data
+    perf_destroy();
 
     // Cleanup (TTS bye + shutdown chime already fired at power-press time)
     ac_log("[ac-native] Shutting down\n");

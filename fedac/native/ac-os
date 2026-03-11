@@ -1,0 +1,160 @@
+#!/bin/bash
+# ac-os — Single command for AC Native OS operations
+# Usage:
+#   ac-os flash        Build everything + flash USB
+#   ac-os build        Build everything (no flash)
+#   ac-os upload       Upload current build as OTA release
+#   ac-os flash+upload Build + flash USB + upload OTA release
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+BUILD_DIR="${SCRIPT_DIR}/build"
+VMLINUZ="${BUILD_DIR}/vmlinuz"
+INITRAMFS_ROOT="${BUILD_DIR}/initramfs-root"
+
+CMD="${1:-build}"
+
+log()  { echo -e "\033[0;36m[ac-os]\033[0m $*"; }
+err()  { echo -e "\033[0;31m[ac-os]\033[0m $*" >&2; }
+
+build_binary() {
+    log "Building binary..."
+    cd "${SCRIPT_DIR}"
+    CC_USE="${CC:-}"
+    if [ -z "${CC_USE}" ]; then
+        if command -v musl-gcc &>/dev/null \
+           && echo '#include <linux/input.h>' | musl-gcc -E -x c - &>/dev/null 2>&1; then
+            CC_USE=musl-gcc
+        else
+            CC_USE=gcc
+        fi
+    fi
+    make CC="${CC_USE}" 2>&1 | grep -E "Built:|error:" || true
+}
+
+build_initramfs() {
+    log "Building initramfs (sudo)..."
+    cd "${SCRIPT_DIR}"
+    sudo bash scripts/build-and-flash.sh --skip-kernel --skip-binary 2>&1 \
+        | grep -E "Baked|KidLisp|Initramfs:|error" || true
+
+    # KidLisp: npx not available under sudo, bundle as user then copy
+    local KIDLISP_SRC="${SCRIPT_DIR}/../../system/public/aesthetic.computer/lib/kidlisp.mjs"
+    if [ -f "${KIDLISP_SRC}" ] && command -v npx &>/dev/null; then
+        log "Bundling KidLisp..."
+        npx esbuild "${KIDLISP_SRC}" --bundle --format=iife \
+            --global-name=KidLispModule --platform=node \
+            --outfile=/tmp/kidlisp-bundle.js 2>&1 | grep -v "^npm warn" || true
+        sudo mkdir -p "${INITRAMFS_ROOT}/jslib"
+        sudo cp /tmp/kidlisp-bundle.js "${INITRAMFS_ROOT}/jslib/kidlisp-bundle.js"
+    fi
+
+    # Copy fresh binary into initramfs
+    sudo cp "${BUILD_DIR}/ac-native" "${INITRAMFS_ROOT}/ac-native"
+
+    # Repack cpio + lz4
+    log "Repacking initramfs..."
+    cd "${INITRAMFS_ROOT}"
+    sudo find . -print0 | sudo cpio --null -ov --format=newc \
+        > "${BUILD_DIR}/initramfs.cpio" 2>/dev/null
+    lz4 -l -9 -f "${BUILD_DIR}/initramfs.cpio" "${BUILD_DIR}/initramfs.cpio.lz4"
+}
+
+build_kernel() {
+    local LINUX_DIR="${BUILD_DIR}/linux-6.14.2"
+    if [ ! -d "${LINUX_DIR}" ]; then
+        err "Linux source not found at ${LINUX_DIR}"
+        exit 1
+    fi
+    log "Building kernel..."
+    cd "${LINUX_DIR}"
+    make -j$(nproc) bzImage 2>&1 | tail -1
+    cp arch/x86/boot/bzImage "${VMLINUZ}"
+    log "Kernel: $(du -sh "${VMLINUZ}" | cut -f1)"
+}
+
+flash_usb() {
+    # Find USB device
+    local USB_DEV=""
+    for dev in sda sdb sdc; do
+        if [ -e "/sys/block/${dev}/removable" ]; then
+            local rem=$(cat "/sys/block/${dev}/removable" 2>/dev/null)
+            if [ "${rem}" = "1" ] && lsblk "/dev/${dev}" &>/dev/null 2>&1; then
+                USB_DEV="/dev/${dev}"
+                break
+            fi
+        fi
+    done
+
+    if [ -z "${USB_DEV}" ]; then
+        # Fallback: check lsblk for sda with removable flag
+        if lsblk /dev/sda &>/dev/null 2>&1; then
+            USB_DEV="/dev/sda"
+        else
+            err "No USB device found"
+            exit 1
+        fi
+    fi
+
+    log "Flashing to ${USB_DEV}1..."
+    sudo docker run --rm --privileged \
+        -v "$(realpath "${BUILD_DIR}"):/build:ro" \
+        -v /dev:/dev \
+        fedora:41 bash -c "
+            dnf install -y -q dosfstools 2>/dev/null
+            mkdir -p /mnt/usb
+            # Create partition if needed
+            if ! lsblk ${USB_DEV}1 &>/dev/null 2>&1; then
+                dnf install -y -q util-linux 2>/dev/null
+                sfdisk --force ${USB_DEV} <<EOF
+label: gpt
+type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, size=512M
+EOF
+                sleep 2
+                mkfs.vfat -F 32 -n ACBOOT ${USB_DEV}1
+            fi
+            mount ${USB_DEV}1 /mnt/usb
+            mkdir -p /mnt/usb/EFI/BOOT
+            cp /build/vmlinuz /mnt/usb/EFI/BOOT/BOOTX64.EFI
+            sync && sleep 1 && sync
+            echo '=== Verify ==='
+            sha256sum /mnt/usb/EFI/BOOT/BOOTX64.EFI /build/vmlinuz
+            umount /mnt/usb
+            echo 'Flashed!'
+        " 2>&1 | grep -v "^Package\|^Installing\|^Transaction\|^[[:space:]]"
+}
+
+upload_ota() {
+    log "Uploading OTA release..."
+    cd "${SCRIPT_DIR}"
+    bash scripts/upload-release.sh "${VMLINUZ}"
+}
+
+case "${CMD}" in
+    build)
+        build_binary
+        build_initramfs
+        build_kernel
+        log "Build complete: ${VMLINUZ}"
+        ;;
+    flash)
+        build_binary
+        build_initramfs
+        build_kernel
+        flash_usb
+        ;;
+    upload)
+        upload_ota
+        ;;
+    flash+upload|upload+flash)
+        build_binary
+        build_initramfs
+        build_kernel
+        flash_usb
+        upload_ota
+        ;;
+    *)
+        echo "Usage: ac-os {build|flash|upload|flash+upload}"
+        exit 1
+        ;;
+esac
