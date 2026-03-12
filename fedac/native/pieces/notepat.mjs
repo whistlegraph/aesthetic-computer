@@ -547,23 +547,10 @@ function act({ event: e, sound, wifi, system }) {
       return;
     }
 
-    // "os" button: top bar — hit zone set dynamically in paint()
+    // "os" button: jump to standalone os piece
     const ob = globalThis.__osBtn;
     if (ob && y < ob.h && x >= ob.x && x <= ob.x + ob.w) {
-      if (activeScreen === "os") {
-        activeScreen = "notepat";
-        osState = "idle";
-      } else {
-        activeScreen = "os";
-        osState = "checking";
-        osFetchPending = false;
-        osRemoteVersion = "";
-        osError = "";
-        // Cancel any in-flight fetch (clock sync, auto-update) so OS panel gets the slot
-        system.fetchCancel?.();
-        autoUpdate.fetchPending = false;
-        if (autoUpdate.state === "checking") autoUpdate.state = "idle";
-      }
+      system?.jump?.("os");
       return;
     }
 
@@ -1831,6 +1818,10 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       const vGap = 1;
 
       const drawLane = (x0, phase) => {
+        // Single background tint per lane (not per-bar — avoids alpha overdraw)
+        ink(dark ? 30 : 220, dark ? 10 : 200, dark ? 50 : 180, 36);
+        box(x0, wfTop, laneW, wfH, true);
+
         for (let i = 0; i < barsPerSide; i++) {
           const t = (i / barsPerSide) * 0.5 + phase;
           const si = Math.min((wf.length || 1) - 1, Math.floor(t * (wf.length || 1)));
@@ -1841,11 +1832,10 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
           const bw = Math.max(1, Math.min(barW - vGap, x0 + laneW - bx));
           if (bw <= 0 || bx >= x0 + laneW) break;
 
-          ink(dark ? 30 : 220, dark ? 10 : 200, dark ? 50 : 180, 36);
-          box(bx, wfTop, bw, wfH, true);
-          ink(dark ? 0 : 200, dark ? 200 : 40, dark ? 255 : 0, 140);
+          // Opaque bar fill (no alpha — fast path)
+          ink(dark ? 0 : 200, dark ? 200 : 40, dark ? 255 : 0);
           box(bx, barTop, bw, barH, true);
-          ink(dark ? 255 : 255, dark ? 60 : 0, dark ? 180 : 100, 200);
+          ink(dark ? 255 : 255, dark ? 60 : 0, dark ? 180 : 100);
           box(bx, barTop, bw, 2, true);
         }
       };

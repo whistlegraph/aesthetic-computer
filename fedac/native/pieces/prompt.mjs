@@ -3,6 +3,7 @@
 // Anything typed (except "notepat") is evaluated as KidLisp source.
 
 let input = "";
+let cursor = 0; // cursor position within input
 let cursorVisible = true;
 let cursorFrame = 0;
 let history = [];
@@ -10,6 +11,19 @@ let historyIndex = -1;
 let message = "";
 let messageFrame = 0;
 let shiftHeld = false;
+let frame = 0;
+
+// WiFi auto-connect state
+const AC_SSID = "aesthetic.computer";
+const AC_PASS = "aesthetic.computer";
+const FALLBACK_WIFI = [
+  { ssid: "ATT2AWTpcr", pass: "t84q%7%g2h8u" },
+  { ssid: "ATTcifXGXi", pass: "=dvt%mnk8h6z" },
+];
+const CREDS_PATH = "/mnt/wifi_creds.json";
+let savedCreds = [];
+let autoConnectFrame = 0;
+let connectStartFrame = -9999;
 
 const SHIFT_MAP = {
   "1":"!", "2":"@", "3":"#", "4":"$", "5":"%",
@@ -17,6 +31,27 @@ const SHIFT_MAP = {
   "-":"_", "=":"+", "[":"{", "]":"}", "\\":"|",
   ";":":", "'":'"', ",":"<", ".":">", "/":"?", "`":"~",
 };
+
+// KidLisp syntax highlighting colors
+const KL_KEYWORDS = new Set([
+  "ink","line","circle","box","wipe","fade","write","grid","plot",
+  "spin","zoom","scroll","contrast","noise","blend","mirror",
+  "w","h","w/2","h/2","t","frame","pi","tau",
+  "sin","cos","tan","abs","sqrt","floor","ceil","round","min","max","pow","mod",
+  "?","...",
+]);
+const KL_COLORS = new Set([
+  "red","green","blue","cyan","magenta","yellow","white","black",
+  "orange","pink","purple","gray","grey","rainbow",
+]);
+
+function klTokenColor(token) {
+  if (KL_COLORS.has(token)) return [255, 140, 100]; // warm orange for color names
+  if (KL_KEYWORDS.has(token)) return [120, 180, 255]; // blue for keywords
+  if (/^-?\d+(\.\d+)?$/.test(token)) return [180, 220, 140]; // green for numbers
+  if (/^[a-z]/.test(token) && token.includes("/")) return [180, 220, 140]; // w/2 etc
+  return null; // default
+}
 
 // Built-in $code aliases
 const CODES = {
@@ -35,8 +70,14 @@ function boot({ system }) {
   // Restore input from KidLisp return (backspace/escape preserves source)
   if (globalThis.__promptRestore) {
     input = globalThis.__promptRestore;
+    cursor = input.length;
     globalThis.__promptRestore = undefined;
   }
+  // Load saved WiFi credentials
+  try {
+    const raw = system?.readFile?.(CREDS_PATH);
+    if (raw) savedCreds = JSON.parse(raw);
+  } catch (_) {}
 }
 
 function act({ event: e, system }) {
@@ -55,32 +96,51 @@ function act({ event: e, system }) {
         historyIndex = -1;
         execute(cmd, system);
         input = "";
+        cursor = 0;
       }
     } else if (key === "backspace") {
-      input = input.slice(0, -1);
+      if (cursor > 0) {
+        input = input.slice(0, cursor - 1) + input.slice(cursor);
+        cursor--;
+      }
+    } else if (key === "delete") {
+      if (cursor < input.length) {
+        input = input.slice(0, cursor) + input.slice(cursor + 1);
+      }
     } else if (key === "escape") {
       input = "";
+      cursor = 0;
+    } else if (key === "arrowleft") {
+      if (cursor > 0) cursor--;
+    } else if (key === "arrowright") {
+      if (cursor < input.length) cursor++;
+    } else if (key === "home") {
+      cursor = 0;
+    } else if (key === "end") {
+      cursor = input.length;
     } else if (key === "arrowup") {
       if (history.length > 0 && historyIndex < history.length - 1) {
         historyIndex++;
         input = history[historyIndex];
+        cursor = input.length;
       }
     } else if (key === "arrowdown") {
       if (historyIndex > 0) {
         historyIndex--;
         input = history[historyIndex];
+        cursor = input.length;
       } else if (historyIndex === 0) {
         historyIndex = -1;
         input = "";
+        cursor = 0;
       }
     } else if (key === "space") {
-      input += " ";
+      input = input.slice(0, cursor) + " " + input.slice(cursor);
+      cursor++;
     } else if (key.length === 1) {
-      if (shiftHeld) {
-        input += SHIFT_MAP[key] ?? key.toUpperCase();
-      } else {
-        input += key;
-      }
+      const ch = shiftHeld ? (SHIFT_MAP[key] ?? key.toUpperCase()) : key;
+      input = input.slice(0, cursor) + ch + input.slice(cursor);
+      cursor++;
     }
   }
 }
@@ -157,48 +217,159 @@ function execute(cmd, system) {
   message = "~> lisp";
   messageFrame = 0;
   globalThis.__kidlispSource = cmd;
-  globalThis.__kidlispLabel = cmd.length > 20 ? cmd.slice(0, 17) + "..." : cmd;
+  globalThis.__kidlispLabel = cmd; // full source, no truncation
   system?.jump?.("lisp");
 }
 
-function paint({ wipe, ink, box, write, screen, paintCount }) {
+// Draw syntax-highlighted KidLisp text
+function drawHighlighted(text, x0, y0, charW, ink, write, font) {
+  // Tokenize by spaces and parens, preserving positions
+  let cx = x0;
+  let i = 0;
+  while (i < text.length) {
+    // Skip whitespace
+    if (text[i] === " ") {
+      cx += charW;
+      i++;
+      continue;
+    }
+    // Parens get special color
+    if (text[i] === "(" || text[i] === ")") {
+      ink(180, 120, 200); // purple parens
+      write(text[i], { x: cx, y: y0, size: 1, font });
+      cx += charW;
+      i++;
+      continue;
+    }
+    // Colon (fade separator)
+    if (text[i] === ":") {
+      ink(140, 140, 160);
+      write(":", { x: cx, y: y0, size: 1, font });
+      cx += charW;
+      i++;
+      continue;
+    }
+    // Collect token
+    let token = "";
+    const start = i;
+    while (i < text.length && text[i] !== " " && text[i] !== "(" && text[i] !== ")") {
+      token += text[i];
+      i++;
+    }
+    const color = klTokenColor(token.toLowerCase());
+    if (color) {
+      ink(color[0], color[1], color[2]);
+    } else {
+      ink(220, 220, 230); // default white
+    }
+    write(token, { x: cx, y: y0, size: 1, font });
+    cx += token.length * charW;
+  }
+}
+
+function paint({ wipe, ink, box, write, screen, paintCount, wifi, system }) {
+  frame++;
   wipe(40, 20, 60);
 
   const W = screen.width;
   const H = screen.height;
+
+  // WiFi auto-connect (runs every frame, same logic as notepat)
+  if (wifi && !wifi.connected) {
+    autoConnectFrame++;
+    const knownCreds = [
+      { ssid: AC_SSID, pass: AC_PASS },
+      ...FALLBACK_WIFI,
+      ...savedCreds.filter(c => c.ssid !== AC_SSID && !FALLBACK_WIFI.find(f => f.ssid === c.ssid)),
+    ];
+    const knownSSIDs = new Set(knownCreds.map(c => c.ssid));
+    const isConnecting = wifi.state === 3 || wifi.state === 4;
+    const isIdle = !isConnecting;
+
+    // Timeout connecting after 5s
+    if (isConnecting && frame - connectStartFrame > 300) {
+      wifi.disconnect?.();
+      autoConnectFrame = -60;
+    }
+
+    if (isIdle) {
+      if (autoConnectFrame % 300 === 0) wifi.scan?.();
+      if (autoConnectFrame % 300 === 150) {
+        const nets = wifi.networks || [];
+        const matches = nets
+          .filter(n => n.ssid && knownSSIDs.has(n.ssid))
+          .sort((a, b) => b.signal - a.signal);
+        if (matches.length > 0) {
+          const best = matches[0];
+          const cred = knownCreds.find(c => c.ssid === best.ssid);
+          wifi.connect(cred.ssid, cred.pass);
+          connectStartFrame = frame;
+        }
+      }
+    }
+  }
+
+  // WiFi status indicator (top-right)
+  {
+    const sx = W - 6;
+    if (wifi?.connected) {
+      ink(80, 200, 80);
+      box(sx, 2, 4, 4, true);
+    } else if (wifi) {
+      ink(frame % 60 < 30 ? 200 : 60, 80, 80);
+      box(sx, 2, 4, 4, true);
+    }
+  }
+
   const charW = 6; // 6x10 font
   const charH = 10;
   const lineH = 12;
   const x0 = 4;
   const y0 = 4;
+  const font = "6x10";
 
   // Cursor blink
   cursorFrame++;
   if (cursorFrame % 30 === 0) cursorVisible = !cursorVisible;
 
-  // Input text
-  ink(220, 220, 230);
-  write(input, { x: x0, y: y0, size: 1, font: "6x10" });
+  // Input text with syntax highlighting
+  drawHighlighted(input, x0, y0, charW, ink, write, font);
 
-  // Pink block cursor after text
+  // Pink block cursor at cursor position
   if (cursorVisible) {
-    const cx = x0 + input.length * charW;
-    ink(220, 80, 140);
+    const cx = x0 + cursor * charW;
+    ink(220, 80, 140, 180);
     box(cx, y0, charW, charH, true);
+    // Draw character under cursor if not at end
+    if (cursor < input.length) {
+      ink(255, 255, 255);
+      write(input[cursor], { x: cx, y: y0, size: 1, font });
+    }
   }
 
-  // History below input
+  // History below input (also syntax highlighted)
   let hy = y0 + lineH + 4;
   for (let i = 0; i < history.length && hy < H - 20; i++) {
-    ink(80, 60, 100);
-    write(history[i], { x: x0, y: hy, size: 1, font: "6x10" });
+    // Dim the history entries
+    const entry = history[i];
+    const lower = entry.toLowerCase();
+    // Navigation commands in dim purple, KidLisp source highlighted but dimmed
+    if (["notepat","np","os","update","net","wifi","version","ver","help","claude","cl","ssh","reboot","clear","cls"].includes(lower)) {
+      ink(80, 60, 100);
+      write(entry, { x: x0, y: hy, size: 1, font });
+    } else {
+      // KidLisp history — dim highlight
+      drawHighlighted(entry, x0, hy, charW,
+        (r, g, b) => ink(Math.floor(r * 0.4), Math.floor(g * 0.4), Math.floor(b * 0.4)),
+        write, font);
+    }
     hy += lineH;
   }
 
   // Message (bottom)
   if (message.length > 0) {
     ink(160, 140, 180);
-    write(message, { x: x0, y: H - 14, size: 1, font: "6x10" });
+    write(message, { x: x0, y: H - 14, size: 1, font });
   }
 }
 

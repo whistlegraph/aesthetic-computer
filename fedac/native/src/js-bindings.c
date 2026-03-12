@@ -17,8 +17,10 @@
 
 // Defined in ac-native.c — logs to USB mount
 extern void ac_log(const char *fmt, ...);
+extern void ac_log_flush(void);
 extern void ac_log_pause(void);
 extern void ac_log_resume(void);
+extern void perf_flush(void);
 
 // Thread-local reference to current runtime (for C callbacks from JS)
 static __thread ACRuntime *current_rt = NULL;
@@ -622,6 +624,38 @@ static JSValue js_mic_sample_rate(JSContext *ctx, JSValueConst this_val) {
     return JS_NewInt32(ctx, current_rt->audio->sample_rate);
 }
 
+// sampleObj.update({tone, base, volume, pan}) — update a playing sample voice
+static JSValue js_sample_obj_update(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    ACAudio *audio = current_rt->audio;
+    if (!audio || argc < 1 || !JS_IsObject(argv[0])) return JS_UNDEFINED;
+
+    JSValue id_v = JS_GetPropertyStr(ctx, this_val, "id");
+    double id_d = 0;
+    if (JS_IsNumber(id_v)) JS_ToFloat64(ctx, &id_d, id_v);
+    JS_FreeValue(ctx, id_v);
+    uint64_t id = (uint64_t)id_d;
+    if (id == 0) return JS_UNDEFINED;
+
+    double freq = -1, base_freq = -1, vol = -1, pan = -3;
+    JSValue v;
+    v = JS_GetPropertyStr(ctx, argv[0], "tone");
+    if (JS_IsNumber(v)) JS_ToFloat64(ctx, &freq, v);
+    JS_FreeValue(ctx, v);
+    v = JS_GetPropertyStr(ctx, argv[0], "base");
+    if (JS_IsNumber(v)) JS_ToFloat64(ctx, &base_freq, v);
+    JS_FreeValue(ctx, v);
+    v = JS_GetPropertyStr(ctx, argv[0], "volume");
+    if (JS_IsNumber(v)) JS_ToFloat64(ctx, &vol, v);
+    JS_FreeValue(ctx, v);
+    v = JS_GetPropertyStr(ctx, argv[0], "pan");
+    if (JS_IsNumber(v)) JS_ToFloat64(ctx, &pan, v);
+    JS_FreeValue(ctx, v);
+
+    if (freq > 0 && base_freq < 0) base_freq = 261.63; // default C4
+    audio_sample_update(audio, id, freq, base_freq, vol, pan);
+    return JS_UNDEFINED;
+}
+
 // sound.sample.play({tone, base, volume, pan}) — play recorded sample at pitch
 static JSValue js_sample_play(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
@@ -656,10 +690,11 @@ static JSValue js_sample_play(JSContext *ctx, JSValueConst this_val, int argc, J
     uint64_t id = audio_sample_play(audio, freq, base_freq, volume, pan, loop);
     if (id == 0) return JS_UNDEFINED;
 
-    // Return object with id, kill(), update()
+    // Return object with id, update(), isSample
     JSValue snd = JS_NewObject(ctx);
     JS_SetPropertyStr(ctx, snd, "id", JS_NewFloat64(ctx, (double)id));
     JS_SetPropertyStr(ctx, snd, "isSample", JS_TRUE);
+    JS_SetPropertyStr(ctx, snd, "update", JS_NewCFunction(ctx, js_sample_obj_update, "update", 1));
     return snd;
 }
 
@@ -1838,24 +1873,11 @@ static void *flash_thread_fn(void *arg) {
 
     ac_log("[flash] starting: src=%s device=%s", rt->flash_src, rt->flash_device);
 
-    // Mount the EFI partition.  Always mount fresh at /tmp/efi to avoid
-    // confusion with the logging mount at /mnt (which may point at the same
-    // partition but doesn't guarantee EFI/BOOT/ exists).
-    const char *efi_mount = NULL;
-    int did_mount = 0;
-    mkdir("/tmp/efi", 0755);
-    umount("/tmp/efi");  // clean up any stale mount
-    if (mount(rt->flash_device, "/tmp/efi", "vfat", 0, NULL) == 0) {
-        efi_mount = "/tmp/efi";
-        did_mount = 1;
-        ac_log("[flash] mounted %s at /tmp/efi", rt->flash_device);
-    } else {
-        // Fallback: /mnt might already have this partition
-        if (access("/mnt/EFI/BOOT", F_OK) == 0) {
-            efi_mount = "/mnt";
-            ac_log("[flash] using existing /mnt mount (fresh mount failed errno=%d)", errno);
-        } else {
-            ac_log("[flash] mount %s failed (errno=%d %s) and /mnt has no EFI/BOOT",
+    // Check if device node exists
+    {
+        struct stat dev_st;
+        if (stat(rt->flash_device, &dev_st) != 0) {
+            ac_log("[flash] device %s does not exist (errno=%d %s)",
                    rt->flash_device, errno, strerror(errno));
             rt->flash_phase = 4;
             rt->flash_ok = 0;
@@ -1863,12 +1885,75 @@ static void *flash_thread_fn(void *arg) {
             rt->flash_done = 1;
             return NULL;
         }
+        ac_log("[flash] device %s exists (mode=0%o)", rt->flash_device, dev_st.st_mode);
     }
-    // Validate EFI directory exists on the mount
+
+    // Mount the EFI partition.  Always mount fresh at /tmp/efi to avoid
+    // confusion with the logging mount at /mnt (which may point at the same
+    // partition but doesn't guarantee EFI/BOOT/ exists).
+    const char *efi_mount = NULL;
+    int did_mount = 0;
+    mkdir("/tmp/efi", 0755);
+    umount("/tmp/efi");  // clean up any stale mount
+
+    // Try vfat first, then ext4 (NVMe might have either)
+    const char *fstypes[] = {"vfat", "ext4", "ext2", NULL};
+    for (int fi = 0; fstypes[fi] && !did_mount; fi++) {
+        int mr = mount(rt->flash_device, "/tmp/efi", fstypes[fi], 0, NULL);
+        if (mr == 0) {
+            efi_mount = "/tmp/efi";
+            did_mount = 1;
+            ac_log("[flash] mounted %s at /tmp/efi (type=%s)", rt->flash_device, fstypes[fi]);
+        } else {
+            ac_log("[flash] mount %s as %s failed: errno=%d (%s)",
+                   rt->flash_device, fstypes[fi], errno, strerror(errno));
+        }
+    }
+
+    // If all mounts failed and this is NVMe, try formatting as vfat (fresh drive)
+    if (!did_mount && strstr(rt->flash_device, "nvme")) {
+        ac_log("[flash] NVMe mount failed — attempting mkfs.vfat on %s", rt->flash_device);
+        char cmd[256];
+        snprintf(cmd, sizeof(cmd), "mkfs.vfat -F 32 -n ACBOOT %s 2>&1", rt->flash_device);
+        FILE *p = popen(cmd, "r");
+        if (p) {
+            char buf[256];
+            while (fgets(buf, sizeof(buf), p)) ac_log("[flash] mkfs: %s", buf);
+            int rc = pclose(p);
+            ac_log("[flash] mkfs exit=%d", rc);
+            if (rc == 0) {
+                if (mount(rt->flash_device, "/tmp/efi", "vfat", 0, NULL) == 0) {
+                    efi_mount = "/tmp/efi";
+                    did_mount = 1;
+                    ac_log("[flash] mounted fresh vfat on %s", rt->flash_device);
+                }
+            }
+        }
+    }
+
+    if (!did_mount) {
+        // Fallback: /mnt might already have this partition
+        if (access("/mnt/EFI/BOOT", F_OK) == 0) {
+            efi_mount = "/mnt";
+            ac_log("[flash] using existing /mnt mount (fresh mount failed)");
+        } else {
+            ac_log("[flash] ABORT: mount %s failed and /mnt has no EFI/BOOT",
+                   rt->flash_device);
+            rt->flash_phase = 4;
+            rt->flash_ok = 0;
+            rt->flash_pending = 0;
+            rt->flash_done = 1;
+            return NULL;
+        }
+    }
+    // Create EFI directory structure if it doesn't exist (fresh NVMe install)
     char efi_dir[512];
+    snprintf(efi_dir, sizeof(efi_dir), "%s/EFI", efi_mount);
+    mkdir(efi_dir, 0755);
     snprintf(efi_dir, sizeof(efi_dir), "%s/EFI/BOOT", efi_mount);
+    mkdir(efi_dir, 0755);
     if (access(efi_dir, F_OK) != 0) {
-        ac_log("[flash] ABORT: %s not found — wrong partition?", efi_dir);
+        ac_log("[flash] ABORT: %s could not be created", efi_dir);
         if (did_mount) umount("/tmp/efi");
         rt->flash_phase = 4;
         rt->flash_ok = 0;
@@ -2020,17 +2105,56 @@ static JSValue js_flash_update(JSContext *ctx, JSValueConst this_val, int argc, 
 }
 
 // system.reboot() — triggers system reboot (direct syscall, no external binary needed)
+// Hardened: triple sync with delays, pre-reboot EFI file size sanity check,
+// perf flush, log flush before rebooting.
 static JSValue js_reboot(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)ctx; (void)this_val; (void)argc; (void)argv;
-    ac_log("[system] reboot requested — executing syscall");
-    // Play shutdown chime and let audio drain before rebooting
+    ac_log("[system] reboot requested");
+
+    // Pre-reboot sanity: verify EFI file exists and is >1MB (catch corrupted flash)
+    {
+        const char *efi_paths[] = {
+            "/mnt/EFI/BOOT/BOOTX64.EFI",
+            "/tmp/efi/EFI/BOOT/BOOTX64.EFI",
+            NULL
+        };
+        int efi_ok = 0;
+        for (int i = 0; efi_paths[i]; i++) {
+            struct stat st;
+            if (stat(efi_paths[i], &st) == 0 && st.st_size > 1048576) {
+                ac_log("[reboot] EFI verified: %s (%ld bytes)", efi_paths[i], (long)st.st_size);
+                efi_ok = 1;
+                break;
+            }
+        }
+        if (!efi_ok) {
+            ac_log("[reboot] WARNING: no valid EFI file found on mount — rebooting anyway");
+        }
+    }
+
+    // Flush perf data before reboot
+    perf_flush();
+
+    // Play shutdown chime and let audio drain
     if (current_rt && current_rt->audio) {
         audio_shutdown_sound(current_rt->audio);
         usleep(500000);  // 500ms for chime to play
     }
+
+    // Flush log file
+    ac_log("[reboot] syncing filesystems...");
+    ac_log_flush();
+
+    // Triple sync with delays — vfat write-back needs time
     sync();
-    usleep(500000);  // give block layer time to flush vfat
-    sync();  // second sync for safety
+    usleep(500000);
+    sync();
+    usleep(500000);
+    sync();
+
+    ac_log("[reboot] executing reboot syscall");
+    ac_log_flush();
+
     if (getpid() == 1) {
         reboot(LINUX_REBOOT_CMD_RESTART);
     } else {
