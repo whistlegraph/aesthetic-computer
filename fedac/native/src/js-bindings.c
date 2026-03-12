@@ -2016,62 +2016,88 @@ static void *flash_thread_fn(void *arg) {
         ac_log("[flash] device %s exists (mode=0%o)", rt->flash_device, dev_st.st_mode);
     }
 
-    // Mount the EFI partition.  Always mount fresh at /tmp/efi to avoid
-    // confusion with the logging mount at /mnt (which may point at the same
-    // partition but doesn't guarantee EFI/BOOT/ exists).
+    // Mount the EFI partition for flashing.
+    // IMPORTANT: If the flash target is the same device already mounted at /mnt
+    // (e.g. NVMe-to-NVMe OTA), we MUST use /mnt directly. Mounting the same
+    // vfat block device twice causes FAT table corruption — each mount has its
+    // own in-memory FAT, and umount of one will overwrite the other's changes.
     const char *efi_mount = NULL;
     int did_mount = 0;
-    mkdir("/tmp/efi", 0755);
-    umount("/tmp/efi");  // clean up any stale mount
 
-    // Try vfat first, then ext4 (NVMe might have either)
-    const char *fstypes[] = {"vfat", "ext4", "ext2", NULL};
-    for (int fi = 0; fstypes[fi] && !did_mount; fi++) {
-        int mr = mount(rt->flash_device, "/tmp/efi", fstypes[fi], 0, NULL);
-        if (mr == 0) {
-            efi_mount = "/tmp/efi";
-            did_mount = 1;
-            ac_log("[flash] mounted %s at /tmp/efi (type=%s)", rt->flash_device, fstypes[fi]);
+    // Check if flash target is already mounted at /mnt
+    extern char log_dev[];  // set during setup_logging()
+    int same_as_mnt = (log_dev[0] && strcmp(log_dev, rt->flash_device) == 0);
+
+    if (same_as_mnt) {
+        // Same device as /mnt — use it directly, never double-mount
+        if (access("/mnt/EFI/BOOT", F_OK) == 0 || access("/mnt/EFI", F_OK) == 0) {
+            efi_mount = "/mnt";
+            ac_log("[flash] flash target = boot device (%s), using /mnt directly", rt->flash_device);
         } else {
-            ac_log("[flash] mount %s as %s failed: errno=%d (%s)",
-                   rt->flash_device, fstypes[fi], errno, strerror(errno));
-        }
-    }
-
-    // If all mounts failed and this is NVMe, try formatting as vfat (fresh drive)
-    if (!did_mount && strstr(rt->flash_device, "nvme")) {
-        ac_log("[flash] NVMe mount failed — attempting mkfs.vfat on %s", rt->flash_device);
-        char cmd[256];
-        snprintf(cmd, sizeof(cmd), "mkfs.vfat -F 32 -n ACBOOT %s 2>&1", rt->flash_device);
-        FILE *p = popen(cmd, "r");
-        if (p) {
-            char buf[256];
-            while (fgets(buf, sizeof(buf), p)) ac_log("[flash] mkfs: %s", buf);
-            int rc = pclose(p);
-            ac_log("[flash] mkfs exit=%d", rc);
-            if (rc == 0) {
-                if (mount(rt->flash_device, "/tmp/efi", "vfat", 0, NULL) == 0) {
-                    efi_mount = "/tmp/efi";
-                    did_mount = 1;
-                    ac_log("[flash] mounted fresh vfat on %s", rt->flash_device);
-                }
+            ac_log("[flash] flash target = boot device but /mnt has no EFI dir");
+            // Create EFI structure on /mnt
+            mkdir("/mnt/EFI", 0755);
+            mkdir("/mnt/EFI/BOOT", 0755);
+            if (access("/mnt/EFI/BOOT", F_OK) == 0) {
+                efi_mount = "/mnt";
+                ac_log("[flash] created EFI/BOOT on /mnt");
             }
         }
     }
 
-    if (!did_mount) {
-        // Fallback: /mnt might already have this partition
-        if (access("/mnt/EFI/BOOT", F_OK) == 0) {
-            efi_mount = "/mnt";
-            ac_log("[flash] using existing /mnt mount (fresh mount failed)");
-        } else {
-            ac_log("[flash] ABORT: mount %s failed and /mnt has no EFI/BOOT",
-                   rt->flash_device);
-            rt->flash_phase = 4;
-            rt->flash_ok = 0;
-            rt->flash_pending = 0;
-            rt->flash_done = 1;
-            return NULL;
+    if (!efi_mount) {
+        // Different device — mount fresh at /tmp/efi
+        mkdir("/tmp/efi", 0755);
+        umount("/tmp/efi");  // clean up any stale mount
+
+        const char *fstypes[] = {"vfat", "ext4", "ext2", NULL};
+        for (int fi = 0; fstypes[fi] && !did_mount; fi++) {
+            int mr = mount(rt->flash_device, "/tmp/efi", fstypes[fi], 0, NULL);
+            if (mr == 0) {
+                efi_mount = "/tmp/efi";
+                did_mount = 1;
+                ac_log("[flash] mounted %s at /tmp/efi (type=%s)", rt->flash_device, fstypes[fi]);
+            } else {
+                ac_log("[flash] mount %s as %s failed: errno=%d (%s)",
+                       rt->flash_device, fstypes[fi], errno, strerror(errno));
+            }
+        }
+
+        // If all mounts failed and this is NVMe, try formatting as vfat (fresh drive)
+        if (!did_mount && strstr(rt->flash_device, "nvme")) {
+            ac_log("[flash] NVMe mount failed — attempting mkfs.vfat on %s", rt->flash_device);
+            char cmd[256];
+            snprintf(cmd, sizeof(cmd), "mkfs.vfat -F 32 -n ACBOOT %s 2>&1", rt->flash_device);
+            FILE *p = popen(cmd, "r");
+            if (p) {
+                char buf[256];
+                while (fgets(buf, sizeof(buf), p)) ac_log("[flash] mkfs: %s", buf);
+                int rc = pclose(p);
+                ac_log("[flash] mkfs exit=%d", rc);
+                if (rc == 0) {
+                    if (mount(rt->flash_device, "/tmp/efi", "vfat", 0, NULL) == 0) {
+                        efi_mount = "/tmp/efi";
+                        did_mount = 1;
+                        ac_log("[flash] mounted fresh vfat on %s", rt->flash_device);
+                    }
+                }
+            }
+        }
+
+        // Last resort: check /mnt
+        if (!did_mount) {
+            if (access("/mnt/EFI/BOOT", F_OK) == 0) {
+                efi_mount = "/mnt";
+                ac_log("[flash] using existing /mnt mount (fresh mount failed)");
+            } else {
+                ac_log("[flash] ABORT: mount %s failed and /mnt has no EFI/BOOT",
+                       rt->flash_device);
+                rt->flash_phase = 4;
+                rt->flash_ok = 0;
+                rt->flash_pending = 0;
+                rt->flash_done = 1;
+                return NULL;
+            }
         }
     }
     // Create EFI directory structure if it doesn't exist (fresh NVMe install)
@@ -2101,10 +2127,11 @@ static void *flash_thread_fn(void *arg) {
         snprintf(dst, sizeof(dst), "%s/EFI/BOOT/BOOTX64.EFI", efi_mount);
         ac_log("[flash] no chainloader, updating BOOTX64.EFI");
     }
+    ac_log("[flash] destination: %s (efi_mount=%s, same_device=%d, did_mount=%d)",
+           dst, efi_mount, same_as_mnt, did_mount);
 
     // Close the log file if writing to the same vfat partition as /mnt
-    // (vfat can fail writes when another file handle is open on the same mount)
-    int same_mount = !did_mount;  // /mnt fallback means same partition
+    int same_mount = same_as_mnt || !did_mount;
     if (same_mount) {
         ac_log("[flash] pausing log for write to /mnt");
         ac_log_pause();
