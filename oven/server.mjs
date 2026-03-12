@@ -2741,7 +2741,12 @@ app.get('/os-image', async (req, res) => {
     return res.status(403).json({ error: 'You need a handle first. Visit aesthetic.computer/handle to claim one.' });
   }
 
-  console.log(`[os-image] Building personalized image for @${handle}`);
+  // Boot-to piece preference (default: notepat)
+  const ALLOWED_PIECES = ['notepat', 'prompt', 'chat', 'laer-klokken'];
+  const reqPiece = req.query.piece || 'notepat';
+  const bootPiece = ALLOWED_PIECES.includes(reqPiece) ? reqPiece : 'notepat';
+
+  console.log(`[os-image] Building personalized image for @${handle} (boot: ${bootPiece})`);
 
   // Get template (cached in memory)
   let imgData;
@@ -2755,7 +2760,7 @@ app.get('/os-image', async (req, res) => {
   // Build personalized config (padded to CONFIG_PAD_SIZE)
   const config = JSON.stringify({
     handle,
-    piece: 'notepat',
+    piece: bootPiece,
     sub: userInfo.sub || '',
     email: userInfo.email || '',
   });
@@ -2773,7 +2778,18 @@ app.get('/os-image', async (req, res) => {
   // Stream the patched image
   addServerLog('success', '💿', `OS image for @${handle} (${(imgData.length / 1048576).toFixed(1)}MB)`);
   res.setHeader('Content-Type', 'application/octet-stream');
-  res.setHeader('Content-Disposition', `attachment; filename="ac-native-${handle}.img"`);
+  const pieceSuffix = bootPiece !== 'notepat' ? `-${bootPiece}` : '';
+  // Get latest build name for filename
+  let releaseName = 'native';
+  try {
+    const relRes = await fetch(`${RELEASES_BASE}/releases.json`);
+    if (relRes.ok) {
+      const relData = await relRes.json();
+      releaseName = relData?.releases?.[0]?.name || releaseName;
+    }
+  } catch (_) {}
+  const buildName = 'ac-' + releaseName;
+  res.setHeader('Content-Disposition', `attachment; filename="@${handle}-os-${buildName}${pieceSuffix}.img"`);
   res.setHeader('Content-Length', imgData.length);
   res.end(imgData);
 });
@@ -2964,6 +2980,7 @@ app.post('/os-release-upload', async (req, res) => {
   const buildName = req.headers['x-build-name'] || `upload-${Date.now()}`;
   const gitHash = req.headers['x-git-hash'] || 'unknown';
   const buildTs = req.headers['x-build-ts'] || new Date().toISOString().slice(0, 16);
+  const commitMsg = req.headers['x-commit-msg'] || '';
   const version = `${buildName} ${gitHash}-${buildTs}`;
 
   // SHA256
@@ -3017,9 +3034,11 @@ app.post('/os-release-upload', async (req, res) => {
     } catch { /* first release or missing */ }
 
     releases.releases = releases.releases || [];
+    const userHandle = user.nickname || user.name || userName;
     releases.releases.unshift({
       version, name: buildName, sha256, size: vmlinuz.length,
-      git_hash: gitHash, build_ts: buildTs, user: userSub,
+      git_hash: gitHash, build_ts: buildTs, commit_msg: commitMsg,
+      user: userSub, handle: userHandle,
       url: `${cdnBase}/os/native-notepat-latest.vmlinuz`,
     });
     releases.releases = releases.releases.slice(0, 50);

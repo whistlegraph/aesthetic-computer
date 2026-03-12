@@ -1359,10 +1359,7 @@ static JSValue build_wifi_obj(JSContext *ctx, ACWifi *wifi) {
     JS_SetPropertyStr(ctx, obj, "disconnect", JS_NewCFunction(ctx, js_wifi_disconnect, "disconnect", 0));
 
     if (wifi) {
-        // Poll scan/connect status
-        if (wifi->state == WIFI_STATE_SCANNING) wifi_scan_poll(wifi);
-        if (wifi->state == WIFI_STATE_CONNECTING) wifi_connect_poll(wifi);
-
+        // State is updated by the wifi worker thread — just read it here
         JS_SetPropertyStr(ctx, obj, "state", JS_NewInt32(ctx, wifi->state));
         JS_SetPropertyStr(ctx, obj, "status", JS_NewString(ctx, wifi->status_msg));
         JS_SetPropertyStr(ctx, obj, "connected", JS_NewBool(ctx, wifi->state == WIFI_STATE_CONNECTED));
@@ -1992,14 +1989,29 @@ static long flash_verify(const char *src, const char *dst) {
     return verified;
 }
 
+// Write a line to the flash telemetry ring buffer (thread-safe enough for single writer)
+static void flash_tlog(ACRuntime *rt, const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    int idx = rt->flash_log_count % 16;
+    vsnprintf(rt->flash_log[idx], 128, fmt, ap);
+    va_end(ap);
+    __sync_fetch_and_add(&rt->flash_log_count, 1);
+}
+
 // Flash update background thread: mount EFI, copy vmlinuz, sync, umount
 // All operations use C syscalls — no shell commands (cp/mkdir/mount not in initramfs PATH)
 // NOTE: current_rt is __thread (thread-local); pass ACRuntime * via arg instead
 static void *flash_thread_fn(void *arg) {
     ACRuntime *rt = (ACRuntime *)arg;
     if (!rt) return NULL;
+    rt->flash_log_count = 0;
+    rt->flash_dst[0] = '\0';
+    rt->flash_same_device = 0;
 
     ac_log("[flash] starting: src=%s device=%s", rt->flash_src, rt->flash_device);
+    flash_tlog(rt, "src=%s", rt->flash_src);
+    flash_tlog(rt, "device=%s", rt->flash_device);
 
     // Check if device node exists
     {
@@ -2027,6 +2039,8 @@ static void *flash_thread_fn(void *arg) {
     // Check if flash target is already mounted at /mnt
     extern char log_dev[];  // set during setup_logging()
     int same_as_mnt = (log_dev[0] && strcmp(log_dev, rt->flash_device) == 0);
+    rt->flash_same_device = same_as_mnt;
+    flash_tlog(rt, "log_dev=%s same=%d", log_dev, same_as_mnt);
 
     if (same_as_mnt) {
         // Same device as /mnt — use it directly, never double-mount
@@ -2129,6 +2143,9 @@ static void *flash_thread_fn(void *arg) {
     }
     ac_log("[flash] destination: %s (efi_mount=%s, same_device=%d, did_mount=%d)",
            dst, efi_mount, same_as_mnt, did_mount);
+    strncpy(rt->flash_dst, dst, sizeof(rt->flash_dst) - 1);
+    rt->flash_dst[sizeof(rt->flash_dst) - 1] = '\0';
+    flash_tlog(rt, "dst=%s mount=%s", dst, efi_mount);
 
     // Close the log file if writing to the same vfat partition as /mnt
     int same_mount = same_as_mnt || !did_mount;
@@ -2156,7 +2173,9 @@ static void *flash_thread_fn(void *arg) {
 
     // Phase 1: Writing
     rt->flash_phase = 1;
+    flash_tlog(rt, "writing %s -> %s", rt->flash_src, dst);
     long copied = flash_copy_file(rt->flash_src, dst);
+    flash_tlog(rt, "wrote %ld bytes", copied);
 
     // Phase 2: Syncing to disk — belt-and-suspenders for vfat
     rt->flash_phase = 2;
@@ -2187,6 +2206,7 @@ static void *flash_thread_fn(void *arg) {
     // Phase 3: Verify — read back from physical disk and compare byte-for-byte
     rt->flash_phase = 3;
     long verified = flash_verify(rt->flash_src, dst);
+    flash_tlog(rt, "verify=%ld (expected=%ld)", verified, copied);
 
     // Reopen log file after flash+verify
     if (same_mount) {
@@ -3163,6 +3183,23 @@ static JSValue build_system_obj(JSContext *ctx) {
                           JS_NewInt32(ctx, current_rt->flash_phase));
         JS_SetPropertyStr(ctx, sys, "flashVerifiedBytes",
                           JS_NewFloat64(ctx, (double)current_rt->flash_verified_bytes));
+        // Flash telemetry: destination path, same-device flag, log lines
+        if (current_rt->flash_dst[0])
+            JS_SetPropertyStr(ctx, sys, "flashDst",
+                              JS_NewString(ctx, current_rt->flash_dst));
+        JS_SetPropertyStr(ctx, sys, "flashSameDevice",
+                          JS_NewBool(ctx, current_rt->flash_same_device));
+        // Flash log ring buffer
+        {
+            int count = current_rt->flash_log_count;
+            int start = count > 16 ? count - 16 : 0;
+            JSValue arr = JS_NewArray(ctx);
+            for (int i = start; i < count; i++) {
+                JS_SetPropertyUint32(ctx, arr, i - start,
+                    JS_NewString(ctx, current_rt->flash_log[i % 16]));
+            }
+            JS_SetPropertyStr(ctx, sys, "flashLog", arr);
+        }
     }
 
     // Config persistence
@@ -3225,6 +3262,15 @@ static JSValue build_api(JSContext *ctx, ACRuntime *rt, const char *phase) {
     }
     if (strcmp(phase, "sim") == 0) {
         JS_SetPropertyStr(ctx, api, "simCount", JS_NewInt32(ctx, rt->sim_count));
+    }
+
+    // Params (colon-separated args from system.jump, e.g. "chat:clock" → ["clock"])
+    if (strcmp(phase, "boot") == 0 && rt->jump_param_count > 0) {
+        JSValue params = JS_NewArray(ctx);
+        for (int i = 0; i < rt->jump_param_count; i++) {
+            JS_SetPropertyUint32(ctx, params, i, JS_NewString(ctx, rt->jump_params[i]));
+        }
+        JS_SetPropertyStr(ctx, api, "params", params);
     }
 
     // Sound

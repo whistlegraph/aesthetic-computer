@@ -394,6 +394,7 @@ upload_ota() {
     fi
     local BUILD_TS=$(date -u '+%Y-%m-%dT%H:%M')
     local BUILD_NAME=$(bash scripts/build-name.sh 2>/dev/null || echo "upload-$(date +%s)")
+    local COMMIT_MSG=$(git log -1 --format=%s HEAD 2>/dev/null | head -c 200)
     local SIZE=$(stat -c%s "${VMLINUZ}")
     local SIZE_MB=$(( SIZE / 1048576 ))
     local SHA=$(sha256sum "${VMLINUZ}" | cut -d' ' -f1)
@@ -409,6 +410,7 @@ upload_ota() {
         -H "X-Build-Name: ${BUILD_NAME}" \
         -H "X-Git-Hash: ${GIT_HASH}" \
         -H "X-Build-Ts: ${BUILD_TS}" \
+        -H "X-Commit-Msg: ${COMMIT_MSG}" \
         --max-time 30) || {
         err "Failed to get upload URL. Check connection or run: ac-login"
         exit 1
@@ -441,6 +443,7 @@ upload_ota() {
         -H "X-Build-Name: ${BUILD_NAME}" \
         -H "X-Git-Hash: ${GIT_HASH}" \
         -H "X-Build-Ts: ${BUILD_TS}" \
+        -H "X-Commit-Msg: ${COMMIT_MSG}" \
         -H "X-Finalize: true" \
         -H "X-Sha256: ${SHA}" \
         -H "X-Size: ${SIZE}" \

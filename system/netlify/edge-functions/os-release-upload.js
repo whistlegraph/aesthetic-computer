@@ -10,7 +10,7 @@ export default async (request) => {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "POST",
         "Access-Control-Allow-Headers":
-          "Authorization, Content-Type, X-Build-Name, X-Git-Hash, X-Build-Ts, X-Sha256, X-Size, X-Finalize, X-Template-Upload",
+          "Authorization, Content-Type, X-Build-Name, X-Git-Hash, X-Build-Ts, X-Sha256, X-Size, X-Finalize, X-Template-Upload, X-Commit-Msg",
       },
     });
   }
@@ -58,6 +58,7 @@ export default async (request) => {
   const gitHash = request.headers.get("x-git-hash") || "unknown";
   const buildTs =
     request.headers.get("x-build-ts") || new Date().toISOString().slice(0, 16);
+  const commitMsg = request.headers.get("x-commit-msg") || "";
   const version = `${buildName} ${gitHash}-${buildTs}`;
 
   // Helper: generate AWS Sig v2 presigned URL
@@ -155,6 +156,9 @@ export default async (request) => {
         /* first release */
       }
 
+      // Resolve handle from user info
+      const userHandle = user.nickname || user.name || userName;
+
       releases.releases = releases.releases || [];
       releases.releases.unshift({
         version,
@@ -163,7 +167,9 @@ export default async (request) => {
         size,
         git_hash: gitHash,
         build_ts: buildTs,
+        commit_msg: commitMsg,
         user: userSub,
+        handle: userHandle,
         url: `https://${host}/os/native-notepat-latest.vmlinuz`,
       });
       releases.releases = releases.releases.slice(0, 50);

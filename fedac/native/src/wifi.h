@@ -3,10 +3,12 @@
 
 #include <stdint.h>
 #include <sys/types.h>
+#include <pthread.h>
 
 #define WIFI_MAX_NETWORKS 32
 #define WIFI_SSID_MAX 33      // 32 chars + null
 #define WIFI_IFACE_MAX 32
+#define WIFI_PASS_MAX 128
 
 typedef enum {
     WIFI_STATE_OFF = 0,
@@ -17,6 +19,13 @@ typedef enum {
     WIFI_STATE_FAILED,
 } WiFiState;
 
+typedef enum {
+    WIFI_CMD_NONE = 0,
+    WIFI_CMD_SCAN,
+    WIFI_CMD_CONNECT,
+    WIFI_CMD_DISCONNECT,
+} WiFiCommand;
+
 typedef struct {
     char ssid[WIFI_SSID_MAX];
     int signal;               // dBm (e.g. -45)
@@ -25,6 +34,7 @@ typedef struct {
 } WiFiNetwork;
 
 typedef struct {
+    // --- Main-thread readable state (protected by lock) ---
     WiFiState state;
     WiFiNetwork networks[WIFI_MAX_NETWORKS];
     int network_count;
@@ -33,30 +43,41 @@ typedef struct {
     int signal_strength;      // current signal dBm
     char status_msg[64];      // human-readable status
     char iface[WIFI_IFACE_MAX]; // detected wireless interface name
+
+    // --- Internal (thread-owned) ---
     pid_t wpa_pid;            // wpa_supplicant process
     pid_t dhcp_pid;           // dhclient process
+
+    // --- Threading ---
+    pthread_t thread;
+    pthread_mutex_t lock;
+    pthread_cond_t cond;      // signaled when a new command arrives
+    volatile int thread_running;
+
+    // Command queue (single slot — latest command wins)
+    volatile WiFiCommand pending_cmd;
+    char cmd_ssid[WIFI_SSID_MAX];
+    char cmd_pass[WIFI_PASS_MAX];
 } ACWifi;
 
-// Initialize WiFi subsystem (bring up interface)
+// Initialize WiFi subsystem (bring up interface, start worker thread)
 ACWifi *wifi_init(void);
 
-// Start async network scan
+// Post async scan command (non-blocking, runs on wifi thread)
 void wifi_scan(ACWifi *wifi);
 
-// Check if scan is complete (non-blocking)
-// Returns 1 if results are ready
-int wifi_scan_poll(ACWifi *wifi);
-
-// Connect to a network (starts wpa_supplicant + dhclient)
+// Post async connect command (non-blocking, runs on wifi thread)
 void wifi_connect(ACWifi *wifi, const char *ssid, const char *password);
 
-// Check connection status (non-blocking)
-int wifi_connect_poll(ACWifi *wifi);
-
-// Disconnect and cleanup
+// Post async disconnect command (non-blocking, runs on wifi thread)
 void wifi_disconnect(ACWifi *wifi);
 
-// Destroy WiFi subsystem
+// These are now no-ops — polling happens on the wifi thread internally.
+// Kept for API compatibility; main thread just reads wifi->state.
+int wifi_scan_poll(ACWifi *wifi);
+int wifi_connect_poll(ACWifi *wifi);
+
+// Stop thread and free
 void wifi_destroy(ACWifi *wifi);
 
 #endif
