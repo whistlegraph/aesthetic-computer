@@ -6,10 +6,9 @@
 // IMPORTANT: This updates BOTH on-chain token_info AND uploads new off-chain JSON
 // The "" key must point to updated IPFS JSON for objkt.com to display correctly
 
-import { authorize, handleFor, hasAdmin } from "../../backend/authorization.mjs";
+import { authorize, hasAdmin } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { getKeepsContractAddress, LEGACY_KEEPS_CONTRACT } from "../../backend/tezos-keeps-contract.mjs";
-import { analyzeKidLisp, ANALYZER_VERSION } from "../../backend/kidlisp-analyzer.mjs";
 import { stream } from "@netlify/functions";
 import { TezosToolkit, MichelsonMap } from "@taquito/taquito";
 import { InMemorySigner } from "@taquito/signer";
@@ -256,34 +255,13 @@ export const handler = stream(async (event) => {
       await send("progress", { stage: "auth", message: "✓ Authorized" });
       await send("progress", { stage: "load", message: `Loading $${pieceName}...` });
       await send("progress", { stage: "load", message: "✓ Piece loaded" });
-      await send("progress", { stage: "analyze", message: "Analyzing source..." });
-
-      // Analyze source for traits (same as keep-mint.mjs)
-      const analysis = analyzeKidLisp(pieceDoc.source);
-      await send("progress", { stage: "analyze", message: `✓ ${analysis.traits.length} traits detected` });
-      
       await send("progress", { stage: "metadata", message: "Building metadata..." });
 
-      // Get author handle
-      let authorHandle = pieceDoc.user ? await handleFor(pieceDoc.user) : "@anon";
-      // Ensure @ prefix for objkt artist field
-      if (authorHandle && !authorHandle.startsWith("@")) {
-        authorHandle = "@" + authorHandle;
-      }
-
-      // Build metadata
+      // Build metadata — match keep-prepare-background.mjs format exactly
       const tokenName = `$${pieceName}`;
-      const description = pieceDoc.source || `A KidLisp piece preserved on Tezos`;
-      const tags = [`$${pieceName}`, "KidLisp", "Aesthetic.Computer"];
-      if (authorHandle && authorHandle !== "@anon") tags.push(authorHandle);
-
-      // Build attributes (matches keep-mint.mjs field names)
-      const attributes = [
-        ...analysis.traits,
-        { name: "Updated", value: new Date().toISOString().split('T')[0] },
-        ...(authorHandle && authorHandle !== "@anon" ? [{ name: "Handle", value: authorHandle }] : []),
-        { name: "Analyzer Version", value: ANALYZER_VERSION },
-      ];
+      const charCount = pieceDoc.source ? pieceDoc.source.length : 0;
+      const tags = ["KidLisp"];
+      const attributes = [{ name: "Characters", value: String(charCount) }];
 
       await send("progress", { stage: "metadata", message: "✓ Metadata ready" });
       await send("progress", { stage: "tezos", message: "Connecting to Tezos..." });
@@ -367,26 +345,21 @@ export const handler = stream(async (event) => {
 
       const metadataJson = {
         name: tokenName,
-        description: description.replace(/\n+/g, ", "),
+        description: pieceDoc.source || "A KidLisp piece preserved on Tezos",
         artifactUri: artifactUri,
         displayUri: artifactUri,
         thumbnailUri: thumbnailUri || artifactUri,
         decimals: 0,
-        symbol: "KEEP",
-        isBooleanAmount: true,
-        shouldPreferSymbol: false,
-        minter: authorHandle, // Display handle for UI (objkt shows this)
-        creators: creatorsArray, // Wallet address for on-chain attribution
-        royalties,  // v4: Preserve royalty on metadata update
-        rights: "© All rights reserved",
-        mintingTool: "https://aesthetic.computer",
+        symbol: pieceName,
+        creators: creatorsArray,
+        royalties,
+        tags,
+        attributes,
         formats: [{
           uri: artifactUri,
           mimeType: "text/html",
           dimensions: { value: "responsive", unit: "viewport" },
         }],
-        tags,
-        attributes,
       };
       
       // Upload new metadata JSON to IPFS
@@ -398,36 +371,20 @@ export const handler = stream(async (event) => {
       
       await send("progress", { stage: "ipfs", message: `✓ Metadata uploaded: ${newMetadataUri.slice(0, 30)}...` });
 
-      // Build on-chain token_info using MichelsonMap (required by Taquito)
+      // Build on-chain token_info — match keep-prepare-background.mjs format
       const tokenInfo = new MichelsonMap();
-      
-      // TZIP-16: Empty string key "" points to off-chain JSON metadata
-      // Use the NEW metadata URI we just uploaded (not the old one!)
       tokenInfo.set("", stringToBytes(newMetadataUri));
-      
       tokenInfo.set("name", stringToBytes(tokenName));
-      tokenInfo.set("description", stringToBytes(description.replace(/\n+/g, ", ")));
+      tokenInfo.set("symbol", stringToBytes(pieceName));
+      tokenInfo.set("description", stringToBytes(pieceDoc.source || ""));
       tokenInfo.set("artifactUri", stringToBytes(artifactUri));
       tokenInfo.set("displayUri", stringToBytes(artifactUri));
       tokenInfo.set("thumbnailUri", stringToBytes(thumbnailUri || artifactUri));
       tokenInfo.set("decimals", stringToBytes("0"));
-      tokenInfo.set("symbol", stringToBytes("KEEP"));
-      tokenInfo.set("isBooleanAmount", stringToBytes("true"));
-      tokenInfo.set("shouldPreferSymbol", stringToBytes("false"));
-      // NOTE: Don't set minter field on-chain - objkt uses creators array for artist attribution
-      // The minter field in the JSON metadata is for display purposes
-      tokenInfo.set("formats", stringToBytes(JSON.stringify([{
-        uri: artifactUri,
-        mimeType: "text/html",
-        dimensions: { value: "responsive", unit: "viewport" }
-      }])));
-      tokenInfo.set("tags", stringToBytes(JSON.stringify(tags)));
-      tokenInfo.set("attributes", stringToBytes(JSON.stringify(attributes)));
       tokenInfo.set("creators", stringToBytes(JSON.stringify(creatorsArray)));
-      tokenInfo.set("royalties", stringToBytes(JSON.stringify(royalties)));  // v4: Preserve royalty
-      tokenInfo.set("rights", stringToBytes("© All rights reserved"));
-      tokenInfo.set("content_type", stringToBytes("KidLisp"));
+      tokenInfo.set("royalties", stringToBytes(JSON.stringify(royalties)));
       tokenInfo.set("content_hash", stringToBytes(pieceName));
+      tokenInfo.set("metadata_uri", stringToBytes(newMetadataUri));
 
       const contract = await tezos.contract.at(CONTRACT_ADDRESS);
       

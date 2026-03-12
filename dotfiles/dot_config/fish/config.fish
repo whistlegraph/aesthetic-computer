@@ -583,3 +583,4 @@ function __notify_command_status --on-event fish_postexec
         end
     end
 end
+

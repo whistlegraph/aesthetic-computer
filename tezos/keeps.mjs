@@ -13,6 +13,8 @@
  *   node keeps.mjs tokens              - List wallet tokens for active keeps contract
  *   node keeps.mjs market              - Show Objkt market snapshot
  *   node keeps.mjs sell <token> <xtz>  - List a token on Objkt marketplace
+ *   node keeps.mjs accept <offer_id>   - Accept a specific Objkt offer
+ *   node keeps.mjs accept:auto ...      - Accept best offers above thresholds
  *   node keeps.mjs upload <piece>      - Upload bundle to IPFS
  */
 
@@ -395,6 +397,19 @@ function isKt1Address(value) {
   return typeof value === 'string' && /^KT1[1-9A-HJ-NP-Za-km-z]{33}$/.test(value.trim());
 }
 
+function formatExtendedError(error) {
+  if (!error || typeof error !== 'object') return '';
+
+  const payload = error.body ?? error.errors ?? error.data ?? null;
+  if (!payload) return '';
+
+  try {
+    return JSON.stringify(payload, null, 2);
+  } catch {
+    return String(payload);
+  }
+}
+
 function tzktApiBase(network = 'mainnet') {
   return network === 'mainnet' ? 'https://api.tzkt.io' : `https://api.${network}.tzkt.io`;
 }
@@ -602,6 +617,7 @@ async function loadActiveListingForToken(contractAddress, tokenId, sellerAddress
         limit:1
       ) {
         id
+        bigmap_key
         price_xtz
         marketplace_contract
         marketplace { name }
@@ -611,6 +627,75 @@ async function loadActiveListingForToken(contractAddress, tokenId, sellerAddress
     { contract: contractAddress, tokenId: String(tokenId), seller: sellerAddress }
   );
   return data?.listing_active?.[0] || null;
+}
+
+async function loadBestActiveOfferForToken(contractAddress, tokenId) {
+  const data = await objktGraphQL(
+    `
+    query($contract:String!, $tokenId:String!) {
+      offer_active(
+        where:{
+          fa_contract:{_eq:$contract},
+          token:{token_id:{_eq:$tokenId}}
+        }
+        order_by:{price_xtz:desc}
+        limit:1
+      ) {
+        id
+        bigmap_key
+        price_xtz
+        buyer_address
+        marketplace_contract
+        amount_left
+        timestamp
+        token { token_id name fa_contract }
+      }
+    }
+    `,
+    { contract: contractAddress, tokenId: String(tokenId) }
+  );
+  return data?.offer_active?.[0] || null;
+}
+
+async function loadActiveOfferById(offerId) {
+  const numericId = Number.parseInt(String(offerId), 10);
+  if (!Number.isInteger(numericId) || numericId < 0) {
+    throw new Error(`Invalid offer id "${offerId}".`);
+  }
+
+  const data = await objktGraphQL(
+    `
+    query {
+      offer_active(
+        where:{
+          _or:[
+            {id:{_eq:${numericId}}},
+            {bigmap_key:{_eq:${numericId}}}
+          ]
+        }
+        order_by:{timestamp:desc}
+        limit:5
+      ) {
+        id
+        bigmap_key
+        price_xtz
+        buyer_address
+        marketplace_contract
+        amount_left
+        timestamp
+        token { token_id name fa_contract }
+      }
+    }
+    `
+  );
+
+  const rows = Array.isArray(data?.offer_active) ? data.offer_active : [];
+  if (rows.length === 0) return null;
+
+  // Prefer direct row-id match first, then on-chain offer-id (bigmap key).
+  return rows.find((row) => Number.parseInt(String(row?.id), 10) === numericId)
+    || rows.find((row) => Number.parseInt(String(row?.bigmap_key), 10) === numericId)
+    || rows[0];
 }
 
 // ============================================================================
@@ -2857,6 +2942,10 @@ async function listTokenForSale(tokenReference, priceInXTZ, options = {}) {
 
   const objktBase = network === 'mainnet' ? 'https://objkt.com' : 'https://ghostnet.objkt.com';
   const tokenUrl = `${objktBase}/tokens/${contractAddress}/${tokenId}`;
+  const existingAskOnChainId = Number.parseInt(String(existingListing?.bigmap_key), 10);
+  const existingAskDisplayId = Number.isInteger(existingAskOnChainId)
+    ? existingAskOnChainId
+    : existingListing?.id;
 
   console.log('\n╔══════════════════════════════════════════════════════════════╗');
   console.log('║  🏷️  List Token For Sale                                      ║');
@@ -2872,7 +2961,7 @@ async function listTokenForSale(tokenReference, priceInXTZ, options = {}) {
   console.log(`📈 Shares:       ${JSON.stringify(shares)}`);
   if (existingListing) {
     console.log(
-      `♻️ Existing ask: #${existingListing.id} (${(Number(existingListing.price_xtz || 0) / 1_000_000).toFixed(6)} XTZ)`
+      `♻️ Existing ask: #${existingAskDisplayId} (${(Number(existingListing.price_xtz || 0) / 1_000_000).toFixed(6)} XTZ)`
     );
   }
   console.log('');
@@ -2896,7 +2985,7 @@ async function listTokenForSale(tokenReference, priceInXTZ, options = {}) {
 
   const askMethod = marketContract.methodsObject.ask(askPayload);
   const retractMethod = existingListing
-    ? marketContract.methods.retract_ask(Number(existingListing.id))
+    ? marketContract.methods.retract_ask(Number(existingAskDisplayId))
     : null;
 
   let op;
@@ -2982,6 +3071,250 @@ async function listBatchForSale(items = [], options = {}) {
   return results;
 }
 
+async function acceptOffer(offerIdInput, options = {}) {
+  const network = options.network || 'mainnet';
+  const apply = options.apply === true;
+  const minPriceMutez = options.minPriceMutez != null
+    ? Number.parseInt(String(options.minPriceMutez), 10)
+    : null;
+
+  const { tezos, credentials, config } = await createTezosClient(network);
+  const contractAddress = loadContractAddress(network);
+  const offerId = Number.parseInt(String(offerIdInput), 10);
+
+  if (!Number.isInteger(offerId) || offerId < 0) {
+    throw new Error(`Invalid offer id "${offerIdInput}".`);
+  }
+
+  const offer = await loadActiveOfferById(offerId);
+  if (!offer) {
+    throw new Error(`Offer #${offerId} is not active.`);
+  }
+
+  const tokenId = Number.parseInt(String(offer?.token?.token_id), 10);
+  const tokenName = offer?.token?.name || `#${offer?.token?.token_id ?? '?'}`;
+  const offerRowId = Number.parseInt(String(offer?.id), 10);
+  const offerOnChainId = Number.parseInt(String(offer?.bigmap_key), 10);
+  const chainOfferId = Number.isInteger(offerOnChainId) ? offerOnChainId : offerId;
+  const faContract = offer?.token?.fa_contract;
+  if (!isKt1Address(faContract) || faContract !== contractAddress) {
+    throw new Error(
+      `Offer #${offerId} belongs to ${faContract || 'unknown contract'}, not current keeps contract ${contractAddress}.`
+    );
+  }
+
+  const bidMutez = Number.parseInt(String(offer?.price_xtz || 0), 10);
+  if (!Number.isInteger(bidMutez) || bidMutez <= 0) {
+    throw new Error(`Offer #${offerId} has invalid bid amount.`);
+  }
+
+  if (Number.isInteger(minPriceMutez) && bidMutez <= minPriceMutez) {
+    throw new Error(
+      `Offer #${offerId} bid ${(bidMutez / 1_000_000).toFixed(6)} XTZ is not above threshold ${(minPriceMutez / 1_000_000).toFixed(6)} XTZ.`
+    );
+  }
+
+  await assertWalletOwnsToken(contractAddress, tokenId, credentials.address, network);
+
+  const marketplaceContract = options.marketplaceContract
+    || offer?.marketplace_contract
+    || await resolveObjktMarketplaceContract({
+      network,
+      keepsContract: contractAddress,
+      explicitContract: null,
+    });
+
+  const bidXTZ = (bidMutez / 1_000_000).toFixed(6);
+  const objktBase = network === 'mainnet' ? 'https://objkt.com' : 'https://ghostnet.objkt.com';
+  const tokenUrl = `${objktBase}/tokens/${contractAddress}/${tokenId}`;
+
+  console.log('\n╔══════════════════════════════════════════════════════════════╗');
+  console.log('║  ✅ Accept Offer                                              ║');
+  console.log('╚══════════════════════════════════════════════════════════════╝\n');
+  console.log(`📡 Network:      ${config.name}`);
+  console.log(`📍 Keeps:        ${contractAddress}`);
+  console.log(`🛒 Marketplace:  ${marketplaceContract}`);
+  console.log(`🎨 Token:        [${tokenId}] ${tokenName}`);
+  console.log(`🧾 Offer ID:     ${chainOfferId}`);
+  if (Number.isInteger(offerRowId) && offerRowId !== chainOfferId) {
+    console.log(`🗂️  Offer Row ID: ${offerRowId}`);
+  }
+  console.log(`💵 Bid:          ${bidXTZ} XTZ (${bidMutez} mutez)`);
+  console.log(`👤 Buyer:        ${offer?.buyer_address || 'unknown'}`);
+  console.log(`👤 Seller:       ${credentials.address}`);
+  console.log(`🔗 View:         ${tokenUrl}\n`);
+
+  if (!apply) {
+    console.log('⚠️  DRY RUN: no transaction sent. Add --yes to accept on chain.\n');
+    return {
+      offerId: chainOfferId,
+      offerRowId: Number.isInteger(offerRowId) ? offerRowId : null,
+      tokenId,
+      tokenName,
+      bidMutez,
+      bidXTZ: Number(bidXTZ),
+      buyerAddress: offer?.buyer_address || null,
+      marketplaceContract,
+      contractAddress,
+      dryRun: true,
+    };
+  }
+
+  const tokenContract = await tezos.contract.at(contractAddress);
+  const marketContract = await tezos.contract.at(marketplaceContract);
+
+  const addOperatorMethod = tokenContract.methods.update_operators([
+    {
+      add_operator: {
+        owner: credentials.address,
+        operator: marketplaceContract,
+        token_id: tokenId,
+      },
+    },
+  ]);
+
+  const fulfillMethod = marketContract.methodsObject.fulfill_offer({
+    offer_id: chainOfferId,
+    token_id: tokenId,
+    condition_extra: null,
+  });
+
+  let op;
+  let mode = 'add_operator+fulfill_offer';
+
+  try {
+    op = await tezos.contract
+      .batch()
+      .withContractCall(addOperatorMethod)
+      .withContractCall(fulfillMethod)
+      .send();
+  } catch (error) {
+    const message = String(error?.message || error);
+    if (/FA2_OPERATOR_ALREADY_EXISTS|operator/i.test(message)) {
+      mode = 'fulfill_offer-only';
+      op = await tezos.contract
+        .batch()
+        .withContractCall(fulfillMethod)
+        .send();
+    } else {
+      throw error;
+    }
+  }
+
+  console.log(`   Transaction: ${op.hash}`);
+  console.log('   Waiting for confirmation...');
+  await op.confirmation(1);
+
+  console.log('\n✅ Offer accepted');
+  console.log(`   Mode: ${mode}`);
+  console.log(`   Explorer: ${config.explorer}/${op.hash}`);
+  console.log(`   Objkt:    ${tokenUrl}\n`);
+
+  return {
+    offerId: chainOfferId,
+    offerRowId: Number.isInteger(offerRowId) ? offerRowId : null,
+    tokenId,
+    tokenName,
+    bidMutez,
+    bidXTZ: Number(bidXTZ),
+    buyerAddress: offer?.buyer_address || null,
+    marketplaceContract,
+    contractAddress,
+    hash: op.hash,
+    mode,
+  };
+}
+
+async function acceptOffersAboveThreshold(items = [], options = {}) {
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new Error('No items provided. Use format: <token|piece>=<minimumXTZ>');
+  }
+
+  const network = options.network || 'mainnet';
+  const apply = options.apply === true;
+  const contractAddress = loadContractAddress(network);
+
+  const checks = [];
+  for (const item of items) {
+    const [tokenReference, minXTZ] = item.split('=');
+    if (!tokenReference || !minXTZ) {
+      throw new Error(`Invalid item "${item}". Expected "<token|piece>=<minimumXTZ>".`);
+    }
+
+    const tokenId = await resolveTokenIdFromReference(tokenReference, { contractAddress, network });
+    const minPriceMutez = parsePriceToMutez(minXTZ);
+    const bestOffer = await loadBestActiveOfferForToken(contractAddress, tokenId);
+
+    checks.push({
+      tokenReference,
+      tokenId,
+      minPriceMutez,
+      minXTZ: minPriceMutez / 1_000_000,
+      offer: bestOffer,
+      qualifies: Number(bestOffer?.price_xtz || 0) > minPriceMutez,
+    });
+  }
+
+  console.log('\n╔══════════════════════════════════════════════════════════════╗');
+  console.log('║  🤝 Accept Offers Above Threshold                            ║');
+  console.log('╚══════════════════════════════════════════════════════════════╝\n');
+  console.log(`📡 Network: ${network}`);
+  console.log(`📍 Keeps:   ${contractAddress}\n`);
+
+  for (const row of checks) {
+    if (!row.offer) {
+      console.log(`   [${row.tokenId}] no active offer (threshold: ${row.minXTZ.toFixed(6)} XTZ)`);
+      continue;
+    }
+
+    const bidMutez = Number(row.offer.price_xtz || 0);
+    const bidXTZ = bidMutez / 1_000_000;
+    const pass = row.qualifies ? '✅' : '❌';
+    const onChainOfferId = Number.parseInt(String(row.offer.bigmap_key), 10);
+    const displayOfferId = Number.isInteger(onChainOfferId) ? onChainOfferId : row.offer.id;
+    console.log(
+      `   [${row.tokenId}] ${row.offer?.token?.name || '#'} offer #${displayOfferId} bid ${bidXTZ.toFixed(6)} XTZ vs threshold ${row.minXTZ.toFixed(6)} XTZ ${pass}`
+    );
+  }
+  console.log('');
+
+  const qualifying = checks.filter((row) => row.offer && row.qualifies);
+  if (qualifying.length === 0) {
+    console.log('No qualifying offers above thresholds.\n');
+    return [];
+  }
+
+  if (!apply) {
+    console.log('⚠️  DRY RUN: no transaction sent. Add --yes to accept qualifying offers.\n');
+    return qualifying.map((row) => ({
+      tokenId: row.tokenId,
+      tokenName: row.offer?.token?.name || null,
+      offerId: Number.parseInt(String(row.offer?.bigmap_key), 10) || Number(row.offer.id),
+      offerRowId: Number(row.offer.id),
+      bidMutez: Number(row.offer.price_xtz || 0),
+      bidXTZ: Number(row.offer.price_xtz || 0) / 1_000_000,
+      thresholdXTZ: row.minXTZ,
+      buyerAddress: row.offer?.buyer_address || null,
+      dryRun: true,
+    }));
+  }
+
+  const results = [];
+  for (const row of qualifying) {
+    const onChainOfferId = Number.parseInt(String(row.offer?.bigmap_key), 10);
+    const offerIdentifier = Number.isInteger(onChainOfferId) ? onChainOfferId : row.offer.id;
+    const result = await acceptOffer(offerIdentifier, {
+      network,
+      apply: true,
+      minPriceMutez: row.minPriceMutez,
+      marketplaceContract: options.marketplaceContract || row.offer?.marketplace_contract || null,
+    });
+    results.push(result);
+  }
+
+  return results;
+}
+
 async function showMarketSnapshot(network = 'mainnet', options = {}) {
   if (network !== 'mainnet') {
     throw new Error('Market snapshot currently supports mainnet only.');
@@ -3009,6 +3342,7 @@ async function showMarketSnapshot(network = 'mainnet', options = {}) {
         limit:$limit
       ) {
         id
+        bigmap_key
         price_xtz
         seller_address
         token { token_id name }
@@ -3021,6 +3355,7 @@ async function showMarketSnapshot(network = 'mainnet', options = {}) {
         limit:$limit
       ) {
         id
+        bigmap_key
         price_xtz
         buyer_address
         token { token_id name }
@@ -3032,25 +3367,31 @@ async function showMarketSnapshot(network = 'mainnet', options = {}) {
     { contract: contractAddress, limit: listingsLimit }
   );
 
-  const salesData = await objktGraphQL(
-    `
-    query($contract:String!, $limit:Int!) {
-      listing_sale(
-        where:{token:{fa_contract:{_eq:$contract}}}
-        order_by:{timestamp:desc}
-        limit:$limit
-      ) {
-        timestamp
-        price_xtz
-        buyer_address
-        seller_address
-        token { token_id name }
-        marketplace { name }
+  let salesData = { listing_sale: [] };
+  let salesLoadError = null;
+  try {
+    salesData = await objktGraphQL(
+      `
+      query($contract:String!, $limit:Int!) {
+        listing_sale(
+          where:{token:{fa_contract:{_eq:$contract}}}
+          order_by:{timestamp:desc}
+          limit:$limit
+        ) {
+          timestamp
+          price_xtz
+          buyer_address
+          seller_address
+          token { token_id name }
+          marketplace { name }
+        }
       }
-    }
-    `,
-    { contract: contractAddress, limit: salesLimit }
-  );
+      `,
+      { contract: contractAddress, limit: salesLimit }
+    );
+  } catch (error) {
+    salesLoadError = error;
+  }
 
   const collection = collectionData?.fa?.[0] || null;
   const listings = Array.isArray(collectionData?.listing_active) ? collectionData.listing_active : [];
@@ -3073,8 +3414,10 @@ async function showMarketSnapshot(network = 'mainnet', options = {}) {
     console.log('   (none)');
   } else {
     for (const row of listings) {
+      const askId = Number.parseInt(String(row?.bigmap_key), 10);
+      const displayAskId = Number.isInteger(askId) ? askId : row?.id;
       console.log(
-        `   [${row?.token?.token_id}] ${row?.token?.name || '#'} @ ${(Number(row?.price_xtz || 0) / 1_000_000).toFixed(6)} XTZ (${row?.seller_address})`
+        `   [${row?.token?.token_id}] ${row?.token?.name || '#'} ask #${displayAskId} @ ${(Number(row?.price_xtz || 0) / 1_000_000).toFixed(6)} XTZ (${row?.seller_address})`
       );
     }
   }
@@ -3085,8 +3428,10 @@ async function showMarketSnapshot(network = 'mainnet', options = {}) {
     console.log('   (none)');
   } else {
     for (const row of offers) {
+      const offerId = Number.parseInt(String(row?.bigmap_key), 10);
+      const displayOfferId = Number.isInteger(offerId) ? offerId : row?.id;
       console.log(
-        `   [${row?.token?.token_id}] ${row?.token?.name || '#'} bid ${(Number(row?.price_xtz || 0) / 1_000_000).toFixed(6)} XTZ (${row?.buyer_address})`
+        `   [${row?.token?.token_id}] ${row?.token?.name || '#'} offer #${displayOfferId} bid ${(Number(row?.price_xtz || 0) / 1_000_000).toFixed(6)} XTZ (${row?.buyer_address})`
       );
     }
   }
@@ -3094,7 +3439,11 @@ async function showMarketSnapshot(network = 'mainnet', options = {}) {
 
   console.log(`💸 Recent Sales (${sales.length}):`);
   if (sales.length === 0) {
-    console.log('   (none)');
+    if (salesLoadError) {
+      console.log(`   (unavailable: ${salesLoadError.message})`);
+    } else {
+      console.log('   (none)');
+    }
   } else {
     for (const row of sales) {
       console.log(
@@ -3526,6 +3875,64 @@ async function main() {
         });
         break;
       }
+
+      case 'accept': {
+        if (!args[1]) {
+          console.error('Usage: node keeps.mjs accept <offer_id> [network] [--marketplace=<KT1...>] [--min=<xtz>] [--yes]');
+          process.exit(1);
+        }
+
+        const marketplaceFlag = flags.find(f => f.startsWith('--marketplace='));
+        const minFlag = flags.find(f => f.startsWith('--min='));
+        const marketplaceContract = marketplaceFlag ? marketplaceFlag.split('=').slice(1).join('=').trim() : null;
+
+        let minPriceMutez = null;
+        if (minFlag) {
+          const raw = minFlag.split('=').slice(1).join('=').trim();
+          const minXTZ = Number.parseFloat(raw);
+          if (!Number.isFinite(minXTZ) || minXTZ < 0) {
+            console.error(`❌ Invalid --min value "${raw}". Expected a non-negative XTZ amount.`);
+            process.exit(1);
+          }
+          minPriceMutez = Math.round(minXTZ * 1_000_000);
+        }
+
+        await acceptOffer(args[1], {
+          network: getNetwork(2),
+          marketplaceContract,
+          minPriceMutez,
+          apply: flags.includes('--yes') || flags.includes('--apply'),
+        });
+        break;
+      }
+
+      case 'accept:auto': {
+        const inputItems = args.slice(1);
+        if (inputItems.length === 0) {
+          console.error('Usage: node keeps.mjs accept:auto <token|piece=min_xtz> [...] [network] [--marketplace=<KT1...>] [--yes]');
+          process.exit(1);
+        }
+
+        let network = 'mainnet';
+        if (['mainnet', 'ghostnet'].includes(inputItems[inputItems.length - 1])) {
+          network = inputItems.pop();
+        }
+
+        if (inputItems.length === 0) {
+          console.error('❌ No accept:auto items supplied. Example: node keeps.mjs accept:auto \'$faim=8\' \'$tezz=9.5\' --yes');
+          process.exit(1);
+        }
+
+        const marketplaceFlag = flags.find(f => f.startsWith('--marketplace='));
+        const marketplaceContract = marketplaceFlag ? marketplaceFlag.split('=').slice(1).join('=').trim() : null;
+
+        await acceptOffersAboveThreshold(inputItems, {
+          network,
+          marketplaceContract,
+          apply: flags.includes('--yes') || flags.includes('--apply'),
+        });
+        break;
+      }
         
       case 'upload':
         if (!args[1]) {
@@ -3782,6 +4189,8 @@ Commands:
   mint <piece> [network]        Mint a new keep
   sell <token> <price> [network]  List token on Objkt (dry-run unless --yes)
   sell:batch <ref=price>...     Batch-list multiple tokens on Objkt
+  accept <offer_id> [network]   Accept one active Objkt offer (dry-run unless --yes)
+  accept:auto <ref=min>...      Accept best offers above per-token thresholds
   update <token_id> <piece>     Update token metadata (re-upload bundle)
   lock <token_id>               Permanently lock token metadata
   burn <token_id>               Burn token (allows re-keeping piece)
@@ -3815,8 +4224,9 @@ Flags:
   --limit=<n>                   Max rows for tokens command
   --listings=<n>                Max rows for market listings/offers
   --sales=<n>                   Max rows for market sales
-  --marketplace=<KT1...>        Override marketplace contract for sell
+  --marketplace=<KT1...>        Override marketplace contract for sell/accept
   --replace                     Retract existing ask before listing new price
+  --min=<xtz>                   Minimum bid filter for accept <offer_id>
   --referral-bps=<n>            Referral bonus bps for marketplace ask (default: 500)
   --start=<iso8601>             Scheduled listing start time
   --expiry=<iso8601>            Listing expiry time
@@ -3843,6 +4253,8 @@ Examples:
   node keeps.mjs mint wand --to=tz1abc...   # Mint to specific wallet
   node keeps.mjs sell '$bip' 6 --wallet=aesthetic --yes
   node keeps.mjs sell:batch '$faim=5.5' '$tezz=5.8' '$bip=6' --wallet=aesthetic --yes
+  node keeps.mjs accept 12179750 --wallet=aesthetic --min=13 --yes
+  node keeps.mjs accept:auto '19=8.5' '20=9' '21=10' '22=10.5' '23=12' '24=13' --wallet=aesthetic --yes
   node keeps.mjs update 0 wand              # Re-upload bundle & update metadata
   node keeps.mjs lock 0                     # Permanently lock token 0
   node keeps.mjs burn 0                     # Burn token 0 (allows re-mint)
@@ -3875,6 +4287,10 @@ Environment:
     }
   } catch (error) {
     console.error(`\n❌ Error: ${error.message}\n`);
+    const details = formatExtendedError(error);
+    if (details) {
+      console.error(`${details}\n`);
+    }
     process.exit(1);
   }
 }
@@ -3895,6 +4311,8 @@ export {
   showMarketSnapshot,
   listTokenForSale,
   listBatchForSale,
+  acceptOffer,
+  acceptOffersAboveThreshold,
   uploadToIPFS,
   mintToken,
   updateMetadata,
