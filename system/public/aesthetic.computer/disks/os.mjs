@@ -69,17 +69,19 @@ function paint({ wipe, ink, write, screen, ui, box }) {
   // Latest build
   const latest = releases.releases?.[0];
   if (latest) {
+    const name = releases.latest_name || "latest";
     ink(80, 255, 140);
-    write(releases.latest_name || "latest", { x: pad, y, size: 2 });
-    y += 22;
+    write(name, { x: pad, y, size: 3 });
+    y += 32;
+
+    ink(200, 220, 255);
+    write(releases.latest || "", { x: pad, y });
+    y += 16;
 
     ink(140, 160, 180);
-    write("git: " + (latest.git_hash || "?"), { x: pad, y });
-    y += 14;
-    write("built: " + (latest.build_ts || "?"), { x: pad, y });
-    y += 14;
+    const sizeMB = ((latest.size || 0) / 1048576).toFixed(1);
     write(
-      "size: " + ((latest.size || 0) / 1048576).toFixed(1) + " MB",
+      (latest.build_ts || "?") + "  ·  " + (latest.git_hash || "?") + "  ·  " + sizeMB + " MB",
       { x: pad, y },
     );
     y += 20;
@@ -174,7 +176,10 @@ async function act({ event: e, download }) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "ac-native-" + (handle || "user") + ".img";
+      const latest = releases?.releases?.[0];
+      const name = releases?.latest_name || "os";
+      const ts = (latest?.build_ts || "").replace(/[T:]/g, "-");
+      a.download = `ac-native-${name}-${handle || "user"}-${ts}.img`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
