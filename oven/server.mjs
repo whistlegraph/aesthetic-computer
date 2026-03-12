@@ -2797,6 +2797,134 @@ app.post('/os-base-build/:jobId/cancel', requireOSBuildAdmin, (req, res) => {
   return res.json(result);
 });
 
+// ── OS Release Upload ──────────────────────────────────────────────────────
+// Accepts a vmlinuz binary + metadata, uploads to DO Spaces as OTA release.
+// Auth: AC token (Bearer) verified against Auth0 userinfo.
+// Usage: curl -X POST /os-release-upload \
+//   -H "Authorization: Bearer <ac_token>" \
+//   -H "X-Build-Name: swift-egret" \
+//   -H "X-Git-Hash: abc1234" \
+//   -H "X-Build-Ts: 2026-03-11T12:00" \
+//   --data-binary @build/vmlinuz
+app.post('/os-release-upload', async (req, res) => {
+  // Auth: verify AC token
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  if (!token) {
+    return res.status(401).json({ error: 'Missing Authorization: Bearer <ac_token>' });
+  }
+
+  // Verify token against Auth0
+  const AUTH0_DOMAIN = process.env.AUTH0_DOMAIN || 'hi.aesthetic.computer';
+  let user;
+  try {
+    const uiRes = await fetch(`https://${AUTH0_DOMAIN}/userinfo`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!uiRes.ok) throw new Error(`Auth0 returned ${uiRes.status}`);
+    user = await uiRes.json();
+  } catch (err) {
+    addServerLog('error', '🔒', `OS release upload auth failed: ${err.message}`);
+    return res.status(401).json({ error: 'Invalid or expired token. Run: ac-login' });
+  }
+
+  const userSub = user.sub || 'unknown';
+  const userName = user.name || user.nickname || user.email || userSub;
+  addServerLog('info', '📦', `OS release upload from ${userName} (${userSub})`);
+
+  // Collect binary body
+  const chunks = [];
+  for await (const chunk of req) chunks.push(chunk);
+  const vmlinuz = Buffer.concat(chunks);
+
+  if (vmlinuz.length < 1_000_000) {
+    return res.status(400).json({ error: `File too small (${vmlinuz.length} bytes). Expected vmlinuz ~35-45MB.` });
+  }
+
+  // Metadata from headers
+  const buildName = req.headers['x-build-name'] || `upload-${Date.now()}`;
+  const gitHash = req.headers['x-git-hash'] || 'unknown';
+  const buildTs = req.headers['x-build-ts'] || new Date().toISOString().slice(0, 16);
+  const version = `${buildName} ${gitHash}-${buildTs}`;
+
+  // SHA256
+  const crypto = await import('crypto');
+  const sha256 = crypto.createHash('sha256').update(vmlinuz).digest('hex');
+
+  // Upload to DO Spaces
+  const { S3Client, PutObjectCommand, GetObjectCommand } = await import('@aws-sdk/client-s3');
+  const accessKeyId = process.env.OS_SPACES_KEY || process.env.ART_SPACES_KEY;
+  const secretAccessKey = process.env.OS_SPACES_SECRET || process.env.ART_SPACES_SECRET;
+  if (!accessKeyId || !secretAccessKey) {
+    return res.status(503).json({ error: 'OS Spaces credentials not configured on server.' });
+  }
+
+  const spacesEndpoint = process.env.OS_SPACES_ENDPOINT || 'https://sfo3.digitaloceanspaces.com';
+  const spacesBucket = process.env.OS_SPACES_BUCKET || 'releases-aesthetic-computer';
+  const cdnBase = process.env.OS_SPACES_CDN_BASE || `https://${spacesBucket}.sfo3.digitaloceanspaces.com`;
+
+  const s3 = new S3Client({
+    region: process.env.OS_SPACES_REGION || 'us-east-1',
+    endpoint: spacesEndpoint,
+    credentials: { accessKeyId, secretAccessKey },
+  });
+
+  const upload = async (key, body, contentType) => {
+    await s3.send(new PutObjectCommand({
+      Bucket: spacesBucket,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+      ACL: 'public-read',
+    }));
+  };
+
+  try {
+    addServerLog('info', '☁️', `Uploading ${buildName}: ${(vmlinuz.length / 1048576).toFixed(1)}MB, sha=${sha256.slice(0, 12)}...`);
+
+    // Upload version + sha256 first (canary), then vmlinuz
+    await upload('os/native-notepat-latest.version', version, 'text/plain');
+    await upload('os/native-notepat-latest.sha256', sha256, 'text/plain');
+    await upload('os/native-notepat-latest.vmlinuz', vmlinuz, 'application/octet-stream');
+
+    // Update releases.json
+    let releases = { releases: [] };
+    try {
+      const existing = await s3.send(new GetObjectCommand({
+        Bucket: spacesBucket, Key: 'os/releases.json',
+      }));
+      const body = await existing.Body.transformToString();
+      releases = JSON.parse(body);
+    } catch { /* first release or missing */ }
+
+    releases.releases = releases.releases || [];
+    releases.releases.unshift({
+      version, name: buildName, sha256, size: vmlinuz.length,
+      git_hash: gitHash, build_ts: buildTs, user: userSub,
+      url: `${cdnBase}/os/native-notepat-latest.vmlinuz`,
+    });
+    releases.releases = releases.releases.slice(0, 50);
+    releases.latest = version;
+    releases.latest_name = buildName;
+
+    await upload('os/releases.json', JSON.stringify(releases, null, 2), 'application/json');
+
+    addServerLog('success', '🚀', `OS release published: ${buildName} (${gitHash}) by ${userName}`);
+    return res.json({
+      ok: true,
+      name: buildName,
+      version,
+      sha256,
+      size: vmlinuz.length,
+      url: `${cdnBase}/os/native-notepat-latest.vmlinuz`,
+      user: userSub,
+    });
+  } catch (err) {
+    addServerLog('error', '❌', `OS release upload failed: ${err.message}`);
+    return res.status(500).json({ error: `Upload failed: ${err.message}` });
+  }
+});
+
 app.post('/os-invalidate', async (req, res) => {
   const purge = req.body?.purge === true;
   const clearLocal = req.body?.local === true || req.body?.clearLocal === true;
