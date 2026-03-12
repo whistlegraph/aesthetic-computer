@@ -127,7 +127,7 @@ function paint($) {
   const charW = 6;
   const rowH = 10;
   const matrixH = 9;
-  let y = 6 - scrollY;
+  let y = 18 - scrollY;
 
   if (loading) {
     ink(100).write("loading...", { x: pad, y });
