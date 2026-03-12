@@ -1378,6 +1378,19 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    // Override piece_path from config.json boot piece (pieces bundled at /pieces/)
+    char piece_path_buf[256];
+    if (rt->piece[0]) {
+        snprintf(piece_path_buf, sizeof(piece_path_buf), "/pieces/%s.mjs", rt->piece);
+        if (access(piece_path_buf, R_OK) == 0) {
+            piece_path = piece_path_buf;
+            ac_log("[ac-native] Boot piece from config: %s\n", piece_path);
+        } else {
+            ac_log("[ac-native] Config piece '%s' not found, falling back to %s\n",
+                   rt->piece, piece_path);
+        }
+    }
+
     // Load piece
     if (js_load_piece(rt, piece_path) < 0) {
         fprintf(stderr, "[ac-native] FATAL: Cannot load %s\n", piece_path);
