@@ -54,7 +54,7 @@ function paint($) {
   $.wipe(20, 12, 30);
 
   const pad = 14;
-  let y = pad - scrollY;
+  let y = 22 - scrollY; // Start below HUD corner label
 
   if (loading) {
     ink(100).write("loading...", { x: pad, y });
