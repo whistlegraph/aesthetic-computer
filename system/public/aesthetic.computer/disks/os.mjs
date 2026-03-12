@@ -127,14 +127,7 @@ function paint($) {
   const charW = 6;
   const rowH = 10;
   const matrixH = 9;
-  let y = 4 - scrollY;
-
-  // Title
-  ink(200, 220, 255).write("ac/os", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
-  y += matrixH + 2;
-  ink(30, 35, 50);
-  drawLine(pad, y, w - pad, y);
-  y += 6;
+  let y = 6 - scrollY;
 
   if (loading) {
     ink(100).write("loading...", { x: pad, y });
