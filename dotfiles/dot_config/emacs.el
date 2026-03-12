@@ -13,8 +13,8 @@
   "Name of the boot progress buffer.")
 (defvar ac--boot-step-count 0
   "Current step number in boot sequence.")
-(defvar ac--boot-total-steps 13
-  "Total expected steps: artery, fishy, + 9 tabs + cdp + finalize.")
+(defvar ac--boot-total-steps 14
+  "Total expected steps: artery, fishy, + 10 tabs + cdp + finalize.")
 (defvar ac--boot-start-time nil
   "Time when boot started.")
 
@@ -80,6 +80,7 @@
     ("tests"       . "🧪 Test runners")
     ("llm"         . "🤖 LLM interface")
     ("mail"        . "📬 Mail sync")
+    ("signal"      . "📶 Signal messenger")
     ("top"         . "📊 System monitor")
     ("fishy"       . "🐟 Fish shell")
     ("cdp"         . "🔗 CDP tunnel")
@@ -562,6 +563,7 @@ Also updates VS Code task status bar to 'done'."
                        ("web 2/2" . ("#2F4F4F" . "#FFFFFF"))  ; Dark slate gray
                        ("tests"   . ("#8B4513" . "#FFFFFF"))  ; Saddle brown
                        ("llm"     . ("#5B2C83" . "#FFFFFF"))  ; Deep purple
+                       ("signal"  . ("#3A76F0" . "#FFFFFF"))  ; Signal blue
                        ("fishy"   . ("#005F73" . "#FFFFFF")))) ; Deep teal
          (colors (or (cdr (assoc tab-name tab-colors))
                      '("#333333" . "#FFFFFF")))  ; Default dark gray
@@ -1271,7 +1273,7 @@ COMMAND is the ac- fish command to run (e.g., \"site\")."
 
 ;;; --- Aesthetic Computer Restart Functions ---
 
-(defvar ac--tab-names '("artery" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests" "llm" "top" "fishy")
+(defvar ac--tab-names '("artery" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests" "llm" "mail" "signal" "top" "fishy")
   "List of all AC tab names.")
 
 (defvar ac--buffer-prefixes '("🩸" "📡" "⚡" "🚇" "💳" "🎫" "🤖" "🧠" "⏰" "🌐" "📋" "🔴" "🔖" "🧪" "🔥" "📦")
@@ -1418,7 +1420,7 @@ Optional TARGET-TAB specifies which tab to land on (default: artery)."
     ("chat-clock" . "⏰") ("site" . "🌐") ("session" . "📋")
     ("redis" . "🔴") ("bookmarks" . "🔖") ("kidlisp" . "🧪")
     ("oven" . "🔥") ("silo" . "🏗️") ("media" . "📦") ("llm" . "🤖") ("top" . "📊")
-    ("mail" . "📬") ("crash-diary" . "💥") ("views" . "🖼️") ("boot" . "🚀")))
+    ("mail" . "📬") ("signal" . "📶") ("crash-diary" . "💥") ("views" . "🖼️") ("boot" . "🚀")))
 
 (defun ac--tab-exists-p (tab-name)
   "Check if a tab with TAB-NAME already exists."
@@ -1519,7 +1521,7 @@ Skips creation if tab already exists."
     (run-with-timer 0.5 nil
                     (lambda (target)
                       (condition-case nil
-                          (when (member target '("artery" "fishy" "boot" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests" "llm" "top"))
+                          (when (member target '("artery" "fishy" "boot" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests" "llm" "mail" "signal" "top"))
                             (tab-bar-switch-to-tab target))
                         (error nil)))
                     target-tab)
@@ -1607,6 +1609,7 @@ Skips creation if tab already exists."
                        ("tests"    ("kidlisp"))
                        ("llm"      ("llm"))
                        ("mail"     ("mail"))
+                       ("signal"   ("signal"))
                        ("top"      ("top")))))
       (dolist (tab-spec tab-specs)
         (let ((tab-name (car tab-spec))
@@ -1701,7 +1704,7 @@ Skips creation if tab already exists."
                         (run-with-timer 1.5 nil
                                         (lambda (tgt)
                                           (condition-case nil
-                                              (when (member tgt '("artery" "fishy" "boot" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests" "llm" "top"))
+                                              (when (member tgt '("artery" "fishy" "boot" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests" "llm" "mail" "signal" "top"))
                                                 (tab-bar-switch-to-tab tgt)
                                                 (when (eq major-mode 'eat-mode)
                                                   (goto-char (point-max)))
