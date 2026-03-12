@@ -6738,10 +6738,13 @@
       #header-signup-btn { display: none !important; }
     }
     
-    /* Level 3 (< 300px): Hide login/user handle */
+    /* Level 3 (< 300px): Compact login/user handle */
     @container preview (max-width: 300px) {
-      #header-auth-buttons { display: none !important; }
-      #header-user-menu { display: none !important; }
+      #header-auth-buttons { padding-left: 4px; gap: 4px; }
+      #header-login-btn { padding: 4px 8px; font-size: 10px; }
+      #header-signup-btn { display: none !important; }
+      #header-user-menu { padding: 0 4px; }
+      #header-user-handle { font-size: 10px; max-width: 60px; overflow: hidden; text-overflow: ellipsis; }
     }
     
     /* Level 4 (< 240px): Hide $code, keep only prompt.AC + QR */
@@ -19595,12 +19598,15 @@ s("ape_breaks_3").loopAt(2)</textarea>
       // === Auth0 Login/Logout ===
       async function initAuth0() {
         try {
+          console.log('[AUTH] initAuth0 called, externalSessionHydrated:', externalSessionHydrated, 'window.auth0:', typeof window.auth0);
           if (externalSessionHydrated && acUser && acToken) {
+            console.log('[AUTH] External session already hydrated, skipping');
             updateACLoginUI();
             logBoot('auth', 'session');
             return;
           }
           if (!window.auth0) {
+            console.warn('[AUTH] window.auth0 SDK not loaded!');
             updateACLoginUI();
             logBoot('auth', 'unavailable');
             return;
@@ -19661,16 +19667,25 @@ s("ape_breaks_3").loopAt(2)</textarea>
 
       async function acLogin() {
         try {
+          console.log('[AUTH] acLogin called, isVSCode:', isVSCode, 'acAuth0Client:', !!acAuth0Client);
           if (isVSCode) {
+            console.log('[AUTH] VSCode mode — posting message');
             window.parent?.postMessage({ type: 'kidlisp:login' }, '*');
             window.parent?.postMessage({ type: 'login', tenant: 'aesthetic' }, '*');
             return;
           }
-          if (!acAuth0Client) await initAuth0();
-          if (!acAuth0Client) return;
+          if (!acAuth0Client) {
+            console.log('[AUTH] No auth0 client, calling initAuth0...');
+            await initAuth0();
+          }
+          if (!acAuth0Client) {
+            console.warn('[AUTH] initAuth0 failed — acAuth0Client still null, window.auth0:', typeof window.auth0);
+            return;
+          }
+          console.log('[AUTH] Redirecting to Auth0 login...');
           logAuth('check');
           await acAuth0Client.loginWithRedirect({ authorizationParams: { prompt: 'login' } });
-        } catch (e) { /* login error */ }
+        } catch (e) { console.error('[AUTH] acLogin error:', e); }
       }
 
       async function acLogout() {
@@ -19692,6 +19707,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
 
       function initACLogin() {
         const headerLoginBtn = document.getElementById('header-login-btn');
+        console.log('[AUTH] initACLogin — headerLoginBtn:', !!headerLoginBtn);
         if (headerLoginBtn) headerLoginBtn.addEventListener('click', acLogin);
 
         const headerSignupBtn = document.getElementById('header-signup-btn');
