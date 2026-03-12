@@ -2659,6 +2659,18 @@ app.get('/os-status', (req, res) => {
   res.json(getOSBuildStatus());
 });
 
+// Proxy releases.json with CORS for the web os.mjs piece.
+app.get('/os-releases', async (req, res) => {
+  try {
+    const r = await fetch(`${RELEASES_BASE}/releases.json`);
+    if (!r.ok) return res.status(r.status).json({ error: 'Failed to fetch releases' });
+    const data = await r.json();
+    res.json(data);
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
 // Personalized FedAC OS .img download for authenticated AC users.
 // Downloads the template .img from DO Spaces, patches config.json
 // with the user's handle/sub/email, and streams it back.
