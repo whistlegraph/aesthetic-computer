@@ -55,17 +55,28 @@ export default async (req) => {
     );
   }
 
-  // Look up handle via /user endpoint
+  // Look up handle via /user endpoint (try .netlify/functions/ path for internal call)
   let handle = "";
-  try {
-    const handleRes = await fetch(
-      `https://aesthetic.computer/user?from=${encodeURIComponent(userInfo.email)}&withHandle=true`,
-    );
-    if (handleRes.ok) {
-      const data = await handleRes.json();
-      handle = data.handle || "";
-    }
-  } catch (_) {}
+  const email = userInfo.email || "";
+  const lookupUrls = [
+    `https://aesthetic.computer/.netlify/functions/user?from=${encodeURIComponent(email)}&withHandle=true`,
+    `https://aesthetic.computer/user?from=${encodeURIComponent(email)}&withHandle=true`,
+  ];
+  for (const url of lookupUrls) {
+    if (handle) break;
+    try {
+      const handleRes = await fetch(url, {
+        headers: { Accept: "application/json" },
+      });
+      if (handleRes.ok) {
+        const text = await handleRes.text();
+        if (text.startsWith("{")) {
+          const data = JSON.parse(text);
+          handle = data.handle || "";
+        }
+      }
+    } catch (_) {}
+  }
 
   if (!handle) {
     return Response.json(
