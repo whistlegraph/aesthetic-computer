@@ -1128,23 +1128,22 @@ static void draw_boot_status(ACGraph *graph, ACFramebuffer *screen,
         uint8_t bg = dk ? 20 : 255;
         graph_wipe(graph, (ACColor){bg, bg, (uint8_t)(bg + (dk ? 5 : 0)), 255});
 
-        // Zebra stripes — alternating black/white, scrolling diagonally
+        // Expanding circles — concentric rings radiating from center
         {
-            int stripe_h = 4;
-            int total = screen->height / stripe_h + 2;
-            int offset = boot_frame % (stripe_h * 2);
-            for (int s = 0; s < total; s++) {
-                int sy = s * stripe_h - offset;
-                if (s % 2 == 0) {
-                    uint8_t v = 240;
-                    graph_ink(graph, (ACColor){v, v, v, 60});
-                } else {
-                    uint8_t v = 10;
-                    graph_ink(graph, (ACColor){v, v, v, 60});
-                }
-                // Diagonal: shift x by row for zebra angle
-                int skew = (s * 8 + boot_frame) % screen->width;
-                graph_box(graph, 0, sy, screen->width, stripe_h, 1);
+            int cx = screen->width / 2;
+            int cy = screen->height / 2;
+            int max_r = (screen->width > screen->height ? screen->width : screen->height);
+            int ring_gap = 18;
+            int num_rings = max_r / ring_gap + 2;
+            int anim_offset = boot_frame * 2;
+            for (int r = 0; r < num_rings; r++) {
+                int radius = (r * ring_gap + anim_offset) % (max_r + ring_gap);
+                uint8_t v = (r % 2 == 0) ? 240 : 10;
+                uint8_t alpha = (uint8_t)(60 - (radius * 30 / max_r));
+                if (alpha > 60) alpha = 0;
+                graph_ink(graph, (ACColor){v, v, v, alpha});
+                graph_circle(graph, cx, cy, radius, 0);
+                graph_circle(graph, cx, cy, radius + 1, 0);
             }
         }
 

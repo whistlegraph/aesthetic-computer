@@ -315,15 +315,19 @@ generate_template_img() {
     # The config.json is padded to 4096 bytes for easy byte-patching.
     local IMG="/tmp/ac-native.img"
     local KERNEL_SIZE=$(stat -c%s "${VMLINUZ}")
-    # Image needs: GPT overhead (~1MB) + FAT32 overhead (~1MB) + kernel + config + slack
-    local IMG_SIZE_MB=$(( (KERNEL_SIZE / 1048576) + 4 ))
+    # Use 64MB minimum so UEFI firmware recognises the EFI partition.
+    # Some firmware ignores tiny GPT disks or fails backup-GPT validation
+    # when the image is dd'd / Balena-flashed onto a larger drive.
+    local MIN_MB=64
+    local NEED_MB=$(( (KERNEL_SIZE / 1048576) + 4 ))
+    local IMG_SIZE_MB=$(( NEED_MB > MIN_MB ? NEED_MB : MIN_MB ))
 
-    log "Generating template .img (${IMG_SIZE_MB}MB)..."
+    log "Generating template .img (${IMG_SIZE_MB}MB)..." >&2
 
     # Create empty image
     dd if=/dev/zero of="${IMG}" bs=1M count=${IMG_SIZE_MB} status=none
 
-    # Create GPT partition table with EFI System Partition
+    # Create GPT partition table with EFI System Partition (fills image)
     sfdisk "${IMG}" --quiet <<EOF
 label: gpt
 type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B
@@ -363,7 +367,7 @@ EOF
     rm -f "${PART_IMG}" "${CONFIG_TMP}"
 
     local IMG_BYTES=$(stat -c%s "${IMG}")
-    log "Template image: ${IMG} ($(echo "${IMG_BYTES}" | numfmt --to=iec))"
+    log "Template image: ${IMG} ($(echo "${IMG_BYTES}" | numfmt --to=iec))" >&2
     echo "${IMG}"
 }
 
@@ -467,11 +471,12 @@ upload_ota() {
 
         if [ -n "${IMG_STEP}" ]; then
             local IMG_PUT_URL=$(echo "$IMG_STEP" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>console.log(JSON.parse(d).img_put_url||''))" 2>/dev/null)
-            if [ -n "${IMG_PUT_URL}" ]; then
+            if [ -n "${IMG_PUT_URL}" ] && [ -f "${TEMPLATE_IMG}" ]; then
+                log "Uploading template $(stat -c%s "${TEMPLATE_IMG}" | numfmt --to=iec) to S3..."
                 curl -sf -X PUT "${IMG_PUT_URL}" \
                     -H "Content-Type: application/octet-stream" \
                     -H "x-amz-acl: public-read" \
-                    --data-binary "@${TEMPLATE_IMG}" \
+                    -T "${TEMPLATE_IMG}" \
                     --max-time 300 && log "Template .img uploaded" || log "Template upload failed (non-fatal)"
             fi
         fi
