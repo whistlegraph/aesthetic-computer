@@ -12,8 +12,12 @@ let handle = null;
 let token = null;
 let downloading = false;
 let downloadProgress = 0;
+let downloadMB = 0;
+let downloadTotalMB = 0;
+let downloadStatus = "";
 let downloadBtn = null;
 let scrollY = 0;
+let dlFn = null; // download() API ref
 
 function boot({ user, api, ui, needsPaint }) {
   handle = user?.handle || null;
@@ -80,22 +84,25 @@ function paint($) {
       undefined,
       [[40, 100, 50], [60, 160, 70], [200, 255, 220], 255],
     );
-    if (handle) {
-      ink(200, 160, 255).write("@" + handle, {
-        x: pad + downloadBtn.width + 10,
-        y: y + 4,
-      });
-    }
+    ink(200, 160, 255).write("@" + handle, {
+      x: pad + downloadBtn.width + 10,
+      y: y + 4,
+    });
     y += downloadBtn.height + 8;
   } else if (downloading) {
+    // Progress bar with MB counter
     ink(60, 60, 100).box(pad, y, w - pad * 2, 20);
     const barW = Math.floor((w - pad * 2 - 4) * downloadProgress);
     ink(100, 180, 255).box(pad + 2, y + 2, barW, 16);
-    ink(255).write(
-      Math.floor(downloadProgress * 100) + "%",
-      { x: pad + 4, y: y + 5 },
-    );
-    y += 28;
+    const pct = Math.floor(downloadProgress * 100);
+    const mb = downloadMB.toFixed(1);
+    const total = downloadTotalMB > 0 ? " / " + downloadTotalMB.toFixed(1) : "";
+    ink(255).write(mb + total + " MB  " + pct + "%", { x: pad + 4, y: y + 5 });
+    y += 24;
+    if (downloadStatus) {
+      ink(140, 160, 180).write(downloadStatus, { x: pad, y });
+      y += 14;
+    }
   } else if (!handle || !token) {
     ink(80, 60, 50).write("log in to download", { x: pad, y });
     y += 16;
@@ -120,7 +127,9 @@ function paint($) {
   }
 }
 
-function act({ event: e, needsPaint }) {
+function act({ event: e, needsPaint, download }) {
+  dlFn = download; // Capture for startDownload
+
   if (e.is("scroll")) {
     scrollY = Math.max(0, scrollY + (e.delta || 0));
     needsPaint();
@@ -137,6 +146,9 @@ function act({ event: e, needsPaint }) {
 async function startDownload(needsPaint) {
   downloading = true;
   downloadProgress = 0;
+  downloadMB = 0;
+  downloadTotalMB = 0;
+  downloadStatus = "connecting...";
   needsPaint();
 
   try {
@@ -150,6 +162,10 @@ async function startDownload(needsPaint) {
     }
 
     const contentLength = parseInt(res.headers.get("content-length") || "0");
+    downloadTotalMB = contentLength / 1048576;
+    downloadStatus = "downloading...";
+    needsPaint();
+
     const reader = res.body.getReader();
     const chunks = [];
     let received = 0;
@@ -159,26 +175,35 @@ async function startDownload(needsPaint) {
       if (done) break;
       chunks.push(value);
       received += value.length;
+      downloadMB = received / 1048576;
       if (contentLength > 0) {
         downloadProgress = received / contentLength;
-        needsPaint();
       }
+      needsPaint();
     }
 
-    const blob = new Blob(chunks, { type: "application/octet-stream" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
+    downloadStatus = "preparing file...";
+    needsPaint();
+
+    // Combine chunks into a single ArrayBuffer for the download() API
+    const total = chunks.reduce((s, c) => s + c.length, 0);
+    const combined = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) {
+      combined.set(chunk, offset);
+      offset += chunk.length;
+    }
+
     const latest = releases?.releases?.[0];
     const name = latest?.name || "os";
     const ts = (latest?.build_ts || "").replace(/[T:]/g, "-");
-    a.download = `ac-native-${name}-${handle || "user"}-${ts}.img`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    const filename = `ac-native-${name}-${handle || "user"}-${ts}.img`;
+
+    dlFn(filename, combined, { type: "application/octet-stream" });
+    downloadStatus = "done!";
   } catch (err) {
     console.error("[os] Download failed:", err);
+    downloadStatus = "error: " + err.message;
   }
 
   downloading = false;
