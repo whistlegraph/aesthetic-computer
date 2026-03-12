@@ -2972,8 +2972,20 @@ static JSValue build_system_obj(JSContext *ctx) {
         JS_SetPropertyStr(ctx, sys, "qrError", JS_NULL);
     }
 
-    // OS update version string
-#ifdef AC_GIT_HASH
+    // OS update version string — matches OTA format: "buildname githash-buildts"
+#ifdef AC_BUILD_NAME
+#  ifdef AC_GIT_HASH
+#    ifdef AC_BUILD_TS
+    JS_SetPropertyStr(ctx, sys, "version",
+                      JS_NewString(ctx, AC_BUILD_NAME " " AC_GIT_HASH "-" AC_BUILD_TS));
+#    else
+    JS_SetPropertyStr(ctx, sys, "version",
+                      JS_NewString(ctx, AC_BUILD_NAME " " AC_GIT_HASH));
+#    endif
+#  else
+    JS_SetPropertyStr(ctx, sys, "version", JS_NewString(ctx, AC_BUILD_NAME));
+#  endif
+#elif defined(AC_GIT_HASH)
 #  ifdef AC_BUILD_TS
     JS_SetPropertyStr(ctx, sys, "version",
                       JS_NewString(ctx, AC_GIT_HASH "-" AC_BUILD_TS));
