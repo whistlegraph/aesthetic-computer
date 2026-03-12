@@ -93,6 +93,10 @@ gigs/thomaslawson.com/ssl/
 # Scratch directory for temp files
 scratch/
 
+# Agent memory local state (encrypted local-first store)
+.ac-agent-memory/
+.agent-memory/
+
 # Temporary webapp inspection artifacts
 /.tmp/
 
