@@ -19,7 +19,7 @@ echo -e "${GREEN}🔒 Scanning for secrets...${NC}"
 # NOTE: Use POSIX extended regex compatible with grep -E
 SECRET_PATTERNS=(
   # SMTP/Email credentials - hardcoded passwords
-  "SMTP_PASSWORD:SMTP_PASS[[:space:]]*=[[:space:]]*['\"][^'\"]{8,}['\"]"
+  "SMTP_PASSWORD:(^|[[:space:](;])SMTP_PASS[[:space:]]*=[[:space:]]*['\"][^'\"[:space:]]{8,}['\"]"
   
   # Google App Passwords (4 groups of 4 lowercase letters)
   # Only match when it looks like a credential assignment, not prose
