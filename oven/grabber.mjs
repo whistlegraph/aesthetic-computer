@@ -1549,20 +1549,41 @@ async function captureFrames(piece, options = {}) {
     const maxPieceWait = 30000; // 30 seconds max for piece to load
     let pieceReady = false;
     let lastPreviewTime = 0;
-    
+    // Track boot-hidden state for early exit (piece loaded but acPieceReady never set)
+    let bootHiddenSince = 0;
+
     while (!pieceReady && (Date.now() - pieceWaitStart) < maxPieceWait) {
       const status = await page.evaluate(() => {
         const ready = window.acPieceReady === true;
         const readyTime = window.acPieceReadyTime;
         const bootCanvas = document.getElementById('boot-canvas');
-        const bootHidden = !bootCanvas || 
+        const bootHidden = !bootCanvas ||
           window.getComputedStyle(bootCanvas).display === 'none' ||
           window.getComputedStyle(bootCanvas).opacity === '0';
-        return { ready, readyTime, bootHidden };
+        // Check if piece paint is running by looking for the main canvas content
+        const mainCanvas = document.querySelector('#aesthetic-computer canvas');
+        const canvasActive = mainCanvas && mainCanvas.width > 0 && mainCanvas.height > 0;
+        return { ready, readyTime, bootHidden, canvasActive };
       });
-      
+
       pieceReady = status.ready;
-      
+
+      // Track when boot canvas hides (piece has loaded even if acPieceReady didn't fire)
+      if (status.bootHidden && !bootHiddenSince) {
+        bootHiddenSince = Date.now();
+      }
+
+      // Early exit: if boot canvas has been hidden for 3s and canvas is active,
+      // treat as ready (workaround for acPieceReady not firing in headless Chrome)
+      if (!pieceReady && bootHiddenSince && status.canvasActive) {
+        const hiddenFor = Date.now() - bootHiddenSince;
+        if (hiddenFor > 3000) {
+          console.log(`   ✅ Piece detected as ready via boot-canvas-hidden heuristic (${hiddenFor}ms)`);
+          pieceReady = true;
+          break;
+        }
+      }
+
       if (!pieceReady) {
         const elapsed = Date.now() - pieceWaitStart;
         const phase = status.bootHidden ? 'Loading piece' : 'Booting';
@@ -1576,13 +1597,15 @@ async function captureFrames(piece, options = {}) {
           });
           lastPreviewTime = Date.now();
         }
-        
+
         await new Promise(r => setTimeout(r, 100));
       }
     }
-    
+
     if (pieceReady) {
-      console.log(`   ✅ Piece ready after ${Date.now() - pieceWaitStart}ms`);
+      if (!bootHiddenSince) {
+        console.log(`   ✅ Piece ready after ${Date.now() - pieceWaitStart}ms`);
+      }
     } else {
       console.log(`   ⚠️ Piece ready signal not received after ${maxPieceWait}ms`);
       // Force hide boot canvas if still visible
@@ -1592,20 +1615,57 @@ async function captureFrames(piece, options = {}) {
       });
     }
     
+    // Wait for any pending async image loads (paste/stamp #code references)
+    // Images fetched via prefetchPicture() are async — acPieceReady fires before
+    // they finish loading. Poll window.acPendingImages() until all resolve.
+    const maxImageWait = 10000; // 10s max for image fetches
+    const imageWaitStart = Date.now();
+    let pendingImages = 0;
+    try {
+      pendingImages = await page.evaluate(() =>
+        typeof window.acPendingImages === 'function' ? window.acPendingImages() : 0
+      );
+    } catch {}
+
+    if (pendingImages > 0) {
+      console.log(`   ⏳ Waiting for ${pendingImages} pending image(s) to load...`);
+      await updateProgressWithPreview(grabId, page, {
+        stage: 'loading',
+        stageDetail: `Loading ${pendingImages} image(s)...`,
+        percent: 26,
+      });
+
+      while ((Date.now() - imageWaitStart) < maxImageWait) {
+        await new Promise(r => setTimeout(r, 200));
+        try {
+          pendingImages = await page.evaluate(() =>
+            typeof window.acPendingImages === 'function' ? window.acPendingImages() : 0
+          );
+        } catch { break; }
+        if (pendingImages === 0) break;
+      }
+
+      if (pendingImages === 0) {
+        console.log(`   ✅ All images loaded after ${Date.now() - imageWaitStart}ms`);
+      } else {
+        console.log(`   ⚠️ ${pendingImages} image(s) still pending after ${maxImageWait}ms timeout`);
+      }
+    }
+
     // Settle time: let the piece run a bit more after ready signal
     // For stills, wait longer to let animations stabilize
     // For animations, just a small buffer
     const isStill = frames === 1;
     const settleTime = isStill ? 500 : 200; // 500ms for stills, 200ms for animations
     console.log(`   ${isStill ? '⏳ Settling for still capture' : '⏳ Brief settle'}... (${settleTime}ms)`);
-    
+
     // Send preview before settling
     await updateProgressWithPreview(grabId, page, {
       stage: 'settling',
       stageDetail: `Settling... ${settleTime}ms`,
       percent: 28,
     });
-    
+
     await new Promise(r => setTimeout(r, settleTime));
     
     // Capture frames at intervals
