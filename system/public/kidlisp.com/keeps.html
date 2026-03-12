@@ -2950,20 +2950,84 @@
     // =========================================
     // FETCH ALL CODES
     // =========================================
+    let liveUpdateTimer = null;
+    let lastFetchTime = null; // ISO timestamp of most recent entry
+
+    function buildStoreUrl(extra = '') {
+      const contractHint = encodeURIComponent(getKeepsContractAddress() || '');
+      const contractVersion = encodeURIComponent(getKeepsContractVersion() || '');
+      const contractProfile = encodeURIComponent(getKeepsContractProfile() || '');
+      return `${AC_BASE}/api/store-kidlisp?recent=true&contract=${contractHint}&contractVersion=${contractVersion}&contractProfile=${contractProfile}${extra}&ts=${Date.now()}`;
+    }
+
     async function fetchAllCodes(sort = 'recent') {
       try {
-        const contractHint = encodeURIComponent(getKeepsContractAddress() || '');
-        const contractVersion = encodeURIComponent(getKeepsContractVersion() || '');
-        const contractProfile = encodeURIComponent(getKeepsContractProfile() || '');
-        const url = `${AC_BASE}/api/store-kidlisp?recent=true&limit=100000&sort=${sort}&contract=${contractHint}&contractVersion=${contractVersion}&contractProfile=${contractProfile}&ts=${Date.now()}`;
+        const url = buildStoreUrl(`&limit=100000&sort=${sort}`);
         const res = await fetch(url, { cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        return data.recent || [];
+        const codes = data.recent || [];
+        // Track the newest entry timestamp for live updates
+        if (codes.length > 0) {
+          const newest = codes.reduce((a, b) => (new Date(b.when) > new Date(a.when) ? b : a));
+          lastFetchTime = newest.when;
+        } else {
+          lastFetchTime = new Date().toISOString();
+        }
+        return codes;
       } catch (err) {
         console.error('Failed to fetch codes:', err);
         return null;
       }
+    }
+
+    async function fetchNewCodes() {
+      if (!lastFetchTime || !indexReady) return;
+      try {
+        const since = encodeURIComponent(lastFetchTime);
+        const url = buildStoreUrl(`&limit=50&sort=recent&since=${since}`);
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        const newCodes = data.recent || [];
+        if (newCodes.length === 0) return;
+
+        // Update lastFetchTime to newest entry
+        const newest = newCodes.reduce((a, b) => (new Date(b.when) > new Date(a.when) ? b : a));
+        lastFetchTime = newest.when;
+
+        // Merge: add new entries, update existing ones by code
+        const existingByCode = new Map(allCodes.map(e => [e.code, e]));
+        let added = 0;
+        for (const entry of newCodes) {
+          if (existingByCode.has(entry.code)) {
+            // Update existing entry in-place
+            Object.assign(existingByCode.get(entry.code), entry);
+          } else {
+            allCodes.unshift(entry);
+            added++;
+          }
+        }
+
+        // Scope to user's entries and re-render
+        if (added > 0) {
+          const scoped = scopeIndexEntries(allCodes);
+          allCodes = scoped;
+          applyFilters();
+          console.log(`✨ ${added} new piece${added > 1 ? 's' : ''} appeared`);
+        }
+      } catch (err) {
+        // Silent fail — next poll will retry
+      }
+    }
+
+    function startLiveUpdates(intervalMs = 5000) {
+      stopLiveUpdates();
+      liveUpdateTimer = setInterval(fetchNewCodes, intervalMs);
+    }
+
+    function stopLiveUpdates() {
+      if (liveUpdateTimer) { clearInterval(liveUpdateTimer); liveUpdateTimer = null; }
     }
 
     function hasRegisteredHandle() {
@@ -5850,6 +5914,9 @@
       filteredCodes = scopedCodes;
       indexReady = true;
 
+      // Start polling for new pieces every 5 seconds
+      startLiveUpdates(5000);
+
       // Populate floating castle $codes with visible index entries
       const floaters = document.querySelectorAll('.keeps-code-float');
       if (scopedCodes.length >= floaters.length) {
@@ -5887,6 +5954,12 @@
     }
 
     bootstrapKeepsPage();
+
+    // Pause/resume live updates on tab visibility
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) { stopLiveUpdates(); }
+      else if (indexReady) { fetchNewCodes(); startLiveUpdates(5000); }
+    });
 
     // Live XTZ price for lede
     (function() {
