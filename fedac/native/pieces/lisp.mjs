@@ -169,14 +169,8 @@ function paint({ wipe, ink, line, box, circle, write, scroll, spin, zoom,
     write("eval: " + (e.message || e).slice(0, 60), { x: 2, y: 2, size: 1, font: "6x10" });
   }
 
-  // Source label overlay (top-left)
-  if (sourceLabel) {
-    ink(255, 255, 255, 80);
-    write(sourceLabel, { x: 4, y: 4, size: 1, font: "6x10" });
-  }
-  // esc hint (bottom-left)
-  ink(255, 255, 255, 50);
-  write("esc:back", { x: 4, y: screen.height - 14, size: 1, font: "6x10" });
+  // No overlay text — avoids compositing source/crosshair into
+  // backbuffer effects (scroll/spin/zoom). User knows esc goes back.
 }
 
 export { boot, paint, act, sim };

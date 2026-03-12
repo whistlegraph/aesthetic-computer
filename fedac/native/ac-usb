@@ -1,0 +1,103 @@
+#!/bin/bash
+# ac-usb — List and inspect USB devices through Docker (for devcontainer environments)
+# Usage:
+#   ac-usb              List all USB block devices
+#   ac-usb ls           Same as above
+#   ac-usb read PATH    Read a file from USB partition (e.g., ac-usb read EFI/BOOT/BOOTX64.EFI)
+#   ac-usb logs         Pull /logs/ and /perf/ from USB /mnt partition
+#   ac-usb sha256       Show SHA256 of BOOTX64.EFI on USB
+set -e
+
+CMD="${1:-ls}"
+
+find_usb_dev() {
+    for dev in sda sdb sdc; do
+        if [ -e "/sys/block/${dev}/removable" ]; then
+            local rem=$(cat "/sys/block/${dev}/removable" 2>/dev/null)
+            if [ "${rem}" = "1" ] && lsblk "/dev/${dev}" &>/dev/null 2>&1; then
+                echo "/dev/${dev}"
+                return 0
+            fi
+        fi
+    done
+    if lsblk /dev/sda &>/dev/null 2>&1; then
+        echo "/dev/sda"
+        return 0
+    fi
+    return 1
+}
+
+docker_usb() {
+    # Run a command inside a privileged container with USB access
+    sudo docker run --rm --privileged -v /dev:/dev alpine:latest sh -c "$1" 2>&1
+}
+
+case "${CMD}" in
+    ls|list)
+        echo "=== USB Block Devices ==="
+        lsblk 2>/dev/null | grep -E "^sd|─sd" || echo "(none found)"
+        echo ""
+        USB_DEV="$(find_usb_dev 2>/dev/null)" || { echo "No removable USB detected"; exit 0; }
+        echo "USB device: ${USB_DEV}"
+        echo ""
+        echo "=== Partition contents ==="
+        docker_usb "
+            apk add --quiet dosfstools
+            mkdir -p /mnt/usb
+            mount ${USB_DEV}1 /mnt/usb 2>/dev/null && {
+                echo '--- ${USB_DEV}1 ---'
+                find /mnt/usb -type f | head -50
+                echo ''
+                du -sh /mnt/usb/EFI/BOOT/BOOTX64.EFI 2>/dev/null
+                umount /mnt/usb
+            } || echo 'Could not mount ${USB_DEV}1'
+        "
+        ;;
+    sha256|hash)
+        USB_DEV="$(find_usb_dev)" || { echo "No USB found"; exit 1; }
+        docker_usb "
+            apk add --quiet dosfstools
+            mkdir -p /mnt/usb
+            mount ${USB_DEV}1 /mnt/usb
+            sha256sum /mnt/usb/EFI/BOOT/BOOTX64.EFI 2>/dev/null || echo 'No EFI file found'
+            umount /mnt/usb
+        "
+        ;;
+    logs)
+        USB_DEV="$(find_usb_dev)" || { echo "No USB found"; exit 1; }
+        mkdir -p /tmp/usb-logs
+        CONTAINER=$(sudo docker create --privileged -v /dev:/dev alpine:latest sh -c "
+            apk add --quiet dosfstools
+            mkdir -p /mnt/usb /out
+            mount ${USB_DEV}1 /mnt/usb
+            # Copy logs and perf data
+            cp /mnt/usb/ac-native.log /out/ 2>/dev/null || true
+            cp -r /mnt/usb/perf /out/ 2>/dev/null || true
+            cp /mnt/usb/config.json /out/ 2>/dev/null || true
+            cp /mnt/usb/booted-version /out/ 2>/dev/null || true
+            ls -la /out/
+            umount /mnt/usb
+        ")
+        sudo docker start -a "${CONTAINER}"
+        sudo docker cp "${CONTAINER}:/out/." /tmp/usb-logs/ 2>/dev/null
+        sudo docker rm "${CONTAINER}" 2>/dev/null
+        echo ""
+        echo "Logs copied to /tmp/usb-logs/"
+        ls -la /tmp/usb-logs/
+        ;;
+    read)
+        FILE="${2:?Usage: ac-usb read <path>}"
+        USB_DEV="$(find_usb_dev)" || { echo "No USB found"; exit 1; }
+        docker_usb "
+            apk add --quiet dosfstools
+            mkdir -p /mnt/usb
+            mount ${USB_DEV}1 /mnt/usb
+            cat '/mnt/usb/${FILE}' 2>/dev/null || echo 'File not found: ${FILE}'
+            umount /mnt/usb
+        "
+        ;;
+    *)
+        echo "Usage: ac-usb {ls|sha256|logs|read <path>}"
+        exit 1
+        ;;
+esac
