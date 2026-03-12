@@ -2671,6 +2671,14 @@ app.get('/os-releases', async (req, res) => {
   }
 });
 
+// Flush the cached OS template so the next download gets the fresh one.
+app.post('/os-cache-flush', (req, res) => {
+  templateCache = null;
+  templateCacheTime = 0;
+  console.log('[os-image] Template cache flushed');
+  res.json({ flushed: true });
+});
+
 // Personalized FedAC OS .img download for authenticated AC users.
 // Downloads the template .img from DO Spaces, patches config.json
 // with the user's handle/sub/email, and streams it back.

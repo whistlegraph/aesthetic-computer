@@ -477,7 +477,13 @@ upload_ota() {
                     -H "Content-Type: application/octet-stream" \
                     -H "x-amz-acl: public-read" \
                     -T "${TEMPLATE_IMG}" \
-                    --max-time 300 && log "Template .img uploaded" || log "Template upload failed (non-fatal)"
+                    --max-time 300 && {
+                    log "Template .img uploaded"
+                    # Flush oven's in-memory cache so downloads get the new template immediately
+                    curl -sf -X POST "https://oven.aesthetic.computer/os-cache-flush" \
+                        --max-time 10 && log "Oven template cache flushed" \
+                        || log "Cache flush failed (non-fatal)"
+                } || log "Template upload failed (non-fatal)"
             fi
         fi
         rm -f "${TEMPLATE_IMG}"
