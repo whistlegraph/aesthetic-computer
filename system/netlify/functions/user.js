@@ -26,6 +26,7 @@ export async function handler(event, context) {
   const userCode = event.queryStringParameters.code; // NEW: Support user code lookup
   const tenant = event.queryStringParameters.tenant || "aesthetic";
   const withHandle = event.queryStringParameters.withHandle === "true";
+  const withTezos = event.queryStringParameters.withTezos === "true";
   const noCache = event.queryStringParameters.nocache === "true";
   
   if (!handleOrEmail && !userCode) {
@@ -36,9 +37,9 @@ export async function handler(event, context) {
   }
 
   // 🚀 Check Redis cache first (skip for code lookups which are rare)
-  const cacheKey = userCode 
-    ? `code:${userCode}:${tenant}:${withHandle}`
-    : `email:${handleOrEmail}:${tenant}:${withHandle}`;
+  const cacheKey = userCode
+    ? `code:${userCode}:${tenant}:${withHandle}:${withTezos}`
+    : `email:${handleOrEmail}:${tenant}:${withHandle}:${withTezos}`;
   
   if (!noCache) {
     try {
@@ -91,6 +92,14 @@ export async function handler(event, context) {
         const handle = await handleFor(user);
         if (handle) out.handle = handle;
       }
+      if (withTezos) {
+        try {
+          const { connect } = await import("../../backend/database.mjs");
+          const db = await connect();
+          const userDoc = await db.db.collection("users").findOne({ _id: user }, { projection: { "tezos.address": 1, "tezos.network": 1 } });
+          if (userDoc?.tezos) out.tezos = userDoc.tezos;
+        } catch (e) { /* tezos lookup failed */ }
+      }
     } else {
       out = {
         sub: user.userID,
@@ -100,6 +109,14 @@ export async function handler(event, context) {
       if (withHandle) {
         const handle = await handleFor(user.userID);
         if (handle) out.handle = handle;
+      }
+      if (withTezos) {
+        try {
+          const { connect } = await import("../../backend/database.mjs");
+          const db = await connect();
+          const userDoc = await db.db.collection("users").findOne({ _id: user.userID }, { projection: { "tezos.address": 1, "tezos.network": 1 } });
+          if (userDoc?.tezos) out.tezos = userDoc.tezos;
+        } catch (e) { /* tezos lookup failed */ }
       }
     }
     

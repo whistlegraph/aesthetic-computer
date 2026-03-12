@@ -151,8 +151,12 @@ export const handler = async (event) => {
     const usersCol = database.db.collection("users");
     const userDoc = user ? await usersCol.findOne({ _id: user.sub }) : null;
     const linkedWallet = userDoc?.tezos?.address;
-    if (!linkedWallet) return jsonResponse(400, { error: "Connect your Tezos wallet first (wallet.ac)" });
+    if (!linkedWallet) {
+      console.error(`🪙 KEEP: No linked wallet for user ${user.sub} (userDoc ${userDoc ? 'exists' : 'missing'})`);
+      return jsonResponse(400, { error: "No wallet linked — connect your Tezos wallet and try again" });
+    }
     if (walletAddress !== linkedWallet) {
+      console.error(`🪙 KEEP: Wallet mismatch — request=${walletAddress?.slice(0, 8)} linked=${linkedWallet.slice(0, 8)}`);
       return jsonResponse(400, { error: `Wallet mismatch — mint from ${linkedWallet.slice(0, 8)}...` });
     }
     creatorWalletAddress = walletAddress;
