@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Post-commit hook for local-first agent memory:
+# 1) log the commit event locally
+# 2) import recent Codex messages into local memory
+# 3) flush remote queue (no-op unless remote sync is enabled)
+
+set -u
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [ -z "${REPO_ROOT:-}" ]; then
+  exit 0
+fi
+
+NODE_BIN="${NODE_BIN:-node}"
+if ! command -v "$NODE_BIN" >/dev/null 2>&1; then
+  exit 0
+fi
+
+"$NODE_BIN" "$REPO_ROOT/memory/hook.mjs" post-commit >/dev/null 2>&1 || true
+"$NODE_BIN" "$REPO_ROOT/memory/codex-sync.mjs" --max-sessions 3 --max-events 120 >/dev/null 2>&1 || true
+"$NODE_BIN" "$REPO_ROOT/memory/cli.mjs" flush-remote >/dev/null 2>&1 || true
+
+exit 0

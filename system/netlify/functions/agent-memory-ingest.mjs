@@ -9,6 +9,9 @@ function respond(statusCode, body) {
     headers: {
       "content-type": "application/json",
       "cache-control": "no-store",
+      "access-control-allow-origin": "*",
+      "access-control-allow-methods": "POST, OPTIONS",
+      "access-control-allow-headers": "content-type, authorization",
     },
     body: JSON.stringify(body),
   };
@@ -85,15 +88,30 @@ async function ensureIndexes(collection, kind) {
 }
 
 export async function handler(event) {
+  if (event.httpMethod === "OPTIONS") {
+    return {
+      statusCode: 204,
+      headers: {
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "POST, OPTIONS",
+        "access-control-allow-headers": "content-type, authorization",
+      },
+      body: "",
+    };
+  }
+
   if (event.httpMethod !== "POST") {
     return respond(405, { error: "Method not allowed" });
   }
 
-  const expectedToken = process.env.AGENT_MEMORY_INGEST_TOKEN || "";
+  const expectedToken =
+    process.env.AGENT_MEMORY_INGEST_TOKEN ||
+    process.env.AGENT_MEMORY_REMOTE_TOKEN ||
+    "";
   if (!expectedToken) {
     return respond(503, {
       error: "Ingest token is not configured",
-      env: "AGENT_MEMORY_INGEST_TOKEN",
+      env: "AGENT_MEMORY_INGEST_TOKEN or AGENT_MEMORY_REMOTE_TOKEN",
     });
   }
 

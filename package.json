@@ -35,6 +35,8 @@
     "agent-memory:doctor": "node memory/cli.mjs doctor",
     "agent-memory:profile": "node memory/cli.mjs profile",
     "agent-memory:set-device": "node memory/cli.mjs set-device",
+    "agent-memory:sync-codex": "node memory/codex-sync.mjs",
+    "agent-memory:install-hooks": "node memory/install-hooks.mjs",
     "agent-memory:flush": "node memory/cli.mjs flush-remote",
     "profile:secret:rotate": "node utilities/rotate-profile-stream-secret.mjs",
     "ac": "./aesthetic",
