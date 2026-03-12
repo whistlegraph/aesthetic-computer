@@ -1431,6 +1431,10 @@ int main(int argc, char *argv[]) {
     // Prewarm audio engine so first keypress has zero latency
     audio_prewarm(audio);
 
+    // Drain any queued input events from boot animation (prevents first-key stick)
+    input_poll(input);
+    input->event_count = 0;
+
     // Call boot()
     js_call_boot(rt);
 
