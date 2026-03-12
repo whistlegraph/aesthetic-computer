@@ -43,9 +43,9 @@ export default async (request) => {
   const userSub = user.sub || "unknown";
   const userName = user.name || user.nickname || userSub;
 
-  // DO Spaces creds
-  const accessKey = Deno.env.get("DO_SPACES_KEY");
-  const secretKey = Deno.env.get("DO_SPACES_SECRET");
+  // DO Spaces creds (edge functions may see different env var names)
+  const accessKey = Deno.env.get("DO_SPACES_KEY") || Deno.env.get("ART_KEY");
+  const secretKey = Deno.env.get("DO_SPACES_SECRET") || Deno.env.get("ART_SECRET");
   if (!accessKey || !secretKey) {
     return Response.json({ error: "Spaces creds not configured" }, { status: 503 });
   }
