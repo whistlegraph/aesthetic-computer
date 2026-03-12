@@ -73,7 +73,7 @@ static void perf_record(PerfRecord *r) {
 
 // Write current buffer as a numbered chunk file, fsync, close, then
 // delete the oldest chunk if we exceed PERF_MAX_CHUNKS.
-static void perf_flush(void) {
+void perf_flush(void) {
     if (!perf_buf || perf_buf_count == 0) return;
 
     char path[128];
@@ -134,6 +134,14 @@ void ac_log(const char *fmt, ...) {
         fsync(fileno(logfile));
     }
     va_end(args2);
+}
+
+// Flush log file to disk without closing it
+void ac_log_flush(void) {
+    if (logfile) {
+        fflush(logfile);
+        fsync(fileno(logfile));
+    }
 }
 
 // Temporarily close the log file (e.g. before flash writes to same partition)
@@ -1093,6 +1101,26 @@ static void draw_boot_status(ACGraph *graph, ACFramebuffer *screen,
         uint8_t bg = dk ? 20 : 255;
         graph_wipe(graph, (ACColor){bg, bg, (uint8_t)(bg + (dk ? 5 : 0)), 255});
 
+        // Zebra stripes — alternating black/white, scrolling diagonally
+        {
+            int stripe_h = 4;
+            int total = screen->height / stripe_h + 2;
+            int offset = boot_frame % (stripe_h * 2);
+            for (int s = 0; s < total; s++) {
+                int sy = s * stripe_h - offset;
+                if (s % 2 == 0) {
+                    uint8_t v = 240;
+                    graph_ink(graph, (ACColor){v, v, v, 60});
+                } else {
+                    uint8_t v = 10;
+                    graph_ink(graph, (ACColor){v, v, v, 60});
+                }
+                // Diagonal: shift x by row for zebra angle
+                int skew = (s * 8 + boot_frame) % screen->width;
+                graph_box(graph, 0, sy, screen->width, stripe_h, 1);
+            }
+        }
+
         // Bounce: title oscillates with a decaying sine
         double bounce_t = (double)af / 20.0;
         int bounce_y = (int)(6.0 * sin(bounce_t * 3.14159 * 2) * (1.0 - bounce_t));
@@ -1177,6 +1205,7 @@ int main(int argc, char *argv[]) {
     ACDisplay *display = NULL;
     ACFramebuffer *screen = NULL;
     ACInput *input = NULL;
+    int pixel_scale = 3;  // Default: 1/3 display resolution (3x nearest-neighbor)
 
     if (!headless) {
         display = drm_init();
@@ -1186,8 +1215,7 @@ int main(int argc, char *argv[]) {
             return 1;
         }
 
-        // 1/3 display resolution (3x nearest-neighbor scale)
-        screen = fb_create(display->width / 3, display->height / 3);
+        screen = fb_create(display->width / pixel_scale, display->height / pixel_scale);
         if (!screen) {
             drm_destroy(display);
             return 1;
@@ -1229,7 +1257,7 @@ int main(int argc, char *argv[]) {
 
     // Init input
     if (!headless) {
-        input = input_init(display->width, display->height, 3);
+        input = input_init(display->width, display->height, pixel_scale);
     }
 
     // Find backlight path (scan /sys/class/backlight/ for any device)
@@ -1333,7 +1361,7 @@ int main(int argc, char *argv[]) {
             char msg[256];
             snprintf(msg, sizeof(msg), "Cannot load: %s", piece_path);
             font_draw(&graph, msg, 20, 20, 2);
-            display_present(display, screen, 3);
+            display_present(display, screen, pixel_scale);
             sleep(10);
         }
         js_destroy(rt);
@@ -1417,11 +1445,28 @@ int main(int argc, char *argv[]) {
                 }
             }
             // Hardware keys
+            static int ctrl_held = 0;
             int power_pressed = 0;
+            int scale_change = 0;  // -1 = decrease density (bigger pixels), +1 = increase
             for (int i = 0; i < input->event_count; i++) {
+                // Track ctrl modifier
+                if (input->events[i].key_code == KEY_LEFTCTRL || input->events[i].key_code == KEY_RIGHTCTRL) {
+                    ctrl_held = (input->events[i].type == AC_EVENT_KEYBOARD_DOWN) ? 1 : 0;
+                }
                 if (input->events[i].type == AC_EVENT_KEYBOARD_DOWN) {
+                    // Ctrl+= (or Ctrl++) → bigger pixels (increase scale number)
+                    // Ctrl+- → smaller pixels (decrease scale number)
+                    if (ctrl_held && (input->events[i].key_code == KEY_EQUAL ||
+                                      input->events[i].key_code == KEY_KPPLUS)) {
+                        scale_change = -1;  // bigger pixels (lower res)
+                    } else if (ctrl_held && (input->events[i].key_code == KEY_MINUS ||
+                                             input->events[i].key_code == KEY_KPMINUS)) {
+                        scale_change = 1;  // smaller pixels (higher res)
+                    } else if (ctrl_held && input->events[i].key_code == KEY_0) {
+                        scale_change = 99;  // reset to default (3)
+                    }
                     // Volume: KEY_VOLUMEUP/DOWN/MUTE or F1/F2/F3 as fallback
-                    if (strcmp(input->events[i].key_name, "audiovolumeup") == 0 ||
+                    else if (strcmp(input->events[i].key_name, "audiovolumeup") == 0 ||
                         strcmp(input->events[i].key_name, "f3") == 0) {
                         audio_volume_adjust(audio, 1);
                         audio_synth(audio, WAVE_SINE, 1200.0, 0.04, 0.15, 0.001, 0.03, 0.0);
@@ -1459,6 +1504,43 @@ int main(int argc, char *argv[]) {
                     else if (strcmp(input->events[i].key_name, "power") == 0 ||
                              input->events[i].key_code == KEY_POWER)
                         power_pressed = 1;
+                }
+            }
+
+            // Pixel density scale change
+            if (scale_change && display) {
+                int new_scale = pixel_scale;
+                if (scale_change == 99) {
+                    new_scale = 3;  // reset to default
+                } else if (scale_change == 1) {
+                    // Increase density: scale 6→4→3→2→1
+                    if (pixel_scale > 3) new_scale = pixel_scale - 2;
+                    else if (pixel_scale > 1) new_scale = pixel_scale - 1;
+                } else if (scale_change == -1) {
+                    // Decrease density: scale 1→2→3→4→6
+                    if (pixel_scale < 3) new_scale = pixel_scale + 1;
+                    else if (pixel_scale < 6) new_scale = pixel_scale + 2;
+                }
+                if (new_scale != pixel_scale && new_scale >= 1 && new_scale <= 6) {
+                    pixel_scale = new_scale;
+                    // Recreate framebuffer at new resolution
+                    ACFramebuffer *new_screen = fb_create(display->width / pixel_scale,
+                                                          display->height / pixel_scale);
+                    if (new_screen) {
+                        fb_destroy(screen);
+                        screen = new_screen;
+                        graph_init(&graph, screen);
+                        input->scale = pixel_scale;
+                        // Update JS runtime's graph reference (holds framebuffer)
+                        if (rt) {
+                            rt->graph = &graph;
+                        }
+                        ac_log("[scale] pixel_scale=%d resolution=%dx%d",
+                               pixel_scale, screen->width, screen->height);
+                        audio_synth(audio, WAVE_SINE,
+                                    440.0 + (6 - pixel_scale) * 150.0,
+                                    0.06, 0.15, 0.002, 0.05, 0.0);
+                    }
                 }
             }
 
@@ -1522,13 +1604,13 @@ int main(int argc, char *argv[]) {
                             screen->height / 2 + 10 + jy / 2, 1);
                     }
 
-                    display_present(display, screen, 3);
+                    display_present(display, screen, pixel_scale);
                     frame_sync_60fps(&anim_time);
                 }
 
                 // Final black frame
                 graph_wipe(&graph, (ACColor){0, 0, 0, 255});
-                display_present(display, screen, 3);
+                display_present(display, screen, pixel_scale);
 
                 running = 0;
                 break;
@@ -1600,7 +1682,7 @@ int main(int argc, char *argv[]) {
 
             // Software cursor (AC precise cursor: teal crosshair + shadow + white center)
             if (input && (input->pointer_x || input->pointer_y)) {
-                int cx = input->pointer_x / 3, cy = input->pointer_y / 3;
+                int cx = input->pointer_x / pixel_scale, cy = input->pointer_y / pixel_scale;
                 // Shadow (black, offset +1,+1)
                 graph_ink(&graph, (ACColor){0, 0, 0, 180});
                 graph_line(&graph, cx+1, cy-9, cx+1, cy-4);  // top
@@ -1621,7 +1703,7 @@ int main(int argc, char *argv[]) {
             clock_gettime(CLOCK_MONOTONIC, &_pf_paint1);
 
             clock_gettime(CLOCK_MONOTONIC, &_pf_pres0);
-            display_present(display, screen, 3);
+            display_present(display, screen, pixel_scale);
             clock_gettime(CLOCK_MONOTONIC, &_pf_pres1);
 
             // HDMI: render waveform at ~7.5Hz (every 8 frames) — 4K dumb-buf is slow

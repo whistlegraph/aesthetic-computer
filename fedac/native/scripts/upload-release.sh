@@ -14,10 +14,30 @@ if [ ! -f "$VMLINUZ" ]; then
   exit 1
 fi
 
-# Credentials — source from vault if not already in env
-VAULT_ENV="${SCRIPT_DIR}/../../../aesthetic-computer-vault/fedac/native/upload.env"
-if [ -f "$VAULT_ENV" ]; then
-  set -a; source "$VAULT_ENV"; set +a
+# Credentials — check env (set by ac-os), session cache, plaintext vault, or GPG decrypt
+if [ -z "${DO_SPACES_KEY:-}" ] || [ -z "${DO_SPACES_SECRET:-}" ]; then
+  # Session cache (written by ac-os load_vault_creds)
+  [ -f "/tmp/.ac-upload-env" ] && { set -a; source "/tmp/.ac-upload-env"; set +a; }
+fi
+if [ -z "${DO_SPACES_KEY:-}" ] || [ -z "${DO_SPACES_SECRET:-}" ]; then
+  # Plaintext vault file
+  VAULT_ENV="${SCRIPT_DIR}/../../../aesthetic-computer-vault/fedac/native/upload.env"
+  [ -f "$VAULT_ENV" ] && { set -a; source "$VAULT_ENV"; set +a; }
+fi
+if [ -z "${DO_SPACES_KEY:-}" ] || [ -z "${DO_SPACES_SECRET:-}" ]; then
+  # GPG decrypt from vault
+  for gpg_file in \
+      "${SCRIPT_DIR}/../upload.env.gpg" \
+      "${SCRIPT_DIR}/../../../aesthetic-computer-vault/fedac/native/upload.env.gpg"; do
+    if [ -f "$gpg_file" ]; then
+      echo "[upload] Decrypting $(basename "$gpg_file")..."
+      DECRYPTED=$(gpg --pinentry-mode loopback -d "$gpg_file" 2>/dev/null | grep "=") || true
+      if [ -n "$DECRYPTED" ]; then
+        set -a; eval "$DECRYPTED"; set +a
+        break
+      fi
+    fi
+  done
 fi
 
 : "${DO_SPACES_KEY:?DO_SPACES_KEY not set}"
@@ -27,8 +47,11 @@ DO_SPACES_REGION="${DO_SPACES_REGION:-sfo3}"
 
 BASE_URL="https://${DO_SPACES_BUCKET}.${DO_SPACES_REGION}.digitaloceanspaces.com"
 
-# Build version string from git
+# Build version string from git (append -dirty if uncommitted changes)
 GIT_HASH=$(git -C "$SCRIPT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+if ! git -C "$SCRIPT_DIR" diff --quiet HEAD 2>/dev/null; then
+  GIT_HASH="${GIT_HASH}-dirty"
+fi
 BUILD_TS=$(date -u '+%Y-%m-%dT%H:%M')
 # Format must match AC_GIT_HASH "-" AC_BUILD_TS in js-bindings.c / Makefile
 VERSION="${GIT_HASH}-${BUILD_TS}"
@@ -37,7 +60,20 @@ VERSION="${GIT_HASH}-${BUILD_TS}"
 SHA256=$(sha256sum "$VMLINUZ" | awk '{print $1}')
 SIZE=$(stat -c%s "$VMLINUZ")
 
+# Generate build name from MongoDB (global counter + day-of-year animal)
+BUILD_NAME=""
+BUILD_NUM=""
+if command -v node &>/dev/null; then
+  NAME_JSON=$(node "$SCRIPT_DIR/track-build.mjs" next-name 2>/dev/null || echo '{}')
+  BUILD_NAME=$(echo "$NAME_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('name',''))" 2>/dev/null || true)
+  BUILD_NUM=$(echo "$NAME_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('buildNum',''))" 2>/dev/null || true)
+fi
+if [ -z "$BUILD_NAME" ]; then
+  BUILD_NAME="local-$(date -u +%s)"
+fi
+
 echo "Uploading notepat release: $VERSION"
+echo "  name:    $BUILD_NAME (#${BUILD_NUM:-?})"
 echo "  vmlinuz: $(du -sh "$VMLINUZ" | cut -f1)"
 echo "  sha256:  $SHA256"
 
@@ -74,7 +110,9 @@ do_upload() {
 TMP=$(mktemp -d)
 trap "rm -rf $TMP" EXIT
 
-printf '%s' "$VERSION" > "$TMP/version.txt"
+# Include build name in version string for display on device
+FULL_VERSION="${BUILD_NAME} ${VERSION}"
+printf '%s' "$FULL_VERSION" > "$TMP/version.txt"
 printf '%s' "$SHA256"  > "$TMP/sha256.txt"
 
 # Upload files (vmlinuz last — it's large, others are the canary)
@@ -88,14 +126,15 @@ curl -sf "${BASE_URL}/os/releases.json" -o "$RELEASES_JSON" 2>/dev/null \
   || echo '{"releases":[]}' > "$RELEASES_JSON"
 
 # Append new entry (keep last 50)
-python3 - "$RELEASES_JSON" "$VERSION" "$SHA256" "$SIZE" "$GIT_HASH" "$BUILD_TS" <<'PYEOF'
+python3 - "$RELEASES_JSON" "$FULL_VERSION" "$SHA256" "$SIZE" "$GIT_HASH" "$BUILD_TS" "$BUILD_NAME" <<'PYEOF'
 import sys, json
-path, version, sha256, size, git_hash, build_ts = sys.argv[1:]
+path, version, sha256, size, git_hash, build_ts, name = sys.argv[1:]
 with open(path) as f:
     data = json.load(f)
 releases = data.get("releases", [])
 releases.insert(0, {
     "version": version,
+    "name": name,
     "sha256": sha256,
     "size": int(size),
     "git_hash": git_hash,
@@ -104,13 +143,20 @@ releases.insert(0, {
 })
 data["releases"] = releases[:50]
 data["latest"] = version
+data["latest_name"] = name
 with open(path, "w") as f:
     json.dump(data, f, indent=2)
 PYEOF
 
 do_upload "$RELEASES_JSON" "os/releases.json" "application/json"
 
+# Record build in MongoDB
+if command -v node &>/dev/null; then
+  echo "{\"name\":\"$BUILD_NAME\",\"buildNum\":$BUILD_NUM,\"version\":\"$FULL_VERSION\",\"sha256\":\"$SHA256\",\"size\":$SIZE,\"git_hash\":\"$GIT_HASH\",\"build_ts\":\"$BUILD_TS\",\"url\":\"${BASE_URL}/os/native-notepat-latest.vmlinuz\"}" \
+    | node "$SCRIPT_DIR/track-build.mjs" record 2>&1 || true
+fi
+
 echo ""
-echo "Release published: $VERSION"
+echo "Release published: $BUILD_NAME ($FULL_VERSION)"
 echo "  ${BASE_URL}/os/native-notepat-latest.vmlinuz"
 echo "  ${BASE_URL}/os/releases.json"

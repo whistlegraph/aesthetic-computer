@@ -1268,9 +1268,10 @@ void audio_sample_update(ACAudio *audio, uint64_t id, double freq,
     for (int i = 0; i < AUDIO_MAX_SAMPLE_VOICES; i++) {
         SampleVoice *sv = &audio->sample_voices[i];
         if (sv->active && sv->id == id) {
-            sv->speed = (freq / base_freq) * ((double)audio->sample_rate / (double)audio->actual_rate);
-            sv->volume = volume;
-            sv->pan = pan;
+            if (freq > 0 && base_freq > 0)
+                sv->speed = (freq / base_freq) * ((double)audio->sample_rate / (double)audio->actual_rate);
+            if (volume >= 0) sv->volume = volume;
+            if (pan > -2) sv->pan = pan;
             break;
         }
     }

@@ -192,27 +192,27 @@ void graph_zoom(ACGraph *g, double level) {
     ACFramebuffer *fb = g->fb;
     if (!fb || level <= 0.0 || fabs(level - 1.0) < 1e-6) return;
 
-    size_t buf_size = (size_t)fb->width * fb->height * sizeof(uint32_t);
+    const int w = fb->width;
+    const int h = fb->height;
+    size_t buf_size = (size_t)w * h * sizeof(uint32_t);
     uint32_t *tmp = malloc(buf_size);
     if (!tmp) return;
     memcpy(tmp, fb->pixels, buf_size);
 
-    const double cx = (fb->width - 1) * 0.5;
-    const double cy = (fb->height - 1) * 0.5;
+    const double cx = (w - 1) * 0.5;
+    const double cy = (h - 1) * 0.5;
     const double inv = 1.0 / level;
 
-    for (int y = 0; y < fb->height; y++) {
-        for (int x = 0; x < fb->width; x++) {
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
             const double src_xf = cx + (x - cx) * inv;
             const double src_yf = cy + (y - cy) * inv;
-            const int sx = (int)llround(src_xf);
-            const int sy = (int)llround(src_yf);
+            int sx = (int)llround(src_xf) % w;
+            int sy = (int)llround(src_yf) % h;
+            if (sx < 0) sx += w;
+            if (sy < 0) sy += h;
 
-            uint32_t out = 0xFF000000;
-            if (sx >= 0 && sx < fb->width && sy >= 0 && sy < fb->height) {
-                out = tmp[sy * fb->stride + sx];
-            }
-            fb->pixels[y * fb->stride + x] = out;
+            fb->pixels[y * fb->stride + x] = tmp[sy * fb->stride + sx];
         }
     }
     free(tmp);
@@ -250,26 +250,26 @@ void graph_spin(ACGraph *g, double angle_radians) {
     if (!tmp) return;
     memcpy(tmp, fb->pixels, buf_size);
 
-    const double cx = (fb->width - 1) * 0.5;
-    const double cy = (fb->height - 1) * 0.5;
+    const int w = fb->width;
+    const int h = fb->height;
+    const double cx = (w - 1) * 0.5;
+    const double cy = (h - 1) * 0.5;
     const double c = cos(angle_radians);
     const double s = sin(angle_radians);
 
-    // Inverse mapping: destination -> source for hole-free rotation.
-    for (int y = 0; y < fb->height; y++) {
-        for (int x = 0; x < fb->width; x++) {
+    // Inverse mapping: destination -> source with toroidal wrapping.
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
             const double dx = x - cx;
             const double dy = y - cy;
             const double src_xf = cx + (dx * c + dy * s);
             const double src_yf = cy + (-dx * s + dy * c);
-            const int sx = (int)llround(src_xf);
-            const int sy = (int)llround(src_yf);
+            int sx = (int)llround(src_xf) % w;
+            int sy = (int)llround(src_yf) % h;
+            if (sx < 0) sx += w;
+            if (sy < 0) sy += h;
 
-            uint32_t out = 0xFF000000;
-            if (sx >= 0 && sx < fb->width && sy >= 0 && sy < fb->height) {
-                out = tmp[sy * fb->stride + sx];
-            }
-            fb->pixels[y * fb->stride + x] = out;
+            fb->pixels[y * fb->stride + x] = tmp[sy * fb->stride + sx];
         }
     }
     free(tmp);
