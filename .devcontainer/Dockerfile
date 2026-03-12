@@ -184,6 +184,12 @@ RUN curl -sSL https://sdk.cloud.google.com > /tmp/install_gcloud.sh && \
     ln -s /opt/google-cloud-sdk/bin/bq /usr/local/bin/bq && \
     rm /tmp/install_gcloud.sh
 
+# --- signal-cli (native binary, no JVM needed) --------------------------------
+RUN set -eux; \
+    SIGNAL_CLI_VERSION=0.14.1 && \
+    curl -fsSL "https://github.com/AsamK/signal-cli/releases/download/v${SIGNAL_CLI_VERSION}/signal-cli-${SIGNAL_CLI_VERSION}-Linux-native.tar.gz" \
+    | tar xz -C /usr/local/bin
+
 # --- User ---------------------------------------------------------------------
 RUN useradd -m me && echo "me ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && chsh -s /usr/bin/fish me
 
@@ -199,7 +205,9 @@ WORKDIR /home/me
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y && \
     . "$HOME/.cargo/env" && \
     git clone https://github.com/vi/websocat.git && \
-    cd websocat && cargo build --release && sudo cp target/release/websocat /usr/local/bin/
+    cd websocat && cargo build --release && sudo cp target/release/websocat /usr/local/bin/ && \
+    cd /home/me && cargo install --git https://github.com/boxdot/gurk-rs gurk && \
+    sudo cp /home/me/.cargo/bin/gurk /usr/local/bin/
 
 # --- fnm / Node toolchain (PART 1: Create directories with correct ownership FIRST) ---
 RUN mkdir -p /home/me/.config/fish/conf.d /home/me/.config/fish/functions && \
