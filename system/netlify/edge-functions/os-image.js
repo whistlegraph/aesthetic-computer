@@ -55,11 +55,11 @@ export default async (req) => {
     );
   }
 
-  // Look up handle
+  // Look up handle via /user endpoint
   let handle = "";
   try {
     const handleRes = await fetch(
-      `https://aesthetic.computer/api/handle?sub=${encodeURIComponent(userInfo.sub)}`,
+      `https://aesthetic.computer/user?from=${encodeURIComponent(userInfo.email)}&withHandle=true`,
     );
     if (handleRes.ok) {
       const data = await handleRes.json();
