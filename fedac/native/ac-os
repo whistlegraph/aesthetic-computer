@@ -86,6 +86,11 @@ build_kernel() {
     else
         cd "${LINUX_DIR}"
     fi
+    # Copy fresh initramfs into kernel tree (kernel embeds it — must be updated!)
+    log "Syncing initramfs into kernel tree..."
+    sudo cp "${BUILD_DIR}/initramfs.cpio.lz4" "${LINUX_DIR}/initramfs.cpio.lz4"
+    # Force kernel to re-embed: remove cached initramfs object (make won't detect content changes)
+    sudo rm -f "${LINUX_DIR}/usr/initramfs_data.o" "${LINUX_DIR}/usr/.initramfs_data.o.cmd"
     log "Building kernel..."
     make -j$(nproc) bzImage 2>&1 | tail -1
     cp arch/x86/boot/bzImage "${VMLINUZ}"
@@ -120,18 +125,23 @@ flash_usb() {
     # Use docker cp + privileged container (bind mounts fail in devcontainers)
     local CONTAINER
     CONTAINER=$(sudo docker create --rm --privileged -v /dev:/dev alpine:latest sh -c "
-        apk add --quiet dosfstools
-        mkdir -p /mnt/usb
-        # Create partition if needed
-        if ! lsblk ${USB_DEV}1 &>/dev/null 2>&1; then
-            apk add --quiet util-linux
-            sfdisk --force ${USB_DEV} <<PARTEOF
+        set -e
+        apk add --quiet dosfstools util-linux mtools
+        # Always clean-slate: wipe partition table, create fresh GPT + EFI partition
+        echo 'Wiping and re-partitioning ${USB_DEV}...'
+        dd if=/dev/zero of=${USB_DEV} bs=1M count=1 2>/dev/null
+        sfdisk --force ${USB_DEV} <<PARTEOF
 label: gpt
 type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, size=512M
 PARTEOF
-            sleep 2
-            mkfs.vfat -F 32 -n ACBOOT ${USB_DEV}1
-        fi
+        sleep 2
+        # Re-read partition table
+        partprobe ${USB_DEV} 2>/dev/null || true
+        sleep 1
+        # Format fresh FAT32
+        mkfs.vfat -F 32 -n ACBOOT ${USB_DEV}1
+        # Mount and copy
+        mkdir -p /mnt/usb
         mount ${USB_DEV}1 /mnt/usb
         mkdir -p /mnt/usb/EFI/BOOT
         cp /tmp/vmlinuz /mnt/usb/EFI/BOOT/BOOTX64.EFI
