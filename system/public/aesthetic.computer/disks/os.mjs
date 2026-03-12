@@ -74,8 +74,7 @@ function boot({ user, api, ui, needsPaint }) {
 function makeButtons(ui, rel) {
   const latest = rel?.releases?.[0];
   if (!latest) return;
-  const name = latest.name || "latest";
-  downloadBtn = new ui.TextButton("download " + name, { x: 6, y: 0 });
+  downloadBtn = new ui.TextButton("install", { x: 6, y: 0 });
   updateBootBtn(ui);
 }
 
@@ -127,7 +126,10 @@ function paint($) {
 
   // Download section for logged-in users
   if (handle && token && downloadBtn && !downloading) {
-    // Row 1: download button + @handle
+    const latest = builds[0];
+    const coreName = "ac-" + (latest?.name || "native");
+
+    // Row 1: "install @handle os" — feels personal
     downloadBtn.reposition({ x: pad, y });
     downloadBtn.paint(
       $,
@@ -136,13 +138,17 @@ function paint($) {
       undefined,
       [[30, 80, 40], [50, 140, 60], [200, 255, 220], 255],
     );
-    ink(...C.handle).write("@" + handle, {
-      x: pad + downloadBtn.width + 8,
-      y: y + 4,
-    });
-    y += downloadBtn.height + 4;
+    let tx = pad + downloadBtn.width + 6;
+    ink(...C.handle).write("@" + handle, { x: tx, y: y + 4 });
+    tx += ("@" + handle).length * charW + charW;
+    ink(160, 180, 160).write("os", { x: tx, y: y + 4 });
+    y += downloadBtn.height + 2;
 
-    // Row 2: boot-to selector (tap to cycle)
+    // Row 2: core version label
+    ink(80, 90, 110).write(coreName + " core", { x: pad, y });
+    y += rowH + 2;
+
+    // Row 3: boot-to selector (tap to cycle)
     if (bootBtn) {
       bootBtn.reposition({ x: pad, y });
       bootBtn.paint(
@@ -169,7 +175,7 @@ function paint($) {
       y += rowH + 2;
     }
   } else if (!handle || !token) {
-    ink(...C.loginHint).write("log in to download", { x: pad, y });
+    ink(...C.loginHint).write("log in to install your os", { x: pad, y });
     y += rowH + 4;
   }
 
@@ -267,7 +273,7 @@ async function startDownload(needsPaint) {
   downloadMB = 0;
   downloadTotalMB = 0;
   const piece = BOOT_PIECES[bootPieceIdx];
-  downloadStatus = "connecting... (boot to: " + piece + ")";
+  downloadStatus = "building @" + (handle || "user") + " os... (boot to: " + piece + ")";
   needsPaint();
 
   try {
