@@ -71,6 +71,14 @@ NPM shortcuts:
 - `npm run agent-memory:sync-codex`
 - `npm run agent-memory:install-hooks`
 
+Fish `ac-*` shortcuts (devcontainer):
+
+- `ac-memory-list -- --limit 25`
+- `ac-memory-remember -- --from <session-id>`
+- `ac-memory-hooks`
+- `ac-memory-sync`
+- `ac-memory-flush`
+
 ## Hook Integration
 
 - `.claude/settings.json` already calls `memory/hook.mjs` on `UserPromptSubmit`.
