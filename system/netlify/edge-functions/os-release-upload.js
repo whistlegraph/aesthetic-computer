@@ -43,14 +43,11 @@ export default async (request) => {
   const userSub = user.sub || "unknown";
   const userName = user.name || user.nickname || userSub;
 
-  // DO Spaces creds — try release-specific first, then general
-  const accessKey = Deno.env.get("DO_RELEASES_KEY") || Deno.env.get("DO_SPACES_KEY") || Deno.env.get("ART_KEY");
-  const secretKey = Deno.env.get("DO_RELEASES_SECRET") || Deno.env.get("DO_SPACES_SECRET") || Deno.env.get("ART_SECRET");
+  // DO Spaces creds
+  const accessKey = Deno.env.get("DO_SPACES_KEY");
+  const secretKey = Deno.env.get("DO_SPACES_SECRET");
   if (!accessKey || !secretKey) {
-    // Debug: list which vars are available (no values)
-    const available = ["DO_RELEASES_KEY","DO_SPACES_KEY","ART_KEY","DO_RELEASES_SECRET","DO_SPACES_SECRET","ART_SECRET"]
-      .filter(k => !!Deno.env.get(k));
-    return Response.json({ error: "Spaces creds not configured", available }, { status: 503 });
+    return Response.json({ error: "Spaces creds not configured" }, { status: 503 });
   }
 
   const bucket = "releases-aesthetic-computer";
