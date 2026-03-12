@@ -1376,7 +1376,9 @@ export async function prewarmGrabBrowser() {
   let page;
   try {
     page = await b.newPage();
-    const warmupUrl = `${BASE_URL}/prompt`;
+    // Set viewport before navigating so AC boots at a known size (not default 800x600)
+    await page.setViewport({ width: 128, height: 128, deviceScaleFactor: 1 });
+    const warmupUrl = `${BASE_URL}/prompt?density=1&nogap=true`;
     console.log(`🔥 Pre-warming browser: ${warmupUrl}`);
     await page.goto(warmupUrl, { waitUntil: 'domcontentloaded', timeout: 20000 });
     await new Promise(r => setTimeout(r, 3000));
@@ -1392,7 +1394,9 @@ export async function prewarmGrabBrowser() {
   let klPage;
   try {
     klPage = await b.newPage();
-    const klUrl = `${BASE_URL}/black?nolabel=true&nogap=true`;
+    // Set viewport before navigating so AC boots at a known size (not default 800x600)
+    await klPage.setViewport({ width: 128, height: 128, deviceScaleFactor: 1 });
+    const klUrl = `${BASE_URL}/black?density=1&nolabel=true&nogap=true`;
     console.log(`🔥 Pre-warming KidLisp: ${klUrl}`);
     await klPage.goto(klUrl, { waitUntil: 'domcontentloaded', timeout: 25000 });
     // Wait for kidlisp.mjs to fully parse and the piece to boot

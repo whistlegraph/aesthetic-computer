@@ -9,6 +9,13 @@
       "env": {
         "EMACSCLIENT": "/usr/sbin/emacsclient"
       }
+    },
+    "mail": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "/workspaces/aesthetic-computer/ants/mail-mcp/server.mjs"
+      ]
     }
   }
 }
