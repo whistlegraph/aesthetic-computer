@@ -2659,6 +2659,105 @@ app.get('/os-status', (req, res) => {
   res.json(getOSBuildStatus());
 });
 
+// Personalized FedAC OS .img download for authenticated AC users.
+// Downloads the template .img from DO Spaces, patches config.json
+// with the user's handle/sub/email, and streams it back.
+const RELEASES_BASE = 'https://releases-aesthetic-computer.sfo3.digitaloceanspaces.com/os';
+const TEMPLATE_URL = `${RELEASES_BASE}/native-notepat-latest.img`;
+const CONFIG_MARKER = '{"handle":"","piece":"notepat","sub":"","email":""}';
+const CONFIG_PAD_SIZE = 4096;
+
+// Cache the template in memory (only ~42MB, loaded once)
+let templateCache = null;
+let templateCacheTime = 0;
+const TEMPLATE_CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
+async function getTemplate() {
+  if (templateCache && Date.now() - templateCacheTime < TEMPLATE_CACHE_TTL) {
+    return templateCache;
+  }
+  console.log('[os-image] Downloading template .img...');
+  const res = await fetch(TEMPLATE_URL);
+  if (!res.ok) throw new Error(`Template download failed: ${res.status}`);
+  templateCache = Buffer.from(await res.arrayBuffer());
+  templateCacheTime = Date.now();
+  console.log(`[os-image] Template cached: ${(templateCache.length / 1048576).toFixed(1)}MB`);
+  return templateCache;
+}
+
+app.get('/os-image', async (req, res) => {
+  // Auth: verify AC token
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  if (!token) {
+    return res.status(401).json({ error: 'Authorization required. Log in at aesthetic.computer first.' });
+  }
+
+  let userInfo;
+  try {
+    const uiRes = await fetch('https://hi.aesthetic.computer/userinfo', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!uiRes.ok) throw new Error(`Auth0 ${uiRes.status}`);
+    userInfo = await uiRes.json();
+  } catch (err) {
+    return res.status(401).json({ error: `Authentication failed: ${err.message}` });
+  }
+
+  // Look up handle
+  let handle = '';
+  const email = userInfo.email || '';
+  try {
+    const handleRes = await fetch(
+      `https://aesthetic.computer/user?from=${encodeURIComponent(email)}&withHandle=true`
+    );
+    if (handleRes.ok) {
+      const data = await handleRes.json();
+      handle = data.handle || '';
+    }
+  } catch (_) {}
+
+  if (!handle) {
+    return res.status(403).json({ error: 'You need a handle first. Visit aesthetic.computer/handle to claim one.' });
+  }
+
+  console.log(`[os-image] Building personalized image for @${handle}`);
+
+  // Get template (cached in memory)
+  let imgData;
+  try {
+    const template = await getTemplate();
+    imgData = Buffer.from(template); // copy so we don't mutate cache
+  } catch (err) {
+    return res.status(503).json({ error: `Template not available: ${err.message}` });
+  }
+
+  // Build personalized config (padded to CONFIG_PAD_SIZE)
+  const config = JSON.stringify({
+    handle,
+    piece: 'notepat',
+    sub: userInfo.sub || '',
+    email: userInfo.email || '',
+  });
+  const padded = config + ' '.repeat(Math.max(0, CONFIG_PAD_SIZE - config.length));
+  const configBytes = Buffer.from(padded);
+
+  // Find and patch the config placeholder
+  const markerBuf = Buffer.from(CONFIG_MARKER);
+  const idx = imgData.indexOf(markerBuf);
+  if (idx === -1) {
+    return res.status(500).json({ error: 'Template image missing config placeholder' });
+  }
+  configBytes.copy(imgData, idx);
+
+  // Stream the patched image
+  addServerLog('success', '💿', `OS image for @${handle} (${(imgData.length / 1048576).toFixed(1)}MB)`);
+  res.setHeader('Content-Type', 'application/octet-stream');
+  res.setHeader('Content-Disposition', `attachment; filename="ac-native-${handle}.img"`);
+  res.setHeader('Content-Length', imgData.length);
+  res.end(imgData);
+});
+
 // Background base image jobs (build + upload) for FedOS pipeline.
 app.get('/os-base-build', (req, res) => {
   res.json(getOSBaseBuildsSummary());
