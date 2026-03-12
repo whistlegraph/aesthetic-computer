@@ -2788,7 +2788,9 @@ app.get('/os-image', async (req, res) => {
     }
   } catch (_) {}
   const coreName = 'AC-' + releaseName;
-  const ts = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  const ts = `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())}.${p(d.getHours())}.${p(d.getMinutes())}.${p(d.getSeconds())}`;
   res.setHeader('Content-Disposition', `attachment; filename="@${handle}-os-${bootPiece}-${coreName}-${ts}.img"`);
   res.setHeader('Content-Length', imgData.length);
   res.end(imgData);
