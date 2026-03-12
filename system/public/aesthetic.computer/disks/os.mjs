@@ -87,7 +87,7 @@ function timeAgo(ts) {
   if (!ts) return "";
   const now = Date.now();
   const then = new Date(ts).getTime();
-  const sec = Math.floor((now - then) / 1000);
+  const sec = Math.max(0, Math.floor((now - then) / 1000));
   if (sec < 60) return sec + "s";
   const min = Math.floor(sec / 60);
   if (min < 60) return min + "m";
