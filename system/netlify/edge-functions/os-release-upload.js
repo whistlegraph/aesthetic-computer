@@ -193,6 +193,27 @@ export default async (request) => {
     }
   }
 
+  // Template .img presigned URL (separate from vmlinuz)
+  const isTemplate = req.headers.get("x-template-upload") === "true";
+  if (isTemplate) {
+    try {
+      const imgUrl = await presignUrl(
+        "os/native-notepat-latest.img",
+        "application/octet-stream",
+      );
+      return Response.json({
+        step: "template-upload",
+        img_put_url: imgUrl,
+        user: userSub,
+      });
+    } catch (err) {
+      return Response.json(
+        { error: `Template presign failed: ${err.message}` },
+        { status: 500 },
+      );
+    }
+  }
+
   // Step 1: Return presigned URL for vmlinuz upload
   try {
     const vmlinuzUrl = await presignUrl(
