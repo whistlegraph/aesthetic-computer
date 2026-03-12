@@ -53,36 +53,47 @@ function boot({ user, api, ui, needsPaint }) {
     .then((data) => {
       releases = data;
       loading = false;
+      console.log("[os] Loaded", data?.releases?.length || 0, "builds");
+      if (data?.releases?.[0]) console.log("[os] Latest:", data.releases[0].name, data.releases[0].git_hash, data.releases[0].commit_msg);
       if (handle && token) makeButtons(ui, data);
       needsPaint();
     })
     .catch((err) => {
+      console.error("[os] Load failed:", err);
       error = err.message;
       loading = false;
       needsPaint();
     });
 
   if (handle) {
+    console.log("[os] Authorizing @" + handle + "...");
     api?.authorize?.().then((t) => {
       token = t;
+      console.log("[os] Authorized, token:", t ? "ok" : "missing");
       if (releases) makeButtons(ui, releases);
       needsPaint();
     });
+  } else {
+    console.log("[os] No handle — download disabled");
   }
 }
 
 function makeButtons(ui, rel) {
   const latest = rel?.releases?.[0];
   if (!latest) return;
-  updateDownloadBtn(ui, rel);
+  updateDownloadBtn(ui);
   updateBootBtn(ui);
 }
 
-function updateDownloadBtn(ui, rel) {
-  const latest = (rel || releases)?.releases?.[0];
+function updateDownloadBtn(ui) {
+  downloadBtn = new ui.TextButton("install", { x: 6, y: 0 });
+}
+
+function osLabel() {
+  const latest = releases?.releases?.[0];
   const coreName = "AC-" + (latest?.name || "native");
   const piece = BOOT_PIECES[bootPieceIdx];
-  downloadBtn = new ui.TextButton(`install @${handle}-os-${piece}-${coreName}`, { x: 6, y: 0 });
+  return `@${handle}-os-${piece}-${coreName}`;
 }
 
 function updateBootBtn(ui) {
@@ -146,7 +157,7 @@ function paint($) {
       y += bootBtn.height + 4;
     }
 
-    // Row 2: download button showing full OS string
+    // Row 2: install button + OS label on next line
     downloadBtn.reposition({ x: pad, y });
     downloadBtn.paint(
       $,
@@ -155,7 +166,17 @@ function paint($) {
       undefined,
       [[30, 80, 40], [50, 140, 60], [200, 255, 220], 255],
     );
-    y += downloadBtn.height + 6;
+    y += downloadBtn.height + 2;
+
+    // Row 3: full OS string label (wraps if needed)
+    const label = osLabel();
+    const maxChars = Math.floor((w - pad * 2) / charW);
+    ink(...C.handle).write(label.slice(0, maxChars), { x: pad, y });
+    if (label.length > maxChars) {
+      y += rowH;
+      ink(...C.handle).write(label.slice(maxChars, maxChars * 2), { x: pad, y });
+    }
+    y += rowH + 6;
   } else if (downloading) {
     // Progress bar
     ink(...C.progressBg).box(pad, y, w - pad * 2, 18);
@@ -252,7 +273,6 @@ function act({ event: e, needsPaint, download }) {
         bootPieceIdx = (bootPieceIdx + 1) % BOOT_PIECES.length;
         if (uiRef) {
           updateBootBtn(uiRef);
-          updateDownloadBtn(uiRef);
         }
         needsPaint();
       },
@@ -273,10 +293,12 @@ async function startDownload(needsPaint) {
   downloadTotalMB = 0;
   const piece = BOOT_PIECES[bootPieceIdx];
   downloadStatus = "building @" + (handle || "user") + " os... (boot to: " + piece + ")";
+  console.log("[os] Starting download:", osLabel(), "piece:", piece);
   needsPaint();
 
   try {
     const url = OVEN_IMAGE_URL + "?piece=" + encodeURIComponent(piece);
+    console.log("[os] Fetching:", url);
     const res = await fetch(url, {
       headers: { Authorization: "Bearer " + token },
     });
@@ -323,6 +345,7 @@ async function startDownload(needsPaint) {
     const ts = `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())}.${p(d.getHours())}.${p(d.getMinutes())}.${p(d.getSeconds())}`;
     const filename = `@${handle || "user"}-os-${piece}-${coreName}-${ts}.img`;
 
+    console.log("[os] Download complete:", filename, (total / 1048576).toFixed(1) + "MB");
     dlFn(filename, combined, { type: "application/octet-stream" });
     downloadStatus = "done!";
   } catch (err) {
