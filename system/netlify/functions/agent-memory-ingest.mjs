@@ -2,6 +2,14 @@ import { MongoClient } from "mongodb";
 
 let mongoClient;
 let mongoDb;
+let cachedIngestToken = "";
+let cachedIngestTokenAt = 0;
+const INGEST_TOKEN_TTL_MS = 60_000;
+
+function getSecretId() {
+  const value = String(process.env.AGENT_MEMORY_SECRET_ID || "").trim();
+  return value || "agent-memory";
+}
 
 function respond(statusCode, body) {
   return {
@@ -26,6 +34,48 @@ function getBearerToken(event) {
   if (!authHeader) return "";
   const match = authHeader.match(/^Bearer\s+(.+)$/i);
   return match?.[1] || "";
+}
+
+function pickString(value) {
+  if (typeof value !== "string") return "";
+  const trimmed = value.trim();
+  return trimmed || "";
+}
+
+function tokenFromSecretDoc(secretDoc) {
+  const candidates = [
+    secretDoc?.ingestToken,
+    secretDoc?.token,
+    secretDoc?.remoteToken,
+    secretDoc?.agentMemoryIngestToken,
+    secretDoc?.agentMemoryRemoteToken,
+    secretDoc?.agentMemory?.ingestToken,
+    secretDoc?.agentMemory?.remoteToken,
+  ];
+
+  for (const candidate of candidates) {
+    const value = pickString(candidate);
+    if (value) return value;
+  }
+  return "";
+}
+
+async function getExpectedToken() {
+  const envToken = pickString(
+    process.env.AGENT_MEMORY_INGEST_TOKEN || process.env.AGENT_MEMORY_REMOTE_TOKEN || ""
+  );
+  if (envToken) return envToken;
+
+  if (cachedIngestToken && Date.now() - cachedIngestTokenAt < INGEST_TOKEN_TTL_MS) {
+    return cachedIngestToken;
+  }
+
+  const db = await getDb();
+  const secretDoc = await db.collection("secrets").findOne({ _id: getSecretId() });
+  const token = tokenFromSecretDoc(secretDoc);
+  cachedIngestToken = token;
+  cachedIngestTokenAt = Date.now();
+  return token;
 }
 
 async function getDb() {
@@ -104,14 +154,21 @@ export async function handler(event) {
     return respond(405, { error: "Method not allowed" });
   }
 
-  const expectedToken =
-    process.env.AGENT_MEMORY_INGEST_TOKEN ||
-    process.env.AGENT_MEMORY_REMOTE_TOKEN ||
-    "";
+  let expectedToken = "";
+  try {
+    expectedToken = await getExpectedToken();
+  } catch (error) {
+    return respond(503, {
+      error: "Ingest token lookup failed",
+      message: error.message,
+    });
+  }
+
   if (!expectedToken) {
     return respond(503, {
       error: "Ingest token is not configured",
-      env: "AGENT_MEMORY_INGEST_TOKEN or AGENT_MEMORY_REMOTE_TOKEN",
+      secret_id: getSecretId(),
+      expected_field: "ingestToken (or token/remoteToken)",
     });
   }
 

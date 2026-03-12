@@ -158,7 +158,12 @@ Recommended for siphoned database setup:
 
 - `AGENT_MEMORY_MONGODB_CONNECTION_STRING`
 - `AGENT_MEMORY_MONGODB_NAME`
-- `AGENT_MEMORY_INGEST_TOKEN` (or reuse `AGENT_MEMORY_REMOTE_TOKEN`)
+- `AGENT_MEMORY_SECRET_ID` (defaults to `agent-memory`)
+
+Store ingest auth token in Mongo `secrets` collection (same pattern as other services):
+
+- `_id: "agent-memory"` (or your `AGENT_MEMORY_SECRET_ID`)
+- field: `ingestToken` (also accepts `token` or `remoteToken`)
 
 ## Docker / Rebuild Notes
 
