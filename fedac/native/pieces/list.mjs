@@ -9,8 +9,10 @@ const PIECES = [
   { name: "os",       alias: null,  desc: "system update panel (OTA flash)" },
   { name: "wifi",     alias: "net", desc: "network picker and saved credentials" },
   { name: "claude",   alias: "cl",  desc: "AI assistant (Claude)" },
-  { name: "chat",     alias: null,  desc: "real-time chat on aesthetic.computer" },
-  { name: "list",     alias: null,  desc: "this screen" },
+  { name: "chat",           alias: null,  desc: "real-time chat on aesthetic.computer" },
+  { name: "laer-klokken",  alias: "lk",  desc: "clock room chat (warm theme)" },
+  { name: "machine",        alias: null,  desc: "hardware & software info" },
+  { name: "list",           alias: null,  desc: "this screen" },
 ];
 
 const COMMANDS = [

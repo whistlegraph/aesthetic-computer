@@ -59,6 +59,11 @@ typedef struct {
     pthread_t flash_thread;
     char  flash_src[256];                 // source vmlinuz path
     char  flash_device[64];              // EFI partition device, e.g. /dev/sda1 or /dev/nvme0n1p1
+    char  flash_dst[256];                // actual destination path written to
+    volatile int flash_same_device;      // 1 = target is same device as /mnt (NVMe-to-NVMe)
+    // Flash telemetry ring buffer (read from JS for diagnostics)
+    char  flash_log[16][128];            // last 16 log lines
+    volatile int flash_log_count;        // total lines written (modulo 16 for ring index)
 
     // Camera QR scanning (V4L2 + quirc)
     ACCamera camera;
@@ -69,6 +74,8 @@ typedef struct {
     // Piece navigation (system.jump)
     volatile int jump_requested;          // 1 = JS called system.jump()
     char jump_target[128];               // piece name, e.g. "prompt" or "notepat"
+    char jump_params[8][64];             // colon-separated params (e.g. "chat:clock" → ["clock"])
+    int jump_param_count;
 
     // User config (read from /mnt/config.json on EFI partition)
     char handle[64];                     // e.g. "jeffrey" (without @)

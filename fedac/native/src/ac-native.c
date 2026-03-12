@@ -1660,7 +1660,27 @@ int main(int argc, char *argv[]) {
             // Handle piece jump requests from system.jump()
             if (rt->jump_requested) {
                 rt->jump_requested = 0;
-                ac_log("[ac-native] Jumping to piece: %s\n", rt->jump_target);
+
+                // Parse colon-separated params: "chat:clock" → name="chat", params=["clock"]
+                rt->jump_param_count = 0;
+                {
+                    char *colon = strchr(rt->jump_target, ':');
+                    if (colon) {
+                        *colon = 0; // terminate piece name at first colon
+                        char *rest = colon + 1;
+                        while (rest && *rest && rt->jump_param_count < 8) {
+                            char *next = strchr(rest, ':');
+                            if (next) *next = 0;
+                            strncpy(rt->jump_params[rt->jump_param_count], rest, 63);
+                            rt->jump_params[rt->jump_param_count][63] = 0;
+                            rt->jump_param_count++;
+                            rest = next ? next + 1 : NULL;
+                        }
+                    }
+                }
+
+                ac_log("[ac-native] Jumping to piece: %s (%d params)\n",
+                       rt->jump_target, rt->jump_param_count);
 
                 // Call leave() on current piece
                 js_call_leave(rt);
