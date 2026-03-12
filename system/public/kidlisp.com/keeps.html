@@ -1790,6 +1790,12 @@
       font-family: var(--font-mono);
     }
     .keeps-auth-btn.wallet:hover { border-color: #8658e2; color: #8658e2; }
+    .keeps-auth-btn.wallet.linked {
+      color: var(--text-secondary);
+      border-color: rgba(134, 88, 226, 0.2);
+      opacity: 0.7;
+    }
+    .keeps-auth-btn.wallet.linked:hover { border-color: #8658e2; color: #8658e2; opacity: 1; }
     .keeps-auth-btn.wallet.connected {
       color: #8658e2;
       border-color: rgba(134, 88, 226, 0.4);
@@ -2745,6 +2751,7 @@
     let mintCurrentPiece = null;
     let mintCurrentEntry = null;
     let mintWalletAddress = null;
+    let linkedWalletAddress = null; // Wallet address stored in user's DB profile
     let mintOnChainUris = null;
     let mintLatestUris = null;
     let mintAutoSyncAfterRebake = false;
@@ -2897,20 +2904,29 @@
       if (!walletBtn) return;
       if (!acUser) { walletBtn.style.display = 'none'; return; }
       walletBtn.style.display = '';
+      walletBtn.classList.remove('connected', 'linked');
       if (mintWalletAddress) {
+        // Actively connected via Beacon
         const short = mintWalletAddress.slice(0, 7) + '…' + mintWalletAddress.slice(-4);
         walletBtn.textContent = 'ꜩ ' + short;
         walletBtn.title = mintWalletAddress + ' — click to disconnect';
         walletBtn.classList.add('connected');
+      } else if (linkedWalletAddress) {
+        // Linked in DB but not actively connected
+        const short = linkedWalletAddress.slice(0, 7) + '…' + linkedWalletAddress.slice(-4);
+        walletBtn.textContent = 'ꜩ ' + short + ' (offline)';
+        walletBtn.title = linkedWalletAddress + ' — linked but not connected, click to reconnect';
+        walletBtn.classList.add('linked');
       } else {
         walletBtn.textContent = 'ꜩ Connect';
         walletBtn.title = 'Connect Tezos wallet';
-        walletBtn.classList.remove('connected');
       }
     }
 
     async function handleWalletBtn() {
       if (mintWalletAddress) {
+        // Confirm before disconnecting
+        if (!confirm('Disconnect from your Tezos wallet?')) return;
         // Disconnect
         if (beaconClient) {
           await beaconClient.clearActiveAccount();
@@ -4608,9 +4624,10 @@
           acUser = await acAuth0Client.getUser();
           acToken = await acAuth0Client.getTokenSilently();
           try {
-            const userRes = await fetch(`${AC_BASE}/user?from=${encodeURIComponent(acUser.email)}&withHandle=true`);
+            const userRes = await fetch(`${AC_BASE}/user?from=${encodeURIComponent(acUser.email)}&withHandle=true&withTezos=true`);
             const userData = await userRes.json();
             if (userData.handle) acHandle = String(userData.handle).replace(/^@+/, '').trim();
+            if (userData.tezos?.address) linkedWalletAddress = userData.tezos.address;
           } catch (e) { /* could not fetch handle */ }
         }
         updateAuthUI();
@@ -4752,11 +4769,12 @@
             updateWalletBtn();
           }
         });
-        // Check existing connection
+        // Check existing connection — sync to profile if logged in
         const activeAccount = await beaconClient.getActiveAccount();
         if (activeAccount) {
           mintWalletAddress = activeAccount.address;
           updateWalletBtn();
+          syncWalletToProfile(activeAccount.address);
         }
       })();
       return beaconInitPromise;
@@ -4777,7 +4795,28 @@
       const perms = await beaconClient.requestPermissions();
       mintWalletAddress = perms.address;
       updateWalletBtn();
+      // Sync wallet address to user profile so keep-prepare can validate it
+      await syncWalletToProfile(mintWalletAddress);
       return mintWalletAddress;
+    }
+
+    // Save connected wallet address to user's AC profile (MongoDB)
+    async function syncWalletToProfile(address) {
+      if (!address || !acToken) return;
+      try {
+        const net = getTezosNetwork();
+        const res = await fetch(`${API_BASE}/api/update-tezos-address`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${acToken}`,
+          },
+          body: JSON.stringify({ address, network: net }),
+        });
+        if (res.ok) linkedWalletAddress = address;
+      } catch (e) {
+        console.warn('Could not sync wallet to profile:', e);
+      }
     }
 
     // =========================================

@@ -480,7 +480,9 @@ included_env_vars = []
 included_env_vars = ["BUILDS_PASSWORD"]
 
 [functions.update-tezos-address]
-included_env_vars = []
+included_files = ["backend/**/*.mjs"]
+external_node_modules = ["mongodb", "mongodb-connection-string-url"]
+included_env_vars = ["CONTEXT", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET"]
 
 [functions.mugs]
 included_env_vars = []
@@ -1802,6 +1804,10 @@ status = 200
 [[redirects]]
 from = "/api/keep-prepare"
 to = "/.netlify/functions/keep-prepare"
+status = 200
+[[redirects]]
+from = "/api/update-tezos-address"
+to = "/.netlify/functions/update-tezos-address"
 status = 200
 [[redirects]]
 from = "/api/keep-status"
