@@ -127,27 +127,50 @@ flash_usb() {
     CONTAINER=$(sudo docker create --rm --privileged -v /dev:/dev alpine:latest sh -c "
         set -e
         apk add --quiet dosfstools util-linux mtools
+
+        # Preserve config.json if it exists on the USB
+        CONFIG_BAK=''
+        mkdir -p /mnt/usb
+        if mount ${USB_DEV}1 /mnt/usb 2>/dev/null; then
+            if [ -f /mnt/usb/config.json ]; then
+                CONFIG_BAK=\$(cat /mnt/usb/config.json)
+                echo \"Saved config.json\"
+            fi
+            umount /mnt/usb
+        fi
+
         # Always clean-slate: wipe partition table, create fresh GPT + EFI partition
         echo 'Wiping and re-partitioning ${USB_DEV}...'
-        dd if=/dev/zero of=${USB_DEV} bs=1M count=1 2>/dev/null
+        dd if=/dev/zero of=${USB_DEV} bs=1M count=10 2>/dev/null
         sfdisk --force ${USB_DEV} <<PARTEOF
 label: gpt
 type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, size=512M
 PARTEOF
         sleep 2
-        # Re-read partition table
         partprobe ${USB_DEV} 2>/dev/null || true
         sleep 1
+
         # Format fresh FAT32
         mkfs.vfat -F 32 -n ACBOOT ${USB_DEV}1
-        # Mount and copy
-        mkdir -p /mnt/usb
+
+        # Mount and copy kernel
         mount ${USB_DEV}1 /mnt/usb
         mkdir -p /mnt/usb/EFI/BOOT
         cp /tmp/vmlinuz /mnt/usb/EFI/BOOT/BOOTX64.EFI
-        sync && sleep 1 && sync
+
+        # Restore config.json (or create default)
+        if [ -n \"\${CONFIG_BAK}\" ]; then
+            printf '%s' \"\${CONFIG_BAK}\" > /mnt/usb/config.json
+            echo \"Restored config.json\"
+        else
+            printf '{\"handle\": \"jeffrey\"}' > /mnt/usb/config.json
+            echo \"Created default config.json\"
+        fi
+
+        sync && sleep 2 && sync
         echo '=== Verify ==='
         sha256sum /mnt/usb/EFI/BOOT/BOOTX64.EFI /tmp/vmlinuz
+        cat /mnt/usb/config.json
         umount /mnt/usb
         echo 'Flashed!'
     ")
