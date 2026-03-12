@@ -322,41 +322,77 @@ upload_ota() {
     fi
     local BUILD_TS=$(date -u '+%Y-%m-%dT%H:%M')
     local BUILD_NAME=$(bash scripts/build-name.sh 2>/dev/null || echo "upload-$(date +%s)")
+    local SIZE=$(stat -c%s "${VMLINUZ}")
+    local SIZE_MB=$(( SIZE / 1048576 ))
+    local SHA=$(sha256sum "${VMLINUZ}" | cut -d' ' -f1)
 
-    local SIZE_MB=$(( $(stat -c%s "${VMLINUZ}") / 1048576 ))
     log "Uploading ${BUILD_NAME} (${GIT_HASH}, ${SIZE_MB}MB)..."
 
     local UPLOAD_URL="${AC_UPLOAD_URL:-https://aesthetic.computer/api/os-release-upload}"
+
+    # Step 1: Get presigned S3 URL from edge function
+    local STEP1
+    STEP1=$(curl -sf -X POST "${UPLOAD_URL}" \
+        -H "Authorization: Bearer ${AC_TOKEN}" \
+        -H "X-Build-Name: ${BUILD_NAME}" \
+        -H "X-Git-Hash: ${GIT_HASH}" \
+        -H "X-Build-Ts: ${BUILD_TS}" \
+        --max-time 30) || {
+        err "Failed to get upload URL. Check connection or run: ac-login"
+        exit 1
+    }
+
+    local PUT_URL=$(echo "$STEP1" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>console.log(JSON.parse(d).vmlinuz_put_url||''))" 2>/dev/null)
+    if [ -z "${PUT_URL}" ]; then
+        err "No presigned URL returned: ${STEP1}"
+        exit 1
+    fi
+
+    log "Uploading vmlinuz directly to S3..."
+
+    # Step 2: Upload vmlinuz directly to DO Spaces via presigned URL
+    curl -sf -X PUT "${PUT_URL}" \
+        -H "Content-Type: application/octet-stream" \
+        -H "x-amz-acl: public-read" \
+        --data-binary "@${VMLINUZ}" \
+        --max-time 300 || {
+        err "S3 upload failed"
+        exit 1
+    }
+
+    log "Finalizing release..."
+
+    # Step 3: Tell edge function to update metadata + releases.json
     local RESPONSE
     RESPONSE=$(curl -sf -X POST "${UPLOAD_URL}" \
         -H "Authorization: Bearer ${AC_TOKEN}" \
         -H "X-Build-Name: ${BUILD_NAME}" \
         -H "X-Git-Hash: ${GIT_HASH}" \
         -H "X-Build-Ts: ${BUILD_TS}" \
-        -H "Content-Type: application/octet-stream" \
-        --data-binary "@${VMLINUZ}" \
-        --max-time 300) || {
-        err "Upload failed. Check connection or run: ac-login"
+        -H "X-Finalize: true" \
+        -H "X-Sha256: ${SHA}" \
+        -H "X-Size: ${SIZE}" \
+        --max-time 30) || {
+        err "Finalize failed"
         exit 1
     }
 
     # Parse response
-    local NAME=$(echo "$RESPONSE" | node -e "process.stdin.on('data',d=>{const r=JSON.parse(d);console.log(r.name)})" 2>/dev/null)
-    local SHA=$(echo "$RESPONSE" | node -e "process.stdin.on('data',d=>{const r=JSON.parse(d);console.log(r.sha256)})" 2>/dev/null)
-    local URL=$(echo "$RESPONSE" | node -e "process.stdin.on('data',d=>{const r=JSON.parse(d);console.log(r.url)})" 2>/dev/null)
+    local NAME=$(echo "$RESPONSE" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>console.log(JSON.parse(d).name||''))" 2>/dev/null)
+    local URL=$(echo "$RESPONSE" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>console.log(JSON.parse(d).url||''))" 2>/dev/null)
 
     log "Published: ${NAME}"
     log "  SHA: ${SHA}"
     log "  URL: ${URL}"
 
-    # Record in MongoDB (with OTA URL)
+    # Record in MongoDB
     if command -v node &>/dev/null; then
         echo "{
             \"name\": \"${BUILD_NAME}\",
             \"buildNum\": -1,
             \"version\": \"${GIT_HASH}-${BUILD_TS}\",
             \"sha256\": \"${SHA}\",
-            \"size\": $(stat -c%s "${VMLINUZ}"),
+            \"size\": ${SIZE},
             \"git_hash\": \"${GIT_HASH}\",
             \"build_ts\": \"${BUILD_TS}\",
             \"url\": \"${URL}\",
