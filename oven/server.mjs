@@ -2778,7 +2778,6 @@ app.get('/os-image', async (req, res) => {
   // Stream the patched image
   addServerLog('success', '💿', `OS image for @${handle} (${(imgData.length / 1048576).toFixed(1)}MB)`);
   res.setHeader('Content-Type', 'application/octet-stream');
-  const pieceSuffix = bootPiece !== 'notepat' ? `-${bootPiece}` : '';
   // Get latest build name for filename
   let releaseName = 'native';
   try {
@@ -2788,8 +2787,9 @@ app.get('/os-image', async (req, res) => {
       releaseName = relData?.releases?.[0]?.name || releaseName;
     }
   } catch (_) {}
-  const buildName = 'ac-' + releaseName;
-  res.setHeader('Content-Disposition', `attachment; filename="@${handle}-os-${buildName}${pieceSuffix}.img"`);
+  const coreName = 'AC-' + releaseName;
+  const ts = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  res.setHeader('Content-Disposition', `attachment; filename="@${handle}-os-${bootPiece}-${coreName}-${ts}.img"`);
   res.setHeader('Content-Length', imgData.length);
   res.end(imgData);
 });
