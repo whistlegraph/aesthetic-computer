@@ -322,7 +322,7 @@ async function startDownload(needsPaint) {
     const d = new Date();
     const p = (n) => String(n).padStart(2, "0");
     const ts = `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())}`;
-    const filename = `@${handle || "user"}-OS-${piece}-${coreName}-${ts}.img`;
+    const filename = `@${handle || "user"}-os-${piece}-${coreName}-${ts}.img`;
 
     dlFn(filename, combined, { type: "application/octet-stream" });
     downloadStatus = "done!";

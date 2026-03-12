@@ -2791,7 +2791,7 @@ app.get('/os-image', async (req, res) => {
   const d = new Date();
   const p = (n) => String(n).padStart(2, '0');
   const ts = `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())}`;
-  res.setHeader('Content-Disposition', `attachment; filename="@${handle}-OS-${bootPiece}-${coreName}-${ts}.img"`);
+  res.setHeader('Content-Disposition', `attachment; filename="@${handle}-os-${bootPiece}-${coreName}-${ts}.img"`);
   res.setHeader('Content-Length', imgData.length);
   res.end(imgData);
 });
