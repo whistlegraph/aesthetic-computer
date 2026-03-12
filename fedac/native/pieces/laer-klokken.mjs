@@ -1,38 +1,47 @@
-// chat.mjs — Real-time chat client for aesthetic.computer
-// Connects to a chat room via system.ws. Default: "system"
-// Other rooms: "clock" (laer-klokken), "sotce"
-// Press escape to return to prompt.
+// laer-klokken.mjs — Native "Learn the Clock" chat room
+// Connects to wss://chat-clock.aesthetic.computer/ (same room as web laer-klokken)
+// Warm terracotta theme. Press escape to return to prompt.
 
-const CHAT_ROOMS = {
-  system: "wss://chat-system.aesthetic.computer/",
-  clock: "wss://chat-clock.aesthetic.computer/",
-  sotce: "wss://chat.sotce.net/",
-};
-
-let roomName = "system"; // set via boot params or override
+const CHAT_URL = "wss://chat-clock.aesthetic.computer/";
 const SHIFT_MAP = {
   "1":"!","2":"@","3":"#","4":"$","5":"%","6":"^","7":"&","8":"*","9":"(","0":")",
   "-":"_","=":"+","[":"{","]":"}",";":":","'":'"',",":"<",".":">","/":"?","\\":"|","`":"~",
 };
 
 let frame = 0;
-let messages = [];     // [{from, text, when}]
+let messages = [];
 let inputText = "";
 let cursor = 0;
 let cursorBlink = 0;
 let shiftHeld = false;
-let handle = "";       // current user handle from config
-let sub = "";          // auth0 sub from config
+let handle = "";
+let sub = "";
 let connected = false;
-let scrollOffset = 0;  // scroll position for message list
+let scrollOffset = 0;
 
-function boot({ system, params }) {
-  // Allow room override via params: system.jump("chat:clock")
-  if (params?.[0] && CHAT_ROOMS[params[0]]) {
-    roomName = params[0];
-  }
+// Warm terracotta theme (matches web laer-klokken)
+const T = {
+  bg: [140, 75, 45],
+  header: [255, 200, 160],
+  status: [100, 200, 140],
+  statusWarn: [255, 220, 120],
+  statusOff: [255, 140, 120],
+  handle: [255, 180, 140],
+  inputBg: [120, 60, 35],
+  inputBorder: [180, 110, 70],
+  prompt: [255, 180, 120],
+  inputText: [255, 245, 230],
+  cursorColor: [255, 140, 80],
+  myMsg: [255, 200, 160],
+  otherHandle: [100, 220, 180],
+  msgText: [255, 245, 230],
+  scroll: [200, 140, 100],
+  empty: [180, 120, 80],
+  hint: [160, 100, 65],
+  divider: [160, 95, 60],
+};
 
-  // Read user identity from config
+function boot({ system }) {
   const raw = system?.readFile?.("/mnt/config.json");
   if (raw) {
     try {
@@ -41,9 +50,7 @@ function boot({ system, params }) {
       sub = cfg.sub || "";
     } catch (_) {}
   }
-  // Connect to chat room WebSocket
-  const url = CHAT_ROOMS[roomName] || CHAT_ROOMS.system;
-  system?.ws?.connect(url);
+  system?.ws?.connect(CHAT_URL);
 }
 
 function act({ event: e, system, sound }) {
@@ -54,23 +61,18 @@ function act({ event: e, system, sound }) {
     const key = e.key;
     cursorBlink = 0;
 
-    if (key === "escape") {
-      system?.jump?.("prompt");
-      return;
-    }
+    if (key === "escape") { system?.jump?.("prompt"); return; }
 
     if (key === "enter" || key === "return") {
       const text = inputText.trim();
       if (text.length > 0 && system?.ws?.connected) {
-        const msg = JSON.stringify({
+        system.ws.send(JSON.stringify({
           type: "chat:message",
           content: { sub: sub || "anonymous", text, handle: handle || "anon" },
-        });
-        system.ws.send(msg);
-        // Add locally immediately
+        }));
         messages.push({ from: handle || "me", text, when: Date.now() });
-        scrollOffset = 0; // scroll to bottom
-        sound?.synth({ type: "sine", tone: 880, duration: 0.04, volume: 0.1, attack: 0.002, decay: 0.03 });
+        scrollOffset = 0;
+        sound?.synth({ type: "sine", tone: 660, duration: 0.05, volume: 0.1, attack: 0.002, decay: 0.04 });
       }
       inputText = "";
       cursor = 0;
@@ -107,7 +109,7 @@ function act({ event: e, system, sound }) {
 function paint({ wipe, ink, box, line, write, screen, system, sound, wifi }) {
   frame++;
   cursorBlink++;
-  wipe(20, 18, 30);
+  wipe(...T.bg);
 
   const W = screen.width;
   const H = screen.height;
@@ -126,18 +128,14 @@ function paint({ wipe, ink, box, line, write, screen, system, sound, wifi }) {
         if (msg.type === "connected") {
           connected = true;
           const content = parseContent(msg.content);
-          const history = content?.messages || [];
-          // Load message history
-          for (const m of history) {
-            if (m.from && m.text) {
-              messages.push({ from: m.from, text: m.text, when: m.when || 0 });
-            }
+          for (const m of (content?.messages || [])) {
+            if (m.from && m.text) messages.push({ from: m.from, text: m.text, when: m.when || 0 });
           }
         } else if (msg.type === "message") {
           const m = parseContent(msg.content);
           if (m?.from && m?.text) {
             messages.push({ from: m.from, text: m.text, when: Date.now() });
-            sound?.synth({ type: "triangle", tone: 660, duration: 0.05, volume: 0.08, attack: 0.002, decay: 0.04 });
+            sound?.synth({ type: "triangle", tone: 520, duration: 0.06, volume: 0.08, attack: 0.002, decay: 0.05 });
           }
         } else if (msg.from && msg.text) {
           messages.push({ from: msg.from, text: msg.text, when: Date.now() });
@@ -148,51 +146,45 @@ function paint({ wipe, ink, box, line, write, screen, system, sound, wifi }) {
 
   // Reconnect if dropped
   if (wifi?.connected && !system?.ws?.connected && !system?.ws?.connecting && frame % 120 === 0) {
-    const url = CHAT_ROOMS[roomName] || CHAT_ROOMS.system;
-    system?.ws?.connect(url);
+    system?.ws?.connect(CHAT_URL);
   }
 
-  // Header — show room name
-  ink(140, 120, 180);
-  write(roomName === "system" ? "chat" : roomName, { x: pad, y: 2, size: 1, font });
+  // Header
+  ink(...T.header);
+  write("laer-klokken", { x: pad, y: 2, size: 1, font });
 
-  // Connection status
   const wsOk = system?.ws?.connected;
   if (wsOk) {
-    ink(60, 160, 80);
-    write("connected", { x: pad + 5 * charW, y: 2, size: 1, font });
+    ink(...T.status);
+    write("connected", { x: pad + 13 * charW, y: 2, size: 1, font });
   } else if (wifi?.connected) {
-    ink(200, 200, 80);
-    write("connecting...", { x: pad + 5 * charW, y: 2, size: 1, font });
+    ink(...T.statusWarn);
+    write("connecting...", { x: pad + 13 * charW, y: 2, size: 1, font });
   } else {
-    ink(200, 80, 80);
-    write("offline", { x: pad + 5 * charW, y: 2, size: 1, font });
+    ink(...T.statusOff);
+    write("offline", { x: pad + 13 * charW, y: 2, size: 1, font });
   }
 
-  // User identity
   if (handle) {
-    ink(100, 80, 120);
+    ink(...T.handle);
     const hLabel = "@" + handle;
     write(hLabel, { x: W - pad - hLabel.length * charW, y: 2, size: 1, font });
   }
 
-  // Divider
-  ink(50, 40, 60);
+  ink(...T.divider);
   line(0, 13, W, 13);
 
-  // Input area at bottom
+  // Input area
   const inputY = H - charH - 6;
-  ink(35, 28, 45);
+  ink(...T.inputBg);
   box(0, inputY - 3, W, charH + 8, true);
-  ink(50, 40, 60);
+  ink(...T.inputBorder);
   line(0, inputY - 3, W, inputY - 3);
 
-  // Input prompt
-  ink(120, 80, 160);
+  ink(...T.prompt);
   write(">", { x: pad, y: inputY, size: 1, font });
 
-  // Input text
-  ink(220, 210, 240);
+  ink(...T.inputText);
   const maxInputChars = Math.floor((W - pad * 2 - charW * 2) / charW);
   const displayInput = inputText.length > maxInputChars
     ? inputText.slice(inputText.length - maxInputChars)
@@ -200,12 +192,9 @@ function paint({ wipe, ink, box, line, write, screen, system, sound, wifi }) {
   const inputStartX = pad + charW + 2;
   write(displayInput, { x: inputStartX, y: inputY, size: 1, font });
 
-  // Cursor
   if (cursorBlink % 40 < 25) {
-    const displayCursor = inputText.length > maxInputChars
-      ? maxInputChars
-      : cursor;
-    ink(220, 80, 140, 180);
+    const displayCursor = inputText.length > maxInputChars ? maxInputChars : cursor;
+    ink(...T.cursorColor, 180);
     box(inputStartX + displayCursor * charW, inputY, charW, charH, true);
     if (cursor < inputText.length) {
       ink(255, 255, 255);
@@ -213,12 +202,11 @@ function paint({ wipe, ink, box, line, write, screen, system, sound, wifi }) {
     }
   }
 
-  // Messages area
+  // Messages
   const msgTop = 15;
   const msgBottom = inputY - 6;
   const lineH = charH + 3;
   const maxVisible = Math.floor((msgBottom - msgTop) / lineH);
-
   const startIdx = Math.max(0, messages.length - maxVisible - scrollOffset);
   const endIdx = Math.min(messages.length, startIdx + maxVisible);
 
@@ -227,44 +215,36 @@ function paint({ wipe, ink, box, line, write, screen, system, sound, wifi }) {
     const msg = messages[i];
     if (my + lineH > msgBottom) break;
 
-    // From label
     const fromLabel = (msg.from || "?") + ": ";
     const isMe = msg.from === handle || msg.from === "me";
-    ink(isMe ? 140 : 100, isMe ? 120 : 160, isMe ? 180 : 140);
+    ink(...(isMe ? T.myMsg : T.otherHandle));
     write(fromLabel, { x: pad, y: my, size: 1, font });
 
-    // Message text (wrap if needed)
     const textX = pad + fromLabel.length * charW;
-    const maxTextW = W - textX - pad;
-    const maxChars = Math.floor(maxTextW / charW);
-    ink(200, 195, 210);
+    const maxChars = Math.floor((W - textX - pad) / charW);
+    ink(...T.msgText);
     write(msg.text.slice(0, maxChars), { x: textX, y: my, size: 1, font });
 
     my += lineH;
   }
 
-  // Scroll indicator
   if (scrollOffset > 0) {
-    ink(100, 80, 120);
+    ink(...T.scroll);
     write("^ scroll ^", { x: Math.floor(W / 2) - 30, y: msgTop, size: 1, font });
   }
 
-  // Empty state
   if (messages.length === 0 && connected) {
-    ink(70, 60, 80);
+    ink(...T.empty);
     write("no messages yet", { x: pad, y: Math.floor(H / 2) - 5, size: 1, font });
   } else if (!connected && !wifi?.connected) {
-    ink(70, 60, 80);
+    ink(...T.empty);
     write("connect to wifi first", { x: pad, y: Math.floor(H / 2) - 5, size: 1, font });
   }
 
-  // Hint
-  ink(50, 40, 60);
+  ink(...T.hint);
   write("esc:back", { x: W - 9 * charW - pad, y: inputY, size: 1, font });
 }
 
-function leave({ system }) {
-  // Don't disconnect WS — notepat may want it
-}
+function leave() {}
 
 export { boot, act, paint, leave };
