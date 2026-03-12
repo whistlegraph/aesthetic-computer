@@ -977,14 +977,26 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
             }
         }
 
-        // Startup greeting — use handle if available
+        // Startup greeting — use handle if available, include build name
         if (f == 10 && tts) {
-            char greet[96];
+            char greet[160];
             const char *at = strchr(boot_title, '@');
+#ifdef AC_BUILD_NAME
+            // Replace hyphens with spaces for natural TTS
+            char name_tts[64];
+            strncpy(name_tts, AC_BUILD_NAME, sizeof(name_tts) - 1);
+            name_tts[sizeof(name_tts) - 1] = 0;
+            for (char *p = name_tts; *p; p++) { if (*p == '-') *p = ' '; }
+            if (at)
+                snprintf(greet, sizeof(greet), "hi %s. %s.", at + 1, name_tts);
+            else
+                snprintf(greet, sizeof(greet), "%s.", name_tts);
+#else
             if (at)
                 snprintf(greet, sizeof(greet), "hi %s", at + 1);
             else
                 snprintf(greet, sizeof(greet), "hi");
+#endif
             tts_speak(tts, greet);
         }
         // W hint is visual only — no TTS
@@ -1012,28 +1024,43 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
             }
         }
 
-        // Version + build date (high-contrast panel, top-right)
+        // Version + build name + build date (high-contrast panel, top-right)
 #ifdef AC_GIT_HASH
         if (alpha > 40) {
             char ver[64];
             char bts[64];
+            char bname[64] = "";
             snprintf(ver, sizeof(ver), "version %s", AC_GIT_HASH);
 #ifdef AC_BUILD_TS
             snprintf(bts, sizeof(bts), "%s", AC_BUILD_TS);
 #else
             snprintf(bts, sizeof(bts), "build unknown");
 #endif
+#ifdef AC_BUILD_NAME
+            snprintf(bname, sizeof(bname), "%s", AC_BUILD_NAME);
+#endif
             int wv = font_measure_matrix(ver, 1);
             int wt = font_measure_matrix(bts, 1);
-            int panel_w = (wv > wt ? wv : wt) + 8;
+            int wn = bname[0] ? font_measure_matrix(bname, 1) : 0;
+            int max_w = wv;
+            if (wt > max_w) max_w = wt;
+            if (wn > max_w) max_w = wn;
+            int panel_w = max_w + 8;
+            int panel_h = bname[0] ? 28 : 20;
             int panel_x = screen->width - panel_w - 3;
             int panel_y = 3;
             graph_ink(graph, (ACColor){0, 0, 0, (uint8_t)(alpha * 0.82)});
-            graph_box(graph, panel_x, panel_y, panel_w, 20, 1);
+            graph_box(graph, panel_x, panel_y, panel_w, panel_h, 1);
+            // Build name (top line, golden)
+            if (bname[0]) {
+                graph_ink(graph, (ACColor){255, 200, 60, (uint8_t)alpha});
+                font_draw_matrix(graph, bname, panel_x + 4, panel_y + 3, 1);
+            }
+            int line_y = panel_y + (bname[0] ? 11 : 3);
             graph_ink(graph, (ACColor){255, 255, 255, (uint8_t)alpha});
-            font_draw_matrix(graph, ver, panel_x + 4, panel_y + 3, 1);
+            font_draw_matrix(graph, ver, panel_x + 4, line_y, 1);
             graph_ink(graph, (ACColor){210, 235, 220, (uint8_t)alpha});
-            font_draw_matrix(graph, bts, panel_x + 4, panel_y + 11, 1);
+            font_draw_matrix(graph, bts, panel_x + 4, line_y + 8, 1);
             // "FRESH" badge when first boot of this version
             if (is_new_version) {
                 graph_ink(graph, (ACColor){80, 255, 120, (uint8_t)alpha});

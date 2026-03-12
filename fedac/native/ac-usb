@@ -14,13 +14,13 @@ find_usb_dev() {
     for dev in sda sdb sdc; do
         if [ -e "/sys/block/${dev}/removable" ]; then
             local rem=$(cat "/sys/block/${dev}/removable" 2>/dev/null)
-            if [ "${rem}" = "1" ] && lsblk "/dev/${dev}" &>/dev/null 2>&1; then
+            if [ "${rem}" = "1" ] && [ -e "/sys/block/${dev}" ]; then
                 echo "/dev/${dev}"
                 return 0
             fi
         fi
     done
-    if lsblk /dev/sda &>/dev/null 2>&1; then
+    if [ -e "/sys/block/sda" ]; then
         echo "/dev/sda"
         return 0
     fi

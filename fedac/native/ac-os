@@ -76,8 +76,17 @@ build_kernel() {
         err "Linux source not found at ${LINUX_DIR}"
         exit 1
     fi
+    # Sync config-minimal into kernel .config if it's newer
+    local CFG_SRC="${SCRIPT_DIR}/kernel/config-minimal"
+    if [ -f "${CFG_SRC}" ] && [ "${CFG_SRC}" -nt "${LINUX_DIR}/.config" ]; then
+        log "Updating kernel .config from config-minimal..."
+        cp "${CFG_SRC}" "${LINUX_DIR}/.config"
+        cd "${LINUX_DIR}"
+        make olddefconfig 2>&1 | tail -5
+    else
+        cd "${LINUX_DIR}"
+    fi
     log "Building kernel..."
-    cd "${LINUX_DIR}"
     make -j$(nproc) bzImage 2>&1 | tail -1
     cp arch/x86/boot/bzImage "${VMLINUZ}"
     log "Kernel: $(du -sh "${VMLINUZ}" | cut -f1)"
@@ -88,14 +97,14 @@ find_usb_dev() {
     for dev in sda sdb sdc; do
         if [ -e "/sys/block/${dev}/removable" ]; then
             local rem=$(cat "/sys/block/${dev}/removable" 2>/dev/null)
-            if [ "${rem}" = "1" ] && lsblk "/dev/${dev}" &>/dev/null 2>&1; then
+            if [ "${rem}" = "1" ] && [ -e "/sys/block/${dev}" ]; then
                 echo "/dev/${dev}"
                 return 0
             fi
         fi
     done
-    # Fallback
-    if lsblk /dev/sda &>/dev/null 2>&1; then
+    # Fallback: check sysfs even if not marked removable
+    if [ -e "/sys/block/sda" ]; then
         echo "/dev/sda"
         return 0
     fi

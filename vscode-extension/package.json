@@ -4,7 +4,7 @@
   "displayName": "Aesthetic Computer",
   "icon": "resources/icon.png",
   "author": "Jeffrey Alan Scudder",
-  "version": "1.264.0",
+  "version": "1.266.0",
   "description": "Code, run, and publish your pieces. Includes Aesthetic Computer themes and KidLisp syntax highlighting.",
   "engines": {
     "vscode": "^1.105.0"
@@ -232,7 +232,10 @@
           "icon": "resources/aesthetic-computer.svg"
         }
       ]
-    }
+    },
+    "markdown.previewStyles": [
+      "./styles/markdown-preview.css"
+    ]
   },
   "license": "None",
   "repository": {

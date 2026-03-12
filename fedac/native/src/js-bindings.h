@@ -11,6 +11,7 @@
 #include "drm-display.h"
 #include "ws-client.h"
 #include "udp-client.h"
+#include "camera.h"
 #include <pthread.h>
 
 typedef struct {
@@ -58,6 +59,12 @@ typedef struct {
     pthread_t flash_thread;
     char  flash_src[256];                 // source vmlinuz path
     char  flash_device[64];              // EFI partition device, e.g. /dev/sda1 or /dev/nvme0n1p1
+
+    // Camera QR scanning (V4L2 + quirc)
+    ACCamera camera;
+    volatile int qr_scan_active;         // 1 = camera open, scanning each frame
+    pthread_t qr_thread;
+    volatile int qr_thread_running;
 
     // Piece navigation (system.jump)
     volatile int jump_requested;          // 1 = JS called system.jump()

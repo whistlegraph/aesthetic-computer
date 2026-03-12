@@ -7,9 +7,11 @@ QJSDIR   := $(BUILDDIR)/quickjs
 
 # Use musl for static linking if available, else gcc
 CC       ?= gcc
-GIT_HASH := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-BUILD_TS := $(shell date -u '+%Y-%m-%dT%H:%M')
-CFLAGS   := -O2 -Wall -Wextra -std=gnu11 -I$(QJSDIR) -DAC_GIT_HASH=\"$(GIT_HASH)\" -DAC_BUILD_TS=\"$(BUILD_TS)\"
+GIT_HASH   := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILD_TS   := $(shell date -u '+%Y-%m-%dT%H:%M')
+BUILD_NAME := $(shell scripts/build-name.sh --bump 2>/dev/null || echo "local-build")
+QUIRCDIR   := lib/quirc/lib
+CFLAGS     := -O2 -Wall -Wextra -std=gnu11 -I$(QJSDIR) -I$(QUIRCDIR) -DAC_GIT_HASH=\"$(GIT_HASH)\" -DAC_BUILD_TS=\"$(BUILD_TS)\" -DAC_BUILD_NAME=\"$(BUILD_NAME)\"
 LDFLAGS  := -Wl,--as-needed -lm -lpthread -lasound
 
 # Static build: only when musl-gcc is available (musl has bundled static libc)
@@ -57,6 +59,7 @@ SRCS := $(SRCDIR)/ac-native.c \
         $(SRCDIR)/tts.c \
         $(SRCDIR)/ws-client.c \
         $(SRCDIR)/udp-client.c \
+        $(SRCDIR)/camera.c \
         $(SRCDIR)/js-bindings.c
 
 OBJS := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/%.o,$(SRCS))
@@ -65,13 +68,17 @@ OBJS := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/%.o,$(SRCS))
 QJS_SRCS := $(QJSDIR)/quickjs.c $(QJSDIR)/libunicode.c $(QJSDIR)/libregexp.c $(QJSDIR)/cutils.c $(QJSDIR)/libbf.c
 QJS_OBJS := $(patsubst $(QJSDIR)/%.c,$(BUILDDIR)/qjs-%.o,$(QJS_SRCS))
 
+# Quirc QR decoder (compiled from vendored source)
+QUIRC_SRCS := $(QUIRCDIR)/quirc.c $(QUIRCDIR)/decode.c $(QUIRCDIR)/identify.c $(QUIRCDIR)/version_db.c
+QUIRC_OBJS := $(patsubst $(QUIRCDIR)/%.c,$(BUILDDIR)/quirc-%.o,$(QUIRC_SRCS))
+
 TARGET := $(BUILDDIR)/ac-native
 
 .PHONY: all clean quickjs test
 
 all: quickjs $(TARGET)
 
-$(TARGET): $(OBJS) $(QJS_OBJS)
+$(TARGET): $(OBJS) $(QJS_OBJS) $(QUIRC_OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS)
 	@echo "Built: $@ ($(shell wc -c < $@ | tr -d ' ') bytes)"
 
@@ -87,6 +94,9 @@ $(BUILDDIR)/%.o: $(SRCDIR)/%.c $(HEADERS) | $(BUILDDIR)
 
 $(BUILDDIR)/qjs-%.o: $(QJSDIR)/%.c | $(BUILDDIR)
 	$(CC) $(CFLAGS) -DCONFIG_VERSION=\"0.8.0\" -c -o $@ $<
+
+$(BUILDDIR)/quirc-%.o: $(QUIRCDIR)/%.c | $(BUILDDIR)
+	$(CC) -O2 -Wall -std=gnu11 -I$(QUIRCDIR) -c -o $@ $<
 
 $(BUILDDIR):
 	mkdir -p $(BUILDDIR)
