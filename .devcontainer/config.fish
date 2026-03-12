@@ -2559,6 +2559,40 @@ alias ac-top 'clear; htop'
 
 alias cat 'bat -p' # use bat for syntax highlighting instead of the `cat` default
 
+# 📶 Signal messenger (gurk TUI)
+function ac-signal
+    clear
+    echo "📶 Signal Messenger (gurk)"
+    echo ""
+
+    if not command -q gurk
+        echo "⏳ gurk not found, installing from source..."
+        if not command -q cargo
+            echo "❌ Rust/cargo not found. Cannot build gurk."
+            echo "   Waiting... (press Ctrl+C to exit)"
+            sleep infinity
+            return 1
+        end
+        cargo install --git https://github.com/boxdot/gurk-rs gurk
+        if test $status -ne 0
+            echo "❌ Failed to build gurk"
+            echo "   Waiting... (press Ctrl+C to exit)"
+            sleep infinity
+            return 1
+        end
+    end
+
+    # signal-cli must be available (used by gurk as backend)
+    if not command -q signal-cli
+        echo "❌ signal-cli not found. Install it first."
+        echo "   Waiting... (press Ctrl+C to exit)"
+        sleep infinity
+        return 1
+    end
+
+    gurk
+end
+
 # 🧟 Zombie process monitor and cleanup
 function ac-zombie-monitor
     echo "🧟 Starting zombie process monitor..."
