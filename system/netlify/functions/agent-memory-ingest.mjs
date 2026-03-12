@@ -61,11 +61,6 @@ function tokenFromSecretDoc(secretDoc) {
 }
 
 async function getExpectedToken() {
-  const envToken = pickString(
-    process.env.AGENT_MEMORY_INGEST_TOKEN || process.env.AGENT_MEMORY_REMOTE_TOKEN || ""
-  );
-  if (envToken) return envToken;
-
   if (cachedIngestToken && Date.now() - cachedIngestTokenAt < INGEST_TOKEN_TTL_MS) {
     return cachedIngestToken;
   }
