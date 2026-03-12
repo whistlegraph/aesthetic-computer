@@ -6,16 +6,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Aesthetic Computer (AC) is a mobile-first runtime and social network for creative computing. It's designed as a musical instrument-like interface where users discover memorizable paths through commands and published "pieces" (interactive programs). The system supports both JavaScript (.mjs) and KidLisp (.lisp) pieces.
 
-## Opener Storage (Jeffrey's Dev Sessions)
+## Agent Memory (Local-First)
 
-When @jeffrey is working, **the very first prompt of each Claude Code session is automatically stored** to the MongoDB `openers` collection via the `UserPromptSubmit` hook. The model name is stored alongside it. This captures jeffrey's creative/developer voice over time for pattern analysis.
+When @jeffrey is working, Claude hook events are written to a local encrypted memory store first.
 
-- **Hook**: `.claude/settings.json` → `UserPromptSubmit` → `node ants/store-opener.mjs`
-- **Post-commit**: `.git/hooks/post-commit` also logs each commit message to `openers` (source: "post-commit")
-- **Script**: `ants/store-opener.mjs` — writes directly to MongoDB using env vars (`ADMIN_SUB`, `MONGODB_CONNECTION_STRING`, `MONGODB_NAME`)
-- **Collection**: `openers` — fields: `user` (auth0 sub, same as `moods`/`kidlisp`/`paintings`), `text`, `model`, `when`, `source`, `context` — handle resolved via `$lookup` on `@handles` when needed
+- **Hook**: `.claude/settings.json` → `UserPromptSubmit` → `node memory/hook.mjs`
+- **Local store**: `~/.ac-agent-memory` (overridable via `AGENT_MEMORY_HOME`)
+- **Encryption**: AES-256-GCM (`AGENT_MEMORY_KEY` optional; local key file otherwise)
+- **Redaction**: metadata and summaries are redacted before indexing/sync
+- **CLI**: `node memory/cli.mjs` (`list`, `remember`, `checkpoint`, `doctor`, `profile`, `flush-remote`)
 
-**First things first: store opener.** This happens automatically — no manual step needed.
+Remote writes are optional and disabled by default:
+
+- `AGENT_MEMORY_REMOTE_ENABLED=true` + `AGENT_MEMORY_REMOTE_URL=...` enables queued remote sync
+
+`remember` continuity is represented as lineage (`remembered_from`) instead of taking over a live mutable session.
 
 ## AestheticAnts & Score.md
 

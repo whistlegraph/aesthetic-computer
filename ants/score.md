@@ -14,9 +14,9 @@ Runtime note:
 
 > **The Queen ([@jeffrey](https://prompt.ac/@jeffrey)) maintains this list. Agents pick from it.**
 
-### Opener Storage (automatic — @jeffrey's sessions)
+### Agent Memory Logging (automatic — @jeffrey's sessions)
 
-When @jeffrey is working, the first prompt of each session is stored to the `openers` MongoDB collection automatically via `ants/store-opener.mjs`. Post-commit hooks also log commit messages there. No ant action needed — this is infrastructure, not a task.
+When @jeffrey is working, prompts are logged to local encrypted agent memory via `memory/hook.mjs` (`~/.ac-agent-memory`).
 
 ### Tier 1: Safe & Small (ant-appropriate)
 

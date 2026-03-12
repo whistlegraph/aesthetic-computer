@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node /workspaces/aesthetic-computer/ants/store-opener.mjs"
+            "command": "node /workspaces/aesthetic-computer/memory/hook.mjs"
           }
         ]
       }
