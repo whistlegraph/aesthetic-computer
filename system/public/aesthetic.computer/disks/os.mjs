@@ -74,8 +74,15 @@ function boot({ user, api, ui, needsPaint }) {
 function makeButtons(ui, rel) {
   const latest = rel?.releases?.[0];
   if (!latest) return;
-  downloadBtn = new ui.TextButton("install", { x: 6, y: 0 });
+  updateDownloadBtn(ui, rel);
   updateBootBtn(ui);
+}
+
+function updateDownloadBtn(ui, rel) {
+  const latest = (rel || releases)?.releases?.[0];
+  const coreName = "AC-" + (latest?.name || "native");
+  const piece = BOOT_PIECES[bootPieceIdx];
+  downloadBtn = new ui.TextButton(`install @${handle}-os-${piece}-${coreName}`, { x: 6, y: 0 });
 }
 
 function updateBootBtn(ui) {
@@ -126,29 +133,7 @@ function paint($) {
 
   // Download section for logged-in users
   if (handle && token && downloadBtn && !downloading) {
-    const latest = builds[0];
-    const coreName = "AC-" + (latest?.name || "native");
-
-    // Row 1: "install @handle os" — feels personal
-    downloadBtn.reposition({ x: pad, y });
-    downloadBtn.paint(
-      $,
-      [[20, 60, 30], [40, 120, 50], [80, 255, 140], 255],
-      [[40, 100, 50], [60, 160, 70], [255, 255, 255], 255],
-      undefined,
-      [[30, 80, 40], [50, 140, 60], [200, 255, 220], 255],
-    );
-    let tx = pad + downloadBtn.width + 6;
-    ink(...C.handle).write("@" + handle, { x: tx, y: y + 4 });
-    tx += ("@" + handle).length * charW + charW;
-    ink(160, 180, 160).write("os", { x: tx, y: y + 4 });
-    y += downloadBtn.height + 2;
-
-    // Row 2: core version label
-    ink(80, 90, 110).write(coreName + " core", { x: pad, y });
-    y += rowH + 2;
-
-    // Row 3: boot-to selector (tap to cycle)
+    // Row 1: boot-to selector (tap to cycle piece)
     if (bootBtn) {
       bootBtn.reposition({ x: pad, y });
       bootBtn.paint(
@@ -158,8 +143,19 @@ function paint($) {
         undefined,
         [[38, 42, 65], [58, 68, 100], [255, 220, 150], 230],
       );
-      y += bootBtn.height + 6;
+      y += bootBtn.height + 4;
     }
+
+    // Row 2: download button showing full OS string
+    downloadBtn.reposition({ x: pad, y });
+    downloadBtn.paint(
+      $,
+      [[20, 60, 30], [40, 120, 50], [80, 255, 140], 255],
+      [[40, 100, 50], [60, 160, 70], [255, 255, 255], 255],
+      undefined,
+      [[30, 80, 40], [50, 140, 60], [200, 255, 220], 255],
+    );
+    y += downloadBtn.height + 6;
   } else if (downloading) {
     // Progress bar
     ink(...C.progressBg).box(pad, y, w - pad * 2, 18);
@@ -254,7 +250,10 @@ function act({ event: e, needsPaint, download }) {
     bootBtn.btn.act(e, {
       push: () => {
         bootPieceIdx = (bootPieceIdx + 1) % BOOT_PIECES.length;
-        if (uiRef) updateBootBtn(uiRef);
+        if (uiRef) {
+          updateBootBtn(uiRef);
+          updateDownloadBtn(uiRef);
+        }
         needsPaint();
       },
     });
