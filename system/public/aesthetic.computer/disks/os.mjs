@@ -321,7 +321,7 @@ async function startDownload(needsPaint) {
     const coreName = "AC-" + (latest?.name || "native");
     const d = new Date();
     const p = (n) => String(n).padStart(2, "0");
-    const ts = `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())}`;
+    const ts = `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())}.${p(d.getHours())}.${p(d.getMinutes())}.${p(d.getSeconds())}`;
     const filename = `@${handle || "user"}-os-${piece}-${coreName}-${ts}.img`;
 
     dlFn(filename, combined, { type: "application/octet-stream" });
