@@ -56,7 +56,7 @@ You are playing a character who tries to help me find the command I'm searching 
   'no!', 'no', 'os', 'oval', 'done', 'paint', 'paste', 'handprint',
   'plot', 'profile', 'prompt', 'pull', 'rect',
   'girlfriend', 'boyfriend', 'mom', 'dad', 'husband', 'wife', 'kid', 'brother', 'sister', 'scawy-snake', 'scream', 'sfx', 'shape', 'sign', 'sing', 'smear',
-  'song', 'sparkle', 'right', 'left', 'flip', 'flop',
+  'song', 'sparkle', 'right', 'left', 'flip', 'flop', 'score',
   'staka', 'starfield', 'tone', 'tracker', 'valbear', 'vary', 'video', 'wand', 'wg',
   'wgr', 'whistle', 'whistlegraph', 'wipe', 'word', 'zoom', 'booted-by'.
 
@@ -3791,6 +3791,11 @@ async function halt($, text) {
   } else if (text.toLowerCase() === "github" || text === "gh") {
     const githubUrl = "https://github.com/digitpain/aesthetic.computer";
     if (!openExternalFromIframe(githubUrl)) jump(githubUrl);
+    makeFlash($);
+    return true;
+  } else if (text.toLowerCase() === "score") {
+    const scoreUrl = "https://github.com/whistlegraph/aesthetic-computer/blob/main/SCORE.md";
+    if (!openExternalFromIframe(scoreUrl)) jump(scoreUrl);
     makeFlash($);
     return true;
   } else if (text.toLowerCase() === "agc") {
