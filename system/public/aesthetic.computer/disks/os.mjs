@@ -86,7 +86,7 @@ function makeButtons(ui, rel) {
 }
 
 function updateDownloadBtn(ui) {
-  downloadBtn = new ui.TextButton("install", { x: 6, y: 0 });
+  downloadBtn = new ui.TextButton("download", { x: 6, y: 0 });
 }
 
 function osLabel() {
@@ -126,7 +126,15 @@ function paint($) {
   const pad = 6;
   const charW = 6;
   const rowH = 10;
-  let y = 22 - scrollY;
+  const matrixH = 9;
+  let y = 4 - scrollY;
+
+  // Title
+  ink(200, 220, 255).write("ac/os", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+  y += matrixH + 2;
+  ink(30, 35, 50);
+  drawLine(pad, y, w - pad, y);
+  y += 6;
 
   if (loading) {
     ink(100).write("loading...", { x: pad, y });
@@ -144,7 +152,13 @@ function paint($) {
 
   // Download section for logged-in users
   if (handle && token && downloadBtn && !downloading) {
-    // Row 1: boot-to selector (tap to cycle piece)
+    // OS label (big, personal)
+    const label = osLabel();
+    ink(...C.handle).write(label, { x: pad, y, wrap: w - pad * 2 });
+    const labelLines = Math.ceil(label.length * charW / (w - pad * 2));
+    y += rowH * labelLines + 4;
+
+    // Boot-to selector
     if (bootBtn) {
       bootBtn.reposition({ x: pad, y });
       bootBtn.paint(
@@ -157,7 +171,7 @@ function paint($) {
       y += bootBtn.height + 4;
     }
 
-    // Row 2: install button + OS label on next line
+    // Download button
     downloadBtn.reposition({ x: pad, y });
     downloadBtn.paint(
       $,
@@ -166,17 +180,25 @@ function paint($) {
       undefined,
       [[30, 80, 40], [50, 140, 60], [200, 255, 220], 255],
     );
-    y += downloadBtn.height + 2;
+    y += downloadBtn.height + 6;
 
-    // Row 3: full OS string label (wraps if needed)
-    const label = osLabel();
-    const maxChars = Math.floor((w - pad * 2) / charW);
-    ink(...C.handle).write(label.slice(0, maxChars), { x: pad, y });
-    if (label.length > maxChars) {
-      y += rowH;
-      ink(...C.handle).write(label.slice(maxChars, maxChars * 2), { x: pad, y });
-    }
-    y += rowH + 6;
+    // Divider
+    ink(30, 35, 50);
+    drawLine(pad, y, w - pad, y);
+    y += 6;
+
+    // Instructions (matrix font, dimmer)
+    ink(60, 70, 90).write("1 flash .img with balenaEtcher", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+    y += matrixH + 2;
+    ink(60, 70, 90).write("2 plug USB into any x86 PC", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+    y += matrixH + 2;
+    ink(60, 70, 90).write("3 boot from USB to run", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+    y += matrixH + 8;
+
+    // Divider before builds
+    ink(30, 35, 50);
+    drawLine(pad, y, w - pad, y);
+    y += 6;
   } else if (downloading) {
     // Progress bar
     ink(...C.progressBg).box(pad, y, w - pad * 2, 18);
@@ -192,7 +214,7 @@ function paint($) {
       y += rowH + 2;
     }
   } else if (!handle || !token) {
-    ink(...C.loginHint).write("log in to install your os", { x: pad, y });
+    ink(...C.loginHint).write("log in to download your os", { x: pad, y });
     y += rowH + 4;
   }
 
