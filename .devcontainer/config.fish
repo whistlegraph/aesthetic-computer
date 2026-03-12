@@ -2292,6 +2292,37 @@ end
 # Backward compatibility alias
 alias ac-pds='ac-at'
 
+# Agent memory helpers (ac-prefixed, like the rest of the shell UX)
+function ac-memory --description "Run agent memory CLI"
+    ac
+    npm run -s agent-memory -- $argv
+end
+
+function ac-memory-list --description "List remembered sessions"
+    ac
+    npm run -s agent-memory:list -- $argv
+end
+
+function ac-memory-remember --description "Create a new session from remembered context"
+    ac
+    npm run -s agent-memory:remember -- $argv
+end
+
+function ac-memory-hooks --description "Enable git hooks for memory sync"
+    ac
+    npm run -s agent-memory:install-hooks
+end
+
+function ac-memory-sync --description "Import recent Codex sessions into local memory"
+    ac
+    npm run -s agent-memory:sync-codex -- $argv
+end
+
+function ac-memory-flush --description "Flush queued local memory records to remote"
+    ac
+    npm run -s agent-memory:flush -- $argv
+end
+
 # Claude Code CLI agent
 function ac-agent
     claude $argv
