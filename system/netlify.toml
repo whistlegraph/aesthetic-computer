@@ -541,8 +541,12 @@ Content-Security-Policy = "script-src 'self' https://www.gstatic.com https://cdn
 # Cross-Origin-Resource-Policy = "cross-origin"
 Vary = "*"
 [[edge_functions]]
-path = "/media/*" 
+path = "/media/*"
 function = "media"
+
+[[edge_functions]]
+path = "/api/os-release-upload"
+function = "os-release-upload"
 
 # Version/commit status API
 [functions.version]
