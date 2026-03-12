@@ -4700,6 +4700,10 @@
       // Beacon SDK v4.x tries Object.defineProperty(window, 'ethereum', ...)
       // which throws if a browser extension (MetaMask etc.) already defined it
       // as non-configurable. Patch defineProperty to silently skip that case.
+      // Beacon SDK v4.x calls Object.defineProperty(window, 'ethereum', ...)
+      // both at load time AND later during init/connect. If a browser extension
+      // (MetaMask etc.) already defined it as non-configurable, this throws.
+      // Keep the patch active permanently since Beacon re-attempts it.
       const origDefProp = Object.defineProperty;
       Object.defineProperty = function(obj, prop, desc) {
         if (obj === window && prop === 'ethereum') {
@@ -4711,7 +4715,7 @@
       await new Promise((resolve, reject) => {
         const script = document.createElement('script');
         script.src = 'https://unpkg.com/@airgap/beacon-sdk@4.6.0/dist/walletbeacon.min.js';
-        script.onload = () => { Object.defineProperty = origDefProp; resolve(); };
+        script.onload = () => resolve();
         script.onerror = (e) => { Object.defineProperty = origDefProp; reject(e); };
         document.head.appendChild(script);
       });
@@ -4762,7 +4766,14 @@
       // initTezosWallet should already be resolved (pre-loaded at page init).
       // If not, this await is the fallback — but may cause popup blocking.
       await initTezosWallet();
-      if (mintWalletAddress) return mintWalletAddress;
+      // Verify the session is still active (Kukai/WalletConnect sessions can expire)
+      if (mintWalletAddress) {
+        const active = await beaconClient.getActiveAccount();
+        if (active?.address === mintWalletAddress) return mintWalletAddress;
+        // Session expired — clear stale address and re-request
+        mintWalletAddress = null;
+        updateWalletBtn();
+      }
       const perms = await beaconClient.requestPermissions();
       mintWalletAddress = perms.address;
       updateWalletBtn();
@@ -5208,7 +5219,6 @@
             if (job.status === 'ready' && job.preparedData) {
               stopPolling();
               mintPreparedData = job.preparedData;
-              console.log('🔍 READY preparedData:', JSON.stringify(job.preparedData, null, 2));
 
               // Mark all prep steps done
               ['validate', 'analyze', 'thumbnail', 'bundle', 'ipfs', 'metadata'].forEach(id => {
