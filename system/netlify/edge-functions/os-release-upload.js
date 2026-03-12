@@ -41,9 +41,10 @@ export default async (request) => {
   const userName = user.name || user.nickname || userSub;
 
   // Read binary body
-  const vmlinuz = new Uint8Array(await request.arrayBuffer());
-  if (vmlinuz.length < 1_000_000) {
-    return Response.json({ error: `Too small: ${vmlinuz.length} bytes` }, { status: 400 });
+  const vmlinuzBuf = await request.arrayBuffer();
+  const vmlinuz = new Uint8Array(vmlinuzBuf);
+  if (vmlinuz.byteLength < 1_000_000) {
+    return Response.json({ error: `Too small: ${vmlinuz.byteLength} bytes` }, { status: 400 });
   }
 
   // Metadata
@@ -109,10 +110,12 @@ export default async (request) => {
   }
 
   try {
-    // Upload version + sha256 (canary), then vmlinuz
-    await s3Put("os/native-notepat-latest.version", version, "text/plain");
-    await s3Put("os/native-notepat-latest.sha256", sha256, "text/plain");
-    await s3Put("os/native-notepat-latest.vmlinuz", vmlinuz, "application/octet-stream");
+    // Upload canary files + vmlinuz in parallel for speed
+    await Promise.all([
+      s3Put("os/native-notepat-latest.version", version, "text/plain"),
+      s3Put("os/native-notepat-latest.sha256", sha256, "text/plain"),
+      s3Put("os/native-notepat-latest.vmlinuz", vmlinuz, "application/octet-stream"),
+    ]);
 
     // Update releases.json
     let releases = { releases: [] };
@@ -123,7 +126,7 @@ export default async (request) => {
 
     releases.releases = releases.releases || [];
     releases.releases.unshift({
-      version, name: buildName, sha256, size: vmlinuz.length,
+      version, name: buildName, sha256, size: vmlinuz.byteLength,
       git_hash: gitHash, build_ts: buildTs, user: userSub,
       url: `https://${host}/os/native-notepat-latest.vmlinuz`,
     });
@@ -134,7 +137,7 @@ export default async (request) => {
 
     return Response.json({
       ok: true, name: buildName, version, sha256,
-      size: vmlinuz.length,
+      size: vmlinuz.byteLength,
       url: `https://${host}/os/native-notepat-latest.vmlinuz`,
       user: userSub, userName,
     });
