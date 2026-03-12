@@ -1785,22 +1785,21 @@
 
     .keeps-auth-btn.wallet {
       background: var(--bg-secondary);
-      color: var(--text-secondary);
-      border: 1px solid var(--border-color);
+      color: #e05555;
+      border: 1px solid rgba(224, 85, 85, 0.4);
       font-family: var(--font-mono);
     }
-    .keeps-auth-btn.wallet:hover { border-color: #8658e2; color: #8658e2; }
+    .keeps-auth-btn.wallet:hover { border-color: #e05555; color: #ff6b6b; }
     .keeps-auth-btn.wallet.linked {
-      color: var(--text-secondary);
-      border-color: rgba(134, 88, 226, 0.2);
-      opacity: 0.7;
+      color: #e0a030;
+      border-color: rgba(224, 160, 48, 0.4);
     }
-    .keeps-auth-btn.wallet.linked:hover { border-color: #8658e2; color: #8658e2; opacity: 1; }
+    .keeps-auth-btn.wallet.linked:hover { border-color: #e0a030; color: #ffb844; }
     .keeps-auth-btn.wallet.connected {
-      color: #8658e2;
-      border-color: rgba(134, 88, 226, 0.4);
+      color: #40c060;
+      border-color: rgba(64, 192, 96, 0.4);
     }
-    .keeps-auth-btn.wallet.connected:hover { border-color: #cd5c9b; color: #cd5c9b; }
+    .keeps-auth-btn.wallet.connected:hover { border-color: #40c060; color: #55dd77; }
 
 
     /* ========================================
@@ -4760,6 +4759,9 @@
             type: net === 'ghostnet'
               ? window.beacon.NetworkType.GHOSTNET
               : window.beacon.NetworkType.MAINNET,
+          },
+          walletConnectOptions: {
+            projectId: '647c41004744244efab53b7c6ef80443',
           },
         });
         // Subscribe to active account changes before getActiveAccount fires it
