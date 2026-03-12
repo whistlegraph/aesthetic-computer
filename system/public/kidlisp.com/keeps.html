@@ -651,6 +651,22 @@
       display: block;
     }
 
+    .keeps-enter-btn {
+      font-family: var(--font-fun);
+      font-size: 16px;
+      padding: 10px 32px;
+      background: #40c060;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      margin: 8px 0 20px;
+      transition: background 0.15s;
+    }
+    .keeps-enter-btn:hover {
+      background: #35a850;
+    }
+
     .keeps-about-tech {
       margin-top: 8px;
       border: 1px solid var(--border-color);
@@ -1740,6 +1756,14 @@
     }
     .keeps-auth-btn:hover { background: rgb(50, 70, 150); text-decoration: none; }
 
+    .keeps-auth-btn.blinking {
+      animation: login-btn-blink 0.5s ease-in-out 5;
+    }
+    @keyframes login-btn-blink {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(64, 192, 96, 0); }
+      50% { box-shadow: 0 0 16px 6px rgba(64, 192, 96, 0.7); }
+    }
+
     .keeps-auth-btn.imnew {
       background: rgb(30, 90, 50);
     }
@@ -2604,6 +2628,8 @@
           <span>Every KidLisp piece is given a unique $code.</span>
           <span>A KidLisp piece can only be kept by its author.</span>
         </div>
+
+        <button id="keeps-enter-btn" class="keeps-enter-btn" style="display:none;" onclick="enterKeeps()">Enter</button>
 
         <details class="keeps-about-tech">
           <summary>Technology</summary>
@@ -5936,19 +5962,50 @@
 
       await ensureKeepsConfig();
 
+      // Always show the preamble first
+      loading.style.display = 'none';
+      revealUI();
+      showInlineAbout();
+
+      const enterBtn = document.getElementById('keeps-enter-btn');
+      if (acUser && hasRegisteredHandle()) {
+        // Logged in — show green Enter button
+        if (enterBtn) enterBtn.style.display = '';
+      } else {
+        // Not logged in — Enter bumps the login button
+        if (enterBtn) enterBtn.style.display = '';
+      }
+      return; // Wait for Enter click to proceed
+    }
+
+    async function enterKeeps() {
+      const enterBtn = document.getElementById('keeps-enter-btn');
+
       if (!acUser) {
-        renderIndexGate('login');
+        // Flash the login button (keep Enter visible for retry)
+        const loginBtn = document.getElementById('keeps-login-btn');
+        if (loginBtn) {
+          loginBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          setTimeout(() => {
+            loginBtn.classList.add('blinking');
+            setTimeout(() => loginBtn.classList.remove('blinking'), 2500);
+          }, 300);
+        }
         return;
       }
+
+      if (enterBtn) enterBtn.style.display = 'none';
 
       if (!hasRegisteredHandle()) {
         renderIndexGate('handle');
         return;
       }
 
-      revealUI();
       hideInlineAbout();
       setIndexSearchVisible(true);
+      loading.style.display = 'flex';
+      grid.innerHTML = '';
+      grid.appendChild(loading);
 
       // Pre-load Beacon SDK + DAppClient so wallet connect is instant on click
       // (avoids popup blocker killing Kukai's tab)
