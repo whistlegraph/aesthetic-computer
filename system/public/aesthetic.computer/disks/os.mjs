@@ -127,7 +127,7 @@ function paint($) {
   // Download section for logged-in users
   if (handle && token && downloadBtn && !downloading) {
     const latest = builds[0];
-    const coreName = "ac-" + (latest?.name || "native");
+    const coreName = "AC-" + (latest?.name || "native");
 
     // Row 1: "install @handle os" — feels personal
     downloadBtn.reposition({ x: pad, y });
@@ -318,9 +318,9 @@ async function startDownload(needsPaint) {
     }
 
     const latest = releases?.releases?.[0];
-    const buildName = "ac-" + (latest?.name || "native");
-    const pieceSuffix = piece !== "notepat" ? "-" + piece : "";
-    const filename = `@${handle || "user"}-os-${buildName}${pieceSuffix}.img`;
+    const coreName = "AC-" + (latest?.name || "native");
+    const ts = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const filename = `@${handle || "user"}-os-${piece}-${coreName}-${ts}.img`;
 
     dlFn(filename, combined, { type: "application/octet-stream" });
     downloadStatus = "done!";
