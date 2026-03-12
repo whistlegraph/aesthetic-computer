@@ -469,13 +469,23 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
     ink(pulse, pulse, 255);
     write("reboot now?", { x: pad, y: stateY + 58, size: 2, font: "matrix" });
 
+    // Warn if flashed to non-boot device (e.g. USB→NVMe: remove USB first)
+    const targets = system?.flashTargets || [];
+    const tgt = targets[flashTargetIdx];
+    const flashedToBoot = !tgt || tgt.device === system?.bootDevice;
+    if (!flashedToBoot) {
+      ink(255, 180, 60);
+      write("remove USB before rebooting!", { x: pad, y: stateY + 80, size: 1, font });
+    }
+
+    const hintY = flashedToBoot ? stateY + 80 : stateY + 94;
     ink(60, 200, 80);
-    write("y: reboot to new os", { x: pad, y: stateY + 80, size: 1, font });
+    write("y: reboot to new os", { x: pad, y: hintY, size: 1, font });
     ink(140, 100, 80);
-    write("n: back to prompt", { x: pad, y: stateY + 94, size: 1, font });
+    write("n: back to prompt", { x: pad, y: hintY + 14, size: 1, font });
 
     // Scrolling telemetry in background
-    const telY = stateY + 112;
+    const telY = hintY + 32;
     const maxLines = Math.floor((h - telY - 14) / 10);
     const startIdx = Math.max(0, telemetry.length - maxLines);
     for (let i = startIdx; i < telemetry.length; i++) {
