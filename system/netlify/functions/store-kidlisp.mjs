@@ -658,8 +658,9 @@ export async function handler(event, context) {
         const actualLimit = Math.min(limit, maxLimit);
         const sortBy = event.queryStringParameters?.sort || 'recent'; // 'recent' or 'hits'
         const filterHandle = event.queryStringParameters?.handle; // Optional handle filter
-        
-        console.log(`📊 Codes request: limit=${actualLimit}, sort=${sortBy}, handle=${filterHandle || 'all'}`);
+        const since = event.queryStringParameters?.since; // ISO timestamp — only return entries newer than this
+
+        console.log(`📊 Codes request: limit=${actualLimit}, sort=${sortBy}, handle=${filterHandle || 'all'}${since ? `, since=${since}` : ''}`);
         
         // Aggregate pipeline to join with handles collection (like moods.mjs)
         const pipeline = [
@@ -685,6 +686,14 @@ export async function handler(event, context) {
           },
         ];
         
+        // Filter by timestamp if `since` provided (for live updates)
+        if (since) {
+          const sinceDate = new Date(since);
+          if (!isNaN(sinceDate.getTime())) {
+            pipeline.push({ $match: { when: { $gt: sinceDate } } });
+          }
+        }
+
         // Add handle filter if specified
         if (filterHandle) {
           pipeline.push({
