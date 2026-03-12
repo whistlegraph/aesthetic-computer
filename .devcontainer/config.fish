@@ -165,53 +165,69 @@ function ac-tv
     end
 end
 
-# KidLisp Source Tree Tool - allows running source-tree from anywhere
-# Usage: st cow, st $cow, st cow --source, st --test-colors, or st --test-css-colors
-function st
-    # Check for special commands first
+# Run public kidlisp CLI when installed.
+function __ac_kidlisp_cli --description "Internal helper for kidlisp CLI"
+    if command -q kidlisp
+        kidlisp $argv
+        return $status
+    end
+
+    return 127
+end
+
+# KidLisp source tree helper (used by ac-kidlisp compatibility commands)
+function __ac_kidlisp_source_tree --description "Internal KidLisp source tree helper"
     if test "$argv[1]" = "--test-colors"
         node --no-warnings /workspaces/aesthetic-computer/kidlisp/tools/source-tree.mjs --test-colors
         return
     end
-    
+
     if test "$argv[1]" = "--test-css-colors"
         node --no-warnings /workspaces/aesthetic-computer/kidlisp/tools/source-tree.mjs --test-css-colors
         return
     end
-    
+
     if test "$argv[1]" = "--debug-colors"
         node --no-warnings /workspaces/aesthetic-computer/kidlisp/tools/source-tree.mjs --debug-colors
         return
     end
-    
+
     set -l piece_name $argv[1]
     set -l extra_args $argv[2..-1]
-    
+
+    if test -z "$piece_name"
+        echo "Usage: ac-kidlisp source-tree <piece> [--source]"
+        return 1
+    end
+
     # Remove $ prefix if present
     if string match -q '$*' $piece_name
         set piece_name (string sub -s 2 $piece_name)
     end
-    
-    # Check if --source flag is explicitly provided
-    set -l has_source false
-    for arg in $extra_args
-        if test "$arg" = "--source"
-            set has_source true
-            break
-        end
+
+    # Prefer public kidlisp CLI when available
+    if __ac_kidlisp_cli tree $piece_name $extra_args
+        return $status
     end
-    
-    # Run the source-tree tool with clean output (no Node.js warnings)
-    if test $has_source = true
-        node --no-warnings /workspaces/aesthetic-computer/kidlisp/tools/source-tree.mjs $piece_name $extra_args
-    else
-        node --no-warnings /workspaces/aesthetic-computer/kidlisp/tools/source-tree.mjs $piece_name $extra_args
-    end
+
+    # Local fallback while kidlisp-cli implementation is still spec-first
+    node --no-warnings /workspaces/aesthetic-computer/kidlisp/tools/source-tree.mjs $piece_name $extra_args
+end
+
+# ac-st compatibility wrapper (preferred usage is now: ac-kidlisp source-tree ...)
+function ac-st --description "KidLisp source tree viewer"
+    ac-kidlisp source-tree $argv
+end
+
+# Legacy short command (kept for muscle memory)
+function st --description "Deprecated: use ac-kidlisp source-tree or ac-st"
+    echo "⚠️ st is deprecated; use `ac-kidlisp source-tree` or `kidlisp tree`."
+    ac-kidlisp source-tree $argv
 end
 
 # Alternative function for those who prefer the $ syntax
 function dollarpiece
-    st $argv
+    ac-kidlisp source-tree $argv
 end
 
 # AC Pack - Package pieces for Teia with cover GIF generation
@@ -1891,6 +1907,25 @@ function ac --description 'cd to aesthetic-computer or jump to piece'
     end
 end
 
+function ac-help --description "List available ac-* commands"
+    set -l filter $argv[1]
+    set -l names (functions -n | string match -r '^ac(-|$)' | string match -v 'ac--*' | sort -u)
+
+    if test -n "$filter"
+        set names (printf "%s\n" $names | string match -i "*$filter*")
+    end
+
+    if test (count $names) -eq 0
+        echo "No ac-* commands match '$filter'"
+        return 1
+    end
+
+    echo "AC commands ("(count $names)"):"
+    for name in $names
+        echo "  $name"
+    end
+end
+
 function ac-offline
     echo "🐭 Starting offline mode..."
     ac
@@ -2239,15 +2274,54 @@ alias ac-stripe-print 'ac; npm run stripe-print-micro'
 alias ac-stripe-ticket 'ac; npm run stripe-ticket-micro'
 alias ac-extension 'ac; cd vscode-extension; npm run build; ac'
 
-# kidlisp test function - supports watch mode or direct run
+# KidLisp command entrypoint.
+# Primary path: public `kidlisp` CLI (when installed).
+# Fallback path: local repo scripts (until CLI implementation fully lands).
 function ac-kidlisp
+    set -l cmd $argv[1]
+    test -z "$cmd"; and set cmd "test"
+
+    if command -q kidlisp
+        switch $cmd
+            case source-tree st tree
+                __ac_kidlisp_cli tree $argv[2..-1]
+            case watch
+                __ac_kidlisp_cli test --watch $argv[2..-1]
+            case test direct
+                __ac_kidlisp_cli test $argv[2..-1]
+            case help --help -h
+                __ac_kidlisp_cli --help
+            case '*'
+                __ac_kidlisp_cli $argv
+        end
+        return $status
+    end
+
     ac
-    if test "$argv[1]" = "watch"
-        echo "🔍 Running kidlisp tests in watch mode..."
-        npm run test:kidlisp
-    else
-        echo "🚀 Running kidlisp tests directly..."
-        npm run test:kidlisp:direct
+    switch $cmd
+        case source-tree st tree
+            __ac_kidlisp_source_tree $argv[2..-1]
+        case watch
+            echo "🔍 Running kidlisp tests in watch mode..."
+            npm run test:kidlisp -- $argv[2..-1]
+        case test direct
+            echo "🚀 Running kidlisp tests directly..."
+            npm run test:kidlisp:direct -- $argv[2..-1]
+        case help --help -h
+            echo "kidlisp CLI not installed; using local fallback."
+            echo "Usage:"
+            echo "  ac-kidlisp test"
+            echo "  ac-kidlisp watch"
+            echo "  ac-kidlisp source-tree <piece>"
+            echo ""
+            echo "Install CLI for full command parity: https://kidlisp.com/install"
+        case '*'
+            if test (count $argv) -gt 0
+                # Compatibility path: treat bare value as piece reference.
+                __ac_kidlisp_source_tree $argv
+            else
+                echo "Usage: ac-kidlisp [test|watch|source-tree <piece>]"
+            end
     end
 end
 
@@ -2450,7 +2524,6 @@ alias ac-servers 'clear; ac; npm run -s servers; env nogreet=true fish'
 alias ac-chat-system 'clear; ac; npm run -s chat; cd nanos; npm run chat-system:dev; fish'
 alias ac-chat-sotce 'clear; ac; npm run -s chat; cd nanos; npm run chat-sotce:dev; fish'
 alias ac-chat-clock 'clear; ac; npm run -s chat; cd nanos; npm run chat-clock:dev; fish'
-alias ac-tunnel 'ac; npm run tunnel; fish'
 alias ac-logger 'ac; cd system; npx netlify logs:function index'
 alias sotce-net 'ac; cd system; npx netlify logs:function sotce-net'
 alias acw 'cd ~/aesthetic-computer/system; npm run watch'
@@ -3096,7 +3169,7 @@ function ac-host --description "Show current host SSH config from machines.json"
         echo ""
         cat $machines_file | jq -r '.machines | to_entries[] | "\(.value.emoji // "🖥️") \(.key): \(.value.label) [\(.value.os // "unknown")]"'
         echo ""
-        echo "Usage: ac-host <machine-key> [ssh|ip|info]"
+        echo "Usage: ac-host <machine-key> [ssh|ip|info|raw]"
         echo "Examples:"
         echo "  ac-host jeffrey-macbook ssh   # SSH to the machine"
         echo "  ac-host ff1-dvveklza ip       # Show just the IP"
@@ -3105,11 +3178,12 @@ function ac-host --description "Show current host SSH config from machines.json"
     end
     
     set -l action $argv[2]
-    set -l machine_data (cat $machines_file | jq -r ".machines[\"$machine_key\"]")
+    test -z "$action"; and set action info
+    set -l machine_data (jq -c --arg key "$machine_key" '.machines[$key]' $machines_file)
     
-    if test "$machine_data" = "null"
+    if test "$machine_data" = "null" -o -z "$machine_data"
         echo "❌ Machine '$machine_key' not found"
-        echo "Available: "(cat $machines_file | jq -r '.machines | keys | join(", ")')
+        echo "Available: "(jq -r '.machines | keys | join(", ")' $machines_file)
         return 1
     end
     
@@ -3117,22 +3191,39 @@ function ac-host --description "Show current host SSH config from machines.json"
     set -l user (echo $machine_data | jq -r '.user // "jas"')
     set -l host (echo $machine_data | jq -r '.host // empty')
     set -l label (echo $machine_data | jq -r '.label // .key')
-    set -l port (echo $machine_data | jq -r '.port // empty')
+    set -l ssh_port (echo $machine_data | jq -r '.ssh.port // .port // empty')
+    set -l ssh_key (echo $machine_data | jq -r '.ssh.keyFile // empty')
+    set -l ssh_enabled (echo $machine_data | jq -r '.ssh.enabled // true')
     
     # Use host if specified (e.g., host.docker.internal), else ip
     set -l target $host
     if test -z "$target"
         set target $ip
     end
+
+    if string match -q "~/*" $ssh_key
+        set ssh_key "$HOME/"(string sub -s 3 -- $ssh_key)
+    end
     
     switch $action
         case ssh
+            if test "$ssh_enabled" = "false"
+                echo "❌ SSH is disabled for $machine_key in machines.json"
+                return 1
+            end
             if test -z "$target"
                 echo "❌ No IP/host configured for $machine_key"
                 return 1
             end
             echo "🔗 Connecting to $label ($user@$target)..."
-            ssh -o StrictHostKeyChecking=no $user@$target
+            set -l ssh_args -o StrictHostKeyChecking=no
+            if test -n "$ssh_port"
+                set ssh_args $ssh_args -p $ssh_port
+            end
+            if test -n "$ssh_key"
+                set ssh_args $ssh_args -i $ssh_key
+            end
+            ssh $ssh_args $user@$target
         case ip
             if test -n "$ip"
                 echo $ip
@@ -3142,9 +3233,28 @@ function ac-host --description "Show current host SSH config from machines.json"
                 echo "❌ No IP configured"
                 return 1
             end
-        case info '*'
+        case info
             echo "📋 $label"
+            echo $machine_data | jq '
+                del(
+                    .password,
+                    .apiKey,
+                    .token,
+                    .accessToken,
+                    .secret,
+                    .privateKey,
+                    .ssh.password,
+                    .ssh.apiKey,
+                    .ssh.token,
+                    .ssh.privateKey
+                )
+            '
+        case raw
+            echo "📋 $label (raw)"
             echo $machine_data | jq .
+        case '*'
+            echo "Usage: ac-host <machine-key> [ssh|ip|info|raw]"
+            return 1
     end
 end
 
@@ -3155,35 +3265,65 @@ end
 function ac-host-nmap --description "Run nmap scan on local network via current host"
     set -l machines_file "/workspaces/aesthetic-computer/aesthetic-computer-vault/machines.json"
     set -l search_term $argv[1]
-    
-    # Try to find a reachable host to run nmap on
-    # Check hosts in order of likelihood: jas-fedora, x1-nano-g2, jeffrey-macbook
-    set -l hosts_to_try "jas-fedora" "x1-nano-g2" "jeffrey-macbook" "jeffrey-windows"
-    
+
+    set -l hosts_to_try (jq -r '
+        .machines
+        | to_entries[]
+        | select((.value.ip // "") != "" and (.value.ssh.enabled // true))
+        | .key
+    ' $machines_file)
+
+    if test (count $hosts_to_try) -eq 0
+        echo "❌ No candidate hosts with IP + SSH enabled found in machines.json"
+        return 1
+    end
+
     for host_key in $hosts_to_try
-        set -l host_data (cat $machines_file | jq -r ".machines[\"$host_key\"]")
+        set -l host_data (jq -c --arg key "$host_key" '.machines[$key]' $machines_file)
         if test "$host_data" = "null"
             continue
         end
-        
+
         set -l ip (echo $host_data | jq -r '.ip // empty')
-        set -l user (echo $host_data | jq -r '.user // "me"')
+        set -l user (echo $host_data | jq -r '.user // "jas"')
         set -l label (echo $host_data | jq -r '.label')
-        
+        set -l ssh_port (echo $host_data | jq -r '.ssh.port // empty')
+        set -l ssh_key (echo $host_data | jq -r '.ssh.keyFile // empty')
+
         if test -z "$ip"
             continue
         end
-        
+
+        if string match -q "~/*" $ssh_key
+            set ssh_key "$HOME/"(string sub -s 3 -- $ssh_key)
+        end
+
+        set -l probe_args -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o BatchMode=yes
+        if test -n "$ssh_port"
+            set probe_args $probe_args -p $ssh_port
+        end
+        if test -n "$ssh_key"
+            set probe_args $probe_args -i $ssh_key
+        end
+
         # Quick connectivity check (1 second timeout)
-        if ssh -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o BatchMode=yes $user@$ip "echo ok" 2>/dev/null | grep -q ok
+        if ssh $probe_args $user@$ip "echo ok" 2>/dev/null | grep -q ok
             echo "🔍 Running nmap via $label ($ip)..."
-            
+
+            set -l run_args -o StrictHostKeyChecking=no
+            if test -n "$ssh_port"
+                set run_args $run_args -p $ssh_port
+            end
+            if test -n "$ssh_key"
+                set run_args $run_args -i $ssh_key
+            end
+
             if test -n "$search_term"
                 # Search for specific term
-                ssh -o StrictHostKeyChecking=no $user@$ip "nmap -sn 192.168.1.0/24 2>/dev/null | grep -B2 -i '$search_term'"
+                ssh $run_args $user@$ip "nmap -sn 192.168.1.0/24 2>/dev/null | grep -B2 -i '$search_term'"
             else
                 # Full scan
-                ssh -o StrictHostKeyChecking=no $user@$ip "nmap -sn 192.168.1.0/24 2>/dev/null"
+                ssh $run_args $user@$ip "nmap -sn 192.168.1.0/24 2>/dev/null"
             end
             return $status
         end
@@ -3201,23 +3341,42 @@ end
 
 function __ac_ff1_find_host --description "Find a reachable host to run network commands"
     set -l machines_file "/workspaces/aesthetic-computer/aesthetic-computer-vault/machines.json"
-    set -l hosts_to_try "jas-fedora" "x1-nano-g2" "jeffrey-macbook" "jeffrey-windows"
-    
+    set -l hosts_to_try (jq -r '
+        .machines
+        | to_entries[]
+        | select((.value.ip // "") != "" and (.value.ssh.enabled // true))
+        | .key
+    ' $machines_file)
+
     for host_key in $hosts_to_try
-        set -l host_data (cat $machines_file | jq -r ".machines[\"$host_key\"]" 2>/dev/null)
+        set -l host_data (jq -c --arg key "$host_key" '.machines[$key]' $machines_file 2>/dev/null)
         if test "$host_data" = "null" -o -z "$host_data"
             continue
         end
-        
+
         set -l ip (echo $host_data | jq -r '.ip // empty')
-        set -l user (echo $host_data | jq -r '.user // "me"')
-        
+        set -l user (echo $host_data | jq -r '.user // "jas"')
+        set -l ssh_port (echo $host_data | jq -r '.ssh.port // empty')
+        set -l ssh_key (echo $host_data | jq -r '.ssh.keyFile // empty')
+
         if test -z "$ip"
             continue
         end
-        
+
+        if string match -q "~/*" $ssh_key
+            set ssh_key "$HOME/"(string sub -s 3 -- $ssh_key)
+        end
+
+        set -l probe_args -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o BatchMode=yes
+        if test -n "$ssh_port"
+            set probe_args $probe_args -p $ssh_port
+        end
+        if test -n "$ssh_key"
+            set probe_args $probe_args -i $ssh_key
+        end
+
         # Quick connectivity check (1 second timeout)
-        if ssh -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o BatchMode=yes $user@$ip "echo ok" 2>/dev/null | grep -q ok
+        if ssh $probe_args $user@$ip "echo ok" 2>/dev/null | grep -q ok
             echo "$user@$ip"
             return 0
         end
