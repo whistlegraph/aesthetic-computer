@@ -12,6 +12,19 @@ let message = "";
 let messageFrame = 0;
 let shiftHeld = false;
 let frame = 0;
+let tabMatches = []; // current tab completion candidates
+let tabIndex = -1;   // cycling index for tab
+let tabPrefix = "";   // what was typed before tab
+
+// All commands (for tab completion and 'list')
+const COMMANDS = [
+  "notepat", "np", "os", "update", "net", "wifi", "version", "ver",
+  "reboot", "clear", "cls", "help", "claude", "cl", "ssh", "list",
+];
+// Piece names (jumpable .mjs pieces, excluding prompt itself and lisp engine)
+const PIECES = ["notepat", "os", "wifi", "claude"];
+// $code aliases
+const CODE_NAMES = ["$roz"];
 
 // WiFi auto-connect state
 const AC_SSID = "aesthetic.computer";
@@ -88,6 +101,31 @@ function act({ event: e, system }) {
     const key = e.key;
     cursorFrame = 0;
     cursorVisible = true;
+
+    if (key === "tab") {
+      // Tab completion
+      const prefix = input.slice(0, cursor).toLowerCase();
+      if (prefix.length > 0) {
+        if (tabPrefix !== prefix) {
+          // New prefix — build match list
+          tabPrefix = prefix;
+          const all = [...COMMANDS, ...CODE_NAMES];
+          tabMatches = all.filter(c => c.startsWith(prefix) && c !== prefix);
+          tabIndex = -1;
+        }
+        if (tabMatches.length > 0) {
+          tabIndex = (tabIndex + 1) % tabMatches.length;
+          const match = tabMatches[tabIndex];
+          input = match + input.slice(cursor);
+          cursor = match.length;
+        }
+      }
+      return;
+    }
+    // Any non-tab key resets tab state
+    tabPrefix = "";
+    tabMatches = [];
+    tabIndex = -1;
 
     if (key === "enter" || key === "return") {
       const cmd = input.trim();
@@ -182,7 +220,12 @@ function execute(cmd, system) {
     return;
   }
   if (lower === "help") {
-    message = "kidlisp | notepat | os | net | claude";
+    message = "kidlisp | notepat | os | net | claude | list";
+    messageFrame = 0;
+    return;
+  }
+  if (lower === "list") {
+    message = PIECES.join(" ") + " | " + CODE_NAMES.join(" ") + " | ver ssh reboot clear";
     messageFrame = 0;
     return;
   }
@@ -356,7 +399,7 @@ function paint({ wipe, ink, box, write, screen, paintCount, wifi, system }) {
     const entry = history[i];
     const lower = entry.toLowerCase();
     // Navigation commands in dim purple, KidLisp source highlighted but dimmed
-    if (["notepat","np","os","update","net","wifi","version","ver","help","claude","cl","ssh","reboot","clear","cls"].includes(lower)) {
+    if (["notepat","np","os","update","net","wifi","version","ver","help","claude","cl","ssh","reboot","clear","cls","list"].includes(lower)) {
       ink(80, 60, 100);
       write(entry, { x: x0, y: hy, size: 1, font });
     } else {
