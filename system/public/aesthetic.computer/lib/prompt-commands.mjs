@@ -127,6 +127,7 @@ export const commandDescriptions = {
   whistlegraph: "Whistlegraph website",
   wg: "Whistlegraph (short)",
   wgr: "Whistlegraph radio",
+  score: "Open the Aesthetic Computer score",
   
   // 📻 Radio
   r8dio: "Play R8dio.dk live stream",

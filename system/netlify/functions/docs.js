@@ -3371,6 +3371,11 @@ void draw() {
         desc: "View AC source code.",
         done: false,
       },
+      score: {
+        sig: "score",
+        desc: "Open the Aesthetic Computer score.",
+        done: false,
+      },
       ucla: {
         sig: "ucla-syllabus",
         desc: "UCLA DESMA 28 - Syllabus",
