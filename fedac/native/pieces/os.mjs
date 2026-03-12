@@ -168,6 +168,11 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
   // === Normal UI ===
   wipe(12, 16, 24);
 
+  // Responsive: use half-width columns on wide screens
+  const wide = w > 260;
+  const colW = wide ? Math.floor((w - pad * 3) / 2) : w - pad * 2;
+  const col2X = wide ? pad + colW + pad : pad;
+
   // Title
   ink(200, 220, 200);
   write("ac/native", { x: pad, y: 10, size: 2, font: "matrix" });
@@ -182,8 +187,132 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
     ink(100, 110, 100);
     write("current", { x: pad, y: 34, size: 1, font });
     ink(180, 180, 180);
-    const maxChars = Math.floor((w - pad * 2) / 6) - 10;
+    const maxChars = Math.floor(colW / 6);
     write(currentVersion.slice(0, maxChars), { x: pad, y: 46, size: 1, font });
+  }
+
+  // System stats panel (right column on wide, below version on narrow)
+  {
+    const hw = system?.hw;
+    const bat = system?.battery;
+    const sX = wide ? col2X : pad;
+    const sY = wide ? 34 : h - 60;
+    const lineGap = 11;
+    let sy = sY;
+
+    // Model / vendor
+    if (hw?.model && hw.model !== "unknown") {
+      ink(80, 100, 120);
+      const label = hw.vendor && hw.vendor !== "unknown"
+        ? hw.vendor.replace("LENOVO", "Lenovo") + " " + hw.model
+        : hw.model;
+      const maxC = Math.floor(colW / 6);
+      write(label.slice(0, maxC), { x: sX, y: sy, size: 1, font });
+      sy += lineGap;
+    }
+
+    // CPU
+    if (hw?.cpu && hw.cpu !== "unknown") {
+      ink(70, 90, 110);
+      // Shorten CPU name for display
+      let cpuShort = hw.cpu
+        .replace("Intel(R) Core(TM) ", "")
+        .replace(" CPU", "")
+        .replace(/ +/g, " ");
+      const maxC = Math.floor(colW / 6);
+      write(cpuShort.slice(0, maxC), { x: sX, y: sy, size: 1, font });
+      sy += lineGap;
+    }
+
+    // RAM
+    if (hw?.ramTotalMB > 0) {
+      const usedMB = hw.ramTotalMB - (hw.ramAvailMB || 0);
+      const pct = Math.round((usedMB / hw.ramTotalMB) * 100);
+      ink(70, 90, 80);
+      write(`ram ${usedMB}/${hw.ramTotalMB}MB (${pct}%)`, { x: sX, y: sy, size: 1, font });
+      sy += lineGap;
+    }
+
+    // Battery
+    if (bat?.percent >= 0) {
+      const charging = bat.charging ? "+" : "";
+      const col = bat.percent < 20 ? [220, 80, 80] : bat.charging ? [80, 200, 120] : [100, 110, 100];
+      ink(...col);
+      write(`bat ${charging}${bat.percent}%${bat.minutesLeft > 0 ? " ~" + bat.minutesLeft + "m" : ""}`, { x: sX, y: sy, size: 1, font });
+      sy += lineGap;
+    }
+
+    // RAM bar graphic
+    if (hw?.ramTotalMB > 0) {
+      const usedMB = hw.ramTotalMB - (hw.ramAvailMB || 0);
+      const pct = usedMB / hw.ramTotalMB;
+      const barW = Math.min(colW, 100);
+      ink(30, 40, 35);
+      box(sX, sy, barW, 5, true);
+      const fill = Math.round(barW * pct);
+      ink(pct > 0.8 ? 220 : 60, pct > 0.8 ? 80 : 140, pct > 0.8 ? 80 : 80);
+      box(sX, sy, fill, 5, true);
+      sy += 8;
+    }
+
+    // Cores + processes + load
+    {
+      const parts = [];
+      if (hw?.cores > 0) parts.push(`${hw.cores}c`);
+      if (hw?.processes > 0) parts.push(`${hw.processes}p`);
+      if (parts.length > 0) {
+        ink(60, 80, 90);
+        write(parts.join(" "), { x: sX, y: sy, size: 1, font });
+        sy += lineGap;
+      }
+    }
+
+    // Load average
+    if (hw?.load1 !== undefined) {
+      ink(60, 75, 85);
+      write(`load ${hw.load1.toFixed(2)} ${(hw.load5 || 0).toFixed(2)} ${(hw.load15 || 0).toFixed(2)}`, { x: sX, y: sy, size: 1, font });
+      sy += lineGap;
+    }
+
+    // Governor / power mode
+    if (hw?.governor) {
+      ink(55, 70, 80);
+      write(`gov: ${hw.governor}`, { x: sX, y: sy, size: 1, font });
+      sy += lineGap;
+    }
+
+    // Connected devices (compact list)
+    const devs = hw?.devices;
+    if (devs && devs.length > 0) {
+      sy += 2;
+      ink(70, 85, 95);
+      write("devices:", { x: sX, y: sy, size: 1, font });
+      sy += lineGap;
+
+      const maxDevLines = wide ? 12 : 5;
+      let shown = 0;
+      for (let i = 0; i < devs.length && shown < maxDevLines; i++) {
+        const d = devs[i];
+        const icon = d.type === "usb" ? "U" : d.type === "input" ? "I"
+                   : d.type === "camera" ? "C" : d.type === "audio" ? "A"
+                   : d.type === "disk" ? "D" : d.type === "display" ? "M" : "?";
+        let label = `${icon} ${d.name || d.id}`;
+        if (d.type === "disk" && d.sizeGB > 0) label += ` ${d.sizeGB}GB`;
+        if (d.type === "disk" && d.removable) label += " *";
+        if (d.type === "display") label += d.connected ? " on" : " off";
+        const maxC = Math.floor(colW / 6);
+        ink(d.type === "display" && d.connected ? 80 : 50,
+            d.type === "display" && d.connected ? 160 : 65,
+            d.type === "display" && d.connected ? 80 : 75);
+        write(label.slice(0, maxC), { x: sX, y: sy, size: 1, font });
+        sy += lineGap - 1;
+        shown++;
+      }
+      if (devs.length > maxDevLines) {
+        ink(45, 55, 60);
+        write(`+${devs.length - maxDevLines} more`, { x: sX, y: sy, size: 1, font });
+      }
+    }
   }
 
   const stateY = 66;
