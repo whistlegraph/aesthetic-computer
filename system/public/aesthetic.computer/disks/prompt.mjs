@@ -2831,9 +2831,8 @@ async function halt($, text) {
     }
     const pieceRef = (params[0] || "").trim();
     if (!pieceRef || pieceRef === "?" || pieceRef.toLowerCase() === "help") {
-      notice("Usage: os piece or os $code", ["red"]);
-      flashColor = [255, 0, 0];
-      makeFlash($);
+      // No args: jump to the os piece (build browser + download)
+      jump("os");
       return true;
     }
 
