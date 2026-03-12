@@ -11,10 +11,12 @@ Aesthetic Computer (AC) is a mobile-first runtime and social network for creativ
 When @jeffrey is working, Claude hook events are written to a local encrypted memory store first.
 
 - **Hook**: `.claude/settings.json` → `UserPromptSubmit` → `node memory/hook.mjs`
+- **Git hook**: `.githooks/post-commit` → commit log + Codex import + remote flush
 - **Local store**: `~/.ac-agent-memory` (overridable via `AGENT_MEMORY_HOME`)
 - **Encryption**: AES-256-GCM (`AGENT_MEMORY_KEY` optional; local key file otherwise)
 - **Redaction**: metadata and summaries are redacted before indexing/sync
 - **CLI**: `node memory/cli.mjs` (`list`, `remember`, `checkpoint`, `doctor`, `profile`, `flush-remote`)
+- **Codex import**: `node memory/codex-sync.mjs`
 
 Remote writes are optional and disabled by default:
 
