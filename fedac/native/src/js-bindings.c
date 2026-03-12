@@ -1645,6 +1645,134 @@ static JSValue js_fetch_cancel(JSContext *ctx, JSValueConst this_val, int argc, 
 }
 
 // ---------------------------------------------------------------------------
+// system.scanQR() — Open camera and scan for QR codes in a background thread
+// system.scanQRStop() — Stop scanning and close camera
+// Poll system.qrPending / system.qrResult each frame.
+// ---------------------------------------------------------------------------
+
+static void *qr_scan_thread(void *arg) {
+    ACRuntime *rt = (ACRuntime *)arg;
+    ACCamera *cam = &rt->camera;
+
+    if (camera_open(cam) < 0) {
+        cam->scan_done = 1;
+        rt->qr_thread_running = 0;
+        return NULL;
+    }
+
+    // Grab frames and scan until we find a QR code or are told to stop
+    int max_attempts = 300; // ~10 seconds at 30fps
+    for (int i = 0; i < max_attempts && rt->qr_scan_active; i++) {
+        if (camera_grab(cam) == 0) {
+            if (camera_scan_qr(cam) > 0) {
+                cam->scan_done = 1;
+                break;
+            }
+        }
+        usleep(33000); // ~30fps
+    }
+
+    if (!cam->scan_done) {
+        cam->scan_done = 1;
+        if (!cam->scan_result[0] && !cam->scan_error[0]) {
+            snprintf(cam->scan_error, sizeof(cam->scan_error), "no QR code found");
+        }
+    }
+
+    camera_close(cam);
+    rt->qr_scan_active = 0;
+    rt->qr_thread_running = 0;
+    return NULL;
+}
+
+static JSValue js_scan_qr(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    if (!current_rt) return JS_UNDEFINED;
+
+    // Already scanning?
+    if (current_rt->qr_scan_active) return JS_FALSE;
+
+    // Reset state
+    current_rt->camera.scan_result[0] = 0;
+    current_rt->camera.scan_error[0] = 0;
+    current_rt->camera.scan_done = 0;
+    current_rt->qr_scan_active = 1;
+    current_rt->qr_thread_running = 1;
+
+    if (pthread_create(&current_rt->qr_thread, NULL, qr_scan_thread, current_rt) != 0) {
+        current_rt->qr_scan_active = 0;
+        current_rt->qr_thread_running = 0;
+        snprintf(current_rt->camera.scan_error, sizeof(current_rt->camera.scan_error),
+                 "thread create failed");
+        current_rt->camera.scan_done = 1;
+        return JS_FALSE;
+    }
+    pthread_detach(current_rt->qr_thread);
+
+    ac_log("[qr] scan started\n");
+    return JS_TRUE;
+}
+
+static JSValue js_scan_qr_stop(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv; (void)ctx;
+    if (!current_rt) return JS_UNDEFINED;
+    current_rt->qr_scan_active = 0;
+    ac_log("[qr] scan stopped\n");
+    return JS_UNDEFINED;
+}
+
+// cameraBlit(x, y, w, h) — render camera display buffer to graph framebuffer
+static JSValue js_camera_blit(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (!current_rt || !current_rt->graph) return JS_FALSE;
+    ACCamera *cam = &current_rt->camera;
+    if (!cam->display || !cam->display_ready) return JS_FALSE;
+
+    int dx = 0, dy = 0, dw = 0, dh = 0;
+    if (argc >= 4) {
+        JS_ToInt32(ctx, &dx, argv[0]);
+        JS_ToInt32(ctx, &dy, argv[1]);
+        JS_ToInt32(ctx, &dw, argv[2]);
+        JS_ToInt32(ctx, &dh, argv[3]);
+    } else {
+        // Default: fit to screen
+        dw = current_rt->graph->fb->width;
+        dh = current_rt->graph->fb->height;
+    }
+    if (dw <= 0 || dh <= 0) return JS_FALSE;
+
+    // Lock and copy the display buffer to a local copy
+    int cw = cam->width, ch = cam->height;
+    int pixels = cw * ch;
+    uint8_t *local = malloc(pixels);
+    if (!local) return JS_FALSE;
+
+    pthread_mutex_lock(&cam->display_mu);
+    memcpy(local, cam->display, pixels);
+    pthread_mutex_unlock(&cam->display_mu);
+
+    // Blit grayscale to framebuffer with nearest-neighbor scaling
+    ACFramebuffer *fb = current_rt->graph->fb;
+    for (int py = 0; py < dh; py++) {
+        int fy = dy + py;
+        if (fy < 0 || fy >= fb->height) continue;
+        int sy = py * ch / dh;
+        if (sy >= ch) sy = ch - 1;
+        for (int px = 0; px < dw; px++) {
+            int fx = dx + px;
+            if (fx < 0 || fx >= fb->width) continue;
+            int sx = px * cw / dw;
+            if (sx >= cw) sx = cw - 1;
+            uint8_t g = local[sy * cw + sx];
+            fb->pixels[fy * fb->stride + fx] = 0xFF000000u | ((uint32_t)g << 16) | ((uint32_t)g << 8) | g;
+        }
+    }
+
+    free(local);
+    return JS_TRUE;
+}
+
+// ---------------------------------------------------------------------------
 // system.udp — Raw UDP fairy point co-presence
 // ---------------------------------------------------------------------------
 
@@ -2436,6 +2564,275 @@ static JSValue build_system_obj(JSContext *ctx) {
 
     JS_SetPropertyStr(ctx, sys, "battery", battery);
 
+    // Hardware info — system.hw (model, cpu, ram)
+    {
+        JSValue hw = JS_NewObject(ctx);
+        char hbuf[256];
+
+        // Product name: /sys/class/dmi/id/product_name
+        if (read_sysfs("/sys/class/dmi/id/product_name", hbuf, sizeof(hbuf)) > 0)
+            JS_SetPropertyStr(ctx, hw, "model", JS_NewString(ctx, hbuf));
+        else
+            JS_SetPropertyStr(ctx, hw, "model", JS_NewString(ctx, "unknown"));
+
+        // Vendor: /sys/class/dmi/id/sys_vendor
+        if (read_sysfs("/sys/class/dmi/id/sys_vendor", hbuf, sizeof(hbuf)) > 0)
+            JS_SetPropertyStr(ctx, hw, "vendor", JS_NewString(ctx, hbuf));
+        else
+            JS_SetPropertyStr(ctx, hw, "vendor", JS_NewString(ctx, "unknown"));
+
+        // CPU model: first "model name" line from /proc/cpuinfo
+        {
+            FILE *cpuinfo = fopen("/proc/cpuinfo", "r");
+            char cpuline[256] = {0};
+            if (cpuinfo) {
+                char line[512];
+                while (fgets(line, sizeof(line), cpuinfo)) {
+                    if (strncmp(line, "model name", 10) == 0) {
+                        char *colon = strchr(line, ':');
+                        if (colon) {
+                            colon++;
+                            while (*colon == ' ') colon++;
+                            // Trim newline
+                            char *nl = strchr(colon, '\n');
+                            if (nl) *nl = 0;
+                            strncpy(cpuline, colon, sizeof(cpuline) - 1);
+                        }
+                        break;
+                    }
+                }
+                fclose(cpuinfo);
+            }
+            JS_SetPropertyStr(ctx, hw, "cpu", JS_NewString(ctx, cpuline[0] ? cpuline : "unknown"));
+        }
+
+        // CPU cores: count "processor" lines in /proc/cpuinfo
+        {
+            FILE *cpuinfo = fopen("/proc/cpuinfo", "r");
+            int cores = 0;
+            if (cpuinfo) {
+                char line[256];
+                while (fgets(line, sizeof(line), cpuinfo)) {
+                    if (strncmp(line, "processor", 9) == 0) cores++;
+                }
+                fclose(cpuinfo);
+            }
+            JS_SetPropertyStr(ctx, hw, "cores", JS_NewInt32(ctx, cores));
+        }
+
+        // RAM: total from /proc/meminfo (in MB)
+        {
+            FILE *meminfo = fopen("/proc/meminfo", "r");
+            long total_kb = 0, avail_kb = 0;
+            if (meminfo) {
+                char line[256];
+                while (fgets(line, sizeof(line), meminfo)) {
+                    if (strncmp(line, "MemTotal:", 9) == 0) {
+                        sscanf(line + 9, " %ld", &total_kb);
+                    } else if (strncmp(line, "MemAvailable:", 13) == 0) {
+                        sscanf(line + 13, " %ld", &avail_kb);
+                    }
+                    if (total_kb && avail_kb) break;
+                }
+                fclose(meminfo);
+            }
+            JS_SetPropertyStr(ctx, hw, "ramTotalMB", JS_NewInt32(ctx, (int)(total_kb / 1024)));
+            JS_SetPropertyStr(ctx, hw, "ramAvailMB", JS_NewInt32(ctx, (int)(avail_kb / 1024)));
+        }
+
+        // Process count from /proc (count numeric dirs)
+        {
+            int procs = 0;
+            DIR *pd = opendir("/proc");
+            if (pd) {
+                struct dirent *pe;
+                while ((pe = readdir(pd))) {
+                    if (pe->d_name[0] >= '1' && pe->d_name[0] <= '9') procs++;
+                }
+                closedir(pd);
+            }
+            JS_SetPropertyStr(ctx, hw, "processes", JS_NewInt32(ctx, procs));
+        }
+
+        // Load average from /proc/loadavg
+        {
+            char labuf[128] = {0};
+            FILE *la = fopen("/proc/loadavg", "r");
+            if (la) {
+                if (fgets(labuf, sizeof(labuf), la)) {
+                    // "0.12 0.34 0.56 1/42 1234"
+                    double l1 = 0, l5 = 0, l15 = 0;
+                    sscanf(labuf, "%lf %lf %lf", &l1, &l5, &l15);
+                    JS_SetPropertyStr(ctx, hw, "load1", JS_NewFloat64(ctx, l1));
+                    JS_SetPropertyStr(ctx, hw, "load5", JS_NewFloat64(ctx, l5));
+                    JS_SetPropertyStr(ctx, hw, "load15", JS_NewFloat64(ctx, l15));
+                }
+                fclose(la);
+            }
+        }
+
+        // CPU governor (power mode)
+        if (read_sysfs("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor", hbuf, sizeof(hbuf)) > 0) {
+            JS_SetPropertyStr(ctx, hw, "governor", JS_NewString(ctx, hbuf));
+        }
+
+        // Connected devices: scan /sys/class and /sys/bus for peripherals
+        {
+            JSValue devs = JS_NewArray(ctx);
+            int di = 0;
+
+            // USB devices: scan /sys/bus/usb/devices/*/product
+            {
+                DIR *ud = opendir("/sys/bus/usb/devices");
+                if (ud) {
+                    struct dirent *ue;
+                    while ((ue = readdir(ud))) {
+                        if (ue->d_name[0] == '.') continue;
+                        char pp[256], prod[128] = {0}, mfr[128] = {0};
+                        snprintf(pp, sizeof(pp), "/sys/bus/usb/devices/%s/product", ue->d_name);
+                        int got_prod = read_sysfs(pp, prod, sizeof(prod)) > 0;
+                        if (!got_prod) continue;
+                        snprintf(pp, sizeof(pp), "/sys/bus/usb/devices/%s/manufacturer", ue->d_name);
+                        read_sysfs(pp, mfr, sizeof(mfr));
+                        JSValue d = JS_NewObject(ctx);
+                        JS_SetPropertyStr(ctx, d, "type", JS_NewString(ctx, "usb"));
+                        JS_SetPropertyStr(ctx, d, "name", JS_NewString(ctx, prod));
+                        if (mfr[0]) JS_SetPropertyStr(ctx, d, "vendor", JS_NewString(ctx, mfr));
+                        JS_SetPropertyStr(ctx, d, "id", JS_NewString(ctx, ue->d_name));
+                        JS_SetPropertyUint32(ctx, devs, di++, d);
+                    }
+                    closedir(ud);
+                }
+            }
+
+            // Input (HID) devices: scan /sys/class/input/*/name
+            {
+                DIR *id = opendir("/sys/class/input");
+                if (id) {
+                    struct dirent *ie;
+                    while ((ie = readdir(id))) {
+                        if (strncmp(ie->d_name, "event", 5) != 0) continue;
+                        char np[256], name[128] = {0};
+                        snprintf(np, sizeof(np), "/sys/class/input/%s/device/name", ie->d_name);
+                        if (read_sysfs(np, name, sizeof(name)) <= 0) continue;
+                        JSValue d = JS_NewObject(ctx);
+                        JS_SetPropertyStr(ctx, d, "type", JS_NewString(ctx, "input"));
+                        JS_SetPropertyStr(ctx, d, "name", JS_NewString(ctx, name));
+                        JS_SetPropertyStr(ctx, d, "id", JS_NewString(ctx, ie->d_name));
+                        JS_SetPropertyUint32(ctx, devs, di++, d);
+                    }
+                    closedir(id);
+                }
+            }
+
+            // Video devices (cameras): /sys/class/video4linux/*/name
+            {
+                DIR *vd = opendir("/sys/class/video4linux");
+                if (vd) {
+                    struct dirent *ve;
+                    while ((ve = readdir(vd))) {
+                        if (ve->d_name[0] == '.') continue;
+                        char vp[256], vname[128] = {0};
+                        snprintf(vp, sizeof(vp), "/sys/class/video4linux/%s/name", ve->d_name);
+                        if (read_sysfs(vp, vname, sizeof(vname)) <= 0) continue;
+                        JSValue d = JS_NewObject(ctx);
+                        JS_SetPropertyStr(ctx, d, "type", JS_NewString(ctx, "camera"));
+                        JS_SetPropertyStr(ctx, d, "name", JS_NewString(ctx, vname));
+                        JS_SetPropertyStr(ctx, d, "id", JS_NewString(ctx, ve->d_name));
+                        JS_SetPropertyUint32(ctx, devs, di++, d);
+                    }
+                    closedir(vd);
+                }
+            }
+
+            // Sound cards: /proc/asound/cards
+            {
+                FILE *sc = fopen("/proc/asound/cards", "r");
+                if (sc) {
+                    char sline[256];
+                    while (fgets(sline, sizeof(sline), sc)) {
+                        // Lines like " 0 [PCH            ]: HDA-Intel - HDA Intel PCH"
+                        char *dash = strstr(sline, " - ");
+                        if (dash) {
+                            dash += 3;
+                            char *nl = strchr(dash, '\n');
+                            if (nl) *nl = 0;
+                            JSValue d = JS_NewObject(ctx);
+                            JS_SetPropertyStr(ctx, d, "type", JS_NewString(ctx, "audio"));
+                            JS_SetPropertyStr(ctx, d, "name", JS_NewString(ctx, dash));
+                            JS_SetPropertyUint32(ctx, devs, di++, d);
+                        }
+                    }
+                    fclose(sc);
+                }
+            }
+
+            // Block devices: /sys/block/*/device/model (drives, USB sticks)
+            {
+                DIR *bd = opendir("/sys/block");
+                if (bd) {
+                    struct dirent *be;
+                    while ((be = readdir(bd))) {
+                        if (be->d_name[0] == '.') continue;
+                        if (strncmp(be->d_name, "loop", 4) == 0) continue;
+                        if (strncmp(be->d_name, "ram", 3) == 0) continue;
+                        char bp[256], model[128] = {0};
+                        snprintf(bp, sizeof(bp), "/sys/block/%s/device/model", be->d_name);
+                        read_sysfs(bp, model, sizeof(model));
+                        // Get size
+                        char sz[32] = {0};
+                        snprintf(bp, sizeof(bp), "/sys/block/%s/size", be->d_name);
+                        read_sysfs(bp, sz, sizeof(sz));
+                        long sectors = sz[0] ? atol(sz) : 0;
+                        int gb = (int)(sectors / 2 / 1024 / 1024); // 512-byte sectors -> GB
+                        // Removable?
+                        char rem[8] = {0};
+                        snprintf(bp, sizeof(bp), "/sys/block/%s/removable", be->d_name);
+                        read_sysfs(bp, rem, sizeof(rem));
+                        JSValue d = JS_NewObject(ctx);
+                        JS_SetPropertyStr(ctx, d, "type", JS_NewString(ctx, "disk"));
+                        JS_SetPropertyStr(ctx, d, "name", JS_NewString(ctx, model[0] ? model : be->d_name));
+                        JS_SetPropertyStr(ctx, d, "id", JS_NewString(ctx, be->d_name));
+                        JS_SetPropertyStr(ctx, d, "sizeGB", JS_NewInt32(ctx, gb));
+                        JS_SetPropertyStr(ctx, d, "removable", JS_NewBool(ctx, rem[0] == '1'));
+                        JS_SetPropertyUint32(ctx, devs, di++, d);
+                    }
+                    closedir(bd);
+                }
+            }
+
+            // DRM connectors (HDMI, DP, etc.): /sys/class/drm/card*-*/status
+            {
+                DIR *dd = opendir("/sys/class/drm");
+                if (dd) {
+                    struct dirent *de;
+                    while ((de = readdir(dd))) {
+                        if (strncmp(de->d_name, "card", 4) != 0) continue;
+                        if (!strchr(de->d_name, '-')) continue; // skip "card0" itself
+                        char sp[256], st[32] = {0};
+                        snprintf(sp, sizeof(sp), "/sys/class/drm/%s/status", de->d_name);
+                        if (read_sysfs(sp, st, sizeof(st)) <= 0) continue;
+                        JSValue d = JS_NewObject(ctx);
+                        JS_SetPropertyStr(ctx, d, "type", JS_NewString(ctx, "display"));
+                        JS_SetPropertyStr(ctx, d, "name", JS_NewString(ctx, de->d_name));
+                        JS_SetPropertyStr(ctx, d, "connected", JS_NewBool(ctx, strcmp(st, "connected") == 0));
+                        JS_SetPropertyUint32(ctx, devs, di++, d);
+                    }
+                    closedir(dd);
+                }
+            }
+
+            JS_SetPropertyStr(ctx, hw, "devices", devs);
+        }
+
+        // Build name (baked in at compile time)
+#ifdef AC_BUILD_NAME
+        JS_SetPropertyStr(ctx, hw, "buildName", JS_NewString(ctx, AC_BUILD_NAME));
+#endif
+
+        JS_SetPropertyStr(ctx, sys, "hw", hw);
+    }
+
     // Backlight brightness — scan /sys/class/backlight/
     int bl_cur = -1, bl_max = -1;
     {
@@ -2548,6 +2945,31 @@ static JSValue build_system_obj(JSContext *ctx) {
         current_rt->fetch_error[0] = 0;
     } else {
         JS_SetPropertyStr(ctx, sys, "fetchError", JS_NULL);
+    }
+
+    // QR camera scanning — system.scanQR() / system.scanQRStop()
+    JS_SetPropertyStr(ctx, sys, "scanQR", JS_NewCFunction(ctx, js_scan_qr, "scanQR", 0));
+    JS_SetPropertyStr(ctx, sys, "scanQRStop", JS_NewCFunction(ctx, js_scan_qr_stop, "scanQRStop", 0));
+    JS_SetPropertyStr(ctx, sys, "cameraBlit", JS_NewCFunction(ctx, js_camera_blit, "cameraBlit", 4));
+    JS_SetPropertyStr(ctx, sys, "qrPending",
+                      JS_NewBool(ctx, current_rt ? current_rt->qr_scan_active : 0));
+    // Deliver QR result one-shot during sim phase
+    if (current_rt && current_rt->camera.scan_done) {
+        if (current_rt->camera.scan_result[0]) {
+            JS_SetPropertyStr(ctx, sys, "qrResult",
+                              JS_NewString(ctx, current_rt->camera.scan_result));
+            current_rt->camera.scan_result[0] = 0;
+        } else if (current_rt->camera.scan_error[0]) {
+            JS_SetPropertyStr(ctx, sys, "qrError",
+                              JS_NewString(ctx, current_rt->camera.scan_error));
+            current_rt->camera.scan_error[0] = 0;
+        } else {
+            JS_SetPropertyStr(ctx, sys, "qrResult", JS_NULL);
+        }
+        current_rt->camera.scan_done = 0;
+    } else {
+        JS_SetPropertyStr(ctx, sys, "qrResult", JS_NULL);
+        JS_SetPropertyStr(ctx, sys, "qrError", JS_NULL);
     }
 
     // OS update version string

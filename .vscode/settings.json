@@ -90,5 +90,8 @@
   },
   "python.defaultInterpreterPath": "/opt/py311/bin/python",
   "jupyter.kernels.filter": [],
-  "jupyter.notebookFileRoot": "${workspaceFolder}"
+  "jupyter.notebookFileRoot": "${workspaceFolder}",
+  "workbench.editorAssociations": {
+    "*.md": "vscode.markdown.preview.editor"
+  }
 }

@@ -7,7 +7,7 @@ let cursorVisible = true;
 let cursorFrame = 0;
 let shiftHeld = false;
 
-let mode = "chat"; // "setup" | "chat"
+let mode = "chat"; // "setup" | "scan" | "chat"
 let messages = []; // {role, content} conversation history
 let displayLines = []; // rendered output lines
 let scrollY = 0;
@@ -49,7 +49,7 @@ function boot({ system }) {
     pendingRefresh = true;
   } else {
     mode = "setup";
-    statusMsg = "paste refresh token (sk-ant-ort01-...)";
+    statusMsg = "[s] scan QR  [t] type token";
     statusFrame = 0;
   }
 }
@@ -70,6 +70,33 @@ function act({ event: e, system }) {
         system?.jump?.("prompt");
       }
       return;
+    }
+
+    // Setup mode: S to scan QR, T to type token
+    if (mode === "setup" && input.length === 0) {
+      if (key === "s") {
+        mode = "scan";
+        statusMsg = "opening camera...";
+        statusFrame = 0;
+        system?.scanQR?.();
+        return;
+      }
+      if (key === "t") {
+        statusMsg = "paste refresh token (sk-ant-ort01-...)";
+        statusFrame = 0;
+        return;
+      }
+    }
+
+    // Scan mode: Escape to cancel
+    if (mode === "scan") {
+      if (key === "escape") {
+        system?.scanQRStop?.();
+        mode = "setup";
+        statusMsg = "[s] scan QR  [t] type token";
+        statusFrame = 0;
+      }
+      return; // ignore all other keys while scanning
     }
 
     if (key === "enter" || key === "return") {
@@ -103,8 +130,15 @@ function act({ event: e, system }) {
       }
       if (cmd === "/token") {
         mode = "setup";
-        statusMsg = "paste new refresh token";
+        statusMsg = "[s] scan QR  [t] type token";
         statusFrame = 0;
+        return;
+      }
+      if (cmd === "/scan") {
+        mode = "scan";
+        statusMsg = "opening camera...";
+        statusFrame = 0;
+        system?.scanQR?.();
         return;
       }
 
@@ -196,6 +230,32 @@ function sendMessage(system) {
 
 function sim({ system }) {
   cachedSystem = system;
+
+  // Poll QR scan results
+  if (mode === "scan") {
+    if (system?.qrPending) {
+      statusMsg = "scanning for QR code...";
+    }
+    const qrResult = system?.qrResult;
+    const qrError = system?.qrError;
+    if (qrResult && qrResult.startsWith("sk-ant-ort01-")) {
+      refreshToken = qrResult;
+      saveToken(refreshToken, system);
+      mode = "chat";
+      statusMsg = "token scanned — refreshing...";
+      statusFrame = 0;
+      pendingRefresh = true;
+    } else if (qrResult) {
+      mode = "setup";
+      statusMsg = "QR not a refresh token";
+      statusFrame = 0;
+    } else if (qrError) {
+      mode = "setup";
+      statusMsg = "scan: " + qrError;
+      statusFrame = 0;
+    }
+    return;
+  }
 
   // Auto-refresh on boot (triggered once from boot())
   if (pendingRefresh && !streaming && refreshToken && !accessToken) {
@@ -311,7 +371,7 @@ function saveToken(token, system) {
   system?.saveConfig?.("claudeRefreshToken", token);
 }
 
-function paint({ wipe, ink, box, write, screen }) {
+function paint({ wipe, ink, box, line, write, screen, system }) {
   wipe(20, 18, 28);
 
   const W = screen.width;
@@ -328,9 +388,44 @@ function paint({ wipe, ink, box, write, screen }) {
 
   // Title bar
   ink(80, 120, 200);
-  write(mode === "setup" ? "claude :: setup" : "claude :: chat", {
-    x: x0, y: y0, size: 1, font: "6x10"
-  });
+  const title = mode === "setup" ? "claude :: setup"
+              : mode === "scan" ? "claude :: scan QR"
+              : "claude :: chat";
+  write(title, { x: x0, y: y0, size: 1, font: "6x10" });
+
+  // Scan mode: show camera preview + scanning overlay
+  if (mode === "scan") {
+    // Render camera preview (fills screen, text overlaid on top)
+    if (system?.cameraBlit) {
+      system.cameraBlit(0, 0, W, H);
+    }
+
+    // Semi-transparent overlay bar at bottom
+    ink(0, 0, 0, 140);
+    box(0, H - 30, W, 30, true);
+
+    const dots = ".".repeat((Math.floor(cursorFrame / 15) % 3) + 1);
+    ink(100, 160, 255);
+    write("scan QR" + dots, { x: x0, y: H - 26, size: 1, font: "6x10" });
+    ink(80, 80, 100);
+    write("[esc] cancel", { x: x0, y: H - 14, size: 1, font: "6x10" });
+
+    // Crosshair guides
+    const cx = Math.floor(W / 2), cy = Math.floor(H / 2);
+    const sz = Math.min(W, H) / 4;
+    ink(100, 200, 255, 120);
+    // Corner brackets
+    line(cx - sz, cy - sz, cx - sz + 10, cy - sz);
+    line(cx - sz, cy - sz, cx - sz, cy - sz + 10);
+    line(cx + sz, cy - sz, cx + sz - 10, cy - sz);
+    line(cx + sz, cy - sz, cx + sz, cy - sz + 10);
+    line(cx - sz, cy + sz, cx - sz + 10, cy + sz);
+    line(cx - sz, cy + sz, cx - sz, cy + sz - 10);
+    line(cx + sz, cy + sz, cx + sz - 10, cy + sz);
+    line(cx + sz, cy + sz, cx + sz, cy + sz - 10);
+
+    return;
+  }
 
   // Display lines (above input)
   const inputY = H - 30;
