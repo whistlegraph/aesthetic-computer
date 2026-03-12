@@ -10,7 +10,7 @@ export default async (request) => {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "POST",
         "Access-Control-Allow-Headers":
-          "Authorization, Content-Type, X-Build-Name, X-Git-Hash, X-Build-Ts, X-Sha256, X-Size, X-Finalize",
+          "Authorization, Content-Type, X-Build-Name, X-Git-Hash, X-Build-Ts, X-Sha256, X-Size, X-Finalize, X-Template-Upload",
       },
     });
   }
@@ -194,7 +194,7 @@ export default async (request) => {
   }
 
   // Template .img presigned URL (separate from vmlinuz)
-  const isTemplate = req.headers.get("x-template-upload") === "true";
+  const isTemplate = request.headers.get("x-template-upload") === "true";
   if (isTemplate) {
     try {
       const imgUrl = await presignUrl(
