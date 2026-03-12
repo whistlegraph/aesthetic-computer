@@ -1,6 +1,6 @@
 // os, 2026.03.12
-// FedAC OS — view builds, download personalized bootable USB image.
-// Logged-in users with a handle get a .img with their identity baked in.
+// FedAC OS — flat list of builds; tap the latest (green) to download
+// a personalized .img with your handle baked in.
 
 const RELEASES_URL = "https://oven.aesthetic.computer/os-releases";
 const OVEN_IMAGE_URL = "https://oven.aesthetic.computer/os-image";
@@ -13,8 +13,9 @@ let token = null;
 let downloading = false;
 let downloadProgress = 0;
 let downloadBtn = null;
+let scrollY = 0;
 
-function boot({ user, api }) {
+function boot({ user, api, ui, needsPaint }) {
   handle = user?.handle || null;
 
   fetch(RELEASES_URL)
@@ -22,123 +23,121 @@ function boot({ user, api }) {
     .then((data) => {
       releases = data;
       loading = false;
+      if (handle && token) makeBtn(ui, data);
+      needsPaint();
     })
     .catch((err) => {
       error = err.message;
       loading = false;
+      needsPaint();
     });
 
   if (handle) {
     api?.authorize?.().then((t) => {
       token = t;
+      if (releases) makeBtn(ui, releases);
+      needsPaint();
     });
   }
 }
 
-function paint({ wipe, ink, screen, ui: { Button } }) {
+function makeBtn(ui, rel) {
+  const latest = rel?.releases?.[0];
+  if (!latest) return;
+  const name = latest.name || "latest";
+  downloadBtn = new ui.TextButton("download " + name, { x: 14, y: 0 });
+}
+
+function paint($) {
+  const { screen, ink } = $;
   const { width: w, height: h } = screen;
-  wipe(20, 12, 30);
+  $.wipe(20, 12, 30);
 
   const pad = 14;
-  let y = pad;
-
-  // Title
-  ink(180, 120, 255).write("FedAC OS", { x: pad, y, size: 3 });
-  y += 32;
+  let y = pad - scrollY;
 
   if (loading) {
-    ink(100).write("loading releases...", { x: pad, y });
+    ink(100).write("loading...", { x: pad, y });
     return;
   }
 
   if (error) {
-    ink(255, 80, 80).write("error: " + error, { x: pad, y });
+    ink(255, 80, 80).write(error, { x: pad, y });
     return;
   }
 
   if (!releases) return;
 
-  // Latest build
-  const latest = releases.releases?.[0];
-  if (latest) {
-    const name = releases.latest_name || "latest";
-    ink(80, 255, 140).write(name, { x: pad, y, size: 3 });
-    y += 32;
-
-    ink(200, 220, 255).write(releases.latest || "", { x: pad, y });
-    y += 16;
-
-    ink(140, 160, 180);
-    const sizeMB = ((latest.size || 0) / 1048576).toFixed(1);
-    ink(140, 160, 180).write(
-      (latest.build_ts || "?") + "  ·  " + (latest.git_hash || "?") + "  ·  " + sizeMB + " MB",
-      { x: pad, y },
-    );
-    y += 20;
-  }
-
-  // Download button (only for logged-in users with handle)
-  if (handle && token) {
-    if (downloading) {
-      ink(60, 60, 100).box(pad, y, w - pad * 2, 28);
-      const barW = Math.floor((w - pad * 2 - 4) * downloadProgress);
-      ink(100, 180, 255).box(pad + 2, y + 2, barW, 24);
-      ink(255).write(
-        "downloading... " + Math.floor(downloadProgress * 100) + "%",
-        { x: pad + 8, y: y + 8 },
-      );
-    } else {
-      const btnW = Math.min(240, w - pad * 2);
-      downloadBtn = new Button(pad, y, btnW, 28).paint(({ box, btn }) => {
-        const bg = btn.down ? [100, 80, 200] : btn.over ? [80, 60, 180] : [60, 40, 140];
-        ink(...bg).box(box);
-        ink(80, 60, 160).box(box, "outline");
-        const label = "download your copy";
-        const lx = box.x + Math.floor((box.w - label.length * 6) / 2);
-        const ly = box.y + Math.floor((box.h - 8) / 2);
-        ink(255).write(label, { x: lx, y: ly });
-      });
-      ink(200, 160, 255).write("@" + handle, { x: pad + btnW + 10, y: y + 8 });
-    }
-    y += 38;
-  } else {
-    ink(120, 100, 80).write("log in with a handle to download", { x: pad, y });
-    y += 20;
-  }
-
-  // Build history
-  y += 10;
-  ink(100, 80, 140).write("recent builds", { x: pad, y, size: 1 });
-  y += 16;
-
-  const maxBuilds = Math.floor((h - y - 10) / 14);
   const builds = releases.releases || [];
-  for (let i = 0; i < Math.min(builds.length, maxBuilds); i++) {
+
+  // Download button row for logged-in users
+  if (handle && token && downloadBtn && !downloading) {
+    downloadBtn.reposition({ x: pad, y });
+    downloadBtn.paint(
+      $,
+      [[30, 80, 40], [50, 140, 60], [80, 255, 140], 255],
+      [[50, 120, 60], [70, 180, 80], [255, 255, 255], 255],
+      undefined,
+      [[40, 100, 50], [60, 160, 70], [200, 255, 220], 255],
+    );
+    if (handle) {
+      ink(200, 160, 255).write("@" + handle, {
+        x: pad + downloadBtn.width + 10,
+        y: y + 4,
+      });
+    }
+    y += downloadBtn.height + 8;
+  } else if (downloading) {
+    ink(60, 60, 100).box(pad, y, w - pad * 2, 20);
+    const barW = Math.floor((w - pad * 2 - 4) * downloadProgress);
+    ink(100, 180, 255).box(pad + 2, y + 2, barW, 16);
+    ink(255).write(
+      Math.floor(downloadProgress * 100) + "%",
+      { x: pad + 4, y: y + 5 },
+    );
+    y += 28;
+  } else if (!handle || !token) {
+    ink(80, 60, 50).write("log in to download", { x: pad, y });
+    y += 16;
+  }
+
+  // Flat build list
+  for (let i = 0; i < builds.length; i++) {
+    if (y > h + 14) break;
     const b = builds[i];
     const name = b.name || "?";
     const hash = (b.git_hash || "?").slice(0, 9);
     const ts = (b.build_ts || "").slice(0, 10);
     const isCurrent = i === 0;
 
-    ink(isCurrent ? [80, 255, 140] : [80, 90, 110]).write(
-      (isCurrent ? "> " : "  ") + name + "  " + hash + "  " + ts,
-      { x: pad, y },
-    );
+    if (y >= -14) {
+      ink(isCurrent ? [80, 255, 140] : [60, 70, 90]).write(
+        (isCurrent ? "> " : "  ") + name + "  " + hash + "  " + ts,
+        { x: pad, y },
+      );
+    }
     y += 14;
   }
 }
 
-async function act({ event: e, needsPaint }) {
-  if (downloading || !token) return;
-
-  if (downloadBtn?.act(e, startDownload)) {
+function act({ event: e, needsPaint }) {
+  if (e.is("scroll")) {
+    scrollY = Math.max(0, scrollY + (e.delta || 0));
     needsPaint();
+    return;
   }
+
+  if (downloading || !token || !downloadBtn) return;
+
+  downloadBtn.btn.act(e, {
+    push: () => startDownload(needsPaint),
+  });
 }
 
-async function startDownload() {
+async function startDownload(needsPaint) {
   downloading = true;
   downloadProgress = 0;
+  needsPaint();
 
   try {
     const res = await fetch(OVEN_IMAGE_URL, {
@@ -162,6 +161,7 @@ async function startDownload() {
       received += value.length;
       if (contentLength > 0) {
         downloadProgress = received / contentLength;
+        needsPaint();
       }
     }
 
@@ -170,7 +170,7 @@ async function startDownload() {
     const a = document.createElement("a");
     a.href = url;
     const latest = releases?.releases?.[0];
-    const name = releases?.latest_name || "os";
+    const name = latest?.name || "os";
     const ts = (latest?.build_ts || "").replace(/[T:]/g, "-");
     a.download = `ac-native-${name}-${handle || "user"}-${ts}.img`;
     document.body.appendChild(a);
@@ -183,6 +183,7 @@ async function startDownload() {
 
   downloading = false;
   downloadProgress = 0;
+  needsPaint();
 }
 
 export const desc = "FedAC OS — view builds and download your copy.";
