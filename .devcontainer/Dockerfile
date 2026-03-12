@@ -33,6 +33,7 @@ RUN dnf clean all && rm -rf /var/cache/dnf && \
       inotify-tools wget curl tar gzip bzip2 \
       libsodium libsodium-devel libffi libffi-devel \
       gmp gmp-devel \
+      protobuf-compiler protobuf-devel \
       pkg-config autoconf automake libtool \
       ocaml opam rsync m4 patch bubblewrap \
       libX11 libxkbfile libsecret libxshmfence libXtst \
