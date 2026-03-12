@@ -148,8 +148,18 @@ find_usb_dev() {
 require_login() {
     # Require ac-login before flashing — ensures builds are tied to an authenticated user
     local TOKEN_FILE="${HOME}/.ac-token"
+    local LOGIN_SCRIPT="${SCRIPT_DIR}/../../tezos/ac-login.mjs"
     if [ ! -f "${TOKEN_FILE}" ]; then
-        err "Not logged in. Run: ac-login"
+        if [ -f "${LOGIN_SCRIPT}" ]; then
+            log "No token found — starting ac-login..."
+            node "${LOGIN_SCRIPT}"
+        else
+            err "Not logged in and ac-login script not found."
+            exit 1
+        fi
+    fi
+    if [ ! -f "${TOKEN_FILE}" ]; then
+        err "Login failed or cancelled. Run: ac-login"
         exit 1
     fi
     # Read user sub from token file
