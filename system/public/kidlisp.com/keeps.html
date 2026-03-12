@@ -638,33 +638,50 @@
 
     .keeps-about-lede {
       font-family: var(--font-fun);
-      font-size: 14px;
-      color: var(--text-secondary);
-      margin: 0 0 20px 0;
-      line-height: 1.8;
+      font-size: 18px;
+      color: var(--text-primary);
+      margin: 0 0 24px 0;
+      line-height: 1.9;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 10px;
+      text-align: center;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
     }
 
     .keeps-about-lede span {
       display: block;
     }
 
+    .keeps-about-lede span:first-child {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
     .keeps-enter-btn {
       font-family: var(--font-fun);
-      font-size: 16px;
-      padding: 10px 32px;
+      font-size: 20px;
+      font-weight: 700;
+      padding: 18px 12px;
+      width: 100%;
+      max-width: 300px;
       background: #40c060;
       color: #fff;
       border: none;
-      border-radius: 8px;
+      border-radius: 6px;
       cursor: pointer;
-      margin: 8px 0 20px;
+      margin: 12px auto 20px;
+      display: block;
       transition: background 0.15s;
     }
     .keeps-enter-btn:hover {
       background: #35a850;
+    }
+
+    .keeps-tabs.locked .keeps-tab {
+      pointer-events: none;
+      opacity: 0.35;
     }
 
     .keeps-about-tech {
@@ -5962,10 +5979,12 @@
 
       await ensureKeepsConfig();
 
-      // Always show the preamble first
+      // Always show the preamble first — lock tabs until Enter
       loading.style.display = 'none';
       revealUI();
       showInlineAbout();
+      const tabs = document.querySelector('.keeps-tabs');
+      if (tabs) tabs.classList.add('locked');
 
       const enterBtn = document.getElementById('keeps-enter-btn');
       if (acUser && hasRegisteredHandle()) {
@@ -6001,6 +6020,8 @@
         return;
       }
 
+      const tabs = document.querySelector('.keeps-tabs');
+      if (tabs) tabs.classList.remove('locked');
       hideInlineAbout();
       setIndexSearchVisible(true);
       loading.style.display = 'flex';
