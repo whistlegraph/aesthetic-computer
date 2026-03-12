@@ -68,11 +68,16 @@ NPM shortcuts:
 - `npm run agent-memory:doctor`
 - `npm run agent-memory:profile`
 - `npm run agent-memory:set-device -- --id thinkpad-x1-main`
+- `npm run agent-memory:sync-codex`
+- `npm run agent-memory:install-hooks`
 
 ## Hook Integration
 
 - `.claude/settings.json` already calls `memory/hook.mjs` on `UserPromptSubmit`.
 - `memory/hook.mjs` writes each hook event to local encrypted memory.
+- `.githooks/post-commit` logs a commit event, imports recent Codex prompts, and flushes remote queue.
+- Install repo hooks once with:
+`npm run agent-memory:install-hooks`
 
 ## Multi-Vendor + Multi-Machine
 
@@ -135,7 +140,7 @@ Enable queue + flush:
 
 ```bash
 export AGENT_MEMORY_REMOTE_ENABLED=true
-export AGENT_MEMORY_REMOTE_URL="https://aesthetic.computer/.netlify/functions/agent-memory-ingest"
+export AGENT_MEMORY_REMOTE_URL="https://aesthetic.computer/api/agent-memory-ingest"
 export AGENT_MEMORY_REMOTE_TOKEN="<token>"
 ```
 
@@ -153,7 +158,7 @@ Recommended for siphoned database setup:
 
 - `AGENT_MEMORY_MONGODB_CONNECTION_STRING`
 - `AGENT_MEMORY_MONGODB_NAME`
-- `AGENT_MEMORY_INGEST_TOKEN`
+- `AGENT_MEMORY_INGEST_TOKEN` (or reuse `AGENT_MEMORY_REMOTE_TOKEN`)
 
 ## Docker / Rebuild Notes
 
