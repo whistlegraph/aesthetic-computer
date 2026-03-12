@@ -92,6 +92,7 @@
   "jupyter.kernels.filter": [],
   "jupyter.notebookFileRoot": "${workspaceFolder}",
   "workbench.editorAssociations": {
-    "*.md": "vscode.markdown.preview.editor"
+    "*.md": "vscode.markdown.preview.editor",
+    "*.ipynb": "jupyter-notebook"
   }
 }
