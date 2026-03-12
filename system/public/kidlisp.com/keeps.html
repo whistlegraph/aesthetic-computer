@@ -637,10 +637,18 @@
     }
 
     .keeps-about-lede {
-      font-size: 15px;
-      color: var(--text-primary);
-      margin: 0 0 12px 0;
-      line-height: 2.2;
+      font-family: var(--font-fun);
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin: 0 0 20px 0;
+      line-height: 1.8;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .keeps-about-lede span {
+      display: block;
     }
 
     .keeps-about-tech {
@@ -2590,13 +2598,12 @@
     <!-- LOGGED-OUT: inline About content -->
     <div id="keeps-about-inline" style="display:none; overflow-y:auto; flex:1; padding:20px 24px 32px;">
       <div class="keeps-about-simple">
-        <p class="keeps-about-lede">
-          Keep your KidLisp pieces permanently in your digital wallet as Tezos FA2 tokens.<br>
-          Each keep costs 2.5 ꜩ (<span id="keeps-xtz-usd">~$0.91 USD</span>).<br>
-          Every KidLisp piece is given a unique $code.<br>
-          A KidLisp piece can only be kept by its author.<br>
-          Once kept, the author can sell, trade, exhibit, or publish it on the open Tezos network.
-        </p>
+        <div class="keeps-about-lede">
+          <span>Keep your KidLisp pieces permanently in your digital wallet as Tezos FA2 tokens.</span>
+          <span>Each keep costs 2.5 ꜩ (<span id="keeps-xtz-usd">~$0.91 USD</span>).</span>
+          <span>Every KidLisp piece is given a unique $code.</span>
+          <span>A KidLisp piece can only be kept by its author.</span>
+        </div>
 
         <details class="keeps-about-tech">
           <summary>Technology</summary>

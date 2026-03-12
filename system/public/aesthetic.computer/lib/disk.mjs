@@ -1989,6 +1989,12 @@ let formReframing = false; // Just for 3D camera updates.
 
 let paintings = {}; // Cached bitmaps from a piece.
 
+// Expose pending image count for oven/grabber to poll (available immediately)
+if (typeof window !== "undefined") {
+  window.acPendingImages = () =>
+    Object.values(paintings).filter((v) => v === "fetching").length;
+}
+
 // 🖼️ Image cache system for paste/stamp - persists across refreshes
 // Similar to $kidlisp code cache but for image data
 const imageCache = {
