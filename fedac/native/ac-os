@@ -309,6 +309,64 @@ load_vault_creds() {
     log "Credentials decrypted and cached for session"
 }
 
+generate_template_img() {
+    # Create a bootable FAT32 disk image with the kernel + default config.
+    # Uses mtools (mcopy/mmd) to avoid needing loop devices or mount.
+    # The config.json is padded to 4096 bytes for easy byte-patching.
+    local IMG="/tmp/ac-native.img"
+    local KERNEL_SIZE=$(stat -c%s "${VMLINUZ}")
+    # Image needs: GPT overhead (~1MB) + FAT32 overhead (~1MB) + kernel + config + slack
+    local IMG_SIZE_MB=$(( (KERNEL_SIZE / 1048576) + 4 ))
+
+    log "Generating template .img (${IMG_SIZE_MB}MB)..."
+
+    # Create empty image
+    dd if=/dev/zero of="${IMG}" bs=1M count=${IMG_SIZE_MB} status=none
+
+    # Create GPT partition table with EFI System Partition
+    sfdisk "${IMG}" --quiet <<EOF
+label: gpt
+type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B
+EOF
+
+    # Find the partition offset (skip GPT header, typically 1MB = 2048 sectors)
+    local PART_START=$(sfdisk -d "${IMG}" 2>/dev/null | grep "start=" | head -1 | sed 's/.*start= *\([0-9]*\).*/\1/')
+    PART_START=${PART_START:-2048}
+    local PART_OFFSET=$(( PART_START * 512 ))
+
+    # Extract just the partition into a separate file for mtools
+    local PART_IMG="/tmp/ac-native-part.img"
+    local PART_SIZE=$(( IMG_SIZE_MB * 1048576 - PART_OFFSET ))
+    dd if="${IMG}" of="${PART_IMG}" bs=512 skip=${PART_START} status=none
+
+    # Format as FAT32
+    mkfs.vfat -F 32 -n AC-NATIVE "${PART_IMG}" >/dev/null 2>&1
+
+    # Create EFI directory structure using mtools
+    export MTOOLS_SKIP_CHECK=1
+    mmd -i "${PART_IMG}" ::EFI ::EFI/BOOT 2>/dev/null
+
+    # Copy kernel
+    mcopy -o -i "${PART_IMG}" "${VMLINUZ}" ::EFI/BOOT/BOOTX64.EFI
+
+    # Create padded config.json (4096 bytes, space-padded)
+    local CONFIG_TMP="/tmp/ac-config-template.json"
+    printf '{"handle":"","piece":"notepat","sub":"","email":""}' > "${CONFIG_TMP}"
+    local CURRENT_SIZE=$(stat -c%s "${CONFIG_TMP}")
+    local PAD_SIZE=$((4096 - CURRENT_SIZE))
+    dd if=/dev/zero bs=1 count=${PAD_SIZE} 2>/dev/null | tr '\0' ' ' >> "${CONFIG_TMP}"
+    mcopy -o -i "${PART_IMG}" "${CONFIG_TMP}" ::config.json
+
+    # Write the partition back into the disk image
+    dd if="${PART_IMG}" of="${IMG}" bs=512 seek=${PART_START} conv=notrunc status=none
+
+    rm -f "${PART_IMG}" "${CONFIG_TMP}"
+
+    local IMG_BYTES=$(stat -c%s "${IMG}")
+    log "Template image: ${IMG} ($(echo "${IMG_BYTES}" | numfmt --to=iec))"
+    echo "${IMG}"
+}
+
 upload_ota() {
     log "Uploading OTA release..."
     cd "${SCRIPT_DIR}"
@@ -395,6 +453,31 @@ upload_ota() {
     log "  SHA: ${SHA}"
     log "  URL: ${URL}"
 
+    # Step 4: Generate and upload template .img for personalized downloads
+    local TEMPLATE_IMG
+    TEMPLATE_IMG=$(generate_template_img) && {
+        log "Uploading template .img..."
+        # Get presigned URL for the .img
+        local IMG_STEP
+        IMG_STEP=$(curl -sf -X POST "${UPLOAD_URL}" \
+            -H "Authorization: Bearer ${AC_TOKEN}" \
+            -H "X-Build-Name: ${BUILD_NAME}" \
+            -H "X-Template-Upload: true" \
+            --max-time 30) || { log "Template presign failed (non-fatal)"; }
+
+        if [ -n "${IMG_STEP}" ]; then
+            local IMG_PUT_URL=$(echo "$IMG_STEP" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>console.log(JSON.parse(d).img_put_url||''))" 2>/dev/null)
+            if [ -n "${IMG_PUT_URL}" ]; then
+                curl -sf -X PUT "${IMG_PUT_URL}" \
+                    -H "Content-Type: application/octet-stream" \
+                    -H "x-amz-acl: public-read" \
+                    --data-binary "@${TEMPLATE_IMG}" \
+                    --max-time 300 && log "Template .img uploaded" || log "Template upload failed (non-fatal)"
+            fi
+        fi
+        rm -f "${TEMPLATE_IMG}"
+    } || log "Template generation failed (non-fatal)"
+
     # Record in MongoDB
     if command -v node &>/dev/null; then
         echo "{
@@ -421,7 +504,6 @@ case "${CMD}" in
         log "Build complete: ${VMLINUZ}"
         ;;
     flash)
-        require_login
         build_binary
         build_initramfs
         build_kernel
