@@ -194,7 +194,7 @@ static void mount_minimal_fs(void) {
 }
 
 // Try to mount boot USB for log writing (non-blocking, best-effort)
-static char log_dev[32] = "";
+char log_dev[32] = "";  // non-static: accessed by js-bindings.c for flash target check
 static void try_mount_log(void) {
     mkdir("/mnt", 0755);
     // Wait for USB block devices to appear (up to 2s after EFI handoff)
