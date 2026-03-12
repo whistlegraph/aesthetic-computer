@@ -1486,11 +1486,14 @@ int main(int argc, char *argv[]) {
                     if (ctrl_held && (input->events[i].key_code == KEY_EQUAL ||
                                       input->events[i].key_code == KEY_KPPLUS)) {
                         scale_change = -1;  // bigger pixels (lower res)
+                        input->events[i].type = 0; // suppress from JS
                     } else if (ctrl_held && (input->events[i].key_code == KEY_MINUS ||
                                              input->events[i].key_code == KEY_KPMINUS)) {
                         scale_change = 1;  // smaller pixels (higher res)
+                        input->events[i].type = 0; // suppress from JS
                     } else if (ctrl_held && input->events[i].key_code == KEY_0) {
                         scale_change = 99;  // reset to default (3)
+                        input->events[i].type = 0; // suppress from JS
                     }
                     // Volume: KEY_VOLUMEUP/DOWN/MUTE or F1/F2/F3 as fallback
                     else if (strcmp(input->events[i].key_name, "audiovolumeup") == 0 ||
@@ -1540,15 +1543,17 @@ int main(int argc, char *argv[]) {
                 if (scale_change == 99) {
                     new_scale = 3;  // reset to default
                 } else if (scale_change == 1) {
-                    // Increase density: scale 6→4→3→2→1
-                    if (pixel_scale > 3) new_scale = pixel_scale - 2;
+                    // Increase density (smaller pixels): 12→10→8→6→4→3→2→1
+                    if (pixel_scale > 6) new_scale = pixel_scale - 2;
+                    else if (pixel_scale > 3) new_scale = pixel_scale - 2;
                     else if (pixel_scale > 1) new_scale = pixel_scale - 1;
                 } else if (scale_change == -1) {
-                    // Decrease density: scale 1→2→3→4→6
+                    // Decrease density (bigger pixels): 1→2→3→4→6→8→10→12
                     if (pixel_scale < 3) new_scale = pixel_scale + 1;
                     else if (pixel_scale < 6) new_scale = pixel_scale + 2;
+                    else new_scale = pixel_scale + 2;
                 }
-                if (new_scale != pixel_scale && new_scale >= 1 && new_scale <= 6) {
+                if (new_scale != pixel_scale && new_scale >= 1 && new_scale <= 12) {
                     pixel_scale = new_scale;
                     // Recreate framebuffer at new resolution
                     ACFramebuffer *new_screen = fb_create(display->width / pixel_scale,

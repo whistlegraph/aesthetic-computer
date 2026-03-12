@@ -93,8 +93,37 @@ build_kernel() {
     sudo rm -f "${LINUX_DIR}/usr/initramfs_data.o" "${LINUX_DIR}/usr/.initramfs_data.o.cmd"
     log "Building kernel..."
     make -j$(nproc) bzImage 2>&1 | tail -1
-    cp arch/x86/boot/bzImage "${VMLINUZ}"
+    sudo cp arch/x86/boot/bzImage "${VMLINUZ}"
+    sudo chown $(whoami) "${VMLINUZ}"
     log "Kernel: $(du -sh "${VMLINUZ}" | cut -f1)"
+}
+
+record_build() {
+    # Record every build in MongoDB (even local/flash-only builds)
+    if ! command -v node &>/dev/null; then
+        log "Node not available — skipping MongoDB build record"
+        return 0
+    fi
+    local GIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    local BUILD_TS=$(date -u '+%Y-%m-%dT%H:%M')
+    local SHA=$(sha256sum "${VMLINUZ}" 2>/dev/null | cut -d' ' -f1)
+    local SIZE=$(stat -c%s "${VMLINUZ}" 2>/dev/null || echo 0)
+    local BUILD_NAME=$(bash scripts/build-name.sh 2>/dev/null || echo "unknown")
+
+    cd "${SCRIPT_DIR}"
+    log "Recording build: ${BUILD_NAME} (${GIT_HASH})"
+    echo "{
+        \"name\": \"${BUILD_NAME}\",
+        \"buildNum\": -1,
+        \"version\": \"${GIT_HASH}-${BUILD_TS}\",
+        \"sha256\": \"${SHA}\",
+        \"size\": ${SIZE},
+        \"git_hash\": \"${GIT_HASH}\",
+        \"build_ts\": \"${BUILD_TS}\",
+        \"url\": \"local\",
+        \"target\": \"${1:-build}\",
+        \"user\": \"${AC_USER_SUB:-${ADMIN_SUB:-unknown}}\"
+    }" | node scripts/track-build.mjs record 2>&1 || log "MongoDB record failed (non-fatal)"
 }
 
 find_usb_dev() {
@@ -116,11 +145,42 @@ find_usb_dev() {
     return 1
 }
 
+require_login() {
+    # Require ac-login before flashing — ensures builds are tied to an authenticated user
+    local TOKEN_FILE="${HOME}/.ac-token"
+    if [ ! -f "${TOKEN_FILE}" ]; then
+        err "Not logged in. Run: ac-login"
+        exit 1
+    fi
+    # Read user sub from token file
+    local USER_SUB=$(node -e "const t=JSON.parse(require('fs').readFileSync('${TOKEN_FILE}','utf8')); console.log(t.user?.sub || '')" 2>/dev/null)
+    if [ -z "${USER_SUB}" ]; then
+        err "Token expired or invalid. Run: ac-login"
+        exit 1
+    fi
+    # Read handle and email too
+    local USER_HANDLE=$(node -e "const t=JSON.parse(require('fs').readFileSync('${TOKEN_FILE}','utf8')); console.log(t.user?.handle || t.user?.name || '')" 2>/dev/null)
+    local USER_EMAIL=$(node -e "const t=JSON.parse(require('fs').readFileSync('${TOKEN_FILE}','utf8')); console.log(t.user?.email || '')" 2>/dev/null)
+    export AC_USER_SUB="${USER_SUB}"
+    export AC_USER_HANDLE="${USER_HANDLE}"
+    export AC_USER_EMAIL="${USER_EMAIL}"
+    log "Authenticated: @${USER_HANDLE} (${USER_SUB})"
+}
+
 flash_usb() {
     local USB_DEV
     USB_DEV="$(find_usb_dev)" || { err "No USB device found"; exit 1; }
 
     log "Flashing to ${USB_DEV}1..."
+
+    # Build config.json from authenticated user (or preserve existing)
+    local USB_CONFIG
+    if [ -n "${AC_USER_HANDLE:-}" ]; then
+        USB_CONFIG=$(node -e "console.log(JSON.stringify({handle:'${AC_USER_HANDLE}',sub:'${AC_USER_SUB}',email:'${AC_USER_EMAIL}'}))" 2>/dev/null)
+    else
+        USB_CONFIG='{"handle": "unknown"}'
+    fi
+    log "USB config: ${USB_CONFIG}"
 
     # Use docker cp + privileged container (bind mounts fail in devcontainers)
     local CONTAINER
@@ -158,14 +218,9 @@ PARTEOF
         mkdir -p /mnt/usb/EFI/BOOT
         cp /tmp/vmlinuz /mnt/usb/EFI/BOOT/BOOTX64.EFI
 
-        # Restore config.json (or create default)
-        if [ -n \"\${CONFIG_BAK}\" ]; then
-            printf '%s' \"\${CONFIG_BAK}\" > /mnt/usb/config.json
-            echo \"Restored config.json\"
-        else
-            printf '{\"handle\": \"jeffrey\"}' > /mnt/usb/config.json
-            echo \"Created default config.json\"
-        fi
+        # Write config.json with authenticated user data
+        printf '%s' '${USB_CONFIG}' > /mnt/usb/config.json
+        echo \"Wrote config.json\"
 
         sync && sleep 2 && sync
         echo '=== Verify ==='
@@ -246,10 +301,69 @@ load_vault_creds() {
 
 upload_ota() {
     log "Uploading OTA release..."
-    load_vault_creds || exit 1
-    export DO_SPACES_KEY DO_SPACES_SECRET DO_SPACES_BUCKET DO_SPACES_REGION
     cd "${SCRIPT_DIR}"
-    bash scripts/upload-release.sh "${VMLINUZ}"
+
+    # Get AC token from ac-login
+    local TOKEN_FILE="${HOME}/.ac-token"
+    if [ ! -f "${TOKEN_FILE}" ]; then
+        err "Not logged in. Run: ac-login"
+        exit 1
+    fi
+    local AC_TOKEN=$(node -e "const t=JSON.parse(require('fs').readFileSync('${TOKEN_FILE}','utf8')); console.log(t.access_token || '')" 2>/dev/null)
+    if [ -z "${AC_TOKEN}" ]; then
+        err "Token missing or expired. Run: ac-login"
+        exit 1
+    fi
+
+    # Build metadata
+    local GIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    if ! git diff --quiet HEAD 2>/dev/null; then
+        GIT_HASH="${GIT_HASH}-dirty"
+    fi
+    local BUILD_TS=$(date -u '+%Y-%m-%dT%H:%M')
+    local BUILD_NAME=$(bash scripts/build-name.sh 2>/dev/null || echo "upload-$(date +%s)")
+
+    local SIZE_MB=$(( $(stat -c%s "${VMLINUZ}") / 1048576 ))
+    log "Uploading ${BUILD_NAME} (${GIT_HASH}, ${SIZE_MB}MB)..."
+
+    local UPLOAD_URL="${AC_UPLOAD_URL:-https://aesthetic.computer/api/os-release-upload}"
+    local RESPONSE
+    RESPONSE=$(curl -sf -X POST "${UPLOAD_URL}" \
+        -H "Authorization: Bearer ${AC_TOKEN}" \
+        -H "X-Build-Name: ${BUILD_NAME}" \
+        -H "X-Git-Hash: ${GIT_HASH}" \
+        -H "X-Build-Ts: ${BUILD_TS}" \
+        -H "Content-Type: application/octet-stream" \
+        --data-binary "@${VMLINUZ}" \
+        --max-time 300) || {
+        err "Upload failed. Check connection or run: ac-login"
+        exit 1
+    }
+
+    # Parse response
+    local NAME=$(echo "$RESPONSE" | node -e "process.stdin.on('data',d=>{const r=JSON.parse(d);console.log(r.name)})" 2>/dev/null)
+    local SHA=$(echo "$RESPONSE" | node -e "process.stdin.on('data',d=>{const r=JSON.parse(d);console.log(r.sha256)})" 2>/dev/null)
+    local URL=$(echo "$RESPONSE" | node -e "process.stdin.on('data',d=>{const r=JSON.parse(d);console.log(r.url)})" 2>/dev/null)
+
+    log "Published: ${NAME}"
+    log "  SHA: ${SHA}"
+    log "  URL: ${URL}"
+
+    # Record in MongoDB (with OTA URL)
+    if command -v node &>/dev/null; then
+        echo "{
+            \"name\": \"${BUILD_NAME}\",
+            \"buildNum\": -1,
+            \"version\": \"${GIT_HASH}-${BUILD_TS}\",
+            \"sha256\": \"${SHA}\",
+            \"size\": $(stat -c%s "${VMLINUZ}"),
+            \"git_hash\": \"${GIT_HASH}\",
+            \"build_ts\": \"${BUILD_TS}\",
+            \"url\": \"${URL}\",
+            \"target\": \"upload\",
+            \"user\": \"${AC_USER_SUB:-${ADMIN_SUB:-unknown}}\"
+        }" | node scripts/track-build.mjs record 2>&1 || log "MongoDB record failed (non-fatal)"
+    fi
 }
 
 case "${CMD}" in
@@ -257,21 +371,27 @@ case "${CMD}" in
         build_binary
         build_initramfs
         build_kernel
+        record_build "build"
         log "Build complete: ${VMLINUZ}"
         ;;
     flash)
+        require_login
         build_binary
         build_initramfs
         build_kernel
+        record_build "flash"
         flash_usb
         ;;
     upload)
+        require_login
         upload_ota
         ;;
     flash+upload|upload+flash|bfu)
+        require_login
         build_binary
         build_initramfs
         build_kernel
+        record_build "flash+upload"
         flash_usb
         upload_ota
         ;;

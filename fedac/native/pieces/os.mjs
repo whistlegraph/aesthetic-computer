@@ -289,10 +289,30 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
       write("devices:", { x: sX, y: sy, size: 1, font });
       sy += lineGap;
 
-      const maxDevLines = wide ? 12 : 5;
-      let shown = 0;
-      for (let i = 0; i < devs.length && shown < maxDevLines; i++) {
+      // Two-column device layout with auto-scroll
+      const devColW = Math.floor((colW - 4) / 2);
+      const devMaxC = Math.floor(devColW / 6);
+      const devLineH = lineGap - 1;
+      const maxVisibleLines = Math.floor((h - sy - 10) / devLineH);
+      const linesPerCol = Math.max(1, maxVisibleLines);
+      const totalLines = devs.length;
+
+      // Auto-scroll: cycle through devices if they overflow two columns
+      const slotsVisible = linesPerCol * 2;
+      let scrollOffset = 0;
+      if (totalLines > slotsVisible) {
+        const scrollSpeed = 0.015; // lines per frame
+        scrollOffset = Math.floor(frame * scrollSpeed) % totalLines;
+      }
+
+      for (let slot = 0; slot < Math.min(totalLines, slotsVisible); slot++) {
+        const i = (slot + scrollOffset) % totalLines;
         const d = devs[i];
+        const col = slot < linesPerCol ? 0 : 1;
+        const row = slot < linesPerCol ? slot : slot - linesPerCol;
+        const dx = sX + col * (devColW + 4);
+        const dy = sy + row * devLineH;
+
         const icon = d.type === "usb" ? "U" : d.type === "input" ? "I"
                    : d.type === "camera" ? "C" : d.type === "audio" ? "A"
                    : d.type === "disk" ? "D" : d.type === "display" ? "M" : "?";
@@ -300,18 +320,12 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
         if (d.type === "disk" && d.sizeGB > 0) label += ` ${d.sizeGB}GB`;
         if (d.type === "disk" && d.removable) label += " *";
         if (d.type === "display") label += d.connected ? " on" : " off";
-        const maxC = Math.floor(colW / 6);
         ink(d.type === "display" && d.connected ? 80 : 50,
             d.type === "display" && d.connected ? 160 : 65,
             d.type === "display" && d.connected ? 80 : 75);
-        write(label.slice(0, maxC), { x: sX, y: sy, size: 1, font });
-        sy += lineGap - 1;
-        shown++;
+        write(label.slice(0, devMaxC), { x: dx, y: dy, size: 1, font });
       }
-      if (devs.length > maxDevLines) {
-        ink(45, 55, 60);
-        write(`+${devs.length - maxDevLines} more`, { x: sX, y: sy, size: 1, font });
-      }
+      sy += Math.min(linesPerCol, totalLines) * devLineH;
     }
   }
 
