@@ -146,6 +146,8 @@ async function recordBuild() {
       gitHash: info.git_hash,
       buildTs: info.build_ts,
       url: info.url,
+      target: info.target || "unknown",
+      user: info.user || null,
       when: new Date(),
     });
     // Also update a "latest" document for quick lookup

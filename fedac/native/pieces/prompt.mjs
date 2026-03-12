@@ -309,18 +309,6 @@ function paint({ wipe, ink, box, write, screen, paintCount, wifi, system }) {
     }
   }
 
-  // WiFi status indicator (top-right)
-  {
-    const sx = W - 6;
-    if (wifi?.connected) {
-      ink(80, 200, 80);
-      box(sx, 2, 4, 4, true);
-    } else if (wifi) {
-      ink(frame % 60 < 30 ? 200 : 60, 80, 80);
-      box(sx, 2, 4, 4, true);
-    }
-  }
-
   const charW = 6; // 6x10 font
   const charH = 10;
   const lineH = 12;
@@ -335,9 +323,23 @@ function paint({ wipe, ink, box, write, screen, paintCount, wifi, system }) {
   // Input text with syntax highlighting
   drawHighlighted(input, x0, y0, charW, ink, write, font);
 
-  // Pink block cursor at cursor position
+  // Pink block cursor with wifi status glow
   if (cursorVisible) {
     const cx = x0 + cursor * charW;
+
+    // WiFi glow: subtle colored shadow behind cursor
+    if (wifi?.connected) {
+      // Connected: faint green glow left edge
+      const pulse = 20 + Math.floor(10 * Math.sin(frame * 0.05));
+      ink(30, 80 + pulse, 40, 60);
+      box(cx - 1, y0, 1, charH, true);
+    } else if (wifi) {
+      // Disconnected: faint red pulse left edge
+      const pulse = frame % 90 < 45 ? 40 : 15;
+      ink(80 + pulse, 20, 20, 50);
+      box(cx - 1, y0, 1, charH, true);
+    }
+
     ink(220, 80, 140, 180);
     box(cx, y0, charW, charH, true);
     // Draw character under cursor if not at end
