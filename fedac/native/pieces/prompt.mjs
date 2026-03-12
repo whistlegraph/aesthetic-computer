@@ -20,9 +20,10 @@ let tabPrefix = "";   // what was typed before tab
 const COMMANDS = [
   "notepat", "np", "os", "update", "net", "wifi", "version", "ver",
   "reboot", "clear", "cls", "help", "claude", "cl", "ssh", "list",
+  "chat", "hi", "login", "bye", "logout",
 ];
 // Piece names (jumpable .mjs pieces, excluding prompt itself and lisp engine)
-const PIECES = ["notepat", "os", "wifi", "claude"];
+const PIECES = ["notepat", "os", "wifi", "claude", "chat", "list"];
 // $code aliases
 const CODE_NAMES = ["$roz"];
 
@@ -225,8 +226,9 @@ function execute(cmd, system) {
     return;
   }
   if (lower === "list") {
-    message = PIECES.join(" ") + " | " + CODE_NAMES.join(" ") + " | ver ssh reboot clear";
+    message = "~> list";
     messageFrame = 0;
+    system?.jump?.("list");
     return;
   }
   if (lower === "claude" || lower === "cl") {
@@ -242,6 +244,44 @@ function execute(cmd, system) {
       system?.startSSH?.();
       message = "starting ssh...";
     }
+    messageFrame = 0;
+    return;
+  }
+  if (lower === "chat") {
+    message = "~> chat";
+    messageFrame = 0;
+    system?.jump?.("chat");
+    return;
+  }
+  if (lower === "hi" || lower === "login") {
+    const raw = system?.readFile?.("/mnt/config.json");
+    if (raw) {
+      try {
+        const cfg = JSON.parse(raw);
+        if (cfg.handle) {
+          message = "logged in as @" + cfg.handle;
+        } else if (cfg.email) {
+          message = "logged in as " + cfg.email;
+        } else {
+          message = "config exists but no user";
+        }
+      } catch (_) { message = "config parse error"; }
+    } else {
+      message = "not logged in — flash from an authenticated CLI";
+    }
+    messageFrame = 0;
+    return;
+  }
+  if (lower === "bye" || lower === "logout") {
+    const raw = system?.readFile?.("/mnt/config.json");
+    let cfg = {};
+    if (raw) try { cfg = JSON.parse(raw); } catch (_) {}
+    const had = cfg.handle || cfg.email;
+    delete cfg.handle;
+    delete cfg.email;
+    delete cfg.sub;
+    system?.writeFile?.("/mnt/config.json", JSON.stringify(cfg, null, 2));
+    message = had ? "logged out (was @" + had + ")" : "already logged out";
     messageFrame = 0;
     return;
   }
@@ -392,8 +432,36 @@ function paint({ wipe, ink, box, write, screen, paintCount, wifi, system }) {
     }
   }
 
+  // Ghosted tab completion suggestions below input
+  let completionH = 0;
+  {
+    const prefix = input.slice(0, cursor).toLowerCase();
+    if (prefix.length > 0) {
+      const all = [...COMMANDS, ...CODE_NAMES];
+      const matches = all.filter(c => c.startsWith(prefix) && c !== prefix);
+      if (matches.length > 0) {
+        const sugY = y0 + lineH + 1;
+        for (let mi = 0; mi < Math.min(matches.length, 6); mi++) {
+          const m = matches[mi];
+          const sy = sugY + mi * (charH + 1);
+          // Ghosted: dim text, highlight the matching prefix portion
+          ink(80, 60, 100);
+          write(m.slice(0, prefix.length), { x: x0, y: sy, size: 1, font });
+          ink(60, 45, 75);
+          write(m.slice(prefix.length), { x: x0 + prefix.length * charW, y: sy, size: 1, font });
+          // Highlight current tab selection
+          if (tabMatches.length > 0 && tabIndex >= 0 && matches[mi] === tabMatches[tabIndex]) {
+            ink(140, 80, 160, 40);
+            box(x0 - 1, sy - 1, m.length * charW + 2, charH + 2, true);
+          }
+        }
+        completionH = Math.min(matches.length, 6) * (charH + 1) + 4;
+      }
+    }
+  }
+
   // History below input (also syntax highlighted)
-  let hy = y0 + lineH + 4;
+  let hy = y0 + lineH + 4 + completionH;
   for (let i = 0; i < history.length && hy < H - 20; i++) {
     // Dim the history entries
     const entry = history[i];

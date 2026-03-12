@@ -547,13 +547,6 @@ function act({ event: e, sound, wifi, system }) {
       return;
     }
 
-    // "os" button: jump to standalone os piece
-    const ob = globalThis.__osBtn;
-    if (ob && y < ob.h && x >= ob.x && x <= ob.x + ob.w) {
-      system?.jump?.("os");
-      return;
-    }
-
     // OS panel touch handling
     if (activeScreen === "os" && y > 14) {
       if (osState === "available") {
@@ -585,14 +578,6 @@ function act({ event: e, sound, wifi, system }) {
       return; // don't fall through to note grid
     }
 
-    // Mute button (chat TTS toggle) — position set dynamically in paint
-    const mb = globalThis.__muteBtn;
-    if (y < 16 && mb && x >= mb.x - 1 && x <= mb.x + mb.w) {
-      chatMuted = !chatMuted;
-      sound?.synth({ type: "sine", tone: chatMuted ? 330 : 660, duration: 0.05, volume: 0.15, attack: 0.002, decay: 0.04 });
-      return;
-    }
-
     // Volume bar drag
     const vb = globalThis.__volBar;
     if (y < 16 && vb && x >= vb.x && x <= vb.x + vb.w) {
@@ -613,16 +598,6 @@ function act({ event: e, sound, wifi, system }) {
       const cur = Math.round((system?.brightness ?? 50) / 5);
       const diff = target - cur;
       if (diff !== 0) system?.brightnessAdjust?.(diff > 0 ? 1 : -1);
-      return;
-    }
-
-    // WiFi antenna icon: top-right corner (within status bar)
-    if (y < 16 && x > w - 22) {
-      activeScreen = (activeScreen === "wifi") ? "notepat" : "wifi";
-      if (activeScreen === "wifi" && wifi && !wifi.connected) {
-        wifi.scan();  // Only scan on open if not already connected
-      }
-      wifiSelectedIdx = -1; // reset selection
       return;
     }
 
@@ -1031,7 +1006,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   const reserveH12 = reserveHh % 12 || 12;
   const reserveTime = reserveH12 + ":" + (reserveMm < 10 ? "0" : "") + reserveMm +
     ":" + (reserveSs < 10 ? "0" : "") + reserveSs + reserveAmpm;
-  let statusRightReserve = 14 + reserveTime.length * CH + 4 + 20 + 2 + 3 * CH; // wifi + time + vol
+  let statusRightReserve = reserveTime.length * CH + 4 + 20 + 2 + 3 * CH; // time + vol
   if (reserveBatPct >= 0) statusRightReserve += 14 + (String(reserveBatPct).length + 1) * CH + 6;
   if (reserveSysBrt >= 0) statusRightReserve += 4 + 16 + 2 + 3 * CH;
   const statusRightLimit = Math.max(80, w - statusRightReserve - 8);
@@ -1046,30 +1021,19 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   write(".com", { x: dotComX, y: barY, size: 1, font: "matrix" });
   globalThis.__npBtn = { w: 48, h: topBarH };
 
-  // "os" button — clickable, compact hitbox
-  const osX = dotComX + 4 * 4 + 6;
-  const osBtnW = 10;
-  const osHovered = hoverX >= osX - 1 && hoverX <= osX + osBtnW - 1 && hoverY < topBarH;
-  if (osHovered) { ink(255, 255, 255, 28); box(osX - 1, 0, osBtnW + 1, topBarH, true); }
-  ink(dark ? (osHovered ? 120 : 80) : (osHovered ? 200 : 140),
-      dark ? (osHovered ? 210 : 160) : (osHovered ? 150 : 100),
-      dark ? (osHovered ? 120 : 80) : (osHovered ? 200 : 140));
-  write("os", { x: osX, y: barY, size: 1, font: "matrix" });
-  globalThis.__osBtn = { x: osX - 1, w: osBtnW, h: topBarH };
-
-  // WS status + latest chat + update + mute (bounded by right-side reserve)
-  let chatX = osX + 2 * 4 + 6;
+  // Status area after notepat.com — auto-update indicator only (minimal)
+  let statusX = dotComX + 4 * 4 + 6;
   const statusWrite = (text, r, g, b, a = 255) => {
     if (!text) return false;
     const width = text.length * 4;
-    if (chatX + width > statusRightLimit) return false;
+    if (statusX + width > statusRightLimit) return false;
     ink(r, g, b, a);
-    write(text, { x: chatX, y: barY, size: 1, font: "matrix" });
-    chatX += width + 2;
+    write(text, { x: statusX, y: barY, size: 1, font: "matrix" });
+    statusX += width + 2;
     return true;
   };
 
-  // Auto-update status in bar (grouped with OS indicators)
+  // Auto-update status (subtle — download/flash progress only)
   if (autoUpdate.state === "downloading") {
     const pct = Math.round((osProgress || 0) * 100);
     statusWrite("os " + pct + "%", 80, 180, 100, 180);
@@ -1079,35 +1043,18 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     statusWrite(at, ap === 3 ? 100 : 255, ap === 3 ? 200 : 160, ap === 3 ? 255 : 60, 200);
   } else if (autoUpdate.state === "ready") {
     statusWrite("reboot?", 100, 220, 100, 220);
-  } else if (autoUpdate.availableVersion && isRemoteVersionNewer(autoUpdate.availableVersion, osCurrentVersion)) {
-    statusWrite("!", 255, 160, 40);
-  }
-
-  // Chat status (after OS indicators)
-  if (acMsg) {
-    const maxChatChars = Math.floor((statusRightLimit - chatX) / 4);
-    if (maxChatChars > 8) {
-      const preview = (acMsg.from + ": " + acMsg.text).slice(0, maxChatChars);
-      statusWrite(preview, dark ? 140 : 100, dark ? 180 : 130, dark ? 140 : 100);
-    }
-  } else if (wsStatus === "connecting") {
-    statusWrite("chat...", 200, 200, 80);
-  } else if (wsStatus === "error") {
-    statusWrite("chat?", 220, 80, 80);
-  } else if (wsStatus === "connected") {
-    statusWrite("chat", dark ? 60 : 180, dark ? 100 : 190, dark ? 60 : 180);
   }
 
   // Metronome indicator (pendulum) in status bar — shown when enabled
   if (metronomeEnabled) {
     const bpmLabel = metronomeBPM + "b";
     const metNeed = bpmLabel.length * 4 + 3 + 14;
-    if (chatX + metNeed <= statusRightLimit) {
-      const metX = chatX;
+    if (statusX + metNeed <= statusRightLimit) {
+      const metX = statusX;
       ink(dark ? 160 : 100, dark ? 160 : 100, dark ? 170 : 110);
       write(bpmLabel, { x: metX, y: barY, size: 1, font: "matrix" });
-      chatX += bpmLabel.length * 4 + 3;
-      const px = chatX + 5;
+      statusX += bpmLabel.length * 4 + 3;
+      const px = statusX + 5;
       const pvY = barY + 1;
       const armLen = 8;
       const angle = metronomePendulumAngle * 0.45;
@@ -1119,22 +1066,8 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       else ink(dark ? 120 : 150, dark ? 130 : 150, dark ? 140 : 160);
       line(px, pvY, bobX, bobY);
       box(bobX - 1, bobY - 1, 3, 3, true);
-      chatX += 14;
+      statusX += 14;
     }
-  }
-
-  // Mute button: "M" when muted, "m" when live
-  if (chatX + 6 <= statusRightLimit) {
-    const muteX = chatX;
-    const muteHovered = hoverX >= muteX - 1 && hoverX <= muteX + 8 && hoverY < topBarH;
-    if (muteHovered) { ink(255, 255, 255, 30); box(muteX - 1, 0, 10, topBarH, true); }
-    ink(chatMuted ? (dark ? 200 : 80) : (dark ? 80 : 180),
-        chatMuted ? (dark ? 80 : 200) : (dark ? 80 : 180),
-        chatMuted ? (dark ? 80 : 80) : (dark ? 80 : 180));
-    write(chatMuted ? "M" : "m", { x: muteX, y: barY, size: 1, font: "matrix" });
-    globalThis.__muteBtn = { x: muteX, w: 10 };
-  } else {
-    globalThis.__muteBtn = { x: -9999, w: 0 };
   }
 
   // OS update panel (fullscreen, like WiFi panel)
@@ -1594,39 +1527,8 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     }
   }
 
-  // Right section: wifi | battery | time | vol
+  // Right section: battery | time | vol
   let rx = w - 2; // right edge cursor (builds right to left)
-
-  // WiFi antenna icon (clickable)
-  {
-    const ax = w - 12, ay = 3;
-    const wifiConnected = wifi?.connected;
-    const wifiState = wifi?.state ?? 0;
-    const autoPollBlink = autoConnectBlink < 30; // on half the time
-    const wifiHovered = hoverX > w - 22 && hoverY < topBarH;
-    if (wifiHovered) { ink(255, 255, 255, 30); box(w - 22, 0, 22, topBarH, true); }
-    // Draw antenna icon with appropriate color
-    if (wifiConnected) {
-      ink(wifiHovered ? 120 : 80, 200, wifiHovered ? 120 : 80); // solid green when connected
-    } else if (wifiState === 3 /* CONNECTING */) {
-      ink(200, 200, 80); // yellow while connecting
-    } else if (wifiState === 1 || wifiState === 2 /* SCANNING */) {
-      ink(200, 200, 80); // yellow while scanning
-    } else {
-      // idle: blink to show auto-polling in progress
-      const b = autoPollBlink ? (dark ? 140 : 200) : (dark ? 50 : 90);
-      ink(b, b, dark ? b + 10 : b + 30);
-    }
-    // Simple antenna icon: vertical line + arms
-    line(ax + 5, ay + 1, ax + 5, ay + 7); // vertical
-    line(ax + 3, ay + 5, ax + 5, ay + 3); // left arm
-    line(ax + 7, ay + 5, ax + 5, ay + 3); // right arm
-    if (wifiConnected || wifiState >= 1) {
-      box(ax + 1, ay + 2, 2, 1, true); // left bar
-      box(ax + 8, ay + 2, 2, 1, true); // right bar
-    }
-    rx -= 14;
-  }
 
   // Battery icon + percentage
   const bat = system?.battery;

@@ -464,6 +464,12 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
     ink(200, 180, 100);
     write(remoteVersion, { x: pad, y: stateY + 38, size: 1, font });
 
+    // Flash diagnostics
+    const dst = system?.flashDst || "?";
+    const sameDev = system?.flashSameDevice ? "same-dev" : "cross-dev";
+    ink(80, 80, 100);
+    write(`${dst} (${sameDev})`, { x: pad, y: stateY + 50, size: 1, font });
+
     // Reboot prompt — pulsing
     const pulse = Math.floor(200 + 55 * Math.sin(frame * 0.1));
     ink(pulse, pulse, 255);
@@ -573,6 +579,12 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
       if (phase === 1) addTelemetry("dst: EFI/BOOT/BOOTX64.EFI");
     }
     if (system?.flashDone) {
+      // Capture flash log from C layer
+      const flog = system?.flashLog || [];
+      for (const line of flog) addTelemetry("[c] " + line);
+      if (system?.flashDst) addTelemetry("wrote: " + system.flashDst);
+      addTelemetry("same_dev=" + (system?.flashSameDevice ? "yes" : "no"));
+
       if (system?.flashOk) {
         flashedMB = ((system?.flashVerifiedBytes ?? 0) / 1048576).toFixed(1);
         addTelemetry(`verified OK: ${flashedMB}MB`);
@@ -581,6 +593,7 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
         state = "error";
         errorMsg = "flash verify failed";
         addTelemetry("VERIFY FAILED");
+        for (const line of flog) addTelemetry("[c] " + line);
       }
     }
   }
