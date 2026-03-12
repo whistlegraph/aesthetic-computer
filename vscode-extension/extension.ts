@@ -18,7 +18,8 @@ import * as KidLispSyntax from "./kidlisp-syntax";
 
 // Dynamically import path, fs, and child_process to ensure web compatibility.
 let path: any, fs: any, cp: any;
-(async () => {
+let _modulesReady: Promise<void>;
+_modulesReady = (async () => {
   if (typeof window === "undefined") {
     path = await import("path");
     fs = await import("fs");
@@ -885,7 +886,8 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   }
 
   // Run a git command and return stdout (fast, ~5-15ms)
-  function gitExec(args: string, cwd: string): Promise<string> {
+  async function gitExec(args: string, cwd: string): Promise<string> {
+    await _modulesReady;
     return new Promise((resolve, reject) => {
       if (!cp) { reject(new Error('child_process not available')); return; }
       cp.exec(`git ${args}`, { cwd, timeout: 5000, maxBuffer: 1024 * 512 }, (err: any, stdout: string) => {
@@ -915,28 +917,33 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
   // Gather status for all repos
   async function getAllGitStatus(): Promise<GitRepoStatus[]> {
+    await _modulesReady;
     const repos: { name: string; root: string }[] = [];
 
     // Find aesthetic-computer workspace root
     const wsFolder = vscode.workspace.workspaceFolders?.[0];
-    if (wsFolder) {
+    if (wsFolder && fs && path) {
       const acRoot = wsFolder.uri.fsPath;
-      repos.push({ name: 'aesthetic-computer', root: acRoot });
+
+      // Verify main repo is a git repo
+      try {
+        const mainGitDir = path.join(acRoot, '.git');
+        if (fs.existsSync(mainGitDir)) {
+          repos.push({ name: 'aesthetic-computer', root: acRoot });
+        }
+      } catch {}
 
       // Check for vault as a subdirectory
-      const vaultPath = path?.join(acRoot, 'aesthetic-computer-vault');
-      if (vaultPath && fs) {
-        try {
-          const stat = fs.statSync(vaultPath);
-          if (stat.isDirectory()) {
-            // Verify it's a git repo (has .git)
-            const gitDir = path.join(vaultPath, '.git');
-            if (fs.existsSync(gitDir)) {
-              repos.push({ name: 'vault', root: vaultPath });
-            }
+      try {
+        const vaultPath = path.join(acRoot, 'aesthetic-computer-vault');
+        const stat = fs.statSync(vaultPath);
+        if (stat.isDirectory()) {
+          const gitDir = path.join(vaultPath, '.git');
+          if (fs.existsSync(gitDir)) {
+            repos.push({ name: 'vault', root: vaultPath });
           }
-        } catch {}
-      }
+        }
+      } catch {}
     }
 
     return Promise.all(repos.map(r => getGitStatus(r.root, r.name)));
@@ -1024,9 +1031,13 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         return { letter: c, cls: c, title: map[c] || c };
       }
 
+      function esc(s) {
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      }
+
       function renderRepos(repos) {
         if (!repos || repos.length === 0) {
-          content.innerHTML = '<div class="empty">No git repositories found.</div>';
+          content.innerHTML = '<div class="empty">No git repositories detected in workspace.</div>';
           return;
         }
 
@@ -1034,13 +1045,13 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         for (const repo of repos) {
           html += '<div class="repo">';
           html += '<div class="repo-header">';
-          html += '<span>' + repo.name + '</span>';
-          html += '<span class="branch">' + repo.branch + '</span>';
+          html += '<span>' + esc(repo.name) + '</span>';
+          html += '<span class="branch">' + esc(repo.branch) + '</span>';
           html += '<span class="count">' + repo.files.length + ' change' + (repo.files.length !== 1 ? 's' : '') + '</span>';
           html += '</div>';
 
           if (repo.error) {
-            html += '<div class="error">' + repo.error + '</div>';
+            html += '<div class="error">git error: ' + esc(repo.error) + '</div>';
           } else if (repo.files.length === 0) {
             html += '<div class="empty">Working tree clean</div>';
           } else {
@@ -1050,9 +1061,9 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
               const lastSlash = f.file.lastIndexOf('/');
               const dir = lastSlash >= 0 ? f.file.substring(0, lastSlash + 1) : '';
               const name = lastSlash >= 0 ? f.file.substring(lastSlash + 1) : f.file;
-              html += '<li class="file-item" data-root="' + repo.root + '" data-file="' + f.file + '" title="' + s.title + ': ' + f.file + '">';
+              html += '<li class="file-item" data-root="' + esc(repo.root) + '" data-file="' + esc(f.file) + '" title="' + esc(s.title + ': ' + f.file) + '">';
               html += '<span class="status ' + s.cls + '">' + s.letter + '</span>';
-              html += '<span class="file-path"><span class="file-dir">' + dir + '</span><span class="file-name">' + name + '</span></span>';
+              html += '<span class="file-path"><span class="file-dir">' + esc(dir) + '</span><span class="file-name">' + esc(name) + '</span></span>';
               html += '</li>';
             }
             html += '</ul>';
