@@ -1342,11 +1342,11 @@ from = "https://kidlisp.com/api/*"
 to = "https://aesthetic.computer/api/:splat"
 status = 200
 force = true
-# Keeps index page
+# Keeps → subdomain redirect
 [[redirects]]
 from = "https://kidlisp.com/keeps"
-to = "/kidlisp.com/keeps.html"
-status = 200
+to = "https://keeps.kidlisp.com/"
+status = 301
 force = true
 # Learn / reference page
 [[redirects]]
@@ -1375,11 +1375,11 @@ from = "https://www.kidlisp.com/api/*"
 to = "https://aesthetic.computer/api/:splat"
 status = 200
 force = true
-# Keeps index page
+# Keeps → subdomain redirect
 [[redirects]]
 from = "https://www.kidlisp.com/keeps"
-to = "/kidlisp.com/keeps.html"
-status = 200
+to = "https://keeps.kidlisp.com/"
+status = 301
 force = true
 # Learn / reference page
 [[redirects]]
