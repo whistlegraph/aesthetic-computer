@@ -185,6 +185,19 @@ let login, // A login button in the center of the display.
   commitBtn, // Commit hash button (navigates to commits piece)
   kidlispBtn; // KidLisp.com button (shown when in KidLisp mode)
 
+let giveBtn; // GIVE button (top-right slot)
+let soBtn, softBtn; // SO SOFT ad buttons
+let osBtn; // OS button (top-right slot)
+let soSoftBlinkPhase = 0;
+let soSoftConfigIndex = 0;
+let soSoftConfigChangeTime = 0;
+let soSoftLastTinyFont = false;
+let giveBtnParticles = [];
+
+// 🎰 Top-right slot: A/B test — pick one randomly on page load
+const TOP_RIGHT_BTN_CHOICES = ["give", "ad", "os", "products"];
+const topRightBtnChoice = TOP_RIGHT_BTN_CHOICES[Math.floor(Math.random() * TOP_RIGHT_BTN_CHOICES.length)];
+
 let clearBtn; // 🧹 "Blank" button (fixed top-right, appears at 32+ chars)
 let clearBtnConfirming = false; // Two-tap confirmation state
 let clearBtnConfirmTimeout = null; // Reset timer for confirmation
@@ -4817,8 +4830,304 @@ function paint($) {
   // Calculate MOTD offset (do this before book rendering so it's always available)
   let motdXOffset = 0;
 
-  // 📦 Paint SHOP products in top-right corner
-  {
+  // 🎰 Top-right corner slot: cycles between GIVE, SO SOFT ad, OS, and products
+
+  // 💰 GIVE button
+  if (topRightBtnChoice === "give" && showLoginCurtain) {
+    const now = Date.now();
+    const t = performance.now() / 1000;
+    const emotionPhase = Math.floor(now / 3000) % 3;
+    const isGiveUpMode = emotionPhase === 0;
+    const punctuation = Math.floor(now / 150) % 2 === 0 ? "?" : "!";
+
+    let giveBtnText;
+    if (isGiveUpMode) {
+      giveBtnText = "GIVE UP" + punctuation;
+    } else {
+      const currencies = ["U$D", "TEZ", "DKK", "ETH", "BTC"];
+      const currencyIndex = Math.floor(now / 3000) % currencies.length;
+      giveBtnText = "GIVE " + currencies[currencyIndex];
+    }
+
+    const btnPaddingTop = 8;
+    const btnPaddingRight = 10;
+    const btnWidth = 56;
+    const giveBtnY = btnPaddingTop;
+    const giveBtnX = screen.width - btnWidth - btnPaddingRight;
+
+    if (!giveBtn) {
+      giveBtn = new $.ui.TextButton(giveBtnText, { x: giveBtnX, y: giveBtnY });
+    } else {
+      giveBtn.reposition({ x: giveBtnX, y: giveBtnY }, giveBtnText);
+    }
+
+    const hue = (t * 80) % 360;
+    const pulse = Math.sin(t * 5) * 0.5 + 0.5;
+    const hslToRgb = (h, s, l) => {
+      h /= 360; s /= 100; l /= 100;
+      let r, g, b;
+      if (s === 0) { r = g = b = l; } else {
+        const hue2rgb = (p, q, t) => { if (t < 0) t += 1; if (t > 1) t -= 1; if (t < 1/6) return p + (q - p) * 6 * t; if (t < 1/2) return q; if (t < 2/3) return p + (q - p) * (2/3 - t) * 6; return p; };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s; const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3); g = hue2rgb(p, q, h); b = hue2rgb(p, q, h - 1/3);
+      }
+      return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+    };
+
+    const fillColor = hslToRgb(hue, 100, 50 + pulse * 10);
+    const btnBox = giveBtn?.btn?.box;
+    if (btnBox) {
+      const isDown = giveBtn.btn.down;
+      const isHover = giveBtn.btn.over && !isDown;
+      if (isGiveUpMode) {
+        const blinkPhase = Math.floor(performance.now() / 50) % 3;
+        const blinkColors = [[255, 0, 0], [255, 255, 255], [0, 0, 0]];
+        const bgColor = blinkColors[blinkPhase];
+        const textColor = blinkColors[(blinkPhase + 1) % 3];
+        const outlineColor = blinkColors[(blinkPhase + 2) % 3];
+        ink(...bgColor).box(btnBox, "fill");
+        ink(...outlineColor).box(btnBox, "outline");
+        const chars = giveBtnText.split('');
+        const charWidth = 6;
+        const textStartX = btnBox.x + 4;
+        const textY = btnBox.y + 4;
+        chars.forEach((char, i) => {
+          const shakeX = (Math.random() - 0.5) * 3;
+          const shakeY = (Math.random() - 0.5) * 3;
+          ink(...textColor).write(char, { x: Math.round(textStartX + i * charWidth + shakeX), y: Math.round(textY + shakeY) });
+        });
+      } else {
+        let bgColor;
+        if (isDown) bgColor = [255, 220, 0];
+        else if (isHover) { const hoverPulse = Math.sin(t * 10) * 0.5 + 0.5; bgColor = hslToRgb((hue * 2) % 360, 100, 65 + hoverPulse * 15); }
+        else bgColor = fillColor;
+        ink(...bgColor).box(btnBox, "fill");
+        if (isDown) ink(0, 0, 0).box(btnBox, "outline"); else ink(255, 255, 255).box(btnBox, "outline");
+        const chars = giveBtnText.split('');
+        const charWidth = 6;
+        const textStartX = btnBox.x + 4;
+        const textY = btnBox.y + 4;
+        chars.forEach((char, i) => {
+          let letterColor, shakeX = 0, shakeY = 0;
+          if (isDown) { letterColor = [0, 0, 0]; } else {
+            const letterHue = (hue + i * 90) % 360;
+            letterColor = isHover ? hslToRgb(letterHue, 100, 90) : hslToRgb(letterHue, 100, 75);
+            const shakeAmount = isHover ? 2 : 1;
+            const shakeSpeed = isHover ? 30 : 20;
+            shakeX = Math.sin(t * shakeSpeed + i * 2) * shakeAmount;
+            shakeY = Math.cos(t * (shakeSpeed + 5) + i * 3) * shakeAmount;
+          }
+          ink(...letterColor).write(char, { x: Math.round(textStartX + i * charWidth + shakeX), y: Math.round(textY + shakeY) });
+        });
+        // Sparkle particles
+        if (Math.random() < (isHover ? 0.7 : 0.4) && btnBox) {
+          const sparkleColor = hslToRgb((hue + Math.random() * 60 - 30) % 360, 100, 70);
+          const edge = Math.floor(Math.random() * 4);
+          let px, py, vx, vy;
+          if (edge === 0) { px = btnBox.x + Math.random() * btnBox.w; py = btnBox.y; vx = (Math.random() - 0.5) * 2; vy = -Math.random() * 2 - 1; }
+          else if (edge === 1) { px = btnBox.x + btnBox.w; py = btnBox.y + Math.random() * btnBox.h; vx = Math.random() * 2 + 1; vy = (Math.random() - 0.5) * 2; }
+          else if (edge === 2) { px = btnBox.x + Math.random() * btnBox.w; py = btnBox.y + btnBox.h; vx = (Math.random() - 0.5) * 2; vy = Math.random() * 2 + 1; }
+          else { px = btnBox.x; py = btnBox.y + Math.random() * btnBox.h; vx = -Math.random() * 2 - 1; vy = (Math.random() - 0.5) * 2; }
+          giveBtnParticles.push({ x: px, y: py, vx, vy, life: 1.0, color: sparkleColor, size: Math.random() < 0.3 ? 2 : 1 });
+        }
+      }
+    }
+    giveBtnParticles = giveBtnParticles.filter(p => {
+      p.x += p.vx; p.y += p.vy; p.vx *= 0.96; p.vy *= 0.96; p.life -= 0.03;
+      if (p.life > 0) { const alpha = Math.floor(p.life * 255); ink(...p.color, alpha).box(Math.round(p.x), Math.round(p.y), p.size, p.size); }
+      return p.life > 0;
+    });
+    $.needsPaint();
+  } else {
+    giveBtn = null;
+    giveBtnParticles = [];
+  }
+
+  // 🎨 SO SOFT AD - Two buttons with wavy line connector
+  if (topRightBtnChoice === "ad" && showLoginCurtain) {
+    const now = Date.now();
+    const t = performance.now() / 1000;
+    soSoftBlinkPhase = Math.floor(t * 2) % 2;
+    const isWhiteOnBlack = soSoftBlinkPhase === 0;
+    if (now - soSoftConfigChangeTime > 5000) { soSoftConfigIndex = (soSoftConfigIndex + 1) % 4; soSoftConfigChangeTime = now; }
+    const useTinyFont = screen.width < 256 || screen.height < 200;
+    const charWidth = useTinyFont ? 4 : 6;
+    const charHeight = useTinyFont ? 7 : 12;
+    const btnPadX = 2;
+    const btnPadY = 2;
+    const btnPaddingRight = useTinyFont ? 4 : 6;
+    const spacingScale = useTinyFont ? 0.6 : 1;
+    const boxHeight = charHeight + btnPadY * 2;
+    const boxWidth = (text) => text.length * charWidth + btnPadX * 2;
+    const minSpacing = 8;
+    let soConfig, softConfig, lineStyle;
+    if (soSoftConfigIndex === 0) {
+      const btnSpacing = Math.max(minSpacing, Math.floor(10 * spacingScale));
+      const baseY = useTinyFont ? 3 : 6;
+      softConfig = { x: screen.width - boxWidth("SOFT") - btnPaddingRight, y: baseY };
+      soConfig = { x: softConfig.x - boxWidth("SO") - btnSpacing, y: baseY };
+      lineStyle = "wavy";
+    } else if (soSoftConfigIndex === 1) {
+      const baseX = screen.width - boxWidth("SOFT") - btnPaddingRight;
+      const vertSpacing = Math.max(minSpacing, Math.floor(8 * spacingScale));
+      const baseY = useTinyFont ? 3 : 6;
+      soConfig = { x: baseX, y: baseY };
+      softConfig = { x: baseX, y: soConfig.y + boxHeight + vertSpacing };
+      lineStyle = "elbow";
+    } else if (soSoftConfigIndex === 2) {
+      const diagSpacing = Math.max(minSpacing * 3, Math.floor(30 * spacingScale));
+      const vertOffset = Math.max(minSpacing * 2, Math.floor(16 * spacingScale));
+      const baseY = useTinyFont ? 3 : 6;
+      soConfig = { x: screen.width - boxWidth("SO") - btnPaddingRight - diagSpacing, y: baseY };
+      softConfig = { x: screen.width - boxWidth("SOFT") - btnPaddingRight, y: baseY + vertOffset };
+      lineStyle = "bezier";
+    } else {
+      const btnSpacing = Math.max(minSpacing * 2, Math.floor(20 * spacingScale));
+      const baseY = useTinyFont ? 6 : 12;
+      softConfig = { x: screen.width - boxWidth("SOFT") - btnPaddingRight, y: baseY };
+      soConfig = { x: softConfig.x - boxWidth("SO") - btnSpacing, y: baseY };
+      lineStyle = "wavy";
+    }
+    const oscillationAmount = useTinyFont ? 1.5 : 2;
+    soConfig.y += Math.sin(t * 1.2) * oscillationAmount;
+    softConfig.y += Math.sin(t * 1.4 + 1) * oscillationAmount;
+    soConfig.x += Math.cos(t * 0.9) * oscillationAmount;
+    softConfig.x += Math.cos(t * 1.1 + 0.5) * oscillationAmount;
+    const screenMargin = 2;
+    soConfig.x = Math.max(screenMargin, Math.min(soConfig.x, screen.width - boxWidth("SO") - screenMargin));
+    soConfig.y = Math.max(screenMargin, Math.min(soConfig.y, screen.height - boxHeight - screenMargin));
+    softConfig.x = Math.max(screenMargin, Math.min(softConfig.x, screen.width - boxWidth("SOFT") - screenMargin));
+    softConfig.y = Math.max(screenMargin, Math.min(softConfig.y, screen.height - boxHeight - screenMargin));
+    if (useTinyFont !== soSoftLastTinyFont) { soBtn = null; softBtn = null; soSoftLastTinyFont = useTinyFont; }
+    if (!soBtn) { soBtn = useTinyFont ? new $.ui.TextButtonSmall("SO", soConfig) : new $.ui.TextButton("SO", soConfig, undefined, btnPadX); }
+    else { soBtn.reposition(soConfig, "SO"); }
+    if (!softBtn) { softBtn = useTinyFont ? new $.ui.TextButtonSmall("SOFT", softConfig) : new $.ui.TextButton("SOFT", softConfig, undefined, btnPadX); }
+    else { softBtn.reposition(softConfig, "SOFT"); }
+    const soBox = soBtn?.btn?.box;
+    const softBox = softBtn?.btn?.box;
+    if (soBox && softBox) {
+      const bgColor = isWhiteOnBlack ? [255, 255, 255] : [0, 0, 0];
+      const textColor = isWhiteOnBlack ? [0, 0, 0] : [255, 255, 255];
+      const lineColor = isWhiteOnBlack ? [255, 255, 255] : [0, 0, 0];
+      const lineStartX = soBox.x + soBox.w;
+      const lineStartY = soBox.y + soBox.h / 2;
+      const lineEndX = softBox.x;
+      const lineEndY = softBox.y + softBox.h / 2;
+      if (lineStyle === "wavy") {
+        const waveAmplitude = 2;
+        const numSegments = 20;
+        const lineY = (lineStartY + lineEndY) / 2;
+        for (let i = 0; i < numSegments; i++) {
+          const progress = i / numSegments;
+          const x1 = lineStartX + progress * (lineEndX - lineStartX);
+          const x2 = lineStartX + ((i + 1) / numSegments) * (lineEndX - lineStartX);
+          const y1 = lineY + Math.sin(progress * Math.PI * 3 + t * 2) * waveAmplitude;
+          const y2 = lineY + Math.sin(((i + 1) / numSegments) * Math.PI * 3 + t * 2) * waveAmplitude;
+          ink(...lineColor).line(x1, y1, x2, y2);
+        }
+      } else if (lineStyle === "bezier") {
+        const numSegments = 20;
+        const bezierOffset = Math.sin(t * 1.5) * 5;
+        const cp1X = lineStartX + (lineEndX - lineStartX) * 0.3; const cp1Y = lineStartY + bezierOffset;
+        const cp2X = lineStartX + (lineEndX - lineStartX) * 0.7; const cp2Y = lineEndY - bezierOffset;
+        for (let i = 0; i < numSegments; i++) {
+          const t1 = i / numSegments; const t2 = (i + 1) / numSegments;
+          const x1 = Math.pow(1-t1, 3) * lineStartX + 3 * Math.pow(1-t1, 2) * t1 * cp1X + 3 * (1-t1) * Math.pow(t1, 2) * cp2X + Math.pow(t1, 3) * lineEndX;
+          const y1 = Math.pow(1-t1, 3) * lineStartY + 3 * Math.pow(1-t1, 2) * t1 * cp1Y + 3 * (1-t1) * Math.pow(t1, 2) * cp2Y + Math.pow(t1, 3) * lineEndY;
+          const x2 = Math.pow(1-t2, 3) * lineStartX + 3 * Math.pow(1-t2, 2) * t2 * cp1X + 3 * (1-t2) * Math.pow(t2, 2) * cp2X + Math.pow(t2, 3) * lineEndX;
+          const y2 = Math.pow(1-t2, 3) * lineStartY + 3 * Math.pow(1-t2, 2) * t2 * cp1Y + 3 * (1-t2) * Math.pow(t2, 2) * cp2Y + Math.pow(t2, 3) * lineEndY;
+          ink(...lineColor).line(x1, y1, x2, y2);
+        }
+      } else if (lineStyle === "elbow") {
+        const midY = (lineStartY + lineEndY) / 2;
+        ink(...lineColor).line(lineStartX, lineStartY, lineStartX, midY);
+        ink(...lineColor).line(lineStartX, midY, lineEndX, midY);
+        ink(...lineColor).line(lineEndX, midY, lineEndX, lineEndY);
+      }
+      ink(...bgColor).box(soBox, "fill");
+      ink(...textColor).box(soBox, "outline");
+      if (useTinyFont) { ink(...textColor).write("SO", { x: soBox.x + btnPadX, y: soBox.y + btnPadY, size: 8 }); }
+      else { ink(...textColor).write("SO", { x: soBox.x + btnPadX, y: soBox.y + btnPadY }); }
+      ink(...bgColor).box(softBox, "fill");
+      ink(...textColor).box(softBox, "outline");
+      if (useTinyFont) { ink(...textColor).write("SOFT", { x: softBox.x + btnPadX, y: softBox.y + btnPadY, size: 8 }); }
+      else { ink(...textColor).write("SOFT", { x: softBox.x + btnPadX, y: softBox.y + btnPadY }); }
+    }
+    $.needsPaint();
+  } else {
+    soBtn = null; softBtn = null;
+  }
+
+  // 💻 OS button — blue, blinky, computery
+  if (topRightBtnChoice === "os" && showLoginCurtain) {
+    const t = performance.now() / 1000;
+    const btnPaddingTop = 8;
+    const btnPaddingRight = 10;
+
+    const osBtnText = "x86 OS";
+    const osBtnY = btnPaddingTop;
+    const osBtnX = screen.width - 52 - btnPaddingRight;
+
+    if (!osBtn) {
+      osBtn = new $.ui.TextButton(osBtnText, { x: osBtnX, y: osBtnY });
+    } else {
+      osBtn.reposition({ x: osBtnX, y: osBtnY }, osBtnText);
+    }
+
+    const btnBox = osBtn?.btn?.box;
+    if (btnBox) {
+      const isDown = osBtn.btn.down;
+      const isHover = osBtn.btn.over && !isDown;
+
+      // Computery blue palette with glitch
+      const blinkRate = Math.floor(t * 6) % 3;
+      const scanlineY = Math.floor(t * 40) % (btnBox.h + 4);
+      const glitchX = (Math.floor(t * 15) % 7 === 0) ? Math.floor((Math.random() - 0.5) * 3) : 0;
+
+      // Base colors: deep blue → cyan → electric blue cycling
+      const phase = (t * 1.5) % 3;
+      let bgR, bgG, bgB;
+      if (phase < 1) { bgR = 0; bgG = Math.floor(40 + phase * 80); bgB = Math.floor(120 + phase * 135); }
+      else if (phase < 2) { bgR = 0; bgG = Math.floor(120 - (phase - 1) * 60); bgB = 255; }
+      else { bgR = Math.floor((phase - 2) * 30); bgG = Math.floor(60 + (phase - 2) * 40); bgB = Math.floor(255 - (phase - 2) * 60); }
+
+      if (isDown) { bgR = 200; bgG = 230; bgB = 255; }
+      else if (isHover) { bgR = Math.min(255, bgR + 40); bgG = Math.min(255, bgG + 60); bgB = 255; }
+
+      // Background with scanline effect
+      ink(bgR, bgG, bgB).box(btnBox, "fill");
+
+      // Scanline overlay (dark horizontal line sweeping down)
+      if (scanlineY >= 0 && scanlineY < btnBox.h) {
+        ink(0, 0, 0, 80).box(btnBox.x, btnBox.y + scanlineY, btnBox.w, 1);
+      }
+
+      // Blinky outline: alternates between bright cyan and dim blue
+      if (blinkRate === 0) ink(0, 255, 255).box(btnBox, "outline");
+      else if (blinkRate === 1) ink(80, 140, 255).box(btnBox, "outline");
+      else ink(0, 200, 255, 180).box(btnBox, "outline");
+
+      // Text with glitch offset
+      const textColor = isDown ? [0, 20, 60] : [200, 240, 255];
+      ink(...textColor).write(osBtnText, { x: btnBox.x + 4 + glitchX, y: btnBox.y + 4 });
+
+      // CRT pixel noise around the button (computery effect)
+      for (let i = 0; i < 6; i++) {
+        const nx = btnBox.x + Math.floor(Math.random() * (btnBox.w + 8)) - 4;
+        const ny = btnBox.y + Math.floor(Math.random() * (btnBox.h + 8)) - 4;
+        if (nx < btnBox.x || nx >= btnBox.x + btnBox.w || ny < btnBox.y || ny >= btnBox.y + btnBox.h) {
+          const brightness = Math.floor(Math.random() * 150 + 100);
+          ink(0, brightness, 255, Math.floor(Math.random() * 180 + 40)).box(nx, ny, 1, 1);
+        }
+      }
+    }
+    $.needsPaint();
+  } else {
+    osBtn = null;
+  }
+
+  // 📦 Paint SHOP products in top-right corner (active when slot shows "products")
+  if (topRightBtnChoice === "products") {
     const promptHasContent = $.system.prompt.input.text && $.system.prompt.input.text.length > 0;
     const shouldShow = showLoginCurtain && !$.system.prompt.input.canType && !promptHasContent;
     products.paint({ ...$, login, signup }, $.screen, shouldShow);
@@ -7398,13 +7707,16 @@ function sim($) {
     const promptHasContent = $.system.prompt.input.text && $.system.prompt.input.text.length > 0;
     const shouldShow = showLoginCurtainSim && !$.system.prompt.input.canType && !promptHasContent;
     if (shouldShow) {
-      const product = products.getActiveProduct();
-      if (product && product.imageScaled) {
-        products.sim($);
-        $.needsPaint();
+      if (topRightBtnChoice === "products") {
+        const product = products.getActiveProduct();
+        if (product && product.imageScaled) {
+          products.sim($);
+          $.needsPaint();
+        }
       }
     }
   }
+
 
   if ($.store["handle:received"]) {
     const hand = $.handle();
@@ -7602,6 +7914,41 @@ function act({
   }
 
   // End of button processing
+
+  // 🎨 SO SOFT studio ad buttons
+  const soSoftUrl = "https://sosoft.arts.ucla.edu";
+  if (soBtn && !soBtn.btn.disabled) {
+    soBtn.btn.act(e, {
+      down: () => downSound(),
+      push: () => { pushSound(); if (net.iframe) { send({ type: "post-to-parent", content: { type: "openExternal", url: soSoftUrl } }); } else { jump(soSoftUrl); } },
+      cancel: () => cancelSound(),
+    });
+  }
+  if (softBtn && !softBtn.btn.disabled) {
+    softBtn.btn.act(e, {
+      down: () => downSound(),
+      push: () => { pushSound(); if (net.iframe) { send({ type: "post-to-parent", content: { type: "openExternal", url: soSoftUrl } }); } else { jump(soSoftUrl); } },
+      cancel: () => cancelSound(),
+    });
+  }
+
+  // 💰 GIVE button
+  if (giveBtn && !giveBtn.btn.disabled) {
+    giveBtn.btn.act(e, {
+      down: () => downSound(),
+      push: () => { pushSound(); const giveUrl = "https://give.aesthetic.computer"; if (net.iframe) { send({ type: "post-to-parent", content: { type: "openExternal", url: giveUrl } }); } else { jump(giveUrl); } },
+      cancel: () => cancelSound(),
+    });
+  }
+
+  // 💻 OS button
+  if (osBtn && !osBtn.btn.disabled) {
+    osBtn.btn.act(e, {
+      down: () => downSound(),
+      push: () => { pushSound(); jump("os"); },
+      cancel: () => cancelSound(),
+    });
+  }
 
   // 📦 Product button interaction
   {
@@ -7920,6 +8267,10 @@ function act({
       (commitBtn?.btn.disabled === false && commitBtn?.btn.box.contains(e)) ||
       (kidlispBtn?.btn.disabled === false && kidlispBtn?.btn.box.contains(e)) ||
       (clearBtn?.disabled === false && clearBtn?.box.contains(e)) ||
+      (giveBtn?.btn.disabled === false && giveBtn?.btn.box.contains(e)) ||
+      (soBtn?.btn?.disabled === false && soBtn?.btn?.box.contains(e)) ||
+      (softBtn?.btn?.disabled === false && softBtn?.btn?.box.contains(e)) ||
+      (osBtn?.btn?.disabled === false && osBtn?.btn?.box.contains(e)) ||
       (products.getShopBoxButton()?.disabled === false && products.getShopBoxButton()?.box.contains(e)) ||
       (unitickerButton?.disabled === false && unitickerButton?.box.contains(e)) ||
       (chatTickerButton?.disabled === false && chatTickerButton?.box.contains(e)) ||
