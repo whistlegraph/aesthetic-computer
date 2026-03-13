@@ -824,23 +824,31 @@
 
     .keeps-about-lede {
       font-family: var(--font-fun);
-      font-size: 18px;
+      font-size: 22px;
       color: var(--text-primary);
       margin: 0 0 24px 0;
-      line-height: 1.9;
+      line-height: 1.6;
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      text-align: center;
+      gap: 14px;
+      text-align: left;
       text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+      counter-reset: rule;
     }
 
-    .keeps-about-lede span {
+    .keeps-about-lede > span {
       display: block;
+      counter-increment: rule;
     }
 
-    .keeps-about-lede span:first-child {
-      font-size: 22px;
+    .keeps-about-lede > span::before {
+      content: counter(rule) ". ";
+      font-weight: 700;
+      opacity: 0.5;
+    }
+
+    .keeps-about-lede > span:first-child {
+      font-size: 26px;
       font-weight: 700;
       letter-spacing: 0.02em;
     }
