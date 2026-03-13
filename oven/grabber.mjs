@@ -1491,56 +1491,62 @@ async function interceptSelfRequests(page) {
   const stats = { fontLocal: 0, fontMiss: 0, bdfLocal: 0, bdfMiss: 0, blocked: 0, dropped: 0 };
   page._interceptStats = stats;
 
-  page.on('request', request => {
+  page.on('request', async (request) => {
     const url = request.url();
-
-    // Block analytics and self-referential requests
-    if (BLOCKED_URL_PATTERNS.some(pattern => url.includes(pattern))) {
-      stats.blocked++;
-      request.abort('blockedbyclient');
-      return;
-    }
-
-    // Drop non-essential API calls with a 200 OK (no-op)
-    if (DROPPABLE_API_PATTERNS.some(pattern => url.includes(pattern))) {
-      stats.dropped++;
-      request.respond({ status: 200, contentType: 'application/json', body: '{}' });
-      return;
-    }
-
-    // Serve font_1 hand-drawn glyph JSONs from local filesystem
-    if (url.includes('/disks/drawings/font_1/') && url.endsWith('.json')) {
-      const localData = tryLocalFontGlyph(url);
-      if (localData) {
-        stats.fontLocal++;
-        request.respond({
-          status: 200,
-          contentType: 'application/json',
-          body: localData.toString('utf-8'),
-        });
+    try {
+      // Block analytics and self-referential requests
+      if (BLOCKED_URL_PATTERNS.some(pattern => url.includes(pattern))) {
+        stats.blocked++;
+        await request.abort('blockedbyclient');
         return;
       }
-      stats.fontMiss++;
-      console.log(`   [LOCAL MISS] font glyph: ${url.slice(url.indexOf('font_1'))}`);
-    }
 
-    // Serve BDF glyph batch responses from local cache
-    if (url.includes('/api/bdf-glyph')) {
-      const localResponse = tryLocalBDFGlyphs(url);
-      if (localResponse) {
-        stats.bdfLocal++;
-        request.respond({
-          status: 200,
-          contentType: 'application/json',
-          body: localResponse,
-        });
+      // Drop non-essential API calls with a 200 OK (no-op)
+      if (DROPPABLE_API_PATTERNS.some(pattern => url.includes(pattern))) {
+        stats.dropped++;
+        await request.respond({ status: 200, contentType: 'application/json', body: '{}' });
         return;
       }
-      stats.bdfMiss++;
-      console.log(`   [LOCAL MISS] bdf-glyph: ${url.slice(url.indexOf('?'))}`);
-    }
 
-    request.continue();
+      // Serve font_1 hand-drawn glyph JSONs from local filesystem
+      if (url.includes('/disks/drawings/font_1/') && url.endsWith('.json')) {
+        const localData = tryLocalFontGlyph(url);
+        if (localData) {
+          stats.fontLocal++;
+          await request.respond({
+            status: 200,
+            contentType: 'application/json',
+            body: localData.toString('utf-8'),
+          });
+          return;
+        }
+        stats.fontMiss++;
+        console.log(`   [LOCAL MISS] font glyph: ${url.slice(url.indexOf('font_1'))}`);
+      }
+
+      // Serve BDF glyph batch responses from local cache
+      if (url.includes('/api/bdf-glyph')) {
+        const localResponse = tryLocalBDFGlyphs(url);
+        if (localResponse) {
+          stats.bdfLocal++;
+          await request.respond({
+            status: 200,
+            contentType: 'application/json',
+            body: localResponse,
+          });
+          return;
+        }
+        stats.bdfMiss++;
+        console.log(`   [LOCAL MISS] bdf-glyph: ${url.slice(url.indexOf('?'))}`);
+      }
+
+      await request.continue();
+    } catch (err) {
+      // Request may already be handled (page navigated, etc.)
+      if (!err.message?.includes('Request is already handled')) {
+        console.log(`   [INTERCEPT ERR] ${err.message} for ${url.slice(0, 80)}`);
+      }
+    }
   });
 }
 
@@ -1770,7 +1776,7 @@ async function captureFrames(piece, options = {}) {
 
     // Wait for fonts to finish loading (tf.load() is async and not awaited)
     // Without this, write() renders ???? because glyphs aren't populated yet
-    const maxFontWait = 5000;
+    const maxFontWait = 10000;
     const fontWaitStart = Date.now();
     let fontsReady = false;
     try {
@@ -1780,15 +1786,21 @@ async function captureFrames(piece, options = {}) {
     if (!fontsReady) {
       console.log('   ⏳ Waiting for fonts to load (window.acFontsReady)...');
       while (!fontsReady && (Date.now() - fontWaitStart) < maxFontWait) {
-        await new Promise(r => setTimeout(r, 100));
+        await new Promise(r => setTimeout(r, 200));
         try {
-          fontsReady = await page.evaluate(() => window.acFontsReady === true);
+          const state = await page.evaluate(() => window.acFontsReady);
+          if (state === true) { fontsReady = true; break; }
+          if (state === 'error') {
+            console.log('   ❌ tf.load() threw an error — fonts failed to load');
+            break;
+          }
         } catch { break; }
       }
       if (fontsReady) {
         console.log(`   ✅ Fonts ready after ${Date.now() - fontWaitStart}ms`);
       } else {
-        console.log(`   ⚠️ Fonts not ready after ${maxFontWait}ms (may render with fallback glyphs)`);
+        const finalState = await page.evaluate(() => window.acFontsReady).catch(() => 'eval-error');
+        console.log(`   ⚠️ Fonts not ready after ${Date.now() - fontWaitStart}ms (acFontsReady=${finalState})`);
       }
     } else {
       console.log('   ✅ Fonts already loaded');
@@ -1807,20 +1819,19 @@ async function captureFrames(piece, options = {}) {
           acFontsReady: window.acFontsReady,
           acPieceReady: window.acPieceReady,
         };
-        // Try to access the global typeface
-        // disk.mjs stores tf in $commonApi.typeface, which may be on window.__acApi
-        // but the simplest way is to check the first canvas for rendered content
         try {
-          // Check if typeface has loaded glyphs by checking known chars
           if (window.__acTypeface) {
             const tf = window.__acTypeface;
             diag.tfName = tf.name;
             diag.glyphKeys = Object.keys(tf.glyphs || {}).length;
             diag.hasF = !!tf.glyphs?.['f'];
             diag.hasO = !!tf.glyphs?.['o'];
-            diag.hasQuestion = !!tf.glyphs?.['?'];
           } else {
             diag.noTfRef = true;
+          }
+          // Check glyph cache stats
+          if (window.acGlyphCache?.stats) {
+            diag.cache = window.acGlyphCache.stats();
           }
         } catch (e) {
           diag.tfError = e.message;
