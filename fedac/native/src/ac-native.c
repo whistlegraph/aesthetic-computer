@@ -1379,6 +1379,13 @@ int main(int argc, char *argv[]) {
     }
 
     // Override piece_path from config.json boot piece (pieces bundled at /pieces/)
+    // Resolve aliases: "claude" and "cc" → terminal (with param "claude")
+    if (strcmp(rt->piece, "claude") == 0 || strcmp(rt->piece, "cc") == 0) {
+        strcpy(rt->piece, "terminal");
+        // Set initial jump params so terminal.mjs gets "claude" as param
+        strcpy(rt->jump_params[0], "claude");
+        rt->jump_param_count = 1;
+    }
     char piece_path_buf[256];
     if (rt->piece[0]) {
         snprintf(piece_path_buf, sizeof(piece_path_buf), "/pieces/%s.mjs", rt->piece);
@@ -1719,6 +1726,16 @@ int main(int argc, char *argv[]) {
                 // Reset counters
                 rt->paint_count = 0;
                 rt->sim_count = 0;
+
+                // Piece aliases: "claude" and "cc" → terminal:claude
+                if (strcmp(rt->jump_target, "claude") == 0 ||
+                    strcmp(rt->jump_target, "cc") == 0) {
+                    strcpy(rt->jump_target, "terminal");
+                    if (rt->jump_param_count == 0) {
+                        strcpy(rt->jump_params[0], "claude");
+                        rt->jump_param_count = 1;
+                    }
+                }
 
                 // Construct piece path: /pieces/<name>.mjs
                 char jump_path[256];

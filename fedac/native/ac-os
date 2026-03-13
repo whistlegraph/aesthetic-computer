@@ -525,7 +525,7 @@ upload_ota() {
             if [ -n "${IMG_PUT_URL}" ] && [ -f "${TEMPLATE_IMG}" ]; then
                 log "Uploading template $(stat -c%s "${TEMPLATE_IMG}" | numfmt --to=iec) to S3..."
                 curl -sf -X PUT "${IMG_PUT_URL}" \
-                    -H "Content-Type: application/octet-stream" \
+                    -H "Content-Type: application/gzip" \
                     -H "x-amz-acl: public-read" \
                     -T "${TEMPLATE_IMG}" \
                     --max-time 300 && {
