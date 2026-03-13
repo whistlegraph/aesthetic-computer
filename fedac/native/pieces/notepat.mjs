@@ -95,6 +95,9 @@ let bgTarget = dark ? [20, 20, 25] : [240, 238, 232];
 // Cached sound API ref (for leave)
 let soundAPI = null;
 
+// Tablet mode tracking
+let lastTabletMode = null;
+
 
 // OS update panel state machine
 // states: "idle" | "checking" | "up-to-date" | "available" | "downloading" | "flashing" | "rebooting"
@@ -977,6 +980,20 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   }
 
   wipe(Math.round(bgColor[0]), Math.round(bgColor[1]), Math.round(bgColor[2]));
+
+  // Tablet mode change detection — beep + log
+  if (system.tabletMode !== lastTabletMode && lastTabletMode !== null) {
+    if (system.tabletMode) {
+      sound?.synth({ type: "sine", tone: 880, duration: 0.12, volume: 0.2, attack: 0.005, decay: 0.1 });
+      sound?.synth({ type: "sine", tone: 1320, duration: 0.12, volume: 0.15, attack: 0.005, decay: 0.1 });
+    } else {
+      sound?.synth({ type: "sine", tone: 1320, duration: 0.12, volume: 0.2, attack: 0.005, decay: 0.1 });
+      sound?.synth({ type: "sine", tone: 880, duration: 0.12, volume: 0.15, attack: 0.005, decay: 0.1 });
+    }
+    system.writeFile?.("/mnt/tablet-mode.log",
+      `${new Date().toISOString()} tablet=${system.tabletMode ? "on" : "off"}\n`);
+  }
+  lastTabletMode = system.tabletMode;
 
   // Tablet mode: solid color only, no UI
   if (system.tabletMode) return;
