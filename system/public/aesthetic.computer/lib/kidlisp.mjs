@@ -4290,15 +4290,6 @@ class KidLisp {
               }
             }
             this.postCompositeCommands = [];
-
-            // 🔄 CRITICAL: Copy post-composite result back to layer0 for accumulation.
-            // Post-composite commands (zoom/scroll/spin) operate on the display buffer,
-            // which is cleared each frame. For accumulative effects (trails, feedback),
-            // the transformed result must persist via layer0.
-            if (this.layer0 && screen && screen.pixels &&
-                this.layer0.width === screen.width && this.layer0.height === screen.height) {
-              this.layer0.pixels.set(screen.pixels);
-            }
           }
 
           // 🎯 Render performance HUD overlay (always rendered last)
