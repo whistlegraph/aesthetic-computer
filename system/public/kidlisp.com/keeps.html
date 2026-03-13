@@ -839,6 +839,9 @@
     .keeps-about-lede > span {
       display: block;
       counter-increment: rule;
+      font-size: 1em;
+      font-weight: 600;
+      letter-spacing: 0.01em;
     }
 
     .keeps-about-lede > span::before {
@@ -847,14 +850,14 @@
       opacity: 0.5;
     }
 
-    .keeps-about-lede > span:first-child {
-      font-size: 26px;
-      font-weight: 700;
-      letter-spacing: 0.02em;
-    }
+    /* Progressive agreement color ramp across preamble lines */
+    .keeps-about-lede span:nth-child(1) { color: #ff6b6b; }
+    .keeps-about-lede span:nth-child(2) { color: #f59e0b; }
+    .keeps-about-lede span:nth-child(3) { color: #4ade80; }
+    .keeps-about-lede span:nth-child(4) { color: #60a5fa; }
 
     .keeps-about-lede .keeps-price {
-      color: #00ff41;
+      color: inherit;
       font-weight: 700;
     }
 
