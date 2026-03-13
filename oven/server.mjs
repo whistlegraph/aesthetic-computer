@@ -3037,6 +3037,9 @@ app.post('/os-release-upload', async (req, res) => {
 
     releases.releases = releases.releases || [];
     const userHandle = user.nickname || user.name || userName;
+    // Mark all existing builds as deprecated
+    for (const r of releases.releases) r.deprecated = true;
+
     releases.releases.unshift({
       version, name: buildName, sha256, size: vmlinuz.length,
       git_hash: gitHash, build_ts: buildTs, commit_msg: commitMsg,

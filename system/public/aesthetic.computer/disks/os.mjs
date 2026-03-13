@@ -26,7 +26,7 @@ let ovenWs = null;
 let wsReconnectTimer = null;
 let npRef = null; // stored needsPaint for live updates
 
-// Color palettes for dark/light mode
+// Color palettes for dark/light mode (deprecated builds use red tones)
 const scheme = {
   dark: {
     bg: [10, 12, 18],
@@ -59,6 +59,12 @@ const scheme = {
     bootBtnBorder: [50, 60, 90],
     bootBtnHoverBg: [45, 50, 75],
     bootBtnHoverBorder: [65, 75, 110],
+    depName: [120, 50, 50],
+    depHash: [100, 45, 40],
+    depMsg: [80, 40, 45],
+    depHandle: [90, 50, 70],
+    depBar: [60, 30, 30],
+    depStrike: [120, 40, 40],
   },
   light: {
     bg: [240, 240, 245],
@@ -91,6 +97,12 @@ const scheme = {
     bootBtnBorder: [160, 170, 200],
     bootBtnHoverBg: [200, 210, 230],
     bootBtnHoverBorder: [130, 145, 180],
+    depName: [180, 100, 100],
+    depHash: [170, 110, 100],
+    depMsg: [170, 120, 120],
+    depHandle: [160, 110, 140],
+    depBar: [200, 160, 160],
+    depStrike: [180, 90, 90],
   },
 };
 
@@ -103,6 +115,13 @@ function fetchReleases(ui, needsPaint) {
       releases = data;
       loading = false;
       if (handle && token && ui) makeButtons(ui, data);
+      // Log recent builds to console
+      const builds = data?.releases || [];
+      console.log(`[os] ${builds.length} builds loaded:`);
+      builds.slice(0, 5).forEach((b, i) => {
+        const dep = b.deprecated ? " [deprecated]" : " [latest]";
+        console.log(`  ${i}: ${b.name} ${(b.git_hash||"").slice(0,7)} @${b.handle || "?"}${dep} — ${b.commit_msg || ""}`);
+      });
       needsPaint();
     })
     .catch((err) => {
@@ -326,7 +345,8 @@ function paint($) {
     if (y > h + entryH) break;
 
     const b = builds[i];
-    const isCurrent = i === 0;
+    const isCurrent = i === 0 && !b.deprecated;
+    const isDep = !!b.deprecated;
     const name = b.name || "?";
     const hash = (b.git_hash || "?").slice(0, 7);
     const ago = timeAgo(b.build_ts);
@@ -337,34 +357,47 @@ function paint($) {
       const marker = isCurrent ? "> " : "  ";
       let x = pad;
 
-      ink(...(isCurrent ? C.current : C.nameOld));
+      ink(...(isCurrent ? C.current : isDep ? C.depName : C.nameOld));
       $.write(marker + name, { x, y });
-      x += (marker.length + name.length + 1) * charW;
+      const nameEndX = x + (marker.length + name.length) * charW;
+      x = nameEndX + charW;
 
-      ink(...(isCurrent ? C.hash : C.hashOld));
+      ink(...(isCurrent ? C.hash : isDep ? C.depHash : C.hashOld));
       $.write(hash, { x, y });
       x += (hash.length + 1) * charW;
 
       if (ago) {
-        ink(...C.date);
+        ink(...(isDep ? C.depHash : C.date));
         $.write(ago, { x, y });
         x += (ago.length + 1) * charW;
       }
 
       if (who) {
-        ink(...(isCurrent ? C.handle : C.handleOld));
+        ink(...(isCurrent ? C.handle : isDep ? C.depHandle : C.handleOld));
         $.write("@" + who, { x, y });
+      }
+
+      // Strikethrough line for deprecated builds
+      if (isDep) {
+        ink(...C.depStrike, 140);
+        const lineEndX = who ? x + (who.length + 1) * charW : x;
+        drawLine(pad + charW * 2, y + 4, lineEndX, y + 4);
       }
 
       if (msg) {
         const maxChars = Math.floor((w - pad * 2 - charW) / charW);
         const display = msg.length > maxChars ? msg.slice(0, maxChars - 1) + "~" : msg;
-        ink(...(isCurrent ? C.msg : C.msgOld));
+        ink(...(isCurrent ? C.msg : isDep ? C.depMsg : C.msgOld));
         $.write("  " + display, { x: pad, y: y + rowH + 1 });
+        if (isDep) {
+          ink(...C.depStrike, 100);
+          const msgW = Math.min(display.length + 2, maxChars) * charW;
+          drawLine(pad, y + rowH + 5, pad + msgW, y + rowH + 5);
+        }
       }
 
       if (i < builds.length - 1) {
-        ink(...C.bar, isCurrent ? 40 : 20);
+        ink(...(isDep ? C.depBar : C.bar), isCurrent ? 40 : 20);
         drawLine(pad, y + entryH - 2, w - pad, y + entryH - 2);
       }
     }
