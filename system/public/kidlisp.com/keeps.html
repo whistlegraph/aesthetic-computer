@@ -3744,11 +3744,11 @@
     function pathForTab(tabName) {
       if (isKeepsDomain) {
         if (tabName === 'kept') return '/kept';
-        if (tabName === 'market') return '/market';
+        if (tabName === 'market') return '/buy';
         return '/';
       } else {
         if (tabName === 'kept') return '#kept';
-        if (tabName === 'market') return '#market';
+        if (tabName === 'market') return '#buy';
         return location.pathname;
       }
     }
@@ -3880,7 +3880,7 @@
           </div>
           <div class="keep-detail-btn-row">
             <button class="keep-detail-btn secondary" onclick="copyPermalink('${escapeHtml(permalink)}')">Copy Link</button>
-            <a class="keep-detail-btn secondary" href="https://twitter.com/intent/tweet?url=${encodeURIComponent(permalink)}&text=${encodeURIComponent(codeDisplay + ' — KidLisp Keep on Tezos')}" target="_blank" rel="noopener">Share on X</a>
+            <a class="keep-detail-btn secondary" href="https://twitter.com/intent/tweet?url=${encodeURIComponent(permalink + '?t=' + Date.now())}&text=${encodeURIComponent(codeDisplay + ' — KidLisp Keep on Tezos')}" target="_blank" rel="noopener">Share on X</a>
           </div>
         </div>
       `;
@@ -3899,7 +3899,7 @@
       document.body.style.overflow = '';
       // Restore market URL
       if (isKeepsDomain && location.pathname.match(/^\/\$/)) {
-        history.pushState({ tab: 'market' }, '', '/market');
+        history.pushState({ tab: 'market' }, '', '/buy');
       }
     }
 
@@ -4348,11 +4348,11 @@
         if (seg.startsWith('$') && seg.length > 1) {
           return { tab: 'market', code: seg.slice(1) };
         }
-        const tab = seg === 'kept' ? 'kept' : seg === 'market' ? 'market' : 'unkept';
+        const tab = seg === 'kept' ? 'kept' : (seg === 'buy' || seg === 'market') ? 'market' : 'unkept';
         return { tab, code: null };
       } else {
         const hash = location.hash.replace(/^#/, '');
-        const tab = hash === 'kept' ? 'kept' : hash === 'market' ? 'market' : 'unkept';
+        const tab = hash === 'kept' ? 'kept' : (hash === 'buy' || hash === 'market') ? 'market' : 'unkept';
         return { tab, code: null };
       }
     }
@@ -6393,7 +6393,44 @@
 
       await ensureKeepsConfig();
 
-      // Always show the preamble first — lock tabs until Enter
+      // Skip preamble when navigating directly to a tab route or permalink
+      const route = tabFromLocation();
+      const isDirectRoute = route.code || route.tab !== 'unkept';
+
+      if (isDirectRoute) {
+        // Go straight to the content — no preamble
+        loading.style.display = 'none';
+        revealUI();
+        hideInlineAbout();
+        const tabs = document.querySelector('.keeps-tabs');
+        if (tabs) tabs.classList.remove('locked');
+        setIndexSearchVisible(true);
+
+        // Pre-load Beacon SDK
+        initTezosWallet().catch(e => console.warn('Beacon pre-init failed:', e));
+
+        const codes = await fetchAllCodes();
+        loading.style.display = 'none';
+        if (codes === null) {
+          grid.innerHTML = `
+            <div class="keeps-error" style="grid-column: 1 / -1;">
+              <div class="error-icon">&#x26A0;</div>
+              <div class="error-msg">Failed to load $codes. Check your connection and try again.</div>
+              <button class="retry-btn" onclick="init()">Retry</button>
+            </div>`;
+          return;
+        }
+
+        const scopedCodes = scopeIndexEntries(codes);
+        allCodes = scopedCodes;
+        filteredCodes = scopedCodes;
+        indexReady = true;
+        startLiveUpdates(5000);
+        applyFilters();
+        return;
+      }
+
+      // Show the preamble — lock tabs until Enter
       loading.style.display = 'none';
       revealUI();
       showInlineAbout();
