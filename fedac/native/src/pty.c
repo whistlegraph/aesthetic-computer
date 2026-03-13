@@ -452,6 +452,39 @@ int pty_spawn(ACPty *pty, int cols, int rows, const char *cmd, char *const argv[
     pty->scroll_bottom = pty->rows - 1;
     pty_clear(pty);
 
+    // Pre-flight checks: log what we're about to spawn
+    ac_log("[pty] spawning: cmd='%s' cols=%d rows=%d\n", cmd, pty->cols, pty->rows);
+    for (int i = 0; argv[i]; i++) ac_log("[pty]   argv[%d]='%s'\n", i, argv[i]);
+
+    // Check if command exists before forking
+    if (access(cmd, X_OK) != 0 && cmd[0] != '/') {
+        // Not an absolute path — check PATH
+        const char *path = getenv("PATH");
+        char check[512];
+        int found = 0;
+        if (path) {
+            char pathcopy[1024];
+            snprintf(pathcopy, sizeof(pathcopy), "%s", path);
+            char *saveptr;
+            for (char *dir = strtok_r(pathcopy, ":", &saveptr); dir; dir = strtok_r(NULL, ":", &saveptr)) {
+                snprintf(check, sizeof(check), "%s/%s", dir, cmd);
+                if (access(check, X_OK) == 0) {
+                    ac_log("[pty] found: %s\n", check);
+                    found = 1;
+                    break;
+                }
+            }
+        }
+        if (!found) {
+            ac_log("[pty] WARNING: '%s' not found in PATH=%s\n", cmd, path ? path : "(null)");
+        }
+    }
+
+    // Check /dev/pts mount
+    if (access("/dev/pts", F_OK) != 0) {
+        ac_log("[pty] WARNING: /dev/pts does not exist — devpts not mounted?\n");
+    }
+
     struct winsize ws = {
         .ws_row = pty->rows,
         .ws_col = pty->cols,
@@ -459,7 +492,9 @@ int pty_spawn(ACPty *pty, int cols, int rows, const char *cmd, char *const argv[
 
     pid_t pid = forkpty(&pty->master_fd, NULL, NULL, &ws);
     if (pid < 0) {
-        ac_log("[pty] forkpty failed: %s\n", strerror(errno));
+        ac_log("[pty] forkpty failed: %s (errno=%d)\n", strerror(errno), errno);
+        ac_log("[pty]   /dev/pts exists: %s\n", access("/dev/pts", F_OK) == 0 ? "yes" : "NO");
+        ac_log("[pty]   /dev/ptmx exists: %s\n", access("/dev/ptmx", F_OK) == 0 ? "yes" : "NO");
         return -1;
     }
 
@@ -468,7 +503,27 @@ int pty_spawn(ACPty *pty, int cols, int rows, const char *cmd, char *const argv[
         setenv("TERM", "xterm-256color", 1);
         setenv("HOME", "/tmp", 0);
         setenv("LANG", "en_US.UTF-8", 1);
+        setenv("PATH", "/bin:/sbin:/usr/bin:/usr/sbin", 0);
         execvp(cmd, argv);
+        // exec failed — write error to stderr (flows through PTY to parent)
+        int err = errno;
+        fprintf(stderr, "\r\n[pty-child] exec '%s' failed: %s (errno=%d)\r\n", cmd, strerror(err), err);
+        if (err == ENOENT) {
+            fprintf(stderr, "[pty-child] command not found in PATH\r\n");
+            // Check common dependencies
+            if (access("/bin/sh", X_OK) != 0)
+                fprintf(stderr, "[pty-child]   /bin/sh: MISSING\r\n");
+            if (access("/bin/bash", X_OK) != 0)
+                fprintf(stderr, "[pty-child]   /bin/bash: MISSING\r\n");
+            if (access("/bin/node", X_OK) != 0)
+                fprintf(stderr, "[pty-child]   /bin/node: MISSING\r\n");
+            if (access("/bin/claude", X_OK) != 0)
+                fprintf(stderr, "[pty-child]   /bin/claude: MISSING\r\n");
+            if (access("/opt/claude-code/cli.js", R_OK) != 0)
+                fprintf(stderr, "[pty-child]   /opt/claude-code/cli.js: MISSING\r\n");
+        } else if (err == EACCES) {
+            fprintf(stderr, "[pty-child] permission denied on '%s'\r\n", cmd);
+        }
         _exit(127);
     }
 
@@ -548,7 +603,28 @@ int pty_check_alive(ACPty *pty) {
     pid_t result = waitpid(pty->child_pid, &status, WNOHANG);
     if (result == pty->child_pid) {
         pty->alive = 0;
-        ac_log("[pty] child exited (status=%d)\n", WEXITSTATUS(status));
+        if (WIFEXITED(status)) {
+            int code = WEXITSTATUS(status);
+            pty->exit_code = code;
+            if (code == 127) {
+                ac_log("[pty] child exited: command not found (exit 127)\n");
+            } else if (code == 126) {
+                ac_log("[pty] child exited: permission denied (exit 126)\n");
+            } else {
+                ac_log("[pty] child exited (code=%d)\n", code);
+            }
+        } else if (WIFSIGNALED(status)) {
+            int sig = WTERMSIG(status);
+            pty->exit_code = 128 + sig;
+            ac_log("[pty] child killed by signal %d (%s)\n", sig,
+                   sig == SIGSEGV ? "SIGSEGV" :
+                   sig == SIGABRT ? "SIGABRT" :
+                   sig == SIGTERM ? "SIGTERM" :
+                   sig == SIGKILL ? "SIGKILL" : "other");
+        } else {
+            pty->exit_code = -1;
+            ac_log("[pty] child exited (unknown status=%d)\n", status);
+        }
     }
     return pty->alive;
 }

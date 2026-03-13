@@ -111,8 +111,9 @@ TMP=$(mktemp -d)
 trap "rm -rf $TMP" EXIT
 
 # Include build name in version string for display on device
+# Line 1: version string, Line 2: kernel size in bytes
 FULL_VERSION="${BUILD_NAME} ${VERSION}"
-printf '%s' "$FULL_VERSION" > "$TMP/version.txt"
+printf '%s\n%s' "$FULL_VERSION" "$SIZE" > "$TMP/version.txt"
 printf '%s' "$SHA256"  > "$TMP/sha256.txt"
 
 # Upload files (vmlinuz last — it's large, others are the canary)

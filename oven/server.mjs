@@ -3036,7 +3036,9 @@ app.post('/os-release-upload', async (req, res) => {
     addServerLog('info', '☁️', `Uploading ${buildName}: ${(vmlinuz.length / 1048576).toFixed(1)}MB, sha=${sha256.slice(0, 12)}...`);
 
     // Upload version + sha256 first (canary), then vmlinuz
-    await upload('os/native-notepat-latest.version', version, 'text/plain');
+    // Version file: line 1 = version string, line 2 = kernel size in bytes
+    const versionWithSize = `${version}\n${vmlinuz.length}`;
+    await upload('os/native-notepat-latest.version', versionWithSize, 'text/plain');
     await upload('os/native-notepat-latest.sha256', sha256, 'text/plain');
     await upload('os/native-notepat-latest.vmlinuz', vmlinuz, 'application/octet-stream');
 
