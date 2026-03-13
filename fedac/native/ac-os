@@ -144,7 +144,7 @@ record_build() {
         return 0
     fi
     local GIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-    local BUILD_TS=$(date -u '+%Y-%m-%dT%H:%M')
+    local BUILD_TS=$(TZ=America/Los_Angeles date '+%Y-%m-%dT%H:%M')
     local SHA=$(sha256sum "${VMLINUZ}" 2>/dev/null | cut -d' ' -f1)
     local SIZE=$(stat -c%s "${VMLINUZ}" 2>/dev/null || echo 0)
     local BUILD_NAME=$(bash scripts/build-name.sh 2>/dev/null || echo "unknown")
@@ -431,7 +431,7 @@ upload_ota() {
     if ! git diff --quiet HEAD 2>/dev/null; then
         GIT_HASH="${GIT_HASH}-dirty"
     fi
-    local BUILD_TS=$(date -u '+%Y-%m-%dT%H:%M')
+    local BUILD_TS=$(TZ=America/Los_Angeles date '+%Y-%m-%dT%H:%M')
     local BUILD_NAME=$(bash scripts/build-name.sh 2>/dev/null || echo "upload-$(date +%s)")
     local COMMIT_MSG=$(git log -1 --format=%s HEAD 2>/dev/null | head -c 200)
     local SIZE=$(stat -c%s "${VMLINUZ}")
