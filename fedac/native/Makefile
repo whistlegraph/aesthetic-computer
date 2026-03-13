@@ -12,7 +12,7 @@ BUILD_TS   := $(shell date -u '+%Y-%m-%dT%H:%M')
 BUILD_NAME := $(shell scripts/build-name.sh --bump 2>/dev/null || echo "local-build")
 QUIRCDIR   := lib/quirc/lib
 CFLAGS     := -O2 -Wall -Wextra -std=gnu11 -I$(QJSDIR) -I$(QUIRCDIR) -DAC_GIT_HASH=\"$(GIT_HASH)\" -DAC_BUILD_TS=\"$(BUILD_TS)\" -DAC_BUILD_NAME=\"$(BUILD_NAME)\"
-LDFLAGS  := -Wl,--as-needed -lm -lpthread -lasound
+LDFLAGS  := -Wl,--as-needed -lm -lpthread -lasound -lutil
 
 # Static build: only when musl-gcc is available (musl has bundled static libc)
 # On Fedora/standard gcc, dynamic linking is used and .so files are bundled in initramfs
@@ -60,6 +60,7 @@ SRCS := $(SRCDIR)/ac-native.c \
         $(SRCDIR)/ws-client.c \
         $(SRCDIR)/udp-client.c \
         $(SRCDIR)/camera.c \
+        $(SRCDIR)/pty.c \
         $(SRCDIR)/js-bindings.c
 
 OBJS := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/%.o,$(SRCS))
