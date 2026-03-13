@@ -978,6 +978,9 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
 
   wipe(Math.round(bgColor[0]), Math.round(bgColor[1]), Math.round(bgColor[2]));
 
+  // Tablet mode: solid color only, no UI
+  if (system.tabletMode) return;
+
   // Metronome flash border
   if (metronomeFlash > 0 && metronomeEnabled) {
     const fa = Math.floor(metronomeFlash * 120);

@@ -336,14 +336,27 @@ ACInput *input_init(int screen_w, int screen_h, int scale) {
         // Check if this device has keys or touch
         unsigned long evbits = 0;
         ioctl(fd, EVIOCGBIT(0, sizeof(evbits)), &evbits);
-        if (evbits & ((1 << EV_KEY) | (1 << EV_ABS) | (1 << EV_REL))) {
+        if (evbits & ((1 << EV_KEY) | (1 << EV_ABS) | (1 << EV_REL) | (1 << EV_SW))) {
+            // Check for tablet mode switch support and read initial state
+            if (evbits & (1 << EV_SW)) {
+                unsigned long sw_bits = 0;
+                ioctl(fd, EVIOCGBIT(EV_SW, sizeof(sw_bits)), &sw_bits);
+                if (sw_bits & (1 << SW_TABLET_MODE)) {
+                    // Read current switch state
+                    unsigned long sw_state = 0;
+                    ioctl(fd, EVIOCGSW(sizeof(sw_state)), &sw_state);
+                    input->tablet_mode = (sw_state & (1 << SW_TABLET_MODE)) ? 1 : 0;
+                    fprintf(stderr, "[input] Opened %s (tablet mode switch, initial=%d)\n",
+                            path, input->tablet_mode);
+                }
+            }
             // Check if this is a NuPhy device (will be handled via hidraw for analog)
             struct input_id devid;
             int is_nuphy = 0;
             if (ioctl(fd, EVIOCGID, &devid) >= 0 && devid.vendor == NUPHY_VENDOR_ID) {
                 is_nuphy = 1;
                 fprintf(stderr, "[input] Opened %s (NuPhy — evdev keys suppressed, using hidraw)\n", path);
-            } else {
+            } else if (!(evbits & (1 << EV_SW)) || (evbits & ((1 << EV_KEY) | (1 << EV_ABS) | (1 << EV_REL)))) {
                 fprintf(stderr, "[input] Opened %s\n", path);
             }
             input->fd_is_analog[input->count] = is_nuphy;
@@ -355,6 +368,18 @@ ACInput *input_init(int screen_w, int screen_h, int scale) {
     closedir(dir);
 
     fprintf(stderr, "[input] %d evdev devices\n", input->count);
+
+    // Sysfs fallback for tablet mode (ThinkPad ACPI)
+    if (!input->tablet_mode) {
+        char tbuf[16] = {0};
+        FILE *f = fopen("/sys/devices/platform/thinkpad_acpi/hotkey_tablet_mode", "r");
+        if (f) {
+            if (fgets(tbuf, sizeof(tbuf), f))
+                input->tablet_mode = (atoi(tbuf) != 0) ? 1 : 0;
+            fclose(f);
+            fprintf(stderr, "[input] sysfs tablet mode: %d\n", input->tablet_mode);
+        }
+    }
 
     // Scan for analog keyboards (NuPhy HE via hidraw)
     hidraw_scan(input);
@@ -437,6 +462,13 @@ void input_poll(ACInput *input) {
                     ae->x = input->pointer_x / input->scale;
                     ae->y = input->pointer_y / input->scale;
                     input->event_count++;
+                }
+            } else if (ev.type == EV_SW) {
+                // Switch events (tablet mode, lid, etc.)
+                if (ev.code == SW_TABLET_MODE) {
+                    input->tablet_mode = ev.value ? 1 : 0;
+                    fprintf(stderr, "[input] tablet mode: %s\n",
+                            input->tablet_mode ? "ON" : "OFF");
                 }
             } else if (ev.type == EV_ABS) {
                 // Absolute touch/tablet — clamp and store in display coords
@@ -592,10 +624,22 @@ void input_poll(ACInput *input) {
                     if (already_open) { close(fd); continue; }
                     unsigned long evbits = 0;
                     ioctl(fd, EVIOCGBIT(0, sizeof(evbits)), &evbits);
-                    if (evbits & (1 << EV_KEY)) {
+                    if (evbits & ((1 << EV_KEY) | (1 << EV_SW))) {
                         char name[256] = "";
                         ioctl(fd, EVIOCGNAME(sizeof(name)), name);
                         fprintf(stderr, "[input] Late device: %s (%s)\n", path, name);
+                        // Read initial tablet mode state from switch devices
+                        if (evbits & (1 << EV_SW)) {
+                            unsigned long sw_bits = 0;
+                            ioctl(fd, EVIOCGBIT(EV_SW, sizeof(sw_bits)), &sw_bits);
+                            if (sw_bits & (1 << SW_TABLET_MODE)) {
+                                unsigned long sw_state = 0;
+                                ioctl(fd, EVIOCGSW(sizeof(sw_state)), &sw_state);
+                                input->tablet_mode = (sw_state & (1 << SW_TABLET_MODE)) ? 1 : 0;
+                                fprintf(stderr, "[input] Late tablet mode switch, state=%d\n",
+                                        input->tablet_mode);
+                            }
+                        }
                         input->fds[input->count++] = fd;
                     } else {
                         close(fd);
