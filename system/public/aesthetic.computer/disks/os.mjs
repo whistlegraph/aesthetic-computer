@@ -1,8 +1,10 @@
 // os, 2026.03.12
 // FedAC OS — build list with commit messages; download your personalized copy.
 
-const RELEASES_URL = "https://oven.aesthetic.computer/os-releases";
-const OVEN_IMAGE_URL = "https://oven.aesthetic.computer/os-image";
+const OVEN_BASE = "https://oven.aesthetic.computer";
+const RELEASES_URL = OVEN_BASE + "/os-releases";
+const OVEN_IMAGE_URL = OVEN_BASE + "/os-image";
+const OVEN_WS_URL = "wss://oven.aesthetic.computer/ws";
 const BOOT_PIECES = ["notepat", "prompt", "chat", "laer-klokken"];
 
 let releases = null;
@@ -20,50 +22,141 @@ let bootPieceIdx = 0; // index into BOOT_PIECES
 let bootBtn = null;   // "boot to: X" button
 let scrollY = 0;
 let dlFn = null;
+let ovenWs = null;
+let wsReconnectTimer = null;
+let npRef = null; // stored needsPaint for live updates
 
-// Color palette (inspired by commits.mjs)
-const C = {
-  bg: [10, 12, 18],
-  name: [80, 255, 140],
-  nameOld: [50, 80, 65],
-  hash: [255, 180, 100],
-  hashOld: [120, 90, 55],
-  date: [90, 100, 120],
-  msg: [200, 200, 220],
-  msgOld: [80, 85, 100],
-  handle: [180, 150, 255],
-  handleOld: [80, 70, 110],
-  current: [80, 255, 140],
-  bar: [40, 50, 70],
-  loginHint: [70, 60, 80],
-  progress: [100, 180, 255],
-  progressBg: [40, 45, 65],
-  bootLabel: [140, 160, 200],
-  bootPiece: [255, 200, 120],
+// Color palettes for dark/light mode
+const scheme = {
+  dark: {
+    bg: [10, 12, 18],
+    name: [80, 255, 140],
+    nameOld: [50, 80, 65],
+    hash: [255, 180, 100],
+    hashOld: [120, 90, 55],
+    date: [90, 100, 120],
+    msg: [200, 200, 220],
+    msgOld: [80, 85, 100],
+    handle: [180, 150, 255],
+    handleOld: [80, 70, 110],
+    current: [80, 255, 140],
+    bar: [40, 50, 70],
+    loginHint: [70, 60, 80],
+    progress: [100, 180, 255],
+    progressBg: [40, 45, 65],
+    bootLabel: [140, 160, 200],
+    bootPiece: [255, 200, 120],
+    instHeader: [180, 200, 255],
+    instText: [60, 70, 90],
+    instKey: [120, 140, 180],
+    divider: [30, 35, 50],
+    dlBtnBg: [20, 60, 30],
+    dlBtnBorder: [40, 120, 50],
+    dlBtnText: [80, 255, 140],
+    dlBtnHoverBg: [40, 100, 50],
+    dlBtnHoverBorder: [60, 160, 70],
+    bootBtnBg: [30, 35, 55],
+    bootBtnBorder: [50, 60, 90],
+    bootBtnHoverBg: [45, 50, 75],
+    bootBtnHoverBorder: [65, 75, 110],
+  },
+  light: {
+    bg: [240, 240, 245],
+    name: [20, 130, 60],
+    nameOld: [100, 140, 110],
+    hash: [180, 110, 30],
+    hashOld: [150, 120, 80],
+    date: [120, 130, 150],
+    msg: [40, 40, 50],
+    msgOld: [130, 130, 145],
+    handle: [110, 70, 200],
+    handleOld: [140, 120, 170],
+    current: [20, 130, 60],
+    bar: [200, 205, 215],
+    loginHint: [140, 120, 160],
+    progress: [40, 120, 200],
+    progressBg: [210, 215, 225],
+    bootLabel: [80, 100, 150],
+    bootPiece: [180, 120, 30],
+    instHeader: [50, 60, 100],
+    instText: [100, 110, 130],
+    instKey: [60, 80, 130],
+    divider: [210, 215, 225],
+    dlBtnBg: [210, 240, 215],
+    dlBtnBorder: [80, 170, 100],
+    dlBtnText: [20, 100, 40],
+    dlBtnHoverBg: [180, 230, 190],
+    dlBtnHoverBorder: [60, 150, 80],
+    bootBtnBg: [220, 225, 240],
+    bootBtnBorder: [160, 170, 200],
+    bootBtnHoverBg: [200, 210, 230],
+    bootBtnHoverBorder: [130, 145, 180],
+  },
 };
 
 let uiRef = null; // store ui for later button creation
 
-function boot({ user, api, ui, needsPaint }) {
-  handle = user?.handle || null;
-  uiRef = ui;
-
+function fetchReleases(ui, needsPaint) {
   fetch(RELEASES_URL)
     .then((r) => r.json())
     .then((data) => {
       releases = data;
       loading = false;
-      console.log("[os] Loaded", data?.releases?.length || 0, "builds");
-      if (data?.releases?.[0]) console.log("[os] Latest:", data.releases[0].name, data.releases[0].git_hash, data.releases[0].commit_msg);
-      if (handle && token) makeButtons(ui, data);
+      if (handle && token && ui) makeButtons(ui, data);
       needsPaint();
     })
     .catch((err) => {
-      console.error("[os] Load failed:", err);
-      error = err.message;
-      loading = false;
-      needsPaint();
+      if (!releases) {
+        error = err.message;
+        loading = false;
+        needsPaint();
+      }
+      console.error("[os] Fetch failed:", err);
     });
+}
+
+function connectOvenWs(ui, needsPaint) {
+  if (ovenWs) { try { ovenWs.close(); } catch (_) {} }
+  if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
+
+  try {
+    ovenWs = new WebSocket(OVEN_WS_URL);
+  } catch (err) {
+    console.error("[os] WS connect error:", err);
+    wsReconnectTimer = setTimeout(() => connectOvenWs(ui, needsPaint), 10000);
+    return;
+  }
+
+  ovenWs.onopen = () => console.log("[os] Oven WS connected");
+
+  ovenWs.onmessage = (ev) => {
+    try {
+      const msg = JSON.parse(ev.data);
+      if (msg.type === "os:new-build" && msg.releases) {
+        console.log("[os] Live build push:", msg.releases?.releases?.[0]?.name);
+        releases = msg.releases;
+        if (handle && token && ui) makeButtons(ui, releases);
+        needsPaint();
+      }
+    } catch (_) {}
+  };
+
+  ovenWs.onclose = () => {
+    console.log("[os] Oven WS closed, reconnecting in 5s...");
+    ovenWs = null;
+    wsReconnectTimer = setTimeout(() => connectOvenWs(ui, needsPaint), 5000);
+  };
+
+  ovenWs.onerror = () => {}; // onclose will fire after this
+}
+
+function boot({ user, api, ui, needsPaint }) {
+  handle = user?.handle || null;
+  uiRef = ui;
+  npRef = needsPaint;
+
+  fetchReleases(ui, needsPaint); // initial load
+  connectOvenWs(ui, needsPaint); // live updates
 
   if (handle) {
     console.log("[os] Authorizing @" + handle + "...");
@@ -76,6 +169,11 @@ function boot({ user, api, ui, needsPaint }) {
   } else {
     console.log("[os] No handle — download disabled");
   }
+}
+
+function leave() {
+  if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
+  if (ovenWs) { try { ovenWs.close(); } catch (_) {} ovenWs = null; }
 }
 
 function makeButtons(ui, rel) {
@@ -119,8 +217,9 @@ function timeAgo(ts) {
 }
 
 function paint($) {
-  const { screen, ink, line: drawLine } = $;
+  const { screen, ink, line: drawLine, dark } = $;
   const { width: w, height: h } = screen;
+  const C = dark ? scheme.dark : scheme.light;
   $.wipe(...C.bg);
 
   const pad = 6;
@@ -156,10 +255,10 @@ function paint($) {
       bootBtn.reposition({ x: pad, y });
       bootBtn.paint(
         $,
-        [[30, 35, 55], [50, 60, 90], ...C.bootPiece, 200],
-        [[45, 50, 75], [65, 75, 110], [255, 255, 255], 255],
+        [C.bootBtnBg, C.bootBtnBorder, ...C.bootPiece, 200],
+        [C.bootBtnHoverBg, C.bootBtnHoverBorder, [255, 255, 255], 255],
         undefined,
-        [[38, 42, 65], [58, 68, 100], [255, 220, 150], 230],
+        [C.bootBtnBg, C.bootBtnBorder, ...C.bootPiece, 230],
       );
       y += bootBtn.height + 4;
     }
@@ -168,28 +267,38 @@ function paint($) {
     downloadBtn.reposition({ x: pad, y });
     downloadBtn.paint(
       $,
-      [[20, 60, 30], [40, 120, 50], [80, 255, 140], 255],
-      [[40, 100, 50], [60, 160, 70], [255, 255, 255], 255],
+      [C.dlBtnBg, C.dlBtnBorder, C.dlBtnText, 255],
+      [C.dlBtnHoverBg, C.dlBtnHoverBorder, [255, 255, 255], 255],
       undefined,
-      [[30, 80, 40], [50, 140, 60], [200, 255, 220], 255],
+      [C.dlBtnBg, C.dlBtnBorder, C.dlBtnText, 255],
     );
     y += downloadBtn.height + 6;
 
     // Divider
-    ink(30, 35, 50);
+    ink(...C.divider);
     drawLine(pad, y, w - pad, y);
     y += 6;
 
-    // Instructions (matrix font, dimmer)
-    ink(60, 70, 90).write("1 flash .img with balenaEtcher", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+    // "How to Install" header
+    ink(...C.instHeader).write("How to Install", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+    y += matrixH + 4;
+
+    // Instructions (matrix font)
+    ink(...C.instText).write("1 flash .img with balenaEtcher", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
     y += matrixH + 2;
-    ink(60, 70, 90).write("2 plug USB into any x86 PC", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+    ink(...C.instText).write("2 plug USB into any x86 PC", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
     y += matrixH + 2;
-    ink(60, 70, 90).write("3 boot from USB to run", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+    ink(...C.instText).write("3 enter BIOS boot menu:", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+    y += matrixH + 2;
+    ink(...C.instKey).write("  F12 Dell/Lenovo  F9 HP", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+    y += matrixH + 2;
+    ink(...C.instKey).write("  F2 ASUS/Acer  ESC others", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+    y += matrixH + 2;
+    ink(...C.instText).write("4 select USB drive to boot", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
     y += matrixH + 8;
 
     // Divider before builds
-    ink(30, 35, 50);
+    ink(...C.divider);
     drawLine(pad, y, w - pad, y);
     y += 6;
   } else if (downloading) {
@@ -272,6 +381,11 @@ function paint($) {
 
 function act({ event: e, needsPaint, download }) {
   dlFn = download;
+
+  if (e.is("dark-mode") || e.is("light-mode")) {
+    needsPaint();
+    return;
+  }
 
   if (e.is("scroll")) {
     scrollY = Math.max(0, scrollY + (e.delta || 0));
@@ -374,4 +488,4 @@ async function startDownload(needsPaint) {
 }
 
 export const desc = "FedAC OS — view builds and download your copy.";
-export { boot, paint, act };
+export { boot, paint, act, leave };

@@ -3049,6 +3049,14 @@ app.post('/os-release-upload', async (req, res) => {
 
     await upload('os/releases.json', JSON.stringify(releases, null, 2), 'application/json');
 
+    // Broadcast new build to all connected WebSocket clients (os.mjs pieces)
+    if (wss && wss.clients) {
+      const buildMsg = JSON.stringify({ type: 'os:new-build', releases });
+      wss.clients.forEach(client => {
+        if (client.readyState === 1) client.send(buildMsg);
+      });
+    }
+
     addServerLog('success', '🚀', `OS release published: ${buildName} (${gitHash}) by ${userName}`);
     return res.json({
       ok: true,
