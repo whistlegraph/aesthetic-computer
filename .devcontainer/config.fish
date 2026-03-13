@@ -1145,10 +1145,13 @@ function ac-emacs-crash-monitor
                 
                 # Create warning file
                 echo "Emacs crashed at "(date -Iseconds)", auto-restart #$restart_count" > /tmp/emacs-crash-warning
-                
+
+                # Signal the aesthetic reconnect loop BEFORE killing emacsclient
+                echo (date -Iseconds) > /tmp/emacs-crash-restart-signal
+
                 # Remove any stale startup lock from previous session
                 rm -f /tmp/emacs-backend-startup.lock
-                
+
                 # Clean up any zombie processes
                 pkill -9 emacs 2>/dev/null
                 pkill -9 emacsclient 2>/dev/null
@@ -1196,6 +1199,7 @@ function ac-emacs-crash-monitor
                     set -l health_timeout (ac--health-check-timeout)
                     if not timeout $health_timeout emacsclient -e t >/dev/null 2>&1
                         echo "["(date -Iseconds)"] ⚠️ Daemon unresponsive (PID: $daemon_pid, timeout: $health_timeout""s), forcing restart..." >> $crash_log
+                        echo (date -Iseconds) > /tmp/emacs-crash-restart-signal
                         pkill -9 emacsclient 2>/dev/null
                         sleep 0.2
                         pkill -9 -f "emacs.*daemon" 2>/dev/null
@@ -1217,6 +1221,8 @@ function ac-emacs-crash-monitor
                     echo "["(date -Iseconds)"] ⚠️ Daemon unresponsive (PID: $daemon_pid, timeout: $health_timeout""s, sample: $ac_unresponsive_count/$required_failures)" >> $crash_log
                     if test $ac_unresponsive_count -ge $required_failures
                         echo "["(date -Iseconds)"] ⚠️ Daemon unresponsive threshold reached, forcing restart..." >> $crash_log
+                        # Signal the aesthetic reconnect loop before killing
+                        echo (date -Iseconds) > /tmp/emacs-crash-restart-signal
                         # Kill stale emacsclient processes BEFORE killing daemon
                         # so they don't linger as frozen terminals
                         pkill -9 emacsclient 2>/dev/null
@@ -1235,6 +1241,7 @@ function ac-emacs-crash-monitor
                         set -g ac_high_cpu_count (math (set -q ac_high_cpu_count; and echo $ac_high_cpu_count; or echo 0) + 1)
                         if test $ac_high_cpu_count -ge 3
                             echo "["(date -Iseconds)"] ⚠️ Sustained high CPU ($cpu_usage%) for 3 checks, forcing restart..." >> $crash_log
+                            echo (date -Iseconds) > /tmp/emacs-crash-restart-signal
                             pkill -9 emacsclient 2>/dev/null
                             sleep 0.2
                             pkill -9 -f "emacs.*daemon" 2>/dev/null
@@ -1809,16 +1816,44 @@ function aesthetic
     echo "[DEBUG] TERM: $TERM"
     
     # Connect to emacs and run aesthetic-backend to create all tabs
-    echo "🚀 Connecting to aesthetic platform..."
-    emacsclient -nw -c --eval '(aesthetic-backend (quote "artery"))'
-    set -l exit_code $status
-    if test $exit_code -ne 0
-        echo ""
-        echo "⚠️  emacsclient exited with code $exit_code"
-        echo "💡 If the '💻 Aesthetic' VS Code task is frozen, restart it from the Task menu."
-        echo "   Or run: ac-emacs-restart && then restart the task"
+    # Auto-reconnect loop: if the crash monitor restarts the daemon,
+    # this will detect the signal file and reconnect automatically.
+    set -l reconnect_max 5
+    set -l reconnect_count 0
+    while true
+        echo "🚀 Connecting to aesthetic platform..."
+        emacsclient -nw -c --eval '(aesthetic-backend (quote "artery"))'
+        set -l exit_code $status
+
+        # Check if crash monitor triggered a restart (signal file)
+        if test -f /tmp/emacs-crash-restart-signal
+            rm -f /tmp/emacs-crash-restart-signal
+            set reconnect_count (math "$reconnect_count + 1")
+            if test $reconnect_count -ge $reconnect_max
+                echo ""
+                echo "⛔ Too many crash-restarts ($reconnect_max), giving up auto-reconnect."
+                echo "💡 Run: aesthetic-now"
+                return 1
+            end
+            echo ""
+            echo "🔄 Daemon was crash-restarted, reconnecting ($reconnect_count/$reconnect_max)..."
+            # Wait for daemon to be ready
+            if not ensure-emacs-daemon-ready --timeout=60
+                echo "❌ Daemon didn't come back after crash restart."
+                return 1
+            end
+            continue
+        end
+
+        # Normal exit (user quit emacs, or unrelated error)
+        if test $exit_code -ne 0
+            echo ""
+            echo "⚠️  emacsclient exited with code $exit_code"
+            echo "💡 If the '💻 Aesthetic' VS Code task is frozen, restart it from the Task menu."
+            echo "   Or run: ac-emacs-restart && then restart the task"
+        end
+        return $exit_code
     end
-    return $exit_code
 end
 
 # Convenience alias for skipping the wait
@@ -1829,14 +1864,34 @@ end
 # Direct aesthetic function that skips waiting entirely
 function aesthetic-direct
     echo "🚀 Starting aesthetic directly (no wait)..."
-    
+
     if not ensure-emacs-daemon-ready --timeout=300 --silent
         echo "❌ Cannot connect to emacs daemon."
         return 1
     end
-    
-    # Connect to emacs with aesthetic-backend
-    emacsclient -nw -c --eval '(aesthetic-backend (quote "artery"))'
+
+    # Connect to emacs with aesthetic-backend (with crash-restart reconnect)
+    set -l reconnect_max 5
+    set -l reconnect_count 0
+    while true
+        emacsclient -nw -c --eval '(aesthetic-backend (quote "artery"))'
+        set -l exit_code $status
+        if test -f /tmp/emacs-crash-restart-signal
+            rm -f /tmp/emacs-crash-restart-signal
+            set reconnect_count (math "$reconnect_count + 1")
+            if test $reconnect_count -ge $reconnect_max
+                echo "⛔ Too many crash-restarts, giving up."
+                return 1
+            end
+            echo "🔄 Daemon crash-restarted, reconnecting ($reconnect_count/$reconnect_max)..."
+            if not ensure-emacs-daemon-ready --timeout=60 --silent
+                echo "❌ Daemon didn't come back."
+                return 1
+            end
+            continue
+        end
+        return $exit_code
+    end
 end
 
 # TODO: Automatically kill online mode and go to offline mode if necessary.
