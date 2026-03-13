@@ -1272,7 +1272,8 @@ app.get('/preview/:size/:piece.png', async (req, res) => {
         format: 'png',
         width: w,
         height: h,
-        density: 1,
+        density: 4,
+        viewportScale: 1,
       });
       if (!result.success) throw new Error(result.error);
       // Handle case where grabPiece returns from its own cache (cdnUrl but no buffer)
