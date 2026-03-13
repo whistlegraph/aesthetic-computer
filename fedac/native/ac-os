@@ -450,6 +450,7 @@ upload_ota() {
         -H "X-Git-Hash: ${GIT_HASH}" \
         -H "X-Build-Ts: ${BUILD_TS}" \
         -H "X-Commit-Msg: ${COMMIT_MSG}" \
+        -H "X-Handle: ${AC_USER_HANDLE}" \
         --max-time 30) || {
         err "Failed to get upload URL. Check connection or run: ac-login"
         exit 1
@@ -486,6 +487,7 @@ upload_ota() {
         -H "X-Finalize: true" \
         -H "X-Sha256: ${SHA}" \
         -H "X-Size: ${SIZE}" \
+        -H "X-Handle: ${AC_USER_HANDLE}" \
         --max-time 30) || {
         err "Finalize failed"
         exit 1
