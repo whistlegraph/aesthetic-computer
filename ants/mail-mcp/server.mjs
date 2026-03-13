@@ -10,7 +10,7 @@ const execFile = promisify(execFileCb);
 const MU = "/usr/bin/mu";
 const MBSYNC = "/usr/bin/mbsync";
 const MSMTP = "/usr/bin/msmtp";
-const MAILDIR = "/home/me/.mail";
+const MAILDIR = "/home/me/.mail-all";
 const MU_DB = "/home/me/.cache/mu/xapian";
 const ACCOUNTS = {
   "ac-mail": "mail@aesthetic.computer",
