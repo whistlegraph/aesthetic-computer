@@ -3,9 +3,9 @@
 // Jumped to from prompt.mjs via "os" command or from notepat OS button.
 
 const OS_BASE_URL = "https://releases-aesthetic-computer.sfo3.digitaloceanspaces.com/os/";
-const OS_VERSION_URL = OS_BASE_URL + "native-notepat-latest.version";
+const OS_RELEASES_URL = OS_BASE_URL + "releases.json";
 const OS_VMLINUZ_URL = OS_BASE_URL + "native-notepat-latest.vmlinuz";
-const OS_VMLINUZ_BYTES = 93_000_000;
+let remoteSize = 0; // fetched from releases.json
 
 // States: idle | checking | up-to-date | available | downloading | flashing
 //         | confirm-reboot | shutting-down | error
@@ -42,7 +42,7 @@ function boot({ system }) {
     state = "checking";
     fetchPending = true;
     checkFrame = 0;
-    system?.fetch?.(OS_VERSION_URL);
+    system?.fetch?.(OS_RELEASES_URL);
   }
 }
 
@@ -83,7 +83,7 @@ function act({ event: e, sound, system }) {
       progress = 0;
       telemetry.length = 0;
       addTelemetry("fetching " + OS_VMLINUZ_URL.split("/").pop());
-      system?.fetchBinary?.(OS_VMLINUZ_URL, "/tmp/vmlinuz.new", OS_VMLINUZ_BYTES);
+      system?.fetchBinary?.(OS_VMLINUZ_URL, "/tmp/vmlinuz.new", (remoteSize || 93_000_000));
       return;
     }
     if (e.is("keyboard:down:tab")) {
@@ -101,7 +101,7 @@ function act({ event: e, sound, system }) {
         state = "checking";
         fetchPending = true;
         checkFrame = frame;
-        system?.fetch?.(OS_VERSION_URL);
+        system?.fetch?.(OS_RELEASES_URL);
       }
     }
   }
@@ -254,8 +254,8 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
     write("downloading" + dots, { x: pad, y: stateY, size: 1, font });
 
     // File info
-    const expectedMB = (OS_VMLINUZ_BYTES / 1048576).toFixed(0);
-    const dlMB = ((progress || 0) * OS_VMLINUZ_BYTES / 1048576).toFixed(1);
+    const expectedMB = ((remoteSize || 93_000_000) / 1048576).toFixed(0);
+    const dlMB = ((progress || 0) * (remoteSize || 93_000_000) / 1048576).toFixed(1);
     ink(80, 100, 80);
     write(`${dlMB} / ${expectedMB} MB`, { x: pad, y: stateY + 14, size: 1, font });
 
@@ -390,16 +390,30 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
 
   // === State machine: poll fetch/flash results ===
 
-  // Version check result
+  // Version check result (from releases.json)
   if (fetchPending && system?.fetchResult !== undefined && system?.fetchResult !== null) {
     const raw = (typeof system.fetchResult === "string" ? system.fetchResult : "").trim();
     fetchPending = false;
-    if (!raw || raw.length < 5) {
-      state = "error";
-      errorMsg = "bad version response";
-    } else {
-      remoteVersion = raw;
-      state = (raw === currentVersion) ? "up-to-date" : "available";
+    try {
+      const data = JSON.parse(raw);
+      const latest = data?.releases?.[0];
+      if (latest?.version) {
+        remoteVersion = latest.version;
+        remoteSize = latest.size || 0;
+        state = (latest.version === currentVersion) ? "up-to-date" : "available";
+      } else {
+        state = "error";
+        errorMsg = "no releases found";
+      }
+    } catch (e) {
+      // Fallback: treat as plain version string (legacy .version file)
+      if (!raw || raw.length < 5) {
+        state = "error";
+        errorMsg = "bad version response";
+      } else {
+        remoteVersion = raw;
+        state = (raw === currentVersion) ? "up-to-date" : "available";
+      }
     }
   }
   if (fetchPending && system?.fetchError) {
@@ -421,7 +435,7 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
     // Telemetry on progress milestones
     if (progress > 0 && Math.floor(progress * 10) > Math.floor(prevProgress * 10)) {
       const pct = Math.round(progress * 100);
-      addTelemetry(`download ${pct}% (${(progress * OS_VMLINUZ_BYTES / 1048576).toFixed(1)}MB)`);
+      addTelemetry(`download ${pct}% (${(progress * (remoteSize || 93_000_000) / 1048576).toFixed(1)}MB)`);
     }
     if (system?.fetchBinaryDone) {
       if (system?.fetchBinaryOk) {
