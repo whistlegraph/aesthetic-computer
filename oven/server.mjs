@@ -8,6 +8,7 @@ import https from 'https';
 import http from 'http';
 import fs from 'fs';
 import { execSync } from 'child_process';
+import { gunzipSync, gzipSync } from 'node:zlib';
 import { WebSocketServer } from 'ws';
 import { healthHandler, bakeHandler, statusHandler, bakeCompleteHandler, bakeStatusHandler, getActiveBakes, getIncomingBakes, getRecentBakes, subscribeToUpdates, cleanupStaleBakes } from './baker.mjs';
 import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, ensureLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, getAllProgress, getConcurrencyStatus, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus, getFrozenPieces, clearFrozenPiece, getLatestOGImageUrl, regenerateOGImagesBackground, generateKidlispBackdrop, getLatestBackdropUrl, APP_SCREENSHOT_PRESETS, generateNotepatOGImage, getLatestNotepatOGUrl, prewarmGrabBrowser } from './grabber.mjs';
@@ -2680,14 +2681,16 @@ app.post('/os-cache-flush', (req, res) => {
 });
 
 // Personalized FedAC OS .img download for authenticated AC users.
-// Downloads the template .img from DO Spaces, patches config.json
-// with the user's handle/sub/email, and streams it back.
+// Downloads the template .img.gz from DO Spaces, decompresses for config
+// patching, then re-compresses and streams back as .img.gz.
+// Balena Etcher handles .img.gz natively.
 const RELEASES_BASE = 'https://releases-aesthetic-computer.sfo3.digitaloceanspaces.com/os';
-const TEMPLATE_URL = `${RELEASES_BASE}/native-notepat-latest.img`;
+const TEMPLATE_GZ_URL = `${RELEASES_BASE}/native-notepat-latest.img.gz`;
+const TEMPLATE_URL = `${RELEASES_BASE}/native-notepat-latest.img`; // fallback
 const CONFIG_MARKER = '{"handle":"","piece":"notepat","sub":"","email":""}';
 const CONFIG_PAD_SIZE = 4096;
 
-// Cache the template in memory (only ~42MB, loaded once)
+// Cache the decompressed template in memory
 let templateCache = null;
 let templateCacheTime = 0;
 const TEMPLATE_CACHE_TTL = 60 * 60 * 1000; // 1 hour
@@ -2696,12 +2699,23 @@ async function getTemplate() {
   if (templateCache && Date.now() - templateCacheTime < TEMPLATE_CACHE_TTL) {
     return templateCache;
   }
-  console.log('[os-image] Downloading template .img...');
-  const res = await fetch(TEMPLATE_URL);
-  if (!res.ok) throw new Error(`Template download failed: ${res.status}`);
-  templateCache = Buffer.from(await res.arrayBuffer());
+  // Try .img.gz first, fall back to .img
+  let raw;
+  const gzRes = await fetch(TEMPLATE_GZ_URL);
+  if (gzRes.ok) {
+    console.log('[os-image] Downloading template .img.gz...');
+    const compressed = Buffer.from(await gzRes.arrayBuffer());
+    console.log(`[os-image] Decompressing ${(compressed.length / 1048576).toFixed(1)}MB...`);
+    raw = gunzipSync(compressed);
+  } else {
+    console.log('[os-image] No .img.gz found, trying .img fallback...');
+    const imgRes = await fetch(TEMPLATE_URL);
+    if (!imgRes.ok) throw new Error(`Template download failed: ${imgRes.status}`);
+    raw = Buffer.from(await imgRes.arrayBuffer());
+  }
+  templateCache = raw;
   templateCacheTime = Date.now();
-  console.log(`[os-image] Template cached: ${(templateCache.length / 1048576).toFixed(1)}MB`);
+  console.log(`[os-image] Template cached: ${(templateCache.length / 1048576).toFixed(1)}MB (decompressed)`);
   return templateCache;
 }
 
@@ -2775,9 +2789,10 @@ app.get('/os-image', async (req, res) => {
   }
   configBytes.copy(imgData, idx);
 
-  // Stream the patched image
-  addServerLog('success', '💿', `OS image for @${handle} (${(imgData.length / 1048576).toFixed(1)}MB)`);
-  res.setHeader('Content-Type', 'application/octet-stream');
+  // Compress and stream the patched image as .img.gz (Balena Etcher compatible)
+  const gzData = gzipSync(imgData, { level: 6 });
+  addServerLog('success', '💿', `OS image for @${handle} (${(gzData.length / 1048576).toFixed(1)}MB gz)`);
+  res.setHeader('Content-Type', 'application/gzip');
   // Get latest build name for filename
   let releaseName = 'native';
   try {
@@ -2791,9 +2806,9 @@ app.get('/os-image', async (req, res) => {
   const d = new Date();
   const p = (n) => String(n).padStart(2, '0');
   const ts = `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())}.${p(d.getHours())}.${p(d.getMinutes())}.${p(d.getSeconds())}`;
-  res.setHeader('Content-Disposition', `attachment; filename="@${handle}-os-${bootPiece}-${coreName}-${ts}.img"`);
-  res.setHeader('Content-Length', imgData.length);
-  res.end(imgData);
+  res.setHeader('Content-Disposition', `attachment; filename="@${handle}-os-${bootPiece}-${coreName}-${ts}.img.gz"`);
+  res.setHeader('Content-Length', gzData.length);
+  res.end(gzData);
 });
 
 // Background base image jobs (build + upload) for FedOS pipeline.

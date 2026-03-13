@@ -1,14 +1,12 @@
 #!/bin/bash
-# build-name.sh — Generate a unique build name: adjective-animal
-# Animal changes daily, adjective changes every build. Never repeats.
+# build-name.sh — Generate a unique build name from git commit hash.
+# Deterministic: same commit always produces the same name.
+# Globally unique: different commits produce different names (73,000 combos).
 # Usage: ./build-name.sh          → prints name (e.g., "swift-otter")
-#        ./build-name.sh --bump   → increments counter and prints name
+#        ./build-name.sh --bump   → (legacy compat, ignored — names come from git hash now)
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-COUNTER_FILE="${SCRIPT_DIR}/../.build-counter"
-
-# 365 animals — one per day of year, then wraps to next category
+# 365 animals
 ANIMALS=(
   # Mammals (60)
   otter fox wolf bear lynx puma deer hare mink vole
@@ -58,7 +56,7 @@ ANIMALS=(
   tundra steppe prairie savanna taiga
 )
 
-# 200 adjectives — one per build, then wraps
+# 200 adjectives
 ADJECTIVES=(
   swift bold keen sharp bright vivid lucid agile nimble deft
   brave calm clear crisp eager fierce gentle grand hardy jolly
@@ -85,23 +83,19 @@ ADJECTIVES=(
 NUM_ANIMALS=${#ANIMALS[@]}
 NUM_ADJ=${#ADJECTIVES[@]}
 
-# Animal: based on day-of-year (changes daily)
-DOY=$(date -u '+%j' | sed 's/^0*//')  # strip leading zeros
-ANIMAL_IDX=$(( (DOY - 1) % NUM_ANIMALS ))
+# Derive name from git commit hash — deterministic and globally unique
+GIT_HASH=$(git rev-parse HEAD 2>/dev/null || echo "0000000000000000000000000000000000000000")
 
-# Adjective: based on build counter (changes every build)
-if [ -f "${COUNTER_FILE}" ]; then
-  BUILD_NUM=$(cat "${COUNTER_FILE}" 2>/dev/null || echo "0")
-else
-  BUILD_NUM=0
-fi
+# Use first 8 hex chars for adjective index, next 8 for animal index
+# This gives uniform distribution across both arrays
+HEX_ADJ="${GIT_HASH:0:8}"
+HEX_ANIMAL="${GIT_HASH:8:8}"
 
-# Bump if requested
-if [ "${1:-}" = "--bump" ]; then
-  BUILD_NUM=$(( BUILD_NUM + 1 ))
-  echo "${BUILD_NUM}" > "${COUNTER_FILE}"
-fi
+# Convert hex to decimal (portable: printf handles this)
+DEC_ADJ=$(printf '%d' "0x${HEX_ADJ}" 2>/dev/null || echo 0)
+DEC_ANIMAL=$(printf '%d' "0x${HEX_ANIMAL}" 2>/dev/null || echo 0)
 
-ADJ_IDX=$(( BUILD_NUM % NUM_ADJ ))
+ADJ_IDX=$(( DEC_ADJ % NUM_ADJ ))
+ANIMAL_IDX=$(( DEC_ANIMAL % NUM_ANIMALS ))
 
 echo "${ADJECTIVES[$ADJ_IDX]}-${ANIMALS[$ANIMAL_IDX]}"
