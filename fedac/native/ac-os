@@ -62,6 +62,45 @@ build_initramfs() {
     # Copy fresh binary into initramfs
     sudo cp "${BUILD_DIR}/ac-native" "${INITRAMFS_ROOT}/ac-native"
 
+    # Node.js + Claude Code: bundle as user (node installed via fnm, not in sudo PATH)
+    local NODE_BIN="$(command -v node 2>/dev/null || true)"
+    if [ -n "${NODE_BIN}" ] && [ -f "${NODE_BIN}" ]; then
+        log "Bundling Node.js..."
+        sudo cp "${NODE_BIN}" "${INITRAMFS_ROOT}/bin/node"
+        sudo chmod +x "${INITRAMFS_ROOT}/bin/node"
+        for lib in $(ldd "${NODE_BIN}" 2>/dev/null | grep -oP '/\S+'); do
+            [ -f "$lib" ] && sudo cp -n "$lib" "${INITRAMFS_ROOT}/lib64/" 2>/dev/null || true
+        done
+        log "  node: $(du -sh "${INITRAMFS_ROOT}/bin/node" | cut -f1) ($(${NODE_BIN} --version))"
+
+        # Claude Code (x64-linux only, strip other platforms)
+        local CLAUDE_PKG="$(npm root -g 2>/dev/null)/@anthropic-ai/claude-code"
+        if [ -d "${CLAUDE_PKG}" ]; then
+            log "Bundling Claude Code..."
+            local CLAUDE_DIR="${INITRAMFS_ROOT}/opt/claude-code"
+            sudo mkdir -p "${CLAUDE_DIR}/vendor/ripgrep/x64-linux" \
+                         "${CLAUDE_DIR}/vendor/tree-sitter-bash/x64-linux"
+            sudo cp "${CLAUDE_PKG}/cli.js" "${CLAUDE_DIR}/"
+            sudo cp "${CLAUDE_PKG}/package.json" "${CLAUDE_DIR}/"
+            [ -f "${CLAUDE_PKG}/resvg.wasm" ] && sudo cp "${CLAUDE_PKG}/resvg.wasm" "${CLAUDE_DIR}/"
+            sudo cp -r "${CLAUDE_PKG}/vendor/ripgrep/x64-linux/"* "${CLAUDE_DIR}/vendor/ripgrep/x64-linux/" 2>/dev/null || true
+            sudo cp -r "${CLAUDE_PKG}/vendor/tree-sitter-bash/x64-linux/"* "${CLAUDE_DIR}/vendor/tree-sitter-bash/x64-linux/" 2>/dev/null || true
+            # Claude wrapper script
+            sudo tee "${INITRAMFS_ROOT}/bin/claude" > /dev/null << 'CLAUDE_WRAPPER'
+#!/bin/sh
+export HOME="${HOME:-/tmp}"
+export TERM="${TERM:-dumb}"
+exec /bin/node /opt/claude-code/cli.js "$@"
+CLAUDE_WRAPPER
+            sudo chmod +x "${INITRAMFS_ROOT}/bin/claude"
+            log "  claude-code: $(sudo du -sh "${CLAUDE_DIR}" | cut -f1) (x64-linux only)"
+        else
+            log "Claude Code not installed globally — skipping"
+        fi
+    else
+        log "Node.js not in PATH — skipping Claude Code bundle"
+    fi
+
     # Repack cpio + lz4
     log "Repacking initramfs..."
     cd "${INITRAMFS_ROOT}"
@@ -315,10 +354,10 @@ generate_template_img() {
     # The config.json is padded to 4096 bytes for easy byte-patching.
     local IMG="/tmp/ac-native.img"
     local KERNEL_SIZE=$(stat -c%s "${VMLINUZ}")
-    # Use 64MB minimum so UEFI firmware recognises the EFI partition.
+    # Minimum 128MB for UEFI compat (kernel now includes Node.js + Claude Code).
     # Some firmware ignores tiny GPT disks or fails backup-GPT validation
     # when the image is dd'd / Balena-flashed onto a larger drive.
-    local MIN_MB=64
+    local MIN_MB=128
     local NEED_MB=$(( (KERNEL_SIZE / 1048576) + 4 ))
     local IMG_SIZE_MB=$(( NEED_MB > MIN_MB ? NEED_MB : MIN_MB ))
 
