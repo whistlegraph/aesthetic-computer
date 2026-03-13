@@ -269,10 +269,8 @@ class Typeface {
     // TODO: Add support for on-demand character loading here using this api that
     //       gets the json for the glyphs: https://localhost:8888/api/bdf-glyph?char=h
     if (this.name === "font_1") {
-      console.log("🔤 font_1 load() started");
       // Try to pre-warm from IndexedDB cache first
       const cachedCount = await preWarmGlyphCache(this.name);
-      console.log(`🔤 font_1 cache prewarm: ${cachedCount} cached`);
       if (cachedCount > 0) {
         // Populate glyphs from memory cache
         for (const [key, data] of glyphMemoryCache.entries()) {
@@ -298,22 +296,11 @@ class Typeface {
         return !g.startsWith("glyph") && typeof loc === "string" && loc !== "false" && loc.length > 0;
       });
 
-      // Check for pre-injected glyphs (oven/Puppeteer injects these to avoid XHR)
-      if (typeof window !== "undefined" && window.__injectedFontGlyphs) {
-        const injected = window.__injectedFontGlyphs;
-        let injectedCount = 0;
-        for (const [glyph] of glyphsToLoad) {
-          if (injected[glyph] && !this.glyphs[glyph]) {
-            this.glyphs[glyph] = injected[glyph];
-            injectedCount++;
-          }
-        }
-        console.log(`🔤 font_1 pre-injected: ${injectedCount} glyphs`);
-      }
-
       // Filter out already-cached glyphs
       const glyphsNeedingFetch = glyphsToLoad.filter(([glyph]) => !this.glyphs[glyph]);
-      console.log(`🔤 font_1 fetching ${glyphsNeedingFetch.length} glyphs (${glyphsToLoad.length} total, ${cachedCount} cached)`);
+      if (glyphsNeedingFetch.length > 0) {
+        console.log(`🔤 font_1 loading ${glyphsNeedingFetch.length}/${glyphsToLoad.length} glyphs (${cachedCount} cached)`);
+      }
 
       const glyphsToCache = {};
       let resolved = 0, rejected = 0;
@@ -333,9 +320,7 @@ class Typeface {
             // console.error("Couldn't load typeface:", err);
           });
       }); // Wait for all the promises to resolve before returning
-      console.log(`🔤 font_1 Promise.all waiting on ${promises.length} promises...`);
       await Promise.all(promises);
-      console.log(`🔤 font_1 Promise.all resolved! (${resolved} ok, ${rejected} failed)`);
       
       // Cache newly loaded glyphs to IndexedDB
       if (Object.keys(glyphsToCache).length > 0) {
