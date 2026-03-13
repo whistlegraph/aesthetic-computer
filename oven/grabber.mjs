@@ -1759,6 +1759,32 @@ async function captureFrames(piece, options = {}) {
       }
     }
 
+    // Wait for fonts to finish loading (tf.load() is async and not awaited)
+    // Without this, write() renders ???? because glyphs aren't populated yet
+    const maxFontWait = 5000;
+    const fontWaitStart = Date.now();
+    let fontsReady = false;
+    try {
+      fontsReady = await page.evaluate(() => window.acFontsReady === true);
+    } catch {}
+
+    if (!fontsReady) {
+      console.log('   ⏳ Waiting for fonts to load (window.acFontsReady)...');
+      while (!fontsReady && (Date.now() - fontWaitStart) < maxFontWait) {
+        await new Promise(r => setTimeout(r, 100));
+        try {
+          fontsReady = await page.evaluate(() => window.acFontsReady === true);
+        } catch { break; }
+      }
+      if (fontsReady) {
+        console.log(`   ✅ Fonts ready after ${Date.now() - fontWaitStart}ms`);
+      } else {
+        console.log(`   ⚠️ Fonts not ready after ${maxFontWait}ms (may render with fallback glyphs)`);
+      }
+    } else {
+      console.log('   ✅ Fonts already loaded');
+    }
+
     // Settle time: let the piece run a bit more after ready signal
     // For stills, wait longer to let animations stabilize
     // For animations, just a small buffer
