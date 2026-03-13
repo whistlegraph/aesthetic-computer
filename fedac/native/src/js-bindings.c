@@ -3324,6 +3324,10 @@ static JSValue build_system_obj(JSContext *ctx) {
             pty_check_alive(&current_rt->pty);
 
             if (!current_rt->pty.alive) {
+                // Drain remaining output (child error messages, etc.) before closing
+                pty_pump(&current_rt->pty);
+                JS_SetPropertyStr(ctx, pty_obj, "exitCode",
+                                  JS_NewInt32(ctx, current_rt->pty.exit_code));
                 pty_destroy(&current_rt->pty);
                 current_rt->pty_active = 0;
             }
@@ -3360,6 +3364,10 @@ static JSValue build_system_obj(JSContext *ctx) {
                 JS_SetPropertyStr(ctx, pty_obj, "grid", grid);
                 p->grid_dirty = 0;
             }
+        } else {
+            // PTY not active — expose last exit code for diagnostics
+            JS_SetPropertyStr(ctx, pty_obj, "exitCode",
+                              JS_NewInt32(ctx, current_rt->pty.exit_code));
         }
 
         JS_SetPropertyStr(ctx, sys, "pty", pty_obj);
