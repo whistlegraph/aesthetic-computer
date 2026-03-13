@@ -1465,7 +1465,8 @@ async function captureFrames(piece, options = {}) {
   
   // Use piece name as-is (caller decides if $ prefix is needed for KidLisp)
   // tv=true (non-interactive), nolabel=true (no HUD label), nogap=true (no border)
-  const url = `${baseUrl}/${piece}?density=${density}&tv=true&nolabel=true&nogap=true&spoofaudio=true`;
+  // noboot=true skips the boot canvas animation to prevent zoom/scale glitches in captures
+  const url = `${baseUrl}/${piece}?density=${density}&tv=true&nolabel=true&nogap=true&spoofaudio=true&noboot=true`;
   
   console.log(`📸 Capturing ${frames} frames from ${url} (${fps} fps, ${duration}ms)`);
   console.log(`   Size: ${width}x${height}`);
