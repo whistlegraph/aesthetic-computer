@@ -69,6 +69,9 @@ typedef struct {
     // Screen dimensions for touch scaling
     int screen_w, screen_h;
     int scale;  // Display-to-piece scale factor (e.g. 3)
+
+    // Tablet mode (lid folded back on convertible laptops)
+    int tablet_mode;  // 0 = laptop, 1 = tablet (from EV_SW or sysfs)
 } ACInput;
 
 ACInput *input_init(int screen_w, int screen_h, int scale);
