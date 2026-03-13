@@ -1552,6 +1552,10 @@ async function captureFrames(piece, options = {}) {
     let lastPreviewTime = 0;
     // Track boot-hidden state for early exit (piece loaded but acPieceReady never set)
     let bootHiddenSince = 0;
+    // When noboot=true, boot canvas is absent from the start — the boot-canvas-hidden
+    // heuristic would fire immediately (after 3s) even though the piece hasn't loaded.
+    // Detect this so we can use a longer heuristic timeout for noboot captures.
+    const isNoboot = url.includes('noboot=true');
 
     while (!pieceReady && (Date.now() - pieceWaitStart) < maxPieceWait) {
       const status = await page.evaluate(() => {
@@ -1574,12 +1578,15 @@ async function captureFrames(piece, options = {}) {
         bootHiddenSince = Date.now();
       }
 
-      // Early exit: if boot canvas has been hidden for 3s and canvas is active,
-      // treat as ready (workaround for acPieceReady not firing in headless Chrome)
+      // Early exit: if boot canvas has been hidden for a while and canvas is active,
+      // treat as ready (workaround for acPieceReady not firing in headless Chrome).
+      // With noboot=true, the boot canvas is absent from the start, so use a longer
+      // timeout (15s) to let KidLisp pieces fully initialize + load resources.
+      const heuristicTimeout = isNoboot ? 15000 : 3000;
       if (!pieceReady && bootHiddenSince && status.canvasActive) {
         const hiddenFor = Date.now() - bootHiddenSince;
-        if (hiddenFor > 3000) {
-          console.log(`   ✅ Piece detected as ready via boot-canvas-hidden heuristic (${hiddenFor}ms)`);
+        if (hiddenFor > heuristicTimeout) {
+          console.log(`   ✅ Piece detected as ready via boot-canvas-hidden heuristic (${hiddenFor}ms${isNoboot ? ', noboot mode' : ''})`);
           pieceReady = true;
           break;
         }
