@@ -35,6 +35,7 @@ typedef struct {
     ACTts *tts;
     ACSecondaryDisplay *hdmi;
     ACWs *ws;
+    ACWs *ws2;   // Second WebSocket slot (machines monitoring)
     ACUdp *udp;
     int paint_count;
     int sim_count;
