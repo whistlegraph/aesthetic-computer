@@ -133,6 +133,38 @@ export default async (request) => {
     }
   }
 
+  // Generate HMAC-signed device token for ac-native machine authentication
+  async function generateDeviceToken(sub, handle) {
+    const secret = Deno.env.get("MACHINE_TOKEN_SECRET");
+    if (!secret) return null;
+
+    const payload = { sub, handle, iat: Math.floor(Date.now() / 1000) };
+    const payloadB64 = btoa(JSON.stringify(payload))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+
+    const keyData = new TextEncoder().encode(secret);
+    const cryptoKey = await crypto.subtle.importKey(
+      "raw",
+      keyData,
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"],
+    );
+    const sigBuf = await crypto.subtle.sign(
+      "HMAC",
+      cryptoKey,
+      new TextEncoder().encode(payloadB64),
+    );
+    const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sigBuf)))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+
+    return `${payloadB64}.${sigB64}`;
+  }
+
   const isFinalize = request.headers.get("x-finalize") === "true";
 
   if (isFinalize) {
@@ -179,6 +211,11 @@ export default async (request) => {
       releases.releases = releases.releases.slice(0, 50);
       releases.latest = version;
       releases.latest_name = buildName;
+
+      // Generate device token for machine authentication
+      const deviceToken = await generateDeviceToken(userSub, userHandle);
+      if (deviceToken) releases.device_token = deviceToken;
+
       await s3Put(
         "os/releases.json",
         JSON.stringify(releases, null, 2),
@@ -194,6 +231,7 @@ export default async (request) => {
         url: `https://${host}/os/native-notepat-latest.vmlinuz`,
         user: userSub,
         userName,
+        deviceToken: !!deviceToken,
       });
     } catch (err) {
       return Response.json(

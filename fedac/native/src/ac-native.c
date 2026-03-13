@@ -117,8 +117,29 @@ static void perf_destroy(void) {
 }
 
 static void signal_handler(int sig) {
-    (void)sig;
     running = 0;
+
+    // Best-effort crash report to /mnt/crash.json for next-boot upload
+    if (sig == SIGSEGV || sig == SIGBUS || sig == SIGABRT || sig == SIGFPE) {
+        const char *signame = "UNKNOWN";
+        switch (sig) {
+            case SIGSEGV: signame = "SIGSEGV"; break;
+            case SIGBUS:  signame = "SIGBUS";  break;
+            case SIGABRT: signame = "SIGABRT"; break;
+            case SIGFPE:  signame = "SIGFPE";  break;
+        }
+        FILE *f = fopen("/mnt/crash.json", "w");
+        if (f) {
+            time_t now = time(NULL);
+            fprintf(f, "{\"signal\":\"%s\",\"machineId\":\"%s\",\"time\":%ld}\n",
+                    signame, g_machine_id, (long)now);
+            fclose(f);
+            sync();
+        }
+        // Re-raise to get default behavior (core dump / termination)
+        signal(sig, SIG_DFL);
+        raise(sig);
+    }
 }
 
 // Log to both stderr and logfile
@@ -244,6 +265,41 @@ static void try_mount_log(void) {
     }
     // Fallback: log to tmpfs (won't survive reboot but stderr goes to console)
     fprintf(stderr, "[ac-native] No USB log mount available\n");
+}
+
+// ── Persistent machine ID ──
+// Generated on first boot, read back on subsequent boots.
+// Accessible from js-bindings.c via extern.
+char g_machine_id[64] = {0};
+
+static void init_machine_id(void) {
+    FILE *f = fopen("/mnt/.machine-id", "r");
+    if (f) {
+        if (fgets(g_machine_id, sizeof(g_machine_id), f)) {
+            char *nl = strchr(g_machine_id, '\n');
+            if (nl) *nl = '\0';
+        }
+        fclose(f);
+        ac_log("[machine] ID loaded: %s\n", g_machine_id);
+    } else {
+        unsigned int rval = 0;
+        FILE *urand = fopen("/dev/urandom", "r");
+        if (urand) {
+            fread(&rval, sizeof(rval), 1, urand);
+            fclose(urand);
+        } else {
+            rval = (unsigned int)(time(NULL) ^ getpid());
+        }
+        snprintf(g_machine_id, sizeof(g_machine_id), "notepat-%08x", rval);
+        f = fopen("/mnt/.machine-id", "w");
+        if (f) {
+            fprintf(f, "%s\n", g_machine_id);
+            fclose(f);
+            ac_log("[machine] New ID generated: %s\n", g_machine_id);
+        } else {
+            ac_log("[machine] WARNING: Could not write /mnt/.machine-id\n");
+        }
+    }
 }
 
 // Boot title — defaults to "notepat", overridden by config.json handle
@@ -946,6 +1002,9 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
     }
 #endif
 #endif
+
+    // Generate or load persistent machine ID (needs /mnt mounted)
+    init_machine_id();
 
     // 180 frames = 3 second animation.
     // W press → halt and show y/n confirmation

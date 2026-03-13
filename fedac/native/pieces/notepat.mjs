@@ -148,6 +148,15 @@ let wifiWasConnected = false;
 let wifiConnectFrame = -9999; // frame when WiFi last connected (cooldown guard)
 let lastBatPercent = -1;     // for battery change TTS
 
+// AC Machines — remote monitoring via ws2
+let machinesConnected = false;
+let machinesLastHeartbeat = 0; // frame of last heartbeat
+let machinesReconnectFrame = 0; // frame when ws2 reconnect should fire (0 = none pending)
+let tokenFetchPending = false;  // true while fetching releases.json for device_token
+let hasDeviceToken = false;     // true once token file confirmed (avoid repeated readFile)
+const MACHINES_HEARTBEAT_FRAMES = 1800; // ~30s at 60fps
+const MACHINES_WS_URL = "wss://session-server.aesthetic.computer/machines";
+
 // Auto-connect: try "aesthetic.computer" hotspot when not connected
 const AC_SSID = "aesthetic.computer";
 const AC_PASS = "aesthetic.computer";
@@ -1242,6 +1251,17 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     system.ws?.connect("wss://chat-system.aesthetic.computer/");
     // Connect raw UDP for fairy co-presence
     system.udp?.connect("session-server.aesthetic.computer", 10010);
+    // Connect machines monitoring (ws2)
+    {
+      const deviceToken = system.readFile?.("/mnt/.device-token") || "";
+      const mid = system.machineId || "unknown";
+      const tkn = deviceToken.trim();
+      if (tkn) hasDeviceToken = true;
+      const url = `${MACHINES_WS_URL}?role=device&machineId=${mid}` +
+                  (tkn ? `&token=${encodeURIComponent(tkn)}` : "");
+      system.ws2?.connect(url);
+      machinesConnected = false;
+    }
     if (system?.writeFile && savedCreds.length > 0) {
       system.writeFile(CREDS_PATH, JSON.stringify(savedCreds));
     }
@@ -1286,6 +1306,8 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       autoUpdate.lastError = err;
       autoUpdate.state = "checking";
       autoUpdate.nextCheckFrame = frame + OS_AUTO_RETRY_FRAMES;
+    } else if (tokenFetchPending) {
+      tokenFetchPending = false; // silently fail, will retry next cycle
     }
   }
 
@@ -1324,6 +1346,21 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         autoUpdate.state = "checking";
         autoUpdate.nextCheckFrame = frame + OS_AUTO_CHECK_INTERVAL_FRAMES;
       }
+    } else if (tokenFetchPending) {
+      // Device token extraction from releases.json
+      tokenFetchPending = false;
+      try {
+        const rel = JSON.parse(fetchText);
+        if (rel.device_token) {
+          system.writeFile?.("/mnt/.device-token", rel.device_token);
+          hasDeviceToken = true;
+          console.log("[machines] device token saved from releases.json");
+          // Reconnect ws2 with the new token if not already connected
+          if (!machinesConnected && wifi?.connected) {
+            machinesReconnectFrame = frame + 60; // reconnect in ~1s
+          }
+        }
+      } catch (_) { console.log("[machines] releases.json parse failed"); }
     } else {
       // Clock sync result
       const t1 = Date.now();
@@ -1337,6 +1374,20 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       } catch (e) { /* ignore parse errors */ }
     }
   }
+
+  // Fetch device token from releases.json if missing (one-time, after other fetches)
+  if (wifi?.connected && !hasDeviceToken && !tokenFetchPending && !system.fetchPending
+      && !osFetchPending && !autoUpdate.fetchPending) {
+    // Check file once, then set flag to avoid repeated disk reads
+    const tkn = system.readFile?.("/mnt/.device-token");
+    if (tkn && tkn.trim()) {
+      hasDeviceToken = true;
+    } else {
+      tokenFetchPending = true;
+      system.fetch?.(OS_BASE_URL + "releases.json");
+    }
+  }
+
   // Periodic re-sync every ~10 min (at 60fps: 36000 frames)
   clockSyncFrame++;
   if (wifi?.connected && clockSyncFrame % 36000 === 0
@@ -1502,6 +1553,109 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
           if (!chatMuted) sound?.speak(msg.from + ": " + msg.text);
         }
       } catch (err) { console.log("ws parse error: " + err); }
+    }
+  }
+
+  // ── Machines monitoring (ws2) ──────────────────────────────────────
+  // Track ws2 connection + auto-reconnect
+  if (system.ws2?.connected && !machinesConnected) {
+    machinesConnected = true;
+    machinesLastHeartbeat = frame;
+    // Send register message with device info
+    const regMsg = JSON.stringify({
+      type: "register",
+      version: osCurrentVersion,
+      currentPiece: "notepat",
+      ip: wifi?.ip || "",
+      wifiSSID: wifi?.ssid || "",
+      battery: system?.battery?.percent ?? -1,
+      charging: !!system?.battery?.charging,
+    });
+    system.ws2.send(regMsg);
+    console.log("[machines] ws2 registered");
+    // Check for crash report from previous boot
+    try {
+      const crashRaw = system.readFile?.("/mnt/crash.json");
+      if (crashRaw) {
+        const crash = JSON.parse(crashRaw);
+        system.ws2.send(JSON.stringify({ type: "log", logType: "crash", data: crash }));
+        system.writeFile?.("/mnt/crash.json", ""); // clear it
+        console.log("[machines] crash report sent");
+      }
+    } catch (_) {}
+  } else if (!system.ws2?.connected && !system.ws2?.connecting && machinesConnected) {
+    machinesConnected = false;
+    // Schedule reconnect ~5s later if WiFi is still up
+    if (wifi?.connected) machinesReconnectFrame = frame + 300;
+  }
+
+  // ws2 reconnect timer (frame-based, no setTimeout needed)
+  if (machinesReconnectFrame > 0 && frame >= machinesReconnectFrame) {
+    machinesReconnectFrame = 0;
+    if (!system.ws2?.connected && !system.ws2?.connecting && wifi?.connected) {
+      const deviceToken = system.readFile?.("/mnt/.device-token") || "";
+      const mid = system.machineId || "unknown";
+      const tkn = deviceToken.trim();
+      const url = `${MACHINES_WS_URL}?role=device&machineId=${mid}` +
+                  (tkn ? `&token=${encodeURIComponent(tkn)}` : "");
+      system.ws2?.connect(url);
+      console.log("[machines] ws2 reconnecting");
+    }
+  }
+
+  // Send heartbeat every ~30s
+  if (machinesConnected && system.ws2?.connected &&
+      (frame - machinesLastHeartbeat) >= MACHINES_HEARTBEAT_FRAMES) {
+    machinesLastHeartbeat = frame;
+    system.ws2.send(JSON.stringify({
+      type: "heartbeat",
+      currentPiece: "notepat",
+      battery: system?.battery?.percent ?? -1,
+      charging: !!system?.battery?.charging,
+      uptime: frame,
+      fps: fpsDisplay,
+    }));
+  }
+
+  // Process incoming ws2 commands from dashboard
+  const ws2Msgs = system.ws2?.messages;
+  if (ws2Msgs?.length) {
+    for (const raw of ws2Msgs) {
+      try {
+        const msg = JSON.parse(raw);
+        if (msg.type === "command") {
+          const cmd = msg.command;
+          console.log("[machines] command: " + cmd);
+          // Ack receipt
+          system.ws2?.send(JSON.stringify({
+            type: "command-ack", commandId: msg.commandId, command: cmd,
+          }));
+          if (cmd === "jump" && msg.target) {
+            system.jump?.(msg.target);
+          } else if (cmd === "reboot") {
+            system.reboot?.();
+          } else if (cmd === "update") {
+            scheduleAutoUpdateCheck(0);
+          } else if (cmd === "request-logs") {
+            // Read last 50 lines of kernel log
+            const logs = system.readFile?.("/tmp/ac.log", 50) || "";
+            system.ws2?.send(JSON.stringify({
+              type: "command-response", commandId: msg.commandId,
+              command: cmd, data: logs,
+            }));
+          } else if (cmd === "request-perf") {
+            system.ws2?.send(JSON.stringify({
+              type: "command-response", commandId: msg.commandId,
+              command: cmd, data: {
+                fps: fpsDisplay, frame, octave, wave,
+                battery: system?.battery?.percent ?? -1,
+                charging: !!system?.battery?.charging,
+                version: osCurrentVersion,
+              },
+            }));
+          }
+        }
+      } catch (err) { console.log("[machines] ws2 parse error: " + err); }
     }
   }
 
