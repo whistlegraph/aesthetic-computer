@@ -99,6 +99,24 @@ npm run assets:sync:down
 npm run assets:sync:up
 ```
 
+### AC Native OS (fedac/native/)
+
+```bash
+# Full build pipeline: binary → initramfs → kernel
+ac-os build
+
+# Build + flash USB
+ac-os flash
+
+# Build + upload OTA release (ALWAYS rebuilds first)
+ac-os upload
+
+# Build + flash + upload
+ac-os flash+upload
+```
+
+**Critical:** `ac-os upload` always does a full rebuild before uploading. The kernel embeds the git hash and build name at compile time (`AC_GIT_HASH`, `AC_BUILD_NAME` in the Makefile). Uploading without rebuilding would serve a stale kernel with the wrong version string.
+
 ### Notation
 
 - **compush** - commit & push
