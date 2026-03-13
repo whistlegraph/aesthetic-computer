@@ -25,7 +25,7 @@ export default async function handleRequest(request, context) {
     // Fetch token data and resolve the preview image URL in parallel
     const [tokenData, ogImage] = await Promise.all([
       fetchTokenData(code),
-      resolveImageUrl(`https://oven.aesthetic.computer/preview/1200x630/${code}.png`),
+      resolveImageUrl(`https://oven.aesthetic.computer/preview/1200x630/$${code}.png`),
     ]);
 
     // Get the upstream HTML response
