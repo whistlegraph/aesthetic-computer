@@ -4290,6 +4290,15 @@ class KidLisp {
               }
             }
             this.postCompositeCommands = [];
+
+            // 🔄 CRITICAL: Copy post-composite result back to layer0 for accumulation.
+            // Post-composite commands (zoom/scroll/spin) operate on the display buffer,
+            // which is cleared each frame. For accumulative effects (trails, feedback),
+            // the transformed result must persist via layer0.
+            if (this.layer0 && screen && screen.pixels &&
+                this.layer0.width === screen.width && this.layer0.height === screen.height) {
+              this.layer0.pixels.set(screen.pixels);
+            }
           }
 
           // 🎯 Render performance HUD overlay (always rendered last)
@@ -13844,12 +13853,14 @@ class KidLisp {
         // Cache the wipe result for embedded layers — if the same wipe args are used
         // every frame (e.g. a gradient fill), restore from snapshot instead of recomputing.
         // Only cache wipes with actual color args (skip empty/erase wipes).
-        if (args.length > 0 && embeddedLayer.hasBeenEvaluated) {
-          const argsKey = JSON.stringify(args);
+        // Skip caching for dynamic colors (rainbow, zebra) that change each frame.
+        const argsStr = args.length > 0 ? JSON.stringify(args) : "";
+        const hasDynamicColor = argsStr.includes('rainbow') || argsStr.includes('zebra');
+        if (args.length > 0 && embeddedLayer.hasBeenEvaluated && !hasDynamicColor) {
           if (!embeddedLayer._wipeCache) embeddedLayer._wipeCache = {};
           const cache = embeddedLayer._wipeCache;
 
-          if (cache.key === argsKey && cache.snapshot &&
+          if (cache.key === argsStr && cache.snapshot &&
               cache.width === embeddedLayer.width && cache.height === embeddedLayer.height) {
             embeddedLayer.buffer.pixels.set(cache.snapshot);
             return;
@@ -13859,7 +13870,7 @@ class KidLisp {
           const px = embeddedLayer.buffer.pixels;
           if (px && px.length > 0) {
             cache.snapshot = new Uint8ClampedArray(px);
-            cache.key = argsKey;
+            cache.key = argsStr;
             cache.width = embeddedLayer.width;
             cache.height = embeddedLayer.height;
           }
@@ -14254,11 +14265,13 @@ class KidLisp {
           wipe: (...args) => {
             didRender = true;
             // Cache wipe result for embedded layers (avoids recomputing gradients every frame)
-            if (args.length > 0 && embeddedLayer.hasBeenEvaluated) {
-              const argsKey = JSON.stringify(args);
+            // Skip caching for dynamic colors (rainbow, zebra) that change each frame.
+            const argsStr = args.length > 0 ? JSON.stringify(args) : "";
+            const hasDynamicColor = argsStr.includes('rainbow') || argsStr.includes('zebra');
+            if (args.length > 0 && embeddedLayer.hasBeenEvaluated && !hasDynamicColor) {
               if (!embeddedLayer._wipeCache) embeddedLayer._wipeCache = {};
               const cache = embeddedLayer._wipeCache;
-              if (cache.key === argsKey && cache.snapshot &&
+              if (cache.key === argsStr && cache.snapshot &&
                   cache.width === embeddedLayer.width && cache.height === embeddedLayer.height) {
                 embeddedLayer.buffer.pixels.set(cache.snapshot);
                 return;
@@ -14267,7 +14280,7 @@ class KidLisp {
               const px = embeddedLayer.buffer.pixels;
               if (px && px.length > 0) {
                 cache.snapshot = new Uint8ClampedArray(px);
-                cache.key = argsKey;
+                cache.key = argsStr;
                 cache.width = embeddedLayer.width;
                 cache.height = embeddedLayer.height;
               }
