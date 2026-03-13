@@ -16,6 +16,8 @@ import archiver from 'archiver';
 import { createBundle, createJSPieceBundle, createM4DBundle, generateDeviceHTML, prewarmCache, getCacheStatus, setSkipMinification } from './bundler.mjs';
 import { streamOSImage, getOSBuildStatus, invalidateManifest, purgeOSBuildCache, clearOSBuildLocalCache } from './os-builder.mjs';
 import { startOSBaseBuild, getOSBaseBuild, getOSBaseBuildsSummary, cancelOSBaseBuild } from './os-base-build.mjs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -267,6 +269,22 @@ app.use((req, res, next) => {
     return res.sendStatus(200);
   }
   next();
+});
+
+// Serve font glyph JSONs locally for Puppeteer captures.
+// Font_1 glyph XHR requests from the disk.mjs worker are redirected here
+// by the request interceptor to avoid Puppeteer's broken concurrent XHR handling.
+const __serverDirname = dirname(fileURLToPath(import.meta.url));
+app.get('/local-glyph/*', (req, res) => {
+  const glyphPath = req.params[0]; // Express auto-decodes URI params
+  // Sanitize: only allow paths within ac-source/disks/drawings
+  if (glyphPath.includes('..') || glyphPath.includes('\0')) {
+    return res.status(400).send('Invalid path');
+  }
+  const filePath = join(__serverDirname, 'ac-source', 'disks', 'drawings', glyphPath);
+  res.sendFile(filePath, (err) => {
+    if (err) res.status(404).json({ error: 'glyph not found' });
+  });
 });
 
 // Oven TV dashboard — live-updating visual bake monitor
