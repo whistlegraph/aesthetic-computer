@@ -1480,6 +1480,51 @@ function tryLocalBDFGlyphs(url) {
 }
 
 /**
+ * Pre-load all font_1 glyph JSONs from local filesystem and inject them
+ * into the page via evaluateOnNewDocument(). This bypasses Puppeteer's
+ * broken request interception for concurrent XHR requests.
+ *
+ * Sets window.__injectedFontGlyphs = { "a": {...}, "B": {...}, ... }
+ * which type.mjs checks before attempting any network fetches.
+ */
+async function injectFontGlyphs(page) {
+  const fontDir = join(LOCAL_FONT_DRAWINGS, 'font_1');
+  const glyphMap = {};
+
+  // Import font_1 character→path mapping from ac-source
+  let font1Data;
+  try {
+    const fontsModule = await import(join(__dirname, 'ac-source', 'disks', 'common', 'fonts.mjs'));
+    font1Data = fontsModule.font_1;
+  } catch (err) {
+    console.warn(`⚠️ Could not import fonts.mjs: ${err.message}`);
+    return;
+  }
+
+  // Read each glyph JSON from disk
+  const metaKeys = new Set(['glyphHeight', 'glyphWidth', 'proportional', 'bdfFallback']);
+  let loaded = 0, failed = 0;
+  for (const [char, location] of Object.entries(font1Data)) {
+    if (metaKeys.has(char)) continue;
+    try {
+      const filePath = join(fontDir, `${location}.json`);
+      const data = readFileSync(filePath, 'utf-8');
+      glyphMap[char] = JSON.parse(data);
+      loaded++;
+    } catch {
+      failed++;
+    }
+  }
+
+  if (loaded > 0) {
+    await page.evaluateOnNewDocument((glyphs) => {
+      window.__injectedFontGlyphs = glyphs;
+    }, glyphMap);
+    console.log(`   🔤 Injected ${loaded} font_1 glyphs into page (${failed} failed)`);
+  }
+}
+
+/**
  * Set up request interception on a Puppeteer page.
  * - Blocks self-referential requests and analytics
  * - Drops non-essential API calls (boot-log, mood)
@@ -1577,6 +1622,7 @@ async function captureFrames(piece, options = {}) {
   const browser = await getBrowser();
   const page = await browser.newPage();
   await interceptSelfRequests(page);
+  await injectFontGlyphs(page);
 
   // Log page console messages for debugging (skip blocked-request noise)
   page.on('console', msg => {
@@ -3362,6 +3408,7 @@ async function generateFeaturedOGImage(topPieces) {
   const browser = await getBrowser();
   const page = await browser.newPage();
   await interceptSelfRequests(page);
+  await injectFontGlyphs(page);
 
   try {
     await page.setViewport({ width, height, deviceScaleFactor: 1 });
@@ -3430,6 +3477,7 @@ async function generateMosaicOGImage(topPieces) {
   const browser = await getBrowser();
   const page = await browser.newPage();
   await interceptSelfRequests(page);
+  await injectFontGlyphs(page);
 
   try {
     const tiles = [];
@@ -3767,6 +3815,7 @@ async function createKidLispBrandingWithPuppeteer(width, height, codes = []) {
   const browser = await getBrowser();
   const page = await browser.newPage();
   await interceptSelfRequests(page);
+  await injectFontGlyphs(page);
 
   try {
     await page.setViewport({ width, height, deviceScaleFactor: 1 });
@@ -3880,6 +3929,7 @@ async function generateFilmstripOGImage(topPieces) {
   const browser = await getBrowser();
   const page = await browser.newPage();
   await interceptSelfRequests(page);
+  await injectFontGlyphs(page);
 
   try {
     await page.setViewport({ width: frameWidth, height: frameHeight, deviceScaleFactor: 2 });
@@ -3996,6 +4046,7 @@ async function generateCodeSplitOGImage(topPieces) {
   const browser = await getBrowser();
   const page = await browser.newPage();
   await interceptSelfRequests(page);
+  await injectFontGlyphs(page);
 
   try {
     // Capture preview
