@@ -9319,7 +9319,11 @@ async function load(
     lastPaintOut = undefined;
     shouldSkipPaint = false;
     pieceFrameCount = 0;
-    
+    // Reset acPieceReady so the signal fires again for the next piece
+    if (typeof window !== "undefined") {
+      window.acPieceReady = false;
+    }
+
     // 🎬 Piece Transition: Capture CURRENT screen pixels BEFORE clearing
     // This enables piece-to-piece morphing transitions (not just noise16→piece)
     // Skip entirely if TRANSITION_TYPE is "none"
@@ -13281,7 +13285,10 @@ async function makeFrame({ data: { type, content } }) {
             
             // 🎨 Signal to hide boot canvas when piece's paint takes over from default noise16
             // Only signal once when piece has a custom paint function (not defaults.paint)
-            if (pieceFrameCount === 1 && paint !== defaults.paint) {
+            // Note: pieceFrameCount may already be >1 if defaults.paint ran while the module
+            // was loading (e.g., KidLisp pieces that take several seconds to initialize).
+            // Use acPieceReady itself as the "already fired" guard instead of pieceFrameCount.
+            if (paint !== defaults.paint && !(typeof window !== "undefined" && window.acPieceReady)) {
               send({ type: "piece-paint-ready" });
               // 🔥 Global signal for Puppeteer/Oven to detect piece is ready for screenshot
               if (typeof window !== "undefined") {
