@@ -1481,84 +1481,81 @@ function tryLocalBDFGlyphs(url) {
 
 /**
  * Pre-load all font_1 glyph JSONs from local filesystem and inject them
- * into the page via evaluateOnNewDocument(). This monkey-patches XHR so
- * that font_1 glyph requests are fulfilled from the injected data instead
- * of going to the network. Works with the EXISTING production type.mjs —
- * no site redeploy needed.
+ * into the page context. Two-part strategy:
  *
- * Bypasses Puppeteer's broken request interception for concurrent XHRs.
+ * 1. evaluateOnNewDocument: sets window.__injectedFontGlyphs (char → data)
+ * 2. Request interception: serves the LOCAL type.mjs (which checks
+ *    __injectedFontGlyphs) so the production type.mjs doesn't need updating.
+ *
+ * This bypasses Puppeteer's broken concurrent XHR handling entirely.
  */
-async function injectFontGlyphs(page) {
-  const fontDir = join(LOCAL_FONT_DRAWINGS, 'font_1');
+let _cachedFontGlyphs = null; // { char: glyphData, ... } — loaded once per process
+let _cachedTypeMjs = null;     // local type.mjs source — loaded once per process
 
-  // Import font_1 character→path mapping from ac-source
+function loadFontGlyphsSync() {
+  if (_cachedFontGlyphs) return _cachedFontGlyphs;
+
+  const fontDir = join(LOCAL_FONT_DRAWINGS, 'font_1');
   let font1Data;
   try {
-    const fontsModule = await import(join(__dirname, 'ac-source', 'disks', 'common', 'fonts.mjs'));
-    font1Data = fontsModule.font_1;
+    // Dynamic import doesn't work synchronously — use readFileSync + parse
+    const fontsPath = join(__dirname, 'ac-source', 'disks', 'common', 'fonts.mjs');
+    const fontsSrc = readFileSync(fontsPath, 'utf-8');
+    // Extract font_1 object from the module source (it's a simple object literal)
+    const font1Match = fontsSrc.match(/export\s+const\s+font_1\s*=\s*(\{[\s\S]*?\n\});/);
+    if (!font1Match) {
+      console.warn('⚠️ Could not parse font_1 from fonts.mjs');
+      return null;
+    }
+    // Evaluate the object (safe: it's our own source file with simple key-value pairs)
+    font1Data = new Function('return ' + font1Match[1])();
   } catch (err) {
-    console.warn(`⚠️ Could not import fonts.mjs: ${err.message}`);
-    return;
+    console.warn(`⚠️ Could not load fonts.mjs: ${err.message}`);
+    return null;
   }
 
-  // Build map keyed by location path (what appears in the URL)
   const metaKeys = new Set(['glyphHeight', 'glyphWidth', 'proportional', 'bdfFallback']);
-  const glyphsByLocation = {};
+  const glyphs = {};
   let loaded = 0, failed = 0;
   for (const [char, location] of Object.entries(font1Data)) {
     if (metaKeys.has(char)) continue;
     try {
       const filePath = join(fontDir, `${location}.json`);
       const data = readFileSync(filePath, 'utf-8');
-      glyphsByLocation[location] = data; // Keep as string — no need to parse then re-stringify
+      glyphs[char] = JSON.parse(data);
       loaded++;
     } catch {
       failed++;
     }
   }
 
-  if (loaded > 0) {
-    await page.evaluateOnNewDocument((glyphsJSON) => {
-      // Monkey-patch XHR to intercept font_1 glyph requests and return
-      // pre-loaded data immediately, bypassing Puppeteer's broken
-      // request.respond() for concurrent XHRs.
-      const OrigOpen = XMLHttpRequest.prototype.open;
-      const OrigSend = XMLHttpRequest.prototype.send;
+  console.log(`   🔤 Loaded ${loaded} font_1 glyphs from disk (${failed} failed)`);
+  _cachedFontGlyphs = loaded > 0 ? glyphs : null;
+  return _cachedFontGlyphs;
+}
 
-      XMLHttpRequest.prototype.open = function (method, url, ...args) {
-        this.__fontPatchUrl = url;
-        return OrigOpen.call(this, method, url, ...args);
-      };
-
-      XMLHttpRequest.prototype.send = function (...args) {
-        const url = this.__fontPatchUrl;
-        if (url && url.includes('/disks/drawings/font_1/') && url.endsWith('.json')) {
-          const match = url.match(/\/disks\/drawings\/font_1\/(.+)\.json/);
-          if (match) {
-            const location = decodeURIComponent(match[1]);
-            const jsonStr = glyphsJSON[location];
-            if (jsonStr) {
-              // Simulate a successful synchronous XHR response
-              const self = this;
-              Object.defineProperty(self, 'status', { value: 200, writable: true, configurable: true });
-              Object.defineProperty(self, 'readyState', { value: 4, writable: true, configurable: true });
-              Object.defineProperty(self, 'response', { value: jsonStr, writable: true, configurable: true });
-              Object.defineProperty(self, 'responseText', { value: jsonStr, writable: true, configurable: true });
-              // Fire onload asynchronously (microtask) to match real XHR ordering
-              Promise.resolve().then(() => {
-                if (self.onprogress) self.onprogress({ loaded: 1, total: 1 });
-                if (self.onload) self.onload();
-              });
-              return; // Don't actually send the request
-            }
-          }
-        }
-        return OrigSend.call(this, ...args);
-      };
-
-    }, glyphsByLocation);
-    console.log(`   🔤 Injected ${loaded} font_1 glyphs via XHR patch (${failed} failed)`);
+function loadTypeMjsSync() {
+  if (_cachedTypeMjs !== null) return _cachedTypeMjs;
+  try {
+    const typePath = join(__dirname, 'ac-source', 'lib', 'type.mjs');
+    _cachedTypeMjs = readFileSync(typePath, 'utf-8');
+    console.log(`   🔤 Loaded local type.mjs (${(_cachedTypeMjs.length / 1024).toFixed(1)} KB)`);
+  } catch (err) {
+    console.warn(`⚠️ Could not load local type.mjs: ${err.message}`);
+    _cachedTypeMjs = '';
   }
+  return _cachedTypeMjs;
+}
+
+async function injectFontGlyphs(page) {
+  const glyphs = loadFontGlyphsSync();
+  if (!glyphs) return;
+
+  // Inject glyph data into window before any scripts run
+  await page.evaluateOnNewDocument((glyphData) => {
+    window.__injectedFontGlyphs = glyphData;
+  }, glyphs);
+  console.log(`   🔤 Injected ${Object.keys(glyphs).length} font_1 glyphs into page`);
 }
 
 /**
@@ -1590,10 +1587,20 @@ async function interceptSelfRequests(page) {
         return;
       }
 
-      // font_1 hand-drawn glyph JSONs — let these go to network.
-      // Puppeteer's request.respond() causes XHR hangs for these 97 fetches,
-      // so we skip local interception and let them load from aesthetic.computer.
-      // (The local tryLocalFontGlyph path is kept for future debugging if needed.)
+      // Serve LOCAL type.mjs so it includes the __injectedFontGlyphs check.
+      // This is a single-file intercept (not 97 concurrent XHRs), so
+      // request.respond() works reliably here.
+      if (url.includes('/lib/type.mjs') && !url.includes('node_modules')) {
+        const localTypeMjs = loadTypeMjsSync();
+        if (localTypeMjs) {
+          await request.respond({
+            status: 200,
+            contentType: 'application/javascript',
+            body: localTypeMjs,
+          });
+          return;
+        }
+      }
 
       // Serve BDF glyph batch responses from local cache
       if (url.includes('/api/bdf-glyph')) {
