@@ -5,13 +5,13 @@
  */
 
 import { spawn } from 'child_process';
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, unlinkSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const BACKUP_DIR = join(__dirname, '..', 'gigs', 'thomaslawson.com', 'backups', '2026-01-09');
-const SSH_KEY = join(__dirname, '..', 'gigs', 'thomaslawson.com', 'ssh', 'thomaslawson_ed25519');
+const BACKUP_DIR = join(__dirname, '..', '..', 'gigs', 'thomaslawson.com', 'backups', '2026-03-12');
+const SSH_KEY = join(__dirname, '..', '..', 'gigs', 'thomaslawson.com', 'ssh', 'thomaslawson_ed25519');
 const REMOTE_USER = 'ihfdfni4xqvj';
 const REMOTE_HOST = '208.109.70.142';
 
@@ -23,21 +23,20 @@ if (!existsSync(BACKUP_DIR)) {
 async function runSftp(commands) {
   return new Promise((resolve, reject) => {
     const batchFile = join(BACKUP_DIR, '.sftp-batch');
-    const fs = await import('fs');
-    fs.default.writeFileSync(batchFile, commands.join('\n'));
-    
+    writeFileSync(batchFile, commands.join('\n'));
+
     const sftp = spawn('sftp', [
       '-i', SSH_KEY,
       '-o', 'StrictHostKeyChecking=no',
       '-b', batchFile,
       `${REMOTE_USER}@${REMOTE_HOST}`
     ]);
-    
+
     let output = '';
     sftp.stdout.on('data', d => { output += d; console.log(d.toString()); });
     sftp.stderr.on('data', d => console.error(d.toString()));
     sftp.on('close', code => {
-      fs.default.unlinkSync(batchFile);
+      unlinkSync(batchFile);
       code === 0 ? resolve(output) : reject(new Error(`sftp exit ${code}`));
     });
   });
