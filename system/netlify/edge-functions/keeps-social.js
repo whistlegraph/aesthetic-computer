@@ -22,8 +22,11 @@ export default async function handleRequest(request, context) {
   const code = seg.slice(1);
 
   try {
-    // Fetch token data from objkt GraphQL
-    const tokenData = await fetchTokenData(code);
+    // Fetch token data and resolve the preview image URL in parallel
+    const [tokenData, ogImage] = await Promise.all([
+      fetchTokenData(code),
+      resolveImageUrl(`https://oven.aesthetic.computer/preview/1200x630/${code}.png`),
+    ]);
 
     // Get the upstream HTML response
     const response = await context.next();
@@ -32,7 +35,6 @@ export default async function handleRequest(request, context) {
     // Build meta tag values
     const title = `$${code} · KidLisp Keep`;
     const description = buildDescription(tokenData);
-    const ogImage = `https://oven.aesthetic.computer/preview/1200x630/${code}.png`;
     const permalink = `https://keeps.kidlisp.com/$${code}`;
 
     // Replace the static OG/Twitter meta tags with dynamic ones
@@ -134,4 +136,17 @@ function buildDescription(tokenData) {
 
 function escapeAttr(str) {
   return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Resolve a URL through any redirects to get the final direct URL.
+// Twitterbot does not reliably follow 302 redirects on image URLs,
+// so we resolve to the direct CDN URL for the meta tag.
+async function resolveImageUrl(url) {
+  try {
+    const res = await fetch(url, { method: 'HEAD', redirect: 'follow' });
+    if (res.ok && res.url) return res.url;
+  } catch (e) {
+    console.error('[keeps-social] image resolve error:', e);
+  }
+  return url; // Fall back to the original URL
 }
