@@ -172,6 +172,8 @@ static void mount_minimal_fs(void) {
     mount("proc", "/proc", "proc", 0, NULL);
     mount("sysfs", "/sys", "sysfs", 0, NULL);
     mount("devtmpfs", "/dev", "devtmpfs", 0, NULL);
+    mkdir("/dev/pts", 0755);
+    mount("devpts", "/dev/pts", "devpts", 0, "ptmxmode=0666");
     mount("tmpfs", "/tmp", "tmpfs", 0, NULL);
 
     // Wait for display device (up to 1s)
