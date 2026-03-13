@@ -50,7 +50,7 @@ const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 // Stable cache version — bump manually when rendering pipeline changes meaningfully.
 // Do NOT tie to GIT_VERSION, which changes every deploy and invalidates all cached icons.
-const CACHE_RENDER_VERSION = 'v1';
+const CACHE_RENDER_VERSION = 'v2';
 
 // MongoDB connection
 let mongoClient;
@@ -1684,8 +1684,10 @@ async function captureFrames(piece, options = {}) {
     // Settle time: let the piece run a bit more after ready signal
     // For stills, wait longer to let animations stabilize
     // For animations, just a small buffer
+    // KidLisp ($code) pieces need extra time for generative rendering to complete
     const isStill = frames === 1;
-    const settleTime = isStill ? 500 : 200; // 500ms for stills, 200ms for animations
+    const isKidLisp = piece.startsWith('$');
+    const settleTime = isStill ? (isKidLisp ? 2000 : 500) : 200;
     console.log(`   ${isStill ? '⏳ Settling for still capture' : '⏳ Brief settle'}... (${settleTime}ms)`);
 
     // Send preview before settling
@@ -2115,10 +2117,16 @@ export async function grabPiece(piece, options = {}) {
       });
       
       if (format === 'png') {
-        // Single frame PNG
+        // Single frame PNG — captureFrame filters blank frames via captureFrames,
+        // but nearly-black frames (a few pixels above threshold) can slip through.
+        // Validate explicitly before caching to prevent black preview images.
         const frame = await captureFrame(piece, { width, height, density, viewportScale, baseUrl, grabId });
         if (!frame) {
-          throw new Error('Failed to capture frame');
+          throw new Error('Failed to capture frame — blank or black image detected');
+        }
+        const blank = await isBlankFrame(frame);
+        if (blank) {
+          throw new Error('Captured frame is blank/black — piece may not have rendered in time');
         }
         result = await frameToThumbnail(frame, { width: outputWidth, height: outputHeight });
         
