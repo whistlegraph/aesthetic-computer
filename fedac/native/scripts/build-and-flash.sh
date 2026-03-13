@@ -210,25 +210,9 @@ else
     log "Baked config.json (handle: ${HANDLE_CLEAN}, no colors)"
 fi
 
-# Bundle KidLisp evaluator (IIFE build for QuickJS)
-KIDLISP_SRC="${SCRIPT_DIR}/../../../system/public/aesthetic.computer/lib/kidlisp.mjs"
-KIDLISP_BUNDLE="${INITRAMFS_DIR}/jslib/kidlisp-bundle.js"
-if [ -f "${KIDLISP_SRC}" ]; then
-    mkdir -p "${INITRAMFS_DIR}/jslib"
-    if command -v npx &>/dev/null; then
-        log "Bundling KidLisp evaluator..."
-        npx esbuild "${KIDLISP_SRC}" --bundle --format=iife --global-name=KidLispModule \
-            --outfile="${KIDLISP_BUNDLE}" --platform=neutral --external:https 2>&1 | tail -1
-        if [ -f "${KIDLISP_BUNDLE}" ]; then
-            KL_SIZE=$(du -sh "${KIDLISP_BUNDLE}" | cut -f1)
-            log "KidLisp bundle: ${KL_SIZE}"
-        else
-            warn "KidLisp bundle failed"
-        fi
-    else
-        warn "npx not found — skipping KidLisp bundle"
-    fi
-fi
+# KidLisp bundling is handled by ac-os (runs as user, has npx in PATH).
+# build-and-flash.sh runs under sudo where npx is unavailable.
+mkdir -p "${INITRAMFS_DIR}/jslib"
 
 # Copy shared libs (if dynamic build)
 if file "${BUILD_DIR}/ac-native" | grep -q "dynamically linked"; then
