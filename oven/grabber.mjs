@@ -50,7 +50,7 @@ const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 // Stable cache version — bump manually when rendering pipeline changes meaningfully.
 // Do NOT tie to GIT_VERSION, which changes every deploy and invalidates all cached icons.
-const CACHE_RENDER_VERSION = 'v3';
+const CACHE_RENDER_VERSION = 'v4';
 
 // MongoDB connection
 let mongoClient;
