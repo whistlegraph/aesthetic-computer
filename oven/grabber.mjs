@@ -50,7 +50,7 @@ const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 // Stable cache version — bump manually when rendering pipeline changes meaningfully.
 // Do NOT tie to GIT_VERSION, which changes every deploy and invalidates all cached icons.
-const CACHE_RENDER_VERSION = 'v4';
+const CACHE_RENDER_VERSION = 'v5';
 
 // MongoDB connection
 let mongoClient;
@@ -1738,6 +1738,11 @@ async function captureFrames(piece, options = {}) {
       waitUntil: 'domcontentloaded',  // Changed from networkidle2 - $code pieces continue network activity
       timeout: 30000
     });
+
+    // Pre-populate IndexedDB glyph cache on this page so the disk worker
+    // finds font_1 glyphs locally instead of making XHR requests that hang
+    // under Puppeteer's CDP request interception.
+    await populateGlyphCache(page);
 
     // Black background — matches HTML bundle style, prevents white borders in thumbnails
     await page.evaluate(() => {
@@ -3493,13 +3498,14 @@ async function generateFeaturedOGImage(topPieces) {
       waitUntil: 'domcontentloaded',
       timeout: 30000
     });
-    
+    await populateGlyphCache(page);
+
     // Wait for canvas and content
     await page.waitForSelector('canvas', { timeout: 10000 });
-    
+
     // Wait for KidLisp content to render (animation frame)
     await new Promise(r => setTimeout(r, 4000));
-    
+
     // Take screenshot
     const screenshot = await page.screenshot({ type: 'png' });
     
@@ -3567,7 +3573,8 @@ async function generateMosaicOGImage(topPieces) {
         waitUntil: 'domcontentloaded',
         timeout: 20000
       });
-      
+      if (i === 0) await populateGlyphCache(page);
+
       await page.waitForSelector('canvas', { timeout: 10000 }).catch(() => {});
       // Let pieces play longer before capture (8 seconds)
       await new Promise(r => setTimeout(r, 8000));
@@ -4009,8 +4016,9 @@ async function generateFilmstripOGImage(topPieces) {
     
     const url = `https://aesthetic.computer/$${featured.code}?density=2&tv=true&nolabel=true&nogap=true&spoofaudio=true`;
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await populateGlyphCache(page);
     await page.waitForSelector('canvas', { timeout: 10000 }).catch(() => {});
-    
+
     const frames = [];
     
     for (let i = 0; i < frameCount; i++) {
