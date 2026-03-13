@@ -1487,17 +1487,23 @@ function tryLocalBDFGlyphs(url) {
  */
 async function interceptSelfRequests(page) {
   await page.setRequestInterception(true);
+  // Track interception stats for diagnostics
+  const stats = { fontLocal: 0, fontMiss: 0, bdfLocal: 0, bdfMiss: 0, blocked: 0, dropped: 0 };
+  page._interceptStats = stats;
+
   page.on('request', request => {
     const url = request.url();
 
     // Block analytics and self-referential requests
     if (BLOCKED_URL_PATTERNS.some(pattern => url.includes(pattern))) {
+      stats.blocked++;
       request.abort('blockedbyclient');
       return;
     }
 
     // Drop non-essential API calls with a 200 OK (no-op)
     if (DROPPABLE_API_PATTERNS.some(pattern => url.includes(pattern))) {
+      stats.dropped++;
       request.respond({ status: 200, contentType: 'application/json', body: '{}' });
       return;
     }
@@ -1506,6 +1512,7 @@ async function interceptSelfRequests(page) {
     if (url.includes('/disks/drawings/font_1/') && url.endsWith('.json')) {
       const localData = tryLocalFontGlyph(url);
       if (localData) {
+        stats.fontLocal++;
         request.respond({
           status: 200,
           contentType: 'application/json',
@@ -1513,7 +1520,7 @@ async function interceptSelfRequests(page) {
         });
         return;
       }
-      // Log miss for debugging
+      stats.fontMiss++;
       console.log(`   [LOCAL MISS] font glyph: ${url.slice(url.indexOf('font_1'))}`);
     }
 
@@ -1521,6 +1528,7 @@ async function interceptSelfRequests(page) {
     if (url.includes('/api/bdf-glyph')) {
       const localResponse = tryLocalBDFGlyphs(url);
       if (localResponse) {
+        stats.bdfLocal++;
         request.respond({
           status: 200,
           contentType: 'application/json',
@@ -1528,6 +1536,7 @@ async function interceptSelfRequests(page) {
         });
         return;
       }
+      stats.bdfMiss++;
       console.log(`   [LOCAL MISS] bdf-glyph: ${url.slice(url.indexOf('?'))}`);
     }
 
@@ -1580,7 +1589,7 @@ async function captureFrames(piece, options = {}) {
     const text = msg.text();
     if (text.includes('ERR_BLOCKED_BY_CLIENT')) return;
     if (text.includes('Failed to load resource: net::ERR_')) return;
-    if (type === 'error' || text.includes('KidLisp') || text.includes('$') || text.includes('acPieceReady') || text.includes('BOOT')) {
+    if (type === 'error' || text.includes('KidLisp') || text.includes('$') || text.includes('acPieceReady') || text.includes('BOOT') || text.includes('font') || text.includes('glyph') || text.includes('Typeface') || text.includes('🔤')) {
       console.log(`   [PAGE ${type}] ${text}`);
     }
   });
@@ -1783,6 +1792,44 @@ async function captureFrames(piece, options = {}) {
       }
     } else {
       console.log('   ✅ Fonts already loaded');
+    }
+
+    // Log interception stats
+    const interceptStats = page._interceptStats;
+    if (interceptStats) {
+      console.log(`   📊 Intercept stats: fontLocal=${interceptStats.fontLocal} fontMiss=${interceptStats.fontMiss} bdfLocal=${interceptStats.bdfLocal} bdfMiss=${interceptStats.bdfMiss} blocked=${interceptStats.blocked} dropped=${interceptStats.dropped}`);
+    }
+
+    // Diagnostic: inspect typeface glyph state in the page
+    try {
+      const fontDiag = await page.evaluate(() => {
+        const diag = {
+          acFontsReady: window.acFontsReady,
+          acPieceReady: window.acPieceReady,
+        };
+        // Try to access the global typeface
+        // disk.mjs stores tf in $commonApi.typeface, which may be on window.__acApi
+        // but the simplest way is to check the first canvas for rendered content
+        try {
+          // Check if typeface has loaded glyphs by checking known chars
+          if (window.__acTypeface) {
+            const tf = window.__acTypeface;
+            diag.tfName = tf.name;
+            diag.glyphKeys = Object.keys(tf.glyphs || {}).length;
+            diag.hasF = !!tf.glyphs?.['f'];
+            diag.hasO = !!tf.glyphs?.['o'];
+            diag.hasQuestion = !!tf.glyphs?.['?'];
+          } else {
+            diag.noTfRef = true;
+          }
+        } catch (e) {
+          diag.tfError = e.message;
+        }
+        return diag;
+      });
+      console.log(`   🔤 Font diagnostics:`, JSON.stringify(fontDiag));
+    } catch (e) {
+      console.log(`   🔤 Font diagnostics failed: ${e.message}`);
     }
 
     // Settle time: let the piece run a bit more after ready signal
