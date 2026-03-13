@@ -1481,15 +1481,15 @@ function tryLocalBDFGlyphs(url) {
 
 /**
  * Pre-load all font_1 glyph JSONs from local filesystem and inject them
- * into the page via evaluateOnNewDocument(). This bypasses Puppeteer's
- * broken request interception for concurrent XHR requests.
+ * into the page via evaluateOnNewDocument(). This monkey-patches XHR so
+ * that font_1 glyph requests are fulfilled from the injected data instead
+ * of going to the network. Works with the EXISTING production type.mjs —
+ * no site redeploy needed.
  *
- * Sets window.__injectedFontGlyphs = { "a": {...}, "B": {...}, ... }
- * which type.mjs checks before attempting any network fetches.
+ * Bypasses Puppeteer's broken request interception for concurrent XHRs.
  */
 async function injectFontGlyphs(page) {
   const fontDir = join(LOCAL_FONT_DRAWINGS, 'font_1');
-  const glyphMap = {};
 
   // Import font_1 character→path mapping from ac-source
   let font1Data;
@@ -1501,15 +1501,16 @@ async function injectFontGlyphs(page) {
     return;
   }
 
-  // Read each glyph JSON from disk
+  // Build map keyed by location path (what appears in the URL)
   const metaKeys = new Set(['glyphHeight', 'glyphWidth', 'proportional', 'bdfFallback']);
+  const glyphsByLocation = {};
   let loaded = 0, failed = 0;
   for (const [char, location] of Object.entries(font1Data)) {
     if (metaKeys.has(char)) continue;
     try {
       const filePath = join(fontDir, `${location}.json`);
       const data = readFileSync(filePath, 'utf-8');
-      glyphMap[char] = JSON.parse(data);
+      glyphsByLocation[location] = data; // Keep as string — no need to parse then re-stringify
       loaded++;
     } catch {
       failed++;
@@ -1517,10 +1518,46 @@ async function injectFontGlyphs(page) {
   }
 
   if (loaded > 0) {
-    await page.evaluateOnNewDocument((glyphs) => {
-      window.__injectedFontGlyphs = glyphs;
-    }, glyphMap);
-    console.log(`   🔤 Injected ${loaded} font_1 glyphs into page (${failed} failed)`);
+    await page.evaluateOnNewDocument((glyphsJSON) => {
+      // Monkey-patch XHR to intercept font_1 glyph requests and return
+      // pre-loaded data immediately, bypassing Puppeteer's broken
+      // request.respond() for concurrent XHRs.
+      const OrigOpen = XMLHttpRequest.prototype.open;
+      const OrigSend = XMLHttpRequest.prototype.send;
+
+      XMLHttpRequest.prototype.open = function (method, url, ...args) {
+        this.__fontPatchUrl = url;
+        return OrigOpen.call(this, method, url, ...args);
+      };
+
+      XMLHttpRequest.prototype.send = function (...args) {
+        const url = this.__fontPatchUrl;
+        if (url && url.includes('/disks/drawings/font_1/') && url.endsWith('.json')) {
+          const match = url.match(/\/disks\/drawings\/font_1\/(.+)\.json/);
+          if (match) {
+            const location = decodeURIComponent(match[1]);
+            const jsonStr = glyphsJSON[location];
+            if (jsonStr) {
+              // Simulate a successful synchronous XHR response
+              const self = this;
+              Object.defineProperty(self, 'status', { value: 200, writable: true, configurable: true });
+              Object.defineProperty(self, 'readyState', { value: 4, writable: true, configurable: true });
+              Object.defineProperty(self, 'response', { value: jsonStr, writable: true, configurable: true });
+              Object.defineProperty(self, 'responseText', { value: jsonStr, writable: true, configurable: true });
+              // Fire onload asynchronously (microtask) to match real XHR ordering
+              Promise.resolve().then(() => {
+                if (self.onprogress) self.onprogress({ loaded: 1, total: 1 });
+                if (self.onload) self.onload();
+              });
+              return; // Don't actually send the request
+            }
+          }
+        }
+        return OrigSend.call(this, ...args);
+      };
+
+    }, glyphsByLocation);
+    console.log(`   🔤 Injected ${loaded} font_1 glyphs via XHR patch (${failed} failed)`);
   }
 }
 
