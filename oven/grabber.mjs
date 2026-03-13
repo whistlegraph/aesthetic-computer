@@ -50,7 +50,7 @@ const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 // Stable cache version — bump manually when rendering pipeline changes meaningfully.
 // Do NOT tie to GIT_VERSION, which changes every deploy and invalidates all cached icons.
-const CACHE_RENDER_VERSION = 'v2';
+const CACHE_RENDER_VERSION = 'v3';
 
 // MongoDB connection
 let mongoClient;
@@ -1791,7 +1791,7 @@ async function captureFrames(piece, options = {}) {
     // KidLisp ($code) pieces need extra time for generative rendering to complete
     const isStill = frames === 1;
     const isKidLisp = piece.startsWith('$');
-    const settleTime = isStill ? (isKidLisp ? 2000 : 500) : 200;
+    const settleTime = isStill ? (isKidLisp ? 5000 : 500) : 200;
     console.log(`   ${isStill ? '⏳ Settling for still capture' : '⏳ Brief settle'}... (${settleTime}ms)`);
 
     // Send preview before settling
