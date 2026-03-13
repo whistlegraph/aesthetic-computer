@@ -298,6 +298,19 @@ class Typeface {
         return !g.startsWith("glyph") && typeof loc === "string" && loc !== "false" && loc.length > 0;
       });
 
+      // Check for pre-injected glyphs (oven/Puppeteer injects these to avoid XHR)
+      if (typeof window !== "undefined" && window.__injectedFontGlyphs) {
+        const injected = window.__injectedFontGlyphs;
+        let injectedCount = 0;
+        for (const [glyph] of glyphsToLoad) {
+          if (injected[glyph] && !this.glyphs[glyph]) {
+            this.glyphs[glyph] = injected[glyph];
+            injectedCount++;
+          }
+        }
+        console.log(`🔤 font_1 pre-injected: ${injectedCount} glyphs`);
+      }
+
       // Filter out already-cached glyphs
       const glyphsNeedingFetch = glyphsToLoad.filter(([glyph]) => !this.glyphs[glyph]);
       console.log(`🔤 font_1 fetching ${glyphsNeedingFetch.length} glyphs (${glyphsToLoad.length} total, ${cachedCount} cached)`);
