@@ -434,13 +434,11 @@ upload_ota() {
         exit 1
     fi
 
-    # Build metadata
+    # Build metadata (use pre-computed name from top level, skip dirty check —
+    # require_clean already ensured clean state and stashed any hook artifacts)
     local GIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-    if ! git diff --quiet HEAD 2>/dev/null; then
-        GIT_HASH="${GIT_HASH}-dirty"
-    fi
     local BUILD_TS=$(date -u '+%Y-%m-%dT%H:%M')
-    local BUILD_NAME=$(bash scripts/build-name.sh 2>/dev/null || echo "upload-$(date +%s)")
+    local BUILD_NAME="${AC_BUILD_NAME:-$(bash scripts/build-name.sh 2>/dev/null || echo "upload-$(date +%s)")}"
     local COMMIT_MSG=$(git log -1 --format=%s HEAD 2>/dev/null | head -c 200)
     local SIZE=$(stat -c%s "${VMLINUZ}")
     local SIZE_MB=$(( SIZE / 1048576 ))
@@ -590,7 +588,9 @@ OTA_STASHED=0
 cleanup_stash() {
     if [ "${OTA_STASHED}" = "1" ]; then
         log "Restoring stashed changes..."
-        git stash pop -q 2>/dev/null || log "Stash pop failed (may need manual: git stash pop)"
+        git checkout stash -- . 2>/dev/null && git stash drop -q 2>/dev/null \
+            || git stash pop -q 2>/dev/null \
+            || log "Stash restore failed (may need manual: git stash pop)"
     fi
 }
 trap cleanup_stash EXIT
