@@ -1,6 +1,7 @@
 // claude.mjs — Claude Code client for AC native
-// Uses OAuth refresh tokens from Claude Code subscription for inference.
-// Token is stored in /mnt/config.json as claudeRefreshToken.
+// Uses bundled Claude Code CLI (`claude -p`) as the inference backend.
+// Auth handled by Claude Code's own OAuth system (setup-token or API key).
+// On first run, user enters a token via `claude setup-token` flow.
 
 let input = "";
 let cursorVisible = true;
@@ -8,18 +9,12 @@ let cursorFrame = 0;
 let shiftHeld = false;
 
 let mode = "chat"; // "setup" | "scan" | "chat"
-let messages = []; // {role, content} conversation history
-let displayLines = []; // rendered output lines
+let displayLines = [];
 let scrollY = 0;
 let streaming = false;
-let accessToken = "";
-let refreshToken = "";
+let authenticated = false;
 let statusMsg = "";
 let statusFrame = 0;
-let responseBuffer = "";
-let pendingRefresh = false;
-let pendingMessage = false;
-let cachedSystem = null;
 
 const SHIFT_MAP = {
   "1":"!", "2":"@", "3":"#", "4":"$", "5":"%",
@@ -28,30 +23,31 @@ const SHIFT_MAP = {
   ";":":", "'":'"', ",":"<", ".":">", "/":"?", "`":"~",
 };
 
-const MODEL = "claude-sonnet-4-20250514";
-const TOKEN_URL = "https://console.anthropic.com/api/oauth/token";
-const MESSAGES_URL = "https://api.anthropic.com/v1/messages";
-
 function boot({ system }) {
-  // Load saved refresh token from config.raw JSON
-  const raw = system?.config?.raw;
-  if (raw) {
-    try {
-      const cfg = JSON.parse(raw);
-      refreshToken = cfg.claudeRefreshToken || "";
-    } catch (e) { refreshToken = ""; }
-  }
-  if (refreshToken) {
-    mode = "chat";
-    statusMsg = "refreshing token...";
-    statusFrame = 0;
-    // Auto-refresh on boot
-    pendingRefresh = true;
+  // Check if Claude Code is already authenticated by running a quick test
+  statusMsg = "checking auth...";
+  streaming = true;
+  // Try a trivial prompt — if it works, we're authenticated
+  const script = `
+import { execSync } from 'child_process';
+try {
+  execSync('claude -p "hi" --max-budget-usd 0.001', {
+    encoding: 'utf8', timeout: 15000,
+    env: { ...process.env, HOME: '/tmp' },
+  });
+  process.stdout.write('AUTH_OK');
+} catch (e) {
+  const msg = e.stderr || e.message || '';
+  if (msg.includes('auth') || msg.includes('API key') || msg.includes('token')
+      || msg.includes('login') || msg.includes('401') || msg.includes('credentials')) {
+    process.stdout.write('AUTH_NEEDED');
   } else {
-    mode = "setup";
-    statusMsg = "[s] scan QR  [t] type token";
-    statusFrame = 0;
+    // Some other error but auth may be fine
+    process.stdout.write('AUTH_OK');
   }
+}
+`;
+  system?.execNode?.(script);
 }
 
 function act({ event: e, system }) {
@@ -77,26 +73,23 @@ function act({ event: e, system }) {
       if (key === "s") {
         mode = "scan";
         statusMsg = "opening camera...";
-        statusFrame = 0;
         system?.scanQR?.();
         return;
       }
       if (key === "t") {
-        statusMsg = "paste refresh token (sk-ant-ort01-...)";
-        statusFrame = 0;
+        statusMsg = "paste token from claude setup-token";
         return;
       }
     }
 
-    // Scan mode: Escape to cancel
+    // Scan mode
     if (mode === "scan") {
       if (key === "escape") {
         system?.scanQRStop?.();
         mode = "setup";
         statusMsg = "[s] scan QR  [t] type token";
-        statusFrame = 0;
       }
-      return; // ignore all other keys while scanning
+      return;
     }
 
     if (key === "enter" || key === "return") {
@@ -104,61 +97,53 @@ function act({ event: e, system }) {
       if (cmd.length === 0) return;
       input = "";
 
+      // Setup: accept API key or setup token
       if (mode === "setup") {
-        if (cmd.startsWith("sk-ant-ort01-")) {
-          refreshToken = cmd;
-          // Save to config via globalThis (will be picked up by ac-native)
-          saveToken(refreshToken, system);
+        if (cmd.startsWith("sk-ant-")) {
+          // Save API key for claude -p via env
+          system?.saveConfig?.("claudeApiKey", cmd);
+          authenticated = true;
           mode = "chat";
-          statusMsg = "token saved — refreshing...";
-          statusFrame = 0;
-        } else {
-          statusMsg = "invalid token (need sk-ant-ort01-...)";
-          statusFrame = 0;
+          statusMsg = "key saved — ready";
+          return;
         }
+        statusMsg = "need sk-ant-... key";
         return;
       }
 
-      // Chat mode
+      // Chat commands
       if (cmd === "/clear") {
-        messages = [];
         displayLines = [];
         scrollY = 0;
         statusMsg = "cleared";
-        statusFrame = 0;
         return;
       }
-      if (cmd === "/token") {
+      if (cmd === "/key" || cmd === "/login") {
         mode = "setup";
         statusMsg = "[s] scan QR  [t] type token";
-        statusFrame = 0;
         return;
       }
       if (cmd === "/scan") {
         mode = "scan";
         statusMsg = "opening camera...";
-        statusFrame = 0;
         system?.scanQR?.();
         return;
       }
 
       if (streaming) {
-        statusMsg = "waiting for response...";
-        statusFrame = 0;
+        statusMsg = "waiting...";
         return;
       }
 
-      // Add user message
-      messages.push({ role: "user", content: cmd });
-      addDisplayLine("you", cmd);
-
-      // Need access token? Refresh first, then sendMessage will
-      // fire automatically when refresh completes (see sim handler)
-      if (!accessToken) {
-        refreshAccessToken(system);
-      } else {
-        sendMessage(system);
+      if (!authenticated) {
+        mode = "setup";
+        statusMsg = "[s] scan QR  [t] type token";
+        return;
       }
+
+      // Send message via claude -p
+      addDisplayLine("you", cmd);
+      sendMessage(cmd, system);
       return;
     }
 
@@ -188,168 +173,108 @@ function act({ event: e, system }) {
   }
 }
 
-function refreshAccessToken(system) {
-  if (!refreshToken) {
-    statusMsg = "no refresh token";
-    mode = "setup";
-    return;
-  }
+function sendMessage(prompt, system) {
   streaming = true;
-  pendingRefresh = true;
-  pendingMessage = false;
-  statusMsg = "refreshing token...";
-  statusFrame = 0;
-
-  const body = JSON.stringify({
-    grant_type: "refresh_token",
-    refresh_token: refreshToken,
-    client_id: "9d1c250a-e61b-44b4-b630-94a3a99f9e18",
-  });
-  const headers = JSON.stringify({});
-  system?.fetchPost?.(TOKEN_URL, body, headers);
-}
-
-function sendMessage(system) {
-  streaming = true;
-  pendingRefresh = false;
-  pendingMessage = true;
   statusMsg = "thinking...";
-  statusFrame = 0;
 
-  const body = JSON.stringify({
-    model: MODEL,
-    max_tokens: 1024,
-    messages: messages,
+  // Load API key from config if saved
+  let apiKeyEnv = "";
+  const raw = system?.config?.raw;
+  if (raw) {
+    try {
+      const cfg = JSON.parse(raw);
+      if (cfg.claudeApiKey) apiKeyEnv = cfg.claudeApiKey;
+    } catch (e) {}
+  }
+
+  // Escape prompt for shell
+  const escaped = prompt.replace(/\\/g, "\\\\").replace(/'/g, "'\\''");
+
+  const script = `
+import { execSync } from 'child_process';
+try {
+  const env = { ...process.env, HOME: '/tmp' };
+  ${apiKeyEnv ? `env.ANTHROPIC_API_KEY = ${JSON.stringify(apiKeyEnv)};` : ""}
+  const out = execSync("claude -p '" + ${JSON.stringify(escaped)} + "'", {
+    encoding: 'utf8',
+    timeout: 120000,
+    env,
   });
-  const headers = JSON.stringify({
-    "x-api-key": accessToken,
-    "anthropic-version": "2023-06-01",
-  });
-  system?.fetchPost?.(MESSAGES_URL, body, headers);
+  process.stdout.write(out);
+} catch (e) {
+  const stderr = e.stderr || '';
+  if (stderr) process.stderr.write(stderr);
+  else process.stderr.write(e.message || 'claude -p failed');
+  process.exit(1);
+}
+`;
+  system?.execNode?.(script);
 }
 
 function sim({ system }) {
-  cachedSystem = system;
-
-  // Poll QR scan results
+  // Poll QR scan
   if (mode === "scan") {
-    if (system?.qrPending) {
-      statusMsg = "scanning for QR code...";
-    }
-    const qrResult = system?.qrResult;
-    const qrError = system?.qrError;
-    if (qrResult && qrResult.startsWith("sk-ant-ort01-")) {
-      refreshToken = qrResult;
-      saveToken(refreshToken, system);
+    if (system?.qrPending) statusMsg = "scanning...";
+    const qr = system?.qrResult;
+    const qe = system?.qrError;
+    if (qr && qr.startsWith("sk-ant-")) {
+      system?.saveConfig?.("claudeApiKey", qr);
+      authenticated = true;
       mode = "chat";
-      statusMsg = "token scanned — refreshing...";
-      statusFrame = 0;
-      pendingRefresh = true;
-    } else if (qrResult) {
+      statusMsg = "key scanned — ready";
+    } else if (qr) {
       mode = "setup";
-      statusMsg = "QR not a refresh token";
-      statusFrame = 0;
-    } else if (qrError) {
+      statusMsg = "QR not a valid key";
+    } else if (qe) {
       mode = "setup";
-      statusMsg = "scan: " + qrError;
-      statusFrame = 0;
+      statusMsg = "scan: " + qe;
     }
     return;
   }
 
-  // Auto-refresh on boot (triggered once from boot())
-  if (pendingRefresh && !streaming && refreshToken && !accessToken) {
-    refreshAccessToken(system);
-    return;
-  }
-
-  // Poll fetch results
+  // Poll exec results (reuses fetch slot)
   if (system?.fetchPending === false && streaming) {
+    streaming = false;
     const result = system?.fetchResult;
     const error = system?.fetchError;
 
+    // Boot auth check
+    if (result === "AUTH_OK") {
+      authenticated = true;
+      mode = "chat";
+      statusMsg = "ready";
+      return;
+    }
+    if (result === "AUTH_NEEDED") {
+      authenticated = false;
+      mode = "setup";
+      statusMsg = "[s] scan QR  [t] type token";
+      return;
+    }
+
+    // Normal response
     if (error) {
-      streaming = false;
-      const emsg = error.length > 50 ? error.slice(0, 47) + "..." : error;
-      statusMsg = "error: " + emsg;
-      statusFrame = 0;
-      // If auth error, try refreshing
-      if (error.includes("401") || error.includes("403") || error.includes("22")) {
-        accessToken = "";
-        statusMsg = "token expired — refreshing...";
-        refreshAccessToken(system);
+      const emsg = error.length > 60 ? error.slice(0, 57) + "..." : error;
+      if (error.includes("auth") || error.includes("API key") || error.includes("401")) {
+        authenticated = false;
+        mode = "setup";
+        statusMsg = "auth failed — enter key";
+      } else {
+        statusMsg = "error: " + emsg;
       }
       return;
     }
 
-    if (result) {
-      try {
-        const data = JSON.parse(result);
-
-        // Token refresh response
-        if (pendingRefresh && data.access_token) {
-          accessToken = data.access_token;
-          streaming = false;
-          pendingRefresh = false;
-          statusMsg = "ready";
-          statusFrame = 0;
-          // If we have a pending user message, send it now
-          if (messages.length > 0 && messages[messages.length - 1].role === "user") {
-            sendMessage(system);
-          }
-          return;
-        }
-
-        // Messages API response
-        if (pendingMessage && data.content) {
-          streaming = false;
-          pendingMessage = false;
-          const text = data.content
-            .filter(b => b.type === "text")
-            .map(b => b.text)
-            .join("\n");
-          messages.push({ role: "assistant", content: text });
-          addDisplayLine("claude", text);
-          statusMsg = "";
-          return;
-        }
-
-        // Error response from API
-        if (data.error) {
-          streaming = false;
-          pendingRefresh = false;
-          pendingMessage = false;
-          const emsg = data.error.message || JSON.stringify(data.error);
-          statusMsg = "api: " + (emsg.length > 40 ? emsg.slice(0, 37) + "..." : emsg);
-          statusFrame = 0;
-          if (emsg.includes("Invalid API Key") || emsg.includes("authentication")
-              || emsg.includes("invalid_grant")) {
-            accessToken = "";
-            refreshToken = "";
-            mode = "setup";
-            statusMsg = "token invalid — paste new one";
-          }
-          return;
-        }
-      } catch (e) {
-        streaming = false;
-        pendingRefresh = false;
-        pendingMessage = false;
-        statusMsg = "parse error";
-        statusFrame = 0;
-      }
+    if (result && result.trim().length > 0) {
+      addDisplayLine("claude", result.trim());
+      statusMsg = "";
     } else {
-      streaming = false;
-      pendingRefresh = false;
-      pendingMessage = false;
       statusMsg = "empty response";
-      statusFrame = 0;
     }
   }
 }
 
 function addDisplayLine(role, text) {
-  // Word-wrap text at ~50 chars per line
   const prefix = role === "you" ? "> " : "  ";
   const maxW = 48;
   const words = text.split(/\s+/);
@@ -363,12 +288,8 @@ function addDisplayLine(role, text) {
     }
   }
   if (line.length > 0) displayLines.push({ role, text: line });
-  displayLines.push({ role: "sep", text: "" }); // spacer
-  scrollY = 0; // scroll to bottom
-}
-
-function saveToken(token, system) {
-  system?.saveConfig?.("claudeRefreshToken", token);
+  displayLines.push({ role: "sep", text: "" });
+  scrollY = 0;
 }
 
 function paint({ wipe, ink, box, line, write, screen, system }) {
@@ -382,39 +303,29 @@ function paint({ wipe, ink, box, line, write, screen, system }) {
   const x0 = 4;
   const y0 = 4;
 
-  // Cursor blink
   cursorFrame++;
   if (cursorFrame % 30 === 0) cursorVisible = !cursorVisible;
 
-  // Title bar
+  // Title
   ink(80, 120, 200);
   const title = mode === "setup" ? "claude :: setup"
               : mode === "scan" ? "claude :: scan QR"
-              : "claude :: chat";
+              : "claude";
   write(title, { x: x0, y: y0, size: 1, font: "6x10" });
 
-  // Scan mode: show camera preview + scanning overlay
+  // Scan mode
   if (mode === "scan") {
-    // Render camera preview (fills screen, text overlaid on top)
-    if (system?.cameraBlit) {
-      system.cameraBlit(0, 0, W, H);
-    }
-
-    // Semi-transparent overlay bar at bottom
+    if (system?.cameraBlit) system.cameraBlit(0, 0, W, H);
     ink(0, 0, 0, 140);
     box(0, H - 30, W, 30, true);
-
     const dots = ".".repeat((Math.floor(cursorFrame / 15) % 3) + 1);
     ink(100, 160, 255);
     write("scan QR" + dots, { x: x0, y: H - 26, size: 1, font: "6x10" });
     ink(80, 80, 100);
     write("[esc] cancel", { x: x0, y: H - 14, size: 1, font: "6x10" });
-
-    // Crosshair guides
     const cx = Math.floor(W / 2), cy = Math.floor(H / 2);
     const sz = Math.min(W, H) / 4;
     ink(100, 200, 255, 120);
-    // Corner brackets
     line(cx - sz, cy - sz, cx - sz + 10, cy - sz);
     line(cx - sz, cy - sz, cx - sz, cy - sz + 10);
     line(cx + sz, cy - sz, cx + sz - 10, cy - sz);
@@ -423,15 +334,13 @@ function paint({ wipe, ink, box, line, write, screen, system }) {
     line(cx - sz, cy + sz, cx - sz, cy + sz - 10);
     line(cx + sz, cy + sz, cx + sz - 10, cy + sz);
     line(cx + sz, cy + sz, cx + sz, cy + sz - 10);
-
     return;
   }
 
-  // Display lines (above input)
+  // Display lines
   const inputY = H - 30;
   const displayAreaTop = y0 + lineH + 4;
   const maxVisible = Math.floor((inputY - displayAreaTop) / lineH);
-
   const startIdx = Math.max(0, displayLines.length - maxVisible - scrollY);
   const endIdx = Math.min(displayLines.length, startIdx + maxVisible);
 
@@ -439,34 +348,26 @@ function paint({ wipe, ink, box, line, write, screen, system }) {
   for (let i = startIdx; i < endIdx; i++) {
     const dl = displayLines[i];
     if (dl.role === "sep") { dy += 4; continue; }
-    if (dl.role === "you") {
-      ink(180, 200, 140);
-    } else {
-      ink(160, 180, 220);
-    }
+    ink(dl.role === "you" ? [180, 200, 140] : [160, 180, 220]);
     write(dl.text, { x: x0, y: dy, size: 1, font: "6x10" });
     dy += lineH;
   }
 
-  // Input line
-  const iy = inputY;
+  // Input
   ink(220, 220, 230);
-  write(input, { x: x0, y: iy, size: 1, font: "6x10" });
-
-  // Cursor
+  write(input, { x: x0, y: inputY, size: 1, font: "6x10" });
   if (cursorVisible) {
-    const cx = x0 + input.length * charW;
     ink(100, 160, 255);
-    box(cx, iy, charW, charH, true);
+    box(x0 + input.length * charW, inputY, charW, charH, true);
   }
 
-  // Status bar
+  // Status
   if (statusMsg) {
     ink(120, 100, 60);
     write(statusMsg, { x: x0, y: H - 14, size: 1, font: "6x10" });
   }
 
-  // Streaming indicator
+  // Streaming dots
   if (streaming) {
     const dots = ".".repeat((Math.floor(cursorFrame / 15) % 3) + 1);
     ink(100, 160, 255);

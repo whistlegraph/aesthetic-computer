@@ -154,7 +154,7 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
   ry += lineH;
 
   // Handle
-  const handle = system?.handle;
+  const handle = system?.config?.handle;
   if (handle) {
     ink(180, 150, 255);
     write("@" + handle, { x: sx, y: ry, size: 1, font });
@@ -162,7 +162,7 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
   }
 
   // Boot piece
-  const piece = system?.piece || "notepat";
+  const piece = system?.config?.piece || "notepat";
   ink(110, 130, 120);
   write("boot: " + piece, { x: sx, y: ry, size: 1, font });
   ry += lineH;
