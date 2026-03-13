@@ -20,10 +20,10 @@ let tabPrefix = "";   // what was typed before tab
 const COMMANDS = [
   "notepat", "np", "os", "update", "net", "wifi", "version", "ver",
   "reboot", "clear", "cls", "help", "claude", "cl", "ssh", "list",
-  "chat", "hi", "login", "bye", "logout",
+  "chat", "hi", "login", "bye", "logout", "machine", "laer-klokken",
 ];
 // Piece names (jumpable .mjs pieces, excluding prompt itself and lisp engine)
-const PIECES = ["notepat", "os", "wifi", "claude", "chat", "list"];
+const PIECES = ["notepat", "os", "wifi", "claude", "chat", "list", "machine", "laer-klokken"];
 // $code aliases
 const CODE_NAMES = ["$roz"];
 
@@ -286,6 +286,19 @@ function execute(cmd, system) {
     return;
   }
 
+  if (lower === "machine") {
+    message = "~> machine";
+    messageFrame = 0;
+    system?.jump?.("machine");
+    return;
+  }
+  if (lower === "laer-klokken") {
+    message = "~> laer-klokken";
+    messageFrame = 0;
+    system?.jump?.("laer-klokken");
+    return;
+  }
+
   // Check for built-in $code aliases
   if (CODES[lower]) {
     message = "~> " + lower;
@@ -467,7 +480,7 @@ function paint({ wipe, ink, box, write, screen, paintCount, wifi, system }) {
     const entry = history[i];
     const lower = entry.toLowerCase();
     // Navigation commands in dim purple, KidLisp source highlighted but dimmed
-    if (["notepat","np","os","update","net","wifi","version","ver","help","claude","cl","ssh","reboot","clear","cls","list"].includes(lower)) {
+    if (["notepat","np","os","update","net","wifi","version","ver","help","claude","cl","ssh","reboot","clear","cls","list","machine","laer-klokken"].includes(lower)) {
       ink(80, 60, 100);
       write(entry, { x: x0, y: hy, size: 1, font });
     } else {
