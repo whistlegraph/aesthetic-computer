@@ -269,8 +269,10 @@ class Typeface {
     // TODO: Add support for on-demand character loading here using this api that
     //       gets the json for the glyphs: https://localhost:8888/api/bdf-glyph?char=h
     if (this.name === "font_1") {
+      console.log("🔤 font_1 load() started");
       // Try to pre-warm from IndexedDB cache first
       const cachedCount = await preWarmGlyphCache(this.name);
+      console.log(`🔤 font_1 cache prewarm: ${cachedCount} cached`);
       if (cachedCount > 0) {
         // Populate glyphs from memory cache
         for (const [key, data] of glyphMemoryCache.entries()) {
@@ -280,7 +282,7 @@ class Typeface {
           }
         }
       }
-      
+
       // 1. Ignore any keys with a "glyph" prefix because these are settings.
       const fontMetadataKeys = new Set([
         "glyphHeight",
@@ -295,11 +297,13 @@ class Typeface {
         if (fontMetadataKeys.has(g)) return false;
         return !g.startsWith("glyph") && typeof loc === "string" && loc !== "false" && loc.length > 0;
       });
-      
+
       // Filter out already-cached glyphs
       const glyphsNeedingFetch = glyphsToLoad.filter(([glyph]) => !this.glyphs[glyph]);
-      
+      console.log(`🔤 font_1 fetching ${glyphsNeedingFetch.length} glyphs (${glyphsToLoad.length} total, ${cachedCount} cached)`);
+
       const glyphsToCache = {};
+      let resolved = 0, rejected = 0;
       const promises = glyphsNeedingFetch.map(([glyph, location], i) => {
         // 2. Load all other keys / glyphs over the network.
         return $preload(
@@ -308,13 +312,17 @@ class Typeface {
           .then((res) => {
             this.glyphs[glyph] = res;
             glyphsToCache[glyph] = res;
+            resolved++;
           })
           .catch((err) => {
+            rejected++;
             // Silently handle missing glyph files - some glyphs may not exist
             // console.error("Couldn't load typeface:", err);
           });
       }); // Wait for all the promises to resolve before returning
+      console.log(`🔤 font_1 Promise.all waiting on ${promises.length} promises...`);
       await Promise.all(promises);
+      console.log(`🔤 font_1 Promise.all resolved! (${resolved} ok, ${rejected} failed)`);
       
       // Cache newly loaded glyphs to IndexedDB
       if (Object.keys(glyphsToCache).length > 0) {
@@ -488,6 +496,7 @@ class Typeface {
           },
         });
       }
+      console.log("🔤 font_1 load() complete — BDF Proxy set up");
       // === END BDF FALLBACK ===
     } else if (this.name === "microtype") {
       // Try to pre-warm from IndexedDB cache first
