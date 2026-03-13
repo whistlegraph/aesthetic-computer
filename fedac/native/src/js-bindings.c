@@ -2906,6 +2906,10 @@ static JSValue build_system_obj(JSContext *ctx) {
         JS_SetPropertyStr(ctx, sys, "brightness", JS_NewInt32(ctx, -1));
     }
 
+    // Tablet mode (lid folded back on convertible laptops)
+    JS_SetPropertyStr(ctx, sys, "tabletMode",
+        JS_NewBool(ctx, current_rt && current_rt->input && current_rt->input->tablet_mode));
+
     // HDMI secondary display
     int has_hdmi = (current_rt && current_rt->hdmi && current_rt->hdmi->active);
     JS_SetPropertyStr(ctx, sys, "hasHdmi", JS_NewBool(ctx, has_hdmi));
