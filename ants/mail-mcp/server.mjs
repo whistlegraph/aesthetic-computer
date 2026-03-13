@@ -12,7 +12,12 @@ const MBSYNC = "/usr/bin/mbsync";
 const MSMTP = "/usr/bin/msmtp";
 const MAILDIR = "/home/me/.mail";
 const MU_DB = "/home/me/.cache/mu/xapian";
-const FROM_ADDRESS = "mail@aesthetic.computer";
+const ACCOUNTS = {
+  "ac-mail": "mail@aesthetic.computer",
+  "jas-mail": "me@jas.life",
+};
+const DEFAULT_ACCOUNT = "ac-mail";
+const FROM_ADDRESS = ACCOUNTS[DEFAULT_ACCOUNT];
 const STYLE_GUIDE_PATH =
   process.env.AC_EMAIL_STYLE_GUIDE ||
   "/workspaces/aesthetic-computer/toolchain/email/style-guide.md";
@@ -108,16 +113,24 @@ const server = new McpServer({
 // --- mail_sync ---
 server.tool("mail_sync", "Sync mail from Gmail using mbsync", {}, async () => {
   try {
-    const { stdout, stderr } = await run(MBSYNC, ["ac-mail"], {
-      timeout: 120_000,
-    });
+    const results = [];
+    for (const channel of ["ac-mail", "jas-mail"]) {
+      try {
+        const { stdout, stderr } = await run(MBSYNC, [channel], {
+          timeout: 120_000,
+        });
+        results.push(`${channel}: ok\n${stdout}\n${stderr}`.trim());
+      } catch (err) {
+        results.push(`${channel}: ${err.message}`);
+      }
+    }
     // Re-index after sync
     await run(MU, ["index"], { timeout: 60_000 });
     return {
       content: [
         {
           type: "text",
-          text: `Sync complete.\n${stdout}\n${stderr}`.trim(),
+          text: `Sync complete.\n${results.join("\n")}`.trim(),
         },
       ],
     };
@@ -239,9 +252,10 @@ server.tool(
 // --- mail_send ---
 server.tool(
   "mail_send",
-  "Send an email via msmtp. From is always mail@aesthetic.computer.",
+  "Send an email via msmtp. Defaults to mail@aesthetic.computer; use from_account to switch.",
   {
     to: z.string().describe("Recipient email address"),
+    cc: z.string().optional().describe("CC email address(es), comma-separated"),
     subject: z.string().describe("Email subject"),
     body: z.string().describe("Email body (plain text)"),
     preserve_case: z
@@ -253,8 +267,13 @@ server.tool(
       .string()
       .optional()
       .describe("Optional sign-off override; defaults to style-guide signature"),
+    from_account: z
+      .enum(["ac-mail", "jas-mail"])
+      .optional()
+      .default("ac-mail")
+      .describe("Which msmtp account to send from (ac-mail or jas-mail)"),
   },
-  async ({ to, subject, body, preserve_case, signature }) => {
+  async ({ to, cc, subject, body, preserve_case, signature, from_account }) => {
     try {
       const style = await loadEmailStyle();
       const styled = applyEmailStyle({
@@ -263,25 +282,29 @@ server.tool(
         preserveCase: preserve_case,
         signature,
       }, style);
+      const account = from_account || DEFAULT_ACCOUNT;
+      const fromAddr = ACCOUNTS[account] || FROM_ADDRESS;
       const date = new Date().toUTCString();
-      const message = [
+      const headers = [
         `Date: ${date}`,
-        `From: ${FROM_ADDRESS}`,
+        `From: ${fromAddr}`,
         `To: ${to}`,
+      ];
+      if (cc) headers.push(`Cc: ${cc}`);
+      headers.push(
         `Subject: ${styled.subject}`,
         "MIME-Version: 1.0",
         "Content-Type: text/plain; charset=UTF-8",
         "Content-Transfer-Encoding: 8bit",
-        "",
-        styled.body,
-      ].join("\r\n");
+      );
+      const message = [...headers, "", styled.body].join("\r\n");
 
-      const { stdout, stderr } = await run(MSMTP, ["-t"], { input: message });
+      const { stdout, stderr } = await run(MSMTP, ["-a", account, "-t"], { input: message });
       return {
         content: [
           {
             type: "text",
-            text: `Email sent to ${to}.\nStyle guide: ${style.source}${style.loadedFromGuide ? "" : " (defaults used)"}\n${stdout}\n${stderr}`.trim(),
+            text: `Email sent from ${fromAddr} to ${to}${cc ? ` (cc: ${cc})` : ""}.\nStyle guide: ${style.source}${style.loadedFromGuide ? "" : " (defaults used)"}\n${stdout}\n${stderr}`.trim(),
           },
         ],
       };
