@@ -1381,6 +1381,7 @@ export async function prewarmGrabBrowser() {
     const warmupUrl = `${BASE_URL}/prompt?density=1&nogap=true`;
     console.log(`🔥 Pre-warming browser: ${warmupUrl}`);
     await page.goto(warmupUrl, { waitUntil: 'domcontentloaded', timeout: 20000 });
+    await populateGlyphCache(page);
     await new Promise(r => setTimeout(r, 3000));
     console.log('✅ Browser pre-warm (runtime) complete');
   } catch (e) {
@@ -1480,17 +1481,12 @@ function tryLocalBDFGlyphs(url) {
 }
 
 /**
- * Pre-load all font_1 glyph JSONs from local filesystem and inject them
- * into the page context. Two-part strategy:
- *
- * 1. evaluateOnNewDocument: sets window.__injectedFontGlyphs (char → data)
- * 2. Request interception: serves the LOCAL type.mjs (which checks
- *    __injectedFontGlyphs) so the production type.mjs doesn't need updating.
- *
- * This bypasses Puppeteer's broken concurrent XHR handling entirely.
+ * Load all font_1 glyph JSONs from local filesystem into memory.
+ * Used by populateGlyphCache() to pre-populate IndexedDB before piece capture.
+ * This bypasses Puppeteer's broken concurrent XHR handling for web worker
+ * requests by making the glyphs available via IndexedDB cache instead.
  */
 let _cachedFontGlyphs = null; // { char: glyphData, ... } — loaded once per process
-let _cachedTypeMjs = null;     // local type.mjs source — loaded once per process
 
 function loadFontGlyphsSync() {
   if (_cachedFontGlyphs) return _cachedFontGlyphs;
@@ -1534,28 +1530,66 @@ function loadFontGlyphsSync() {
   return _cachedFontGlyphs;
 }
 
-function loadTypeMjsSync() {
-  if (_cachedTypeMjs !== null) return _cachedTypeMjs;
-  try {
-    const typePath = join(__dirname, 'ac-source', 'lib', 'type.mjs');
-    _cachedTypeMjs = readFileSync(typePath, 'utf-8');
-    console.log(`   🔤 Loaded local type.mjs (${(_cachedTypeMjs.length / 1024).toFixed(1)} KB)`);
-  } catch (err) {
-    console.warn(`⚠️ Could not load local type.mjs: ${err.message}`);
-    _cachedTypeMjs = '';
-  }
-  return _cachedTypeMjs;
+// Pre-load glyph data (call before page.goto).
+async function injectFontGlyphs(page) {
+  loadFontGlyphsSync(); // Warm the cache
 }
 
-async function injectFontGlyphs(page) {
+// Populate the page's IndexedDB glyph cache after navigation.
+// Must be called AFTER page.goto() so IndexedDB is on the correct origin.
+// The disk.mjs web worker shares IndexedDB with the main page, so when
+// type.mjs calls preWarmGlyphCache(), it finds all 97 glyphs already cached
+// and skips the XHR requests entirely (which hang under Puppeteer interception).
+async function populateGlyphCache(page) {
   const glyphs = loadFontGlyphsSync();
-  if (!glyphs) return;
+  if (!glyphs) {
+    console.warn('⚠️ No local font_1 glyphs available — captures may show ????');
+    return;
+  }
 
-  // Inject glyph data into window before any scripts run
-  await page.evaluateOnNewDocument((glyphData) => {
-    window.__injectedFontGlyphs = glyphData;
-  }, glyphs);
-  console.log(`   🔤 Injected ${Object.keys(glyphs).length} font_1 glyphs into page`);
+  try {
+    const result = await page.evaluate(async (glyphData) => {
+      return new Promise((resolve, reject) => {
+        const DB_NAME = 'ac-glyph-cache';
+        const DB_VERSION = 2;
+        const STORE_NAME = 'glyphs';
+        const META_STORE_NAME = 'glyph-meta';
+
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            db.createObjectStore(STORE_NAME);
+          }
+          if (!db.objectStoreNames.contains(META_STORE_NAME)) {
+            db.createObjectStore(META_STORE_NAME);
+          }
+        };
+        req.onerror = () => reject(new Error('IDB open failed'));
+        req.onsuccess = (e) => {
+          const db = e.target.result;
+          const tx = db.transaction(STORE_NAME, 'readwrite');
+          const store = tx.objectStore(STORE_NAME);
+          let count = 0;
+          for (const [char, data] of Object.entries(glyphData)) {
+            store.put(data, `font_1:${char}`);
+            count++;
+          }
+          tx.oncomplete = () => {
+            db.close();
+            resolve(count);
+          };
+          tx.onerror = () => {
+            db.close();
+            reject(new Error('IDB transaction failed'));
+          };
+        };
+      });
+    }, glyphs);
+    console.log(`   🔤 Populated IndexedDB glyph cache: ${result} entries`);
+  } catch (err) {
+    console.warn(`   ⚠️ Failed to populate glyph cache: ${err.message}`);
+  }
 }
 
 /**
@@ -1587,19 +1621,14 @@ async function interceptSelfRequests(page) {
         return;
       }
 
-      // Serve LOCAL type.mjs so it includes the __injectedFontGlyphs check.
-      // This is a single-file intercept (not 97 concurrent XHRs), so
-      // request.respond() works reliably here.
-      if (url.includes('/lib/type.mjs') && !url.includes('node_modules')) {
-        const localTypeMjs = loadTypeMjsSync();
-        if (localTypeMjs) {
-          await request.respond({
-            status: 200,
-            contentType: 'application/javascript',
-            body: localTypeMjs,
-          });
-          return;
-        }
+      // Font_1 glyph JSONs — if IndexedDB was pre-populated (populateGlyphCache),
+      // these requests should never happen. If they do, let them pass through
+      // to aesthetic.computer. Do NOT use request.respond() — it hangs for
+      // worker XHRs (Puppeteer CDP limitation).
+      if (url.includes('/disks/drawings/font_1/') && url.endsWith('.json')) {
+        stats.fontLocal++;
+        await request.continue();
+        return;
       }
 
       // Serve BDF glyph batch responses from local cache
