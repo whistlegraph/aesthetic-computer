@@ -1508,21 +1508,10 @@ async function interceptSelfRequests(page) {
         return;
       }
 
-      // Serve font_1 hand-drawn glyph JSONs from local filesystem
-      if (url.includes('/disks/drawings/font_1/') && url.endsWith('.json')) {
-        const localData = tryLocalFontGlyph(url);
-        if (localData) {
-          stats.fontLocal++;
-          await request.respond({
-            status: 200,
-            contentType: 'application/json',
-            body: localData.toString('utf-8'),
-          });
-          return;
-        }
-        stats.fontMiss++;
-        console.log(`   [LOCAL MISS] font glyph: ${url.slice(url.indexOf('font_1'))}`);
-      }
+      // font_1 hand-drawn glyph JSONs — let these go to network.
+      // Puppeteer's request.respond() causes XHR hangs for these 97 fetches,
+      // so we skip local interception and let them load from aesthetic.computer.
+      // (The local tryLocalFontGlyph path is kept for future debugging if needed.)
 
       // Serve BDF glyph batch responses from local cache
       if (url.includes('/api/bdf-glyph')) {
