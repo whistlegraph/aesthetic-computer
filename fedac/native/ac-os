@@ -558,9 +558,42 @@ upload_ota() {
     fi
 }
 
+require_clean() {
+    # Ensure clean git state for OTA builds.
+    # Hooks (post-commit, memory) can dirty the tree between push and build,
+    # so we retry once after a short pause to let hooks settle.
+    if git diff --quiet HEAD 2>/dev/null && git diff --cached --quiet HEAD 2>/dev/null; then
+        return 0
+    fi
+    log "Tree dirty — waiting 2s for hooks to settle..."
+    sleep 2
+    # Stash any hook-generated noise (untracked files don't count, only modifications)
+    if ! git diff --quiet HEAD 2>/dev/null || ! git diff --cached --quiet HEAD 2>/dev/null; then
+        local dirty=$(git diff --name-only HEAD 2>/dev/null; git diff --cached --name-only HEAD 2>/dev/null)
+        log "Still dirty after wait: ${dirty}"
+        log "Stashing hook artifacts..."
+        git stash push -q -m "ac-os: auto-stash during OTA build" 2>/dev/null || {
+            err "Uncommitted changes detected and stash failed. Commit first."
+            exit 1
+        }
+        OTA_STASHED=1
+        log "Stashed — will restore after build (git stash pop)"
+    fi
+}
+
     # Pre-compute build name while cwd is clean (build_kernel changes directory)
 export AC_BUILD_NAME=$(bash scripts/build-name.sh 2>/dev/null || echo "unknown")
 log "Build name: ${AC_BUILD_NAME}"
+
+# Restore stash on exit if we auto-stashed
+OTA_STASHED=0
+cleanup_stash() {
+    if [ "${OTA_STASHED}" = "1" ]; then
+        log "Restoring stashed changes..."
+        git stash pop -q 2>/dev/null || log "Stash pop failed (may need manual: git stash pop)"
+    fi
+}
+trap cleanup_stash EXIT
 
 case "${CMD}" in
     build)
@@ -579,11 +612,7 @@ case "${CMD}" in
         ;;
     upload)
         require_login
-        # OTA releases must come from a clean, committed state
-        if ! git diff --quiet HEAD 2>/dev/null || ! git diff --cached --quiet HEAD 2>/dev/null; then
-            err "Uncommitted changes detected. Commit first — OTA builds must be clean."
-            exit 1
-        fi
+        require_clean
         build_binary
         build_initramfs
         build_kernel
@@ -592,10 +621,7 @@ case "${CMD}" in
         ;;
     flash+upload|upload+flash|bfu)
         require_login
-        if ! git diff --quiet HEAD 2>/dev/null || ! git diff --cached --quiet HEAD 2>/dev/null; then
-            err "Uncommitted changes detected. Commit first — OTA builds must be clean."
-            exit 1
-        fi
+        require_clean
         build_binary
         build_initramfs
         build_kernel
