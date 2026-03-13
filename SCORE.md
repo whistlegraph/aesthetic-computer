@@ -17,7 +17,7 @@ As implemented in this monorepo through the direction of [@jeffrey](https://prom
 <!-- stats:start -->
 355 built-in pieces (337 JS + 18 KidLisp), ~84 API endpoints.<br>
 2811 registered handles, 265 user-published pieces, 4428 paintings, 16634 KidLisp programs, 18060 chat messages, 20 prints ordered.<br>
-*Last refreshed: Mar 12, 2026*
+*Last refreshed: Mar 13, 2026*
 <!-- stats:end -->
 
 Visit https://aesthetic.computer — press the top left of the screen or type any key to activate the prompt.
@@ -65,6 +65,13 @@ Every piece is URL addressable (e.g. https://aesthetic.computer/notepat). Genera
 
 **Desktop**
 - `ac-electron/` — Electron wrapper for native apps
+
+**Bare Metal OS (fedac/native/)**
+- `ac-os build` — Full build: binary → initramfs → kernel (produces `build/vmlinuz`)
+- `ac-os flash` — Build + flash to USB
+- `ac-os upload` — Build + upload OTA release (always rebuilds — never uploads stale kernels)
+- `ac-os flash+upload` — Build + flash + upload
+- **Important:** The kernel embeds the git hash and build name at compile time. `upload` without `build` would serve a stale kernel. The `ac-os` script enforces a full rebuild before every upload.
 
 **Other Projects**
 - `tezos/` — NFT/blockchain experiments
