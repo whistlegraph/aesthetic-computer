@@ -33,7 +33,7 @@ export default async function handleRequest(request, context) {
     let html = await response.text();
 
     // Build meta tag values
-    const title = `$${code} · KidLisp Keep`;
+    const title = `$${code}`;
     const description = buildDescription(tokenData);
     const permalink = `https://keeps.kidlisp.com/$${code}`;
 
