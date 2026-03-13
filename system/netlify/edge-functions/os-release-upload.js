@@ -10,7 +10,7 @@ export default async (request) => {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "POST",
         "Access-Control-Allow-Headers":
-          "Authorization, Content-Type, X-Build-Name, X-Git-Hash, X-Build-Ts, X-Sha256, X-Size, X-Finalize, X-Template-Upload, X-Commit-Msg",
+          "Authorization, Content-Type, X-Build-Name, X-Git-Hash, X-Build-Ts, X-Sha256, X-Size, X-Finalize, X-Template-Upload, X-Commit-Msg, X-Handle",
       },
     });
   }
@@ -156,10 +156,12 @@ export default async (request) => {
         /* first release */
       }
 
-      // Resolve handle from user info
-      const userHandle = user.nickname || user.name || userName;
+      // Resolve handle: prefer explicit X-Handle header from ac-os, fall back to Auth0
+      const userHandle = request.headers.get("x-handle") || user.nickname || user.name || userName;
 
       releases.releases = releases.releases || [];
+      // Mark all existing builds as deprecated
+      for (const r of releases.releases) r.deprecated = true;
       releases.releases.unshift({
         version,
         name: buildName,
