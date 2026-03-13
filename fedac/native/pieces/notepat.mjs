@@ -3,6 +3,8 @@
 let sounds = {};
 let trail = {};
 let frame = 0;
+let escCount = 0;
+let escLastFrame = 0;
 let fpsLastTime = 0;
 let fpsDisplay = 0;
 let fpsAccum = 0;
@@ -82,13 +84,13 @@ function getLAHour() {
 }
 function isDark() {
   const h = getLAHour();
-  return h >= 19 || h < 7;
+  return h >= 20 || h < 7; // dark after 8pm, light after 7am (LA time)
 }
-let dark = true; // always dark
+let dark = isDark(); // auto: dark after 7pm LA time, light before
 
 // Background color — average of active notes, lerped
 let bgColor = [0, 0, 0];
-let bgTarget = dark ? [20, 20, 25] : [255, 255, 255];
+let bgTarget = dark ? [20, 20, 25] : [240, 238, 232];
 
 // Cached sound API ref (for leave)
 let soundAPI = null;
@@ -406,7 +408,21 @@ function act({ event: e, sound, wifi, system }) {
     if (key === "escape" && activeScreen === "wifi") { activeScreen = "notepat"; return; }
     if (key === "escape" && activeScreen === "os") { activeScreen = "notepat"; osState = "idle"; return; }
     if (key === "escape" && activeScreen === "notepat") {
-      // Kill all active sounds before leaving
+      // Triple-escape to exit: 3 presses within 90 frames (~1.5s)
+      if (frame - escLastFrame > 90) escCount = 0;
+      escCount++;
+      escLastFrame = frame;
+      if (escCount < 3) {
+        // Beep feedback
+        const beepFreq = escCount === 1 ? 440 : 660;
+        const beep = sound?.synth?.("square", { frequency: beepFreq, duration: 0.08, volume: 0.15 });
+        if (beep) setTimeout(() => sound?.kill?.(beep, 0.02), 80);
+        return;
+      }
+      // Third escape — exit beep + jump
+      const exitBeep = sound?.synth?.("square", { frequency: 880, duration: 0.12, volume: 0.2 });
+      if (exitBeep) setTimeout(() => sound?.kill?.(exitBeep, 0.02), 120);
+      escCount = 0;
       for (const k of Object.keys(sounds)) {
         const s = sounds[k].synth || sounds[k];
         sound?.kill(s, 0.05);
@@ -535,17 +551,7 @@ function act({ event: e, sound, wifi, system }) {
     const pid = e.pointer?.id ?? 0;
     hoverX = x; hoverY = y;
 
-    // "notepat.com" label: jump to prompt piece
-    const nb = globalThis.__npBtn;
-    if (nb && y < nb.h && x >= 0 && x <= nb.w) {
-      for (const k of Object.keys(sounds)) {
-        const s = sounds[k].synth || sounds[k];
-        sound?.kill(s, 0.05);
-      }
-      sounds = {};
-      system?.jump?.("prompt");
-      return;
-    }
+    // "notepat.com" label: no longer tappable (use triple-escape to exit)
 
     // OS panel touch handling
     if (activeScreen === "os" && y > 14) {
@@ -926,15 +932,15 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   // Re-check dark mode every ~10 seconds
   // dark mode is always on
 
-  // Clean dark theme — no time-of-day tinting
-  const FG = 220;
-  const FG_DIM = 140;
-  const FG_MUTED = 80;
-  const BAR_BG = [35, 20, 30];
-  const BAR_BORDER = [55, 35, 45];
-  const PAD_NORMAL = [28, 28, 30];
-  const PAD_SHARP = [18, 18, 20];
-  const PAD_OUTLINE = [50, 50, 55];
+  // Theme: dark after 7pm LA, light before
+  const FG = dark ? 220 : 40;
+  const FG_DIM = dark ? 140 : 100;
+  const FG_MUTED = dark ? 80 : 150;
+  const BAR_BG = dark ? [35, 20, 30] : [225, 220, 215];
+  const BAR_BORDER = dark ? [55, 35, 45] : [200, 195, 190];
+  const PAD_NORMAL = dark ? [28, 28, 30] : [250, 248, 244];
+  const PAD_SHARP = dark ? [18, 18, 20] : [235, 232, 228];
+  const PAD_OUTLINE = dark ? [50, 50, 55] : [210, 205, 200];
 
   // Compute background color from active notes — full color flash
   const activeKeys = Object.keys(sounds);
@@ -2322,6 +2328,13 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
 }
 
 function sim({ pressures, sound }) {
+  // Update dark/light mode every ~5 seconds
+  if (frame % 300 === 0) {
+    const wasDark = dark;
+    dark = isDark();
+    if (dark !== wasDark) bgTarget = dark ? [20, 20, 25] : [240, 238, 232];
+  }
+
   // Continuously update synth volumes from analog key pressure
   if (!pressures) return;
   for (const key of Object.keys(sounds)) {
