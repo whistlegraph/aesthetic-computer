@@ -8733,6 +8733,7 @@ async function load(
   }
   
   $commonApi.typeface = tf; // Expose a preloaded typeface globally.
+  if (typeof window !== "undefined") window.__acTypeface = tf; // Expose for oven diagnostics
   ui.setTypeface(tf); // Set the default `ui` typeface.
 
   // Initialize HUD metrics now that the primary typeface is available
