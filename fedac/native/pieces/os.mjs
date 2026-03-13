@@ -3,9 +3,9 @@
 // Jumped to from prompt.mjs via "os" command or from notepat OS button.
 
 const OS_BASE_URL = "https://releases-aesthetic-computer.sfo3.digitaloceanspaces.com/os/";
-const OS_RELEASES_URL = OS_BASE_URL + "releases.json";
+const OS_VERSION_URL = OS_BASE_URL + "native-notepat-latest.version";
 const OS_VMLINUZ_URL = OS_BASE_URL + "native-notepat-latest.vmlinuz";
-let remoteSize = 0; // fetched from releases.json
+let remoteSize = 0; // parsed from version file (line 2)
 
 // States: idle | checking | up-to-date | available | downloading | flashing
 //         | confirm-reboot | shutting-down | error
@@ -42,7 +42,7 @@ function boot({ system }) {
     state = "checking";
     fetchPending = true;
     checkFrame = 0;
-    system?.fetch?.(OS_RELEASES_URL);
+    system?.fetch?.(OS_VERSION_URL);
   }
 }
 
@@ -101,7 +101,7 @@ function act({ event: e, sound, system }) {
         state = "checking";
         fetchPending = true;
         checkFrame = frame;
-        system?.fetch?.(OS_RELEASES_URL);
+        system?.fetch?.(OS_VERSION_URL);
       }
     }
   }
@@ -390,30 +390,18 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
 
   // === State machine: poll fetch/flash results ===
 
-  // Version check result (from releases.json)
+  // Version check result (from .version file: "name hash-ts\nsize")
   if (fetchPending && system?.fetchResult !== undefined && system?.fetchResult !== null) {
     const raw = (typeof system.fetchResult === "string" ? system.fetchResult : "").trim();
     fetchPending = false;
-    try {
-      const data = JSON.parse(raw);
-      const latest = data?.releases?.[0];
-      if (latest?.version) {
-        remoteVersion = latest.version;
-        remoteSize = latest.size || 0;
-        state = (latest.version === currentVersion) ? "up-to-date" : "available";
-      } else {
-        state = "error";
-        errorMsg = "no releases found";
-      }
-    } catch (e) {
-      // Fallback: treat as plain version string (legacy .version file)
-      if (!raw || raw.length < 5) {
-        state = "error";
-        errorMsg = "bad version response";
-      } else {
-        remoteVersion = raw;
-        state = (raw === currentVersion) ? "up-to-date" : "available";
-      }
+    if (!raw || raw.length < 5) {
+      state = "error";
+      errorMsg = "bad version response";
+    } else {
+      const lines = raw.split("\n");
+      remoteVersion = lines[0].trim();
+      if (lines[1]) remoteSize = parseInt(lines[1].trim()) || 0;
+      state = (remoteVersion === currentVersion) ? "up-to-date" : "available";
     }
   }
   if (fetchPending && system?.fetchError) {

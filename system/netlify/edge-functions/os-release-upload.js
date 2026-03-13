@@ -142,8 +142,10 @@ export default async (request) => {
 
     try {
       // Upload version + sha256 text files (tiny, server-side is fine)
+      // Version file: line 1 = version string, line 2 = kernel size in bytes
+      const versionWithSize = `${version}\n${size}`;
       await Promise.all([
-        s3Put("os/native-notepat-latest.version", version, "text/plain"),
+        s3Put("os/native-notepat-latest.version", versionWithSize, "text/plain"),
         s3Put("os/native-notepat-latest.sha256", sha256, "text/plain"),
       ]);
 

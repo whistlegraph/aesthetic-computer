@@ -86,9 +86,16 @@ $(TARGET): $(OBJS) $(QJS_OBJS) $(QUIRC_OBJS)
 # All .c files depend on all project headers (simple but correct)
 HEADERS := $(wildcard $(SRCDIR)/*.h)
 
-# Force js-bindings.o to rebuild every time so BUILD_TS is always fresh
-.PHONY: FORCE
-$(BUILDDIR)/js-bindings.o: FORCE
+# Track CFLAGS changes — force full rebuild when git hash, build name, or any flag changes.
+# Make only watches source timestamps, not compiler flags, so without this the binary
+# retains stale AC_BUILD_NAME / AC_GIT_HASH after new commits with no C source changes.
+CFLAGS_FILE := $(BUILDDIR)/.cflags
+CFLAGS_SIG  := $(shell echo '$(CFLAGS)' | md5sum | cut -d' ' -f1)
+CFLAGS_PREV := $(shell cat $(CFLAGS_FILE) 2>/dev/null)
+ifneq ($(CFLAGS_SIG),$(CFLAGS_PREV))
+  $(shell mkdir -p $(BUILDDIR) && echo '$(CFLAGS_SIG)' > $(CFLAGS_FILE))
+  $(shell rm -f $(BUILDDIR)/*.o)
+endif
 
 $(BUILDDIR)/%.o: $(SRCDIR)/%.c $(HEADERS) | $(BUILDDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<

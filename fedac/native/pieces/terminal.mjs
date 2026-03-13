@@ -10,6 +10,8 @@ let shiftHeld = false;
 let ctrlHeld = false;
 let altHeld = false;
 let cursorBlink = 0;
+let lastExitCode = -1;
+let lastCmd = "";
 
 // ANSI 16-color palette → RGB
 const COLORS = [
@@ -57,6 +59,7 @@ function boot({ system, screen, params }) {
     cmd = params[0];
   }
 
+  lastCmd = cmd;
   system.pty.spawn(cmd, args, cols, rows);
   started = true;
 }
@@ -67,9 +70,52 @@ function paint({ wipe, ink, box, write, system, screen }) {
 
   const pty = system.pty;
   if (!pty.active) {
+    if (pty.exitCode !== undefined) lastExitCode = pty.exitCode;
     ink(170, 170, 170);
     write("terminal exited", { x: 10, y: 10, font: 1 });
-    write("press any key to restart", { x: 10, y: 24, font: 1 });
+
+    // Show exit code with human-readable context
+    if (lastExitCode === 127) {
+      ink(255, 85, 85);
+      write(`'${lastCmd}' not found (exit 127)`, { x: 10, y: 24, font: 1 });
+      ink(170, 85, 0);
+      write("command missing from initramfs", { x: 10, y: 38, font: 1 });
+    } else if (lastExitCode === 126) {
+      ink(255, 85, 85);
+      write(`'${lastCmd}' permission denied (exit 126)`, { x: 10, y: 24, font: 1 });
+    } else if (lastExitCode > 128) {
+      ink(255, 85, 85);
+      write(`killed by signal ${lastExitCode - 128}`, { x: 10, y: 24, font: 1 });
+    } else if (lastExitCode >= 0) {
+      ink(lastExitCode === 0 ? 85 : 255, lastExitCode === 0 ? 255 : 170, 85);
+      write(`exit code: ${lastExitCode}`, { x: 10, y: 24, font: 1 });
+    }
+
+    // Show last grid content (error messages from child process)
+    if (grid) {
+      const ptyCols = cols;
+      let textY = 56;
+      ink(85, 85, 85);
+      write("last output:", { x: 10, y: textY, font: 1 });
+      textY += 14;
+      for (let y = 0; y < Math.min(rows, 10); y++) {
+        let line = "";
+        for (let x = 0; x < ptyCols; x++) {
+          const ch = grid[(y * ptyCols + x) * 4];
+          if (ch > 32 && ch < 127) line += String.fromCharCode(ch);
+          else if (line.length > 0 || ch === 32) line += " ";
+        }
+        line = line.trimEnd();
+        if (line.length > 0) {
+          ink(170, 100, 60);
+          write(line, { x: 10, y: textY, font: 1 });
+          textY += 12;
+        }
+      }
+    }
+
+    ink(85, 85, 85);
+    write("enter: retry  esc: back", { x: 10, y: screen.height - 16, font: 1 });
     return;
   }
 

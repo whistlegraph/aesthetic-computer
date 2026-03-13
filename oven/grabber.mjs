@@ -1420,19 +1420,118 @@ const BLOCKED_URL_PATTERNS = [
   'www.google-analytics.com',
 ];
 
+// Non-essential API endpoints that can be silently dropped during captures
+// These generate network traffic but aren't needed for rendering thumbnails
+const DROPPABLE_API_PATTERNS = [
+  '/api/boot-log',              // Telemetry logging — not needed in captures
+  '/api/mood/moods-of-the-day', // UI decoration — not needed for thumbnails
+];
+
+// Local asset directories for serving font glyphs without hitting aesthetic.computer
+const LOCAL_FONT_DRAWINGS = join(__dirname, 'ac-source', 'disks', 'drawings');
+const LOCAL_BDF_CACHE = join(__dirname, 'assets-type');
+
 /**
- * Set up request interception on a Puppeteer page to block self-referential
- * requests (oven requesting its own endpoints) and analytics noise.
+ * Try to serve a font_1 glyph JSON from local filesystem.
+ * Returns the file contents as a Buffer, or null if not found.
+ */
+function tryLocalFontGlyph(url) {
+  // Match: /disks/drawings/font_1/{category}/{filename}.json
+  const match = url.match(/\/disks\/drawings\/(font_1\/.+\.json)/);
+  if (!match) return null;
+  try {
+    const localPath = join(LOCAL_FONT_DRAWINGS, decodeURIComponent(match[1]));
+    return readFileSync(localPath);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Try to serve a BDF glyph batch from local pre-cached JSONs.
+ * The API URL looks like: /api/bdf-glyph?chars=0066,006F&font=6x10
+ * Returns a JSON response body, or null if any glyph is missing locally.
+ */
+function tryLocalBDFGlyphs(url) {
+  try {
+    const parsed = new URL(url);
+    const font = parsed.searchParams.get('font');
+    const chars = parsed.searchParams.get('chars');
+    if (!font || !chars) return null;
+
+    const codePoints = chars.split(',').filter(Boolean);
+    const fontDir = join(LOCAL_BDF_CACHE, font);
+    const glyphs = {};
+
+    for (const cp of codePoints) {
+      try {
+        const data = readFileSync(join(fontDir, `${cp}.json`), 'utf-8');
+        glyphs[cp] = JSON.parse(data);
+      } catch {
+        // If any glyph is missing locally, fall through to network
+        return null;
+      }
+    }
+
+    return JSON.stringify({ glyphs });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Set up request interception on a Puppeteer page.
+ * - Blocks self-referential requests and analytics
+ * - Drops non-essential API calls (boot-log, mood)
+ * - Serves font glyph JSONs from local filesystem (avoids 429 rate limits)
  */
 async function interceptSelfRequests(page) {
   await page.setRequestInterception(true);
   page.on('request', request => {
     const url = request.url();
+
+    // Block analytics and self-referential requests
     if (BLOCKED_URL_PATTERNS.some(pattern => url.includes(pattern))) {
       request.abort('blockedbyclient');
-    } else {
-      request.continue();
+      return;
     }
+
+    // Drop non-essential API calls with a 200 OK (no-op)
+    if (DROPPABLE_API_PATTERNS.some(pattern => url.includes(pattern))) {
+      request.respond({ status: 200, contentType: 'application/json', body: '{}' });
+      return;
+    }
+
+    // Serve font_1 hand-drawn glyph JSONs from local filesystem
+    if (url.includes('/disks/drawings/font_1/') && url.endsWith('.json')) {
+      const localData = tryLocalFontGlyph(url);
+      if (localData) {
+        request.respond({
+          status: 200,
+          contentType: 'application/json',
+          body: localData.toString('utf-8'),
+        });
+        return;
+      }
+      // Log miss for debugging
+      console.log(`   [LOCAL MISS] font glyph: ${url.slice(url.indexOf('font_1'))}`);
+    }
+
+    // Serve BDF glyph batch responses from local cache
+    if (url.includes('/api/bdf-glyph')) {
+      const localResponse = tryLocalBDFGlyphs(url);
+      if (localResponse) {
+        request.respond({
+          status: 200,
+          contentType: 'application/json',
+          body: localResponse,
+        });
+        return;
+      }
+      console.log(`   [LOCAL MISS] bdf-glyph: ${url.slice(url.indexOf('?'))}`);
+    }
+
+    request.continue();
   });
 }
 
@@ -1481,7 +1580,7 @@ async function captureFrames(piece, options = {}) {
     const text = msg.text();
     if (text.includes('ERR_BLOCKED_BY_CLIENT')) return;
     if (text.includes('Failed to load resource: net::ERR_')) return;
-    if (type === 'error' || text.includes('KidLisp') || text.includes('$') || text.includes('acPieceReady') || text.includes('BOOT') || text.includes('glyph') || text.includes('font') || text.includes('Typeface') || text.includes('preload')) {
+    if (type === 'error' || text.includes('KidLisp') || text.includes('$') || text.includes('acPieceReady') || text.includes('BOOT')) {
       console.log(`   [PAGE ${type}] ${text}`);
     }
   });
@@ -1499,13 +1598,8 @@ async function captureFrames(piece, options = {}) {
   });
   
   page.on('response', response => {
-    const url = response.url();
     if (response.status() >= 400) {
-      console.log(`   [HTTP ${response.status()}] ${url}`);
-    }
-    // Log font/glyph/drawing related responses for debugging
-    if (url.includes('bdf-glyph') || url.includes('drawings/') || url.includes('painting-code')) {
-      console.log(`   [RESOURCE ${response.status()}] ${url.slice(0, 120)}`);
+      console.log(`   [HTTP ${response.status()}] ${response.url()}`);
     }
   });
   
@@ -1663,22 +1757,6 @@ async function captureFrames(piece, options = {}) {
       } else {
         console.log(`   ⚠️ ${pendingImages} image(s) still pending after ${maxImageWait}ms timeout`);
       }
-    }
-
-    // 🔤 Check font/glyph state before capture
-    try {
-      const fontState = await page.evaluate(() => {
-        // Check if paintings cache has any pending fetches
-        const pendingPaintings = typeof window.acPendingImages === 'function' ? window.acPendingImages() : -1;
-        // Check if typeface glyphs are available
-        const tf = document.querySelector('#aesthetic-computer')?.__vue__?.typeface;
-        // Try to detect glyph availability via global references
-        const hasGlyphs = typeof window !== 'undefined' && window.acTypeface;
-        return { pendingPaintings, hasGlyphs };
-      });
-      console.log(`   🔤 Font state: pendingImages=${fontState.pendingPaintings}, hasGlyphs=${fontState.hasGlyphs}`);
-    } catch (e) {
-      console.log(`   🔤 Font state check failed: ${e.message}`);
     }
 
     // Settle time: let the piece run a bit more after ready signal
