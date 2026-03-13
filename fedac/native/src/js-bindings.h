@@ -12,6 +12,7 @@
 #include "ws-client.h"
 #include "udp-client.h"
 #include "camera.h"
+#include "pty.h"
 #include <pthread.h>
 
 typedef struct {
@@ -76,6 +77,10 @@ typedef struct {
     char jump_target[128];               // piece name, e.g. "prompt" or "notepat"
     char jump_params[8][64];             // colon-separated params (e.g. "chat:clock" → ["clock"])
     int jump_param_count;
+
+    // PTY terminal emulator
+    ACPty pty;
+    int pty_active;                      // 1 = PTY session is running
 
     // User config (read from /mnt/config.json on EFI partition)
     char handle[64];                     // e.g. "jeffrey" (without @)

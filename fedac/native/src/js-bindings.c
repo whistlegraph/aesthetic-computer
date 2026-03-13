@@ -2339,6 +2339,91 @@ static JSValue js_reboot(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     return JS_UNDEFINED;
 }
 
+// ============================================================
+// JS Native Functions — PTY Terminal Emulator
+// ============================================================
+
+// system.pty.spawn(cmd, [args...], cols, rows) — spawn a process in a PTY
+static JSValue js_pty_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (!current_rt || argc < 1) return JS_FALSE;
+    if (current_rt->pty_active) {
+        pty_destroy(&current_rt->pty);
+        current_rt->pty_active = 0;
+    }
+
+    const char *cmd = JS_ToCString(ctx, argv[0]);
+    if (!cmd) return JS_FALSE;
+
+    // Collect args from JS array (argv[1]) or use cmd as argv[0]
+    char *child_argv[32] = {0};
+    int nargs = 0;
+    child_argv[nargs++] = (char *)cmd;
+
+    if (argc > 1 && JS_IsArray(ctx, argv[1])) {
+        int len = 0;
+        JSValue jlen = JS_GetPropertyStr(ctx, argv[1], "length");
+        JS_ToInt32(ctx, &len, jlen);
+        JS_FreeValue(ctx, jlen);
+        for (int i = 0; i < len && nargs < 30; i++) {
+            JSValue el = JS_GetPropertyUint32(ctx, argv[1], i);
+            child_argv[nargs++] = (char *)JS_ToCString(ctx, el);
+            JS_FreeValue(ctx, el);
+        }
+    }
+    child_argv[nargs] = NULL;
+
+    int cols = 80, rows = 24;
+    if (argc > 2) JS_ToInt32(ctx, &cols, argv[2]);
+    if (argc > 3) JS_ToInt32(ctx, &rows, argv[3]);
+
+    int ok = pty_spawn(&current_rt->pty, cols, rows, cmd, child_argv);
+
+    // Free ToCString results for args
+    for (int i = 1; i < nargs; i++) {
+        JS_FreeCString(ctx, child_argv[i]);
+    }
+    JS_FreeCString(ctx, cmd);
+
+    if (ok == 0) {
+        current_rt->pty_active = 1;
+        return JS_TRUE;
+    }
+    return JS_FALSE;
+}
+
+// system.pty.write(str) — send input to PTY
+static JSValue js_pty_write(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (!current_rt || !current_rt->pty_active || argc < 1) return JS_UNDEFINED;
+    size_t len;
+    const char *data = JS_ToCStringLen(ctx, &len, argv[0]);
+    if (!data) return JS_UNDEFINED;
+    pty_write(&current_rt->pty, data, (int)len);
+    JS_FreeCString(ctx, data);
+    return JS_UNDEFINED;
+}
+
+// system.pty.resize(cols, rows) — resize PTY
+static JSValue js_pty_resize(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (!current_rt || !current_rt->pty_active || argc < 2) return JS_UNDEFINED;
+    int cols, rows;
+    JS_ToInt32(ctx, &cols, argv[0]);
+    JS_ToInt32(ctx, &rows, argv[1]);
+    pty_resize(&current_rt->pty, cols, rows);
+    return JS_UNDEFINED;
+}
+
+// system.pty.kill() — kill the PTY child
+static JSValue js_pty_kill(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    if (!current_rt || !current_rt->pty_active) return JS_UNDEFINED;
+    pty_destroy(&current_rt->pty);
+    current_rt->pty_active = 0;
+    return JS_UNDEFINED;
+}
+
 // system.jump(pieceName) — request piece switch (handled in main loop)
 // system.saveConfig(key, value) — merge a key-value pair into /mnt/config.json
 static JSValue js_save_config(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -3218,6 +3303,67 @@ static JSValue build_system_obj(JSContext *ctx) {
     // Node.js execution
     JS_SetPropertyStr(ctx, sys, "execNode",
                       JS_NewCFunction(ctx, js_exec_node, "execNode", 1));
+
+    // PTY terminal emulator
+    {
+        JSValue pty_obj = JS_NewObject(ctx);
+        JS_SetPropertyStr(ctx, pty_obj, "spawn",
+                          JS_NewCFunction(ctx, js_pty_spawn, "spawn", 4));
+        JS_SetPropertyStr(ctx, pty_obj, "write",
+                          JS_NewCFunction(ctx, js_pty_write, "write", 1));
+        JS_SetPropertyStr(ctx, pty_obj, "resize",
+                          JS_NewCFunction(ctx, js_pty_resize, "resize", 2));
+        JS_SetPropertyStr(ctx, pty_obj, "kill",
+                          JS_NewCFunction(ctx, js_pty_kill, "kill", 0));
+        JS_SetPropertyStr(ctx, pty_obj, "active",
+                          JS_NewBool(ctx, current_rt->pty_active));
+
+        // Pump PTY output and expose grid (only during paint phase)
+        if (current_rt->pty_active) {
+            pty_pump(&current_rt->pty);
+            pty_check_alive(&current_rt->pty);
+
+            if (!current_rt->pty.alive) {
+                pty_destroy(&current_rt->pty);
+                current_rt->pty_active = 0;
+            }
+
+            JS_SetPropertyStr(ctx, pty_obj, "alive",
+                              JS_NewBool(ctx, current_rt->pty.alive));
+            JS_SetPropertyStr(ctx, pty_obj, "cursorX",
+                              JS_NewInt32(ctx, current_rt->pty.cursor_x));
+            JS_SetPropertyStr(ctx, pty_obj, "cursorY",
+                              JS_NewInt32(ctx, current_rt->pty.cursor_y));
+            JS_SetPropertyStr(ctx, pty_obj, "cols",
+                              JS_NewInt32(ctx, current_rt->pty.cols));
+            JS_SetPropertyStr(ctx, pty_obj, "rows",
+                              JS_NewInt32(ctx, current_rt->pty.rows));
+            JS_SetPropertyStr(ctx, pty_obj, "dirty",
+                              JS_NewBool(ctx, current_rt->pty.grid_dirty));
+
+            // Expose grid as flat array: [ch, fg, bg, bold, ...] per cell, row by row
+            // Only send if dirty (perf optimization)
+            if (current_rt->pty.grid_dirty) {
+                ACPty *p = &current_rt->pty;
+                JSValue grid = JS_NewArray(ctx);
+                int idx = 0;
+                for (int y = 0; y < p->rows; y++) {
+                    for (int x = 0; x < p->cols; x++) {
+                        ACPtyCell *c = &p->grid[y][x];
+                        // Pack cell: char code, fg, bg, bold
+                        JS_SetPropertyUint32(ctx, grid, idx++, JS_NewInt32(ctx, c->ch));
+                        JS_SetPropertyUint32(ctx, grid, idx++, JS_NewInt32(ctx, c->fg));
+                        JS_SetPropertyUint32(ctx, grid, idx++, JS_NewInt32(ctx, c->bg));
+                        JS_SetPropertyUint32(ctx, grid, idx++, JS_NewInt32(ctx, c->bold));
+                    }
+                }
+                JS_SetPropertyStr(ctx, pty_obj, "grid", grid);
+                p->grid_dirty = 0;
+            }
+        }
+
+        JS_SetPropertyStr(ctx, sys, "pty", pty_obj);
+    }
 
     // Piece navigation
     JS_SetPropertyStr(ctx, sys, "jump",
