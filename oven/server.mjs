@@ -3036,7 +3036,7 @@ app.post('/os-release-upload', async (req, res) => {
     } catch { /* first release or missing */ }
 
     releases.releases = releases.releases || [];
-    const userHandle = user.nickname || user.name || userName;
+    const userHandle = req.headers['x-handle'] || user.nickname || user.name || userName;
     // Mark all existing builds as deprecated
     for (const r of releases.releases) r.deprecated = true;
 
