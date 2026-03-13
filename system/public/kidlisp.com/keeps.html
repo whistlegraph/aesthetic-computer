@@ -3888,7 +3888,7 @@
           </div>
           <div class="keep-detail-btn-row">
             <button class="keep-detail-btn secondary" onclick="copyPermalink('${escapeHtml(permalink)}')">Copy Link</button>
-            <a class="keep-detail-btn secondary" href="https://twitter.com/intent/tweet?url=${encodeURIComponent(permalink + '?t=' + Date.now())}&text=${encodeURIComponent(codeDisplay + ' — KidLisp Keep on Tezos')}" target="_blank" rel="noopener">Share on X</a>
+            <a class="keep-detail-btn secondary" href="https://twitter.com/intent/tweet?url=${encodeURIComponent(permalink)}&text=${encodeURIComponent(codeDisplay + ' — KidLisp Keep on Tezos')}" target="_blank" rel="noopener">Share on X</a>
           </div>
         </div>
       `;
@@ -4705,9 +4705,6 @@
       const legacyStatus = activeKeep?.artifactUri
         ? legacyRuntimeCache.get((activeKeep.artifactUri || '').trim())
         : null;
-      const packCode = encodeURIComponent(`$${entry.code}`);
-      const defaultPackUrl = `${AC_BASE}/api/pack-html?code=${packCode}`;
-      const latestHtmlUrl = ipfsToHttp(mintLatestUris?.artifactUri) || defaultPackUrl;
       let modeLabel = rebake
         ? 'Regenerate HTML + thumbnail for your existing keep. Connect your wallet to verify ownership.'
         : (regenerate
@@ -4739,7 +4736,6 @@
           <strong>$${escapeHtml(entry.code)}</strong>
           <span style="color:var(--text-tertiary);font-size:11px;">by ${escapeHtml(entry.handle || 'anon')}</span>
           <a href="${KL_BASE}/$${escapeHtml(entry.code)}" target="_blank" rel="noopener" style="font-size:11px;color:var(--ac-purple);margin-left:auto;">Edit ↗</a>
-          <a href="${latestHtmlUrl}" target="_blank" rel="noopener" style="font-size:11px;color:var(--text-secondary);">HTML ↗</a>
         </div>
         <span style="font-size:11px; color:var(--text-tertiary);">${modeLabel}</span>
         ${onChainGroup}
