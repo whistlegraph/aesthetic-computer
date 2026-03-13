@@ -558,6 +558,11 @@ function = "media"
 path = "/api/os-release-upload"
 function = "os-release-upload"
 
+# keeps.kidlisp.com/$code — social crawler meta tag injection
+[[edge_functions]]
+path = "/*"
+function = "keeps-social"
+
 # Version/commit status API
 [functions.version]
 included_files = ["public/.commit-ref"]

@@ -520,6 +520,192 @@
       font-size: 14px;
     }
 
+    /* Keep Detail Modal (permalink overlay) */
+    .keep-detail-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      z-index: 19000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+    }
+
+    .keep-detail-overlay.open {
+      display: flex;
+      animation: modalFadeIn 0.2s ease-out forwards;
+    }
+
+    .keep-detail-modal {
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      max-width: 480px;
+      width: 100%;
+      margin: 16px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
+    }
+
+    .keep-detail-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .keep-detail-title {
+      font-family: var(--font-mono);
+      font-size: 16px;
+      font-weight: bold;
+      color: var(--ac-purple);
+    }
+
+    .keep-detail-close {
+      background: none;
+      border: none;
+      color: var(--text-tertiary);
+      font-size: 22px;
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+    }
+
+    .keep-detail-close:hover { color: var(--text-primary); }
+
+    .keep-detail-thumb {
+      width: 100%;
+      aspect-ratio: 1;
+      background: #000;
+      overflow: hidden;
+    }
+
+    .keep-detail-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      image-rendering: pixelated;
+      display: block;
+    }
+
+    .keep-detail-body {
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .keep-detail-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+    }
+
+    .keep-detail-label {
+      color: var(--text-tertiary);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .keep-detail-value {
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      text-align: right;
+    }
+
+    .keep-detail-price {
+      font-size: 20px;
+      font-weight: bold;
+      color: #f59e0b;
+    }
+
+    .keep-detail-price.sold {
+      color: #f87171;
+    }
+
+    .keep-detail-status {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .keep-detail-status.active { color: #34d399; }
+    .keep-detail-status.sold { color: #f87171; }
+    .keep-detail-status.unlisted { color: var(--text-tertiary); }
+
+    .keep-detail-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 0 16px 16px;
+    }
+
+    .keep-detail-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 16px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .keep-detail-btn:hover {
+      border-color: #f59e0b;
+      text-decoration: none;
+    }
+
+    .keep-detail-btn.primary {
+      background: rgba(245, 158, 11, 0.15);
+      border-color: #f59e0b;
+      color: #f59e0b;
+      font-weight: bold;
+    }
+
+    .keep-detail-btn.primary:hover {
+      background: rgba(245, 158, 11, 0.25);
+    }
+
+    .keep-detail-btn.secondary {
+      background: transparent;
+      color: var(--text-secondary);
+    }
+
+    .keep-detail-btn-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .keep-detail-btn-row .keep-detail-btn {
+      flex: 1;
+    }
+
+    .keep-detail-loading {
+      padding: 48px 20px;
+      text-align: center;
+      color: var(--text-tertiary);
+      font-size: 14px;
+    }
+
+    @media (max-width: 480px) {
+      .keep-detail-modal { margin: 8px; border-radius: 10px; }
+      .keep-detail-price { font-size: 18px; }
+    }
+
     .keeps-tabs.logged-out {
       background: var(--bg-secondary);
       border-bottom-color: var(--border-subtle);
@@ -2786,6 +2972,19 @@
     </div>
   </div>
 
+  <!-- KEEP DETAIL MODAL (permalink overlay) -->
+  <div class="keep-detail-overlay" id="keep-detail-overlay">
+    <div class="keep-detail-modal">
+      <div class="keep-detail-header">
+        <span class="keep-detail-title" id="keep-detail-title">$code</span>
+        <button class="keep-detail-close" onclick="closeKeepDetailModal()">&times;</button>
+      </div>
+      <div id="keep-detail-content">
+        <div class="keep-detail-loading">Loading...</div>
+      </div>
+    </div>
+  </div>
+
   <script>
     // =========================================
     // KidLisp.com Keeps - Index Page
@@ -3610,6 +3809,180 @@
     const MARKET_REFRESH_MS = 15000;
 
     // =========================================
+    // KEEP DETAIL MODAL (permalink)
+    // =========================================
+    let detailSortedEntries = []; // populated by renderMarket for index-based lookup
+    let pendingDeepLinkCode = null; // set on load if URL is /$code
+    const detailOverlay = document.getElementById('keep-detail-overlay');
+    const detailContent = document.getElementById('keep-detail-content');
+    const detailTitle = document.getElementById('keep-detail-title');
+
+    function openKeepDetailModal(entry) {
+      if (!entry) return;
+      const token = entry.token || {};
+      const tokenId = token?.token_id ?? '';
+      const name = token?.name || `Token #${tokenId}`;
+      const code = name.startsWith('$') ? name.slice(1) : name;
+      const codeDisplay = name.startsWith('$') ? name : `#${tokenId}`;
+
+      detailTitle.textContent = codeDisplay;
+
+      const xtz = (entry.mutez / 1_000_000).toFixed(2);
+      const thumb = token?.thumbnail_uri
+        ? token.thumbnail_uri.replace('ipfs://', 'https://ipfs.io/ipfs/')
+        : '';
+      const seller = shortAddress(entry.sellerAddress);
+      const buyer = shortAddress(entry.buyerAddress);
+      const contract = getKeepsContractAddress();
+      const network = getTezosNetwork();
+      const objktBase = getObjktBase(network);
+      const objktUrl = `${objktBase}/tokens/${contract}/${tokenId}`;
+      const tzktBase = network === 'mainnet' ? 'https://tzkt.io' : `https://${network}.tzkt.io`;
+      const tzktUrl = `${tzktBase}/${contract}/tokens/${tokenId}`;
+      const acUrl = `https://aesthetic.computer/${code}`;
+      const permalink = `https://keeps.kidlisp.com/$${code}`;
+
+      const statusClass = entry.status === 'sold' ? 'sold' : entry.status === 'active' ? 'active' : 'unlisted';
+      const statusText = entry.status === 'sold' ? 'Sold' : entry.status === 'active' ? 'For Sale' : 'Not Listed';
+
+      let sideInfo = '';
+      if (entry.status === 'sold') {
+        sideInfo = `<div class="keep-detail-row"><span class="keep-detail-label">Seller</span><span class="keep-detail-value">${escapeHtml(seller)}</span></div>`;
+        if (buyer) sideInfo += `<div class="keep-detail-row"><span class="keep-detail-label">Buyer</span><span class="keep-detail-value">${escapeHtml(buyer)}</span></div>`;
+      } else if (entry.status === 'active' && seller) {
+        sideInfo = `<div class="keep-detail-row"><span class="keep-detail-label">Listed by</span><span class="keep-detail-value">${escapeHtml(seller)}</span></div>`;
+      }
+
+      let timeRow = '';
+      if (entry.timestamp) {
+        const d = new Date(entry.timestamp);
+        timeRow = `<div class="keep-detail-row"><span class="keep-detail-label">Date</span><span class="keep-detail-value">${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div>`;
+      }
+
+      const buyBtnLabel = entry.status === 'active' ? 'Buy on objkt.com' : 'View on objkt.com';
+
+      detailContent.innerHTML = `
+        <div class="keep-detail-thumb">${thumb ? `<img src="${escapeHtml(thumb)}" alt="${escapeHtml(codeDisplay)}" />` : ''}</div>
+        <div class="keep-detail-body">
+          <div class="keep-detail-row">
+            <span class="keep-detail-status ${statusClass}">${statusText}</span>
+            <span class="keep-detail-price ${statusClass}">${xtz} ꜩ</span>
+          </div>
+          <div class="keep-detail-row"><span class="keep-detail-label">Token</span><span class="keep-detail-value">#${escapeHtml(String(tokenId))}</span></div>
+          ${sideInfo}
+          ${timeRow}
+        </div>
+        <div class="keep-detail-actions">
+          <a class="keep-detail-btn primary" href="${escapeHtml(objktUrl)}" target="_blank" rel="noopener">${buyBtnLabel} ↗</a>
+          <div class="keep-detail-btn-row">
+            <a class="keep-detail-btn secondary" href="${escapeHtml(acUrl)}" target="_blank" rel="noopener">Run Piece ↗</a>
+            <a class="keep-detail-btn secondary" href="${escapeHtml(tzktUrl)}" target="_blank" rel="noopener">TzKT ↗</a>
+          </div>
+          <div class="keep-detail-btn-row">
+            <button class="keep-detail-btn secondary" onclick="copyPermalink('${escapeHtml(permalink)}')">Copy Link</button>
+            <a class="keep-detail-btn secondary" href="https://twitter.com/intent/tweet?url=${encodeURIComponent(permalink)}&text=${encodeURIComponent(codeDisplay + ' — KidLisp Keep on Tezos')}" target="_blank" rel="noopener">Share on X</a>
+          </div>
+        </div>
+      `;
+
+      detailOverlay.classList.add('open');
+      document.body.style.overflow = 'hidden';
+
+      // Push permalink URL
+      if (isKeepsDomain) {
+        history.pushState({ tab: 'market', code }, '', `/$${code}`);
+      }
+    }
+
+    function closeKeepDetailModal() {
+      detailOverlay.classList.remove('open');
+      document.body.style.overflow = '';
+      // Restore market URL
+      if (isKeepsDomain && location.pathname.match(/^\/\$/)) {
+        history.pushState({ tab: 'market' }, '', '/market');
+      }
+    }
+
+    function copyPermalink(url) {
+      navigator.clipboard.writeText(url).then(() => {
+        const btn = detailOverlay.querySelector('[onclick^="copyPermalink"]');
+        if (btn) {
+          const orig = btn.textContent;
+          btn.textContent = 'Copied!';
+          setTimeout(() => { btn.textContent = orig; }, 1500);
+        }
+      }).catch(() => {});
+    }
+
+    async function openKeepDetailByCode(code) {
+      // First check if we have it in the current market data
+      const match = detailSortedEntries.find(e => {
+        const name = e.token?.name || '';
+        return name === `$${code}` || name === code;
+      });
+      if (match) {
+        openKeepDetailModal(match);
+        return;
+      }
+
+      // Show loading state while fetching
+      detailTitle.textContent = `$${code}`;
+      detailContent.innerHTML = '<div class="keep-detail-loading">Loading token data...</div>';
+      detailOverlay.classList.add('open');
+      document.body.style.overflow = 'hidden';
+
+      try {
+        await ensureKeepsConfig();
+        const contract = getKeepsContractAddress();
+        if (!contract) throw new Error('No contract');
+
+        // Query objkt for this token by name
+        const query = `query {
+          token(where: {
+            fa_contract: { _eq: "${contract}" }
+            name: { _eq: "$${code}" }
+          }) {
+            token_id
+            name
+            thumbnail_uri
+          }
+          listing_active(where: {
+            fa_contract: { _eq: "${contract}" }
+            token: { name: { _eq: "$${code}" } }
+          } order_by: { price_xtz: asc } limit: 1) {
+            price_xtz
+            seller_address
+            timestamp
+          }
+        }`;
+
+        const data = await fetchObjktGraphQL(query);
+        const tokens = data?.token || [];
+        const listings = data?.listing_active || [];
+
+        if (tokens.length === 0) {
+          detailContent.innerHTML = '<div class="keep-detail-loading">Token not found for this code.</div>';
+          return;
+        }
+
+        const token = tokens[0];
+        const listing = listings[0];
+        const entry = {
+          status: listing ? 'active' : 'unlisted',
+          timestamp: listing?.timestamp || null,
+          mutez: listing ? toMutez(listing.price_xtz) : 0,
+          sellerAddress: listing?.seller_address || null,
+          buyerAddress: null,
+          token,
+        };
+        openKeepDetailModal(entry);
+      } catch (err) {
+        console.error('[keep-detail] fetch error:', err);
+        detailContent.innerHTML = `<div class="keep-detail-loading">Failed to load: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    // =========================================
     // TOKEN OWNERS (for Kept tab)
     // =========================================
     let tokenOwners = {}; // tokenId -> { address, alias }
@@ -3916,11 +4289,15 @@
       }
 
       if (sorted.length === 0) {
+        detailSortedEntries = [];
         grid.innerHTML = '<div class="market-empty">No listings or sales found on objkt.com yet.</div>';
         return;
       }
 
-      grid.innerHTML = sorted.map(entry => {
+      // Store for detail modal index-based lookup
+      detailSortedEntries = sorted;
+
+      grid.innerHTML = sorted.map((entry, idx) => {
         const xtz = (entry.mutez / 1_000_000).toFixed(2);
         const token = entry.token || {};
         const tokenId = token?.token_id ?? '';
@@ -3931,14 +4308,13 @@
           : '';
         const seller = shortAddress(entry.sellerAddress);
         const buyer = shortAddress(entry.buyerAddress);
-        const objktUrl = `https://objkt.com/tokens/${contract}/${tokenId}`;
         const statusText = entry.status === 'sold' ? 'Sold' : 'For Sale';
         const statusClass = entry.status === 'sold' ? 'sold' : 'active';
         const sideText = entry.status === 'sold'
           ? `sold by ${seller}${buyer ? ` to ${buyer}` : ''}`
           : `listed by ${seller}`;
 
-        return `<a class="market-card ${entry.status === 'sold' ? 'sold' : ''}" href="${objktUrl}" target="_blank" rel="noopener">
+        return `<div class="market-card ${entry.status === 'sold' ? 'sold' : ''}" onclick="openKeepDetailModal(detailSortedEntries[${idx}])" role="button" tabindex="0">
           <div class="market-card-thumb">${thumb ? `<img src="${escapeHtml(thumb)}" loading="lazy" />` : ''}</div>
           <div class="market-card-body">
             <span class="market-card-code">${escapeHtml(code)}</span>
@@ -3947,8 +4323,15 @@
             ${seller ? `<span class="market-card-seller">${escapeHtml(sideText)}</span>` : ''}
             <span class="market-card-objkt">${entry.status === 'sold' ? 'view on objkt ↗' : 'buy on objkt ↗'}</span>
           </div>
-        </a>`;
+        </div>`;
       }).join('');
+
+      // Handle pending deep-link after market renders
+      if (pendingDeepLinkCode) {
+        const code = pendingDeepLinkCode;
+        pendingDeepLinkCode = null;
+        openKeepDetailByCode(code);
+      }
     }
 
     document.querySelectorAll('.keeps-tab').forEach(tab => {
@@ -3961,21 +4344,38 @@
     function tabFromLocation() {
       if (isKeepsDomain) {
         const seg = location.pathname.replace(/^\/+/, '').split('/')[0];
-        return seg === 'kept' ? 'kept' : seg === 'market' ? 'market' : 'unkept';
+        // Permalink: /$code → market tab + open detail modal
+        if (seg.startsWith('$') && seg.length > 1) {
+          return { tab: 'market', code: seg.slice(1) };
+        }
+        const tab = seg === 'kept' ? 'kept' : seg === 'market' ? 'market' : 'unkept';
+        return { tab, code: null };
       } else {
         const hash = location.hash.replace(/^#/, '');
-        return hash === 'kept' ? 'kept' : hash === 'market' ? 'market' : 'unkept';
+        const tab = hash === 'kept' ? 'kept' : hash === 'market' ? 'market' : 'unkept';
+        return { tab, code: null };
       }
     }
-    switchTab(tabFromLocation());
+    const initialRoute = tabFromLocation();
+    if (initialRoute.code) pendingDeepLinkCode = initialRoute.code;
+    switchTab(initialRoute.tab);
 
     // Show wallet button immediately; check if already connected
     updateWalletBtn();
     initTezosWallet().then(updateWalletBtn).catch(() => {});
 
     // Handle browser back/forward
-    window.addEventListener('popstate', () => { switchTab(tabFromLocation()); });
-    if (!isKeepsDomain) window.addEventListener('hashchange', () => { switchTab(tabFromLocation()); });
+    window.addEventListener('popstate', () => {
+      const route = tabFromLocation();
+      // Close detail modal if navigating away from a $code permalink
+      if (!route.code && detailOverlay.classList.contains('open')) {
+        detailOverlay.classList.remove('open');
+        document.body.style.overflow = '';
+      }
+      switchTab(route.tab);
+      if (route.code) openKeepDetailByCode(route.code);
+    });
+    if (!isKeepsDomain) window.addEventListener('hashchange', () => { switchTab(tabFromLocation().tab); });
     document.addEventListener('visibilitychange', () => {
       if (activeTab !== 'market') return;
       if (document.visibilityState === 'visible') {
@@ -3998,8 +4398,12 @@
     mintOverlay.addEventListener('click', e => {
       if (e.target === mintOverlay) closeMintModal();
     });
+    detailOverlay.addEventListener('click', e => {
+      if (e.target === detailOverlay) closeKeepDetailModal();
+    });
     document.addEventListener('keydown', e => {
       if (e.key !== 'Escape') return;
+      if (detailOverlay.classList.contains('open')) { closeKeepDetailModal(); return; }
       if (mintOverlay.classList.contains('open')) closeMintModal();
     });
 
