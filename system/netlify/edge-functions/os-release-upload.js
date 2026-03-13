@@ -201,13 +201,13 @@ export default async (request) => {
     }
   }
 
-  // Template .img presigned URL (separate from vmlinuz)
+  // Template .img.gz presigned URL (separate from vmlinuz)
   const isTemplate = request.headers.get("x-template-upload") === "true";
   if (isTemplate) {
     try {
       const imgUrl = await presignUrl(
-        "os/native-notepat-latest.img",
-        "application/octet-stream",
+        "os/native-notepat-latest.img.gz",
+        "application/gzip",
       );
       return Response.json({
         step: "template-upload",

@@ -405,9 +405,16 @@ EOF
 
     rm -f "${PART_IMG}" "${CONFIG_TMP}"
 
-    local IMG_BYTES=$(stat -c%s "${IMG}")
-    log "Template image: ${IMG} ($(echo "${IMG_BYTES}" | numfmt --to=iec))" >&2
-    echo "${IMG}"
+    # Gzip compress — Balena Etcher handles .img.gz natively
+    log "Compressing template .img..." >&2
+    gzip -f "${IMG}"
+    local GZ="${IMG}.gz"
+
+    local GZ_BYTES=$(stat -c%s "${GZ}")
+    local RAW_MB=$(( IMG_SIZE_MB ))
+    local GZ_MB=$(( GZ_BYTES / 1048576 ))
+    log "Template image: ${GZ} (${GZ_MB}MB compressed from ${RAW_MB}MB)" >&2
+    echo "${GZ}"
 }
 
 upload_ota() {
