@@ -165,6 +165,128 @@ chatManager.setPresenceResolver(getHandlesOnPiece);
 import { filter } from "./filter.mjs"; // Profanity filtering.
 import { ChatManager } from "./chat-manager.mjs"; // Multi-instance chat support.
 
+// *** AC Machines — remote device monitoring ***
+// Devices connect via /machines?role=device&machineId=X&token=Y
+// Viewers connect via /machines?role=viewer&token=Y
+import { MongoClient } from "mongodb";
+
+const machinesDevices = new Map(); // machineId → { ws, user, handle, machineId, info, lastHeartbeat }
+const machinesViewers = new Map(); // userSub → Set<ws>
+let machinesDb = null;
+
+async function getMachinesDb() {
+  if (machinesDb) return machinesDb;
+  const connStr = process.env.MONGODB_CONNECTION_STRING;
+  if (!connStr) return null;
+  try {
+    const client = new MongoClient(connStr);
+    await client.connect();
+    machinesDb = client.db(process.env.MONGODB_NAME || "aesthetic");
+    return machinesDb;
+  } catch (e) {
+    error("[machines] MongoDB connect error:", e.message);
+    return null;
+  }
+}
+
+function verifyMachineToken(token) {
+  const secret = process.env.MACHINE_TOKEN_SECRET;
+  if (!secret || !token) return null;
+  try {
+    const [payloadB64, sigB64] = token.split(".");
+    if (!payloadB64 || !sigB64) return null;
+    const expectedSig = crypto
+      .createHmac("sha256", secret)
+      .update(payloadB64)
+      .digest("base64url");
+    if (sigB64 !== expectedSig) return null;
+    return JSON.parse(Buffer.from(payloadB64, "base64url").toString());
+  } catch {
+    return null;
+  }
+}
+
+// Verify an AC auth token (Bearer token from authorize()) by calling Auth0 userinfo
+async function verifyACToken(token) {
+  if (!token) return null;
+  try {
+    const res = await fetch("https://aesthetic.us.auth0.com/userinfo", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    return await res.json(); // { sub, nickname, name, ... }
+  } catch {
+    return null;
+  }
+}
+
+function broadcastToMachineViewers(userSub, msg) {
+  const viewers = machinesViewers.get(userSub);
+  if (!viewers) return;
+  const data = JSON.stringify(msg);
+  for (const v of viewers) {
+    if (v.readyState === WebSocket.OPEN) v.send(data);
+  }
+}
+
+async function upsertMachine(userSub, machineId, info) {
+  const db = await getMachinesDb();
+  if (!db) return;
+  const col = db.collection("ac-machines");
+  const now = new Date();
+  await col.updateOne(
+    { user: userSub, machineId },
+    {
+      $set: {
+        user: userSub,
+        machineId,
+        ...info,
+        status: "online",
+        linked: true,
+        lastSeen: now,
+        updatedAt: now,
+      },
+      $setOnInsert: { createdAt: now, bootCount: 0 },
+      $inc: { bootCount: 1 },
+    },
+    { upsert: true },
+  );
+}
+
+async function updateMachineHeartbeat(userSub, machineId, uptime, currentPiece) {
+  const db = await getMachinesDb();
+  if (!db) return;
+  await db.collection("ac-machines").updateOne(
+    { user: userSub, machineId },
+    { $set: { lastSeen: new Date(), uptime, currentPiece, status: "online" } },
+  );
+}
+
+async function insertMachineLog(userSub, machineId, msg) {
+  const db = await getMachinesDb();
+  if (!db) return;
+  await db.collection("ac-machine-logs").insertOne({
+    machineId,
+    user: userSub,
+    type: msg.logType || "log",
+    level: msg.level || "info",
+    message: msg.message,
+    data: msg.data || null,
+    crashInfo: msg.crashInfo || null,
+    when: msg.when ? new Date(msg.when) : new Date(),
+    receivedAt: new Date(),
+  });
+}
+
+async function setMachineOffline(userSub, machineId) {
+  const db = await getMachinesDb();
+  if (!db) return;
+  await db.collection("ac-machines").updateOne(
+    { user: userSub, machineId },
+    { $set: { status: "offline", updatedAt: new Date() } },
+  );
+}
+
 // *** SockLogs - Remote console log forwarding from devices ***
 // Devices with ?socklogs param send logs via WebSocket
 // Viewers (CLI or web) can subscribe to see device logs in real-time
@@ -1525,7 +1647,7 @@ wss.on("close", function close() {
 });
 
 // Construct the server.
-wss.on("connection", (ws, req) => {
+wss.on("connection", async (ws, req) => {
   const connectionInfo = {
     url: req.url,
     host: req.headers.host,
@@ -1609,6 +1731,177 @@ wss.on("connection", (ws, req) => {
     return; // Don't process as a game client
   }
   
+  // Route AC Machines connections — device monitoring & remote commands
+  if (req.url.startsWith('/machines')) {
+    const urlParams = new URL(req.url, 'http://localhost').searchParams;
+    const role = urlParams.get('role') || 'device';
+    const token = urlParams.get('token') || '';
+    const machineId = urlParams.get('machineId') || '';
+
+    if (role === 'viewer') {
+      // Browser dashboard viewer — verify AC auth token via Auth0
+      const authUser = await verifyACToken(token);
+      if (!authUser?.sub) {
+        ws.close(4001, 'Unauthorized');
+        return;
+      }
+      const userSub = authUser.sub;
+      const userHandle = authUser.nickname || authUser.name || null;
+
+      log(`Machines viewer connected: ${userHandle || userSub}`);
+
+      if (!machinesViewers.has(userSub)) machinesViewers.set(userSub, new Set());
+      machinesViewers.get(userSub).add(ws);
+
+      // Send initial state: all online machines for this user
+      const userMachines = [];
+      for (const [mid, device] of machinesDevices) {
+        if (device.user === userSub) {
+          userMachines.push({
+            machineId: mid,
+            ...device.info,
+            status: "online",
+            lastHeartbeat: device.lastHeartbeat,
+          });
+        }
+      }
+      ws.send(JSON.stringify({ type: "machines-state", machines: userMachines }));
+
+      // Handle viewer → device commands
+      ws.on('message', (data) => {
+        try {
+          const msg = JSON.parse(data.toString());
+          if (msg.type === "command" && msg.machineId) {
+            const device = machinesDevices.get(msg.machineId);
+            if (device && device.user === userSub && device.ws.readyState === WebSocket.OPEN) {
+              const commandId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+              device.ws.send(JSON.stringify({
+                type: "command",
+                command: msg.cmd,
+                commandId,
+                target: msg.args?.target || msg.args?.piece || undefined,
+              }));
+              log(`Command '${msg.cmd}' → ${msg.machineId} (${commandId})`);
+            }
+          }
+        } catch (e) {
+          error('🖥️ Machines viewer message error:', e);
+        }
+      });
+
+      ws.on('close', () => {
+        log(`🖥️ Machines viewer disconnected: ${userHandle || userSub}`);
+        const viewers = machinesViewers.get(userSub);
+        if (viewers) {
+          viewers.delete(ws);
+          if (viewers.size === 0) machinesViewers.delete(userSub);
+        }
+      });
+
+      ws.on('error', (err) => {
+        error('🖥️ Machines viewer error:', err);
+        const viewers = machinesViewers.get(userSub);
+        if (viewers) {
+          viewers.delete(ws);
+          if (viewers.size === 0) machinesViewers.delete(userSub);
+        }
+      });
+
+    } else {
+      // Device connection
+      const tokenPayload = verifyMachineToken(token);
+      const userSub = tokenPayload?.sub || null;
+      const userHandle = tokenPayload?.handle || null;
+      const linked = !!tokenPayload;
+
+      log(`📡 Machines device connected: ${machineId} (${linked ? userHandle : 'unlinked'})`);
+
+      machinesDevices.set(machineId, {
+        ws, user: userSub, handle: userHandle, machineId, linked,
+        info: {}, lastHeartbeat: Date.now(),
+      });
+
+      if (userSub) {
+        broadcastToMachineViewers(userSub, { type: "device-connected", machineId, linked });
+      }
+
+      ws.on('message', async (data) => {
+        try {
+          const msg = JSON.parse(data.toString());
+          const device = machinesDevices.get(machineId);
+          if (!device) return;
+
+          switch (msg.type) {
+            case "register":
+              device.info = {
+                version: msg.version, buildName: msg.buildName,
+                gitHash: msg.gitHash, buildTs: msg.buildTs,
+                hw: msg.hw, ip: msg.ip, wifiSSID: msg.wifiSSID,
+                hostname: msg.hostname, label: msg.label,
+                currentPiece: msg.currentPiece || "notepat",
+              };
+              device.lastHeartbeat = Date.now();
+              try { await upsertMachine(userSub, machineId, device.info); } catch (e) { error("📡 upsert:", e.message); }
+              if (userSub) broadcastToMachineViewers(userSub, { type: "machine-registered", machineId, ...device.info, status: "online" });
+              break;
+
+            case "heartbeat":
+              device.lastHeartbeat = Date.now();
+              device.info.uptime = msg.uptime;
+              device.info.currentPiece = msg.currentPiece || device.info.currentPiece;
+              device.info.battery = msg.battery;
+              device.info.charging = msg.charging;
+              device.info.fps = msg.fps;
+              try { await updateMachineHeartbeat(userSub, machineId, msg.uptime, device.info.currentPiece); } catch (e) { error("📡 heartbeat:", e.message); }
+              if (userSub) broadcastToMachineViewers(userSub, {
+                type: "heartbeat", machineId, uptime: msg.uptime,
+                currentPiece: device.info.currentPiece,
+                battery: msg.battery, charging: msg.charging, fps: msg.fps,
+                timestamp: Date.now(),
+              });
+              break;
+
+            case "log":
+              try { await insertMachineLog(userSub, machineId, msg); } catch (e) { error("📡 log insert:", e.message); }
+              if (userSub) {
+                const logMessage = msg.message || (typeof msg.data === "string" ? msg.data : JSON.stringify(msg.data));
+                broadcastToMachineViewers(userSub, {
+                  type: "log", machineId, level: msg.logType === "crash" ? "error" : (msg.level || "info"),
+                  message: logMessage, logType: msg.logType || "log",
+                  data: msg.data || null,
+                  when: msg.when || new Date().toISOString(),
+                });
+              }
+              break;
+
+            case "command-ack":
+            case "command-response":
+              if (userSub) broadcastToMachineViewers(userSub, { type: msg.type, machineId, commandId: msg.commandId, command: msg.command, data: msg.data });
+              break;
+          }
+        } catch (e) {
+          error('📡 Machines device message error:', e);
+        }
+      });
+
+      ws.on('close', async () => {
+        log(`📡 Machines device disconnected: ${machineId}`);
+        machinesDevices.delete(machineId);
+        if (userSub) {
+          broadcastToMachineViewers(userSub, { type: "status-change", machineId, status: "offline" });
+          try { await setMachineOffline(userSub, machineId); } catch (e) { error("📡 offline:", e.message); }
+        }
+      });
+
+      ws.on('error', (err) => {
+        error(`📡 Machines device error (${machineId}):`, err);
+        machinesDevices.delete(machineId);
+      });
+    }
+
+    return; // Don't process as a game client
+  }
+
   // Route socklogs connections - devices sending logs and viewers subscribing
   if (req.url.startsWith('/socklogs')) {
     const urlParams = new URL(req.url, 'http://localhost').searchParams;
