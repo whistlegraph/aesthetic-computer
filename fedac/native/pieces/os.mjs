@@ -5,7 +5,7 @@
 const OS_BASE_URL = "https://releases-aesthetic-computer.sfo3.digitaloceanspaces.com/os/";
 const OS_VERSION_URL = OS_BASE_URL + "native-notepat-latest.version";
 const OS_VMLINUZ_URL = OS_BASE_URL + "native-notepat-latest.vmlinuz";
-const OS_VMLINUZ_BYTES = 37_000_000;
+const OS_VMLINUZ_BYTES = 93_000_000;
 
 // States: idle | checking | up-to-date | available | downloading | flashing
 //         | confirm-reboot | shutting-down | error
