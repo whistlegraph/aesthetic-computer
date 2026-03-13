@@ -8724,7 +8724,14 @@ async function load(
     // Create a Typeface instance and call load() to set up Proxy, but don't await it (on-demand loading)
     tf = new Typeface(/*"unifont"*/);
     tf.load($commonApi.net.preload).then(() => { // Initialize Proxy system without awaiting (glyphs load on-demand)
-      if (typeof window !== "undefined") window.acFontsReady = true;
+      if (typeof window !== "undefined") {
+        window.acFontsReady = true;
+        window.__acTypeface = tf;
+        console.log("🔤 acFontsReady = true (tf.load completed)");
+      }
+    }).catch((err) => {
+      console.error("🔤 tf.load() FAILED:", err?.message || err);
+      if (typeof window !== "undefined") window.acFontsReady = "error";
     });
     const typefaceLoadEndTime = performance.now();
     // console.log(`⏰ Typeface load skipped (on-demand mode), Proxy initialized in ${Math.round(typefaceLoadEndTime - typefaceLoadStartTime)}ms`);
