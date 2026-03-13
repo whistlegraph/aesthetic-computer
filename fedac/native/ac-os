@@ -147,7 +147,8 @@ record_build() {
     local BUILD_TS=$(date -u '+%Y-%m-%dT%H:%M')
     local SHA=$(sha256sum "${VMLINUZ}" 2>/dev/null | cut -d' ' -f1)
     local SIZE=$(stat -c%s "${VMLINUZ}" 2>/dev/null || echo 0)
-    local BUILD_NAME=$(bash scripts/build-name.sh 2>/dev/null || echo "unknown")
+    # Use pre-computed build name from case block (avoids cwd issues after build_kernel cd)
+    local BUILD_NAME="${AC_BUILD_NAME:-$(cd "${SCRIPT_DIR}" && bash scripts/build-name.sh 2>/dev/null || echo "unknown")}"
 
     cd "${SCRIPT_DIR}"
     log "Recording build: ${BUILD_NAME} (${GIT_HASH})"
@@ -556,6 +557,10 @@ upload_ota() {
         }" | node scripts/track-build.mjs record 2>&1 || log "MongoDB record failed (non-fatal)"
     fi
 }
+
+    # Pre-compute build name while cwd is clean (build_kernel changes directory)
+export AC_BUILD_NAME=$(bash scripts/build-name.sh 2>/dev/null || echo "unknown")
+log "Build name: ${AC_BUILD_NAME}"
 
 case "${CMD}" in
     build)
