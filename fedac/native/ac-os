@@ -567,6 +567,10 @@ case "${CMD}" in
         ;;
     upload)
         require_login
+        build_binary
+        build_initramfs
+        build_kernel
+        record_build "upload"
         upload_ota
         ;;
     flash+upload|upload+flash|bfu)
