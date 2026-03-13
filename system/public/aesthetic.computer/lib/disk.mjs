@@ -8721,18 +8721,32 @@ async function load(
     const typefaceLoadEndTime = performance.now();
     // console.log(`⏰ Typeface load: ${Math.round(typefaceLoadEndTime - typefaceLoadStartTime)}ms`);
   } else if (skipTypefacePreload) {
-    // Create a Typeface instance and call load() to set up Proxy, but don't await it (on-demand loading)
+    // Create a Typeface instance and call load() to set up Proxy
     tf = new Typeface(/*"unifont"*/);
-    tf.load($commonApi.net.preload).then(() => { // Initialize Proxy system without awaiting (glyphs load on-demand)
-      if (typeof window !== "undefined") {
-        window.acFontsReady = true;
-        window.__acTypeface = tf;
-        console.log("🔤 acFontsReady = true (tf.load completed)");
+    // In TV/headless mode (oven captures), await font load to ensure glyphs
+    // are available before first paint. Otherwise load on-demand (fire-and-forget).
+    const isHeadless = typeof window !== "undefined" &&
+      new URLSearchParams(window.location?.search).get("tv") === "true";
+    if (isHeadless) {
+      try {
+        await tf.load($commonApi.net.preload);
+        if (typeof window !== "undefined") {
+          window.acFontsReady = true;
+          window.__acTypeface = tf;
+        }
+        console.log("🔤 font_1 awaited load complete (tv mode)");
+      } catch (err) {
+        console.error("🔤 tf.load() FAILED:", err?.message || err);
+        if (typeof window !== "undefined") window.acFontsReady = "error";
       }
-    }).catch((err) => {
-      console.error("🔤 tf.load() FAILED:", err?.message || err);
-      if (typeof window !== "undefined") window.acFontsReady = "error";
-    });
+    } else {
+      tf.load($commonApi.net.preload).then(() => {
+        if (typeof window !== "undefined") {
+          window.acFontsReady = true;
+          window.__acTypeface = tf;
+        }
+      }).catch(() => {});
+    }
     const typefaceLoadEndTime = performance.now();
     // console.log(`⏰ Typeface load skipped (on-demand mode), Proxy initialized in ${Math.round(typefaceLoadEndTime - typefaceLoadStartTime)}ms`);
   } else {
