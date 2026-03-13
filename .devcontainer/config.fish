@@ -2592,13 +2592,15 @@ alias ac-llm-continue 'clear; ac; claude --continue'
 alias ac-llm-resume 'clear; ac; claude --resume'
 
 # Mail sync (mbsync + mu index for mu4e)
+# Syncs both mail@aesthetic.computer and me@jas.life
 function ac-mail
     clear
-    set -l deploy_env /workspaces/aesthetic-computer/at/deploy.env
     set -l mbsyncrc ~/.mbsyncrc
     set -l msmtprc ~/.msmtprc
     set -l authinfo ~/.authinfo
-    set -l maildir ~/.mail
+    set -l maildir_ac ~/.mail
+    set -l maildir_jas ~/.mail-jas
+    set -l maildir_all ~/.mail-all
 
     # Check for required binaries
     if not command -q mbsync
@@ -2612,93 +2614,45 @@ function ac-mail
         end
     end
 
-    # Load credentials from deploy.env
-    if not test -f $deploy_env
-        echo "❌ Missing $deploy_env (no SMTP credentials)"
+    # Configs come from vault via devault.fish (~/.mbsyncrc, ~/.msmtprc)
+    if not test -f $mbsyncrc
+        echo "❌ Missing $mbsyncrc — run devault.fish to copy from vault"
         echo "   Waiting... (press Ctrl+C to exit)"
         sleep infinity
         return 1
     end
 
-    set -l smtp_user (grep '^SMTP_USER=' $deploy_env | head -1 | sed 's/^SMTP_USER=//')
-    set -l smtp_pass (grep '^SMTP_PASS=' $deploy_env | head -1 | sed 's/^SMTP_PASS=//')
-
-    if test -z "$smtp_user" -o -z "$smtp_pass"
-        echo "❌ SMTP_USER or SMTP_PASS not found in $deploy_env"
+    if not test -f $msmtprc
+        echo "❌ Missing $msmtprc — run devault.fish to copy from vault"
+        echo "   Waiting... (press Ctrl+C to exit)"
         sleep infinity
         return 1
     end
 
-    # Generate ~/.mbsyncrc if missing
-    if not test -f $mbsyncrc
-        echo "📝 Generating $mbsyncrc..."
-        echo "IMAPAccount ac-mail
-Host imap.gmail.com
-User $smtp_user
-Pass $smtp_pass
-SSLType IMAPS
+    chmod 600 $mbsyncrc $msmtprc
 
-IMAPStore ac-mail-remote
-Account ac-mail
+    # Create maildirs
+    mkdir -p $maildir_ac $maildir_jas
 
-MaildirStore ac-mail-local
-SubFolders Verbatim
-Path $maildir/
-Inbox $maildir/INBOX
-
-Channel ac-mail
-Far :ac-mail-remote:
-Near :ac-mail-local:
-Patterns * ![Gmail]/Spam
-Create Both
-Expunge Both
-SyncState *" > $mbsyncrc
-        chmod 600 $mbsyncrc
-    end
-
-    # Generate ~/.msmtprc if missing
-    if not test -f $msmtprc
-        echo "📝 Generating $msmtprc..."
-        echo "defaults
-auth           on
-tls            on
-tls_trust_file /etc/ssl/certs/ca-certificates.crt
-logfile        ~/.msmtp.log
-
-account        ac-mail
-host           smtp.gmail.com
-port           587
-from           $smtp_user
-user           $smtp_user
-password       $smtp_pass
-
-account default : ac-mail" > $msmtprc
-        chmod 600 $msmtprc
-    end
-
-    # Generate ~/.authinfo if missing (for mu4e compose)
-    if not test -f $authinfo
-        echo "📝 Generating $authinfo..."
-        echo "machine smtp.gmail.com login $smtp_user password $smtp_pass port 587" > $authinfo
-        chmod 600 $authinfo
-    end
-
-    # Create maildir
-    mkdir -p $maildir
+    # Unified maildir root via symlinks (for mu to index both)
+    mkdir -p $maildir_all
+    ln -sfn $maildir_ac $maildir_all/ac
+    ln -sfn $maildir_jas $maildir_all/jas
 
     # Initialize mu database if needed
-    if not test -d "$maildir/.mu" -o -d "$HOME/.cache/mu"
+    if not test -d "$HOME/.cache/mu/xapian"
         echo "📬 Initializing mu database..."
-        mu init --maildir=$maildir --my-address=$smtp_user 2>/dev/null
+        mu init --maildir=$maildir_all --my-address=mail@aesthetic.computer --my-address=me@jas.life 2>/dev/null
     end
 
-    echo "📬 mail@aesthetic.computer — sync loop"
-    echo "─────────────────────────────────────"
+    echo "📬 mail — sync loop (mail@aesthetic.computer + me@jas.life)"
+    echo "────────────────────────────────────────────────────────────"
     echo ""
 
     # Initial sync
     echo "🔄 Initial sync..."
     mbsync ac-mail 2>&1
+    mbsync jas-mail 2>&1
     mu index --quiet 2>/dev/null
     echo "✅ Sync complete. "(date '+%H:%M:%S')
     echo ""
@@ -2708,6 +2662,7 @@ account default : ac-mail" > $msmtprc
         sleep 300
         echo "🔄 Syncing... "(date '+%H:%M:%S')
         mbsync ac-mail 2>&1
+        mbsync jas-mail 2>&1
         mu index --quiet 2>/dev/null
         echo "✅ Done. "(date '+%H:%M:%S')
     end

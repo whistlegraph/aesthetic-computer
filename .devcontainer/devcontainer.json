@@ -84,6 +84,7 @@
     "source=aesthetic-mkcert-ca,target=/home/me/.local/share/mkcert,type=volume",
     "source=aesthetic-fish-data,target=/home/me/.local/share/fish,type=volume",
     "source=aesthetic-mail-data,target=/home/me/.mail,type=volume",
+    "source=aesthetic-mail-jas-data,target=/home/me/.mail-jas,type=volume",
     "source=aesthetic-copilot-data,target=/home/me/.copilot,type=volume",
     "source=/var/run/docker.sock,target=/var/run/docker-host.sock,type=bind",
     "type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock"
