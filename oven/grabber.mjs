@@ -1481,7 +1481,7 @@ async function captureFrames(piece, options = {}) {
     const text = msg.text();
     if (text.includes('ERR_BLOCKED_BY_CLIENT')) return;
     if (text.includes('Failed to load resource: net::ERR_')) return;
-    if (type === 'error' || text.includes('KidLisp') || text.includes('$')) {
+    if (type === 'error' || text.includes('KidLisp') || text.includes('$') || text.includes('acPieceReady') || text.includes('BOOT') || text.includes('glyph') || text.includes('font') || text.includes('Typeface') || text.includes('preload')) {
       console.log(`   [PAGE ${type}] ${text}`);
     }
   });
@@ -1499,8 +1499,13 @@ async function captureFrames(piece, options = {}) {
   });
   
   page.on('response', response => {
+    const url = response.url();
     if (response.status() >= 400) {
-      console.log(`   [HTTP ${response.status()}] ${response.url()}`);
+      console.log(`   [HTTP ${response.status()}] ${url}`);
+    }
+    // Log font/glyph/drawing related responses for debugging
+    if (url.includes('bdf-glyph') || url.includes('drawings/') || url.includes('painting-code')) {
+      console.log(`   [RESOURCE ${response.status()}] ${url.slice(0, 120)}`);
     }
   });
   
@@ -1658,6 +1663,22 @@ async function captureFrames(piece, options = {}) {
       } else {
         console.log(`   ⚠️ ${pendingImages} image(s) still pending after ${maxImageWait}ms timeout`);
       }
+    }
+
+    // 🔤 Check font/glyph state before capture
+    try {
+      const fontState = await page.evaluate(() => {
+        // Check if paintings cache has any pending fetches
+        const pendingPaintings = typeof window.acPendingImages === 'function' ? window.acPendingImages() : -1;
+        // Check if typeface glyphs are available
+        const tf = document.querySelector('#aesthetic-computer')?.__vue__?.typeface;
+        // Try to detect glyph availability via global references
+        const hasGlyphs = typeof window !== 'undefined' && window.acTypeface;
+        return { pendingPaintings, hasGlyphs };
+      });
+      console.log(`   🔤 Font state: pendingImages=${fontState.pendingPaintings}, hasGlyphs=${fontState.hasGlyphs}`);
+    } catch (e) {
+      console.log(`   🔤 Font state check failed: ${e.message}`);
     }
 
     // Settle time: let the piece run a bit more after ready signal
