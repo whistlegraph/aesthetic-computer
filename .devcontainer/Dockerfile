@@ -45,8 +45,18 @@ RUN dnf clean all && rm -rf /var/cache/dnf && \
       wpa_supplicant dhcp-client iw iwlwifi-mvm-firmware wireless-regdb \
       sbcl zeromq-devel redhat-rpm-config \
       poppler-utils \
+      texlive-xetex texlive-collection-fontsrecommended texlive-natbib \
+      texlive-booktabs texlive-titlesec texlive-fancyhdr texlive-draftwatermark \
+      texlive-microtype texlive-ragged2e texlive-listings texlive-enumitem \
+      texlive-collection-latexrecommended \
       isync maildir-utils msmtp \
-            caddy \
+      caddy \
+      texlive-scheme-basic texlive-xetex texlive-bibtex \
+      texlive-collection-fontsrecommended texlive-collection-latexrecommended \
+      texlive-natbib texlive-booktabs texlive-enumitem texlive-titlesec \
+      texlive-fancyhdr texlive-microtype texlive-listings texlive-ragged2e \
+      texlive-draftwatermark texlive-fontspec texlive-unicode-math \
+      texlive-collection-mathscience \
         && dnf clean all && rm -rf /var/cache/dnf
 
 # --- FFmpeg from RPM Fusion ---------------------------------------------------
