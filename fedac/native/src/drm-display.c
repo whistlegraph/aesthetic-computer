@@ -806,3 +806,17 @@ void drm_destroy(ACDisplay *d) {
     if (d->fd >= 0) close(d->fd);
     free(d);
 }
+
+// Release DRM master so another process (cage) can take the display
+int drm_release_master(void *display) {
+    ACDisplay *d = (ACDisplay *)display;
+    if (!d || d->is_fbdev || d->fd < 0) return -1;
+    return drmDropMaster(d->fd);
+}
+
+// Reclaim DRM master after browser exits
+int drm_acquire_master(void *display) {
+    ACDisplay *d = (ACDisplay *)display;
+    if (!d || d->is_fbdev || d->fd < 0) return -1;
+    return drmSetMaster(d->fd);
+}

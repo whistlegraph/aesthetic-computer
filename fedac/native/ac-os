@@ -100,6 +100,52 @@ build_initramfs() {
         log "  Install with: curl -fsSL https://claude.ai/install.sh | bash"
     fi
 
+    # Firefox + cage — for OAuth login popup (one-shot browser)
+    local FIREFOX_CACHE="/tmp/ac-firefox-cache"
+    local FIREFOX_TAR="/tmp/firefox.tar.xz"
+    local FIREFOX_URL="https://download.mozilla.org/?product=firefox-latest&os=linux64&lang=en-US"
+    if [ ! -d "${FIREFOX_CACHE}" ]; then
+        log "Downloading Firefox..."
+        curl -fsSL "${FIREFOX_URL}" -o "${FIREFOX_TAR}" 2>&1
+        mkdir -p "${FIREFOX_CACHE}"
+        tar xf "${FIREFOX_TAR}" -C "${FIREFOX_CACHE}" --strip-components=1
+        # Strip unnecessary components for OAuth-only use
+        rm -f "${FIREFOX_CACHE}/crashreporter" "${FIREFOX_CACHE}/crashhelper" \
+              "${FIREFOX_CACHE}/pingsender" "${FIREFOX_CACHE}/updater" \
+              "${FIREFOX_CACHE}/update-settings.ini" \
+              "${FIREFOX_CACHE}/libonnxruntime.so" "${FIREFOX_CACHE}/libmozinference.so"
+        rm -rf "${FIREFOX_CACHE}/dictionaries"
+        rm -f "${FIREFOX_CACHE}/fonts/TwemojiMozilla.ttf"
+        rm -f "${FIREFOX_TAR}"
+        log "  firefox: $(du -sh "${FIREFOX_CACHE}" | cut -f1) (stripped)"
+    else
+        log "  firefox: cached at ${FIREFOX_CACHE}"
+    fi
+    sudo mkdir -p "${INITRAMFS_ROOT}/opt/firefox"
+    sudo cp -a "${FIREFOX_CACHE}/." "${INITRAMFS_ROOT}/opt/firefox/"
+    sudo ln -sf /opt/firefox/firefox-bin "${INITRAMFS_ROOT}/bin/firefox"
+    # Bundle cage (Wayland kiosk compositor) + wlroots libs
+    local CAGE_BIN="$(command -v cage 2>/dev/null || true)"
+    if [ -n "${CAGE_BIN}" ] && [ -f "${CAGE_BIN}" ]; then
+        log "Bundling cage..."
+        sudo cp "${CAGE_BIN}" "${INITRAMFS_ROOT}/bin/cage"
+        sudo chmod +x "${INITRAMFS_ROOT}/bin/cage"
+        for lib in $(ldd "${CAGE_BIN}" 2>/dev/null | grep -oP '/\S+'); do
+            [ -f "$lib" ] && sudo cp -n "$lib" "${INITRAMFS_ROOT}/lib64/" 2>/dev/null || true
+        done
+        log "  cage: $(du -sh "${INITRAMFS_ROOT}/bin/cage" | cut -f1)"
+    else
+        log "cage not installed — skipping (sudo dnf install cage)"
+    fi
+    # Firefox needs GTK/Wayland libs — copy from host
+    for lib in $(ldd "${INITRAMFS_ROOT}/opt/firefox/firefox-bin" 2>/dev/null | grep -oP '/\S+'); do
+        [ -f "$lib" ] && sudo cp -n "$lib" "${INITRAMFS_ROOT}/lib64/" 2>/dev/null || true
+    done
+    for lib in $(ldd "${INITRAMFS_ROOT}/opt/firefox/libxul.so" 2>/dev/null | grep -oP '/\S+'); do
+        [ -f "$lib" ] && sudo cp -n "$lib" "${INITRAMFS_ROOT}/lib64/" 2>/dev/null || true
+    done
+    log "  firefox libs: $(du -sh "${INITRAMFS_ROOT}/lib64/" | cut -f1) total"
+
     # Node.js: only bundled if explicitly requested (USE_NODE=1)
     # KidLisp evaluation uses QuickJS in ac-native, not Node.js
     if [ "${USE_NODE:-0}" = "1" ]; then
@@ -118,12 +164,12 @@ build_initramfs() {
         sudo rm -f "${INITRAMFS_ROOT}/bin/node"
     fi
 
-    # Repack cpio + lz4
+    # Repack cpio + zstd (better compression than lz4, kernel supports it)
     log "Repacking initramfs..."
     cd "${INITRAMFS_ROOT}"
     sudo find . -print0 | sudo cpio --null -ov --format=newc \
         > "${BUILD_DIR}/initramfs.cpio" 2>/dev/null
-    lz4 -l -9 -f "${BUILD_DIR}/initramfs.cpio" "${BUILD_DIR}/initramfs.cpio.lz4"
+    zstd -15 -f "${BUILD_DIR}/initramfs.cpio" -o "${BUILD_DIR}/initramfs.cpio.zst"
 }
 
 build_kernel() {
@@ -144,7 +190,7 @@ build_kernel() {
     fi
     # Copy fresh initramfs into kernel tree (kernel embeds it — must be updated!)
     log "Syncing initramfs into kernel tree..."
-    sudo cp "${BUILD_DIR}/initramfs.cpio.lz4" "${LINUX_DIR}/initramfs.cpio.lz4"
+    sudo cp "${BUILD_DIR}/initramfs.cpio.zst" "${LINUX_DIR}/initramfs.cpio.zst"
     # Force kernel to re-embed: remove cached initramfs object (make won't detect content changes)
     sudo rm -f "${LINUX_DIR}/usr/initramfs_data.o" "${LINUX_DIR}/usr/.initramfs_data.o.cmd"
     log "Building kernel..."
