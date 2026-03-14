@@ -1243,22 +1243,30 @@ static void draw_boot_status(ACGraph *graph, ACFramebuffer *screen,
         boot_frame++;
         graph_wipe(graph, (ACColor){bg_r, bg_g, bg_b, 255});
 
-        // Expanding circles — concentric rings radiating from center
+        // Rainbow stripes at top and bottom
         {
-            int cx = screen->width / 2;
-            int cy = screen->height / 2;
-            int max_r = (screen->width > screen->height ? screen->width : screen->height);
-            int ring_gap = 18;
-            int num_rings = max_r / ring_gap + 2;
-            int anim_offset = boot_frame * 2;
-            for (int r = 0; r < num_rings; r++) {
-                int radius = (r * ring_gap + anim_offset) % (max_r + ring_gap);
-                uint8_t v = (r % 2 == 0) ? 240 : 10;
-                uint8_t alpha = (uint8_t)(60 - (radius * 30 / max_r));
-                if (alpha > 60) alpha = 0;
-                graph_ink(graph, (ACColor){v, v, v, alpha});
-                graph_circle(graph, cx, cy, radius, 0);
-                graph_circle(graph, cx, cy, radius + 1, 0);
+            int stripe_h = 3;
+            int num_stripes = 8;
+            int band = num_stripes * stripe_h;
+            for (int s = 0; s < num_stripes; s++) {
+                double hue = fmod((double)s / num_stripes * 360.0 + boot_frame * 3.0, 360.0);
+                double h6 = hue / 60.0;
+                int hi = (int)h6 % 6;
+                double fr = h6 - (int)h6;
+                double cr, cg, cb;
+                switch (hi) {
+                    case 0: cr = 1; cg = fr; cb = 0; break;
+                    case 1: cr = 1-fr; cg = 1; cb = 0; break;
+                    case 2: cr = 0; cg = 1; cb = fr; break;
+                    case 3: cr = 0; cg = 1-fr; cb = 1; break;
+                    case 4: cr = fr; cg = 0; cb = 1; break;
+                    default: cr = 1; cg = 0; cb = 1-fr; break;
+                }
+                int y_top = s * stripe_h;
+                int y_bot = screen->height - band + s * stripe_h;
+                graph_ink(graph, (ACColor){(uint8_t)(cr*200), (uint8_t)(cg*200), (uint8_t)(cb*200), 80});
+                graph_box(graph, 0, y_top, screen->width, stripe_h, 1);
+                graph_box(graph, 0, y_bot, screen->width, stripe_h, 1);
             }
         }
 
