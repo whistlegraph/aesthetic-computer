@@ -14,10 +14,12 @@
 
 typedef struct {
     uint32_t ch;     // Unicode codepoint
-    uint8_t  fg;     // foreground color index (0-15, 16=default)
-    uint8_t  bg;     // background color index (0-15, 16=default)
+    uint8_t  fg;     // foreground color index (0-15, 16=default, 255=truecolor)
+    uint8_t  bg;     // background color index (0-15, 16=default, 255=truecolor)
     uint8_t  bold;   // bold attribute
     uint8_t  dirty;  // changed since last read
+    uint8_t  fg_r, fg_g, fg_b;  // truecolor foreground (when fg==255)
+    uint8_t  bg_r, bg_g, bg_b;  // truecolor background (when bg==255)
 } ACPtyCell;
 
 typedef struct {
@@ -39,6 +41,12 @@ typedef struct {
 
     // Current text attributes
     uint8_t cur_fg, cur_bg, cur_bold;
+    uint8_t cur_fg_r, cur_fg_g, cur_fg_b;  // truecolor fg (when cur_fg==255)
+    uint8_t cur_bg_r, cur_bg_g, cur_bg_b;  // truecolor bg (when cur_bg==255)
+
+    // UTF-8 decoder state
+    uint32_t utf8_cp;      // codepoint being assembled
+    int utf8_remaining;    // bytes remaining in sequence
 
     // Scroll region
     int scroll_top, scroll_bottom;

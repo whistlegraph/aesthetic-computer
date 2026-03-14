@@ -35,16 +35,19 @@ const COLORS = [
 
 const DEFAULT_FG = [170, 170, 170]; // default foreground (light grey)
 const DEFAULT_BG = [0, 0, 0];       // default background (black)
+const CELL_SIZE = 10; // elements per cell: ch, fg, bg, bold, fg_r, fg_g, fg_b, bg_r, bg_g, bg_b
 
-function fgColor(idx, bold) {
-  if (idx === 16 || idx === 255) return bold ? COLORS[15] : DEFAULT_FG; // default
+function fgColor(idx, bold, r, g, b) {
+  if (idx === 255) return [r, g, b]; // truecolor
+  if (idx === 16) return bold ? COLORS[15] : DEFAULT_FG; // default
   if (idx >= 0 && idx < 8 && bold) return COLORS[idx + 8];
   if (idx >= 0 && idx < 16) return COLORS[idx];
   return DEFAULT_FG;
 }
 
-function bgColor(idx) {
-  if (idx === 16 || idx === 255) return DEFAULT_BG; // default
+function bgColor(idx, r, g, b) {
+  if (idx === 255) return [r, g, b]; // truecolor
+  if (idx === 16) return DEFAULT_BG; // default
   if (idx >= 0 && idx < 16) return COLORS[idx];
   return DEFAULT_BG;
 }
@@ -147,7 +150,7 @@ function paint({ wipe, ink, box, write, system, screen }) {
       for (let y = 0; y < Math.min(rows, 10); y++) {
         let line = "";
         for (let x = 0; x < ptyCols; x++) {
-          const ch = grid[(y * ptyCols + x) * 4];
+          const ch = grid[(y * ptyCols + x) * CELL_SIZE];
           const rep = charReplace(ch);
           if (rep) line += rep;
           else if (line.length > 0) line += " ";
@@ -176,18 +179,20 @@ function paint({ wipe, ink, box, write, system, screen }) {
   // Render each cell
   for (let y = 0; y < ptyRows; y++) {
     for (let x = 0; x < ptyCols; x++) {
-      const i = (y * ptyCols + x) * 4;
+      const i = (y * ptyCols + x) * CELL_SIZE;
       const ch = grid[i];
       const fg = grid[i + 1];
       const bg = grid[i + 2];
       const bold = grid[i + 3];
+      const fg_r = grid[i + 4], fg_g = grid[i + 5], fg_b = grid[i + 6];
+      const bg_r = grid[i + 7], bg_g = grid[i + 8], bg_b = grid[i + 9];
 
       const px = x * cellW;
       const py = y * cellH;
 
       // Draw background if not default black
       if (bg !== 0 && bg !== 16) {
-        const [br, bg2, bb] = bgColor(bg);
+        const [br, bg2, bb] = bgColor(bg, bg_r, bg_g, bg_b);
         ink(br, bg2, bb);
         box(px, py, cellW, cellH);
       }
@@ -196,7 +201,7 @@ function paint({ wipe, ink, box, write, system, screen }) {
       if (ch > 32) {
         const rep = charReplace(ch);
         if (rep) {
-          const [fr, fg2, fb] = fgColor(fg, bold);
+          const [fr, fg2, fb] = fgColor(fg, bold, fg_r, fg_g, fg_b);
           ink(fr, fg2, fb);
           write(rep, { x: px, y: py, font: 1 });
         }
