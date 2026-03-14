@@ -795,7 +795,7 @@ function flood(x, y, fillColor = c) {
   }
 
   // 🚀 TRY GPU FLOOD FIRST (Jump Flooding Algorithm - O(log n))
-  if (gpuFloodEnabled && gpuFloodAvailable && gpuSpinModule && pixels && width && height) {
+  if (gpuFloodEnabled && gpuFloodAvailable && gpuAllowed("flood") && gpuSpinModule && pixels && width && height) {
     const floodStart = performance.now();
     const result = gpuSpinModule.gpuFlood(
       pixels,
@@ -806,11 +806,12 @@ function flood(x, y, fillColor = c) {
       targetColor,
       resolvedFillColor
     );
-    
+
     if (result.success) {
+      gpuOk("flood");
       const floodTime = performance.now() - floodStart;
       graphPerf.track("flood-gpu", floodTime);
-      
+
       if (inkFloodLoggingEnabled()) {
         console.log(
           `${inkFloodLogPrefix()}🌊 GPU FLOOD RESULT (JFA)`,
@@ -822,14 +823,13 @@ function flood(x, y, fillColor = c) {
           }
         );
       }
-      
+
       return {
         color: targetColor,
         area: result.area,
       };
     }
-    // GPU failed, fall back to CPU
-    console.warn('🎮 GPU Flood: Failed, using CPU fallback');
+    gpuFailed("flood");
   }
 
   // 💻 CPU FALLBACK: Stack-based flood fill
@@ -1932,21 +1932,22 @@ function contrast(level = 1.0) {
   }
   
   // 🚀 TRY GPU CONTRAST FIRST
-  if (gpuContrastEnabled && gpuSpinAvailable && gpuSpinModule && pixels && width && height) {
+  if (gpuContrastEnabled && gpuSpinAvailable && gpuAllowed("contrast") && gpuSpinModule && pixels && width && height) {
     const mask = activeMask ? {
       x: minX,
       y: minY,
       width: maxX - minX,
       height: maxY - minY
     } : null;
-    
+
     const result = gpuSpinModule.gpuContrast?.(pixels, width, height, level, mask);
     if (result) {
+      gpuOk("contrast");
       const contrastTime = performance.now() - contrastStart;
       graphPerf.track("contrast-gpu", contrastTime);
       return;
     }
-    // GPU failed, fall back to CPU
+    gpuFailed("contrast");
   }
 
   // 💻 CPU FALLBACK
@@ -2016,21 +2017,22 @@ function brightness(adjustment = 0) {
   }
 
   // 🚀 TRY GPU BRIGHTNESS FIRST
-  if (gpuContrastEnabled && gpuSpinAvailable && gpuSpinModule && pixels && width && height) {
+  if (gpuContrastEnabled && gpuSpinAvailable && gpuAllowed("brightness") && gpuSpinModule && pixels && width && height) {
     const mask = activeMask ? {
       x: minX,
       y: minY,
       width: maxX - minX,
       height: maxY - minY
     } : null;
-    
+
     const result = gpuSpinModule.gpuBrightness?.(pixels, width, height, adjustment, mask);
     if (result) {
+      gpuOk("brightness");
       const brightnessTime = performance.now() - brightnessStart;
       graphPerf.track("brightness-gpu", brightnessTime);
       return;
     }
-    // GPU failed, fall back to CPU
+    gpuFailed("brightness");
   }
 
   // 💻 CPU FALLBACK
@@ -2081,21 +2083,22 @@ function invert() {
   }
 
   // 🚀 TRY GPU INVERT FIRST
-  if (gpuContrastEnabled && gpuSpinAvailable && gpuSpinModule && pixels && width && height) {
+  if (gpuContrastEnabled && gpuSpinAvailable && gpuAllowed("invert") && gpuSpinModule && pixels && width && height) {
     const mask = activeMask ? {
       x: minX,
       y: minY,
       width: maxX - minX,
       height: maxY - minY
     } : null;
-    
+
     const result = gpuSpinModule.gpuInvert?.(pixels, width, height, mask);
     if (result) {
+      gpuOk("invert");
       const invertTime = performance.now() - invertStart;
       graphPerf.track("invert-gpu", invertTime);
       return;
     }
-    // GPU failed, fall back to CPU
+    gpuFailed("invert");
   }
 
   // 💻 CPU FALLBACK
@@ -5265,18 +5268,20 @@ function scroll(dx = 0, dy = 0) {
   }
 
   // 🚀 TRY GPU SCROLL FIRST
-  if (gpuSpinEnabled && gpuSpinAvailable && gpuSpinModule?.gpuScroll && pixels && width && height) {
+  if (gpuSpinEnabled && gpuSpinAvailable && gpuAllowed("scroll") && gpuSpinModule?.gpuScroll && pixels && width && height) {
     const mask = activeMask ? {
       x: minX,
       y: minY,
       width: boundsWidth,
       height: boundsHeight
     } : null;
-    
+
     const success = gpuSpinModule.gpuScroll(pixels, width, height, finalDx, finalDy, mask);
     if (success) {
+      gpuOk("scroll");
       return;
     }
+    gpuFailed("scroll");
   }
 
   // CPU FALLBACK
@@ -5415,6 +5420,38 @@ let gpuLayerCompositeAvailable = null; // null = not checked yet
 let gpuLayerCompositeEnabled = true; // Enable by default, falls back to CPU if unavailable
 let gpuInitPromise = null; // Promise for initialization
 
+// 🎯 Adaptive GPU failure tracking — auto-disable effects that keep failing
+const GPU_FAIL_THRESHOLD = 3; // Disable after this many failures
+const gpuFailCounts = {
+  spin: 0, composite: 0, blur: 0, sharpen: 0,
+  shear: 0, suck: 0, flood: 0, zoom: 0, scroll: 0,
+  contrast: 0, brightness: 0, invert: 0, compositeLayers: 0,
+};
+const gpuDisabled = {}; // Tracks which effects have been auto-disabled
+
+function gpuFailed(effectName) {
+  gpuFailCounts[effectName] = (gpuFailCounts[effectName] || 0) + 1;
+  if (gpuFailCounts[effectName] >= GPU_FAIL_THRESHOLD && !gpuDisabled[effectName]) {
+    gpuDisabled[effectName] = true;
+    console.warn(`🎮 GPU ${effectName}: Auto-disabled after ${GPU_FAIL_THRESHOLD} failures — using CPU fallback`);
+  }
+  return false; // Convenience: caller can do `return gpuFailed("blur")`
+}
+
+function gpuOk(effectName) {
+  // Reset failure count on success (effect is working this session)
+  if (gpuFailCounts[effectName] > 0) gpuFailCounts[effectName] = 0;
+}
+
+function gpuAllowed(effectName) {
+  return !gpuDisabled[effectName];
+}
+
+// Expose for telemetry / debug console
+function getGpuStatus() {
+  return { failCounts: { ...gpuFailCounts }, disabled: { ...gpuDisabled } };
+}
+
 // 🚀 Initialize GPU effects module eagerly (call this at startup)
 async function initGpuEffects() {
   if (gpuInitPromise) return gpuInitPromise;
@@ -5482,16 +5519,16 @@ function compositeLayers(layers) {
   const compositeStart = performance.now();
   
   // 🚀 TRY GPU COMPOSITE FIRST
-  if (gpuLayerCompositeEnabled && gpuLayerCompositeAvailable && gpuSpinModule && pixels && width && height) {
+  if (gpuLayerCompositeEnabled && gpuLayerCompositeAvailable && gpuAllowed("compositeLayers") && gpuSpinModule && pixels && width && height) {
     const result = gpuSpinModule.gpuCompositeLayers(pixels, width, height, layers);
-    
+
     if (result.success) {
+      gpuOk("compositeLayers");
       const compositeTime = performance.now() - compositeStart;
       graphPerf.track("composite-layers-gpu", compositeTime);
       return true;
     }
-    // GPU failed, fall back to CPU
-    console.warn('🎮 GPU Layer Composite: Failed, using CPU fallback');
+    gpuFailed("compositeLayers");
   }
   
   // 💻 CPU FALLBACK: Composite each layer individually
@@ -5608,7 +5645,7 @@ function batchedEffects(options = {}) {
   }
   
   // 🚀 TRY GPU BATCHED EFFECTS
-  if (gpuSpinAvailable && gpuSpinModule && pixels && width && height) {
+  if (gpuSpinAvailable && gpuAllowed("composite") && gpuSpinModule && pixels && width && height) {
     const result = gpuSpinModule.gpuComposite?.(pixels, width, height, {
       zoom,
       zoomAnchorX,
@@ -5619,12 +5656,14 @@ function batchedEffects(options = {}) {
       brightness: brightnessLevel,
       mask
     });
-    
+
     if (result) {
+      gpuOk("composite");
       const batchTime = performance.now() - batchStart;
       graphPerf.track("batched-effects-gpu", batchTime);
       return true;
     }
+    gpuFailed("composite");
   }
   
   // 💻 CPU FALLBACK - Apply effects individually
@@ -5670,21 +5709,22 @@ function spin(steps = 0, anchorX = null, anchorY = null) {
   }
 
   // 🚀 TRY GPU SPIN FIRST
-  if (gpuSpinEnabled && gpuSpinAvailable && gpuSpinModule && pixels && width && height) {
+  if (gpuSpinEnabled && gpuSpinAvailable && gpuAllowed("spin") && gpuSpinModule && pixels && width && height) {
     const mask = activeMask ? {
       x: activeMask.x + panTranslation.x,
       y: activeMask.y + panTranslation.y,
       width: activeMask.width,
       height: activeMask.height
     } : null;
-    
+
     const success = gpuSpinModule.gpuSpin(pixels, width, height, steps, anchorX, anchorY, mask);
     if (success) {
+      gpuOk("spin");
       const spinEnd = performance.now();
       graphPerf.track("spin", spinEnd - spinStart);
       return;
     }
-    // Fall through to CPU if GPU failed
+    gpuFailed("spin");
   }
 
   // 🚀 CPU FALLBACK: Use block-based processing for better performance (26% faster)
@@ -6152,20 +6192,22 @@ function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
   }
 
   // 🚀 TRY GPU ZOOM FIRST
-  if (gpuSpinEnabled && gpuSpinAvailable && gpuSpinModule?.gpuZoom && pixels && width && height) {
+  if (gpuSpinEnabled && gpuSpinAvailable && gpuAllowed("zoom") && gpuSpinModule?.gpuZoom && pixels && width && height) {
     const mask = activeMask ? {
       x: activeMask.x,
       y: activeMask.y,
       width: activeMask.width,
       height: activeMask.height
     } : null;
-    
+
     const success = gpuSpinModule.gpuZoom(pixels, width, height, actualZoomLevel, anchorX, anchorY, mask);
     if (success) {
+      gpuOk("zoom");
       const zoomEndTime = performance.now();
       graphPerf.track('zoom', zoomEndTime - zoomStartTime);
       return;
     }
+    gpuFailed("zoom");
   }
 
   // CPU FALLBACK
@@ -6571,7 +6613,7 @@ function suck(strength = 1, centerX, centerY) {
   }
 
   // 🚀 TRY GPU SUCK FIRST
-  if (gpuSpinEnabled && gpuSpinAvailable && gpuSpinModule?.gpuSuck && pixels && width && height) {
+  if (gpuSpinEnabled && gpuSpinAvailable && gpuAllowed("suck") && gpuSpinModule?.gpuSuck && pixels && width && height) {
     const mask = activeMask ? {
       x: activeMask.x + panTranslation.x,
       y: activeMask.y + panTranslation.y,
@@ -6584,10 +6626,11 @@ function suck(strength = 1, centerX, centerY) {
       centerPixelX, centerPixelY, mask
     );
     if (success) {
+      gpuOk("suck");
       suckAccumulator = 0.0;
       return;
     }
-    // Fall through to CPU if GPU failed
+    gpuFailed("suck");
   }
 
   // 🐢 CPU FALLBACK
@@ -6697,21 +6740,23 @@ function blur(strength = 1, quality = "medium") {
   if (Math.abs(blurAccumulator) < threshold) return;
   
   // 🚀 TRY GPU BLUR FIRST
-  if (gpuSpinEnabled && gpuSpinAvailable && gpuSpinModule?.gpuBlur && pixels && width && height) {
+  if (gpuSpinEnabled && gpuSpinAvailable && gpuAllowed("blur") && gpuSpinModule?.gpuBlur && pixels && width && height) {
     const mask = activeMask ? {
       x: activeMask.x + panTranslation.x,
       y: activeMask.y + panTranslation.y,
       width: activeMask.width,
       height: activeMask.height
     } : null;
-    
+
     const success = gpuSpinModule.gpuBlur(pixels, width, height, Math.abs(blurAccumulator), mask);
     if (success) {
+      gpuOk("blur");
       blurAccumulator = 0.0;
       const blurEndTime = performance.now();
       graphPerf.track('blur', blurEndTime - blurStartTime);
       return;
     }
+    gpuFailed("blur");
   }
   
   // CPU FALLBACK
@@ -6924,20 +6969,22 @@ function sharpen(strength = 1) {
   const sharpenStartTime = performance.now();
   
   // 🚀 TRY GPU SHARPEN FIRST
-  if (gpuSpinEnabled && gpuSpinAvailable && gpuSpinModule?.gpuSharpen && pixels && width && height) {
+  if (gpuSpinEnabled && gpuSpinAvailable && gpuAllowed("sharpen") && gpuSpinModule?.gpuSharpen && pixels && width && height) {
     const mask = activeMask ? {
       x: activeMask.x + panTranslation.x,
       y: activeMask.y + panTranslation.y,
       width: activeMask.width,
       height: activeMask.height
     } : null;
-    
+
     const success = gpuSpinModule.gpuSharpen(pixels, width, height, strength, mask);
     if (success) {
+      gpuOk("sharpen");
       const sharpenEndTime = performance.now();
       graphPerf.track('sharpen', sharpenEndTime - sharpenStartTime);
       return;
     }
+    gpuFailed("sharpen");
   }
   
   // CPU FALLBACK
@@ -7163,7 +7210,7 @@ function shear(shearX = 0, shearY = 0) {
   shearAccumulatorY = 0;
 
   // 🚀 TRY GPU SHEAR FIRST
-  if (gpuSpinEnabled && gpuSpinAvailable && gpuSpinModule?.gpuShear && pixels && width && height) {
+  if (gpuSpinEnabled && gpuSpinAvailable && gpuAllowed("shear") && gpuSpinModule?.gpuShear && pixels && width && height) {
     const mask = activeMask ? {
       x: activeMask.x + panTranslation.x,
       y: activeMask.y + panTranslation.y,
@@ -7172,8 +7219,11 @@ function shear(shearX = 0, shearY = 0) {
     } : null;
 
     const success = gpuSpinModule.gpuShear(pixels, width, height, finalShearX, finalShearY, mask);
-    if (success) return;
-    // Fall through to CPU if GPU failed
+    if (success) {
+      gpuOk("shear");
+      return;
+    }
+    gpuFailed("shear");
   }
 
   // 🐢 CPU FALLBACK
@@ -9071,4 +9121,5 @@ export {
   compositeLayers,
   batchedEffects,
   initGpuEffects,
+  getGpuStatus,
 };
