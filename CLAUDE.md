@@ -329,6 +329,42 @@ function boot({ net }) {
 }
 ```
 
+### Multiplayer Networking (Dual-Channel Pattern)
+
+Multiplayer pieces use both WebSocket (reliable) and UDP (low-latency) channels. See `squash.mjs` for the canonical implementation.
+
+```javascript
+function boot({ net: { socket, udp }, handle }) {
+  // UDP for high-frequency position sync (low latency, may drop packets)
+  udpChannel = udp((type, content) => {
+    if (type === "game:move") {
+      const d = typeof content === "string" ? JSON.parse(content) : content;
+      // Update remote player position
+    }
+  });
+
+  // WebSocket for reliable game events (join/leave, scoring, round control)
+  server = socket((id, type, content) => {
+    if (type.startsWith("connected")) { /* joined session */ }
+    if (type === "left") { /* player disconnected */ }
+    if (type === "game:join") { /* another player joined */ }
+    if (type === "game:score") { /* reliable score event */ }
+  });
+
+  // Send reliable event
+  server.send("game:join", { handle: handle() });
+  // Send low-latency position update
+  udpChannel.send("game:move", { x, y, vx, vy });
+}
+```
+
+**Session server routing:**
+- UDP handlers: add `channel.on("game:move", ...)` in geckos section of `session-server/session.mjs`
+- WebSocket: position messages use `others()` (relay to all except sender), game events use `everyone()` (catch-all relay)
+- Chat invites: typing `'piece-name'` in chat creates a clickable link to join
+
+**Reference pieces:** `squash.mjs` (2D platformer), `1v1.mjs` (3D FPS), `udp.mjs` (minimal UDP test)
+
 ### UI Components
 
 ```javascript
