@@ -1,0 +1,265 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,
+  pdftitle={Dead Ends: Failed Experiments and Abandoned Approaches in Aesthetic Computer}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Working Draft --- not for citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\ac}{\textsc{Aesthetic Computer}}
+\newcommand{\acos}{\textsc{AC Native OS}}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=2.2em]{pals}\par\vspace{0.4em}
+{\acbold\fontsize{24pt}{28pt}\selectfont\color{acdark} Dead Ends}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Failed Experiments and Abandoned Approaches in Aesthetic Computer}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} A Self-Critical Inventory of What Didn't Work (2021--2026)}\par
+\vspace{0.6em}
+{\normalsize Jeffrey Alan Scudder}\par
+{\small\color{acgray} Aesthetic Inc.}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ working draft --- not for citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Abstract.}
+Academic papers about software systems almost exclusively describe what works. This paper describes what didn't. Over five years of development, \ac{} accumulated a significant archive of failed experiments, abandoned platforms, over-engineered infrastructure, and dead-end approaches. We catalog 16 dead ends organized into five categories: \emph{platform fragmentation} (building the same app for every platform and shipping on none), \emph{infrastructure over-engineering} (adopting complex distributed systems that were later collapsed into monoliths), \emph{monetization experiments} (NFTs, subscriptions, merchandise---all technically functional, none commercially viable), \emph{tools built for one person} (features whose only user was the developer), and \emph{premature abstractions} (generic solutions to problems that required hardware-specific approaches). For each dead end, we describe what was attempted, why it failed, what it cost, and what---if anything---was salvaged. We argue that a project's dead ends reveal its values more clearly than its successes, and that honest accounting of failure is a prerequisite for understanding how creative software systems actually evolve.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Introduction}
+
+\ac{}'s git history contains 11,000+ commits across four repositories~\citep{scudder2026archaeology}. The published papers describe the commits that led somewhere: the runtime, the KidLisp interpreter, the piece system, the bare-metal OS~\citep{scudder2026ac, scudder2026os}. This paper describes the commits that didn't.
+
+Every software project has dead ends. Most are invisible---deleted branches, abandoned prototypes, reverted merges. \ac{} is unusual in maintaining a \texttt{GRAVEYARD.txt} file that explicitly catalogs deprecated features, and in having a single developer whose memory spans the entire project history. This combination makes it possible to write a relatively complete account of what was tried and abandoned.
+
+The inventory is organized into five categories, each representing a different \emph{type} of failure. The categories are not exclusive; several dead ends belong to more than one.
+
+\section{Platform Fragmentation}
+\label{sec:fragmentation}
+
+The most expensive category of dead end in \ac{}'s history is the attempt to build native applications for every platform simultaneously. Between 2023 and 2025, working prototypes were built for:
+
+\begin{itemize}
+  \item \textbf{Web} (the primary platform, always functional)
+  \item \textbf{Electron desktop app} (macOS, Windows, Linux)
+  \item \textbf{Android app} (Kotlin + WebView, two flavors)
+  \item \textbf{Apple TV app} (planned, never started)
+  \item \textbf{Feral File FF1 hardware} (FFOS integration)
+  \item \textbf{FedAC kiosk} (Fedora + Electron kiosk)
+  \item \textbf{AC Native OS} (bare-metal Linux)
+\end{itemize}
+
+Of these seven targets, only two are currently active: the web platform and the bare-metal OS. The other five represent substantial engineering investment that produced no shipped product.
+
+\subsection{The Electron App}
+
+A full Electron application was built with code signing certificates for macOS and Windows, custom terminal integration, a ``flip view'' for switching between the piece and a debug console, and build infrastructure for three operating systems. It was never distributed to a single user outside the development team. The total investment---signing certificates, build scripts, CI pipeline, custom JS bridge---produced an application that runs locally on the developer's machine and nowhere else.
+
+\textbf{What was salvaged:} The kiosk-mode insights from Electron informed the FedAC kiosk design, which in turn informed the bare-metal OS approach. The Electron app proved that ``browser in a window'' was insufficient---the user experience was not different enough from opening a browser tab to justify a separate application.
+
+\subsection{The Android App}
+
+A complete Android application was built in Kotlin with Jetpack Compose, including two build flavors (consumer and kiosk), automated GitHub Actions builds, and a release APK. A Google Play Console account was never created. The app was never submitted to the Play Store.
+
+\textbf{What was salvaged:} The kiosk flavor's device-admin and lock-task features validated the concept of a single-purpose AC device, which became the design target for \acos{}.
+
+\subsection{The Feral File Integration}
+
+A DP-1 feed protocol client, playlist relay proxy, and KidLisp-to-FF1 casting mechanism were built to run \ac{} pieces on Feral File's FF1 hardware ($\sim$25 devices shipped). FFOS kernel patches were prepared but never merged. The ``Aesthetic Computer channel'' launcher was never installed on any FF1 device.
+
+\textbf{What was salvaged:} The realization that patching someone else's OS is a ``heavy-lift'' with uncertain outcomes. This directly motivated building a custom OS from scratch rather than forking an existing one.
+
+\subsection{The Pattern}
+
+Each platform attempt followed the same arc: build a working prototype, prepare distribution infrastructure, then stall at the ``last mile'' of actually shipping to users. The failure was not technical---every prototype worked. The failure was \emph{attentional}: maintaining seven platform targets with a single developer meant that none received the sustained attention required to reach production quality.
+
+Lehman's law of continuing change~\citep{lehman1980programs} predicts this outcome: a system must be continually adapted to remain satisfactory. Seven platforms require seven streams of continuous adaptation, which a solo developer cannot sustain.
+
+\section{Infrastructure Over-Engineering}
+
+\subsection{The Jamsocket Session Server}
+
+\ac{}'s session server was originally deployed on Jamsocket, a platform for ephemeral backend containers. Each user session spawned a dedicated container with its own WebSocket endpoint, Redis connection, and lifecycle management. The architecture was elegant: sessions scaled independently, crashed without affecting other users, and could be deployed to different regions.
+
+It was replaced with a single monolithic server. The Jamsocket integration code was removed in a single commit. The old EventSource polling, API calls, and scaling logic became dead code.
+
+\textbf{Why it failed:} The overhead of managing ephemeral containers---cold start latency, connection handoff complexity, cost per session---exceeded the benefits for a platform with dozens of concurrent users, not thousands. The monolith handles the actual load with less complexity.
+
+\textbf{What was salvaged:} The session server's internal architecture (chat management, multiplayer state sync) survived the migration. Only the deployment wrapper was discarded.
+
+\subsection{The Bumper System}
+
+A ``bumper system'' was built for complex session/user state management, including HUD elements and notepat integration. Its exact purpose is now unclear even to the developer. It was removed in a commit titled ``fix: completely remove all bumper system code.''
+
+\textbf{What was salvaged:} Nothing. The bumper system is the purest dead end in the project---built, deployed, and removed without leaving a trace in the current codebase.
+
+\subsection{The Silo Migration}
+
+A self-hosted MongoDB instance (``Silo'') was provisioned on DigitalOcean to reduce costs versus MongoDB Atlas. Setup documentation was written, a dashboard was built, benchmark tests were created. The migration was never executed. The Silo droplet runs at \$12/month, empty, waiting for a migration that may never come.
+
+\textbf{Cost:} \$12/month $\times$ 6 months = \$72 (and counting) for an unused server.
+
+\section{Monetization Experiments}
+
+\subsection{Tezos NFTs (Keeps)}
+
+\ac{}'s KidLisp pieces can be minted as FA2 NFTs on the Tezos blockchain. The technical infrastructure works: SmartPy contracts deployed to mainnet and testnet, IPFS media storage, Objkt marketplace integration, wallet connection flow, 34 items minted by 9 owners.
+
+The market did not arrive. KidLisp never reached the top-25 Tezos collections by volume ($\sim$72 XTZ in 24 hours versus a 100+ XTZ threshold). Floor prices settled at \$4.42 USD per piece. The broader Tezos NFT market contracted through 2025, and the ``large supply overhang'' across all collections suppressed buyer attention.
+
+\textbf{What was salvaged:} The KidLisp piece code system (short alphanumeric identifiers like \texttt{\$cow}) was designed for NFT minting but became the general-purpose piece addressing scheme. The infrastructure for generating, storing, and sharing code-identified programs outlived its original monetization purpose.
+
+\subsection{Sotce.net Subscriptions}
+
+A subscription platform (sotce.net) was built with Stripe integration, Auth0 authentication, a page editor, and cross-tenant account synchronization with \ac{}. Monthly subscriptions at \$5. The technical implementation is complete and operational.
+
+Subscriber growth remained modest. The platform generates insufficient revenue to justify its infrastructure complexity. It continues to run.
+
+\subsection{Printful Merchandise}
+
+A Printful merchant account was established for stickers and mugs. A ``shop'' piece was built. Product catalog remained limited. Revenue was negligible.
+
+\textbf{Pattern:} All three monetization experiments share the same structure: technically complete, commercially inert. The engineering was not the bottleneck; distribution, marketing, and market fit were.
+
+\section{Tools Built for One Person}
+
+\subsection{The Tape Recorder}
+
+A screen recording and export tool with quality presets for Instagram and Twitter was built, used by the developer for a period, and then deprecated when the ``oven'' baking system replaced it. It now lives in a directory literally named \texttt{deprecated/}.
+
+\subsection{Windows Container Development}
+
+Local UDP development through a Windows container was attempted for notepat synchronization. It ``just doesn't work sometimes.'' The entire Windows development path was abandoned in favor of Fedora-only development.
+
+\subsection{The \texttt{.pjs} Compiler}
+
+A ``prompted JavaScript'' file format was conceived: \texttt{.pjs} files would be sent to an LLM at runtime, with the LLM generating executable JavaScript. A TODO was written. No code followed. The format remains a comment in \texttt{GRAVEYARD.txt}.
+
+\textbf{Pattern:} Each of these features was built to solve a problem that only the developer experienced. When the developer's workflow changed, the feature became obsolete. This is the occupational hazard of solo development: the user base is $n=1$, and when $n=1$ moves on, the feature has zero users.
+
+\section{Premature Abstractions}
+
+\subsection{Generic Kiosk Mode}
+
+An attempt was made to build a unified ``kiosk mode'' abstraction that would work across Android (device admin + lock task), Electron (fullscreen + disabled menus), and Fedora (Wayland compositor lock). Each platform's kiosk requirements were sufficiently different that the abstraction provided no benefit. The unified approach was abandoned in favor of platform-specific implementations.
+
+\textbf{What was salvaged:} The insight that kiosk computing requires hardware-specific solutions, not generic abstractions. This insight directly led to the bare-metal OS approach, which makes no attempt to abstract across hardware.
+
+\subsection{The FFOS Fork}
+
+Forking Feral File's OS to create a generic x86\_64 kiosk was evaluated and rejected as a ``heavy-lift.'' The FFOS architecture was too specialized for FF1 hardware (ARM, specific display pipeline, custom bootloader) to generalize to commodity laptops.
+
+\textbf{What was salvaged:} The decision \emph{not} to fork FFOS forced the creation of \acos{} from scratch, which produced a simpler, more maintainable system than a fork would have.
+
+\section{What Dead Ends Reveal}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{Xrr}
+\toprule
+\textbf{Category} & \textbf{Count} & \textbf{Salvage Rate} \\
+\midrule
+Platform fragmentation & 5 & 80\% \\
+Infrastructure over-eng. & 3 & 33\% \\
+Monetization experiments & 3 & 33\% \\
+Tools for one person & 3 & 0\% \\
+Premature abstractions & 2 & 100\% \\
+\midrule
+\textbf{Total} & \textbf{16} & \textbf{50\%} \\
+\bottomrule
+\end{tabularx}
+\caption{Dead ends by category with salvage rate (fraction that contributed insights or code to surviving features).}
+\label{tab:deadends}
+\end{table}
+
+The salvage rate varies dramatically by category. Premature abstractions have a 100\% salvage rate because their failure produces \emph{information}---specifically, the knowledge that a generic solution is inappropriate. Platform fragmentation has an 80\% salvage rate because each failed platform taught something about what the successful platform (the bare-metal OS) needed to be.
+
+Tools built for one person have a 0\% salvage rate. They solved a temporary problem for a temporary user and left no residue.
+
+\subsection{Values Revealed by Failure}
+
+A project's dead ends reveal what it \emph{tried to be} before it became what it is. \ac{}'s dead ends reveal:
+
+\begin{itemize}
+  \item A desire to be \emph{everywhere} (seven platforms) that was disciplined into being \emph{somewhere specific} (web + bare-metal)
+  \item A belief that \emph{technical completeness} (working prototype) equals \emph{product readiness} (shipped to users)---repeatedly disproven
+  \item An assumption that \emph{building the infrastructure} for monetization would attract the market---it did not
+  \item A preference for \emph{building from scratch} over adapting existing systems, validated when the FFOS fork was rejected in favor of a custom OS
+\end{itemize}
+
+\section{Conclusion}
+
+Sixteen dead ends in five years. Approximately half contributed something to the surviving system; the other half are pure loss. The total cost---in engineering time, server bills, signing certificates, and cognitive load---is substantial but unquantified. No one tracks the cost of dead ends because no one plans to create them.
+
+The most important dead end in \ac{}'s history is the one that produced the most valuable outcome: the failed attempt to build a generic kiosk abstraction led directly to the bare-metal OS, which is now the project's most technically distinctive contribution. The best dead end is the one that makes you build the right thing by proving that you were building the wrong thing.
+
+Brooks observed that ``plan to throw one away; you will, anyhow''~\citep{brooks1975mythical}. \ac{} threw away sixteen. The seventeenth attempt---a single-file operating system that boots in 7.3 seconds---is still running.
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
