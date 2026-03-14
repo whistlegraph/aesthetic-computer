@@ -5217,12 +5217,11 @@
     .thumb-fallback-square {
       width: 100%;
       height: 100%;
-      background-color: #444;
+      background-color: #3a3a3a;
       background-image:
-        linear-gradient(45deg, #444 25%, transparent 25%, transparent 75%, #444 75%, #444),
-        linear-gradient(45deg, #444 25%, transparent 25%, transparent 75%, #444 75%, #444);
-      background-size: 16px 16px;
-      background-position: 0 0, 8px 8px;
+        linear-gradient(0deg, rgba(255,255,255,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+      background-size: 6px 6px;
       border-radius: 10px;
     }
 
@@ -5253,20 +5252,7 @@
     }
 
     .thumb-oven-label {
-      position: absolute;
-      top: 3px;
-      left: 3px;
-      right: 3px;
-      font-size: 8px;
-      line-height: 1;
-      color: rgba(255, 255, 255, 0.95);
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      pointer-events: none;
-      font-weight: 700;
-      letter-spacing: 0.1px;
+      display: none;
     }
 
     @keyframes oven-queue-pulse {
@@ -19090,8 +19076,35 @@ s("ape_breaks_3").loopAt(2)</textarea>
         return;
       }
       
+      // Handle piece load requests from learn iframe
+      if (messageType === 'kidlisp-load-piece' && event.data?.source) {
+        if (editor) {
+          isSettingValueProgrammatically = true;
+          editor.setValue(event.data.source);
+          isSettingValueProgrammatically = false;
+          if (typeof window.setEditorUserModified === 'function') {
+            window.setEditorUserModified(false);
+          }
+          if (event.data.code) {
+            if (currentPlatform === 'aesthetic-computer') {
+              updateURLForCode(event.data.code);
+              localStorage.setItem('kidlisp-current-code', event.data.code);
+              setRouteCodeInUI(event.data.code, { immediate: true, animate: false });
+            }
+          }
+          updatePreview();
+          // Expand editor panel if collapsed (mobile layout)
+          const editorPanel = document.getElementById('editor-panel');
+          if (editorPanel?.classList.contains('panel-collapsed')) {
+            const header = editorPanel.querySelector('.editor-header');
+            if (header) header.click();
+          }
+        }
+        return;
+      }
+
       log.message.verbose('Message:', messageType);
-      
+
       // Handle ready signal from iframe
       if (messageType === 'kidlisp-ready') {
         log.iframe.success('Iframe ready - enabling controls');
@@ -20363,6 +20376,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
               code: item.code,
               source: item.source || '',
               assetUrl: item.assetUrl || item.thumbnail || null,
+              animatedUrl: item.animatedUrl || null,
               hits: item.hits || 0,
               owner: item.owner?.handle || item.handle || null,
               ts: item.when ? Date.parse(item.when) : null,
@@ -20719,14 +20733,22 @@ s("ape_breaks_3").loopAt(2)</textarea>
         thumbContainer.appendChild(fallback);
 
         if (hasValidAsset) {
-          // Has image - keep fallback behind it so missing/failed WebP never renders blank.
+          // Load still image first, then upgrade to animated WebP.
           const img = document.createElement('img');
           img.className = 'example-thumb';
           img.src = item.assetUrl;
           img.alt = '';
           img.loading = 'lazy';
           img.decoding = 'async';
-          img.onload = () => img.classList.add('loaded');
+          img.onload = () => {
+            img.classList.add('loaded');
+            // Upgrade to animated WebP in background
+            if (item.animatedUrl) {
+              const anim = new Image();
+              anim.src = item.animatedUrl;
+              anim.onload = () => { img.src = item.animatedUrl; };
+            }
+          };
           img.onerror = () => {
             img.remove();
             if (fallback && itemCode && fallback.classList.contains('thumb-noise')) {
@@ -21158,6 +21180,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
             code: r.code,
             source: r.source || '',
             assetUrl: r.assetUrl || r.thumbnail || null,
+            animatedUrl: r.animatedUrl || null,
             hits: r.hits || 0,
             owner: r.owner?.handle || r.handle || null,
             ts: r.when ? Date.parse(r.when) : Date.now()
@@ -21250,6 +21273,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
           code: r.code,
           source: r.source || '',
           assetUrl: r.assetUrl || r.thumbnail || null,
+          animatedUrl: r.animatedUrl || null,
           hits: r.hits || 0,
           owner: r.owner?.handle || r.handle || null,
           ts: r.when ? Date.parse(r.when) : Date.now()
