@@ -146,6 +146,22 @@ build_initramfs() {
     done
     log "  firefox libs: $(du -sh "${INITRAMFS_ROOT}/lib64/" | cut -f1) total"
 
+    # Firefox runtime deps: fontconfig, xkb keyboard data, a basic font
+    log "Bundling Firefox runtime deps (fontconfig, xkb, font)..."
+    sudo mkdir -p "${INITRAMFS_ROOT}/etc/fonts" "${INITRAMFS_ROOT}/usr/share/X11" \
+                  "${INITRAMFS_ROOT}/usr/share/fonts"
+    sudo cp -a /etc/fonts/. "${INITRAMFS_ROOT}/etc/fonts/" 2>/dev/null || true
+    sudo cp -a /usr/share/X11/xkb "${INITRAMFS_ROOT}/usr/share/X11/" 2>/dev/null || true
+    # Single font is enough for OAuth page
+    local FONT_SRC="$(find /usr/share/fonts -name 'DroidSans.ttf' -o -name 'DejaVuSans.ttf' 2>/dev/null | head -1)"
+    if [ -n "${FONT_SRC}" ]; then
+        sudo mkdir -p "${INITRAMFS_ROOT}/usr/share/fonts/default"
+        sudo cp "${FONT_SRC}" "${INITRAMFS_ROOT}/usr/share/fonts/default/"
+    fi
+    # Fontconfig cache dir
+    sudo mkdir -p "${INITRAMFS_ROOT}/var/cache/fontconfig"
+    log "  fontconfig+xkb+font: $(du -sh "${INITRAMFS_ROOT}/etc/fonts" "${INITRAMFS_ROOT}/usr/share/X11/xkb" 2>/dev/null | tail -1 | cut -f1)"
+
     # Node.js: only bundled if explicitly requested (USE_NODE=1)
     # KidLisp evaluation uses QuickJS in ac-native, not Node.js
     if [ "${USE_NODE:-0}" = "1" ]; then
