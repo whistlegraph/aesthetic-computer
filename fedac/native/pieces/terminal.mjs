@@ -105,8 +105,10 @@ function boot({ system, screen, params }) {
   const p0 = params?.[0];
   console.log("[terminal] params:", JSON.stringify(params), "p0:", p0);
   if (p0 === "claude") {
-    cmd = "/bin/claude";
-    args = [];
+    // Use device-code auth so user can authenticate from phone
+    // (localhost OAuth callback doesn't work when scanning QR from another device)
+    cmd = "/bin/sh";
+    args = ["-c", "claude login --method device-code && exec claude"];
   } else if (p0) {
     cmd = p0;
   }
