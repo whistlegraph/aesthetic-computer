@@ -103,6 +103,8 @@ static void put_char(ACPty *pty, uint32_t ch) {
         c->fg = pty->cur_fg;
         c->bg = pty->cur_bg;
         c->bold = pty->cur_bold;
+        c->fg_r = pty->cur_fg_r; c->fg_g = pty->cur_fg_g; c->fg_b = pty->cur_fg_b;
+        c->bg_r = pty->cur_bg_r; c->bg_g = pty->cur_bg_g; c->bg_b = pty->cur_bg_b;
         c->dirty = 1;
     }
     pty->cursor_x++;
@@ -152,24 +154,39 @@ static void handle_sgr(ACPty *pty, int *params, int count) {
         } else if (p >= 100 && p <= 107) {
             pty->cur_bg = p - 100 + 8;
         }
-        // 256-color and truecolor: skip for now (consume params)
+        // 256-color and truecolor support
         else if (p == 38 || p == 48) {
             if (i + 1 < count && params[i + 1] == 5) {
-                // 256-color: \e[38;5;Nm — map to nearest 16
+                // 256-color: \e[38;5;Nm
                 if (i + 2 < count) {
                     int c = params[i + 2];
                     if (c < 16) {
                         if (p == 38) pty->cur_fg = c;
                         else pty->cur_bg = c;
+                    } else if (c < 232) {
+                        // 216-color cube (16-231): map to RGB
+                        int ci = c - 16;
+                        int cr = ci / 36, cg = (ci / 6) % 6, cb = ci % 6;
+                        uint8_t r = cr ? 55 + cr * 40 : 0;
+                        uint8_t g = cg ? 55 + cg * 40 : 0;
+                        uint8_t b = cb ? 55 + cb * 40 : 0;
+                        if (p == 38) { pty->cur_fg = 255; pty->cur_fg_r = r; pty->cur_fg_g = g; pty->cur_fg_b = b; }
+                        else { pty->cur_bg = 255; pty->cur_bg_r = r; pty->cur_bg_g = g; pty->cur_bg_b = b; }
                     } else {
-                        // Map 256-color to nearest basic: just use default
-                        if (p == 38) pty->cur_fg = PTY_COLOR_DEFAULT_FG;
-                        else pty->cur_bg = PTY_COLOR_DEFAULT_BG;
+                        // Grayscale (232-255): 24 shades
+                        uint8_t v = 8 + (c - 232) * 10;
+                        if (p == 38) { pty->cur_fg = 255; pty->cur_fg_r = pty->cur_fg_g = pty->cur_fg_b = v; }
+                        else { pty->cur_bg = 255; pty->cur_bg_r = pty->cur_bg_g = pty->cur_bg_b = v; }
                     }
                     i += 2;
                 }
             } else if (i + 1 < count && params[i + 1] == 2) {
-                // Truecolor: \e[38;2;R;G;Bm — skip, use default
+                // Truecolor: \e[38;2;R;G;Bm
+                if (i + 4 < count) {
+                    uint8_t r = params[i + 2], g = params[i + 3], b = params[i + 4];
+                    if (p == 38) { pty->cur_fg = 255; pty->cur_fg_r = r; pty->cur_fg_g = g; pty->cur_fg_b = b; }
+                    else { pty->cur_bg = 255; pty->cur_bg_r = r; pty->cur_bg_g = g; pty->cur_bg_b = b; }
+                }
                 i += 4;
             }
         }
@@ -359,8 +376,20 @@ static void process_byte(ACPty *pty, uint8_t b) {
             if (pty->cursor_x > 0) pty->cursor_x--;
         } else if (b == 0x07) {
             // BEL — ignore
-        } else if (b >= 0x20) {
-            // Printable ASCII (UTF-8 multi-byte handled below)
+        } else if (b >= 0xC0 && b < 0xFE) {
+            // UTF-8 multi-byte sequence start
+            if (b < 0xE0) { pty->utf8_cp = b & 0x1F; pty->utf8_remaining = 1; }
+            else if (b < 0xF0) { pty->utf8_cp = b & 0x0F; pty->utf8_remaining = 2; }
+            else { pty->utf8_cp = b & 0x07; pty->utf8_remaining = 3; }
+        } else if (b >= 0x80 && b < 0xC0 && pty->utf8_remaining > 0) {
+            // UTF-8 continuation byte
+            pty->utf8_cp = (pty->utf8_cp << 6) | (b & 0x3F);
+            pty->utf8_remaining--;
+            if (pty->utf8_remaining == 0) {
+                put_char(pty, pty->utf8_cp);
+            }
+        } else if (b >= 0x20 && b < 0x80) {
+            // Printable ASCII
             put_char(pty, b);
         }
         break;
