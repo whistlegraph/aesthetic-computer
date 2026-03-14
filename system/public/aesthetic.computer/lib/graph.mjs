@@ -5434,12 +5434,12 @@ function gpuFailed(effectName) {
   if (gpuFailCounts[effectName] >= GPU_FAIL_THRESHOLD && !gpuDisabled[effectName]) {
     gpuDisabled[effectName] = true;
     console.warn(`🎮 GPU ${effectName}: Auto-disabled after ${GPU_FAIL_THRESHOLD} failures — using CPU fallback`);
+    gpuTelemetry.report("gpu-disabled", effectName);
   }
-  return false; // Convenience: caller can do `return gpuFailed("blur")`
+  return false;
 }
 
 function gpuOk(effectName) {
-  // Reset failure count on success (effect is working this session)
   if (gpuFailCounts[effectName] > 0) gpuFailCounts[effectName] = 0;
 }
 
@@ -5447,10 +5447,80 @@ function gpuAllowed(effectName) {
   return !gpuDisabled[effectName];
 }
 
-// Expose for telemetry / debug console
 function getGpuStatus() {
   return { failCounts: { ...gpuFailCounts }, disabled: { ...gpuDisabled } };
 }
+
+// 📡 GPU telemetry — batches failure reports and sends to /api/kidlisp-log
+const gpuTelemetry = (() => {
+  const queue = [];
+  let flushTimer = null;
+  let deviceInfo = null;
+
+  function getDevice() {
+    if (deviceInfo) return deviceInfo;
+    const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+    deviceInfo = {
+      userAgent: ua,
+      mobile: /Mobi|Android|iPhone|iPad/i.test(ua),
+      screen: typeof self !== "undefined" && self.screen
+        ? { w: self.screen.width, h: self.screen.height }
+        : null,
+      gpu: null, // filled on first report
+    };
+    return deviceInfo;
+  }
+
+  function report(type, effect, detail) {
+    const device = getDevice();
+    // Try to capture WebGL renderer info on first report
+    if (!device.gpu && typeof OffscreenCanvas !== "undefined") {
+      try {
+        const c = new OffscreenCanvas(1, 1);
+        const g = c.getContext("webgl2");
+        if (g) {
+          const dbg = g.getExtension("WEBGL_debug_renderer_info");
+          if (dbg) {
+            device.gpu = {
+              vendor: g.getParameter(dbg.UNMASKED_VENDOR_WEBGL),
+              renderer: g.getParameter(dbg.UNMASKED_RENDERER_WEBGL),
+            };
+          }
+          g.getExtension("WEBGL_lose_context")?.loseContext();
+        }
+      } catch { /* ignore */ }
+    }
+
+    queue.push({
+      type,
+      effect,
+      detail: detail || null,
+      device,
+      gpuStatus: getGpuStatus(),
+    });
+
+    // Flush after short delay (batch nearby events)
+    if (!flushTimer) {
+      flushTimer = setTimeout(flush, 2000);
+    }
+  }
+
+  async function flush() {
+    if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
+    if (!queue.length) return;
+    const events = queue.splice(0, queue.length);
+    try {
+      await fetch("/api/kidlisp-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ events }),
+        keepalive: true,
+      });
+    } catch { /* telemetry failures are silent */ }
+  }
+
+  return { report, flush };
+})();
 
 // 🚀 Initialize GPU effects module eagerly (call this at startup)
 async function initGpuEffects() {

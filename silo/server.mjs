@@ -69,7 +69,7 @@ const COLLECTION_CATEGORIES = {
   "paintings": "content", "pieces": "content", "kidlisp": "content",
   "tapes": "content", "moods": "content",
   "chat-system": "communication", "chat-clock": "communication", "chat-sotce": "communication",
-  "boots": "system", "oven-bakes": "system", "_firehose": "system", "insta-sessions": "system",
+  "boots": "system", "kidlisp-logs": "system", "oven-bakes": "system", "_firehose": "system", "insta-sessions": "system",
 };
 const CATEGORY_META = {
   identity: { label: "Users & Identity", color: "#48f" },
@@ -187,6 +187,14 @@ function firehoseSummary(coll, op, doc) {
       const referrer = m.referrer ? ` via ${m.referrer.replace(/^https?:\/\//, "").split("/")[0]}` : "";
       const parts = [who, m.host + (m.path || "/"), browser, device, geo].filter(Boolean);
       return parts.join(" ") + referrer + statusTag;
+    }
+    case "kidlisp-logs": {
+      const effect = doc.effect || "";
+      const type = doc.type || "";
+      const gpu = doc.device?.gpu?.renderer || "";
+      const ua = doc.device?.mobile ? "mobile" : "desktop";
+      const country = doc.server?.country || "";
+      return [type, effect, gpu, ua, country].filter(Boolean).join(" ");
     }
     case "oven-bakes": return doc.status || null;
     default: {
@@ -717,6 +725,69 @@ app.get("/api/overview", async (req, res) => {
     redis,
     uptime: Date.now() - SERVER_START_TIME,
   });
+});
+
+// 📡 Telemetry overview — GPU/KidLisp logs + boot logs stats
+app.get("/api/telemetry", async (req, res) => {
+  if (!db) return res.status(503).json({ error: "no db" });
+  try {
+    const [klStats, bootStats, klRecent] = await Promise.all([
+      db.collection("kidlisp-logs").aggregate([
+        { $facet: {
+          total: [{ $count: "n" }],
+          byType: [{ $group: { _id: "$type", count: { $sum: 1 } } }],
+          byEffect: [{ $group: { _id: "$effect", count: { $sum: 1 } } }],
+          byGpu: [{ $group: { _id: "$device.gpu.renderer", count: { $sum: 1 } } }],
+          size: [{ $group: { _id: null, avgSize: { $avg: { $bsonSize: "$$ROOT" } } } }],
+        }}
+      ]).toArray(),
+      db.collection("boots").aggregate([
+        { $facet: {
+          total: [{ $count: "n" }],
+          byStatus: [{ $group: { _id: "$status", count: { $sum: 1 } } }],
+        }}
+      ]).toArray(),
+      db.collection("kidlisp-logs")
+        .find()
+        .sort({ createdAt: -1 })
+        .limit(20)
+        .toArray(),
+    ]);
+
+    const kl = klStats[0] || {};
+    const bt = bootStats[0] || {};
+    const klTotal = kl.total?.[0]?.n || 0;
+    const klAvgSize = kl.size?.[0]?.avgSize || 0;
+
+    res.json({
+      kidlispLogs: {
+        total: klTotal,
+        estimatedSizeKB: Math.round((klTotal * klAvgSize) / 1024),
+        byType: kl.byType || [],
+        byEffect: kl.byEffect || [],
+        byGpu: kl.byGpu || [],
+        recent: klRecent,
+      },
+      boots: {
+        total: bt.total?.[0]?.n || 0,
+        byStatus: bt.byStatus || [],
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Purge kidlisp-logs from silo
+app.delete("/api/telemetry/kidlisp-logs", async (req, res) => {
+  if (!db) return res.status(503).json({ error: "no db" });
+  try {
+    const result = await db.collection("kidlisp-logs").deleteMany({});
+    log("info", `purged ${result.deletedCount} kidlisp-logs`);
+    res.json({ ok: true, deleted: result.deletedCount });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get("/api/db/collections", async (req, res) => {
