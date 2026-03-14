@@ -2498,6 +2498,28 @@ static JSValue js_reboot(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     return JS_UNDEFINED;
 }
 
+// system.poweroff() — clean shutdown (power off)
+static JSValue js_poweroff(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)ctx; (void)this_val; (void)argc; (void)argv;
+    ac_log("[system] poweroff requested");
+    perf_flush();
+    if (current_rt && current_rt->audio) {
+        audio_shutdown_sound(current_rt->audio);
+        usleep(500000);
+    }
+    ac_log("[poweroff] syncing filesystems...");
+    ac_log_flush();
+    sync(); usleep(500000); sync(); usleep(500000); sync();
+    ac_log("[poweroff] executing power off syscall");
+    ac_log_flush();
+    if (getpid() == 1) {
+        reboot(LINUX_REBOOT_CMD_POWER_OFF);
+    } else {
+        system("poweroff");
+    }
+    return JS_UNDEFINED;
+}
+
 // ============================================================
 // JS Native Functions — PTY Terminal Emulator
 // ============================================================
@@ -3175,8 +3197,9 @@ static JSValue build_system_obj(JSContext *ctx) {
                           JS_NewString(ctx, g_machine_id[0] ? g_machine_id : "unknown"));
     }
 
-    // Remote reboot — system.reboot()
+    // Remote reboot / poweroff — system.reboot() / system.poweroff()
     JS_SetPropertyStr(ctx, sys, "reboot", JS_NewCFunction(ctx, js_reboot, "reboot", 0));
+    JS_SetPropertyStr(ctx, sys, "poweroff", JS_NewCFunction(ctx, js_poweroff, "poweroff", 0));
 
     // File I/O — system.readFile(path) / system.writeFile(path, data)
     JS_SetPropertyStr(ctx, sys, "readFile",  JS_NewCFunction(ctx, js_read_file,  "readFile",  1));

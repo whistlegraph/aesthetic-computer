@@ -201,7 +201,7 @@ static void mount_minimal_fs(void) {
     mount("tmpfs", "/tmp", "tmpfs", 0, NULL);
 
     // Bring up loopback interface (needed for Claude OAuth callback server)
-    system("ip link set lo up 2>/dev/null");
+    system("/bin/ip link set lo up 2>/dev/null || /usr/sbin/ip link set lo up 2>/dev/null || ifconfig lo up 2>/dev/null");
 
     // Wait for display device (up to 1s)
     for (int i = 0; i < 100; i++) {
