@@ -172,6 +172,92 @@
     }
     .tab-panel.active { display: block; }
 
+    /* Hello book */
+    .hello-book {
+      max-width: 400px;
+      margin: 0 auto;
+      padding: 20px 0;
+      text-align: center;
+    }
+    .hello-page {
+      display: none;
+      animation: hello-fade 0.3s ease;
+    }
+    .hello-page.active { display: block; }
+    @keyframes hello-fade {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .hello-illustration {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+      min-height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .hello-code {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.6;
+      text-align: left;
+      color: var(--text-primary);
+      background: none;
+      border: none;
+      padding: 0;
+    }
+    .hello-text {
+      font-family: var(--font-fun);
+      font-size: 16px;
+      line-height: 1.5;
+      color: var(--text-primary);
+      margin-bottom: 24px;
+      padding: 0 10px;
+    }
+    .hello-nav {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+    }
+    .hello-nav button {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-family: var(--font-mono);
+      font-size: 16px;
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .hello-nav button:hover:not(:disabled) {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+    .hello-nav button:disabled {
+      opacity: 0.3;
+      cursor: default;
+    }
+    .hello-dots {
+      display: flex;
+      gap: 8px;
+    }
+    .hello-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--border);
+      transition: background 0.2s;
+    }
+    .hello-dot.active {
+      background: var(--accent);
+    }
+
     /* Subsection headings */
     h3 {
       font-size: 14px;
@@ -416,13 +502,66 @@
   </header>
 
   <div class="tabs">
-    <button class="tab active" data-tab="functions">Functions</button>
+    <button class="tab active" data-tab="hello">Hello</button>
+    <button class="tab" data-tab="functions">Functions</button>
     <button class="tab" data-tab="reference">Reference</button>
     <button class="tab" data-tab="hits">Hits</button>
   </div>
 
+  <!-- Hello — A tiny picture book intro to KidLisp -->
+  <div class="tab-panel active" id="tab-hello">
+    <div class="hello-book">
+      <div class="hello-page active" data-page="1">
+        <div class="hello-illustration">
+          <pre class="hello-code">(wipe "black")
+(ink "yellow")
+(circle 80 60 30)</pre>
+        </div>
+        <p class="hello-text">KidLisp is a tiny language for making pictures that move.</p>
+      </div>
+      <div class="hello-page" data-page="2">
+        <div class="hello-illustration">
+          <pre class="hello-code">(ink red)
+(circle 80 80 (wiggle 40))
+(ink blue)
+(line)</pre>
+        </div>
+        <p class="hello-text">You write parentheses around words and numbers. That's it. Each line draws something to the screen.</p>
+      </div>
+      <div class="hello-page" data-page="3">
+        <div class="hello-illustration">
+          <pre class="hello-code">(repeat 100 i
+  (ink (? red blue lime))
+  (circle (wiggle w)
+          (wiggle h) 8))</pre>
+        </div>
+        <p class="hello-text">Loops, randomness, and color are all built in. A hundred circles in three lines.</p>
+      </div>
+      <div class="hello-page" data-page="4">
+        <div class="hello-illustration">
+          <pre class="hello-code">(wipe "navy")
+(ink rainbow)
+(1s (blur 1))
+(circle 80 60 (sin f)* 30)</pre>
+        </div>
+        <p class="hello-text">Time happens on its own. Things move, blur, and change because the code runs every frame.</p>
+      </div>
+      <div class="hello-page" data-page="5">
+        <div class="hello-illustration" style="font-size: 32px; display: flex; align-items: center; justify-content: center;">
+          ( )
+        </div>
+        <p class="hello-text">There are 118 functions to explore. Type something in the editor and press play. That's all you need to start.</p>
+      </div>
+      <div class="hello-nav">
+        <button class="hello-prev" disabled>&larr;</button>
+        <span class="hello-dots"></span>
+        <button class="hello-next">&rarr;</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Function Popularity — Live data from API showing which KidLisp functions are used most across all community pieces, weighted by view count -->
-  <div class="tab-panel active" id="tab-functions">
+  <div class="tab-panel" id="tab-functions">
     <div id="popularity"><p class="pop-loading">Loading function popularity data...</p></div>
   </div>
 
@@ -560,6 +699,36 @@ tabs.forEach(tab => {
     document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
   });
 });
+
+// Hello book pagination
+(function() {
+  const pages = document.querySelectorAll('.hello-page');
+  const prev = document.querySelector('.hello-prev');
+  const next = document.querySelector('.hello-next');
+  const dotsWrap = document.querySelector('.hello-dots');
+  if (!pages.length || !prev || !next || !dotsWrap) return;
+  let current = 0;
+  const total = pages.length;
+  // Build dots
+  for (let i = 0; i < total; i++) {
+    const dot = document.createElement('span');
+    dot.className = 'hello-dot' + (i === 0 ? ' active' : '');
+    dotsWrap.appendChild(dot);
+  }
+  const dots = dotsWrap.querySelectorAll('.hello-dot');
+  function show(idx) {
+    pages.forEach(p => p.classList.remove('active'));
+    dots.forEach(d => d.classList.remove('active'));
+    pages[idx].classList.add('active');
+    dots[idx].classList.add('active');
+    prev.disabled = idx === 0;
+    next.disabled = idx === total - 1;
+    current = idx;
+  }
+  prev.addEventListener('click', () => { if (current > 0) show(current - 1); });
+  next.addEventListener('click', () => { if (current < total - 1) show(current + 1); });
+  dots.forEach((dot, i) => dot.addEventListener('click', () => show(i)));
+})();
 
 // Identifierdex global state
 let popData = null;

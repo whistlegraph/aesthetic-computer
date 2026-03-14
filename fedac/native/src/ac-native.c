@@ -29,6 +29,7 @@
 #include "wifi.h"
 #include "tts.h"
 #include "js-bindings.h"
+#include "machines.h"
 
 static volatile int running = 1;
 static FILE *logfile = NULL;
@@ -278,6 +279,7 @@ static void try_mount_log(void) {
 // Generated on first boot, read back on subsequent boots.
 // Accessible from js-bindings.c via extern.
 char g_machine_id[64] = {0};
+static ACMachines g_machines = {0};
 
 static void init_machine_id(void) {
     FILE *f = fopen("/mnt/.machine-id", "r");
@@ -1034,6 +1036,9 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
 
     // Generate or load persistent machine ID (needs /mnt mounted)
     init_machine_id();
+
+    // Initialize machines monitoring daemon
+    machines_init(&g_machines);
 
     // 180 frames = 3 second animation.
     // W press → halt and show y/n confirmation
@@ -1939,19 +1944,47 @@ int main(int argc, char *argv[]) {
                 }
             }
 
-            // WiFi "online" TTS announcement + log upload
+            // WiFi "online" TTS announcement
             {
                 static int was_connected = 0;
                 int is_connected = (wifi && wifi->state == WIFI_STATE_CONNECTED);
                 if (is_connected && !was_connected) {
                     if (tts) tts_speak(tts, "online");
                     ac_log("[wifi-tts] connected — announcing 'online'");
-
-                    // Upload session log to machines API (background)
                     ac_log_flush();
-                    system("/bin/sh /scripts/upload-log.sh &");
                 }
                 was_connected = is_connected;
+            }
+
+            // Machines monitoring daemon (connects, heartbeats, handles commands)
+            {
+                static int fps_counter = 0, fps_display = 0;
+                static struct timespec fps_last = {0};
+                fps_counter++;
+                struct timespec fps_now;
+                clock_gettime(CLOCK_MONOTONIC, &fps_now);
+                if (fps_now.tv_sec > fps_last.tv_sec) {
+                    fps_display = fps_counter;
+                    fps_counter = 0;
+                    fps_last = fps_now;
+                }
+                machines_tick(&g_machines, wifi, main_frame, fps_display,
+                              rt->jump_target[0] ? rt->jump_target : rt->piece);
+
+                // Handle commands forwarded from machines daemon
+                if (g_machines.cmd_pending) {
+                    g_machines.cmd_pending = 0;
+                    if (strcmp(g_machines.cmd_type, "jump") == 0 && g_machines.cmd_target[0]) {
+                        strncpy(rt->jump_target, g_machines.cmd_target, sizeof(rt->jump_target) - 1);
+                        rt->jump_requested = 1;
+                        ac_log("[machines] jump → %s\n", g_machines.cmd_target);
+                    } else if (strcmp(g_machines.cmd_type, "update") == 0) {
+                        // Jump to notepat which handles OTA updates
+                        strncpy(rt->jump_target, "notepat", sizeof(rt->jump_target) - 1);
+                        rt->jump_requested = 1;
+                        ac_log("[machines] update requested, jumping to notepat\n");
+                    }
+                }
             }
 
             clock_gettime(CLOCK_MONOTONIC, &_pf_pres0);
@@ -2030,6 +2063,7 @@ int main(int argc, char *argv[]) {
 
     // Cleanup (TTS bye + shutdown chime already fired at power-press time)
     ac_log("[ac-native] Shutting down\n");
+    machines_destroy(&g_machines);
 
     if (logfile) { fclose(logfile); logfile = NULL; }
     sync();
