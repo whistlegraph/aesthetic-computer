@@ -4,7 +4,7 @@
 // URL: /api/device-login?code=WOLF-3847
 // Redirects to Claude OAuth with state=code, callback returns here with tokens.
 
-import { respond } from "../../backend/http.mjs";
+import crypto from "crypto";
 
 const CLAUDE_OAUTH_URL = "https://claude.ai/oauth/authorize";
 const CLAUDE_CLIENT_ID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
@@ -49,7 +49,7 @@ export async function handler(event) {
   }
 
   // Generate PKCE challenge for Claude OAuth
-  const { codeVerifier, codeChallenge } = await generatePKCE();
+  const { codeVerifier, codeChallenge } = generatePKCE();
 
   // Store verifier in a short-lived cookie (needed for callback)
   const state = `${code}:${codeVerifier}`;
@@ -148,18 +148,15 @@ async function handleOAuthCallback(oauthCode, stateB64, callbackUrl, baseUrl) {
   }
 }
 
-// PKCE helper
-async function generatePKCE() {
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  const codeVerifier = Buffer.from(array).toString("base64url");
-  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(codeVerifier));
-  const codeChallenge = Buffer.from(hash).toString("base64url");
+// PKCE helper (Node.js crypto)
+function generatePKCE() {
+  const codeVerifier = crypto.randomBytes(32).toString("base64url");
+  const codeChallenge = crypto.createHash("sha256").update(codeVerifier).digest("base64url");
   return { codeVerifier, codeChallenge };
 }
 
-function servePage(title, body) {
-  return respond(200, null, `<!DOCTYPE html>
+function servePage(title, bodyContent) {
+  const html = `<!DOCTYPE html>
 <html><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -180,6 +177,10 @@ p{margin:12px 0;line-height:1.5;color:#aaa}
 .err{color:#f87171}
 .dim{color:#666;font-size:0.85em}
 </style>
-</head><body><div class="card"><h1>${title}</h1>${body}</div></body></html>`,
-  { "content-type": "text/html" });
+</head><body><div class="card"><h1>${title}</h1>${bodyContent}</div></body></html>`;
+  return {
+    statusCode: 200,
+    headers: { "Content-Type": "text/html", "Access-Control-Allow-Origin": "*" },
+    body: html,
+  };
 }
