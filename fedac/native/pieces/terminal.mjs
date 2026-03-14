@@ -49,8 +49,8 @@ function boot({ system, screen, params }) {
   cols = Math.floor(screen.width / cellW);
   rows = Math.floor(screen.height / cellH);
 
-  // What to spawn — default to bash, "claude" param spawns claude
-  let cmd = "/bin/bash";
+  // What to spawn — default to sh (bash may not exist in initramfs), "claude" param spawns claude
+  let cmd = "/bin/sh";
   let args = [];
   if (params?.[0] === "claude") {
     cmd = "claude";
@@ -115,7 +115,7 @@ function paint({ wipe, ink, box, write, system, screen }) {
     }
 
     ink(85, 85, 85);
-    write("enter: retry  esc: back", { x: 10, y: screen.height - 16, font: 1 });
+    write("enter: retry   esc: back", { x: 10, y: screen.height - 16, font: 1 });
     return;
   }
 
@@ -217,16 +217,18 @@ function act({ event: e, system }) {
   const key = e.key;
   if (!key) return;
 
-  // If terminal exited, any key restarts
+  // If terminal exited: escape goes back, enter retries
   if (!system.pty.active && started) {
-    system.pty.spawn("/bin/bash", [], cols, rows);
-    grid = null;
-    return;
-  }
-
-  // Triple-escape exits to notepat
-  if (key === "escape" && !ctrlHeld) {
-    // Let escape pass through to PTY (vim, etc.)
+    if (key === "escape" || key === "backspace") {
+      system?.jump?.("prompt");
+      return;
+    }
+    if (key === "enter" || key === "return") {
+      system.pty.spawn(lastCmd || "/bin/sh", [], cols, rows);
+      grid = null;
+      return;
+    }
+    return; // ignore other keys when exited
   }
 
   // Ctrl+key → control character

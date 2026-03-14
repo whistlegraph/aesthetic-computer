@@ -116,6 +116,9 @@ static void perf_destroy(void) {
     perf_buf = NULL;
 }
 
+// Forward declaration — defined after init_log_mount()
+extern char g_machine_id[64];
+
 static void signal_handler(int sig) {
     running = 0;
 

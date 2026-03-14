@@ -1620,17 +1620,6 @@ static JSValue build_ws2_obj(JSContext *ctx, const char *phase) {
     return ws_obj;
 }
 
-// ---------------------------------------------------------------------------
-// system.reboot() — remote reboot
-// ---------------------------------------------------------------------------
-static JSValue js_reboot(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    (void)this_val; (void)argc; (void)argv; (void)ctx;
-    ac_log("[machine] Reboot requested from JS\n");
-    sync();
-    system("reboot");
-    return JS_UNDEFINED;
-}
-
 // system.fetch(url) — async HTTP GET via curl, result polled via system.fetchResult
 static JSValue js_fetch(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
