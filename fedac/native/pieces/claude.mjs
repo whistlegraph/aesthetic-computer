@@ -117,11 +117,28 @@ function paint({ wipe, ink, box, write, screen, system, wifi }) {
     write(shortUrl, { x: 10, y: 80, size: 1, font: font });
 
     // QR code (right side)
-    if (typeof system.qrEncode === "function" && authUrl) {
-      // Use C-side QR encoder if available
-      ink(255, 255, 255);
-      box(W - 120, 30, 110, 110);
-      // QR rendering handled by system
+    if (system.qrEncode && authUrl) {
+      var qrData = system.qrEncode(authUrl);
+      if (qrData && qrData.size > 0) {
+        var qrSize = qrData.size;
+        var scale = Math.floor(Math.min((W / 3), (H - 60)) / (qrSize + 4));
+        if (scale < 1) scale = 1;
+        var totalPx = (qrSize + 4) * scale;
+        var qrX = W - totalPx - 8;
+        var qrY = 34;
+        // White background with quiet zone
+        ink(255, 255, 255);
+        box(qrX, qrY, totalPx, totalPx, true);
+        // Draw dark modules
+        ink(0, 0, 0);
+        for (var my = 0; my < qrSize; my++) {
+          for (var mx = 0; mx < qrSize; mx++) {
+            if (qrData.modules[my * qrSize + mx]) {
+              box(qrX + (mx + 2) * scale, qrY + (my + 2) * scale, scale, scale, true);
+            }
+          }
+        }
+      }
     }
 
     // Polling status
