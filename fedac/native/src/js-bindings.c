@@ -2266,8 +2266,25 @@ static void *flash_thread_fn(void *arg) {
         ac_log("[flash] source validated: %ld bytes", (long)src_st.st_size);
     }
 
-    // Phase 1: Writing
+    // Phase 1: Backup previous kernel, then write new one
     rt->flash_phase = 1;
+
+    // Keep previous version as .prev for rollback
+    {
+        char prev[512];
+        snprintf(prev, sizeof(prev), "%s.prev", dst);
+        if (access(dst, F_OK) == 0) {
+            // Remove old .prev, rename current to .prev
+            unlink(prev);
+            if (rename(dst, prev) == 0) {
+                ac_log("[flash] backed up previous kernel to %s", prev);
+                flash_tlog(rt, "backup=%s", prev);
+            } else {
+                ac_log("[flash] backup rename failed (errno=%d), continuing anyway", errno);
+            }
+        }
+    }
+
     flash_tlog(rt, "writing %s -> %s", rt->flash_src, dst);
     long copied = flash_copy_file(rt->flash_src, dst);
     flash_tlog(rt, "wrote %ld bytes", copied);
@@ -2280,6 +2297,15 @@ static void *flash_thread_fn(void *arg) {
         snprintf(ms_dir, sizeof(ms_dir), "%s/EFI/Microsoft/Boot", efi_mount);
         mkdir(ms_dir, 0755);
         snprintf(ms_dst, sizeof(ms_dst), "%s/EFI/Microsoft/Boot/bootmgfw.efi", efi_mount);
+        // Backup Microsoft path too
+        {
+            char ms_prev[512];
+            snprintf(ms_prev, sizeof(ms_prev), "%s.prev", ms_dst);
+            if (access(ms_dst, F_OK) == 0) {
+                unlink(ms_prev);
+                rename(ms_dst, ms_prev);
+            }
+        }
         if (access(ms_dst, F_OK) == 0 || access(ms_dir, F_OK) == 0) {
             long ms_copied = flash_copy_file(rt->flash_src, ms_dst);
             ac_log("[flash] also wrote Microsoft boot path: %ld bytes -> %s", ms_copied, ms_dst);
