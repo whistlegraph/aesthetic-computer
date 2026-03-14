@@ -261,6 +261,21 @@ static JSValue js_spin(JSContext *ctx, JSValueConst this_val, int argc, JSValueC
     return JS_UNDEFINED;
 }
 
+// qr(text, x, y, scale) — render QR code at position
+static JSValue js_qr(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (!current_rt || argc < 3) return JS_UNDEFINED;
+    const char *text = JS_ToCString(ctx, argv[0]);
+    if (!text) return JS_UNDEFINED;
+    int x = 0, y = 0, scale = 2;
+    JS_ToInt32(ctx, &x, argv[1]);
+    JS_ToInt32(ctx, &y, argv[2]);
+    if (argc >= 4) JS_ToInt32(ctx, &scale, argv[3]);
+    graph_qr(current_rt->graph, text, x, y, scale);
+    JS_FreeCString(ctx, text);
+    return JS_UNDEFINED;
+}
+
 // ============================================================
 // JS Native Functions — System
 // ============================================================
@@ -1043,6 +1058,7 @@ ACRuntime *js_init(ACGraph *graph, ACInput *input, ACAudio *audio, ACWifi *wifi,
     JS_SetPropertyStr(ctx, paint_api, "zoom", JS_NewCFunction(ctx, js_zoom, "zoom", 1));
     JS_SetPropertyStr(ctx, paint_api, "contrast", JS_NewCFunction(ctx, js_contrast, "contrast", 1));
     JS_SetPropertyStr(ctx, paint_api, "spin", JS_NewCFunction(ctx, js_spin, "spin", 1));
+    JS_SetPropertyStr(ctx, paint_api, "qr", JS_NewCFunction(ctx, js_qr, "qr", 4));
     JS_SetPropertyStr(ctx, global, "__paintApi", JS_DupValue(ctx, paint_api));
     JS_FreeValue(ctx, paint_api);
 
@@ -1052,6 +1068,7 @@ ACRuntime *js_init(ACGraph *graph, ACInput *input, ACAudio *audio, ACWifi *wifi,
     JS_SetPropertyStr(ctx, global, "line", JS_NewCFunction(ctx, js_line, "line", 4));
     JS_SetPropertyStr(ctx, global, "box", JS_NewCFunction(ctx, js_box, "box", 5));
     JS_SetPropertyStr(ctx, global, "circle", JS_NewCFunction(ctx, js_circle, "circle", 4));
+    JS_SetPropertyStr(ctx, global, "qr", JS_NewCFunction(ctx, js_qr, "qr", 4));
     JS_SetPropertyStr(ctx, global, "plot", JS_NewCFunction(ctx, js_plot, "plot", 2));
     JS_SetPropertyStr(ctx, global, "write", JS_NewCFunction(ctx, js_write, "write", 6));
     JS_SetPropertyStr(ctx, global, "scroll", JS_NewCFunction(ctx, js_scroll, "scroll", 2));
@@ -3606,6 +3623,7 @@ static JSValue build_api(JSContext *ctx, ACRuntime *rt, const char *phase) {
     JS_SetPropertyStr(ctx, api, "zoom", JS_GetPropertyStr(ctx, global, "zoom"));
     JS_SetPropertyStr(ctx, api, "contrast", JS_GetPropertyStr(ctx, global, "contrast"));
     JS_SetPropertyStr(ctx, api, "spin", JS_GetPropertyStr(ctx, global, "spin"));
+    JS_SetPropertyStr(ctx, api, "qr", JS_GetPropertyStr(ctx, global, "qr"));
 
     // screen
     {

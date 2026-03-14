@@ -11,7 +11,8 @@ GIT_HASH   := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_TS   ?= $(shell date -u '+%Y-%m-%dT%H:%M')
 BUILD_NAME := $(shell scripts/build-name.sh --bump 2>/dev/null || echo "local-build")
 QUIRCDIR   := lib/quirc/lib
-CFLAGS     := -O2 -Wall -Wextra -std=gnu11 -I$(QJSDIR) -I$(QUIRCDIR) -DAC_GIT_HASH=\"$(GIT_HASH)\" -DAC_BUILD_TS=\"$(BUILD_TS)\" -DAC_BUILD_NAME=\"$(BUILD_NAME)\"
+QRGENDIR   := lib/qrcodegen
+CFLAGS     := -O2 -Wall -Wextra -std=gnu11 -I$(QJSDIR) -I$(QUIRCDIR) -I$(QRGENDIR) -DAC_GIT_HASH=\"$(GIT_HASH)\" -DAC_BUILD_TS=\"$(BUILD_TS)\" -DAC_BUILD_NAME=\"$(BUILD_NAME)\"
 LDFLAGS  := -Wl,--as-needed -lm -lpthread -lasound -lutil
 
 # Static build: only when musl-gcc is available (musl has bundled static libc)
@@ -73,13 +74,17 @@ QJS_OBJS := $(patsubst $(QJSDIR)/%.c,$(BUILDDIR)/qjs-%.o,$(QJS_SRCS))
 QUIRC_SRCS := $(QUIRCDIR)/quirc.c $(QUIRCDIR)/decode.c $(QUIRCDIR)/identify.c $(QUIRCDIR)/version_db.c
 QUIRC_OBJS := $(patsubst $(QUIRCDIR)/%.c,$(BUILDDIR)/quirc-%.o,$(QUIRC_SRCS))
 
+# QR code generator (vendored from nayuki/QR-Code-generator, MIT licensed)
+QRGEN_SRCS := $(QRGENDIR)/qrcodegen.c
+QRGEN_OBJS := $(patsubst $(QRGENDIR)/%.c,$(BUILDDIR)/qrgen-%.o,$(QRGEN_SRCS))
+
 TARGET := $(BUILDDIR)/ac-native
 
 .PHONY: all clean quickjs test
 
 all: quickjs $(TARGET)
 
-$(TARGET): $(OBJS) $(QJS_OBJS) $(QUIRC_OBJS)
+$(TARGET): $(OBJS) $(QJS_OBJS) $(QUIRC_OBJS) $(QRGEN_OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS)
 	@echo "Built: $@ ($(shell wc -c < $@ | tr -d ' ') bytes)"
 
@@ -102,6 +107,9 @@ $(BUILDDIR)/%.o: $(SRCDIR)/%.c $(HEADERS) | $(BUILDDIR)
 
 $(BUILDDIR)/qjs-%.o: $(QJSDIR)/%.c | $(BUILDDIR)
 	$(CC) $(CFLAGS) -DCONFIG_VERSION=\"0.8.0\" -c -o $@ $<
+
+$(BUILDDIR)/qrgen-%.o: $(QRGENDIR)/%.c | $(BUILDDIR)
+	$(CC) -O2 -Wall -std=c99 -I$(QRGENDIR) -c -o $@ $<
 
 $(BUILDDIR)/quirc-%.o: $(QUIRCDIR)/%.c | $(BUILDDIR)
 	$(CC) -O2 -Wall -std=gnu11 -I$(QUIRCDIR) -c -o $@ $<
