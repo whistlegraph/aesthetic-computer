@@ -14,6 +14,7 @@
 #include <linux/reboot.h>
 #include <fcntl.h>
 #include <errno.h>
+#include "qrcodegen.h"
 
 // Defined in ac-native.c — logs to USB mount
 extern void ac_log(const char *fmt, ...);
@@ -2883,6 +2884,40 @@ static JSValue js_brightness_adjust(JSContext *ctx, JSValueConst this_val, int a
     return JS_UNDEFINED;
 }
 
+// system.qrEncode(text) → { size: N, modules: [bool, bool, ...] }
+// Encodes text as QR code using nayuki qrcodegen, returns module grid.
+static JSValue js_qr_encode(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 1) return JS_UNDEFINED;
+    const char *text = JS_ToCString(ctx, argv[0]);
+    if (!text) return JS_UNDEFINED;
+
+    // Buffers for qrcodegen (version 1-10 max ~120 chars, good for URLs)
+    uint8_t qrcode[qrcodegen_BUFFER_LEN_FOR_VERSION(10)];
+    uint8_t tempBuf[qrcodegen_BUFFER_LEN_FOR_VERSION(10)];
+
+    bool ok = qrcodegen_encodeText(text, tempBuf, qrcode,
+        qrcodegen_Ecc_LOW, qrcodegen_VERSION_MIN, 10,
+        qrcodegen_Mask_AUTO, true);
+    JS_FreeCString(ctx, text);
+
+    if (!ok) return JS_UNDEFINED;
+
+    int size = qrcodegen_getSize(qrcode);
+    JSValue result = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, result, "size", JS_NewInt32(ctx, size));
+
+    JSValue modules = JS_NewArray(ctx);
+    for (int y = 0; y < size; y++) {
+        for (int x = 0; x < size; x++) {
+            JS_SetPropertyUint32(ctx, modules, (uint32_t)(y * size + x),
+                JS_NewBool(ctx, qrcodegen_getModule(qrcode, x, y)));
+        }
+    }
+    JS_SetPropertyStr(ctx, result, "modules", modules);
+    return result;
+}
+
 static JSValue build_system_obj(JSContext *ctx) {
     JSValue sys = JS_NewObject(ctx);
 
@@ -3653,6 +3688,8 @@ static JSValue build_system_obj(JSContext *ctx) {
                       JS_NewCFunction(ctx, js_volume_adjust, "volumeAdjust", 1));
     JS_SetPropertyStr(ctx, sys, "brightnessAdjust",
                       JS_NewCFunction(ctx, js_brightness_adjust, "brightnessAdjust", 1));
+    JS_SetPropertyStr(ctx, sys, "qrEncode",
+                      JS_NewCFunction(ctx, js_qr_encode, "qrEncode", 1));
 
     return sys;
 }
