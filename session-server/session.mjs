@@ -189,9 +189,33 @@ async function getMachinesDb() {
   }
 }
 
-function verifyMachineToken(token) {
-  const secret = process.env.MACHINE_TOKEN_SECRET;
-  if (!secret || !token) return null;
+let machineTokenSecret = null;
+let machineTokenSecretAt = 0;
+const MACHINE_SECRET_TTL = 5 * 60 * 1000; // refresh from DB every 5 min
+
+async function loadMachineTokenSecret() {
+  const now = Date.now();
+  if (machineTokenSecret && now - machineTokenSecretAt < MACHINE_SECRET_TTL) {
+    return machineTokenSecret;
+  }
+  try {
+    const db = await getMachinesDb();
+    if (!db) return machineTokenSecret;
+    const doc = await db.collection("secrets").findOne({ _id: "machine-token" });
+    if (doc?.secret) {
+      machineTokenSecret = doc.secret;
+      machineTokenSecretAt = now;
+    }
+  } catch (e) {
+    error("[machines] Failed to load machine-token secret:", e.message);
+  }
+  return machineTokenSecret;
+}
+
+async function verifyMachineToken(token) {
+  if (!token) return null;
+  const secret = await loadMachineTokenSecret();
+  if (!secret) return null;
   try {
     const [payloadB64, sigB64] = token.split(".");
     if (!payloadB64 || !sigB64) return null;
@@ -1809,7 +1833,7 @@ wss.on("connection", async (ws, req) => {
 
     } else {
       // Device connection
-      const tokenPayload = verifyMachineToken(token);
+      const tokenPayload = await verifyMachineToken(token);
       const userSub = tokenPayload?.sub || null;
       const userHandle = tokenPayload?.handle || null;
       const linked = !!tokenPayload;

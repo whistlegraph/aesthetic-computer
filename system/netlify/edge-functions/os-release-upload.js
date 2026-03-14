@@ -133,9 +133,27 @@ export default async (request) => {
     }
   }
 
+  // Load machine token secret from MongoDB secrets collection
+  async function loadMachineTokenSecret() {
+    try {
+      const connStr = Deno.env.get("MONGODB_CONNECTION_STRING");
+      if (!connStr) return null;
+      const { MongoClient } = await import("npm:mongodb@6");
+      const client = new MongoClient(connStr);
+      await client.connect();
+      const dbName = Deno.env.get("MONGODB_NAME") || "aesthetic";
+      const doc = await client.db(dbName).collection("secrets").findOne({ _id: "machine-token" });
+      await client.close();
+      return doc?.secret || null;
+    } catch (e) {
+      console.error("[os-release-upload] Failed to load machine-token secret:", e.message);
+      return null;
+    }
+  }
+
   // Generate HMAC-signed device token for ac-native machine authentication
   async function generateDeviceToken(sub, handle) {
-    const secret = Deno.env.get("MACHINE_TOKEN_SECRET");
+    const secret = await loadMachineTokenSecret();
     if (!secret) return null;
 
     const payload = { sub, handle, iat: Math.floor(Date.now() / 1000) };
