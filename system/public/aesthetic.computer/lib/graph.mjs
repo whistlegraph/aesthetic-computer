@@ -5422,12 +5422,27 @@ let gpuInitPromise = null; // Promise for initialization
 
 // 🎯 Adaptive GPU failure tracking — auto-disable effects that keep failing
 const GPU_FAIL_THRESHOLD = 3; // Disable after this many failures
+const GPU_CACHE_KEY = "ac-gpu-disabled";
 const gpuFailCounts = {
   spin: 0, composite: 0, blur: 0, sharpen: 0,
   shear: 0, suck: 0, flood: 0, zoom: 0, scroll: 0,
   contrast: 0, brightness: 0, invert: 0, compositeLayers: 0,
 };
 const gpuDisabled = {}; // Tracks which effects have been auto-disabled
+let gpuFailoverResetCallback = null; // Called when an effect gets disabled
+
+// Load cached disabled effects from localStorage
+try {
+  const cached = typeof localStorage !== "undefined" && localStorage.getItem(GPU_CACHE_KEY);
+  if (cached) {
+    const parsed = JSON.parse(cached);
+    for (const key of Object.keys(parsed)) {
+      gpuDisabled[key] = true;
+      gpuFailCounts[key] = GPU_FAIL_THRESHOLD; // Mark as already failed
+    }
+    console.log(`🎮 GPU: Loaded cached disabled effects: ${Object.keys(parsed).join(", ")}`);
+  }
+} catch {}
 
 function gpuFailed(effectName) {
   gpuFailCounts[effectName] = (gpuFailCounts[effectName] || 0) + 1;
@@ -5435,8 +5450,22 @@ function gpuFailed(effectName) {
     gpuDisabled[effectName] = true;
     console.warn(`🎮 GPU ${effectName}: Auto-disabled after ${GPU_FAIL_THRESHOLD} failures — using CPU fallback`);
     gpuTelemetry.report("gpu-disabled", effectName);
+    // Persist to localStorage so we skip detection on next load
+    try {
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem(GPU_CACHE_KEY, JSON.stringify(gpuDisabled));
+      }
+    } catch {}
+    // Signal that a GPU failover happened — KidLisp checks this to reset
+    if (typeof self !== "undefined") self.__gpuFailoverOccurred = true;
+    if (gpuFailoverResetCallback) gpuFailoverResetCallback();
   }
   return false;
+}
+
+// Register a callback to reset the piece when GPU effects fail over
+function onGpuFailover(callback) {
+  gpuFailoverResetCallback = callback;
 }
 
 function gpuOk(effectName) {
@@ -9139,4 +9168,5 @@ export {
   batchedEffects,
   initGpuEffects,
   getGpuStatus,
+  onGpuFailover,
 };
