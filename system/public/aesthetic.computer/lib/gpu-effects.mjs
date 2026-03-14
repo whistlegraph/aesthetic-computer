@@ -883,13 +883,13 @@ function initWebGL2(width, height) {
 
     // Detect fragment shader precision — some Android GPUs claim WebGL2
     // but silently fail with highp. Fall back to mediump if needed.
-    const hpf = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT);
-    if (!hpf || hpf.precision === 0) {
+    try {
+      const hpf = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT);
+      fragPrecision = (!hpf || hpf.precision === 0) ? "mediump" : "highp";
+    } catch {
       fragPrecision = "mediump";
-      console.warn('🎮 GPU Effects: highp not supported in fragment shaders, using mediump');
-    } else {
-      fragPrecision = "highp";
     }
+    console.log(`🎮 GPU Effects: fragment precision = ${fragPrecision}`);
 
     // Compile spin program
     const spinVert = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
