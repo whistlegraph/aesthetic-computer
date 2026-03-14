@@ -1,0 +1,3320 @@
+Wiring: Prototyping Physical Interaction Design
+Hernando Barragán
+Master's Thesis, Interaction Design Institute Ivrea, June 2004
+
+---
+
+Hernando Barragán | Interaction Design Institute Ivrea | June 2004
+h.barragan@interaction-ivrea.it
+
+Wiring: Prototyping Physical Interaction Design
+
+Thesis Committee
+
+Massimo Banzi . Associate Professor
+Primary advisor
+
+Casey Reas . Visiting Assistant Professor
+UCLA Design | Media Arts,
+Secondary advisor
+
+Gillian Crampton Smith . Director
+
+Andrew Davidson . Chair of the Academic Programme
+
+Wiring: Prototyping Physical Interaction Design
+Hernando Barragán
+
+0. Abstract
+
+0.1 Problem
+Design education and practice increasingly rely on digital technology. For designers to successfully enter this domain they need to understand the inherent qualities in the media they
+work with, such as electronics and software. Current prototyping tools for electronics and programming are mostly targeted to engineering, robotics and technical audiences. They are hard
+to learn, and the programming languages are far from useful in contexts outside a specific
+technology. Designers need a teaching language and electronics prototyping system that facilitates and encourages the process of learning, that reduces the struggle with electronics
+design and programming, and that are powerful and flexible enough for the needs of Interaction Design.
+
+0.2 What is it
+Wiring is both a programming environment and an electronics prototyping input/output board
+for exploring the electronic arts and tangible media. It can also be used to teach and learn
+computer programming and prototyping with electronics. It illustrates the concept of programming with electronics and the physical realm of hardware control which are necessary
+to explore physical interaction design and tangible media aspects in the design discipline.
+The Wiring software and the hardware designs of the Wiring electronic input/output board will
+be freely available for download on the Web. Users will have access to the Wiring electronic in-
+
+put/output board as well. The site contains a reference, and a number of short prototypical examples that explore the media and illustrate the code and the electronics diagrams allowing
+users to learn by experimenting with them.
+Wiring builds on Processing, the open source programming language developed at the Massachusetts Institute of Technology Media Lab and Interaction Design Institute Ivrea by Ben
+Fry and Casey Reas. People who learn how to program using Processing can instantly move
+to program in Wiring and then to other languages or scripting environments like Java, C, C++,
+JavaScript, Flash or Director.
+While working on their design concepts, users will be able to sketch, test their ideas and prototype them, by writing small programs and downloading them to the input/output board.
+The Wiring input/output board is a general purpose electronic system that includes a microcontroller where the users’ programs will run. It provides digital and analog inputs and outputs and functionality that will allow users to interface all kind of sensors and actuators and
+program the behaviors needed in their projects.
+This project aims to support education not only in the design and art schools but also
+in different types of learning environments and different types of practices. It will enable users to quickly prototype their ideas and concepts in the physical world, allowing users to concentrate on the quality of their designs, the interaction, ideas, or concepts being illustrated, rather than concentrate on showing that the technology works.
+It will contribute to sharing ideas and knowledge with the wider community of interaction
+design and in general to others outside this field. Because it builds on the Processing language,
+it will take advantage of the existing online community of users around the world and their
+collective experience. It also builds on my previous professional experience as engineer artist
+and designer.
+
+Wiring: Prototyping Physical Interaction Design
+Hernando Barragán
+
+Acknowledgments
+
+This thesis is dedicated to my huge family, (too many to name you all guys), especially to my
+grandparents Rafael y Maria, and my grandparents Antonio y Edelmira who both passed away
+while I was here.
+I am extremely grateful to Casey Reas for his support and encouragement; It’s been an honor
+to have him as mentor and friend and a constant source of inspiration and perspective, thank
+you. I thank Massimo Banzi for his support. I also thank all the members of the community at
+Interaction Design Institute Ivrea past and present for their valuable insights: Gillian Crampton Smith, Andy Davidson, Bill Verplank, Jan-Christoph Zoels, Stefano Mirti, Reed Kram, Clemens Weisshaar, Edoardo Brambilla, Simona Maschi, Britta Boland, Nathan Shedroff, Molly Write
+Steenson, Camille Norment, Durrell Bishop, Anthony Dunne, Fiona Raby, Dag Svanæs, Peppino
+Ortoleva. I thank all the IDII community who directly or indirectly contributed to my education
+and life in the last two years. Thanks to Linda Norlen and Christian Palino for their support in
+the elaboration of this document.
+Thanks to Tiberio Hernandez for being my mentor, for his vision and always letting me do
+whatever it comes to my mind, Rafael Gomez for sharing his passion for programming and
+hardware, and Rodrigo Cardoso for his wisdom.
+Thanks to Ben Fry, the Processing development team, Mauricio Giraldo, Brian Dean, Peter Gasparik, Alberto Alberton, Pascal Stang, Dan O’Sullivan, Tom Igoe, Michal Rinott, Karmen Franinovic, Myriel Milicevic, Maya Lotan and the Internet guys for their support.A big thanks goes to
+my class, who have been an amazing experience in my life. I also want to thank the first and
+the next generation of students at IDII; it was great to share with you guys.
+Very special thanks go to all my friends for being always there.
+
+Contents
+
+3
+
+0. Abstract
+
+3
+
+0.1 Problem
+
+3
+
+0.2 What is it
+
+15
+
+1. Introduction
+
+15
+
+1.1. Physical Computing
+
+16
+
+1.2. Microcontrollers
+
+22
+
+2. Background
+
+22
+
+2.1. Learning computer programming
+
+24
+
+2.2. Learning and prototyping with electronics
+
+29
+
+2.3. Contributions from the industry
+
+33
+
+2.4. Contributions from Physical Computing classrooms
+
+35
+
+3. Concept development
+
+36
+
+3.1. First Experiment
+
+41
+
+3.2. Second Experiment
+
+47
+
+3.3. Third Experiment
+
+49
+
+4. Design and Implementation
+
+49
+
+4.1. Wiring Software
+
+50
+
+4.2. Wiring Hardware
+
+56
+
+4.3. Wiring Web Site
+
+57
+
+4.4. First users
+
+61
+
+4.5. Reactive tables (Powered by Wiring)
+
+62
+
+4.6. Prototyping aids
+
+64
+
+4.7 Class support material
+
+67
+
+5. Conclusions and Future Direction
+
+69
+
+6. References
+
+74
+
+Apendix A. Wiring I/O Board Circuit Schematics
+
+75
+
+Apendix B. Wiring I/O Board Layout
+
+1. Introduction
+
+This chapter gives an overview of related work; prototyping with electronics in
+art and design schools in the field known as physical computing. It will introduce
+the subject of physical computing in the educational context, then present different projects that address in some way the components involved in this activity, such as learning computer programming and basic electronics; and discuss
+some interesting cases relevant for this investigation.
+
+1.1. Physical Computing
+What is physical or tangible computing? Many approaches to this term, and in
+general to human computer interaction or tangible user interfaces, have been
+and are under development right now. Still in its early stages physical computing emerges as a space or foundation for exploring the concepts, future and role
+of computing in our physical environment. Several people and institutions have
+been involved in this movement or so-called phenomenon, sharing a common
+basis but differing in their goals, approaches and applications.
+Different curriculums have been proposed at the core of different design and
+art schools to establish physical computing as something that can be taught
+and learned. Such programs empower art and design students with the abilities and skills necessary to respond to the challenge of increasingly pervasive
+technology in our society. Physical computing is playing an important role in
+the development of contemporary art and design as it relates to the contexts of
+electronic media.
+
+WIRING . HERNANDO BARRAGAN
+
+The Interactive Telecommunications Program (ITP) at New York University
+
+Software tools are built upon layers of abstraction from assemblers to program-
+
+(NYU), the Computer Related Design program at the Royal College of Art (RCA)
+
+ming languages or graphical user interfaces, which were the result of decisions
+
+in London, Parsons School of Design, Human Computer Interaction at Stanford
+
+made by many programmers and electronic engineers. As a result it is unlikely
+
+University, School of Visual Arts (SVA) and Washington University, among oth-
+
+that appropriate tools for designers might come out from the technology indus-
+
+ers, are very interesting sources on this subject. Each of the programs in these
+
+try, but perhaps allowing designers to create or participate or shape their own
+
+schools is quite different from each other, as is the kind on works produced and
+the audiences. As a common basis, the courses introduce students to the basics
+of electronics, circuit design, prototyping, sensing technologies, simple micro-
+
+design tools.
+
+1
+40-Pins PIC Microcontroller
+Microchip Inc.
+
+From the point of view of a computer user with little or no skill in programming,
+
+controllers, computer-controlled artifacts, actuators, networked projects, video
+
+who wants to create interactive software [and products] the current technological
+
+tracking and analysis technologies, technical aspects in installations, remote
+
+development has created the following situation:
+
+presence and hacking existing electronic devices and robotics, among others.
+The simplifications and abstractions made by the tool designers make it practiTeaching and learning physical computing is not a small task. Appropriate
+
+cally impossible to experiment with and implement many interactive solutions
+
+teaching curriculums have to be developed to integrate activities like computer
+
+that are technically possible.
+
+programming, basic electronics, and support software and hardware tools with
+the educational context. Since most of the students in these courses come from
+
+The user’s image of the design-space concerning interaction is fragmented and
+
+art, design and humanities-related disciplines, the classes should be targeted to
+
+incomplete. It is shaped by the tools they have been using and by the solutions
+
+people with no previous technical or engineering skills.
+
+they have seen. Consequently, many solutions that are technically possible are
+“unimaginable” to most interaction designers. (Svanæs 3)
+
+1.2. Microcontrollers
+
+Nowadays there is a wide range of popular, powerful, and relatively inexpensive
+microcontrollers available on the market for commercial, educational, hobbyist
+
+Microcontrollers are a kind of small computer device that addresses some of the
+
+and entertainment markets However, the knowledge of hardware and program-
+
+difficulties involved in prototyping with electronics by introducing the concept
+
+ming required to put them into production is quite vast and difficult to grasp for
+
+of programming into it. The same unit can behave in different ways, just by doing
+
+audiences other than the targeted audiences of engineering, intermediate and
+
+or modifying a software program to adapt it to a specific need or purpose. Com-
+
+advanced users.
+
+puter programming is completely independent from electronics or a programming language in particular. The programming languages available to program
+
+Programming language, functionality, cost, ease of use, availability of free soft-
+
+microcontrollers range from native versions of assemblers, C, and BASIC, but
+
+ware and examples, and documentation are all factors that must be taken into
+
+there are others that can be programmed in most popular programming lan-
+
+consideration when choosing the right microcontroller.
+
+guages like Java or Logo. All of these programming languages have their weaknesses and strengths when it comes to ease of use, functionality, development
+
+The microcontroller’s functionality varies from basic logic control up to fully
+
+environments and interfaces for development. In most cases they are attached
+
+functioning computers with wireless Internet or network access, RF communica-
+
+to the very specifics of a technology, making it difficult to learn the basics of
+
+tion, Bluetooth, GPS capabilities, and more complex systems. Many companies
+
+programming and electronics at the same time. For this reason, it is a daunt-
+
+like Motorola, Microchip, Parallax, Texas Instruments, Rabbit Semiconductors,
+
+ing for a designer or artist to know where to turn when building a prototype or
+
+ATMEL, UBICOM, Dallas Semiconductors etc. have a vast selection of program-
+
+developing an idea.
+
+mable devices, and in some cases a single company offers hundreds of families
+of microcontrollers.
+
+16
+
+WIRING . HERNANDO BARRAGAN
+
+digital I/O pin 0
+
+There are audiences from diverse disciplines that are potentially interested in design, prototyping and programming in the context of
+electronic media, and would like a way that facilitates and encourages their process and allows them to test and come up with new
+ideas and possibilities. However, these audiences may not have the
+needed programming, electronics and math skills. A system oriented
+towards these audiences is needed, to allow programming and prototyping with electronics. Such a system needs to facilitate learning
+concepts that can be mapped and useful in different contexts.
+
+digitalWrite(0,HIGH)
+5-volt (HIGH signal)
+
+2
+AVR atmega128 microcontrolelr
+Atmel Corp.
+digital I/O pin 0
+
+Explained in a very simple way, a microcontroller is an electronic device with a
+
+digitalWrite(0, LOW)
+
+set of Input and Output pins. Physically these pins may look like real pins, or can
+
+0-volt (LOW signal)
+
+be just connectors of some kind that other devices can be plugged to, depending
+on the microcontroller; there are some that are single units and others that are a
+3
+
+complete electronic board with access to the pins through connectors.
+
+80-Pin PIC Microcontroller
+Microchip Inc.
+
+5
+Setting the value of a digital output pin
+
+Depending on the microcontroller’s functionality, the pins can be inputs or outputs, so they can be used to receive and send signals. The signals can be discrete,
+
+Signals can also be of analog nature. Many physical phenomena manifest in this
+
+in the case of digital binary signals where the possible values are logical 0 (LOW)
+
+way, like measuring light intensity, temperature, sound or position, where there
+
+or logical 1 (HIGH). These values (HIGH or LOW) are reflected in changes in volt-
+
+is a range of intermediate values that can be measured. In this case a pin in a
+
+age, let’s say LOW is 0 volts, and HIGH are 5 volts.
+
+microcontroller can be used as what is called an analog input or an analog-todigital converter (ADC). In an ADC a range of analog values is converted to a
+range of numbers, depending on the precision of the ADC, for instance an 8-bit
+
+digital I/O pin 0
+
+precision ADC can differentiate between 256 possible values because that’s the
+maximum decimal number that can be represented with 8 bits; others use 10-bit
+precision for conversion, which can generate values between 0 and 1024. When
+
+digitalRead(0)
+
+an analog pin reads 0 volts it returns a 0 and when it reads 5 volts, returns the
+
+5-volt (HIGH signal)
+
+value 1024, with possibility of all the values in between the range: 2.5 volts re-
+
+HIGH
+
+turns 512 and so on.
+Microcontrollers also have analog outputs that work in a way very similar to
+
+digital I/O pin 0
+
+the analog inputs, but technically different. Usually the analog output is done
+through a process called Pulse Width Modulation (PWM) that consists of generating a pulse train in a normal digital output. This is equivalent to turning the pin
+
+digitalRead(0)
+
+ON and OFF very quickly, as it is done in dimmers for lamps or motor speed con-
+
+0-volt (LOW signal)
+
+trollers so the lamp or motor is not ON all the time but only part of it, reducing its
+LOW
+
+actual performance time. Real analog outputs can also be found; they are known
+4
+
+as a Digital-to-Analog Converter (DAC), again depending on the precision with
+which they can convert a digital number into a voltage value on a physical pin.
+
+Reading the value of a digital input pin.
+
+18
+
+WIRING . HERNANDO BARRAGAN
+
+0
+
+0
+
+0
+
+0
+
+1
+
+0
+
+0
+
+0
+0
+
+portWrite(0,255)
+
+1
+1
+
+portRead(0)
+
+0
+1
+
+portRead(0)
+
+port 0
+
+0
+
+1
+
+port 0
+
+1
+
+0
+
+port 0
+
+port 0
+
+portWrite(0,0)
+
+0
+
+1
+
+1
+
+1
+
+1
+
+1
+
+0
+
+0
+
+1
+
+3
+
+from the host computer, since the program is downloaded to the microcontroller;
+
+0
+
+0
+
+1
+
+done using the serial port. At this point the microcontroller can be disconnected
+
+0
+
+0
+
+15
+
+so a physical connection between the microcontroller and the host computer is
+
+it will stay in the microcontroller memory and will be executed constantly. Every
+
+1
+
+time the microcontroller is turned on, it will execute this program.
+Microcontrollers, at least the kind of microcontrollers mentioned in this investigation can be re-programmed as needed.
+
+6
+Port reading and writing
+User's
+Program
+
+Some microcontrollers provide access to individual pins or to groups of pins at
+
+Linker
+
+Compiler
+
+Binary
+file
+
+Downloader
+
+System
+libraries
+
+the same time. Groups of pins are known as Ports. For example, an 8-bit port is a
+set of 8 pins. The microcontroller provides functionality to write a value to a port,
+and will set the values of the individual pins accordingly. This is useful to control
+
+PC Programming Environment
+
+special kinds of devices or write data in parallel.
+Microcontrollers also have timing abilities, usually a few timers that can be
+used in different ways to measure time lapses, trigger events, synchronize func-
+
+7
+Microcontroller’s programming process
+
+tions, etc.
+Microcontrollers have communication capabilities, usually with serial ports, the
+same kind of serial ports that are available in most computers. In this way they
+can connect and communicate with other devices using the well-known serial
+protocols. In many cases the serial ports are used for both programming the microcontroller and for communication purposes.
+In general, programming a microcontroller is a process with two components.
+One happens in a PC or host computer, and the other in the microcontroller itself. On the PC there is what is called a programming development environment,
+which generally includes an editor for the user to type its programs, and include
+the functionality to compile and generate the necessary files that are understandable by the microcontroller. When the user code is compiled, it is converted
+to machine language, a language that is understandable by the microcontroller
+and written to what is known as object binary file. This binary file can be downloaded to the microcontroller and then executed by it. To download the file to
+the microcontroller, a special setup is needed, usually done through a serial port,
+
+20
+
+WIRING . HERNANDO BARRAGAN
+
+Microcontroller
+
+2. Background
+
+DBN is not a general purpose programming language like C or Java, but was designed to familiarize people with the basic concepts of computational media.
+Sponsored by private institutions, Alan Kay and some colleagues developed
+Squeak. It is a program designed for children to express ideas about math and
+8
+
+science, and to enhance children’s learning in these areas. Users can build com-
+
+10
+
+Microworlds Logo
+
+Squeak.
+
+Microworlds, 2004
+
+putational systems with it.
+Boxer is under development at UC Berkeley by Andrea A. diSessa and Edward
+H. Lay and some parts are copyrighted by MIT. It is a computational medium
+based on a literacy model, including text and hypertext processing, dynamic and
+interactive graphics, video, personal data management, (including e-mail and
+networking) and programming.
+
+9
+DBN
+
+Academic and private companies have created several software and hardware
+
+MIT Media Lab, 1999
+
+11
+Turing, Interactive visual representation of Alan Turing’s machine.
+
+systems for education, to provide a solution for teaching and learning computer
+
+Jared Schiffman, 2000
+
+programming and prototyping with electronics. I will present a brief description
+of some of these projects.
+
+The Visual Machine Model created in the MIT Media Laboratory at the Aesthetics
+and Computation Group by Jared Shiffman, emphasizes the need for clear visual
+representations of both machines and materials, and the importance of continuity. It presents a new paradigm for the design of visual programming languages,
+with the goal of making computation visible and, in turn, more accessible. Five
+dynamic visual programming languages were designed and implemented ac-
+
+2.1. Learning computer programming
+
+cording to the specification of the Visual Machine Model. (Shiffman, 1999)
+
+Logo was developed by a team from MIT, and was originally designed to intro-
+
+Processing, created by Ben Fry and Casey Reas of the Aesthetics + Computation
+
+duce children to programming concepts, to develop better thinking skills that
+
+Group at the MIT Media Laboratory and Interaction Design Institute Ivrea is a
+
+could be transferred to other contexts. Logo was supposed to be a language for
+the teaching of mathematical ideas to children through computer programming.
+It was intended to be easy to learn, easy to use, easy to read, but also powerful
+
+learning program and environment for creating systems in a subset of the JAVA
+
+12
+Processing
+
+programming language, with real time three-dimensional graphics, color, input/
+
+Ben Fry, Casey Reas 2004
+
+output and other features that DBN lacked.
+
+and able to cope with complex problems. It was then discovered that Logo extended far beyond mathematical areas. The man who became the spokesperson
+
+The spirit of Processing is to act as an electronic sketchbook where people can
+
+for this language was Seymour Papert.
+
+learn the fundamentals of computer programming within the context of the
+electronic arts (Reas, 2003).
+
+Focusing on the aesthetic qualities of computation and computational media
+design, Professor John Maeda and students in the Aesthetics + Computation
+
+Both Design By Numbers, and Processing are systems that introduce the basic
+
+Group at the MIT Media Laboratory created Design by Numbers (DBN), which is
+
+ideas of computer programming within the context of visual design. Form ele-
+
+both a programming environment and a language. The environment provides a
+
+ments are drawn using computational concepts like iteration, repetition, vari-
+
+unified space for writing and running programs and the language introduces the
+
+ables, and conditional statements, as well as structural elements like functions
+
+basic ideas of computer programming within the context of drawing. Visual ele-
+
+and classes. They are powerful educational tools designed for adults, allowing
+
+ments such as dot, line, and field are combined with the computational ideas of
+
+users to create programs that manifest mainly on the computer screen. With Pro-
+
+variables and conditional statements to generate images. (Maeda, 1999)
+
+cessing, users can create beautiful graphics that are interactive and dynamic.
+
+22
+
+WIRING . HERNANDO BARRAGAN
+
+A number of workshops have been taught using Processing, refining methodolo-
+
+Professor Martin also designed the Handyboard, which was more powerful than
+
+gies and teaching curriculums, making the concepts of visuals and interaction to
+
+the Mini Board but less complex than the 6.270 board, making it a more useful
+
+emerge in the process of learning computer programming. WorkWorkshops also
+
+overall package. It was designed from readily available components, fitting in a
+
+facilitated the project’s communication, impact and further development.
+
+commercial plastic enclosure and running from a single rechargeable battery,
+13
+
+it also uses fewer components. The Handy Board was the first microcontroller I
+
+The Miniboard
+
+ever used for my own art projects. Within the expansion board it is a powerful
+
+Fred Martin, 1990
+
+2.2. Learning and prototyping with electronics
+
+computer, and it is based on the Motorola 68HC11 microcontroller.
+
+In the projects described above, the users learn the basics of computer program-
+
+In order to program it, there are free assembler compilers available as well as
+
+ming by creating applications that manifest on the screen, but can not extend
+
+commercial C compilers.
+
+these concepts into the physical world, which is necessary to explore physical
+interaction design and tangible media aspect. Most of the systems used in teach-
+
+This kit is compatible with the Interactive C, which is a programming environ-
+
+ing and learning physical computing were never intended for education. They
+
+ment created for the MIT LEGO Robot Design project. It is a multitasking C lan-
+
+originated from the electronics and radio hobbyists, the robot design field and
+
+guage compiler originally created for students.
+
+15
+
+robotics applications. These introduced the concept of “Kits”, semi-complete sets
+
+6.270 Class
+
+14
+
+that include basic electronic components as a common basis for beginners to
+
+6.270 Board
+
+start their explorations.
+
+Fred Martin, 1989
+
+MIT
+
+The Handyboard is a very interesting case, because it was designed with the
+robot design in mind. It was intended for engineering students and an audience
+with a programming and technical background, and was one of the milestones
+
+To build and design robots, Professor Fred G. Martin at the MIT Media Laboratory,
+
+in robotics and hobbyists activities. There was also a step in the direction of
+
+designed several systems.
+
+providing both a hardware and software integrated solution for its audience. Another important aspect is that it was distributed to a wider audience than that of
+
+The Mini Board designed at MIT Media Laboratory by the Professor Martin and
+his colleagues was a single board computer optimized for controlling small DC
+
+research labs. It was built, marketed and distributed by different parties, with all
+the necessary documentation to build it freely available and released to public.
+
+16
+
+motors and receiving data from various sensors, initially intended for control-
+
+The Handyboard
+
+The companion software was also distributed freely and downloadable from the
+
+ling small mobile robots. It communicates with a desktop computer over a se-
+
+Fred Martin. 1999
+
+web, even if the user didn’t purchase the board from the distributor. The software
+
+rial port, making it suitable for desktop computer-based control as well. It was
+
+provided support for Windows and Macintosh systems.
+
+designed in 1990, and since then several copies of the board were printed out
+and distributed.
+
+At the hardware level it provided direct connections to motors, servos, sensors; it
+was designed to be a plug-in platform. The downside was in the cost since it was
+
+In 1989 Professor Martin designed the 6.270 Board which was very complex
+
+a relatively expensive device.
+
+board compared to the Mini Board. The project became a class called 6.270: The
+MIT LEGO Robot Design Competition, intended for students to create fully au-
+
+The Interactive C programming language is a subset of the C programming lan-
+
+tonomous robots. This class is today a student-run activity where past students
+
+guage, with a simplified syntax and multitasking capabilities. The system pro-
+
+become future organizers.
+
+vided libraries that made certain common activities like the use of motors and
+servos very simple, but complex elements remained in the language, making it
+
+Students received a Kit containing LEGO parts, electronics, sensors, batteries,
+
+difficult to be used as the first programming language for non-engineer user to
+
+motors and wire; they had a month to design, build and debug an autonomous
+
+learn. Because it also inherited many low level commands and technical ele-
+
+contest robot.
+
+ments from the C language, it was very difficult for non-technical audiences
+to grasp, but very interesting for those who already knew how to program or
+
+24
+
+WIRING . HERNANDO BARRAGAN
+
+already knew C ,and didn’t want to go into the intricacies of low-level languages
+
+sensors and actuators are marketed with this system, that interfaces with the
+
+like assembler.
+
+regular LEGO brick and the Programmable bricks, but which make it difficult or
+impossible to connect electronic devices that are not part of the set.
+
+The C programming language is the most widely used programming language
+since it was devised in the 70s. After some years of development it was standard-
+
+LogoBlocks is the graphic programming environment that lets the user create
+
+ized by the ANSI X3J11 committee. In the beginning it was associated with the
+
+iconic programs to control a Programmable Brick. To create programs, you just
+
+UNIX operating system, but later it expanded to all available systems becoming
+the most spread programming language ever. Its abstractions lie in a sufficiently
+high level that, with little effort, portability between machines can be achieved.
+On the other hand the relationship between arrays and pointers, the way declara-
+
+drag blocks from a palette and snap them together on a canvas.
+
+20
+The Handycricket
+
+17
+
+Fred Martin, 2003
+
+MIT Programmable Brick
+LLK MIT Media Lab
+
+The GoGo Board is a simple I/O interface developed at the Future of Learning
+Group at the MIT Media Lab by Arnan (Roger) Sipitakiat. It is used in projects that
+
+tion syntax mimics expression syntax, memory management and in general some
+
+need a simple interface between the computer and sensors, very useful for proj-
+
+syntax particularities often serve as a stumbling block for beginners. Its success
+
+ects that need to control simple actuators. It uses Microworlds Logo program-
+
+lies in its portability, it remains as a simple and small language. It was created as
+
+ming language and it works only when it is connected to the computer.
+
+a tool to make useful programs that do useful things, covering the needs of many
+programmers without trying to supply too much things. It displaced languages
+
+The programmable bricks, Crickets Logo Board and GoGo board share are all tar-
+
+21
+
+like assembler while maintaining an abstraction level of machines and fluent
+enough to describe algorithms and interactions in a wide range of environments.
+
+The GoGo Board
+
+geted to children’s education. They are toys that include mechanical parts, and
+
+Arnan (Roger) Sipitakiat, 2002
+
+the development environments are based in the concept of visual programming
+
+(D. Ritchie 1993)
+
+with the Logo programming language. They are very limited systems for activities involved in physical computing, but lack the flexibility required for general
+
+People at the Lifelong Kindergarten Group (LLK) at the MIT Media Laboratory are
+
+purpose applications.
+
+working on the development of educational tools for learning concepts about
+hardware and computation. Over the past decade, LLK worked on the develop-
+
+Nylon is a system created at the Aesthetics + Computation Group at the MIT Me-
+
+18
+LEGO RCX Programmable Brick
+
+ment of Programmable Bricks.
+
+dia Lab by Megan Galbraith, Justin Manor and Simon Greenwold. It is a program-
+
+LEGO Mindstorms, 2002
+
+ming environment and language called Nylon that lets users write the control-
+
+22
+Nylon
+
+The Programmable Brick is a tiny portable computer embedded into a LEGO
+
+MIT Media Lab, 2002
+
+brick for kids to build into their LEGO systems. Kids can create robots or standalone projects, not only structures and mechanisms, but also behaviors. The aim
+
+MIT Media Lab, 2002
+
+computation to their physical environment. Programmable Bricks have expanded into two areas. On the commercial side, they evolved into something called
+
+variety of educational settings (Galbraith, 2003).
+The Nylon system is based on the Netmedia’s BasicX microcontroller; the pro-
+
+19
+
+the RCX Brick that became the foundation for LEGO Mindstorms, a commercially
+ing LEGO blocks.
+
+Nylon builds off Design by Numbers (DBN), in that it was designed for artists and
+visual designers. Nylon and LogoBlocks are each very powerful and are used in a
+
+22. Nylon
+
+is to teach kids concepts about engineering design and technology by bringing
+
+available set of toys that lets users build robots and computational projects us-
+
+ling code for programmable devices in addition to developing dynamic graphics.
+
+gramming environment uses the Nylon language.
+
+LEGO Rotational sensor
+LEGO Mindstorms, 2000
+
+23
+
+The Nylon system has an interesting design in terms of its form. It comes covNylon (inside)
+
+ered on one side with a board made of nylon (which gives it its name). On one
+
+The programmable evolve into Crickets, which are tiny computers powered by
+
+side the name is embedded in plastic on the board; on the other side it is covered
+
+batteries that can communicate with each other by infrared light. Each can oper-
+
+by a breadboard where people can quickly prototype things just by adding and
+
+ate two motors and receive information from two sensors. They are programmed
+
+connecting wires from the microcontroller terminal connectors to the bread-
+
+in a dialect of the LOGO language. An evolution of crickets is available com-
+
+board. No internal components are in contact with the exterior, but it can be
+
+mercially as the Handy Cricket made by Fred Martin and his colleagues. A set of
+
+taken apart as needed. Because of the design, it can easily be embedded into
+
+26
+
+WIRING . HERNANDO BARRAGAN
+
+different things, like clothes, pockets etc. making it an interesting option for dif-
+
+pose and provides access to all the microcontroller’s ports with headers. It allows
+
+ferent prototyping situations. It also has a battery connector inside, so a 9-volt
+
+one to rapidly prototype and test new applications for the AVR microcontroller.
+
+battery can be plugged inside the package with no extra or bulky space needed.
+
+It is a very affordable and simple system, generic enough to be used for different
+
+The model is very interesting as it is a clear attempt to make a self-contained
+
+purposes and start up testing of prototypes. Pascal developed a series of librar-
+
+unit for both programming and prototyping with electronics, which comes close
+
+ies in C that simplify common use tasks. It is a very interesting system and it is
+
+to being true desirable environment for a school. The programming environment
+offered support exclusively for the windows operating system. Internally the
+Nylon language was translated into Netmedia’s flavor of the BASIC language
+
+24
+
+completely based on GNU tools for its programming. Because the programming
+
+26
+
+Hotpants
+Simon Greenwold, 2002
+
+Programma2003
+
+language is C it requires a good understanding of C and UNIX to use the avail-
+
+Massimo Banzi, 2003
+
+able tools. This has been widely used in the Human Computer Interaction Design
+
+and then downloaded to the device using the proprietary BasicX programming
+
+program at Stanford University by Professor Bill Verplank.
+
+tools which are only available for the Windows operating system. This limited
+the possibilities for expansion for the Nylon language and the system itself, as
+
+Programma2003 is a prototyping board created by Massimo Banzi at Interaction
+
+well as the possibilities for further distribution. Because it was mostly targeted
+
+Design Institute Ivrea; currently it is used to build simple interactive artifacts
+
+to create graphic applications within the Hotpants device, the Nylon program-
+
+and as a teaching tool for the Physical Interaction Design classes at the Interac25
+
+ming language included commands for drawing basic form elements like lines,
+AvrMini
+
+dots, circles, etc.
+
+Pascal Stang, 2002
+
+tion Design Institute Ivrea. It uses the Open Source JAL programming language
+and the popular PIC16F876 Microchip microcontroller. At the moment the JAL
+
+27
+Parallax BasicStamp
+
+The Hotpants device created in the Aesthetics + Computation Group at the MIT
+
+Parallax Inc, 2000.
+
+language is very limited and it is oriented to engineering audiences. The support
+is limited as well; since the only source of information is its own creator, making
+
+Media Lab by Simon Greenwold, is a 10 X 14 LED array display device for the
+
+it difficult and cryptic to be used as a teaching language and to illustrate the con-
+
+Nylon system . It renders graphic commands sent to it by the Nylon base unit.
+
+cepts of programming to audiences with no previous experience in hardware or
+
+Hotpants is powered by a PIC microcontroller, making it capable of considerable
+
+programming. It is an attempt to offer a free platform, based on freely available
+
+onboard processing. All necessary information to build Hotpants is available for
+
+tools for the Windows, Mac and Linux operating systems.
+
+public use from its web site. The necessary tools to build it are freely available
+as well. It can be used independently from the Nylon system, making it possible
+to connect to other devices by implementing the necessary commands. While
+
+2.3. Contributions from the industry
+
+the Hotpants display was available to the public, the Nylon board was not. It was
+only used at the MIT Media Lab in diverse workshops and classes.
+
+There are companies that have targeted their products to intermediate and beginner level users, and have invested time and effort in developing educational
+
+Zuf is a programming system created at the Aesthetics + Computation Group at
+
+material as well as support and community. I will describe some systems with
+
+the MIT Media Lab by Megan Galbraith for controlling small embedded devices
+
+this orientation.
+
+and microcontrollers using fuzzy logic. It was designed and targeted for fashion
+designers interested in building computational garments. It is a web-based de-
+
+Multiple factors are involved in choosing the right platform for an application
+
+velopment environment, and visual programming oriented. At the moment it is
+
+that is general enough to respond to the necessities in diverse kinds of projects.
+
+not completely developed or available to the public, but it is a very interesting
+
+Price, power, memory, ease of use, freely available tools, support, programming
+
+concept that tries to provide a complete tool for fashion design audiences in both
+
+languages, and which operating systems are supported are all very important to
+
+hardware and software terms and take advantage of the web as a programming
+
+the choice.
+
+environment to make it platform independent and widely available.
+Parallax BasicStamp is a very popular microcontroller. There is a vast source of
+AvrMini is an application/development board designed by Pascal Stang at Santa
+
+information, code, examples, experiments, support, user groups and material
+
+Clara University that is used for class exercises and workshops. It is general-pur-
+
+available. It is sold as part of basic kits for beginners and education or as a stand-
+
+28
+
+WIRING . HERNANDO BARRAGAN
+
+alone product for experienced users as well. The kits include a board, microcon-
+
+and a variety of programming languages. There is a free C (GCC) compiler for
+
+troller, sensors, motors, and complementary electronic devices and companion
+
+these systems, as well as commercial tools to program them. Both are available
+
+book to develop experiments.
+
+as standalone components, but also embedded in many different kits offered
+by different companies. Both are targeted to intermediate and advanced users
+
+Netmedia BasicX is NetMedia’s family of rapid development micro-controllers.
+These products include the BasicX-01 Developer Station and chip, and the BasicX-24 Developer Station and microcontroller chip programmed in NetMedia’s
+
+28
+
+who have a good knowledge of hardware and programming, so they have been
+
+29
+
+Netmedia BasicX-24
+
+Systronix JStamp
+
+widely used in engineering schools, but are not very popular in art and design
+
+Netmedia, 2001
+
+Systronix, 2002
+
+educational environments.
+
+version of the BASIC Language. Around it, the company developed a set of devices
+like LCDs and servo motor controller boards and there is also a vast number of re-
+
+Systronix Javastamp is a microcontroller based on the Ajile family of microcon-
+
+sources available on-line, as well as user groups, examples and documentation.
+
+trollers. These are programmed in the Java language, and recently have started
+to be used in engineering schools. There is a variety of kits available around this
+
+Both BasicStamps and BasicX include an integrated development environment
+
+product: TStik, JStik, JCX, JStamp, JSimm, JDroid, and JRealTime, depending in
+
+(IDE) only available on the Windows operating system. These systems are very
+
+the user’s needs and budget, but in general they are expensive devices, and dif-
+
+expensive and fragile for educational purposes, but the availability of materials
+
+ficult to use for beginners or non-technical users, due to the intricacies of Java
+
+30
+
+and support online make of them an excellent choice for beginners and hobby-
+
+Dallas TINI
+
+ists, and the classrooms of some schools. The programming environment is not
+
+Dallas Semiconductors, 2001
+
+programming and the offered set of instructions.
+
+freely available, as users have to purchase it (included) with the hardware. Both
+
+An integrated programming development environment is provided with the Kits
+
+BasicStamps and BasicX are programmed in variations of the BASIC program-
+
+and Java programs can be compiled with any Java compiler but the linking and
+
+ming language which nowadays is far from being a widely used language and
+
+download into the chip can only be made through using the proprietary Inte-
+
+lacks the structure, elegance and level of abstraction of languages like C or JAVA.
+
+grated Development Environment (IDE) software which is not freely available or
+
+This makes it difficult to be used in other environments and to create reusable
+
+distributable and is included with the purchased device.
+
+or portable software. It is clearly not the right option for teaching and learning
+the concepts of programming.
+
+Dallas Semiconductors TINI is a system that provides the possibility to design
+hardware devices able to connect to networks or the internet. It is mostly de-
+
+Microchip PICs are a very popular family of microcontrollers. Hundreds of mod-
+
+signed to use 1-wire interface products (sensors and actuators), making it dif-
+
+els are available for different needs, as well as on-line support materials, examples, and documentation. They can be programmed in a variety of languages,
+from assembler, C and BASIC, as well as open source languages like JAL. The low
+
+ficult to use with the simple, cheap and widely available ones. There is an evalu31
+Parallax Javelin Stamp
+Parallax Inc., 2003
+
+ation board available for testing and development and it is programmed in the
+Java language. Users can use standard SUN Java development tools or the ones
+
+price makes them a very interesting option for prototypes, but unlike the BasicX
+
+of their choice. This system is pretty much a computer, with web server, serial
+
+or BasicStamps which are products almost ready to use, they need some special
+
+port, Ethernet port and an operating system. It is a very interesting option for
+
+initial setup for both hardware and software. They require hardware initializa-
+
+networked and advanced projects, but despite the price, additional circuitry is
+
+tion programmers, which are hardware blocks designed to download programs
+
+necessary in order to interface it with regular components, so is not the best
+
+to the device to start it operating. This needs a deep understanding of technical
+
+option if used in simple applications or in a classroom by beginners or non-tech-
+
+concepts and processes. This family of microcontrollers became very popular
+
+nical users. Once it is installed, it can be programmed from different platforms
+
+due to amateur radio and hacking communities, as they were widely used and
+
+through the network interface.
+
+spread in the hacking of satellite signals.
+Parallax Javelin Stamp is the same size package and electric configuration as the
+Atmel AVR and ARM microcontrollers are both very inexpensive and powerful,
+
+BasicStamp. It is programmed in the Java programming language and it is based
+
+but both have a large source of on-line resources, examples and documentation;
+
+in the Ubicom microcontrollers. Online community and support are also avail-
+
+30
+
+WIRING . HERNANDO BARRAGAN
+
+2.4. Contributions from Physical
+Computing classrooms
+
+able and a simpler programming and wiring model than the Dallas TINI microcontroller makes it better for beginners, but it is difficult for them when it comes
+to the programming. It is possible to use different Java compilers to compile the
+Java code but as the Systronix JStamp it is necessary to use the proprietary IDE
+
+Finally I will mention the contributions of individuals and schools to the physical
+
+to link and download the compiled program into the chip. Kits are available for
+
+computing and electronics prototyping community. Many people have amazing
+
+this microcontroller for beginners, but it is also possible to get it as a single unit.
+
+web sites full of information, sample code, diagrams, documented experiences,
+32
+
+There are no free software tools for this platform.
+
+Makingthings Teleo
+
+recommendations and step-by-step guides. I will reference some of these people
+and their web sites, as they are relevant for this research.
+
+Makingthings, 2003
+
+Makingthing’s Teleo is a modular set of components for building things with
+electronics. It is a system designed to connect modules that add functionality to
+
+Durrel Bishop’s work at the Royal College of Art and IDEO, ideas and methodolo-
+
+the projects through a 4-wire interface peer-to-peer network. It can be interfaced
+
+gies, have been extremely influential in the development of physical or tangible
+
+to the Max/MSP software, as they provide objects to add its functionality to the
+
+computing. He is very interested in designing electronic objects that are self-de-
+
+MAX software. The modules are based on the PIC 18 family of microcontrollers;
+
+scriptive of their behavior and how to augment non-electronic objects by giving
+
+it provides MOSFET switches, which are devices able to switch larger currents
+
+them new properties.
+
+and voltages than the microcontroller can by itself. It is designed to span mechanical hardware and multiple applications. The system is very expensive for
+teaching purposes, and also the MAX software must be purchased to program it
+
+33
+Infusion I-CubeX
+
+Dag Svanaes has done research on the nature of interaction as well as in designing teaching curriculums and tools for teaching interaction designers with
+
+Infusion Systems, 2001
+
+in a graphical way. The Teleo system uses a very interesting model of modular
+
+analysis from very different perspectives; his work has been very influential in
+
+architecture so modules can be added and interconnected as necessary.
+
+the interaction design community. He designed software tools for designers to
+prototype graphical user interfaces by drawing with pixels with inherent behav-
+
+The Infusion I-CubeX Digitizer is a device that translates information into MIDI.
+
+ior: Interactive Pixels.
+
+People can map the MIDI messages of their choice, controlling their own parameters. It is possible to connect up to 32 controllers. A turn knob can replace the
+
+The Interactive Telecommunications Program (ITP) at New York University
+
+mouse, a light can act as a mod wheel, a touch triggers samples, the temperature
+
+(NYU) has been extremely influential in physical computing. It started with Dan
+
+controls the volume, etc. It is a black box with inputs and outputs that can connect to MAX/MSP software. It is a very expensive device, and around it, Infusion
+sells a wide range of very expensive sensors and actuators ready to connect to
+
+34
+Pond PIC Ultraflash Board
+Pond Electronics, 2003
+
+O’Sullivan’s Physical Computing class, and has been involved other people as it
+have been growing in the last few years. Dan’s home page, as well as Tom Igoe’s
+on Physical Computing (A Hands-on How-to Guide for Artists), are well known
+
+the box. The price makes it very difficult to deploy in a school, and it is more ori-
+
+resources on the internet. The amount of available material and references in
+
+ented to professionals who are interested in MIDI interfacing for performances,
+
+their web site is quite considerable. The information available covers a vast range
+
+with no need of complex electronics knowledge.
+
+of topics, like doing basic electronics, programming, serial communication, video
+, MIDI, hacks, tutorials, guides for interfacing commercial and free software and
+
+Pond Electronics designed a board based on the PIC16F876, as well as on the
+
+hardware and software libraries made by them and their contributors to pro-
+
+BasicStamp microcontrollers. They also designed a series of interface boards
+
+vide connection between different technologies and solutions. All this targeted
+
+for these systems, providing a standard PCB format and a stackable I/O bus in-
+
+to support artists taking the physical computing class. Bill Verplank at Stanford
+
+terface, which is very interesting for expanding hardware systems on demand.
+
+University has been also very influential in the field with his individual work
+and research as well with the Human Computer Interaction class. He taught the
+Physical Interaction Design class at Interaction Design Institute Ivrea in collaboration with Massimo Banzi, who also leads physical computing workshops for
+students in schools in Italy.
+
+32
+
+WIRING . HERNANDO BARRAGAN
+
+SenseLab at UCLA, the Electronics Laboratory for the UCLA Design | Media Arts
+
+Knowledge is universal, Free Software too. In Education, means are more limited
+
+Department, is an active source of resources for learning to prototype with elec-
+
+than in other sectors, because they have to be employed on a large scale. It’s more
+
+tronics, and knowledge dissemination and sharing.
+
+relevant to pay grey matter (e.g. help for projects conception, personal and educational training) or extra devices than to pay proprietary licenses. (Free Software
+
+Most teachers have chosen a commercial platform, commonly BasicStamp and
+
+Foundation 2003)
+
+BasicX microcontrollers. This decision was driven by convenience, availability of
+materials, support, easy of use and basic features, rather than appropriateness
+to a particular teaching programming or concepts in basic electronics.
+It is well-known from the experience in the physical computing classes that students, especially those coming from non technological disciplines, become attached to the platform they learn from and continue using it. Because these
+students don’t have technical or programming backgrounds, they invest time
+and effort in learning how to use and program these devices; commercial products that are not meant to teach or illustrate the concepts behind programming
+or electronics. The structure and tools provided are attached to specifics of a
+technology, making it very difficult for students migrate to others, when the one
+at hand is not the most appropriate solution for their explorations. If these audiences are willing to invest resources in learning such things, it makes sense for
+them to learn concepts that can be used and mapped in different environments
+and technologies, rather than learning the specifics and intricacies of a product.
+Another important consideration for schools and students is the availability of
+these tools for public use and distribution, at least in academic environments
+and applications.
+When appropriate, it is necessary to give students real computing skills, not only
+proprietary software “directions for use.” Consequently, they should get unrestricted access to the source code, modify or adapt it to their own needs, and thus
+improve the applications they use or develop.
+Free Software is particularly performing and secure for communication, a priority
+at school for Internet access and E-mail. Free Software allows remote servicing,
+a necessity for its deployment in large schools. Free Software allows software
+perennity as there is no necessity to buy the last software releases to obtain an
+(eventual) improvement. Updates can be immediately developed (so users don’t
+depend on editor goodwill) and shared with other users worldwide.
+
+34
+
+WIRING . HERNANDO BARRAGAN
+
+3. Concept development
+
+tend this experience to hardware programming and prototyping with electronics? I started to explore a number of technological alternatives trying to find the
+most appropriate ones.
+To start the explorations, I conducted a series of experiments with different technologies guided by intuition, excitement and a hands-on approach. At the same
+time, looking into the kind of applications where microcontrollers are used, I
+tried to identify the basic features of a desirable system. After long discussions
+and thoughts I decided to call my system Wiring. The following are my experiments with different technologies that led to it.
+
+I had the opportunity to collaborate with Ben Fry and Casey Reas as part of the
+
+3.1. First Experiment
+
+Processing development team. I also use Processing on my personal activities
+and as a teaching platform for teaching an Introduction to design for electronic
+
+Based on my own experience and other’s works I started to think of what could
+
+media at the University of Los Andes in Bogotá, and have also taught diverse
+
+be the basic desirable Application Programming Interface (API), which is the set
+
+Processing workshops in different parts of the world.
+
+of commands or instructions available to users in a programming environment
+
+Processing, as a subset on the Java language, brings to users an application inter-
+
+to create their own programs.
+
+face independent from the technology in which it is used, maintaining a level of
+
+Processing compiles the user programs (code), which is a subset of the Java lan-
+
+abstraction that allow users to learn the basics of computer programming and
+
+guage, and produces an application. By pressing the play button, the resultant
+
+focus on their projects rather than in technical issues or the technology speci-
+
+application can be seen manifested on the screen, and it can respond to differ-
+
+ficities of a platform. The Java programming language offers a syntax which is
+
+ent input devices connected to the computer. Another possibility is to export
+
+very similar to C, C++, Javascript or Flash Actionscript, making possible to build
+
+the user’s program to an applet, which is an application that can run inside a
+
+programs and algorithms that can be easily translated to different languages
+
+web browser as part of a web page. Processing generates the necessary files to
+
+and environments. This makes of Processing a very interesting tool for teaching
+
+post the user’s program code and the application to the web, including the basic
+
+and learning computer programming.
+
+HTML document.
+
+Large distinctions between Processing and Java are the Processing graphics li-
+
+The idea was to generate an API as close as possible to Processing, at least in the
+
+brary and a simplified programming style that doesn’t require users to under-
+
+basic set of commands, maintaining the concepts and coherence used in Process-
+
+stand more advanced concepts like classes, objects, or animation and double-
+
+ing, to create a new set of commands to support Wiring. Because of this, the Wir-
+
+buffering (while still making them accessible for advanced users). Such technical
+
+ing language could be immediately used by the existing Processing community.
+
+details must be specifically programmed in Java, but are integrated into ProcessAs my first experiment I naturally started to look at Java programmed devices, if
+
+ing, making programs shorter and easier to read. (Reas, Fry, 2003)
+
+there are not so many, I found some interesting devices to analyze.
+With Processing there is a community of 5000+ artists, designers and programmers around the globe, as well a group of educators, using Processing in their
+
+I concentrate in studying 2 cases: the Parallax JavelinStamp, and The Dallas
+
+teaching curriculums in art and design schools. I found inspiring and of great
+
+Semiconductor’s TINI Board. I contacted Dallas Semiconductors and Parallax
+
+value to build on this work. A large number of workshops have been taught
+
+Inc. explaining the purpose of my project, and ask for their possible collabora-
+
+around the globe, allowing the development team to gain the experience that
+
+tion. Dallas Semiconductors arranged shipping of a TINI microcontroller as well
+
+permitted the refining of the teaching materials and curriculums, and collecting
+
+as the socket board, with discount from the retail price. Parallax Inc. also offered
+
+feedback on the API and environment for further development. How could I ex-
+
+discount and assistance in getting one of their devices.
+
+36
+
+WIRING . HERNANDO BARRAGAN
+
+As a technology enthusiast I found the Dallas TINI board very interesting, its
+capabilities to connect to the network are quite amazing. It is a very powerful
+microcontroller, almost a small computer. Users can run a web server, and can
+also connect to it from the network; it can also be connected to the computer’s
+serial port. Once it is up and running, the users can modify their programs and
+then they can be sent to the board via FTP.
+The board is mostly designed to be interfaced with one-wire devices, which are
+a set of sensors and actuators that operate with literally one-wire connection
+and use a special protocol for that—but I found that connecting an LED and to
+make it blink is quite difficult—and this usually is the first exercise for interaction design students.
+The TINI microcontroller has a Java API very similar to the standard Java, with
+additional instructions to support its functionality. It uses standard Java classes,
+which are basically the Java compiled files and then these are linked into a binary file that can be uploaded into the board. Programmers can use the Java
+compiler of their choice to compile their programs, but the linking is achieved
+35
+
+through the Dallas tools.
+
+Parallax Javelin Stamp initial setup
+
+It is very difficult to use as a platform for teaching physical interaction design.
+The SIMM and the board are quite big and expensive even before the user’s circuitry is added for creating a prototype, but no doubt they are very interesting
+
+vice and asked its manufacturers for support. They collaborated, and responded
+
+hardware for advanced or very specific purposes.
+
+to my inquiries by creating command line tools (separating some commands
+
+I received the Parallax JaveStamp also known as Javelin Stamp. As a product
+from Parallax, which already has a long experience in the educational and hob-
+
+from the programming environment) to link and download the program to the
+microcontroller.
+
+byist market, it seems closer to the well known Basic Stamp. In fact, it is compat-
+
+So after this experiment, I decided to take my chances and do the first attempt
+
+ible in terms of pin functionality with the BasicStamp.
+
+to integrate between the Processing environment, the created API and this mi-
+
+I mounted the microcontroller in a board and started to do some programming
+on it. The programming environment is available only for Windows, and it is not
+free; users buy it and have the right to use it when they purchase the device.
+
+crocontroller, which meant that, users should be able to write their programs
+in the familiar Processing environment, using the instructions and commands
+proposed for the Wiring language, then compile and download the code to the
+microcontroller and, if lucky, see it working by some kind of blinking light.
+
+Internally from the development environment it calls for the GNU IBM Jikes Java
+compiler; it uses an old version of Jikes because of class files compatibility. I tried
+to use newer versions of Jikes and the generated files don’t work with the Parallax linker.
+
+A few weeks later finally some stable application resulted. It seemed to be working, and it was very exciting to see what this could be for users if they were able
+to write code for their experiments in this way. So this encouraged me to continue further.
+
+The class files are linked later with the libraries to produce a binary file that can
+be downloaded into the microcontroller. The linker is the intellectual property of
+Parallax, and it is not open source. Nonetheless I was very interested in this de-
+
+38
+
+I made no change to the processing interface for this experiment; only changes in the buttons’ functionality were made. The Play button was used to verify
+(compile) the user code, and the Export button was used to compile, link and
+
+WIRING . HERNANDO BARRAGAN
+
+download the program into the microcontroller. It also generated an HTML tem-
+
+After this experience I continued examining other Java-based microcontrollers,
+
+plate with the user code to be posted on the web that could be edited later to add
+
+including devices that seemed to run native Java code. All of them at the very end
+
+images, diagrams, etc.
+
+use a linker and downloader that usually is property of the manufacturer, which
+in all cases is only available for Windows and some with a licensing scheme that
+
+After the initial Windows support from Parallax, I asked them for the possibility
+
+could prevent the future distribution of this project.
+
+of having the command line linker and downloader available for Mac and Linux.
+(As I write this paper I still don’t have an answer from them.) This first experi-
+
+For this experiment I built two examples, one a blinking light and the other a
+
+ment was done without regard for future possibilities of distribution of their pro-
+
+switch input, which are explained in detail in the second experiment, since they
+
+prietary software but more driven by the excitement of doing it. Nonetheless I
+
+were repeated using a revised version of the Wiring language.
+
+have to thank them for their support. They would be interested to support this
+kind of project in the near future, but as they are developing their own platforms,
+their time frame was too slow for me to use their technology in my research.
+Unlike programming the Parallax BasicStamp, the programming for the Javelin
+Stamp is more difficult for beginners, regardless of whether it is worth pursuing
+to learn to program in Java.
+Conclusions after this experiment:
+Java programming for the microcontroller is a very interesting option to build
+upon. It has the possibility of easily extending the available command set by
+programming in Java.
+
+37
+Parallax Javelin Stamp press button example
+
+36
+Functions assigned to buttons in the Processing interface
+
+40
+
+WIRING . HERNANDO BARRAGAN
+
+3.2. Second Experiment
+
+experiment I changed some of the commands in the API to be coherent with
+Processing style and making more sense for the user. After programming the
+
+The next thing I did was to analyze the balancing of the microcontroller ca-
+
+basic set of instructions, I made a set of examples using the Wiring language. In
+
+pabilities and the availability of free tools. I analyzed some of the most widely
+
+the mean time more evaluation boards arrived, among them Microchip PIC, AVR
+
+used microcontrollers, and two families of chips seem promising, ARM-based
+
+Atmega128 and samples from other devices.
+
+microcontrollers and AVR microcontrollers. I choose to work on the ARM microcontroller for the next experiment. Many companies manufacture ARM based
+
+Example 1: blinking LED
+
+microcontrollers, among them Phillips and Atmel. Based on their response to my
+
+This example simply shows how to make an LED (which is basically a light) to
+
+requests for help, I started with the Atmel ARM version, specifically on the AT91
+
+blink (turn on and off) every half a second. The LED is connected to pin number
+
+R40008 microcontroller.
+
+6 according to the diagram.
+
+I got the evaluation board, which basically consists of an electronic board with
+
+int ledPin = 6;
+
+// LED connected to pin 6
+
+the microcontroller soldered to it, switches, LEDs, serial ports and I/O pins ready
+to be used, so that I could concentrate on the software development rather than
+
+void setup()
+
+in building an initial electronic circuit for testing.
+
+{
+// Nothing for setup
+
+After building the necessary tools to compile programs for this platform, I start-
+
+}
+
+ed porting part of the Wiring commands (API) to the specifics of the ARM in the C
+
+void loop()
+
+and assembler languages, initially the most basic ones. From the previous
+
+{
+// Sets the LED on
+pinWrite(ledPin, HIGH);
+// Wait for half a second
+delay(500);
+// Sets the LED off
+pinWrite(ledPin, LOW);
+// Wait for half a second
+delay(500);
+}
+
+38
+
+39
+Blink LED
+
+Atmel ARM Evaluation board
+Atmel Inc., 2003
+
+42
+
+WIRING . HERNANDO BARRAGAN
+
+Example 2: LED swing
+This example shows in a row of 8 LEDs how to make them light one at a time in a
+sequence, giving the impression that the light moves from one to the next. When
+it reaches the last one it comes back to the first one.
+// which pin is currently used
+
+40
+Swing LEDs
+
+int which = 0;
+// User defined function to turn off all the LED
+
+delay(200);
+
+// connected from pin number 0 to pin number 7
+
+// Move to the next one
+
+void turn_all_off()
+
+which = which + 1;
+
+{
+
+// If reached the last one go back to the first
+int i;
+
+if (which >= 8)
+
+for(i=0; i<8; i++)
+
+{
+
+{
+
+which = 0;
+pinWrite(i, LOW);
+
+}
+
+}
+
+}
+
+Example 3: An LED blinks while the user presses a switch
+
+}
+
+This example shows how to read a switch which is the most basic input device. It
+void setup()
+
+blinks an LED while the user presses a switch. When the user releases the switch
+
+{
+
+it turns off the LED.
+// Nothing for setup
+
+}
+
+int direction = 1;
+
+// Used for the blinking
+
+int switchPin = 12; // Pin atached to the switch
+void loop()
+
+int ledPin = 6;
+
+// LED on pin 6
+
+{
+// Turn all LED off
+
+void setup()
+
+turn_all_off();
+
+{
+
+// Set on the actual LED
+
+// Sets switch pin as input
+
+pinWrite(which, HIGH);
+
+pinMode(switchPin, INPUT);
+}
+void loop()
+{
+// If the switch is pressed blink the LED
+if(pinRead(switchPin) == LOW)
+{
+direction *= -1;
+
+44
+
+WIRING . HERNANDO BARRAGAN
+
+// Alternate between on and off the LED
+if (direction == 1)
+pinWrite(ledPin, HIGH);
+else
+pinWrite(ledPin, LOW);
+delay(200);
+}
+// If not pressed, turn off the LED
+else
+{
+pinWrite(ledPin, LOW);
+}
+}
+
+42
+
+Example 4: Controlling a screen-based application running on a PC through
+
+Controlling a screen-based application
+
+touching an object.
+This example shows how an object becomes a very simple interactive device to
+control a screen-based application running in a remote PC. Basically the PC is
+
+// Touch sensor will be attached to pin 23
+
+running a graphic application, which receives input from the serial port. The PCs
+
+int touchSensor = 23;
+
+serial port is connected to the microcontroller’s serial port. The microcontroller
+is waiting for user input and when the user presses the object, it sends a signal
+through the serial port causing the PCs running application to react by changing
+the shape and movement of basic graphic forms on the screen.
+
+41
+The LED blinks when the
+
+void setup()
+{
+// Starts the serial port with default settings
+
+switch is pressed
+
+beginSerial(9600);
+
+In order for the microcontroller to detect the event of touching, it has connected
+
+// Sets touch sensor pin as input
+
+a touch sensor to one of the pins. The touch sensor acts a simple switch, which
+
+pinMode(touchSensor, INPUT);
+
+is turned on when the user touches an electrode and off when the user releases
+
+}
+
+it, so the electrode is inside the interactive object.
+void loop()
+{
+// If the user touches the object sends a ’1’
+// and waits until he stops touching
+if(pinRead(touchSensor) == HIGH)
+{
+serialWrite(’1’);
+while(pinRead(touchSensor) == HIGH)
+{
+
+46
+
+WIRING . HERNANDO BARRAGAN
+
+delay(500);
+}
+// When the user release the object send a ’0’
+// through the serial port to the PC to indicate the object
+// was released
+serialWrite(’0’);
+
+43
+Atmel STK500 Evaluation board
+
+}
+
+44
+DLP Design USB232M Evaluation board
+DLP Design, 2003
+
+}
+
+ARM microcontrollers are very powerful devices. In some setups they require
+additional peripheral electronics. For the next experiment, I scaled down the
+microcontroller to the Atmel AVR microcontrollers family, all of which are still
+powerful but less expensive.
+45
+BDMICRO MAVRIC-II atmega128 Evaluation Board
+BDMICRO, 2003
+
+3.3. Third Experiment
+The third experiment consists again of porting and testing the existing Wiring
+
+I proceeded to implement the analog to digital conversion, digital to analog (PWM
+
+API to the AVR microcontroller, specifically to the atmega128. This microcon-
+
+Pulse width modulation), pulse generation, as well as some basic libraries, like
+
+troller has a very good balance in terms of power, features and price. I received
+
+serial port communication, servo motor, the Liquid Crystal Display (LCD) library,
+
+an evaluation board from BDMICRO. This board provides access to all the fea-
+
+for generic text displays based on the HD44780 controller.
+
+tures of the microcontroller without adding any extra complex devices.
+I received an evaluation board for the FTDI USB chip in order to provide support
+After some time the API was at the same level as the ARM version. After testing
+
+for USB serial connection, since the serial port is a disappearing commodity in
+
+the existing examples, they were made available from the wiring Web site along
+
+the computer market today, especially on laptops. Wiring should support the se-
+
+with the updated API.
+
+rial port communication without having to use an external adaptor for it.
+
+By porting the Wiring API to different microcontrollers, patterns started to
+
+FTDI provide drivers for the Microsoft Windows, Mac OSX and Linux operating
+
+emerge that will help to support the future development of Wiring for other
+
+systems, which are necessary for the Wiring environment to run on this operat-
+
+microcontrollers.
+
+ing systems. The chip worked successfully after running some tests.
+
+48
+
+WIRING . HERNANDO BARRAGAN
+
+4. Design and Implementation
+
+pow()
+max()
+min()
+ceil()
+floor()
+constrain()
+
+4.1. Wiring Software
+
+Trigonometry
+sin()
+cos()
+tan()
+atan2()
+radians()
+degrees()
+
+I designed an API, the basic set of commands that are available for users in their
+Wiring programs developed for their projects and explorations. Many modifications have been made since the original language proposal; maintaining the
+
+Random
+random()
+
+coherence with Processing and with the concepts that need to be illustrated. As
+soon as adjustments are made I developed examples that use the new command
+set. By doing such examples, it helps me to detect which makes sense in the actual set of commands, and quickly make revisions and changes if necessary. This
+
+46
+
+Constants
+PI ( 3.14159... )
+TWO_PI ( 6.28318... )
+HALF_PI ( 1.57079... )
+
+Servo Motor
+Basic servo motor manipulation
+library
+LCD Display
+Basic LCD manipulation library
+
+Libraries
+
+DC Motor
+Basic DC motor manipulation
+library.
+
+Libraries extend the basic functionality of Wiring. It is possible to
+write your own libraries.
+
+Network (In progress)
+Sending and receiving data over a
+net of devices.
+
+Serial
+Supports communication between
+Wiring and external hardware via
+the serial port.
+
+more to come...
+
+Initial Wiring API
+
+API is available from the Wiring programming environment.
+
+Structure
+; (semicolon)
+= (assign)
+() (parentheses)
+, (comma)
+// (comment)
+/* */ (multiline comment)
+void
+setup()
+loop()
+{} (curly braces)
+[] (array access)
+. (dot)
+
+Iteration
+while()
+for()
+Conditionals
+if()
+else
+Logical operators
+|| (logical OR)
+&& (logical AND)
+! (logical NOT)
+
+Input /Output
+Environment
+delay()
+
+Data
+Primitive
+int
+float
+char
+byte
+boolean
+
+Pin Digital I/O
+pinMode()
+digitalRead()
+digitalWrite()
+Port Digital I/O
+portMode()
+portRead()
+portWrite()
+Pin Analog Input
+analogRead()
+
+Control
+Relational Operators
+> (greater than)
+< (less than)
+>= (greater than or equal to)
+<= (less than or equal to)
+== (equality)
+!= (inequality)
+
+of the media and the available commands of the language. These examples are
+available in the Wiring Examples sketchbook distributed with the application
+and from the Wiring web site Examples section.
+
+Timing
+WTimer
+mark()
+timerEvent()
+
+From now on all the API changes and Examples will be directly posted and made
+available from the Wiring web site in the Reference section.
+
+Pulse Generation
+beginPulse()
+endPulse()
+pulseFrequency()
+pulseRun()
+pulseStop()
+pulseRunning()
+Pulse Input
+pulseIn()
+
+Users can create their programs in the Wiring environment editor. The user’s
+programs are compiled and then could be downloaded to the Wiring electronics
+I/O board.
+Once the program is downloaded to the Wiring I/O Board, it is executed on it.
+
+Text Output
+printMode()
+print()
+
+4.2. Wiring Hardware
+
+Math
+
+Terminal Keyboard
+keyPressed
+key
+keyPressed()
+keyReleased()
+
+Operators
++ (add)
+- (subtract)
+* (multiply)
+/ (divide)
+++ (increment)
+-- (decrement)
+% (modulo)
++= (add assign)
+-= (subtract assign)
+- (negation)
+
+Time & Date
+millis()
+second()
+
+abs()
+sq()
+sqrt()
+
+PWM (Analog) Output
+analogWrite()
+
+A set of small prototypical examples is being developed to illustrate the basics
+
+minute()
+hour()
+day()
+month()
+year()
+
+I designed the Wiring electronics I/O board. This I/O board is based on the Atmel
+AVR atmega128 microcontroller, which is a powerful, scalable and cost effective.
+The board has available 48 I/O digital pins, 8 Analog Input pins and 6 Analog
+Output (PWM) pins. It also has two hardware serial ports, Two-wire Interface protocol (TWI), In System Programmer (ISP) connector for initial board setup, and
+JTAG connector available for specialized debuggers. Some pins have different
+functionality and special functions which is made available through the Wiring
+
+50
+
+WIRING . HERNANDO BARRAGAN
+
+of a 500mA fuse in the Wiring board. The fuse will break and will have to be
+replaced if a problem occurs, but will keep safe the Wiring I/O board and the
+user’s computer.
+More information regarding these matters will be available on the web site, as well
+as connecting a wide range of sensors and actuators to the Wiring I/O board.
+Several considerations were taken in the design of the board. Since it is a system
+designed for learning and prototype interaction design projects, it provides access to all I/O pins. Basic sensors and actuators can be directly connected to the
+49
+Standard Servo Motors
+
+board, but more complex elements like a motor will require an external driver
+for connecting them to the board. What direct functionality to put on the board
+was a concern for the design of the I/O board. It’s been observed that using kits
+with specific plug-in connectors prevented people to try out other things. By
+providing specific connectors some kits were limiting the user to what the makers thought they would want to do with them. In Wiring, abstractions have been
+made in the API; an example of this is the servo motor library. A servo motor
+
+47
+
+is special kind of motor that can only move 180 degrees, so it can go back and
+
+Wiring I/O Board
+
+forth or stay in a specific position. In order to drive a servo motor it is necessary
+to send a pulse of a specific length and frequency to the servo motor. Variations
+programming environment. Access to the I/O pins is provided through headers.
+
+of these parameters will cause the motor to position in a specific angle. This is a
+
+Depending on the application, it is possible to use different kind of headers with
+
+technological solution that is far from being understandable by users. It seems
+
+the Wiring I/O board: male, female or screw. Headers can also be soldered in the
+bottom side of the board for special purposes.
+
+Servo Motor Library
+
+The Wiring I/O board can be connected to a computer using any available USB
+
+beginServo()
+Starts the servo motor library.
+
+port. This USB port is used for both downloading the compiled user programs
+
+endServo()
+Stops the servo motor library.
+
+to the microcontroller, as well as for communicating the Wiring I/O board with
+
+attachServo()
+Creates and attaches a servo motor to an i/o pin.
+
+other devices or computers.
+
+position()
+Gets the servo motor position.
+
+The Wiring I/O board can be powered from the host computer’s USB port or from
+a generic positive center Direct Current (DC) power supply adapter that provides
+from 7 to 15-volt DC. While powered from the USB port, special care has to be
+
+48
+Wiring I/O Board headers:
+
+angle()
+Sets the servo motor position angle.
+
+screw, male and female.
+
+taken since the computer’s USB bus can only power small, low current consumption devices. It is fine for doing small experiments with LEDs, switches or some
+sensors, but not to power devices like motors, servo motors, displays, etc. that
+have much higher current consumption. If this is the case, an external power
+adapter is needed to power the motors or devices attached to the board. Protection for both the Wiring I/O board and the host computer is provided by means
+
+52
+
+WIRING . HERNANDO BARRAGAN
+
+more natural to think of an angle and set the position of the servo motor by
+
+pulses determine the value of the measured unit. For instance pulses determine
+
+telling it the desired angle. This abstraction originated the set of commands to
+
+speed and direction in the case of the rotary encoder, or X and Y acceleration
+
+control a servo motor.
+
+in the case of the accelerometer. Other sensors work based on communication
+protocols (like TWI) can be grouped as well by communication protocol. In these
+
+Sensors and actuators can be grouped in families depending on their basic func-
+
+51
+
+tioning or communication protocol. Many sensing technologies are based on the
+
+cases it makes sense to provide commands to support the protocols rather than
+
+55
+
+Bend sensor
+
+variation of resistance through a physical phenomenon, like light intensity, heat,
+
+Accelerometer
+
+the specific sensor when appropriate, and then provide examples that illustrate
+
+Analog Devices Inc. 2003
+
+the use of them. Nonetheless there are some cases in which a library will be a
+
+stretch, press, humidity, movement, etc. All these sensors can be read by an ana-
+
+better solution to make the language and the use on the sensor or actuator more
+
+log input pin, and the value read will determine the position, temperature, light,
+
+understandable for users. The use and the nature of the physical phenomenon
+
+etc. in the appropriate case.
+
+that needs to be measured or generated with a sensor or actuator will determine
+this; but still users will learn the basics of electronics and connection of compo-
+
+It is the same with binary sensors or devices where the only possible inputs and
+
+nents, maybe not at the level of an electronic engineer, but enough to be able to
+
+outputs are HIGH or LOW. In the case of switches or touch sensors ON (HIGH) and
+
+use generic components as basic interconnection blocks to add functionality or
+
+OFF (LOW) logic is used. There are sensors like encoders, accelerometers and dis-
+
+52
+
+tance rangers, which work by generating pulses. The length and frequency of the
+
+complement their designs. This stimulates and encourages curiosity and leaves
+
+56
+
+Sharp Ultrasonic Ranger
+
+space for the user’s imagination about how something can be connected and
+
+Rotary Encoder
+
+integrated in their works.
+
+Digital Input/Outputs 24 - 39
+
+Analog
+Inputs
+0-7
+
+Analog
+(PWM)
+Outputs
+0-5
+
+Prototyping interaction design projects often require taking very different technologies and try to put them to work together. From simple standalone or networked interactive objects or devices to prototypes that involve computers or extra external equipment in complex interactive installations. Wiring is flexible and
+
+Power supply
+connector
+7-15V
+
+powerful enough to satisfy interaction design prototyping needs. The following
+53
+
+diagrams show some physical interaction design prototyping scenarios.
+
+57
+QPROX Touch Sensor
+
+Microswitch
+
+Quantum Research, 2003
+
+Power supply
+selector USB
+or External
+Interactive physical device / installation
+
+54
+
+Digital Input/Outputs 0 - 23
+
+Slider potentiometer (variable resistor)
+
++5v
+
+Wiring I/O Board
+
+USB
+connector
+
+58
+Tilt Switches
+
+Sensors /
+Actuators
+
++7-15v
+GND
+
+50
+
+59
+Prototyping standalone physical devices or installations
+
+Wiring I/O Board Map
+
+54
+
+WIRING . HERNANDO BARRAGAN
+
+Physical World
+
+Communication systems
+Network etc.
+
+Software / screen-based
+application
+
+Interactive physical device or installation
+
+Wiring I/O Board
+
+PC
+
+Input peripherals
+keyboard, Mouse etc.
+
+Sensors /
+Actuators
+
+4.3. Wiring Web Site
+I designed a web site for Wiring. I started right after the first examples were
+
+Physical World
+
+working. First I designed a typeface exclusive for the project and its image. The
+Wiring typeface includes 2 families, Normal and Dots; the later is used for the
+Wiring logo in the web site and the electronics I/O board.
+
+Output peripherals
+Screen, sound system,
+printer etc.
+
+60
+
+The Wiring and Processing web sites have differences and similarities. This avoids
+
+Prototyping physical devices or installations including PCs and peripherals
+
+confusing the user, and better suits the differences in the nature of the content
+displayed, especially in the examples section of the web site.
+Interactive physical device or installation
+
+As in the Processing web site, the Cover section will directly display Happenings,
+
+Interactive physical device or installation
+
+Wiring I/O Board
+
+Physical World
+
+Sensors /
+Actuators
+
+Wiring I/O Board
+
+an Exhibition and a few Examples direct links. Also the main navigation bar will
+link to all sections of the web site.
+Sensors /
+Actuators
+
+Physical World
+
+Now that the Wiring I/O board has come to reality, new sections will be incorporated into the Web site’s architecture. These will include all the information
+related to the I/O Board as well as to basic electronics, sensors and actuators
+
+61
+Prototyping interconnected physical devices or installations
+
+connection, etc.
+
+62
+Snapshots of the Wiring web site
+
+56
+
+WIRING . HERNANDO BARRAGAN
+
+Example 5: Light serial
+
+// created 13 May 2004
+
+Demonstrates how to read data from the serial port. If the data received is an
+
+void setup()
+{
+size(200, 200);
+beginSerial();
+noStroke();
+framerate(10);
+}
+
+‘H’ turns ON a light, if it is an ‘L’ turns OFF the light. The data comes from a
+computer running a Processing program, it sends an ‘H’ if the mouse is over a
+rectangle otherwise it sends an ‘L’.
+
+// light serial
+// by BARRAGAN <http://people.interaction-ivrea.it/h.barragan>
+char val;
+port
+int ledpin = 12;
+
+// variable to receive data from the serial
+// LED connected to pin 12
+
+void setup()
+{
+pinMode(ledpin, OUTPUT);
+beginSerial(9600);
+}
+void serialEvent()
+{
+val = serial;
+}
+
+boolean mouseOverRect()
+{
+return ((mouseX >= 50)&&(mouseX <= 150)&&(mouseY >= 50)&(mouseY
+<= 150));
+}
+void loop()
+{
+background(#222222);
+if(mouseOverRect())
+{
+fill(#BBBBB0);
+serialWrite(‘H’);
+pressed
+} else {
+fill(#666660);
+serialWrite(‘L’);
+}
+rect(50, 50, 100, 100);
+}
+
+// pin 12 as OUTPUT
+// initialize serial port
+
+// get data received in val
+
+void loop() {
+if(val == ‘H’)
+{
+digitalWrite(ledpin, HIGH);
+} else {
+digitalWrite(ledpin, LOW);
+}
+delay(100);
+}
+
+// if receive an ‘H’
+63
+
+// turn ON the LED
+
+Controlling a light from
+a screen application
+
+// if not turn it OFF
+
+*/
+
+// wait 100ms for next reading
+
+/* Processing code
+// mouseover serial
+// by BARRAGAN <http://people.interaction-ivrea.it/h.barragan>
+// Demonstrates how to send data to the Wiring I/O board, in order
+to
+// turn ON a light if the mouse is over a rectangle and turn it
+off
+// if the mouse is not.
+
+58
+
+WIRING . HERNANDO BARRAGAN
+
+// change color
+// send an ‘H’ to indicate mouse is
+
+// change color
+// otherwise send an ‘L’
+
+Example 6: Switch serial
+
+void serialEvent()
+{
+val = serial;
+}
+
+Demonstrates how to send data using the serial port. A computer running a
+Processing program receives the data from the serial port and fills a rectangle
+according to the value received.
+
+void loop()
+{
+background(#222222);
+if(val == 0)
+fill(#666660);
+else
+fill(#CCCCC0);
+rect(50, 50, 100, 100);
+}
+
+// switch serial
+// by BARRAGAN <http://people.interaction-ivrea.it/h.barragan>
+int switchpin = 0;
+void setup() {
+pinMode(switchpin, INPUT);
+beginSerial(9600);
+}
+
+*/
+
+void loop() {
+if(digitalRead(switchpin) == HIGH)
+serialWrite(1);
+else
+serialWrite(0);
+delay(100);
+}
+
+/* Processing code
+64
+
+// switch serial
+// by BARRAGAN <http://people.interaction-ivrea.it/h.barragan>
+
+Controlling a screen application
+through a switch
+
+// Demonstrates how to read data from the Wiring I/O board, in order
+// to fill a rectangle on the screen using a lighter color when a
+switch connecter
+// to the Wiring I/O board is pressed,
+// and fill it with darker color when the switch is released.
+// created 13 May 2004
+int val;
+void setup()
+{
+size(200, 200);
+beginSerial();
+noStroke();
+}
+
+60
+
+WIRING . HERNANDO BARRAGAN
+
+// Controlling a servo position using a slider (variable resistor)
+// by Michal Rinott <http://people.interaction-ivrea.it/m.rinott>
+
+4.4. First users
+
+int myservo=0;
+// servo channel 0 to attach a servo.
+int servopin=0; // digital pin used to connect the servo
+int sliderpin=0; // analog pin used to connect the slider
+int sliderValue; // variable to read the value from the analog pin
+
+I started testing the Wiring I/O board and programming environment with one
+of my classmates, Michal Rinott. After doing some of the basic examples, she
+developed an example on her own, controlling a servo motor position using a
+slider variable resistor.
+
+void setup()
+{
+beginServo();
+// initializes the servo library
+// attaches the servo number 0 to digital pin 0
+attachServo(myservo, servopin);}
+
+We employed the technique of “think aloud” in order for me to understand her
+path and direction while doing the examples, to give me insights about the process she follows.
+
+void loop()
+{
+// reads the value of the slider (value between 0 and 1024)
+sliderValue = analogRead(sliderpin);
+// scale it ot use it with the servo (value between 0 and 180)
+sliderValue = sliderValue/5.68;
+// sets the servo position according to the scaled value
+angle(myservo, sliderValue);
+delay(15);
+// waits for the servo to get there
+}
+
+My experience with Wiring was short but pleasant. My previous experience with
+coding for electronics was with the BasicX environment and looking over the
+shoulders of people using the JAL environment. The Wiring environment was very
+different: it felt simple, clean, aesthetic, non-technical, and not buggy. It seemed
+to do what I wanted, without any technical monsters lurking behind the scenes
+waiting for my mistakes.
+
+65
+Michal Rinott testing Wiring
+
+Having used Processing before, I felt comfortable and familiar in the environment.
+I was surprised at how intuitive the language was, and at how simple it was to
+get things to work—single command lines made things light up! It all felt very direct I was helped a lot—given the exercises and the exact components I needed to
+perform them. In this context, and with my prior knowledge, it was quite easy to
+do things. I got a line of LED’s running back and forth - that was quite easy - and
+then struggled a bit with the border condition: getting the last LED not to “blink”
+when the sequence changed direction. It was beautiful to see the “for loop” kind of
+behavior visualized before my eyes.
+The best exercise was the slider + motor example. It was fun to control a spinning behavior with a sliding—linear motion. It got my imagination running... this
+could scratch my back! and then more.
+Peeking into a new language, it was interesting to think about the mental models created by the choice of command terms. The wording would change the way
+people think about the underlying function. Should the motor be sent an “Angle”
+command or a “Rotation” command? What would my expectations be in each one
+of these cases as to what behavior a specific number would invoke? Exciting! (Ri-
+
+66
+Controlling a Servo motor position with a slider variable resistor
+Michal Rinott, 2004
+
+nott 2004)
+
+62
+
+WIRING . HERNANDO BARRAGAN
+
+She successfully finished the slider-servo example and it is posted on the Wiring
+web site’s Examples section.
+The next user was Karmen Franinovic. She proceeded to do exercises with the
+existing Wiring examples, and then she started to prototype controlling a light’s
+intensity with a stretch sensor. The stretch sensor is like a rubber band that
+69
+
+changes resistance when it is stretched. It worked successfully and again was
+
+Controlling a light’s intensity with a stretch sensor
+
+a experience that provided insights on different aspects. She tested some of the
+
+Karmen Franinovic, 2004
+
+math library functions as well.
+Since I had some experience with processing it was easy for me to get into it. The
+commands are simple and easy to understand. I would like to see more circuit ex-
+
+67
+
+// Stretch light
+
+Karmen Franinovic doing experiments
+with Wiring
+
+// by Karmen Franinovic <http://people.interaction-ivrea.it/
+
+amples and of course typical circuits for various sensors and actuators. The experi-
+
+k.franinovic>
+
+ments can be done very fast: in my example the only little problem encountered
+was the scale transformation, but with the minimal knowledge of mathematics
+
+// Created 15 May 2004
+
+such problems can be easily solved.
+int val;
+
+I had used BasicX and Basic Stamps, especially on short projects or workshops.
+I also used Teleo Makingthings which is easy, but limiting, the thing that I don’t
+
+void setup()
+
+like of it is that it has no brain! You always need to use the computer attached to
+
+{
+
+it. With Wiring I can write a program in a familiar environment, similar to pro-
+
+// nothing for setup
+
+cessing and download it into the processor. This gives me more possibilities, also
+
+}
+
+Wiring has more input/outputs available, so I can scale my project with no need to
+add more modules. I cannot wait to have it outside! (Franinovic 2004)
+
+68
+Myriel Milicevic and Maya Lotan doing
+experiments with Wiring
+
+void loop()
+{
+val = analogRead(0);
+
+// read analog input pin 0
+
+val = (val - 400) * 0.637;
+
+// scale value
+
+val = constrain(val, 0, 255); // constrain value
+analogWrite(0,val);
+
+// write value to analaog output 0
+
+delay(50);
+
+// wait 50ms for next reading
+
+}
+
+64
+
+WIRING . HERNANDO BARRAGAN
+
+4.5. Reactive tables (Powered by Wiring)
+A set of “reactive tables” that respond to physical actions from the users. These
+abstract pieces are the first explorations powered by Wiring. In each piece, the
+interaction is mediated through the same physical object, the light cube, and the
+response is created on the table surface, a combination of form and interaction.
+Each light cube is identical except for the interaction principle it embodies. One
+interaction principle per table: press and release, inclination and rotation of the
+light cube. The tables respond accordingly by changing the graphic patterns on
+their surface.
+
+70
+Reactive Tables
+Photograph by Ivan Gasparini
+
+Each table is controlled by a Wiring I/O board. Inside each table there is also a PC
+computer. Each light cube (one per table) has a different sensor on it. The sensor
+in the cube is connected to the Wiring board through the cable that connects the
+cube with the table. This cable also powers the light cube.
+
+71
+Reactive Tables
+Photograph by Ivan Gasparini
+
+The Wiring system, checks for the sensor data and sends the appropriate data to
+the PC computer through a USB cable. In the PC computer a Processing graphics
+application is running, and continuously receives data from the Wiring I/O board.
+
+66
+
+WIRING . HERNANDO BARRAGAN
+
+The data is interpreted making the graphics system to react according to the external manipulation of the light cubes and reflected on the tables’ surface.
+Exhibited at Milan Triennale, This is Today. L’invasione degli ultracorpi interattivi.
+April 15-19 2004
+
+4.6. Prototyping aids
+Software programs and libraries to support the interconnection of different tech-
+
+73
+Reactive Tables
+
+nologies are very easy to identify while prototyping interaction design projects. A
+considerable amount of work in this direction has been done at different schools,
+making available to students software libraries and applications that allow them
+to interface diverse technologies in the daily prototyping of interactive devices.
+One that was very common at IDII was the need to transfer information from/to
+a physical device to/from a computer, sometimes not only to transfer to/from
+one but to many computers in a network.
+
+74
+Reactive Tables
+
+To fulfill this need I designed an application that allows students to send and
+receive data from or to any kind of microcontroller (including the Wiring I/O
+board) that is connected to a computer’s serial port, to software applications like
+Macromedia Flash to other computers in the network. What this software does
+is to open the serial port to communicate with the microcontroller and creates
+a network server that transmits this data to any network client that connects to
+this server. Macromedia Flash doesn’t have access to the computer’s serial port,
+but has access to the network, so in this case users can connect Flash using its
+Actionscript language to my interface server, and send and receive data from the
+microcontroller. This allows for quick prototyping in certain projects, by combining the Flash multimedia capabilities with the realm of hardware.
+
+72
+Reactive Tables
+
+Data can also be received by other software applications or programs developed
+in Java, C, or any other language with network connection capabilities.
+At the moment this software is being used by students at IDII in a wide variety
+of prototypes, at the ITP program at NYU, the Massachusetts College of Art in
+Boston and Dublin City University in Ireland.
+
+68
+
+WIRING . HERNANDO BARRAGAN
+
+4.7 Class support material
+Class aid tools are very important in education, not only for communication
+purposes but also for the class development, and also as reference for future
+generations of students and the community in general.
+In collaboration with my friend Mauricio Giraldo, I developed a courseware system based on previous courseware experiences at Interaction design Institute
+Ivrea and the MIT Media Lab.
+By analyzing features available in Casey Reas’ Points & Pixels courseware, DBN
+courseware at the Massachusetts Institute of Technology (MIT) Media Lab and
+Networked mode
+
+Reed Kram’s courseware for the Controlmania class, we developed a system to
+support teachers and students in the daily class activities. Taking what we considered the most important features of each of these courseware systems, we
+combined them into the new one. The courseware system is now part of the
+Processing project.
+Educators can create, edit, modify and consult all the course components (classes, students, problem sets, references, schedule, and syllabus). Students can
+post, edit and modify solutions to problem sets, document and present their
+work, and visualize their classmates’ solutions to problem sets, thereby facilitating the learning process.
+
+Single computer mode
+
+75
+
+Prototyping modes in which the server is appropriate
+
+Solutions to problem sets can include Interactive media files like Processing applets, Macromedia SWF format files, Apple QuickTime movies, or popular for-
+
+Soeren Pors’ Fight Suit project was one of the first projects at Interaction Design
+
+mats for images on the Web, like PNG, GIF, JPEG etc. The solution can also include
+
+Institute Ivrea that used the server to read data from an accelerometer con-
+
+text or HTML formatted text, as well as links to other Web sites. The system also
+
+nected to a microcontroller and send it to a prototype application developed in
+
+provides the web interface for external people to be able to visualize the class
+
+Macromedia Flash.
+
+activities. Solutions can be visualized by student or by problem set, making it
+possible to view an individual student’s work or the class solution’s work for a
+
+Connecting Flash and the microcontroller was the backbone that enabled the de-
+
+specific problem.
+
+velopment of the Fight Suit prototype (www.fightsuit.com). It took a lot of hard
+76
+
+work from Yaniv Steiner to control the accellerometer input, but we ended up with
+perfect punch response. The Flash connection opened up a new range of prototyping possibilities to normal folks like me. (Soeren Pors, 2004)
+
+Fightsuit prototype
+Soeren Pors, 2004
+
+The graphic layout of the class Web site is completely customizable through CSS
+and XHTML. The system includes an initial default layout, and English and Spanish language files. More will come as more people use it on their activities.
+The first version of this software was available in the summer of 2003 and a new
+version is currently available for users to download. It requires a one-time instal-
+
+70
+
+WIRING . HERNANDO BARRAGAN
+
+lation per server; detailed instructions are available in the courseware web site.
+Once the system is installed running, it is possible to create as many courses as
+needed. It is built on of open source GNU tools and the code was made available
+to the community. At the moment it is being used at the University of Los Andes
+in Bogotá, University of California Los Angeles (UCLA), Carnegie Mellon University School of Design, and the Ateneo in Manila. The courseware has also been
+used to support Processing workshops.
+
+77
+Snapshots of the Courseware system in use at different schools
+
+72
+
+WIRING . HERNANDO BARRAGAN
+
+5. Conclusions and Future Direction
+
+As was the experience with Processing, I expect that my running of workshops
+will help me gain the necessary teaching experience as I more finely tune the
+curriculums to achieve the goals of the project.
+I devised this project to be used along with Processing to teach in academic environments; doing the initial learning-to-program steps with Processing, then
+moving into learning basic electronics with Wiring and doing things in parallel.
+Both will complement each other in taking the user’s design experiences into the
+physical world.
+The Wiring programming environment will be subject of constant improvements;
+that’s the nature of software. At the moment an initial version with the basic
+API is released; but major changes in the software will happen in the following
+months to reflect the implementation of additional libraries and functionality, as
+
+This project has been an incredible design challenge in on every level. From elec-
+
+well as to include development environment improvements done for Processing,
+
+tronics to visual design, it forced me to execute tasks that required many skills.
+
+since Processing and Wiring share the programming environment.
+
+In this sense it has been an amazing learning experience.
+Another important feature that will be added for the next release is the support
+I found obstacles at every turn; some were challenging problems, others more
+
+for some of the lower-end microcontrollers of the Atmel AVR Atmega family, to
+
+like dead ends that forced me to step back and try a different approach.
+
+satisfy the user’s needs to deploy higher number of prototypes of its designs in a
+more cost-effective manner.
+
+For my experience, it was very important to keep open to change and alternatives; it is easy to get caught into something that makes us feel comfortable,
+
+Massive amounts of work have to be done in the communication and documen-
+
+specially being in love with technology. In that sense I think my experience as an
+
+tation parts of the project. The Wiring web site will be a constant challenge re-
+
+artist and designer helped me in achieving some balance and getting alternative
+
+garding this matter.
+
+perspectives of the problems involved in this project.
+The I/O Board hardware is designed to last for a longer period of time without
+This project is just starting; a considerable amount of work has to be done to
+
+major changes. The Wiring board is powerful and flexible enough for the actual
+
+take it further and to the extent I intended. From my thesis work, Wiring is in its
+
+and future needs of physical interaction design projects in the coming months.
+
+initial stage. Now the tools need to be tuned and perfected through the experience and use in school environments and by the community in general.
+I am very excited and challenged with the work done, and the expected question:
+what’s next? Everything! I think. It is also exciting to think of the kind of works
+that hopefully people will do with Wiring.
+Processing has opened a path for this project, not only in terms of community,
+teaching methodologies or technology; however, only the use and experience of
+Wiring will give me the necessary insights for improvements.
+
+74
+
+WIRING . HERNANDO BARRAGAN
+
+6. References
+
+Stang, Pascal, AVRmini Boards, Santa Clara University, Nov 9 2003, <http://hubbard.engr.scu.edu/embedded/avr/avrmini>
+Bishop, Durrell, Durrell Bishop, <http://www.durrellbishop.com>
+
+diSessa, Andrea A., Edward H. Lay, The Berkeley BOXER Project, February 25 2002,
+<http://dewey.soe.berkeley.edu/boxer.html/index.html>
+
+Verplank, Bill, Bill Verplank, <http://www.billverplank.com>
+
+Kay, Alan, Squeakland, May 2004, <http://www.squeakland.org>
+
+Banzi, Massimo, potemkin.org, <http://www.potemkin.org>
+
+Logo Cmputer Systems Inc., Microworlds, May 2004, <http://www.microworlds.
+
+Reas, Casey, GroupC.net / REAS, April 2004, <http://www.groupc.net>
+
+com>
+UCLA Design | Media Arts, UCLA Design | Media Arts / SenseLab, April 2004, <
+Maeda, John, Tom White, Ben Fry, Jessica Rosenkrantz, Design By Numbers, Aes-
+
+http://dma.ucla.edu/senselab>
+
+thetics + Computation Group. Design By Numbers website. MIT Media Laboratory
+Aesthetics + Computation Group. Cambridge, August 2 2003, <http://dbn.media.
+
+O’Sullivan, Dan, Dan O’Sullivan, ITP NYU, May 2004, <http://fargo.itp.tsoa.nyu.
+
+mit.edu>
+
+edu/~dano>
+
+Reas, Casey, Ben Fry, Processing, MIT Media Laboratory and Interaction Design
+
+Igoe, Tom, Tom Igoe, ITP NYU, May 2004, <http://stage.itp.nyu.edu/~tigoe>
+
+Institute Ivrea, May 2004, <http://www.processing.org>
+Berzowska, Joanna, Joanna Berzowska, Concordia University, May 2004, <http://
+Martin, Fred, Fred’s World, University of Massachusetts LOWEL, Jan 27 2004,
+
+hybrid.concordia.ca/~joey>
+
+<http://www.cs.uml.edu/~fredm/>
+Nimoy, Josh, The Work of Josh Nimoy, ITP NYU, March 2004, <http://www.jtnimoy.
+Massachusets Institute of Technology, 6.270 MIT’s Autonomous Robot Design
+
+com>
+
+Competition, 2004, <http://www.mit.edu:8001/courses/6.270/home.html>
+Stang, Pascal, SCU Robotics Systems Laboratories, Santa Clara University, April 1
+Martin, Fred. The Handy Board, handyboard.com, Aug 27 2003, <http://www.
+
+2003, <http://hubbard.engr.scu.edu/embedded>
+
+handyboard.com>
+Lawson, Cynthia, Physical Computing, ITP NYU, 2003, http://stage.itp.tsoa.nyu.
+MIT Media Laboratory Future of Learning Group, GoGo Board, MIT Media Labora-
+
+edu/~cl457/pcomp
+
+tory, April 5 2004, <http://learning.media.mit.edu/projects/gogo>
+Co, Elise, elise co, Aesthetics + Computation Group. MIT Media Laboratory, AuGalbraith, Megan, Simon Greenwold, Justin Manor, nylon, MIT Media Laboratory,
+
+gust 8 2001, <http://acg.media.mit.edu/people/elise>
+
+Aesthetics + Computation Group, 2002, <http://acg.media.mit.edu/projects/nylon>
+
+Koser, Mikkel, Drawing Machine Project, Interaction Design, Royal College of Art,
+May 2003, <http://proce55ing.beyondthree.com/tutorial/drawingmachine>
+
+Galbraith, Megan, megan galbraith master’s thesis, Embedded Systems for Computational Garment Design, 2003, <http://acg.media.mit.edu/people/megan/the-
+
+Van Ooijen, Wouter, Eur van Andel, Mark Gross, Javier Martinez, Craig Franklin,
+
+sis.html>
+
+Jal - Just Another Language, June 4 2003, <http://jal.sourceforge.net>
+
+76
+
+WIRING . HERNANDO BARRAGAN
+
+Parallax Inc. Stamps in Class, Parallax Bbasic Stamp, <http://www.parallax.com/
+
+Zadeh, Lotfi , BISC Program; Soft Computing The Berkeley Initiative on Soft
+
+html_pages/edu/index.asp>
+
+Computing, Berkeley University of California, 2003, <http://www.cs.berkeley.
+edu/~zadeh>
+
+Netmedia Inc. BasicX by NetMedia Inc., <http://www.basicx.com>
+Mann, Steve, Wearable Computing, University of Toronto, 2003, <http://about.
+Microchip, Microchip Technology. Inc Home Page, May 2004, <http://www.micro-
+
+eyetap.org/library/weekly/aa061500a.shtml>
+
+chip.com>
+Verplank, Bill, Physical Interaction Design – Autumn 2002, Interaction Design
+Atmel Corporation, Atmel AVR 8-Bit RISC Homepage, May 2004, <http://www.
+
+Institute Ivrea, 2002, <http://www.interaction-ivrea.it/courses/2002-03/physical-
+
+atmel.com/products/AVR>
+
+computing>
+
+Atmel Corporation, AT91 Arm-based Microcontrollers Homepage, May 2004,
+
+Banzi, Massimo, InflatedEgoTeachingPhysicalComputing, Interaction Design
+
+http://www.atmel.com/products/AT91/
+
+Institute Ivrea, 2003, <http://conncomm.interaction-ivrea.it/zope/inflatedego/
+TeachingPhysicalComputing>
+
+Systronix Inc, JStamp™, 2003, <http://www.systronix.com/jstamp>
+Verplank, Bill, Max Mathews, MUSIC 250a / CS377C – HCI Theory and Practice,
+Maxim/Dallas Semiconductor Corp., TINI: Introducing TINI, 2004, <http://www.
+
+Human Computer Interaction Design Stanford University, 2004, <http://ccrma-
+
+ibutton.com/TINI/index.html>
+
+www.stanford.edu/courses/250a>
+
+Rabbit Semiconductor, Rabbit Semiconductor | Microprocessors and Develop-
+
+ETH, Swiss Federal Institute of Technology, Wearable Computing Lab : Welcome
+
+ment tools for Embedded Control and Communications, 2004, <http://www.rab-
+
+to the Wearable Computing Lab, ETH, Swiss Federal Institute of Technology Zur-
+
+bitsemiconductor.com>
+
+ich, Jan 4 2004, <http://www.wearable.ethz.ch>
+
+Makingthings LLC, PRODUCTS, 2004, <http://www.makingthings.com/products/
+
+Seymour, Sabine, fashionable technology, Parsons School of Design Center for
+
+products.htm>
+
+New Design, 2003, <http://a.parsons.edu/~fashiontech>
+
+Infusion Systems, Infusion Systems :: I-CubeX, MIDI sensor control for research,
+
+FSF Europe, FSF Europe – Education – Argumentation, Why give precedence to
+
+education, art, music, dance and more, 2003, <http://www.infusionsystems.
+
+Free Software at school?, Free Software Foundation Europe, February 2 2003,
+
+com>
+
+<http://fsfeurope.org/projects/education/argumentation.en.html>
+
+Pond Electronics, Pond – Embedded Systems Products, 2003, <http://www.pond.
+
+Utterback, Camille, Fang-Yu Lin, Major Studio - Physical Computing, Spring 2002,
+
+ie/products/index.htm>
+
+Parsons School of Design, 2002, <http://a.parsons.edu/~linf/pc/sp02>
+
+MIT Media Laboratory, aesthetics + computation group, MIT media laboratory,
+
+Camarata, Ken, Mark D Gross, Ellen Yi-Luen Do, [dmg . publications . Physical
+
+2004, <http://acg.media.mit.edu>
+
+Computing: A Design Studio that Bridges Art, Science, and Engineering], Washington University, March 13 2003, <http://dmg.caup.washington.edu/xmlSiteEn-
+
+Interactivity Consultants, Physical Interactivity and Interaction Design School
+
+gine/browsers/stylin/publication134.html>
+
+Guide, 2003, <http://www.interactivityconsultants.com/pages/alternate_indexes/LowF_interactivity_curriculum_education.htm>
+
+78
+
+WIRING . HERNANDO BARRAGAN
+
+Winograd Terry, From Computing Machinery to Interaction Design, Stanford
+University Program in Human-Computer Interaction, 1997, <http://hci.stanford.
+
+Apendix A. Wiring I/O Board
+Circuit Schematics
+
+edu/~winograd/acm97.html>
+McCullough, Malcolm, Abstracting Craft: The Practiced Digital Hand, MIT Press,
+1998.
+Pors, Soeren, Fightsuit, 2004, <http://www.fightsuit.com>
+Myers, B., Creating Interaction Techniques by Demonstration, appears in Visual
+Programming Environments: Paradigms and Systems, Ed. Ephraim P. Glinert,
+1990.
+Norman, D. A., Things that make us smart, Addison-Wesley, Reading, MA, 1993.
+Maeda, John. Design By Numbers, MIT Press, Cambridge, MA. 1999.
+Jones, Joseph L., Flynn Anita M., Seiger Bruce A., Mobile Robots, Ed. A K Peters,
+Ltd. 1999.
+Kernighan B. W., D. M. Ritchie, The C Programming Language, Prentice-Hall: Englewood Cliffs, NJ, 1978. Second edition, 1988
+D. Svanaes, Understanding Interactivity. Steps to a Phenomenology of HumanComputer Interaction, Phd Thesis, Trondheim, 1999.
+Atmel Corporation, 8-Bit AVR Microcontroller with 128K Bytes In-System programmable Flash ATMega128 ATMega128L Preliminary, 2003.
+Atmel Corporation, AVR061: “STK500 Communication Protocol”, Application
+Note, 2003.
+Atmel Corporation, AT91 ARM® Thumb® Microcontrollers, AT91R40008, Summary, 2003.
+Atmel Corporation, AT91 ARM® Thumb® Microcontrollers, AT91R40008, Electrical Characteristics, 2003
+
+80
+
+WIRING . HERNANDO BARRAGAN
+
+Apendix B. Wiring I/O Board Layout
+
+Colophon
+This document was prepared with Adobe InDesign.
+The text of this thesis was set on 14 points of lead in eight point Caecilia (1991),
+designed by Peter Matthias Noordzij and issued by Linotype in 1991.
+The Wiring I/O board circuit was designed and laid out using Cadsoft Eagle Freeware Light Edition. <http://www.cadsoft.de>
+
+82
+
+WIRING . HERNANDO BARRAGAN
+
+84
+
+
