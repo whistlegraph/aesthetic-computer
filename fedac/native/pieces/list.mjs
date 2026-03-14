@@ -5,6 +5,7 @@ let frame = 0;
 let scrollY = 0;
 
 const PIECES = [
+  // native pieces
   { name: "notepat",       alias: "np",  desc: "synthesizer instrument with touch grid" },
   { name: "os",            alias: null,  desc: "system update panel (OTA flash)" },
   { name: "wifi",          alias: "net", desc: "network picker and saved credentials" },
@@ -17,6 +18,21 @@ const PIECES = [
   { name: "roz",           alias: null,  desc: "generative art viewer" },
   { name: "prompt",        alias: null,  desc: "command prompt (home)" },
   { name: "list",          alias: null,  desc: "this screen" },
+  // web pieces (run unmodified)
+  { name: "clock",         alias: null,  desc: "melody clock with UTC sync" },
+  { name: "brick-breaker", alias: "bb",  desc: "paddle and ball game" },
+  { name: "gostop",        alias: null,  desc: "go/stop rhythm game" },
+  { name: "beat",          alias: null,  desc: "mouse percussion instrument" },
+  { name: "shh",           alias: null,  desc: "noise drone instrument" },
+  { name: "dync",          alias: null,  desc: "percussive pad instrument" },
+  { name: "chart",         alias: null,  desc: "diagram sketch" },
+  { name: "f3ral3xp",      alias: null,  desc: "feral expression" },
+  { name: "3x3",           alias: null,  desc: "3x3 ortholinear pad" },
+  { name: "hop",           alias: null,  desc: "game sketch" },
+  { name: "error",         alias: null,  desc: "error display screen" },
+  { name: "404",           alias: null,  desc: "page not found" },
+  { name: "hw",            alias: null,  desc: "hello world" },
+  { name: "ptt",           alias: null,  desc: "push to talk sketch" },
 ];
 
 const COMMANDS = [

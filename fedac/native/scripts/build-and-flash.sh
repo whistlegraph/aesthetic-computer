@@ -186,6 +186,15 @@ if [ -d "${PIECES_SRC}" ]; then
     log "Bundled pieces: $(ls "${INITRAMFS_DIR}/pieces/" | tr '\n' ' ')"
 fi
 
+# Copy web pieces that run unmodified on native (Wave 1 + clock)
+AC_DISKS_DIR="${NATIVE_DIR}/../../system/public/aesthetic.computer/disks"
+for web_piece in clock.mjs 3x3.mjs 404.mjs beat.mjs brick-breaker.mjs \
+    dync.mjs error.mjs gostop.mjs hop.mjs shh.mjs chart.mjs \
+    f3ral3xp.mjs hw.mjs ptt.mjs; do
+    [ -f "${AC_DISKS_DIR}/${web_piece}" ] && cp "${AC_DISKS_DIR}/${web_piece}" "${INITRAMFS_DIR}/pieces/"
+done
+log "Bundled web pieces: $(ls "${INITRAMFS_DIR}/pieces/" | grep -c '.mjs') total"
+
 # Copy shared JS libraries needed by pieces (pure JS, no browser deps)
 AC_LIB_DIR="${NATIVE_DIR}/../../system/public/aesthetic.computer/lib"
 mkdir -p "${INITRAMFS_DIR}/lib"
