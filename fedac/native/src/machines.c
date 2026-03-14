@@ -8,6 +8,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
+#include <sys/reboot.h>
+#include <linux/reboot.h>
 
 extern void ac_log(const char *fmt, ...);
 extern char g_machine_id[64];
