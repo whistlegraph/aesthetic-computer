@@ -13,30 +13,11 @@ let frame = 0;
 let pollFrame = 0;
 
 function boot({ system, wifi }) {
-  // Check if Claude credentials already exist
-  let hasCreds = false;
-  try {
-    const creds = system.readFile("/mnt/claude-credentials.json");
-    if (creds && creds.length > 10) hasCreds = true;
-  } catch (e) { /* file doesn't exist */ }
-
-  if (hasCreds) {
-    // Credentials found — skip curtain, go straight to terminal
-    console.log("[claude] credentials found, launching terminal");
-    mode = "terminal";
-    system.jump("terminal:claude");
-    return;
-  }
-  console.log("[claude] no credentials, showing auth curtain");
-
-  // No credentials — show auth curtain
+  // Always start in auth mode — check credentials in paint after first frame
+  // (boot() can crash silently in QuickJS if APIs aren't ready yet)
   mode = "auth";
-  if (!wifi || !wifi.connected) {
-    state = "error";
-    error = "connect to wifi first";
-    return;
-  }
-  system.fetch(API_URL + "?action=request");
+  state = "checking";
+  console.log("[claude] boot: starting auth curtain");
 }
 
 function paint({ wipe, ink, box, write, qr, screen, system, wifi }) {
@@ -51,6 +32,32 @@ function paint({ wipe, ink, box, write, qr, screen, system, wifi }) {
   // Title
   ink(T.accent[0], T.accent[1], T.accent[2]);
   write("claude", { x: 10, y: 10, size: 2, font: "matrix" });
+
+  // One-time credential check on first frame
+  if (state === "checking") {
+    let hasCreds = false;
+    try {
+      const creds = system.readFile("/mnt/claude-credentials.json");
+      if (creds && creds.length > 10) hasCreds = true;
+      console.log("[claude] creds check: len=" + (creds ? creds.length : "null") + " hasCreds=" + hasCreds);
+    } catch (e) {
+      console.log("[claude] creds check: error " + e);
+    }
+    if (hasCreds) {
+      mode = "terminal";
+      system.jump("terminal:claude");
+      return;
+    }
+    // No creds — start device auth
+    if (wifi && wifi.connected) {
+      state = "requesting";
+      system.fetch(API_URL + "?action=request");
+    } else {
+      state = "error";
+      error = "connect to wifi first";
+    }
+    return; // don't render this frame
+  }
 
   if (state === "requesting") {
     ink(T.fgDim, T.fgDim, T.fgDim);
