@@ -28,22 +28,23 @@ let scrollOffset = 0;  // scroll position for message list
 
 function boot({ system, params }) {
   // Allow room override via params: system.jump("chat:clock")
-  if (params?.[0] && CHAT_ROOMS[params[0]]) {
+  if (params && params[0] && CHAT_ROOMS[params[0]]) {
     roomName = params[0];
   }
 
   // Read user identity from config
-  const raw = system?.readFile?.("/mnt/config.json");
-  if (raw) {
-    try {
-      const cfg = JSON.parse(raw);
+  try {
+    var raw = system.readFile("/mnt/config.json");
+    if (raw) {
+      var cfg = JSON.parse(raw);
       handle = cfg.handle || "";
       sub = cfg.sub || "";
-    } catch (_) {}
-  }
+    }
+  } catch (_) {}
   // Connect to chat room WebSocket
-  const url = CHAT_ROOMS[roomName] || CHAT_ROOMS.system;
-  system?.ws?.connect(url);
+  var url = CHAT_ROOMS[roomName] || CHAT_ROOMS.system;
+  console.log("[chat] connecting to " + url);
+  if (system && system.ws) system.ws.connect(url);
 }
 
 function act({ event: e, system, sound }) {
@@ -55,22 +56,25 @@ function act({ event: e, system, sound }) {
     cursorBlink = 0;
 
     if (key === "escape") {
-      system?.jump?.("prompt");
+      if (system && system.jump) system.jump("prompt");
       return;
     }
 
     if (key === "enter" || key === "return") {
-      const text = inputText.trim();
-      if (text.length > 0 && system?.ws?.connected) {
-        const msg = JSON.stringify({
+      var text = inputText.trim();
+      var wsOk = system && system.ws && system.ws.connected;
+      console.log("[chat] send: len=" + text.length + " ws=" + wsOk);
+      if (text.length > 0 && wsOk) {
+        var msg = JSON.stringify({
           type: "chat:message",
-          content: { sub: sub || "anonymous", text, handle: handle || "anon" },
+          content: { sub: sub || "anonymous", text: text, handle: handle || "anon" },
         });
         system.ws.send(msg);
+        console.log("[chat] sent: " + msg);
         // Add locally immediately
-        messages.push({ from: handle || "me", text, when: Date.now() });
+        messages.push({ from: handle || "me", text: text, when: Date.now() });
         scrollOffset = 0; // scroll to bottom
-        sound?.synth({ type: "sine", tone: 880, duration: 0.04, volume: 0.1, attack: 0.002, decay: 0.03 });
+        if (sound && sound.synth) sound.synth({ type: "sine", tone: 880, duration: 0.04, volume: 0.1, attack: 0.002, decay: 0.03 });
       }
       inputText = "";
       cursor = 0;
@@ -117,8 +121,8 @@ function paint({ wipe, ink, box, line, write, screen, system, sound, wifi }) {
   const pad = 4;
 
   // Process incoming WebSocket messages
-  const wsMsgs = system?.ws?.messages;
-  if (wsMsgs?.length) {
+  const wsMsgs = (system && system.ws ? system.ws.messages : null);
+  if (wsMsgs && wsMsgs.length) {
     for (const raw of wsMsgs) {
       try {
         const msg = JSON.parse(raw);
@@ -126,7 +130,7 @@ function paint({ wipe, ink, box, line, write, screen, system, sound, wifi }) {
         if (msg.type === "connected") {
           connected = true;
           const content = parseContent(msg.content);
-          const history = content?.messages || [];
+          const history = (content && content.messages) || [];
           // Load message history
           for (const m of history) {
             if (m.from && m.text) {
@@ -135,9 +139,9 @@ function paint({ wipe, ink, box, line, write, screen, system, sound, wifi }) {
           }
         } else if (msg.type === "message") {
           const m = parseContent(msg.content);
-          if (m?.from && m?.text) {
+          if (m && m.from && m.text) {
             messages.push({ from: m.from, text: m.text, when: Date.now() });
-            sound?.synth({ type: "triangle", tone: 660, duration: 0.05, volume: 0.08, attack: 0.002, decay: 0.04 });
+            (sound && sound.synth)({ type: "triangle", tone: 660, duration: 0.05, volume: 0.08, attack: 0.002, decay: 0.04 });
           }
         } else if (msg.from && msg.text) {
           messages.push({ from: msg.from, text: msg.text, when: Date.now() });
@@ -147,9 +151,9 @@ function paint({ wipe, ink, box, line, write, screen, system, sound, wifi }) {
   }
 
   // Reconnect if dropped
-  if (wifi?.connected && !system?.ws?.connected && !system?.ws?.connecting && frame % 120 === 0) {
+  if (wifi && wifi.connected && system && system.ws && !system.ws.connected && !system.ws.connecting && frame % 120 === 0) {
     const url = CHAT_ROOMS[roomName] || CHAT_ROOMS.system;
-    system?.ws?.connect(url);
+    if (system && system.ws) system.ws.connect(url);
   }
 
   // Header — show room name
@@ -157,11 +161,11 @@ function paint({ wipe, ink, box, line, write, screen, system, sound, wifi }) {
   write(roomName === "system" ? "chat" : roomName, { x: pad, y: 2, size: 1, font });
 
   // Connection status
-  const wsOk = system?.ws?.connected;
+  const wsOk = (system && system.ws && system.ws.connected);
   if (wsOk) {
     ink(60, 160, 80);
     write("connected", { x: pad + 5 * charW, y: 2, size: 1, font });
-  } else if (wifi?.connected) {
+  } else if ((wifi && wifi.connected)) {
     ink(200, 200, 80);
     write("connecting...", { x: pad + 5 * charW, y: 2, size: 1, font });
   } else {
@@ -253,7 +257,7 @@ function paint({ wipe, ink, box, line, write, screen, system, sound, wifi }) {
   if (messages.length === 0 && connected) {
     ink(70, 60, 80);
     write("no messages yet", { x: pad, y: Math.floor(H / 2) - 5, size: 1, font });
-  } else if (!connected && !wifi?.connected) {
+  } else if (!connected && !(wifi && wifi.connected)) {
     ink(70, 60, 80);
     write("connect to wifi first", { x: pad, y: Math.floor(H / 2) - 5, size: 1, font });
   }
