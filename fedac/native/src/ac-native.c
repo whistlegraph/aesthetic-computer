@@ -1854,15 +1854,8 @@ int main(int argc, char *argv[]) {
                 rt->paint_count = 0;
                 rt->sim_count = 0;
 
-                // Piece aliases: "claude" and "cc" → terminal:claude
-                if (strcmp(rt->jump_target, "claude") == 0 ||
-                    strcmp(rt->jump_target, "cc") == 0) {
-                    strcpy(rt->jump_target, "terminal");
-                    if (rt->jump_param_count == 0) {
-                        strcpy(rt->jump_params[0], "claude");
-                        rt->jump_param_count = 1;
-                    }
-                }
+                // NOTE: "claude" and "cc" aliases removed — claude.mjs handles auth curtain
+                // before jumping to terminal:claude itself.
 
                 // Construct piece path: /pieces/<name>.mjs
                 char jump_path[256];
