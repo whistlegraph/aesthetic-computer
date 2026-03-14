@@ -53,45 +53,105 @@ function bgColor(idx, r, g, b) {
   return DEFAULT_BG;
 }
 
-// Map common Unicode block/box drawing chars to ASCII replacements
-// Claude Code uses these heavily for UI
+// Map Unicode to ASCII replacements for our 6x10 bitmap font.
+// Claude Code uses heavy Unicode UI — we map everything we can.
+const UNICODE_MAP = {
+  // Box drawing (light)
+  0x2500: "-", 0x2501: "=", 0x2502: "|", 0x2503: "|",
+  0x250C: "+", 0x250D: "+", 0x250E: "+", 0x250F: "+",
+  0x2510: "+", 0x2511: "+", 0x2512: "+", 0x2513: "+",
+  0x2514: "+", 0x2515: "+", 0x2516: "+", 0x2517: "+",
+  0x2518: "+", 0x2519: "+", 0x251A: "+", 0x251B: "+",
+  0x251C: "+", 0x251D: "+", 0x2523: "+", 0x2524: "+",
+  0x2525: "+", 0x252B: "+", 0x252C: "+", 0x2533: "+",
+  0x2534: "+", 0x253B: "+", 0x253C: "+", 0x254B: "+",
+  // Box drawing (double)
+  0x2550: "=", 0x2551: "|", 0x2552: "+", 0x2553: "+",
+  0x2554: "+", 0x2555: "+", 0x2556: "+", 0x2557: "+",
+  0x2558: "+", 0x2559: "+", 0x255A: "+", 0x255B: "+",
+  0x255C: "+", 0x255D: "+", 0x255E: "+", 0x255F: "+",
+  0x2560: "+", 0x2561: "+", 0x2562: "+", 0x2563: "+",
+  0x2564: "+", 0x2565: "+", 0x2566: "+", 0x2567: "+",
+  0x2568: "+", 0x2569: "+", 0x256A: "+", 0x256B: "+",
+  0x256C: "+",
+  // Box drawing (rounded corners)
+  0x256D: "+", 0x256E: "+", 0x256F: "+", 0x2570: "+",
+  // Block elements
+  0x2580: "#", 0x2581: "_", 0x2582: "_", 0x2583: "_",
+  0x2584: "#", 0x2585: "#", 0x2586: "#", 0x2587: "#",
+  0x2588: "#", 0x2589: "#", 0x258A: "#", 0x258B: "#",
+  0x258C: "#", 0x258D: "#", 0x258E: "#", 0x258F: "#",
+  0x2590: "#", 0x2591: ".", 0x2592: ":", 0x2593: "#",
+  0x2594: "-", 0x2595: "|",
+  // Arrows
+  0x2190: "<", 0x2191: "^", 0x2192: ">", 0x2193: "v",
+  0x2194: "<>", 0x2195: "^v", 0x2196: "\\", 0x2197: "/",
+  0x2198: "\\", 0x2199: "/",
+  0x21B5: "<-", // ↵ return
+  0x21E6: "<=", 0x21E8: "=>",
+  // Bullets and symbols
+  0x2022: "*", 0x2023: ">", 0x25CF: "*", 0x25CB: "o",
+  0x25A0: "#", 0x25A1: "[]", 0x25AA: ".", 0x25AB: ".",
+  0x25B2: "^", 0x25B6: ">", 0x25BA: ">", 0x25BC: "v",
+  0x25C0: "<", 0x25C4: "<",
+  0x25C6: "*", 0x25C7: "*", 0x25CA: "<>",
+  0x25E6: "o", 0x25EF: "O",
+  // Check marks, crosses, stars
+  0x2714: "+", 0x2715: "x", 0x2716: "x", 0x2718: "x",
+  0x2713: "+", 0x2717: "x",
+  0x2605: "*", 0x2606: "*", 0x2764: "<3",
+  // Math / misc symbols
+  0x2026: "...", 0x00B7: ".", 0x2219: ".",
+  0x00D7: "x", 0x00F7: "/", 0x2260: "!=", 0x2264: "<=",
+  0x2265: ">=", 0x221E: "inf", 0x2248: "~=",
+  // Spinners / braille (Claude Code progress indicators)
+  0x280B: "|", 0x2819: "/", 0x2838: "-", 0x2830: "\\",
+  0x2826: "|", 0x2807: "/", 0x280E: "-", 0x2821: "\\",
+  // Braille patterns — map all to dots/blocks
+  // (range 0x2800-0x28FF used by Claude spinners)
+  // General punctuation
+  0x2018: "'", 0x2019: "'", 0x201C: '"', 0x201D: '"',
+  0x2013: "-", 0x2014: "--", 0x2015: "--",
+  0x2039: "<", 0x203A: ">",
+  // Emoji shorthand (common in Claude output)
+  0x1F512: "[lock]", 0x1F513: "[open]",
+  0x1F4E6: "[pkg]", 0x1F4DD: "[note]",
+  0x1F680: "[go]", 0x1F50D: "[?]",
+  0x2728: "*", 0x26A0: "!!", 0x2699: "[*]",
+  0x1F916: "[bot]", 0x1F4AC: "[..]",
+  0x1F4C1: "[dir]", 0x1F4C4: "[doc]",
+  0x1F527: "[fix]", 0x1F41B: "[bug]",
+  0x2705: "[ok]", 0x274C: "[no]",
+  0x1F6D1: "[stop]",
+  // Currency
+  0x00A3: "L", 0x00A5: "Y", 0x20AC: "E",
+  // Latin extensions
+  0x00E9: "e", 0x00E8: "e", 0x00EA: "e", 0x00EB: "e",
+  0x00E0: "a", 0x00E1: "a", 0x00E2: "a", 0x00E4: "a",
+  0x00F2: "o", 0x00F3: "o", 0x00F4: "o", 0x00F6: "o",
+  0x00F9: "u", 0x00FA: "u", 0x00FB: "u", 0x00FC: "u",
+  0x00ED: "i", 0x00EE: "i", 0x00EF: "i",
+  0x00F1: "n", 0x00E7: "c", 0x00DF: "ss",
+};
+
 function charReplace(ch) {
   if (ch >= 32 && ch < 127) return String.fromCharCode(ch);
-  // Box drawing
-  if (ch === 0x2500 || ch === 0x2501) return "-";  // ─ ━
-  if (ch === 0x2502 || ch === 0x2503) return "|";  // │ ┃
-  if (ch === 0x250C || ch === 0x250D || ch === 0x250E || ch === 0x250F) return "+"; // ┌
-  if (ch === 0x2510 || ch === 0x2511 || ch === 0x2512 || ch === 0x2513) return "+"; // ┐
-  if (ch === 0x2514 || ch === 0x2515 || ch === 0x2516 || ch === 0x2517) return "+"; // └
-  if (ch === 0x2518 || ch === 0x2519 || ch === 0x251A || ch === 0x251B) return "+"; // ┘
-  if (ch === 0x251C || ch === 0x2523) return "+";  // ├
-  if (ch === 0x2524 || ch === 0x252B) return "+";  // ┤
-  if (ch === 0x252C || ch === 0x2533) return "+";  // ┬
-  if (ch === 0x2534 || ch === 0x253B) return "+";  // ┴
-  if (ch === 0x253C || ch === 0x254B) return "+";  // ┼
-  // Block elements
-  if (ch === 0x2588) return "#";  // █ full block
-  if (ch === 0x2591) return ".";  // ░ light shade
-  if (ch === 0x2592) return ":";  // ▒ medium shade
-  if (ch === 0x2593) return "#";  // ▓ dark shade
-  if (ch >= 0x2580 && ch <= 0x259F) return "#"; // other block elements
-  // Arrows
-  if (ch === 0x2190) return "<";  // ←
-  if (ch === 0x2191) return "^";  // ↑
-  if (ch === 0x2192) return ">";  // →
-  if (ch === 0x2193) return "v";  // ↓
-  // Bullets and symbols
-  if (ch === 0x2022) return "*";  // •
-  if (ch === 0x25CF) return "*";  // ●
-  if (ch === 0x25CB) return "o";  // ○
-  if (ch === 0x2714) return "+";  // ✔
-  if (ch === 0x2718) return "x";  // ✘
-  if (ch === 0x25B6 || ch === 0x25BA) return ">"; // ▶ ►
-  if (ch === 0x25C0 || ch === 0x25C4) return "<"; // ◀ ◄
-  if (ch === 0x2026) return "..."; // …
-  if (ch === 0x00B7) return ".";   // ·
-  // Emoji/misc — show as ?
-  if (ch > 127) return "?";
+  const mapped = UNICODE_MAP[ch];
+  if (mapped) return mapped;
+  // Braille block (0x2800-0x28FF) — Claude spinners
+  if (ch >= 0x2800 && ch <= 0x28FF) return ".";
+  // Box drawing range catch-all
+  if (ch >= 0x2500 && ch <= 0x257F) return "+";
+  // Block elements catch-all
+  if (ch >= 0x2580 && ch <= 0x259F) return "#";
+  // Geometric shapes catch-all
+  if (ch >= 0x25A0 && ch <= 0x25FF) return "*";
+  // Dingbats catch-all
+  if (ch >= 0x2700 && ch <= 0x27BF) return "*";
+  // CJK / emoji — skip silently (don't show ?)
+  if (ch >= 0x1F000) return " ";
+  // Everything else unmapped — blank rather than ?
+  if (ch > 127) return " ";
   return null;
 }
 
@@ -108,8 +168,9 @@ function boot({ system, screen, params }) {
   globalThis.__terminalCmd = undefined;
   console.log("[terminal] params:", JSON.stringify(params), "p0:", p0);
   if (p0 === "claude") {
-    cmd = "/bin/sh";
-    args = ["-c", "/bin/claude --version >/dev/null 2>&1 && exec /bin/claude || { /bin/claude login --method device-code && exec /bin/claude; }"];
+    // Claude Code native binary — use device-code auth (no browser available)
+    cmd = "/bin/claude";
+    args = ["claude"];
   } else if (p0) {
     cmd = p0;
   }
@@ -197,8 +258,8 @@ function paint({ wipe, ink, box, write, qr, system, screen }) {
       const py = y * cellH;
 
       // Draw background if not default black
-      if (bg !== 0 && bg !== 16) {
-        const [br, bg2, bb] = bgColor(bg, bg_r, bg_g, bg_b);
+      const [br, bg2, bb] = bgColor(bg, bg_r, bg_g, bg_b);
+      if (br !== 0 || bg2 !== 0 || bb !== 0) {
         ink(br, bg2, bb);
         box(px, py, cellW, cellH);
       }
