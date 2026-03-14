@@ -102,13 +102,14 @@ function boot({ system, screen, params }) {
   // What to spawn — check params
   let cmd = "/bin/sh";
   let args = [];
-  const p0 = params?.[0];
+  // params come from colon-separated jump (e.g. "terminal:claude" → params=["claude"])
+  // Also check lastCmd global in case params didn't propagate
+  const p0 = params?.[0] || globalThis.__terminalCmd;
+  globalThis.__terminalCmd = undefined;
   console.log("[terminal] params:", JSON.stringify(params), "p0:", p0);
   if (p0 === "claude") {
-    // Use device-code auth so user can authenticate from phone
-    // (localhost OAuth callback doesn't work when scanning QR from another device)
     cmd = "/bin/sh";
-    args = ["-c", "claude login --method device-code && exec claude"];
+    args = ["-c", "/bin/claude --version >/dev/null 2>&1 && exec /bin/claude || { /bin/claude login --method device-code && exec /bin/claude; }"];
   } else if (p0) {
     cmd = p0;
   }
@@ -333,6 +334,13 @@ function act({ event: e, system }) {
   const ansi = keyToAnsi(key);
   if (ansi) {
     system.pty.write(ansi);
+    cursorBlink = 0;
+    return;
+  }
+
+  // Space bar
+  if (key === "space") {
+    system.pty.write(" ");
     cursorBlink = 0;
     return;
   }
