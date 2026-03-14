@@ -17,16 +17,41 @@ let tabMatches = []; // current tab completion candidates
 let tabIndex = -1;   // cycling index for tab
 let tabPrefix = "";   // what was typed before tab
 
-// All commands (for tab completion and 'list')
-const COMMANDS = [
-  "notepat", "np", "os", "update", "net", "wifi", "version", "ver",
-  "reboot", "clear", "cls", "help", "claude", "cl", "ssh", "list",
-  "chat", "hi", "login", "bye", "logout", "machine", "laer-klokken",
+// Discovered piece names (populated in boot via system.listPieces)
+let PIECE_NAMES = [];
+// Built-in non-piece commands
+const BUILTIN_COMMANDS = [
+  "version", "reboot", "off", "clear", "help", "ssh", "hi", "bye",
 ];
-// Piece names (jumpable .mjs pieces, excluding prompt itself and lisp engine)
-const PIECES = ["notepat", "os", "wifi", "claude", "chat", "list", "machine", "laer-klokken"];
+// All completable commands (built in boot)
+let COMMANDS = [];
 // $code aliases
 const CODE_NAMES = ["$roz"];
+// Piece descriptions (for tab completion display)
+const PIECE_DESC = {
+  "notepat":       "synthesizer instrument",
+  "os":            "system update (OTA)",
+  "wifi":          "network picker",
+  "claude":        "AI assistant",
+  "terminal":      "PTY terminal",
+  "geo":           "geolocation",
+  "chat":          "real-time chat",
+  "laer-klokken":  "clock room chat",
+  "machine":       "hardware info",
+  "roz":           "generative art",
+  "list":          "all commands",
+  "clock":         "melody clock",
+  "brick-breaker": "paddle + ball game",
+  "gostop":        "go/stop rhythm",
+  "beat":          "percussion",
+  "shh":           "noise drone",
+  "dync":          "percussive pad",
+  "chart":         "diagram sketch",
+  "f3ral3xp":      "feral expression",
+  "3x3":           "ortholinear pad",
+  "error":         "error screen",
+  "404":           "not found",
+};
 
 // WiFi auto-connect state
 const AC_SSID = "aesthetic.computer";
@@ -82,6 +107,10 @@ circle w/2 h/2 (? 2 4 8)`,
 
 function boot({ system }) {
   message = "";
+  // Discover all available pieces dynamically
+  PIECE_NAMES = (system?.listPieces?.() || []).filter(n => n !== "prompt" && n !== "lisp" && n !== "cc");
+  PIECE_NAMES.sort();
+  COMMANDS = [...PIECE_NAMES, ...BUILTIN_COMMANDS, ...CODE_NAMES];
   // Restore input from KidLisp return (backspace/escape preserves source)
   if (globalThis.__promptRestore) {
     input = globalThis.__promptRestore;
@@ -111,8 +140,7 @@ function act({ event: e, system }) {
         if (tabPrefix !== prefix) {
           // New prefix — build match list
           tabPrefix = prefix;
-          const all = [...COMMANDS, ...CODE_NAMES];
-          tabMatches = all.filter(c => c.startsWith(prefix) && c !== prefix);
+          tabMatches = COMMANDS.filter(c => c.startsWith(prefix) && c !== prefix);
           tabIndex = -1;
         }
         if (tabMatches.length > 0) {
@@ -187,27 +215,15 @@ function act({ event: e, system }) {
 
 function execute(cmd, system) {
   const lower = cmd.toLowerCase();
+  // Handle colon params: "clock:cdefg" → piece="clock", rest passed via jump
+  const colonIdx = lower.indexOf(":");
+  const baseName = colonIdx >= 0 ? lower.slice(0, colonIdx) : lower;
+  // Also handle space params: "clock cdefg" → piece="clock"
+  const spaceIdx = lower.indexOf(" ");
+  const baseWord = spaceIdx >= 0 ? lower.slice(0, spaceIdx) : lower;
 
-  // Navigation commands
-  if (lower === "notepat" || lower === "np") {
-    message = "~> notepat";
-    messageFrame = 0;
-    system?.jump?.("notepat");
-    return;
-  }
-  if (lower === "os" || lower === "update") {
-    message = "~> os";
-    messageFrame = 0;
-    system?.jump?.("os");
-    return;
-  }
-  if (lower === "net" || lower === "wifi") {
-    message = "~> wifi";
-    messageFrame = 0;
-    system?.jump?.("wifi");
-    return;
-  }
-  if (lower === "version" || lower === "ver") {
+  // Built-in commands (non-piece)
+  if (lower === "version") {
     message = system?.version || "unknown";
     messageFrame = 0;
     return;
@@ -222,32 +238,14 @@ function execute(cmd, system) {
     system?.poweroff?.();
     return;
   }
-  if (lower === "geo" || lower === "location") {
-    message = "~> geo";
-    messageFrame = 0;
-    system?.jump?.("geo");
-    return;
-  }
-  if (lower === "clear" || lower === "cls") {
+  if (lower === "clear") {
     history = [];
     message = "";
     return;
   }
   if (lower === "help") {
-    message = "notepat | os | net | claude | geo | off";
+    message = "type a piece name or kidlisp — tab to complete";
     messageFrame = 0;
-    return;
-  }
-  if (lower === "list") {
-    message = "~> list";
-    messageFrame = 0;
-    system?.jump?.("list");
-    return;
-  }
-  if (lower === "claude" || lower === "cl") {
-    message = "~> claude";
-    messageFrame = 0;
-    system?.jump?.("claude");
     return;
   }
   if (lower === "ssh") {
@@ -260,13 +258,7 @@ function execute(cmd, system) {
     messageFrame = 0;
     return;
   }
-  if (lower === "chat") {
-    message = "~> chat";
-    messageFrame = 0;
-    system?.jump?.("chat");
-    return;
-  }
-  if (lower === "hi" || lower === "login") {
+  if (lower === "hi") {
     const raw = system?.readFile?.("/mnt/config.json");
     if (raw) {
       try {
@@ -285,7 +277,7 @@ function execute(cmd, system) {
     messageFrame = 0;
     return;
   }
-  if (lower === "bye" || lower === "logout") {
+  if (lower === "bye") {
     const raw = system?.readFile?.("/mnt/config.json");
     let cfg = {};
     if (raw) try { cfg = JSON.parse(raw); } catch (_) {}
@@ -299,19 +291,6 @@ function execute(cmd, system) {
     return;
   }
 
-  if (lower === "machine") {
-    message = "~> machine";
-    messageFrame = 0;
-    system?.jump?.("machine");
-    return;
-  }
-  if (lower === "laer-klokken") {
-    message = "~> laer-klokken";
-    messageFrame = 0;
-    system?.jump?.("laer-klokken");
-    return;
-  }
-
   // Check for built-in $code aliases
   if (CODES[lower]) {
     message = "~> " + lower;
@@ -322,11 +301,20 @@ function execute(cmd, system) {
     return;
   }
 
+  // Dynamic piece jump — check if the command matches any discovered piece
+  if (PIECE_NAMES.includes(baseName) || PIECE_NAMES.includes(baseWord)) {
+    const pieceName = PIECE_NAMES.includes(baseName) ? baseName : baseWord;
+    message = "~> " + pieceName;
+    messageFrame = 0;
+    system?.jump?.(cmd); // pass full cmd so colon/space params work
+    return;
+  }
+
   // Everything else → KidLisp evaluator
   message = "~> lisp";
   messageFrame = 0;
   globalThis.__kidlispSource = cmd;
-  globalThis.__kidlispLabel = cmd; // full source, no truncation
+  globalThis.__kidlispLabel = cmd;
   system?.jump?.("lisp");
 }
 
@@ -459,16 +447,15 @@ function paint({ wipe, ink, box, write, screen, paintCount, wifi, system }) {
     }
   }
 
-  // Ghosted tab completion suggestions below input
+  // Ghosted tab completion suggestions below input (with descriptions)
   let completionH = 0;
   {
     const prefix = input.slice(0, cursor).toLowerCase();
     if (prefix.length > 0) {
-      const all = [...COMMANDS, ...CODE_NAMES];
-      const matches = all.filter(c => c.startsWith(prefix) && c !== prefix);
+      const matches = COMMANDS.filter(c => c.startsWith(prefix) && c !== prefix);
       if (matches.length > 0) {
         const sugY = y0 + lineH + 1;
-        for (let mi = 0; mi < Math.min(matches.length, 6); mi++) {
+        for (let mi = 0; mi < Math.min(matches.length, 8); mi++) {
           const m = matches[mi];
           const sy = sugY + mi * (charH + 1);
           // Ghosted: dim text, highlight the matching prefix portion
@@ -476,13 +463,20 @@ function paint({ wipe, ink, box, write, screen, paintCount, wifi, system }) {
           write(m.slice(0, prefix.length), { x: x0, y: sy, size: 1, font });
           ink(T.fgMute, T.fgMute - 10, T.fgMute + 10);
           write(m.slice(prefix.length), { x: x0 + prefix.length * charW, y: sy, size: 1, font });
+          // Show description after the name
+          const desc = PIECE_DESC[m];
+          if (desc) {
+            ink(T.fgMute - 20, T.fgMute - 20, T.fgMute - 10);
+            write(" " + desc, { x: x0 + m.length * charW, y: sy, size: 1, font });
+          }
           // Highlight current tab selection
           if (tabMatches.length > 0 && tabIndex >= 0 && matches[mi] === tabMatches[tabIndex]) {
+            const fullLen = desc ? m.length + 1 + desc.length : m.length;
             ink(T.accent[0], T.accent[1], T.accent[2], 40);
-            box(x0 - 1, sy - 1, m.length * charW + 2, charH + 2, true);
+            box(x0 - 1, sy - 1, fullLen * charW + 2, charH + 2, true);
           }
         }
-        completionH = Math.min(matches.length, 6) * (charH + 1) + 4;
+        completionH = Math.min(matches.length, 8) * (charH + 1) + 4;
       }
     }
   }
@@ -494,7 +488,7 @@ function paint({ wipe, ink, box, write, screen, paintCount, wifi, system }) {
     const entry = history[i];
     const lower = entry.toLowerCase();
     // Navigation commands in dim purple, KidLisp source highlighted but dimmed
-    if (["notepat","np","os","update","net","wifi","version","ver","help","claude","cl","ssh","reboot","clear","cls","list","machine","laer-klokken","geo","off","terminal"].includes(lower)) {
+    if (COMMANDS.includes(lower) || BUILTIN_COMMANDS.includes(lower)) {
       ink(T.fgMute, T.fgMute - 10, T.fgMute + 10);
       write(entry, { x: x0, y: hy, size: 1, font });
     } else {
