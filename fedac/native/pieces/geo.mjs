@@ -22,10 +22,11 @@ function paint({ wipe, ink, write, screen, system, wifi, frame }) {
   const font = "6x10";
   const lh = 12;
 
-  wipe(15, 12, 25);
+  const T = __theme.update();
+  wipe(T.bg[0], T.bg[1], T.bg[2]);
 
   // Title
-  ink(180, 220, 255);
+  ink(T.link[0], T.link[1], T.link[2]);
   write("geo", { x: 4, y: 4, size: 2, font });
 
   // Try to fetch if we haven't yet and wifi just connected
@@ -62,9 +63,9 @@ function paint({ wipe, ink, write, screen, system, wifi, frame }) {
     ];
 
     for (const { label, value } of lines) {
-      ink(100, 140, 180);
+      ink(T.fgMute, T.fgMute + 20, T.fgMute + 40);
       write(label, { x: 4, y, size: 1, font });
-      ink(240, 240, 220);
+      ink(T.fg, T.fg, T.fg - 10);
       write(value, { x: 4 + (label.length + 1) * 6, y, size: 1, font });
       y += lh;
     }
@@ -88,20 +89,20 @@ function paint({ wipe, ink, write, screen, system, wifi, frame }) {
     ink(120, 220, 255);
     write("*", { x: Math.floor(cx) - 3, y: Math.floor(cy) - 5, size: 1, font });
   } else if (error) {
-    ink(255, 100, 100);
+    ink(T.err[0], T.err[1], T.err[2]);
     write(error, { x: 4, y, size: 1, font });
   } else if (!wifi?.connected) {
-    ink(180, 140, 100);
+    ink(T.warn[0], T.warn[1], T.warn[2]);
     const dots = ".".repeat((Math.floor(frame / 20) % 3) + 1);
     write("waiting for wifi" + dots, { x: 4, y, size: 1, font });
   } else {
-    ink(140, 180, 220);
+    ink(T.link[0], T.link[1], T.link[2]);
     const dots = ".".repeat((Math.floor(frame / 20) % 3) + 1);
     write("locating" + dots, { x: 4, y, size: 1, font });
   }
 
   // Footer: ESC to go back
-  ink(80, 80, 100);
+  ink(T.fgMute, T.fgMute, T.fgMute + 10);
   write("ESC: back", { x: 4, y: H - 14, size: 1, font });
 }
 
