@@ -186,6 +186,16 @@ if [ -d "${PIECES_SRC}" ]; then
     log "Bundled pieces: $(ls "${INITRAMFS_DIR}/pieces/" | tr '\n' ' ')"
 fi
 
+# Copy shared JS libraries needed by pieces (pure JS, no browser deps)
+AC_LIB_DIR="${NATIVE_DIR}/../../system/public/aesthetic.computer/lib"
+mkdir -p "${INITRAMFS_DIR}/lib"
+for lib_file in melody-parser.mjs notepat-convert.mjs note-colors.mjs; do
+    if [ -f "${AC_LIB_DIR}/${lib_file}" ]; then
+        cp "${AC_LIB_DIR}/${lib_file}" "${INITRAMFS_DIR}/lib/"
+    fi
+done
+log "Bundled JS libs: $(ls "${INITRAMFS_DIR}/lib/"*.mjs 2>/dev/null | xargs -n1 basename | tr '\n' ' ')"
+
 # Bundle initramfs scripts (upload-log.sh etc.)
 SCRIPTS_SRC="${NATIVE_DIR}/initramfs-scripts"
 if [ -d "${SCRIPTS_SRC}" ]; then
