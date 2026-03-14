@@ -1306,8 +1306,25 @@ function compileShader(gl, type, source) {
   return shader;
 }
 
-// Note: setupAttributes is no longer used - we use VAOs instead for better performance
-// The VAO is set up once during initialization and bound before each draw call
+// Sanity check: detect if GPU produced blank output when input had data.
+// Samples ~100 evenly-spaced bytes for speed. Returns true if output looks valid.
+function sanityCheck(readback, pixels, effectName) {
+  const step = Math.max(1, Math.floor(readback.length / 100));
+  let outHasData = false;
+  for (let i = 0; i < readback.length && !outHasData; i += step) {
+    if (readback[i] !== 0) outHasData = true;
+  }
+  if (outHasData) return true; // output has content — OK
+
+  let inHasData = false;
+  for (let i = 0; i < pixels.length && !inHasData; i += step) {
+    if (pixels[i] !== 0) inHasData = true;
+  }
+  if (!inHasData) return true; // input was also blank — OK (nothing to corrupt)
+
+  console.warn(`🎮 GPU ${effectName}: Output blank but input had data — falling back to CPU`);
+  return false;
+}
 
 /**
  * GPU-accelerated spin operation - EXACT MATCH to CPU algorithm
@@ -1380,6 +1397,10 @@ export function gpuSpin(pixels, width, height, steps, anchorX = null, anchorY = 
     
     // Read into Uint8Array first (Android Chrome fails with Uint8ClampedArray)
     gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, readbackBuffer);
+    if (!sanityCheck(readbackBuffer, pixels, "Spin")) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      return false;
+    }
     pixels.set(readbackBuffer);
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -1464,6 +1485,10 @@ export function gpuComposite(pixels, width, height, options = {}) {
     
     // Read into Uint8Array first (Android Chrome fails with Uint8ClampedArray)
     gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, readbackBuffer);
+    if (!sanityCheck(readbackBuffer, pixels, "Composite")) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      return false;
+    }
     pixels.set(readbackBuffer);
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -1730,10 +1755,14 @@ export function gpuBlur(pixels, width, height, strength = 1, mask = null) {
     gl.drawArrays(gl.TRIANGLES, 0, 6);
 
     // Read back pixels (no Y-flip needed since we didn't flip on upload)
-    // Blur is symmetric so orientation doesn't affect the result
     gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, readbackBuffer);
+
+    if (!sanityCheck(readbackBuffer, pixels, "Blur")) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      return false;
+    }
     pixels.set(readbackBuffer);
-    
+
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     return true;
   } catch (e) {
@@ -1785,23 +1814,9 @@ export function gpuSharpen(pixels, width, height, strength = 1, mask = null) {
     gl.drawArrays(gl.TRIANGLES, 0, 6);
 
     // Read back pixels (no Y-flip needed since we didn't flip on upload)
-    // Sharpen kernel is symmetric so orientation doesn't affect the result
     gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, readbackBuffer);
 
-    // Sanity check: if readback is all zeros but input wasn't, GPU likely failed
-    let hasNonZero = false;
-    const sampleStep = Math.max(1, Math.floor(readbackBuffer.length / 100));
-    for (let i = 0; i < readbackBuffer.length && !hasNonZero; i += sampleStep) {
-      if (readbackBuffer[i] !== 0) hasNonZero = true;
-    }
-
-    let inputHadData = false;
-    for (let i = 0; i < pixels.length && !inputHadData; i += sampleStep) {
-      if (pixels[i] !== 0) inputHadData = true;
-    }
-
-    if (inputHadData && !hasNonZero) {
-      console.warn('🎮 GPU Sharpen: Output appears blank - falling back to CPU');
+    if (!sanityCheck(readbackBuffer, pixels, "Sharpen")) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       return false;
     }
@@ -1866,6 +1881,10 @@ export function gpuShear(pixels, width, height, shearX = 0, shearY = 0, mask = n
 
     // Read into Uint8Array first (Android Chrome fails with Uint8ClampedArray)
     gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, readbackBuffer);
+    if (!sanityCheck(readbackBuffer, pixels, "Shear")) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      return false;
+    }
     pixels.set(readbackBuffer);
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -1930,6 +1949,10 @@ export function gpuSuck(pixels, width, height, displacement, direction, centerX,
 
     // Read into Uint8Array first (Android Chrome fails with Uint8ClampedArray)
     gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, readbackBuffer);
+    if (!sanityCheck(readbackBuffer, pixels, "Suck")) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      return false;
+    }
     pixels.set(readbackBuffer);
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
