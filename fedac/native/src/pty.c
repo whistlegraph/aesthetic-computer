@@ -533,6 +533,9 @@ int pty_spawn(ACPty *pty, int cols, int rows, const char *cmd, char *const argv[
         setenv("HOME", "/tmp", 0);
         setenv("LANG", "en_US.UTF-8", 1);
         setenv("PATH", "/bin:/sbin:/usr/bin:/usr/sbin", 0);
+        // Tell Claude Code to use device-code auth (no browser) and basic rendering
+        setenv("CLAUDE_CODE_SSO_METHOD", "device-code", 1);
+        setenv("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1", 1);
         execvp(cmd, argv);
         // exec failed — write error to stderr (flows through PTY to parent)
         int err = errno;
