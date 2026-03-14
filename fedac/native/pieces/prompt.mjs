@@ -382,15 +382,15 @@ function paint({ wipe, ink, box, write, screen, paintCount, wifi, system }) {
     const isConnecting = wifi.state === 3 || wifi.state === 4;
     const isIdle = !isConnecting;
 
-    // Timeout connecting after 5s
-    if (isConnecting && frame - connectStartFrame > 300) {
+    // Timeout connecting after 3s
+    if (isConnecting && frame - connectStartFrame > 180) {
       wifi.disconnect?.();
-      autoConnectFrame = -60;
+      autoConnectFrame = -30;
     }
 
     if (isIdle) {
-      if (autoConnectFrame % 300 === 0) wifi.scan?.();
-      if (autoConnectFrame % 300 === 150) {
+      if (autoConnectFrame <= 1 || autoConnectFrame % 120 === 0) wifi.scan?.();
+      if (autoConnectFrame % 120 === 60) {
         const nets = wifi.networks || [];
         const matches = nets
           .filter(n => n.ssid && knownSSIDs.has(n.ssid))
