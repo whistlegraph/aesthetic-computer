@@ -40,6 +40,10 @@ let shearUniforms = null;
 let suckUniforms = null;
 let layerCompositeUniforms = null;
 
+// Fragment shader precision — highp if the GPU supports it, mediump otherwise.
+// Some Android GPUs claim WebGL2 but silently produce blank output with highp.
+let fragPrecision = "highp";
+
 // Accumulated values (matching CPU behavior)
 let spinAccumulator = 0;
 let scrollAccumulatorX = 0;
@@ -876,7 +880,17 @@ function initWebGL2(width, height) {
       console.warn('🎮 GPU Effects: WebGL2 not available');
       return false;
     }
-    
+
+    // Detect fragment shader precision — some Android GPUs claim WebGL2
+    // but silently fail with highp. Fall back to mediump if needed.
+    const hpf = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT);
+    if (!hpf || hpf.precision === 0) {
+      fragPrecision = "mediump";
+      console.warn('🎮 GPU Effects: highp not supported in fragment shaders, using mediump');
+    } else {
+      fragPrecision = "highp";
+    }
+
     // Compile spin program
     const spinVert = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
     const spinFrag = compileShader(gl, gl.FRAGMENT_SHADER, SPIN_FRAGMENT_SHADER);
@@ -1294,8 +1308,12 @@ function initWebGL2(width, height) {
 }
 
 function compileShader(gl, type, source) {
+  // Substitute precision for fragment shaders based on GPU capability
+  const src = type === gl.FRAGMENT_SHADER
+    ? source.replace(/precision highp float;/, `precision ${fragPrecision} float;`)
+    : source;
   const shader = gl.createShader(type);
-  gl.shaderSource(shader, source);
+  gl.shaderSource(shader, src);
   gl.compileShader(shader);
   
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
