@@ -16,6 +16,20 @@
 
 ## Per-Paper Revision Plans
 
+### 0. AC Native OS '26 (arXiv — `arxiv-os/os.tex`)
+**Status**: Working draft, ~6 pages, WORKING DRAFT watermark
+**Current citations**: ~15 (OLPC, Kittler, McLuhan, Illich, Papert, Ukeles, Raspberry Pi, Sonic Pi)
+**Core argument**: Flashing surplus commodity laptops with a bare-metal creative OS offers a post-OLPC, post-Apple model of personal computing — deeper personalization at lower cost with zero infrastructure
+**What's needed**:
+- [ ] Add figures: boot splash screenshot, architecture diagram, cost comparison chart
+- [ ] Cite Eben Moglen / FreedomBox — community-owned infrastructure lineage
+- [ ] Cite e-waste statistics (UN Global E-waste Monitor 2024) for the surplus hardware argument
+- [ ] Add real performance benchmarks (boot time breakdown, frame timing, memory usage)
+- [ ] Reference FedAC kiosk variant as the Fedora-based predecessor
+- [ ] Consider citing ChromeOS / CloudReady as the incumbent surplus-laptop OS
+- [ ] Add section on security model (no network services, no writable rootfs, EFI-only persistence)
+- [ ] Pull hardware compatibility test results from different surplus laptop models
+
 ### 1. Aesthetic Computer '26 (arXiv — `arxiv-ac/ac.tex`)
 **Status**: Working draft, 5 pages, WORKING DRAFT watermark ✓
 **Current citations**: ~10 (mostly technical — Processing, p5.js, Scratch, Glitch)
