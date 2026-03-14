@@ -348,6 +348,22 @@ static JSValue js_noop(JSContext *ctx, JSValueConst this_val, int argc, JSValueC
     return JS_UNDEFINED;
 }
 
+// clock.time() — returns a JS Date object with the current system time
+static JSValue js_clock_time(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    double ms = (double)ts.tv_sec * 1000.0 + (double)ts.tv_nsec / 1000000.0;
+    JSValue global = JS_GetGlobalObject(ctx);
+    JSValue date_ctor = JS_GetPropertyStr(ctx, global, "Date");
+    JSValue ms_val = JS_NewFloat64(ctx, ms);
+    JSValue date = JS_CallConstructor(ctx, date_ctor, 1, &ms_val);
+    JS_FreeValue(ctx, ms_val);
+    JS_FreeValue(ctx, date_ctor);
+    JS_FreeValue(ctx, global);
+    return date;
+}
+
 // Returns a resolved promise with null
 static JSValue js_promise_null(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val; (void)argc; (void)argv;
@@ -384,6 +400,27 @@ static WaveType parse_wave_type(const char *type) {
     if (strcmp(type, "noise-white") == 0 || strcmp(type, "noise") == 0) return WAVE_NOISE;
     // composite → treat as sine for now
     return WAVE_SINE;
+}
+
+// synthObj.kill(fade) — method on synth return object
+static JSValue js_synth_obj_kill(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    ACAudio *audio = current_rt->audio;
+    if (!audio) return JS_UNDEFINED;
+
+    // Get id from 'this' object
+    JSValue id_v = JS_GetPropertyStr(ctx, this_val, "id");
+    double id_d = 0;
+    if (JS_IsNumber(id_v)) JS_ToFloat64(ctx, &id_d, id_v);
+    JS_FreeValue(ctx, id_v);
+    uint64_t id = (uint64_t)id_d;
+    if (id == 0) return JS_UNDEFINED;
+
+    double fade = 0.025;
+    if (argc >= 1 && JS_IsNumber(argv[0])) {
+        JS_ToFloat64(ctx, &fade, argv[0]);
+    }
+    audio_kill(audio, id, fade);
+    return JS_UNDEFINED;
 }
 
 // synthObj.update({volume, tone, pan}) — method on synth return object
@@ -488,7 +525,7 @@ static JSValue js_synth(JSContext *ctx, JSValueConst this_val, int argc, JSValue
     JS_SetPropertyStr(ctx, snd, "startedAt", JS_NewFloat64(ctx, audio->time));
 
     // kill(fade) and update({volume,tone,pan}) methods
-    JS_SetPropertyStr(ctx, snd, "kill", JS_NewCFunction(ctx, (JSCFunction *)js_noop, "kill", 1));
+    JS_SetPropertyStr(ctx, snd, "kill", JS_NewCFunction(ctx, js_synth_obj_kill, "kill", 1));
     JS_SetPropertyStr(ctx, snd, "update", JS_NewCFunction(ctx, js_synth_obj_update, "update", 1));
 
     return snd;
@@ -3893,6 +3930,7 @@ static JSValue build_api(JSContext *ctx, ACRuntime *rt, const char *phase) {
     {
         JSValue clock = JS_NewObject(ctx);
         JS_SetPropertyStr(ctx, clock, "resync", JS_NewCFunction(ctx, js_noop, "resync", 0));
+        JS_SetPropertyStr(ctx, clock, "time", JS_NewCFunction(ctx, js_clock_time, "time", 0));
         JS_SetPropertyStr(ctx, api, "clock", clock);
     }
 

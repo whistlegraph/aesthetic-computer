@@ -1588,6 +1588,40 @@
     .keeps-error .retry-btn:hover { filter: brightness(1.1); }
 
     /* ========================================
+       PAGINATION
+       ======================================== */
+    .keeps-pagination {
+      display: none;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      padding: 20px;
+      font-family: var(--font-mono);
+      font-size: 14px;
+    }
+    .keeps-pagination .page-btn {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: var(--font-mono);
+      font-size: 13px;
+    }
+    .keeps-pagination .page-btn:hover:not(:disabled) {
+      background: var(--ac-purple);
+      color: white;
+    }
+    .keeps-pagination .page-btn:disabled {
+      opacity: 0.3;
+      cursor: default;
+    }
+    .keeps-pagination .page-info {
+      color: var(--text-tertiary);
+    }
+
+    /* ========================================
        SEARCH BAR
        ======================================== */
     .keeps-search-bar {
@@ -2980,6 +3014,7 @@
           <span>Loading your keeps index...</span>
         </div>
       </div>
+      <div class="keeps-pagination" id="keeps-pagination"></div>
     </div>
   </div>
 
@@ -3231,25 +3266,27 @@
     let selectedSigil = '$';
     let indexReady = false;
 
-    // Pagination: render in batches to avoid freezing on large datasets
-    const PAGE_SIZE = 20;
-    let renderedCount = 0;
-    let isLoadingMore = false;
+    // Pagination
+    const PAGE_SIZE = 24;
+    let currentPage = 0;
+    let totalPages = 0;
 
-    // Lazy image loading — only request oven thumbnails when visible
-    const lazyImageObserver = new IntersectionObserver((entries) => {
+    // Visibility-based image loading — load when visible, unload when not
+    const visibilityObserver = new IntersectionObserver((entries) => {
       for (const entry of entries) {
+        const img = entry.target;
         if (entry.isIntersecting) {
-          const img = entry.target;
-          if (img.dataset.src) {
+          if (img.dataset.src && !img.src) {
             img.src = img.dataset.src;
-            delete img.dataset.src;
           }
-          lazyImageObserver.unobserve(img);
+        } else {
+          if (img.src) {
+            img.removeAttribute('src');
+          }
         }
       }
-    }, { rootMargin: '300px' });
-    function lazyLoadImage(img) { lazyImageObserver.observe(img); }
+    }, { rootMargin: '200px' });
+    function observeImage(img) { visibilityObserver.observe(img); }
 
     // DOM
     const grid = document.getElementById('keeps-grid');
@@ -3602,7 +3639,7 @@
       const createdAt = entry.when ? new Date(entry.when) : null;
       const keptTimeStr = keptAt ? formatRelativeTime(keptAt) : '';
       const createdTimeStr = createdAt ? formatRelativeTime(createdAt) : '';
-      const webpUrl = `https://oven.aesthetic.computer/grab/webp/80/60/$${entry.code}?duration=1800&fps=8&quality=70&density=1&nowait=true&source=gallery`;
+      const thumbUrl = `https://oven.aesthetic.computer/grab/png/80/60/$${entry.code}?density=1&nowait=true&source=gallery`;
 
       const row = document.createElement('div');
       row.className = 'keeps-row';
@@ -3624,9 +3661,9 @@
         ${createdTimeStr ? `<span class="keeps-row-time" title="Created ${createdAt?.toLocaleString() || ''}">made ${createdTimeStr}</span>` : ''}`;
 
       const img = row.querySelector('.keeps-row-thumb');
-      img.dataset.src = webpUrl;
+      img.dataset.src = thumbUrl;
       img.onerror = () => { img.style.display = 'none'; };
-      lazyLoadImage(img);
+      observeImage(img);
 
       row.addEventListener('click', () => openMintModal(entry));
       return row;
@@ -3643,8 +3680,7 @@
       const card = document.createElement('div');
       card.className = 'keeps-card' + (isActiveKept ? ' kept' : '');
 
-      // WebP preview image URL (source=gallery so real keep mints get priority)
-      const webpUrl = `https://oven.aesthetic.computer/grab/webp/280/210/$${entry.code}?duration=1800&fps=8&quality=70&density=1&nowait=true&source=gallery`;
+      const thumbUrl = `https://oven.aesthetic.computer/grab/png/280/210/$${entry.code}?density=1&nowait=true&source=gallery`;
 
       card.innerHTML = `
         <div class="keeps-card-header">
@@ -3682,8 +3718,8 @@
       img.onerror = () => {
         // Keep noise placeholder visible — image not baked yet
       };
-      img.dataset.src = webpUrl;
-      lazyLoadImage(img);
+      img.dataset.src = thumbUrl;
+      observeImage(img);
 
       // Whole card + keep button all open the mint/keep modal
       card.style.cursor = 'pointer';
@@ -3693,12 +3729,10 @@
     }
 
     function renderGrid() {
-      // Clear grid and reset pagination
       grid.innerHTML = '';
-      renderedCount = 0;
-
-      // Switch grid layout based on tab
       grid.classList.toggle('list-view', activeTab === 'kept');
+
+      const paginationEl = document.getElementById('keeps-pagination');
 
       if (filteredCodes.length === 0) {
         const emptyMessage = allCodes.length === 0
@@ -3709,55 +3743,72 @@
             <div class="error-icon">&#x1F50D;</div>
             <div class="error-msg">${emptyMessage}</div>
           </div>`;
+        if (paginationEl) paginationEl.style.display = 'none';
         return;
       }
 
-      // Render first batch
-      renderMoreCards();
+      totalPages = Math.ceil(filteredCodes.length / PAGE_SIZE);
+      if (currentPage >= totalPages) currentPage = totalPages - 1;
+      if (currentPage < 0) currentPage = 0;
 
-      // Load current token owners for kept tab rows
+      renderPage();
+      renderPaginationControls();
+
       if (activeTab === 'kept') {
         ensureTokenOwners().then(updateRowOwners);
       }
     }
 
-    function renderMoreCards() {
-      if (isLoadingMore || renderedCount >= filteredCodes.length) return;
-      isLoadingMore = true;
-
+    function renderPage() {
+      grid.innerHTML = '';
+      const start = currentPage * PAGE_SIZE;
+      const end = Math.min(start + PAGE_SIZE, filteredCodes.length);
       const frag = document.createDocumentFragment();
-      const end = Math.min(renderedCount + PAGE_SIZE, filteredCodes.length);
 
-      for (let i = renderedCount; i < end; i++) {
+      for (let i = start; i < end; i++) {
         frag.appendChild(activeTab === 'kept' ? createRow(filteredCodes[i]) : createCard(filteredCodes[i]));
       }
 
-      // Remove the "load more" sentinel if it exists
-      const sentinel = document.getElementById('keeps-load-more');
-      if (sentinel) sentinel.remove();
-
       grid.appendChild(frag);
-      renderedCount = end;
+    }
 
-      // Add a sentinel / "load more" trigger if there are more cards
-      if (renderedCount < filteredCodes.length) {
-        const loadMore = document.createElement('div');
-        loadMore.id = 'keeps-load-more';
-        loadMore.style.cssText = 'grid-column: 1 / -1; text-align: center; padding: 20px; color: var(--text-tertiary); font-size: 14px;';
-        loadMore.textContent = 'Scroll for more';
-        grid.appendChild(loadMore);
+    function renderPaginationControls() {
+      const paginationEl = document.getElementById('keeps-pagination');
+      if (!paginationEl) return;
 
-        // Use IntersectionObserver to load more when sentinel is visible
-        const observer = new IntersectionObserver((entries) => {
-          if (entries[0].isIntersecting) {
-            observer.disconnect();
-            renderMoreCards();
-          }
-        }, { rootMargin: '200px' });
-        observer.observe(loadMore);
+      if (totalPages <= 1) {
+        paginationEl.style.display = 'none';
+        return;
       }
 
-      isLoadingMore = false;
+      paginationEl.style.display = 'flex';
+      paginationEl.innerHTML = '';
+
+      const prev = document.createElement('button');
+      prev.className = 'page-btn';
+      prev.textContent = '\u2190 Prev';
+      prev.disabled = currentPage === 0;
+      prev.addEventListener('click', () => goToPage(currentPage - 1));
+
+      const info = document.createElement('span');
+      info.className = 'page-info';
+      info.textContent = `Page ${currentPage + 1} of ${totalPages}`;
+
+      const next = document.createElement('button');
+      next.className = 'page-btn';
+      next.textContent = 'Next \u2192';
+      next.disabled = currentPage === totalPages - 1;
+      next.addEventListener('click', () => goToPage(currentPage + 1));
+
+      paginationEl.append(prev, info, next);
+    }
+
+    function goToPage(page) {
+      if (page < 0 || page >= totalPages) return;
+      currentPage = page;
+      renderPage();
+      renderPaginationControls();
+      grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     // =========================================
@@ -3789,6 +3840,7 @@
         filteredCodes.sort((a, b) => (b.hits || 0) - (a.hits || 0));
       }
 
+      currentPage = 0;
       renderGrid();
     }
 
@@ -4068,7 +4120,26 @@
         const listings = data?.listing_active || [];
 
         if (tokens.length === 0) {
-          detailContent.innerHTML = '<div class="keep-detail-loading">Token not found for this code.</div>';
+          const unkeptMatch = allCodes.find(e => e.code === code);
+          if (unkeptMatch) {
+            const acUrl = `https://aesthetic.computer/$${code}`;
+            const klUrl = `https://kidlisp.com/$${code}`;
+            const previewUrl = ovenPreviewUrlForPiece(code);
+            detailContent.innerHTML = `
+              <div style="text-align:center;padding:16px 0;">
+                <img src="${previewUrl}" alt="$${code}" style="max-width:280px;border-radius:8px;image-rendering:pixelated;" />
+              </div>
+              <div style="text-align:center;padding:8px 0;color:var(--text-tertiary);font-size:13px;">
+                <span>by ${escapeHtml(unkeptMatch.handle || 'anon')}</span>
+                <span style="margin-left:12px;">${(unkeptMatch.hits || 0).toLocaleString()} hits</span>
+              </div>
+              <div style="display:flex;gap:10px;justify-content:center;padding:16px 0;">
+                <a href="${acUrl}" target="_blank" rel="noopener" style="padding:8px 16px;background:var(--ac-purple);color:white;border-radius:6px;text-decoration:none;font-family:var(--font-mono);font-size:13px;">Run Piece</a>
+                <a href="${klUrl}" target="_blank" rel="noopener" style="padding:8px 16px;background:var(--bg-tertiary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:6px;text-decoration:none;font-family:var(--font-mono);font-size:13px;">Edit in KidLisp</a>
+              </div>`;
+          } else {
+            detailContent.innerHTML = '<div class="keep-detail-loading">Piece not found.</div>';
+          }
           return;
         }
 
@@ -4639,7 +4710,7 @@
     function ovenPreviewUrlForPiece(piece, size = 320) {
       const cleanPiece = String(piece || '').replace(/^\$+/, '').trim();
       if (!cleanPiece) return '';
-      return `https://oven.aesthetic.computer/grab/webp/${size}/${size}/$${cleanPiece}?duration=2200&fps=8&quality=80&density=2&nowait=true&source=keep`;
+      return `https://oven.aesthetic.computer/grab/png/${size}/${size}/$${cleanPiece}?density=2&nowait=true&source=keep`;
     }
 
     function formatPackedDateLabel(value) {
