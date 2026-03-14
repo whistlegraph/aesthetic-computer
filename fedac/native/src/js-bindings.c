@@ -2359,6 +2359,7 @@ static void *flash_thread_fn(void *arg) {
     flash_tlog(rt, "wrote %ld bytes", copied);
 
     // Also update Microsoft Boot Manager path (ThinkPad BIOS often boots this first)
+    // No .prev backup here — saving space (BOOTX64.EFI.prev is the rollback)
     {
         char ms_dir[512], ms_dst[512];
         snprintf(ms_dir, sizeof(ms_dir), "%s/EFI/Microsoft", efi_mount);
@@ -2366,19 +2367,19 @@ static void *flash_thread_fn(void *arg) {
         snprintf(ms_dir, sizeof(ms_dir), "%s/EFI/Microsoft/Boot", efi_mount);
         mkdir(ms_dir, 0755);
         snprintf(ms_dst, sizeof(ms_dst), "%s/EFI/Microsoft/Boot/bootmgfw.efi", efi_mount);
-        // Backup Microsoft path too
+        // Delete old file first to ensure enough space on FAT32
+        unlink(ms_dst);
         {
             char ms_prev[512];
             snprintf(ms_prev, sizeof(ms_prev), "%s.prev", ms_dst);
-            if (access(ms_dst, F_OK) == 0) {
-                unlink(ms_prev);
-                rename(ms_dst, ms_prev);
-            }
+            unlink(ms_prev);  // remove old .prev too
         }
-        if (access(ms_dst, F_OK) == 0 || access(ms_dir, F_OK) == 0) {
-            long ms_copied = flash_copy_file(rt->flash_src, ms_dst);
+        long ms_copied = flash_copy_file(rt->flash_src, ms_dst);
+        if (ms_copied > 0) {
             ac_log("[flash] also wrote Microsoft boot path: %ld bytes -> %s", ms_copied, ms_dst);
             flash_tlog(rt, "ms_boot=%ld", ms_copied);
+        } else {
+            ac_log("[flash] WARNING: Microsoft boot path write failed (space?), continuing");
         }
     }
 
