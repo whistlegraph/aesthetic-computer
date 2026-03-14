@@ -120,7 +120,7 @@
 
 \begin{quote}
 \small\noindent\textbf{Abstract.}
-\texttt{notepat} began in June 2024 as a 200-line chromatic keyboard sketch inside \ac{}~\citep{scudder2026ac}. Over 401 commits and 20 months it grew to 7{,}903 lines in the browser and 987 lines on bare metal, accumulating five waveform types, room reverb, analog pressure sensitivity, a bare-metal Linux port that boots as PID~1, a branded domain (\texttt{notepat.com}), a dedicated test harness, and four derivative pieces. This paper traces that growth: what \texttt{notepat} started as, what features it gained, what infrastructure it pulled into existence, and how a single piece came to function as the strategic front door of a larger creative computing system. We frame this trajectory as a \emph{political economy of a piece}---the feedback loops between a piece's growing capabilities, the platform decisions it motivates, and the resources it attracts over time.
+\texttt{notepat} began in June 2024 as a 200-line chromatic keyboard sketch inside \ac{}~\citep{scudder2026ac}. Over 401 commits and 20 months it grew to 7{,}903 lines in the browser and 987 lines on bare metal, accumulating five waveform types, room reverb, analog pressure sensitivity, a bare-metal Linux port that boots as PID~1, a branded domain (\texttt{notepat.com}), a dedicated test harness, an alpha Ableton Live device, a VST3 plugin scaffold, and six derivative pieces. This paper traces that growth: what \texttt{notepat} started as, what features it gained, what infrastructure it pulled into existence, and how a single piece came to function as the strategic front door of a larger creative computing system. We frame this trajectory as a \emph{political economy of a piece}---the feedback loops between a piece's growing capabilities, the platform decisions it motivates, and the resources it attracts over time.
 \end{quote}
 \vspace{0.5em}
 }]
@@ -182,6 +182,22 @@ The interface evolved from plain colored rectangles to a layered system:
   \item Note color system: each semitone mapped to a hue (C~=~red through B~=~violet), active notes blend into background.
 \end{itemize}
 
+\subsection{DAW integration: Ableton Live}
+
+In January 2025, an alpha Max for Live device (\texttt{AC Notepat.amxd}) was created to embed \texttt{notepat} inside Ableton Live. The device uses Max~9's \texttt{jweb\textasciitilde} object---an audio-enabled embedded web browser---to load the \texttt{notepat} piece and route its Web Audio output directly into Ableton's mixer via \texttt{plugout\textasciitilde}.
+
+This integration required solving several problems not present in the browser or bare-metal contexts:
+
+\begin{itemize}
+  \item \textbf{Offline bundling}: a self-contained HTML bundle generator (\texttt{bundle-html.js}) recursively discovers all ES module dependencies, inlines font glyphs, and produces a gzip-compressed self-extracting HTML file with a virtual file system (VFS) and fetch interceptor.
+  \item \textbf{AudioWorklet in PACK mode}: the standard AudioWorklet loading path requires a server; the bundled version creates blob URLs from the VFS to load a pre-bundled speaker worklet (\texttt{speaker-bundled.mjs}, $\sim$50\,KB).
+  \item \textbf{MIDI-to-keyboard translation}: a planned mapping layer converts MIDI note-on/off events to \texttt{notepat}'s keyboard event model, with CC1 (mod wheel) controlling reverb mix and pitch bend controlling slide mode.
+\end{itemize}
+
+A parallel VST3 plugin effort (\texttt{ac-vst/}) scaffolded a C++ Steinberg SDK plugin with a WebView-based UI, targeting a more portable distribution path than Max for Live. Both efforts remain in alpha; the audio engine is not yet functional in the bundled offline context due to worklet loading constraints.
+
+The DAW integration represents a fifth feedback loop in \texttt{notepat}'s political economy: \textbf{distribution pressure $\rightarrow$ bundling infrastructure}. The desire to make \texttt{notepat} available inside professional music production environments forced the platform to develop offline HTML bundling, VFS emulation, and worklet pre-bundling capabilities that no other piece had required.
+
 \subsection{Network and system integration}
 
 \begin{itemize}
@@ -202,13 +218,15 @@ The boot sequence reflects this commitment: after kernel init, \texttt{ac-native
 
 \section{Derivatives and Reuse}
 
-Four artifacts derive directly from \texttt{notepat}:
+Six artifacts derive directly from \texttt{notepat}:
 
 \begin{enumerate}
   \item \textbf{\texttt{autopat.mjs}} (214 lines): autoplay wrapper with a built-in jukebox (Twinkle, Bach excerpt, scales). Imports and delegates to \texttt{notepat}'s core lifecycle functions.
   \item \textbf{\texttt{notepat-tv.mjs}} (55 lines): UDP-driven remote visualizer for art installations. Receives note data and drives turtle graphics on a projected surface.
   \item \textbf{\texttt{notepat-convert.mjs}} (103 lines): notation translation library; converts single-letter keyboard shortcuts to extended melody syntax. Reused by \texttt{clock}, \texttt{stample}, and other music pieces.
   \item \textbf{Bare-metal \texttt{notepat.mjs}} (987 lines): standalone reimplementation for QuickJS, sharing keyboard mappings and UI conventions but adapted for direct hardware access.
+  \item \textbf{\texttt{AC Notepat.amxd}} (Max for Live device): embeds \texttt{notepat} inside Ableton Live via \texttt{jweb\textasciitilde}, routing Web Audio synthesis directly into the DAW mixer. Alpha, January 2025.
+  \item \textbf{\texttt{ac-vst} plugin} (C++/Steinberg SDK): VST3 scaffold with WebView UI for DAW-agnostic distribution. Includes MIDI input handling, audio bus routing, and parameter automation stubs.
 \end{enumerate}
 
 \section{Infrastructure Pulled into Existence}
@@ -242,6 +260,7 @@ Kurzweil's ``law of accelerating returns'' describes how technological systems a
   \item \textbf{Branding pressure $\rightarrow$ routing decisions}: the desire for a memorable URL led to \texttt{notepat.com}, which required edge-function host rewriting and custom social previews.
   \item \textbf{Quality pressure $\rightarrow$ testing investment}: a latency regression in \texttt{notepat} motivated the construction of a general-purpose piece-testing harness (artery), which now benefits all pieces.
   \item \textbf{Hardware pressure $\rightarrow$ entire runtime}: the ambition to run \texttt{notepat} on dedicated hardware justified building \texttt{ac-native}: custom kernel, initramfs, ALSA engine, DRM display, WiFi stack---thousands of lines of C.
+  \item \textbf{Distribution pressure $\rightarrow$ bundling infrastructure}: the desire to embed \texttt{notepat} inside Ableton Live forced the platform to develop offline HTML bundling with a virtual file system, fetch interceptor, and pre-bundled AudioWorklets---infrastructure no other piece had required.
 \end{enumerate}
 
 \citet{born2015music} observe that music technology investment is never neutral---it reflects and reinforces the aesthetic priorities, social positions, and resources of those who build and fund it. The \texttt{notepat} trajectory makes this visible at the scale of an individual developer and a single open-source instrument: sustained personal investment in one piece materially shapes what is technically possible for every other piece in the system.
@@ -262,7 +281,7 @@ Table~\ref{tab:scale} summarizes \texttt{notepat}'s footprint as of March 8, 202
 Commits (browser version) & 401 \\
 Browser LOC & 7{,}903 \\
 Bare-metal LOC & 987 \\
-Derivative pieces & 4 \\
+Derivative pieces & 6 \\
 Total ecosystem LOC & 9{,}262 \\
 Waveform types & 5 \\
 Dedicated test scripts & 14 \\
@@ -276,7 +295,7 @@ Age (first commit) & June 27, 2024 \\
 
 \section{Conclusion}
 
-\texttt{notepat} demonstrates that a single piece can function as the strategic center of gravity for a creative computing platform. Its growth from a 200-line keyboard sketch to a 9{,}000-line ecosystem with its own domain, hardware runtime, and test infrastructure was not planned---it emerged from sustained use and the feedback loops described above.
+\texttt{notepat} demonstrates that a single piece can function as the strategic center of gravity for a creative computing platform. Its growth from a 200-line keyboard sketch to a 9{,}000-line ecosystem with its own domain, hardware runtime, DAW integration, and test infrastructure was not planned---it emerged from sustained use and the feedback loops described above.
 
 The methodological contribution is a unit of analysis: the \emph{piece trajectory}. Studying a single piece across its full commit history---what features it gained, what infrastructure it pulled into existence, what derivatives it spawned---reveals platform dynamics invisible at the system level. Digital musical instrument research has examined DMI longevity as a problem of adoption~\citep{marquez2018dmi} and DMIs as probes of computational substrate~\citep{tahiroglu2020probes}. The piece trajectory combines both perspectives with a political economy lens: instruments accumulate capability, and that accumulation has material consequences for the systems that host them.
 
