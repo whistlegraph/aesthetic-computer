@@ -73,6 +73,13 @@ Every piece is URL addressable (e.g. https://aesthetic.computer/notepat). Genera
 - `ac-os flash+upload` — Build + flash + upload
 - **Important:** The kernel embeds the git hash and build name at compile time. `upload` without `build` would serve a stale kernel. The `ac-os` script enforces a full rebuild before every upload.
 
+**AC Native Backlog:**
+- [ ] Per-user wifi credential storage: move hardcoded SSIDs out of JS pieces into per-handle config (e.g. `config.json` or `/mnt/wifi_creds.json` on USB). Each user's build should bundle their saved networks, not @jeffrey's home wifi.
+- [ ] Wifi cred persistence across OTA updates: saved networks on USB should survive re-flashing.
+- [ ] Geo-aware greeting: use `geo` piece's IP location for dynamic "enjoy [city]!" instead of hardcoded "Los Angeles".
+- [ ] Claude OAuth callback server issue: `claude auth login` reports "failed to start OAuth callback server" on device — investigate port binding in initramfs.
+- [ ] Claude native binary: Claude Code reports having a native binary — investigate using it instead of Node.js cli.js for smaller image size.
+
 **Other Projects**
 - `tezos/` — NFT/blockchain experiments
 - `grab/` — Media utilities
