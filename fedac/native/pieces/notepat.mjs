@@ -1678,19 +1678,19 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   const isIdle = wifi && !wifi.connected &&
     wifi.state !== 3 && wifi.state !== 4;
 
-  // Timeout: if connecting for > 300 frames (~5s), disconnect and retry (silent)
-  if (autoConnectEnabled && isConnecting && frame - connectStartFrame > 300) {
+  // Timeout: if connecting for > 180 frames (~3s), disconnect and retry (silent)
+  if (autoConnectEnabled && isConnecting && frame - connectStartFrame > 180) {
     wifi.disconnect?.();
-    autoConnectFrame = -60; // small delay before next attempt
+    autoConnectFrame = -30; // brief delay before next attempt
   }
 
   if (autoConnectEnabled && isIdle) {
-    // Trigger scan every ~5s
-    if (autoConnectFrame % 300 === 0) {
+    // Trigger scan every ~2s (120 frames), immediate on first frame
+    if (autoConnectFrame <= 1 || autoConnectFrame % 120 === 0) {
       wifi.scan?.();
     }
-    // 150 frames (~2.5s) after scan: pick strongest known network from scan results
-    if (autoConnectFrame % 300 === 150) {
+    // 60 frames (~1s) after scan: pick strongest known network from scan results
+    if (autoConnectFrame % 120 === 60) {
       const nets = wifi.networks || [];
       const matches = nets
         .filter((n) => n.ssid && knownSSIDs.has(n.ssid))
