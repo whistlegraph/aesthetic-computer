@@ -2884,6 +2884,52 @@ static JSValue js_brightness_adjust(JSContext *ctx, JSValueConst this_val, int a
     return JS_UNDEFINED;
 }
 
+// system.openBrowser(url) — launch cage+firefox kiosk for OAuth login
+// Closes DRM, runs cage+firefox synchronously (blocks JS), reclaims DRM on exit.
+// Returns true if browser exited normally.
+static JSValue js_open_browser(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 1 || !current_rt) return JS_FALSE;
+    const char *url = JS_ToCString(ctx, argv[0]);
+    if (!url) return JS_FALSE;
+
+    ac_log("[browser] Opening: %s", url);
+
+    // Close DRM fd so cage can take the display
+    extern int drm_release_master(void *display);
+    extern int drm_acquire_master(void *display);
+    extern void *g_display;  // ACDisplay* from ac-native.c
+    if (g_display) {
+        drm_release_master(g_display);
+        ac_log("[browser] Released DRM master");
+    }
+
+    // Run cage + firefox synchronously (blocks until user closes browser)
+    char cmd[2048];
+    snprintf(cmd, sizeof(cmd),
+        "HOME=/tmp "
+        "XDG_RUNTIME_DIR=/tmp/xdg "
+        "WLR_BACKENDS=drm "
+        "cage -s -- /opt/firefox/firefox-bin --kiosk --no-remote '%s' 2>/tmp/cage.log",
+        url);
+
+    // Ensure XDG_RUNTIME_DIR exists
+    mkdir("/tmp/xdg", 0700);
+
+    ac_log("[browser] Running: cage + firefox");
+    int rc = system(cmd);
+    ac_log("[browser] Exited: %d", rc);
+
+    // Reclaim DRM
+    if (g_display) {
+        drm_acquire_master(g_display);
+        ac_log("[browser] Reclaimed DRM master");
+    }
+
+    JS_FreeCString(ctx, url);
+    return JS_NewBool(ctx, rc == 0);
+}
+
 // system.qrEncode(text) → { size: N, modules: [bool, bool, ...] }
 // Encodes text as QR code using nayuki qrcodegen, returns module grid.
 static JSValue js_qr_encode(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -3690,6 +3736,8 @@ static JSValue build_system_obj(JSContext *ctx) {
                       JS_NewCFunction(ctx, js_brightness_adjust, "brightnessAdjust", 1));
     JS_SetPropertyStr(ctx, sys, "qrEncode",
                       JS_NewCFunction(ctx, js_qr_encode, "qrEncode", 1));
+    JS_SetPropertyStr(ctx, sys, "openBrowser",
+                      JS_NewCFunction(ctx, js_open_browser, "openBrowser", 1));
 
     return sys;
 }

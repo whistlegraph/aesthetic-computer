@@ -312,6 +312,9 @@ static void init_machine_id(void) {
 static int get_la_offset(void);
 static int get_la_hour(void);
 
+// Global display pointer — exposed to js-bindings for browser DRM handoff
+void *g_display = NULL;
+
 // Boot title — defaults to "notepat", overridden by config.json handle
 static char boot_title[80] = "notepat";
 static ACColor boot_title_colors[80];
@@ -1350,12 +1353,14 @@ int main(int argc, char *argv[]) {
     }
 
     ACDisplay *display = NULL;
+    extern void *g_display;  // expose to js-bindings for browser DRM handoff
     ACFramebuffer *screen = NULL;
     ACInput *input = NULL;
     int pixel_scale = 3;  // Default: 1/3 display resolution (3x nearest-neighbor)
 
     if (!headless) {
         display = drm_init();
+        g_display = display;
         if (!display) {
             fprintf(stderr, "[ac-native] FATAL: No display\n");
             if (getpid() == 1) { sleep(5); reboot(LINUX_REBOOT_CMD_POWER_OFF); }
