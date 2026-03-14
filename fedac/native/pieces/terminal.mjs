@@ -168,7 +168,9 @@ function boot({ system, screen, params }) {
   globalThis.__terminalCmd = undefined;
   console.log("[terminal] params:", JSON.stringify(params), "p0:", p0);
   if (p0 === "claude") {
-    // Claude Code native binary — use device-code auth (no browser available)
+    // Claude Code native binary
+    // Auth: reads ANTHROPIC_API_KEY from /mnt/config.json "claude_api_key" field
+    // If no key, Claude will show OAuth URL (QR code auto-detected in terminal)
     cmd = "/bin/claude";
     args = ["claude"];
   } else if (p0) {
@@ -181,29 +183,30 @@ function boot({ system, screen, params }) {
 }
 
 function paint({ wipe, ink, box, write, qr, system, screen }) {
+  const T = __theme.update();
   const w = screen.width, h = screen.height;
-  wipe(0); // black background
+  wipe(T.bgDim[0], T.bgDim[1], T.bgDim[2]);
   cursorBlink++;
 
   const pty = system.pty;
   if (!pty.active) {
     if (pty.exitCode !== undefined) lastExitCode = pty.exitCode;
-    ink(170, 170, 170);
+    ink(T.fgDim, T.fgDim, T.fgDim);
     write("terminal exited", { x: 10, y: 10, font: 1 });
 
     if (lastExitCode === 127) {
-      ink(255, 85, 85);
+      ink(T.err[0], T.err[1], T.err[2]);
       write(`'${lastCmd}' not found (exit 127)`, { x: 10, y: 24, font: 1 });
-      ink(170, 85, 0);
+      ink(T.warn[0], T.warn[1], T.warn[2]);
       write("command missing from initramfs", { x: 10, y: 38, font: 1 });
     } else if (lastExitCode === 126) {
-      ink(255, 85, 85);
+      ink(T.err[0], T.err[1], T.err[2]);
       write(`'${lastCmd}' permission denied (exit 126)`, { x: 10, y: 24, font: 1 });
     } else if (lastExitCode > 128) {
-      ink(255, 85, 85);
+      ink(T.err[0], T.err[1], T.err[2]);
       write(`killed by signal ${lastExitCode - 128}`, { x: 10, y: 24, font: 1 });
     } else if (lastExitCode >= 0) {
-      ink(lastExitCode === 0 ? 85 : 255, lastExitCode === 0 ? 255 : 170, 85);
+      ink(lastExitCode === 0 ? T.ok[0] : T.err[0], lastExitCode === 0 ? T.ok[1] : T.warn[1], lastExitCode === 0 ? T.ok[2] : T.warn[2]);
       write(`exit code: ${lastExitCode}`, { x: 10, y: 24, font: 1 });
     }
 
@@ -211,7 +214,7 @@ function paint({ wipe, ink, box, write, qr, system, screen }) {
     if (grid) {
       const ptyCols = cols;
       let textY = 56;
-      ink(85, 85, 85);
+      ink(T.fgMute, T.fgMute, T.fgMute);
       write("last output:", { x: 10, y: textY, font: 1 });
       textY += 14;
       for (let y = 0; y < Math.min(rows, 10); y++) {
@@ -224,14 +227,14 @@ function paint({ wipe, ink, box, write, qr, system, screen }) {
         }
         line = line.trimEnd();
         if (line.length > 0) {
-          ink(170, 100, 60);
+          ink(T.warn[0], T.warn[1], T.warn[2]);
           write(line, { x: 10, y: textY, font: 1 });
           textY += 12;
         }
       }
     }
 
-    ink(85, 85, 85);
+    ink(T.fgMute, T.fgMute, T.fgMute);
     write("enter: retry   esc: back", { x: 10, y: screen.height - 16, font: 1 });
     return;
   }
@@ -305,7 +308,7 @@ function paint({ wipe, ink, box, write, qr, system, screen }) {
     box(qrX - 4, qrY - 16, qrSize + 8, qrSize + 24);
     qr(detectedUrl, qrX, qrY, qrScale);
     // Label above
-    ink(120, 200, 255);
+    ink(T.link[0], T.link[1], T.link[2]);
     write("scan to open", { x: qrX, y: qrY - 12, font: 1 });
   }
 
@@ -313,7 +316,7 @@ function paint({ wipe, ink, box, write, qr, system, screen }) {
   if (Math.floor(cursorBlink / 30) % 2 === 0) {
     const cx = (pty.cursorX || 0) * cellW;
     const cy = (pty.cursorY || 0) * cellH;
-    ink(170, 170, 170, 180);
+    ink(T.fg, T.fg, T.fg, 180);
     box(cx, cy, cellW, cellH);
   }
 }
