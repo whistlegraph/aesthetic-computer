@@ -305,6 +305,10 @@ static void init_machine_id(void) {
     }
 }
 
+// Forward declarations for time-of-day functions (defined later)
+static int get_la_offset(void);
+static int get_la_hour(void);
+
 // Boot title — defaults to "notepat", overridden by config.json handle
 static char boot_title[80] = "notepat";
 static ACColor boot_title_colors[80];
@@ -394,8 +398,14 @@ static void load_boot_visual_config(void) {
 
     char handle[64] = {0};
     if (parse_config_string(buf, "\"handle\"", handle, sizeof(handle))) {
-        if ((int)strlen(handle) < (int)sizeof(boot_title) - 4) {
-            snprintf(boot_title, sizeof(boot_title), "hi @%s", handle);
+        if ((int)strlen(handle) < (int)sizeof(boot_title) - 20) {
+            // Time-of-day greeting based on LA time
+            int hour = get_la_hour();
+            const char *greeting;
+            if (hour >= 5 && hour < 12)       greeting = "good morning";
+            else if (hour >= 12 && hour < 17)  greeting = "good afternoon";
+            else                               greeting = "good evening";
+            snprintf(boot_title, sizeof(boot_title), "%s @%s", greeting, handle);
         }
     }
     parse_boot_title_colors(buf);
@@ -427,13 +437,13 @@ static ACColor title_char_color(int ci, int frame, int alpha) {
 
     int title_len = (int)strlen(boot_title);
     int idx = ci;
-    // Map palette to the handle portion of "hi @handle" (skip "hi @" = 4 chars)
+    // Map palette to the handle portion (everything after @)
     const char *at = strchr(boot_title, '@');
     int handle_start = at ? (int)(at - boot_title) + 1 : 0; // char after @
     if (handle_start > 0 && ci >= handle_start && boot_title_colors_len > 0) {
         idx = ci - handle_start;
     } else if (ci < handle_start) {
-        // "hi " and "@" get rainbow colors
+        // greeting prefix and "@" get rainbow colors
         return rainbow_title_color(ci, frame, alpha);
     }
     if (idx < 0) idx = 0;
@@ -1041,50 +1051,73 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
             }
         }
 
-        // Startup greeting — use handle if available, include build name
+        // Startup greeting — time-of-day + handle + "enjoy Los Angeles" + build name
         if (f == 10 && tts) {
-            char greet[160];
+            char greet[256];
             const char *at = strchr(boot_title, '@');
+            int hour = get_la_hour();
+            const char *tod;
+            if (hour >= 5 && hour < 12)       tod = "good morning";
+            else if (hour >= 12 && hour < 17)  tod = "good afternoon";
+            else                               tod = "good evening";
 #ifdef AC_BUILD_NAME
-            // Replace hyphens with spaces for natural TTS
             char name_tts[64];
             strncpy(name_tts, AC_BUILD_NAME, sizeof(name_tts) - 1);
             name_tts[sizeof(name_tts) - 1] = 0;
             for (char *p = name_tts; *p; p++) { if (*p == '-') *p = ' '; }
             if (at)
-                snprintf(greet, sizeof(greet), "hi %s. %s.", at + 1, name_tts);
+                snprintf(greet, sizeof(greet), "%s %s. enjoy Los Angeles! %s.", tod, at + 1, name_tts);
             else
-                snprintf(greet, sizeof(greet), "%s.", name_tts);
+                snprintf(greet, sizeof(greet), "%s. %s.", tod, name_tts);
 #else
             if (at)
-                snprintf(greet, sizeof(greet), "hi %s", at + 1);
+                snprintf(greet, sizeof(greet), "%s %s. enjoy Los Angeles!", tod, at + 1);
             else
-                snprintf(greet, sizeof(greet), "hi");
+                snprintf(greet, sizeof(greet), "%s", tod);
 #endif
             tts_speak(tts, greet);
         }
         // W hint is visual only — no TTS
 
-        // Fade from black to purple bg (complete in first 0.3s)
+        // Fade from black to time-of-day themed bg (complete in first 0.3s)
         double fade_t = t * 3.33;
         if (fade_t > 1.0) fade_t = 1.0;
-        int bg_r = (int)(40 * fade_t);
-        int bg_g = (int)(20 * fade_t);
-        int bg_b = (int)(60 * fade_t);
+        int hour = get_la_hour();
+        int target_r, target_g, target_b;
+        if (hour >= 5 && hour < 8) {
+            target_r = 55; target_g = 25; target_b = 30;   // sunrise
+        } else if (hour >= 8 && hour < 12) {
+            target_r = 20; target_g = 30; target_b = 55;   // morning sky
+        } else if (hour >= 12 && hour < 17) {
+            target_r = 50; target_g = 38; target_b = 18;   // afternoon gold
+        } else if (hour >= 17 && hour < 20) {
+            target_r = 50; target_g = 18; target_b = 42;   // sunset
+        } else {
+            target_r = 12; target_g = 12; target_b = 30;   // night
+        }
+        int bg_r = (int)(target_r * fade_t);
+        int bg_g = (int)(target_g * fade_t);
+        int bg_b = (int)(target_b * fade_t);
         graph_wipe(graph, (ACColor){(uint8_t)bg_r, (uint8_t)bg_g, (uint8_t)bg_b, 255});
 
         // Title — per-handle palette (fallback rainbow), animated pulse
         int alpha = (int)(255.0 * fade_t);
         if (alpha > 0) {
             const char *title = boot_title;
-            int tw = font_measure_matrix(title, 3);
+            // Auto-scale: use 3x unless title is too wide, then 2x
+            int scale = 3;
+            int tw = font_measure_matrix(title, scale);
+            if (tw > screen->width - 20) {
+                scale = 2;
+                tw = font_measure_matrix(title, scale);
+            }
             int tx = (screen->width - tw) / 2;
             int ty = screen->height / 2 - 20;
             for (int ci = 0; title[ci]; ci++) {
                 ACColor cc = title_char_color(ci, f, alpha);
                 graph_ink(graph, cc);
                 char ch[2] = { title[ci], 0 };
-                tx = font_draw_matrix(graph, ch, tx, ty, 3);
+                tx = font_draw_matrix(graph, ch, tx, ty, scale);
             }
         }
 
@@ -1133,14 +1166,15 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
         }
 #endif
 
-        // Subtitle appears after frame 130, synced with male TTS at 140
+        // Subtitle: "enjoy Los Angeles!" appears after frame 130
         if (f > 130) {
-            double sub_t = (double)(f - 130) / 30.0; // fade in over 0.5s
+            double sub_t = (double)(f - 130) / 30.0;
             if (sub_t > 1.0) sub_t = 1.0;
             int sub_alpha = (int)(180.0 * sub_t);
-            graph_ink(graph, (ACColor){180, 140, 160, (uint8_t)sub_alpha});
-            int sw = font_measure_matrix("aesthetic.computer", 1);
-            font_draw_matrix(graph, "aesthetic.computer",
+            graph_ink(graph, (ACColor){220, 180, 140, (uint8_t)sub_alpha});
+            const char *subtitle = "enjoy Los Angeles!";
+            int sw = font_measure_matrix(subtitle, 1);
+            font_draw_matrix(graph, subtitle,
                              (screen->width - sw) / 2, screen->height / 2 + 10, 1);
         }
 
@@ -1181,7 +1215,25 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
 static void draw_boot_status(ACGraph *graph, ACFramebuffer *screen,
                              ACDisplay *display, const char *status) {
     static int boot_frame = 0;
-    int dk = 1; // always dark
+    // Time-of-day themed background
+    int la_hour = get_la_hour();
+    uint8_t bg_r, bg_g, bg_b;
+    if (la_hour >= 5 && la_hour < 8) {
+        // Early morning: warm sunrise orange-pink
+        bg_r = 45; bg_g = 20; bg_b = 25;
+    } else if (la_hour >= 8 && la_hour < 12) {
+        // Morning: soft blue sky
+        bg_r = 15; bg_g = 25; bg_b = 45;
+    } else if (la_hour >= 12 && la_hour < 17) {
+        // Afternoon: warm golden
+        bg_r = 40; bg_g = 30; bg_b = 15;
+    } else if (la_hour >= 17 && la_hour < 20) {
+        // Evening: sunset purple-orange
+        bg_r = 40; bg_g = 15; bg_b = 35;
+    } else {
+        // Night: deep blue-black
+        bg_r = 10; bg_g = 10; bg_b = 25;
+    }
 
     struct timespec anim_time;
     clock_gettime(CLOCK_MONOTONIC, &anim_time);
@@ -1189,8 +1241,7 @@ static void draw_boot_status(ACGraph *graph, ACFramebuffer *screen,
     // Animate for 20 frames (~333ms) per status change
     for (int af = 0; af < 20; af++) {
         boot_frame++;
-        uint8_t bg = dk ? 20 : 255;
-        graph_wipe(graph, (ACColor){bg, bg, (uint8_t)(bg + (dk ? 5 : 0)), 255});
+        graph_wipe(graph, (ACColor){bg_r, bg_g, bg_b, 255});
 
         // Expanding circles — concentric rings radiating from center
         {
@@ -1227,7 +1278,7 @@ static void draw_boot_status(ACGraph *graph, ACFramebuffer *screen,
         }
 
         // Subtitle (slight counter-bounce)
-        uint8_t sub = dk ? 140 : 120;
+        uint8_t sub = 140;
         graph_ink(graph, (ACColor){sub, sub, sub, 255});
         int sw = font_measure_matrix("aesthetic.computer", 1);
         font_draw_matrix(graph, "aesthetic.computer",
@@ -1238,7 +1289,7 @@ static void draw_boot_status(ACGraph *graph, ACFramebuffer *screen,
         if (status) {
             int slide = (int)((1.0 - bounce_t) * 40);
             if (slide < 0) slide = 0;
-            uint8_t sc = dk ? 120 : 160;
+            uint8_t sc = 120;
             graph_ink(graph, (ACColor){sc, sc, sc, (uint8_t)(255 * bounce_t)});
             int stw = font_measure_matrix(status, 1);
             font_draw_matrix(graph, status,
@@ -1255,7 +1306,7 @@ static void draw_boot_status(ACGraph *graph, ACFramebuffer *screen,
                 double a = angle + d * 1.5708; // 90° apart
                 int dx = (int)(6.0 * cos(a));
                 int dy = (int)(3.0 * sin(a));
-                uint8_t bright = (d == 0) ? (dk ? 200 : 40) : (dk ? 80 : 180);
+                uint8_t bright = (d == 0) ? 200 : 80;
                 graph_ink(graph, (ACColor){bright, bright, bright, 255});
                 graph_box(graph, cx + dx - 1, cy + dy - 1, 2, 2, 1);
             }
