@@ -2871,6 +2871,30 @@ static JSValue js_exec_node(JSContext *ctx, JSValueConst this_val, int argc, JSV
     return JS_TRUE;
 }
 
+// system.listPieces() — scan /pieces/*.mjs, return array of piece names
+static JSValue js_list_pieces(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    JSValue arr = JS_NewArray(ctx);
+    DIR *d = opendir("/pieces");
+    if (d) {
+        struct dirent *ent;
+        uint32_t idx = 0;
+        while ((ent = readdir(d)) != NULL) {
+            char *dot = strstr(ent->d_name, ".mjs");
+            if (dot && dot[4] == '\0' && ent->d_name[0] != '.') {
+                char name[64];
+                int len = (int)(dot - ent->d_name);
+                if (len > 63) len = 63;
+                memcpy(name, ent->d_name, len);
+                name[len] = '\0';
+                JS_SetPropertyUint32(ctx, arr, idx++, JS_NewString(ctx, name));
+            }
+        }
+        closedir(d);
+    }
+    return arr;
+}
+
 static JSValue js_jump(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
     if (!current_rt || argc < 1) return JS_UNDEFINED;
@@ -3796,6 +3820,10 @@ static JSValue build_system_obj(JSContext *ctx) {
     // Piece navigation
     JS_SetPropertyStr(ctx, sys, "jump",
                       JS_NewCFunction(ctx, js_jump, "jump", 1));
+
+    // system.listPieces() — scan /pieces/*.mjs and return name array
+    JS_SetPropertyStr(ctx, sys, "listPieces",
+                      JS_NewCFunction(ctx, js_list_pieces, "listPieces", 0));
 
     // Volume and brightness control from JS
     JS_SetPropertyStr(ctx, sys, "volumeAdjust",
