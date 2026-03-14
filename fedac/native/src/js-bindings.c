@@ -1326,6 +1326,19 @@ static JSValue js_painting(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     return painting;
 }
 
+// sound.bpm(val?) — get or set BPM, returns current value
+static JSValue js_sound_bpm(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    ACAudio *audio = current_rt->audio;
+    if (!audio) return JS_NewFloat64(ctx, 120.0);
+    if (argc >= 1 && JS_IsNumber(argv[0])) {
+        double val;
+        JS_ToFloat64(ctx, &val, argv[0]);
+        if (val > 0) audio->bpm = val;
+    }
+    return JS_NewFloat64(ctx, audio->bpm);
+}
+
 // Build the sound object for the API
 static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
     JSValue sound = JS_NewObject(ctx);
@@ -1336,7 +1349,7 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
     JS_SetPropertyStr(ctx, sound, "play", JS_NewCFunction(ctx, js_noop, "play", 2));
     JS_SetPropertyStr(ctx, sound, "kill", JS_NewCFunction(ctx, js_sound_kill, "kill", 2));
     JS_SetPropertyStr(ctx, sound, "update", JS_NewCFunction(ctx, js_sound_update, "update", 2));
-    JS_SetPropertyStr(ctx, sound, "bpm", JS_NewFloat64(ctx, rt->audio ? rt->audio->bpm : 120.0));
+    JS_SetPropertyStr(ctx, sound, "bpm", JS_NewCFunction(ctx, js_sound_bpm, "bpm", 1));
     JS_SetPropertyStr(ctx, sound, "time", JS_NewFloat64(ctx, rt->audio ? rt->audio->time : 0.0));
     JS_SetPropertyStr(ctx, sound, "registerSample", JS_NewCFunction(ctx, js_noop, "registerSample", 3));
 
@@ -3916,6 +3929,9 @@ static JSValue build_api(JSContext *ctx, ACRuntime *rt, const char *phase) {
         }
         JS_SetPropertyStr(ctx, api, "params", params);
     }
+
+    // needsPaint (noop — native always paints every frame)
+    JS_SetPropertyStr(ctx, api, "needsPaint", JS_NewCFunction(ctx, js_noop, "needsPaint", 0));
 
     // Sound
     JS_SetPropertyStr(ctx, api, "sound", build_sound_obj(ctx, rt));
