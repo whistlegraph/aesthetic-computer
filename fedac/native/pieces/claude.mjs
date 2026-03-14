@@ -14,15 +14,24 @@ let pollFrame = 0;
 
 function boot({ system, wifi }) {
   // Check if Claude credentials already exist
-  const creds = system.readFile?.("/mnt/claude-credentials.json");
-  if (creds && creds.length > 10) {
+  let hasCreds = false;
+  try {
+    const creds = system.readFile("/mnt/claude-credentials.json");
+    if (creds && creds.length > 10) hasCreds = true;
+  } catch (e) { /* file doesn't exist */ }
+
+  if (hasCreds) {
+    // Credentials found — skip curtain, go straight to terminal
+    console.log("[claude] credentials found, launching terminal");
     mode = "terminal";
     system.jump("terminal:claude");
     return;
   }
-  // No credentials — start device auth
+  console.log("[claude] no credentials, showing auth curtain");
+
+  // No credentials — show auth curtain
   mode = "auth";
-  if (!wifi?.connected) {
+  if (!wifi || !wifi.connected) {
     state = "error";
     error = "connect to wifi first";
     return;
@@ -166,7 +175,7 @@ function act({ event: e, system, wifi }) {
   if (e.is("keyboard:down:enter") || e.is("keyboard:down:return")) {
     if (state === "error") {
       state = "requesting";
-      if (wifi?.connected) {
+      if (wifi && wifi.connected) {
         system.fetch(API_URL + "?action=request");
       } else {
         error = "connect to wifi first";
