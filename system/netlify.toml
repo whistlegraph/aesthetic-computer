@@ -2297,6 +2297,16 @@ status = 301
 force = true
 
 [[redirects]]
+from = "/api/machines"
+to = "/.netlify/functions/machines"
+status = 200
+
+[[redirects]]
+from = "/api/machine-logs"
+to = "/.netlify/functions/machine-logs"
+status = 200
+
+[[redirects]]
 from = "/*"
 to = "/.netlify/functions/index"
 status = 200
