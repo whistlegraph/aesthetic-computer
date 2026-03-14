@@ -219,7 +219,8 @@ async function fetchKidlisp(db, { limit, sort, boost }) {
         when: record.when,
         hits: record.hits || 0,
         acUrl: `https://aesthetic.computer/#${record.code}`,
-        assetUrl: `https://oven.aesthetic.computer/grab/webp/100/100/$${record.code}?duration=3000&fps=8&quality=80&density=1`,
+        assetUrl: `https://oven.aesthetic.computer/grab/png/100/100/$${record.code}?density=1`,
+        animatedUrl: `https://oven.aesthetic.computer/grab/webp/100/100/$${record.code}?duration=3000&fps=8&quality=80&density=1`,
         meta: {
           sourceLength: record.source?.length || 0,
         },

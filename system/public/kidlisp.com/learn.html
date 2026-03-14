@@ -821,16 +821,28 @@ document.querySelectorAll('code.kidlisp').forEach(el => {
 
     let html = '';
     for (const p of hits.slice(0, 15)) {
-      const url = 'https://aesthetic.computer/' + encodeURIComponent(p.code);
-      html += '<div class="hit-card">';
+      html += '<div class="hit-card" data-code="' + esc(p.code) + '">';
       html += '<div class="hit-header">';
-      html += '<span class="hit-code"><a href="' + url + '" target="_blank" rel="noopener">$' + esc(p.code) + '</a></span>';
+      html += '<span class="hit-code" style="cursor:pointer;color:var(--accent)">$' + esc(p.code) + '</span>';
       html += '<span class="hit-views">' + p.hits.toLocaleString() + ' views' + (p.handle ? ' · ' + esc(p.handle) : '') + '</span>';
       html += '</div>';
       html += '<div class="hit-source">' + highlightKL(p.source) + '</div>';
       html += '</div>';
     }
     el.innerHTML = html;
+    // Wire up click handlers to send piece to parent editor
+    el.querySelectorAll('.hit-card[data-code]').forEach(card => {
+      card.style.cursor = 'pointer';
+      card.addEventListener('click', () => {
+        const code = card.dataset.code;
+        const piece = hits.find(h => h.code === code);
+        if (piece && window.parent !== window) {
+          window.parent.postMessage({ type: 'kidlisp-load-piece', code: piece.code, source: piece.source }, '*');
+        } else {
+          window.open('https://aesthetic.computer/' + encodeURIComponent(code), '_blank');
+        }
+      });
+    });
   } catch (e) {
     el.innerHTML = '<p style="color:var(--text-muted)">Could not load top hits.</p>';
   }
@@ -913,8 +925,7 @@ function selectIdentifier(word) {
   if (piecesUsing.length) {
     html += '<div class="id-detail-examples-title">Top pieces using ' + esc(word) + '</div>';
     for (const p of piecesUsing) {
-      const url = 'https://aesthetic.computer/' + encodeURIComponent(p.code);
-      html += '<div class="id-detail-example" onclick="window.open(\'' + url.replace(/'/g, "\\'") + '\', \'_blank\')">';
+      html += '<div class="id-detail-example" data-code="' + esc(p.code) + '" style="cursor:pointer">';
       html += '<span style="color:var(--accent)">$' + esc(p.code) + '</span>';
       html += '<span style="float:right;color:var(--text-muted);font-size:11px">' + p.hits.toLocaleString() + ' views</span>';
       html += '</div>';
@@ -923,6 +934,19 @@ function selectIdentifier(word) {
 
   html += '</div>';
   el.innerHTML = html;
+
+  // Wire up piece example click handlers
+  el.querySelectorAll('.id-detail-example[data-code]').forEach(row => {
+    row.addEventListener('click', () => {
+      const code = row.dataset.code;
+      const piece = (topHitsData || []).find(h => h.code === code);
+      if (piece && window.parent !== window) {
+        window.parent.postMessage({ type: 'kidlisp-load-piece', code: piece.code, source: piece.source }, '*');
+      } else {
+        window.open('https://aesthetic.computer/' + encodeURIComponent(code), '_blank');
+      }
+    });
+  });
 }
 
 // PostMessage receiver — parent editor sends identifier to highlight
