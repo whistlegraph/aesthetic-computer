@@ -1378,6 +1378,9 @@ int main(int argc, char *argv[]) {
     graph_init(&graph, screen);
     font_init();
 
+    // Cursor overlay buffer — drawn separately so KidLisp effects don't smear it
+    ACFramebuffer *cursor_fb = fb_create(screen->width, screen->height);
+
     // Mount USB log early so boot animation can detect USB boot
     if (getpid() == 1) try_mount_log();
 
@@ -1888,27 +1891,44 @@ int main(int argc, char *argv[]) {
             clock_gettime(CLOCK_MONOTONIC, &_pf_paint0);
             js_call_paint(rt);
 
-            // Software cursor (AC precise cursor: teal crosshair + shadow + white center)
-            if (input && (input->pointer_x || input->pointer_y)) {
+            clock_gettime(CLOCK_MONOTONIC, &_pf_paint1);
+
+            // Software cursor on its own overlay buffer (unaffected by KidLisp effects)
+            if (cursor_fb && input && (input->pointer_x || input->pointer_y)) {
+                fb_clear(cursor_fb, 0x00000000); // transparent
+                graph_page(&graph, cursor_fb);
                 int cx = input->pointer_x / pixel_scale, cy = input->pointer_y / pixel_scale;
                 // Shadow (black, offset +1,+1)
                 graph_ink(&graph, (ACColor){0, 0, 0, 180});
-                graph_line(&graph, cx+1, cy-9, cx+1, cy-4);  // top
-                graph_line(&graph, cx+1, cy+6, cx+1, cy+11); // bottom
-                graph_line(&graph, cx-9, cy+1, cx-4, cy+1);  // left
-                graph_line(&graph, cx+6, cy+1, cx+11, cy+1); // right
-                graph_plot(&graph, cx+1, cy+1); // center shadow
+                graph_line(&graph, cx+1, cy-9, cx+1, cy-4);
+                graph_line(&graph, cx+1, cy+6, cx+1, cy+11);
+                graph_line(&graph, cx-9, cy+1, cx-4, cy+1);
+                graph_line(&graph, cx+6, cy+1, cx+11, cy+1);
+                graph_plot(&graph, cx+1, cy+1);
                 // Teal crosshair
                 graph_ink(&graph, (ACColor){0, 255, 255, 255});
-                graph_line(&graph, cx, cy-10, cx, cy-5);  // top
-                graph_line(&graph, cx, cy+5, cx, cy+10);  // bottom
-                graph_line(&graph, cx-10, cy, cx-5, cy);  // left
-                graph_line(&graph, cx+5, cy, cx+10, cy);  // right
+                graph_line(&graph, cx, cy-10, cx, cy-5);
+                graph_line(&graph, cx, cy+5, cx, cy+10);
+                graph_line(&graph, cx-10, cy, cx-5, cy);
+                graph_line(&graph, cx+5, cy, cx+10, cy);
                 // White center dot
                 graph_ink(&graph, (ACColor){255, 255, 255, 255});
                 graph_plot(&graph, cx, cy);
+                // Composite cursor region onto screen (only the area around cursor)
+                graph_page(&graph, screen);
+                int bx = cx - 12, by = cy - 12, bw = 25, bh = 25;
+                if (bx < 0) bx = 0;
+                if (by < 0) by = 0;
+                if (bx + bw > cursor_fb->width) bw = cursor_fb->width - bx;
+                if (by + bh > cursor_fb->height) bh = cursor_fb->height - by;
+                for (int py = by; py < by + bh; py++) {
+                    for (int px = bx; px < bx + bw; px++) {
+                        uint32_t pixel = cursor_fb->pixels[py * cursor_fb->stride + px];
+                        if (pixel >> 24) // only blit non-transparent
+                            fb_blend_pixel(screen, px, py, pixel);
+                    }
+                }
             }
-            clock_gettime(CLOCK_MONOTONIC, &_pf_paint1);
 
             clock_gettime(CLOCK_MONOTONIC, &_pf_pres0);
             display_present(display, screen, pixel_scale);

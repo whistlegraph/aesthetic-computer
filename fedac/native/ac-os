@@ -79,7 +79,28 @@ build_initramfs() {
     # Copy fresh binary into initramfs
     sudo cp "${BUILD_DIR}/ac-native" "${INITRAMFS_ROOT}/ac-native"
 
-    # Node.js + Claude Code: bundle as user (node installed via fnm, not in sudo PATH)
+    # Claude Code native binary (no Node.js needed)
+    local CLAUDE_NATIVE="${HOME}/.local/share/claude/versions"
+    local CLAUDE_BIN=""
+    if [ -d "${CLAUDE_NATIVE}" ]; then
+        # Find the latest version binary
+        CLAUDE_BIN=$(ls -t "${CLAUDE_NATIVE}/"* 2>/dev/null | head -1)
+    fi
+    if [ -n "${CLAUDE_BIN}" ] && [ -f "${CLAUDE_BIN}" ]; then
+        log "Bundling Claude Code (native binary)..."
+        sudo cp "${CLAUDE_BIN}" "${INITRAMFS_ROOT}/bin/claude"
+        sudo chmod +x "${INITRAMFS_ROOT}/bin/claude"
+        # Copy shared libraries needed by the binary
+        for lib in $(ldd "${CLAUDE_BIN}" 2>/dev/null | grep -oP '/\S+'); do
+            [ -f "$lib" ] && sudo cp -n "$lib" "${INITRAMFS_ROOT}/lib64/" 2>/dev/null || true
+        done
+        log "  claude: $(du -sh "${INITRAMFS_ROOT}/bin/claude" | cut -f1) (native binary)"
+    else
+        log "Claude Code native binary not found — skipping"
+        log "  Install with: curl -fsSL https://claude.ai/install.sh | bash"
+    fi
+
+    # Node.js (still needed for KidLisp tools and other JS utilities)
     local NODE_BIN="$(command -v node 2>/dev/null || true)"
     if [ -n "${NODE_BIN}" ] && [ -f "${NODE_BIN}" ]; then
         log "Bundling Node.js..."
@@ -89,33 +110,6 @@ build_initramfs() {
             [ -f "$lib" ] && sudo cp -n "$lib" "${INITRAMFS_ROOT}/lib64/" 2>/dev/null || true
         done
         log "  node: $(du -sh "${INITRAMFS_ROOT}/bin/node" | cut -f1) ($(${NODE_BIN} --version))"
-
-        # Claude Code (x64-linux only, strip other platforms)
-        local CLAUDE_PKG="$(npm root -g 2>/dev/null)/@anthropic-ai/claude-code"
-        if [ -d "${CLAUDE_PKG}" ]; then
-            log "Bundling Claude Code..."
-            local CLAUDE_DIR="${INITRAMFS_ROOT}/opt/claude-code"
-            sudo mkdir -p "${CLAUDE_DIR}/vendor/ripgrep/x64-linux" \
-                         "${CLAUDE_DIR}/vendor/tree-sitter-bash/x64-linux"
-            sudo cp "${CLAUDE_PKG}/cli.js" "${CLAUDE_DIR}/"
-            sudo cp "${CLAUDE_PKG}/package.json" "${CLAUDE_DIR}/"
-            [ -f "${CLAUDE_PKG}/resvg.wasm" ] && sudo cp "${CLAUDE_PKG}/resvg.wasm" "${CLAUDE_DIR}/"
-            sudo cp -r "${CLAUDE_PKG}/vendor/ripgrep/x64-linux/"* "${CLAUDE_DIR}/vendor/ripgrep/x64-linux/" 2>/dev/null || true
-            sudo cp -r "${CLAUDE_PKG}/vendor/tree-sitter-bash/x64-linux/"* "${CLAUDE_DIR}/vendor/tree-sitter-bash/x64-linux/" 2>/dev/null || true
-            # Claude wrapper script
-            sudo tee "${INITRAMFS_ROOT}/bin/claude" > /dev/null << 'CLAUDE_WRAPPER'
-#!/bin/sh
-export HOME="${HOME:-/tmp}"
-export TERM="${TERM:-dumb}"
-exec /bin/node /opt/claude-code/cli.js "$@"
-CLAUDE_WRAPPER
-            sudo chmod +x "${INITRAMFS_ROOT}/bin/claude"
-            log "  claude-code: $(sudo du -sh "${CLAUDE_DIR}" | cut -f1) (x64-linux only)"
-        else
-            log "Claude Code not installed globally — skipping"
-        fi
-    else
-        log "Node.js not in PATH — skipping Claude Code bundle"
     fi
 
     # Repack cpio + lz4
