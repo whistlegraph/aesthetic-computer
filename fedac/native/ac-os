@@ -137,21 +137,51 @@ build_initramfs() {
     else
         log "cage not installed — skipping (sudo dnf install cage)"
     fi
-    # Firefox needs GTK/Wayland libs — copy from host
-    for lib in $(ldd "${INITRAMFS_ROOT}/opt/firefox/firefox-bin" 2>/dev/null | grep -oP '/\S+'); do
-        [ -f "$lib" ] && sudo cp -n "$lib" "${INITRAMFS_ROOT}/lib64/" 2>/dev/null || true
+    # Firefox needs GTK/Wayland/Pango/Cairo/etc libs — many loaded via dlopen at runtime
+    # Scan the full dependency tree of firefox-bin, libxul.so, and all GTK/Pango/Cairo libs
+    log "Bundling Firefox shared libs (GTK3 + Wayland + Pango + Cairo)..."
+    local _ff_libs=$(mktemp)
+    for so in "${INITRAMFS_ROOT}/opt/firefox/firefox-bin" \
+              "${INITRAMFS_ROOT}/opt/firefox/libxul.so" \
+              /usr/lib64/libgtk-3.so.0 /usr/lib64/libgdk-3.so.0 \
+              /usr/lib64/libpango-1.0.so.0 /usr/lib64/libpangocairo-1.0.so.0 \
+              /usr/lib64/libcairo.so.2 /usr/lib64/libcairo-gobject.so.2 \
+              /usr/lib64/libgdk_pixbuf-2.0.so.0 \
+              /usr/lib64/libatk-1.0.so.0 /usr/lib64/libatk-bridge-2.0.so.0 \
+              /usr/lib64/libharfbuzz.so.0 /usr/lib64/libgio-2.0.so.0 \
+              /usr/lib64/libglib-2.0.so.0; do
+        ldd "$so" 2>/dev/null | grep -oP '/\S+'
+    done | sort -u > "$_ff_libs"
+    # Also add libs that Firefox dlopen's but ldd doesn't show
+    for extra in /usr/lib64/libpangoft2-1.0.so.0 \
+                 /usr/lib64/libfontconfig.so.1 \
+                 /usr/lib64/libfreetype.so.6 \
+                 /usr/lib64/libpixman-1.so.0 \
+                 /usr/lib64/libdbus-1.so.3 \
+                 /usr/lib64/libxkbcommon.so.0 \
+                 /usr/lib64/libwayland-client.so.0 \
+                 /usr/lib64/libwayland-cursor.so.0 \
+                 /usr/lib64/libwayland-egl.so.1 \
+                 /usr/lib64/libEGL.so.1 \
+                 /usr/lib64/libEGL_mesa.so.0 \
+                 /usr/lib64/libgbm.so.1; do
+        [ -f "$extra" ] && echo "$extra" >> "$_ff_libs"
     done
-    for lib in $(ldd "${INITRAMFS_ROOT}/opt/firefox/libxul.so" 2>/dev/null | grep -oP '/\S+'); do
-        [ -f "$lib" ] && sudo cp -n "$lib" "${INITRAMFS_ROOT}/lib64/" 2>/dev/null || true
-    done
-    log "  firefox libs: $(du -sh "${INITRAMFS_ROOT}/lib64/" | cut -f1) total"
+    local _count=0
+    while IFS= read -r lib; do
+        [ -f "$lib" ] && sudo cp -nL "$lib" "${INITRAMFS_ROOT}/lib64/" 2>/dev/null && _count=$((_count + 1))
+    done < "$_ff_libs"
+    rm -f "$_ff_libs"
+    log "  firefox libs: ${_count} files, $(du -sh "${INITRAMFS_ROOT}/lib64/" | cut -f1) total"
 
     # Firefox runtime deps: fontconfig, xkb keyboard data, a basic font
     log "Bundling Firefox runtime deps (fontconfig, xkb, font)..."
     sudo mkdir -p "${INITRAMFS_ROOT}/etc/fonts" "${INITRAMFS_ROOT}/usr/share/X11" \
                   "${INITRAMFS_ROOT}/usr/share/fonts"
     sudo cp -a /etc/fonts/. "${INITRAMFS_ROOT}/etc/fonts/" 2>/dev/null || true
-    sudo cp -a /usr/share/X11/xkb "${INITRAMFS_ROOT}/usr/share/X11/" 2>/dev/null || true
+    # xkb is often a symlink — dereference it
+    sudo cp -aL /usr/share/X11/xkb "${INITRAMFS_ROOT}/usr/share/X11/" 2>/dev/null || \
+        sudo cp -rL /usr/share/X11/xkb "${INITRAMFS_ROOT}/usr/share/X11/" 2>/dev/null || true
     # Single font is enough for OAuth page
     local FONT_SRC="$(find /usr/share/fonts -name 'DroidSans.ttf' -o -name 'DejaVuSans.ttf' 2>/dev/null | head -1)"
     if [ -n "${FONT_SRC}" ]; then
