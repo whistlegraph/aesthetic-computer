@@ -48,7 +48,8 @@ function act({ event: e, system }) {
 
 function paint({ wipe, ink, box, line, write, screen }) {
   frame++;
-  wipe(30, 15, 45);
+  const T = __theme.update();
+  wipe(T.bg[0], T.bg[1], T.bg[2]);
 
   const W = screen.width;
   const H = screen.height;
@@ -59,27 +60,27 @@ function paint({ wipe, ink, box, line, write, screen }) {
   let y = pad - scrollY;
 
   // Title
-  ink(200, 140, 220);
+  ink(T.accent[0], T.accent[1], T.accent[2]);
   write("ac/native commands", { x: pad, y, size: 1, font });
   y += lineH + 4;
 
   // Section: Pieces
-  ink(120, 200, 140);
+  ink(T.ok[0], T.ok[1], T.ok[2]);
   write("pieces", { x: pad, y, size: 1, font });
   y += lineH;
-  ink(60, 80, 70);
+  ink(T.border[0], T.border[1], T.border[2]);
   line(pad, y - 2, W - pad, y - 2);
 
   for (const p of PIECES) {
     if (y > H + 20) break;
     if (y > -lineH) {
-      ink(220, 180, 255);
+      ink(T.fg, T.fg - 20, T.fg + 15);
       write(p.name, { x: pad, y, size: 1, font });
       if (p.alias) {
-        ink(120, 100, 140);
+        ink(T.fgMute, T.fgMute - 10, T.fgMute + 10);
         write("/" + p.alias, { x: pad + p.name.length * charW + 2, y, size: 1, font });
       }
-      ink(100, 100, 110);
+      ink(T.fgMute, T.fgMute, T.fgMute + 5);
       write(p.desc, { x: pad, y: y + 11, size: 1, font });
     }
     y += lineH * 2;
@@ -88,22 +89,22 @@ function paint({ wipe, ink, box, line, write, screen }) {
   y += 6;
 
   // Section: Commands
-  ink(140, 180, 220);
+  ink(T.link[0], T.link[1], T.link[2]);
   write("commands", { x: pad, y, size: 1, font });
   y += lineH;
-  ink(60, 70, 80);
+  ink(T.border[0], T.border[1], T.border[2]);
   line(pad, y - 2, W - pad, y - 2);
 
   for (const c of COMMANDS) {
     if (y > H + 20) break;
     if (y > -lineH) {
-      ink(180, 200, 240);
+      ink(T.fg - 10, T.fg, T.fg + 20);
       write(c.name, { x: pad, y, size: 1, font });
       if (c.alias) {
-        ink(100, 110, 140);
+        ink(T.fgMute, T.fgMute + 5, T.fgMute + 15);
         write("/" + c.alias, { x: pad + c.name.length * charW + 2, y, size: 1, font });
       }
-      ink(100, 100, 110);
+      ink(T.fgMute, T.fgMute, T.fgMute + 5);
       write(c.desc, { x: pad, y: y + 11, size: 1, font });
     }
     y += lineH * 2;
@@ -112,18 +113,18 @@ function paint({ wipe, ink, box, line, write, screen }) {
   y += 6;
 
   // Section: Code aliases
-  ink(200, 180, 120);
+  ink(T.warn[0], T.warn[1], T.warn[2]);
   write("$codes", { x: pad, y, size: 1, font });
   y += lineH;
-  ink(80, 70, 50);
+  ink(T.border[0], T.border[1], T.border[2]);
   line(pad, y - 2, W - pad, y - 2);
 
   for (const c of CODES) {
     if (y > H + 20) break;
     if (y > -lineH) {
-      ink(240, 200, 140);
+      ink(T.warn[0], T.warn[1] - 20, T.warn[2] + 40);
       write(c.name, { x: pad, y, size: 1, font });
-      ink(100, 100, 110);
+      ink(T.fgMute, T.fgMute, T.fgMute + 5);
       write(c.desc, { x: pad, y: y + 11, size: 1, font });
     }
     y += lineH * 2;
@@ -133,10 +134,10 @@ function paint({ wipe, ink, box, line, write, screen }) {
 
   // Footer hint
   if (y > -lineH && y < H + 20) {
-    ink(80, 60, 100);
+    ink(T.fgMute, T.fgMute - 10, T.fgMute + 10);
     write("anything else -> kidlisp", { x: pad, y, size: 1, font });
     y += lineH;
-    ink(60, 50, 80);
+    ink(T.fgMute - 10, T.fgMute - 15, T.fgMute);
     write("esc to return", { x: pad, y, size: 1, font });
   }
 }

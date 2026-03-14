@@ -2502,10 +2502,11 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
 }
 
 function sim({ pressures, sound }) {
-  // Update dark/light mode every ~5 seconds
+  // Update dark/light mode via global theme (every ~5 seconds)
   if (frame % 300 === 0) {
     const wasDark = dark;
-    dark = isDark();
+    __theme.update();
+    dark = __theme.dark;
     if (dark !== wasDark) bgTarget = dark ? [20, 20, 25] : [240, 238, 232];
   }
 
