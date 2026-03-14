@@ -349,73 +349,57 @@ load_vault_creds() {
     log "Credentials decrypted and cached for session"
 }
 
-generate_template_img() {
-    # Create a bootable FAT32 disk image with the kernel + default config.
-    # Uses mtools (mcopy/mmd) to avoid needing loop devices or mount.
-    # The config.json is padded to 4096 bytes for easy byte-patching.
-    local IMG="/tmp/ac-native.img"
+generate_template_iso() {
+    # Create an EFI-bootable hybrid ISO with the kernel + default config.
+    # Uses xorriso with El Torito EFI boot — compatible with Fedora Media Writer,
+    # Balena Etcher, dd, and standard ISO mounting.
+    # The config.json is padded to 4096 bytes for byte-patching by oven.
+    local ISO="/tmp/ac-native.iso"
+    local STAGING="/tmp/ac-iso-staging"
+    local EFI_IMG="/tmp/ac-efi.img"
+
     local KERNEL_SIZE=$(stat -c%s "${VMLINUZ}")
-    # Minimum 128MB for UEFI compat (kernel now includes Node.js + Claude Code).
-    # Some firmware ignores tiny GPT disks or fails backup-GPT validation
-    # when the image is dd'd / Balena-flashed onto a larger drive.
-    local MIN_MB=128
-    local NEED_MB=$(( (KERNEL_SIZE / 1048576) + 4 ))
-    local IMG_SIZE_MB=$(( NEED_MB > MIN_MB ? NEED_MB : MIN_MB ))
+    # EFI image needs to fit kernel + config + FAT overhead
+    local EFI_MB=$(( (KERNEL_SIZE / 1048576) + 4 ))
 
-    log "Generating template .img (${IMG_SIZE_MB}MB)..." >&2
+    log "Generating template .iso..." >&2
 
-    # Create empty image
-    dd if=/dev/zero of="${IMG}" bs=1M count=${IMG_SIZE_MB} status=none
+    # Clean staging area
+    rm -rf "${STAGING}" "${EFI_IMG}" "${ISO}"
+    mkdir -p "${STAGING}"
 
-    # Create GPT partition table with EFI System Partition (fills image)
-    sfdisk "${IMG}" --quiet <<EOF
-label: gpt
-type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B
-EOF
-
-    # Find the partition offset (skip GPT header, typically 1MB = 2048 sectors)
-    local PART_START=$(sfdisk -d "${IMG}" 2>/dev/null | grep "start=" | head -1 | sed 's/.*start= *\([0-9]*\).*/\1/')
-    PART_START=${PART_START:-2048}
-    local PART_OFFSET=$(( PART_START * 512 ))
-
-    # Extract just the partition into a separate file for mtools
-    local PART_IMG="/tmp/ac-native-part.img"
-    local PART_SIZE=$(( IMG_SIZE_MB * 1048576 - PART_OFFSET ))
-    dd if="${IMG}" of="${PART_IMG}" bs=512 skip=${PART_START} status=none
-
-    # Format as FAT32
-    mkfs.vfat -F 32 -n AC-NATIVE "${PART_IMG}" >/dev/null 2>&1
-
-    # Create EFI directory structure using mtools
-    export MTOOLS_SKIP_CHECK=1
-    mmd -i "${PART_IMG}" ::EFI ::EFI/BOOT 2>/dev/null
-
-    # Copy kernel
-    mcopy -o -i "${PART_IMG}" "${VMLINUZ}" ::EFI/BOOT/BOOTX64.EFI
-
-    # Create padded config.json (4096 bytes, space-padded)
-    local CONFIG_TMP="/tmp/ac-config-template.json"
+    # Create padded config.json (4096 bytes, space-padded) in ISO root
+    local CONFIG_TMP="${STAGING}/config.json"
     printf '{"handle":"","piece":"notepat","sub":"","email":""}' > "${CONFIG_TMP}"
     local CURRENT_SIZE=$(stat -c%s "${CONFIG_TMP}")
     local PAD_SIZE=$((4096 - CURRENT_SIZE))
     dd if=/dev/zero bs=1 count=${PAD_SIZE} 2>/dev/null | tr '\0' ' ' >> "${CONFIG_TMP}"
-    mcopy -o -i "${PART_IMG}" "${CONFIG_TMP}" ::config.json
 
-    # Write the partition back into the disk image
-    dd if="${PART_IMG}" of="${IMG}" bs=512 seek=${PART_START} conv=notrunc status=none
+    # Create FAT32 EFI System Partition image for El Torito boot
+    dd if=/dev/zero of="${EFI_IMG}" bs=1M count=${EFI_MB} status=none
+    mkfs.vfat -F 32 -n AC-NATIVE "${EFI_IMG}" >/dev/null 2>&1
+    export MTOOLS_SKIP_CHECK=1
+    mmd -i "${EFI_IMG}" ::EFI ::EFI/BOOT 2>/dev/null
+    mcopy -o -i "${EFI_IMG}" "${VMLINUZ}" ::EFI/BOOT/BOOTX64.EFI
+    mcopy -o -i "${EFI_IMG}" "${CONFIG_TMP}" ::config.json
 
-    rm -f "${PART_IMG}" "${CONFIG_TMP}"
+    # Build hybrid ISO with xorriso (EFI boot via El Torito + GPT for dd/USB)
+    xorriso -as mkisofs \
+        -o "${ISO}" \
+        -V "AC_NATIVE" \
+        -J -joliet-long \
+        -append_partition 2 0xef "${EFI_IMG}" \
+        -e --interval:appended_partition_2:all:: \
+        -no-emul-boot \
+        -isohybrid-gpt-basdat \
+        "${STAGING}" 2>&1 | grep -v "^xorriso\|^Drive\|^Media" >&2 || true
 
-    # Gzip compress — Balena Etcher handles .img.gz natively
-    log "Compressing template .img..." >&2
-    gzip -f "${IMG}"
-    local GZ="${IMG}.gz"
+    rm -rf "${STAGING}" "${EFI_IMG}"
 
-    local GZ_BYTES=$(stat -c%s "${GZ}")
-    local RAW_MB=$(( IMG_SIZE_MB ))
-    local GZ_MB=$(( GZ_BYTES / 1048576 ))
-    log "Template image: ${GZ} (${GZ_MB}MB compressed from ${RAW_MB}MB)" >&2
-    echo "${GZ}"
+    local ISO_BYTES=$(stat -c%s "${ISO}")
+    local ISO_MB=$(( ISO_BYTES / 1048576 ))
+    log "Template ISO: ${ISO} (${ISO_MB}MB)" >&2
+    echo "${ISO}"
 }
 
 upload_ota() {
@@ -507,28 +491,28 @@ upload_ota() {
     log "  SHA: ${SHA}"
     log "  URL: ${URL}"
 
-    # Step 4: Generate and upload template .img for personalized downloads
-    local TEMPLATE_IMG
-    TEMPLATE_IMG=$(generate_template_img) && {
-        log "Uploading template .img..."
-        # Get presigned URL for the .img
-        local IMG_STEP
-        IMG_STEP=$(curl -sf -X POST "${UPLOAD_URL}" \
+    # Step 4: Generate and upload template .iso for personalized downloads
+    local TEMPLATE_ISO
+    TEMPLATE_ISO=$(generate_template_iso) && {
+        log "Uploading template .iso..."
+        # Get presigned URL for the .iso
+        local ISO_STEP
+        ISO_STEP=$(curl -sf -X POST "${UPLOAD_URL}" \
             -H "Authorization: Bearer ${AC_TOKEN}" \
             -H "X-Build-Name: ${BUILD_NAME}" \
             -H "X-Template-Upload: true" \
             --max-time 30) || { log "Template presign failed (non-fatal)"; }
 
-        if [ -n "${IMG_STEP}" ]; then
-            local IMG_PUT_URL=$(echo "$IMG_STEP" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>console.log(JSON.parse(d).img_put_url||''))" 2>/dev/null)
-            if [ -n "${IMG_PUT_URL}" ] && [ -f "${TEMPLATE_IMG}" ]; then
-                log "Uploading template $(stat -c%s "${TEMPLATE_IMG}" | numfmt --to=iec) to S3..."
-                curl -sf -X PUT "${IMG_PUT_URL}" \
-                    -H "Content-Type: application/gzip" \
+        if [ -n "${ISO_STEP}" ]; then
+            local ISO_PUT_URL=$(echo "$ISO_STEP" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>console.log(JSON.parse(d).iso_put_url||''))" 2>/dev/null)
+            if [ -n "${ISO_PUT_URL}" ] && [ -f "${TEMPLATE_ISO}" ]; then
+                log "Uploading template $(stat -c%s "${TEMPLATE_ISO}" | numfmt --to=iec) to S3..."
+                curl -sf -X PUT "${ISO_PUT_URL}" \
+                    -H "Content-Type: application/x-iso9660-image" \
                     -H "x-amz-acl: public-read" \
-                    -T "${TEMPLATE_IMG}" \
+                    -T "${TEMPLATE_ISO}" \
                     --max-time 300 && {
-                    log "Template .img uploaded"
+                    log "Template .iso uploaded"
                     # Flush oven's in-memory cache so downloads get the new template immediately
                     curl -sf -X POST "https://oven.aesthetic.computer/os-cache-flush" \
                         --max-time 10 && log "Oven template cache flushed" \
@@ -536,7 +520,7 @@ upload_ota() {
                 } || log "Template upload failed (non-fatal)"
             fi
         fi
-        rm -f "${TEMPLATE_IMG}"
+        rm -f "${TEMPLATE_ISO}"
     } || log "Template generation failed (non-fatal)"
 
     # Record in MongoDB
