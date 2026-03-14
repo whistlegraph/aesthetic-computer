@@ -32,6 +32,27 @@ static int config_cache_dirty = 1;  // reload /mnt/config.json when set
 // JS Native Functions — Graphics
 // ============================================================
 
+// Resolve a CSS color name string to an ACColor. Returns 1 on match, 0 if unknown.
+static int resolve_color_name(const char *name, ACColor *out) {
+    if (!name) return 0;
+    if (strcmp(name, "black") == 0)       { *out = (ACColor){0, 0, 0, 255}; return 1; }
+    if (strcmp(name, "white") == 0)       { *out = (ACColor){255, 255, 255, 255}; return 1; }
+    if (strcmp(name, "red") == 0)         { *out = (ACColor){255, 0, 0, 255}; return 1; }
+    if (strcmp(name, "green") == 0)       { *out = (ACColor){0, 128, 0, 255}; return 1; }
+    if (strcmp(name, "blue") == 0)        { *out = (ACColor){0, 0, 255, 255}; return 1; }
+    if (strcmp(name, "yellow") == 0)      { *out = (ACColor){255, 255, 0, 255}; return 1; }
+    if (strcmp(name, "cyan") == 0)        { *out = (ACColor){0, 255, 255, 255}; return 1; }
+    if (strcmp(name, "magenta") == 0)     { *out = (ACColor){255, 0, 255, 255}; return 1; }
+    if (strcmp(name, "gray") == 0)        { *out = (ACColor){128, 128, 128, 255}; return 1; }
+    if (strcmp(name, "grey") == 0)        { *out = (ACColor){128, 128, 128, 255}; return 1; }
+    if (strcmp(name, "orange") == 0)      { *out = (ACColor){255, 165, 0, 255}; return 1; }
+    if (strcmp(name, "purple") == 0)      { *out = (ACColor){128, 0, 128, 255}; return 1; }
+    if (strcmp(name, "pink") == 0)        { *out = (ACColor){255, 192, 203, 255}; return 1; }
+    if (strcmp(name, "lime") == 0)        { *out = (ACColor){0, 255, 0, 255}; return 1; }
+    if (strcmp(name, "brown") == 0)       { *out = (ACColor){139, 69, 19, 255}; return 1; }
+    return 0;
+}
+
 static JSValue js_wipe(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
     ACGraph *g = current_rt->graph;
@@ -45,9 +66,16 @@ static JSValue js_wipe(JSContext *ctx, JSValueConst this_val, int argc, JSValueC
         JS_ToInt32(ctx, &b, argv[2]);
         c = (ACColor){(uint8_t)r, (uint8_t)gr, (uint8_t)b, 255};
     } else if (argc == 1) {
-        int v;
-        if (JS_ToInt32(ctx, &v, argv[0]) == 0) {
-            c = (ACColor){(uint8_t)v, (uint8_t)v, (uint8_t)v, 255};
+        if (JS_IsString(argv[0])) {
+            const char *name = JS_ToCString(ctx, argv[0]);
+            if (!resolve_color_name(name, &c))
+                c = (ACColor){0, 0, 0, 255}; // unknown name → black
+            JS_FreeCString(ctx, name);
+        } else {
+            int v;
+            if (JS_ToInt32(ctx, &v, argv[0]) == 0) {
+                c = (ACColor){(uint8_t)v, (uint8_t)v, (uint8_t)v, 255};
+            }
         }
     }
     graph_wipe(g, c);
@@ -69,9 +97,16 @@ static JSValue js_ink(JSContext *ctx, JSValueConst this_val, int argc, JSValueCo
             c.a = (uint8_t)a;
         }
     } else if (argc == 1) {
-        int v;
-        if (JS_ToInt32(ctx, &v, argv[0]) == 0) {
-            c = (ACColor){(uint8_t)v, (uint8_t)v, (uint8_t)v, 255};
+        if (JS_IsString(argv[0])) {
+            const char *name = JS_ToCString(ctx, argv[0]);
+            if (!resolve_color_name(name, &c))
+                c = (ACColor){255, 255, 255, 255}; // unknown name → white
+            JS_FreeCString(ctx, name);
+        } else {
+            int v;
+            if (JS_ToInt32(ctx, &v, argv[0]) == 0) {
+                c = (ACColor){(uint8_t)v, (uint8_t)v, (uint8_t)v, 255};
+            }
         }
     }
     graph_ink(g, c);
