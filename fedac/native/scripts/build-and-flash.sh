@@ -382,6 +382,9 @@ DHCLIENT_SCRIPT
         done
     fi
 
+    # Claude Code needs /bin/bash — symlink to sh (busybox ash is close enough)
+    [ -f "${INITRAMFS_DIR}/bin/sh" ] && ln -sf sh "${INITRAMFS_DIR}/bin/bash"
+
     # Symlink WiFi binaries into /bin/ so system() calls find them via PATH
     for bin in "${WIFI_BINS[@]}"; do
         bname="$(basename "$bin")"
