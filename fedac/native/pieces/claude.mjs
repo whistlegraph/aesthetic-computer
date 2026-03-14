@@ -116,28 +116,33 @@ function paint({ wipe, ink, box, write, screen, system, wifi }) {
     var shortUrl = authUrl.replace("https://", "");
     write(shortUrl, { x: 10, y: 80, size: 1, font: font });
 
-    // QR code (right side)
+    // QR code (bottom-right corner)
     if (system.qrEncode && authUrl) {
       var qrData = system.qrEncode(authUrl);
       if (qrData && qrData.size > 0) {
-        var qrSize = qrData.size;
-        var scale = Math.floor(Math.min((W / 3), (H - 60)) / (qrSize + 4));
+        var qrSz = qrData.size;
+        var maxQr = Math.min(W / 3, H / 2);
+        var scale = Math.floor(maxQr / (qrSz + 4));
         if (scale < 1) scale = 1;
-        var totalPx = (qrSize + 4) * scale;
-        var qrX = W - totalPx - 8;
-        var qrY = 34;
+        if (scale > 4) scale = 4;
+        var totalPx = (qrSz + 4) * scale;
+        var qrX = W - totalPx - 6;
+        var qrY = H - totalPx - 6;
         // White background with quiet zone
         ink(255, 255, 255);
         box(qrX, qrY, totalPx, totalPx, true);
         // Draw dark modules
         ink(0, 0, 0);
-        for (var my = 0; my < qrSize; my++) {
-          for (var mx = 0; mx < qrSize; mx++) {
-            if (qrData.modules[my * qrSize + mx]) {
+        for (var my = 0; my < qrSz; my++) {
+          for (var mx = 0; mx < qrSz; mx++) {
+            if (qrData.modules[my * qrSz + mx]) {
               box(qrX + (mx + 2) * scale, qrY + (my + 2) * scale, scale, scale, true);
             }
           }
         }
+        // Label above QR
+        ink(100, 100, 120);
+        write("scan with phone", { x: qrX, y: qrY - 12, size: 1, font: font });
       }
     }
 
