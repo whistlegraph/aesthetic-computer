@@ -69,89 +69,49 @@ precision highp float;
 uniform sampler2D u_texture;
 uniform vec2 u_resolution;
 uniform vec2 u_center;
-uniform float u_steps;
+uniform float u_steps;    // angle in degrees
 uniform vec4 u_bounds;
 
 in vec2 v_texCoord;
 out vec4 fragColor;
 
-const float PI = 3.14159265359;
-const float TWO_PI = 6.28318530718;
+const float DEG_TO_RAD = 3.14159265359 / 180.0;
 
 void main() {
   int destX = int(gl_FragCoord.x);
   int destY = int(gl_FragCoord.y);
-  
+
   int minX = int(u_bounds.x);
   int minY = int(u_bounds.y);
   int maxX = int(u_bounds.z);
   int maxY = int(u_bounds.w);
-  
+
   if (destX < minX || destX >= maxX || destY < minY || destY >= maxY) {
     fragColor = texelFetch(u_texture, ivec2(destX, destY), 0);
     return;
   }
-  
+
+  // Pure rotation via inverse rotation matrix (no sqrt, no atan)
+  float rad = u_steps * DEG_TO_RAD;
+  float cosA = cos(rad);
+  float sinA = sin(rad);
+
   float dx = float(destX) - u_center.x;
   float dy = float(destY) - u_center.y;
-  float distanceSquared = dx * dx + dy * dy;
-  
-  if (distanceSquared < 1.0) {
-    fragColor = texelFetch(u_texture, ivec2(destX, destY), 0);
-    return;
-  }
-  
-  if (distanceSquared > 16000000.0) {
-    fragColor = vec4(0.0);
-    return;
-  }
-  
-  float distance = sqrt(distanceSquared);
-  float angle = atan(dy, dx);
-  float totalAngleChange = u_steps / distance;
-  float sourceAngle = angle - totalAngleChange;
-  
-  sourceAngle = sourceAngle - TWO_PI * floor(sourceAngle / TWO_PI);
-  if (sourceAngle < 0.0) sourceAngle += TWO_PI;
-  
-  float srcXf = u_center.x + distance * cos(sourceAngle);
-  float srcYf = u_center.y + distance * sin(sourceAngle);
-  
-  int boundsWidth = maxX - minX;
-  int boundsHeight = maxY - minY;
-  float fBoundsWidth = float(boundsWidth);
-  float fBoundsHeight = float(boundsHeight);
-  float fMinX = float(minX);
-  float fMinY = float(minY);
-  float fMaxX = float(maxX);
-  float fMaxY = float(maxY);
-  
-  // Wrap as floats FIRST (matching CPU behavior), then round
-  float wrappedSrcX = srcXf;
-  float wrappedSrcY = srcYf;
-  
-  // Wrap X (same float math as CPU)
-  if (srcXf < fMinX || srcXf >= fMaxX) {
-    float normalizedX = srcXf - fMinX;
-    wrappedSrcX = fMinX + (normalizedX - fBoundsWidth * floor(normalizedX / fBoundsWidth));
-    if (wrappedSrcX < fMinX) wrappedSrcX += fBoundsWidth;
-  }
-  
-  // Wrap Y (same float math as CPU)
-  if (srcYf < fMinY || srcYf >= fMaxY) {
-    float normalizedY = srcYf - fMinY;
-    wrappedSrcY = fMinY + (normalizedY - fBoundsHeight * floor(normalizedY / fBoundsHeight));
-    if (wrappedSrcY < fMinY) wrappedSrcY += fBoundsHeight;
-  }
-  
-  // NOW round to nearest integer (matching CPU's Math.round)
-  int srcX = int(round(wrappedSrcX));
-  int srcY = int(round(wrappedSrcY));
-  
-  // Final clamp (matching CPU's Math.max/min)
+
+  float srcXf = dx * cosA + dy * sinA + u_center.x;
+  float srcYf = -dx * sinA + dy * cosA + u_center.y;
+
+  // Wrap into bounds
+  int boundsW = maxX - minX;
+  int boundsH = maxY - minY;
+  int srcX = int(round(srcXf));
+  int srcY = int(round(srcYf));
+  srcX = minX + ((srcX - minX) % boundsW + boundsW) % boundsW;
+  srcY = minY + ((srcY - minY) % boundsH + boundsH) % boundsH;
   srcX = clamp(srcX, minX, maxX - 1);
   srcY = clamp(srcY, minY, maxY - 1);
-  
+
   fragColor = texelFetch(u_texture, ivec2(srcX, srcY), 0);
 }`;
 
