@@ -200,6 +200,9 @@ static void mount_minimal_fs(void) {
     mount("devpts", "/dev/pts", "devpts", 0, "ptmxmode=0666");
     mount("tmpfs", "/tmp", "tmpfs", 0, NULL);
 
+    // Bring up loopback interface (needed for Claude OAuth callback server)
+    system("ip link set lo up 2>/dev/null");
+
     // Wait for display device (up to 1s)
     for (int i = 0; i < 100; i++) {
         if (access("/dev/dri/card0", F_OK) == 0 ||
@@ -1085,15 +1088,15 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
         int hour = get_la_hour();
         int target_r, target_g, target_b;
         if (hour >= 5 && hour < 8) {
-            target_r = 55; target_g = 25; target_b = 30;   // sunrise
+            target_r = 100; target_g = 45; target_b = 20;  // sunrise orange
         } else if (hour >= 8 && hour < 12) {
-            target_r = 20; target_g = 30; target_b = 55;   // morning sky
+            target_r = 25; target_g = 50; target_b = 90;   // morning sky blue
         } else if (hour >= 12 && hour < 17) {
-            target_r = 50; target_g = 38; target_b = 18;   // afternoon gold
+            target_r = 90; target_g = 65; target_b = 20;   // afternoon gold
         } else if (hour >= 17 && hour < 20) {
-            target_r = 50; target_g = 18; target_b = 42;   // sunset
+            target_r = 80; target_g = 25; target_b = 60;   // sunset purple
         } else {
-            target_r = 12; target_g = 12; target_b = 30;   // night
+            target_r = 15; target_g = 15; target_b = 40;   // night deep blue
         }
         int bg_r = (int)(target_r * fade_t);
         int bg_g = (int)(target_g * fade_t);
@@ -1219,20 +1222,15 @@ static void draw_boot_status(ACGraph *graph, ACFramebuffer *screen,
     int la_hour = get_la_hour();
     uint8_t bg_r, bg_g, bg_b;
     if (la_hour >= 5 && la_hour < 8) {
-        // Early morning: warm sunrise orange-pink
-        bg_r = 45; bg_g = 20; bg_b = 25;
+        bg_r = 100; bg_g = 45; bg_b = 20;  // sunrise orange
     } else if (la_hour >= 8 && la_hour < 12) {
-        // Morning: soft blue sky
-        bg_r = 15; bg_g = 25; bg_b = 45;
+        bg_r = 25; bg_g = 50; bg_b = 90;   // morning sky
     } else if (la_hour >= 12 && la_hour < 17) {
-        // Afternoon: warm golden
-        bg_r = 40; bg_g = 30; bg_b = 15;
+        bg_r = 90; bg_g = 65; bg_b = 20;   // afternoon gold
     } else if (la_hour >= 17 && la_hour < 20) {
-        // Evening: sunset purple-orange
-        bg_r = 40; bg_g = 15; bg_b = 35;
+        bg_r = 80; bg_g = 25; bg_b = 60;   // sunset purple
     } else {
-        // Night: deep blue-black
-        bg_r = 10; bg_g = 10; bg_b = 25;
+        bg_r = 15; bg_g = 15; bg_b = 40;   // night deep blue
     }
 
     struct timespec anim_time;
