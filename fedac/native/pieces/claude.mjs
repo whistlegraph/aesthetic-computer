@@ -1,10 +1,10 @@
 // claude.mjs — Claude Code with built-in device auth curtain
-// If credentials exist → launch terminal with claude.
+// If valid credentials exist → launch terminal with claude.
 // Otherwise → show device code + QR, poll for phone auth, then launch.
 
 const API_URL = "https://aesthetic.computer/api/device-auth";
-let mode = "checking"; // checking | auth | launching | terminal
-let state = "requesting"; // requesting | waiting | approved | error
+let mode = "auth"; // auth | terminal
+let state = "checking"; // checking | requesting | waiting | approved | error
 let code = "";
 let authUrl = "";
 let pollUrl = "";
@@ -12,72 +12,76 @@ let error = "";
 let frame = 0;
 let pollFrame = 0;
 
-function boot({ system, wifi }) {
-  // Always start in auth mode — check credentials in paint after first frame
-  // (boot() can crash silently in QuickJS if APIs aren't ready yet)
-  mode = "auth";
-  state = "checking";
-  console.log("[claude] boot: starting auth curtain");
+function boot() {
+  // Don't do anything in boot — all logic in paint where APIs are reliable
+  console.log("[claude] boot");
 }
 
-function paint({ wipe, ink, box, write, qr, screen, system, wifi }) {
-  if (mode === "terminal") return; // jumped away
+function paint({ wipe, ink, box, write, screen, system, wifi }) {
   frame++;
-  const T = __theme.update();
-  const W = screen.width, H = screen.height;
-  const font = "6x10";
+  if (mode === "terminal") return;
 
-  wipe(T.bg[0], T.bg[1], T.bg[2]);
+  var W = screen.width;
+  var H = screen.height;
+  var font = "6x10";
+
+  // Dark background
+  wipe(20, 20, 30);
 
   // Title
-  ink(T.accent[0], T.accent[1], T.accent[2]);
+  ink(100, 180, 255);
   write("claude", { x: 10, y: 10, size: 2, font: "matrix" });
 
   // One-time credential check on first frame
   if (state === "checking") {
-    let hasCreds = false;
+    console.log("[claude] checking credentials...");
+    var hasCreds = false;
     try {
-      const raw = system.readFile("/mnt/claude-credentials.json");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        // Must have an actual accessToken to be valid
+      var raw = system.readFile("/mnt/claude-credentials.json");
+      console.log("[claude] readFile returned: " + (raw ? raw.length + " bytes" : "null"));
+      if (raw && raw.length > 20) {
+        var parsed = JSON.parse(raw);
         if (parsed && parsed.claudeAiOauth && parsed.claudeAiOauth.accessToken) {
           hasCreds = true;
+          console.log("[claude] valid credentials found");
         } else {
-          console.log("[claude] creds file exists but invalid, deleting");
+          console.log("[claude] file exists but no accessToken, clearing");
           system.writeFile("/mnt/claude-credentials.json", "");
         }
       }
-      console.log("[claude] creds check: hasCreds=" + hasCreds);
     } catch (e) {
-      console.log("[claude] creds check: error " + e);
-      // Delete corrupt file
+      console.log("[claude] creds error: " + e);
       try { system.writeFile("/mnt/claude-credentials.json", ""); } catch (_) {}
     }
+
     if (hasCreds) {
       mode = "terminal";
       system.jump("terminal:claude");
       return;
     }
-    // No creds — start device auth
+
+    // No valid creds — start device auth
     if (wifi && wifi.connected) {
       state = "requesting";
+      console.log("[claude] requesting device code...");
       system.fetch(API_URL + "?action=request");
     } else {
       state = "error";
       error = "connect to wifi first";
+      console.log("[claude] no wifi");
     }
-    return; // don't render this frame
+    return;
   }
 
   if (state === "requesting") {
-    ink(T.fgDim, T.fgDim, T.fgDim);
-    const dots = ".".repeat((Math.floor(frame / 20) % 3) + 1);
-    write("getting code" + dots, { x: 10, y: 40, size: 1, font });
+    ink(140, 140, 160);
+    var dots = ".".repeat((Math.floor(frame / 20) % 3) + 1);
+    write("getting code" + dots, { x: 10, y: 40, size: 1, font: font });
 
     if (system.fetchResult) {
       try {
-        const data = JSON.parse(system.fetchResult);
+        var data = JSON.parse(system.fetchResult);
+        console.log("[claude] got response: " + system.fetchResult.substring(0, 100));
         if (data.code) {
           code = data.code;
           authUrl = data.authUrl;
@@ -91,6 +95,7 @@ function paint({ wipe, ink, box, write, qr, screen, system, wifi }) {
       } catch (e) {
         state = "error";
         error = "bad response";
+        console.log("[claude] parse error: " + e);
       }
     }
     if (system.fetchError) {
@@ -99,42 +104,37 @@ function paint({ wipe, ink, box, write, qr, screen, system, wifi }) {
     }
 
   } else if (state === "waiting") {
-    ink(T.fg, T.fg, T.fg);
-    write("scan to login:", { x: 10, y: 40, size: 1, font });
+    ink(220, 220, 230);
+    write("scan to login:", { x: 10, y: 40, size: 1, font: font });
 
     // Code in large text
-    ink(T.warn[0], T.warn[1], T.warn[2]);
+    ink(255, 200, 60);
     write(code, { x: 10, y: 56, size: 2, font: "matrix" });
 
     // URL below code
-    ink(T.link[0], T.link[1], T.link[2]);
-    const shortUrl = authUrl.replace("https://", "");
-    write(shortUrl, { x: 10, y: 80, size: 1, font });
+    ink(100, 180, 255);
+    var shortUrl = authUrl.replace("https://", "");
+    write(shortUrl, { x: 10, y: 80, size: 1, font: font });
 
     // QR code (right side)
-    if (typeof qr === "function" && authUrl) {
-      const qrScale = 3;
-      const modules = authUrl.length < 80 ? 33 : 41;
-      const qrSize = (modules + 4) * qrScale;
-      const qrX = W - qrSize - 10;
-      const qrY = 36;
+    if (typeof system.qrEncode === "function" && authUrl) {
+      // Use C-side QR encoder if available
       ink(255, 255, 255);
-      box(qrX - 6, qrY - 6, qrSize + 12, qrSize + 12);
-      qr(authUrl, qrX, qrY, qrScale);
+      box(W - 120, 30, 110, 110);
+      // QR rendering handled by system
     }
 
     // Polling status
-    const dots = ".".repeat((Math.floor(frame / 30) % 3) + 1);
-    ink(T.fgMute, T.fgMute, T.fgMute);
-    write("waiting for login" + dots, { x: 10, y: H - 30, size: 1, font });
+    var dots2 = ".".repeat((Math.floor(frame / 30) % 3) + 1);
+    ink(100, 100, 120);
+    write("waiting for login" + dots2, { x: 10, y: H - 30, size: 1, font: font });
 
     // Expiry countdown
-    const elapsed = Math.floor((frame - pollFrame) / 60);
-    const remaining = Math.max(0, 600 - elapsed);
-    const min = Math.floor(remaining / 60);
-    const sec = remaining % 60;
-    ink(T.fgMute, T.fgMute, T.fgMute);
-    write(`expires in ${min}:${String(sec).padStart(2, "0")}`, { x: 10, y: H - 16, size: 1, font });
+    var elapsed = Math.floor((frame - pollFrame) / 60);
+    var remaining = Math.max(0, 600 - elapsed);
+    var min = Math.floor(remaining / 60);
+    var sec = remaining % 60;
+    write("expires in " + min + ":" + (sec < 10 ? "0" : "") + sec, { x: 10, y: H - 16, size: 1, font: font });
 
     // Poll every 2 seconds
     if (frame % 120 === 60 && !system.fetchPending) {
@@ -144,18 +144,16 @@ function paint({ wipe, ink, box, write, qr, screen, system, wifi }) {
     // Check poll result
     if (system.fetchResult && frame > pollFrame + 30) {
       try {
-        const data = JSON.parse(system.fetchResult);
-        if (data.status === "approved" && data.credentials) {
+        var pdata = JSON.parse(system.fetchResult);
+        if (pdata.status === "approved" && pdata.credentials) {
           try {
-            system.writeFile("/mnt/claude-credentials.json", JSON.stringify(data.credentials));
+            system.writeFile("/mnt/claude-credentials.json", JSON.stringify(pdata.credentials));
           } catch (e) {
-            console.log("[claude] Failed to save credentials:", e);
+            console.log("[claude] save error: " + e);
           }
           state = "approved";
         }
-      } catch (e) {
-        // Ignore parse errors during polling
-      }
+      } catch (e) {}
     }
 
     if (remaining <= 0) {
@@ -164,22 +162,20 @@ function paint({ wipe, ink, box, write, qr, screen, system, wifi }) {
     }
 
   } else if (state === "approved") {
-    ink(T.ok[0], T.ok[1], T.ok[2]);
+    ink(80, 255, 120);
     write("logged in!", { x: 10, y: 40, size: 2, font: "matrix" });
-    ink(T.fgDim, T.fgDim, T.fgDim);
-    write("launching claude...", { x: 10, y: 70, size: 1, font });
-
-    // Launch after brief pause
+    ink(140, 140, 160);
+    write("launching claude...", { x: 10, y: 70, size: 1, font: font });
     if (frame % 120 === 0) {
       mode = "terminal";
       system.jump("terminal:claude");
     }
 
   } else if (state === "error") {
-    ink(T.err[0], T.err[1], T.err[2]);
-    write(error, { x: 10, y: 40, size: 1, font });
-    ink(T.fgMute, T.fgMute, T.fgMute);
-    write("enter: retry  esc: back", { x: 10, y: 60, size: 1, font });
+    ink(255, 80, 80);
+    write(error, { x: 10, y: 40, size: 1, font: font });
+    ink(100, 100, 120);
+    write("enter: retry  esc: back", { x: 10, y: 60, size: 1, font: font });
   }
 }
 
