@@ -24,17 +24,13 @@ export async function handler(event) {
     return respond(204, "");
   }
 
-  // ── Auth ───────────────────────────────────────────────────────────
+  // ── Auth (optional for POST — devices send sub in body) ──────────
   const authHeader =
     event.headers.authorization || event.headers.Authorization;
-  const user = await authorize({ authorization: authHeader });
-  if (!user || !user.sub) {
+  const user = authHeader ? await authorize({ authorization: authHeader }) : null;
+  // GET requires JWT auth; POST allows device auth via body sub
+  if (event.httpMethod === "GET" && (!user || !user.sub)) {
     return respond(401, { success: false, error: "Unauthorized" });
-  }
-
-  // Only GET is supported
-  if (event.httpMethod !== "GET") {
-    return respond(405, { success: false, error: "Method not allowed" });
   }
 
   const database = await connect();
@@ -46,6 +42,77 @@ export async function handler(event) {
     await ensureIndexes(db);
 
     const logs = db.collection("ac-machine-logs");
+
+    // ── POST — upload session log from device ─────────────────────────
+    // Accepts both JWT auth (from dashboard) and device auth (sub in body)
+    if (event.httpMethod === "POST") {
+      let body;
+      try {
+        body = JSON.parse(event.body || "{}");
+      } catch {
+        return respond(400, { success: false, error: "Invalid JSON" });
+      }
+
+      const { machineId, lines, sessionType, sub: deviceSub } = body || {};
+      if (!machineId || !Array.isArray(lines)) {
+        return respond(400, {
+          success: false,
+          error: "Need machineId (string) and lines (array of strings)",
+        });
+      }
+
+      // Use JWT user if available, fall back to device sub from body
+      // (device sends its config.json sub for identification)
+      const ownerSub = user?.sub || deviceSub;
+      if (!ownerSub) {
+        return respond(401, { success: false, error: "No user identity" });
+      }
+
+      // Verify machine belongs to user (or register if new)
+      const machinesCol = db.collection("ac-machines");
+      const existing = await machinesCol.findOne({ machineId });
+      if (existing && existing.user !== ownerSub) {
+        return respond(403, { success: false, error: "Machine belongs to another user" });
+      }
+      if (!existing) {
+        // Auto-register machine on first log upload
+        await machinesCol.insertOne({
+          machineId,
+          user: ownerSub,
+          label: machineId,
+          registeredAt: new Date(),
+          lastSeen: new Date(),
+        });
+      } else {
+        await machinesCol.updateOne(
+          { machineId },
+          { $set: { lastSeen: new Date() } },
+        );
+      }
+
+      const now = new Date();
+      const docs = lines.slice(0, 500).map((line, i) => ({
+        machineId,
+        user: ownerSub,
+        type: sessionType || "log",
+        level: "info",
+        message: typeof line === "string" ? line : String(line),
+        when: new Date(now.getTime() - (lines.length - i) * 10),
+        receivedAt: now,
+      }));
+
+      if (docs.length > 0) {
+        await logs.insertMany(docs, { ordered: false });
+      }
+
+      return respond(200, { success: true, inserted: docs.length });
+    }
+
+    // ── GET — retrieve logs ───────────────────────────────────────────
+    if (event.httpMethod !== "GET") {
+      return respond(405, { success: false, error: "Method not allowed" });
+    }
+
     const params = event.queryStringParameters || {};
 
     const { machineId, type, since, limit: rawLimit } = params;
