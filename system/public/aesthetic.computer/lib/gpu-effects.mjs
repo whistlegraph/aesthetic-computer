@@ -387,9 +387,8 @@ void main() {
 // SHARPEN SHADER - Unsharp mask convolution
 // =========================================================================
 const SHARPEN_FRAGMENT_SHADER = `#version 300 es
-// Use mediump for better compatibility with low-end mobile GPUs (e.g. Unihertz Jelly)
-// Sharpen doesn't need highp - it's just texture sampling and simple math
-precision mediump float;
+// highp is mandatory in WebGL2 and needed for correct texel offsets on Android GPUs
+precision highp float;
 
 uniform sampler2D u_texture;
 uniform vec2 u_resolution;
@@ -1379,11 +1378,12 @@ export function gpuSpin(pixels, width, height, steps, anchorX = null, anchorY = 
     
     gl.drawArrays(gl.TRIANGLES, 0, 6);
     
-    // Read back pixels directly - shader output is already in CPU orientation
-    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-    
+    // Read into Uint8Array first (Android Chrome fails with Uint8ClampedArray)
+    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, readbackBuffer);
+    pixels.set(readbackBuffer);
+
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    
+
     return true;
   } catch (e) {
     console.error('🎮 GPU Spin: Render failed:', e);
@@ -1462,11 +1462,12 @@ export function gpuComposite(pixels, width, height, options = {}) {
     
     gl.drawArrays(gl.TRIANGLES, 0, 6);
     
-    // Read back pixels directly - shader output is already in CPU orientation
-    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-    
+    // Read into Uint8Array first (Android Chrome fails with Uint8ClampedArray)
+    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, readbackBuffer);
+    pixels.set(readbackBuffer);
+
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    
+
     return true;
   } catch (e) {
     console.error('🎮 GPU Composite: Render failed:', e);
@@ -1877,8 +1878,9 @@ export function gpuShear(pixels, width, height, shearX = 0, shearY = 0, mask = n
 
     gl.drawArrays(gl.TRIANGLES, 0, 6);
 
-    // Read back pixels
-    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    // Read into Uint8Array first (Android Chrome fails with Uint8ClampedArray)
+    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, readbackBuffer);
+    pixels.set(readbackBuffer);
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
@@ -1940,8 +1942,9 @@ export function gpuSuck(pixels, width, height, displacement, direction, centerX,
 
     gl.drawArrays(gl.TRIANGLES, 0, 6);
 
-    // Read back pixels
-    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    // Read into Uint8Array first (Android Chrome fails with Uint8ClampedArray)
+    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, readbackBuffer);
+    pixels.set(readbackBuffer);
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
