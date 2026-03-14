@@ -8,13 +8,18 @@
 | Aesthetic Computer '26 | JOSS (Markdown, 2pp) | `joss-ac/paper.pdf` | `joss-ac/paper.md` |
 | KidLisp '26 | arXiv (LaTeX, 6pp) | `arxiv-kidlisp/kidlisp.pdf` | `arxiv-kidlisp/kidlisp.tex` |
 | KidLisp '26 | JOSS (Markdown, 3pp) | `joss-kidlisp/paper.pdf` | `joss-kidlisp/paper.md` |
+| AC Native OS '26 | arXiv (LaTeX, 6pp) | `arxiv-os/os.pdf` | `arxiv-os/os.tex` |
 
 ## Building
 
 ```bash
+# Prerequisites: xelatex + bibtex must be installed in the dev container.
+# The Dockerfile includes texlive-xetex and related packages for this.
+
 # arXiv papers (xelatex + bibtex, 3 passes)
 cd papers/arxiv-ac && xelatex ac.tex && bibtex ac && xelatex ac.tex && xelatex ac.tex
 cd papers/arxiv-kidlisp && xelatex kidlisp.tex && bibtex kidlisp && xelatex kidlisp.tex && xelatex kidlisp.tex
+cd papers/arxiv-os && xelatex os.tex && bibtex os && xelatex os.tex && xelatex os.tex
 
 # JOSS papers (pandoc)
 cd papers/joss-ac && pandoc paper.md --citeproc --pdf-engine=xelatex -o paper.pdf
@@ -48,6 +53,7 @@ Upcoming conferences and journals to submit to.
 
 - [ ] **Mar 11, 2026**: Confirm ICIR late-breaking/demo dates on `icir.ieee.org` and choose route (full, short, or demo).
 - [ ] **Mar 12, 2026**: Finalize ACM C&C demo concept and required assets list (video, screenshots, abstract, setup notes).
+- [x] **Mar 13, 2026**: Draft AC Native OS '26 paper (`arxiv-os/os.tex`) — bare-metal creative OS, surplus hardware thesis, device-level personalization.
 - [ ] **Mar 13, 2026**: Draft Tier 1 BibTeX entries (Kittler, McLuhan, Langer, Little Schemer, Ingold, Ukeles, Strudel, van Engelen, Stiegler).
 - [ ] **Mar 14, 2026**: Pull adoption metrics (users, pieces, sessions, KidLisp usage) and define one shared stats block for all papers.
 - [ ] **Mar 17, 2026**: Revise `arxiv-ac/ac.tex` with new citations + adoption metrics + software-history framing.
