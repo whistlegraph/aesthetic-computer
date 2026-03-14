@@ -914,9 +914,9 @@
     .keeps-about-tech--ipfs .keeps-about-tech-body { border-top-color: rgba(59, 130, 246, 0.2); }
 
     .keeps-about-tech summary {
-      padding: 10px 14px;
+      padding: 12px 14px;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 15px;
       font-weight: 600;
       color: var(--text-secondary);
       background: var(--bg-secondary);
@@ -941,15 +941,15 @@
     }
 
     .keeps-about-tech-body {
-      padding: 14px;
-      font-size: 14px;
+      padding: 16px;
+      font-size: 16px;
       color: var(--text-secondary);
-      line-height: 1.6;
+      line-height: 1.65;
       border-top: 1px solid var(--border-color);
     }
 
     .keeps-about-tech-body p {
-      margin: 0 0 10px 0;
+      margin: 0 0 14px 0;
     }
 
     .keeps-about-tech-body p:last-child {
@@ -957,15 +957,45 @@
     }
 
     .keeps-about-tech-section-label {
-      font-size: 12px;
+      font-size: 13px;
       font-weight: bold;
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: var(--text-tertiary);
-      margin: 18px 0 8px !important;
+      margin: 22px 0 10px !important;
     }
     .keeps-about-tech-section-label:first-child {
       margin-top: 0 !important;
+    }
+
+    .keeps-about-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 10px;
+      margin: 14px 0;
+    }
+
+    .keeps-about-stat {
+      padding: 12px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 7px;
+      text-align: center;
+    }
+
+    .keeps-about-stat-value {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--ac-purple);
+      font-family: 'Courier New', monospace;
+    }
+
+    .keeps-about-stat-label {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-top: 4px;
     }
 
     .keeps-about-contract-box {
@@ -2858,8 +2888,29 @@
         <details class="keeps-about-tech">
           <summary>Technology</summary>
           <div class="keeps-about-tech-body">
-            <p class="keeps-about-tech-section-label">Contract &amp; Chain</p>
-            <p>Each keep is an FA2 token on Tezos mainnet. The contract rejects duplicates by content hash — keep will revert if a piece has already been kept. Royalties are encoded at keep time (9% to author, 1% to KidLisp) and honored by objkt and all FA2-compatible marketplaces.</p>
+            <p class="keeps-about-tech-section-label">Live Stats</p>
+            <div class="keeps-about-stats-grid" id="keeps-live-stats">
+              <div class="keeps-about-stat">
+                <div class="keeps-about-stat-value" id="stat-total-keeps">—</div>
+                <div class="keeps-about-stat-label">Keeps</div>
+              </div>
+              <div class="keeps-about-stat">
+                <div class="keeps-about-stat-value" id="stat-unique-holders">—</div>
+                <div class="keeps-about-stat-label">Holders</div>
+              </div>
+              <div class="keeps-about-stat">
+                <div class="keeps-about-stat-value" id="stat-unique-creators">—</div>
+                <div class="keeps-about-stat-label">Creators</div>
+              </div>
+              <div class="keeps-about-stat">
+                <div class="keeps-about-stat-value" id="stat-contract-age">—</div>
+                <div class="keeps-about-stat-label">Live Since</div>
+              </div>
+            </div>
+
+            <p class="keeps-about-tech-section-label">How It Works</p>
+            <p>Each keep is an <strong>FA2 token on Tezos</strong>. Your KidLisp source is bundled into a self-contained HTML file, a thumbnail is rendered, and both are pinned to <strong>IPFS</strong>. No KidLisp servers are needed to view your token — it works on objkt and any FA2 marketplace.</p>
+            <p>Duplicate keeps are rejected on-chain by content hash. Royalties (9% author, 1% platform) are encoded at keep time and honored by all FA2 marketplaces.</p>
             <div class="keeps-about-contract-box">
               <div class="keeps-about-contract-label">Active Contract</div>
               <div id="v6-active-contract-address" style="font-family: 'Courier New', monospace; color: var(--ac-purple); font-size: 14px; word-break: break-all;">Loading...</div>
@@ -2871,27 +2922,20 @@
               </div>
             </div>
 
-            <p class="keeps-about-tech-section-label">On-chain Guarantees</p>
+            <p class="keeps-about-tech-section-label">Your Guarantees</p>
             <ul class="keeps-about-security-list">
-              <li>Only you can keep. The backend issues a short-lived signed permit bound to your wallet, the content hash, and the contract address. Without a valid permit, keep reverts. There is no admin keep path.</li>
-              <li>Only you can burn. burn_keep checks current_owner == sender. Admin cannot burn on your behalf.</li>
-              <li>Content hash and royalties are immutable. edit_metadata always re-injects the original values from the original keep. Nobody can change what you made or what you earn.</li>
-              <li>You can freeze your own metadata. lock_metadata is irreversible and owner-only. Not even admin can unset it.</li>
-              <li>Pause never affects transfers. If the contract is paused, keeping new pieces and metadata edits stop — but FA2 transfers remain live. Your ability to move or sell is always unaffected.</li>
+              <li><strong>Only you can keep.</strong> A short-lived signed permit ties the transaction to your wallet and content hash. No admin mint path exists.</li>
+              <li><strong>Only you can burn.</strong> Admin cannot burn on your behalf.</li>
+              <li><strong>Content and royalties are immutable.</strong> Nobody can change what you made or what you earn.</li>
+              <li><strong>You can freeze metadata.</strong> Irreversible, owner-only — not even admin can undo it.</li>
+              <li><strong>Transfers always work.</strong> Even if the contract is paused, FA2 transfers stay live. You can always move or sell.</li>
             </ul>
 
-            <p class="keeps-about-tech-section-label">Media &amp; Storage</p>
-            <p>When kept, the KidLisp source is bundled into a self-contained HTML artifact and a thumbnail is rendered via the Oven service. Both are pinned to IPFS via Pinata. The artifact and thumbnail URIs in your token metadata point directly to IPFS — no KidLisp servers are required to view your token on objkt or any other marketplace. Use Rekeep in the modal to regenerate media if your piece changes after keeping.</p>
-
-            <p class="keeps-about-tech-section-label">Development</p>
-            <p>The contract went through multiple iterations (v1–v5) before settling on the current version (v11). Each pass refined the keep flow, permit system, and royalty encoding. Prior prototype tokens are retired. The system is designed to grow — future versions may support piece types beyond KidLisp $codes.</p>
-
             <p class="keeps-about-tech-section-label">Reports</p>
-            <p>Reference reports for audits, security analysis, and v12 migration planning:</p>
             <ul class="keeps-about-security-list">
-              <li><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-03-10-keeps-audit-mainnet.md" target="_blank" rel="noopener noreferrer">2026-03-10 Mainnet Audit</a></li>
-              <li><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-03-10-keeps-v11-security-gap-analysis.md" target="_blank" rel="noopener noreferrer">2026-03-10 v11 Security Gap Analysis</a></li>
-              <li><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-03-10-keeps-v12-and-25-year-stability-plan.md" target="_blank" rel="noopener noreferrer">2026-03-10 v12 + 25-Year Stability Plan</a></li>
+              <li><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-03-10-keeps-audit-mainnet.md" target="_blank" rel="noopener noreferrer">Mainnet Audit</a></li>
+              <li><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-03-10-keeps-v11-security-gap-analysis.md" target="_blank" rel="noopener noreferrer">v11 Security Gap Analysis</a></li>
+              <li><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-03-10-keeps-v12-and-25-year-stability-plan.md" target="_blank" rel="noopener noreferrer">v12 + 25-Year Stability Plan</a></li>
             </ul>
           </div>
         </details>
@@ -3095,6 +3139,58 @@
         if (tzktLink) tzktLink.href = `${tzktBase}/${contract}`;
         if (objktLink) objktLink.href = `${objktBase}/collections/${contract}`;
         if (opsLink) opsLink.href = `${tzktBase}/${contract}/operations`;
+      }
+
+      // Fetch live stats from TzKT
+      if (contract) fetchLiveStats(contract, network);
+    }
+
+    async function fetchLiveStats(contract, network) {
+      const tzktApi = network === 'mainnet' ? 'https://api.tzkt.io' : `https://api.${network}.tzkt.io`;
+      try {
+        // Fetch contract info + token balances in parallel
+        const [contractRes, balancesRes] = await Promise.all([
+          fetch(`${tzktApi}/v1/contracts/${contract}`),
+          fetch(`${tzktApi}/v1/tokens/balances?token.contract=${contract}&balance.gt=0&limit=10000&select=account.address,token.metadata`),
+        ]);
+
+        if (contractRes.ok) {
+          const info = await contractRes.json();
+          // Total tokens from contract's tokensCount
+          const totalKeeps = info.tokensCount || 0;
+          const el = document.getElementById('stat-total-keeps');
+          if (el) el.textContent = totalKeeps.toLocaleString();
+
+          // Contract creation date
+          const ageEl = document.getElementById('stat-contract-age');
+          if (ageEl && info.firstActivity) {
+            const created = new Date(info.firstActivityTime || info.firstActivity);
+            if (!isNaN(created)) {
+              ageEl.textContent = created.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+            }
+          }
+        }
+
+        if (balancesRes.ok) {
+          const balances = await balancesRes.json();
+          // Unique holders
+          const holders = new Set(balances.map(b => b.account?.address || b.account).filter(Boolean));
+          const holdersEl = document.getElementById('stat-unique-holders');
+          if (holdersEl) holdersEl.textContent = holders.size.toLocaleString();
+
+          // Unique creators (from metadata.creators)
+          const creators = new Set();
+          for (const b of balances) {
+            const meta = b.token?.metadata;
+            if (meta?.creators) {
+              for (const c of meta.creators) creators.add(c);
+            }
+          }
+          const creatorsEl = document.getElementById('stat-unique-creators');
+          if (creatorsEl) creatorsEl.textContent = creators.size.toLocaleString();
+        }
+      } catch (err) {
+        console.warn('Failed to fetch live stats:', err.message);
       }
     }
 
