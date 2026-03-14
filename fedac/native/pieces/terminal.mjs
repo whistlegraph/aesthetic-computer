@@ -12,6 +12,7 @@ let altHeld = false;
 let cursorBlink = 0;
 let lastExitCode = -1;
 let lastCmd = "";
+let detectedUrl = ""; // URL detected in terminal output for QR display
 
 // ANSI 16-color palette → RGB
 const COLORS = [
@@ -114,7 +115,8 @@ function boot({ system, screen, params }) {
   started = true;
 }
 
-function paint({ wipe, ink, box, write, system, screen }) {
+function paint({ wipe, ink, box, write, qr, system, screen }) {
+  const w = screen.width, h = screen.height;
   wipe(0); // black background
   cursorBlink++;
 
@@ -207,6 +209,34 @@ function paint({ wipe, ink, box, write, system, screen }) {
         }
       }
     }
+  }
+
+  // Scan grid for https:// URLs (for QR code display)
+  // Only scan every 30 frames to avoid performance hit
+  if (cursorBlink % 30 === 1) {
+    let fullText = "";
+    for (let y = 0; y < ptyRows; y++) {
+      for (let x = 0; x < ptyCols; x++) {
+        const ch = grid[(y * ptyCols + x) * CELL_SIZE];
+        fullText += (ch >= 32 && ch < 127) ? String.fromCharCode(ch) : " ";
+      }
+      fullText += "\n";
+    }
+    // Find the last https:// URL in the terminal
+    const urlMatch = fullText.match(/https?:\/\/[^\s\n]+/g);
+    detectedUrl = urlMatch ? urlMatch[urlMatch.length - 1] : "";
+  }
+
+  // Render QR code for detected URL (bottom-right corner)
+  if (detectedUrl && typeof qr === "function") {
+    const qrScale = 2;
+    const qrSize = (29 + 4) * qrScale; // ~version 3 QR + margin
+    const qrX = w - qrSize - 4;
+    const qrY = h - qrSize - 4;
+    qr(detectedUrl, qrX, qrY, qrScale);
+    // Label below
+    ink(120, 200, 255);
+    write("scan to open", { x: qrX, y: qrY - 12, font: 1 });
   }
 
   // Blinking cursor

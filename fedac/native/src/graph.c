@@ -1,4 +1,5 @@
 #include "graph.h"
+#include "qrcodegen.h"
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -290,4 +291,39 @@ void graph_paste(ACGraph *g, ACFramebuffer *src, int dx, int dy) {
 
 void graph_page(ACGraph *g, ACFramebuffer *target) {
     g->fb = target ? target : g->screen;
+}
+
+void graph_qr(ACGraph *g, const char *text, int x, int y, int scale) {
+    if (!g || !text || !text[0]) return;
+    if (scale < 1) scale = 1;
+
+    uint8_t qr_buf[qrcodegen_BUFFER_LEN_FOR_VERSION(10)];
+    uint8_t tmp_buf[qrcodegen_BUFFER_LEN_FOR_VERSION(10)];
+
+    if (!qrcodegen_encodeText(text, tmp_buf, qr_buf,
+            qrcodegen_Ecc_LOW, qrcodegen_VERSION_MIN, 10,
+            qrcodegen_Mask_AUTO, true)) {
+        return; // encode failed (text too long for version 10)
+    }
+
+    int size = qrcodegen_getSize(qr_buf);
+    int margin = 2; // quiet zone
+
+    // Draw white background with margin
+    int total = (size + margin * 2) * scale;
+    ACColor saved = g->ink;
+    graph_ink(g, (ACColor){255, 255, 255, 255});
+    graph_box(g, x, y, total, total, 1);
+
+    // Draw black modules
+    graph_ink(g, (ACColor){0, 0, 0, 255});
+    for (int qy = 0; qy < size; qy++) {
+        for (int qx = 0; qx < size; qx++) {
+            if (qrcodegen_getModule(qr_buf, qx, qy)) {
+                graph_box(g, x + (qx + margin) * scale, y + (qy + margin) * scale,
+                          scale, scale, 1);
+            }
+        }
+    }
+    g->ink = saved;
 }
