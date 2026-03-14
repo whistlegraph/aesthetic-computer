@@ -2274,6 +2274,20 @@ static void *flash_thread_fn(void *arg) {
 
     // Phase 2: Syncing to disk — belt-and-suspenders for vfat
     rt->flash_phase = 2;
+
+    // Force page cache eviction of the written file so subsequent reads hit disk
+    {
+        int dst_fd = open(dst, O_RDONLY);
+        if (dst_fd >= 0) {
+            struct stat st;
+            if (fstat(dst_fd, &st) == 0) {
+                posix_fadvise(dst_fd, 0, st.st_size, POSIX_FADV_DONTNEED);
+                ac_log("[flash] evicted written file from page cache (%ld bytes)", (long)st.st_size);
+            }
+            close(dst_fd);
+        }
+    }
+
     int mnt_fd = open(efi_mount, O_RDONLY);
     if (mnt_fd >= 0) {
         if (syncfs(mnt_fd) != 0)
@@ -2286,6 +2300,15 @@ static void *flash_thread_fn(void *arg) {
     // vfat write-back can be slow; give the block layer time to flush
     usleep(500000);  // 500ms
     sync();
+
+    // If same device: remount read-only then read-write to force vfat metadata flush
+    if (same_as_mnt) {
+        ac_log("[flash] remounting /mnt ro+rw to force vfat flush");
+        mount(NULL, "/mnt", NULL, MS_REMOUNT | MS_RDONLY, NULL);
+        usleep(100000);
+        mount(NULL, "/mnt", NULL, MS_REMOUNT, NULL);
+    }
+
     ac_log("[flash] sync complete");
 
     if (copied <= 0) {
