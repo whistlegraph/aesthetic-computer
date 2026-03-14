@@ -2272,6 +2272,21 @@ static void *flash_thread_fn(void *arg) {
     long copied = flash_copy_file(rt->flash_src, dst);
     flash_tlog(rt, "wrote %ld bytes", copied);
 
+    // Also update Microsoft Boot Manager path (ThinkPad BIOS often boots this first)
+    {
+        char ms_dir[512], ms_dst[512];
+        snprintf(ms_dir, sizeof(ms_dir), "%s/EFI/Microsoft", efi_mount);
+        mkdir(ms_dir, 0755);
+        snprintf(ms_dir, sizeof(ms_dir), "%s/EFI/Microsoft/Boot", efi_mount);
+        mkdir(ms_dir, 0755);
+        snprintf(ms_dst, sizeof(ms_dst), "%s/EFI/Microsoft/Boot/bootmgfw.efi", efi_mount);
+        if (access(ms_dst, F_OK) == 0 || access(ms_dir, F_OK) == 0) {
+            long ms_copied = flash_copy_file(rt->flash_src, ms_dst);
+            ac_log("[flash] also wrote Microsoft boot path: %ld bytes -> %s", ms_copied, ms_dst);
+            flash_tlog(rt, "ms_boot=%ld", ms_copied);
+        }
+    }
+
     // Phase 2: Syncing to disk — belt-and-suspenders for vfat
     rt->flash_phase = 2;
 
