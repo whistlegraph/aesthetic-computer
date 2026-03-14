@@ -3549,11 +3549,17 @@ static JSValue build_system_obj(JSContext *ctx) {
                 for (int y = 0; y < p->rows; y++) {
                     for (int x = 0; x < p->cols; x++) {
                         ACPtyCell *c = &p->grid[y][x];
-                        // Pack cell: char code, fg, bg, bold
+                        // Pack cell: ch, fg, bg, bold, fg_r, fg_g, fg_b, bg_r, bg_g, bg_b
                         JS_SetPropertyUint32(ctx, grid, idx++, JS_NewInt32(ctx, c->ch));
                         JS_SetPropertyUint32(ctx, grid, idx++, JS_NewInt32(ctx, c->fg));
                         JS_SetPropertyUint32(ctx, grid, idx++, JS_NewInt32(ctx, c->bg));
                         JS_SetPropertyUint32(ctx, grid, idx++, JS_NewInt32(ctx, c->bold));
+                        JS_SetPropertyUint32(ctx, grid, idx++, JS_NewInt32(ctx, c->fg_r));
+                        JS_SetPropertyUint32(ctx, grid, idx++, JS_NewInt32(ctx, c->fg_g));
+                        JS_SetPropertyUint32(ctx, grid, idx++, JS_NewInt32(ctx, c->fg_b));
+                        JS_SetPropertyUint32(ctx, grid, idx++, JS_NewInt32(ctx, c->bg_r));
+                        JS_SetPropertyUint32(ctx, grid, idx++, JS_NewInt32(ctx, c->bg_g));
+                        JS_SetPropertyUint32(ctx, grid, idx++, JS_NewInt32(ctx, c->bg_b));
                     }
                 }
                 JS_SetPropertyStr(ctx, pty_obj, "grid", grid);
