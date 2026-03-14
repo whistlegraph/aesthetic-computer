@@ -180,6 +180,11 @@ RUN ARCH=$(uname -m) && \
 # --- s3cmd (for DigitalOcean Spaces management) -------------------------------
 RUN dnf install -y --setopt=zchunk=false s3cmd && dnf clean all
 
+# --- AC Native OS build dependencies -----------------------------------------
+# cage: Wayland kiosk compositor for Firefox OAuth popup (tiny: 65KB)
+# qemu: for local QEMU testing of AC OS builds
+RUN dnf install -y --setopt=zchunk=false cage qemu-system-x86-core edk2-ovmf && dnf clean all
+
 # --- Cockpit (web-based system management UI) --------------------------------
 # Note: service/journal features require systemd; terminal + metrics work without it
 RUN dnf install -y --setopt=zchunk=false cockpit cockpit-ws cockpit-bridge cockpit-system cockpit-networkmanager && dnf clean all
@@ -211,6 +216,9 @@ RUN if test ! -f /usr/bin/fish && test -f /usr/sbin/fish; then \
 
 USER me
 WORKDIR /home/me
+
+# --- Claude Code native binary (for AC OS initramfs bundling) -----------------
+RUN curl -fsSL https://claude.ai/install.sh | bash
 
 # --- Rust + websocat (built from source) --------------------------------------
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y && \
