@@ -241,17 +241,17 @@ export default async (request) => {
     }
   }
 
-  // Template .img.gz presigned URL (separate from vmlinuz)
+  // Template .iso presigned URL (separate from vmlinuz)
   const isTemplate = request.headers.get("x-template-upload") === "true";
   if (isTemplate) {
     try {
-      const imgUrl = await presignUrl(
-        "os/native-notepat-latest.img.gz",
-        "application/gzip",
+      const isoUrl = await presignUrl(
+        "os/native-notepat-latest.iso",
+        "application/x-iso9660-image",
       );
       return Response.json({
         step: "template-upload",
-        img_put_url: imgUrl,
+        iso_put_url: isoUrl,
         user: userSub,
       });
     } catch (err) {

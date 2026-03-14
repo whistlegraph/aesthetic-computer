@@ -23,7 +23,7 @@ RUN dnf clean all && rm -rf /var/cache/dnf && \
     dnf update -y --refresh --setopt=zchunk=false && \
     dnf install -y \
       awk which tree procps-ng coreutils unzip jq bat ripgrep \
-      cpio lz4 bc perl mtools dosfstools ca-certificates \
+      cpio lz4 bc perl mtools dosfstools xorriso ca-certificates \
       git gh gcc gcc-c++ clang make cmake \
       musl-gcc elfutils-libelf-devel \
       python3.11 python3.11-devel python3-pip python3-devel \

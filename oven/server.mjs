@@ -2699,13 +2699,12 @@ app.post('/os-cache-flush', (req, res) => {
   res.json({ flushed: true });
 });
 
-// Personalized FedAC OS .img download for authenticated AC users.
-// Downloads the template .img.gz from DO Spaces, decompresses for config
-// patching, then re-compresses and streams back as .img.gz.
-// Balena Etcher handles .img.gz natively.
+// Personalized FedAC OS .iso download for authenticated AC users.
+// Downloads the template .iso from DO Spaces, patches config.json in-place,
+// and streams back. Compatible with Fedora Media Writer, Balena Etcher, dd.
 const RELEASES_BASE = 'https://releases-aesthetic-computer.sfo3.digitaloceanspaces.com/os';
-const TEMPLATE_GZ_URL = `${RELEASES_BASE}/native-notepat-latest.img.gz`;
-const TEMPLATE_URL = `${RELEASES_BASE}/native-notepat-latest.img`; // fallback
+const TEMPLATE_ISO_URL = `${RELEASES_BASE}/native-notepat-latest.iso`;
+const TEMPLATE_GZ_URL = `${RELEASES_BASE}/native-notepat-latest.img.gz`; // legacy fallback
 const CONFIG_MARKER = '{"handle":"","piece":"notepat","sub":"","email":""}';
 const CONFIG_PAD_SIZE = 4096;
 
@@ -2718,23 +2717,26 @@ async function getTemplate() {
   if (templateCache && Date.now() - templateCacheTime < TEMPLATE_CACHE_TTL) {
     return templateCache;
   }
-  // Try .img.gz first, fall back to .img
+  // Try .iso first, fall back to legacy .img.gz
   let raw;
-  const gzRes = await fetch(TEMPLATE_GZ_URL);
-  if (gzRes.ok) {
-    console.log('[os-image] Downloading template .img.gz...');
-    const compressed = Buffer.from(await gzRes.arrayBuffer());
-    console.log(`[os-image] Decompressing ${(compressed.length / 1048576).toFixed(1)}MB...`);
-    raw = gunzipSync(compressed);
+  const isoRes = await fetch(TEMPLATE_ISO_URL);
+  if (isoRes.ok) {
+    console.log('[os-image] Downloading template .iso...');
+    raw = Buffer.from(await isoRes.arrayBuffer());
   } else {
-    console.log('[os-image] No .img.gz found, trying .img fallback...');
-    const imgRes = await fetch(TEMPLATE_URL);
-    if (!imgRes.ok) throw new Error(`Template download failed: ${imgRes.status}`);
-    raw = Buffer.from(await imgRes.arrayBuffer());
+    console.log('[os-image] No .iso found, trying legacy .img.gz fallback...');
+    const gzRes = await fetch(TEMPLATE_GZ_URL);
+    if (gzRes.ok) {
+      const compressed = Buffer.from(await gzRes.arrayBuffer());
+      console.log(`[os-image] Decompressing ${(compressed.length / 1048576).toFixed(1)}MB...`);
+      raw = gunzipSync(compressed);
+    } else {
+      throw new Error(`Template download failed (no .iso or .img.gz available)`);
+    }
   }
   templateCache = raw;
   templateCacheTime = Date.now();
-  console.log(`[os-image] Template cached: ${(templateCache.length / 1048576).toFixed(1)}MB (decompressed)`);
+  console.log(`[os-image] Template cached: ${(templateCache.length / 1048576).toFixed(1)}MB`);
   return templateCache;
 }
 
@@ -2800,18 +2802,23 @@ app.get('/os-image', async (req, res) => {
   const padded = config + ' '.repeat(Math.max(0, CONFIG_PAD_SIZE - config.length));
   const configBytes = Buffer.from(padded);
 
-  // Find and patch the config placeholder
+  // Find and patch all config placeholders (ISO has one in the filesystem + one in the EFI partition)
   const markerBuf = Buffer.from(CONFIG_MARKER);
-  const idx = imgData.indexOf(markerBuf);
+  let idx = imgData.indexOf(markerBuf);
   if (idx === -1) {
     return res.status(500).json({ error: 'Template image missing config placeholder' });
   }
-  configBytes.copy(imgData, idx);
+  let patchCount = 0;
+  while (idx !== -1) {
+    configBytes.copy(imgData, idx);
+    patchCount++;
+    idx = imgData.indexOf(markerBuf, idx + CONFIG_PAD_SIZE);
+  }
+  console.log(`[os-image] Patched ${patchCount} config location(s) for @${handle}`);
 
-  // Compress and stream the patched image as .img.gz (Balena Etcher compatible)
-  const gzData = gzipSync(imgData, { level: 6 });
-  addServerLog('success', '💿', `OS image for @${handle} (${(gzData.length / 1048576).toFixed(1)}MB gz)`);
-  res.setHeader('Content-Type', 'application/gzip');
+  // Stream the patched ISO (Fedora Media Writer / Balena Etcher / dd compatible)
+  addServerLog('success', '💿', `OS ISO for @${handle} (${(imgData.length / 1048576).toFixed(1)}MB)`);
+  res.setHeader('Content-Type', 'application/x-iso9660-image');
   // Get latest build name for filename
   let releaseName = 'native';
   try {
@@ -2825,9 +2832,9 @@ app.get('/os-image', async (req, res) => {
   const d = new Date();
   const p = (n) => String(n).padStart(2, '0');
   const ts = `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())}.${p(d.getHours())}.${p(d.getMinutes())}.${p(d.getSeconds())}`;
-  res.setHeader('Content-Disposition', `attachment; filename="@${handle}-os-${bootPiece}-${coreName}-${ts}.img.gz"`);
-  res.setHeader('Content-Length', gzData.length);
-  res.end(gzData);
+  res.setHeader('Content-Disposition', `attachment; filename="@${handle}-os-${bootPiece}-${coreName}-${ts}.iso"`);
+  res.setHeader('Content-Length', imgData.length);
+  res.end(imgData);
 });
 
 // Background base image jobs (build + upload) for FedOS pipeline.
