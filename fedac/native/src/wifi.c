@@ -263,14 +263,14 @@ static void wifi_do_connect(ACWifi *wifi, const char *ssid, const char *password
     int connect_ticks = 0;
     int dhcp_started = 0;
 
-    while (connect_ticks < 600 && wifi->thread_running) { // ~60 seconds max
+    while (connect_ticks < 1200 && wifi->thread_running) { // ~60 seconds max (50ms polls)
         // Check if a new command interrupted us
         if (wifi->pending_cmd != WIFI_CMD_NONE) {
             ac_log("[wifi] Connect interrupted by new command");
             return;
         }
 
-        usleep(100000); // 100ms between polls
+        usleep(50000); // 50ms between polls
         connect_ticks++;
 
         // Check wpa_supplicant status
@@ -379,7 +379,7 @@ static void wifi_do_connect(ACWifi *wifi, const char *ssid, const char *password
             }
         } else if (strstr(line, "DISCONNECTED") || strstr(line, "INTERFACE_DISABLED")) {
             // Still waiting for WPA auth
-            if (connect_ticks > 100) { // ~10 seconds
+            if (connect_ticks > 200) { // ~10 seconds (50ms polls)
                 wifi_set_state_and_status(wifi, WIFI_STATE_FAILED, "auth failed");
                 ac_log("[wifi] Connection timeout");
                 return;
