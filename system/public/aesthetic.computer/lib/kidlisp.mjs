@@ -3734,6 +3734,15 @@ class KidLisp {
         this.inkStateSet = false;
       },
       paint: ($) => {
+        // 🔄 GPU failover reset — if an effect just got disabled, restart the
+        // piece so feedback loops (burn) don't carry corrupted frames.
+        if (typeof self !== "undefined" && self.__gpuFailoverOccurred) {
+          self.__gpuFailoverOccurred = false;
+          this.frameCount = 0;
+          this.needsInitialWipe = true;
+          console.log("🎮 GPU failover detected — resetting piece for clean feedback loop");
+        }
+
         // 🎯 Start performance frame tracking
         this.startFrame();
 
