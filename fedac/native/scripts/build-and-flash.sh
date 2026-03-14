@@ -186,6 +186,14 @@ if [ -d "${PIECES_SRC}" ]; then
     log "Bundled pieces: $(ls "${INITRAMFS_DIR}/pieces/" | tr '\n' ' ')"
 fi
 
+# Bundle initramfs scripts (upload-log.sh etc.)
+SCRIPTS_SRC="${NATIVE_DIR}/initramfs-scripts"
+if [ -d "${SCRIPTS_SRC}" ]; then
+    mkdir -p "${INITRAMFS_DIR}/scripts"
+    cp "${SCRIPTS_SRC}"/*.sh "${INITRAMFS_DIR}/scripts/" 2>/dev/null || true
+    chmod +x "${INITRAMFS_DIR}/scripts/"*.sh 2>/dev/null || true
+fi
+
 # Bake default config.json into initramfs (handle + colors)
 # This ensures "hi @handle" shows even without USB flash path or /mnt/config.json
 HANDLE_CLEAN="${HANDLE#@}"
