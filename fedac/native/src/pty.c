@@ -533,9 +533,33 @@ int pty_spawn(ACPty *pty, int cols, int rows, const char *cmd, char *const argv[
         setenv("HOME", "/tmp", 0);
         setenv("LANG", "en_US.UTF-8", 1);
         setenv("PATH", "/bin:/sbin:/usr/bin:/usr/sbin", 0);
-        // Tell Claude Code to use device-code auth (no browser) and basic rendering
-        setenv("CLAUDE_CODE_SSO_METHOD", "device-code", 1);
+        // Claude Code: skip browser open, use API key from /mnt/config.json if available
+        setenv("BROWSER", "", 1);  // prevent browser launch attempts
         setenv("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1", 1);
+        // Read API key from config.json on boot media (set by ac-login or manual)
+        {
+            FILE *cf = fopen("/mnt/config.json", "r");
+            if (cf) {
+                char cbuf[4096] = {0};
+                size_t cn = fread(cbuf, 1, sizeof(cbuf) - 1, cf);
+                fclose(cf);
+                cbuf[cn] = '\0';
+                // Simple JSON parse for "claude_api_key":"..."
+                char *kp = strstr(cbuf, "\"claude_api_key\"");
+                if (kp) {
+                    char *vs = strchr(kp + 16, '"');
+                    if (vs) {
+                        vs++;
+                        char *ve = strchr(vs, '"');
+                        if (ve && ve - vs < 256) {
+                            char key[256] = {0};
+                            memcpy(key, vs, ve - vs);
+                            setenv("ANTHROPIC_API_KEY", key, 1);
+                        }
+                    }
+                }
+            }
+        }
         execvp(cmd, argv);
         // exec failed — write error to stderr (flows through PTY to parent)
         int err = errno;
