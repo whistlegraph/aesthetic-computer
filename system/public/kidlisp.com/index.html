@@ -25,7 +25,7 @@
   <!-- Note: We use inline @font-face instead of external CSS which has broken relative URLs -->
   <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js" async></script>
+  <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js" async onload="window.__auth0SDKReady=true"></script>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Comic+Relief:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+Mono:wght@400;700&display=swap" rel="stylesheet">
   <!-- Flag icons for language selector (lazy-loaded — not needed at startup) -->
@@ -19632,8 +19632,18 @@ s("ape_breaks_3").loopAt(2)</textarea>
             logBoot('auth', 'session');
             return;
           }
+          // Wait for async Auth0 SDK to finish loading (up to 10s)
           if (!window.auth0) {
-            console.warn('[AUTH] window.auth0 SDK not loaded!');
+            await new Promise((resolve) => {
+              if (window.__auth0SDKReady) { resolve(); return; }
+              const check = setInterval(() => {
+                if (window.auth0 || window.__auth0SDKReady) { clearInterval(check); resolve(); }
+              }, 100);
+              setTimeout(() => { clearInterval(check); resolve(); }, 10000);
+            });
+          }
+          if (!window.auth0) {
+            console.warn('[AUTH] window.auth0 SDK failed to load');
             updateACLoginUI();
             logBoot('auth', 'unavailable');
             return;
