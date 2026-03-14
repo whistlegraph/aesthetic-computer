@@ -1834,6 +1834,10 @@ from = "/api/boot-log"
 to = "/.netlify/functions/boot-log"
 status = 200
 [[redirects]]
+from = "/api/kidlisp-log"
+to = "/.netlify/functions/kidlisp-log"
+status = 200
+[[redirects]]
 from = "/api/keep-mint"
 to = "/.netlify/functions/keep-mint"
 status = 200
