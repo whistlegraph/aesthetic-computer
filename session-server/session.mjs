@@ -2772,6 +2772,12 @@ wss.on("connection", async (ws, req) => {
         return;
       }
       
+      // 🎾 Squash game position updates — relay to others only (not back to sender)
+      if (msg.type === "squash:move") {
+        others(JSON.stringify(msg));
+        return;
+      }
+
       // 🔊 Audio data from kidlisp.com — relay only to code-channel subscribers
       if (msg.type === "audio" && msg.content?.codeChannel) {
         const ch = msg.content.codeChannel;
@@ -3359,6 +3365,17 @@ io.onConnection((channel) => {
         channel.broadcast.emit("1v1:move", data);
       } catch (err) {
         console.warn("1v1:move broadcast error:", err);
+      }
+    }
+  });
+
+  // 🎾 Squash game position updates over UDP (low latency)
+  channel.on("squash:move", (data) => {
+    if (channel.webrtcConnection.state === "open") {
+      try {
+        channel.broadcast.emit("squash:move", data);
+      } catch (err) {
+        console.warn("squash:move broadcast error:", err);
       }
     }
   });
