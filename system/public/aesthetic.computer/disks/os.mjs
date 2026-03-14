@@ -303,7 +303,7 @@ function paint($) {
     y += matrixH + 4;
 
     // Instructions (matrix font)
-    ink(...C.instText).write("1 flash .img with balenaEtcher", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+    ink(...C.instText).write("1 flash .iso with Fedora Media Writer", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
     y += matrixH + 2;
     ink(...C.instText).write("2 plug USB into any x86 PC", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
     y += matrixH + 2;
@@ -505,7 +505,7 @@ async function startDownload(needsPaint) {
     const d = new Date();
     const p = (n) => String(n).padStart(2, "0");
     const ts = `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())}.${p(d.getHours())}.${p(d.getMinutes())}.${p(d.getSeconds())}`;
-    const filename = `@${handle || "user"}-os-${piece}-${coreName}-${ts}.img`;
+    const filename = `@${handle || "user"}-os-${piece}-${coreName}-${ts}.iso`;
 
     console.log("[os] Download complete:", filename, (total / 1048576).toFixed(1) + "MB");
     dlFn(filename, combined, { type: "application/octet-stream" });

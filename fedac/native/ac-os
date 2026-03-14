@@ -39,7 +39,24 @@ build_binary() {
             CC_USE=gcc
         fi
     fi
-    make CC="${CC_USE}" 2>&1 | grep -E "Built:|error:" || true
+    # Run make and capture exit code (pipefail not needed — check make directly)
+    local MAKE_LOG="${BUILD_DIR}/.make.log"
+    make CC="${CC_USE}" BUILD_TS="${AC_BUILD_TS}" > "${MAKE_LOG}" 2>&1
+    local MAKE_RC=$?
+    grep -E "Built:|error:" "${MAKE_LOG}" || true
+    if [ ${MAKE_RC} -ne 0 ]; then
+        err "Binary build failed (exit ${MAKE_RC}) — refusing to continue with stale binary"
+        grep "error:" "${MAKE_LOG}" >&2
+        exit 1
+    fi
+    # Verify the binary embeds the current git hash
+    local EXPECTED_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    if strings "${BUILD_DIR}/ac-native" | grep -q "${EXPECTED_HASH}"; then
+        log "Binary verified: contains ${EXPECTED_HASH}"
+    else
+        err "Binary does NOT contain current git hash ${EXPECTED_HASH} — stale build!"
+        exit 1
+    fi
 }
 
 build_initramfs() {
@@ -144,7 +161,7 @@ record_build() {
         return 0
     fi
     local GIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-    local BUILD_TS=$(date -u '+%Y-%m-%dT%H:%M')
+    local BUILD_TS="${AC_BUILD_TS:-$(date -u '+%Y-%m-%dT%H:%M')}"
     local SHA=$(sha256sum "${VMLINUZ}" 2>/dev/null | cut -d' ' -f1)
     local SIZE=$(stat -c%s "${VMLINUZ}" 2>/dev/null || echo 0)
     # Use pre-computed build name from case block (avoids cwd issues after build_kernel cd)
@@ -421,7 +438,7 @@ upload_ota() {
     # Build metadata (use pre-computed name from top level, skip dirty check —
     # require_clean already ensured clean state and stashed any hook artifacts)
     local GIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-    local BUILD_TS=$(date -u '+%Y-%m-%dT%H:%M')
+    local BUILD_TS="${AC_BUILD_TS:-$(date -u '+%Y-%m-%dT%H:%M')}"
     local BUILD_NAME="${AC_BUILD_NAME:-$(bash scripts/build-name.sh 2>/dev/null || echo "upload-$(date +%s)")}"
     local COMMIT_MSG=$(git log -1 --format=%s HEAD 2>/dev/null | head -c 200)
     local SIZE=$(stat -c%s "${VMLINUZ}")
@@ -563,8 +580,11 @@ require_clean() {
     fi
 }
 
-    # Pre-compute build name while cwd is clean (build_kernel changes directory)
+    # Pre-compute build name and timestamp while cwd is clean (build_kernel changes directory)
+    # AC_BUILD_TS is captured once and passed to Make via env so the binary, upload metadata,
+    # and .version file all use the exact same timestamp (prevents "current" vs "available" mismatch).
 export AC_BUILD_NAME=$(bash scripts/build-name.sh 2>/dev/null || echo "unknown")
+export AC_BUILD_TS=$(date -u '+%Y-%m-%dT%H:%M')
 log "Build name: ${AC_BUILD_NAME}"
 
 # Restore stash on exit if we auto-stashed
@@ -588,6 +608,7 @@ case "${CMD}" in
         log "Build complete: ${VMLINUZ}"
         ;;
     flash)
+        require_login
         build_binary
         build_initramfs
         build_kernel
