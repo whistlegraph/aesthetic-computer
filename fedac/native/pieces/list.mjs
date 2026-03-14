@@ -4,51 +4,59 @@
 let frame = 0;
 let scrollY = 0;
 
-const PIECES = [
-  // native pieces
-  { name: "notepat",       alias: "np",  desc: "synthesizer instrument with touch grid" },
-  { name: "os",            alias: null,  desc: "system update panel (OTA flash)" },
-  { name: "wifi",          alias: "net", desc: "network picker and saved credentials" },
-  { name: "claude",        alias: "cl",  desc: "AI assistant (QR login + Claude Code)" },
-  { name: "terminal",      alias: null,  desc: "PTY terminal emulator (sh, claude)" },
-  { name: "geo",           alias: "location", desc: "IP-based geolocation" },
-  { name: "chat",          alias: null,  desc: "real-time chat on aesthetic.computer" },
-  { name: "laer-klokken",  alias: "lk",  desc: "clock room chat (warm theme)" },
-  { name: "machine",       alias: null,  desc: "hardware & software info" },
-  { name: "roz",           alias: null,  desc: "generative art viewer" },
-  { name: "prompt",        alias: null,  desc: "command prompt (home)" },
-  { name: "list",          alias: null,  desc: "this screen" },
-  // web pieces (run unmodified)
-  { name: "clock",         alias: null,  desc: "melody clock with UTC sync" },
-  { name: "brick-breaker", alias: "bb",  desc: "paddle and ball game" },
-  { name: "gostop",        alias: null,  desc: "go/stop rhythm game" },
-  { name: "beat",          alias: null,  desc: "mouse percussion instrument" },
-  { name: "shh",           alias: null,  desc: "noise drone instrument" },
-  { name: "dync",          alias: null,  desc: "percussive pad instrument" },
-  { name: "chart",         alias: null,  desc: "diagram sketch" },
-  { name: "f3ral3xp",      alias: null,  desc: "feral expression" },
-  { name: "3x3",           alias: null,  desc: "3x3 ortholinear pad" },
-  { name: "hop",           alias: null,  desc: "game sketch" },
-  { name: "error",         alias: null,  desc: "error display screen" },
-  { name: "404",           alias: null,  desc: "page not found" },
-  { name: "hw",            alias: null,  desc: "hello world" },
-  { name: "ptt",           alias: null,  desc: "push to talk sketch" },
-];
+// Piece descriptions (known pieces get descriptions, others show name only)
+const PIECE_DESC = {
+  "notepat":       "synthesizer instrument with touch grid",
+  "os":            "system update panel (OTA flash)",
+  "wifi":          "network picker and saved credentials",
+  "claude":        "AI assistant (QR login + Claude Code)",
+  "terminal":      "PTY terminal emulator (sh, claude)",
+  "geo":           "IP-based geolocation",
+  "chat":          "real-time chat on aesthetic.computer",
+  "laer-klokken":  "clock room chat (warm theme)",
+  "machine":       "hardware & software info",
+  "roz":           "generative art viewer",
+  "prompt":        "command prompt (home)",
+  "list":          "this screen",
+  "clock":         "melody clock with UTC sync",
+  "brick-breaker": "paddle and ball game",
+  "gostop":        "go/stop rhythm game",
+  "beat":          "mouse percussion instrument",
+  "shh":           "noise drone instrument",
+  "dync":          "percussive pad instrument",
+  "chart":         "diagram sketch",
+  "f3ral3xp":      "feral expression",
+  "3x3":           "3x3 ortholinear pad",
+  "hop":           "game sketch",
+  "error":         "error display screen",
+  "404":           "page not found",
+  "hw":            "hello world",
+  "ptt":           "push to talk sketch",
+};
+
+let PIECES = []; // Populated dynamically in boot
 
 const COMMANDS = [
-  { name: "off",      alias: "shutdown", desc: "power off the machine" },
-  { name: "reboot",   alias: null,      desc: "restart the system" },
-  { name: "hi",       alias: "login",   desc: "show current logged-in user" },
-  { name: "bye",      alias: "logout",  desc: "log out current user" },
-  { name: "version",  alias: "ver",     desc: "show current OS version hash" },
-  { name: "ssh",      alias: null,      desc: "start SSH server on port 22" },
-  { name: "clear",    alias: "cls",     desc: "clear command history" },
-  { name: "help",     alias: null,      desc: "show quick help" },
+  { name: "off",      desc: "power off the machine" },
+  { name: "reboot",   desc: "restart the system" },
+  { name: "hi",       desc: "show current logged-in user" },
+  { name: "bye",      desc: "log out current user" },
+  { name: "version",  desc: "show current OS version hash" },
+  { name: "ssh",      desc: "start SSH server on port 22" },
+  { name: "clear",    desc: "clear command history" },
+  { name: "help",     desc: "show quick help" },
 ];
 
 const CODES = [
   { name: "$roz", desc: "generative art pattern (KidLisp)" },
 ];
+
+function boot({ system }) {
+  // Discover pieces dynamically from filesystem
+  const names = (system?.listPieces?.() || []).filter(n => n !== "prompt" && n !== "lisp" && n !== "cc");
+  names.sort();
+  PIECES = names.map(name => ({ name, desc: PIECE_DESC[name] || null }));
+}
 
 function act({ event: e, system }) {
   if (e.is("keyboard:down")) {
@@ -82,7 +90,7 @@ function paint({ wipe, ink, box, line, write, screen }) {
 
   // Section: Pieces
   ink(T.ok[0], T.ok[1], T.ok[2]);
-  write("pieces", { x: pad, y, size: 1, font });
+  write(`pieces (${PIECES.length})`, { x: pad, y, size: 1, font });
   y += lineH;
   ink(T.border[0], T.border[1], T.border[2]);
   line(pad, y - 2, W - pad, y - 2);
@@ -92,14 +100,16 @@ function paint({ wipe, ink, box, line, write, screen }) {
     if (y > -lineH) {
       ink(T.fg, T.fg - 20, T.fg + 15);
       write(p.name, { x: pad, y, size: 1, font });
-      if (p.alias) {
-        ink(T.fgMute, T.fgMute - 10, T.fgMute + 10);
-        write("/" + p.alias, { x: pad + p.name.length * charW + 2, y, size: 1, font });
+      if (p.desc) {
+        ink(T.fgMute, T.fgMute, T.fgMute + 5);
+        write(p.desc, { x: pad, y: y + 11, size: 1, font });
+        y += lineH * 2;
+      } else {
+        y += lineH;
       }
-      ink(T.fgMute, T.fgMute, T.fgMute + 5);
-      write(p.desc, { x: pad, y: y + 11, size: 1, font });
+    } else {
+      y += p.desc ? lineH * 2 : lineH;
     }
-    y += lineH * 2;
   }
 
   y += 6;
@@ -116,10 +126,6 @@ function paint({ wipe, ink, box, line, write, screen }) {
     if (y > -lineH) {
       ink(T.fg - 10, T.fg, T.fg + 20);
       write(c.name, { x: pad, y, size: 1, font });
-      if (c.alias) {
-        ink(T.fgMute, T.fgMute + 5, T.fgMute + 15);
-        write("/" + c.alias, { x: pad + c.name.length * charW + 2, y, size: 1, font });
-      }
       ink(T.fgMute, T.fgMute, T.fgMute + 5);
       write(c.desc, { x: pad, y: y + 11, size: 1, font });
     }
@@ -158,4 +164,4 @@ function paint({ wipe, ink, box, line, write, screen }) {
   }
 }
 
-export { act, paint };
+export { boot, act, paint };
