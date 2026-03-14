@@ -1931,13 +1931,17 @@ int main(int argc, char *argv[]) {
                 }
             }
 
-            // WiFi "online" TTS announcement
+            // WiFi "online" TTS announcement + log upload
             {
                 static int was_connected = 0;
                 int is_connected = (wifi && wifi->state == WIFI_STATE_CONNECTED);
-                if (is_connected && !was_connected && tts) {
-                    tts_speak(tts, "online");
+                if (is_connected && !was_connected) {
+                    if (tts) tts_speak(tts, "online");
                     ac_log("[wifi-tts] connected — announcing 'online'");
+
+                    // Upload session log to machines API (background)
+                    ac_log_flush();
+                    system("/bin/sh /scripts/upload-log.sh &");
                 }
                 was_connected = is_connected;
             }
