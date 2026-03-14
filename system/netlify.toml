@@ -562,6 +562,7 @@ function = "os-release-upload"
 [[edge_functions]]
 path = "/*"
 function = "keeps-social"
+excludedPath = ["/api/device-auth", "/api/device-login", "/device-login"]
 
 # Version/commit status API
 [functions.version]
@@ -1667,6 +1668,18 @@ status = 200
 [[redirects]]
 from = "/api/auth/cli-callback"
 to = "/.netlify/functions/auth-cli-callback"
+status = 200
+[[redirects]]
+from = "/api/device-auth"
+to = "/.netlify/functions/device-auth"
+status = 200
+[[redirects]]
+from = "/api/device-login"
+to = "/.netlify/functions/device-login"
+status = 200
+[[redirects]]
+from = "/device-login"
+to = "/.netlify/functions/device-login"
 status = 200
 [[redirects]]
 from = "/api/metrics"
