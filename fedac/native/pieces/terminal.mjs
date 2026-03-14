@@ -99,15 +99,16 @@ function boot({ system, screen, params }) {
   cols = Math.floor(screen.width / cellW);
   rows = Math.floor(screen.height / cellH);
 
-  // What to spawn
+  // What to spawn — check params
   let cmd = "/bin/sh";
   let args = [];
-  if (params?.[0] === "claude") {
-    // Use full path to native Claude binary
+  const p0 = params?.[0];
+  console.log("[terminal] params:", JSON.stringify(params), "p0:", p0);
+  if (p0 === "claude") {
     cmd = "/bin/claude";
     args = [];
-  } else if (params?.[0]) {
-    cmd = params[0];
+  } else if (p0) {
+    cmd = p0;
   }
 
   lastCmd = cmd;
@@ -230,11 +231,16 @@ function paint({ wipe, ink, box, write, qr, system, screen }) {
   // Render QR code for detected URL (bottom-right corner)
   if (detectedUrl && typeof qr === "function") {
     const qrScale = 2;
-    const qrSize = (29 + 4) * qrScale; // ~version 3 QR + margin
-    const qrX = w - qrSize - 4;
-    const qrY = h - qrSize - 4;
+    // QR version scales with text length: ~v3 for short URLs, ~v6 for long
+    const modules = detectedUrl.length < 50 ? 29 : detectedUrl.length < 100 ? 41 : 53;
+    const qrSize = (modules + 4) * qrScale; // modules + quiet zone margin
+    const qrX = w - qrSize - 8;
+    const qrY = h - qrSize - 20;
+    // Dark background behind QR
+    ink(0, 0, 0, 200);
+    box(qrX - 4, qrY - 16, qrSize + 8, qrSize + 24);
     qr(detectedUrl, qrX, qrY, qrScale);
-    // Label below
+    // Label above
     ink(120, 200, 255);
     write("scan to open", { x: qrX, y: qrY - 12, font: 1 });
   }

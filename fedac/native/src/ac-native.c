@@ -1714,6 +1714,9 @@ int main(int argc, char *argv[]) {
                         if (rt) {
                             rt->graph = &graph;
                         }
+                        // Recreate cursor overlay at new resolution
+                        if (cursor_fb) fb_destroy(cursor_fb);
+                        cursor_fb = fb_create(screen->width, screen->height);
                         ac_log("[scale] pixel_scale=%d resolution=%dx%d",
                                pixel_scale, screen->width, screen->height);
                         audio_synth(audio, WAVE_SINE,
@@ -1926,6 +1929,17 @@ int main(int argc, char *argv[]) {
                             fb_blend_pixel(screen, px, py, pixel);
                     }
                 }
+            }
+
+            // WiFi "online" TTS announcement
+            {
+                static int was_connected = 0;
+                int is_connected = (wifi && wifi->state == WIFI_STATE_CONNECTED);
+                if (is_connected && !was_connected && tts) {
+                    tts_speak(tts, "online");
+                    ac_log("[wifi-tts] connected — announcing 'online'");
+                }
+                was_connected = is_connected;
             }
 
             clock_gettime(CLOCK_MONOTONIC, &_pf_pres0);
