@@ -113,6 +113,7 @@ function act({ event: e, sound, system }) {
 
 function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
   frame++;
+  const T = __theme.update();
   const w = screen.width, h = screen.height;
   const pad = 10;
   const font = "font_1";
@@ -170,7 +171,7 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
   }
 
   // === Normal UI ===
-  wipe(12, 16, 24);
+  wipe(T.bg[0], T.bg[1], T.bg[2]);
 
   // Responsive: use half-width columns on wide screens
   const wide = w > 260;
@@ -178,50 +179,50 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
   const col2X = wide ? pad + colW + pad : pad;
 
   // Title
-  ink(200, 220, 200);
+  ink(T.fg, T.fg + 10, T.fg);
   write("ac/native", { x: pad, y: 10, size: 2, font: "matrix" });
 
   // Connection status
   if (!wifi?.connected) {
-    ink(200, 80, 80);
+    ink(T.err[0], T.err[1], T.err[2]);
     write("offline", { x: pad, y: 34, size: 1, font });
-    ink(100, 80, 80);
+    ink(T.fgMute, T.fgMute - 10, T.fgMute - 10);
     write("connect wifi first", { x: pad, y: 46, size: 1, font });
   } else {
-    ink(100, 110, 100);
+    ink(T.fgMute, T.fgMute + 10, T.fgMute);
     write("current", { x: pad, y: 34, size: 1, font });
-    ink(180, 180, 180);
+    ink(T.fgDim, T.fgDim, T.fgDim);
     const maxChars = Math.floor(colW / 6);
     write(currentVersion.slice(0, maxChars), { x: pad, y: 46, size: 1, font });
   }
 
-  // Machine hint (hw/sw info moved to dedicated 'machine' piece)
+  // Machine hint
   {
     const sX = wide ? col2X : pad;
     const sY = wide ? 34 : 58;
-    ink(60, 70, 80);
+    ink(T.fgMute, T.fgMute + 5, T.fgMute + 10);
     write("machine: hw + sw info", { x: sX, y: sY, size: 1, font });
   }
 
   const stateY = 66;
 
   if (state === "checking") {
-    ink(200, 200, 80);
+    ink(T.warn[0], T.warn[1], T.warn[2]);
     const dots = ".".repeat((Math.floor(frame / 20) % 3) + 1);
     write("checking" + dots, { x: pad, y: stateY, size: 1, font });
 
   } else if (state === "up-to-date") {
-    ink(80, 200, 120);
+    ink(T.ok[0], T.ok[1], T.ok[2]);
     write("up to date!", { x: pad, y: stateY, size: 1, font });
-    ink(100, 110, 100);
+    ink(T.fgMute, T.fgMute + 10, T.fgMute);
     write(remoteVersion, { x: pad, y: stateY + 14, size: 1, font });
-    ink(80, 80, 100);
+    ink(T.fgMute, T.fgMute, T.fgMute + 10);
     write("enter: recheck  esc: back", { x: pad, y: stateY + 30, size: 1, font });
 
   } else if (state === "available") {
-    ink(100, 110, 100);
+    ink(T.fgMute, T.fgMute + 10, T.fgMute);
     write("available", { x: pad, y: stateY, size: 1, font });
-    ink(255, 200, 60);
+    ink(T.warn[0], T.warn[1], T.warn[2]);
     write(remoteVersion, { x: pad, y: stateY + 14, size: 1, font });
 
     // Flash target selector
@@ -376,20 +377,20 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
     }
 
   } else if (state === "error") {
-    ink(220, 80, 80);
+    ink(T.err[0], T.err[1], T.err[2]);
     write(("error: " + errorMsg).slice(0, Math.floor((w - pad * 2) / 6)), { x: pad, y: stateY, size: 1, font });
-    ink(120);
+    ink(T.fgMute);
     write("enter: retry  esc: back", { x: pad, y: stateY + 14, size: 1, font });
 
   } else {
     // idle
-    ink(100);
+    ink(T.fgMute);
     write("enter: check for updates", { x: pad, y: stateY, size: 1, font });
   }
 
   // Bottom hint (not during shutdown)
   if (state !== "shutting-down") {
-    ink(60, 80, 60);
+    ink(T.fgMute, T.fgMute + 10, T.fgMute);
     write("esc: back", { x: pad, y: h - 12, size: 1, font });
   }
 

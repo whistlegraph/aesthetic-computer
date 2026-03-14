@@ -12,6 +12,7 @@ let message = "";
 let messageFrame = 0;
 let shiftHeld = false;
 let frame = 0;
+let T = __theme.update(); // global theme (auto dark/light)
 let tabMatches = []; // current tab completion candidates
 let tabIndex = -1;   // cycling index for tab
 let tabPrefix = "";   // what was typed before tab
@@ -369,7 +370,7 @@ function drawHighlighted(text, x0, y0, charW, ink, write, font) {
     if (color) {
       ink(color[0], color[1], color[2]);
     } else {
-      ink(220, 220, 230); // default white
+      ink(T.fg, T.fg, T.fg + 10); // default text
     }
     write(token, { x: cx, y: y0, size: 1, font });
     cx += token.length * charW;
@@ -378,7 +379,8 @@ function drawHighlighted(text, x0, y0, charW, ink, write, font) {
 
 function paint({ wipe, ink, box, write, screen, paintCount, wifi, system }) {
   frame++;
-  wipe(40, 20, 60);
+  const T = __theme.update();
+  wipe(T.bg[0], T.bg[1], T.bg[2]);
 
   const W = screen.width;
   const H = screen.height;
@@ -449,11 +451,11 @@ function paint({ wipe, ink, box, write, screen, paintCount, wifi, system }) {
       box(cx - 1, y0, 1, charH, true);
     }
 
-    ink(220, 80, 140, 180);
+    ink(T.cursor[0], T.cursor[1], T.cursor[2], 180);
     box(cx, y0, charW, charH, true);
     // Draw character under cursor if not at end
     if (cursor < input.length) {
-      ink(255, 255, 255);
+      ink(T.dark ? 255 : 255, T.dark ? 255 : 255, T.dark ? 255 : 255);
       write(input[cursor], { x: cx, y: y0, size: 1, font });
     }
   }
@@ -471,13 +473,13 @@ function paint({ wipe, ink, box, write, screen, paintCount, wifi, system }) {
           const m = matches[mi];
           const sy = sugY + mi * (charH + 1);
           // Ghosted: dim text, highlight the matching prefix portion
-          ink(80, 60, 100);
+          ink(T.fgDim, T.fgDim - 20, T.fgDim + 20);
           write(m.slice(0, prefix.length), { x: x0, y: sy, size: 1, font });
-          ink(60, 45, 75);
+          ink(T.fgMute, T.fgMute - 10, T.fgMute + 10);
           write(m.slice(prefix.length), { x: x0 + prefix.length * charW, y: sy, size: 1, font });
           // Highlight current tab selection
           if (tabMatches.length > 0 && tabIndex >= 0 && matches[mi] === tabMatches[tabIndex]) {
-            ink(140, 80, 160, 40);
+            ink(T.accent[0], T.accent[1], T.accent[2], 40);
             box(x0 - 1, sy - 1, m.length * charW + 2, charH + 2, true);
           }
         }
@@ -493,8 +495,8 @@ function paint({ wipe, ink, box, write, screen, paintCount, wifi, system }) {
     const entry = history[i];
     const lower = entry.toLowerCase();
     // Navigation commands in dim purple, KidLisp source highlighted but dimmed
-    if (["notepat","np","os","update","net","wifi","version","ver","help","claude","cl","ssh","reboot","clear","cls","list","machine","laer-klokken"].includes(lower)) {
-      ink(80, 60, 100);
+    if (["notepat","np","os","update","net","wifi","version","ver","help","claude","cl","ssh","reboot","clear","cls","list","machine","laer-klokken","geo","off","terminal"].includes(lower)) {
+      ink(T.fgMute, T.fgMute - 10, T.fgMute + 10);
       write(entry, { x: x0, y: hy, size: 1, font });
     } else {
       // KidLisp history — dim highlight
@@ -507,7 +509,7 @@ function paint({ wipe, ink, box, write, screen, paintCount, wifi, system }) {
 
   // Message (bottom)
   if (message.length > 0) {
-    ink(160, 140, 180);
+    ink(T.fgDim, T.fgDim - 10, T.fgDim + 20);
     write(message, { x: x0, y: H - 14, size: 1, font });
   }
 }
