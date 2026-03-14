@@ -74,7 +74,7 @@ function act({ event: e, sound, system }) {
 
   // Touch-like key shortcuts for available state
   if (state === "available") {
-    if (e.is("keyboard:down:enter") || e.is("keyboard:down:return")) {
+    if (e.is("keyboard:down:y") || e.is("keyboard:down:enter") || e.is("keyboard:down:return")) {
       const targets = system?.flashTargets || [];
       const tgt = targets[flashTargetIdx];
       const device = tgt?.device || undefined;
@@ -84,6 +84,10 @@ function act({ event: e, sound, system }) {
       telemetry.length = 0;
       addTelemetry("fetching " + OS_VMLINUZ_URL.split("/").pop());
       system?.fetchBinary?.(OS_VMLINUZ_URL, "/tmp/vmlinuz.new", (remoteSize || 93_000_000));
+      return;
+    }
+    if (e.is("keyboard:down:n")) {
+      system?.jump?.("prompt");
       return;
     }
     if (e.is("keyboard:down:tab")) {
@@ -241,10 +245,11 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
       }
     }
 
-    // Keyboard hint
+    // Install confirmation prompt
     const hintY = stateY + (targets.length > 0 ? 72 : 34);
-    ink(60, 180, 100);
-    write("enter: install update", { x: pad, y: hintY, size: 1, font });
+    const pulse = Math.floor(180 + 75 * Math.sin(frame * 0.08));
+    ink(pulse, 255, pulse);
+    write("install? y/n", { x: pad, y: hintY, size: 1, font });
     ink(80, 80, 100);
     write("esc: back", { x: pad, y: hintY + 14, size: 1, font });
 
