@@ -9,6 +9,7 @@
 #include <dirent.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <sys/mount.h>
 #include <sys/reboot.h>
 #include <linux/reboot.h>
@@ -2432,7 +2433,8 @@ static void *flash_thread_fn(void *arg) {
     flash_tlog(rt, "wrote %ld bytes", copied);
 
     // Also update Microsoft Boot Manager path (ThinkPad BIOS often boots this first)
-    // No .prev backup here — saving space (BOOTX64.EFI.prev is the rollback)
+    // Check available space first — don't write second copy if it won't fit.
+    // FAT32 can't hardlink, so we need actual space for both copies.
     {
         char ms_dir[512], ms_dst[512];
         snprintf(ms_dir, sizeof(ms_dir), "%s/EFI/Microsoft", efi_mount);
@@ -2440,19 +2442,39 @@ static void *flash_thread_fn(void *arg) {
         snprintf(ms_dir, sizeof(ms_dir), "%s/EFI/Microsoft/Boot", efi_mount);
         mkdir(ms_dir, 0755);
         snprintf(ms_dst, sizeof(ms_dst), "%s/EFI/Microsoft/Boot/bootmgfw.efi", efi_mount);
-        // Delete old file first to ensure enough space on FAT32
-        unlink(ms_dst);
-        {
+
+        // Check free space on partition before writing second copy
+        struct statvfs vfs;
+        long free_bytes = 0;
+        if (statvfs(efi_mount, &vfs) == 0) {
+            free_bytes = (long)vfs.f_bavail * (long)vfs.f_bsize;
+        }
+        long need_bytes = copied + (1024 * 1024); // need kernel size + 1MB margin
+
+        if (free_bytes >= need_bytes) {
+            // Backup old MS boot path too
             char ms_prev[512];
             snprintf(ms_prev, sizeof(ms_prev), "%s.prev", ms_dst);
-            unlink(ms_prev);  // remove old .prev too
-        }
-        long ms_copied = flash_copy_file(rt->flash_src, ms_dst);
-        if (ms_copied > 0) {
-            ac_log("[flash] also wrote Microsoft boot path: %ld bytes -> %s", ms_copied, ms_dst);
-            flash_tlog(rt, "ms_boot=%ld", ms_copied);
+            unlink(ms_prev);
+            if (access(ms_dst, F_OK) == 0) {
+                rename(ms_dst, ms_prev);  // safe: old version preserved
+            }
+            long ms_copied = flash_copy_file(rt->flash_src, ms_dst);
+            if (ms_copied > 0) {
+                unlink(ms_prev);  // success: remove backup
+                ac_log("[flash] also wrote Microsoft boot path: %ld bytes -> %s", ms_copied, ms_dst);
+                flash_tlog(rt, "ms_boot=%ld", ms_copied);
+            } else {
+                // Write failed — restore backup
+                if (access(ms_prev, F_OK) == 0) {
+                    rename(ms_prev, ms_dst);
+                    ac_log("[flash] MS boot write failed, restored previous");
+                }
+            }
         } else {
-            ac_log("[flash] WARNING: Microsoft boot path write failed (space?), continuing");
+            ac_log("[flash] skipping MS boot path: %ldMB free < %ldMB needed",
+                   free_bytes / 1048576, need_bytes / 1048576);
+            flash_tlog(rt, "ms_boot=skipped (space)");
         }
     }
 
@@ -2524,6 +2546,20 @@ static void *flash_thread_fn(void *arg) {
     rt->flash_verified_bytes = verified;
     if (verified != copied) {
         ac_log("[flash] VERIFY FAILED: wrote %ld, verified %ld", copied, verified);
+        // CRITICAL: restore previous kernel so device remains bootable
+        {
+            char prev[512];
+            snprintf(prev, sizeof(prev), "%s.prev", dst);
+            if (access(prev, F_OK) == 0) {
+                unlink(dst);
+                if (rename(prev, dst) == 0) {
+                    ac_log("[flash] RESTORED previous kernel from %s — device still bootable", prev);
+                    sync();
+                } else {
+                    ac_log("[flash] CRITICAL: restore failed errno=%d", errno);
+                }
+            }
+        }
         rt->flash_phase = 4;
         rt->flash_ok = 0;
         rt->flash_pending = 0;
