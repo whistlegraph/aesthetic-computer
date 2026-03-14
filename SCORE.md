@@ -77,8 +77,13 @@ Every piece is URL addressable (e.g. https://aesthetic.computer/notepat). Genera
 - [ ] Per-user wifi credential storage: move hardcoded SSIDs out of JS pieces into per-handle config (e.g. `config.json` or `/mnt/wifi_creds.json` on USB). Each user's build should bundle their saved networks, not @jeffrey's home wifi.
 - [ ] Wifi cred persistence across OTA updates: saved networks on USB should survive re-flashing.
 - [ ] Geo-aware greeting: use `geo` piece's IP location for dynamic "enjoy [city]!" instead of hardcoded "Los Angeles".
-- [ ] Claude OAuth callback server issue: `claude auth login` reports "failed to start OAuth callback server" on device — investigate port binding in initramfs.
-- [ ] Claude native binary: Claude Code reports having a native binary — investigate using it instead of Node.js cli.js for smaller image size.
+- [x] Claude native binary: switched to native binary (225MB ELF, no Node.js needed)
+- [x] Claude OAuth: using device-code auth method, loopback interface enabled
+- [ ] Session log upload to machines: on wifi connect + shutdown, upload ac-native.log to machines API (keyed by machine-id). View live/historical logs per device on machines dashboard.
+- [ ] Live log streaming: WebSocket pipe from device → machines dashboard for real-time debug
+- [ ] A/B kernel slots with auto-rollback: if boot doesn't reach "healthy" checkpoint in 60s, swap .prev kernel back
+- [ ] Terminal: full Unicode font support (bitmap glyphs for box drawing, block elements)
+- [ ] KidLisp GPU compositing: render effects on GPU buffer, recompose with CPU renderer
 
 **Other Projects**
 - `tezos/` — NFT/blockchain experiments
