@@ -16183,7 +16183,21 @@ s("ape_breaks_3").loopAt(2)</textarea>
       // Log editor initialization
       logEditorInit('Monaco', { theme: initialTheme, language: 'kidlisp' });
       logBoot('editor', 'Monaco ready');
-      
+
+      // Eagerly load learn iframe so Hello tab content is ready
+      {
+        const learnIframe = document.getElementById('learn-iframe');
+        if (learnIframe && !learnIframe.hasAttribute('src')) {
+          learnIframe.src = learnIframe.dataset.src;
+        }
+        // Auto-open Learn tab when editor is blank (new/empty session)
+        const editorCode = editor.getValue().trim();
+        if (!editorCode) {
+          const guideTabEl = document.getElementById('guide-tab');
+          if (guideTabEl) setTimeout(() => guideTabEl.click(), 100);
+        }
+      }
+
       // Remove decrypting state after a brief delay for syntax to initialize
       setTimeout(() => {
         const editorEl = document.getElementById('kidlisp-editor');
