@@ -100,16 +100,22 @@ build_initramfs() {
         log "  Install with: curl -fsSL https://claude.ai/install.sh | bash"
     fi
 
-    # Node.js (still needed for KidLisp tools and other JS utilities)
-    local NODE_BIN="$(command -v node 2>/dev/null || true)"
-    if [ -n "${NODE_BIN}" ] && [ -f "${NODE_BIN}" ]; then
-        log "Bundling Node.js..."
-        sudo cp "${NODE_BIN}" "${INITRAMFS_ROOT}/bin/node"
-        sudo chmod +x "${INITRAMFS_ROOT}/bin/node"
-        for lib in $(ldd "${NODE_BIN}" 2>/dev/null | grep -oP '/\S+'); do
-            [ -f "$lib" ] && sudo cp -n "$lib" "${INITRAMFS_ROOT}/lib64/" 2>/dev/null || true
-        done
-        log "  node: $(du -sh "${INITRAMFS_ROOT}/bin/node" | cut -f1) ($(${NODE_BIN} --version))"
+    # Node.js: only bundled if explicitly requested (USE_NODE=1)
+    # KidLisp evaluation uses QuickJS in ac-native, not Node.js
+    if [ "${USE_NODE:-0}" = "1" ]; then
+        local NODE_BIN="$(command -v node 2>/dev/null || true)"
+        if [ -n "${NODE_BIN}" ] && [ -f "${NODE_BIN}" ]; then
+            log "Bundling Node.js (USE_NODE=1)..."
+            sudo cp "${NODE_BIN}" "${INITRAMFS_ROOT}/bin/node"
+            sudo chmod +x "${INITRAMFS_ROOT}/bin/node"
+            for lib in $(ldd "${NODE_BIN}" 2>/dev/null | grep -oP '/\S+'); do
+                [ -f "$lib" ] && sudo cp -n "$lib" "${INITRAMFS_ROOT}/lib64/" 2>/dev/null || true
+            done
+            log "  node: $(du -sh "${INITRAMFS_ROOT}/bin/node" | cut -f1) ($(${NODE_BIN} --version))"
+        fi
+    else
+        # Remove stale node binary from previous builds
+        sudo rm -f "${INITRAMFS_ROOT}/bin/node"
     fi
 
     # Repack cpio + lz4
