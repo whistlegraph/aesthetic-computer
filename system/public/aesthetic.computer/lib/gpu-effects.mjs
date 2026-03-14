@@ -2257,7 +2257,13 @@ export function gpuCompositeLayers(backgroundPixels, width, height, layers) {
     
     // Read back result (with Y-flip back to CPU coordinates)
     gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, readbackBuffer);
-    
+
+    if (!sanityCheck(readbackBuffer, backgroundPixels, "CompositeLayers")) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.activeTexture(gl.TEXTURE0);
+      return { success: false };
+    }
+
     for (let row = 0; row < height; row++) {
       const srcRow = (height - 1 - row) * rowSize;
       const dstRow = row * rowSize;
@@ -2265,10 +2271,10 @@ export function gpuCompositeLayers(backgroundPixels, width, height, layers) {
         backgroundPixels[dstRow + col] = readbackBuffer[srcRow + col];
       }
     }
-    
+
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.activeTexture(gl.TEXTURE0);
-    
+
     return { success: true };
   } catch (e) {
     console.error('🎮 GPU Layer Composite: Render failed:', e);
