@@ -25,6 +25,7 @@
             --green: #6bcb77;
             --gold: #ffd93d;
             --red: #ef4444;
+            --purple: #a78bfa;
             --box-bg: rgba(255,255,255,0.03);
             --box-border: rgba(255,255,255,0.1);
             --shadow-soft: 0 2px 8px rgba(0,0,0,0.15);
@@ -39,6 +40,7 @@
             --green: #059669;
             --gold: #d97706;
             --red: #dc2626;
+            --purple: #7c3aed;
             --box-bg: rgba(0,0,0,0.03);
             --box-border: rgba(0,0,0,0.12);
             --shadow-soft: 0 2px 8px rgba(0,0,0,0.08);
@@ -67,7 +69,7 @@
             padding: 1em 1.5em 1.5em;
         }
 
-        /* Header row — title left, sponsor right */
+        /* Header row */
         .header-row {
             display: flex;
             align-items: baseline;
@@ -83,7 +85,6 @@
             min-width: 0;
         }
 
-        /* Title — flush top-left like give/docs */
         h1 {
             font-family: 'YWFT Processing', 'Berkeley Mono Variable', monospace;
             font-size: 22px;
@@ -148,7 +149,6 @@
             color: white;
             text-decoration: none;
         }
-        .give-bumper .give-sub { display: none; }
 
         /* Alerts */
         .alerts { margin-bottom: 1.5em; }
@@ -164,6 +164,7 @@
             animation: slideIn 0.3s ease;
         }
         .alert-warn { border-left-color: var(--gold); }
+        .alert-ok { border-left-color: var(--green); }
 
         .alert-dot {
             width: 7px;
@@ -175,9 +176,41 @@
         }
         .alert-dot.red { background: var(--red); }
         .alert-dot.gold { background: var(--gold); }
+        .alert-dot.green { background: var(--green); }
 
         .alert-text { font-size: 0.8em; line-height: 1.5; }
         .alert-text strong { color: var(--pink); }
+
+        /* Net flow hero */
+        .net-flow {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr auto 1fr;
+            align-items: center;
+            gap: 0.5em;
+            margin-bottom: 1.5em;
+            padding: 1em;
+            background: var(--box-bg);
+            border: 1px solid var(--box-border);
+        }
+
+        .flow-block { text-align: center; }
+        .flow-label {
+            font-size: 0.7em;
+            color: var(--dim);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.2em;
+        }
+        .flow-value {
+            font-size: 1.8em;
+            font-weight: normal;
+            font-variant-numeric: tabular-nums;
+        }
+        .flow-op {
+            font-size: 1.4em;
+            color: var(--dim);
+            text-align: center;
+        }
 
         /* Stats grid */
         .stats {
@@ -205,6 +238,18 @@
             font-size: 1.8em;
             font-weight: normal;
             font-variant-numeric: tabular-nums;
+        }
+
+        .stat-sub {
+            font-size: 0.7em;
+            color: var(--dim);
+            margin-top: 0.2em;
+        }
+
+        /* Loading shimmer */
+        .loading {
+            color: var(--dim);
+            animation: pulse 1.5s ease-in-out infinite;
         }
 
         /* SVG Timeline */
@@ -266,11 +311,13 @@
         .pill-gold { color: var(--gold); border-color: var(--gold); background: rgba(255,217,61,0.08); }
         .pill-green { color: var(--green); border-color: var(--green); background: rgba(107,203,119,0.08); }
         .pill-cyan { color: var(--cyan); border-color: var(--cyan); background: rgba(78,205,196,0.08); }
+        .pill-purple { color: var(--purple); border-color: var(--purple); background: rgba(167,139,250,0.08); }
 
         body.light-mode .pill-red { background: rgba(220,38,38,0.06); }
         body.light-mode .pill-gold { background: rgba(217,119,6,0.06); }
         body.light-mode .pill-green { background: rgba(5,150,105,0.06); }
         body.light-mode .pill-cyan { background: rgba(8,145,178,0.06); }
+        body.light-mode .pill-purple { background: rgba(124,58,237,0.06); }
 
         .money { font-variant-numeric: tabular-nums; }
 
@@ -299,6 +346,7 @@
         .svc.ok { border-color: var(--green); }
         .svc.warn { border-color: var(--gold); }
         .svc.free { border-color: var(--cyan); opacity: 0.7; }
+        .svc.income { border-color: var(--purple); }
 
         /* Cards */
         .card {
@@ -336,6 +384,23 @@
             line-height: 2;
         }
 
+        /* Gives feed */
+        .gives-list {
+            font-size: 0.82em;
+            line-height: 1.8;
+        }
+        .give-entry {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.3em 0;
+            border-bottom: 1px solid var(--box-border);
+        }
+        .give-entry:last-child { border-bottom: none; }
+        .give-amount { color: var(--green); font-variant-numeric: tabular-nums; }
+        .give-date { color: var(--dim); font-size: 0.85em; }
+        .give-note { color: var(--dim); font-size: 0.85em; font-style: italic; }
+        .give-recurring { color: var(--purple); font-size: 0.75em; }
+
         /* Links */
         a { color: var(--pink); text-decoration: none; }
         a:hover { color: purple; text-decoration: underline; }
@@ -360,6 +425,13 @@
             gap: 0.5em;
         }
 
+        /* Section divider */
+        .section-divider {
+            border: none;
+            border-top: 1px solid var(--box-border);
+            margin: 2em 0;
+        }
+
         /* Animations */
         @keyframes pulse {
             0%, 100% { opacity: 1; }
@@ -379,6 +451,9 @@
             .subtitle { font-size: 0.7em; }
             .stats { grid-template-columns: 1fr 1fr; }
             .stat-value { font-size: 1.4em; }
+            .net-flow { grid-template-columns: 1fr; gap: 0.3em; padding: 0.8em; }
+            .flow-op { font-size: 1em; }
+            .flow-value { font-size: 1.4em; }
             table { font-size: 0.78em; }
             td, th { padding: 0.25em 0.35em; }
             .service-map { grid-template-columns: repeat(3, 1fr); }
@@ -397,7 +472,7 @@
         <div class="header-row">
             <div class="header-left">
                 <h1 id="title">bills</h1>
-                <div class="subtitle">aesthetic.computer — updated 2026-03-03</div>
+                <div class="subtitle">aesthetic.computer — cash flow</div>
             </div>
             <div class="sponsor-badge">
                 <iframe src="https://github.com/sponsors/whistlegraph/button" title="Sponsor whistlegraph" height="32" width="114" style="border: 0;"></iframe>
@@ -411,8 +486,8 @@
 
         <!-- Alerts -->
         <div class="alerts">
-            <div class="alert" style="border-left-color: var(--green);">
-                <div class="alert-dot" style="background: var(--green);"></div>
+            <div class="alert alert-ok">
+                <div class="alert-dot green"></div>
                 <div class="alert-text"><strong>DigitalOcean restored</strong> — paid and all droplets back online. Thanks Casey!</div>
             </div>
             <div class="alert">
@@ -425,7 +500,109 @@
             </div>
         </div>
 
-        <!-- Totals -->
+        <!-- ═══════════════════════════════════════════════════ -->
+        <!-- NET FLOW SUMMARY -->
+        <!-- ═══════════════════════════════════════════════════ -->
+
+        <div class="net-flow">
+            <div class="flow-block">
+                <div class="flow-label">income / mo</div>
+                <div class="flow-value" id="flow-income" style="color: var(--green);" class="loading">...</div>
+            </div>
+            <div class="flow-op">-</div>
+            <div class="flow-block">
+                <div class="flow-label">costs / mo</div>
+                <div class="flow-value" style="color: var(--red);">~$151</div>
+            </div>
+            <div class="flow-op">=</div>
+            <div class="flow-block">
+                <div class="flow-label">net / mo</div>
+                <div class="flow-value" id="flow-net" style="color: var(--dim);" class="loading">...</div>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════ -->
+        <!-- INCOME -->
+        <!-- ═══════════════════════════════════════════════════ -->
+
+        <h2>income</h2>
+
+        <!-- Gives (Stripe) -->
+        <h3>gives — stripe donations</h3>
+        <div class="stats" id="gives-stats">
+            <div class="stat-box">
+                <div class="stat-label">this month</div>
+                <div class="stat-value loading" id="gives-monthly" style="color: var(--green);">...</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">all time</div>
+                <div class="stat-value loading" id="gives-total" style="color: var(--green);">...</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">subscribers</div>
+                <div class="stat-value loading" id="gives-subs" style="color: var(--purple);">...</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">total gives</div>
+                <div class="stat-value loading" id="gives-count" style="color: var(--cyan);">...</div>
+            </div>
+        </div>
+
+        <details>
+            <summary>recent gives</summary>
+            <div class="detail-body">
+                <div class="gives-list" id="gives-list">
+                    <div class="loading" style="padding: 0.5em;">Loading from Stripe...</div>
+                </div>
+            </div>
+        </details>
+
+        <!-- Keeps (Tezos) -->
+        <h3>keeps — tezos nft sales</h3>
+        <div class="stats" id="keeps-stats">
+            <div class="stat-box">
+                <div class="stat-label">total volume</div>
+                <div class="stat-value loading" id="keeps-volume" style="color: var(--green);">...</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">fees earned</div>
+                <div class="stat-value loading" id="keeps-fees" style="color: var(--green);">...</div>
+                <div class="stat-sub">2.5 XTZ / mint</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">minted</div>
+                <div class="stat-value loading" id="keeps-minted" style="color: var(--purple);">...</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">owners</div>
+                <div class="stat-value loading" id="keeps-owners" style="color: var(--cyan);">...</div>
+            </div>
+        </div>
+
+        <details>
+            <summary>keeps contract details</summary>
+            <div class="detail-body">
+                <table>
+                    <tbody>
+                        <tr><td>contract</td><td><code id="keeps-contract">...</code></td></tr>
+                        <tr><td>network</td><td>Tezos mainnet</td></tr>
+                        <tr><td>mint fee</td><td>2.5 XTZ</td></tr>
+                        <tr><td>royalties</td><td>10% (9% artist, 1% platform)</td></tr>
+                        <tr><td>marketplace</td><td><a id="keeps-objkt-link" href="#">view on objkt.com</a></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </details>
+
+        <hr class="section-divider">
+
+        <!-- ═══════════════════════════════════════════════════ -->
+        <!-- COSTS -->
+        <!-- ═══════════════════════════════════════════════════ -->
+
+        <h2>costs</h2>
+
+        <!-- Cost Totals -->
         <div class="stats">
             <div class="stat-box">
                 <div class="stat-label">overdue</div>
@@ -452,8 +629,10 @@
         </div>
 
         <!-- Service Map (visual) -->
-        <h2>service map</h2>
+        <h3>service map</h3>
         <div class="service-map">
+            <div class="svc income"><div class="svc-name">keeps</div><div class="svc-cost">tezos</div></div>
+            <div class="svc income"><div class="svc-name">gives</div><div class="svc-cost">stripe</div></div>
             <div class="svc ok"><div class="svc-name">oven</div><div class="svc-cost">$48/mo</div></div>
             <div class="svc ok"><div class="svc-name">silo</div><div class="svc-cost">$24/mo</div></div>
             <div class="svc ok"><div class="svc-name">help</div><div class="svc-cost">$24/mo</div></div>
@@ -466,14 +645,13 @@
             <div class="svc free"><div class="svc-name">cloudflare</div><div class="svc-cost">free</div></div>
             <div class="svc free"><div class="svc-name">auth0</div><div class="svc-cost">free</div></div>
             <div class="svc free"><div class="svc-name">firebase</div><div class="svc-cost">free</div></div>
-            <div class="svc ok"><div class="svc-name">stripe</div><div class="svc-cost">per-txn</div></div>
             <div class="svc ok"><div class="svc-name">anthropic</div><div class="svc-cost">usage</div></div>
             <div class="svc free"><div class="svc-name">github</div><div class="svc-cost">free*</div></div>
             <div class="svc free"><div class="svc-name">jamsocket</div><div class="svc-cost">free</div></div>
         </div>
 
         <!-- All Services -->
-        <h2>all services</h2>
+        <h3>all services</h3>
         <table>
             <thead><tr><th>status</th><th>service</th><th>monthly</th><th class="hide-mobile">notes</th></tr></thead>
             <tbody>
@@ -493,101 +671,74 @@
         </table>
 
         <!-- DigitalOcean -->
-        <h2>digitalocean — paid</h2>
-
-        <div class="stats" style="margin-bottom: 1em;">
-            <div class="stat-box">
-                <div class="stat-label">status</div>
-                <div class="stat-value" style="color: var(--green);">active</div>
-            </div>
-            <div class="stat-box">
-                <div class="stat-label">monthly</div>
-                <div class="stat-value" style="color: var(--gold);">~$132</div>
-            </div>
-        </div>
-
-        <h3>droplets (all active)</h3>
-        <table>
-            <thead><tr><th>name</th><th>ip</th><th class="hide-mobile">size</th><th>$/mo</th><th class="hide-mobile">purpose</th></tr></thead>
-            <tbody>
-                <tr><td>oven</td><td><code>137.184.237.166</code></td><td class="hide-mobile">s-4vcpu-8gb</td><td class="money">~$48</td><td class="hide-mobile">Screenshots, MP4, bundling</td></tr>
-                <tr><td>help</td><td><code>146.190.150.173</code></td><td class="hide-mobile">s-2vcpu-4gb</td><td class="money">~$24</td><td class="hide-mobile">Help/docs service</td></tr>
-                <tr><td>silo</td><td><code>64.23.151.169</code></td><td class="hide-mobile">s-2vcpu-4gb</td><td class="money">~$24</td><td class="hide-mobile">MongoDB, dashboard</td></tr>
-                <tr><td>legacy-2016</td><td><code>162.243.163.221</code></td><td class="hide-mobile">1GB</td><td class="money">~$12</td><td class="hide-mobile">Archive (Ubuntu 16.04)</td></tr>
-                <tr><td>session</td><td><code>157.245.134.225</code></td><td class="hide-mobile">s-1vcpu-1gb</td><td class="money">~$7</td><td class="hide-mobile">WebSocket, chat</td></tr>
-                <tr><td>at/pds</td><td><code>165.227.120.137</code></td><td class="hide-mobile">s-1vcpu-1gb</td><td class="money">~$6</td><td class="hide-mobile">Bluesky PDS</td></tr>
-            </tbody>
-        </table>
-
-        <h3>other resources</h3>
-        <table>
-            <thead><tr><th>resource</th><th>detail</th><th>$/mo</th></tr></thead>
-            <tbody>
-                <tr><td>Managed Redis</td><td>1GB / 1vCPU — sfo3</td><td class="money">$15</td></tr>
-                <tr><td>Block Volume</td><td>150GB — nyc1</td><td class="money">$15</td></tr>
-                <tr><td>Spaces</td><td>250GB + 1TB bw (7 buckets)</td><td class="money">$5</td></tr>
-                <tr><td>Backup</td><td>legacy-2016 weekly</td><td class="money">$2.40</td></tr>
-            </tbody>
-        </table>
-
         <details>
-            <summary>spaces buckets (feb bandwidth)</summary>
+            <summary>digitalocean — $132/mo (paid, active)</summary>
             <div class="detail-body">
+                <h3 style="margin-top: 0;">droplets</h3>
                 <table>
-                    <thead><tr><th>bucket</th><th>bandwidth</th></tr></thead>
+                    <thead><tr><th>name</th><th>ip</th><th class="hide-mobile">size</th><th>$/mo</th></tr></thead>
                     <tbody>
-                        <tr><td>assets-aesthetic-computer</td><td>267 GiB</td></tr>
-                        <tr><td>at-blobs-aesthetic-computer</td><td>30 GiB</td></tr>
-                        <tr><td>art-aesthetic-computer</td><td>7 GiB</td></tr>
-                        <tr><td>user-aesthetic-computer</td><td>4.5 GiB</td></tr>
-                        <tr><td>pals-aesthetic-computer</td><td>2.7 GiB</td></tr>
-                        <tr><td>wand-aesthetic-computer</td><td>0.1 GiB</td></tr>
-                        <tr><td>pix.nopaint.art</td><td>0.02 GiB</td></tr>
+                        <tr><td>oven</td><td><code>137.184.237.166</code></td><td class="hide-mobile">s-4vcpu-8gb</td><td class="money">~$48</td></tr>
+                        <tr><td>help</td><td><code>146.190.150.173</code></td><td class="hide-mobile">s-2vcpu-4gb</td><td class="money">~$24</td></tr>
+                        <tr><td>silo</td><td><code>64.23.151.169</code></td><td class="hide-mobile">s-2vcpu-4gb</td><td class="money">~$24</td></tr>
+                        <tr><td>legacy-2016</td><td><code>162.243.163.221</code></td><td class="hide-mobile">1GB</td><td class="money">~$12</td></tr>
+                        <tr><td>session</td><td><code>157.245.134.225</code></td><td class="hide-mobile">s-1vcpu-1gb</td><td class="money">~$7</td></tr>
+                        <tr><td>at/pds</td><td><code>165.227.120.137</code></td><td class="hide-mobile">s-1vcpu-1gb</td><td class="money">~$6</td></tr>
                     </tbody>
                 </table>
-                <p style="color: var(--dim); font-size: 0.72em; margin-top: 0.5em;">All within 1TB — no overage.</p>
+                <h3>other resources</h3>
+                <table>
+                    <thead><tr><th>resource</th><th>detail</th><th>$/mo</th></tr></thead>
+                    <tbody>
+                        <tr><td>Managed Redis</td><td>1GB / 1vCPU — sfo3</td><td class="money">$15</td></tr>
+                        <tr><td>Block Volume</td><td>150GB — nyc1</td><td class="money">$15</td></tr>
+                        <tr><td>Spaces</td><td>250GB + 1TB bw (7 buckets)</td><td class="money">$5</td></tr>
+                        <tr><td>Backup</td><td>legacy-2016 weekly</td><td class="money">$2.40</td></tr>
+                    </tbody>
+                </table>
             </div>
         </details>
 
-        <!-- Netlify -->
-        <h2>netlify — past due</h2>
-        <div class="stats">
-            <div class="stat-box"><div class="stat-label">plan</div><div class="stat-value" style="font-size: 1.2em;">Pro</div></div>
-            <div class="stat-box"><div class="stat-label">monthly</div><div class="stat-value" style="color: var(--gold);">$19</div></div>
-            <div class="stat-box"><div class="stat-label">days left</div><div class="stat-value" style="color: var(--red);">25</div></div>
-            <div class="stat-box"><div class="stat-label">period</div><div class="stat-value" style="font-size: 0.85em;">Feb 27 – Mar 27</div></div>
-        </div>
-
         <!-- Cloudflare -->
-        <h2>cloudflare domains</h2>
-        <table>
-            <thead><tr><th>domain</th><th>registrar</th><th>plan</th></tr></thead>
-            <tbody>
-                <tr><td><a href="https://aesthetic.computer">aesthetic.computer</a></td><td>Tucows</td><td><span class="pill pill-cyan">free</span></td></tr>
-                <tr><td><a href="https://kidlisp.com">kidlisp.com</a></td><td>Key-Systems</td><td><span class="pill pill-cyan">free</span></td></tr>
-                <tr><td><a href="https://notepat.com">notepat.com</a></td><td>Key-Systems</td><td><span class="pill pill-cyan">free</span></td></tr>
-                <tr><td><a href="https://sotce.net">sotce.net</a></td><td>1API</td><td><span class="pill pill-cyan">free</span></td></tr>
-                <tr><td>prompt.ac</td><td>1API</td><td><span class="pill pill-cyan">free</span></td></tr>
-                <tr><td><a href="https://jas.life">jas.life</a></td><td>1API</td><td><span class="pill pill-cyan">free</span></td></tr>
-                <tr><td>justanothersystem.org</td><td>1API</td><td><span class="pill pill-cyan">free</span></td></tr>
-                <tr><td>false.work</td><td>GoDaddy</td><td><span class="pill pill-cyan">free</span></td></tr>
-            </tbody>
-        </table>
+        <details>
+            <summary>cloudflare domains (free)</summary>
+            <div class="detail-body">
+                <table>
+                    <thead><tr><th>domain</th><th>registrar</th><th>plan</th></tr></thead>
+                    <tbody>
+                        <tr><td><a href="https://aesthetic.computer">aesthetic.computer</a></td><td>Tucows</td><td><span class="pill pill-cyan">free</span></td></tr>
+                        <tr><td><a href="https://kidlisp.com">kidlisp.com</a></td><td>Key-Systems</td><td><span class="pill pill-cyan">free</span></td></tr>
+                        <tr><td><a href="https://notepat.com">notepat.com</a></td><td>Key-Systems</td><td><span class="pill pill-cyan">free</span></td></tr>
+                        <tr><td><a href="https://sotce.net">sotce.net</a></td><td>1API</td><td><span class="pill pill-cyan">free</span></td></tr>
+                        <tr><td>prompt.ac</td><td>1API</td><td><span class="pill pill-cyan">free</span></td></tr>
+                        <tr><td><a href="https://jas.life">jas.life</a></td><td>1API</td><td><span class="pill pill-cyan">free</span></td></tr>
+                        <tr><td>justanothersystem.org</td><td>1API</td><td><span class="pill pill-cyan">free</span></td></tr>
+                        <tr><td>false.work</td><td>GoDaddy</td><td><span class="pill pill-cyan">free</span></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </details>
 
         <!-- Cost Reduction -->
-        <h2>cost reduction</h2>
-        <table>
-            <thead><tr><th>action</th><th>saves</th><th class="hide-mobile">risk</th></tr></thead>
-            <tbody>
-                <tr><td>Kill legacy-2016 + 150GB vol</td><td class="money" style="color: var(--green);">$27</td><td class="hide-mobile">Back up first</td></tr>
-                <tr><td>Downgrade oven → s-2vcpu-2gb</td><td class="money" style="color: var(--green);">$36</td><td class="hide-mobile">May slow OS builds</td></tr>
-                <tr><td>Downgrade help → s-1vcpu-1gb</td><td class="money" style="color: var(--green);">$18</td><td class="hide-mobile">Depends on load</td></tr>
-                <tr><td>Redis → Upstash free</td><td class="money" style="color: var(--green);">$15</td><td class="hide-mobile">Test compatibility</td></tr>
-                <tr><td>Evaluate AT/PDS droplet</td><td class="money" style="color: var(--green);">$6</td><td class="hide-mobile">Bluesky integration</td></tr>
-                <tr><td>Consolidate domains</td><td class="money" style="color: var(--green);">$5–10</td><td class="hide-mobile">Lose unused TLDs</td></tr>
-                <tr style="color: var(--green);"><td>total possible</td><td class="money">~$107</td><td class="hide-mobile">~$151 → ~$44/mo</td></tr>
-            </tbody>
-        </table>
+        <details>
+            <summary>cost reduction opportunities (save ~$107/mo)</summary>
+            <div class="detail-body">
+                <table>
+                    <thead><tr><th>action</th><th>saves</th></tr></thead>
+                    <tbody>
+                        <tr><td>Kill legacy-2016 + 150GB vol</td><td class="money" style="color: var(--green);">$27</td></tr>
+                        <tr><td>Downgrade oven → s-2vcpu-2gb</td><td class="money" style="color: var(--green);">$36</td></tr>
+                        <tr><td>Downgrade help → s-1vcpu-1gb</td><td class="money" style="color: var(--green);">$18</td></tr>
+                        <tr><td>Redis → Upstash free</td><td class="money" style="color: var(--green);">$15</td></tr>
+                        <tr><td>Evaluate AT/PDS droplet</td><td class="money" style="color: var(--green);">$6</td></tr>
+                        <tr><td>Consolidate domains</td><td class="money" style="color: var(--green);">$5–10</td></tr>
+                        <tr style="color: var(--green);"><td>total possible</td><td class="money">~$107</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </details>
+
+        <hr class="section-divider">
 
         <!-- Actions -->
         <h2>priority actions</h2>
@@ -606,34 +757,8 @@
             <p><strong>6.</strong> Anthropic spend — <a href="https://console.anthropic.com">console.anthropic.com</a></p>
         </div>
 
-        <h3>recovery</h3>
-        <details>
-            <summary>option A: pay and restore DO</summary>
-            <div class="detail-body">
-                <ol>
-                    <li>Pay $412.34 via DO dashboard</li>
-                    <li>Power on all droplets manually</li>
-                    <li>Verify services start, test endpoints</li>
-                    <li>Trim unnecessary resources</li>
-                </ol>
-            </div>
-        </details>
-        <details>
-            <summary>option B: migrate away from DO</summary>
-            <div class="detail-body">
-                <ol>
-                    <li>Contact DO support for temporary Spaces access</li>
-                    <li>Move Oven to Hetzner/Vultr (~$8/mo)</li>
-                    <li>Move Session Server or lean into Jamsocket</li>
-                    <li>Redis → Upstash or Railway</li>
-                    <li>Spaces → Cloudflare R2 (free egress)</li>
-                    <li>Update DNS, env vars, deploy scripts</li>
-                </ol>
-            </div>
-        </details>
-
         <div class="footer">
-            <span>2026-03-03</span>
+            <span id="footer-date">...</span>
             <span><a href="https://sitemap.aesthetic.computer">sitemap</a> · <a href="https://aesthetic.computer/docs">docs</a> · <a href="https://aesthetic.computer/list">list</a></span>
         </div>
 
@@ -659,7 +784,171 @@
             location.href = 'https://aesthetic.computer';
         };
 
+        // Footer date
+        document.getElementById('footer-date').textContent =
+            new Date().toISOString().split('T')[0];
+
+        // ═══════════════════════════════════════════════════════════
+        // LIVE DATA: Gives (Stripe)
+        // ═══════════════════════════════════════════════════════════
+
+        const MONTHLY_COSTS_USD = 151;
+
+        let givesMonthlyUSD = 0;
+        let givesTotalUSD = 0;
+        let keepsIncomeUSD = 0;
+
+        function updateNetFlow() {
+            const totalMonthlyIncome = givesMonthlyUSD + keepsIncomeUSD;
+            const net = totalMonthlyIncome - MONTHLY_COSTS_USD;
+            const flowIncomeEl = document.getElementById('flow-income');
+            const flowNetEl = document.getElementById('flow-net');
+
+            flowIncomeEl.textContent = '~$' + Math.round(totalMonthlyIncome);
+            flowIncomeEl.classList.remove('loading');
+
+            flowNetEl.textContent = (net >= 0 ? '+$' : '-$') + Math.abs(Math.round(net));
+            flowNetEl.style.color = net >= 0
+                ? 'var(--green)'
+                : 'var(--red)';
+            flowNetEl.classList.remove('loading');
+        }
+
+        (async function loadGives() {
+            try {
+                const res = await fetch('https://aesthetic.computer/api/gives');
+                if (!res.ok) throw new Error('API error');
+                const data = await res.json();
+
+                givesMonthlyUSD = data.monthlyTotalUSD || 0;
+                givesTotalUSD = data.totalUSD || 0;
+
+                document.getElementById('gives-monthly').textContent = '$' + givesMonthlyUSD;
+                document.getElementById('gives-monthly').classList.remove('loading');
+
+                document.getElementById('gives-total').textContent = '$' + givesTotalUSD;
+                document.getElementById('gives-total').classList.remove('loading');
+
+                document.getElementById('gives-subs').textContent = data.activeSubscribers || 0;
+                document.getElementById('gives-subs').classList.remove('loading');
+
+                document.getElementById('gives-count').textContent = data.count || 0;
+                document.getElementById('gives-count').classList.remove('loading');
+
+                // Render recent gives list
+                const listEl = document.getElementById('gives-list');
+                if (data.gives && data.gives.length > 0) {
+                    listEl.innerHTML = data.gives.slice(0, 20).map(g => {
+                        const date = new Date(g.createdAt).toLocaleDateString('en-US', {
+                            month: 'short', day: 'numeric', year: 'numeric'
+                        });
+                        const recurring = g.isRecurring ? '<span class="give-recurring">monthly</span>' : '';
+                        const note = g.note ? `<span class="give-note">"${g.note}"</span>` : '';
+                        return `<div class="give-entry">
+                            <span><span class="give-amount">${g.amountDisplay}</span> ${recurring} ${note}</span>
+                            <span class="give-date">${date}</span>
+                        </div>`;
+                    }).join('');
+                } else {
+                    listEl.innerHTML = '<div style="color: var(--dim); padding: 0.5em;">No gives yet.</div>';
+                }
+
+                updateNetFlow();
+            } catch (e) {
+                console.error('Failed to load gives:', e);
+                document.getElementById('gives-monthly').textContent = '—';
+                document.getElementById('gives-total').textContent = '—';
+                document.getElementById('gives-subs').textContent = '—';
+                document.getElementById('gives-count').textContent = '—';
+                document.getElementById('gives-list').innerHTML =
+                    '<div style="color: var(--dim); padding: 0.5em;">Could not load gives data.</div>';
+                updateNetFlow();
+            }
+        })();
+
+        // ═══════════════════════════════════════════════════════════
+        // LIVE DATA: Keeps (Tezos via TzKT API)
+        // ═══════════════════════════════════════════════════════════
+
+        const KEEPS_CONTRACT = 'KT1J15kADMuRWh9kJZzosBeRBYPjYr7RvhoN';
+        const TZKT_API = 'https://api.tzkt.io';
+        const KEEPS_FEE_XTZ = 2.5;
+
+        document.getElementById('keeps-contract').textContent = KEEPS_CONTRACT;
+        document.getElementById('keeps-objkt-link').href =
+            'https://objkt.com/collection/' + KEEPS_CONTRACT;
+
+        (async function loadKeeps() {
+            try {
+                // Fetch contract storage for token count
+                const storageRes = await fetch(TZKT_API + '/v1/contracts/' + KEEPS_CONTRACT + '/storage');
+                const storage = storageRes.ok ? await storageRes.json() : null;
+
+                // Fetch token holders
+                const holdersRes = await fetch(TZKT_API + '/v1/tokens?contract=' + KEEPS_CONTRACT + '&limit=1000');
+                const tokens = holdersRes.ok ? await holdersRes.json() : [];
+
+                // Count unique owners from token holders
+                const ownersRes = await fetch(TZKT_API + '/v1/tokens/balances?token.contract=' + KEEPS_CONTRACT + '&balance.gt=0&limit=1000');
+                const balances = ownersRes.ok ? await ownersRes.json() : [];
+                const uniqueOwners = new Set(balances.map(b => b.account?.address)).size;
+
+                // Get mint count from storage
+                const mintCount = storage?.next_token_id ? parseInt(storage.next_token_id) : tokens.length;
+
+                // Calculate fees earned (mint count * fee)
+                const feesXTZ = mintCount * KEEPS_FEE_XTZ;
+
+                // Fetch XTZ/USD price for conversion
+                let xtzPrice = 0.38; // fallback
+                try {
+                    const priceRes = await fetch(TZKT_API + '/v1/head');
+                    if (priceRes.ok) {
+                        const head = await priceRes.json();
+                        if (head.quoteUsd) xtzPrice = head.quoteUsd;
+                    }
+                } catch (e) { /* use fallback */ }
+
+                // Fetch total transfer volume
+                const transfersRes = await fetch(TZKT_API + '/v1/operations/transactions?target=' + KEEPS_CONTRACT + '&entrypoint=keep&limit=1000&select=amount');
+                let totalVolumeXTZ = feesXTZ; // At minimum, minting fees
+                if (transfersRes.ok) {
+                    const amounts = await transfersRes.json();
+                    totalVolumeXTZ = amounts.reduce((sum, a) => sum + (a / 1000000), 0);
+                }
+
+                const feesUSD = Math.round(feesXTZ * xtzPrice);
+                keepsIncomeUSD = feesUSD; // Monthly approximation (project is ~1 month old)
+
+                document.getElementById('keeps-volume').textContent =
+                    Math.round(totalVolumeXTZ) + ' XTZ';
+                document.getElementById('keeps-volume').classList.remove('loading');
+
+                document.getElementById('keeps-fees').textContent =
+                    feesXTZ.toFixed(1) + ' XTZ';
+                document.getElementById('keeps-fees').classList.remove('loading');
+
+                document.getElementById('keeps-minted').textContent = mintCount;
+                document.getElementById('keeps-minted').classList.remove('loading');
+
+                document.getElementById('keeps-owners').textContent = uniqueOwners;
+                document.getElementById('keeps-owners').classList.remove('loading');
+
+                updateNetFlow();
+            } catch (e) {
+                console.error('Failed to load keeps:', e);
+                document.getElementById('keeps-volume').textContent = '—';
+                document.getElementById('keeps-fees').textContent = '—';
+                document.getElementById('keeps-minted').textContent = '—';
+                document.getElementById('keeps-owners').textContent = '—';
+                updateNetFlow();
+            }
+        })();
+
+        // ═══════════════════════════════════════════════════════════
         // SVG Cost Timeline
+        // ═══════════════════════════════════════════════════════════
+
         (function() {
             const data = [
                 { month: 'Sep 25', cost: 62.40 },
