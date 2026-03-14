@@ -319,72 +319,72 @@ void main() {
 
 // =========================================================================
 // BLUR SHADER - Separable Gaussian blur (horizontal pass)
-// Simple version - no Y flipping, handled in readback
-// Uses fixed loop bound (15) for WebGL ES compatibility - some GPUs don't support dynamic loop bounds
+// Mali-safe: no uniform arrays, no dynamic indexing, no early break.
+// Uses texelFetch with integer coords and hardcoded Gaussian weights.
+// Radius controlled by u_radius uniform — samples up to 7 pixels each side.
 // =========================================================================
 const BLUR_H_FRAGMENT_SHADER = `#version 300 es
 precision highp float;
 
 uniform sampler2D u_texture;
 uniform vec2 u_resolution;
-uniform vec4 u_bounds;  // minX, minY, maxX, maxY in CPU coords
 uniform float u_radius;
-uniform float u_weights[16];
-uniform int u_kernelSize;
 
 in vec2 v_texCoord;
 out vec4 fragColor;
 
 void main() {
+  ivec2 tc = ivec2(v_texCoord * u_resolution);
+  ivec2 size = ivec2(u_resolution);
   vec4 sum = vec4(0.0);
-  float texelX = 1.0 / u_resolution.x;
-  int radius = u_kernelSize / 2;
-  
-  // Fixed loop bound for WebGL ES compatibility (max kernel size is 15)
-  for (int i = 0; i < 15; i++) {
-    if (i >= u_kernelSize) break;
-    float offset = float(i - radius);
-    vec2 sampleUV = v_texCoord + vec2(offset * texelX, 0.0);
-    sampleUV.x = clamp(sampleUV.x, 0.0, 1.0);
-    sum += texture(u_texture, sampleUV) * u_weights[i];
+  float totalWeight = 0.0;
+  float sigma = max(u_radius / 3.0, 0.5);
+  float invTwoSigmaSq = -0.5 / (sigma * sigma);
+
+  // Unrolled: sample offsets -7 to +7 (covers blur radius up to 7)
+  for (int d = -7; d <= 7; d++) {
+    int sx = clamp(tc.x + d, 0, size.x - 1);
+    float w = exp(float(d * d) * invTwoSigmaSq);
+    // Skip taps beyond requested radius
+    w *= step(float(abs(d)), u_radius);
+    sum += texelFetch(u_texture, ivec2(sx, tc.y), 0) * w;
+    totalWeight += w;
   }
-  
-  fragColor = sum;
+
+  fragColor = sum / totalWeight;
 }`;
 
 // =========================================================================
 // BLUR SHADER - Separable Gaussian blur (vertical pass)
-// Simple version - no Y flipping, handled in readback
-// Uses fixed loop bound (15) for WebGL ES compatibility - some GPUs don't support dynamic loop bounds
+// Mali-safe: same approach as horizontal, swapped axis.
 // =========================================================================
 const BLUR_V_FRAGMENT_SHADER = `#version 300 es
 precision highp float;
 
 uniform sampler2D u_texture;
 uniform vec2 u_resolution;
-uniform vec4 u_bounds;
 uniform float u_radius;
-uniform float u_weights[16];
-uniform int u_kernelSize;
 
 in vec2 v_texCoord;
 out vec4 fragColor;
 
 void main() {
+  ivec2 tc = ivec2(v_texCoord * u_resolution);
+  ivec2 size = ivec2(u_resolution);
   vec4 sum = vec4(0.0);
-  float texelY = 1.0 / u_resolution.y;
-  int radius = u_kernelSize / 2;
-  
-  // Fixed loop bound for WebGL ES compatibility (max kernel size is 15)
-  for (int i = 0; i < 15; i++) {
-    if (i >= u_kernelSize) break;
-    float offset = float(i - radius);
-    vec2 sampleUV = v_texCoord + vec2(0.0, offset * texelY);
-    sampleUV.y = clamp(sampleUV.y, 0.0, 1.0);
-    sum += texture(u_texture, sampleUV) * u_weights[i];
+  float totalWeight = 0.0;
+  float sigma = max(u_radius / 3.0, 0.5);
+  float invTwoSigmaSq = -0.5 / (sigma * sigma);
+
+  for (int d = -7; d <= 7; d++) {
+    int sy = clamp(tc.y + d, 0, size.y - 1);
+    float w = exp(float(d * d) * invTwoSigmaSq);
+    w *= step(float(abs(d)), u_radius);
+    sum += texelFetch(u_texture, ivec2(tc.x, sy), 0) * w;
+    totalWeight += w;
   }
-  
-  fragColor = sum;
+
+  fragColor = sum / totalWeight;
 }`;
 
 // =========================================================================
@@ -1032,19 +1032,13 @@ function initWebGL2(width, height) {
     
     blurHUniforms = {
       u_resolution: gl.getUniformLocation(blurHProgram, 'u_resolution'),
-      u_bounds: gl.getUniformLocation(blurHProgram, 'u_bounds'),
       u_radius: gl.getUniformLocation(blurHProgram, 'u_radius'),
-      u_weights: gl.getUniformLocation(blurHProgram, 'u_weights'),
-      u_kernelSize: gl.getUniformLocation(blurHProgram, 'u_kernelSize'),
       u_texture: gl.getUniformLocation(blurHProgram, 'u_texture'),
     };
-    
+
     blurVUniforms = {
       u_resolution: gl.getUniformLocation(blurVProgram, 'u_resolution'),
-      u_bounds: gl.getUniformLocation(blurVProgram, 'u_bounds'),
       u_radius: gl.getUniformLocation(blurVProgram, 'u_radius'),
-      u_weights: gl.getUniformLocation(blurVProgram, 'u_weights'),
-      u_kernelSize: gl.getUniformLocation(blurVProgram, 'u_kernelSize'),
       u_texture: gl.getUniformLocation(blurVProgram, 'u_texture'),
     };
     
@@ -1243,8 +1237,8 @@ function initWebGL2(width, height) {
     gl.bindTexture(gl.TEXTURE_2D, pingPongTexture);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);  // LINEAR for blur
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     
     pingPongFramebuffer = gl.createFramebuffer();
@@ -1729,10 +1723,8 @@ export function gpuBlur(pixels, width, height, strength = 1, mask = null) {
     const maxX = mask ? mask.x + mask.width : width;
     const maxY = mask ? mask.y + mask.height : height;
     
-    // Calculate kernel size (capped at 15 for performance)
-    const blurRadius = Math.max(1, Math.floor(strength));
-    const kernelSize = Math.min(blurRadius * 2 + 1, 15);
-    const weights = generateGaussianWeights(kernelSize);
+    // Calculate blur radius (capped at 7 for the unrolled shader)
+    const blurRadius = Math.min(Math.max(1, Math.floor(strength)), 7);
     
     // Upload pixels to texture (no UNPACK_FLIP_Y - buggy on Android texSubImage2D)
     gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -1743,12 +1735,8 @@ export function gpuBlur(pixels, width, height, strength = 1, mask = null) {
     gl.viewport(0, 0, width, height);
     gl.useProgram(blurHProgram);
 
-    // Set uniforms (using cached locations for performance)
     gl.uniform2f(blurHUniforms.u_resolution, width, height);
-    gl.uniform4f(blurHUniforms.u_bounds, minX, minY, maxX, maxY);
     gl.uniform1f(blurHUniforms.u_radius, blurRadius);
-    gl.uniform1fv(blurHUniforms.u_weights, weights);
-    gl.uniform1i(blurHUniforms.u_kernelSize, kernelSize);
     gl.uniform1i(blurHUniforms.u_texture, 0);
 
     gl.bindVertexArray(vao);
@@ -1760,12 +1748,8 @@ export function gpuBlur(pixels, width, height, strength = 1, mask = null) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
     gl.useProgram(blurVProgram);
 
-    // Set uniforms (using cached locations for performance)
     gl.uniform2f(blurVUniforms.u_resolution, width, height);
-    gl.uniform4f(blurVUniforms.u_bounds, minX, minY, maxX, maxY);
     gl.uniform1f(blurVUniforms.u_radius, blurRadius);
-    gl.uniform1fv(blurVUniforms.u_weights, weights);
-    gl.uniform1i(blurVUniforms.u_kernelSize, kernelSize);
     gl.uniform1i(blurVUniforms.u_texture, 0);
 
     // VAO already bound
