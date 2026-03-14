@@ -479,7 +479,7 @@
     .market-card-price {
       font-size: 14px;
       font-weight: bold;
-      color: #f59e0b;
+      color: #60a5fa;
     }
 
     .market-card-price.sold {
@@ -624,7 +624,7 @@
     .keep-detail-price {
       font-size: 20px;
       font-weight: bold;
-      color: #f59e0b;
+      color: #60a5fa;
     }
 
     .keep-detail-price.sold {
@@ -859,6 +859,20 @@
     .keeps-about-lede .keeps-price {
       color: inherit;
       font-weight: 700;
+    }
+
+    .keeps-price-tez { color: #60a5fa !important; }
+    .keeps-price-usd { color: #4ade80 !important; }
+
+    /* Tezos symbol fallback for iOS — inline SVG replaces ꜩ glyph */
+    .tez-sym {
+      display: inline-block;
+      width: 0.75em;
+      height: 0.75em;
+      vertical-align: -0.05em;
+      background: currentColor;
+      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M15.68 4.68v3.42l-4.35 4.35h4.35v2.53h-4.35v2.09c0 1.55.83 2.33 2.33 2.33.62 0 1.34-.18 1.76-.36l.56 2.33c-.62.27-1.64.53-2.72.53-3.15 0-4.46-1.81-4.46-4.59v-2.33H6.32v-1.2l6.5-6.76V4.68h2.86z'/%3E%3C/svg%3E") center/contain no-repeat;
+      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M15.68 4.68v3.42l-4.35 4.35h4.35v2.53h-4.35v2.09c0 1.55.83 2.33 2.33 2.33.62 0 1.34-.18 1.76-.36l.56 2.33c-.62.27-1.64.53-2.72.53-3.15 0-4.46-1.81-4.46-4.59v-2.33H6.32v-1.2l6.5-6.76V4.68h2.86z'/%3E%3C/svg%3E") center/contain no-repeat;
     }
 
     .keeps-about-lede .keeps-fee-detail {
@@ -2697,7 +2711,7 @@
               <button class="keeps-user-logout-btn" onclick="event.stopPropagation(); keepsLogout()">Log Out</button>
             </div>
           </div>
-          <button class="keeps-auth-btn wallet" id="keeps-wallet-btn" style="display:none;" onclick="handleWalletBtn()">ꜩ Connect</button>
+          <button class="keeps-auth-btn wallet" id="keeps-wallet-btn" style="display:none;" onclick="handleWalletBtn()"><span class="tez-sym"></span> Connect</button>
         </div>
       </div>
     </div>
@@ -2711,190 +2725,316 @@
       <span class="keeps-code-float">$n4f</span>
       <span class="keeps-code-float">$h8w</span>
       <span class="keeps-code-float">$c3v</span>
-      <!-- Castle SVG — detailed keep fortress -->
+      <!-- Castle SVG — illustrative keep fortress -->
       <svg viewBox="0 0 300 240" fill="none" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <!-- Stone texture pattern -->
-          <pattern id="stones" x="0" y="0" width="20" height="12" patternUnits="userSpaceOnUse">
-            <rect width="20" height="12" fill="none"/>
-            <line x1="0" y1="6" x2="20" y2="6" stroke="var(--ac-purple)" stroke-width="0.3" opacity="0.15"/>
-            <line x1="10" y1="0" x2="10" y2="6" stroke="var(--ac-purple)" stroke-width="0.3" opacity="0.15"/>
-            <line x1="0" y1="0" x2="0" y2="6" stroke="var(--ac-purple)" stroke-width="0.3" opacity="0.1"/>
-            <line x1="5" y1="6" x2="5" y2="12" stroke="var(--ac-purple)" stroke-width="0.3" opacity="0.15"/>
-            <line x1="15" y1="6" x2="15" y2="12" stroke="var(--ac-purple)" stroke-width="0.3" opacity="0.15"/>
+          <!-- Stone texture pattern (finer brickwork) -->
+          <pattern id="stones" x="0" y="0" width="16" height="10" patternUnits="userSpaceOnUse">
+            <rect width="16" height="10" fill="none"/>
+            <line x1="0" y1="5" x2="16" y2="5" stroke="var(--ac-purple)" stroke-width="0.4" opacity="0.18"/>
+            <line x1="8" y1="0" x2="8" y2="5" stroke="var(--ac-purple)" stroke-width="0.4" opacity="0.18"/>
+            <line x1="0" y1="0" x2="0" y2="5" stroke="var(--ac-purple)" stroke-width="0.3" opacity="0.12"/>
+            <line x1="4" y1="5" x2="4" y2="10" stroke="var(--ac-purple)" stroke-width="0.4" opacity="0.18"/>
+            <line x1="12" y1="5" x2="12" y2="10" stroke="var(--ac-purple)" stroke-width="0.4" opacity="0.18"/>
           </pattern>
           <!-- Glow for sparkles -->
           <filter id="glow">
             <feGaussianBlur stdDeviation="2" result="blur"/>
             <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
           </filter>
+          <!-- Soft shadow for depth -->
+          <filter id="castleShadow">
+            <feDropShadow dx="2" dy="3" stdDeviation="3" flood-color="rgba(0,0,0,0.15)"/>
+          </filter>
+          <!-- Grass pattern -->
+          <pattern id="grass" x="0" y="0" width="8" height="6" patternUnits="userSpaceOnUse">
+            <path d="M1 6 Q1.5 2 2 6" stroke="#4ade80" stroke-width="0.5" fill="none" opacity="0.3"/>
+            <path d="M5 6 Q5.5 3 6 6" stroke="#4ade80" stroke-width="0.5" fill="none" opacity="0.25"/>
+          </pattern>
         </defs>
 
-        <!-- Ground / hill base -->
-        <ellipse cx="150" cy="238" rx="140" ry="16" fill="var(--text-tertiary)" opacity="0.12"/>
+        <!-- === SKY DETAILS === -->
+        <!-- Clouds -->
+        <ellipse cx="45" cy="22" rx="22" ry="7" fill="var(--text-tertiary)" opacity="0.06"/>
+        <ellipse cx="55" cy="20" rx="16" ry="6" fill="var(--text-tertiary)" opacity="0.08"/>
+        <ellipse cx="255" cy="30" rx="18" ry="5" fill="var(--text-tertiary)" opacity="0.06"/>
+        <ellipse cx="265" cy="28" rx="14" ry="5" fill="var(--text-tertiary)" opacity="0.07"/>
+        <!-- Birds -->
+        <path d="M85 18 Q88 14 91 18" stroke="var(--ac-purple)" stroke-width="0.5" fill="none" opacity="0.15"/>
+        <path d="M95 22 Q97 19 99 22" stroke="var(--ac-purple)" stroke-width="0.5" fill="none" opacity="0.12"/>
+        <path d="M210 15 Q213 11 216 15" stroke="var(--ac-purple)" stroke-width="0.5" fill="none" opacity="0.13"/>
 
-        <!-- Foundation stone -->
-        <rect x="45" y="170" width="210" height="68" rx="3" fill="var(--text-tertiary)" opacity="0.15"/>
+        <!-- === GROUND / HILL === -->
+        <!-- Grassy hill -->
+        <ellipse cx="150" cy="238" rx="148" ry="18" fill="#4ade80" opacity="0.08"/>
+        <ellipse cx="150" cy="238" rx="140" ry="16" fill="var(--text-tertiary)" opacity="0.1"/>
+        <!-- Grass blades on hill -->
+        <rect x="10" y="228" width="280" height="12" fill="url(#grass)" opacity="0.6"/>
+        <!-- Path leading to gate -->
+        <path d="M150 238 Q148 242 145 248 Q142 254 150 258 Q158 254 155 248 Q152 242 150 238" fill="var(--text-tertiary)" opacity="0.1"/>
+        <!-- Small bushes -->
+        <ellipse cx="25" cy="234" rx="8" ry="4" fill="#4ade80" opacity="0.12"/>
+        <ellipse cx="275" cy="234" rx="7" ry="3.5" fill="#4ade80" opacity="0.1"/>
+
+        <!-- Foundation stone (wider, with moss) -->
+        <rect x="40" y="168" width="220" height="72" rx="4" fill="var(--text-tertiary)" opacity="0.18"/>
+        <!-- Moss on foundation -->
+        <path d="M42 168 Q50 165 58 168 Q65 166 72 168" stroke="#4ade80" stroke-width="1" fill="none" opacity="0.15"/>
+        <path d="M228 168 Q235 165 242 168 Q250 166 258 168" stroke="#4ade80" stroke-width="1" fill="none" opacity="0.12"/>
 
         <!-- === MAIN CURTAIN WALL === -->
-        <rect x="55" y="108" width="190" height="130" rx="2" fill="var(--ac-purple)" opacity="0.18"/>
-        <rect x="57" y="110" width="186" height="126" rx="2" fill="var(--bg-tertiary)" stroke="var(--ac-purple)" stroke-width="1.2" opacity="0.95"/>
-        <!-- Stone texture overlay on wall -->
-        <rect x="57" y="110" width="186" height="126" rx="2" fill="url(#stones)"/>
+        <rect x="50" y="105" width="200" height="135" rx="2" fill="var(--ac-purple)" opacity="0.2"/>
+        <rect x="52" y="107" width="196" height="131" rx="2" fill="var(--bg-tertiary)" stroke="var(--ac-purple)" stroke-width="1.5" opacity="0.95"/>
+        <!-- Stone texture overlay -->
+        <rect x="52" y="107" width="196" height="131" rx="2" fill="url(#stones)"/>
+        <!-- Horizontal mortar lines -->
+        <line x1="55" y1="127" x2="245" y2="127" stroke="var(--ac-purple)" stroke-width="0.3" opacity="0.1"/>
+        <line x1="55" y1="147" x2="245" y2="147" stroke="var(--ac-purple)" stroke-width="0.3" opacity="0.1"/>
+        <line x1="55" y1="167" x2="245" y2="167" stroke="var(--ac-purple)" stroke-width="0.3" opacity="0.1"/>
+        <line x1="55" y1="187" x2="245" y2="187" stroke="var(--ac-purple)" stroke-width="0.3" opacity="0.1"/>
+        <!-- Wall corner stones (quoins) -->
+        <rect x="52" y="107" width="6" height="10" rx="0" fill="var(--ac-purple)" opacity="0.08"/>
+        <rect x="52" y="120" width="6" height="10" rx="0" fill="var(--ac-purple)" opacity="0.06"/>
+        <rect x="52" y="133" width="6" height="10" rx="0" fill="var(--ac-purple)" opacity="0.08"/>
+        <rect x="242" y="107" width="6" height="10" rx="0" fill="var(--ac-purple)" opacity="0.08"/>
+        <rect x="242" y="120" width="6" height="10" rx="0" fill="var(--ac-purple)" opacity="0.06"/>
+        <rect x="242" y="133" width="6" height="10" rx="0" fill="var(--ac-purple)" opacity="0.08"/>
 
-        <!-- Wall horizontal mortar lines -->
-        <line x1="60" y1="130" x2="240" y2="130" stroke="var(--ac-purple)" stroke-width="0.3" opacity="0.12"/>
-        <line x1="60" y1="150" x2="240" y2="150" stroke="var(--ac-purple)" stroke-width="0.3" opacity="0.12"/>
-        <line x1="60" y1="170" x2="240" y2="170" stroke="var(--ac-purple)" stroke-width="0.3" opacity="0.12"/>
-
-        <!-- === GATEHOUSE === -->
-        <!-- Arch recess -->
-        <rect x="118" y="165" width="64" height="73" rx="2" fill="var(--ac-purple)" opacity="0.1"/>
-        <!-- Arch -->
-        <path d="M120 238 V185 Q120 160 150 160 Q180 160 180 185 V238" fill="var(--ac-purple)" opacity="0.15"/>
-        <path d="M122 238 V186 Q122 163 150 163 Q178 163 178 186 V238" fill="none" stroke="var(--ac-purple)" stroke-width="1.5"/>
-        <!-- Portcullis grid -->
-        <line x1="134" y1="163" x2="134" y2="238" stroke="var(--ac-purple)" stroke-width="0.6" opacity="0.25"/>
-        <line x1="142" y1="163" x2="142" y2="238" stroke="var(--ac-purple)" stroke-width="0.6" opacity="0.25"/>
-        <line x1="150" y1="160" x2="150" y2="238" stroke="var(--ac-purple)" stroke-width="0.6" opacity="0.25"/>
-        <line x1="158" y1="163" x2="158" y2="238" stroke="var(--ac-purple)" stroke-width="0.6" opacity="0.25"/>
-        <line x1="166" y1="163" x2="166" y2="238" stroke="var(--ac-purple)" stroke-width="0.6" opacity="0.25"/>
-        <line x1="122" y1="190" x2="178" y2="190" stroke="var(--ac-purple)" stroke-width="0.5" opacity="0.2"/>
-        <line x1="122" y1="200" x2="178" y2="200" stroke="var(--ac-purple)" stroke-width="0.5" opacity="0.2"/>
-        <line x1="122" y1="210" x2="178" y2="210" stroke="var(--ac-purple)" stroke-width="0.5" opacity="0.2"/>
-        <line x1="122" y1="220" x2="178" y2="220" stroke="var(--ac-purple)" stroke-width="0.5" opacity="0.2"/>
-        <!-- Keystone -->
-        <path d="M144 162 L150 156 L156 162" fill="var(--ac-purple)" opacity="0.3"/>
+        <!-- === GATEHOUSE (more ornate) === -->
+        <!-- Arch recess shadow -->
+        <rect x="116" y="162" width="68" height="78" rx="2" fill="var(--ac-purple)" opacity="0.08"/>
+        <!-- Main arch -->
+        <path d="M118 240 V182 Q118 155 150 155 Q182 155 182 182 V240" fill="var(--ac-purple)" opacity="0.12"/>
+        <path d="M120 240 V183 Q120 158 150 158 Q180 158 180 183 V240" fill="none" stroke="var(--ac-purple)" stroke-width="1.8"/>
+        <!-- Double arch detail -->
+        <path d="M122 240 V184 Q122 161 150 161 Q178 161 178 184 V240" fill="none" stroke="var(--ac-purple)" stroke-width="0.5" opacity="0.3"/>
+        <!-- Portcullis (finer grid) -->
+        <line x1="130" y1="158" x2="130" y2="240" stroke="var(--ac-purple)" stroke-width="0.5" opacity="0.2"/>
+        <line x1="137" y1="158" x2="137" y2="240" stroke="var(--ac-purple)" stroke-width="0.5" opacity="0.2"/>
+        <line x1="143" y1="156" x2="143" y2="240" stroke="var(--ac-purple)" stroke-width="0.5" opacity="0.2"/>
+        <line x1="150" y1="155" x2="150" y2="240" stroke="var(--ac-purple)" stroke-width="0.5" opacity="0.2"/>
+        <line x1="157" y1="156" x2="157" y2="240" stroke="var(--ac-purple)" stroke-width="0.5" opacity="0.2"/>
+        <line x1="163" y1="158" x2="163" y2="240" stroke="var(--ac-purple)" stroke-width="0.5" opacity="0.2"/>
+        <line x1="170" y1="158" x2="170" y2="240" stroke="var(--ac-purple)" stroke-width="0.5" opacity="0.2"/>
+        <line x1="120" y1="188" x2="180" y2="188" stroke="var(--ac-purple)" stroke-width="0.4" opacity="0.18"/>
+        <line x1="120" y1="198" x2="180" y2="198" stroke="var(--ac-purple)" stroke-width="0.4" opacity="0.18"/>
+        <line x1="120" y1="208" x2="180" y2="208" stroke="var(--ac-purple)" stroke-width="0.4" opacity="0.18"/>
+        <line x1="120" y1="218" x2="180" y2="218" stroke="var(--ac-purple)" stroke-width="0.4" opacity="0.18"/>
+        <line x1="120" y1="228" x2="180" y2="228" stroke="var(--ac-purple)" stroke-width="0.4" opacity="0.18"/>
+        <!-- Keystone (larger, decorative) -->
+        <path d="M142 159 L150 150 L158 159" fill="var(--ac-purple)" opacity="0.35"/>
+        <circle cx="150" cy="155" r="2" fill="var(--ac-purple)" opacity="0.2"/>
+        <!-- Gate flanking torches -->
+        <line x1="114" y1="175" x2="114" y2="165" stroke="var(--ac-purple)" stroke-width="0.8" opacity="0.3"/>
+        <circle cx="114" cy="163" r="2.5" fill="#FFE66D" opacity="0.3">
+          <animate attributeName="opacity" values="0.2;0.5;0.2" dur="1.5s" repeatCount="indefinite"/>
+        </circle>
+        <line x1="186" y1="175" x2="186" y2="165" stroke="var(--ac-purple)" stroke-width="0.8" opacity="0.3"/>
+        <circle cx="186" cy="163" r="2.5" fill="#FFE66D" opacity="0.3">
+          <animate attributeName="opacity" values="0.2;0.5;0.2" dur="1.8s" repeatCount="indefinite"/>
+        </circle>
 
         <!-- === LEFT MAIN TOWER === -->
-        <rect x="30" y="68" width="44" height="170" rx="2" fill="var(--ac-purple)" opacity="0.15"/>
-        <rect x="32" y="70" width="40" height="166" rx="2" fill="var(--bg-tertiary)" stroke="var(--ac-purple)" stroke-width="1.2"/>
-        <rect x="32" y="70" width="40" height="166" rx="2" fill="url(#stones)"/>
-        <!-- Left tower conical roof -->
-        <polygon points="52,30 28,65 76,65" fill="var(--ac-purple)" opacity="0.3"/>
-        <polygon points="52,30 28,65 76,65" fill="none" stroke="var(--ac-purple)" stroke-width="1"/>
+        <rect x="24" y="62" width="50" height="178" rx="3" fill="var(--ac-purple)" opacity="0.17"/>
+        <rect x="26" y="64" width="46" height="174" rx="3" fill="var(--bg-tertiary)" stroke="var(--ac-purple)" stroke-width="1.4"/>
+        <rect x="26" y="64" width="46" height="174" rx="3" fill="url(#stones)"/>
+        <!-- Left tower conical roof (steeper, with finial) -->
+        <polygon points="49,18 22,60 76,60" fill="var(--ac-purple)" opacity="0.32"/>
+        <polygon points="49,18 22,60 76,60" fill="none" stroke="var(--ac-purple)" stroke-width="1.2"/>
         <!-- Roof shingle lines -->
-        <line x1="38" y1="50" x2="66" y2="50" stroke="var(--ac-purple)" stroke-width="0.4" opacity="0.3"/>
-        <line x1="42" y1="42" x2="62" y2="42" stroke="var(--ac-purple)" stroke-width="0.4" opacity="0.3"/>
+        <line x1="33" y1="45" x2="65" y2="45" stroke="var(--ac-purple)" stroke-width="0.5" opacity="0.3"/>
+        <line x1="37" y1="38" x2="61" y2="38" stroke="var(--ac-purple)" stroke-width="0.5" opacity="0.25"/>
+        <line x1="41" y1="31" x2="57" y2="31" stroke="var(--ac-purple)" stroke-width="0.4" opacity="0.2"/>
+        <!-- Roof finial ball -->
+        <circle cx="49" cy="16" r="2.5" fill="var(--ac-purple)" opacity="0.4"/>
         <!-- Left tower battlements -->
-        <rect x="28" y="62" width="8" height="10" rx="1" fill="var(--ac-purple)" opacity="0.45"/>
-        <rect x="40" y="62" width="8" height="10" rx="1" fill="var(--ac-purple)" opacity="0.45"/>
-        <rect x="56" y="62" width="8" height="10" rx="1" fill="var(--ac-purple)" opacity="0.45"/>
-        <rect x="68" y="62" width="8" height="10" rx="1" fill="var(--ac-purple)" opacity="0.45"/>
-        <!-- Left tower windows (arched) -->
-        <rect x="44" y="85" width="10" height="14" rx="5" fill="var(--ac-purple)" opacity="0.22"/>
-        <rect x="44" y="115" width="10" height="14" rx="5" fill="var(--ac-purple)" opacity="0.22"/>
-        <rect x="44" y="145" width="10" height="14" rx="5" fill="var(--ac-purple)" opacity="0.22"/>
-        <!-- Window glow -->
-        <rect x="45" y="86" width="8" height="12" rx="4" fill="#FFE66D" opacity="0.08"/>
-        <rect x="45" y="116" width="8" height="12" rx="4" fill="#70D6FF" opacity="0.08"/>
+        <rect x="22" y="56" width="7" height="9" rx="1" fill="var(--ac-purple)" opacity="0.5"/>
+        <rect x="33" y="56" width="7" height="9" rx="1" fill="var(--ac-purple)" opacity="0.5"/>
+        <rect x="44" y="56" width="7" height="9" rx="1" fill="var(--ac-purple)" opacity="0.5"/>
+        <rect x="55" y="56" width="7" height="9" rx="1" fill="var(--ac-purple)" opacity="0.5"/>
+        <rect x="66" y="56" width="7" height="9" rx="1" fill="var(--ac-purple)" opacity="0.5"/>
+        <!-- Left tower windows (arched, with sills) -->
+        <rect x="42" y="80" width="12" height="16" rx="6" fill="var(--ac-purple)" opacity="0.25"/>
+        <rect x="42" y="96" width="12" height="2" rx="0" fill="var(--ac-purple)" opacity="0.15"/>
+        <rect x="42" y="110" width="12" height="16" rx="6" fill="var(--ac-purple)" opacity="0.25"/>
+        <rect x="42" y="126" width="12" height="2" rx="0" fill="var(--ac-purple)" opacity="0.15"/>
+        <rect x="42" y="142" width="12" height="16" rx="6" fill="var(--ac-purple)" opacity="0.25"/>
+        <rect x="42" y="158" width="12" height="2" rx="0" fill="var(--ac-purple)" opacity="0.15"/>
+        <!-- Window warm glow -->
+        <rect x="43" y="81" width="10" height="14" rx="5" fill="#FFE66D" opacity="0.12"/>
+        <rect x="43" y="111" width="10" height="14" rx="5" fill="#70D6FF" opacity="0.1"/>
+        <rect x="43" y="143" width="10" height="14" rx="5" fill="#FF8B94" opacity="0.08"/>
+        <!-- Tower horizontal band -->
+        <line x1="26" y1="100" x2="72" y2="100" stroke="var(--ac-purple)" stroke-width="0.8" opacity="0.12"/>
+        <line x1="26" y1="135" x2="72" y2="135" stroke="var(--ac-purple)" stroke-width="0.8" opacity="0.12"/>
 
         <!-- === RIGHT MAIN TOWER === -->
-        <rect x="226" y="68" width="44" height="170" rx="2" fill="var(--ac-purple)" opacity="0.15"/>
-        <rect x="228" y="70" width="40" height="166" rx="2" fill="var(--bg-tertiary)" stroke="var(--ac-purple)" stroke-width="1.2"/>
-        <rect x="228" y="70" width="40" height="166" rx="2" fill="url(#stones)"/>
+        <rect x="226" y="62" width="50" height="178" rx="3" fill="var(--ac-purple)" opacity="0.17"/>
+        <rect x="228" y="64" width="46" height="174" rx="3" fill="var(--bg-tertiary)" stroke="var(--ac-purple)" stroke-width="1.4"/>
+        <rect x="228" y="64" width="46" height="174" rx="3" fill="url(#stones)"/>
         <!-- Right tower conical roof -->
-        <polygon points="248,30 224,65 272,65" fill="var(--ac-purple)" opacity="0.3"/>
-        <polygon points="248,30 224,65 272,65" fill="none" stroke="var(--ac-purple)" stroke-width="1"/>
-        <line x1="234" y1="50" x2="262" y2="50" stroke="var(--ac-purple)" stroke-width="0.4" opacity="0.3"/>
-        <line x1="238" y1="42" x2="258" y2="42" stroke="var(--ac-purple)" stroke-width="0.4" opacity="0.3"/>
+        <polygon points="251,18 224,60 278,60" fill="var(--ac-purple)" opacity="0.32"/>
+        <polygon points="251,18 224,60 278,60" fill="none" stroke="var(--ac-purple)" stroke-width="1.2"/>
+        <line x1="235" y1="45" x2="267" y2="45" stroke="var(--ac-purple)" stroke-width="0.5" opacity="0.3"/>
+        <line x1="239" y1="38" x2="263" y2="38" stroke="var(--ac-purple)" stroke-width="0.5" opacity="0.25"/>
+        <line x1="243" y1="31" x2="259" y2="31" stroke="var(--ac-purple)" stroke-width="0.4" opacity="0.2"/>
+        <!-- Roof finial -->
+        <circle cx="251" cy="16" r="2.5" fill="var(--ac-purple)" opacity="0.4"/>
         <!-- Right tower battlements -->
-        <rect x="224" y="62" width="8" height="10" rx="1" fill="var(--ac-purple)" opacity="0.45"/>
-        <rect x="236" y="62" width="8" height="10" rx="1" fill="var(--ac-purple)" opacity="0.45"/>
-        <rect x="252" y="62" width="8" height="10" rx="1" fill="var(--ac-purple)" opacity="0.45"/>
-        <rect x="264" y="62" width="8" height="10" rx="1" fill="var(--ac-purple)" opacity="0.45"/>
+        <rect x="224" y="56" width="7" height="9" rx="1" fill="var(--ac-purple)" opacity="0.5"/>
+        <rect x="235" y="56" width="7" height="9" rx="1" fill="var(--ac-purple)" opacity="0.5"/>
+        <rect x="246" y="56" width="7" height="9" rx="1" fill="var(--ac-purple)" opacity="0.5"/>
+        <rect x="257" y="56" width="7" height="9" rx="1" fill="var(--ac-purple)" opacity="0.5"/>
+        <rect x="268" y="56" width="7" height="9" rx="1" fill="var(--ac-purple)" opacity="0.5"/>
         <!-- Right tower windows -->
-        <rect x="244" y="85" width="10" height="14" rx="5" fill="var(--ac-purple)" opacity="0.22"/>
-        <rect x="244" y="115" width="10" height="14" rx="5" fill="var(--ac-purple)" opacity="0.22"/>
-        <rect x="244" y="145" width="10" height="14" rx="5" fill="var(--ac-purple)" opacity="0.22"/>
-        <rect x="245" y="86" width="8" height="12" rx="4" fill="#FFE66D" opacity="0.08"/>
-        <rect x="245" y="116" width="8" height="12" rx="4" fill="#70D6FF" opacity="0.08"/>
+        <rect x="246" y="80" width="12" height="16" rx="6" fill="var(--ac-purple)" opacity="0.25"/>
+        <rect x="246" y="96" width="12" height="2" rx="0" fill="var(--ac-purple)" opacity="0.15"/>
+        <rect x="246" y="110" width="12" height="16" rx="6" fill="var(--ac-purple)" opacity="0.25"/>
+        <rect x="246" y="126" width="12" height="2" rx="0" fill="var(--ac-purple)" opacity="0.15"/>
+        <rect x="246" y="142" width="12" height="16" rx="6" fill="var(--ac-purple)" opacity="0.25"/>
+        <rect x="246" y="158" width="12" height="2" rx="0" fill="var(--ac-purple)" opacity="0.15"/>
+        <rect x="247" y="81" width="10" height="14" rx="5" fill="#FFE66D" opacity="0.12"/>
+        <rect x="247" y="111" width="10" height="14" rx="5" fill="#70D6FF" opacity="0.1"/>
+        <rect x="247" y="143" width="10" height="14" rx="5" fill="#FF8B94" opacity="0.08"/>
+        <line x1="228" y1="100" x2="274" y2="100" stroke="var(--ac-purple)" stroke-width="0.8" opacity="0.12"/>
+        <line x1="228" y1="135" x2="274" y2="135" stroke="var(--ac-purple)" stroke-width="0.8" opacity="0.12"/>
 
-        <!-- === CENTER TURRET (taller) === -->
-        <rect x="130" y="80" width="40" height="78" rx="2" fill="var(--ac-purple)" opacity="0.12"/>
-        <rect x="132" y="82" width="36" height="74" rx="2" fill="var(--bg-tertiary)" stroke="var(--ac-purple)" stroke-width="1"/>
-        <rect x="132" y="82" width="36" height="74" rx="2" fill="url(#stones)"/>
-        <!-- Center turret conical roof -->
-        <polygon points="150,42 126,78 174,78" fill="var(--ac-purple)" opacity="0.25"/>
-        <polygon points="150,42 126,78 174,78" fill="none" stroke="var(--ac-purple)" stroke-width="1"/>
-        <line x1="136" y1="63" x2="164" y2="63" stroke="var(--ac-purple)" stroke-width="0.4" opacity="0.3"/>
+        <!-- === CENTER KEEP TOWER (tallest) === -->
+        <rect x="125" y="68" width="50" height="92" rx="2" fill="var(--ac-purple)" opacity="0.14"/>
+        <rect x="127" y="70" width="46" height="88" rx="2" fill="var(--bg-tertiary)" stroke="var(--ac-purple)" stroke-width="1.2"/>
+        <rect x="127" y="70" width="46" height="88" rx="2" fill="url(#stones)"/>
+        <!-- Center tower taller conical roof -->
+        <polygon points="150,24 120,66 180,66" fill="var(--ac-purple)" opacity="0.28"/>
+        <polygon points="150,24 120,66 180,66" fill="none" stroke="var(--ac-purple)" stroke-width="1.2"/>
+        <line x1="132" y1="50" x2="168" y2="50" stroke="var(--ac-purple)" stroke-width="0.5" opacity="0.3"/>
+        <line x1="137" y1="42" x2="163" y2="42" stroke="var(--ac-purple)" stroke-width="0.4" opacity="0.25"/>
+        <line x1="141" y1="35" x2="159" y2="35" stroke="var(--ac-purple)" stroke-width="0.4" opacity="0.2"/>
+        <!-- Center finial (taller, with orb) -->
+        <line x1="150" y1="24" x2="150" y2="18" stroke="var(--ac-purple)" stroke-width="1"/>
+        <circle cx="150" cy="16" r="3" fill="var(--ac-purple)" opacity="0.45"/>
+        <circle cx="150" cy="16" r="1.5" fill="#FFE66D" opacity="0.3"/>
         <!-- Center battlements -->
-        <rect x="128" y="75" width="7" height="9" rx="1" fill="var(--ac-purple)" opacity="0.4"/>
-        <rect x="139" y="75" width="7" height="9" rx="1" fill="var(--ac-purple)" opacity="0.4"/>
-        <rect x="154" y="75" width="7" height="9" rx="1" fill="var(--ac-purple)" opacity="0.4"/>
-        <rect x="165" y="75" width="7" height="9" rx="1" fill="var(--ac-purple)" opacity="0.4"/>
-        <!-- Center window (rosette) -->
-        <circle cx="150" cy="100" r="8" fill="var(--ac-purple)" opacity="0.18"/>
-        <circle cx="150" cy="100" r="6" fill="none" stroke="var(--ac-purple)" stroke-width="0.5" opacity="0.3"/>
-        <line x1="150" y1="94" x2="150" y2="106" stroke="var(--ac-purple)" stroke-width="0.4" opacity="0.2"/>
-        <line x1="144" y1="100" x2="156" y2="100" stroke="var(--ac-purple)" stroke-width="0.4" opacity="0.2"/>
+        <rect x="121" y="62" width="7" height="8" rx="1" fill="var(--ac-purple)" opacity="0.45"/>
+        <rect x="131" y="62" width="7" height="8" rx="1" fill="var(--ac-purple)" opacity="0.45"/>
+        <rect x="142" y="62" width="7" height="8" rx="1" fill="var(--ac-purple)" opacity="0.45"/>
+        <rect x="152" y="62" width="7" height="8" rx="1" fill="var(--ac-purple)" opacity="0.45"/>
+        <rect x="162" y="62" width="7" height="8" rx="1" fill="var(--ac-purple)" opacity="0.45"/>
+        <rect x="172" y="62" width="7" height="8" rx="1" fill="var(--ac-purple)" opacity="0.45"/>
+        <!-- Grand rosette window -->
+        <circle cx="150" cy="92" r="10" fill="var(--ac-purple)" opacity="0.15"/>
+        <circle cx="150" cy="92" r="8" fill="none" stroke="var(--ac-purple)" stroke-width="0.8" opacity="0.35"/>
+        <circle cx="150" cy="92" r="5" fill="none" stroke="var(--ac-purple)" stroke-width="0.4" opacity="0.2"/>
+        <line x1="150" y1="82" x2="150" y2="102" stroke="var(--ac-purple)" stroke-width="0.4" opacity="0.2"/>
+        <line x1="140" y1="92" x2="160" y2="92" stroke="var(--ac-purple)" stroke-width="0.4" opacity="0.2"/>
+        <line x1="143" y1="85" x2="157" y2="99" stroke="var(--ac-purple)" stroke-width="0.3" opacity="0.15"/>
+        <line x1="157" y1="85" x2="143" y2="99" stroke="var(--ac-purple)" stroke-width="0.3" opacity="0.15"/>
+        <!-- Small upper window -->
+        <rect x="145" y="115" width="10" height="14" rx="5" fill="var(--ac-purple)" opacity="0.22"/>
+        <rect x="146" y="116" width="8" height="12" rx="4" fill="#BB8FCE" opacity="0.1"/>
+        <!-- Center horizontal bands -->
+        <line x1="127" y1="108" x2="173" y2="108" stroke="var(--ac-purple)" stroke-width="0.8" opacity="0.12"/>
+        <line x1="127" y1="133" x2="173" y2="133" stroke="var(--ac-purple)" stroke-width="0.8" opacity="0.12"/>
 
         <!-- === WALL BATTLEMENTS (between towers) === -->
         <!-- Left section -->
-        <rect x="72" y="102" width="8" height="10" rx="1" fill="var(--ac-purple)" opacity="0.35"/>
-        <rect x="84" y="102" width="8" height="10" rx="1" fill="var(--ac-purple)" opacity="0.35"/>
-        <rect x="96" y="102" width="8" height="10" rx="1" fill="var(--ac-purple)" opacity="0.35"/>
-        <rect x="108" y="102" width="8" height="10" rx="1" fill="var(--ac-purple)" opacity="0.35"/>
+        <rect x="72" y="100" width="7" height="9" rx="1" fill="var(--ac-purple)" opacity="0.4"/>
+        <rect x="82" y="100" width="7" height="9" rx="1" fill="var(--ac-purple)" opacity="0.4"/>
+        <rect x="92" y="100" width="7" height="9" rx="1" fill="var(--ac-purple)" opacity="0.4"/>
+        <rect x="102" y="100" width="7" height="9" rx="1" fill="var(--ac-purple)" opacity="0.4"/>
+        <rect x="112" y="100" width="7" height="9" rx="1" fill="var(--ac-purple)" opacity="0.4"/>
         <!-- Right section -->
-        <rect x="184" y="102" width="8" height="10" rx="1" fill="var(--ac-purple)" opacity="0.35"/>
-        <rect x="196" y="102" width="8" height="10" rx="1" fill="var(--ac-purple)" opacity="0.35"/>
-        <rect x="208" y="102" width="8" height="10" rx="1" fill="var(--ac-purple)" opacity="0.35"/>
-        <rect x="220" y="102" width="8" height="10" rx="1" fill="var(--ac-purple)" opacity="0.35"/>
+        <rect x="180" y="100" width="7" height="9" rx="1" fill="var(--ac-purple)" opacity="0.4"/>
+        <rect x="190" y="100" width="7" height="9" rx="1" fill="var(--ac-purple)" opacity="0.4"/>
+        <rect x="200" y="100" width="7" height="9" rx="1" fill="var(--ac-purple)" opacity="0.4"/>
+        <rect x="210" y="100" width="7" height="9" rx="1" fill="var(--ac-purple)" opacity="0.4"/>
+        <rect x="220" y="100" width="7" height="9" rx="1" fill="var(--ac-purple)" opacity="0.4"/>
 
-        <!-- === WALL WINDOWS (arrow slits + arched) === -->
+        <!-- === WALL WINDOWS (varied: arrow slits, arched, shield) === -->
         <!-- Left wall -->
-        <rect x="78" y="130" width="4" height="14" rx="2" fill="var(--ac-purple)" opacity="0.2"/>
-        <rect x="98" y="125" width="10" height="14" rx="5" fill="var(--ac-purple)" opacity="0.18"/>
-        <rect x="78" y="160" width="10" height="14" rx="5" fill="var(--ac-purple)" opacity="0.18"/>
+        <rect x="76" y="125" width="4" height="14" rx="2" fill="var(--ac-purple)" opacity="0.22"/>
+        <rect x="94" y="120" width="12" height="16" rx="6" fill="var(--ac-purple)" opacity="0.2"/>
+        <rect x="95" y="121" width="10" height="14" rx="5" fill="#A8E6CF" opacity="0.06"/>
+        <rect x="76" y="155" width="12" height="16" rx="6" fill="var(--ac-purple)" opacity="0.2"/>
+        <rect x="96" y="155" width="4" height="14" rx="2" fill="var(--ac-purple)" opacity="0.22"/>
+        <!-- Shield emblem on left wall -->
+        <path d="M86 180 L80 185 L80 193 Q80 198 86 200 Q92 198 92 193 L92 185 Z" fill="var(--ac-purple)" opacity="0.1" stroke="var(--ac-purple)" stroke-width="0.5" />
         <!-- Right wall -->
-        <rect x="218" y="130" width="4" height="14" rx="2" fill="var(--ac-purple)" opacity="0.2"/>
-        <rect x="192" y="125" width="10" height="14" rx="5" fill="var(--ac-purple)" opacity="0.18"/>
-        <rect x="212" y="160" width="10" height="14" rx="5" fill="var(--ac-purple)" opacity="0.18"/>
+        <rect x="220" y="125" width="4" height="14" rx="2" fill="var(--ac-purple)" opacity="0.22"/>
+        <rect x="194" y="120" width="12" height="16" rx="6" fill="var(--ac-purple)" opacity="0.2"/>
+        <rect x="195" y="121" width="10" height="14" rx="5" fill="#A8E6CF" opacity="0.06"/>
+        <rect x="212" y="155" width="12" height="16" rx="6" fill="var(--ac-purple)" opacity="0.2"/>
+        <rect x="194" y="155" width="4" height="14" rx="2" fill="var(--ac-purple)" opacity="0.22"/>
+        <!-- Shield emblem on right wall -->
+        <path d="M214 180 L208 185 L208 193 Q208 198 214 200 Q220 198 220 193 L220 185 Z" fill="var(--ac-purple)" opacity="0.1" stroke="var(--ac-purple)" stroke-width="0.5" />
 
-        <!-- === FLAGS === -->
+        <!-- === FLAGS (pennants, more detailed) === -->
         <!-- Left tower flag -->
-        <line x1="52" y1="30" x2="52" y2="10" stroke="var(--ac-purple)" stroke-width="1"/>
-        <path d="M52 10 L66 15 L52 20" fill="#FF6B6B" opacity="0.75">
-          <animateTransform attributeName="transform" type="rotate" values="-2,52,15;2,52,15;-2,52,15" dur="3s" repeatCount="indefinite"/>
+        <line x1="49" y1="16" x2="49" y2="2" stroke="var(--ac-purple)" stroke-width="1"/>
+        <path d="M49 2 L65 7 L49 12" fill="#FF6B6B" opacity="0.8" stroke="#FF6B6B" stroke-width="0.3">
+          <animateTransform attributeName="transform" type="rotate" values="-3,49,7;3,49,7;-3,49,7" dur="3s" repeatCount="indefinite"/>
         </path>
-        <!-- Center flag -->
-        <line x1="150" y1="42" x2="150" y2="16" stroke="var(--ac-purple)" stroke-width="1.2"/>
-        <path d="M150 16 L168 22 L150 28" fill="#4ECDC4" opacity="0.8">
-          <animateTransform attributeName="transform" type="rotate" values="-3,150,22;3,150,22;-3,150,22" dur="2.5s" repeatCount="indefinite"/>
+        <!-- Center flag (largest, with pennant tail) -->
+        <line x1="150" y1="16" x2="150" y2="-2" stroke="var(--ac-purple)" stroke-width="1.4"/>
+        <path d="M150 -2 L172 5 L150 12" fill="#4ECDC4" opacity="0.85" stroke="#4ECDC4" stroke-width="0.3">
+          <animateTransform attributeName="transform" type="rotate" values="-3,150,5;3,150,5;-3,150,5" dur="2.5s" repeatCount="indefinite"/>
         </path>
         <!-- Right tower flag -->
-        <line x1="248" y1="30" x2="248" y2="10" stroke="var(--ac-purple)" stroke-width="1"/>
-        <path d="M248 10 L262 15 L248 20" fill="#BB8FCE" opacity="0.75">
-          <animateTransform attributeName="transform" type="rotate" values="2,248,15;-2,248,15;2,248,15" dur="3.5s" repeatCount="indefinite"/>
+        <line x1="251" y1="16" x2="251" y2="2" stroke="var(--ac-purple)" stroke-width="1"/>
+        <path d="M251 2 L267 7 L251 12" fill="#BB8FCE" opacity="0.8" stroke="#BB8FCE" stroke-width="0.3">
+          <animateTransform attributeName="transform" type="rotate" values="3,251,7;-3,251,7;3,251,7" dur="3.5s" repeatCount="indefinite"/>
         </path>
 
-        <!-- === TREASURE SPARKLES (inside gate) === -->
-        <circle cx="150" cy="175" r="2.5" fill="#FFE66D" opacity="0.8" filter="url(#glow)">
+        <!-- === DRAWBRIDGE CHAINS === -->
+        <line x1="118" y1="162" x2="112" y2="155" stroke="var(--ac-purple)" stroke-width="0.6" opacity="0.2" stroke-dasharray="1.5,1"/>
+        <line x1="182" y1="162" x2="188" y2="155" stroke="var(--ac-purple)" stroke-width="0.6" opacity="0.2" stroke-dasharray="1.5,1"/>
+
+        <!-- === TREASURE SPARKLES (inside gate, richer) === -->
+        <circle cx="150" cy="172" r="3" fill="#FFE66D" opacity="0.8" filter="url(#glow)">
           <animate attributeName="opacity" values="0.3;1;0.3" dur="2s" repeatCount="indefinite"/>
         </circle>
-        <circle cx="140" cy="195" r="2" fill="#A8E6CF" opacity="0.6" filter="url(#glow)">
+        <circle cx="138" cy="192" r="2.5" fill="#A8E6CF" opacity="0.6" filter="url(#glow)">
           <animate attributeName="opacity" values="0.2;0.9;0.2" dur="2.5s" repeatCount="indefinite"/>
         </circle>
-        <circle cx="160" cy="190" r="2" fill="#70D6FF" opacity="0.6" filter="url(#glow)">
+        <circle cx="162" cy="187" r="2.5" fill="#70D6FF" opacity="0.6" filter="url(#glow)">
           <animate attributeName="opacity" values="0.4;1;0.4" dur="1.8s" repeatCount="indefinite"/>
         </circle>
-        <circle cx="145" cy="210" r="1.5" fill="#FF8B94" opacity="0.5" filter="url(#glow)">
+        <circle cx="144" cy="208" r="2" fill="#FF8B94" opacity="0.5" filter="url(#glow)">
           <animate attributeName="opacity" values="0.3;0.8;0.3" dur="3s" repeatCount="indefinite"/>
         </circle>
-        <circle cx="155" cy="205" r="1.5" fill="#BB8FCE" opacity="0.5" filter="url(#glow)">
+        <circle cx="156" cy="202" r="2" fill="#BB8FCE" opacity="0.5" filter="url(#glow)">
           <animate attributeName="opacity" values="0.2;0.7;0.2" dur="2.2s" repeatCount="indefinite"/>
         </circle>
+        <circle cx="150" cy="220" r="1.5" fill="#FFE66D" opacity="0.4" filter="url(#glow)">
+          <animate attributeName="opacity" values="0.1;0.6;0.1" dur="2.8s" repeatCount="indefinite"/>
+        </circle>
+        <!-- Treasure chest silhouette -->
+        <rect x="142" cy="225" y="225" width="16" height="8" rx="2" fill="var(--ac-purple)" opacity="0.08"/>
+        <path d="M142 225 Q150 222 158 225" fill="none" stroke="var(--ac-purple)" stroke-width="0.5" opacity="0.1"/>
 
         <!-- === TOWER WINDOW GLIMMERS === -->
-        <circle cx="49" cy="92" r="1" fill="#FFE66D" opacity="0">
+        <circle cx="48" cy="88" r="1.5" fill="#FFE66D" opacity="0">
           <animate attributeName="opacity" values="0;0.6;0" dur="4s" repeatCount="indefinite"/>
         </circle>
-        <circle cx="249" cy="122" r="1" fill="#70D6FF" opacity="0">
+        <circle cx="252" cy="118" r="1.5" fill="#70D6FF" opacity="0">
           <animate attributeName="opacity" values="0;0.5;0" dur="5s" begin="1s" repeatCount="indefinite"/>
         </circle>
-        <circle cx="150" cy="100" r="1.5" fill="#F7DC6F" opacity="0">
+        <circle cx="150" cy="92" r="2" fill="#F7DC6F" opacity="0">
           <animate attributeName="opacity" values="0;0.4;0" dur="3.5s" begin="0.5s" repeatCount="indefinite"/>
         </circle>
+        <circle cx="48" cy="150" r="1" fill="#FF8B94" opacity="0">
+          <animate attributeName="opacity" values="0;0.4;0" dur="6s" begin="2s" repeatCount="indefinite"/>
+        </circle>
+        <circle cx="252" cy="88" r="1" fill="#FFE66D" opacity="0">
+          <animate attributeName="opacity" values="0;0.5;0" dur="4.5s" begin="1.5s" repeatCount="indefinite"/>
+        </circle>
+
+        <!-- === SMALL TURRETS on wall corners === -->
+        <!-- Left small turret -->
+        <rect x="48" y="98" width="8" height="14" rx="1" fill="var(--bg-tertiary)" stroke="var(--ac-purple)" stroke-width="0.6" opacity="0.6"/>
+        <polygon points="52,92 46,98 58,98" fill="var(--ac-purple)" opacity="0.2"/>
+        <!-- Right small turret -->
+        <rect x="244" y="98" width="8" height="14" rx="1" fill="var(--bg-tertiary)" stroke="var(--ac-purple)" stroke-width="0.6" opacity="0.6"/>
+        <polygon points="248,92 242,98 254,98" fill="var(--ac-purple)" opacity="0.2"/>
       </svg>
     </div>
   </section>
@@ -2911,9 +3051,9 @@
     <div id="keeps-about-inline" style="display:none; overflow-y:auto; flex:1; padding:20px 24px 32px;">
       <div class="keeps-about-simple">
         <div class="keeps-about-lede">
-          <span>Keep your KidLisp pieces permanently in your digital wallet as Tezos FA2 tokens.</span>
-          <span>Each keep costs <span class="keeps-price">2.5 ꜩ</span> <span class="keeps-fee-detail">(<span id="keeps-xtz-usd">~$0.91 USD</span>)</span></span>
-          <span>Every KidLisp piece is given a unique $code.</span>
+          <span>Keep your KidLisp pieces on Tezos.</span>
+          <span>Each keep costs <span class="keeps-price keeps-price-tez">2.5 <span class="tez-sym"></span></span> <span class="keeps-fee-detail">(<span id="keeps-xtz-usd" class="keeps-price-usd">~$0.91 USD</span>)</span></span>
+          <span>Every piece gets a unique $code.</span>
           <span>A KidLisp piece can only be kept by its author.</span>
         </div>
 
@@ -3052,7 +3192,7 @@
         <div class="mint-track-log" id="mint-track-log"></div>
         <div class="mint-actions" id="mint-actions-start" style="display:none;">
           <button class="mint-action-btn cancel" onclick="cancelMint()">Cancel</button>
-          <button class="mint-action-btn primary" id="mint-start-btn" onclick="beginMintFlow()">Keep on Tezos ꜩ</button>
+          <button class="mint-action-btn primary" id="mint-start-btn" onclick="beginMintFlow()">Keep on Tezos <span class="tez-sym"></span></button>
         </div>
         <div class="mint-actions" id="mint-actions" style="display:none;">
           <button class="mint-action-btn cancel" onclick="cancelMint()">Cancel</button>
@@ -3310,17 +3450,17 @@
       if (mintWalletAddress) {
         // Actively connected via Beacon
         const short = mintWalletAddress.slice(0, 7) + '…' + mintWalletAddress.slice(-4);
-        walletBtn.textContent = 'ꜩ ' + short;
+        walletBtn.innerHTML = '<span class="tez-sym"></span> ' + short;
         walletBtn.title = mintWalletAddress + ' — click to disconnect';
         walletBtn.classList.add('connected');
       } else if (linkedWalletAddress) {
         // Linked in DB but not actively connected
         const short = linkedWalletAddress.slice(0, 7) + '…' + linkedWalletAddress.slice(-4);
-        walletBtn.textContent = 'ꜩ ' + short + ' (offline)';
+        walletBtn.innerHTML = '<span class="tez-sym"></span> ' + short + ' (offline)';
         walletBtn.title = linkedWalletAddress + ' — linked but not connected, click to reconnect';
         walletBtn.classList.add('linked');
       } else {
-        walletBtn.textContent = 'ꜩ Connect';
+        walletBtn.innerHTML = '<span class="tez-sym"></span> Connect';
         walletBtn.title = 'Connect Tezos wallet';
       }
     }
@@ -3698,7 +3838,7 @@
         <div class="keeps-card-actions">
           ${isActiveKept
             ? `<span class="keeps-card-btn kept-badge" title="Kept on Tezos${activeKeepInfo?.tokenId != null ? ` · Token #${activeKeepInfo.tokenId}` : ''}">&#x2714; Kept</span>`
-            : (canManageKeep ? `<button class="keeps-card-btn keep-btn" data-code="${entry.code}" title="Keep on Tezos">ꜩ Keep</button>` : '')}
+            : (canManageKeep ? `<button class="keeps-card-btn keep-btn" data-code="${entry.code}" title="Keep on Tezos"><span class="tez-sym"></span> Keep</button>` : '')}
           ${timeStr ? `<span style="margin-left: auto; font-size: 12px; color: var(--text-tertiary);">${timeStr}</span>` : ''}
         </div>`;
 
@@ -4025,7 +4165,7 @@
         <div class="keep-detail-body">
           <div class="keep-detail-row">
             <span class="keep-detail-status ${statusClass}">${statusText}</span>
-            <span class="keep-detail-price ${statusClass}">${xtz} ꜩ</span>
+            <span class="keep-detail-price ${statusClass}">${xtz} <span class="tez-sym"></span></span>
           </div>
           <div class="keep-detail-row"><span class="keep-detail-label">Token</span><span class="keep-detail-value">#${escapeHtml(String(tokenId))}</span></div>
           ${sideInfo}
@@ -4497,7 +4637,7 @@
           <div class="market-card-body">
             <span class="market-card-code">${escapeHtml(code)}</span>
             <span class="market-card-status ${statusClass}">${statusText}</span>
-            <span class="market-card-price ${entry.status === 'sold' ? 'sold' : ''}">${xtz} ꜩ</span>
+            <span class="market-card-price ${entry.status === 'sold' ? 'sold' : ''}">${xtz} <span class="tez-sym"></span></span>
             ${seller ? `<span class="market-card-seller">${escapeHtml(sideText)}</span>` : ''}
             <span class="market-card-objkt">${entry.status === 'sold' ? 'view on objkt ↗' : 'buy on objkt ↗'}</span>
           </div>
@@ -5602,9 +5742,9 @@
       // Update start button label based on mode
       const startBtn = document.getElementById('mint-start-btn');
       if (startBtn) {
-        startBtn.textContent = autoSync
+        startBtn.innerHTML = autoSync
           ? 'Upgrade Legacy Bundle'
-          : (rebake ? 'Regenerate Media' : 'Keep on Tezos ꜩ');
+          : (rebake ? 'Regenerate Media' : 'Keep on Tezos <span class="tez-sym"></span>');
         startBtn.onclick = () => {
           const startActions = document.getElementById('mint-actions-start');
           if (startActions) startActions.style.display = 'none';
@@ -6732,17 +6872,10 @@
           const price = data?.tezos?.usd;
           if (price) el.textContent = '~$' + (price * 2.5).toFixed(2) + ' USD';
         })
-        .catch(() => { el.textContent = '2.5 ꜩ'; });
+        .catch(() => { el.innerHTML = '2.5 <span class="tez-sym"></span>'; });
     })();
 
-    // 's' ↔ '$' random swap in logo
-    (function() {
-      const el = document.getElementById('keeps-logo-s');
-      if (!el) return;
-      setInterval(() => {
-        if (Math.random() < 0.3) el.textContent = el.textContent === 's' ? '$' : 's';
-      }, 2000);
-    })();
+    // (Removed dynamic 's'↔'$' logo swap)
   </script>
 </body>
 </html>
