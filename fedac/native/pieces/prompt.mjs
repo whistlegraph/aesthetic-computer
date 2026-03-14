@@ -215,13 +215,25 @@ function execute(cmd, system) {
     system?.reboot?.();
     return;
   }
+  if (lower === "off" || lower === "shutdown" || lower === "poweroff") {
+    message = "shutting down...";
+    messageFrame = 0;
+    system?.poweroff?.();
+    return;
+  }
+  if (lower === "geo" || lower === "location") {
+    message = "~> geo";
+    messageFrame = 0;
+    system?.jump?.("geo");
+    return;
+  }
   if (lower === "clear" || lower === "cls") {
     history = [];
     message = "";
     return;
   }
   if (lower === "help") {
-    message = "kidlisp | notepat | os | net | claude | list";
+    message = "notepat | os | net | claude | geo | off";
     messageFrame = 0;
     return;
   }
