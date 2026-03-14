@@ -3013,20 +3013,41 @@ static JSValue js_open_browser(JSContext *ctx, JSValueConst this_val, int argc, 
     }
 
     // Run cage + firefox synchronously (blocks until user closes browser)
-    char cmd[2048];
+    char cmd[4096];
+
+    // Ensure runtime dirs exist
+    mkdir("/tmp/xdg", 0700);
+    mkdir("/tmp/.mozilla", 0700);
+
+    // Log cage + firefox output to USB for debugging
     snprintf(cmd, sizeof(cmd),
-        "HOME=/tmp "
-        "XDG_RUNTIME_DIR=/tmp/xdg "
-        "WLR_BACKENDS=drm "
-        "cage -s -- /opt/firefox/firefox-bin --kiosk --no-remote '%s' 2>/tmp/cage.log",
+        "export HOME=/tmp && "
+        "export XDG_RUNTIME_DIR=/tmp/xdg && "
+        "export WLR_BACKENDS=drm && "
+        "export LD_LIBRARY_PATH=/lib64:/opt/firefox && "
+        "export MOZ_ENABLE_WAYLAND=1 && "
+        "export GDK_BACKEND=wayland && "
+        "cage -s -- /opt/firefox/firefox-bin "
+        "--kiosk --no-remote --new-instance '%s' "
+        ">/mnt/cage.log 2>&1; echo \"exit=$?\" >>/mnt/cage.log",
         url);
 
-    // Ensure XDG_RUNTIME_DIR exists
-    mkdir("/tmp/xdg", 0700);
-
-    ac_log("[browser] Running: cage + firefox");
+    ac_log("[browser] Running: cage + firefox (log -> /mnt/cage.log)");
     int rc = system(cmd);
     ac_log("[browser] Exited: %d", rc);
+
+    // Read and log cage output for diagnostics
+    {
+        FILE *clog = fopen("/mnt/cage.log", "r");
+        if (clog) {
+            char line[256];
+            while (fgets(line, sizeof(line), clog)) {
+                line[strcspn(line, "\n")] = 0;
+                ac_log("[cage] %s", line);
+            }
+            fclose(clog);
+        }
+    }
 
     // Reclaim DRM
     if (g_display) {
