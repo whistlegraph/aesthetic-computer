@@ -247,8 +247,7 @@ function execute(cmd, system) {
   if (lower === "claude" || lower === "cl") {
     message = "~> claude";
     messageFrame = 0;
-    globalThis.__terminalCmd = "claude";
-    system?.jump?.("terminal:claude");
+    system?.jump?.("claude");
     return;
   }
   if (lower === "ssh") {
