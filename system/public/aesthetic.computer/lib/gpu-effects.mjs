@@ -1726,7 +1726,11 @@ export function gpuBlur(pixels, width, height, strength = 1, mask = null) {
     // Calculate blur radius (capped at 7 for the unrolled shader)
     const blurRadius = Math.min(Math.max(1, Math.floor(strength)), 7);
     
-    // Upload pixels to texture (no UNPACK_FLIP_Y - buggy on Android texSubImage2D)
+    // Flush prior GPU work — Mali drivers have pipeline hazards when
+    // multiple effects run back-to-back (e.g. scroll → blur).
+    gl.finish();
+
+    // Upload pixels to texture
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
 
@@ -1795,7 +1799,10 @@ export function gpuSharpen(pixels, width, height, strength = 1, mask = null) {
     const maxX = mask ? mask.x + mask.width : width;
     const maxY = mask ? mask.y + mask.height : height;
     
-    // Upload pixels to texture (no UNPACK_FLIP_Y - buggy on Android texSubImage2D)
+    // Flush prior GPU work (Mali pipeline hazard workaround)
+    gl.finish();
+
+    // Upload pixels to texture
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
 
