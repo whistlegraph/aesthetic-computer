@@ -1691,17 +1691,15 @@ export function gpuBlur(pixels, width, height, strength = 1, mask = null) {
     const kernelSize = Math.min(blurRadius * 2 + 1, 15);
     const weights = generateGaussianWeights(kernelSize);
     
-    // Upload pixels to texture with Y-flip
+    // Upload pixels to texture (no UNPACK_FLIP_Y - buggy on Android texSubImage2D)
     gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-    
+
     // PASS 1: Horizontal blur (texture -> pingPong)
     gl.bindFramebuffer(gl.FRAMEBUFFER, pingPongFramebuffer);
     gl.viewport(0, 0, width, height);
     gl.useProgram(blurHProgram);
-    
+
     // Set uniforms (using cached locations for performance)
     gl.uniform2f(blurHUniforms.u_resolution, width, height);
     gl.uniform4f(blurHUniforms.u_bounds, minX, minY, maxX, maxY);
@@ -1709,16 +1707,16 @@ export function gpuBlur(pixels, width, height, strength = 1, mask = null) {
     gl.uniform1fv(blurHUniforms.u_weights, weights);
     gl.uniform1i(blurHUniforms.u_kernelSize, kernelSize);
     gl.uniform1i(blurHUniforms.u_texture, 0);
-    
+
     gl.bindVertexArray(vao);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
-    
+
     // PASS 2: Vertical blur (pingPong -> output)
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
     gl.useProgram(blurVProgram);
-    
+
     // Set uniforms (using cached locations for performance)
     gl.uniform2f(blurVUniforms.u_resolution, width, height);
     gl.uniform4f(blurVUniforms.u_bounds, minX, minY, maxX, maxY);
@@ -1726,19 +1724,15 @@ export function gpuBlur(pixels, width, height, strength = 1, mask = null) {
     gl.uniform1fv(blurVUniforms.u_weights, weights);
     gl.uniform1i(blurVUniforms.u_kernelSize, kernelSize);
     gl.uniform1i(blurVUniforms.u_texture, 0);
-    
+
     // VAO already bound
     gl.bindTexture(gl.TEXTURE_2D, pingPongTexture);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
-    
-    // Read back pixels (flip Y)
+
+    // Read back pixels (no Y-flip needed since we didn't flip on upload)
+    // Blur is symmetric so orientation doesn't affect the result
     gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, readbackBuffer);
-    const rowSize = width * 4;
-    for (let y = 0; y < height; y++) {
-      const srcRow = (height - 1 - y) * rowSize;
-      const dstRow = y * rowSize;
-      pixels.set(readbackBuffer.subarray(srcRow, srcRow + rowSize), dstRow);
-    }
+    pixels.set(readbackBuffer);
     
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     return true;
@@ -1770,57 +1764,49 @@ export function gpuSharpen(pixels, width, height, strength = 1, mask = null) {
     const maxX = mask ? mask.x + mask.width : width;
     const maxY = mask ? mask.y + mask.height : height;
     
-    // Upload pixels to texture with Y-flip
+    // Upload pixels to texture (no UNPACK_FLIP_Y - buggy on Android texSubImage2D)
     gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-    
+
     // Render sharpen to framebuffer
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
     gl.viewport(0, 0, width, height);
     gl.useProgram(sharpenProgram);
-    
+
     // Set uniforms (using cached locations for performance)
     gl.uniform2f(sharpenUniforms.u_resolution, width, height);
     gl.uniform4f(sharpenUniforms.u_bounds, minX, minY, maxX, maxY);
     gl.uniform1f(sharpenUniforms.u_strength, strength);
     gl.uniform1i(sharpenUniforms.u_texture, 0);
-    
+
     gl.bindVertexArray(vao);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
-    
-    // Read back pixels (flip Y)
+
+    // Read back pixels (no Y-flip needed since we didn't flip on upload)
+    // Sharpen kernel is symmetric so orientation doesn't affect the result
     gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, readbackBuffer);
-    
+
     // Sanity check: if readback is all zeros but input wasn't, GPU likely failed
-    // Check a sample of pixels to detect blank/corrupted output (for low-end GPUs like Unihertz Jelly)
     let hasNonZero = false;
-    const sampleStep = Math.max(1, Math.floor(readbackBuffer.length / 100)); // Check ~100 samples
+    const sampleStep = Math.max(1, Math.floor(readbackBuffer.length / 100));
     for (let i = 0; i < readbackBuffer.length && !hasNonZero; i += sampleStep) {
       if (readbackBuffer[i] !== 0) hasNonZero = true;
     }
-    
-    // Check if input had non-zero pixels (sample the same way)
+
     let inputHadData = false;
     for (let i = 0; i < pixels.length && !inputHadData; i += sampleStep) {
       if (pixels[i] !== 0) inputHadData = true;
     }
-    
+
     if (inputHadData && !hasNonZero) {
       console.warn('🎮 GPU Sharpen: Output appears blank - falling back to CPU');
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       return false;
     }
-    
-    const rowSize = width * 4;
-    for (let y = 0; y < height; y++) {
-      const srcRow = (height - 1 - y) * rowSize;
-      const dstRow = y * rowSize;
-      pixels.set(readbackBuffer.subarray(srcRow, srcRow + rowSize), dstRow);
-    }
+
+    pixels.set(readbackBuffer);
     
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     return true;
