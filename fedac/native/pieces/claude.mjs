@@ -37,11 +37,22 @@ function paint({ wipe, ink, box, write, qr, screen, system, wifi }) {
   if (state === "checking") {
     let hasCreds = false;
     try {
-      const creds = system.readFile("/mnt/claude-credentials.json");
-      if (creds && creds.length > 10) hasCreds = true;
-      console.log("[claude] creds check: len=" + (creds ? creds.length : "null") + " hasCreds=" + hasCreds);
+      const raw = system.readFile("/mnt/claude-credentials.json");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        // Must have an actual accessToken to be valid
+        if (parsed && parsed.claudeAiOauth && parsed.claudeAiOauth.accessToken) {
+          hasCreds = true;
+        } else {
+          console.log("[claude] creds file exists but invalid, deleting");
+          system.writeFile("/mnt/claude-credentials.json", "");
+        }
+      }
+      console.log("[claude] creds check: hasCreds=" + hasCreds);
     } catch (e) {
       console.log("[claude] creds check: error " + e);
+      // Delete corrupt file
+      try { system.writeFile("/mnt/claude-credentials.json", ""); } catch (_) {}
     }
     if (hasCreds) {
       mode = "terminal";
