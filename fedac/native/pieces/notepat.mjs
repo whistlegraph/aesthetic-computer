@@ -157,6 +157,18 @@ let hasDeviceToken = false;     // true once token file confirmed (avoid repeate
 const MACHINES_HEARTBEAT_FRAMES = 1800; // ~30s at 60fps
 const MACHINES_WS_URL = "wss://session-server.aesthetic.computer/machines";
 
+function connectMachinesWs2() {
+  const deviceToken = system.readFile?.("/mnt/.device-token") || "";
+  const mid = system.machineId || "unknown";
+  const tkn = deviceToken.trim();
+  if (tkn) hasDeviceToken = true;
+  const url = `${MACHINES_WS_URL}?role=device&machineId=${mid}` +
+              (tkn ? `&token=${encodeURIComponent(tkn)}` : "");
+  system.ws2?.connect(url);
+  machinesConnected = false;
+  console.log("[machines] ws2 connecting: " + mid);
+}
+
 // Auto-connect: try "aesthetic.computer" hotspot when not connected
 const AC_SSID = "aesthetic.computer";
 const AC_PASS = "aesthetic.computer";
@@ -1251,17 +1263,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     system.ws?.connect("wss://chat-system.aesthetic.computer/");
     // Connect raw UDP for fairy co-presence
     system.udp?.connect("session-server.aesthetic.computer", 10010);
-    // Connect machines monitoring (ws2)
-    {
-      const deviceToken = system.readFile?.("/mnt/.device-token") || "";
-      const mid = system.machineId || "unknown";
-      const tkn = deviceToken.trim();
-      if (tkn) hasDeviceToken = true;
-      const url = `${MACHINES_WS_URL}?role=device&machineId=${mid}` +
-                  (tkn ? `&token=${encodeURIComponent(tkn)}` : "");
-      system.ws2?.connect(url);
-      machinesConnected = false;
-    }
+    connectMachinesWs2();
     if (system?.writeFile && savedCreds.length > 0) {
       system.writeFile(CREDS_PATH, JSON.stringify(savedCreds));
     }
@@ -1557,6 +1559,12 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   }
 
   // ── Machines monitoring (ws2) ──────────────────────────────────────
+  // Auto-connect ws2 whenever wifi is up and ws2 isn't connected/connecting
+  if (wifi?.connected && !system.ws2?.connected && !system.ws2?.connecting &&
+      !machinesConnected && machinesReconnectFrame === 0) {
+    machinesReconnectFrame = frame + 60; // connect in ~1s
+  }
+
   // Track ws2 connection + auto-reconnect
   if (system.ws2?.connected && !machinesConnected) {
     machinesConnected = true;
@@ -1573,6 +1581,17 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     });
     system.ws2.send(regMsg);
     console.log("[machines] ws2 registered");
+    // Upload buffered session logs from this boot
+    try {
+      const sessionLog = system.readFile?.("/tmp/ac-session.log");
+      if (sessionLog && sessionLog.trim()) {
+        system.ws2.send(JSON.stringify({
+          type: "log", logType: "session",
+          message: sessionLog.slice(-8192), // last 8KB
+        }));
+        console.log("[machines] session log uploaded");
+      }
+    } catch (_) {}
     // Check for crash report from previous boot
     try {
       const crashRaw = system.readFile?.("/mnt/crash.json");
@@ -1593,13 +1612,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   if (machinesReconnectFrame > 0 && frame >= machinesReconnectFrame) {
     machinesReconnectFrame = 0;
     if (!system.ws2?.connected && !system.ws2?.connecting && wifi?.connected) {
-      const deviceToken = system.readFile?.("/mnt/.device-token") || "";
-      const mid = system.machineId || "unknown";
-      const tkn = deviceToken.trim();
-      const url = `${MACHINES_WS_URL}?role=device&machineId=${mid}` +
-                  (tkn ? `&token=${encodeURIComponent(tkn)}` : "");
-      system.ws2?.connect(url);
-      console.log("[machines] ws2 reconnecting");
+      connectMachinesWs2();
     }
   }
 
