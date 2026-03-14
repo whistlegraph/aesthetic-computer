@@ -29,6 +29,9 @@ void graph_zoom(ACGraph *g, double level);
 void graph_contrast(ACGraph *g, double level);
 void graph_spin(ACGraph *g, double angle_radians);
 
+// QR code rendering
+void graph_qr(ACGraph *g, const char *text, int x, int y, int scale);
+
 // Off-screen buffer support
 ACFramebuffer *graph_painting(int w, int h);
 void graph_paste(ACGraph *g, ACFramebuffer *src, int dx, int dy);
