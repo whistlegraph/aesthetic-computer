@@ -1152,7 +1152,6 @@ ACRuntime *js_init(ACGraph *graph, ACInput *input, ACAudio *audio, ACWifi *wifi,
     rt->wifi = wifi;
     rt->tts = tts;
     rt->ws = ws_create();
-    rt->ws2 = ws_create();  // Second WebSocket for machines monitoring
     rt->udp = udp_create();
     rt->boot_fn = JS_UNDEFINED;
     rt->paint_fn = JS_UNDEFINED;
@@ -1672,80 +1671,6 @@ static JSValue build_ws_obj(JSContext *ctx, const char *phase) {
         int connected = ws->connected;
         int connecting = ws->connecting;
         // Copy only actual message bytes (not full 256KB buffer each) — heap alloc
-        if (count > WS_MAX_MESSAGES) count = WS_MAX_MESSAGES;
-        char *msgs[WS_MAX_MESSAGES];
-        int   msg_lens[WS_MAX_MESSAGES];
-        for (int i = 0; i < count; i++) {
-            int len = strnlen(ws->messages[i], WS_MAX_MSG_LEN - 1);
-            msgs[i] = malloc(len + 1);
-            if (msgs[i]) { memcpy(msgs[i], ws->messages[i], len); msgs[i][len] = 0; }
-            msg_lens[i] = len;
-        }
-        pthread_mutex_unlock(&ws->mu);
-
-        JS_SetPropertyStr(ctx, ws_obj, "connected",  JS_NewBool(ctx, connected));
-        JS_SetPropertyStr(ctx, ws_obj, "connecting", JS_NewBool(ctx, connecting));
-
-        JSValue arr = JS_NewArray(ctx);
-        for (int i = 0; i < count; i++) {
-            if (msgs[i]) {
-                JS_SetPropertyUint32(ctx, arr, (uint32_t)i, JS_NewStringLen(ctx, msgs[i], msg_lens[i]));
-                free(msgs[i]);
-            }
-        }
-        JS_SetPropertyStr(ctx, ws_obj, "messages", arr);
-    } else {
-        JS_SetPropertyStr(ctx, ws_obj, "connected",  JS_FALSE);
-        JS_SetPropertyStr(ctx, ws_obj, "connecting", JS_FALSE);
-        JS_SetPropertyStr(ctx, ws_obj, "messages",   JS_NewArray(ctx));
-    }
-    return ws_obj;
-}
-
-// ---------------------------------------------------------------------------
-// system.ws2 — Second WebSocket slot (machines monitoring)
-// ---------------------------------------------------------------------------
-
-static JSValue js_ws2_connect(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    (void)this_val;
-    if (argc < 1 || !current_rt) return JS_UNDEFINED;
-    const char *url = JS_ToCString(ctx, argv[0]);
-    if (!url) return JS_UNDEFINED;
-    ws_connect(current_rt->ws2, url);
-    JS_FreeCString(ctx, url);
-    return JS_UNDEFINED;
-}
-
-static JSValue js_ws2_send(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    (void)this_val;
-    if (argc < 1 || !current_rt || !current_rt->ws2) return JS_UNDEFINED;
-    const char *text = JS_ToCString(ctx, argv[0]);
-    if (!text) return JS_UNDEFINED;
-    ws_send(current_rt->ws2, text);
-    JS_FreeCString(ctx, text);
-    return JS_UNDEFINED;
-}
-
-static JSValue js_ws2_close(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    (void)this_val; (void)argc; (void)argv;
-    if (current_rt && current_rt->ws2) ws_close(current_rt->ws2);
-    return JS_UNDEFINED;
-}
-
-static JSValue build_ws2_obj(JSContext *ctx, const char *phase) {
-    JSValue ws_obj = JS_NewObject(ctx);
-    JS_SetPropertyStr(ctx, ws_obj, "connect", JS_NewCFunction(ctx, js_ws2_connect, "connect", 1));
-    JS_SetPropertyStr(ctx, ws_obj, "send",    JS_NewCFunction(ctx, js_ws2_send,    "send",    1));
-    JS_SetPropertyStr(ctx, ws_obj, "close",   JS_NewCFunction(ctx, js_ws2_close,   "close",   0));
-
-    ACWs *ws = current_rt ? current_rt->ws2 : NULL;
-    if (ws) {
-        int drain = (strcmp(phase, "paint") == 0);
-        pthread_mutex_lock(&ws->mu);
-        int count = drain ? ws->msg_count : 0;
-        if (drain) ws->msg_count = 0;
-        int connected = ws->connected;
-        int connecting = ws->connecting;
         if (count > WS_MAX_MESSAGES) count = WS_MAX_MESSAGES;
         char *msgs[WS_MAX_MESSAGES];
         int   msg_lens[WS_MAX_MESSAGES];
@@ -3481,9 +3406,6 @@ static JSValue build_system_obj(JSContext *ctx) {
     // WebSocket client — system.ws
     JS_SetPropertyStr(ctx, sys, "ws", build_ws_obj(ctx, current_phase));
 
-    // Second WebSocket — system.ws2 (machines monitoring)
-    JS_SetPropertyStr(ctx, sys, "ws2", build_ws2_obj(ctx, current_phase));
-
     // Raw UDP fairy co-presence — system.udp
     JS_SetPropertyStr(ctx, sys, "udp", build_udp_obj(ctx, current_phase));
 
@@ -4362,7 +4284,6 @@ void js_destroy(ACRuntime *rt) {
     JS_FreeValue(rt->ctx, rt->leave_fn);
     JS_FreeValue(rt->ctx, rt->beat_fn);
     ws_destroy(rt->ws);
-    ws_destroy(rt->ws2);
     udp_destroy(rt->udp);
     JS_FreeContext(rt->ctx);
     JS_FreeRuntime(rt->rt);

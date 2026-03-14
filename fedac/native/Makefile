@@ -62,6 +62,7 @@ SRCS := $(SRCDIR)/ac-native.c \
         $(SRCDIR)/udp-client.c \
         $(SRCDIR)/camera.c \
         $(SRCDIR)/pty.c \
+        $(SRCDIR)/machines.c \
         $(SRCDIR)/js-bindings.c
 
 OBJS := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/%.o,$(SRCS))
