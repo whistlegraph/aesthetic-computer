@@ -3037,6 +3037,8 @@ static JSValue js_open_browser(JSContext *ctx, JSValueConst this_val, int argc, 
         "export HOME=/tmp && "
         "export XDG_RUNTIME_DIR=/tmp/xdg && "
         "export WLR_BACKENDS=drm && "
+        "export WLR_SESSION=direct && "
+        "export LIBSEAT_BACKEND=noop && "
         "export LD_LIBRARY_PATH=/lib64:/opt/firefox && "
         "export MOZ_ENABLE_WAYLAND=1 && "
         "export GDK_BACKEND=wayland && "

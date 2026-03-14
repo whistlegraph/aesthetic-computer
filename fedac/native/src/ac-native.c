@@ -13,6 +13,7 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <sys/mount.h>
+#include <sys/statvfs.h>
 #include <sys/stat.h>
 #include <sys/reboot.h>
 #include <linux/reboot.h>
@@ -613,10 +614,19 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
             long sz = copy_file(kernel_src, "/tmp/hd/EFI/BOOT/BOOTX64.EFI");
             if (sz > 0) {
                 // Also overwrite Windows Boot Manager path (ThinkPad BIOS often
-                // boots this first regardless of boot order)
-                mkdir("/tmp/hd/EFI/Microsoft", 0755);
-                mkdir("/tmp/hd/EFI/Microsoft/Boot", 0755);
-                copy_file(kernel_src, "/tmp/hd/EFI/Microsoft/Boot/bootmgfw.efi");
+                // boots this first regardless of boot order) — but only if space permits
+                struct statvfs vfs;
+                long free_bytes = 0;
+                if (statvfs("/tmp/hd", &vfs) == 0)
+                    free_bytes = (long)vfs.f_bavail * (long)vfs.f_bsize;
+                if (free_bytes > sz + 1048576) {
+                    mkdir("/tmp/hd/EFI/Microsoft", 0755);
+                    mkdir("/tmp/hd/EFI/Microsoft/Boot", 0755);
+                    copy_file(kernel_src, "/tmp/hd/EFI/Microsoft/Boot/bootmgfw.efi");
+                } else {
+                    fprintf(stderr, "[ac-native] Skipping MS boot path: %ldMB free < %ldMB needed\n",
+                            free_bytes / 1048576, (sz + 1048576) / 1048576);
+                }
 
                 // Preserve user handle/piece config on installed disk.
                 if (access(config_src, F_OK) == 0) {
