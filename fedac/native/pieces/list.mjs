@@ -5,22 +5,27 @@ let frame = 0;
 let scrollY = 0;
 
 const PIECES = [
-  { name: "notepat",  alias: "np",  desc: "synthesizer instrument with touch grid" },
-  { name: "os",       alias: null,  desc: "system update panel (OTA flash)" },
-  { name: "wifi",     alias: "net", desc: "network picker and saved credentials" },
-  { name: "claude",   alias: "cl",  desc: "AI assistant (Claude)" },
-  { name: "chat",           alias: null,  desc: "real-time chat on aesthetic.computer" },
+  { name: "notepat",       alias: "np",  desc: "synthesizer instrument with touch grid" },
+  { name: "os",            alias: null,  desc: "system update panel (OTA flash)" },
+  { name: "wifi",          alias: "net", desc: "network picker and saved credentials" },
+  { name: "claude",        alias: "cl",  desc: "AI assistant (Claude Code)" },
+  { name: "terminal",      alias: null,  desc: "PTY terminal emulator (sh, claude)" },
+  { name: "geo",           alias: "location", desc: "IP-based geolocation" },
+  { name: "chat",          alias: null,  desc: "real-time chat on aesthetic.computer" },
   { name: "laer-klokken",  alias: "lk",  desc: "clock room chat (warm theme)" },
-  { name: "machine",        alias: null,  desc: "hardware & software info" },
-  { name: "list",           alias: null,  desc: "this screen" },
+  { name: "machine",       alias: null,  desc: "hardware & software info" },
+  { name: "roz",           alias: null,  desc: "generative art viewer" },
+  { name: "prompt",        alias: null,  desc: "command prompt (home)" },
+  { name: "list",          alias: null,  desc: "this screen" },
 ];
 
 const COMMANDS = [
+  { name: "off",      alias: "shutdown", desc: "power off the machine" },
+  { name: "reboot",   alias: null,      desc: "restart the system" },
   { name: "hi",       alias: "login",   desc: "show current logged-in user" },
   { name: "bye",      alias: "logout",  desc: "log out current user" },
   { name: "version",  alias: "ver",     desc: "show current OS version hash" },
   { name: "ssh",      alias: null,      desc: "start SSH server on port 22" },
-  { name: "reboot",   alias: null,      desc: "restart the system" },
   { name: "clear",    alias: "cls",     desc: "clear command history" },
   { name: "help",     alias: null,      desc: "show quick help" },
 ];
