@@ -43,9 +43,11 @@ export SSL_CERT_FILE="/etc/pki/tls/certs/ca-bundle.crt"
 export CURL_CA_BUNDLE="/etc/pki/tls/certs/ca-bundle.crt"
 export SSL_CERT_DIR="/etc/ssl/certs"
 
-# Check if cage is available for Wayland compositor mode
-ilog "cage=$(which cage 2>&1)"
-if command -v cage >/dev/null 2>&1 && [ -e /dev/dri/card0 ]; then
+# Wayland compositor mode (disabled — debugging in progress, use DRM direct)
+# To re-enable: change "false" to the cage check below
+# if command -v cage >/dev/null 2>&1 && [ -e /dev/dri/card0 ]; then
+ilog "cage disabled — DRM direct mode"
+if false; then
     ilog "Wayland path: cage + card0 OK"
 
     # Ensure /etc/group + /etc/passwd exist (seatd needs group lookup)
