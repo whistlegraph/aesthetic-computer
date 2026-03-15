@@ -8,6 +8,14 @@
 \setsansfont{Latin Modern Sans}
 \newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
 \newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\kidlispfont{ComicRelief-Regular}[
+  Path=../arxiv-kidlisp/fonts/,
+  Extension=.ttf
+]
+\newfontfamily\kidlispbold{ComicRelief-Bold}[
+  Path=../arxiv-kidlisp/fonts/,
+  Extension=.ttf
+]
 \setmonofont{Latin Modern Mono}[Scale=0.85]
 
 \usepackage{xcolor}
@@ -31,7 +39,10 @@
 \definecolor{acpurple}{RGB}{120,80,180}
 \definecolor{acdark}{RGB}{64,56,74}
 \definecolor{acgray}{RGB}{119,119,119}
-\definecolor{draftcolor}{RGB}{180,72,135}
+\definecolor{klbrand}{RGB}{205,92,155}    % kidlisp.com primary (--ac-purple)
+\definecolor{klcyan}{RGB}{112,214,255}     % kidlisp.com ".com" cyan (#70D6FF)
+\definecolor{kldark}{RGB}{48,43,58}        % kidlisp.com dark purple
+\definecolor{draftcolor}{RGB}{205,92,155}
 
 % KidLisp syntax colors
 \definecolor{klparen}{RGB}{140,140,160}
@@ -116,12 +127,12 @@
 
 \twocolumn[{%
 \begin{center}
-\includegraphics[height=2.2em]{pals}\par\vspace{0.4em}
-{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} KidLisp Language Reference}\par
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\kidlispbold\fontsize{26pt}{30pt}\selectfont\color{kldark} Kid{\color{klbrand}Lisp} Language Reference}\par
 \vspace{0.2em}
-{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} 118 Built-ins in 12 Categories for Generative Art}\par
+{\kidlispfont\fontsize{11pt}{13pt}\selectfont\color{klbrand} 118 Built-ins in 12 Categories for Generative Art}\par
 \vspace{0.3em}
-{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} Syntax, Semantics, Timing, Color, and the \texttt{\$}-Code Composition System}\par
+{\kidlispfont\fontsize{9pt}{11pt}\selectfont\color{acgray} Syntax, Semantics, Timing, Color, and the \texttt{\$}-Code Composition System}\par
 \vspace{0.6em}
 {\normalsize Jeffrey Alan Scudder}\par
 {\small\color{acgray} Aesthetic Inc.}\par
