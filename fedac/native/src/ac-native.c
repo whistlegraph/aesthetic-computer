@@ -1683,6 +1683,9 @@ int main(int argc, char *argv[]) {
                     setenv("GDK_BACKEND", "wayland", 1);
                     setenv("MOZ_APP_LAUNCHER", "/opt/firefox/firefox", 1);
                     setenv("GRE_HOME", "/opt/firefox", 1);
+                    setenv("DBUS_SESSION_BUS_ADDRESS", "disabled:", 1);  // skip dbus
+                    setenv("MOZ_DBUS_REMOTE", "0", 1);  // no dbus remote
+                    setenv("MOZ_DISABLE_CONTENT_SANDBOX", "1", 1);  // no sandbox (initramfs)
 
                     ac_log("[browser] step 2: env set, launching cage");
 
