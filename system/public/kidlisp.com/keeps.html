@@ -3200,6 +3200,11 @@
               </div>
             </div>
 
+            <p class="keeps-about-tech-section-label">Collectors</p>
+            <div id="keeps-leaderboard" style="font-family:var(--font-mono);font-size:12px;color:var(--text-secondary);margin-bottom:16px;">
+              <div style="color:var(--text-tertiary);">Loading...</div>
+            </div>
+
             <p class="keeps-about-tech-section-label">How It Works</p>
             <p>Each keep is an <strong>FA2 token on Tezos</strong>. Your KidLisp source is bundled into a self-contained HTML file, a thumbnail is rendered, and both are pinned to <strong>IPFS</strong>. No KidLisp servers are needed to view your token — it works on objkt and any FA2 marketplace.</p>
             <p>Duplicate keeps are rejected on-chain by content hash. Royalties (9% author, 1% platform) are encoded at keep time and honored by all FA2 marketplaces.</p>
@@ -3542,6 +3547,29 @@
           }
           const creatorsEl = document.getElementById('stat-unique-creators');
           if (creatorsEl) creatorsEl.textContent = creators.size.toLocaleString();
+
+          // Build collector leaderboard
+          const ownerCounts = {};
+          for (const b of balances) {
+            const addr = b.account?.address || b.account;
+            if (!addr) continue;
+            const alias = b.account?.alias || null;
+            if (!ownerCounts[addr]) ownerCounts[addr] = { alias, count: 0 };
+            ownerCounts[addr].count++;
+          }
+          const sorted = Object.entries(ownerCounts)
+            .sort((a, b) => b[1].count - a[1].count);
+          const lbEl = document.getElementById('keeps-leaderboard');
+          if (lbEl && sorted.length) {
+            lbEl.innerHTML = sorted.map(([addr, info], i) => {
+              const label = info.alias || (addr.slice(0, 8) + '\u2026' + addr.slice(-4));
+              const objktUrl = 'https://objkt.com/profile/' + addr;
+              return `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border-subtle);">
+                <a href="${objktUrl}" target="_blank" rel="noopener" style="color:var(--ac-purple);text-decoration:none;">${escapeHtml(label)}</a>
+                <span style="color:var(--text-tertiary);">${info.count} keep${info.count !== 1 ? 's' : ''}</span>
+              </div>`;
+            }).join('');
+          }
         }
       } catch (err) {
         console.warn('Failed to fetch live stats:', err.message);
