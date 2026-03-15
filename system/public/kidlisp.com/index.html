@@ -19712,11 +19712,18 @@ s("ape_breaks_3").loopAt(2)</textarea>
             return;
           }
           if (!acAuth0Client) {
-            console.log('[AUTH] No auth0 client, calling initAuth0...');
-            await initAuth0();
+            // SDK may still be loading — kick off init but don't block the gesture.
+            // loginWithRedirect must run in the same user-gesture context, so we
+            // can't await a long poll here.  Retry once quickly, then bail.
+            if (window.auth0) {
+              await initAuth0();
+            } else {
+              console.warn('[AUTH] Auth0 SDK still loading — try again in a moment');
+              return;
+            }
           }
           if (!acAuth0Client) {
-            console.warn('[AUTH] initAuth0 failed — acAuth0Client still null, window.auth0:', typeof window.auth0);
+            console.warn('[AUTH] initAuth0 failed — acAuth0Client still null');
             return;
           }
           console.log('[AUTH] Redirecting to Auth0 login...');
@@ -19756,7 +19763,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
                 window.parent?.postMessage({ type: 'login', tenant: 'aesthetic' }, '*');
                 return;
               }
-              if (!acAuth0Client) await initAuth0();
+              if (!acAuth0Client && window.auth0) await initAuth0();
               if (!acAuth0Client) return;
               logAuth('check');
               await acAuth0Client.loginWithRedirect({
@@ -19774,8 +19781,10 @@ s("ape_breaks_3").loopAt(2)</textarea>
           });
         }
 
-        // Initialize Auth0 (async — doesn't block)
-        initAuth0();
+        // Initialize Auth0 (async — doesn't block, resolves acAuth0Client for later use)
+        initAuth0().then(() => {
+          console.log('[AUTH] initAuth0 resolved, acAuth0Client:', !!acAuth0Client);
+        });
       }
 
       initACLogin();
