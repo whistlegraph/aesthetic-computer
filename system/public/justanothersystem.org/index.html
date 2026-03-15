@@ -207,7 +207,8 @@
   <script>
     const ASSET_BASE = '/assets/justanothersystem/slideshow/';
     const MANIFEST_URL = ASSET_BASE + 'manifest.json';
-    const SLIDE_DURATION = 6000; // ms per slide
+    const SLIDE_DURATION = 8000;
+    const ZOOM_DURATION = 4000; // ms for perspective zoom-out
     const KB_CLASSES = ['kb-a', 'kb-b', 'kb-c', 'kb-d'];
 
     const slideshowEl = document.getElementById('slideshow');
@@ -218,7 +219,6 @@
     let currentIndex = 0;
     let slideTimer = null;
 
-    // Shuffle array in place (Fisher-Yates)
     function shuffle(arr) {
       for (let i = arr.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -234,6 +234,94 @@
       return `${months[parseInt(m, 10) - 1]} ${parseInt(d, 10)}, ${y}`;
     }
 
+    // Compute CSS matrix3d that maps source quad to destination quad.
+    // corners: [[x%,y%], ...] TL, TR, BR, BL of artwork in image.
+    // We want to transform the image so those corners fill the viewport,
+    // then animate back to identity (no transform).
+    function computePerspectiveTransform(corners, imgW, imgH, vpW, vpH) {
+      // Source points (artwork corners in pixels)
+      const src = corners.map(([xp, yp]) => [xp / 100 * imgW, yp / 100 * imgH]);
+
+      // Compute artwork aspect ratio from corners
+      const artW = Math.sqrt((src[1][0]-src[0][0])**2 + (src[1][1]-src[0][1])**2);
+      const artH = Math.sqrt((src[3][0]-src[0][0])**2 + (src[3][1]-src[0][1])**2);
+      const artAspect = artW / artH;
+      const vpAspect = vpW / vpH;
+
+      // Destination: letterboxed to fill viewport
+      let dstW, dstH, dstX, dstY;
+      if (artAspect > vpAspect) {
+        dstW = vpW; dstH = vpW / artAspect;
+        dstX = 0; dstY = (vpH - dstH) / 2;
+      } else {
+        dstH = vpH; dstW = vpH * artAspect;
+        dstX = (vpW - dstW) / 2; dstY = 0;
+      }
+
+      const dst = [
+        [dstX, dstY],
+        [dstX + dstW, dstY],
+        [dstX + dstW, dstY + dstH],
+        [dstX, dstY + dstH]
+      ];
+
+      // Solve perspective transform using adjugate method
+      return getMatrix3d(src, dst, imgW, imgH);
+    }
+
+    // Compute a CSS matrix3d string from 4 source to 4 dest point pairs
+    function getMatrix3d(src, dst, w, h) {
+      // Use a general projective mapping approach
+      // Map normalized coords through the transform
+      function solve8(s, d) {
+        // 8-parameter perspective transform
+        const A = [];
+        const b = [];
+        for (let i = 0; i < 4; i++) {
+          A.push([s[i][0], s[i][1], 1, 0, 0, 0, -d[i][0]*s[i][0], -d[i][0]*s[i][1]]);
+          A.push([0, 0, 0, s[i][0], s[i][1], 1, -d[i][1]*s[i][0], -d[i][1]*s[i][1]]);
+          b.push(d[i][0]);
+          b.push(d[i][1]);
+        }
+        return solveLinear(A, b);
+      }
+
+      function solveLinear(A, b) {
+        const n = b.length;
+        const aug = A.map((row, i) => [...row, b[i]]);
+        for (let col = 0; col < n; col++) {
+          let maxRow = col;
+          for (let row = col + 1; row < n; row++) {
+            if (Math.abs(aug[row][col]) > Math.abs(aug[maxRow][col])) maxRow = row;
+          }
+          [aug[col], aug[maxRow]] = [aug[maxRow], aug[col]];
+          const pivot = aug[col][col];
+          if (Math.abs(pivot) < 1e-10) continue;
+          for (let j = col; j <= n; j++) aug[col][j] /= pivot;
+          for (let row = 0; row < n; row++) {
+            if (row === col) continue;
+            const f = aug[row][col];
+            for (let j = col; j <= n; j++) aug[row][j] -= f * aug[col][j];
+          }
+        }
+        return aug.map(row => row[n]);
+      }
+
+      const params = solve8(src, dst);
+      if (!params || params.some(isNaN)) return null;
+
+      const [a, b, c, d, e, f, g, hh] = params;
+
+      // CSS matrix3d is column-major 4x4
+      // Our 2D projective matrix is:
+      // [a  b  c]     which in 4x4 becomes:
+      // [d  e  f]     [a  d  0  g]
+      // [g  h  1]     [b  e  0  h]
+      //               [0  0  1  0]
+      //               [c  f  0  1]
+      return `matrix3d(${a},${d},0,${g}, ${b},${e},0,${hh}, 0,0,1,0, ${c},${f},0,1)`;
+    }
+
     async function init() {
       try {
         const res = await fetch(MANIFEST_URL);
@@ -243,10 +331,8 @@
         console.error('Failed to load manifest:', e);
         return;
       }
-
       if (slides.length === 0) return;
 
-      // Create two slide elements for crossfade
       for (let i = 0; i < 2; i++) {
         const slide = document.createElement('div');
         slide.className = 'slide';
@@ -268,14 +354,38 @@
 
       const entry = slides[currentIndex];
       const filename = typeof entry === 'string' ? entry : entry.file;
-
-      // Load image into the active slot
       const img = activeSlide.querySelector('img');
-      img.src = ASSET_BASE + filename;
 
-      // Assign a Ken Burns class
-      KB_CLASSES.forEach(c => activeSlide.classList.remove(c));
-      activeSlide.classList.add(KB_CLASSES[currentIndex % KB_CLASSES.length]);
+      // Reset any previous transform
+      activeSlide.style.transform = '';
+      activeSlide.style.transition = '';
+
+      img.onload = () => {
+        const vpW = window.innerWidth;
+        const vpH = window.innerHeight;
+
+        if (entry.corners) {
+          // Start: perspective-corrected (artwork fills viewport)
+          const matrix = computePerspectiveTransform(
+            entry.corners, img.naturalWidth, img.naturalHeight, vpW, vpH
+          );
+          if (matrix) {
+            activeSlide.style.transformOrigin = '0 0';
+            activeSlide.style.transition = 'none';
+            activeSlide.style.transform = matrix;
+            activeSlide.offsetHeight; // force layout
+            // Animate to identity (zoom out to context)
+            activeSlide.style.transition = `transform ${ZOOM_DURATION}ms cubic-bezier(0.25, 0.1, 0.25, 1)`;
+            activeSlide.style.transform = 'none';
+          }
+        } else {
+          // No corners: use Ken Burns
+          KB_CLASSES.forEach(c => activeSlide.classList.remove(c));
+          activeSlide.classList.add(KB_CLASSES[currentIndex % KB_CLASSES.length]);
+        }
+      };
+
+      img.src = ASSET_BASE + filename;
 
       // Crossfade
       activeSlide.classList.add('active');
@@ -290,14 +400,14 @@
       // Progress bar
       startProgress();
 
-      // Preload next image
+      // Preload next
       const nextIndex = (currentIndex + 1) % slides.length;
       const nextEntry = slides[nextIndex];
       const nextFile = typeof nextEntry === 'string' ? nextEntry : nextEntry.file;
       const preload = new Image();
       preload.src = ASSET_BASE + nextFile;
 
-      // Schedule next slide (stop after showing all once)
+      // Schedule next
       clearTimeout(slideTimer);
       if (currentIndex + 1 < slides.length) {
         slideTimer = setTimeout(() => showSlide(currentIndex + 1), SLIDE_DURATION);
@@ -307,13 +417,11 @@
     function startProgress() {
       progressBar.style.transition = 'none';
       progressBar.style.width = '0%';
-      // Force reflow
       progressBar.offsetWidth;
       progressBar.style.transition = `width ${SLIDE_DURATION}ms linear`;
       progressBar.style.width = '100%';
     }
 
-    // Keyboard navigation
     document.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowRight' || e.key === ' ') {
         e.preventDefault();
@@ -326,7 +434,6 @@
       }
     });
 
-    // Touch swipe navigation
     let touchStartX = 0;
     document.addEventListener('touchstart', (e) => {
       touchStartX = e.touches[0].clientX;
