@@ -58,11 +58,11 @@
 \twocolumn[{%
 \begin{center}
 \includegraphics[height=2.2em]{pals}\par\vspace{0.4em}
-{\acbold\fontsize{24pt}{28pt}\selectfont\color{acdark} Dead Ends}\par
+{\acbold\fontsize{24pt}{28pt}\selectfont\color{acdark} Vestigial Features}\par
 \vspace{0.2em}
-{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Failed Experiments and Abandoned Approaches in Aesthetic Computer}\par
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Dormant Paths, Evolutionary Branches, and Abandoned Approaches}\par
 \vspace{0.3em}
-{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} A Self-Critical Inventory of What Didn't Work (2021--2026)}\par
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} An Evolutionary Morphology of Aesthetic Computer (2021--2026)}\par
 \vspace{0.6em}
 {\normalsize Jeffrey Alan Scudder}\par
 {\small\color{acgray} Aesthetic Inc.}\par
@@ -81,18 +81,18 @@
 
 \begin{quote}
 \small\noindent\textbf{Abstract.}
-Academic papers about software systems almost exclusively describe what works. This paper describes what didn't. Over five years of development, \ac{} accumulated a significant archive of failed experiments, abandoned platforms, over-engineered infrastructure, and dead-end approaches. We catalog 16 dead ends organized into five categories: \emph{platform fragmentation} (building the same app for every platform and shipping on none), \emph{infrastructure over-engineering} (adopting complex distributed systems that were later collapsed into monoliths), \emph{monetization experiments} (NFTs, subscriptions, merchandise---all technically functional, none commercially viable), \emph{tools built for one person} (features whose only user was the developer), and \emph{premature abstractions} (generic solutions to problems that required hardware-specific approaches). For each dead end, we describe what was attempted, why it failed, what it cost, and what---if anything---was salvaged. We argue that a project's dead ends reveal its values more clearly than its successes, and that honest accounting of failure is a prerequisite for understanding how creative software systems actually evolve.
+Academic papers about software systems almost exclusively describe what works. This paper describes what went dormant. Over five years of development, \ac{} accumulated 16 vestigial features---code paths that were actively developed, served a purpose for a time, and then went quiet. Like vestigial organs in biology, these features are not dead tissue: some may reactivate if conditions change, some contributed genetic material to the features that survived, and some atrophied because the organism evolved past them. We catalog these features in five categories: \emph{platform branching} (simultaneous development across seven platforms, with five going dormant), \emph{infrastructure experiments} (distributed architectures that consolidated into simpler forms), \emph{monetization attempts} (technically complete systems awaiting market conditions), \emph{single-user tools} (features that served a developmental purpose and were shed), and \emph{premature abstractions} (generic solutions that were replaced by specific ones). For each, we document the rationale for dormancy, the date development diverged, the user activity at the time of diversion, and the potential for reactivation. We argue that a project's vestigial features---not its failures---reveal its evolutionary trajectory, and that dormancy is not death.
 \end{quote}
 \vspace{0.5em}
 }]
 
 \section{Introduction}
 
-\ac{}'s git history contains 11,000+ commits across four repositories~\citep{scudder2026archaeology}. The published papers describe the commits that led somewhere: the runtime, the KidLisp interpreter, the piece system, the bare-metal OS~\citep{scudder2026ac, scudder2026os}. This paper describes the commits that didn't.
+\ac{}'s git history contains 11,000+ commits across four repositories~\citep{scudder2026archaeology}. The published papers describe the commits that led somewhere: the runtime, the KidLisp interpreter, the piece system, the bare-metal OS~\citep{scudder2026ac, scudder2026os}. This paper describes the commits that went quiet.
 
-Every software project has dead ends. Most are invisible---deleted branches, abandoned prototypes, reverted merges. \ac{} is unusual in maintaining a \texttt{GRAVEYARD.txt} file that explicitly catalogs deprecated features, and in having a single developer whose memory spans the entire project history. This combination makes it possible to write a relatively complete account of what was tried and abandoned.
+Software evolution, like biological evolution, proceeds by branching. Most branches do not become the trunk. But unlike dead branches on a tree, dormant code paths in a software project can reactivate: the Android app could ship tomorrow; the Electron app could find a use case; the NFT infrastructure already outlived its original monetization purpose and became the piece-code addressing system. \ac{} is unusual in maintaining a \texttt{GRAVEYARD.txt} file that explicitly catalogs deprecated features---but ``graveyard'' is the wrong metaphor. A better one is the appendix: a structure whose original function has changed, that persists in reduced form, and that may yet prove useful under different conditions.
 
-The inventory is organized into five categories, each representing a different \emph{type} of failure. The categories are not exclusive; several dead ends belong to more than one.
+The inventory is organized into five categories, each representing a different \emph{type} of dormancy. The categories are not exclusive; several features belong to more than one.
 
 \section{Platform Fragmentation}
 \label{sec:fragmentation}
@@ -211,50 +211,52 @@ Forking Feral File's OS to create a generic x86\_64 kiosk was evaluated and reje
 
 \textbf{What was salvaged:} The decision \emph{not} to fork FFOS forced the creation of \acos{} from scratch, which produced a simpler, more maintainable system than a fork would have.
 
-\section{What Dead Ends Reveal}
+\section{Evolutionary Morphology}
 
 \begin{table}[h]
 \small
 \centering
-\begin{tabularx}{\columnwidth}{Xrr}
+\begin{tabularx}{\columnwidth}{Xrrr}
 \toprule
-\textbf{Category} & \textbf{Count} & \textbf{Salvage Rate} \\
+\textbf{Category} & \textbf{Count} & \textbf{Contrib.} & \textbf{Revivable} \\
 \midrule
-Platform fragmentation & 5 & 80\% \\
-Infrastructure over-eng. & 3 & 33\% \\
-Monetization experiments & 3 & 33\% \\
-Tools for one person & 3 & 0\% \\
-Premature abstractions & 2 & 100\% \\
+Platform branching & 5 & 80\% & 3 \\
+Infrastructure exp. & 3 & 33\% & 1 \\
+Monetization & 3 & 33\% & 3 \\
+Single-user tools & 3 & 0\% & 0 \\
+Premature abstractions & 2 & 100\% & 0 \\
 \midrule
-\textbf{Total} & \textbf{16} & \textbf{50\%} \\
+\textbf{Total} & \textbf{16} & \textbf{50\%} & \textbf{7} \\
 \bottomrule
 \end{tabularx}
-\caption{Dead ends by category with salvage rate (fraction that contributed insights or code to surviving features).}
-\label{tab:deadends}
+\caption{Vestigial features by category. ``Contrib.'' = fraction that contributed code or insights to surviving features. ``Revivable'' = number that could reactivate under changed conditions.}
+\label{tab:vestigial}
 \end{table}
 
-The salvage rate varies dramatically by category. Premature abstractions have a 100\% salvage rate because their failure produces \emph{information}---specifically, the knowledge that a generic solution is inappropriate. Platform fragmentation has an 80\% salvage rate because each failed platform taught something about what the successful platform (the bare-metal OS) needed to be.
+The contribution rate varies dramatically by category. Premature abstractions contribute at 100\% because their dormancy produces \emph{information}---specifically, the knowledge that a generic solution is inappropriate. Platform branches contribute at 80\% because each dormant platform taught something about what the surviving platforms needed to be.
 
-Tools built for one person have a 0\% salvage rate. They solved a temporary problem for a temporary user and left no residue.
+Seven of sixteen features are revivable: the Android app (Play Store submission remains possible), the Electron app (a desktop release could serve specific use cases), the Feral File integration (if FF1 hardware scales), and all three monetization experiments (Tezos Keeps, Sotce.net, merchandise---each technically complete and awaiting market conditions rather than engineering work). The Silo migration could execute in a day if MongoDB Atlas costs become unsustainable.
 
-\subsection{Values Revealed by Failure}
+Single-user tools have a 0\% contribution and 0\% revival rate. They were developmental scaffolding---useful during construction, removed afterward, leaving no trace.
 
-A project's dead ends reveal what it \emph{tried to be} before it became what it is. \ac{}'s dead ends reveal:
+\subsection{What Dormancy Reveals}
+
+A project's vestigial features reveal what it \emph{tried to be} before it became what it is---and what it might yet become if conditions change. \ac{}'s dormant paths reveal:
 
 \begin{itemize}
-  \item A desire to be \emph{everywhere} (seven platforms) that was disciplined into being \emph{somewhere specific} (web + bare-metal)
-  \item A belief that \emph{technical completeness} (working prototype) equals \emph{product readiness} (shipped to users)---repeatedly disproven
-  \item An assumption that \emph{building the infrastructure} for monetization would attract the market---it did not
+  \item A desire to be \emph{everywhere} (seven platforms) that was disciplined into being \emph{somewhere specific} (web + bare-metal)---but the Android and Electron code still compiles
+  \item A belief that \emph{technical completeness} (working prototype) equals \emph{product readiness} (shipped to users)---disproven but not invalidated, since the prototypes remain functional
+  \item An assumption that \emph{building the infrastructure} for monetization would attract the market---the market hasn't arrived yet, but the infrastructure is ready if it does
   \item A preference for \emph{building from scratch} over adapting existing systems, validated when the FFOS fork was rejected in favor of a custom OS
 \end{itemize}
 
 \section{Conclusion}
 
-Sixteen dead ends in five years. Approximately half contributed something to the surviving system; the other half are pure loss. The total cost---in engineering time, server bills, signing certificates, and cognitive load---is substantial but unquantified. No one tracks the cost of dead ends because no one plans to create them.
+Sixteen vestigial features in five years. Half contributed code or insights to surviving features; seven remain revivable. The biological metaphor is more honest than ``failure'': these are not dead tissue but dormant structures in a living system. The Android app did not fail---it went to sleep. The NFT infrastructure did not fail---it shed its monetization function and kept its addressing scheme. The Jamsocket architecture did not fail---it contributed its internal structure to the monolith that replaced it.
 
-The most important dead end in \ac{}'s history is the one that produced the most valuable outcome: the failed attempt to build a generic kiosk abstraction led directly to the bare-metal OS, which is now the project's most technically distinctive contribution. The best dead end is the one that makes you build the right thing by proving that you were building the wrong thing.
+The most important dormant path in \ac{}'s history is the one that produced the most valuable outcome: the attempt to build a generic kiosk abstraction went dormant, forcing the creation of the bare-metal OS from scratch---now the project's most technically distinctive contribution. The best vestigial feature is the one whose dormancy makes the organism build the right limb.
 
-Brooks observed that ``plan to throw one away; you will, anyhow''~\citep{brooks1975mythical}. \ac{} threw away sixteen. The seventeenth attempt---a single-file operating system that boots in 7.3 seconds---is still running.
+Brooks observed that ``plan to throw one away; you will, anyhow''~\citep{brooks1975mythical}. \ac{} set sixteen aside. Seven could wake up tomorrow. The seventeenth attempt---a single-file operating system that boots in 7.3 seconds---is still running.
 
 \vspace{0.5em}
 \noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
