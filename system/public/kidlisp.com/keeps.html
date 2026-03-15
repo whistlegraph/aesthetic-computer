@@ -3200,8 +3200,13 @@
               </div>
             </div>
 
-            <p class="keeps-about-tech-section-label">Collectors</p>
-            <div id="keeps-leaderboard" style="font-family:var(--font-mono);font-size:12px;color:var(--text-secondary);margin-bottom:16px;">
+            <p class="keeps-about-tech-section-label">Keepers</p>
+            <div id="keeps-keepers-board" style="font-family:var(--font-mono);font-size:12px;color:var(--text-secondary);margin-bottom:16px;">
+              <div style="color:var(--text-tertiary);">Loading...</div>
+            </div>
+
+            <p class="keeps-about-tech-section-label">Buyers</p>
+            <div id="keeps-buyers-board" style="font-family:var(--font-mono);font-size:12px;color:var(--text-secondary);margin-bottom:16px;">
               <div style="color:var(--text-tertiary);">Loading...</div>
             </div>
 
@@ -3548,25 +3553,60 @@
           const creatorsEl = document.getElementById('stat-unique-creators');
           if (creatorsEl) creatorsEl.textContent = creators.size.toLocaleString();
 
-          // Build collector leaderboard
-          const ownerCounts = {};
+          // Build keepers (authors/creators) leaderboard
+          const keeperCounts = {};
+          for (const b of balances) {
+            const meta = b.token?.metadata;
+            if (meta?.creators) {
+              for (const c of meta.creators) {
+                if (!keeperCounts[c]) keeperCounts[c] = 0;
+                keeperCounts[c]++;
+              }
+            }
+          }
+          const keepersSorted = Object.entries(keeperCounts)
+            .sort((a, b) => b[1] - a[1]);
+          const keepersEl = document.getElementById('keeps-keepers-board');
+          if (keepersEl && keepersSorted.length) {
+            // Resolve aliases for keeper addresses
+            const keeperAddrs = keepersSorted.map(k => k[0]);
+            let keeperAliases = {};
+            try {
+              const aliasRes = await fetch(`${tzktApi}/v1/accounts?address.in=${keeperAddrs.join(',')}&select=address,alias&limit=${keeperAddrs.length}`);
+              if (aliasRes.ok) {
+                const aliasData = await aliasRes.json();
+                for (const a of aliasData) if (a.alias) keeperAliases[a.address] = a.alias;
+              }
+            } catch (e) {}
+            keepersEl.innerHTML = keepersSorted.map(([addr, count]) => {
+              const label = keeperAliases[addr] || (addr.slice(0, 8) + '\u2026' + addr.slice(-4));
+              const objktUrl = 'https://objkt.com/profile/' + addr;
+              return `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border-subtle);">
+                <a href="${objktUrl}" target="_blank" rel="noopener" style="color:var(--ac-purple);text-decoration:none;">${escapeHtml(label)}</a>
+                <span style="color:var(--text-tertiary);">${count} kept</span>
+              </div>`;
+            }).join('');
+          }
+
+          // Build buyers (current holders) leaderboard
+          const buyerCounts = {};
           for (const b of balances) {
             const addr = b.account?.address || b.account;
             if (!addr) continue;
             const alias = b.account?.alias || null;
-            if (!ownerCounts[addr]) ownerCounts[addr] = { alias, count: 0 };
-            ownerCounts[addr].count++;
+            if (!buyerCounts[addr]) buyerCounts[addr] = { alias, count: 0 };
+            buyerCounts[addr].count++;
           }
-          const sorted = Object.entries(ownerCounts)
+          const buyersSorted = Object.entries(buyerCounts)
             .sort((a, b) => b[1].count - a[1].count);
-          const lbEl = document.getElementById('keeps-leaderboard');
-          if (lbEl && sorted.length) {
-            lbEl.innerHTML = sorted.map(([addr, info], i) => {
+          const buyersEl = document.getElementById('keeps-buyers-board');
+          if (buyersEl && buyersSorted.length) {
+            buyersEl.innerHTML = buyersSorted.map(([addr, info]) => {
               const label = info.alias || (addr.slice(0, 8) + '\u2026' + addr.slice(-4));
               const objktUrl = 'https://objkt.com/profile/' + addr;
               return `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border-subtle);">
                 <a href="${objktUrl}" target="_blank" rel="noopener" style="color:var(--ac-purple);text-decoration:none;">${escapeHtml(label)}</a>
-                <span style="color:var(--text-tertiary);">${info.count} keep${info.count !== 1 ? 's' : ''}</span>
+                <span style="color:var(--text-tertiary);">${info.count} hold${info.count !== 1 ? 's' : ''}</span>
               </div>`;
             }).join('');
           }
