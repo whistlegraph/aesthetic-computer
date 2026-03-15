@@ -202,6 +202,13 @@ static void mount_minimal_fs(void) {
     mount("devpts", "/dev/pts", "devpts", 0, "ptmxmode=0666");
     mount("tmpfs", "/tmp", "tmpfs", 0, NULL);
 
+    // Enable zram swap (compressed RAM — effectively doubles available memory)
+    // Firefox + GTK needs significant memory beyond the initramfs tmpfs
+    system("modprobe zram 2>/dev/null; "
+           "echo 1G > /sys/block/zram0/disksize 2>/dev/null && "
+           "mkswap /dev/zram0 >/dev/null 2>&1 && "
+           "swapon /dev/zram0 2>/dev/null");
+
     // Bring up loopback interface (needed for Claude OAuth callback server)
     system("/bin/ip link set lo up 2>/dev/null || /usr/sbin/ip link set lo up 2>/dev/null || ifconfig lo up 2>/dev/null");
 

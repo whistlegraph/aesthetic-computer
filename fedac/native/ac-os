@@ -190,6 +190,13 @@ build_initramfs() {
     fi
     # Fontconfig cache dir
     sudo mkdir -p "${INITRAMFS_ROOT}/var/cache/fontconfig"
+    # GLib schemas, GTK modules, GDK-Pixbuf loaders — Firefox segfaults without these
+    sudo mkdir -p "${INITRAMFS_ROOT}/usr/share/glib-2.0"
+    sudo cp -a /usr/share/glib-2.0/schemas "${INITRAMFS_ROOT}/usr/share/glib-2.0/" 2>/dev/null || true
+    sudo cp -aL /usr/lib64/gtk-3.0 "${INITRAMFS_ROOT}/usr/lib64/" 2>/dev/null || true
+    sudo cp -aL /usr/lib64/gdk-pixbuf-2.0 "${INITRAMFS_ROOT}/usr/lib64/" 2>/dev/null || true
+    # Pango modules
+    sudo cp -aL /usr/lib64/pango "${INITRAMFS_ROOT}/usr/lib64/" 2>/dev/null || true
     log "  fontconfig+xkb+font: $(du -sh "${INITRAMFS_ROOT}/etc/fonts" "${INITRAMFS_ROOT}/usr/share/X11/xkb" 2>/dev/null | tail -1 | cut -f1)"
 
     # Node.js: only bundled if explicitly requested (USE_NODE=1)
