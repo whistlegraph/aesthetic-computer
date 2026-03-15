@@ -1662,25 +1662,33 @@ int main(int argc, char *argv[]) {
 
                     // Run cage+firefox from C (bypasses Bun.spawn fd issues)
                     char cmd[4096];
+                    // Setup dirs first
+                    mkdir("/tmp/xdg-browser", 0700);
+                    mkdir("/tmp/.mozilla", 0755);
+
+                    // Step-by-step logging to /mnt so we see exactly where it hangs
+                    ac_log("[browser] step 1: dirs created");
+
+                    // Set env vars in C (no shell escaping issues)
+                    setenv("HOME", "/tmp", 1);
+                    setenv("XDG_RUNTIME_DIR", "/tmp/xdg-browser", 1);
+                    setenv("WLR_BACKENDS", "drm", 1);
+                    setenv("WLR_SESSION", "direct", 1);
+                    setenv("WLR_RENDERER", "pixman", 1);
+                    setenv("LIBSEAT_BACKEND", "noop", 1);
+                    setenv("LD_LIBRARY_PATH", "/lib64:/opt/firefox", 1);
+                    setenv("LIBGL_ALWAYS_SOFTWARE", "1", 1);
+                    setenv("MOZ_ENABLE_WAYLAND", "1", 1);
+                    setenv("GDK_BACKEND", "wayland", 1);
+                    setenv("MOZ_APP_LAUNCHER", "/opt/firefox/firefox", 1);
+                    setenv("GRE_HOME", "/opt/firefox", 1);
+
+                    ac_log("[browser] step 2: env set, launching cage");
+
                     snprintf(cmd, sizeof(cmd),
-                        "HOME=/tmp "
-                        "XDG_RUNTIME_DIR=/tmp/xdg-browser "
-                        "WLR_BACKENDS=drm "
-                        "WLR_SESSION=direct "
-                        "WLR_RENDERER=pixman "
-                        "LIBSEAT_BACKEND=noop "
-                        "LD_LIBRARY_PATH=/lib64:/opt/firefox "
-                        "LIBGL_ALWAYS_SOFTWARE=1 "
-                        "MOZ_ENABLE_WAYLAND=1 "
-                        "GDK_BACKEND=wayland "
-                        "MOZ_APP_LAUNCHER=/opt/firefox/firefox "
-                        "GRE_HOME=/opt/firefox "
-                        "sh -c '"
-                        "mkdir -p /tmp/xdg-browser /tmp/.mozilla; "
-                        "chmod 0700 /tmp/xdg-browser; "
-                        "cd /opt/firefox; "
-                        "cage -s -- ./firefox --kiosk --no-remote --new-instance \"%s\""
-                        "' > /mnt/cage.log 2>&1",
+                        "cd /opt/firefox && "
+                        "cage -s -- ./firefox --kiosk --no-remote --new-instance '%s' "
+                        "> /mnt/cage.log 2>&1",
                         browser_url);
 
                     ac_log("[browser] Running cage+firefox...");
