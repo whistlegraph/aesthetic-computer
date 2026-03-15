@@ -2826,6 +2826,83 @@ async function adminTransfer(tokenId, fromAddress, toAddress, options = {}) {
 }
 
 // ============================================================================
+// FA2 Transfer
+// ============================================================================
+
+async function resolveTezDomain(name) {
+  const resp = await fetch(`https://api.tezos.domains/v1/search?query=${encodeURIComponent(name)}`);
+  if (!resp.ok) throw new Error(`Tezos Domains lookup failed: ${resp.status}`);
+  const data = await resp.json();
+  const entry = data?.items?.find(i => i.name === name);
+  if (!entry?.owner) throw new Error(`Could not resolve ${name}`);
+  return entry.owner;
+}
+
+async function transferToken(tokenId, toAddress, network = 'mainnet') {
+  const { tezos, credentials, config } = await createTezosClient(network);
+  const contractAddress = loadContractAddress(network);
+
+  let resolvedAddress = toAddress;
+  if (toAddress.endsWith('.tez')) {
+    console.log(`\n🔍 Resolving ${toAddress}...`);
+    resolvedAddress = await resolveTezDomain(toAddress);
+    console.log(`   → ${resolvedAddress}`);
+  }
+
+  console.log('\n╔══════════════════════════════════════════════════════════════╗');
+  console.log('║  🎁 Transfer Token                                          ║');
+  console.log('╚══════════════════════════════════════════════════════════════╝\n');
+
+  console.log(`📡 Network:  ${config.name}`);
+  console.log(`📍 Contract: ${contractAddress}`);
+  console.log(`🎨 Token:    #${tokenId}`);
+  console.log(`📤 From:     ${credentials.address}`);
+  console.log(`📥 To:       ${resolvedAddress}${toAddress !== resolvedAddress ? ` (${toAddress})` : ''}\n`);
+
+  // Check for active listing and retract if needed
+  const listing = await loadActiveListingForToken(contractAddress, tokenId, credentials.address);
+  const contract = await tezos.contract.at(contractAddress);
+
+  if (listing) {
+    const askId = Number.parseInt(String(listing.bigmap_key), 10) || listing.id;
+    const askPrice = (Number(listing.price_xtz || 0) / 1_000_000).toFixed(6);
+    console.log(`♻️  Retracting active listing #${askId} (${askPrice} XTZ)...`);
+
+    const marketplaceContract = listing.marketplace_contract || OBJKT_MARKETPLACE_FALLBACK[network];
+    const marketContract = await tezos.contract.at(marketplaceContract);
+
+    const op = await tezos.contract.batch()
+      .withContractCall(marketContract.methods.retract_ask(Number(askId)))
+      .withContractCall(contract.methods.transfer([{
+        from_: credentials.address,
+        txs: [{ to_: resolvedAddress, token_id: tokenId, amount: 1 }]
+      }]))
+      .send();
+
+    console.log(`   ⏳ Operation: ${op.hash}`);
+    console.log('   ⏳ Waiting for confirmation...');
+    await op.confirmation(1);
+
+    console.log('\n✅ Listing retracted + token transferred!');
+    console.log(`   🔗 ${config.explorer}/${op.hash}\n`);
+    return { hash: op.hash, retracted: askId };
+  }
+
+  const op = await contract.methods.transfer([{
+    from_: credentials.address,
+    txs: [{ to_: resolvedAddress, token_id: tokenId, amount: 1 }]
+  }]).send();
+
+  console.log(`   ⏳ Operation: ${op.hash}`);
+  console.log('   ⏳ Waiting for confirmation...');
+  await op.confirmation(1);
+
+  console.log('\n✅ Token transferred!');
+  console.log(`   🔗 ${config.explorer}/${op.hash}\n`);
+  return { hash: op.hash };
+}
+
+// ============================================================================
 // Marketplace Commands (Objkt)
 // ============================================================================
 
@@ -4145,28 +4222,30 @@ async function main() {
         await unpauseContract({ network: getNetwork(1) });
         break;
 
-      case 'transfer:admin': {
-        if (!args[1] || !args[2] || !args[3]) {
-          console.error('Usage: node keeps.mjs transfer:admin <token_id> <from_address> <to_address> [network]');
+      case 'transfer': {
+        if (!args[1] || !args[2]) {
+          console.error('Usage: node keeps.mjs transfer <token_id> <to_address> [network]');
           console.error('');
           console.error('Examples:');
-          console.error('  node keeps.mjs transfer:admin 5 tz1abc... tz1def...');
+          console.error('  node keeps.mjs transfer 53 reas.tez --wallet=aesthetic --yes');
           console.error('');
-          console.error('Note: This is for customer service / emergency use only.');
-          console.error('      Requires admin authorization.');
+          console.error('Automatically retracts active Objkt listing if one exists.');
           process.exit(1);
         }
-        const tokenId = parseInt(args[1]);
-        const fromAddr = args[2];
-        const toAddr = args[3];
-
-        if (!fromAddr.startsWith('tz') || !toAddr.startsWith('tz')) {
-          console.error('❌ Invalid Tezos address. Must start with tz1, tz2, or tz3.');
+        const xferTokenId = parseInt(args[1]);
+        const xferTo = args[2];
+        if (!xferTo.startsWith('tz') && !xferTo.endsWith('.tez')) {
+          console.error('❌ Invalid Tezos address.');
           process.exit(1);
         }
-
-        await adminTransfer(tokenId, fromAddr, toAddr, { network: getNetwork(4) });
+        await transferToken(xferTokenId, xferTo, getNetwork(3));
         break;
+      }
+
+      case 'transfer:admin': {
+        console.error('⚠️  transfer:admin is deprecated (v10 contract has no admin_transfer).');
+        console.error('   Use: node keeps.mjs transfer <token_id> <to_address> --wallet=aesthetic');
+        process.exit(1);
       }
 
       case 'help':
@@ -4208,7 +4287,7 @@ v4 Commands (Royalties, Pause, Admin Transfer):
   royalty:set <pct> [network]   Set default royalty (0-25%, admin only)
   pause [network]               Emergency pause (stops minting, admin only)
   unpause [network]             Resume operations (admin only)
-  transfer:admin <id> <from> <to>  Emergency token transfer (admin only)
+  transfer <id> <to>               Transfer token (auto-unlists, supports .tez domains)
 
   help                          Show this help
 
