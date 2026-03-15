@@ -5953,6 +5953,7 @@ const $paintApiUnwrapped = {
   // i: ink,
   // Defaults
   blend: graph.blendMode,
+  setEraseTarget: graph.setEraseTarget,
   page: function () {
     if (arguments[0]?.api) {
       // console.log("New paint api?", arguments[0].api);

@@ -4134,6 +4134,9 @@ class KidLisp {
           // the layer0 paste, hiding content outside the masked region
           $.unmask();
 
+          // 🧽 Clear erase target before compositing
+          if ($.setEraseTarget) $.setEraseTarget(null, 0);
+
           // 🚨 CRITICAL FIX: Manually update $.screen to point to the display screen
           $.screen.width = screen.width;
           $.screen.height = screen.height;
@@ -4232,6 +4235,24 @@ class KidLisp {
                       $.paste(bakeLayer, 0, 0);
                     } catch (error) {
                       console.warn(`⚠️ Error pasting bake layer ${i}:`, error.message);
+                    }
+                    // 🧽 Apply eraseMask: punch through all composited layers below
+                    if (bakeLayer.eraseMask) {
+                      const dst = screen.pixels;
+                      const mask = bakeLayer.eraseMask;
+                      const totalPixels = bakeLayer.width * bakeLayer.height;
+                      for (let p = 0; p < totalPixels; p++) {
+                        if (mask[p] > 0) {
+                          const di = p * 4;
+                          const normalAlpha = 1 - mask[p] / 255;
+                          dst[di + 3] = (dst[di + 3] * normalAlpha + 0.5) | 0;
+                          if (dst[di + 3] === 0) {
+                            dst[di] = 32;
+                            dst[di + 1] = 32;
+                            dst[di + 2] = 32;
+                          }
+                        }
+                      }
                     }
                   } else {
                     console.warn(`⚠️ Skipping bake layer ${i} paste due to dimension mismatch: bake=${bakeLayer.width}x${bakeLayer.height}, screen=${screen.width}x${screen.height}`);
@@ -5746,19 +5767,32 @@ class KidLisp {
 
         // 🎨 Check if "erase" mode is being requested
         const isEraseMode = args.length >= 1 && args[0] === "erase";
-        
+
         // If erase mode, set blend mode to "erase" before processing
         if (isEraseMode && api.blend) {
           if (kidlispInkLoggingEnabled()) {
             // console.log('🎨 INK: Setting blend mode to ERASE');
           }
           api.blend("erase");
+          // 🧽 When erasing on a bake layer, set up an eraseMask so compositing
+          // can punch through previously baked layers.
+          if (this.currentBakeIndex >= 0 && this.bakes && api.setEraseTarget) {
+            const bake = this.bakes[this.currentBakeIndex];
+            if (bake && !bake.eraseMask) {
+              bake.eraseMask = new Uint8Array(bake.width * bake.height);
+            }
+            if (bake?.eraseMask) {
+              api.setEraseTarget(bake.eraseMask, bake.width);
+            }
+          }
         } else if (!isEraseMode && api.blend) {
           // Reset to normal blend mode if not erase
           // if (kidlispInkLoggingEnabled() && args.length > 0) {
           //   console.log('🎨 INK: Resetting blend mode to BLEND');
           // }
           api.blend("blend");
+          // 🧽 Clear erase target when switching away from erase mode
+          if (api.setEraseTarget) api.setEraseTarget(null, 0);
         }
 
         // Args are already evaluated by the evaluator, so we just need to flatten arrays
@@ -8218,6 +8252,9 @@ class KidLisp {
       // 🍞 Bake function - creates a new painting buffer for subsequent drawing
       // Like: bakes[index] || painting(screen.width, screen.height, (api) => {...})
       bake: (api, args = []) => {
+        // 🧽 Clear erase target on layer transition
+        if (api.setEraseTarget) api.setEraseTarget(null, 0);
+
         // 🎯 EMBEDDED CONTEXT: In embedded contexts, bake is a no-op since there's
         // no layer compositing infrastructure. Just continue drawing to current buffer.
         if (this.isEmbeddedContext) {
@@ -8329,6 +8366,9 @@ class KidLisp {
       //        (burn zoom 1.5) - zooms all bake layers by 1.5x
       // This lets you apply transformations to the entire bake stack at once
       burn: (api, args = []) => {
+        // 🧽 Clear erase target on layer transition
+        if (api.setEraseTarget) api.setEraseTarget(null, 0);
+
         // 🎯 EMBEDDED CONTEXT: In embedded contexts, burn is a no-op since there's
         // no layer infrastructure. Just return early - the drawing is already on the buffer.
         if (this.isEmbeddedContext) {
@@ -8382,6 +8422,24 @@ class KidLisp {
                   api.paste(bakeLayer, 0, 0);
                 } catch (error) {
                   console.warn(`⚠️ Burn: Error pasting bake layer ${i}:`, error.message);
+                }
+                // 🧽 Apply eraseMask: punch through all composited layers below
+                if (bakeLayer.eraseMask) {
+                  const dst = this.burnedBuffer.pixels;
+                  const mask = bakeLayer.eraseMask;
+                  const totalPixels = bakeLayer.width * bakeLayer.height;
+                  for (let p = 0; p < totalPixels; p++) {
+                    if (mask[p] > 0) {
+                      const di = p * 4;
+                      const normalAlpha = 1 - mask[p] / 255;
+                      dst[di + 3] = (dst[di + 3] * normalAlpha + 0.5) | 0;
+                      if (dst[di + 3] === 0) {
+                        dst[di] = 32;
+                        dst[di + 1] = 32;
+                        dst[di + 2] = 32;
+                      }
+                    }
+                  }
                 }
               } else {
                 console.warn(`⚠️ Burn: Skipping bake layer ${i} paste due to dimension mismatch: bake=${bakeLayer.width}x${bakeLayer.height}, burn=${width}x${height}`);
