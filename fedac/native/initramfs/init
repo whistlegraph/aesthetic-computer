@@ -1,20 +1,20 @@
 #!/bin/sh
-# AC Native OS init — direct DRM mode
-# Wayland compositor support is compiled in but disabled pending debugging.
+# AC Native OS init
+# Tries Wayland (cage compositor) first, falls back to DRM direct.
 
 mount -t proc proc /proc 2>/dev/null
 mount -t sysfs sysfs /sys 2>/dev/null
 mount -t devtmpfs devtmpfs /dev 2>/dev/null
-mkdir -p /dev/pts /tmp /run
+mkdir -p /dev/pts /tmp /run /etc
 mount -t devpts devpts /dev/pts -o ptmxmode=0666 2>/dev/null
 mount -t tmpfs tmpfs /tmp 2>/dev/null
 mount -t tmpfs tmpfs /run 2>/dev/null
 
-# zram swap
+# zram swap (Firefox needs memory)
 modprobe zram 2>/dev/null
 echo 1G > /sys/block/zram0/disksize 2>/dev/null && mkswap /dev/zram0 >/dev/null 2>&1 && swapon /dev/zram0 2>/dev/null
 
-# Loopback
+# Loopback (needed for Claude OAuth callback)
 ip link set lo up 2>/dev/null
 
 # Wait for GPU
@@ -34,4 +34,38 @@ export SSL_CERT_FILE="/etc/pki/tls/certs/ca-bundle.crt"
 export CURL_CA_BUNDLE="/etc/pki/tls/certs/ca-bundle.crt"
 export SSL_CERT_DIR="/etc/ssl/certs"
 
+# Try Wayland compositor (cage + seatd)
+if command -v cage >/dev/null 2>&1 && command -v seatd >/dev/null 2>&1 && [ -e /dev/dri/card0 ]; then
+    # seatd needs /etc/group and /etc/passwd
+    echo "root:x:0:" > /etc/group
+    echo "root:x:0:root" > /etc/passwd
+
+    # Start seatd
+    seatd -g root 2>/dev/null &
+    SEATD_PID=$!
+    i=0
+    while [ ! -S /run/seatd.sock ] && [ $i -lt 20 ]; do
+      usleep 100000
+      i=$((i+1))
+    done
+
+    if [ -S /run/seatd.sock ]; then
+        export XDG_RUNTIME_DIR=/tmp/xdg
+        export HOME=/tmp
+        mkdir -p "$XDG_RUNTIME_DIR"
+        chmod 0700 "$XDG_RUNTIME_DIR"
+
+        # cage runs ac-native as a Wayland client
+        # If cage fails, fall through to DRM direct
+        cage -s -- /ac-native /piece.mjs
+        CAGE_RC=$?
+
+        # If we get here, cage exited — kill seatd and fall through
+        kill $SEATD_PID 2>/dev/null
+    else
+        kill $SEATD_PID 2>/dev/null
+    fi
+fi
+
+# DRM direct fallback
 exec /ac-native /piece.mjs
