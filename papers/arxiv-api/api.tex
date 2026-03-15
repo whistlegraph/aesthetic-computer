@@ -69,7 +69,7 @@
   urlcolor=acpurple,
   citecolor=acpurple,
   pdfauthor={Jeffrey Alan Scudder},
-  pdftitle={From setup() to boot(): The Piece API as Successor to the Processing Sketch},
+  pdftitle={From setup() to boot(): Processing at the Core of the Piece API},
 }
 
 % === SECTION FORMATTING ===
@@ -191,7 +191,7 @@
 \begin{center}
 {\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} From \texttt{setup()} to \texttt{boot()}}\par
 \vspace{0.2em}
-{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} The Piece API as Successor to the Processing Sketch}\par
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Processing at the Core of the Piece API}\par
 \vspace{0.6em}
 {\normalsize Jeffrey Alan Scudder}\par
 {\small\color{acgray} Aesthetic Inc.}\par
@@ -210,7 +210,7 @@
 
 \begin{quote}
 \small\noindent\textbf{Abstract.}
-Every creative coding platform defines a core API---a small set of functions through which programs see the world and draw on it. Processing's \texttt{setup()}/\texttt{draw()} with global drawing primitives (\texttt{background()}, \texttt{stroke()}, \texttt{ellipse()}) established a pattern in 2001 that has shaped two decades of creative coding tools. p5.js brought this model to the browser in 2014, preserving the API surface while adapting to JavaScript and the DOM. \ac{} (AC), begun in 2021, inherits this lineage but departs from it in several structural ways: it replaces the two-function lifecycle with five (\texttt{boot}, \texttt{paint}, \texttt{act}, \texttt{sim}, \texttt{leave}), eliminates global state in favor of destructured API injection, separates simulation from rendering at different tick rates, and makes every program URL-addressable with no build step. This paper traces the technical genealogy from Design By Numbers through Processing and p5.js to the AC piece API, comparing the lifecycle models, drawing primitives, input handling, and state management strategies of each. We argue that the AC API design---while directly descended from Processing---reflects a shift from the \emph{sketchbook} metaphor (write, run, discard) to the \emph{instrument} metaphor (boot, play, practice, return).
+Every creative coding platform defines a core API---a small set of functions through which programs see the world and draw on it. Processing's \texttt{setup()}/\texttt{draw()} with global drawing primitives (\texttt{background()}, \texttt{stroke()}, \texttt{ellipse()}) established a pattern in 2001 that has shaped two decades of creative coding tools. p5.js brought this model to the browser in 2014, preserving the API surface while adapting to JavaScript and the DOM. \ac{} (AC), begun in 2021, carries Processing's thinking at its core while extending the model in several structural ways: it expands the two-function lifecycle to five (\texttt{boot}, \texttt{paint}, \texttt{act}, \texttt{sim}, \texttt{leave}), eliminates global state in favor of destructured API injection, separates simulation from rendering at different tick rates, and makes every program URL-addressable with no build step. This paper traces how Processing's ideas live inside the AC piece API, comparing the lifecycle models, drawing primitives, input handling, and state management strategies across Design By Numbers, Processing, p5.js, and AC. We argue that the AC API design---with Processing's immediate-mode graphics model at its foundation---extends the \emph{sketchbook} metaphor (write, run, discard) into an \emph{instrument} metaphor (boot, play, practice, return).
 \end{quote}
 \vspace{0.5em}
 }]
@@ -325,7 +325,7 @@ p5.js preserved: the two-function lifecycle, global drawing primitives, stateful
 \section{The AC Piece API (2021--)}
 \label{sec:ac}
 
-\ac{}'s piece API~\citep{scudder2026ac} inherits the Processing lineage---immediate-mode graphics, single-file programs, lifecycle functions---but restructures it around five concerns instead of two.
+\ac{}'s piece API~\citep{scudder2026ac} is built on Processing's core ideas---immediate-mode graphics, single-file programs, lifecycle functions---and extends them around five concerns instead of two.
 
 \subsection{Five lifecycle functions}
 
@@ -359,9 +359,9 @@ export { boot, paint, act, sim };
 The five functions are:
 
 \begin{itemize}
-  \item \texttt{boot(\$api)} --- runs once when the piece loads. Replaces Processing's \texttt{setup()}, but with no canvas configuration: the screen exists before the piece does.
-  \item \texttt{paint(\$api)} --- runs every frame that needs rendering. Replaces \texttt{draw()}, but is purely visual: no logic, no state mutation (by convention).
-  \item \texttt{act(\$api)} --- called once per input event. Replaces Processing's optional callbacks (\texttt{mousePressed()}, \texttt{keyPressed()}) with a single, unified entry point.
+  \item \texttt{boot(\$api)} --- runs once when the piece loads. Extends Processing's \texttt{setup()}, with the screen provided by the runtime rather than configured by the programmer.
+  \item \texttt{paint(\$api)} --- runs every frame that needs rendering. Carries forward \texttt{draw()}'s immediate-mode model, but is purely visual: no logic, no state mutation (by convention).
+  \item \texttt{act(\$api)} --- called once per input event. Consolidates Processing's event callbacks (\texttt{mousePressed()}, \texttt{keyPressed()}) into a single, unified entry point.
   \item \texttt{sim(\$api)} --- runs at a fixed 120Hz, potentially multiple times per rendered frame. Has no equivalent in Processing; closest analogue is the fixed-timestep game loop~\citep{nystrom2014game}.
   \item \texttt{leave(\$api)} --- cleanup on exit. No equivalent in Processing, where sketches simply terminate.
 \end{itemize}
@@ -370,7 +370,7 @@ Each function is optional. A piece that exports only \texttt{paint} is a valid, 
 
 \subsection{API injection via destructuring}
 
-The most structurally significant departure from Processing and p5.js is that \textbf{no API functions exist in the global scope}. Every function the piece uses is received as a parameter:
+The most structurally significant extension of the Processing model is that \textbf{no API functions exist in the global scope}. Every function the piece uses is received as a parameter:
 
 \begin{lstlisting}[style=acjsstyle,caption={API destructuring in AC.}]
 function paint({ wipe, ink, line, box,
@@ -742,15 +742,13 @@ The \texttt{beat()} function is particularly notable. It elevates rhythmic timin
 \section{Conclusion}
 \label{sec:conclusion}
 
-The path from \texttt{setup()}/\texttt{draw()} to \texttt{boot()}/\texttt{paint()}/\texttt{act()}/\texttt{sim()}/\texttt{leave()} is not a refactoring. It is a rethinking of what the core API should assume about the programmer's relationship to their program.
+Processing's core insight---that a programming environment for creative work should provide a lifecycle, not just a language---lives at the center of every AC piece. The path from \texttt{setup()}/\texttt{draw()} to \texttt{boot()}/\texttt{paint()}/\texttt{act()}/\texttt{sim()}/\texttt{leave()} is not a departure from Processing but an argument about what Processing's model is capable of when extended further.
 
-Processing assumes the programmer is \emph{sketching}: exploring an idea, seeing what happens, moving on. The API is optimized for speed of expression---global scope, minimal ceremony, everything in one function. This is the right model for a sketchbook.
+Processing proved that \texttt{setup()} + \texttt{draw()} was enough to make animation accessible. The AC piece API argues that the same immediate-mode, lifecycle-driven approach---when decomposed into five functions instead of two---can support not just sketching but \emph{practicing}: returning to the same piece, refining it, performing with it, building fluency over time.
 
-AC assumes the programmer is \emph{practicing}: returning to the same piece, refining it, performing with it, building fluency over time. The API is optimized for the long relationship---separated concerns, explicit dependencies, deterministic timing, named entry and exit points. This is the right model for an instrument.
+The sketchbook metaphor (write, run, discard) and the instrument metaphor (boot, play, practice, return) are not opposed. They are points on the same continuum. Processing showed that the continuum exists. AC argues it extends further than we thought---that \texttt{setup()} + \texttt{draw()} was the beginning of an idea whose full shape requires \texttt{boot} + \texttt{act} + \texttt{sim} + \texttt{paint} + \texttt{leave}.
 
-Both models descend from the same insight: that a programming environment for creative work should provide a lifecycle, not just a language. Processing proved that \texttt{setup()} + \texttt{draw()} was enough to make animation accessible. AC proposes that five functions---one for each phase of the perception-action cycle---is enough to make interactive programs \emph{practicable}: not just writable, but returnable, performable, and worth maintaining.
-
-The API is the instrument. How it decomposes the act of programming determines what gets made.
+The API is the instrument. Processing is its core. How the API decomposes the act of programming determines what gets made.
 
 \bibliographystyle{plainnat}
 \bibliography{references}
