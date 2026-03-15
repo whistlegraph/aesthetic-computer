@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <dirent.h>
+#include <errno.h>
 #include <sys/mount.h>
 #include <sys/statvfs.h>
 #include <sys/stat.h>
@@ -1685,13 +1686,22 @@ int main(int argc, char *argv[]) {
 
                     ac_log("[browser] step 2: env set, launching cage");
 
+                    // Write a marker file BEFORE running cage to prove file I/O works
+                    FILE *marker = fopen("/mnt/cage.log", "w");
+                    if (marker) {
+                        fprintf(marker, "=== cage launch ===\nURL: %s\n", browser_url);
+                        fclose(marker);
+                        ac_log("[browser] wrote cage.log marker");
+                    } else {
+                        ac_log("[browser] CANNOT write /mnt/cage.log: errno=%d", errno);
+                    }
+
                     snprintf(cmd, sizeof(cmd),
-                        "cd /opt/firefox && "
-                        "cage -s -- ./firefox --kiosk --no-remote --new-instance '%s' "
-                        "> /mnt/cage.log 2>&1",
+                        "cage -s -- /opt/firefox/firefox --kiosk --no-remote --new-instance '%s' "
+                        ">> /mnt/cage.log 2>&1",
                         browser_url);
 
-                    ac_log("[browser] Running cage+firefox...");
+                    ac_log("[browser] Running: %s", cmd);
                     int rc = system(cmd);
                     ac_log("[browser] Exited: %d", rc);
 
