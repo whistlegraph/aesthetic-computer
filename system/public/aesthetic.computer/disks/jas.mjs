@@ -109,6 +109,7 @@ let synthVoice = null;
 let contours = [[]];
 let activeContour = 0;
 let cursorBlink = 0;
+let showKey = false; // Tab toggles full opcode reference
 
 // Feedback state: pixel-derived values that modulate the synth
 let feedback = {
@@ -463,6 +464,12 @@ function act({ event: e, sound }) {
     return;
   }
 
+  // Toggle reference key
+  if (e.is("keyboard:down:tab") && !e.repeat) {
+    showKey = !showKey;
+    return;
+  }
+
   // New contour line
   if (e.is("keyboard:down:enter") && !e.repeat) {
     contours.push([]);
@@ -594,58 +601,119 @@ function paint({ wipe, ink, line, box, plot, write, screen }) {
     textY += CHAR_H + CONTOUR_MARGIN;
   }
 
-  // Keyboard guide at bottom
-  const guideY = sh - 52;
-  ink(40, 38, 50);
-  box(0, guideY, sw, 52);
-  ink(55, 53, 65);
-  line(0, guideY, sw, guideY);
-
-  const rows = [
-    { keys: "1234567890", label: "val", family: "val", y: guideY + 4 },
-    { keys: "qwertyuiop", label: "pitch", family: "pitch", y: guideY + 16 },
-    { keys: "asdfghjkl", label: "draw", family: "draw", y: guideY + 28 },
-    { keys: "zxcvbnm,./", label: "ctrl", family: "ctrl", y: guideY + 40 },
-  ];
-
-  for (const row of rows) {
-    const fam = FAMILIES[row.family] || FAMILIES.mod;
-    ink(fam.color[0], fam.color[1], fam.color[2], 120);
-    write(row.label, { x: 2, y: row.y });
-
-    let kx = 34;
-    for (const ch of row.keys) {
-      const op = OPS[ch];
-      const f = op ? FAMILIES[op.family] : FAMILIES.mod;
-      const [r, g, b] = f.color;
-
-      const lastTyped = contours[activeContour]?.[contours[activeContour].length - 1];
-      if (ch === lastTyped) {
-        ink(r, g, b, 255);
-        box(kx - 1, row.y - 1, CHAR_W + 1, CHAR_H + 1);
-        ink(22, 20, 30);
-      } else {
-        ink(r, g, b, 180);
-      }
-      write(ch, { x: kx, y: row.y });
-      kx += CHAR_W + 2;
-    }
+  // Show last typed opcode description
+  const lastTyped = contours[activeContour]?.[contours[activeContour].length - 1];
+  if (lastTyped && OPS[lastTyped]) {
+    const op = OPS[lastTyped];
+    const fam = FAMILIES[op.family];
+    ink(fam.color[0], fam.color[1], fam.color[2]);
+    write(`${lastTyped} = ${op.desc}`, { x: sw - (op.desc.length + 4) * CHAR_W, y: hudSafeTop + 2 });
   }
 
-  // Scan mode indicator
-  ink(60, 160, 200, 150);
-  write(`scan: ${SCAN_NAMES[scanMode]}`, { x: sw - 76, y: guideY + 4 });
+  if (showKey) {
+    // --- FULL REFERENCE KEY OVERLAY ---
+    ink(18, 16, 24, 230);
+    box(0, hudSafeTop, sw, sh - hudSafeTop);
 
-  // Status
-  ink(100, 100, 120);
-  write(`${totalOps} ops`, { x: sw - 40, y: guideY + 40 });
+    let ky = hudSafeTop + 4;
+    const colW = Math.floor(sw / 2);
+
+    // Title
+    ink(200, 200, 220);
+    write("opcode reference", { x: 4, y: ky });
+    ink(100, 100, 120);
+    write("tab to close", { x: sw - 72, y: ky });
+    ky += CHAR_H + 6;
+
+    // Draw each family as a section
+    const familyKeys = {
+      val:   "1234567890",
+      pitch: "qwertyuiop",
+      draw:  "asdfghjkl",
+      ctrl:  "zxcvbnm",
+      mod:   ",./;'[]-=",
+    };
+
+    for (const [famName, keys] of Object.entries(familyKeys)) {
+      const fam = FAMILIES[famName];
+      ink(fam.color[0], fam.color[1], fam.color[2]);
+      write(fam.name, { x: 4, y: ky });
+      ky += CHAR_H + 2;
+
+      for (const ch of keys) {
+        const op = OPS[ch];
+        if (!op) continue;
+        ink(fam.color[0], fam.color[1], fam.color[2], 255);
+        write(ch, { x: 8, y: ky });
+        ink(160, 160, 180);
+        write(op.desc, { x: 20, y: ky });
+        ky += CHAR_H + 1;
+
+        if (ky > sh - CHAR_H - 4) break;
+      }
+      ky += 4;
+      if (ky > sh - CHAR_H - 4) break;
+    }
+
+    // Controls at bottom
+    ky = sh - CHAR_H * 4 - 8;
+    ink(100, 100, 130);
+    write("controls:", { x: 4, y: ky }); ky += CHAR_H + 2;
+    write("space    run/stop", { x: 8, y: ky }); ky += CHAR_H + 1;
+    write("enter    new line", { x: 8, y: ky }); ky += CHAR_H + 1;
+    write("bksp     delete", { x: 8, y: ky });
+  } else {
+    // --- COMPACT KEYBOARD GUIDE ---
+    const guideY = sh - 52;
+    ink(40, 38, 50);
+    box(0, guideY, sw, 52);
+    ink(55, 53, 65);
+    line(0, guideY, sw, guideY);
+
+    const rows = [
+      { keys: "1234567890", label: "val", family: "val", y: guideY + 4 },
+      { keys: "qwertyuiop", label: "pitch", family: "pitch", y: guideY + 16 },
+      { keys: "asdfghjkl", label: "draw", family: "draw", y: guideY + 28 },
+      { keys: "zxcvbnm,./", label: "ctrl", family: "ctrl", y: guideY + 40 },
+    ];
+
+    for (const row of rows) {
+      const fam = FAMILIES[row.family] || FAMILIES.mod;
+      ink(fam.color[0], fam.color[1], fam.color[2], 120);
+      write(row.label, { x: 2, y: row.y });
+
+      let kx = 34;
+      for (const ch of row.keys) {
+        const op = OPS[ch];
+        const f = op ? FAMILIES[op.family] : FAMILIES.mod;
+        const [r, g, b] = f.color;
+
+        if (ch === lastTyped) {
+          ink(r, g, b, 255);
+          box(kx - 1, row.y - 1, CHAR_W + 1, CHAR_H + 1);
+          ink(22, 20, 30);
+        } else {
+          ink(r, g, b, 180);
+        }
+        write(ch, { x: kx, y: row.y });
+        kx += CHAR_W + 2;
+      }
+    }
+
+    // Scan mode + status
+    ink(60, 160, 200, 150);
+    write(`scan: ${SCAN_NAMES[scanMode]}`, { x: sw - 76, y: guideY + 4 });
+    ink(100, 100, 120);
+    write(`${totalOps} ops`, { x: sw - 40, y: guideY + 28 });
+    write("tab: key", { x: sw - 52, y: guideY + 40 });
+  }
 
   // Empty state hint
-  if (totalOps === 0) {
+  if (totalOps === 0 && !showKey) {
     ink(80, 80, 100);
     write("type to compose", { x: sw / 2 - 42, y: sh / 2 - 30 });
     write("space to run", { x: sw / 2 - 34, y: sh / 2 - 18 });
-    write("what you see is what you hear", { x: sw / 2 - 80, y: sh / 2 - 6 });
+    write("tab for reference", { x: sw / 2 - 48, y: sh / 2 - 6 });
   }
 }
 
