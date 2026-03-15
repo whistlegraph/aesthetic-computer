@@ -365,7 +365,8 @@ flash_usb() {
     # Build config.json from authenticated user (or preserve existing)
     local USB_CONFIG
     if [ -n "${AC_USER_HANDLE:-}" ]; then
-        USB_CONFIG=$(node -e "console.log(JSON.stringify({handle:'${AC_USER_HANDLE}',sub:'${AC_USER_SUB}',email:'${AC_USER_EMAIL}'}))" 2>/dev/null)
+        local AC_ACCESS_TOKEN=$(node -e "const t=JSON.parse(require('fs').readFileSync('${HOME}/.ac-token','utf8')); console.log(t.access_token || '')" 2>/dev/null)
+        USB_CONFIG=$(node -e "console.log(JSON.stringify({handle:'${AC_USER_HANDLE}',sub:'${AC_USER_SUB}',email:'${AC_USER_EMAIL}',token:'${AC_ACCESS_TOKEN}'}))" 2>/dev/null)
     else
         USB_CONFIG='{"handle": "unknown"}'
     fi
