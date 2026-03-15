@@ -534,9 +534,13 @@ int pty_spawn(ACPty *pty, int cols, int rows, const char *cmd, char *const argv[
         setenv("HOME", "/tmp", 0);
         setenv("LANG", "en_US.UTF-8", 1);
         setenv("PATH", "/bin:/sbin:/usr/bin:/usr/sbin", 0);
-        // Claude Code: skip browser open
-        setenv("BROWSER", "", 1);
+        // Claude Code: use xdg-open shim for browser OAuth
+        setenv("BROWSER", "/bin/xdg-open", 1);
         setenv("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1", 1);
+        // Ensure Claude config directories exist
+        mkdir("/tmp/.claude", 0755);
+        mkdir("/tmp/.config", 0755);
+
         // Load Claude OAuth credentials from device auth flow (written by login.mjs)
         {
             FILE *cf = fopen("/mnt/claude-credentials.json", "r");
