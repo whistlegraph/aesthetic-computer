@@ -31,6 +31,9 @@
 #include "tts.h"
 #include "js-bindings.h"
 #include "machines.h"
+#ifdef USE_WAYLAND
+#include "wayland-display.h"
+#endif
 
 static volatile int running = 1;
 static FILE *logfile = NULL;
@@ -336,6 +339,22 @@ static int get_la_hour(void);
 
 // Global display pointer — exposed to js-bindings for browser DRM handoff
 void *g_display = NULL;
+
+#ifdef USE_WAYLAND
+// Global Wayland display — used by ac_display_present dispatch
+static ACWaylandDisplay *g_wayland_display = NULL;
+#endif
+
+// Unified display present — dispatches to Wayland or DRM backend
+static void ac_display_present(ACDisplay *display, ACFramebuffer *screen, int scale) {
+#ifdef USE_WAYLAND
+    if (g_wayland_display) {
+        wayland_display_present(g_wayland_display, screen, scale);
+        return;
+    }
+#endif
+    ac_display_present(display, screen, scale);
+}
 
 // DRM master release/acquire (defined in drm-display.c)
 extern int drm_release_master(void *display);
@@ -811,7 +830,7 @@ static int draw_install_confirm(ACGraph *graph, ACFramebuffer *screen,
         font_draw_matrix(graph, yn, (screen->width - yw) / 2,
                          screen->height / 2 + 20, 1);
 
-        display_present(display, screen, 3);
+        ac_display_present(display, screen, 3);
         frame_sync_60fps(&anim_time);
 
         // Read key events
@@ -890,7 +909,7 @@ static int draw_install_reboot_prompt(ACGraph *graph, ACFramebuffer *screen,
             font_draw_matrix(graph, line4, (screen->width - l4w) / 2, screen->height / 2 + 48, 1);
         }
 
-        display_present(display, screen, 3);
+        ac_display_present(display, screen, 3);
         frame_sync_60fps(&anim_time);
 
         if (!input) {
@@ -1016,7 +1035,7 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
 
     // Start with a black frame immediately (hides any kernel text)
     graph_wipe(graph, (ACColor){0, 0, 0, 255});
-    display_present(display, screen, 3);
+    ac_display_present(display, screen, 3);
 
     // Check if this is a fresh boot of a new version
     int is_new_version = 0;
@@ -1240,7 +1259,7 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
                              (screen->width - hw) / 2, screen->height - 18, 1);
         }
 
-        display_present(display, screen, 3);
+        ac_display_present(display, screen, 3);
         frame_sync_60fps(&anim_time);
     }
 
@@ -1359,7 +1378,7 @@ static void draw_boot_status(ACGraph *graph, ACFramebuffer *screen,
             }
         }
 
-        display_present(display, screen, 3);
+        ac_display_present(display, screen, 3);
         frame_sync_60fps(&anim_time);
     }
 }
@@ -1368,7 +1387,7 @@ int main(int argc, char *argv[]) {
     struct timespec boot_start;
     clock_gettime(CLOCK_MONOTONIC, &boot_start);
 
-    // Mount filesystems if PID 1
+    // Mount filesystems if PID 1 (direct DRM boot)
     if (getpid() == 1) {
         mount_minimal_fs();
         // Ensure PATH includes all standard binary directories
@@ -1377,12 +1396,26 @@ int main(int argc, char *argv[]) {
         setenv("SSL_CERT_FILE", "/etc/pki/tls/certs/ca-bundle.crt", 1);
         setenv("CURL_CA_BUNDLE", "/etc/pki/tls/certs/ca-bundle.crt", 1);
         setenv("SSL_CERT_DIR", "/etc/ssl/certs", 1);
+    } else {
+        // Under cage: filesystems already mounted by init script,
+        // but still need USB log mount and PATH
+        if (!getenv("PATH"))
+            setenv("PATH", "/bin:/sbin:/usr/bin:/usr/sbin", 1);
+        setenv("SSL_CERT_FILE", "/etc/pki/tls/certs/ca-bundle.crt", 1);
+        setenv("CURL_CA_BUNDLE", "/etc/pki/tls/certs/ca-bundle.crt", 1);
+        setenv("SSL_CERT_DIR", "/etc/ssl/certs", 1);
     }
 
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
-    signal(SIGUSR1, sigusr_handler);
-    signal(SIGUSR2, sigusr_handler);
+#ifdef USE_WAYLAND
+    // Under Wayland: no DRM handoff signals needed (browser is sibling client)
+    if (!getenv("WAYLAND_DISPLAY"))
+#endif
+    {
+        signal(SIGUSR1, sigusr_handler);
+        signal(SIGUSR2, sigusr_handler);
+    }
 
     // Determine piece path (ignore kernel cmdline args passed to init)
     const char *piece_path = "/piece.mjs";
@@ -1397,10 +1430,36 @@ int main(int argc, char *argv[]) {
     ACFramebuffer *screen = NULL;
     ACInput *input = NULL;
     int pixel_scale = 3;  // Default: 1/3 display resolution (3x nearest-neighbor)
+#ifdef USE_WAYLAND
+    ACWaylandDisplay *wayland_display = NULL;
+    int is_wayland = 0;
+#endif
 
     if (!headless) {
-        display = drm_init();
-        g_display = display;
+#ifdef USE_WAYLAND
+        // Prefer Wayland if running under cage compositor
+        if (getenv("WAYLAND_DISPLAY")) {
+            wayland_display = wayland_display_init();
+            if (wayland_display) {
+                is_wayland = 1;
+                g_wayland_display = wayland_display;
+                // Create a minimal ACDisplay for code that needs width/height
+                display = calloc(1, sizeof(ACDisplay));
+                display->width = wayland_display->width;
+                display->height = wayland_display->height;
+                g_display = display;
+                fprintf(stderr, "[ac-native] Wayland display: %dx%d\n",
+                        display->width, display->height);
+            } else {
+                fprintf(stderr, "[ac-native] Wayland init failed, falling back to DRM\n");
+            }
+        }
+        if (!is_wayland)
+#endif
+        {
+            display = drm_init();
+            g_display = display;
+        }
         if (!display) {
             fprintf(stderr, "[ac-native] FATAL: No display\n");
             if (getpid() == 1) { sleep(5); reboot(LINUX_REBOOT_CMD_POWER_OFF); }
@@ -1409,6 +1468,10 @@ int main(int argc, char *argv[]) {
 
         screen = fb_create(display->width / pixel_scale, display->height / pixel_scale);
         if (!screen) {
+#ifdef USE_WAYLAND
+            if (is_wayland) wayland_display_destroy(wayland_display);
+            else
+#endif
             drm_destroy(display);
             return 1;
         }
@@ -1425,7 +1488,8 @@ int main(int argc, char *argv[]) {
     ACFramebuffer *cursor_fb = fb_create(screen->width, screen->height);
 
     // Mount USB log early so boot animation can detect USB boot
-    if (getpid() == 1) try_mount_log();
+    // (also needed under cage for logging and config.json)
+    try_mount_log();
 
     // Read boot visuals (handle + optional per-char colors) from /mnt/config.json
     load_boot_visual_config();
@@ -1452,7 +1516,14 @@ int main(int argc, char *argv[]) {
 
     // Init input
     if (!headless) {
-        input = input_init(display->width, display->height, pixel_scale);
+#ifdef USE_WAYLAND
+        if (is_wayland) {
+            input = input_init_wayland(wayland_display, display->width, display->height, pixel_scale);
+        } else
+#endif
+        {
+            input = input_init(display->width, display->height, pixel_scale);
+        }
     }
 
     // Find backlight path (scan /sys/class/backlight/ for any device)
@@ -1576,7 +1647,7 @@ int main(int argc, char *argv[]) {
             char msg[256];
             snprintf(msg, sizeof(msg), "Cannot load: %s", piece_path);
             font_draw(&graph, msg, 20, 20, 2);
-            display_present(display, screen, pixel_scale);
+            ac_display_present(display, screen, pixel_scale);
             sleep(10);
         }
         js_destroy(rt);
@@ -1641,140 +1712,80 @@ int main(int argc, char *argv[]) {
 
         int main_frame = 0;
         while (running) {
-            // DRM handoff: xdg-open sends SIGUSR1 to release, SIGUSR2 to reclaim
-            if (drm_handoff_release && display) {
-                drm_handoff_release = 0;
+#ifdef USE_WAYLAND
+            // Under Wayland: dispatch compositor events each frame
+            if (is_wayland) {
+                wayland_display_dispatch(wayland_display);
+            } else
+#endif
+            {
+                // DRM handoff: xdg-open sends SIGUSR1 to release, SIGUSR2 to reclaim
+                if (drm_handoff_release && display) {
+                    drm_handoff_release = 0;
 
-                // Read URL from /tmp/.browser-url (written by xdg-open shim)
-                char browser_url[2048] = "";
-                FILE *uf = fopen("/tmp/.browser-url", "r");
-                if (uf) {
-                    if (fgets(browser_url, sizeof(browser_url), uf)) {
-                        browser_url[strcspn(browser_url, "\n")] = 0;
-                    }
-                    fclose(uf);
-                    unlink("/tmp/.browser-url");
-                }
-
-                if (browser_url[0]) {
-                    ac_log("[browser] URL: %s", browser_url);
-                    drm_release_master(display);
-                    ac_log("[browser] Released DRM master");
-
-                    // Run cage+firefox from C (bypasses Bun.spawn fd issues)
-                    char cmd[4096];
-                    // Setup dirs first
-                    mkdir("/tmp/xdg-browser", 0700);
-                    mkdir("/tmp/.mozilla", 0755);
-
-                    // Step-by-step logging to /mnt so we see exactly where it hangs
-                    ac_log("[browser] step 1: dirs created");
-
-                    // Set env vars in C (no shell escaping issues)
-                    setenv("HOME", "/tmp", 1);
-                    setenv("XDG_RUNTIME_DIR", "/tmp/xdg-browser", 1);
-                    setenv("WLR_BACKENDS", "drm", 1);
-                    setenv("WLR_SESSION", "direct", 1);
-                    setenv("WLR_RENDERER", "pixman", 1);
-                    setenv("LIBSEAT_BACKEND", "noop", 1);
-                    setenv("LD_LIBRARY_PATH", "/lib64:/opt/firefox", 1);
-                    setenv("LIBGL_ALWAYS_SOFTWARE", "1", 1);
-                    setenv("MOZ_ENABLE_WAYLAND", "1", 1);
-                    setenv("GDK_BACKEND", "wayland", 1);
-                    setenv("MOZ_APP_LAUNCHER", "/opt/firefox/firefox", 1);
-                    setenv("GRE_HOME", "/opt/firefox", 1);
-                    setenv("DBUS_SESSION_BUS_ADDRESS", "disabled:", 1);  // skip dbus
-                    setenv("MOZ_DBUS_REMOTE", "0", 1);  // no dbus remote
-                    setenv("MOZ_DISABLE_CONTENT_SANDBOX", "1", 1);  // no sandbox (initramfs)
-
-                    ac_log("[browser] step 2: env set, launching cage");
-
-                    // Write a marker file BEFORE running cage to prove file I/O works
-                    // Write marker and fsync to ensure it hits disk before cage hangs
-                    {
-                        int mfd = open("/mnt/cage.log", O_WRONLY | O_CREAT | O_TRUNC, 0644);
-                        if (mfd >= 0) {
-                            dprintf(mfd, "=== cage launch ===\nURL: %s\n", browser_url);
-                            fsync(mfd);
-                            close(mfd);
-                            ac_log("[browser] wrote+synced cage.log marker");
-                        }
+                    char browser_url[2048] = "";
+                    FILE *uf = fopen("/tmp/.browser-url", "r");
+                    if (uf) {
+                        if (fgets(browser_url, sizeof(browser_url), uf))
+                            browser_url[strcspn(browser_url, "\n")] = 0;
+                        fclose(uf);
+                        unlink("/tmp/.browser-url");
                     }
 
-                    // Start seatd (seat daemon) — wlroots 0.18 requires libseat
-                    // libseat connects to /run/seatd.sock
-                    // seatd needs: /run dir, VT access, root privileges
-                    mkdir("/run", 0755);
-                    // Ensure VT/TTY access
-                    mkdir("/dev/pts", 0755);
-                    // seatd -l debug for verbose output
-                    ac_log("[browser] starting seatd...");
-                    // Ensure /etc/group exists (seatd needs it to resolve group names)
-                    {
-                        FILE *grp = fopen("/etc/group", "a");
-                        if (grp) {
-                            fseek(grp, 0, SEEK_END);
-                            if (ftell(grp) == 0)
-                                fprintf(grp, "root:x:0:\n");
-                            fclose(grp);
-                        }
-                    }
-                    int seatd_rc = system("seatd -g root -l debug > /tmp/seatd.log 2>&1 &");
-                    ac_log("[browser] seatd spawn rc=%d", seatd_rc);
-                    // Wait and check multiple times
-                    for (int si = 0; si < 10; si++) {
-                        usleep(200000);
-                        if (access("/run/seatd.sock", F_OK) == 0) {
-                            ac_log("[browser] /run/seatd.sock found after %dms", (si+1)*200);
-                            break;
-                        }
-                    }
-                    if (access("/run/seatd.sock", F_OK) != 0) {
-                        ac_log("[browser] /run/seatd.sock STILL not found");
-                        // Dump seatd log
-                        FILE *sl = fopen("/tmp/seatd.log", "r");
-                        if (sl) {
-                            char sline[256];
-                            while (fgets(sline, sizeof(sline), sl)) {
-                                sline[strcspn(sline, "\n")] = 0;
-                                ac_log("[seatd] %s", sline);
+                    if (browser_url[0]) {
+                        ac_log("[browser] URL: %s", browser_url);
+                        drm_release_master(display);
+                        ac_log("[browser] Released DRM master");
+
+                        char cmd[4096];
+                        mkdir("/tmp/xdg-browser", 0700);
+                        mkdir("/tmp/.mozilla", 0755);
+
+                        setenv("HOME", "/tmp", 1);
+                        setenv("XDG_RUNTIME_DIR", "/tmp/xdg-browser", 1);
+                        setenv("WLR_BACKENDS", "drm", 1);
+                        setenv("WLR_SESSION", "direct", 1);
+                        setenv("WLR_RENDERER", "pixman", 1);
+                        setenv("LIBSEAT_BACKEND", "noop", 1);
+                        setenv("LD_LIBRARY_PATH", "/lib64:/opt/firefox", 1);
+                        setenv("LIBGL_ALWAYS_SOFTWARE", "1", 1);
+                        setenv("MOZ_ENABLE_WAYLAND", "1", 1);
+                        setenv("GDK_BACKEND", "wayland", 1);
+                        setenv("MOZ_APP_LAUNCHER", "/opt/firefox/firefox", 1);
+                        setenv("GRE_HOME", "/opt/firefox", 1);
+                        setenv("DBUS_SESSION_BUS_ADDRESS", "disabled:", 1);
+                        setenv("MOZ_DBUS_REMOTE", "0", 1);
+                        setenv("MOZ_DISABLE_CONTENT_SANDBOX", "1", 1);
+
+                        mkdir("/run", 0755);
+                        mkdir("/dev/pts", 0755);
+                        {
+                            FILE *grp = fopen("/etc/group", "a");
+                            if (grp) {
+                                fseek(grp, 0, SEEK_END);
+                                if (ftell(grp) == 0) fprintf(grp, "root:x:0:\n");
+                                fclose(grp);
                             }
-                            fclose(sl);
                         }
-                    }
-
-                    // Run cage, capture output to /tmp (tmpfs, always synced)
-                    snprintf(cmd, sizeof(cmd),
-                        "cage -s -- /opt/firefox/firefox --kiosk --no-remote --new-instance '%s' "
-                        "> /tmp/cage-out.log 2>&1",
-                        browser_url);
-
-                    ac_log("[browser] Running cage...");
-                    int rc = system(cmd);
-
-                    // Kill seatd after cage exits
-                    system("killall seatd 2>/dev/null");
-                    ac_log("[browser] cage exited: %d", rc);
-
-                    // Append cage output to /mnt/cage.log
-                    system("cat /tmp/cage-out.log >> /mnt/cage.log 2>/dev/null; sync");
-                    ac_log("[browser] Exited: %d", rc);
-
-                    // Log cage output
-                    FILE *clog = fopen("/mnt/cage.log", "r");
-                    if (clog) {
-                        char line[256];
-                        while (fgets(line, sizeof(line), clog)) {
-                            line[strcspn(line, "\n")] = 0;
-                            ac_log("[cage] %s", line);
+                        system("seatd -g root -l debug > /tmp/seatd.log 2>&1 &");
+                        for (int si = 0; si < 10; si++) {
+                            usleep(200000);
+                            if (access("/run/seatd.sock", F_OK) == 0) break;
                         }
-                        fclose(clog);
-                    }
 
-                    drm_acquire_master(display);
-                    ac_log("[browser] Reclaimed DRM master");
-                } else {
-                    ac_log("[browser] SIGUSR1 but no URL in /tmp/.browser-url");
+                        snprintf(cmd, sizeof(cmd),
+                            "cage -s -- /opt/firefox/firefox --kiosk --no-remote --new-instance '%s' "
+                            "> /tmp/cage-out.log 2>&1", browser_url);
+                        int rc = system(cmd);
+                        system("killall seatd 2>/dev/null");
+                        ac_log("[browser] cage exited: %d", rc);
+                        system("cat /tmp/cage-out.log >> /mnt/cage.log 2>/dev/null; sync");
+
+                        drm_acquire_master(display);
+                        ac_log("[browser] Reclaimed DRM master");
+                    } else {
+                        ac_log("[browser] SIGUSR1 but no URL in /tmp/.browser-url");
+                    }
                 }
             }
 
@@ -1968,13 +1979,13 @@ int main(int argc, char *argv[]) {
                             screen->height / 2 + 10 + jy / 2, 1);
                     }
 
-                    display_present(display, screen, pixel_scale);
+                    ac_display_present(display, screen, pixel_scale);
                     frame_sync_60fps(&anim_time);
                 }
 
                 // Final black frame
                 graph_wipe(&graph, (ACColor){0, 0, 0, 255});
-                display_present(display, screen, pixel_scale);
+                ac_display_present(display, screen, pixel_scale);
 
                 running = 0;
                 break;
@@ -2150,7 +2161,7 @@ int main(int argc, char *argv[]) {
             }
 
             clock_gettime(CLOCK_MONOTONIC, &_pf_pres0);
-            display_present(display, screen, pixel_scale);
+            ac_display_present(display, screen, pixel_scale);
             clock_gettime(CLOCK_MONOTONIC, &_pf_pres1);
 
             // HDMI: render waveform at ~7.5Hz (every 8 frames) — 4K dumb-buf is slow

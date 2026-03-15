@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
+#include <sys/wait.h>
 #include <sys/mount.h>
 #include <sys/reboot.h>
 #include <linux/reboot.h>
@@ -2954,8 +2955,9 @@ static JSValue js_brightness_adjust(JSContext *ctx, JSValueConst this_val, int a
     return JS_UNDEFINED;
 }
 
-// system.openBrowser(url) — launch cage+firefox kiosk for OAuth login
-// Closes DRM, runs cage+firefox synchronously (blocks JS), reclaims DRM on exit.
+// system.openBrowser(url) — launch Firefox for OAuth login
+// Under Wayland: fork+exec firefox as sibling Wayland client (cage composites it on top)
+// Under DRM: releases DRM master, runs cage+firefox, reclaims on exit
 // Returns true if browser exited normally.
 static JSValue js_open_browser(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
@@ -2964,61 +2966,73 @@ static JSValue js_open_browser(JSContext *ctx, JSValueConst this_val, int argc, 
     if (!url) return JS_FALSE;
 
     ac_log("[browser] Opening: %s", url);
+    int rc = -1;
 
-    // Close DRM fd so cage can take the display
-    extern int drm_release_master(void *display);
-    extern int drm_acquire_master(void *display);
-    extern void *g_display;  // ACDisplay* from ac-native.c
-    if (g_display) {
-        drm_release_master(g_display);
-        ac_log("[browser] Released DRM master");
-    }
-
-    // Run cage + firefox synchronously (blocks until user closes browser)
-    char cmd[4096];
-
-    // Ensure runtime dirs exist
-    mkdir("/tmp/xdg", 0700);
-    mkdir("/tmp/.mozilla", 0700);
-
-    // Log cage + firefox output to USB for debugging
-    snprintf(cmd, sizeof(cmd),
-        "export HOME=/tmp && "
-        "export XDG_RUNTIME_DIR=/tmp/xdg && "
-        "export WLR_BACKENDS=drm && "
-        "export WLR_SESSION=direct && "
-        "export WLR_RENDERER=pixman && "
-        "export LIBSEAT_BACKEND=noop && "
-        "export LD_LIBRARY_PATH=/lib64:/opt/firefox && "
-        "export LIBGL_ALWAYS_SOFTWARE=1 && "
-        "export MOZ_ENABLE_WAYLAND=1 && "
-        "export GDK_BACKEND=wayland && "
-        "cage -s -- /opt/firefox/firefox-bin "
-        "--kiosk --no-remote --new-instance '%s' "
-        ">/mnt/cage.log 2>&1; echo \"exit=$?\" >>/mnt/cage.log",
-        url);
-
-    ac_log("[browser] Running: cage + firefox (log -> /mnt/cage.log)");
-    int rc = system(cmd);
-    ac_log("[browser] Exited: %d", rc);
-
-    // Read and log cage output for diagnostics
-    {
-        FILE *clog = fopen("/mnt/cage.log", "r");
-        if (clog) {
-            char line[256];
-            while (fgets(line, sizeof(line), clog)) {
-                line[strcspn(line, "\n")] = 0;
-                ac_log("[cage] %s", line);
-            }
-            fclose(clog);
+#ifdef USE_WAYLAND
+    if (getenv("WAYLAND_DISPLAY")) {
+        // Under cage: just fork+exec Firefox as a sibling Wayland client
+        // cage handles window stacking — Firefox appears on top, ac-native resumes when it exits
+        pid_t pid = fork();
+        if (pid == 0) {
+            // Child process — exec firefox
+            setenv("MOZ_ENABLE_WAYLAND", "1", 1);
+            setenv("GDK_BACKEND", "wayland", 1);
+            setenv("MOZ_DISABLE_CONTENT_SANDBOX", "1", 1);
+            setenv("DBUS_SESSION_BUS_ADDRESS", "disabled:", 1);
+            setenv("MOZ_DBUS_REMOTE", "0", 1);
+            setenv("HOME", "/tmp", 1);
+            setenv("LD_LIBRARY_PATH", "/lib64:/opt/firefox", 1);
+            setenv("GRE_HOME", "/opt/firefox", 1);
+            mkdir("/tmp/.mozilla", 0700);
+            execlp("/opt/firefox/firefox-bin", "firefox-bin",
+                   "--kiosk", "--no-remote", "--new-instance", url, NULL);
+            _exit(127);
+        } else if (pid > 0) {
+            // Parent — wait for Firefox to exit
+            int status;
+            waitpid(pid, &status, 0);
+            rc = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+            ac_log("[browser] Firefox exited: %d", rc);
+        } else {
+            ac_log("[browser] fork failed: %s", strerror(errno));
         }
-    }
+    } else
+#endif
+    {
+        // Legacy DRM handoff path
+        extern int drm_release_master(void *display);
+        extern int drm_acquire_master(void *display);
+        extern void *g_display;
+        if (g_display) {
+            drm_release_master(g_display);
+            ac_log("[browser] Released DRM master");
+        }
 
-    // Reclaim DRM
-    if (g_display) {
-        drm_acquire_master(g_display);
-        ac_log("[browser] Reclaimed DRM master");
+        char cmd[4096];
+        mkdir("/tmp/xdg", 0700);
+        mkdir("/tmp/.mozilla", 0700);
+        snprintf(cmd, sizeof(cmd),
+            "export HOME=/tmp && "
+            "export XDG_RUNTIME_DIR=/tmp/xdg && "
+            "export WLR_BACKENDS=drm && "
+            "export WLR_SESSION=direct && "
+            "export WLR_RENDERER=pixman && "
+            "export LIBSEAT_BACKEND=noop && "
+            "export LD_LIBRARY_PATH=/lib64:/opt/firefox && "
+            "export LIBGL_ALWAYS_SOFTWARE=1 && "
+            "export MOZ_ENABLE_WAYLAND=1 && "
+            "export GDK_BACKEND=wayland && "
+            "cage -s -- /opt/firefox/firefox-bin "
+            "--kiosk --no-remote --new-instance '%s' "
+            ">/mnt/cage.log 2>&1; echo \"exit=$?\" >>/mnt/cage.log",
+            url);
+        rc = system(cmd);
+        ac_log("[browser] cage exited: %d", rc);
+
+        if (g_display) {
+            drm_acquire_master(g_display);
+            ac_log("[browser] Reclaimed DRM master");
+        }
     }
 
     JS_FreeCString(ctx, url);
