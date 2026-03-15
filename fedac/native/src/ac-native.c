@@ -1687,22 +1687,30 @@ int main(int argc, char *argv[]) {
                     ac_log("[browser] step 2: env set, launching cage");
 
                     // Write a marker file BEFORE running cage to prove file I/O works
-                    FILE *marker = fopen("/mnt/cage.log", "w");
-                    if (marker) {
-                        fprintf(marker, "=== cage launch ===\nURL: %s\n", browser_url);
-                        fclose(marker);
-                        ac_log("[browser] wrote cage.log marker");
-                    } else {
-                        ac_log("[browser] CANNOT write /mnt/cage.log: errno=%d", errno);
+                    // Write marker and fsync to ensure it hits disk before cage hangs
+                    {
+                        int mfd = open("/mnt/cage.log", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                        if (mfd >= 0) {
+                            dprintf(mfd, "=== cage launch ===\nURL: %s\n", browser_url);
+                            fsync(mfd);
+                            close(mfd);
+                            ac_log("[browser] wrote+synced cage.log marker");
+                        }
                     }
 
+                    // Run cage, capture output to /tmp (tmpfs, always synced)
+                    // Then copy to /mnt after
                     snprintf(cmd, sizeof(cmd),
                         "cage -s -- /opt/firefox/firefox --kiosk --no-remote --new-instance '%s' "
-                        ">> /mnt/cage.log 2>&1",
+                        "> /tmp/cage-out.log 2>&1",
                         browser_url);
 
-                    ac_log("[browser] Running: %s", cmd);
+                    ac_log("[browser] Running cage...");
                     int rc = system(cmd);
+                    ac_log("[browser] cage exited: %d", rc);
+
+                    // Append cage output to /mnt/cage.log
+                    system("cat /tmp/cage-out.log >> /mnt/cage.log 2>/dev/null; sync");
                     ac_log("[browser] Exited: %d", rc);
 
                     // Log cage output
