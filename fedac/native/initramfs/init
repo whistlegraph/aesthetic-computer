@@ -38,14 +38,21 @@ export SSL_CERT_FILE="/etc/pki/tls/certs/ca-bundle.crt"
 export CURL_CA_BUNDLE="/etc/pki/tls/certs/ca-bundle.crt"
 export SSL_CERT_DIR="/etc/ssl/certs"
 
-# Init debug log (ac-native copies /tmp/init.log to USB on boot)
-INITLOG=/tmp/init.log
-echo "=== init start ===" > $INITLOG
+# Mount first available USB/disk for init debug log
+for _dev in /dev/sda1 /dev/sdb1 /dev/nvme0n1p1; do
+  if [ -e "$_dev" ]; then
+    mkdir -p /mnt
+    mount -t vfat "$_dev" /mnt 2>/dev/null && break
+  fi
+done
+INITLOG=/mnt/init.log
+echo "=== init start $(date 2>/dev/null || echo '?') ===" > $INITLOG 2>/dev/null
+sync
 
 # Check if cage is available for Wayland compositor mode
-echo "cage=$(which cage 2>&1) card0=$(ls /dev/dri/card0 2>&1)" >> $INITLOG
+echo "cage=$(which cage 2>&1) card0=$(ls /dev/dri/card0 2>&1)" >> $INITLOG; sync
 if command -v cage >/dev/null 2>&1 && [ -e /dev/dri/card0 ]; then
-    echo "cage+card0 OK, starting Wayland path" >> $INITLOG
+    echo "cage+card0 OK, starting Wayland path" >> $INITLOG; sync
 
     # Ensure /etc/group + /etc/passwd exist (seatd needs group lookup)
     mkdir -p /etc
@@ -53,17 +60,17 @@ if command -v cage >/dev/null 2>&1 && [ -e /dev/dri/card0 ]; then
     echo "root:x:0:" > /etc/group 2>/dev/null
 
     # Start seatd (seat daemon — required by wlroots 0.18)
-    echo "starting seatd..." >> $INITLOG
+    echo "starting seatd..." >> $INITLOG; sync
     seatd -g root -l debug >> $INITLOG 2>&1 &
     SEATD_PID=$!
-    echo "seatd PID=$SEATD_PID" >> $INITLOG
+    echo "seatd PID=$SEATD_PID" >> $INITLOG; sync
     i=0; while [ ! -S /run/seatd.sock ] && [ $i -lt 30 ]; do
       usleep 100000; i=$((i+1))
     done
     if [ -S /run/seatd.sock ]; then
-        echo "seatd socket OK after ${i}00ms" >> $INITLOG
+        echo "seatd socket OK after ${i}00ms" >> $INITLOG; sync
     else
-        echo "seatd socket MISSING after 3s, falling back to DRM" >> $INITLOG
+        echo "seatd socket MISSING after 3s, falling back to DRM" >> $INITLOG; sync
         kill $SEATD_PID 2>/dev/null
         exec /ac-native /piece.mjs
     fi
@@ -75,15 +82,15 @@ if command -v cage >/dev/null 2>&1 && [ -e /dev/dri/card0 ]; then
     chmod 0700 "$XDG_RUNTIME_DIR"
 
     # Launch cage — blocks until ac-native exits. If cage fails, falls through to DRM.
-    echo "launching: cage -s -- /ac-native /piece.mjs" >> $INITLOG
-    cage -s -- /ac-native /piece.mjs 2>> $INITLOG
-    echo "cage exited: $?" >> $INITLOG
+    echo "launching: cage -s -- /ac-native /piece.mjs" >> $INITLOG; sync
+    cage -s -- /ac-native /piece.mjs 2>> $INITLOG; sync
+    echo "cage exited: $?" >> $INITLOG; sync
 
     # cage exited (either ac-native quit or cage failed) — fall back to DRM
-    echo "DRM fallback" >> $INITLOG
+    echo "DRM fallback" >> $INITLOG; sync
     exec /ac-native /piece.mjs
 else
-    echo "no cage or no card0, DRM fallback" >> $INITLOG
+    echo "no cage or no card0, DRM fallback" >> $INITLOG; sync
     # Fallback: run ac-native directly (DRM mode, no Wayland)
     exec /ac-native /piece.mjs
 fi
