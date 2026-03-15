@@ -154,13 +154,25 @@ export MOZ_ENABLE_WAYLAND=1
 export GDK_BACKEND=wayland
 mkdir -p /tmp/xdg /tmp/.mozilla
 
-cage -s -- /opt/firefox/firefox-bin --kiosk --no-remote --new-instance "$URL" >/mnt/cage.log 2>&1
-RC=$?
+# Debug: log everything to /mnt/cage.log
+{
+  echo "=== xdg-open debug ==="
+  echo "URL: $URL"
+  echo "PID: $$"
+  echo "XDG_RUNTIME_DIR: $XDG_RUNTIME_DIR"
+  echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
+  echo "which cage: $(which cage 2>&1)"
+  echo "which firefox: $(which firefox 2>&1)"
+  ls -la /bin/cage /opt/firefox/firefox-bin 2>&1
+  echo "=== running cage ==="
+  cage -s -- /opt/firefox/firefox-bin --kiosk --no-remote --new-instance "$URL" 2>&1
+  echo "=== cage exit: $? ==="
+} > /mnt/cage.log 2>&1
 
 # Tell ac-native to reclaim DRM master
 kill -USR2 1 2>/dev/null
 
-exit $RC
+exit 0
 XDGOPEN
     sudo chmod +x "${INITRAMFS_ROOT}/bin/xdg-open"
     # Bundle cage (Wayland kiosk compositor) + wlroots libs
