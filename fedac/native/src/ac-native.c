@@ -1655,7 +1655,9 @@ int main(int argc, char *argv[]) {
                     ac_log("[drm] Reclaimed master after browser (SIGUSR2)");
                     drm_handoff_reclaim = 0;
                     // Copy browser logs from /tmp to /mnt for USB persistence
-                    system("cat /tmp/cage.log >> /mnt/cage.log 2>/dev/null;"
+                    // Also dump /tmp listing to see what files exist
+                    system("ls -la /tmp/*.log > /mnt/tmp-listing.log 2>&1;"
+                           "cat /tmp/cage.log >> /mnt/cage.log 2>/dev/null;"
                            "cat /tmp/xdg-open.log >> /mnt/xdg-open.log 2>/dev/null");
                 }
             }
