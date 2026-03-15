@@ -630,6 +630,28 @@ upload_ota() {
     log "  SHA: ${SHA}"
     log "  URL: ${URL}"
 
+    # Step 3b: Upload versioned archive (for rollback support)
+    local VERSIONED_KEY="os/builds/${BUILD_NAME}.vmlinuz"
+    local VERSIONED_STEP
+    VERSIONED_STEP=$(curl -sf -X POST "${UPLOAD_URL}" \
+        -H "Authorization: Bearer ${AC_TOKEN}" \
+        -H "X-Build-Name: ${BUILD_NAME}" \
+        -H "X-Versioned-Upload: true" \
+        -H "X-Versioned-Key: ${VERSIONED_KEY}" \
+        --max-time 30 2>/dev/null) || true
+    if [ -n "${VERSIONED_STEP}" ]; then
+        local VERSIONED_PUT=$(echo "$VERSIONED_STEP" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>console.log(JSON.parse(d).versioned_put_url||''))" 2>/dev/null)
+        if [ -n "${VERSIONED_PUT}" ]; then
+            curl -sf -X PUT "${VERSIONED_PUT}" \
+                -H "Content-Type: application/octet-stream" \
+                -H "x-amz-acl: public-read" \
+                --data-binary "@${VMLINUZ}" \
+                --max-time 300 && \
+                log "  Archive: ${VERSIONED_KEY}" || \
+                log "  Archive upload failed (non-fatal)"
+        fi
+    fi
+
     # Step 4: Generate and upload template .iso for personalized downloads
     local TEMPLATE_ISO
     TEMPLATE_ISO=$(generate_template_iso) && {
