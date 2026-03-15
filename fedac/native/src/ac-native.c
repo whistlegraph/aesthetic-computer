@@ -10,6 +10,7 @@
 #include <time.h>
 #include <math.h>
 #include <unistd.h>
+#include <sys/wait.h>
 #include <fcntl.h>
 #include <dirent.h>
 #include <errno.h>
@@ -1835,50 +1836,85 @@ int main(int argc, char *argv[]) {
                         drm_release_master(display);
                         ac_log("[browser] Released DRM master");
 
-                        char cmd[4096];
-                        mkdir("/tmp/xdg-browser", 0700);
-                        mkdir("/tmp/.mozilla", 0755);
+                        // Fork a child for the entire browser session.
+                        // Child sets env, starts seatd+cage+firefox, then exits.
+                        // Parent waits, then reclaims DRM. If child crashes, parent survives.
+                        pid_t bpid = fork();
+                        if (bpid == 0) {
+                            // === CHILD PROCESS ===
+                            mkdir("/tmp/xdg-browser", 0700);
+                            mkdir("/tmp/.mozilla", 0755);
+                            mkdir("/run", 0755);
 
-                        setenv("HOME", "/tmp", 1);
-                        setenv("XDG_RUNTIME_DIR", "/tmp/xdg-browser", 1);
-                        setenv("WLR_BACKENDS", "drm", 1);
-                        setenv("WLR_SESSION", "direct", 1);
-                        setenv("WLR_RENDERER", "pixman", 1);
-                        setenv("LIBSEAT_BACKEND", "noop", 1);
-                        setenv("LD_LIBRARY_PATH", "/lib64:/opt/firefox", 1);
-                        setenv("LIBGL_ALWAYS_SOFTWARE", "1", 1);
-                        setenv("MOZ_ENABLE_WAYLAND", "1", 1);
-                        setenv("GDK_BACKEND", "wayland", 1);
-                        setenv("MOZ_APP_LAUNCHER", "/opt/firefox/firefox", 1);
-                        setenv("GRE_HOME", "/opt/firefox", 1);
-                        setenv("DBUS_SESSION_BUS_ADDRESS", "disabled:", 1);
-                        setenv("MOZ_DBUS_REMOTE", "0", 1);
-                        setenv("MOZ_DISABLE_CONTENT_SANDBOX", "1", 1);
+                            setenv("HOME", "/tmp", 1);
+                            setenv("XDG_RUNTIME_DIR", "/tmp/xdg-browser", 1);
+                            setenv("WLR_BACKENDS", "drm", 1);
+                            setenv("WLR_RENDERER", "pixman", 1);
+                            setenv("LD_LIBRARY_PATH", "/lib64:/opt/firefox", 1);
+                            setenv("LIBGL_ALWAYS_SOFTWARE", "1", 1);
+                            setenv("MOZ_ENABLE_WAYLAND", "1", 1);
+                            setenv("GDK_BACKEND", "wayland", 1);
+                            setenv("MOZ_APP_LAUNCHER", "/opt/firefox/firefox", 1);
+                            setenv("GRE_HOME", "/opt/firefox", 1);
+                            setenv("DBUS_SESSION_BUS_ADDRESS", "disabled:", 1);
+                            setenv("MOZ_DBUS_REMOTE", "0", 1);
+                            setenv("MOZ_DISABLE_CONTENT_SANDBOX", "1", 1);
 
-                        mkdir("/run", 0755);
-                        mkdir("/dev/pts", 0755);
-                        {
-                            FILE *grp = fopen("/etc/group", "a");
-                            if (grp) {
-                                fseek(grp, 0, SEEK_END);
-                                if (ftell(grp) == 0) fprintf(grp, "root:x:0:\n");
-                                fclose(grp);
+                            // Ensure /etc/group exists for seatd
+                            {
+                                FILE *grp = fopen("/etc/group", "a");
+                                if (grp) {
+                                    fseek(grp, 0, SEEK_END);
+                                    if (ftell(grp) == 0) fprintf(grp, "root:x:0:\n");
+                                    fclose(grp);
+                                }
                             }
-                        }
-                        system("seatd -g root -l debug > /tmp/seatd.log 2>&1 &");
-                        for (int si = 0; si < 10; si++) {
-                            usleep(200000);
-                            if (access("/run/seatd.sock", F_OK) == 0) break;
+
+                            // Start seatd, wait for socket
+                            system("seatd -g root > /tmp/seatd.log 2>&1 &");
+                            for (int si = 0; si < 15; si++) {
+                                usleep(200000);
+                                if (access("/run/seatd.sock", F_OK) == 0) break;
+                            }
+
+                            // Run cage+firefox (blocks until browser exits)
+                            char cmd[4096];
+                            snprintf(cmd, sizeof(cmd),
+                                "cd /opt/firefox && cage -s -- ./firefox --kiosk --no-remote "
+                                "--new-instance '%s' > /tmp/cage-out.log 2>&1", browser_url);
+                            int rc = system(cmd);
+
+                            // Cleanup
+                            system("killall seatd 2>/dev/null");
+                            // Copy logs to USB
+                            FILE *lf = fopen("/tmp/cage-out.log", "r");
+                            if (lf) {
+                                FILE *mf = fopen("/mnt/cage.log", "w");
+                                if (mf) {
+                                    char buf[512];
+                                    while (fgets(buf, sizeof(buf), lf)) fputs(buf, mf);
+                                    fclose(mf);
+                                    sync();
+                                }
+                                fclose(lf);
+                            }
+                            _exit(rc);
                         }
 
-                        snprintf(cmd, sizeof(cmd),
-                            "cage -s -- /opt/firefox/firefox --kiosk --no-remote --new-instance '%s' "
-                            "> /tmp/cage-out.log 2>&1", browser_url);
-                        int rc = system(cmd);
-                        system("killall seatd 2>/dev/null");
-                        ac_log("[browser] cage exited: %d", rc);
-                        system("cat /tmp/cage-out.log >> /mnt/cage.log 2>/dev/null; sync");
+                        // === PARENT PROCESS ===
+                        if (bpid > 0) {
+                            int bstatus = 0;
+                            ac_log("[browser] child pid=%d, waiting...", bpid);
+                            waitpid(bpid, &bstatus, 0);
+                            if (WIFEXITED(bstatus))
+                                ac_log("[browser] child exited: %d", WEXITSTATUS(bstatus));
+                            else if (WIFSIGNALED(bstatus))
+                                ac_log("[browser] child killed by signal %d", WTERMSIG(bstatus));
+                        } else {
+                            ac_log("[browser] fork failed: %s", strerror(errno));
+                        }
 
+                        // Always reclaim DRM, even if child crashed
                         drm_acquire_master(display);
                         ac_log("[browser] Reclaimed DRM master");
                     } else {
