@@ -1,278 +1,469 @@
-// Keeps Wallet - Popup Script
+// Keeps Wallet — Popup Script
+// A living gallery of keeps (generative art NFTs).
 
-// Views
-const views = {
-  welcome: document.getElementById('view-welcome'),
-  locked: document.getElementById('view-locked'),
-  main: document.getElementById('view-main'),
-  create: document.getElementById('view-create'),
-  import: document.getElementById('view-import'),
-};
+// ─── State ───────────────────────────────────────────
+let walletState = null; // { exists, unlocked, address, publicKey, network }
+let keeps = [];
+let balanceVisible = false;
+let balanceValue = null;
+let currentImportTab = "seed"; // "seed" | "key"
+let pendingMnemonic = null; // set after wallet creation, cleared after backup
 
-// Elements
-const el = {
-  network: document.getElementById('network'),
-  balance: document.getElementById('balance'),
-  balanceUsd: document.getElementById('balance-usd'),
-  address: document.getElementById('address'),
-  keepsGrid: document.getElementById('keeps-grid'),
-  keepsEmpty: document.getElementById('keeps-empty'),
-  unlockPassword: document.getElementById('unlock-password'),
-  unlockError: document.getElementById('unlock-error'),
-  createPassword: document.getElementById('create-password'),
-  createPasswordConfirm: document.getElementById('create-password-confirm'),
-  createStatus: document.getElementById('create-status'),
-  importMnemonic: document.getElementById('import-mnemonic'),
-  importPrivateKey: document.getElementById('import-privatekey'),
-  importPassword: document.getElementById('import-password'),
-  importStatus: document.getElementById('import-status'),
-};
+// ─── Helpers ─────────────────────────────────────────
 
-// State
-let currentView = 'welcome';
-let currentImportTab = 'mnemonic';
-let tezPrice = null;
-
-// Show a view
-function showView(name) {
-  Object.values(views).forEach(v => v.classList.remove('active'));
-  views[name]?.classList.add('active');
-  currentView = name;
-}
-
-// Send message to background
-async function sendMessage(type, payload = {}) {
+function sendMessage(type, payload = {}) {
   return chrome.runtime.sendMessage({ type, payload });
 }
 
-// Initialize
+function ipfsToHttp(uri) {
+  if (!uri) return null;
+  if (uri.startsWith("ipfs://")) return "https://ipfs.io/ipfs/" + uri.slice(7);
+  if (uri.startsWith("https://") || uri.startsWith("http://")) return uri;
+  return null;
+}
+
+// Show one of the three state panels, with a fade transition.
+function showState(name) {
+  const states = document.querySelectorAll(".state");
+  states.forEach((el) => {
+    el.classList.remove("active", "visible");
+  });
+  const target = document.getElementById("state-" + name);
+  if (!target) return;
+  target.classList.add("active");
+  // Trigger reflow so the opacity transition fires
+  void target.offsetWidth;
+  target.classList.add("visible");
+}
+
+// ─── Initialise ──────────────────────────────────────
+
 async function init() {
-  // Get wallet state
-  const state = await sendMessage('KEEPS_GET_STATE');
-  
-  // Update network badge
-  el.network.textContent = state.network?.toUpperCase() || 'GHOSTNET';
-  el.network.classList.toggle('mainnet', state.network === 'mainnet');
-  
-  // Show appropriate view
-  if (!state.exists) {
-    showView('welcome');
-  } else if (!state.unlocked) {
-    showView('locked');
+  walletState = await sendMessage("KEEPS_GET_STATE");
+
+  if (!walletState.exists) {
+    showState("no-wallet");
+    return;
+  }
+  if (!walletState.unlocked) {
+    showState("locked");
+    document.getElementById("unlock-password").value = "";
+    document.getElementById("unlock-password").classList.remove("error");
+    // Focus the password field after a brief delay (side-panel readiness)
+    setTimeout(() => document.getElementById("unlock-password").focus(), 80);
+    return;
+  }
+
+  // Unlocked
+  showState("unlocked");
+  updateNetworkPill();
+  loadKeeps();
+  loadBalance();
+  loadConnectedDapps();
+}
+
+// ─── Network ─────────────────────────────────────────
+
+function updateNetworkPill() {
+  const pill = document.getElementById("network-pill");
+  pill.textContent = walletState.network || "ghostnet";
+}
+
+document.getElementById("network-pill").addEventListener("click", async () => {
+  const next = walletState.network === "mainnet" ? "ghostnet" : "mainnet";
+  const res = await sendMessage("KEEPS_SET_NETWORK", { network: next });
+  if (res.success) {
+    walletState.network = next;
+    updateNetworkPill();
+    // Reload data for new network
+    renderLoading();
+    loadKeeps();
+    loadBalance();
+  }
+});
+
+// ─── Balance ─────────────────────────────────────────
+
+async function loadBalance() {
+  const res = await sendMessage("KEEPS_GET_BALANCE", {
+    network: walletState.network,
+  });
+  if (res.balance !== undefined && res.balance !== null) {
+    balanceValue = res.balance;
   } else {
-    showView('main');
-    await loadMainView(state);
+    balanceValue = null;
+  }
+  renderBalanceToggle();
+}
+
+function renderBalanceToggle() {
+  const btn = document.getElementById("balance-toggle");
+  if (balanceVisible && balanceValue !== null) {
+    btn.innerHTML = '$<span class="balance-amount">\u{A729} ' + balanceValue.toFixed(2) + "</span>";
+  } else {
+    btn.textContent = "$";
   }
 }
 
-// Load main view data
-async function loadMainView(state) {
-  // Show address
-  el.address.textContent = state.address || 'Unknown';
-  
-  // Fetch balance
-  const balanceRes = await sendMessage('KEEPS_GET_BALANCE', { network: state.network });
-  if (balanceRes.balance !== undefined) {
-    el.balance.textContent = balanceRes.balance.toFixed(4);
-    
-    // Fetch TEZ price for USD conversion
-    try {
-      const priceRes = await fetch('https://api.tzkt.io/v1/quotes/last');
-      tezPrice = await priceRes.json();
-      const usd = (balanceRes.balance * tezPrice.usd).toFixed(2);
-      el.balanceUsd.textContent = `$${usd} USD`;
-    } catch (e) {
-      el.balanceUsd.textContent = '';
-    }
-  }
-  
-  // Fetch keeps
-  const keepsRes = await sendMessage('KEEPS_GET_KEEPS', { network: state.network });
-  renderKeeps(keepsRes.keeps || []);
+document.getElementById("balance-toggle").addEventListener("click", () => {
+  balanceVisible = !balanceVisible;
+  renderBalanceToggle();
+});
+
+// ─── Keeps ───────────────────────────────────────────
+
+function renderLoading() {
+  const container = document.getElementById("keeps-container");
+  container.innerHTML = '<div class="loading-indicator"><span class="loading-dot"></span><span class="loading-dot"></span><span class="loading-dot"></span></div>';
 }
 
-// Render keeps grid
-function renderKeeps(keeps) {
-  el.keepsGrid.innerHTML = '';
-  
+async function loadKeeps() {
+  renderLoading();
+  const res = await sendMessage("KEEPS_GET_KEEPS", {
+    network: walletState.network,
+  });
+  keeps = res.keeps || [];
+  renderKeeps();
+}
+
+function renderKeeps() {
+  const container = document.getElementById("keeps-container");
+  container.innerHTML = "";
+
   if (keeps.length === 0) {
-    el.keepsEmpty.style.display = 'block';
+    container.innerHTML =
+      '<div class="keeps-empty">No keeps yet<a href="https://keeps.kidlisp.com" target="_blank" rel="noopener">Browse keeps</a></div>';
     return;
   }
-  
-  el.keepsEmpty.style.display = 'none';
-  
-  keeps.forEach(keep => {
-    const item = document.createElement('div');
-    item.className = 'keep-item';
-    
-    // Try to get thumbnail from metadata
-    const thumbnail = keep.metadata?.thumbnailUri || keep.metadata?.displayUri;
-    if (thumbnail) {
-      const img = document.createElement('img');
-      // Convert IPFS URI if needed
-      img.src = thumbnail.replace('ipfs://', 'https://ipfs.io/ipfs/');
-      img.alt = keep.metadata?.name || `Keep #${keep.id}`;
-      item.appendChild(img);
+
+  const grid = document.createElement("div");
+  grid.className = "keeps-grid";
+
+  keeps.forEach((keep, index) => {
+    const thumb = document.createElement("div");
+    thumb.className = "keep-thumb";
+
+    const imgUrl = ipfsToHttp(keep.thumbnailUri) || ipfsToHttp(keep.displayUri);
+    if (imgUrl) {
+      const img = document.createElement("img");
+      img.src = imgUrl;
+      img.alt = keep.name || "Keep #" + keep.id;
+      img.loading = "lazy";
+      img.onerror = () => {
+        // Replace broken image with a colored placeholder
+        img.style.display = "none";
+      };
+      thumb.appendChild(img);
     }
-    
-    el.keepsGrid.appendChild(item);
+
+    const nameOverlay = document.createElement("div");
+    nameOverlay.className = "keep-name-overlay";
+    nameOverlay.textContent = keep.name || "Keep #" + keep.id;
+    thumb.appendChild(nameOverlay);
+
+    thumb.addEventListener("click", () => openKeepDetail(keep));
+    grid.appendChild(thumb);
   });
+
+  container.appendChild(grid);
 }
 
-// Event Listeners
+// ─── Keep Detail Overlay ─────────────────────────────
 
-// Welcome view
-document.getElementById('btn-create').addEventListener('click', () => {
-  showView('create');
+function openKeepDetail(keep) {
+  const overlay = document.getElementById("keep-detail-overlay");
+  const img = document.getElementById("keep-detail-image");
+  const title = document.getElementById("keep-detail-title");
+  const artist = document.getElementById("keep-detail-artist");
+
+  const imgUrl =
+    ipfsToHttp(keep.displayUri) || ipfsToHttp(keep.thumbnailUri) || "";
+  img.src = imgUrl;
+  img.alt = keep.name || "Keep";
+  title.textContent = keep.name || "Keep #" + keep.id;
+  artist.textContent = keep.description || "";
+
+  overlay.classList.add("open");
+  void overlay.offsetWidth;
+  overlay.classList.add("visible");
+}
+
+function closeKeepDetail() {
+  const overlay = document.getElementById("keep-detail-overlay");
+  overlay.classList.remove("visible");
+  setTimeout(() => overlay.classList.remove("open"), 200);
+}
+
+document
+  .getElementById("keep-detail-overlay")
+  .addEventListener("click", (e) => {
+    // Close when clicking the backdrop (not the detail card itself)
+    if (e.target === e.currentTarget) {
+      closeKeepDetail();
+    }
+  });
+
+// Also close on Escape
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    closeKeepDetail();
+    closeSeedOverlay();
+  }
 });
 
-document.getElementById('btn-import').addEventListener('click', () => {
-  showView('import');
+// ─── Lock / Unlock ───────────────────────────────────
+
+document.getElementById("btn-lock").addEventListener("click", async () => {
+  await sendMessage("KEEPS_LOCK");
+  showState("locked");
+  setTimeout(() => document.getElementById("unlock-password").focus(), 80);
 });
 
-// Locked view
-document.getElementById('btn-unlock').addEventListener('click', async () => {
-  const password = el.unlockPassword.value;
+// Unlock on Enter
+document.getElementById("unlock-password").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") attemptUnlock();
+});
+
+// Unlock on icon click
+document.getElementById("btn-unlock").addEventListener("click", attemptUnlock);
+
+async function attemptUnlock() {
+  const input = document.getElementById("unlock-password");
+  const password = input.value;
   if (!password) return;
-  
-  const res = await sendMessage('KEEPS_UNLOCK', { password });
-  
+
+  const res = await sendMessage("KEEPS_UNLOCK", { password });
   if (res.error) {
-    el.unlockError.textContent = res.error;
-    el.unlockError.style.display = 'block';
+    input.classList.add("error");
+    setTimeout(() => input.classList.remove("error"), 400);
+    input.value = "";
+    input.focus();
   } else {
-    el.unlockError.style.display = 'none';
-    el.unlockPassword.value = '';
-    await init(); // Reload state
+    input.value = "";
+    await init();
+  }
+}
+
+// Listen for background lock events
+chrome.runtime.onMessage.addListener((message) => {
+  if (message.type === "KEEPS_LOCKED") {
+    showState("locked");
   }
 });
 
-// Main view - lock button
-document.getElementById('btn-lock').addEventListener('click', async () => {
-  await sendMessage('KEEPS_LOCK');
-  showView('locked');
+// ─── Create Wallet ───────────────────────────────────
+
+document.getElementById("btn-show-create").addEventListener("click", () => {
+  document.getElementById("create-form").classList.add("open");
+  document.getElementById("import-form").classList.remove("open");
+  document.getElementById("create-error").textContent = "";
+  setTimeout(() => document.getElementById("create-password").focus(), 100);
 });
 
-// Create wallet view
-document.getElementById('btn-create-confirm').addEventListener('click', async () => {
-  const password = el.createPassword.value;
-  const confirm = el.createPasswordConfirm.value;
-  
-  if (!password || password.length < 8) {
-    showStatus('create', 'Password must be at least 8 characters', 'error');
+document.getElementById("btn-create-wallet").addEventListener("click", async () => {
+  const pw = document.getElementById("create-password").value;
+  const confirm = document.getElementById("create-password-confirm").value;
+  const errorEl = document.getElementById("create-error");
+  const btn = document.getElementById("btn-create-wallet");
+
+  errorEl.textContent = "";
+
+  if (!pw || pw.length < 8) {
+    errorEl.textContent = "Password must be at least 8 characters.";
     return;
   }
-  
-  if (password !== confirm) {
-    showStatus('create', 'Passwords do not match', 'error');
+  if (pw !== confirm) {
+    errorEl.textContent = "Passwords do not match.";
     return;
   }
-  
-  const res = await sendMessage('KEEPS_CREATE_WALLET', { password });
-  
+
+  btn.disabled = true;
+  btn.textContent = "Creating...";
+
+  const res = await sendMessage("KEEPS_CREATE_WALLET", { password: pw });
+
+  btn.disabled = false;
+  btn.textContent = "Create Wallet";
+
   if (res.error) {
-    showStatus('create', res.error, 'error');
-  } else if (res.mnemonic) {
-    // TODO: Show mnemonic to user for backup
-    showStatus('create', 'Wallet created! (Show seed phrase here)', 'success');
-    setTimeout(() => init(), 2000);
-  } else {
-    showStatus('create', res.message || 'Wallet created', 'success');
-  }
-});
-
-document.getElementById('btn-create-back').addEventListener('click', () => {
-  showView('welcome');
-});
-
-// Import wallet view
-document.getElementById('btn-import-confirm').addEventListener('click', async () => {
-  const password = el.importPassword.value;
-  
-  if (!password || password.length < 8) {
-    showStatus('import', 'Password must be at least 8 characters', 'error');
+    errorEl.textContent = res.error;
     return;
   }
-  
-  if (currentImportTab === 'mnemonic') {
-    // Import via seed phrase
-    const mnemonic = el.importMnemonic.value.trim();
-    const words = mnemonic.split(/\s+/);
-    
-    const validLengths = [12, 15, 18, 21, 24];
-    if (!validLengths.includes(words.length)) {
-      showStatus('import', 'Seed phrase must be 12, 15, 18, 21, or 24 words', 'error');
-      return;
-    }
-    
-    const res = await sendMessage('KEEPS_IMPORT_WALLET', { mnemonic, password });
-    
-    if (res.error) {
-      showStatus('import', res.error, 'error');
-    } else {
-      showStatus('import', 'Wallet imported successfully!', 'success');
-      setTimeout(() => init(), 2000);
-    }
+
+  // Show seed phrase backup overlay
+  if (res.mnemonic) {
+    pendingMnemonic = res.mnemonic;
+    showSeedOverlay(res.mnemonic);
   } else {
-    // Import via private key
-    const privateKey = el.importPrivateKey.value.trim();
-    
-    if (!privateKey.startsWith('edsk')) {
-      showStatus('import', 'Private key must start with "edsk"', 'error');
-      return;
-    }
-    
-    const res = await sendMessage('KEEPS_IMPORT_PRIVATE_KEY', { privateKey, password });
-    
-    if (res.error) {
-      showStatus('import', res.error, 'error');
-    } else {
-      showStatus('import', 'Wallet imported successfully!', 'success');
-      setTimeout(() => init(), 2000);
-    }
+    // No mnemonic returned (shouldn't happen, but handle gracefully)
+    await init();
   }
 });
 
-document.getElementById('btn-import-back').addEventListener('click', () => {
-  showView('welcome');
+// Enter to submit create form
+document.getElementById("create-password-confirm").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") document.getElementById("btn-create-wallet").click();
 });
 
-// Import tab switching
-document.querySelectorAll('.import-tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    const tabName = tab.dataset.tab;
-    currentImportTab = tabName;
-    
-    // Update active tab
-    document.querySelectorAll('.import-tab').forEach(t => t.classList.remove('active'));
-    tab.classList.add('active');
-    
-    // Update active content
-    document.querySelectorAll('.import-content').forEach(c => c.classList.remove('active'));
-    document.getElementById(`import-${tabName}-content`).classList.add('active');
+// ─── Import Wallet ───────────────────────────────────
+
+document.getElementById("btn-show-import").addEventListener("click", () => {
+  document.getElementById("import-form").classList.add("open");
+  document.getElementById("create-form").classList.remove("open");
+  document.getElementById("import-error").textContent = "";
+  setTimeout(() => document.getElementById("import-mnemonic").focus(), 100);
+});
+
+// Import tabs
+document.querySelectorAll("[data-import-tab]").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    currentImportTab = tab.dataset.importTab;
+    document.querySelectorAll("[data-import-tab]").forEach((t) => t.classList.remove("active"));
+    tab.classList.add("active");
+    document.querySelectorAll(".import-tab-content").forEach((c) => c.classList.remove("active"));
+    document.getElementById("import-" + currentImportTab + "-tab").classList.add("active");
   });
 });
 
-// Helper to show status messages
-function showStatus(view, message, type) {
-  const statusEl = document.getElementById(`${view}-status`);
-  statusEl.textContent = message;
-  statusEl.className = `status ${type}`;
-  statusEl.style.display = 'block';
+document.getElementById("btn-import-wallet").addEventListener("click", async () => {
+  const password = document.getElementById("import-password").value;
+  const errorEl = document.getElementById("import-error");
+  const btn = document.getElementById("btn-import-wallet");
+
+  errorEl.textContent = "";
+
+  if (!password || password.length < 8) {
+    errorEl.textContent = "Password must be at least 8 characters.";
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = "Importing...";
+
+  let res;
+  if (currentImportTab === "seed") {
+    const mnemonic = document.getElementById("import-mnemonic").value.trim();
+    const wordCount = mnemonic.split(/\s+/).filter(Boolean).length;
+    if (wordCount !== 12 && wordCount !== 24) {
+      errorEl.textContent = "Seed phrase must be 12 or 24 words.";
+      btn.disabled = false;
+      btn.textContent = "Import Wallet";
+      return;
+    }
+    res = await sendMessage("KEEPS_IMPORT_WALLET", { mnemonic, password });
+  } else {
+    const privateKey = document.getElementById("import-private-key").value.trim();
+    if (!privateKey.startsWith("edsk")) {
+      errorEl.textContent = 'Private key must start with "edsk".';
+      btn.disabled = false;
+      btn.textContent = "Import Wallet";
+      return;
+    }
+    res = await sendMessage("KEEPS_IMPORT_PRIVATE_KEY", { privateKey, password });
+  }
+
+  btn.disabled = false;
+  btn.textContent = "Import Wallet";
+
+  if (res.error) {
+    errorEl.textContent = res.error;
+    return;
+  }
+
+  await init();
+});
+
+// Enter to submit import form
+document.getElementById("import-password").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") document.getElementById("btn-import-wallet").click();
+});
+
+// ─── Seed Phrase Backup Overlay ──────────────────────
+
+function showSeedOverlay(mnemonic) {
+  const overlay = document.getElementById("seed-overlay");
+  const grid = document.getElementById("seed-grid");
+
+  const words = mnemonic.split(" ");
+  grid.innerHTML = "";
+
+  words.forEach((word, i) => {
+    const el = document.createElement("div");
+    el.className = "seed-word";
+    el.innerHTML = '<span class="seed-word-num">' + (i + 1) + ".</span> " + word;
+    grid.appendChild(el);
+  });
+
+  overlay.classList.add("open");
+  void overlay.offsetWidth;
+  overlay.classList.add("visible");
 }
 
-// Enter key handlers
-el.unlockPassword.addEventListener('keyup', (e) => {
-  if (e.key === 'Enter') document.getElementById('btn-unlock').click();
-});
+function closeSeedOverlay() {
+  const overlay = document.getElementById("seed-overlay");
+  if (!overlay.classList.contains("open")) return;
+  overlay.classList.remove("visible");
+  pendingMnemonic = null;
+  setTimeout(() => {
+    overlay.classList.remove("open");
+    init();
+  }, 200);
+}
 
-// Listen for lock events
-chrome.runtime.onMessage.addListener((message) => {
-  if (message.type === 'KEEPS_LOCKED' && currentView === 'main') {
-    showView('locked');
+document.getElementById("seed-dismiss").addEventListener("click", closeSeedOverlay);
+
+// ─── Connected dApps ─────────────────────────────────
+
+async function loadConnectedDapps() {
+  // Connected dApps are stored by the beacon handler in background.
+  // For now we read from storage; if beacon_peers doesn't exist, show nothing.
+  try {
+    const { beacon_peers } = await chrome.storage.local.get("beacon_peers");
+    const dotsContainer = document.getElementById("dapp-dots");
+    dotsContainer.innerHTML = "";
+
+    if (!beacon_peers || Object.keys(beacon_peers).length === 0) return;
+
+    Object.entries(beacon_peers).forEach(([id, peer]) => {
+      const dot = document.createElement("div");
+      dot.className = "dapp-dot";
+      dot.title = peer.name || id;
+
+      const tooltip = document.createElement("div");
+      tooltip.className = "dapp-tooltip";
+      tooltip.innerHTML =
+        '<span>' + (peer.name || id) + '</span><span class="disconnect-link">Disconnect</span>';
+
+      tooltip.querySelector(".disconnect-link").addEventListener("click", async (e) => {
+        e.stopPropagation();
+        // Remove this peer
+        const current = (await chrome.storage.local.get("beacon_peers")).beacon_peers || {};
+        delete current[id];
+        await chrome.storage.local.set({ beacon_peers: current });
+        loadConnectedDapps();
+      });
+
+      dot.addEventListener("click", (e) => {
+        e.stopPropagation();
+        // Toggle tooltip
+        const isShown = tooltip.classList.contains("show");
+        document.querySelectorAll(".dapp-tooltip").forEach((t) => t.classList.remove("show"));
+        if (!isShown) tooltip.classList.add("show");
+      });
+
+      dot.appendChild(tooltip);
+      dotsContainer.appendChild(dot);
+    });
+  } catch (e) {
+    // Storage access may fail in some contexts; ignore
   }
+}
+
+// Close tooltips when clicking elsewhere
+document.addEventListener("click", () => {
+  document.querySelectorAll(".dapp-tooltip").forEach((t) => t.classList.remove("show"));
 });
 
-// Initialize on load
+// ─── Boot ────────────────────────────────────────────
+
 init();

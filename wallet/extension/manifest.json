@@ -3,13 +3,13 @@
   "name": "Keeps Wallet",
   "version": "0.1.0",
   "description": "Tezos wallet for aesthetic.computer keeps (NFTs)",
-  
+
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  
+
   "action": {
     "default_icon": {
       "16": "icons/icon16.png",
@@ -21,46 +21,46 @@
   "side_panel": {
     "default_path": "popup/popup.html"
   },
-  
+
   "background": {
     "service_worker": "background.js",
     "type": "module"
   },
-  
+
   "content_scripts": [
     {
       "matches": [
         "https://aesthetic.computer/*",
         "https://*.aesthetic.computer/*",
+        "https://keeps.kidlisp.com/*",
+        "https://*.kidlisp.com/*",
+        "https://objkt.com/*",
         "http://localhost:8888/*",
-        "https://localhost:8888/*"
+        "https://localhost:8888/*",
+        "<all_urls>"
       ],
       "js": ["content.js"],
       "run_at": "document_start"
     }
   ],
-  
+
   "permissions": [
     "storage",
-    "activeTab"
+    "activeTab",
+    "sidePanel"
   ],
-  
+
   "host_permissions": [
     "https://api.tzkt.io/*",
     "https://api.ghostnet.tzkt.io/*",
     "https://mainnet.api.tez.ie/*",
     "https://ghostnet.teztnets.com/*"
   ],
-  
+
   "web_accessible_resources": [
     {
       "resources": ["inpage.js"],
-      "matches": [
-        "https://aesthetic.computer/*",
-        "https://*.aesthetic.computer/*",
-        "http://localhost:8888/*",
-        "https://localhost:8888/*"
-      ]
+      "matches": ["<all_urls>"]
     }
   ]
 }

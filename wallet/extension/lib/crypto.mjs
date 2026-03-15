@@ -6,6 +6,7 @@ import nacl from 'tweetnacl';
 import { encodeBase64, decodeBase64, encodeUTF8, decodeUTF8 } from 'tweetnacl-util';
 import { scrypt } from 'scrypt-js';
 import { b58cencode, b58cdecode, prefix } from '@taquito/utils';
+import { blake2b as blake2bHash } from 'blakejs';
 
 // Crypto is ready immediately (no WASM to load)
 export async function initCrypto() {
@@ -23,13 +24,9 @@ export function validateMnemonic(mnemonic) {
   return bip39.validateMnemonic(mnemonic);
 }
 
-// Blake2b hash (simplified version using nacl's hash as base)
-// For Tezos address derivation we need 20-byte Blake2b
+// Blake2b hash — proper implementation for Tezos address derivation
 function blake2b(data, outlen = 32) {
-  // Use nacl's SHA-512 and truncate (not ideal but works for our use case)
-  // For production, consider a proper Blake2b implementation
-  const hash = nacl.hash(data);
-  return hash.slice(0, outlen);
+  return blake2bHash(data, null, outlen);
 }
 
 // Derive Tezos keypair from mnemonic
