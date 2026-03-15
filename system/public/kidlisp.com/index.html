@@ -15065,6 +15065,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
       // Expose setter for external code (handleCodeItemClick needs this)
       window.setEditorUserModified = (val) => { editorUserModified = val; };
       window.getEditorUserModified = () => editorUserModified;
+      window.setSettingValueProgrammatically = (val) => { isSettingValueProgrammatically = val; };
       
       // LOCAL indicator removed - no longer needed
       
@@ -19093,9 +19094,9 @@ s("ape_breaks_3").loopAt(2)</textarea>
       // Handle piece load requests from learn iframe
       if (messageType === 'kidlisp-load-piece' && event.data?.source) {
         if (editor) {
-          isSettingValueProgrammatically = true;
+          if (typeof window.setSettingValueProgrammatically === 'function') window.setSettingValueProgrammatically(true);
           editor.setValue(event.data.source);
-          isSettingValueProgrammatically = false;
+          if (typeof window.setSettingValueProgrammatically === 'function') window.setSettingValueProgrammatically(false);
           if (typeof window.setEditorUserModified === 'function') {
             window.setEditorUserModified(false);
           }
@@ -20350,9 +20351,9 @@ s("ape_breaks_3").loopAt(2)</textarea>
             
             // Update editor with streaming content
             if (editor) {
-              isSettingValueProgrammatically = true;
+              if (typeof window.setSettingValueProgrammatically === 'function') window.setSettingValueProgrammatically(true);
               editor.setValue(generatedCode);
-              isSettingValueProgrammatically = false;
+              if (typeof window.setSettingValueProgrammatically === 'function') window.setSettingValueProgrammatically(false);
               // Move cursor to end
               const model = editor.getModel();
               if (model) {
@@ -20828,9 +20829,9 @@ s("ape_breaks_3").loopAt(2)</textarea>
       if (codeEl && window.flyCodeToEditor) {
         await window.flyCodeToEditor(codeEl, el._highlightedCode || snippet, sourceCode);
       } else {
-        isSettingValueProgrammatically = true;
+        if (typeof window.setSettingValueProgrammatically === 'function') window.setSettingValueProgrammatically(true);
         editor.setValue(sourceCode);
-        isSettingValueProgrammatically = false;
+        if (typeof window.setSettingValueProgrammatically === 'function') window.setSettingValueProgrammatically(false);
       }
       // Mark as not user-edited since this was loaded from list
       if (typeof window.setEditorUserModified === 'function') {
