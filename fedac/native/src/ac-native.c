@@ -1440,6 +1440,9 @@ int main(int argc, char *argv[]) {
     if (!headless) {
 #ifdef USE_WAYLAND
         // Prefer Wayland if running under cage compositor
+        ac_log("[ac-native] WAYLAND_DISPLAY=%s XDG_RUNTIME_DIR=%s\n",
+               getenv("WAYLAND_DISPLAY") ? getenv("WAYLAND_DISPLAY") : "(null)",
+               getenv("XDG_RUNTIME_DIR") ? getenv("XDG_RUNTIME_DIR") : "(null)");
         if (getenv("WAYLAND_DISPLAY")) {
             wayland_display = wayland_display_init();
             if (wayland_display) {
@@ -1453,7 +1456,8 @@ int main(int argc, char *argv[]) {
                 fprintf(stderr, "[ac-native] Wayland display: %dx%d\n",
                         display->width, display->height);
             } else {
-                fprintf(stderr, "[ac-native] Wayland init failed, falling back to DRM\n");
+                ac_log("[ac-native] Wayland init failed — exiting (cage will restart or fallback)\n");
+                return 1;  // exit so cage exits and init falls through to DRM
             }
         }
         if (!is_wayland)
