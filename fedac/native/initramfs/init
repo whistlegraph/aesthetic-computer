@@ -74,30 +74,13 @@ if command -v cage >/dev/null 2>&1 && [ -e /dev/dri/card0 ]; then
     mkdir -p "$XDG_RUNTIME_DIR"
     chmod 0700 "$XDG_RUNTIME_DIR"
 
-    # Launch cage with timeout — if it hangs, fall back to DRM
-    echo "launching cage -s -- /ac-native /piece.mjs" >> $INITLOG
-    sync  # flush init.log to tmpfs before cage takes over
+    # Launch cage — blocks until ac-native exits. If cage fails, falls through to DRM.
+    echo "launching: cage -s -- /ac-native /piece.mjs" >> $INITLOG
+    cage -s -- /ac-native /piece.mjs 2>> $INITLOG
+    echo "cage exited: $?" >> $INITLOG
 
-    # Try cage with a 5-second timeout to detect immediate failures
-    # If cage starts successfully, ac-native runs inside it (blocks here)
-    # If cage fails immediately (< 5s), we fall back to DRM
-    cage -s -- /ac-native /piece.mjs >> /tmp/cage-stderr.log 2>&1 &
-    CAGE_PID=$!
-    sleep 5
-    if kill -0 $CAGE_PID 2>/dev/null; then
-        # cage is still running after 5s — it started OK, wait for it
-        echo "cage running (PID $CAGE_PID), waiting..." >> $INITLOG
-        wait $CAGE_PID
-        CAGE_RC=$?
-    else
-        wait $CAGE_PID
-        CAGE_RC=$?
-    fi
-    echo "cage exited: $CAGE_RC" >> $INITLOG
-    cat /tmp/cage-stderr.log >> $INITLOG 2>/dev/null
-
-    # Fall back to DRM
-    echo "falling back to DRM" >> $INITLOG
+    # cage exited (either ac-native quit or cage failed) — fall back to DRM
+    echo "DRM fallback" >> $INITLOG
     exec /ac-native /piece.mjs
 else
     echo "no cage or no card0, DRM fallback" >> $INITLOG
