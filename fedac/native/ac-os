@@ -129,60 +129,42 @@ build_initramfs() {
     sudo tee "${INITRAMFS_ROOT}/bin/xdg-open" > /dev/null << 'XDGOPEN'
 #!/bin/sh
 # xdg-open shim for AC Native OS
-# Signals ac-native (PID 1) to release DRM, runs cage+firefox, then signals reclaim.
+# Always reclaims DRM even if browser crashes/hangs (60s timeout).
 URL="$1"
 [ -z "$URL" ] && exit 1
 
-# Log to /tmp (always writable) — ac-native copies to /mnt after reclaim
-echo "xdg-open called: $URL pid=$$" >> /tmp/xdg-open.log 2>/dev/null
+# Trap: ALWAYS reclaim DRM on exit (crash, timeout, success)
+trap 'kill -USR2 1 2>/dev/null' EXIT
 
-# Tell ac-native to release DRM master (SIGUSR1 = release, SIGUSR2 = reclaim)
+# Log
+echo "xdg-open: $URL" > /tmp/xdg-open.log
+
+# Release DRM
 kill -USR1 1 2>/dev/null
-# busybox may not have sleep — use usleep or a busy wait
-usleep 300000 2>/dev/null || { i=0; while [ $i -lt 300000 ]; do i=$((i+1)); done; }
+sleep 1
 
-# XDG_RUNTIME_DIR must be owned by current user with 0700 perms
+# Setup env
 XDG_DIR="/tmp/xdg-$$"
-mkdir -p "$XDG_DIR"
+mkdir -p "$XDG_DIR" /tmp/.mozilla
 chmod 0700 "$XDG_DIR"
 
-export HOME=/tmp
-export XDG_RUNTIME_DIR="$XDG_DIR"
-export WLR_BACKENDS=drm
-export WLR_SESSION=direct
-export WLR_RENDERER=pixman
-export LIBSEAT_BACKEND=noop
+export HOME=/tmp XDG_RUNTIME_DIR="$XDG_DIR"
+export WLR_BACKENDS=drm WLR_SESSION=direct WLR_RENDERER=pixman LIBSEAT_BACKEND=noop
 export LD_LIBRARY_PATH=/lib64:/opt/firefox
-export LIBGL_ALWAYS_SOFTWARE=1
-export MOZ_ENABLE_WAYLAND=1
-export GDK_BACKEND=wayland
-mkdir -p /tmp/xdg /tmp/.mozilla
+export LIBGL_ALWAYS_SOFTWARE=1 MOZ_ENABLE_WAYLAND=1 GDK_BACKEND=wayland
+export MOZ_APP_LAUNCHER=/opt/firefox/firefox GRE_HOME=/opt/firefox
 
-# Log to /tmp
-echo "xdg-open: launching cage" >> /tmp/xdg-open.log 2>/dev/null
-
-# All output to /tmp (tmpfs = always writable)
+# Run cage+firefox with 120s timeout, log everything
+cd /opt/firefox
 {
-  echo "=== xdg-open debug ==="
-  echo "URL: $URL"
-  echo "PID: $$"
-  echo "XDG_RUNTIME_DIR: $XDG_RUNTIME_DIR"
-  echo "which cage: $(which cage 2>&1)"
-  echo "which firefox: $(which firefox 2>&1)"
-  ls -la /bin/cage /opt/firefox/firefox-bin 2>&1
-  echo "=== running cage ==="
-  export MOZ_APP_LAUNCHER=/opt/firefox/firefox
-  export GRE_HOME=/opt/firefox
-  cd /opt/firefox
-  cage -s -- ./firefox --kiosk --no-remote --new-instance --safe-mode "$URL" 2>&1
-  RC=$?
-  echo "=== cage exit: $RC ==="
+  echo "=== env ==="
+  env | sort
+  echo "=== launching cage ==="
+  timeout 120 cage -s -- ./firefox --kiosk --no-remote --new-instance "$URL" 2>&1
+  echo "=== cage exit: $? ==="
 } > /tmp/cage.log 2>&1
 
-# Tell ac-native to reclaim DRM master
-kill -USR2 1 2>/dev/null
-
-exit 0
+# trap EXIT handles SIGUSR2
 XDGOPEN
     sudo chmod +x "${INITRAMFS_ROOT}/bin/xdg-open"
     # Bundle cage (Wayland kiosk compositor) + wlroots libs
