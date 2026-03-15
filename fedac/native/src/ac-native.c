@@ -287,7 +287,27 @@ static void try_mount_log(void) {
                     strncpy(log_dev, devs[i], sizeof(log_dev) - 1);
                     fprintf(stderr, "[ac-native] Log: %s -> /mnt/ac-native.log (removable=%d)\n", devs[i], rem);
                     // Dump init debug lines from kernel ring buffer to USB
-                    system("dmesg 2>/dev/null | grep 'ac-init:' > /mnt/init.log 2>/dev/null");
+                    {
+                        int kmsg = open("/dev/kmsg", O_RDONLY | O_NONBLOCK);
+                        if (kmsg >= 0) {
+                            FILE *initlog = fopen("/mnt/init.log", "w");
+                            if (initlog) {
+                                char kbuf[512];
+                                ssize_t r;
+                                while ((r = read(kmsg, kbuf, sizeof(kbuf) - 1)) > 0) {
+                                    kbuf[r] = 0;
+                                    if (strstr(kbuf, "ac-init:")) {
+                                        char *msg = strstr(kbuf, "ac-init:");
+                                        fprintf(initlog, "%s\n", msg);
+                                    }
+                                }
+                                fflush(initlog);
+                                fsync(fileno(initlog));
+                                fclose(initlog);
+                            }
+                            close(kmsg);
+                        }
+                    }
                     return;
                 }
                 umount("/mnt");
