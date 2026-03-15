@@ -1706,6 +1706,16 @@ int main(int argc, char *argv[]) {
                     mkdir("/dev/pts", 0755);
                     // seatd -l debug for verbose output
                     ac_log("[browser] starting seatd...");
+                    // Ensure /etc/group exists (seatd needs it to resolve group names)
+                    {
+                        FILE *grp = fopen("/etc/group", "a");
+                        if (grp) {
+                            fseek(grp, 0, SEEK_END);
+                            if (ftell(grp) == 0)
+                                fprintf(grp, "root:x:0:\n");
+                            fclose(grp);
+                        }
+                    }
                     int seatd_rc = system("seatd -g root -l debug > /tmp/seatd.log 2>&1 &");
                     ac_log("[browser] seatd spawn rc=%d", seatd_rc);
                     // Wait and check multiple times
