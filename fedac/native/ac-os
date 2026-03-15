@@ -133,8 +133,8 @@ build_initramfs() {
 URL="$1"
 [ -z "$URL" ] && exit 1
 
-# Log immediately (before anything can fail)
-echo "xdg-open called: $URL pid=$$" >> /mnt/xdg-open.log 2>/dev/null
+# Log to /tmp (always writable) — ac-native copies to /mnt after reclaim
+echo "xdg-open called: $URL pid=$$" >> /tmp/xdg-open.log 2>/dev/null
 
 # Tell ac-native to release DRM master (SIGUSR1 = release, SIGUSR2 = reclaim)
 kill -USR1 1 2>/dev/null
@@ -158,23 +158,23 @@ export MOZ_ENABLE_WAYLAND=1
 export GDK_BACKEND=wayland
 mkdir -p /tmp/xdg /tmp/.mozilla
 
-# Log progress
-echo "xdg-open: past sleep, launching cage" >> /mnt/xdg-open.log 2>/dev/null
+# Log to /tmp
+echo "xdg-open: launching cage" >> /tmp/xdg-open.log 2>/dev/null
 
-# Debug: log everything to /mnt/cage.log
+# All output to /tmp (tmpfs = always writable)
 {
   echo "=== xdg-open debug ==="
   echo "URL: $URL"
   echo "PID: $$"
   echo "XDG_RUNTIME_DIR: $XDG_RUNTIME_DIR"
-  echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
   echo "which cage: $(which cage 2>&1)"
   echo "which firefox: $(which firefox 2>&1)"
   ls -la /bin/cage /opt/firefox/firefox-bin 2>&1
   echo "=== running cage ==="
   cage -s -- /opt/firefox/firefox-bin --kiosk --no-remote --new-instance "$URL" 2>&1
-  echo "=== cage exit: $? ==="
-} > /mnt/cage.log 2>&1
+  RC=$?
+  echo "=== cage exit: $RC ==="
+} > /tmp/cage.log 2>&1
 
 # Tell ac-native to reclaim DRM master
 kill -USR2 1 2>/dev/null
