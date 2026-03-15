@@ -5,17 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>justanothersystem.org — Jeffrey Alan Scudder</title>
   <meta name="author" content="Jeffrey Alan Scudder">
-  <meta name="description" content="justanothersystem.org — Recent paintings by Jeffrey Alan Scudder.">
+  <meta name="description" content="justanothersystem.org — Traditional paintings and drawings by Jeffrey Alan Scudder.">
   <link rel="icon" href="https://aesthetic.computer/favicon.ico">
 
   <!-- Social sharing meta tags -->
   <meta property="og:title" content="justanothersystem.org" />
-  <meta property="og:description" content="Recent paintings by Jeffrey Alan Scudder." />
+  <meta property="og:description" content="Traditional paintings and drawings by Jeffrey Alan Scudder." />
   <meta property="og:url" content="https://justanothersystem.org" />
   <meta property="og:type" content="website" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="justanothersystem.org" />
-  <meta name="twitter:description" content="Recent paintings by Jeffrey Alan Scudder." />
+  <meta name="twitter:description" content="Traditional paintings and drawings by Jeffrey Alan Scudder." />
   <meta name="twitter:site" content="@whistlegraph" />
 
   <style>
@@ -25,6 +25,7 @@
       --bg: #000;
       --fg: #f0f0f0;
       --dim: #666;
+      --pink-dot: #ff4ca8;
     }
 
     * {
@@ -124,10 +125,10 @@
     }
 
     .site-title {
-      font-size: 1.4rem;
+      font-size: 2.2rem;
       font-weight: 500;
-      letter-spacing: -0.01em;
-      text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.4);
+      letter-spacing: -0.02em;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.9), 0 4px 12px rgba(0,0,0,0.6), 0 0 30px rgba(0,0,0,0.5);
     }
 
     .site-title a {
@@ -135,10 +136,15 @@
       text-decoration: none;
     }
 
+    .site-title .org {
+      color: var(--pink-dot);
+    }
+
     .subtitle {
-      font-size: 1.1rem;
+      font-size: 1.5rem;
       color: var(--fg);
-      text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.4);
+      text-shadow: 0 2px 4px rgba(0,0,0,0.9), 0 4px 12px rgba(0,0,0,0.6), 0 0 30px rgba(0,0,0,0.5);
+      margin-top: 0.25rem;
     }
 
     .subtitle a {
@@ -151,41 +157,17 @@
       border-color: var(--fg);
     }
 
-    nav {
-      display: flex;
-      gap: 1rem;
-      font-size: 0.8rem;
-    }
-
-    nav a {
-      color: var(--dim);
-      text-decoration: none;
-      text-shadow: 0 1px 4px rgba(0,0,0,0.7);
-      transition: color 0.2s;
-    }
-
-    nav a:hover {
-      color: var(--fg);
-    }
-
-    /* Bottom bar: counter + progress */
+    /* Bottom bar */
     .bottom-bar {
       display: flex;
-      justify-content: space-between;
+      justify-content: flex-end;
       align-items: flex-end;
     }
 
-    .counter {
-      font-size: 1rem;
-      color: var(--fg);
-      text-shadow: 0 2px 8px rgba(0,0,0,0.8);
-      font-variant-numeric: tabular-nums;
-    }
-
     .location {
-      font-size: 1.1rem;
+      font-size: 1.4rem;
       color: var(--fg);
-      text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+      text-shadow: 0 2px 4px rgba(0,0,0,0.9), 0 4px 12px rgba(0,0,0,0.6);
       text-align: right;
       transition: opacity 0.8s ease;
     }
@@ -211,12 +193,11 @@
   <div class="overlay">
     <div class="top-bar">
       <div>
-        <h1 class="site-title"><a href="/">justanothersystem.org</a></h1>
-        <p class="subtitle">Stretched paintings and drawings by <a href="/bio">Jeffrey Alan Scudder</a></p>
+        <h1 class="site-title"><a href="/">justanothersystem<span class="org">.org</span></a></h1>
+        <p class="subtitle">Traditional paintings and drawings by <a href="/bio">Jeffrey Alan Scudder</a></p>
       </div>
     </div>
     <div class="bottom-bar">
-      <span class="counter" id="counter"></span>
       <span class="location" id="location"></span>
     </div>
   </div>
@@ -230,7 +211,6 @@
     const KB_CLASSES = ['kb-a', 'kb-b', 'kb-c', 'kb-d'];
 
     const slideshowEl = document.getElementById('slideshow');
-    const counterEl = document.getElementById('counter');
     const locationEl = document.getElementById('location');
     const progressBar = document.getElementById('progressBar');
 
@@ -300,9 +280,6 @@
       // Crossfade
       activeSlide.classList.add('active');
       inactiveSlide.classList.remove('active');
-
-      // Update counter
-      counterEl.textContent = `${currentIndex + 1} / ${slides.length}`;
 
       // Update location/date
       const parts = [];
