@@ -286,6 +286,8 @@ static void try_mount_log(void) {
                     fsync(fileno(logfile));
                     strncpy(log_dev, devs[i], sizeof(log_dev) - 1);
                     fprintf(stderr, "[ac-native] Log: %s -> /mnt/ac-native.log (removable=%d)\n", devs[i], rem);
+                    // Copy init debug log to USB (written by /init before ac-native starts)
+                    system("cp /tmp/init.log /mnt/init.log 2>/dev/null");
                     return;
                 }
                 umount("/mnt");
