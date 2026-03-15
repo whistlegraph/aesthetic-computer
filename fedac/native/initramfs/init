@@ -1,2 +1,63 @@
 #!/bin/sh
-exec /ac-native /piece.mjs
+# AC Native OS init — boots into cage Wayland compositor with ac-native as client
+# cage manages DRM/display, ac-native renders to Wayland SHM surface,
+# Firefox can launch as a sibling Wayland client for OAuth login.
+#
+# Fallback: if cage is not available, run ac-native directly (DRM mode).
+
+# Mount minimal filesystems
+mount -t proc proc /proc 2>/dev/null
+mount -t sysfs sysfs /sys 2>/dev/null
+mount -t devtmpfs devtmpfs /dev 2>/dev/null
+mkdir -p /dev/pts /tmp /run
+mount -t devpts devpts /dev/pts -o ptmxmode=0666 2>/dev/null
+mount -t tmpfs tmpfs /tmp 2>/dev/null
+mount -t tmpfs tmpfs /run 2>/dev/null
+
+# zram swap (Firefox + GTK needs significant memory)
+modprobe zram 2>/dev/null
+echo 1G > /sys/block/zram0/disksize 2>/dev/null && \
+  mkswap /dev/zram0 >/dev/null 2>&1 && swapon /dev/zram0 2>/dev/null
+
+# Loopback interface (needed for Claude OAuth callback server)
+ip link set lo up 2>/dev/null || ifconfig lo up 2>/dev/null
+
+# Wait for GPU/display device (up to 1s)
+i=0; while [ ! -e /dev/dri/card0 ] && [ ! -e /dev/fb0 ] && [ $i -lt 100 ]; do
+  usleep 10000; i=$((i+1))
+done
+
+# Performance CPU governor
+for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
+  echo performance > "$g" 2>/dev/null
+done
+
+# PATH for system commands
+export PATH="/bin:/sbin:/usr/bin:/usr/sbin"
+export SSL_CERT_FILE="/etc/pki/tls/certs/ca-bundle.crt"
+export CURL_CA_BUNDLE="/etc/pki/tls/certs/ca-bundle.crt"
+export SSL_CERT_DIR="/etc/ssl/certs"
+
+# Check if cage is available for Wayland compositor mode
+if command -v cage >/dev/null 2>&1 && [ -e /dev/dri/card0 ]; then
+    # Ensure /etc/group exists (seatd needs it)
+    mkdir -p /etc
+    echo "root:x:0:" > /etc/group 2>/dev/null
+
+    # Start seatd (seat daemon — required by wlroots 0.18)
+    seatd -g root &
+    i=0; while [ ! -S /run/seatd.sock ] && [ $i -lt 20 ]; do
+      usleep 100000; i=$((i+1))
+    done
+
+    # Wayland runtime directory
+    export XDG_RUNTIME_DIR=/tmp/xdg
+    export HOME=/tmp
+    mkdir -p "$XDG_RUNTIME_DIR"
+
+    # Launch cage with ac-native as the primary Wayland client
+    exec cage -- /ac-native /piece.mjs
+else
+    # Fallback: run ac-native directly (DRM mode, no Wayland)
+    exec /ac-native /piece.mjs
+fi

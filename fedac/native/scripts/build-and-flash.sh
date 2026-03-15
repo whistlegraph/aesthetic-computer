@@ -534,8 +534,11 @@ if [ -f "${BUILD_DIR}/ac-native" ]; then
     log "Bundled $(ldd "${BUILD_DIR}/ac-native" 2>/dev/null | grep -c '\.so') shared libs"
 fi
 
-# Init: symlink to ac-native (no /bin/sh in initramfs)
-ln -sf /ac-native "${INITRAMFS_DIR}/init"
+# Init: shell script that starts seatd + cage + ac-native (Wayland compositor mode)
+# Falls back to direct ac-native exec if cage is not available
+cp "${SCRIPT_DIR}/../initramfs/init" "${INITRAMFS_DIR}/init"
+chmod +x "${INITRAMFS_DIR}/init"
+log "Init: cage+Wayland boot script installed"
 
 # Create cpio + lz4
 INITRAMFS_CPIO="${BUILD_DIR}/initramfs.cpio"

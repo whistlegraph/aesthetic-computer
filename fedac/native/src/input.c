@@ -12,6 +12,9 @@
 #include <errno.h>
 #include <time.h>
 #include <math.h>
+#ifdef USE_WAYLAND
+#include "wayland-display.h"
+#endif
 
 static double monotonic_sec(void) {
     struct timespec ts;
@@ -407,6 +410,38 @@ void input_poll(ACInput *input) {
                 active, releasing, input->has_analog, input->hidraw_count, input->count);
     }
 
+#ifdef USE_WAYLAND
+    // Wayland path: dispatch Wayland events (keyboard/pointer/touch listeners fire)
+    // then skip evdev polling (compositor grabbed those devices)
+    if (input->is_wayland) {
+        ACWaylandDisplay *wd = input->wayland_display;
+        if (wd && wd->display) {
+            wl_display_dispatch_pending(wd->display);
+        }
+
+        // Software key repeat (Wayland doesn't send value=2 repeat events)
+        if (input->repeat_key >= 0 && input->repeat_rate > 0) {
+            double now = monotonic_sec();
+            if (now >= input->repeat_next) {
+                if (input->event_count < MAX_EVENTS_PER_FRAME) {
+                    ACEvent *ae = &input->events[input->event_count];
+                    memset(ae, 0, sizeof(ACEvent));
+                    ae->type = AC_EVENT_KEYBOARD_DOWN;
+                    ae->key_code = input->repeat_key;
+                    ae->repeat = 1;
+                    const char *name = input_key_name(input->repeat_key);
+                    if (name) strncpy(ae->key_name, name, sizeof(ae->key_name) - 1);
+                    input->event_count++;
+                }
+                input->repeat_next = now + 1.0 / input->repeat_rate;
+            }
+        }
+
+        // Still poll NuPhy hidraw under Wayland (not grabbed by compositor)
+        goto poll_hidraw;
+    }
+#endif
+
     struct input_event ev;
     for (int d = 0; d < input->count; d++) {
         ssize_t rr;
@@ -497,6 +532,9 @@ void input_poll(ACInput *input) {
         }
     }
 
+#ifdef USE_WAYLAND
+    poll_hidraw:
+#endif
     // Poll NuPhy hidraw devices for analog key data
     for (int d = 0; d < input->hidraw_count; d++) {
         unsigned char buf[64];
@@ -699,6 +737,311 @@ void input_poll(ACInput *input) {
         }
     }
 }
+
+// ── Wayland input backend ──
+
+#ifdef USE_WAYLAND
+
+// Wayland keyboard listener — keycodes are evdev keycodes (no offset)
+static void wl_keyboard_keymap(void *data, struct wl_keyboard *kb,
+                                uint32_t format, int32_t fd, uint32_t size) {
+    (void)data; (void)kb; (void)format; (void)size;
+    close(fd);  // We don't use xkb keymap — we map evdev codes directly
+}
+
+static void wl_keyboard_enter(void *data, struct wl_keyboard *kb, uint32_t serial,
+                               struct wl_surface *surface, struct wl_array *keys) {
+    (void)data; (void)kb; (void)serial; (void)surface; (void)keys;
+}
+
+static void wl_keyboard_leave(void *data, struct wl_keyboard *kb, uint32_t serial,
+                               struct wl_surface *surface) {
+    (void)data; (void)kb; (void)serial; (void)surface;
+}
+
+static void wl_keyboard_key(void *data, struct wl_keyboard *kb, uint32_t serial,
+                              uint32_t time, uint32_t key, uint32_t state) {
+    (void)kb; (void)serial; (void)time;
+    ACInput *input = data;
+    if (input->event_count >= MAX_EVENTS_PER_FRAME) return;
+
+    // Skip evdev keys from NuPhy (handled via hidraw analog)
+    if (input->has_analog) {
+        int kc = (int)key;
+        for (int i = 0; i < MAX_ANALOG_KEYS; i++) {
+            if (input->analog_keys[i].active && input->analog_keys[i].key_code == kc)
+                return;  // This key is being tracked via analog
+        }
+    }
+
+    ACEvent *ae = &input->events[input->event_count];
+    memset(ae, 0, sizeof(ACEvent));
+    ae->type = state ? AC_EVENT_KEYBOARD_DOWN : AC_EVENT_KEYBOARD_UP;
+    ae->key_code = key;
+    ae->pressure = state ? 1.0f : 0.0f;
+    const char *name = input_key_name(key);
+    if (name) strncpy(ae->key_name, name, sizeof(ae->key_name) - 1);
+    else snprintf(ae->key_name, sizeof(ae->key_name), "?%d", key);
+    input->event_count++;
+
+    // Key repeat tracking
+    if (state) {
+        input->repeat_key = key;
+        double now = monotonic_sec();
+        input->repeat_start = now;
+        input->repeat_next = now + input->repeat_delay / 1000.0;
+    } else if ((int)key == input->repeat_key) {
+        input->repeat_key = -1;
+    }
+}
+
+static void wl_keyboard_modifiers(void *data, struct wl_keyboard *kb, uint32_t serial,
+                                    uint32_t mods_depressed, uint32_t mods_latched,
+                                    uint32_t mods_locked, uint32_t group) {
+    (void)data; (void)kb; (void)serial;
+    (void)mods_depressed; (void)mods_latched; (void)mods_locked; (void)group;
+}
+
+static void wl_keyboard_repeat_info(void *data, struct wl_keyboard *kb,
+                                      int32_t rate, int32_t delay) {
+    (void)kb;
+    ACInput *input = data;
+    input->repeat_rate = rate;   // keys per second
+    input->repeat_delay = delay; // ms
+    fprintf(stderr, "[input] Wayland key repeat: rate=%d/s delay=%dms\n", rate, delay);
+}
+
+static const struct wl_keyboard_listener keyboard_listener = {
+    .keymap = wl_keyboard_keymap,
+    .enter = wl_keyboard_enter,
+    .leave = wl_keyboard_leave,
+    .key = wl_keyboard_key,
+    .modifiers = wl_keyboard_modifiers,
+    .repeat_info = wl_keyboard_repeat_info,
+};
+
+// Wayland pointer listener
+static void wl_pointer_enter(void *data, struct wl_pointer *ptr, uint32_t serial,
+                               struct wl_surface *surface, wl_fixed_t sx, wl_fixed_t sy) {
+    (void)ptr; (void)serial; (void)surface;
+    ACInput *input = data;
+    input->pointer_x = wl_fixed_to_int(sx);
+    input->pointer_y = wl_fixed_to_int(sy);
+}
+
+static void wl_pointer_leave(void *data, struct wl_pointer *ptr, uint32_t serial,
+                               struct wl_surface *surface) {
+    (void)data; (void)ptr; (void)serial; (void)surface;
+}
+
+static void wl_pointer_motion(void *data, struct wl_pointer *ptr, uint32_t time,
+                                wl_fixed_t sx, wl_fixed_t sy) {
+    (void)ptr; (void)time;
+    ACInput *input = data;
+    int old_x = input->pointer_x, old_y = input->pointer_y;
+    input->pointer_x = wl_fixed_to_int(sx);
+    input->pointer_y = wl_fixed_to_int(sy);
+    input->delta_x += input->pointer_x - old_x;
+    input->delta_y += input->pointer_y - old_y;
+
+    if (input->pointer_down && input->event_count < MAX_EVENTS_PER_FRAME) {
+        ACEvent *ae = &input->events[input->event_count];
+        memset(ae, 0, sizeof(ACEvent));
+        ae->type = AC_EVENT_DRAW;
+        ae->x = input->pointer_x / input->scale;
+        ae->y = input->pointer_y / input->scale;
+        input->event_count++;
+    }
+}
+
+static void wl_pointer_button(void *data, struct wl_pointer *ptr, uint32_t serial,
+                                uint32_t time, uint32_t button, uint32_t state) {
+    (void)ptr; (void)serial; (void)time;
+    ACInput *input = data;
+    if (input->event_count >= MAX_EVENTS_PER_FRAME) return;
+
+    // BTN_LEFT = 0x110 (272)
+    if (button == 272 || button == 0x110) {
+        ACEvent *ae = &input->events[input->event_count];
+        memset(ae, 0, sizeof(ACEvent));
+        if (state) {
+            ae->type = AC_EVENT_TOUCH;
+            input->pointer_down = 1;
+        } else {
+            ae->type = AC_EVENT_LIFT;
+            input->pointer_down = 0;
+        }
+        ae->x = input->pointer_x / input->scale;
+        ae->y = input->pointer_y / input->scale;
+        input->event_count++;
+    }
+}
+
+static void wl_pointer_axis(void *data, struct wl_pointer *ptr, uint32_t time,
+                              uint32_t axis, wl_fixed_t value) {
+    (void)data; (void)ptr; (void)time; (void)axis; (void)value;
+}
+
+static void wl_pointer_frame(void *data, struct wl_pointer *ptr) {
+    (void)data; (void)ptr;
+}
+
+static void wl_pointer_axis_source(void *data, struct wl_pointer *ptr, uint32_t source) {
+    (void)data; (void)ptr; (void)source;
+}
+
+static void wl_pointer_axis_stop(void *data, struct wl_pointer *ptr, uint32_t time, uint32_t axis) {
+    (void)data; (void)ptr; (void)time; (void)axis;
+}
+
+static void wl_pointer_axis_discrete(void *data, struct wl_pointer *ptr, uint32_t axis, int32_t discrete) {
+    (void)data; (void)ptr; (void)axis; (void)discrete;
+}
+
+static const struct wl_pointer_listener pointer_listener = {
+    .enter = wl_pointer_enter,
+    .leave = wl_pointer_leave,
+    .motion = wl_pointer_motion,
+    .button = wl_pointer_button,
+    .axis = wl_pointer_axis,
+    .frame = wl_pointer_frame,
+    .axis_source = wl_pointer_axis_source,
+    .axis_stop = wl_pointer_axis_stop,
+    .axis_discrete = wl_pointer_axis_discrete,
+};
+
+// Wayland touch listener
+static void wl_touch_down(void *data, struct wl_touch *touch, uint32_t serial,
+                            uint32_t time, struct wl_surface *surface, int32_t id,
+                            wl_fixed_t x, wl_fixed_t y) {
+    (void)touch; (void)serial; (void)time; (void)surface; (void)id;
+    ACInput *input = data;
+    input->pointer_x = wl_fixed_to_int(x);
+    input->pointer_y = wl_fixed_to_int(y);
+    input->pointer_down = 1;
+
+    if (input->event_count < MAX_EVENTS_PER_FRAME) {
+        ACEvent *ae = &input->events[input->event_count];
+        memset(ae, 0, sizeof(ACEvent));
+        ae->type = AC_EVENT_TOUCH;
+        ae->x = input->pointer_x / input->scale;
+        ae->y = input->pointer_y / input->scale;
+        input->event_count++;
+    }
+}
+
+static void wl_touch_up(void *data, struct wl_touch *touch, uint32_t serial,
+                          uint32_t time, int32_t id) {
+    (void)touch; (void)serial; (void)time; (void)id;
+    ACInput *input = data;
+    input->pointer_down = 0;
+
+    if (input->event_count < MAX_EVENTS_PER_FRAME) {
+        ACEvent *ae = &input->events[input->event_count];
+        memset(ae, 0, sizeof(ACEvent));
+        ae->type = AC_EVENT_LIFT;
+        ae->x = input->pointer_x / input->scale;
+        ae->y = input->pointer_y / input->scale;
+        input->event_count++;
+    }
+}
+
+static void wl_touch_motion(void *data, struct wl_touch *touch, uint32_t time,
+                              int32_t id, wl_fixed_t x, wl_fixed_t y) {
+    (void)touch; (void)time; (void)id;
+    ACInput *input = data;
+    input->pointer_x = wl_fixed_to_int(x);
+    input->pointer_y = wl_fixed_to_int(y);
+
+    if (input->pointer_down && input->event_count < MAX_EVENTS_PER_FRAME) {
+        ACEvent *ae = &input->events[input->event_count];
+        memset(ae, 0, sizeof(ACEvent));
+        ae->type = AC_EVENT_DRAW;
+        ae->x = input->pointer_x / input->scale;
+        ae->y = input->pointer_y / input->scale;
+        input->event_count++;
+    }
+}
+
+static void wl_touch_frame(void *data, struct wl_touch *touch) {
+    (void)data; (void)touch;
+}
+
+static void wl_touch_cancel(void *data, struct wl_touch *touch) {
+    (void)touch;
+    ACInput *input = data;
+    input->pointer_down = 0;
+}
+
+static const struct wl_touch_listener touch_listener = {
+    .down = wl_touch_down,
+    .up = wl_touch_up,
+    .motion = wl_touch_motion,
+    .frame = wl_touch_frame,
+    .cancel = wl_touch_cancel,
+};
+
+// Seat capabilities listener
+static void seat_capabilities(void *data, struct wl_seat *seat, uint32_t caps) {
+    ACInput *input = data;
+    ACWaylandDisplay *wd = input->wayland_display;
+
+    if ((caps & WL_SEAT_CAPABILITY_KEYBOARD) && !wd->keyboard) {
+        wd->keyboard = wl_seat_get_keyboard(seat);
+        wl_keyboard_add_listener(wd->keyboard, &keyboard_listener, input);
+        fprintf(stderr, "[input] Wayland keyboard bound\n");
+    }
+    if ((caps & WL_SEAT_CAPABILITY_POINTER) && !wd->pointer) {
+        wd->pointer = wl_seat_get_pointer(seat);
+        wl_pointer_add_listener(wd->pointer, &pointer_listener, input);
+        fprintf(stderr, "[input] Wayland pointer bound\n");
+    }
+    if ((caps & WL_SEAT_CAPABILITY_TOUCH) && !wd->touch) {
+        wd->touch = wl_seat_get_touch(seat);
+        wl_touch_add_listener(wd->touch, &touch_listener, input);
+        fprintf(stderr, "[input] Wayland touch bound\n");
+    }
+}
+
+static void seat_name(void *data, struct wl_seat *seat, const char *name) {
+    (void)data; (void)seat;
+    fprintf(stderr, "[input] Wayland seat: %s\n", name);
+}
+
+static const struct wl_seat_listener seat_listener = {
+    .capabilities = seat_capabilities,
+    .name = seat_name,
+};
+
+ACInput *input_init_wayland(void *wayland_display, int screen_w, int screen_h, int scale) {
+    ACWaylandDisplay *wd = wayland_display;
+    ACInput *input = calloc(1, sizeof(ACInput));
+    if (!input) return NULL;
+
+    input->screen_w = screen_w;
+    input->screen_h = screen_h;
+    input->scale = scale > 0 ? scale : 1;
+    input->last_poll_time = monotonic_sec();
+    input->is_wayland = 1;
+    input->wayland_display = wd;
+    input->repeat_key = -1;
+    input->repeat_rate = 25;   // default: 25 keys/sec
+    input->repeat_delay = 600; // default: 600ms
+
+    wd->input = input;
+
+    // Bind seat for input devices
+    if (wd->seat) {
+        wl_seat_add_listener(wd->seat, &seat_listener, input);
+        wl_display_roundtrip(wd->display);
+    }
+
+    // Still scan for NuPhy hidraw (not grabbed by Wayland compositor)
+    hidraw_scan(input);
+
+    return input;
+}
+#endif // USE_WAYLAND
 
 void input_destroy(ACInput *input) {
     if (!input) return;
