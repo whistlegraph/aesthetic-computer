@@ -134,24 +134,32 @@ function parse(text, location = self?.location) {
   // 🚨 Special case for prompt~ slugs - ALWAYS route to prompt piece
   // This prevents prompt~(wipe blue) from being treated as kidlisp function call
   if (text.startsWith("prompt~")) {
-    const promptContent = text.slice(7); // Remove "prompt~" prefix
-    
+    let promptContent = text.slice(7); // Remove "prompt~" prefix
+
+    // Strip query params (e.g. ?nogap=true) before passing as prompt content
+    const qIdx = promptContent.indexOf("?");
+    let promptSearch;
+    if (qIdx >= 0 && shouldTreatAsQuery(promptContent, qIdx)) {
+      promptSearch = promptContent.slice(qIdx + 1);
+      promptContent = promptContent.slice(0, qIdx);
+    }
+
     // Always try to decode - decodeKidlispFromUrl will return unchanged if not encoded
     let decodedContent = decodeKidlispFromUrl(promptContent);
-    
+
     // Check if the DECODED content is KidLisp
     if (!isKidlispSource(decodedContent)) {
       // If decoded version isn't KidLisp, use the original (might be a piece name)
       decodedContent = promptContent;
     }
-    
+
     return {
       host: location.hostname + (location.port ? ":" + location.port : ""),
       path: "aesthetic.computer/disks/prompt",
       piece: "prompt",
       colon: undefined,
       params: [decodedContent], // Pass the content as a parameter
-      search: undefined,
+      search: promptSearch,
       hash: undefined,
       text: text,
     };
