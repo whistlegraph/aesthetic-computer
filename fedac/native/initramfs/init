@@ -10,6 +10,10 @@ mount -t devpts devpts /dev/pts -o ptmxmode=0666 2>/dev/null
 mount -t tmpfs tmpfs /tmp 2>/dev/null
 mount -t tmpfs tmpfs /run 2>/dev/null
 
+# Init log — ac-native copies /tmp/init.log to USB after mounting
+IL=/tmp/init.log
+echo "=== init ===" > $IL
+
 # zram swap (Firefox needs memory)
 modprobe zram 2>/dev/null
 echo 1G > /sys/block/zram0/disksize 2>/dev/null && mkswap /dev/zram0 >/dev/null 2>&1 && swapon /dev/zram0 2>/dev/null
@@ -23,6 +27,7 @@ while [ ! -e /dev/dri/card0 ] && [ ! -e /dev/fb0 ] && [ $i -lt 100 ]; do
   usleep 10000
   i=$((i+1))
 done
+echo "card0: $(ls /dev/dri/card0 2>&1)" >> $IL
 
 # Performance governor
 for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
@@ -36,12 +41,14 @@ export SSL_CERT_DIR="/etc/ssl/certs"
 
 # Try Wayland compositor (cage + seatd)
 if command -v cage >/dev/null 2>&1 && command -v seatd >/dev/null 2>&1 && [ -e /dev/dri/card0 ]; then
+    echo "wayland: cage+seatd found" >> $IL
+
     # seatd needs /etc/group and /etc/passwd
     echo "root:x:0:" > /etc/group
     echo "root:x:0:root" > /etc/passwd
 
     # Start seatd
-    seatd -g root 2>/dev/null &
+    seatd -g root 2>/tmp/seatd.log &
     SEATD_PID=$!
     i=0
     while [ ! -S /run/seatd.sock ] && [ $i -lt 20 ]; do
@@ -50,22 +57,28 @@ if command -v cage >/dev/null 2>&1 && command -v seatd >/dev/null 2>&1 && [ -e /
     done
 
     if [ -S /run/seatd.sock ]; then
+        echo "seatd: ok (${i}00ms)" >> $IL
         export XDG_RUNTIME_DIR=/tmp/xdg
         export HOME=/tmp
         mkdir -p "$XDG_RUNTIME_DIR"
         chmod 0700 "$XDG_RUNTIME_DIR"
 
-        # cage runs ac-native as a Wayland client
-        # If cage fails, fall through to DRM direct
-        cage -s -- /ac-native /piece.mjs
+        echo "cage: launching" >> $IL
+        cage -s -- /ac-native /piece.mjs 2>/tmp/cage-stderr.log
         CAGE_RC=$?
+        echo "cage: exited $CAGE_RC" >> $IL
+        cat /tmp/cage-stderr.log >> $IL 2>/dev/null
 
-        # If we get here, cage exited — kill seatd and fall through
         kill $SEATD_PID 2>/dev/null
     else
+        echo "seatd: socket missing after 2s" >> $IL
+        cat /tmp/seatd.log >> $IL 2>/dev/null
         kill $SEATD_PID 2>/dev/null
     fi
+else
+    echo "wayland: cage=$(command -v cage 2>&1) seatd=$(command -v seatd 2>&1) card0=$(ls /dev/dri/card0 2>&1)" >> $IL
 fi
 
 # DRM direct fallback
+echo "drm: fallback" >> $IL
 exec /ac-native /piece.mjs
