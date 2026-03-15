@@ -125,6 +125,15 @@ function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 function resetVM() {
   stack.length = 0;
   frame = 0;
+  inkR = 255; inkG = 255; inkB = 255;
+  waveType = 0; baseFreq = 220; octShift = 0; phaseOffset = 0;
+}
+
+function clearField() {
+  for (let i = 0; i < field.length; i += 4) {
+    field[i] = 10; field[i + 1] = 10;
+    field[i + 2] = 15; field[i + 3] = 255;
+  }
 }
 
 function push(v) { if (stack.length < 64) stack.push(v); }
@@ -453,9 +462,23 @@ function act({ event: e, sound }) {
     return;
   }
 
-  // Delete last opcode
+  // Delete last opcode / clear
   if (e.is("keyboard:down:backspace") && !e.repeat) {
-    if (contours[activeContour].length > 0) {
+    const scoreEmpty = contours.length === 1 && contours[0].length === 0;
+
+    if (e.shift || scoreEmpty) {
+      // Full reset: clear score + field + VM + audio
+      contours = [[]];
+      activeContour = 0;
+      resetVM();
+      clearField();
+      if (audioStarted) {
+        synthVoice?.kill(0.1);
+        audioStarted = false;
+        synthVoice = null;
+        showRun = false;
+      }
+    } else if (contours[activeContour].length > 0) {
       contours[activeContour].pop();
     } else if (activeContour > 0) {
       contours.pop();
@@ -661,7 +684,9 @@ function paint({ wipe, ink, line, box, plot, write, screen }) {
     write("controls:", { x: 4, y: ky }); ky += CHAR_H + 2;
     write("space    run/stop", { x: 8, y: ky }); ky += CHAR_H + 1;
     write("enter    new line", { x: 8, y: ky }); ky += CHAR_H + 1;
-    write("bksp     delete", { x: 8, y: ky });
+    write("bksp     delete last", { x: 8, y: ky }); ky += CHAR_H + 1;
+    write("shift+bksp  full reset", { x: 8, y: ky }); ky += CHAR_H + 1;
+    write("arrows   scan mode", { x: 8, y: ky });
   } else {
     // --- COMPACT KEYBOARD GUIDE ---
     const guideY = sh - 52;
