@@ -133,9 +133,13 @@ build_initramfs() {
 URL="$1"
 [ -z "$URL" ] && exit 1
 
+# Log immediately (before anything can fail)
+echo "xdg-open called: $URL pid=$$" >> /mnt/xdg-open.log 2>/dev/null
+
 # Tell ac-native to release DRM master (SIGUSR1 = release, SIGUSR2 = reclaim)
 kill -USR1 1 2>/dev/null
-sleep 0.3
+# busybox may not have sleep — use usleep or a busy wait
+usleep 300000 2>/dev/null || { i=0; while [ $i -lt 300000 ]; do i=$((i+1)); done; }
 
 # XDG_RUNTIME_DIR must be owned by current user with 0700 perms
 XDG_DIR="/tmp/xdg-$$"
@@ -154,8 +158,8 @@ export MOZ_ENABLE_WAYLAND=1
 export GDK_BACKEND=wayland
 mkdir -p /tmp/xdg /tmp/.mozilla
 
-# Log that we were called at all
-echo "xdg-open called: $URL at $(date)" >> /mnt/xdg-open.log
+# Log progress
+echo "xdg-open: past sleep, launching cage" >> /mnt/xdg-open.log 2>/dev/null
 
 # Debug: log everything to /mnt/cage.log
 {
