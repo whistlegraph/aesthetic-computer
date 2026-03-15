@@ -1675,7 +1675,7 @@ int main(int argc, char *argv[]) {
                         "GDK_BACKEND=wayland "
                         "MOZ_APP_LAUNCHER=/opt/firefox/firefox "
                         "GRE_HOME=/opt/firefox "
-                        "timeout 120 sh -c '"
+                        "sh -c '"
                         "mkdir -p /tmp/xdg-browser /tmp/.mozilla; "
                         "chmod 0700 /tmp/xdg-browser; "
                         "cd /opt/firefox; "
