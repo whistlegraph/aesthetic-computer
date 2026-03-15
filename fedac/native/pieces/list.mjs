@@ -1,167 +1,167 @@
-// list.mjs — Shows all available pieces and commands on the native system
-// Press escape or backspace to return to prompt.
+// list.mjs — Dense command reference with categories and scrolling
+// Arrow keys scroll, escape returns to prompt.
 
 let frame = 0;
 let scrollY = 0;
+let totalH = 0;
 
-// Piece descriptions (known pieces get descriptions, others show name only)
-const PIECE_DESC = {
-  "notepat":       "synthesizer instrument with touch grid",
-  "os":            "system update panel (OTA flash)",
-  "wifi":          "network picker and saved credentials",
-  "code":          "AI coding assistant (Claude Code)",
-  "claude":        "AI coding assistant (Claude Code)",
-  "terminal":      "PTY terminal emulator (sh, claude)",
-  "geo":           "IP-based geolocation",
-  "chat":          "real-time chat on aesthetic.computer",
-  "laer-klokken":  "clock room chat (warm theme)",
-  "machine":       "hardware & software info",
-  "roz":           "generative art viewer",
-  "prompt":        "command prompt (home)",
-  "list":          "this screen",
-  "clock":         "melody clock with UTC sync",
-  "brick-breaker": "paddle and ball game",
-  "gostop":        "go/stop rhythm game",
-  "beat":          "mouse percussion instrument",
-  "shh":           "noise drone instrument",
-  "dync":          "percussive pad instrument",
-  "chart":         "diagram sketch",
-  "f3ral3xp":      "feral expression",
-  "3x3":           "3x3 ortholinear pad",
-  "hop":           "game sketch",
-  "error":         "error display screen",
-  "404":           "page not found",
-  "hw":            "hello world",
-  "ptt":           "push to talk sketch",
-};
+// ── Categories ──────────────────────────────────────────────
+const MAIN = [
+  { name: "notepat",  desc: "synthesizer instrument" },
+];
 
-let PIECES = []; // Populated dynamically in boot
+const TOOLS = [
+  { name: "os",       desc: "system updates (OTA)" },
+  { name: "wifi",     desc: "network picker" },
+  { name: "code",     desc: "AI assistant (Claude)" },
+  { name: "terminal", desc: "shell (PTY)" },
+  { name: "machine",  desc: "hardware info" },
+  { name: "geo",      desc: "IP geolocation" },
+  { name: "chat",     desc: "live chat room" },
+  { name: "list",     desc: "this screen" },
+];
 
 const COMMANDS = [
-  { name: "off",      desc: "power off the machine" },
-  { name: "reboot",   desc: "restart the system" },
-  { name: "hi",       desc: "show current logged-in user" },
-  { name: "bye",      desc: "log out current user" },
-  { name: "version",  desc: "show current OS version hash" },
-  { name: "ssh",      desc: "start SSH server on port 22" },
-  { name: "clear",    desc: "clear command history" },
-  { name: "help",     desc: "show quick help" },
+  { name: "off",     desc: "power off" },
+  { name: "reboot",  desc: "restart" },
+  { name: "hi",      desc: "current user" },
+  { name: "bye",     desc: "log out" },
+  { name: "version", desc: "OS hash" },
+  { name: "ssh",     desc: "SSH server" },
+  { name: "clear",   desc: "clear history" },
+  { name: "help",    desc: "quick help" },
 ];
 
 const CODES = [
-  { name: "$roz", desc: "generative art pattern (KidLisp)" },
+  { name: "$roz", desc: "generative art" },
 ];
 
+// Populated in boot — pieces not in MAIN or TOOLS
+let UNSTABLE = [];
+
 function boot({ system }) {
-  // Discover pieces dynamically from filesystem
-  const names = (system?.listPieces?.() || []).filter(n => n !== "prompt" && n !== "lisp" && n !== "cc");
-  names.sort();
-  PIECES = names.map(name => ({ name, desc: PIECE_DESC[name] || null }));
+  var known = {};
+  MAIN.forEach(function(p) { known[p.name] = true; });
+  TOOLS.forEach(function(p) { known[p.name] = true; });
+  var skip = { prompt: 1, lisp: 1, cc: 1, "404": 1, error: 1 };
+  var names = (system && system.listPieces ? system.listPieces() : []);
+  UNSTABLE = [];
+  for (var i = 0; i < names.length; i++) {
+    if (!known[names[i]] && !skip[names[i]]) {
+      UNSTABLE.push({ name: names[i] });
+    }
+  }
+  UNSTABLE.sort(function(a, b) { return a.name < b.name ? -1 : 1; });
 }
 
 function act({ event: e, system }) {
   if (e.is("keyboard:down")) {
-    const key = e.key;
+    var key = e.key;
     if (key === "escape" || key === "backspace") {
-      system?.jump?.("prompt");
+      if (system && system.jump) system.jump("prompt");
       return;
     }
-    if (key === "arrowdown") scrollY += 14;
-    if (key === "arrowup") scrollY = Math.max(0, scrollY - 14);
+    if (key === "arrowdown" || key === "j") scrollY += 20;
+    if (key === "arrowup" || key === "k") scrollY = Math.max(0, scrollY - 20);
+    if (key === "pagedown" || key === " ") scrollY += 100;
+    if (key === "pageup") scrollY = Math.max(0, scrollY - 100);
+    if (key === "home") scrollY = 0;
+    if (key === "end") scrollY = Math.max(0, totalH - 150);
   }
 }
 
 function paint({ wipe, ink, box, line, write, screen }) {
   frame++;
-  const T = __theme.update();
+  var T = __theme.update();
   wipe(T.bg[0], T.bg[1], T.bg[2]);
 
-  const W = screen.width;
-  const H = screen.height;
-  const font = "6x10";
-  const charW = 6;
-  const lineH = 13;
-  const pad = 6;
-  let y = pad - scrollY;
+  var W = screen.width;
+  var H = screen.height;
+  var font = "6x10";
+  var cW = 6; // char width
+  var lH = 11; // line height (dense)
+  var pad = 5;
+  var col2 = 85; // description column start
+  var y = pad - scrollY;
 
-  // Title
+  // ── Header ──
   ink(T.accent[0], T.accent[1], T.accent[2]);
-  write("ac/native commands", { x: pad, y, size: 1, font });
-  y += lineH + 4;
+  write("ac/native", { x: pad, y: y, size: 1, font: "matrix" });
+  ink(T.fgMute, T.fgMute, T.fgMute);
+  write("arrows/jk scroll  esc back", { x: W - 160, y: y + 2, size: 1, font });
+  y += 14;
 
-  // Section: Pieces
-  ink(T.ok[0], T.ok[1], T.ok[2]);
-  write(`pieces (${PIECES.length})`, { x: pad, y, size: 1, font });
-  y += lineH;
-  ink(T.border[0], T.border[1], T.border[2]);
-  line(pad, y - 2, W - pad, y - 2);
+  // ── Draw a section ──
+  function section(title, items, titleColor, nameColor, twoCol) {
+    // Title bar
+    ink(titleColor[0], titleColor[1], titleColor[2]);
+    write(title, { x: pad, y: y, size: 1, font });
+    ink(T.border[0], T.border[1], T.border[2]);
+    var tw = title.length * cW + pad + 4;
+    if (y + lH > 0 && y < H) line(tw, y + 4, W - pad, y + 4);
+    y += lH + 2;
 
-  for (const p of PIECES) {
-    if (y > H + 20) break;
-    if (y > -lineH) {
-      ink(T.fg, T.fg - 20, T.fg + 15);
-      write(p.name, { x: pad, y, size: 1, font });
-      if (p.desc) {
-        ink(T.fgMute, T.fgMute, T.fgMute + 5);
-        write(p.desc, { x: pad, y: y + 11, size: 1, font });
-        y += lineH * 2;
-      } else {
-        y += lineH;
+    if (twoCol) {
+      // Two-column: name + description on same line
+      for (var i = 0; i < items.length; i++) {
+        if (y > H + 10) { y += lH; continue; }
+        if (y > -lH) {
+          ink(nameColor[0], nameColor[1], nameColor[2]);
+          write(items[i].name, { x: pad + 2, y: y, size: 1, font });
+          if (items[i].desc) {
+            ink(T.fgMute, T.fgMute, T.fgMute);
+            write(items[i].desc, { x: col2, y: y, size: 1, font });
+          }
+        }
+        y += lH;
       }
     } else {
-      y += p.desc ? lineH * 2 : lineH;
+      // Compact grid: names only, 3 columns
+      var colW = Math.floor((W - pad * 2) / 3);
+      var col = 0;
+      var rowY = y;
+      for (var i = 0; i < items.length; i++) {
+        if (rowY > -lH && rowY < H + 10) {
+          ink(nameColor[0], nameColor[1], nameColor[2]);
+          write(items[i].name, { x: pad + 2 + col * colW, y: rowY, size: 1, font });
+        }
+        col++;
+        if (col >= 3) { col = 0; rowY += lH; }
+      }
+      if (col > 0) rowY += lH;
+      y = rowY;
     }
+    y += 4;
   }
 
-  y += 6;
+  // ── Sections ──
+  section("instrument", MAIN, T.ok, [T.fg, T.fg, T.fg], true);
+  section("tools", TOOLS, T.link, [T.fg - 10, T.fg, T.fg + 15], true);
+  section("commands", COMMANDS, [T.fgDim, T.fgDim + 20, T.fgDim], [T.fgDim + 30, T.fgDim + 30, T.fgDim + 40], true);
+  section("$codes", CODES, T.warn, T.warn, true);
 
-  // Section: Commands
-  ink(T.link[0], T.link[1], T.link[2]);
-  write("commands", { x: pad, y, size: 1, font });
-  y += lineH;
-  ink(T.border[0], T.border[1], T.border[2]);
-  line(pad, y - 2, W - pad, y - 2);
-
-  for (const c of COMMANDS) {
-    if (y > H + 20) break;
-    if (y > -lineH) {
-      ink(T.fg - 10, T.fg, T.fg + 20);
-      write(c.name, { x: pad, y, size: 1, font });
-      ink(T.fgMute, T.fgMute, T.fgMute + 5);
-      write(c.desc, { x: pad, y: y + 11, size: 1, font });
-    }
-    y += lineH * 2;
+  if (UNSTABLE.length > 0) {
+    section("unstable (" + UNSTABLE.length + ")", UNSTABLE,
+      [T.fgMute, T.fgMute - 10, T.fgMute],
+      [T.fgMute + 20, T.fgMute + 10, T.fgMute + 20],
+      false);
   }
 
-  y += 6;
-
-  // Section: Code aliases
-  ink(T.warn[0], T.warn[1], T.warn[2]);
-  write("$codes", { x: pad, y, size: 1, font });
-  y += lineH;
-  ink(T.border[0], T.border[1], T.border[2]);
-  line(pad, y - 2, W - pad, y - 2);
-
-  for (const c of CODES) {
-    if (y > H + 20) break;
-    if (y > -lineH) {
-      ink(T.warn[0], T.warn[1] - 20, T.warn[2] + 40);
-      write(c.name, { x: pad, y, size: 1, font });
-      ink(T.fgMute, T.fgMute, T.fgMute + 5);
-      write(c.desc, { x: pad, y: y + 11, size: 1, font });
-    }
-    y += lineH * 2;
-  }
-
-  y += 8;
-
-  // Footer hint
-  if (y > -lineH && y < H + 20) {
-    ink(T.fgMute, T.fgMute - 10, T.fgMute + 10);
-    write("anything else -> kidlisp", { x: pad, y, size: 1, font });
-    y += lineH;
+  // Footer
+  if (y > -lH && y < H + 10) {
     ink(T.fgMute - 10, T.fgMute - 15, T.fgMute);
-    write("esc to return", { x: pad, y, size: 1, font });
+    write("anything else -> kidlisp", { x: pad, y: y, size: 1, font });
+  }
+  y += lH;
+
+  totalH = y + scrollY;
+
+  // Scrollbar
+  if (totalH > H) {
+    var barH = Math.max(10, Math.floor(H * H / totalH));
+    var barY = Math.floor(scrollY / totalH * H);
+    ink(T.border[0], T.border[1], T.border[2]);
+    box(W - 2, barY, 2, barH, true);
   }
 }
 
