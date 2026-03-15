@@ -1668,7 +1668,12 @@ function plot(x, y) {
 
   // Erasing
   if (c[0] === -1 && c[1] === -1 && c[2] === -1) {
-    erase(pixels, i, 1 - c[3] / 255);
+    const na = 1 - c[3] / 255;
+    erase(pixels, i, na);
+    if (eraseTarget) {
+      const pi = i >> 2;
+      eraseTarget[pi] = 255 - ((255 - eraseTarget[pi]) * na + 0.5) | 0;
+    }
   } else if (alpha === 255) {
     // No alpha blending, just copy.
     pixels.set(plotColor, i);
@@ -2669,6 +2674,15 @@ function blendMode(mode = "blend") {
   blendingMode = mode;
 }
 
+// 🧽 Erase target: when set, erase operations write their erase amounts here
+// so KidLisp can apply them during compositing to punch through baked layers.
+let eraseTarget = null;
+let eraseTargetWidth = 0;
+function setEraseTarget(target, targetWidth) {
+  eraseTarget = target;
+  eraseTargetWidth = targetWidth;
+}
+
 // let stipple = 0;
 // A fast alpha blending function that looks into a pixel array.
 // Transcribed from C++: https://stackoverflow.com/a/12016968
@@ -2693,6 +2707,11 @@ function blend(dst, src, si, di, alphaIn = 1) {
       dst[di] = 32;
       dst[di + 1] = 32;
       dst[di + 2] = 32;
+    }
+    // 🧽 Also record erase amount in eraseTarget for cross-layer compositing
+    if (eraseTarget) {
+      const pi = di >> 2; // pixel index
+      eraseTarget[pi] = 255 - ((255 - eraseTarget[pi]) * normalAlpha + 0.5) | 0;
     }
     return;
   }
@@ -2791,6 +2810,10 @@ function lineFast(x0, y0, x1, y1) {
         pixels[i + 3] = isOpaque ? 255 : a;
       } else if (isErase) {
         pixels[i + 3] *= normalAlpha;
+        if (eraseTarget) {
+          const pi = i >> 2;
+          eraseTarget[pi] = 255 - ((255 - eraseTarget[pi]) * normalAlpha + 0.5) | 0;
+        }
       } else if (hasAlpha) {
         // Inline alpha blend
         const invA = 255 - a;
@@ -2871,6 +2894,10 @@ function lineh(x0, x1, y) {
     const normalAlpha = 1 - c[3] / 255;
     for (let i = startIndex; i <= endIndex; i += 4) {
       erase(pixels, i, normalAlpha);
+      if (eraseTarget) {
+        const pi = i >> 2;
+        eraseTarget[pi] = 255 - ((255 - eraseTarget[pi]) * normalAlpha + 0.5) | 0;
+      }
     }
     // No alpha.
   } else if (c[3] === 255) {
@@ -9160,6 +9187,7 @@ export {
   renderStats,
   setKidLispContext,
   clearKidLispContext,
+  setEraseTarget,
   setGpuSpin,
   setGpuFlood,
   setGpuContrast,
