@@ -44,6 +44,15 @@ ifdef USE_SDL
   LDFLAGS += $(SDL_LIBS)
 endif
 
+# Wayland display backend (for running under cage compositor: make USE_WAYLAND=1)
+XDG_SHELL_XML := /usr/share/wayland-protocols/stable/xdg-shell/xdg-shell.xml
+ifdef USE_WAYLAND
+  WL_CFLAGS := $(shell pkg-config --cflags wayland-client 2>/dev/null)
+  WL_LIBS   := $(shell pkg-config --libs wayland-client 2>/dev/null || echo "-lwayland-client")
+  CFLAGS  += -DUSE_WAYLAND $(WL_CFLAGS)
+  LDFLAGS += $(WL_LIBS)
+endif
+
 # Source files
 SSL_LIBS := $(shell pkg-config --libs openssl 2>/dev/null || echo "-lssl -lcrypto")
 LDFLAGS  += $(SSL_LIBS)
@@ -65,7 +74,19 @@ SRCS := $(SRCDIR)/ac-native.c \
         $(SRCDIR)/machines.c \
         $(SRCDIR)/js-bindings.c
 
+# Wayland display backend (conditional)
+ifdef USE_WAYLAND
+  SRCS += $(SRCDIR)/wayland-display.c
+endif
+
 OBJS := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/%.o,$(SRCS))
+
+# Wayland protocol generated objects (separate from SRCS pattern)
+ifdef USE_WAYLAND
+  WL_PROTO_OBJS := $(BUILDDIR)/xdg-shell-protocol.o
+else
+  WL_PROTO_OBJS :=
+endif
 
 # QuickJS-ng object files (compiled from source)
 QJS_SRCS := $(QJSDIR)/quickjs.c $(QJSDIR)/libunicode.c $(QJSDIR)/libregexp.c $(QJSDIR)/cutils.c $(QJSDIR)/libbf.c
@@ -85,7 +106,7 @@ TARGET := $(BUILDDIR)/ac-native
 
 all: quickjs $(TARGET)
 
-$(TARGET): $(OBJS) $(QJS_OBJS) $(QUIRC_OBJS) $(QRGEN_OBJS)
+$(TARGET): $(OBJS) $(QJS_OBJS) $(QUIRC_OBJS) $(QRGEN_OBJS) $(WL_PROTO_OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS)
 	@echo "Built: $@ ($(shell wc -c < $@ | tr -d ' ') bytes)"
 
@@ -117,6 +138,22 @@ $(BUILDDIR)/quirc-%.o: $(QUIRCDIR)/%.c | $(BUILDDIR)
 
 $(BUILDDIR):
 	mkdir -p $(BUILDDIR)
+
+# Wayland protocol code generation (xdg-shell)
+ifdef USE_WAYLAND
+$(BUILDDIR)/xdg-shell-client-protocol.h: $(XDG_SHELL_XML) | $(BUILDDIR)
+	wayland-scanner client-header $< $@
+
+$(BUILDDIR)/xdg-shell-protocol.c: $(XDG_SHELL_XML) | $(BUILDDIR)
+	wayland-scanner private-code $< $@
+
+$(BUILDDIR)/xdg-shell-protocol.o: $(BUILDDIR)/xdg-shell-protocol.c $(BUILDDIR)/xdg-shell-client-protocol.h | $(BUILDDIR)
+	$(CC) -O2 -Wall -I$(BUILDDIR) -c -o $@ $<
+
+# wayland-display.c depends on generated protocol header
+$(BUILDDIR)/wayland-display.o: $(SRCDIR)/wayland-display.c $(BUILDDIR)/xdg-shell-client-protocol.h $(HEADERS) | $(BUILDDIR)
+	$(CC) $(CFLAGS) -I$(BUILDDIR) -c -o $@ $<
+endif
 
 # Download and prepare QuickJS-ng
 quickjs: $(QJSDIR)/quickjs.h
