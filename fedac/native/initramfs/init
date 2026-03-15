@@ -1,11 +1,7 @@
 #!/bin/sh
-# AC Native OS init — boots into cage Wayland compositor with ac-native as client
-# cage manages DRM/display, ac-native renders to Wayland SHM surface,
-# Firefox can launch as a sibling Wayland client for OAuth login.
-#
-# Fallback: if cage is not available, run ac-native directly (DRM mode).
+# AC Native OS init — direct DRM mode
+# Wayland compositor support is compiled in but disabled pending debugging.
 
-# Mount minimal filesystems
 mount -t proc proc /proc 2>/dev/null
 mount -t sysfs sysfs /sys 2>/dev/null
 mount -t devtmpfs devtmpfs /dev 2>/dev/null
@@ -14,79 +10,28 @@ mount -t devpts devpts /dev/pts -o ptmxmode=0666 2>/dev/null
 mount -t tmpfs tmpfs /tmp 2>/dev/null
 mount -t tmpfs tmpfs /run 2>/dev/null
 
-# Debug log — /dev/kmsg goes to kernel ring buffer (survives until power off)
-ilog() { echo "ac-init: $1" > /dev/kmsg 2>/dev/null; }
-ilog "=== init start ==="
-
-# zram swap (Firefox + GTK needs significant memory)
+# zram swap
 modprobe zram 2>/dev/null
-echo 1G > /sys/block/zram0/disksize 2>/dev/null && \
-  mkswap /dev/zram0 >/dev/null 2>&1 && swapon /dev/zram0 2>/dev/null
+echo 1G > /sys/block/zram0/disksize 2>/dev/null && mkswap /dev/zram0 >/dev/null 2>&1 && swapon /dev/zram0 2>/dev/null
 
-# Loopback interface (needed for Claude OAuth callback server)
-ip link set lo up 2>/dev/null || ifconfig lo up 2>/dev/null
+# Loopback
+ip link set lo up 2>/dev/null
 
-# Wait for GPU/display device (up to 1s)
-i=0; while [ ! -e /dev/dri/card0 ] && [ ! -e /dev/fb0 ] && [ $i -lt 100 ]; do
-  usleep 10000; i=$((i+1))
+# Wait for GPU
+i=0
+while [ ! -e /dev/dri/card0 ] && [ ! -e /dev/fb0 ] && [ $i -lt 100 ]; do
+  usleep 10000
+  i=$((i+1))
 done
-ilog "card0=$(ls /dev/dri/card0 2>&1)"
 
-# Performance CPU governor
+# Performance governor
 for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
   echo performance > "$g" 2>/dev/null
 done
 
-# PATH for system commands
 export PATH="/bin:/sbin:/usr/bin:/usr/sbin"
 export SSL_CERT_FILE="/etc/pki/tls/certs/ca-bundle.crt"
 export CURL_CA_BUNDLE="/etc/pki/tls/certs/ca-bundle.crt"
 export SSL_CERT_DIR="/etc/ssl/certs"
 
-# Wayland compositor mode (disabled — debugging in progress, use DRM direct)
-# To re-enable: change "false" to the cage check below
-# if command -v cage >/dev/null 2>&1 && [ -e /dev/dri/card0 ]; then
-ilog "cage disabled — DRM direct mode"
-if false; then
-    ilog "Wayland path: cage + card0 OK"
-
-    # Ensure /etc/group + /etc/passwd exist (seatd needs group lookup)
-    mkdir -p /etc
-    echo "root:x:0:root" > /etc/passwd 2>/dev/null
-    echo "root:x:0:" > /etc/group 2>/dev/null
-
-    # Start seatd (seat daemon — required by wlroots 0.18)
-    ilog "starting seatd..."
-    seatd -g root -l debug 2>/dev/kmsg &
-    SEATD_PID=$!
-    ilog "seatd PID=$SEATD_PID"
-    i=0; while [ ! -S /run/seatd.sock ] && [ $i -lt 30 ]; do
-      usleep 100000; i=$((i+1))
-    done
-    if [ -S /run/seatd.sock ]; then
-        ilog "seatd socket OK after ${i}00ms"
-    else
-        ilog "seatd socket MISSING — DRM fallback"
-        kill $SEATD_PID 2>/dev/null
-        exec /ac-native /piece.mjs
-    fi
-
-    # Wayland runtime directory (must be 0700 owned by current user)
-    export XDG_RUNTIME_DIR=/tmp/xdg
-    export HOME=/tmp
-    mkdir -p "$XDG_RUNTIME_DIR"
-    chmod 0700 "$XDG_RUNTIME_DIR"
-
-    # Launch cage — blocks until ac-native exits
-    ilog "launching cage -s -- /ac-native /piece.mjs"
-    cage -s -- /ac-native /piece.mjs 2>/dev/kmsg
-    CAGE_RC=$?
-    ilog "cage exited: $CAGE_RC"
-
-    # Fall back to DRM
-    ilog "DRM fallback after cage"
-    exec /ac-native /piece.mjs
-else
-    ilog "no cage or no card0 — DRM fallback"
-    exec /ac-native /piece.mjs
-fi
+exec /ac-native /piece.mjs
