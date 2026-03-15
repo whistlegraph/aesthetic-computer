@@ -6,7 +6,7 @@ Sorted by most recently edited/added.
 
 | Paper | Format | PDF | Source |
 |-------|--------|-----|--------|
-| From setup() to boot(): The Piece API as Successor to the Processing Sketch | arXiv (LaTeX, 7pp) | `arxiv-api/api.pdf` | `arxiv-api/api.tex` |
+| From setup() to boot(): Processing at the Core of the Piece API | arXiv (LaTeX, 7pp) | `arxiv-api/api.pdf` | `arxiv-api/api.tex` |
 | Network Audit: Who Uses Aesthetic Computer and What Do They Make? | arXiv (LaTeX, 4pp) | `arxiv-network-audit/network-audit.pdf` | `arxiv-network-audit/network-audit.tex` |
 | KidLisp Language Reference: 118 Built-ins in 12 Categories | arXiv (LaTeX, 4pp) | `arxiv-kidlisp-reference/kidlisp-reference.pdf` | `arxiv-kidlisp-reference/kidlisp-reference.tex` |
 | Whistlegraph: Drawing, Singing, and the Graphic Score as Viral Form | arXiv (LaTeX, 4pp) | `arxiv-whistlegraph/whistlegraph.pdf` | `arxiv-whistlegraph/whistlegraph.tex` |
