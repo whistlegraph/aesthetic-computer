@@ -1,11 +1,9 @@
 // Jas, 2026.3.15
-// A spatial bytecode instrument for Aesthetic Computer.
-// Type to compose. The keyboard is the instrument.
-// The pixels are the waveform. The waveform draws the pixels.
+// Spatial bytecode instrument — type to compose, pixels are the waveform.
 
 /* 📝 Notes
   QWERTY keyboard = instrument. Each key is an opcode.
-  Typed characters appear along a contour path (drawn or auto-laid).
+  Typed characters form the score — shareable as plain text.
   The pixel buffer feeds back into audio — what you see is what you hear.
   The audio feeds back into pixels — what you hear is what you see.
 
@@ -21,9 +19,9 @@
   Arrow keys = change scan pattern
 */
 
+const hudSafeTop = 22;
+
 // --- Opcode table: every printable key is an opcode ---
-// Each opcode has: glyph, family, exec function
-// Families: val, pitch, draw, ctrl, color
 
 const FAMILIES = {
   val:   { color: [200, 160, 50],  name: "value" },
@@ -33,7 +31,6 @@ const FAMILIES = {
   mod:   { color: [60, 160, 90],   name: "modifier" },
 };
 
-// Every typable key → opcode definition
 const OPS = {
   // Number row: literal values (push 0-9 scaled)
   "1": { family: "val", desc: "push 1",  val: 1 },
@@ -66,42 +63,40 @@ const OPS = {
   "f": { family: "draw", desc: "box []",     fn: "box" },
   "g": { family: "draw", desc: "fill #",     fn: "fill" },
   "h": { family: "draw", desc: "wipe",       fn: "wipe" },
-  "j": { family: "draw", desc: "scroll ≋",   fn: "scroll" },
-  "k": { family: "draw", desc: "spin ↻",     fn: "spin" },
-  "l": { family: "draw", desc: "fade ≈",     fn: "fade" },
+  "j": { family: "draw", desc: "scroll",     fn: "scroll" },
+  "k": { family: "draw", desc: "spin",       fn: "spin" },
+  "l": { family: "draw", desc: "fade",       fn: "fade" },
 
   // ZXCV row: control flow / modifiers
-  "z": { family: "ctrl", desc: "loop ∿",     fn: "loop" },
+  "z": { family: "ctrl", desc: "loop",       fn: "loop" },
   "x": { family: "ctrl", desc: "skip ?",     fn: "skip" },
-  "c": { family: "ctrl", desc: "halt ■",     fn: "halt" },
-  "v": { family: "ctrl", desc: "dup ⌐",      fn: "dup" },
-  "b": { family: "ctrl", desc: "swap ⇄",     fn: "swap" },
-  "n": { family: "ctrl", desc: "drop ↓",     fn: "drop" },
-  "m": { family: "ctrl", desc: "emit ♫",     fn: "emit" },
+  "c": { family: "ctrl", desc: "halt",       fn: "halt" },
+  "v": { family: "ctrl", desc: "dup",        fn: "dup" },
+  "b": { family: "ctrl", desc: "swap",       fn: "swap" },
+  "n": { family: "ctrl", desc: "drop",       fn: "drop" },
+  "m": { family: "ctrl", desc: "emit",       fn: "emit" },
 
   // Punctuation: modifiers
   ",": { family: "mod", desc: "AND &",       fn: "and" },
   ".": { family: "mod", desc: "OR |",        fn: "or" },
-  "/": { family: "mod", desc: "XOR ⊕",      fn: "xor" },
-  ";": { family: "mod", desc: "shift «",     fn: "shl" },
-  "'": { family: "mod", desc: "shift »",     fn: "shr" },
+  "/": { family: "mod", desc: "XOR",         fn: "xor" },
+  ";": { family: "mod", desc: "shl",         fn: "shl" },
+  "'": { family: "mod", desc: "shr",         fn: "shr" },
   "[": { family: "mod", desc: "mod %",       fn: "mod" },
-  "]": { family: "mod", desc: "not ¬",       fn: "not" },
-  "-": { family: "mod", desc: "sub −",       fn: "sub" },
-  "=": { family: "mod", desc: "add +",       fn: "add" },
+  "]": { family: "mod", desc: "not",         fn: "not" },
+  "-": { family: "mod", desc: "sub",         fn: "sub" },
+  "=": { family: "mod", desc: "add",         fn: "add" },
 };
 
-// Scan patterns for reading the pixel buffer as audio
 const SCAN_MODES = ["raster", "spiral", "column", "diagonal"];
-const SCAN_NAMES = ["raster ↔", "spiral ◎", "column ↕", "diagonal ╱"];
+const SCAN_NAMES = ["raster", "spiral", "column", "diagonal"];
 
 // --- Pixel buffer (the field) ---
 const FIELD_W = 64;
 const FIELD_H = 64;
 
-let field; // Uint8ClampedArray, RGBA
+let field;
 let stack = [];
-let slots = new Float32Array(256);
 let frame = 0;
 let scanMode = 0;
 let showRun = false;
@@ -109,16 +104,13 @@ let showRun = false;
 // Audio state
 let audioStarted = false;
 let synthVoice = null;
-let scanPhase = 0;
-const SCAN_RATE = 44100;
-const SAMPLES_PER_FRAME = 735; // ~60fps
 
 // Contour: the typed score as a path of characters
-let contours = [[]]; // Array of arrays of opcode keys
+let contours = [[]];
 let activeContour = 0;
 let cursorBlink = 0;
 
-// Feedback state: pixel-derived values that modulate audio
+// Feedback state: pixel-derived values that modulate the synth
 let feedback = {
   avgBrightness: 0,
   avgR: 0, avgG: 0, avgB: 0,
@@ -128,7 +120,7 @@ let feedback = {
 
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
-// --- VM: execute the score on the pixel field ---
+// --- VM ---
 function resetVM() {
   stack.length = 0;
   frame = 0;
@@ -144,23 +136,19 @@ function fieldIndex(x, y) {
   return (wy * FIELD_W + wx) * 4;
 }
 
-function plotPixel(x, y, r, g, b, a = 255) {
+function plotPixel(x, y, r, g, b) {
   const i = fieldIndex(x, y);
-  field[i] = r;
-  field[i + 1] = g;
-  field[i + 2] = b;
-  field[i + 3] = a;
+  field[i] = r; field[i + 1] = g; field[i + 2] = b; field[i + 3] = 255;
 }
 
 function readPixel(x, y) {
   const i = fieldIndex(x, y);
-  return [field[i], field[i + 1], field[i + 2], field[i + 3]];
+  return [field[i], field[i + 1], field[i + 2]];
 }
 
-// Current drawing state within the VM
+// Drawing state within the VM
 let inkR = 255, inkG = 255, inkB = 255;
-let curX = 0, curY = 0;
-let waveType = 0; // 0=sine, 1=saw, 2=square, 3=noise
+let waveType = 0;
 let baseFreq = 220;
 let octShift = 0;
 let phaseOffset = 0;
@@ -169,15 +157,13 @@ function execOp(key) {
   const op = OPS[key];
   if (!op) return;
 
-  // Values
   if (op.val !== undefined) {
-    push(op.val * 28); // Scale 0-9 → 0-252
+    push(op.val * 28);
     return;
   }
 
   const fn = op.fn;
   switch (fn) {
-    // Pitch
     case "wave":    waveType = 0; break;
     case "saw":     waveType = 1; break;
     case "square":  waveType = 2; break;
@@ -189,7 +175,6 @@ function execOp(key) {
     case "octDn":   octShift = Math.max(-3, octShift - 1); break;
     case "phase":   phaseOffset = (phaseOffset + 0.25) % 1; break;
 
-    // Draw
     case "plot": {
       const py = pop(), px = pop();
       plotPixel(px & 63, py & 63, inkR, inkG, inkB);
@@ -198,7 +183,6 @@ function execOp(key) {
     case "line": {
       const y2 = pop() & 63, x2 = pop() & 63;
       const y1 = pop() & 63, x1 = pop() & 63;
-      // Bresenham
       let dx = Math.abs(x2 - x1), dy = Math.abs(y2 - y1);
       let sx = x1 < x2 ? 1 : -1, sy = y1 < y2 ? 1 : -1;
       let err = dx - dy, lx = x1, ly = y1;
@@ -252,15 +236,13 @@ function execOp(key) {
         for (let x = 0; x < FIELD_W; x++) {
           const si = fieldIndex(x - dx, y - dy);
           const di = (y * FIELD_W + x) * 4;
-          field[di] = copy[si];
-          field[di + 1] = copy[si + 1];
-          field[di + 2] = copy[si + 2];
-          field[di + 3] = copy[si + 3];
+          field[di] = copy[si]; field[di + 1] = copy[si + 1];
+          field[di + 2] = copy[si + 2]; field[di + 3] = copy[si + 3];
         }
       }
       break;
     }
-    case "spin": break; // TODO: rotate field
+    case "spin": break;
     case "fade": {
       for (let i = 0; i < field.length; i += 4) {
         field[i] = Math.max(0, field[i] - 4);
@@ -270,14 +252,13 @@ function execOp(key) {
       break;
     }
 
-    // Control
-    case "loop":  break; // Handled by contour walker
+    case "loop":  break;
     case "skip": {
       const v = pop();
-      if (v === 0) push(1); // Signal to skip next op
+      if (v === 0) push(1);
       break;
     }
-    case "halt":  break; // Stops execution
+    case "halt":  break;
     case "dup":   push(peek()); break;
     case "swap": {
       const a = pop(), b = pop();
@@ -285,9 +266,8 @@ function execOp(key) {
       break;
     }
     case "drop":  pop(); break;
-    case "emit":  break; // Marker for audio emission point
+    case "emit":  break;
 
-    // Modifiers (bitwise/math)
     case "and": { const b = pop(), a = pop(); push((a & b) & 255); break; }
     case "or":  { const b = pop(), a = pop(); push((a | b) & 255); break; }
     case "xor": { const b = pop(), a = pop(); push((a ^ b) & 255); break; }
@@ -301,8 +281,6 @@ function execOp(key) {
 }
 
 function execScore() {
-  // Reset drawing state each frame
-  curX = 0; curY = 0;
   inkR = 255; inkG = 255; inkB = 255;
 
   for (const contour of contours) {
@@ -311,28 +289,27 @@ function execScore() {
 
     for (let i = 0; i < contour.length; i++) {
       const key = contour[i];
-      if (key === "z") { // loop
+      if (key === "z") {
         if (loopStart === -1) {
           loopStart = i;
           loopCount = 0;
         } else {
           loopCount++;
           if (loopCount < (pop() || 4)) {
-            i = loopStart; // Jump back
+            i = loopStart;
           } else {
             loopStart = -1;
           }
         }
         continue;
       }
-      if (key === "c") break; // halt
-
+      if (key === "c") break;
       execOp(key);
     }
   }
 }
 
-// --- Pixel → Audio scan ---
+// --- Pixel → feedback sampling ---
 function sampleField() {
   feedback.avgR = 0; feedback.avgG = 0; feedback.avgB = 0;
   let maxB = 0, minB = 765;
@@ -341,9 +318,7 @@ function sampleField() {
   for (let y = 0; y < FIELD_H; y += 4) {
     for (let x = 0; x < FIELD_W; x += 4) {
       const [r, g, b] = readPixel(x, y);
-      feedback.avgR += r;
-      feedback.avgG += g;
-      feedback.avgB += b;
+      feedback.avgR += r; feedback.avgG += g; feedback.avgB += b;
       const bright = r + g + b;
       brightnesses.push(bright);
       if (bright > maxB) maxB = bright;
@@ -352,102 +327,26 @@ function sampleField() {
   }
 
   const count = brightnesses.length || 1;
-  feedback.avgR /= count;
-  feedback.avgG /= count;
-  feedback.avgB /= count;
+  feedback.avgR /= count; feedback.avgG /= count; feedback.avgB /= count;
   feedback.avgBrightness = (feedback.avgR + feedback.avgG + feedback.avgB) / 3;
   feedback.contrast = maxB - minB;
   const avg = brightnesses.reduce((s, b) => s + b, 0) / count;
   feedback.variance = brightnesses.reduce((s, b) => s + (b - avg) ** 2, 0) / count;
 }
 
-// Read a scanline of pixel values as audio samples
-function scanToAudio(numSamples) {
-  const samples = [];
-  const freq = baseFreq * Math.pow(2, octShift);
-  // Feedback modulates frequency
-  const modFreq = freq * (0.8 + (feedback.avgBrightness / 255) * 0.4);
+// Audio → Pixel feedback: amplitude paints into the field
+function audioToPixels(speaker) {
+  const waveform = speaker?.waveforms?.left?.length
+    ? speaker.waveforms.left
+    : speaker?.waveforms?.right;
+  if (!waveform || waveform.length === 0) return;
 
-  for (let i = 0; i < numSamples; i++) {
-    scanPhase += 1;
-    let x, y;
-
-    switch (scanMode) {
-      case 0: // Raster
-        x = scanPhase % FIELD_W;
-        y = Math.floor(scanPhase / FIELD_W) % FIELD_H;
-        break;
-      case 1: // Spiral
-        const angle = scanPhase * 0.05;
-        const radius = (scanPhase * 0.01) % (FIELD_W / 2);
-        x = Math.floor(FIELD_W / 2 + Math.cos(angle) * radius);
-        y = Math.floor(FIELD_H / 2 + Math.sin(angle) * radius);
-        break;
-      case 2: // Column (vertical scan)
-        x = Math.floor(scanPhase / FIELD_H) % FIELD_W;
-        y = scanPhase % FIELD_H;
-        break;
-      case 3: // Diagonal
-        x = (scanPhase + Math.floor(scanPhase / FIELD_W)) % FIELD_W;
-        y = scanPhase % FIELD_H;
-        break;
-      default:
-        x = scanPhase % FIELD_W;
-        y = Math.floor(scanPhase / FIELD_W) % FIELD_H;
-    }
-
-    const [r, g, b] = readPixel(x, y);
-    const brightness = (r + g + b) / 765; // 0-1
-
-    // Generate base waveform
-    const t = scanPhase / SCAN_RATE;
-    const phase = t * modFreq * Math.PI * 2 + phaseOffset * Math.PI * 2;
-    let wave;
-    switch (waveType) {
-      case 0: wave = Math.sin(phase); break;
-      case 1: wave = ((phase % (Math.PI * 2)) / Math.PI) - 1; break; // saw
-      case 2: wave = Math.sin(phase) > 0 ? 1 : -1; break; // square
-      case 3: wave = Math.random() * 2 - 1; break; // noise
-      default: wave = Math.sin(phase);
-    }
-
-    // Pixel brightness modulates amplitude
-    // Pixel color modulates timbre (R=fundamental, G=harmonic, B=noise)
-    const rNorm = r / 255, gNorm = g / 255, bNorm = b / 255;
-    const harmonic = Math.sin(phase * 2) * gNorm * 0.3;
-    const noiseComponent = (Math.random() * 2 - 1) * bNorm * 0.1;
-
-    let sample = (wave * rNorm * 0.6 + harmonic + noiseComponent) * brightness;
-
-    // Feedback: contrast drives bit-crushing
-    if (feedback.contrast > 200) {
-      const crush = 32;
-      sample = Math.floor(sample * crush) / crush;
-    }
-
-    // Feedback: variance drives chaos
-    if (feedback.variance > 5000) {
-      const t2 = scanPhase + i;
-      sample = sample * 0.7 + ((t2 ^ (t2 >> 5)) & 255) / 255 * 0.3 - 0.15;
-    }
-
-    samples.push(clamp(sample, -1, 1));
-  }
-
-  return samples;
-}
-
-// Audio → Pixel feedback: sound amplitude paints into the field
-function audioToPixels(samples) {
-  if (!samples || samples.length === 0) return;
-
-  const step = Math.max(1, Math.floor(samples.length / FIELD_W));
+  const step = Math.max(1, Math.floor(waveform.length / FIELD_W));
   for (let x = 0; x < FIELD_W; x++) {
-    const sampleIdx = Math.min(x * step, samples.length - 1);
-    const amp = Math.abs(samples[sampleIdx]);
+    const sampleIdx = Math.min(x * step, waveform.length - 1);
+    const amp = Math.abs(waveform[sampleIdx]);
     const y = Math.floor((1 - amp) * (FIELD_H - 1));
 
-    // Additive: audio energy accumulates as brightness
     const [cr, cg, cb] = readPixel(x, y);
     plotPixel(x, y,
       Math.min(255, cr + Math.floor(amp * 60)),
@@ -457,40 +356,74 @@ function audioToPixels(samples) {
   }
 }
 
-// --- Layout helpers ---
+// --- Self-contained bytebeat generator (no closures) ---
+// This function is serialized to a string and runs inside the audio worklet.
+// It cannot reference any outer scope variables.
+const bytebeatGenerator = ({ frequency, sampleRate, time, samplesNeeded }) => {
+  const samples = [];
+  const freqScale = frequency / 440;
+  const timeOffset = Math.floor(time * sampleRate * freqScale * 0.3);
+
+  for (let i = 0; i < samplesNeeded; i++) {
+    const t = timeOffset + Math.floor(i * freqScale * 0.8);
+
+    const pattern1 = (t ^ (t >> 8) ^ (t >> 9)) & 255;
+    const harmonic = Math.max(1, Math.floor(freqScale * 2));
+    const pattern2 = ((t * harmonic) & (t >> 5) | (t >> 4)) & 255;
+    const rhythmMod = Math.floor((freqScale - 1) * 8) + 7;
+    const pattern3 = (t | (t >> rhythmMod | t >> 7)) * (t & (t >> 11 | t >> 9)) & 255;
+    const pattern4 = (t & (t >> 5 | t >> 8)) & 255;
+
+    const mixPhase = (time * 0.08 + freqScale * 0.5) % 4;
+    let finalPattern;
+
+    if (mixPhase < 1) {
+      finalPattern = pattern1 * (1 - mixPhase) + pattern2 * mixPhase;
+    } else if (mixPhase < 2) {
+      const blend = mixPhase - 1;
+      finalPattern = pattern2 * (1 - blend) + pattern3 * blend;
+    } else if (mixPhase < 3) {
+      const blend = mixPhase - 2;
+      finalPattern = pattern3 * (1 - blend) + pattern4 * blend;
+    } else {
+      const blend = mixPhase - 3;
+      finalPattern = pattern4 * (1 - blend) + pattern1 * blend;
+    }
+
+    let sample = (finalPattern / 127.5) - 1;
+    const crushFactor = 64;
+    sample = Math.floor(sample * crushFactor) / crushFactor;
+    samples.push(sample);
+  }
+  return samples;
+};
+
+// --- Layout ---
 const CHAR_W = 6;
 const CHAR_H = 8;
 const CONTOUR_MARGIN = 4;
-const HEADER_H = 14;
-const FIELD_DISPLAY_SIZE = 128; // Rendered size of the 64x64 field on screen
-
-function contourToString(contour) {
-  return contour.join("");
-}
 
 function allOpsString() {
-  return contours.map(contourToString).join("\n");
+  return contours.map((c) => c.join("")).join("\n");
 }
 
-// --- Piece lifecycle ---
-
+// 🥾 Boot
 function boot({ screen }) {
   field = new Uint8ClampedArray(FIELD_W * FIELD_H * 4);
-  // Start with dark field
   for (let i = 0; i < field.length; i += 4) {
     field[i] = 10; field[i + 1] = 10;
     field[i + 2] = 15; field[i + 3] = 255;
   }
 }
 
-function act({ event: e, sound, screen }) {
+// 🎪 Act
+function act({ event: e, sound }) {
   cursorBlink++;
 
   // Toggle run/score view
   if (e.is("keyboard:down:space") && !e.repeat) {
     showRun = !showRun;
     if (showRun && !audioStarted) {
-      // Start the audio feedback loop
       synthVoice = sound.synth({
         type: "custom",
         tone: baseFreq,
@@ -498,9 +431,7 @@ function act({ event: e, sound, screen }) {
         volume: 0.4,
         attack: 0.05,
         decay: 0.95,
-        generator: {
-          bytebeat: ({ samplesNeeded }) => scanToAudio(samplesNeeded),
-        },
+        generator: bytebeatGenerator,
       });
       audioStarted = true;
     } else if (!showRun && audioStarted) {
@@ -539,47 +470,31 @@ function act({ event: e, sound, screen }) {
     return;
   }
 
-  // Clear all
-  if (e.is("keyboard:down:escape") && !e.repeat) {
-    contours = [[]];
-    activeContour = 0;
-    resetVM();
-    // Clear field
-    for (let i = 0; i < field.length; i += 4) {
-      field[i] = 10; field[i + 1] = 10;
-      field[i + 2] = 15; field[i + 3] = 255;
-    }
-    return;
-  }
-
   // Type an opcode
   for (const key of Object.keys(OPS)) {
     if (e.is(`keyboard:down:${key}`) && !e.repeat) {
       contours[activeContour].push(key);
-      // Immediate execution in live mode
-      if (showRun) {
-        execOp(key);
-      }
+      if (showRun) execOp(key);
       return;
     }
   }
 }
 
+// 🧮 Sim
 function sim({ sound }) {
   if (!showRun) return;
 
-  // Execute the score each frame
+  sound.speaker?.poll();
+
   execScore();
   frame++;
 
-  // Sample pixels for feedback
   sampleField();
 
-  // Audio → pixel feedback
-  const samples = scanToAudio(64);
-  audioToPixels(samples);
+  // Audio → pixel feedback via speaker waveform data
+  audioToPixels(sound.speaker);
 
-  // Update synth frequency based on feedback
+  // Modulate synth frequency based on pixel feedback
   if (synthVoice) {
     const modFreq = baseFreq * Math.pow(2, octShift) *
       (0.8 + (feedback.avgBrightness / 255) * 0.4);
@@ -587,22 +502,21 @@ function sim({ sound }) {
   }
 }
 
-function paint({ wipe, ink, line, box, circle, plot, write, screen, paste }) {
+// 🎨 Paint
+function paint({ wipe, ink, line, box, plot, write, screen }) {
   const sw = screen.width, sh = screen.height;
 
   if (showRun) {
-    // --- RUN VIEW: show the pixel field scaled up + score overlay ---
     wipe(5, 5, 10);
 
-    // Draw the 64x64 field scaled to fit
+    // Draw the 64x64 field scaled to fit below HUD
     const scale = Math.min(
       Math.floor(sw / FIELD_W),
-      Math.floor((sh - HEADER_H) / FIELD_H)
+      Math.floor((sh - hudSafeTop) / FIELD_H)
     );
     const fieldPxW = FIELD_W * scale;
-    const fieldPxH = FIELD_H * scale;
     const ox = Math.floor((sw - fieldPxW) / 2);
-    const oy = HEADER_H;
+    const oy = hudSafeTop;
 
     for (let fy = 0; fy < FIELD_H; fy++) {
       for (let fx = 0; fx < FIELD_W; fx++) {
@@ -618,46 +532,6 @@ function paint({ wipe, ink, line, box, circle, plot, write, screen, paste }) {
       }
     }
 
-    // Scan position indicator
-    let scanX, scanY;
-    switch (scanMode) {
-      case 0:
-        scanX = scanPhase % FIELD_W;
-        scanY = Math.floor(scanPhase / FIELD_W) % FIELD_H;
-        break;
-      case 1:
-        const angle = scanPhase * 0.05;
-        const radius = (scanPhase * 0.01) % (FIELD_W / 2);
-        scanX = Math.floor(FIELD_W / 2 + Math.cos(angle) * radius);
-        scanY = Math.floor(FIELD_H / 2 + Math.sin(angle) * radius);
-        break;
-      case 2:
-        scanX = Math.floor(scanPhase / FIELD_H) % FIELD_W;
-        scanY = scanPhase % FIELD_H;
-        break;
-      case 3:
-        scanX = (scanPhase + Math.floor(scanPhase / FIELD_W)) % FIELD_W;
-        scanY = scanPhase % FIELD_H;
-        break;
-    }
-    ink(255, 255, 255, 180);
-    const spx = ox + (scanX & 63) * scale;
-    const spy = oy + (scanY & 63) * scale;
-    plot(spx, spy);
-    if (scale > 2) {
-      box(spx, spy, scale, scale, "outline");
-    }
-
-    // Header: frame, scan mode, feedback stats
-    ink(30, 28, 40, 200);
-    box(0, 0, sw, HEADER_H);
-    ink(200, 200, 220);
-    write(`f:${frame}`, { x: 2, y: 3 });
-    ink(60, 160, 200);
-    write(SCAN_NAMES[scanMode], { x: 36, y: 3 });
-    ink(200, 70, 90);
-    write(`br:${Math.round(feedback.avgBrightness)}`, { x: sw - 44, y: 3 });
-
     // Score text overlay (bottom, dimmed)
     const scoreStr = allOpsString();
     if (scoreStr.length > 0) {
@@ -668,34 +542,28 @@ function paint({ wipe, ink, line, box, circle, plot, write, screen, paste }) {
       });
     }
 
+    // Status line below HUD
+    ink(60, 160, 200, 180);
+    write(`${SCAN_NAMES[scanMode]}  f:${frame}`, { x: 2, y: sh - CHAR_H * 2 - 4 });
+
     return;
   }
 
-  // --- SCORE VIEW: type and see the score ---
+  // --- SCORE VIEW ---
   wipe(22, 20, 30);
 
-  // Header
-  ink(30, 28, 40);
-  box(0, 0, sw, HEADER_H);
-  ink(140, 140, 160);
+  // Draw contour lines as colored text, starting below HUD
+  let textY = hudSafeTop + CONTOUR_MARGIN;
   const totalOps = contours.reduce((n, c) => n + c.length, 0);
-  write(`score  ${totalOps} ops`, { x: 2, y: 3 });
-  ink(100, 100, 120);
-  write("space:run", { x: sw - 54, y: 3 });
-
-  // Draw contour lines as colored text
-  let textY = HEADER_H + CONTOUR_MARGIN;
 
   for (let ci = 0; ci < contours.length; ci++) {
     const contour = contours[ci];
     let textX = CONTOUR_MARGIN;
 
-    // Contour number
     ink(60, 58, 70);
     write(`${ci + 1}:`, { x: textX, y: textY });
     textX += CHAR_W * 2 + 2;
 
-    // Each opcode as a colored character
     for (let oi = 0; oi < contour.length; oi++) {
       const key = contour[oi];
       const op = OPS[key];
@@ -709,14 +577,12 @@ function paint({ wipe, ink, line, box, circle, plot, write, screen, paste }) {
       write(key, { x: textX, y: textY });
       textX += CHAR_W;
 
-      // Wrap
       if (textX + CHAR_W > sw - CONTOUR_MARGIN) {
         textX = CONTOUR_MARGIN + CHAR_W * 2 + 2;
         textY += CHAR_H + 2;
       }
     }
 
-    // Cursor on active contour
     if (ci === activeContour) {
       const blink = Math.floor(cursorBlink / 15) % 2 === 0;
       if (blink) {
@@ -743,19 +609,16 @@ function paint({ wipe, ink, line, box, circle, plot, write, screen, paste }) {
   ];
 
   for (const row of rows) {
-    // Label
     const fam = FAMILIES[row.family] || FAMILIES.mod;
     ink(fam.color[0], fam.color[1], fam.color[2], 120);
     write(row.label, { x: 2, y: row.y });
 
-    // Keys
     let kx = 34;
     for (const ch of row.keys) {
       const op = OPS[ch];
       const f = op ? FAMILIES[op.family] : FAMILIES.mod;
       const [r, g, b] = f.color;
 
-      // Highlight if recently typed
       const lastTyped = contours[activeContour]?.[contours[activeContour].length - 1];
       if (ch === lastTyped) {
         ink(r, g, b, 255);
@@ -771,7 +634,11 @@ function paint({ wipe, ink, line, box, circle, plot, write, screen, paste }) {
 
   // Scan mode indicator
   ink(60, 160, 200, 150);
-  write(`←→ scan: ${SCAN_NAMES[scanMode]}`, { x: sw - 100, y: guideY + 4 });
+  write(`scan: ${SCAN_NAMES[scanMode]}`, { x: sw - 76, y: guideY + 4 });
+
+  // Status
+  ink(100, 100, 120);
+  write(`${totalOps} ops`, { x: sw - 40, y: guideY + 40 });
 
   // Empty state hint
   if (totalOps === 0) {
@@ -782,6 +649,7 @@ function paint({ wipe, ink, line, box, circle, plot, write, screen, paste }) {
   }
 }
 
+// 👋 Leave
 function leave() {
   if (synthVoice) {
     synthVoice.kill(0.05);
@@ -790,5 +658,11 @@ function leave() {
   }
 }
 
-export { boot, act, sim, paint, leave };
-export const desc = "Spatial bytecode instrument — type to compose, pixels are the waveform.";
+function meta() {
+  return {
+    title: "Jas",
+    desc: "Spatial bytecode instrument — type to compose, pixels are the waveform.",
+  };
+}
+
+export { boot, act, sim, paint, leave, meta };
