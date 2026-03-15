@@ -10,7 +10,7 @@ export default async (request) => {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "POST",
         "Access-Control-Allow-Headers":
-          "Authorization, Content-Type, X-Build-Name, X-Git-Hash, X-Build-Ts, X-Sha256, X-Size, X-Finalize, X-Template-Upload, X-Commit-Msg, X-Handle",
+          "Authorization, Content-Type, X-Build-Name, X-Git-Hash, X-Build-Ts, X-Sha256, X-Size, X-Finalize, X-Template-Upload, X-Versioned-Upload, X-Versioned-Key, X-Commit-Msg, X-Handle",
       },
     });
   }
@@ -225,6 +225,7 @@ export default async (request) => {
         user: userSub,
         handle: userHandle,
         url: `https://${host}/os/native-notepat-latest.vmlinuz`,
+        archive_url: `https://${host}/os/builds/${buildName}.vmlinuz`,
       });
       releases.releases = releases.releases.slice(0, 50);
       releases.latest = version;
@@ -254,6 +255,26 @@ export default async (request) => {
     } catch (err) {
       return Response.json(
         { error: `Finalize failed: ${err.message}` },
+        { status: 500 },
+      );
+    }
+  }
+
+  // Versioned archive presigned URL (for rollback support)
+  const isVersioned = request.headers.get("x-versioned-upload") === "true";
+  if (isVersioned) {
+    try {
+      const versionedKey = request.headers.get("x-versioned-key") || `os/builds/${buildName}.vmlinuz`;
+      const vUrl = await presignUrl(versionedKey, "application/octet-stream", 1800);
+      return Response.json({
+        step: "versioned-upload",
+        versioned_put_url: vUrl,
+        key: versionedKey,
+        user: userSub,
+      });
+    } catch (err) {
+      return Response.json(
+        { error: `Versioned presign failed: ${err.message}` },
         { status: 500 },
       );
     }
