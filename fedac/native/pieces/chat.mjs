@@ -23,6 +23,7 @@ let cursorBlink = 0;
 let shiftHeld = false;
 let handle = "";       // current user handle from config
 let sub = "";          // auth0 sub from config
+let token = "";        // auth token for chat server authorization
 let connected = false;
 let scrollOffset = 0;  // scroll position for message list
 
@@ -39,6 +40,7 @@ function boot({ system, params }) {
       var cfg = JSON.parse(raw);
       handle = cfg.handle || "";
       sub = cfg.sub || "";
+      token = cfg.token || "";
     }
   } catch (_) {}
   // Connect to chat room WebSocket
@@ -67,12 +69,12 @@ function act({ event: e, system, sound }) {
       if (text.length > 0 && wsOk) {
         var msg = JSON.stringify({
           type: "chat:message",
-          content: { sub: sub || "anonymous", text: text, handle: handle || "anon" },
+          content: { sub: sub || "anonymous", text: text, handle: handle || "anon", token: token },
         });
         system.ws.send(msg);
-        console.log("[chat] sent: " + msg);
+        console.log("[chat] sent: " + msg.substring(0, 120));
         // Add locally immediately
-        messages.push({ from: handle || "me", text: text, when: Date.now() });
+        messages.push({ from: "@" + (handle || "me"), text: text, when: Date.now() });
         scrollOffset = 0; // scroll to bottom
         if (sound && sound.synth) sound.synth({ type: "sine", tone: 880, duration: 0.04, volume: 0.1, attack: 0.002, decay: 0.03 });
       }
@@ -232,8 +234,10 @@ function paint({ wipe, ink, box, line, write, screen, system, sound, wifi }) {
     if (my + lineH > msgBottom) break;
 
     // From label
-    const fromLabel = (msg.from || "?") + ": ";
-    const isMe = msg.from === handle || msg.from === "me";
+    var displayFrom = msg.from || "?";
+    if (displayFrom[0] !== "@" && displayFrom !== "?") displayFrom = "@" + displayFrom;
+    var fromLabel = displayFrom + ": ";
+    var isMe = displayFrom === "@" + handle || msg.from === handle || msg.from === "me";
     ink(isMe ? 140 : 100, isMe ? 120 : 160, isMe ? 180 : 140);
     write(fromLabel, { x: pad, y: my, size: 1, font });
 
