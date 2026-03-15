@@ -375,7 +375,7 @@ static void ac_display_present(ACDisplay *display, ACFramebuffer *screen, int sc
         return;
     }
 #endif
-    ac_display_present(display, screen, scale);
+    display_present(display, screen, scale);
 }
 
 // DRM master release/acquire (defined in drm-display.c)
@@ -1532,6 +1532,9 @@ int main(int argc, char *argv[]) {
     // Startup fade animation (black → white, hides kernel text)
     // TTS speaks "notepat" and "aesthetic.computer" in sync with visuals
     // Returns 1 if user held W to request disk install
+    ac_log("[ac-native] pre-fade: display=%p screen=%p w=%d h=%d\n",
+           (void*)display, (void*)screen,
+           display ? display->width : -1, display ? display->height : -1);
     int want_install = 0;
     if (!headless) {
         want_install = draw_startup_fade(&graph, screen, display, tts, audio);
