@@ -69,6 +69,11 @@ async function build() {
   copyFileSync(join(extDir, 'popup', 'popup.html'), join(distPopupDir, 'popup.html'));
   copyFileSync(join(extDir, 'popup', 'popup.js'), join(distPopupDir, 'popup.js'));
 
+  // 4b. Copy Beacon confirmation popup files
+  console.log('  📄 Copying confirm.html and confirm.js...');
+  copyFileSync(join(extDir, 'confirm.html'), join(distDir, 'confirm.html'));
+  copyFileSync(join(extDir, 'confirm.js'), join(distDir, 'confirm.js'));
+
   // 5. Copy manifest.json
   console.log('  📄 Copying manifest.json...');
   copyFileSync(join(extDir, 'manifest.json'), join(distDir, 'manifest.json'));
