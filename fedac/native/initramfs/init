@@ -75,8 +75,16 @@ if command -v cage >/dev/null 2>&1 && [ -e /dev/dri/card0 ]; then
     chmod 0700 "$XDG_RUNTIME_DIR"
 
     # Launch cage with ac-native as the primary Wayland client
-    echo "exec cage -s -- /ac-native /piece.mjs" >> $INITLOG
-    exec cage -s -- /ac-native /piece.mjs
+    echo "launching cage -s -- /ac-native /piece.mjs" >> $INITLOG
+    cage -s -- /ac-native /piece.mjs >> $INITLOG 2>&1
+    CAGE_RC=$?
+    echo "cage exited: $CAGE_RC" >> $INITLOG
+
+    # If cage failed, fall back to DRM
+    if [ $CAGE_RC -ne 0 ]; then
+        echo "cage failed, falling back to DRM" >> $INITLOG
+        exec /ac-native /piece.mjs
+    fi
 else
     echo "no cage or no card0, DRM fallback" >> $INITLOG
     # Fallback: run ac-native directly (DRM mode, no Wayland)
