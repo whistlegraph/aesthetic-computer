@@ -1,4 +1,4 @@
-// Score, 2026.3.15
+// Jas, 2026.3.15
 // A spatial bytecode instrument for Aesthetic Computer.
 // Type to compose. The keyboard is the instrument.
 // The pixels are the waveform. The waveform draws the pixels.
