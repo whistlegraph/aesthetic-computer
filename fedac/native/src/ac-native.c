@@ -1699,10 +1699,17 @@ int main(int argc, char *argv[]) {
                     }
 
                     // Start seatd (seat daemon) — wlroots 0.18 requires libseat
+                    // libseat connects to /run/seatd.sock
+                    mkdir("/run", 0755);
                     ac_log("[browser] starting seatd...");
-                    system("seatd -g root &");  // run in background
-                    usleep(200000);  // 200ms for seatd to start
-                    ac_log("[browser] seatd started");
+                    system("seatd -g root -l debug > /tmp/seatd.log 2>&1 &");
+                    usleep(500000);  // 500ms for seatd to start + create socket
+                    ac_log("[browser] seatd started, checking socket...");
+                    if (access("/run/seatd.sock", F_OK) == 0) {
+                        ac_log("[browser] /run/seatd.sock exists");
+                    } else {
+                        ac_log("[browser] WARNING: /run/seatd.sock NOT FOUND");
+                    }
 
                     // Run cage, capture output to /tmp (tmpfs, always synced)
                     snprintf(cmd, sizeof(cmd),
