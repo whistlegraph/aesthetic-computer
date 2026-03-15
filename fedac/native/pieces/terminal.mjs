@@ -164,9 +164,9 @@ function boot({ system, screen, params }) {
   let args = [];
   // params come from colon-separated jump (e.g. "terminal:claude" → params=["claude"])
   // Also check lastCmd global in case params didn't propagate
-  const p0 = params?.[0] || globalThis.__terminalCmd;
+  const p0 = (params && params.length > 0 ? params[0] : null) || globalThis.__terminalCmd || null;
   globalThis.__terminalCmd = undefined;
-  console.log("[terminal] params:", JSON.stringify(params), "p0:", p0);
+  console.log("[terminal] params:", JSON.stringify(params), "p0:", p0, "len:", params ? params.length : "null");
   if (p0 === "claude") {
     // Claude Code native binary
     // Auth: reads ANTHROPIC_API_KEY from /mnt/config.json "claude_api_key" field
