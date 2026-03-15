@@ -1733,7 +1733,7 @@ function paint(
       const handleColor = theme?.handle || [255, 192, 203];
 
       for (let i = 0; i < activeHandles.length; i++) {
-        const h = "@" + activeHandles[i];
+        const h = activeHandles[i].startsWith("@") ? activeHandles[i] : "@" + activeHandles[i];
         const hWidth = text.width(h, "MatrixChunky8");
 
         // Stop if we'd overlap the ticker area
