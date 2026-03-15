@@ -254,6 +254,8 @@ static int create_dumb_buffer(ACDisplay *d, int idx) {
 }
 
 ACDisplay *drm_init(void) {
+    extern void ac_log(const char *fmt, ...);
+    ac_log("[drm] drm_init() start\n");
 #ifdef USE_SDL
     ACDisplay *sdl = sdl_init();
     if (sdl) return sdl;
@@ -261,11 +263,13 @@ ACDisplay *drm_init(void) {
 #endif
 
     ACDisplay *d = calloc(1, sizeof(ACDisplay));
-    if (!d) return NULL;
+    if (!d) { ac_log("[drm] calloc failed\n"); return NULL; }
 
+    ac_log("[drm] try_open_drm...\n");
     d->fd = try_open_drm();
+    ac_log("[drm] fd=%d\n", d->fd);
     if (d->fd < 0) {
-        fprintf(stderr, "[drm] No DRM device found, trying fbdev...\n");
+        ac_log("[drm] No DRM device, trying fbdev\n");
         free(d);
         return fbdev_init();
     }

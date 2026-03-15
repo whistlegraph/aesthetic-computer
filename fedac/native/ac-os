@@ -41,7 +41,7 @@ build_binary() {
     fi
     # Run make and capture exit code (pipefail not needed — check make directly)
     local MAKE_LOG="${BUILD_DIR}/.make.log"
-    make CC="${CC_USE}" BUILD_TS="${AC_BUILD_TS}" USE_WAYLAND=1 > "${MAKE_LOG}" 2>&1
+    make CC="${CC_USE}" BUILD_TS="${AC_BUILD_TS}" > "${MAKE_LOG}" 2>&1
     local MAKE_RC=$?
     grep -E "Built:|error:" "${MAKE_LOG}" || true
     if [ ${MAKE_RC} -ne 0 ]; then
@@ -100,7 +100,8 @@ build_initramfs() {
         log "  Install with: curl -fsSL https://claude.ai/install.sh | bash"
     fi
 
-    # Firefox + cage — for OAuth login popup (one-shot browser)
+    # Firefox + cage — DISABLED (see reports/2026-03-15-ac-native-browser-wayland-debug.md)
+    if false; then
     local FIREFOX_CACHE="/tmp/ac-firefox-cache"
     local FIREFOX_TAR="/tmp/firefox.tar.xz"
     local FIREFOX_URL="https://download.mozilla.org/?product=firefox-latest&os=linux64&lang=en-US"
@@ -222,6 +223,7 @@ XDGOPEN
     # Pango modules
     sudo cp -aL /usr/lib64/pango "${INITRAMFS_ROOT}/usr/lib64/" 2>/dev/null || true
     log "  fontconfig+xkb+font: $(du -sh "${INITRAMFS_ROOT}/etc/fonts" "${INITRAMFS_ROOT}/usr/share/X11/xkb" 2>/dev/null | tail -1 | cut -f1)"
+    fi # end Firefox disabled block
 
     # Node.js: only bundled if explicitly requested (USE_NODE=1)
     # KidLisp evaluation uses QuickJS in ac-native, not Node.js
@@ -246,7 +248,7 @@ XDGOPEN
     cd "${INITRAMFS_ROOT}"
     sudo find . -print0 | sudo cpio --null -ov --format=newc \
         > "${BUILD_DIR}/initramfs.cpio" 2>/dev/null
-    zstd -15 -f "${BUILD_DIR}/initramfs.cpio" -o "${BUILD_DIR}/initramfs.cpio.zst"
+    lz4 -l -9 -f "${BUILD_DIR}/initramfs.cpio" "${BUILD_DIR}/initramfs.cpio.lz4"
 }
 
 build_kernel() {
@@ -267,7 +269,7 @@ build_kernel() {
     fi
     # Copy fresh initramfs into kernel tree (kernel embeds it — must be updated!)
     log "Syncing initramfs into kernel tree..."
-    sudo cp "${BUILD_DIR}/initramfs.cpio.zst" "${LINUX_DIR}/initramfs.cpio.zst"
+    sudo cp "${BUILD_DIR}/initramfs.cpio.lz4" "${LINUX_DIR}/initramfs.cpio.lz4"
     # Force kernel to re-embed: remove cached initramfs object (make won't detect content changes)
     sudo rm -f "${LINUX_DIR}/usr/initramfs_data.o" "${LINUX_DIR}/usr/.initramfs_data.o.cmd"
     log "Building kernel..."
