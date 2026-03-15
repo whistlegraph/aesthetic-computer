@@ -534,8 +534,11 @@ int pty_spawn(ACPty *pty, int cols, int rows, const char *cmd, char *const argv[
         setenv("HOME", "/tmp", 0);
         setenv("LANG", "en_US.UTF-8", 1);
         setenv("PATH", "/bin:/sbin:/usr/bin:/usr/sbin", 0);
-        // Claude Code: use xdg-open shim for browser OAuth
+        // Claude Code: trick it into calling xdg-open for browser OAuth
+        // Claude checks DISPLAY or WAYLAND_DISPLAY before opening browser
         setenv("BROWSER", "/bin/xdg-open", 1);
+        setenv("DISPLAY", ":0", 1);  // fake X display so Claude calls xdg-open
+        setenv("WAYLAND_DISPLAY", "wayland-0", 1);  // also set Wayland
         setenv("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1", 1);
         // Ensure Claude config directories exist
         mkdir("/tmp/.claude", 0755);
