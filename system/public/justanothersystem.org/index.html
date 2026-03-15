@@ -70,6 +70,8 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
+      filter: contrast(1.05) saturate(1.08);
+      image-rendering: -webkit-optimize-contrast;
     }
 
     /* Ken Burns animations — 4 variations */
@@ -122,10 +124,10 @@
     }
 
     .site-title {
-      font-size: 1.2rem;
+      font-size: 1.4rem;
       font-weight: 500;
       letter-spacing: -0.01em;
-      text-shadow: 0 1px 6px rgba(0,0,0,0.7);
+      text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.4);
     }
 
     .site-title a {
@@ -134,19 +136,19 @@
     }
 
     .subtitle {
-      font-size: 1rem;
-      color: var(--dim);
-      text-shadow: 0 1px 4px rgba(0,0,0,0.7);
+      font-size: 1.1rem;
+      color: var(--fg);
+      text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.4);
     }
 
     .subtitle a {
-      color: var(--dim);
+      color: var(--fg);
       text-decoration: none;
-      border-bottom: 1px solid rgba(255,255,255,0.15);
+      border-bottom: 1px solid rgba(255,255,255,0.3);
     }
 
     .subtitle a:hover {
-      color: var(--fg);
+      border-color: var(--fg);
     }
 
     nav {
@@ -174,16 +176,16 @@
     }
 
     .counter {
-      font-size: 0.75rem;
-      color: var(--dim);
-      text-shadow: 0 1px 4px rgba(0,0,0,0.7);
+      font-size: 1rem;
+      color: var(--fg);
+      text-shadow: 0 2px 8px rgba(0,0,0,0.8);
       font-variant-numeric: tabular-nums;
     }
 
     .location {
-      font-size: 1rem;
+      font-size: 1.1rem;
       color: var(--fg);
-      text-shadow: 0 1px 6px rgba(0,0,0,0.7);
+      text-shadow: 0 2px 8px rgba(0,0,0,0.8);
       text-align: right;
       transition: opacity 0.8s ease;
     }
@@ -210,7 +212,7 @@
     <div class="top-bar">
       <div>
         <h1 class="site-title"><a href="/">justanothersystem.org</a></h1>
-        <p class="subtitle"><a href="/bio">Jeffrey Alan Scudder</a> &mdash; Recent Paintings</p>
+        <p class="subtitle">Stretched paintings and drawings by <a href="/bio">Jeffrey Alan Scudder</a></p>
       </div>
     </div>
     <div class="bottom-bar">
@@ -318,9 +320,11 @@
       const preload = new Image();
       preload.src = ASSET_BASE + nextFile;
 
-      // Schedule next slide
+      // Schedule next slide (stop after showing all once)
       clearTimeout(slideTimer);
-      slideTimer = setTimeout(() => showSlide(currentIndex + 1), SLIDE_DURATION);
+      if (currentIndex + 1 < slides.length) {
+        slideTimer = setTimeout(() => showSlide(currentIndex + 1), SLIDE_DURATION);
+      }
     }
 
     function startProgress() {
@@ -337,11 +341,11 @@
       if (e.key === 'ArrowRight' || e.key === ' ') {
         e.preventDefault();
         clearTimeout(slideTimer);
-        showSlide(currentIndex + 1);
+        if (currentIndex + 1 < slides.length) showSlide(currentIndex + 1);
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
         clearTimeout(slideTimer);
-        showSlide((currentIndex - 1 + images.length) % images.length);
+        if (currentIndex > 0) showSlide(currentIndex - 1);
       }
     });
 
@@ -355,10 +359,10 @@
       const dx = e.changedTouches[0].clientX - touchStartX;
       if (Math.abs(dx) > 50) {
         clearTimeout(slideTimer);
-        if (dx < 0) {
+        if (dx < 0 && currentIndex + 1 < slides.length) {
           showSlide(currentIndex + 1);
-        } else {
-          showSlide((currentIndex - 1 + images.length) % images.length);
+        } else if (dx > 0 && currentIndex > 0) {
+          showSlide(currentIndex - 1);
         }
       }
     }, { passive: true });
