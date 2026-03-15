@@ -2830,12 +2830,12 @@ async function adminTransfer(tokenId, fromAddress, toAddress, options = {}) {
 // ============================================================================
 
 async function resolveTezDomain(name) {
-  const resp = await fetch(`https://api.tezos.domains/v1/search?query=${encodeURIComponent(name)}`);
+  const resp = await fetch(`https://api.tzkt.io/v1/domains?name=${encodeURIComponent(name)}`);
   if (!resp.ok) throw new Error(`Tezos Domains lookup failed: ${resp.status}`);
   const data = await resp.json();
-  const entry = data?.items?.find(i => i.name === name);
-  if (!entry?.owner) throw new Error(`Could not resolve ${name}`);
-  return entry.owner;
+  const entry = data?.[0];
+  if (!entry?.owner?.address) throw new Error(`Could not resolve ${name}`);
+  return entry.owner.address;
 }
 
 async function transferToken(tokenId, toAddress, network = 'mainnet') {
