@@ -301,6 +301,14 @@ function execute(cmd, system) {
     return;
   }
 
+  // "code" is an alias for "claude" piece
+  if (baseName === "code" || baseWord === "code") {
+    message = "~> code";
+    messageFrame = 0;
+    system?.jump?.("claude");
+    return;
+  }
+
   // Dynamic piece jump — check if the command matches any discovered piece
   if (PIECE_NAMES.includes(baseName) || PIECE_NAMES.includes(baseWord)) {
     const pieceName = PIECE_NAMES.includes(baseName) ? baseName : baseWord;
