@@ -266,6 +266,15 @@
       display: flex;
       align-items: flex-end;
       justify-content: center;
+      transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.6s ease;
+    }
+
+    /* Castle starts at bottom, rises on enter */
+    .keeps-castle-wrap.grounded {
+      transform: translateY(40px);
+    }
+    .keeps-castle-wrap.risen {
+      transform: translateY(-20px);
     }
 
     .keeps-castle-wrap svg {
@@ -282,8 +291,13 @@
       font-weight: 700;
       opacity: 0;
       animation: floatUp 6s ease-in-out infinite;
+      animation-play-state: paused;
       pointer-events: none;
       text-shadow: 0 1px 4px rgba(0,0,0,0.12);
+    }
+    /* Codes only animate after castle rises */
+    .keeps-castle-wrap.risen .keeps-code-float {
+      animation-play-state: running;
     }
     .keeps-code-float:nth-child(1) { left: 18%; animation-delay: 0s; color: #FF6B6B; }
     .keeps-code-float:nth-child(2) { left: 35%; animation-delay: 1.2s; color: #4ECDC4; }
@@ -2823,7 +2837,7 @@
         </div>
       </div>
     </div>
-    <div class="keeps-castle-wrap">
+    <div class="keeps-castle-wrap grounded" id="keeps-castle">
       <!-- Floating $codes -->
       <span class="keeps-code-float">$39j</span>
       <span class="keeps-code-float">$a1b</span>
@@ -3342,10 +3356,16 @@
 
     function toggleKeepsTheme() {
       const current = getKeepsTheme();
-      const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const effectiveDark = current ? current === 'dark' : systemDark;
-      const next = effectiveDark ? 'light' : 'dark';
-      localStorage.setItem('keeps-theme', next);
+      // Cycle: light → dark → auto (null)
+      let next;
+      if (current === 'light') next = 'dark';
+      else if (current === 'dark') next = null;
+      else next = 'light'; // auto → light
+      if (next) {
+        localStorage.setItem('keeps-theme', next);
+      } else {
+        localStorage.removeItem('keeps-theme');
+      }
       applyKeepsTheme(next);
     }
 
@@ -3353,10 +3373,17 @@
       const btn = document.getElementById('theme-toggle');
       if (!btn) return;
       const theme = getKeepsTheme();
-      const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const isDark = theme ? theme === 'dark' : systemDark;
-      btn.textContent = isDark ? '\u2600' : '\u263D';
-      btn.title = isDark ? 'Switch to light theme' : 'Switch to dark theme';
+      if (!theme) {
+        // Auto mode
+        btn.textContent = '\u25D1'; // ◑ half circle = auto
+        btn.title = 'Theme: auto (system) — click for light';
+      } else if (theme === 'light') {
+        btn.textContent = '\u2600'; // ☀
+        btn.title = 'Theme: light — click for dark';
+      } else {
+        btn.textContent = '\u263D'; // ☽
+        btn.title = 'Theme: dark — click for auto';
+      }
     }
 
     // Apply saved theme immediately
@@ -6862,6 +6889,9 @@
         loading.style.display = 'none';
         revealUI();
         hideInlineAbout();
+        // Castle rises immediately for direct routes
+        const castle = document.getElementById('keeps-castle');
+        if (castle) { castle.classList.remove('grounded'); castle.classList.add('risen'); }
         const tabs = document.querySelector('.keeps-tabs');
         if (tabs) tabs.classList.remove('locked');
         setIndexSearchVisible(true);
@@ -6925,6 +6955,13 @@
       }
 
       if (enterBtn) enterBtn.style.display = 'none';
+
+      // Rise the castle and start floating codes
+      const castle = document.getElementById('keeps-castle');
+      if (castle) {
+        castle.classList.remove('grounded');
+        castle.classList.add('risen');
+      }
 
       if (!hasRegisteredHandle()) {
         renderIndexGate('handle');
