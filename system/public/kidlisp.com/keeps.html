@@ -2233,8 +2233,8 @@
     }
     .keeps-row:hover { border-color: var(--ac-purple); }
     .keeps-row-thumb {
-      width: 40px;
-      height: 30px;
+      width: 28px;
+      height: 21px;
       object-fit: cover;
       border-radius: 3px;
       background: var(--bg-secondary);
@@ -3925,7 +3925,7 @@
       const createdAt = entry.when ? new Date(entry.when) : null;
       const keptTimeStr = keptAt ? formatRelativeTime(keptAt) : '';
       const createdTimeStr = createdAt ? formatRelativeTime(createdAt) : '';
-      const thumbUrl = `https://oven.aesthetic.computer/grab/png/80/60/$${entry.code}?density=1&nowait=true&source=gallery`;
+      const thumbUrl = `https://oven.aesthetic.computer/grab/png/56/42/$${entry.code}?density=1&nowait=true&source=gallery`;
 
       const row = document.createElement('div');
       row.className = 'keeps-row';
