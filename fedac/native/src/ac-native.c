@@ -1642,26 +1642,66 @@ int main(int argc, char *argv[]) {
         while (running) {
             // DRM handoff: xdg-open sends SIGUSR1 to release, SIGUSR2 to reclaim
             if (drm_handoff_release && display) {
-                drm_release_master(display);
-                ac_log("[drm] Released master for browser (SIGUSR1)");
-                // Snapshot what's running as xdg-open
-                system("ps aux > /mnt/ps-during-browser.log 2>&1;"
-                       "ls -la /tmp/ >> /mnt/ps-during-browser.log 2>&1");
                 drm_handoff_release = 0;
-                // Pause rendering until reclaim
-                while (!drm_handoff_reclaim && running) {
-                    usleep(50000); // 50ms poll
-                    input_poll(input); // keep draining input
+
+                // Read URL from /tmp/.browser-url (written by xdg-open shim)
+                char browser_url[2048] = "";
+                FILE *uf = fopen("/tmp/.browser-url", "r");
+                if (uf) {
+                    if (fgets(browser_url, sizeof(browser_url), uf)) {
+                        browser_url[strcspn(browser_url, "\n")] = 0;
+                    }
+                    fclose(uf);
+                    unlink("/tmp/.browser-url");
                 }
-                if (drm_handoff_reclaim && display) {
+
+                if (browser_url[0]) {
+                    ac_log("[browser] URL: %s", browser_url);
+                    drm_release_master(display);
+                    ac_log("[browser] Released DRM master");
+
+                    // Run cage+firefox from C (bypasses Bun.spawn fd issues)
+                    char cmd[4096];
+                    snprintf(cmd, sizeof(cmd),
+                        "HOME=/tmp "
+                        "XDG_RUNTIME_DIR=/tmp/xdg-browser "
+                        "WLR_BACKENDS=drm "
+                        "WLR_SESSION=direct "
+                        "WLR_RENDERER=pixman "
+                        "LIBSEAT_BACKEND=noop "
+                        "LD_LIBRARY_PATH=/lib64:/opt/firefox "
+                        "LIBGL_ALWAYS_SOFTWARE=1 "
+                        "MOZ_ENABLE_WAYLAND=1 "
+                        "GDK_BACKEND=wayland "
+                        "MOZ_APP_LAUNCHER=/opt/firefox/firefox "
+                        "GRE_HOME=/opt/firefox "
+                        "timeout 120 sh -c '"
+                        "mkdir -p /tmp/xdg-browser /tmp/.mozilla; "
+                        "chmod 0700 /tmp/xdg-browser; "
+                        "cd /opt/firefox; "
+                        "cage -s -- ./firefox --kiosk --no-remote --new-instance \"%s\""
+                        "' > /mnt/cage.log 2>&1",
+                        browser_url);
+
+                    ac_log("[browser] Running cage+firefox...");
+                    int rc = system(cmd);
+                    ac_log("[browser] Exited: %d", rc);
+
+                    // Log cage output
+                    FILE *clog = fopen("/mnt/cage.log", "r");
+                    if (clog) {
+                        char line[256];
+                        while (fgets(line, sizeof(line), clog)) {
+                            line[strcspn(line, "\n")] = 0;
+                            ac_log("[cage] %s", line);
+                        }
+                        fclose(clog);
+                    }
+
                     drm_acquire_master(display);
-                    ac_log("[drm] Reclaimed master after browser (SIGUSR2)");
-                    drm_handoff_reclaim = 0;
-                    // Copy browser logs from /tmp to /mnt for USB persistence
-                    // Also dump /tmp listing to see what files exist
-                    system("ls -la /tmp/*.log > /mnt/tmp-listing.log 2>&1;"
-                           "cat /tmp/cage.log >> /mnt/cage.log 2>/dev/null;"
-                           "cat /tmp/xdg-open.log >> /mnt/xdg-open.log 2>/dev/null");
+                    ac_log("[browser] Reclaimed DRM master");
+                } else {
+                    ac_log("[browser] SIGUSR1 but no URL in /tmp/.browser-url");
                 }
             }
 
