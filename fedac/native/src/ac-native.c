@@ -1698,8 +1698,13 @@ int main(int argc, char *argv[]) {
                         }
                     }
 
+                    // Start seatd (seat daemon) — wlroots 0.18 requires libseat
+                    ac_log("[browser] starting seatd...");
+                    system("seatd -g root &");  // run in background
+                    usleep(200000);  // 200ms for seatd to start
+                    ac_log("[browser] seatd started");
+
                     // Run cage, capture output to /tmp (tmpfs, always synced)
-                    // Then copy to /mnt after
                     snprintf(cmd, sizeof(cmd),
                         "cage -s -- /opt/firefox/firefox --kiosk --no-remote --new-instance '%s' "
                         "> /tmp/cage-out.log 2>&1",
@@ -1707,6 +1712,9 @@ int main(int argc, char *argv[]) {
 
                     ac_log("[browser] Running cage...");
                     int rc = system(cmd);
+
+                    // Kill seatd after cage exits
+                    system("killall seatd 2>/dev/null");
                     ac_log("[browser] cage exited: %d", rc);
 
                     // Append cage output to /mnt/cage.log
