@@ -4,21 +4,22 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>keeps.kidlisp.com</title>
+  <title>KidLisp Keeps — Generative Art on Tezos</title>
+  <meta name="description" content="KidLisp Keeps is a generative art marketplace on Tezos. Browse, collect, and trade interactive artworks written in KidLisp — a minimal Lisp for creative computing." />
 
   <!-- Open Graph / Social Preview -->
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://keeps.kidlisp.com" />
-  <meta property="og:title" content="keeps.kidlisp.com" />
-  <meta property="og:description" content="A living index of KidLisp $codes cached through Aesthetic.Computer, with links to edit, run, bundle, and keep on Tezos." />
+  <meta property="og:title" content="KidLisp Keeps — Generative Art on Tezos" />
+  <meta property="og:description" content="Browse, collect, and trade interactive generative artworks written in KidLisp — a minimal Lisp for creative computing on Aesthetic.Computer." />
   <meta property="og:image" content="https://oven.aesthetic.computer/kidlisp-og.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="keeps.kidlisp.com" />
-  <meta name="twitter:description" content="A living index of KidLisp $codes from the Aesthetic.Computer cache." />
+  <meta name="twitter:title" content="KidLisp Keeps — Generative Art on Tezos" />
+  <meta name="twitter:description" content="Browse, collect, and trade interactive generative artworks written in KidLisp on Tezos." />
   <meta name="twitter:image" content="https://oven.aesthetic.computer/kidlisp-og.png" />
 
   <link rel="icon" type="image/gif" href="https://assets.aesthetic.computer/kidlisp-favicon.gif" />
@@ -89,6 +90,33 @@
       }
     }
 
+    /* Manual theme overrides via data-theme attribute */
+    [data-theme="light"] {
+      --bg-primary: #f7f7f7;
+      --bg-secondary: #e8e8e8;
+      --bg-tertiary: white;
+      --text-primary: #111;
+      --text-secondary: #333;
+      --text-tertiary: #666;
+      --border-color: #ddd;
+      --border-subtle: #e0e0e0;
+      --code-bg: #e8e8e8;
+      --code-text: #a31515;
+    }
+
+    [data-theme="dark"] {
+      --bg-primary: #1e1e1e;
+      --bg-secondary: #252526;
+      --bg-tertiary: #2d2d30;
+      --text-primary: #d4d4d4;
+      --text-secondary: #d4d4d4;
+      --text-tertiary: #858585;
+      --border-color: #3e3e42;
+      --border-subtle: #3e3e42;
+      --code-bg: #252526;
+      --code-text: #ce9178;
+    }
+
     /* ========================================
        RESET & BASE
        ======================================== */
@@ -123,6 +151,8 @@
     @media (prefers-color-scheme: dark) {
       .ac-dot { color: #70D6FF; }
     }
+    [data-theme="dark"] .ac-dot { color: #70D6FF; }
+    [data-theme="light"] .ac-dot { color: #4ECDC4; }
 
     /* ========================================
        HERO HEADER (logo + /keeps inside castle area)
@@ -193,6 +223,12 @@
       .keeps-hero {
         background: linear-gradient(to bottom, #0d2233 0%, var(--bg-tertiary) 20%);
       }
+    }
+    [data-theme="dark"] .keeps-hero {
+      background: linear-gradient(to bottom, #0d2233 0%, var(--bg-tertiary) 20%);
+    }
+    [data-theme="light"] .keeps-hero {
+      background: linear-gradient(to bottom, #b8dff0 0%, var(--bg-tertiary) 20%);
     }
 
     .keeps-hero-actions {
@@ -1190,6 +1226,11 @@
         color: #8a7520;
       }
     }
+    [data-theme="light"] .keeps-deprecated-banner {
+      background: #fef9e7;
+      border-color: #e0d39a;
+      color: #8a7520;
+    }
 
     .keeps-endpoint-name.v6 {
       color: #4ade80;
@@ -1922,6 +1963,15 @@
       .kl-code-ref { color: #98c379; }
       .kl-paren { color: #858585; }
     }
+    [data-theme="dark"] .kl-comment { color: #6b7280; }
+    [data-theme="dark"] .kl-string { color: #e5c07b; }
+    [data-theme="dark"] .kl-number { color: #d19a66; }
+    [data-theme="dark"] .kl-fn { color: #61afef; }
+    [data-theme="dark"] .kl-special { color: #c084fc; }
+    [data-theme="dark"] .kl-op { color: #98c379; }
+    [data-theme="dark"] .kl-var { color: #e06c75; }
+    [data-theme="dark"] .kl-code-ref { color: #98c379; }
+    [data-theme="dark"] .kl-paren { color: #858585; }
 
     .keeps-card-source .line-nums {
       flex-shrink: 0;
@@ -2686,8 +2736,65 @@
       .keeps-card-actions { flex-wrap: wrap; }
     }
 
+    /* ========================================
+       THEME TOGGLE
+       ======================================== */
+    .theme-toggle {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      color: var(--text-tertiary);
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      padding: 0;
+      line-height: 1;
+    }
+    .theme-toggle:hover {
+      background: var(--ac-purple);
+      color: white;
+      border-color: var(--ac-purple);
+    }
+
     /* Embedded in parent editor iframe — hide branding */
     .embedded .keeps-hero { display: none; }
+    .embedded .keeps-footer { display: none; }
+
+    /* ========================================
+       FOOTER
+       ======================================== */
+    .keeps-footer {
+      border-top: 1px solid var(--border-subtle);
+      padding: 24px;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-tertiary);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-items: center;
+    }
+    .keeps-footer a {
+      color: var(--ac-purple);
+      text-decoration: none;
+    }
+    .keeps-footer a:hover { text-decoration: underline; }
+    .keeps-footer .footer-links {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .keeps-footer .footer-contract {
+      font-size: 11px;
+      opacity: 0.7;
+      word-break: break-all;
+    }
   </style>
   <script>if (window.self !== window.top) document.documentElement.classList.add('embedded');</script>
 </head>
@@ -2700,6 +2807,7 @@
         <span class="keeps-subdomain"><span class="kl0">k</span><span class="kl1">e</span><span class="kl2">e</span><span class="kl3">p</span><span class="kl4" id="keeps-logo-s">s</span></span><span class="com-part">.</span><span class="baby-k">K</span><span class="baby-i">i</span><span class="baby-d">d</span><span class="baby-l">L</span><span class="baby-i2">i</span><span class="baby-s">s</span><span class="baby-p">p</span><span class="com-part">.com</span>
       </a>
       <div class="keeps-hero-actions">
+        <button class="theme-toggle" id="theme-toggle" onclick="toggleKeepsTheme()" title="Toggle light/dark theme"></button>
         <!-- Auth UI -->
         <div class="keeps-auth" id="keeps-auth">
           <button class="keeps-auth-btn" id="keeps-login-btn" style="display:none;" onclick="keepsLogin()">Log In</button>
@@ -3216,6 +3324,44 @@
   </div>
 
   <script>
+    // =========================================
+    // Theme toggle (light/dark)
+    // =========================================
+    function getKeepsTheme() {
+      return localStorage.getItem('keeps-theme') || null; // null = system default
+    }
+
+    function applyKeepsTheme(theme) {
+      if (theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+      }
+      updateThemeToggleIcon();
+    }
+
+    function toggleKeepsTheme() {
+      const current = getKeepsTheme();
+      const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const effectiveDark = current ? current === 'dark' : systemDark;
+      const next = effectiveDark ? 'light' : 'dark';
+      localStorage.setItem('keeps-theme', next);
+      applyKeepsTheme(next);
+    }
+
+    function updateThemeToggleIcon() {
+      const btn = document.getElementById('theme-toggle');
+      if (!btn) return;
+      const theme = getKeepsTheme();
+      const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const isDark = theme ? theme === 'dark' : systemDark;
+      btn.textContent = isDark ? '\u2600' : '\u263D';
+      btn.title = isDark ? 'Switch to light theme' : 'Switch to dark theme';
+    }
+
+    // Apply saved theme immediately
+    applyKeepsTheme(getKeepsTheme());
+
     // =========================================
     // KidLisp.com Keeps - Index Page
     // =========================================
@@ -6875,7 +7021,21 @@
         .catch(() => { el.innerHTML = '2.5 <span class="tez-sym"></span>'; });
     })();
 
+    // Update theme toggle icon after DOM is ready
+    updateThemeToggleIcon();
+
     // (Removed dynamic 's'↔'$' logo swap)
   </script>
+
+  <footer class="keeps-footer">
+    <div class="footer-links">
+      <a href="https://kidlisp.com" target="_blank" rel="noopener">KidLisp.com</a>
+      <a href="https://aesthetic.computer" target="_blank" rel="noopener">Aesthetic.Computer</a>
+      <a href="https://objkt.com/collection/KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB" target="_blank" rel="noopener">Objkt Collection</a>
+      <a href="https://tzkt.io/KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB" target="_blank" rel="noopener">TzKT Explorer</a>
+    </div>
+    <div class="footer-contract">FA2 Contract: KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB</div>
+    <div>KidLisp Keeps — generative art preserved on Tezos</div>
+  </footer>
 </body>
 </html>
