@@ -2,13 +2,26 @@
 
 ## Papers
 
+Sorted by most recently edited/added.
+
 | Paper | Format | PDF | Source |
 |-------|--------|-----|--------|
+| From setup() to boot(): The Piece API as Successor to the Processing Sketch | arXiv (LaTeX, 7pp) | `arxiv-api/api.pdf` | `arxiv-api/api.tex` |
+| Network Audit: Who Uses Aesthetic Computer and What Do They Make? | arXiv (LaTeX, 4pp) | `arxiv-network-audit/network-audit.pdf` | `arxiv-network-audit/network-audit.tex` |
+| KidLisp Language Reference: 118 Built-ins in 12 Categories | arXiv (LaTeX, 4pp) | `arxiv-kidlisp-reference/kidlisp-reference.pdf` | `arxiv-kidlisp-reference/kidlisp-reference.tex` |
+| Whistlegraph: Drawing, Singing, and the Graphic Score as Viral Form | arXiv (LaTeX, 4pp) | `arxiv-whistlegraph/whistlegraph.pdf` | `arxiv-whistlegraph/whistlegraph.tex` |
+| Dead Ends: Failed Experiments and Abandoned Approaches | arXiv (LaTeX, 4pp) | `arxiv-dead-ends/dead-ends.pdf` | `arxiv-dead-ends/dead-ends.tex` |
+| Who Pays for Creative Tools? | arXiv (LaTeX, 5pp) | `arxiv-sustainability/sustainability.pdf` | `arxiv-sustainability/sustainability.tex` |
+| Radical Computer Art: Goodiepalian Approaches | arXiv (LaTeX, 4pp) | `arxiv-goodiepal/goodiepal.pdf` | `arxiv-goodiepal/goodiepal.tex` |
+| Repository Archaeology: Tracing AC Through Its Git History | arXiv (LaTeX, 3pp) | `arxiv-archaeology/archaeology.pdf` | `arxiv-archaeology/archaeology.tex` |
+| Diversity and Inclusion in AC Paper Citations | arXiv (LaTeX, 4pp) | `arxiv-diversity/diversity.pdf` | `arxiv-diversity/diversity.tex` |
+| KidLisp: A Minimal Lisp for Generative Art | arXiv (LaTeX, 6pp) | `arxiv-kidlisp/kidlisp.pdf` | `arxiv-kidlisp/kidlisp.tex` |
+| notepat.com: From Keyboard Toy to System Front Door | arXiv (LaTeX, 5pp) | `arxiv-notepat/notepat.pdf` | `arxiv-notepat/notepat.tex` |
+| AC Native OS '26 | arXiv (LaTeX, 5pp) | `arxiv-os/os.pdf` | `arxiv-os/os.tex` |
 | Aesthetic Computer '26 | arXiv (LaTeX, 5pp) | `arxiv-ac/ac.pdf` | `arxiv-ac/ac.tex` |
-| Aesthetic Computer '26 | JOSS (Markdown, 2pp) | `joss-ac/paper.pdf` | `joss-ac/paper.md` |
-| KidLisp '26 | arXiv (LaTeX, 6pp) | `arxiv-kidlisp/kidlisp.pdf` | `arxiv-kidlisp/kidlisp.tex` |
-| KidLisp '26 | JOSS (Markdown, 3pp) | `joss-kidlisp/paper.pdf` | `joss-kidlisp/paper.md` |
-| AC Native OS '26 | arXiv (LaTeX, 6pp) | `arxiv-os/os.pdf` | `arxiv-os/os.tex` |
+| Pieces Not Programs: The Piece as a Unit of Creative Cognition | arXiv (LaTeX, 4pp) | `arxiv-pieces/pieces.pdf` | `arxiv-pieces/pieces.tex` |
+| Aesthetic Computer '26 | JOSS (Markdown) | `joss-ac/paper.pdf` | `joss-ac/paper.md` |
+| KidLisp '26 | JOSS (Markdown) | `joss-kidlisp/paper.pdf` | `joss-kidlisp/paper.md` |
 
 ## Building
 
@@ -20,6 +33,7 @@
 cd papers/arxiv-ac && xelatex ac.tex && bibtex ac && xelatex ac.tex && xelatex ac.tex
 cd papers/arxiv-kidlisp && xelatex kidlisp.tex && bibtex kidlisp && xelatex kidlisp.tex && xelatex kidlisp.tex
 cd papers/arxiv-os && xelatex os.tex && bibtex os && xelatex os.tex && xelatex os.tex
+cd papers/arxiv-api && xelatex api.tex && bibtex api && xelatex api.tex && xelatex api.tex
 
 # JOSS papers (pandoc)
 cd papers/joss-ac && pandoc paper.md --citeproc --pdf-engine=xelatex -o paper.pdf

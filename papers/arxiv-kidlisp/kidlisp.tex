@@ -20,6 +20,14 @@
   Path=../../system/public/type/webfonts/,
   Extension=.ttf
 ]
+\newfontfamily\kidlispfont{ComicRelief-Regular}[
+  Path=fonts/,
+  Extension=.ttf
+]
+\newfontfamily\kidlispbold{ComicRelief-Bold}[
+  Path=fonts/,
+  Extension=.ttf
+]
 \setmonofont{Latin Modern Mono}[Scale=0.85]
 
 % === PACKAGES ===
@@ -44,7 +52,10 @@
 \definecolor{acpurple}{RGB}{120,80,180}
 \definecolor{acdark}{RGB}{64,56,74}
 \definecolor{acgray}{RGB}{119,119,119}
-\definecolor{draftcolor}{RGB}{180,72,135}
+\definecolor{klbrand}{RGB}{205,92,155}    % kidlisp.com primary (--ac-purple)
+\definecolor{klcyan}{RGB}{112,214,255}     % kidlisp.com ".com" cyan (#70D6FF)
+\definecolor{kldark}{RGB}{48,43,58}        % kidlisp.com dark purple
+\definecolor{draftcolor}{RGB}{205,92,155}
 
 % === DRAFT WATERMARK ===
 \DraftwatermarkOptions{
@@ -167,10 +178,10 @@
 
 \twocolumn[{%
 \begin{center}
-\includegraphics[height=2.2em]{pals}\par\vspace{0.4em}
-{\acbold\fontsize{24pt}{28pt}\selectfont\color{acdark} KidLisp '26}\par
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\kidlispbold\fontsize{26pt}{30pt}\selectfont\color{kldark} Kid{\color{klbrand}Lisp} '26}\par
 \vspace{0.2em}
-{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} A Minimal Lisp for Generative Art}\par
+{\kidlispfont\fontsize{11pt}{13pt}\selectfont\color{klbrand} A Minimal Lisp for Generative Art}\par
 \vspace{0.6em}
 {\normalsize Jeffrey Alan Scudder}\par
 {\small\color{acgray} Aesthetic Inc.}\par
