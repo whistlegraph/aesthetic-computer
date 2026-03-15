@@ -137,8 +137,13 @@ URL="$1"
 kill -USR1 1 2>/dev/null
 sleep 0.3
 
+# XDG_RUNTIME_DIR must be owned by current user with 0700 perms
+XDG_DIR="/tmp/xdg-$$"
+mkdir -p "$XDG_DIR"
+chmod 0700 "$XDG_DIR"
+
 export HOME=/tmp
-export XDG_RUNTIME_DIR=/tmp/xdg
+export XDG_RUNTIME_DIR="$XDG_DIR"
 export WLR_BACKENDS=drm
 export WLR_SESSION=direct
 export WLR_RENDERER=pixman
