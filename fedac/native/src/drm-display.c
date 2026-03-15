@@ -811,12 +811,25 @@ void drm_destroy(ACDisplay *d) {
 int drm_release_master(void *display) {
     ACDisplay *d = (ACDisplay *)display;
     if (!d || d->is_fbdev || d->fd < 0) return -1;
-    return drmDropMaster(d->fd);
+    int rc = drmDropMaster(d->fd);
+    // Also close the fd so cage can open /dev/dri/card0 exclusively
+    close(d->fd);
+    d->fd = -1;
+    return rc;
 }
 
-// Reclaim DRM master after browser exits
+// Reclaim DRM master after browser exits — reopen the device
 int drm_acquire_master(void *display) {
     ACDisplay *d = (ACDisplay *)display;
-    if (!d || d->is_fbdev || d->fd < 0) return -1;
+    if (!d || d->is_fbdev) return -1;
+    if (d->fd < 0) {
+        // Reopen the DRM device
+        const char *paths[] = {"/dev/dri/card0", "/dev/dri/card1", NULL};
+        for (int i = 0; paths[i]; i++) {
+            d->fd = open(paths[i], O_RDWR | O_CLOEXEC);
+            if (d->fd >= 0) break;
+        }
+        if (d->fd < 0) return -1;
+    }
     return drmSetMaster(d->fd);
 }
