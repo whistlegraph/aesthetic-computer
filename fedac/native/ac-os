@@ -171,7 +171,10 @@ echo "xdg-open: launching cage" >> /tmp/xdg-open.log 2>/dev/null
   echo "which firefox: $(which firefox 2>&1)"
   ls -la /bin/cage /opt/firefox/firefox-bin 2>&1
   echo "=== running cage ==="
-  cage -s -- /opt/firefox/firefox-bin --kiosk --no-remote --new-instance "$URL" 2>&1
+  export MOZ_APP_LAUNCHER=/opt/firefox/firefox
+  export GRE_HOME=/opt/firefox
+  cd /opt/firefox
+  cage -s -- ./firefox --kiosk --no-remote --new-instance --safe-mode "$URL" 2>&1
   RC=$?
   echo "=== cage exit: $RC ==="
 } > /tmp/cage.log 2>&1
