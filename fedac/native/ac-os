@@ -154,6 +154,9 @@ export MOZ_ENABLE_WAYLAND=1
 export GDK_BACKEND=wayland
 mkdir -p /tmp/xdg /tmp/.mozilla
 
+# Log that we were called at all
+echo "xdg-open called: $URL at $(date)" >> /mnt/xdg-open.log
+
 # Debug: log everything to /mnt/cage.log
 {
   echo "=== xdg-open debug ==="
