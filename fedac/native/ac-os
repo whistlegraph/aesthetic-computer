@@ -128,8 +128,15 @@ build_initramfs() {
     # Launches cage+firefox kiosk, then returns when browser closes
     sudo tee "${INITRAMFS_ROOT}/bin/xdg-open" > /dev/null << 'XDGOPEN'
 #!/bin/sh
+# xdg-open shim for AC Native OS
+# Signals ac-native (PID 1) to release DRM, runs cage+firefox, then signals reclaim.
 URL="$1"
 [ -z "$URL" ] && exit 1
+
+# Tell ac-native to release DRM master (SIGUSR1 = release, SIGUSR2 = reclaim)
+kill -USR1 1 2>/dev/null
+sleep 0.3
+
 export HOME=/tmp
 export XDG_RUNTIME_DIR=/tmp/xdg
 export WLR_BACKENDS=drm
@@ -141,7 +148,14 @@ export LIBGL_ALWAYS_SOFTWARE=1
 export MOZ_ENABLE_WAYLAND=1
 export GDK_BACKEND=wayland
 mkdir -p /tmp/xdg /tmp/.mozilla
-exec cage -s -- /opt/firefox/firefox-bin --kiosk --no-remote --new-instance "$URL" >/mnt/cage.log 2>&1
+
+cage -s -- /opt/firefox/firefox-bin --kiosk --no-remote --new-instance "$URL" >/mnt/cage.log 2>&1
+RC=$?
+
+# Tell ac-native to reclaim DRM master
+kill -USR2 1 2>/dev/null
+
+exit $RC
 XDGOPEN
     sudo chmod +x "${INITRAMFS_ROOT}/bin/xdg-open"
     # Bundle cage (Wayland kiosk compositor) + wlroots libs

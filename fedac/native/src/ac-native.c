@@ -121,6 +121,17 @@ static void perf_destroy(void) {
 // Forward declaration — defined after init_log_mount()
 extern char g_machine_id[64];
 
+// DRM handoff for xdg-open browser popup
+// SIGUSR1 = release DRM master (browser takes over display)
+// SIGUSR2 = reclaim DRM master (browser closed, ac-native resumes)
+static volatile int drm_handoff_release = 0;
+static volatile int drm_handoff_reclaim = 0;
+
+static void sigusr_handler(int sig) {
+    if (sig == SIGUSR1) drm_handoff_release = 1;
+    if (sig == SIGUSR2) drm_handoff_reclaim = 1;
+}
+
 static void signal_handler(int sig) {
     running = 0;
 
@@ -324,6 +335,10 @@ static int get_la_hour(void);
 
 // Global display pointer — exposed to js-bindings for browser DRM handoff
 void *g_display = NULL;
+
+// DRM master release/acquire (defined in drm-display.c)
+extern int drm_release_master(void *display);
+extern int drm_acquire_master(void *display);
 
 // Boot title — defaults to "notepat", overridden by config.json handle
 static char boot_title[80] = "notepat";
@@ -1365,6 +1380,8 @@ int main(int argc, char *argv[]) {
 
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
+    signal(SIGUSR1, sigusr_handler);
+    signal(SIGUSR2, sigusr_handler);
 
     // Determine piece path (ignore kernel cmdline args passed to init)
     const char *piece_path = "/piece.mjs";
@@ -1623,6 +1640,23 @@ int main(int argc, char *argv[]) {
 
         int main_frame = 0;
         while (running) {
+            // DRM handoff: xdg-open sends SIGUSR1 to release, SIGUSR2 to reclaim
+            if (drm_handoff_release && display) {
+                drm_release_master(display);
+                ac_log("[drm] Released master for browser (SIGUSR1)");
+                drm_handoff_release = 0;
+                // Pause rendering until reclaim
+                while (!drm_handoff_reclaim && running) {
+                    usleep(50000); // 50ms poll
+                    input_poll(input); // keep draining input
+                }
+                if (drm_handoff_reclaim && display) {
+                    drm_acquire_master(display);
+                    ac_log("[drm] Reclaimed master after browser (SIGUSR2)");
+                    drm_handoff_reclaim = 0;
+                }
+            }
+
             input_poll(input);
             main_frame++;
             // Log input state periodically (every 5 sec)
