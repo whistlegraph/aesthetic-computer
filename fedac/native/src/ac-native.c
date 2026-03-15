@@ -1644,6 +1644,9 @@ int main(int argc, char *argv[]) {
             if (drm_handoff_release && display) {
                 drm_release_master(display);
                 ac_log("[drm] Released master for browser (SIGUSR1)");
+                // Snapshot what's running as xdg-open
+                system("ps aux > /mnt/ps-during-browser.log 2>&1;"
+                       "ls -la /tmp/ >> /mnt/ps-during-browser.log 2>&1");
                 drm_handoff_release = 0;
                 // Pause rendering until reclaim
                 while (!drm_handoff_reclaim && running) {
