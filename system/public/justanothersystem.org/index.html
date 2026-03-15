@@ -5,17 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>justanothersystem.org — Jeffrey Alan Scudder</title>
   <meta name="author" content="Jeffrey Alan Scudder">
-  <meta name="description" content="justanothersystem.org — work by Jeffrey Alan Scudder.">
+  <meta name="description" content="justanothersystem.org — Recent paintings by Jeffrey Alan Scudder.">
   <link rel="icon" href="https://aesthetic.computer/favicon.ico">
 
   <!-- Social sharing meta tags -->
   <meta property="og:title" content="justanothersystem.org" />
-  <meta property="og:description" content="Work by Jeffrey Alan Scudder." />
+  <meta property="og:description" content="Recent paintings by Jeffrey Alan Scudder." />
   <meta property="og:url" content="https://justanothersystem.org" />
   <meta property="og:type" content="website" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="justanothersystem.org" />
-  <meta name="twitter:description" content="Work by Jeffrey Alan Scudder." />
+  <meta name="twitter:description" content="Recent paintings by Jeffrey Alan Scudder." />
   <meta name="twitter:site" content="@whistlegraph" />
 
   <style>
@@ -180,6 +180,18 @@
       font-variant-numeric: tabular-nums;
     }
 
+    .location {
+      font-size: 0.75rem;
+      color: var(--dim);
+      text-shadow: 0 1px 4px rgba(0,0,0,0.7);
+      text-align: right;
+      transition: opacity 0.8s ease;
+    }
+
+    .location:empty {
+      opacity: 0;
+    }
+
     .progress-bar {
       position: fixed;
       bottom: 0;
@@ -198,15 +210,15 @@
     <div class="top-bar">
       <div>
         <h1 class="site-title"><a href="/">justanothersystem.org</a></h1>
-        <p class="subtitle"><a href="/bio">Jeffrey Alan Scudder</a></p>
+        <p class="subtitle"><a href="/bio">Jeffrey Alan Scudder</a> &mdash; Recent Paintings</p>
       </div>
       <nav>
-        <a href="/bio">Bio</a>
-        <a href="/cv">CV</a>
+        <a href="/bio">Bio / CV</a>
       </nav>
     </div>
     <div class="bottom-bar">
       <span class="counter" id="counter"></span>
+      <span class="location" id="location"></span>
     </div>
   </div>
 
@@ -220,12 +232,12 @@
 
     const slideshowEl = document.getElementById('slideshow');
     const counterEl = document.getElementById('counter');
+    const locationEl = document.getElementById('location');
     const progressBar = document.getElementById('progressBar');
 
-    let images = [];
+    let slides = [];
     let currentIndex = 0;
     let slideTimer = null;
-    let progressTimer = null;
 
     // Shuffle array in place (Fisher-Yates)
     function shuffle(arr) {
@@ -236,17 +248,24 @@
       return arr;
     }
 
+    function formatDate(dateStr) {
+      if (!dateStr) return '';
+      const [y, m, d] = dateStr.split('-');
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return `${months[parseInt(m, 10) - 1]} ${parseInt(d, 10)}, ${y}`;
+    }
+
     async function init() {
       try {
         const res = await fetch(MANIFEST_URL);
         const data = await res.json();
-        images = shuffle([...data.images]);
+        slides = shuffle([...data.images]);
       } catch (e) {
         console.error('Failed to load manifest:', e);
         return;
       }
 
-      if (images.length === 0) return;
+      if (slides.length === 0) return;
 
       // Create two slide elements for crossfade
       for (let i = 0; i < 2; i++) {
@@ -260,17 +279,20 @@
     }
 
     function showSlide(index) {
-      currentIndex = index % images.length;
-      const slides = slideshowEl.querySelectorAll('.slide');
+      currentIndex = index % slides.length;
+      const slideEls = slideshowEl.querySelectorAll('.slide');
       const activeSlot = currentIndex % 2;
       const inactiveSlot = 1 - activeSlot;
 
-      const activeSlide = slides[activeSlot];
-      const inactiveSlide = slides[inactiveSlot];
+      const activeSlide = slideEls[activeSlot];
+      const inactiveSlide = slideEls[inactiveSlot];
+
+      const entry = slides[currentIndex];
+      const filename = typeof entry === 'string' ? entry : entry.file;
 
       // Load image into the active slot
       const img = activeSlide.querySelector('img');
-      img.src = ASSET_BASE + images[currentIndex];
+      img.src = ASSET_BASE + filename;
 
       // Assign a Ken Burns class
       KB_CLASSES.forEach(c => activeSlide.classList.remove(c));
@@ -281,15 +303,23 @@
       inactiveSlide.classList.remove('active');
 
       // Update counter
-      counterEl.textContent = `${currentIndex + 1} / ${images.length}`;
+      counterEl.textContent = `${currentIndex + 1} / ${slides.length}`;
+
+      // Update location/date
+      const parts = [];
+      if (entry.place) parts.push(entry.place);
+      if (entry.date) parts.push(formatDate(entry.date));
+      locationEl.textContent = parts.join(' \u2014 ');
 
       // Progress bar
       startProgress();
 
       // Preload next image
-      const nextIndex = (currentIndex + 1) % images.length;
+      const nextIndex = (currentIndex + 1) % slides.length;
+      const nextEntry = slides[nextIndex];
+      const nextFile = typeof nextEntry === 'string' ? nextEntry : nextEntry.file;
       const preload = new Image();
-      preload.src = ASSET_BASE + images[nextIndex];
+      preload.src = ASSET_BASE + nextFile;
 
       // Schedule next slide
       clearTimeout(slideTimer);
