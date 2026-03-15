@@ -2,410 +2,825 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=400, height=600">
-  <title>Keeps Wallet</title>
+  <meta name="viewport" content="width=380">
+  <title>Keeps</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Comic+Relief:wght@400;700&family=Noto+Sans+Mono:wght@400;700&display=swap" rel="stylesheet">
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
+    /* Fonts */
+    @font-face {
+      font-family: 'YWFTProcessing-Regular';
+      src: url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2') format('woff2'),
+           url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff') format('woff');
+      font-weight: normal;
+      font-style: normal;
+      font-display: swap;
     }
-    
+    @font-face {
+      font-family: 'YWFTProcessing-Bold';
+      src: url('https://aesthetic.computer/type/webfonts/ywft-processing-bold.woff2') format('woff2'),
+           url('https://aesthetic.computer/type/webfonts/ywft-processing-bold.woff') format('woff');
+      font-weight: bold;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    /* CSS Variables */
+    :root {
+      --bg-primary: #f7f7f7;
+      --bg-secondary: #e8e8e8;
+      --bg-tertiary: white;
+      --text-primary: #111;
+      --text-secondary: #333;
+      --text-tertiary: #666;
+      --border-color: #ddd;
+      --ac-purple: rgb(205, 92, 155);
+      --font-mono: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
+      --font-display: 'YWFTProcessing-Regular', monospace;
+      --font-fun: 'Comic Relief', 'Comic Sans MS', cursive;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-primary: #1e1e1e;
+        --bg-secondary: #252526;
+        --bg-tertiary: #2d2d30;
+        --text-primary: #d4d4d4;
+        --text-secondary: #d4d4d4;
+        --text-tertiary: #858585;
+        --border-color: #3e3e42;
+      }
+    }
+
+    [data-theme="light"] {
+      --bg-primary: #f7f7f7;
+      --bg-secondary: #e8e8e8;
+      --bg-tertiary: white;
+      --text-primary: #111;
+      --text-secondary: #333;
+      --text-tertiary: #666;
+      --border-color: #ddd;
+    }
+
+    [data-theme="dark"] {
+      --bg-primary: #1e1e1e;
+      --bg-secondary: #252526;
+      --bg-tertiary: #2d2d30;
+      --text-primary: #d4d4d4;
+      --text-secondary: #d4d4d4;
+      --text-tertiary: #858585;
+      --border-color: #3e3e42;
+    }
+
+    /* Reset */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-secondary); }
+    ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
+
     body {
-      width: 360px;
+      width: 380px;
       min-height: 500px;
-      font-family: 'SF Mono', 'Consolas', monospace;
-      background: #0a0e1a;
-      color: #c8d0e8;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      position: relative;
+      overflow-x: hidden;
     }
-    
-    .container {
-      padding: 16px;
-    }
-    
-    /* Header */
-    .header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding-bottom: 16px;
-      border-bottom: 1px solid #1a2040;
-    }
-    
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    
-    .logo-icon {
-      font-size: 24px;
-    }
-    
-    .logo-text {
-      font-size: 14px;
-      font-weight: bold;
-      color: #00b4ff;
-    }
-    
-    .network {
-      font-size: 10px;
-      padding: 4px 8px;
-      border-radius: 4px;
-      background: #2a1a10;
-      color: #ffb432;
-    }
-    
-    .network.mainnet {
-      background: #1a2a1a;
-      color: #32dc64;
-    }
-    
-    /* Views */
-    .view {
+
+    /* ============================================
+       STATE CONTAINER — fades between states
+       ============================================ */
+    .state {
       display: none;
-      padding-top: 20px;
-    }
-    
-    .view.active {
-      display: block;
-    }
-    
-    /* Welcome view */
-    .welcome-title {
-      font-size: 18px;
-      color: #fff;
-      margin-bottom: 8px;
-    }
-    
-    .welcome-desc {
-      font-size: 12px;
-      color: #6a7a9a;
-      margin-bottom: 24px;
-      line-height: 1.5;
-    }
-    
-    /* Buttons */
-    .btn {
-      display: block;
       width: 100%;
-      padding: 14px;
-      border: none;
-      border-radius: 8px;
-      font-family: inherit;
-      font-size: 14px;
-      font-weight: bold;
+      min-height: 500px;
+      opacity: 0;
+      transition: opacity 150ms ease;
+    }
+    .state.active {
+      display: flex;
+      flex-direction: column;
+    }
+    .state.visible {
+      opacity: 1;
+    }
+
+    /* ============================================
+       STATE 1: NO WALLET
+       ============================================ */
+    .no-wallet {
+      align-items: center;
+      justify-content: center;
+      padding: 40px 32px;
+      background: var(--bg-primary);
+    }
+
+    .no-wallet .logo-title {
+      font-family: var(--font-display);
+      font-size: 36px;
+      color: var(--text-tertiary);
+      margin-bottom: 40px;
+      letter-spacing: 2px;
+    }
+
+    .no-wallet .action-buttons {
+      display: flex;
+      gap: 12px;
+      width: 100%;
+      max-width: 280px;
+    }
+
+    .btn-outline {
+      flex: 1;
+      padding: 12px 20px;
+      border: 1.5px solid var(--border-color);
+      border-radius: 20px;
+      background: transparent;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 13px;
       cursor: pointer;
+      transition: all 150ms ease;
+    }
+    .btn-outline:hover {
+      border-color: var(--ac-purple);
+      color: var(--ac-purple);
+    }
+
+    /* Inline forms that slide down */
+    .inline-form {
+      width: 100%;
+      max-width: 300px;
+      overflow: hidden;
+      max-height: 0;
+      opacity: 0;
+      transition: max-height 250ms ease, opacity 200ms ease, margin 250ms ease;
+      margin-top: 0;
+    }
+    .inline-form.open {
+      max-height: 500px;
+      opacity: 1;
+      margin-top: 24px;
+    }
+
+    .form-field {
       margin-bottom: 12px;
-      transition: all 0.15s;
     }
-    
-    .btn-primary {
-      background: #00b4ff;
-      color: #000;
-    }
-    
-    .btn-primary:hover {
-      background: #00d4ff;
-    }
-    
-    .btn-secondary {
-      background: #1a2040;
-      color: #c8d0e8;
-      border: 1px solid #2a3050;
-    }
-    
-    .btn-secondary:hover {
-      background: #2a3050;
-    }
-    
-    /* Balance view */
-    .balance-section {
-      text-align: center;
-      padding: 24px 0;
-    }
-    
-    .balance-label {
+
+    .form-label {
+      display: block;
       font-size: 11px;
-      color: #6a7a9a;
+      color: var(--text-tertiary);
       margin-bottom: 4px;
     }
-    
-    .balance-value {
-      font-size: 32px;
-      color: #fff;
-      font-weight: bold;
-    }
-    
-    .balance-symbol {
-      color: #00b4ff;
-    }
-    
-    .balance-usd {
-      font-size: 14px;
-      color: #6a7a9a;
-      margin-top: 4px;
-    }
-    
-    /* Address */
-    .address {
-      background: #1a2040;
-      border-radius: 8px;
-      padding: 12px;
-      font-size: 11px;
-      color: #6a7a9a;
-      text-align: center;
-      word-break: break-all;
-      margin-bottom: 20px;
-    }
-    
-    /* Keeps grid */
-    .keeps-section {
-      margin-top: 20px;
-    }
-    
-    .keeps-title {
-      font-size: 12px;
-      color: #6a7a9a;
-      margin-bottom: 12px;
-    }
-    
-    .keeps-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-    }
-    
-    .keep-item {
-      aspect-ratio: 1;
-      background: #1a2040;
-      border-radius: 8px;
-      overflow: hidden;
-    }
-    
-    .keep-item img {
+
+    .form-input {
       width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-    
-    .keeps-empty {
-      text-align: center;
-      padding: 32px;
-      color: #4a5a7a;
-      font-size: 12px;
-    }
-    
-    /* Input */
-    .input-group {
-      margin-bottom: 16px;
-    }
-    
-    .input-label {
-      font-size: 11px;
-      color: #6a7a9a;
-      margin-bottom: 6px;
-    }
-    
-    .input {
-      width: 100%;
-      padding: 12px;
-      background: #1a2040;
-      border: 1px solid #2a3050;
+      padding: 10px 12px;
+      background: var(--bg-tertiary);
+      border: 1.5px solid var(--border-color);
       border-radius: 8px;
-      color: #fff;
-      font-family: inherit;
-      font-size: 14px;
-    }
-    
-    .input:focus {
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 13px;
       outline: none;
-      border-color: #00b4ff;
+      transition: border-color 150ms ease;
     }
-    
-    textarea.input {
-      min-height: 100px;
+    .form-input:focus {
+      border-color: var(--ac-purple);
+    }
+    .form-input.error {
+      border-color: #e74c3c;
+    }
+
+    textarea.form-input {
+      min-height: 80px;
       resize: vertical;
     }
-    
-    /* Lock button */
-    .lock-btn {
-      position: absolute;
-      top: 16px;
-      right: 16px;
-      background: none;
+
+    .form-submit {
+      width: 100%;
+      padding: 10px;
       border: none;
-      color: #6a7a9a;
+      border-radius: 20px;
+      background: var(--ac-purple);
+      color: white;
+      font-family: var(--font-mono);
+      font-size: 13px;
       cursor: pointer;
-      font-size: 18px;
+      transition: opacity 150ms ease;
     }
-    
-    .lock-btn:hover {
-      color: #fff;
+    .form-submit:hover { opacity: 0.85; }
+    .form-submit:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
-    
-    /* Status */
-    .status {
+
+    .form-error {
       font-size: 11px;
-      padding: 8px 12px;
-      border-radius: 6px;
-      margin-top: 12px;
+      color: #e74c3c;
+      margin-top: 8px;
+      min-height: 16px;
     }
-    
-    .status.error {
-      background: #2a1a1a;
-      color: #ff6464;
-    }
-    
-    .status.success {
-      background: #1a2a1a;
-      color: #32dc64;
-    }
-    
+
     /* Import tabs */
     .import-tabs {
       display: flex;
-      gap: 4px;
-      margin-bottom: 16px;
+      gap: 0;
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--border-color);
     }
-    
-    .import-tab {
-      flex: 1;
-      padding: 10px;
-      background: #1a2040;
-      border: 1px solid #2a3050;
-      border-radius: 6px;
-      color: #6a7a9a;
-      font-family: inherit;
-      font-size: 12px;
+    .import-tab-btn {
+      background: none;
+      border: none;
+      padding: 6px 12px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-tertiary);
       cursor: pointer;
-      transition: all 0.15s;
+      border-bottom: 2px solid transparent;
+      transition: all 150ms ease;
     }
-    
-    .import-tab:hover {
-      background: #2a3050;
+    .import-tab-btn:hover {
+      color: var(--text-primary);
     }
-    
-    .import-tab.active {
-      background: #00b4ff;
-      color: #000;
-      border-color: #00b4ff;
+    .import-tab-btn.active {
+      color: var(--ac-purple);
+      border-bottom-color: var(--ac-purple);
     }
-    
-    .import-content {
+    .import-tab-content {
       display: none;
     }
-    
-    .import-content.active {
+    .import-tab-content.active {
       display: block;
+    }
+
+    /* ============================================
+       STATE 2: LOCKED
+       ============================================ */
+    .locked {
+      align-items: center;
+      justify-content: center;
+      padding: 40px 32px;
+      background: var(--bg-secondary);
+    }
+
+    .locked .logo-title {
+      font-family: var(--font-display);
+      font-size: 28px;
+      color: var(--text-tertiary);
+      margin-bottom: 32px;
+      letter-spacing: 1px;
+    }
+
+    .locked .unlock-field {
+      width: 100%;
+      max-width: 260px;
+      position: relative;
+    }
+
+    .locked .unlock-input {
+      width: 100%;
+      padding: 12px 40px 12px 14px;
+      background: var(--bg-tertiary);
+      border: 1.5px solid var(--border-color);
+      border-radius: 10px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 150ms ease;
+    }
+    .locked .unlock-input:focus {
+      border-color: var(--ac-purple);
+    }
+    .locked .unlock-input.error {
+      border-color: #e74c3c;
+      animation: shake 300ms ease;
+    }
+
+    .unlock-icon {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      font-size: 16px;
+      padding: 4px;
+      line-height: 1;
+      transition: color 150ms;
+    }
+    .unlock-icon:hover {
+      color: var(--ac-purple);
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-6px); }
+      40% { transform: translateX(6px); }
+      60% { transform: translateX(-4px); }
+      80% { transform: translateX(4px); }
+    }
+
+    /* ============================================
+       STATE 3: UNLOCKED — keeps gallery
+       ============================================ */
+    .unlocked {
+      background: var(--bg-primary);
+      padding: 0;
+      min-height: 500px;
+    }
+
+    /* Top bar */
+    .top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: var(--bg-primary);
+    }
+
+    .top-bar-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .network-pill {
+      font-size: 9px;
+      font-family: var(--font-mono);
+      padding: 3px 8px;
+      border-radius: 10px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      color: var(--text-tertiary);
+      cursor: pointer;
+      transition: all 150ms;
+      text-transform: lowercase;
+      letter-spacing: 0.5px;
+    }
+    .network-pill:hover {
+      border-color: var(--ac-purple);
+      color: var(--ac-purple);
+    }
+
+    .top-bar-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .balance-toggle {
+      font-size: 13px;
+      background: none;
+      border: none;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      font-family: var(--font-mono);
+      padding: 3px 6px;
+      border-radius: 6px;
+      transition: all 150ms;
+    }
+    .balance-toggle:hover {
+      color: var(--text-primary);
+      background: var(--bg-secondary);
+    }
+    .balance-toggle .balance-amount {
+      font-size: 11px;
+      margin-left: 2px;
+    }
+
+    .lock-btn {
+      background: none;
+      border: none;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      font-size: 14px;
+      padding: 3px 4px;
+      border-radius: 6px;
+      transition: all 150ms;
+      line-height: 1;
+    }
+    .lock-btn:hover {
+      color: var(--text-primary);
+      background: var(--bg-secondary);
+    }
+
+    /* Keeps grid */
+    .keeps-container {
+      padding: 4px 10px 20px;
+      flex: 1;
+    }
+
+    .keeps-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    .keep-thumb {
+      aspect-ratio: 1;
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--bg-secondary);
+      cursor: pointer;
+      position: relative;
+      transition: transform 150ms ease;
+    }
+    .keep-thumb:hover {
+      transform: scale(1.03);
+    }
+    .keep-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .keep-thumb .keep-name-overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 4px 6px;
+      background: linear-gradient(transparent, rgba(0,0,0,0.65));
+      color: white;
+      font-size: 9px;
+      font-family: var(--font-mono);
+      opacity: 0;
+      transition: opacity 150ms;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .keep-thumb:hover .keep-name-overlay {
+      opacity: 1;
+    }
+
+    /* Loading skeleton */
+    .keep-thumb.loading {
+      animation: pulse 1.5s ease infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 0.3; }
+    }
+
+    /* Empty state */
+    .keeps-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      color: var(--text-tertiary);
+      font-size: 13px;
+      text-align: center;
+    }
+    .keeps-empty a {
+      color: var(--ac-purple);
+      text-decoration: none;
+      margin-top: 8px;
+      font-size: 12px;
+    }
+    .keeps-empty a:hover {
+      text-decoration: underline;
+    }
+
+    /* Loading spinner */
+    .loading-indicator {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      color: var(--text-tertiary);
+      font-size: 12px;
+    }
+    .loading-dot {
+      display: inline-block;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--text-tertiary);
+      margin: 0 2px;
+      animation: dotPulse 1.2s ease infinite;
+    }
+    .loading-dot:nth-child(2) { animation-delay: 0.2s; }
+    .loading-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes dotPulse {
+      0%, 100% { opacity: 0.3; transform: scale(0.8); }
+      50% { opacity: 1; transform: scale(1.2); }
+    }
+
+    /* ============================================
+       KEEP DETAIL OVERLAY
+       ============================================ */
+    .keep-detail-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 200ms ease;
+    }
+    .keep-detail-overlay.open {
+      display: flex;
+    }
+    .keep-detail-overlay.visible {
+      opacity: 1;
+    }
+
+    .keep-detail {
+      width: 340px;
+      max-height: 460px;
+      background: var(--bg-tertiary);
+      border-radius: 12px;
+      overflow: hidden;
+      transform: scale(0.85);
+      transition: transform 200ms ease-out;
+      display: flex;
+      flex-direction: column;
+    }
+    .keep-detail-overlay.visible .keep-detail {
+      transform: scale(1);
+    }
+
+    .keep-detail-image {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: cover;
+      display: block;
+      background: var(--bg-secondary);
+    }
+
+    .keep-detail-info {
+      padding: 14px 16px;
+    }
+
+    .keep-detail-title {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .keep-detail-artist {
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+
+    /* ============================================
+       SEED PHRASE BACKUP OVERLAY
+       ============================================ */
+    .seed-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--bg-primary);
+      z-index: 200;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 20px;
+      overflow-y: auto;
+      opacity: 0;
+      transition: opacity 200ms ease;
+    }
+    .seed-overlay.open {
+      display: flex;
+    }
+    .seed-overlay.visible {
+      opacity: 1;
+    }
+
+    .seed-overlay-title {
+      font-family: var(--font-display);
+      font-size: 20px;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    .seed-overlay-desc {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      text-align: center;
+      margin-bottom: 20px;
+      max-width: 300px;
+      line-height: 1.5;
+    }
+
+    .seed-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      width: 100%;
+      max-width: 340px;
+      margin-bottom: 24px;
+    }
+
+    .seed-word {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 8px 6px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-primary);
+      text-align: center;
+    }
+
+    .seed-word-num {
+      font-size: 9px;
+      color: var(--text-tertiary);
+      margin-right: 2px;
+    }
+
+    .seed-dismiss {
+      padding: 12px 32px;
+      border: 1.5px solid var(--border-color);
+      border-radius: 20px;
+      background: transparent;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 150ms;
+    }
+    .seed-dismiss:hover {
+      border-color: var(--ac-purple);
+      color: var(--ac-purple);
+    }
+
+    /* ============================================
+       CONNECTED DAPPS DOTS
+       ============================================ */
+    .dapp-dots {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 10px 12px;
+    }
+
+    .dapp-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--ac-purple);
+      cursor: pointer;
+      position: relative;
+      transition: transform 150ms;
+    }
+    .dapp-dot:hover {
+      transform: scale(1.5);
+    }
+
+    .dapp-tooltip {
+      position: absolute;
+      bottom: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 8px 12px;
+      white-space: nowrap;
+      font-size: 11px;
+      color: var(--text-primary);
+      display: none;
+      z-index: 50;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .dapp-tooltip.show {
+      display: block;
+    }
+    .dapp-tooltip .disconnect-link {
+      color: #e74c3c;
+      cursor: pointer;
+      margin-left: 8px;
+      font-size: 10px;
+    }
+    .dapp-tooltip .disconnect-link:hover {
+      text-decoration: underline;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header class="header">
-      <div class="logo">
-        <span class="logo-icon">ꜩ</span>
-        <span class="logo-text">Keeps Wallet</span>
-      </div>
-      <span class="network" id="network">GHOSTNET</span>
-    </header>
-    
-    <!-- Welcome View (no wallet) -->
-    <div class="view active" id="view-welcome">
-      <h2 class="welcome-title">Welcome to Keeps</h2>
-      <p class="welcome-desc">
-        Your wallet for aesthetic.computer NFTs on Tezos. 
-        Create a new wallet or import an existing one.
-      </p>
-      <button class="btn btn-primary" id="btn-create">Create New Wallet</button>
-      <button class="btn btn-secondary" id="btn-import">Import Existing Wallet</button>
+
+  <!-- STATE 1: No Wallet -->
+  <div class="state no-wallet" id="state-no-wallet">
+    <div class="logo-title">Keeps</div>
+    <div class="action-buttons">
+      <button class="btn-outline" id="btn-show-create">Create</button>
+      <button class="btn-outline" id="btn-show-import">Import</button>
     </div>
-    
-    <!-- Locked View -->
-    <div class="view" id="view-locked">
-      <h2 class="welcome-title">Unlock Wallet</h2>
-      <div class="input-group">
-        <label class="input-label">Password</label>
-        <input type="password" class="input" id="unlock-password" placeholder="Enter password">
+
+    <!-- Create inline form -->
+    <div class="inline-form" id="create-form">
+      <div class="form-field">
+        <label class="form-label">Password (min 8 characters)</label>
+        <input type="password" class="form-input" id="create-password" placeholder="Create password" autocomplete="new-password">
       </div>
-      <button class="btn btn-primary" id="btn-unlock">Unlock</button>
-      <div class="status error" id="unlock-error" style="display: none;"></div>
+      <div class="form-field">
+        <label class="form-label">Confirm password</label>
+        <input type="password" class="form-input" id="create-password-confirm" placeholder="Confirm password" autocomplete="new-password">
+      </div>
+      <button class="form-submit" id="btn-create-wallet">Create Wallet</button>
+      <div class="form-error" id="create-error"></div>
     </div>
-    
-    <!-- Main View (unlocked) -->
-    <div class="view" id="view-main">
-      <button class="lock-btn" id="btn-lock" title="Lock wallet">🔒</button>
-      
-      <div class="balance-section">
-        <div class="balance-label">BALANCE</div>
-        <div class="balance-value">
-          <span class="balance-symbol">ꜩ</span>
-          <span id="balance">0.00</span>
-        </div>
-        <div class="balance-usd" id="balance-usd">$0.00 USD</div>
-      </div>
-      
-      <div class="address" id="address">tz1...</div>
-      
-      <div class="keeps-section">
-        <div class="keeps-title">YOUR KEEPS</div>
-        <div class="keeps-grid" id="keeps-grid">
-          <!-- Keeps will be loaded here -->
-        </div>
-        <div class="keeps-empty" id="keeps-empty">No keeps yet</div>
-      </div>
-    </div>
-    
-    <!-- Create Wallet View -->
-    <div class="view" id="view-create">
-      <h2 class="welcome-title">Create Wallet</h2>
-      <div class="input-group">
-        <label class="input-label">Password</label>
-        <input type="password" class="input" id="create-password" placeholder="Create a strong password">
-      </div>
-      <div class="input-group">
-        <label class="input-label">Confirm Password</label>
-        <input type="password" class="input" id="create-password-confirm" placeholder="Confirm password">
-      </div>
-      <button class="btn btn-primary" id="btn-create-confirm">Create Wallet</button>
-      <button class="btn btn-secondary" id="btn-create-back">Back</button>
-      <div class="status" id="create-status" style="display: none;"></div>
-    </div>
-    
-    <!-- Import Wallet View -->
-    <div class="view" id="view-import">
-      <h2 class="welcome-title">Import Wallet</h2>
-      
+
+    <!-- Import inline form -->
+    <div class="inline-form" id="import-form">
       <div class="import-tabs">
-        <button class="import-tab active" data-tab="mnemonic">Seed Phrase</button>
-        <button class="import-tab" data-tab="privatekey">Private Key</button>
+        <button class="import-tab-btn active" data-import-tab="seed">Seed Phrase</button>
+        <button class="import-tab-btn" data-import-tab="key">Private Key</button>
       </div>
-      
-      <div class="import-content active" id="import-mnemonic-content">
-        <div class="input-group">
-          <label class="input-label">Seed Phrase (12 or 24 words)</label>
-          <textarea class="input" id="import-mnemonic" placeholder="Enter your seed phrase from Temple or other wallet"></textarea>
+      <div class="import-tab-content active" id="import-seed-tab">
+        <div class="form-field">
+          <label class="form-label">12 or 24 word seed phrase</label>
+          <textarea class="form-input" id="import-mnemonic" placeholder="Enter seed phrase from Temple, Kukai, or any Tezos wallet" rows="3"></textarea>
         </div>
       </div>
-      
-      <div class="import-content" id="import-privatekey-content">
-        <div class="input-group">
-          <label class="input-label">Private Key (edsk...)</label>
-          <input type="password" class="input" id="import-privatekey" placeholder="edsk...">
+      <div class="import-tab-content" id="import-key-tab">
+        <div class="form-field">
+          <label class="form-label">Private key (edsk...)</label>
+          <input type="password" class="form-input" id="import-private-key" placeholder="edsk...">
         </div>
       </div>
-      
-      <div class="input-group">
-        <label class="input-label">Password</label>
-        <input type="password" class="input" id="import-password" placeholder="Create a password to encrypt wallet">
+      <div class="form-field">
+        <label class="form-label">Password (min 8 characters)</label>
+        <input type="password" class="form-input" id="import-password" placeholder="Create password" autocomplete="new-password">
       </div>
-      <button class="btn btn-primary" id="btn-import-confirm">Import Wallet</button>
-      <button class="btn btn-secondary" id="btn-import-back">Back</button>
-      <div class="status" id="import-status" style="display: none;"></div>
+      <button class="form-submit" id="btn-import-wallet">Import Wallet</button>
+      <div class="form-error" id="import-error"></div>
     </div>
   </div>
-  
+
+  <!-- STATE 2: Locked -->
+  <div class="state locked" id="state-locked">
+    <div class="logo-title">Keeps</div>
+    <div class="unlock-field">
+      <input type="password" class="unlock-input" id="unlock-password" placeholder="Password" autocomplete="current-password">
+      <button class="unlock-icon" id="btn-unlock" title="Unlock">&#x1F513;</button>
+    </div>
+  </div>
+
+  <!-- STATE 3: Unlocked -->
+  <div class="state unlocked" id="state-unlocked">
+    <div class="top-bar">
+      <div class="top-bar-left">
+        <button class="network-pill" id="network-pill">ghostnet</button>
+      </div>
+      <div class="top-bar-right">
+        <button class="balance-toggle" id="balance-toggle">$</button>
+        <button class="lock-btn" id="btn-lock" title="Lock">&#x1F512;</button>
+      </div>
+    </div>
+
+    <div class="keeps-container" id="keeps-container">
+      <!-- Grid, empty state, or loading will be rendered here by JS -->
+    </div>
+
+    <div class="dapp-dots" id="dapp-dots"></div>
+  </div>
+
+  <!-- Keep Detail Overlay -->
+  <div class="keep-detail-overlay" id="keep-detail-overlay">
+    <div class="keep-detail" id="keep-detail">
+      <img class="keep-detail-image" id="keep-detail-image" src="" alt="">
+      <div class="keep-detail-info">
+        <div class="keep-detail-title" id="keep-detail-title"></div>
+        <div class="keep-detail-artist" id="keep-detail-artist"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Seed Phrase Backup Overlay -->
+  <div class="seed-overlay" id="seed-overlay">
+    <div class="seed-overlay-title">Back up your seed phrase</div>
+    <div class="seed-overlay-desc">Write these 24 words down in order and store them somewhere safe. This is the only way to recover your wallet.</div>
+    <div class="seed-grid" id="seed-grid"></div>
+    <button class="seed-dismiss" id="seed-dismiss">I've saved these</button>
+  </div>
+
   <script src="popup.js"></script>
 </body>
 </html>
