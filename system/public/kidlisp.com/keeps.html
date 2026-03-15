@@ -1694,6 +1694,32 @@
     .keeps-pagination .page-info {
       color: var(--text-tertiary);
     }
+    .keeps-pagination .page-go {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: 8px;
+    }
+    .keeps-pagination .page-go-input {
+      width: 48px;
+      padding: 6px 8px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      text-align: center;
+      -moz-appearance: textfield;
+    }
+    .keeps-pagination .page-go-input::-webkit-outer-spin-button,
+    .keeps-pagination .page-go-input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    .keeps-pagination .page-go-btn {
+      padding: 6px 10px;
+    }
 
     /* ========================================
        SEARCH BAR
@@ -4187,15 +4213,46 @@
       next.disabled = currentPage === totalPages - 1;
       next.addEventListener('click', () => goToPage(currentPage + 1));
 
-      paginationEl.append(prev, info, next);
+      const goForm = document.createElement('span');
+      goForm.className = 'page-go';
+      const goInput = document.createElement('input');
+      goInput.type = 'number';
+      goInput.className = 'page-go-input';
+      goInput.min = 1;
+      goInput.max = totalPages;
+      goInput.placeholder = '#';
+      goInput.value = '';
+      goInput.title = 'Go to page';
+      goInput.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter') {
+          const p = parseInt(goInput.value, 10);
+          if (p >= 1 && p <= totalPages) goToPage(p - 1);
+        }
+      });
+      const goBtn = document.createElement('button');
+      goBtn.className = 'page-btn page-go-btn';
+      goBtn.textContent = 'Go';
+      goBtn.addEventListener('click', () => {
+        const p = parseInt(goInput.value, 10);
+        if (p >= 1 && p <= totalPages) goToPage(p - 1);
+      });
+      goForm.append(goInput, goBtn);
+
+      paginationEl.append(prev, info, next, goForm);
     }
 
-    function goToPage(page) {
+    function goToPage(page, { pushState = true } = {}) {
       if (page < 0 || page >= totalPages) return;
       currentPage = page;
       renderPage();
       renderPaginationControls();
       grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (pushState) {
+        const url = new URL(window.location);
+        if (page > 0) { url.searchParams.set('page', page + 1); }
+        else { url.searchParams.delete('page'); }
+        history.pushState({ tab: activeTab, page: page }, '', url);
+      }
     }
 
     // =========================================
@@ -4907,18 +4964,20 @@
 
     // Route from URL path (production) or hash (dev) on load
     function tabFromLocation() {
+      const pageParam = new URLSearchParams(location.search).get('page');
+      const page = pageParam ? Math.max(0, parseInt(pageParam, 10) - 1) : 0;
       if (isKeepsDomain) {
         const seg = location.pathname.replace(/^\/+/, '').split('/')[0];
         // Permalink: /$code → market tab + open detail modal
         if (seg.startsWith('$') && seg.length > 1) {
-          return { tab: 'market', code: seg.slice(1) };
+          return { tab: 'market', code: seg.slice(1), page };
         }
         const tab = seg === 'kept' ? 'kept' : (seg === 'buy' || seg === 'market') ? 'market' : 'unkept';
-        return { tab, code: null };
+        return { tab, code: null, page };
       } else {
         const hash = location.hash.replace(/^#/, '');
         const tab = hash === 'kept' ? 'kept' : (hash === 'buy' || hash === 'market') ? 'market' : 'unkept';
-        return { tab, code: null };
+        return { tab, code: null, page };
       }
     }
     const initialRoute = tabFromLocation();
@@ -4939,6 +4998,9 @@
       }
       switchTab(route.tab);
       if (route.code) openKeepDetailByCode(route.code);
+      if (route.page > 0 && route.page < totalPages) {
+        goToPage(route.page, { pushState: false });
+      }
     });
     if (!isKeepsDomain) window.addEventListener('hashchange', () => { switchTab(tabFromLocation().tab); });
     document.addEventListener('visibilitychange', () => {
@@ -6991,6 +7053,10 @@
         indexReady = true;
         startLiveUpdates(5000);
         applyFilters();
+        // Restore page from URL ?page= param
+        if (initialRoute.page > 0 && initialRoute.page < totalPages) {
+          goToPage(initialRoute.page, { pushState: false });
+        }
         return;
       }
 
@@ -7098,6 +7164,10 @@
         switchTab('kept');
       } else {
         applyFilters();
+      }
+      // Restore page from URL ?page= param
+      if (initialRoute.page > 0 && initialRoute.page < totalPages) {
+        goToPage(initialRoute.page, { pushState: false });
       }
     }
 
