@@ -11414,6 +11414,7 @@ async function makeFrame({ data: { type, content } }) {
           currentText !== "chat" &&
           currentText !== "laer-klokken" &&
           currentText !== "sign" &&
+          currentText !== "jas" &&
           currentPath !== "aesthetic.computer/disks/prompt"
         ) {
           // If recording, Escape should stop the tape instead of jumping to prompt
