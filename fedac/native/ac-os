@@ -136,8 +136,10 @@ URL="$1"
 # Trap: ALWAYS reclaim DRM on exit (crash, timeout, success)
 trap 'kill -USR2 1 2>/dev/null' EXIT
 
-# Log
-echo "xdg-open: $URL" > /tmp/xdg-open.log
+# Reopen stdout/stderr in case Claude closed them
+exec 1>/tmp/xdg-open.log 2>&1
+echo "xdg-open called: $URL pid=$$ ppid=$PPID"
+echo "fd check: $(ls -la /proc/$$/fd/ 2>&1)"
 
 # Release DRM
 kill -USR1 1 2>/dev/null
