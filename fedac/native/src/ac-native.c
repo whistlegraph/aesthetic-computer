@@ -1700,15 +1700,34 @@ int main(int argc, char *argv[]) {
 
                     // Start seatd (seat daemon) — wlroots 0.18 requires libseat
                     // libseat connects to /run/seatd.sock
+                    // seatd needs: /run dir, VT access, root privileges
                     mkdir("/run", 0755);
+                    // Ensure VT/TTY access
+                    mkdir("/dev/pts", 0755);
+                    // seatd -l debug for verbose output
                     ac_log("[browser] starting seatd...");
-                    system("seatd -g root -l debug > /tmp/seatd.log 2>&1 &");
-                    usleep(500000);  // 500ms for seatd to start + create socket
-                    ac_log("[browser] seatd started, checking socket...");
-                    if (access("/run/seatd.sock", F_OK) == 0) {
-                        ac_log("[browser] /run/seatd.sock exists");
-                    } else {
-                        ac_log("[browser] WARNING: /run/seatd.sock NOT FOUND");
+                    int seatd_rc = system("seatd -g root -l debug > /tmp/seatd.log 2>&1 &");
+                    ac_log("[browser] seatd spawn rc=%d", seatd_rc);
+                    // Wait and check multiple times
+                    for (int si = 0; si < 10; si++) {
+                        usleep(200000);
+                        if (access("/run/seatd.sock", F_OK) == 0) {
+                            ac_log("[browser] /run/seatd.sock found after %dms", (si+1)*200);
+                            break;
+                        }
+                    }
+                    if (access("/run/seatd.sock", F_OK) != 0) {
+                        ac_log("[browser] /run/seatd.sock STILL not found");
+                        // Dump seatd log
+                        FILE *sl = fopen("/tmp/seatd.log", "r");
+                        if (sl) {
+                            char sline[256];
+                            while (fgets(sline, sizeof(sline), sl)) {
+                                sline[strcspn(sline, "\n")] = 0;
+                                ac_log("[seatd] %s", sline);
+                            }
+                            fclose(sl);
+                        }
                     }
 
                     // Run cage, capture output to /tmp (tmpfs, always synced)
