@@ -163,12 +163,15 @@ ACWaylandDisplay *wayland_display_init(void) {
     if (!wd) return NULL;
 
     // Connect to Wayland compositor
+    extern void ac_log(const char *fmt, ...);
+    ac_log("[wayland] connecting to WAYLAND_DISPLAY=%s\n", getenv("WAYLAND_DISPLAY") ?: "(null)");
     wd->display = wl_display_connect(NULL);
     if (!wd->display) {
-        fprintf(stderr, "[wayland] Cannot connect to Wayland compositor\n");
+        ac_log("[wayland] Cannot connect to Wayland compositor\n");
         free(wd);
         return NULL;
     }
+    ac_log("[wayland] connected\n");
 
     // Get registry and bind globals
     wd->registry = wl_display_get_registry(wd->display);
@@ -176,11 +179,12 @@ ACWaylandDisplay *wayland_display_init(void) {
     wl_display_roundtrip(wd->display);
 
     if (!wd->compositor || !wd->shm || !wd->xdg_wm_base) {
-        fprintf(stderr, "[wayland] Missing required globals (compositor=%p shm=%p xdg=%p)\n",
+        ac_log("[wayland] Missing globals: comp=%p shm=%p xdg=%p\n",
                 (void *)wd->compositor, (void *)wd->shm, (void *)wd->xdg_wm_base);
         wayland_display_destroy(wd);
         return NULL;
     }
+    ac_log("[wayland] globals bound OK\n");
 
     // Create surface
     wd->surface = wl_compositor_create_surface(wd->compositor);
@@ -229,7 +233,7 @@ ACWaylandDisplay *wayland_display_init(void) {
         return NULL;
     }
 
-    fprintf(stderr, "[wayland] Initialized: %dx%d double-buffered SHM\n",
+    ac_log("[wayland] Initialized: %dx%d double-buffered SHM\n",
             wd->width, wd->height);
 
     return wd;
