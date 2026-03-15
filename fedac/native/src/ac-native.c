@@ -575,6 +575,7 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
     char kernel_src[96] = "";
     char config_src[64] = "";
 
+    ac_log("[install] auto_install_to_hd starting\n");
     if (display)
         draw_boot_status(graph, screen, display, "installing to disk...");
 
@@ -616,7 +617,7 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
     snprintf(kernel_src, sizeof(kernel_src), "%s/EFI/BOOT/BOOTX64.EFI", source_mount);
     snprintf(config_src, sizeof(config_src), "%s/config.json", source_mount);
     if (!source_dev[0] || access(kernel_src, F_OK) != 0) {
-        fprintf(stderr, "[ac-native] No removable install source with kernel found\n");
+        ac_log("[install] No removable install source with kernel found\n");
         if (source_mounted_tmp) umount("/tmp/src");
         return 0;
     }
@@ -670,14 +671,82 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
             if (access(devpath, F_OK) != 0) continue;
 
             // Try mounting as FAT (ESP is always FAT32)
-            if (mount(devpath, "/tmp/hd", "vfat", 0, NULL) != 0) continue;
+            ac_log("[install] trying %s\n", devpath);
+            if (mount(devpath, "/tmp/hd", "vfat", 0, NULL) != 0) {
+                ac_log("[install] mount failed: %s (errno=%d)\n", devpath, errno);
+                continue;
+            }
 
             // Create EFI boot directories
             mkdir("/tmp/hd/EFI", 0755);
             mkdir("/tmp/hd/EFI/BOOT", 0755);
 
-            // Copy kernel as fallback boot entry
+            // Check free space and kernel size before copy
+            {
+                struct stat ksrc_st;
+                struct statvfs hd_vfs;
+                long kernel_bytes = 0, free_mb = 0;
+                if (stat(kernel_src, &ksrc_st) == 0) kernel_bytes = ksrc_st.st_size;
+                if (statvfs("/tmp/hd", &hd_vfs) == 0)
+                    free_mb = (long)hd_vfs.f_bavail * (long)hd_vfs.f_bsize / 1048576;
+                ac_log("[install] kernel=%ldMB free=%ldMB on %s\n",
+                       kernel_bytes / 1048576, free_mb, devpath);
+                if (kernel_bytes > 0 && free_mb < kernel_bytes / 1048576 + 10) {
+                    long need_mb = kernel_bytes / 1048576 + 10;
+                    ac_log("[install] NOT ENOUGH SPACE — need %ldMB, have %ldMB\n", need_mb, free_mb);
+                    // Repartition: expand ESP to 1024MB
+                    char parent_blk[32] = "";
+                    // Extract parent device: /dev/nvme0n1p1 → nvme0n1, /dev/sda1 → sda
+                    {
+                        const char *d = devpath + 5; // skip "/dev/"
+                        strncpy(parent_blk, d, sizeof(parent_blk) - 1);
+                        // Remove partition suffix: "nvme0n1p1" → "nvme0n1", "sda1" → "sda"
+                        char *pp = strstr(parent_blk, "p");
+                        if (pp && pp > parent_blk && *(pp-1) >= '0' && *(pp-1) <= '9' && *(pp+1) >= '1' && *(pp+1) <= '9')
+                            *pp = 0; // NVMe: nvme0n1p1 → nvme0n1
+                        else {
+                            // SATA: sda1 → sda (strip trailing digits)
+                            int len = strlen(parent_blk);
+                            while (len > 0 && parent_blk[len-1] >= '0' && parent_blk[len-1] <= '9') len--;
+                            parent_blk[len] = 0;
+                        }
+                    }
+                    ac_log("[install] repartitioning /dev/%s → 1024MB ESP\n", parent_blk);
+                    if (display) {
+                        char msg[80];
+                        snprintf(msg, sizeof(msg), "expanding to 1024MB...");
+                        draw_boot_status(graph, screen, display, msg);
+                    }
+                    umount("/tmp/hd");
+                    // Repartition: create 1024MB EFI System Partition
+                    char rcmd[256];
+                    snprintf(rcmd, sizeof(rcmd),
+                        "echo 'label: gpt\ntype=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, size=1024M' | sfdisk --force /dev/%s 2>&1",
+                        parent_blk);
+                    int rrc = system(rcmd);
+                    ac_log("[install] sfdisk rc=%d\n", rrc);
+                    usleep(500000);
+                    // Reformat
+                    snprintf(rcmd, sizeof(rcmd), "mkfs.vfat -F 32 -n AC-NATIVE %s 2>&1", devpath);
+                    rrc = system(rcmd);
+                    ac_log("[install] mkfs rc=%d\n", rrc);
+                    usleep(500000);
+                    // Remount and retry
+                    if (mount(devpath, "/tmp/hd", "vfat", 0, NULL) != 0) {
+                        ac_log("[install] remount failed after repartition\n");
+                        if (display)
+                            draw_boot_status(graph, screen, display, "repartition failed!");
+                        usleep(2000000);
+                        continue;
+                    }
+                    mkdir("/tmp/hd/EFI", 0755);
+                    mkdir("/tmp/hd/EFI/BOOT", 0755);
+                    ac_log("[install] repartitioned OK, retrying copy\n");
+                }
+            }
+            // Copy kernel
             long sz = copy_file(kernel_src, "/tmp/hd/EFI/BOOT/BOOTX64.EFI");
+            ac_log("[install] copy result: %ld bytes\n", sz);
             if (sz > 0) {
                 // Also overwrite Windows Boot Manager path (ThinkPad BIOS often
                 // boots this first regardless of boot order) — but only if space permits
@@ -690,7 +759,7 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                     mkdir("/tmp/hd/EFI/Microsoft/Boot", 0755);
                     copy_file(kernel_src, "/tmp/hd/EFI/Microsoft/Boot/bootmgfw.efi");
                 } else {
-                    fprintf(stderr, "[ac-native] Skipping MS boot path: %ldMB free < %ldMB needed\n",
+                    ac_log("[install] Skipping MS boot path: %ldMB free < %ldMB needed\n",
                             free_bytes / 1048576, (sz + 1048576) / 1048576);
                 }
 
@@ -705,7 +774,7 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
 
                 sync();
                 installed = 1;
-                fprintf(stderr, "[ac-native] Installed %ld bytes from %s to %s\n",
+                ac_log("[install] Installed %ld bytes from %s to %s\n",
                         sz, source_dev, devpath);
             }
 
@@ -717,7 +786,7 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
         draw_boot_status(graph, screen, display, "installed to disk!");
         usleep(800000);
     } else if (!installed) {
-        fprintf(stderr, "[ac-native] No suitable HD partition found for install\n");
+        ac_log("[install] No suitable HD partition found for install\n");
     }
     if (source_mounted_tmp) umount("/tmp/src");
     return installed;
@@ -1027,12 +1096,12 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
         char boot_blk[32] = "";
         get_parent_block(log_dev + 5, boot_blk, sizeof(boot_blk));
         show_install = (boot_blk[0] && is_removable(boot_blk) == 1) ? 1 : 0;
-        fprintf(stderr, "[boot-anim] boot_dev=%s parent=%s removable=%d show_install=%d\n",
+        ac_log("[boot-anim] boot_dev=%s parent=%s removable=%d show_install=%d\n",
                 log_dev, boot_blk, is_removable(boot_blk), show_install);
     } else if (getpid() == 1) {
         // No log_dev — fallback: show if not installed
         show_install = !is_installed_on_hd();
-        fprintf(stderr, "[boot-anim] no log_dev, show_install=%d (fallback)\n", show_install);
+        ac_log("[boot-anim] no log_dev, show_install=%d (fallback)\n", show_install);
     }
 
     // Open evdev fds once for key checking (avoid per-frame open/close)
