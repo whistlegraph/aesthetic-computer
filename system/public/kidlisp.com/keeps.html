@@ -216,7 +216,7 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      overflow: hidden;
+      overflow: visible;
     }
 
     @media (prefers-color-scheme: dark) {
@@ -266,12 +266,17 @@
       display: flex;
       align-items: flex-end;
       justify-content: center;
+      order: 2; /* Below about-inline in flex layout */
       transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.6s ease;
     }
 
-    /* Castle starts at bottom, rises on enter */
+    #keeps-about-inline {
+      order: 1; /* Above castle in flex layout */
+    }
+
+    /* Castle starts flush at bottom, rises on enter */
     .keeps-castle-wrap.grounded {
-      transform: translateY(40px);
+      transform: translateY(20px);
     }
     .keeps-castle-wrap.risen {
       transform: translateY(-20px);
@@ -3159,18 +3164,9 @@
         <polygon points="248,92 242,98 254,98" fill="var(--ac-purple)" opacity="0.2"/>
       </svg>
     </div>
-  </section>
 
-  <!-- TABS SYSTEM -->
-  <div class="keeps-tabs-container" id="keeps-tabs-container" style="visibility:hidden;">
-    <div class="keeps-tabs logged-out">
-      <button class="keeps-tab active" data-tab="unkept">Yours</button>
-      <button class="keeps-tab" data-tab="kept">Kept</button>
-      <button class="keeps-tab" data-tab="market">Buy</button>
-    </div>
-
-    <!-- LOGGED-OUT: inline About content -->
-    <div id="keeps-about-inline" style="display:none; overflow-y:auto; flex:1; padding:20px 24px 32px;">
+    <!-- About content (shown before Enter, above castle) -->
+    <div id="keeps-about-inline" style="display:none; overflow-y:auto; padding:20px 24px 0; width:100%; max-width:580px;">
       <div class="keeps-about-simple">
         <div class="keeps-about-lede">
           <span>Keep your KidLisp pieces on Tezos.</span>
@@ -3236,6 +3232,16 @@
           </div>
         </details>
       </div>
+    </div>
+
+  </section>
+
+  <!-- TABS SYSTEM -->
+  <div class="keeps-tabs-container" id="keeps-tabs-container" style="visibility:hidden;">
+    <div class="keeps-tabs logged-out">
+      <button class="keeps-tab active" data-tab="unkept">Yours</button>
+      <button class="keeps-tab" data-tab="kept">Kept</button>
+      <button class="keeps-tab" data-tab="market">Buy</button>
     </div>
 
     <!-- TAB: Unkept/Kept (search + grid) -->
@@ -7070,6 +7076,7 @@
       <a href="https://aesthetic.computer" target="_blank" rel="noopener">Aesthetic.Computer</a>
       <a href="https://objkt.com/collection/KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB" target="_blank" rel="noopener">Objkt Collection</a>
       <a href="https://tzkt.io/KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB" target="_blank" rel="noopener">TzKT Explorer</a>
+      <a href="/wallet">Keeps Wallet</a>
     </div>
     <div class="footer-contract">FA2 Contract: KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB</div>
     <div>KidLisp Keeps — generative art preserved on Tezos</div>
