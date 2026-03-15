@@ -14,6 +14,10 @@ mount -t devpts devpts /dev/pts -o ptmxmode=0666 2>/dev/null
 mount -t tmpfs tmpfs /tmp 2>/dev/null
 mount -t tmpfs tmpfs /run 2>/dev/null
 
+# Debug log — /dev/kmsg goes to kernel ring buffer (survives until power off)
+ilog() { echo "ac-init: $1" > /dev/kmsg 2>/dev/null; }
+ilog "=== init start ==="
+
 # zram swap (Firefox + GTK needs significant memory)
 modprobe zram 2>/dev/null
 echo 1G > /sys/block/zram0/disksize 2>/dev/null && \
@@ -26,6 +30,7 @@ ip link set lo up 2>/dev/null || ifconfig lo up 2>/dev/null
 i=0; while [ ! -e /dev/dri/card0 ] && [ ! -e /dev/fb0 ] && [ $i -lt 100 ]; do
   usleep 10000; i=$((i+1))
 done
+ilog "card0=$(ls /dev/dri/card0 2>&1)"
 
 # Performance CPU governor
 for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
@@ -38,21 +43,10 @@ export SSL_CERT_FILE="/etc/pki/tls/certs/ca-bundle.crt"
 export CURL_CA_BUNDLE="/etc/pki/tls/certs/ca-bundle.crt"
 export SSL_CERT_DIR="/etc/ssl/certs"
 
-# Mount first available USB/disk for init debug log
-for _dev in /dev/sda1 /dev/sdb1 /dev/nvme0n1p1; do
-  if [ -e "$_dev" ]; then
-    mkdir -p /mnt
-    mount -t vfat "$_dev" /mnt 2>/dev/null && break
-  fi
-done
-INITLOG=/mnt/init.log
-echo "=== init start $(date 2>/dev/null || echo '?') ===" > $INITLOG 2>/dev/null
-sync
-
 # Check if cage is available for Wayland compositor mode
-echo "cage=$(which cage 2>&1) card0=$(ls /dev/dri/card0 2>&1)" >> $INITLOG; sync
+ilog "cage=$(which cage 2>&1)"
 if command -v cage >/dev/null 2>&1 && [ -e /dev/dri/card0 ]; then
-    echo "cage+card0 OK, starting Wayland path" >> $INITLOG; sync
+    ilog "Wayland path: cage + card0 OK"
 
     # Ensure /etc/group + /etc/passwd exist (seatd needs group lookup)
     mkdir -p /etc
@@ -60,17 +54,17 @@ if command -v cage >/dev/null 2>&1 && [ -e /dev/dri/card0 ]; then
     echo "root:x:0:" > /etc/group 2>/dev/null
 
     # Start seatd (seat daemon — required by wlroots 0.18)
-    echo "starting seatd..." >> $INITLOG; sync
-    seatd -g root -l debug >> $INITLOG 2>&1 &
+    ilog "starting seatd..."
+    seatd -g root -l debug 2>/dev/kmsg &
     SEATD_PID=$!
-    echo "seatd PID=$SEATD_PID" >> $INITLOG; sync
+    ilog "seatd PID=$SEATD_PID"
     i=0; while [ ! -S /run/seatd.sock ] && [ $i -lt 30 ]; do
       usleep 100000; i=$((i+1))
     done
     if [ -S /run/seatd.sock ]; then
-        echo "seatd socket OK after ${i}00ms" >> $INITLOG; sync
+        ilog "seatd socket OK after ${i}00ms"
     else
-        echo "seatd socket MISSING after 3s, falling back to DRM" >> $INITLOG; sync
+        ilog "seatd socket MISSING — DRM fallback"
         kill $SEATD_PID 2>/dev/null
         exec /ac-native /piece.mjs
     fi
@@ -81,16 +75,16 @@ if command -v cage >/dev/null 2>&1 && [ -e /dev/dri/card0 ]; then
     mkdir -p "$XDG_RUNTIME_DIR"
     chmod 0700 "$XDG_RUNTIME_DIR"
 
-    # Launch cage — blocks until ac-native exits. If cage fails, falls through to DRM.
-    echo "launching: cage -s -- /ac-native /piece.mjs" >> $INITLOG; sync
-    cage -s -- /ac-native /piece.mjs 2>> $INITLOG; sync
-    echo "cage exited: $?" >> $INITLOG; sync
+    # Launch cage — blocks until ac-native exits
+    ilog "launching cage -s -- /ac-native /piece.mjs"
+    cage -s -- /ac-native /piece.mjs 2>/dev/kmsg
+    CAGE_RC=$?
+    ilog "cage exited: $CAGE_RC"
 
-    # cage exited (either ac-native quit or cage failed) — fall back to DRM
-    echo "DRM fallback" >> $INITLOG; sync
+    # Fall back to DRM
+    ilog "DRM fallback after cage"
     exec /ac-native /piece.mjs
 else
-    echo "no cage or no card0, DRM fallback" >> $INITLOG; sync
-    # Fallback: run ac-native directly (DRM mode, no Wayland)
+    ilog "no cage or no card0 — DRM fallback"
     exec /ac-native /piece.mjs
 fi
