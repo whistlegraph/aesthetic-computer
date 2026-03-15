@@ -124,6 +124,26 @@ build_initramfs() {
     sudo mkdir -p "${INITRAMFS_ROOT}/opt/firefox"
     sudo cp -a "${FIREFOX_CACHE}/." "${INITRAMFS_ROOT}/opt/firefox/"
     sudo ln -sf /opt/firefox/firefox-bin "${INITRAMFS_ROOT}/bin/firefox"
+    # xdg-open shim — Claude Code calls this to open OAuth URLs
+    # Launches cage+firefox kiosk, then returns when browser closes
+    sudo tee "${INITRAMFS_ROOT}/bin/xdg-open" > /dev/null << 'XDGOPEN'
+#!/bin/sh
+URL="$1"
+[ -z "$URL" ] && exit 1
+export HOME=/tmp
+export XDG_RUNTIME_DIR=/tmp/xdg
+export WLR_BACKENDS=drm
+export WLR_SESSION=direct
+export WLR_RENDERER=pixman
+export LIBSEAT_BACKEND=noop
+export LD_LIBRARY_PATH=/lib64:/opt/firefox
+export LIBGL_ALWAYS_SOFTWARE=1
+export MOZ_ENABLE_WAYLAND=1
+export GDK_BACKEND=wayland
+mkdir -p /tmp/xdg /tmp/.mozilla
+exec cage -s -- /opt/firefox/firefox-bin --kiosk --no-remote --new-instance "$URL" >/mnt/cage.log 2>&1
+XDGOPEN
+    sudo chmod +x "${INITRAMFS_ROOT}/bin/xdg-open"
     # Bundle cage (Wayland kiosk compositor) + wlroots libs
     local CAGE_BIN="$(command -v cage 2>/dev/null || true)"
     if [ -n "${CAGE_BIN}" ] && [ -f "${CAGE_BIN}" ]; then
