@@ -5046,11 +5046,11 @@ function paint($) {
       }
       ink(...bgColor).box(soBox, "fill");
       ink(...textColor).box(soBox, "outline");
-      if (useTinyFont) { ink(...textColor).write("SO", { x: soBox.x + btnPadX, y: soBox.y + btnPadY, size: 8 }); }
+      if (useTinyFont) { ink(...textColor).write("SO", { x: soBox.x + btnPadX, y: soBox.y + btnPadY }); }
       else { ink(...textColor).write("SO", { x: soBox.x + btnPadX, y: soBox.y + btnPadY }); }
       ink(...bgColor).box(softBox, "fill");
       ink(...textColor).box(softBox, "outline");
-      if (useTinyFont) { ink(...textColor).write("SOFT", { x: softBox.x + btnPadX, y: softBox.y + btnPadY, size: 8 }); }
+      if (useTinyFont) { ink(...textColor).write("SOFT", { x: softBox.x + btnPadX, y: softBox.y + btnPadY }); }
       else { ink(...textColor).write("SOFT", { x: softBox.x + btnPadX, y: softBox.y + btnPadY }); }
     }
     $.needsPaint();
