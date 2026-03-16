@@ -3338,10 +3338,10 @@
 
     const isDev = window.location.hostname === 'localhost' || window.location.hostname === 'local.aesthetic.computer';
     const isKidlispDomain = window.location.hostname.includes('kidlisp.com');
-    // Use relative API paths on kidlisp.com (proxied via Netlify), absolute on dev
-    const API_BASE = isDev ? 'http://localhost:8888' : 'https://aesthetic.computer';
-    const AC_BASE = isDev ? 'http://localhost:8888' : 'https://aesthetic.computer';
-    const KL_BASE = isDev ? 'http://localhost:8888/kidlisp.com' : 'https://kidlisp.com';
+    // Use page origin on dev (respects http/https), absolute on production
+    const API_BASE = isDev ? window.location.origin : 'https://aesthetic.computer';
+    const AC_BASE = isDev ? window.location.origin : 'https://aesthetic.computer';
+    const KL_BASE = isDev ? window.location.origin + '/kidlisp.com' : 'https://kidlisp.com';
 
     // Auth state
     let acAuth0Client = null;
