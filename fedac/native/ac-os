@@ -90,11 +90,13 @@ build_initramfs() {
         log "Bundling Claude Code (native binary)..."
         sudo cp "${CLAUDE_BIN}" "${INITRAMFS_ROOT}/bin/claude"
         sudo chmod +x "${INITRAMFS_ROOT}/bin/claude"
+        # Strip debug symbols to save ~50% of binary size
+        sudo strip --strip-debug "${INITRAMFS_ROOT}/bin/claude" 2>/dev/null || true
         # Copy shared libraries needed by the binary
         for lib in $(ldd "${CLAUDE_BIN}" 2>/dev/null | grep -oP '/\S+'); do
             [ -f "$lib" ] && sudo cp -n "$lib" "${INITRAMFS_ROOT}/lib64/" 2>/dev/null || true
         done
-        log "  claude: $(du -sh "${INITRAMFS_ROOT}/bin/claude" | cut -f1) (native binary)"
+        log "  claude: $(du -sh "${INITRAMFS_ROOT}/bin/claude" | cut -f1) (native binary, stripped)"
         # Bake Claude OAuth token (plain text file, read by PTY at spawn time)
         sudo rm -f "${INITRAMFS_ROOT}/claude-token" 2>/dev/null
         if [ -f "${HOME}/.claude/.credentials.json" ]; then
@@ -103,7 +105,7 @@ build_initramfs() {
                 process.stdout.write(c.claudeAiOauth.accessToken);
             " 2>/dev/null | sudo tee "${INITRAMFS_ROOT}/claude-token" > /dev/null
             sudo chmod 600 "${INITRAMFS_ROOT}/claude-token"
-            log "  claude token: baked ($(sudo wc -c < "${INITRAMFS_ROOT}/claude-token") bytes)"
+            log "  claude token: baked ($(sudo cat "${INITRAMFS_ROOT}/claude-token" | wc -c) bytes)"
         fi
         # Bake GitHub PAT if available (for git operations on device)
         local GH_PAT=$(gh auth token 2>/dev/null)
