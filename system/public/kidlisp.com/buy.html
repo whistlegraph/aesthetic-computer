@@ -401,7 +401,7 @@
   const MARKETPLACE = 'KT1SwbTqhSKF6Pdokiu1K4Fpi17ahPPzmt1X';
   const OBJKT_GQL = 'https://data.objkt.com/v3/graphql';
   const OBJKT_BASE = 'https://objkt.com';
-  const IPFS_GW = 'https://assets.objkt.media/file/assets-003/';
+  const OVEN = 'https://oven.aesthetic.computer/grab/png/280/210/';
   const REFRESH_MS = 15000;
   const KEEPS_URL = 'https://keeps.kidlisp.com';
 
@@ -533,17 +533,17 @@
     return (Number(mutez) / 1_000_000).toFixed(mutez % 1_000_000 === 0 ? 0 : 2);
   }
 
-  function thumbUrl(uri) {
+  function thumbUrl(uri, name) {
+    // Prefer oven renderer for live thumbnails by token name
+    if (name) {
+      const code = name.startsWith('$') ? name : '$' + name;
+      return `${OVEN}${code}?density=1&nowait=true&source=buy`;
+    }
     if (!uri) return '';
     if (uri.startsWith('ipfs://')) {
-      const hash = uri.replace('ipfs://', '');
-      return IPFS_GW + hash;
+      return 'https://ipfs.aesthetic.computer/ipfs/' + uri.replace('ipfs://', '');
     }
     return uri;
-  }
-
-  function artifactUrl(tokenId) {
-    return `${KEEPS_URL}/$${tokenId}`;
   }
 
   // ── Sorting ──
@@ -582,7 +582,7 @@
 
     grid.innerHTML = sorted.map(l => {
       const name = l.token?.name || `#${l.token?.token_id}`;
-      const thumb = thumbUrl(l.token?.thumbnail_uri);
+      const thumb = thumbUrl(l.token?.thumbnail_uri, l.token?.name);
       const price = formatXTZ(l.price_xtz);
       const seller = l.seller_address?.slice(0, 8) + '…';
       return `<div class="card" data-id="${l.id || l.bigmap_key}">
