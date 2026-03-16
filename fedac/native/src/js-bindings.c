@@ -3144,6 +3144,72 @@ static JSValue js_pty_kill(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     return JS_UNDEFINED;
 }
 
+// JS Native Functions — PTY2 (second terminal for split-screen)
+// ============================================================
+
+static JSValue js_pty2_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (!current_rt || argc < 1) return JS_FALSE;
+    if (current_rt->pty2_active) {
+        pty_destroy(&current_rt->pty2);
+        current_rt->pty2_active = 0;
+    }
+    const char *cmd = JS_ToCString(ctx, argv[0]);
+    if (!cmd) return JS_FALSE;
+    char *child_argv[32] = {0};
+    int nargs = 0;
+    child_argv[nargs++] = (char *)cmd;
+    if (argc > 1 && JS_IsArray(ctx, argv[1])) {
+        int len = 0;
+        JSValue jlen = JS_GetPropertyStr(ctx, argv[1], "length");
+        JS_ToInt32(ctx, &len, jlen);
+        JS_FreeValue(ctx, jlen);
+        for (int i = 0; i < len && nargs < 30; i++) {
+            JSValue el = JS_GetPropertyUint32(ctx, argv[1], i);
+            child_argv[nargs++] = (char *)JS_ToCString(ctx, el);
+            JS_FreeValue(ctx, el);
+        }
+    }
+    child_argv[nargs] = NULL;
+    int cols = 80, rows = 24;
+    if (argc > 2) JS_ToInt32(ctx, &cols, argv[2]);
+    if (argc > 3) JS_ToInt32(ctx, &rows, argv[3]);
+    int ok = pty_spawn(&current_rt->pty2, cols, rows, cmd, child_argv);
+    for (int i = 1; i < nargs; i++) JS_FreeCString(ctx, child_argv[i]);
+    JS_FreeCString(ctx, cmd);
+    if (ok == 0) { current_rt->pty2_active = 1; return JS_TRUE; }
+    return JS_FALSE;
+}
+
+static JSValue js_pty2_write(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (!current_rt || !current_rt->pty2_active || argc < 1) return JS_UNDEFINED;
+    size_t len;
+    const char *data = JS_ToCStringLen(ctx, &len, argv[0]);
+    if (!data) return JS_UNDEFINED;
+    pty_write(&current_rt->pty2, data, (int)len);
+    JS_FreeCString(ctx, data);
+    return JS_UNDEFINED;
+}
+
+static JSValue js_pty2_resize(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (!current_rt || !current_rt->pty2_active || argc < 2) return JS_UNDEFINED;
+    int cols, rows;
+    JS_ToInt32(ctx, &cols, argv[0]);
+    JS_ToInt32(ctx, &rows, argv[1]);
+    pty_resize(&current_rt->pty2, cols, rows);
+    return JS_UNDEFINED;
+}
+
+static JSValue js_pty2_kill(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    if (!current_rt || !current_rt->pty2_active) return JS_UNDEFINED;
+    pty_destroy(&current_rt->pty2);
+    current_rt->pty2_active = 0;
+    return JS_UNDEFINED;
+}
+
 // system.jump(pieceName) — request piece switch (handled in main loop)
 // system.saveConfig(key, value) — merge a key-value pair into /mnt/config.json
 static JSValue js_save_config(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -4250,6 +4316,75 @@ static JSValue build_system_obj(JSContext *ctx) {
         }
 
         JS_SetPropertyStr(ctx, sys, "pty", pty_obj);
+    }
+
+    // PTY2 — second terminal emulator for split-screen
+    {
+        JSValue pty2_obj = JS_NewObject(ctx);
+        JS_SetPropertyStr(ctx, pty2_obj, "spawn",
+                          JS_NewCFunction(ctx, js_pty2_spawn, "spawn", 4));
+        JS_SetPropertyStr(ctx, pty2_obj, "write",
+                          JS_NewCFunction(ctx, js_pty2_write, "write", 1));
+        JS_SetPropertyStr(ctx, pty2_obj, "resize",
+                          JS_NewCFunction(ctx, js_pty2_resize, "resize", 2));
+        JS_SetPropertyStr(ctx, pty2_obj, "kill",
+                          JS_NewCFunction(ctx, js_pty2_kill, "kill", 0));
+        JS_SetPropertyStr(ctx, pty2_obj, "active",
+                          JS_NewBool(ctx, current_rt->pty2_active));
+
+        if (current_rt->pty2_active) {
+            pty_pump(&current_rt->pty2);
+            pty_check_alive(&current_rt->pty2);
+
+            if (!current_rt->pty2.alive) {
+                pty_pump(&current_rt->pty2);
+                JS_SetPropertyStr(ctx, pty2_obj, "exitCode",
+                                  JS_NewInt32(ctx, current_rt->pty2.exit_code));
+                pty_destroy(&current_rt->pty2);
+                current_rt->pty2_active = 0;
+            }
+
+            JS_SetPropertyStr(ctx, pty2_obj, "alive",
+                              JS_NewBool(ctx, current_rt->pty2.alive));
+            JS_SetPropertyStr(ctx, pty2_obj, "cursorX",
+                              JS_NewInt32(ctx, current_rt->pty2.cursor_x));
+            JS_SetPropertyStr(ctx, pty2_obj, "cursorY",
+                              JS_NewInt32(ctx, current_rt->pty2.cursor_y));
+            JS_SetPropertyStr(ctx, pty2_obj, "cols",
+                              JS_NewInt32(ctx, current_rt->pty2.cols));
+            JS_SetPropertyStr(ctx, pty2_obj, "rows",
+                              JS_NewInt32(ctx, current_rt->pty2.rows));
+            JS_SetPropertyStr(ctx, pty2_obj, "dirty",
+                              JS_NewBool(ctx, current_rt->pty2.grid_dirty));
+
+            if (current_rt->pty2.grid_dirty) {
+                ACPty *p = &current_rt->pty2;
+                JSValue grid = JS_NewArray(ctx);
+                int idx = 0;
+                for (int y = 0; y < p->rows; y++) {
+                    for (int x = 0; x < p->cols; x++) {
+                        ACPtyCell *c = &p->grid[y][x];
+                        JS_SetPropertyUint32(ctx, grid, idx++, JS_NewInt32(ctx, c->ch));
+                        JS_SetPropertyUint32(ctx, grid, idx++, JS_NewInt32(ctx, c->fg));
+                        JS_SetPropertyUint32(ctx, grid, idx++, JS_NewInt32(ctx, c->bg));
+                        JS_SetPropertyUint32(ctx, grid, idx++, JS_NewInt32(ctx, c->bold));
+                        JS_SetPropertyUint32(ctx, grid, idx++, JS_NewInt32(ctx, c->fg_r));
+                        JS_SetPropertyUint32(ctx, grid, idx++, JS_NewInt32(ctx, c->fg_g));
+                        JS_SetPropertyUint32(ctx, grid, idx++, JS_NewInt32(ctx, c->fg_b));
+                        JS_SetPropertyUint32(ctx, grid, idx++, JS_NewInt32(ctx, c->bg_r));
+                        JS_SetPropertyUint32(ctx, grid, idx++, JS_NewInt32(ctx, c->bg_g));
+                        JS_SetPropertyUint32(ctx, grid, idx++, JS_NewInt32(ctx, c->bg_b));
+                    }
+                }
+                JS_SetPropertyStr(ctx, pty2_obj, "grid", grid);
+                p->grid_dirty = 0;
+            }
+        } else {
+            JS_SetPropertyStr(ctx, pty2_obj, "exitCode",
+                              JS_NewInt32(ctx, current_rt->pty2.exit_code));
+        }
+
+        JS_SetPropertyStr(ctx, sys, "pty2", pty2_obj);
     }
 
     // Piece navigation
