@@ -5,17 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>justanothersystem.org — Jeffrey Alan Scudder</title>
   <meta name="author" content="Jeffrey Alan Scudder">
-  <meta name="description" content="justanothersystem.org — Paintings by Jeffrey Alan Scudder.">
+  <meta name="description" content="justanothersystem.org — Stretched paintings by Jeffrey Alan Scudder.">
   <link rel="icon" href="https://aesthetic.computer/favicon.ico">
 
   <!-- Social sharing meta tags -->
   <meta property="og:title" content="justanothersystem.org" />
-  <meta property="og:description" content="Paintings by Jeffrey Alan Scudder." />
+  <meta property="og:description" content="Stretched paintings by Jeffrey Alan Scudder." />
   <meta property="og:url" content="https://justanothersystem.org" />
   <meta property="og:type" content="website" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="justanothersystem.org" />
-  <meta name="twitter:description" content="Paintings by Jeffrey Alan Scudder." />
+  <meta name="twitter:description" content="Stretched paintings by Jeffrey Alan Scudder." />
   <meta name="twitter:site" content="@whistlegraph" />
 
   <style>
@@ -125,7 +125,7 @@
     }
 
     .site-title {
-      font-size: 2.2rem;
+      font-size: 1.6rem;
       font-weight: 500;
       letter-spacing: -0.02em;
       text-shadow: 0 2px 4px rgba(0,0,0,0.9), 0 4px 12px rgba(0,0,0,0.6), 0 0 30px rgba(0,0,0,0.5);
@@ -136,27 +136,6 @@
       text-decoration: none;
     }
 
-    .site-title .org {
-      color: var(--pink-dot);
-    }
-
-    .subtitle {
-      font-size: 1.5rem;
-      color: var(--fg);
-      text-shadow: 0 2px 4px rgba(0,0,0,0.9), 0 4px 12px rgba(0,0,0,0.6), 0 0 30px rgba(0,0,0,0.5);
-      margin-top: 0.25rem;
-    }
-
-    .subtitle a {
-      color: var(--fg);
-      text-decoration: none;
-      border-bottom: 1px solid rgba(255,255,255,0.3);
-    }
-
-    .subtitle a:hover {
-      border-color: var(--fg);
-    }
-
     /* Bottom bar */
     .bottom-bar {
       display: flex;
@@ -165,10 +144,11 @@
     }
 
     .location {
-      font-size: 1.4rem;
+      font-size: 1.1rem;
       color: var(--fg);
       text-shadow: 0 2px 4px rgba(0,0,0,0.9), 0 4px 12px rgba(0,0,0,0.6);
       text-align: right;
+      text-decoration: none;
       transition: opacity 0.8s ease;
     }
 
@@ -192,13 +172,10 @@
 
   <div class="overlay">
     <div class="top-bar">
-      <div>
-        <h1 class="site-title"><a href="/">justanothersystem<span class="org">.org</span></a></h1>
-        <p class="subtitle">Paintings by <a href="/bio">Jeffrey Alan Scudder</a></p>
-      </div>
+      <h1 class="site-title"><a href="/bio">Jeffrey Alan Scudder</a></h1>
     </div>
     <div class="bottom-bar">
-      <span class="location" id="location"></span>
+      <a href="/bio" class="location" id="location"></a>
     </div>
   </div>
 
