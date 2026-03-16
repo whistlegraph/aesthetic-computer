@@ -7133,5 +7133,47 @@
     <div class="footer-contract">FA2 Contract: KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB</div>
     <div>KidLisp Keeps — generative art preserved on Tezos</div>
   </footer>
+
+<!-- Development live reload via session-server -->
+<script>
+(function() {
+  if (window.location.hostname !== 'localhost' && !window.location.hostname.includes('local.')) return;
+
+  let ws = null;
+  let reconnect = null;
+
+  function connect() {
+    if (ws && ws.readyState === WebSocket.OPEN) return;
+    if (reconnect) { clearInterval(reconnect); reconnect = null; }
+
+    const url = window.location.hostname.includes('local.')
+      ? 'wss://session.local.aesthetic.computer'
+      : 'wss://localhost:8889';
+
+    try { ws = new WebSocket(url); } catch { scheduleReconnect(); return; }
+
+    ws.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'reload') {
+          const piece = msg.content?.piece;
+          if (piece === '*refresh*' || piece === 'keeps' || piece?.includes('keeps')) {
+            setTimeout(() => window.location.reload(), 150);
+          }
+        }
+      } catch {}
+    };
+
+    ws.onclose = () => { ws = null; scheduleReconnect(); };
+    ws.onerror = () => {};
+  }
+
+  function scheduleReconnect() {
+    if (!reconnect) reconnect = setInterval(connect, 3000);
+  }
+
+  connect();
+})();
+</script>
 </body>
 </html>

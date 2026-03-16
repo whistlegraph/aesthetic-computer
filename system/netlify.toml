@@ -2263,6 +2263,30 @@ to = "/kidlisp.com/pj.html"
 status = 200
 force = false
 [[redirects]]
+# Keeps - local dev mirroring production subdomain
+# Local dev: https://localhost:8888/keeps.kidlisp.com/
+from = "/keeps.kidlisp.com/*"
+to = "/kidlisp.com/keeps.html"
+status = 200
+force = false
+[[redirects]]
+from = "/keeps.kidlisp.com"
+to = "/kidlisp.com/keeps.html"
+status = 200
+force = false
+[[redirects]]
+# Buy - local dev mirroring production subdomain
+# Local dev: https://localhost:8888/buy.kidlisp.com/
+from = "/buy.kidlisp.com/*"
+to = "/kidlisp.com/buy.html"
+status = 200
+force = false
+[[redirects]]
+from = "/buy.kidlisp.com"
+to = "/kidlisp.com/buy.html"
+status = 200
+force = false
+[[redirects]]
 # PJ mode via kidlisp.com domain - kidlisp.com/pj/code (subdomain fallback)
 from = "https://kidlisp.com/pj/*"
 to = "/kidlisp.com/pj.html"
