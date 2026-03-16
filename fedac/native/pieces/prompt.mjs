@@ -301,6 +301,41 @@ function execute(cmd, system) {
     return;
   }
 
+  // "claude TOKEN" — associate Claude Code OAuth token with your handle
+  if (baseWord === "claude" && spaceIdx > 0) {
+    const token = cmd.slice(spaceIdx + 1).trim();
+    if (token.startsWith("sk-ant-")) {
+      message = "saving token...";
+      messageFrame = 0;
+      // Read handle from config
+      let handle = "";
+      let acToken = "";
+      try {
+        const raw = system?.readFile?.("/mnt/config.json");
+        if (raw) {
+          const cfg = JSON.parse(raw);
+          handle = cfg.handle || "";
+          acToken = cfg.token || "";
+        }
+      } catch (_) {}
+      if (!handle) {
+        message = "not logged in — flash from authenticated CLI first";
+        messageFrame = 0;
+        return;
+      }
+      // POST to API
+      const url = "https://aesthetic.computer/.netlify/functions/claude-token";
+      const body = JSON.stringify({ token });
+      const headers = JSON.stringify({ "Content-Type": "application/json", "Authorization": "Bearer " + acToken });
+      system?.fetchPost?.(url, body, headers);
+      // Also save locally for immediate use
+      system?.writeFile?.("/claude-token", token);
+      message = "token saved for @" + handle;
+      messageFrame = 0;
+      return;
+    }
+  }
+
   // "code" is an alias for "claude" piece
   if (baseName === "code" || baseWord === "code") {
     message = "~> code";
