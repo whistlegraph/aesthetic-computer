@@ -521,8 +521,8 @@ async function boot(
   // 🔍 Initialize @handle autocomplete
   handleAutocomplete = createHandleAutocomplete();
 
-  // 📰 Fetch news headlines from news.aesthetic.computer
-  fetchNewsHeadlines();
+  // 📰 News ticker deprecated — skip fetch unless explicitly enabled
+  // fetchNewsHeadlines();
 
   send({ type: "keyboard:soft-lock" });
 }
@@ -2168,9 +2168,8 @@ function paint(
     needsPaint();
   }
   
-  //  News ticker (top right, visible by default) - hide when modal is open
-  // Use options.showNews to control visibility (defaults to true)
-  const showNews = options?.showNews !== false;
+  //  News ticker (deprecated — disabled by default)
+  const showNews = options?.showNews === true;
   if (showNews && !client.connecting && !modalPainting && !messageCopyModal) {
     paintNewsTicker({ ink, screen, text, hud }, theme);
     needsPaint();
