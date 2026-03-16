@@ -144,7 +144,7 @@
     }
 
     .location {
-      font-size: 1.1rem;
+      font-size: 1.6rem;
       color: var(--fg);
       text-shadow: 0 2px 4px rgba(0,0,0,0.9), 0 4px 12px rgba(0,0,0,0.6);
       text-align: right;
@@ -394,19 +394,45 @@
           // Debug: draw quad overlay inside the slide (moves with transforms)
           addDebugQuad(activeSlide, entry.corners);
 
-          // Start: perspective-corrected (artwork fills viewport)
-          const matrix = computePerspectiveTransform(
-            entry.corners, img.naturalWidth, img.naturalHeight, vpW, vpH
-          );
-          if (matrix) {
-            activeSlide.style.transformOrigin = '0 0';
-            activeSlide.style.transition = 'none';
-            activeSlide.style.transform = matrix;
-            activeSlide.offsetHeight; // force layout
-            // Animate to identity (zoom out to context)
-            activeSlide.style.transition = `transform ${ZOOM_DURATION}ms cubic-bezier(0.25, 0.1, 0.25, 1)`;
-            activeSlide.style.transform = 'none';
+          // Compute center and size of artwork quad in viewport coords
+          // Account for object-fit: cover positioning
+          const imgAspect = img.naturalWidth / img.naturalHeight;
+          const vpAspect = vpW / vpH;
+          let coverW, coverH, offX, offY;
+          if (imgAspect > vpAspect) {
+            coverH = vpH; coverW = vpH * imgAspect;
+            offX = (vpW - coverW) / 2; offY = 0;
+          } else {
+            coverW = vpW; coverH = vpW / imgAspect;
+            offX = 0; offY = (vpH - coverH) / 2;
           }
+
+          // Map quad center from image % to viewport px
+          const cx = entry.corners.reduce((s, c) => s + c[0], 0) / 4;
+          const cy = entry.corners.reduce((s, c) => s + c[1], 0) / 4;
+          const centerX = offX + (cx / 100) * coverW;
+          const centerY = offY + (cy / 100) * coverH;
+
+          // Quad bounding box in viewport px
+          const xs = entry.corners.map(c => offX + (c[0] / 100) * coverW);
+          const ys = entry.corners.map(c => offY + (c[1] / 100) * coverH);
+          const quadW = Math.max(...xs) - Math.min(...xs);
+          const quadH = Math.max(...ys) - Math.min(...ys);
+
+          // Scale to fill viewport from artwork
+          const scale = Math.max(vpW / quadW, vpH / quadH);
+
+          // Translate so artwork center is at viewport center
+          const tx = vpW / 2 - centerX;
+          const ty = vpH / 2 - centerY;
+
+          activeSlide.style.transformOrigin = `${centerX}px ${centerY}px`;
+          activeSlide.style.transition = 'none';
+          activeSlide.style.transform = `scale(${scale}) translate(${tx / scale}px, ${ty / scale}px)`;
+          activeSlide.offsetHeight; // force layout
+          // Animate to identity (zoom out to show full context)
+          activeSlide.style.transition = `transform ${ZOOM_DURATION}ms cubic-bezier(0.25, 0.1, 0.25, 1)`;
+          activeSlide.style.transform = 'none';
         } else {
           // No corners: use Ken Burns
           addDebugQuad(activeSlide, null);
