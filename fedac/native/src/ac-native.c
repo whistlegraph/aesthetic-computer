@@ -2604,19 +2604,22 @@ int main(int argc, char *argv[]) {
                     if (tts) tts_speak(tts, "online");
                     ac_log("[wifi-tts] connected — announcing 'online'");
 
-                    // Fetch device tokens (Claude + GitHub) from API
+                    // Fetch device tokens (Claude + GitHub) from API (authenticated)
                     {
                         FILE *cf = fopen("/mnt/config.json", "r");
                         if (cf) {
-                            char cbuf[2048] = {0};
+                            char cbuf[4096] = {0};
                             fread(cbuf, 1, sizeof(cbuf) - 1, cf);
                             fclose(cf);
-                            char handle[64] = {0};
-                            if (parse_config_string(cbuf, "\"handle\"", handle, sizeof(handle)) && handle[0]) {
-                                char cmd[256];
+                            char handle[64] = {0}, actoken[1024] = {0};
+                            parse_config_string(cbuf, "\"handle\"", handle, sizeof(handle));
+                            parse_config_string(cbuf, "\"token\"", actoken, sizeof(actoken));
+                            if (handle[0] && actoken[0]) {
+                                char cmd[2048];
                                 snprintf(cmd, sizeof(cmd),
-                                    "curl -fsSL 'https://aesthetic.computer/.netlify/functions/claude-token?handle=%s' "
-                                    "-o /tmp/claude-api-resp.json 2>/dev/null &", handle);
+                                    "curl -fsSL -H 'Authorization: Bearer %s' "
+                                    "'https://aesthetic.computer/.netlify/functions/claude-token' "
+                                    "-o /tmp/claude-api-resp.json 2>/dev/null &", actoken);
                                 system(cmd);
                                 ac_log("[tokens] fetching for @%s\n", handle);
                             }
