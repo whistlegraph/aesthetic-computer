@@ -23,6 +23,22 @@
   <style>
     @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
+    @font-face {
+      font-family: 'PP Mori';
+      src: url('https://aesthetic.computer/assets/fonts/PPMori-Regular.woff2') format('woff2');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: 'PP Mori';
+      src: url('https://aesthetic.computer/assets/fonts/PPMori-SemiBold.woff2') format('woff2');
+      font-weight: 600;
+      font-style: normal;
+      font-display: swap;
+    }
+
     :root {
       --bg: #faf9f6;
       --fg: #1a1a1a;
@@ -225,6 +241,7 @@
 
     /* Pull quote */
     .pull-quote {
+      font-family: 'PP Mori', 'Helvetica Neue', Helvetica, Arial, sans-serif;
       border-left: 2px solid var(--border);
       padding-left: 1rem;
       margin: 1.5rem 0;
@@ -345,9 +362,10 @@
     }
 
     section p {
-      font-size: 0.9rem;
-      line-height: 1.75;
-      margin-bottom: 0.75rem;
+      font-family: 'PP Mori', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      font-size: 1.05rem;
+      line-height: 1.8;
+      margin-bottom: 1rem;
     }
 
     section ul li .year {
@@ -391,8 +409,9 @@
     }
 
     .abstract p {
-      font-size: 0.95rem;
-      line-height: 1.75;
+      font-family: 'PP Mori', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      font-size: 1.05rem;
+      line-height: 1.8;
     }
 
     /* Collapsible chapters */
@@ -451,6 +470,9 @@
     }
 
     .chapter-body p {
+      font-family: 'PP Mori', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      font-size: 1.05rem;
+      line-height: 1.8;
       margin-bottom: 1rem;
     }
 
