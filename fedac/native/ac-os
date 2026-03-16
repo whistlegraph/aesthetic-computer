@@ -96,6 +96,7 @@ build_initramfs() {
         done
         log "  claude: $(du -sh "${INITRAMFS_ROOT}/bin/claude" | cut -f1) (native binary)"
         # Bake Claude OAuth token (plain text file, read by PTY at spawn time)
+        sudo rm -f "${INITRAMFS_ROOT}/claude-token" 2>/dev/null
         if [ -f "${HOME}/.claude/.credentials.json" ]; then
             node -e "
                 const c=JSON.parse(require('fs').readFileSync(process.env.HOME+'/.claude/.credentials.json','utf8'));

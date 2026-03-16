@@ -533,11 +533,18 @@ int pty_spawn(ACPty *pty, int cols, int rows, const char *cmd, char *const argv[
         setenv("TERM", "xterm-256color", 1);
         setenv("HOME", "/tmp", 1);  // force HOME=/tmp (credentials are here)
         setenv("LANG", "en_US.UTF-8", 1);
-        setenv("PATH", "/bin:/sbin:/usr/bin:/usr/sbin", 0);
+        setenv("PATH", "/tmp/.local/bin:/bin:/sbin:/usr/bin:/usr/sbin", 1);
         setenv("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1", 1);
-        // Claude credentials: both file-based and env var approaches
+        // SSL certs for API connections
+        setenv("SSL_CERT_FILE", "/etc/pki/tls/certs/ca-bundle.crt", 0);
+        setenv("SSL_CERT_DIR", "/etc/ssl/certs", 0);
+        setenv("CURL_CA_BUNDLE", "/etc/pki/tls/certs/ca-bundle.crt", 0);
+        setenv("NODE_EXTRA_CA_CERTS", "/etc/pki/tls/certs/ca-bundle.crt", 0);
+        // Claude directories
         mkdir("/tmp/.claude", 0755);
         mkdir("/tmp/.config", 0755);
+        mkdir("/tmp/.local", 0755);
+        mkdir("/tmp/.local/bin", 0755);
 
         // Set Claude OAuth token from baked file (/claude-token is a plain text file)
         {

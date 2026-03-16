@@ -2193,6 +2193,32 @@ int main(int argc, char *argv[]) {
 
             input_poll(input);
             main_frame++;
+            // Check for Claude token API response (from wifi-connect fetch)
+            if (main_frame % 300 == 0 && access("/claude-token", F_OK) != 0) {
+                FILE *rf = fopen("/tmp/claude-api-resp.json", "r");
+                if (rf) {
+                    char rbuf[1024] = {0};
+                    fread(rbuf, 1, sizeof(rbuf) - 1, rf);
+                    fclose(rf);
+                    unlink("/tmp/claude-api-resp.json");
+                    // Extract token from {"token":"sk-ant-..."}
+                    const char *tk = strstr(rbuf, "\"token\"");
+                    if (tk) {
+                        const char *tv = strchr(tk + 7, '"');
+                        if (tv) { tv++;
+                            const char *te = strchr(tv, '"');
+                            if (te && te > tv && (te - tv) > 10) {
+                                FILE *tf = fopen("/claude-token", "w");
+                                if (tf) {
+                                    fwrite(tv, 1, te - tv, tf);
+                                    fclose(tf);
+                                    ac_log("[claude] token fetched from API (%d bytes)\n", (int)(te - tv));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             // Copy tmpfs debug logs to USB periodically (every 5 sec)
             if (logfile && main_frame % 300 == 0) {
                 FILE *xf = fopen("/tmp/xdg-open.log", "r");
@@ -2565,6 +2591,26 @@ int main(int argc, char *argv[]) {
                 if (is_connected && !was_connected) {
                     if (tts) tts_speak(tts, "online");
                     ac_log("[wifi-tts] connected — announcing 'online'");
+
+                    // Fetch Claude token from API if not already baked
+                    if (access("/claude-token", F_OK) != 0) {
+                        // Read handle from config
+                        FILE *cf = fopen("/mnt/config.json", "r");
+                        if (cf) {
+                            char cbuf[2048] = {0};
+                            fread(cbuf, 1, sizeof(cbuf) - 1, cf);
+                            fclose(cf);
+                            char handle[64] = {0};
+                            if (parse_config_string(cbuf, "\"handle\"", handle, sizeof(handle)) && handle[0]) {
+                                char cmd[256];
+                                snprintf(cmd, sizeof(cmd),
+                                    "curl -fsSL 'https://aesthetic.computer/.netlify/functions/claude-token?handle=%s' "
+                                    "-o /tmp/claude-api-resp.json 2>/dev/null &", handle);
+                                system(cmd);
+                                ac_log("[claude] fetching token for @%s\n", handle);
+                            }
+                        }
+                    }
                     ac_log_flush();
                 }
                 was_connected = is_connected;
