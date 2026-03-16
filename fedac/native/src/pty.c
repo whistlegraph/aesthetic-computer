@@ -572,6 +572,19 @@ int pty_spawn(ACPty *pty, int cols, int rows, const char *cmd, char *const argv[
         // Working directory: /tmp/ac (has CLAUDE.md for context)
         mkdir("/tmp/ac", 0755);
         chdir("/tmp/ac");
+        // Ensure CLAUDE.md exists (init should have copied it, but safety net)
+        if (access("/tmp/ac/CLAUDE.md", F_OK) != 0) {
+            FILE *cm = fopen("/tmp/ac/CLAUDE.md", "w");
+            if (cm) {
+                fprintf(cm, "# AC Native Device\n\nYou are running on an Aesthetic Computer device.\n"
+                    "Working directory: /tmp/ac\nUser handle: @%s\n", getenv("USER") ?: "unknown");
+                fclose(cm);
+            }
+        }
+        // Ensure git repo so Claude Code recognizes a project
+        if (access("/tmp/ac/.git", F_OK) != 0) {
+            system("git init -q /tmp/ac 2>/dev/null");
+        }
 
         // Set Claude OAuth token from baked file (/claude-token is a plain text file)
         {
