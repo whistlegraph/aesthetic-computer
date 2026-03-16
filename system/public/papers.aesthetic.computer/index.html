@@ -77,7 +77,7 @@
         }
         .logo-dot { color: var(--cyan); }
 
-        /* Language selector (like give page) */
+        /* Language selector */
         .lang-selector {
             position: relative;
             display: flex;
@@ -122,9 +122,6 @@
         .sub { color: var(--dim); font-size: 0.8em; margin-bottom: 0.3em; }
         .sub a { color: var(--cyan); text-decoration: none; }
 
-        .section { color: var(--pink); font-size: 0.65em; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 2em; margin-bottom: 0.4em; }
-        .section:first-of-type { margin-top: 1.5em; }
-
         .p { padding: 0.5em 0; border-bottom: 1px solid var(--sep); }
         .p a { text-decoration: none; }
         .p .title { font-size: 1.1em; font-weight: 600; letter-spacing: -0.01em; }
@@ -133,6 +130,7 @@
         .p .detail { color: var(--dim); font-size: 0.7em; margin-top: 0.15em; }
         .p .detail a { color: var(--purple); }
         .p .detail a:hover { text-decoration: underline; }
+        .p .updated { color: var(--dim); font-size: 0.6em; margin-top: 0.1em; opacity: 0.7; }
 
         .footer {
             margin-top: 2.5em; padding-top: 1em;
@@ -171,105 +169,114 @@
                 <div class="lang-option active" data-lang="en" data-flag="us"><span class="fi fi-us"></span> English</div>
                 <div class="lang-option" data-lang="da" data-flag="dk"><span class="fi fi-dk"></span> Dansk</div>
                 <div class="lang-option" data-lang="es" data-flag="es"><span class="fi fi-es"></span> Espa&ntilde;ol</div>
-                <div class="lang-option" data-lang="zh" data-flag="cn"><span class="fi fi-cn"></span> &#x4E2D;&#x6587;</div>
             </div>
         </div>
     </div>
 
     <div class="sub">Jeffrey Alan Scudder &mdash; <a href="https://orcid.org/0009-0007-4460-4913">ORCID 0009-0007-4460-4913</a></div>
-    <div class="sub">Updated Mar 16 2026</div>
 
-    <div class="section">Platform</div>
-
-    <div class="p">
-        <div class="title"><a href="/piece-api-26-arxiv.pdf" data-base="/piece-api-26-arxiv">From setup() to boot()</a></div>
-        <div class="detail">Processing at the Core of the Piece API &middot; arXiv 7pp</div>
-    </div>
-
-    <div class="p">
-        <div class="title"><a href="/aesthetic-computer-26-arxiv.pdf" data-base="/aesthetic-computer-26-arxiv">Aesthetic Computer '26</a></div>
-        <div class="detail">A Mobile-First Runtime for Creative Computing &middot; arXiv 5pp</div>
-    </div>
-
-    <div class="p">
-        <div class="title"><a href="/aesthetic-computer-26-joss.pdf">Aesthetic Computer '26</a></div>
-        <div class="detail">JOSS Summary &middot; 2pp</div>
-    </div>
-
-    <div class="p">
-        <div class="title"><a href="/pieces-not-programs-26-arxiv.pdf" data-base="/pieces-not-programs-26-arxiv">Pieces Not Programs</a></div>
-        <div class="detail">The Piece as a Unit of Creative Cognition &middot; arXiv 4pp</div>
-    </div>
-
-    <div class="p">
-        <div class="title"><a href="/notepat-26-arxiv.pdf" data-base="/notepat-26-arxiv">notepat.com</a></div>
-        <div class="detail">From Keyboard Toy to System Front Door &middot; arXiv 5pp</div>
-    </div>
-
-    <div class="p">
-        <div class="title"><a href="/ac-native-os-26-arxiv.pdf" data-base="/ac-native-os-26-arxiv">AC Native OS</a></div>
-        <div class="detail">A Bare-Metal Creative Computing Operating System &middot; arXiv 5pp</div>
-    </div>
-
-    <div class="section">KidLisp</div>
-
-    <div class="p">
-        <div class="title"><a href="/kidlisp-26-arxiv.pdf" data-base="/kidlisp-26-arxiv">KidLisp '26</a></div>
-        <div class="detail">A Minimal Lisp for Generative Art on a Social Platform &middot; arXiv 6pp</div>
-    </div>
-
-    <div class="p">
-        <div class="title"><a href="/kidlisp-26-joss.pdf">KidLisp '26</a></div>
-        <div class="detail">JOSS Summary &middot; 3pp</div>
-    </div>
-
-    <div class="p">
-        <div class="title"><a href="/kidlisp-els-2026.pdf">KidLisp (ELS 2026)</a></div>
-        <div class="detail">A Minimal Lisp for Generative Art with Social Composition &middot; ELS ACM SIGS 4pp</div>
-    </div>
-
-    <div class="p">
-        <div class="title"><a href="/kidlisp-reference-26-arxiv.pdf" data-base="/kidlisp-reference-26-arxiv">KidLisp Language Reference</a></div>
-        <div class="detail">118 Built-ins in 12 Categories &middot; arXiv 4pp</div>
-    </div>
-
-    <div class="section">History &amp; Practice</div>
-
-    <div class="p">
-        <div class="title"><a href="/whistlegraph-26-arxiv.pdf" data-base="/whistlegraph-26-arxiv">Whistlegraph</a></div>
-        <div class="detail">Drawing, Singing, and the Graphic Score as Viral Form &middot; arXiv 4pp</div>
-    </div>
+    <!-- Sorted by last updated (most recent first) -->
 
     <div class="p">
         <div class="title"><a href="/radical-computer-art-26-arxiv.pdf" data-base="/radical-computer-art-26-arxiv">Radical Computer Art</a></div>
-        <div class="detail">Goodiepalian Approaches in Aesthetic Computer &middot; arXiv 5pp &middot; updated Mar 16</div>
-    </div>
-
-    <div class="p">
-        <div class="title"><a href="/repo-archaeology-26-arxiv.pdf" data-base="/repo-archaeology-26-arxiv">Repository Archaeology</a></div>
-        <div class="detail">Tracing the Evolution of AC Through Its Git History &middot; arXiv 3pp &middot; <a href="/ac-repo-archaeology">interactive timeline</a></div>
-    </div>
-
-    <div class="p">
-        <div class="title"><a href="/dead-ends-26-arxiv.pdf" data-base="/dead-ends-26-arxiv">Dead Ends</a></div>
-        <div class="detail">Failed Experiments and Abandoned Approaches &middot; arXiv 4pp</div>
-    </div>
-
-    <div class="section">Meta &amp; Policy</div>
-
-    <div class="p">
-        <div class="title"><a href="/network-audit-26-arxiv.pdf" data-base="/network-audit-26-arxiv">Network Audit</a></div>
-        <div class="detail">Who Uses Aesthetic Computer and What Do They Make? &middot; arXiv 4pp</div>
+        <div class="detail">Goodiepalian Approaches in Aesthetic Computer &middot; arXiv 5pp</div>
+        <div class="updated">Mar 16 14:45</div>
     </div>
 
     <div class="p">
         <div class="title"><a href="/who-pays-for-creative-tools-26-arxiv.pdf" data-base="/who-pays-for-creative-tools-26-arxiv">Who Pays for Creative Tools?</a></div>
         <div class="detail">Funding, Burnout, and Survival in Open-Source Creative Computing &middot; arXiv 5pp</div>
+        <div class="updated">Mar 16 11:39</div>
+    </div>
+
+    <div class="p">
+        <div class="title"><a href="/pieces-not-programs-26-arxiv.pdf" data-base="/pieces-not-programs-26-arxiv">Pieces Not Programs</a></div>
+        <div class="detail">The Piece as a Unit of Creative Cognition &middot; arXiv 4pp</div>
+        <div class="updated">Mar 16 11:39</div>
+    </div>
+
+    <div class="p">
+        <div class="title"><a href="/piece-api-26-arxiv.pdf" data-base="/piece-api-26-arxiv">From setup() to boot()</a></div>
+        <div class="detail">Processing at the Core of the Piece API &middot; arXiv 7pp</div>
+        <div class="updated">Mar 15 02:56</div>
+    </div>
+
+    <div class="p">
+        <div class="title"><a href="/kidlisp-els-2026.pdf">KidLisp (ELS 2026)</a></div>
+        <div class="detail">A Minimal Lisp for Generative Art with Social Composition &middot; ELS ACM SIGS 4pp</div>
+        <div class="updated">Mar 15 00:40</div>
+    </div>
+
+    <div class="p">
+        <div class="title"><a href="/network-audit-26-arxiv.pdf" data-base="/network-audit-26-arxiv">Network Audit</a></div>
+        <div class="detail">Who Uses Aesthetic Computer and What Do They Make? &middot; arXiv 4pp</div>
+        <div class="updated">Mar 15 00:28</div>
+    </div>
+
+    <div class="p">
+        <div class="title"><a href="/kidlisp-reference-26-arxiv.pdf" data-base="/kidlisp-reference-26-arxiv">KidLisp Language Reference</a></div>
+        <div class="detail">118 Built-ins in 12 Categories &middot; arXiv 4pp</div>
+        <div class="updated">Mar 15 00:12</div>
+    </div>
+
+    <div class="p">
+        <div class="title"><a href="/whistlegraph-26-arxiv.pdf" data-base="/whistlegraph-26-arxiv">Whistlegraph</a></div>
+        <div class="detail">Drawing, Singing, and the Graphic Score as Viral Form &middot; arXiv 4pp</div>
+        <div class="updated">Mar 14 19:12</div>
+    </div>
+
+    <div class="p">
+        <div class="title"><a href="/dead-ends-26-arxiv.pdf" data-base="/dead-ends-26-arxiv">Dead Ends</a></div>
+        <div class="detail">Failed Experiments and Abandoned Approaches &middot; arXiv 4pp</div>
+        <div class="updated">Mar 14 18:57</div>
+    </div>
+
+    <div class="p">
+        <div class="title"><a href="/repo-archaeology-26-arxiv.pdf" data-base="/repo-archaeology-26-arxiv">Repository Archaeology</a></div>
+        <div class="detail">Tracing the Evolution of AC Through Its Git History &middot; arXiv 3pp &middot; <a href="/ac-repo-archaeology">interactive timeline</a></div>
+        <div class="updated">Mar 14 15:03</div>
     </div>
 
     <div class="p">
         <div class="title"><a href="/citation-diversity-audit-26.pdf" data-base="/citation-diversity-audit-26">Citation Diversity Audit</a></div>
         <div class="detail">Diversity and Inclusion in AC Paper Citations &middot; 4pp</div>
+        <div class="updated">Mar 14 14:40</div>
+    </div>
+
+    <div class="p">
+        <div class="title"><a href="/kidlisp-26-arxiv.pdf" data-base="/kidlisp-26-arxiv">KidLisp '26</a></div>
+        <div class="detail">A Minimal Lisp for Generative Art on a Social Platform &middot; arXiv 6pp</div>
+        <div class="updated">Mar 14 13:35</div>
+    </div>
+
+    <div class="p">
+        <div class="title"><a href="/notepat-26-arxiv.pdf" data-base="/notepat-26-arxiv">notepat.com</a></div>
+        <div class="detail">From Keyboard Toy to System Front Door &middot; arXiv 5pp</div>
+        <div class="updated">Mar 14 11:04</div>
+    </div>
+
+    <div class="p">
+        <div class="title"><a href="/ac-native-os-26-arxiv.pdf" data-base="/ac-native-os-26-arxiv">AC Native OS</a></div>
+        <div class="detail">A Bare-Metal Creative Computing Operating System &middot; arXiv 5pp</div>
+        <div class="updated">Mar 13 18:46</div>
+    </div>
+
+    <div class="p">
+        <div class="title"><a href="/kidlisp-26-joss.pdf">KidLisp '26</a></div>
+        <div class="detail">JOSS Summary &middot; 3pp</div>
+        <div class="updated">Mar 10 17:57</div>
+    </div>
+
+    <div class="p">
+        <div class="title"><a href="/aesthetic-computer-26-arxiv.pdf" data-base="/aesthetic-computer-26-arxiv">Aesthetic Computer '26</a></div>
+        <div class="detail">A Mobile-First Runtime for Creative Computing &middot; arXiv 5pp</div>
+        <div class="updated">Mar 10 17:57</div>
+    </div>
+
+    <div class="p">
+        <div class="title"><a href="/aesthetic-computer-26-joss.pdf">Aesthetic Computer '26</a></div>
+        <div class="detail">JOSS Summary &middot; 2pp</div>
+        <div class="updated">Mar 10 17:57</div>
     </div>
 
     <div class="footer">
@@ -279,7 +286,7 @@
 
     <script>
         // Language switcher
-        const langs = { en: { flag: 'us', name: 'English' }, da: { flag: 'dk', name: 'Dansk' }, es: { flag: 'es', name: 'Espa\u00f1ol' }, zh: { flag: 'cn', name: '\u4e2d\u6587' } };
+        const langs = { en: { flag: 'us', name: 'English' }, da: { flag: 'dk', name: 'Dansk' }, es: { flag: 'es', name: 'Espa\u00f1ol' } };
         let currentLang = 'en';
 
         const selector = document.getElementById('langSelector');
@@ -306,12 +313,10 @@
             flagEl.className = 'lang-flag fi fi-' + info.flag;
             textEl.textContent = info.name;
 
-            // Update active state
             document.querySelectorAll('.lang-option').forEach(o => {
                 o.classList.toggle('active', o.dataset.lang === lang);
             });
 
-            // Update all paper links with data-base attribute
             const suffix = lang === 'en' ? '' : '-' + lang;
             document.querySelectorAll('.p .title a[data-base]').forEach(a => {
                 a.href = a.dataset.base + suffix + '.pdf';
