@@ -2840,6 +2840,41 @@
       opacity: 0.7;
       word-break: break-all;
     }
+    .keeps-footer .footer-buy {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+    .keeps-footer .footer-buy-label {
+      font-family: var(--font-fun);
+      font-size: 18px;
+      font-weight: bold;
+      color: var(--text-tertiary);
+    }
+    .keeps-footer .footer-buy-link {
+      font-family: var(--font-fun);
+      font-weight: bold;
+      font-size: 18px;
+      text-decoration: none;
+      display: inline-flex;
+      gap: 0;
+    }
+    .keeps-footer .footer-buy-link:hover { text-decoration: none; }
+    .keeps-footer .footer-buy-link span { text-shadow: 1px 1px 0px rgba(0,0,0,0.3); }
+    .keeps-footer .footer-buy-link .buy-b { color: #FF6B6B; }
+    .keeps-footer .footer-buy-link .buy-u { color: #4ECDC4; }
+    .keeps-footer .footer-buy-link .buy-y { color: #FFE66D; }
+    .keeps-footer .footer-buy-link .dot { color: #70D6FF; text-shadow: none; }
+    .keeps-footer .footer-buy-link .baby-k { color: #FF6B6B; }
+    .keeps-footer .footer-buy-link .baby-i { color: #4ECDC4; }
+    .keeps-footer .footer-buy-link .baby-d { color: #FFE66D; }
+    .keeps-footer .footer-buy-link .baby-l { color: #A8E6CF; }
+    .keeps-footer .footer-buy-link .baby-i2 { color: #FF8B94; }
+    .keeps-footer .footer-buy-link .baby-s { color: #F7DC6F; }
+    .keeps-footer .footer-buy-link .baby-p { color: #BB8FCE; }
+    .keeps-footer .footer-buy-link .com-part { color: #70D6FF; text-shadow: none; }
   </style>
   <script>if (window.self !== window.top) document.documentElement.classList.add('embedded');</script>
 </head>
@@ -3277,7 +3312,6 @@
     <div class="keeps-tabs logged-out">
       <button class="keeps-tab active" data-tab="unkept">Yours</button>
       <button class="keeps-tab" data-tab="kept">Kept</button>
-      <button class="keeps-tab" data-tab="market">Buy</button>
     </div>
 
     <!-- TAB: Unkept/Kept (search + grid) -->
@@ -4968,15 +5002,24 @@
       const page = pageParam ? Math.max(0, parseInt(pageParam, 10) - 1) : 0;
       if (isKeepsDomain) {
         const seg = location.pathname.replace(/^\/+/, '').split('/')[0];
-        // Permalink: /$code → market tab + open detail modal
-        if (seg.startsWith('$') && seg.length > 1) {
-          return { tab: 'market', code: seg.slice(1), page };
+        // Redirect /buy, /market, and /$code permalinks to buy.kidlisp.com
+        if (seg === 'buy' || seg === 'market') {
+          window.location.href = 'https://buy.kidlisp.com';
+          return { tab: 'unkept', code: null, page: 0 };
         }
-        const tab = seg === 'kept' ? 'kept' : (seg === 'buy' || seg === 'market') ? 'market' : 'unkept';
+        if (seg.startsWith('$') && seg.length > 1) {
+          window.location.href = 'https://buy.kidlisp.com/' + seg;
+          return { tab: 'unkept', code: null, page: 0 };
+        }
+        const tab = seg === 'kept' ? 'kept' : 'unkept';
         return { tab, code: null, page };
       } else {
         const hash = location.hash.replace(/^#/, '');
-        const tab = hash === 'kept' ? 'kept' : (hash === 'buy' || hash === 'market') ? 'market' : 'unkept';
+        if (hash === 'buy' || hash === 'market') {
+          window.location.href = 'https://buy.kidlisp.com';
+          return { tab: 'unkept', code: null, page: 0 };
+        }
+        const tab = hash === 'kept' ? 'kept' : 'unkept';
         return { tab, code: null, page };
       }
     }
@@ -7209,6 +7252,10 @@
   </script>
 
   <footer class="keeps-footer">
+    <div class="footer-buy">
+      <span class="footer-buy-label">See also:</span>
+      <a href="https://buy.kidlisp.com" class="footer-buy-link"><span class="buy-b">b</span><span class="buy-u">u</span><span class="buy-y">y</span><span class="dot">.</span><span class="baby-k">K</span><span class="baby-i">i</span><span class="baby-d">d</span><span class="baby-l">L</span><span class="baby-i2">i</span><span class="baby-s">s</span><span class="baby-p">p</span><span class="com-part">.com</span></a>
+    </div>
     <div class="footer-links">
       <a href="https://kidlisp.com" target="_blank" rel="noopener">KidLisp.com</a>
       <a href="https://aesthetic.computer" target="_blank" rel="noopener">Aesthetic.Computer</a>
