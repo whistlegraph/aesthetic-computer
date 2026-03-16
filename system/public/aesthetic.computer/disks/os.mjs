@@ -26,6 +26,11 @@ let ovenWs = null;
 let wsReconnectTimer = null;
 let npRef = null; // stored needsPaint for live updates
 
+// Device token status
+let hasClaude = null; // null=loading, true/false
+let hasGit = null;
+let setupBtn = null; // "set up tokens" button shown when missing
+
 // Color palettes for dark/light mode (deprecated builds use red tones)
 const scheme = {
   dark: {
@@ -183,6 +188,28 @@ function boot({ user, api, ui, needsPaint }) {
       token = t;
       console.log("[os] Authorized, token:", t ? "ok" : "missing");
       if (releases) makeButtons(ui, releases);
+      // Check device token status (Claude + GitHub)
+      if (t) {
+        fetch("/api/claude-token", {
+          headers: { Authorization: "Bearer " + t },
+        })
+          .then((r) => r.json())
+          .then((data) => {
+            hasClaude = !!data.token;
+            hasGit = !!data.githubPat;
+            console.log("[os] Device tokens: claude=" + hasClaude + " git=" + hasGit);
+            if (!hasClaude || !hasGit) {
+              setupBtn = new ui.TextButton("set up device tokens", { x: 6, y: 0 });
+            }
+            needsPaint();
+          })
+          .catch((err) => {
+            console.error("[os] Token check failed:", err);
+            hasClaude = false;
+            hasGit = false;
+            needsPaint();
+          });
+      }
       needsPaint();
     });
   } else {
@@ -268,6 +295,32 @@ function paint($) {
     ink(...C.handle).write(label, { x: pad, y, wrap: w - pad * 2 });
     const labelLines = Math.ceil(label.length * charW / (w - pad * 2));
     y += rowH * labelLines + 4;
+
+    // Device token status
+    if (hasClaude !== null) {
+      const cIcon = hasClaude ? "+" : "-";
+      const gIcon = hasGit ? "+" : "-";
+      ink(...(hasClaude ? C.current : [255, 80, 80]));
+      $.write(cIcon + " claude", { x: pad, y });
+      ink(...(hasGit ? C.current : [255, 80, 80]));
+      $.write(gIcon + " git", { x: pad + 60, y });
+      y += rowH + 2;
+
+      if ((!hasClaude || !hasGit) && setupBtn) {
+        setupBtn.reposition({ x: pad, y });
+        setupBtn.paint(
+          $,
+          [[60, 30, 30], [140, 60, 60], [255, 120, 100], 255],
+          [[80, 40, 40], [180, 80, 80], [255, 255, 255], 255],
+          undefined,
+          [[60, 30, 30], [140, 60, 60], [255, 120, 100], 230],
+        );
+        y += setupBtn.height + 4;
+      } else if (hasClaude && hasGit) {
+        ink(...C.date);
+        $.write("device ready", { x: pad + 120, y: y - rowH - 2 });
+      }
+    }
 
     // Boot-to selector
     if (bootBtn) {
@@ -437,6 +490,16 @@ function act({ event: e, needsPaint, download }) {
           updateBootBtn(uiRef);
         }
         needsPaint();
+      },
+    });
+  }
+
+  // Setup tokens button: open docs / hint
+  if (setupBtn && token) {
+    setupBtn.btn.act(e, {
+      push: () => {
+        // Open token setup docs in a new tab
+        window.open("https://console.anthropic.com/settings/keys", "_blank");
       },
     });
   }
