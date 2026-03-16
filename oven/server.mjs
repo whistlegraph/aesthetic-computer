@@ -13,6 +13,7 @@ import { WebSocketServer } from 'ws';
 import { healthHandler, bakeHandler, statusHandler, bakeCompleteHandler, bakeStatusHandler, getActiveBakes, getIncomingBakes, getRecentBakes, subscribeToUpdates, cleanupStaleBakes } from './baker.mjs';
 import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, ensureLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, getAllProgress, getConcurrencyStatus, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus, getFrozenPieces, clearFrozenPiece, getLatestOGImageUrl, regenerateOGImagesBackground, generateKidlispBackdrop, getLatestBackdropUrl, APP_SCREENSHOT_PRESETS, generateNotepatOGImage, getLatestNotepatOGUrl, prewarmGrabBrowser } from './grabber.mjs';
 import archiver from 'archiver';
+import sharp from 'sharp';
 import { createBundle, createJSPieceBundle, createM4DBundle, generateDeviceHTML, prewarmCache, getCacheStatus, setSkipMinification } from './bundler.mjs';
 import { streamOSImage, getOSBuildStatus, invalidateManifest, purgeOSBuildCache, clearOSBuildLocalCache } from './os-builder.mjs';
 import { startOSBaseBuild, getOSBaseBuild, getOSBaseBuildsSummary, cancelOSBaseBuild } from './os-base-build.mjs';
@@ -1454,6 +1455,65 @@ app.get('/kidlisp-og.png', async (req, res) => {
     // Ultimate fallback - yesterday's mosaic
     const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
     return res.redirect(302, `https://art.aesthetic.computer/og/kidlisp/${yesterday}-mosaic.png`);
+  }
+});
+
+// ─── TzKT dapp images ───────────────────────────────────────────────────────
+app.get('/kidlisp-og/tzkt-cover.jpg', async (req, res) => {
+  try {
+    addServerLog('info', '🖼️', 'TzKT cover (640x360)');
+    const result = await generateKidlispOGImage('mosaic', true, { noDotCom: true });
+    const jpg = await sharp(result.buffer).resize(640, 360, { fit: 'cover' }).jpeg({ quality: 90 }).toBuffer();
+    res.setHeader('Content-Type', 'image/jpeg');
+    res.setHeader('Content-Length', jpg.length);
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send(jpg);
+  } catch (error) {
+    console.error('TzKT cover error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/kidlisp-og/tzkt-logo.jpg', async (req, res) => {
+  try {
+    addServerLog('info', '🖼️', 'TzKT logo (200x200)');
+    const result = await generateKidlispOGImage('mosaic', true, { noDotCom: true });
+    const bg = await sharp(result.buffer).resize(200, 200, { fit: 'cover' }).png().toBuffer();
+    const dollarSvg = Buffer.from(`<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="rgba(0,0,0,0.35)"/><text x="100" y="155" font-family="Comic Sans MS, cursive" font-size="160" font-weight="bold" fill="limegreen" text-anchor="middle" style="paint-order: stroke; stroke: rgba(0,0,0,0.6); stroke-width: 6px;">$</text></svg>`);
+    const composited = await sharp(bg).composite([{ input: dollarSvg, gravity: 'center' }]).jpeg({ quality: 90 }).toBuffer();
+    res.setHeader('Content-Type', 'image/jpeg');
+    res.setHeader('Content-Length', composited.length);
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send(composited);
+  } catch (error) {
+    console.error('TzKT logo error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ─── Site-specific OG images ─────────────────────────────────────────────────
+app.get('/kidlisp-og/site/:site.png', async (req, res) => {
+  const site = req.params.site;
+  if (!['keeps', 'buy'].includes(site)) return res.status(400).json({ error: 'Invalid site', valid: ['keeps', 'buy'] });
+  try {
+    addServerLog('info', '🖼️', `Site OG: ${site}.kidlisp.com`);
+    const result = await generateKidlispOGImage('mosaic', true);
+    const bg = await sharp(result.buffer).blur(6).toBuffer();
+    const darkOverlay = Buffer.from(`<svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="rgba(0,0,0,0.4)"/></svg>`);
+    const prefixLetters = site === 'keeps'
+      ? 'keeps'.split('').map(c => `<tspan fill="#00ff41">${c}</tspan>`).join('')
+      : [['b','#FF6B6B'],['u','#4ECDC4'],['y','#FFE66D']].map(([c,col]) => `<tspan fill="${col}">${c}</tspan>`).join('');
+    const kidlispLetters = [['K','#FF6B6B'],['i','#4ECDC4'],['d','#FFE66D'],['L','#A8E6CF'],['i','#FF8B94'],['s','#F7DC6F'],['p','#BB8FCE']].map(([c,col]) => `<tspan fill="${col}">${c}</tspan>`).join('');
+    const tspans = `${prefixLetters}<tspan fill="#70D6FF">.</tspan>${kidlispLetters}<tspan fill="#70D6FF">.com</tspan>`;
+    const brandingSvg = Buffer.from(`<svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg"><text x="600" y="340" font-family="Comic Sans MS, cursive" font-size="90" font-weight="700" text-anchor="middle" style="paint-order: stroke; stroke: black; stroke-width: 6px;">${tspans}</text></svg>`);
+    const composited = await sharp(bg).composite([{ input: darkOverlay }, { input: brandingSvg }]).png().toBuffer();
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Content-Length', composited.length);
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send(composited);
+  } catch (error) {
+    console.error(`Site OG error (${site}):`, error);
+    res.status(500).json({ error: error.message });
   }
 });
 
