@@ -410,10 +410,12 @@
     .tab[data-tab="fresh"] {
       color: var(--green);
       background: rgba(0, 255, 136, 0.1);
+      text-shadow: 0 2px 6px rgba(0, 255, 136, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
     }
     .tab[data-tab="sold"] {
       color: var(--red);
       background: rgba(255, 107, 107, 0.1);
+      text-shadow: 0 2px 6px rgba(255, 107, 107, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
     }
     .tab.active[data-tab="fresh"] {
       background: rgba(0, 255, 136, 0.2);
@@ -424,6 +426,22 @@
       background: rgba(255, 107, 107, 0.2);
       border-bottom-color: var(--red);
       box-shadow: inset 0 -1px 0 rgba(255, 107, 107, 0.5);
+    }
+
+    /* ── Fresh card cycling ── */
+    .card.cycle-out {
+      animation: cycleOut 0.5s ease-in forwards;
+    }
+    .card.cycle-in {
+      animation: cycleIn 0.5s ease-out forwards;
+    }
+    @keyframes cycleOut {
+      0% { opacity: 1; transform: translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateY(-12px) scale(0.96); }
+    }
+    @keyframes cycleIn {
+      0% { opacity: 0; transform: translateY(12px) scale(0.96); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
     }
 
     .card-buy-btn {
@@ -807,6 +825,7 @@
       tab.classList.add('active');
       currentTab = tab.dataset.tab;
       document.getElementById('controls').style.display = currentTab === 'fresh' ? 'flex' : 'none';
+      if (currentTab === 'fresh') startCycling(); else stopCycling();
       renderGrid();
     });
   });
@@ -1160,11 +1179,47 @@
     } catch {}
   }
 
+  // ── Fresh card cycling ──
+  // Every few seconds, cycle out the front card and move it to the end
+  const CYCLE_MS = 4000;
+  let cycleTimer = null;
+
+  function startCycling() {
+    stopCycling();
+    cycleTimer = setInterval(() => {
+      if (currentTab !== 'fresh' || !listings.length) return;
+      const cards = grid.querySelectorAll('.card');
+      if (cards.length < 2) return;
+
+      const first = cards[0];
+      first.classList.add('cycle-out');
+      first.addEventListener('animationend', function handler() {
+        first.removeEventListener('animationend', handler);
+        grid.appendChild(first);
+        first.classList.remove('cycle-out');
+        first.classList.add('cycle-in');
+        first.addEventListener('animationend', function h2() {
+          first.removeEventListener('animationend', h2);
+          first.classList.remove('cycle-in');
+        });
+      });
+    }, CYCLE_MS);
+  }
+
+  function stopCycling() {
+    if (cycleTimer) { clearInterval(cycleTimer); cycleTimer = null; }
+  }
+
+  // Pause cycling on hover/touch
+  grid.addEventListener('mouseenter', stopCycling);
+  grid.addEventListener('mouseleave', () => { if (currentTab === 'fresh') startCycling(); });
+
   // Boot
   loadMarket();
   loadStats();
   initWallet().catch(() => {});
   setInterval(loadMarket, REFRESH_MS);
+  startCycling();
 })();
 </script>
 
