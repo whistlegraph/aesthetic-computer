@@ -5008,8 +5008,7 @@
           return { tab: 'unkept', code: null, page: 0 };
         }
         if (seg.startsWith('$') && seg.length > 1) {
-          window.location.href = 'https://buy.kidlisp.com/' + seg;
-          return { tab: 'unkept', code: null, page: 0 };
+          return { tab: 'unkept', code: seg.slice(1), page };
         }
         const tab = seg === 'kept' ? 'kept' : 'unkept';
         return { tab, code: null, page };
