@@ -97,31 +97,29 @@
       color: var(--fg);
     }
 
-    /* Hero */
+    /* Hero — full bleed behind page */
     .hero {
-      margin-bottom: 3rem;
-      display: flex;
-      align-items: flex-end;
-      gap: 1.5rem;
+      position: fixed;
+      inset: 0;
+      z-index: -1;
     }
 
     .hero-slideshow {
-      position: relative;
-      width: 340px;
-      flex-shrink: 0;
-      aspect-ratio: 4815 / 5902;
+      position: absolute;
+      inset: 0;
       overflow: hidden;
-      border-radius: 4px;
     }
 
-    @media (max-width: 560px) {
-      .hero {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-      .hero-slideshow {
-        width: 100%;
-        max-width: 340px;
+    .hero-slideshow::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to bottom, rgba(250,249,246,0.55) 0%, var(--bg) 60%);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .hero-slideshow::after {
+        background: linear-gradient(to bottom, rgba(10,10,10,0.55) 0%, var(--bg) 60%);
       }
     }
 
@@ -131,6 +129,7 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
+      object-position: 50% 20%;
       opacity: 0;
       transition: opacity 1.2s ease-in-out;
     }
@@ -541,10 +540,6 @@
         <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--07.jpg" alt="Jeffrey Alan Scudder" class="active">
         <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--06.jpg" alt="Jeffrey Alan Scudder">
         <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--10.jpg" alt="Jeffrey Alan Scudder">
-      </div>
-      <div class="hero-info">
-        <h1>Jeffrey Alan Scudder</h1>
-        <div class="tagline">Painter &middot; b. 1989, Assonet, MA</div>
       </div>
     </div>
 
