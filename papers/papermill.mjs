@@ -95,10 +95,10 @@ function buildPaper(entry) {
   const texName = `${entry.base}-${entry.lang}`;
   console.log(`  BUILD ${entry.dir}/${texName}.tex ...`);
   try {
-    // Run xelatex 2x (sufficient for most papers without bibtex changes)
+    // Run xelatex + bibtex + xelatex + xelatex (full 3-pass build for citations)
     execSync(
-      `cd "${paperDir}" && xelatex -interaction=nonstopmode "${texName}.tex" && xelatex -interaction=nonstopmode "${texName}.tex"`,
-      { stdio: "pipe", timeout: 120000 },
+      `cd "${paperDir}" && xelatex -interaction=nonstopmode "${texName}.tex" && bibtex "${texName}" 2>/dev/null; xelatex -interaction=nonstopmode "${texName}.tex" && xelatex -interaction=nonstopmode "${texName}.tex"`,
+      { stdio: "pipe", timeout: 180000 },
     );
     console.log(`  OK    ${texName}.pdf`);
     return true;

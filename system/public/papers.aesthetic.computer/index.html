@@ -7,15 +7,7 @@
     <meta name="description" content="Academic papers on Aesthetic Computer and KidLisp.">
     <link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png" />
     <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
-    <link rel="preload" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2" as="font" type="font/woff2" crossorigin="anonymous">
-    <link rel="preload" href="https://aesthetic.computer/type/webfonts/ywft-processing-bold.woff2" as="font" type="font/woff2" crossorigin="anonymous">
     <style>
-        @font-face {
-            font-family: 'YWFT Processing';
-            src: url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2') format('woff2');
-            font-weight: normal;
-            font-display: swap;
-        }
         @font-face {
             font-family: 'YWFT Processing';
             src: url('https://aesthetic.computer/type/webfonts/ywft-processing-bold.woff2') format('woff2');
@@ -27,520 +19,195 @@
             --bg: #1a1a2e;
             --text: #e8e8e8;
             --dim: #777;
-            --dimmer: #555;
             --pink: #cd5c9b;
             --cyan: #4ecdc4;
             --purple: #7850b4;
-            --separator: rgba(255,255,255,0.06);
-            --hover: rgba(78,205,196,0.06);
+            --sep: rgba(255,255,255,0.06);
         }
 
         @media (prefers-color-scheme: light) {
             :root:not(.dark-mode) {
-                --bg: #fafafa;
-                --text: #1a1a2e;
-                --dim: #888;
-                --dimmer: #aaa;
-                --pink: #b4489a;
-                --cyan: #0891b2;
-                --purple: #7850b4;
-                --separator: rgba(0,0,0,0.06);
-                --hover: rgba(8,145,178,0.05);
+                --bg: #fafafa; --text: #1a1a2e; --dim: #888;
+                --pink: #b4489a; --cyan: #0891b2; --purple: #7850b4;
+                --sep: rgba(0,0,0,0.06);
             }
         }
-
         :root.light-mode {
-            --bg: #fafafa;
-            --text: #1a1a2e;
-            --dim: #888;
-            --dimmer: #aaa;
-            --pink: #b4489a;
-            --cyan: #0891b2;
-            --purple: #7850b4;
-            --separator: rgba(0,0,0,0.06);
-            --hover: rgba(8,145,178,0.05);
+            --bg: #fafafa; --text: #1a1a2e; --dim: #888;
+            --pink: #b4489a; --cyan: #0891b2; --purple: #7850b4;
+            --sep: rgba(0,0,0,0.06);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        ::-webkit-scrollbar { display: none; }
-
         body {
-            background: var(--bg);
-            color: var(--text);
-            font-family: 'Berkeley Mono Variable', 'Menlo', monospace;
-            font-size: 14px;
-            line-height: 1.6;
-            -webkit-text-size-adjust: none;
-            cursor: url('https://aesthetic.computer/aesthetic.computer/cursors/precise.svg') 12 12, auto;
-            padding: 3em 2.5em;
-            min-height: 100vh;
-            max-width: 720px;
-        }
-
-        .header {
-            margin-bottom: 3em;
+            background: var(--bg); color: var(--text);
+            font-family: 'Berkeley Mono Variable', monospace;
+            font-size: 14px; line-height: 1.6;
+            padding: 3em 2.5em; max-width: 640px;
         }
 
         h1 {
             font-family: 'YWFT Processing', monospace;
-            font-size: 2.8em;
-            font-weight: normal;
-            letter-spacing: -0.03em;
-            line-height: 1.1;
-            margin-bottom: 0.4em;
-        }
-
-        h1 .dot { color: var(--pink); }
-
-        .subtitle {
-            color: var(--dim);
-            font-size: 0.85em;
-            max-width: 36em;
-        }
-
-        .author {
-            color: var(--dim);
-            font-size: 0.8em;
-            margin-top: 0.6em;
-        }
-
-        .author a { color: var(--cyan); text-decoration: none; }
-        .author a:hover { text-decoration: underline; }
-
-        .papers {
-            max-width: 100%;
-        }
-
-        .paper {
-            display: flex;
-            align-items: flex-start;
-            gap: 0.8em;
-            padding: 1em 0;
-            border-bottom: 1px solid var(--separator);
-            text-decoration: none;
-            color: inherit;
-            transition: background 0.12s;
-            margin: 0 -0.5em;
-            padding-left: 0.5em;
-            padding-right: 0.5em;
-            border-radius: 4px;
-            border-bottom-left-radius: 0;
-            border-bottom-right-radius: 0;
-        }
-
-        .paper:first-child {
-            border-top: 1px solid var(--separator);
-        }
-
-        .paper:hover {
-            background: var(--hover);
-        }
-
-        .paper-icon {
-            flex-shrink: 0;
-            width: 1.4em;
-            font-size: 1.2em;
-            padding-top: 0.15em;
-            text-align: center;
-            opacity: 0.7;
-        }
-
-        .paper-info {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .paper-title {
-            font-family: 'YWFT Processing', monospace;
-            font-size: 1.25em;
-            font-weight: bold;
-            letter-spacing: -0.01em;
-            line-height: 1.3;
-            margin-bottom: 0.15em;
-        }
-
-        .paper-subtitle {
-            font-size: 0.95em;
-            color: var(--text);
-            opacity: 0.85;
-            margin-bottom: 0.25em;
-            line-height: 1.4;
-        }
-
-        .paper-meta {
-            color: var(--dim);
-            font-size: 0.75em;
-        }
-
-        .paper-dates {
-            color: var(--dimmer);
-            font-size: 0.7em;
-            margin-top: 0.15em;
-        }
-
-        .paper-dates .created { color: var(--dim); }
-        .paper-dates .updated { color: var(--cyan); }
-
-        .paper-label {
-            color: var(--cyan);
-            font-size: 0.75em;
-            flex-shrink: 0;
-            padding-top: 0.3em;
-            letter-spacing: 0.05em;
-        }
-
-        /* Section dividers */
-        .section-label {
-            font-size: 0.7em;
-            font-weight: 600;
-            color: var(--pink);
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            margin-top: 2.5em;
+            font-size: 2.4em; font-weight: bold;
+            letter-spacing: -0.03em; line-height: 1.1;
             margin-bottom: 0.3em;
         }
+        h1 .dot { color: var(--pink); }
 
-        .section-label:first-child {
-            margin-top: 0;
-        }
+        .sub { color: var(--dim); font-size: 0.8em; margin-bottom: 0.3em; }
+        .sub a { color: var(--cyan); text-decoration: none; }
+
+        .section { color: var(--pink); font-size: 0.65em; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 2em; margin-bottom: 0.4em; }
+        .section:first-of-type { margin-top: 1.5em; }
+
+        .p { padding: 0.5em 0; border-bottom: 1px solid var(--sep); }
+        .p a { text-decoration: none; }
+        .p .title { font-family: 'YWFT Processing', monospace; font-size: 1.1em; font-weight: bold; letter-spacing: -0.01em; }
+        .p .title a { color: var(--text); }
+        .p .title a:hover { color: var(--cyan); }
+        .p .detail { color: var(--dim); font-size: 0.7em; margin-top: 0.15em; }
+        .p .detail a { color: var(--purple); }
+        .p .detail a:hover { text-decoration: underline; }
 
         .footer {
-            margin-top: 3em;
-            padding-top: 1.2em;
-            border-top: 1px solid var(--separator);
-            color: var(--dim);
-            font-size: 0.75em;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            margin-top: 2.5em; padding-top: 1em;
+            border-top: 1px solid var(--sep);
+            color: var(--dim); font-size: 0.7em;
+            display: flex; justify-content: space-between; align-items: center;
         }
-
         .footer a { color: var(--purple); text-decoration: none; }
-        .footer a:hover { text-decoration: underline; }
-
-        .theme-toggle {
-            cursor: pointer;
-            background: none;
-            border: 1px solid var(--separator);
-            color: var(--dim);
-            font-family: inherit;
-            font-size: inherit;
-            padding: 0.3em 0.6em;
-            border-radius: 4px;
+        .footer button {
+            cursor: pointer; background: none;
+            border: 1px solid var(--sep); color: var(--dim);
+            font-family: inherit; font-size: inherit;
+            padding: 0.2em 0.5em; border-radius: 3px;
         }
 
-        .paper-langs {
-            display: flex;
-            gap: 0.5em;
-            margin-top: 0.3em;
-            flex-wrap: wrap;
-        }
-
-        .paper-langs a {
-            font-size: 0.65em;
-            color: var(--purple);
-            text-decoration: none;
-            padding: 0.15em 0.4em;
-            border: 1px solid var(--separator);
-            border-radius: 3px;
-            transition: background 0.12s, border-color 0.12s;
-            letter-spacing: 0.03em;
-        }
-
-        .paper-langs a:hover {
-            background: var(--hover);
-            border-color: var(--purple);
-            text-decoration: none;
-        }
-
-        .lang-note {
-            color: var(--dimmer);
-            font-size: 0.75em;
-            margin-top: 0.8em;
-        }
-
-        .lang-note span {
-            color: var(--purple);
-        }
-
-        .pals-logo-corner {
-            position: fixed;
-            bottom: 1.5em;
-            right: 1.5em;
-            width: 64px;
-            height: 64px;
-            opacity: 0.5;
-            transition: opacity 0.2s;
-            z-index: 100;
-        }
-
-        .pals-logo-corner:hover {
-            opacity: 1;
-        }
+        .pals { position: fixed; bottom: 1.2em; right: 1.2em; width: 48px; opacity: 0.4; }
+        .pals:hover { opacity: 1; }
 
         @media (max-width: 600px) {
-            body { padding: 1.5em 1.2em; }
-            h1 { font-size: 2em; }
-            .paper-title { font-size: 1.1em; }
-            .pals-logo-corner { width: 48px; height: 48px; bottom: 1em; right: 1em; }
+            body { padding: 1.5em 1em; }
+            h1 { font-size: 1.8em; }
         }
     </style>
 </head>
 <body>
-    <a href="https://aesthetic.computer" class="pals-logo-corner">
-        <img src="https://aesthetic.computer/purple-pals.svg" alt="AC" style="width:100%;height:100%;">
-    </a>
+    <a href="https://aesthetic.computer" class="pals"><img src="https://aesthetic.computer/purple-pals.svg" alt="AC" style="width:100%"></a>
 
-    <div class="header">
-        <h1>Aesthetic<span class="dot">.</span>Computer<br>Papers</h1>
-        <div class="subtitle">Working drafts on the AC platform, KidLisp language, creative computing practice, and AC Native OS.</div>
-        <div class="author">Jeffrey Alan Scudder &mdash; <a href="https://orcid.org/0009-0007-4460-4913">ORCID 0009-0007-4460-4913</a></div>
-        <div class="lang-note">Available in <span>English</span>, <span>Dansk</span>, <span>Espa&ntilde;ol</span>, <span>&#x4E2D;&#x6587;</span></div>
+    <h1>Aesthetic<span class="dot">.</span>Computer Papers</h1>
+    <div class="sub">Jeffrey Alan Scudder &mdash; <a href="https://orcid.org/0009-0007-4460-4913">ORCID 0009-0007-4460-4913</a></div>
+    <div class="sub">Each paper available in English, Dansk, Espa&ntilde;ol, &#x4E2D;&#x6587; &middot; Updated Mar 16 2026</div>
+
+    <div class="section">Platform</div>
+
+    <div class="p">
+        <div class="title"><a href="/piece-api-26-arxiv.pdf">From setup() to boot()</a></div>
+        <div class="detail">Processing at the Core of the Piece API &middot; arXiv 7pp &middot; <a href="/piece-api-26-arxiv-da.pdf">da</a> <a href="/piece-api-26-arxiv-es.pdf">es</a> <a href="/piece-api-26-arxiv-zh.pdf">zh</a></div>
     </div>
 
-    <div class="papers">
+    <div class="p">
+        <div class="title"><a href="/aesthetic-computer-26-arxiv.pdf">Aesthetic Computer '26</a></div>
+        <div class="detail">A Mobile-First Runtime for Creative Computing &middot; arXiv 5pp &middot; <a href="/aesthetic-computer-26-arxiv-da.pdf">da</a> <a href="/aesthetic-computer-26-arxiv-es.pdf">es</a> <a href="/aesthetic-computer-26-arxiv-zh.pdf">zh</a></div>
+    </div>
 
-        <div class="section-label">Platform</div>
+    <div class="p">
+        <div class="title"><a href="/aesthetic-computer-26-joss.pdf">Aesthetic Computer '26</a></div>
+        <div class="detail">JOSS Summary &middot; 2pp</div>
+    </div>
 
-        <a class="paper" href="/piece-api-26-arxiv.pdf">
-            <span class="paper-icon">&#x2699;</span>
-            <div class="paper-info">
-                <div class="paper-title">From setup() to boot()</div>
-                <div class="paper-subtitle">Processing at the Core of the Piece API</div>
-                <div class="paper-meta">arXiv &middot; 7pp</div>
-                <div class="paper-langs"><a href="/piece-api-26-arxiv-da.pdf">Dansk</a> <a href="/piece-api-26-arxiv-es.pdf">Espa&ntilde;ol</a> <a href="/piece-api-26-arxiv-zh.pdf">&#x4E2D;&#x6587;</a></div>
-                <div class="paper-dates"><span class="created">Created Mar 15 2026 2:08am</span> &middot; <span class="updated">Updated Mar 15 2026 2:56am</span></div>
-            </div>
-            <span class="paper-label">PDF</span>
-        </a>
+    <div class="p">
+        <div class="title"><a href="/pieces-not-programs-26-arxiv.pdf">Pieces Not Programs</a></div>
+        <div class="detail">The Piece as a Unit of Creative Cognition &middot; arXiv 4pp &middot; <a href="/pieces-not-programs-26-arxiv-da.pdf">da</a> <a href="/pieces-not-programs-26-arxiv-es.pdf">es</a> <a href="/pieces-not-programs-26-arxiv-zh.pdf">zh</a></div>
+    </div>
 
-        <a class="paper" href="/aesthetic-computer-26-arxiv.pdf">
-            <span class="paper-icon">&#x25B6;</span>
-            <div class="paper-info">
-                <div class="paper-title">Aesthetic Computer '26</div>
-                <div class="paper-subtitle">A Mobile-First Runtime for Creative Computing</div>
-                <div class="paper-meta">arXiv &middot; 5pp</div>
-                <div class="paper-langs"><a href="/aesthetic-computer-26-arxiv-da.pdf">Dansk</a> <a href="/aesthetic-computer-26-arxiv-es.pdf">Espa&ntilde;ol</a> <a href="/aesthetic-computer-26-arxiv-zh.pdf">&#x4E2D;&#x6587;</a></div>
-                <div class="paper-dates"><span class="created">Created Mar 4 2026 2:19pm</span> &middot; <span class="updated">Updated Mar 15 2026 2:18am</span></div>
-            </div>
-            <span class="paper-label">PDF</span>
-        </a>
+    <div class="p">
+        <div class="title"><a href="/notepat-26-arxiv.pdf">notepat.com</a></div>
+        <div class="detail">From Keyboard Toy to System Front Door &middot; arXiv 5pp &middot; <a href="/notepat-26-arxiv-da.pdf">da</a> <a href="/notepat-26-arxiv-es.pdf">es</a> <a href="/notepat-26-arxiv-zh.pdf">zh</a></div>
+    </div>
 
-        <a class="paper" href="/aesthetic-computer-26-joss.pdf">
-            <span class="paper-icon">&#x25B6;</span>
-            <div class="paper-info">
-                <div class="paper-title">Aesthetic Computer '26</div>
-                <div class="paper-subtitle">JOSS Summary</div>
-                <div class="paper-meta">JOSS &middot; 2pp</div>
-                <div class="paper-dates"><span class="created">Created Mar 4 2026 2:19pm</span> &middot; <span class="updated">Updated Mar 10 2026 3:11pm</span></div>
-            </div>
-            <span class="paper-label">PDF</span>
-        </a>
+    <div class="p">
+        <div class="title"><a href="/ac-native-os-26-arxiv.pdf">AC Native OS</a></div>
+        <div class="detail">A Bare-Metal Creative Computing Operating System &middot; arXiv 5pp &middot; <a href="/ac-native-os-26-arxiv-da.pdf">da</a> <a href="/ac-native-os-26-arxiv-es.pdf">es</a> <a href="/ac-native-os-26-arxiv-zh.pdf">zh</a></div>
+    </div>
 
-        <a class="paper" href="/pieces-not-programs-26-arxiv.pdf">
-            <span class="paper-icon">&#x266B;</span>
-            <div class="paper-info">
-                <div class="paper-title">Pieces Not Programs</div>
-                <div class="paper-subtitle">The Piece as a Unit of Creative Cognition</div>
-                <div class="paper-meta">arXiv &middot; 4pp</div>
-                <div class="paper-langs"><a href="/pieces-not-programs-26-arxiv-da.pdf">Dansk</a> <a href="/pieces-not-programs-26-arxiv-es.pdf">Espa&ntilde;ol</a> <a href="/pieces-not-programs-26-arxiv-zh.pdf">&#x4E2D;&#x6587;</a></div>
-                <div class="paper-dates"><span class="created">Created Mar 8 2026 9:53am</span> &middot; <span class="updated">Updated Mar 15 2026 2:18am</span></div>
-            </div>
-            <span class="paper-label">PDF</span>
-        </a>
+    <div class="section">KidLisp</div>
 
-        <a class="paper" href="/notepat-26-arxiv.pdf">
-            <span class="paper-icon">&#x266A;</span>
-            <div class="paper-info">
-                <div class="paper-title">notepat.com</div>
-                <div class="paper-subtitle">From Keyboard Toy to System Front Door</div>
-                <div class="paper-meta">arXiv &middot; 5pp</div>
-                <div class="paper-langs"><a href="/notepat-26-arxiv-da.pdf">Dansk</a> <a href="/notepat-26-arxiv-es.pdf">Espa&ntilde;ol</a> <a href="/notepat-26-arxiv-zh.pdf">&#x4E2D;&#x6587;</a></div>
-                <div class="paper-dates"><span class="created">Created Mar 8 2026 12:08am</span> &middot; <span class="updated">Updated Mar 14 2026 11:04am</span></div>
-            </div>
-            <span class="paper-label">PDF</span>
-        </a>
+    <div class="p">
+        <div class="title"><a href="/kidlisp-26-arxiv.pdf">KidLisp '26</a></div>
+        <div class="detail">A Minimal Lisp for Generative Art on a Social Platform &middot; arXiv 6pp &middot; <a href="/kidlisp-26-arxiv-da.pdf">da</a> <a href="/kidlisp-26-arxiv-es.pdf">es</a> <a href="/kidlisp-26-arxiv-zh.pdf">zh</a></div>
+    </div>
 
-        <a class="paper" href="/ac-native-os-26-arxiv.pdf">
-            <span class="paper-icon">&#x2316;</span>
-            <div class="paper-info">
-                <div class="paper-title">AC Native OS</div>
-                <div class="paper-subtitle">A Bare-Metal Creative Computing Operating System</div>
-                <div class="paper-meta">arXiv &middot; 5pp</div>
-                <div class="paper-langs"><a href="/ac-native-os-26-arxiv-da.pdf">Dansk</a> <a href="/ac-native-os-26-arxiv-es.pdf">Espa&ntilde;ol</a> <a href="/ac-native-os-26-arxiv-zh.pdf">&#x4E2D;&#x6587;</a></div>
-                <div class="paper-dates"><span class="created">Created Mar 13 2026 6:35pm</span> &middot; <span class="updated">Updated Mar 15 2026 2:18am</span></div>
-            </div>
-            <span class="paper-label">PDF</span>
-        </a>
+    <div class="p">
+        <div class="title"><a href="/kidlisp-26-joss.pdf">KidLisp '26</a></div>
+        <div class="detail">JOSS Summary &middot; 3pp</div>
+    </div>
 
-        <div class="section-label">KidLisp</div>
+    <div class="p">
+        <div class="title"><a href="/kidlisp-els-2026.pdf">KidLisp (ELS 2026)</a></div>
+        <div class="detail">A Minimal Lisp for Generative Art with Social Composition &middot; ELS ACM SIGS 4pp</div>
+    </div>
 
-        <a class="paper" href="/kidlisp-26-arxiv.pdf">
-            <span class="paper-icon">&#x03BB;</span>
-            <div class="paper-info">
-                <div class="paper-title">KidLisp '26</div>
-                <div class="paper-subtitle">A Minimal Lisp for Generative Art on a Social Platform</div>
-                <div class="paper-meta">arXiv &middot; 6pp</div>
-                <div class="paper-langs"><a href="/kidlisp-26-arxiv-da.pdf">Dansk</a> <a href="/kidlisp-26-arxiv-es.pdf">Espa&ntilde;ol</a> <a href="/kidlisp-26-arxiv-zh.pdf">&#x4E2D;&#x6587;</a></div>
-                <div class="paper-dates"><span class="created">Created Mar 3 2026 2:06pm</span> &middot; <span class="updated">Updated Mar 15 2026 2:18am</span></div>
-            </div>
-            <span class="paper-label">PDF</span>
-        </a>
+    <div class="p">
+        <div class="title"><a href="/kidlisp-reference-26-arxiv.pdf">KidLisp Language Reference</a></div>
+        <div class="detail">118 Built-ins in 12 Categories &middot; arXiv 4pp &middot; <a href="/kidlisp-reference-26-arxiv-da.pdf">da</a> <a href="/kidlisp-reference-26-arxiv-es.pdf">es</a> <a href="/kidlisp-reference-26-arxiv-zh.pdf">zh</a></div>
+    </div>
 
-        <a class="paper" href="/kidlisp-26-joss.pdf">
-            <span class="paper-icon">&#x03BB;</span>
-            <div class="paper-info">
-                <div class="paper-title">KidLisp '26</div>
-                <div class="paper-subtitle">JOSS Summary</div>
-                <div class="paper-meta">JOSS &middot; 3pp</div>
-                <div class="paper-dates"><span class="created">Created Mar 3 2026 2:06pm</span> &middot; <span class="updated">Updated Mar 10 2026 3:11pm</span></div>
-            </div>
-            <span class="paper-label">PDF</span>
-        </a>
+    <div class="section">History &amp; Practice</div>
 
-        <a class="paper" href="/kidlisp-els-2026.pdf">
-            <span class="paper-icon">&#x03BB;</span>
-            <div class="paper-info">
-                <div class="paper-title">KidLisp (ELS 2026)</div>
-                <div class="paper-subtitle">A Minimal Lisp for Generative Art with Social Composition</div>
-                <div class="paper-meta">ELS &middot; ACM SIGS &middot; 4pp</div>
-                <div class="paper-dates"><span class="created">Created Mar 15 2026 12:41am</span></div>
-            </div>
-            <span class="paper-label">PDF</span>
-        </a>
+    <div class="p">
+        <div class="title"><a href="/whistlegraph-26-arxiv.pdf">Whistlegraph</a></div>
+        <div class="detail">Drawing, Singing, and the Graphic Score as Viral Form &middot; arXiv 4pp &middot; <a href="/whistlegraph-26-arxiv-da.pdf">da</a> <a href="/whistlegraph-26-arxiv-es.pdf">es</a> <a href="/whistlegraph-26-arxiv-zh.pdf">zh</a></div>
+    </div>
 
-        <a class="paper" href="/kidlisp-reference-26-arxiv.pdf">
-            <span class="paper-icon">&#x03BB;</span>
-            <div class="paper-info">
-                <div class="paper-title">KidLisp Language Reference</div>
-                <div class="paper-subtitle">118 Built-ins in 12 Categories</div>
-                <div class="paper-meta">arXiv &middot; 4pp</div>
-                <div class="paper-langs"><a href="/kidlisp-reference-26-arxiv-da.pdf">Dansk</a> <a href="/kidlisp-reference-26-arxiv-es.pdf">Espa&ntilde;ol</a> <a href="/kidlisp-reference-26-arxiv-zh.pdf">&#x4E2D;&#x6587;</a></div>
-                <div class="paper-dates"><span class="created">Created Mar 15 2026 12:13am</span> &middot; <span class="updated">Updated Mar 15 2026 2:18am</span></div>
-            </div>
-            <span class="paper-label">PDF</span>
-        </a>
+    <div class="p">
+        <div class="title"><a href="/radical-computer-art-26-arxiv.pdf">Radical Computer Art</a></div>
+        <div class="detail">Goodiepalian Approaches in Aesthetic Computer &middot; arXiv 5pp &middot; updated Mar 16 &middot; <a href="/radical-computer-art-26-arxiv-da.pdf">da</a> <a href="/radical-computer-art-26-arxiv-es.pdf">es</a> <a href="/radical-computer-art-26-arxiv-zh.pdf">zh</a></div>
+    </div>
 
-        <div class="section-label">History &amp; Practice</div>
+    <div class="p">
+        <div class="title"><a href="/repo-archaeology-26-arxiv.pdf">Repository Archaeology</a></div>
+        <div class="detail">Tracing the Evolution of AC Through Its Git History &middot; arXiv 3pp &middot; <a href="/repo-archaeology-26-arxiv-da.pdf">da</a> <a href="/repo-archaeology-26-arxiv-es.pdf">es</a> <a href="/repo-archaeology-26-arxiv-zh.pdf">zh</a></div>
+    </div>
 
-        <a class="paper" href="/whistlegraph-26-arxiv.pdf">
-            <span class="paper-icon">&#x1F3B5;</span>
-            <div class="paper-info">
-                <div class="paper-title">Whistlegraph</div>
-                <div class="paper-subtitle">Drawing, Singing, and the Graphic Score as Viral Form</div>
-                <div class="paper-meta">arXiv &middot; 4pp</div>
-                <div class="paper-langs"><a href="/whistlegraph-26-arxiv-da.pdf">Dansk</a> <a href="/whistlegraph-26-arxiv-es.pdf">Espa&ntilde;ol</a> <a href="/whistlegraph-26-arxiv-zh.pdf">&#x4E2D;&#x6587;</a></div>
-                <div class="paper-dates"><span class="created">Created Mar 14 2026 7:13pm</span> &middot; <span class="updated">Updated Mar 15 2026 2:18am</span></div>
-            </div>
-            <span class="paper-label">PDF</span>
-        </a>
+    <div class="p">
+        <div class="title"><a href="/ac-repo-archaeology">Repository Archaeology</a></div>
+        <div class="detail">Extended interactive timeline &middot; HTML</div>
+    </div>
 
-        <a class="paper" href="/radical-computer-art-26-arxiv.pdf">
-            <span class="paper-icon">&#x2605;</span>
-            <div class="paper-info">
-                <div class="paper-title">Radical Computer Art</div>
-                <div class="paper-subtitle">Goodiepalian Approaches in Aesthetic Computer</div>
-                <div class="paper-meta">arXiv &middot; 4pp</div>
-                <div class="paper-langs"><a href="/radical-computer-art-26-arxiv-da.pdf">Dansk</a> <a href="/radical-computer-art-26-arxiv-es.pdf">Espa&ntilde;ol</a> <a href="/radical-computer-art-26-arxiv-zh.pdf">&#x4E2D;&#x6587;</a></div>
-                <div class="paper-dates"><span class="created">Created Mar 14 2026 4:21pm</span> &middot; <span class="updated">Updated Mar 15 2026 2:18am</span></div>
-            </div>
-            <span class="paper-label">PDF</span>
-        </a>
+    <div class="p">
+        <div class="title"><a href="/dead-ends-26-arxiv.pdf">Dead Ends</a></div>
+        <div class="detail">Failed Experiments and Abandoned Approaches &middot; arXiv 4pp &middot; <a href="/dead-ends-26-arxiv-da.pdf">da</a> <a href="/dead-ends-26-arxiv-es.pdf">es</a> <a href="/dead-ends-26-arxiv-zh.pdf">zh</a></div>
+    </div>
 
-        <a class="paper" href="/repo-archaeology-26-arxiv.pdf">
-            <span class="paper-icon">&#x26CF;</span>
-            <div class="paper-info">
-                <div class="paper-title">Repository Archaeology</div>
-                <div class="paper-subtitle">Tracing the Evolution of AC Through Its Git History</div>
-                <div class="paper-meta">arXiv &middot; 3pp</div>
-                <div class="paper-langs"><a href="/repo-archaeology-26-arxiv-da.pdf">Dansk</a> <a href="/repo-archaeology-26-arxiv-es.pdf">Espa&ntilde;ol</a> <a href="/repo-archaeology-26-arxiv-zh.pdf">&#x4E2D;&#x6587;</a></div>
-                <div class="paper-dates"><span class="created">Created Mar 13 2026 11:30pm</span> &middot; <span class="updated">Updated Mar 15 2026 2:18am</span></div>
-            </div>
-            <span class="paper-label">PDF</span>
-        </a>
+    <div class="section">Meta &amp; Policy</div>
 
-        <a class="paper" href="/ac-repo-archaeology">
-            <span class="paper-icon">&#x26CF;</span>
-            <div class="paper-info">
-                <div class="paper-title">Repository Archaeology</div>
-                <div class="paper-subtitle">Extended interactive timeline with commit tables</div>
-                <div class="paper-meta">Interactive</div>
-            </div>
-            <span class="paper-label">HTML</span>
-        </a>
+    <div class="p">
+        <div class="title"><a href="/network-audit-26-arxiv.pdf">Network Audit</a></div>
+        <div class="detail">Who Uses Aesthetic Computer and What Do They Make? &middot; arXiv 4pp &middot; <a href="/network-audit-26-arxiv-da.pdf">da</a> <a href="/network-audit-26-arxiv-es.pdf">es</a> <a href="/network-audit-26-arxiv-zh.pdf">zh</a></div>
+    </div>
 
-        <a class="paper" href="/dead-ends-26-arxiv.pdf">
-            <span class="paper-icon">&#x2620;</span>
-            <div class="paper-info">
-                <div class="paper-title">Dead Ends</div>
-                <div class="paper-subtitle">Failed Experiments and Abandoned Approaches</div>
-                <div class="paper-meta">arXiv &middot; 4pp</div>
-                <div class="paper-langs"><a href="/dead-ends-26-arxiv-da.pdf">Dansk</a> <a href="/dead-ends-26-arxiv-es.pdf">Espa&ntilde;ol</a> <a href="/dead-ends-26-arxiv-zh.pdf">&#x4E2D;&#x6587;</a></div>
-                <div class="paper-dates"><span class="created">Created Mar 14 2026 4:21pm</span> &middot; <span class="updated">Updated Mar 15 2026 2:18am</span></div>
-            </div>
-            <span class="paper-label">PDF</span>
-        </a>
+    <div class="p">
+        <div class="title"><a href="/who-pays-for-creative-tools-26-arxiv.pdf">Who Pays for Creative Tools?</a></div>
+        <div class="detail">Funding, Burnout, and Survival in Open-Source Creative Computing &middot; arXiv 5pp &middot; <a href="/who-pays-for-creative-tools-26-arxiv-da.pdf">da</a> <a href="/who-pays-for-creative-tools-26-arxiv-es.pdf">es</a> <a href="/who-pays-for-creative-tools-26-arxiv-zh.pdf">zh</a></div>
+    </div>
 
-        <div class="section-label">Meta &amp; Policy</div>
-
-        <a class="paper" href="/network-audit-26-arxiv.pdf">
-            <span class="paper-icon">&#x1F310;</span>
-            <div class="paper-info">
-                <div class="paper-title">Network Audit</div>
-                <div class="paper-subtitle">Who Uses Aesthetic Computer and What Do They Make?</div>
-                <div class="paper-meta">arXiv &middot; 4pp</div>
-                <div class="paper-langs"><a href="/network-audit-26-arxiv-da.pdf">Dansk</a> <a href="/network-audit-26-arxiv-es.pdf">Espa&ntilde;ol</a> <a href="/network-audit-26-arxiv-zh.pdf">&#x4E2D;&#x6587;</a></div>
-                <div class="paper-dates"><span class="created">Created Mar 15 2026 12:29am</span> &middot; <span class="updated">Updated Mar 15 2026 2:18am</span></div>
-            </div>
-            <span class="paper-label">PDF</span>
-        </a>
-
-        <a class="paper" href="/who-pays-for-creative-tools-26-arxiv.pdf">
-            <span class="paper-icon">&#x1F4B0;</span>
-            <div class="paper-info">
-                <div class="paper-title">Who Pays for Creative Tools?</div>
-                <div class="paper-subtitle">Funding, Burnout, and Survival in Open-Source Creative Computing</div>
-                <div class="paper-meta">arXiv &middot; 5pp</div>
-                <div class="paper-langs"><a href="/who-pays-for-creative-tools-26-arxiv-da.pdf">Dansk</a> <a href="/who-pays-for-creative-tools-26-arxiv-es.pdf">Espa&ntilde;ol</a> <a href="/who-pays-for-creative-tools-26-arxiv-zh.pdf">&#x4E2D;&#x6587;</a></div>
-                <div class="paper-dates"><span class="created">Created Mar 14 2026 4:36pm</span> &middot; <span class="updated">Updated Mar 15 2026 2:18am</span></div>
-            </div>
-            <span class="paper-label">PDF</span>
-        </a>
-
-        <a class="paper" href="/citation-diversity-audit-26.pdf">
-            <span class="paper-icon">&#x1F4CA;</span>
-            <div class="paper-info">
-                <div class="paper-title">Citation Diversity Audit</div>
-                <div class="paper-subtitle">Diversity and Inclusion in AC Paper Citations</div>
-                <div class="paper-meta">Self-assessment &middot; 4pp</div>
-                <div class="paper-langs"><a href="/citation-diversity-audit-26-da.pdf">Dansk</a> <a href="/citation-diversity-audit-26-es.pdf">Espa&ntilde;ol</a> <a href="/citation-diversity-audit-26-zh.pdf">&#x4E2D;&#x6587;</a></div>
-                <div class="paper-dates"><span class="created">Created Mar 14 2026 1:40pm</span> &middot; <span class="updated">Updated Mar 15 2026 2:18am</span></div>
-            </div>
-            <span class="paper-label">PDF</span>
-        </a>
-
+    <div class="p">
+        <div class="title"><a href="/citation-diversity-audit-26.pdf">Citation Diversity Audit</a></div>
+        <div class="detail">Diversity and Inclusion in AC Paper Citations &middot; 4pp &middot; <a href="/citation-diversity-audit-26-da.pdf">da</a> <a href="/citation-diversity-audit-26-es.pdf">es</a> <a href="/citation-diversity-audit-26-zh.pdf">zh</a></div>
     </div>
 
     <div class="footer">
         <span><a href="https://aesthetic.computer">aesthetic.computer</a> &middot; <a href="/platter">platter</a> &middot; <a href="https://github.com/digitpain/aesthetic.computer">source</a></span>
-        <button class="theme-toggle" onclick="toggleTheme()">theme</button>
+        <button onclick="toggleTheme()">theme</button>
     </div>
 
     <script>
         function toggleTheme() {
-            const root = document.documentElement;
-            const isLight = root.classList.contains('light-mode');
-            const isDark = root.classList.contains('dark-mode');
-            if (isLight) {
-                root.classList.remove('light-mode');
-                root.classList.add('dark-mode');
-            } else if (isDark) {
-                root.classList.remove('dark-mode');
-                root.classList.add('light-mode');
-            } else {
-                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                root.classList.add(prefersDark ? 'light-mode' : 'dark-mode');
-            }
+            const r = document.documentElement;
+            if (r.classList.contains('light-mode')) { r.classList.replace('light-mode', 'dark-mode'); }
+            else if (r.classList.contains('dark-mode')) { r.classList.replace('dark-mode', 'light-mode'); }
+            else { r.classList.add(matchMedia('(prefers-color-scheme:dark)').matches ? 'light-mode' : 'dark-mode'); }
         }
     </script>
 </body>
