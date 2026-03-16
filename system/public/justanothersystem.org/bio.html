@@ -75,55 +75,31 @@
       color: var(--fg);
       min-height: 100vh;
       line-height: 1.7;
-      font-size: 14px;
+      font-size: 16px;
     }
 
     .page {
-      max-width: 720px;
+      max-width: 860px;
       margin: 0 auto;
       padding: 1.5rem;
     }
 
-    header {
-      margin-bottom: 2rem;
+    /* Bio layout — text left, portrait right */
+    .bio-layout {
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 2rem;
+      align-items: start;
     }
 
-    header a {
-      color: var(--dim);
-      font-size: 0.85rem;
-    }
-
-    header a:hover {
-      color: var(--fg);
-    }
-
-    /* Hero — full bleed behind page */
-    .hero {
-      position: fixed;
-      inset: 0;
-      z-index: -1;
-    }
-
-    .hero-slideshow {
-      position: absolute;
-      inset: 0;
+    .bio-portrait {
+      position: relative;
       overflow: hidden;
+      border-radius: 4px;
+      aspect-ratio: 3 / 4;
     }
 
-    .hero-slideshow::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(to bottom, rgba(250,249,246,0.55) 0%, var(--bg) 60%);
-    }
-
-    @media (prefers-color-scheme: dark) {
-      .hero-slideshow::after {
-        background: linear-gradient(to bottom, rgba(10,10,10,0.55) 0%, var(--bg) 60%);
-      }
-    }
-
-    .hero-slideshow img {
+    .bio-portrait img {
       position: absolute;
       inset: 0;
       width: 100%;
@@ -134,46 +110,37 @@
       transition: opacity 1.2s ease-in-out;
     }
 
-    .hero-slideshow img:first-child {
+    .bio-portrait img:first-child {
       opacity: 1;
     }
 
-    .hero-slideshow img.active {
+    .bio-portrait img.active {
       opacity: 1;
     }
 
     @keyframes kb-zoom-in {
       0%   { transform: scale(1)    translate(0, 0); }
-      100% { transform: scale(1.12) translate(-1.5%, -1.5%); }
+      100% { transform: scale(1.06) translate(-1%, -1%); }
     }
     @keyframes kb-zoom-out {
-      0%   { transform: scale(1.12) translate(1.5%, 0); }
-      100% { transform: scale(1)    translate(0, 1.5%); }
-    }
-    @keyframes kb-pan-right {
-      0%   { transform: scale(1.08) translate(-2%, 0); }
-      100% { transform: scale(1.08) translate(2%, -1%); }
-    }
-    @keyframes kb-pan-left {
-      0%   { transform: scale(1.1)  translate(2%, -1%); }
-      100% { transform: scale(1)    translate(-1%, 1%); }
+      0%   { transform: scale(1.06) translate(1%, 0); }
+      100% { transform: scale(1)    translate(0, 1%); }
     }
     @keyframes kb-zoom-center {
       0%   { transform: scale(1)    translate(0, 0); }
-      100% { transform: scale(1.1)  translate(0, -1%); }
+      100% { transform: scale(1.06) translate(0, -1%); }
     }
 
-    .hero h1 {
-      font-size: 1.4rem;
-      font-weight: 500;
-      letter-spacing: -0.01em;
-      margin-bottom: 0.25rem;
-    }
+    @media (max-width: 640px) {
+      .bio-layout {
+        grid-template-columns: 1fr;
+      }
 
-    .hero .tagline {
-      color: var(--dim);
-      font-size: 0.85rem;
-      margin-bottom: 0.75rem;
+      .bio-portrait {
+        order: -1;
+        max-width: 280px;
+        margin: 0 auto 1rem;
+      }
     }
 
     .ac-dot {
@@ -370,11 +337,10 @@
     }
 
     section h2 {
-      font-size: 0.85rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--dim);
+      font-size: 1.4rem;
+      font-weight: 500;
+      letter-spacing: -0.02em;
+      color: var(--fg);
       margin-bottom: 0.75rem;
       border-bottom: 1px solid var(--border);
       padding-bottom: 0.35rem;
@@ -391,7 +357,7 @@
 
     section p {
       font-family: 'PP Mori', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-      font-size: 1.05rem;
+      font-size: 1.15rem;
       line-height: 1.8;
       margin-bottom: 1rem;
     }
@@ -411,25 +377,7 @@
       border-color: var(--fg);
     }
 
-    .contact {
-      margin-top: 3rem;
-      padding-top: 1.5rem;
-      border-top: 1px solid var(--border);
-      font-size: 0.85rem;
-      color: var(--dim);
-    }
-
-    .contact a {
-      color: var(--dim);
-      border-bottom: 1px solid var(--border);
-    }
-
-    .contact a:hover {
-      color: var(--fg);
-      border-color: var(--fg);
-    }
-
-    /* Abstract */
+/* Abstract */
     .abstract {
       margin-bottom: 3rem;
       padding-bottom: 2rem;
@@ -438,7 +386,7 @@
 
     .abstract p {
       font-family: 'PP Mori', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-      font-size: 1.05rem;
+      font-size: 1.15rem;
       line-height: 1.8;
     }
 
@@ -499,7 +447,7 @@
 
     .chapter-body p {
       font-family: 'PP Mori', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-      font-size: 1.05rem;
+      font-size: 1.15rem;
       line-height: 1.8;
       margin-bottom: 1rem;
     }
@@ -530,26 +478,22 @@
 <body>
   <div class="page">
 
-    <header>
-      <a href="/">&larr; justanothersystem.org</a>
-    </header>
-
-    <!-- HERO -->
-    <div class="hero">
-      <div class="hero-slideshow" id="heroSlideshow">
-        <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--07.jpg" alt="Jeffrey Alan Scudder" class="active">
-        <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--06.jpg" alt="Jeffrey Alan Scudder">
-        <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--10.jpg" alt="Jeffrey Alan Scudder">
-      </div>
-    </div>
-
     <section>
       <h2>Bio</h2>
+      <div class="bio-layout">
+        <div class="bio-text">
       <p>Jeffrey Alan Scudder (b. 1989, Assonet, MA) is a painter based in Los Angeles. His work moves between stretched canvas, custom software, and live performance, treating painting as a practice that extends across surfaces and systems.</p>
       <p>Scudder builds his own tools for making images. <a href="https://aesthetic.computer" class="ac-link">Aesthetic<span class="ac-dot">.</span>Computer</a> is a creative computing platform he designed as an instrument for drawing, painting, and interaction. <a href="https://nopaint.art" class="np-link"><span class="np-no">No</span>Paint<span class="np-dot">.</span>art</a>, an earlier project, reimagined the paint program as a medium rather than a utility. These tools inform his studio paintings and vice versa&mdash;code becomes a way to think about color, gesture, and composition, while painting on canvas stays immediate and physical.</p>
       <p>With <a href="https://www.tiktok.com/@whistlegraph" class="wg-link">Whistlegraph<svg class="tiktok-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 0 0-.79-.05A6.34 6.34 0 0 0 3.15 15a6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.34-6.34V9.05a8.27 8.27 0 0 0 4.76 1.51v-3.5a4.83 4.83 0 0 1-1-.37z"/></svg></a>, a collaborative performance practice with Camille Klein and Alex Freundlich, Scudder has performed at the New Museum, Pioneer Works, ZKM Karlsruhe, and dozens of venues across the US and Europe. The group's work treats drawing as a live, social act.</p>
       <p>He has given over 65 lectures and performances on Radical Digital Painting internationally, including at the Chaos Communication Congress and in conversation with Casey Reas at bitforms gallery. His work is in the collections of KADIST (San Francisco) and SMK (National Gallery of Denmark). He was invited to present at the inaugural Hash Award at ZKM Karlsruhe in 2018.</p>
       <p>Scudder holds a BFA in Fine Art from Ringling College of Art and Design (2011) and an MFA in Sculpture from Yale School of Art (2013). He has taught at UCLA, Parsons The New School for Design, and Southern Oregon University. In Spring 2026, he is Author in Residence at UCLA's Social Software studio with Casey Reas. He also demos biweekly at <a href="https://nelacomputer.club">NELA Computer Club</a>, a biweekly demo night at <a href="https://plot.place">Plot.Place</a> in Chinatown, Los Angeles.</p>
+        </div>
+        <div class="bio-portrait" id="heroSlideshow">
+          <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--07.jpg" alt="Jeffrey Alan Scudder" class="active">
+          <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--06.jpg" alt="Jeffrey Alan Scudder">
+          <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--10.jpg" alt="Jeffrey Alan Scudder">
+        </div>
+      </div>
     </section>
 
     <hr>
@@ -575,17 +519,13 @@
       </ul>
     </section>
 
-    <div class="contact">
-      <a href="/cv">Full CV</a> &middot; <a href="https://drawings-rey-sc.jas.life">Older Drawings</a> &middot; <a href="mailto:me@jas.life">me@jas.life</a>
-    </div>
-
   </div>
 
   <script>
     (function () {
       const kbAnims = ['kb-zoom-center', 'kb-zoom-in', 'kb-zoom-out'];
-      const duration = 6000; // ms per slide
-      const fadeDuration = 1500; // ms (matches CSS transition)
+      const duration = 8000; // ms per slide
+      const fadeDuration = 1200; // ms (matches CSS transition)
       const slideshow = document.getElementById('heroSlideshow');
       const slides = Array.from(slideshow.querySelectorAll('img'));
       let current = 0;
