@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<!-- buy.kidlisp.com — Direct purchase page for KidLisp Keeps -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Buy KidLisp Keeps</title>
+  <meta name="description" content="Collect KidLisp Keeps — interactive generative art on Tezos. Connect your wallet and buy directly." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://buy.kidlisp.com" />
+  <meta property="og:title" content="Buy KidLisp Keeps" />
+  <meta property="og:description" content="Collect interactive generative art on Tezos. Connect your wallet and buy directly." />
+  <meta property="og:image" content="https://oven.aesthetic.computer/kidlisp-og.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="icon" type="image/gif" href="https://assets.aesthetic.computer/kidlisp-favicon.gif" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <style>
+    @font-face {
+      font-family: 'YWFTProcessing-Regular';
+      src: url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2') format('woff2');
+      font-weight: normal; font-style: normal; font-display: swap;
+    }
+
+    :root {
+      --bg: #1e1e1e;
+      --bg2: #252526;
+      --bg3: #2d2d30;
+      --text: #d4d4d4;
+      --text2: #858585;
+      --border: #3e3e42;
+      --accent: #f59e0b;
+      --accent-bg: rgba(245, 158, 11, 0.12);
+      --green: #34d399;
+      --blue: #60a5fa;
+      --red: #f87171;
+      --purple: rgb(205, 92, 155);
+      --font-mono: 'Noto Sans Mono', 'SF Mono', 'Consolas', monospace;
+      --font-display: 'YWFTProcessing-Regular', monospace;
+      --radius: 8px;
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f7f7f7;
+        --bg2: #e8e8e8;
+        --bg3: white;
+        --text: #111;
+        --text2: #666;
+        --border: #ddd;
+      }
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-mono);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg2);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo {
+      font-family: var(--font-display);
+      font-size: 18px;
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .logo span { color: var(--text2); font-size: 13px; margin-left: 6px; }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .live-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s infinite;
+    }
+    .live-dot.error { background: var(--red); animation: none; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .wallet-btn {
+      background: var(--accent-bg);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      padding: 6px 14px;
+      border-radius: var(--radius);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .wallet-btn:hover { background: rgba(245, 158, 11, 0.25); }
+    .wallet-btn.connected { border-color: var(--green); color: var(--green); background: rgba(52, 211, 153, 0.1); }
+
+    /* ── Stats bar ── */
+    .stats {
+      display: flex;
+      gap: 20px;
+      padding: 10px 20px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text2);
+      flex-wrap: wrap;
+    }
+    .stats strong { color: var(--text); }
+
+    /* ── Grid ── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 14px;
+      padding: 20px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      cursor: pointer;
+      transition: border-color 0.15s, transform 0.15s;
+    }
+    .card:hover { border-color: var(--accent); transform: translateY(-2px); }
+
+    .card-thumb {
+      aspect-ratio: 1;
+      background: var(--bg3);
+      overflow: hidden;
+      position: relative;
+    }
+    .card-thumb img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      image-rendering: pixelated;
+    }
+
+    .card-body {
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .card-code {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--purple);
+    }
+
+    .card-price {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--blue);
+    }
+
+    .card-seller {
+      font-size: 10px;
+      color: var(--text2);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* ── Detail modal ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
+      z-index: 200;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      max-width: 420px;
+      width: 100%;
+      overflow: hidden;
+      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
+    }
+
+    .modal-preview {
+      aspect-ratio: 1;
+      background: var(--bg3);
+      position: relative;
+    }
+    .modal-preview iframe,
+    .modal-preview img {
+      width: 100%; height: 100%;
+      border: none;
+    }
+
+    .modal-info {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--purple);
+    }
+
+    .modal-price {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--blue);
+    }
+
+    .modal-seller {
+      font-size: 11px;
+      color: var(--text2);
+    }
+
+    .buy-btn {
+      background: var(--accent);
+      color: #000;
+      border: none;
+      padding: 12px 20px;
+      border-radius: var(--radius);
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      width: 100%;
+    }
+    .buy-btn:hover { opacity: 0.85; }
+    .buy-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .buy-status {
+      font-size: 12px;
+      color: var(--text2);
+      text-align: center;
+      min-height: 18px;
+    }
+    .buy-status.success { color: var(--green); }
+    .buy-status.error { color: var(--red); }
+
+    .modal-close {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
+      border: none;
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 16px;
+      z-index: 10;
+    }
+
+    .modal-links {
+      display: flex;
+      gap: 12px;
+      font-size: 11px;
+    }
+    .modal-links a {
+      color: var(--text2);
+      text-decoration: none;
+    }
+    .modal-links a:hover { color: var(--accent); }
+
+    /* ── Empty / loading ── */
+    .loading {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text2);
+      font-size: 14px;
+    }
+
+    /* ── Sort controls ── */
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px 0;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .sort-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text2);
+      padding: 4px 10px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .sort-btn.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-bg);
+    }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 30px 20px;
+      font-size: 11px;
+      color: var(--text2);
+      border-top: 1px solid var(--border);
+      margin-top: 40px;
+    }
+    footer a { color: var(--purple); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <a href="/" class="logo">buy.kidlisp<span>.com</span></a>
+    <div class="header-right">
+      <div class="live-dot" id="live-dot" title="Live"></div>
+      <button class="wallet-btn" id="wallet-btn">Connect Wallet</button>
+    </div>
+  </header>
+
+  <div class="stats" id="stats">
+    <span><strong id="stat-items">—</strong> items</span>
+    <span><strong id="stat-listed">—</strong> listed</span>
+    <span>floor <strong id="stat-floor">—</strong> XTZ</span>
+    <span>owners <strong id="stat-owners">—</strong></span>
+  </div>
+
+  <div class="controls">
+    <button class="sort-btn active" data-sort="price-asc">Price ↑</button>
+    <button class="sort-btn" data-sort="price-desc">Price ↓</button>
+    <button class="sort-btn" data-sort="newest">Newest</button>
+  </div>
+
+  <div class="grid" id="grid">
+    <div class="loading">Loading listings…</div>
+  </div>
+
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal" id="modal">
+      <div class="modal-preview" id="modal-preview">
+        <button class="modal-close" id="modal-close">✕</button>
+      </div>
+      <div class="modal-info">
+        <div class="modal-title" id="modal-title"></div>
+        <div class="modal-price" id="modal-price"></div>
+        <div class="modal-seller" id="modal-seller"></div>
+        <button class="buy-btn" id="buy-btn" disabled>Connect wallet to buy</button>
+        <div class="buy-status" id="buy-status"></div>
+        <div class="modal-links" id="modal-links"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <a href="https://keeps.kidlisp.com">keeps.kidlisp.com</a> ·
+    <a href="https://objkt.com/collections/KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB" target="_blank">objkt.com</a> ·
+    powered by <a href="https://aesthetic.computer">aesthetic.computer</a>
+  </footer>
+
+<script>
+(function() {
+  'use strict';
+
+  // ── Config ──
+  const CONTRACT = 'KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB';
+  const MARKETPLACE = 'KT1SwbTqhSKF6Pdokiu1K4Fpi17ahPPzmt1X';
+  const OBJKT_GQL = 'https://data.objkt.com/v3/graphql';
+  const OBJKT_BASE = 'https://objkt.com';
+  const IPFS_GW = 'https://assets.objkt.media/file/assets-003/';
+  const REFRESH_MS = 15000;
+  const KEEPS_URL = 'https://keeps.kidlisp.com';
+
+  // ── State ──
+  let listings = [];
+  let walletAddress = null;
+  let beaconClient = null;
+  let currentSort = 'price-asc';
+  let selectedListing = null;
+
+  // ── DOM ──
+  const grid = document.getElementById('grid');
+  const walletBtn = document.getElementById('wallet-btn');
+  const liveDot = document.getElementById('live-dot');
+  const overlay = document.getElementById('modal-overlay');
+  const buyBtn = document.getElementById('buy-btn');
+  const buyStatus = document.getElementById('buy-status');
+
+  // ── Beacon SDK ──
+  async function loadBeaconSDK() {
+    if (window.beacon) return;
+    const origDefProp = Object.defineProperty;
+    Object.defineProperty = function(obj, prop, desc) {
+      if (obj === window && prop === 'ethereum') {
+        try { return origDefProp.call(this, obj, prop, desc); }
+        catch { return obj; }
+      }
+      return origDefProp.call(this, obj, prop, desc);
+    };
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://unpkg.com/@airgap/beacon-sdk@4.6.0/dist/walletbeacon.min.js';
+      s.onload = resolve;
+      s.onerror = (e) => { Object.defineProperty = origDefProp; reject(e); };
+      document.head.appendChild(s);
+    });
+  }
+
+  async function initWallet() {
+    await loadBeaconSDK();
+    beaconClient = new window.beacon.DAppClient({
+      name: 'KidLisp Buy',
+      network: { type: window.beacon.NetworkType.MAINNET },
+      walletConnectOptions: { projectId: '647c41004744244efab53b7c6ef80443' },
+    });
+    beaconClient.subscribeToEvent(window.beacon.BeaconEvent.ACTIVE_ACCOUNT_SET, (account) => {
+      if (account) {
+        walletAddress = account.address;
+        updateWalletUI();
+      }
+    });
+    const active = await beaconClient.getActiveAccount();
+    if (active) {
+      walletAddress = active.address;
+      updateWalletUI();
+    }
+  }
+
+  async function connectWallet() {
+    if (!beaconClient) await initWallet();
+    if (walletAddress) {
+      // Disconnect
+      await beaconClient.clearActiveAccount();
+      await beaconClient.destroy().catch(() => {});
+      beaconClient = null;
+      walletAddress = null;
+      updateWalletUI();
+      return;
+    }
+    const perms = await beaconClient.requestPermissions();
+    walletAddress = perms.address;
+    updateWalletUI();
+  }
+
+  function updateWalletUI() {
+    if (walletAddress) {
+      walletBtn.textContent = walletAddress.slice(0, 5) + '…' + walletAddress.slice(-4);
+      walletBtn.classList.add('connected');
+      if (selectedListing) {
+        buyBtn.disabled = false;
+        buyBtn.textContent = 'Buy for ' + formatXTZ(selectedListing.price_xtz) + ' XTZ';
+      }
+    } else {
+      walletBtn.textContent = 'Connect Wallet';
+      walletBtn.classList.remove('connected');
+      buyBtn.disabled = true;
+      buyBtn.textContent = 'Connect wallet to buy';
+    }
+  }
+
+  walletBtn.addEventListener('click', connectWallet);
+
+  // ── Data ──
+  async function fetchListings() {
+    const query = `query {
+      listing_active(
+        where: { fa_contract: { _eq: "${CONTRACT}" } }
+        order_by: { timestamp: desc }
+        limit: 200
+      ) {
+        id
+        bigmap_key
+        price_xtz
+        timestamp
+        seller_address
+        token { token_id name thumbnail_uri }
+      }
+    }`;
+
+    const res = await fetch(OBJKT_GQL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+    });
+    const data = await res.json();
+    return data?.data?.listing_active || [];
+  }
+
+  async function fetchCollectionStats() {
+    try {
+      const res = await fetch(`https://api.tzkt.io/v1/tokens/balances?token.contract=${CONTRACT}&balance.gt=0&limit=10000&select=account.address`);
+      const owners = await res.json();
+      const unique = new Set(owners);
+      return { owners: unique.size };
+    } catch { return { owners: '—' }; }
+  }
+
+  function formatXTZ(mutez) {
+    return (Number(mutez) / 1_000_000).toFixed(mutez % 1_000_000 === 0 ? 0 : 2);
+  }
+
+  function thumbUrl(uri) {
+    if (!uri) return '';
+    if (uri.startsWith('ipfs://')) {
+      const hash = uri.replace('ipfs://', '');
+      return IPFS_GW + hash;
+    }
+    return uri;
+  }
+
+  function artifactUrl(tokenId) {
+    return `${KEEPS_URL}/$${tokenId}`;
+  }
+
+  // ── Sorting ──
+  function sortListings(list) {
+    const sorted = [...list];
+    switch (currentSort) {
+      case 'price-asc':
+        sorted.sort((a, b) => Number(a.price_xtz) - Number(b.price_xtz));
+        break;
+      case 'price-desc':
+        sorted.sort((a, b) => Number(b.price_xtz) - Number(a.price_xtz));
+        break;
+      case 'newest':
+        sorted.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        break;
+    }
+    return sorted;
+  }
+
+  document.querySelectorAll('.sort-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentSort = btn.dataset.sort;
+      renderGrid();
+    });
+  });
+
+  // ── Render ──
+  function renderGrid() {
+    const sorted = sortListings(listings);
+    if (!sorted.length) {
+      grid.innerHTML = '<div class="loading">No active listings</div>';
+      return;
+    }
+
+    grid.innerHTML = sorted.map(l => {
+      const name = l.token?.name || `#${l.token?.token_id}`;
+      const thumb = thumbUrl(l.token?.thumbnail_uri);
+      const price = formatXTZ(l.price_xtz);
+      const seller = l.seller_address?.slice(0, 8) + '…';
+      return `<div class="card" data-id="${l.id || l.bigmap_key}">
+        <div class="card-thumb">
+          ${thumb ? `<img src="${thumb}" alt="${name}" loading="lazy" />` : ''}
+        </div>
+        <div class="card-body">
+          <div class="card-code">${name}</div>
+          <div class="card-price">${price} XTZ</div>
+          <div class="card-seller">${seller}</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    grid.querySelectorAll('.card').forEach(card => {
+      card.addEventListener('click', () => {
+        const id = card.dataset.id;
+        const listing = listings.find(l => String(l.id || l.bigmap_key) === id);
+        if (listing) openModal(listing);
+      });
+    });
+  }
+
+  function updateStats() {
+    document.getElementById('stat-listed').textContent = listings.length;
+    if (listings.length) {
+      const prices = listings.map(l => Number(l.price_xtz));
+      const floor = Math.min(...prices) / 1_000_000;
+      document.getElementById('stat-floor').textContent = floor.toFixed(floor % 1 === 0 ? 0 : 2);
+    }
+  }
+
+  // ── Modal ──
+  function openModal(listing) {
+    selectedListing = listing;
+    const name = listing.token?.name || `#${listing.token?.token_id}`;
+    const price = formatXTZ(listing.price_xtz);
+    const tokenId = listing.token?.token_id;
+    const askId = listing.bigmap_key || listing.id;
+
+    document.getElementById('modal-title').textContent = name;
+    document.getElementById('modal-price').textContent = price + ' XTZ';
+    document.getElementById('modal-seller').textContent = 'Seller: ' + listing.seller_address;
+
+    // Live preview iframe
+    const preview = document.getElementById('modal-preview');
+    const closeBtn = document.getElementById('modal-close');
+    preview.innerHTML = '';
+    preview.appendChild(closeBtn);
+    const iframe = document.createElement('iframe');
+    iframe.src = `https://keeps.kidlisp.com/${name.startsWith('$') ? name : '$' + tokenId}`;
+    iframe.style.cssText = 'width:100%;height:100%;border:none;';
+    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
+    preview.appendChild(iframe);
+
+    // Links
+    document.getElementById('modal-links').innerHTML = `
+      <a href="${OBJKT_BASE}/tokens/${CONTRACT}/${tokenId}" target="_blank">objkt.com ↗</a>
+      <a href="https://tzkt.io/${CONTRACT}/tokens/${tokenId}" target="_blank">tzkt ↗</a>
+      <a href="${KEEPS_URL}/${name.startsWith('$') ? name : '$' + tokenId}" target="_blank">keeps ↗</a>
+    `;
+
+    buyStatus.textContent = '';
+    buyStatus.className = 'buy-status';
+
+    if (walletAddress) {
+      if (walletAddress === listing.seller_address) {
+        buyBtn.disabled = true;
+        buyBtn.textContent = 'Your listing';
+      } else {
+        buyBtn.disabled = false;
+        buyBtn.textContent = 'Buy for ' + price + ' XTZ';
+      }
+    } else {
+      buyBtn.disabled = true;
+      buyBtn.textContent = 'Connect wallet to buy';
+    }
+
+    overlay.classList.add('open');
+  }
+
+  function closeModal() {
+    overlay.classList.remove('open');
+    selectedListing = null;
+    // Remove iframe to stop rendering
+    const preview = document.getElementById('modal-preview');
+    const closeBtn = document.getElementById('modal-close');
+    preview.innerHTML = '';
+    preview.appendChild(closeBtn);
+  }
+
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+
+  // ── Purchase ──
+  buyBtn.addEventListener('click', async () => {
+    if (!walletAddress || !selectedListing) return;
+
+    const listing = selectedListing;
+    const askId = Number(listing.bigmap_key || listing.id);
+    const priceMutez = String(listing.price_xtz);
+
+    buyBtn.disabled = true;
+    buyBtn.textContent = 'Confirm in wallet…';
+    buyStatus.textContent = '';
+    buyStatus.className = 'buy-status';
+
+    try {
+      if (!beaconClient) await initWallet();
+
+      const response = await beaconClient.requestOperation({
+        sourceAddress: walletAddress,
+        operationDetails: [{
+          kind: 'transaction',
+          destination: MARKETPLACE,
+          amount: priceMutez,
+          parameters: {
+            entrypoint: 'fulfill_ask',
+            value: {
+              prim: 'Pair',
+              args: [
+                { int: String(askId) },            // ask_id
+                {
+                  prim: 'Pair',
+                  args: [
+                    { int: '1' },                   // amount
+                    {
+                      prim: 'Pair',
+                      args: [
+                        { prim: 'None' },            // proxy_for
+                        {
+                          prim: 'Pair',
+                          args: [
+                            { prim: 'None' },        // condition_extra
+                            []                        // referrers (empty map)
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }]
+      });
+
+      const txHash = response.transactionHash;
+      buyBtn.textContent = 'Purchased!';
+      buyStatus.textContent = 'tx: ' + txHash.slice(0, 12) + '…';
+      buyStatus.className = 'buy-status success';
+
+      // Remove from local listings
+      listings = listings.filter(l => (l.id || l.bigmap_key) !== (listing.id || listing.bigmap_key));
+      renderGrid();
+      updateStats();
+
+      // Auto-close after 3s
+      setTimeout(closeModal, 3000);
+
+    } catch (err) {
+      const msg = err?.message || String(err);
+      if (msg.includes('aborted') || msg.includes('cancel')) {
+        buyStatus.textContent = 'Transaction cancelled';
+      } else {
+        buyStatus.textContent = msg.slice(0, 80);
+      }
+      buyStatus.className = 'buy-status error';
+      buyBtn.disabled = false;
+      buyBtn.textContent = 'Buy for ' + formatXTZ(listing.price_xtz) + ' XTZ';
+    }
+  });
+
+  // ── Init ──
+  async function loadMarket() {
+    try {
+      listings = await fetchListings();
+      liveDot.classList.remove('error');
+      renderGrid();
+      updateStats();
+    } catch (err) {
+      liveDot.classList.add('error');
+      console.error('[buy] Failed to load:', err);
+    }
+  }
+
+  async function loadStats() {
+    try {
+      const res = await fetch(`https://api.tzkt.io/v1/tokens?contract=${CONTRACT}&limit=10000&select=id`);
+      const tokens = await res.json();
+      document.getElementById('stat-items').textContent = tokens.length;
+    } catch {}
+
+    try {
+      const res = await fetch(`https://api.tzkt.io/v1/tokens/balances?token.contract=${CONTRACT}&balance.gt=0&limit=10000&select=account.address`);
+      const owners = await res.json();
+      document.getElementById('stat-owners').textContent = new Set(owners).size;
+    } catch {}
+  }
+
+  // Boot
+  loadMarket();
+  loadStats();
+  initWallet().catch(() => {}); // Pre-load Beacon
+  setInterval(loadMarket, REFRESH_MS);
+})();
+</script>
+</body>
+</html>
