@@ -402,6 +402,16 @@ DHCLIENT_SCRIPT
         for lib in $(ldd "$(command -v busybox)" 2>/dev/null | grep -oP '/\S+'); do
             [ -f "$lib" ] && cp -n "$lib" "${INITRAMFS_DIR}/lib64/" 2>/dev/null || true
         done
+        # Busybox applet symlinks — covers find, cp, mv, rm, ln, wc, tail, sort,
+        # uniq, tr, tee, xargs, diff, stat, ps, tar, gzip, touch, env, basename,
+        # dirname, expr, test, printf, date, dd, df, du, echo, true, false, etc.
+        for cmd in find cp mv rm ln wc tail sort uniq tr tee xargs diff stat ps \
+                   tar gzip gunzip touch env basename dirname expr test printf \
+                   date dd df du echo true false readlink mktemp vi hostname \
+                   id whoami chown rmdir realpath seq yes nohup md5sum sha256sum; do
+            ln -sf busybox "${INITRAMFS_DIR}/bin/${cmd}" 2>/dev/null || true
+        done
+        log "  busybox: $(du -sh "${INITRAMFS_DIR}/bin/busybox" | cut -f1) ($(ls "${INITRAMFS_DIR}/bin/" | wc -l) symlinks)"
     elif [ -f /bin/bash ]; then
         cp /bin/bash "${INITRAMFS_DIR}/bin/sh"
         for lib in $(ldd /bin/bash 2>/dev/null | grep -oP '/\S+'); do
@@ -454,49 +464,39 @@ else
     warn "dropbear not found — SSH remote access not available"
 fi
 
-# ── Node.js + Claude Code CLI ──
-NODE_BIN="$(command -v node 2>/dev/null || true)"
-if [ -n "$NODE_BIN" ] && [ -f "$NODE_BIN" ]; then
-    log "Bundling Node.js for Claude Code CLI..."
-    cp "$NODE_BIN" "${INITRAMFS_DIR}/bin/node"
-    chmod +x "${INITRAMFS_DIR}/bin/node"
-    for lib in $(ldd "$NODE_BIN" 2>/dev/null | grep -oP '/\S+'); do
-        [ -f "$lib" ] && cp -n "$lib" "${INITRAMFS_DIR}/lib64/" 2>/dev/null || true
-    done
-    NODE_SIZE=$(du -sh "${INITRAMFS_DIR}/bin/node" | cut -f1)
-    log "  node: ${NODE_SIZE} ($(${NODE_BIN} --version))"
-
-    # Bundle Claude Code (x64-linux only, strip other platforms)
-    CLAUDE_PKG="$(npm root -g 2>/dev/null)/@anthropic-ai/claude-code"
-    if [ -d "$CLAUDE_PKG" ]; then
-        log "Bundling Claude Code CLI..."
-        CLAUDE_DIR="${INITRAMFS_DIR}/opt/claude-code"
-        mkdir -p "${CLAUDE_DIR}/vendor/ripgrep/x64-linux" \
-                 "${CLAUDE_DIR}/vendor/tree-sitter-bash/x64-linux"
-        # Core files
-        cp "${CLAUDE_PKG}/cli.js" "${CLAUDE_DIR}/"
-        cp "${CLAUDE_PKG}/package.json" "${CLAUDE_DIR}/"
-        [ -f "${CLAUDE_PKG}/resvg.wasm" ] && cp "${CLAUDE_PKG}/resvg.wasm" "${CLAUDE_DIR}/"
-        # Vendor binaries (x64-linux only)
-        cp -r "${CLAUDE_PKG}/vendor/ripgrep/x64-linux/"* "${CLAUDE_DIR}/vendor/ripgrep/x64-linux/" 2>/dev/null || true
-        cp -r "${CLAUDE_PKG}/vendor/tree-sitter-bash/x64-linux/"* "${CLAUDE_DIR}/vendor/tree-sitter-bash/x64-linux/" 2>/dev/null || true
-        # Create claude wrapper
-        cat > "${INITRAMFS_DIR}/bin/claude" << 'CLAUDE_WRAPPER'
-#!/bin/sh
-export NODE_PATH=/opt/claude-code
-export HOME="${HOME:-/tmp}"
-export TERM="${TERM:-dumb}"
-exec /bin/node /opt/claude-code/cli.js "$@"
-CLAUDE_WRAPPER
-        chmod +x "${INITRAMFS_DIR}/bin/claude"
-        CLAUDE_SIZE=$(du -sh "${CLAUDE_DIR}" | cut -f1)
-        log "  claude-code: ${CLAUDE_SIZE} (x64-linux only)"
+# ── Claude Code utilities (git, ripgrep, jq) ──
+# These tools make Claude Code significantly more capable on the device.
+for util in git rg jq; do
+    UTIL_PATH="$(command -v "$util" 2>/dev/null || true)"
+    if [ -n "$UTIL_PATH" ] && [ -f "$UTIL_PATH" ]; then
+        cp "$UTIL_PATH" "${INITRAMFS_DIR}/bin/"
+        for lib in $(ldd "$UTIL_PATH" 2>/dev/null | grep -oP '/\S+'); do
+            [ -f "$lib" ] && cp -n "$lib" "${INITRAMFS_DIR}/lib64/" 2>/dev/null || true
+        done
+        log "  ${util}: $(du -sh "${INITRAMFS_DIR}/bin/${util}" | cut -f1)"
     else
-        warn "Claude Code not found globally — run: npm i -g @anthropic-ai/claude-code"
+        warn "${util} not found — Claude Code will have reduced capability"
     fi
-else
-    warn "Node.js not found — Claude Code CLI not available"
-fi
+done
+
+# Git credential helper — reads GitHub PAT from /github-pat (baked by ac-os)
+cat > "${INITRAMFS_DIR}/bin/git-credential-ac" << 'GIT_CRED'
+#!/bin/sh
+# Serves GitHub PAT for git HTTPS auth on AC Native OS
+case "$1" in
+    get)
+        while IFS= read -r line; do
+            case "$line" in host=github.com*) ;; *) continue ;; esac
+        done
+        [ -f /github-pat ] || exit 1
+        echo "protocol=https"
+        echo "host=github.com"
+        echo "username=x-access-token"
+        printf "password=%s\n" "$(cat /github-pat | tr -d '\n')"
+        ;;
+esac
+GIT_CRED
+chmod +x "${INITRAMFS_DIR}/bin/git-credential-ac"
 
 # Copy CA trust bundle for HTTPS curl calls (OS update/clock/version checks).
 CA_BUNDLE_SRC=""
