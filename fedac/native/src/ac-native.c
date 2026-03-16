@@ -128,13 +128,20 @@ extern char g_machine_id[64];
 
 // DRM handoff for xdg-open browser popup
 // SIGUSR1 = release DRM master (browser takes over display)
-// SIGUSR2 = reclaim DRM master (browser closed, ac-native resumes)
+// SIGUSR2 = reboot request from cage child (or reclaim DRM in DRM mode)
 static volatile int drm_handoff_release = 0;
 static volatile int drm_handoff_reclaim = 0;
+static volatile int reboot_requested = 0;
+static volatile int poweroff_requested = 0;
 
 static void sigusr_handler(int sig) {
     if (sig == SIGUSR1) drm_handoff_release = 1;
-    if (sig == SIGUSR2) drm_handoff_reclaim = 1;
+    if (sig == SIGUSR2) reboot_requested = 1;
+}
+
+static void sigterm_handler(int sig) {
+    (void)sig;
+    poweroff_requested = 1;
 }
 
 static void signal_handler(int sig) {
@@ -213,10 +220,15 @@ static void mount_minimal_fs(void) {
 
     mount("proc", "/proc", "proc", 0, NULL);
     mount("sysfs", "/sys", "sysfs", 0, NULL);
+    // Re-mount devtmpfs — safe here because by DRM fallback time i915 is fully loaded,
+    // so the fresh devtmpfs will have /dev/dri/card0. (Init does NOT re-mount devtmpfs
+    // so cage can see the kernel's original card0 early.)
     mount("devtmpfs", "/dev", "devtmpfs", 0, NULL);
     mkdir("/dev/pts", 0755);
     mount("devpts", "/dev/pts", "devpts", 0, "ptmxmode=0666");
-    mount("tmpfs", "/tmp", "tmpfs", 0, NULL);
+    mkdir("/dev/shm", 0755);
+    mount("tmpfs", "/dev/shm", "tmpfs", 0, NULL);
+    // Don't re-mount /tmp — init already mounted it and may have put logs there.
 
     // Enable zram swap (compressed RAM — effectively doubles available memory)
     // Firefox + GTK needs significant memory beyond the initramfs tmpfs
@@ -287,26 +299,66 @@ static void try_mount_log(void) {
                     fsync(fileno(logfile));
                     strncpy(log_dev, devs[i], sizeof(log_dev) - 1);
                     fprintf(stderr, "[ac-native] Log: %s -> /mnt/ac-native.log (removable=%d)\n", devs[i], rem);
-                    // Dump init debug lines from kernel ring buffer to USB
+                    // Dump init debug lines to USB from /tmp/ac-init.log (written by init)
+                    // and also try kmsg as backup
                     {
-                        int kmsg = open("/dev/kmsg", O_RDONLY | O_NONBLOCK);
-                        if (kmsg >= 0) {
-                            FILE *initlog = fopen("/mnt/init.log", "w");
-                            if (initlog) {
+                        FILE *initlog = fopen("/mnt/init.log", "w");
+                        if (initlog) {
+                            // Diagnostics: what does /tmp look like?
+                            fprintf(initlog, "diag: pid=%d\n", getpid());
+                            fprintf(initlog, "diag: /tmp/ac-init.log access=%d\n",
+                                    access("/tmp/ac-init.log", F_OK));
+                            fprintf(initlog, "diag: /tmp/cage-stderr.log access=%d\n",
+                                    access("/tmp/cage-stderr.log", F_OK));
+                            // List /tmp contents
+                            DIR *tmpdir = opendir("/tmp");
+                            if (tmpdir) {
+                                struct dirent *te;
+                                while ((te = readdir(tmpdir)) != NULL) {
+                                    if (te->d_name[0] != '.')
+                                        fprintf(initlog, "diag: /tmp/%s\n", te->d_name);
+                                }
+                                closedir(tmpdir);
+                            } else {
+                                fprintf(initlog, "diag: opendir /tmp failed\n");
+                            }
+                            // Primary: read tmpfs log written by init script
+                            FILE *tmplog = fopen("/tmp/ac-init.log", "r");
+                            if (tmplog) {
+                                char kbuf[512];
+                                while (fgets(kbuf, sizeof(kbuf), tmplog))
+                                    fputs(kbuf, initlog);
+                                fclose(tmplog);
+                            }
+                            // Also dump cage stderr if it exists
+                            FILE *cage_err = fopen("/tmp/cage-stderr.log", "r");
+                            if (cage_err) {
+                                fprintf(initlog, "--- cage stderr ---\n");
+                                char kbuf[512];
+                                while (fgets(kbuf, sizeof(kbuf), cage_err))
+                                    fputs(kbuf, initlog);
+                                fclose(cage_err);
+                            }
+                            // Backup: scan kmsg for ac-init lines
+                            int kmsg = open("/dev/kmsg", O_RDONLY | O_NONBLOCK);
+                            if (kmsg >= 0) {
+                                lseek(kmsg, 0, SEEK_SET);
                                 char kbuf[512];
                                 ssize_t r;
+                                int found = 0;
                                 while ((r = read(kmsg, kbuf, sizeof(kbuf) - 1)) > 0) {
                                     kbuf[r] = 0;
                                     if (strstr(kbuf, "ac-init:")) {
+                                        if (!found) { fprintf(initlog, "--- kmsg ---\n"); found = 1; }
                                         char *msg = strstr(kbuf, "ac-init:");
                                         fprintf(initlog, "%s\n", msg);
                                     }
                                 }
-                                fflush(initlog);
-                                fsync(fileno(initlog));
-                                fclose(initlog);
+                                close(kmsg);
                             }
-                            close(kmsg);
+                            fflush(initlog);
+                            fsync(fileno(initlog));
+                            fclose(initlog);
                         }
                     }
                     return;
@@ -483,6 +535,53 @@ static void load_boot_visual_config(void) {
         }
     }
     parse_boot_title_colors(buf);
+
+    // Extract claudeCreds JSON and write to /tmp for PTY to pick up
+    const char *cc = strstr(buf, "\"claudeCreds\"");
+    if (cc) {
+        const char *start = strchr(cc, '{');
+        if (start) {
+            int depth = 0;
+            const char *end = start;
+            while (*end) {
+                if (*end == '{') depth++;
+                else if (*end == '}') { depth--; if (depth == 0) { end++; break; } }
+                end++;
+            }
+            if (depth == 0 && end > start) {
+                mkdir("/tmp/.claude", 0755);
+                FILE *cf = fopen("/tmp/.claude/.credentials.json", "w");
+                if (cf) {
+                    fwrite(start, 1, end - start, cf);
+                    fclose(cf);
+                    ac_log("[ac-native] Claude credentials written (%d bytes)\n", (int)(end - start));
+                }
+            }
+        }
+    }
+
+    // Extract claudeState JSON and write to /tmp/.claude.json
+    const char *cs = strstr(buf, "\"claudeState\"");
+    if (cs) {
+        const char *start = strchr(cs, '{');
+        if (start) {
+            int depth = 0;
+            const char *end = start;
+            while (*end) {
+                if (*end == '{') depth++;
+                else if (*end == '}') { depth--; if (depth == 0) { end++; break; } }
+                end++;
+            }
+            if (depth == 0 && end > start) {
+                FILE *sf = fopen("/tmp/.claude.json", "w");
+                if (sf) {
+                    fwrite(start, 1, end - start, sf);
+                    fclose(sf);
+                    ac_log("[ac-native] Claude state written (%d bytes)\n", (int)(end - start));
+                }
+            }
+        }
+    }
 
     ac_log("[ac-native] Boot title: %s (colors=%d)\n", boot_title, boot_title_colors_len);
 }
@@ -1496,6 +1595,14 @@ int main(int argc, char *argv[]) {
         setenv("SSL_CERT_FILE", "/etc/pki/tls/certs/ca-bundle.crt", 1);
         setenv("CURL_CA_BUNDLE", "/etc/pki/tls/certs/ca-bundle.crt", 1);
         setenv("SSL_CERT_DIR", "/etc/ssl/certs", 1);
+        // Log to USB directly (parent has /mnt mounted, we inherit it)
+        // Use a separate file so we don't truncate parent's log
+        logfile = fopen("/mnt/cage-child.log", "w");
+        if (!logfile) logfile = fopen("/tmp/ac-native-cage.log", "w");
+        if (logfile) {
+            fprintf(logfile, "[ac-native] Running under cage (pid=%d)\n", getpid());
+            fflush(logfile);
+        }
     }
 
     signal(SIGINT, signal_handler);
@@ -1507,6 +1614,7 @@ int main(int argc, char *argv[]) {
     {
         signal(SIGUSR1, sigusr_handler);
         signal(SIGUSR2, sigusr_handler);
+        signal(SIGTERM, sigterm_handler);
     }
 
     // Determine piece path (ignore kernel cmdline args passed to init)
@@ -1584,109 +1692,106 @@ int main(int argc, char *argv[]) {
     ACFramebuffer *cursor_fb = fb_create(screen->width, screen->height);
 
     // Mount USB log early so boot animation can detect USB boot
-    // (also needed under cage for logging and config.json)
-    try_mount_log();
+#ifdef USE_WAYLAND
+    if (!is_wayland)  // Under cage: parent already has USB mounted at /mnt
+#endif
+        try_mount_log();
 
     // Read boot visuals (handle + optional per-char colors) from /mnt/config.json
     load_boot_visual_config();
 
     // Init audio + TTS early (needed for boot animation speech)
     ACAudio *audio = audio_init();
-    // Load persisted sample (overrides default seed if file exists)
-    if (audio && audio_sample_load(audio, "/mnt/ac-sample.raw") > 0) {
-        ac_log("[audio] loaded persisted sample (%d samples)\n", audio->sample_len);
-    }
-    audio_boot_beep(audio);
-    ACTts *tts = tts_init(audio);
-
-    // Startup fade animation (black → white, hides kernel text)
-    // TTS speaks "notepat" and "aesthetic.computer" in sync with visuals
-    // Returns 1 if user held W to request disk install
-    ac_log("[ac-native] pre-fade: display=%p screen=%p w=%d h=%d\n",
-           (void*)display, (void*)screen,
-           display ? display->width : -1, display ? display->height : -1);
-    int want_install = 0;
-    if (!headless) {
-        want_install = draw_startup_fade(&graph, screen, display, tts, audio);
-        if (!want_install)
-            draw_boot_status(&graph, screen, display, "starting input...");
-        // status beep instead of TTS (boot sounds handle it)
-    }
-
-    // Init input
-    if (!headless) {
-#ifdef USE_WAYLAND
-        if (is_wayland) {
-            input = input_init_wayland(wayland_display, display->width, display->height, pixel_scale);
-        } else
-#endif
-        {
-            input = input_init(display->width, display->height, pixel_scale);
-        }
-    }
-
-    // Find backlight path (scan /sys/class/backlight/ for any device)
+    ACTts *tts = NULL;
+    ACWifi *wifi = NULL;
+    ACSecondaryDisplay *hdmi = NULL;
     char bl_path[128] = "";
     int bl_max = 0;
+
+#ifdef USE_WAYLAND
+    if (is_wayland) {
+        // ── Cage session: skip boot animation, install, wifi (parent did all that) ──
+        ac_log("[ac-native] Wayland session — skipping boot sequence\n");
+
+        // Input (Wayland path)
+        if (!headless)
+            input = input_init_wayland(wayland_display, display->width, display->height, pixel_scale);
+
+        // WiFi is already running from parent — just connect to it
+        wifi = wifi_init();
+    } else
+#endif
     {
-        DIR *bldir = opendir("/sys/class/backlight");
-        if (bldir) {
-            struct dirent *ent;
-            while ((ent = readdir(bldir)) && !bl_path[0]) {
-                if (ent->d_name[0] == '.') continue;
-                char tmp[160];
-                snprintf(tmp, sizeof(tmp), "/sys/class/backlight/%s/max_brightness", ent->d_name);
-                FILE *f = fopen(tmp, "r");
-                if (f) {
-                    if (fscanf(f, "%d", &bl_max) == 1 && bl_max > 0) {
-                        snprintf(bl_path, sizeof(bl_path), "/sys/class/backlight/%s", ent->d_name);
+        // ── DRM boot: full boot sequence ──
+        // Load persisted sample (overrides default seed if file exists)
+        if (audio && audio_sample_load(audio, "/mnt/ac-sample.raw") > 0) {
+            ac_log("[audio] loaded persisted sample (%d samples)\n", audio->sample_len);
+        }
+        audio_boot_beep(audio);
+        tts = tts_init(audio);
+
+        // Startup fade animation (black → white, hides kernel text)
+        ac_log("[ac-native] pre-fade: display=%p screen=%p w=%d h=%d\n",
+               (void*)display, (void*)screen,
+               display ? display->width : -1, display ? display->height : -1);
+        int want_install = 0;
+        if (!headless) {
+            want_install = draw_startup_fade(&graph, screen, display, tts, audio);
+            if (!want_install)
+                draw_boot_status(&graph, screen, display, "starting input...");
+        }
+
+        // Init input (DRM path)
+        if (!headless)
+            input = input_init(display->width, display->height, pixel_scale);
+
+        // Find backlight path
+        {
+            DIR *bldir = opendir("/sys/class/backlight");
+            if (bldir) {
+                struct dirent *ent;
+                while ((ent = readdir(bldir)) && !bl_path[0]) {
+                    if (ent->d_name[0] == '.') continue;
+                    char tmp[160];
+                    snprintf(tmp, sizeof(tmp), "/sys/class/backlight/%s/max_brightness", ent->d_name);
+                    FILE *f = fopen(tmp, "r");
+                    if (f) {
+                        if (fscanf(f, "%d", &bl_max) == 1 && bl_max > 0)
+                            snprintf(bl_path, sizeof(bl_path), "/sys/class/backlight/%s", ent->d_name);
+                        fclose(f);
                     }
-                    fclose(f);
                 }
+                closedir(bldir);
             }
-            closedir(bldir);
         }
-        if (bl_path[0])
-            fprintf(stderr, "[ac-native] Backlight: %s (max=%d)\n", bl_path, bl_max);
-        else
-            fprintf(stderr, "[ac-native] No backlight found\n");
-    }
 
-    // Install kernel to internal drive (only if user held W during boot)
-    if (getpid() == 1 && want_install) {
-        int install_ok = auto_install_to_hd(&graph, screen, display);
-        int should_reboot = 1;
+        // Install kernel to internal drive (only if user held W during boot)
+        if (getpid() == 1 && want_install) {
+            int install_ok = auto_install_to_hd(&graph, screen, display);
+            int should_reboot = 1;
+            if (!headless && display)
+                should_reboot = draw_install_reboot_prompt(&graph, screen, display, input, tts, audio, install_ok);
+            if (install_ok) should_reboot = 1;
+            if (should_reboot && getpid() == 1) {
+                if (tts) { tts_speak(tts, "rebooting"); tts_wait(tts); }
+                audio_shutdown_sound(audio);
+                usleep(600000);
+                sync();
+                reboot(LINUX_REBOOT_CMD_RESTART);
+                while (running) sleep(1);
+            }
+        }
+
+        // Init WiFi
         if (!headless && display)
-            should_reboot = draw_install_reboot_prompt(&graph, screen, display, input, tts, audio, install_ok);
+            draw_boot_status(&graph, screen, display, "starting wifi...");
+        wifi = wifi_init();
 
-        // Successful install should never continue USB boot into the piece.
-        if (install_ok) should_reboot = 1;
-
-        if (should_reboot && getpid() == 1) {
-            if (tts) {
-                tts_speak(tts, "rebooting");
-                tts_wait(tts);
-            }
-            audio_shutdown_sound(audio);
-            usleep(600000); // let chime play out
-            sync();
-            reboot(LINUX_REBOOT_CMD_RESTART);
-            // If reboot syscall fails, hold instead of continuing from USB.
-            while (running) sleep(1);
+        // Init secondary HDMI display (if connected)
+        if (display && !display->is_fbdev) {
+            hdmi = drm_init_secondary(display);
+            if (hdmi) ac_log("[ac-native] HDMI secondary: %dx%d\n", hdmi->width, hdmi->height);
         }
-    }
-
-    // Init WiFi
-    if (!headless && display)
-        draw_boot_status(&graph, screen, display, "starting wifi...");
-    // wifi start: audio handled by boot beep sequence
-    ACWifi *wifi = wifi_init();
-
-    // Init secondary HDMI display (if connected)
-    ACSecondaryDisplay *hdmi = NULL;
-    if (display && !display->is_fbdev) {
-        hdmi = drm_init_secondary(display);
-        if (hdmi) ac_log("[ac-native] HDMI secondary: %dx%d\n", hdmi->width, hdmi->height);
     }
 
     // Init JS
@@ -1799,6 +1904,168 @@ int main(int argc, char *argv[]) {
     // Init performance logger
     perf_init();
 
+    // ── Graceful DRM → cage transition ──
+    // After boot completes in DRM mode, try to launch cage compositor
+    // and re-exec ac-native under it. This gives us a Wayland session
+    // for browser popups (Firefox, OAuth) while keeping fast DRM boot.
+#ifdef USE_WAYLAND
+    if (!is_wayland && !headless && getpid() == 1 &&
+        access("/bin/cage", X_OK) == 0 && access("/dev/dri/card0", F_OK) == 0) {
+        ac_log("[cage-transition] Starting cage compositor...\n");
+
+        // Close audio so cage child can open ALSA
+        audio_destroy(audio);
+        audio = NULL;
+
+        // Release DRM master so cage can take it
+        drm_release_master(display);
+        ac_log("[cage-transition] Released DRM master\n");
+
+        pid_t cage_pid = fork();
+        if (cage_pid == 0) {
+            // === CHILD: start seatd + cage + ac-native ===
+            setenv("HOME", "/tmp", 1);
+            setenv("XDG_RUNTIME_DIR", "/tmp/xdg", 1);
+            setenv("WLR_RENDERER", "pixman", 1);
+            setenv("WLR_BACKENDS", "drm", 1);
+            setenv("LIBGL_ALWAYS_SOFTWARE", "1", 1);
+            setenv("WLR_LIBINPUT_NO_DEVICES", "1", 1);
+            mkdir("/tmp/xdg", 0700);
+
+            // Log /dev/input state for debugging (write to USB)
+            {
+                int dfd = open("/mnt/cage-diag.log", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                if (dfd >= 0) {
+                    char dbuf[1024];
+                    int dlen = 0;
+                    dlen += snprintf(dbuf + dlen, sizeof(dbuf) - dlen, "pid=%d\n", getpid());
+                    DIR *d = opendir("/dev/input");
+                    if (d) {
+                        struct dirent *e;
+                        dlen += snprintf(dbuf + dlen, sizeof(dbuf) - dlen, "dev-input:");
+                        while ((e = readdir(d))) {
+                            if (e->d_name[0] != '.')
+                                dlen += snprintf(dbuf + dlen, sizeof(dbuf) - dlen, " %s", e->d_name);
+                        }
+                        dlen += snprintf(dbuf + dlen, sizeof(dbuf) - dlen, "\n");
+                        closedir(d);
+                    } else {
+                        dlen += snprintf(dbuf + dlen, sizeof(dbuf) - dlen,
+                                "dev-input: MISSING errno=%d\n", errno);
+                    }
+                    // Also list /dev/dri
+                    d = opendir("/dev/dri");
+                    if (d) {
+                        struct dirent *e;
+                        dlen += snprintf(dbuf + dlen, sizeof(dbuf) - dlen, "dev-dri:");
+                        while ((e = readdir(d))) {
+                            if (e->d_name[0] != '.')
+                                dlen += snprintf(dbuf + dlen, sizeof(dbuf) - dlen, " %s", e->d_name);
+                        }
+                        dlen += snprintf(dbuf + dlen, sizeof(dbuf) - dlen, "\n");
+                        closedir(d);
+                    }
+                    write(dfd, dbuf, dlen);
+                    fsync(dfd);
+                    close(dfd);
+                }
+            }
+
+            // Ensure /run exists (may be missing if mount_minimal_fs re-mounted rootfs)
+            mkdir("/run", 0755);
+            mount("tmpfs", "/run", "tmpfs", 0, NULL);
+
+            // Start seatd
+            system("seatd -g root > /tmp/seatd.log 2>&1 &");
+            for (int si = 0; si < 30; si++) {
+                usleep(100000);
+                if (access("/run/seatd.sock", F_OK) == 0) break;
+            }
+
+            if (access("/run/seatd.sock", F_OK) != 0) {
+                FILE *ef = fopen("/tmp/cage-stderr.log", "w");
+                if (ef) {
+                    fprintf(ef, "seatd failed to start after 3s\n");
+                    fprintf(ef, "run-dir-exists=%d run-writable=%d\n",
+                            access("/run", F_OK) == 0, access("/run", W_OK) == 0);
+                    // Dump seatd log
+                    FILE *sl = fopen("/tmp/seatd.log", "r");
+                    if (sl) {
+                        char sbuf[256];
+                        fprintf(ef, "--- seatd.log ---\n");
+                        while (fgets(sbuf, sizeof(sbuf), sl)) fputs(sbuf, ef);
+                        fclose(sl);
+                    }
+                    fclose(ef);
+                }
+                _exit(1);
+            }
+
+            // Redirect stderr to file so parent can read cage errors
+            FILE *cage_log = fopen("/tmp/cage-stderr.log", "w");
+            if (cage_log) {
+                dup2(fileno(cage_log), STDERR_FILENO);
+                fclose(cage_log);
+            }
+            fprintf(stderr, "[cage-transition] seatd ok, launching cage...\n");
+
+            execlp("cage", "cage", "-s", "--", "/ac-native", "/piece.mjs", NULL);
+            fprintf(stderr, "[cage-transition] exec cage failed: %s\n", strerror(errno));
+            _exit(127);
+        }
+
+        if (cage_pid > 0) {
+            // === PARENT: wait for cage session to end ===
+            ac_log("[cage-transition] cage pid=%d, waiting...\n", cage_pid);
+            int status = 0;
+            waitpid(cage_pid, &status, 0);
+            int rc = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+            ac_log("[cage-transition] cage exited: %d\n", rc);
+
+            // Copy cage stderr to USB log
+            FILE *cage_err = fopen("/tmp/cage-stderr.log", "r");
+            if (cage_err) {
+                char buf[256];
+                while (fgets(buf, sizeof(buf), cage_err))
+                    ac_log("[cage-err] %s", buf);
+                fclose(cage_err);
+            }
+            // Copy child ac-native log to USB log
+            FILE *cage_child = fopen("/tmp/ac-native-cage.log", "r");
+            if (cage_child) {
+                char buf[256];
+                while (fgets(buf, sizeof(buf), cage_child))
+                    ac_log("[cage-child] %s", buf);
+                fclose(cage_child);
+            }
+
+            // Cleanup seatd
+            system("killall seatd 2>/dev/null");
+        } else {
+            ac_log("[cage-transition] fork failed: %s\n", strerror(errno));
+        }
+
+        // Check if cage child requested reboot/poweroff
+        if (reboot_requested) {
+            ac_log("[cage-transition] Reboot requested by cage child\n");
+            ac_log_flush();
+            sync(); usleep(500000); sync();
+            reboot(LINUX_REBOOT_CMD_RESTART);
+        }
+        if (poweroff_requested) {
+            ac_log("[cage-transition] Poweroff requested by cage child\n");
+            ac_log_flush();
+            sync(); usleep(500000); sync();
+            reboot(LINUX_REBOOT_CMD_POWER_OFF);
+        }
+
+        // Reclaim DRM and continue in DRM mode (fallback)
+        drm_acquire_master(display);
+        audio = audio_init();
+        ac_log("[cage-transition] Reclaimed DRM, continuing in DRM mode\n");
+    }
+#endif
+
     if (headless) {
         for (int i = 0; i < 10 && running; i++) {
             js_call_sim(rt);
@@ -1812,9 +2079,10 @@ int main(int argc, char *argv[]) {
         int main_frame = 0;
         while (running) {
 #ifdef USE_WAYLAND
-            // Under Wayland: dispatch compositor events each frame
+            // Under Wayland: input_poll handles all Wayland event dispatch
+            // (reading from socket + firing listeners in correct order)
             if (is_wayland) {
-                wayland_display_dispatch(wayland_display);
+                // nothing — input_poll does full dispatch
             } else
 #endif
             {
@@ -1925,6 +2193,25 @@ int main(int argc, char *argv[]) {
 
             input_poll(input);
             main_frame++;
+            // Copy tmpfs debug logs to USB periodically (every 5 sec)
+            if (logfile && main_frame % 300 == 0) {
+                FILE *xf = fopen("/tmp/xdg-open.log", "r");
+                if (xf) {
+                    char xbuf[512];
+                    while (fgets(xbuf, sizeof(xbuf), xf))
+                        ac_log("[xdg] %s", xbuf);
+                    fclose(xf);
+                    unlink("/tmp/xdg-open.log"); // only report once
+                }
+                FILE *ff = fopen("/tmp/firefox-debug.log", "r");
+                if (ff) {
+                    char fbuf[512];
+                    while (fgets(fbuf, sizeof(fbuf), ff))
+                        ac_log("[firefox] %s", fbuf);
+                    fclose(ff);
+                    unlink("/tmp/firefox-debug.log");
+                }
+            }
             // Log input state periodically (every 5 sec)
             if (logfile && main_frame % 300 == 1) {
                 int analog_active = 0;
@@ -2226,8 +2513,28 @@ int main(int argc, char *argv[]) {
                 graph_line(&graph, cx-9, cy+1, cx-4, cy+1);
                 graph_line(&graph, cx+6, cy+1, cx+11, cy+1);
                 graph_plot(&graph, cx+1, cy+1);
-                // Teal crosshair
-                graph_ink(&graph, (ACColor){0, 255, 255, 255});
+                // Crosshair color reflects WiFi state
+                {
+                    ACColor cross_color = {128, 128, 128, 255}; // gray = no wifi
+                    if (wifi) {
+                        switch (wifi->state) {
+                            case WIFI_STATE_CONNECTED:
+                                cross_color = (ACColor){0, 255, 255, 255};   // cyan
+                                break;
+                            case WIFI_STATE_SCANNING:
+                            case WIFI_STATE_CONNECTING:
+                                cross_color = (ACColor){255, 255, 0, 255};   // yellow
+                                break;
+                            case WIFI_STATE_FAILED:
+                                cross_color = (ACColor){255, 60, 60, 255};   // red
+                                break;
+                            default:
+                                cross_color = (ACColor){128, 128, 128, 255}; // gray
+                                break;
+                        }
+                    }
+                    graph_ink(&graph, cross_color);
+                }
                 graph_line(&graph, cx, cy-10, cx, cy-5);
                 graph_line(&graph, cx, cy+5, cx, cy+10);
                 graph_line(&graph, cx-10, cy, cx-5, cy);

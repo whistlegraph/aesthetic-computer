@@ -38,6 +38,11 @@ typedef struct {
     struct wl_pointer *pointer;
     struct wl_touch *touch;
     void *input;             // ACInput* — set by input_init_wayland()
+    uint32_t seat_caps;      // cached seat capabilities (from initial bind)
+    // Deferred seat binding (input_init_wayland does the actual bind)
+    struct wl_registry *seat_registry;
+    uint32_t seat_name;
+    uint32_t seat_version;
 } ACWaylandDisplay;
 
 // Initialize Wayland display — connect to compositor, create surface, allocate SHM buffers

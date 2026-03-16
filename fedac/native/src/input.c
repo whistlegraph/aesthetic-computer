@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <time.h>
 #include <math.h>
+#include <poll.h>
 #ifdef USE_WAYLAND
 #include "wayland-display.h"
 #endif
@@ -416,6 +417,16 @@ void input_poll(ACInput *input) {
     if (input->is_wayland) {
         ACWaylandDisplay *wd = input->wayland_display;
         if (wd && wd->display) {
+            // Full Wayland dispatch: read events from socket then fire listeners.
+            // Must happen AFTER event_count=0 so keyboard/pointer events aren't lost.
+            while (wl_display_prepare_read(wd->display) != 0)
+                wl_display_dispatch_pending(wd->display);
+            wl_display_flush(wd->display);
+            struct pollfd pfd = { .fd = wl_display_get_fd(wd->display), .events = POLLIN };
+            if (poll(&pfd, 1, 0) > 0)
+                wl_display_read_events(wd->display);
+            else
+                wl_display_cancel_read(wd->display);
             wl_display_dispatch_pending(wd->display);
         }
 
@@ -437,11 +448,16 @@ void input_poll(ACInput *input) {
             }
         }
 
-        // Still poll NuPhy hidraw under Wayland (not grabbed by compositor)
+        // If we have evdev devices (no udev fallback), poll them too
+        if (input->count > 0)
+            goto poll_evdev;
+
+        // Otherwise just poll NuPhy hidraw
         goto poll_hidraw;
     }
 #endif
 
+poll_evdev: ;
     struct input_event ev;
     for (int d = 0; d < input->count; d++) {
         ssize_t rr;
@@ -1030,13 +1046,60 @@ ACInput *input_init_wayland(void *wayland_display, int screen_w, int screen_h, i
 
     wd->input = input;
 
-    // Bind seat for input devices
-    if (wd->seat) {
-        wl_seat_add_listener(wd->seat, &seat_listener, input);
+    // Bind keyboard/pointer/touch from cached seat capabilities.
+    // The seat listener was already added in registry_global (init_seat_listener)
+    // which cached caps in wd->seat_caps during wayland_display_init roundtrips.
+    // We can't replace that listener (Wayland allows only one per proxy),
+    // so we manually bind devices here using the cached caps value.
+    if (wd->seat && wd->seat_caps) {
+        // This calls the same logic as seat_capabilities but with our ACInput*
+        seat_capabilities(input, wd->seat, wd->seat_caps);
         wl_display_roundtrip(wd->display);
     }
+    extern void ac_log(const char *fmt, ...);
+    ac_log("[input] Wayland seat: caps=0x%x kb=%p ptr=%p touch=%p\n",
+            wd->seat_caps, (void*)wd->keyboard, (void*)wd->pointer, (void*)wd->touch);
 
-    // Still scan for NuPhy hidraw (not grabbed by Wayland compositor)
+    // If compositor didn't advertise input (no udev/libinput), fall back to evdev
+    if (!wd->seat_caps) {
+        ac_log("[input] No Wayland seat caps — using evdev directly\n");
+        DIR *dir = opendir("/dev/input");
+        if (dir) {
+            struct dirent *ent;
+            while ((ent = readdir(dir)) && input->count < MAX_INPUT_DEVICES) {
+                if (strncmp(ent->d_name, "event", 5) != 0) continue;
+                char path[64];
+                snprintf(path, sizeof(path), "/dev/input/%s", ent->d_name);
+                int fd = open(path, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+                if (fd < 0) continue;
+                unsigned long evbits = 0;
+                ioctl(fd, EVIOCGBIT(0, sizeof(evbits)), &evbits);
+                if (evbits & ((1 << EV_KEY) | (1 << EV_ABS) | (1 << EV_REL) | (1 << EV_SW))) {
+                    if (evbits & (1 << EV_SW)) {
+                        unsigned long sw_bits = 0;
+                        ioctl(fd, EVIOCGBIT(EV_SW, sizeof(sw_bits)), &sw_bits);
+                        if (sw_bits & (1 << SW_TABLET_MODE)) {
+                            unsigned long sw_state = 0;
+                            ioctl(fd, EVIOCGSW(sizeof(sw_state)), &sw_state);
+                            input->tablet_mode = (sw_state & (1 << SW_TABLET_MODE)) ? 1 : 0;
+                        }
+                    }
+                    struct input_id devid;
+                    int is_nuphy = 0;
+                    if (ioctl(fd, EVIOCGID, &devid) >= 0 && devid.vendor == NUPHY_VENDOR_ID)
+                        is_nuphy = 1;
+                    input->fd_is_analog[input->count] = is_nuphy;
+                    input->fds[input->count++] = fd;
+                } else {
+                    close(fd);
+                }
+            }
+            closedir(dir);
+            ac_log("[input] evdev fallback: %d devices\n", input->count);
+        }
+    }
+
+    // Scan for NuPhy hidraw
     hidraw_scan(input);
 
     return input;

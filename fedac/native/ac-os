@@ -41,7 +41,7 @@ build_binary() {
     fi
     # Run make and capture exit code (pipefail not needed — check make directly)
     local MAKE_LOG="${BUILD_DIR}/.make.log"
-    make CC="${CC_USE}" BUILD_TS="${AC_BUILD_TS}" USE_WAYLAND=1 > "${MAKE_LOG}" 2>&1
+    make CC="${CC_USE}" BUILD_TS="${AC_BUILD_TS}" > "${MAKE_LOG}" 2>&1
     local MAKE_RC=$?
     grep -E "Built:|error:" "${MAKE_LOG}" || true
     if [ ${MAKE_RC} -ne 0 ]; then
@@ -95,10 +95,32 @@ build_initramfs() {
             [ -f "$lib" ] && sudo cp -n "$lib" "${INITRAMFS_ROOT}/lib64/" 2>/dev/null || true
         done
         log "  claude: $(du -sh "${INITRAMFS_ROOT}/bin/claude" | cut -f1) (native binary)"
+        # Bake Claude OAuth token (plain text file, read by PTY at spawn time)
+        if [ -f "${HOME}/.claude/.credentials.json" ]; then
+            node -e "
+                const c=JSON.parse(require('fs').readFileSync(process.env.HOME+'/.claude/.credentials.json','utf8'));
+                process.stdout.write(c.claudeAiOauth.accessToken);
+            " 2>/dev/null | sudo tee "${INITRAMFS_ROOT}/claude-token" > /dev/null
+            sudo chmod 600 "${INITRAMFS_ROOT}/claude-token"
+            log "  claude token: baked ($(wc -c < "${INITRAMFS_ROOT}/claude-token") bytes)"
+        fi
+        # Bake Claude state file (init copies to /tmp/.claude.json)
+        if [ -f "${HOME}/.claude.json" ]; then
+            node -e "
+                const d=JSON.parse(require('fs').readFileSync(process.env.HOME+'/.claude.json','utf8'));
+                const m={oauthAccount:d.oauthAccount,hasCompletedOnboarding:true,installMethod:'manual',numStartups:1,autoUpdates:false,autoUpdatesProtectedForNative:true};
+                console.log(JSON.stringify(m));
+            " 2>/dev/null | sudo tee "${INITRAMFS_ROOT}/claude-state.json" > /dev/null
+            log "  claude state: baked into initramfs"
+        fi
     else
         log "Claude Code native binary not found — skipping"
         log "  Install with: curl -fsSL https://claude.ai/install.sh | bash"
     fi
+
+    # Browser stack — only bundled if USE_BROWSER=1 (disabled by default).
+    # Claude Code authenticates via pre-baked credentials in initramfs.
+    if [ "${USE_BROWSER:-0}" = "1" ]; then
 
     local FIREFOX_CACHE="/tmp/ac-firefox-cache"
     local FIREFOX_TAR="/tmp/firefox.tar.xz"
@@ -124,15 +146,50 @@ build_initramfs() {
     sudo cp -a "${FIREFOX_CACHE}/." "${INITRAMFS_ROOT}/opt/firefox/"
     sudo ln -sf /opt/firefox/firefox-bin "${INITRAMFS_ROOT}/bin/firefox"
     # xdg-open shim — Claude Code calls this to open OAuth URLs
-    # Launches cage+firefox kiosk, then returns when browser closes
     sudo tee "${INITRAMFS_ROOT}/bin/xdg-open" > /dev/null << 'XDGOPEN'
 #!/bin/sh
-# xdg-open shim — writes URL to /tmp, signals ac-native to run cage+firefox.
-# ac-native handles the DRM handoff and browser launch from C (bypasses Bun fd issues).
+# xdg-open shim — launches Firefox for OAuth (Claude Code calls this)
+# Always log that we were called (tmpfs — always works)
+echo "[xdg-open] called: $0 $*" >> /tmp/xdg-open.log
+echo "[xdg-open] WAYLAND=$WAYLAND_DISPLAY DISPLAY=$DISPLAY BROWSER=$BROWSER" >> /tmp/xdg-open.log
 URL="$1"
 [ -z "$URL" ] && exit 1
-echo "$URL" > /tmp/.browser-url
-kill -USR1 1 2>/dev/null
+
+if [ -n "$WAYLAND_DISPLAY" ]; then
+    # Under cage: launch Firefox as sibling Wayland client
+    export MOZ_ENABLE_WAYLAND=1 GDK_BACKEND=wayland MOZ_DISABLE_CONTENT_SANDBOX=1
+    export DBUS_SESSION_BUS_ADDRESS=disabled: MOZ_DBUS_REMOTE=0
+    export HOME=/tmp LD_LIBRARY_PATH=/lib64:/opt/firefox GRE_HOME=/opt/firefox
+    export MOZ_GFX_BACKEND=cairo MOZ_DISABLE_GPU=1
+    export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp/xdg}"
+    export GDK_PIXBUF_MODULE_FILE="/usr/lib64/gdk-pixbuf-2.0/2.10.0/loaders.cache"
+    export GDK_PIXBUF_MODULEDIR="/usr/lib64/gdk-pixbuf-2.0/2.10.0/loaders"
+    mkdir -p /tmp/.mozilla "$XDG_RUNTIME_DIR" 2>/dev/null
+    # Write debug to tmpfs (reliable), ac-native copies to USB
+    LOG=/tmp/firefox-debug.log
+    echo "=== xdg-open ===" > $LOG
+    echo "URL=$URL" >> $LOG
+    echo "ENV: WAYLAND=$WAYLAND_DISPLAY XDG=$XDG_RUNTIME_DIR" >> $LOG
+    ls -la "$XDG_RUNTIME_DIR/wayland-0" >> $LOG 2>&1
+    cd /opt/firefox
+    mkdir -p /tmp/ff-profile
+    # Try headless first to isolate display vs init issues
+    echo "=== headless test ===" >> $LOG
+    MOZ_HEADLESS=1 timeout 5 ./firefox-bin --headless --no-remote --profile /tmp/ff-profile "about:blank" >> $LOG 2>&1
+    echo "headless-rc=$?" >> $LOG
+    # Now try actual launch
+    echo "=== real launch ===" >> $LOG
+    MOZ_CRASHREPORTER_DISABLE=1 ./firefox-bin --no-remote --profile /tmp/ff-profile "$URL" >> $LOG 2>&1
+    echo "rc=$?" >> $LOG
+    # Copy to USB
+    cp $LOG /mnt/firefox.log 2>/dev/null
+    sync
+else
+    # DRM mode: signal ac-native to handle DRM handoff + cage+firefox
+    echo "$URL" > /tmp/.browser-url
+    ACPID=$(pidof ac-native 2>/dev/null || echo 1)
+    kill -USR1 $ACPID 2>/dev/null
+fi
 XDGOPEN
     sudo chmod +x "${INITRAMFS_ROOT}/bin/xdg-open"
     # Bundle cage (Wayland kiosk compositor) + seatd + wlroots libs
@@ -218,9 +275,26 @@ XDGOPEN
     sudo cp -a /usr/share/glib-2.0/schemas "${INITRAMFS_ROOT}/usr/share/glib-2.0/" 2>/dev/null || true
     sudo cp -aL /usr/lib64/gtk-3.0 "${INITRAMFS_ROOT}/usr/lib64/" 2>/dev/null || true
     sudo cp -aL /usr/lib64/gdk-pixbuf-2.0 "${INITRAMFS_ROOT}/usr/lib64/" 2>/dev/null || true
+    # Generate gdk-pixbuf loaders cache
+    gdk-pixbuf-query-loaders-64 2>/dev/null | sudo tee "${INITRAMFS_ROOT}/usr/lib64/gdk-pixbuf-2.0/2.10.0/loaders.cache" > /dev/null
+    # Glycin image loaders — Fedora 43's gdk-pixbuf delegates PNG/JPEG to Glycin
+    if [ -f /usr/lib64/libglycin-2.so.0 ]; then
+        sudo cp /usr/lib64/libglycin-2.so.0 "${INITRAMFS_ROOT}/lib64/"
+        sudo mkdir -p "${INITRAMFS_ROOT}/usr/libexec/glycin-loaders/2+"
+        sudo cp /usr/libexec/glycin-loaders/2+/glycin-image-rs "${INITRAMFS_ROOT}/usr/libexec/glycin-loaders/2+/"
+        sudo mkdir -p "${INITRAMFS_ROOT}/usr/share/glycin-loaders/2+/conf.d"
+        sudo cp /usr/share/glycin-loaders/2+/conf.d/glycin-image-rs.conf "${INITRAMFS_ROOT}/usr/share/glycin-loaders/2+/conf.d/"
+        # Bundle glycin-image-rs dependencies
+        for lib in $(ldd /usr/libexec/glycin-loaders/2+/glycin-image-rs 2>/dev/null | grep -oP '/\S+'); do
+            [ -f "$lib" ] && sudo cp -n "$lib" "${INITRAMFS_ROOT}/lib64/" 2>/dev/null || true
+        done
+        log "  glycin: $(du -sh "${INITRAMFS_ROOT}/usr/libexec/glycin-loaders" | cut -f1)"
+    fi
     # Pango modules
     sudo cp -aL /usr/lib64/pango "${INITRAMFS_ROOT}/usr/lib64/" 2>/dev/null || true
     log "  fontconfig+xkb+font: $(du -sh "${INITRAMFS_ROOT}/etc/fonts" "${INITRAMFS_ROOT}/usr/share/X11/xkb" 2>/dev/null | tail -1 | cut -f1)"
+
+    fi # USE_BROWSER
 
     # Node.js: only bundled if explicitly requested (USE_NODE=1)
     # KidLisp evaluation uses QuickJS in ac-native, not Node.js
@@ -366,11 +440,38 @@ flash_usb() {
     local USB_CONFIG
     if [ -n "${AC_USER_HANDLE:-}" ]; then
         local AC_ACCESS_TOKEN=$(node -e "const t=JSON.parse(require('fs').readFileSync('${HOME}/.ac-token','utf8')); console.log(t.access_token || '')" 2>/dev/null)
-        USB_CONFIG=$(node -e "console.log(JSON.stringify({handle:'${AC_USER_HANDLE}',sub:'${AC_USER_SUB}',email:'${AC_USER_EMAIL}',token:'${AC_ACCESS_TOKEN}'}))" 2>/dev/null)
+        # Read Claude Code OAuth credentials + state if available
+        local CLAUDE_CREDS=""
+        local CLAUDE_STATE=""
+        if [ -f "${HOME}/.claude/.credentials.json" ]; then
+            CLAUDE_CREDS=$(cat "${HOME}/.claude/.credentials.json" 2>/dev/null)
+        fi
+        if [ -f "${HOME}/.claude.json" ]; then
+            CLAUDE_STATE=$(node -e "
+                const d=JSON.parse(require('fs').readFileSync(process.env.HOME+'/.claude.json','utf8'));
+                console.log(JSON.stringify({
+                    oauthAccount:d.oauthAccount,
+                    hasCompletedOnboarding:true,
+                    installMethod:'manual',
+                    numStartups:1,
+                    autoUpdates:false,
+                    autoUpdatesProtectedForNative:true
+                }));
+            " 2>/dev/null)
+        fi
+        USB_CONFIG=$(node -e "
+            const cfg = {handle:'${AC_USER_HANDLE}',sub:'${AC_USER_SUB}',email:'${AC_USER_EMAIL}',token:'${AC_ACCESS_TOKEN}'};
+            try { cfg.claudeCreds = JSON.parse(process.argv[1]); } catch(e) {}
+            try { cfg.claudeState = JSON.parse(process.argv[2]); } catch(e) {}
+            console.log(JSON.stringify(cfg));
+        " "${CLAUDE_CREDS}" "${CLAUDE_STATE}" 2>/dev/null)
     else
         USB_CONFIG='{"handle": "unknown"}'
     fi
     log "USB config: ${USB_CONFIG}"
+
+    # Write config to temp file (avoids shell quoting issues with apostrophes in JSON)
+    echo "${USB_CONFIG}" > /tmp/usb-config.json
 
     # Use docker cp + privileged container (bind mounts fail in devcontainers)
     local CONTAINER
@@ -409,7 +510,7 @@ PARTEOF
         cp /tmp/vmlinuz /mnt/usb/EFI/BOOT/BOOTX64.EFI
 
         # Write config.json with authenticated user data
-        printf '%s' '${USB_CONFIG}' > /mnt/usb/config.json
+        cat /tmp/usb-config.json > /mnt/usb/config.json
         echo \"Wrote config.json\"
 
         sync && sleep 2 && sync
@@ -420,6 +521,7 @@ PARTEOF
         echo 'Flashed!'
     ")
     sudo docker cp "${VMLINUZ}" "${CONTAINER}:/tmp/vmlinuz"
+    sudo docker cp /tmp/usb-config.json "${CONTAINER}:/tmp/usb-config.json"
     sudo docker start -a "${CONTAINER}" 2>&1
 }
 
