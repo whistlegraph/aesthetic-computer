@@ -246,6 +246,15 @@ function paint({ wipe, ink, box, write, qr, system, screen }) {
   const ptyCols = pty.cols || cols;
   const ptyRows = pty.rows || rows;
 
+  // Check for terminal resize (screen changed since last frame)
+  const newCols = Math.floor(w / cellW);
+  const newRows = Math.floor(h / cellH);
+  if (newCols !== cols || newRows !== rows) {
+    cols = newCols;
+    rows = newRows;
+    if (cols > 0 && rows > 0) system.pty.resize(cols, rows);
+  }
+
   // Render each cell
   for (let y = 0; y < ptyRows; y++) {
     for (let x = 0; x < ptyCols; x++) {
