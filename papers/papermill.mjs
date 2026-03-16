@@ -186,7 +186,7 @@ function deployPaper(entry) {
 function extractTitleFromTex(texPath) {
   if (!existsSync(texPath)) return null;
   const content = readFileSync(texPath, "utf8");
-  const lines = content.split("\n").slice(0, 150); // Title is always near the top
+  const lines = content.split("\n").slice(0, 250); // Title can be after preamble
 
   let titleParts = [];
   let subtitle = null;
