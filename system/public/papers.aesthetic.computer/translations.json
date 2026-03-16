@@ -1,9 +1,39 @@
 {
   "ac": {
-    "en": {}
+    "en": {
+      "title": "Aesthetic. Computer '26",
+      "subtitle": "A Mobile-First Runtime for Creative Computing"
+    },
+    "da": {
+      "title": "Aesthetic. Computer '26",
+      "subtitle": "En mobil-først-køretid for kreativ computing"
+    },
+    "es": {
+      "title": "Aesthetic. Computer '26",
+      "subtitle": "Un entorno de ejecución móvil-primero para la computación creativa"
+    },
+    "zh": {
+      "title": "Aesthetic. Computer '26",
+      "subtitle": "面向创意计算的移动优先运行时"
+    }
   },
   "api": {
-    "en": {}
+    "en": {
+      "title": "From setup() to boot()",
+      "subtitle": "Processing at the Core of the Piece API"
+    },
+    "da": {
+      "title": "Fra setup() til boot()",
+      "subtitle": "Processing i kernen af Piece-API'en"
+    },
+    "es": {
+      "title": "De setup() a boot()",
+      "subtitle": "Processing en el núcleo de la API de piezas"
+    },
+    "zh": {
+      "title": "从 setup() 到 boot()",
+      "subtitle": "Processing在作品API核心中的延续"
+    }
   },
   "archaeology": {
     "en": {
@@ -84,7 +114,22 @@
     }
   },
   "kidlisp": {
-    "en": {}
+    "en": {
+      "title": "KidLisp '26",
+      "subtitle": "A Minimal Lisp for Generative Art"
+    },
+    "da": {
+      "title": "KidLisp '26",
+      "subtitle": "En minimal Lisp til generativ kunst"
+    },
+    "es": {
+      "title": "KidLisp '26",
+      "subtitle": "Un Lisp mínimo para arte generativo"
+    },
+    "zh": {
+      "title": "KidLisp '26",
+      "subtitle": "面向生成艺术的极简Lisp"
+    }
   },
   "kidlisp-ref": {
     "en": {
@@ -129,7 +174,10 @@
     }
   },
   "os": {
-    "en": {},
+    "en": {
+      "title": "AC Native OS '26",
+      "subtitle": "A Bare-Metal Creative Computing Operating System"
+    },
     "da": {
       "title": "AC Native OS '26",
       "subtitle": "Et bare-metal kreativt computing-styresystem"
