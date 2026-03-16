@@ -3,6 +3,7 @@
 
 #include "quickjs.h"
 #include "graph.h"
+#include "graph3d.h"
 #include "input.h"
 #include "font.h"
 #include "audio.h"
@@ -14,6 +15,7 @@
 #include "camera.h"
 #include "pty.h"
 #include <pthread.h>
+#include <linux/input.h>
 
 typedef struct {
     JSRuntime *rt;
@@ -81,6 +83,14 @@ typedef struct {
     // PTY terminal emulator
     ACPty pty;
     int pty_active;                      // 1 = PTY session is running
+
+    // 3D rendering state
+    ACCamera3D camera3d;                 // FPS camera
+    ACDepthBuffer *depth_buf;            // Depth buffer (created on first use)
+    ACRenderStats render_stats;          // Per-frame render statistics
+    int pen_locked;                      // 1 = pointer lock mode (FPS camera)
+    int keys_held[KEY_MAX];              // Per-key held state (indexed by Linux keycode)
+    int fps_system_active;               // 1 = piece uses system="fps" (3D mode)
 
     // User config (read from /mnt/config.json on EFI partition)
     char handle[64];                     // e.g. "jeffrey" (without @)

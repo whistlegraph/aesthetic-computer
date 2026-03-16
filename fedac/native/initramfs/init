@@ -1,16 +1,31 @@
 #!/bin/sh
-# AC Native OS init — cage Wayland compositor with DRM fallback
+# AC Native OS init — DRM direct boot, cage transition happens in userspace
 
 mount -t proc proc /proc 2>/dev/null
 mount -t sysfs sysfs /sys 2>/dev/null
 mount -t devtmpfs devtmpfs /dev 2>/dev/null
-mkdir -p /dev/pts /tmp /run /etc
+mkdir -p /dev/pts /dev/shm /tmp /run /etc
 mount -t devpts devpts /dev/pts -o ptmxmode=0666 2>/dev/null
+mount -t tmpfs tmpfs /dev/shm 2>/dev/null
 mount -t tmpfs tmpfs /tmp 2>/dev/null
 mount -t tmpfs tmpfs /run 2>/dev/null
 
-# Log to kernel ring buffer (survives even if /tmp is wiped)
-ilog() { echo "ac-init: $*" > /dev/kmsg 2>/dev/null; }
+# Restore baked credentials from initramfs rootfs (before tmpfs hid them)
+# The build bakes Claude creds at /tmp/.claude/ but tmpfs mount hides them.
+# Copy from the initramfs backup location instead.
+if [ -f /claude-creds.json ]; then
+    mkdir -p /tmp/.claude
+    cp /claude-creds.json /tmp/.claude/.credentials.json
+    cp /claude-state.json /tmp/.claude.json 2>/dev/null
+    echo "ac-init: claude-creds copied ok" >> /tmp/ac-init.log
+    ls -la /tmp/.claude/.credentials.json >> /tmp/ac-init.log 2>&1
+else
+    echo "ac-init: NO /claude-creds.json found in initramfs!" >> /tmp/ac-init.log
+    ls /claude-creds.json >> /tmp/ac-init.log 2>&1
+fi
+
+# Log to /tmp (ac-native copies to USB)
+ilog() { echo "ac-init: $*" >> /tmp/ac-init.log 2>/dev/null; }
 ilog "start"
 
 # zram swap
@@ -20,60 +35,19 @@ echo 1G > /sys/block/zram0/disksize 2>/dev/null && mkswap /dev/zram0 >/dev/null 
 # Loopback
 ip link set lo up 2>/dev/null
 
-# Wait for GPU
-i=0
-while [ ! -e /dev/dri/card0 ] && [ ! -e /dev/fb0 ] && [ $i -lt 100 ]; do
-  usleep 10000
-  i=$((i+1))
-done
-ilog "gpu=${i}0ms"
+export PATH="/bin:/sbin:/usr/bin:/usr/sbin"
+export SSL_CERT_FILE="/etc/pki/tls/certs/ca-bundle.crt"
+export CURL_CA_BUNDLE="/etc/pki/tls/certs/ca-bundle.crt"
+export SSL_CERT_DIR="/etc/ssl/certs"
+
+# /etc/group and /etc/passwd needed by seatd (started later by ac-native)
+echo "root:x:0:" > /etc/group
+echo "root:x:0:root" > /etc/passwd
 
 # Performance governor
 for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
   echo performance > "$g" 2>/dev/null
 done
 
-export PATH="/bin:/sbin:/usr/bin:/usr/sbin"
-export SSL_CERT_FILE="/etc/pki/tls/certs/ca-bundle.crt"
-export CURL_CA_BUNDLE="/etc/pki/tls/certs/ca-bundle.crt"
-export SSL_CERT_DIR="/etc/ssl/certs"
-
-# Try Wayland (cage + seatd)
-if command -v cage >/dev/null 2>&1 && command -v seatd >/dev/null 2>&1 && [ -e /dev/dri/card0 ]; then
-    ilog "wayland-path"
-
-    echo "root:x:0:" > /etc/group
-    echo "root:x:0:root" > /etc/passwd
-
-    seatd -g root 2>/tmp/seatd.log &
-    SEATD_PID=$!
-    i=0
-    while [ ! -S /run/seatd.sock ] && [ $i -lt 20 ]; do
-      usleep 100000
-      i=$((i+1))
-    done
-
-    if [ -S /run/seatd.sock ]; then
-        ilog "seatd-ok-${i}00ms"
-        export XDG_RUNTIME_DIR=/tmp/xdg
-        export HOME=/tmp
-        mkdir -p "$XDG_RUNTIME_DIR"
-        chmod 0700 "$XDG_RUNTIME_DIR"
-
-        ilog "cage-launch"
-        cage -s -- /ac-native /piece.mjs 2>/tmp/cage-stderr.log
-        CAGE_RC=$?
-        ilog "cage-exit=$CAGE_RC"
-
-        kill $SEATD_PID 2>/dev/null
-    else
-        ilog "seatd-fail"
-        kill $SEATD_PID 2>/dev/null
-    fi
-else
-    ilog "no-wayland"
-fi
-
-# DRM direct fallback
-ilog "drm-fallback"
+ilog "exec-ac-native"
 exec /ac-native /piece.mjs

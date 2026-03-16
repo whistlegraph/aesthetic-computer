@@ -282,34 +282,48 @@ function paint({ wipe, ink, box, write, qr, system, screen }) {
   // Scan grid for https:// URLs (for QR code display)
   // Only scan every 30 frames to avoid performance hit
   if (cursorBlink % 30 === 1) {
-    let fullText = "";
+    // Build lines, trim trailing spaces, then join without breaks
+    // so wrapped URLs are reconstructed across terminal lines
+    let lines = [];
     for (let y = 0; y < ptyRows; y++) {
+      let line = "";
       for (let x = 0; x < ptyCols; x++) {
         const ch = grid[(y * ptyCols + x) * CELL_SIZE];
-        fullText += (ch >= 32 && ch < 127) ? String.fromCharCode(ch) : " ";
+        line += (ch >= 32 && ch < 127) ? String.fromCharCode(ch) : " ";
       }
-      fullText += "\n";
+      lines.push(line.trimEnd());
     }
-    // Find the last https:// URL in the terminal
-    const urlMatch = fullText.match(/https?:\/\/[^\s\n]+/g);
+    // Join wrapped lines: if a line fills the full width, the next line
+    // is a continuation (no space between them)
+    let fullText = "";
+    for (let i = 0; i < lines.length; i++) {
+      fullText += lines[i];
+      // Add space between lines UNLESS this line was full-width (wrapped)
+      if (lines[i].length < ptyCols) fullText += " ";
+    }
+    // Find the last https:// URL in the joined text
+    const urlMatch = fullText.match(/https?:\/\/[^\s]+/g);
     detectedUrl = urlMatch ? urlMatch[urlMatch.length - 1] : "";
   }
 
   // Render QR code for detected URL (bottom-right corner)
   if (detectedUrl && typeof qr === "function") {
-    const qrScale = 2;
-    // QR version scales with text length: ~v3 for short URLs, ~v6 for long
-    const modules = detectedUrl.length < 50 ? 29 : detectedUrl.length < 100 ? 41 : 53;
-    const qrSize = (modules + 4) * qrScale; // modules + quiet zone margin
-    const qrX = w - qrSize - 8;
-    const qrY = h - qrSize - 20;
-    // Dark background behind QR
-    ink(0, 0, 0, 200);
-    box(qrX - 4, qrY - 16, qrSize + 8, qrSize + 24);
-    qr(detectedUrl, qrX, qrY, qrScale);
-    // Label above
-    ink(T.link[0], T.link[1], T.link[2]);
-    write("scan to open", { x: qrX, y: qrY - 12, font: 1 });
+    // Use system.qrEncode to get actual module count
+    const qrData = system.qrEncode(detectedUrl);
+    if (qrData && qrData.size > 0) {
+      const qrScale = Math.max(1, Math.min(3, Math.floor(Math.min(w, h) / 4 / qrData.size)));
+      const qrSize = (qrData.size + 4) * qrScale;
+      const qrX = w - qrSize - 8;
+      const qrY = h - qrSize - 20;
+      ink(0, 0, 0, 200);
+      box(qrX - 4, qrY - 16, qrSize + 8, qrSize + 24);
+      qr(detectedUrl, qrX, qrY, qrScale);
+      ink(T.link[0], T.link[1], T.link[2]);
+      write("scan to open", { x: qrX, y: qrY - 12, font: 1 });
+    }
+  } else if (cursorBlink % 300 === 0 && detectedUrl) {
+    // Debug: log URL detection status periodically
+    system.log("[qr] url=" + detectedUrl.substring(0, 60) + "... len=" + detectedUrl.length);
   }
 
   // Blinking cursor

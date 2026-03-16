@@ -61,6 +61,7 @@ SRCS := $(SRCDIR)/ac-native.c \
         $(SRCDIR)/drm-display.c \
         $(SRCDIR)/framebuffer.c \
         $(SRCDIR)/graph.c \
+        $(SRCDIR)/graph3d.c \
         $(SRCDIR)/font.c \
         $(SRCDIR)/color.c \
         $(SRCDIR)/input.c \

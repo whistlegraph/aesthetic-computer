@@ -30,6 +30,389 @@ static __thread ACRuntime *current_rt = NULL;
 static __thread const char *current_phase = "boot";
 static int config_cache_dirty = 1;  // reload /mnt/config.json when set
 
+// Forward declaration (defined later in this file)
+static int resolve_color_name(const char *name, ACColor *out);
+
+// ============================================================
+// QuickJS Class IDs for 3D objects
+// ============================================================
+static JSClassID form_class_id = 0;
+static JSClassID painting_class_id = 0;
+
+// Form class finalizer
+static void js_form_finalizer(JSRuntime *rt, JSValue val) {
+    (void)rt;
+    ACForm *form = JS_GetOpaque(val, form_class_id);
+    if (form) {
+        free(form->positions);
+        free(form->colors);
+        free(form->tex_coords);
+        free(form);
+    }
+}
+
+static JSClassDef form_class_def = {
+    "Form",
+    .finalizer = js_form_finalizer,
+};
+
+// Painting class finalizer
+static void js_painting_finalizer(JSRuntime *rt, JSValue val) {
+    (void)rt;
+    ACFramebuffer *fb = JS_GetOpaque(val, painting_class_id);
+    if (fb) fb_destroy(fb);
+}
+
+static JSClassDef painting_class_def = {
+    "Painting",
+    .finalizer = js_painting_finalizer,
+};
+
+// ============================================================
+// Form constructor: new Form({type, positions, colors, texCoords}, {pos, rot, scale})
+// ============================================================
+
+static JSValue js_form_constructor(JSContext *ctx, JSValueConst new_target,
+                                    int argc, JSValueConst *argv) {
+    (void)new_target;
+    if (argc < 1) return JS_EXCEPTION;
+
+    ACForm *form = calloc(1, sizeof(ACForm));
+    if (!form) return JS_EXCEPTION;
+    form->scale = 1.0f;
+
+    // Parse geometry descriptor (first argument)
+    JSValue geom = argv[0];
+    JSValue type_val = JS_GetPropertyStr(ctx, geom, "type");
+    if (!JS_IsUndefined(type_val)) {
+        const char *type_str = JS_ToCString(ctx, type_val);
+        if (type_str && strcmp(type_str, "line") == 0)
+            form->type = FORM_TYPE_LINE;
+        else
+            form->type = FORM_TYPE_TRIANGLE;
+        if (type_str) JS_FreeCString(ctx, type_str);
+    }
+    JS_FreeValue(ctx, type_val);
+
+    // Parse positions array: [[x,y,z,w], ...]
+    JSValue pos_arr = JS_GetPropertyStr(ctx, geom, "positions");
+    if (JS_IsArray(ctx, pos_arr)) {
+        JSValue len_val = JS_GetPropertyStr(ctx, pos_arr, "length");
+        int32_t len = 0;
+        JS_ToInt32(ctx, &len, len_val);
+        JS_FreeValue(ctx, len_val);
+
+        form->vert_count = len;
+        form->positions = calloc(len * 4, sizeof(float));
+
+        for (int i = 0; i < len; i++) {
+            JSValue vert = JS_GetPropertyUint32(ctx, pos_arr, i);
+            for (int j = 0; j < 4; j++) {
+                JSValue comp = JS_GetPropertyUint32(ctx, vert, j);
+                double v = 0;
+                JS_ToFloat64(ctx, &v, comp);
+                form->positions[i * 4 + j] = (float)v;
+                JS_FreeValue(ctx, comp);
+            }
+            JS_FreeValue(ctx, vert);
+        }
+    }
+    JS_FreeValue(ctx, pos_arr);
+
+    // Parse colors array: [[r,g,b,a], ...]
+    JSValue col_arr = JS_GetPropertyStr(ctx, geom, "colors");
+    if (JS_IsArray(ctx, col_arr)) {
+        JSValue len_val = JS_GetPropertyStr(ctx, col_arr, "length");
+        int32_t len = 0;
+        JS_ToInt32(ctx, &len, len_val);
+        JS_FreeValue(ctx, len_val);
+
+        form->colors = calloc(len * 4, sizeof(float));
+        form->has_colors = 1;
+
+        for (int i = 0; i < len; i++) {
+            JSValue col = JS_GetPropertyUint32(ctx, col_arr, i);
+            for (int j = 0; j < 4; j++) {
+                JSValue comp = JS_GetPropertyUint32(ctx, col, j);
+                double v = 0;
+                JS_ToFloat64(ctx, &v, comp);
+                form->colors[i * 4 + j] = (float)v;
+                JS_FreeValue(ctx, comp);
+            }
+            JS_FreeValue(ctx, col);
+        }
+    }
+    JS_FreeValue(ctx, col_arr);
+
+    // Parse texCoords array: [[u,v], ...]
+    JSValue tc_arr = JS_GetPropertyStr(ctx, geom, "texCoords");
+    if (JS_IsArray(ctx, tc_arr)) {
+        JSValue len_val = JS_GetPropertyStr(ctx, tc_arr, "length");
+        int32_t len = 0;
+        JS_ToInt32(ctx, &len, len_val);
+        JS_FreeValue(ctx, len_val);
+
+        form->tex_coords = calloc(len * 2, sizeof(float));
+        for (int i = 0; i < len; i++) {
+            JSValue uv = JS_GetPropertyUint32(ctx, tc_arr, i);
+            for (int j = 0; j < 2; j++) {
+                JSValue comp = JS_GetPropertyUint32(ctx, uv, j);
+                double v = 0;
+                JS_ToFloat64(ctx, &v, comp);
+                form->tex_coords[i * 2 + j] = (float)v;
+                JS_FreeValue(ctx, comp);
+            }
+            JS_FreeValue(ctx, uv);
+        }
+    }
+    JS_FreeValue(ctx, tc_arr);
+
+    // Parse transform (second argument): {pos, rot, scale}
+    if (argc >= 2 && JS_IsObject(argv[1])) {
+        JSValue opts = argv[1];
+
+        JSValue pos = JS_GetPropertyStr(ctx, opts, "pos");
+        if (JS_IsArray(ctx, pos)) {
+            for (int i = 0; i < 3; i++) {
+                JSValue v = JS_GetPropertyUint32(ctx, pos, i);
+                double d = 0; JS_ToFloat64(ctx, &d, v);
+                form->position[i] = (float)d;
+                JS_FreeValue(ctx, v);
+            }
+        }
+        JS_FreeValue(ctx, pos);
+
+        JSValue rot = JS_GetPropertyStr(ctx, opts, "rot");
+        if (JS_IsArray(ctx, rot)) {
+            for (int i = 0; i < 3; i++) {
+                JSValue v = JS_GetPropertyUint32(ctx, rot, i);
+                double d = 0; JS_ToFloat64(ctx, &d, v);
+                form->rotation[i] = (float)d;
+                JS_FreeValue(ctx, v);
+            }
+        }
+        JS_FreeValue(ctx, rot);
+
+        JSValue sc = JS_GetPropertyStr(ctx, opts, "scale");
+        if (!JS_IsUndefined(sc)) {
+            double d = 1.0; JS_ToFloat64(ctx, &d, sc);
+            form->scale = (float)d;
+        }
+        JS_FreeValue(ctx, sc);
+    }
+
+    // Create JS object with opaque pointer
+    JSValue obj = JS_NewObjectClass(ctx, form_class_id);
+    JS_SetOpaque(obj, form);
+
+    // Expose position and rotation as JS arrays (live references)
+    JSValue js_pos = JS_NewArray(ctx);
+    for (int i = 0; i < 3; i++)
+        JS_SetPropertyUint32(ctx, js_pos, i, JS_NewFloat64(ctx, form->position[i]));
+    JS_SetPropertyStr(ctx, obj, "position", js_pos);
+
+    JSValue js_rot = JS_NewArray(ctx);
+    for (int i = 0; i < 3; i++)
+        JS_SetPropertyUint32(ctx, js_rot, i, JS_NewFloat64(ctx, form->rotation[i]));
+    JS_SetPropertyStr(ctx, obj, "rotation", js_rot);
+
+    JS_SetPropertyStr(ctx, obj, "noFade", JS_FALSE);
+
+    return obj;
+}
+
+// ============================================================
+// Chain API: .form(f) renders a 3D form with current ink + camera
+// ============================================================
+
+static JSValue js_chain_form(JSContext *ctx, JSValueConst this_val,
+                              int argc, JSValueConst *argv) {
+    if (argc < 1) return JS_DupValue(ctx, this_val);
+
+    ACForm *form = JS_GetOpaque(argv[0], form_class_id);
+    if (!form) return JS_DupValue(ctx, this_val);
+
+    ACRuntime *rt = current_rt;
+    if (!rt) return JS_DupValue(ctx, this_val);
+
+    // Sync position/rotation from JS arrays back to C struct
+    JSValue js_pos = JS_GetPropertyStr(ctx, argv[0], "position");
+    if (JS_IsArray(ctx, js_pos)) {
+        for (int i = 0; i < 3; i++) {
+            JSValue v = JS_GetPropertyUint32(ctx, js_pos, i);
+            double d = 0; JS_ToFloat64(ctx, &d, v);
+            form->position[i] = (float)d;
+            JS_FreeValue(ctx, v);
+        }
+    }
+    JS_FreeValue(ctx, js_pos);
+
+    JSValue js_rot = JS_GetPropertyStr(ctx, argv[0], "rotation");
+    if (JS_IsArray(ctx, js_rot)) {
+        for (int i = 0; i < 3; i++) {
+            JSValue v = JS_GetPropertyUint32(ctx, js_rot, i);
+            double d = 0; JS_ToFloat64(ctx, &d, v);
+            form->rotation[i] = (float)d;
+            JS_FreeValue(ctx, v);
+        }
+    }
+    JS_FreeValue(ctx, js_rot);
+
+    // Sync noFade
+    JSValue nf = JS_GetPropertyStr(ctx, argv[0], "noFade");
+    form->no_fade = JS_ToBool(ctx, nf);
+    JS_FreeValue(ctx, nf);
+
+    // Sync texture (painting with opaque ACFramebuffer*)
+    JSValue tex = JS_GetPropertyStr(ctx, argv[0], "texture");
+    if (!JS_IsUndefined(tex) && !JS_IsNull(tex)) {
+        ACFramebuffer *tex_fb = JS_GetOpaque(tex, painting_class_id);
+        form->texture = tex_fb;
+    } else {
+        form->texture = NULL;
+    }
+    JS_FreeValue(ctx, tex);
+
+    // Ensure depth buffer exists
+    if (!rt->depth_buf) {
+        rt->depth_buf = depth_create(rt->graph->fb->width, rt->graph->fb->height,
+                                     rt->graph->fb->stride);
+    }
+
+    // Build view and projection matrices
+    mat4 view, proj;
+    camera3d_view_matrix(view, &rt->camera3d);
+    float aspect = (float)rt->graph->fb->width / (float)rt->graph->fb->height;
+    mat4_perspective(proj, 70.0f * (float)M_PI / 180.0f, aspect, 0.01f, 100.0f);
+
+    // Render
+    graph3d_render_form(rt->graph->fb, rt->depth_buf, form,
+                        view, proj, rt->graph->ink, &rt->render_stats);
+
+    return JS_DupValue(ctx, this_val);
+}
+
+// Chain .ink() — sets ink color, returns chain for further chaining
+static JSValue js_chain_ink(JSContext *ctx, JSValueConst this_val,
+                             int argc, JSValueConst *argv) {
+    ACGraph *g = current_rt->graph;
+    ACColor c = {255, 255, 255, 255};
+    if (argc >= 3) {
+        int r, gr, b;
+        JS_ToInt32(ctx, &r, argv[0]);
+        JS_ToInt32(ctx, &gr, argv[1]);
+        JS_ToInt32(ctx, &b, argv[2]);
+        c.r = (uint8_t)r; c.g = (uint8_t)gr; c.b = (uint8_t)b;
+        if (argc >= 4) { int a; JS_ToInt32(ctx, &a, argv[3]); c.a = (uint8_t)a; }
+    } else if (argc == 1) {
+        if (JS_IsString(argv[0])) {
+            const char *name = JS_ToCString(ctx, argv[0]);
+            if (!resolve_color_name(name, &c))
+                c = (ACColor){255, 255, 255, 255};
+            JS_FreeCString(ctx, name);
+        } else {
+            int v; if (JS_ToInt32(ctx, &v, argv[0]) == 0)
+                c = (ACColor){(uint8_t)v, (uint8_t)v, (uint8_t)v, 255};
+        }
+    }
+    graph_ink(g, c);
+    return JS_DupValue(ctx, this_val);
+}
+
+// Chain .write() — forward to existing write, return chain
+static JSValue js_write(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
+static JSValue js_chain_write(JSContext *ctx, JSValueConst this_val,
+                               int argc, JSValueConst *argv) {
+    js_write(ctx, JS_UNDEFINED, argc, argv);
+    return JS_DupValue(ctx, this_val);
+}
+
+// ============================================================
+// penLock() — enables FPS camera mode
+// ============================================================
+
+static JSValue js_pen_lock(JSContext *ctx, JSValueConst this_val,
+                            int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    if (current_rt) {
+        current_rt->pen_locked = 1;
+        current_rt->fps_system_active = 1;
+        camera3d_init(&current_rt->camera3d);
+    }
+    return JS_UNDEFINED;
+}
+
+// ============================================================
+// CUBEL geometry constant (wireframe cube, 12 lines = 24 vertices)
+// ============================================================
+
+static JSValue build_cubel(JSContext *ctx) {
+    // 12 edges of a unit cube from -1 to 1
+    static const float cube_lines[24][4] = {
+        // Bottom face
+        {-1,-1,-1,1}, { 1,-1,-1,1},
+        { 1,-1,-1,1}, { 1,-1, 1,1},
+        { 1,-1, 1,1}, {-1,-1, 1,1},
+        {-1,-1, 1,1}, {-1,-1,-1,1},
+        // Top face
+        {-1, 1,-1,1}, { 1, 1,-1,1},
+        { 1, 1,-1,1}, { 1, 1, 1,1},
+        { 1, 1, 1,1}, {-1, 1, 1,1},
+        {-1, 1, 1,1}, {-1, 1,-1,1},
+        // Vertical edges
+        {-1,-1,-1,1}, {-1, 1,-1,1},
+        { 1,-1,-1,1}, { 1, 1,-1,1},
+        { 1,-1, 1,1}, { 1, 1, 1,1},
+        {-1,-1, 1,1}, {-1, 1, 1,1},
+    };
+
+    JSValue geom = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, geom, "type", JS_NewString(ctx, "line"));
+
+    JSValue positions = JS_NewArray(ctx);
+    for (int i = 0; i < 24; i++) {
+        JSValue vert = JS_NewArray(ctx);
+        for (int j = 0; j < 4; j++)
+            JS_SetPropertyUint32(ctx, vert, j, JS_NewFloat64(ctx, cube_lines[i][j]));
+        JS_SetPropertyUint32(ctx, positions, i, vert);
+    }
+    JS_SetPropertyStr(ctx, geom, "positions", positions);
+
+    return geom;
+}
+
+// QUAD geometry constant (2 triangles = 6 vertices with gradient colors)
+static JSValue build_quad(JSContext *ctx) {
+    static const float quad_pos[6][4] = {
+        {-1,-1,0,1}, {-1,1,0,1}, {1,1,0,1},  // tri 1
+        {-1,-1,0,1}, {1,1,0,1},  {1,-1,0,1}, // tri 2
+    };
+    static const float quad_col[6][4] = {
+        {1,0,0,1}, {0,1,0,1}, {0,0,1,1},
+        {1,0,0,1}, {0,0,1,1}, {1,1,0,1},
+    };
+
+    JSValue geom = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, geom, "type", JS_NewString(ctx, "triangle"));
+
+    JSValue positions = JS_NewArray(ctx);
+    JSValue colors = JS_NewArray(ctx);
+    for (int i = 0; i < 6; i++) {
+        JSValue vert = JS_NewArray(ctx);
+        JSValue col = JS_NewArray(ctx);
+        for (int j = 0; j < 4; j++) {
+            JS_SetPropertyUint32(ctx, vert, j, JS_NewFloat64(ctx, quad_pos[i][j]));
+            JS_SetPropertyUint32(ctx, col, j, JS_NewFloat64(ctx, quad_col[i][j]));
+        }
+        JS_SetPropertyUint32(ctx, positions, i, vert);
+        JS_SetPropertyUint32(ctx, colors, i, col);
+    }
+    JS_SetPropertyStr(ctx, geom, "positions", positions);
+    JS_SetPropertyStr(ctx, geom, "colors", colors);
+
+    return geom;
+}
+
 // ============================================================
 // JS Native Functions — Graphics
 // ============================================================
@@ -81,7 +464,19 @@ static JSValue js_wipe(JSContext *ctx, JSValueConst this_val, int argc, JSValueC
         }
     }
     graph_wipe(g, c);
-    return JS_UNDEFINED;
+
+    // Clear depth buffer for new frame
+    if (current_rt && current_rt->depth_buf)
+        depth_clear(current_rt->depth_buf);
+    // Reset render stats
+    if (current_rt)
+        memset(&current_rt->render_stats, 0, sizeof(ACRenderStats));
+
+    // Return chain object for .form()/.ink() chaining
+    JSValue global = JS_GetGlobalObject(ctx);
+    JSValue chain = JS_GetPropertyStr(ctx, global, "__paintApi");
+    JS_FreeValue(ctx, global);
+    return chain;
 }
 
 static JSValue js_ink(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -1161,8 +1556,17 @@ ACRuntime *js_init(ACGraph *graph, ACInput *input, ACAudio *audio, ACWifi *wifi,
     rt->leave_fn = JS_UNDEFINED;
     rt->beat_fn = JS_UNDEFINED;
 
+    // Initialize 3D camera
+    camera3d_init(&rt->camera3d);
+
     rt->rt = JS_NewRuntime();
     rt->ctx = JS_NewContext(rt->rt);
+
+    // Register Form and Painting classes
+    JS_NewClassID(&form_class_id);
+    JS_NewClass(rt->rt, form_class_id, &form_class_def);
+    JS_NewClassID(&painting_class_id);
+    JS_NewClass(rt->rt, painting_class_id, &painting_class_def);
 
     // Set module loader
     JS_SetModuleLoaderFunc(rt->rt, NULL, js_module_loader, NULL);
@@ -1172,19 +1576,22 @@ ACRuntime *js_init(ACGraph *graph, ACInput *input, ACAudio *audio, ACWifi *wifi,
     JSContext *ctx = rt->ctx;
     JSValue global = JS_GetGlobalObject(ctx);
 
-    // Create the chainable paint API object
+    // Create the chainable paint API object (with 3D .form() and .ink() support)
     JSValue paint_api = JS_NewObject(ctx);
     JS_SetPropertyStr(ctx, paint_api, "box", JS_NewCFunction(ctx, js_box, "box", 5));
     JS_SetPropertyStr(ctx, paint_api, "line", JS_NewCFunction(ctx, js_line, "line", 4));
     JS_SetPropertyStr(ctx, paint_api, "circle", JS_NewCFunction(ctx, js_circle, "circle", 4));
     JS_SetPropertyStr(ctx, paint_api, "plot", JS_NewCFunction(ctx, js_plot, "plot", 2));
-    JS_SetPropertyStr(ctx, paint_api, "write", JS_NewCFunction(ctx, js_write, "write", 6));
+    JS_SetPropertyStr(ctx, paint_api, "write", JS_NewCFunction(ctx, js_chain_write, "write", 6));
     JS_SetPropertyStr(ctx, paint_api, "scroll", JS_NewCFunction(ctx, js_scroll, "scroll", 2));
     JS_SetPropertyStr(ctx, paint_api, "blur", JS_NewCFunction(ctx, js_blur, "blur", 1));
     JS_SetPropertyStr(ctx, paint_api, "zoom", JS_NewCFunction(ctx, js_zoom, "zoom", 1));
     JS_SetPropertyStr(ctx, paint_api, "contrast", JS_NewCFunction(ctx, js_contrast, "contrast", 1));
     JS_SetPropertyStr(ctx, paint_api, "spin", JS_NewCFunction(ctx, js_spin, "spin", 1));
     JS_SetPropertyStr(ctx, paint_api, "qr", JS_NewCFunction(ctx, js_qr, "qr", 4));
+    // 3D chain methods
+    JS_SetPropertyStr(ctx, paint_api, "form", JS_NewCFunction(ctx, js_chain_form, "form", 1));
+    JS_SetPropertyStr(ctx, paint_api, "ink", JS_NewCFunction(ctx, js_chain_ink, "ink", 4));
     JS_SetPropertyStr(ctx, global, "__paintApi", JS_DupValue(ctx, paint_api));
     JS_FreeValue(ctx, paint_api);
 
@@ -1290,21 +1697,30 @@ ACRuntime *js_init(ACGraph *graph, ACInput *input, ACAudio *audio, ACWifi *wifi,
     return rt;
 }
 
-// painting(w, h, callback) — create a stub painting with width/height
-// Calls the callback with a paint API (wipe, ink, box, etc.)
+// painting(w, h, callback) — create a real off-screen framebuffer for textures
+// Calls the callback with a paint API that draws into the off-screen buffer
 static JSValue js_painting(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
     int w = 100, h = 100;
     if (argc >= 1) JS_ToInt32(ctx, &w, argv[0]);
     if (argc >= 2) JS_ToInt32(ctx, &h, argv[1]);
 
-    // Create painting object with width/height
-    JSValue painting = JS_NewObject(ctx);
+    // Create a real off-screen framebuffer
+    ACFramebuffer *tex_fb = fb_create(w, h);
+    if (!tex_fb) return JS_EXCEPTION;
+
+    // Create JS painting object with opaque ACFramebuffer*
+    JSValue painting = JS_NewObjectClass(ctx, painting_class_id);
+    JS_SetOpaque(painting, tex_fb);
     JS_SetPropertyStr(ctx, painting, "width", JS_NewInt32(ctx, w));
     JS_SetPropertyStr(ctx, painting, "height", JS_NewInt32(ctx, h));
 
-    // If callback provided, call it with a paint API
+    // If callback provided, render into the off-screen buffer
     if (argc >= 3 && JS_IsFunction(ctx, argv[2])) {
+        // Save current render target and switch to off-screen
+        ACFramebuffer *saved_fb = current_rt->graph->fb;
+        graph_page(current_rt->graph, tex_fb);
+
         JSValue global = JS_GetGlobalObject(ctx);
         JSValue paint_api = JS_NewObject(ctx);
         JS_SetPropertyStr(ctx, paint_api, "wipe", JS_GetPropertyStr(ctx, global, "wipe"));
@@ -1314,13 +1730,15 @@ static JSValue js_painting(JSContext *ctx, JSValueConst this_val, int argc, JSVa
         JS_SetPropertyStr(ctx, paint_api, "circle", JS_GetPropertyStr(ctx, global, "circle"));
         JS_SetPropertyStr(ctx, paint_api, "plot", JS_GetPropertyStr(ctx, global, "plot"));
         JS_SetPropertyStr(ctx, paint_api, "write", JS_GetPropertyStr(ctx, global, "write"));
-        // Stub kidlisp renderer
         JS_SetPropertyStr(ctx, paint_api, "kidlisp", JS_NewCFunction(ctx, js_noop, "kidlisp", 5));
         JS_FreeValue(ctx, global);
 
         JSValue result = JS_Call(ctx, argv[2], JS_UNDEFINED, 1, &paint_api);
         JS_FreeValue(ctx, result);
         JS_FreeValue(ctx, paint_api);
+
+        // Restore previous render target
+        graph_page(current_rt->graph, saved_fb);
     }
 
     return painting;
@@ -2610,8 +3028,9 @@ static JSValue js_reboot(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     if (getpid() == 1) {
         reboot(LINUX_REBOOT_CMD_RESTART);
     } else {
-        // Not PID 1 (dev/test mode) — try shell fallback
-        system("reboot");
+        // Under cage: tell PID 1 to reboot, then exit so cage closes
+        kill(1, SIGUSR2);  // SIGUSR2 = reboot request
+        _exit(0);
     }
     return JS_UNDEFINED;
 }
@@ -2633,7 +3052,9 @@ static JSValue js_poweroff(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     if (getpid() == 1) {
         reboot(LINUX_REBOOT_CMD_POWER_OFF);
     } else {
-        system("poweroff");
+        // Under cage: tell PID 1 to power off, then exit so cage closes
+        kill(1, SIGTERM);  // SIGTERM = poweroff request
+        _exit(0);
     }
     return JS_UNDEFINED;
 }
@@ -3047,12 +3468,12 @@ static JSValue js_qr_encode(JSContext *ctx, JSValueConst this_val, int argc, JSV
     const char *text = JS_ToCString(ctx, argv[0]);
     if (!text) return JS_UNDEFINED;
 
-    // Buffers for qrcodegen (version 1-10 max ~120 chars, good for URLs)
-    uint8_t qrcode[qrcodegen_BUFFER_LEN_FOR_VERSION(10)];
-    uint8_t tempBuf[qrcodegen_BUFFER_LEN_FOR_VERSION(10)];
+    // Buffers for qrcodegen (version 1-40, up to ~4296 chars at ECC LOW)
+    uint8_t qrcode[qrcodegen_BUFFER_LEN_MAX];
+    uint8_t tempBuf[qrcodegen_BUFFER_LEN_MAX];
 
     bool ok = qrcodegen_encodeText(text, tempBuf, qrcode,
-        qrcodegen_Ecc_LOW, qrcodegen_VERSION_MIN, 10,
+        qrcodegen_Ecc_LOW, qrcodegen_VERSION_MIN, qrcodegen_VERSION_MAX,
         qrcodegen_Mask_AUTO, true);
     JS_FreeCString(ctx, text);
 
@@ -3938,7 +4359,65 @@ static JSValue build_api(JSContext *ctx, ACRuntime *rt, const char *phase) {
     JS_SetPropertyStr(ctx, api, "colon", JS_NewArray(ctx));
     JS_SetPropertyStr(ctx, api, "query", JS_NewObject(ctx));
 
-    // fps (no-op)
+    // Form constructor
+    JS_SetPropertyStr(ctx, api, "Form", JS_NewCFunction2(ctx, js_form_constructor, "Form", 2,
+                      JS_CFUNC_constructor, 0));
+
+    // CUBEL and QUAD geometry constants
+    JS_SetPropertyStr(ctx, api, "CUBEL", build_cubel(ctx));
+    JS_SetPropertyStr(ctx, api, "QUAD", build_quad(ctx));
+
+    // penLock
+    JS_SetPropertyStr(ctx, api, "penLock", JS_NewCFunction(ctx, js_pen_lock, "penLock", 0));
+
+    // get (stub for texture loading — fps.mjs checks if get is available)
+    JS_SetPropertyStr(ctx, api, "get", JS_NULL);
+
+    // setShowClippedWireframes, clearWireframeBuffer, drawBufferedWireframes,
+    // getRenderStats — stubs/no-ops for fps.mjs debug panel
+    JS_SetPropertyStr(ctx, api, "setShowClippedWireframes", JS_NewCFunction(ctx, js_noop, "setShowClippedWireframes", 1));
+    JS_SetPropertyStr(ctx, api, "clearWireframeBuffer", JS_NewCFunction(ctx, js_noop, "clearWireframeBuffer", 0));
+    JS_SetPropertyStr(ctx, api, "drawBufferedWireframes", JS_NewCFunction(ctx, js_noop, "drawBufferedWireframes", 0));
+    JS_SetPropertyStr(ctx, api, "getRenderStats", JS_NewCFunction(ctx, js_noop, "getRenderStats", 0));
+
+    // system.fps — camera and render stats for debug panel
+    {
+        JSValue fps_obj = JS_NewObject(ctx);
+
+        // system.fps.renderStats
+        JSValue rs = JS_NewObject(ctx);
+        JS_SetPropertyStr(ctx, rs, "originalTriangles", JS_NewInt32(ctx, rt->render_stats.originalTriangles));
+        JS_SetPropertyStr(ctx, rs, "clippedTriangles", JS_NewInt32(ctx, rt->render_stats.clippedTriangles));
+        JS_SetPropertyStr(ctx, rs, "subdividedTriangles", JS_NewInt32(ctx, rt->render_stats.subdividedTriangles));
+        JS_SetPropertyStr(ctx, rs, "trianglesRejected", JS_NewInt32(ctx, rt->render_stats.trianglesRejected));
+        JS_SetPropertyStr(ctx, rs, "pixelsDrawn", JS_NewInt32(ctx, rt->render_stats.pixelsDrawn));
+        JS_SetPropertyStr(ctx, rs, "wireframeSegmentsTotal", JS_NewInt32(ctx, rt->render_stats.wireframeSegmentsTotal));
+        JS_SetPropertyStr(ctx, rs, "wireframeSegmentsTextured", JS_NewInt32(ctx, rt->render_stats.wireframeSegmentsTextured));
+        JS_SetPropertyStr(ctx, rs, "wireframeSegmentsGradient", JS_NewInt32(ctx, rt->render_stats.wireframeSegmentsGradient));
+        JS_SetPropertyStr(ctx, fps_obj, "renderStats", rs);
+
+        // system.fps.doll.cam — camera position/rotation for debug
+        JSValue doll = JS_NewObject(ctx);
+        JSValue cam = JS_NewObject(ctx);
+        JS_SetPropertyStr(ctx, cam, "x", JS_NewFloat64(ctx, rt->camera3d.x));
+        JS_SetPropertyStr(ctx, cam, "y", JS_NewFloat64(ctx, rt->camera3d.y));
+        JS_SetPropertyStr(ctx, cam, "z", JS_NewFloat64(ctx, rt->camera3d.z));
+        JS_SetPropertyStr(ctx, cam, "rotX", JS_NewFloat64(ctx, rt->camera3d.rotX));
+        JS_SetPropertyStr(ctx, cam, "rotY", JS_NewFloat64(ctx, rt->camera3d.rotY));
+        JS_SetPropertyStr(ctx, cam, "rotZ", JS_NewFloat64(ctx, rt->camera3d.rotZ));
+        JS_SetPropertyStr(ctx, doll, "cam", cam);
+        JS_SetPropertyStr(ctx, fps_obj, "doll", doll);
+
+        // Attach to system object on api
+        JSValue sys = JS_GetPropertyStr(ctx, api, "system");
+        if (!JS_IsUndefined(sys) && !JS_IsNull(sys))
+            JS_SetPropertyStr(ctx, sys, "fps", fps_obj);
+        else
+            JS_FreeValue(ctx, fps_obj);
+        JS_FreeValue(ctx, sys);
+    }
+
+    // fps (no-op — kept for non-3D pieces)
     JS_SetPropertyStr(ctx, api, "fps", JS_NewCFunction(ctx, js_noop, "fps", 1));
 
     // hud
@@ -4242,10 +4721,20 @@ void js_call_paint(ACRuntime *rt) {
 }
 
 void js_call_act(ACRuntime *rt) {
-    if (!JS_IsFunction(rt->ctx, rt->act_fn)) return;
     current_rt = rt;
 
+    // Track key held state for FPS camera (process even without act_fn)
     ACInput *input = rt->input;
+    for (int i = 0; i < input->event_count; i++) {
+        ACEvent *ev = &input->events[i];
+        if (ev->type == AC_EVENT_KEYBOARD_DOWN && ev->key_code > 0 && ev->key_code < KEY_MAX)
+            rt->keys_held[ev->key_code] = 1;
+        else if (ev->type == AC_EVENT_KEYBOARD_UP && ev->key_code > 0 && ev->key_code < KEY_MAX)
+            rt->keys_held[ev->key_code] = 0;
+    }
+
+    if (!JS_IsFunction(rt->ctx, rt->act_fn)) return;
+
     for (int i = 0; i < input->event_count; i++) {
         JSValue api = build_api(rt->ctx, rt, "act");
         JSValue event = make_event_object(rt->ctx, &input->events[i]);
@@ -4270,8 +4759,24 @@ void js_call_act(ACRuntime *rt) {
 }
 
 void js_call_sim(ACRuntime *rt) {
-    if (!JS_IsFunction(rt->ctx, rt->sim_fn)) return;
     current_rt = rt;
+
+    // Update FPS camera from key state + trackpad delta
+    if (rt->pen_locked && rt->fps_system_active) {
+        camera3d_update(&rt->camera3d,
+            rt->keys_held[KEY_W],
+            rt->keys_held[KEY_S],
+            rt->keys_held[KEY_A],
+            rt->keys_held[KEY_D],
+            rt->keys_held[KEY_SPACE],
+            rt->keys_held[KEY_LEFTSHIFT],
+            (float)(rt->input ? rt->input->delta_x : 0),
+            (float)(rt->input ? rt->input->delta_y : 0));
+        // Consume trackpad delta
+        if (rt->input) { rt->input->delta_x = 0; rt->input->delta_y = 0; }
+    }
+
+    if (!JS_IsFunction(rt->ctx, rt->sim_fn)) return;
     rt->sim_count++;
     JSValue api = build_api(rt->ctx, rt, "sim");
     JSValue result = JS_Call(rt->ctx, rt->sim_fn, JS_UNDEFINED, 1, &api);
@@ -4327,6 +4832,7 @@ void js_destroy(ACRuntime *rt) {
     JS_FreeValue(rt->ctx, rt->beat_fn);
     ws_destroy(rt->ws);
     udp_destroy(rt->udp);
+    depth_destroy(rt->depth_buf);
     JS_FreeContext(rt->ctx);
     JS_FreeRuntime(rt->rt);
     free(rt);

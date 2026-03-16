@@ -531,35 +531,24 @@ int pty_spawn(ACPty *pty, int cols, int rows, const char *cmd, char *const argv[
     if (pid == 0) {
         // Child process
         setenv("TERM", "xterm-256color", 1);
-        setenv("HOME", "/tmp", 0);
+        setenv("HOME", "/tmp", 1);  // force HOME=/tmp (credentials are here)
         setenv("LANG", "en_US.UTF-8", 1);
         setenv("PATH", "/bin:/sbin:/usr/bin:/usr/sbin", 0);
-        // Claude Code: trick it into calling xdg-open for browser OAuth
-        // Claude checks DISPLAY or WAYLAND_DISPLAY before opening browser
-        setenv("BROWSER", "/bin/xdg-open", 1);
-        setenv("DISPLAY", ":0", 1);  // fake X display so Claude calls xdg-open
-        setenv("WAYLAND_DISPLAY", "wayland-0", 1);  // also set Wayland
         setenv("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1", 1);
-        // Ensure Claude config directories exist
+        // Claude credentials: both file-based and env var approaches
         mkdir("/tmp/.claude", 0755);
         mkdir("/tmp/.config", 0755);
 
-        // Load Claude OAuth credentials from device auth flow (written by login.mjs)
+        // Set Claude OAuth token from baked file (/claude-token is a plain text file)
         {
-            FILE *cf = fopen("/mnt/claude-credentials.json", "r");
-            if (cf) {
-                char cbuf[8192] = {0};
-                size_t cn = fread(cbuf, 1, sizeof(cbuf) - 1, cf);
-                fclose(cf);
-                cbuf[cn] = '\0';
-                // Write to ~/.claude/.credentials.json (where Claude Code reads from)
-                mkdir("/tmp/.claude", 0755);
-                FILE *out = fopen("/tmp/.claude/.credentials.json", "w");
-                if (out) {
-                    fwrite(cbuf, 1, cn, out);
-                    fclose(out);
-                    ac_log("[pty] Loaded Claude credentials from /mnt/claude-credentials.json\n");
+            FILE *tf = fopen("/claude-token", "r");
+            if (tf) {
+                char token[256] = {0};
+                if (fgets(token, sizeof(token), tf)) {
+                    token[strcspn(token, "\r\n")] = '\0';
+                    if (token[0]) setenv("CLAUDE_CODE_OAUTH_TOKEN", token, 1);
                 }
+                fclose(tf);
             }
         }
         execvp(cmd, argv);
