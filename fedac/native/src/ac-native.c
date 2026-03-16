@@ -1433,24 +1433,67 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
                              (screen->width - sw) / 2, screen->height / 2 + 10, 1);
         }
 
-        // Auth badges (bottom-left): crab = Claude, octopus = GitHub
+        // Auth badges (bottom-left): pixel crab = Claude, pixel octocat = GitHub
         if (f > 60 && alpha > 80) {
-            int badge_x = 8;
-            int badge_y = screen->height - 20;
+            int badge_x = 6;
+            int badge_y = screen->height - 22;
             double badge_t = (double)(f - 60) / 40.0;
             if (badge_t > 1.0) badge_t = 1.0;
-            int badge_alpha = (int)(200.0 * badge_t);
-            // Claude token (crab emoji representation)
+            int ba = (int)(220.0 * badge_t); // badge alpha
+
+            // 11x9 pixel crab (Claude/Anthropic)
             if (access("/claude-token", F_OK) == 0 || getenv("CLAUDE_CODE_OAUTH_TOKEN")) {
-                graph_ink(graph, (ACColor){255, 140, 60, (uint8_t)badge_alpha});
-                font_draw_matrix(graph, "claude", badge_x, badge_y, 1);
-                badge_x += font_measure_matrix("claude", 1) + 6;
+                static const char crab[9][12] = {
+                    " .       . ",
+                    "  .     .  ",
+                    " ..##.##.. ",
+                    ".# #### #.",
+                    ". ####### .",
+                    "  #######  ",
+                    "  ## . ##  ",
+                    "  .     .  ",
+                    " .       . ",
+                };
+                for (int cy = 0; cy < 9; cy++)
+                    for (int cx = 0; cx < 11; cx++) {
+                        char c = crab[cy][cx];
+                        if (c == '#')
+                            graph_ink(graph, (ACColor){255, 120, 50, (uint8_t)ba});
+                        else if (c == '.')
+                            graph_ink(graph, (ACColor){200, 90, 30, (uint8_t)(ba*2/3)});
+                        else continue;
+                        graph_box(graph, badge_x + cx*2, badge_y + cy*2, 2, 2, 1);
+                    }
+                badge_x += 28;
             }
-            // GitHub token (octocat)
+            // 11x11 pixel octocat (GitHub)
             if (access("/github-pat", F_OK) == 0 || getenv("GH_TOKEN")) {
-                graph_ink(graph, (ACColor){140, 180, 255, (uint8_t)badge_alpha});
-                font_draw_matrix(graph, "github", badge_x, badge_y, 1);
-                badge_x += font_measure_matrix("github", 1) + 6;
+                static const char octo[11][12] = {
+                    "   .###.   ",
+                    "  #######  ",
+                    " ## o#o ## ",
+                    " ######### ",
+                    " ## ### ## ",
+                    "  #######  ",
+                    "   #####   ",
+                    "  .# . #.  ",
+                    " .#  .  #. ",
+                    " .   .   . ",
+                    ".    .    .",
+                };
+                for (int cy = 0; cy < 11; cy++)
+                    for (int cx = 0; cx < 11; cx++) {
+                        char c = octo[cy][cx];
+                        if (c == '#')
+                            graph_ink(graph, (ACColor){180, 210, 255, (uint8_t)ba});
+                        else if (c == 'o')
+                            graph_ink(graph, (ACColor){60, 80, 120, (uint8_t)ba});
+                        else if (c == '.')
+                            graph_ink(graph, (ACColor){120, 150, 200, (uint8_t)(ba*2/3)});
+                        else continue;
+                        graph_box(graph, badge_x + cx*2, badge_y + cy*2, 2, 2, 1);
+                    }
+                badge_x += 28;
             }
         }
 
