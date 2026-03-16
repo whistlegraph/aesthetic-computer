@@ -1,0 +1,759 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === JS SYNTAX COLORS ===
+\definecolor{jskw}{RGB}{119,51,170}
+\definecolor{jsfn}{RGB}{0,136,170}
+\definecolor{jsstr}{RGB}{170,120,0}
+\definecolor{jsnum}{RGB}{204,0,102}
+\definecolor{jscmt}{RGB}{102,102,102}
+
+% === PROCESSING SYNTAX COLORS ===
+\definecolor{pjkw}{RGB}{204,102,0}
+\definecolor{pjfn}{RGB}{0,102,153}
+\definecolor{pjcmt}{RGB}{102,102,102}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={Jeffrey Alan Scudder},
+  pdftitle={De setup() a boot(): Processing en el núcleo de la API de piezas},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\titleformat{\subsubsection}
+  {\normalfont\itshape\small}
+  {\thesubsubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsubsection}{0pt}{0.6em}{0.1em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{draftcolor}\textit{Borrador de trabajo --- no citar}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% === LISTINGS ===
+\lstdefinelanguage{processing}{
+  morekeywords=[1]{void,int,float,boolean,color,String,class,new,if,else,for,while,return,public,private,extends,import},
+  morekeywords=[2]{setup,draw,mousePressed,mouseDragged,keyPressed,size,background,stroke,noStroke,fill,noFill,line,rect,ellipse,point,triangle,beginShape,endShape,vertex,translate,rotate,scale,pushMatrix,popMatrix,frameRate,width,height,mouseX,mouseY,pmouseX,pmouseY,key,keyCode,mouseButton,frameCount},
+  sensitive=true,
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]",
+}
+
+\lstdefinelanguage{p5js}{
+  morekeywords=[1]{function,let,const,var,if,else,for,while,return,new,class,export},
+  morekeywords=[2]{setup,draw,mousePressed,mouseDragged,keyPressed,createCanvas,background,stroke,noStroke,fill,noFill,line,rect,ellipse,point,triangle,beginShape,endShape,vertex,translate,rotate,scale,push,pop,frameRate,width,height,mouseX,mouseY,pmouseX,pmouseY,key,keyCode,mouseButton,frameCount,createGraphics,random,noise,map,constrain,dist,lerp},
+  sensitive=true,
+  morecomment=[l]{//},
+  morestring=[b]",
+  morestring=[b]',
+  morestring=[b]`,
+}
+
+\lstdefinelanguage{acjs}{
+  morekeywords=[1]{function,export,const,let,var,return,if,else,new,async,await,import,from,for},
+  morekeywords=[2]{wipe,ink,line,box,circle,write,screen,params,colon,jump,send,store,net,sound,speaker,pen,event,boot,paint,act,sim,leave,paste,plot,poly,flood,form,cursor,handle,num,geo,ui},
+  sensitive=true,
+  morecomment=[l]{//},
+  morestring=[b]",
+  morestring=[b]',
+  morestring=[b]`,
+}
+
+\lstdefinestyle{processingstyle}{
+  language=processing,
+  keywordstyle=[1]\color{pjkw}\bfseries,
+  keywordstyle=[2]\color{pjfn}\bfseries,
+  commentstyle=\color{pjcmt}\itshape,
+  stringstyle=\color{jsstr},
+}
+
+\lstdefinestyle{p5style}{
+  language=p5js,
+  keywordstyle=[1]\color{jskw}\bfseries,
+  keywordstyle=[2]\color{pjfn}\bfseries,
+  commentstyle=\color{jscmt}\itshape,
+  stringstyle=\color{jsstr},
+}
+
+\lstdefinestyle{acjsstyle}{
+  language=acjs,
+  keywordstyle=[1]\color{jskw}\bfseries,
+  keywordstyle=[2]\color{jsfn}\bfseries,
+  commentstyle=\color{jscmt}\itshape,
+  stringstyle=\color{jsstr},
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{acgray!30},
+  backgroundcolor=\color{acgray!5},
+  xleftmargin=0.5em,
+  xrightmargin=0.5em,
+  aboveskip=0.5em,
+  belowskip=0.5em,
+  numbers=none,
+  tabsize=2,
+}
+
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic Computer}}
+
+\begin{document}
+
+% ============ TITLE BLOCK ============
+
+\twocolumn[{%
+\begin{center}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} De \texttt{setup()} a \texttt{boot()}}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Processing en el núcleo de la API de piezas}\par
+\vspace{0.6em}
+{\normalsize Jeffrey Alan Scudder}\par
+{\small\color{acgray} Aesthetic Inc.}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{draftcolor}\textbf{[ borrador de trabajo --- no citar ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Resumen.}
+Cada plataforma de programación creativa define una API central---un pequeño conjunto de funciones a través del cual los programas ven el mundo y dibujan en él. El modelo \texttt{setup()}/\texttt{draw()} de Processing con primitivas de dibujo globales (\texttt{background()}, \texttt{stroke()}, \texttt{ellipse()}) estableció un patrón en 2001 que ha moldeado dos décadas de herramientas de programación creativa. p5.js llevó este modelo al navegador en 2014, preservando la superficie de la API mientras se adaptaba a JavaScript y el DOM. \ac{} (AC), iniciado en 2021, lleva el pensamiento de Processing en su núcleo mientras extiende el modelo de varias maneras estructurales: expande el ciclo de vida de dos funciones a cinco (\texttt{boot}, \texttt{paint}, \texttt{act}, \texttt{sim}, \texttt{leave}), elimina el estado global a favor de la inyección de API por desestructuración, separa la simulación del renderizado a diferentes tasas de tick, y hace que cada programa sea direccionable por URL sin paso de compilación. Este artículo traza cómo las ideas de Processing viven dentro de la API de piezas de AC, comparando los modelos de ciclo de vida, primitivas de dibujo, manejo de entrada y estrategias de gestión de estado entre Design By Numbers, Processing, p5.js y AC. Sostenemos que el diseño de la API de AC---con el modelo de gráficos en modo inmediato de Processing como fundamento---extiende la metáfora del \emph{cuaderno de bocetos} (escribir, ejecutar, descartar) hacia una metáfora de \emph{instrumento} (arrancar, tocar, practicar, regresar).
+\end{quote}
+\vspace{0.5em}
+}]
+
+% ============ 1. INTRODUCCIÓN ============
+
+\section{Introducción}
+
+La historia de las APIs de programación creativa es una historia de decidir qué debe decir primero el programador. En Design By Numbers~\citep{maeda2001dbn}, la primera instrucción era una coordenada y un valor de escala de grises: \texttt{Paper 50}. En Processing~\citep{reas2003processing}, era \texttt{size(200, 200)} dentro de \texttt{setup()}. En p5.js~\citep{mccarthy2015p5js}, era \texttt{createCanvas(400, 400)}. En \ac{}, el programador no dice nada sobre el lienzo---el entorno de ejecución proporciona \texttt{screen.width} y \texttt{screen.height} como hechos dados, y la primera instrucción significativa es típicamente \texttt{wipe()}, limpiando la pantalla para comenzar a pintar.
+
+Estas no son diferencias arbitrarias. Cada una refleja una decisión sobre lo que la plataforma asume versus lo que el programador debe especificar, y estas decisiones se acumulan en relaciones fundamentalmente diferentes entre autor y máquina. Este artículo traza el linaje de la API desde Processing a través de p5.js hasta AC, examinando cada transición como un conjunto de movimientos de diseño: qué se mantuvo, qué se cambió y qué implica el cambio.
+
+La contribución es triple: (1) una comparación técnica detallada de los modelos de ciclo de vida, APIs de dibujo, sistemas de entrada y estrategias de gestión de estado de Processing, p5.js y AC; (2) un análisis de la justificación de diseño detrás de las desviaciones de AC del modelo de Processing; y (3) un argumento de que la API de piezas de AC encarna un cambio de la metáfora del cuaderno de bocetos a lo que llamamos la \emph{metáfora del instrumento}---un modelo donde la relación entre programador y programa es continua, performativa y basada en la práctica en lugar de exploratoria y desechable.
+
+% ============ 2. EL MODELO DE PROCESSING ============
+
+\section{El modelo de Processing (2001)}
+\label{sec:processing}
+
+Processing~\citep{reas2007processing} fue diseñado como un ``cuaderno de bocetos de software'' para artistas visuales. Su API se centra en dos funciones de ciclo de vida y una biblioteca de primitivas de dibujo globales.
+
+\subsection{Ciclo de vida: \texttt{setup()} y \texttt{draw()}}
+
+\begin{lstlisting}[style=processingstyle,caption={Sketch mínimo de Processing.}]
+void setup() {
+  size(400, 400);
+  background(0);
+}
+
+void draw() {
+  stroke(255);
+  ellipse(mouseX, mouseY, 20, 20);
+}
+\end{lstlisting}
+
+\texttt{setup()} se ejecuta una vez; \texttt{draw()} se ejecuta cada fotograma a 60fps por defecto. Este modelo de dos funciones es la decisión de diseño más influyente de Processing. Reduce la carga cognitiva de la animación de gestionar un bucle de renderizado a rellenar dos espacios en blanco: ``¿qué sucede una vez?'' y ``¿qué sucede cada fotograma?''
+
+El modelo es deliberadamente mínimo. No hay una función explícita de \texttt{input()}---el estado del ratón y teclado está disponible como variables globales (\texttt{mouseX}, \texttt{mouseY}, \texttt{key}, \texttt{keyCode}) que se actualizan automáticamente. Los callbacks de eventos (\texttt{mousePressed()}, \texttt{keyPressed()}) existen pero son suplementos opcionales, no puntos de entrada requeridos.
+
+\subsection{Primitivas de dibujo}
+
+La API de dibujo de Processing usa un modelo de \emph{pipeline con estado} heredado de PostScript y OpenGL: las llamadas de configuración de estado (\texttt{stroke()}, \texttt{fill()}, \texttt{strokeWeight()}) modifican un contexto gráfico persistente, y las llamadas de forma (\texttt{ellipse()}, \texttt{rect()}, \texttt{line()}) renderizan usando ese contexto. El contexto persiste entre fotogramas a menos que se reinicie explícitamente.
+
+\begin{lstlisting}[style=processingstyle,caption={Contexto de dibujo con estado.}]
+void draw() {
+  fill(255, 0, 0);     // Establecer relleno: rojo
+  stroke(0);            // Establecer trazo: negro
+  strokeWeight(3);      // Establecer grosor: 3px
+  ellipse(100, 100, 50, 50);  // Usa lo anterior
+  rect(200, 100, 50, 50);     // También usa lo anterior
+  // El estado persiste al siguiente fotograma
+}
+\end{lstlisting}
+
+Esta persistencia de estado es tanto poderosa (menos código para estilos uniformes) como propensa a errores (estados olvidados se filtran entre fotogramas). Processing aborda esto con \texttt{pushStyle()}/\texttt{popStyle()} y \texttt{pushMatrix()}/\texttt{popMatrix()}, pero estas son herramientas de nivel experto.
+
+\subsection{Ámbito global}
+
+Todos los programas de Processing comparten un único espacio de nombres global. Las variables declaradas fuera de \texttt{setup()} y \texttt{draw()} son accesibles en todas partes. Las funciones de dibujo (\texttt{line()}, \texttt{ellipse()}, \texttt{background()}) son globales. Las variables de entrada (\texttt{mouseX}, \texttt{mouseY}) son globales. Esto elimina la necesidad de entender ámbito, importaciones o inyección de dependencias---crítico para principiantes---pero hace que los programas sean imposibles de componer o aislar.
+
+% ============ 3. LA TRANSICIÓN A P5.JS ============
+
+\section{La transición a p5.js (2014)}
+\label{sec:p5js}
+
+p5.js~\citep{mccarthy2015p5js} es una reimplementación en JavaScript de Processing. Su contribución principal es llevar el modelo de Processing al navegador, pero la portación requirió varias adaptaciones.
+
+\subsection{Preservación del ciclo de vida}
+
+\begin{lstlisting}[style=p5style,caption={Sketch mínimo de p5.js.}]
+function setup() {
+  createCanvas(400, 400);
+}
+
+function draw() {
+  background(220);
+  ellipse(mouseX, mouseY, 50, 50);
+}
+\end{lstlisting}
+
+El modelo \texttt{setup()}/\texttt{draw()} se preserva exactamente. El modelo cognitivo es idéntico: dos funciones, primitivas de dibujo globales, bucle de animación automático. Esta continuidad es deliberada---p5.js busca ser Processing para la web, no un nuevo lenguaje.
+
+\subsection{Creación del lienzo}
+
+El cambio más visible es \texttt{createCanvas()} reemplazando a \texttt{size()}. Esto no es cosmético: en Processing, \texttt{size()} configura la ventana de la aplicación; en p5.js, \texttt{createCanvas()} crea un elemento HTML \texttt{<canvas>} dentro del DOM. El sketch debe negociar con la página existente en lugar de poseer toda la pantalla.
+
+\subsection{Modo instancia}
+
+p5.js introduce una importante vía de escape del espacio de nombres global: el \emph{modo instancia}.
+
+\begin{lstlisting}[style=p5style,caption={Modo instancia de p5.js.}]
+const sketch = (p) => {
+  p.setup = () => {
+    p.createCanvas(400, 400);
+  };
+  p.draw = () => {
+    p.background(220);
+    p.ellipse(p.mouseX, p.mouseY, 50, 50);
+  };
+};
+new p5(sketch);
+\end{lstlisting}
+
+El modo instancia envuelve todas las funciones de la API detrás de un espacio de nombres (\texttt{p.}), permitiendo múltiples sketches en una página y evitando la contaminación global. Sin embargo, la mayor parte del código p5.js se escribe en modo global, y el modo instancia típicamente se encuentra solo al incrustar sketches en aplicaciones más grandes. La notación de prefijo (\texttt{p.ellipse} vs.\ \texttt{ellipse}) aumenta la verbosidad y reduce la cualidad de ``simplemente escribir'' que hace invitador a Processing.
+
+\subsection{Qué cambió, qué no}
+
+p5.js preservó: el ciclo de vida de dos funciones, primitivas de dibujo globales, contexto gráfico con estado, animación basada en fotogramas y la identidad de ``sketch''. Adaptó: la creación del lienzo al DOM, selección de renderizador (2D/WebGL), manejo de eventos a eventos del navegador, y añadió modo instancia para composición. No abordó: la confusión de simulación y renderizado, la falta de manejo de entrada estructurado, ni el problema de aislamiento de archivo único.
+
+% ============ 4. LA API DE PIEZAS DE AC ============
+
+\section{La API de piezas de AC (2021--)}
+\label{sec:ac}
+
+La API de piezas de \ac{}~\citep{scudder2026ac} está construida sobre las ideas centrales de Processing---gráficos en modo inmediato, programas de archivo único, funciones de ciclo de vida---y las extiende alrededor de cinco preocupaciones en lugar de dos.
+
+\subsection{Cinco funciones de ciclo de vida}
+
+\begin{lstlisting}[style=acjsstyle,caption={Pieza mínima de AC.}]
+function boot({ screen, params }) {
+  // Se ejecuta una vez al cargar
+}
+
+function paint({ wipe, ink, line, screen }) {
+  wipe("navy");
+  ink("pink").circle(
+    screen.width / 2,
+    screen.height / 2,
+    50
+  );
+}
+
+function act({ event: e }) {
+  if (e.is("keyboard:down:space")) {
+    // Manejar barra espaciadora
+  }
+}
+
+function sim() {
+  // Actualizar estado a 120fps
+}
+
+export { boot, paint, act, sim };
+\end{lstlisting}
+
+Las cinco funciones son:
+
+\begin{itemize}
+  \item \texttt{boot(\$api)} --- se ejecuta una vez cuando la pieza carga. Extiende \texttt{setup()} de Processing, con la pantalla proporcionada por el entorno de ejecución en lugar de configurada por el programador.
+  \item \texttt{paint(\$api)} --- se ejecuta cada fotograma que necesita renderizado. Continúa el modelo de modo inmediato de \texttt{draw()}, pero es puramente visual: sin lógica, sin mutación de estado (por convención).
+  \item \texttt{act(\$api)} --- se llama una vez por evento de entrada. Consolida los callbacks de eventos de Processing (\texttt{mousePressed()}, \texttt{keyPressed()}) en un único punto de entrada unificado.
+  \item \texttt{sim(\$api)} --- se ejecuta a 120Hz fijos, potencialmente múltiples veces por fotograma renderizado. No tiene equivalente en Processing; el análogo más cercano es el bucle de paso temporal fijo~\citep{nystrom2014game}.
+  \item \texttt{leave(\$api)} --- limpieza al salir. Sin equivalente en Processing, donde los sketches simplemente terminan.
+\end{itemize}
+
+Cada función es opcional. Una pieza que exporta solo \texttt{paint} es un programa válido y funcional.
+
+\subsection{Inyección de API mediante desestructuración}
+
+La extensión estructuralmente más significativa del modelo de Processing es que \textbf{ninguna función de la API existe en el ámbito global}. Cada función que la pieza usa se recibe como parámetro:
+
+\begin{lstlisting}[style=acjsstyle,caption={Desestructuración de API en AC.}]
+function paint({ wipe, ink, line, box,
+                 circle, screen, num }) {
+  wipe(0, 0, 30);
+  ink(255, 100, 180);
+  const cx = num.lerp(0, screen.width, 0.5);
+  circle(cx, screen.height / 2, 40);
+}
+\end{lstlisting}
+
+Este diseño tiene varias consecuencias:
+
+\begin{enumerate}
+  \item \textbf{Sin contaminación global.} Las variables a nivel de módulo son estado de la pieza; las funciones de API son parámetros. No hay espacio de nombres ambiental con el que colisionar.
+  \item \textbf{Importaciones auto-documentadas.} El patrón de desestructuración al inicio de cada función declara exactamente qué superficies de API usa la función, sirviendo como un manifiesto de dependencias en línea.
+  \item \textbf{Componibilidad.} Múltiples piezas pueden coexistir en el mismo contexto JavaScript sin colisiones de API, habilitando los mecanismos de cambio e incrustación de piezas de la plataforma.
+  \item \textbf{Descubribilidad.} El autocompletado en editores funciona sobre el objeto de parámetro desestructurado, proporcionando una forma natural de explorar la API.
+\end{enumerate}
+
+Este es el patrón del modo instancia de p5.js llevado a su conclusión: en lugar de prefijar cada llamada con \texttt{p.}, el programador desestructura exactamente las funciones que necesita, una vez, en la firma de la función.
+
+\subsection{Separación de simulación y renderizado}
+\label{sec:simsep}
+
+El \texttt{draw()} de Processing mezcla dos preocupaciones: actualizar estado y renderizar píxeles. Esto funciona para sketches simples pero crea problemas a medida que la complejidad crece: simulaciones de física atadas a la tasa de fotogramas, latencia de entrada acoplada al costo de renderizado, y dificultad para separar ``qué sucedió'' de ``cómo se ve.''
+
+AC separa esto explícitamente:
+
+\begin{itemize}
+  \item \texttt{sim()} se ejecuta a 120Hz fijos, independiente de la tasa de refresco de la pantalla. En una pantalla de 60Hz, \texttt{sim()} se ejecuta dos veces por cada llamada a \texttt{paint()}. En una pantalla de 144Hz, la proporción se ajusta correspondientemente.
+  \item \texttt{paint()} se ejecuta a la tasa de refresco de la pantalla (limitada a aproximadamente 165fps), y es responsable solo de renderizar el estado actual.
+  \item \texttt{act()} se ejecuta una vez por evento de entrada, inmediatamente cuando el evento llega.
+\end{itemize}
+
+Esta división tripartita refleja la arquitectura de los motores de juego modernos~\citep{nystrom2014game}: un tick de actualización fijo para lógica determinista, un tick de renderizado variable para visualización suave, y una cola de eventos para entrada. La diferencia es que AC expone esta arquitectura como una API de primera clase en lugar de ocultarla detrás de un framework.
+
+\subsection{Manejo de eventos unificado}
+
+Processing distribuye el manejo de entrada entre variables globales y callbacks opcionales:
+
+\begin{lstlisting}[style=processingstyle]
+// Processing: modelo de entrada disperso
+void draw() {
+  if (mousePressed) { /* consultar estado */ }
+}
+void mousePressed() { /* callback */ }
+void keyPressed()   { /* callback */ }
+void mouseDragged() { /* callback */ }
+\end{lstlisting}
+
+AC consolida toda la entrada en \texttt{act()} con un sistema de coincidencia de eventos basado en cadenas:
+
+\begin{lstlisting}[style=acjsstyle]
+function act({ event: e, pen }) {
+  if (e.is("touch"))              { }
+  if (e.is("draw"))               { }
+  if (e.is("lift"))               { }
+  if (e.is("keyboard:down:a"))    { }
+  if (e.is("keyboard:down:space")){ }
+  if (e.is("gamepad:a"))          { }
+  if (e.is("reframed"))           { }
+}
+\end{lstlisting}
+
+El patrón \texttt{event.is()} proporciona una interfaz uniforme entre modalidades de entrada (táctil, ratón, teclado, gamepad, MIDI, seguimiento de manos) a través de una única función. Las cadenas de eventos son jerárquicas (\texttt{keyboard:down:a}) y pueden coincidir a cualquier nivel de especificidad. Esto reemplaza la explosión combinatoria de callbacks de Processing con un flujo único y filtrable.
+
+\subsection{Primitivas de dibujo: sin estado por defecto}
+
+Processing y p5.js usan un contexto gráfico con estado donde las llamadas a \texttt{fill()}, \texttt{stroke()} y transformaciones persisten hasta que se cambian explícitamente. AC invierte esto: la función \texttt{ink()} establece el color para la llamada de dibujo \emph{inmediatamente siguiente} y devuelve el objeto API para encadenamiento:
+
+\begin{lstlisting}[style=acjsstyle]
+function paint({ wipe, ink, line, circle }) {
+  wipe("black");
+  ink("red").circle(50, 50, 20);
+  ink("blue").line(0, 0, 100, 100);
+  // Sin filtración de estado entre llamadas
+}
+\end{lstlisting}
+
+El patrón de retorno-y-encadenamiento de \texttt{ink()} hace que los pares color-forma sean visualmente atómicos: cada operación de dibujo es una expresión autocontenida en lugar de una secuencia de mutaciones de contexto. Esto elimina la clase de errores donde llamadas olvidadas a \texttt{fill()} o \texttt{stroke()} de un fotograma anterior (o una función anterior) se filtran en dibujos no relacionados.
+
+La función \texttt{wipe()} reemplaza \texttt{background()} de Processing, usando un verbo más corto y activo. Esta denominación es deliberada: ``wipe'' sugiere una acción física (borrar una superficie) en lugar de establecer una propiedad.
+
+\subsection{Sin configuración de lienzo}
+
+En Processing, la primera línea de \texttt{setup()} es típicamente \texttt{size(w, h)}. En p5.js, es \texttt{createCanvas(w, h)}. En AC, no hay una llamada equivalente. El entorno de ejecución proporciona el lienzo a la resolución nativa del dispositivo, y las piezas reciben \texttt{screen.width} y \texttt{screen.height} como propiedades de solo lectura.
+
+Esto refleja una filosofía de diseño móvil-primero: en teléfonos y tabletas, el tamaño de lienzo ``correcto'' es la pantalla del dispositivo. Permitir al programador especificar dimensiones crea un desajuste entre el lienzo fijo y el viewport variable. AC elimina este desajuste haciendo que el lienzo sea responsivo por defecto.
+
+% ============ 5. COMPARACIÓN DE SUPERFICIES DE API ============
+
+\section{Comparación de superficies de API}
+\label{sec:comparison}
+
+La Tabla~\ref{tab:lifecycle} compara los modelos de ciclo de vida. La Tabla~\ref{tab:drawing} compara las primitivas de dibujo.
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{lXXX}
+\toprule
+ & \textbf{Processing} & \textbf{p5.js} & \textbf{AC} \\
+\midrule
+Inicio & \texttt{setup()} & \texttt{setup()} & \texttt{boot(\$)} \\
+Renderizado & \texttt{draw()} & \texttt{draw()} & \texttt{paint(\$)} \\
+Lógica & (en draw) & (en draw) & \texttt{sim(\$)} \\
+Entrada & callbacks & callbacks & \texttt{act(\$)} \\
+Limpieza & --- & \texttt{remove()} & \texttt{leave(\$)} \\
+\midrule
+Tasa render & 60fps & 60fps & Hz de pantalla \\
+Tasa lógica & 60fps & 60fps & 120fps fijo \\
+Ámbito & global & global/inst. & inyectado \\
+\bottomrule
+\end{tabularx}
+\caption{Comparación de ciclo de vida. \texttt{\$} denota inyección de API por desestructuración.}
+\label{tab:lifecycle}
+\end{table}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{lXX}
+\toprule
+\textbf{Processing/p5} & \textbf{AC} & \textbf{Notas} \\
+\midrule
+\texttt{background()} & \texttt{wipe()} & Verbo, no propiedad \\
+\texttt{fill() + stroke()} & \texttt{ink()} & Unificado, encadenable \\
+\texttt{ellipse()} & \texttt{circle()} & Nombrado por la forma \\
+\texttt{rect()} & \texttt{box()} & Nombre más corto \\
+\texttt{line()} & \texttt{line()} & Sin cambio \\
+\texttt{point()} & \texttt{plot()} & Metáfora de gráfica \\
+\texttt{text()} & \texttt{write()} & Verbo activo \\
+--- & \texttt{flood()} & Rellenar región \\
+--- & \texttt{paste()} & Composición de búfer \\
+--- & \texttt{form()} & Renderizado 3D \\
+\bottomrule
+\end{tabularx}
+\caption{Comparación de primitivas de dibujo.}
+\label{tab:drawing}
+\end{table}
+
+\subsection{Filosofía de nomenclatura}
+
+Los nombres de la API de Processing son sustantivos y adjetivos descriptivos: \texttt{background}, \texttt{ellipse}, \texttt{rect}, \texttt{stroke}, \texttt{fill}. Describen \emph{qué} se está estableciendo o dibujando. Los nombres de AC son verbos activos: \texttt{wipe}, \texttt{ink}, \texttt{plot}, \texttt{write}, \texttt{flood}, \texttt{paste}. Describen \emph{qué está haciendo el programador}---acciones físicas realizadas sobre una superficie.
+
+Este cambio de nomenclatura descriptiva a imperativa se alinea con la metáfora del instrumento: la interfaz de un instrumento se entiende a través de verbos (presionar, soplar, golpear, pulsar), no de sustantivos. La API de AC se lee como una secuencia de acciones: ``limpiar la pantalla, entintar de rosa, dibujar un círculo, escribir texto.''
+
+\subsection{Modelo de color}
+
+Processing usa llamadas separadas \texttt{fill()} y \texttt{stroke()}, cada una aceptando valores RGB, HSB o hexadecimales. La distinción relleno/trazo mapea a gráficos vectoriales (SVG, PostScript) donde las formas tienen color interior y color de borde.
+
+AC usa una única llamada \texttt{ink()} que establece el color para todas las operaciones subsecuentes. No hay distinción relleno/trazo: un \texttt{circle()} se rellena o traza según sus parámetros, no según un contexto ambiental. La función \texttt{ink()} acepta:
+
+\begin{itemize}
+  \item Valores RGB: \texttt{ink(255, 100, 50)}
+  \item Colores con nombre: \texttt{ink("pink")}, \texttt{ink("navy")}
+  \item Escala de grises: \texttt{ink(128)}
+  \item Alfa: \texttt{ink(255, 0, 0, 128)}
+\end{itemize}
+
+Los colores con nombre son una elección de usabilidad significativa para principiantes. Donde Processing requiere \texttt{fill(255, 192, 203)} para rosa, AC acepta \texttt{ink("pink")}. El vocabulario de colores con nombre es intencionalmente pequeño y evocador, más cercano a una caja de pinturas que a un selector de color.
+
+% ============ 6. GESTIÓN DE ESTADO ============
+
+\section{Gestión de estado}
+\label{sec:state}
+
+\subsection{Processing: variables globales}
+
+\begin{lstlisting}[style=processingstyle]
+int x = 100;
+int y = 100;
+
+void draw() {
+  background(0);
+  x += 1;
+  ellipse(x, y, 20, 20);
+}
+\end{lstlisting}
+
+El estado en Processing vive en variables globales. Esto es simple pero tiene problemas bien conocidos: todo el estado es mutable desde cualquier lugar, no hay encapsulación, y el estado del programa es indistinguible del estado de la API.
+
+\subsection{AC: clausuras a nivel de módulo}
+
+\begin{lstlisting}[style=acjsstyle]
+let x = 100;
+let y = 100;
+
+function sim() {
+  x += 1;
+}
+
+function paint({ wipe, ink, circle }) {
+  wipe(0);
+  ink(255).circle(x, y, 20);
+}
+
+export { sim, paint };
+\end{lstlisting}
+
+Las piezas de AC son módulos ES. Las variables declaradas en el ámbito del módulo son privadas de la pieza---invisibles para el entorno de ejecución, otras piezas y el ámbito global. La declaración \texttt{export} hace visibles solo las funciones de ciclo de vida. Esto no es una convención impuesta por documentación; es una garantía del sistema de módulos JavaScript.
+
+La separación de mutación de estado (\texttt{sim}) del renderizado de estado (\texttt{paint}) fomenta una disciplina donde \texttt{paint} es una función pura del estado del módulo---lee variables y dibuja, pero no las modifica. Esto no se impone, pero la estructura de la API lo convierte en el patrón natural.
+
+% ============ 7. LA GENEALOGÍA ============
+
+\section{La genealogía}
+\label{sec:genealogy}
+
+\subsection{Design By Numbers (1999)}
+
+Design By Numbers de Maeda~\citep{maeda2001dbn} introdujo la intuición central: un entorno de programación para salida visual, con la API más simple posible. DBN no tenía bucle de animación---los programas se ejecutaban una vez, de arriba a abajo. El conjunto de primitivas era mínimo: \texttt{Paper} (fondo), \texttt{Pen} (grosor del trazo), \texttt{Line}, \texttt{Set} (píxel) y flujo de control. El lenguaje completo podía aprenderse en una tarde.
+
+AC hereda el minimalismo de DBN en la nomenclatura (verbos cortos y activos) y su convicción de que la API debe ser exhaustivamente aprendible.
+
+\subsection{Processing (2001)}
+
+Processing~\citep{reas2003processing} añadió lo que DBN carecía: animación (bucle \texttt{draw()}), interacción (\texttt{mouseX/Y}) y un conjunto de primitivas más rico. También añadió lo que DBN deliberadamente evitó: estado (el contexto gráfico), una biblioteca estándar (matemáticas, tipografía, carga de imágenes) y un paso de compilación (Java). La mayor innovación de Processing no fue ninguna función individual sino el par \texttt{setup()}/\texttt{draw()}: la expresión más simple posible de animación interactiva.
+
+AC hereda el modelo de funciones de ciclo de vida pero divide \texttt{draw()} en tres preocupaciones (\texttt{paint}, \texttt{sim}, \texttt{act}).
+
+\subsection{p5.js (2014)}
+
+p5.js~\citep{mccarthy2015p5js} llevó Processing al navegador, haciendo que los sketches fueran instantáneamente compartibles vía URL. Esto fue un prerrequisito para AC: el navegador como plataforma creativa. p5.js también introdujo el modo instancia, prefigurando el patrón de inyección de API de AC.
+
+AC hereda la suposición de natividad en el navegador y el principio de compartibilidad (cada pieza es una URL), pero reemplaza el modelo de biblioteca-en-una-página con un entorno de ejecución completo: las piezas no incluyen una etiqueta \texttt{<script>}; son cargadas por la plataforma.
+
+\subsection{openFrameworks (2005)}
+
+openFrameworks~\citep{openframeworks2005} usó un ciclo de vida similar (\texttt{setup()}, \texttt{update()}, \texttt{draw()}) pero en C++, separando la lógica de actualización del renderizado. La división \texttt{sim()}/\texttt{paint()} de AC es más cercana a este modelo que al \texttt{draw()} unificado de Processing.
+
+\subsection{El giro instrumental}
+
+La genealogía puede resumirse como una serie de separaciones:
+
+\begin{enumerate}
+  \item \textbf{DBN}: ejecución única (sin bucle de animación).
+  \item \textbf{Processing}: inicio + renderizado (\texttt{setup} + \texttt{draw}).
+  \item \textbf{openFrameworks}: inicio + actualización + renderizado.
+  \item \textbf{AC}: inicio + entrada + actualización + renderizado + limpieza (\texttt{boot} + \texttt{act} + \texttt{sim} + \texttt{paint} + \texttt{leave}).
+\end{enumerate}
+
+Cada paso separa preocupaciones que antes estaban mezcladas. El modelo de cinco funciones de AC es la descomposición más completa del ciclo de vida de un programa interactivo en puntos de entrada nombrados y de responsabilidad única. El resultado se asemeja al ciclo percepción-acción de la cognición corporizada~\citep{varela1991embodied}: percibir (\texttt{act}), pensar (\texttt{sim}), actuar (\texttt{paint}), y los extremos adicionales de nacimiento (\texttt{boot}) y muerte (\texttt{leave}).
+
+% ============ 8. EJEMPLO PRÁCTICO ============
+
+\section{Ejemplo práctico: una pelota rebotando}
+\label{sec:example}
+
+Para hacer la comparación concreta, implementamos una pelota rebotando en los tres sistemas.
+
+\subsection{Processing}
+
+\begin{lstlisting}[style=processingstyle]
+float x = 200, y = 200;
+float vx = 3, vy = 2;
+
+void setup() {
+  size(400, 400);
+}
+
+void draw() {
+  background(0);
+  x += vx; y += vy;
+  if (x < 0 || x > width) vx *= -1;
+  if (y < 0 || y > height) vy *= -1;
+  fill(255, 100, 180);
+  noStroke();
+  ellipse(x, y, 30, 30);
+}
+\end{lstlisting}
+
+La lógica y el renderizado están entrelazados en \texttt{draw()}. La mutación de estado (\texttt{x += vx}), la comprobación de límites y el dibujo comparten una función.
+
+\subsection{p5.js}
+
+\begin{lstlisting}[style=p5style]
+let x = 200, y = 200;
+let vx = 3, vy = 2;
+
+function setup() {
+  createCanvas(400, 400);
+}
+
+function draw() {
+  background(0);
+  x += vx; y += vy;
+  if (x < 0 || x > width) vx *= -1;
+  if (y < 0 || y > height) vy *= -1;
+  fill(255, 100, 180);
+  noStroke();
+  ellipse(x, y, 30, 30);
+}
+\end{lstlisting}
+
+Estructuralmente idéntico a Processing. Los únicos cambios son sintácticos: \texttt{let} vs.\ \texttt{float}, \texttt{createCanvas} vs.\ \texttt{size}.
+
+\subsection{AC}
+
+\begin{lstlisting}[style=acjsstyle]
+let x, y, vx = 3, vy = 2;
+
+function boot({ screen }) {
+  x = screen.width / 2;
+  y = screen.height / 2;
+}
+
+function sim({ screen }) {
+  x += vx; y += vy;
+  if (x < 0 || x > screen.width) vx *= -1;
+  if (y < 0 || y > screen.height) vy *= -1;
+}
+
+function paint({ wipe, ink, circle }) {
+  wipe(0);
+  ink(255, 100, 180).circle(x, y, 15);
+}
+
+export { boot, sim, paint };
+\end{lstlisting}
+
+Las preocupaciones están separadas: \texttt{boot} inicializa el estado relativo a la pantalla real, \texttt{sim} actualiza la física a 120Hz (asegurando comportamiento consistente a través de diferentes tasas de refresco), y \texttt{paint} renderiza sin modificar estado. La cadena \texttt{ink().circle()} reemplaza tres líneas (\texttt{fill}, \texttt{noStroke}, \texttt{ellipse}).
+
+% ============ 9. JUSTIFICACIÓN DE DISEÑO ============
+
+\section{Justificación de diseño}
+\label{sec:rationale}
+
+\subsection{¿Por qué cinco funciones?}
+
+El modelo de cinco funciones no está motivado por el rigor de la ingeniería de software (``separación de preocupaciones'' como dogma) sino por la metáfora del instrumento. Un instrumento musical tiene fases distintas: lo tomas (boot), escuchas y respondes (act), piensas en lo que viene (sim), tocas (paint) y eventualmente lo guardas (leave). Estos no son momentos intercambiables---no afinas el instrumento mientras actúas, y no actúas mientras lo guardas. Las funciones de ciclo de vida formalizan estas distinciones.
+
+\subsection{¿Por qué inyectar la API?}
+
+Las APIs globales son convenientes para principiantes pero crean una dependencia implícita de la plataforma. Un sketch de Processing no puede entenderse sin saber que \texttt{ellipse()} es una función de Processing, no una función del usuario. El patrón de desestructuración de AC hace la dependencia explícita: si \texttt{circle} aparece en el cuerpo de la función, aparece en la firma de la función. Este es el mismo principio de diseño detrás de las importaciones de módulos ES, aplicado a nivel de función.
+
+El beneficio práctico es la recarga en caliente: como las piezas no capturan referencias globales, el entorno de ejecución puede reemplazar el objeto API entre recargas sin invalidar las clausuras de la pieza.
+
+\subsection{¿Por qué simulación a 120Hz?}
+
+El \texttt{draw()} de Processing se ejecuta a la tasa de la pantalla (típicamente 60fps). Esto significa que las simulaciones de física, la temporización de animaciones y el procesamiento de entrada se ejecutan todos a la misma tasa que la salida de píxeles. En una pantalla de 144Hz, un sketch de Processing se ejecuta 2.4$\times$ más rápido; en una pantalla de 30Hz, se ejecuta a la mitad de velocidad.
+
+AC desacopla la simulación de la pantalla ejecutando \texttt{sim()} a 120Hz fijos. Esto asegura comportamiento determinista: una pelota rebotando se mueve a la misma velocidad independientemente de la tasa de refresco de la pantalla. La tasa de 120Hz fue elegida como múltiplo de tasas de pantalla comunes (60, 120) y un límite superior razonable para la capacidad de respuesta de entrada.
+
+\subsection{¿Por qué sin tamaño de lienzo?}
+
+Requerir \texttt{size()} o \texttt{createCanvas()} asume que el programador conoce (y se preocupa por) la resolución de salida. En escritorio, esto es razonable. En móvil---el objetivo principal de AC---es una fuente de fricción: el tamaño ``correcto'' depende del dispositivo, la orientación y la densidad de píxeles, ninguno de los cuales el programador debería necesitar gestionar. AC proporciona la pantalla como un dado, como un lienzo que ya está estirado y preparado.
+
+% ============ 10. CICLO DE VIDA EXTENDIDO ============
+
+\section{Ciclo de vida extendido}
+\label{sec:extended}
+
+Más allá de las cinco funciones centrales, las piezas de AC pueden exportar hooks de ciclo de vida adicionales:
+
+\begin{itemize}
+  \item \texttt{beat(\$api)} --- se llama una vez por tick del metrónomo. El BPM se establece vía \texttt{sound.bpm}. Esto no tiene equivalente en Processing; refleja la orientación de AC hacia aplicaciones musicales.
+  \item \texttt{preview(\$api)} --- renderiza una imagen en miniatura estática para la pieza. Se usa en listados de piezas y compartición social.
+  \item \texttt{icon(\$api)} --- renderiza un favicon para la pestaña del navegador.
+  \item \texttt{meta()} --- devuelve metadatos \texttt{\{title, desc\}} para etiquetas Open Graph.
+  \item \texttt{receive(event)} --- maneja mensajes de otras piezas o del sistema, habilitando comunicación entre piezas.
+\end{itemize}
+
+La función \texttt{beat()} es particularmente notable. Eleva la temporización rítmica de una característica que el programador debe implementar (vía \texttt{millis()} en Processing) a un evento de ciclo de vida de primera clase. Esta es una declaración a nivel de API de que la música y el ritmo son casos de uso centrales, no añadidos posteriores.
+
+% ============ 11. CONCLUSIÓN ============
+
+\section{Conclusión}
+\label{sec:conclusion}
+
+La intuición central de Processing---que un entorno de programación para trabajo creativo debe proporcionar un ciclo de vida, no solo un lenguaje---vive en el centro de cada pieza de AC. El camino desde \texttt{setup()}/\texttt{draw()} hasta \texttt{boot()}/\texttt{paint()}/\texttt{act()}/\texttt{sim()}/\texttt{leave()} no es una desviación de Processing sino un argumento sobre lo que el modelo de Processing es capaz cuando se extiende más.
+
+Processing demostró que \texttt{setup()} + \texttt{draw()} era suficiente para hacer la animación accesible. La API de piezas de AC argumenta que el mismo enfoque de modo inmediato, impulsado por ciclo de vida---cuando se descompone en cinco funciones en lugar de dos---puede soportar no solo el bocetado sino la \emph{práctica}: volver a la misma pieza, refinarla, actuar con ella, construir fluidez a lo largo del tiempo.
+
+La metáfora del cuaderno de bocetos (escribir, ejecutar, descartar) y la metáfora del instrumento (arrancar, tocar, practicar, regresar) no se oponen. Son puntos en el mismo continuo. Processing mostró que el continuo existe. AC argumenta que se extiende más de lo que pensábamos---que \texttt{setup()} + \texttt{draw()} fue el comienzo de una idea cuya forma completa requiere \texttt{boot} + \texttt{act} + \texttt{sim} + \texttt{paint} + \texttt{leave}.
+
+La API es el instrumento. Processing es su núcleo. Cómo la API descompone el acto de programar determina lo que se crea.
+
+\vspace{0.5em}
+\noindent\textit{Traducido del inglés. Versión original disponible en \url{https://papers.aesthetic.computer}}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

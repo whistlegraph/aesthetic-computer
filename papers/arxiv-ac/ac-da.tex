@@ -1,0 +1,515 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+
+% Custom AC fonts
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multicol}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS (AC palette) ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === KIDLISP SYNTAX COLORS ===
+\definecolor{klfn}{RGB}{0,136,170}
+\definecolor{klform}{RGB}{119,51,170}
+\definecolor{klrepeat}{RGB}{170,0,170}
+\definecolor{klnum}{RGB}{204,0,102}
+\definecolor{klstr}{RGB}{170,120,0}
+\definecolor{klcmt}{RGB}{102,102,102}
+\definecolor{klmath}{RGB}{0,136,0}
+\definecolor{klvar}{RGB}{204,102,0}
+\definecolor{klembed}{RGB}{0,136,0}
+
+% === JS SYNTAX COLORS ===
+\definecolor{jskw}{RGB}{119,51,170}
+\definecolor{jsfn}{RGB}{0,136,170}
+\definecolor{jsstr}{RGB}{170,120,0}
+\definecolor{jsnum}{RGB}{204,0,102}
+\definecolor{jscmt}{RGB}{102,102,102}
+
+% Inline color macros
+\newcommand{\kn}[1]{\textcolor{klnum}{#1}}
+\newcommand{\kt}[1]{\textcolor{klstr}{#1}}
+\newcommand{\kv}[1]{\textcolor{klvar}{#1}}
+\newcommand{\ke}[1]{\textcolor{klembed}{\textbf{#1}}}
+\newcommand{\km}[1]{\textcolor{klmath}{#1}}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={Jeffrey Alan Scudder},
+  pdftitle={Aesthetic Computer '26: En mobil-f\xC3\xB8rst-k\xC3\xB8retid for kreativ computing},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Arbejdsudkast --- ikke til citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === CUSTOM COMMANDS ===
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic Computer}}
+
+% === LISTINGS ===
+\lstdefinelanguage{kidlisp}{
+  morekeywords=[1]{wipe,ink,line,box,circle,write,wiggle,shape,scroll,spin,zoom,blur,contrast,embed,layer,width,height,frame,time,form,trans,cube,move,scale,hop,overtone,melody,mic,resolution,sort,fade,stamp,paste,flood,poly,noise,flip},
+  morekeywords=[2]{def,let,if,cond,once,later,lambda,do},
+  morekeywords=[3]{repeat},
+  morekeywords=[4]{random,sin,cos,tan,floor,ceil,round,abs,sqrt,min,max},
+  sensitive=true,
+  morecomment=[l]{;},
+  morestring=[b]",
+  escapeinside={|}{|},
+}
+
+\lstdefinelanguage{acjs}{
+  morekeywords=[1]{function,export,const,let,var,return,if,else,new,async,await,import,from},
+  morekeywords=[2]{wipe,ink,line,box,circle,write,screen,params,colon,jump,send,store,net,sound,speaker},
+  sensitive=true,
+  morecomment=[l]{//},
+  morestring=[b]",
+  morestring=[b]',
+  morestring=[b]`,
+  escapeinside={|}{|},
+}
+
+\lstdefinestyle{acjsstyle}{
+  language=acjs,
+  keywordstyle=[1]\color{jskw}\bfseries,
+  keywordstyle=[2]\color{jsfn}\bfseries,
+  commentstyle=\color{jscmt}\itshape,
+  stringstyle=\color{jsstr},
+}
+
+\lstdefinestyle{kidlispstyle}{
+  language=kidlisp,
+  keywordstyle=[1]\color{klfn}\bfseries,
+  keywordstyle=[2]\color{klform}\bfseries,
+  keywordstyle=[3]\color{klrepeat}\bfseries,
+  keywordstyle=[4]\color{klmath},
+  commentstyle=\color{klcmt}\itshape,
+  stringstyle=\color{klstr},
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{acgray!30},
+  backgroundcolor=\color{acgray!5},
+  xleftmargin=0.5em,
+  xrightmargin=0.5em,
+  aboveskip=0.5em,
+  belowskip=0.5em,
+}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\begin{document}
+
+% ============ TITLE BLOCK ============
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{24pt}{28pt}\selectfont\color{acdark} Aesthetic\acdot Computer '26}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} En mobil-først-køretid for kreativ computing}\par
+\vspace{0.6em}
+{\normalsize Jeffrey Alan Scudder}\par
+{\small\color{acgray} Aesthetic Inc.}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ arbejdsudkast --- ikke til citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Abstrakt.}
+\ac{} (AC) er en mobil-først-køretid og et socialt netværk for kreativ computing, der kører helt i browseren. Dets primære grænseflade er en tekstprompt---ikke en GUI---hvorigennem brugere navigerer et navnerum af 354 indbyggede interaktive programmer (``pieces'') og 265 bruger-publicerede værker. Hvert piece er en enkelt JavaScript- eller KidLisp-fil, der eksporterer livscyklusfunktioner (boot, paint, act, sim, leave), som modtager en immediate-mode grafik-API. Platformen integrerer social infrastruktur---brugernavne, realtidschat, stemningsopslag, levende profiler---direkte i køretiden frem for at lægge det oven på. Et pack-system samler pieces i selvstændige HTML-filer til offline-distribution. Vi beskriver arkitekturen (63.000 linjer kerne-køretid), piece-modellen, flersproglig understøttelse, publicerings- og distributionsinfrastruktur, og rapporterer adoptionsmetrikker fra 2.801 registrerede brugere. Vi argumenterer for, at behandlingen af programmeringsgrænsefladen som et \emph{musikinstrument}---hvor brugere opdager hukommelsesvenlige stier gennem improvisation---producerer et kvalitativt anderledes forhold til kreativ software.
+\end{quote}
+\vspace{0.5em}
+}]
+
+% ============ 1. INTRODUKTION ============
+
+\section{Introduktion}
+
+Kreative kodningsplatforme har støt sænket barrieren for computationel udtryk. Processing~\citep{reas2007processing} introducerede skitsebogs-metaforen; p5.js~\citep{mccarthy2015p5js} bragte den til browseren; Scratch~\citep{resnick2009scratch} gjorde programmering tilgængelig for børn gennem blokbaseret visuel programmering. Men disse værktøjer deler en fælles antagelse: brugeren interagerer med en \emph{editor}---en kodeeditor, et bloklærred, et IDE.
+
+\ac{} udgår fra en anden præmis. Den primære grænseflade er en \textbf{tekstprompt}---en kommandolinje, hvori brugere skriver korte, hukommelsesvenlige navne for at starte interaktive programmer. Der er ingen filbrowser, intet projektpanel, ingen menulinje. Oplevelsen er tættere på et musikinstrument end et udviklingsmiljø: brugere opdager kommandoer gennem udforskning, opbygger muskelhukommelse gennem gentagelse og improviserer til sidst ved flydende at rekombinere pieces.
+
+Platformen opstod fra observationer under udviklingen af No Paint~(2020), et pixelkunst-værktøj, hvis fællesskab af ikke-tekniske brugere begyndte at bidrage med tilpassede pensler og stempler. Den manuelle integrationsproces---timer eller dage per bidrag---motiverede opbygningen af et system, hvor alle kunne publicere interaktive programmer øjeblikkeligt. Udviklingen begyndte i 2021, og det nuværende repository spænder over 11.045 commits fra december 2022 til marts 2026.
+
+Denne artikel beskriver designprincipperne~(\S\ref{sec:principles}), systemarkitekturen~(\S\ref{sec:architecture}), piece-modellen~(\S\ref{sec:pieces}), den flersproglige køretid~(\S\ref{sec:languages}), prompt-grænsefladen~(\S\ref{sec:prompt}), den sociale infrastruktur~(\S\ref{sec:social}), publicering og distribution~(\S\ref{sec:publishing}), udviklingshistorien~(\S\ref{sec:history}) og adoption~(\S\ref{sec:evaluation}). Den ledsagende artikel~\citep{scudder2026kidlisp} dækker KidLisp-sproget i detaljer.
+
+% ============ 2. DESIGNPRINCIPPER ============
+
+\section{Designprincipper}
+\label{sec:principles}
+
+\begin{enumerate}
+  \item \textbf{Instrument, ikke IDE.} Grænsefladen er designet til at fungere som et musikinstrument, hvorpå brugere opdager deres egne hukommelsesvenlige stier gennem netværket af kommandoer og publicerede pieces. Efterhånden som færdigheden vokser gennem leg, improviserer brugere, rekombinerer og udvider deres repertoire.
+  \item \textbf{Mobil-først.} Enhver interaktion er rettet mod berøringsinput på telefoner og tablets. Desktop-understøttelse følger naturligt; det omvendte holder ikke.
+  \item \textbf{URL-adresserbar.} Hvert piece, hver parameterkombination, enhver brugers værk er en URL. Deling er navigation; navigation er deling.
+  \item \textbf{Enkelt-fil-programmer.} I forlængelse af Processings skitsebogsmodel og Unix-filosofien om små, komponerbare programmer er hvert piece én fil---ingen projektstruktur, intet byggetrin, ingen afhængigheder.
+  \item \textbf{Socialt som standard.} Brugernavne, chat, stemninger og profiler er del af køretiden, ikke påboltede tjenester.
+\end{enumerate}
+
+% ============ 3. ARKITEKTUR ============
+
+\section{Arkitektur}
+\label{sec:architecture}
+
+Systemet består af fire hovedkomponenter: boot-loaderen, BIOS-køretiden, Disk-API'en og modulindlæseren.
+
+\subsection{Boot-loader}
+
+Boot-loaderen (\texttt{boot.mjs}, 1.948 linjer) initialiserer tre delsystemer parallelt: en WebSocket-forbindelse til sessionsserveren (800ms timeout med HTTP-fallback), en Service Worker til persistent modul-caching og et IndexedDB-lager til offline modulopbevaring. Boot-telemetri logger browser, enhedstype, skærmopløsning og ydeevnetider til \texttt{/api/boot-log}.
+
+\subsection{BIOS}
+
+BIOS'en (\texttt{bios.mjs}, 20.935 linjer) er køretidens orkestrator. Den styrer 60fps-renderingsløkken, dirigerer input-hændelser (tastatur, berøring, mus, gamepad, MIDI), koordinerer piece-livscyklusovergange og vedligeholder WebGL-kompositlaget (``glaze'') til efterbehandlingseffekter. BIOS'en styrer også båndsystem-optagelsen til at optage piece-opførelser som billedsekvenser med synkroniseret lyd.
+
+\subsection{Disk-API}
+
+Disken (\texttt{disk.mjs}, 15.879 linjer) leverer den komplette API-overflade, som pieces bruger. Den håndterer piece-indlæsning, livscyklus-dispatch og eksponerer tegneprimitiver, lyd, input, netværk og UI-komponenter. Alle grafikoperationer er immediate-mode---der er ingen bevaret scenegraf.
+
+\subsection{Modulindlæser}
+
+Modulindlæseren streamer JavaScript-moduler over WebSocket fra sessionsserveren, hvilket omgår HTTP-proxy-kæden for hurtigere indlæsning. Ved første indlæsning caches moduler i IndexedDB. Efterfølgende besøg indlæser fra cache med fallback til HTTP, hvis sessionsserveren er utilgængelig. Dette giver næsten øjeblikkelig piece-indlæsning ved gentagne besøg.
+
+% ============ 4. PIECE-MODELLEN ============
+
+\section{Piece-modellen}
+\label{sec:pieces}
+
+Et piece er en enkelt \texttt{.mjs} (JavaScript)- eller \texttt{.lisp} (KidLisp)-fil, der eksporterer op til fem livscyklusfunktioner:
+
+\begin{lstlisting}[style=acjsstyle]
+function boot({ wipe, screen, params }) {
+  // Kører én gang når piece indlæses
+}
+
+function paint({ wipe, ink, line, circle }) {
+  wipe(|\textcolor{jsstr}{"navy"}|)
+  ink(|\textcolor{jsstr}{"pink"}|)
+  circle(screen.width / |\textcolor{jsnum}{2}|,
+         screen.height / |\textcolor{jsnum}{2}|, |\textcolor{jsnum}{50}|)
+}
+
+function act({ event: e }) {
+  if (e.is(|\textcolor{jsstr}{"keyboard:down:space"}|)) { }
+}
+
+function sim() { }  // Per-frame logik
+
+export { boot, paint, act, sim };
+\end{lstlisting}
+
+API-objektet, der sendes til hver funktion, giver:
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{lX}
+\toprule
+\textbf{Kategori} & \textbf{Funktioner} \\
+\midrule
+Grafik & \texttt{wipe}, \texttt{ink}, \texttt{line}, \texttt{box}, \texttt{circle}, \texttt{poly}, \texttt{paste}, \texttt{plot}, \texttt{flood} \\
+Tekst & \texttt{write}, \texttt{form}, \texttt{TextInput} \\
+Input & \texttt{event}, \texttt{pen}, \texttt{hand}, \texttt{gamepad} \\
+Lyd & \texttt{sound}, \texttt{speaker}, \texttt{microphone}, \texttt{melody} \\
+UI & \texttt{ui.Button}, \texttt{ui.TextInput}, \texttt{cursor} \\
+System & \texttt{screen}, \texttt{jump}, \texttt{store}, \texttt{net}, \texttt{send} \\
+\bottomrule
+\end{tabularx}
+\caption{Piece API-kategorier.}
+\label{tab:api}
+\end{table}
+
+Pieces følger Processings skitsebogsmodel---én kildefil per udforskelig idé---kombineret med Unix-filosofien om bruger-niveau-komponerbarhed på tværs af små, enkeltformåls-programmer.
+
+% ============ 5. FLERSPROGET KØRETID ============
+
+\section{Flersproget køretid}
+\label{sec:languages}
+
+AC understøtter to programmeringssprog: JavaScript (ES-moduler, \texttt{.mjs}) og KidLisp (en minimal Lisp-dialekt, \texttt{.lisp}). Systemet indeholder i øjeblikket 336 JavaScript-pieces og 18 KidLisp-pieces.
+
+JavaScript-pieces har fuld adgang til Web-API'er og Disk-API-overfladen. KidLisp-pieces bruger en 15.161-linjers træ-vandrende evaluator~\citep{scudder2026kidlisp}, der leverer 118 indbyggede funktioner til tegning, farve, transformation, matematik, animation og lyd---uden fil-I/O, netværk eller strengmanipulation, hvilket gør vilkårlig bruger-indsendt kode sikker at eksekvere.
+
+KidLisp-programmer kan også indtastes direkte som URL'er. Udtrykket \texttt{(wipe blue)} er URL-kodet og eksekverbart på \texttt{aesthetic.computer/(\%28wipe\%20blue\%29)}. Korte koder (\texttt{\$cow}, \texttt{\$27z}) opløses til gemte programmer via MongoDB-opslag.
+
+Arkitekturen understøtter yderligere sprogbackends. Ethvert sprog, der kan målrette piece-livscyklussen (boot/paint/act/sim/leave) og kalde Disk-API'en, kan integreres som en ny evaluator.
+
+% ============ 6. PROMPTEN ============
+
+\section{Prompten}
+\label{sec:prompt}
+
+Prompten (\texttt{prompt.mjs}, 9.386 linjer) er selv et piece---det mest komplekse i systemet. Det fungerer som den primære navigationsgrænseflade og implementerer over 60 kommandoer.
+
+\subsection{URL-routing}
+
+Hvert piece er URL-adresserbart gennem en parser (\texttt{parse.mjs}), der understøtter flere parameterkonventioner:
+
+\begin{itemize}
+  \item \textbf{Simpel}: \texttt{aesthetic.computer/notepat}
+  \item \textbf{Kolon-parametre}: \texttt{tone:440:sine}
+  \item \textbf{Mellemrums-parametre}: \texttt{notepat 180 major} (kodet som tilder i URL'er)
+  \item \textbf{Bruger-pieces}: \texttt{@bash/hub}
+  \item \textbf{KidLisp-koder}: \texttt{\$cow}
+  \item \textbf{Kortkoder}: \texttt{!abc} (video), \texttt{*bako} (ur-melodi)
+\end{itemize}
+
+\subsection{Kommandokategorier}
+
+Prompten implementerer kommandoer til navigation (\texttt{list}, \texttt{back}), skabelse (\texttt{publish}, \texttt{source}, \texttt{pack}), social interaktion (\texttt{chat}, \texttt{mood}, \texttt{profile}), identitet (\texttt{handle}, \texttt{login}), optagelse (\texttt{tape}, \texttt{share}) og piece-sekventering (\texttt{merry}, der kæder pieces med timing).
+
+% ============ 7. SOCIAL INFRASTRUKTUR ============
+
+\section{Social infrastruktur}
+\label{sec:social}
+
+I modsætning til platforme, hvor sociale funktioner er eksterne tjenester (GitHub, Discord), integrerer AC social infrastruktur direkte i køretiden.
+
+\subsection{Identitet}
+
+Brugere registrerer \texttt{@handles} gennem prompten. Handles opløses til MongoDB-brugerregistreringer og fungerer som navnerum for publicerede pieces (\texttt{@handle/piece-name}). Per marts 2026 er 2.801 handles registreret.
+
+\subsection{Realtidskommunikation}
+
+Sessionsserveren leverer WebSocket-baserede realtidsfunktioner: offentlig chat (18.020 beskeder), tilstedeværelsessporing (hvilket piece hver bruger aktuelt ser) og multiplayer-tilstandssynkronisering for samarbejds-pieces.
+
+\subsection{Stemninger}
+
+Brugere poster korte tekstopdateringer (``stemninger'') synlige på deres profiler. Stemninger dobbeltskrives til MongoDB og ATProto (protokollen bag Bluesky), hvilket muliggør føderation med det bredere sociale web.
+
+\subsection{Levende profiler}
+
+Profil-piecet viser et realtids-scorecard: online/offline-status, aktuelt piece, WebSocket-latenstid og antal af malerier, publicerede pieces, KidLisp-programmer, chatbeskeder og stemninger---alt opdateret live via WebSocket-streaming.
+
+% ============ 8. PUBLICERING OG DISTRIBUTION ============
+
+\section{Publicering og distribution}
+\label{sec:publishing}
+
+\subsection{Publish og Source}
+
+Kommandoen \texttt{publish} uploader et piece til DigitalOcean Spaces og registrerer det i MongoDB under brugerens handle. Kommandoen \texttt{source} downloader ethvert pieces kildekode som skabelon til forking.
+
+\subsection{Pack-system}
+
+Kommandoen \texttt{pack} samler et piece i en selvstændig HTML-fil via oven-tjenesten. Outputtet inkluderer piece-koden, alle køretidsafhængigheder og indlejrede skrifttyper---en enkelt fil, der fungerer offline uden server. Dette muliggør distribution via e-mail, USB-drev, blockchain-prægning (Tezos/Teia) og arkivering.
+
+\subsection{Tilpassede domæner}
+
+Pieces kan serveres som selvstændige applikationer på tilpassede domæner. \texttt{notepat.com} dirigerer til \texttt{notepat} musik-sequencer-piecet; \texttt{kidlisp.com} serverer KidLisp IDE'et. Netlify edge-funktioner detekterer værtsnavnet og omskriver routing i overensstemmelse hermed, inklusiv tilpassede Open Graph meta-tags til social deling.
+
+\subsection{Medieeksport}
+
+Oven-tjenesten (\texttt{oven.aesthetic.computer}) konverterer optagne sessioner til MP4-video via FFmpeg, genererer Open Graph-forhåndsvisningsbilleder til social deling og serverer QR-koder til piece-URL'er. Båndoptagelser fanger billedsekvenser med per-frame tidsdata og valgfri lyd.
+
+% ============ 9. UDVIKLINGSHISTORIE ============
+
+\section{Udviklingshistorie}
+\label{sec:history}
+
+Den følgende tidslinje er rekonstrueret fra git-historikken for Aesthetic Computer-repositoriet (11.045 commits mellem december 2022 og marts 2026). Projektets konceptuelle oprindelse spores til 2020 med No Paint.
+
+\subsection{Oprindelse: No Paint (2020--2021)}
+
+No Paint, et pixelkunst-værktøj udgivet i 2020, opbyggede et fællesskab af ikke-tekniske brugere, der bidrog med tilpassede pensler og stempler. Flaskehalsen ved manuel integration---hvert bidrag krævede udviklerintervention---motiverede opbygningen af en platform, hvor alle kunne publicere interaktive programmer øjeblikkeligt.
+
+\subsection{Grundlag (2022--2023)}
+
+Det nuværende repository begynder i december 2022. Gennem 2023 (3.766 commits) tog kernekøretiden form: BIOS-renderingsløkken, Disk-API'en, prompt-grænsefladen, piece-livscyklussen og det indledende sæt af indbyggede pieces. September 2023 oplevede den højeste tidlige aktivitet (542 commits), da multiplayer-sessionsserveren og realtidschatten blev integreret.
+
+\subsection{Udvidelse (2024)}
+
+Året 2024 (2.698 commits) oplevede tilføjelsen af KidLisp (april), malerissystemet, handle-registrering, stemningsopslag og båndoptagelsesinfrastrukturen. Aktiviteten toppede i april (379 commits) og oktober (336 commits).
+
+\subsection{Platformintegration (2025--2026)}
+
+Udviklingen accelererede dramatisk i slutningen af 2025: oktober oplevede 700 commits, november 663, december 525. KidLisp IDE'et lancerede på \texttt{kidlisp.com} (november 2025), ATProto/Bluesky-føderation blev tilføjet, pack-systemet modnet, og oven-tjenesten begyndte at generere sociale forhåndsvisningsbilleder. Januar 2026 var den travleste enkeltstående måned (1.095 commits), drevet af KidLisp-forfining, kaostilstand, 3D-primitiver og scene-tilstand til live-performance.
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lrl}
+\toprule
+\textbf{Periode} & \textbf{Commits} & \textbf{Milepæl} \\
+\midrule
+2020--2021 & --- & No Paint; AC-undfangelse \\
+Dec 2022 & 47 & Repository begynder \\
+2023 & 3{,}766 & Kernekøretid, prompt, multiplayer \\
+2024 & 2{,}698 & KidLisp, malerier, handles, stemninger \\
+Jan--maj 2025 & 318 & Vedligeholdelsesperiode \\
+Jun--dec 2025 & 2{,}962 & IDE, pack, oven, føderation \\
+Jan--mar 2026 & 2{,}149 & Kaostilstand, 3D, scenetilstand \\
+\midrule
+\textbf{Total} & \textbf{11{,}045} & \\
+\bottomrule
+\end{tabular}
+\caption{Udviklingsaktivitet efter periode.}
+\label{tab:history}
+\end{table}
+
+Projektet har primært én forfatter: Jeffrey Alan Scudder tegner sig for ca. 98\% af commits, med bidrag fra 14 yderligere samarbejdspartnere.
+
+% ============ 10. EVALUERING ============
+
+\section{Evaluering}
+\label{sec:evaluation}
+
+Adoptionsmetrikker per marts 2026 er vist i Tabel~\ref{tab:adoption}.
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lr}
+\toprule
+\textbf{Metrik} & \textbf{Værdi} \\
+\midrule
+Indbyggede pieces & 354 (336 JS + 18 KidLisp) \\
+Bruger-publicerede pieces & 265 \\
+API-endepunkter & 78 \\
+Registrerede handles & 2.801 \\
+Malerier oprettet & 4.404 \\
+KidLisp-programmer & 16.244 \\
+Chatbeskeder & 18.020 \\
+Kernekøretid (linjer) & $\sim$63.300 \\
+\bottomrule
+\end{tabular}
+\caption{Platformmetrikker (marts 2026).}
+\label{tab:adoption}
+\end{table}
+
+\subsection{Observationer}
+
+\textbf{Prompt som opdagelsesmekanisme.} Brugere rapporterer, at de opdager pieces ved at skrive gæt i prompten---prøve ord som \texttt{piano}, \texttt{draw}, \texttt{chat}---og finde, hvad der eksisterer. Denne tilfældige opdagelse er et bevidst designresultat af det flade navnerum.
+
+\textbf{Mobilt engagement.} Det mobil-først-design betyder, at brugere interagerer med AC på telefoner under pendling, i venteværelser og i klasseværelser---sammenhænge, hvor desktop-kreative kodningsværktøjer er utilgængelige.
+
+\textbf{Socialt stof driver fastholdelse.} Integrationen af chat, stemninger og profiler skaber en social kontekst, der holder brugere tilbagevendende. Brugere tjekker stemninger, svarer i chatten og opdager nye pieces gennem social aktivitet frem for søgning.
+
+\subsection{Begrænsninger}
+
+Enkelt-fil-piece-modellen begrænser programkompleksiteten. Pieces kan ikke importere delte biblioteker eller dele sig over flere moduler (selvom de kan indlejre KidLisp-programmer via \texttt{\$code}-referencer). Prompt-grænsefladen, selvom den er kraftfuld for erfarne brugere, præsenterer en stejl opdagelseskurve for nybegyndere, der forventer visuelle affordances.
+
+% ============ 11. RELATERET ARBEJDE ============
+
+\section{Relateret arbejde}
+
+\textbf{Kreativ kodning.} Processing~\citep{reas2007processing} og p5.js~\citep{mccarthy2015p5js} etablerede skitsebogsparadigmet. AC arver enkelt-fil-modellen, men erstatter editoren med en prompt og tilføjer social infrastruktur.
+
+\textbf{Social kodning.} Scratch~\citep{resnick2009scratch} demonstrerede, at social deling driver engagement i uddannelsesmæssig programmering. OpenProcessing~\citep{openprocessing2009} og Glitch~\citep{glitch2017} leverer webbaseret deling for kreativ kode. AC adskiller sig ved at gøre sociale funktioner til en del af selve køretiden, ikke en omgivende hjemmeside.
+
+\textbf{Live-kodning.} Hydra~\citep{hydra2019} leverer browserbaseret live visuel kodning. Sonic Pi~\citep{aaron2016sonic} målretter musikuddannelse med en live-kodnings-REPL. AC's scenetilstand (gennemsigtig editor over fuldskærmslærred) muliggør lignende live-performance-kontekster.
+
+\textbf{Mobile kreative værktøjer.} De fleste kreative kodningsværktøjer antager desktop-brug. AC's mobil-først-design---berøringsinput, prompt-navigation, telefonstore lærreder---målretter sammenhænge, hvor desktop-værktøjer ikke kan nå hen.
+
+% ============ 12. KONKLUSION ============
+
+\section{Konklusion}
+
+\ac{} demonstrerer, at en kreativ computing-platform kan organiseres omkring en tekstprompt frem for et grafisk IDE, at social infrastruktur integreret direkte i køretiden producerer anderledes engagementsmønstre end eksterne sociale lag, og at en mobil-først browserbaseret tilgang gør kreativ kodning tilgængelig i sammenhænge, som desktop-værktøjer ikke kan nå.
+
+Platformens 354 indbyggede pieces, 265 bruger-publicerede værker og 16.244 KidLisp-programmer udgør et voksende korpus af kreative computing-artefakter. Prompt-som-instrument-metaforen---hvor brugere opbygger flydende beherskelse gennem memorering og improvisation frem for menunavigation---tilbyder en alternativ model for, hvordan mennesker kan forholde sig til kreativ software.
+
+AC er open source under ISC-licensen på \url{https://github.com/digitpain/aesthetic.computer}.
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\vspace{0.5em}\noindent\textit{Oversat fra engelsk. Originalversion tilgængelig på \url{https://papers.aesthetic.computer}}
+
+% ============ REFERENCES ============
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

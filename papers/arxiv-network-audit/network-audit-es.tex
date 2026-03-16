@@ -1,0 +1,163 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45}
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,pdftitle={Auditoría de red: ¿Quién usa Aesthetic Computer y qué crean?}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Borrador de trabajo --- no citar}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\ac}{\textsc{Aesthetic Computer}}
+\newcommand{\kl}{\textsc{KidLisp}}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} Auditoría de red}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} ¿Quién usa Aesthetic Computer y qué crean?}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} Una autoevaluación de identidad, geografía y producción creativa de la plataforma}\par
+\vspace{0.6em}
+{\normalsize Jeffrey Alan Scudder}\par
+{\small\color{acgray} Aesthetic Inc.}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ borrador de trabajo --- no citar ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Resumen.}
+\ac{} no recopila datos demográficos. No tiene campo de edad, ni campo de género, ni campo de raza, ni campo de ingresos. Sabe tres cosas sobre sus usuarios: su identificador elegido, lo que crean y---a través de telemetría de arranque---aproximadamente dónde están cuando lo crean. Este artículo presenta una auditoría de red de la plataforma \ac{} usando únicamente datos que el sistema realmente recopila: 2.811 identificadores registrados, 93.122 sesiones de arranque con encabezados geográficos, 16.634 programas \kl{} por 59 autores, 18.062 mensajes de chat, 4.428 pinturas, 265 piezas publicadas y 2.900 estados de ánimo. Analizamos la distribución de usuarios (ratio creador/consumidor, patrones de contribución de ley de potencias, alcance geográfico), su topología social (participación en chat, corazones, patrones de mood) y su producción creativa (qué funciones \kl{} se usan realmente, qué piezas son más visitadas, cómo el grafo de incrustación de códigos \texttt{\$} estructura la composición). Sostenemos que la \emph{ausencia} de datos demográficos es en sí misma una posición de diseño---con potencial liberador y limitaciones reales---y que auditar una plataforma a través de lo que sus usuarios \emph{crean} en lugar de quiénes \emph{son} produce un tipo diferente de conocimiento sobre la comunidad.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Introducción}
+
+Las auditorías de plataformas típicamente comienzan con demografía. \ac{}~\citep{scudder2026ac} no vende publicidad. No recopila datos demográficos. Un usuario se registra con una dirección de correo electrónico y elige un identificador---una sola palabra que se convierte en su identidad en la plataforma. Ese identificador, y las cosas creadas bajo él, constituyen todo el conocimiento de la plataforma sobre la persona.
+
+\section{El censo}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{Xr}
+\toprule
+\textbf{Métrica} & \textbf{Conteo} \\
+\midrule
+Cuentas Auth0 (total) & 18.187 \\
+Cuentas Auth0 (verificadas) & 5.373 \\
+@handles registrados & 2.811 \\
+Sesiones de arranque (vida útil) & 93.122 \\
+\midrule
+Programas KidLisp & 16.634 \\
+Pinturas & 4.428 \\
+Mensajes de chat & 18.062 \\
+Moods (actualizaciones de estado) & 2.900 \\
+Piezas publicadas & 265 \\
+Cintas (grabaciones de video) & 102 \\
+Relojes & 333 \\
+Impresiones físicas pedidas & 20 \\
+\bottomrule
+\end{tabularx}
+\caption{Censo de la plataforma a marzo de 2026.}
+\label{tab:census}
+\end{table}
+
+El 38\% de los usuarios registrados han pintado---una tasa de creación notablemente alta comparada con plataformas como YouTube (estimado 1--3\%) o SoundCloud ($\sim$10\%). La caída al 2,1\% para \kl{} y 0,7\% para autoría de piezas refleja la barrera de habilidad más alta de la programación creativa basada en texto.
+
+\section{Distribución geográfica}
+
+La telemetría de arranque de \ac{} captura país, región y ciudad de los encabezados edge de Netlify para cada sesión. Estos datos se recopilan sin cookies, sin píxeles de seguimiento y sin formularios de consentimiento del usuario---llegan en la propia solicitud HTTP.
+
+Los encabezados geográficos revelan la ubicación de la red, no la identidad. Un usuario en una VPN aparece en un país diferente. Un usuario en una universidad aparece en la ubicación de la universidad. Los datos son direccionalmente útiles pero no precisos. La ubicación geográfica no es un proxy para las categorías demográficas que preocupan a las auditorías convencionales.
+
+\section{Análisis de producción creativa}
+
+La API \texttt{?stats=functions} de \kl{} revela qué affordances creativas adoptan realmente los usuarios. El sistema de composición por código \texttt{\$} crea un grafo de dependencia implícito que captura la colaboración creativa como dependencia, no como interacción social explícita.
+
+\section{Lo que no podemos medir}
+
+\begin{itemize}
+  \item \textbf{Edad}: desconocida. Sin campo de registro.
+  \item \textbf{Género}: desconocido. Sin campo de registro.
+  \item \textbf{Raza/etnia}: desconocida. Sin campo de registro.
+  \item \textbf{Ingresos}: desconocidos. Sin campo de registro.
+  \item \textbf{Estado de discapacidad}: desconocido. Sin campo de registro.
+  \item \textbf{Nivel educativo}: desconocido. Sin campo de registro.
+\end{itemize}
+
+La ausencia de estos campos no es accidental. \ac{} fue construido sobre el principio de que una plataforma creativa debe saber lo menos posible sobre sus usuarios más allá de lo que eligen compartir a través de su trabajo creativo~\citep{illich1973tools}. Este principio tiene costos: no podemos reportar sobre equidad, no podemos identificar poblaciones desatendidas, no podemos medir si la plataforma reproduce disparidades existentes.
+
+La observación de Benjamin de que el diseño ``neutro en raza'' a menudo codifica sesgos existentes~\citep{benjamin2019race} aplica aquí. La decisión de no recopilar datos demográficos no es lo mismo que la decisión de servir a todas las demografías por igual.
+
+\section{Conclusión}
+
+Esta auditoría reporta lo que \ac{} sabe sobre sus usuarios: 2.811 identificadores, 93.122 sesiones desde ubicaciones geográficas identificables, y un cuerpo de trabajo creativo que constituye la producción real de la plataforma. No reporta lo que \ac{} no sabe: la edad, género, raza, ingresos o educación de las personas detrás de los identificadores.
+
+La respuesta de justicia en el diseño~\citep{costanzachock2020design} es preguntar si las categorías mismas sirven a la comunidad o simplemente la hacen legible para instituciones que requieren desgloses demográficos. La respuesta de \ac{}---hasta ahora---ha sido saber menos y confiar más: dejar que los identificadores sean identidades, dejar que el trabajo hable por sí mismo, y aceptar el costo epistémico de no saber quién, exactamente, está al otro lado de la pantalla.
+
+Esta es una auditoría honesta de un sistema imperfecto. Las imperfecciones están documentadas. El sistema está vivo. Los usuarios son reales. Lo que crean es la mejor evidencia de quiénes son.
+
+\vspace{0.5em}
+\noindent\textit{Traducido del inglés. Versión original disponible en \url{https://papers.aesthetic.computer}}
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

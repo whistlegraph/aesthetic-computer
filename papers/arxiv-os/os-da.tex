@@ -1,0 +1,370 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multicol}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+\definecolor{jskw}{RGB}{119,51,170}
+\definecolor{jsfn}{RGB}{0,136,170}
+\definecolor{jsstr}{RGB}{170,120,0}
+\definecolor{jsnum}{RGB}{204,0,102}
+\definecolor{jscmt}{RGB}{102,102,102}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45,pos={0.5\paperwidth, 0.5\paperheight}}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,pdfauthor={Jeffrey Alan Scudder},pdftitle={AC Native OS '26: Et bare-metal kreativt computing-styresystem}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Arbejdsudkast --- ikke til citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic Computer}}
+\newcommand{\acos}{\textsc{AC Native OS}}
+
+\lstdefinelanguage{acjs}{
+  morekeywords=[1]{function,export,const,let,var,return,if,else,new,async,await,import,from},
+  morekeywords=[2]{wipe,ink,line,box,circle,write,screen,params,colon,jump,send,store,net,sound,speaker,system},
+  sensitive=true,morecomment=[l]{//},morestring=[b]",morestring=[b]',morestring=[b]`,escapeinside={|}{|},
+}
+\lstdefinestyle{acjsstyle}{language=acjs,keywordstyle=[1]\color{jskw}\bfseries,keywordstyle=[2]\color{jsfn}\bfseries,commentstyle=\color{jscmt}\itshape,stringstyle=\color{jsstr},}
+\lstset{basicstyle=\ttfamily\small,breaklines=true,frame=single,rulecolor=\color{acgray!30},backgroundcolor=\color{acgray!5},xleftmargin=0.5em,xrightmargin=0.5em,aboveskip=0.5em,belowskip=0.5em,}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{24pt}{28pt}\selectfont\color{acdark} AC Native OS '26}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Et bare-metal kreativt computing-styresystem}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} Overskudshardware, dyb personalisering og post-OLPC-instrumentet}\par
+\vspace{0.6em}
+{\normalsize Jeffrey Alan Scudder}\par
+{\small\color{acgray} Aesthetic Inc.}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ arbejdsudkast --- ikke til citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Abstrakt.}
+Vi præsenterer \acos{}, et bare-metal Linux-styresystem, der booter enhver x86\_64-computer direkte ind i et kreativt computing-instrument på 7,3 sekunder. Hele systemet---en tilpasset kerne, en 11.943-linjers C-køretid, der kører som PID~1, og en QuickJS JavaScript-motor---fylder i en enkelt 89\,MB UEFI-binær uden userspace, uden pakkehåndtering og uden skrivebordsmiljø. OS'et introducerer en model for \emph{enhedsniveau-personalisering}: hver maskine booter med ejerens handle, tilpasset farveskema og en talt hilsen, hvilket gør identitet til en egenskab ved styresystemet snarere end ved et applikationslag. Vi argumenterer for, at installation af dette OS på overskuds-forbrugsbærbare computere---pensionerede ThinkPads, off-lease virksomhedsmaskiner, usolgt lager---skaber et levedygtigt alternativ til både OLPC-modellen med specialfremstillet uddannelseshardware og Apple-modellen med identitet-gennem-kommercielt-økosystem. Hvor OLPC designede en \$100-bærbar, der kostede \$200, og Apple sælger en \$1.000-identitet, der kræver en \$1.000-enhed, forvandler \acos{} en \$50 overskudsmaskine til et personligt kreativt instrument med over-the-air-opdateringer, ingen IT-infrastruktur og ingen løbende omkostninger. Vi beskriver arkitekturen, personaliseringsmodellen, OTA-opdateringssystemet og implikationerne for adgang til kreativ computing.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Introduktion}
+
+One Laptop Per Child (OLPC)-projektet~\citep{negroponte1995being, kraemer2009olpc} foreslog, at universel computing-adgang krævede design af ny hardware---en \$100-bærbar specialbygget til uddannelse. XO-laptopen blev leveret med et tilpasset OS (Sugar), tilpasset hardware og en tilpasset distributionsmodel. Projektet producerede vigtige idéer, men kæmpede med en grundlæggende spænding: tilpasset hardware er dyrt at designe, fremstille og vedligeholde, og \$100-målet blev aldrig opnået i stor skala.
+
+I mellemtiden producerer forbruger-computing-markedet en konstant overflod af funktionelle maskiner. Virksomheders leasingcyklusser pensionerer millioner af bærbare hvert 3--5 år. Detailoverskud, annullerede ordrer og kosmetiske defekter genererer lagerlagre. E-waste-genbrugere modtager maskiner med års brugbar levetid tilbage. Disse overskudscomputere---ThinkPads, EliteBooks, Latitudes---er tilgængelige for \$30--80 med moderne processorer, 8--16\,GB RAM, WiFi, tastaturer og skærme.
+
+\acos{} tager den modsatte tilgang fra OLPC: i stedet for at designe tilpasset hardware designer vi et tilpasset styresystem, der forvandler \emph{enhver} x86\_64-forbrugsmaskine til et dedikeret kreativt computing-instrument. Hele OS'et er en enkelt fil. Installation på et USB-drev tager under et minut. Maskinen booter på 7,3 sekunder ind i et musikinstrument, et tegneværktøj eller et programmeringsmiljø---med ejerens navn på skærmen og deres stemme, der hilser dem ved navn.
+
+Denne artikel beskriver systemarkitekturen~(\S\ref{sec:architecture}), personaliseringsmodellen~(\S\ref{sec:personalization}), overskudshardwaretesen~(\S\ref{sec:surplus}), OTA-opdateringssystemet~(\S\ref{sec:ota}), sammenligninger med eksisterende tilgange~(\S\ref{sec:related}) og implikationer for adgang til kreativ computing~(\S\ref{sec:implications}).
+
+\section{Arkitektur}
+\label{sec:architecture}
+
+\acos{} er struktureret som fire lag: en minimal Linux-kerne, en LZ4-komprimeret initramfs, en C-køretid der kører som PID~1, og en QuickJS JavaScript-motor der eksekverer interaktive programmer (``pieces'').
+
+\subsection{Bootkæde}
+
+Systemet booter via UEFI uden bootloader. Linux-kernen (6.14.2) er kompileret som en EFI-stub---kernen \emph{er} bootloaderen. Den indeholder en indlejret initramfs komprimeret med LZ4, så hele styresystemet er en enkelt fil: \texttt{BOOTX64.EFI} på en FAT32 EFI System Partition.
+
+\begin{enumerate}
+  \item UEFI-firmware indlæser \texttt{EFI/BOOT/BOOTX64.EFI} (89\,MB)
+  \item Kernen dekomprimerer initramfs til tmpfs
+  \item \texttt{/init} (symlink til \texttt{/ac-native}) starter som PID~1
+  \item Montér \texttt{/proc}, \texttt{/sys}, \texttt{/dev}, \texttt{/tmp}
+  \item Montér EFI-partition til \texttt{/mnt}, læs \texttt{config.json}
+  \item Initialisér DRM-skærm, render personaliseret boot-splash
+  \item Initialisér ALSA-lyd, afspil boot-tone (E5$\rightarrow$B5)
+  \item Initialisér inputenheder (tastatur, trackpad, touchscreen)
+  \item Auto-forbind WiFi (stille, ingen brugerinteraktion)
+  \item Indlæs standard-piece, kald \texttt{boot()}, gå ind i hovedløkke
+\end{enumerate}
+
+Total boottid fra strøm til interaktivt piece: \textbf{7,3 sekunder}.
+
+\subsection{Køretiden}
+
+C-køretiden (\texttt{ac-native}, 11.943 linjer fordelt på 14 kildefiler) erstatter hele det traditionelle OS-userspace. Der er ingen \texttt{systemd}, ingen shell, ingen pakkehåndtering, ingen login-prompt. Køretiden håndterer direkte:
+
+\begin{itemize}
+  \item \textbf{Skærm}: DRM/KMS modesetting, dobbeltbuffret software-framebuffer
+  \item \textbf{Lyd}: ALSA PCM ved 192\,kHz, 32-stemmig polyfonisk synthesizer med rumklang
+  \item \textbf{Input}: evdev-polling for tastatur, trackpad, touchscreen, analoge taster
+  \item \textbf{WiFi}: wpa\_supplicant-integration, auto-forbindelse, DHCP
+  \item \textbf{Kamera}: V4L2-optagelse, YUYV-konvertering, QR-kodescanning
+  \item \textbf{Tale}: Text-to-speech via flite (mande- og kvindestemmer)
+  \item \textbf{Netværk}: WebSocket-klient med TLS, UDP, HTTP via curl
+\end{itemize}
+
+\subsection{Piece-eksekvering}
+
+Pieces er JavaScript ES-moduler (\texttt{.mjs}) eksekveret af QuickJS~\citep{bellard2005quickjs}. Køretiden eksponerer C-funktioner til JavaScript som ``system''-API'en---grafikprimitiver, lydsyntese, inputhændelser, hardwareinfo og systemkontrol. Piece-livscyklussen afspejler den browserbaserede \ac{}-platform~\citep{scudder2026ac}: \texttt{boot()}, \texttt{act()}, \texttt{sim()}, \texttt{paint()}, kørende ved 60\,fps.
+
+\begin{lstlisting}[style=acjsstyle]
+function boot({ system, screen }) {
+  system.tts(|\textcolor{jsstr}{"welcome"}|)
+}
+
+function paint({ wipe, ink, write, screen }) {
+  wipe(|\textcolor{jsnum}{20}|, |\textcolor{jsnum}{10}|, |\textcolor{jsnum}{40}|)
+  ink(|\textcolor{jsnum}{255}|)
+  write(|\textcolor{jsstr}{"hello"}|, { center: |\textcolor{jsstr}{"xy"}| })
+}
+
+export { boot, paint };
+\end{lstlisting}
+
+Pieces kan hot-swappes uden genstart via \texttt{system.jump("piece-name")}. OS'et leveres med 11 pieces inklusiv et kromatisk tastaturinstrument, en kommandolinjenavigator, et systemadministrationspanel, en Claude AI-chatklient og en terminalemulator.
+
+\subsection{Størrelsesbudget}
+
+\begin{table}[h]
+\small\centering
+\begin{tabular}{lr}
+\toprule
+\textbf{Komponent} & \textbf{Størrelse} \\
+\midrule
+Linux-kerne (kompileret) & $\sim$10\,MB \\
+ac-native binær & 1,2\,MB \\
+QuickJS-motor & 0,8\,MB \\
+Delte biblioteker (libc, libdrm, ALSA, SSL, flite) & $\sim$45\,MB \\
+WiFi-firmware (iwlwifi) & 4,9\,MB \\
+Pieces, skrifttyper, certifikater & $\sim$28\,MB \\
+\midrule
+Initramfs (ukomprimeret) & $\sim$201\,MB \\
+Initramfs (LZ4-komprimeret) & $\sim$90\,MB \\
+\textbf{Endeligt image (vmlinuz)} & \textbf{$\sim$89\,MB} \\
+\bottomrule
+\end{tabular}
+\caption{Systemstørrelsesfordeling.}
+\label{tab:size}
+\end{table}
+
+Hele styresystemet er mindre end en typisk browserdownload. Det passer på ethvert USB-drev produceret i de sidste 15 år.
+
+\section{Enhedsniveau-personalisering}
+\label{sec:personalization}
+
+Forbrugerstyresystemer placerer identitet i applikationslags-konti: et Apple ID, en Google-konto, et Microsoft-login. Enheden selv er generisk, indtil en bruger logger ind. \acos{} inverterer dette: identitet er en egenskab ved bootpartitionen.
+
+\subsection{config.json}
+
+En JSON-fil på EFI System Partition gemmer ejerens identitet:
+
+\begin{lstlisting}[style=acjsstyle]
+{
+  |\textcolor{jsstr}{"handle"}|: |\textcolor{jsstr}{"jeffrey"}|,
+  |\textcolor{jsstr}{"colors"}|: [|\textcolor{jsnum}{180}|, |\textcolor{jsnum}{72}|, |\textcolor{jsnum}{135}|],
+  |\textcolor{jsstr}{"tokens"}|: { |\textcolor{jsstr}{"claude"}|: |\textcolor{jsstr}{"..."}| }
+}
+\end{lstlisting}
+
+Denne fil vedbliver på tværs af OS-opdateringer, fordi OTA-processen erstatter kernebinæren, men bevarer resten af EFI-partitionen. Enheden husker, hvem den tilhører, selv mens dens software udvikler sig.
+
+\subsection{Boot som hilsen}
+
+Når maskinen tændes, renderer bootsekvensen ejerens handle i animeret regnbuetekst på splash-skærmen: ``hi @jeffrey.'' Text-to-speech-motoren siger hilsenen højt: ``hi jeffrey.'' Ved nedlukning: ``bye jeffrey.'' Computeren \emph{kender dig} på det dybeste niveau af softwarestakken---ikke fordi du loggede ind på en tjeneste, men fordi dit navn er skrevet ind i bootpartitionen.
+
+Dette er en fundamentalt anderledes model end både Apple (identitet gennem køb og konto) og OLPC (identitet gennem institutionel distribution). Her indskrives identitet direkte i enheden af handlingen at flashe den. Den person, der forbereder USB-drevet---en lærer, en forælder, en ven eller brugeren selv---skriver ejerens navn ind i maskinens første bevidsthedsmomenter.
+
+\subsection{Build-identitet}
+
+Hvert OS-build modtager et unikt navn afledt af dets git commit-hash: et adjektiv parret med et dyr (f.eks. ``keen-egret,'' ``swift-otter,'' ``bright-phoenix''). Dette navn vises i gylden tekst under boot, tales via TTS og eksponeres til pieces gennem \texttt{system.hw.buildName}. Maskinen har \emph{to} identiteter: hvem den tilhører, og hvilken version af sig selv den kører. Begge annonceres ved boot.
+
+Navngivningssystemet producerer 73.000 unikke kombinationer (365 dyr $\times$ 200 adjektiver) og er deterministisk: det samme commit producerer altid det samme navn. Brugere udvikler hengivenhed for deres buildnavne. Maskinen er ikke et serienummer; den er ``keen-egret.''
+
+\section{Overskudshardwaretesen}
+\label{sec:surplus}
+
+\subsection{OLPC-lektionen}
+
+OLPC demonstrerede, at hardware-først-tilgange til computing-adgang møder sammensatte udfordringer~\citep{kraemer2009olpc}: tilpasset hardwareudvikling overskrider fremskrivninger, produktion i stor skala kræver institutionelle partnerskaber, der begrænser design, og vedligeholdelses/reparationsinfrastruktur skal bygges fra bunden. XO-laptopens \$100-mål blev til \$188 ved produktion. Sugar OS kunne trods innovativt design ikke opretholde et udviklerøkosystem omkring specialfremstillet hardware.
+
+Raspberry Pi~\citep{raspberry2012} adresserede delvist omkostningen (\$35), men introducerede anden friktion: brugere må selv levere skærm, tastatur, mus, SD-kort og strømforsyning---tilbehør, der ofte koster mere end boardet. De samlede omkostninger for en funktionel Pi-arbejdsstation nærmer sig \$150--200.
+
+\subsection{Overskud som materiale}
+
+x86\_64-bærbar-overskudsmarkedet tilbyder en helt anden ligning. En pensioneret ThinkPad X1 Carbon (2019--2021-årgang) sælges for \$50--80 med:
+
+\begin{itemize}
+  \item 14'' 1080p eller 2K-skærm
+  \item 4--8 kerne Intel-processor
+  \item 8--16\,GB RAM
+  \item WiFi 6, Bluetooth
+  \item Fuldt tastatur og trackpad
+  \item 6--10 timers batteri
+  \item USB-C-opladning (universel)
+\end{itemize}
+
+Disse er komplette, selvstændige computere, der kun behøver et USB-drev for at blive kreative instrumenter. Overskuddet eksisterer på grund af virksomheders opdateringscyklusser, ikke fordi hardwaren er fejlet. En 2020 ThinkPad, der kører \acos{}, booter hurtigere, kører glattere og præsenterer en mere fokuseret oplevelse end den samme maskine, der kører Windows 11.
+
+\subsection{Økonomien}
+
+\begin{table}[h]
+\small\centering
+\begin{tabular}{lrr}
+\toprule
+\textbf{Tilgang} & \textbf{Enhedsomk.} & \textbf{Tilbehør} \\
+\midrule
+OLPC XO-1 & \$188 & \$0 \\
+Raspberry Pi 5 & \$35 & \$100--150 \\
+Chromebook (ny) & \$200--300 & \$0 \\
+iPad (edu-pris) & \$299 & \$0--130 \\
+Overskuds-ThinkPad + AC OS & \$50--80 & \$0 \\
+\bottomrule
+\end{tabular}
+\caption{Sammenlignende omkostning ved computing-adgangstilgange.}
+\label{tab:cost}
+\end{table}
+
+Overskudstilgangen kræver ingen fremstilling, ingen forsyningskæde, ingen mindste ordremængder. En skole, et kulturhus eller en enkeltperson kan anskaffe maskiner én ad gangen fra lokale genbrugere, online markedspladser eller virksomheders IT-afdelinger. Hver maskine flashers med en personaliseret \acos{} USB på under et minut.
+
+\subsection{Imod Apple-modellen}
+
+Apples tilgang til personlig computing binder enhedsidentitet til et kommercielt forhold. Dit navn optræder på enheden, fordi du købte den gennem et Apple ID. Dine præferencer vedbliver, fordi de synkroniserer via iCloud. Dine kreative værktøjer er tilgængelige, fordi du abonnerer på tjenester. Enheden er personlig, fordi den er \emph{købt}.
+
+\acos{} foreslår, at enhedsidentitet kan indskrives snarere end købes. En \$50 overskudslaptop med ``hi @maria'' på sin bootskærm, hendes yndlingsfarver i splashet og hendes navn sagt højt er \emph{mere personlig} end en \$1.000 MacBook, der hilser ingen. Personaliseringen er dybere---den lever under applikationslaget, under skrivebordet, i de første øjeblikke af bootsekvensen---og den koster intet ud over handlingen at skrive en konfigurationsfil.
+
+Dette er ikke et argument imod kvalitetshardware. Det er et argument for, at forholdet mellem en person og deres computer ikke behøver at være medieret af et køb, en konto eller et abonnement. Instrumentet kender dig, fordi nogen---måske dig---\emph{fortalte det}.
+
+\section{Over-the-Air-opdateringer}
+\label{sec:ota}
+
+En kritisk udfordring for ethvert distribueret computing-projekt er vedligeholdelse. OLPC-udbredelser kæmpede med softwareopdateringer i regioner med begrænset forbindelse~\citep{warschauer2004technology}. Chromebooks løser dette med obligatorisk cloud-forbindelse. \acos{} tager en mellemvej: opdateringer er automatiske, når WiFi er tilgængeligt, men enheden er fuldt funktionel offline.
+
+\subsection{Opdateringsmekanisme}
+
+\begin{enumerate}
+  \item Ved WiFi-forbindelse tjekker OS'et \texttt{/api/native/version}
+  \item Hvis et nyere build eksisterer, downloades det nye kerneimage ($\sim$89\,MB) med fremdriftssporing
+  \item Det nye image skrives til EFI-partitionen og erstatter \texttt{BOOTX64.EFI}
+  \item En byte-for-byte SHA256-verifikation bekræfter skrivningen
+  \item Enheden genstarter i den nye version
+\end{enumerate}
+
+\texttt{config.json}-filen bevares på tværs af opdateringer---enheden bevarer ejerens identitet, farver og tokens. Opdateringsprocessen er hærdet mod strømtab: kildeimaget valideres før kopiering, filsystemet dobbeltsynkes, og verifikation sker mod en frisk monteret partition for at forhindre cacheartefakter.
+
+\subsection{Ingen IT-infrastruktur}
+
+I modsætning til Chromebook-udbredelser, der kræver Google Admin Console, MDM-profiler og institutionelle Google Workspace-konti, kræver \acos{} ingen administrationsinfrastruktur. Hver enhed er autonom. Opdateringer spredes, når enheden forbinder til et vilkårligt WiFi-netværk. Der er ingen tilmelding, ingen flådestyring, ingen per-enhed-licensering. De driftsomkostninger er nul.
+
+\section{Relateret arbejde}
+\label{sec:related}
+
+\textbf{Uddannelses-OS-projekter.} Sugar OS (OLPC) var pioner inden for enkeltformåls-uddannelsesstyresystemer, men var begrænset af sin hardwareafhængighed. Endless OS målretter lavspec-hardware med offline-først-indhold, men bevarer en traditionel skrivebordsmetafor. PrimTux og Edubuntu tilpasser Linux-distributioner til uddannelse, men gentænker ikke OS-laget selv.
+
+\textbf{Kiosk- og enkeltformålssystemer.} Digital signage-OS'er (Screenly, Yodeck) demonstrerer, at enkeltformåls-Linux-udbredelser kan vedligeholdes i stor skala via OTA-opdateringer. \acos{} anvender denne driftsmodel på kreativ computing snarere end indholdsvisning.
+
+\textbf{Kreativ computing-adgang.} Processing~\citep{reas2007processing} og Scratch~\citep{resnick2009scratch} sænkede barrieren for kreativ kodning, men antager et generelt OS nedenunder. Sonic Pi~\citep{aaron2016sonic} kører på Raspberry Pi, men kræver Raspbian. \acos{} eliminerer OS-afhængigheden helt---det kreative værktøj \emph{er} OS'et.
+
+\textbf{Konviviale værktøjer.} Illichs koncept om ``værktøjer til konvivialitet''~\citep{illich1973tools}---værktøjer, der udvider personlig autonomi snarere end at kræve specialiseret ekspertise---resonerer med \acos{}'s design. Enheden kræver ingen systemadministration, ingen IT-support, ingen teknisk viden ud over at tilslutte et USB-drev. Paperts konstruktionisme~\citep{papert1980mindstorms} informerer valget af et kreativt instrument (ikke en indholdskonsumptionsenhed) som standardoplevelsen.
+
+\textbf{Medieteori.} Kittlers argument om, at software tilslører den materielle virkelighed af beregning~\citep{kittler1995no}, inverteres af \acos{}: uden skrivebordsmiljø, uden window manager og uden abstraktionslag gøres forholdet mellem kode og hardware synligt. McLuhans observation om, at mediet former budskabet~\citep{mcluhan1964understanding}, gælder bogstaveligt: styresystemet \emph{er} instrumentet, og dets begrænsninger (ét piece ad gangen, immediate-mode grafik, direkte lydsyntese) former det kreative output.
+
+\section{Implikationer og fremtidigt arbejde}
+\label{sec:implications}
+
+\subsection{En distributionsmodel}
+
+Overskudshardwaretesen antyder en distributionsmodel: organisationer anskaffer pensionerede laptops i bulk (\$30--80 stykket), flasher personaliserede \acos{} USB'er og distribuerer dem. Enhederne booter ind i kreative instrumenter, der opdaterer sig selv. Omkostningen per enhed er en brøkdel af enhver eksisterende tilgang, og miljøpåvirkningen er negativ---maskiner omdirigeres fra e-waste-strømme.
+
+Et klasseværelse med 30 kreative computing-instrumenter kunne provisioneres for \$1.500--2.400 i hardware, plus arbejdet med at flashe USB-drev. Intet løbende abonnement, ingen IT-supportkontrakt, ingen administrerede konti.
+
+\subsection{Enhed som instrument}
+
+Valget om at boote ind i et musikinstrument (notepat, et kromatisk keyboard) frem for et skrivebord eller en browser er bevidst. Enheden er ikke en ``computer'' i forbrugerforstand---den er et instrument, der tilfældigvis er programmerbart. Denne indramning, lånt fra \ac{}'s designfilosofi om ``instrument, ikke IDE,'' ændrer brugerens forhold til maskinen. Du ``bruger'' ikke enheden; du \emph{spiller} den.
+
+\subsection{Vedligeholdelse som omsorg}
+
+Ukeles' ``Manifest for Maintenance Art''~\citep{ukeles1969manifesto} genfortolker vedligeholdelse som en kreativ handling. \acos{}'s OTA-system legemliggør dette: hver opdatering har et navn (``keen-egret'' bliver til ``swift-otter''), enheden annoncerer sin nye identitet, og overgangen er en lille begivenhed snarere end en usynlig baggrundsproces. Vedligeholdelse gøres synlig, endda fejret.
+
+\subsection{Begrænsninger}
+
+Systemet målretter i øjeblikket x86\_64 UEFI-maskiner, hvilket udelukker ARM Chromebooks og ældre BIOS-only hardware. WiFi-understøttelse afhænger af Intel iwlwifi-firmware; Broadcom- og Realtek-adaptere understøttes endnu ikke. Enkelt-piece-ad-gangen-modellen begrænser multitasking. Software-rasterizeren, selvom den er tilstrækkelig til 2D-grafik ved 60\,fps, kan ikke accelerere 3D-rendering. Disse begrænsninger er arkitektoniske valg, ikke permanente begrænsninger.
+
+\subsection{Fremtidige retninger}
+
+\begin{itemize}
+  \item \textbf{ARM-understøttelse}: Målretning af Chromebooks (Mediatek/Qualcomm) ville tilgå den største pulje af overskuds-uddannelseshardware
+  \item \textbf{Mesh-netværk}: Peer-to-peer piece-deling og multiplayer uden internetinfrastruktur
+  \item \textbf{Hardware GPU}: DRM render nodes til accelereret grafik, mens bare-metal-modellen bevares
+  \item \textbf{Multi-piece}: Delt skærm eller fanebaseret piece-navigation til let multitasking
+  \item \textbf{Fællesskabs-flashing}: Begivenheder, hvor deltagere flasher og personaliserer overskudsmaskiner sammen
+\end{itemize}
+
+\section{Konklusion}
+
+\acos{} demonstrerer, at en komplet kreativ computing-oplevelse kan leveres i 89\,MB, boote på 7,3 sekunder og køre på hardware, der koster mindre end en lærebog. Ved at målrette overskuds-forbrugslaptops frem for specialfremstillet hardware omgår systemet de fremstillings-, distributions- og vedligeholdelsesudfordringer, der begrænsede OLPC. Ved at placere identitet i bootpartitionen frem for i en kommerciel konto tilbyder det en personaliseringsmodel, der er dybere end Apples og koster intet.
+
+Systemet er ikke en prototype eller et proof of concept. Det er udbredt på fysisk hardware, modtager OTA-opdateringer og kører en fuldt funktionel kreativ computing-køretid med lydsyntese, WiFi-netværk, kamerainput og text-to-speech. Dets 11.943 linjer C erstatter hele det traditionelle userspace.
+
+Spørgsmålet, \acos{} stiller, er ikke teknisk men økonomisk og kulturelt: givet at millioner af funktionelle computere kasseres hvert år, og at et komplet kreativt styresystem fylder i 89\,MB, hvad forhindrer enhver person fra at have et personligt kreativt instrument? Svaret er ikke hardwareomkostninger, ikke softwarekompleksitet og ikke infrastrukturkrav. Det kan simpelthen være, at ingen har prøvet.
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\vspace{0.5em}\noindent\textit{Oversat fra engelsk. Originalversion tilgængelig på \url{https://papers.aesthetic.computer}}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
