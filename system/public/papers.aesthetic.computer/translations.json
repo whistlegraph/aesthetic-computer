@@ -1,0 +1,184 @@
+{
+  "ac": {
+    "en": {}
+  },
+  "api": {
+    "en": {}
+  },
+  "archaeology": {
+    "en": {
+      "title": "Repository Archaeology",
+      "subtitle": "Tracing the Evolution of Aesthetic Computer Through Its Git History"
+    },
+    "da": {
+      "title": "Repository-arkæologi",
+      "subtitle": "Sporing af Aesthetic Computers evolution gennem dets git-historik"
+    },
+    "es": {
+      "title": "Arqueología del repositorio",
+      "subtitle": "Trazando la evolución de Aesthetic Computer a través de su historial Git"
+    }
+  },
+  "dead-ends": {
+    "en": {
+      "title": "Vestigial Features",
+      "subtitle": "Dormant Paths, Evolutionary Branches, and Abandoned Approaches"
+    },
+    "da": {
+      "title": "Vestigiale funktioner",
+      "subtitle": "Sovende stier, evolutionære grene og forladte tilgange"
+    },
+    "es": {
+      "title": "Características vestigiales",
+      "subtitle": "Caminos dormidos, ramas evolutivas y enfoques abandonados"
+    },
+    "zh": {
+      "title": "残留功能",
+      "subtitle": "休眠路径、进化分支和废弃方法"
+    }
+  },
+  "diversity": {
+    "en": {
+      "title": "Citation Diversity Audit",
+      "subtitle": "Aesthetic Computer Paper Series, March 2026"
+    },
+    "da": {
+      "title": "Citationsdiversitetsrevision",
+      "subtitle": "Aesthetic Computer artikelserien, marts 2026"
+    },
+    "es": {
+      "title": "Auditoría de diversidad en citas",
+      "subtitle": "Serie de artículos de Aesthetic Computer, marzo 2026"
+    }
+  },
+  "folk-songs": {
+    "en": {
+      "title": "Playable Folk Songs",
+      "subtitle": "Oral Tradition Meets the Browser Keyboard"
+    },
+    "da": {
+      "title": "Spillbare folkesange",
+      "subtitle": "Mundtlig tradition møder browsertastaturet"
+    },
+    "es": {
+      "title": "Canciones Populares Tocables",
+      "subtitle": "La Tradición Oral Encuentra el Teclado del Navegador"
+    },
+    "zh": {
+      "title": "可演奏的 民歌",
+      "subtitle": "口头传统遇上浏览器键盘"
+    }
+  },
+  "goodiepal": {
+    "en": {
+      "title": "Radical Computer Art",
+      "subtitle": "Goodiepalian Approaches in Aesthetic Computer"
+    },
+    "da": {
+      "title": "Radikal computerkunst",
+      "subtitle": "Goodiepalske tilgange i Aesthetic Computer"
+    },
+    "es": {
+      "title": "Arte computacional radical",
+      "subtitle": "Enfoques goodiepalianos en Aesthetic Computer"
+    }
+  },
+  "kidlisp": {
+    "en": {}
+  },
+  "kidlisp-ref": {
+    "en": {
+      "title": "KidLisp Language Reference",
+      "subtitle": "118 Built-ins in 12 Categories for Generative Art"
+    },
+    "da": {
+      "title": "KidLisp sprogreference",
+      "subtitle": "118 indbyggede funktioner i 12 kategorier til generativ kunst"
+    },
+    "es": {
+      "title": "KidLisp Referencia del lenguaje",
+      "subtitle": "118 funciones integradas en 12 categorías para arte generativo"
+    }
+  },
+  "network-audit": {
+    "en": {
+      "title": "Network Audit",
+      "subtitle": "Who Uses Aesthetic Computer and What Do They Make?"
+    },
+    "da": {
+      "title": "Netværksrevision",
+      "subtitle": "Hvem bruger Aesthetic Computer, og hvad laver de?"
+    },
+    "es": {
+      "title": "Auditoría de red",
+      "subtitle": "¿Quién usa Aesthetic Computer y qué crean?"
+    }
+  },
+  "notepat": {
+    "en": {
+      "title": "notepat.com",
+      "subtitle": "From Keyboard Toy to System Front Door"
+    },
+    "da": {
+      "title": "notepat.com",
+      "subtitle": "Fra tastaturlegetøj til systemets hoveddør"
+    },
+    "es": {
+      "title": "notepat.com",
+      "subtitle": "De juguete de teclado a puerta principal del sistema"
+    }
+  },
+  "os": {
+    "en": {},
+    "da": {
+      "title": "AC Native OS '26",
+      "subtitle": "Et bare-metal kreativt computing-styresystem"
+    },
+    "es": {
+      "title": "AC Native OS '26",
+      "subtitle": "Un sistema operativo de computación creativa sobre metal desnudo"
+    }
+  },
+  "pieces": {
+    "en": {
+      "title": "Pieces Not Programs",
+      "subtitle": "The Piece as a Unit of Creative Cognition in Aesthetic Computer"
+    },
+    "da": {
+      "title": "Pieces, ikke programmer",
+      "subtitle": "Piecet som enhed for kreativ kognition i Aesthetic Computer"
+    },
+    "es": {
+      "title": "Piezas, no programas",
+      "subtitle": "La pieza como unidad de cognición creativa en Aesthetic Computer"
+    }
+  },
+  "who-pays": {
+    "en": {
+      "title": "Who Pays for Creative Tools?",
+      "subtitle": "Funding, Burnout, and Survival in Open-Source Creative Computing"
+    },
+    "da": {
+      "title": "Hvem betaler for kreative værktøjer?",
+      "subtitle": "Finansiering, udbrændthed og overlevelse i open source kreativ computing"
+    },
+    "es": {
+      "title": "¿Quién paga por las herramientas creativas?",
+      "subtitle": "Financiación, agotamiento y supervivencia en la computación creativa de código abierto"
+    }
+  },
+  "whistlegraph": {
+    "en": {
+      "title": "Whistlegraph",
+      "subtitle": "Drawing, Singing, and the Graphic Score as Viral Form"
+    },
+    "da": {
+      "title": "Whistlegraph",
+      "subtitle": "Tegning, sang og det grafiske partitur som viral form"
+    },
+    "es": {
+      "title": "Whistlegraph",
+      "subtitle": "Dibujo, canto y la partitura gráfica como forma viral"
+    }
+  }
+}
