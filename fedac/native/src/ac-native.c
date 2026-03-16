@@ -524,6 +524,7 @@ static void load_boot_visual_config(void) {
 
     char handle[64] = {0};
     if (parse_config_string(buf, "\"handle\"", handle, sizeof(handle))) {
+        setenv("AC_HANDLE", handle, 1);
         if ((int)strlen(handle) < (int)sizeof(boot_title) - 20) {
             // Time-of-day greeting based on LA time
             int hour = get_la_hour();
