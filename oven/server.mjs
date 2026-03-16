@@ -1477,14 +1477,17 @@ app.get('/kidlisp-og/tzkt-cover.jpg', async (req, res) => {
 app.get('/kidlisp-og/tzkt-logo.jpg', async (req, res) => {
   try {
     addServerLog('info', '🖼️', 'TzKT logo (200x200)');
-    const result = await generateKidlispOGImage('mosaic', true, { noDotCom: true });
-    const bg = await sharp(result.buffer).resize(200, 200, { fit: 'cover' }).png().toBuffer();
-    const dollarSvg = Buffer.from(`<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="rgba(0,0,0,0.35)"/><text x="100" y="155" font-family="Comic Sans MS, cursive" font-size="160" font-weight="bold" fill="limegreen" text-anchor="middle" style="paint-order: stroke; stroke: rgba(0,0,0,0.6); stroke-width: 6px;">$</text></svg>`);
-    const composited = await sharp(bg).composite([{ input: dollarSvg, gravity: 'center' }]).jpeg({ quality: 90 }).toBuffer();
+    const svg = Buffer.from(`<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
+      <rect width="100%" height="100%" fill="#1a1a2e"/>
+      <text x="100" y="160" font-family="Comic Sans MS, cursive" font-size="180" font-weight="bold"
+        fill="limegreen" text-anchor="middle"
+        style="paint-order: stroke; stroke: rgba(0,0,0,0.4); stroke-width: 4px;">$</text>
+    </svg>`);
+    const jpg = await sharp(svg).jpeg({ quality: 90 }).toBuffer();
     res.setHeader('Content-Type', 'image/jpeg');
-    res.setHeader('Content-Length', composited.length);
-    res.setHeader('Cache-Control', 'public, max-age=3600');
-    res.send(composited);
+    res.setHeader('Content-Length', jpg.length);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.send(jpg);
   } catch (error) {
     console.error('TzKT logo error:', error);
     res.status(500).json({ error: error.message });
