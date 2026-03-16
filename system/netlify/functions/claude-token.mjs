@@ -8,19 +8,21 @@ import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 
 export async function handler(event) {
-  // GET: Retrieve tokens for a handle
+  // GET: Retrieve tokens for authenticated user's handle
   if (event.httpMethod === "GET") {
-    const handle = event.queryStringParameters?.handle;
-    if (!handle) return respond(400, { message: "Missing handle" });
+    const user = await authorize(event.headers);
+    if (!user) return respond(401, { message: "unauthorized" });
 
     const database = await connect();
     try {
-      const user = await database.db.collection("@handles").findOne({
-        handle: { $regex: new RegExp(`^${handle}$`, "i") },
+      const existing = await database.db.collection("@handles").findOne({
+        _id: user.sub,
       });
+      if (!existing) return respond(404, { message: "Handle not found" });
       return respond(200, {
-        token: user?.claudeCodeToken || null,
-        githubPat: user?.githubPat || null,
+        handle: existing.handle,
+        token: existing.claudeCodeToken || null,
+        githubPat: existing.githubPat || null,
       });
     } finally {
       await database.disconnect();
