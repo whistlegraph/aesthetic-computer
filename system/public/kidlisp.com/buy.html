@@ -106,6 +106,8 @@
       50% { opacity: 0.4; }
     }
 
+    .tez-icon { vertical-align: -2px; margin-right: 4px; }
+
     .wallet-btn {
       background: var(--accent-bg);
       border: 1px solid var(--accent);
@@ -163,7 +165,16 @@
       width: 100%; height: 100%;
       object-fit: cover;
       image-rendering: pixelated;
+      transition: opacity 0.15s;
     }
+    .card-thumb img.hover-webp {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      image-rendering: auto;
+    }
+    .card:hover .card-thumb img.hover-webp { opacity: 1; }
+    .card:hover .card-thumb img.static-png { opacity: 0; }
 
     .card-body {
       padding: 8px 10px;
@@ -413,7 +424,7 @@
     <a href="/" class="logo">buy.kidlisp<span>.com</span></a>
     <div class="header-right">
       <div class="live-dot" id="live-dot" title="Live"></div>
-      <button class="wallet-btn" id="wallet-btn">Connect Wallet</button>
+      <button class="wallet-btn" id="wallet-btn"><svg class="tez-icon" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M16.1 11.4l3.9-4V5h-7.1V2H9.1v3H2v2.5l3.9 3.9c-2.3 1-3.9 3.3-3.9 6V22h7v-4.6c0-1.7 1.3-3 3-3s3 1.3 3 3V22h7v-4.6c0-2.7-1.6-5-3.9-6zM5.5 7h13l-2.4 2.5H7.9L5.5 7z"/></svg> Connect Wallet</button>
     </div>
   </header>
 
@@ -546,16 +557,18 @@
     updateWalletUI();
   }
 
+  const tezSvg = '<svg class="tez-icon" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M16.1 11.4l3.9-4V5h-7.1V2H9.1v3H2v2.5l3.9 3.9c-2.3 1-3.9 3.3-3.9 6V22h7v-4.6c0-1.7 1.3-3 3-3s3 1.3 3 3V22h7v-4.6c0-2.7-1.6-5-3.9-6zM5.5 7h13l-2.4 2.5H7.9L5.5 7z"/></svg>';
+
   function updateWalletUI() {
     if (walletAddress) {
-      walletBtn.textContent = walletAddress.slice(0, 5) + '…' + walletAddress.slice(-4);
+      walletBtn.innerHTML = tezSvg + ' ' + walletAddress.slice(0, 5) + '…' + walletAddress.slice(-4);
       walletBtn.classList.add('connected');
       if (selectedListing) {
         buyBtn.disabled = false;
         buyBtn.textContent = 'Buy for ' + formatXTZ(selectedListing.price_xtz) + ' XTZ';
       }
     } else {
-      walletBtn.textContent = 'Connect Wallet';
+      walletBtn.innerHTML = tezSvg + ' Connect Wallet';
       walletBtn.classList.remove('connected');
       buyBtn.disabled = true;
       buyBtn.textContent = 'Connect wallet to buy';
@@ -630,11 +643,18 @@
   }
 
   function thumbUrl(uri, name) {
-    // Prefer oven renderer for live thumbnails by token name
     if (name) {
       const code = name.startsWith('$') ? name : '$' + name;
       return `${OVEN}${code}?density=1&nowait=true&source=buy`;
     }
+    if (!uri) return '';
+    if (uri.startsWith('ipfs://')) {
+      return 'https://ipfs.aesthetic.computer/ipfs/' + uri.replace('ipfs://', '');
+    }
+    return uri;
+  }
+
+  function animatedWebpUrl(uri) {
     if (!uri) return '';
     if (uri.startsWith('ipfs://')) {
       return 'https://ipfs.aesthetic.computer/ipfs/' + uri.replace('ipfs://', '');
@@ -692,12 +712,14 @@
     grid.innerHTML = sorted.map(l => {
       const name = l.token?.name || `#${l.token?.token_id}`;
       const thumb = thumbUrl(l.token?.thumbnail_uri, l.token?.name);
+      const webp = animatedWebpUrl(l.token?.thumbnail_uri);
       const price = formatXTZ(l.price_xtz);
       const seller = l.seller_address?.slice(0, 8) + '…';
       const askId = l.id || l.bigmap_key;
       return `<div class="card" data-id="${askId}">
         <div class="card-thumb">
-          ${thumb ? `<img src="${thumb}" alt="${name}" loading="lazy" />` : ''}
+          ${thumb ? `<img class="static-png" src="${thumb}" alt="${name}" loading="lazy" />` : ''}
+          ${webp ? `<img class="hover-webp" src="${webp}" alt="${name}" loading="lazy" />` : ''}
         </div>
         <div class="card-body">
           <div class="card-code">${name}</div>
@@ -737,12 +759,14 @@
     grid.innerHTML = soldEvents.map((ev, i) => {
       const name = ev.token?.name || `#${ev.token?.token_id}`;
       const thumb = thumbUrl(ev.token?.thumbnail_uri, ev.token?.name);
+      const webp = animatedWebpUrl(ev.token?.thumbnail_uri);
       const price = formatXTZ(ev.price_xtz);
       const date = new Date(ev.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       const buyer = ev.recipient_address?.slice(0, 8) + '…';
       return `<div class="card sold-card" data-idx="${i}">
         <div class="card-thumb">
-          ${thumb ? `<img src="${thumb}" alt="${name}" loading="lazy" />` : ''}
+          ${thumb ? `<img class="static-png" src="${thumb}" alt="${name}" loading="lazy" />` : ''}
+          ${webp ? `<img class="hover-webp" src="${webp}" alt="${name}" loading="lazy" />` : ''}
         </div>
         <div class="card-body">
           <div class="card-code">${name}</div>
