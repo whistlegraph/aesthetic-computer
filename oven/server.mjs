@@ -1487,8 +1487,8 @@ app.get('/kidlisp-og/tzkt-logo.jpg', async (req, res) => {
         <link href="https://fonts.googleapis.com/css2?family=Comic+Relief:wght@700&display=swap" rel="stylesheet">
         <style>
           *{margin:0;padding:0}
-          body{width:200px;height:200px;display:flex;align-items:center;justify-content:center;background:white}
-          .d{font-family:'Comic Relief',cursive;font-size:170px;font-weight:700;color:limegreen}
+          body{width:200px;height:200px;display:flex;align-items:center;justify-content:center;background:#9370DB}
+          .d{font-family:'Comic Relief',cursive;font-size:170px;font-weight:700;color:limegreen;text-shadow:6px 6px 0 rgba(0,0,0,0.5);margin-top:-10px}
         </style></head>
         <body><div class="d">$</div></body></html>`, { waitUntil: 'networkidle0' });
       await page.evaluate(() => document.fonts.ready);
