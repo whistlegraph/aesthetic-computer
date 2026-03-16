@@ -1,0 +1,213 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45,pos={0.5\paperwidth, 0.5\paperheight}}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,pdfauthor={Jeffrey Alan Scudder},pdftitle={Pieces, ikke programmer}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{draftcolor}\textit{Arbejdsudkast --- ikke til citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic Computer}}
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{24pt}{28pt}\selectfont\color{acdark} Pieces, ikke programmer}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Piecet som enhed for kreativ kognition i \ac{}}\par
+\vspace{0.6em}
+{\normalsize Jeffrey Alan Scudder}\par
+{\small\color{acgray} Aesthetic Inc.}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{draftcolor}\textbf{[ arbejdsudkast --- ikke til citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Abstrakt.}
+\ac{} kalder sine interaktive programmer \emph{pieces}---ikke skitser, patches, scripts eller apps. Denne artikel argumenterer for, at ordvalget ikke er kosmetisk. Det importerer en ramme fra musik og billedkunst, hvori et kreativt værk er en \emph{forfattet, opførbar, iterérbar artefakt} snarere end en specifikation for en maskine. Vi sporer genealogien for piecet som computationel enhed, sammenligner det med Processing-skitsen, Max/MSP-patchen, Unix-processen, Smalltalk-imaget og Jupyter-notebooken. Vi undersøger derefter, hvad AC pieces faktisk er: enkelt-fil URL-adresserbare programmer med en livscyklus (\texttt{boot}, \texttt{paint}, \texttt{act}, \texttt{sim}, \texttt{leave}), der afspejler perception-handling-cyklussen hos legemliggjorte agenter~\citep{varela1991embodied}. Vi argumenterer for, at navngivning og design omkring piece-konceptet---snarere end programkonceptet---producerer kvalitativt anderledes relationer mellem forfattere, platforme og publikum: én hvori software øves, ikke bare udrulles.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Introduktion}
+
+Da Turing definerede beregning i 1936, kaldte han det grundlæggende objekt et ``beregneligt tal'' produceret af en ``maskine''~\citep{turing1936computable}. Ordet \emph{program}---fra det græske \emph{programma}, en offentlig meddelelse eller skriftlig bekendtgørelse---indtrådte i computing som en naturlig udvidelse af denne bureaukratiske indramning: et program er et sæt instruktioner, en plan der skal eksekveres. Programmer er korrekte eller ukorrekte. De kompilerer, eller de gør ikke. De udrulles, ikke opføres.
+
+Historien om kreativ computing har delvist været en langsom erosion af denne indramning. Processing-skitsen~\citep{reas2007processing} erstattede programmet med noget engangs og eksplorativt. Max/MSP-patchen~\citep{puckette1988patcher} erstattede kildefilen med en levende dataflow-graf. Scratch~\citep{resnick2009scratch} erstattede instruktionssekvensen med snappende blokke. Hver omdøbning var også et redesign: den nye enheds affordances bar nye antagelser om, hvem der laver ting, hvor lang tid de tager, og hvad der tæller som færdigt.
+
+\ac{} kalder sine programmer \emph{pieces}~\citep{scudder2026ac}. Denne artikel undersøger, hvorfor det betyder noget.
+
+\section{Genealogi over kreative enheder}
+
+\subsection{Det musikalske piece}
+
+I musik er et \emph{piece} et komplet, forfattet værk, der eksisterer i mindst to former: partituret (symbolsk specifikation) og opførelsen (instantiering). Disse er ikke identiske---opførelser adskiller sig, partiturer fortolkes, og pieces akkumulerer varianter over tid. Et piece er aldrig udtømt af nogen enkelt opførelse. Det er også socialt situeret: pieces har navne, forfattere, premierer og kanoner. De undervises, analyseres, coveres og glemmes.
+
+Denne dualitet---specifikation og opførelse, tekst og udførelse---er fraværende fra programkonceptet. Et program identificeres typisk med sin kildekode (eller binær). Dets ``opførelse'' er tilfældig; hvad der betyder noget, er om outputtet er korrekt.
+
+\subsection{Processing-skitsen}
+
+Processing-skitsen~\citep{reas2007processing} importerede det kunstneriske register bevidst. Ordet \emph{skitse} signalerer ufuldstændighed, udforskning og iteration. Skitser udrulles ikke; de deles, bygges videre på eller opgives. Processing-miljøet forstærkede dette med et IDE organiseret omkring at skrive, køre og eksportere---en cyklus tættere på tegning end ingeniørkunst.
+
+Skitsemodellen havde grænser: skitser er lokale filer, ikke URL'er. De distribueres ikke socialt af platformen. Deres livscyklus ender ved vinduesluk.
+
+\subsection{Max/MSP-patchen}
+
+Max's \emph{patch}~\citep{puckette1988patcher,puckette1996pure} er en dataflow-graf snarere end en kontrolflow-sekvens. Patches konstrueres rumligt, gennem forbindelse snarere end inskription. De er iboende performative: en Max-patch er ikke meningsfuld, før den kører, og dens opførsel defineres af de levende data, der flyder gennem den. Dette gør patches tættere på instrumenter end programmer---de spilles, ikke eksekveres.
+
+Patches er også efemære på en specifik måde: at lukke en patch og genåbne den returnerer den samme struktur, men opførelsestilstanden er væk. Patchen er partituret; den kørende instans er opførelsen.
+
+\subsection{Unix-processen}
+
+Unix-\emph{processen} er et anderledes koncept: ikke kildekoden eller binæren, men den kørende instans---et program i eksekvering, med sit eget adresserum, filbeskrivere og PID. Processen er opførelsen, ikke partituret. Unix-filosofien (ét værktøj, ét job, komposition via pipes) behandler processer som kombinerbare primitiver snarere end forfattede værker. Processen har ingen forfatter i kunstnerisk forstand; den har en ejer i administrativ forstand.
+
+Unix-modellen er kraftfuld og holdbar, men den peger i den modsatte retning af piece-konceptet: mod korrekthed, komponerbarhed og systemadministration snarere end forfatterskab, iteration og udtryk.
+
+\subsection{Smalltalk-imaget og Jupyter-notebooken}
+
+Alan Kays Smalltalk~\citep{kay1977personal} foreslog en anderledes enhed: \emph{imaget}---et persistent, levende snapshot af alle objekter og deres tilstand. Imaget er ikke en fil, der skal kompileres; det er en verden, der skal bebos. Objekter sendes beskeder; miljøet reagerer. Dette er tættere på piece-konceptet end programkonceptet, men det har ikke overført sig til mainstream kreativ kodning, fordi det modstår fil-som-enhed-paradigmet i moderne styresystemer.
+
+Jupyter-notebooken indtager en interessant mellemposition: den er et dokument (narrativ) og en proces (eksekverbare celler) samtidig. Notebooks er tættere på essays end programmer, men deres enhed er cellen, ikke helheden.
+
+\section{Hvad AC pieces er}
+
+Et \ac{} piece er en enkelt \texttt{.mjs}- eller \texttt{.lisp}-fil, der eksporterer livscyklusfunktioner:
+
+\begin{itemize}
+  \item \texttt{boot} --- initialisering, kører én gang ved indlæsning,
+  \item \texttt{paint} --- rendering, kører hvert frame,
+  \item \texttt{act} --- hændelseshåndtering (input, netværk, tid),
+  \item \texttt{sim} --- simulationslogik, kører hvert frame,
+  \item \texttt{leave} --- oprydning ved afslutning.
+\end{itemize}
+
+Denne livscyklus er ikke vilkårlig. Den afbildes til perception-handling-cyklussen beskrevet af enaktiv kognitionsvidenskab~\citep{varela1991embodied}: en agent perciperer sit miljø (\texttt{act}), opdaterer sin interne tilstand (\texttt{sim}) og producerer et output (\texttt{paint}). Piecet er ikke en specifikation for en beregning; det er en beskrivelse af en igangværende kognitiv proces.
+
+\subsection{URL-adresserbarhed}
+
+Hvert piece er adresserbart via URL: \texttt{aesthetic.computer/piece-name}. Dette gør pieces til hukommelsesvenlige stier snarere end filer. URL-navnerummet er piece-navnerummet. Brugere opdager pieces, som de opdager musikalske værker---ved navn, ved reference, ved at navigere en samling. Det er det, der adskiller AC fra IDE'er og sandkasser: piecet er socialt, før det er teknisk.
+
+\subsection{Immediate-mode renderingsmodellen}
+
+\ac{} bruger immediate-mode grafik: \texttt{paint} kaldes hvert frame, og skærmen genopbygges fra bunden. Der er ingen bevaret scenegraf, ingen persistent DOM, ingen objektmodel. Dette er kognitivt betydningsfuldt: piecet er en ren funktion af tid og tilstand, ikke en akkumuleret struktur. Programmøren tænker i termer af \emph{hvad der skal tegnes nu}, ikke \emph{hvad der skal ændres}. Dette stemmer overens med, hvordan musikere tænker under opførelse---ikke ``hvilken node holder jeg'' men ``hvad spiller jeg næste gang.''
+
+\subsection{Forfatterskab og iteration}
+
+Pieces har forfattere. De publiceres ved navn, tilskrives og kan fork'es via \texttt{source}-kommandoen. Når en bruger udsender \texttt{source piece-name}, modtager de en kopi af piecets kildekode og bliver en ny forfatter. Dette er det musikalske koncept for at covere: at tage et eksisterende værk og gøre det til dit.
+
+Iterationscyklussen---skriv, publicér, spil, observér, revidér---er tættere på musikalsk komposition eller billedkunstpraksis end softwareudrulning. \citet{mcpherson2020idiomatic} dokumenterer, hvordan computermusiksprog former æstetiske resultater gennem de idiomer, de gør lette; piece-livscyklussen former, hvad der skabes, ved at gøre iterativ, performativ udvikling til den letteste vej.
+
+\section{Piecet som kognitiv udvidelse}
+
+Clark og Chalmers argumenterer for, at kognitive processer kan udvide sig ind i eksterne værktøjer, når disse værktøjer bruges pålideligt, er tilgængelige og anerkendte~\citep{clark1998extended}. En notesbog brugt til tænkning er del af det kognitive system; indholdet i notesbogen er lige så meget ``i sindet'' som et husket faktum.
+
+Et piece, spillet regelmæssigt, bliver en kognitiv udvidelse i præcis denne forstand. \texttt{notepat}~\citep{scudder2026notepat} er ikke bare et værktøj Jeffrey bruger til at lave lyde; det er en protese for musikalsk tænkning. De 401 commits til \texttt{notepat} er ikke fejlrettelser til et hjælpeprogram---de er forfinininger af et kognitivt organ. Piecet og dets forfatter co-evolverer.
+
+Dette er, hvad \citet{magnusson2010designing} beskriver som den epistemiske dimension af musikinstrumenter: instrumenter er ``epistemiske værktøjer,'' der former, hvad deres spillere kan tænke og udtrykke. Digitale instrumenter adskiller sig fra akustiske ved, at de er software---og software kan modificeres af sin bruger. Når værktøjet er et piece, og dets forfatter også er dets spiller, opløses grænsen mellem instrument og komposition.
+
+\subsection{Den navngivne sti som mnemonik}
+
+Normans affordance-koncept~\citep{norman1988design} beskriver, hvordan objekter signalerer deres mulige brug. Et URL-adresserbart piece afforderer memorering og tilbagevenden: navnet \texttt{notepat} er ikke bare en identifikator, men en mnemonik, en sti tilbage til en praksis. AC-navnerummet er et mnemonisk landskab. Brugere der kender \texttt{wrl}, \texttt{grid}, \texttt{clock}, \texttt{prompt} har internaliseret et kort over mulige oplevelser. Sådan fungerer musikalske kanoner: navnene på pieces er greb om praksisser, ikke bare etiketter på filer.
+
+\section{Pieces vs.\ programmer: En sammenligning}
+
+\begin{table}[h]
+\small\centering
+\begin{tabularx}{\columnwidth}{l X X}
+\toprule
+ & \textbf{Program} & \textbf{Piece} \\
+\midrule
+Evalueringsenhed & Korrekthed & Udtryk \\
+Primær livscyklus & Kompilér, kør, afslut & Boot, spil, forlad \\
+Forfatterskab & Ejer (bruger/root) & Kunstner \\
+Social enhed & Eksekverbar binær & Navngivet URL \\
+Iterationstilstand & Debug, genudrulling & Revidér, genpublicér \\
+Forhold til tid & Terminerer & Igangværende \\
+Forkingmetafor & Fork (git) & Cover (musik) \\
+Færdig når & Tests bestås & Aldrig (kun opgivet) \\
+\bottomrule
+\end{tabularx}
+\caption{Program vs.\ piece som kreative enheder.}
+\label{tab:comparison}
+\end{table}
+
+\section{Implikationer for platformdesign}
+
+Piece-konceptet har konkrete designkonsekvenser for \ac{}:
+
+\begin{enumerate}
+  \item \textbf{Én fil, ét piece.} Ingen projektstruktur, intet byggesystem, ingen afhængigheder uden for platform-API'en. Piecet er selvstændigt, fordi et musikstykke er selvstændigt.
+  \item \textbf{Prompten som instrument.} AC-kommandoprompten er grænsefladen, hvorigennem pieces navigeres, spilles og publiceres. Den er designet til at memoreres, som et tastaturlayout---ikke konfigureres, som en GUI.
+  \item \textbf{Publicering som opførelse.} At udstede \texttt{publish} er en forfatterskabshandling, ikke en udrulning. Piecet træder øjeblikkeligt ind i navnerummet og er spillbart af enhver med URL'en.
+  \item \textbf{Browseren som koncertsal.} Webbrowseren~\citep{wyse2013viability} er opførelsesrummet. Den er allerede til stede på enhver enhed; den er allerede social. Pieces spilles i browseren, ikke fordi det er teknisk optimalt, men fordi det er det mest tilgængelige opførelsessted, der eksisterer.
+  \item \textbf{Live-kodning som øvelse.} Modulindlæseren hot-genindlæser pieces ved gem. Dette er ikke en udviklerbekvemmelighed---det er ækvivalenten til at øve i tempo: forfatteren spiller piecet, mens det ændrer sig, ikke efter.
+\end{enumerate}
+
+\section{Konklusion}
+
+At kalde interaktive programmer \emph{pieces} er en designpåstand: den hævder, at den rigtige ramme for at tænke om kreativ software ikke er ingeniørrammen (korrekthed, udrulning, vedligeholdelse) men den kunstneriske (forfatterskab, iteration, opførelse, øvelse). Processing-skitsen fremsatte en lignende påstand i 2001. Max's patch fremsatte den i 1988. AC's piece fremsætter den igen, i en browser, med et URL-navnerum, i 2024.
+
+Hver genindramning bærer forskellige affordances. Piece-konceptet i AC fremhæver: hukommelsesvenlige URL'er over installerbare apps, immediate-mode rendering over bevarede scenegrafer, livscyklusfunktioner over hændelseslyttere og covering over forking. Disse er ikke bare navngivningsvalg---de er begrænsninger, der, som \citet{magnusson2010designing} argumenterer, muliggør ved at afgrænse.
+
+Den dybere påstand er, at software designet omkring piece-konceptet behandler \emph{øvelse} som den fundamentale relation mellem en bruger og et program. Ikke installation, ikke konfiguration, ikke udrulning---øvelse. Piecet er noget, du vender tilbage til, forfiner og opfører. Det udvider din kognition~\citep{clark1998extended} netop fordi det er stabilt nok til at blive lært og fleksibelt nok til at vokse.
+
+\vspace{0.5em}\noindent\textit{Oversat fra engelsk. Originalversion tilgængelig på \url{https://papers.aesthetic.computer}}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

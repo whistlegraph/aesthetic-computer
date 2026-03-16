@@ -1,0 +1,261 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multicol}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45,pos={0.5\paperwidth, 0.5\paperheight}}
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,pdfauthor={Jeffrey Alan Scudder},pdftitle={Arqueología del repositorio: Trazando la evolución de Aesthetic Computer a través de su historial Git}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Borrador de trabajo --- no citar}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic Computer}}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} Arqueología del repositorio}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Trazando la evolución de Aesthetic Computer a través de su historial Git}\par
+\vspace{0.6em}
+{\normalsize Jeffrey Alan Scudder}\par
+{\small\color{acgray} Aesthetic Inc.}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ borrador de trabajo --- no citar ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Resumen.}
+Este artículo traza la evolución técnica completa de \ac{} (AC) a través de su historial git, desde un prototipo alojado en Glitch en agosto de 2021 hasta un monorepo de 11.314 commits sirviendo 337 piezas interactivas. Examinando cuatro repositorios sucesivos, más de 50 repos de GitHub en dos cuentas, un archivo de servidor legado de 109\,GB, y un archivo de Dropbox que abarca una década de práctica de software creativo, reconstruimos cómo las herramientas, prototipos e instrumentos creativos de un único artista-programador convergieron en una plataforma unificada. La investigación revela 94 proyectos predecesores (2007--2020) que informan directamente la filosofía de diseño de AC: que el software es un material para la creación artística, y que cada herramienta que un artista construye es un paso hacia un instrumento más completo.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Los cuatro repositorios}
+
+\ac{} no comenzó como un monorepo. Evolucionó a través de cuatro repositorios sucesivos de GitHub, cada uno representando una fase arquitectónica distinta:
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lr}
+\toprule
+\textbf{Métrica} & \textbf{Valor} \\
+\midrule
+Repositorios sucesivos & 4 \\
+Commits totales (actual) & 11.314 \\
+Meses de desarrollo & 38 \\
+Proyectos predecesores & 94 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{system-ac (ago--dic 2021)}
+
+\texttt{whistlegraph/system-ac} --- \emph{``Mi sistema de computadora virtual para cargar y ejecutar discos.''}
+
+El primer commit fue realizado el 10 de agosto de 2021 e inmediatamente fusionado desde Glitch~\citep{glitch2017}, revelando que AC comenzó como un remix de Glitch. El repositorio contiene 38 commits en cuatro meses, con autoría variada como ``Jeffrey Alan Scudder,'' ``Jeffrey Scudder'' y ``whistlegraph'' --- una traza de la consolidación de identidad ocurriendo en paralelo con el código.
+
+La arquitectura inicial era mínima: un único punto de entrada \texttt{boot.js}, un entorno de ejecución \texttt{bios.js}, y una biblioteca de módulos incluyendo \texttt{disk.js}, \texttt{geo.js}, \texttt{graph.js}, \texttt{pen.js}, \texttt{speaker.js} y un sistema de sonido con generadores de onda sinusoidal y cuadrada. La metáfora ya estaba establecida: una computadora que carga y ejecuta \emph{discos}.
+
+Hitos clave: metrónomo básico e instrumento cuadrado (18 ago), rasterización de triángulos y entorno 3D (20 oct), primera pieza de notación animada (30 oct), pen refactorizado de singleton a clase (28 nov) --- una decisión de diseño de API pivotal. El servidor de desarrollo corría en el puerto 8080 con certificados SSL auto-firmados; HTTPS era requerido desde el día uno, probablemente para las APIs de WebRTC y audio.
+
+\subsection{disks-ac (oct--dic 2021)}
+
+\texttt{whistlegraph/disks-ac} --- \emph{``Un montón de discos compatibles con el repo `whistlegraph/system'.''}
+
+Este repositorio compañero mantenía el contenido creativo separado del entorno de ejecución. Su \texttt{package.json} revela el acoplamiento: \texttt{"system": "file:../system"} --- los discos importaban system como una dependencia local. El servidor de desarrollo corría en el puerto 8081, uno arriba de system.
+
+Los 12 discos originales representan el vocabulario creativo fundacional de AC: \texttt{prompt.js} (entrada de texto por línea de comandos --- la puerta de entrada del sistema), \texttt{doodle.js} (dibujo libre), \texttt{plot.js} (trazado de píxeles basado en cuadrícula), \texttt{pull.js} (formas interactivas al tacto), \texttt{stage.js} (notación musical), \texttt{starfield.js} (animación generativa), \texttt{tracker.js} (secuenciador desplazable), \texttt{whistlegraph.js} (reproducción de Whistlegraph), y cuatro discos de utilidad/prueba. También preservado: \texttt{old/worker-disk.js} --- evidencia de que un modelo de ejecución de discos basado en Web Worker fue intentado y abandonado tempranamente.
+
+\subsection{2022.aesthetic.computer (dic 2021--dic 2022)}
+
+\texttt{whistlegraph/2022.aesthetic.computer} --- \emph{``Computar estéticamente.''}
+
+El 22 de diciembre de 2021, los repos de system y disks fueron fusionados: \emph{``importar fuentes de repositorios anteriores,''} seguido inmediatamente por \emph{``eliminar duplicados de discos.''} Este fue el primer monorepo. El eslogan cambió de una descripción técnica a un imperativo creativo.
+
+Este repositorio de un año captura la transformación de AC de un instrumento personal en una plataforma:
+
+\begin{itemize}
+  \item \textbf{2 ene 2022}: ``Empezar a trabajar en herramienta de dibujo spray para iPad \& Apple Pencil.'' Mismo día: ``Añadir shim nativo iOS / macOS.''
+  \item \textbf{5 ene}: ``Conseguir un demo básico de IPFS funcionando'' --- Web3/almacenamiento descentralizado explorado tempranamente.
+  \item \textbf{7 ene}: ``Consolidar discos en system'' --- la arquitectura de dos repos ya era un punto de fricción después de 2 semanas.
+  \item \textbf{10 ene}: ``Empezar a trabajar en prompt, cableando el teclado.''
+  \item \textbf{11 ene}: ``Conectar micrófono y empezar ruta de código para video.''
+  \item \textbf{Oct 2022}: Renovación del hipervisor --- las piezas ahora pueden transicionar instantáneamente sin recarga de página.
+  \item \textbf{24 oct}: ``Actualizaciones de teclado Meta Quest 2 / más trabajo HID'' --- soporte de auriculares VR.
+  \item \textbf{Nov 2022}: Integración VR: ``cadwand vr hello world,'' herramienta de varita 3D, exportación GLTF/GLB.
+  \item \textbf{Dic 2022}: ``Completar flujo de login / conexión ethereum.'' Servidor de sesiones con backends Jamsocket.
+\end{itemize}
+
+\subsection{aesthetic-computer (dic 2022--presente)}
+
+El repositorio actual. Primer commit: \emph{``Initial commit.''} Segundo: \emph{``copiar todas las fuentes anteriores al nuevo repo; todos.''} Tercero: \emph{``primer deploy en netlify.''} Tres commits en 35 minutos el 23 de diciembre de 2022 --- un nuevo comienzo el mismo día en que el repo anterior recibió su commit final.
+
+A marzo de 2026: \textbf{11.314 commits} en 38 meses.
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{Funcionalidad} & \textbf{Primera aparición} \\
+\midrule
+Auth (Auth0) & 5 ene 2023 \\
+Servidor de sesiones & 21 ene 2023 \\
+KidLisp & $\sim$Feb 2023 \\
+Multijugador & $\sim$Mar 2023 \\
+Tezos/NFT $\rightarrow$ ``keep'' & $\sim$2023 \\
+notepat & $\sim$2023 \\
+Cámara móvil & Ene 2023 \\
+\bottomrule
+\end{tabular}
+\caption{Primeras apariciones de funcionalidades en el repositorio actual.}
+\end{table}
+
+\section{Los proyectos predecesores}
+
+AC no surgió de la nada. Cruzando referencias de dos cuentas de GitHub (\texttt{whistlegraph} con más de 50 repos y \texttt{justanothersystem} con 3 repos), un archivo de Dropbox, un droplet legado de DigitalOcean de 109\,GB, y el CV del autor, identificamos \textbf{94 proyectos predecesores} abarcando 2007--2020.
+
+\subsection{El linaje del software de dibujo}
+
+AC es, en su núcleo, un programa de dibujo. El linaje:
+
+\begin{itemize}
+  \item \textbf{thePRBAT} (2011) --- Polygon Replicating Bitmap Authoring Tool. Flash/SWF. Herramienta de tesis de BFA en Ringling College.
+  \item \textbf{JeffreyPaint} (2014) --- ``Mi programa de pintura.'' App web JavaScript + port Unity + .dmg macOS.
+  \item \textbf{No Paint} (2014--2020) --- ``Un instrumento para hacer imágenes.'' La restricción: solo puedes pintar, nunca borrar. Cinco encarnaciones en seis años: app Rails $\rightarrow$ shim JS $\rightarrow$ prototipo WebGL $\rightarrow$ iOS/Cordova $\rightarrow$ sitio Vercel. Seis repos.
+  \item \textbf{Mood Engine} (2015) --- Aplicación nativa en C. ``El MOOD Engine de Maskware.''
+  \item \textbf{Traveller} (2015) --- Processing $\rightarrow$ 3 builds independientes de macOS .app.
+  \item \textbf{Finger Quilt} (2016) --- App iOS en Swift. Acolchado-como-dibujo.
+  \item \textbf{Dot} (2017) --- ``Una aplicación de trazado de puntos.'' Prefigura directamente el disco \texttt{plot} de AC.
+\end{itemize}
+
+\subsection{El linaje del software de actuación}
+
+Las funciones en tiempo real, multijugador y de actuación de AC trazan a herramientas construidas para la gira de conferencias de Radical Digital Painting y las colaboraciones con Goodiepal \& Pals:
+
+\begin{itemize}
+  \item \textbf{Peter} (2017) --- Una app web que permite a los miembros de la audiencia subir imágenes con caducidad para que Julia Yerger pinte con ellas. Participación de la audiencia en tiempo real.
+  \item \textbf{border-notation} (2017) --- Programa de notación de animación de bordes para GP\&PLS. Notación musical en el navegador.
+  \item \textbf{pmet-subs} (2017) --- Visualización de subtítulos en tiempo real para actuación de Goodiepal.
+  \item \textbf{Shutter Rub} (2018) --- Herramienta para Knoth \& Renner en la Bienal de Diseño Fikra.
+  \item \textbf{pic.jeffreyheart89.com} (2017) --- ``Servicio de entrega de pintura digital.''
+\end{itemize}
+
+\subsection{Lenguajes a través de proyectos}
+
+Los proyectos predecesores abarcan un rango inusual para un solo practicante: JavaScript (dominante), Ruby (era Rails), Swift (iOS), Java (Android), C (Mood Engine), Rust (Rect), VimL (dotfiles), Processing (Traveller), Flash/ActionScript (thePRBAT), Lua (PICO-8) y TypeScript. AC consolida esta historia políglota en una plataforma JavaScript-primero con KidLisp~\citep{scudder2026kidlisp} como su lenguaje incrustado.
+
+\section{Patrones arquitectónicos}
+
+\subsection{La metáfora disco/pieza}
+
+Desde el primer commit de \texttt{system-ac}, la metáfora era ``discos'' cargados por un ``sistema'' con un ``bios.'' Esta metáfora --- tomada de la historia de la computación personal --- persiste a través de los cuatro repos. El renombramiento de ``disco'' a ``pieza'' ocurrió durante el período de 2022, alineando el término técnico con el artístico. Una pieza de software. Una pieza de música. Una pieza de arte. Las implicaciones de este renombramiento se exploran en un artículo complementario~\citep{scudder2026pieces}.
+
+\subsection{El prompt como interfaz}
+
+El prompt --- un cursor de texto parpadeante donde los usuarios escriben nombres de piezas --- aparece en el primerísimo repo \texttt{disks-ac} como \texttt{prompt.js}. Posteriormente se convirtió en el teclado de notepat y el sistema de navegación principal de AC. El prompt no es una línea de comandos; es una interfaz \emph{musical}, donde escribir una palabra como \texttt{notepat} es un acto de recuerdo e invocación, como tararear una melodía para encontrar una canción.
+
+\subsection{De dos repos a monorepo}
+
+La división system/disks duró exactamente 4 meses antes de fusionarse. La división reflejaba una distinción conceptual (entorno de ejecución vs.\ contenido) que resultó impráctica. La fusión sucedió dos veces más: en \texttt{2022.aesthetic.computer} y luego en el repo actual. Cada consolidación descartó historial git a favor de un nuevo comienzo --- una elección deliberada de priorizar el impulso hacia adelante sobre la continuidad arqueológica, que es precisamente lo que hace necesaria esta reconstrucción.
+
+\section{Resumen cuantitativo}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lr}
+\toprule
+\textbf{Métrica} & \textbf{Conteo} \\
+\midrule
+Proyectos predecesores (2007--2020) & 94 \\
+Repos GitHub (whistlegraph + JAS) & 50+ \\
+Piezas \texttt{.mjs} en repo actual & 337 \\
+Piezas \texttt{.lisp} (KidLisp) & 18 \\
+Módulos de biblioteca & 76 \\
+Funciones serverless Netlify & 83 \\
+Servicios backend & 5 \\
+Tamaño del archivo legado & 109\,GB \\
+\bottomrule
+\end{tabular}
+\caption{Resumen cuantitativo del ecosistema AC.}
+\end{table}
+
+\section{Conclusión}
+
+\ac{} no es un proyecto que comenzó el 10 de agosto de 2021. Es la convergencia de una década de práctica de software creativo --- desde thePRBAT (2011) a través de las cinco encarnaciones de No Paint (2014--2020), a través de herramientas de actuación para Goodiepal \& Pals, a través de un catálogo curado de cada herramienta de dibujo web que el autor pudo encontrar, a través de un juego de rectángulos en Rust y un cart de dibujo PICO-8 y un experimento con smartwatch Pebble, a través de más de 65 conferencias-performance sobre la tesis de que las herramientas digitales son el próximo suelo material de la pintura.
+
+El historial git revela lo que los manifiestos no pueden: la acumulación diaria de decisiones, los caminos abandonados (\texttt{worker-disk.js}, la división en dos repos), las convergencias (system + disks $\rightarrow$ monorepo), y los renombramientos que llevan significado (disco $\rightarrow$ pieza, notepad $\rightarrow$ notepat, NFT $\rightarrow$ keep). Cada commit es una pincelada en la pintura más larga que Jeffrey Alan Scudder ha hecho jamás.
+
+\begin{quote}
+\emph{``Algo compuesto en 30 minutos (¡como un whistlegraph!) podría vivir por una eternidad.''}
+
+--- Jeffrey Alan Scudder, Declaración personal: Creencias fundamentales
+\end{quote}
+
+\vspace{0.5em}
+\noindent\textit{Traducido del inglés. Versión original disponible en \url{https://papers.aesthetic.computer}}
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

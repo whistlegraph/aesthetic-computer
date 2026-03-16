@@ -1,0 +1,185 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xcolor}\usepackage{titlesec}\usepackage{enumitem}\usepackage{booktabs}\usepackage{tabularx}\usepackage{multicol}\usepackage{fancyhdr}\usepackage{hyperref}\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}\usepackage{microtype}\usepackage{listings}\usepackage{natbib}\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}\definecolor{acpurple}{RGB}{120,80,180}\definecolor{acdark}{RGB}{64,56,74}\definecolor{acgray}{RGB}{119,119,119}\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45,pos={0.5\paperwidth, 0.5\paperheight}}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,pdfauthor={Jeffrey Alan Scudder},pdftitle={Repository-arkæologi: Sporing af Aesthetic Computers evolution gennem dets git-historik}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Arbejdsudkast --- ikke til citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic Computer}}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+\setlength{\columnsep}{1.8em}\setlength{\parindent}{1em}\setlength{\parskip}{0.3em}
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} Repository-arkæologi}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Sporing af Aesthetic Computers evolution gennem dets git-historik}\par
+\vspace{0.6em}
+{\normalsize Jeffrey Alan Scudder}\par
+{\small\color{acgray} Aesthetic Inc.}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ arbejdsudkast --- ikke til citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Abstrakt.}
+Denne artikel sporer den komplette tekniske evolution af \ac{} (AC) gennem dets git-historik, fra en Glitch-hostet prototype i august 2021 til et 11.314-commit monorepo, der betjener 337 interaktive pieces. Ved at undersøge fire successive repositories, 50+ GitHub repos på tværs af to konti, et 109\,GB legacy serverarkiv og et Dropbox-arkiv, der spænder over et årti af kreativ softwarepraksis, rekonstruerer vi, hvordan en enkelt kunstner-programmørs værktøjer, prototyper og kreative instrumenter konvergerede til en samlet platform. Undersøgelsen afslører 94 forgængerprojekter (2007--2020), der direkte informerer AC's designfilosofi: at software er et materiale til kunstskabelse, og at hvert værktøj, en kunstner bygger, er et skridt mod et mere komplet instrument.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{De fire repositories}
+
+\ac{} begyndte ikke som et monorepo. Det udviklede sig gennem fire successive GitHub repositories, der hver repræsenterer en distinkt arkitektonisk fase:
+
+\begin{table}[h]
+\small\centering
+\begin{tabular}{lr}
+\toprule
+\textbf{Metrik} & \textbf{Værdi} \\
+\midrule
+Successive repositories & 4 \\
+Totale commits (nuværende) & 11.314 \\
+Udviklingsmåneder & 38 \\
+Forgængerprojekter & 94 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{system-ac (aug--dec 2021)}
+
+\texttt{whistlegraph/system-ac} --- \emph{``Mit virtuelle computersystem til at indlæse og køre disks.''}
+
+Den første commit blev lavet 10. august 2021 og merget øjeblikkeligt fra Glitch~\citep{glitch2017}, hvilket afslører, at AC begyndte som et Glitch-remix. Repositoriet indeholder 38 commits over fire måneder. Den indledende arkitektur var minimal: ét \texttt{boot.js}-indgangspunkt, en \texttt{bios.js}-køretid og et bibliotek af moduler. Metaforen var allerede etableret: en computer, der indlæser og kører \emph{disks}.
+
+\subsection{disks-ac (okt--dec 2021)}
+
+\texttt{whistlegraph/disks-ac} --- \emph{``En masse disks, der er kompatible med `whistlegraph/system' repoen.''}
+
+De 12 originale disks repræsenterer AC's grundlæggende kreative ordforråd: \texttt{prompt.js} (kommandolinje-tekstinput---systemets hoveddør), \texttt{doodle.js} (fri tegning), \texttt{plot.js} (gitterbaseret pixelplotning), \texttt{stage.js} (musikalsk notation), \texttt{starfield.js} (generativ animation), \texttt{whistlegraph.js} (Whistlegraph-afspilning) og flere.
+
+\subsection{2022.aesthetic.computer (dec 2021--dec 2022)}
+
+Den 22. december 2021 blev system- og disks-repoerne merget. Dette var det første monorepo. Sloganet ændrede sig fra en teknisk beskrivelse til et kreativt imperativ: \emph{``Compute aesthetically.''}
+
+\subsection{aesthetic-computer (dec 2022--nu)}
+
+Det nuværende repository. Per marts 2026: \textbf{11.314 commits} over 38 måneder.
+
+\section{Forgængerprojekterne}
+
+AC opstod ikke af intet. Ved krydsreferencing identificerer vi \textbf{94 forgængerprojekter} fra 2007--2020.
+
+\subsection{Tegnesoftwarelinjen}
+
+\begin{itemize}
+  \item \textbf{thePRBAT} (2011) --- Polygon Replicating Bitmap Authoring Tool. Flash/SWF. BFA-afhandlingsværktøj.
+  \item \textbf{JeffreyPaint} (2014) --- ``Mit maleprogram.'' JavaScript webapp + Unity-port.
+  \item \textbf{No Paint} (2014--2020) --- ``Et billedskabelsesinstrument.'' Fem inkarnationer over seks år.
+  \item \textbf{Dot} (2017) --- ``En punktplotningsapplikation.'' Direkte forløber for AC's \texttt{plot}-disk.
+\end{itemize}
+
+\subsection{Performancesoftwarelinjen}
+
+AC's realtids-, multiplayer- og performancefunktioner spores til værktøjer bygget til Radical Digital Painting-foredragsturnéen og Goodiepal \& Pals-samarbejder:
+
+\begin{itemize}
+  \item \textbf{Peter} (2017) --- En webapp, der tillod publikum at uploade udløbende billeder.
+  \item \textbf{border-notation} (2017) --- Grænseanimationsnotationsprogram til GP\&PLS.
+  \item \textbf{pmet-subs} (2017) --- Realtidsundertekstvisning til Goodiepal-performance.
+\end{itemize}
+
+\subsection{Infrastrukturlinjen}
+
+\begin{itemize}
+  \item \textbf{live} (2016) --- ``Genindlæser browser automatisk.'' En Ruby live-reload server. AC's nuværende hot-reload WebSocket-system er efterkommeren.
+  \item \textbf{netlify-functions-headless-chrome} (2022) --- Direkte forløber for oven-screenshot-tjenesten.
+\end{itemize}
+
+\section{Arkitektoniske mønstre}
+
+\subsection{Disk/Piece-metaforen}
+
+Fra den første \texttt{system-ac} commit var metaforen ``disks'' indlæst af et ``system'' med en ``bios.'' Omdøbningen fra ``disk'' til ``piece'' skete i løbet af 2022-perioden, der afstemte den tekniske term med den kunstneriske.
+
+\subsection{Prompten som grænseflade}
+
+Prompten optræder i selve det første \texttt{disks-ac} repo som \texttt{prompt.js}. Den blev senere notepats tastatur og AC's primære navigationssystem. Prompten er ikke en kommandolinje; den er en \emph{musikalsk} grænseflade.
+
+\section{Kvantitativt sammendrag}
+
+\begin{table}[h]
+\small\centering
+\begin{tabular}{lr}
+\toprule
+\textbf{Metrik} & \textbf{Antal} \\
+\midrule
+Forgængerprojekter (2007--2020) & 94 \\
+GitHub repos (whistlegraph + JAS) & 50+ \\
+\texttt{.mjs} pieces i nuværende repo & 337 \\
+\texttt{.lisp} pieces (KidLisp) & 18 \\
+Biblioteksmoduler & 76 \\
+Netlify serverless-funktioner & 83 \\
+Backendtjenester & 5 \\
+Legacy arkivstørrelse & 109\,GB \\
+\bottomrule
+\end{tabular}
+\caption{Kvantitativt overblik over AC-økosystemet.}
+\end{table}
+
+\section{Konklusion}
+
+\ac{} er ikke et projekt, der begyndte 10. august 2021. Det er konvergensen af et årti af kreativ softwarepraksis. Git-historikken afslører, hvad manifester ikke kan: den daglige akkumulering af beslutninger, de forladte stier, konvergenserne og omdøbningerne, der bærer mening (disk $\rightarrow$ piece, notepad $\rightarrow$ notepat, NFT $\rightarrow$ keep). Hvert commit er en penselstrøg i det længste maleri, Jeffrey Alan Scudder nogensinde har lavet.
+
+\begin{quote}
+\emph{``Noget komponeret på 30 minutter (som et whistlegraph!) kunne leve i en evighed.''}
+
+--- Jeffrey Alan Scudder, Personal Statement: Core Beliefs
+\end{quote}
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\vspace{0.5em}\noindent\textit{Oversat fra engelsk. Originalversion tilgængelig på \url{https://papers.aesthetic.computer}}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

@@ -31,6 +31,9 @@
     "**/gpu/**": true,
     "**/simple-gb-asm-examples/**": true
   },
+  "git.enabled": true,
+  "git.path": "/usr/sbin/git",
+  "git.autoRepositoryDetection": true,
   "search.followSymlinks": false,
   "search.useGlobalIgnoreFiles": false,
   "search.useIgnoreFiles": false,

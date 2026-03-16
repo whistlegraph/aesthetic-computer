@@ -1,0 +1,760 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\usepackage{xeCJK}
+\setCJKmainfont{Droid Sans Fallback}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{ragged2e}
+\usepackage{listings}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === JS SYNTAX COLORS ===
+\definecolor{jskw}{RGB}{119,51,170}
+\definecolor{jsfn}{RGB}{0,136,170}
+\definecolor{jsstr}{RGB}{170,120,0}
+\definecolor{jsnum}{RGB}{204,0,102}
+\definecolor{jscmt}{RGB}{102,102,102}
+
+% === PROCESSING SYNTAX COLORS ===
+\definecolor{pjkw}{RGB}{204,102,0}
+\definecolor{pjfn}{RGB}{0,102,153}
+\definecolor{pjcmt}{RGB}{102,102,102}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={Jeffrey Alan Scudder},
+  pdftitle={从setup()到boot()：Processing在作品API核心中的延续},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\titleformat{\subsubsection}
+  {\normalfont\itshape\small}
+  {\thesubsubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsubsection}{0pt}{0.6em}{0.1em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{draftcolor}\textit{工作草稿 --- 请勿引用}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% === LISTINGS ===
+\lstdefinelanguage{processing}{
+  morekeywords=[1]{void,int,float,boolean,color,String,class,new,if,else,for,while,return,public,private,extends,import},
+  morekeywords=[2]{setup,draw,mousePressed,mouseDragged,keyPressed,size,background,stroke,noStroke,fill,noFill,line,rect,ellipse,point,triangle,beginShape,endShape,vertex,translate,rotate,scale,pushMatrix,popMatrix,frameRate,width,height,mouseX,mouseY,pmouseX,pmouseY,key,keyCode,mouseButton,frameCount},
+  sensitive=true,
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]",
+}
+
+\lstdefinelanguage{p5js}{
+  morekeywords=[1]{function,let,const,var,if,else,for,while,return,new,class,export},
+  morekeywords=[2]{setup,draw,mousePressed,mouseDragged,keyPressed,createCanvas,background,stroke,noStroke,fill,noFill,line,rect,ellipse,point,triangle,beginShape,endShape,vertex,translate,rotate,scale,push,pop,frameRate,width,height,mouseX,mouseY,pmouseX,pmouseY,key,keyCode,mouseButton,frameCount,createGraphics,random,noise,map,constrain,dist,lerp},
+  sensitive=true,
+  morecomment=[l]{//},
+  morestring=[b]",
+  morestring=[b]',
+  morestring=[b]`,
+}
+
+\lstdefinelanguage{acjs}{
+  morekeywords=[1]{function,export,const,let,var,return,if,else,new,async,await,import,from,for},
+  morekeywords=[2]{wipe,ink,line,box,circle,write,screen,params,colon,jump,send,store,net,sound,speaker,pen,event,boot,paint,act,sim,leave,paste,plot,poly,flood,form,cursor,handle,num,geo,ui},
+  sensitive=true,
+  morecomment=[l]{//},
+  morestring=[b]",
+  morestring=[b]',
+  morestring=[b]`,
+}
+
+\lstdefinestyle{processingstyle}{
+  language=processing,
+  keywordstyle=[1]\color{pjkw}\bfseries,
+  keywordstyle=[2]\color{pjfn}\bfseries,
+  commentstyle=\color{pjcmt}\itshape,
+  stringstyle=\color{jsstr},
+}
+
+\lstdefinestyle{p5style}{
+  language=p5js,
+  keywordstyle=[1]\color{jskw}\bfseries,
+  keywordstyle=[2]\color{pjfn}\bfseries,
+  commentstyle=\color{jscmt}\itshape,
+  stringstyle=\color{jsstr},
+}
+
+\lstdefinestyle{acjsstyle}{
+  language=acjs,
+  keywordstyle=[1]\color{jskw}\bfseries,
+  keywordstyle=[2]\color{jsfn}\bfseries,
+  commentstyle=\color{jscmt}\itshape,
+  stringstyle=\color{jsstr},
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{acgray!30},
+  backgroundcolor=\color{acgray!5},
+  xleftmargin=0.5em,
+  xrightmargin=0.5em,
+  aboveskip=0.5em,
+  belowskip=0.5em,
+  numbers=none,
+  tabsize=2,
+}
+
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic Computer}}
+
+\begin{document}
+
+% ============ TITLE BLOCK ============
+
+\twocolumn[{%
+\begin{center}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} 从 \texttt{setup()} 到 \texttt{boot()}}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Processing在作品API核心中的延续}\par
+\vspace{0.6em}
+{\normalsize Jeffrey Alan Scudder}\par
+{\small\color{acgray} Aesthetic Inc.}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{draftcolor}\textbf{[ 工作草稿 --- 请勿引用 ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{摘要。}
+每个创意编程平台都定义了一套核心API——一组使程序感知世界并在其上绘制的基本函数。Processing在2001年以\texttt{setup()}/\texttt{draw()}加全局绘图原语（\texttt{background()}、\texttt{stroke()}、\texttt{ellipse()}）确立了一种模式，这一模式影响了二十年的创意编程工具。p5.js在2014年将此模型引入浏览器，在适应JavaScript和DOM的同时保留了API接口。\ac{}（AC）始于2021年，其核心延续了Processing的思想，同时在多个结构层面进行了扩展：它将两函数生命周期扩展为五个（\texttt{boot}、\texttt{paint}、\texttt{act}、\texttt{sim}、\texttt{leave}），以解构式API注入取代全局状态，以不同频率分离模拟与渲染，并使每个程序无需构建步骤即可通过URL寻址。本文追溯Processing的理念如何存在于AC作品API中，比较了Design By Numbers、Processing、p5.js和AC在生命周期模型、绘图原语、输入处理和状态管理策略方面的差异。我们论证，AC的API设计——以Processing的即时模式图形模型为基础——将\emph{速写本}隐喻（编写、运行、丢弃）扩展为\emph{乐器}隐喻（启动、演奏、练习、回归）。
+\end{quote}
+\vspace{0.5em}
+}]
+
+% ============ 1. INTRODUCTION ============
+
+\section{引言}
+
+创意编程API的历史，是关于决定程序员应首先说什么的历史。在Design By Numbers~\citep{maeda2001dbn}中，第一条语句是坐标和灰度值：\texttt{Paper 50}。在Processing~\citep{reas2003processing}中，是\texttt{setup()}内的\texttt{size(200, 200)}。在p5.js~\citep{mccarthy2015p5js}中，是\texttt{createCanvas(400, 400)}。在\ac{}中，程序员完全无需声明画布——运行时将\texttt{screen.width}和\texttt{screen.height}作为既定事实提供，第一条有意义的语句通常是\texttt{wipe()}，清除屏幕以开始绘制。
+
+这些不是任意的差异。每一个都反映了平台假设与程序员必须指定之间的决策，这些决策累积后形成了作者与机器之间根本不同的关系。本文从Processing到p5.js再到AC追溯API谱系，将每次转变视为一系列设计决策：保留了什么，改变了什么，以及改变意味着什么。
+
+本文的贡献有三方面：（1）对Processing、p5.js和AC的生命周期模型、绘图API、输入系统和状态管理策略进行详细技术比较；（2）分析AC偏离Processing模型背后的设计理念；（3）论证AC作品API体现了从速写本隐喻到我们所称的\emph{乐器隐喻}的转变——一种程序员与程序之间关系持续进行、具有表演性、基于练习而非探索性和一次性的模型。
+
+% ============ 2. THE PROCESSING MODEL ============
+
+\section{Processing模型（2001）}
+\label{sec:processing}
+
+Processing~\citep{reas2007processing}被设计为面向视觉艺术家的"软件速写本"。其API以两个生命周期函数和一组全局绘图原语为中心。
+
+\subsection{生命周期：\texttt{setup()}和\texttt{draw()}}
+
+\begin{lstlisting}[style=processingstyle,caption={最小Processing草图。}]
+void setup() {
+  size(400, 400);
+  background(0);
+}
+
+void draw() {
+  stroke(255);
+  ellipse(mouseX, mouseY, 20, 20);
+}
+\end{lstlisting}
+
+\texttt{setup()}运行一次；\texttt{draw()}以默认60fps的频率每帧运行。这种两函数模型是Processing最具影响力的设计决策。它将动画的认知开销从管理渲染循环降低到填写两个空白："发生一次什么？"和"每帧发生什么？"
+
+该模型刻意保持最小化。没有显式的\texttt{input()}函数——鼠标和键盘状态以自动更新的全局变量（\texttt{mouseX}、\texttt{mouseY}、\texttt{key}、\texttt{keyCode}）形式可用。事件回调（\texttt{mousePressed()}、\texttt{keyPressed()}）存在但是可选的补充，而非必需的入口点。
+
+\subsection{绘图原语}
+
+Processing的绘图API采用继承自PostScript和OpenGL的\emph{有状态管道}模型：状态设置调用（\texttt{stroke()}、\texttt{fill()}、\texttt{strokeWeight()}）修改持久的图形上下文，形状调用（\texttt{ellipse()}、\texttt{rect()}、\texttt{line()}）使用该上下文进行渲染。上下文在帧间持续存在，除非显式重置。
+
+\begin{lstlisting}[style=processingstyle,caption={有状态绘图上下文。}]
+void draw() {
+  fill(255, 0, 0);     // Set fill: red
+  stroke(0);            // Set stroke: black
+  strokeWeight(3);      // Set weight: 3px
+  ellipse(100, 100, 50, 50);  // Uses above
+  rect(200, 100, 50, 50);     // Also uses above
+  // State persists into next frame
+}
+\end{lstlisting}
+
+这种状态持久性既强大（统一样式所需代码更少）又容易出错（被遗忘的状态在帧间泄漏）。Processing通过\texttt{pushStyle()}/\texttt{popStyle()}和\texttt{pushMatrix()}/\texttt{popMatrix()}来解决这个问题，但这些是高级工具。
+
+\subsection{全局作用域}
+
+所有Processing程序共享一个全局命名空间。在\texttt{setup()}和\texttt{draw()}外部声明的变量在任何地方都可访问。绘图函数（\texttt{line()}、\texttt{ellipse()}、\texttt{background()}）是全局的。输入变量（\texttt{mouseX}、\texttt{mouseY}）是全局的。这消除了理解作用域、导入或依赖注入的需要——这对初学者至关重要——但使程序无法组合或隔离。
+
+% ============ 3. THE P5.JS TRANSITION ============
+
+\section{p5.js的过渡（2014）}
+\label{sec:p5js}
+
+p5.js~\citep{mccarthy2015p5js}是Processing的JavaScript重新实现。其主要贡献是将Processing模型带入浏览器，但移植需要若干适配。
+
+\subsection{生命周期的保留}
+
+\begin{lstlisting}[style=p5style,caption={最小p5.js草图。}]
+function setup() {
+  createCanvas(400, 400);
+}
+
+function draw() {
+  background(220);
+  ellipse(mouseX, mouseY, 50, 50);
+}
+\end{lstlisting}
+
+\texttt{setup()}/\texttt{draw()}模型被完全保留。认知模型相同：两个函数、全局绘图原语、自动动画循环。这种连续性是刻意的——p5.js旨在成为Web端的Processing，而非一种新语言。
+
+\subsection{画布创建}
+
+最明显的变化是\texttt{createCanvas()}替代了\texttt{size()}。这不是表面的改变：在Processing中，\texttt{size()}配置应用程序窗口；在p5.js中，\texttt{createCanvas()}在DOM内创建一个HTML \texttt{<canvas>}元素。草图必须与现有页面协商，而非独占整个显示区域。
+
+\subsection{实例模式}
+
+p5.js引入了一个重要的全局命名空间逃逸出口：\emph{实例模式}。
+
+\begin{lstlisting}[style=p5style,caption={p5.js实例模式。}]
+const sketch = (p) => {
+  p.setup = () => {
+    p.createCanvas(400, 400);
+  };
+  p.draw = () => {
+    p.background(220);
+    p.ellipse(p.mouseX, p.mouseY, 50, 50);
+  };
+};
+new p5(sketch);
+\end{lstlisting}
+
+实例模式将所有API函数包装在命名空间（\texttt{p.}）后面，允许一个页面上有多个草图并避免全局污染。然而，大多数p5.js代码以全局模式编写，实例模式通常只在将草图嵌入更大应用程序时才遇到。前缀记法（\texttt{p.ellipse}对比\texttt{ellipse}）增加了冗余性，降低了使Processing吸引人的"直接编写"品质。
+
+\subsection{改变了什么，没改变什么}
+
+p5.js保留了：两函数生命周期、全局绘图原语、有状态图形上下文、基于帧的动画以及"草图"身份。它适配了：画布创建适配DOM、渲染器选择（2D/WebGL）、事件处理适配浏览器事件，并添加了用于组合的实例模式。它没有解决：模拟与渲染的混淆、结构化输入处理的缺失，以及单文件隔离问题。
+
+% ============ 4. THE AC PIECE API ============
+
+\section{AC作品API（2021--）}
+\label{sec:ac}
+
+\ac{}的作品API~\citep{scudder2026ac}建立在Processing的核心理念之上——即时模式图形、单文件程序、生命周期函数——并围绕五个关注点而非两个进行扩展。
+
+\subsection{五个生命周期函数}
+
+\begin{lstlisting}[style=acjsstyle,caption={最小AC作品。}]
+function boot({ screen, params }) {
+  // Runs once on load
+}
+
+function paint({ wipe, ink, line, screen }) {
+  wipe("navy");
+  ink("pink").circle(
+    screen.width / 2,
+    screen.height / 2,
+    50
+  );
+}
+
+function act({ event: e }) {
+  if (e.is("keyboard:down:space")) {
+    // Handle spacebar
+  }
+}
+
+function sim() {
+  // Update state at 120fps
+}
+
+export { boot, paint, act, sim };
+\end{lstlisting}
+
+五个函数是：
+
+\begin{itemize}
+  \item \texttt{boot(\$api)} --- 作品加载时运行一次。扩展了Processing的\texttt{setup()}，由运行时提供屏幕而非由程序员配置。
+  \item \texttt{paint(\$api)} --- 需要渲染的每一帧运行。延续了\texttt{draw()}的即时模式模型，但纯粹是视觉的：按惯例不包含逻辑、不修改状态。
+  \item \texttt{act(\$api)} --- 每个输入事件调用一次。将Processing的事件回调（\texttt{mousePressed()}、\texttt{keyPressed()}）整合为单一的统一入口点。
+  \item \texttt{sim(\$api)} --- 以固定120Hz运行，可能在每个渲染帧期间运行多次。在Processing中没有等价物；最近的类比是固定时间步长游戏循环~\citep{nystrom2014game}。
+  \item \texttt{leave(\$api)} --- 退出时的清理。在Processing中没有等价物，草图只是简单地终止。
+\end{itemize}
+
+每个函数都是可选的。只导出\texttt{paint}的作品也是一个有效的、可运行的程序。
+
+\subsection{通过解构的API注入}
+
+对Processing模型最具结构性意义的扩展是\textbf{全局作用域中不存在任何API函数}。作品使用的每个函数都作为参数接收：
+
+\begin{lstlisting}[style=acjsstyle,caption={AC中的API解构。}]
+function paint({ wipe, ink, line, box,
+                 circle, screen, num }) {
+  wipe(0, 0, 30);
+  ink(255, 100, 180);
+  const cx = num.lerp(0, screen.width, 0.5);
+  circle(cx, screen.height / 2, 40);
+}
+\end{lstlisting}
+
+这种设计有几个后果：
+
+\begin{enumerate}
+  \item \textbf{无全局污染。}模块级变量是作品状态；API函数是参数。不存在可能冲突的环境命名空间。
+  \item \textbf{自文档化的导入。}每个函数顶部的解构模式精确声明了该函数使用的API接口，充当内联依赖清单。
+  \item \textbf{可组合性。}多个作品可以在同一JavaScript上下文中共存而不会产生API冲突，实现了平台的作品切换和嵌入机制。
+  \item \textbf{可发现性。}编辑器中的自动补全对解构的参数对象生效，提供了探索API的自然方式。
+\end{enumerate}
+
+这是p5.js实例模式模式推到其结论：程序员不是在每次调用前加\texttt{p.}前缀，而是在函数签名处解构出恰好需要的函数，只需一次。
+
+\subsection{模拟与渲染的分离}
+\label{sec:simsep}
+
+Processing的\texttt{draw()}混淆了两个关注点：更新状态和渲染像素。这对简单草图有效，但随着复杂度增长会产生问题：物理模拟绑定到帧率、输入延迟耦合到渲染成本，以及难以分离"发生了什么"和"看起来像什么"。
+
+AC显式地分离了这些：
+
+\begin{itemize}
+  \item \texttt{sim()}以固定120Hz运行，与显示刷新率无关。在60Hz显示器上，\texttt{sim()}在每次\texttt{paint()}调用中运行两次。在144Hz显示器上，比率相应调整。
+  \item \texttt{paint()}以显示器刷新率运行（上限约165fps），仅负责渲染当前状态。
+  \item \texttt{act()}在事件到达时立即运行，每个输入事件一次。
+\end{itemize}
+
+这种三向分离反映了现代游戏引擎的架构~\citep{nystrom2014game}：用于确定性逻辑的固定更新频率、用于平滑显示的可变渲染频率，以及用于输入的事件队列。区别在于AC将此架构作为第一等API暴露，而非隐藏在框架之后。
+
+\subsection{统一的事件处理}
+
+Processing将输入处理分散在全局变量和可选回调中：
+
+\begin{lstlisting}[style=processingstyle]
+// Processing: scattered input model
+void draw() {
+  if (mousePressed) { /* poll state */ }
+}
+void mousePressed() { /* callback */ }
+void keyPressed()   { /* callback */ }
+void mouseDragged() { /* callback */ }
+\end{lstlisting}
+
+AC通过基于字符串的事件匹配系统将所有输入整合到\texttt{act()}中：
+
+\begin{lstlisting}[style=acjsstyle]
+function act({ event: e, pen }) {
+  if (e.is("touch"))              { }
+  if (e.is("draw"))               { }
+  if (e.is("lift"))               { }
+  if (e.is("keyboard:down:a"))    { }
+  if (e.is("keyboard:down:space")){ }
+  if (e.is("gamepad:a"))          { }
+  if (e.is("reframed"))           { }
+}
+\end{lstlisting}
+
+\texttt{event.is()}模式通过单一函数提供了跨输入模态（触控、鼠标、键盘、手柄、MIDI、手部追踪）的统一接口。事件字符串是分层的（\texttt{keyboard:down:a}），可以在任何特异性级别进行匹配。这用单一的、可过滤的流替代了Processing回调的组合爆炸。
+
+\subsection{绘图原语：默认无状态}
+
+Processing和p5.js使用有状态的图形上下文，其中\texttt{fill()}、\texttt{stroke()}和变换调用持续到显式更改。AC反转了这一点：\texttt{ink()}函数为\emph{紧随其后的}绘图调用设置颜色，并返回API对象以支持链式调用：
+
+\begin{lstlisting}[style=acjsstyle]
+function paint({ wipe, ink, line, circle }) {
+  wipe("black");
+  ink("red").circle(50, 50, 20);
+  ink("blue").line(0, 0, 100, 100);
+  // No state leaks between calls
+}
+\end{lstlisting}
+
+\texttt{ink()}的返回值链式调用模式使颜色-形状对在视觉上是原子的：每个绘图操作都是自包含的表达式，而非一系列上下文突变。这消除了一类错误：来自上一帧（或上一个函数）的被遗忘的\texttt{fill()}或\texttt{stroke()}调用渗入不相关的绘图操作。
+
+\texttt{wipe()}函数替代了Processing的\texttt{background()}，使用了更简短、更主动的动词。这种命名是刻意的："wipe"（擦除）暗示一种物理动作（擦除表面），而非属性设置。
+
+\subsection{无画布配置}
+
+在Processing中，\texttt{setup()}的第一行通常是\texttt{size(w, h)}。在p5.js中，是\texttt{createCanvas(w, h)}。在AC中，没有等价的调用。运行时以设备原生分辨率提供画布，作品通过只读属性\texttt{screen.width}和\texttt{screen.height}接收。
+
+这反映了移动优先的设计理念：在手机和平板上，"正确的"画布大小就是设备屏幕。允许程序员指定尺寸会在固定画布和可变视口之间产生不匹配。AC通过使画布默认自适应来消除这种不匹配。
+
+% ============ 5. API SURFACE COMPARISON ============
+
+\section{API接口比较}
+\label{sec:comparison}
+
+表~\ref{tab:lifecycle}比较了生命周期模型。表~\ref{tab:drawing}比较了绘图原语。
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{lXXX}
+\toprule
+ & \textbf{Processing} & \textbf{p5.js} & \textbf{AC} \\
+\midrule
+初始化 & \texttt{setup()} & \texttt{setup()} & \texttt{boot(\$)} \\
+渲染 & \texttt{draw()} & \texttt{draw()} & \texttt{paint(\$)} \\
+逻辑 & （在draw中） & （在draw中） & \texttt{sim(\$)} \\
+输入 & 回调 & 回调 & \texttt{act(\$)} \\
+清理 & --- & \texttt{remove()} & \texttt{leave(\$)} \\
+\midrule
+渲染频率 & 60fps & 60fps & 显示Hz \\
+逻辑频率 & 60fps & 60fps & 120fps固定 \\
+作用域 & 全局 & 全局/实例 & 注入 \\
+\bottomrule
+\end{tabularx}
+\caption{生命周期比较。\texttt{\$}表示解构式API注入。}
+\label{tab:lifecycle}
+\end{table}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{lXX}
+\toprule
+\textbf{Processing/p5} & \textbf{AC} & \textbf{说明} \\
+\midrule
+\texttt{background()} & \texttt{wipe()} & 动词，非属性 \\
+\texttt{fill() + stroke()} & \texttt{ink()} & 统一、可链式 \\
+\texttt{ellipse()} & \texttt{circle()} & 按形状命名 \\
+\texttt{rect()} & \texttt{box()} & 更短名称 \\
+\texttt{line()} & \texttt{line()} & 不变 \\
+\texttt{point()} & \texttt{plot()} & 图形隐喻 \\
+\texttt{text()} & \texttt{write()} & 主动动词 \\
+--- & \texttt{flood()} & 区域填充 \\
+--- & \texttt{paste()} & 缓冲区合成 \\
+--- & \texttt{form()} & 3D渲染 \\
+\bottomrule
+\end{tabularx}
+\caption{绘图原语比较。}
+\label{tab:drawing}
+\end{table}
+
+\subsection{命名哲学}
+
+Processing的API名称是描述性的名词和形容词：\texttt{background}、\texttt{ellipse}、\texttt{rect}、\texttt{stroke}、\texttt{fill}。它们描述正在设置或绘制\emph{什么}。AC的名称是主动动词：\texttt{wipe}、\texttt{ink}、\texttt{plot}、\texttt{write}、\texttt{flood}、\texttt{paste}。它们描述\emph{程序员正在做什么}——对表面执行的物理动作。
+
+从描述性到祈使性命名的转变与乐器隐喻一致：乐器的界面通过动词来理解（按、吹、击、拨），而非名词。AC API读起来像一系列动作："擦除屏幕，上墨为粉色，画一个圆，写一些文字。"
+
+\subsection{颜色模型}
+
+Processing使用独立的\texttt{fill()}和\texttt{stroke()}调用，每个接受RGB、HSB或十六进制值。填充/描边的区分映射到矢量图形（SVG、PostScript），其中形状具有内部颜色和边界颜色。
+
+AC使用单一的\texttt{ink()}调用为所有后续操作设置颜色。没有填充/描边区分：\texttt{circle()}是填充还是描边取决于其参数，而非环境上下文。\texttt{ink()}函数接受：
+
+\begin{itemize}
+  \item RGB值：\texttt{ink(255, 100, 50)}
+  \item 命名颜色：\texttt{ink("pink")}、\texttt{ink("navy")}
+  \item 灰度：\texttt{ink(128)}
+  \item Alpha：\texttt{ink(255, 0, 0, 128)}
+\end{itemize}
+
+命名颜色对初学者来说是一个重要的可用性选择。在Processing需要\texttt{fill(255, 192, 203)}来获得粉色的地方，AC接受\texttt{ink("pink")}。命名颜色词汇表刻意保持小巧且富有唤起力，更接近颜料盒而非调色板。
+
+% ============ 6. STATE MANAGEMENT ============
+
+\section{状态管理}
+\label{sec:state}
+
+\subsection{Processing：全局变量}
+
+\begin{lstlisting}[style=processingstyle]
+int x = 100;
+int y = 100;
+
+void draw() {
+  background(0);
+  x += 1;
+  ellipse(x, y, 20, 20);
+}
+\end{lstlisting}
+
+Processing中的状态存在于全局变量中。这很简单，但有众所周知的问题：所有状态在任何地方都可变，没有封装，程序状态与API状态不可区分。
+
+\subsection{AC：模块级闭包}
+
+\begin{lstlisting}[style=acjsstyle]
+let x = 100;
+let y = 100;
+
+function sim() {
+  x += 1;
+}
+
+function paint({ wipe, ink, circle }) {
+  wipe(0);
+  ink(255).circle(x, y, 20);
+}
+
+export { sim, paint };
+\end{lstlisting}
+
+AC作品是ES模块。在模块作用域声明的变量对作品是私有的——对运行时、其他作品和全局作用域不可见。\texttt{export}语句只使生命周期函数可见。这不是文档强制执行的惯例；而是JavaScript模块系统的保证。
+
+状态修改（\texttt{sim}）与状态渲染（\texttt{paint}）的分离鼓励了一种纪律，其中\texttt{paint}是模块状态的纯函数——它读取变量并绘制，但不修改它们。这不是强制的，但API结构使其成为自然模式。
+
+% ============ 7. THE GENEALOGY ============
+
+\section{谱系}
+\label{sec:genealogy}
+
+\subsection{Design By Numbers（1999）}
+
+Maeda的Design By Numbers~\citep{maeda2001dbn}引入了核心洞察：一个用于视觉输出的编程环境，具有最简单的API。DBN没有动画循环——程序从上到下运行一次。原语集是最小的：\texttt{Paper}（背景）、\texttt{Pen}（线条粗细）、\texttt{Line}、\texttt{Set}（像素）和控制流。整个语言可以在一个下午学完。
+
+AC继承了DBN的命名极简主义（简短的主动动词）及其确信API应该是可以穷尽学习的。
+
+\subsection{Processing（2001）}
+
+Processing~\citep{reas2003processing}添加了DBN所缺少的：动画（\texttt{draw()}循环）、交互（\texttt{mouseX/Y}）和更丰富的原语集。它还添加了DBN刻意避免的：状态（图形上下文）、标准库（数学、排版、图像加载）和编译步骤（Java）。Processing最伟大的创新不是任何单一函数，而是\texttt{setup()}/\texttt{draw()}这对组合：交互动画最简单的表达。
+
+AC继承了生命周期函数模型，但将\texttt{draw()}拆分为三个关注点（\texttt{paint}、\texttt{sim}、\texttt{act}）。
+
+\subsection{p5.js（2014）}
+
+p5.js~\citep{mccarthy2015p5js}将Processing带入浏览器，使草图通过URL即时可分享。这是AC的前提条件：浏览器作为创意平台。p5.js还引入了实例模式，预示了AC的API注入模式。
+
+AC继承了浏览器原生假设和可分享性原则（每个作品都是一个URL），但用完整运行时替代了页面中的库模型：作品不包含\texttt{<script>}标签；它们由平台加载。
+
+\subsection{openFrameworks（2005）}
+
+openFrameworks~\citep{openframeworks2005}使用了类似的生命周期（\texttt{setup()}、\texttt{update()}、\texttt{draw()}），但使用C++，将更新逻辑与渲染分开。AC的\texttt{sim()}/\texttt{paint()}分离更接近这个模型，而非Processing的统一\texttt{draw()}。
+
+\subsection{乐器转向}
+
+谱系可以总结为一系列分离：
+
+\begin{enumerate}
+  \item \textbf{DBN}：一次性执行（无动画循环）。
+  \item \textbf{Processing}：初始化 + 渲染（\texttt{setup} + \texttt{draw}）。
+  \item \textbf{openFrameworks}：初始化 + 更新 + 渲染。
+  \item \textbf{AC}：初始化 + 输入 + 更新 + 渲染 + 清理（\texttt{boot} + \texttt{act} + \texttt{sim} + \texttt{paint} + \texttt{leave}）。
+\end{enumerate}
+
+每一步分离了先前混淆的关注点。AC的五函数模型是对交互程序生命周期最完整的分解，将其归入命名的、单一职责的入口点。结果类似于具身认知的感知-行动循环~\citep{varela1991embodied}：感知（\texttt{act}）、思考（\texttt{sim}）、行动（\texttt{paint}），以及出生（\texttt{boot}）和死亡（\texttt{leave}）两个额外的端点。
+
+% ============ 8. WORKED EXAMPLE ============
+
+\section{实例演示：弹球}
+\label{sec:example}
+
+为使比较具体化，我们在三个系统中实现一个弹球。
+
+\subsection{Processing}
+
+\begin{lstlisting}[style=processingstyle]
+float x = 200, y = 200;
+float vx = 3, vy = 2;
+
+void setup() {
+  size(400, 400);
+}
+
+void draw() {
+  background(0);
+  x += vx; y += vy;
+  if (x < 0 || x > width) vx *= -1;
+  if (y < 0 || y > height) vy *= -1;
+  fill(255, 100, 180);
+  noStroke();
+  ellipse(x, y, 30, 30);
+}
+\end{lstlisting}
+
+逻辑和渲染交织在\texttt{draw()}中。状态修改（\texttt{x += vx}）、边界检查和绘制共享一个函数。
+
+\subsection{p5.js}
+
+\begin{lstlisting}[style=p5style]
+let x = 200, y = 200;
+let vx = 3, vy = 2;
+
+function setup() {
+  createCanvas(400, 400);
+}
+
+function draw() {
+  background(0);
+  x += vx; y += vy;
+  if (x < 0 || x > width) vx *= -1;
+  if (y < 0 || y > height) vy *= -1;
+  fill(255, 100, 180);
+  noStroke();
+  ellipse(x, y, 30, 30);
+}
+\end{lstlisting}
+
+结构与Processing相同。唯一的变化是语法上的：\texttt{let}对比\texttt{float}，\texttt{createCanvas}对比\texttt{size}。
+
+\subsection{AC}
+
+\begin{lstlisting}[style=acjsstyle]
+let x, y, vx = 3, vy = 2;
+
+function boot({ screen }) {
+  x = screen.width / 2;
+  y = screen.height / 2;
+}
+
+function sim({ screen }) {
+  x += vx; y += vy;
+  if (x < 0 || x > screen.width) vx *= -1;
+  if (y < 0 || y > screen.height) vy *= -1;
+}
+
+function paint({ wipe, ink, circle }) {
+  wipe(0);
+  ink(255, 100, 180).circle(x, y, 15);
+}
+
+export { boot, sim, paint };
+\end{lstlisting}
+
+关注点被分离：\texttt{boot}根据实际屏幕初始化状态，\texttt{sim}以120Hz更新物理（确保跨显示刷新率的一致行为），\texttt{paint}渲染而不修改状态。\texttt{ink().circle()}链式调用替代了三行代码（\texttt{fill}、\texttt{noStroke}、\texttt{ellipse}）。
+
+% ============ 9. DESIGN RATIONALE ============
+
+\section{设计理由}
+\label{sec:rationale}
+
+\subsection{为什么是五个函数？}
+
+五函数模型不是出于软件工程的严谨性（作为教条的"关注点分离"），而是出于乐器隐喻。乐器有不同的阶段：你拿起它（boot），你倾听和回应（act），你思考接下来做什么（sim），你演奏（paint），最终你放下它（leave）。这些不是可以互换的时刻——你不会在演奏时调音，也不会在收起乐器时演奏。生命周期函数将这些区别形式化。
+
+\subsection{为什么注入API？}
+
+全局API对初学者方便，但创建了对平台的隐式依赖。如果不知道\texttt{ellipse()}是Processing函数而非用户函数，就无法理解Processing草图。AC的解构模式使依赖显式化：如果\texttt{circle}出现在函数体中，它就出现在函数签名中。这与ES模块导入背后相同的设计原则一致，应用在函数层面。
+
+实际好处是热重载：因为作品不捕获全局引用，运行时可以在重载之间替换API对象而不会使作品的闭包失效。
+
+\subsection{为什么是120Hz模拟？}
+
+Processing的\texttt{draw()}以显示频率（通常60fps）运行。这意味着物理模拟、动画时序和输入处理都以与像素输出相同的频率运行。在144Hz显示器上，Processing草图运行速度快2.4倍；在30Hz显示器上，运行速度减半。
+
+AC通过以固定120Hz运行\texttt{sim()}来解耦模拟与显示。这确保了确定性行为：弹球以相同的速度移动，无论显示刷新率如何。120Hz的频率被选为常见显示频率（60、120）的倍数，以及输入响应性的合理上限。
+
+\subsection{为什么没有画布大小？}
+
+要求\texttt{size()}或\texttt{createCanvas()}假设程序员知道（并关心）输出分辨率。在桌面上，这是合理的。在移动端——AC的主要目标——这是一个摩擦源：``正确的''大小取决于设备、方向和像素密度，所有这些程序员都不应该需要管理。AC将屏幕作为既定事实提供，就像一块已经绷好和涂底的画布。
+
+% ============ 10. ADDITIONAL LIFECYCLE ============
+
+\section{扩展生命周期}
+\label{sec:extended}
+
+除了核心五个函数外，AC作品还可以导出额外的生命周期钩子：
+
+\begin{itemize}
+  \item \texttt{beat(\$api)} --- 每个节拍器tick调用一次。BPM通过\texttt{sound.bpm}设置。在Processing中没有等价物；它反映了AC对音乐应用的取向。
+  \item \texttt{preview(\$api)} --- 渲染作品的静态缩略图。用于作品列表和社交分享。
+  \item \texttt{icon(\$api)} --- 渲染浏览器标签页的favicon。
+  \item \texttt{meta()} --- 返回\texttt{\{title, desc\}}元数据用于Open Graph标签。
+  \item \texttt{receive(event)} --- 处理来自其他作品或系统的消息，实现作品间通信。
+\end{itemize}
+
+\texttt{beat()}函数尤其值得注意。它将节奏时序从程序员必须实现的功能（通过Processing中的\texttt{millis()}）提升为第一等生命周期事件。这是API层面对音乐和节奏是核心用例而非附加功能的声明。
+
+% ============ 11. CONCLUSION ============
+
+\section{结论}
+\label{sec:conclusion}
+
+Processing的核心洞察——面向创意工作的编程环境应该提供生命周期，而非仅仅提供语言——存在于每个AC作品的核心。从\texttt{setup()}/\texttt{draw()}到\texttt{boot()}/\texttt{paint()}/\texttt{act()}/\texttt{sim()}/\texttt{leave()}的路径不是对Processing的背离，而是关于Processing模型在进一步扩展时能力边界的论证。
+
+Processing证明了\texttt{setup()} + \texttt{draw()}足以使动画变得可及。AC作品API论证了相同的即时模式、生命周期驱动的方法——当分解为五个函数而非两个时——不仅可以支持速写，还可以支持\emph{练习}：反复回到同一作品，完善它，用它表演，随时间建立流畅度。
+
+速写本隐喻（编写、运行、丢弃）和乐器隐喻（启动、演奏、练习、回归）并不对立。它们是同一连续体上的点。Processing展示了该连续体的存在。AC论证它比我们想象的延伸得更远——\texttt{setup()} + \texttt{draw()}是一个理念的开端，其完整形态需要\texttt{boot} + \texttt{act} + \texttt{sim} + \texttt{paint} + \texttt{leave}。
+
+API即乐器。Processing是其核心。API如何分解编程行为决定了能创造什么。
+
+\vspace{0.5em}
+\noindent\textit{翻译自英文原版。原版请访问 \url{https://papers.aesthetic.computer}}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
