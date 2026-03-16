@@ -63,13 +63,20 @@ let igSessionUsername = null;
 let igLastUsed = null;
 let igChallengeInProgress = false;
 
+// --- TikTok (OAuth token-based) ---
+const TIKTOK_CLIENT_KEY = process.env.TIKTOK_CLIENT_KEY || "";
+const TIKTOK_CLIENT_SECRET = process.env.TIKTOK_CLIENT_SECRET || "";
+const TIKTOK_REDIRECT_URI = process.env.TIKTOK_REDIRECT_URI || "https://silo.aesthetic.computer/api/tiktok/callback";
+let tiktokToken = null; // { access_token, refresh_token, open_id, expires_at, username }
+let tiktokLastUsed = null;
+
 // --- Collection Categories ---
 const COLLECTION_CATEGORIES = {
   "users": "identity", "@handles": "identity", "verifications": "identity",
   "paintings": "content", "pieces": "content", "kidlisp": "content",
   "tapes": "content", "moods": "content",
   "chat-system": "communication", "chat-clock": "communication", "chat-sotce": "communication",
-  "boots": "system", "kidlisp-logs": "system", "oven-bakes": "system", "_firehose": "system", "insta-sessions": "system",
+  "boots": "system", "kidlisp-logs": "system", "oven-bakes": "system", "_firehose": "system", "insta-sessions": "system", "tiktok-sessions": "system",
 };
 const CATEGORY_META = {
   identity: { label: "Users & Identity", color: "#48f" },
@@ -692,6 +699,233 @@ app.get("/insta", async (req, res) => {
     igLoggedIn = false;
     igClient = null;
     return res.status(500).json({ error: "Instagram API error" });
+  }
+});
+
+// --- TikTok Session Management ---
+async function saveTiktokSession(tokenData) {
+  if (!db) return;
+  try {
+    await db.collection("tiktok-sessions").updateOne(
+      { _id: "default" },
+      { $set: { ...tokenData, updatedAt: new Date() } },
+      { upsert: true },
+    );
+  } catch (e) {
+    log("warn", `tiktok session save failed: ${e.message}`);
+  }
+}
+
+async function loadTiktokSession() {
+  if (tiktokToken) return tiktokToken;
+  if (!db) return null;
+  try {
+    const doc = await db.collection("tiktok-sessions").findOne({ _id: "default" });
+    if (doc?.access_token) {
+      tiktokToken = doc;
+      log("info", `tiktok session restored for @${doc.username || doc.open_id}`);
+      return tiktokToken;
+    }
+  } catch {
+    log("info", "tiktok session restore failed");
+  }
+  return null;
+}
+
+async function refreshTiktokToken() {
+  if (!tiktokToken?.refresh_token) return false;
+  try {
+    const resp = await fetch("https://open.tiktokapis.com/v2/oauth/token/", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_key: TIKTOK_CLIENT_KEY,
+        client_secret: TIKTOK_CLIENT_SECRET,
+        grant_type: "refresh_token",
+        refresh_token: tiktokToken.refresh_token,
+      }),
+    });
+    const data = await resp.json();
+    if (data.access_token) {
+      tiktokToken.access_token = data.access_token;
+      tiktokToken.expires_at = Date.now() + data.expires_in * 1000;
+      if (data.refresh_token) tiktokToken.refresh_token = data.refresh_token;
+      await saveTiktokSession(tiktokToken);
+      log("info", "tiktok token refreshed");
+      return true;
+    }
+    log("warn", `tiktok refresh failed: ${JSON.stringify(data)}`);
+    return false;
+  } catch (e) {
+    log("error", `tiktok refresh error: ${e.message}`);
+    return false;
+  }
+}
+
+async function tiktokApiFetch(endpoint, fields) {
+  let token = await loadTiktokSession();
+  if (!token) throw new Error("TikTok not connected. Authorize via silo dashboard.");
+
+  // Refresh if expired or about to expire (5 min buffer)
+  if (token.expires_at && Date.now() > token.expires_at - 300_000) {
+    const ok = await refreshTiktokToken();
+    if (!ok) {
+      tiktokToken = null;
+      throw new Error("TikTok token expired and refresh failed. Re-authorize via dashboard.");
+    }
+    token = tiktokToken;
+  }
+
+  const url = `https://open.tiktokapis.com/v2/${endpoint}${fields ? "?fields=" + fields : ""}`;
+  const resp = await fetch(url, {
+    headers: { Authorization: `Bearer ${token.access_token}` },
+  });
+  const data = await resp.json();
+  if (data.error?.code === "access_token_invalid") {
+    // Try one refresh
+    const ok = await refreshTiktokToken();
+    if (ok) {
+      const retry = await fetch(url, {
+        headers: { Authorization: `Bearer ${tiktokToken.access_token}` },
+      });
+      return retry.json();
+    }
+    tiktokToken = null;
+    throw new Error("TikTok token invalid. Re-authorize via dashboard.");
+  }
+  tiktokLastUsed = Date.now();
+  return data;
+}
+
+function formatCount(n) {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "m";
+  if (n >= 1000) return (n / 1000).toFixed(1) + "k";
+  return String(n);
+}
+
+// --- TikTok Public Routes (CORS-enabled, no auth) ---
+app.use("/tiktok", (req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") return res.sendStatus(200);
+  next();
+});
+
+app.get("/tiktok", async (req, res) => {
+  const { action } = req.query;
+  if (!action) return res.status(400).json({ error: "action required (profile, videos)" });
+
+  try {
+    if (action === "profile") {
+      const data = await tiktokApiFetch(
+        "user/info/",
+        "open_id,display_name,avatar_url,bio_description,follower_count,following_count,likes_count,video_count,is_verified,username,profile_deep_link",
+      );
+      const u = data.data?.user || {};
+      return res.json({
+        username: u.username || u.display_name,
+        displayName: u.display_name,
+        bio: u.bio_description || "",
+        avatarUrl: u.avatar_url,
+        followerCount: u.follower_count,
+        followingCount: u.following_count,
+        likesCount: u.likes_count,
+        videoCount: u.video_count,
+        isVerified: u.is_verified,
+        profileUrl: u.profile_deep_link,
+        followerCountFormatted: formatCount(u.follower_count || 0),
+        followingCountFormatted: formatCount(u.following_count || 0),
+        likesCountFormatted: formatCount(u.likes_count || 0),
+        videoCountFormatted: formatCount(u.video_count || 0),
+      });
+    }
+
+    if (action === "videos") {
+      const max = parseInt(req.query.max || "20", 10);
+      const data = await tiktokApiFetch(
+        "video/list/",
+        "id,title,cover_image_url,share_url,view_count,like_count,comment_count,share_count,create_time,duration",
+      );
+      const videos = (data.data?.videos || []).slice(0, max).map((v) => ({
+        id: v.id,
+        title: v.title || "",
+        coverUrl: v.cover_image_url,
+        shareUrl: v.share_url,
+        viewCount: v.view_count,
+        likeCount: v.like_count,
+        commentCount: v.comment_count,
+        shareCount: v.share_count,
+        createTime: v.create_time,
+        duration: v.duration,
+        viewCountFormatted: formatCount(v.view_count || 0),
+        likeCountFormatted: formatCount(v.like_count || 0),
+      }));
+      return res.json({ videos, cursor: data.data?.cursor, hasMore: data.data?.has_more });
+    }
+
+    return res.status(400).json({ error: `Unknown action: ${action}` });
+  } catch (err) {
+    log("error", `tiktok public API error: ${err.message}`);
+    if (err.message.includes("not connected") || err.message.includes("Re-authorize")) {
+      return res.status(503).json({ error: err.message });
+    }
+    return res.status(500).json({ error: "TikTok API error" });
+  }
+});
+
+// --- TikTok OAuth Callback (must be before requireAdmin) ---
+app.get("/api/tiktok/callback", async (req, res) => {
+  const { code, error: oauthError } = req.query;
+  if (oauthError || !code) {
+    return res.send(`<html><body><h2>TikTok auth failed</h2><p>${oauthError || "no code"}</p><script>setTimeout(()=>window.close(),2000)</script></body></html>`);
+  }
+
+  try {
+    const resp = await fetch("https://open.tiktokapis.com/v2/oauth/token/", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_key: TIKTOK_CLIENT_KEY,
+        client_secret: TIKTOK_CLIENT_SECRET,
+        code,
+        grant_type: "authorization_code",
+        redirect_uri: TIKTOK_REDIRECT_URI,
+      }),
+    });
+    const data = await resp.json();
+    if (!data.access_token) {
+      log("error", `tiktok oauth token exchange failed: ${JSON.stringify(data)}`);
+      return res.send(`<html><body><h2>Token exchange failed</h2><pre>${JSON.stringify(data, null, 2)}</pre></body></html>`);
+    }
+
+    // Fetch username
+    let username = "";
+    try {
+      const userResp = await fetch("https://open.tiktokapis.com/v2/user/info/?fields=username,display_name", {
+        headers: { Authorization: `Bearer ${data.access_token}` },
+      });
+      const userData = await userResp.json();
+      username = userData.data?.user?.username || userData.data?.user?.display_name || "";
+    } catch {}
+
+    tiktokToken = {
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      open_id: data.open_id,
+      expires_at: Date.now() + data.expires_in * 1000,
+      refresh_expires_at: data.refresh_expires_in ? Date.now() + data.refresh_expires_in * 1000 : null,
+      scope: data.scope,
+      username,
+    };
+    tiktokLastUsed = Date.now();
+    await saveTiktokSession(tiktokToken);
+    log("info", `tiktok connected for @${username || data.open_id}`);
+
+    return res.send(`<html><body style="font-family:monospace;background:#111;color:#6c6;display:flex;align-items:center;justify-content:center;height:100vh"><h2>tiktok connected ✓</h2><script>setTimeout(()=>window.close(),1500)</script></body></html>`);
+  } catch (err) {
+    log("error", `tiktok callback error: ${err.message}`);
+    return res.send(`<html><body><h2>Error</h2><p>${err.message}</p></body></html>`);
   }
 });
 
@@ -1340,6 +1574,47 @@ app.post("/api/insta/logout", async (req, res) => {
   res.json({ ok: true });
 });
 
+// --- TikTok Admin Routes ---
+app.get("/api/tiktok/status", async (req, res) => {
+  const token = await loadTiktokSession();
+  const sessionDoc = db
+    ? await db.collection("tiktok-sessions").findOne({ _id: "default" }).catch(() => null)
+    : null;
+  res.json({
+    connected: !!token?.access_token,
+    username: token?.username || null,
+    openId: token?.open_id || null,
+    scope: token?.scope || null,
+    lastUsed: tiktokLastUsed ? new Date(tiktokLastUsed).toISOString() : null,
+    expiresAt: token?.expires_at ? new Date(token.expires_at).toISOString() : null,
+    sessionAge: sessionDoc?.updatedAt
+      ? Math.round((Date.now() - new Date(sessionDoc.updatedAt).getTime()) / 1000)
+      : null,
+  });
+});
+
+app.get("/api/tiktok/auth", (req, res) => {
+  if (!TIKTOK_CLIENT_KEY) return res.status(500).json({ error: "TIKTOK_CLIENT_KEY not configured" });
+  const scopes = "user.info.basic,user.info.profile,user.info.stats,video.list";
+  const url = `https://www.tiktok.com/v2/auth/authorize/?client_key=${TIKTOK_CLIENT_KEY}&scope=${scopes}&response_type=code&redirect_uri=${encodeURIComponent(TIKTOK_REDIRECT_URI)}`;
+  res.json({ url });
+});
+
+app.post("/api/tiktok/disconnect", async (req, res) => {
+  tiktokToken = null;
+  tiktokLastUsed = null;
+  if (db) {
+    await db.collection("tiktok-sessions").deleteOne({ _id: "default" }).catch(() => {});
+  }
+  log("info", "tiktok session disconnected");
+  res.json({ ok: true });
+});
+
+app.post("/api/tiktok/refresh", async (req, res) => {
+  const ok = await refreshTiktokToken();
+  res.json({ ok, token: ok ? { expiresAt: new Date(tiktokToken.expires_at).toISOString() } : null });
+});
+
 // --- Desktop Release Distribution ---
 const DESKTOP_BUCKET = "releases-aesthetic-computer";
 const DESKTOP_PREFIX = "desktop/";
@@ -1507,6 +1782,9 @@ startFirehose();
 await connectAtlas();
 await connectRedis();
 await connectRedisSub();
+
+// Restore TikTok session on startup
+loadTiktokSession().catch(() => {});
 
 server.listen(PORT, () => {
   const proto = dev ? "https" : "http";
