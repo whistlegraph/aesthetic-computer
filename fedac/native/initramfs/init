@@ -13,16 +13,21 @@ mount -t tmpfs tmpfs /run 2>/dev/null
 # Restore baked credentials from initramfs rootfs (before tmpfs hid them)
 # The build bakes Claude creds at /tmp/.claude/ but tmpfs mount hides them.
 # Copy from the initramfs backup location instead.
+# Restore baked files from initramfs rootfs (tmpfs mount hid them)
 if [ -f /claude-creds.json ]; then
     mkdir -p /tmp/.claude
     cp /claude-creds.json /tmp/.claude/.credentials.json
     cp /claude-state.json /tmp/.claude.json 2>/dev/null
-    echo "ac-init: claude-creds copied ok" >> /tmp/ac-init.log
-    ls -la /tmp/.claude/.credentials.json >> /tmp/ac-init.log 2>&1
-else
-    echo "ac-init: NO /claude-creds.json found in initramfs!" >> /tmp/ac-init.log
-    ls /claude-creds.json >> /tmp/ac-init.log 2>&1
 fi
+# CLAUDE.md working directory for Claude Code
+if [ -d /tmp/ac ]; then
+    # Already baked at /tmp/ac/CLAUDE.md — just needs to survive tmpfs
+    true
+else
+    mkdir -p /tmp/ac
+fi
+# Copy CLAUDE.md from initramfs if it was baked there
+[ -f /device-claude.md ] && { mkdir -p /tmp/ac; cp /device-claude.md /tmp/ac/CLAUDE.md 2>/dev/null; }
 
 # Log to /tmp (ac-native copies to USB)
 ilog() { echo "ac-init: $*" >> /tmp/ac-init.log 2>/dev/null; }

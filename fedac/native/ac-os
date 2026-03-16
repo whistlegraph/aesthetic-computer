@@ -112,6 +112,11 @@ build_initramfs() {
             sudo chmod 600 "${INITRAMFS_ROOT}/github-pat"
             log "  github pat: baked (${#GH_PAT} chars)"
         fi
+        # Bake CLAUDE.md for device context (init copies to /tmp/ac/CLAUDE.md)
+        if [ -f "${SCRIPT_DIR}/device-claude.md" ]; then
+            sudo cp "${SCRIPT_DIR}/device-claude.md" "${INITRAMFS_ROOT}/device-claude.md"
+            log "  CLAUDE.md: baked into initramfs"
+        fi
         # Bake Claude state file (init copies to /tmp/.claude.json)
         if [ -f "${HOME}/.claude.json" ]; then
             node -e "

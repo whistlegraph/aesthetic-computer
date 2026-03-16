@@ -569,6 +569,9 @@ int pty_spawn(ACPty *pty, int cols, int rows, const char *cmd, char *const argv[
         mkdir("/tmp/.config", 0755);
         mkdir("/tmp/.local", 0755);
         mkdir("/tmp/.local/bin", 0755);
+        // Working directory: /tmp/ac (has CLAUDE.md for context)
+        mkdir("/tmp/ac", 0755);
+        chdir("/tmp/ac");
 
         // Set Claude OAuth token from baked file (/claude-token is a plain text file)
         {
